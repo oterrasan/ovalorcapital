@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/artigos/:slug",
+      "destination": "/api/articles/render?slug=:slug"
+    },
+    {
+      "source": "/api/articles/render",
+      "destination": "/api/articles/render"
+    }
+  ]
+}
