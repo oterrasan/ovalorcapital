@@ -1,12 +1,7 @@
 {
-  "name": "portal-valor-capital",
+  "name": "ovc-v2-clean",
   "version": "2.0.0",
   "type": "module",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.20.0",
-    "sharp": "^0.33.0",
-    "instagram-private-api": "^1.46.1"
-  },
   "engines": {
     "node": ">=18.0.0"
   }

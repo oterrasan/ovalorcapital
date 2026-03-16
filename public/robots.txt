@@ -1,6 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /api/
-
 Sitemap: https://www.ovalorcapital.com.br/sitemap.xml

@@ -1,0 +1,37 @@
+[
+  {
+    "slot": "home_top",
+    "label": "Patrocínio discreto · espaço premium da Home",
+    "cta": "Anuncie no OVC",
+    "url": "/anuncie/",
+    "active": true
+  },
+  {
+    "slot": "category_top",
+    "label": "Patrocínio discreto · topo da editoria",
+    "cta": "Anuncie no OVC",
+    "url": "/anuncie/",
+    "active": true
+  },
+  {
+    "slot": "sidebar_1",
+    "label": "Patrocínio discreto · rail lateral",
+    "cta": "Saiba mais",
+    "url": "/anuncie/",
+    "active": true
+  },
+  {
+    "slot": "inline_1",
+    "label": "Patrocínio discreto · entre blocos",
+    "cta": "Ver formatos",
+    "url": "/anuncie/",
+    "active": true
+  },
+  {
+    "slot": "footer_band",
+    "label": "Patrocínio discreto · faixa institucional",
+    "cta": "Anuncie",
+    "url": "/anuncie/",
+    "active": true
+  }
+]

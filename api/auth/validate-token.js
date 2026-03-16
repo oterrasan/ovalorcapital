@@ -1,16 +1,2 @@
-export default async function handler(req, res) {
-  try {
-    const { token } = req.query;
-    const adminToken = process.env.ADMIN_TOKEN;
-
-    if (!adminToken) {
-      return res.status(200).json({ valid: true });
-    }
-
-    const valid = token === adminToken;
-    res.status(200).json({ valid });
-  } catch (error) {
-    console.error('[API] Token validation error:', error);
-    res.status(500).json({ valid: false });
-  }
-}
+import { getAdminPassword } from '../../lib/auth.js';
+export default async function handler(req,res){ const token=req.method==='POST'?req.body?.token:req.query?.token; res.status(200).json({ok:true, valid: token===getAdminPassword()}); }
