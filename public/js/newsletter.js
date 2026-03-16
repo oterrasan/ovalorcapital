@@ -1,17 +1,18 @@
-(function(){
-  const form = document.getElementById('ovc-newsletter-form');
-  const status = document.getElementById('ovc-newsletter-status');
-  if (!form) return;
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    status.textContent = 'Enviando...';
-    const email = form.email.value.trim();
-    try {
-      const response = await fetch('/api/newsletter/subscribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
-      const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Falha ao cadastrar');
-      status.textContent = 'Pronto. Você entrou na newsletter do OVC.';
+
+(async function(){
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('[data-newsletter-form]');
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = form.querySelector('input[type="email"]').value.trim();
+      const topics = Array.from(form.querySelectorAll('input[name="topics"]:checked')).map(item => item.value);
+      const result = await OVC.fetchJSON('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, topics, source: 'newsletter-page' })
+      });
+      alert(result.duplicate ? 'Este e-mail já está cadastrado.' : 'Cadastro realizado com sucesso.');
       form.reset();
-    } catch (error) { status.textContent = error.message; }
+    });
   });
 })();

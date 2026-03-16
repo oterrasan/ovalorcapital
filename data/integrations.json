@@ -1,0 +1,31 @@
+{
+  "instagram": {
+    "connected": false,
+    "accountLabel": "",
+    "hasToken": false,
+    "templateModes": [
+      "feed",
+      "story",
+      "reel"
+    ]
+  },
+  "linkedin": {
+    "connected": false,
+    "accountLabel": "",
+    "hasToken": false,
+    "templateModes": [
+      "post",
+      "article"
+    ]
+  },
+  "youtube": {
+    "connected": false,
+    "accountLabel": "",
+    "hasToken": false,
+    "templateModes": [
+      "video",
+      "short",
+      "live"
+    ]
+  }
+}

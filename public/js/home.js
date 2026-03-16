@@ -1,46 +1,27 @@
+
 (function(){
-  const body = document.body;
-  const themeToggle = document.getElementById('themeToggle');
-  if (themeToggle) {
-    themeToggle.addEventListener('click', function () {
-      const current = body.getAttribute('data-theme') || 'light';
-      const next = current === 'light' ? 'dark' : 'light';
-      body.setAttribute('data-theme', next);
-      localStorage.setItem('ovc-theme', next);
-    });
-  }
-
-  const saved = localStorage.getItem('ovc-theme');
-  if (saved === 'dark') body.setAttribute('data-theme', 'dark');
-  else body.setAttribute('data-theme', 'light');
-
-  async function updateImpostometro() {
+  async function updateLiveWidgets() {
     try {
-      const response = await fetch('/api/impostometro');
-      const data = await response.json();
-      if (data.ok && data.arrecadado) {
-        const formatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(data.arrecadado);
-        const elemento = document.querySelector('.impostometro-valor, #impostometro');
-        if (elemento) elemento.textContent = formatted;
-      }
-    } catch (error) { console.error(error); }
+      const data = await OVC.fetchJSON('/api/live/data');
+      const usd = document.getElementById('cotacao-usd');
+      const eur = document.getElementById('cotacao-eur');
+      const ibov = document.getElementById('cotacao-ibov');
+      if (usd) usd.textContent = `R$ ${Number(data.rates?.usd || 0).toFixed(2)}`;
+      if (eur) eur.textContent = `R$ ${Number(data.rates?.eur || 0).toFixed(2)}`;
+      if (ibov) ibov.textContent = `${Number(data.indices?.ibov || 0).toLocaleString('pt-BR')} pts`;
+      const impost = document.getElementById('impostometro');
+      if (impost) impost.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(data.impostometro || 0));
+      const tvCard = document.querySelector('[data-home-live-tv]');
+      if (tvCard && data.tv?.length) tvCard.textContent = data.tv[0].label;
+      const radioCard = document.querySelector('[data-home-live-radio]');
+      if (radioCard && data.radio?.name) radioCard.textContent = `${data.radio.name} · ${data.radio.currentShow || 'Ao vivo'}`;
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  async function updateCotacoes() {
-    try {
-      const response = await fetch('/api/ptax');
-      const data = await response.json();
-      if (data.ok && data.rates) {
-        const write = (selector, value) => { const el = document.querySelector(selector); if (el) el.textContent = value; };
-        if (data.rates.USD) write('#cotacao-usd', `R$ ${data.rates.USD.sell.toFixed(2)}`);
-        if (data.rates.EUR) write('#cotacao-eur', `R$ ${data.rates.EUR.sell.toFixed(2)}`);
-        if (data.indices?.IBOV) write('#cotacao-ibov', `${data.indices.IBOV.value.toLocaleString('pt-BR')} pts`);
-      }
-    } catch (error) { console.error(error); }
-  }
-
-  updateImpostometro();
-  updateCotacoes();
-  setInterval(updateImpostometro, 60000);
-  setInterval(updateCotacoes, 180000);
+  document.addEventListener('DOMContentLoaded', () => {
+    updateLiveWidgets();
+    setInterval(updateLiveWidgets, 120000);
+  });
 })();

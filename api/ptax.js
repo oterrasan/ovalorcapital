@@ -1,1 +1,0 @@
-export default async function handler(req,res){ res.status(200).json({ok:true,rates:{USD:{buy:5.03,sell:5.04},EUR:{buy:5.48,sell:5.49}},indices:{IBOV:{value:128450}},updatedAt:new Date().toISOString()}); }

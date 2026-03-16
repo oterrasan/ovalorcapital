@@ -1,0 +1,65 @@
+
+Use o ZIP anexado nesta conversa como nova base única do portal O Valor Capital.
+
+Regras obrigatórias:
+- publique exatamente esta versão
+- não misture com código antigo
+- não mantenha arquivos fora do ZIP
+- apague do repositório tudo o que não existir no ZIP
+- não altere layout por conta própria
+- não refatore fora do que está no ZIP
+- não faça perguntas intermediárias
+- só pare se houver bloqueio real de acesso ou permissão
+
+Objetivo:
+- manter a Home desta entrega
+- manter topo e rodapé da Home em todas as páginas
+- publicar o novo Admin robusto
+- publicar busca, newsletter, matéria com áudio, tema com 3 variações, TV OVC, Rádio OVC, Radar e Dados
+- publicar a estrutura pronta para Instagram, LinkedIn e YouTube
+- publicar a camada de dados ao vivo sem estourar o limite da Vercel Hobby
+
+Valide após o deploy:
+/
+/politica/
+/economia/
+/negocios/
+/investimentos/
+/mercados/
+/familia/
+/tributos/
+/regulacao/
+/parcerias/
+/vc/
+/busca/
+/newsletter/
+/materia/
+/radar/
+/tv-ovc/
+/radio-ovc/
+/dados/
+/admin/
+/termos/
+/privacidade/
+/cookies/
+
+Checagens obrigatórias:
+- Home abrindo
+- topo igual ao da Home em todas as páginas
+- rodapé igual ao da Home em todas as páginas
+- tema com 3 variações funcionando
+- busca funcionando
+- newsletter funcionando
+- página de matéria com áudio funcionando no navegador
+- Admin abrindo
+- senha padrão do Admin: ovc-admin, salvo se houver variável de ambiente substituindo
+- TV OVC, Rádio OVC, Radar e Dados abrindo
+- nenhuma rota acima com 404
+- Functions da Vercel dentro do limite
+
+Resposta final:
+1. STATUS FINAL: publicado com sucesso / não publicado
+2. rotas validadas
+3. arquivos publicados e removidos
+4. erros encontrados
+5. divergências, se houver

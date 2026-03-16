@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin | O Valor Capital</title>
-  <meta name="description" content="Admin no O Valor Capital.">
-  <link rel="icon" type="image/png" href="/assets/vc-logo.png">
-  <link rel="stylesheet" href="/css/home.css">
-  <link rel="stylesheet" href="/css/site.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin OVC | O Valor Capital</title>
+  <meta name="description" content="Centro de controle do OVC.">
+  <link rel="icon" type="image/png" href="/assets/vc-logo.png"><link rel="stylesheet" href="/css/home.css"><link rel="stylesheet" href="/css/site.css">
   <script src="/js/admin.js" defer></script>
 </head>
-<body class="ovc-inner-page" data-theme="light">
+<body class="ovc-inner-page ovc-admin-page" data-theme="classic" data-category="vc" data-section="geral">
 <div class="ovc-shell"><header class="header">
 <!-- Faixa 1: dados duros -->
 <div class="header-topbar">
@@ -399,7 +396,139 @@
 <span class="chip-pill"><span class="chip-dot"></span>Empregos</span>
 </div>
 </div>
-</header><main class="ovc-main"><div id="admin-login-wrap" class="ovc-login"><section class="ovc-admin-card"><span class="ovc-badge">Admin OVC</span><h1>Painel de controle</h1><p class="ovc-note">Senha padrão desta base: <strong>ovc-admin</strong>. Troque no ambiente depois do deploy.</p><form id="admin-login-form" class="ovc-form-grid"><div class="ovc-field full"><label>Senha</label><input type="password" name="password" required></div><div><button class="ovc-btn" type="submit">Entrar</button></div><div><div id="admin-status" class="ovc-note"></div></div></form></section></div><section id="admin-app" style="display:none" class="ovc-admin-layout"><div class="ovc-toolbar"><div><span class="ovc-badge">Control Center</span><h1 style="margin:10px 0 0">Admin OVC</h1></div><button id="logout-btn" class="ovc-btn ghost" type="button">Sair</button></div><section class="ovc-promo-grid"><article class="ovc-admin-card ovc-stat"><div class="ovc-kicker">Artigos</div><strong id="stat-articles">0</strong></article><article class="ovc-admin-card ovc-stat"><div class="ovc-kicker">Banners ativos</div><strong id="stat-banners">0</strong></article><article class="ovc-admin-card ovc-stat"><div class="ovc-kicker">Leads</div><strong id="stat-leads">0</strong></article><article class="ovc-admin-card ovc-stat"><div class="ovc-kicker">Tema</div><strong>Light</strong></article></section><section class="ovc-admin-card"><div class="ovc-admin-tabs"><button class="ovc-admin-tab active" data-tab="visao" type="button">Visão geral</button><button class="ovc-admin-tab" data-tab="artigos" type="button">Artigos</button><button class="ovc-admin-tab" data-tab="banners" type="button">Banners</button><button class="ovc-admin-tab" data-tab="newsletter" type="button">Newsletter</button><button class="ovc-admin-tab" data-tab="config" type="button">Configurações</button></div><div class="ovc-admin-panel active" data-panel="visao"><p class="ovc-note">Painel novo, limpo e focado no que você precisa de imediato: conteúdo, banners, leads e ajustes centrais.</p><table class="ovc-table"><thead><tr><th>Título</th><th>Categoria</th><th>Seção</th><th>Data</th></tr></thead><tbody id="table-articles-body"></tbody></table></div><div class="ovc-admin-panel" data-panel="artigos"><form id="article-form" class="ovc-form-grid"><div class="ovc-field full"><label>Título</label><input id="article-title" required></div><div class="ovc-field full"><label>Resumo</label><textarea id="article-excerpt"></textarea></div><div class="ovc-field"><label>Categoria</label><select id="article-category"><option value="politica">Política</option><option value="economia">Economia</option><option value="negocios">Negócios</option><option value="investimentos">Investimentos</option><option value="seguros">Seguros</option><option value="mercados">Mercados</option><option value="educacao">Educação</option><option value="industria">Indústria</option><option value="tecnologia">Tecnologia</option><option value="esportes">Esportes</option><option value="saude">Saúde</option><option value="familia">Família</option><option value="tributos">Tributos</option><option value="regulacao">Regulação</option><option value="parcerias">Parcerias</option><option value="vc">VC</option></select></div><div class="ovc-field"><label>Imagem</label><input id="article-image" placeholder="https://..."></div><div><button class="ovc-btn" type="submit">Salvar artigo</button></div></form></div><div class="ovc-admin-panel" data-panel="banners"><form id="banner-form" class="ovc-form-grid"><div class="ovc-field"><label>Slot</label><input id="banner-slot" placeholder="sidebar_1" required></div><div class="ovc-field full"><label>Texto</label><input id="banner-label" required></div><div class="ovc-field"><label>CTA</label><input id="banner-cta" value="Saiba mais"></div><div class="ovc-field"><label>Link</label><input id="banner-url" value="/anuncie/"></div><div><button class="ovc-btn" type="submit">Salvar banner</button></div></form><table class="ovc-table"><thead><tr><th>Slot</th><th>Texto</th><th>Status</th><th>Link</th></tr></thead><tbody id="table-banners-body"></tbody></table></div><div class="ovc-admin-panel" data-panel="newsletter"><table class="ovc-table"><thead><tr><th>E-mail</th><th>Data</th></tr></thead><tbody id="table-leads-body"></tbody></table></div><div class="ovc-admin-panel" data-panel="config"><form id="settings-form" class="ovc-form-grid"><div class="ovc-field"><label>Nome do site</label><input id="settings-site-name"></div><div class="ovc-field full"><label>Frase da newsletter</label><input id="settings-newsletter-headline"></div><div class="ovc-field full"><label>Placeholder da busca</label><input id="settings-search-placeholder"></div><div><button class="ovc-btn" type="submit">Salvar configurações</button></div></form></div></section><div id="admin-status" class="ovc-note"></div></section></main><footer class="footer">
+</header><main class="ovc-admin-layout">
+<section class="ovc-admin-login" data-admin-login>
+  <div class="ovc-panel ovc-admin-card narrow">
+    <div class="ovc-kicker">Centro de controle</div>
+    <h1>Admin OVC</h1>
+    <p>Controle matérias, alertas, lembretes, campanhas, banners, social, TV, Rádio OVC, newsletters e dados do portal.</p>
+    <form data-form-login class="ovc-admin-form">
+      <label>Senha do Admin<input type="password" name="token" required></label>
+      <button class="ovc-btn" type="submit">Entrar</button>
+    </form>
+    <div class="ovc-admin-note">Senha padrão desta base: <strong>ovc-admin</strong></div>
+    <div class="ovc-admin-status" data-admin-status></div>
+  </div>
+</section>
+<section class="ovc-admin-app" data-admin-app style="display:none">
+  <div class="ovc-admin-head">
+    <div><div class="ovc-kicker">Operação</div><h1>Admin completo do portal</h1><p>Storage atual: <strong data-storage-mode>local</strong></p></div>
+    <div class="ovc-admin-head-actions"><button class="ovc-btn secondary" data-admin-logout>Sair</button></div>
+  </div>
+  <div class="ovc-admin-stats">
+    <article class="ovc-panel"><strong>Matérias</strong><span data-stat="articles">0</span></article>
+    <article class="ovc-panel"><strong>Banners ativos</strong><span data-stat="banners">0</span></article>
+    <article class="ovc-panel"><strong>Leads</strong><span data-stat="leads">0</span></article>
+    <article class="ovc-panel"><strong>Alertas</strong><span data-stat="alerts">0</span></article>
+    <article class="ovc-panel"><strong>Lembretes</strong><span data-stat="reminders">0</span></article>
+    <article class="ovc-panel"><strong>Campanhas</strong><span data-stat="campaigns">0</span></article>
+    <article class="ovc-panel"><strong>Posts agendados</strong><span data-stat="scheduledPosts">0</span></article>
+    <article class="ovc-panel"><strong>Canais ao vivo</strong><span data-stat="liveChannels">0</span></article>
+  </div>
+  <div class="ovc-admin-tabs" data-admin-tabs>
+    <button data-admin-tab="dashboard" class="active">Dashboard</button>
+    <button data-admin-tab="materias">Matérias</button>
+    <button data-admin-tab="social">Social</button>
+    <button data-admin-tab="live">TV • Rádio • Dados</button>
+    <button data-admin-tab="crm">Leads • Newsletter</button>
+    <button data-admin-tab="operacao">Alertas • Campanhas</button>
+    <button data-admin-tab="config">Configurações</button>
+  </div>
+
+  <section data-admin-panel="dashboard" class="ovc-admin-panel active">
+    <div class="ovc-admin-grid two">
+      <section class="ovc-panel"><h3>Últimas matérias</h3><table class="ovc-admin-table"><thead><tr><th>Título</th><th>Categoria</th><th>Status</th><th>Publicação</th></tr></thead><tbody data-table-articles></tbody></table></section>
+      <section class="ovc-panel"><h3>Posts sociais</h3><table class="ovc-admin-table"><thead><tr><th>Título</th><th>Plataforma</th><th>Formato</th><th>Status</th></tr></thead><tbody data-table-posts></tbody></table></section>
+    </div>
+    <div class="ovc-admin-grid two">
+      <section class="ovc-panel"><h3>Banners</h3><table class="ovc-admin-table"><thead><tr><th>Slot</th><th>Nome</th><th>Status</th></tr></thead><tbody data-table-banners></tbody></table></section>
+      <section class="ovc-panel"><h3>TV ao vivo</h3><table class="ovc-admin-table"><thead><tr><th>Canal</th><th>Tipo</th><th>Grupo</th></tr></thead><tbody data-table-tv></tbody></table></section>
+    </div>
+  </section>
+
+  <section data-admin-panel="materias" class="ovc-admin-panel">
+    <div class="ovc-admin-grid two">
+      <section class="ovc-panel"><h3>Nova matéria</h3><form class="ovc-admin-form" data-form-article>
+        <input type="hidden" name="articleId"><input type="hidden" name="imageData">
+        <label>Título<input name="title" required></label>
+        <label>Slug opcional<input name="slug"></label>
+        <div class="ovc-admin-row"><label>Categoria<select name="category"><option value="politica">Política</option><option value="economia">Economia</option><option value="negocios">Negócios</option><option value="investimentos">Investimentos</option><option value="mercados">Mercados</option><option value="familia">Família</option><option value="tributos">Tributos</option><option value="tecnologia">Tecnologia</option></select></label><label>Seção<input name="section" value="geral"></label></div>
+        <label>Resumo<textarea name="excerpt" rows="3" required></textarea></label>
+        <label>Corpo da matéria<textarea name="body" rows="10" required></textarea></label>
+        <div class="ovc-admin-row"><label>Autor<input name="author" value="Redação OVC"></label><label>Tempo de leitura<input name="readingTime" value="4 min"></label></div>
+        <div class="ovc-admin-row"><label>Imagem por link<input name="imageUrl"></label><label>Upload de imagem<input type="file" name="imageFile" accept="image/*"></label></div>
+        <div class="ovc-admin-row"><label>Publicar em<select name="status"><option value="published">Publicado</option><option value="scheduled">Agendado</option><option value="draft">Rascunho</option></select></label><label>Data/hora<input type="datetime-local" name="publishAt"></label></div>
+        <div class="ovc-admin-row"><label>Tags<input name="tags" placeholder="IRPF, Congresso, Família"></label><label><input type="checkbox" name="featured"> Destaque</label></div>
+        <div class="ovc-admin-row"><label><input type="checkbox" name="audioEnabled" checked> Habilitar áudio</label></div>
+        <button class="ovc-btn" type="submit">Salvar matéria</button>
+      </form></section>
+      <section class="ovc-panel"><h3>Publicação direta</h3><p>Você poderá publicar imediatamente pelo Admin se entrar com o token master. Essa regra já está pronta nesta base.</p><div class="ovc-admin-note">Matérias já nascem preparadas para áudio, busca, newsletter e distribuição social.</div></section>
+    </div>
+  </section>
+
+  <section data-admin-panel="social" class="ovc-admin-panel">
+    <div class="ovc-admin-grid two">
+      <section class="ovc-panel"><h3>Integrações</h3><form class="ovc-admin-form" data-form-integration>
+        <label>Plataforma<select name="platform"><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option><option value="youtube">YouTube</option></select></label>
+        <label>Nome da conta/canal<input name="accountLabel"></label>
+        <div class="ovc-admin-row"><label>Page/Profile ID<input name="pageId"></label><label>Channel/Profile secundário<input name="channelId"></label></div>
+        <div class="ovc-admin-row"><label>Profile ID<input name="profileId"></label><label><input type="checkbox" name="connected"> Conectado</label></div>
+        <div class="ovc-admin-row"><label><input type="checkbox" name="hasToken"> Token/configuração externa pronta</label></div>
+        <label>Notas<textarea name="notes" rows="3"></textarea></label>
+        <button class="ovc-btn" type="submit">Salvar integração</button>
+      </form></section>
+      <section class="ovc-panel"><h3>Post social / agendamento</h3><form class="ovc-admin-form" data-form-social>
+        <input type="hidden" name="socialMediaData">
+        <label>Título interno<input name="title"></label>
+        <div class="ovc-admin-row"><label>Plataforma<select name="platform"><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option><option value="youtube">YouTube</option></select></label><label>Formato<select name="format"><option value="feed">Feed</option><option value="story">Story</option><option value="reel">Reel</option><option value="post">Post</option><option value="short">Short</option><option value="video">Vídeo</option></select></label></div>
+        <div class="ovc-admin-row"><label>Entrada<select name="sourceType"><option value="link">Link</option><option value="upload">Upload</option></select></label><label>Publicar em<input type="datetime-local" name="publishAt"></label></div>
+        <label>Link da matéria/ativo<input name="sourceLink"></label>
+        <label>Mídia por link<input name="mediaUrl"></label>
+        <label>Upload de mídia<input type="file" name="socialMediaFile" accept="image/*,video/*"></label>
+        <label>Legenda / briefing<textarea name="caption" rows="6"></textarea></label>
+        <label class="ovc-admin-inline" data-master-only><input type="checkbox" name="publishNow"> Publicar direto agora (somente acesso master)</label>
+        <button class="ovc-btn" type="submit">Registrar publicação</button>
+      </form></section>
+    </div>
+  </section>
+
+  <section data-admin-panel="live" class="ovc-admin-panel">
+    <div class="ovc-admin-grid two">
+      <section class="ovc-panel"><h3>Canal ao vivo / TV</h3><form class="ovc-admin-form" data-form-live-tv>
+        <label>Nome do canal<input name="label" required></label>
+        <label>URL do player / stream<input name="url" required></label>
+        <div class="ovc-admin-row"><label>Tipo<select name="kind"><option value="youtube">YouTube</option><option value="stream">Stream</option><option value="iframe">Iframe</option></select></label><label>Grupo<select name="group"><option value="institucional">Institucional</option><option value="mercado">Mercado</option><option value="internacional">Internacional</option></select></label></div>
+        <label><input type="checkbox" name="active" checked> Ativo</label>
+        <button class="ovc-btn" type="submit">Salvar canal</button>
+      </form></section>
+      <section class="ovc-panel"><h3>Rádio OVC e dados</h3><p>A Rádio OVC já nasce preparada com player, grade e fallback. Os dados ao vivo passam por um núcleo único para não estourar a Vercel.</p><div class="ovc-admin-note">Indicadores, cotações, TV, Rádio OVC e impostômetro ficam centralizados na camada de dados.</div></section>
+    </div>
+  </section>
+
+  <section data-admin-panel="crm" class="ovc-admin-panel">
+    <div class="ovc-admin-grid two">
+      <section class="ovc-panel"><h3>Leads e newsletter</h3><table class="ovc-admin-table"><thead><tr><th>E-mail</th><th>Temas</th><th>Data</th></tr></thead><tbody data-table-leads></tbody></table></section>
+      <section class="ovc-panel"><h3>Banners</h3><form class="ovc-admin-form" data-form-banner><div class="ovc-admin-row"><label>Slot<select name="slot"><option value="home_top">Home Top</option><option value="category_top">Editoria Top</option><option value="sidebar_1">Rail Lateral</option><option value="inline_1">Entre blocos</option><option value="footer_band">Faixa rodapé</option></select></label><label>Nome<input name="label" required></label></div><label>CTA<input name="cta" required></label><label>URL<input name="url" required></label><label><input type="checkbox" name="active" checked> Ativo</label><button class="ovc-btn" type="submit">Salvar banner</button></form></section>
+    </div>
+  </section>
+
+  <section data-admin-panel="operacao" class="ovc-admin-panel">
+    <div class="ovc-admin-grid three">
+      <section class="ovc-panel"><h3>Alertas</h3><form class="ovc-admin-form" data-form-alert><label>Título<input name="title" required></label><label>Mensagem<textarea name="message" rows="4" required></textarea></label><div class="ovc-admin-row"><label>Nível<select name="level"><option value="info">Info</option><option value="urgente">Urgente</option><option value="mercado">Mercado</option></select></label><label>Início<input type="datetime-local" name="startsAt"></label></div><button class="ovc-btn" type="submit">Salvar alerta</button></form><table class="ovc-admin-table"><tbody data-table-alerts></tbody></table></section>
+      <section class="ovc-panel"><h3>Lembretes</h3><form class="ovc-admin-form" data-form-reminder><label>Título<input name="title" required></label><label>Prazo<input type="datetime-local" name="dueAt"></label><label>Notas<textarea name="notes" rows="4"></textarea></label><button class="ovc-btn" type="submit">Salvar lembrete</button></form><table class="ovc-admin-table"><tbody data-table-reminders></tbody></table></section>
+      <section class="ovc-panel"><h3>Campanhas</h3><form class="ovc-admin-form" data-form-campaign><label>Nome<input name="name" required></label><label>Objetivo<input name="objective"></label><div class="ovc-admin-row"><label>Status<select name="status"><option value="ativa">Ativa</option><option value="planejada">Planejada</option><option value="pausada">Pausada</option></select></label><label>Início<input type="date" name="startsAt"></label></div><label>Fim<input type="date" name="endsAt"></label><button class="ovc-btn" type="submit">Salvar campanha</button></form><table class="ovc-admin-table"><tbody data-table-campaigns></tbody></table></section>
+    </div>
+  </section>
+
+  <section data-admin-panel="config" class="ovc-admin-panel">
+    <section class="ovc-panel"><h3>Configurações centrais</h3><form class="ovc-admin-form" data-form-settings>
+      <div class="ovc-admin-grid two"><div><label>Nome do site<input name="siteName"></label><label>Headline newsletter<input name="newsletterHeadline"></label><label>Placeholder da busca<input name="searchPlaceholder"></label><label>Tema padrão<select name="defaultTheme"><option value="classic">Clássico</option><option value="gold">Gold</option><option value="graphite">Grafite</option></select></label></div><div><label>Nome da Rádio OVC<input name="radioName"></label><label>Stream principal da rádio<input name="radioStreamUrl"></label><label>Stream fallback da rádio<input name="radioFallbackUrl"></label><div class="ovc-admin-note">Topo e rodapé seguem travados no padrão da Home em todo o portal.</div></div></div>
+      <button class="ovc-btn" type="submit">Salvar configurações</button>
+    </form></section>
+  </section>
+  <div class="ovc-admin-status" data-admin-status></div>
+</section>
+</main><footer class="footer">
 <div class="footer-inner">
 <div class="footer-top">
 <div class="footer-brand">
@@ -532,7 +661,4 @@
 </div>
 </div>
 </div>
-</footer></div>
-<script src="/js/site.js" defer></script>
-</body>
-</html>
+</footer></div><script src="/js/site.js" defer></script></body></html>

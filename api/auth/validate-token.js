@@ -1,2 +1,10 @@
-import { getAdminPassword } from '../../lib/auth.js';
-export default async function handler(req,res){ const token=req.method==='POST'?req.body?.token:req.query?.token; res.status(200).json({ok:true, valid: token===getAdminPassword()}); }
+
+import { readBearerToken, resolveRole } from '../../lib/security.js';
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  const body = req.body || {};
+  const token = body.token || readBearerToken(req);
+  const result = resolveRole(token);
+  return res.status(200).json({ valid: result.valid, role: result.role });
+}

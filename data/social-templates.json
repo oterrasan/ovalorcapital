@@ -1,0 +1,32 @@
+[
+  {
+    "platform": "instagram",
+    "format": "feed",
+    "name": "Feed editorial OVC",
+    "notes": "Título forte, subtítulo, CTA discreto"
+  },
+  {
+    "platform": "instagram",
+    "format": "story",
+    "name": "Story breaking",
+    "notes": "Headline curta + swipe/link"
+  },
+  {
+    "platform": "instagram",
+    "format": "reel",
+    "name": "Reel comentado",
+    "notes": "Gancho de 3 segundos + legenda + CTA"
+  },
+  {
+    "platform": "linkedin",
+    "format": "post",
+    "name": "LinkedIn institucional",
+    "notes": "Tom executivo e analítico"
+  },
+  {
+    "platform": "youtube",
+    "format": "short",
+    "name": "YouTube Short",
+    "notes": "Corte curto com headline"
+  }
+]

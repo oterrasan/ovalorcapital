@@ -1,0 +1,52 @@
+{
+  "tv": [
+    {
+      "id": "tv-camara",
+      "label": "TV Câmara",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UC2eqh1LrxR1q1H5sL_7v9EA",
+      "kind": "youtube",
+      "active": true,
+      "group": "institucional"
+    },
+    {
+      "id": "tv-senado",
+      "label": "TV Senado",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCLgti7nuR8m4BhM-MVt9e4Q",
+      "kind": "youtube",
+      "active": true,
+      "group": "institucional"
+    },
+    {
+      "id": "bloomberg",
+      "label": "Bloomberg Originals",
+      "url": "https://www.youtube.com/embed/live_stream?channel=UCIALMKvObZNtJ6AmdCLP7Lg",
+      "kind": "youtube",
+      "active": true,
+      "group": "mercado"
+    }
+  ],
+  "radio": {
+    "name": "Rádio OVC",
+    "streamUrl": "",
+    "fallbackUrl": "https://stream.zeno.fm/f3xw1a9r1u8uv",
+    "currentShow": "OVC Ao Vivo",
+    "schedule": [
+      {
+        "time": "07:00",
+        "label": "Morning Briefing"
+      },
+      {
+        "time": "12:00",
+        "label": "Radar OVC"
+      },
+      {
+        "time": "18:00",
+        "label": "Fechamento"
+      }
+    ]
+  },
+  "impostometro": {
+    "enabled": true,
+    "sourceLabel": "Fallback estimado + atualização periódica"
+  }
+}

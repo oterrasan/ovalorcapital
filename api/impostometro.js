@@ -1,1 +1,0 @@
-export default async function handler(req,res){ const base=3214567890000; const daily=86400000; const now=Date.now(); const incremento=Math.floor((now % daily)/12); res.status(200).json({ok:true,arrecadado:base+incremento,updatedAt:new Date().toISOString()}); }
