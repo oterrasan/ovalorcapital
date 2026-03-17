@@ -1,279 +1,84 @@
 
 (function(){
-  const tokenKey = 'ovc-admin-token';
-  const state = { role: 'guest', data: {} };
+  const tokenKey='ovc-admin-token';
+  const state={token:'',role:'guest',storage:'local',stats:{},data:{}};
+  const resources=['articles','banners','site-settings','newsletter','alerts','reminders','campaigns','integrations','social-posts','live-config','social-templates','users','leads','routines','bulk-jobs','reports'];
 
-  function authHeaders() {
-    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem(tokenKey) || ''}` };
+  function qs(s,r=document){return r.querySelector(s)}
+  function qsa(s,r=document){return [...r.querySelectorAll(s)]}
+  function setStatus(msg=''){qsa('[data-admin-status]').forEach(el=>el.textContent=msg)}
+  function authHeaders(extra={}){return {'Content-Type':'application/json','Authorization':`Bearer ${state.token}`,...extra}}
+  async function api(url, options={}){const res=await fetch(url,{cache:'no-store',...options}); const data=await res.json().catch(()=>({ok:false})); if(!res.ok) throw new Error(data.error||'Falha'); return data;}
+  const nowIso=()=>new Date().toISOString();
+  const slugify=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const fmtDate=v=>{try{return new Date(v).toLocaleString('pt-BR')}catch{return v||''}};
+  const take=(arr,n=6)=>Array.isArray(arr)?arr.slice().sort((a,b)=>String(b.updatedAt||b.publishedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.publishedAt||a.createdAt||''))).slice(0,n):[];
+  function upsert(arr,item,key='id'){ const list=Array.isArray(arr)?arr.slice():[]; const idx=list.findIndex(x=>x&&x[key]===item[key]); if(idx>=0) list[idx]={...list[idx],...item}; else list.unshift(item); return list; }
+  async function saveResource(resource,item){await api(`/api/admin/resource?resource=${encodeURIComponent(resource)}`,{method:'POST',headers:authHeaders(),body:JSON.stringify({resource,item})});}
+  async function loadDashboard(){ const result=await api('/api/admin/dashboard',{headers:{Authorization:`Bearer ${state.token}`}}); state.role=result.role; state.storage=result.storage; state.stats=result.stats||{}; state.data=result.data||{}; resources.forEach(name=>{ if(state.data[name]==null) state.data[name]= Array.isArray(name.match(/articles|banners|newsletter|alerts|reminders|campaigns|social-posts|social-templates|users|leads|routines|bulk-jobs|reports/))?[]:(name==='live-config'||name==='site-settings'||name==='integrations'?{}:[]); }); render(); }
+  function switchTab(name){ qsa('[data-admin-tab]').forEach(btn=>btn.classList.toggle('active',btn.dataset.adminTab===name)); qsa('[data-admin-panel]').forEach(el=>el.classList.toggle('active',el.dataset.adminPanel===name)); }
+  function fillRows(target, rows, empty='Sem itens ainda.'){ const tbody=qs(target); if(!tbody) return; tbody.innerHTML=rows.length?rows.join(''):`<tr><td colspan="10" class="ovc-empty">${empty}</td></tr>`; }
+  function renderStats(){ ['articles','banners','leads','alerts','scheduledPosts','liveChannels','users'].forEach(key=>{ const el=qs(`[data-stat="${key}"]`); if(el) el.textContent=state.stats[key]||0; }); qs('[data-storage-mode]')?.replaceChildren(document.createTextNode(state.storage||'local')); qs('[data-role-badge]')?.replaceChildren(document.createTextNode(`Perfil: ${state.role}`)); qs('[data-settings-theme]')?.replaceChildren(document.createTextNode(state.data['site-settings']?.defaultTheme||'classic')); }
+  function renderOverview(){ const arts=state.data.articles||[]; const campaigns=state.data.campaigns||[]; const routines=state.data['routines']||[]; const published=arts.filter(a=>a.status==='published').length; const drafts=arts.filter(a=>a.status==='draft').length; qs('[data-kpi="published"]')?.replaceChildren(document.createTextNode(String(published))); qs('[data-kpi="drafts"]')?.replaceChildren(document.createTextNode(String(drafts))); qs('[data-kpi="campaigns"]')?.replaceChildren(document.createTextNode(String(campaigns.length))); qs('[data-kpi="routines"]')?.replaceChildren(document.createTextNode(String(routines.length)));
+    const checklist=[
+      {label:'Home e links críticos',meta:'Radar, TV, Rádio, impostômetro, tickers'},
+      {label:'Social Studio',meta:`${state.stats.scheduledPosts||0} posts em fila`},
+      {label:'CRM',meta:`${state.stats.leads||0} leads capturados`},
+      {label:'Usuários',meta:`${state.stats.users||0} perfis cadastrados`}
+    ];
+    const box=qs('[data-ops-checklist]'); if(box) box.innerHTML=checklist.map(item=>`<div class="ovc-check-item"><strong>${item.label}</strong><small>${item.meta}</small></div>`).join('');
+    const note=qs('[data-overview-note]'); if(note) note.textContent = state.role==='master' ? 'Acesso master ativo: publicação direta e controle total liberados.' : 'Acesso editor ativo: operação editorial liberada, publicação direta restrita.';
   }
-
-  async function api(url, options = {}) {
-    const response = await fetch(url, { cache: 'no-store', ...options });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'request_failed');
-    return data;
+  function renderTables(){
+    fillRows('[data-table-articles]', take(state.data.articles).map(item=>`<tr><td>${item.title||'-'}</td><td>${item.category||'-'}</td><td>${item.status||'-'}</td><td>${fmtDate(item.publishedAt||item.createdAt)}</td></tr>`));
+    fillRows('[data-table-posts]', take(state.data['social-posts']).map(item=>`<tr><td>${item.title||'-'}</td><td>${item.platform||'-'}</td><td>${item.format||'-'}</td><td>${item.status||'-'}</td></tr>`));
+    fillRows('[data-table-banners]', take(state.data.banners).map(item=>`<tr><td>${item.slot||'-'}</td><td>${item.label||'-'}</td><td>${item.active?'Ativo':'Off'}</td></tr>`));
+    fillRows('[data-table-tv]', take(state.data['live-config']?.tv||[]).map(item=>`<tr><td>${item.label||'-'}</td><td>${item.kind||'-'}</td><td>${item.group||'-'}</td><td>${item.active?'Ativo':'Off'}</td></tr>`));
+    const leads=[...(state.data.newsletter||[]),...(state.data.leads||[])].slice(0,12); fillRows('[data-table-leads]', leads.map(item=>`<tr><td>${item.email||'-'}</td><td>${item.source||'portal'}</td><td>${item.tag||item.topics?.join(', ')||'-'}</td><td>${fmtDate(item.createdAt||item.subscribedAt)}</td></tr>`));
+    fillRows('[data-table-alerts]', take(state.data.alerts,10).map(item=>`<tr><td><strong>${item.title||'-'}</strong><br><small>${item.level||''}</small></td><td>${fmtDate(item.startsAt||item.createdAt)}</td></tr>`));
+    fillRows('[data-table-reminders]', take(state.data.reminders,10).map(item=>`<tr><td><strong>${item.title||'-'}</strong><br><small>${item.status||'ativo'}</small></td><td>${fmtDate(item.dueAt||item.createdAt)}</td></tr>`));
+    fillRows('[data-table-campaigns]', take(state.data.campaigns,10).map(item=>`<tr><td><strong>${item.name||'-'}</strong><br><small>${item.status||''}</small></td><td>${item.objective||'-'}</td></tr>`));
+    fillRows('[data-table-users]', take(state.data.users,20).map(item=>`<tr><td>${item.name||'-'}</td><td>${item.role||'-'}</td><td>${(item.permissions||[]).join(', ')||'-'}</td><td>${item.active!==false?'Ativo':'Inativo'}</td></tr>`));
+    fillRows('[data-table-routines]', take(state.data['routines'],10).map(item=>`<tr><td><strong>${item.name||'-'}</strong><br><small>${item.frequency||''}</small></td><td>${item.owner||'-'}</td></tr>`));
+    fillRows('[data-table-bulk]', take(state.data['bulk-jobs'],10).map(item=>`<tr><td>${item.name||'-'}</td><td>${item.kind||'-'}</td><td>${item.status||'registrado'}</td><td>${fmtDate(item.createdAt)}</td></tr>`));
+    fillRows('[data-table-templates]', take(state.data['social-templates'],20).map(item=>`<tr><td>${item.name||'-'}</td><td>${item.format||'-'}</td><td>${item.platform||'-'}</td><td>${item.width||'-'}x${item.height||'-'}</td></tr>`));
+    fillRows('[data-table-reports]', take(state.data['reports'],20).map(item=>`<tr><td>${item.title||'-'}</td><td>${fmtDate(item.createdAt)}</td><td>${item.summary||'-'}</td></tr>`));
+    const reportGrid=qs('[data-report-grid]'); if(reportGrid){ const metrics=[['Base editorial',state.data.articles?.length||0],['Fila social',state.data['social-posts']?.length||0],['Integrações',Object.keys(state.data.integrations||{}).length],['Banners ativos',(state.data.banners||[]).filter(x=>x.active).length],['Canais ao vivo',state.data['live-config']?.tv?.length||0],['Leads totais',((state.data.newsletter||[]).length + (state.data.leads||[]).length)]]; reportGrid.innerHTML=metrics.map(([label,val])=>`<div><strong>${val}</strong><span>${label}</span></div>`).join(''); }
+    const templateSelect=qs('[data-template-select]'); if(templateSelect){ templateSelect.innerHTML=(state.data['social-templates']||[]).map(t=>`<option value="${t.id}">${t.name} • ${t.format}</option>`).join('') || '<option value="">Sem template salvo</option>'; }
   }
-
-  function setStatus(text = '') {
-    document.querySelectorAll('[data-admin-status]').forEach(el => el.textContent = text);
+  function render(){ renderStats(); renderOverview(); renderTables(); }
+  function bindUploadPreview(fileInput, targetInput){ if(!fileInput||!targetInput) return; fileInput.addEventListener('change',()=>{ const file=fileInput.files?.[0]; if(!file){ targetInput.value=''; return; } const reader=new FileReader(); reader.onload=()=>targetInput.value=String(reader.result||''); reader.readAsDataURL(file); }); }
+  function buildArticle(form){ const slug=(form.slug.value.trim()||slugify(form.title.value)); return { id: form.articleId.value||`art_${Date.now()}`, title: form.title.value.trim(), slug, category: form.category.value, section: form.section.value.trim()||'geral', excerpt: form.excerpt.value.trim(), body: form.body.value.trim(), author: form.author.value.trim()||'Redação OVC', publishedAt: form.publishAt.value?new Date(form.publishAt.value).toISOString():nowIso(), createdAt: nowIso(), updatedAt: nowIso(), status: form.status.value, featured: form.featured.checked, readingTime: form.readingTime.value.trim()||'4 min', audioEnabled: form.audioEnabled.checked, tags: form.tags.value.split(',').map(v=>v.trim()).filter(Boolean), image: form.imageData.value||form.imageUrl.value.trim(), url:`/materia/?slug=${encodeURIComponent(slug)}` }; }
+  function seedDefaults(){ if(!(state.data.users||[]).length){ state.data.users=[{id:'user_master',name:'Administrador Master',email:'master@ovc.local',role:'master',permissions:['publicar','editar_home','campanhas','leads','usuarios','settings'],active:true,createdAt:nowIso()}]; }
+    if(!(state.data['social-templates']||[]).length){ state.data['social-templates']=[{id:'tpl_feed_default',name:'OVC Feed Padrão',platform:'instagram',format:'feed',width:1080,height:1350,notes:'Título curto + imagem principal + selo OVC'},{id:'tpl_story_default',name:'OVC Story Padrão',platform:'instagram',format:'story',width:1080,height:1920,notes:'Headline curta + CTA'},{id:'tpl_reel_default',name:'OVC Reel Capa',platform:'instagram',format:'reel',width:1080,height:1920,notes:'Capa com gancho + faixa inferior'}]; }
   }
+  function bind(){
+    bindUploadPreview(qs('[name="socialMediaFile"]'), qs('[name="socialMediaData"]'));
+    bindUploadPreview(qs('[name="imageFile"]'), qs('[name="imageData"]'));
+    qs('[data-form-login]')?.addEventListener('submit', async e=>{ e.preventDefault(); setStatus('Validando acesso...'); try{ const token=e.currentTarget.token.value.trim(); const result=await api('/api/auth/validate-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}); if(!result.valid) return setStatus('Senha inválida.'); localStorage.setItem(tokenKey,token); state.token=token; qs('[data-admin-login]').style.display='none'; qs('[data-admin-app]').style.display='block'; await loadDashboard(); setStatus(''); }catch(err){ setStatus('Falha ao validar login.'); } });
+    qs('[data-admin-logout]')?.addEventListener('click',()=>{ localStorage.removeItem(tokenKey); location.reload(); });
+    qs('[data-admin-tabs]')?.addEventListener('click',e=>{ const btn=e.target.closest('[data-admin-tab]'); if(btn) switchTab(btn.dataset.adminTab); });
+    qsa('[data-admin-goto]').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.adminGoto)));
+    qsa('[data-quick-action]').forEach(btn=>btn.addEventListener('click', async ()=>{ try{ if(btn.dataset.quickAction==='cleanup'){ const list=upsert(state.data['routines'],{id:`routine_cleanup_${Date.now()}`,name:'Limpeza operacional',frequency:'sob demanda',owner:state.role,description:'Limpeza registrada pelo painel.',createdAt:nowIso()}); await saveResource('routines',list); state.data['routines']=list; } else { const list=upsert(state.data['reports'],{id:`report_${Date.now()}`,title:'Resumo executivo automático',summary:`Matérias: ${(state.data.articles||[]).length} • Leads: ${((state.data.newsletter||[]).length + (state.data.leads||[]).length)} • Posts: ${(state.data['social-posts']||[]).length}`,createdAt:nowIso()}); await saveResource('reports',list); state.data['reports']=list; } render(); setStatus('Ação rápida registrada.'); }catch(err){ setStatus('Falha ao registrar ação rápida.'); } }));
 
-  function switchTab(name) {
-    document.querySelectorAll('[data-admin-tab]').forEach(button => button.classList.toggle('active', button.dataset.adminTab === name));
-    document.querySelectorAll('[data-admin-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.adminPanel === name));
+    qs('[data-form-article]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const item=buildArticle(e.currentTarget); const list=upsert(state.data.articles,item); await saveResource('articles',list); state.data.articles=list; render(); e.currentTarget.reset(); setStatus('Matéria salva.'); }catch(err){ setStatus('Falha ao salvar matéria.'); }});
+    qs('[data-form-banner]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`banner_${Date.now()}`,slot:f.slot.value,label:f.label.value,cta:f.cta.value,url:f.url.value,active:f.active.checked,createdAt:nowIso()}; const list=upsert(state.data.banners,item); await saveResource('banners',list); state.data.banners=list; render(); f.reset(); setStatus('Banner salvo.'); }catch(err){ setStatus('Falha ao salvar banner.'); }});
+    qs('[data-form-alert]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`alert_${Date.now()}`,title:f.title.value,message:f.message.value,level:f.level.value,startsAt:f.startsAt.value,active:true,createdAt:nowIso()}; const list=upsert(state.data.alerts,item); await saveResource('alerts',list); state.data.alerts=list; render(); f.reset(); setStatus('Alerta salvo.'); }catch(err){ setStatus('Falha ao salvar alerta.'); }});
+    qs('[data-form-reminder]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`rem_${Date.now()}`,title:f.title.value,dueAt:f.dueAt.value,notes:f.notes.value,status:'ativo',createdAt:nowIso()}; const list=upsert(state.data.reminders,item); await saveResource('reminders',list); state.data.reminders=list; render(); f.reset(); setStatus('Lembrete salvo.'); }catch(err){ setStatus('Falha ao salvar lembrete.'); }});
+    qs('[data-form-campaign]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`camp_${Date.now()}`,name:f.name.value,objective:f.objective.value,status:f.status.value,startsAt:f.startsAt.value,endsAt:f.endsAt.value,createdAt:nowIso()}; const list=upsert(state.data.campaigns,item); await saveResource('campaigns',list); state.data.campaigns=list; render(); f.reset(); setStatus('Campanha salva.'); }catch(err){ setStatus('Falha ao salvar campanha.'); }});
+    qs('[data-form-routine]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`routine_${Date.now()}`,name:f.name.value,frequency:f.frequency.value,owner:f.owner.value||state.role,description:f.description.value,createdAt:nowIso()}; const list=upsert(state.data['routines'],item); await saveResource('routines',list); state.data['routines']=list; render(); f.reset(); setStatus('Rotina salva.'); }catch(err){ setStatus('Falha ao salvar rotina.'); }});
+    qs('[data-form-bulk]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`bulk_${Date.now()}`,kind:f.kind.value,name:f.name.value,description:f.description.value,payload:f.payload.value,status:'registrado',createdAt:nowIso()}; const list=upsert(state.data['bulk-jobs'],item); await saveResource('bulk-jobs',list); state.data['bulk-jobs']=list; render(); f.reset(); setStatus('Lote registrado.'); }catch(err){ setStatus('Falha ao registrar lote.'); }});
+    qs('[data-form-user]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`user_${Date.now()}`,name:f.name.value,email:f.email.value,role:f.role.value,permissions:f.permissions.value.split(',').map(v=>v.trim()).filter(Boolean),active:f.active.checked,createdAt:nowIso()}; const list=upsert(state.data.users,item); await saveResource('users',list); state.data.users=list; render(); f.reset(); setStatus('Usuário salvo.'); }catch(err){ setStatus('Falha ao salvar usuário.'); }});
+    qs('[data-form-lead]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`lead_${Date.now()}`,name:f.name.value,email:f.email.value,source:f.source.value,tag:f.tag.value,notes:f.notes.value,createdAt:nowIso()}; const list=upsert(state.data.leads,item); await saveResource('leads',list); state.data.leads=list; render(); f.reset(); setStatus('Lead salvo.'); }catch(err){ setStatus('Falha ao salvar lead.'); }});
+    qs('[data-form-template]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`tpl_${Date.now()}`,name:f.name.value,platform:f.platform.value,format:f.format.value,width:Number(f.width.value)||1080,height:Number(f.height.value)||1350,notes:f.notes.value,createdAt:nowIso()}; const list=upsert(state.data['social-templates'],item); await saveResource('social-templates',list); state.data['social-templates']=list; render(); f.reset(); setStatus('Template salvo.'); }catch(err){ setStatus('Falha ao salvar template.'); }});
+    qs('[data-form-integration]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; await api('/api/integrations/connect',{method:'POST',headers:authHeaders(),body:JSON.stringify({platform:f.platform.value,connected:f.connected.checked,accountLabel:f.accountLabel.value,pageId:f.pageId.value,channelId:f.channelId.value,profileId:f.profileId.value,notes:f.notes.value,hasToken:f.hasToken.checked})}); await loadDashboard(); e.currentTarget.reset(); setStatus('Integração atualizada.'); }catch(err){ setStatus('Falha ao salvar integração.'); }});
+    qs('[data-form-social]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; await api('/api/integrations/publish',{method:'POST',headers:authHeaders(),body:JSON.stringify({title:f.title.value,caption:f.caption.value,platform:f.platform.value,format:f.format.value,templateId:f.templateId.value,mediaUrl:f.mediaUrl.value,mediaData:f.socialMediaData.value,sourceType:f.sourceType.value,sourceLink:f.sourceLink.value,publishAt:f.publishAt.value||nowIso(),publishNow:f.publishNow.checked})}); await loadDashboard(); e.currentTarget.reset(); setStatus('Post social registrado.'); }catch(err){ setStatus('Falha ao registrar post social.'); }});
+    qs('[data-form-live-tv]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const cfg={...(state.data['live-config']||{}),tv:upsert(state.data['live-config']?.tv||[],{id:`tv_${Date.now()}`,label:f.label.value,url:f.url.value,kind:f.kind.value,group:f.group.value,active:f.active.checked,createdAt:nowIso()})}; await saveResource('live-config',cfg); state.data['live-config']=cfg; render(); f.reset(); setStatus('Canal ao vivo salvo.'); }catch(err){ setStatus('Falha ao salvar canal.'); }});
+    qs('[data-form-settings-lite]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const cfg={...(state.data['live-config']||{}),radio:{...(state.data['live-config']?.radio||{}),name:f.radioName.value,streamUrl:f.radioStreamUrl.value,fallbackUrl:f.radioFallbackUrl.value},impostometroUrl:f.impostometroUrl.value||'/ferramentas/impostometro/'}; await saveResource('live-config',cfg); state.data['live-config']=cfg; render(); setStatus('Core ao vivo salvo.'); }catch(err){ setStatus('Falha ao salvar core ao vivo.'); }});
+    qs('[data-form-settings]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const settings={...(state.data['site-settings']||{}),siteName:f.siteName.value,newsletterHeadline:f.newsletterHeadline.value,searchPlaceholder:f.searchPlaceholder.value,defaultTheme:f.defaultTheme.value,adminAccent:f.adminAccent.value,themeOptions:['classic','gold','graphite'],homeLockedVisual:true,headerFooterLocked:true}; await saveResource('site-settings',settings); state.data['site-settings']=settings; render(); setStatus('Configurações salvas.'); }catch(err){ setStatus('Falha ao salvar configurações.'); }});
+    qs('[data-form-limits]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const settings={...(state.data['site-settings']||{}),limits:{portalTitle:Number(f.portalTitle.value)||90,portalSummary:Number(f.portalSummary.value)||220,instagramArt:Number(f.instagramArt.value)||60,instagramCaption:Number(f.instagramCaption.value)||300,linkedinPost:Number(f.linkedinPost.value)||1200,youtubeTitle:Number(f.youtubeTitle.value)||70}}; await saveResource('site-settings',settings); state.data['site-settings']=settings; setStatus('Limites editoriais salvos.'); }catch(err){ setStatus('Falha ao salvar limites.'); }});
+    qs('[data-form-report]')?.addEventListener('submit', async e=>{ e.preventDefault(); try{ const f=e.currentTarget; const item={id:`report_${Date.now()}`,title:f.title.value,summary:f.summary.value,createdAt:nowIso()}; const list=upsert(state.data['reports'],item); await saveResource('reports',list); state.data['reports']=list; render(); f.reset(); setStatus('Relatório salvo.'); }catch(err){ setStatus('Falha ao salvar relatório.'); }});
   }
-
-  function upsert(list, item, key = 'id') {
-    const clone = Array.isArray(list) ? [...list] : [];
-    const index = clone.findIndex(entry => entry[key] === item[key]);
-    if (index >= 0) clone[index] = item; else clone.unshift(item);
-    return clone;
-  }
-
-  async function saveResource(resource, item) {
-    return api('/api/admin/resource', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ resource, item }) });
-  }
-
-  function bindUploadPreview(fileInput, hiddenInput) {
-    fileInput?.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => { hiddenInput.value = String(reader.result || ''); };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function renderTables() {
-    const articles = state.data['articles'] || [];
-    const posts = state.data['social-posts'] || [];
-    const campaigns = state.data['campaigns'] || [];
-    const leads = state.data['newsletter'] || [];
-    const alerts = state.data['alerts'] || [];
-    const reminders = state.data['reminders'] || [];
-    const banners = state.data['banners'] || [];
-    const tv = state.data['live-config']?.tv || [];
-
-    const fill = (selector, html) => { const el = document.querySelector(selector); if (el) el.innerHTML = html; };
-    fill('[data-table-articles]', articles.slice(0, 20).map(item => `<tr><td>${item.title}</td><td>${item.categoryLabel}</td><td>${item.status || 'published'}</td><td>${item.publishAt ? new Date(item.publishAt).toLocaleString('pt-BR') : item.relativeDate || ''}</td></tr>`).join('') || '<tr><td colspan="4">Sem matérias.</td></tr>');
-    fill('[data-table-posts]', posts.slice(0, 20).map(item => `<tr><td>${item.title || item.caption.slice(0, 40)}</td><td>${item.platform}</td><td>${item.format}</td><td>${item.status}</td></tr>`).join('') || '<tr><td colspan="4">Sem posts sociais.</td></tr>');
-    fill('[data-table-campaigns]', campaigns.slice(0, 20).map(item => `<tr><td>${item.name}</td><td>${item.status}</td><td>${item.startsAt || ''}</td><td>${item.endsAt || ''}</td></tr>`).join('') || '<tr><td colspan="4">Sem campanhas.</td></tr>');
-    fill('[data-table-leads]', leads.slice(0, 20).map(item => `<tr><td>${item.email}</td><td>${(item.topics || []).join(', ')}</td><td>${new Date(item.createdAt).toLocaleString('pt-BR')}</td></tr>`).join('') || '<tr><td colspan="3">Sem leads.</td></tr>');
-    fill('[data-table-alerts]', alerts.slice(0, 20).map(item => `<tr><td>${item.title}</td><td>${item.level}</td><td>${item.startsAt || ''}</td></tr>`).join('') || '<tr><td colspan="3">Sem alertas.</td></tr>');
-    fill('[data-table-reminders]', reminders.slice(0, 20).map(item => `<tr><td>${item.title}</td><td>${item.dueAt || ''}</td><td>${item.status || 'ativo'}</td></tr>`).join('') || '<tr><td colspan="3">Sem lembretes.</td></tr>');
-    fill('[data-table-banners]', banners.slice(0, 20).map(item => `<tr><td>${item.slot}</td><td>${item.label}</td><td>${item.active ? 'ativo' : 'inativo'}</td></tr>`).join('') || '<tr><td colspan="3">Sem banners.</td></tr>');
-    fill('[data-table-tv]', tv.slice(0, 20).map(item => `<tr><td>${item.label}</td><td>${item.kind}</td><td>${item.group}</td></tr>`).join('') || '<tr><td colspan="3">Sem canais.</td></tr>');
-  }
-
-  function hydrateStats(stats = {}) {
-    Object.entries(stats).forEach(([key, value]) => {
-      document.querySelectorAll(`[data-stat="${key}"]`).forEach(el => el.textContent = value);
-    });
-  }
-
-  function fillSettings() {
-    const settings = state.data['site-settings'] || {};
-    document.querySelector('[name="siteName"]').value = settings.siteName || '';
-    document.querySelector('[name="newsletterHeadline"]').value = settings.newsletterHeadline || '';
-    document.querySelector('[name="searchPlaceholder"]').value = settings.searchPlaceholder || '';
-    document.querySelector('[name="defaultTheme"]').value = settings.defaultTheme || 'classic';
-    const radio = state.data['live-config']?.radio || {};
-    document.querySelector('[name="radioName"]').value = radio.name || 'Rádio OVC';
-    document.querySelector('[name="radioStreamUrl"]').value = radio.streamUrl || '';
-    document.querySelector('[name="radioFallbackUrl"]').value = radio.fallbackUrl || '';
-  }
-
-  async function loadDashboard() {
-    const payload = await api('/api/admin/dashboard', { headers: authHeaders() });
-    state.role = payload.role;
-    state.data = payload.data;
-    hydrateStats(payload.stats);
-    renderTables();
-    fillSettings();
-    document.querySelectorAll('[data-master-only]').forEach(el => el.style.display = state.role === 'master' ? '' : 'none');
-    document.querySelector('[data-storage-mode]').textContent = payload.storage;
-  }
-
-  function buildArticleFromForm(form) {
-    const category = form.category.value;
-    const title = form.title.value.trim();
-    const slug = OVC.slugify(form.slug.value.trim() || title);
-    return {
-      id: form.articleId.value || `article_${Date.now()}`,
-      slug,
-      title,
-      excerpt: form.excerpt.value.trim(),
-      body: `<p>${form.body.value.trim().replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br>')}</p>`,
-      category,
-      categoryLabel: OVC.getCategoryConfig(category).title,
-      section: form.section.value.trim() || 'geral',
-      sectionLabel: form.section.value.trim() || 'Geral',
-      source: form.author.value.trim() || 'Redação OVC',
-      author: form.author.value.trim() || 'Redação OVC',
-      image: form.imageUrl.value.trim() || form.imageData.value || '',
-      publishedAt: form.publishAt.value || new Date().toISOString(),
-      publishAt: form.publishAt.value || new Date().toISOString(),
-      relativeDate: 'Agora',
-      featured: form.featured.checked,
-      readingTime: form.readingTime.value.trim() || '4 min',
-      audioEnabled: form.audioEnabled.checked,
-      status: form.status.value,
-      tags: form.tags.value.split(',').map(item => item.trim()).filter(Boolean),
-      url: `/materia/?slug=${encodeURIComponent(slug)}`
-    };
-  }
-
-  function bindForms() {
-    bindUploadPreview(document.querySelector('[name="socialMediaFile"]'), document.querySelector('[name="socialMediaData"]'));
-    bindUploadPreview(document.querySelector('[name="imageFile"]'), document.querySelector('[name="imageData"]'));
-
-    document.querySelector('[data-admin-tabs]')?.addEventListener('click', (event) => {
-      const btn = event.target.closest('[data-admin-tab]');
-      if (!btn) return;
-      switchTab(btn.dataset.adminTab);
-    });
-
-    document.querySelector('[data-form-login]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      setStatus('Validando acesso...');
-      const token = event.currentTarget.token.value.trim();
-      const result = await api('/api/auth/validate-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-      if (!result.valid) return setStatus('Senha inválida.');
-      localStorage.setItem(tokenKey, token);
-      document.querySelector('[data-admin-login]').style.display = 'none';
-      document.querySelector('[data-admin-app]').style.display = 'block';
-      await loadDashboard();
-      setStatus('');
-    });
-
-    document.querySelector('[data-admin-logout]')?.addEventListener('click', () => {
-      localStorage.removeItem(tokenKey);
-      location.reload();
-    });
-
-    document.querySelector('[data-form-article]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const article = buildArticleFromForm(event.currentTarget);
-      const list = upsert(state.data['articles'], article);
-      await saveResource('articles', list);
-      state.data['articles'] = list;
-      renderTables();
-      setStatus('Matéria salva.');
-      event.currentTarget.reset();
-    });
-
-    document.querySelector('[data-form-banner]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const item = { id: `banner_${Date.now()}`, slot: form.slot.value, label: form.label.value, cta: form.cta.value, url: form.url.value, active: form.active.checked };
-      const list = upsert(state.data['banners'], item);
-      await saveResource('banners', list);
-      state.data['banners'] = list;
-      renderTables();
-      setStatus('Banner salvo.');
-      form.reset();
-    });
-
-    document.querySelector('[data-form-alert]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const item = { id: `alert_${Date.now()}`, title: form.title.value, message: form.message.value, level: form.level.value, startsAt: form.startsAt.value, active: true };
-      const list = upsert(state.data['alerts'], item);
-      await saveResource('alerts', list);
-      state.data['alerts'] = list;
-      renderTables();
-      setStatus('Alerta salvo.');
-      form.reset();
-    });
-
-    document.querySelector('[data-form-reminder]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const item = { id: `rem_${Date.now()}`, title: form.title.value, dueAt: form.dueAt.value, notes: form.notes.value, status: 'ativo' };
-      const list = upsert(state.data['reminders'], item);
-      await saveResource('reminders', list);
-      state.data['reminders'] = list;
-      renderTables();
-      setStatus('Lembrete salvo.');
-      form.reset();
-    });
-
-    document.querySelector('[data-form-campaign]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const item = { id: `camp_${Date.now()}`, name: form.name.value, objective: form.objective.value, status: form.status.value, startsAt: form.startsAt.value, endsAt: form.endsAt.value };
-      const list = upsert(state.data['campaigns'], item);
-      await saveResource('campaigns', list);
-      state.data['campaigns'] = list;
-      renderTables();
-      setStatus('Campanha salva.');
-      form.reset();
-    });
-
-    document.querySelector('[data-form-settings]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const settings = {
-        ...(state.data['site-settings'] || {}),
-        siteName: form.siteName.value,
-        newsletterHeadline: form.newsletterHeadline.value,
-        searchPlaceholder: form.searchPlaceholder.value,
-        defaultTheme: form.defaultTheme.value,
-        homeLockedVisual: true,
-        headerFooterLocked: true,
-        themeOptions: ['classic','gold','graphite']
-      };
-      await saveResource('site-settings', settings);
-      state.data['site-settings'] = settings;
-      const liveConfig = { ...(state.data['live-config'] || {}), radio: { ...(state.data['live-config']?.radio || {}), name: form.radioName.value, streamUrl: form.radioStreamUrl.value, fallbackUrl: form.radioFallbackUrl.value } };
-      await saveResource('live-config', liveConfig);
-      state.data['live-config'] = liveConfig;
-      setStatus('Configurações salvas.');
-    });
-
-    document.querySelector('[data-form-integration]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      await api('/api/integrations/connect', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ platform: form.platform.value, connected: form.connected.checked, accountLabel: form.accountLabel.value, pageId: form.pageId.value, channelId: form.channelId.value, profileId: form.profileId.value, notes: form.notes.value, hasToken: form.hasToken.checked }) });
-      await loadDashboard();
-      setStatus('Integração atualizada.');
-      form.reset();
-    });
-
-    document.querySelector('[data-form-social]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      await api('/api/integrations/publish', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ title: form.title.value, caption: form.caption.value, platform: form.platform.value, format: form.format.value, mediaUrl: form.mediaUrl.value, mediaData: form.socialMediaData.value, sourceType: form.sourceType.value, sourceLink: form.sourceLink.value, publishAt: form.publishAt.value || new Date().toISOString(), publishNow: form.publishNow.checked }) });
-      await loadDashboard();
-      setStatus('Post social registrado.');
-      form.reset();
-    });
-
-    document.querySelector('[data-form-live-tv]')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const liveConfig = { ...(state.data['live-config'] || {}), tv: upsert(state.data['live-config']?.tv, { id: `tv_${Date.now()}`, label: form.label.value, url: form.url.value, kind: form.kind.value, group: form.group.value, active: form.active.checked }) };
-      await saveResource('live-config', liveConfig);
-      state.data['live-config'] = liveConfig;
-      renderTables();
-      setStatus('Canal ao vivo salvo.');
-      form.reset();
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    bindForms();
-    switchTab('dashboard');
-    const token = localStorage.getItem(tokenKey);
-    if (!token) return;
-    try {
-      const result = await api('/api/auth/validate-token', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-      if (!result.valid) return;
-      document.querySelector('[data-admin-login]').style.display = 'none';
-      document.querySelector('[data-admin-app]').style.display = 'block';
-      await loadDashboard();
-    } catch (error) {
-      console.error(error);
-    }
-  });
+  async function init(){ bind(); const token=localStorage.getItem(tokenKey)||''; if(token){ try{ state.token=token; qs('[data-admin-login]').style.display='none'; qs('[data-admin-app]').style.display='block'; await loadDashboard(); }catch{ localStorage.removeItem(tokenKey); qs('[data-admin-login]').style.display='block'; qs('[data-admin-app]').style.display='none'; } } }
+  document.addEventListener('DOMContentLoaded', ()=>{ seedDefaults(); init(); });
 })();

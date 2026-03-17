@@ -1,0 +1,20 @@
+[
+  {
+    "id": "user_master",
+    "name": "Administrador Master",
+    "email": "master@ovc.local",
+    "role": "master",
+    "permissions": [
+      "publicar",
+      "editar_home",
+      "campanhas",
+      "leads",
+      "usuarios",
+      "settings",
+      "live",
+      "social"
+    ],
+    "active": true,
+    "createdAt": "2026-03-17T00:00:00.000Z"
+  }
+]

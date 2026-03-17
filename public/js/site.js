@@ -113,5 +113,34 @@ window.OVC = {
     OVC.bindGlobalSearch();
     OVC.bindNewsletterForms();
     OVC.hydrateHeaderFooter();
+    OVC.enhanceTickerLinks();
+    OVC.bindHomeCriticalLinks();
   });
 })();
+
+OVC.enhanceTickerLinks = function(){
+  const map = { 'ibov':'/dados/cotacoes/?ticker=ibov', 's&p 500':'/dados/cotacoes/?ticker=sp500', 'nasdaq':'/dados/cotacoes/?ticker=nasdaq', 'dólar':'/dados/cotacoes/?ticker=dolar', 'euro':'/dados/cotacoes/?ticker=euro', 'bitcoin':'/dados/cotacoes/?ticker=bitcoin', 'ouro':'/dados/cotacoes/?ticker=ouro' };
+  document.querySelectorAll('.ticker-item').forEach(item => {
+    if (item.querySelector('a.ovc-ticker-link')) return;
+    const label = item.querySelector('.ticker-label')?.textContent?.trim().toLowerCase();
+    const href = map[label];
+    if (!href) return;
+    const link = document.createElement('a');
+    link.href = href;
+    link.className = 'ovc-ticker-link';
+    link.style.cssText = 'display:flex;gap:10px;align-items:center;color:inherit;text-decoration:none';
+    while (item.firstChild) link.appendChild(item.firstChild);
+    item.appendChild(link);
+  });
+};
+OVC.bindHomeCriticalLinks = function(){
+  document.querySelector('.rail-block-tv')?.addEventListener('click', () => location.href='/tv-ovc/');
+  document.querySelector('.rail-block-tv')?.setAttribute('style', 'cursor:pointer');
+  document.querySelectorAll('.markets-grid .market-chip').forEach(chip => {
+    chip.style.cursor='pointer';
+    chip.addEventListener('click', ()=> {
+      const ticker=(chip.querySelector('.market-symbol')?.textContent||'').toLowerCase().replace('/brl','').replace(/[^a-z0-9]+/g,'');
+      location.href=`/dados/cotacoes/?ticker=${encodeURIComponent(ticker)}`;
+    });
+  });
+};

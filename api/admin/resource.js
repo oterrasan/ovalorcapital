@@ -2,7 +2,8 @@
 import { requireAdmin } from '../../lib/security.js';
 import { loadResource, saveResource, storageMode } from '../../lib/store.js';
 
-const allowed = new Set(['articles', 'banners', 'site-settings', 'newsletter', 'alerts', 'reminders', 'campaigns', 'integrations', 'social-posts', 'live-config', 'social-templates']);
+const arrayResources = new Set(['articles','banners','newsletter','alerts','reminders','campaigns','social-posts','social-templates','users','leads','routines','bulk-jobs','reports']);
+const allowed = new Set([...arrayResources, 'site-settings', 'integrations', 'live-config']);
 
 export default async function handler(req, res) {
   const auth = requireAdmin(req);
@@ -10,7 +11,7 @@ export default async function handler(req, res) {
   const resource = req.query.resource || req.body?.resource;
   if (!allowed.has(resource)) return res.status(400).json({ ok: false, error: 'invalid_resource' });
   if (req.method === 'GET') {
-    const fallback = Array.from(['articles','banners','newsletter','alerts','reminders','campaigns','social-posts','social-templates']).includes(resource) ? [] : {};
+    const fallback = arrayResources.has(resource) ? [] : {};
     const item = await loadResource(resource, fallback);
     return res.status(200).json({ ok: true, resource, item, storage: storageMode() });
   }

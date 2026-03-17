@@ -1,0 +1,10 @@
+[
+  {
+    "id": "routine_morning",
+    "name": "Abertura do portal",
+    "frequency": "diaria",
+    "owner": "master",
+    "description": "Checar home, tickers, radar, TV, Rádio e newsletter.",
+    "createdAt": "2026-03-17T00:00:00.000Z"
+  }
+]
