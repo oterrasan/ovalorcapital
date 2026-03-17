@@ -1445,3 +1445,12 @@
 .ovc-quote-hero{font-size:42px;font-weight:800;margin-top:14px}
 [data-home-radar-link],[data-home-radio-link],[data-home-impostometro-link]{cursor:pointer}
 @media (max-width: 980px){.ovc-live-grid,.ovc-live-card-grid{grid-template-columns:1fr}.ovc-live-frame,.ovc-live-frame iframe{min-height:240px;height:240px}}
+
+
+.ticker-link-static {
+  text-decoration: none;
+  color: inherit;
+}
+.ticker-link-static:hover {
+  opacity: .92;
+}
