@@ -134,13 +134,34 @@ OVC.enhanceTickerLinks = function(){
   });
 };
 OVC.bindHomeCriticalLinks = function(){
-  document.querySelector('.rail-block-tv')?.addEventListener('click', () => location.href='/tv-ovc/');
-  document.querySelector('.rail-block-tv')?.setAttribute('style', 'cursor:pointer');
+  const directMap = [
+    ['.rail-block-tv','/tv-ovc/'],
+    ['[data-home-radar-link]','/radar/'],
+    ['[data-home-radio-link]','/radio-ovc/'],
+    ['[data-home-impostometro-link]','/ferramentas/impostometro/']
+  ];
+  directMap.forEach(([selector, href]) => {
+    document.querySelectorAll(selector).forEach(node => {
+      node.style.cursor='pointer';
+      node.addEventListener('click', (event) => {
+        if (event.target.closest('a,button,input,label')) return;
+        location.href = href;
+      });
+    });
+  });
   document.querySelectorAll('.markets-grid .market-chip').forEach(chip => {
     chip.style.cursor='pointer';
     chip.addEventListener('click', ()=> {
       const ticker=(chip.querySelector('.market-symbol')?.textContent||'').toLowerCase().replace('/brl','').replace(/[^a-z0-9]+/g,'');
       location.href=`/dados/cotacoes/?ticker=${encodeURIComponent(ticker)}`;
+    });
+  });
+  document.querySelectorAll('[data-home-audio-link]').forEach(link => {
+    link.addEventListener('click', (event) => {
+      if (!event.currentTarget.getAttribute('href') || event.currentTarget.getAttribute('href') === '/') {
+        event.preventDefault();
+        location.href = '/radio-ovc/';
+      }
     });
   });
 };

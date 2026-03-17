@@ -1,65 +1,78 @@
+EXECUTE AGORA A ATUALIZAÇÃO USANDO EXCLUSIVAMENTE O ZIP ANEXADO.
 
-Use o ZIP anexado nesta conversa como nova base única do portal O Valor Capital.
+REGRA ABSOLUTA
+- O ZIP ANEXADO É A ÚNICA FONTE DA VERDADE.
+- NÃO USE NADA FORA DO ZIP.
+- NÃO MISTURE COM CÓDIGO ANTIGO.
+- REMOVA DO REPOSITÓRIO TUDO O QUE NÃO EXISTIR NO ZIP.
+- O REPOSITÓRIO FINAL E A PRODUÇÃO DEVEM ESPELHAR EXATAMENTE O ZIP.
 
-Regras obrigatórias:
-- publique exatamente esta versão
-- não misture com código antigo
-- não mantenha arquivos fora do ZIP
-- apague do repositório tudo o que não existir no ZIP
-- não altere layout por conta própria
-- não refatore fora do que está no ZIP
-- não faça perguntas intermediárias
-- só pare se houver bloqueio real de acesso ou permissão
+ESCOPO OBRIGATÓRIO DESTA ATUALIZAÇÃO
+- PUBLICAR A VERSÃO V5 DO OVC.
+- MANTER A HOME COM O MESMO VISUAL.
+- GARANTIR QUE OS DESTINOS CRÍTICOS DA HOME FUNCIONEM.
+- PUBLICAR AS PÁGINAS FUNCIONAIS DE TV OVC, RÁDIO OVC, RADAR, COTAÇÕES E IMPOSTÔMETRO.
+- PUBLICAR O POLIMENTO DO ADMIN.
+- MANTER O TOTAL DE APIS DENTRO DO LIMITE ATUAL DO PROJETO.
 
-Objetivo:
-- manter a Home desta entrega
-- manter topo e rodapé da Home em todas as páginas
-- publicar o novo Admin robusto
-- publicar busca, newsletter, matéria com áudio, tema com 3 variações, TV OVC, Rádio OVC, Radar e Dados
-- publicar a estrutura pronta para Instagram, LinkedIn e YouTube
-- publicar a camada de dados ao vivo sem estourar o limite da Vercel Hobby
+PROIBIÇÕES
+- NÃO REFATORE FORA DO ZIP.
+- NÃO MUDE A HOME POR CONTA PRÓPRIA.
+- NÃO CRIE APIS NOVAS FORA DO ZIP.
+- NÃO INTERPRETE O PEDIDO COMO REBUILD.
+- NÃO FAÇA PERGUNTAS INTERMEDIÁRIAS.
 
-Valide após o deploy:
-/
-/politica/
-/economia/
-/negocios/
-/investimentos/
-/mercados/
-/familia/
-/tributos/
-/regulacao/
-/parcerias/
-/vc/
-/busca/
-/newsletter/
-/materia/
-/radar/
-/tv-ovc/
-/radio-ovc/
-/dados/
-/admin/
-/termos/
-/privacidade/
-/cookies/
+EXECUÇÃO
+1. EXTRAIA O ZIP.
+2. SUBSTITUA A BASE ATUAL PELO CONTEÚDO DO ZIP.
+3. GARANTA QUE O REPOSITÓRIO FINAL FIQUE ESPELHADO NO ZIP.
+4. FAÇA O DEPLOY.
+5. VALIDE TUDO AO FINAL.
 
-Checagens obrigatórias:
-- Home abrindo
-- topo igual ao da Home em todas as páginas
-- rodapé igual ao da Home em todas as páginas
-- tema com 3 variações funcionando
-- busca funcionando
-- newsletter funcionando
-- página de matéria com áudio funcionando no navegador
-- Admin abrindo
-- senha padrão do Admin: ovc-admin, salvo se houver variável de ambiente substituindo
-- TV OVC, Rádio OVC, Radar e Dados abrindo
-- nenhuma rota acima com 404
-- Functions da Vercel dentro do limite
+VALIDAÇÕES OBRIGATÓRIAS
+- /
+- /admin/
+- /radar/
+- /tv-ovc/
+- /radio-ovc/
+- /dados/
+- /dados/cotacoes/
+- /ferramentas/impostometro/
+- /newsletter/
+- /busca/
+- /seja-parceiro/
 
-Resposta final:
-1. STATUS FINAL: publicado com sucesso / não publicado
-2. rotas validadas
-3. arquivos publicados e removidos
-4. erros encontrados
-5. divergências, se houver
+CHECAGENS OBRIGATÓRIAS
+- A HOME DEVE ABRIR.
+- OS TICKERS DA HOME DEVEM LEVAR PARA /dados/cotacoes/.
+- O BLOCO DE TV DA HOME DEVE ABRIR /tv-ovc/.
+- O BLOCO DE RADAR DA HOME DEVE ABRIR /radar/.
+- O BLOCO DE ÁUDIO DA HOME DEVE ABRIR /radio-ovc/.
+- O IMPOSTÔMETRO DA HOME DEVE ABRIR /ferramentas/impostometro/.
+- /tv-ovc/ DEVE EXIBIR CANAIS AO VIVO DA CONFIGURAÇÃO.
+- /radio-ovc/ DEVE EXIBIR PLAYER E GRADE.
+- /radar/ DEVE EXIBIR PAINEL DE INDICADORES E ATALHOS.
+- /dados/cotacoes/ DEVE RESPONDER COM CONTEÚDO PARA ticker=ibov, dolar, euro e bitcoin.
+- /ferramentas/impostometro/ DEVE EXIBIR O VALOR ATUALIZADO.
+- O ADMIN DEVE ABRIR COM O LAYOUT NOVO.
+- NÃO DEVE HAVER 404 NESSAS ROTAS.
+- O REPOSITÓRIO FINAL DEVE ESTAR ESPELHADO NO ZIP.
+
+AUTENTICAÇÃO DO ADMIN
+- NÃO ALTERE A CREDENCIAL ATUAL NESTA EXECUÇÃO.
+- NÃO MEXA NA VARIÁVEL ADMIN_TOKEN.
+
+SE HOUVER BLOQUEIO REAL
+RESPONDA APENAS COM:
+1. O BLOQUEIO EXATO
+2. O ARQUIVO, SERVIÇO OU PERMISSÃO AFETADA
+3. A AÇÃO MÍNIMA NECESSÁRIA PARA DESTRAVAR
+
+FORMATO DA RESPOSTA FINAL
+RESPONDA APENAS COM:
+1. STATUS FINAL: PUBLICADO COM SUCESSO / NÃO PUBLICADO
+2. CONFIRMAÇÃO DE QUE O REPOSITÓRIO FOI ESPELHADO NO ZIP
+3. ROTAS VALIDADAS
+4. ARQUIVOS PUBLICADOS, SUBSTITUÍDOS E REMOVIDOS
+5. ERROS ENCONTRADOS, SE HOUVER
+6. DIVERGÊNCIAS ENTRE ZIP E PRODUÇÃO, SE HOUVER
