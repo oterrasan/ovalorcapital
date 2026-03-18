@@ -1454,3 +1454,24 @@
 .ticker-link-static:hover {
   opacity: .92;
 }
+
+
+    .chip-pill-link,
+    .section-title-link {
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .chip-pill-link:hover,
+    .chip-pill-link:focus-visible {
+      color: #ffffff;
+      border-color: rgba(251,191,36,0.9);
+      background: rgba(15,23,42,0.5);
+    }
+
+    .section-title-link:hover,
+    .section-title-link:focus-visible {
+      color: var(--link);
+      border-color: rgba(59,130,246,0.55);
+      background: rgba(59,130,246,0.04);
+    }
