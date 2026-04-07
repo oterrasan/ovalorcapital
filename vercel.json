@@ -1,3 +1,8 @@
 {
-  "cleanUrls": false
+  "version": 2,
+  "functions": {
+    "api/run.ts": {
+      "maxDuration": 60
+    }
+  }
 }
