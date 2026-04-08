@@ -1,4 +1,4 @@
-import { run_pipeline } from "../core/pipeline";
+import { run_pipeline } from "../core/pipeline.js";
 
 export default async function handler(req, res) {
   try {

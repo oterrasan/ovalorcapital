@@ -1,10 +1,10 @@
 import axios from "axios";
 
-export async function publish(image, caption) {
+export async function publish(imageUrl, caption) {
   const create = await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.IG_USER_ID}/media`,
     {
-      image_url: image,
+      image_url: imageUrl,
       caption,
       access_token: process.env.IG_ACCESS_TOKEN
     }

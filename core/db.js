@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_KEY!
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
 );
 
 export const db = {
@@ -17,7 +17,7 @@ export const db = {
     return count || 0;
   },
 
-  async exists(hash: string) {
+  async exists(hash) {
     const { data } = await supabase
       .from("posts")
       .select("id")
