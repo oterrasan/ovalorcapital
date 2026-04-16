@@ -10,10 +10,10 @@ export default async function handler(req, res) {
     const { data } = await supabase
       .from("config")
       .select("value")
-      .eq("key", "pipeline_active")
+      .eq("key", "AUTOMATION")
       .single();
 
-    const running = data?.value === "true";
+    const running = data?.value === "on";
 
     const today = new Date().toISOString().split("T")[0];
     const { count: postsHoje } = await supabase
