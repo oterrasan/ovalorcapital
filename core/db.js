@@ -1,10 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
-import { publish } from "./instagram.js";
+import { publish, postComment, sendCollabInvite } from "./instagram.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
+
+const COLAB_ACCOUNTS = [
+  "oterrasan",
+  "blogdoterra",
+  "adriana.ferreirasp",
+  "redacao_ovc",
+  "grupoterrasan"
+];
 
 export const db = {
   async countToday() {
@@ -40,9 +48,33 @@ export const db = {
     if (data.status !== "pendente") return { ok: false, error: "not_pending" };
 
     try {
+      // Publicar no Instagram
       const ig = await publish(data.imagem, data.conteudo);
-      await supabase.from("posts").update({ status: "success", ig_id: ig.id }).eq("id", id);
-      return { ok: true, ig_id: ig.id };
+      const mediaId = ig.id;
+
+      // Postar comentário fixado
+      if (data.comentario_fixado) {
+        try {
+          await postComment(mediaId, data.comentario_fixado);
+        } catch(e) {
+          console.error("Erro comentario fixado:", e.message);
+        }
+      }
+
+      // Enviar convites de colaboração
+      try {
+        await sendCollabInvite(mediaId, COLAB_ACCOUNTS);
+      } catch(e) {
+        console.error("Erro colabs:", e.message);
+      }
+
+      await supabase.from("posts").update({
+        status: "success",
+        ig_id: mediaId,
+        colabs_enviados: true
+      }).eq("id", id);
+
+      return { ok: true, ig_id: mediaId };
     } catch (e) {
       await supabase.from("posts").update({ status: "error" }).eq("id", id);
       return { ok: false, error: e.message };
