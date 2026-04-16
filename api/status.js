@@ -1,33 +1,17 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
-
 export default async function handler(req, res) {
+  const url = process.env.SUPABASE_URL || "";
+  const key = process.env.SUPABASE_KEY || "";
+  if (!url || !key) {
+    return res.status(200).json({ running: false, posts_hoje: 0, max_posts: 60, error: "env_missing" });
+  }
   try {
-    const { data } = await supabase
-      .from("config")
-      .select("value")
-      .eq("key", "AUTOMATION")
-      .single();
-
-    const running = data?.value === "on";
-
-    const today = new Date().toISOString().split("T")[0];
-    const { count: postsHoje } = await supabase
-      .from("posts")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", today)
-      .eq("status", "success");
-
-    return res.status(200).json({
-      running,
-      posts_hoje: postsHoje || 0,
-      max_posts: 60
+    const r = await fetch(`${url}/rest/v1/config?select=value&key=eq.AUTOMATION`, {
+      headers: { "apikey": key, "Authorization": `Bearer ${key}` }
     });
-  } catch (e) {
-    return res.status(200).json({ running: false, posts_hoje: 0, max_posts: 60 });
+    const data = await r.json();
+    const running = Array.isArray(data) && data[0]?.value === "on";
+    return res.status(200).json({ running, posts_hoje: 0, max_posts: 60 });
+  } catch(e) {
+    return res.status(200).json({ running: false, posts_hoje: 0, max_posts: 60, error: e.message });
   }
 }
