@@ -3,7 +3,7 @@ import { publish, postComment, getAccount } from "./instagram.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-const MAX_POSTS_DIA = 60;
+const MAX_POSTS_DIA = 300;
 
 export const db = {
   async countToday() {

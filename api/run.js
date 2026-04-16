@@ -6,7 +6,7 @@ import { rewrite } from "../core/ai.js";
 import { db } from "../core/db.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const MAX = 60;
+const MAX = 300;
 
 export default async function handler(req, res) {
   try {

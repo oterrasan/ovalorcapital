@@ -284,7 +284,7 @@ function Pipeline() {
       const mp = cfgs.find(c=>c.key==='MAX_POSTS_DIA');
       const iv = cfgs.find(c=>c.key==='INTERVALO');
       setAuto(a?a.value==='on':false);
-      if (mp) setMaxPosts(parseInt(mp.value)||60);
+      if (mp) setMaxPosts(parseInt(mp.value)||300);
       if (iv) setIntervalo(parseInt(iv.value)||10);
     }
     const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(20);
@@ -340,7 +340,7 @@ function Pipeline() {
           <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
             <div className="form-group">
               <label className="form-label">Max Posts por Dia</label>
-              <input className="form-input" type="number" value={maxPosts} onChange={e=>setMaxPosts(parseInt(e.target.value)||60)}/>
+              <input className="form-input" type="number" value={maxPosts} onChange={e=>setMaxPosts(parseInt(e.target.value)||300)}/>
             </div>
             <div className="form-group">
               <label className="form-label">Intervalo entre Execuções (min)</label>

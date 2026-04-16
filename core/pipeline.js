@@ -4,7 +4,7 @@ import { scrape } from "./scraper.js";
 import { rewrite } from "./ai.js";
 import { db } from "./db.js";
 
-const MAX_POSTS_DIA = 60;
+const MAX_POSTS_DIA = 300;
 
 export async function run_pipeline() {
   const count = await db.countToday();

@@ -24,11 +24,11 @@ export default async function handler(req, res) {
     return res.status(200).json({
       running,
       posts_hoje: postsHoje || 0,
-      max_posts: 60,
+      max_posts: 300,
       pendentes: pendentes || 0,
       erros: erros || 0
     });
   } catch(e) {
-    return res.status(200).json({ running: false, posts_hoje: 0, max_posts: 60, pendentes: 0, erros: 0 });
+    return res.status(200).json({ running: false, posts_hoje: 0, max_posts: 300, pendentes: 0, erros: 0 });
   }
 }
