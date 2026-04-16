@@ -378,7 +378,7 @@ function Postagens() {
 
   const load = useCallback(async () => {
     setLoading(true); setSelected([]);
-    let q = sb.from('posts').select('*,ig_accounts(username)').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    let q = sb.from('posts').select('*').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
     if (filter!=='all') q=q.eq('status',filter);
     const { data } = await q;
     setPosts(data||[]);
@@ -522,7 +522,7 @@ function Postagens() {
                     <td>{p.status==='pendente'&&<input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/>}</td>
                     <td>{truncate(p.titulo,45)}</td>
                     <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-                    <td className="text-secondary text-small">{p.ig_accounts?.username?'@'+p.ig_accounts.username:'auto'}</td>
+                    <td className="text-secondary text-small">{'auto'}</td>
                     <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'—'}</td>
                     <td className="text-secondary text-small">{fmt(p.created_at)}</td>
                     <td>
