@@ -61,7 +61,7 @@ async function rewriteGemini(prompt) {
     })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Gemini error");
+  if (!res.ok) throw new Error("Gemini: " + (data.error?.message || JSON.stringify(data)));
   return data.candidates[0].content.parts[0].text;
 }
 
@@ -71,14 +71,14 @@ async function rewriteGroq(prompt) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
     body: JSON.stringify({
-      model: "llama-3.1-70b-versatile",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 1000,
       temperature: 0.7
     })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Groq error");
+  if (!res.ok) throw new Error("Groq: " + (data.error?.message || JSON.stringify(data)));
   return data.choices[0].message.content;
 }
 
