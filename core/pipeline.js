@@ -24,6 +24,7 @@ export async function run_pipeline() {
   await db.insert({
     titulo: content.title,
     conteudo: content.text,
+    comentario_fixado: content.comentario_fixado,
     imagem: article.image,
     hash,
     status: "pendente"
