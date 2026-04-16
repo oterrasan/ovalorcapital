@@ -981,10 +981,223 @@ function Configuracoes() {
   );
 }
 
+
+// ── NOVO POST (MANUAL) ──
+function NovoPost() {
+  const [accounts, setAccounts] = useState([]);
+  const [form, setForm] = useState({
+    titulo: '',
+    conteudo: '',
+    comentario_fixado: '',
+    imagem: '',
+    ig_account_id: '',
+    scheduled_at: '',
+    user_tags: '',
+    collaborators: '',
+    publicar_agora: false
+  });
+  const [saving, setSaving] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('ok');
+
+  useEffect(() => {
+    sb.from('ig_accounts').select('id,username').eq('active',true).then(({data}) => setAccounts(data||[]));
+  }, []);
+
+  const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'});
+
+  const save = async (status) => {
+    if (!form.conteudo.trim()) { setMsg('O conteúdo é obrigatório.'); setMsgType('err'); return; }
+    setSaving(true);
+    try {
+      const crypto = window.crypto || window.msCrypto;
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      const hash = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+
+      const postData = {
+        titulo: form.titulo || form.conteudo.split('\n')[0].slice(0,80),
+        conteudo: form.conteudo,
+        comentario_fixado: form.comentario_fixado,
+        imagem: form.imagem || '',
+        ig_account_id: form.ig_account_id || null,
+        scheduled_at: form.scheduled_at || null,
+        user_tags: form.user_tags || '[]',
+        collaborators: form.collaborators || '[]',
+        hash,
+        status,
+        metrics: {},
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: post, error } = await sb.from('posts').insert([postData]).select().single();
+      if (error) throw new Error(error.message);
+
+      if (status === 'pendente' && form.publicar_agora) {
+        const r = await fetch('/api/approve', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({id: post.id})
+        });
+        const result = await r.json();
+        if (result.ok) {
+          setMsg('✅ Post publicado no Instagram com sucesso!');
+          setMsgType('ok');
+        } else {
+          setMsg('⚠️ Post salvo mas erro ao publicar: ' + result.error);
+          setMsgType('warn');
+        }
+      } else if (status === 'scheduled') {
+        setMsg('✅ Post agendado com sucesso!');
+        setMsgType('ok');
+      } else {
+        setMsg('✅ Post salvo como rascunho.');
+        setMsgType('ok');
+      }
+
+      // Limpar form
+      setForm({titulo:'',conteudo:'',comentario_fixado:'',imagem:'',ig_account_id:'',scheduled_at:'',user_tags:'',collaborators:'',publicar_agora:false});
+    } catch(e) {
+      setMsg('❌ Erro: ' + e.message);
+      setMsgType('err');
+    }
+    setSaving(false);
+  };
+
+  const charCount = form.conteudo.length;
+  const charColor = charCount > 1400 ? '#f87171' : charCount > 1200 ? '#ffc800' : '#4ade80';
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">✏️ Novo Post Manual</div>
+        <div className="page-sub">Crie e publique um post diretamente no Instagram</div>
+      </div>
+      <div className="page-body">
+        {msg && <div className={`alert-banner${msgType==='err'?' ':msgType==='warn'?' yellow':' yellow'}`} style={{marginBottom:16,background:msgType==='err'?'rgba(200,30,30,0.15)':msgType==='warn'?'rgba(255,200,0,0.15)':'rgba(22,163,74,0.15)',borderColor:msgType==='err'?'rgba(200,30,30,0.3)':msgType==='warn'?'rgba(255,200,0,0.3)':'rgba(22,163,74,0.3)'}}>
+          <span>{msg}</span>
+          <button style={{marginLeft:'auto',background:'none',border:'none',color:'var(--t2)',cursor:'pointer',fontSize:16}} onClick={()=>setMsg('')}>✕</button>
+        </div>}
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 380px',gap:20}}>
+          {/* Formulário */}
+          <div>
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">Conteúdo do Post</span></div>
+              <div style={{padding:20}}>
+                <div className="form-group">
+                  <label className="form-label">Título / Tag da Chamada</label>
+                  <input className="form-input" value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} placeholder="Ex: EXTRADIÇÃO AUTORIZADA"/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{display:'flex',justifyContent:'space-between'}}>
+                    <span>Legenda / Conteúdo</span>
+                    <span style={{color:charColor,fontSize:12}}>{charCount}/1500</span>
+                  </label>
+                  <textarea className="form-textarea" style={{minHeight:220}} value={form.conteudo} onChange={e=>setForm({...form,conteudo:e.target.value})} placeholder={`CHAMADA EM CAIXA ALTA.
+
+Texto da notícia em prosa jornalística. Parágrafos curtos. Linguagem direta.
+
+Redação OVC — ${hoje}
+
+#hashtag1
+#hashtag2
+#ovalorcapital`}/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Comentário Fixado</label>
+                  <textarea className="form-textarea" style={{minHeight:60}} value={form.comentario_fixado} onChange={e=>setForm({...form,comentario_fixado:e.target.value})} placeholder="Comentário agressivo e questionador (máx 200 chars)" maxLength={200}/>
+                  <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>{form.comentario_fixado.length}/200</div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">URL da Imagem</label>
+                  <input className="form-input" value={form.imagem} onChange={e=>setForm({...form,imagem:e.target.value})} placeholder="https://..."/>
+                  {form.imagem && <img src={form.imagem} style={{marginTop:8,width:'100%',maxHeight:200,objectFit:'cover',borderRadius:6}} onError={e=>e.target.style.display='none'} alt="preview"/>}
+                </div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">Publicação</span></div>
+              <div style={{padding:20}}>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                  <div className="form-group">
+                    <label className="form-label">Conta Instagram</label>
+                    <select className="form-select" value={form.ig_account_id} onChange={e=>setForm({...form,ig_account_id:e.target.value})}>
+                      <option value="">Distribuição automática</option>
+                      {accounts.map(a=><option key={a.id} value={a.id}>@{a.username}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Agendar para (opcional)</label>
+                    <input className="form-input" type="datetime-local" value={form.scheduled_at} onChange={e=>setForm({...form,scheduled_at:e.target.value})}/>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Marcar usuários (separados por vírgula)</label>
+                  <input className="form-input" value={form.user_tags} onChange={e=>setForm({...form,user_tags:e.target.value})} placeholder="@usuario1, @usuario2"/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Colaboradores (separados por vírgula)</label>
+                  <input className="form-input" value={form.collaborators} onChange={e=>setForm({...form,collaborators:e.target.value})} placeholder="@oterrasan, @blogdoterra"/>
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+              <button className="btn btn-primary" style={{fontSize:15,padding:'12px 28px'}} onClick={()=>{setForm({...form,publicar_agora:true});save('pendente');}} disabled={saving}>
+                {saving?'Publicando...':'▶ Publicar agora no Instagram'}
+              </button>
+              {form.scheduled_at && <button className="btn btn-secondary" style={{fontSize:15,padding:'12px 28px'}} onClick={()=>save('scheduled')} disabled={saving}>
+                🕐 Agendar
+              </button>}
+              <button className="btn btn-secondary" style={{fontSize:15,padding:'12px 28px'}} onClick={()=>save('pendente')} disabled={saving}>
+                💾 Salvar como pendente
+              </button>
+              <button className="btn btn-secondary" onClick={()=>setPreview(!preview)}>
+                {preview?'Fechar preview':'👁 Preview'}
+              </button>
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div>
+            <div className="panel" style={{position:'sticky',top:20}}>
+              <div className="panel-header"><span className="panel-title">Preview do Post</span></div>
+              <div style={{padding:16}}>
+                <div style={{background:'#0a0a14',borderRadius:8,overflow:'hidden',border:'1px solid var(--border)'}}>
+                  {form.imagem
+                    ? <img src={form.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover'}} onError={e=>e.target.style.display='none'} alt=""/>
+                    : <div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>
+                  }
+                  <div style={{padding:12,fontSize:12,color:'var(--t2)',lineHeight:1.6,whiteSpace:'pre-wrap',maxHeight:200,overflowY:'auto'}}>
+                    {form.conteudo || <span style={{color:'var(--t3)'}}>Legenda aparece aqui...</span>}
+                  </div>
+                  {form.comentario_fixado && <div style={{padding:'8px 12px',borderTop:'1px solid var(--border)',fontSize:11,color:'#ffc800'}}>
+                    💬 {form.comentario_fixado}
+                  </div>}
+                </div>
+                <div style={{marginTop:12,fontSize:11,color:'var(--t2)'}}>
+                  <div>Conta: {form.ig_account_id ? accounts.find(a=>a.id===form.ig_account_id)?.username||'—' : 'Automática'}</div>
+                  {form.scheduled_at && <div>Agendado: {new Date(form.scheduled_at).toLocaleString('pt-BR')}</div>}
+                  {form.user_tags && <div>Tags: {form.user_tags}</div>}
+                  {form.collaborators && <div>Colabs: {form.collaborators}</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
+  {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'postagens',label:'Postagens',icon:'📝'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
@@ -1012,7 +1225,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>setAuth(true)}/>;
 
-  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes}[page];
+  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes}[page];
 
   return (
     <div className="layout">
