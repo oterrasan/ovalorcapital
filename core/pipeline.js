@@ -24,11 +24,18 @@ export async function run_pipeline() {
   const content = await rewrite(article.text);
   if (!content.text) return { status: "ai_failed" };
 
+  // Gerar URL do card OVC
+  const base = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://www.ovalorcapital.com.br";
+
+  const cardUrl = `${base}/api/card?tag=${encodeURIComponent(content.tag_texto)}&tema=${encodeURIComponent(content.tag_tema)}&resumo=${encodeURIComponent(content.resumo_card)}&img=${encodeURIComponent(article.image || "")}`;
+
   const post = await db.insert({
     titulo: content.title,
     conteudo: content.text,
-    comentario_fixado: content.comentario_fixado,
-    imagem: article.image || "",
+    comentario_fixado: content.comentario_fixado || "",
+    imagem: cardUrl,
     hash,
     status: "pendente",
     user_tags: "[]",
@@ -36,5 +43,5 @@ export async function run_pipeline() {
     metrics: {}
   });
 
-  return { status: "pendente", titulo: content.title, id: post.id };
+  return { status: "pendente", titulo: content.title, id: post?.id };
 }
