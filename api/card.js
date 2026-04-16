@@ -13,6 +13,12 @@ export default async function handler(req, res) {
 
   const TEMPLATE = "https://raw.githubusercontent.com/oterrasan/ovalorcapital/main/public/assets/template-ovc.jpg";
 
+  // Proxy da imagem para evitar bloqueio de CORS
+  let proxyImg = "";
+  if (img) {
+    proxyImg = `/api/imgproxy?url=${encodeURIComponent(img)}`;
+  }
+
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -21,18 +27,18 @@ export default async function handler(req, res) {
 *{margin:0;padding:0;box-sizing:border-box}
 body{width:1080px;height:1350px;overflow:hidden;font-family:Arial,sans-serif}
 .wrap{position:relative;width:1080px;height:1350px}
-.template{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.photo{position:absolute;left:0;top:280px;width:1080px;height:680px;object-fit:cover}
-.photo-overlay{position:absolute;left:0;top:280px;width:1080px;height:680px;background:linear-gradient(to bottom,rgba(0,0,0,0.1) 0%,rgba(0,0,0,0.6) 100%)}
-.tag{position:absolute;top:600px;left:50%;transform:translateX(-50%);background:${color};padding:16px 44px;border-radius:5px;white-space:nowrap;z-index:10}
-.tag span{color:${textColor};font-size:50px;font-weight:800;letter-spacing:2px}
-.resumo{position:absolute;top:690px;left:50px;right:50px;color:#fff;font-size:70px;font-weight:800;line-height:1.15;text-align:left;z-index:10;text-shadow:0 2px 8px rgba(0,0,0,0.8)}
+.template{position:absolute;inset:0;width:1080px;height:1350px;object-fit:cover}
+.photo{position:absolute;left:0;top:230px;width:1080px;height:720px;object-fit:cover;object-position:center top}
+.photo-overlay{position:absolute;left:0;top:230px;width:1080px;height:720px;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.5) 70%,rgba(8,8,20,0.95) 100%)}
+.tag{position:absolute;top:580px;left:50px;background:${color};padding:12px 32px;border-radius:5px;display:inline-block;z-index:10}
+.tag span{color:${textColor};font-size:36px;font-weight:800;letter-spacing:2px}
+.resumo{position:absolute;top:650px;left:50px;right:50px;color:#fff;font-size:46px;font-weight:800;line-height:1.2;text-align:left;z-index:10;text-shadow:0 2px 6px rgba(0,0,0,0.9)}
 </style>
 </head>
 <body>
 <div class="wrap">
   <img class="template" src="${TEMPLATE}" crossorigin="anonymous"/>
-  ${img ? `<img class="photo" src="${img}" crossorigin="anonymous"/>
+  ${proxyImg ? `<img class="photo" src="${proxyImg}" crossorigin="anonymous" onerror="this.style.display='none'"/>
   <div class="photo-overlay"></div>` : ""}
   <div class="tag"><span>${tag}</span></div>
   <div class="resumo">${resumo}</div>
