@@ -1,11 +1,15 @@
-name: Run
+name: OVC Pipeline
 
 on:
   schedule:
     - cron: "*/10 * * * *"
+  workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - run: curl https://SEU_DOMINIO.vercel.app/api/run
+      - name: Executar pipeline OVC
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/run \
+            -H "Content-Type: application/json"
