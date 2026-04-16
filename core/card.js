@@ -1,176 +1,132 @@
-import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 import sharp from "sharp";
 import axios from "axios";
-import { createClient } from "@supabase/supabase-js";
 
-const LOGO_URL = "https://raw.githubusercontent.com/oterrasan/ovalorcapital/main/public/assets/vc-logo.png";
 const W = 1080;
 const H = 1350;
+const LOGO_URL = "https://raw.githubusercontent.com/oterrasan/ovalorcapital/main/public/assets/vc-logo.png";
 
-// Cor da tag por tema
 function tagColor(tema) {
-  const temas = {
-    politica: "#c81e1e",
-    crime: "#c81e1e",
-    justica: "#c81e1e",
-    corrupcao: "#c81e1e",
-    economia: "#e85d00",
-    financas: "#e85d00",
-    mercado: "#e85d00",
-    sociedade: "#ffc800",
-    cultura: "#ffc800",
-    saude: "#ffc800",
-    educacao: "#ffc800",
-  };
   const t = (tema || "").toLowerCase();
-  for (const [key, color] of Object.entries(temas)) {
-    if (t.includes(key)) return color;
-  }
-  return "#ffc800";
+  if (["politica","crime","justica","corrupcao"].some(k => t.includes(k))) return { fill: "rgb(200,30,30)", hex: "#c81e1e" };
+  if (["economia","financas","mercado"].some(k => t.includes(k))) return { fill: "rgb(232,93,0)", hex: "#e85d00" };
+  return { fill: "rgb(255,200,0)", hex: "#ffc800" };
 }
 
-// Baixar imagem como buffer
-async function downloadImage(url) {
-  try {
-    const res = await axios.get(url, { responseType: "arraybuffer", timeout: 8000 });
-    return Buffer.from(res.data);
-  } catch {
-    return null;
-  }
+function escapeXml(str) {
+  return (str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-// Buscar imagem alternativa via web se necessário
-async function fetchImage(url, query) {
-  let buf = url ? await downloadImage(url) : null;
-  if (!buf && query) {
-    // Tenta via Unsplash como fallback genérico
-    const fallbackUrl = `https://source.unsplash.com/1080x1350/?${encodeURIComponent(query)}`;
-    buf = await downloadImage(fallbackUrl);
-  }
-  return buf;
-}
-
-// Cortar faixa inferior que pode ter marca d'água (últimos 8% da imagem)
-async function stripWatermark(buf) {
-  const meta = await sharp(buf).metadata();
-  const cropH = Math.floor(meta.height * 0.92);
-  return sharp(buf).extract({ left: 0, top: 0, width: meta.width, height: cropH }).toBuffer();
-}
-
-// Quebrar texto em linhas para o canvas
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split(" ");
+function wrapSvgText(text, maxChars, x, y, lineHeight, fontSize, fill, fontWeight) {
+  const words = text.toUpperCase().split(" ");
   const lines = [];
   let line = "";
-  for (const word of words) {
-    const test = line ? line + " " + word : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = test;
-    }
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (test.length > maxChars && line) { lines.push(line); line = w; }
+    else line = test;
   }
   if (line) lines.push(line);
-  return lines;
+  return lines.slice(0, 4).map((l, i) =>
+    `<text x="${x}" y="${y + i * lineHeight}" font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}" font-family="Arial, sans-serif" text-anchor="start">${escapeXml(l)}</text>`
+  ).join("\n");
+}
+
+async function downloadBuffer(url) {
+  try {
+    const r = await axios.get(url, { responseType: "arraybuffer", timeout: 8000 });
+    return Buffer.from(r.data);
+  } catch { return null; }
+}
+
+async function searchImage(query) {
+  // Unsplash source como fallback gratuito
+  try {
+    const url = `https://source.unsplash.com/1080x1350/?${encodeURIComponent(query)}`;
+    const r = await axios.get(url, { responseType: "arraybuffer", timeout: 10000, maxRedirects: 5 });
+    return Buffer.from(r.data);
+  } catch { return null; }
 }
 
 export async function generateCard({ imageUrl, tagText, tagTema, resumo, searchQuery }) {
-  // 1. Baixar e preparar imagem de fundo
-  let imgBuf = await fetchImage(imageUrl, searchQuery);
+  const color = tagColor(tagTema);
+
+  // 1. Obter imagem de fundo
+  let imgBuf = imageUrl ? await downloadBuffer(imageUrl) : null;
+  if (!imgBuf && searchQuery) imgBuf = await searchImage(searchQuery);
+
+  // 2. Preparar fundo
+  let bgBuf;
   if (imgBuf) {
-    imgBuf = await stripWatermark(imgBuf);
-    imgBuf = await sharp(imgBuf)
+    // Cortar faixa inferior (remove marca d'água)
+    const meta = await sharp(imgBuf).metadata();
+    const cropH = Math.floor((meta.height || H) * 0.92);
+    bgBuf = await sharp(imgBuf)
+      .extract({ left: 0, top: 0, width: meta.width || W, height: cropH })
       .resize(W, H, { fit: "cover", position: "center" })
       .toBuffer();
-  }
-
-  // 2. Criar canvas
-  const canvas = createCanvas(W, H);
-  const ctx = canvas.getContext("2d");
-
-  // 3. Fundo — imagem ou gradiente escuro
-  if (imgBuf) {
-    const bgImg = await loadImage(imgBuf);
-    ctx.drawImage(bgImg, 0, 0, W, H);
-    // Overlay escuro gradiente
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, "rgba(0,0,0,0.55)");
-    grad.addColorStop(0.45, "rgba(0,0,0,0.35)");
-    grad.addColorStop(1, "rgba(0,0,0,0.85)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
   } else {
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, "#0d1b2a");
-    grad.addColorStop(1, "#000000");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
+    // Fundo gradiente escuro via SVG
+    const svgBg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0d1b2a"/>
+          <stop offset="100%" stop-color="#000000"/>
+        </linearGradient>
+      </defs>
+      <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    </svg>`;
+    bgBuf = await sharp(Buffer.from(svgBg)).png().toBuffer();
   }
 
-  // 4. Logo topo
-  try {
-    const logoBuf = await downloadImage(LOGO_URL);
-    if (logoBuf) {
-      const logo = await loadImage(logoBuf);
-      const logoW = 180;
-      const logoH = (logo.height / logo.width) * logoW;
-      ctx.drawImage(logo, (W - logoW) / 2, 60, logoW, logoH);
-    }
-  } catch {}
+  // 3. Overlay escuro via SVG
+  const overlaySvg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="ov" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(0,0,0,0.55)"/>
+        <stop offset="45%" stop-color="rgba(0,0,0,0.35)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.88)"/>
+      </linearGradient>
+    </defs>
+    <rect width="${W}" height="${H}" fill="url(#ov)"/>
+  </svg>`;
+  const overlayBuf = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
 
-  // 5. Tag colorida
-  const color = tagColor(tagTema);
-  const tagY = 520;
-  const tagPadX = 40;
-  const tagPadY = 22;
-  ctx.font = "bold 52px sans-serif";
-  const tagW = ctx.measureText(tagText.toUpperCase()).width + tagPadX * 2;
+  // 4. Tag colorida + texto + rodapé via SVG
+  const tagW = Math.min(900, Math.max(300, (tagText || "").length * 38 + 80));
   const tagX = (W - tagW) / 2;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.roundRect(tagX, tagY, tagW, 80, 6);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.fillText(tagText.toUpperCase(), W / 2, tagY + 55);
+  const tagY = 500;
+  const tagTextColor = color.hex === "#ffc800" ? "#000000" : "#ffffff";
 
-  // 6. Resumo bold caixa alta
-  ctx.font = "bold 68px sans-serif";
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "left";
-  const resumoUpper = resumo.toUpperCase();
-  const lines = wrapText(ctx, resumoUpper, W - 100);
-  const lineH = 82;
-  let resumoY = tagY + 130;
-  for (const line of lines.slice(0, 4)) {
-    ctx.fillText(line, 50, resumoY);
-    resumoY += lineH;
-  }
+  const textSvg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${tagX}" y="${tagY}" width="${tagW}" height="88" rx="6" fill="${color.fill}"/>
+    <text x="${W/2}" y="${tagY + 58}" font-size="52" font-weight="bold" fill="${tagTextColor}" font-family="Arial, sans-serif" text-anchor="middle">${escapeXml((tagText || "").toUpperCase())}</text>
+    ${wrapSvgText(resumo || "", 22, 50, tagY + 140, 84, 68, "#ffffff", "bold")}
+    <line x1="50" y1="${H - 240}" x2="${W - 50}" y2="${H - 240}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+    <text x="${W/2}" y="${H - 190}" font-size="28" font-weight="bold" fill="#ffffff" font-family="Arial, sans-serif" text-anchor="middle">O VALOR CAPITAL</text>
+    <text x="${W/2}" y="${H - 150}" font-size="24" fill="rgba(255,255,255,0.75)" font-family="Arial, sans-serif" text-anchor="middle">Siga @ovalorcapital</text>
+    <text x="${W/2}" y="${H - 115}" font-size="22" fill="rgba(255,255,255,0.6)" font-family="Arial, sans-serif" text-anchor="middle">Liberdade econômica, família &amp; patrimônio</text>
+    <text x="${W/2}" y="${H - 82}" font-size="22" fill="rgba(255,255,255,0.6)" font-family="Arial, sans-serif" text-anchor="middle">www.ovalorcapital.com.br</text>
+  </svg>`;
+  const textBuf = await sharp(Buffer.from(textSvg)).png().toBuffer();
 
-  // 7. Rodapé
-  const footerY = H - 180;
+  // 5. Compor tudo
+  let composite = await sharp(bgBuf)
+    .composite([
+      { input: overlayBuf, top: 0, left: 0 },
+      { input: textBuf, top: 0, left: 0 }
+    ]);
+
+  // 6. Logo OVC no topo
   try {
-    const logoBuf = await downloadImage(LOGO_URL);
+    const logoBuf = await downloadBuffer(LOGO_URL);
     if (logoBuf) {
-      const logo = await loadImage(logoBuf);
-      const lW = 90;
-      const lH = (logo.height / logo.width) * lW;
-      ctx.drawImage(logo, (W - lW) / 2, footerY, lW, lH);
+      const logoResized = await sharp(logoBuf).resize(160, null).toBuffer();
+      const logoMeta = await sharp(logoResized).metadata();
+      composite = sharp(await composite.toBuffer()).composite([
+        { input: logoResized, top: 60, left: Math.floor((W - logoMeta.width) / 2) }
+      ]);
     }
   } catch {}
 
-  ctx.font = "bold 30px sans-serif";
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.fillText("O VALOR CAPITAL", W / 2, footerY + 105);
-
-  ctx.font = "26px sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillText("Siga @ovalorcapital", W / 2, footerY + 140);
-  ctx.fillText("Liberdade econômica, família & patrimônio", W / 2, footerY + 170);
-  ctx.fillText("www.ovalorcapital.com.br", W / 2, footerY + 198);
-
-  // 8. Exportar como JPEG buffer
-  return canvas.toBuffer("image/jpeg", { quality: 92 });
+  return composite.jpeg({ quality: 92 }).toBuffer();
 }
