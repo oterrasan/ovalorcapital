@@ -3,6 +3,7 @@ export default async function handler(req, res) {
   const tema = String(req.query.tema || "sociedade").toLowerCase();
   const resumo = String(req.query.resumo || "").toUpperCase();
   const img = String(req.query.img || "");
+  const q = String(req.query.q || tag + " " + tema);
 
   const COLORS = {
     politica:"#c81e1e",crime:"#c81e1e",justica:"#c81e1e",corrupcao:"#c81e1e",
@@ -12,12 +13,7 @@ export default async function handler(req, res) {
   const textColor = color === "#ffc800" ? "#000000" : "#ffffff";
 
   const TEMPLATE = "https://raw.githubusercontent.com/oterrasan/ovalorcapital/main/public/assets/template-ovc.jpg";
-
-  // Proxy da imagem para evitar bloqueio de CORS
-  let proxyImg = "";
-  if (img) {
-    proxyImg = `/api/imgproxy?url=${encodeURIComponent(img)}`;
-  }
+  const proxyImg = `/api/imgproxy?url=${encodeURIComponent(img)}&q=${encodeURIComponent(q)}`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -38,8 +34,8 @@ body{width:1080px;height:1350px;overflow:hidden;font-family:Arial,sans-serif}
 <body>
 <div class="wrap">
   <img class="template" src="${TEMPLATE}" crossorigin="anonymous"/>
-  ${proxyImg ? `<img class="photo" src="${proxyImg}" crossorigin="anonymous" onerror="this.style.display='none'"/>
-  <div class="photo-overlay"></div>` : ""}
+  <img class="photo" src="${proxyImg}" crossorigin="anonymous" onerror="this.style.display='none'"/>
+  <div class="photo-overlay"></div>
   <div class="tag"><span>${tag}</span></div>
   <div class="resumo">${resumo}</div>
 </div>

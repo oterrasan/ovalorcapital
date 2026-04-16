@@ -24,12 +24,11 @@ export async function run_pipeline() {
   const content = await rewrite(article.text);
   if (!content.text) return { status: "ai_failed" };
 
-  // Gerar URL do card OVC
-  const base = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "https://www.ovalorcapital.com.br";
-
-  const cardUrl = `${base}/api/card?tag=${encodeURIComponent(content.tag_texto)}&tema=${encodeURIComponent(content.tag_tema)}&resumo=${encodeURIComponent(content.resumo_card)}&img=${encodeURIComponent(article.image || "")}`;
+  // URL do card — passa imagem original + search_query como fallback
+  const base = "https://www.ovalorcapital.com.br";
+  const searchQ = content.search_query || content.tag_texto || content.tag_tema || "news brazil";
+  
+  const cardUrl = `${base}/api/card?tag=${encodeURIComponent(content.tag_texto)}&tema=${encodeURIComponent(content.tag_tema)}&resumo=${encodeURIComponent(content.resumo_card)}&img=${encodeURIComponent(article.image || "")}&q=${encodeURIComponent(searchQ)}`;
 
   const post = await db.insert({
     titulo: content.title,
