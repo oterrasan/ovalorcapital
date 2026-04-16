@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { run_pipeline } from "../core/pipeline.js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -7,20 +6,20 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
+  const log = [];
   try {
-    const { data } = await supabase
-      .from("config")
-      .select("value")
-      .eq("key", "AUTOMATION")
-      .single();
-
-    if (!data || data.value !== "on") {
-      return res.status(200).json({ status: "automation_paused" });
-    }
-
+    log.push("checking automation...");
+    const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
+    if (!data || data.value !== "on") return res.status(200).json({ status: "automation_paused" });
+    
+    log.push("importing pipeline...");
+    const { run_pipeline } = await import("../core/pipeline.js");
+    
+    log.push("running pipeline...");
     const result = await run_pipeline();
-    return res.status(200).json(result);
+    return res.status(200).json({ ...result, log });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(200).json({ error: e.message, stack: e.stack?.split("
+").slice(0,5), log });
   }
 }
