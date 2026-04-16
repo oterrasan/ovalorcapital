@@ -13,3 +13,7 @@ jobs:
         run: |
           curl -s -X POST https://www.ovalorcapital.com.br/api/run \
             -H "Content-Type: application/json"
+      - name: Processar posts agendados
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/worker \
+            -H "Content-Type: application/json"
