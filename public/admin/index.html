@@ -868,31 +868,71 @@ function Postagens() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState([]);
+  const [approving, setApproving] = useState(false);
   const PER = 50;
 
   const load = useCallback(async () => {
     setLoading(true);
+    setSelected([]);
     let q = sb.from('posts').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page*PER, (page+1)*PER-1);
     if (filter !== 'all') q = q.eq('status', filter);
-    const { data, error } = await q;
+    const { data } = await q;
     setPosts(data||[]);
     setLoading(false);
   }, [filter, page]);
 
   useEffect(() => { load(); }, [load]);
 
+  const toggleSelect = (id) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleAll = () => {
+    const pendentes = posts.filter(p => p.status === 'pendente').map(p => p.id);
+    setSelected(prev => prev.length === pendentes.length ? [] : pendentes);
+  };
+
+  const approveOne = async (id) => {
+    setApproving(true);
+    try {
+      const r = await fetch('/api/approve', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+      const d = await r.json();
+      if (d.ok) { alert('✅ Post aprovado e publicado no Instagram!'); load(); }
+      else alert('❌ Erro: ' + d.error);
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    setApproving(false);
+  };
+
+  const approveBatch = async () => {
+    if (!selected.length) return alert('Selecione ao menos um post.');
+    if (!confirm(`Aprovar e publicar ${selected.length} post(s) no Instagram?`)) return;
+    setApproving(true);
+    try {
+      const r = await fetch('/api/approve', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: selected }) });
+      const d = await r.json();
+      const ok = d.results?.filter(x => x.ok).length || 0;
+      const fail = d.results?.filter(x => !x.ok).length || 0;
+      alert(`✅ ${ok} publicado(s)${fail ? ' · ❌ ' + fail + ' erro(s)' : ''}`);
+      load();
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    setApproving(false);
+  };
+
+  const pendentesCount = posts.filter(p => p.status === 'pendente').length;
+
   return (
     <div>
       <div className="page-header">
         <div className="page-title">Postagens</div>
-        <div className="page-sub">Histórico de todos os posts processados</div>
+        <div className="page-sub">Aprovação e histórico de posts</div>
       </div>
       <div className="page-body">
         <div className="panel">
           <div className="panel-header">
             <span className="panel-title">Filtrar por status</span>
             <div className="gap-8">
-              {['all','success','error','duplicate'].map(f => (
+              {['all','pendente','success','error','duplicate'].map(f => (
                 <button key={f} className={`btn btn-sm ${filter===f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(f); setPage(0); }}>
                   {f === 'all' ? 'Todos' : f}
                 </button>
@@ -900,6 +940,15 @@ function Postagens() {
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>
           </div>
+          {selected.length > 0 && (
+            <div style={{padding:'12px 20px', background:'rgba(200,30,30,0.08)', borderBottom:'1px solid rgba(200,30,30,0.2)', display:'flex', alignItems:'center', gap:'12px'}}>
+              <span style={{color:'#ffc800', fontSize:'13px'}}>{selected.length} post(s) selecionado(s)</span>
+              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>
+                {approving ? 'Publicando...' : `✓ Aprovar ${selected.length} em lote`}
+              </button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setSelected([])}>Cancelar</button>
+            </div>
+          )}
           {loading ? (
             <div className="loading">Carregando...</div>
           ) : posts.length === 0 ? (
@@ -909,16 +958,32 @@ function Postagens() {
               <div className="table-wrap">
                 <table>
                   <thead>
-                    <tr><th>#</th><th>Título</th><th>Hash</th><th>Status</th><th>Data</th></tr>
+                    <tr>
+                      <th><input type="checkbox" onChange={toggleAll} checked={selected.length === pendentesCount && pendentesCount > 0} /></th>
+                      <th>Título</th>
+                      <th>Status</th>
+                      <th>Data</th>
+                      <th>Ação</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {posts.map(p => (
-                      <tr key={p.id}>
-                        <td className="text-secondary text-small">{p.id}</td>
-                        <td>{truncate(p.titulo, 55)}</td>
-                        <td className="text-secondary text-small" style={{fontFamily:'monospace'}}>{p.hash ? p.hash.slice(0,10)+'…' : '—'}</td>
+                      <tr key={p.id} style={p.status==='pendente' ? {background:'rgba(255,200,0,0.04)'} : {}}>
+                        <td>
+                          {p.status === 'pendente' && (
+                            <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleSelect(p.id)} />
+                          )}
+                        </td>
+                        <td>{truncate(p.titulo, 60)}</td>
                         <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
                         <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+                        <td>
+                          {p.status === 'pendente' && (
+                            <button className="btn btn-primary btn-sm" onClick={() => approveOne(p.id)} disabled={approving}>
+                              ✓ Aprovar
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
