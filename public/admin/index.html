@@ -1,511 +1,123 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Admin OVC — Centro de Comando</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-  :root {
-    --bg-main: #08080f;
-    --bg-card: #0f0f1a;
-    --bg-sidebar: #0a0a14;
-    --bg-input: #111120;
-    --border: rgba(255,255,255,0.06);
-    --border-hover: rgba(255,255,255,0.12);
-    --accent: #c81e1e;
-    --accent-hover: #e02222;
-    --accent-subtle: rgba(200,30,30,0.08);
-    --yellow: #ffc800;
-    --green: #16a34a;
-    --green-subtle: rgba(22,163,74,0.15);
-    --red-subtle: rgba(200,30,30,0.15);
-    --yellow-subtle: rgba(255,200,0,0.15);
-    --text-primary: #f1f1f1;
-    --text-secondary: #888;
-    --text-tertiary: #555;
-    --font: 'Inter', sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body, #root { height: 100%; }
-  body {
-    font-family: var(--font);
-    background: var(--bg-main);
-    color: var(--text-primary);
-    font-size: 14px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
-
-  /* LOGIN */
-  .login-wrap {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-main);
-    background-image: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(200,30,30,0.06) 0%, transparent 70%);
-  }
-  .login-box {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 48px 40px;
-    width: 100%;
-    max-width: 400px;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
-  }
-  .login-logo {
-    text-align: center;
-    margin-bottom: 8px;
-  }
-  .login-logo span.ovc {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: 0.08em;
-  }
-  .login-logo span.accent { color: var(--accent); }
-  .login-tagline {
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-tertiary);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 36px;
-  }
-  .login-label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-  }
-  .login-input {
-    width: 100%;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-family: var(--font);
-    font-size: 14px;
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 150ms ease;
-    margin-bottom: 20px;
-  }
-  .login-input:focus { border-color: var(--accent); }
-  .login-btn {
-    width: 100%;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 13px;
-    font-family: var(--font);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 150ms ease, transform 80ms ease;
-    letter-spacing: 0.02em;
-  }
-  .login-btn:hover { background: var(--accent-hover); }
-  .login-btn:active { transform: scale(0.99); }
-  .login-error {
-    text-align: center;
-    color: var(--accent);
-    font-size: 13px;
-    margin-top: 12px;
-    min-height: 18px;
-  }
-
-  /* LAYOUT */
-  .app-layout {
-    display: flex;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  /* SIDEBAR */
-  .sidebar {
-    width: 240px;
-    min-width: 240px;
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow-y: auto;
-  }
-  .sidebar-header {
-    padding: 28px 20px 20px;
-    border-bottom: 1px solid var(--border);
-  }
-  .sidebar-logo {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--text-primary);
-  }
-  .sidebar-logo .acc { color: var(--accent); }
-  .sidebar-tagline {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-top: 4px;
-  }
-  .sidebar-section-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--text-tertiary);
-    padding: 20px 20px 6px;
-  }
-  .sidebar-nav { flex: 1; padding: 8px 0; }
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 20px;
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-size: 13.5px;
-    font-weight: 400;
-    transition: background 150ms ease, color 150ms ease;
-    border-left: 2px solid transparent;
-    user-select: none;
-  }
-  .nav-item:hover {
-    background: rgba(255,255,255,0.04);
-    color: var(--text-primary);
-  }
-  .nav-item.active {
-    border-left: 2px solid var(--accent);
-    background: var(--accent-subtle);
-    color: var(--text-primary);
-    font-weight: 500;
-  }
-  .nav-icon { font-size: 16px; opacity: 0.8; }
-  .sidebar-footer {
-    padding: 16px 20px;
-    border-top: 1px solid var(--border);
-  }
-  .sidebar-version {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    margin-bottom: 10px;
-  }
-  .btn-sair {
-    width: 100%;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text-secondary);
-    font-family: var(--font);
-    font-size: 12px;
-    padding: 8px;
-    cursor: pointer;
-    transition: all 150ms ease;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .btn-sair:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-
-  /* MAIN */
-  .main-content {
-    flex: 1;
-    overflow-y: auto;
-    background: var(--bg-main);
-  }
-  .page-header {
-    padding: 32px 36px 24px;
-    border-bottom: 1px solid var(--border);
-  }
-  .page-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-  .page-sub {
-    font-size: 13px;
-    color: var(--text-tertiary);
-    margin-top: 3px;
-  }
-  .page-body { padding: 28px 36px; }
-
-  /* CARDS */
-  .metrics-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 28px;
-  }
-  .metric-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 22px 24px;
-    position: relative;
-    transition: box-shadow 150ms ease, border-color 150ms ease;
-  }
-  .metric-card:hover {
-    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-    border-color: var(--border-hover);
-  }
-  .metric-label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-tertiary);
-    margin-bottom: 10px;
-  }
-  .metric-value {
-    font-size: 32px;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1;
-  }
-  .metric-icon {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    font-size: 20px;
-    opacity: 0.25;
-  }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-    margin-top: 8px;
-  }
-  .badge-green { background: var(--green-subtle); color: var(--green); }
-  .badge-red { background: var(--red-subtle); color: var(--accent); }
-  .badge-yellow { background: var(--yellow-subtle); color: var(--yellow); }
-
-  /* PANEL */
-  .panel {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 20px;
-    transition: box-shadow 150ms ease;
-  }
-  .panel:hover { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
-  .panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border);
-  }
-  .panel-title {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-
-  /* TABLE */
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; }
-  thead tr { background: var(--bg-sidebar); }
-  th {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-tertiary);
-    font-weight: 500;
-    padding: 10px 16px;
-    text-align: left;
-    white-space: nowrap;
-  }
-  td {
-    padding: 11px 16px;
-    font-size: 13px;
-    color: var(--text-primary);
-    border-top: 1px solid var(--border);
-    vertical-align: middle;
-  }
-  tbody tr { transition: background 150ms ease; }
-  tbody tr:hover { background: rgba(255,255,255,0.02); }
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 20px;
-  }
-  .status-success { background: var(--green-subtle); color: var(--green); }
-  .status-error { background: var(--red-subtle); color: var(--accent); }
-  .status-duplicate { background: var(--yellow-subtle); color: var(--yellow); }
-  .status-pending { background: var(--yellow-subtle); color: var(--yellow); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-  /* BUTTONS */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 7px;
-    cursor: pointer;
-    border: none;
-    transition: all 150ms ease;
-    white-space: nowrap;
-    letter-spacing: 0.01em;
-  }
-  .btn:active { transform: scale(0.98); }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: var(--accent-hover); }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-secondary { background: rgba(255,255,255,0.06); color: var(--text-primary); border: 1px solid rgba(255,255,255,0.1); }
-  .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-  .btn-destructive { background: rgba(200,30,30,0.1); color: var(--accent); border: 1px solid rgba(200,30,30,0.2); }
-  .btn-destructive:hover { background: rgba(200,30,30,0.2); }
-  .btn-sm { font-size: 11px; padding: 5px 10px; }
-  .btn-green { background: rgba(22,163,74,0.15); color: var(--green); border: 1px solid rgba(22,163,74,0.2); }
-  .btn-green:hover { background: rgba(22,163,74,0.25); }
-
-  /* INPUTS */
-  .form-group { margin-bottom: 16px; }
-  .form-label {
-    display: block;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-  }
-  .form-input, .form-select {
-    width: 100%;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    padding: 10px 12px;
-    font-family: var(--font);
-    font-size: 13px;
-    color: var(--text-primary);
-    outline: none;
-    transition: border-color 150ms ease;
-    appearance: none;
-  }
-  .form-input:focus, .form-select:focus { border-color: rgba(200,30,30,0.5); }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .form-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-
-  /* SWITCH */
-  .switch-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    user-select: none;
-  }
-  .switch {
-    position: relative;
-    width: 40px;
-    height: 22px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 20px;
-    transition: background 200ms ease;
-  }
-  .switch.on { background: var(--accent); }
-  .switch::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform 200ms ease;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-  }
-  .switch.on::after { transform: translateX(18px); }
-  .switch-label { font-size: 13px; color: var(--text-primary); }
-
-  /* MISC */
-  .empty-state {
-    text-align: center;
-    padding: 48px 24px;
-    color: var(--text-tertiary);
-  }
-  .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
-  .empty-text { font-size: 13px; }
-  .loading { text-align: center; padding: 40px; color: var(--text-tertiary); font-size: 13px; }
-  .divider { height: 1px; background: var(--border); margin: 20px 0; }
-  .text-secondary { color: var(--text-secondary); }
-  .text-small { font-size: 12px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .gap-8 { display: flex; gap: 8px; flex-wrap: wrap; }
-  .mt-16 { margin-top: 16px; }
-  .mt-8 { margin-top: 8px; }
-  .mb-16 { margin-bottom: 16px; }
-  .mb-20 { margin-bottom: 20px; }
-  .p-24 { padding: 24px; }
-  .p-16 { padding: 16px 24px; }
-  .response-box {
-    background: #060610;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-    font-size: 12px;
-    color: var(--green);
-    font-family: 'Courier New', monospace;
-    white-space: pre-wrap;
-    max-height: 200px;
-    overflow-y: auto;
-    margin-top: 12px;
-  }
-  .pagination {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 16px 24px;
-    border-top: 1px solid var(--border);
-  }
-  .pagination-info { font-size: 12px; color: var(--text-tertiary); flex: 1; }
-  .alert {
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    margin-bottom: 16px;
-  }
-  .alert-info { background: rgba(255,200,0,0.08); border: 1px solid rgba(255,200,0,0.2); color: var(--yellow); }
-  .tag {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 2px 7px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.06);
-    color: var(--text-secondary);
-  }
+:root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(200,30,30,0.06) 0%,transparent 70%)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.6)}
+.login-logo{text-align:center;margin-bottom:8px}
+.login-logo .ovc{font-size:22px;font-weight:700;color:var(--t1);letter-spacing:.08em}
+.login-logo .accent{color:var(--red)}
+.login-tag{text-align:center;font-size:11px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:36px}
+.login-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:6px}
+.login-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--t1);font-size:14px;outline:none;transition:border .15s}
+.login-input:focus{border-color:var(--red)}
+.login-btn{width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .15s}
+.login-btn:hover{background:var(--red-h)}
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo .name{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--t1)}
+.sidebar-logo .name .a{color:var(--red)}
+.sidebar-logo .sub{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.nav{padding:12px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;transition:all .15s;border-left:2px solid transparent}
+.nav-item:hover{color:var(--t1);background:rgba(255,255,255,0.03)}
+.nav-item.active{color:var(--t1);background:rgba(200,30,30,0.08);border-left-color:var(--red)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .ver{font-size:11px;color:var(--t3)}
+.logout-btn{background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px;margin-top:8px}
+.logout-btn:hover{color:var(--t1)}
+.main{flex:1;overflow-y:auto;background:var(--bg)}
+.page-header{padding:28px 32px 0;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px}
+.page-title{font-size:20px;font-weight:700}
+.page-sub{font-size:13px;color:var(--t2);margin-top:3px}
+.page-body{padding:0 32px 32px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden}
+.panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:13px;font-weight:600;color:var(--t1)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:8px}
+.metric-value{font-size:28px;font-weight:700;color:var(--t1)}
+.metric-icon{position:absolute;top:20px;right:20px;font-size:20px;opacity:.4}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green-s);color:#4ade80}
+.badge-red{background:var(--red-s2);color:#f87171}
+.badge-yellow{background:var(--yellow-s);color:var(--yellow)}
+.badge-gray{background:rgba(255,255,255,0.06);color:var(--t2)}
+.badge-orange{background:rgba(232,93,0,0.15);color:#fb923c}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--red);color:#fff}.btn-primary:hover{background:var(--red-h)}
+.btn-secondary{background:rgba(255,255,255,0.06);color:var(--t1);border:1px solid var(--border)}.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#15803d}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.gap-8{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.text-secondary{color:var(--t2)}
+.text-small{font-size:12px}
+.loading{padding:40px;text-align:center;color:var(--t2)}
+.empty-state{padding:48px;text-align:center}
+.empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
+.empty-text{color:var(--t2);font-size:13px}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.status-pendente{background:var(--yellow-s);color:var(--yellow)}.status-pendente .dot{background:var(--yellow)}
+.status-success{background:var(--green-s);color:#4ade80}.status-success .dot{background:#4ade80}
+.status-error{background:var(--red-s2);color:#f87171}.status-error .dot{background:#f87171}
+.status-duplicate{background:rgba(255,255,255,0.06);color:var(--t2)}.status-duplicate .dot{background:var(--t2)}
+.status-scheduled{background:rgba(59,130,246,0.15);color:#60a5fa}.status-scheduled .dot{background:#60a5fa}
+.pagination{padding:12px 16px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)}
+.pagination-info{font-size:12px;color:var(--t2);flex:1}
+.toggle-wrap{display:flex;align-items:center;gap:10px}
+.toggle{position:relative;width:40px;height:22px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,0.1);border-radius:22px;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.toggle-slider{background:var(--red)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(18px)}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.form-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;transition:border .15s}
+.form-input:focus{border-color:var(--red)}
+.form-select{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none}
+.form-textarea{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;resize:vertical;min-height:120px;font-family:var(--font)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:15px;font-weight:600}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.preview-card{background:#0a0a14;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:360px}
+.preview-img{width:100%;aspect-ratio:4/5;object-fit:cover;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:12px}
+.preview-caption{padding:12px;font-size:12px;color:var(--t2);line-height:1.5;white-space:pre-wrap;max-height:120px;overflow-y:auto}
+.alert-banner{background:rgba(200,30,30,0.1);border:1px solid rgba(200,30,30,0.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.alert-banner.yellow{background:var(--yellow-s);border-color:rgba(255,200,0,0.3)}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-left:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.suggestion-card{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.perf-bar{height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-top:4px}
+.perf-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s}
 </style>
 </head>
 <body>
@@ -513,131 +125,81 @@
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
-// — SUPABASE CONFIG —
 const SUPABASE_URL = 'https://bfsegqdgscudtdgwdyci.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_Unww7VA8g1mlixn65Mq0EA_WhG0L-S_';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const ADMIN_PASS = 'ovc-admin-2026-secreto';
 
-const SENHA = 'ovc-admin-2026-secreto';
+const fmt = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
 
-// — UTILS —
-function fmt(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-}
-function truncate(str, n=60) { return str && str.length > n ? str.slice(0,n)+'…' : (str||'—'); }
-
-// — ICONS —
-const Icon = ({ name, size=16 }) => {
-  const icons = {
-    dashboard: '⬛',
-    pipeline: '⚙️',
-    posts: '📄',
-    instagram: '📸',
-    rss: '📡',
-    engagement: '💬',
-    logs: '📋',
-    config: '🔧',
-    logout: '↩',
-    play: '▶',
-    pause: '⏸',
-    refresh: '↻',
-    add: '+',
-    check: '✓',
-    x: '✕',
-    alert: '⚠',
-    ok: '●',
-    error: '●',
-  };
-  return <span style={{fontSize:size}}>{icons[name]||'·'}</span>;
-};
-
-// ——————————————————————————————————————————
-// MÓDULO 1 — LOGIN
-// ——————————————————————————————————————————
+// ── LOGIN ──
 function Login({ onLogin }) {
-  const [pwd, setPwd] = useState('');
+  const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
-  const handle = () => {
-    if (pwd === SENHA) { onLogin(); }
-    else { setErr('Senha incorreta. Tente novamente.'); }
+  const submit = () => {
+    if (pass === ADMIN_PASS) { onLogin(); }
+    else setErr('Senha incorreta');
   };
-  const onKey = e => { if (e.key === 'Enter') handle(); };
   return (
     <div className="login-wrap">
       <div className="login-box">
-        <div className="login-logo">
-          <span className="ovc">O <span className="accent">VALOR</span> CAPITAL</span>
+        <div className="login-logo"><span className="ovc">O <span className="accent">VALOR</span> CAP.</span></div>
+        <div className="login-tag">Centro de Comando</div>
+        <div className="form-group">
+          <label className="login-label">Senha</label>
+          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/>
         </div>
-        <div className="login-tagline">Centro de Comando</div>
-        <label className="login-label">Senha de acesso</label>
-        <input
-          className="login-input"
-          type="password"
-          placeholder="••••••••••••••••••••"
-          value={pwd}
-          onChange={e => { setPwd(e.target.value); setErr(''); }}
-          onKeyDown={onKey}
-          autoFocus
-        />
-        <button className="login-btn" onClick={handle}>Entrar</button>
-        <div className="login-error">{err}</div>
+        {err && <div style={{color:'#f87171',fontSize:12,marginTop:4}}>{err}</div>}
+        <button className="login-btn" onClick={submit}>Entrar</button>
       </div>
     </div>
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 2 — DASHBOARD GLOBAL
-// ——————————————————————————————————————————
+// ── DASHBOARD ──
 function Dashboard() {
-  const [data, setData] = useState(null);
-  const [recentPosts, setRecentPosts] = useState([]);
-  const [recentLogs, setRecentLogs] = useState([]);
-  const [running, setRunning] = useState(false);
-  const [runResult, setRunResult] = useState('');
+  const [status, setStatus] = useState({running:false,posts_hoje:0,max_posts:60,pendentes:0,erros:0});
+  const [posts, setPosts] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [forcing, setForcing] = useState(false);
+  const [runResult, setRunResult] = useState('');
+  const [alertas, setAlertas] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/status');
-      if (res.ok) {
-        const j = await res.json();
-        setData(j);
-        setRunning(j.running);
-      }
+      const r = await fetch('/api/status');
+      if (r.ok) setStatus(await r.json());
     } catch(_) {}
-    const { data: posts } = await sb.from('posts').select('*').order('created_at', {ascending:false}).limit(10);
-    setRecentPosts(posts||[]);
-    const { data: logs } = await sb.from('logs').select('*').order('created_at', {ascending:false}).limit(10);
-    setRecentLogs(logs||[]);
+    const { data: p } = await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(10);
+    setPosts(p||[]);
+    const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(10);
+    setLogs(l||[]);
+    // Alertas: posts com erro recentes
+    const { data: errs } = await sb.from('posts').select('*').eq('status','error').order('updated_at',{ascending:false}).limit(5);
+    setAlertas(errs||[]);
   }, []);
 
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
 
   const forceRun = async () => {
-    if (forcing) return;
-    setForcing(true);
-    setRunResult('Executando pipeline...');
+    setForcing(true); setRunResult('Executando...');
     try {
-      const res = await fetch('/api/run', { method:'POST' });
-      const j = await res.json();
-      setRunResult(JSON.stringify(j, null, 2));
+      const r = await fetch('/api/run', {method:'POST',headers:{'Content-Type':'application/json'}});
+      const j = await r.json();
+      setRunResult(JSON.stringify(j));
       load();
-    } catch(e) {
-      setRunResult('Erro: ' + e.message);
-    }
+    } catch(e) { setRunResult('Erro: '+e.message); }
     setForcing(false);
   };
 
-  const postsHoje = data?.posts_hoje ?? recentPosts.filter(p => {
-    const d = new Date(p.created_at);
-    const hoje = new Date();
-    return d.toDateString() === hoje.toDateString();
+  const semana = posts.filter(p=>{
+    const d=new Date(p.created_at);
+    return (Date.now()-d.getTime())<7*24*60*60*1000;
   }).length;
 
-  const postsSemana = data?.posts_semana ?? recentPosts.length;
+  const novos = posts.filter(p=>p.status==='pendente').length;
 
   return (
     <div>
@@ -646,81 +208,57 @@ function Dashboard() {
         <div className="page-sub">Visão em tempo real do ecossistema OVC</div>
       </div>
       <div className="page-body">
-        <div className="metrics-row">
+        {alertas.length>0&&<div className="alert-banner"><span>⚠️</span><span>{alertas.length} post(s) com erro recente</span></div>}
+        {novos>0&&<div className="alert-banner yellow"><span>🆕</span><span>{novos} novo(s) conteúdo(s) aguardando aprovação</span></div>}
+        <div className="metrics">
           <div className="metric-card">
             <div className="metric-label">Posts Hoje</div>
-            <div className="metric-value">{postsHoje}</div>
-            <div className="metric-icon">📤</div>
-            <span className="badge badge-green">limite: 60</span>
+            <div className="metric-value">{status.posts_hoje}</div>
+            <div className="metric-icon">📅</div>
+            <span className="badge badge-green">limite: {status.max_posts}</span>
           </div>
           <div className="metric-card">
             <div className="metric-label">Posts na Semana</div>
-            <div className="metric-value">{postsSemana}</div>
+            <div className="metric-value">{semana}</div>
             <div className="metric-icon">📊</div>
           </div>
           <div className="metric-card">
             <div className="metric-label">Automação</div>
-            <div className="metric-value" style={{fontSize:22, paddingTop:6}}>{running ? 'ATIVA' : 'PAUSADA'}</div>
-            <div className="metric-icon">{running ? '🟢' : '🔴'}</div>
-            <span className={`badge ${running ? 'badge-green' : 'badge-red'}`}>{running ? 'Rodando' : 'Parada'}</span>
+            <div className="metric-value" style={{fontSize:20,paddingTop:6}}>{status.running?'ATIVA':'PAUSADA'}</div>
+            <div className="metric-icon">{status.running?'🟢':'🔴'}</div>
+            <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Rodando':'Parada'}</span>
           </div>
           <div className="metric-card">
             <div className="metric-label">Execução Manual</div>
-            <div style={{marginTop:8}}>
-              <button className="btn btn-primary" onClick={forceRun} disabled={forcing}>
-                {forcing ? '⏳ Executando...' : '▶ Forçar agora'}
+            <div className="metric-value" style={{fontSize:14,paddingTop:8}}>
+              <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing}>
+                {forcing?'Executando...':'▶ Forçar agora'}
               </button>
             </div>
             <div className="metric-icon">⚡</div>
           </div>
         </div>
-
-        {runResult && <div className="response-box">{runResult}</div>}
-
-        <div className="grid-2 mt-16">
+        {runResult&&<div className="alert-banner" style={{marginBottom:16}}><code style={{fontSize:11}}>{runResult}</code></div>}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
           <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">Últimos 10 Posts</span>
-              <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
-            </div>
-            {recentPosts.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post encontrado</div></div>
-            ) : (
-              <table>
-                <thead><tr><th>Título</th><th>Status</th><th>Data</th></tr></thead>
-                <tbody>
-                  {recentPosts.map(p => (
-                    <tr key={p.id}>
-                      <td>{truncate(p.titulo, 40)}</td>
-                      <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-                      <td className="text-secondary text-small">{fmt(p.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <div className="panel-header"><span className="panel-title">Últimos 10 Posts</span><button className="btn btn-secondary btn-sm" onClick={load}>↻</button></div>
+            {posts.length===0?<div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post</div></div>:
+            <table><thead><tr><th>Título</th><th>Status</th><th>Data</th></tr></thead>
+            <tbody>{posts.map(p=><tr key={p.id}>
+              <td>{truncate(p.titulo,40)}</td>
+              <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+              <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+            </tr>)}</tbody></table>}
           </div>
-
           <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">Últimos 10 Erros / Logs</span>
-            </div>
-            {recentLogs.length === 0 ? (
-              <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Nenhum log recente</div></div>
-            ) : (
-              <table>
-                <thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
-                <tbody>
-                  {recentLogs.map(l => (
-                    <tr key={l.id}>
-                      <td><span className={`status-pill status-${l.level === 'error' ? 'error' : l.level === 'success' ? 'success' : 'pending'}`}>{l.level}</span></td>
-                      <td>{truncate(l.message, 50)}</td>
-                      <td className="text-secondary text-small">{fmt(l.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <div className="panel-header"><span className="panel-title">Erros Recentes {alertas.length>0&&<span className="notif-dot"></span>}</span></div>
+            {alertas.length===0?<div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Nenhum erro recente</div></div>:
+            <table><thead><tr><th>Post</th><th>Erro</th><th>Data</th></tr></thead>
+            <tbody>{alertas.map(p=><tr key={p.id}>
+              <td>{truncate(p.titulo,30)}</td>
+              <td className="text-small" style={{color:'#f87171'}}>{truncate(p.error_msg,40)}</td>
+              <td className="text-secondary text-small">{fmt(p.updated_at)}</td>
+            </tr>)}</tbody></table>}
           </div>
         </div>
       </div>
@@ -728,141 +266,104 @@ function Dashboard() {
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 3 — PIPELINE / AUTOMAÇÃO
-// ——————————————————————————————————————————
+// ── PIPELINE ──
 function Pipeline() {
-  const [automation, setAutomation] = useState(null);
+  const [auto, setAuto] = useState(null);
   const [maxPosts, setMaxPosts] = useState(60);
-  const [interval, setInterval2] = useState(10);
-  const [execucoes, setExecucoes] = useState([]);
+  const [intervalo, setIntervalo] = useState(10);
+  const [logs, setLogs] = useState([]);
   const [forcing, setForcing] = useState(false);
   const [lastResult, setLastResult] = useState('');
-  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
     const { data: cfgs } = await sb.from('config').select('*');
     if (cfgs) {
-      const auto = cfgs.find(c => c.key === 'AUTOMATION');
-      const mp = cfgs.find(c => c.key === 'MAX_POSTS_DIA');
-      const iv = cfgs.find(c => c.key === 'INTERVALO');
-      setAutomation(auto ? auto.value === 'on' : false);
+      const a = cfgs.find(c=>c.key==='AUTOMATION');
+      const mp = cfgs.find(c=>c.key==='MAX_POSTS_DIA');
+      const iv = cfgs.find(c=>c.key==='INTERVALO');
+      setAuto(a?a.value==='on':false);
       if (mp) setMaxPosts(parseInt(mp.value)||60);
-      if (iv) setInterval2(parseInt(iv.value)||10);
+      if (iv) setIntervalo(parseInt(iv.value)||10);
     }
-    const { data: logs } = await sb.from('logs').select('*').order('created_at', {ascending:false}).limit(20);
-    setExecucoes(logs||[]);
+    const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(20);
+    setLogs(l||[]);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(()=>{load();},[load]);
 
-  const toggleAutomation = async () => {
-    const newVal = !automation;
-    setAutomation(newVal);
-    await sb.from('config').upsert({ key: 'AUTOMATION', value: newVal ? 'on' : 'off', updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    setMsg('Automação ' + (newVal ? 'ativada' : 'pausada'));
-    setTimeout(() => setMsg(''), 3000);
+  const toggleAuto = async () => {
+    const n = !auto; setAuto(n);
+    await sb.from('config').upsert({key:'AUTOMATION',value:n?'on':'off',updated_at:new Date().toISOString()},{onConflict:'key'});
+    setMsg('Automação '+(n?'ativada':'pausada'));
+    setTimeout(()=>setMsg(''),3000);
   };
 
   const saveConfig = async () => {
-    setSaving(true);
-    await sb.from('config').upsert({ key: 'MAX_POSTS_DIA', value: String(maxPosts), updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    await sb.from('config').upsert({ key: 'INTERVALO', value: String(interval), updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    setSaving(false);
+    await sb.from('config').upsert({key:'MAX_POSTS_DIA',value:String(maxPosts),updated_at:new Date().toISOString()},{onConflict:'key'});
+    await sb.from('config').upsert({key:'INTERVALO',value:String(intervalo),updated_at:new Date().toISOString()},{onConflict:'key'});
     setMsg('Configurações salvas');
-    setTimeout(() => setMsg(''), 3000);
+    setTimeout(()=>setMsg(''),3000);
   };
 
   const forceRun = async () => {
-    if (forcing) return;
-    setForcing(true);
-    setLastResult('Iniciando execução...');
+    setForcing(true); setLastResult('Executando...');
     try {
-      const res = await fetch('/api/run', { method: 'POST' });
-      const j = await res.json();
-      setLastResult(JSON.stringify(j, null, 2));
+      const r = await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const j = await r.json();
+      setLastResult(JSON.stringify(j,null,2));
       load();
-    } catch(e) { setLastResult('Erro: ' + e.message); }
+    } catch(e){setLastResult('Erro: '+e.message);}
     setForcing(false);
   };
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Pipeline / Automação</div>
-        <div className="page-sub">Controle do pipeline editorial automatizado</div>
-      </div>
+      <div className="page-header"><div className="page-title">Pipeline / Automação</div><div className="page-sub">Controle do pipeline editorial automatizado</div></div>
       <div className="page-body">
-        {msg && <div className="alert alert-info">{msg}</div>}
-
-        <div className="panel mb-20">
-          <div className="panel-header"><span className="panel-title">Status da Automação</span></div>
-          <div className="p-24">
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:16}}>
-              <div className="switch-wrap" onClick={toggleAutomation}>
-                <div className={`switch ${automation ? 'on' : ''}`}></div>
-                <span className="switch-label">
-                  {automation === null ? 'Carregando...' : automation ? '🟢 Automação ATIVA' : '🔴 Automação PAUSADA'}
-                </span>
-              </div>
-              <button className="btn btn-primary" onClick={forceRun} disabled={forcing}>
-                {forcing ? '⏳ Executando...' : '▶ Forçar execução agora'}
-              </button>
-            </div>
-            {lastResult && <div className="response-box">{lastResult}</div>}
-          </div>
-        </div>
-
-        <div className="panel mb-20">
-          <div className="panel-header"><span className="panel-title">Parâmetros</span></div>
-          <div className="p-24">
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">MAX Posts por Dia</label>
-                <input className="form-input" type="number" min={1} max={60} value={maxPosts} onChange={e => setMaxPosts(Number(e.target.value))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Intervalo entre execuções (minutos)</label>
-                <input className="form-input" type="number" min={1} value={interval} onChange={e => setInterval2(Number(e.target.value))} />
-              </div>
-            </div>
-            <button className="btn btn-primary" onClick={saveConfig} disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar parâmetros'}
-            </button>
-          </div>
-        </div>
-
+        {msg&&<div className="alert-banner yellow" style={{marginBottom:16}}><span>✓ {msg}</span></div>}
         <div className="panel">
-          <div className="panel-header">
-            <span className="panel-title">Execuções Recentes (Logs)</span>
-            <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
+          <div className="panel-header"><span className="panel-title">Status da Automação</span>
+            <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing}>{forcing?'Executando...':'▶ Forçar execução agora'}</button>
           </div>
-          {execucoes.length === 0 ? (
-            <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhuma execução registrada</div></div>
-          ) : (
-            <table>
-              <thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
-              <tbody>
-                {execucoes.map(e => (
-                  <tr key={e.id}>
-                    <td><span className={`status-pill status-${e.level === 'error' ? 'error' : e.level === 'success' ? 'success' : 'pending'}`}>{e.level}</span></td>
-                    <td>{truncate(e.message, 70)}</td>
-                    <td className="text-secondary text-small">{fmt(e.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <div style={{padding:'20px'}}>
+            <div className="toggle-wrap">
+              <label className="toggle"><input type="checkbox" checked={!!auto} onChange={toggleAuto}/><span className="toggle-slider"></span></label>
+              <span style={{fontWeight:600}}>{auto?<span style={{color:'#4ade80'}}>● Automação ATIVA</span>:<span style={{color:'#f87171'}}>● Automação PAUSADA</span>}</span>
+            </div>
+            {lastResult&&<pre style={{marginTop:12,fontSize:11,color:'#4ade80',background:'rgba(0,0,0,.3)',padding:12,borderRadius:8,overflow:'auto'}}>{lastResult}</pre>}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Parâmetros</span></div>
+          <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div className="form-group">
+              <label className="form-label">Max Posts por Dia</label>
+              <input className="form-input" type="number" value={maxPosts} onChange={e=>setMaxPosts(parseInt(e.target.value)||60)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Intervalo entre Execuções (min)</label>
+              <input className="form-input" type="number" value={intervalo} onChange={e=>setIntervalo(parseInt(e.target.value)||10)}/>
+            </div>
+          </div>
+          <div style={{padding:'0 20px 20px'}}><button className="btn btn-primary" onClick={saveConfig}>Salvar parâmetros</button></div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Execuções Recentes (Logs)</span><button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button></div>
+          {logs.length===0?<div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhuma execução registrada</div></div>:
+          <table><thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
+          <tbody>{logs.map(l=><tr key={l.id}>
+            <td><span className={`badge ${l.level==='error'?'badge-red':l.level==='warn'?'badge-yellow':'badge-gray'}`}>{l.level}</span></td>
+            <td className="text-small">{truncate(l.message,80)}</td>
+            <td className="text-secondary text-small">{fmt(l.created_at)}</td>
+          </tr>)}</tbody></table>}
         </div>
       </div>
     </div>
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 4 — POSTAGENS
-// ——————————————————————————————————————————
+// ── POSTAGENS ──
 function Postagens() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -870,130 +371,177 @@ function Postagens() {
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState([]);
   const [approving, setApproving] = useState(false);
+  const [editPost, setEditPost] = useState(null);
+  const [previewPost, setPreviewPost] = useState(null);
+  const [accounts, setAccounts] = useState([]);
   const PER = 50;
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setSelected([]);
-    let q = sb.from('posts').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(page*PER, (page+1)*PER-1);
-    if (filter !== 'all') q = q.eq('status', filter);
+    setLoading(true); setSelected([]);
+    let q = sb.from('posts').select('*,ig_accounts(username)').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    if (filter!=='all') q=q.eq('status',filter);
     const { data } = await q;
     setPosts(data||[]);
+    const { data: acc } = await sb.from('ig_accounts').select('id,username').eq('active',true);
+    setAccounts(acc||[]);
     setLoading(false);
-  }, [filter, page]);
+  },[filter,page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(()=>{load();},[load]);
 
-  const toggleSelect = (id) => {
-    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
+  const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => {
-    const pendentes = posts.filter(p => p.status === 'pendente').map(p => p.id);
-    setSelected(prev => prev.length === pendentes.length ? [] : pendentes);
+    const pend = posts.filter(p=>p.status==='pendente').map(p=>p.id);
+    setSelected(p=>p.length===pend.length?[]:pend);
   };
 
-  const approveOne = async (id) => {
+  const approveOne = async id => {
     setApproving(true);
-    try {
-      const r = await fetch('/api/approve', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
-      const d = await r.json();
-      if (d.ok) { alert('✅ Post aprovado e publicado no Instagram!'); load(); }
-      else alert('❌ Erro: ' + d.error);
-    } catch(e) { alert('❌ Erro: ' + e.message); }
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const d = await r.json();
+    if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
+    else alert('❌ Erro: '+d.error);
     setApproving(false);
   };
 
   const approveBatch = async () => {
-    if (!selected.length) return alert('Selecione ao menos um post.');
-    if (!confirm(`Aprovar e publicar ${selected.length} post(s) no Instagram?`)) return;
+    if (!selected.length) return;
+    if (!confirm(`Publicar ${selected.length} post(s)?`)) return;
     setApproving(true);
-    try {
-      const r = await fetch('/api/approve', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ids: selected }) });
-      const d = await r.json();
-      const ok = d.results?.filter(x => x.ok).length || 0;
-      const fail = d.results?.filter(x => !x.ok).length || 0;
-      alert(`✅ ${ok} publicado(s)${fail ? ' · ❌ ' + fail + ' erro(s)' : ''}`);
-      load();
-    } catch(e) { alert('❌ Erro: ' + e.message); }
-    setApproving(false);
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
+    const d = await r.json();
+    const ok = d.results?.filter(x=>x.ok).length||0;
+    const fail = d.results?.filter(x=>!x.ok).length||0;
+    alert(`✅ ${ok} publicado(s)${fail?' · ❌ '+fail+' erro(s)':''}`);
+    load(); setApproving(false);
   };
 
-  const pendentesCount = posts.filter(p => p.status === 'pendente').length;
+  const retryPost = async id => {
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'retry'})});
+    const d = await r.json();
+    if (d.ok) { alert('Post recolocado na fila.'); load(); }
+    else alert('Erro: '+d.error);
+  };
+
+  const saveEdit = async () => {
+    await sb.from('posts').update({
+      titulo: editPost.titulo,
+      conteudo: editPost.conteudo,
+      comentario_fixado: editPost.comentario_fixado,
+      imagem: editPost.imagem,
+      ig_account_id: editPost.ig_account_id||null,
+      scheduled_at: editPost.scheduled_at||null,
+      user_tags: editPost.user_tags||'[]',
+      collaborators: editPost.collaborators||'[]',
+      updated_at: new Date().toISOString()
+    }).eq('id',editPost.id);
+    setEditPost(null); load();
+  };
+
+  const pendentesCount = posts.filter(p=>p.status==='pendente').length;
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Postagens</div>
-        <div className="page-sub">Aprovação e histórico de posts</div>
-      </div>
+      <div className="page-header"><div className="page-title">Postagens</div><div className="page-sub">Aprovação, edição e histórico de posts</div></div>
       <div className="page-body">
+        {previewPost&&(
+          <div className="modal-bg" onClick={()=>setPreviewPost(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <div className="modal-header"><span className="modal-title">Preview do Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(null)}>✕</button></div>
+              <div className="modal-body" style={{display:'flex',gap:20,flexWrap:'wrap'}}>
+                <div className="preview-card" style={{flex:'0 0 280px'}}>
+                  {previewPost.imagem?<img src={previewPost.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover'}} onError={e=>e.target.style.display='none'} alt=""/>:<div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>}
+                  <div className="preview-caption">{previewPost.conteudo}</div>
+                </div>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:8}}>Comentário fixado:</div>
+                  <div style={{fontSize:13,color:'var(--t1)',background:'var(--input)',padding:12,borderRadius:8}}>{previewPost.comentario_fixado||'—'}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Conta:</div>
+                  <div style={{fontSize:13}}>{previewPost.ig_accounts?.username||'Automática'}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Agendado para:</div>
+                  <div style={{fontSize:13}}>{previewPost.scheduled_at?fmt(previewPost.scheduled_at):'Publicar imediatamente'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {editPost&&(
+          <div className="modal-bg">
+            <div className="modal">
+              <div className="modal-header"><span className="modal-title">Editar Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setEditPost(null)}>✕</button></div>
+              <div className="modal-body">
+                <div className="form-group"><label className="form-label">Título / Tag</label><input className="form-input" value={editPost.titulo||''} onChange={e=>setEditPost({...editPost,titulo:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Legenda / Conteúdo</label><textarea className="form-textarea" style={{minHeight:180}} value={editPost.conteudo||''} onChange={e=>setEditPost({...editPost,conteudo:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Comentário Fixado</label><textarea className="form-textarea" style={{minHeight:60}} value={editPost.comentario_fixado||''} onChange={e=>setEditPost({...editPost,comentario_fixado:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">URL da Imagem</label><input className="form-input" value={editPost.imagem||''} onChange={e=>setEditPost({...editPost,imagem:e.target.value})}/></div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                  <div className="form-group"><label className="form-label">Conta Instagram</label>
+                    <select className="form-select" value={editPost.ig_account_id||''} onChange={e=>setEditPost({...editPost,ig_account_id:e.target.value})}>
+                      <option value="">Automática</option>
+                      {accounts.map(a=><option key={a.id} value={a.id}>@{a.username}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group"><label className="form-label">Agendar para</label><input className="form-input" type="datetime-local" value={editPost.scheduled_at?editPost.scheduled_at.slice(0,16):''} onChange={e=>setEditPost({...editPost,scheduled_at:e.target.value})}/></div>
+                </div>
+                <div className="form-group"><label className="form-label">Marcar usuários (@usuario1,@usuario2)</label><input className="form-input" value={editPost.user_tags||''} onChange={e=>setEditPost({...editPost,user_tags:e.target.value})} placeholder="@usuario1, @usuario2"/></div>
+                <div className="form-group"><label className="form-label">Colaboradores (@usuario1,@usuario2)</label><input className="form-input" value={editPost.collaborators||''} onChange={e=>setEditPost({...editPost,collaborators:e.target.value})} placeholder="@oterrasan, @blogdoterra"/></div>
+              </div>
+              <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>setEditPost(null)}>Cancelar</button><button className="btn btn-primary" onClick={saveEdit}>Salvar</button></div>
+            </div>
+          </div>
+        )}
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">Filtrar por status</span>
+            <span className="panel-title">Filtrar</span>
             <div className="gap-8">
-              {['all','pendente','success','error','duplicate'].map(f => (
-                <button key={f} className={`btn btn-sm ${filter===f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setFilter(f); setPage(0); }}>
-                  {f === 'all' ? 'Todos' : f}
+              {['all','pendente','success','error','scheduled'].map(f=>(
+                <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>
+                  {f==='all'?'Todos':f}
                 </button>
               ))}
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>
           </div>
-          {selected.length > 0 && (
-            <div style={{padding:'12px 20px', background:'rgba(200,30,30,0.08)', borderBottom:'1px solid rgba(200,30,30,0.2)', display:'flex', alignItems:'center', gap:'12px'}}>
-              <span style={{color:'#ffc800', fontSize:'13px'}}>{selected.length} post(s) selecionado(s)</span>
-              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>
-                {approving ? 'Publicando...' : `✓ Aprovar ${selected.length} em lote`}
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={() => setSelected([])}>Cancelar</button>
+          {selected.length>0&&(
+            <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12}}>
+              <span style={{color:'var(--yellow)',fontSize:13}}>{selected.length} selecionado(s)</span>
+              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>{approving?'Publicando...':'✓ Aprovar em lote'}</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>Cancelar</button>
             </div>
           )}
-          {loading ? (
-            <div className="loading">Carregando...</div>
-          ) : posts.length === 0 ? (
-            <div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post encontrado</div></div>
-          ) : (
+          {loading?<div className="loading">Carregando...</div>:posts.length===0?<div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post encontrado</div></div>:(
             <>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th><input type="checkbox" onChange={toggleAll} checked={selected.length === pendentesCount && pendentesCount > 0} /></th>
-                      <th>Título</th>
-                      <th>Status</th>
-                      <th>Data</th>
-                      <th>Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {posts.map(p => (
-                      <tr key={p.id} style={p.status==='pendente' ? {background:'rgba(255,200,0,0.04)'} : {}}>
-                        <td>
-                          {p.status === 'pendente' && (
-                            <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleSelect(p.id)} />
-                          )}
-                        </td>
-                        <td>{truncate(p.titulo, 60)}</td>
-                        <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-                        <td className="text-secondary text-small">{fmt(p.created_at)}</td>
-                        <td>
-                          {p.status === 'pendente' && (
-                            <button className="btn btn-primary btn-sm" onClick={() => approveOne(p.id)} disabled={approving}>
-                              ✓ Aprovar
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="pagination">
-                <span className="pagination-info">Página {page+1} · {PER} por página</span>
-                <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(0,p-1))} disabled={page===0}>← Anterior</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => p+1)} disabled={posts.length < PER}>Próxima →</button>
-              </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr>
+                  <th><input type="checkbox" onChange={toggleAll} checked={selected.length===pendentesCount&&pendentesCount>0}/></th>
+                  <th>Título</th><th>Status</th><th>Conta</th><th>Agendado</th><th>Data</th><th>Ações</th>
+                </tr></thead>
+                <tbody>{posts.map(p=>(
+                  <tr key={p.id} style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:{}}>
+                    <td>{p.status==='pendente'&&<input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/>}</td>
+                    <td>{truncate(p.titulo,45)}</td>
+                    <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+                    <td className="text-secondary text-small">{p.ig_accounts?.username?'@'+p.ig_accounts.username:'auto'}</td>
+                    <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'—'}</td>
+                    <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+                    <td>
+                      <div className="gap-8">
+                        <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Preview">👁</button>
+                        <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
+                        {p.status==='pendente'&&<button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving}>✓</button>}
+                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className="pagination">
+              <span className="pagination-info">Página {page+1}</span>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>← Anterior</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={posts.length<PER}>Próxima →</button>
+            </div>
             </>
           )}
         </div>
@@ -1002,241 +550,93 @@ function Postagens() {
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 5 — CONTAS INSTAGRAM
-// ——————————————————————————————————————————
+// ── CONTAS INSTAGRAM ──
 function ContasInstagram() {
-  const [contas, setContas] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ username:'', ig_user_id:'', token:'' });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [editAcc, setEditAcc] = useState(null);
+  const [newAcc, setNewAcc] = useState(false);
+  const [form, setForm] = useState({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
 
   const load = async () => {
     setLoading(true);
-    const { data } = await sb.from('ig_accounts').select('*').order('created_at', {ascending:false});
-    setContas(data||[]);
+    const { data } = await sb.from('ig_accounts').select('*').order('created_at',{ascending:false});
+    setAccounts(data||[]);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
 
-  const addConta = async () => {
-    if (!form.username || !form.ig_user_id || !form.token) { setMsg('Preencha todos os campos.'); return; }
-    setSaving(true);
-    const { error } = await sb.from('ig_accounts').insert({ username: form.username, ig_user_id: form.ig_user_id, token: form.token, active: true, posts_today: 0, created_at: new Date().toISOString() });
-    if (!error) { setForm({ username:'', ig_user_id:'', token:'' }); setMsg('Conta adicionada.'); load(); }
-    else { setMsg('Erro: ' + error.message); }
-    setSaving(false);
-    setTimeout(() => setMsg(''), 4000);
-  };
+  useEffect(()=>{load();},[]);
 
-  const toggleConta = async (id, active) => {
-    await sb.from('ig_accounts').update({ active: !active }).eq('id', id);
-    load();
-  };
-
-  const resetContador = async (id) => {
-    await sb.from('ig_accounts').update({ posts_today: 0 }).eq('id', id);
-    load();
-  };
-
-  return (
-    <div>
-      <div className="page-header">
-        <div className="page-title">Contas Instagram</div>
-        <div className="page-sub">Gerenciamento das contas do grupo OVC</div>
-      </div>
-      <div className="page-body">
-        {msg && <div className="alert alert-info">{msg}</div>}
-
-        <div className="panel mb-20">
-          <div className="panel-header"><span className="panel-title">Nova Conta</span></div>
-          <div className="p-24">
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Username</label>
-                <input className="form-input" placeholder="@ovalorcapital" value={form.username} onChange={e => setForm(f=>({...f, username:e.target.value}))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">IG User ID</label>
-                <input className="form-input" placeholder="12345678" value={form.ig_user_id} onChange={e => setForm(f=>({...f, ig_user_id:e.target.value}))} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Access Token</label>
-              <input className="form-input" placeholder="EAAxxxxxx..." value={form.token} onChange={e => setForm(f=>({...f, token:e.target.value}))} />
-            </div>
-            <button className="btn btn-primary" onClick={addConta} disabled={saving}>{saving ? 'Salvando...' : '+ Adicionar conta'}</button>
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="panel-header">
-            <span className="panel-title">Contas Cadastradas</span>
-            <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
-          </div>
-          {loading ? <div className="loading">Carregando...</div> : contas.length === 0 ? (
-            <div className="empty-state"><div className="empty-icon">📸</div><div className="empty-text">Nenhuma conta cadastrada</div></div>
-          ) : (
-            <table>
-              <thead><tr><th>Username</th><th>IG User ID</th><th>Status</th><th>Posts Hoje</th><th>Ações</th></tr></thead>
-              <tbody>
-                {contas.map(c => (
-                  <tr key={c.id}>
-                    <td>@{c.username}</td>
-                    <td className="text-secondary text-small" style={{fontFamily:'monospace'}}>{c.ig_user_id}</td>
-                    <td>
-                      <span className={`status-pill ${c.active ? 'status-success' : 'status-error'}`}>
-                        <span className="dot"></span>{c.active ? 'ativa' : 'inativa'}
-                      </span>
-                    </td>
-                    <td>{c.posts_today ?? 0}</td>
-                    <td>
-                      <div className="gap-8">
-                        <button className={`btn btn-sm ${c.active ? 'btn-destructive' : 'btn-green'}`} onClick={() => toggleConta(c.id, c.active)}>
-                          {c.active ? 'Desativar' : 'Ativar'}
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => resetContador(c.id)}>↺ Reset</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ——————————————————————————————————————————
-// MÓDULO 6 — FONTES RSS
-// ——————————————————————————————————————————
-const DEFAULT_RSS = [
-  { name: 'G1', url: 'https://g1.globo.com/rss/g1/' },
-  { name: 'CNN Brasil', url: 'https://www.cnnbrasil.com.br/rss/' },
-  { name: 'Metrópoles', url: 'https://www.metropoles.com/feed' },
-  { name: 'InfoMoney', url: 'https://www.infomoney.com.br/feed' },
-  { name: 'Gazeta do Povo', url: 'https://www.gazetadopovo.com.br/rss/republica.xml' },
-  { name: 'Revista Oeste', url: 'https://revistaoeste.com/feed/' },
-  { name: 'SBT News', url: 'https://www.sbtnews.com.br/feed/' },
-  { name: 'Câmara', url: 'https://www.camara.leg.br/rss/agencia/' },
-  { name: 'Senado', url: 'https://www12.senado.leg.br/noticias/rss/ultimas' },
-  { name: 'Conexão Política', url: 'https://www.conexaopolitica.com.br/feed/' },
-  { name: 'Poder360', url: 'https://www.poder360.com.br/feed/' },
-  { name: 'Pleno News', url: 'https://pleno.news/feed/' },
-  { name: 'O Antagonista', url: 'https://www.oantagonista.com.br/feed/' },
-  { name: 'Crusoé', url: 'https://www.crusoe.com.br/feed/' },
-  { name: 'Jovem Pan', url: 'https://jovempan.com.br/noticias/politica/feed' },
-  { name: 'Jornal da Cidade Online', url: 'https://www.jornaldacidadeonline.com.br/feed/' },
-  { name: 'MBL', url: 'https://mbl.org.br/feed/' },
-  { name: 'Bacci Notícias', url: 'https://baccinoticias.com.br/feed/' },
-];
-
-function FontesRSS() {
-  const [fontes, setFontes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ name:'', url:'' });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
-
-  const load = async () => {
-    setLoading(true);
-    const { data } = await sb.from('rss_sources').select('*').order('created_at', {ascending:false});
-    setFontes(data||[]);
-    setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
-
-  const addFonte = async (name, url) => {
-    const n = name || form.name;
-    const u = url || form.url;
-    if (!n || !u) { setMsg('Preencha nome e URL.'); return; }
-    setSaving(true);
-    const { error } = await sb.from('rss_sources').insert({ name:n, url:u, active:true, created_at: new Date().toISOString() });
-    if (!error) { setForm({name:'', url:''}); setMsg('Fonte adicionada: ' + n); load(); }
-    else { setMsg('Erro: ' + error.message); }
-    setSaving(false);
-    setTimeout(() => setMsg(''), 4000);
-  };
-
-  const toggleFonte = async (id, active) => {
-    await sb.from('rss_sources').update({ active: !active }).eq('id', id);
-    load();
-  };
-
-  const seedDefaults = async () => {
-    setSaving(true);
-    for (const d of DEFAULT_RSS) {
-      const exists = fontes.find(f => f.url === d.url);
-      if (!exists) await sb.from('rss_sources').insert({ name:d.name, url:d.url, active:true, created_at: new Date().toISOString() });
+  const saveAccount = async () => {
+    if (editAcc) {
+      await sb.from('ig_accounts').update({...form,updated_at:new Date().toISOString()}).eq('id',editAcc.id);
+    } else {
+      await sb.from('ig_accounts').insert([{...form,posts_hoje:0}]);
     }
-    setSaving(false);
-    setMsg('Fontes padrão adicionadas.');
-    setTimeout(() => setMsg(''), 3000);
+    setEditAcc(null); setNewAcc(false);
+    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
     load();
+  };
+
+  const toggleActive = async (acc) => {
+    await sb.from('ig_accounts').update({active:!acc.active}).eq('id',acc.id);
+    load();
+  };
+
+  const openEdit = acc => {
+    setForm({username:acc.username||'',ig_user_id:acc.ig_user_id||'',token:acc.token||'',active:acc.active,distribuicao_automatica:acc.distribuicao_automatica,limite_diario:acc.limite_diario||25});
+    setEditAcc(acc); setNewAcc(false);
+  };
+
+  const openNew = () => {
+    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+    setNewAcc(true); setEditAcc(null);
   };
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Fontes RSS</div>
-        <div className="page-sub">Gerenciamento das fontes de notícias do Radar OVC</div>
-      </div>
+      <div className="page-header"><div className="page-title">Contas Instagram</div><div className="page-sub">Gestão e monitoramento de contas</div></div>
       <div className="page-body">
-        {msg && <div className="alert alert-info">{msg}</div>}
-
-        <div className="panel mb-20">
-          <div className="panel-header">
-            <span className="panel-title">Adicionar Fonte</span>
-            <button className="btn btn-secondary btn-sm" onClick={seedDefaults} disabled={saving}>⬇ Adicionar fontes padrão</button>
-          </div>
-          <div className="p-24">
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Nome da fonte</label>
-                <input className="form-input" placeholder="Ex: CNN Brasil" value={form.name} onChange={e => setForm(f=>({...f, name:e.target.value}))} />
+        {(editAcc||newAcc)&&(
+          <div className="modal-bg">
+            <div className="modal">
+              <div className="modal-header"><span className="modal-title">{editAcc?'Editar Conta':'Nova Conta'}</span><button className="btn btn-secondary btn-sm" onClick={()=>{setEditAcc(null);setNewAcc(false);}}>✕</button></div>
+              <div className="modal-body">
+                <div className="form-group"><label className="form-label">Username</label><input className="form-input" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="ovalorcapital"/></div>
+                <div className="form-group"><label className="form-label">IG User ID</label><input className="form-input" value={form.ig_user_id} onChange={e=>setForm({...form,ig_user_id:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Access Token</label><textarea className="form-textarea" style={{minHeight:80}} value={form.token} onChange={e=>setForm({...form,token:e.target.value})}/></div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                  <div className="form-group"><label className="form-label">Limite Diário</label><input className="form-input" type="number" value={form.limite_diario} onChange={e=>setForm({...form,limite_diario:parseInt(e.target.value)||25})}/></div>
+                  <div className="form-group" style={{paddingTop:20}}>
+                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                      <input type="checkbox" checked={form.distribuicao_automatica} onChange={e=>setForm({...form,distribuicao_automatica:e.target.checked})}/>
+                      <span style={{fontSize:13}}>Distribuição automática</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">URL do feed RSS</label>
-                <input className="form-input" placeholder="https://..." value={form.url} onChange={e => setForm(f=>({...f, url:e.target.value}))} />
-              </div>
+              <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>{setEditAcc(null);setNewAcc(false);}}>Cancelar</button><button className="btn btn-primary" onClick={saveAccount}>Salvar</button></div>
             </div>
-            <button className="btn btn-primary" onClick={() => addFonte()} disabled={saving}>+ Adicionar fonte</button>
           </div>
-        </div>
-
+        )}
         <div className="panel">
-          <div className="panel-header">
-            <span className="panel-title">Fontes Cadastradas</span>
-            <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
-          </div>
-          {loading ? <div className="loading">Carregando...</div> : fontes.length === 0 ? (
-            <div className="empty-state"><div className="empty-icon">📡</div><div className="empty-text">Nenhuma fonte cadastrada. Use o botão acima para adicionar as fontes padrão.</div></div>
-          ) : (
-            <table>
-              <thead><tr><th>Nome</th><th>URL</th><th>Status</th><th>Último Fetch</th><th>Ações</th></tr></thead>
-              <tbody>
-                {fontes.map(f => (
-                  <tr key={f.id}>
-                    <td style={{fontWeight:500}}>{f.name}</td>
-                    <td className="text-secondary text-small">{truncate(f.url, 45)}</td>
-                    <td>
-                      <span className={`status-pill ${f.active ? 'status-success' : 'status-error'}`}>
-                        <span className="dot"></span>{f.active ? 'ativa' : 'inativa'}
-                      </span>
-                    </td>
-                    <td className="text-secondary text-small">{fmt(f.last_fetched)}</td>
-                    <td>
-                      <button className={`btn btn-sm ${f.active ? 'btn-destructive' : 'btn-green'}`} onClick={() => toggleFonte(f.id, f.active)}>
-                        {f.active ? 'Desativar' : 'Ativar'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="panel-header"><span className="panel-title">Contas Cadastradas</span><button className="btn btn-primary btn-sm" onClick={openNew}>+ Nova Conta</button></div>
+          {loading?<div className="loading">Carregando...</div>:accounts.length===0?<div className="empty-state"><div className="empty-icon">📱</div><div className="empty-text">Nenhuma conta cadastrada</div></div>:(
+            <table><thead><tr><th>Username</th><th>Status</th><th>Posts Hoje</th><th>Limite</th><th>Distribuição</th><th>Última Atividade</th><th>Ações</th></tr></thead>
+            <tbody>{accounts.map(a=>(
+              <tr key={a.id}>
+                <td style={{fontWeight:600}}>@{a.username}</td>
+                <td><span className={`badge ${a.active?'badge-green':'badge-red'}`}>{a.active?'Ativa':'Inativa'}</span></td>
+                <td>{a.posts_hoje||0}</td>
+                <td>{a.limite_diario||25}</td>
+                <td><span className={`badge ${a.distribuicao_automatica?'badge-green':'badge-gray'}`}>{a.distribuicao_automatica?'Sim':'Não'}</span></td>
+                <td className="text-secondary text-small">{a.ultima_atividade?fmt(a.ultima_atividade):'Nunca'}</td>
+                <td><div className="gap-8">
+                  <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(a)}>✏️</button>
+                  <button className={`btn btn-sm ${a.active?'btn-secondary':'btn-green'}`} onClick={()=>toggleActive(a)}>{a.active?'Pausar':'Ativar'}</button>
+                </div></td>
+              </tr>
+            ))}</tbody></table>
           )}
         </div>
       </div>
@@ -1244,161 +644,186 @@ function FontesRSS() {
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 7 — ENGAJAMENTO MANUAL
-// ——————————————————————————————————————————
-const CONTAS_GRUPO = ['@oterrasan', '@blogdoterra', '@grupoterrasan', '@ovalorcapitalcorretora'];
-const SUGESTOES_COMENTARIO = [
-  'Informação essencial. Compartilhando agora. 🔴⚪',
-  'Isso precisa chegar nas pessoas. Obrigado, OVC.',
-  'A mídia grande não vai contar isso. Por isso o OVC existe.',
-  'Pergunta que não quer calar. Alguém responde?',
-  'Fatos são fatos. O Brasil precisa saber disso.',
-  'Centro-direita bem informada. Segue o OVC.',
-];
-
-function Engajamento() {
-  const [posts, setPosts] = useState([]);
+// ── FONTES RSS ──
+function FontesRSS() {
+  const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [acoes, setAcoes] = useState({});
-  const [msg, setMsg] = useState('');
+  const [form, setForm] = useState({name:'',url:'',active:true});
+  const [editSrc, setEditSrc] = useState(null);
+  const [newSrc, setNewSrc] = useState(false);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await sb.from('posts').select('*').eq('status', 'success').order('created_at', {ascending:false}).limit(20);
-    setPosts(data||[]);
+    const { data } = await sb.from('rss_sources').select('*').order('created_at',{ascending:false});
+    setSources(data||[]);
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
 
-  const registrarAcao = async (postId, acao, conta) => {
-    const key = `${postId}-${acao}-${conta}`;
-    setAcoes(a => ({...a, [key]: true}));
-    await sb.from('logs').insert({ level:'info', message:`Engajamento manual: ${acao} | conta: ${conta} | post_id: ${postId}`, created_at: new Date().toISOString() });
-    setMsg(`✓ Ação "${acao}" registrada para ${conta}`);
-    setTimeout(() => setMsg(''), 3000);
+  useEffect(()=>{load();},[]);
+
+  const save = async () => {
+    if (editSrc) { await sb.from('rss_sources').update(form).eq('id',editSrc.id); }
+    else { await sb.from('rss_sources').insert([form]); }
+    setEditSrc(null); setNewSrc(false);
+    setForm({name:'',url:'',active:true});
+    load();
   };
 
-  const getRandComentario = (idx) => SUGESTOES_COMENTARIO[idx % SUGESTOES_COMENTARIO.length];
+  const toggle = async src => {
+    await sb.from('rss_sources').update({active:!src.active}).eq('id',src.id);
+    load();
+  };
+
+  const openEdit = src => { setForm({name:src.name,url:src.url,active:src.active}); setEditSrc(src); setNewSrc(false); };
+  const openNew = () => { setForm({name:'',url:'',active:true}); setNewSrc(true); setEditSrc(null); };
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Engajamento Manual</div>
-        <div className="page-sub">Sugestões de ação para as contas do grupo OVC</div>
-      </div>
+      <div className="page-header"><div className="page-title">Fontes RSS</div><div className="page-sub">Gerenciamento de fontes de conteúdo</div></div>
       <div className="page-body">
-        {msg && <div className="alert alert-info">{msg}</div>}
-
-        <div className="panel mb-20">
-          <div className="panel-header"><span className="panel-title">Contas do Grupo</span></div>
-          <div className="p-24">
-            <div className="gap-8">
-              {CONTAS_GRUPO.map(c => <span key={c} className="tag">{c}</span>)}
-            </div>
-            <div style={{marginTop:12, fontSize:12, color:'var(--text-tertiary)'}}>
-              Engajamento é sempre manual — sem automação de acordo com os Termos do Instagram.
-            </div>
-          </div>
-        </div>
-
-        {loading ? <div className="loading">Carregando posts...</div> : posts.length === 0 ? (
-          <div className="empty-state"><div className="empty-icon">💬</div><div className="empty-text">Nenhum post publicado encontrado</div></div>
-        ) : posts.map((p, idx) => (
-          <div key={p.id} className="panel mb-20">
-            <div className="panel-header">
-              <span className="panel-title" style={{color:'var(--text-primary)', textTransform:'none', fontSize:13, letterSpacing:0, fontWeight:500}}>{truncate(p.titulo, 80)}</span>
-              <span className="text-secondary text-small">{fmt(p.created_at)}</span>
-            </div>
-            <div className="p-24">
-              <div className="mb-16" style={{fontSize:12, color:'var(--text-tertiary)'}}>Sugestão de comentário:</div>
-              <div style={{background:'rgba(255,255,255,0.03)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--text-primary)', marginBottom:16, fontStyle:'italic'}}>
-                "{getRandComentario(idx)}"
+        {(editSrc||newSrc)&&(
+          <div className="modal-bg">
+            <div className="modal">
+              <div className="modal-header"><span className="modal-title">{editSrc?'Editar Fonte':'Nova Fonte'}</span><button className="btn btn-secondary btn-sm" onClick={()=>{setEditSrc(null);setNewSrc(false);}}>✕</button></div>
+              <div className="modal-body">
+                <div className="form-group"><label className="form-label">Nome</label><input className="form-input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">URL do Feed RSS</label><input className="form-input" value={form.url} onChange={e=>setForm({...form,url:e.target.value})}/></div>
+                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                  <input type="checkbox" checked={form.active} onChange={e=>setForm({...form,active:e.target.checked})}/><span>Ativa</span>
+                </label>
               </div>
-              <div style={{fontSize:12, color:'var(--text-tertiary)', marginBottom:10}}>Registrar ação executada:</div>
-              {CONTAS_GRUPO.map(conta => (
-                <div key={conta} style={{display:'flex', alignItems:'center', gap:8, marginBottom:8, flexWrap:'wrap'}}>
-                  <span className="tag" style={{minWidth:160}}>{conta}</span>
-                  {['like','save','comentário'].map(acao => {
-                    const key = `${p.id}-${acao}-${conta}`;
-                    const done = acoes[key];
-                    return (
-                      <button key={acao} className={`btn btn-sm ${done ? 'btn-green' : 'btn-secondary'}`} onClick={() => registrarAcao(p.id, acao, conta)}>
-                        {done ? '✓ ' : ''}{acao}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+              <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>{setEditSrc(null);setNewSrc(false);}}>Cancelar</button><button className="btn btn-primary" onClick={save}>Salvar</button></div>
             </div>
           </div>
-        ))}
+        )}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">{sources.length} fontes cadastradas</span><button className="btn btn-primary btn-sm" onClick={openNew}>+ Nova Fonte</button></div>
+          {loading?<div className="loading">Carregando...</div>:sources.length===0?<div className="empty-state"><div className="empty-icon">📡</div><div className="empty-text">Nenhuma fonte cadastrada</div></div>:(
+            <table><thead><tr><th>Nome</th><th>URL</th><th>Status</th><th>Última leitura</th><th>Ações</th></tr></thead>
+            <tbody>{sources.map(s=>(
+              <tr key={s.id}>
+                <td style={{fontWeight:600}}>{s.name}</td>
+                <td className="text-secondary text-small">{truncate(s.url,50)}</td>
+                <td><span className={`badge ${s.active?'badge-green':'badge-red'}`}>{s.active?'Ativa':'Inativa'}</span></td>
+                <td className="text-secondary text-small">{s.last_fetched?fmt(s.last_fetched):'Nunca'}</td>
+                <td><div className="gap-8">
+                  <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(s)}>✏️</button>
+                  <button className={`btn btn-sm ${s.active?'btn-secondary':'btn-green'}`} onClick={()=>toggle(s)}>{s.active?'Pausar':'Ativar'}</button>
+                </div></td>
+              </tr>
+            ))}</tbody></table>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 8 — LOGS
-// ——————————————————————————————————————————
+// ── ENGAJAMENTO / SUGESTÕES ──
+function Engajamento() {
+  const [sources, setSources] = useState([]);
+  const [sugestoes, setSugestoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    const load = async () => {
+      setLoading(true);
+      const { data: src } = await sb.from('rss_sources').select('name').eq('active',true);
+      setSources(src||[]);
+      // Sugestões baseadas nas fontes ativas
+      const perfis = [
+        {username:'@bbcbrasil',tema:'Internacional',relevancia:90},
+        {username:'@agenciabrasil',tema:'Governo/Política',relevancia:88},
+        {username:'@valoreconomico',tema:'Economia',relevancia:85},
+        {username:'@estadao',tema:'Jornalismo geral',relevancia:82},
+        {username:'@gazetadopovo',tema:'Direita/Conservador',relevancia:80},
+        {username:'@revistaOeste',tema:'Centro-direita',relevancia:78},
+        {username:'@jovempanbr',tema:'Opinião/Política',relevancia:75},
+        {username:'@infomoney',tema:'Mercado financeiro',relevancia:72},
+      ];
+      setSugestoes(perfis);
+      setLoading(false);
+    };
+    load();
+  },[]);
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Engajamento</div><div className="page-sub">Sugestões de perfis para interação (apenas sugestão, sem automação)</div></div>
+      <div className="page-body">
+        <div className="alert-banner yellow"><span>ℹ️</span><span>Estas são apenas sugestões. Nenhuma ação automática é executada.</span></div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Perfis Sugeridos com base nas fontes ativas</span></div>
+          <div style={{padding:20}}>
+            {loading?<div className="loading">Carregando...</div>:sugestoes.map((s,i)=>(
+              <div key={i} className="suggestion-card">
+                <div style={{width:36,height:36,borderRadius:'50%',background:'var(--red-s2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>👤</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:13}}>{s.username}</div>
+                  <div style={{fontSize:12,color:'var(--t2)'}}>{s.tema}</div>
+                  <div className="perf-bar"><div className="perf-fill" style={{width:s.relevancia+'%'}}></div></div>
+                </div>
+                <div style={{fontSize:11,color:'var(--t2)'}}>{s.relevancia}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LOGS ──
 function Logs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [dateFrom, setDateFrom] = useState('');
+  const [page, setPage] = useState(0);
+  const PER = 50;
 
   const load = useCallback(async () => {
     setLoading(true);
-    let q = sb.from('logs').select('*').order('created_at', {ascending:false}).limit(200);
-    if (filter !== 'all') q = q.eq('level', filter);
-    if (dateFrom) q = q.gte('created_at', dateFrom);
+    let q = sb.from('logs').select('*').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    if (filter!=='all') q=q.eq('level',filter);
     const { data } = await q;
     setLogs(data||[]);
     setLoading(false);
-  }, [filter, dateFrom]);
+  },[filter,page]);
 
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
+  useEffect(()=>{load();},[load]);
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Logs do Sistema</div>
-        <div className="page-sub">Histórico de todas as operações — atualização automática a cada 15s</div>
-      </div>
+      <div className="page-header"><div className="page-title">Logs</div><div className="page-sub">Histórico completo de execuções e erros</div></div>
       <div className="page-body">
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">Filtros</span>
+            <span className="panel-title">Registros</span>
             <div className="gap-8">
-              {['all','info','success','error'].map(f => (
-                <button key={f} className={`btn btn-sm ${filter===f ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(f)}>
-                  {f === 'all' ? 'Todos' : f}
+              {['all','info','warn','error'].map(f=>(
+                <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>
+                  {f==='all'?'Todos':f}
                 </button>
               ))}
-              <input type="date" className="form-input" style={{width:'auto', padding:'5px 10px', fontSize:12}} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>
           </div>
-          {loading ? <div className="loading">Carregando...</div> : logs.length === 0 ? (
-            <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhum log encontrado</div></div>
-          ) : (
-            <table>
-              <thead><tr><th>#</th><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
-              <tbody>
-                {logs.map(l => (
-                  <tr key={l.id}>
-                    <td className="text-secondary text-small">{l.id}</td>
-                    <td>
-                      <span className={`status-pill status-${l.level === 'error' ? 'error' : l.level === 'success' ? 'success' : 'pending'}`}>
-                        <span className="dot"></span>{l.level}
-                      </span>
-                    </td>
-                    <td style={{maxWidth:500, wordBreak:'break-word'}}>{l.message}</td>
-                    <td className="text-secondary text-small">{fmt(l.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {loading?<div className="loading">Carregando...</div>:logs.length===0?<div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhum log</div></div>:(
+            <>
+            <table><thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
+            <tbody>{logs.map(l=>(
+              <tr key={l.id}>
+                <td><span className={`badge ${l.level==='error'?'badge-red':l.level==='warn'?'badge-yellow':'badge-gray'}`}>{l.level}</span></td>
+                <td style={{fontFamily:'monospace',fontSize:12}}>{l.message}</td>
+                <td className="text-secondary text-small">{fmt(l.created_at)}</td>
+              </tr>
+            ))}</tbody></table>
+            <div className="pagination">
+              <span className="pagination-info">Página {page+1}</span>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>← Anterior</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={logs.length<PER}>Próxima →</button>
+            </div>
+            </>
           )}
         </div>
       </div>
@@ -1406,108 +831,104 @@ function Logs() {
   );
 }
 
-// ——————————————————————————————————————————
-// MÓDULO 9 — CONFIGURAÇÕES
-// ——————————————————————————————————————————
-function Configuracoes() {
-  const [cfg, setCfg] = useState({ MAX_POSTS_DIA:'60', INTERVALO:'10', AI_MODEL:'gpt-4o-mini', FALLBACK:'skip' });
+// ── DESEMPENHO ──
+function Desempenho() {
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await sb.from('config').select('*');
-    if (data) {
-      const map = {};
-      data.forEach(c => { map[c.key] = c.value; });
-      setCfg(c => ({...c, ...map}));
-    }
-    setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
-
-  const save = async () => {
-    setSaving(true);
-    for (const [key, value] of Object.entries(cfg)) {
-      await sb.from('config').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    }
-    setSaving(false);
-    setMsg('Configurações salvas com sucesso.');
-    setTimeout(() => setMsg(''), 4000);
-  };
-
-  if (loading) return <div className="loading">Carregando...</div>;
+  useEffect(()=>{
+    const load = async () => {
+      setLoading(true);
+      const { data } = await sb.from('posts').select('*').eq('status','success').order('created_at',{ascending:false}).limit(50);
+      setPosts(data||[]);
+      setLoading(false);
+    };
+    load();
+  },[]);
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Configurações</div>
-        <div className="page-sub">Parâmetros globais do ecossistema OVC</div>
-      </div>
+      <div className="page-header"><div className="page-title">Desempenho</div><div className="page-sub">Métricas de posts publicados</div></div>
       <div className="page-body">
-        {msg && <div className="alert alert-info">{msg}</div>}
-
+        <div className="alert-banner yellow"><span>ℹ️</span><span>Métricas detalhadas (curtidas, alcance) requerem permissões avançadas da API do Instagram.</span></div>
         <div className="panel">
-          <div className="panel-header"><span className="panel-title">Parâmetros do pipeline</span></div>
-          <div className="p-24">
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">MAX Posts por Dia</label>
-                <input className="form-input" type="number" min={1} max={60} value={cfg.MAX_POSTS_DIA} onChange={e => setCfg(c=>({...c, MAX_POSTS_DIA:e.target.value}))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Intervalo entre execuções (min)</label>
-                <input className="form-input" type="number" min={1} value={cfg.INTERVALO} onChange={e => setCfg(c=>({...c, INTERVALO:e.target.value}))} />
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Modelo de IA</label>
-                <select className="form-select" value={cfg.AI_MODEL} onChange={e => setCfg(c=>({...c, AI_MODEL:e.target.value}))}>
-                  <option value="gpt-4o-mini">gpt-4o-mini (padrão)</option>
-                  <option value="gpt-4o">gpt-4o</option>
-                  <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Comportamento de fallback</label>
-                <select className="form-select" value={cfg.FALLBACK} onChange={e => setCfg(c=>({...c, FALLBACK:e.target.value}))}>
-                  <option value="skip">skip — pular post com erro</option>
-                  <option value="retry">retry — tentar novamente</option>
-                  <option value="log">log — registrar e continuar</option>
-                </select>
-              </div>
-            </div>
-            <div className="divider"></div>
-            <button className="btn btn-primary" onClick={save} disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar todas as configurações'}
-            </button>
+          <div className="panel-header"><span className="panel-title">Posts Publicados — Registro de Desempenho</span></div>
+          {loading?<div className="loading">Carregando...</div>:posts.length===0?<div className="empty-state"><div className="empty-icon">📈</div><div className="empty-text">Nenhum post publicado ainda</div></div>:(
+            <table><thead><tr><th>Título</th><th>IG ID</th><th>Conta</th><th>Data publicação</th><th>Métricas</th></tr></thead>
+            <tbody>{posts.map(p=>(
+              <tr key={p.id}>
+                <td>{truncate(p.titulo,45)}</td>
+                <td className="text-secondary text-small" style={{fontFamily:'monospace'}}>{p.ig_id?truncate(p.ig_id,20):'—'}</td>
+                <td className="text-secondary text-small">{p.ig_account_id?'conta vinculada':'auto'}</td>
+                <td className="text-secondary text-small">{fmt(p.updated_at)}</td>
+                <td>
+                  {p.metrics&&Object.keys(p.metrics).length>0
+                    ?<pre style={{fontSize:10,color:'var(--t2)'}}>{JSON.stringify(p.metrics,null,1)}</pre>
+                    :<span className="badge badge-gray">Aguardando</span>
+                  }
+                </td>
+              </tr>
+            ))}</tbody></table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONFIGURAÇÕES ──
+function Configuracoes() {
+  const [cfgs, setCfgs] = useState({});
+  const [msg, setMsg] = useState('');
+
+  useEffect(()=>{
+    sb.from('config').select('*').then(({data})=>{
+      if (data) {
+        const obj = {};
+        data.forEach(c=>obj[c.key]=c.value);
+        setCfgs(obj);
+      }
+    });
+  },[]);
+
+  const save = async (key, value) => {
+    await sb.from('config').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    setMsg('Salvo');
+    setTimeout(()=>setMsg(''),2000);
+  };
+
+  const Field = ({label,k,type='text'}) => (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      <div style={{display:'flex',gap:8}}>
+        <input className="form-input" type={type} value={cfgs[k]||''} onChange={e=>setCfgs({...cfgs,[k]:e.target.value})}/>
+        <button className="btn btn-primary btn-sm" onClick={()=>save(k,cfgs[k]||'')}>Salvar</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Configurações</div><div className="page-sub">Parâmetros gerais do sistema</div></div>
+      <div className="page-body">
+        {msg&&<div className="alert-banner yellow" style={{marginBottom:16}}>✓ {msg}</div>}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Parâmetros do Pipeline</span></div>
+          <div style={{padding:20}}>
+            <Field label="Máximo de posts por dia" k="MAX_POSTS_DIA" type="number"/>
+            <Field label="Intervalo entre execuções (minutos)" k="INTERVALO" type="number"/>
+            <Field label="Modelo IA" k="AI_MODEL"/>
           </div>
         </div>
-
-        <div className="panel mt-16">
-          <div className="panel-header"><span className="panel-title">Supabase e Infraestrutura</span></div>
-          <div className="p-24">
-            <div style={{display:'grid', gap:10}}>
-              <div style={{display:'flex', gap:12, alignItems:'center'}}>
-                <span className="tag">Supabase Project</span>
-                <span style={{fontSize:12, color:'var(--text-secondary)', fontFamily:'monospace'}}>bfsegqdgscudtdgwdyci</span>
-              </div>
-              <div style={{display:'flex', gap:12, alignItems:'center'}}>
-                <span className="tag">Deploy</span>
-                <span style={{fontSize:12, color:'var(--text-secondary)'}}>Vercel → GitHub (auto push)</span>
-              </div>
-              <div style={{display:'flex', gap:12, alignItems:'center'}}>
-                <span className="tag">Cron</span>
-                <span style={{fontSize:12, color:'var(--text-secondary)'}}>GitHub Actions · */10 * * * *</span>
-              </div>
-              <div style={{display:'flex', gap:12, alignItems:'center'}}>
-                <span className="tag">Portal</span>
-                <span style={{fontSize:12, color:'var(--accent)'}}>
-                  <a href="https://www.ovalorcapital.com.br" target="_blank" rel="noopener noreferrer" style={{color:'inherit', textDecoration:'none'}}>ovalorcapital.com.br ↗</a>
-                </span>
-              </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Automação</span></div>
+          <div style={{padding:20}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+              <label className="toggle">
+                <input type="checkbox" checked={cfgs['AUTOMATION']==='on'} onChange={e=>{ const v=e.target.checked?'on':'off'; setCfgs({...cfgs,AUTOMATION:v}); save('AUTOMATION',v); }}/>
+                <span className="toggle-slider"></span>
+              </label>
+              <span style={{fontWeight:500}}>Pipeline Automático</span>
             </div>
           </div>
         </div>
@@ -1516,61 +937,66 @@ function Configuracoes() {
   );
 }
 
-// ——————————————————————————————————————————
-// APP ROOT
-// ——————————————————————————————————————————
+// ── APP ──
 const PAGES = [
-  { id:'dashboard', label:'Dashboard', icon:'📊', component: Dashboard },
-  { id:'pipeline', label:'Pipeline', icon:'⚙️', component: Pipeline },
-  { id:'posts', label:'Postagens', icon:'📄', component: Postagens },
-  { id:'instagram', label:'Contas Instagram', icon:'📸', component: ContasInstagram },
-  { id:'rss', label:'Fontes RSS', icon:'📡', component: FontesRSS },
-  { id:'engajamento', label:'Engajamento', icon:'💬', component: Engajamento },
-  { id:'logs', label:'Logs', icon:'📋', component: Logs },
-  { id:'config', label:'Configurações', icon:'🔧', component: Configuracoes },
+  {id:'dashboard',label:'Dashboard',icon:'📊'},
+  {id:'pipeline',label:'Pipeline',icon:'⚙️'},
+  {id:'postagens',label:'Postagens',icon:'📝'},
+  {id:'contas',label:'Contas Instagram',icon:'📱'},
+  {id:'fontes',label:'Fontes RSS',icon:'📡'},
+  {id:'engajamento',label:'Engajamento',icon:'💬'},
+  {id:'logs',label:'Logs',icon:'📋'},
+  {id:'desempenho',label:'Desempenho',icon:'📈'},
+  {id:'configuracoes',label:'Configurações',icon:'🔧'},
 ];
 
 function App() {
-  const [logged, setLogged] = useState(false);
+  const [auth, setAuth] = useState(false);
   const [page, setPage] = useState('dashboard');
+  const [notif, setNotif] = useState(0);
 
-  if (!logged) return <Login onLogin={() => setLogged(true)} />;
+  useEffect(()=>{
+    if (!auth) return;
+    const check = async () => {
+      const { count } = await sb.from('posts').select('*',{count:'exact',head:true}).eq('status','pendente');
+      setNotif(count||0);
+    };
+    check();
+    const t = setInterval(check, 30000);
+    return ()=>clearInterval(t);
+  },[auth]);
 
-  const Current = PAGES.find(p => p.id === page)?.component || Dashboard;
+  if (!auth) return <Login onLogin={()=>setAuth(true)}/>;
+
+  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes}[page];
 
   return (
-    <div className="app-layout">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-logo">O <span className="acc">VALOR</span> CAP.</div>
-          <div className="sidebar-tagline">Centro de Comando</div>
+    <div className="layout">
+      <div className="sidebar">
+        <div className="sidebar-logo">
+          <div className="name">O <span className="a">VALOR</span> CAP.</div>
+          <div className="sub">Centro de Comando</div>
         </div>
-        <nav className="sidebar-nav">
-          <div className="sidebar-section-label">Navegação</div>
-          {PAGES.map(p => (
-            <div
-              key={p.id}
-              className={`nav-item ${page === p.id ? 'active' : ''}`}
-              onClick={() => setPage(p.id)}
-            >
-              <span>{p.icon}</span>
+        <nav className="nav">
+          {PAGES.map(p=>(
+            <div key={p.id} className={`nav-item ${page===p.id?'active':''}`} onClick={()=>setPage(p.id)}>
+              <span className="nav-icon">{p.icon}</span>
               <span>{p.label}</span>
+              {p.id==='postagens'&&notif>0&&<span className="notif-dot"></span>}
             </div>
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="sidebar-version">Admin OVC v3.0 · 2026</div>
-          <button className="btn-sair" onClick={() => setLogged(false)}>↩ Sair</button>
+          <div className="ver">Admin OVC v3.1 · 2026</div>
+          <button className="logout-btn" onClick={()=>setAuth(false)}>↩ Sair</button>
         </div>
-      </aside>
-      <main className="main-content">
-        <Current />
-      </main>
+      </div>
+      <div className="main"><PageComp/></div>
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>

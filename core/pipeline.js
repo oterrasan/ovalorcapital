@@ -19,16 +19,22 @@ export async function run_pipeline() {
   if (await db.exists(hash)) return { status: "duplicate" };
 
   const article = await scrape(item.link);
-  const content = await rewrite(article.text);
+  if (!article.text) return { status: "scrape_failed" };
 
-  await db.insert({
+  const content = await rewrite(article.text);
+  if (!content.text) return { status: "ai_failed" };
+
+  const post = await db.insert({
     titulo: content.title,
     conteudo: content.text,
     comentario_fixado: content.comentario_fixado,
     imagem: article.image || "",
     hash,
-    status: "pendente"
+    status: "pendente",
+    user_tags: "[]",
+    collaborators: "[]",
+    metrics: {}
   });
 
-  return { status: "pendente", titulo: content.title };
+  return { status: "pendente", titulo: content.title, id: post.id };
 }
