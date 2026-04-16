@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <style>
 :root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -397,10 +398,53 @@ function Postagens() {
 
   const approveOne = async id => {
     setApproving(true);
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    const d = await r.json();
-    if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
-    else alert('❌ Erro: '+d.error);
+    try {
+      // Buscar dados do post
+      const { data: post } = await sb.from('posts').select('*').eq('id',id).single();
+      if (!post) { alert('Post não encontrado'); setApproving(false); return; }
+
+      // Gerar card como imagem
+      let cardUrl = post.imagem;
+      try {
+        // Renderizar o card em um elemento oculto
+        const cardEl = document.createElement('div');
+        cardEl.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1350px;';
+        cardEl.innerHTML = `<img src="${post.imagem}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous"/>`;
+        document.body.appendChild(cardEl);
+        
+        const canvas = await html2canvas(cardEl, {
+          width: 1080, height: 1350,
+          useCORS: true, allowTaint: false,
+          scale: 1
+        });
+        document.body.removeChild(cardEl);
+
+        // Converter para blob e fazer upload
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        const file = new File([blob], `card-${id}.jpg`, {type:'image/jpeg'});
+        
+        const { data: upload, error: upErr } = await sb.storage
+          .from('cards')
+          .upload(`${id}.jpg`, file, {upsert: true, contentType: 'image/jpeg'});
+        
+        if (!upErr) {
+          const { data: urlData } = sb.storage.from('cards').getPublicUrl(`${id}.jpg`);
+          cardUrl = urlData.publicUrl;
+          // Atualizar imagem no post
+          await sb.from('posts').update({imagem: cardUrl}).eq('id', id);
+        }
+      } catch(imgErr) {
+        console.log('Usando imagem original:', imgErr.message);
+      }
+
+      // Aprovar e publicar
+      const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+      const d = await r.json();
+      if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
+      else alert('❌ Erro: '+d.error);
+    } catch(e) {
+      alert('❌ Erro: '+e.message);
+    }
     setApproving(false);
   };
 
