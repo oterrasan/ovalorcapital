@@ -960,8 +960,27 @@ function Configuracoes() {
           <div className="panel-header"><span className="panel-title">Parâmetros do Pipeline</span></div>
           <div style={{padding:20}}>
             <Field label="Máximo de posts por dia" k="MAX_POSTS_DIA" type="number"/>
+            <Field label="Meta diária de posts" k="DAILY_TARGET" type="number"/>
             <Field label="Intervalo entre execuções (minutos)" k="INTERVALO" type="number"/>
+            <Field label="Intervalo mínimo entre posts (segundos)" k="MIN_INTERVAL" type="number"/>
+            <Field label="Intervalo máximo entre posts (segundos)" k="MAX_INTERVAL" type="number"/>
             <Field label="Modelo IA" k="AI_MODEL"/>
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Publicação</span></div>
+          <div style={{padding:20}}>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {[
+                {k:'ENABLE_EXECUTOR',label:'Habilitar executor (quando API atingir limite)'},
+                {k:'AUTO_RETRY',label:'Retry automático em posts com erro'},
+              ].map(({k,label})=>(
+                <label key={k} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                  <input type="checkbox" checked={cfgs[k]==='true'} onChange={e=>{const v=e.target.checked?'true':'false';setCfgs({...cfgs,[k]:v});save(k,v);}}/>
+                  <span style={{fontSize:13}}>{label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
         <div className="panel">
@@ -1193,14 +1212,163 @@ Redação OVC — ${hoje}
   );
 }
 
+
+// ── FILA DE PUBLICAÇÃO ──
+function FilaPublicacao() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await sb.from('posts')
+      .select('*')
+      .in('status', ['pending','approved','scheduled','publishing'])
+      .order('priority', {ascending:false})
+      .order('scheduled_at', {ascending:true})
+      .limit(50);
+    setPosts(data||[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(()=>{load(); const t=setInterval(load,15000); return()=>clearInterval(t);},[load]);
+
+  const runScheduler = async () => {
+    setRunning(true);
+    try {
+      const r = await fetch('/api/scheduler',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const d = await r.json();
+      alert(`Scheduler: ${d.processed||0} post(s) processado(s)`);
+      load();
+    } catch(e){alert('Erro: '+e.message);}
+    setRunning(false);
+  };
+
+  const approvePost = async (id) => {
+    await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
+    load();
+  };
+
+  const publishNow = async (id) => {
+    if (!confirm('Publicar agora no Instagram?')) return;
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const d = await r.json();
+    if (d.ok) { alert('✅ Publicado!'); load(); }
+    else alert('❌ Erro: '+d.error);
+  };
+
+  const methodBadge = m => m==='executor'
+    ? <span className="badge badge-orange">executor</span>
+    : <span className="badge badge-gray">api</span>;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">🔄 Fila de Publicação</div>
+        <div className="page-sub">Ordem de publicação, horário e status em tempo real</div>
+      </div>
+      <div className="page-body">
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">{posts.length} post(s) na fila</span>
+            <div className="gap-8">
+              <button className="btn btn-primary btn-sm" onClick={runScheduler} disabled={running}>{running?'Processando...':'▶ Executar scheduler'}</button>
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loading?<div className="loading">Carregando...</div>:posts.length===0?
+            <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Fila vazia</div></div>:
+            <table><thead><tr><th>#</th><th>Título</th><th>Status</th><th>Método</th><th>Prioridade</th><th>Agendado</th><th>Ações</th></tr></thead>
+            <tbody>{posts.map((p,i)=>(
+              <tr key={p.id} style={p.status==='publishing'?{background:'rgba(255,200,0,0.05)'}:{}}>
+                <td className="text-secondary text-small">{i+1}</td>
+                <td>{truncate(p.titulo,45)}</td>
+                <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+                <td>{methodBadge(p.publish_method)}</td>
+                <td><span className="badge badge-gray">{p.priority||0}</span></td>
+                <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'Imediato'}</td>
+                <td><div className="gap-8">
+                  {p.status==='pending'&&<button className="btn btn-secondary btn-sm" onClick={()=>approvePost(p.id)}>✓ Aprovar</button>}
+                  {['approved','pending'].includes(p.status)&&<button className="btn btn-primary btn-sm" onClick={()=>publishNow(p.id)}>▶ Publicar</button>}
+                </div></td>
+              </tr>
+            ))}</tbody></table>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ALERTAS ──
+function Alertas() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await sb.from('alerts').select('*').order('created_at',{ascending:false}).limit(50);
+    setAlerts(data||[]);
+    setLoading(false);
+  },[]);
+
+  useEffect(()=>{load(); const t=setInterval(load,20000); return()=>clearInterval(t);},[load]);
+
+  const markRead = async (id) => {
+    await sb.from('alerts').update({read:true}).eq('id',id);
+    load();
+  };
+
+  const markAllRead = async () => {
+    await sb.from('alerts').update({read:true}).eq('read',false);
+    load();
+  };
+
+  const unread = alerts.filter(a=>!a.read).length;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">🚨 Alertas {unread>0&&<span className="notif-dot" style={{display:'inline-block',marginLeft:8}}></span>}</div>
+        <div className="page-sub">Erros, falhas e notificações do sistema</div>
+      </div>
+      <div className="page-body">
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">{unread} não lido(s)</span>
+            <div className="gap-8">
+              {unread>0&&<button className="btn btn-secondary btn-sm" onClick={markAllRead}>Marcar todos como lidos</button>}
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loading?<div className="loading">Carregando...</div>:alerts.length===0?
+            <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Nenhum alerta</div></div>:
+            <table><thead><tr><th>Tipo</th><th>Mensagem</th><th>Data</th><th></th></tr></thead>
+            <tbody>{alerts.map(a=>(
+              <tr key={a.id} style={!a.read?{background:'rgba(200,30,30,0.04)'}:{}}>
+                <td><span className={`badge ${a.type==='error'?'badge-red':a.type==='growth'?'badge-green':'badge-yellow'}`}>{a.type}</span></td>
+                <td style={{fontWeight:a.read?400:600}}>{a.message}</td>
+                <td className="text-secondary text-small">{fmt(a.created_at)}</td>
+                <td>{!a.read&&<button className="btn btn-secondary btn-sm" onClick={()=>markRead(a.id)}>✓</button>}</td>
+              </tr>
+            ))}</tbody></table>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
+  {id:'fila',label:'Fila de Publicação',icon:'🔄'},
   {id:'postagens',label:'Postagens',icon:'📝'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
+  {id:'alertas',label:'Alertas',icon:'🚨'},
   {id:'engajamento',label:'Engajamento',icon:'💬'},
   {id:'logs',label:'Logs',icon:'📋'},
   {id:'desempenho',label:'Desempenho',icon:'📈'},
@@ -1211,12 +1379,15 @@ function App() {
   const [auth, setAuth] = useState(false);
   const [page, setPage] = useState('dashboard');
   const [notif, setNotif] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(()=>{
     if (!auth) return;
     const check = async () => {
       const { count } = await sb.from('posts').select('*',{count:'exact',head:true}).eq('status','pendente');
       setNotif(count||0);
+      const { count: ac } = await sb.from('alerts').select('*',{count:'exact',head:true}).eq('read',false);
+      setAlertCount(ac||0);
     };
     check();
     const t = setInterval(check, 30000);
@@ -1225,7 +1396,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>setAuth(true)}/>;
 
-  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes}[page];
+  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes}[page];
 
   return (
     <div className="layout">
@@ -1240,6 +1411,7 @@ function App() {
               <span className="nav-icon">{p.icon}</span>
               <span>{p.label}</span>
               {p.id==='postagens'&&notif>0&&<span className="notif-dot"></span>}
+              {p.id==='alertas'&&alertCount>0&&<span className="notif-dot"></span>}
             </div>
           ))}
         </nav>

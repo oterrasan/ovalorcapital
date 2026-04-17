@@ -6,14 +6,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  run:
+  pipeline:
     runs-on: ubuntu-latest
     steps:
-      - name: Executar pipeline OVC
-        run: |
-          curl -s -X POST https://www.ovalorcapital.com.br/api/run \
-            -H "Content-Type: application/json"
-      - name: Processar posts agendados
-        run: |
-          curl -s -X POST https://www.ovalorcapital.com.br/api/worker \
-            -H "Content-Type: application/json"
+      - name: Gerar novo conteúdo
+        run: curl -s -X POST https://www.ovalorcapital.com.br/api/run -H "Content-Type: application/json"
+
+      - name: Processar agendamentos
+        run: curl -s -X POST https://www.ovalorcapital.com.br/api/scheduler -H "Content-Type: application/json"
+
+  metrics:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/30 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Coletar métricas
+        run: curl -s https://www.ovalorcapital.com.br/api/metrics -H "Content-Type: application/json"

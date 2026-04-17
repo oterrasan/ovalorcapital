@@ -1,22 +1,66 @@
-import { db } from "../core/db.js";
+import { publishPost } from "../core/publish_engine.js";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
   const { id, ids, action } = req.body || {};
+
   try {
+    // Retry
     if (action === "retry" && id) {
-      const result = await db.retry(id);
+      await supabase.from("posts").update({
+        status: "pending",
+        error_msg: null,
+        retry_count: 0,
+        updated_at: new Date().toISOString()
+      }).eq("id", id);
+      return res.status(200).json({ ok: true });
+    }
+
+    // Aprovar sem publicar (só muda status)
+    if (action === "approve" && id) {
+      await supabase.from("posts").update({
+        status: "approved",
+        approved: true,
+        updated_at: new Date().toISOString()
+      }).eq("id", id);
+      return res.status(200).json({ ok: true });
+    }
+
+    // Agendar
+    if (action === "schedule" && id) {
+      const { scheduled_at } = req.body;
+      await supabase.from("posts").update({
+        status: "scheduled",
+        approved: true,
+        scheduled_at,
+        updated_at: new Date().toISOString()
+      }).eq("id", id);
+      return res.status(200).json({ ok: true });
+    }
+
+    // Publicar agora — individual
+    if (id && !ids) {
+      // Marcar como approved primeiro
+      await supabase.from("posts").update({ approved: true }).eq("id", id);
+      const result = await publishPost(id);
       return res.status(200).json(result);
     }
+
+    // Publicar em lote
     if (ids && Array.isArray(ids)) {
-      const results = await db.approveBatch(ids);
+      const results = [];
+      for (const pid of ids) {
+        await supabase.from("posts").update({ approved: true }).eq("id", pid);
+        const r = await publishPost(pid);
+        results.push({ id: pid, ...r });
+      }
       return res.status(200).json({ status: "batch", results });
     }
-    if (id) {
-      const result = await db.approve(id);
-      return res.status(200).json(result);
-    }
-    return res.status(400).json({ error: "missing_id" });
+
+    return res.status(400).json({ error: "missing_params" });
   } catch(e) {
     return res.status(200).json({ ok: false, error: e.message });
   }
