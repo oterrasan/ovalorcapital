@@ -5,7 +5,6 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 export default async function handler(req, res) {
   try {
-    // Verificar se automação está ativa
     const { data: cfg } = await supabase
       .from("config").select("value").eq("key", "AUTOMATION").single();
     if (!cfg || cfg.value !== "on") {
@@ -14,19 +13,18 @@ export default async function handler(req, res) {
 
     const result = await runScheduler();
 
-    // Registrar no log
     if (result.processed > 0) {
       await supabase.from("logs").insert([{
         level: "info",
-        message: `Scheduler: ${result.processed} post(s) publicado(s)`
+        message: `scheduler executado: ${result.processed} post(s) publicado(s)`
       }]);
     }
 
-    return res.status(200).json({ status: "ok", ...result });
+    return res.status(200).json({ status: "ok", scheduler: "ran", ...result });
   } catch(e) {
     await supabase.from("logs").insert([{
       level: "error",
-      message: `Scheduler error: ${e.message}`
+      message: `scheduler error: ${e.message}`
     }]).catch(()=>{});
     return res.status(200).json({ status: "error", error: e.message });
   }

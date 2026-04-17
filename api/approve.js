@@ -5,51 +5,39 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
-  const { id, ids, action } = req.body || {};
+  const { id, ids, action, scheduled_at } = req.body || {};
 
   try {
-    // Retry
     if (action === "retry" && id) {
       await supabase.from("posts").update({
-        status: "pending",
-        error_msg: null,
-        retry_count: 0,
+        status: "pending", error_msg: null, retry_count: 0,
         updated_at: new Date().toISOString()
       }).eq("id", id);
       return res.status(200).json({ ok: true });
     }
 
-    // Aprovar sem publicar (só muda status)
     if (action === "approve" && id) {
       await supabase.from("posts").update({
-        status: "approved",
-        approved: true,
+        status: "approved", approved: true,
         updated_at: new Date().toISOString()
       }).eq("id", id);
       return res.status(200).json({ ok: true });
     }
 
-    // Agendar
     if (action === "schedule" && id) {
-      const { scheduled_at } = req.body;
       await supabase.from("posts").update({
-        status: "scheduled",
-        approved: true,
-        scheduled_at,
+        status: "scheduled", approved: true, scheduled_at,
         updated_at: new Date().toISOString()
       }).eq("id", id);
       return res.status(200).json({ ok: true });
     }
 
-    // Publicar agora — individual
     if (id && !ids) {
-      // Marcar como approved primeiro
       await supabase.from("posts").update({ approved: true }).eq("id", id);
       const result = await publishPost(id);
       return res.status(200).json(result);
     }
 
-    // Publicar em lote
     if (ids && Array.isArray(ids)) {
       const results = [];
       for (const pid of ids) {
