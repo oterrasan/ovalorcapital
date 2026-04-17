@@ -1,80 +1,188 @@
-export default async function handler(req, res) {
-  const tag = String(req.query.tag || "").toUpperCase();
-  const tema = String(req.query.tema || "sociedade").toLowerCase();
-  const resumo = String(req.query.resumo || "").toUpperCase();
-  const img = String(req.query.img || "");
-  const q = String(req.query.q || tag);
+import { ImageResponse } from '@vercel/og';
 
-  const COLORS = {
-    politica:"#c81e1e", crime:"#c81e1e", justica:"#c81e1e", corrupcao:"#c81e1e",
-    economia:"#e85d00", financas:"#e85d00", mercado:"#e85d00",
-  };
-  const color = COLORS[tema] || "#e85d00";
-  const TEMPLATE = "https://bfsegqdgscudtdgwdyci.supabase.co/storage/v1/object/public/cards/template-ovc.jpg";
-  const proxyImg = img ? `/api/imgproxy?url=${encodeURIComponent(img)}&q=${encodeURIComponent(q)}` : "";
+export const config = {
+  runtime: 'edge',
+};
 
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{width:1080px;height:1350px;overflow:hidden;background:#000;font-family:'Arial Black',Arial,sans-serif}
-.wrap{position:relative;width:1080px;height:1350px}
+export default async function handler(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const tag = (searchParams.get('tag') || 'NOTÍCIA').toUpperCase().slice(0, 40);
+    const tema = (searchParams.get('tema') || 'outros').toLowerCase();
+    const resumo = (searchParams.get('resumo') || '').toUpperCase().slice(0, 120);
+    const img = searchParams.get('img') || '';
 
-/* 1. TEMPLATE JPEG FIXO - base imutável, nunca muda */
-.template{position:absolute;top:0;left:0;width:1080px;height:1350px;object-fit:cover;z-index:1}
+    const tagColor =
+      tema === 'politica' || tema === 'crime' || tema === 'justica' || tema === 'corrupcao'
+        ? '#c81e1e'
+        : tema === 'economia' || tema === 'financas' || tema === 'mercado'
+        ? '#e85d00'
+        : '#e85d00';
 
-/* 2. FOTO DA NOTICIA - cobre apenas o topo (y=0 até y=650) */
-.photo{position:absolute;top:0;left:0;width:1080px;height:650px;object-fit:cover;object-position:center top;z-index:2}
+    const LOGO = 'https://bfsegqdgscudtdgwdyci.supabase.co/storage/v1/object/public/cards/vc-logo.png';
 
-/* 3. GRADIENTE - escurece a foto de baixo para preto, funde com o template */
-.gradient{
-  position:absolute;top:0;left:0;width:1080px;height:650px;
-  background:linear-gradient(to bottom,
-    rgba(0,0,0,0.05) 0%,
-    rgba(0,0,0,0.1) 40%,
-    rgba(0,0,0,0.7) 75%,
-    rgba(0,0,0,1.0) 100%
-  );
-  z-index:3
-}
+    let imageUrl = '';
+    if (img) {
+      try {
+        const r = await fetch(img, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        if (r.ok) imageUrl = img;
+      } catch (_) {}
+    }
 
-/* 4. TAG - centralizada em y=700 */
-.tag{
-  position:absolute;top:700px;left:0;right:0;
-  display:flex;justify-content:center;z-index:10
-}
-.tag-inner{background:${color};padding:20px 56px}
-.tag-inner span{color:#fff;font-size:54px;font-weight:900;letter-spacing:2px;white-space:nowrap}
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '1080px',
+            height: '1350px',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#0d1f35',
+            fontFamily: 'sans-serif',
+          }}
+        >
+          {/* BACKGROUND — foto da notícia ocupa 100% */}
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '1080px',
+                height: '1350px',
+                objectFit: 'cover',
+              }}
+            />
+          ) : null}
 
-/* 5. RESUMO - centralizado abaixo da tag */
-.resumo{
-  position:absolute;top:810px;left:60px;right:60px;
-  color:#fff;font-size:52px;font-weight:800;
-  line-height:1.2;text-align:center;
-  letter-spacing:1px;text-transform:uppercase;z-index:10
-}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <!-- TEMPLATE FIXO - IMUTÁVEL -->
-  <img class="template" src="${TEMPLATE}" crossorigin="anonymous"/>
+          {/* OVERLAY — gradiente preto de baixo para cima */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '1080px',
+              height: '1350px',
+              background: imageUrl
+                ? 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 45%, rgba(0,0,0,0.15) 100%)'
+                : 'linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,15,40,0.95) 100%)',
+            }}
+          />
 
-  <!-- FOTO DA NOTICIA - apenas se disponível -->
-  ${proxyImg ? `
-  <img class="photo" src="${proxyImg}" crossorigin="anonymous" onerror="this.style.display='none'"/>
-  <div class="gradient"></div>` : ""}
+          {/* HEADER */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 60,
+              left: 0,
+              right: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+            }}
+          >
+            <img src={LOGO} style={{ width: 80, height: 80, objectFit: 'contain' }} />
+            <div
+              style={{
+                color: '#ffffff',
+                fontSize: 28,
+                fontWeight: 'bold',
+                letterSpacing: 6,
+                marginTop: 12,
+              }}
+            >
+              O VALOR CAPITAL
+            </div>
+          </div>
 
-  <!-- TAG -->
-  <div class="tag"><div class="tag-inner"><span>${tag}</span></div></div>
+          {/* TAG */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '52%',
+              left: 0,
+              right: 0,
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: tagColor,
+                padding: '18px 52px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <span
+                style={{
+                  color: '#ffffff',
+                  fontSize: 52,
+                  fontWeight: '900',
+                  letterSpacing: 3,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tag}
+              </span>
+            </div>
+          </div>
 
-  <!-- RESUMO -->
-  <div class="resumo">${resumo}</div>
-</div>
-</body></html>`;
+          {/* RESUMO / HEADLINE */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '64%',
+              left: 80,
+              right: 80,
+              color: '#ffffff',
+              fontSize: 46,
+              fontWeight: '800',
+              lineHeight: 1.25,
+              textAlign: 'center',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}
+          >
+            {resumo}
+          </div>
 
-  res.setHeader("Content-Type","text/html");
-  res.setHeader("Cache-Control","public, max-age=3600");
-  res.setHeader("Access-Control-Allow-Origin","*");
-  return res.status(200).send(html);
+          {/* FOOTER */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 60,
+              left: 0,
+              right: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <img src={LOGO} style={{ width: 44, height: 44, objectFit: 'contain' }} />
+            <div style={{ color: '#ffffff', fontSize: 20, fontWeight: 'bold', letterSpacing: 2 }}>
+              O VALOR CAPITAL
+            </div>
+            <div style={{ color: '#cccccc', fontSize: 18 }}>Siga @ovalorcapital</div>
+            <div style={{ color: '#aaaaaa', fontSize: 16 }}>
+              Liberdade econômica, família &amp; patrimônio
+            </div>
+            <div style={{ color: '#aaaaaa', fontSize: 16 }}>www.ovalorcapital.com.br</div>
+          </div>
+        </div>
+      ),
+      {
+        width: 1080,
+        height: 1350,
+      }
+    );
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
