@@ -1,34 +1,33 @@
-const PROMPT_BASE = (hoje, text) => `Você é redator sênior do portal O Valor Capital, veículo jornalístico brasileiro de alto nível. Reescreva a notícia abaixo no padrão OVC para Instagram.
+const PROMPT_BASE = (hoje, text) => `Você é redator do portal O Valor Capital. Reescreva a notícia abaixo para Instagram.
 
-RETORNE APENAS UM JSON VÁLIDO com esta estrutura exata, sem markdown, sem explicações:
-{"tag_texto":"chamada hard em até 4 palavras","tag_tema":"um de: politica, crime, justica, corrupcao, economia, financas, mercado, sociedade, cultura, saude, educacao","resumo_card":"resumo breve em até 12 palavras","post":"texto completo do post","comentario_fixado":"comentário agressivo máximo 200 chars","search_query":"termos em inglês para buscar imagem"}
+RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto fora do JSON:
+{"tag_texto":"até 4 palavras, forte e direto","tag_tema":"politica|crime|justica|corrupcao|economia|financas|mercado|sociedade|cultura|saude|educacao","resumo_card":"até 10 palavras em caixa alta","post":"texto completo","comentario_fixado":"pergunta ou provocação até 200 chars","search_query":"termos em inglês para buscar imagem"}
 
 REGRAS DO POST:
-1. Hook em CAIXA ALTA na primeira linha. Curto. Provocador.
-2. Corpo: prosa jornalística. Isenta. Sem opinião. Fatos verificados. Parágrafos curtos.
-3. Máximo 1.500 caracteres no total.
-4. Assinatura: Redação OVC — ${hoje}
-5. Hashtags: não óbvias, cada uma em linha separada, terminando com #ovalorcapital. Mínimo 4, máximo 6.
+1. Primeira linha: fato principal em CAIXA ALTA. Máximo 1 linha. Sem efeito dramático.
+2. Segundo parágrafo: contexto objetivo. Dados concretos se existirem. Sem adjetivos.
+3. Terceiro parágrafo: consequência direta. O que muda. Para quem.
+4. Máximo 1.500 caracteres no total.
+5. Assinatura: Redação OVC — ${hoje}
+6. Hashtags: 4 linhas separadas, última sempre #ovalorcapital
 
-TERMOS PROIBIDOS: comente aqui, comenta, isso reforça, isso expõe, isso mostra, isso revela, isso evidencia, isso demonstra, o fato expõe, o fato mostra, o caso expõe, expõe a fragilidade, vale ressaltar, vale destacar, vale lembrar, é importante destacar, é importante ressaltar, é fundamental, no contexto atual, no cenário atual, diante disso, diante desse cenário, em meio a, especialistas apontam, especialistas alertam, a situação evidencia, não é à toa, não por acaso, chama atenção, deixa claro, deixa evidente, traz à tona, coloca em xeque, acende um alerta, é um sinal de, é um reflexo de, merece atenção, provoca debate, gera debate, impacta diretamente, é preocupante, é alarmante, a medida visa, segue sendo, continua sendo, ao longo dos anos, historicamente, de forma significativa, cada vez mais, muito além, em última análise, em suma, em resumo
+PROIBIDO USAR: "isso mostra", "isso revela", "isso evidencia", "isso reforça", "o caso mostra", "vale destacar", "vale ressaltar", "em meio a", "diante disso", "no cenário atual", "especialistas apontam", "chama atenção", "coloca em xeque", "acende alerta", "gera debate", "merece atenção", "é preocupante", "não é à toa", "não por acaso", "deixa claro", "traz à tona", "é um sinal de", "é um reflexo de", "ao longo dos anos", "historicamente", "cada vez mais", "em última análise", "em suma", "de forma significativa"
+
+TOM: jornalístico, seco, direto. Sem opinião. Sem dramatismo. Sem clichê de IA.
+CADA TEXTO DEVE SER DIFERENTE DO ANTERIOR. Não repita estruturas.
 
 NOTÍCIA:
 ${text}`;
 
 function parseOutput(raw) {
   try {
-    // Remove markdown e limpa
     let clean = raw.replace(/```json[\s\S]*?```/g, m => m.slice(7,-3))
                    .replace(/```/g, '')
                    .trim();
-    
-    // Tenta parse direto
     try {
       const p = JSON.parse(clean);
       return buildResult(p);
     } catch(_) {}
-    
-    // Tenta extrair JSON do meio do texto
     const match = clean.match(/\{[\s\S]*\}/);
     if (match) {
       try {
@@ -36,13 +35,10 @@ function parseOutput(raw) {
         return buildResult(p);
       } catch(_) {}
     }
-    
-    // Extração por regex como último recurso
     const get = (key) => {
-      const m = clean.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`));
+      const m = clean.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"` ));
       return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '';
     };
-    
     return {
       title: get('tag_texto') || 'Post OVC',
       text: get('post') || clean.slice(0, 1500),
@@ -77,7 +73,7 @@ async function rewriteGemini(prompt) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1000, responseMimeType: "application/json" }
+      generationConfig: { temperature: 0.85, maxOutputTokens: 1000, responseMimeType: "application/json" }
     })
   });
   const data = await res.json();
@@ -93,11 +89,11 @@ async function rewriteGroq(prompt) {
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       messages: [
-        { role: "system", content: "Você é um redator jornalístico. Responda APENAS com JSON válido, sem markdown." },
+        { role: "system", content: "Você é redator jornalístico. Responda APENAS com JSON válido, sem markdown." },
         { role: "user", content: prompt }
       ],
       max_tokens: 1000,
-      temperature: 0.7,
+      temperature: 0.85,
       response_format: { type: "json_object" }
     })
   });
