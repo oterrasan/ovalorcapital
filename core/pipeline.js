@@ -24,10 +24,9 @@ export async function run_pipeline() {
   const content = await rewrite(article.text);
   if (!content.text) return { status: "ai_failed" };
 
-  // URL do card — passa imagem original + search_query como fallback
   const base = "https://www.ovalorcapital.com.br";
   const searchQ = content.search_query || content.tag_texto || content.tag_tema || "news brazil";
-  
+
   const cardUrl = `${base}/api/card?tag=${encodeURIComponent(content.tag_texto)}&tema=${encodeURIComponent(content.tag_tema)}&resumo=${encodeURIComponent(content.resumo_card)}&img=${encodeURIComponent(article.image || "")}&q=${encodeURIComponent(searchQ)}`;
 
   const post = await db.insert({
@@ -35,6 +34,7 @@ export async function run_pipeline() {
     conteudo: content.text,
     comentario_fixado: content.comentario_fixado || "",
     imagem: cardUrl,
+    image_override: null,
     hash,
     status: "pendente",
     user_tags: "[]",
