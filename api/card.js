@@ -1,125 +1,51 @@
 export default async function handler(req, res) {
-  const tag = String(req.query.tag || '').toUpperCase().slice(0, 40);
-  const tema = String(req.query.tema || 'outros').toLowerCase();
-  const resumo = String(req.query.resumo || '').toUpperCase().slice(0, 120);
-  const img = String(req.query.img || '');
-  const q = String(req.query.q || tag);
+  try {
+    const { tag, resumo, img, tema } = req.query;
 
-  const COLORS = {
-    politica: '#c81e1e', crime: '#c81e1e', justica: '#c81e1e', corrupcao: '#c81e1e',
-    economia: '#e85d00', financas: '#e85d00', mercado: '#e85d00',
-  };
-  const color = COLORS[tema] || '#e85d00';
-  const LOGO = 'https://bfsegqdgscudtdgwdyci.supabase.co/storage/v1/object/public/cards/vc-logo.png';
+    const safeTag = (tag || "").substring(0, 60);
+    const safeResumo = (resumo || "").substring(0, 180);
 
-  const host = req.headers.host || 'www.ovalorcapital.com.br';
-  const proto = host.includes('localhost') ? 'http' : 'https';
-  const proxyBase = proto + '://' + host;
-  const photoUrl = img
-    ? proxyBase + '/api/imgproxy?url=' + encodeURIComponent(img) + '&q=' + encodeURIComponent(q)
-    : '';
+    let color = "#FFD60A";
+    if (tema === "politica") color = "#FF3B30";
+    if (tema === "economia") color = "#FF9500";
 
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-html, body {
-  width:1080px; height:1350px; overflow:hidden;
-  background:#0d1f35;
-  font-family:'Arial Black',Arial,sans-serif;
-}
-.wrap {
-  position:relative;
-  width:1080px;
-  height:1350px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
-.photo {
-  position:absolute; top:0; left:0;
-  width:1080px; height:1350px;
-  object-fit:cover; z-index:1;
-}
-.overlay {
-  position:absolute; top:0; left:0;
-  width:1080px; height:1350px;
-  background: linear-gradient(to top,
-    rgba(0,0,0,0.97) 0%,
-    rgba(0,0,0,0.80) 35%,
-    rgba(0,0,0,0.25) 70%,
-    rgba(0,0,0,0.05) 100%
-  );
-  z-index:2;
-}
-.header {
-  position:absolute; top:55px; left:0; right:0;
-  display:flex; flex-direction:column; align-items:center;
-  z-index:10;
-}
-.header img { width:80px; height:80px; object-fit:contain; }
-.header-name {
-  color:#fff; font-size:26px; font-weight:900;
-  letter-spacing:6px; margin-top:10px;
-  text-align:center;
-}
-.tag {
-  position:absolute; top:700px; left:0; right:0;
-  display:flex; justify-content:center; align-items:center;
-  z-index:10;
-}
-.tag-box {
-  background:${color}; padding:18px 52px;
-  display:flex; align-items:center; justify-content:center;
-}
-.tag-text {
-  color:#fff; font-size:52px; font-weight:900;
-  letter-spacing:3px; white-space:nowrap;
-  text-align:center;
-}
-.resumo {
-  position:absolute; top:820px; left:80px; right:80px;
-  color:#fff; font-size:44px; font-weight:800;
-  line-height:1.25; text-align:center;
-  text-transform:uppercase; letter-spacing:1px; z-index:10;
-}
-.footer {
-  position:absolute; bottom:55px; left:0; right:0;
-  display:flex; flex-direction:column; align-items:center;
-  gap:5px; z-index:10;
-}
-.footer img { width:44px; height:44px; object-fit:contain; }
-.footer-name { color:#fff; font-size:20px; font-weight:bold; letter-spacing:2px; text-align:center; }
-.footer-sub { color:#cccccc; font-size:17px; text-align:center; }
-.footer-tag { color:#aaaaaa; font-size:15px; text-align:center; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  ${photoUrl ? `<img class="photo" src="${photoUrl}" crossorigin="anonymous" onerror="this.style.display='none'"/>` : ''}
-  <div class="overlay"></div>
-  <div class="header">
-    <img src="${LOGO}" crossorigin="anonymous"/>
-    <div class="header-name">O VALOR CAPITAL</div>
-  </div>
-  <div class="tag">
-    <div class="tag-box">
-      <span class="tag-text">${tag}</span>
-    </div>
-  </div>
-  <div class="resumo">${resumo}</div>
-  <div class="footer">
-    <img src="${LOGO}" crossorigin="anonymous"/>
-    <div class="footer-name">O VALOR CAPITAL</div>
-    <div class="footer-sub">Siga @ovalorcapital</div>
-    <div class="footer-tag">Liberdade econômica, família &amp; patrimônio</div>
-    <div class="footer-tag">www.ovalorcapital.com.br</div>
-  </div>
+    const imageUrl = img
+      ? `/api/imgproxy?url=${encodeURIComponent(img)}`
+      : "/assets/template-ovc.jpg";
+
+    res.setHeader("Content-Type", "text/html");
+
+    res.end(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"/><style>
+body { width: 1080px; height: 1350px; position: relative; font-family: Arial, sans-serif; background: #000; overflow: hidden; }
+.bg { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+.overlay { position: absolute; width: 100%; height: 100%; background: linear-gradient( to top, rgba(0,0,0,0.90), rgba(0,0,0,0.40), rgba(0,0,0,0.10) ); }
+.header { position: absolute; top: 60px; width: 100%; text-align: center; color: white; }
+.header img { width: 90px; }
+.header span { display: block; margin-top: 12px; font-size: 30px; letter-spacing: 1px; }
+.tag { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%); background: ${color}; color: white; padding: 18px 42px; font-size: 52px; font-weight: bold; text-align: center; white-space: nowrap; }
+.headline { position: absolute; top: 60%; left: 10%; width: 80%; text-align: center; color: white; font-size: 44px; font-weight: bold; line-height: 1.25; }
+.footer { position: absolute; bottom: 90px; width: 100%; text-align: center; color: white; font-size: 20px; }
+.footer img { width: 55px; margin-bottom: 12px; }
+.footer div { margin-top: 4px; }
+</style></head><body>
+<img class="bg" src="${imageUrl}"/>
+<div class="overlay"></div>
+<div class="header">
+  <img src="https://bfsegqdgscudtdgwdyci.supabase.co/storage/v1/object/public/cards/vc-logo.png"/>
+  <span>O VALOR CAPITAL</span>
 </div>
-</body></html>`;
-
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  return res.status(200).send(html);
+<div class="tag">${safeTag}</div>
+<div class="headline">${safeResumo}</div>
+<div class="footer">
+  <img src="https://bfsegqdgscudtdgwdyci.supabase.co/storage/v1/object/public/cards/vc-logo.png"/>
+  <div>O VALOR CAPITAL</div>
+  <div>Siga @ovalorcapital</div>
+  <div>Liberdade econômica, família &amp; patrimônio</div>
+  <div>www.ovalorcapital.com.br</div>
+</div>
+</body></html>`);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
 }
