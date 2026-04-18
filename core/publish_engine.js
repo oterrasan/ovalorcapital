@@ -33,14 +33,13 @@ async function getBestAccount(preferredId) {
     const { data } = await supabase.from("ig_accounts").select("*").eq("id", preferredId).single();
     if (data?.active) return data;
   }
-  // Distribuição inteligente — conta ativa com menos posts hoje
   const { data: accounts } = await supabase
     .from("ig_accounts")
     .select("*")
     .eq("active", true)
     .eq("distribuicao_automatica", true)
     .order("posts_hoje", { ascending: true });
-  
+
   for (const acc of (accounts||[])) {
     const todayCount = await countTodayByAccount(acc.id);
     if (todayCount < (acc.limite_diario||25)) return acc;
@@ -60,7 +59,7 @@ async function randomDelay(min, max) {
 export async function publishPost(postId) {
   const { data: post, error } = await supabase
     .from("posts").select("*").eq("id", postId).single();
-  
+
   if (error || !post) return { ok: false, error: "post_not_found" };
   if (!["pending", "approved", "scheduled", "error"].includes(post.status)) {
     return { ok: false, error: "invalid_status: " + post.status };
@@ -68,14 +67,12 @@ export async function publishPost(postId) {
 
   const cfg = await getConfig();
 
-  // Verificar retry
   if (post.status === "error") {
     if (post.retry_count >= post.max_retries) {
       return { ok: false, error: "max_retries_reached" };
     }
   }
 
-  // Decisão: api vs executor
   const account = await getBestAccount(post.ig_account_id);
   if (!account) {
     await createAlert("error", `Nenhuma conta disponível para publicar: ${post.titulo}`);
@@ -85,7 +82,6 @@ export async function publishPost(postId) {
   const todayCount = await countTodayByAccount(account.id);
   const method = todayCount < 25 ? "api" : "executor";
 
-  // Atualizar status para publishing
   await supabase.from("posts").update({
     status: "publishing",
     publish_method: method,
@@ -94,10 +90,11 @@ export async function publishPost(postId) {
   }).eq("id", postId);
 
   try {
-    // Publicar via API do Instagram
-    const ig = await publish(post.imagem, post.conteudo, account.id);
+    // USAR image_override se existir, senão imagem padrão
+    const image = post.image_override || post.imagem;
 
-    // Postar comentário fixado
+    const ig = await publish(image, post.conteudo, account.id);
+
     if (post.comentario_fixado) {
       try {
         await postComment(ig.id, post.comentario_fixado, account.token);
@@ -106,13 +103,11 @@ export async function publishPost(postId) {
       }
     }
 
-    // Salvar métricas iniciais
     await supabase.from("post_metrics").insert([{
       post_id: postId,
       views: 0, likes: 0, comments: 0, engagement_rate: 0
     }]);
 
-    // Atualizar post como sucesso
     await supabase.from("posts").update({
       status: "success",
       ig_id: ig.id,
@@ -122,7 +117,6 @@ export async function publishPost(postId) {
       updated_at: new Date().toISOString()
     }).eq("id", postId);
 
-    // Atualizar contador da conta
     await supabase.from("ig_accounts").update({
       posts_hoje: (account.posts_hoje||0) + 1,
       ultima_atividade: new Date().toISOString()
@@ -150,7 +144,6 @@ export async function runScheduler() {
   const now = new Date().toISOString();
   const cfg = await getConfig();
 
-  // Buscar posts aprovados com horário passado
   const { data: scheduled } = await supabase
     .from("posts")
     .select("*")
@@ -164,7 +157,6 @@ export async function runScheduler() {
 
   const results = [];
   for (const post of scheduled) {
-    // Intervalo aleatório anti-padrão
     if (results.length > 0) {
       await randomDelay(cfg.minInterval, cfg.maxInterval);
     }
