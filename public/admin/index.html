@@ -1373,6 +1373,7 @@ const PAGES = [
   {id:'logs',label:'Logs',icon:'📋'},
   {id:'desempenho',label:'Desempenho',icon:'📈'},
   {id:'configuracoes',label:'Configurações',icon:'🔧'},
+  {id:'imagens',label:'Imagens',icon:'🖼️'},
 ];
 
 function App() {
@@ -1396,7 +1397,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>setAuth(true)}/>;
 
-  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes}[page];
+  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes,imagens:UploadImagens}[page];
 
   return (
     <div className="layout">
@@ -1421,6 +1422,120 @@ function App() {
         </div>
       </div>
       <div className="main"><PageComp/></div>
+    </div>
+  );
+}
+
+
+// ── UPLOAD DE IMAGENS ──
+function UploadImagens() {
+  const [files, setFiles] = React.useState([]);
+  const [uploading, setUploading] = React.useState(false);
+  const [uploaded, setUploaded] = React.useState([]);
+  const [msg, setMsg] = React.useState('');
+  const [posts, setPosts] = React.useState([]);
+  const [selectedPost, setSelectedPost] = React.useState('');
+
+  React.useEffect(()=>{
+    sb.from('posts').select('id,titulo,status').in('status',['pendente','pending']).order('created_at',{ascending:false}).limit(50).then(({data})=>{
+      if(data) setPosts(data);
+    });
+  },[]);
+
+  const handleFiles = (e) => {
+    const selected = Array.from(e.target.files).slice(0,25);
+    setFiles(selected);
+    setMsg('');
+  };
+
+  const toBase64 = (file) => new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+
+  const uploadAll = async () => {
+    if(!files.length){ setMsg('Selecione ao menos 1 imagem.'); return; }
+    setUploading(true);
+    setMsg('Enviando...');
+    const results = [];
+    for(const file of files){
+      try{
+        const data = await toBase64(file);
+        const resp = await fetch('/api/upload',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({filename:file.name, contentType:file.type, data})
+        });
+        const json = await resp.json();
+        if(json.url) results.push({name:file.name, url:json.url});
+        else results.push({name:file.name, error:json.error});
+      }catch(e){
+        results.push({name:file.name, error:e.message});
+      }
+    }
+    setUploaded(results);
+    setUploading(false);
+    setMsg(`${results.filter(r=>r.url).length} de ${files.length} imagens enviadas.`);
+  };
+
+  const useImage = async (url) => {
+    if(!selectedPost){ setMsg('Selecione um post primeiro.'); return; }
+    const {error} = await sb.from('posts').update({image_override:url}).eq('id',selectedPost);
+    if(error) setMsg('Erro: '+error.message);
+    else setMsg('✅ Imagem vinculada ao post com sucesso!');
+  };
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div className="page-title">🖼️ Upload de Imagens</div>
+        <div className="page-sub">Envie imagens e vincule a posts pendentes</div>
+      </div>
+      <div className="card" style={{marginBottom:24}}>
+        <div className="card-title">Selecionar Imagens (máx. 25)</div>
+        <input type="file" accept="image/*" multiple onChange={handleFiles} style={{marginBottom:12,display:'block'}}/>
+        {files.length>0 && <div style={{marginBottom:8,color:'#aaa'}}>{files.length} arquivo(s) selecionado(s)</div>}
+        <button className="btn btn-primary" onClick={uploadAll} disabled={uploading}>
+          {uploading ? 'Enviando...' : 'Fazer Upload'}
+        </button>
+        {msg && <div style={{marginTop:12,color:msg.startsWith('✅')?'#4CAF50':'#fff'}}>{msg}</div>}
+      </div>
+
+      {uploaded.length>0 && (
+        <div className="card" style={{marginBottom:24}}>
+          <div className="card-title">Imagens Enviadas</div>
+          <div style={{marginBottom:16}}>
+            <label style={{color:'#aaa',display:'block',marginBottom:6}}>Vincular ao post:</label>
+            <select value={selectedPost} onChange={e=>setSelectedPost(e.target.value)} style={{width:'100%',padding:'8px',background:'#1a2332',color:'#fff',border:'1px solid #2a3a4f',borderRadius:4}}>
+              <option value="">— Selecione um post —</option>
+              {posts.map(p=>(
+                <option key={p.id} value={p.id}>{p.titulo} [{p.status}]</option>
+              ))}
+            </select>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}}>
+            {uploaded.map((img,i)=>(
+              <div key={i} style={{background:'#1a2332',borderRadius:8,overflow:'hidden',border:'1px solid #2a3a4f'}}>
+                {img.url ? (
+                  <>
+                    <img src={img.url} alt={img.name} style={{width:'100%',height:160,objectFit:'cover',display:'block'}}/>
+                    <div style={{padding:10}}>
+                      <div style={{color:'#aaa',fontSize:12,marginBottom:8,wordBreak:'break-all'}}>{img.name}</div>
+                      <button className="btn btn-primary btn-sm" style={{width:'100%'}} onClick={()=>useImage(img.url)}>
+                        Usar este
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{padding:12,color:'#f44'}}>❌ {img.name}: {img.error}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
