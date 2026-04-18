@@ -61,7 +61,7 @@ export async function publishPost(postId) {
     .from("posts").select("*").eq("id", postId).single();
 
   if (error || !post) return { ok: false, error: "post_not_found" };
-  if (!["pending", "approved", "scheduled", "error"].includes(post.status)) {
+  if (!["pending", "approved", "scheduled", "error", "pendente"].includes(post.status)) {
     return { ok: false, error: "invalid_status: " + post.status };
   }
 
