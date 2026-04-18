@@ -1,60 +1,59 @@
-import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
+import { createRequire } from "module";
 
-const BASE = "https://graph.facebook.com/v25.0";
+const require = createRequire(import.meta.url);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-export async function getAccount(accountId) {
-  if (accountId) {
-    const { data } = await supabase.from("ig_accounts").select("*").eq("id", accountId).single();
-    if (data?.active) return data;
-  }
-  // Distribuição automática — pega conta ativa com menor posts_hoje
-  const { data } = await supabase
-    .from("ig_accounts")
-    .select("*")
-    .eq("active", true)
-    .eq("distribuicao_automatica", true)
-    .order("posts_hoje", { ascending: true })
-    .limit(1);
-  return data?.[0] || null;
+const IG_USERNAME = process.env.IG_USERNAME || "ovalorcapital";
+const IG_PASSWORD = process.env.IG_PASSWORD || "2025acabando!";
+
+let igClient = null;
+
+async function getIgClient() {
+  if (igClient) return igClient;
+  const { IgApiClient } = require("instagram-private-api");
+  const ig = new IgApiClient();
+  ig.state.generateDevice(IG_USERNAME);
+  await ig.simulate.preLoginFlow();
+  await ig.account.login(IG_USERNAME, IG_PASSWORD);
+  await ig.simulate.postLoginFlow();
+  igClient = ig;
+  return ig;
 }
 
-export async function publish(imageUrl, caption, accountId) {
-  const account = await getAccount(accountId);
-  if (!account) throw new Error("Nenhuma conta Instagram ativa disponível");
+export async function publish(imageUrl, caption) {
+  const ig = await getIgClient();
 
-  const { ig_user_id, token } = account;
+  // Baixar imagem como buffer
+  const fetch = (await import("node-fetch")).default;
+  const resp = await fetch(imageUrl);
+  if (!resp.ok) throw new Error("Falha ao baixar imagem: " + imageUrl);
+  const arrayBuffer = await resp.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
 
-  const create = await axios.post(`${BASE}/${ig_user_id}/media`, {
-    image_url: imageUrl,
-    caption,
-    access_token: token
+  const result = await ig.publish.photo({
+    file: buffer,
+    caption: caption,
   });
 
-  const pub = await axios.post(`${BASE}/${ig_user_id}/media_publish`, {
-    creation_id: create.data.id,
-    access_token: token
-  });
+  const mediaId = result.media.id;
 
-  // Atualizar contador de posts da conta
-  await supabase.from("ig_accounts").update({
-    posts_hoje: (account.posts_hoje || 0) + 1,
-    ultima_atividade: new Date().toISOString()
-  }).eq("id", account.id);
+  // Registrar no Supabase qual conta foi usada
+  await supabase.from("ig_accounts")
+    .update({ posts_hoje: supabase.rpc("increment", { x: 1 }), ultima_atividade: new Date().toISOString() })
+    .eq("username", IG_USERNAME);
 
-  return { id: pub.data.id, account_id: account.id, username: account.username };
+  return { id: mediaId };
 }
 
-export async function postComment(mediaId, text, token) {
-  try {
-    const res = await axios.post(`${BASE}/${mediaId}/comments`, {
-      message: text,
-      access_token: token
-    });
-    return res.data;
-  } catch(e) {
-    console.error("Erro ao postar comentário:", e.message);
-    return null;
-  }
+export async function postComment(mediaId, text) {
+  const ig = await getIgClient();
+  const result = await ig.media.comment({ mediaId, text });
+  return result;
+}
+
+export async function getAccount() {
+  const { data } = await supabase.from("ig_accounts")
+    .select("*").eq("username", IG_USERNAME).single();
+  return data;
 }
