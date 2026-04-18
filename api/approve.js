@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     }
 
     if (id && !ids) {
-      await supabase.from("posts").update({ approved: true }).eq("id", id);
+      await supabase.from("posts").update({ approved: true, status: "approved", updated_at: new Date().toISOString() }).eq("id", id);
       const result = await publishPost(id);
       return res.status(200).json(result);
     }
