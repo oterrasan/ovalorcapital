@@ -9,108 +9,120 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', system-ui, sans-serif; }
-    .nav-item { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-    .nav-item:hover { background-color: #f8fafc; transform: translateX(4px); }
-    .card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05); }
+    .nav-item { transition: all 0.2s; }
+    .nav-item:hover { background-color: #f8fafc; }
+    .card { transition: all 0.3s; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
   </style>
 </head>
 <body class="bg-white text-slate-800">
 
-  <div class="flex h-screen overflow-hidden">
+  <div class="flex h-screen">
 
     <!-- Sidebar -->
-    <div class="w-72 bg-white border-r border-slate-200 flex flex-col">
+    <div class="w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm">
       <div class="p-8 border-b">
-        <div class="flex items-center gap-4">
-          <div class="w-10 h-10 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">VC</div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">VC</div>
           <div>
-            <h1 class="text-2xl font-semibold tracking-tight">CDC</h1>
+            <h1 class="text-3xl font-semibold tracking-tighter">CDC</h1>
             <p class="text-sm text-slate-500 -mt-1">Centro de Comando</p>
           </div>
         </div>
       </div>
 
       <nav class="flex-1 px-4 py-6 space-y-1">
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl font-medium bg-slate-100">
-          <i class="fa-solid fa-house w-5"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-rss w-5"></i>
-          <span>Fontes</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-list-check w-5"></i>
-          <span>Fila de Aprovação</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-paper-plane w-5"></i>
-          <span>Publicar</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-users w-5"></i>
-          <span>Contas Conectadas</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-chart-line w-5"></i>
-          <span>Relatórios e Métricas</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-clock-rotate-left w-5"></i>
-          <span>Logs</span>
-        </a>
-        <a href="#" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl hover:bg-slate-50">
-          <i class="fa-solid fa-gear w-5"></i>
-          <span>Configurações</span>
-        </a>
+        <div onclick="showSection('dashboard')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer bg-slate-100 font-medium">
+          <i class="fa-solid fa-house w-5"></i> Dashboard
+        </div>
+        <div onclick="showSection('fontes')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-rss w-5"></i> Fontes
+        </div>
+        <div onclick="showSection('fila')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-list-check w-5"></i> Fila de Aprovação
+        </div>
+        <div onclick="showSection('publicar')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-paper-plane w-5"></i> Publicar
+        </div>
+        <div onclick="showSection('contas')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-users w-5"></i> Contas Conectadas
+        </div>
+        <div onclick="showSection('relatorios')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-chart-bar w-5"></i> Relatórios
+        </div>
+        <div onclick="showSection('logs')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-clock-rotate-left w-5"></i> Logs
+        </div>
+        <div onclick="showSection('config')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+          <i class="fa-solid fa-gear w-5"></i> Configurações
+        </div>
       </nav>
-
-      <div class="p-6 border-t text-xs text-slate-400">
-        O Valor Capital • CDC v1.0
-      </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="flex-1 overflow-auto bg-slate-50">
+    <!-- Conteúdo Principal -->
+    <div class="flex-1 overflow-auto bg-slate-50" id="main-content">
+      <!-- Dashboard inicial -->
       <div class="p-10">
-        <div class="flex justify-between items-center mb-10">
-          <h1 class="text-4xl font-semibold tracking-tight">Dashboard</h1>
-          <button onclick="alert('Funcionalidade em desenvolvimento')" 
-                  class="px-6 py-3 bg-black text-white rounded-2xl font-medium hover:bg-slate-800 transition flex items-center gap-2">
-            <i class="fa-solid fa-play"></i>
-            Executar Agora
-          </button>
-        </div>
-
-        <div class="grid grid-cols-4 gap-6 mb-12">
-          <div class="bg-white p-8 rounded-3xl card border border-slate-100">
-            <p class="text-slate-500 text-sm">Posts hoje</p>
-            <p class="text-6xl font-semibold mt-3">23</p>
+        <h1 class="text-4xl font-semibold tracking-tight mb-10">Dashboard</h1>
+        
+        <div class="grid grid-cols-4 gap-6">
+          <div class="bg-white rounded-3xl p-8 card">
+            <p class="text-slate-500">Posts hoje</p>
+            <p class="text-6xl font-semibold mt-4">28</p>
           </div>
-          <div class="bg-white p-8 rounded-3xl card border border-slate-100">
-            <p class="text-slate-500 text-sm">Aguardando aprovação</p>
-            <p class="text-6xl font-semibold mt-3 text-amber-600">8</p>
+          <div class="bg-white rounded-3xl p-8 card">
+            <p class="text-slate-500">Aguardando aprovação</p>
+            <p class="text-6xl font-semibold mt-4 text-amber-600">11</p>
           </div>
-          <div class="bg-white p-8 rounded-3xl card border border-slate-100">
-            <p class="text-slate-500 text-sm">Publicados esta semana</p>
-            <p class="text-6xl font-semibold mt-3">67</p>
+          <div class="bg-white rounded-3xl p-8 card">
+            <p class="text-slate-500">Publicados esta semana</p>
+            <p class="text-6xl font-semibold mt-4">94</p>
           </div>
-          <div class="bg-white p-8 rounded-3xl card border border-slate-100">
-            <p class="text-slate-500 text-sm">Taxa de aprovação</p>
-            <p class="text-6xl font-semibold mt-3 text-emerald-600">92%</p>
+          <div class="bg-white rounded-3xl p-8 card">
+            <p class="text-slate-500">Taxa de aprovação</p>
+            <p class="text-6xl font-semibold mt-4 text-emerald-600">96%</p>
           </div>
         </div>
 
-        <div class="bg-white rounded-3xl p-8 card border border-slate-100">
+        <div class="mt-12 bg-white rounded-3xl p-8 card">
           <h2 class="text-2xl font-semibold mb-6">Fila de Aprovação</h2>
-          <div class="text-slate-400 text-center py-16">
-            Nenhum post pendente no momento.
+          <div class="space-y-4" id="fila">
+            <!-- Itens serão adicionados via JS -->
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <script>
+    function showSection(section) {
+      const content = document.getElementById('main-content');
+      if (section === 'dashboard') {
+        content.innerHTML = `<div class="p-10"><h1 class="text-4xl font-semibold tracking-tight mb-10">Dashboard</h1><div class="grid grid-cols-4 gap-6">... (mesmos cards acima) ...</div></div>`;
+      } else if (section === 'fila') {
+        content.innerHTML = `<div class="p-10"><h1 class="text-4xl font-semibold mb-8">Fila de Aprovação</h1><p class="text-slate-400">Em breve...</p></div>`;
+      } else {
+        content.innerHTML = `<div class="p-10"><h1 class="text-4xl font-semibold mb-8">${section.toUpperCase()}</h1><p class="text-slate-400">Módulo em desenvolvimento...</p></div>`;
+      }
+    }
+
+    // Exemplo de fila
+    setTimeout(() => {
+      const fila = document.getElementById('fila');
+      if (fila) {
+        fila.innerHTML = `
+          <div class="flex justify-between items-center bg-slate-50 p-6 rounded-2xl">
+            <div>
+              <p class="font-medium">STF forma maioria para derrubar lei de cotas raciais</p>
+              <p class="text-sm text-slate-500">Fonte: Agência Brasil • 12 minutos atrás</p>
+            </div>
+            <div class="flex gap-3">
+              <button onclick="alert('Post aprovado!')" class="px-6 py-2 bg-emerald-600 text-white rounded-2xl text-sm font-medium">Aprovar</button>
+              <button onclick="alert('Post rejeitado')" class="px-6 py-2 bg-slate-300 rounded-2xl text-sm font-medium">Rejeitar</button>
+            </div>
+          </div>`;
+      }
+    }, 800);
+  </script>
 </body>
 </html>
