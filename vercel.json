@@ -1,19 +1,17 @@
 {
   "version": 2,
-  "functions": {
-    "api/run.js": {
-      "maxDuration": 60
-    },
-    "api/approve.js": {
-      "maxDuration": 60
-    },
-    "api/status.js": {
-      "maxDuration": 10
+  "crons": [
+    {
+      "path": "/api/refresh_token",
+      "schedule": "0 3 1 * *"
     }
+  ],
+  "functions": {
+    "api/run.js": { "maxDuration": 60 },
+    "api/approve.js": { "maxDuration": 60 },
+    "api/status.js": { "maxDuration": 10 }
   },
   "build": {
-    "env": {
-      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
-    }
+    "env": { "SHARP_IGNORE_GLOBAL_LIBVIPS": "1" }
   }
 }
