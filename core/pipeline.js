@@ -6,6 +6,9 @@ import { db } from "./db.js";
 
 const MAX_POSTS_DIA = 300;
 
+// Pipeline automático SEMPRE publica na conta @ovalorcapital
+const OVC_ACCOUNT_ID = "645cce5f-ad40-47ad-a995-1fb6aa5a75ac";
+
 export async function run_pipeline() {
   const count = await db.countToday();
   if (count >= MAX_POSTS_DIA) return { status: "limit_reached" };
@@ -37,6 +40,7 @@ export async function run_pipeline() {
     image_override: null,
     hash,
     status: "pendente",
+    ig_account_id: OVC_ACCOUNT_ID,
     user_tags: "[]",
     collaborators: "[]",
     metrics: {}
