@@ -1377,7 +1377,7 @@ const PAGES = [
 ];
 
 function App() {
-  const [auth, setAuth] = useState(false);
+  const [auth, setAuth] = useState(()=>sessionStorage.getItem('ovc_auth')==='1');
   const [page, setPage] = useState('dashboard');
   const [notif, setNotif] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
@@ -1395,7 +1395,7 @@ function App() {
     return ()=>clearInterval(t);
   },[auth]);
 
-  if (!auth) return <Login onLogin={()=>setAuth(true)}/>;
+  if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
   const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes,imagens:UploadImagens}[page];
 
@@ -1418,7 +1418,7 @@ function App() {
         </nav>
         <div className="sidebar-footer">
           <div className="ver">Admin OVC v3.1 · 2026</div>
-          <button className="logout-btn" onClick={()=>setAuth(false)}>↩ Sair</button>
+          <button className="logout-btn" onClick={()=>{sessionStorage.removeItem('ovc_auth');setAuth(false);}}>↩ Sair</button>
         </div>
       </div>
       <div className="main"><PageComp/></div>
