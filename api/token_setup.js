@@ -1,37 +1,20 @@
 export default async function handler(req, res) {
   try {
-    const APP_ID = "3266996380128288";
-    const APP_SECRET = "6c594a465e2ad4ca75bab999fbfed524";
-    const SHORT_TOKEN = req.query.t;
+    const ACCESS_TOKEN = "EAAubUN64VCABRIRVJW1H1PtO3Cdqj15jJussZBAiKbT1MJvdyW1cAO8JxgLBGwViQ7iYCIgRdnPtj5ZBCSH6qW5n1ZBfLJ4wjL737fg5w1g9lZAdyP9S7jRARKeyUo5J0wcopPlNf4BDEZAANdCytcZBZAmwMU3N2cBDBULmyE4Y4dFjgE6tHYZC00lPigZADIIiJP39KS3OyARoWkTqwS1lU2nX9UoR2MZCyQ8PpAIGEXLg6CxMbFvOFs0x0CzW0Hk5Ka65h2A9PTAGzrsCWSZAg0SiLagaZAqbxNdMFgZDZD";
+    const IG_USER_ID = "17841401979593316";
 
-    if (!SHORT_TOKEN) return res.status(400).json({ error: "token obrigatorio" });
+    // Testar token atual
+    const testRes = await fetch(`https://graph.facebook.com/v25.0/me?access_token=${ACCESS_TOKEN}`);
+    const testData = await testRes.json();
 
-    // 1. Converter para long-lived (60 dias)
-    const ltRes = await fetch(`https://graph.facebook.com/v25.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${SHORT_TOKEN}`);
-    const ltData = await ltRes.json();
-    if (!ltData.access_token) return res.status(400).json({ error: "falha ao converter token", detail: ltData });
-    const LONG_TOKEN = ltData.access_token;
-
-    // 2. Buscar paginas
-    const pagesRes = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${LONG_TOKEN}`);
-    const pages = await pagesRes.json();
-
-    // 3. Para cada pagina buscar IG User ID
-    const results = [];
-    for (const page of (pages.data || [])) {
-      const igRes = await fetch(`https://graph.facebook.com/v25.0/${page.id}?fields=instagram_business_account&access_token=${LONG_TOKEN}`);
-      const igData = await igRes.json();
-      results.push({
-        page_name: page.name,
-        page_id: page.id,
-        ig_user_id: igData.instagram_business_account?.id || null
-      });
-    }
+    // Tentar renovar o token
+    const refreshRes = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${ACCESS_TOKEN}`);
+    const refreshData = await refreshRes.json();
 
     return res.status(200).json({
-      long_lived_token: LONG_TOKEN,
-      expires_in_days: 60,
-      pages: results
+      token_test: testData,
+      token_refresh: refreshData,
+      ig_user_id: IG_USER_ID
     });
   } catch(err) {
     return res.status(500).json({ error: err.message });
