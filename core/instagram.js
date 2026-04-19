@@ -4,16 +4,17 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Credenciais fixas das duas contas
-const ACCOUNTS = [
-  { username: "ovalorcapital", password: "2025acabando!" },
-  { username: "oterrasan",     password: "11061983éanovasenh@!" },
-];
+const CREDENTIALS = {
+  "ovalorcapital": "2025acabando!",
+  "oterrasan": "11061983éanovasenh@!",
+};
 
 const clients = {};
 
-async function getClient(username, password) {
+async function getClient(username) {
   if (clients[username]) return clients[username];
+  const password = CREDENTIALS[username];
+  if (!password) throw new Error("Credenciais não encontradas para: " + username);
   const { IgApiClient } = require("instagram-private-api");
   const ig = new IgApiClient();
   ig.state.generateDevice(username);
@@ -24,26 +25,21 @@ async function getClient(username, password) {
   return ig;
 }
 
-async function getBestAccount() {
-  // Pega conta ativa com menos posts hoje
-  const { data } = await supabase
-    .from("ig_accounts")
-    .select("*")
-    .eq("active", true)
-    .eq("distribuicao_automatica", true)
-    .order("posts_hoje", { ascending: true })
-    .limit(1);
+export async function getAccount(accountId) {
+  if (accountId) {
+    const { data } = await supabase.from("ig_accounts").select("*").eq("id", accountId).single();
+    if (data?.active) return data;
+  }
+  // Sem accountId: pega a primeira ativa
+  const { data } = await supabase.from("ig_accounts").select("*").eq("active", true).limit(1);
   return data?.[0] || null;
 }
 
-export async function publish(imageUrl, caption) {
-  const account = await getBestAccount();
+export async function publish(imageUrl, caption, accountId) {
+  const account = await getAccount(accountId);
   if (!account) throw new Error("Nenhuma conta Instagram ativa disponível");
 
-  const creds = ACCOUNTS.find(a => a.username === account.username);
-  if (!creds) throw new Error("Credenciais não encontradas para: " + account.username);
-
-  const ig = await getClient(creds.username, creds.password);
+  const ig = await getClient(account.username);
 
   const nodeFetch = (await import("node-fetch")).default;
   const resp = await nodeFetch(imageUrl);
@@ -60,17 +56,9 @@ export async function publish(imageUrl, caption) {
   return { id: result.media.id };
 }
 
-export async function postComment(mediaId, text, username) {
-  const creds = ACCOUNTS.find(a => a.username === (username || "ovalorcapital"));
-  if (!creds) throw new Error("Credenciais não encontradas");
-  const ig = await getClient(creds.username, creds.password);
+export async function postComment(mediaId, text, accountId) {
+  const account = await getAccount(accountId);
+  if (!account) throw new Error("Nenhuma conta disponível");
+  const ig = await getClient(account.username);
   return await ig.media.comment({ mediaId, text });
-}
-
-export async function getAccount(accountId) {
-  if (accountId) {
-    const { data } = await supabase.from("ig_accounts").select("*").eq("id", accountId).single();
-    if (data?.active) return data;
-  }
-  return await getBestAccount();
 }
