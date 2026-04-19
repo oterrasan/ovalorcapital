@@ -9,79 +9,58 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', system-ui, sans-serif; }
-    .nav-item { transition: all 0.2s; }
-    .nav-item:hover { background-color: #f8fafc; }
-    .card { transition: all 0.3s; }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
   </style>
 </head>
-<body class="bg-white text-slate-800">
+<body class="bg-white">
 
   <div class="flex h-screen">
 
     <!-- Sidebar -->
-    <div class="w-72 bg-white border-r border-slate-200 flex flex-col">
-      <div class="p-8 border-b">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">VC</div>
-          <div>
-            <h1 class="text-2xl font-semibold tracking-tight">CDC</h1>
-            <p class="text-sm text-slate-500">Centro de Comando</p>
-          </div>
-        </div>
+    <div class="w-72 bg-white border-r border-slate-200 p-6 flex flex-col">
+      <div class="flex items-center gap-3 mb-10">
+        <div class="w-10 h-10 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl flex items-center justify-center text-white font-bold text-2xl">VC</div>
+        <h1 class="text-2xl font-semibold">CDC</h1>
       </div>
 
-      <nav class="flex-1 px-4 py-6 space-y-1">
-        <div onclick="showPage('dashboard')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer bg-slate-100 font-medium">
+      <div class="space-y-1">
+        <div onclick="showPage('dashboard')" class="flex items-center gap-3 px-5 py-4 rounded-2xl cursor-pointer bg-slate-100 font-medium">
           <i class="fa-solid fa-house w-5"></i> Dashboard
         </div>
-        <div onclick="showPage('fila')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+        <div onclick="showPage('fila')" class="flex items-center gap-3 px-5 py-4 rounded-2xl cursor-pointer hover:bg-slate-50">
           <i class="fa-solid fa-list-check w-5"></i> Fila de Aprovação
         </div>
-        <div onclick="showPage('fontes')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+        <div onclick="showPage('fontes')" class="flex items-center gap-3 px-5 py-4 rounded-2xl cursor-pointer hover:bg-slate-50">
           <i class="fa-solid fa-rss w-5"></i> Fontes
         </div>
-        <div onclick="showPage('contas')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+        <div onclick="showPage('contas')" class="flex items-center gap-3 px-5 py-4 rounded-2xl cursor-pointer hover:bg-slate-50">
           <i class="fa-solid fa-users w-5"></i> Contas
         </div>
-        <div onclick="showPage('relatorios')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
+        <div onclick="showPage('relatorios')" class="flex items-center gap-3 px-5 py-4 rounded-2xl cursor-pointer hover:bg-slate-50">
           <i class="fa-solid fa-chart-bar w-5"></i> Relatórios
         </div>
-        <div onclick="showPage('logs')" class="nav-item flex items-center gap-3 px-5 py-4 rounded-3xl cursor-pointer hover:bg-slate-50">
-          <i class="fa-solid fa-clock-rotate-left w-5"></i> Logs
-        </div>
-      </nav>
+      </div>
     </div>
 
     <!-- Main Content -->
-    <div class="flex-1 overflow-auto bg-slate-50" id="main-content">
-      <div class="p-10">
-        <h1 class="text-4xl font-semibold tracking-tight mb-10">Dashboard</h1>
-        
-        <div class="grid grid-cols-4 gap-6 mb-12">
-          <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-            <p class="text-slate-500 text-sm">Posts hoje</p>
-            <p class="text-6xl font-semibold mt-3">28</p>
-          </div>
-          <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-            <p class="text-slate-500 text-sm">Aguardando aprovação</p>
-            <p class="text-6xl font-semibold mt-3 text-amber-600">11</p>
-          </div>
-          <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-            <p class="text-slate-500 text-sm">Publicados esta semana</p>
-            <p class="text-6xl font-semibold mt-3">94</p>
-          </div>
-          <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-            <p class="text-slate-500 text-sm">Taxa de aprovação</p>
-            <p class="text-6xl font-semibold mt-3 text-emerald-600">93%</p>
-          </div>
+    <div class="flex-1 p-10 overflow-auto" id="main-content">
+      <h1 class="text-4xl font-semibold mb-8">Dashboard</h1>
+      
+      <div class="grid grid-cols-4 gap-6">
+        <div class="bg-white border border-slate-200 rounded-3xl p-8">
+          <p class="text-slate-500">Posts hoje</p>
+          <p class="text-5xl font-semibold mt-3">28</p>
         </div>
-
-        <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-          <h2 class="text-2xl font-semibold mb-6">Fila de Aprovação</h2>
-          <div class="text-center py-16 text-slate-400">
-            Nenhum post pendente no momento.
-          </div>
+        <div class="bg-white border border-slate-200 rounded-3xl p-8">
+          <p class="text-slate-500">Aguardando aprovação</p>
+          <p class="text-5xl font-semibold mt-3 text-amber-600">11</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-3xl p-8">
+          <p class="text-slate-500">Publicados esta semana</p>
+          <p class="text-5xl font-semibold mt-3">94</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-3xl p-8">
+          <p class="text-slate-500">Taxa de aprovação</p>
+          <p class="text-5xl font-semibold mt-3 text-emerald-600">93%</p>
         </div>
       </div>
     </div>
@@ -92,33 +71,38 @@
       const content = document.getElementById('main-content');
       if (page === 'fila') {
         content.innerHTML = `
-          <div class="p-10">
-            <h1 class="text-4xl font-semibold mb-8">Fila de Aprovação</h1>
-            <div class="bg-white border border-slate-200 rounded-3xl p-8 text-center py-20 text-slate-400">
-              Nenhum post pendente no momento.
+          <h1 class="text-4xl font-semibold mb-8">Fila de Aprovação</h1>
+          <div class="bg-white border border-slate-200 rounded-3xl p-6">
+            <div class="flex justify-between items-center p-6 bg-slate-50 rounded-2xl">
+              <div>
+                <p class="font-medium">STF forma maioria para derrubar lei de cotas raciais</p>
+                <p class="text-sm text-slate-500">Fonte: Agência Brasil • há 12 minutos</p>
+              </div>
+              <div class="flex gap-3">
+                <button onclick="alert('Post aprovado e enviado para publicação')" class="px-6 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-medium">Aprovar</button>
+                <button onclick="alert('Post rejeitado')" class="px-6 py-3 bg-slate-300 rounded-2xl text-sm font-medium">Rejeitar</button>
+              </div>
             </div>
           </div>`;
       } else {
         content.innerHTML = `
-          <div class="p-10">
-            <h1 class="text-4xl font-semibold mb-10">Dashboard</h1>
-            <div class="grid grid-cols-4 gap-6 mb-12">
-              <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-                <p class="text-slate-500 text-sm">Posts hoje</p>
-                <p class="text-6xl font-semibold mt-3">28</p>
-              </div>
-              <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-                <p class="text-slate-500 text-sm">Aguardando aprovação</p>
-                <p class="text-6xl font-semibold mt-3 text-amber-600">11</p>
-              </div>
-              <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-                <p class="text-slate-500 text-sm">Publicados esta semana</p>
-                <p class="text-6xl font-semibold mt-3">94</p>
-              </div>
-              <div class="bg-white rounded-3xl p-8 card border border-slate-100">
-                <p class="text-slate-500 text-sm">Taxa de aprovação</p>
-                <p class="text-6xl font-semibold mt-3 text-emerald-600">93%</p>
-              </div>
+          <h1 class="text-4xl font-semibold mb-8">Dashboard</h1>
+          <div class="grid grid-cols-4 gap-6">
+            <div class="bg-white border border-slate-200 rounded-3xl p-8">
+              <p class="text-slate-500">Posts hoje</p>
+              <p class="text-5xl font-semibold mt-3">28</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-3xl p-8">
+              <p class="text-slate-500">Aguardando aprovação</p>
+              <p class="text-5xl font-semibold mt-3 text-amber-600">11</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-3xl p-8">
+              <p class="text-slate-500">Publicados esta semana</p>
+              <p class="text-5xl font-semibold mt-3">94</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-3xl p-8">
+              <p class="text-slate-500">Taxa de aprovação</p>
+              <p class="text-5xl font-semibold mt-3 text-emerald-600">93%</p>
             </div>
           </div>`;
       }
