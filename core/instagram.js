@@ -1,64 +1,59 @@
 import { createClient } from "@supabase/supabase-js";
-import { createRequire } from "module";
 
-const require = createRequire(import.meta.url);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const BASE = "https://graph.facebook.com/v25.0";
 
-const CREDENTIALS = {
-  "ovalorcapital": "2025acabando!",
-  "oterrasan": "11061983éanovasenh@!",
-};
-
-const clients = {};
-
-async function getClient(username) {
-  if (clients[username]) return clients[username];
-  const password = CREDENTIALS[username];
-  if (!password) throw new Error("Credenciais não encontradas para: " + username);
-  const { IgApiClient } = require("instagram-private-api");
-  const ig = new IgApiClient();
-  ig.state.generateDevice(username);
-  await ig.simulate.preLoginFlow();
-  await ig.account.login(username, password);
-  await ig.simulate.postLoginFlow();
-  clients[username] = ig;
-  return ig;
-}
-
-export async function getAccount(accountId) {
+async function getAccount(accountId) {
   if (accountId) {
     const { data } = await supabase.from("ig_accounts").select("*").eq("id", accountId).single();
-    if (data?.active) return data;
+    if (data?.active && data?.token) return data;
   }
-  // Sem accountId: pega a primeira ativa
-  const { data } = await supabase.from("ig_accounts").select("*").eq("active", true).limit(1);
+  const { data } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null).order("posts_hoje", { ascending: true }).limit(1);
   return data?.[0] || null;
 }
 
 export async function publish(imageUrl, caption, accountId) {
   const account = await getAccount(accountId);
-  if (!account) throw new Error("Nenhuma conta Instagram ativa disponível");
+  if (!account) throw new Error("Nenhuma conta Instagram ativa com token disponível");
 
-  const ig = await getClient(account.username);
+  const { ig_user_id, token } = account;
+  if (!ig_user_id || !token) throw new Error("Conta sem ig_user_id ou token: " + account.username);
 
-  const nodeFetch = (await import("node-fetch")).default;
-  const resp = await nodeFetch(imageUrl);
-  if (!resp.ok) throw new Error("Falha ao baixar imagem: " + imageUrl);
-  const buffer = Buffer.from(await resp.arrayBuffer());
+  // 1. Criar container
+  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image_url: imageUrl, caption, access_token: token })
+  });
+  const createData = await createRes.json();
+  if (!createData.id) throw new Error("Erro ao criar container: " + JSON.stringify(createData));
 
-  const result = await ig.publish.photo({ file: buffer, caption });
+  // 2. Publicar
+  const pubRes = await fetch(`${BASE}/${ig_user_id}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ creation_id: createData.id, access_token: token })
+  });
+  const pubData = await pubRes.json();
+  if (!pubData.id) throw new Error("Erro ao publicar: " + JSON.stringify(pubData));
 
+  // 3. Atualizar contador
   await supabase.from("ig_accounts").update({
     posts_hoje: (account.posts_hoje || 0) + 1,
     ultima_atividade: new Date().toISOString()
   }).eq("id", account.id);
 
-  return { id: result.media.id };
+  return { id: pubData.id, account_id: account.id, username: account.username };
 }
 
-export async function postComment(mediaId, text, accountId) {
-  const account = await getAccount(accountId);
-  if (!account) throw new Error("Nenhuma conta disponível");
-  const ig = await getClient(account.username);
-  return await ig.media.comment({ mediaId, text });
+export async function postComment(mediaId, text, token) {
+  if (!token) return null;
+  const res = await fetch(`${BASE}/${mediaId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: text, access_token: token })
+  });
+  return await res.json();
 }
+
+export { getAccount };
