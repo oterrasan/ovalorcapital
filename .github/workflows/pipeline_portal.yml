@@ -1,0 +1,18 @@
+name: OVC Pipeline Portal
+
+on:
+  schedule:
+    - cron: '*/12 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executar pipeline portal
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
+            -H "Content-Type: application/json" \
+            --max-time 65 \
+            -o /tmp/result.json
+          cat /tmp/result.json
