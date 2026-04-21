@@ -450,13 +450,44 @@ function Postagens() {
 
   const approveBatch = async () => {
     if (!selected.length) return;
-    if (!confirm(`Publicar ${selected.length} post(s)?`)) return;
+    if (!confirm(`Publicar ${selected.length} post(s) no Instagram?`)) return;
     setApproving(true);
     const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
     const d = await r.json();
     const ok = d.results?.filter(x=>x.ok).length||0;
     const fail = d.results?.filter(x=>!x.ok).length||0;
-    alert(`✅ ${ok} publicado(s)${fail?' · ❌ '+fail+' erro(s)':''}`);
+    alert(`✅ ${ok} publicado(s) no Instagram${fail?' · ❌ '+fail+' erro(s)':''}`);
+    load(); setApproving(false);
+  };
+
+  const pubPortal = async id => {
+    setApproving(true);
+    try {
+      const now = new Date().toISOString();
+      const { error } = await sb.from('posts').update({
+        status: 'publicado', approved: true,
+        publish_method: 'portal', published_at: now, updated_at: now
+      }).eq('id', id);
+      if (error) alert('❌ Erro: ' + error.message);
+      else { alert('✅ Publicado no Portal!'); load(); }
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    setApproving(false);
+  };
+
+  const pubPortalBatch = async () => {
+    if (!selected.length) return;
+    if (!confirm(`Publicar ${selected.length} post(s) no Portal Web?`)) return;
+    setApproving(true);
+    const now = new Date().toISOString();
+    let ok = 0;
+    for (const id of selected) {
+      const { error } = await sb.from('posts').update({
+        status: 'publicado', approved: true,
+        publish_method: 'portal', published_at: now, updated_at: now
+      }).eq('id', id);
+      if (!error) ok++;
+    }
+    alert(`✅ ${ok} publicado(s) no Portal!`);
     load(); setApproving(false);
   };
 
@@ -549,7 +580,8 @@ function Postagens() {
           {selected.length>0&&(
             <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12}}>
               <span style={{color:'var(--yellow)',fontSize:13}}>{selected.length} selecionado(s)</span>
-              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>{approving?'Publicando...':'✓ Aprovar em lote'}</button>
+              <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Portal (lote)</button>
+              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>📱 Instagram (lote)</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>Cancelar</button>
             </div>
           )}
@@ -573,7 +605,10 @@ function Postagens() {
                       <div className="gap-8">
                         <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Preview">👁</button>
                         <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
-                        {p.status==='pendente'&&<button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving}>✓</button>}
+                        {p.status==='pendente'&&<>
+                          <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Portal</button>
+                          <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
+                        </>}
                         {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
                       </div>
                     </td>
