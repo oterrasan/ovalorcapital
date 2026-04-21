@@ -1,3 +1,13 @@
+import { createClient } from "@supabase/supabase-js";
+const _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+async function _getKeys() {
+  try {
+    const { data } = await _sb.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
+    const m = {}; (data||[]).forEach(r => m[r.key]=r.value);
+    return { gemini: m.GEMINI_API_KEY||process.env.GEMINI_API_KEY||"", groq: m.GROQ_API_KEY||process.env.GROQ_API_KEY||"" };
+  } catch(_) { return { gemini: process.env.GEMINI_API_KEY||"", groq: process.env.GROQ_API_KEY||"" }; }
+}
+
 const PROMPT_BASE = (hoje, text) => `Você é redator do portal O Valor Capital. Reescreva a notícia abaixo para Instagram.
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto fora do JSON:
@@ -65,8 +75,7 @@ function buildResult(p) {
   };
 }
 
-async function rewriteGemini(prompt) {
-  const key = process.env.GEMINI_API_KEY;
+async function rewriteGemini(prompt, key) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
@@ -81,8 +90,7 @@ async function rewriteGemini(prompt) {
   return data.candidates[0].content.parts[0].text;
 }
 
-async function rewriteGroq(prompt) {
-  const key = process.env.GROQ_API_KEY;
+async function rewriteGroq(prompt, key) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
@@ -105,15 +113,17 @@ async function rewriteGroq(prompt) {
 export async function rewrite(text, provider = "auto") {
   const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   const prompt = PROMPT_BASE(hoje, text);
+  const { gemini, groq } = await _getKeys();
 
-  const providers = provider === "groq"
-    ? [rewriteGroq, rewriteGemini]
-    : [rewriteGemini, rewriteGroq];
+  const pairs = provider === "groq"
+    ? [[rewriteGroq, groq], [rewriteGemini, gemini]]
+    : [[rewriteGemini, gemini], [rewriteGroq, groq]];
 
   let lastErr;
-  for (const fn of providers) {
+  for (const [fn, key] of pairs) {
+    if (!key) continue;
     try {
-      const output = await fn(prompt);
+      const output = await fn(prompt, key);
       const result = parseOutput(output);
       if (result.text && result.text.length > 50) return result;
     } catch(e) {
