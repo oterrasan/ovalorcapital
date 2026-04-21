@@ -10,7 +10,7 @@
   }
 
   function buildUrl(p){
-    return "/materia/"+slugify(p.titulo||"materia")+"-"+(p.id||"").slice(0,8);
+    return "/api/materia/"+slugify(p.titulo||"materia")+"-"+(p.id||"").slice(0,8);
   }
 
   function dataBr(dt){
