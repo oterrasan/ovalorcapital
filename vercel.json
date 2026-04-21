@@ -6,10 +6,8 @@
       "schedule": "0 3 1 * *"
     }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "handle": "filesystem" },
-    { "src": "/materia/.*", "dest": "/materia/index.html" }
+  "rewrites": [
+    { "source": "/materia/:slug", "destination": "/_materia/index.html" }
   ],
   "functions": {
     "api/run.js": { "maxDuration": 60 },
