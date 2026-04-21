@@ -7,8 +7,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/materia/:path*", "destination": "/materia/index.html" },
-    { "source": "/api/public/content", "destination": "/api/portal-posts" }
+    { "source": "/materia/:slug", "destination": "/materia/index.html" },
+    { "source": "/materia/:slug/", "destination": "/materia/index.html" }
   ],
   "functions": {
     "api/run.js": { "maxDuration": 60 },
