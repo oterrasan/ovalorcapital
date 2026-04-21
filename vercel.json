@@ -6,6 +6,11 @@
       "schedule": "0 3 1 * *"
     }
   ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/materia/.*", "dest": "/materia/index.html" }
+  ],
   "functions": {
     "api/run.js": { "maxDuration": 60 },
     "api/run_portal.js": { "maxDuration": 60 },
