@@ -6,18 +6,30 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=60");
 
-  const { categoria, limit = 20, page = 0, id } = req.query;
+  const { categoria, limit = 20, page = 0, id, slug } = req.query;
 
   try {
-    // Buscar matéria específica
-    if (id) {
+    // Buscar por ID completo
+    if (id && id.length > 8) {
       const { data, error } = await supabase.from("posts")
         .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
         .eq("id", id)
         .eq("status", "publicado")
         .single();
       if (error || !data) return res.status(404).json({ error: "not_found" });
-      return res.status(200).json(formatPost(data));
+      return res.status(200).json(formatPost(data, true));
+    }
+
+    // Buscar por ID parcial (8 chars do slug)
+    if (id && id.length === 8) {
+      const { data, error } = await supabase.from("posts")
+        .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+        .eq("status", "publicado")
+        .ilike("id", `${id}%`)
+        .limit(1)
+        .single();
+      if (error || !data) return res.status(404).json({ error: "not_found" });
+      return res.status(200).json(formatPost(data, true));
     }
 
     // Listar matérias publicadas
@@ -38,24 +50,30 @@ export default async function handler(req, res) {
       total: count || 0,
       page: Number(page),
       limit: Number(limit),
-      posts: (data || []).map(formatPost)
+      posts: (data || []).map(p => formatPost(p, false))
     });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
 }
 
-function formatPost(p) {
+function formatPost(p, full = false) {
   let tags = [];
   try { tags = typeof p.user_tags === "string" ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
   const categoria = tags[0] || "geral";
   const slug = slugify(p.titulo || "materia");
+  const conteudo = p.conteudo || "";
+  // Resumo: pula a primeira linha (assinatura) e pega os primeiros 200 chars do restante
+  const linhas = conteudo.split("\n").filter(l => l.trim());
+  const semAssinatura = linhas.filter(l => !l.startsWith("Redação OVC")).join(" ");
+  const resumo = semAssinatura.slice(0, 200) + (semAssinatura.length > 200 ? "..." : "");
+
   return {
     id: p.id,
-    titulo: p.titulo,
+    titulo: p.titulo || "",
     subtitulo: p.comentario_fixado || "",
-    resumo: (p.conteudo || "").slice(0, 200).replace(/^Redação OVC.*?\n/, "").trim() + "...",
-    corpo: p.conteudo,
+    resumo,
+    corpo: full ? conteudo : undefined,
     imagem: p.imagem || "",
     categoria,
     tags,
@@ -66,7 +84,7 @@ function formatPost(p) {
 }
 
 function slugify(str) {
-  return str.toLowerCase()
+  return (str || "").toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[^a-z0-9\s-]/g,"")
     .trim().replace(/\s+/g,"-")
