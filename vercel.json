@@ -7,8 +7,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/materia/:slug", "destination": "/materia/index.html" },
-    { "source": "/materia/:slug/", "destination": "/materia/index.html" }
+    { "source": "/materia/:slug", "destination": "/api/materia-page" }
   ],
   "functions": {
     "api/run.js": { "maxDuration": 60 },
@@ -16,6 +15,7 @@
     "api/approve.js": { "maxDuration": 60 },
     "api/approve_portal.js": { "maxDuration": 30 },
     "api/portal-posts.js": { "maxDuration": 15 },
+    "api/materia-page.js": { "maxDuration": 10 },
     "api/status.js": { "maxDuration": 10 },
     "api/refresh_token.js": { "maxDuration": 30 }
   },
