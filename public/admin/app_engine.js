@@ -133,38 +133,163 @@ function Pipeline(){
   );
 }
 
-// POSTS (list, filter, detail)
+// POSTS — aprovação com destino: Portal Web ou Instagram
 function Posts(){
   const [items,setItems] = React.useState([]);
-  const [filter,setFilter] = React.useState("");
+  const [filter,setFilter] = React.useState("pendente");
   const [selected,setSelected] = React.useState(null);
+  const [loading,setLoading] = React.useState(false);
+  const [selIds,setSelIds] = React.useState([]);
 
   async function load(){
-    let q = db.from("posts").select("*").order("created_at",{ascending:false});
+    let q = db.from("posts").select("*").order("created_at",{ascending:false}).limit(150);
     if(filter) q = q.eq("status",filter);
     const { data } = await q;
     setItems(data||[]);
+    setSelIds([]);
   }
 
   React.useEffect(()=>{load()},[filter]);
 
+  // Publicar no PORTAL
+  async function pubPortal(id){
+    setLoading(true);
+    const now = new Date().toISOString();
+    await db.from("posts").update({
+      status:"publicado", approved:true,
+      publish_method:"portal", published_at:now, updated_at:now
+    }).eq("id",id);
+    await load(); setSelected(null); setLoading(false);
+  }
+
+  // Publicar no INSTAGRAM
+  async function pubIG(id){
+    setLoading(true);
+    const now = new Date().toISOString();
+    await db.from("posts").update({
+      status:"approved", approved:true,
+      publish_method:"api", updated_at:now
+    }).eq("id",id);
+    // Disparar worker IG
+    await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
+    await load(); setSelected(null); setLoading(false);
+  }
+
+  // Rejeitar
+  async function rejeitar(id){
+    await db.from("posts").update({status:"rejeitado",approved:false}).eq("id",id);
+    await load(); setSelected(null);
+  }
+
+  // Lote portal
+  async function lotePortal(){
+    if(!selIds.length) return;
+    setLoading(true);
+    const now = new Date().toISOString();
+    for(const id of selIds){
+      await db.from("posts").update({status:"publicado",approved:true,publish_method:"portal",published_at:now,updated_at:now}).eq("id",id);
+    }
+    await load(); setLoading(false);
+  }
+
+  // Lote IG
+  async function loteIG(){
+    if(!selIds.length) return;
+    setLoading(true);
+    await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids:selIds})});
+    await load(); setLoading(false);
+  }
+
+  function toggleSel(id){ setSelIds(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]); }
+  function toggleAll(){ setSelIds(s=>s.length===items.length?[]:items.map(p=>p.id)); }
+
+  const bts = (label,fn,cor,dis) => React.createElement("button",{
+    onClick:fn, disabled:dis||loading,
+    style:{background:cor,color:"#fff",border:"none",borderRadius:5,padding:"4px 10px",cursor:"pointer",fontWeight:700,fontSize:12,opacity:(dis||loading)?0.5:1}
+  },label);
+
   return React.createElement("div",{className:"card"},
-    React.createElement("select",{onChange:e=>setFilter(e.target.value)},
-      React.createElement("option",{value:""},"Todos"),
-      React.createElement("option",{value:"success"},"Success"),
-      React.createElement("option",{value:"error"},"Error"),
-      React.createElement("option",{value:"duplicate"},"Duplicate")
+    // Filtros e ações em lote
+    React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}},
+      React.createElement("select",{value:filter,onChange:e=>setFilter(e.target.value),style:{background:"#111120",color:"#f1f1f1",border:"1px solid rgba(255,255,255,0.1)",borderRadius:5,padding:"6px 10px"}},
+        React.createElement("option",{value:"pendente"},"Pendentes"),
+        React.createElement("option",{value:"publicado"},"Publicados Portal"),
+        React.createElement("option",{value:"success"},"Publicados IG"),
+        React.createElement("option",{value:"rejeitado"},"Rejeitados"),
+        React.createElement("option",{value:"error"},"Erros"),
+        React.createElement("option",{value:""},"Todos")
+      ),
+      selIds.length>0 && React.createElement("span",{style:{fontSize:12,color:"#888"}},selIds.length+" selecionados"),
+      selIds.length>0 && bts("▶ Portal (lote)",lotePortal,"#16a34a"),
+      selIds.length>0 && bts("📱 Instagram (lote)",loteIG,"#c81e1e"),
+      React.createElement("button",{onClick:load,style:{background:"#1e293b",color:"#f1f1f1",border:"none",borderRadius:5,padding:"5px 12px",cursor:"pointer",fontSize:12}},"↺")
     ),
-    items.map(p=>React.createElement("div",null,
-      React.createElement("a",{href:"#", onClick:(e)=>{e.preventDefault(); setSelected(p)}}, p.titulo),
-      " | ",p.status
-    )),
-    selected && React.createElement("div",{className:"card"},
-      React.createElement("h3",null,"Detalhe"),
-      React.createElement("div",null,"ID: "+selected.id),
-      React.createElement("div",null,"Hash: "+selected.hash),
-      React.createElement("div",null,"Status: "+selected.status),
-      React.createElement("div",null,"Criado: "+selected.created_at)
+
+    // Tabela
+    React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
+      React.createElement("thead",null,
+        React.createElement("tr",{style:{background:"#111120",fontSize:11,color:"#888"}},
+          React.createElement("th",{style:{padding:"8px",width:32}},
+            React.createElement("input",{type:"checkbox",checked:selIds.length===items.length&&items.length>0,onChange:toggleAll})
+          ),
+          React.createElement("th",{style:{padding:"8px",textAlign:"left"}},"TÍTULO"),
+          React.createElement("th",{style:{padding:"8px",width:100}},"STATUS"),
+          React.createElement("th",{style:{padding:"8px",width:130}},"DESTINO"),
+          React.createElement("th",{style:{padding:"8px",width:140}},"DATA"),
+          React.createElement("th",{style:{padding:"8px",width:180}},"AÇÕES")
+        )
+      ),
+      React.createElement("tbody",null,
+        items.map((p,i)=>{
+          const destino = p.publish_method==="portal"?"🌐 Portal":"📱 Instagram";
+          const corDest = p.publish_method==="portal"?"#16a34a":"#c81e1e";
+          const corStatus = {pendente:"#ffc800",publicado:"#16a34a",success:"#16a34a",rejeitado:"#c81e1e",error:"#c81e1e",approved:"#3b82f6"}[p.status]||"#888";
+          return React.createElement("tr",{key:p.id,style:{borderBottom:"1px solid rgba(255,255,255,0.04)",background:i%2===0?"transparent":"rgba(255,255,255,0.01)"}},
+            React.createElement("td",{style:{padding:"8px",textAlign:"center"}},
+              React.createElement("input",{type:"checkbox",checked:selIds.includes(p.id),onChange:()=>toggleSel(p.id)})
+            ),
+            React.createElement("td",{style:{padding:"8px"}},
+              React.createElement("a",{href:"#",onClick:e=>{e.preventDefault();setSelected(p)},style:{color:"#f1f1f1",textDecoration:"none",fontSize:13,fontWeight:500}},
+                p.titulo||"(sem título)")
+            ),
+            React.createElement("td",{style:{padding:"8px",textAlign:"center"}},
+              React.createElement("span",{style:{background:corStatus+"22",color:corStatus,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:700}},p.status)
+            ),
+            React.createElement("td",{style:{padding:"8px",textAlign:"center",fontSize:11,color:corDest,fontWeight:600}},destino),
+            React.createElement("td",{style:{padding:"8px",fontSize:11,color:"#888"}},
+              new Date(p.created_at).toLocaleString("pt-BR")
+            ),
+            React.createElement("td",{style:{padding:"8px"}},
+              p.status==="pendente" && React.createElement("div",{style:{display:"flex",gap:4}},
+                bts("👁",""),
+                React.createElement("button",{onClick:()=>setSelected(p),style:{background:"#1e293b",color:"#f1f1f1",border:"none",borderRadius:5,padding:"4px 8px",cursor:"pointer",fontSize:12}},"👁"),
+                bts("🌐 Portal",()=>pubPortal(p.id),"#16a34a"),
+                bts("📱 IG",()=>pubIG(p.id),"#c81e1e"),
+                bts("✗",()=>rejeitar(p.id),"#333")
+              )
+            )
+          );
+        })
+      )
+    ),
+
+    // Preview modal
+    selected && React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:1000,overflow:"auto",padding:24}},
+      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,maxWidth:760,margin:"0 auto",padding:28}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}},
+          React.createElement("h3",{style:{color:"#ffc800",margin:0,flex:1,fontSize:18}},selected.titulo||"(sem título)"),
+          React.createElement("button",{onClick:()=>setSelected(null),style:{background:"transparent",color:"#888",border:"none",fontSize:20,cursor:"pointer",padding:"0 4px"}},"✕")
+        ),
+        selected.imagem && React.createElement("img",{src:selected.imagem,style:{width:"100%",maxHeight:260,objectFit:"cover",borderRadius:8,marginBottom:14},onError:e=>e.target.style.display="none"}),
+        React.createElement("div",{style:{background:"#08080f",borderRadius:8,padding:14,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap",color:"#e5e7eb",maxHeight:360,overflow:"auto",marginBottom:16}},
+          selected.conteudo||""
+        ),
+        selected.status==="pendente" && React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+          bts("🌐 Publicar no Portal",()=>pubPortal(selected.id),"#16a34a",loading),
+          bts("📱 Publicar no Instagram",()=>pubIG(selected.id),"#c81e1e",loading),
+          bts("✗ Rejeitar",()=>rejeitar(selected.id),"#444",loading)
+        )
+      )
     )
   );
 }
