@@ -6,6 +6,10 @@
       "schedule": "0 3 1 * *"
     }
   ],
+  "rewrites": [
+    { "source": "/materia/:path*", "destination": "/materia/index.html" },
+    { "source": "/api/public/content", "destination": "/api/portal-posts" }
+  ],
   "functions": {
     "api/run.js": { "maxDuration": 60 },
     "api/run_portal.js": { "maxDuration": 60 },

@@ -6,33 +6,26 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=60");
 
-  const { categoria, limit = 20, page = 0, id, slug } = req.query;
+  const { categoria, limit = 40, page = 0, id, resources } = req.query;
 
   try {
-    // Buscar por ID completo
-    if (id && id.length > 8) {
-      const { data, error } = await supabase.from("posts")
+    // Busca por ID parcial (8 chars) — página de matéria
+    if (id) {
+      const isPartial = id.length === 8;
+      let q = supabase.from("posts")
         .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
-        .eq("id", id)
-        .eq("status", "publicado")
-        .single();
+        .eq("status", "publicado");
+      if (isPartial) {
+        q = q.ilike("id", `${id}%`);
+      } else {
+        q = q.eq("id", id);
+      }
+      const { data, error } = await (isPartial ? q.limit(1).single() : q.single());
       if (error || !data) return res.status(404).json({ error: "not_found" });
       return res.status(200).json(formatPost(data, true));
     }
 
-    // Buscar por ID parcial (8 chars do slug)
-    if (id && id.length === 8) {
-      const { data, error } = await supabase.from("posts")
-        .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
-        .eq("status", "publicado")
-        .ilike("id", `${id}%`)
-        .limit(1)
-        .single();
-      if (error || !data) return res.status(404).json({ error: "not_found" });
-      return res.status(200).json(formatPost(data, true));
-    }
-
-    // Listar matérias publicadas
+    // Buscar matérias publicadas
     let q = supabase.from("posts")
       .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at", { count: "exact" })
       .eq("status", "publicado")
@@ -46,11 +39,31 @@ export default async function handler(req, res) {
     const { data, count, error } = await q;
     if (error) throw error;
 
+    const posts = (data || []).map(p => formatPost(p, false));
+
+    // Se veio do internal-page.js (?resources=articles,...) retornar no formato legado
+    if (resources) {
+      return res.status(200).json({
+        articles: posts.map(p => ({
+          title: p.titulo,
+          excerpt: p.resumo,
+          image: p.imagem,
+          url: p.url,
+          category: p.categoria,
+          source: "Redação OVC",
+          relativeDate: dataBr(p.data),
+          readingTime: "3 min",
+          slug: p.slug
+        })),
+        banners: []
+      });
+    }
+
     return res.status(200).json({
       total: count || 0,
       page: Number(page),
       limit: Number(limit),
-      posts: (data || []).map(p => formatPost(p, false))
+      posts
     });
   } catch(e) {
     return res.status(500).json({ error: e.message });
@@ -63,10 +76,8 @@ function formatPost(p, full = false) {
   const categoria = tags[0] || "geral";
   const slug = slugify(p.titulo || "materia");
   const conteudo = p.conteudo || "";
-  // Resumo: pula a primeira linha (assinatura) e pega os primeiros 200 chars do restante
-  const linhas = conteudo.split("\n").filter(l => l.trim());
-  const semAssinatura = linhas.filter(l => !l.startsWith("Redação OVC")).join(" ");
-  const resumo = semAssinatura.slice(0, 200) + (semAssinatura.length > 200 ? "..." : "");
+  const linhas = conteudo.split("\n").filter(l => l.trim() && !l.startsWith("Redação OVC"));
+  const resumo = linhas.join(" ").slice(0, 200) + (linhas.join(" ").length > 200 ? "..." : "");
 
   return {
     id: p.id,
@@ -83,10 +94,16 @@ function formatPost(p, full = false) {
   };
 }
 
+function dataBr(dt) {
+  if (!dt) return "";
+  try { return new Date(dt).toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }); }
+  catch(_) { return ""; }
+}
+
 function slugify(str) {
   return (str || "").toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-    .replace(/[^a-z0-9\s-]/g,"")
-    .trim().replace(/\s+/g,"-")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim().replace(/\s+/g, "-")
     .slice(0, 60);
 }
