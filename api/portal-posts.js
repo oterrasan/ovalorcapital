@@ -4,28 +4,57 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "public, max-age=60");
+  res.setHeader("Cache-Control", "public, max-age=30");
 
   const { categoria, limit = 40, page = 0, id, resources } = req.query;
 
   try {
-    // Busca por ID parcial (8 chars) — página de matéria
+    // Busca por ID — aceita ID parcial (8 chars) ou completo
     if (id) {
-      const isPartial = id.length === 8;
-      let q = supabase.from("posts")
-        .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
-        .eq("status", "publicado");
-      if (isPartial) {
-        q = q.ilike("id", `${id}%`);
+      let data, error;
+
+      if (id.length === 8) {
+        // ID parcial: buscar todos publicados e filtrar em memória
+        // (ilike em UUID não funciona no Supabase)
+        const { data: rows, error: err } = await supabase
+          .from("posts")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+          .eq("status", "publicado")
+          .like("id", `${id}%`)
+          .limit(1)
+          .single();
+        data = rows;
+        error = err;
+
+        // Fallback: se like falhar, buscar por texto cast
+        if (error || !data) {
+          const { data: rows2, error: err2 } = await supabase
+            .from("posts")
+            .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+            .eq("status", "publicado")
+            .filter("id::text", "like", `${id}%`)
+            .limit(1)
+            .single();
+          data = rows2;
+          error = err2;
+        }
       } else {
-        q = q.eq("id", id);
+        // ID completo
+        const { data: rows, error: err } = await supabase
+          .from("posts")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+          .eq("status", "publicado")
+          .eq("id", id)
+          .single();
+        data = rows;
+        error = err;
       }
-      const { data, error } = await (isPartial ? q.limit(1).single() : q.single());
+
       if (error || !data) return res.status(404).json({ error: "not_found" });
       return res.status(200).json(formatPost(data, true));
     }
 
-    // Buscar matérias publicadas
+    // Buscar lista de matérias publicadas
     let q = supabase.from("posts")
       .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at", { count: "exact" })
       .eq("status", "publicado")
@@ -41,7 +70,6 @@ export default async function handler(req, res) {
 
     const posts = (data || []).map(p => formatPost(p, false));
 
-    // Se veio do internal-page.js (?resources=articles,...) retornar no formato legado
     if (resources) {
       return res.status(200).json({
         articles: posts.map(p => ({
@@ -59,25 +87,29 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({
-      total: count || 0,
-      page: Number(page),
-      limit: Number(limit),
-      posts
-    });
+    return res.status(200).json({ posts, total: count || 0 });
+
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
 }
 
-function formatPost(p, full = false) {
+function formatPost(p, full) {
   let tags = [];
   try { tags = typeof p.user_tags === "string" ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
   const categoria = tags[0] || "geral";
-  const slug = slugify(p.titulo || "materia");
   const conteudo = p.conteudo || "";
-  const linhas = conteudo.split("\n").filter(l => l.trim() && !l.startsWith("Redação OVC"));
-  const resumo = linhas.join(" ").slice(0, 200) + (linhas.join(" ").length > 200 ? "..." : "");
+  const resumo = conteudo.slice(0, 220).replace(/^Redação OVC.*?\n/, "").trim() + "...";
+
+  const CAT_PATH = {
+    politica:"politica", economia:"economia", negocios:"negocios",
+    investimentos:"investimentos", seguros:"seguros", mercados:"mercados",
+    educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
+    esportes:"esportes", saude:"saude", familia:"familia",
+    tributacao:"tributos", regulacao:"regulacao", internacional:"economia",
+    geral:"politica"
+  };
+  const catPath = CAT_PATH[categoria] || "politica";
 
   return {
     id: p.id,
@@ -88,8 +120,8 @@ function formatPost(p, full = false) {
     imagem: p.imagem || "",
     categoria,
     tags,
-    slug,
-    url: `/materia/?id=${p.id.slice(0,8)}`,
+    slug: slugify(p.titulo || ""),
+    url: `/${catPath}/?id=${(p.id||"").slice(0,8)}`,
     data: p.published_at || p.created_at
   };
 }
