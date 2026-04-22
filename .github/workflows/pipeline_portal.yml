@@ -8,11 +8,20 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     steps:
-      - name: Executar pipeline portal (1 materia/minuto)
+      - name: Pipeline Portal — loop de execucoes
         run: |
-          curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
-            -H "Content-Type: application/json" \
-            --max-time 55 \
-            -o /tmp/result.json 2>&1
-          cat /tmp/result.json
+          for i in $(seq 1 55); do
+            curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
+              -H "Content-Type: application/json" \
+              --max-time 50 \
+              -o /tmp/result.json 2>/dev/null
+            STATUS=$(cat /tmp/result.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null || echo "erro")
+            echo "[$i] $STATUS"
+            if [ "$STATUS" = "limit_reached" ]; then
+              echo "Limite diário atingido, encerrando."
+              break
+            fi
+            sleep 60
+          done
