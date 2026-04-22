@@ -1,12 +1,13 @@
 (function(){
   const API = "/api/portal-posts";
-  let _heroIndex = 0;
-  let _heroPosts = [];
-  let _heroTimer = null;
 
-  function buildUrl(p){
-    return "/materia/?id=" + (p.id||"").slice(0,8);
-  }
+  // Categorias por card
+  const CAT_HERO   = ["politica","economia","internacional","regulacao","tributacao","geral"];
+  const CAT_SIDE   = ["seguros","saude","investimentos","negocios","empregos","familia","educacao","mercados","industria","tecnologia","cultura","patrimonio","esportes"];
+
+  let _heroIndex = 0, _heroPosts = [], _heroTimer = null;
+
+  function buildUrl(p){ return "/materia/?id=" + (p.id||"").slice(0,8); }
 
   function dataBr(dt){
     if(!dt) return "";
@@ -14,135 +15,161 @@
     catch(_){ return ""; }
   }
 
-  const CAT = {politica:"Política",economia:"Economia",negocios:"Negócios",
+  const LABEL = {politica:"Política",economia:"Economia",negocios:"Negócios",
     investimentos:"Investimentos",mercados:"Mercados",tributacao:"Tributação",
     regulacao:"Regulação",seguros:"Seguros",saude:"Saúde",familia:"Família",
     tecnologia:"Tecnologia",industria:"Indústria",educacao:"Educação",
     esportes:"Esportes",cultura:"Cultura",patrimonio:"Patrimônio",
     internacional:"Internacional",geral:"Geral"};
 
-  function catLabel(c){ return CAT[c]||c||"Geral"; }
+  function label(c){ return LABEL[c]||c||"Geral"; }
 
-  // Preenche hero principal com rotação — SEM alterar estrutura, só texto
-  function setupHeroRotation(el, posts){
-    if(!el || !posts.length) return;
-    _heroPosts = posts.slice(0,5);
+  function setTag(el, cat){
+    if(!el) return;
+    el.innerHTML = '<span class="tag-dot"></span> ' + label(cat);
+  }
+
+  function preencherHero(heroEl, p){
+    if(!heroEl||!p) return;
+    const url = buildUrl(p);
+    const tit  = heroEl.querySelector(".card-title, h1, h2");
+    const exc  = heroEl.querySelector(".card-excerpt, p:not(.card-meta)");
+    const tag  = heroEl.querySelector(".tag");
+    const cta  = heroEl.querySelector(".card-cta");
+    const meta = heroEl.querySelector(".card-meta");
+    if(tit)  tit.textContent  = p.titulo;
+    if(exc)  exc.textContent  = (p.resumo||"").slice(0,160);
+    if(tag)  setTag(tag, p.categoria);
+    if(meta) meta.textContent = "Redação OVC • " + dataBr(p.data);
+    if(cta)  cta.href = url;
+    // Imagem de fundo no hero se disponível
+    if(p.imagem){
+      heroEl.style.backgroundImage = "linear-gradient(135deg,rgba(15,116,210,0.55),rgba(0,0,0,0.72)), url('" + p.imagem + "')";
+      heroEl.style.backgroundSize  = "cover";
+      heroEl.style.backgroundPosition = "center";
+    }
+    heroEl.style.cursor = "pointer";
+    heroEl.onclick = function(e){ if(!e.target.closest("a")) location.href = url; };
+  }
+
+  function setupHeroRotation(heroEl, posts){
+    if(!heroEl||!posts.length) return;
+    _heroPosts = posts.slice(0,6);
     _heroIndex = 0;
 
-    // Criar dots de navegação uma vez
-    if(!document.getElementById("ovc-hero-dots")){
-      const dots = document.createElement("div");
-      dots.id = "ovc-hero-dots";
-      dots.style.cssText = "display:flex;gap:6px;margin-top:8px;";
-      _heroPosts.forEach((_,i)=>{
-        const d = document.createElement("span");
-        d.style.cssText = "width:6px;height:6px;border-radius:50%;background:#ffc800;cursor:pointer;transition:opacity .3s;";
-        d.onclick = ()=>{ _heroIndex=i; showHero(i); };
-        dots.appendChild(d);
+    // Dots ficam DENTRO do heroEl — não mudam o layout externo
+    let dotsEl = heroEl.querySelector(".ovc-hero-dots");
+    if(!dotsEl){
+      dotsEl = document.createElement("div");
+      dotsEl.className = "ovc-hero-dots";
+      dotsEl.style.cssText = "display:flex;gap:6px;margin-top:auto;padding-top:8px;";
+      _heroPosts.forEach(function(_,i){
+        var d = document.createElement("span");
+        d.style.cssText = "width:7px;height:7px;border-radius:50%;background:#ffc800;cursor:pointer;transition:opacity .3s;opacity:0.3;flex-shrink:0;";
+        d.onclick = function(){ _heroIndex=i; showHero(i); };
+        dotsEl.appendChild(d);
       });
-      el.parentNode && el.parentNode.insertBefore(dots, el.nextSibling);
+      heroEl.appendChild(dotsEl);
     }
 
     function showHero(i){
-      const p = _heroPosts[i];
+      var p = _heroPosts[i];
       if(!p) return;
-      const url = buildUrl(p);
-      // Só alterar texto e links — NÃO tocar em CSS/estrutura
-      const tit = el.querySelector(".card-title, h1, h2");
-      const exc = el.querySelector(".card-excerpt, p:not(.card-meta)");
-      const tag = el.querySelector(".tag");
-      const cta = el.querySelector(".card-cta");
-      const meta = el.querySelector(".card-meta");
-      if(tit) tit.textContent = p.titulo;
-      if(exc) exc.textContent = (p.resumo||"").slice(0,120);
-      if(tag) tag.innerHTML = '<span class="tag-dot"></span> ' + catLabel(p.categoria);
-      if(meta) meta.textContent = "Redação OVC • " + dataBr(p.data);
-      if(cta){ cta.href = url; }
-      el.style.cursor = "pointer";
-      el.onclick = e=>{ if(!e.target.closest("a")) location.href = url; };
-
-      // Atualizar dots
-      const dotsEl = document.getElementById("ovc-hero-dots");
-      if(dotsEl){
-        Array.from(dotsEl.children).forEach((d,di)=>{
-          d.style.opacity = di===i ? "1" : "0.3";
-        });
-      }
+      preencherHero(heroEl, p);
+      Array.from(dotsEl.children).forEach(function(d,di){
+        d.style.opacity = di===i ? "1" : "0.3";
+      });
     }
 
     showHero(0);
     if(_heroTimer) clearInterval(_heroTimer);
-    _heroTimer = setInterval(()=>{
+    _heroTimer = setInterval(function(){
       _heroIndex = (_heroIndex+1) % _heroPosts.length;
       showHero(_heroIndex);
     }, 7000);
   }
 
-  // Preenche qualquer card — SÓ texto e links, sem tocar no layout
   function preencherCard(el, p){
     if(!el||!p) return;
-    const url = buildUrl(p);
-    const tit = el.querySelector(".card-title, .card-feature-title, h2, h3");
-    const exc = el.querySelector(".card-excerpt, .card-feature-excerpt, p");
-    const tag = el.querySelector(".tag");
-    const cta = el.querySelector(".card-cta");
-    const meta = el.querySelector(".card-meta");
-    if(tit) tit.textContent = p.titulo;
-    if(exc) exc.textContent = (p.resumo||"").slice(0,150);
-    if(tag) tag.innerHTML = '<span class="tag-dot"></span> ' + catLabel(p.categoria);
-    if(meta) meta.textContent = "Redação OVC • " + catLabel(p.categoria);
-    if(cta){ cta.href = url; }
+    var url = buildUrl(p);
+    var tit  = el.querySelector(".card-title,.card-feature-title,h2,h3");
+    var exc  = el.querySelector(".card-excerpt,.card-feature-excerpt,p:not(.card-meta)");
+    var tag  = el.querySelector(".tag");
+    var cta  = el.querySelector(".card-cta");
+    var meta = el.querySelector(".card-meta");
+    if(tit)  tit.textContent  = p.titulo;
+    if(exc)  exc.textContent  = (p.resumo||"").slice(0,150);
+    if(tag)  setTag(tag, p.categoria);
+    if(meta) meta.textContent = "Redação OVC • " + label(p.categoria);
+    if(cta)  cta.href = url;
     el.style.cursor = "pointer";
-    el.onclick = e=>{ if(!e.target.closest("a")) location.href = url; };
+    el.onclick = function(e){ if(!e.target.closest("a")) location.href = url; };
   }
 
   function preencherMini(el, p){
     if(!el||!p) return;
-    const url = buildUrl(p);
-    const tit = el.querySelector(".card-title, h3");
-    const tag = el.querySelector(".tag");
-    const cta = el.querySelector(".card-cta");
-    const meta = el.querySelector(".card-meta");
-    if(tit) tit.textContent = p.titulo;
-    if(tag) tag.innerHTML = '<span class="tag-dot"></span> ' + catLabel(p.categoria);
-    if(meta) meta.textContent = "Redação OVC • " + catLabel(p.categoria);
-    if(cta){ cta.href = url; }
+    var url = buildUrl(p);
+    var tit  = el.querySelector(".card-title,h3,h4");
+    var tag  = el.querySelector(".tag");
+    var cta  = el.querySelector(".card-cta");
+    var meta = el.querySelector(".card-meta");
+    if(tit)  tit.textContent  = p.titulo;
+    if(tag)  setTag(tag, p.categoria);
+    if(meta) meta.textContent = "Redação OVC • " + label(p.categoria);
+    if(cta)  cta.href = url;
     el.style.cursor = "pointer";
-    el.onclick = e=>{ if(!e.target.closest("a")) location.href = url; };
+    el.onclick = function(e){ if(!e.target.closest("a")) location.href = url; };
+  }
+
+  function filtra(posts, cats){
+    return posts.filter(function(p){ return cats.indexOf(p.categoria||"geral") !== -1; });
   }
 
   async function loadNoticias(){
     try{
-      const res = await fetch(API+"?limit=50");
+      var res = await fetch(API + "?limit=80");
       if(!res.ok) return;
-      const json = await res.json();
-      const posts = (json.posts||[]).filter(p=>p.titulo&&p.titulo.length>0);
-      if(!posts.length) return;
+      var json = await res.json();
+      var todos = (json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; });
+      if(!todos.length) return;
 
-      let i = 0;
+      // Separar por categoria
+      var heroPool = filtra(todos, CAT_HERO);
+      var sidePool = filtra(todos, CAT_SIDE);
 
-      // Hero com rotação
-      const heroEl = document.querySelector(".card-hero-main");
-      if(heroEl){ setupHeroRotation(heroEl, posts); i = 5; }
+      // Fallback: se não houver suficientes, usa todos
+      if(heroPool.length < 2) heroPool = todos;
+      if(sidePool.length < 2) sidePool = todos;
 
-      // Cards secundários
-      preencherCard(document.querySelector(".card-feature"), posts[i++]);
-      preencherCard(document.querySelector(".card-monetizado"), posts[i++]);
+      // Hero rotativo — só categorias de impacto
+      var heroEl = document.querySelector(".card-hero-main");
+      if(heroEl) setupHeroRotation(heroEl, heroPool);
 
-      // Cards da grade (com IDs)
-      ["ovc-card-std-1","ovc-card-std-2","ovc-card-std-3",
-       "ovc-card-std-4","ovc-card-std-5","ovc-card-std-6"].forEach(id=>{
-        preencherCard(document.getElementById(id), posts[i++]);
+      // Card feature (central) — serviços/produtos
+      preencherCard(document.querySelector(".card-feature"), sidePool[0]);
+
+      // Card monetizado (direito) — serviços/produtos
+      preencherCard(document.querySelector(".card-monetizado"), sidePool[1]);
+
+      // Cards standard — mistura de ambos pools
+      var stdPosts = todos.slice(0, 20);
+      var stdIds = ["ovc-card-std-1","ovc-card-std-2","ovc-card-std-3",
+                    "ovc-card-std-4","ovc-card-std-5","ovc-card-std-6"];
+      stdIds.forEach(function(id, idx){
+        preencherCard(document.getElementById(id), stdPosts[idx+2]);
       });
-      ["ovc-card-mini-1","ovc-card-mini-2","ovc-card-mini-3",
-       "ovc-card-mini-4","ovc-card-mini-5"].forEach(id=>{
-        preencherMini(document.getElementById(id), posts[i++]);
+
+      // Cards mini
+      var miniIds = ["ovc-card-mini-1","ovc-card-mini-2","ovc-card-mini-3",
+                     "ovc-card-mini-4","ovc-card-mini-5"];
+      miniIds.forEach(function(id, idx){
+        preencherMini(document.getElementById(id), stdPosts[idx+8]);
       });
 
-    }catch(e){ console.warn("OVC noticias:", e.message); }
+    } catch(e){ console.warn("OVC noticias:", e.message); }
   }
 
-  document.addEventListener("DOMContentLoaded",()=>{
+  document.addEventListener("DOMContentLoaded", function(){
     loadNoticias();
     setInterval(loadNoticias, 120000);
   });
