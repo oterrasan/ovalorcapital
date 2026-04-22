@@ -157,7 +157,7 @@ export default async function handler(req, res) {
     else raw = await callGemini(prompt);
 
     const content = parse(raw);
-    if (!content.corpo || content.corpo.length < 300) throw new Error("Conteúdo gerado insuficiente");
+    if (!content.corpo || content.corpo.length < 100) throw new Error("Conteúdo gerado insuficiente");
 
     // Se publicar=false, retorna só o resultado sem salvar
     if (!publicar && publicar !== "pendente") {
