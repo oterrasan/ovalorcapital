@@ -26,7 +26,7 @@
     const toShow = filtered.length > 0 ? filtered : all;
 
     function buildUrl(p) {
-      return '/materia.html?id=' + (p.id||'').slice(0,8);
+      return '/materia/?id=' + (p.id||'').slice(0,8);
     }
 
     function slugify(str) {

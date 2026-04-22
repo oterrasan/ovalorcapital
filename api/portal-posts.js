@@ -89,7 +89,7 @@ function formatPost(p, full = false) {
     categoria,
     tags,
     slug,
-    url: `/materia.html?id=${p.id.slice(0,8)}`,
+    url: `/materia/?id=${p.id.slice(0,8)}`,
     data: p.published_at || p.created_at
   };
 }
