@@ -9,7 +9,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - name: Executar pipeline portal
+      - name: Executar pipeline portal (1 materia/minuto)
         run: |
           curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
             -H "Content-Type: application/json" \
