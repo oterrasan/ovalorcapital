@@ -8,15 +8,46 @@
     }
   ],
   "functions": {
-    "api/run.js": { "maxDuration": 60 },
-    "api/run_portal.js": { "maxDuration": 60 },
-    "api/approve.js": { "maxDuration": 60 },
-    "api/approve_portal.js": { "maxDuration": 30 },
-    "api/portal-posts.js": { "maxDuration": 15 },
-    "api/status.js": { "maxDuration": 10 },
-    "api/refresh_token.js": { "maxDuration": 30 }
+    "api/run.js": {
+      "maxDuration": 60
+    },
+    "api/run_portal.js": {
+      "maxDuration": 60
+    },
+    "api/approve.js": {
+      "maxDuration": 60
+    },
+    "api/approve_portal.js": {
+      "maxDuration": 30
+    },
+    "api/portal-posts.js": {
+      "maxDuration": 15
+    },
+    "api/status.js": {
+      "maxDuration": 10
+    },
+    "api/refresh_token.js": {
+      "maxDuration": 30
+    }
   },
   "build": {
-    "env": { "SHARP_IGNORE_GLOBAL_LIBVIPS": "1" }
-  }
+    "env": {
+      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
+    }
+  },
+  "headers": [
+    {
+      "source": "/js/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ]
 }
