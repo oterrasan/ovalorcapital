@@ -38,19 +38,17 @@
   function setTag(el, cat){
     if(!el) return;
     el.innerHTML = '<span class="tag-dot"></span> ' + label(cat);
-    // Atualizar classe do tag
     el.className = el.className.replace(/tag-\w+/g,'') + ' tag-' + (cat||'geral');
   }
 
   function injectImg(card, p){
     if(!p.imagem || !card) return;
-    // Verificar se ja tem img
     if(card.querySelector('img.ovc-card-img')) return;
     var img = document.createElement('img');
     img.className = 'ovc-card-img';
     img.src = p.imagem;
     img.alt = '';
-    img.style.cssText = 'width:100%;height:160px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block;';
+    img.style.cssText = 'width:100%;height:150px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block;';
     img.onerror = function(){ this.style.display='none'; };
     card.insertBefore(img, card.firstChild);
   }
@@ -58,8 +56,8 @@
   function preencherHero(heroEl, p){
     if(!heroEl||!p) return;
     var url = buildUrl(p);
-    var tit  = heroEl.querySelector('.card-title, h1, h2');
-    var exc  = heroEl.querySelector('.card-excerpt, p:not(.card-meta)');
+    var tit  = heroEl.querySelector('.card-title,h1,h2');
+    var exc  = heroEl.querySelector('.card-excerpt,p:not(.card-meta)');
     var tag  = heroEl.querySelector('.tag');
     var cta  = heroEl.querySelector('.card-cta');
     var meta = heroEl.querySelector('.card-meta');
@@ -67,14 +65,14 @@
     if(exc)  exc.textContent = (p.resumo||'').slice(0,160);
     if(tag)  setTag(tag, p.categoria);
     if(meta) meta.textContent = 'Redação OVC · ' + dataBr(p.data);
-    if(cta){ cta.href = url; }
+    if(cta)  cta.href = url;
     if(p.imagem){
-      heroEl.style.backgroundImage = "linear-gradient(135deg,rgba(15,116,210,0.55),rgba(0,0,0,0.72)), url('" + p.imagem + "')";
+      heroEl.style.backgroundImage = "linear-gradient(135deg,rgba(15,116,210,0.55),rgba(0,0,0,0.72)),url('" + p.imagem + "')";
       heroEl.style.backgroundSize = 'cover';
       heroEl.style.backgroundPosition = 'center';
     }
     heroEl.style.cursor = 'pointer';
-    heroEl.onclick = function(e){ if(!e.target.closest('a')) location.href = url; };
+    heroEl.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
   function setupHeroRotation(heroEl, posts){
@@ -128,7 +126,7 @@
     if(cta)  cta.href = url;
     injectImg(el, p);
     el.style.cursor = 'pointer';
-    el.onclick = function(e){ if(!e.target.closest('a')) location.href = url; };
+    el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
   function preencherMini(el, p){
@@ -144,41 +142,68 @@
     if(cta)  cta.href = url;
     injectImg(el, p);
     el.style.cursor = 'pointer';
-    el.onclick = function(e){ if(!e.target.closest('a')) location.href = url; };
+    el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
   function filtra(posts, cats){
     return posts.filter(function(p){ return cats.indexOf(p.categoria||'geral') !== -1; });
   }
 
+  // Deduplicar — garantir que cada ID aparece só uma vez em toda a home
+  function dedup(arr){
+    var seen = {};
+    return arr.filter(function(p){ if(seen[p.id]) return false; seen[p.id]=true; return true; });
+  }
+
   function loadNoticias(){
     fetch(API + '?limit=80')
       .then(function(res){ return res.json(); })
       .then(function(json){
-        var todos = (json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; });
+        var todos = dedup((json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; }));
         if(!todos.length) return;
 
-        var heroPool = filtra(todos, CAT_HERO);
-        var sidePool = filtra(todos, CAT_SIDE);
+        var heroPool = dedup(filtra(todos, CAT_HERO));
+        var sidePool = dedup(filtra(todos, CAT_SIDE));
         if(heroPool.length < 2) heroPool = todos;
         if(sidePool.length < 2) sidePool = todos;
 
+        // IDs já usados — evitar repetição entre hero, side e standard
+        var usedIds = {};
+        function pick(pool){
+          for(var i=0;i<pool.length;i++){
+            if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; }
+          }
+          return null;
+        }
+
+        // Hero rotativo
         var heroEl = document.querySelector('.card-hero-main');
-        if(heroEl) setupHeroRotation(heroEl, heroPool);
+        if(heroEl){
+          var heroItems = heroPool.filter(function(p){ if(usedIds[p.id]) return false; usedIds[p.id]=true; return true; }).slice(0,6);
+          setupHeroRotation(heroEl, heroItems);
+        }
 
-        preencherCard(document.querySelector('.card-feature'), sidePool[0]);
-        preencherCard(document.querySelector('.card-monetizado'), sidePool[1]);
+        // Card feature
+        preencherCard(document.querySelector('.card-feature'), pick(sidePool));
 
-        var stdPosts = todos.slice(0, 20);
+        // Card monetizado
+        preencherCard(document.querySelector('.card-monetizado'), pick(sidePool));
+
+        // Cards standard — sem repetir
         ['ovc-card-std-1','ovc-card-std-2','ovc-card-std-3',
-         'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id, idx){
-          preencherCard(document.getElementById(id), stdPosts[idx+2]);
+         'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id){
+          preencherCard(document.getElementById(id), pick(todos));
         });
 
+        // Cards mini
         ['ovc-card-mini-1','ovc-card-mini-2','ovc-card-mini-3',
-         'ovc-card-mini-4','ovc-card-mini-5'].forEach(function(id, idx){
-          preencherMini(document.getElementById(id), stdPosts[idx+8]);
+         'ovc-card-mini-4','ovc-card-mini-5'].forEach(function(id){
+          preencherMini(document.getElementById(id), pick(todos));
         });
+
+        // Aumentar gap entre cards standard (mais harmônico)
+        var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
+        grids.forEach(function(g){ g.style.gap = '22px'; });
       })
       .catch(function(e){ console.warn('OVC noticias:', e.message); });
   }
