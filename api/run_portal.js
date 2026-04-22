@@ -21,52 +21,46 @@ export default async function handler(req, res) {
       .eq("publish_method", "portal");
     if ((count || 0) >= MAX) return res.status(200).json({ status: "limit_reached", count });
 
-    // Buscar notícias
+    // Buscar notícias — pega até 10 candidatas
     const news = await getNews();
     if (!news.length) return res.status(200).json({ status: "no_news" });
 
-    const results = [];
-    const batch = news.slice(0, 1); // 1 matéria por chamada = 1/minuto
-
-    for (const item of batch) {
+    // Tentar cada candidata até uma funcionar
+    for (const item of news.slice(0, 10)) {
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
 
       // Checar duplicata
       const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).single();
-      if (dup) { results.push({ status: "duplicate", link: item.link }); continue; }
+      if (dup) continue;
 
-      // Scrape
+      // Scrape — se falhar, tenta próxima
       const article = await scrape(item.link);
-      if (!article.text || article.text.length < 100) {
-        results.push({ status: "scrape_failed", link: item.link });
-        continue;
-      }
+      if (!article.text || article.text.length < 150) continue;
 
-      // Reescrita no Padrão OVC para portal
+      // Reescrita no Padrão OVC
       let content;
       try {
-        content = await rewritePortal(article.text);
+        content = await rewritePortal(article.text, item.title);
       } catch(e) {
-        results.push({ status: "ai_failed", error: e.message });
-        continue;
+        return res.status(200).json({ status: "ai_failed", error: e.message });
       }
 
-      if (!content.corpo || content.corpo.length < 500) {
-        results.push({ status: "ai_short", link: item.link });
-        continue;
-      }
+      if (!content.corpo || content.corpo.length < 500) continue;
+
+      // Imagem: prioridade à da notícia original
+      const imagem = article.image || "";
 
       // Salvar como pendente
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.subtitulo || "",
-        imagem: article.image || "",
+        imagem,
         hash,
         status: "pendente",
         approved: false,
         publish_method: "portal",
-        user_tags: JSON.stringify([content.categoria || "geral", content.tag_tema || ""]),
+        user_tags: JSON.stringify([content.categoria || "geral"]),
         collaborators: "[]",
         metrics: {},
         priority: 0,
@@ -75,13 +69,17 @@ export default async function handler(req, res) {
       }).select().single();
 
       if (error) {
-        results.push({ status: "db_error", error: error.message });
-      } else {
-        results.push({ status: "pendente", titulo: content.titulo, id: post?.id, categoria: content.categoria });
+        return res.status(200).json({ status: "db_error", error: error.message });
       }
+
+      return res.status(200).json({
+        status: "ok",
+        processed: 1,
+        results: [{ status: "pendente", titulo: content.titulo, id: post?.id, categoria: content.categoria, imagem: !!imagem }]
+      });
     }
 
-    return res.status(200).json({ status: "ok", processed: results.length, results });
+    return res.status(200).json({ status: "all_failed_or_duplicate", tried: Math.min(news.length, 10) });
   } catch(e) {
     return res.status(200).json({ status: "error", error: e.message });
   }
