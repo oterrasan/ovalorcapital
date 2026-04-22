@@ -8,7 +8,7 @@ const db = createClient(
 
 function App(){
   const [tab,setTab] = React.useState("dashboard");
-  const tabs = ["dashboard","novopost","pipeline","posts","accounts","sources","logs","config"];
+  const tabs = ["dashboard","editorai","novopost","pipeline","posts","accounts","sources","logs","config"];
 
   return React.createElement("div",null,
     React.createElement("div",{className:"nav"},
@@ -21,6 +21,7 @@ function App(){
 function Content({tab}){
   switch(tab){
     case "dashboard": return React.createElement(Dashboard);
+    case "editorai": return React.createElement(EditorIA);
     case "novopost": return React.createElement(NovoPost);
     case "pipeline": return React.createElement(Pipeline);
     case "posts": return React.createElement(Posts);
@@ -29,6 +30,162 @@ function Content({tab}){
     case "logs": return React.createElement(Logs);
     case "config": return React.createElement(Config);
   }
+}
+
+
+
+// EDITOR IA — você manda, a IA processa, você aprova
+function EditorIA(){
+  const [entrada,setEntrada]=React.useState("");
+  const [acao,setAcao]=React.useState("reescrever");
+  const [promptLivre,setPromptLivre]=React.useState("");
+  const [ia,setIa]=React.useState("gemini");
+  const [imagem,setImagem]=React.useState("");
+  const [buscarImagem,setBuscarImagem]=React.useState(false);
+  const [loading,setLoading]=React.useState(false);
+  const [resultado,setResultado]=React.useState(null);
+  const [erro,setErro]=React.useState("");
+  const [salvando,setSalvando]=React.useState(false);
+  const [salvo,setSalvo]=React.useState(null);
+
+  const IAS = [
+    {id:"gemini",  label:"Gemini",  ativo:true},
+    {id:"groq",    label:"Groq",    ativo:false},
+    {id:"grok",    label:"Grok",    ativo:false},
+    {id:"openai",  label:"ChatGPT", ativo:false},
+  ];
+
+  const ACOES = [
+    {id:"reescrever", label:"Reescrever no padrão OVC"},
+    {id:"melhorar",   label:"Melhorar meu texto"},
+    {id:"tema",       label:"Criar matéria do tema"},
+    {id:"livre",      label:"Prompt livre"},
+  ];
+
+  const isUrl = entrada.trim().startsWith("http");
+
+  async function gerar(){
+    if(!entrada.trim()){setErro("Cole um link, texto ou tema");return;}
+    if(acao==="livre"&&!promptLivre.trim()){setErro("Digite seu prompt");return;}
+    setLoading(true);setErro("");setResultado(null);setSalvo(null);
+    try{
+      const body={acao,ia,imagem:imagem.trim(),buscarImagem,promptLivre,publicar:false};
+      if(isUrl) body.url=entrada.trim();
+      else body.texto=entrada.trim();
+      const r=await fetch("/api/editor_ia",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"Erro ao gerar");
+      setResultado(d);
+    }catch(e){setErro(e.message);}
+    setLoading(false);
+  }
+
+  async function salvar(publicarDireto){
+    if(!resultado)return;
+    setSalvando(true);
+    try{
+      const body={
+        acao,ia,publicar:publicarDireto?"publicado":"pendente",
+        imagem:resultado.imagem||imagem.trim(),buscarImagem,promptLivre
+      };
+      if(isUrl) body.url=entrada.trim();
+      else body.texto=entrada.trim();
+      const r=await fetch("/api/editor_ia",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"Erro ao salvar");
+      setSalvo(d);setResultado(null);setEntrada("");setImagem("");
+    }catch(e){setErro(e.message);}
+    setSalvando(false);
+  }
+
+  // Estilos
+  const card={background:"var(--ovc-surface)",border:"1px solid rgba(15,23,42,.1)",borderRadius:18,padding:24,marginBottom:16};
+  const inp={width:"100%",padding:"11px 14px",borderRadius:12,border:"1px solid rgba(15,23,42,.15)",background:"var(--ovc-surface)",color:"var(--ovc-text)",fontSize:14,boxSizing:"border-box"};
+  const ta={...inp,minHeight:120,resize:"vertical"};
+  const chip=(ativo)=>({padding:"7px 16px",borderRadius:999,border:"1px solid rgba(15,23,42,.15)",cursor:"pointer",fontSize:13,fontWeight:600,background:ativo?"#1e40af":"transparent",color:ativo?"#fff":"var(--ovc-text)",transition:"all .15s"});
+  const btn=(cor)=>({background:cor,color:"#fff",border:"none",padding:"11px 22px",borderRadius:999,cursor:"pointer",fontWeight:700,fontSize:14});
+
+  return React.createElement("div",null,
+    React.createElement("h2",{style:{margin:"0 0 4px",fontSize:24}},"Editor IA"),
+    React.createElement("p",{style:{color:"var(--ovc-muted)",marginBottom:20,fontSize:14}},"Você manda. A IA processa no padrão OVC. Você aprova."),
+
+    // Painel entrada
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}},
+
+      // Esquerda — entrada
+      React.createElement("div",null,
+        React.createElement("div",{style:card},
+          React.createElement("label",{style:{fontWeight:700,fontSize:13,display:"block",marginBottom:8}},"Link ou texto da notícia"),
+          React.createElement("textarea",{style:ta,placeholder:isUrl?"URL detectada — será extraída automaticamente":"Cole o texto, tema ou URL da notícia aqui...",value:entrada,onChange:e=>setEntrada(e.target.value),disabled:loading}),
+
+          // Ação
+          React.createElement("div",{style:{marginTop:16,marginBottom:6,fontWeight:700,fontSize:13}},"O que fazer:"),
+          React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}},
+            ACOES.map(a=>React.createElement("button",{key:a.id,style:chip(acao===a.id),onClick:()=>setAcao(a.id)},a.label))
+          ),
+          acao==="livre"&&React.createElement("textarea",{style:{...ta,minHeight:70,marginBottom:12},placeholder:"Digite seu prompt aqui...",value:promptLivre,onChange:e=>setPromptLivre(e.target.value),disabled:loading}),
+
+          // Escolher IA
+          React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:8}},"Qual IA usar:"),
+          React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}},
+            IAS.map(i=>React.createElement("button",{
+              key:i.id,
+              style:{...chip(ia===i.id),opacity:i.ativo?1:.4,cursor:i.ativo?"pointer":"not-allowed"},
+              onClick:()=>i.ativo&&setIa(i.id),
+              title:i.ativo?"":"Em breve — chave não configurada"
+            },i.label+(i.ativo?"":" 🔒")))
+          ),
+
+          // Imagem
+          React.createElement("div",{style:{fontWeight:700,fontSize:13,marginBottom:8}},"Imagem:"),
+          React.createElement("input",{style:{...inp,marginBottom:8},placeholder:"Cole a URL da imagem (opcional)",value:imagem,onChange:e=>{setImagem(e.target.value);if(e.target.value)setBuscarImagem(false)},disabled:loading}),
+          React.createElement("label",{style:{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",color:"var(--ovc-muted)"}},
+            React.createElement("input",{type:"checkbox",checked:buscarImagem,onChange:e=>{setBuscarImagem(e.target.checked);if(e.target.checked)setImagem("");},disabled:loading||!!imagem}),
+            "Buscar imagem automaticamente"
+          ),
+
+          // Botão gerar
+          React.createElement("button",{
+            style:{...btn("#1e40af"),marginTop:18,width:"100%",opacity:loading?.6:1},
+            onClick:gerar,disabled:loading
+          },loading?"⏳ Processando...":"⚡ Gerar matéria"),
+
+          erro&&React.createElement("div",{style:{background:"rgba(220,38,38,.08)",border:"1px solid rgba(220,38,38,.2)",borderRadius:10,padding:12,marginTop:12,color:"#dc2626",fontSize:13}},"⚠️ "+erro)
+        )
+      ),
+
+      // Direita — resultado
+      React.createElement("div",null,
+        resultado&&React.createElement("div",{style:card},
+          React.createElement("div",{style:{fontWeight:800,fontSize:16,color:"#1e40af",marginBottom:12}},"✅ Matéria gerada"),
+
+          resultado.imagem&&React.createElement("img",{src:resultado.imagem,alt:"",style:{width:"100%",height:160,objectFit:"cover",borderRadius:10,marginBottom:12,display:"block"},onError:e=>e.target.style.display="none"}),
+
+          React.createElement("div",{style:{fontWeight:700,fontSize:15,marginBottom:4}},resultado.titulo),
+          React.createElement("div",{style:{fontSize:12,color:"var(--ovc-muted)",marginBottom:12}},"Categoria: "+resultado.categoria+(resultado.subtitulo?" · "+resultado.subtitulo:"")),
+
+          React.createElement("div",{style:{background:"rgba(15,23,42,.04)",borderRadius:10,padding:14,fontSize:13,lineHeight:1.7,maxHeight:300,overflowY:"auto",whiteSpace:"pre-wrap",marginBottom:16}},resultado.corpo),
+
+          React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+            React.createElement("button",{style:{...btn("#16a34a"),opacity:salvando?.6:1},onClick:()=>salvar(false),disabled:salvando},salvando?"Salvando...":"💾 Salvar como pendente"),
+            React.createElement("button",{style:{...btn("#1e40af"),opacity:salvando?.6:1},onClick:()=>salvar(true),disabled:salvando},"🚀 Publicar direto"),
+            React.createElement("button",{style:{...btn("#64748b")},onClick:()=>setResultado(null)},"✕ Descartar")
+          )
+        ),
+
+        salvo&&React.createElement("div",{style:{...card,border:"1px solid rgba(22,163,74,.3)",background:"rgba(22,163,74,.06)"}},
+          React.createElement("div",{style:{fontWeight:700,color:"#16a34a",marginBottom:8}},salvo.status==="publicado"?"✅ Publicado no portal!":"✅ Salvo como pendente — acesse Posts para aprovar"),
+          React.createElement("div",{style:{fontWeight:600,fontSize:14}},salvo.titulo),
+          React.createElement("div",{style:{fontSize:12,color:"var(--ovc-muted)",marginTop:4}},"Categoria: "+salvo.categoria)
+        ),
+
+        !resultado&&!salvo&&React.createElement("div",{style:{...card,display:"flex",alignItems:"center",justifyContent:"center",minHeight:300,color:"var(--ovc-muted)",flexDirection:"column",gap:12}},
+          React.createElement("div",{style:{fontSize:40}},"⚡"),
+          React.createElement("div",{style:{fontSize:14,textAlign:"center"}},"Preencha os campos ao lado e clique em Gerar")
+        )
+      )
+    )
+  );
 }
 
 
