@@ -40,6 +40,9 @@
     },
     "api/manual_post.js": {
       "maxDuration": 60
+    },
+    "api/editor_ia.js": {
+      "maxDuration": 60
     }
   },
   "build": {
