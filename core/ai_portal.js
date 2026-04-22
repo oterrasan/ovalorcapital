@@ -4,7 +4,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-const PROMPT = (data, text) => `Você é redator do portal O Valor Capital. Reescreva a notícia abaixo para publicação no portal.
+const PROMPT = (data, title, text) => `Você é redator do portal O Valor Capital. Reescreva a notícia abaixo para publicação no portal.
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto fora do JSON:
 {"titulo":"máximo 5 palavras, alto impacto","subtitulo":"1 frase objetiva até 120 chars","categoria":"politica|economia|negocios|investimentos|mercados|tributacao|regulacao|seguros|saude|familia|tecnologia|industria|educacao|esportes|cultura|patrimonio|internacional","corpo":"texto completo da matéria"}
@@ -14,10 +14,13 @@ REGRAS DO CORPO:
 2. Mínimo 1.500 caracteres. Máximo 2.000 caracteres.
 3. 8 parágrafos separados por linha em branco.
 4. Fluxo: contexto → fato → dados → consequência → impacto → perspectiva → conclusão.
-5. Linguagem direta, nível de rua. Zero jargão de IA.
-6. SEM viés editorial. Apenas fatos.
+5. Linguagem direta, nível de rua. Zero jargão de IA. Português brasileiro correto.
+6. SEM viés editorial. Apenas fatos verificáveis.
+7. Último parágrafo: 4 hashtags em linhas separadas, terminando com #ovalorcapital
 
-PROIBIDO: "isso mostra", "vale destacar", "vale ressaltar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "não é à toa", "deixa claro", "é importante destacar"
+PROIBIDO USAR: "isso mostra", "vale destacar", "vale ressaltar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "não é à toa", "deixa claro", "é importante destacar", "muralhas", "colapso", "blindar", "castelo", "pimenta amarga", "blueprint", "robusto", "resiliente", "ecossistema", "disruptivo", "paradigma", "sinergia"
+
+TÍTULO DA NOTÍCIA ORIGINAL: ${title}
 
 NOTÍCIA:
 ${text}`;
@@ -42,7 +45,7 @@ function parse(raw) {
     try { return JSON.parse(s); } catch(_) {}
     const m = s.match(/\{[\s\S]*\}/);
     if(m) try { return JSON.parse(m[0]); } catch(_) {}
-    const get = k => { const r = s.match(new RegExp(`"${k}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`)); return r ? r[1].replace(/\\n/g,"\n").replace(/\\"/g,'"') : ""; };
+    const get = k => { const r = s.match(new RegExp(`"${k}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`))); return r ? r[1].replace(/\\n/g,"\n").replace(/\\"/g,'"') : ""; };
     return { titulo: get("titulo"), subtitulo: get("subtitulo"), categoria: get("categoria")||"geral", corpo: get("corpo") };
   } catch(_) { return { titulo:"", subtitulo:"", categoria:"geral", corpo: raw.slice(0,2000) }; }
 }
@@ -73,13 +76,13 @@ async function callGroq(prompt, key) {
   return d.choices[0].message.content;
 }
 
-export async function rewritePortal(text) {
+export async function rewritePortal(text, title = "") {
   const { gemini, groq } = await getKeys();
-  const prompt = PROMPT(hoje(), text);
+  const prompt = PROMPT(hoje(), title, text);
   const fns = [];
   if(gemini) fns.push(() => callGemini(prompt, gemini));
   if(groq) fns.push(() => callGroq(prompt, groq));
-  if(!fns.length) throw new Error("Nenhuma chave de IA configurada. Adicione GEMINI_API_KEY ou GROQ_API_KEY no admin em Configurações.");
+  if(!fns.length) throw new Error("Nenhuma chave de IA configurada. Adicione GEMINI_API_KEY ou GROQ_API_KEY no admin.");
 
   let lastErr;
   for(const fn of fns) {
