@@ -37,6 +37,9 @@
     },
     "api/fix_titles.js": {
       "maxDuration": 300
+    },
+    "api/manual_post.js": {
+      "maxDuration": 60
     }
   },
   "build": {
