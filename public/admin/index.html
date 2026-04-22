@@ -1397,6 +1397,7 @@ function Alertas() {
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
+  {id:'editorai',label:'Editor IA',icon:'⚡'},
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'fila',label:'Fila de Publicação',icon:'🔄'},
@@ -1432,7 +1433,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes,imagens:UploadImagens}[page];
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes,imagens:UploadImagens}[page];
 
   return (
     <div className="layout">
@@ -1574,6 +1575,182 @@ function UploadImagens() {
     </div>
   );
 }
+
+
+// ── EDITOR IA ──
+function EditorIA() {
+  const [entrada, setEntrada] = React.useState('');
+  const [acao, setAcao] = React.useState('reescrever');
+  const [promptLivre, setPromptLivre] = React.useState('');
+  const [ia, setIa] = React.useState('gemini');
+  const [imagem, setImagem] = React.useState('');
+  const [buscarImagem, setBuscarImagem] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [resultado, setResultado] = React.useState(null);
+  const [erro, setErro] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [salvo, setSalvo] = React.useState(null);
+
+  const IAS = [
+    {id:'gemini', label:'Gemini', ativo:true},
+    {id:'groq',   label:'Groq',   ativo:false},
+    {id:'grok',   label:'Grok',   ativo:false},
+    {id:'openai', label:'ChatGPT',ativo:false},
+  ];
+
+  const ACOES = [
+    {id:'reescrever', label:'Reescrever no padrão OVC'},
+    {id:'melhorar',   label:'Melhorar meu texto'},
+    {id:'tema',       label:'Criar matéria do tema'},
+    {id:'livre',      label:'Prompt livre'},
+  ];
+
+  const isUrl = entrada.trim().startsWith('http');
+
+  async function gerar() {
+    if (!entrada.trim()) { setErro('Cole um link, texto ou tema'); return; }
+    if (acao === 'livre' && !promptLivre.trim()) { setErro('Digite seu prompt'); return; }
+    setLoading(true); setErro(''); setResultado(null); setSalvo(null);
+    try {
+      const body = { acao, ia, imagem: imagem.trim(), buscarImagem, promptLivre, publicar: false };
+      if (isUrl) body.url = entrada.trim();
+      else body.texto = entrada.trim();
+      const r = await fetch('/api/editor_ia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao gerar');
+      setResultado(d);
+    } catch(e) { setErro(e.message); }
+    setLoading(false);
+  }
+
+  async function salvar(publicarDireto) {
+    if (!resultado) return;
+    setSalvando(true);
+    try {
+      const body = { acao, ia, publicar: publicarDireto ? 'publicado' : 'pendente', imagem: resultado.imagem || imagem.trim(), buscarImagem, promptLivre };
+      if (isUrl) body.url = entrada.trim();
+      else body.texto = entrada.trim();
+      const r = await fetch('/api/editor_ia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao salvar');
+      setSalvo(d); setResultado(null); setEntrada(''); setImagem('');
+    } catch(e) { setErro(e.message); }
+    setSalvando(false);
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">⚡ Editor IA</div>
+        <div className="page-sub">Você manda o link ou texto. A IA processa no padrão OVC. Você aprova.</div>
+      </div>
+      <div className="page-body">
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
+
+          {/* Entrada */}
+          <div>
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">Entrada</span></div>
+              <div style={{padding:20}}>
+                <div className="form-group">
+                  <label className="form-label">Link ou texto da notícia</label>
+                  <textarea className="form-textarea" style={{minHeight:130}} value={entrada} onChange={e=>setEntrada(e.target.value)} disabled={loading}
+                    placeholder="Cole aqui a URL da notícia ou o texto completo..."/>
+                  {isUrl && <div style={{fontSize:11,color:'#4ade80',marginTop:4}}>🔗 URL detectada — será extraída automaticamente</div>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">O que fazer</label>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                    {ACOES.map(a=>(
+                      <button key={a.id} onClick={()=>setAcao(a.id)} className={`btn btn-sm ${acao===a.id?'btn-primary':'btn-secondary'}`}>{a.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {acao === 'livre' && (
+                  <div className="form-group">
+                    <label className="form-label">Seu prompt</label>
+                    <textarea className="form-textarea" style={{minHeight:70}} value={promptLivre} onChange={e=>setPromptLivre(e.target.value)} disabled={loading} placeholder="Digite sua instrução para a IA..."/>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Qual IA usar</label>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {IAS.map(i=>(
+                      <button key={i.id} onClick={()=>i.ativo&&setIa(i.id)}
+                        className={`btn btn-sm ${ia===i.id?'btn-primary':'btn-secondary'}`}
+                        style={{opacity:i.ativo?1:.4,cursor:i.ativo?'pointer':'not-allowed'}}
+                        title={i.ativo?'':'Em breve'}>
+                        {i.label}{!i.ativo?' 🔒':''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Imagem (opcional)</label>
+                  <input className="form-input" value={imagem} onChange={e=>{setImagem(e.target.value);if(e.target.value)setBuscarImagem(false);}} disabled={loading} placeholder="Cole a URL da imagem aqui..."/>
+                  <label style={{display:'flex',alignItems:'center',gap:8,marginTop:8,fontSize:13,cursor:'pointer',color:'var(--t2)'}}>
+                    <input type="checkbox" checked={buscarImagem} onChange={e=>{setBuscarImagem(e.target.checked);if(e.target.checked)setImagem('');}} disabled={loading||!!imagem}/>
+                    Buscar imagem automaticamente
+                  </label>
+                </div>
+
+                <button className="btn btn-primary" style={{width:'100%',padding:'12px',opacity:loading?.6:1}} onClick={gerar} disabled={loading}>
+                  {loading ? '⏳ Processando...' : '⚡ Gerar matéria'}
+                </button>
+
+                {erro && <div className="alert-banner" style={{marginTop:12}}><span>⚠️ {erro}</span></div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Resultado */}
+          <div>
+            {resultado && (
+              <div className="panel">
+                <div className="panel-header"><span className="panel-title" style={{color:'#4ade80'}}>✅ Matéria gerada</span></div>
+                <div style={{padding:20}}>
+                  {resultado.imagem && <img src={resultado.imagem} alt="" style={{width:'100%',height:160,objectFit:'cover',borderRadius:8,marginBottom:12,display:'block'}} onError={e=>e.target.style.display='none'}/>}
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{resultado.titulo}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:12}}>Categoria: {resultado.categoria}{resultado.subtitulo?' · '+resultado.subtitulo:''}</div>
+                  <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:14,fontSize:13,lineHeight:1.7,maxHeight:320,overflowY:'auto',whiteSpace:'pre-wrap',marginBottom:16}}>{resultado.corpo}</div>
+                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <button className="btn btn-green" onClick={()=>salvar(false)} disabled={salvando}>{salvando?'Salvando...':'💾 Salvar como pendente'}</button>
+                    <button className="btn btn-primary" onClick={()=>salvar(true)} disabled={salvando}>🚀 Publicar direto</button>
+                    <button className="btn btn-secondary" onClick={()=>setResultado(null)}>✕ Descartar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {salvo && (
+              <div className="panel" style={{border:'1px solid rgba(22,163,74,.3)'}}>
+                <div style={{padding:20}}>
+                  <div style={{fontWeight:700,color:'#4ade80',marginBottom:8}}>{salvo.status==='publicado'?'✅ Publicado no portal!':'✅ Salvo como pendente — vá em Postagens para aprovar'}</div>
+                  <div style={{fontWeight:600}}>{salvo.titulo}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:4}}>Categoria: {salvo.categoria}</div>
+                </div>
+              </div>
+            )}
+
+            {!resultado && !salvo && (
+              <div className="panel" style={{minHeight:300,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div style={{textAlign:'center',color:'var(--t2)'}}>
+                  <div style={{fontSize:48,marginBottom:12}}>⚡</div>
+                  <div>Preencha os campos ao lado e clique em Gerar</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
