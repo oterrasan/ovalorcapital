@@ -34,6 +34,9 @@
     },
     "api/fix_cats.js": {
       "maxDuration": 30
+    },
+    "api/fix_titles.js": {
+      "maxDuration": 300
     }
   },
   "build": {
