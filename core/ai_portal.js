@@ -6,8 +6,8 @@ const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", mont
 
 // Apenas as 2 chaves válidas confirmadas em teste
 const GEMINI_KEYS = [
-  "AIzaSyDK3iHpVI1rHlJGclRS2lCbxog8673oD9g",
-  "AIzaSyCz2NnKvjObbWTUM1w_O3fsAYVyc1HKOS8",
+  "AIzaSyDESwZ8GR_0BttpDCLrMkK-FobDfhYZZjI",
+  "AIzaSyBnDSSU3UNbo9lrJClzXB0dslcR4pFcyFo",
 ].filter(Boolean);
 
 let currentKeyIndex = 0;
