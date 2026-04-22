@@ -89,13 +89,7 @@ function formatPost(p, full = false) {
     categoria,
     tags,
     slug,
-    const catPath = {politica:'politica',economia:'economia',negocios:'negocios',
-        investimentos:'investimentos',seguros:'seguros',mercados:'mercados',
-        educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
-        esportes:'esportes',saude:'saude',familia:'familia',
-        tributacao:'tributos',regulacao:'regulacao',internacional:'economia',geral:'politica'};
-      const cp = catPath[p.categoria||'geral']||'politica';
-      url: `/${cp}/?id=${p.id.slice(0,8)}`,
+    url: `/materia/?id=${p.id.slice(0,8)}`,
     data: p.published_at || p.created_at
   };
 }
