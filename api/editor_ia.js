@@ -5,9 +5,9 @@ import { scrape } from "../core/scraper.js";
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const GEMINI_KEYS = [
-  "AIzaSyDESwZ8GR_0BttpDCLrMkK-FobDfhYZZjI",
-  "AIzaSyBnDSSU3UNbo9lrJClzXB0dslcR4pFcyFo",
-];
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_KEY_2,
+].filter(Boolean);
 
 // Slots preparados — ativar quando chaves estiverem disponíveis
 const GROQ_KEY   = process.env.GROQ_API_KEY   || "";
