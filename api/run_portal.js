@@ -69,14 +69,19 @@ export default async function handler(req, res) {
       const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).single();
       if (dup) continue;
 
-      // Scrape
+      // Scrape — usa description do RSS como fallback se scraper falhar
       const article = await scrape(item.link);
-      if (!article.text || article.text.length < 150) continue;
+      const sourceText = (article.text && article.text.length >= 100)
+        ? article.text
+        : (item.description && item.description.length >= 50)
+          ? item.title + ". " + item.description
+          : null;
+      if (!sourceText) continue;
 
       // Reescrever no padrão OVC
       let content;
       try {
-        content = await rewritePortal(article.text, item.title);
+        content = await rewritePortal(sourceText, item.title);
       } catch(e) {
         return res.status(200).json({ status: "ai_failed", error: e.message });
       }
