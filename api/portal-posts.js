@@ -9,52 +9,36 @@ export default async function handler(req, res) {
   const { categoria, limit = 40, page = 0, id, resources } = req.query;
 
   try {
-    // Busca por ID — aceita ID parcial (8 chars) ou completo
     if (id) {
-      let data, error;
+      let data = null;
 
-      if (id.length === 8) {
-        // ID parcial: buscar todos publicados e filtrar em memória
-        // (ilike em UUID não funciona no Supabase)
-        const { data: rows, error: err } = await supabase
-          .from("posts")
-          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
-          .eq("status", "publicado")
-          .like("id", `${id}%`)
-          .limit(1)
-          .single();
-        data = rows;
-        error = err;
-
-        // Fallback: se like falhar, buscar por texto cast
-        if (error || !data) {
-          const { data: rows2, error: err2 } = await supabase
-            .from("posts")
-            .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
-            .eq("status", "publicado")
-            .filter("id::text", "like", `${id}%`)
-            .limit(1)
-            .single();
-          data = rows2;
-          error = err2;
-        }
-      } else {
-        // ID completo
-        const { data: rows, error: err } = await supabase
+      if (id.length >= 36) {
+        // ID completo — busca direta
+        const { data: row } = await supabase
           .from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
           .eq("status", "publicado")
           .eq("id", id)
           .single();
-        data = rows;
-        error = err;
+        data = row;
+      } else {
+        // ID parcial — buscar recentes e filtrar em JS
+        const { data: rows } = await supabase
+          .from("posts")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+          .eq("status", "publicado")
+          .order("published_at", { ascending: false })
+          .limit(200);
+        if (rows) {
+          data = rows.find(r => r.id && r.id.startsWith(id)) || null;
+        }
       }
 
-      if (error || !data) return res.status(404).json({ error: "not_found" });
+      if (!data) return res.status(404).json({ error: "not_found" });
       return res.status(200).json(formatPost(data, true));
     }
 
-    // Buscar lista de matérias publicadas
+    // Lista paginada
     let q = supabase.from("posts")
       .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at", { count: "exact" })
       .eq("status", "publicado")
@@ -73,15 +57,9 @@ export default async function handler(req, res) {
     if (resources) {
       return res.status(200).json({
         articles: posts.map(p => ({
-          title: p.titulo,
-          excerpt: p.resumo,
-          image: p.imagem,
-          url: p.url,
-          category: p.categoria,
-          source: "Redação OVC",
-          relativeDate: dataBr(p.data),
-          readingTime: "3 min",
-          slug: p.slug
+          title: p.titulo, excerpt: p.resumo, image: p.imagem,
+          url: p.url, category: p.categoria, source: "Redação OVC",
+          relativeDate: dataBr(p.data), readingTime: "3 min", slug: p.slug
         })),
         banners: []
       });
@@ -100,7 +78,6 @@ function formatPost(p, full) {
   const categoria = tags[0] || "geral";
   const conteudo = p.conteudo || "";
   const resumo = conteudo.slice(0, 220).replace(/^Redação OVC.*?\n/, "").trim() + "...";
-
   const CAT_PATH = {
     politica:"politica", economia:"economia", negocios:"negocios",
     investimentos:"investimentos", seguros:"seguros", mercados:"mercados",
@@ -109,8 +86,6 @@ function formatPost(p, full) {
     tributacao:"tributos", regulacao:"regulacao", internacional:"economia",
     geral:"politica"
   };
-  const catPath = CAT_PATH[categoria] || "politica";
-
   return {
     id: p.id,
     titulo: p.titulo || "",
@@ -121,21 +96,18 @@ function formatPost(p, full) {
     categoria,
     tags,
     slug: slugify(p.titulo || ""),
-    url: `/${catPath}/?id=${(p.id||"").slice(0,8)}`,
+    url: `/${CAT_PATH[categoria] || "politica"}/?id=${(p.id||"").slice(0,8)}`,
     data: p.published_at || p.created_at
   };
 }
 
 function dataBr(dt) {
   if (!dt) return "";
-  try { return new Date(dt).toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }); }
-  catch(_) { return ""; }
+  try { return new Date(dt).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"}); }
+  catch(_){ return ""; }
 }
 
 function slugify(str) {
-  return (str || "").toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim().replace(/\s+/g, "-")
-    .slice(0, 60);
+  return (str||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,60);
 }
