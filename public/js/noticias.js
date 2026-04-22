@@ -7,7 +7,18 @@
 
   let _heroIndex = 0, _heroPosts = [], _heroTimer = null;
 
-  function buildUrl(p){ return "/materia/?id=" + (p.id||"").slice(0,8); }
+  const CAT_PATH = {
+    politica:'politica',economia:'economia',negocios:'negocios',
+    investimentos:'investimentos',seguros:'seguros',mercados:'mercados',
+    educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
+    esportes:'esportes',saude:'saude',familia:'familia',
+    tributacao:'tributos',regulacao:'regulacao',internacional:'economia',
+    geral:'politica'
+  };
+  function buildUrl(p){
+    var cat = CAT_PATH[p.categoria||'geral'] || 'politica';
+    return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
+  }
 
   function dataBr(dt){
     if(!dt) return "";

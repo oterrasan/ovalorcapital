@@ -26,7 +26,16 @@
     const toShow = filtered.length > 0 ? filtered : all;
 
     function buildUrl(p) {
-      return '/materia/?id=' + (p.id||'').slice(0,8);
+      const CAT_PATH = {
+        politica:'politica',economia:'economia',negocios:'negocios',
+        investimentos:'investimentos',seguros:'seguros',mercados:'mercados',
+        educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
+        esportes:'esportes',saude:'saude',familia:'familia',
+        tributacao:'tributos',regulacao:'regulacao',internacional:'economia',
+        geral:'politica'
+      };
+      const cat = CAT_PATH[p.categoria||'geral'] || 'politica';
+      return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
     }
 
     function slugify(str) {
@@ -103,5 +112,42 @@
         </section>`
       ).join('');
     }
+  });
+})();
+
+// Detectar ?id= na URL e renderizar matéria completa dentro do layout de categoria
+(async function(){
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if(!id) return; // sem ?id= — renderização normal da categoria
+
+  document.addEventListener('DOMContentLoaded', async function(){
+    try{
+      const res = await fetch('/api/portal-posts?id=' + id);
+      if(!res.ok) return;
+      const p = await res.json();
+      if(!p || !p.titulo) return;
+
+      // Atualizar categoria no body
+      document.body.setAttribute('data-category', p.categoria||'geral');
+      document.title = p.titulo + ' | O Valor Capital';
+
+      // Preencher o hero card com a matéria completa
+      const heroEl = document.querySelector('[data-hero-card]');
+      if(heroEl){
+        const corpo = (p.corpo||p.resumo||'').split(/\n\n+/).filter(l=>l.trim())
+          .map(l => '<p style="font-size:15px;line-height:1.8;margin:0 0 14px;">' + l + '</p>').join('');
+        heroEl.innerHTML = '<article class="ovc-story-card no-thumb" style="padding:0;">' +
+          '<div>' +
+          (p.imagem ? '<img src="'+p.imagem+'" alt="" style="width:100%;max-height:380px;object-fit:cover;border-radius:12px;margin-bottom:20px;" onerror="this.style.display=\'none\'">' : '') +
+          '<div style="font-size:12px;color:var(--ovc-muted);margin-bottom:8px;">Redação OVC · ' +
+          new Date(p.data||Date.now()).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}) +
+          '</div>' +
+          '<h1 style="font-size:26px;font-weight:800;line-height:1.2;margin:0 0 14px;">' + p.titulo + '</h1>' +
+          (p.subtitulo ? '<p style="font-size:16px;color:var(--ovc-muted);margin:0 0 18px;">' + p.subtitulo + '</p>' : '') +
+          '<div style="border-top:1px solid var(--ovc-line);padding-top:18px;margin-top:4px;">' + corpo + '</div>' +
+          '</div></article>';
+      }
+    } catch(e){ console.warn('OVC materia:', e.message); }
   });
 })();
