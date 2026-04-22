@@ -28,6 +28,9 @@
     },
     "api/refresh_token.js": {
       "maxDuration": 30
+    },
+    "api/recategorize.js": {
+      "maxDuration": 60
     }
   },
   "build": {
