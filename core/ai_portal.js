@@ -93,22 +93,39 @@ Responda APENAS com o novo título. Sem aspas. Sem explicação.`;
 function parse(raw) {
   try {
     let s = raw.replace(/```json/g,"").replace(/```/g,"").trim();
-    try { return JSON.parse(s); } catch(_) {}
-    const m = s.match(/\{[\s\S]*\}/);
-    if (m) { try { return JSON.parse(m[0]); } catch(_) {} }
+    // Tentar JSON completo
+    try { const p = JSON.parse(s); if (p.corpo) return p; } catch(_) {}
+    // Tentar extrair o bloco JSON mesmo incompleto
+    const m = s.match(/\{[\s\S]*/);
+    if (m) {
+      // Tentar fechar o JSON se estiver truncado
+      let attempt = m[0];
+      if (!attempt.endsWith("}")) attempt += '"}';
+      try { const p = JSON.parse(attempt); if (p.corpo) return p; } catch(_) {}
+    }
+    // Extrair campos individualmente
     const get = k => {
       const r = s.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));
       return r ? r[1].replace(/\\n/g,"\n").replace(/\\"/g,'"') : "";
     };
-    const corpoMatch = s.match(/"corpo"\s*:\s*"([\s\S]*)/);
-    const corpo = corpoMatch
-      ? corpoMatch[1].replace(/"\s*}?\s*$/, "").replace(/\\n/g,"\n").replace(/\\"/g,'"')
-      : get("corpo");
+    // Extrair corpo — pegar tudo após "corpo": até o fim
+    let corpo = "";
+    const cm = s.match(/"corpo"\s*:\s*"([\s\S]*)/);
+    if (cm) {
+      corpo = cm[1]
+        .replace(/\\n/g,"\n")
+        .replace(/\\"/g,'"')
+        .replace(/"\s*}\s*$/, "")
+        .replace(/"$/, "")
+        .trim();
+    }
+    if (!corpo) corpo = get("corpo");
+    if (!corpo) corpo = raw.replace(/[{}":\[\]]/g, " ").trim().slice(0, 2000);
     return {
       titulo: get("titulo") || "Sem título",
       subtitulo: get("subtitulo") || "",
       categoria: get("categoria") || "geral",
-      corpo: corpo || raw.slice(0,2000)
+      corpo
     };
   } catch(_) {
     return { titulo:"", subtitulo:"", categoria:"geral", corpo: raw.slice(0,2000) };
@@ -117,7 +134,7 @@ function parse(raw) {
 
 export async function rewritePortal(text, title) {
   const prompt = PROMPT(hoje(), title || "", text);
-  const raw = await callGemini(prompt, 1800);
+  const raw = await callGemini(prompt, 2800);
   const result = parse(raw);
   if (!result.corpo || result.corpo.length < 50) throw new Error("Conteúdo gerado muito curto");
   return result;
