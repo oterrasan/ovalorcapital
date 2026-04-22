@@ -22,7 +22,8 @@ export async function getNews() {
           return feed.items.slice(0, 10).map(i => ({
             title: i.title,
             link: i.link || i.guid,
-            source: source.name
+            source: source.name,
+            description: i.contentSnippet || i.summary || i.description || i.content || ""
           })).filter(i => i.link);
         }
       } catch(_) { continue; }
