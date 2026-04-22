@@ -5,7 +5,7 @@ import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const MAX = 120; // 5 por hora x 24h
+const MAX = 1440; // 1 por minuto x 60min x 24h
 
 export default async function handler(req, res) {
   try {
