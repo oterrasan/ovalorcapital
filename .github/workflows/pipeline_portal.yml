@@ -2,7 +2,7 @@ name: OVC Pipeline Portal
 
 on:
   schedule:
-    - cron: '*/12 * * * *'
+    - cron: '* * * * *'
   workflow_dispatch:
 
 jobs:
@@ -13,6 +13,6 @@ jobs:
         run: |
           curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
             -H "Content-Type: application/json" \
-            --max-time 65 \
-            -o /tmp/result.json
+            --max-time 55 \
+            -o /tmp/result.json 2>&1
           cat /tmp/result.json

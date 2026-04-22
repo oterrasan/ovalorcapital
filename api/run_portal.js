@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     if (!news.length) return res.status(200).json({ status: "no_news" });
 
     const results = [];
-    const batch = news.slice(0, 5); // processar até 5 por chamada
+    const batch = news.slice(0, 1); // 1 matéria por chamada = 1/minuto
 
     for (const item of batch) {
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
