@@ -18,9 +18,9 @@ REGRAS DO CORPO:
 6. SEM viés editorial. Apenas fatos verificáveis.
 7. Último parágrafo: 4 hashtags em linhas separadas, terminando com #ovalorcapital
 
-PROIBIDO USAR: "isso mostra", "vale destacar", "vale ressaltar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "não é à toa", "deixa claro", "é importante destacar", "muralhas", "colapso", "blindar", "castelo", "pimenta amarga", "blueprint", "robusto", "resiliente", "ecossistema", "disruptivo", "paradigma", "sinergia"
+PROIBIDO: "isso mostra", "vale destacar", "vale ressaltar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "não é à toa", "deixa claro", "é importante destacar", "muralhas", "colapso", "blindar", "castelo", "blueprint", "robusto", "resiliente", "ecossistema", "disruptivo", "paradigma", "sinergia"
 
-TÍTULO DA NOTÍCIA ORIGINAL: ${title}
+TÍTULO ORIGINAL: ${title}
 
 NOTÍCIA:
 ${text}`;
@@ -29,7 +29,7 @@ async function getKeys() {
   try {
     const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
     const map = {};
-    (data || []).forEach(r => map[r.key] = r.value);
+    (data || []).forEach(r => { map[r.key] = r.value; });
     return {
       gemini: map.GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
       groq: map.GROQ_API_KEY || process.env.GROQ_API_KEY || ""
@@ -44,10 +44,15 @@ function parse(raw) {
     let s = raw.replace(/```json[\s\S]*?```/g, m => m.slice(7,-3)).replace(/```/g,"").trim();
     try { return JSON.parse(s); } catch(_) {}
     const m = s.match(/\{[\s\S]*\}/);
-    if(m) try { return JSON.parse(m[0]); } catch(_) {}
-    const get = k => { const r = s.match(new RegExp(`"${k}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`))); return r ? r[1].replace(/\\n/g,"\n").replace(/\\"/g,'"') : ""; };
+    if (m) { try { return JSON.parse(m[0]); } catch(_) {} }
+    const get = k => {
+      const r = s.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));
+      return r ? r[1].replace(/\\n/g,"\n").replace(/\\"/g,'"') : "";
+    };
     return { titulo: get("titulo"), subtitulo: get("subtitulo"), categoria: get("categoria")||"geral", corpo: get("corpo") };
-  } catch(_) { return { titulo:"", subtitulo:"", categoria:"geral", corpo: raw.slice(0,2000) }; }
+  } catch(_) {
+    return { titulo:"", subtitulo:"", categoria:"geral", corpo: raw.slice(0,2000) };
+  }
 }
 
 async function callGemini(prompt, key) {
@@ -57,7 +62,7 @@ async function callGemini(prompt, key) {
     body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.7,maxOutputTokens:1500,responseMimeType:"application/json"} })
   });
   const d = await res.json();
-  if(!res.ok) throw new Error("Gemini: "+(d.error?.message||JSON.stringify(d).slice(0,100)));
+  if (!res.ok) throw new Error("Gemini: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
   return d.candidates[0].content.parts[0].text;
 }
 
@@ -67,29 +72,32 @@ async function callGroq(prompt, key) {
     headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
     body: JSON.stringify({
       model:"llama-3.3-70b-versatile",
-      messages:[{role:"system",content:"Redator jornalístico. Responda APENAS com JSON válido."},{role:"user",content:prompt}],
+      messages:[
+        {role:"system",content:"Redator jornalístico. Responda APENAS com JSON válido."},
+        {role:"user",content:prompt}
+      ],
       max_tokens:1500, temperature:0.7, response_format:{type:"json_object"}
     })
   });
   const d = await res.json();
-  if(!res.ok) throw new Error("Groq: "+(d.error?.message||JSON.stringify(d).slice(0,100)));
+  if (!res.ok) throw new Error("Groq: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
   return d.choices[0].message.content;
 }
 
-export async function rewritePortal(text, title = "") {
+export async function rewritePortal(text, title) {
   const { gemini, groq } = await getKeys();
-  const prompt = PROMPT(hoje(), title, text);
+  const prompt = PROMPT(hoje(), title || "", text);
   const fns = [];
-  if(gemini) fns.push(() => callGemini(prompt, gemini));
-  if(groq) fns.push(() => callGroq(prompt, groq));
-  if(!fns.length) throw new Error("Nenhuma chave de IA configurada. Adicione GEMINI_API_KEY ou GROQ_API_KEY no admin.");
+  if (gemini) fns.push(() => callGemini(prompt, gemini));
+  if (groq) fns.push(() => callGroq(prompt, groq));
+  if (!fns.length) throw new Error("Nenhuma chave de IA configurada.");
 
   let lastErr;
-  for(const fn of fns) {
+  for (const fn of fns) {
     try {
       const raw = await fn();
       const result = parse(raw);
-      if(result.corpo && result.corpo.length > 300) return result;
+      if (result.corpo && result.corpo.length > 300) return result;
     } catch(e) { lastErr = e; }
   }
   throw new Error("IA falhou: " + (lastErr?.message || "erro desconhecido"));
