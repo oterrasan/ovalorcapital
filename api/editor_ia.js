@@ -50,7 +50,7 @@ async function callGemini(prompt) {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.65,maxOutputTokens:1800} })
+        body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.65,maxOutputTokens:2800} })
       });
       const d = await res.json();
       if (res.status === 429) continue;
@@ -157,7 +157,7 @@ export default async function handler(req, res) {
     else raw = await callGemini(prompt);
 
     const content = parse(raw);
-    if (!content.corpo || content.corpo.length < 100) throw new Error("Conteúdo gerado insuficiente");
+    if (!content.corpo || content.corpo.length < 50) throw new Error("Conteúdo gerado insuficiente");
 
     // Se publicar=false, retorna só o resultado sem salvar
     if (!publicar && publicar !== "pendente") {
