@@ -1,10 +1,8 @@
 (function(){
-  // Detectar ?id= na URL PRIMEIRO
   var params = new URLSearchParams(window.location.search);
   var id = params.get('id');
 
   if (id) {
-    // MODO MATERIA — renderiza artigo completo
     document.addEventListener('DOMContentLoaded', function(){
       fetch('/api/portal-posts?id=' + encodeURIComponent(id))
         .then(function(res){ return res.ok ? res.json() : null; })
@@ -17,38 +15,48 @@
             ? new Date(p.data).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})
             : '';
 
+          // Renderizar parágrafos com espaçamento correto
           var corpo = (p.corpo || p.resumo || '')
             .split(/\n\n+/).filter(function(l){ return l.trim(); })
             .map(function(l){
-              return '<p style="font-size:16px;line-height:1.9;margin:0 0 16px;">' + l + '</p>';
+              return '<p style="margin:0 0 20px;font-size:17px;line-height:1.85;color:#1e293b;">' + l + '</p>';
             }).join('');
 
           var heroEl = document.querySelector('[data-hero-card]');
           if (heroEl) {
+            // Forcar o container a ser full-width sem grid de 2 colunas
+            heroEl.style.cssText = 'display:block;padding:28px 32px;box-sizing:border-box;width:100%;';
+
             heroEl.innerHTML =
-              '<article class="ovc-story-card" style="padding:0;">' +
-                '<div style="max-width:820px;">' +
-                  (p.imagem ? '<img src="' + p.imagem + '" alt="" style="width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;" onerror="this.style.display=\'none\'">' : '') +
-                  '<div style="font-size:12px;color:var(--ovc-muted,#64748b);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Redação OVC · ' + data + '</div>' +
-                  '<h1 style="font-size:28px;font-weight:800;line-height:1.25;margin:0 0 16px;">' + (p.titulo || '') + '</h1>' +
-                  (p.subtitulo ? '<p style="font-size:17px;color:var(--ovc-muted,#64748b);margin:0 0 20px;line-height:1.5;">' + p.subtitulo + '</p>' : '') +
-                  '<div style="border-top:2px solid var(--ovc-line,#e2e8f0);padding-top:20px;">' + corpo + '</div>' +
-                '</div>' +
-              '</article>';
+              (p.imagem
+                ? '<img src="' + p.imagem + '" alt="" style="width:100%;max-height:440px;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block;" onerror="this.style.display=\'none\'">'
+                : '') +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:10px;">Redação OVC · ' + data + '</div>' +
+              '<h1 style="font-size:30px;font-weight:800;line-height:1.2;margin:0 0 12px;color:#0f172a;">' + (p.titulo || '') + '</h1>' +
+              (p.subtitulo
+                ? '<p style="font-size:17px;color:#475569;margin:0 0 22px;line-height:1.5;font-style:italic;">' + p.subtitulo + '</p>'
+                : '') +
+              '<div style="border-top:2px solid #e2e8f0;padding-top:24px;margin-top:4px;">' + corpo + '</div>';
           }
 
-          // Limpar listas de categoria
-          ['[data-main-list]','[data-local-list]','[data-rail-list]','[data-topic-grid]'].forEach(function(sel){
+          // Limpar listas laterais — mostrar apenas o rail (sidebar direita)
+          ['[data-main-list]','[data-local-list]','[data-topic-grid]'].forEach(function(sel){
             var el = document.querySelector(sel);
             if (el) el.innerHTML = '';
           });
+          // Ocultar o banner entre blocos
+          var banner = document.querySelector('.ovc-banner-slot');
+          if (banner) banner.style.display = 'none';
+          // Ocultar o segundo bloco ovc-story-list (Mais da seção)
+          var lists = document.querySelectorAll('.ovc-story-list');
+          lists.forEach(function(l){ l.style.display='none'; });
         })
         .catch(function(e){ console.warn('OVC materia:', e.message); });
     });
-    return; // NAO executa modo categoria
+    return;
   }
 
-  // MODO CATEGORIA — sem ?id=
+  // MODO CATEGORIA
   document.addEventListener('DOMContentLoaded', function(){
     var slug = document.body.dataset.category;
 
@@ -89,13 +97,15 @@
 
     function renderMini(p){
       var url = buildUrl(p);
-      return '<article class="ovc-mini-item" style="cursor:pointer;display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--ovc-line,#e2e8f0);" onclick="location.href=\'' + url + '\'">' +
-        (p.imagem ? '<a href="' + url + '" style="flex-shrink:0;"><img src="' + p.imagem + '" alt="" style="width:80px;height:60px;object-fit:cover;border-radius:6px;" onerror="this.parentElement.style.display=\'none\'"></a>' : '') +
-        '<div style="flex:1;">' +
+      return '<article class="ovc-mini-item" style="cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:12px;padding:10px 0;border-top:1px solid var(--ovc-line);" onclick="location.href=\'' + url + '\'">' +
+        '<div>' +
           '<div style="font-size:11px;color:var(--ovc-muted,#64748b);margin-bottom:4px;">Redação OVC</div>' +
-          '<h4 style="font-size:14px;font-weight:600;line-height:1.35;margin:0 0 4px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h4>' +
+          '<h4 style="font-size:15px;font-weight:600;line-height:1.3;margin:0 0 4px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h4>' +
           '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">' + dataBr(p.data) + '</div>' +
         '</div>' +
+        (p.imagem
+          ? '<a class="ovc-thumb" href="' + url + '" style="border-radius:10px;overflow:hidden;height:56px;"><img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display=\'none\'"></a>'
+          : '<div></div>') +
       '</article>';
     }
 
@@ -111,36 +121,43 @@
 
         var toShow = filtered.length > 0 ? filtered : all;
 
+        // DEDUPLICAR — garantir que cada post aparece só uma vez
+        var usedIds = {};
+        var deduped = [];
+        toShow.forEach(function(p){
+          if (!usedIds[p.id]) { usedIds[p.id]=true; deduped.push(p); }
+        });
+
         // Hero
         var heroEl = document.querySelector('[data-hero-card]');
-        if (heroEl && toShow[0]) {
-          var p = toShow[0];
+        if (heroEl && deduped[0]) {
+          var p = deduped[0];
           var url = buildUrl(p);
+          heroEl.style.cssText = 'display:block;padding:18px;box-sizing:border-box;cursor:pointer;';
+          heroEl.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
           heroEl.innerHTML =
-            '<article class="ovc-story-card" style="cursor:pointer;" onclick="location.href=\'' + url + '\'">' +
-              (p.imagem ? '<a href="' + url + '"><img src="' + p.imagem + '" alt="" style="width:100%;height:220px;object-fit:cover;border-radius:8px;margin-bottom:12px;" onerror="this.style.display=\'none\'"></a>' : '') +
-              '<div>' +
-                '<div style="font-size:11px;color:var(--ovc-accent,#2563eb);font-weight:600;margin-bottom:6px;">' + label(p.categoria) + '</div>' +
-                '<h2 style="font-size:20px;font-weight:800;line-height:1.25;margin:0 0 8px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h2>' +
-                '<p style="font-size:13px;color:var(--ovc-muted,#64748b);margin:0 0 8px;">' + (p.resumo||'').slice(0,140) + '</p>' +
-                '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">Redação OVC · ' + dataBr(p.data) + '</div>' +
-              '</div>' +
-            '</article>';
+            (p.imagem
+              ? '<a href="' + url + '"><img src="' + p.imagem + '" alt="" style="width:100%;height:200px;object-fit:cover;border-radius:8px;margin-bottom:12px;display:block;" onerror="this.style.display=\'none\'"></a>'
+              : '') +
+            '<div style="font-size:11px;color:var(--ovc-accent,#2563eb);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">' + label(p.categoria) + '</div>' +
+            '<h2 style="font-size:21px;font-weight:800;line-height:1.25;margin:0 0 8px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h2>' +
+            '<p style="font-size:13px;color:var(--ovc-muted,#64748b);margin:0 0 8px;line-height:1.5;">' + (p.resumo||'').slice(0,140) + '</p>' +
+            '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">Redação OVC · ' + dataBr(p.data) + '</div>';
         }
 
         function safeRender(selector, items){
           var el = document.querySelector(selector);
-          if (el) el.innerHTML = items.map(renderMini).join('');
+          if (el && items.length) el.innerHTML = items.map(renderMini).join('');
         }
 
-        safeRender('[data-main-list]', toShow.slice(1,5));
-        safeRender('[data-local-list]', toShow.slice(5,8));
-        safeRender('[data-rail-list]', toShow.slice(8,11));
+        safeRender('[data-main-list]', deduped.slice(1,5));
+        safeRender('[data-local-list]', deduped.slice(5,8));
+        safeRender('[data-rail-list]', deduped.slice(8,11));
 
         var topicGrid = document.querySelector('[data-topic-grid]');
         if (topicGrid) {
           var titles = (document.body.dataset.topicTitles||'').split('|');
-          var bottom = toShow.slice(11,20);
+          var bottom = deduped.slice(11,20);
           var groups = [0,1,2].map(function(idx){ return bottom.slice(idx*3,idx*3+3); });
           topicGrid.innerHTML = groups.map(function(group,idx){
             return '<section class="ovc-panel ovc-topic-box">' +
