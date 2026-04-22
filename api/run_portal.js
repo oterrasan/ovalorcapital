@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
 
     // Checar faixa horária — se não é hora, pula sem consumir req da IA
-    // if (!deveExecutar()) return res.status(200).json({ status: "schedule_skip" }); // TESTE
+    if (!deveExecutar()) return res.status(200).json({ status: "schedule_skip" });
 
     // Checar limite diário
     const hoje = new Date().toISOString().slice(0,10);
