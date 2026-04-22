@@ -92,7 +92,7 @@ Responda APENAS com o novo título. Sem aspas. Sem explicação.`;
 
 function parse(raw) {
   try {
-    let s = raw.replace(/```json[\s\S]*?```/g, m => m.slice(7,-3)).replace(/```/g,"").trim();
+    let s = raw.replace(/```json/g,"").replace(/```/g,"").trim();
     try { return JSON.parse(s); } catch(_) {}
     const m = s.match(/\{[\s\S]*\}/);
     if (m) { try { return JSON.parse(m[0]); } catch(_) {} }
@@ -100,7 +100,16 @@ function parse(raw) {
       const r = s.match(new RegExp('"' + k + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));
       return r ? r[1].replace(/\\n/g,"\n").replace(/\\"/g,'"') : "";
     };
-    return { titulo: get("titulo"), subtitulo: get("subtitulo"), categoria: get("categoria")||"geral", corpo: get("corpo") };
+    const corpoMatch = s.match(/"corpo"\s*:\s*"([\s\S]*)/);
+    const corpo = corpoMatch
+      ? corpoMatch[1].replace(/"\s*}?\s*$/, "").replace(/\\n/g,"\n").replace(/\\"/g,'"')
+      : get("corpo");
+    return {
+      titulo: get("titulo") || "Sem título",
+      subtitulo: get("subtitulo") || "",
+      categoria: get("categoria") || "geral",
+      corpo: corpo || raw.slice(0,2000)
+    };
   } catch(_) {
     return { titulo:"", subtitulo:"", categoria:"geral", corpo: raw.slice(0,2000) };
   }
@@ -110,7 +119,7 @@ export async function rewritePortal(text, title) {
   const prompt = PROMPT(hoje(), title || "", text);
   const raw = await callGemini(prompt, 1800);
   const result = parse(raw);
-  if (!result.corpo || result.corpo.length < 300) throw new Error("Conteúdo gerado muito curto");
+  if (!result.corpo || result.corpo.length < 50) throw new Error("Conteúdo gerado muito curto");
   return result;
 }
 
