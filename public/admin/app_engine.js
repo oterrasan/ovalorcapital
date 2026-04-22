@@ -8,7 +8,7 @@ const db = createClient(
 
 function App(){
   const [tab,setTab] = React.useState("dashboard");
-  const tabs = ["dashboard","pipeline","posts","accounts","sources","logs","config"];
+  const tabs = ["dashboard","novopost","pipeline","posts","accounts","sources","logs","config"];
 
   return React.createElement("div",null,
     React.createElement("div",{className:"nav"},
@@ -21,6 +21,7 @@ function App(){
 function Content({tab}){
   switch(tab){
     case "dashboard": return React.createElement(Dashboard);
+    case "novopost": return React.createElement(NovoPost);
     case "pipeline": return React.createElement(Pipeline);
     case "posts": return React.createElement(Posts);
     case "accounts": return React.createElement(Accounts);
@@ -29,6 +30,62 @@ function Content({tab}){
     case "config": return React.createElement(Config);
   }
 }
+
+
+// NOVO POST — inserção manual por URL ou texto (portal web only)
+function NovoPost(){
+  const [url,setUrl]=React.useState("");
+  const [texto,setTexto]=React.useState("");
+  const [modo,setModo]=React.useState("url");
+  const [loading,setLoading]=React.useState(false);
+  const [resultado,setResultado]=React.useState(null);
+  const [erro,setErro]=React.useState("");
+
+  async function gerar(publicarDireto){
+    if(modo==="url"&&!url.trim()){setErro("Informe uma URL");return;}
+    if(modo==="texto"&&!texto.trim()){setErro("Informe o texto");return;}
+    setLoading(true);setErro("");setResultado(null);
+    try{
+      const body=modo==="url"?{url:url.trim(),publicar:publicarDireto}:{texto:texto.trim(),publicar:publicarDireto};
+      const r=await fetch("/api/manual_post",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error||"Erro ao gerar");
+      setResultado(d);setUrl("");setTexto("");
+    }catch(e){setErro(e.message);}
+    setLoading(false);
+  }
+
+  const card={background:"var(--ovc-surface)",border:"1px solid rgba(15,23,42,.12)",borderRadius:18,padding:28,marginBottom:20};
+  const inp={width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid rgba(15,23,42,.16)",background:"var(--ovc-surface)",color:"var(--ovc-text)",fontSize:15,boxSizing:"border-box",marginTop:6};
+  const btn=(active)=>({background:active?"#2563eb":"rgba(15,23,42,.08)",color:active?"#fff":"var(--ovc-text)",border:"none",padding:"10px 22px",borderRadius:999,cursor:"pointer",fontWeight:700,fontSize:14});
+
+  return React.createElement("div",null,
+    React.createElement("h2",{style:{margin:"0 0 6px"}},"Novo Post Manual"),
+    React.createElement("p",{style:{color:"var(--ovc-muted)",marginBottom:24}},"Cole um link ou texto. O sistema reescreve no padrão OVC e salva para aprovação."),
+    React.createElement("div",{style:card},
+      React.createElement("div",{style:{display:"flex",gap:10,marginBottom:20}},
+        React.createElement("button",{style:btn(modo==="url"),onClick:()=>setModo("url")},"🔗 Por URL"),
+        React.createElement("button",{style:btn(modo==="texto"),onClick:()=>setModo("texto")},"📝 Por Texto")
+      ),
+      modo==="url"
+        ?React.createElement("label",{style:{display:"block",fontWeight:700,fontSize:14}},"URL da notícia",
+            React.createElement("input",{style:inp,placeholder:"https://...",value:url,onChange:e=>setUrl(e.target.value),disabled:loading}))
+        :React.createElement("label",{style:{display:"block",fontWeight:700,fontSize:14}},"Texto da notícia",
+            React.createElement("textarea",{style:{...inp,minHeight:150,resize:"vertical"},placeholder:"Cole o texto completo aqui...",value:texto,onChange:e=>setTexto(e.target.value),disabled:loading})),
+      React.createElement("div",{style:{marginTop:20,display:"flex",gap:12,flexWrap:"wrap"}},
+        React.createElement("button",{style:{...btn(true),opacity:loading?.6:1},onClick:()=>gerar(false),disabled:loading},loading?"⏳ Gerando...":"✍️ Gerar — salvar como pendente"),
+        React.createElement("button",{style:{...btn(false),opacity:loading?.6:1},onClick:()=>gerar(true),disabled:loading},"🚀 Gerar e publicar direto")
+      ),
+      erro&&React.createElement("div",{style:{background:"rgba(220,38,38,.1)",border:"1px solid rgba(220,38,38,.3)",borderRadius:12,padding:14,color:"#dc2626",marginTop:14}},"⚠️ "+erro),
+      resultado&&React.createElement("div",{style:{background:"rgba(22,163,74,.1)",border:"1px solid rgba(22,163,74,.3)",borderRadius:12,padding:18,marginTop:16}},
+        React.createElement("div",{style:{fontWeight:700,color:"#16a34a",marginBottom:10}},resultado.status==="publicado"?"✅ Publicado!":"✅ Salvo como pendente — vá em Posts para aprovar"),
+        React.createElement("div",{style:{fontWeight:700,fontSize:15,marginBottom:4}},resultado.titulo),
+        React.createElement("div",{style:{fontSize:13,color:"var(--ovc-muted)"}},"Categoria: "+resultado.categoria)
+      )
+    )
+  );
+}
+
 
 // DASHBOARD (today/week, last 10 posts, last 10 errors, realtime polling)
 function Dashboard(){
