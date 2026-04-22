@@ -131,8 +131,8 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const ADMIN_PASS = 'ovc-admin-2026-secreto';
 
-const fmt = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
-const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+const fmt = d => d ? new Date(d).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
 const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
 
 // ── LOGIN ──
