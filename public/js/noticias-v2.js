@@ -2,22 +2,19 @@
   var API = '/api/portal-posts';
 
   var CAT_HERO = ['politica','economia','internacional','regulacao','tributacao','crise'];
-  
-  // Cards de destaque: APENAS estes temas — produtos/serviços monetizados
   var CAT_SIDE = ['seguros','saude','investimentos','previdencia','consorcio'];
-  
-  // Palavras-chave que qualificam conteúdo para os cards de destaque
   var SIDE_KEYWORDS = [
     'seguro','seguros','apólice','sinistro','previdência','vida em grupo',
     'plano de saúde','plano saúde','operadora de saúde','convênio médico',
     'consórcio','carta de crédito',
-    'investimento','renda fixa','tesouro direto','fundo','cdi','selic',
+    'investimento','renda fixa','tesouro direto','fundo de investimento','cdi','selic',
     'previdência privada','pgbl','vgbl',
     'seguro de vida','seguro residencial','seguro auto','seguro veículo',
     'proteção financeira','reserva de emergência'
   ];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
+  var _sideIndexA = 0, _sideIndexB = 1, _sidePool = [], _sideTimer = null;
 
   var CAT_PATH = {
     politica:'politica',economia:'economia',negocios:'negocios',
@@ -25,8 +22,7 @@
     educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
     esportes:'esportes',saude:'saude',familia:'familia',
     tributacao:'tributos',regulacao:'regulacao',internacional:'economia',
-    previdencia:'investimentos',consorcio:'seguros',
-    geral:'politica'
+    previdencia:'investimentos',consorcio:'seguros',geral:'politica'
   };
 
   function buildUrl(p){
@@ -56,13 +52,11 @@
     el.className = el.className.replace(/tag-\w+/g,'') + ' tag-' + (cat||'geral');
   }
 
-  // Verificar se imagem é de repórter/veículo externo — bloquear
   var BLOCKED_IMG = [
     /perfil/i,/author/i,/avatar/i,/reporter/i,/jornalista/i,
-    /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,
-    /foto-de-perfil/i,/profile/i,/headshot/i,/foto_autor/i,
-    /sbtnews/i,/\/time\//i,/icon/i,/logo/i,/favicon/i,/\.svg$/i,/\.gif$/i,
-    /rafael[\-_]durand/i,/record[\-_]news/i,/band[\-_]news/i
+    /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,/\/pessoas?\//i,
+    /foto-de-perfil/i,/profile/i,/headshot/i,/foto_autor/i,/\/time\//i,
+    /icon/i,/logo/i,/favicon/i,/sprite/i,/\.svg$/i,/\.gif$/i,/\.ico$/i
   ];
 
   function isValidImage(url){
@@ -72,8 +66,9 @@
 
   function injectImg(card, p){
     if(!card) return;
-    if(card.querySelector('img.ovc-card-img')) return;
-    if(!isValidImage(p.imagem)) return; // imagem inválida — não injeta nada
+    var old = card.querySelector('img.ovc-card-img');
+    if(old) old.remove();
+    if(!isValidImage(p.imagem)) return;
     var img = document.createElement('img');
     img.className = 'ovc-card-img';
     img.src = p.imagem;
@@ -111,7 +106,6 @@
     if(!heroEl||!posts.length) return;
     _heroPosts = posts.slice(0,6);
     _heroIndex = 0;
-
     var dotsEl = heroEl.querySelector('.ovc-hero-dots');
     if(!dotsEl){
       dotsEl = document.createElement('div');
@@ -125,7 +119,6 @@
       });
       heroEl.appendChild(dotsEl);
     }
-
     function showHero(i){
       var p = _heroPosts[i];
       if(!p) return;
@@ -134,13 +127,54 @@
         d.style.opacity = di===i ? '1' : '0.3';
       });
     }
-
     showHero(0);
     if(_heroTimer) clearInterval(_heroTimer);
     _heroTimer = setInterval(function(){
       _heroIndex = (_heroIndex+1) % _heroPosts.length;
       showHero(_heroIndex);
     }, 7000);
+  }
+
+  // Preencher card de destaque (feature/monetizado) — suporta atualização dinâmica
+  function preencherSideCard(el, p){
+    if(!el||!p) return;
+    var url = buildUrl(p);
+    var tit  = el.querySelector('.card-title,.card-feature-title,h2,h3');
+    var exc  = el.querySelector('.card-excerpt,.card-feature-excerpt,p:not(.card-meta)');
+    var tag  = el.querySelector('.tag');
+    var cta  = el.querySelector('.card-cta');
+    var meta = el.querySelector('.card-meta');
+    if(tit)  tit.textContent = p.titulo;
+    if(exc)  exc.textContent = (p.resumo||'').slice(0,150);
+    if(tag)  setTag(tag, p.categoria);
+    if(meta) meta.textContent = 'Redação OVC · ' + label(p.categoria);
+    if(cta)  cta.href = url;
+    injectImg(el, p);
+    el.style.cursor = 'pointer';
+    el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
+  }
+
+  // Rotação dos dois cards de destaque — nunca ficam vazios, sempre alternando
+  function setupSideRotation(pool){
+    if(!pool.length) return;
+    _sidePool = pool.slice(0, 5); // máximo 5 matérias em rotação
+    _sideIndexA = 0;
+    _sideIndexB = _sidePool.length > 1 ? 1 : 0;
+
+    var elA = document.querySelector('.card-feature');
+    var elB = document.querySelector('.card-monetizado');
+
+    if(elA) preencherSideCard(elA, _sidePool[_sideIndexA]);
+    if(elB) preencherSideCard(elB, _sidePool[_sideIndexB]);
+
+    if(_sideTimer) clearInterval(_sideTimer);
+    _sideTimer = setInterval(function(){
+      // Avançar cada card de forma independente, sem repetir o mesmo nos dois ao mesmo tempo
+      _sideIndexA = (_sideIndexA + 2) % _sidePool.length;
+      _sideIndexB = (_sideIndexA + 1) % _sidePool.length;
+      if(elA) preencherSideCard(elA, _sidePool[_sideIndexA]);
+      if(elB) preencherSideCard(elB, _sidePool[_sideIndexB]);
+    }, 9000);
   }
 
   function preencherCard(el, p){
@@ -177,14 +211,12 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
-  // Verifica se post qualifica para card de destaque (monetizado)
   function qualificaSide(p){
     if(CAT_SIDE.indexOf(p.categoria) !== -1) return true;
     var texto = ((p.titulo||'') + ' ' + (p.resumo||'') + ' ' + (p.conteudo||'')).toLowerCase();
     return SIDE_KEYWORDS.some(function(kw){ return texto.indexOf(kw) !== -1; });
   }
 
-  // Deduplicar por ID
   function dedup(arr){
     var seen = {};
     return arr.filter(function(p){ if(seen[p.id]) return false; seen[p.id]=true; return true; });
@@ -197,7 +229,6 @@
         var todos = dedup((json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; }));
         if(!todos.length) return;
 
-        // Pool único de IDs usados — nenhum post aparece duas vezes em lugar nenhum
         var usedIds = {};
         function pick(pool){
           for(var i=0;i<pool.length;i++){
@@ -206,10 +237,9 @@
           return null;
         }
 
-        // Hero rotativo — só política/economia/internacional
+        // Hero rotativo
         var heroPool = todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; });
         if(heroPool.length < 2) heroPool = todos;
-
         var heroEl = document.querySelector('.card-hero-main');
         if(heroEl){
           var heroItems = [];
@@ -219,18 +249,18 @@
           setupHeroRotation(heroEl, heroItems);
         }
 
-        // Cards de destaque — APENAS conteúdo monetizado (seguros/saúde/investimentos/consórcios)
+        // Cards de destaque — pool de até 5 matérias monetizadas em rotação
         var sidePool = todos.filter(qualificaSide);
-        preencherCard(document.querySelector('.card-feature'), pick(sidePool));
-        preencherCard(document.querySelector('.card-monetizado'), pick(sidePool));
+        // Não marca como usados — os cards de destaque têm pool próprio e podem repetir entre si
+        setupSideRotation(sidePool);
 
-        // Cards standard — qualquer categoria, sem repetir
+        // Cards standard — sem repetir com hero, sem repetir entre si
+        // (side pool não bloqueia os standard — são seções independentes)
         ['ovc-card-std-1','ovc-card-std-2','ovc-card-std-3',
          'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id){
           preencherCard(document.getElementById(id), pick(todos));
         });
 
-        // Cards mini
         ['ovc-card-mini-1','ovc-card-mini-2','ovc-card-mini-3',
          'ovc-card-mini-4','ovc-card-mini-5'].forEach(function(id){
           preencherMini(document.getElementById(id), pick(todos));
