@@ -2,6 +2,20 @@ import axios from "axios";
 import * as cheerioModule from "cheerio";
 const cheerio = cheerioModule.default || cheerioModule;
 
+// Padrões de imagem inválida — repórter, âncora, ícone, logo de veículo
+const BLOCKED_IMG = [
+  /perfil/i,/author/i,/avatar/i,/reporter/i,/jornalista/i,
+  /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,/\/pessoas?\//i,
+  /foto-de-perfil/i,/profile/i,/headshot/i,/foto_autor/i,/\/time\//i,
+  /icon/i,/logo/i,/favicon/i,/sprite/i,
+  /\.svg$/i,/\.gif$/i,/\.ico$/i
+];
+
+function isValidImage(url) {
+  if (!url || url.length < 10) return false;
+  return !BLOCKED_IMG.some(p => p.test(url));
+}
+
 export async function scrape(url) {
   try {
     const res = await axios.get(url, {
@@ -14,25 +28,19 @@ export async function scrape(url) {
     });
     const $ = cheerio.load(res.data);
 
-    // Buscar imagem — múltiplas estratégias em ordem de prioridade
-    const image =
-      $('meta[property="og:image"]').attr("content") ||
-      $('meta[name="twitter:image"]').attr("content") ||
-      $('meta[property="og:image:url"]').attr("content") ||
-      $('meta[itemprop="image"]').attr("content") ||
-      $("article img").first().attr("src") ||
-      $(".post-thumbnail img, .featured-image img, .entry-thumbnail img").first().attr("src") ||
-      $("img[width][height]").filter((_, el) => {
-        const w = parseInt($(el).attr("width") || 0);
-        const h = parseInt($(el).attr("height") || 0);
-        return w > 300 && h > 150;
-      }).first().attr("src") || "";
+    // Candidatas a imagem em ordem de prioridade
+    const candidates = [
+      $('meta[property="og:image"]').attr("content"),
+      $('meta[name="twitter:image"]').attr("content"),
+      $('meta[property="og:image:url"]').attr("content"),
+      $('meta[itemprop="image"]').attr("content"),
+      $("article img").first().attr("src"),
+      $(".post-thumbnail img, .featured-image img, .entry-thumbnail img").first().attr("src"),
+    ].map(s => normalizeUrl(s, url)).filter(Boolean);
 
-    // Normalizar URL da imagem
-    const imageUrl = normalizeUrl(image, url);
+    // Primeira imagem válida (não é repórter/ícone)
+    const imageUrl = candidates.find(c => isValidImage(c)) || "";
 
-    // Extrair texto principal
-    // Remover scripts, estilos, nav, footer
     $("script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement").remove();
 
     const text = $("article p, .content p, .entry-content p, main p, p")
@@ -62,7 +70,5 @@ function normalizeUrl(src, base) {
     if (src.startsWith("//")) return u.protocol + src;
     if (src.startsWith("/")) return u.origin + src;
     return u.origin + "/" + src;
-  } catch(_) {
-    return src;
-  }
+  } catch(_) { return src; }
 }
