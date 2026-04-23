@@ -1,8 +1,21 @@
 (function(){
   var API = '/api/portal-posts';
 
-  var CAT_HERO = ['politica','economia','internacional','regulacao','tributacao'];
-  var CAT_SIDE = ['seguros','saude','investimentos','negocios','empregos','familia','educacao','mercados'];
+  var CAT_HERO = ['politica','economia','internacional','regulacao','tributacao','crise'];
+  
+  // Cards de destaque: APENAS estes temas — produtos/serviços monetizados
+  var CAT_SIDE = ['seguros','saude','investimentos','previdencia','consorcio'];
+  
+  // Palavras-chave que qualificam conteúdo para os cards de destaque
+  var SIDE_KEYWORDS = [
+    'seguro','seguros','apólice','sinistro','previdência','vida em grupo',
+    'plano de saúde','plano saúde','operadora de saúde','convênio médico',
+    'consórcio','carta de crédito',
+    'investimento','renda fixa','tesouro direto','fundo','cdi','selic',
+    'previdência privada','pgbl','vgbl',
+    'seguro de vida','seguro residencial','seguro auto','seguro veículo',
+    'proteção financeira','reserva de emergência'
+  ];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
 
@@ -12,6 +25,7 @@
     educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
     esportes:'esportes',saude:'saude',familia:'familia',
     tributacao:'tributos',regulacao:'regulacao',internacional:'economia',
+    previdencia:'investimentos',consorcio:'seguros',
     geral:'politica'
   };
 
@@ -31,7 +45,8 @@
     regulacao:'Regulação',seguros:'Seguros',saude:'Saúde',familia:'Família',
     tecnologia:'Tecnologia',industria:'Indústria',educacao:'Educação',
     esportes:'Esportes',cultura:'Cultura',patrimonio:'Patrimônio',
-    internacional:'Internacional',geral:'Geral'};
+    internacional:'Internacional',geral:'Geral',
+    previdencia:'Previdência',consorcio:'Consórcio'};
 
   function label(c){ return LABEL[c]||c||'Geral'; }
 
@@ -41,15 +56,30 @@
     el.className = el.className.replace(/tag-\w+/g,'') + ' tag-' + (cat||'geral');
   }
 
+  // Verificar se imagem é de repórter/veículo externo — bloquear
+  var BLOCKED_IMG = [
+    /perfil/i,/author/i,/avatar/i,/reporter/i,/jornalista/i,
+    /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,
+    /foto-de-perfil/i,/profile/i,/headshot/i,/foto_autor/i,
+    /sbtnews/i,/\/time\//i,/icon/i,/logo/i,/favicon/i,/\.svg$/i,/\.gif$/i,
+    /rafael[\-_]durand/i,/record[\-_]news/i,/band[\-_]news/i
+  ];
+
+  function isValidImage(url){
+    if(!url || url.length < 10) return false;
+    return !BLOCKED_IMG.some(function(p){ return p.test(url); });
+  }
+
   function injectImg(card, p){
-    if(!p.imagem || !card) return;
+    if(!card) return;
     if(card.querySelector('img.ovc-card-img')) return;
+    if(!isValidImage(p.imagem)) return; // imagem inválida — não injeta nada
     var img = document.createElement('img');
     img.className = 'ovc-card-img';
     img.src = p.imagem;
     img.alt = '';
     img.style.cssText = 'width:100%;height:150px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block;';
-    img.onerror = function(){ this.style.display='none'; };
+    img.onerror = function(){ this.remove(); };
     card.insertBefore(img, card.firstChild);
   }
 
@@ -66,12 +96,12 @@
     if(tag)  setTag(tag, p.categoria);
     if(meta) meta.textContent = 'Redação OVC · ' + dataBr(p.data);
     if(cta)  cta.href = url;
-    if(p.imagem){
+    if(p.imagem && isValidImage(p.imagem)){
       heroEl.style.backgroundImage = "linear-gradient(to bottom,rgba(0,0,0,0.25) 0%,rgba(0,0,0,0.80) 100%),url('" + p.imagem + "')";
       heroEl.style.backgroundSize = 'cover';
       heroEl.style.backgroundPosition = 'center';
     } else {
-      heroEl.style.backgroundImage = "linear-gradient(135deg,rgba(15,23,42,0.95),rgba(15,23,42,0.85))";
+      heroEl.style.backgroundImage = 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)';
     }
     heroEl.style.cursor = 'pointer';
     heroEl.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
@@ -147,29 +177,27 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
-  function filtra(posts, cats){
-    return posts.filter(function(p){ return cats.indexOf(p.categoria||'geral') !== -1; });
+  // Verifica se post qualifica para card de destaque (monetizado)
+  function qualificaSide(p){
+    if(CAT_SIDE.indexOf(p.categoria) !== -1) return true;
+    var texto = ((p.titulo||'') + ' ' + (p.resumo||'') + ' ' + (p.conteudo||'')).toLowerCase();
+    return SIDE_KEYWORDS.some(function(kw){ return texto.indexOf(kw) !== -1; });
   }
 
-  // Deduplicar — garantir que cada ID aparece só uma vez em toda a home
+  // Deduplicar por ID
   function dedup(arr){
     var seen = {};
     return arr.filter(function(p){ if(seen[p.id]) return false; seen[p.id]=true; return true; });
   }
 
   function loadNoticias(){
-    fetch(API + '?limit=80')
+    fetch(API + '?limit=100')
       .then(function(res){ return res.json(); })
       .then(function(json){
         var todos = dedup((json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; }));
         if(!todos.length) return;
 
-        var heroPool = dedup(filtra(todos, CAT_HERO));
-        var sidePool = dedup(filtra(todos, CAT_SIDE));
-        if(heroPool.length < 2) heroPool = todos;
-        if(sidePool.length < 2) sidePool = todos;
-
-        // IDs já usados — evitar repetição entre hero, side e standard
+        // Pool único de IDs usados — nenhum post aparece duas vezes em lugar nenhum
         var usedIds = {};
         function pick(pool){
           for(var i=0;i<pool.length;i++){
@@ -178,20 +206,25 @@
           return null;
         }
 
-        // Hero rotativo
+        // Hero rotativo — só política/economia/internacional
+        var heroPool = todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; });
+        if(heroPool.length < 2) heroPool = todos;
+
         var heroEl = document.querySelector('.card-hero-main');
         if(heroEl){
-          var heroItems = heroPool.filter(function(p){ if(usedIds[p.id]) return false; usedIds[p.id]=true; return true; }).slice(0,6);
+          var heroItems = [];
+          for(var i=0;i<heroPool.length && heroItems.length<6;i++){
+            if(!usedIds[heroPool[i].id]){ usedIds[heroPool[i].id]=true; heroItems.push(heroPool[i]); }
+          }
           setupHeroRotation(heroEl, heroItems);
         }
 
-        // Card feature
+        // Cards de destaque — APENAS conteúdo monetizado (seguros/saúde/investimentos/consórcios)
+        var sidePool = todos.filter(qualificaSide);
         preencherCard(document.querySelector('.card-feature'), pick(sidePool));
-
-        // Card monetizado
         preencherCard(document.querySelector('.card-monetizado'), pick(sidePool));
 
-        // Cards standard — sem repetir
+        // Cards standard — qualquer categoria, sem repetir
         ['ovc-card-std-1','ovc-card-std-2','ovc-card-std-3',
          'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id){
           preencherCard(document.getElementById(id), pick(todos));
@@ -203,7 +236,6 @@
           preencherMini(document.getElementById(id), pick(todos));
         });
 
-        // Aumentar gap entre cards standard (mais harmônico)
         var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
         grids.forEach(function(g){ g.style.gap = '22px'; });
       })
