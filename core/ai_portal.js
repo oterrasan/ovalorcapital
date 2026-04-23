@@ -91,6 +91,8 @@ NOTÍCIA:
 ${text}`;
 
 function parse(raw) {
+  if (!raw) return { titulo: "Sem título", subtitulo: "", categoria: "geral", corpo: "" };
+
   const lines = raw.split("\n");
   let titulo = "";
   let subtitulo = "";
@@ -98,11 +100,12 @@ function parse(raw) {
   let inCorpo = false;
 
   for (const line of lines) {
-    if (line.startsWith("TITULO:")) {
-      titulo = line.replace("TITULO:", "").trim();
-    } else if (line.startsWith("SUBTITULO:")) {
-      subtitulo = line.replace("SUBTITULO:", "").trim();
-    } else if (line.startsWith("CORPO:")) {
+    const trimmed = line.trim();
+    if (/^TITULO:/i.test(trimmed)) {
+      titulo = trimmed.replace(/^TITULO:/i, "").trim();
+    } else if (/^SUBTITULO:/i.test(trimmed)) {
+      subtitulo = trimmed.replace(/^SUBTITULO:/i, "").trim();
+    } else if (/^CORPO:/i.test(trimmed)) {
       inCorpo = true;
     } else if (inCorpo) {
       corpo += line + "\n";
@@ -111,12 +114,22 @@ function parse(raw) {
 
   corpo = corpo.trim();
 
-  // Se não encontrou marcadores, usar o raw todo como corpo
-  if (!corpo && raw.length > 100) {
+  // Fallback: se não achou marcadores, usar raw completo
+  if (!corpo) {
     corpo = raw.trim();
-    // Tentar extrair título da primeira linha
     const firstLine = raw.split("\n")[0].trim();
-    if (firstLine.length < 100) titulo = firstLine;
+    if (firstLine.length < 120 && firstLine.length > 5) titulo = firstLine;
+  }
+
+  // Se corpo começa com "Redação OVC" mas não tem título, extrair da primeira linha não-assinatura
+  if (!titulo || titulo === "Sem título") {
+    const bodyLines = corpo.split("\n").filter(l => l.trim());
+    for (const bl of bodyLines) {
+      if (!bl.includes("Redação OVC") && bl.length > 10 && bl.length < 120) {
+        titulo = bl.trim();
+        break;
+      }
+    }
   }
 
   return {
@@ -131,7 +144,7 @@ export async function rewritePortal(text, title) {
   const prompt = PROMPT(hoje(), text);
   const raw = await callGemini(prompt);
   const result = parse(raw);
-  if (!result.corpo || result.corpo.length < 200) {
+  if (!result.corpo || result.corpo.length < 100) {
     throw new Error("Conteúdo gerado insuficiente: " + result.corpo.length + " chars");
   }
   return result;
@@ -147,3 +160,4 @@ Responda APENAS com o novo título, sem explicação.`;
   const novo = raw.split("\n")[0].trim().replace(/^["']+|["']+$/g,"");
   return novo.length > 5 ? novo : titulo;
 }
+
