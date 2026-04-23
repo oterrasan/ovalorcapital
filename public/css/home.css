@@ -1489,3 +1489,14 @@
       border-color: rgba(59,130,246,0.55);
       background: rgba(59,130,246,0.04);
     }
+
+    .card-hero-main .card-title {
+      color: #f1f5f9 !important;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    }
+    .card-hero-main .card-excerpt {
+      color: #e2e8f0 !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .card-hero-main .card-meta { color: #cbd5e1 !important; }
+    .card-hero-main .tag { background: rgba(0,0,0,0.4) !important; color: #fbbf24 !important; }
