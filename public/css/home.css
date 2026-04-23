@@ -616,6 +616,20 @@
       overflow: hidden;
     }
 
+    .card-hero-main .card-title {
+      color: #f1f5f9;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    .card-hero-main .card-excerpt {
+      color: #e2e8f0;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    .card-hero-main .card-meta {
+      color: #cbd5e1;
+    }
+
     .card-hero-main::after {
       content: "";
       position: absolute;
