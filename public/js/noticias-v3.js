@@ -212,9 +212,8 @@
   }
 
   function qualificaSide(p){
-    if(CAT_SIDE.indexOf(p.categoria) !== -1) return true;
-    var texto = ((p.titulo||'') + ' ' + (p.resumo||'') + ' ' + (p.conteudo||'')).toLowerCase();
-    return SIDE_KEYWORDS.some(function(kw){ return texto.indexOf(kw) !== -1; });
+    // APENAS categoria exata — sem keyword matching que causa falsos positivos
+    return ['seguros','saude','investimentos','previdencia','consorcio'].indexOf(p.categoria) !== -1;
   }
 
   function dedup(arr){
