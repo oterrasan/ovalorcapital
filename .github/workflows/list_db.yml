@@ -1,0 +1,17 @@
+name: List DB Tables
+on:
+  workflow_dispatch:
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Listar tabelas e categorias
+        run: |
+          echo "=== TABELAS ==="
+          curl -s "https://bfsegqdgscudtdgwdyci.supabase.co/rest/v1/"             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTkxMDM4MCwiZXhwIjoyMDU1NDg2MzgwfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTkxMDM4MCwiZXhwIjoyMDU1NDg2MzgwfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"
+          echo ""
+          echo "=== CATEGORIES ==="
+          curl -s "https://bfsegqdgscudtdgwdyci.supabase.co/rest/v1/categories?select=*&limit=200"             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTkxMDM4MCwiZXhwIjoyMDU1NDg2MzgwfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTkxMDM4MCwiZXhwIjoyMDU1NDg2MzgwfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"
+          echo ""
+          echo "=== POSTS COLUNAS ==="
+          curl -s "https://bfsegqdgscudtdgwdyci.supabase.co/rest/v1/posts?select=*&limit=1"             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTkxMDM4MCwiZXhwIjoyMDU1NDg2MzgwfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczOTkxMDM4MCwiZXhwIjoyMDU1NDg2MzgwfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"
