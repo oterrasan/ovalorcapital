@@ -1,8 +1,8 @@
 (function(){
   var API = '/api/portal-posts';
 
-  var CAT_HERO = ['politica','economia','internacional','regulacao','tributacao','geral'];
-  var CAT_SIDE = ['seguros','saude','investimentos','negocios','empregos','familia','educacao','mercados','industria','tecnologia','cultura','patrimonio','esportes'];
+  var CAT_HERO = ['politica','economia','internacional','regulacao','tributacao'];
+  var CAT_SIDE = ['seguros','saude','investimentos','negocios','empregos','familia','educacao','mercados'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
 
@@ -67,9 +67,11 @@
     if(meta) meta.textContent = 'Redação OVC · ' + dataBr(p.data);
     if(cta)  cta.href = url;
     if(p.imagem){
-      heroEl.style.backgroundImage = "linear-gradient(135deg,rgba(15,116,210,0.55),rgba(0,0,0,0.72)),url('" + p.imagem + "')";
+      heroEl.style.backgroundImage = "linear-gradient(to bottom,rgba(0,0,0,0.25) 0%,rgba(0,0,0,0.80) 100%),url('" + p.imagem + "')";
       heroEl.style.backgroundSize = 'cover';
       heroEl.style.backgroundPosition = 'center';
+    } else {
+      heroEl.style.backgroundImage = "linear-gradient(135deg,rgba(15,23,42,0.95),rgba(15,23,42,0.85))";
     }
     heroEl.style.cursor = 'pointer';
     heroEl.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
