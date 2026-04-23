@@ -1,0 +1,10 @@
+name: Reset Posts
+on:
+  workflow_dispatch:
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mover posts para pendente com categorias corretas
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/reset_posts -H 'Content-Type: application/json' --max-time 55
