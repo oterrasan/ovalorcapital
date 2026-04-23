@@ -1,0 +1,10 @@
+name: Fix Categories
+on:
+  workflow_dispatch:
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fix categorias no banco
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/fix_cats -H "Content-Type: application/json" --max-time 55
