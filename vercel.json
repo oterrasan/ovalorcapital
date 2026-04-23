@@ -43,6 +43,9 @@
     },
     "api/editor_ia.js": {
       "maxDuration": 60
+    },
+    "api/reset_posts.js": {
+      "maxDuration": 60
     }
   },
   "build": {
