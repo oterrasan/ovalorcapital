@@ -10,16 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 58
     steps:
-      - name: Loop pipeline portal
-        shell: bash
+      - name: Executar pipeline
         run: |
           set +e
-          for i in $(seq 1 55); do
-            RESULT=$(curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal -H "Content-Type: application/json" --max-time 50 2>/dev/null)
-            echo "[$i] $RESULT"
-            case "$RESULT" in
-              *limit_reached*) echo "Limite atingido, encerrando."; break ;;
-            esac
+          i=1
+          while [ $i -le 55 ]; do
+            curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
+              -H "Content-Type: application/json" \
+              --max-time 50 || true
+            echo ""
+            i=$((i+1))
             sleep 60
           done
           exit 0
