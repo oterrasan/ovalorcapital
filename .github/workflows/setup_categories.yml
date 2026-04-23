@@ -1,0 +1,34 @@
+name: Setup Categories
+on:
+  workflow_dispatch:
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Criar estrutura de categorias
+        run: |
+          SUPA_URL="https://bfsegqdgscudtdgwdyci.supabase.co"
+          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"
+
+          # 1. Criar coluna subcategoria na tabela posts (se não existir)
+          curl -s "$SUPA_URL/rest/v1/rpc/exec_sql" \
+            -H "apikey: $SUPA_KEY" \
+            -H "Authorization: Bearer $SUPA_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"sql":"ALTER TABLE posts ADD COLUMN IF NOT EXISTS subcategoria VARCHAR(200);"}'
+
+          echo "Coluna subcategoria criada"
+
+          # 2. Criar tabela categories
+          curl -s "$SUPA_URL/rest/v1/rpc/exec_sql" \
+            -H "apikey: $SUPA_KEY" \
+            -H "Authorization: Bearer $SUPA_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"sql":"CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, slug VARCHAR(100) NOT NULL UNIQUE, nome VARCHAR(200) NOT NULL, categoria_pai VARCHAR(100), nivel INTEGER DEFAULT 1, ativo BOOLEAN DEFAULT true, created_at TIMESTAMP DEFAULT NOW());"}'
+
+          echo "Tabela categories criada"
+
+          # 3. Verificar resultado
+          curl -s "$SUPA_URL/rest/v1/posts?select=id,subcategoria&limit=1" \
+            -H "apikey: $SUPA_KEY" \
+            -H "Authorization: Bearer $SUPA_KEY"
