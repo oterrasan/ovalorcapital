@@ -11,10 +11,15 @@ jobs:
     timeout-minutes: 58
     steps:
       - name: Loop pipeline portal
+        shell: bash
         run: |
-          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55; do
-            RESULT=$(curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal -H "Content-Type: application/json" --max-time 50 2>/dev/null || echo '{}')
+          set +e
+          for i in $(seq 1 55); do
+            RESULT=$(curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal -H "Content-Type: application/json" --max-time 50 2>/dev/null)
             echo "[$i] $RESULT"
-            echo "$RESULT" | grep -q "limit_reached" && echo "Limite atingido" && break
+            case "$RESULT" in
+              *limit_reached*) echo "Limite atingido, encerrando."; break ;;
+            esac
             sleep 60
           done
+          exit 0
