@@ -5,49 +5,13 @@ import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const MAX_DIA = 480; // 2 chaves x 250 req/dia com folga de segurança
-
-// Faixas horárias BRT — retorna true se deve executar agora
-function deveExecutar() {
-  const agora = new Date();
-  // Converter para horário de Brasília (UTC-3)
-  const brt = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
-  const hora = brt.getUTCHours();
-  const min = brt.getUTCMinutes();
-
-  // 00h–06h: apenas no minuto :00 de cada hora (1x/hora = 6/dia)
-  if (hora >= 0 && hora < 6) return min === 0;
-
-  // 06h–08h: a cada 15 min (4x/hora = 8/dia)
-  if (hora >= 6 && hora < 8) return min % 15 === 0;
-
-  // 08h–17h: a cada 5 min (12x/hora = 108/dia)
-  if (hora >= 8 && hora < 17) return min % 5 === 0;
-
-  // 17h–18h: a cada 3 min (20x/hora = 20/dia)
-  if (hora >= 17 && hora < 18) return min % 3 === 0;
-
-  // 18h–21h30: a cada 2 min (30x/hora = ~105/dia)
-  if (hora >= 18 && (hora < 21 || (hora === 21 && min <= 30))) return min % 2 === 0;
-
-  // 21h30–22h: a cada 3 min (10x)
-  if (hora === 21 && min > 30) return min % 3 === 0;
-  if (hora === 22 && min === 0) return true;
-
-  // 22h–00h: a cada 10 min (12x/dia)
-  if (hora >= 22) return min % 10 === 0;
-
-  return false;
-}
+const MAX_DIA = 1440; // Gemini pago — sem limite real
 
 export default async function handler(req, res) {
   try {
     // Checar automação
     const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
     if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
-
-    // Checar faixa horária — se não é hora, pula sem consumir req da IA
-    if (!deveExecutar()) return res.status(200).json({ status: "schedule_skip" });
 
     // Checar limite diário
     const hoje = new Date().toISOString().slice(0,10);
