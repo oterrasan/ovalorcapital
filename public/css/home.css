@@ -996,7 +996,9 @@
     }
 
     .card-standard {
-      min-height: 320px;
+      min-height: 380px;
+      display: flex;
+      flex-direction: column;
     }
 
     .card-standard .card-title {
@@ -1005,17 +1007,29 @@
       color: var(--text-main);
       -webkit-line-clamp: 3;
       text-shadow: none;
+      margin-top: 8px;
     }
 
     .card-standard .ovc-card-img {
-      height: 180px !important;
+      height: 200px !important;
+      width: 100% !important;
       border-radius: 8px;
       margin-bottom: 10px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-standard .card-meta {
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 4px;
     }
 
     .card-mini {
-      padding: 11px 11px 14px;
-      min-height: 220px;
+      padding: 12px 12px 14px;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
     }
 
     .card-mini .card-title {
@@ -1023,13 +1037,17 @@
       font-weight: 700;
       color: var(--text-main);
       -webkit-line-clamp: 3;
-      line-height: 1.4;
+      line-height: 1.45;
+      margin-top: 8px;
     }
 
     .card-mini .ovc-card-img {
-      height: 140px !important;
+      height: 160px !important;
+      width: 100% !important;
       border-radius: 8px;
       margin-bottom: 8px;
+      object-fit: cover;
+      display: block;
     }
 
     .card-mini .card-excerpt {
@@ -1037,7 +1055,7 @@
     }
 
     .card-mini .card-meta {
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       color: var(--accent);
       font-weight: 600;
     }

@@ -308,17 +308,35 @@
           setupDireitoRotation(direitoEl, direitoPool);
         }
 
-        // ── Cards standard — nunca repetir o que já está nos cards rotativos ──
-        ['ovc-card-std-1','ovc-card-std-2','ovc-card-std-3',
-         'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id){
-          preencherCard(document.getElementById(id), pick(todos));
-        });
+        // ── Cards standard e mini — por coluna e categoria ──
+        // Coluna 1: Política & Economia
+        var col1 = todos.filter(function(p){ return ['politica','economia','tributacao','regulacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        // Coluna 2: Negócios, Investimentos & Mercados
+        var col2 = todos.filter(function(p){ return ['negocios','investimentos','mercados','industria','tecnologia','internacional'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        // Coluna 3: Família, Saúde, Educação, Tributos & Regulação
+        var col3 = todos.filter(function(p){ return ['familia','saude','educacao','seguros','parcerias','geral'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
 
-        // ── Cards mini — nunca repetir ──
-        ['ovc-card-mini-1','ovc-card-mini-2','ovc-card-mini-3',
-         'ovc-card-mini-4','ovc-card-mini-5'].forEach(function(id){
-          preencherMini(document.getElementById(id), pick(todos));
-        });
+        // Fallback: se coluna vazia, usar todos não usados
+        function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; } } return null; }
+        function pickAny(){ return pickFrom(todos); }
+        function pickCol(pool){ var p = pickFrom(pool); return p || pickAny(); }
+
+        // Coluna 1 — std-1, std-2 (standard) + mini-1, mini-2
+        preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1));
+        preencherCard(document.getElementById('ovc-card-std-2'), pickCol(col1));
+        preencherMini(document.getElementById('ovc-card-mini-1'), pickCol(col1));
+        preencherMini(document.getElementById('ovc-card-mini-2'), pickCol(col1));
+
+        // Coluna 2 — std-3, std-4 + mini-3, mini-4
+        preencherCard(document.getElementById('ovc-card-std-3'), pickCol(col2));
+        preencherCard(document.getElementById('ovc-card-std-4'), pickCol(col2));
+        preencherMini(document.getElementById('ovc-card-mini-3'), pickCol(col2));
+        preencherMini(document.getElementById('ovc-card-mini-4'), pickCol(col2));
+
+        // Coluna 3 — std-5, std-6 + mini-5
+        preencherCard(document.getElementById('ovc-card-std-5'), pickCol(col3));
+        preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3));
+        preencherMini(document.getElementById('ovc-card-mini-5'), pickCol(col3));
 
         var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
         grids.forEach(function(g){ g.style.gap = '22px'; });
