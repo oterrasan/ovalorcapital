@@ -237,57 +237,84 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
+  // Dedup por ID E por título normalizado — elimina duplicatas de qualquer tipo
   function dedup(arr){
-    var seen = {};
-    return arr.filter(function(p){ if(seen[p.id]) return false; seen[p.id]=true; return true; });
+    var seenId = {}, seenTitulo = {};
+    return arr.filter(function(p){
+      if(!p.id || !p.titulo) return false;
+      if(seenId[p.id]) return false;
+      var tNorm = (p.titulo||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,30);
+      if(seenTitulo[tNorm]) return false;
+      seenId[p.id] = true;
+      seenTitulo[tNorm] = true;
+      return true;
+    });
   }
 
   function loadNoticias(){
-    fetch(API + '?limit=100')
+    fetch(API + '?limit=120')
       .then(function(res){ return res.json(); })
       .then(function(json){
-        var todos = dedup((json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; }));
+        // 1. Dedup global por ID e título
+        var todos = dedup((json.posts||[]).filter(function(p){
+          return p.titulo && p.titulo.length > 0 && p.imagem && p.imagem.length > 10;
+        }));
         if(!todos.length) return;
 
+        // 2. Controle global de IDs já usados na home
         var usedIds = {};
+
         function pick(pool){
           for(var i=0;i<pool.length;i++){
-            if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; }
+            if(!usedIds[pool[i].id]){
+              usedIds[pool[i].id] = true;
+              return pool[i];
+            }
           }
           return null;
         }
 
+        function markUsed(pool){
+          pool.forEach(function(p){ usedIds[p.id] = true; });
+        }
+
         // ── Card 1: Hero — só Política e Economia ──
         var heroPool = todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; });
-        if(heroPool.length < 3) heroPool = todos; // fallback se não tiver suficiente
+        if(heroPool.length < 3) heroPool = todos.filter(function(p){ return p.categoria !== 'geral'; });
+        if(heroPool.length < 3) heroPool = todos.slice(0, 20);
         var heroEl = document.querySelector('.card-hero-main');
         if(heroEl){
-          // Marca usados para evitar repetição nos outros cards
-          heroPool.slice(0,20).forEach(function(p){ usedIds[p.id]=true; });
+          markUsed(heroPool.slice(0, 20));
           setupHeroRotation(heroEl, heroPool);
         }
 
-        // ── Card 2: Central — todas exceto categorias excluídas ──
+        // ── Card 2: Central — todas exceto categorias excluídas e já usados ──
         var centralPool = todos.filter(function(p){
-          return CAT_EXCLUIDAS_CENTRAL.indexOf(p.categoria) === -1;
+          return CAT_EXCLUIDAS_CENTRAL.indexOf(p.categoria) === -1 && !usedIds[p.id];
         });
         var centralEl = document.querySelector('.card-feature');
-        if(centralEl) setupCentralRotation(centralEl, centralPool);
+        if(centralEl){
+          markUsed(centralPool.slice(0, 20));
+          setupCentralRotation(centralEl, centralPool);
+        }
 
         // ── Card 3: Direito — só Seguros, Investimentos, Parcerias ──
         var direitoPool = todos.filter(function(p){
-          return CAT_DIREITO.indexOf(p.categoria) !== -1;
+          return CAT_DIREITO.indexOf(p.categoria) !== -1 && !usedIds[p.id];
         });
         var direitoEl = document.querySelector('.card-monetizado');
-        if(direitoEl) setupDireitoRotation(direitoEl, direitoPool);
+        if(direitoEl){
+          markUsed(direitoPool.slice(0, 20));
+          setupDireitoRotation(direitoEl, direitoPool);
+        }
 
-        // ── Cards standard ──
+        // ── Cards standard — nunca repetir o que já está nos cards rotativos ──
         ['ovc-card-std-1','ovc-card-std-2','ovc-card-std-3',
          'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id){
           preencherCard(document.getElementById(id), pick(todos));
         });
 
-        // ── Cards mini ──
+        // ── Cards mini — nunca repetir ──
         ['ovc-card-mini-1','ovc-card-mini-2','ovc-card-mini-3',
          'ovc-card-mini-4','ovc-card-mini-5'].forEach(function(id){
           preencherMini(document.getElementById(id), pick(todos));

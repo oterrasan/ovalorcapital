@@ -49,7 +49,24 @@ export default async function handler(req, res) {
     const { data, count, error } = await q;
     if (error) throw error;
 
-    const posts = (data || []).map(p => formatPost(p, false));
+    // Dedup no servidor: por ID e por título normalizado
+    const seenId = new Set();
+    const seenTitulo = new Set();
+    const postsRaw = (data || []).filter(p => {
+      if (!p.id || !p.titulo) return false;
+      if (seenId.has(p.id)) return false;
+      const tNorm = (p.titulo||"").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,30);
+      if (seenTitulo.has(tNorm)) return false;
+      seenId.add(p.id);
+      seenTitulo.add(tNorm);
+      return true;
+    });
+
+    // Bloquear imagens de logo, avatar ou marca
+    const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
+    function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
+
+    const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem));
 
     if (resources) {
       return res.status(200).json({
