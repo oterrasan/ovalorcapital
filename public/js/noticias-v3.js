@@ -280,32 +280,30 @@
           pool.forEach(function(p){ usedIds[p.id] = true; });
         }
 
-        // ── Card 1: Hero — só Política e Economia ──
+        // ── Card 1: Hero — SOMENTE Política e Economia. SEM FALLBACK. ──
         var heroPool = todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; });
-        if(heroPool.length < 3) heroPool = todos.filter(function(p){ return p.categoria !== 'geral'; });
-        if(heroPool.length < 3) heroPool = todos.slice(0, 20);
         var heroEl = document.querySelector('.card-hero-main');
-        if(heroEl){
+        if(heroEl && heroPool.length){
           markUsed(heroPool.slice(0, 20));
           setupHeroRotation(heroEl, heroPool);
         }
 
-        // ── Card 2: Central — todas exceto categorias excluídas e já usados ──
+        // ── Card 2: Central — SOMENTE categorias permitidas. SEM FALLBACK. ──
         var centralPool = todos.filter(function(p){
           return CAT_EXCLUIDAS_CENTRAL.indexOf(p.categoria) === -1 && !usedIds[p.id];
         });
         var centralEl = document.querySelector('.card-feature');
-        if(centralEl){
+        if(centralEl && centralPool.length){
           markUsed(centralPool.slice(0, 20));
           setupCentralRotation(centralEl, centralPool);
         }
 
-        // ── Card 3: Direito — só Seguros, Investimentos, Parcerias ──
+        // ── Card 3: Direito — SOMENTE Seguros, Investimentos, Parcerias. SEM FALLBACK. ──
         var direitoPool = todos.filter(function(p){
           return CAT_DIREITO.indexOf(p.categoria) !== -1 && !usedIds[p.id];
         });
         var direitoEl = document.querySelector('.card-monetizado');
-        if(direitoEl){
+        if(direitoEl && direitoPool.length){
           markUsed(direitoPool.slice(0, 20));
           setupDireitoRotation(direitoEl, direitoPool);
         }
@@ -318,10 +316,9 @@
         // Coluna 3: Família, Saúde, Educação, Tributos & Regulação
         var col3 = todos.filter(function(p){ return ['familia','saude','educacao','seguros','parcerias','geral'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
 
-        // Fallback: se coluna vazia, usar todos não usados
+        // SEM FALLBACK — categoria errada nunca entra em coluna errada
         function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; } } return null; }
-        function pickAny(){ return pickFrom(todos); }
-        function pickCol(pool){ var p = pickFrom(pool); return p || pickAny(); }
+        function pickCol(pool){ return pickFrom(pool); }
 
         // Coluna 1 — std-1, std-2 (standard) + mini-1, mini-2
         preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1));

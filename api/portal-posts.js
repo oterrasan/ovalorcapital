@@ -66,7 +66,12 @@ export default async function handler(req, res) {
     const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
     function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
 
-    const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem));
+    // REGRA INVIOLÁVEL: apenas categorias válidas saem pela API — "geral" bloqueado
+    const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
+      'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
+      'parcerias','internacional']);
+
+    const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
 
     if (resources) {
       return res.status(200).json({

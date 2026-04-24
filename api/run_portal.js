@@ -72,6 +72,9 @@ export default async function handler(req, res) {
 
       if (!content.corpo || content.corpo.length < 500) continue;
 
+      // REGRA INVIOLÁVEL: categoria "geral" não entra no banco — IA falhou em classificar
+      if (!content.categoria || content.categoria === 'geral') continue;
+
       // GARANTIA FINAL: subcategoria obrigatória
       if (!content.subcategoria) {
         content.subcategoria = "Geral";
