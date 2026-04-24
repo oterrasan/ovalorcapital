@@ -206,17 +206,17 @@
   function preencherCard(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
-    var tit  = el.querySelector('.card-title,.card-feature-title,h2,h3');
-    var exc  = el.querySelector('.card-excerpt,.card-feature-excerpt,p:not(.card-meta)');
-    var tag  = el.querySelector('.tag');
-    var cta  = el.querySelector('.card-cta');
-    var meta = el.querySelector('.card-meta');
-    if(tit)  tit.textContent = p.titulo;
-    if(exc)  exc.textContent = (p.resumo||'').slice(0,150);
-    if(tag)  setTag(tag, p.categoria);
-    if(meta) meta.textContent = 'Redação OVC · ' + label(p.categoria);
-    if(cta)  cta.href = url;
-    injectImg(el, p);
+    var cat = p.categoria||'geral';
+    // Reconstruir innerHTML completo — garante ordem correta: imagem → tag → título → meta → cta
+    el.innerHTML =
+      (isValidImage(p.imagem)
+        ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display='none'">'
+        : '') +
+      '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
+      '<h2 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h2>' +
+      '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
+      '<p class="card-excerpt">'+escHtml((p.resumo||'').slice(0,140))+'</p>' +
+      '<a class="card-cta" href="'+url+'"><span>Leia mais</span><span class="icon">↗</span></a>';
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
@@ -224,17 +224,21 @@
   function preencherMini(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
-    var tit  = el.querySelector('.card-title,h3,h4');
-    var tag  = el.querySelector('.tag');
-    var cta  = el.querySelector('.card-cta');
-    var meta = el.querySelector('.card-meta');
-    if(tit)  tit.textContent = p.titulo;
-    if(tag)  setTag(tag, p.categoria);
-    if(meta) meta.textContent = 'Redação OVC · ' + label(p.categoria);
-    if(cta)  cta.href = url;
-    injectImg(el, p);
+    var cat = p.categoria||'geral';
+    el.innerHTML =
+      (isValidImage(p.imagem)
+        ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display='none'">'
+        : '') +
+      '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
+      '<h3 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h3>' +
+      '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
+      '<a class="card-cta" href="'+url+'"><span>Leia mais</span><span class="icon">↗</span></a>';
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
+  }
+
+  function escHtml(str){
+    return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   // Dedup por ID E por título normalizado — elimina duplicatas de qualquer tipo
