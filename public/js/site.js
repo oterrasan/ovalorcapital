@@ -87,12 +87,20 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
+    // live-data separado — falha de site-settings não bloqueia cotações
+    this.fetchJSON('/api/live-data').then(live => {
+      if (!live) return;
+      this._applyLiveData(live);
+    }).catch(() => {});
+
     try {
-      const [content, live] = await Promise.all([
-        this.loadContent(['site-settings']),
-        this.fetchJSON('/api/live-data')
-      ]);
+      const content = await this.loadContent(['site-settings']);
       document.querySelectorAll('.search-input').forEach(input => input.placeholder = content['site-settings']?.searchPlaceholder || input.placeholder);
+    } catch(_) {}
+  },
+
+  _applyLiveData(live) {
+    try {
       const write = (selector, value) => document.querySelectorAll(selector).forEach(el => el.textContent = value);
 
       // Cotações — estrutura real da API: live.usd.valor, live.eur.valor, etc.
@@ -160,7 +168,7 @@ window.OVC = {
         }
       });
     } catch (error) {
-      console.error(error);
+      console.error('live-data apply error:', error);
     }
   },
   renderMiniItems(items){ return items.map(item => `<article class="ovc-mini-item"><div><div class="ovc-kicker">${item.source || 'OVC'}</div><h4><a href="${this.articleUrl(item)}">${item.title}</a></h4><p>${item.excerpt || ''}</p><div class="ovc-meta"><span>${item.relativeDate || ''}</span></div></div><a class="ovc-thumb" href="${this.articleUrl(item)}">${item.image ? `<img src="${item.image}" alt="">` : ''}</a></article>`).join(''); }

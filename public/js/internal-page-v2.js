@@ -121,11 +121,17 @@
 
         var toShow = filtered.length > 0 ? filtered : all;
 
-        // DEDUPLICAR — garantir que cada post aparece só uma vez
-        var usedIds = {};
+        // DEDUPLICAR — por ID e por título normalizado
+        var usedIds = {}, usedTitulos = {};
         var deduped = [];
         toShow.forEach(function(p){
-          if (!usedIds[p.id]) { usedIds[p.id]=true; deduped.push(p); }
+          if (!p.id || !p.titulo) return;
+          if (usedIds[p.id]) return;
+          var tNorm = (p.titulo||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,30);
+          if (usedTitulos[tNorm]) return;
+          usedIds[p.id] = true;
+          usedTitulos[tNorm] = true;
+          deduped.push(p);
         });
 
         // Hero
