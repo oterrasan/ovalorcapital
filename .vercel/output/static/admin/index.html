@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Admin OVC — Centro de Comando</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<style>
+:root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(200,30,30,0.06) 0%,transparent 70%)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.6)}
+.login-logo{text-align:center;margin-bottom:8px}
+.login-logo .ovc{font-size:22px;font-weight:700;color:var(--t1);letter-spacing:.08em}
+.login-logo .accent{color:var(--red)}
+.login-tag{text-align:center;font-size:11px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:36px}
+.login-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:6px}
+.login-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--t1);font-size:14px;outline:none;transition:border .15s}
+.login-input:focus{border-color:var(--red)}
+.login-btn{width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .15s}
+.login-btn:hover{background:var(--red-h)}
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo .name{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--t1)}
+.sidebar-logo .name .a{color:var(--red)}
+.sidebar-logo .sub{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.nav{padding:12px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;transition:all .15s;border-left:2px solid transparent}
+.nav-item:hover{color:var(--t1);background:rgba(255,255,255,0.03)}
+.nav-item.active{color:var(--t1);background:rgba(200,30,30,0.08);border-left-color:var(--red)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .ver{font-size:11px;color:var(--t3)}
+.logout-btn{background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px;margin-top:8px}
+.logout-btn:hover{color:var(--t1)}
+.main{flex:1;overflow-y:auto;background:var(--bg)}
+.page-header{padding:28px 32px 0;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px}
+.page-title{font-size:20px;font-weight:700}
+.page-sub{font-size:13px;color:var(--t2);margin-top:3px}
+.page-body{padding:0 32px 32px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden}
+.panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:13px;font-weight:600;color:var(--t1)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:8px}
+.metric-value{font-size:28px;font-weight:700;color:var(--t1)}
+.metric-icon{position:absolute;top:20px;right:20px;font-size:20px;opacity:.4}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green-s);color:#4ade80}
+.badge-red{background:var(--red-s2);color:#f87171}
+.badge-yellow{background:var(--yellow-s);color:var(--yellow)}
+.badge-gray{background:rgba(255,255,255,0.06);color:var(--t2)}
+.badge-orange{background:rgba(232,93,0,0.15);color:#fb923c}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--red);color:#fff}.btn-primary:hover{background:var(--red-h)}
+.btn-secondary{background:rgba(255,255,255,0.06);color:var(--t1);border:1px solid var(--border)}.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#15803d}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.gap-8{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.text-secondary{color:var(--t2)}
+.text-small{font-size:12px}
+.loading{padding:40px;text-align:center;color:var(--t2)}
+.empty-state{padding:48px;text-align:center}
+.empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
+.empty-text{color:var(--t2);font-size:13px}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.status-pendente{background:var(--yellow-s);color:var(--yellow)}.status-pendente .dot{background:var(--yellow)}
+.status-success{background:var(--green-s);color:#4ade80}.status-success .dot{background:#4ade80}
+.status-error{background:var(--red-s2);color:#f87171}.status-error .dot{background:#f87171}
+.status-duplicate{background:rgba(255,255,255,0.06);color:var(--t2)}.status-duplicate .dot{background:var(--t2)}
+.status-scheduled{background:rgba(59,130,246,0.15);color:#60a5fa}.status-scheduled .dot{background:#60a5fa}
+.pagination{padding:12px 16px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)}
+.pagination-info{font-size:12px;color:var(--t2);flex:1}
+.toggle-wrap{display:flex;align-items:center;gap:10px}
+.toggle{position:relative;width:40px;height:22px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,0.1);border-radius:22px;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.toggle-slider{background:var(--red)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(18px)}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.form-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;transition:border .15s}
+.form-input:focus{border-color:var(--red)}
+.form-select{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none}
+.form-textarea{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;resize:vertical;min-height:120px;font-family:var(--font)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:15px;font-weight:600}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.preview-card{background:#0a0a14;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:360px}
+.preview-img{width:100%;aspect-ratio:4/5;object-fit:cover;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:12px}
+.preview-caption{padding:12px;font-size:12px;color:var(--t2);line-height:1.5;white-space:pre-wrap;max-height:120px;overflow-y:auto}
+.alert-banner{background:rgba(200,30,30,0.1);border:1px solid rgba(200,30,30,0.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.alert-banner.yellow{background:var(--yellow-s);border-color:rgba(255,200,0,0.3)}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-left:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.suggestion-card{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.perf-bar{height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-top:4px}
+.perf-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const SUPABASE_URL = 'https://bfsegqdgscudtdgwdyci.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const ADMIN_PASS = 'ovc-admin-2026-secreto';
+
+const fmt = d => { if(!d) return '—'; const dt = new Date(d); return dt.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); };
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
+const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
+
+// ── LOGIN ──
+function Login({ onLogin }) {
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const submit = () => {
+    if (pass === ADMIN_PASS) { onLogin(); }
+    else setErr('Senha incorreta');
+  };
+  return (
+    <div className="login-wrap">
+      <div className="login-box">
+        <div className="login-logo"><span className="ovc">O <span className="accent">VALOR</span> CAP.</span></div>
+        <div className="login-tag">Centro de Comando</div>
+        <div className="form-group">
+          <label className="login-label">Senha</label>
+          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/>
+        </div>
+        {err && <div style={{color:'#f87171',fontSize:12,marginTop:4}}>{err}</div>}
+        <button className="login-btn" onClick={submit}>Entrar</button>
+      </div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ──
+function Dashboard() {
+  const [status, setStatus] = useState({running:false,posts_hoje:0,max_posts:60,pendentes:0,erros:0});
+  const [posts, setPosts] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [forcing, setForcing] = useState(false);
+  const [runResult, setRunResult] = useState('');
+  const [alertas, setAlertas] = useState([]);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch('/api/status');
+      if (r.ok) setStatus(await r.json());
+    } catch(_) {}
+    const { data: p } = await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(10);
+    setPosts(p||[]);
+    const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(10);
+    setLogs(l||[]);
+    // Alertas: posts com erro recentes
+    const { data: errs } = await sb.from('posts').select('*').eq('status','error').order('updated_at',{ascending:false}).limit(5);
+    setAlertas(errs||[]);
+  }, []);
+
+  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+
+  const forceRun = async () => {
+    setForcing(true); setRunResult('Executando...');
+    try {
+      const r = await fetch('/api/run', {method:'POST',headers:{'Content-Type':'application/json'}});
+      const j = await r.json();
+      setRunResult(JSON.stringify(j));
+      load();
+    } catch(e) { setRunResult('Erro: '+e.message); }
+    setForcing(false);
+  };
+
+  const semana = posts.filter(p=>{
+    const d=new Date(p.created_at);
+    return (Date.now()-d.getTime())<7*24*60*60*1000;
+  }).length;
+
+  const novos = posts.filter(p=>p.status==='pendente').length;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">Dashboard Global</div>
+        <div className="page-sub">Visão em tempo real do ecossistema OVC</div>
+      </div>
+      <div className="page-body">
+        {alertas.length>0&&<div className="alert-banner"><span>⚠️</span><span>{alertas.length} post(s) com erro recente</span></div>}
+        {novos>0&&<div className="alert-banner yellow"><span>🆕</span><span>{novos} novo(s) conteúdo(s) aguardando aprovação</span></div>}
+        <div className="metrics">
+          <div className="metric-card">
+            <div className="metric-label">Posts Hoje</div>
+            <div className="metric-value">{status.posts_hoje}</div>
+            <div className="metric-icon">📅</div>
+            <span className="badge badge-green">limite: {status.max_posts}</span>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Posts na Semana</div>
+            <div className="metric-value">{semana}</div>
+            <div className="metric-icon">📊</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Automação</div>
+            <div className="metric-value" style={{fontSize:20,paddingTop:6}}>{status.running?'ATIVA':'PAUSADA'}</div>
+            <div className="metric-icon">{status.running?'🟢':'🔴'}</div>
+            <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Rodando':'Parada'}</span>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Execução Manual</div>
+            <div className="metric-value" style={{fontSize:14,paddingTop:8}}>
+              <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing}>
+                {forcing?'Executando...':'▶ Forçar agora'}
+              </button>
+            </div>
+            <div className="metric-icon">⚡</div>
+          </div>
+        </div>
+        {runResult&&<div className="alert-banner" style={{marginBottom:16}}><code style={{fontSize:11}}>{runResult}</code></div>}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">Últimos 10 Posts</span><button className="btn btn-secondary btn-sm" onClick={load}>↻</button></div>
+            {posts.length===0?<div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post</div></div>:
+            <table><thead><tr><th>Título</th><th>Status</th><th>Data</th></tr></thead>
+            <tbody>{posts.map(p=><tr key={p.id}>
+              <td>{truncate(p.titulo,40)}</td>
+              <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+              <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+            </tr>)}</tbody></table>}
+          </div>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">Erros Recentes {alertas.length>0&&<span className="notif-dot"></span>}</span></div>
+            {alertas.length===0?<div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Nenhum erro recente</div></div>:
+            <table><thead><tr><th>Post</th><th>Erro</th><th>Data</th></tr></thead>
+            <tbody>{alertas.map(p=><tr key={p.id}>
+              <td>{truncate(p.titulo,30)}</td>
+              <td className="text-small" style={{color:'#f87171'}}>{truncate(p.error_msg,40)}</td>
+              <td className="text-secondary text-small">{fmt(p.updated_at)}</td>
+            </tr>)}</tbody></table>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PIPELINE ──
+function Pipeline() {
+  const [auto, setAuto] = useState(null);
+  const [maxPosts, setMaxPosts] = useState(60);
+  const [intervalo, setIntervalo] = useState(10);
+  const [logs, setLogs] = useState([]);
+  const [forcing, setForcing] = useState(false);
+  const [lastResult, setLastResult] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = useCallback(async () => {
+    const { data: cfgs } = await sb.from('config').select('*');
+    if (cfgs) {
+      const a = cfgs.find(c=>c.key==='AUTOMATION');
+      const mp = cfgs.find(c=>c.key==='MAX_POSTS_DIA');
+      const iv = cfgs.find(c=>c.key==='INTERVALO');
+      setAuto(a?a.value==='on':false);
+      if (mp) setMaxPosts(parseInt(mp.value)||300);
+      if (iv) setIntervalo(parseInt(iv.value)||10);
+    }
+    const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(20);
+    setLogs(l||[]);
+  }, []);
+
+  useEffect(()=>{load();},[load]);
+
+  const toggleAuto = async () => {
+    const n = !auto; setAuto(n);
+    await sb.from('config').upsert({key:'AUTOMATION',value:n?'on':'off',updated_at:new Date().toISOString()},{onConflict:'key'});
+    setMsg('Automação '+(n?'ativada':'pausada'));
+    setTimeout(()=>setMsg(''),3000);
+  };
+
+  const saveConfig = async () => {
+    await sb.from('config').upsert({key:'MAX_POSTS_DIA',value:String(maxPosts),updated_at:new Date().toISOString()},{onConflict:'key'});
+    await sb.from('config').upsert({key:'INTERVALO',value:String(intervalo),updated_at:new Date().toISOString()},{onConflict:'key'});
+    setMsg('Configurações salvas');
+    setTimeout(()=>setMsg(''),3000);
+  };
+
+  const forceRun = async () => {
+    setForcing(true); setLastResult('Executando...');
+    try {
+      const r = await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const j = await r.json();
+      setLastResult(JSON.stringify(j,null,2));
+      load();
+    } catch(e){setLastResult('Erro: '+e.message);}
+    setForcing(false);
+  };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Pipeline / Automação</div><div className="page-sub">Controle do pipeline editorial automatizado</div></div>
+      <div className="page-body">
+        {msg&&<div className="alert-banner yellow" style={{marginBottom:16}}><span>✓ {msg}</span></div>}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Status da Automação</span>
+            <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing}>{forcing?'Executando...':'▶ Forçar execução agora'}</button>
+          </div>
+          <div style={{padding:'20px'}}>
+            <div className="toggle-wrap">
+              <label className="toggle"><input type="checkbox" checked={!!auto} onChange={toggleAuto}/><span className="toggle-slider"></span></label>
+              <span style={{fontWeight:600}}>{auto?<span style={{color:'#4ade80'}}>● Automação ATIVA</span>:<span style={{color:'#f87171'}}>● Automação PAUSADA</span>}</span>
+            </div>
+            {lastResult&&<pre style={{marginTop:12,fontSize:11,color:'#4ade80',background:'rgba(0,0,0,.3)',padding:12,borderRadius:8,overflow:'auto'}}>{lastResult}</pre>}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Parâmetros</span></div>
+          <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div className="form-group">
+              <label className="form-label">Max Posts por Dia</label>
+              <input className="form-input" type="number" value={maxPosts} onChange={e=>setMaxPosts(parseInt(e.target.value)||300)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Intervalo entre Execuções (min)</label>
+              <input className="form-input" type="number" value={intervalo} onChange={e=>setIntervalo(parseInt(e.target.value)||10)}/>
+            </div>
+          </div>
+          <div style={{padding:'0 20px 20px'}}><button className="btn btn-primary" onClick={saveConfig}>Salvar parâmetros</button></div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Execuções Recentes (Logs)</span><button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button></div>
+          {logs.length===0?<div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhuma execução registrada</div></div>:
+          <table><thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
+          <tbody>{logs.map(l=><tr key={l.id}>
+            <td><span className={`badge ${l.level==='error'?'badge-red':l.level==='warn'?'badge-yellow':'badge-gray'}`}>{l.level}</span></td>
+            <td className="text-small">{truncate(l.message,80)}</td>
+            <td className="text-secondary text-small">{fmt(l.created_at)}</td>
+          </tr>)}</tbody></table>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── POSTAGENS ──
+function Postagens() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState([]);
+  const [approving, setApproving] = useState(false);
+  const [editPost, setEditPost] = useState(null);
+  const [previewPost, setPreviewPost] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const PER = 50;
+
+  const load = useCallback(async () => {
+    setLoading(true); setSelected([]);
+    let q = sb.from('posts').select('*').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    if (filter!=='all') q=q.eq('status',filter);
+    const { data } = await q;
+    setPosts(data||[]);
+    const { data: acc } = await sb.from('ig_accounts').select('id,username').eq('active',true);
+    setAccounts(acc||[]);
+    setLoading(false);
+  },[filter,page]);
+
+  useEffect(()=>{load();},[load]);
+
+  const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const toggleAll = () => {
+    const pend = posts.filter(p=>p.status==='pendente').map(p=>p.id);
+    setSelected(p=>p.length===pend.length?[]:pend);
+  };
+
+  const approveOne = async id => {
+    setApproving(true);
+    try {
+      // Buscar dados do post
+      const { data: post } = await sb.from('posts').select('*').eq('id',id).single();
+      if (!post) { alert('Post não encontrado'); setApproving(false); return; }
+
+      // Gerar card como imagem
+      let cardUrl = post.imagem;
+      try {
+        // Renderizar o card em um elemento oculto
+        const cardEl = document.createElement('div');
+        cardEl.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1350px;';
+        cardEl.innerHTML = `<img src="${post.imagem}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous"/>`;
+        document.body.appendChild(cardEl);
+        
+        const canvas = await html2canvas(cardEl, {
+          width: 1080, height: 1350,
+          useCORS: true, allowTaint: false,
+          scale: 1
+        });
+        document.body.removeChild(cardEl);
+
+        // Converter para blob e fazer upload
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+        const file = new File([blob], `card-${id}.jpg`, {type:'image/jpeg'});
+        
+        const { data: upload, error: upErr } = await sb.storage
+          .from('cards')
+          .upload(`${id}.jpg`, file, {upsert: true, contentType: 'image/jpeg'});
+        
+        if (!upErr) {
+          const { data: urlData } = sb.storage.from('cards').getPublicUrl(`${id}.jpg`);
+          cardUrl = urlData.publicUrl;
+          // Atualizar imagem no post
+          await sb.from('posts').update({imagem: cardUrl}).eq('id', id);
+        }
+      } catch(imgErr) {
+        console.log('Usando imagem original:', imgErr.message);
+      }
+
+      // Aprovar e publicar
+      const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+      const d = await r.json();
+      if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
+      else alert('❌ Erro: '+d.error);
+    } catch(e) {
+      alert('❌ Erro: '+e.message);
+    }
+    setApproving(false);
+  };
+
+  const approveBatch = async () => {
+    if (!selected.length) return;
+    if (!confirm(`Publicar ${selected.length} post(s) no Instagram?`)) return;
+    setApproving(true);
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
+    const d = await r.json();
+    const ok = d.results?.filter(x=>x.ok).length||0;
+    const fail = d.results?.filter(x=>!x.ok).length||0;
+    alert(`✅ ${ok} publicado(s) no Instagram${fail?' · ❌ '+fail+' erro(s)':''}`);
+    load(); setApproving(false);
+  };
+
+  const pubPortal = async id => {
+    setApproving(true);
+    try {
+      const now = new Date().toISOString();
+      const { error } = await sb.from('posts').update({
+        status: 'publicado', approved: true,
+        publish_method: 'portal', published_at: now, updated_at: now
+      }).eq('id', id);
+      if (error) alert('❌ Erro: ' + error.message);
+      else { alert('✅ Publicado no Portal!'); load(); }
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    setApproving(false);
+  };
+
+  const pubPortalBatch = async () => {
+    if (!selected.length) return;
+    if (!confirm(`Publicar ${selected.length} post(s) no Portal Web?`)) return;
+    setApproving(true);
+    const now = new Date().toISOString();
+    let ok = 0;
+    for (const id of selected) {
+      const { error } = await sb.from('posts').update({
+        status: 'publicado', approved: true,
+        publish_method: 'portal', published_at: now, updated_at: now
+      }).eq('id', id);
+      if (!error) ok++;
+    }
+    alert(`✅ ${ok} publicado(s) no Portal!`);
+    load(); setApproving(false);
+  };
+
+  const retryPost = async id => {
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'retry'})});
+    const d = await r.json();
+    if (d.ok) { alert('Post recolocado na fila.'); load(); }
+    else alert('Erro: '+d.error);
+  };
+
+  const saveEdit = async () => {
+    await sb.from('posts').update({
+      titulo: editPost.titulo,
+      conteudo: editPost.conteudo,
+      comentario_fixado: editPost.comentario_fixado,
+      imagem: editPost.imagem,
+      ig_account_id: editPost.ig_account_id||null,
+      scheduled_at: editPost.scheduled_at||null,
+      user_tags: editPost.user_tags||'[]',
+      collaborators: editPost.collaborators||'[]',
+      updated_at: new Date().toISOString()
+    }).eq('id',editPost.id);
+    setEditPost(null); load();
+  };
+
+  const pendentesCount = posts.filter(p=>p.status==='pendente').length;
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Postagens</div><div className="page-sub">Aprovação, edição e histórico de posts</div></div>
+      <div className="page-body">
+        {previewPost&&(
+          <div className="modal-bg" onClick={()=>setPreviewPost(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <div className="modal-header"><span className="modal-title">Preview do Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(null)}>✕</button></div>
+              <div className="modal-body" style={{display:'flex',gap:20,flexWrap:'wrap'}}>
+                <div className="preview-card" style={{flex:'0 0 280px'}}>
+                  {previewPost.imagem?<img src={previewPost.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover'}} onError={e=>e.target.style.display='none'} alt=""/>:<div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>}
+                  <div className="preview-caption">{previewPost.conteudo}</div>
+                </div>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:8}}>Comentário fixado:</div>
+                  <div style={{fontSize:13,color:'var(--t1)',background:'var(--input)',padding:12,borderRadius:8}}>{previewPost.comentario_fixado||'—'}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Conta:</div>
+                  <div style={{fontSize:13}}>{previewPost.ig_accounts?.username||'Automática'}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Agendado para:</div>
+                  <div style={{fontSize:13}}>{previewPost.scheduled_at?fmt(previewPost.scheduled_at):'Publicar imediatamente'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {editPost&&(
+          <div className="modal-bg">
+            <div className="modal">
+              <div className="modal-header"><span className="modal-title">Editar Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setEditPost(null)}>✕</button></div>
+              <div className="modal-body">
+                <div className="form-group"><label className="form-label">Título / Tag</label><input className="form-input" value={editPost.titulo||''} onChange={e=>setEditPost({...editPost,titulo:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Legenda / Conteúdo</label><textarea className="form-textarea" style={{minHeight:180}} value={editPost.conteudo||''} onChange={e=>setEditPost({...editPost,conteudo:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Comentário Fixado</label><textarea className="form-textarea" style={{minHeight:60}} value={editPost.comentario_fixado||''} onChange={e=>setEditPost({...editPost,comentario_fixado:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">URL da Imagem</label><input className="form-input" value={editPost.imagem||''} onChange={e=>setEditPost({...editPost,imagem:e.target.value})}/></div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                  <div className="form-group"><label className="form-label">Conta Instagram</label>
+                    <select className="form-select" value={editPost.ig_account_id||''} onChange={e=>setEditPost({...editPost,ig_account_id:e.target.value})}>
+                      <option value="">Automática</option>
+                      {accounts.map(a=><option key={a.id} value={a.id}>@{a.username}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group"><label className="form-label">Agendar para</label><input className="form-input" type="datetime-local" value={editPost.scheduled_at?editPost.scheduled_at.slice(0,16):''} onChange={e=>setEditPost({...editPost,scheduled_at:e.target.value})}/></div>
+                </div>
+                <div className="form-group"><label className="form-label">Marcar usuários (@usuario1,@usuario2)</label><input className="form-input" value={editPost.user_tags||''} onChange={e=>setEditPost({...editPost,user_tags:e.target.value})} placeholder="@usuario1, @usuario2"/></div>
+                <div className="form-group"><label className="form-label">Colaboradores (@usuario1,@usuario2)</label><input className="form-input" value={editPost.collaborators||''} onChange={e=>setEditPost({...editPost,collaborators:e.target.value})} placeholder="@oterrasan, @blogdoterra"/></div>
+              </div>
+              <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>setEditPost(null)}>Cancelar</button><button className="btn btn-primary" onClick={saveEdit}>Salvar</button></div>
+            </div>
+          </div>
+        )}
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">Filtrar</span>
+            <div className="gap-8">
+              {['all','pendente','success','error','scheduled'].map(f=>(
+                <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>
+                  {f==='all'?'Todos':f}
+                </button>
+              ))}
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {selected.length>0&&(
+            <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12}}>
+              <span style={{color:'var(--yellow)',fontSize:13}}>{selected.length} selecionado(s)</span>
+              <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Portal (lote)</button>
+              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>📱 Instagram (lote)</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>Cancelar</button>
+            </div>
+          )}
+          {loading?<div className="loading">Carregando...</div>:posts.length===0?<div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post encontrado</div></div>:(
+            <>
+            <div className="table-wrap">
+              <table>
+                <thead><tr>
+                  <th><input type="checkbox" onChange={toggleAll} checked={selected.length===pendentesCount&&pendentesCount>0}/></th>
+                  <th>Título</th><th>Status</th><th>Conta</th><th>Agendado</th><th>Data</th><th>Ações</th>
+                </tr></thead>
+                <tbody>{posts.map(p=>(
+                  <tr key={p.id} style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:{}}>
+                    <td>{p.status==='pendente'&&<input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/>}</td>
+                    <td>{truncate(p.titulo,45)}</td>
+                    <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+                    <td className="text-secondary text-small">{'auto'}</td>
+                    <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'—'}</td>
+                    <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+                    <td>
+                      <div className="gap-8">
+                        <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Preview">👁</button>
+                        <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
+                        {p.status==='pendente'&&<>
+                          <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Portal</button>
+                          <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
+                        </>}
+                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className="pagination">
+              <span className="pagination-info">Página {page+1}</span>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>← Anterior</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={posts.length<PER}>Próxima →</button>
+            </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONTAS INSTAGRAM ──
+function ContasInstagram() {
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editAcc, setEditAcc] = useState(null);
+  const [newAcc, setNewAcc] = useState(false);
+  const [form, setForm] = useState({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await sb.from('ig_accounts').select('*').order('created_at',{ascending:false});
+    setAccounts(data||[]);
+    setLoading(false);
+  };
+
+  useEffect(()=>{load();},[]);
+
+  const saveAccount = async () => {
+    if (editAcc) {
+      await sb.from('ig_accounts').update({...form,updated_at:new Date().toISOString()}).eq('id',editAcc.id);
+    } else {
+      await sb.from('ig_accounts').insert([{...form,posts_hoje:0}]);
+    }
+    setEditAcc(null); setNewAcc(false);
+    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+    load();
+  };
+
+  const toggleActive = async (acc) => {
+    await sb.from('ig_accounts').update({active:!acc.active}).eq('id',acc.id);
+    load();
+  };
+
+  const openEdit = acc => {
+    setForm({username:acc.username||'',ig_user_id:acc.ig_user_id||'',token:acc.token||'',active:acc.active,distribuicao_automatica:acc.distribuicao_automatica,limite_diario:acc.limite_diario||25});
+    setEditAcc(acc); setNewAcc(false);
+  };
+
+  const openNew = () => {
+    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+    setNewAcc(true); setEditAcc(null);
+  };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Contas Instagram</div><div className="page-sub">Gestão e monitoramento de contas</div></div>
+      <div className="page-body">
+        {(editAcc||newAcc)&&(
+          <div className="modal-bg">
+            <div className="modal">
+              <div className="modal-header"><span className="modal-title">{editAcc?'Editar Conta':'Nova Conta'}</span><button className="btn btn-secondary btn-sm" onClick={()=>{setEditAcc(null);setNewAcc(false);}}>✕</button></div>
+              <div className="modal-body">
+                <div className="form-group"><label className="form-label">Username</label><input className="form-input" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="ovalorcapital"/></div>
+                <div className="form-group"><label className="form-label">IG User ID</label><input className="form-input" value={form.ig_user_id} onChange={e=>setForm({...form,ig_user_id:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Access Token</label><textarea className="form-textarea" style={{minHeight:80}} value={form.token} onChange={e=>setForm({...form,token:e.target.value})}/></div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                  <div className="form-group"><label className="form-label">Limite Diário</label><input className="form-input" type="number" value={form.limite_diario} onChange={e=>setForm({...form,limite_diario:parseInt(e.target.value)||25})}/></div>
+                  <div className="form-group" style={{paddingTop:20}}>
+                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                      <input type="checkbox" checked={form.distribuicao_automatica} onChange={e=>setForm({...form,distribuicao_automatica:e.target.checked})}/>
+                      <span style={{fontSize:13}}>Distribuição automática</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>{setEditAcc(null);setNewAcc(false);}}>Cancelar</button><button className="btn btn-primary" onClick={saveAccount}>Salvar</button></div>
+            </div>
+          </div>
+        )}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Contas Cadastradas</span><button className="btn btn-primary btn-sm" onClick={openNew}>+ Nova Conta</button></div>
+          {loading?<div className="loading">Carregando...</div>:accounts.length===0?<div className="empty-state"><div className="empty-icon">📱</div><div className="empty-text">Nenhuma conta cadastrada</div></div>:(
+            <table><thead><tr><th>Username</th><th>Status</th><th>Posts Hoje</th><th>Limite</th><th>Distribuição</th><th>Última Atividade</th><th>Ações</th></tr></thead>
+            <tbody>{accounts.map(a=>(
+              <tr key={a.id}>
+                <td style={{fontWeight:600}}>@{a.username}</td>
+                <td><span className={`badge ${a.active?'badge-green':'badge-red'}`}>{a.active?'Ativa':'Inativa'}</span></td>
+                <td>{a.posts_hoje||0}</td>
+                <td>{a.limite_diario||25}</td>
+                <td><span className={`badge ${a.distribuicao_automatica?'badge-green':'badge-gray'}`}>{a.distribuicao_automatica?'Sim':'Não'}</span></td>
+                <td className="text-secondary text-small">{a.ultima_atividade?fmt(a.ultima_atividade):'Nunca'}</td>
+                <td><div className="gap-8">
+                  <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(a)}>✏️</button>
+                  <button className={`btn btn-sm ${a.active?'btn-secondary':'btn-green'}`} onClick={()=>toggleActive(a)}>{a.active?'Pausar':'Ativar'}</button>
+                </div></td>
+              </tr>
+            ))}</tbody></table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FONTES RSS ──
+function FontesRSS() {
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({name:'',url:'',active:true});
+  const [editSrc, setEditSrc] = useState(null);
+  const [newSrc, setNewSrc] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await sb.from('rss_sources').select('*').order('created_at',{ascending:false});
+    setSources(data||[]);
+    setLoading(false);
+  };
+
+  useEffect(()=>{load();},[]);
+
+  const save = async () => {
+    if (editSrc) { await sb.from('rss_sources').update(form).eq('id',editSrc.id); }
+    else { await sb.from('rss_sources').insert([form]); }
+    setEditSrc(null); setNewSrc(false);
+    setForm({name:'',url:'',active:true});
+    load();
+  };
+
+  const toggle = async src => {
+    await sb.from('rss_sources').update({active:!src.active}).eq('id',src.id);
+    load();
+  };
+
+  const openEdit = src => { setForm({name:src.name,url:src.url,active:src.active}); setEditSrc(src); setNewSrc(false); };
+  const openNew = () => { setForm({name:'',url:'',active:true}); setNewSrc(true); setEditSrc(null); };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Fontes RSS</div><div className="page-sub">Gerenciamento de fontes de conteúdo</div></div>
+      <div className="page-body">
+        {(editSrc||newSrc)&&(
+          <div className="modal-bg">
+            <div className="modal">
+              <div className="modal-header"><span className="modal-title">{editSrc?'Editar Fonte':'Nova Fonte'}</span><button className="btn btn-secondary btn-sm" onClick={()=>{setEditSrc(null);setNewSrc(false);}}>✕</button></div>
+              <div className="modal-body">
+                <div className="form-group"><label className="form-label">Nome</label><input className="form-input" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">URL do Feed RSS</label><input className="form-input" value={form.url} onChange={e=>setForm({...form,url:e.target.value})}/></div>
+                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                  <input type="checkbox" checked={form.active} onChange={e=>setForm({...form,active:e.target.checked})}/><span>Ativa</span>
+                </label>
+              </div>
+              <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>{setEditSrc(null);setNewSrc(false);}}>Cancelar</button><button className="btn btn-primary" onClick={save}>Salvar</button></div>
+            </div>
+          </div>
+        )}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">{sources.length} fontes cadastradas</span><button className="btn btn-primary btn-sm" onClick={openNew}>+ Nova Fonte</button></div>
+          {loading?<div className="loading">Carregando...</div>:sources.length===0?<div className="empty-state"><div className="empty-icon">📡</div><div className="empty-text">Nenhuma fonte cadastrada</div></div>:(
+            <table><thead><tr><th>Nome</th><th>URL</th><th>Status</th><th>Última leitura</th><th>Ações</th></tr></thead>
+            <tbody>{sources.map(s=>(
+              <tr key={s.id}>
+                <td style={{fontWeight:600}}>{s.name}</td>
+                <td className="text-secondary text-small">{truncate(s.url,50)}</td>
+                <td><span className={`badge ${s.active?'badge-green':'badge-red'}`}>{s.active?'Ativa':'Inativa'}</span></td>
+                <td className="text-secondary text-small">{s.last_fetched?fmt(s.last_fetched):'Nunca'}</td>
+                <td><div className="gap-8">
+                  <button className="btn btn-secondary btn-sm" onClick={()=>openEdit(s)}>✏️</button>
+                  <button className={`btn btn-sm ${s.active?'btn-secondary':'btn-green'}`} onClick={()=>toggle(s)}>{s.active?'Pausar':'Ativar'}</button>
+                </div></td>
+              </tr>
+            ))}</tbody></table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ENGAJAMENTO / SUGESTÕES ──
+function Engajamento() {
+  const [sources, setSources] = useState([]);
+  const [sugestoes, setSugestoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    const load = async () => {
+      setLoading(true);
+      const { data: src } = await sb.from('rss_sources').select('name').eq('active',true);
+      setSources(src||[]);
+      // Sugestões baseadas nas fontes ativas
+      const perfis = [
+        {username:'@bbcbrasil',tema:'Internacional',relevancia:90},
+        {username:'@agenciabrasil',tema:'Governo/Política',relevancia:88},
+        {username:'@valoreconomico',tema:'Economia',relevancia:85},
+        {username:'@estadao',tema:'Jornalismo geral',relevancia:82},
+        {username:'@gazetadopovo',tema:'Direita/Conservador',relevancia:80},
+        {username:'@revistaOeste',tema:'Centro-direita',relevancia:78},
+        {username:'@jovempanbr',tema:'Opinião/Política',relevancia:75},
+        {username:'@infomoney',tema:'Mercado financeiro',relevancia:72},
+      ];
+      setSugestoes(perfis);
+      setLoading(false);
+    };
+    load();
+  },[]);
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Engajamento</div><div className="page-sub">Sugestões de perfis para interação (apenas sugestão, sem automação)</div></div>
+      <div className="page-body">
+        <div className="alert-banner yellow"><span>ℹ️</span><span>Estas são apenas sugestões. Nenhuma ação automática é executada.</span></div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Perfis Sugeridos com base nas fontes ativas</span></div>
+          <div style={{padding:20}}>
+            {loading?<div className="loading">Carregando...</div>:sugestoes.map((s,i)=>(
+              <div key={i} className="suggestion-card">
+                <div style={{width:36,height:36,borderRadius:'50%',background:'var(--red-s2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>👤</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:13}}>{s.username}</div>
+                  <div style={{fontSize:12,color:'var(--t2)'}}>{s.tema}</div>
+                  <div className="perf-bar"><div className="perf-fill" style={{width:s.relevancia+'%'}}></div></div>
+                </div>
+                <div style={{fontSize:11,color:'var(--t2)'}}>{s.relevancia}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── LOGS ──
+function Logs() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(0);
+  const PER = 50;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    let q = sb.from('logs').select('*').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    if (filter!=='all') q=q.eq('level',filter);
+    const { data } = await q;
+    setLogs(data||[]);
+    setLoading(false);
+  },[filter,page]);
+
+  useEffect(()=>{load();},[load]);
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Logs</div><div className="page-sub">Histórico completo de execuções e erros</div></div>
+      <div className="page-body">
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">Registros</span>
+            <div className="gap-8">
+              {['all','info','warn','error'].map(f=>(
+                <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>
+                  {f==='all'?'Todos':f}
+                </button>
+              ))}
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loading?<div className="loading">Carregando...</div>:logs.length===0?<div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhum log</div></div>:(
+            <>
+            <table><thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
+            <tbody>{logs.map(l=>(
+              <tr key={l.id}>
+                <td><span className={`badge ${l.level==='error'?'badge-red':l.level==='warn'?'badge-yellow':'badge-gray'}`}>{l.level}</span></td>
+                <td style={{fontFamily:'monospace',fontSize:12}}>{l.message}</td>
+                <td className="text-secondary text-small">{fmt(l.created_at)}</td>
+              </tr>
+            ))}</tbody></table>
+            <div className="pagination">
+              <span className="pagination-info">Página {page+1}</span>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>← Anterior</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={logs.length<PER}>Próxima →</button>
+            </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DESEMPENHO ──
+function Desempenho() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    const load = async () => {
+      setLoading(true);
+      const { data } = await sb.from('posts').select('*').eq('status','success').order('created_at',{ascending:false}).limit(50);
+      setPosts(data||[]);
+      setLoading(false);
+    };
+    load();
+  },[]);
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Desempenho</div><div className="page-sub">Métricas de posts publicados</div></div>
+      <div className="page-body">
+        <div className="alert-banner yellow"><span>ℹ️</span><span>Métricas detalhadas (curtidas, alcance) requerem permissões avançadas da API do Instagram.</span></div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Posts Publicados — Registro de Desempenho</span></div>
+          {loading?<div className="loading">Carregando...</div>:posts.length===0?<div className="empty-state"><div className="empty-icon">📈</div><div className="empty-text">Nenhum post publicado ainda</div></div>:(
+            <table><thead><tr><th>Título</th><th>IG ID</th><th>Conta</th><th>Data publicação</th><th>Métricas</th></tr></thead>
+            <tbody>{posts.map(p=>(
+              <tr key={p.id}>
+                <td>{truncate(p.titulo,45)}</td>
+                <td className="text-secondary text-small" style={{fontFamily:'monospace'}}>{p.ig_id?truncate(p.ig_id,20):'—'}</td>
+                <td className="text-secondary text-small">{p.ig_account_id?'conta vinculada':'auto'}</td>
+                <td className="text-secondary text-small">{fmt(p.updated_at)}</td>
+                <td>
+                  {p.metrics&&Object.keys(p.metrics).length>0
+                    ?<pre style={{fontSize:10,color:'var(--t2)'}}>{JSON.stringify(p.metrics,null,1)}</pre>
+                    :<span className="badge badge-gray">Aguardando</span>
+                  }
+                </td>
+              </tr>
+            ))}</tbody></table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONFIGURAÇÕES ──
+function Configuracoes() {
+  const [cfgs, setCfgs] = useState({});
+  const [msg, setMsg] = useState('');
+
+  useEffect(()=>{
+    sb.from('config').select('*').then(({data})=>{
+      if (data) {
+        const obj = {};
+        data.forEach(c=>obj[c.key]=c.value);
+        setCfgs(obj);
+      }
+    });
+  },[]);
+
+  const save = async (key, value) => {
+    await sb.from('config').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    setMsg('Salvo');
+    setTimeout(()=>setMsg(''),2000);
+  };
+
+  const Field = ({label,k,type='text'}) => (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      <div style={{display:'flex',gap:8}}>
+        <input className="form-input" type={type} value={cfgs[k]||''} onChange={e=>setCfgs({...cfgs,[k]:e.target.value})}/>
+        <button className="btn btn-primary btn-sm" onClick={()=>save(k,cfgs[k]||'')}>Salvar</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Configurações</div><div className="page-sub">Parâmetros gerais do sistema</div></div>
+      <div className="page-body">
+        {msg&&<div className="alert-banner yellow" style={{marginBottom:16}}>✓ {msg}</div>}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Parâmetros do Pipeline</span></div>
+          <div style={{padding:20}}>
+            <Field label="Máximo de posts por dia" k="MAX_POSTS_DIA" type="number"/>
+            <Field label="Meta diária de posts" k="DAILY_TARGET" type="number"/>
+            <Field label="Intervalo entre execuções (minutos)" k="INTERVALO" type="number"/>
+            <Field label="Intervalo mínimo entre posts (segundos)" k="MIN_INTERVAL" type="number"/>
+            <Field label="Intervalo máximo entre posts (segundos)" k="MAX_INTERVAL" type="number"/>
+            <Field label="Modelo IA" k="AI_MODEL"/>
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Publicação</span></div>
+          <div style={{padding:20}}>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {[
+                {k:'ENABLE_EXECUTOR',label:'Habilitar executor (quando API atingir limite)'},
+                {k:'AUTO_RETRY',label:'Retry automático em posts com erro'},
+              ].map(({k,label})=>(
+                <label key={k} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                  <input type="checkbox" checked={cfgs[k]==='true'} onChange={e=>{const v=e.target.checked?'true':'false';setCfgs({...cfgs,[k]:v});save(k,v);}}/>
+                  <span style={{fontSize:13}}>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Automação</span></div>
+          <div style={{padding:20}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+              <label className="toggle">
+                <input type="checkbox" checked={cfgs['AUTOMATION']==='on'} onChange={e=>{ const v=e.target.checked?'on':'off'; setCfgs({...cfgs,AUTOMATION:v}); save('AUTOMATION',v); }}/>
+                <span className="toggle-slider"></span>
+              </label>
+              <span style={{fontWeight:500}}>Pipeline Automático</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── NOVO POST (MANUAL) ──
+function NovoPost() {
+  const [accounts, setAccounts] = useState([]);
+  const [form, setForm] = useState({
+    titulo: '',
+    conteudo: '',
+    comentario_fixado: '',
+    imagem: '',
+    ig_account_id: '',
+    scheduled_at: '',
+    user_tags: '',
+    collaborators: '',
+    publicar_agora: false
+  });
+  const [saving, setSaving] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('ok');
+
+  useEffect(() => {
+    sb.from('ig_accounts').select('id,username').eq('active',true).then(({data}) => setAccounts(data||[]));
+  }, []);
+
+  const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'});
+
+  const save = async (status) => {
+    if (!form.conteudo.trim()) { setMsg('O conteúdo é obrigatório.'); setMsgType('err'); return; }
+    setSaving(true);
+    try {
+      const crypto = window.crypto || window.msCrypto;
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      const hash = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+
+      const postData = {
+        titulo: form.titulo || form.conteudo.split('\n')[0].slice(0,80),
+        conteudo: form.conteudo,
+        comentario_fixado: form.comentario_fixado,
+        imagem: form.imagem || '',
+        ig_account_id: form.ig_account_id || null,
+        scheduled_at: form.scheduled_at || null,
+        user_tags: form.user_tags || '[]',
+        collaborators: form.collaborators || '[]',
+        hash,
+        status,
+        metrics: {},
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: post, error } = await sb.from('posts').insert([postData]).select().single();
+      if (error) throw new Error(error.message);
+
+      if (status === 'pendente' && form.publicar_agora) {
+        const r = await fetch('/api/approve', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({id: post.id})
+        });
+        const result = await r.json();
+        if (result.ok) {
+          setMsg('✅ Post publicado no Instagram com sucesso!');
+          setMsgType('ok');
+        } else {
+          setMsg('⚠️ Post salvo mas erro ao publicar: ' + result.error);
+          setMsgType('warn');
+        }
+      } else if (status === 'scheduled') {
+        setMsg('✅ Post agendado com sucesso!');
+        setMsgType('ok');
+      } else {
+        setMsg('✅ Post salvo como rascunho.');
+        setMsgType('ok');
+      }
+
+      // Limpar form
+      setForm({titulo:'',conteudo:'',comentario_fixado:'',imagem:'',ig_account_id:'',scheduled_at:'',user_tags:'',collaborators:'',publicar_agora:false});
+    } catch(e) {
+      setMsg('❌ Erro: ' + e.message);
+      setMsgType('err');
+    }
+    setSaving(false);
+  };
+
+  const charCount = form.conteudo.length;
+  const charColor = charCount > 1400 ? '#f87171' : charCount > 1200 ? '#ffc800' : '#4ade80';
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">✏️ Novo Post Manual</div>
+        <div className="page-sub">Crie e publique um post diretamente no Instagram</div>
+      </div>
+      <div className="page-body">
+        {msg && <div className={`alert-banner${msgType==='err'?' ':msgType==='warn'?' yellow':' yellow'}`} style={{marginBottom:16,background:msgType==='err'?'rgba(200,30,30,0.15)':msgType==='warn'?'rgba(255,200,0,0.15)':'rgba(22,163,74,0.15)',borderColor:msgType==='err'?'rgba(200,30,30,0.3)':msgType==='warn'?'rgba(255,200,0,0.3)':'rgba(22,163,74,0.3)'}}>
+          <span>{msg}</span>
+          <button style={{marginLeft:'auto',background:'none',border:'none',color:'var(--t2)',cursor:'pointer',fontSize:16}} onClick={()=>setMsg('')}>✕</button>
+        </div>}
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 380px',gap:20}}>
+          {/* Formulário */}
+          <div>
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">Conteúdo do Post</span></div>
+              <div style={{padding:20}}>
+                <div className="form-group">
+                  <label className="form-label">Título / Tag da Chamada</label>
+                  <input className="form-input" value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} placeholder="Ex: EXTRADIÇÃO AUTORIZADA"/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{display:'flex',justifyContent:'space-between'}}>
+                    <span>Legenda / Conteúdo</span>
+                    <span style={{color:charColor,fontSize:12}}>{charCount}/1500</span>
+                  </label>
+                  <textarea className="form-textarea" style={{minHeight:220}} value={form.conteudo} onChange={e=>setForm({...form,conteudo:e.target.value})} placeholder={`CHAMADA EM CAIXA ALTA.
+
+Texto da notícia em prosa jornalística. Parágrafos curtos. Linguagem direta.
+
+Redação OVC — ${hoje}
+
+#hashtag1
+#hashtag2
+#ovalorcapital`}/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Comentário Fixado</label>
+                  <textarea className="form-textarea" style={{minHeight:60}} value={form.comentario_fixado} onChange={e=>setForm({...form,comentario_fixado:e.target.value})} placeholder="Comentário agressivo e questionador (máx 200 chars)" maxLength={200}/>
+                  <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>{form.comentario_fixado.length}/200</div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">URL da Imagem</label>
+                  <input className="form-input" value={form.imagem} onChange={e=>setForm({...form,imagem:e.target.value})} placeholder="https://..."/>
+                  {form.imagem && <img src={form.imagem} style={{marginTop:8,width:'100%',maxHeight:200,objectFit:'cover',borderRadius:6}} onError={e=>e.target.style.display='none'} alt="preview"/>}
+                </div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">Publicação</span></div>
+              <div style={{padding:20}}>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+                  <div className="form-group">
+                    <label className="form-label">Conta Instagram</label>
+                    <select className="form-select" value={form.ig_account_id} onChange={e=>setForm({...form,ig_account_id:e.target.value})}>
+                      <option value="">Distribuição automática</option>
+                      {accounts.map(a=><option key={a.id} value={a.id}>@{a.username}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Agendar para (opcional)</label>
+                    <input className="form-input" type="datetime-local" value={form.scheduled_at} onChange={e=>setForm({...form,scheduled_at:e.target.value})}/>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Marcar usuários (separados por vírgula)</label>
+                  <input className="form-input" value={form.user_tags} onChange={e=>setForm({...form,user_tags:e.target.value})} placeholder="@usuario1, @usuario2"/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Colaboradores (separados por vírgula)</label>
+                  <input className="form-input" value={form.collaborators} onChange={e=>setForm({...form,collaborators:e.target.value})} placeholder="@oterrasan, @blogdoterra"/>
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+              <button className="btn btn-primary" style={{fontSize:15,padding:'12px 28px'}} onClick={()=>{setForm({...form,publicar_agora:true});save('pendente');}} disabled={saving}>
+                {saving?'Publicando...':'▶ Publicar agora no Instagram'}
+              </button>
+              {form.scheduled_at && <button className="btn btn-secondary" style={{fontSize:15,padding:'12px 28px'}} onClick={()=>save('scheduled')} disabled={saving}>
+                🕐 Agendar
+              </button>}
+              <button className="btn btn-secondary" style={{fontSize:15,padding:'12px 28px'}} onClick={()=>save('pendente')} disabled={saving}>
+                💾 Salvar como pendente
+              </button>
+              <button className="btn btn-secondary" onClick={()=>setPreview(!preview)}>
+                {preview?'Fechar preview':'👁 Preview'}
+              </button>
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div>
+            <div className="panel" style={{position:'sticky',top:20}}>
+              <div className="panel-header"><span className="panel-title">Preview do Post</span></div>
+              <div style={{padding:16}}>
+                <div style={{background:'#0a0a14',borderRadius:8,overflow:'hidden',border:'1px solid var(--border)'}}>
+                  {form.imagem
+                    ? <img src={form.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover'}} onError={e=>e.target.style.display='none'} alt=""/>
+                    : <div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>
+                  }
+                  <div style={{padding:12,fontSize:12,color:'var(--t2)',lineHeight:1.6,whiteSpace:'pre-wrap',maxHeight:200,overflowY:'auto'}}>
+                    {form.conteudo || <span style={{color:'var(--t3)'}}>Legenda aparece aqui...</span>}
+                  </div>
+                  {form.comentario_fixado && <div style={{padding:'8px 12px',borderTop:'1px solid var(--border)',fontSize:11,color:'#ffc800'}}>
+                    💬 {form.comentario_fixado}
+                  </div>}
+                </div>
+                <div style={{marginTop:12,fontSize:11,color:'var(--t2)'}}>
+                  <div>Conta: {form.ig_account_id ? accounts.find(a=>a.id===form.ig_account_id)?.username||'—' : 'Automática'}</div>
+                  {form.scheduled_at && <div>Agendado: {new Date(form.scheduled_at).toLocaleString('pt-BR')}</div>}
+                  {form.user_tags && <div>Tags: {form.user_tags}</div>}
+                  {form.collaborators && <div>Colabs: {form.collaborators}</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ── FILA DE PUBLICAÇÃO ──
+function FilaPublicacao() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await sb.from('posts')
+      .select('*')
+      .in('status', ['pending','approved','scheduled','publishing'])
+      .order('priority', {ascending:false})
+      .order('scheduled_at', {ascending:true})
+      .limit(50);
+    setPosts(data||[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(()=>{load(); const t=setInterval(load,15000); return()=>clearInterval(t);},[load]);
+
+  const runScheduler = async () => {
+    setRunning(true);
+    try {
+      const r = await fetch('/api/scheduler',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const d = await r.json();
+      alert(`Scheduler: ${d.processed||0} post(s) processado(s)`);
+      load();
+    } catch(e){alert('Erro: '+e.message);}
+    setRunning(false);
+  };
+
+  const approvePost = async (id) => {
+    await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
+    load();
+  };
+
+  const publishNow = async (id) => {
+    if (!confirm('Publicar agora no Instagram?')) return;
+    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const d = await r.json();
+    if (d.ok) { alert('✅ Publicado!'); load(); }
+    else alert('❌ Erro: '+d.error);
+  };
+
+  const methodBadge = m => m==='executor'
+    ? <span className="badge badge-orange">executor</span>
+    : <span className="badge badge-gray">api</span>;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">🔄 Fila de Publicação</div>
+        <div className="page-sub">Ordem de publicação, horário e status em tempo real</div>
+      </div>
+      <div className="page-body">
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">{posts.length} post(s) na fila</span>
+            <div className="gap-8">
+              <button className="btn btn-primary btn-sm" onClick={runScheduler} disabled={running}>{running?'Processando...':'▶ Executar scheduler'}</button>
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loading?<div className="loading">Carregando...</div>:posts.length===0?
+            <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Fila vazia</div></div>:
+            <table><thead><tr><th>#</th><th>Título</th><th>Status</th><th>Método</th><th>Prioridade</th><th>Agendado</th><th>Ações</th></tr></thead>
+            <tbody>{posts.map((p,i)=>(
+              <tr key={p.id} style={p.status==='publishing'?{background:'rgba(255,200,0,0.05)'}:{}}>
+                <td className="text-secondary text-small">{i+1}</td>
+                <td>{truncate(p.titulo,45)}</td>
+                <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+                <td>{methodBadge(p.publish_method)}</td>
+                <td><span className="badge badge-gray">{p.priority||0}</span></td>
+                <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'Imediato'}</td>
+                <td><div className="gap-8">
+                  {p.status==='pending'&&<button className="btn btn-secondary btn-sm" onClick={()=>approvePost(p.id)}>✓ Aprovar</button>}
+                  {['approved','pending'].includes(p.status)&&<button className="btn btn-primary btn-sm" onClick={()=>publishNow(p.id)}>▶ Publicar</button>}
+                </div></td>
+              </tr>
+            ))}</tbody></table>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── ALERTAS ──
+function Alertas() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await sb.from('alerts').select('*').order('created_at',{ascending:false}).limit(50);
+    setAlerts(data||[]);
+    setLoading(false);
+  },[]);
+
+  useEffect(()=>{load(); const t=setInterval(load,20000); return()=>clearInterval(t);},[load]);
+
+  const markRead = async (id) => {
+    await sb.from('alerts').update({read:true}).eq('id',id);
+    load();
+  };
+
+  const markAllRead = async () => {
+    await sb.from('alerts').update({read:true}).eq('read',false);
+    load();
+  };
+
+  const unread = alerts.filter(a=>!a.read).length;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">🚨 Alertas {unread>0&&<span className="notif-dot" style={{display:'inline-block',marginLeft:8}}></span>}</div>
+        <div className="page-sub">Erros, falhas e notificações do sistema</div>
+      </div>
+      <div className="page-body">
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">{unread} não lido(s)</span>
+            <div className="gap-8">
+              {unread>0&&<button className="btn btn-secondary btn-sm" onClick={markAllRead}>Marcar todos como lidos</button>}
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loading?<div className="loading">Carregando...</div>:alerts.length===0?
+            <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Nenhum alerta</div></div>:
+            <table><thead><tr><th>Tipo</th><th>Mensagem</th><th>Data</th><th></th></tr></thead>
+            <tbody>{alerts.map(a=>(
+              <tr key={a.id} style={!a.read?{background:'rgba(200,30,30,0.04)'}:{}}>
+                <td><span className={`badge ${a.type==='error'?'badge-red':a.type==='growth'?'badge-green':'badge-yellow'}`}>{a.type}</span></td>
+                <td style={{fontWeight:a.read?400:600}}>{a.message}</td>
+                <td className="text-secondary text-small">{fmt(a.created_at)}</td>
+                <td>{!a.read&&<button className="btn btn-secondary btn-sm" onClick={()=>markRead(a.id)}>✓</button>}</td>
+              </tr>
+            ))}</tbody></table>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── APP ──
+const PAGES = [
+  {id:'dashboard',label:'Dashboard',icon:'📊'},
+  {id:'editorai',label:'Editor IA',icon:'⚡'},
+  {id:'pipeline',label:'Pipeline',icon:'⚙️'},
+  {id:'novopost',label:'Novo Post',icon:'✏️'},
+  {id:'fila',label:'Fila de Publicação',icon:'🔄'},
+  {id:'postagens',label:'Postagens',icon:'📝'},
+  {id:'contas',label:'Contas Instagram',icon:'📱'},
+  {id:'fontes',label:'Fontes RSS',icon:'📡'},
+  {id:'alertas',label:'Alertas',icon:'🚨'},
+  {id:'engajamento',label:'Engajamento',icon:'💬'},
+  {id:'logs',label:'Logs',icon:'📋'},
+  {id:'desempenho',label:'Desempenho',icon:'📈'},
+  {id:'configuracoes',label:'Configurações',icon:'🔧'},
+  {id:'imagens',label:'Imagens',icon:'🖼️'},
+];
+
+function App() {
+  const [auth, setAuth] = useState(()=>sessionStorage.getItem('ovc_auth')==='1');
+  const [page, setPage] = useState('dashboard');
+  const [notif, setNotif] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(()=>{
+    if (!auth) return;
+    const check = async () => {
+      const { count } = await sb.from('posts').select('*',{count:'exact',head:true}).eq('status','pendente');
+      setNotif(count||0);
+      const { count: ac } = await sb.from('alerts').select('*',{count:'exact',head:true}).eq('read',false);
+      setAlertCount(ac||0);
+    };
+    check();
+    const t = setInterval(check, 30000);
+    return ()=>clearInterval(t);
+  },[auth]);
+
+  if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
+
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes,imagens:UploadImagens}[page];
+
+  return (
+    <div className="layout">
+      <div className="sidebar">
+        <div className="sidebar-logo">
+          <div className="name">O <span className="a">VALOR</span> CAP.</div>
+          <div className="sub">Centro de Comando</div>
+        </div>
+        <nav className="nav">
+          {PAGES.map(p=>(
+            <div key={p.id} className={`nav-item ${page===p.id?'active':''}`} onClick={()=>setPage(p.id)}>
+              <span className="nav-icon">{p.icon}</span>
+              <span>{p.label}</span>
+              {p.id==='postagens'&&notif>0&&<span className="notif-dot"></span>}
+              {p.id==='alertas'&&alertCount>0&&<span className="notif-dot"></span>}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="ver">Admin OVC v3.1 · 2026</div>
+          <button className="logout-btn" onClick={()=>{sessionStorage.removeItem('ovc_auth');setAuth(false);}}>↩ Sair</button>
+        </div>
+      </div>
+      <div className="main"><PageComp/></div>
+    </div>
+  );
+}
+
+
+// ── UPLOAD DE IMAGENS ──
+function UploadImagens() {
+  const [files, setFiles] = React.useState([]);
+  const [uploading, setUploading] = React.useState(false);
+  const [uploaded, setUploaded] = React.useState([]);
+  const [msg, setMsg] = React.useState('');
+  const [posts, setPosts] = React.useState([]);
+  const [selectedPost, setSelectedPost] = React.useState('');
+
+  React.useEffect(()=>{
+    sb.from('posts').select('id,titulo,status').in('status',['pendente','pending']).order('created_at',{ascending:false}).limit(50).then(({data})=>{
+      if(data) setPosts(data);
+    });
+  },[]);
+
+  const handleFiles = (e) => {
+    const selected = Array.from(e.target.files).slice(0,25);
+    setFiles(selected);
+    setMsg('');
+  };
+
+  const toBase64 = (file) => new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+
+  const uploadAll = async () => {
+    if(!files.length){ setMsg('Selecione ao menos 1 imagem.'); return; }
+    setUploading(true);
+    setMsg('Enviando...');
+    const results = [];
+    for(const file of files){
+      try{
+        const data = await toBase64(file);
+        const resp = await fetch('/api/upload',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({filename:file.name, contentType:file.type, data})
+        });
+        const json = await resp.json();
+        if(json.url) results.push({name:file.name, url:json.url});
+        else results.push({name:file.name, error:json.error});
+      }catch(e){
+        results.push({name:file.name, error:e.message});
+      }
+    }
+    setUploaded(results);
+    setUploading(false);
+    setMsg(`${results.filter(r=>r.url).length} de ${files.length} imagens enviadas.`);
+  };
+
+  const useImage = async (url) => {
+    if(!selectedPost){ setMsg('Selecione um post primeiro.'); return; }
+    const {error} = await sb.from('posts').update({image_override:url}).eq('id',selectedPost);
+    if(error) setMsg('Erro: '+error.message);
+    else setMsg('✅ Imagem vinculada ao post com sucesso!');
+  };
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div className="page-title">🖼️ Upload de Imagens</div>
+        <div className="page-sub">Envie imagens e vincule a posts pendentes</div>
+      </div>
+      <div className="card" style={{marginBottom:24}}>
+        <div className="card-title">Selecionar Imagens (máx. 25)</div>
+        <input type="file" accept="image/*" multiple onChange={handleFiles} style={{marginBottom:12,display:'block'}}/>
+        {files.length>0 && <div style={{marginBottom:8,color:'#aaa'}}>{files.length} arquivo(s) selecionado(s)</div>}
+        <button className="btn btn-primary" onClick={uploadAll} disabled={uploading}>
+          {uploading ? 'Enviando...' : 'Fazer Upload'}
+        </button>
+        {msg && <div style={{marginTop:12,color:msg.startsWith('✅')?'#4CAF50':'#fff'}}>{msg}</div>}
+      </div>
+
+      {uploaded.length>0 && (
+        <div className="card" style={{marginBottom:24}}>
+          <div className="card-title">Imagens Enviadas</div>
+          <div style={{marginBottom:16}}>
+            <label style={{color:'#aaa',display:'block',marginBottom:6}}>Vincular ao post:</label>
+            <select value={selectedPost} onChange={e=>setSelectedPost(e.target.value)} style={{width:'100%',padding:'8px',background:'#1a2332',color:'#fff',border:'1px solid #2a3a4f',borderRadius:4}}>
+              <option value="">— Selecione um post —</option>
+              {posts.map(p=>(
+                <option key={p.id} value={p.id}>{p.titulo} [{p.status}]</option>
+              ))}
+            </select>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}}>
+            {uploaded.map((img,i)=>(
+              <div key={i} style={{background:'#1a2332',borderRadius:8,overflow:'hidden',border:'1px solid #2a3a4f'}}>
+                {img.url ? (
+                  <>
+                    <img src={img.url} alt={img.name} style={{width:'100%',height:160,objectFit:'cover',display:'block'}}/>
+                    <div style={{padding:10}}>
+                      <div style={{color:'#aaa',fontSize:12,marginBottom:8,wordBreak:'break-all'}}>{img.name}</div>
+                      <button className="btn btn-primary btn-sm" style={{width:'100%'}} onClick={()=>useImage(img.url)}>
+                        Usar este
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{padding:12,color:'#f44'}}>❌ {img.name}: {img.error}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── EDITOR IA ──
+function EditorIA() {
+  const [entrada, setEntrada] = React.useState('');
+  const [acao, setAcao] = React.useState('reescrever');
+  const [promptLivre, setPromptLivre] = React.useState('');
+  const [ia, setIa] = React.useState('gemini');
+  const [imagem, setImagem] = React.useState('');
+  const [buscarImagem, setBuscarImagem] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [resultado, setResultado] = React.useState(null);
+  const [erro, setErro] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [salvo, setSalvo] = React.useState(null);
+
+  const IAS = [
+    {id:'gemini', label:'Gemini', ativo:true},
+    {id:'groq',   label:'Groq',   ativo:false},
+    {id:'grok',   label:'Grok',   ativo:false},
+    {id:'openai', label:'ChatGPT',ativo:false},
+  ];
+
+  const ACOES = [
+    {id:'reescrever', label:'Reescrever no padrão OVC'},
+    {id:'melhorar',   label:'Melhorar meu texto'},
+    {id:'tema',       label:'Criar matéria do tema'},
+    {id:'livre',      label:'Prompt livre'},
+  ];
+
+  const isUrl = entrada.trim().startsWith('http');
+
+  async function gerar() {
+    if (!entrada.trim()) { setErro('Cole um link, texto ou tema'); return; }
+    if (acao === 'livre' && !promptLivre.trim()) { setErro('Digite seu prompt'); return; }
+    setLoading(true); setErro(''); setResultado(null); setSalvo(null);
+    try {
+      const body = { acao, ia, imagem: imagem.trim(), buscarImagem, promptLivre, publicar: false };
+      if (isUrl) body.url = entrada.trim();
+      else body.texto = entrada.trim();
+      const r = await fetch('/api/editor_ia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao gerar');
+      setResultado(d);
+    } catch(e) { setErro(e.message); }
+    setLoading(false);
+  }
+
+  async function salvar(publicarDireto) {
+    if (!resultado) return;
+    setSalvando(true);
+    try {
+      const body = { acao, ia, publicar: publicarDireto ? 'publicado' : 'pendente', imagem: resultado.imagem || imagem.trim(), buscarImagem, promptLivre };
+      if (isUrl) body.url = entrada.trim();
+      else body.texto = entrada.trim();
+      const r = await fetch('/api/editor_ia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao salvar');
+      setSalvo(d); setResultado(null); setEntrada(''); setImagem('');
+    } catch(e) { setErro(e.message); }
+    setSalvando(false);
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">⚡ Editor IA</div>
+        <div className="page-sub">Você manda o link ou texto. A IA processa no padrão OVC. Você aprova.</div>
+      </div>
+      <div className="page-body">
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
+
+          {/* Entrada */}
+          <div>
+            <div className="panel">
+              <div className="panel-header"><span className="panel-title">Entrada</span></div>
+              <div style={{padding:20}}>
+                <div className="form-group">
+                  <label className="form-label">Link ou texto da notícia</label>
+                  <textarea className="form-textarea" style={{minHeight:130}} value={entrada} onChange={e=>setEntrada(e.target.value)} disabled={loading}
+                    placeholder="Cole aqui a URL da notícia ou o texto completo..."/>
+                  {isUrl && <div style={{fontSize:11,color:'#4ade80',marginTop:4}}>🔗 URL detectada — será extraída automaticamente</div>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">O que fazer</label>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                    {ACOES.map(a=>(
+                      <button key={a.id} onClick={()=>setAcao(a.id)} className={`btn btn-sm ${acao===a.id?'btn-primary':'btn-secondary'}`}>{a.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {acao === 'livre' && (
+                  <div className="form-group">
+                    <label className="form-label">Seu prompt</label>
+                    <textarea className="form-textarea" style={{minHeight:70}} value={promptLivre} onChange={e=>setPromptLivre(e.target.value)} disabled={loading} placeholder="Digite sua instrução para a IA..."/>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Qual IA usar</label>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {IAS.map(i=>(
+                      <button key={i.id} onClick={()=>i.ativo&&setIa(i.id)}
+                        className={`btn btn-sm ${ia===i.id?'btn-primary':'btn-secondary'}`}
+                        style={{opacity:i.ativo?1:.4,cursor:i.ativo?'pointer':'not-allowed'}}
+                        title={i.ativo?'':'Em breve'}>
+                        {i.label}{!i.ativo?' 🔒':''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Imagem (opcional)</label>
+                  <input className="form-input" value={imagem} onChange={e=>{setImagem(e.target.value);if(e.target.value)setBuscarImagem(false);}} disabled={loading} placeholder="Cole a URL da imagem aqui..."/>
+                  <label style={{display:'flex',alignItems:'center',gap:8,marginTop:8,fontSize:13,cursor:'pointer',color:'var(--t2)'}}>
+                    <input type="checkbox" checked={buscarImagem} onChange={e=>{setBuscarImagem(e.target.checked);if(e.target.checked)setImagem('');}} disabled={loading||!!imagem}/>
+                    Buscar imagem automaticamente
+                  </label>
+                </div>
+
+                <button className="btn btn-primary" style={{width:'100%',padding:'12px',opacity:loading?.6:1}} onClick={gerar} disabled={loading}>
+                  {loading ? '⏳ Processando...' : '⚡ Gerar matéria'}
+                </button>
+
+                {erro && <div className="alert-banner" style={{marginTop:12}}><span>⚠️ {erro}</span></div>}
+              </div>
+            </div>
+          </div>
+
+          {/* Resultado */}
+          <div>
+            {resultado && (
+              <div className="panel">
+                <div className="panel-header"><span className="panel-title" style={{color:'#4ade80'}}>✅ Matéria gerada</span></div>
+                <div style={{padding:20}}>
+                  {resultado.imagem && <img src={resultado.imagem} alt="" style={{width:'100%',height:160,objectFit:'cover',borderRadius:8,marginBottom:12,display:'block'}} onError={e=>e.target.style.display='none'}/>}
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{resultado.titulo}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:12}}>Categoria: {resultado.categoria}{resultado.subtitulo?' · '+resultado.subtitulo:''}</div>
+                  <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:14,fontSize:13,lineHeight:1.7,maxHeight:320,overflowY:'auto',whiteSpace:'pre-wrap',marginBottom:16}}>{resultado.corpo}</div>
+                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <button className="btn btn-green" onClick={()=>salvar(false)} disabled={salvando}>{salvando?'Salvando...':'💾 Salvar como pendente'}</button>
+                    <button className="btn btn-primary" onClick={()=>salvar(true)} disabled={salvando}>🚀 Publicar direto</button>
+                    <button className="btn btn-secondary" onClick={()=>setResultado(null)}>✕ Descartar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {salvo && (
+              <div className="panel" style={{border:'1px solid rgba(22,163,74,.3)'}}>
+                <div style={{padding:20}}>
+                  <div style={{fontWeight:700,color:'#4ade80',marginBottom:8}}>{salvo.status==='publicado'?'✅ Publicado no portal!':'✅ Salvo como pendente — vá em Postagens para aprovar'}</div>
+                  <div style={{fontWeight:600}}>{salvo.titulo}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:4}}>Categoria: {salvo.categoria}</div>
+                </div>
+              </div>
+            )}
+
+            {!resultado && !salvo && (
+              <div className="panel" style={{minHeight:300,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div style={{textAlign:'center',color:'var(--t2)'}}>
+                  <div style={{fontSize:48,marginBottom:12}}>⚡</div>
+                  <div>Preencha os campos ao lado e clique em Gerar</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "handler": "api/status.js",
+  "runtime": "nodejs24.x",
+  "architecture": "x86_64",
+  "maxDuration": 10,
+  "environment": {},
+  "shouldDisableAutomaticFetchInstrumentation": false,
+  "launcherType": "Nodejs",
+  "shouldAddHelpers": true,
+  "shouldAddSourcemapSupport": false,
+  "awsLambdaHandler": ""
+}

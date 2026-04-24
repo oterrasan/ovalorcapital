@@ -1,0 +1,39 @@
+
+.ovc-admin-shell{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+.admin-login-shell{max-width:620px}
+.ovc-admin-sidebar{position:sticky;top:18px;padding:22px;display:grid;gap:18px}
+.ovc-admin-sidebar h2{margin:6px 0 0;font-size:28px}
+.ovc-role-badge{margin:0;color:var(--ovc-muted);font-weight:700}
+.ovc-admin-nav{display:grid;gap:8px}
+.ovc-admin-nav button{text-align:left;padding:12px 14px;border-radius:14px;border:1px solid rgba(15,23,42,.1);background:#fff;cursor:pointer;font-weight:700}
+.ovc-admin-nav button.active{background:var(--ovc-accent);color:#fff;border-color:var(--ovc-accent)}
+.ovc-admin-sidebar-foot{display:flex;justify-content:flex-start}
+.ovc-admin-content{display:grid;gap:18px}
+.ovc-admin-hero{padding:22px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.ovc-admin-hero h1{margin:6px 0 8px;font-size:36px}
+.ovc-admin-hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+.ovc-admin-stats-6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.ovc-stat-card{padding:18px;display:grid;gap:8px}
+.ovc-stat-card span{font-size:34px;font-weight:800}
+.ovc-stat-card small{color:var(--ovc-muted)}
+.ovc-card-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}
+.ovc-summary-grid,.ovc-report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ovc-summary-grid div,.ovc-report-grid div{background:rgba(15,23,42,.04);border-radius:16px;padding:16px}
+.ovc-summary-grid strong,.ovc-report-grid strong{display:block;font-size:28px;margin-bottom:4px}
+.ovc-checklist{display:grid;gap:10px}
+.ovc-check-item{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid rgba(15,23,42,.08);border-radius:14px;background:#fff}
+.ovc-check-item small{color:var(--ovc-muted)}
+.ovc-char-hint{font-size:12px;color:var(--ovc-muted);margin-top:-6px}
+.ovc-admin-card{padding:20px}
+.ovc-admin-card h3{margin:0 0 14px;font-size:24px}
+.ovc-admin-card .ovc-admin-table{margin-top:16px}
+@media (max-width:1280px){.ovc-admin-shell{grid-template-columns:1fr}.ovc-admin-sidebar{position:static}.ovc-admin-stats-6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.ovc-admin-stats-6,.ovc-summary-grid,.ovc-report-grid{grid-template-columns:1fr}.ovc-admin-hero{flex-direction:column}}
+
+
+.ovc-admin-nav button{transition:.2s ease}
+.ovc-admin-nav button:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(15,23,42,.08)}
+.ovc-admin-card,.ovc-admin-hero,.ovc-admin-sidebar{background:var(--ovc-surface);border:1px solid rgba(15,23,42,.08);border-radius:22px;box-shadow:0 14px 34px rgba(15,23,42,.06)}
+.ovc-admin-page .ovc-panel input,.ovc-admin-page .ovc-panel textarea,.ovc-admin-page .ovc-panel select{width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(15,23,42,.14);background:#fff}
+.ovc-admin-page .ovc-panel label{display:block;font-weight:700;margin-bottom:6px}
+.ovc-admin-page .ovc-btn,.ovc-admin-page button[type="submit"]{padding:12px 16px;border-radius:14px;border:0;background:var(--ovc-accent);color:#fff;font-weight:800;cursor:pointer}

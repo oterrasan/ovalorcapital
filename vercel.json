@@ -32,9 +32,6 @@
     "api/recategorize.js": {
       "maxDuration": 60
     },
-    "api/fix_cats.js": {
-      "maxDuration": 30
-    },
     "api/manual_post.js": {
       "maxDuration": 60
     },
