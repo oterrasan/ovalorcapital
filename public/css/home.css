@@ -1,73 +1,181 @@
 
+    /* =========================================================
+       OVC DESIGN SYSTEM — variáveis base (imutáveis por tema)
+       ========================================================= */
     :root {
-      --bg-page: #f3f4f8;
-      --bg-elevated: #ffffff;
-      --bg-header-top: #050816;
-      --bg-header-mid: #050816;
-      --bg-header-menu: #050816;
-      --bg-chip: #111827;
-      --bg-footer: #030712;
+      /* --- Tipografia: fonte ÚNICA em todo o portal --- */
+      --font-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-      --border-subtle: #e5e7eb;
-      --border-strong: #111827;
-
-      --text-main: #111827;
-      --text-soft: #4b5563;
-      --text-invert: #f9fafb;
-      --text-muted: #9ca3af;
-
-      /* Typography scale */
+      /* --- Escala tipográfica unificada --- */
       --font-size-xxs: 10px;
-      --font-size-xs: 11px;
-      --font-size-sm: 12px;
-      --font-size-md: 13px;
-      --font-size-base: 14px;
-      --font-size-lg: 15px;
-      --font-size-xl: 17px;
+      --font-size-xs:  11px;
+      --font-size-sm:  12px;
+      --font-size-md:  13px;
+      --font-size-base:14px;
+      --font-size-lg:  15px;
+      --font-size-xl:  17px;
       --font-size-2xl: 19px;
 
-      --gold: #d4af37;
-      --blue: #0f4c81;
-      --accent: #2563eb;
+      /* --- Estrutura fixa (header/footer sempre escuros) --- */
+      --bg-header-top:  #050816;
+      --bg-header-mid:  #050816;
+      --bg-header-menu: #050816;
+      --bg-chip:        #111827;
+      --bg-footer:      #030712;
+      --border-header:  #111827;
 
+      /* --- Raios e sombras --- */
       --card-radius: 18px;
       --rail-radius: 18px;
-      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.12);
 
-      /* Cores por categoria (simplificado) */
-      --cat-politica: #b91c1c;
-      --cat-economia: #b45309;
-      --cat-negocios: #10b981;
-      --cat-investimentos: #3b82f6;
-      --cat-seguros: #d4af37;
-      --cat-mercados: #8b5cf6;
-      --cat-familia: #22c55e;
-      --cat-tributos: #c2410c;
-      --cat-regulacao: #6366f1;
-      --cat-saude: #14b8a6;
-      --cat-educacao: #0ea5e9;
-      --cat-esportes: #be123c;
-      --cat-industria: #6b7280;
-      --cat-tecnologia: #0891b2;
+      /* --- Identidade OVC --- */
+      --gold:   #d4af37;
+      --blue:   #0f4c81;
+
+      /* --- Cores por categoria --- */
+      --cat-politica:     #b91c1c;
+      --cat-economia:     #b45309;
+      --cat-negocios:     #059669;
+      --cat-investimentos:#2563eb;
+      --cat-seguros:      #d4af37;
+      --cat-mercados:     #7c3aed;
+      --cat-familia:      #16a34a;
+      --cat-tributos:     #c2410c;
+      --cat-regulacao:    #4f46e5;
+      --cat-saude:        #0d9488;
+      --cat-educacao:     #0284c7;
+      --cat-esportes:     #be123c;
+      --cat-industria:    #6b7280;
+      --cat-tecnologia:   #0891b2;
+
+      /* --- TEMA PADRÃO: Clássico (light) --- */
+      --bg-page:        #f3f4f8;
+      --bg-elevated:    #ffffff;
+      --bg-card:        #ffffff;
+      --bg-card-hover:  #f8faff;
+
+      --border-subtle:  #e2e8f0;
+      --border-medium:  #cbd5e1;
+
+      --text-main:      #0f172a;
+      --text-soft:      #475569;
+      --text-muted:     #94a3b8;
+      --text-invert:    #f9fafb;
+
+      --accent:         #b91c1c;
+      --accent-soft:    rgba(185,28,28,0.08);
+
+      --shadow-soft:    0 2px 12px rgba(15,23,42,0.07), 0 1px 3px rgba(15,23,42,0.05);
+      --shadow-card:    0 4px 20px rgba(15,23,42,0.08);
+      --shadow-hover:   0 8px 30px rgba(15,23,42,0.14);
+
+      /* ovc-* compat (site.css usa esses nomes) */
+      --ovc-body-bg:    var(--bg-page);
+      --ovc-surface:    var(--bg-elevated);
+      --ovc-text:       var(--text-main);
+      --ovc-muted:      var(--text-soft);
+      --ovc-accent:     var(--accent);
+      --ovc-accent-soft:var(--accent-soft);
+      --ovc-line:       var(--border-subtle);
+      --ovc-shadow:     var(--shadow-card);
     }
 
+    /* =========================================================
+       TEMA: Grafite (escuro)
+       ========================================================= */
+    [data-theme="graphite"] {
+      --bg-page:        #0b0f1a;
+      --bg-elevated:    #131929;
+      --bg-card:        #131929;
+      --bg-card-hover:  #1a2236;
+
+      --border-subtle:  #1e2d45;
+      --border-medium:  #2a3d5a;
+
+      --text-main:      #e8edf5;
+      --text-soft:      #94a3b8;
+      --text-muted:     #64748b;
+      --text-invert:    #f9fafb;
+
+      --accent:         #60a5fa;
+      --accent-soft:    rgba(96,165,250,0.12);
+
+      --shadow-soft:    0 2px 12px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+      --shadow-card:    0 4px 20px rgba(0,0,0,0.35);
+      --shadow-hover:   0 8px 30px rgba(0,0,0,0.5);
+
+      --ovc-body-bg:    var(--bg-page);
+      --ovc-surface:    var(--bg-elevated);
+      --ovc-text:       var(--text-main);
+      --ovc-muted:      var(--text-soft);
+      --ovc-accent:     var(--accent);
+      --ovc-accent-soft:var(--accent-soft);
+      --ovc-line:       var(--border-subtle);
+      --ovc-shadow:     var(--shadow-card);
+    }
+
+    /* =========================================================
+       TEMA: Executivo Gold (creme quente)
+       ========================================================= */
+    [data-theme="gold"] {
+      --bg-page:        #faf7f0;
+      --bg-elevated:    #fffdf8;
+      --bg-card:        #fffdf8;
+      --bg-card-hover:  #fffef4;
+
+      --border-subtle:  #e8e0ce;
+      --border-medium:  #d6c9a8;
+
+      --text-main:      #1a1208;
+      --text-soft:      #5c4a28;
+      --text-muted:     #8a7455;
+      --text-invert:    #f9fafb;
+
+      --accent:         #9a6700;
+      --accent-soft:    rgba(154,103,0,0.10);
+
+      --shadow-soft:    0 2px 12px rgba(90,60,0,0.07);
+      --shadow-card:    0 4px 20px rgba(90,60,0,0.09);
+      --shadow-hover:   0 8px 30px rgba(90,60,0,0.15);
+
+      --ovc-body-bg:    var(--bg-page);
+      --ovc-surface:    var(--bg-elevated);
+      --ovc-text:       var(--text-main);
+      --ovc-muted:      var(--text-soft);
+      --ovc-accent:     var(--accent);
+      --ovc-accent-soft:var(--accent-soft);
+      --ovc-line:       var(--border-subtle);
+      --ovc-shadow:     var(--shadow-card);
+    }
+
+    /* =========================================================
+       TEMA: dark (alias para graphite — compatibilidade legado)
+       ========================================================= */
     [data-theme="dark"] {
-      --bg-page: #020617;
-      --bg-elevated: #020617;
-      --bg-header-top: #000000;
-      --bg-header-mid: #020617;
-      --bg-header-menu: #020617;
-      --bg-chip: #020617;
-
-      --border-subtle: #1f2937;
-      --border-strong: #111827;
-
-      --text-main: #f9fafb;
-      --text-soft: #9ca3af;
-      --text-invert: #f9fafb;
-      --text-muted: #6b7280;
-
-      --shadow-soft: 0 20px 50px rgba(0, 0, 0, 0.5);
+      --bg-page:        #0b0f1a;
+      --bg-elevated:    #131929;
+      --bg-card:        #131929;
+      --bg-card-hover:  #1a2236;
+      --border-subtle:  #1e2d45;
+      --border-medium:  #2a3d5a;
+      --text-main:      #e8edf5;
+      --text-soft:      #94a3b8;
+      --text-muted:     #64748b;
+      --text-invert:    #f9fafb;
+      --accent:         #60a5fa;
+      --accent-soft:    rgba(96,165,250,0.12);
+      --shadow-soft:    0 2px 12px rgba(0,0,0,0.3);
+      --shadow-card:    0 4px 20px rgba(0,0,0,0.35);
+      --shadow-hover:   0 8px 30px rgba(0,0,0,0.5);
+      --ovc-body-bg:    var(--bg-page);
+      --ovc-surface:    var(--bg-elevated);
+      --ovc-text:       var(--text-main);
+      --ovc-muted:      var(--text-soft);
+      --ovc-accent:     var(--accent);
+      --ovc-accent-soft:var(--accent-soft);
+      --ovc-line:       var(--border-subtle);
+      --ovc-shadow:     var(--shadow-card);
     }
 
     * {
@@ -81,7 +189,7 @@
     }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: var(--font-base);
       background: var(--bg-page);
       color: var(--text-main);
       line-height: 1.5;
@@ -530,29 +638,29 @@
       text-transform: uppercase;
       letter-spacing: 0.16em;
       color: var(--text-soft);
-      border: 1px solid rgba(148,163,184,0.7);
-      background: rgba(15,23,42,0.01);
+      border: 1px solid var(--border-subtle);
+      background: transparent;
       margin-bottom: 6px;
     }
 
     /* ---------- CARDS & RAILS ---------- */
 
     .card, .rail-block {
-      background: var(--bg-elevated);
+      background: var(--bg-card);
       border-radius: var(--card-radius);
       border: 1px solid var(--border-subtle);
-      box-shadow: var(--shadow-soft);
+      box-shadow: var(--shadow-card);
       padding: 14px 14px 15px;
       position: relative;
       overflow: hidden;
       box-sizing: border-box;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
     }
 
     .card:hover, .rail-block:hover {
-      border-color: rgba(37, 99, 235, 0.55);
-      transform: translateY(-2px) scale(1.01);
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.45);
-      transition: all 0.22s ease-out;
+      border-color: var(--border-medium);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
     }
 
     .supermenu a,
@@ -606,9 +714,9 @@
 
     .card-hero-main {
       border-radius: var(--card-radius);
-      border: 1px solid rgba(148,163,184,0.6);
+      border: 1px solid rgba(148,163,184,0.3);
       padding: 14px 14px 16px;
-      background: linear-gradient(135deg, rgba(15,116,210,0.12), rgba(212,175,55,0.24)), var(--bg-elevated);
+      background: #0b1220;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -616,30 +724,56 @@
       overflow: hidden;
     }
 
+    /* Overlay escuro sobre a imagem — garante texto sempre legível */
+    .card-hero-main::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to top,
+        rgba(5, 8, 22, 0.92) 0%,
+        rgba(5, 8, 22, 0.72) 45%,
+        rgba(5, 8, 22, 0.35) 100%
+      );
+      z-index: 1;
+      border-radius: var(--card-radius);
+    }
+
+    .card-hero-main > * {
+      position: relative;
+      z-index: 2;
+    }
+
     .card-hero-main .card-title {
-      color: #f1f5f9;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      color: #f1f5f9 !important;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.7);
     }
 
     .card-hero-main .card-excerpt {
-      color: #e2e8f0;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      color: #cbd5e1 !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
     }
 
     .card-hero-main .card-meta {
-      color: #cbd5e1;
+      color: #94a3b8 !important;
     }
 
-    .card-hero-main::after {
-      content: "";
+    .card-hero-main .tag {
+      background: rgba(0,0,0,0.5) !important;
+      color: #fbbf24 !important;
+      border-color: rgba(212,175,55,0.4) !important;
+    }
+
+    /* Imagem de fundo do card hero */
+    .card-hero-main .card-bg-img {
       position: absolute;
-      right: -60px;
-      top: -40px;
-      width: 180px;
-      height: 180px;
-      border-radius: 999px;
-      border: 1px solid rgba(212,175,55,0.28);
-      opacity: 0.8;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      border-radius: var(--card-radius);
+      opacity: 0.6;
     }
 
     .tag {
@@ -651,9 +785,9 @@
       font-size: var(--font-size-xs);
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      border: 1px solid rgba(148,163,184,0.7);
+      border: 1px solid var(--border-subtle);
       color: var(--text-soft);
-      background: rgba(15,23,42,0.01);
+      background: transparent;
     }
 
     .tag-dot {
@@ -678,6 +812,7 @@
       font-weight: 700;
       line-height: 1.38;
       margin: 6px 0 6px;
+      color: var(--text-main);
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -721,10 +856,6 @@
       gap: 6px;
     }
 
-    .card-cta span.icon {
-      font-size: var(--font-size-md);
-    }
-
     .card-feature {
       border-radius: var(--card-radius);
       border: 1px solid var(--border-subtle);
@@ -732,14 +863,50 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      background: var(--bg-elevated);
+      background: var(--bg-card);
       min-height: 210px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Imagem de fundo com overlay — legibilidade garantida */
+    .card-feature .card-bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      border-radius: var(--card-radius);
+      opacity: 0.55;
+    }
+
+    .card-feature .card-bg-img ~ * {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Quando tem imagem, aplicar overlay escuro */
+    .card-feature.has-image::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(5,8,22,0.88) 0%, rgba(5,8,22,0.55) 60%, rgba(5,8,22,0.2) 100%);
+      z-index: 1;
+      border-radius: var(--card-radius);
+    }
+
+    .card-feature.has-image .card-feature-title,
+    .card-feature.has-image .card-feature-excerpt {
+      color: #f1f5f9 !important;
+      text-shadow: 0 1px 5px rgba(0,0,0,0.65);
     }
 
     .card-feature-title {
       font-size: var(--font-size-lg);
       font-weight: 600;
       line-height: 1.32;
+      color: var(--text-main);
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -758,26 +925,74 @@
 
     .card-monetizado {
       border-radius: var(--card-radius);
-      border: 1px dashed rgba(212,175,55,0.8);
+      border: 1px dashed rgba(212,175,55,0.6);
       padding: 10px 10px 11px;
-      background: radial-gradient(circle at 0 0, rgba(212,175,55,0.2), transparent 60%), #020617;
-      color: #f9fafb;
+      background: linear-gradient(145deg, #0d1526 0%, #060c1a 100%);
+      color: #f1f5f9;
       min-height: 230px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Acento dourado sutil no canto */
+    .card-monetizado::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -40px;
+      width: 140px;
+      height: 140px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(212,175,55,0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .card-monetizado .card-bg-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      border-radius: var(--card-radius);
+      opacity: 0.35;
+    }
+
+    .card-monetizado::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(6,12,26,0.95) 0%, rgba(6,12,26,0.7) 60%, rgba(6,12,26,0.4) 100%);
+      z-index: 1;
+      border-radius: var(--card-radius);
+    }
+
+    .card-monetizado > * {
+      position: relative;
+      z-index: 2;
     }
 
     .card-monetizado .card-title {
-      color: #f9fafb;
+      color: #f1f5f9 !important;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.8);
     }
 
     .card-monetizado .card-excerpt {
-      color: #e5e7eb;
+      color: #cbd5e1 !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
 
     .card-monetizado .card-cta {
       color: var(--gold);
+    }
+
+    .card-monetizado .tag {
+      background: rgba(0,0,0,0.55) !important;
+      color: var(--gold) !important;
+      border-color: rgba(212,175,55,0.45) !important;
     }
 
     .card-standard {
@@ -1490,13 +1705,4 @@
       background: rgba(59,130,246,0.04);
     }
 
-    .card-hero-main .card-title {
-      color: #f1f5f9 !important;
-      text-shadow: 0 1px 6px rgba(0,0,0,0.6);
-    }
-    .card-hero-main .card-excerpt {
-      color: #e2e8f0 !important;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
-    }
-    .card-hero-main .card-meta { color: #cbd5e1 !important; }
-    .card-hero-main .tag { background: rgba(0,0,0,0.4) !important; color: #fbbf24 !important; }
+    /* overrides já declarados nas definições de .card-hero-main acima */
