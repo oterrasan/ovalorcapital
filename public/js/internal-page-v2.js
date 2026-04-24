@@ -97,15 +97,12 @@
 
     function renderMini(p){
       var url = buildUrl(p);
-      return '<article class="ovc-mini-item" style="cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:12px;padding:10px 0;border-top:1px solid var(--ovc-line);" onclick="location.href=\'' + url + '\'">' +
-        '<div>' +
-          '<div style="font-size:11px;color:var(--ovc-muted,#64748b);margin-bottom:4px;">Redação OVC</div>' +
-          '<h4 style="font-size:15px;font-weight:600;line-height:1.3;margin:0 0 4px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h4>' +
-          '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">' + dataBr(p.data) + '</div>' +
-        '</div>' +
-        (p.imagem
-          ? '<a class="ovc-thumb" href="' + url + '" style="border-radius:10px;overflow:hidden;height:56px;"><img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display=\'none\'"></a>'
-          : '<div></div>') +
+      var imgHtml = p.imagem ? '<a href="' + url + '" style="display:block;border-radius:10px;overflow:hidden;height:72px;margin-bottom:8px;"><img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display=\'none\'"></a>' : '';
+      return '<article class="ovc-mini-item" style="cursor:pointer;padding:12px 0;border-top:1px solid var(--ovc-line);" onclick="location.href=\'' + url + '\'">' +
+        imgHtml +
+        '<div style="font-size:11px;color:var(--accent,#2563eb);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Redação OVC</div>' +
+        '<h4 style="font-size:15px;font-weight:700;line-height:1.4;margin:0 0 6px;color:var(--text-main,#0f172a);"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h4>' +
+        '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">' + dataBr(p.data) + '</div>' +
       '</article>';
     }
 

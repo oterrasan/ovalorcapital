@@ -996,17 +996,40 @@
     }
 
     .card-standard {
-      min-height: 220px;
+      min-height: 320px;
+    }
+
+    .card-standard .card-title {
+      font-size: var(--font-size-lg);
+      font-weight: 700;
+      color: var(--text-main);
+      -webkit-line-clamp: 3;
+      text-shadow: none;
+    }
+
+    .card-standard .ovc-card-img {
+      height: 180px !important;
+      border-radius: 8px;
+      margin-bottom: 10px;
     }
 
     .card-mini {
-      padding: 11px 11px 12px;
-      min-height: 150px;
+      padding: 11px 11px 14px;
+      min-height: 220px;
     }
 
     .card-mini .card-title {
       font-size: var(--font-size-base);
-      -webkit-line-clamp: 2;
+      font-weight: 700;
+      color: var(--text-main);
+      -webkit-line-clamp: 3;
+      line-height: 1.4;
+    }
+
+    .card-mini .ovc-card-img {
+      height: 140px !important;
+      border-radius: 8px;
+      margin-bottom: 8px;
     }
 
     .card-mini .card-excerpt {
@@ -1015,6 +1038,8 @@
 
     .card-mini .card-meta {
       margin-bottom: 6px;
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .ad-slot {
