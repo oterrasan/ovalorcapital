@@ -41,8 +41,8 @@
     "api/editor_ia.js": {
       "maxDuration": 60
     },
-    "api/setup_categories.js": {
-      "maxDuration": 30
+    "api/live/data.js": {
+      "maxDuration": 15
     }
   },
   "build": {
