@@ -995,10 +995,26 @@
       border-color: rgba(212,175,55,0.45) !important;
     }
 
+    /* ── CARDS STANDARD e MINI — altura fixa, imagem padronizada, título sempre visível ── */
+
     .card-standard {
-      min-height: 380px;
+      min-height: 456px;
       display: flex;
       flex-direction: column;
+    }
+
+    .card-standard .ovc-card-img {
+      /* REGRA INVIOLÁVEL: todas as imagens dos cards standard com exatamente 240px de altura */
+      width: 100% !important;
+      height: 240px !important;
+      min-height: 240px !important;
+      max-height: 240px !important;
+      object-fit: cover !important;
+      object-position: center !important;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: block;
+      flex-shrink: 0;
     }
 
     .card-standard .card-title {
@@ -1006,17 +1022,11 @@
       font-weight: 700;
       color: var(--text-main);
       -webkit-line-clamp: 3;
-      text-shadow: none;
-      margin-top: 8px;
-    }
-
-    .card-standard .ovc-card-img {
-      height: 200px !important;
-      width: 100% !important;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      object-fit: cover;
-      display: block;
+      -webkit-box-orient: vertical;
+      display: -webkit-box;
+      overflow: hidden;
+      line-height: 1.4;
+      margin: 6px 0 6px;
     }
 
     .card-standard .card-meta {
@@ -1027,9 +1037,23 @@
 
     .card-mini {
       padding: 12px 12px 14px;
-      min-height: 260px;
+      min-height: 312px;
       display: flex;
       flex-direction: column;
+    }
+
+    .card-mini .ovc-card-img {
+      /* REGRA INVIOLÁVEL: todas as imagens dos cards mini com exatamente 192px de altura */
+      width: 100% !important;
+      height: 192px !important;
+      min-height: 192px !important;
+      max-height: 192px !important;
+      object-fit: cover !important;
+      object-position: center !important;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: block;
+      flex-shrink: 0;
     }
 
     .card-mini .card-title {
@@ -1037,17 +1061,11 @@
       font-weight: 700;
       color: var(--text-main);
       -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      display: -webkit-box;
+      overflow: hidden;
       line-height: 1.45;
-      margin-top: 8px;
-    }
-
-    .card-mini .ovc-card-img {
-      height: 160px !important;
-      width: 100% !important;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      object-fit: cover;
-      display: block;
+      margin: 4px 0 4px;
     }
 
     .card-mini .card-excerpt {

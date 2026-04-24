@@ -77,7 +77,7 @@
     img.className = 'ovc-card-img';
     img.src = p.imagem;
     img.alt = '';
-    img.style.cssText = 'width:100%;height:150px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block;';
+    // Sem height inline — o CSS define altura fixa e inviolável por classe do card pai
     img.onerror = function(){ this.remove(); };
     card.insertBefore(img, card.firstChild);
   }
