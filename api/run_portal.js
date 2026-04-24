@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { getNews } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
+import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const MAX_DIA = 1440;
@@ -77,12 +78,15 @@ export default async function handler(req, res) {
         content.subcategoria_slug = "geral";
       }
 
+      // IMAGEM LIMPA — sempre buscar imagem nova, nunca usar a do veículo original
+      const imagemLimpa = await findImage(content.titulo, content.categoria || "geral");
+
       // Salvar como pendente
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.subtitulo || "",
-        imagem: article.image,
+        imagem: imagemLimpa,
         hash,
         status: "pendente",
         approved: false,
