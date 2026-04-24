@@ -26,7 +26,7 @@ async function callGemini(prompt) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 3000 }
+          generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
         })
       });
       const d = await res.json();
@@ -80,49 +80,48 @@ function detectCategoria(texto) {
   return "geral";
 }
 
-const PROMPT = (data, text) => `Você é redator-chefe do portal O Valor Capital. Reescreva a notícia abaixo no padrão editorial OVC.
+const PROMPT = (data, text) => `Você é redator-chefe do portal O Valor Capital. Sua única tarefa é reescrever a notícia abaixo como uma matéria jornalística completa no padrão OVC.
 
-RESPONDA EXATAMENTE NESTE FORMATO — sem explicações, sem introdução, sem comentários:
+ATENÇÃO: ESCREVA O TEXTO REAL, NÃO DESCREVA O QUE VAI ESCREVER. CADA PARÁGRAFO DEVE TER CONTEÚDO REAL SOBRE A NOTÍCIA.
 
-TITULO: [manchete máx 8 palavras, com verbo, específica]
-SUBTITULO: [frase direta até 100 caracteres]
-CATEGORIA: [uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional]
-SUBCATEGORIA: [subcategoria específica dentro da categoria]
+FORMATO DE SAÍDA — copie exatamente esta estrutura, substituindo pelo conteúdo real:
+
+TITULO: escreva aqui a manchete real com máximo 8 palavras e verbo obrigatório
+SUBTITULO: escreva aqui uma frase direta de até 100 caracteres
+CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional
+SUBCATEGORIA: escreva aqui a subcategoria específica
 CORPO:
 Redação OVC — ${data}
 
-[PARÁGRAFO 1 — gancho: fato chocante, número ou contradição real. Mínimo 3 frases.]
+Escreva aqui o primeiro parágrafo com mínimo 4 frases. Abra com o fato mais impactante, número concreto ou contradição da notícia. Seja direto. Use linguagem de rua, não acadêmica. Prenda o leitor na primeira linha.
 
-[PARÁGRAFO 2 — contexto: por que isso importa agora. Mínimo 3 frases.]
+Escreva aqui o segundo parágrafo com mínimo 4 frases. Explique por que isso importa agora para o brasileiro. Conecte o fato ao dia a dia real — emprego, conta bancária, custo de vida, negócio. Sem enrolação.
 
-[PARÁGRAFO 3 — dado concreto: número, nome, data verificável. Mínimo 3 frases.]
+Escreva aqui o terceiro parágrafo com mínimo 4 frases. Traga números, datas, nomes verificáveis da notícia. Dados concretos que comprovam o que foi dito. Cite a fonte original quando houver.
 
-[PARÁGRAFO 4 — desdobramento: o que aconteceu antes ou o que está em jogo. Mínimo 3 frases.]
+Escreva aqui o quarto parágrafo com mínimo 4 frases. Explique o histórico ou o que levou a este momento. O que aconteceu antes. Qual é o contexto que a maioria não sabe.
 
-[PARÁGRAFO 5 — impacto prático: o que muda para o cidadão, empresa ou mercado. Mínimo 3 frases.]
+Escreva aqui o quinto parágrafo com mínimo 4 frases. Descreva o impacto prático. O que muda para o cidadão, empresa ou mercado a partir de agora. Seja específico — quem paga, quem ganha, quem perde.
 
-[PARÁGRAFO 6 — reação ou posição: quem disse o quê, sem opinião explícita. Mínimo 3 frases.]
+Escreva aqui o sexto parágrafo com mínimo 4 frases. Quem reagiu e o que disse. Posições diferentes sobre o tema. Reproduza falas sem tomar partido. Deixe os fatos falarem.
 
-[PARÁGRAFO 7 — histórico ou comparativo: contexto mais amplo. Mínimo 3 frases.]
+Escreva aqui o sétimo parágrafo com mínimo 4 frases. Compare com situações anteriores ou com outros países. Coloque em perspectiva histórica ou internacional. Dê profundidade ao leitor.
 
-[PARÁGRAFO 8 — fechamento: tensão ou questão implícita, leitor termina pensando. Mínimo 2 frases. SEM conclusão óbvia.]
+Escreva aqui o oitavo parágrafo com mínimo 3 frases. Feche com uma tensão real, uma pergunta implícita ou uma consequência que ainda está em aberto. Não conclua. Deixe o leitor pensando.
 
-#hashtag1
-#hashtag2
-#hashtag3
+#hashtag_relevante_1
+#hashtag_relevante_2
+#hashtag_relevante_3
 #ovalorcapital
 
-REGRAS ABSOLUTAS — DESCUMPRIR QUALQUER UMA INVALIDA O TEXTO:
-1. O CORPO deve ter MÍNIMO 1.600 caracteres e MÁXIMO 2.200 caracteres
-2. São OBRIGATÓRIOS exatamente 8 parágrafos separados por linha em branco
-3. Primeiro elemento do CORPO obrigatoriamente: "Redação OVC — ${data}"
-4. Linguagem direta, de rua, sem academicismo, sem palavrório
-5. Voz editorial centro-direita: fiscalização do Estado, liberdade econômica, família — no ângulo dos fatos, nunca explícita
-6. Frases curtas e médias alternadas. Ritmo jornalístico
-7. As 4 hashtags temáticas de alto engajamento, última sempre #ovalorcapital
-
-PALAVRAS ABSOLUTAMENTE PROIBIDAS — sinal de texto de IA, uso invalida o texto:
-muralha, blindar, colapso, castelo, blueprint, catalisador, ecossistema, disruptivo, paradigma, sinergia, protagonista, robusto, resiliente, isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, desafios e oportunidades, no bojo, no seio, à luz de, no âmbito, cabe ressaltar, é importante destacar, em linha com, pari passu, não por acaso, nesse sentido, pimenta amarga, mister, fulcral, hodierno, notadamente, outrossim
+REGRAS INVIOLÁVEIS:
+- O CORPO inteiro deve ter MÍNIMO 1.600 caracteres e MÁXIMO 2.200 caracteres — conte e ajuste
+- São obrigatórios EXATAMENTE 8 parágrafos separados por linha em branco
+- A primeira linha do CORPO deve ser sempre: Redação OVC — ${data}
+- Linguagem direta, de rua, sem academicismo
+- Voz editorial centro-direita nos fatos — fiscalização do Estado, liberdade econômica, família — nunca panfletária
+- Frases curtas e médias alternadas. Ritmo jornalístico
+- NUNCA use estas palavras: muralha, blindar, colapso, castelo, blueprint, catalisador, ecossistema, disruptivo, paradigma, sinergia, protagonista, robusto, resiliente, isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, desafios e oportunidades, no bojo, no seio, à luz de, no âmbito, cabe ressaltar, é importante destacar, em linha com, pari passu, não por acaso, nesse sentido, pimenta amarga, mister, fulcral, hodierno, notadamente, outrossim
 
 NOTÍCIA FONTE:
 ${text}`;
