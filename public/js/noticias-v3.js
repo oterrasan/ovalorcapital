@@ -203,11 +203,11 @@
   }
 
   // ─── CARDS STANDARD E MINI ──────────────────────────────────────
+  // Card GRANDE: imagem + categoria + título + resumo + botão
   function preencherCard(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
     var cat = p.categoria||'geral';
-    // Reconstruir innerHTML completo — garante ordem correta: imagem → tag → título → meta → cta
     el.innerHTML =
       (isValidImage(p.imagem)
         ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display='none'">'
@@ -215,20 +215,18 @@
       '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
       '<h2 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h2>' +
       '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
-      '<p class="card-excerpt">'+escHtml((p.resumo||'').slice(0,140))+'</p>' +
+      '<p class="card-excerpt">'+escHtml((p.resumo||'').replace(/^Redação OVC.*?\n/,'').slice(0,150))+'</p>' +
       '<a class="card-cta" href="'+url+'"><span>Leia mais</span><span class="icon">↗</span></a>';
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
+  // Card MINI: SEM imagem — só categoria + título + botão (igual ao HTML estático)
   function preencherMini(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
     var cat = p.categoria||'geral';
     el.innerHTML =
-      (isValidImage(p.imagem)
-        ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display='none'">'
-        : '') +
       '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
       '<h3 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h3>' +
       '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
