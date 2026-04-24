@@ -308,34 +308,58 @@
           setupDireitoRotation(direitoEl, direitoPool);
         }
 
-        // ── Cards standard e mini — por coluna e categoria ──
-        // Coluna 1: Política & Economia
-        var col1 = todos.filter(function(p){ return ['politica','economia','tributacao','regulacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
-        // Coluna 2: Negócios, Investimentos & Mercados
-        var col2 = todos.filter(function(p){ return ['negocios','investimentos','mercados','industria','tecnologia','internacional'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
-        // Coluna 3: Família, Saúde, Educação, Tributos & Regulação
-        var col3 = todos.filter(function(p){ return ['familia','saude','educacao','seguros','parcerias','geral'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        // ════════════════════════════════════════════════════════════
+        // REGRAS INVIOLÁVEIS DAS COLUNAS — MAPEADAS DO HTML
+        // Coluna 1 — "Política & Economia"
+        //   std-1, std-2: politica, economia
+        //   mini-1: politica
+        //   mini-2: economia, internacional
+        // Coluna 2 — "Negócios, Investimentos & Mercados"
+        //   std-3: negocios
+        //   std-4: investimentos
+        //   mini-3: mercados
+        //   mini-4: investimentos
+        // Coluna 3 — "Família, Saúde, Educação, Tributos & Regulação"
+        //   std-5: tributacao, regulacao
+        //   std-6: familia, saude, educacao
+        //   mini-5: educacao, familia, saude
+        // Bloco "Artigos técnicos": ESTÁTICO — nunca tocar
+        // ════════════════════════════════════════════════════════════
 
-        // SEM FALLBACK — categoria errada nunca entra em coluna errada
+        var col1_std  = todos.filter(function(p){ return ['politica','economia'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        var col1_mini1 = todos.filter(function(p){ return p.categoria === 'politica' && !usedIds[p.id]; });
+        var col1_mini2 = todos.filter(function(p){ return ['economia','internacional'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+
+        var col2_std3  = todos.filter(function(p){ return p.categoria === 'negocios' && !usedIds[p.id]; });
+        var col2_std4  = todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; });
+        var col2_mini3 = todos.filter(function(p){ return p.categoria === 'mercados' && !usedIds[p.id]; });
+        var col2_mini4 = todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; });
+
+        var col3_std5  = todos.filter(function(p){ return ['tributacao','regulacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        var col3_std6  = todos.filter(function(p){ return ['familia','saude','educacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        var col3_mini5 = todos.filter(function(p){ return ['educacao','familia','saude'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+
+        // SEM FALLBACK — categoria errada nunca entra em card errado
         function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; } } return null; }
         function pickCol(pool){ return pickFrom(pool); }
 
-        // Coluna 1 — std-1, std-2 (standard) + mini-1, mini-2
-        preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1));
-        preencherCard(document.getElementById('ovc-card-std-2'), pickCol(col1));
-        preencherMini(document.getElementById('ovc-card-mini-1'), pickCol(col1));
-        preencherMini(document.getElementById('ovc-card-mini-2'), pickCol(col1));
+        // Coluna 1 — Política & Economia
+        preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1_std));
+        preencherCard(document.getElementById('ovc-card-std-2'), pickCol(col1_std));
+        preencherMini(document.getElementById('ovc-card-mini-1'), pickCol(col1_mini1));
+        preencherMini(document.getElementById('ovc-card-mini-2'), pickCol(col1_mini2));
 
-        // Coluna 2 — std-3, std-4 + mini-3, mini-4
-        preencherCard(document.getElementById('ovc-card-std-3'), pickCol(col2));
-        preencherCard(document.getElementById('ovc-card-std-4'), pickCol(col2));
-        preencherMini(document.getElementById('ovc-card-mini-3'), pickCol(col2));
-        preencherMini(document.getElementById('ovc-card-mini-4'), pickCol(col2));
+        // Coluna 2 — Negócios, Investimentos & Mercados
+        preencherCard(document.getElementById('ovc-card-std-3'), pickCol(col2_std3));
+        preencherCard(document.getElementById('ovc-card-std-4'), pickCol(col2_std4));
+        preencherMini(document.getElementById('ovc-card-mini-3'), pickCol(col2_mini3));
+        preencherMini(document.getElementById('ovc-card-mini-4'), pickCol(col2_mini4));
 
-        // Coluna 3 — std-5, std-6 + mini-5
-        preencherCard(document.getElementById('ovc-card-std-5'), pickCol(col3));
-        preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3));
-        preencherMini(document.getElementById('ovc-card-mini-5'), pickCol(col3));
+        // Coluna 3 — Família, Saúde, Educação, Tributos & Regulação
+        preencherCard(document.getElementById('ovc-card-std-5'), pickCol(col3_std5));
+        preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3_std6));
+        preencherMini(document.getElementById('ovc-card-mini-5'), pickCol(col3_mini5));
+        // Bloco "Artigos técnicos" — ESTÁTICO, nunca tocado pelo JS
 
         var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
         grids.forEach(function(g){ g.style.gap = '22px'; });
