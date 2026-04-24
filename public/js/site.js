@@ -4,9 +4,9 @@ window.OVC_CONFIG = {
     politica:{title:'Política',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'Negócios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'Educação',color:'#c2410c'}, industria:{title:'Indústria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'Saúde',color:'#be123c'}, familia:{title:'Família',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'Regulação',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
   },
   themes: {
-    classic: { name: 'Clássico OVC', bodyBg: '#f4f6fb', surface: '#ffffff', text: '#0f172a', muted: '#475569', accent: '#b91c1c' },
-    gold: { name: 'Executivo Gold', bodyBg: '#faf7f0', surface: '#fffdf8', text: '#1f2937', muted: '#6b7280', accent: '#9a6700' },
-    graphite: { name: 'Grafite', bodyBg: '#0f172a', surface: '#111827', text: '#f8fafc', muted: '#cbd5e1', accent: '#38bdf8' }
+    classic:  { name: 'Clássico OVC',    key: 'classic'  },
+    gold:     { name: 'Executivo Gold',   key: 'gold'     },
+    graphite: { name: 'Grafite',          key: 'graphite' }
   }
 };
 
@@ -30,17 +30,16 @@ window.OVC = {
     document.documentElement.style.setProperty('--ovc-accent-soft', `${config.color}1A`);
   },
   applyTheme(themeName) {
-    const name = window.OVC_CONFIG.themes[themeName] ? themeName : 'classic';
-    const theme = window.OVC_CONFIG.themes[name];
-    const root = document.documentElement;
-    root.style.setProperty('--ovc-body-bg', theme.bodyBg);
-    root.style.setProperty('--ovc-surface', theme.surface);
-    root.style.setProperty('--ovc-text', theme.text);
-    root.style.setProperty('--ovc-muted', theme.muted);
+    const validThemes = ['classic', 'gold', 'graphite'];
+    const name = validThemes.includes(themeName) ? themeName : 'classic';
     document.body.setAttribute('data-theme', name);
+    document.documentElement.setAttribute('data-theme', name);
     localStorage.setItem('ovc-theme', name);
     const label = document.querySelector('[data-theme-label]');
-    if (label) label.textContent = theme.name;
+    if (label) {
+      const names = { classic: 'Clássico OVC', gold: 'Executivo Gold', graphite: 'Grafite' };
+      label.textContent = names[name] || name;
+    }
   },
   initThemePicker() {
     const saved = localStorage.getItem('ovc-theme') || 'classic';
@@ -94,12 +93,72 @@ window.OVC = {
         this.fetchJSON('/api/live-data')
       ]);
       document.querySelectorAll('.search-input').forEach(input => input.placeholder = content['site-settings']?.searchPlaceholder || input.placeholder);
-      const tax = live.rates || {};
       const write = (selector, value) => document.querySelectorAll(selector).forEach(el => el.textContent = value);
-      write('#cotacao-usd', `R$ ${Number(tax.usd || 0).toFixed(2)}`);
-      write('#cotacao-eur', `R$ ${Number(tax.eur || 0).toFixed(2)}`);
-      write('#cotacao-ibov', `${Number(live.indices?.ibov || 0).toLocaleString('pt-BR')} pts`);
-      write('#impostometro', new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(live.impostometro || 0)));
+
+      // Cotações — estrutura real da API: live.usd.valor, live.eur.valor, etc.
+      const usd   = live.usd?.valor   || live.tax?.usd   || 0;
+      const eur   = live.eur?.valor   || live.tax?.eur   || 0;
+      const gbp   = live.gbp?.valor   || 0;
+      const btc   = live.btc?.valor   || live.tax?.btc   || 0;
+      const ibov  = live.ibov?.valor  || live.indices?.ibov  || 0;
+      const nasdaq= live.nasdaq?.valor|| live.indices?.nasdaq || 0;
+      const dow   = live.dow?.valor   || 0;
+      const impost= live.impostometro || 0;
+
+      const fmtBrl = v => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+      const fmtPts = v => `${Number(v).toLocaleString('pt-BR', {maximumFractionDigits:0})} pts`;
+
+      write('#cotacao-usd',    fmtBrl(usd));
+      write('#cotacao-eur',    fmtBrl(eur));
+      write('#cotacao-gbp',    fmtBrl(gbp));
+      write('#cotacao-btc',    fmtBrl(btc));
+      write('#cotacao-ibov',   fmtPts(ibov));
+      write('#cotacao-nasdaq', fmtPts(nasdaq));
+      write('#cotacao-dow',    fmtPts(dow));
+      write('#impostometro',   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(impost)));
+
+      // Atualizar ticker scrolling (se existir)
+      const tickerMap = {
+        'dolar': fmtBrl(usd), 'usd': fmtBrl(usd),
+        'euro': fmtBrl(eur),  'eur': fmtBrl(eur),
+        'libra': fmtBrl(gbp), 'gbp': fmtBrl(gbp),
+        'bitcoin': fmtBrl(btc), 'btc': fmtBrl(btc),
+        'ibov': fmtPts(ibov), 'ibovespa': fmtPts(ibov),
+        'nasdaq': fmtPts(nasdaq), 'dow': fmtPts(dow)
+      };
+      document.querySelectorAll('.ticker-value, .market-value, .cotacao-valor').forEach(el => {
+        const key = (el.dataset.ticker || el.closest('[data-ticker]')?.dataset.ticker || '').toLowerCase();
+        if (tickerMap[key]) el.textContent = tickerMap[key];
+      });
+
+      // Ticker scrolling — atualiza por label (ibov, dólar, euro, bitcoin, nasdaq)
+      document.querySelectorAll('.ticker-item').forEach(item => {
+        const rawLabel = item.querySelector('.ticker-label')?.textContent?.trim().toLowerCase() || '';
+        const label = rawLabel.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/&/g, "and");
+        const valueEl = item.querySelector('.ticker-value');
+        const changeEl = item.querySelector('.ticker-change');
+        if (!label || !valueEl) return;
+        const map = {
+          'ibov':      { val: fmtPts(ibov),   chg: live.ibov?.variacao },
+          'sandp 500': { val: '—',             chg: null },
+          's&p 500':   { val: '—',             chg: null },
+          'nasdaq':    { val: fmtPts(nasdaq),  chg: live.nasdaq?.variacao },
+          'dow jones': { val: fmtPts(dow),     chg: live.dow?.variacao },
+          'dolar':     { val: fmtBrl(usd),     chg: live.usd?.variacao },
+          'euro':      { val: fmtBrl(eur),     chg: live.eur?.variacao },
+          'libra':     { val: fmtBrl(gbp),     chg: live.gbp?.variacao },
+          'bitcoin':   { val: `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}`, chg: live.btc?.variacao },
+          'ouro':      { val: '—',             chg: null }
+        };
+        const entry = map[label];
+        if (!entry) return;
+        valueEl.textContent = entry.val;
+        if (changeEl && entry.chg !== null && entry.chg !== undefined) {
+          const v = Number(entry.chg);
+          changeEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%';
+          changeEl.className = 'ticker-change ' + (v >= 0 ? 'up' : 'down');
+        }
+      });
     } catch (error) {
       console.error(error);
     }
