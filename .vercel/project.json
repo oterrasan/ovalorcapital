@@ -1,16 +1,1 @@
-{
-  "projectId": "prj_xsVkTIYEEZWcBiCl8WW7AzXrP6ZD",
-  "orgId": "team_eHk3adfD75A2B72VzpPgQHPy",
-  "projectName": "ovalorcapital",
-  "settings": {
-    "createdAt": 1770885573833,
-    "framework": null,
-    "devCommand": null,
-    "installCommand": null,
-    "buildCommand": null,
-    "outputDirectory": null,
-    "rootDirectory": null,
-    "directoryListing": false,
-    "nodeVersion": "24.x"
-  }
-}
+{"projectId":"prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b","orgId":"rmr3XD52xNHF6nlctZ6scz8K"}
