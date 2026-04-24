@@ -1,80 +1,90 @@
-// /api/live-data — cotações reais sem rate limit
-// USD/EUR/GBP/ARS: Banco Central do Brasil (PTAX oficial, sem limite)
-// BTC: CoinGecko API pública (sem chave, sem limite prático)
-// IBOV/NASDAQ/DOW/IFIX: Yahoo Finance (sem limite prático)
+// /api/live-data — cotações reais, sem rate limit, 100% gratuito
+//
+// USD/EUR/GBP: Banco Central do Brasil PTAX (oficial, sem chave, sem limite)
+//   — busca janela de 10 dias úteis, sempre retorna o fechamento mais recente
+//   — funciona fins de semana, feriados e fora do horário PTAX
+// ARS/BTC: Yahoo Finance + CoinGecko (sem chave, sem limite prático)
+// IBOV/NASDAQ/DOW/IFIX: Yahoo Finance com variação real calculada
 // Impostômetro: ACSP oficial (impostometro.com.br)
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=55");
 
+  // Janela de 10 dias corridos para garantir retorno mesmo em feriados
   const hoje = new Date();
-  const dataHoje = hoje.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, "-");
-  const dataOntem = new Date(hoje - 86400000).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, "-");
+  const d2 = fmtBcb(hoje);
+  const d1 = fmtBcb(new Date(hoje - 10 * 86400000));
 
-  async function bcbMoeda(sigla, data) {
+  function fmtBcb(dt) {
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const d = String(dt.getDate()).padStart(2, "0");
+    return `${m}-${d}-${dt.getFullYear()}`;
+  }
+
+  // BCB PTAX — dólar com janela (sempre retorna algo)
+  async function bcbUSD() {
     try {
-      const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaDia(moeda=@m,dataCotacao=@d)?@m='${sigla}'&@d='${data}'&$format=json&$select=cotacaoCompra,cotacaoVenda&$top=1`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@d1,dataFinalCotacao=@d2)?@d1='${d1}'&@d2='${d2}'&$format=json&$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao&$orderby=dataHoraCotacao%20desc&$top=2`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
       const d = await r.json();
       const vals = d?.value;
-      if (vals && vals.length > 0) {
-        const last = vals[vals.length - 1];
-        return parseFloat(last.cotacaoVenda);
-      }
-      return null;
-    } catch { return null; }
+      if (!vals || vals.length === 0) return { valor: 0, variacao: 0 };
+      const atual  = parseFloat(vals[0].cotacaoVenda);
+      const anterior = vals[1] ? parseFloat(vals[1].cotacaoVenda) : atual;
+      return { valor: atual, variacao: anterior ? parseFloat(((atual - anterior) / anterior * 100).toFixed(2)) : 0 };
+    } catch { return { valor: 0, variacao: 0 }; }
   }
 
-  async function bcbDolar(data) {
+  // BCB PTAX — outras moedas com janela
+  async function bcbMoeda(sigla) {
     try {
-      const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@d)?@d='${data}'&$format=json&$select=cotacaoCompra,cotacaoVenda&$top=1`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@m,dataInicial=@d1,dataFinalCotacao=@d2)?@m='${sigla}'&@d1='${d1}'&@d2='${d2}'&$format=json&$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao&$orderby=dataHoraCotacao%20desc&$top=2`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
       const d = await r.json();
       const vals = d?.value;
-      if (vals && vals.length > 0) {
-        const last = vals[vals.length - 1];
-        return parseFloat(last.cotacaoVenda);
-      }
-      return null;
-    } catch { return null; }
+      if (!vals || vals.length === 0) return { valor: 0, variacao: 0 };
+      const atual    = parseFloat(vals[0].cotacaoVenda);
+      const anterior = vals[1] ? parseFloat(vals[1].cotacaoVenda) : atual;
+      return { valor: atual, variacao: anterior ? parseFloat(((atual - anterior) / anterior * 100).toFixed(2)) : 0 };
+    } catch { return { valor: 0, variacao: 0 }; }
   }
 
-  async function yahooQuote(symbol) {
+  // Yahoo Finance — cotação + variação real
+  async function yahoo(symbol) {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
-      const r = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        signal: AbortSignal.timeout(6000)
-      });
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+      const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(7000) });
       const d = await r.json();
-      const meta = d?.chart?.result?.[0]?.meta;
-      if (meta?.regularMarketPrice) {
-        const price = parseFloat(meta.regularMarketPrice);
-        const prev = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
-        const variacao = prev ? parseFloat(((price - prev) / prev * 100).toFixed(2)) : 0;
-        return { valor: price, variacao };
-      }
-      return null;
-    } catch { return null; }
+      const result = d?.chart?.result?.[0];
+      const meta   = result?.meta;
+      if (!meta?.regularMarketPrice) return { valor: 0, variacao: 0 };
+      const price  = parseFloat(meta.regularMarketPrice);
+      const closes = (result?.indicators?.quote?.[0]?.close || []).filter(Boolean);
+      const prev   = closes.length >= 2 ? closes[closes.length - 2] : price;
+      const variacao = prev ? parseFloat(((price - prev) / prev * 100).toFixed(2)) : 0;
+      return { valor: price, variacao };
+    } catch { return { valor: 0, variacao: 0 }; }
   }
 
+  // Bitcoin — CoinGecko público (sem chave)
   async function bitcoin() {
     try {
-      const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true", { signal: AbortSignal.timeout(6000) });
+      const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true", { signal: AbortSignal.timeout(7000) });
       const d = await r.json();
       return {
         valor: parseFloat(d?.bitcoin?.brl || 0),
         variacao: parseFloat((d?.bitcoin?.brl_24h_change || 0).toFixed(2))
       };
-    } catch { return null; }
+    } catch { return { valor: 0, variacao: 0 }; }
   }
 
+  // Impostômetro — ACSP oficial
   async function impostometro() {
     try {
       const r = await fetch("https://impostometro.com.br/Contador/Brasil", {
         headers: { "X-Requested-With": "XMLHttpRequest", "Referer": "https://impostometro.com.br/widget/contador" },
-        signal: AbortSignal.timeout(6000)
+        signal: AbortSignal.timeout(7000)
       });
       const d = await r.json();
       const base = parseFloat(d.Valor || 0);
@@ -84,48 +94,27 @@ export default async function handler(req, res) {
     } catch { return 0; }
   }
 
-  // Buscar tudo em paralelo — BCB tenta hoje, fallback ontem
-  const [
-    usdHoje, eurHoje, gbpHoje, arsHoje,
-    usdOntem, eurOntem, gbpOntem, arsOntem,
-    btcData, ibovData, nasdaqData, dowData, ifixData, impostData
-  ] = await Promise.all([
-    bcbDolar(dataHoje),
-    bcbMoeda("EUR", dataHoje),
-    bcbMoeda("GBP", dataHoje),
-    bcbMoeda("ARS", dataHoje),
-    bcbDolar(dataOntem),
-    bcbMoeda("EUR", dataOntem),
-    bcbMoeda("GBP", dataOntem),
-    bcbMoeda("ARS", dataOntem),
+  // Tudo em paralelo
+  const [usd, eur, gbp, ars, btc, ibov, nasdaq, dow, ifix, impost] = await Promise.all([
+    bcbUSD(),
+    bcbMoeda("EUR"),
+    bcbMoeda("GBP"),
+    yahoo("ARSBRL=X"),   // ARS não existe no BCB — Yahoo Finance
     bitcoin(),
-    yahooQuote("^BVSP"),
-    yahooQuote("^IXIC"),
-    yahooQuote("^DJI"),
-    yahooQuote("^IFIX.SA"),
+    yahoo("^BVSP"),
+    yahoo("^IXIC"),
+    yahoo("^DJI"),
+    yahoo("^IFIX.SA"),
     impostometro()
   ]);
 
-  // Usar hoje, fallback para ontem se PTAX ainda não fechou
-  const usd = usdHoje || usdOntem || 0;
-  const eur = eurHoje || eurOntem || 0;
-  const gbp = gbpHoje || gbpOntem || 0;
-  const ars = arsHoje || arsOntem || 0;
-
   return res.status(200).json({
-    usd:     { valor: usd, variacao: 0 },
-    eur:     { valor: eur, variacao: 0 },
-    gbp:     { valor: gbp, variacao: 0 },
-    ars:     { valor: ars, variacao: 0 },
-    btc:     btcData  || { valor: 0, variacao: 0 },
-    ibov:    ibovData || { valor: 0, variacao: 0 },
-    nasdaq:  nasdaqData || { valor: 0, variacao: 0 },
-    dow:     dowData  || { valor: 0, variacao: 0 },
-    ifix:    ifixData || { valor: 0, variacao: 0 },
-    impostometro: impostData,
-    // Compat legado
-    tax: { usd, eur, btc: btcData?.valor || 0 },
-    indices: { ibov: ibovData?.valor || 0, nasdaq: nasdaqData?.valor || 0 },
+    usd, eur, gbp, ars, btc,
+    ibov, nasdaq, dow, ifix,
+    impostometro: impost,
+    // Compatibilidade legado (home.js usa data.tax.usd e data.indices.ibov)
+    tax: { usd: usd.valor, eur: eur.valor, btc: btc.valor },
+    indices: { ibov: ibov.valor, nasdaq: nasdaq.valor },
     updated_at: new Date().toISOString()
   });
 }
