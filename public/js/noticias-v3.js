@@ -339,6 +339,18 @@
         var col3_std6  = todos.filter(function(p){ return ['familia','saude','educacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
         var col3_mini5 = todos.filter(function(p){ return ['educacao','familia','saude'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
 
+        // ════════════════════════════════════════════════════════════
+        // NOVOS CARDS — Esportes, Tecnologia, Indústria
+        // REGRA INVIOLÁVEL: só entra categoria específica, zero fallback
+        // Bloqueadas aqui todas as categorias já alocadas acima
+        // ════════════════════════════════════════════════════════════
+        var col4_std7  = todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; });
+        var col4_mini6 = todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; });
+        var col5_std8  = todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; });
+        var col5_mini7 = todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; });
+        var col6_std9  = todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; });
+        var col6_mini8 = todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; });
+
         // SEM FALLBACK — categoria errada nunca entra em card errado
         function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; } } return null; }
         function pickCol(pool){ return pickFrom(pool); }
@@ -360,6 +372,14 @@
         preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3_std6));
         preencherMini(document.getElementById('ovc-card-mini-5'), pickCol(col3_mini5));
         // Bloco "Artigos técnicos" — ESTÁTICO, nunca tocado pelo JS
+
+        // Esportes, Tecnologia & Indústria — REGRA INVIOLÁVEL: só categoria exata
+        preencherCard(document.getElementById('ovc-card-std-7'), pickCol(col4_std7));
+        preencherMini(document.getElementById('ovc-card-mini-6'), pickCol(col4_mini6));
+        preencherCard(document.getElementById('ovc-card-std-8'), pickCol(col5_std8));
+        preencherMini(document.getElementById('ovc-card-mini-7'), pickCol(col5_mini7));
+        preencherCard(document.getElementById('ovc-card-std-9'), pickCol(col6_std9));
+        preencherMini(document.getElementById('ovc-card-mini-8'), pickCol(col6_mini8));
 
         var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
         grids.forEach(function(g){ g.style.gap = '22px'; });
