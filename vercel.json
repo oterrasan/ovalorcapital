@@ -41,7 +41,7 @@
     "api/live-data.js": {
       "maxDuration": 15
     },
-    "api/reprocess_posts.js": {
+    "api/fix_images.js": {
       "maxDuration": 60
     }
   },
