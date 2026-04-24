@@ -91,7 +91,7 @@ window.OVC = {
     try {
       const [content, live] = await Promise.all([
         this.loadContent(['site-settings']),
-        this.fetchJSON('/api/live/data')
+        this.fetchJSON('/api/live-data')
       ]);
       document.querySelectorAll('.search-input').forEach(input => input.placeholder = content['site-settings']?.searchPlaceholder || input.placeholder);
       const tax = live.rates || {};

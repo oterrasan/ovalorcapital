@@ -41,7 +41,7 @@
     "api/editor_ia.js": {
       "maxDuration": 60
     },
-    "api/live/data.js": {
+    "api/live-data.js": {
       "maxDuration": 15
     }
   },

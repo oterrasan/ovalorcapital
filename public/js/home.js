@@ -2,7 +2,7 @@
 (function(){
   async function updateLiveWidgets() {
     try {
-      const data = await OVC.fetchJSON('/api/live/data');
+      const data = await OVC.fetchJSON('/api/live-data');
       const usd = document.getElementById('cotacao-usd');
       const eur = document.getElementById('cotacao-eur');
       const ibov = document.getElementById('cotacao-ibov');
