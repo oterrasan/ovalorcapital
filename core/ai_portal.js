@@ -80,36 +80,51 @@ function detectCategoria(texto) {
   return "geral";
 }
 
-const PROMPT = (data, text) => `Você é o diretor de jornalismo do portal O Valor Capital, com 40 anos de experiência. Reescreva esta notícia em padrão jornalístico profissional.
+const PROMPT = (data, text) => `Você é redator-chefe do portal O Valor Capital. Reescreva a notícia abaixo no padrão editorial OVC.
 
-FORMATO DE RESPOSTA — use exatamente estes marcadores:
-TITULO: [manchete com máx 8 palavras, verbo obrigatório, específico]
-SUBTITULO: [frase objetiva até 100 caracteres]
-CATEGORIA: [uma palavra: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional]
-SUBCATEGORIA: [nome da subcategoria mais adequada dentro da categoria]
+RESPONDA EXATAMENTE NESTE FORMATO — sem explicações, sem introdução, sem comentários:
+
+TITULO: [manchete máx 8 palavras, com verbo, específica]
+SUBTITULO: [frase direta até 100 caracteres]
+CATEGORIA: [uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional]
+SUBCATEGORIA: [subcategoria específica dentro da categoria]
 CORPO:
-[texto completo aqui]
+Redação OVC — ${data}
 
-REGRAS DO TÍTULO:
-- Máx 8 palavras com verbo ou tensão
-- Específico: número, nome ou lugar quando disponível
-- PROIBIDO: vagos, caixa alta total
-- EXEMPLOS: "Lula troca ministro após pressão do Centrão" | "Ibovespa cai 1,8% com temor do Fed"
+[PARÁGRAFO 1 — gancho: fato chocante, número ou contradição real. Mínimo 3 frases.]
 
-REGRAS DO CORPO:
-- Primeira linha OBRIGATÓRIA: "Redação OVC — ${data}"
-- Mínimo 1.500 caracteres
-- 8 parágrafos separados por linha em branco
-- Primeira frase prende: dado chocante, contradição ou tensão real
-- Ritmo variado: frase curta. parágrafo médio. frase curta
-- Pelo menos um número, data ou nome verificável
-- Voz centro-direita, fiscalização do governo — no ângulo, nunca explícita
-- Último parágrafo: deixa tensão ou questão implícita, leitor termina pensando
-- Após o corpo: linha em branco + 4 hashtags em linhas separadas, última sempre #ovalorcapital
+[PARÁGRAFO 2 — contexto: por que isso importa agora. Mínimo 3 frases.]
 
-PROIBIDO NO TEXTO: "isso mostra", "vale destacar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "robusto", "resiliente", "ecossistema", "disruptivo", "paradigma", "sinergia", "catalisador", "protagonista", "desafios e oportunidades"
+[PARÁGRAFO 3 — dado concreto: número, nome, data verificável. Mínimo 3 frases.]
 
-NOTÍCIA:
+[PARÁGRAFO 4 — desdobramento: o que aconteceu antes ou o que está em jogo. Mínimo 3 frases.]
+
+[PARÁGRAFO 5 — impacto prático: o que muda para o cidadão, empresa ou mercado. Mínimo 3 frases.]
+
+[PARÁGRAFO 6 — reação ou posição: quem disse o quê, sem opinião explícita. Mínimo 3 frases.]
+
+[PARÁGRAFO 7 — histórico ou comparativo: contexto mais amplo. Mínimo 3 frases.]
+
+[PARÁGRAFO 8 — fechamento: tensão ou questão implícita, leitor termina pensando. Mínimo 2 frases. SEM conclusão óbvia.]
+
+#hashtag1
+#hashtag2
+#hashtag3
+#ovalorcapital
+
+REGRAS ABSOLUTAS — DESCUMPRIR QUALQUER UMA INVALIDA O TEXTO:
+1. O CORPO deve ter MÍNIMO 1.600 caracteres e MÁXIMO 2.200 caracteres
+2. São OBRIGATÓRIOS exatamente 8 parágrafos separados por linha em branco
+3. Primeiro elemento do CORPO obrigatoriamente: "Redação OVC — ${data}"
+4. Linguagem direta, de rua, sem academicismo, sem palavrório
+5. Voz editorial centro-direita: fiscalização do Estado, liberdade econômica, família — no ângulo dos fatos, nunca explícita
+6. Frases curtas e médias alternadas. Ritmo jornalístico
+7. As 4 hashtags temáticas de alto engajamento, última sempre #ovalorcapital
+
+PALAVRAS ABSOLUTAMENTE PROIBIDAS — sinal de texto de IA, uso invalida o texto:
+muralha, blindar, colapso, castelo, blueprint, catalisador, ecossistema, disruptivo, paradigma, sinergia, protagonista, robusto, resiliente, isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, desafios e oportunidades, no bojo, no seio, à luz de, no âmbito, cabe ressaltar, é importante destacar, em linha com, pari passu, não por acaso, nesse sentido, pimenta amarga, mister, fulcral, hodierno, notadamente, outrossim
+
+NOTÍCIA FONTE:
 ${text}`;
 
 function parse(raw) {
@@ -176,7 +191,7 @@ export async function rewritePortal(text, title) {
   const prompt = PROMPT(hoje(), text);
   const raw = await callGemini(prompt);
   const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 500) {
+  if (!result || !result.corpo || result.corpo.length < 1500) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   return result;
