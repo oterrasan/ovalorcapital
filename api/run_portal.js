@@ -5,7 +5,23 @@ import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const MAX_DIA = 1440; // Gemini pago — sem limite real
+const MAX_DIA = 1440;
+
+// Padrões de imagem bloqueada — duplicado aqui como segunda barreira de segurança
+const BLOCKED_IMG = [
+  /perfil/i, /author/i, /avatar/i, /reporter/i, /jornalista/i,
+  /apresentador/i, /anchor/i, /staff/i, /\/autores?\//i, /\/pessoas?\//i,
+  /foto-de-perfil/i, /profile/i, /headshot/i, /foto_autor/i, /\/time\//i,
+  /columnist/i, /byline/i, /contributor/i, /editor/i, /redator/i,
+  /icon/i, /logo/i, /favicon/i, /sprite/i, /brand/i, /marca/i,
+  /watermark/i, /\/marca\//i,
+  /\.svg$/i, /\.gif$/i, /\.ico$/i
+];
+
+function imagemValida(url) {
+  if (!url || url.trim().length < 12) return false;
+  return !BLOCKED_IMG.some(p => p.test(url));
+}
 
 export default async function handler(req, res) {
   try {
@@ -33,7 +49,7 @@ export default async function handler(req, res) {
       const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).single();
       if (dup) continue;
 
-      // Scrape — usa description do RSS como fallback se scraper falhar
+      // Scrape
       const article = await scrape(item.link);
       const sourceText = (article.text && article.text.length >= 100)
         ? article.text
@@ -41,6 +57,9 @@ export default async function handler(req, res) {
           ? item.title + ". " + item.description
           : null;
       if (!sourceText) continue;
+
+      // REGRA RÍGIDA: sem imagem válida = descarta esta notícia, tenta próxima
+      if (!imagemValida(article.image)) continue;
 
       // Reescrever no padrão OVC
       let content;
@@ -52,17 +71,25 @@ export default async function handler(req, res) {
 
       if (!content.corpo || content.corpo.length < 500) continue;
 
+      // GARANTIA FINAL: subcategoria obrigatória
+      if (!content.subcategoria) {
+        content.subcategoria = "Geral";
+        content.subcategoria_slug = "geral";
+      }
+
       // Salvar como pendente
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.subtitulo || "",
-        imagem: article.image || "",
+        imagem: article.image,
         hash,
         status: "pendente",
         approved: false,
         publish_method: "portal",
         user_tags: JSON.stringify([content.categoria || "geral"]),
+        subcategoria: content.subcategoria,
+        subcategoria_slug: content.subcategoria_slug,
         collaborators: "[]",
         metrics: {},
         priority: 0,
@@ -74,12 +101,20 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         status: "ok",
-        results: [{ status: "pendente", titulo: content.titulo, id: post?.id, categoria: content.categoria }]
+        results: [{
+          status: "pendente",
+          titulo: content.titulo,
+          id: post?.id,
+          categoria: content.categoria,
+          subcategoria: content.subcategoria,
+          imagem: article.image
+        }]
       });
     }
 
-    return res.status(200).json({ status: "all_skipped" });
+    return res.status(200).json({ status: "no_valid_news" });
+
   } catch(e) {
-    return res.status(200).json({ status: "error", error: e.message });
+    return res.status(500).json({ status: "error", error: e.message });
   }
 }

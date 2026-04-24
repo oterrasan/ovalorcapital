@@ -1,28 +1,27 @@
 (function(){
   var API = '/api/portal-posts';
 
-  var CAT_HERO = ['politica','economia','internacional','regulacao','tributacao','crise'];
-  var CAT_SIDE = ['seguros','saude','investimentos','previdencia','consorcio'];
-  var SIDE_KEYWORDS = [
-    'seguro','seguros','apólice','sinistro','previdência','vida em grupo',
-    'plano de saúde','plano saúde','operadora de saúde','convênio médico',
-    'consórcio','carta de crédito',
-    'investimento','renda fixa','tesouro direto','fundo de investimento','cdi','selic',
-    'previdência privada','pgbl','vgbl',
-    'seguro de vida','seguro residencial','seguro auto','seguro veículo',
-    'proteção financeira','reserva de emergência'
-  ];
+  // Card 1 — Hero: só Política e Economia
+  var CAT_HERO = ['politica','economia'];
+
+  // Card 3 — Direito: só Seguros, Investimentos e Parcerias
+  var CAT_DIREITO = ['seguros','investimentos','parcerias'];
+
+  // Card 2 — Central: TODAS exceto VC, Política, Economia, Seguros, Investimentos, Parcerias
+  var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
-  var _sideIndexA = 0, _sideIndexB = 1, _sidePool = [], _sideTimer = null;
+  var _centralIndex = 0, _centralPosts = [], _centralTimer = null;
+  var _direitoIndex = 0, _direitoPosts = [], _direitoTimer = null;
 
   var CAT_PATH = {
-    politica:'politica',economia:'economia',negocios:'negocios',
-    investimentos:'investimentos',seguros:'seguros',mercados:'mercados',
-    educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
-    esportes:'esportes',saude:'saude',familia:'familia',
-    tributacao:'tributos',regulacao:'regulacao',internacional:'economia',
-    previdencia:'investimentos',consorcio:'seguros',geral:'politica'
+    politica:'politica', economia:'economia', negocios:'negocios',
+    investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+    educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
+    esportes:'esportes', saude:'saude', familia:'familia',
+    tributacao:'tributos', regulacao:'regulacao', internacional:'economia',
+    previdencia:'investimentos', consorcio:'seguros', parcerias:'parcerias',
+    geral:'politica'
   };
 
   function buildUrl(p){
@@ -36,13 +35,15 @@
     catch(_){ return ''; }
   }
 
-  var LABEL = {politica:'Política',economia:'Economia',negocios:'Negócios',
-    investimentos:'Investimentos',mercados:'Mercados',tributacao:'Tributação',
-    regulacao:'Regulação',seguros:'Seguros',saude:'Saúde',familia:'Família',
-    tecnologia:'Tecnologia',industria:'Indústria',educacao:'Educação',
-    esportes:'Esportes',cultura:'Cultura',patrimonio:'Patrimônio',
-    internacional:'Internacional',geral:'Geral',
-    previdencia:'Previdência',consorcio:'Consórcio'};
+  var LABEL = {
+    politica:'Política', economia:'Economia', negocios:'Negócios',
+    investimentos:'Investimentos', mercados:'Mercados', tributacao:'Tributação',
+    regulacao:'Regulação', seguros:'Seguros', saude:'Saúde', familia:'Família',
+    tecnologia:'Tecnologia', industria:'Indústria', educacao:'Educação',
+    esportes:'Esportes', cultura:'Cultura', patrimonio:'Patrimônio',
+    internacional:'Internacional', geral:'Geral', parcerias:'Parcerias',
+    previdencia:'Previdência', consorcio:'Consórcio'
+  };
 
   function label(c){ return LABEL[c]||c||'Geral'; }
 
@@ -52,15 +53,18 @@
     el.className = el.className.replace(/tag-\w+/g,'') + ' tag-' + (cat||'geral');
   }
 
+  // Bloqueio de imagens inválidas — segunda barreira no frontend
   var BLOCKED_IMG = [
     /perfil/i,/author/i,/avatar/i,/reporter/i,/jornalista/i,
     /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,/\/pessoas?\//i,
     /foto-de-perfil/i,/profile/i,/headshot/i,/foto_autor/i,/\/time\//i,
-    /icon/i,/logo/i,/favicon/i,/sprite/i,/\.svg$/i,/\.gif$/i,/\.ico$/i
+    /columnist/i,/byline/i,/contributor/i,/editor/i,/redator/i,
+    /icon/i,/logo/i,/favicon/i,/sprite/i,/brand/i,/marca/i,
+    /watermark/i,/\.svg$/i,/\.gif$/i,/\.ico$/i
   ];
 
   function isValidImage(url){
-    if(!url || url.length < 10) return false;
+    if(!url || url.length < 12) return false;
     return !BLOCKED_IMG.some(function(p){ return p.test(url); });
   }
 
@@ -78,6 +82,7 @@
     card.insertBefore(img, card.firstChild);
   }
 
+  // ─── CARD 1: HERO ───────────────────────────────────────────────
   function preencherHero(heroEl, p){
     if(!heroEl||!p) return;
     var url = buildUrl(p);
@@ -104,13 +109,13 @@
 
   function setupHeroRotation(heroEl, posts){
     if(!heroEl||!posts.length) return;
-    _heroPosts = posts.slice(0,6);
+    _heroPosts = posts.slice(0,20);
     _heroIndex = 0;
     var dotsEl = heroEl.querySelector('.ovc-hero-dots');
     if(!dotsEl){
       dotsEl = document.createElement('div');
       dotsEl.className = 'ovc-hero-dots';
-      dotsEl.style.cssText = 'display:flex;gap:6px;margin-top:auto;padding-top:8px;';
+      dotsEl.style.cssText = 'display:flex;gap:6px;margin-top:auto;padding-top:8px;flex-wrap:wrap;';
       _heroPosts.forEach(function(_,i){
         var d = document.createElement('span');
         d.style.cssText = 'width:7px;height:7px;border-radius:50%;background:#ffc800;cursor:pointer;transition:opacity .3s;opacity:0.3;flex-shrink:0;';
@@ -135,8 +140,8 @@
     }, 7000);
   }
 
-  // Preencher card de destaque (feature/monetizado) — suporta atualização dinâmica
-  function preencherSideCard(el, p){
+  // ─── CARD 2: CENTRAL ────────────────────────────────────────────
+  function preencherCentral(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
     var tit  = el.querySelector('.card-title,.card-feature-title,h2,h3');
@@ -154,29 +159,50 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
-  // Rotação dos dois cards de destaque — nunca ficam vazios, sempre alternando
-  function setupSideRotation(pool){
-    if(!pool.length) return;
-    _sidePool = pool.slice(0, 5); // máximo 5 matérias em rotação
-    _sideIndexA = 0;
-    _sideIndexB = _sidePool.length > 1 ? 1 : 0;
-
-    var elA = document.querySelector('.card-feature');
-    var elB = document.querySelector('.card-monetizado');
-
-    if(elA) preencherSideCard(elA, _sidePool[_sideIndexA]);
-    if(elB) preencherSideCard(elB, _sidePool[_sideIndexB]);
-
-    if(_sideTimer) clearInterval(_sideTimer);
-    _sideTimer = setInterval(function(){
-      // Avançar cada card de forma independente, sem repetir o mesmo nos dois ao mesmo tempo
-      _sideIndexA = (_sideIndexA + 2) % _sidePool.length;
-      _sideIndexB = (_sideIndexA + 1) % _sidePool.length;
-      if(elA) preencherSideCard(elA, _sidePool[_sideIndexA]);
-      if(elB) preencherSideCard(elB, _sidePool[_sideIndexB]);
-    }, 9000);
+  function setupCentralRotation(el, pool){
+    if(!el||!pool.length) return;
+    _centralPosts = pool.slice(0,20);
+    _centralIndex = 0;
+    preencherCentral(el, _centralPosts[0]);
+    if(_centralTimer) clearInterval(_centralTimer);
+    _centralTimer = setInterval(function(){
+      _centralIndex = (_centralIndex+1) % _centralPosts.length;
+      preencherCentral(el, _centralPosts[_centralIndex]);
+    }, 11000);
   }
 
+  // ─── CARD 3: DIREITO ────────────────────────────────────────────
+  function preencherDireito(el, p){
+    if(!el||!p) return;
+    var url = buildUrl(p);
+    var tit  = el.querySelector('.card-title,.card-feature-title,h2,h3');
+    var exc  = el.querySelector('.card-excerpt,.card-feature-excerpt,p:not(.card-meta)');
+    var tag  = el.querySelector('.tag');
+    var cta  = el.querySelector('.card-cta');
+    var meta = el.querySelector('.card-meta');
+    if(tit)  tit.textContent = p.titulo;
+    if(exc)  exc.textContent = (p.resumo||'').slice(0,150);
+    if(tag)  setTag(tag, p.categoria);
+    if(meta) meta.textContent = 'Redação OVC · ' + label(p.categoria);
+    if(cta)  cta.href = url;
+    injectImg(el, p);
+    el.style.cursor = 'pointer';
+    el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
+  }
+
+  function setupDireitoRotation(el, pool){
+    if(!el||!pool.length) return;
+    _direitoPosts = pool.slice(0,20);
+    _direitoIndex = 0;
+    preencherDireito(el, _direitoPosts[0]);
+    if(_direitoTimer) clearInterval(_direitoTimer);
+    _direitoTimer = setInterval(function(){
+      _direitoIndex = (_direitoIndex+1) % _direitoPosts.length;
+      preencherDireito(el, _direitoPosts[_direitoIndex]);
+    }, 13000);
+  }
+
+  // ─── CARDS STANDARD E MINI ──────────────────────────────────────
   function preencherCard(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
@@ -211,11 +237,6 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
-  function qualificaSide(p){
-    // APENAS categoria exata — sem keyword matching que causa falsos positivos
-    return ['seguros','saude','investimentos','previdencia','consorcio'].indexOf(p.categoria) !== -1;
-  }
-
   function dedup(arr){
     var seen = {};
     return arr.filter(function(p){ if(seen[p.id]) return false; seen[p.id]=true; return true; });
@@ -236,30 +257,37 @@
           return null;
         }
 
-        // Hero rotativo
+        // ── Card 1: Hero — só Política e Economia ──
         var heroPool = todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; });
-        if(heroPool.length < 2) heroPool = todos;
+        if(heroPool.length < 3) heroPool = todos; // fallback se não tiver suficiente
         var heroEl = document.querySelector('.card-hero-main');
         if(heroEl){
-          var heroItems = [];
-          for(var i=0;i<heroPool.length && heroItems.length<6;i++){
-            if(!usedIds[heroPool[i].id]){ usedIds[heroPool[i].id]=true; heroItems.push(heroPool[i]); }
-          }
-          setupHeroRotation(heroEl, heroItems);
+          // Marca usados para evitar repetição nos outros cards
+          heroPool.slice(0,20).forEach(function(p){ usedIds[p.id]=true; });
+          setupHeroRotation(heroEl, heroPool);
         }
 
-        // Cards de destaque — pool de até 5 matérias monetizadas em rotação
-        var sidePool = todos.filter(qualificaSide);
-        // Não marca como usados — os cards de destaque têm pool próprio e podem repetir entre si
-        setupSideRotation(sidePool);
+        // ── Card 2: Central — todas exceto categorias excluídas ──
+        var centralPool = todos.filter(function(p){
+          return CAT_EXCLUIDAS_CENTRAL.indexOf(p.categoria) === -1;
+        });
+        var centralEl = document.querySelector('.card-feature');
+        if(centralEl) setupCentralRotation(centralEl, centralPool);
 
-        // Cards standard — sem repetir com hero, sem repetir entre si
-        // (side pool não bloqueia os standard — são seções independentes)
+        // ── Card 3: Direito — só Seguros, Investimentos, Parcerias ──
+        var direitoPool = todos.filter(function(p){
+          return CAT_DIREITO.indexOf(p.categoria) !== -1;
+        });
+        var direitoEl = document.querySelector('.card-monetizado');
+        if(direitoEl) setupDireitoRotation(direitoEl, direitoPool);
+
+        // ── Cards standard ──
         ['ovc-card-std-1','ovc-card-std-2','ovc-card-std-3',
          'ovc-card-std-4','ovc-card-std-5','ovc-card-std-6'].forEach(function(id){
           preencherCard(document.getElementById(id), pick(todos));
         });
 
+        // ── Cards mini ──
         ['ovc-card-mini-1','ovc-card-mini-2','ovc-card-mini-3',
          'ovc-card-mini-4','ovc-card-mini-5'].forEach(function(id){
           preencherMini(document.getElementById(id), pick(todos));

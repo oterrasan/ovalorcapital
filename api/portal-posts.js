@@ -13,19 +13,17 @@ export default async function handler(req, res) {
       let data = null;
 
       if (id.length >= 36) {
-        // ID completo — busca direta
         const { data: row } = await supabase
           .from("posts")
-          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
           .eq("status", "publicado")
           .eq("id", id)
           .single();
         data = row;
       } else {
-        // ID parcial — buscar recentes e filtrar em JS
         const { data: rows } = await supabase
           .from("posts")
-          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
           .eq("status", "publicado")
           .order("published_at", { ascending: false })
           .limit(200);
@@ -38,9 +36,8 @@ export default async function handler(req, res) {
       return res.status(200).json(formatPost(data, true));
     }
 
-    // Lista paginada
     let q = supabase.from("posts")
-      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,created_at,published_at", { count: "exact" })
+      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at", { count: "exact" })
       .eq("status", "publicado")
       .order("published_at", { ascending: false })
       .range(Number(page) * Number(limit), (Number(page) + 1) * Number(limit) - 1);
@@ -84,7 +81,7 @@ function formatPost(p, full) {
     educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
     esportes:"esportes", saude:"saude", familia:"familia",
     tributacao:"tributos", regulacao:"regulacao", internacional:"economia",
-    geral:"politica"
+    parcerias:"parcerias", geral:"politica"
   };
   return {
     id: p.id,
@@ -94,6 +91,8 @@ function formatPost(p, full) {
     corpo: full ? conteudo : undefined,
     imagem: p.imagem || "",
     categoria,
+    subcategoria: p.subcategoria || "",
+    subcategoria_slug: p.subcategoria_slug || "",
     tags,
     slug: slugify(p.titulo || ""),
     url: `/${CAT_PATH[categoria] || "politica"}/?id=${(p.id||"").slice(0,8)}`,

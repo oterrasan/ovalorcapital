@@ -41,22 +41,42 @@ async function callGemini(prompt) {
   throw new Error("Gemini indisponível");
 }
 
+// Mapeamento COMPLETO de categoria → subcategoria padrão
+const SUBCATEGORIAS = {
+  politica: { nome: "Executivo", slug: "executivo" },
+  economia: { nome: "Conjuntura & Focus", slug: "conjuntura" },
+  negocios: { nome: "Geral", slug: "geral" },
+  investimentos: { nome: "Renda Variável", slug: "renda-variavel" },
+  seguros: { nome: "Geral", slug: "geral" },
+  mercados: { nome: "Bolsa & Índices", slug: "bolsa-indices" },
+  educacao: { nome: "Finanças Pessoais", slug: "financas-pessoais" },
+  industria: { nome: "Geral", slug: "geral" },
+  tecnologia: { nome: "IA & Dados", slug: "ia-dados" },
+  esportes: { nome: "Geral", slug: "geral" },
+  saude: { nome: "Geral", slug: "geral" },
+  familia: { nome: "Orçamento", slug: "orcamento" },
+  tributacao: { nome: "IRPF", slug: "irpf" },
+  regulacao: { nome: "Financeiro", slug: "financeiro" },
+  parcerias: { nome: "Geral", slug: "geral" },
+  internacional: { nome: "Internacional", slug: "internacional" },
+  geral: { nome: "Geral", slug: "geral" }
+};
+
 function detectCategoria(texto) {
   const t = texto.toLowerCase();
   if (/lula|stf|congresso|câmara|senado|governo federal|ministro|presidente|reforma|judiciário|partido|eleição|política/.test(t)) return "politica";
   if (/ibovespa|bolsa|dólar|pib|inflação|selic|copom|juros|banco central|economia|fiscal|orçamento|déficit/.test(t)) return "economia";
   if (/empresa|negócio|startup|mercado|empreend|fusão|aquisição|corporat/.test(t)) return "negocios";
-  if (/investimento|ação|fundo|bolsa|cripto|bitcoin|cdi|tesouro|renda fixa/.test(t)) return "investimentos";
-  if (/imposto|tributação|ir 2026|irpf|receita federal|tributário/.test(t)) return "tributacao";
+  if (/renda fixa|tesouro direto|fundo de investimento|cdi|bitcoin|cripto|ação|carteira|dividendo/.test(t)) return "investimentos";
+  if (/imposto|tributação|irpf|receita federal|tributário/.test(t)) return "tributacao";
   if (/regulação|anatel|anvisa|susep|ans|bacen|cvm|regulatório/.test(t)) return "regulacao";
-  if (/seguro|proteção|apólice|sinistro|previdência/.test(t)) return "seguros";
+  if (/seguro|proteção|apólice|sinistro|previdência privada|pgbl|vgbl/.test(t)) return "seguros";
   if (/saúde|médico|hospital|vacina|doença|tratamento|sus|plano de saúde/.test(t)) return "saude";
   if (/família|filho|educação|escola|criança|adolescente/.test(t)) return "familia";
-  if (/tecnologia|inteligência artificial|ia|tech|software|hardware|iphone|samsung/.test(t)) return "tecnologia";
-  if (/indústria|manufatura|produção|fábrica|industrial/.test(t)) return "industria";
+  if (/tecnologia|inteligência artificial|ia |tech|software|hardware|iphone|samsung/.test(t)) return "tecnologia";
+  if (/indústria|manufatura|produção|fábrica|industrial|agro|logística/.test(t)) return "industria";
   if (/futebol|nba|esporte|campeonato|clube|jogo|partida|atleta|olimpíada/.test(t)) return "esportes";
-  if (/cultura|arte|música|cinema|livro|teatro|show/.test(t)) return "cultura";
-  if (/eua|estados unidos|china|europa|guerra|ucrânia|israel|internacional|trump|biden/.test(t)) return "internacional";
+  if (/eua|estados unidos|china|europa|guerra|ucrânia|israel|trump|biden|internacional/.test(t)) return "internacional";
   return "geral";
 }
 
@@ -65,6 +85,8 @@ const PROMPT = (data, text) => `Você é o diretor de jornalismo do portal O Val
 FORMATO DE RESPOSTA — use exatamente estes marcadores:
 TITULO: [manchete com máx 8 palavras, verbo obrigatório, específico]
 SUBTITULO: [frase objetiva até 100 caracteres]
+CATEGORIA: [uma palavra: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional]
+SUBCATEGORIA: [nome da subcategoria mais adequada dentro da categoria]
 CORPO:
 [texto completo aqui]
 
@@ -85,17 +107,19 @@ REGRAS DO CORPO:
 - Último parágrafo: deixa tensão ou questão implícita, leitor termina pensando
 - Após o corpo: linha em branco + 4 hashtags em linhas separadas, última sempre #ovalorcapital
 
-PROIBIDO: "isso mostra", "vale destacar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "robusto", "resiliente", "ecossistema", "disruptivo", "paradigma", "sinergia", "catalisador", "protagonista", "desafios e oportunidades"
+PROIBIDO NO TEXTO: "isso mostra", "vale destacar", "em meio a", "diante disso", "especialistas apontam", "chama atenção", "acende alerta", "robusto", "resiliente", "ecossistema", "disruptivo", "paradigma", "sinergia", "catalisador", "protagonista", "desafios e oportunidades"
 
 NOTÍCIA:
 ${text}`;
 
 function parse(raw) {
-  if (!raw) return { titulo: "Sem título", subtitulo: "", categoria: "geral", corpo: "" };
+  if (!raw) return null;
 
   const lines = raw.split("\n");
   let titulo = "";
   let subtitulo = "";
+  let categoriaRaw = "";
+  let subcategoriaRaw = "";
   let corpo = "";
   let inCorpo = false;
 
@@ -105,6 +129,10 @@ function parse(raw) {
       titulo = trimmed.replace(/^TITULO:/i, "").trim();
     } else if (/^SUBTITULO:/i.test(trimmed)) {
       subtitulo = trimmed.replace(/^SUBTITULO:/i, "").trim();
+    } else if (/^CATEGORIA:/i.test(trimmed)) {
+      categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().toLowerCase();
+    } else if (/^SUBCATEGORIA:/i.test(trimmed)) {
+      subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
     } else if (/^CORPO:/i.test(trimmed)) {
       inCorpo = true;
     } else if (inCorpo) {
@@ -114,28 +142,32 @@ function parse(raw) {
 
   corpo = corpo.trim();
 
-  // Fallback: se não achou marcadores, usar raw completo
+  // Fallback corpo
   if (!corpo) {
     corpo = raw.trim();
     const firstLine = raw.split("\n")[0].trim();
     if (firstLine.length < 120 && firstLine.length > 5) titulo = firstLine;
   }
 
-  // Se corpo começa com "Redação OVC" mas não tem título, extrair da primeira linha não-assinatura
-  if (!titulo || titulo === "Sem título") {
-    const bodyLines = corpo.split("\n").filter(l => l.trim());
-    for (const bl of bodyLines) {
-      if (!bl.includes("Redação OVC") && bl.length > 10 && bl.length < 120) {
-        titulo = bl.trim();
-        break;
-      }
-    }
-  }
+  // Categoria: validar e usar detectCategoria como fallback
+  const CATS_VALIDAS = ["politica","economia","negocios","investimentos","seguros","mercados",
+    "educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao",
+    "parcerias","internacional"];
+  let categoria = CATS_VALIDAS.includes(categoriaRaw) ? categoriaRaw : detectCategoria(titulo + " " + corpo);
+
+  // Subcategoria: usar o que a IA gerou, ou fallback padrão da categoria
+  const subcategoriaDefault = SUBCATEGORIAS[categoria] || { nome: "Geral", slug: "geral" };
+  const subcategoria = subcategoriaRaw || subcategoriaDefault.nome;
+  const subcategoria_slug = subcategoriaRaw
+    ? subcategoriaRaw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")
+    : subcategoriaDefault.slug;
 
   return {
     titulo: titulo || "Sem título",
     subtitulo: subtitulo || "",
-    categoria: detectCategoria(titulo + " " + corpo),
+    categoria,
+    subcategoria,
+    subcategoria_slug,
     corpo
   };
 }
@@ -144,8 +176,8 @@ export async function rewritePortal(text, title) {
   const prompt = PROMPT(hoje(), text);
   const raw = await callGemini(prompt);
   const result = parse(raw);
-  if (!result.corpo || result.corpo.length < 100) {
-    throw new Error("Conteúdo gerado insuficiente: " + result.corpo.length + " chars");
+  if (!result || !result.corpo || result.corpo.length < 500) {
+    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   return result;
 }
@@ -160,4 +192,3 @@ Responda APENAS com o novo título, sem explicação.`;
   const novo = raw.split("\n")[0].trim().replace(/^["']+|["']+$/g,"");
   return novo.length > 5 ? novo : titulo;
 }
-

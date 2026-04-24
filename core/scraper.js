@@ -2,18 +2,44 @@ import axios from "axios";
 import * as cheerioModule from "cheerio";
 const cheerio = cheerioModule.default || cheerioModule;
 
-// Padrões de imagem inválida — repórter, âncora, ícone, logo de veículo
+// Padrões BLOQUEADOS — repórter, âncora, logo, marca d'água, identidade de outro veículo
 const BLOCKED_IMG = [
-  /perfil/i,/author/i,/avatar/i,/reporter/i,/jornalista/i,
-  /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,/\/pessoas?\//i,
-  /foto-de-perfil/i,/profile/i,/headshot/i,/foto_autor/i,/\/time\//i,
-  /icon/i,/logo/i,/favicon/i,/sprite/i,
-  /\.svg$/i,/\.gif$/i,/\.ico$/i
+  // Pessoas / autores
+  /perfil/i, /author/i, /avatar/i, /reporter/i, /jornalista/i,
+  /apresentador/i, /anchor/i, /staff/i, /\/autores?\//i, /\/pessoas?\//i,
+  /foto-de-perfil/i, /profile/i, /headshot/i, /foto_autor/i, /\/time\//i,
+  /columnist/i, /byline/i, /contributor/i, /editor/i, /redator/i,
+  // Logos / marcas / ícones
+  /icon/i, /logo/i, /favicon/i, /sprite/i, /brand/i, /marca/i,
+  /watermark/i, /marca.dagua/i, /\/marca\//i,
+  // Formatos inválidos
+  /\.svg$/i, /\.gif$/i, /\.ico$/i,
+  // Domínios de identidade de veículos (thumbnails de TV com rostos)
+  /imagens\.ebc\.com\.br\/profile/i,
+  /conteudo\.globo\.com.*foto.*autor/i,
+  /s2\.glbimg\.com.*authors/i,
+  /agencia\.gov\.br.*foto.*autor/i
+];
+
+// Domínios de veículos de imprensa — bloquear imagem SOMENTE se for de seção de autores/perfis
+const PRESS_AUTHOR_PATHS = [
+  /\/autor\//i, /\/autores\//i, /\/jornalista\//i, /\/repórter\//i,
+  /\/colunista\//i, /\/equipe\//i, /\/redacao\//i, /\/people\//i,
+  /\/team\//i, /\/staff\//i, /\/about\/people/i
 ];
 
 function isValidImage(url) {
-  if (!url || url.length < 10) return false;
-  return !BLOCKED_IMG.some(p => p.test(url));
+  if (!url || url.length < 12) return false;
+  // Bloquear se bate em padrão genérico
+  if (BLOCKED_IMG.some(p => p.test(url))) return false;
+  // Bloquear se url contém caminho de autor em qualquer domínio
+  if (PRESS_AUTHOR_PATHS.some(p => p.test(url))) return false;
+  // Aceitar apenas jpg/jpeg/png/webp
+  if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) {
+    // Se não tem extensão explícita, permitir (CDNs sem extensão)
+    if (/\.(svg|gif|ico|bmp|tiff)(\?|$)/i.test(url)) return false;
+  }
+  return true;
 }
 
 export async function scrape(url) {
@@ -38,7 +64,7 @@ export async function scrape(url) {
       $(".post-thumbnail img, .featured-image img, .entry-thumbnail img").first().attr("src"),
     ].map(s => normalizeUrl(s, url)).filter(Boolean);
 
-    // Primeira imagem válida (não é repórter/ícone)
+    // Primeira imagem válida — sem repórter, sem logo, sem marca d'água
     const imageUrl = candidates.find(c => isValidImage(c)) || "";
 
     $("script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement").remove();
