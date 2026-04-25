@@ -236,7 +236,13 @@
         img.src = p.imagem;
         img.alt = '';
         img.onerror = function(){ this.remove(); };
-        el.insertBefore(img, el.firstChild);
+        // Inserir DEPOIS da tag e ANTES do título — preserva layout
+        var tagEl = el.querySelector('.tag');
+        if(tagEl && tagEl.nextSibling){
+          el.insertBefore(img, tagEl.nextSibling);
+        } else {
+          el.appendChild(img);
+        }
       } else {
         existingImg.src = p.imagem;
       }
