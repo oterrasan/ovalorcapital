@@ -11,26 +11,29 @@ const MAX_DIA = 1440;
 // Filtro de qualidade — rejeita conteúdo inválido
 function validarConteudo(content) {
   if (!content || !content.titulo || !content.corpo) return false;
-  const titulo = content.titulo.toLowerCase();
+  const titulo = content.titulo.toLowerCase().trim();
   const corpo = content.corpo.toLowerCase();
+  const corpoInicio = content.corpo.slice(0, 200).toLowerCase();
 
-  // Rejeitar títulos absurdos
-  const titulosProibidos = [
-    "prezado", "caro usuário", "olá", "atenção", "aviso",
-    "notícia", "sem título", "título", "headline", "assunto",
-    "prezado usuário", "erro", "teste", "exemplo"
-  ];
-  if (titulosProibidos.some(t => titulo.includes(t))) return false;
+  // Rejeitar títulos que começam com palavras de carta/email
+  const tituloInvalido = /^(prezado|caro|olá|atenção|aviso|notícia:|sem título|titulo:|headline:|assunto:|dear|hello|hi |erro:|teste:|exemplo:)/.test(titulo);
+  if (tituloInvalido) return false;
+
+  // Rejeitar se título contém "prezado" em qualquer posição
+  if (titulo.includes("prezado") || titulo.includes("caro usuário") || titulo.includes("editor")) return false;
 
   // Rejeitar corpo muito curto
-  if (content.corpo.length < 1000) return false;
+  if (content.corpo.length < 800) return false;
 
-  // Rejeitar corpo que começa com lixo
-  const corpoInicio = content.corpo.slice(0, 100).toLowerCase();
-  if (corpoInicio.includes("prezado") || corpoInicio.includes("olá") || corpoInicio.includes("caro ")) return false;
+  // Rejeitar corpo que começa com lixo de email/carta
+  const inicioInvalido = /^(prezado|caro |olá,|atenção:|aviso:|dear |hello|seguem|segue |conforme |informamos|comunicamos)/.test(corpoInicio.trim());
+  if (inicioInvalido) return false;
 
   // Rejeitar se não tem "redação ovc" no corpo
   if (!corpo.includes("redação ovc")) return false;
+
+  // Rejeitar título genérico demais (menos de 3 palavras)
+  if (titulo.split(" ").filter(w => w.length > 1).length < 3) return false;
 
   return true;
 }

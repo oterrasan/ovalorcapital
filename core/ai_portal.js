@@ -341,6 +341,8 @@ Parágrafo 8 — mínimo 3 frases: feche com tensão real ou consequência em ab
 #hashtag_relevante_3
 #ovalorcapital
 
+ATENÇÃO CRÍTICA: Você está gerando uma MATÉRIA JORNALÍSTICA para um portal de notícias. NÃO é um email. NÃO é uma carta. NÃO comece com "Prezado", "Caro", "Olá", "Atenção", "Seguem" ou qualquer saudação. Comece DIRETO com o fato jornalístico.
+
 REGRAS INVIOLÁVEIS:
 - CORPO com MÍNIMO 1.600 e MÁXIMO 2.200 caracteres — conte e ajuste
 - EXATAMENTE 8 parágrafos separados por linha em branco
