@@ -208,15 +208,40 @@
     if(!el||!p) return;
     var url = buildUrl(p);
     var cat = p.categoria||'geral';
-    el.innerHTML =
-      (isValidImage(p.imagem)
-        ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display=String.fromCharCode(110,111,110,101)">'
-        : '') +
-      '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
-      '<h2 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h2>' +
-      '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
-      '<p class="card-excerpt">'+escHtml((p.resumo||'').replace(/^Redação OVC.*?\n/,'').slice(0,150))+'</p>' +
-      '<a class="card-cta" href="'+url+'"><span>Leia mais</span><span class="icon">↗</span></a>';
+
+    var tag  = el.querySelector('.tag');
+    var tit  = el.querySelector('.card-title');
+    var meta = el.querySelector('.card-meta');
+    var exc  = el.querySelector('.card-excerpt');
+    var cta  = el.querySelector('.card-cta');
+    var titLink = tit ? tit.querySelector('a') : null;
+
+    if(tag){
+      tag.className = tag.className.replace(/tag-\w+/g,'') + ' tag-'+cat;
+      tag.innerHTML = '<span class="tag-dot"></span>'+label(cat);
+    }
+    if(tit){
+      if(titLink){ titLink.textContent = p.titulo||''; titLink.href = url; }
+      else { tit.textContent = p.titulo||''; }
+    }
+    if(meta) meta.textContent = 'Redação OVC · '+dataBr(p.data);
+    if(exc)  exc.textContent = (p.resumo||'').replace(/^Redação OVC.*?\n/,'').slice(0,150);
+    if(cta)  cta.href = url;
+
+    if(isValidImage(p.imagem)){
+      var existingImg = el.querySelector('img.ovc-card-img');
+      if(!existingImg){
+        var img = document.createElement('img');
+        img.className = 'ovc-card-img';
+        img.src = p.imagem;
+        img.alt = '';
+        img.onerror = function(){ this.remove(); };
+        el.insertBefore(img, el.firstChild);
+      } else {
+        existingImg.src = p.imagem;
+      }
+    }
+
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
