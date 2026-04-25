@@ -241,7 +241,7 @@
         overlay.style.cssText = 'position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.18) 0%,rgba(0,0,0,0.55) 100%);border-radius:inherit;pointer-events:none;z-index:0;';
         el.insertBefore(overlay, el.firstChild);
       }
-      // Garantir que o conteúdo fique acima do overlay
+      // Garantir que o conteúdo fique acima do overlay com cores legíveis
       var children = el.children;
       for(var c=0;c<children.length;c++){
         if(!children[c].classList.contains('ovc-img-overlay')){
@@ -249,6 +249,17 @@
           children[c].style.zIndex = '1';
         }
       }
+      // Forçar texto branco sobre a imagem
+      var tit2 = el.querySelector('.card-title');
+      var meta2 = el.querySelector('.card-meta');
+      var exc2 = el.querySelector('.card-excerpt');
+      var cta2 = el.querySelector('.card-cta');
+      var tag2 = el.querySelector('.tag');
+      if(tit2) tit2.style.color = '#ffffff';
+      if(meta2) meta2.style.color = '#ffc800';
+      if(exc2) exc2.style.color = 'rgba(255,255,255,0.88)';
+      if(cta2) cta2.style.color = '#ffffff';
+      if(tag2) tag2.style.background = 'rgba(0,0,0,0.45)';
     }
 
     el.style.cursor = 'pointer';
