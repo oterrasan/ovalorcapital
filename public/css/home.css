@@ -719,7 +719,10 @@
     .card-hero-grid > .card-hero-main,
     .card-hero-grid > .card-feature,
     .card-hero-grid > .card-monetizado {
-      min-height: 432px;
+      height: 432px !important;
+      min-height: 432px !important;
+      max-height: 432px !important;
+      overflow: hidden !important;
     }
 
     .card-hero-main {
@@ -1583,7 +1586,10 @@
     }
 
     .card-hero-main {
-      min-height: 432px;
+      height: 432px !important;
+      min-height: 432px !important;
+      max-height: 432px !important;
+      overflow: hidden !important;
     }
 
     .ad-slot {
