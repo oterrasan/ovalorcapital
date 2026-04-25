@@ -8,8 +8,8 @@
   var CAT_DIREITO = ['seguros','investimentos','parcerias'];
 
   // Card Central: negocios, mercados, educacao, saude, familia, tributacao, regulacao, internacional
-  var CAT_CENTRAL = ['negocios','mercados','educacao','saude','familia','tributacao','regulacao','internacional'];
-  var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc','tecnologia','esportes','industria'];
+  var CAT_CENTRAL = ['negocios','mercados','educacao','saude','familia','tributacao','regulacao','internacional','variedades'];
+  var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
   var _centralIndex = 0, _centralPosts = [], _centralTimer = null;
@@ -41,7 +41,7 @@
     investimentos:'Investimentos', mercados:'Mercados', tributacao:'Tributação',
     regulacao:'Regulação', seguros:'Seguros', saude:'Saúde', familia:'Família',
     tecnologia:'Tecnologia', industria:'Indústria', educacao:'Educação',
-    esportes:'Esportes', cultura:'Cultura', patrimonio:'Patrimônio',
+    esportes:'Esportes', cultura:'Cultura', patrimonio:'Patrimônio', variedades:'Variedades',
     internacional:'Internacional', geral:'Geral', parcerias:'Parcerias',
     previdencia:'Previdência', consorcio:'Consórcio'
   };
