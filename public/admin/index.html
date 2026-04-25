@@ -312,12 +312,54 @@ function Pipeline() {
   const forceRun = async () => {
     setForcing(true); setLastResult('Executando...');
     try {
-      const r = await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'}});
       const j = await r.json();
       setLastResult(JSON.stringify(j,null,2));
       load();
     } catch(e){setLastResult('Erro: '+e.message);}
     setForcing(false);
+  };
+
+  const CATS_DISPONIVEIS = [
+    {id:'politica',label:'🧠 Política'},
+    {id:'economia',label:'💰 Economia'},
+    {id:'mercados',label:'📈 Mercados'},
+    {id:'investimentos',label:'📊 Investimentos'},
+    {id:'negocios',label:'🏢 Negócios'},
+    {id:'seguros',label:'🛡️ Seguros'},
+    {id:'tributacao',label:'⚖️ Tributos'},
+    {id:'regulacao',label:'⚖️ Regulação'},
+    {id:'saude',label:'🏥 Saúde'},
+    {id:'familia',label:'👨‍👩‍👧 Família'},
+    {id:'tecnologia',label:'🚀 Tecnologia'},
+    {id:'esportes',label:'⚽ Esportes'},
+    {id:'educacao',label:'🎓 Educação'},
+    {id:'internacional',label:'🌍 Internacional'},
+    {id:'variedades',label:'🎭 Variedades'},
+  ];
+
+  const [manualQtd, setManualQtd] = useState(5);
+  const [manualCats, setManualCats] = useState([]);
+  const [manualRunning, setManualRunning] = useState(false);
+  const [manualResult, setManualResult] = useState(null);
+
+  const toggleCat = cat => setManualCats(prev =>
+    prev.includes(cat) ? prev.filter(c=>c!==cat) : [...prev, cat]
+  );
+
+  const runManual = async () => {
+    setManualRunning(true); setManualResult(null);
+    try {
+      const r = await fetch('/api/run_manual', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ quantidade: manualQtd, categorias: manualCats })
+      });
+      const j = await r.json();
+      setManualResult(j);
+      load();
+    } catch(e){ setManualResult({status:'error', error: e.message}); }
+    setManualRunning(false);
   };
 
   return (
@@ -351,6 +393,60 @@ function Pipeline() {
           </div>
           <div style={{padding:'0 20px 20px'}}><button className="btn btn-primary" onClick={saveConfig}>Salvar parâmetros</button></div>
         </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">⚡ Geração Manual Controlada</span></div>
+          <div style={{padding:20}}>
+            <div style={{marginBottom:16}}>
+              <label className="form-label">Quantidade de matérias a gerar</label>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginTop:8}}>
+                <input type="range" min={1} max={50} value={manualQtd} onChange={e=>setManualQtd(parseInt(e.target.value))} style={{flex:1,accentColor:'var(--red)'}}/>
+                <span style={{fontWeight:700,fontSize:22,minWidth:36,color:'var(--accent)'}}>{manualQtd}</span>
+              </div>
+              <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>Máximo: 50 matérias por execução</div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label className="form-label">Categorias (vazio = todas as categorias)</label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:8}}>
+                {CATS_DISPONIVEIS.map(c=>(
+                  <button key={c.id}
+                    className={`btn btn-sm ${manualCats.includes(c.id)?'btn-primary':'btn-secondary'}`}
+                    onClick={()=>toggleCat(c.id)}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              {manualCats.length>0 && <div style={{marginTop:8,fontSize:12,color:'var(--accent)'}}>
+                Filtrando por: {manualCats.join(', ')}
+                <button className="btn btn-sm btn-secondary" style={{marginLeft:8}} onClick={()=>setManualCats([])}>Limpar</button>
+              </div>}
+            </div>
+            <button className="btn btn-primary" style={{padding:'10px 28px',fontSize:14}} onClick={runManual} disabled={manualRunning}>
+              {manualRunning ? '⏳ Gerando...' : `⚡ Gerar ${manualQtd} matéria${manualQtd>1?'s':''} agora`}
+            </button>
+            {manualResult && (
+              <div style={{marginTop:16,padding:14,background:'rgba(255,255,255,0.03)',borderRadius:8,border:'1px solid var(--border)'}}>
+                {manualResult.status==='ok' ? (
+                  <>
+                    <div style={{color:'#4ade80',fontWeight:700,marginBottom:8}}>
+                      ✅ {manualResult.gerados} de {manualResult.solicitado} matéria(s) gerada(s)
+                    </div>
+                    {manualResult.posts?.map((p,i)=>(
+                      <div key={i} style={{fontSize:12,color:'var(--t2)',marginBottom:4,paddingLeft:8,borderLeft:'2px solid var(--accent)'}}>
+                        <span style={{textTransform:'capitalize',color:'var(--accent)',marginRight:6}}>[{p.categoria}]</span>
+                        {p.titulo}
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div style={{color:'#f87171'}}>
+                    ⚠️ {manualResult.status === 'no_valid_news' ? 'Nenhuma notícia válida encontrada para as categorias selecionadas.' : manualResult.error || 'Erro desconhecido'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="panel">
           <div className="panel-header"><span className="panel-title">Execuções Recentes (Logs)</span><button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button></div>
           {logs.length===0?<div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhuma execução registrada</div></div>:
