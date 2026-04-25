@@ -977,18 +977,40 @@ function Relatorios() {
     const agora = new Date();
     const inicio = new Date(agora - periodo * 24 * 60 * 60 * 1000).toISOString();
 
-    // Buscar todos os posts do período
-    const { data: posts } = await sb.from('posts')
-      .select('id,titulo,status,user_tags,subcategoria,created_at,published_at,publish_method')
-      .gte('created_at', inicio)
-      .order('created_at', {ascending: false});
+    // Buscar TODOS os posts do período — sem limite
+    let allPosts = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const q = sb.from('posts')
+        .select('id,titulo,status,user_tags,subcategoria,created_at,published_at,publish_method')
+        .order('created_at', {ascending: false})
+        .range(from, from + pageSize - 1);
+      if (periodo < 3650) q.gte('created_at', inicio);
+      const { data: page } = await q;
+      if (!page || page.length === 0) break;
+      allPosts = allPosts.concat(page);
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+    const posts = allPosts;
 
-    // Buscar logs do período
-    const { data: logs } = await sb.from('logs')
-      .select('level,message,created_at')
-      .gte('created_at', inicio)
-      .order('created_at', {ascending: false})
-      .limit(200);
+    // Buscar logs do período — sem limite
+    let allLogs = [];
+    let fromL = 0;
+    while (true) {
+      const q2 = sb.from('logs')
+        .select('level,message,created_at')
+        .order('created_at', {ascending: false})
+        .range(fromL, fromL + 500 - 1);
+      if (periodo < 3650) q2.gte('created_at', inicio);
+      const { data: pageL } = await q2;
+      if (!pageL || pageL.length === 0) break;
+      allLogs = allLogs.concat(pageL);
+      if (pageL.length < 500) break;
+      fromL += 500;
+    }
+    const logs = allLogs;
 
     if (!posts) { setLoading(false); return; }
 
@@ -1051,9 +1073,9 @@ function Relatorios() {
 
         {/* Seletor de período */}
         <div style={{display:'flex',gap:8,marginBottom:20}}>
-          {[1,7,15,30].map(d => (
+          {[1,7,15,30,365,3650].map(d => (
             <button key={d} className={`btn btn-sm ${periodo===d?'btn-primary':'btn-secondary'}`} onClick={()=>setPeriodo(d)}>
-              {d===1?'Hoje':`${d} dias`}
+              {d===1?'Hoje':d===3650?'Tudo':d===365?'1 ano':`${d} dias`}
             </button>
           ))}
           <button className="btn btn-sm btn-secondary" onClick={load} style={{marginLeft:'auto'}}>🔄 Atualizar</button>
