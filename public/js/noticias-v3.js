@@ -210,7 +210,7 @@
     var cat = p.categoria||'geral';
     el.innerHTML =
       (isValidImage(p.imagem)
-        ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display='none'">'
+        ? '<img class="ovc-card-img" src="'+p.imagem+'" alt="" onerror="this.style.display=String.fromCharCode(110,111,110,101)">'
         : '') +
       '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
       '<h2 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h2>' +
