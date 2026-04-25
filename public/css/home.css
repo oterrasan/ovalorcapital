@@ -1008,17 +1008,16 @@
     /* ── CARDS STANDARD e MINI — altura fixa, imagem padronizada, título sempre visível ── */
 
     .card-standard {
-      min-height: 456px;
+      min-height: 400px;
       display: flex;
       flex-direction: column;
     }
 
     .card-standard .ovc-card-img {
-      /* REGRA INVIOLÁVEL: todas as imagens dos cards standard com exatamente 240px de altura */
       width: 100% !important;
-      height: 240px !important;
-      min-height: 240px !important;
-      max-height: 240px !important;
+      height: 180px !important;
+      min-height: 180px !important;
+      max-height: 180px !important;
       object-fit: cover !important;
       object-position: center !important;
       border-radius: 8px;
@@ -1781,3 +1780,4 @@
     }
 
     /* overrides já declarados nas definições de .card-hero-main acima */
+
