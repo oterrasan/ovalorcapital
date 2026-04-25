@@ -620,6 +620,39 @@ function Postagens() {
     setApproving(false);
   };
 
+  const [igPublishing, setIgPublishing] = useState(null);
+
+  const publicarIG = async (post) => {
+    // Buscar URL do serviço nas configurações
+    const { data: cfg } = await sb.from('config').select('value').eq('key','IG_SERVICE_URL').single();
+    const serviceUrl = cfg?.value;
+    if (!serviceUrl) {
+      alert('Configure a URL do serviço Instagram em Configurações → URL Serviço Instagram.');
+      return;
+    }
+    if (!confirm(`Publicar "${post.titulo}" no Instagram?`)) return;
+    setIgPublishing(post.id);
+    try {
+      const r = await fetch(serviceUrl + '/publish', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          image_url: post.imagem,
+          caption: post.conteudo ? post.conteudo.slice(0, 2200) : post.titulo
+        })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        alert('✅ Publicado no Instagram com sucesso!');
+      } else {
+        alert('❌ Erro: ' + (d.error || 'Falha ao publicar'));
+      }
+    } catch(e) {
+      alert('❌ Erro de conexão com o serviço: ' + e.message);
+    }
+    setIgPublishing(null);
+  };
+
   const [revisando, setRevisando] = useState(null);
 
   const revisarIA = async (post) => {
@@ -801,6 +834,7 @@ function Postagens() {
                           <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
                         </>}
                         {p.status==='publicado'&&<>
+                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} title="Publicar no Instagram">📱 Instagram</button>
                           <button className="btn btn-sm" style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)'}} onClick={()=>revisarIA(p)} title="Revisar com IA">🤖 Revisar IA</button>
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
@@ -1405,6 +1439,7 @@ function Configuracoes() {
             <Field label="Intervalo mínimo entre posts (segundos)" k="MIN_INTERVAL" type="number"/>
             <Field label="Intervalo máximo entre posts (segundos)" k="MAX_INTERVAL" type="number"/>
             <Field label="Modelo IA" k="AI_MODEL"/>
+            <Field label="URL Serviço Instagram (ex: https://ovc-instagram-bot.onrender.com)" k="IG_SERVICE_URL"/>
           </div>
         </div>
         <div className="panel">
