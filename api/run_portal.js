@@ -8,22 +8,6 @@ import { findImage } from "../core/image_finder.js";
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const MAX_DIA = 1440;
 
-// Padrões de imagem bloqueada — duplicado aqui como segunda barreira de segurança
-const BLOCKED_IMG = [
-  /perfil/i, /author/i, /avatar/i, /reporter/i, /jornalista/i,
-  /apresentador/i, /anchor/i, /staff/i, /\/autores?\//i, /\/pessoas?\//i,
-  /foto-de-perfil/i, /profile/i, /headshot/i, /foto_autor/i, /\/time\//i,
-  /columnist/i, /byline/i, /contributor/i, /editor/i, /redator/i,
-  /icon/i, /logo/i, /favicon/i, /sprite/i, /brand/i, /marca/i,
-  /watermark/i, /\/marca\//i,
-  /\.svg$/i, /\.gif$/i, /\.ico$/i
-];
-
-function imagemValida(url) {
-  if (!url || url.trim().length < 12) return false;
-  return !BLOCKED_IMG.some(p => p.test(url));
-}
-
 export default async function handler(req, res) {
   try {
     // Checar automação
@@ -59,9 +43,6 @@ export default async function handler(req, res) {
           : null;
       if (!sourceText) continue;
 
-      // REGRA RÍGIDA: sem imagem válida = descarta esta notícia, tenta próxima
-      if (!imagemValida(article.image)) continue;
-
       // Reescrever no padrão OVC
       let content;
       try {
@@ -72,24 +53,27 @@ export default async function handler(req, res) {
 
       if (!content.corpo || content.corpo.length < 500) continue;
 
-      // REGRA INVIOLÁVEL: categoria "geral" não entra no banco — IA falhou em classificar
-      if (!content.categoria || content.categoria === 'geral') continue;
+      // REGRA INVIOLÁVEL: categoria "geral" não entra
+      if (!content.categoria || content.categoria === "geral") continue;
 
-      // GARANTIA FINAL: subcategoria obrigatória
+      // GARANTIA: subcategoria obrigatória
       if (!content.subcategoria) {
         content.subcategoria = "Geral";
         content.subcategoria_slug = "geral";
       }
 
-      // IMAGEM LIMPA — sempre buscar imagem nova, nunca usar a do veículo original
-      const imagemLimpa = await findImage(content.titulo, content.categoria || "geral");
+      // REGRA INVIOLÁVEL DE IMAGEM:
+      // A URL da imagem da fonte (article.image) é passada como proibida.
+      // findImage NUNCA retorna essa URL — busca sempre uma imagem diferente.
+      const urlProibida = article.image || "";
+      const imagemFinal = await findImage(content.titulo, content.categoria, urlProibida);
 
       // Salvar como pendente
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.subtitulo || "",
-        imagem: imagemLimpa,
+        imagem: imagemFinal,
         hash,
         status: "pendente",
         approved: false,
@@ -114,7 +98,8 @@ export default async function handler(req, res) {
           id: post?.id,
           categoria: content.categoria,
           subcategoria: content.subcategoria,
-          imagem: article.image
+          imagem_usada: imagemFinal,
+          imagem_fonte_bloqueada: urlProibida
         }]
       });
     }

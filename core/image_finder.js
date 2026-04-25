@@ -1,8 +1,7 @@
 // core/image_finder.js
 // Busca imagem limpa e gratuita por palavras-chave
-// Fontes em cascata: Wikimedia Commons → Openverse → fallback por categoria
+// REGRA INVIOLÁVEL: a URL de imagem da fonte nunca pode ser usada
 
-// Pool de 5 imagens por categoria — rotação aleatória, nunca a mesma
 const CAT_POOL = {
   politica:      ["https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&q=80","https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=800&q=80","https://images.unsplash.com/photo-1555848962-6e79363ec58f?w=800&q=80","https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800&q=80","https://images.unsplash.com/photo-1575936123452-b67c3203c357?w=800&q=80"],
   economia:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&q=80","https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&q=80","https://images.unsplash.com/photo-1624953587687-daf255b6b80a?w=800&q=80","https://images.unsplash.com/photo-1638913662529-1d2f1eb5b526?w=800&q=80"],
@@ -23,12 +22,22 @@ const CAT_POOL = {
   geral:         ["https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80","https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=800&q=80","https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=800&q=80","https://images.unsplash.com/photo-1495020689067-958852a7765e?w=800&q=80","https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&q=80"]
 };
 
-function randomFallback(categoria) {
-  const pool = CAT_POOL[categoria] || CAT_POOL.geral;
+// Normaliza URL para comparação — remove query string e trailing slash
+function normalizeUrl(url) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return (u.origin + u.pathname).toLowerCase().replace(/\/$/, "");
+  } catch {
+    return url.toLowerCase().trim();
+  }
+}
+
+function randomFallback(categoria, urlProibida) {
+  const pool = (CAT_POOL[categoria] || CAT_POOL.geral).filter(u => normalizeUrl(u) !== normalizeUrl(urlProibida));
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// Extrair palavras-chave do título (remove palavras curtas e comuns)
 function keywords(titulo) {
   const stopwords = new Set(['de','da','do','das','dos','em','no','na','nos','nas','para','por','com','que','se','uma','um','ao','aos','as','os','é','e','o','a']);
   return titulo
@@ -41,8 +50,7 @@ function keywords(titulo) {
     .join(" ");
 }
 
-// Wikimedia Commons — sem chave, imagens livres
-async function searchWikimedia(query) {
+async function searchWikimedia(query, urlProibida) {
   try {
     const q = encodeURIComponent(query);
     const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${q}&srnamespace=6&srlimit=5&format=json&origin=*`;
@@ -66,11 +74,11 @@ async function searchWikimedia(query) {
         if (!ii) continue;
         const mime = ii.mime || "";
         const imgUrl = ii.url || "";
-        // Aceitar apenas JPEG e PNG, mínimo 200px
         if (!mime.includes("jpeg") && !mime.includes("png")) continue;
         if ((ii.width || 0) < 200) continue;
-        // Rejeitar logos, ícones, bandeiras pequenas, portraits
         if (/logo|icon|flag|coat|seal|badge|portrait|autor|reporter/i.test(imgUrl)) continue;
+        // REGRA: nunca usar a URL da fonte
+        if (normalizeUrl(imgUrl) === normalizeUrl(urlProibida)) continue;
         return imgUrl;
       }
     }
@@ -78,8 +86,7 @@ async function searchWikimedia(query) {
   } catch { return null; }
 }
 
-// Openverse (WordPress) — sem chave, CC licensed
-async function searchOpenverse(query) {
+async function searchOpenverse(query, urlProibida) {
   try {
     const q = encodeURIComponent(query);
     const url = `https://api.openverse.org/v1/images/?q=${q}&license_type=commercial&mature=false&page_size=5`;
@@ -90,31 +97,30 @@ async function searchOpenverse(query) {
     const d = await r.json();
     const results = d?.results || [];
     for (const img of results) {
-      const url = img.url || "";
-      if (!url) continue;
-      if (/logo|icon|badge|portrait/i.test(url)) continue;
+      const imgUrl = img.url || "";
+      if (!imgUrl) continue;
+      if (/logo|icon|badge|portrait/i.test(imgUrl)) continue;
       if ((img.width || 0) < 300) continue;
-      return url;
+      // REGRA: nunca usar a URL da fonte
+      if (normalizeUrl(imgUrl) === normalizeUrl(urlProibida)) continue;
+      return imgUrl;
     }
     return null;
   } catch { return null; }
 }
 
-// Função principal — tenta fontes em cascata, cai no fallback por categoria
-export async function findImage(titulo, categoria) {
+// urlProibida = URL da imagem que veio da fonte — NUNCA pode ser usada
+export async function findImage(titulo, categoria, urlProibida = "") {
   const kw = keywords(titulo);
-  if (kw.length < 3) {
-    return randomFallback(categoria);
+
+  if (kw.length >= 3) {
+    const wikiImg = await searchWikimedia(kw, urlProibida);
+    if (wikiImg) return wikiImg;
+
+    const openImg = await searchOpenverse(kw, urlProibida);
+    if (openImg) return openImg;
   }
 
-  // 1. Wikimedia
-  const wikiImg = await searchWikimedia(kw);
-  if (wikiImg) return wikiImg;
-
-  // 2. Openverse
-  const openImg = await searchOpenverse(kw);
-  if (openImg) return openImg;
-
-  // 3. Fallback por categoria
-  return randomFallback(categoria);
+  // Fallback por categoria — garante que não cai na URL proibida
+  return randomFallback(categoria, urlProibida);
 }
