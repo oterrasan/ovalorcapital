@@ -7,6 +7,7 @@ import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const MAX_DIA = 1440;
+const POSTS_POR_CHAMADA = 5; // Gera até 5 posts por execução
 
 export default async function handler(req, res) {
   try {
@@ -20,14 +21,23 @@ export default async function handler(req, res) {
       .select("id", { count: "exact", head: true })
       .gte("created_at", hoje + "T00:00:00")
       .eq("publish_method", "portal");
-    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count });
+    const countHoje = count || 0;
+    if (countHoje >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count: countHoje });
 
-    // Buscar notícias
+    // Buscar notícias — pegar mais para ter material suficiente
     const news = await getNews();
     if (!news.length) return res.status(200).json({ status: "no_news" });
 
-    // Tentar cada candidata até uma funcionar
-    for (const item of news.slice(0, 10)) {
+    const results = [];
+    const errors = [];
+    let tentativas = 0;
+
+    // Processar até gerar POSTS_POR_CHAMADA posts ou esgotar as notícias
+    for (const item of news.slice(0, 20)) {
+      if (results.length >= POSTS_POR_CHAMADA) break;
+      if (countHoje + results.length >= MAX_DIA) break;
+
+      tentativas++;
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
 
       // Checar duplicata
@@ -48,37 +58,34 @@ export default async function handler(req, res) {
       try {
         content = await rewritePortal(sourceText, item.title);
       } catch(e) {
-        return res.status(200).json({ status: "ai_failed", error: e.message });
+        errors.push({ link: item.link, error: e.message });
+        continue; // Não para — tenta a próxima notícia
       }
 
-      if (!content.corpo || content.corpo.length < 500) continue;
-
-      // REGRA INVIOLÁVEL: categoria "geral" não entra
+      if (!content || !content.corpo || content.corpo.length < 500) continue;
       if (!content.categoria || content.categoria === "geral") continue;
 
-      // GARANTIA: subcategoria obrigatória
       if (!content.subcategoria) {
         content.subcategoria = "Geral";
         content.subcategoria_slug = "geral";
       }
 
-      // REGRA INVIOLÁVEL DE IMAGEM:
-      // A URL da imagem da fonte (article.image) é passada como proibida.
-      // findImage NUNCA retorna essa URL — busca sempre uma imagem diferente.
+      // Imagem sempre diferente da fonte
       const urlProibida = article.image || "";
       const imagemFinal = await findImage(content.titulo, content.categoria, urlProibida);
 
-      // Salvar como pendente
+      // Salvar — status pendente, publicação automática
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.subtitulo || "",
         imagem: imagemFinal,
         hash,
-        status: "pendente",
-        approved: false,
+        status: "publicado",
+        approved: true,
         publish_method: "portal",
-        user_tags: JSON.stringify([content.categoria || "geral"]),
+        published_at: new Date().toISOString(),
+        user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
         subcategoria_slug: content.subcategoria_slug,
         collaborators: "[]",
@@ -88,23 +95,28 @@ export default async function handler(req, res) {
         max_retries: 3
       }).select().single();
 
-      if (error) return res.status(200).json({ status: "db_error", error: error.message });
+      if (error) {
+        errors.push({ link: item.link, error: error.message });
+        continue;
+      }
 
-      return res.status(200).json({
-        status: "ok",
-        results: [{
-          status: "pendente",
-          titulo: content.titulo,
-          id: post?.id,
-          categoria: content.categoria,
-          subcategoria: content.subcategoria,
-          imagem_usada: imagemFinal,
-          imagem_fonte_bloqueada: urlProibida
-        }]
+      results.push({
+        id: post?.id,
+        titulo: content.titulo,
+        categoria: content.categoria,
+        subcategoria: content.subcategoria,
+        imagem: imagemFinal
       });
     }
 
-    return res.status(200).json({ status: "no_valid_news" });
+    return res.status(200).json({
+      status: results.length > 0 ? "ok" : "no_valid_news",
+      gerados: results.length,
+      tentativas,
+      total_hoje: countHoje + results.length,
+      results,
+      errors: errors.length > 0 ? errors : undefined
+    });
 
   } catch(e) {
     return res.status(500).json({ status: "error", error: e.message });

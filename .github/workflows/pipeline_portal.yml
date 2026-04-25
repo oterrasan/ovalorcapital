@@ -13,10 +13,10 @@ jobs:
       - name: Executar pipeline
         run: |
           set +e
-          for i in 1 2 3 4 5 6 7 8 9; do
+          for i in 1 2 3 4 5 6; do
             curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
               -H "Content-Type: application/json" \
-              --max-time 50 || true
-            sleep 55
+              --max-time 55 || true
+            sleep 50
           done
           exit 0
