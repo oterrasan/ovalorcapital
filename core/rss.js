@@ -13,22 +13,31 @@ export async function getNews() {
 
     if (!sources?.length) return [];
 
-    // Tenta cada fonte em ordem até conseguir itens
-    const shuffled = sources.sort(() => Math.random() - 0.5);
-    for (const source of shuffled) {
-      try {
-        const feed = await parser.parseURL(source.url);
-        if (feed.items?.length) {
-          return feed.items.slice(0, 10).map(i => ({
+    // Embaralhar fontes e pegar até 8 fontes diferentes por chamada
+    const shuffled = sources.sort(() => Math.random() - 0.5).slice(0, 8);
+
+    // Buscar todas em paralelo com timeout individual
+    const results = await Promise.allSettled(
+      shuffled.map(source =>
+        parser.parseURL(source.url)
+          .then(feed => (feed.items || []).slice(0, 5).map(i => ({
             title: i.title,
             link: i.link || i.guid,
             source: source.name,
             description: i.contentSnippet || i.summary || i.description || i.content || ""
-          })).filter(i => i.link);
-        }
-      } catch(_) { continue; }
-    }
-    return [];
+          })).filter(i => i.link && i.title))
+          .catch(() => [])
+      )
+    );
+
+    // Agregar e embaralhar tudo
+    const allItems = results
+      .filter(r => r.status === "fulfilled")
+      .flatMap(r => r.value);
+
+    // Embaralhar para variar categorias
+    return allItems.sort(() => Math.random() - 0.5);
+
   } catch(e) {
     return [];
   }
