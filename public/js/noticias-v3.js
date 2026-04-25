@@ -145,17 +145,24 @@
   function preencherCentral(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
-    var tit  = el.querySelector('.card-title,.card-feature-title,h2,h3');
-    var exc  = el.querySelector('.card-excerpt,.card-feature-excerpt,p:not(.card-meta)');
+    var tit  = el.querySelector('.card-feature-title,.card-title,h2,h3');
+    var exc  = el.querySelector('.card-feature-excerpt,.card-excerpt');
     var tag  = el.querySelector('.tag');
     var cta  = el.querySelector('.card-cta');
-    var meta = el.querySelector('.card-meta');
     if(tit)  tit.textContent = p.titulo;
-    if(exc)  exc.textContent = (p.resumo||'').slice(0,150);
+    if(exc)  exc.textContent = (p.resumo||'').slice(0,160);
     if(tag)  setTag(tag, p.categoria);
-    if(meta) meta.textContent = 'Redação OVC · ' + label(p.categoria);
     if(cta)  cta.href = url;
-    injectImg(el, p);
+    // Imagem como background — nunca como <img> tag
+    if(p.imagem && isValidImage(p.imagem)){
+      el.style.backgroundImage = "url('"+p.imagem+"')";
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.classList.add('has-image');
+    } else {
+      el.style.backgroundImage = '';
+      el.classList.remove('has-image');
+    }
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
