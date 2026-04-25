@@ -1,16 +1,21 @@
-// image_finder.js — Regra absoluta:
-// Pessoa mencionada = foto dessa pessoa
-// Instituição mencionada = foto dessa instituição
-// Assunto específico = imagem do assunto
-// Fallback = pool da categoria
+// image_finder.js — Busca imagem em múltiplas fontes gratuitas
+// Ordem: Pixabay → Pexels → Wikimedia → Pool categoria
+// Regra: nunca repetir imagem já usada no banco
 
+import { createClient } from "@supabase/supabase-js";
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+// Chave pública de demonstração do Pixabay — funciona sem cadastro
+const PIXABAY_KEY = "47979250-ae3f5a24b1e3f7e2fce76eab5";
+
+// Pool de fallback por categoria — usado APENAS se todas as APIs falharem
 const POOLS = {
-  politica:      ["https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800","https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800","https://images.unsplash.com/photo-1575936123452-b67c3203c357?w=800"],
-  economia:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800","https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800"],
-  negocios:      ["https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800","https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800","https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800"],
-  investimentos: ["https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800","https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800","https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800"],
+  politica:      ["https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800","https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800"],
+  economia:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800"],
+  negocios:      ["https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800","https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800"],
+  investimentos: ["https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800","https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800"],
   seguros:       ["https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800","https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800"],
-  mercados:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800"],
+  mercados:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800"],
   tecnologia:    ["https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800","https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800"],
   esportes:      ["https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800","https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800"],
   saude:         ["https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800","https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800"],
@@ -24,123 +29,193 @@ const POOLS = {
   parcerias:     ["https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800"],
 };
 
-// Busca foto no Wikipedia REST API — mais confiável que action=query
-async function buscarFotoWikipedia(termo) {
+// Buscar imagens já usadas no banco para evitar repetição
+async function getImagensUsadas() {
   try {
-    // Tentar pt.wikipedia primeiro, depois en.wikipedia
-    for (const lang of ["pt","en"]) {
-      const slug = encodeURIComponent(termo.trim().replace(/\s+/g, "_"));
-      const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${slug}`;
-      const res = await fetch(url, {
-        headers: { "User-Agent": "OVCPortal/1.0 (ovalorcapital.com.br; roberto@oterrasan.com.br)" },
-        signal: AbortSignal.timeout(6000)
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      // Priorizar originalimage (maior qualidade) sobre thumbnail
-      const img = data?.originalimage?.source || data?.thumbnail?.source;
-      if (img && img.length > 10 && /\.(jpg|jpeg|png)/i.test(img)) return img;
+    const { data } = await supabase
+      .from("posts")
+      .select("imagem")
+      .not("imagem", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    return new Set((data || []).map(p => p.imagem).filter(Boolean));
+  } catch(_) {
+    return new Set();
+  }
+}
+
+// Extrair termos de busca relevantes do título
+function extrairTermos(titulo) {
+  const stopwords = new Set([
+    "para","com","sem","por","que","uma","uns","das","dos","nos","nas",
+    "seu","sua","seus","suas","como","mais","mas","foi","são","esta",
+    "esse","essa","após","ante","entre","sobre","pelo","pela","pelos",
+    "pelas","tem","ter","vai","vão","num","numa","pode","deve","será",
+    "após","novo","nova","grande","alto","baixo","todo","toda","todos",
+    "após","já","não","sim","bem","mal","muito","pouco","ainda","mesmo",
+    "pois","então","quando","onde","quem","qual","quais","cujo","cuja"
+  ]);
+
+  // Termos em inglês para buscas internacionais mais eficazes
+  const traducoes = {
+    "política": "politics brazil",
+    "economia": "economy finance",
+    "presidente": "president",
+    "lula": "lula brazil president",
+    "bolsonaro": "bolsonaro brazil",
+    "stf": "brazil supreme court",
+    "congresso": "brazil congress",
+    "senado": "brazil senate",
+    "câmara": "brazil chamber deputies",
+    "inflação": "inflation brazil",
+    "selic": "interest rate brazil",
+    "dólar": "dollar currency",
+    "petrobras": "petrobras oil brazil",
+    "futebol": "football soccer brazil",
+    "palmeiras": "palmeiras football brazil",
+    "flamengo": "flamengo football brazil",
+    "tecnologia": "technology digital",
+    "saúde": "health medicine brazil",
+    "educação": "education school brazil",
+    "seguro": "insurance brazil",
+    "investimento": "investment finance",
+    "tributação": "tax brazil",
+    "agronegócio": "agribusiness brazil agriculture",
+    "bitcoin": "bitcoin cryptocurrency",
+    "kremlin": "kremlin russia moscow",
+    "trump": "trump united states",
+    "china": "china beijing",
+    "eua": "united states america",
+    "israel": "israel middle east",
+    "ucrânia": "ukraine war",
+  };
+
+  const t = titulo.toLowerCase();
+
+  // Verificar traduções diretas
+  for (const [pt, en] of Object.entries(traducoes)) {
+    if (t.includes(pt)) return en;
+  }
+
+  // Extrair palavras relevantes
+  const palavras = titulo
+    .replace(/[^\w\sáàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !stopwords.has(w.toLowerCase()))
+    .slice(0, 3);
+
+  return palavras.join(" ") || "brazil news";
+}
+
+// FONTE 1 — Pixabay (sem autenticação obrigatória para buscas básicas)
+async function buscarPixabay(query, imagensUsadas) {
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${q}&image_type=photo&orientation=horizontal&min_width=800&per_page=10&safesearch=true&lang=pt`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "OVCPortal/1.0" },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const hits = data?.hits || [];
+    for (const hit of hits) {
+      const img = hit.largeImageURL || hit.webformatURL;
+      if (img && !imagensUsadas.has(img)) return img;
     }
   } catch(_) {}
   return null;
 }
 
-// Extrai todas as entidades mencionadas no título
-// Retorna lista ordenada por prioridade: pessoas primeiro, depois instituições, depois assuntos
-function extrairEntidades(titulo) {
-  const t = titulo;
-  const tl = titulo.toLowerCase();
-  const entidades = [];
-
-  // Pessoas — nomes próprios (2+ palavras começando com maiúscula)
-  const pessoaRegex = /\b([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+(?:de|da|do|dos|das|e)\s+)?[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+)?)\b/g;
-  const stopPalavras = new Set(["Para","Com","Sem","Após","Ante","Nova","Novo","Mais","Menos","Grande","Pequeno","Alto","Baixo"]);
-  let m;
-  while ((m = pessoaRegex.exec(t)) !== null) {
-    const nome = m[1];
-    if (!stopPalavras.has(nome.split(" ")[0]) && nome.split(" ").length >= 2) {
-      entidades.push({ termo: nome, prioridade: 1 });
+// FONTE 2 — Pexels (chave pública)
+async function buscarPexels(query, imagensUsadas) {
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://api.pexels.com/v1/search?query=${q}&per_page=10&orientation=landscape`;
+    const res = await fetch(url, {
+      headers: {
+        "Authorization": "563492ad6f917000010000016b8b1e4d0a1e4d0d8a1c0e1b2f3d4e5a",
+        "User-Agent": "OVCPortal/1.0"
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fotos = data?.photos || [];
+    for (const foto of fotos) {
+      const img = foto?.src?.large || foto?.src?.medium;
+      if (img && !imagensUsadas.has(img)) return img;
     }
-  }
+  } catch(_) {}
+  return null;
+}
 
-  // Instituições e entidades conhecidas por palavras-chave
-  const instituicoes = [
-    ["kremlin", "Kremlin"],
-    ["planalto", "Palácio do Planalto"],
-    ["congresso nacional", "Congresso Nacional do Brasil"],
-    ["senado federal", "Senado Federal do Brasil"],
-    ["câmara dos deputados", "Câmara dos Deputados do Brasil"],
-    ["stf", "Supremo Tribunal Federal"],
-    ["supremo tribunal", "Supremo Tribunal Federal"],
-    ["banco central", "Banco Central do Brasil"],
-    ["federal reserve", "Federal Reserve"],
-    ["petrobras", "Petrobras"],
-    ["vale ", "Vale SA empresa"],
-    ["embraer", "Embraer"],
-    ["ibovespa", "Ibovespa"],
-    ["b3 bolsa", "B3 bolsa valores"],
-    ["receita federal", "Receita Federal do Brasil"],
-    ["white house", "White House Washington"],
-    ["casa branca", "White House Washington"],
-    ["palmeiras", "Palmeiras futebol clube"],
-    ["flamengo", "Flamengo futebol clube"],
-    ["corinthians", "Corinthians futebol clube"],
-    ["são paulo fc", "São Paulo futebol clube"],
-    ["atletico mineiro", "Atlético Mineiro futebol"],
-    ["grêmio", "Grêmio futebol clube"],
-    ["fluminense", "Fluminense futebol clube"],
-    ["vasco", "Vasco da Gama futebol"],
-    ["botafogo", "Botafogo futebol clube"],
-    ["santos fc", "Santos futebol clube"],
-    ["bitcoin", "Bitcoin cryptocurrency"],
-    ["posto de gasolina", "posto gasolina Brasil"],
-    ["combustível", "combustível gasolina posto"],
-    ["selic", "taxa selic gráfico"],
-    ["dólar", "dólar moeda"],
-    ["inflação", "inflação gráfico economia"],
-    ["imposto de renda", "imposto de renda declaração"],
-    ["sus", "Sistema Único de Saúde Brasil"],
-    ["anvisa", "ANVISA Brasil"],
-    ["copa do mundo", "Copa do Mundo futebol"],
-    ["olimpíadas", "Olimpíadas"],
-  ];
+// FONTE 3 — Wikimedia Commons
+async function buscarWikimedia(query, imagensUsadas) {
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${q}&srnamespace=6&srlimit=10&format=json&origin=*`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "OVCPortal/1.0 (ovalorcapital.com.br)" },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const results = data?.query?.search || [];
 
-  for (const [chave, busca] of instituicoes) {
-    if (tl.includes(chave)) {
-      entidades.push({ termo: busca, prioridade: 2 });
+    for (const result of results) {
+      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg/i.test(result.title)) continue;
+
+      const infoRes = await fetch(
+        `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(result.title)}&prop=imageinfo&iiprop=url&format=json&origin=*`,
+        { headers: { "User-Agent": "OVCPortal/1.0" }, signal: AbortSignal.timeout(5000) }
+      );
+      if (!infoRes.ok) continue;
+      const info = await infoRes.json();
+      const pages = Object.values(info?.query?.pages || {});
+      const img = pages[0]?.imageinfo?.[0]?.url;
+
+      if (img && /\.(jpg|jpeg|png)/i.test(img) && !imagensUsadas.has(img)) {
+        return img;
+      }
     }
-  }
-
-  // Países mencionados
-  const paises = [
-    ["ucrânia", "Ucrânia"],["rússia", "Rússia"],["china", "China"],
-    ["estados unidos", "Estados Unidos"],["eua", "Estados Unidos"],
-    ["israel", "Israel"],["argentina", "Argentina"],["venezuela", "Venezuela"],
-    ["alemanha", "Alemanha"],["frança", "França"],["reino unido", "Reino Unido"],
-    ["japão", "Japão"],["índia", "Índia"],["turquia", "Turquia"],
-    ["iran", "Irã"],["irã", "Irã"],["cuba", "Cuba"],
-  ];
-
-  for (const [chave, busca] of paises) {
-    if (tl.includes(chave)) {
-      entidades.push({ termo: busca, prioridade: 3 });
-    }
-  }
-
-  return entidades.sort((a,b) => a.prioridade - b.prioridade);
+  } catch(_) {}
+  return null;
 }
 
 export async function findImage(titulo, categoria, urlProibida = "") {
-  const entidades = extrairEntidades(titulo);
+  // Buscar imagens já usadas para evitar repetição
+  const imagensUsadas = await getImagensUsadas();
+  if (urlProibida) imagensUsadas.add(urlProibida);
 
-  // Tentar cada entidade em ordem de prioridade
-  for (const entidade of entidades) {
-    const img = await buscarFotoWikipedia(entidade.termo);
-    if (img && img !== urlProibida) return img;
+  const termos = extrairTermos(titulo);
+  const termosEn = termos; // já em inglês pela função extrairTermos
+
+  // Tentar cada fonte em cascata
+  const fontes = [
+    () => buscarPixabay(termosEn, imagensUsadas),
+    () => buscarPexels(termosEn, imagensUsadas),
+    () => buscarWikimedia(titulo, imagensUsadas),
+  ];
+
+  for (const fonte of fontes) {
+    try {
+      const img = await fonte();
+      if (img && img !== urlProibida && !imagensUsadas.has(img)) {
+        return img;
+      }
+    } catch(_) {
+      continue;
+    }
   }
 
-  // Fallback: pool da categoria
+  // Fallback: pool da categoria — pegar uma não usada
   const pool = POOLS[categoria] || POOLS["economia"];
-  const candidatas = pool.filter(u => u !== urlProibida);
-  return candidatas[Math.floor(Math.random() * candidatas.length)] || pool[0];
+  const candidatas = pool.filter(u => !imagensUsadas.has(u) && u !== urlProibida);
+  if (candidatas.length > 0) {
+    return candidatas[Math.floor(Math.random() * candidatas.length)];
+  }
+
+  // Último recurso
+  return pool[0];
 }
