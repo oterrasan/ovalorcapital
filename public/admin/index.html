@@ -476,6 +476,12 @@ function Postagens() {
     setApproving(false);
   };
 
+  const despublicar = async id => {
+    if (!confirm('Despublicar este post? Ele sairá do portal imediatamente.')) return;
+    await sb.from('posts').update({status:'pendente', approved:false, published_at:null}).eq('id',id);
+    load();
+  };
+
   const pubPortalBatch = async () => {
     if (!selected.length) return;
     if (!confirm(`Publicar ${selected.length} post(s) no Portal Web?`)) return;
@@ -610,6 +616,9 @@ function Postagens() {
                         {p.status==='pendente'&&<>
                           <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Portal</button>
                           <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
+                        </>}
+                        {p.status==='publicado'&&<>
+                          <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
                         {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
                       </div>
@@ -952,6 +961,194 @@ function Desempenho() {
             ))}</tbody></table>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RELATÓRIOS ──
+function Relatorios() {
+  const [dados, setDados] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [periodo, setPeriodo] = React.useState(7);
+
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    const agora = new Date();
+    const inicio = new Date(agora - periodo * 24 * 60 * 60 * 1000).toISOString();
+
+    // Buscar todos os posts do período
+    const { data: posts } = await sb.from('posts')
+      .select('id,titulo,status,user_tags,subcategoria,created_at,published_at,publish_method')
+      .gte('created_at', inicio)
+      .order('created_at', {ascending: false});
+
+    // Buscar logs do período
+    const { data: logs } = await sb.from('logs')
+      .select('level,message,created_at')
+      .gte('created_at', inicio)
+      .order('created_at', {ascending: false})
+      .limit(200);
+
+    if (!posts) { setLoading(false); return; }
+
+    // Calcular métricas
+    const total = posts.length;
+    const publicados = posts.filter(p => p.status === 'publicado').length;
+    const pendentes = posts.filter(p => p.status === 'pendente').length;
+    const erros_count = (logs||[]).filter(l => l.level === 'error').length;
+
+    // Posts por dia
+    const porDia = {};
+    posts.forEach(p => {
+      const dia = p.created_at.slice(0,10);
+      porDia[dia] = (porDia[dia] || 0) + 1;
+    });
+
+    // Posts por categoria
+    const porCat = {};
+    posts.forEach(p => {
+      try {
+        const tags = JSON.parse(p.user_tags || '[]');
+        const cat = tags[0] || 'geral';
+        porCat[cat] = (porCat[cat] || 0) + 1;
+      } catch {}
+    });
+
+    // Posts por método de publicação
+    const porMetodo = {};
+    posts.forEach(p => {
+      const m = p.publish_method || 'portal';
+      porMetodo[m] = (porMetodo[m] || 0) + 1;
+    });
+
+    // Média diária
+    const mediaDiaria = periodo > 0 ? (publicados / periodo).toFixed(1) : 0;
+
+    // Últimos erros
+    const ultimosErros = (logs||[]).filter(l => l.level === 'error').slice(0, 10);
+
+    setDados({ total, publicados, pendentes, erros_count, porDia, porCat, porMetodo, mediaDiaria, ultimosErros, posts: posts.slice(0,10) });
+    setLoading(false);
+  }, [periodo]);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="loading">Carregando relatórios...</div>;
+  if (!dados) return <div className="empty-state"><div className="empty-icon">📊</div><div className="empty-text">Sem dados</div></div>;
+
+  const catSort = Object.entries(dados.porCat).sort((a,b) => b[1]-a[1]);
+  const diaSort = Object.entries(dados.porDia).sort((a,b) => a[0].localeCompare(b[0]));
+  const maxDia = Math.max(...Object.values(dados.porDia), 1);
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">Relatórios</div>
+        <div className="page-sub">Visão completa da produção editorial</div>
+      </div>
+      <div className="page-body">
+
+        {/* Seletor de período */}
+        <div style={{display:'flex',gap:8,marginBottom:20}}>
+          {[1,7,15,30].map(d => (
+            <button key={d} className={`btn btn-sm ${periodo===d?'btn-primary':'btn-secondary'}`} onClick={()=>setPeriodo(d)}>
+              {d===1?'Hoje':`${d} dias`}
+            </button>
+          ))}
+          <button className="btn btn-sm btn-secondary" onClick={load} style={{marginLeft:'auto'}}>🔄 Atualizar</button>
+        </div>
+
+        {/* Cards de métricas */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:20}}>
+          {[
+            {label:'Total Gerado', valor:dados.total, cor:'var(--accent)', icon:'📝'},
+            {label:'Publicados', valor:dados.publicados, cor:'var(--green)', icon:'✅'},
+            {label:'Pendentes', valor:dados.pendentes, cor:'var(--yellow)', icon:'⏳'},
+            {label:'Média/Dia', valor:dados.mediaDiaria, cor:'#8b5cf6', icon:'📈'},
+          ].map(m => (
+            <div key={m.label} className="panel" style={{padding:20,textAlign:'center'}}>
+              <div style={{fontSize:28}}>{m.icon}</div>
+              <div style={{fontSize:32,fontWeight:700,color:m.cor,margin:'8px 0'}}>{m.valor}</div>
+              <div style={{fontSize:12,color:'var(--t2)'}}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Produção por dia */}
+        <div className="panel" style={{marginBottom:20}}>
+          <div className="panel-header"><span className="panel-title">📅 Produção por Dia</span></div>
+          <div style={{padding:20}}>
+            {diaSort.length === 0 ? <div className="empty-state" style={{padding:20}}><div className="empty-text">Sem dados no período</div></div> :
+            diaSort.map(([dia, qtd]) => (
+              <div key={dia} style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+                <div style={{width:90,fontSize:12,color:'var(--t2)',flexShrink:0}}>{dia}</div>
+                <div style={{flex:1,background:'rgba(255,255,255,0.05)',borderRadius:4,height:24,position:'relative',overflow:'hidden'}}>
+                  <div style={{position:'absolute',left:0,top:0,bottom:0,width:`${(qtd/maxDia)*100}%`,background:'var(--accent)',borderRadius:4,transition:'width .3s'}}/>
+                  <div style={{position:'absolute',left:8,top:0,bottom:0,display:'flex',alignItems:'center',fontSize:12,fontWeight:600}}>{qtd} posts</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Posts por categoria */}
+        <div className="panel" style={{marginBottom:20}}>
+          <div className="panel-header"><span className="panel-title">🏷️ Posts por Categoria</span></div>
+          <div style={{padding:20}}>
+            {catSort.length === 0 ? <div className="empty-text">Sem dados</div> :
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+              {catSort.map(([cat, qtd]) => (
+                <div key={cat} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:'rgba(255,255,255,0.03)',borderRadius:6}}>
+                  <span style={{textTransform:'capitalize',fontSize:13}}>{cat}</span>
+                  <span style={{fontWeight:700,color:'var(--accent)'}}>{qtd}</span>
+                </div>
+              ))}
+            </div>}
+          </div>
+        </div>
+
+        {/* Erros recentes */}
+        <div className="panel" style={{marginBottom:20}}>
+          <div className="panel-header">
+            <span className="panel-title">⚠️ Erros Recentes</span>
+            <span className="badge badge-gray">{dados.erros_count} total</span>
+          </div>
+          <div style={{padding:20}}>
+            {dados.ultimosErros.length === 0 ?
+              <div style={{textAlign:'center',padding:20,color:'var(--green)'}}>✅ Nenhum erro no período</div> :
+              dados.ultimosErros.map((e,i) => (
+                <div key={i} style={{padding:'8px 12px',background:'rgba(200,30,30,0.08)',border:'1px solid rgba(200,30,30,0.2)',borderRadius:6,marginBottom:6}}>
+                  <div style={{fontSize:11,color:'var(--t2)',marginBottom:2}}>{fmt(e.created_at)}</div>
+                  <div style={{fontSize:12,color:'#ff8888'}}>{e.message}</div>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+
+        {/* Últimos posts gerados */}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">📋 Últimos Posts Gerados</span></div>
+          <table>
+            <thead><tr><th>Título</th><th>Categoria</th><th>Status</th><th>Data</th></tr></thead>
+            <tbody>
+              {dados.posts.map(p => {
+                let cat = 'geral';
+                try { cat = JSON.parse(p.user_tags||'[]')[0] || 'geral'; } catch {}
+                return (
+                  <tr key={p.id}>
+                    <td style={{maxWidth:300}}>{truncate(p.titulo,50)}</td>
+                    <td><span className="badge badge-gray" style={{textTransform:'capitalize'}}>{cat}</span></td>
+                    <td><span className={`badge ${p.status==='publicado'?'badge-green':p.status==='pendente'?'badge-yellow':'badge-gray'}`}>{p.status}</span></td>
+                    <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
   );
@@ -1404,6 +1601,7 @@ const PAGES = [
   {id:'engajamento',label:'Engajamento',icon:'💬'},
   {id:'logs',label:'Logs',icon:'📋'},
   {id:'desempenho',label:'Desempenho',icon:'📈'},
+  {id:'relatorios',label:'Relatórios',icon:'📊'},
   {id:'configuracoes',label:'Configurações',icon:'🔧'},
   {id:'imagens',label:'Imagens',icon:'🖼️'},
 ];
@@ -1429,7 +1627,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,configuracoes:Configuracoes,imagens:UploadImagens}[page];
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens}[page];
 
   return (
     <div className="layout">
