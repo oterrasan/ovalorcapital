@@ -295,9 +295,11 @@ function Pipeline() {
 
   const toggleAuto = async () => {
     const n = !auto; setAuto(n);
-    await sb.from('config').upsert({key:'AUTOMATION',value:n?'on':'off',updated_at:new Date().toISOString()},{onConflict:'key'});
-    setMsg('Automação '+(n?'ativada':'pausada'));
-    setTimeout(()=>setMsg(''),3000);
+    // DELETE + INSERT para evitar duplicata — garante que só existe 1 registro
+    await sb.from('config').delete().eq('key','AUTOMATION');
+    await sb.from('config').insert({key:'AUTOMATION',value:n?'on':'off',updated_at:new Date().toISOString()});
+    setMsg('Automação '+(n?'✅ ATIVADA':'⏸ PAUSADA'));
+    setTimeout(()=>{ setMsg(''); load(); },3000);
   };
 
   const saveConfig = async () => {
@@ -1021,13 +1023,7 @@ function Configuracoes() {
         <div className="panel">
           <div className="panel-header"><span className="panel-title">Automação</span></div>
           <div style={{padding:20}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
-              <label className="toggle">
-                <input type="checkbox" checked={cfgs['AUTOMATION']==='on'} onChange={e=>{ const v=e.target.checked?'on':'off'; setCfgs({...cfgs,AUTOMATION:v}); save('AUTOMATION',v); }}/>
-                <span className="toggle-slider"></span>
-              </label>
-              <span style={{fontWeight:500}}>Pipeline Automático</span>
-            </div>
+            <div style={{color:'var(--t2)',fontSize:13}}>⚙️ O controle de automação está no módulo <strong>Pipeline</strong>. Use o toggle de lá para ligar ou desligar.</div>
           </div>
         </div>
       </div>
