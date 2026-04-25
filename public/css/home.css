@@ -1781,3 +1781,33 @@
 
     /* overrides já declarados nas definições de .card-hero-main acima */
 
+
+/* ===========================
+   CARD COM IMAGEM DE FUNDO — REGRA INVIOLÁVEL
+   Garante que título, excerpt e meta sejam sempre legíveis
+   sobre qualquer imagem de fundo injetada via JS
+   =========================== */
+.card-standard[style*="background-image"] .card-title,
+.card-standard[style*="background-image"] h2,
+.card-standard[style*="background-image"] h3 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+}
+.card-standard[style*="background-image"] .card-meta {
+  color: #ffc800 !important;
+}
+.card-standard[style*="background-image"] .card-excerpt,
+.card-standard[style*="background-image"] p {
+  color: rgba(255,255,255,0.88) !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+.card-standard[style*="background-image"] .card-cta {
+  color: #ffffff !important;
+}
+.card-standard[style*="background-image"] .tag {
+  background: rgba(0,0,0,0.55) !important;
+  color: #ffffff !important;
+}
+.card-standard[style*="background-image"] .tag-dot {
+  background: #ffc800 !important;
+}

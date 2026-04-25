@@ -249,19 +249,7 @@
           children[c].style.zIndex = '1';
         }
       }
-      // Forçar texto branco sobre a imagem
-      var tit2 = el.querySelector('.card-title');
-      var meta2 = el.querySelector('.card-meta');
-      var exc2 = el.querySelector('.card-excerpt');
-      var cta2 = el.querySelector('.card-cta');
-      var tag2 = el.querySelector('.tag');
-      if(tit2) tit2.style.color = '#ffffff';
-      if(meta2) meta2.style.color = '#ffc800';
-      if(exc2) exc2.style.color = 'rgba(255,255,255,0.88)';
-      if(cta2) cta2.style.color = '#ffffff';
-      if(tag2){ tag2.style.background = 'rgba(0,0,0,0.55)'; tag2.style.color = '#ffffff'; }
-      var tagDot2 = tag2 ? tag2.querySelector('.tag-dot') : null;
-      if(tagDot2) tagDot2.style.background = '#ffc800';
+      // Cores tratadas via CSS — .card-standard[style*="background-image"]
     }
 
     el.style.cursor = 'pointer';
