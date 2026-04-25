@@ -900,19 +900,36 @@
     }
 
     /* Quando tem imagem, aplicar overlay escuro */
-    .card-feature.has-image::before {
+    .card-feature.has-image::before,
+    .card-feature[style*="background-image"]::before {
       content: "";
       position: absolute;
       inset: 0;
-      background: linear-gradient(to top, rgba(5,8,22,0.88) 0%, rgba(5,8,22,0.55) 60%, rgba(5,8,22,0.2) 100%);
+      background: linear-gradient(to top, rgba(5,8,22,0.92) 0%, rgba(5,8,22,0.65) 50%, rgba(5,8,22,0.30) 100%);
       z-index: 1;
       border-radius: var(--card-radius);
     }
+    .card-feature[style*="background-image"] > * {
+      position: relative;
+      z-index: 2;
+    }
 
     .card-feature.has-image .card-feature-title,
-    .card-feature.has-image .card-feature-excerpt {
-      color: #f1f5f9 !important;
-      text-shadow: 0 1px 5px rgba(0,0,0,0.65);
+    .card-feature.has-image .card-feature-excerpt,
+    .card-feature[style*="background-image"] .card-feature-title,
+    .card-feature[style*="background-image"] .card-feature-excerpt {
+      color: #ffffff !important;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.85);
+    }
+    .card-feature[style*="background-image"] .tag {
+      background: rgba(0,0,0,0.55) !important;
+      color: #ffffff !important;
+    }
+    .card-feature[style*="background-image"] .tag-dot {
+      background: #ffc800 !important;
+    }
+    .card-feature[style*="background-image"] .card-cta {
+      color: #ffffff !important;
     }
 
     .card-feature-title {
