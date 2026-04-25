@@ -279,6 +279,8 @@
   }
 
   function loadNoticias(){
+    var dbgEl = document.getElementById('ovc-card-std-8');
+    if(dbgEl){ var dbgSpan = document.createElement('div'); dbgSpan.id='ovc-debug'; dbgSpan.style='background:red;color:white;padding:4px;font-size:12px;'; dbgSpan.textContent='JS RODANDO...'; dbgEl.insertBefore(dbgSpan, dbgEl.firstChild); }
     fetch(API + '?limit=120')
       .then(function(res){ return res.json(); })
       .then(function(json){
