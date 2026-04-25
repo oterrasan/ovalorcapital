@@ -234,7 +234,8 @@ export default async function handler(req, res) {
 
     const content = parse(raw);
     if (!content || !content.corpo || content.corpo.length < 100) {
-      throw new Error("A IA não gerou conteúdo suficiente. Tente com um texto mais longo.");
+      // Retornar raw para debug temporário
+      return res.status(200).json({ debug: true, raw: (raw||"").slice(0,500), content_titulo: content?.titulo, content_corpo_len: content?.corpo?.length||0 });
     }
 
     // Preview — não salva
