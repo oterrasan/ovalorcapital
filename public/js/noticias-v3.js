@@ -8,7 +8,7 @@
   var CAT_DIREITO = ['seguros','investimentos','parcerias'];
 
   // Card 2 — Central: TODAS exceto VC, Política, Economia, Seguros, Investimentos, Parcerias
-  var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc'];
+  var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc','tecnologia','esportes','industria'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
   var _centralIndex = 0, _centralPosts = [], _centralTimer = null;
