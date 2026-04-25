@@ -229,22 +229,25 @@
     if(cta)  cta.href = url;
 
     if(isValidImage(p.imagem)){
-      var existingImg = el.querySelector('img.ovc-card-img');
-      if(!existingImg){
-        var img = document.createElement('img');
-        img.className = 'ovc-card-img';
-        img.src = p.imagem;
-        img.alt = '';
-        img.onerror = function(){ this.remove(); };
-        // Inserir DEPOIS da tag e ANTES do título — preserva layout
-        var tagEl = el.querySelector('.tag');
-        if(tagEl && tagEl.nextSibling){
-          el.insertBefore(img, tagEl.nextSibling);
-        } else {
-          el.appendChild(img);
+      // Usar background-image no card — conteúdo fica visível em cima, sem quebrar layout
+      el.style.backgroundImage = "url('"+p.imagem+"')";
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center top';
+      // Overlay escuro para legibilidade do texto
+      el.style.position = 'relative';
+      if(!el.querySelector('.ovc-img-overlay')){
+        var overlay = document.createElement('div');
+        overlay.className = 'ovc-img-overlay';
+        overlay.style.cssText = 'position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.18) 0%,rgba(0,0,0,0.55) 100%);border-radius:inherit;pointer-events:none;z-index:0;';
+        el.insertBefore(overlay, el.firstChild);
+      }
+      // Garantir que o conteúdo fique acima do overlay
+      var children = el.children;
+      for(var c=0;c<children.length;c++){
+        if(!children[c].classList.contains('ovc-img-overlay')){
+          children[c].style.position = 'relative';
+          children[c].style.zIndex = '1';
         }
-      } else {
-        existingImg.src = p.imagem;
       }
     }
 
