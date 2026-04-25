@@ -67,7 +67,7 @@ function detectCategoria(texto) {
   if (/lula|stf|congresso|câmara|senado|governo federal|ministro|presidente|reforma|judiciário|partido|eleição|política/.test(t)) return "politica";
   if (/ibovespa|bolsa|dólar|pib|inflação|selic|copom|juros|banco central|economia|fiscal|orçamento|déficit/.test(t)) return "economia";
   if (/empresa|negócio|startup|mercado|empreend|fusão|aquisição|corporat/.test(t)) return "negocios";
-  if (/renda fixa|tesouro direto|fundo de investimento|cdi|bitcoin|cripto|ação|carteira|dividendo/.test(t)) return "investimentos";
+  if (/renda fixa|tesouro direto|fundo de investimento|cdi|bitcoin|cripto|ação|carteira|dividendo|previdência privada|pgbl|vgbl|consórcio|poupança|plano de previdência|seguro de vida|portabilidade de previdência/.test(t)) return "investimentos";
   if (/imposto|tributação|irpf|receita federal|tributário/.test(t)) return "tributacao";
   if (/regulação|anatel|anvisa|susep|ans|bacen|cvm|regulatório/.test(t)) return "regulacao";
   if (/seguro|proteção|apólice|sinistro|previdência privada|pgbl|vgbl/.test(t)) return "seguros";
@@ -122,6 +122,7 @@ REGRAS INVIOLÁVEIS:
 - Voz editorial centro-direita nos fatos — fiscalização do Estado, liberdade econômica, família — nunca panfletária
 - Frases curtas e médias alternadas. Ritmo jornalístico
 - NUNCA use estas palavras: muralha, blindar, colapso, castelo, blueprint, catalisador, ecossistema, disruptivo, paradigma, sinergia, protagonista, robusto, resiliente, isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, desafios e oportunidades, no bojo, no seio, à luz de, no âmbito, cabe ressaltar, é importante destacar, em linha com, pari passu, não por acaso, nesse sentido, pimenta amarga, mister, fulcral, hodierno, notadamente, outrossim
+- CATEGORIA "investimentos" SOMENTE para: previdência privada, PGBL, VGBL, consórcio, poupança, renda fixa, tesouro direto, fundos de investimento, CDB, LCI, LCA, carteira de investimentos, dividendos, ações na bolsa — produtos financeiros pessoais que uma corretora vende ao cliente. Investimento de governo, obra pública, empresa abrindo fábrica ou contratando = NÃO é investimentos, é economia ou negocios
 
 NOTÍCIA FONTE:
 ${text}`;

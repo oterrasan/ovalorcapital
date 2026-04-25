@@ -1,13 +1,14 @@
 (function(){
   var API = '/api/portal-posts';
 
-  // Card 1 — Hero: só Política e Economia
+  // Card Hero: politica, economia
   var CAT_HERO = ['politica','economia'];
 
-  // Card 3 — Direito: só Seguros, Investimentos e Parcerias
+  // Card Direito: seguros, investimentos (produtos financeiros pessoais — previdência, consórcio, poupança), parcerias
   var CAT_DIREITO = ['seguros','investimentos','parcerias'];
 
-  // Card 2 — Central: TODAS exceto VC, Política, Economia, Seguros, Investimentos, Parcerias
+  // Card Central: negocios, mercados, educacao, saude, familia, tributacao, regulacao, internacional
+  var CAT_CENTRAL = ['negocios','mercados','educacao','saude','familia','tributacao','regulacao','internacional'];
   var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc','tecnologia','esportes','industria'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
@@ -325,7 +326,7 @@
 
         // ── Card 2: Central — SOMENTE categorias permitidas. SEM FALLBACK. ──
         var centralPool = todos.filter(function(p){
-          return CAT_EXCLUIDAS_CENTRAL.indexOf(p.categoria) === -1 && !usedIds[p.id];
+          return CAT_CENTRAL.indexOf(p.categoria) !== -1 && !usedIds[p.id];
         });
         var centralEl = document.querySelector('.card-feature');
         if(centralEl && centralPool.length){
