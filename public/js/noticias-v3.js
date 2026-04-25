@@ -259,7 +259,9 @@
       if(meta2) meta2.style.color = '#ffc800';
       if(exc2) exc2.style.color = 'rgba(255,255,255,0.88)';
       if(cta2) cta2.style.color = '#ffffff';
-      if(tag2) tag2.style.background = 'rgba(0,0,0,0.45)';
+      if(tag2){ tag2.style.background = 'rgba(0,0,0,0.55)'; tag2.style.color = '#ffffff'; }
+      var tagDot2 = tag2 ? tag2.querySelector('.tag-dot') : null;
+      if(tagDot2) tagDot2.style.background = '#ffc800';
     }
 
     el.style.cursor = 'pointer';
