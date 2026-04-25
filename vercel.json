@@ -8,42 +8,17 @@
     }
   ],
   "functions": {
-    "api/run.js": {
-      "maxDuration": 60
-    },
-    "api/run_portal.js": {
-      "maxDuration": 60
-    },
-    "api/approve.js": {
-      "maxDuration": 60
-    },
-    "api/approve_portal.js": {
-      "maxDuration": 30
-    },
-    "api/portal-posts.js": {
-      "maxDuration": 15
-    },
-    "api/status.js": {
-      "maxDuration": 10
-    },
-    "api/refresh_token.js": {
-      "maxDuration": 30
-    },
-    "api/recategorize.js": {
-      "maxDuration": 60
-    },
-    "api/manual_post.js": {
-      "maxDuration": 60
-    },
-    "api/editor_ia.js": {
-      "maxDuration": 60
-    },
-    "api/live-data.js": {
-      "maxDuration": 15
-    },
-    "api/cleanup.js": {
-      "maxDuration": 30
-    }
+    "api/run_portal.js": { "maxDuration": 60 },
+    "api/run_manual.js": { "maxDuration": 60 },
+    "api/editor_ia.js":  { "maxDuration": 60 },
+    "api/approve.js":    { "maxDuration": 60 },
+    "api/approve_portal.js": { "maxDuration": 30 },
+    "api/portal-posts.js":   { "maxDuration": 15 },
+    "api/status.js":         { "maxDuration": 10 },
+    "api/refresh_token.js":  { "maxDuration": 30 },
+    "api/manual_post.js":    { "maxDuration": 60 },
+    "api/live-data.js":      { "maxDuration": 15 },
+    "api/cleanup.js":        { "maxDuration": 30 }
   },
   "build": {
     "env": {
@@ -54,14 +29,8 @@
     {
       "source": "/js/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Pragma", "value": "no-cache" }
       ]
     }
   ]
