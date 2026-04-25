@@ -7,9 +7,37 @@ import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const MAX_DIA = 1440;
-const POSTS_POR_CHAMADA = 5; // Gera até 5 posts por execução
+
+// Filtro de qualidade — rejeita conteúdo inválido
+function validarConteudo(content) {
+  if (!content || !content.titulo || !content.corpo) return false;
+  const titulo = content.titulo.toLowerCase();
+  const corpo = content.corpo.toLowerCase();
+
+  // Rejeitar títulos absurdos
+  const titulosProibidos = [
+    "prezado", "caro usuário", "olá", "atenção", "aviso",
+    "notícia", "sem título", "título", "headline", "assunto",
+    "prezado usuário", "erro", "teste", "exemplo"
+  ];
+  if (titulosProibidos.some(t => titulo.includes(t))) return false;
+
+  // Rejeitar corpo muito curto
+  if (content.corpo.length < 1000) return false;
+
+  // Rejeitar corpo que começa com lixo
+  const corpoInicio = content.corpo.slice(0, 100).toLowerCase();
+  if (corpoInicio.includes("prezado") || corpoInicio.includes("olá") || corpoInicio.includes("caro ")) return false;
+
+  // Rejeitar se não tem "redação ovc" no corpo
+  if (!corpo.includes("redação ovc")) return false;
+
+  return true;
+}
 
 export default async function handler(req, res) {
+  const inicio = Date.now();
+
   try {
     // Checar automação
     const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
@@ -21,23 +49,19 @@ export default async function handler(req, res) {
       .select("id", { count: "exact", head: true })
       .gte("created_at", hoje + "T00:00:00")
       .eq("publish_method", "portal");
-    const countHoje = count || 0;
-    if (countHoje >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count: countHoje });
+    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count });
 
-    // Buscar notícias — pegar mais para ter material suficiente
+    // Buscar notícias
     const news = await getNews();
     if (!news.length) return res.status(200).json({ status: "no_news" });
 
-    const results = [];
-    const errors = [];
-    let tentativas = 0;
+    // Tentar cada notícia até 1 funcionar — rápido e dentro do timeout da Vercel
+    for (const item of news.slice(0, 15)) {
+      // Verificar tempo restante — Vercel mata em 60s
+      if (Date.now() - inicio > 45000) {
+        return res.status(200).json({ status: "timeout_preventivo" });
+      }
 
-    // Processar até gerar POSTS_POR_CHAMADA posts ou esgotar as notícias
-    for (const item of news.slice(0, 20)) {
-      if (results.length >= POSTS_POR_CHAMADA) break;
-      if (countHoje + results.length >= MAX_DIA) break;
-
-      tentativas++;
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
 
       // Checar duplicata
@@ -58,13 +82,12 @@ export default async function handler(req, res) {
       try {
         content = await rewritePortal(sourceText, item.title);
       } catch(e) {
-        errors.push({ link: item.link, error: e.message });
-        continue; // Não para — tenta a próxima notícia
+        continue; // tenta próxima
       }
 
-      if (!content || !content.corpo || content.corpo.length < 500) continue;
+      // Validar qualidade — rejeita lixo
+      if (!validarConteudo(content)) continue;
       if (!content.categoria || content.categoria === "geral") continue;
-
       if (!content.subcategoria) {
         content.subcategoria = "Geral";
         content.subcategoria_slug = "geral";
@@ -74,7 +97,7 @@ export default async function handler(req, res) {
       const urlProibida = article.image || "";
       const imagemFinal = await findImage(content.titulo, content.categoria, urlProibida);
 
-      // Salvar — status pendente, publicação automática
+      // Salvar e publicar automaticamente
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
@@ -95,28 +118,18 @@ export default async function handler(req, res) {
         max_retries: 3
       }).select().single();
 
-      if (error) {
-        errors.push({ link: item.link, error: error.message });
-        continue;
-      }
+      if (error) return res.status(200).json({ status: "db_error", error: error.message });
 
-      results.push({
-        id: post?.id,
+      return res.status(200).json({
+        status: "ok",
         titulo: content.titulo,
         categoria: content.categoria,
         subcategoria: content.subcategoria,
-        imagem: imagemFinal
+        id: post?.id
       });
     }
 
-    return res.status(200).json({
-      status: results.length > 0 ? "ok" : "no_valid_news",
-      gerados: results.length,
-      tentativas,
-      total_hoje: countHoje + results.length,
-      results,
-      errors: errors.length > 0 ? errors : undefined
-    });
+    return res.status(200).json({ status: "no_valid_news" });
 
   } catch(e) {
     return res.status(500).json({ status: "error", error: e.message });

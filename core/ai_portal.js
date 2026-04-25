@@ -433,8 +433,20 @@ export async function rewritePortal(text, title) {
   const result = parse(raw);
 
   if (!result || !result.corpo || result.corpo.length < 1500) {
-    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
+    throw new Error("Conteúdo insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
+
+  // Filtro de qualidade — rejeitar lixo do Gemini
+  const tituloLower = (result.titulo || "").toLowerCase();
+  const corpoLower = result.corpo.toLowerCase();
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "aviso:", "sem título", "prezado usuário"];
+  if (proibidos.some(p => tituloLower.includes(p) || corpoLower.slice(0,100).includes(p))) {
+    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
+  }
+  if (!corpoLower.includes("redação ovc")) {
+    throw new Error("Conteúdo rejeitado — sem assinatura Redação OVC");
+  }
+
   return result;
 }
 
