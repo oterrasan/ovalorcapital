@@ -620,6 +620,40 @@ function Postagens() {
     setApproving(false);
   };
 
+  const [revisando, setRevisando] = useState(null);
+
+  const revisarIA = async (post) => {
+    if (!confirm('A IA vai revisar o conteúdo e buscar nova imagem para este post. Continuar?')) return;
+    setRevisando(post.id);
+    try {
+      // Pedir revisão ao editor_ia
+      const r = await fetch('/api/editor_ia', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          texto: post.conteudo,
+          acao: 'melhorar',
+          ia: 'gemini',
+          buscarImagem: true,
+          publicar: false
+        })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao revisar');
+      // Abrir modal de edição com o resultado revisado
+      setEditPost({
+        ...post,
+        titulo: d.titulo || post.titulo,
+        conteudo: d.corpo || post.conteudo,
+        imagem: d.imagem || post.imagem,
+        _revisado: true
+      });
+    } catch(e) {
+      alert('Erro ao revisar: ' + e.message);
+    }
+    setRevisando(null);
+  };
+
   const despublicar = async id => {
     if (!confirm('Despublicar este post? Ele sairá do portal imediatamente.')) return;
     await sb.from('posts').update({status:'pendente', approved:false, published_at:null}).eq('id',id);
@@ -697,10 +731,15 @@ function Postagens() {
             <div className="modal">
               <div className="modal-header"><span className="modal-title">Editar Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setEditPost(null)}>✕</button></div>
               <div className="modal-body">
-                <div className="form-group"><label className="form-label">Título / Tag</label><input className="form-input" value={editPost.titulo||''} onChange={e=>setEditPost({...editPost,titulo:e.target.value})}/></div>
-                <div className="form-group"><label className="form-label">Legenda / Conteúdo</label><textarea className="form-textarea" style={{minHeight:180}} value={editPost.conteudo||''} onChange={e=>setEditPost({...editPost,conteudo:e.target.value})}/></div>
+                {editPost._revisado && <div style={{padding:'8px 12px',background:'rgba(139,92,246,0.1)',border:'1px solid rgba(139,92,246,0.3)',borderRadius:6,marginBottom:12,fontSize:12,color:'#a78bfa'}}>🤖 Conteúdo revisado pela IA — revise e salve se aprovar</div>}
+                <div className="form-group"><label className="form-label">Título</label><input className="form-input" value={editPost.titulo||''} onChange={e=>setEditPost({...editPost,titulo:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Conteúdo</label><textarea className="form-textarea" style={{minHeight:220}} value={editPost.conteudo||''} onChange={e=>setEditPost({...editPost,conteudo:e.target.value})}/></div>
                 <div className="form-group"><label className="form-label">Comentário Fixado</label><textarea className="form-textarea" style={{minHeight:60}} value={editPost.comentario_fixado||''} onChange={e=>setEditPost({...editPost,comentario_fixado:e.target.value})}/></div>
-                <div className="form-group"><label className="form-label">URL da Imagem</label><input className="form-input" value={editPost.imagem||''} onChange={e=>setEditPost({...editPost,imagem:e.target.value})}/></div>
+                <div className="form-group">
+                  <label className="form-label">URL da Imagem</label>
+                  <input className="form-input" value={editPost.imagem||''} onChange={e=>setEditPost({...editPost,imagem:e.target.value})}/>
+                  {editPost.imagem && <img src={editPost.imagem} alt="" style={{marginTop:8,width:'100%',height:160,objectFit:'cover',borderRadius:6,display:'block'}} onError={e=>e.target.style.display='none'}/>}
+                </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
                     <select className="form-select" value={editPost.ig_account_id||''} onChange={e=>setEditPost({...editPost,ig_account_id:e.target.value})}>
@@ -762,6 +801,7 @@ function Postagens() {
                           <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
                         </>}
                         {p.status==='publicado'&&<>
+                          <button className="btn btn-sm" style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)'}} onClick={()=>revisarIA(p)} title="Revisar com IA">🤖 Revisar IA</button>
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
                         {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
@@ -1987,13 +2027,31 @@ function EditorIA() {
     if (!resultado) return;
     setSalvando(true);
     try {
-      const body = { acao, ia, publicar: publicarDireto ? 'publicado' : 'pendente', imagem: resultado.imagem || imagem.trim(), buscarImagem, promptLivre };
-      if (isUrl) body.url = entrada.trim();
-      else body.texto = entrada.trim();
-      const r = await fetch('/api/editor_ia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Erro ao salvar');
-      setSalvo(d); setResultado(null); setEntrada(''); setImagem('');
+      // Salvar diretamente no banco o conteúdo já gerado — NÃO chamar a IA de novo
+      const status = publicarDireto ? 'publicado' : 'pendente';
+      const postData = {
+        titulo: resultado.titulo,
+        conteudo: resultado.corpo,
+        comentario_fixado: resultado.subtitulo || '',
+        imagem: resultado.imagem || imagem.trim() || '',
+        hash: Math.random().toString(36).slice(2) + Date.now().toString(36),
+        status,
+        approved: publicarDireto,
+        publish_method: 'portal',
+        published_at: publicarDireto ? new Date().toISOString() : null,
+        user_tags: JSON.stringify([resultado.categoria || 'geral']),
+        subcategoria: resultado.subcategoria || '',
+        subcategoria_slug: (resultado.subcategoria||'geral').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-'),
+        collaborators: '[]',
+        metrics: {},
+        priority: 1,
+        retry_count: 0,
+        max_retries: 3
+      };
+      const { data: post, error } = await sb.from('posts').insert([postData]).select().single();
+      if (error) throw new Error(error.message);
+      setSalvo({ ok: true, status, titulo: resultado.titulo, categoria: resultado.categoria, id: post?.id });
+      setResultado(null); setEntrada(''); setImagem('');
     } catch(e) { setErro(e.message); }
     setSalvando(false);
   }
