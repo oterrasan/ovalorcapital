@@ -338,27 +338,46 @@ function Pipeline() {
     {id:'variedades',label:'🎭 Variedades'},
   ];
 
-  const [manualQtd, setManualQtd] = useState(5);
-  const [manualCats, setManualCats] = useState([]);
+  const SUBCATS = {
+    politica:    ['Executivo','Legislativo','Judiciário','Projetos de Lei','Eleições','Geral'],
+    economia:    ['Monetária (Copom, Selic)','Fiscal (Orçamento, Dívida)','Conjuntura (PIB, Emprego)','Internacional','Minuto Fiscal','Geral'],
+    negocios:    ['Empreender (MEI, ME, Ltda)','Tributação PJ','Gestão Financeira','Crédito','Vendas & Preço','Contratos & Societário','LGPD & Compliance','Startups','Geral'],
+    investimentos:['Renda Fixa','Renda Variável','Fundos','Previdência','Alternativos','Estratégias','Calendário & Dividendos','Educação do Investidor','Geral'],
+    seguros:     ['Vida','Saúde & Odonto','Auto','Residencial','Empresarial & RC','Viagem','KPIs','Geral'],
+    mercados:    ['Bolsa / Earnings / Dividendos','Juros / DI','Câmbio','Commodities','Cripto','IPOs/FOs','Índices','Cotações em Tempo Real','Geral'],
+    educacao:    ['Trilha Zero','Finanças Pessoais','Carreira & Empregos','Cursos & Certificações','Glossário','Workshops & Aulas','Geral'],
+    industria:   ['Construção & Imobiliário','Energia & Infra','Agro','Mineração & Siderurgia','Química & Materiais','Automotivo','Logística & Portos & Ferrovias','Indústria 4.0','Geral'],
+    tecnologia:  ['Fintechs & Pagamentos','E-commerce','Telecom & 5G','Cibersegurança','GovTech','Saúde Digital','Transformação Digital','Geral'],
+    esportes:    ['Futebol','Basquete','NFL','MLB','MMA','Automobilismo','Tênis','eSports','Geral'],
+    saude:       ['Custos & Indicadores','Políticas','Preventiva','Mental','Saúde Digital','Geral'],
+    familia:     ['Orçamento','Educação dos Filhos','Habitação','Lazer & Esportes','Segurança','Seguros da Família','Sucessão & Patrimônio','Geral'],
+    tributacao:  ['IRPF','Investimentos (tributação)','Obrigações','Planejamento','Simuladores','Geral'],
+    regulacao:   ['Financeiro','Fiscal & Receita','Concorrência & Controle','Consumidor & Normas','Infra & Energia','Saúde','Telecom & Mídia','Transporte & Logística','Mineração & Indústria','Geral'],
+    parcerias:   ['Empresas & Startups','Universidades & Faculdades','Órgãos & Associações','Benefícios & Descontos','Programas & Editais','Geral'],
+    internacional:['Internacional'],
+    variedades:  ['Cultura','Moda','Entretenimento','Carreiras','Tecnologia','Comportamento','Geral'],
+  };
+
+  const [pedidos, setPedidos] = useState([{categoria:'politica', subcategoria:'', quantidade:3}]);
+  const [fonteManual, setFonteManual] = useState('');
+  const [modoManual, setModoManual] = useState(false);
   const [manualRunning, setManualRunning] = useState(false);
   const [manualResult, setManualResult] = useState(null);
 
-  const toggleCat = cat => setManualCats(prev =>
-    prev.includes(cat) ? prev.filter(c=>c!==cat) : [...prev, cat]
-  );
+  const addPedido = () => setPedidos(prev => [...prev, {categoria:'economia', subcategoria:'', quantidade:2}]);
+  const removePedido = idx => setPedidos(prev => prev.filter((_,i)=>i!==idx));
+  const updatePedido = (idx, field, val) => setPedidos(prev => prev.map((p,i) => i===idx ? {...p, [field]:val, ...(field==='categoria'?{subcategoria:''}:{})} : p));
 
   const runManual = async () => {
+    if (modoManual && !fonteManual.trim()) { alert('Informe a URL ou texto da fonte.'); return; }
     setManualRunning(true); setManualResult(null);
     try {
-      const r = await fetch('/api/run_manual', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ quantidade: manualQtd, categorias: manualCats })
-      });
+      const body = { pedidos, fonteManual: modoManual ? fonteManual.trim() : null };
+      const r = await fetch('/api/run_manual', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const j = await r.json();
       setManualResult(j);
       load();
-    } catch(e){ setManualResult({status:'error', error: e.message}); }
+    } catch(e){ setManualResult({status:'error', notificacoes:[{tipo:'erro', mensagem:e.message}]}); }
     setManualRunning(false);
   };
 
@@ -394,54 +413,83 @@ function Pipeline() {
           <div style={{padding:'0 20px 20px'}}><button className="btn btn-primary" onClick={saveConfig}>Salvar parâmetros</button></div>
         </div>
         <div className="panel">
-          <div className="panel-header"><span className="panel-title">⚡ Geração Manual Controlada</span></div>
+          <div className="panel-header">
+            <span className="panel-title">⚡ Geração Manual Controlada</span>
+            <div style={{display:'flex',gap:8}}>
+              <button className={`btn btn-sm ${!modoManual?'btn-primary':'btn-secondary'}`} onClick={()=>setModoManual(false)}>📡 Modo A — RSS</button>
+              <button className={`btn btn-sm ${modoManual?'btn-primary':'btn-secondary'}`} onClick={()=>setModoManual(true)}>✍️ Modo B — Fonte Manual</button>
+            </div>
+          </div>
           <div style={{padding:20}}>
-            <div style={{marginBottom:16}}>
-              <label className="form-label">Quantidade de matérias a gerar</label>
-              <div style={{display:'flex',alignItems:'center',gap:12,marginTop:8}}>
-                <input type="range" min={1} max={50} value={manualQtd} onChange={e=>setManualQtd(parseInt(e.target.value))} style={{flex:1,accentColor:'var(--red)'}}/>
-                <span style={{fontWeight:700,fontSize:22,minWidth:36,color:'var(--accent)'}}>{manualQtd}</span>
+
+            {/* Fonte manual — Modo B */}
+            {modoManual && (
+              <div className="form-group" style={{marginBottom:16}}>
+                <label className="form-label">URL ou texto da notícia fonte</label>
+                <textarea className="form-textarea" style={{minHeight:80}} value={fonteManual} onChange={e=>setFonteManual(e.target.value)}
+                  placeholder="Cole aqui a URL da notícia ou o texto completo da fonte..."/>
+                <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>A IA vai reescrever exatamente este conteúdo no padrão OVC — sem inventar nada.</div>
               </div>
-              <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>Máximo: 50 matérias por execução</div>
-            </div>
-            <div style={{marginBottom:16}}>
-              <label className="form-label">Categorias (vazio = todas as categorias)</label>
-              <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:8}}>
-                {CATS_DISPONIVEIS.map(c=>(
-                  <button key={c.id}
-                    className={`btn btn-sm ${manualCats.includes(c.id)?'btn-primary':'btn-secondary'}`}
-                    onClick={()=>toggleCat(c.id)}>
-                    {c.label}
-                  </button>
-                ))}
+            )}
+
+            {/* Lista de pedidos */}
+            <div style={{marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <label className="form-label" style={{margin:0}}>Pedidos de geração</label>
+                <button className="btn btn-secondary btn-sm" onClick={addPedido}>+ Adicionar linha</button>
               </div>
-              {manualCats.length>0 && <div style={{marginTop:8,fontSize:12,color:'var(--accent)'}}>
-                Filtrando por: {manualCats.join(', ')}
-                <button className="btn btn-sm btn-secondary" style={{marginLeft:8}} onClick={()=>setManualCats([])}>Limpar</button>
-              </div>}
+
+              {/* Cabeçalho */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 36px',gap:8,marginBottom:6,padding:'0 4px'}}>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:600}}>CATEGORIA</span>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:600}}>SUBCATEGORIA</span>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:600}}>QTD</span>
+                <span></span>
+              </div>
+
+              {pedidos.map((p,idx)=>(
+                <div key={idx} style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 36px',gap:8,marginBottom:8,alignItems:'center'}}>
+                  <select className="form-select" value={p.categoria} onChange={e=>updatePedido(idx,'categoria',e.target.value)}>
+                    {CATS_DISPONIVEIS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                  <select className="form-select" value={p.subcategoria} onChange={e=>updatePedido(idx,'subcategoria',e.target.value)}>
+                    <option value="">Qualquer subcategoria</option>
+                    {(SUBCATS[p.categoria]||[]).map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <input className="form-input" type="number" min={1} max={20} value={p.quantidade}
+                    onChange={e=>updatePedido(idx,'quantidade',parseInt(e.target.value)||1)}
+                    style={{textAlign:'center'}}/>
+                  <button className="btn btn-secondary btn-sm" style={{padding:'4px 8px',color:'#f87171'}}
+                    onClick={()=>removePedido(idx)} disabled={pedidos.length===1}>✕</button>
+                </div>
+              ))}
+
+              <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>
+                Total: {pedidos.reduce((s,p)=>s+(parseInt(p.quantidade)||0),0)} matérias solicitadas • Máx 20 por linha
+              </div>
             </div>
-            <button className="btn btn-primary" style={{padding:'10px 28px',fontSize:14}} onClick={runManual} disabled={manualRunning}>
-              {manualRunning ? '⏳ Gerando...' : `⚡ Gerar ${manualQtd} matéria${manualQtd>1?'s':''} agora`}
+
+            <button className="btn btn-primary" style={{padding:'10px 28px',fontSize:14,marginTop:8}} onClick={runManual} disabled={manualRunning}>
+              {manualRunning ? '⏳ Gerando...' : `⚡ Gerar ${pedidos.reduce((s,p)=>s+(parseInt(p.quantidade)||0),0)} matéria(s) agora`}
             </button>
+
+            {/* Notificações e resultado */}
             {manualResult && (
-              <div style={{marginTop:16,padding:14,background:'rgba(255,255,255,0.03)',borderRadius:8,border:'1px solid var(--border)'}}>
-                {manualResult.status==='ok' ? (
-                  <>
-                    <div style={{color:'#4ade80',fontWeight:700,marginBottom:8}}>
-                      ✅ {manualResult.gerados} de {manualResult.solicitado} matéria(s) gerada(s)
-                    </div>
-                    {manualResult.posts?.map((p,i)=>(
-                      <div key={i} style={{fontSize:12,color:'var(--t2)',marginBottom:4,paddingLeft:8,borderLeft:'2px solid var(--accent)'}}>
-                        <span style={{textTransform:'capitalize',color:'var(--accent)',marginRight:6}}>[{p.categoria}]</span>
-                        {p.titulo}
-                      </div>
-                    ))}
-                  </>
-                ) : (
-                  <div style={{color:'#f87171'}}>
-                    ⚠️ {manualResult.status === 'no_valid_news' ? 'Nenhuma notícia válida encontrada para as categorias selecionadas.' : manualResult.error || 'Erro desconhecido'}
+              <div style={{marginTop:16}}>
+                {manualResult.notificacoes?.map((n,i)=>(
+                  <div key={i} style={{
+                    padding:'10px 14px', borderRadius:6, marginBottom:6,
+                    background: n.tipo==='sucesso'?'rgba(22,163,74,0.1)':n.tipo==='aviso'?'rgba(255,200,0,0.1)':'rgba(200,30,30,0.1)',
+                    border: `1px solid ${n.tipo==='sucesso'?'rgba(22,163,74,0.3)':n.tipo==='aviso'?'rgba(255,200,0,0.3)':'rgba(200,30,30,0.3)'}`,
+                    fontSize:13
+                  }}>{n.mensagem}</div>
+                ))}
+                {manualResult.resultados?.filter(r=>r.status==='ok').map((r,i)=>(
+                  <div key={i} style={{fontSize:12,color:'var(--t2)',marginBottom:4,paddingLeft:8,borderLeft:'2px solid #4ade80',marginTop:4}}>
+                    <span style={{textTransform:'capitalize',color:'#4ade80',marginRight:6}}>[{r.categoria}{r.subcategoria?' → '+r.subcategoria:''}]</span>
+                    {r.titulo}
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
