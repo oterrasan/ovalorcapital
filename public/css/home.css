@@ -1806,6 +1806,39 @@
 
 
 /* ===========================
+   CARD MONETIZADO COM IMAGEM — OVERLAY E Z-INDEX
+   =========================== */
+.card-monetizado[style*="background-image"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(5,8,22,0.92) 0%, rgba(5,8,22,0.65) 50%, rgba(5,8,22,0.25) 100%);
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.card-monetizado[style*="background-image"] > * {
+  position: relative !important;
+  z-index: 2 !important;
+}
+.card-monetizado[style*="background-image"] .card-title,
+.card-monetizado[style*="background-image"] h2 {
+  color: #ffffff !important;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.85);
+}
+.card-monetizado[style*="background-image"] .card-excerpt,
+.card-monetizado[style*="background-image"] p {
+  color: rgba(255,255,255,0.88) !important;
+}
+.card-monetizado[style*="background-image"] .tag {
+  background: rgba(0,0,0,0.55) !important;
+  color: #ffffff !important;
+}
+.card-monetizado[style*="background-image"] .tag-dot {
+  background: #ffc800 !important;
+}
+
+/* ===========================
    CARD COM IMAGEM DE FUNDO — REGRA INVIOLÁVEL
    Garante que título, excerpt e meta sejam sempre legíveis
    sobre qualquer imagem de fundo injetada via JS
