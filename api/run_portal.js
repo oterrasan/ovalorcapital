@@ -100,17 +100,17 @@ export default async function handler(req, res) {
       const urlProibida = article.image || "";
       const imagemFinal = await findImage(content.titulo, content.categoria, urlProibida);
 
-      // Salvar e publicar automaticamente
+      // Salvar como pendente — publicação requer aprovação no admin
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.subtitulo || "",
         imagem: imagemFinal,
         hash,
-        status: "publicado",
-        approved: true,
+        status: "pendente",
+        approved: false,
         publish_method: "portal",
-        published_at: new Date().toISOString(),
+        published_at: null,
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
         subcategoria_slug: content.subcategoria_slug,
