@@ -302,3 +302,19 @@ button, input, select, textarea { font: inherit; }
   .ovc-hero h1 { font-size: 34px; }
   .ovc-theme-panel { right: 12px; left: 12px; top: auto; bottom: 12px; }
 }
+
+/* ── Cards internos OVC v3 ── */
+.ovc-mini-list a { transition: opacity .15s; }
+.ovc-mini-list a:hover { opacity: .75; }
+[data-topic-grid] a { transition: box-shadow .15s, transform .15s; }
+[data-topic-grid] a:hover { box-shadow: 0 4px 18px rgba(0,0,0,.08); transform: translateY(-2px); }
+[data-hero-card] a { transition: opacity .15s; }
+[data-hero-card] a:hover { opacity: .9; }
+
+/* Responsivo: topic grid 2 colunas em tablet, 1 em mobile */
+@media (max-width: 900px) {
+  [data-topic-grid] { grid-template-columns: repeat(2,1fr) !important; }
+}
+@media (max-width: 560px) {
+  [data-topic-grid] { grid-template-columns: 1fr !important; }
+}
