@@ -112,8 +112,22 @@
         var all = (json.posts||[]).filter(function(p){ return p.titulo && p.titulo.length > 0; });
         if (!all.length) return;
 
-        var filtered = slug
-          ? all.filter(function(p){ return p.categoria===slug || (p.tags && p.tags.indexOf(slug)!==-1); })
+        // Mapeamento slug da URL → categoria no banco
+    var SLUG_TO_CAT = {
+      tributos:'tributacao', tributacao:'tributacao',
+      regulacao:'regulacao', politica:'politica',
+      economia:'economia', negocios:'negocios',
+      investimentos:'investimentos', seguros:'seguros',
+      mercados:'mercados', educacao:'educacao',
+      industria:'industria', tecnologia:'tecnologia',
+      esportes:'esportes', saude:'saude',
+      familia:'familia', internacional:'internacional',
+      variedades:'variedades', parcerias:'parcerias'
+    };
+    var catFiltro = slug ? (SLUG_TO_CAT[slug] || slug) : null;
+
+    var filtered = catFiltro
+          ? all.filter(function(p){ return p.categoria===catFiltro || p.categoria===slug || (p.tags && p.tags.indexOf(catFiltro)!==-1); })
           : all;
 
         var toShow = filtered.length > 0 ? filtered : all;
