@@ -633,10 +633,11 @@ function Postagens() {
     if (!confirm(`Publicar "${post.titulo}" no Instagram?`)) return;
     setIgPublishing(post.id);
     try {
-      const r = await fetch(serviceUrl + '/publish', {
+      const r = await fetch('/api/ig_publish', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({
+          post_id: post.id,
           image_url: post.imagem,
           caption: post.conteudo ? post.conteudo.slice(0, 2200) : post.titulo
         })
