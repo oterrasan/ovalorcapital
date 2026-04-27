@@ -29,6 +29,27 @@ const POOLS = {
   parcerias:     ["https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800"],
 };
 
+// Padrões que indicam foto de jornalista/repórter/perfil — bloquear
+const BLOQUEIO_PATTERNS = [
+  '/autor/', '/autora/', '/reporter/', '/repórter/', '/jornalista/',
+  '/colunista/', '/editor/', '/author/', '/byline/', '/perfil/',
+  '/profile/', '/headshot/', '/avatar/', '/staff/', '/equipe/',
+  'foto-autor', 'foto-reporter', 'foto-jornalista',
+  'headshot', 'profile-pic', 'author-photo'
+];
+
+function isImagemBloqueada(url) {
+  if (!url) return true;
+  const urlLower = url.toLowerCase();
+  // Bloquear padrões de foto de perfil/jornalista
+  if (BLOQUEIO_PATTERNS.some(p => urlLower.includes(p))) return true;
+  // Bloquear SVG (não carregam como imagem)
+  if (urlLower.endsWith('.svg')) return true;
+  // Bloquear imagens muito pequenas (thumbnails de perfil)
+  if (urlLower.includes('16x16') || urlLower.includes('32x32') || urlLower.includes('48x48')) return true;
+  return false;
+}
+
 // Buscar imagens já usadas no banco para evitar repetição
 async function getImagensUsadas() {
   try {
@@ -183,7 +204,11 @@ async function buscarWikimedia(query, imagensUsadas) {
   return null;
 }
 
-export async function findImage(titulo, categoria, urlProibida = "") {
+export async function findImage(titulo, categoria, urlProibida = "", urlOriginal = "") {
+  // Imagem original da fonte — sempre a melhor opção
+  if (urlOriginal && !isImagemBloqueada(urlOriginal) && urlOriginal !== urlProibida) {
+    return urlOriginal;
+  }
   // Buscar imagens já usadas para evitar repetição
   const imagensUsadas = await getImagensUsadas();
   if (urlProibida) imagensUsadas.add(urlProibida);

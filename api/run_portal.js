@@ -106,7 +106,7 @@ export default async function handler(req, res) {
       }
       if (!imagemFinal) {
         // Fallback: buscar imagem relevante nos bancos
-        imagemFinal = await findImage(content.titulo, content.categoria, article.image || "");
+        imagemFinal = await findImage(content.titulo, content.categoria, "", article.image || "");
       }
 
       // Publicação automática — gerado e validado pelo sistema
