@@ -20,21 +20,21 @@
             }).join('');
           var heroEl = document.querySelector('[data-hero-card]');
           if (heroEl) {
-            heroEl.style.cssText = 'display:block;padding:0;box-sizing:border-box;width:100%;';
+            heroEl.style.cssText = 'display:block;padding:32px 40px;box-sizing:border-box;width:100%;max-width:860px;margin:0 auto;';
             heroEl.innerHTML =
               (p.imagem
-                ? '<div style="width:100%;height:420px;border-radius:14px;overflow:hidden;margin-bottom:28px;">' +
-                  '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display=\'none\'">' +
+                ? '<div style="width:100%;height:460px;border-radius:12px;overflow:hidden;margin-bottom:32px;">' +
+                  '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'">' +
                   '</div>'
                 : '') +
-              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent,#dc2626);margin-bottom:10px;">' +
-                (p.categoria||'').toUpperCase() + ' · ' + data +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent,#dc2626);margin-bottom:12px;">' +
+                (p.categoria||'').toUpperCase() + ' &nbsp;·&nbsp; ' + data +
               '</div>' +
-              '<h1 style="font-size:32px;font-weight:800;line-height:1.2;margin:0 0 14px;color:var(--text-main,#0f172a);">' + (p.titulo || '') + '</h1>' +
+              '<h1 style="font-size:36px;font-weight:900;line-height:1.15;margin:0 0 18px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">' + (p.titulo || '') + '</h1>' +
               (p.subtitulo
-                ? '<p style="font-size:18px;color:var(--text-soft,#475569);margin:0 0 24px;line-height:1.55;font-style:italic;border-left:3px solid var(--accent,#dc2626);padding-left:16px;">' + p.subtitulo + '</p>'
+                ? '<p style="font-size:19px;color:var(--text-soft,#475569);margin:0 0 28px;line-height:1.6;font-style:italic;border-left:4px solid var(--accent,#dc2626);padding-left:18px;">' + p.subtitulo + '</p>'
                 : '') +
-              '<div style="border-top:1px solid var(--ovc-line,#e2e8f0);padding-top:28px;margin-top:8px;">' + corpo + '</div>';
+              '<div style="border-top:2px solid var(--ovc-line,#e2e8f0);padding-top:32px;margin-top:8px;font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);">' + corpo + '</div>';
           }
           ['[data-main-list]','[data-local-list]','[data-topic-grid]'].forEach(function(sel){
             var el = document.querySelector(sel);
