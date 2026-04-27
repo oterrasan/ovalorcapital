@@ -1,63 +1,73 @@
 import { createClient } from "@supabase/supabase-js";
+import * as cheerio from "cheerio";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const PIXABAY_KEY = "47979250-ae3f5a24b1e3f7e2fce76eab5";
+
+const FONTES = [
+  "https://g1.globo.com/busca/?q=",
+  "https://www.cnnbrasil.com.br/busca/?q=",
+  "https://www.metropoles.com/busca?q=",
+  "https://www.infomoney.com.br/busca/?q=",
+  "https://www.gazetadopovo.com.br/busca/?q=",
+];
 
 const TRAD = {
-  "lula":"lula brazil president","bolsonaro":"bolsonaro brazil",
-  "trump":"trump usa","kremlin":"kremlin russia","obama":"obama politician",
-  "zelensky":"ukraine president","petrobras":"petrobras oil",
-  "bitcoin":"bitcoin cryptocurrency","selic":"interest rate brazil",
-  "palmeiras":"palmeiras football","flamengo":"flamengo football",
-  "corinthians":"corinthians football","congresso":"brazil congress",
-  "stf":"supreme court brazil","planalto":"brazil government",
-  "inflação":"inflation economy","milei":"argentina president",
-  "gilmar":"supreme court judge","zema":"governor brazil",
-  "haddad":"minister finance","psg":"psg paris football",
-  "petróleo":"oil petroleum","futebol":"football soccer",
-  "banco":"bank finance","mercado":"stock market",
-  "saúde":"health medicine","tecnologia":"technology digital",
-  "educação":"education school","reforma":"reform politics",
-  "imposto":"tax revenue","eleição":"election voting",
+  "lula":"lula brazil","bolsonaro":"bolsonaro brazil","trump":"trump usa",
+  "kremlin":"kremlin russia","petrobras":"petrobras","bitcoin":"bitcoin",
+  "selic":"taxa selic","palmeiras":"palmeiras","flamengo":"flamengo",
+  "corinthians":"corinthians","congresso":"congresso nacional",
+  "stf":"stf","inflação":"inflação","milei":"milei argentina",
 };
 
 function extrairTermos(titulo) {
   const tl = titulo.toLowerCase();
-  for (const [pt, en] of Object.entries(TRAD)) {
-    if (tl.includes(pt)) return en;
+  for (const [pt,en] of Object.entries(TRAD)) {
+    if (tl.includes(pt)) return titulo.slice(0,50);
   }
-  const stop = new Set(["para","com","sem","por","que","uma","das","dos","nos",
-    "após","sobre","não","mais","mas","foi","são","esta","esse","novo","pelo","tem","vai"]);
-  const words = titulo.replace(/[^\w\s]/g," ").split(/\s+/).filter(w => w.length>3 && !stop.has(w.toLowerCase()));
-  return words.slice(0,3).join(" ") || "brazil news";
+  return titulo.slice(0,50);
 }
 
-async function buscarImagem(query) {
-  // Tentar Pexels
+async function buscarImagemOriginal(titulo) {
+  // Buscar no Google News via scraping
   try {
-    const q = encodeURIComponent(query);
-    const url = `https://api.pexels.com/v1/search?query=${q}&per_page=8&orientation=landscape`;
+    const q = encodeURIComponent(titulo.slice(0,60));
+    const url = `https://news.google.com/search?q=${q}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
     const r = await fetch(url, {
-      headers: { "Authorization": "563492ad6f917000010000016b8b1e4d0a1e4d0d8a1c0e1b2f3d4e5a", "User-Agent": "OVC/1.0" },
-      signal: AbortSignal.timeout(7000)
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9"
+      },
+      signal: AbortSignal.timeout(8000)
     });
-    if (r.ok) {
-      const d = await r.json();
-      const fotos = (d.photos || []).map(p => p?.src?.large || p?.src?.medium).filter(Boolean);
-      if (fotos.length > 0) return fotos;
+    if (!r.ok) return null;
+    const html = await r.text();
+    const $ = cheerio.load(html);
+    
+    // Pegar primeira imagem de artigo
+    const img = $("article img").first().attr("src") || $("figure img").first().attr("src");
+    if (img && img.startsWith("http") && img.match(/\.(jpg|jpeg|png|webp)/i)) {
+      return img;
     }
   } catch {}
-  // Tentar Pixabay como fallback
+
+  // Fallback: buscar via Bing Images
   try {
-    const q = encodeURIComponent(query);
-    const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${q}&image_type=photo&orientation=horizontal&min_width=800&per_page=8&safesearch=true`;
-    const r = await fetch(url, { headers: {"User-Agent":"OVC/1.0"}, signal: AbortSignal.timeout(7000) });
-    if (r.ok) {
-      const d = await r.json();
-      return (d.hits || []).map(h => h.largeImageURL).filter(Boolean);
+    const q = encodeURIComponent(titulo.slice(0,50));
+    const url = `https://www.bing.com/images/search?q=${q}&first=1&count=5&mkt=pt-BR`;
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!r.ok) return null;
+    const html = await r.text();
+    // Extrair primeira URL de imagem dos resultados
+    const match = html.match(/mediaurl=(https?[^&"]+\.(jpg|jpeg|png|webp))/i);
+    if (match) {
+      return decodeURIComponent(match[1]);
     }
   } catch {}
-  return [];
+
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -68,13 +78,12 @@ export default async function handler(req, res) {
   const { cursor = null } = req.query;
 
   try {
-    // Buscar posts com imagem Unsplash (as repetidas)
     let query = supabase.from("posts")
       .select("id,titulo,imagem,user_tags,published_at")
       .eq("status", "publicado")
       .ilike("imagem", "%unsplash%")
       .order("published_at", { ascending: true })
-      .limit(40);
+      .limit(20);
 
     if (cursor) query = query.gt("published_at", decodeURIComponent(cursor));
 
@@ -82,13 +91,10 @@ export default async function handler(req, res) {
     if (error) throw new Error(error.message);
     if (!posts?.length) return res.status(200).json({ done: true, corrigidos: 0, processados: 0 });
 
-    // Imagens já usadas no banco (para anti-repetição)
-    const { data: usadas_raw } = await supabase.from("posts")
+    const usadas_raw = await supabase.from("posts")
       .select("imagem").eq("status","publicado")
-      .not("imagem","is",null)
-      .not("imagem","ilike","%unsplash%")
-      .limit(600);
-    const usadas = new Set((usadas_raw||[]).map(p => p.imagem).filter(Boolean));
+      .not("imagem","is",null).not("imagem","ilike","%unsplash%").limit(600);
+    const usadas = new Set((usadas_raw.data||[]).map(p => p.imagem).filter(Boolean));
 
     let corrigidos = 0;
     const inicio = Date.now();
@@ -96,29 +102,24 @@ export default async function handler(req, res) {
     for (const p of posts) {
       if (Date.now() - inicio > 50000) break;
 
-      const titulo = p.titulo || "";
-      const termos = extrairTermos(titulo);
+      const nova = await buscarImagemOriginal(p.titulo || "");
 
-      let nova = null;
-      for (const q of [termos, "brazil news politics"]) {
-        const candidatos = await buscarImagem(q);
-        const unica = candidatos.find(c => !usadas.has(c));
-        if (unica) { nova = unica; break; }
-        await new Promise(r => setTimeout(r, 100));
-      }
-
-      if (nova) {
+      if (nova && !usadas.has(nova)) {
         const { error: pe } = await supabase.from("posts").update({ imagem: nova }).eq("id", p.id);
         if (!pe) { usadas.add(nova); corrigidos++; }
       }
 
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(r => setTimeout(r, 200));
     }
 
     const proxCursor = posts[posts.length - 1]?.published_at || null;
-    const done = posts.length < 40;
 
-    return res.status(200).json({ done, corrigidos, processados: posts.length, proxCursor });
+    return res.status(200).json({
+      done: posts.length < 20,
+      corrigidos,
+      processados: posts.length,
+      proxCursor
+    });
 
   } catch(e) {
     return res.status(500).json({ error: e.message });
