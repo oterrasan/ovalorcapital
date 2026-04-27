@@ -126,7 +126,7 @@
       var acento = cor(p.categoria);
       var imgHtml = p.imagem
         ? '<div style="width:88px;min-width:88px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f1f5f9;">' +
-          '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display='none'">' +
+          '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'">' +
           '</div>'
         : '<div style="width:88px;min-width:88px;height:72px;border-radius:8px;background:' + acento + '18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:' + acento + ';font-weight:900;font-size:10px;">OVC</span></div>';
       return '<a href="' + url + '" style="display:flex;gap:14px;align-items:flex-start;text-decoration:none;color:inherit;padding:14px 0;border-top:1px solid var(--ovc-line,#f1f5f9);">' +
