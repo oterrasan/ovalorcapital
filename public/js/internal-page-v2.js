@@ -5,7 +5,7 @@
   // ── MODO MATÉRIA INDIVIDUAL
   if (id) {
     document.addEventListener('DOMContentLoaded', function(){
-      fetch('/api/portal-posts?id=' + encodeURIComponent(id))
+      fetch('/api/portal-posts?id=' + encodeURIComponent(id) + '&full=true')
         .then(function(res){ return res.ok ? res.json() : null; })
         .then(function(p){
           if (!p || !p.titulo) return;
