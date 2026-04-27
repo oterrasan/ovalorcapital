@@ -44,6 +44,18 @@
           if (banner) banner.style.display = 'none';
           var lists = document.querySelectorAll('.ovc-story-list');
           lists.forEach(function(l){ l.style.display='none'; });
+
+          // Layout modo artigo: grid 2 colunas — artigo largo + sidebar normal
+          var grid = document.querySelector('.ovc-grid');
+          if (grid) grid.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:32px;align-items:start;';
+          var storyStack = document.querySelector('.ovc-story-stack');
+          if (storyStack) storyStack.style.cssText = 'display:block;';
+          // Limpar textos de placeholder da sidebar
+          var sectionHero = document.querySelector('.ovc-section-hero');
+          if (sectionHero) sectionHero.style.display = 'none';
+          // Garantir que sidebar direita respira
+          var rail = document.querySelector('.ovc-right-rail');
+          if (rail) rail.style.cssText = 'display:flex;flex-direction:column;gap:16px;min-width:0;';
         })
         .catch(function(e){ console.warn('OVC materia:', e.message); });
     });
