@@ -318,3 +318,32 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 560px) {
   [data-topic-grid] { grid-template-columns: 1fr !important; }
 }
+
+/* ── MODO ARTIGO — layout engessado, nunca quebra ── */
+body.ovc-inner-page .ovc-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 300px !important;
+  gap: 32px !important;
+  align-items: start !important;
+}
+body.ovc-inner-page .ovc-story-stack {
+  min-width: 0 !important;
+}
+body.ovc-inner-page [data-hero-card] {
+  padding: 32px 40px !important;
+  box-sizing: border-box !important;
+}
+body.ovc-inner-page .ovc-right-rail {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  min-width: 0 !important;
+}
+@media (max-width: 900px) {
+  body.ovc-inner-page .ovc-grid {
+    grid-template-columns: 1fr !important;
+  }
+  body.ovc-inner-page .ovc-right-rail {
+    display: none !important;
+  }
+}
