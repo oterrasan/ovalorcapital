@@ -32,15 +32,32 @@ function extrairTermos(titulo) {
   return words.slice(0,3).join(" ") || "brazil news";
 }
 
-async function buscarPixabay(query) {
+async function buscarImagem(query) {
+  // Tentar Pexels
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://api.pexels.com/v1/search?query=${q}&per_page=8&orientation=landscape`;
+    const r = await fetch(url, {
+      headers: { "Authorization": "563492ad6f917000010000016b8b1e4d0a1e4d0d8a1c0e1b2f3d4e5a", "User-Agent": "OVC/1.0" },
+      signal: AbortSignal.timeout(7000)
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const fotos = (d.photos || []).map(p => p?.src?.large || p?.src?.medium).filter(Boolean);
+      if (fotos.length > 0) return fotos;
+    }
+  } catch {}
+  // Tentar Pixabay como fallback
   try {
     const q = encodeURIComponent(query);
     const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${q}&image_type=photo&orientation=horizontal&min_width=800&per_page=8&safesearch=true`;
     const r = await fetch(url, { headers: {"User-Agent":"OVC/1.0"}, signal: AbortSignal.timeout(7000) });
-    if (!r.ok) return [];
-    const d = await r.json();
-    return (d.hits || []).map(h => h.largeImageURL).filter(Boolean);
-  } catch { return []; }
+    if (r.ok) {
+      const d = await r.json();
+      return (d.hits || []).map(h => h.largeImageURL).filter(Boolean);
+    }
+  } catch {}
+  return [];
 }
 
 export default async function handler(req, res) {
@@ -84,7 +101,7 @@ export default async function handler(req, res) {
 
       let nova = null;
       for (const q of [termos, "brazil news politics"]) {
-        const candidatos = await buscarPixabay(q);
+        const candidatos = await buscarImagem(q);
         const unica = candidatos.find(c => !usadas.has(c));
         if (unica) { nova = unica; break; }
         await new Promise(r => setTimeout(r, 100));
