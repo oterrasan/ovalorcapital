@@ -4,6 +4,7 @@ import { getNews } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
+import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const MAX_DIA = 1440;
@@ -96,9 +97,17 @@ export default async function handler(req, res) {
         content.subcategoria_slug = "geral";
       }
 
-      // Imagem sempre diferente da fonte
-      const urlProibida = article.image || "";
-      const imagemFinal = await findImage(content.titulo, content.categoria, urlProibida);
+      // Imagem: tentar usar a original da fonte (processada/recortada), senão buscar banco
+      let imagemFinal = null;
+      if (article.image && article.image.length > 10) {
+        // Usar imagem original — baixa, recorta marca d'água, salva no Supabase Storage
+        const hashImg = hash.slice(0,12);
+        imagemFinal = await processAndSaveImage(article.image, hashImg);
+      }
+      if (!imagemFinal) {
+        // Fallback: buscar imagem relevante nos bancos
+        imagemFinal = await findImage(content.titulo, content.categoria, article.image || "");
+      }
 
       // Publicação automática — gerado e validado pelo sistema
       const { data: post, error } = await supabase.from("posts").insert({

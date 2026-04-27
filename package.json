@@ -8,6 +8,7 @@
     "cheerio": "^1.0.0-rc.12",
     "rss-parser": "^3.13.0",
     "@supabase/supabase-js": "^2.0.0",
-    "instagram-private-api": "^1.45.3"
+    "instagram-private-api": "^1.45.3",
+    "sharp": "^0.33.3"
   }
 }
