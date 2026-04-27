@@ -166,18 +166,8 @@
         var filtered = catFiltro
           ? all.filter(function(p){ return p.categoria===catFiltro || p.categoria===slug; })
           : all;
-        // Se categoria sem posts: mostrar aviso, não misturar com outras categorias
-        var toShow = filtered;
-        if (!toShow.length) {
-          var heroEl2 = document.querySelector('[data-hero-card]');
-          if (heroEl2) {
-            heroEl2.style.cssText = 'display:flex;align-items:center;justify-content:center;padding:40px;flex-direction:column;gap:12px;';
-            heroEl2.innerHTML = '<div style="font-size:40px;">📰</div>' +
-              '<h3 style="margin:0;font-size:18px;color:var(--text-main,#0f172a);">Primeiras matérias chegando</h3>' +
-              '<p style="margin:0;font-size:14px;color:var(--text-soft,#64748b);text-align:center;">Nossa redação automática está gerando conteúdo para esta seção.<br>Volte em alguns minutos.</p>';
-          }
-          return;
-        }
+        // Fallback: se não há posts na categoria, mostrar os mais recentes
+        var toShow = filtered.length > 0 ? filtered : all;
 
         // Deduplicar
         var usedIds = {}, usedTitulos = {};
