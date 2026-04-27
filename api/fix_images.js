@@ -57,12 +57,12 @@ export default async function handler(req, res) {
 
   try {
     let query = supabase.from("posts")
-      .select("id,titulo,imagem,user_tags")
+      .select("id,titulo,imagem,user_tags,published_at")
       .eq("status", "publicado")
       .order("published_at", { ascending: false })
       .limit(30);
 
-    if (cursor) query = query.lt("published_at", cursor);
+    if (cursor) query = query.lt("published_at", decodeURIComponent(cursor));
 
     const { data: posts, error } = await query;
     if (error) throw new Error(error.message);
