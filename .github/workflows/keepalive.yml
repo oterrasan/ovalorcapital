@@ -1,0 +1,22 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'  # toda segunda-feira ao meio-dia
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Keep cron alive
+        run: |
+          git config user.email "pipeline@ovalorcapital.com.br"
+          git config user.name "OVC Pipeline"
+          echo "$(date -u)" > .github/keepalive.txt
+          git add .github/keepalive.txt
+          git diff --staged --quiet || git commit -m "ci: keepalive $(date -u +%Y-%m-%d)"
+          git push
