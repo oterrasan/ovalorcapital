@@ -120,24 +120,26 @@
     }
 
     // Card compacto em grid (lista de notícias)
+    // Card compacto — thumbnail 88x72px fixo, nunca achatado
     function renderCard(p) {
       var url = buildUrl(p);
       var acento = cor(p.categoria);
-      return '<a href="' + url + '" style="display:flex;gap:12px;align-items:flex-start;text-decoration:none;color:inherit;padding:12px 0;border-top:1px solid var(--ovc-line,#f1f5f9);">' +
-        (p.imagem
-          ? '<div style="width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;">' +
-            '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">' +
-            '</div>'
-          : '<div style="width:80px;height:80px;border-radius:8px;background:' + acento + '15;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:' + acento + ';font-weight:900;font-size:11px;">OVC</span></div>') +
+      var imgHtml = p.imagem
+        ? '<div style="width:88px;min-width:88px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f1f5f9;">' +
+          '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display='none'">' +
+          '</div>'
+        : '<div style="width:88px;min-width:88px;height:72px;border-radius:8px;background:' + acento + '18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:' + acento + ';font-weight:900;font-size:10px;">OVC</span></div>';
+      return '<a href="' + url + '" style="display:flex;gap:14px;align-items:flex-start;text-decoration:none;color:inherit;padding:14px 0;border-top:1px solid var(--ovc-line,#f1f5f9);">' +
+        imgHtml +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:' + acento + ';margin-bottom:4px;">' + label(p.categoria) + '</div>' +
-          '<h4 style="font-size:14px;font-weight:700;line-height:1.35;margin:0 0 4px;color:var(--text-main,#0f172a);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (p.titulo||'') + '</h4>' +
-          '<span style="font-size:11px;color:var(--text-soft,#94a3b8);">' + dataBr(p.data) + '</span>' +
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:' + acento + ';margin-bottom:5px;">' + label(p.categoria) + '</div>' +
+          '<h4 style="font-size:14px;font-weight:700;line-height:1.35;margin:0 0 5px;color:var(--text-main,#0f172a);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + (p.titulo||'') + '</h4>' +
+          '<span style="font-size:11px;color:var(--text-soft,#94a3b8);">Redação OVC · ' + dataBr(p.data) + '</span>' +
         '</div>' +
         '</a>';
     }
 
-    // Card rail lateral
+
     function renderRail(p) {
       var url = buildUrl(p);
       var acento = cor(p.categoria);
@@ -164,7 +166,18 @@
         var filtered = catFiltro
           ? all.filter(function(p){ return p.categoria===catFiltro || p.categoria===slug; })
           : all;
-        var toShow = filtered.length > 0 ? filtered : all;
+        // Se categoria sem posts: mostrar aviso, não misturar com outras categorias
+        var toShow = filtered;
+        if (!toShow.length) {
+          var heroEl2 = document.querySelector('[data-hero-card]');
+          if (heroEl2) {
+            heroEl2.style.cssText = 'display:flex;align-items:center;justify-content:center;padding:40px;flex-direction:column;gap:12px;';
+            heroEl2.innerHTML = '<div style="font-size:40px;">📰</div>' +
+              '<h3 style="margin:0;font-size:18px;color:var(--text-main,#0f172a);">Primeiras matérias chegando</h3>' +
+              '<p style="margin:0;font-size:14px;color:var(--text-soft,#64748b);text-align:center;">Nossa redação automática está gerando conteúdo para esta seção.<br>Volte em alguns minutos.</p>';
+          }
+          return;
+        }
 
         // Deduplicar
         var usedIds = {}, usedTitulos = {};
@@ -215,7 +228,7 @@
             var acento = cor(p.categoria);
             return '<a href="' + url + '" style="display:block;text-decoration:none;color:inherit;border-radius:10px;overflow:hidden;border:1px solid var(--ovc-line,#f1f5f9);">' +
               (p.imagem
-                ? '<div style="height:120px;overflow:hidden;">' +
+                ? '<div style="height:130px;overflow:hidden;background:' + acento + '12;">' +
                   '<img src="' + p.imagem + '" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.background=\'' + acento + '15\'">' +
                   '</div>'
                 : '<div style="height:80px;background:' + acento + '15;display:flex;align-items:center;justify-content:center;"><span style="color:' + acento + ';font-weight:900;">OVC</span></div>') +
