@@ -747,28 +747,61 @@
       z-index: 2;
     }
 
-    /* CARD HERO — Títulos e meta com contraste uniforme */
-    .card-hero-main .card-title {
+    /* Overlay SUTIL — apenas onde tem imagem de fundo */
+    .card-hero-main[style*="background-image"]::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to top,
+        rgba(5, 8, 22, 0.65) 0%,
+        rgba(5, 8, 22, 0.45) 50%,
+        rgba(5, 8, 22, 0.20) 100%
+      );
+      z-index: 1;
+      border-radius: var(--card-radius);
+    }
+
+    .card-hero-main[style*="background-image"] .card-title {
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .card-hero-main[style*="background-image"] .card-excerpt {
+      color: #e2e8f0 !important;
+      text-shadow: none !important;
+    }
+
+    .card-hero-main[style*="background-image"] .card-meta {
+      color: #cbd5e1 !important;
+    }
+
+    .card-hero-main[style*="background-image"] .tag {
+      background: rgba(212,175,55,0.25) !important;
+      color: #fbbf24 !important;
+      border-color: #fbbf24 !important;
+      font-weight: 600 !important;
+    }
+
+    /* Sem imagem — texto escuro normal */
+    .card-hero-main:not([style*="background-image"]) .card-title {
       color: #0f172a !important;
       font-weight: 800 !important;
-      text-shadow: none !important;
     }
 
-    .card-hero-main .card-excerpt {
+    .card-hero-main:not([style*="background-image"]) .card-excerpt {
       color: #475569 !important;
-      text-shadow: none !important;
     }
 
-    .card-hero-main .card-meta {
+    .card-hero-main:not([style*="background-image"]) .card-meta {
       color: #64748b !important;
-      font-size: var(--font-size-xs) !important;
     }
 
-    .card-hero-main .tag {
+    .card-hero-main:not([style*="background-image"]) .tag {
       background: transparent !important;
       color: var(--accent) !important;
       border-color: var(--accent) !important;
-      font-weight: 600 !important;
     }
 
     /* Imagem de fundo do card hero */
@@ -904,34 +937,52 @@
       z-index: 2;
     }
 
-    /* Estilos de texto normalizados — overlay removido */
+    /* Overlay SUTIL no card-feature — apenas com imagem */
+    .card-feature[style*="background-image"]::before,
+    .card-feature.has-image::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(5,8,22,0.60) 0%, rgba(5,8,22,0.40) 50%, rgba(5,8,22,0.15) 100%);
+      z-index: 1;
+      border-radius: var(--card-radius);
+    }
 
-    .card-feature-title {
-      font-size: var(--font-size-lg);
-      font-weight: 700 !important;
-      line-height: 1.32;
+    .card-feature[style*="background-image"] .card-feature-title,
+    .card-feature.has-image .card-feature-title {
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .card-feature[style*="background-image"] .card-feature-excerpt,
+    .card-feature.has-image .card-feature-excerpt {
+      color: #e2e8f0 !important;
+      text-shadow: none !important;
+    }
+
+    .card-feature[style*="background-image"] .tag,
+    .card-feature.has-image .tag {
+      background: rgba(212,175,55,0.25) !important;
+      color: #fbbf24 !important;
+      border-color: #fbbf24 !important;
+      font-weight: 600 !important;
+    }
+
+    /* Sem imagem — texto escuro */
+    .card-feature:not([style*="background-image"]):not(.has-image) .card-feature-title {
       color: #0f172a !important;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      font-weight: 800 !important;
     }
 
-    .card-feature-excerpt {
-      font-size: var(--font-size-sm);
+    .card-feature:not([style*="background-image"]):not(.has-image) .card-feature-excerpt {
       color: #475569 !important;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      margin-bottom: 4px;
     }
 
-    .card-feature .tag {
+    .card-feature:not([style*="background-image"]):not(.has-image) .tag {
       background: transparent !important;
       color: var(--accent) !important;
-      border: 1px solid var(--accent) !important;
-      font-weight: 600 !important;
+      border-color: var(--accent) !important;
     }
 
     .card-monetizado {
@@ -981,23 +1032,52 @@
       z-index: 2;
     }
 
-    .card-monetizado .card-title {
+    /* COM IMAGEM — overlay sutil + texto branco */
+    .card-monetizado[style*="background-image"]::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(6,12,26,0.70) 0%, rgba(6,12,26,0.50) 60%, rgba(6,12,26,0.20) 100%);
+      z-index: 1;
+      border-radius: var(--card-radius);
+    }
+
+    .card-monetizado[style*="background-image"] .card-title {
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .card-monetizado[style*="background-image"] .card-excerpt {
+      color: #e2e8f0 !important;
+      text-shadow: none !important;
+    }
+
+    .card-monetizado[style*="background-image"] .tag {
+      background: rgba(212,175,55,0.25) !important;
+      color: #fbbf24 !important;
+      border-color: #fbbf24 !important;
+      font-weight: 600 !important;
+    }
+
+    /* SEM IMAGEM — texto escuro */
+    .card-monetizado:not([style*="background-image"]) .card-title {
       color: #0f172a !important;
       font-weight: 800 !important;
       text-shadow: none !important;
     }
 
-    .card-monetizado .card-excerpt {
+    .card-monetizado:not([style*="background-image"]) .card-excerpt {
       color: #475569 !important;
       text-shadow: none !important;
     }
 
-    .card-monetizado .card-cta {
+    .card-monetizado:not([style*="background-image"]) .card-cta {
       color: var(--gold);
       font-weight: 600 !important;
     }
 
-    .card-monetizado .tag {
+    .card-monetizado:not([style*="background-image"]) .tag {
       background: transparent !important;
       color: var(--gold) !important;
       border: 1px solid var(--gold) !important;
@@ -1812,38 +1892,44 @@
 }
 
 /* ===========================
-   CARD COM IMAGEM DE FUNDO — ESTILOS NORMALIZADOS
-   Imagens visíveis, texto claro e legível
+   CARD COM IMAGEM DE FUNDO — Overlay sutil + texto branco
    =========================== */
+.card-standard[style*="background-image"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(5,8,22,0.65) 0%, rgba(5,8,22,0.45) 50%, rgba(5,8,22,0.15) 100%);
+  z-index: 1;
+  border-radius: var(--card-radius);
+}
+
 .card-standard[style*="background-image"] .card-title,
 .card-standard[style*="background-image"] h2,
 .card-standard[style*="background-image"] h3 {
-  color: #0f172a !important;
-  text-shadow: none !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
   font-weight: 800 !important;
 }
 .card-standard[style*="background-image"] .card-meta {
-  color: var(--accent) !important;
+  color: #fbbf24 !important;
   font-weight: 600 !important;
 }
 .card-standard[style*="background-image"] .card-excerpt,
 .card-standard[style*="background-image"] p {
-  color: #475569 !important;
+  color: #e2e8f0 !important;
   text-shadow: none !important;
 }
 .card-standard[style*="background-image"] .card-cta {
-  color: var(--accent) !important;
+  color: #fbbf24 !important;
   font-weight: 600 !important;
 }
 .card-standard[style*="background-image"] .tag {
-  background: transparent !important;
-  color: var(--accent) !important;
-  border: 1px solid var(--accent) !important;
+  background: rgba(212,175,55,0.25) !important;
+  color: #fbbf24 !important;
+  border-color: #fbbf24 !important;
   font-weight: 600 !important;
 }
-  background: rgba(0,0,0,0.55) !important;
-  color: #ffffff !important;
-}
+
 .card-standard[style*="background-image"] .tag-dot {
   background: #ffc800 !important;
 }
