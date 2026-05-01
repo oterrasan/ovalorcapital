@@ -747,35 +747,26 @@
       z-index: 2;
     }
 
-    /* Overlay SUTIL — apenas onde tem imagem de fundo */
+    /* Overlay REMOVIDO — imagens limpas */
     .card-hero-main[style*="background-image"]::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        to top,
-        rgba(5, 8, 22, 0.65) 0%,
-        rgba(5, 8, 22, 0.45) 50%,
-        rgba(5, 8, 22, 0.20) 100%
-      );
-      z-index: 1;
-      border-radius: var(--card-radius);
+      display: none;
     }
 
     .card-hero-main[style*="background-image"] .card-title {
       color: #ffffff !important;
       font-weight: 800 !important;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.6);
     }
 
     .card-hero-main[style*="background-image"] .card-excerpt {
       color: #e2e8f0 !important;
       font-weight: 500 !important;
-      text-shadow: none !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
 
     .card-hero-main[style*="background-image"] .card-meta {
       color: #cbd5e1 !important;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
     }
 
     .card-hero-main[style*="background-image"] .tag {
@@ -939,29 +930,20 @@
       z-index: 2;
     }
 
-    /* Overlay SUTIL no card-feature — apenas com imagem */
-    .card-feature[style*="background-image"]::before,
-    .card-feature.has-image::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, rgba(5,8,22,0.60) 0%, rgba(5,8,22,0.40) 50%, rgba(5,8,22,0.15) 100%);
-      z-index: 1;
-      border-radius: var(--card-radius);
-    }
+    /* Overlay REMOVIDO */
 
     .card-feature[style*="background-image"] .card-feature-title,
     .card-feature.has-image .card-feature-title {
       color: #ffffff !important;
       font-weight: 800 !important;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.6);
     }
 
     .card-feature[style*="background-image"] .card-feature-excerpt,
     .card-feature.has-image .card-feature-excerpt {
       color: #e2e8f0 !important;
       font-weight: 500 !important;
-      text-shadow: none !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
 
     .card-feature[style*="background-image"] .tag,
@@ -1035,26 +1017,21 @@
       z-index: 2;
     }
 
-    /* COM IMAGEM — overlay sutil + texto branco */
+    /* COM IMAGEM — OVERLAY REMOVIDO, texto branco direto */
     .card-monetizado[style*="background-image"]::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, rgba(6,12,26,0.70) 0%, rgba(6,12,26,0.50) 60%, rgba(6,12,26,0.20) 100%);
-      z-index: 1;
-      border-radius: var(--card-radius);
+      display: none;
     }
 
     .card-monetizado[style*="background-image"] .card-title {
       color: #ffffff !important;
       font-weight: 800 !important;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.6);
     }
 
     .card-monetizado[style*="background-image"] .card-excerpt {
       color: #e2e8f0 !important;
       font-weight: 500 !important;
-      text-shadow: none !important;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
 
     .card-monetizado[style*="background-image"] .tag {
@@ -1896,33 +1873,29 @@
 }
 
 /* ===========================
-   CARD COM IMAGEM DE FUNDO — Overlay sutil + texto branco
+   CARD COM IMAGEM DE FUNDO — OVERLAY REMOVIDO, imagens limpas
    =========================== */
 .card-standard[style*="background-image"]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(5,8,22,0.65) 0%, rgba(5,8,22,0.45) 50%, rgba(5,8,22,0.15) 100%);
-  z-index: 1;
-  border-radius: var(--card-radius);
+  display: none;
 }
 
 .card-standard[style*="background-image"] .card-title,
 .card-standard[style*="background-image"] h2,
 .card-standard[style*="background-image"] h3 {
   color: #ffffff !important;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.6);
   font-weight: 800 !important;
 }
 .card-standard[style*="background-image"] .card-meta {
   color: #cbd5e1 !important;
   font-weight: 600 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 .card-standard[style*="background-image"] .card-excerpt,
 .card-standard[style*="background-image"] p {
   color: #e2e8f0 !important;
   font-weight: 500 !important;
-  text-shadow: none !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
 }
 .card-standard[style*="background-image"] .card-cta {
   color: #ffffff !important;
