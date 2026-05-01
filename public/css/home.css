@@ -770,6 +770,7 @@
 
     .card-hero-main[style*="background-image"] .card-excerpt {
       color: #e2e8f0 !important;
+      font-weight: 500 !important;
       text-shadow: none !important;
     }
 
@@ -778,10 +779,10 @@
     }
 
     .card-hero-main[style*="background-image"] .tag {
-      background: rgba(212,175,55,0.25) !important;
-      color: #fbbf24 !important;
-      border-color: #fbbf24 !important;
-      font-weight: 600 !important;
+      background: transparent !important;
+      color: #ffffff !important;
+      border: 2px solid #ffffff !important;
+      font-weight: 700 !important;
     }
 
     /* Sem imagem — texto escuro normal */
@@ -863,7 +864,7 @@
     .card-meta {
       font-size: var(--font-size-xs);
       color: var(--accent) !important;
-      font-weight: 600 !important;
+      font-weight: 700 !important;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       margin-bottom: 6px;
@@ -872,6 +873,7 @@
     .card-excerpt {
       font-size: var(--font-size-md);
       color: #475569 !important;
+      font-weight: 500 !important;
       margin-top: 2px;
       margin-bottom: 10px;
       display: -webkit-box;
@@ -958,15 +960,16 @@
     .card-feature[style*="background-image"] .card-feature-excerpt,
     .card-feature.has-image .card-feature-excerpt {
       color: #e2e8f0 !important;
+      font-weight: 500 !important;
       text-shadow: none !important;
     }
 
     .card-feature[style*="background-image"] .tag,
     .card-feature.has-image .tag {
-      background: rgba(212,175,55,0.25) !important;
-      color: #fbbf24 !important;
-      border-color: #fbbf24 !important;
-      font-weight: 600 !important;
+      background: transparent !important;
+      color: #ffffff !important;
+      border: 2px solid #ffffff !important;
+      font-weight: 700 !important;
     }
 
     /* Sem imagem — texto escuro */
@@ -1050,14 +1053,15 @@
 
     .card-monetizado[style*="background-image"] .card-excerpt {
       color: #e2e8f0 !important;
+      font-weight: 500 !important;
       text-shadow: none !important;
     }
 
     .card-monetizado[style*="background-image"] .tag {
-      background: rgba(212,175,55,0.25) !important;
-      color: #fbbf24 !important;
-      border-color: #fbbf24 !important;
-      font-weight: 600 !important;
+      background: transparent !important;
+      color: #ffffff !important;
+      border: 2px solid #ffffff !important;
+      font-weight: 700 !important;
     }
 
     /* SEM IMAGEM — texto escuro */
@@ -1911,25 +1915,26 @@
   font-weight: 800 !important;
 }
 .card-standard[style*="background-image"] .card-meta {
-  color: #fbbf24 !important;
+  color: #cbd5e1 !important;
   font-weight: 600 !important;
 }
 .card-standard[style*="background-image"] .card-excerpt,
 .card-standard[style*="background-image"] p {
   color: #e2e8f0 !important;
+  font-weight: 500 !important;
   text-shadow: none !important;
 }
 .card-standard[style*="background-image"] .card-cta {
-  color: #fbbf24 !important;
-  font-weight: 600 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
 }
 .card-standard[style*="background-image"] .tag {
-  background: rgba(212,175,55,0.25) !important;
-  color: #fbbf24 !important;
-  border-color: #fbbf24 !important;
-  font-weight: 600 !important;
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  font-weight: 700 !important;
 }
 
 .card-standard[style*="background-image"] .tag-dot {
-  background: #ffc800 !important;
+  background: #ffffff !important;
 }
