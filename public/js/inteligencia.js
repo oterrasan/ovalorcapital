@@ -49,7 +49,7 @@
     }
     
     // Fallback: validação local com senha padrão
-    const defaultPassword = 'ovc-admin';
+    const defaultPassword = 'ovc-admin-2026-secreto';
     return token === defaultPassword;
   }
 
