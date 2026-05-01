@@ -737,19 +737,9 @@
       overflow: hidden;
     }
 
-    /* Overlay escuro sobre a imagem — garante texto sempre legível */
+    /* Overlay removido */
     .card-hero-main::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        to top,
-        rgba(5, 8, 22, 0.92) 0%,
-        rgba(5, 8, 22, 0.72) 45%,
-        rgba(5, 8, 22, 0.35) 100%
-      );
-      z-index: 1;
-      border-radius: var(--card-radius);
+      display: none;
     }
 
     .card-hero-main > * {
@@ -899,38 +889,17 @@
       z-index: 2;
     }
 
-    /* Quando tem imagem, aplicar overlay escuro */
+    /* Overlay removido */
     .card-feature.has-image::before,
     .card-feature[style*="background-image"]::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, rgba(5,8,22,0.92) 0%, rgba(5,8,22,0.65) 50%, rgba(5,8,22,0.30) 100%);
-      z-index: 1;
-      border-radius: var(--card-radius);
+      display: none;
     }
     .card-feature[style*="background-image"] > * {
       position: relative;
       z-index: 2;
     }
 
-    .card-feature.has-image .card-feature-title,
-    .card-feature.has-image .card-feature-excerpt,
-    .card-feature[style*="background-image"] .card-feature-title,
-    .card-feature[style*="background-image"] .card-feature-excerpt {
-      color: #ffffff !important;
-      text-shadow: 0 1px 6px rgba(0,0,0,0.85);
-    }
-    .card-feature[style*="background-image"] .tag {
-      background: rgba(0,0,0,0.55) !important;
-      color: #ffffff !important;
-    }
-    .card-feature[style*="background-image"] .tag-dot {
-      background: #ffc800 !important;
-    }
-    .card-feature[style*="background-image"] .card-cta {
-      color: #ffffff !important;
-    }
+    /* Estilos de texto normalizados — overlay removido */
 
     .card-feature-title {
       font-size: var(--font-size-lg);
@@ -1805,37 +1774,13 @@
     /* overrides já declarados nas definições de .card-hero-main acima */
 
 
-/* ===========================
-   CARD MONETIZADO COM IMAGEM — OVERLAY E Z-INDEX
-   =========================== */
+/* OVERLAY REMOVIDO */
 .card-monetizado[style*="background-image"]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(5,8,22,0.92) 0%, rgba(5,8,22,0.65) 50%, rgba(5,8,22,0.25) 100%);
-  z-index: 1;
-  border-radius: inherit;
-  pointer-events: none;
+  display: none;
 }
 .card-monetizado[style*="background-image"] > * {
   position: relative !important;
   z-index: 2 !important;
-}
-.card-monetizado[style*="background-image"] .card-title,
-.card-monetizado[style*="background-image"] h2 {
-  color: #ffffff !important;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.85);
-}
-.card-monetizado[style*="background-image"] .card-excerpt,
-.card-monetizado[style*="background-image"] p {
-  color: rgba(255,255,255,0.88) !important;
-}
-.card-monetizado[style*="background-image"] .tag {
-  background: rgba(0,0,0,0.55) !important;
-  color: #ffffff !important;
-}
-.card-monetizado[style*="background-image"] .tag-dot {
-  background: #ffc800 !important;
 }
 
 /* ===========================
