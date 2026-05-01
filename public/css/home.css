@@ -747,24 +747,28 @@
       z-index: 2;
     }
 
+    /* CARD HERO — Títulos e meta com contraste uniforme */
     .card-hero-main .card-title {
-      color: #f1f5f9 !important;
-      text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+      color: #0f172a !important;
+      font-weight: 800 !important;
+      text-shadow: none !important;
     }
 
     .card-hero-main .card-excerpt {
-      color: #cbd5e1 !important;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      color: #475569 !important;
+      text-shadow: none !important;
     }
 
     .card-hero-main .card-meta {
-      color: #94a3b8 !important;
+      color: #64748b !important;
+      font-size: var(--font-size-xs) !important;
     }
 
     .card-hero-main .tag {
-      background: rgba(0,0,0,0.5) !important;
-      color: #fbbf24 !important;
-      border-color: rgba(212,175,55,0.4) !important;
+      background: transparent !important;
+      color: var(--accent) !important;
+      border-color: var(--accent) !important;
+      font-weight: 600 !important;
     }
 
     /* Imagem de fundo do card hero */
@@ -812,10 +816,10 @@
 
     .card-title {
       font-size: var(--font-size-xl);
-      font-weight: 700;
+      font-weight: 800 !important;
       line-height: 1.38;
       margin: 6px 0 6px;
-      color: var(--text-main);
+      color: #0f172a !important;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -825,7 +829,8 @@
 
     .card-meta {
       font-size: var(--font-size-xs);
-      color: var(--text-muted);
+      color: var(--accent) !important;
+      font-weight: 600 !important;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       margin-bottom: 6px;
@@ -833,7 +838,7 @@
 
     .card-excerpt {
       font-size: var(--font-size-md);
-      color: var(--text-soft);
+      color: #475569 !important;
       margin-top: 2px;
       margin-bottom: 10px;
       display: -webkit-box;
@@ -903,9 +908,9 @@
 
     .card-feature-title {
       font-size: var(--font-size-lg);
-      font-weight: 600;
+      font-weight: 700 !important;
       line-height: 1.32;
-      color: var(--text-main);
+      color: #0f172a !important;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
@@ -914,12 +919,19 @@
 
     .card-feature-excerpt {
       font-size: var(--font-size-sm);
-      color: var(--text-soft);
+      color: #475569 !important;
       display: -webkit-box;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       overflow: hidden;
       margin-bottom: 4px;
+    }
+
+    .card-feature .tag {
+      background: transparent !important;
+      color: var(--accent) !important;
+      border: 1px solid var(--accent) !important;
+      font-weight: 600 !important;
     }
 
     .card-monetizado {
@@ -961,12 +973,7 @@
     }
 
     .card-monetizado::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, rgba(6,12,26,0.95) 0%, rgba(6,12,26,0.7) 60%, rgba(6,12,26,0.4) 100%);
-      z-index: 1;
-      border-radius: var(--card-radius);
+      display: none;
     }
 
     .card-monetizado > * {
@@ -975,23 +982,26 @@
     }
 
     .card-monetizado .card-title {
-      color: #f1f5f9 !important;
-      text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+      color: #0f172a !important;
+      font-weight: 800 !important;
+      text-shadow: none !important;
     }
 
     .card-monetizado .card-excerpt {
-      color: #cbd5e1 !important;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+      color: #475569 !important;
+      text-shadow: none !important;
     }
 
     .card-monetizado .card-cta {
       color: var(--gold);
+      font-weight: 600 !important;
     }
 
     .card-monetizado .tag {
-      background: rgba(0,0,0,0.55) !important;
+      background: transparent !important;
       color: var(--gold) !important;
-      border-color: rgba(212,175,55,0.45) !important;
+      border: 1px solid var(--gold) !important;
+      font-weight: 600 !important;
     }
 
     /* ── CARDS STANDARD e MINI — altura fixa, imagem padronizada, título sempre visível ── */
@@ -1017,8 +1027,8 @@
 
     .card-standard .card-title {
       font-size: var(--font-size-lg);
-      font-weight: 700;
-      color: var(--text-main);
+      font-weight: 800 !important;
+      color: #0f172a !important;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       display: -webkit-box;
@@ -1031,6 +1041,17 @@
       font-weight: 600;
       color: var(--accent);
       margin-bottom: 4px;
+    }
+
+    .card-standard .card-excerpt {
+      color: #475569 !important;
+    }
+
+    .card-standard .tag {
+      background: transparent !important;
+      color: var(--accent) !important;
+      border: 1px solid var(--accent) !important;
+      font-weight: 600 !important;
     }
 
     .card-mini {
@@ -1056,8 +1077,8 @@
 
     .card-mini .card-title {
       font-size: var(--font-size-base);
-      font-weight: 700;
-      color: var(--text-main);
+      font-weight: 800 !important;
+      color: #0f172a !important;
       -webkit-line-clamp: 3;
       -webkit-box-orient: vertical;
       display: -webkit-box;
@@ -1074,6 +1095,13 @@
       margin-bottom: 4px;
       color: var(--accent);
       font-weight: 600;
+    }
+
+    .card-mini .tag {
+      background: transparent !important;
+      color: var(--accent) !important;
+      border: 1px solid var(--accent) !important;
+      font-weight: 600 !important;
     }
 
     .ad-slot {
@@ -1784,28 +1812,35 @@
 }
 
 /* ===========================
-   CARD COM IMAGEM DE FUNDO — REGRA INVIOLÁVEL
-   Garante que título, excerpt e meta sejam sempre legíveis
-   sobre qualquer imagem de fundo injetada via JS
+   CARD COM IMAGEM DE FUNDO — ESTILOS NORMALIZADOS
+   Imagens visíveis, texto claro e legível
    =========================== */
 .card-standard[style*="background-image"] .card-title,
 .card-standard[style*="background-image"] h2,
 .card-standard[style*="background-image"] h3 {
-  color: #ffffff !important;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+  color: #0f172a !important;
+  text-shadow: none !important;
+  font-weight: 800 !important;
 }
 .card-standard[style*="background-image"] .card-meta {
-  color: #ffc800 !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
 }
 .card-standard[style*="background-image"] .card-excerpt,
 .card-standard[style*="background-image"] p {
-  color: rgba(255,255,255,0.88) !important;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  color: #475569 !important;
+  text-shadow: none !important;
 }
 .card-standard[style*="background-image"] .card-cta {
-  color: #ffffff !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
 }
 .card-standard[style*="background-image"] .tag {
+  background: transparent !important;
+  color: var(--accent) !important;
+  border: 1px solid var(--accent) !important;
+  font-weight: 600 !important;
+}
   background: rgba(0,0,0,0.55) !important;
   color: #ffffff !important;
 }
