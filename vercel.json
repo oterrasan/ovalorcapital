@@ -64,5 +64,15 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/inteligencia",
+      "destination": "/inteligencia.html"
+    },
+    {
+      "source": "/inteligencia/",
+      "destination": "/inteligencia.html"
+    }
   ]
 }
