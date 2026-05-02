@@ -7,7 +7,26 @@ import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const MAX_DIA = 150;
+
+function getMaxDiaByHora() {
+  const now = new Date();
+  const hora = now.getHours();
+  
+  // 01:00 às 06:00 = 2/hora = 12 total
+  if (hora >= 1 && hora < 6) return 12;
+  
+  // 06:00 às 12:00 = 5/hora = 30 total
+  if (hora >= 6 && hora < 12) return 30;
+  
+  // 12:00 às 17:00 = 8/hora = 40 total
+  if (hora >= 12 && hora < 17) return 40;
+  
+  // 17:00 às 00:00 = 13/hora = 68 total
+  if (hora >= 17 && hora < 24) return 68;
+  
+  // 00:00 às 01:00 = continua madrugada = 12
+  return 12;
+}
 
 // Filtro de qualidade — muito permissivo para manter pipeline rodando
 function validarConteudo(content) {
@@ -32,13 +51,14 @@ export default async function handler(req, res) {
     const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
     if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
 
-    // Checar limite diário
+    // Checar limite diário (variável por horário)
+    const MAX_DIA = getMaxDiaByHora();
     const hoje = new Date().toISOString().slice(0,10);
     const { count } = await supabase.from("posts")
       .select("id", { count: "exact", head: true })
       .gte("created_at", hoje + "T00:00:00")
       .eq("publish_method", "portal");
-    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count });
+    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA, currentHour: new Date().getHours() });
 
     // Buscar notícias
     const news = await getNews();
