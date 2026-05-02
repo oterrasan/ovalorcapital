@@ -413,21 +413,29 @@
         function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIdsStd[pool[i].id]){ usedIdsStd[pool[i].id]=true; return pool[i]; } } return null; }
         function pickCol(pool){ return pickFrom(pool); }
 
-        // Coluna 1 — Política & Economia
-        preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1_std));
-        preencherCard(document.getElementById('ovc-card-std-2'), pickCol(col1_std));
+        // Coluna 1 — Política & Economia — com imagem primeiro
+        var col1_united = sortComImagemPrimeiro(col1_std);
+        preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1_united));
+        preencherCard(document.getElementById('ovc-card-std-2'), pickCol(col1_united));
         preencherMini(document.getElementById('ovc-card-mini-1'), pickCol(col1_mini1));
         preencherMini(document.getElementById('ovc-card-mini-2'), pickCol(col1_mini2));
 
         // Coluna 2 — Negócios, Investimentos & Mercados
-        preencherCard(document.getElementById('ovc-card-std-3'), pickCol(col2_std3));
-        preencherCard(document.getElementById('ovc-card-std-4'), pickCol(col2_std4));
+        // Pool unificado ordenado: com imagem primeiro, sem imagem último
+        var col2_united = sortComImagemPrimeiro(
+          col2_std3.concat(col2_std4).filter(function(p,i,a){ return a.findIndex(function(x){ return x.id===p.id; })===i; })
+        );
+        preencherCard(document.getElementById('ovc-card-std-3'), pickCol(col2_united));
+        preencherCard(document.getElementById('ovc-card-std-4'), pickCol(col2_united));
         preencherMini(document.getElementById('ovc-card-mini-3'), pickCol(col2_mini3));
         preencherMini(document.getElementById('ovc-card-mini-4'), pickCol(col2_mini4));
 
-        // Coluna 3 — Família, Saúde, Educação, Tributos & Regulação
-        preencherCard(document.getElementById('ovc-card-std-5'), pickCol(col3_std5));
-        preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3_std6));
+        // Coluna 3 — Família, Saúde, Educação, Tributos & Regulação — com imagem primeiro
+        var col3_united = sortComImagemPrimeiro(
+          col3_std5.concat(col3_std6).filter(function(p,i,a){ return a.findIndex(function(x){ return x.id===p.id; })===i; })
+        );
+        preencherCard(document.getElementById('ovc-card-std-5'), pickCol(col3_united));
+        preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3_united));
         preencherMini(document.getElementById('ovc-card-mini-5'), pickCol(col3_mini5));
         // Bloco "Artigos técnicos" — ESTÁTICO, nunca tocado pelo JS
 
