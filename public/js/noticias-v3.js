@@ -408,8 +408,9 @@
         var col6_std9  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; }));
         var col6_mini8 = todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; });
 
-        // SEM FALLBACK — categoria errada nunca entra em card errado
-        function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIds[pool[i].id]){ usedIds[pool[i].id]=true; return pool[i]; } } return null; }
+        // SEM FALLBACK — std-cards usam controle próprio de IDs usados
+        var usedIdsStd = {};
+        function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIdsStd[pool[i].id]){ usedIdsStd[pool[i].id]=true; return pool[i]; } } return null; }
         function pickCol(pool){ return pickFrom(pool); }
 
         // Coluna 1 — Política & Economia
