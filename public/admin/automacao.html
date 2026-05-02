@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Automação OVC — Dashboard</title>
+<style>
+:root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--red:#c81e1e;--red-h:#e02222;--green:#16a34a;--yellow:#ffc800;--t1:#f1f1f1;--t2:#888;--t3:#555}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);font-size:14px}
+.container{max-width:1400px;margin:0 auto;padding:32px}
+.header{margin-bottom:32px}
+.title{font-size:24px;font-weight:700;margin-bottom:8px}
+.subtitle{color:var(--t2);font-size:13px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+@media(max-width:1024px){.metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.metrics{grid-template-columns:1fr}}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:8px}
+.metric-value{font-size:32px;font-weight:700;color:var(--t1);margin-bottom:4px}
+.metric-sub{font-size:12px;color:var(--t3)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:24px;overflow:hidden}
+.panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.panel-title{font-size:14px;font-weight:600}
+.btn{padding:8px 14px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
+.btn-primary{background:var(--red);color:#fff}.btn-primary:hover{background:var(--red-h)}
+.btn-secondary{background:rgba(255,255,255,0.06);color:var(--t1);border:1px solid var(--border)}.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#15803d}
+.panel-body{padding:20px}
+.chart{display:flex;align-items:flex-end;justify-content:space-around;height:200px;gap:8px}
+.bar{flex:1;background:var(--red);border-radius:4px;position:relative;min-height:10px}
+.bar-label{position:absolute;bottom:-24px;left:0;right:0;text-align:center;font-size:11px;color:var(--t2)}
+.bar-value{position:absolute;top:-24px;left:0;right:0;text-align:center;font-size:12px;font-weight:600;color:var(--t1)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:12px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t2);border-bottom:1px solid var(--border)}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.status-ok{background:rgba(22,163,74,0.15);color:#4ade80}
+.status-error{background:rgba(200,30,30,0.15);color:#f87171}
+.status-pending{background:rgba(255,200,0,0.15);color:var(--yellow)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+@media(max-width:768px){.grid-2{grid-template-columns:1fr}}
+.loading{text-align:center;padding:40px;color:var(--t2)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">🤖 Automação OVC</div>
+    <div class="subtitle">Dashboard de geração automática de conteúdos</div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Posts Hoje</div>
+      <div class="metric-value" id="postsHoje">-</div>
+      <div class="metric-sub" id="postsSub">Carregando...</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">OpenAI (Automação)</div>
+      <div class="metric-value" id="openaiCount">-</div>
+      <div class="metric-sub" id="openaiSub">de 150/dia</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Gemini (Manual)</div>
+      <div class="metric-value" id="geminiCount">-</div>
+      <div class="metric-sub" id="geminiSub">conteúdos avulsos</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Taxa de Sucesso</div>
+      <div class="metric-value" id="taxaSucesso">-</div>
+      <div class="metric-sub" id="taxaSub">últimos 100</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Distribuição por Hora</div>
+        <button class="btn btn-secondary" onclick="refreshHorarios()">↻ Atualizar</button>
+      </div>
+      <div class="panel-body">
+        <div class="chart" id="chartHoras">
+          <div class="loading">Carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Controle de Automação</div>
+      </div>
+      <div class="panel-body">
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;color:var(--t2);margin-bottom:8px">Status Automação</div>
+          <div id="statusAutomacao" style="font-size:14px;font-weight:600">Carregando...</div>
+        </div>
+        <button class="btn btn-primary" onclick="forcarExecucao()">▶ Forçar Execução Agora</button>
+        <button class="btn btn-secondary" onclick="toggleAutomacao()" style="margin-left:8px">⏸ Pausar/Retomar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">Últimos Posts OpenAI</div>
+      <button class="btn btn-secondary" onclick="refreshPosts()">↻ Atualizar</button>
+    </div>
+    <div class="panel-body">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Título</th>
+              <th>Categoria</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="4" style="text-align:center;padding:32px">Carregando posts...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://bfsegqdgscudtdgwdyci.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTc3NzQ2NDAsImV4cCI6MjAzMzM1MDY0MH0.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50';
+
+async function loadDados() {
+  try {
+    const { data } = await supabase.from('posts')
+      .select('id,titulo,categoria,publish_method,created_at,status')
+      .gte('created_at', new Date().toISOString().slice(0,10) + 'T00:00:00')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const openai = data.filter(p => p.publish_method === 'portal').length;
+    const gemini = data.filter(p => p.publish_method === 'manual').length;
+    const total = data.length;
+
+    document.getElementById('postsHoje').textContent = total;
+    document.getElementById('postsSub').textContent = new Date().toLocaleDateString('pt-BR');
+    document.getElementById('openaiCount').textContent = openai;
+    document.getElementById('geminiCount').textContent = gemini;
+    
+    const taxaSucesso = total > 0 ? Math.round((data.filter(p => p.status === 'publicado').length / total) * 100) : 0;
+    document.getElementById('taxaSucesso').textContent = taxaSucesso + '%';
+
+    loadTabelaPosts(data);
+    loadChartHoras(data);
+    loadStatus();
+
+  } catch(e) {
+    console.error('Erro ao carregar dados:', e);
+  }
+}
+
+function loadTabelaPosts(posts) {
+  const openaiPosts = posts.filter(p => p.publish_method === 'portal').slice(0, 10);
+  const html = openaiPosts.map(p => `
+    <tr>
+      <td>${new Date(p.created_at).toLocaleTimeString('pt-BR')}</td>
+      <td>${p.titulo.slice(0, 50)}...</td>
+      <td>${p.categoria}</td>
+      <td><span class="status-badge ${p.status === 'publicado' ? 'status-ok' : 'status-pending'}">${p.status}</span></td>
+    </tr>
+  `).join('');
+  
+  document.getElementById('tableBody').innerHTML = html || '<tr><td colspan="4" style="text-align:center">Sem posts OpenAI hoje</td></tr>';
+}
+
+function loadChartHoras(posts) {
+  const horas = {};
+  posts.forEach(p => {
+    const h = new Date(p.created_at).getHours();
+    horas[h] = (horas[h] || 0) + 1;
+  });
+
+  const ranges = [
+    {name: '01-06h', hours: [1,2,3,4,5,6]},
+    {name: '06-12h', hours: [6,7,8,9,10,11]},
+    {name: '12-17h', hours: [12,13,14,15,16]},
+    {name: '17-00h', hours: [17,18,19,20,21,22,23,0]}
+  ];
+
+  const maxVal = Math.max(...ranges.map(r => r.hours.reduce((a,b) => a + (horas[b] || 0), 0)));
+  const html = ranges.map(r => {
+    const count = r.hours.reduce((a,b) => a + (horas[b] || 0), 0);
+    const pct = maxVal > 0 ? (count / maxVal) * 100 : 0;
+    return `
+      <div class="bar" style="height:${Math.max(pct, 20)}%">
+        <div class="bar-value">${count}</div>
+        <div class="bar-label">${r.name}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('chartHoras').innerHTML = html;
+}
+
+async function loadStatus() {
+  try {
+    const { data } = await supabase.from('config')
+      .select('value')
+      .eq('key', 'AUTOMATION')
+      .single();
+    
+    const status = data && data.value === 'on' ? '🟢 ATIVO' : '🔴 PAUSADO';
+    document.getElementById('statusAutomacao').textContent = status;
+  } catch(e) {
+    document.getElementById('statusAutomacao').textContent = '⚠ Erro ao carregar status';
+  }
+}
+
+async function forcarExecucao() {
+  try {
+    const res = await fetch('/api/run_portal', { method: 'POST' });
+    const data = await res.json();
+    alert('Execução solicitada: ' + (data.status || 'ok'));
+    setTimeout(() => loadDados(), 2000);
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+async function toggleAutomacao() {
+  try {
+    const { data: cfg } = await supabase.from('config')
+      .select('value')
+      .eq('key', 'AUTOMATION')
+      .single();
+    
+    const novoStatus = cfg.value === 'on' ? 'off' : 'on';
+    await supabase.from('config')
+      .update({ value: novoStatus })
+      .eq('key', 'AUTOMATION');
+    
+    loadStatus();
+    alert('Automação ' + (novoStatus === 'on' ? 'RETOMADA' : 'PAUSADA'));
+  } catch(e) {
+    alert('Erro: ' + e.message);
+  }
+}
+
+function refreshPosts() {
+  loadDados();
+}
+
+function refreshHorarios() {
+  loadDados();
+}
+
+// Carregar dados ao abrir
+window.addEventListener('load', loadDados);
+setInterval(loadDados, 30000); // Atualizar a cada 30s
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+
+</body>
+</html>
