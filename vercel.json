@@ -43,6 +43,12 @@
     },
     "api/fix_images.js": {
       "maxDuration": 55
+    },
+    "api/activate-automation.js": {
+      "maxDuration": 30
+    },
+    "api/setup-rss.js": {
+      "maxDuration": 30
     }
   },
   "build": {
