@@ -30,9 +30,6 @@ function validarConteudo(content) {
   const inicioInvalido = /^(prezado|caro |olá,|atenção:|aviso:|dear |hello|seguem|segue |conforme |informamos|comunicamos)/.test(corpoInicio.trim());
   if (inicioInvalido) return false;
 
-  // Rejeitar se não tem "redação ovc" no corpo
-  if (!corpo.includes("redação ovc")) return false;
-
   // Rejeitar título genérico demais (menos de 3 palavras)
   if (titulo.split(" ").filter(w => w.length > 1).length < 3) return false;
 
