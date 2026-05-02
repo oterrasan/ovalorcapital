@@ -14,7 +14,7 @@ function tag(status){
 // ── App ──────────────────────────────────────────────────────
 function App(){
   const [tab,setTab] = React.useState("pendentes");
-  const tabs = ["dashboard","automacao","pendentes","publicados","pipeline","fontes","contas","logs","config"];
+  const tabs = ["dashboard","pendentes","publicados","pipeline","fontes","contas","logs","config"];
   return React.createElement("div",{style:{fontFamily:"Inter,sans-serif",background:"#08080f",minHeight:"100vh",color:"#e5e7eb"}},
     React.createElement("div",{style:{background:"#0a0a14",borderBottom:"1px solid #1e293b",padding:"0 16px",display:"flex",gap:4,flexWrap:"wrap"}},
       React.createElement("div",{style:{padding:"12px 8px",fontWeight:700,color:"#ffc800",marginRight:16}},"OVC ADMIN"),
@@ -26,7 +26,6 @@ function App(){
     ),
     React.createElement("div",{style:{padding:24,maxWidth:1400,margin:"0 auto"}},
       tab==="dashboard" && React.createElement(Dashboard),
-      tab==="automacao" && React.createElement(Automacao),
       tab==="pendentes" && React.createElement(Pendentes),
       tab==="publicados" && React.createElement(Publicados),
       tab==="pipeline" && React.createElement(Pipeline),
@@ -493,154 +492,6 @@ function Config(){
       React.createElement("span",{style:{fontSize:11,color:"#6b7280"}}, fmt(c.updated_at)),
       React.createElement("button",{onClick:()=>remover(c.id),style:{background:"#ef4444",color:"#fff",border:"none",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:12}},"✕")
     ))
-  );
-}
-
-// ── AUTOMAÇÃO ────────────────────────────────────────────────────
-function Automacao(){
-  const [stats,setStats] = React.useState({});
-  const [posts,setPosts] = React.useState([]);
-  const [horas,setHoras] = React.useState({});
-  const [statusAuto,setStatusAuto] = React.useState("loading");
-  const [loading,setLoading] = React.useState(false);
-
-  async function load(){
-    const hoje = new Date().toISOString().slice(0,10);
-    const { data } = await db.from("posts")
-      .select("id,titulo,categoria,publish_method,created_at,status")
-      .gte("created_at", hoje + "T00:00:00")
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    const openai = (data||[]).filter(p => p.publish_method === "portal").length;
-    const gemini = (data||[]).filter(p => p.publish_method === "manual").length;
-    const total = data?.length || 0;
-    const sucesso = data?.filter(p => p.status === "publicado").length || 0;
-    
-    setStats({
-      total, openai, gemini,
-      taxaSucesso: total > 0 ? Math.round((sucesso / total) * 100) : 0
-    });
-
-    setPosts(data?.filter(p => p.publish_method === "portal").slice(0, 10) || []);
-
-    // Contar por hora
-    const h = {};
-    data?.forEach(p => {
-      const hr = new Date(p.created_at).getHours();
-      h[hr] = (h[hr] || 0) + 1;
-    });
-    setHoras(h);
-
-    // Status automação
-    const { data: cfg } = await db.from("config")
-      .select("value")
-      .eq("key", "AUTOMATION")
-      .single();
-    setStatusAuto(cfg?.value === "on" ? "🟢 ATIVO" : "🔴 PAUSADO");
-  }
-
-  React.useEffect(()=>{ load(); const id=setInterval(load,30000); return()=>clearInterval(id); },[]);
-
-  async function forcar(){
-    setLoading(true);
-    await fetch("/api/run_portal", { method: "POST" });
-    setTimeout(() => { load(); setLoading(false); }, 2000);
-  }
-
-  async function toggle(){
-    const { data: cfg } = await db.from("config")
-      .select("value")
-      .eq("key", "AUTOMATION")
-      .single();
-    const novo = cfg?.value === "on" ? "off" : "on";
-    await db.from("config").update({ value: novo }).eq("key", "AUTOMATION");
-    load();
-  }
-
-  const ranges = [
-    {name: "01-06h", hours: [1,2,3,4,5,6]},
-    {name: "06-12h", hours: [6,7,8,9,10,11]},
-    {name: "12-17h", hours: [12,13,14,15,16]},
-    {name: "17-00h", hours: [17,18,19,20,21,22,23,0]}
-  ];
-
-  return React.createElement("div",null,
-    React.createElement("h2",{style:{color:"#ffc800",marginBottom:20}},"🤖 Automação OVC"),
-    React.createElement("div",{style:{display:"flex",gap:16,flexWrap:"wrap",marginBottom:24}},
-      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #10b98166",borderRadius:8,padding:"20px 24px",flex:1,minWidth:160}},
-        React.createElement("div",{style:{fontSize:28,fontWeight:700,color:"#10b981"}}, stats.total || 0),
-        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:4}}, "Posts Hoje")
-      ),
-      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #3b82f666",borderRadius:8,padding:"20px 24px",flex:1,minWidth:160}},
-        React.createElement("div",{style:{fontSize:28,fontWeight:700,color:"#3b82f6"}}, stats.openai || 0),
-        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:4}}, "OpenAI (Automação)")
-      ),
-      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #f59e0b66",borderRadius:8,padding:"20px 24px",flex:1,minWidth:160}},
-        React.createElement("div",{style:{fontSize:28,fontWeight:700,color:"#f59e0b"}}, stats.gemini || 0),
-        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:4}}, "Gemini (Manual)")
-      ),
-      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #ec4899",borderRadius:8,padding:"20px 24px",flex:1,minWidth:160}},
-        React.createElement("div",{style:{fontSize:28,fontWeight:700,color:"#ec4899"}}, stats.taxaSucesso + "%"),
-        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:4}}, "Taxa de Sucesso")
-      )
-    ),
-    React.createElement("div",{style:{display:"flex",gap:16,marginBottom:24,flexWrap:"wrap"}},
-      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:20,flex:1}},
-        React.createElement("h3",{style:{color:"#e5e7eb",margin:"0 0 16px"}},"Status"),
-        React.createElement("div",{style:{fontSize:20,fontWeight:700,marginBottom:16}}, statusAuto),
-        React.createElement("button",{onClick:forcar,disabled:loading,style:{background:"#ef4444",color:"#fff",border:"none",borderRadius:6,padding:"10px 16px",cursor:"pointer",fontWeight:700,marginRight:8}},
-          loading ? "Processando..." : "▶ Forçar Execução"
-        ),
-        React.createElement("button",{onClick:toggle,style:{background:"#6b7280",color:"#fff",border:"none",borderRadius:6,padding:"10px 16px",cursor:"pointer",fontWeight:700}},
-          "⏸ Pausar/Retomar"
-        )
-      ),
-      React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:20,flex:1}},
-        React.createElement("h3",{style:{color:"#e5e7eb",margin:"0 0 16px"}},"Distribuição por Hora"),
-        React.createElement("div",{style:{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height:150,gap:6}},
-          ranges.map(r => {
-            const count = r.hours.reduce((a,b) => a + (horas[b] || 0), 0);
-            const maxVal = Math.max(...ranges.map(rr => rr.hours.reduce((a,b) => a + (horas[b] || 0), 0)), 1);
-            const pct = (count / maxVal) * 100;
-            return React.createElement("div",{key:r.name,style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end"}},
-              React.createElement("div",{style:{fontSize:12,fontWeight:600,marginBottom:4,color:"#ffc800"}}, count),
-              React.createElement("div",{style:{width:"100%",height:Math.max(pct,20)+"%",background:"#ffc800",borderRadius:4}})
-            );
-          })
-        ),
-        React.createElement("div",{style:{display:"flex",justifyContent:"space-around",marginTop:12,fontSize:11,color:"#6b7280"}},
-          ranges.map(r => React.createElement("div",{key:r.name}, r.name))
-        )
-      )
-    ),
-    React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:20}},
-      React.createElement("h3",{style:{color:"#e5e7eb",margin:"0 0 12px"}},"Últimos Posts OpenAI"),
-      React.createElement("div",{style:{overflowX:"auto"}},
-        React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
-          React.createElement("thead",null,
-            React.createElement("tr",{style:{borderBottom:"1px solid #1e293b"}},
-              React.createElement("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:12,color:"#6b7280",fontWeight:600}},"Hora"),
-              React.createElement("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:12,color:"#6b7280",fontWeight:600}},"Título"),
-              React.createElement("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:12,color:"#6b7280",fontWeight:600}},"Categoria"),
-              React.createElement("th",{style:{padding:"8px 12px",textAlign:"left",fontSize:12,color:"#6b7280",fontWeight:600}},"Status")
-            )
-          ),
-          React.createElement("tbody",null,
-            posts.length ? posts.map(p => React.createElement("tr",{key:p.id,style:{borderBottom:"1px solid #1e293b"}},
-              React.createElement("td",{style:{padding:"8px 12px",fontSize:12,color:"#94a3b8"}}, new Date(p.created_at).toLocaleTimeString("pt-BR")),
-              React.createElement("td",{style:{padding:"8px 12px",fontSize:12,color:"#e5e7eb"}},(p.titulo||"").slice(0,50)),
-              React.createElement("td",{style:{padding:"8px 12px",fontSize:12,color:"#94a3b8"}}, p.categoria),
-              React.createElement("td",{style:{padding:"8px 12px",fontSize:12}},
-                React.createElement("span",{style:{background:p.status==="publicado"?"#22c55e33":"#f59e0b33",color:p.status==="publicado"?"#4ade80":"#fbbf24",padding:"2px 8px",borderRadius:4}}, p.status)
-              )
-            )) : React.createElement("tr",null,
-              React.createElement("td",{colSpan:4,style:{padding:"20px",textAlign:"center",color:"#6b7280"}}, "Nenhum post OpenAI hoje")
-            )
-          )
-        )
-      )
-    )
   );
 }
 
