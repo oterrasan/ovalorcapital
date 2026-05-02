@@ -20,7 +20,7 @@ async function callGemini(prompt) {
   for (let i = 0; i < GEMINI_KEYS.length; i++) {
     const key = nextKey();
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
