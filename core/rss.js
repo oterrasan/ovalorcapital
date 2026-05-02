@@ -11,10 +11,19 @@ export async function getNews() {
       .select("url,name")
       .eq("active", true);
 
-    if (!sources?.length) return [];
+    // Fallback: se não houver sources, usar defaults
+    const sourcesToUse = sources?.length ? sources : [
+      { url: "https://news.google.com/rss/search?q=brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google News Brasil" },
+      { url: "https://g1.globo.com/rss/feeds/latest.xml", name: "G1 Brasil" },
+      { url: "https://feeds.folha.uol.com.br/mercado/rss091.xml", name: "Folha de S.Paulo" },
+      { url: "https://www.valor.com.br/rss", name: "Valor Econômico" },
+      { url: "https://www.infomoney.com.br/feed/", name: "Infomoney" }
+    ];
+
+    if (!sourcesToUse?.length) return [];
 
     // Embaralhar fontes e pegar até 8 fontes diferentes por chamada
-    const shuffled = sources.sort(() => Math.random() - 0.5).slice(0, 8);
+    const shuffled = sourcesToUse.sort(() => Math.random() - 0.5).slice(0, 8);
 
     // Buscar todas em paralelo com timeout individual
     const results = await Promise.allSettled(
