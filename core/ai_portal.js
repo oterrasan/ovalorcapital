@@ -6,6 +6,18 @@ const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", mont
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
+const GEMINI_KEYS = [
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_KEY_2,
+].filter(Boolean);
+
+let geminiKeyIndex = 0;
+function nextGeminiKey() {
+  const k = GEMINI_KEYS[geminiKeyIndex % GEMINI_KEYS.length];
+  geminiKeyIndex++;
+  return k;
+}
+
 async function callOpenAI(prompt) {
   if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada");
   
@@ -34,6 +46,31 @@ async function callOpenAI(prompt) {
   } catch(e) {
     throw e;
   }
+}
+
+async function callGemini(prompt) {
+  for (let i = 0; i < GEMINI_KEYS.length; i++) {
+    const key = nextGeminiKey();
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 8192 }
+        })
+      });
+      const d = await res.json();
+      if (res.status === 429) continue;
+      if (!res.ok) throw new Error(`Gemini ${res.status}: ${d.error?.message || ""}`);
+      const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text && text.length > 100) return text;
+    } catch(e) {
+      if (i === GEMINI_KEYS.length - 1) throw e;
+    }
+  }
+  throw new Error("Gemini indisponível");
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -135,9 +172,12 @@ function parse(raw) {
   };
 }
 
-export async function rewritePortal(text, title) {
+export async function rewritePortal(text, title, useGemini = false) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
-  const raw = await callOpenAI(prompt);
+  
+  // Se useGemini = true, usa Gemini (para conteúdos avulsos)
+  // Se useGemini = false (padrão), usa OpenAI (para automação)
+  const raw = useGemini ? await callGemini(prompt) : await callOpenAI(prompt);
   const result = parse(raw);
 
   if (!result || !result.corpo || result.corpo.length < 500) {
