@@ -656,7 +656,7 @@
     /* ---------- CARDS & RAILS ---------- */
 
     .card, .rail-block {
-      background: var(--bg-card);
+      background-color: var(--bg-card);
       border-radius: var(--card-radius);
       border: 1px solid var(--border-subtle);
       box-shadow: var(--shadow-card);
@@ -897,7 +897,7 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      background: var(--bg-card);
+      background-color: var(--bg-card);
       min-height: 210px;
       position: relative;
       overflow: hidden;
