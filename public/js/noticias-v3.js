@@ -301,6 +301,15 @@
     });
   }
 
+  // Ordena pool: posts com imagem válida primeiro, sem imagem por último
+  function sortComImagemPrimeiro(pool){
+    return pool.slice().sort(function(a, b){
+      var aOk = isValidImage(a.imagem) ? 0 : 1;
+      var bOk = isValidImage(b.imagem) ? 0 : 1;
+      return aOk - bOk;
+    });
+  }
+
   function loadNoticias(){
     fetch(API + '?limit=120')
       .then(function(res){ return res.json(); })
@@ -374,17 +383,17 @@
         // Bloco "Artigos técnicos": ESTÁTICO — nunca tocar
         // ════════════════════════════════════════════════════════════
 
-        var col1_std  = todos.filter(function(p){ return ['politica','economia'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        var col1_std  = sortComImagemPrimeiro(todos.filter(function(p){ return ['politica','economia'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; }));
         var col1_mini1 = todos.filter(function(p){ return p.categoria === 'politica' && !usedIds[p.id]; });
         var col1_mini2 = todos.filter(function(p){ return ['economia','internacional'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
 
-        var col2_std3  = todos.filter(function(p){ return p.categoria === 'negocios' && !usedIds[p.id]; });
-        var col2_std4  = todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; });
+        var col2_std3  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'negocios' && !usedIds[p.id]; }));
+        var col2_std4  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; }));
         var col2_mini3 = todos.filter(function(p){ return p.categoria === 'mercados' && !usedIds[p.id]; });
         var col2_mini4 = todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; });
 
-        var col3_std5  = todos.filter(function(p){ return ['tributacao','regulacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
-        var col3_std6  = todos.filter(function(p){ return ['familia','saude','educacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
+        var col3_std5  = sortComImagemPrimeiro(todos.filter(function(p){ return ['tributacao','regulacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; }));
+        var col3_std6  = sortComImagemPrimeiro(todos.filter(function(p){ return ['familia','saude','educacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; }));
         var col3_mini5 = todos.filter(function(p){ return ['educacao','familia','saude'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
 
         // ════════════════════════════════════════════════════════════
@@ -392,11 +401,11 @@
         // REGRA INVIOLÁVEL: só entra categoria específica, zero fallback
         // Bloqueadas aqui todas as categorias já alocadas acima
         // ════════════════════════════════════════════════════════════
-        var col4_std7  = todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; });
+        var col4_std7  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; }));
         var col4_mini6 = todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; });
-        var col5_std8  = todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; });
+        var col5_std8  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; }));
         var col5_mini7 = todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; });
-        var col6_std9  = todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; });
+        var col6_std9  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; }));
         var col6_mini8 = todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; });
 
         // SEM FALLBACK — categoria errada nunca entra em card errado
