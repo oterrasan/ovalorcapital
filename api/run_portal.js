@@ -23,9 +23,6 @@ function validarConteudo(content) {
   // Rejeitar se título contém "prezado" em qualquer posição
   if (titulo.includes("prezado") || titulo.includes("caro usuário") || titulo.includes("editor")) return false;
 
-  // Rejeitar corpo muito curto
-  if (content.corpo.length < 800) return false;
-
   // Rejeitar corpo que começa com lixo de email/carta
   const inicioInvalido = /^(prezado|caro |olá,|atenção:|aviso:|dear |hello|seguem|segue |conforme |informamos|comunicamos)/.test(corpoInicio.trim());
   if (inicioInvalido) return false;
