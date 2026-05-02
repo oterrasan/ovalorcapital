@@ -7,7 +7,7 @@ import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const MAX_DIA = 1440;
+const MAX_DIA = 150;
 
 // Filtro de qualidade — muito permissivo para manter pipeline rodando
 function validarConteudo(content) {

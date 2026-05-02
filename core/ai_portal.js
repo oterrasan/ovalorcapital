@@ -4,41 +4,36 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-const GEMINI_KEYS = [
-  process.env.GEMINI_API_KEY,
-  process.env.GEMINI_KEY_2,
-].filter(Boolean);
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-let keyIndex = 0;
-function nextKey() {
-  const k = GEMINI_KEYS[keyIndex % GEMINI_KEYS.length];
-  keyIndex++;
-  return k;
-}
-
-async function callGemini(prompt) {
-  for (let i = 0; i < GEMINI_KEYS.length; i++) {
-    const key = nextKey();
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 8192 }
-        })
-      });
-      const d = await res.json();
-      if (res.status === 429) continue;
-      if (!res.ok) throw new Error(`Gemini ${res.status}: ${d.error?.message || ""}`);
-      const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text && text.length > 100) return text;
-    } catch(e) {
-      if (i === GEMINI_KEYS.length - 1) throw e;
-    }
+async function callOpenAI(prompt) {
+  if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada");
+  
+  try {
+    const url = "https://api.openai.com/v1/chat/completions";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+        max_tokens: 8192
+      })
+    });
+    
+    const d = await res.json();
+    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message || ""}`);
+    
+    const text = d.choices?.[0]?.message?.content;
+    if (text && text.length > 100) return text;
+    throw new Error("OpenAI retornou resposta vazia ou muito curta");
+  } catch(e) {
+    throw e;
   }
-  throw new Error("Gemini indisponível");
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -142,7 +137,7 @@ function parse(raw) {
 
 export async function rewritePortal(text, title) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
-  const raw = await callGemini(prompt);
+  const raw = await callOpenAI(prompt);
   const result = parse(raw);
 
   if (!result || !result.corpo || result.corpo.length < 500) {
