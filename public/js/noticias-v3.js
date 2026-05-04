@@ -96,7 +96,7 @@
     if(exc)  exc.textContent = (p.resumo||'').slice(0,160);
     if(tag)  setTag(tag, p.categoria);
     if(meta) meta.textContent = 'Redação OVC · ' + dataBr(p.data);
-    if(cta)  cta.href = url;
+    if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
     if(p.imagem && isValidImage(p.imagem)){
       heroEl.style.backgroundImage = "linear-gradient(to bottom,rgba(0,0,0,0.25) 0%,rgba(0,0,0,0.80) 100%),url('" + p.imagem + "')";
       heroEl.style.backgroundSize = 'cover';
@@ -152,7 +152,9 @@
     if(tit)  tit.textContent = p.titulo;
     if(exc)  exc.textContent = (p.resumo||'').slice(0,160);
     if(tag)  setTag(tag, p.categoria);
-    if(cta)  cta.href = url;
+    if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
+    var metaEl = el.querySelector('.card-meta');
+    if(metaEl) metaEl.textContent = 'Redação OVC · ' + dataBr(p.data);
     // Imagem como background — nunca como <img> tag
     if(p.imagem && isValidImage(p.imagem)){
       el.style.backgroundImage = "url('"+p.imagem+"')";
@@ -191,7 +193,7 @@
     if(tit)  { tit.textContent = p.titulo; tit.style.position='relative'; tit.style.zIndex='2'; }
     if(exc)  { exc.textContent = (p.resumo||'').slice(0,150); exc.style.position='relative'; exc.style.zIndex='2'; }
     if(tag)  { setTag(tag, p.categoria); tag.style.position='relative'; tag.style.zIndex='2'; }
-    if(meta) { meta.textContent = 'Redação OVC · ' + label(p.categoria); meta.style.position='relative'; meta.style.zIndex='2'; }
+    if(meta) { meta.textContent = 'Redação OVC · ' + dataBr(p.data); meta.style.position='relative'; meta.style.zIndex='2'; }
     if(cta)  { cta.href = url; cta.style.position='relative'; cta.style.zIndex='2'; }
     // Imagem como background — nunca como img tag
     if(p.imagem && isValidImage(p.imagem)){
@@ -239,7 +241,7 @@
     }
     if(meta) meta.textContent = 'Redação OVC · '+dataBr(p.data);
     if(exc)  exc.textContent = (p.resumo||'').replace(/^Redação OVC.*?\n/,'').slice(0,150);
-    if(cta)  cta.href = url;
+    if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
 
     if(isValidImage(p.imagem)){
       // Usar background-image no card — conteúdo fica visível em cima, sem quebrar layout
@@ -278,7 +280,7 @@
       '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
       '<h3 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h3>' +
       '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
-      '<a class="card-cta" href="'+url+'"><span>LEIA +</span></a>';
+      '<a class="card-cta" href="'+url+'"><span>LEIA MAIS</span></a>';
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
