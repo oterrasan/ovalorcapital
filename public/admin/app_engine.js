@@ -52,7 +52,7 @@ function EditorIA(){
     {id:"gemini",  label:"Gemini",  ativo:true},
     {id:"groq",    label:"Groq",    ativo:false},
     {id:"grok",    label:"Grok",    ativo:false},
-    {id:"openai",  label:"ChatGPT", ativo:false},
+    {id:"openai",  label:"ChatGPT", ativo:true},
   ];
 
   const ACOES = [
