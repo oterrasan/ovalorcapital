@@ -855,19 +855,11 @@
       text-transform: uppercase;
       letter-spacing: 0.16em;
       margin-bottom: 6px;
+      display: none !important;
     }
 
     .card-excerpt {
-      font-size: var(--font-size-md);
-      color: #475569 !important;
-      font-weight: 500 !important;
-      margin-top: 2px;
-      margin-bottom: 10px;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      display: none !important;
     }
 
     .card-title,
@@ -877,13 +869,21 @@
     }
 
     .card-cta {
-      font-size: var(--font-size-sm);
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      color: var(--accent);
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      margin-top: 10px;
+      padding: 3px 12px;
+      border: 1px solid rgba(212,175,55,0.5);
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #d4af37;
+      background: transparent;
+      text-decoration: none;
+      gap: 0;
     }
 
     .card-feature {
@@ -1084,13 +1084,11 @@
     }
 
     .card-standard .card-meta {
-      font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 4px;
+      display: none !important;
     }
 
     .card-standard .card-excerpt {
-      color: #475569 !important;
+      display: none !important;
     }
 
     .card-standard .tag {
@@ -1160,13 +1158,11 @@
     }
 
     .card-mini .card-excerpt {
-      display: none;
+      display: none !important;
     }
 
     .card-mini .card-meta {
-      margin-bottom: 4px;
-      color: var(--accent);
-      font-weight: 600;
+      display: none !important;
     }
 
     .card-mini .tag {
@@ -1935,63 +1931,13 @@
 }
 
 
-/* ============================================================
-   AJUSTE GERAL CARDS — só categoria + título + LEIA+
-   ============================================================ */
 
-/* Ocultar meta (redacao ovc, data) e excerpt (resumo) em todos os cards */
-.card-meta,
-.card-excerpt,
-.card-feature-excerpt,
-.card-standard .card-meta,
-.card-standard .card-excerpt,
-.card-mini .card-meta,
-.card-mini .card-excerpt,
-.card-hero-main .card-meta,
+/* LEIA+ final — ocultar icon, garantir card-meta e excerpt ocultos em todos os contextos */
+.card-cta .icon, .card-cta span.icon { display: none !important; }
 .card-hero-main .card-excerpt,
+.card-hero-main .card-meta,
 .card-feature .card-feature-excerpt,
-.card-monetizado .card-excerpt {
-  display: none !important;
-}
-
-/* Substituir card-cta por LEIA+ amarelo discreto em moldura */
-.card-cta,
-.card-standard .card-cta,
-.card-mini .card-cta,
-.card-hero-main .card-cta,
-.card-feature .card-cta,
-.card-monetizado .card-cta {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin-top: auto !important;
-  padding: 4px 12px !important;
-  border: 1px solid rgba(212, 175, 55, 0.5) !important;
-  border-radius: 999px !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.18em !important;
-  text-transform: uppercase !important;
-  color: #d4af37 !important;
-  background: transparent !important;
-  text-decoration: none !important;
-  align-self: flex-start !important;
-  transition: border-color 0.15s, color 0.15s !important;
-}
-
-.card-cta:hover,
-.card-standard .card-cta:hover,
-.card-mini .card-cta:hover,
-.card-hero-main .card-cta:hover,
-.card-feature .card-cta:hover,
-.card-monetizado .card-cta:hover {
-  border-color: #d4af37 !important;
-  color: #f0c93a !important;
-}
-
-/* Esconder o ícone ↗ dentro do cta */
-.card-cta .icon {
-  display: none !important;
-}
-
-/* Garantir que o texto do cta seja sempre LEIA + */
+.card-monetizado .card-excerpt,
+.card-standard[style*="background-image"] .card-excerpt,
+.card-standard[style*="background-image"] .card-meta { display: none !important; }
+.card-cta:hover { border-color: #d4af37 !important; color: #f0c93a !important; }
