@@ -70,6 +70,36 @@
       const meta = document.querySelector('meta[name="description"]');
       if(meta) meta.setAttribute("content", p.resumo || p.titulo);
 
+      // Open Graph e Twitter Card — para preview em WhatsApp, redes sociais
+      (function setOG(post){
+        function upsertMeta(attr, key, val){
+          let el = document.querySelector('meta[' + attr + '="' + key + '"]');
+          if(!el){ el = document.createElement("meta"); el.setAttribute(attr, key); document.head.appendChild(el); }
+          el.setAttribute("content", val);
+        }
+        const titulo = post.titulo || "O Valor Capital";
+        const descricao = (post.resumo || post.titulo || "").slice(0,160);
+        const imagem = post.imagem || "https://www.ovalorcapital.com.br/assets/og-default.jpg";
+        const url = window.location.href;
+        upsertMeta("property","og:type","article");
+        upsertMeta("property","og:site_name","O Valor Capital");
+        upsertMeta("property","og:url", url);
+        upsertMeta("property","og:title", titulo);
+        upsertMeta("property","og:description", descricao);
+        upsertMeta("property","og:image", imagem);
+        upsertMeta("property","og:image:width","1200");
+        upsertMeta("property","og:image:height","630");
+        upsertMeta("property","og:locale","pt_BR");
+        upsertMeta("name","twitter:card","summary_large_image");
+        upsertMeta("name","twitter:site","@ovalorcapital");
+        upsertMeta("name","twitter:title", titulo);
+        upsertMeta("name","twitter:description", descricao);
+        upsertMeta("name","twitter:image", imagem);
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if(!canonical){ canonical = document.createElement("link"); canonical.rel = "canonical"; document.head.appendChild(canonical); }
+        canonical.href = url;
+      })(p);
+
       // Aplicar cor da categoria
       if(typeof OVC !== "undefined" && OVC.applyCategoryColor){
         OVC.applyCategoryColor(p.categoria||"geral");
