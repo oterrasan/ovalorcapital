@@ -1703,15 +1703,18 @@
 
 
 
-    /* Alinhamento rígido das linhas de cards nas 3 colunas centrais */
+    /* Cards nas colunas centrais — min-height, sem altura fixa que causa sobreposição */
     .cols-region .card-standard,
     .cols-region .card-feature {
-      height: 340px;
+      min-height: 280px;
+      height: auto;
+      flex: 1 1 auto;
     }
 
-    .cols-region .card-mini,
-    .cols-region .card {
-      height: 236px;
+    .cols-region .card-mini {
+      min-height: 200px;
+      height: auto;
+      flex: 1 1 auto;
     }
 
     /* Utility text sizes for new content */
