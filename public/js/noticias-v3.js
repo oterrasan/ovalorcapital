@@ -278,7 +278,7 @@
       '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
       '<h3 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h3>' +
       '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
-      '<a class="card-cta" href="'+url+'"><span>Leia mais</span><span class="icon">↗</span></a>';
+      '<a class="card-cta" href="'+url+'"><span>LEIA +</span></a>';
     el.style.cursor = 'pointer';
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
