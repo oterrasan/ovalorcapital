@@ -415,39 +415,54 @@
         function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIdsStd[pool[i].id]){ usedIdsStd[pool[i].id]=true; return pool[i]; } } return null; }
         function pickCol(pool){ return pickFrom(pool); }
 
-        // Coluna 1 — Política & Economia — com imagem primeiro
+        // Coluna 1 — Política & Economia
         var col1_united = sortComImagemPrimeiro(col1_std);
-        preencherCard(document.getElementById('ovc-card-std-1'), pickCol(col1_united));
-        preencherCard(document.getElementById('ovc-card-std-2'), pickCol(col1_united));
-        preencherMini(document.getElementById('ovc-card-mini-1'), pickCol(col1_mini1));
-        preencherMini(document.getElementById('ovc-card-mini-2'), pickCol(col1_mini2));
+
+        // ── ROTAÇÃO: todos os cards standard e mini ──────────────────
+        // Máximo 10 rotações, intervalo 7s, categoria específica de cada card
+        function iniciarRotacao(elId, pool, fn){
+          var el = document.getElementById(elId);
+          if(!el || !pool || !pool.length) return;
+          var idx = 0;
+          fn(el, pool[0]);
+          var count = 0;
+          var timer = setInterval(function(){
+            count++;
+            if(count >= 10){ clearInterval(timer); return; }
+            idx = (idx + 1) % pool.length;
+            fn(el, pool[idx]);
+          }, 7000);
+        }
+
+        iniciarRotacao('ovc-card-std-1',  col1_united,   preencherCard);
+        iniciarRotacao('ovc-card-std-2',  col1_united,   preencherCard);
+        iniciarRotacao('ovc-card-mini-1', col1_mini1,    preencherMini);
+        iniciarRotacao('ovc-card-mini-2', col1_mini2,    preencherMini);
 
         // Coluna 2 — Negócios, Investimentos & Mercados
-        // Pool unificado ordenado: com imagem primeiro, sem imagem último
         var col2_united = sortComImagemPrimeiro(
           col2_std3.concat(col2_std4).filter(function(p,i,a){ return a.findIndex(function(x){ return x.id===p.id; })===i; })
         );
-        preencherCard(document.getElementById('ovc-card-std-3'), pickCol(col2_united));
-        preencherCard(document.getElementById('ovc-card-std-4'), pickCol(col2_united));
-        preencherMini(document.getElementById('ovc-card-mini-3'), pickCol(col2_mini3));
-        preencherMini(document.getElementById('ovc-card-mini-4'), pickCol(col2_mini4));
+        iniciarRotacao('ovc-card-std-3',  col2_united,   preencherCard);
+        iniciarRotacao('ovc-card-std-4',  col2_united,   preencherCard);
+        iniciarRotacao('ovc-card-mini-3', col2_mini3,    preencherMini);
+        iniciarRotacao('ovc-card-mini-4', col2_mini4,    preencherMini);
 
-        // Coluna 3 — Família, Saúde, Educação, Tributos & Regulação — com imagem primeiro
+        // Coluna 3 — Família, Saúde, Educação, Tributos & Regulação
         var col3_united = sortComImagemPrimeiro(
           col3_std5.concat(col3_std6).filter(function(p,i,a){ return a.findIndex(function(x){ return x.id===p.id; })===i; })
         );
-        preencherCard(document.getElementById('ovc-card-std-5'), pickCol(col3_united));
-        preencherCard(document.getElementById('ovc-card-std-6'), pickCol(col3_united));
-        preencherMini(document.getElementById('ovc-card-mini-5'), pickCol(col3_mini5));
-        // Bloco "Artigos técnicos" — ESTÁTICO, nunca tocado pelo JS
+        iniciarRotacao('ovc-card-std-5',  col3_united,   preencherCard);
+        iniciarRotacao('ovc-card-std-6',  col3_united,   preencherCard);
+        iniciarRotacao('ovc-card-mini-5', col3_mini5,    preencherMini);
 
         // Esportes, Tecnologia & Indústria — REGRA INVIOLÁVEL: só categoria exata
-        preencherCard(document.getElementById('ovc-card-std-7'), pickCol(col4_std7));
-        preencherMini(document.getElementById('ovc-card-mini-6'), pickCol(col4_mini6));
-        preencherCard(document.getElementById('ovc-card-std-8'), pickCol(col5_std8));
-        preencherMini(document.getElementById('ovc-card-mini-7'), pickCol(col5_mini7));
-        preencherCard(document.getElementById('ovc-card-std-9'), pickCol(col6_std9));
-        preencherMini(document.getElementById('ovc-card-mini-8'), pickCol(col6_mini8));
+        iniciarRotacao('ovc-card-std-7',  col4_std7,     preencherCard);
+        iniciarRotacao('ovc-card-mini-6', col4_mini6,    preencherMini);
+        iniciarRotacao('ovc-card-std-8',  col5_std8,     preencherCard);
+        iniciarRotacao('ovc-card-mini-7', col5_mini7,    preencherMini);
+        iniciarRotacao('ovc-card-std-9',  col6_std9,     preencherCard);
+        iniciarRotacao('ovc-card-mini-8', col6_mini8,    preencherMini);
 
         var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
         grids.forEach(function(g){ g.style.gap = '22px'; });
