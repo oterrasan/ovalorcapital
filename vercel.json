@@ -78,7 +78,7 @@
       "destination": "/inteligencia.html"
     },
     {
-      "source": "/share/materia/:slug",
+      "source": "/materia/:slug",
       "destination": "/api/og?slug=:slug"
     }
   ]
