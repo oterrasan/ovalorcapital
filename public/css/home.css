@@ -1934,11 +1934,74 @@
 
 
 
-/* LEIA+ final */
-.card-cta .icon, .card-cta span.icon { display: none !important; }
+
+/* ============================================================
+   PADRAO DEFINITIVO — TODOS OS CARDS
+   Categoria + Titulo + Assinatura + LEIA MAIS no rodapé direito
+   ============================================================ */
+
+/* Ocultar excerpt em todos os cards */
+.card-excerpt,
+.card-feature-excerpt,
 .card-hero-main .card-excerpt,
-.card-hero-main[style*="background-image"] .card-meta,
 .card-feature .card-feature-excerpt,
 .card-monetizado .card-excerpt,
-.card-standard[style*="background-image"] .card-excerpt { display: none !important; }
+.card-standard .card-excerpt,
+.card-mini .card-excerpt { display: none !important; }
+
+/* Mostrar assinatura em todos os cards */
+.card-meta,
+.card-standard .card-meta,
+.card-mini .card-meta,
+.card-hero-main .card-meta,
+.card-monetizado .card-meta {
+  display: block !important;
+  font-size: 11px !important;
+  color: rgba(255,255,255,0.65) !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* card-meta dentro de cards sem imagem — texto escuro */
+.card-standard:not([style*="background-image"]) .card-meta,
+.card-mini:not([style*="background-image"]) .card-meta {
+  color: #64748b !important;
+}
+
+/* LEIA MAIS — rodapé direito de cada card */
+.card-cta,
+.card-standard .card-cta,
+.card-mini .card-cta,
+.card-hero-main .card-cta,
+.card-feature .card-cta,
+.card-monetizado .card-cta {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: absolute !important;
+  bottom: 12px !important;
+  right: 14px !important;
+  padding: 4px 14px !important;
+  border: 1px solid rgba(212,175,55,0.6) !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: #d4af37 !important;
+  background: rgba(0,0,0,0.35) !important;
+  text-decoration: none !important;
+  backdrop-filter: blur(4px) !important;
+  gap: 0 !important;
+  z-index: 10 !important;
+}
+
 .card-cta:hover { border-color: #d4af37 !important; color: #f0c93a !important; }
+.card-cta .icon, .card-cta span.icon { display: none !important; }
+
+/* Garantir position:relative nos cards para o absolute funcionar */
+.card-standard, .card-mini, .card-hero-main, .card-feature, .card-monetizado {
+  position: relative !important;
+}
