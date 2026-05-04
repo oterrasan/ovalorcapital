@@ -812,32 +812,33 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 2px 9px;
+      padding: 3px 10px;
       border-radius: 999px;
       font-size: var(--font-size-xs);
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      border: 1px solid var(--border-subtle);
-      color: var(--text-soft);
-      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+      color: #111111;
+      font-weight: 700;
     }
 
     .tag-dot {
       width: 6px;
       height: 6px;
       border-radius: 999px;
-      background: var(--text-soft);
+      background: #111111;
     }
 
-    .tag-politica { border-color: var(--cat-politica); color: var(--cat-politica); }
-    .tag-economia { border-color: var(--cat-economia); color: var(--cat-economia); }
-    .tag-negocios { border-color: var(--cat-negocios); color: var(--cat-negocios); }
-    .tag-investimentos { border-color: var(--cat-investimentos); color: var(--cat-investimentos); }
-    .tag-seguros { border-color: var(--cat-seguros); color: var(--cat-seguros); }
-    .tag-mercados { border-color: var(--cat-mercados); color: var(--cat-mercados); }
-    .tag-familia { border-color: var(--cat-familia); color: var(--cat-familia); }
-    .tag-tributos { border-color: var(--cat-tributos); color: var(--cat-tributos); }
-    .tag-regulacao { border-color: var(--cat-regulacao); color: var(--cat-regulacao); }
+    .tag-politica { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-politica); }
+    .tag-economia { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-economia); }
+    .tag-negocios { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-negocios); }
+    .tag-investimentos { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-investimentos); }
+    .tag-seguros { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-seguros); }
+    .tag-mercados { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-mercados); }
+    .tag-familia { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-familia); }
+    .tag-tributos { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-tributos); }
+    .tag-regulacao { background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); color: #111111; border-color: var(--cat-regulacao); }
 
     .card-title {
       font-size: var(--font-size-xl);
