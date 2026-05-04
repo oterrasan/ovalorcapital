@@ -43,6 +43,9 @@
     },
     "api/fix_images.js": {
       "maxDuration": 55
+    },
+    "api/og.js": {
+      "maxDuration": 10
     }
   },
   "build": {
@@ -73,6 +76,10 @@
     {
       "source": "/inteligencia/",
       "destination": "/inteligencia.html"
+    },
+    {
+      "source": "/share/materia/:slug",
+      "destination": "/api/og?slug=:slug"
     }
   ]
 }
