@@ -850,12 +850,10 @@
 
     .card-meta {
       font-size: var(--font-size-xs);
-      color: var(--accent) !important;
-      font-weight: 700 !important;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
+      color: var(--text-soft);
+      font-weight: 500;
       margin-bottom: 6px;
-      display: none !important;
+      display: block;
     }
 
     .card-excerpt {
@@ -1084,7 +1082,9 @@
     }
 
     .card-standard .card-meta {
-      display: none !important;
+      display: block;
+      font-size: 11px;
+      color: var(--text-soft);
     }
 
     .card-standard .card-excerpt {
@@ -1162,7 +1162,9 @@
     }
 
     .card-mini .card-meta {
-      display: none !important;
+      display: block;
+      font-size: 11px;
+      color: var(--text-soft);
     }
 
     .card-mini .tag {
@@ -1932,12 +1934,11 @@
 
 
 
-/* LEIA+ final — ocultar icon, garantir card-meta e excerpt ocultos em todos os contextos */
+/* LEIA+ final */
 .card-cta .icon, .card-cta span.icon { display: none !important; }
 .card-hero-main .card-excerpt,
-.card-hero-main .card-meta,
+.card-hero-main[style*="background-image"] .card-meta,
 .card-feature .card-feature-excerpt,
 .card-monetizado .card-excerpt,
-.card-standard[style*="background-image"] .card-excerpt,
-.card-standard[style*="background-image"] .card-meta { display: none !important; }
+.card-standard[style*="background-image"] .card-excerpt { display: none !important; }
 .card-cta:hover { border-color: #d4af37 !important; color: #f0c93a !important; }
