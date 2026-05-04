@@ -1,4 +1,6 @@
 (function(){
+
+  // === COTAÇÕES AO VIVO ===
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/live-data');
@@ -10,90 +12,132 @@
       if (ibov) ibov.textContent = `${Number(data.indices?.ibov || 0).toLocaleString('pt-BR')} pts`;
       const impost = document.getElementById('impostometro');
       if (impost) impost.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(data.impostometro || 0));
-      const tvCard = document.querySelector('[data-home-live-tv]');
-      if (tvCard && data.tv?.length) tvCard.textContent = data.tv[0].label;
-      const radioCard = document.querySelector('[data-home-live-radio]');
-      if (radioCard && data.radio?.name) radioCard.textContent = `${data.radio.name} · ${data.radio.currentShow || 'Ao vivo'}`;
-    } catch (error) {
-      console.error(error);
-    }
+    } catch(e) { console.error(e); }
   }
 
   // ============================================================
   // CARD HERO — REGRA INVIOLÁVEL
-  // ACEITA: categoria "politica" OU "economia" — todas as subcategorias
-  // REJEITA: qualquer outra categoria, sem exceção, sem interpretação
+  // ACEITA: "politica" OU "economia" — todas subcategorias
+  // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
-  const CATS_HERO = new Set(['politica', 'economia']);
-
   async function carregarCardHero() {
     try {
       let post = null;
-      for (const cat of CATS_HERO) {
+      for (const cat of ['politica','economia']) {
         if (post) break;
-        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=20`);
+        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=10`);
         if (!r.ok) continue;
         const d = await r.json();
-        const encontrado = (d.posts || []).find(p => CATS_HERO.has(p.categoria));
-        if (encontrado) post = encontrado;
+        post = (d.posts||[]).find(p => p.categoria===cat) || null;
       }
       if (!post) return;
-      const titulo = document.getElementById('card-hero-titulo');
-      const meta   = document.getElementById('card-hero-meta');
-      const resumo = document.getElementById('card-hero-resumo');
-      const link   = document.getElementById('card-hero-link');
-      if (titulo) titulo.textContent = post.titulo;
-      if (meta)   meta.textContent   = 'Redação OVC';
-      if (resumo) resumo.textContent = post.resumo || post.subtitulo || '';
-      if (link)   link.href          = post.url || '/politica/';
-    } catch(e) { console.error('[CardHero]', e); }
+      const el = id => document.getElementById(id);
+      if (el('card-hero-titulo')) el('card-hero-titulo').textContent = post.titulo;
+      if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
+      if (el('card-hero-resumo')) el('card-hero-resumo').textContent = post.resumo || post.subtitulo || '';
+      if (el('card-hero-link'))   el('card-hero-link').href          = post.url || '/politica/';
+    } catch(e) { console.error('[Hero]',e); }
   }
 
   // ============================================================
   // CARD MEIO — REGRA INVIOLÁVEL
-  // ACEITA: categoria "negocios" — todas as subcategorias abaixo:
-  //   empreender-mei-me-ltda, tributacao-pj, gestao-financeira,
-  //   credito, vendas-e-preco, contratos-e-societario,
-  //   lgpd-e-compliance, startups
-  // REJEITA: qualquer outra categoria, sem exceção, sem interpretação
+  // ACEITA: "negocios" — todas subcategorias
+  // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
   async function carregarCardNegocios() {
     try {
-      const r = await fetch('/api/portal-posts?categoria=negocios&limit=20');
+      const r = await fetch('/api/portal-posts?categoria=negocios&limit=10');
       if (!r.ok) return;
       const d = await r.json();
-      const post = (d.posts || []).find(p => p.categoria === 'negocios');
+      const post = (d.posts||[]).find(p => p.categoria==='negocios');
       if (!post) return;
-      const titulo = document.getElementById('card-feature-titulo');
-      const resumo = document.getElementById('card-feature-resumo');
-      const link   = document.getElementById('card-feature-link');
-      if (titulo) titulo.textContent = post.titulo;
-      if (resumo) resumo.textContent = post.resumo || post.subtitulo || '';
-      if (link)   link.href          = post.url || '/negocios/';
-    } catch(e) { console.error('[CardNegocios]', e); }
+      const el = id => document.getElementById(id);
+      if (el('card-feature-titulo')) el('card-feature-titulo').textContent = post.titulo;
+      if (el('card-feature-resumo')) el('card-feature-resumo').textContent = post.resumo || post.subtitulo || '';
+      if (el('card-feature-link'))   el('card-feature-link').href          = post.url || '/negocios/';
+    } catch(e) { console.error('[Negocios]',e); }
   }
 
   // ============================================================
   // CARD LIONS — REGRA INVIOLÁVEL
-  // ACEITA: categoria "seguros" — subcategorias:
-  //   saude-e-odonto, vida, auto, residencial,
-  //   empresarial-e-rc, viagem, kpis
-  // REJEITA: qualquer outra categoria, sem exceção, sem interpretação
+  // ACEITA: "seguros" — subcategorias: saude-e-odonto, vida, auto,
+  //   residencial, empresarial-e-rc, viagem, kpis
+  // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
   async function carregarCardLions() {
     try {
-      const r = await fetch('/api/portal-posts?categoria=seguros&limit=20');
+      const r = await fetch('/api/portal-posts?categoria=seguros&limit=10');
       if (!r.ok) return;
       const d = await r.json();
-      const post = (d.posts || []).find(p => p.categoria === 'seguros');
+      const post = (d.posts||[]).find(p => p.categoria==='seguros');
       if (!post) return;
-      const titulo = document.getElementById('card-lions-titulo');
-      const resumo = document.getElementById('card-lions-resumo');
-      const link   = document.getElementById('card-lions-link');
-      if (titulo) titulo.textContent = post.titulo;
-      if (resumo) resumo.textContent = post.resumo || post.subtitulo || '';
-      if (link)   link.href          = post.url || '/seguros/';
-    } catch(e) { console.error('[CardLions]', e); }
+      const el = id => document.getElementById(id);
+      if (el('card-lions-titulo')) el('card-lions-titulo').textContent = post.titulo;
+      if (el('card-lions-resumo')) el('card-lions-resumo').textContent = post.resumo || post.subtitulo || '';
+      if (el('card-lions-link'))   el('card-lions-link').href          = post.url || '/seguros/';
+    } catch(e) { console.error('[Lions]',e); }
+  }
+
+  // ============================================================
+  // SEÇÕES DINÂMICAS — REGRA INVIOLÁVEL POR CATEGORIA
+  // Cada seção aceita APENAS posts da categoria declarada.
+  // Mapa: gridId -> categoria -> href da seção
+  // ============================================================
+  const SECOES = [
+    { grid: 'grid-politica-economia', cats: ['politica','economia'], href: '/politica/' },
+    { grid: 'grid-negocios',          cats: ['negocios'],            href: '/negocios/' },
+    { grid: 'grid-investimentos',     cats: ['investimentos'],       href: '/investimentos/' },
+    { grid: 'grid-mercados',          cats: ['mercados'],            href: '/mercados/' },
+    { grid: 'grid-seguros',           cats: ['seguros'],             href: '/seguros/' },
+    { grid: 'grid-familia',           cats: ['familia'],             href: '/familia/' },
+    { grid: 'grid-saude',             cats: ['saude'],               href: '/saude/' },
+    { grid: 'grid-educacao',          cats: ['educacao'],            href: '/educacao/' },
+    { grid: 'grid-tributos',          cats: ['tributacao'],          href: '/tributos/' },
+    { grid: 'grid-regulacao',         cats: ['regulacao'],           href: '/regulacao/' },
+    { grid: 'grid-tecnologia',        cats: ['tecnologia'],          href: '/tecnologia/' },
+    { grid: 'grid-industria',         cats: ['industria'],           href: '/industria/' },
+    { grid: 'grid-esportes',          cats: ['esportes'],            href: '/esportes/' },
+    { grid: 'grid-parcerias',         cats: ['parcerias'],           href: '/parcerias/' },
+  ];
+
+  function renderCard(post) {
+    const a = document.createElement('article');
+    a.className = 'ovc-card-item';
+    a.innerHTML = `
+      <div class="ovc-card-tag">${post.subcategoria || post.categoria}</div>
+      <div class="ovc-card-titulo">${post.titulo}</div>
+      <div class="ovc-card-resumo">${(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
+      <a class="ovc-card-link" href="${post.url}">Leia mais ↗</a>
+    `;
+    return a;
+  }
+
+  async function carregarSecao(secao) {
+    const grid = document.getElementById(secao.grid);
+    if (!grid) return;
+    try {
+      let posts = [];
+      for (const cat of secao.cats) {
+        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=6`);
+        if (!r.ok) continue;
+        const d = await r.json();
+        // REGRA DURA: filtrar apenas posts da categoria correta
+        const filtrados = (d.posts||[]).filter(p => secao.cats.includes(p.categoria));
+        posts = posts.concat(filtrados);
+      }
+      // Dedup por id
+      const vistos = new Set();
+      posts = posts.filter(p => { if(vistos.has(p.id)) return false; vistos.add(p.id); return true; });
+      posts = posts.slice(0, 6);
+      if (!posts.length) {
+        grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conteúdo...</p>';
+        return;
+      }
+      grid.innerHTML = '';
+      posts.forEach(p => grid.appendChild(renderCard(p)));
+    } catch(e) {
+      console.error(`[Secao ${secao.grid}]`, e);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -102,5 +146,7 @@
     carregarCardHero();
     carregarCardNegocios();
     carregarCardLions();
+    SECOES.forEach(s => carregarSecao(s));
   });
+
 })();
