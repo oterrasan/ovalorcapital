@@ -77,5 +77,6 @@
       "source": "/inteligencia/",
       "destination": "/inteligencia.html"
     }
-  ]
+  ],
+  "buildCommand": "echo 'build'"
 }
