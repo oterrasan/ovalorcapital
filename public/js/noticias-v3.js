@@ -5,10 +5,10 @@
   var CAT_HERO = ['politica','economia'];
 
   // Card Direito: seguros, investimentos (produtos financeiros pessoais — previdência, consórcio, poupança), parcerias
-  var CAT_DIREITO = ['seguros','investimentos','parcerias'];
+  var CAT_DIREITO = ['seguros']; // REGRA INVIOLÁVEL: só seguros (saude-e-odonto, vida, auto, residencial, empresarial-e-rc, viagem, kpis)
 
   // Card Central: negocios, mercados, educacao, saude, familia, tributacao, regulacao, internacional
-  var CAT_CENTRAL = ['negocios','mercados','educacao','saude','familia','tributacao','regulacao','internacional','variedades'];
+  var CAT_CENTRAL = ['negocios']; // REGRA INVIOLÁVEL: só negocios (empreender, tributacao-pj, gestao-financeira, credito, vendas-e-preco, contratos-e-societario, lgpd-e-compliance, startups)
   var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
