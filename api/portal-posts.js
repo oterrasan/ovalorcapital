@@ -103,7 +103,7 @@ function formatPost(p, full) {
     educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
     esportes:"esportes", saude:"saude", familia:"familia",
     tributacao:"tributos", regulacao:"regulacao", internacional:"economia",
-    parcerias:"parcerias", geral:"politica"
+    parcerias:"parcerias", vc:"vc", colunistas:"vc", geral:"politica"
   };
   return {
     id: p.id,

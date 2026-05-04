@@ -168,6 +168,7 @@
       el.classList.remove('has-image');
     }
     el.style.cursor = 'pointer';
+    el.onclick = null;
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
@@ -204,6 +205,7 @@
       el.style.backgroundPosition = 'center';
     }
     el.style.cursor = 'pointer';
+    el.onclick = null;
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
@@ -270,6 +272,7 @@
     }
 
     el.style.cursor = 'pointer';
+    el.onclick = null;
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
@@ -284,6 +287,7 @@
       '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
       '<a class="card-cta" href="'+url+'"><span>LEIA MAIS</span></a>';
     el.style.cursor = 'pointer';
+    el.onclick = null;
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
