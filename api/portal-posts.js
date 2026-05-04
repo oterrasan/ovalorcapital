@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       .range(Number(page) * Number(limit), (Number(page) + 1) * Number(limit) - 1);
 
     if (categoria && categoria !== "all") {
-      q = q.contains("user_tags", JSON.stringify([categoria]));
+      q = q.ilike("user_tags", `%${categoria}%`);
     }
 
     const { data, count, error } = await q;
