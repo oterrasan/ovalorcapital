@@ -9,22 +9,23 @@ import { processAndSaveImage } from "../core/image_processor.js";
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 function getMaxDiaByHora() {
+  // Usar horário de Brasília (UTC-3) — servidor Vercel roda em UTC
   const now = new Date();
-  const hora = now.getHours();
-  
-  // 01:00 às 06:00 = 2/hora = 12 total
-  if (hora >= 1 && hora < 6) return 12;
-  
-  // 06:00 às 12:00 = 5/hora = 30 total
-  if (hora >= 6 && hora < 12) return 30;
-  
-  // 12:00 às 17:00 = 8/hora = 40 total
-  if (hora >= 12 && hora < 17) return 40;
-  
-  // 17:00 às 00:00 = 13/hora = 68 total
-  if (hora >= 17 && hora < 24) return 68;
-  
-  // 00:00 às 01:00 = continua madrugada = 12
+  const horaBrasilia = (now.getUTCHours() - 3 + 24) % 24;
+
+  // 01:00 às 06:00 Brasília = 12 total
+  if (horaBrasilia >= 1 && horaBrasilia < 6) return 12;
+
+  // 06:00 às 12:00 Brasília = 30 total
+  if (horaBrasilia >= 6 && horaBrasilia < 12) return 30;
+
+  // 12:00 às 17:00 Brasília = 40 total
+  if (horaBrasilia >= 12 && horaBrasilia < 17) return 40;
+
+  // 17:00 às 00:00 Brasília = 68 total
+  if (horaBrasilia >= 17 && horaBrasilia < 24) return 68;
+
+  // 00:00 às 01:00 Brasília = 12
   return 12;
 }
 
@@ -53,12 +54,15 @@ export default async function handler(req, res) {
 
     // Checar limite diário (variável por horário)
     const MAX_DIA = getMaxDiaByHora();
-    const hoje = new Date().toISOString().slice(0,10);
+    // Meia-noite Brasília = 03:00 UTC
+    const agora = new Date();
+    const inicioDiaBrasilia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
     const { count } = await supabase.from("posts")
       .select("id", { count: "exact", head: true })
-      .gte("created_at", hoje + "T00:00:00")
+      .gte("created_at", inicioDiaBrasilia.toISOString())
       .eq("publish_method", "portal");
-    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA, currentHour: new Date().getHours() });
+    const horaBrasiliaAtual = (new Date().getUTCHours() - 3 + 24) % 24;
+    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA, currentHour: horaBrasiliaAtual });
 
     // Buscar notícias
     const news = await getNews();
