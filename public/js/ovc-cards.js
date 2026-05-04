@@ -102,7 +102,7 @@
       'grid-template-columns:repeat(3,minmax(0,1fr))',
       'gap:18px',
       'margin-top:22px',
-      'grid-column:2/5'
+      'width:100%'
     ].join(';');
 
     CATS.forEach(function(cat){
