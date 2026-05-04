@@ -29,20 +29,33 @@ function getMaxDiaByHora() {
   return 12;
 }
 
-// Filtro de qualidade — muito permissivo para manter pipeline rodando
+// Filtro de qualidade — rejeita conteudo fora do escopo editorial OVC
 function validarConteudo(content) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
-  
-  // Rejeitar APENAS títulos claramente inválidos
-  const tituloInvalido = /^(prezado|caro|olá|sem título|titulo:|headline:|assunto:|erro:|teste:)/.test(titulo);
-  if (tituloInvalido) return false;
+  const corpo = (content.corpo || '').toLowerCase().slice(0, 400);
 
-  // Rejeitar se é muito curto
   if (titulo.length < 10) return false;
+
+  // Titulos claramente invalidos
+  if (/^(prezado|caro|ola|sem titulo|titulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
+
+  // Fora do escopo editorial OVC
+  const foraEscopo = [
+    /jornal da oeste/, /revista oeste/, /programa.{0,20}ao ar/,
+    /transmit.{0,20}ao vivo/, /segunda edi.{1,3}o.*programa/,
+    /apresenta.{1,3}o.*realizada por/, /exib.{0,10}segunda.{0,10}sexta/,
+    /programa.{1,10}o audiovisual/, /horario.{0,10}das \d+h.{0,5}as \d+h/,
+    /colunista.{0,10}folha/, /colunista.{0,10}globo/,
+    /novela|reality show|soap opera/
+  ];
+  for (const r of foraEscopo) {
+    if (r.test(titulo) || r.test(corpo)) return false;
+  }
 
   return true;
 }
+
 
 export default async function handler(req, res) {
   const inicio = Date.now();

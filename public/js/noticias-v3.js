@@ -222,55 +222,26 @@
   }
 
   // ─── CARDS STANDARD E MINI ──────────────────────────────────────
-  // Card GRANDE: imagem + categoria + título + resumo + botão
+  // Card GRANDE: mesmo padrão do hero — gradient+imagem em uma linha, sem overlay div
   function preencherCard(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
     var cat = p.categoria||'geral';
-
     var tag  = el.querySelector('.tag');
     var tit  = el.querySelector('.card-title');
     var meta = el.querySelector('.card-meta');
-    var exc  = el.querySelector('.card-excerpt');
     var cta  = el.querySelector('.card-cta');
-    var titLink = tit ? tit.querySelector('a') : null;
-
-    if(tag){
-      tag.className = tag.className.replace(/tag-\w+/g,'') + ' tag-'+cat;
-      tag.innerHTML = '<span class="tag-dot"></span>'+label(cat);
-    }
-    if(tit){
-      if(titLink){ titLink.textContent = p.titulo||''; titLink.href = url; }
-      else { tit.textContent = p.titulo||''; }
-    }
+    if(tag){ tag.className = 'tag tag-'+cat; tag.innerHTML = '<span class="tag-dot"></span>'+label(cat); }
+    if(tit){ tit.textContent = p.titulo||''; }
     if(meta) meta.textContent = 'Redação OVC · '+dataBr(p.data);
-    if(exc)  exc.textContent = (p.resumo||'').replace(/^Redação OVC.*?\n/,'').slice(0,150);
     if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
-
-    if(isValidImage(p.imagem)){
-      // Usar background-image no card — conteúdo fica visível em cima, sem quebrar layout
-      el.style.backgroundImage = "url('"+p.imagem+"')";
+    if(p.imagem && isValidImage(p.imagem)){
+      el.style.backgroundImage = "linear-gradient(to bottom,rgba(0,0,0,0.18) 0%,rgba(0,0,0,0.72) 100%),url('"+p.imagem+"')";
       el.style.backgroundSize = 'cover';
-      el.style.backgroundPosition = 'center top';
-      // Overlay escuro para legibilidade do texto
-      el.style.position = 'relative';
-      if(!el.querySelector('.ovc-img-overlay')){
-        var overlay = document.createElement('div');
-        overlay.className = 'ovc-img-overlay';
-        overlay.style.cssText = 'position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.18) 0%,rgba(0,0,0,0.55) 100%);border-radius:inherit;pointer-events:none;z-index:0;';
-        el.insertBefore(overlay, el.firstChild);
-      }
-      // Garantir que o conteúdo fique acima do overlay com cores legíveis
-      var children = el.children;
-      for(var c=0;c<children.length;c++){
-        if(!children[c].classList.contains('ovc-img-overlay')){
-          children[c].style.position = 'relative';
-          children[c].style.zIndex = '1';
-        }
-      }
-      // Cores tratadas via CSS — .card-standard[style*="background-image"]
+      el.style.backgroundPosition = 'center';
+    } else {
+      el.style.backgroundImage = 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)';
     }
-
     el.style.cursor = 'pointer';
     el.onclick = null;
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
