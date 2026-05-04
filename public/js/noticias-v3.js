@@ -236,11 +236,11 @@
     if(meta) meta.textContent = 'Redação OVC · '+dataBr(p.data);
     if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
     if(p.imagem && isValidImage(p.imagem)){
-      el.style.backgroundImage = "linear-gradient(to bottom,rgba(0,0,0,0.18) 0%,rgba(0,0,0,0.72) 100%),url('"+p.imagem+"')";
+      el.style.backgroundImage = "url('"+p.imagem+"')";
       el.style.backgroundSize = 'cover';
       el.style.backgroundPosition = 'center';
     } else {
-      el.style.backgroundImage = 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)';
+      el.style.backgroundImage = '';
     }
     el.style.cursor = 'pointer';
     el.onclick = null;
