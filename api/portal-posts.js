@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     // REGRA INVIOLÁVEL: apenas categorias válidas saem pela API — "geral" bloqueado
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional']);
+      'parcerias','internacional','vc','colunistas']);
 
     const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
 

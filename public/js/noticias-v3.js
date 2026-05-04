@@ -22,6 +22,7 @@
     esportes:'esportes', saude:'saude', familia:'familia',
     tributacao:'tributos', regulacao:'regulacao', internacional:'economia',
     previdencia:'investimentos', consorcio:'seguros', parcerias:'parcerias',
+    vc:'vc', colunistas:'vc',
     geral:'politica'
   };
 
@@ -43,7 +44,8 @@
     tecnologia:'Tecnologia', industria:'Indústria', educacao:'Educação',
     esportes:'Esportes', cultura:'Cultura', patrimonio:'Patrimônio', variedades:'Variedades',
     internacional:'Internacional', geral:'Geral', parcerias:'Parcerias',
-    previdencia:'Previdência', consorcio:'Consórcio'
+    previdencia:'Previdência', consorcio:'Consórcio',
+    vc:'Colunistas OVC', colunistas:'Colunistas OVC'
   };
 
   function label(c){ return LABEL[c]||c||'Geral'; }
@@ -380,89 +382,50 @@
         //   mini-4: investimentos
         // Coluna 3 — "Família, Saúde, Educação, Tributos & Regulação"
         //   std-5: tributacao, regulacao
-        //   std-6: familia, saude, educacao
-        //   mini-5: educacao, familia, saude
-        // Bloco "Artigos técnicos": ESTÁTICO — nunca tocar
         // ════════════════════════════════════════════════════════════
-
-        var col1_std  = sortComImagemPrimeiro(todos.filter(function(p){ return ['politica','economia'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; }));
-        var col1_mini1 = todos.filter(function(p){ return p.categoria === 'politica' && !usedIds[p.id]; });
-        var col1_mini2 = todos.filter(function(p){ return ['economia','internacional'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
-
-        var col2_std3  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'negocios' && !usedIds[p.id]; }));
-        var col2_std4  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; }));
-        var col2_mini3 = todos.filter(function(p){ return p.categoria === 'mercados' && !usedIds[p.id]; });
-        var col2_mini4 = todos.filter(function(p){ return p.categoria === 'investimentos' && !usedIds[p.id]; });
-
-        var col3_std5  = sortComImagemPrimeiro(todos.filter(function(p){ return ['tributacao','regulacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; }));
-        var col3_std6  = sortComImagemPrimeiro(todos.filter(function(p){ return ['familia','saude','educacao'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; }));
-        var col3_mini5 = todos.filter(function(p){ return ['educacao','familia','saude'].indexOf(p.categoria) !== -1 && !usedIds[p.id]; });
-
+        // POOLS POR CATEGORIA — REGRA INVIOLÁVEL: cada card só recebe sua categoria
         // ════════════════════════════════════════════════════════════
-        // NOVOS CARDS — Esportes, Tecnologia, Indústria
-        // REGRA INVIOLÁVEL: só entra categoria específica, zero fallback
-        // Bloqueadas aqui todas as categorias já alocadas acima
-        // ════════════════════════════════════════════════════════════
-        var col4_std7  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; }));
-        var col4_mini6 = todos.filter(function(p){ return p.categoria === 'esportes' && !usedIds[p.id]; });
-        var col5_std8  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; }));
-        var col5_mini7 = todos.filter(function(p){ return p.categoria === 'tecnologia' && !usedIds[p.id]; });
-        var col6_std9  = sortComImagemPrimeiro(todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; }));
-        var col6_mini8 = todos.filter(function(p){ return p.categoria === 'industria' && !usedIds[p.id]; });
+        function pool(cats){ return sortComImagemPrimeiro(todos.filter(function(p){ return cats.indexOf(p.categoria) !== -1; })); }
 
-        // SEM FALLBACK — std-cards usam controle próprio de IDs usados
-        var usedIdsStd = {};
-        function pickFrom(pool){ for(var i=0;i<pool.length;i++){ if(!usedIdsStd[pool[i].id]){ usedIdsStd[pool[i].id]=true; return pool[i]; } } return null; }
-        function pickCol(pool){ return pickFrom(pool); }
-
-        // Coluna 1 — Política & Economia
-        var col1_united = sortComImagemPrimeiro(col1_std);
-
-        // ── ROTAÇÃO: todos os cards standard e mini ──────────────────
-        // Máximo 10 rotações, intervalo 7s, categoria específica de cada card
-        function iniciarRotacao(elId, pool, fn){
+        // ── ROTAÇÃO: intervalo 7s, máximo 10 rotações ────────────────
+        function iniciarRotacao(elId, p){
           var el = document.getElementById(elId);
-          if(!el || !pool || !pool.length) return;
+          if(!el || !p || !p.length) return;
           var idx = 0;
-          fn(el, pool[0]);
+          preencherCard(el, p[0]);
           var count = 0;
           var timer = setInterval(function(){
             count++;
             if(count >= 10){ clearInterval(timer); return; }
-            idx = (idx + 1) % pool.length;
-            fn(el, pool[idx]);
+            idx = (idx + 1) % p.length;
+            preencherCard(el, p[idx]);
           }, 7000);
         }
 
-        iniciarRotacao('ovc-card-std-1',  col1_united,   preencherCard);
-        iniciarRotacao('ovc-card-std-2',  col1_united,   preencherCard);
-        iniciarRotacao('ovc-card-mini-1', col1_mini1,    preencherMini);
-        iniciarRotacao('ovc-card-mini-2', col1_mini2,    preencherMini);
+        // SEÇÃO 1 — Política, Negócios, Família
+        iniciarRotacao('ovc-card-std-1',  pool(['politica']));
+        iniciarRotacao('ovc-card-std-2',  pool(['economia']));
+        iniciarRotacao('ovc-card-std-2b', pool(['internacional']));
 
-        // Coluna 2 — Negócios, Investimentos & Mercados
-        var col2_united = sortComImagemPrimeiro(
-          col2_std3.concat(col2_std4).filter(function(p,i,a){ return a.findIndex(function(x){ return x.id===p.id; })===i; })
-        );
-        iniciarRotacao('ovc-card-std-3',  col2_united,   preencherCard);
-        iniciarRotacao('ovc-card-std-4',  col2_united,   preencherCard);
-        iniciarRotacao('ovc-card-mini-3', col2_mini3,    preencherMini);
-        iniciarRotacao('ovc-card-mini-4', col2_mini4,    preencherMini);
+        iniciarRotacao('ovc-card-std-3',  pool(['negocios']));
+        iniciarRotacao('ovc-card-std-4',  pool(['investimentos']));
+        iniciarRotacao('ovc-card-std-4b', pool(['mercados']));
 
-        // Coluna 3 — Família, Saúde, Educação, Tributos & Regulação
-        var col3_united = sortComImagemPrimeiro(
-          col3_std5.concat(col3_std6).filter(function(p,i,a){ return a.findIndex(function(x){ return x.id===p.id; })===i; })
-        );
-        iniciarRotacao('ovc-card-std-5',  col3_united,   preencherCard);
-        iniciarRotacao('ovc-card-std-6',  col3_united,   preencherCard);
-        iniciarRotacao('ovc-card-mini-5', col3_mini5,    preencherMini);
+        iniciarRotacao('ovc-card-std-5',  pool(['familia']));
+        iniciarRotacao('ovc-card-std-5b', pool(['saude']));
+        iniciarRotacao('ovc-card-std-5c', pool(['educacao']));
 
-        // Esportes, Tecnologia & Indústria — REGRA INVIOLÁVEL: só categoria exata
-        iniciarRotacao('ovc-card-std-7',  col4_std7,     preencherCard);
-        iniciarRotacao('ovc-card-mini-6', col4_mini6,    preencherMini);
-        iniciarRotacao('ovc-card-std-8',  col5_std8,     preencherCard);
-        iniciarRotacao('ovc-card-mini-7', col5_mini7,    preencherMini);
-        iniciarRotacao('ovc-card-std-9',  col6_std9,     preencherCard);
-        iniciarRotacao('ovc-card-mini-8', col6_mini8,    preencherMini);
+        // SEÇÃO 2 — Tributos, Seguros, Parcerias
+        iniciarRotacao('ovc-card-std-6',  pool(['tributacao']));
+        iniciarRotacao('ovc-card-std-6b', pool(['regulacao']));
+        iniciarRotacao('ovc-card-std-7b', pool(['seguros']));
+        iniciarRotacao('ovc-card-std-8b', pool(['parcerias']));
+        iniciarRotacao('ovc-card-std-9b', pool(['vc','colunistas']));
+
+        // SEÇÃO 3 — Esportes, Tecnologia, Indústria
+        iniciarRotacao('ovc-card-std-7',  pool(['esportes']));
+        iniciarRotacao('ovc-card-std-8',  pool(['tecnologia']));
+        iniciarRotacao('ovc-card-std-9',  pool(['industria']));
 
         var grids = document.querySelectorAll('.card-grid,.cards-section,.section-cards,.standard-grid');
         grids.forEach(function(g){ g.style.gap = '22px'; });
