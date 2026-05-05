@@ -33,21 +33,32 @@ function getMaxDiaByHora() {
 function validarConteudo(content) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
-  const corpo = (content.corpo || '').toLowerCase().slice(0, 400);
+  const corpo = (content.corpo || '').toLowerCase().slice(0, 600);
 
-  if (titulo.length < 10) return false;
+  if (titulo.length < 15) return false;
+  if (titulo.length > 120) return false;
 
-  // Titulos claramente invalidos
-  if (/^(prezado|caro|ola|sem titulo|titulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
+  // Titulos claramente invalidos ou gerados pela IA sem fonte real
+  if (/^(prezado|caro|ol[aá]|sem t[ií]tulo|t[ií]tulo:|headline:|assunto:|erro:|teste:|not[ií]cia:|texto:|mat[eé]ria:)/.test(titulo)) return false;
 
-  // Fora do escopo editorial OVC
+  // Corpo muito raso — IA gerou sem base suficiente
+  if ((content.corpo || '').length < 800) return false;
+
+  // Sem assinatura OVC no corpo
+  if (!content.corpo.toLowerCase().includes("redação ovc")) return false;
+
+  // Fora do escopo editorial OVC — entretenimento, programas de TV, lifestyle puro
   const foraEscopo = [
-    /jornal da oeste/, /revista oeste/, /programa.{0,20}ao ar/,
-    /transmit.{0,20}ao vivo/, /segunda edi.{1,3}o.*programa/,
-    /apresenta.{1,3}o.*realizada por/, /exib.{0,10}segunda.{0,10}sexta/,
-    /programa.{1,10}o audiovisual/, /horario.{0,10}das \d+h.{0,5}as \d+h/,
+    /jornal da oeste/, /revista oeste/,
+    /programa.{0,20}ao ar/, /transmit.{0,20}ao vivo/,
+    /segunda edi.{1,3}o.*programa/, /apresenta.{1,3}o.*realizada por/,
+    /exib.{0,10}segunda.{0,10}sexta/, /programa.{1,10}o audiovisual/,
+    /hor[aá]rio.{0,10}das \d+h.{0,5}[aà]s \d+h/,
     /colunista.{0,10}folha/, /colunista.{0,10}globo/,
-    /novela|reality show|soap opera/
+    /novela|reality show|soap opera/,
+    /moda feminina|receita de bolo|dicas de beleza|skincare|maquiagem/,
+    /hor[oó]scopo|signo do dia|previs[aã]o astrol[oó]gica/,
+    /celebridade|famoso|fofoca|boato|rumor/
   ];
   for (const r of foraEscopo) {
     if (r.test(titulo) || r.test(corpo)) return false;
@@ -96,11 +107,10 @@ export default async function handler(req, res) {
 
       // Scrape
       const article = await scrape(item.link);
-      const sourceText = (article.text && article.text.length >= 100)
+      // Exige conteúdo real — fallback raso causa títulos sem sentido
+      const sourceText = (article.text && article.text.length >= 350)
         ? article.text
-        : (item.description && item.description.length >= 50)
-          ? item.title + ". " + item.description
-          : null;
+        : null;
       if (!sourceText) continue;
 
       // Reescrever no padrão OVC
@@ -135,7 +145,7 @@ export default async function handler(req, res) {
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
-        comentario_fixado: content.subtitulo || "",
+        comentario_fixado: content.meta_descricao || content.subtitulo || "",
         imagem: imagemFinal,
         hash,
         status: "publicado",
@@ -146,7 +156,11 @@ export default async function handler(req, res) {
         subcategoria: content.subcategoria,
         subcategoria_slug: content.subcategoria_slug,
         collaborators: "[]",
-        metrics: {},
+        metrics: {
+          foco_keyword: content.foco_keyword || "",
+          seo_slug: content.slug || "",
+          meta_descricao: content.meta_descricao || ""
+        },
         priority: 0,
         retry_count: 0,
         max_retries: 3

@@ -20,32 +20,21 @@ function nextGeminiKey() {
 
 async function callOpenAI(prompt) {
   if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada");
-  
-  try {
-    const url = "https://api.openai.com/v1/chat/completions";
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_KEY}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-        max_tokens: 8192
-      })
-    });
-    
-    const d = await res.json();
-    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message || ""}`);
-    
-    const text = d.choices?.[0]?.message?.content;
-    if (text && text.length > 100) return text;
-    throw new Error("OpenAI retornou resposta vazia ou muito curta");
-  } catch(e) {
-    throw e;
-  }
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+      max_tokens: 8192
+    })
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message || ""}`);
+  const text = d.choices?.[0]?.message?.content;
+  if (text && text.length > 100) return text;
+  throw new Error("OpenAI retornou resposta vazia ou muito curta");
 }
 
 async function callGemini(prompt) {
@@ -58,7 +47,7 @@ async function callGemini(prompt) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4, maxOutputTokens: 8192 }
+          generationConfig: { temperature: 0.3, maxOutputTokens: 8192 }
         })
       });
       const d = await res.json();
@@ -74,61 +63,84 @@ async function callGemini(prompt) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PROMPT — REESCRITA FIEL. NUNCA INVENTA. NUNCA PESQUISA.
+// PROMPT — REESCRITA FIEL + SEO COMPLETO
+// Nunca inventa. Só usa o que está na fonte.
 // ══════════════════════════════════════════════════════════════════
 
-const PROMPT = (data, text) => `Você é redator do portal O Valor Capital (OVC). Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada. Você NÃO pode adicionar contexto que não está na fonte. Você NÃO pode pesquisar informações externas. Se a fonte não informa algo, você simplesmente não informa.
+const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada. Se a fonte não informa algo, você não escreve.
 
-REGRA ABSOLUTA: Use APENAS as informações que estão no texto fonte abaixo. Nada mais.
+REGRA ABSOLUTA: Use SOMENTE as informações do texto fonte. Nada além disso.
 
-FORMATO DE SAÍDA — copie exatamente:
+FORMATO DE SAÍDA OBRIGATÓRIO — copie os rótulos exatamente:
 
-TITULO: manchete direta com máximo 8 palavras e verbo obrigatório, baseada nos fatos da fonte
-SUBTITULO: frase objetiva de até 100 caracteres com os fatos principais da fonte
+TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início, verbo obrigatório, factual, sem clickbait
+FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO (ex: taxa selic, reforma tributária, dólar bolsa)
+SLUG: 3 a 5 palavras-chave do título em português, hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
+META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural, sem cortar no meio
 CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional
-SUBCATEGORIA: subcategoria específica da categoria escolhida
+SUBCATEGORIA: subcategoria específica dentro da categoria escolhida
 CORPO:
 Redação OVC — ${data}
 
-[Parágrafo 1 — mínimo 4 frases: reescreva com outras palavras o fato principal da fonte]
+[Parágrafo de abertura — 4 a 5 frases. Responda quem, o quê, quando, onde e por quê usando os fatos da fonte. Inclua a palavra-chave principal na primeira frase. Este parágrafo é o mais importante para SEO.]
 
-[Parágrafo 2 — mínimo 4 frases: reescreva com outras palavras os desdobramentos ou contexto que está NA FONTE]
+## [Subheading H2 — variação natural da palavra-chave, factual, 4 a 7 palavras]
 
-[Parágrafo 3 — mínimo 4 frases: reescreva com outras palavras os dados, números e nomes que estão NA FONTE]
+[Parágrafo — 4 frases. Desdobramentos e contexto que estão NA FONTE.]
 
-[Parágrafo 4 — mínimo 4 frases: reescreva com outras palavras outras informações que estão NA FONTE]
+[Parágrafo — 4 frases. Dados, números e nomes presentes NA FONTE.]
 
-[Parágrafo 5 — mínimo 3 frases: reescreva com outras palavras as declarações ou posições que estão NA FONTE]
+## [Subheading H2 — impacto ou consequências práticas, factual]
 
-[Parágrafo 6 — mínimo 3 frases: reescreva com outras palavras o impacto ou consequências mencionados NA FONTE]
+[Parágrafo — 4 frases. Impacto concreto para o leitor, usando os fatos da fonte.]
 
-[Parágrafo 7 — mínimo 3 frases: encerre com os próximos passos ou perspectivas mencionados NA FONTE]
+[Parágrafo — 4 frases. Quem é afetado, como e por quê — somente o que a fonte diz.]
 
-#hashtag_do_tema_1
-#hashtag_do_tema_2
-#hashtag_do_tema_3
+## [Subheading H2 — perspectiva ou próximos passos, factual]
+
+[Parágrafo — 3 a 4 frases. Próximos passos ou perspectivas mencionados NA FONTE. Não conclua além do que a fonte informa.]
+
+#hashtag_tema_1
+#hashtag_tema_2
+#hashtag_tema_3
 #ovalorcapital
 
 REGRAS INVIOLÁVEIS:
-- Use SOMENTE informações do texto fonte. Se não está na fonte, não escreva.
-- NUNCA invente nomes de pessoas, empresas, valores, datas ou fatos.
-- NUNCA adicione contexto histórico ou comparações que não estão na fonte.
+- CORPO mínimo 2.000 caracteres — escreva parágrafos densos e completos
+- Use SOMENTE fatos do texto fonte. Se não está na fonte, não escreva.
+- NUNCA invente nomes de pessoas, empresas, valores, datas ou declarações.
+- NUNCA adicione contexto histórico que não está na fonte.
 - NUNCA mencione o veículo de origem.
-- Linguagem direta, sem academicismo.
 - Primeira linha do CORPO sempre: Redação OVC — ${data}
-- CORPO com mínimo 1.000 caracteres.
-- NÃO comece com "Prezado", "Caro", "Olá", "Atenção" ou qualquer saudação.
-- NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista
+- Os subheadings ## devem aparecer exatamente como marcados (## seguido de espaço e texto)
+- TITULO deve ter entre 50 e 65 caracteres — conte e ajuste
+- META_DESCRICAO deve ter entre 145 e 160 caracteres — conte e ajuste
+- Linguagem direta e acessível, sem academicismo
+- NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
+- NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar
 
 NOTÍCIA FONTE:
 ${text}`;
+
+function slugify(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 function parse(raw) {
   if (!raw) return null;
 
   const lines = raw.split("\n");
   let titulo = "";
-  let subtitulo = "";
+  let focoKeyword = "";
+  let slug = "";
+  let metaDescricao = "";
   let categoriaRaw = "";
   let subcategoriaRaw = "";
   let corpo = "";
@@ -138,8 +150,14 @@ function parse(raw) {
     const trimmed = line.trim();
     if (/^TITULO:/i.test(trimmed)) {
       titulo = trimmed.replace(/^TITULO:/i, "").trim();
+    } else if (/^FOCO_KEYWORD:/i.test(trimmed)) {
+      focoKeyword = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
+    } else if (/^SLUG:/i.test(trimmed)) {
+      slug = slugify(trimmed.replace(/^SLUG:/i, "").trim());
+    } else if (/^META_DESCRICAO:/i.test(trimmed)) {
+      metaDescricao = trimmed.replace(/^META_DESCRICAO:/i, "").trim();
     } else if (/^SUBTITULO:/i.test(trimmed)) {
-      subtitulo = trimmed.replace(/^SUBTITULO:/i, "").trim();
+      if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim();
     } else if (/^CATEGORIA:/i.test(trimmed)) {
       categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().toLowerCase();
     } else if (/^SUBCATEGORIA:/i.test(trimmed)) {
@@ -162,29 +180,33 @@ function parse(raw) {
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional"];
   if (!catsValidas.includes(categoriaRaw)) categoriaRaw = "geral";
 
+  if (!slug && titulo) {
+    slug = slugify(titulo).split("-").slice(0, 5).join("-");
+  }
+
   return {
     titulo: titulo || "Sem título",
-    subtitulo: subtitulo || "",
+    subtitulo: metaDescricao || "",
+    meta_descricao: metaDescricao || "",
+    foco_keyword: focoKeyword || "",
+    slug,
     categoria: categoriaRaw,
     subcategoria: subcategoriaRaw || "Geral",
-    subcategoria_slug: (subcategoriaRaw || "geral").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-"),
+    subcategoria_slug: slugify(subcategoriaRaw || "geral"),
     corpo
   };
 }
 
 export async function rewritePortal(text, title, useGemini = false) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
-  
-  // Se useGemini = true, usa Gemini (para conteúdos avulsos)
-  // Se useGemini = false (padrão), usa OpenAI (para automação)
+
   const raw = useGemini ? await callGemini(prompt) : await callOpenAI(prompt);
   const result = parse(raw);
 
-  if (!result || !result.corpo || result.corpo.length < 500) {
+  if (!result || !result.corpo || result.corpo.length < 800) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
 
-  // Rejeitar lixo de saudação
   const tituloLower = (result.titulo || "").toLowerCase().trim();
   const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
   const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];

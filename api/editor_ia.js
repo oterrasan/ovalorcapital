@@ -11,53 +11,63 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
 
 const hoje = () => new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
 
-// ── PROMPT — retorna texto estruturado, não JSON (mais confiável com Gemini)
+// ── PROMPT — retorna texto estruturado com campos SEO completos
 function buildPrompt(acao, promptLivre, data, texto) {
   const instrucao = {
-    reescrever: "Você é redator-chefe do portal O Valor Capital. Reescreva a notícia abaixo no padrão OVC.",
-    melhorar:   "Você é redator-chefe do portal O Valor Capital. Melhore este texto mantendo os fatos, elevando a qualidade jornalística.",
-    tema:       "Você é redator-chefe do portal O Valor Capital. Crie uma matéria jornalística completa sobre este tema.",
-    livre:      `Você é redator-chefe do portal O Valor Capital. ${promptLivre}`
-  }[acao] || "Você é redator-chefe do portal O Valor Capital. Reescreva no padrão OVC.";
+    reescrever: "Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Reescreva a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos da fonte. NÃO invente nada.",
+    melhorar:   "Você é redator sênior do portal O Valor Capital (OVC). Melhore o texto abaixo elevando a qualidade jornalística e otimizando para SEO, mantendo todos os fatos originais.",
+    tema:       "Você é redator sênior do portal O Valor Capital (OVC). Crie uma matéria jornalística completa e otimizada para SEO sobre o tema abaixo, baseando-se apenas nas informações fornecidas.",
+    livre:      `Você é redator sênior do portal O Valor Capital (OVC). ${promptLivre}`
+  }[acao] || "Você é redator sênior do portal O Valor Capital (OVC). Reescreva no padrão OVC com SEO otimizado.";
 
   return `${instrucao}
 
-FORMATO DE SAÍDA OBRIGATÓRIO — siga exatamente:
+FORMATO DE SAÍDA OBRIGATÓRIO — copie os rótulos exatamente:
 
-TITULO: escreva aqui a manchete com máximo 8 palavras e verbo obrigatório
-SUBTITULO: escreva aqui uma frase direta de até 100 caracteres
+TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início, verbo obrigatório, factual, sem clickbait
+FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO
+SLUG: 3 a 5 palavras-chave hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
+META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural
 CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional
+SUBCATEGORIA: subcategoria específica dentro da categoria escolhida
 CORPO:
 Redação OVC — ${data}
 
-[Escreva aqui o primeiro parágrafo — mínimo 4 frases. Fato mais impactante, número concreto ou contradição. Prenda o leitor na primeira frase.]
+[Parágrafo de abertura — 4 a 5 frases. Fato mais importante primeiro. Inclua a palavra-chave na primeira frase. Responda quem, o quê, quando, onde, por quê.]
 
-[Escreva aqui o segundo parágrafo — mínimo 4 frases. Por que isso importa para o brasileiro. Conecte ao dia a dia real.]
+## [Subheading H2 — variação da palavra-chave, factual, 4 a 7 palavras]
 
-[Escreva aqui o terceiro parágrafo — mínimo 4 frases. Números, datas, nomes verificáveis. Dados concretos.]
+[Parágrafo — 4 frases. Contexto e desdobramentos com dados concretos.]
 
-[Escreva aqui o quarto parágrafo — mínimo 4 frases. Histórico e contexto. O que aconteceu antes.]
+[Parágrafo — 4 frases. Números, datas, nomes verificáveis.]
 
-[Escreva aqui o quinto parágrafo — mínimo 4 frases. Impacto prático. Quem paga, quem ganha, quem perde.]
+## [Subheading H2 — impacto prático ou consequências]
 
-[Escreva aqui o sexto parágrafo — mínimo 4 frases. Quem reagiu e o que disse. Posições diferentes.]
+[Parágrafo — 4 frases. Quem paga, quem ganha, quem perde. Impacto real para o brasileiro.]
 
-[Escreva aqui o sétimo parágrafo — mínimo 4 frases. Perspectiva histórica ou comparação internacional.]
+[Parágrafo — 4 frases. Reações, declarações, posições diferentes.]
 
-[Escreva aqui o oitavo parágrafo — mínimo 3 frases. Tensão em aberto. Não conclua. Deixe o leitor pensando.]
+## [Subheading H2 — perspectiva histórica ou próximos passos]
 
-#hashtag1
-#hashtag2
-#hashtag3
+[Parágrafo — 4 frases. Contexto histórico ou comparação relevante.]
+
+[Parágrafo — 3 frases. Perspectiva ou próximos passos. Não conclua — deixe tensão em aberto.]
+
+#hashtag_tema_1
+#hashtag_tema_2
+#hashtag_tema_3
 #ovalorcapital
 
 REGRAS INVIOLÁVEIS:
-- CORPO mínimo 1.600 caracteres — conte e ajuste
-- EXATAMENTE 8 parágrafos separados por linha em branco
-- Primeira linha do CORPO: Redação OVC — ${data}
-- Linguagem direta, de rua, sem academicismo
-- Voz centro-direita nos fatos — nunca panfletária
-- NUNCA use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, blindar, catalisador, protagonista
+- CORPO mínimo 2.000 caracteres — parágrafos densos e completos
+- Primeira linha do CORPO sempre: Redação OVC — ${data}
+- Os subheadings ## aparecem exatamente como marcados (## espaço texto)
+- TITULO entre 50 e 65 caracteres — conte e ajuste
+- META_DESCRICAO entre 145 e 160 caracteres — conte e ajuste
+- Linguagem direta e acessível, sem academicismo
+- Voz informativa e factual — nunca panfletária
+- NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
+- NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, blindar, catalisador, protagonista
 
 TEXTO FONTE:
 ${texto}`;
@@ -122,14 +132,28 @@ async function callOpenAI(prompt) {
   return d.choices?.[0]?.message?.content || "";
 }
 
-// Parser robusto — lê formato de texto estruturado
+function slugify(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+// Parser robusto — lê formato de texto estruturado com campos SEO
 function parse(raw) {
   if (!raw || raw.length < 50) return null;
 
   const lines = raw.split("\n");
   let titulo = "";
-  let subtitulo = "";
+  let focoKeyword = "";
+  let slug = "";
+  let metaDescricao = "";
   let categoria = "geral";
+  let subcategoria = "";
   let corpo = "";
   let inCorpo = false;
 
@@ -137,11 +161,18 @@ function parse(raw) {
     const t = line.trim();
     if (/^TITULO:/i.test(t)) {
       titulo = t.replace(/^TITULO:/i, "").trim();
+    } else if (/^FOCO_KEYWORD:/i.test(t)) {
+      focoKeyword = t.replace(/^FOCO_KEYWORD:/i, "").trim();
+    } else if (/^SLUG:/i.test(t)) {
+      slug = slugify(t.replace(/^SLUG:/i, "").trim());
+    } else if (/^META_DESCRICAO:/i.test(t)) {
+      metaDescricao = t.replace(/^META_DESCRICAO:/i, "").trim();
     } else if (/^SUBTITULO:/i.test(t)) {
-      subtitulo = t.replace(/^SUBTITULO:/i, "").trim();
+      if (!metaDescricao) metaDescricao = t.replace(/^SUBTITULO:/i, "").trim();
     } else if (/^CATEGORIA:/i.test(t)) {
-      categoria = t.replace(/^CATEGORIA:/i, "").trim().toLowerCase()
-        .replace(/[^a-z]/g, "").trim();
+      categoria = t.replace(/^CATEGORIA:/i, "").trim().toLowerCase().replace(/[^a-z]/g, "").trim();
+    } else if (/^SUBCATEGORIA:/i.test(t)) {
+      subcategoria = t.replace(/^SUBCATEGORIA:/i, "").trim();
     } else if (/^CORPO:/i.test(t)) {
       inCorpo = true;
     } else if (inCorpo) {
@@ -151,7 +182,6 @@ function parse(raw) {
 
   corpo = corpo.trim();
 
-  // Fallback — se não parseou, usar o raw completo como corpo
   if (!corpo && raw.length > 200) {
     corpo = raw.trim();
     const firstLine = raw.split("\n")[0].trim();
@@ -161,7 +191,18 @@ function parse(raw) {
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional"];
   if (!catsValidas.includes(categoria)) categoria = "geral";
 
-  return { titulo: titulo || "Matéria OVC", subtitulo, categoria, corpo };
+  if (!slug && titulo) slug = slugify(titulo).split("-").slice(0, 5).join("-");
+
+  return {
+    titulo: titulo || "Matéria OVC",
+    subtitulo: metaDescricao || "",
+    meta_descricao: metaDescricao || "",
+    foco_keyword: focoKeyword || "",
+    slug,
+    categoria,
+    subcategoria: subcategoria || "",
+    corpo
+  };
 }
 
 export default async function handler(req, res) {
@@ -179,7 +220,6 @@ export default async function handler(req, res) {
 
     if (!url && !texto) return res.status(400).json({ error: "Informe URL ou texto" });
 
-    // Extrair texto da URL
     let sourceText = texto || "";
     let sourceTitle = "";
     let sourceImage = imagem || "";
@@ -198,7 +238,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Texto muito curto para gerar matéria" });
     }
 
-    // Buscar imagem automaticamente
     if (buscarImagem && !sourceImage) {
       try {
         const words = (sourceTitle || sourceText).slice(0, 60).replace(/[^a-záàâãéêíóôõúç ]/gi, "").split(" ").filter(w => w.length > 3).slice(0, 3).join(" ");
@@ -222,7 +261,6 @@ export default async function handler(req, res) {
       } catch(_) {}
     }
 
-    // Gerar com a IA escolhida
     const prompt = buildPrompt(acao, promptLivre, hoje(), sourceText);
     let raw = "";
 
@@ -237,26 +275,28 @@ export default async function handler(req, res) {
       throw new Error("A IA não gerou conteúdo suficiente. Tente com um texto mais longo.");
     }
 
-    // Preview — não salva
     if (!publicar) {
       return res.status(200).json({
         ok: true, preview: true,
         titulo: content.titulo,
         subtitulo: content.subtitulo,
+        meta_descricao: content.meta_descricao,
+        foco_keyword: content.foco_keyword,
+        slug: content.slug,
         categoria: content.categoria,
+        subcategoria: content.subcategoria,
         corpo: content.corpo,
         imagem: sourceImage
       });
     }
 
-    // Salvar no banco
     const hash = crypto.createHash("md5").update((url || texto || "").slice(0, 200) + "_editor_" + Date.now()).digest("hex");
     const status = publicar === true || publicar === "publicado" ? "publicado" : "pendente";
 
     const { data: post, error } = await supabase.from("posts").insert({
       titulo: content.titulo,
       conteudo: content.corpo,
-      comentario_fixado: content.subtitulo || "",
+      comentario_fixado: content.meta_descricao || content.subtitulo || "",
       imagem: sourceImage || "",
       hash,
       status,
@@ -264,10 +304,14 @@ export default async function handler(req, res) {
       publish_method: "portal",
       published_at: status === "publicado" ? new Date().toISOString() : null,
       user_tags: JSON.stringify([content.categoria || "geral"]),
-      subcategoria: "",
+      subcategoria: content.subcategoria || "",
       subcategoria_slug: "",
       collaborators: "[]",
-      metrics: {},
+      metrics: {
+        foco_keyword: content.foco_keyword || "",
+        seo_slug: content.slug || "",
+        meta_descricao: content.meta_descricao || ""
+      },
       priority: 1,
       retry_count: 0,
       max_retries: 3
@@ -279,7 +323,11 @@ export default async function handler(req, res) {
       ok: true, saved: true, status, id: post.id,
       titulo: content.titulo,
       subtitulo: content.subtitulo,
+      meta_descricao: content.meta_descricao,
+      foco_keyword: content.foco_keyword,
+      slug: content.slug,
       categoria: content.categoria,
+      subcategoria: content.subcategoria,
       corpo: content.corpo,
       imagem: sourceImage
     });
