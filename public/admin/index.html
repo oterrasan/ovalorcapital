@@ -170,7 +170,7 @@ function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/status');
+      const r = await fetch('/api/manage');
       if (r.ok) setStatus(await r.json());
     } catch(_) {}
     const { data: p } = await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(10);
@@ -378,7 +378,7 @@ function Pipeline() {
     setManualRunning(true); setManualResult(null);
     try {
       const body = { pedidos, fonteManual: modoManual ? fonteManual.trim() : null };
-      const r = await fetch('/api/run_manual', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const r = await fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const j = await r.json();
       setManualResult(j);
       load();
@@ -589,7 +589,7 @@ function Postagens() {
       }
 
       // Aprovar e publicar
-      const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
       const d = await r.json();
       if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
       else alert('❌ Erro: '+d.error);
@@ -603,7 +603,7 @@ function Postagens() {
     if (!selected.length) return;
     if (!confirm(`Publicar ${selected.length} post(s) no Instagram?`)) return;
     setApproving(true);
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
+    const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
     const d = await r.json();
     const ok = d.results?.filter(x=>x.ok).length||0;
     const fail = d.results?.filter(x=>!x.ok).length||0;
@@ -717,7 +717,7 @@ function Postagens() {
   };
 
   const retryPost = async id => {
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'retry'})});
+    const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'retry'})});
     const d = await r.json();
     if (d.ok) { alert('Post recolocado na fila.'); load(); }
     else alert('Erro: '+d.error);
@@ -1529,7 +1529,7 @@ function NovoPost() {
       if (error) throw new Error(error.message);
 
       if (status === 'pendente' && form.publicar_agora) {
-        const r = await fetch('/api/approve', {
+        const r = await fetch('/api/manage', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({id: post.id})
@@ -1720,13 +1720,13 @@ function FilaPublicacao() {
   };
 
   const approvePost = async (id) => {
-    await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
+    await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
     load();
   };
 
   const publishNow = async (id) => {
     if (!confirm('Publicar agora no Instagram?')) return;
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
     const d = await r.json();
     if (d.ok) { alert('✅ Publicado!'); load(); }
     else alert('❌ Erro: '+d.error);

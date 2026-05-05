@@ -8,42 +8,15 @@
     }
   ],
   "functions": {
-    "api/run_portal.js": {
-      "maxDuration": 60
-    },
-    "api/run_manual.js": {
-      "maxDuration": 60
-    },
-    "api/editor_ia.js": {
-      "maxDuration": 60
-    },
-    "api/approve.js": {
-      "maxDuration": 60
-    },
-    "api/approve_portal.js": {
-      "maxDuration": 30
-    },
-    "api/portal-posts.js": {
-      "maxDuration": 15
-    },
-    "api/status.js": {
-      "maxDuration": 10
-    },
-    "api/refresh_token.js": {
-      "maxDuration": 30
-    },
-    "api/manual_post.js": {
-      "maxDuration": 60
-    },
-    "api/live-data.js": {
-      "maxDuration": 15
-    },
-    "api/ig_publish.js": {
-      "maxDuration": 60
-    },
-    "api/fix_images.js": {
-      "maxDuration": 55
-    }
+    "api/run_portal.js": { "maxDuration": 60 },
+    "api/manage.js":     { "maxDuration": 60 },
+    "api/editor_ia.js":  { "maxDuration": 60 },
+    "api/manual_post.js":{ "maxDuration": 60 },
+    "api/portal-posts.js":{ "maxDuration": 15 },
+    "api/ig_publish.js": { "maxDuration": 60 },
+    "api/fix_images.js": { "maxDuration": 55 },
+    "api/live-data.js":  { "maxDuration": 15 },
+    "api/refresh_token.js":{ "maxDuration": 30 }
   },
   "build": {
     "env": {
