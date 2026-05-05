@@ -160,7 +160,7 @@ export default async function handler(req, res) {
         imagemFinal = await findImage(content.titulo, content.categoria, "", "");
       }
 
-      const statusFinal = revisaoObrigatoria ? "pendente" : "publicado";
+      const statusFinal = "pendente"; // toda matéria aguarda aprovação manual antes de publicar
 
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
@@ -169,9 +169,9 @@ export default async function handler(req, res) {
         imagem: imagemFinal,
         hash,
         status: statusFinal,
-        approved: !revisaoObrigatoria,
+        approved: false,
         publish_method: revisaoObrigatoria ? "portal_revisao" : "portal",
-        published_at: revisaoObrigatoria ? null : new Date().toISOString(),
+        published_at: null,
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
         subcategoria_slug: content.subcategoria_slug,
@@ -189,11 +189,11 @@ export default async function handler(req, res) {
       if (error) return res.status(200).json({ status: "db_error", error: error.message });
 
       return res.status(200).json({
-        status: revisaoObrigatoria ? "pendente_revisao" : "ok",
+        status: "pendente",
         titulo: content.titulo,
         categoria: content.categoria,
         subcategoria: content.subcategoria,
-        revisao: revisaoObrigatoria,
+        revisao_obrigatoria: revisaoObrigatoria,
         id: post?.id
       });
     }

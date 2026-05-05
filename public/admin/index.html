@@ -655,6 +655,59 @@ function Postagens() {
   };
 
   const [revisando, setRevisando] = useState(null);
+  const [revisaoModal, setRevisaoModal] = useState({show:false, post:null, flags:{texto:false,imagem:false,fontes:false}, obs:''});
+
+  const abrirRevisao = post => setRevisaoModal({show:true, post, flags:{texto:false,imagem:false,fontes:false}, obs:''});
+
+  const devolverRevisao = async () => {
+    const {post, flags, obs} = revisaoModal;
+    if (!flags.texto && !flags.imagem && !flags.fontes && !obs.trim()) {
+      alert('Selecione ao menos uma opção de revisão ou escreva uma observação.');
+      return;
+    }
+    setRevisando(post.id);
+    setRevisaoModal(m=>({...m, show:false}));
+    try {
+      // Salvar flags e observações no post
+      const metricsAtual = typeof post.metrics === 'object' ? post.metrics : {};
+      await sb.from('posts').update({
+        status: 'pendente',
+        approved: false,
+        published_at: null,
+        metrics: {...metricsAtual, revisao_obs: obs, revisao_flags: flags, revisao_at: new Date().toISOString()}
+      }).eq('id', post.id);
+
+      // Revisar texto com IA se solicitado
+      if (flags.texto) {
+        try {
+          const r = await fetch('/api/editor_ia', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({texto: post.conteudo, acao:'melhorar', ia:'gemini', publicar:false})
+          });
+          const d = await r.json();
+          if (d.ok && d.corpo) {
+            await sb.from('posts').update({
+              titulo: d.titulo || post.titulo,
+              conteudo: d.corpo,
+              comentario_fixado: d.meta_descricao || post.comentario_fixado
+            }).eq('id', post.id);
+          }
+        } catch(e) { console.warn('Revisão de texto falhou:', e.message); }
+      }
+
+      // Limpar imagem se solicitado — sistema buscará nova na próxima revisão
+      if (flags.imagem) {
+        await sb.from('posts').update({imagem: ''}).eq('id', post.id);
+      }
+
+      alert('✅ Post devolvido para revisão' + (flags.texto ? ' — texto reprocessado pela IA' : '') + '.');
+      load();
+    } catch(e) {
+      alert('Erro ao devolver: ' + e.message);
+    }
+    setRevisando(null);
+  };
 
   const revisarIA = async (post) => {
     if (!confirm('A IA vai revisar o conteúdo e buscar nova imagem para este post. Continuar?')) return;
@@ -760,6 +813,53 @@ function Postagens() {
             </div>
           </div>
         )}
+        {revisaoModal.show&&(
+          <div className="modal-bg" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:500}}>
+              <div className="modal-header">
+                <span className="modal-title">🔄 Devolver para Revisão</span>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div style={{fontSize:13,color:'var(--t2)',marginBottom:16,padding:'8px 12px',background:'rgba(255,200,0,0.07)',borderRadius:8,border:'1px solid rgba(255,200,0,0.2)'}}>
+                  <strong style={{color:'var(--t1)'}}>{revisaoModal.post?.titulo}</strong>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{marginBottom:10}}>O que precisa ser revisado?</label>
+                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                    {[
+                      {key:'texto', icon:'📝', label:'Revisar texto', desc:'A IA reescreve o conteúdo com mais qualidade'},
+                      {key:'imagem', icon:'🖼️', label:'Revisar imagem', desc:'Remove a imagem atual — sistema buscará outra'},
+                      {key:'fontes', icon:'🔍', label:'Revisar fontes', desc:'Marcar para checar as informações manualmente'}
+                    ].map(({key,icon,label,desc})=>(
+                      <label key={key} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',borderRadius:8,border:'1px solid var(--border)',cursor:'pointer',background:revisaoModal.flags[key]?'rgba(255,200,0,0.08)':'var(--card)',transition:'background 0.15s'}}>
+                        <input type="checkbox" checked={revisaoModal.flags[key]}
+                          onChange={e=>setRevisaoModal(m=>({...m,flags:{...m.flags,[key]:e.target.checked}}))}
+                          style={{marginTop:2,accentColor:'var(--yellow)',width:16,height:16,flexShrink:0}}/>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:13}}>{icon} {label}</div>
+                          <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{desc}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Observações (opcional)</label>
+                  <textarea className="form-textarea" style={{minHeight:80}} placeholder="Ex: título confuso, imagem fora de contexto, dado incorreto no 2º parágrafo..."
+                    value={revisaoModal.obs}
+                    onChange={e=>setRevisaoModal(m=>({...m,obs:e.target.value}))}/>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>Cancelar</button>
+                <button className="btn btn-primary" onClick={devolverRevisao} disabled={revisando===revisaoModal.post?.id}>
+                  {revisando===revisaoModal.post?.id ? 'Processando...' : '🔄 Devolver para Revisão'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {editPost&&(
           <div className="modal-bg">
             <div className="modal">
@@ -831,8 +931,9 @@ function Postagens() {
                         <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Preview">👁</button>
                         <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
                         {p.status==='pendente'&&<>
-                          <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Portal</button>
-                          <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
+                          <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Publicar</button>
+                          <button className="btn btn-sm" style={{background:'rgba(255,200,0,0.15)',color:'var(--yellow)',border:'1px solid rgba(255,200,0,0.35)'}} onClick={()=>abrirRevisao(p)} disabled={!!revisando} title="Devolver para revisão">🔄 Revisar</button>
+                          <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 IG</button>
                         </>}
                         {p.status==='publicado'&&<>
                           <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} title="Publicar no Instagram">📱 Instagram</button>

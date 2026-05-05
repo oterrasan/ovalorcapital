@@ -43,9 +43,6 @@
     },
     "api/fix_images.js": {
       "maxDuration": 55
-    },
-    "api/seo_batch.js": {
-      "maxDuration": 60
     }
   },
   "build": {
