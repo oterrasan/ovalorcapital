@@ -237,24 +237,16 @@
           else            semPost.push({ cat:cat, pool:[] });
         });
 
-        // Cards com conteúdo primeiro, vazios no final
+        // Renderizar cards com conteúdo
         comPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(el){ grid.appendChild(el); startRotation(el, item.pool, item.cat.path); }
+          if(el){ startRotation(el, item.pool, item.cat.path); }
         });
+
+        // Remover completamente os cards sem conteúdo
         semPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(el){
-            grid.appendChild(el);
-            // Estado neutro — sem "Carregando...", só o nome da categoria
-            var t = el.querySelector('.ovc-card-title');
-            var m = el.querySelector('.ovc-card-meta');
-            var c = el.querySelector('.ovc-card-cta');
-            if(t) t.textContent = '';
-            if(m) m.textContent = '';
-            if(c){ c.textContent = 'Ver seção'; c.href = item.cat.path; }
-            el.onclick = function(){ location.href = item.cat.path; };
-          }
+          if(el) el.remove();
         });
       })
       .catch(function(e){ console.warn('OVC cards:', e.message); });
