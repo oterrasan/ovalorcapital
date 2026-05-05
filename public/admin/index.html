@@ -747,6 +747,13 @@ function Postagens() {
     load();
   };
 
+  const deletarPost = async id => {
+    if (!confirm('⚠️ Excluir permanentemente este post? Não há como desfazer.')) return;
+    const {error} = await sb.from('posts').delete().eq('id',id);
+    if (error) alert('Erro ao excluir: ' + error.message);
+    else load();
+  };
+
   const pubPortalBatch = async () => {
     if (!selected.length) return;
     if (!confirm(`Publicar ${selected.length} post(s) no Portal Web?`)) return;
@@ -941,6 +948,7 @@ function Postagens() {
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
                         {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
+                        <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.12)',color:'#f87171',border:'1px solid rgba(200,30,30,0.25)'}} onClick={()=>deletarPost(p.id)} title="Excluir permanentemente">🗑️</button>
                       </div>
                     </td>
                   </tr>
