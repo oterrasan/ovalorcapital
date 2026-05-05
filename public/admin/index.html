@@ -334,8 +334,11 @@ function Pipeline() {
     {id:'tecnologia',label:'🚀 Tecnologia'},
     {id:'esportes',label:'⚽ Esportes'},
     {id:'educacao',label:'🎓 Educação'},
+    {id:'industria',label:'🏭 Indústria'},
     {id:'internacional',label:'🌍 Internacional'},
     {id:'variedades',label:'🎭 Variedades'},
+    {id:'vc',label:'📰 OVC'},
+    {id:'colunistas',label:'✍️ Colunistas'},
   ];
 
   const SUBCATS = {
@@ -356,6 +359,8 @@ function Pipeline() {
     parcerias:   ['Empresas & Startups','Universidades & Faculdades','Órgãos & Associações','Benefícios & Descontos','Programas & Editais','Geral'],
     internacional:['Internacional'],
     variedades:  ['Cultura','Moda','Entretenimento','Carreiras','Tecnologia','Comportamento','Geral'],
+    vc:          ['Editorial','Opinião','Análise','Institucional','Geral'],
+    colunistas:  ['Coluna Semanal','Opinião','Análise','Geral'],
   };
 
   const [pedidos, setPedidos] = useState([{categoria:'politica', subcategoria:'', quantidade:3}]);

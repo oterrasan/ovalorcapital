@@ -28,7 +28,7 @@ TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início
 FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO
 SLUG: 3 a 5 palavras-chave hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
 META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural
-CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional
+CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | vc | colunistas
 SUBCATEGORIA: subcategoria específica dentro da categoria escolhida
 CORPO:
 Redação OVC — ${data}
@@ -188,7 +188,7 @@ function parse(raw) {
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional"];
+  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","vc","colunistas"];
   if (!catsValidas.includes(categoria)) categoria = "geral";
 
   if (!slug && titulo) slug = slugify(titulo).split("-").slice(0, 5).join("-");
