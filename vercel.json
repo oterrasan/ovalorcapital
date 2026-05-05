@@ -5,10 +5,6 @@
     {
       "path": "/api/refresh_token",
       "schedule": "0 3 1 * *"
-    },
-    {
-      "path": "/api/seo_batch",
-      "schedule": "0 * * * *"
     }
   ],
   "functions": {
@@ -47,9 +43,6 @@
     },
     "api/fix_images.js": {
       "maxDuration": 55
-    },
-    "api/seo_batch.js": {
-      "maxDuration": 60
     }
   },
   "build": {

@@ -161,6 +161,9 @@ export default async function handler(req, res) {
 
       if (error) return res.status(200).json({ status: "db_error", error: error.message });
 
+      // Aproveitar o tempo restante para otimizar SEO de posts antigos (até 3)
+      try { await seoBackfill(3); } catch(_) {}
+
       return res.status(200).json({
         status: "ok",
         titulo: content.titulo,
@@ -170,9 +173,59 @@ export default async function handler(req, res) {
       });
     }
 
+    // Mesmo sem post novo, tenta avançar o backfill de SEO
+    try { await seoBackfill(5); } catch(_) {}
     return res.status(200).json({ status: "no_valid_news" });
 
   } catch(e) {
     return res.status(500).json({ status: "error", error: e.message });
+  }
+}
+
+// ── SEO BACKFILL — processa posts antigos sem SEO ─────────────────
+const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
+
+function slugify(t) {
+  return (t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").replace(/-+/g,"-");
+}
+
+async function seoBackfill(limite) {
+  if (!OPENAI_KEY) return;
+  const { data: posts } = await supabase
+    .from("posts")
+    .select("id, titulo, conteudo, metrics")
+    .eq("status", "publicado")
+    .or("metrics.is.null,metrics->>seo_otimizado.neq.true")
+    .order("created_at", { ascending: true })
+    .limit(limite);
+
+  if (!posts || !posts.length) return;
+
+  for (const post of posts) {
+    try {
+      const prompt = `Gere SEO para este artigo do portal O Valor Capital.\nTÍTULO: ${post.titulo}\nCONTEÚDO: ${(post.conteudo||"").slice(0,600)}\n\nFormato exato:\nTITULO: manchete 50-65 chars\nFOCO_KEYWORD: 2-4 palavras\nSLUG: 3-5 palavras hifenizadas sem acentos\nMETA_DESCRICAO: 145-160 chars`;
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: 300 })
+      });
+      const d = await res.json();
+      const raw = d.choices?.[0]?.message?.content || "";
+      let novoTitulo = "", focoKeyword = "", slug = "", metaDescricao = "";
+      for (const line of raw.split("\n")) {
+        const t = line.trim();
+        if (/^TITULO:/i.test(t))             novoTitulo    = t.replace(/^TITULO:/i,"").trim();
+        else if (/^FOCO_KEYWORD:/i.test(t))  focoKeyword   = t.replace(/^FOCO_KEYWORD:/i,"").trim();
+        else if (/^SLUG:/i.test(t))          slug          = slugify(t.replace(/^SLUG:/i,"").trim());
+        else if (/^META_DESCRICAO:/i.test(t)) metaDescricao = t.replace(/^META_DESCRICAO:/i,"").trim();
+      }
+      if (!slug && novoTitulo) slug = slugify(novoTitulo).split("-").slice(0,5).join("-");
+      const m = (typeof post.metrics === "object" && post.metrics) ? post.metrics : {};
+      await supabase.from("posts").update({
+        titulo: novoTitulo || post.titulo,
+        comentario_fixado: metaDescricao || "",
+        metrics: { ...m, foco_keyword: focoKeyword, seo_slug: slug, meta_descricao: metaDescricao, seo_otimizado: true }
+      }).eq("id", post.id);
+    } catch(_) {}
   }
 }
