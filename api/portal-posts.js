@@ -66,12 +66,13 @@ export default async function handler(req, res) {
     const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
     function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
 
-    // REGRA INVIOLÁVEL: apenas categorias válidas saem pela API — "geral" bloqueado
+    // Categorias válidas — "geral" bloqueado
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional','vc','colunistas']);
+      'parcerias','internacional','vc','colunistas','variedades']);
 
-    const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
+    // imgOk obrigatório apenas para home cards — posts editoriais sem imagem também são servidos
+    const posts = postsRaw.map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
 
     if (resources) {
       return res.status(200).json({
@@ -103,7 +104,7 @@ function formatPost(p, full) {
     educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
     esportes:"esportes", saude:"saude", familia:"familia",
     tributacao:"tributos", regulacao:"regulacao", internacional:"economia",
-    parcerias:"parcerias", vc:"vc", colunistas:"vc", geral:"politica"
+    parcerias:"parcerias", vc:"vc", colunistas:"colunistas", variedades:"variedades", geral:"politica"
   };
   return {
     id: p.id,

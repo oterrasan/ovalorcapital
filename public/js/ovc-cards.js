@@ -3,7 +3,7 @@
 
   // ── CATEGORIAS — ordem e slugs exatos do supermenu ──────────────
   var CATS = [
-    { id:'vc',           label:'OVC',          path:'/vc/',           cats:['vc','colunistas'] },
+    { id:'vc',           label:'OVC',          path:'/vc/',           cats:['vc'] },
     { id:'investimentos',label:'Investimentos', path:'/investimentos/',cats:['investimentos'] },
     { id:'mercados',     label:'Mercados',      path:'/mercados/',     cats:['mercados'] },
     { id:'educacao',     label:'Educação',      path:'/educacao/',     cats:['educacao'] },
@@ -14,7 +14,9 @@
     { id:'familia',      label:'Família',       path:'/familia/',      cats:['familia'] },
     { id:'tributos',     label:'Tributos',      path:'/tributos/',     cats:['tributacao'] },
     { id:'regulacao',    label:'Regulação',     path:'/regulacao/',    cats:['regulacao'] },
-    { id:'parcerias',    label:'Parcerias',     path:'/parcerias/',    cats:['parcerias'] }
+    { id:'parcerias',    label:'Parcerias',     path:'/parcerias/',    cats:['parcerias'] },
+    { id:'variedades',   label:'Variedades',    path:'/variedades/',   cats:['variedades'] },
+    { id:'colunistas',   label:'Colunistas',    path:'/colunistas/',   cats:['colunistas'] }
   ];
 
   var ROTATION_INTERVAL = 7000;
@@ -35,7 +37,7 @@
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
       tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-      vc:'vc', colunistas:'vc', internacional:'economia', geral:'politica'
+      vc:'vc', colunistas:'colunistas', variedades:'variedades', internacional:'economia', geral:'politica'
     };
     var cat = catPath[p.categoria] || 'politica';
     return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
