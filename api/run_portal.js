@@ -29,6 +29,27 @@ function getMaxDiaByHora() {
   return 12;
 }
 
+// Filtro no título bruto do RSS — bloqueia fora do escopo ANTES de scrape/IA
+const TITULO_FORA_ESCOPO = [
+  /met gala/i,
+  /oscar\b|grammy|emmy|bafta|cannes|festival de cinema/i,
+  /novela|reality show|big brother|bbb|a fazenda|masterchef/i,
+  /hor[oó]scopo|signo|previs[aã]o astrol/i,
+  /receita de |dica de beleza|skincare|maquiagem|moda feminina/i,
+  /fofoca|celebridade|famoso|boato|rumor/i,
+  /futebol.*[a-záàâãéêíóôõúç]{4,} (marca|gol|hat.trick|convocad|escalaç)/i,
+  /se destaca como titular|estreia no time|time escala|convocad[oa] para/i,
+  /jogador.{0,20}(club|time|seleção)/i,
+  /ator|atriz|cantor|cantora|apresentador.{0,15}ganha|perd[eu]/i,
+  /morreu|morre\b.{0,20}(famoso|ator|cantor|celebridade)/i,
+];
+
+function tituloForaEscopo(rawTitle) {
+  if (!rawTitle) return false;
+  const t = rawTitle.toLowerCase();
+  return TITULO_FORA_ESCOPO.some(r => r.test(t));
+}
+
 // Filtro de qualidade — rejeita conteudo fora do escopo editorial OVC
 function validarConteudo(content) {
   if (!content || !content.titulo) return false;
@@ -47,18 +68,17 @@ function validarConteudo(content) {
   // Sem assinatura OVC no corpo
   if (!content.corpo.toLowerCase().includes("redação ovc")) return false;
 
-  // Fora do escopo editorial OVC — entretenimento, programas de TV, lifestyle puro
+  // Fora do escopo editorial OVC — entretenimento, esporte, lifestyle
   const foraEscopo = [
-    /jornal da oeste/, /revista oeste/,
-    /programa.{0,20}ao ar/, /transmit.{0,20}ao vivo/,
-    /segunda edi.{1,3}o.*programa/, /apresenta.{1,3}o.*realizada por/,
-    /exib.{0,10}segunda.{0,10}sexta/, /programa.{1,10}o audiovisual/,
-    /hor[aá]rio.{0,10}das \d+h.{0,5}[aà]s \d+h/,
-    /colunista.{0,10}folha/, /colunista.{0,10}globo/,
-    /novela|reality show|soap opera/,
-    /moda feminina|receita de bolo|dicas de beleza|skincare|maquiagem/,
+    /met gala|oscar\b|grammy|emmy|bafta/,
+    /novela|reality show|soap opera|big brother|bbb/,
     /hor[oó]scopo|signo do dia|previs[aã]o astrol[oó]gica/,
-    /celebridade|famoso|fofoca|boato|rumor/
+    /moda feminina|receita de bolo|dicas de beleza|skincare|maquiagem/,
+    /celebridade|famoso|fofoca|boato|rumor/,
+    /se destaca como titular|estreia no time|convocad[oa] para a seleç/,
+    /programa.{0,20}ao ar|transmit.{0,20}ao vivo/,
+    /colunista.{0,10}folha|colunista.{0,10}globo/,
+    /jornal da oeste|revista oeste/,
   ];
   for (const r of foraEscopo) {
     if (r.test(titulo) || r.test(corpo)) return false;
@@ -98,6 +118,9 @@ export default async function handler(req, res) {
       if (Date.now() - inicio > 45000) {
         return res.status(200).json({ status: "timeout_preventivo" });
       }
+
+      // Rejeitar pelo título bruto antes de qualquer scrape ou chamada de IA
+      if (tituloForaEscopo(item.title)) continue;
 
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
 
