@@ -1,7 +1,6 @@
 (function(){
   'use strict';
 
-  // ── CATEGORIAS — ordem e slugs exatos do supermenu ──────────────
   var CATS = [
     { id:'vc',           label:'OVC',          path:'/vc/',           cats:['vc','colunistas'] },
     { id:'investimentos',label:'Investimentos', path:'/investimentos/',cats:['investimentos'] },
@@ -20,7 +19,6 @@
   var ROTATION_INTERVAL = 7000;
   var ROTATION_MAX      = 10;
 
-  // ── HELPERS ──────────────────────────────────────────────────────
   function dataBr(s){
     if(!s) return '';
     var d = new Date(s);
@@ -51,35 +49,101 @@
     return !BLOCKED.some(function(r){ return r.test(url); });
   }
 
-  // ── RENDERIZAR CARD ──────────────────────────────────────────────
+  // ── ESTILOS FIXOS — idênticos em todos os cards ──────────────────
+  var STYLE = {
+    card: [
+      'position:relative',
+      'border-radius:12px',
+      'overflow:hidden',
+      'min-height:220px',
+      'display:flex',
+      'flex-direction:column',
+      'justify-content:flex-end',
+      'padding:16px',
+      'background:#0f172a',
+      'background-size:cover',
+      'background-position:center',
+      'box-shadow:0 2px 12px rgba(0,0,0,0.15)',
+      'transition:transform 0.2s,box-shadow 0.2s',
+      'cursor:pointer'
+    ].join(';'),
+    overlay: [
+      'position:absolute',
+      'inset:0',
+      'background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.30) 55%,rgba(0,0,0,0.04) 100%)',
+      'border-radius:inherit',
+      'pointer-events:none',
+      'z-index:0'
+    ].join(';'),
+    inner: 'position:relative;z-index:1;display:flex;flex-direction:column;gap:5px;',
+    tag: [
+      'display:inline-flex',
+      'align-items:center',
+      'gap:5px',
+      'font-family:inherit',
+      'font-size:10px',
+      'font-weight:700',
+      'letter-spacing:0.09em',
+      'text-transform:uppercase',
+      'color:#fff',
+      'background:rgba(255,255,255,0.13)',
+      'border:1px solid rgba(255,255,255,0.32)',
+      'backdrop-filter:blur(4px)',
+      'padding:3px 9px',
+      'border-radius:999px',
+      'width:fit-content'
+    ].join(';'),
+    title: [
+      'font-family:inherit',
+      'font-size:14px',
+      'font-weight:700',
+      'line-height:1.38',
+      'color:#fff',
+      'text-shadow:0 2px 8px rgba(0,0,0,0.75)',
+      'margin:0',
+      'display:-webkit-box',
+      '-webkit-line-clamp:3',
+      '-webkit-box-orient:vertical',
+      'overflow:hidden'
+    ].join(';'),
+    meta: [
+      'font-family:inherit',
+      'font-size:11px',
+      'font-weight:500',
+      'color:rgba(255,255,255,0.65)',
+      'line-height:1.3'
+    ].join(';'),
+    cta: [
+      'display:inline-flex',
+      'align-items:center',
+      'gap:4px',
+      'margin-top:5px',
+      'font-family:inherit',
+      'font-size:11px',
+      'font-weight:700',
+      'letter-spacing:0.06em',
+      'color:#ffc800',
+      'text-decoration:none',
+      'width:fit-content'
+    ].join(';')
+  };
+
   function renderCard(el, post, path){
     if(!el||!post) return;
     var url = buildUrl(post);
-
-    // Imagem
     if(imgOk(post.imagem)){
       el.style.backgroundImage = "url('"+post.imagem+"')";
-      el.style.backgroundSize  = 'cover';
-      el.style.backgroundPosition = 'center';
     } else {
       el.style.backgroundImage = '';
     }
-
-    // Conteúdo
     el.querySelector('.ovc-card-title').textContent = post.titulo || '';
     el.querySelector('.ovc-card-meta').textContent  = 'Redação OVC · ' + dataBr(post.data);
     var cta = el.querySelector('.ovc-card-cta');
     if(cta) cta.href = url;
-
-    // Clique
     el.onclick = null;
-    el.onclick = function(e){
-      if(!e.target.closest('a')) location.href = url;
-    };
-    el.style.cursor = 'pointer';
+    el.onclick = function(e){ if(!e.target.closest('a')) location.href = url; };
   }
 
-  // ── ROTAÇÃO ──────────────────────────────────────────────────────
   function startRotation(el, posts, path){
     if(!el||!posts||!posts.length) return;
     var idx = 0, count = 0;
@@ -92,9 +156,53 @@
     }, ROTATION_INTERVAL);
   }
 
-  // ── CONSTRUIR HTML DA SEÇÃO ──────────────────────────────────────
+  function buildCard(cat){
+    var card = document.createElement('article');
+    card.className = 'ovc-cat-card';
+    card.id = 'ovc-cat-' + cat.id;
+    card.style.cssText = STYLE.card;
+
+    var overlay = document.createElement('div');
+    overlay.style.cssText = STYLE.overlay;
+    card.appendChild(overlay);
+
+    var inner = document.createElement('div');
+    inner.style.cssText = STYLE.inner;
+
+    var tag = document.createElement('span');
+    tag.className = 'ovc-card-tag';
+    tag.style.cssText = STYLE.tag;
+    tag.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#ffc800;display:inline-block;flex-shrink:0;"></span>' + cat.label;
+
+    var title = document.createElement('h2');
+    title.className = 'ovc-card-title';
+    title.style.cssText = STYLE.title;
+    title.textContent = '';
+
+    var meta = document.createElement('div');
+    meta.className = 'ovc-card-meta';
+    meta.style.cssText = STYLE.meta;
+    meta.textContent = 'Redação OVC';
+
+    var cta = document.createElement('a');
+    cta.className = 'ovc-card-cta';
+    cta.href = cat.path;
+    cta.style.cssText = STYLE.cta;
+    cta.textContent = 'LEIA MAIS';
+
+    inner.appendChild(tag);
+    inner.appendChild(title);
+    inner.appendChild(meta);
+    inner.appendChild(cta);
+    card.appendChild(inner);
+
+    card.addEventListener('mouseenter', function(){ this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.25)'; });
+    card.addEventListener('mouseleave', function(){ this.style.transform=''; this.style.boxShadow='0 2px 12px rgba(0,0,0,0.15)'; });
+
+    return card;
+  }
+
   function buildSection(container){
-    // Grid wrapper
     var grid = document.createElement('div');
     grid.className = 'ovc-cat-grid';
     grid.style.cssText = [
@@ -104,150 +212,49 @@
       'margin-top:22px',
       'width:100%'
     ].join(';');
-
-    CATS.forEach(function(cat){
-      var card = document.createElement('article');
-      card.className = 'ovc-cat-card';
-      card.id = 'ovc-cat-' + cat.id;
-      card.style.cssText = [
-        'position:relative',
-        'border-radius:12px',
-        'overflow:hidden',
-        'min-height:260px',
-        'display:flex',
-        'flex-direction:column',
-        'justify-content:flex-end',
-        'padding:16px',
-        'background:#0f172a',
-        'background-size:cover',
-        'background-position:center',
-        'box-shadow:0 2px 12px rgba(0,0,0,0.15)',
-        'transition:transform 0.2s,box-shadow 0.2s',
-        'cursor:pointer'
-      ].join(';');
-
-      // Overlay gradiente via pseudo — feito com div interno
-      var overlay = document.createElement('div');
-      overlay.style.cssText = [
-        'position:absolute',
-        'inset:0',
-        'background:linear-gradient(to top,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.28) 55%,rgba(0,0,0,0.04) 100%)',
-        'border-radius:inherit',
-        'pointer-events:none',
-        'z-index:0'
-      ].join(';');
-      card.appendChild(overlay);
-
-      // Conteúdo
-      var inner = document.createElement('div');
-      inner.style.cssText = 'position:relative;z-index:1;display:flex;flex-direction:column;gap:6px;';
-
-      var tag = document.createElement('span');
-      tag.className = 'ovc-card-tag';
-      tag.style.cssText = [
-        'display:inline-flex',
-        'align-items:center',
-        'gap:5px',
-        'font-size:11px',
-        'font-weight:700',
-        'letter-spacing:0.08em',
-        'text-transform:uppercase',
-        'color:#fff',
-        'background:rgba(255,255,255,0.15)',
-        'border:1px solid rgba(255,255,255,0.35)',
-        'backdrop-filter:blur(4px)',
-        'padding:3px 9px',
-        'border-radius:999px',
-        'width:fit-content'
-      ].join(';');
-      tag.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#ffc800;display:inline-block;flex-shrink:0;"></span>' + cat.label;
-
-      var title = document.createElement('h2');
-      title.className = 'ovc-card-title';
-      title.style.cssText = [
-        'font-size:15px',
-        'font-weight:800',
-        'color:#fff',
-        'text-shadow:0 2px 8px rgba(0,0,0,0.8)',
-        'margin:0',
-        'line-height:1.35',
-        'display:-webkit-box',
-        '-webkit-line-clamp:3',
-        '-webkit-box-orient:vertical',
-        'overflow:hidden'
-      ].join(';');
-      title.textContent = 'Carregando...';
-
-      var meta = document.createElement('div');
-      meta.className = 'ovc-card-meta';
-      meta.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.7);font-weight:500;';
-      meta.textContent = 'Redação OVC';
-
-      var cta = document.createElement('a');
-      cta.className = 'ovc-card-cta';
-      cta.href = cat.path;
-      cta.style.cssText = [
-        'display:inline-flex',
-        'align-items:center',
-        'gap:4px',
-        'margin-top:4px',
-        'font-size:11px',
-        'font-weight:700',
-        'color:#ffc800',
-        'text-decoration:none',
-        'letter-spacing:0.06em',
-        'width:fit-content'
-      ].join(';');
-      cta.textContent = 'LEIA MAIS';
-
-      inner.appendChild(tag);
-      inner.appendChild(title);
-      inner.appendChild(meta);
-      inner.appendChild(cta);
-      card.appendChild(inner);
-
-      // Hover
-      card.addEventListener('mouseenter', function(){ this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.25)'; });
-      card.addEventListener('mouseleave', function(){ this.style.transform=''; this.style.boxShadow='0 2px 12px rgba(0,0,0,0.15)'; });
-
-      grid.appendChild(card);
-    });
-
+    CATS.forEach(function(cat){ grid.appendChild(buildCard(cat)); });
     container.appendChild(grid);
   }
 
-  // ── CARREGAR POSTS E PREENCHER ───────────────────────────────────
   function load(){
     var container = document.getElementById('ovc-cards-section');
     if(!container) return;
-
-    // Construir HTML uma vez
-    if(!container.querySelector('.ovc-cat-grid')){
-      buildSection(container);
-    }
+    if(!container.querySelector('.ovc-cat-grid')) buildSection(container);
 
     fetch('/api/portal-posts?limit=200')
       .then(function(r){ return r.json(); })
       .then(function(data){
         var posts = (data.posts || data || []);
+        var grid  = container.querySelector('.ovc-cat-grid');
+
+        var comPost  = [];
+        var semPost  = [];
 
         CATS.forEach(function(cat){
-          var el = document.getElementById('ovc-cat-' + cat.id);
-          if(!el) return;
+          var pool = posts.filter(function(p){ return cat.cats.indexOf(p.categoria) !== -1; });
+          pool.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+          if(pool.length) comPost.push({ cat:cat, pool:pool });
+          else            semPost.push({ cat:cat, pool:[] });
+        });
 
-          // Filtrar pela categoria exata — regra inviolável
-          var pool = posts.filter(function(p){
-            return cat.cats.indexOf(p.categoria) !== -1;
-          });
-
-          // Priorizar posts com imagem
-          pool.sort(function(a,b){
-            var ai = imgOk(a.imagem) ? 0 : 1;
-            var bi = imgOk(b.imagem) ? 0 : 1;
-            return ai - bi;
-          });
-
-          if(pool.length) startRotation(el, pool, cat.path);
+        // Cards com conteúdo primeiro, vazios no final
+        comPost.forEach(function(item){
+          var el = document.getElementById('ovc-cat-' + item.cat.id);
+          if(el){ grid.appendChild(el); startRotation(el, item.pool, item.cat.path); }
+        });
+        semPost.forEach(function(item){
+          var el = document.getElementById('ovc-cat-' + item.cat.id);
+          if(el){
+            grid.appendChild(el);
+            // Estado neutro — sem "Carregando...", só o nome da categoria
+            var t = el.querySelector('.ovc-card-title');
+            var m = el.querySelector('.ovc-card-meta');
+            var c = el.querySelector('.ovc-card-cta');
+            if(t) t.textContent = '';
+            if(m) m.textContent = '';
+            if(c){ c.textContent = 'Ver seção'; c.href = item.cat.path; }
+            el.onclick = function(){ location.href = item.cat.path; };
+          }
         });
       })
       .catch(function(e){ console.warn('OVC cards:', e.message); });
