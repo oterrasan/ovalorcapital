@@ -90,13 +90,16 @@ export default async function handler(req, res) {
   const inicio = Date.now();
 
   try {
-    // Checar automação
-    const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
-    if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
+    const force = req.body?.force === true;
 
-    // Checar limite diário (variável por horário)
+    // Checar automação — force=true bypassa (execução manual pelo admin)
+    if (!force) {
+      const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
+      if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
+    }
+
+    // Checar limite diário — force=true bypassa (admin sempre pode gerar)
     const MAX_DIA = getMaxDiaByHora();
-    // Meia-noite Brasília = 03:00 UTC
     const agora = new Date();
     const inicioDiaBrasilia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
     const { count } = await supabase.from("posts")
@@ -104,7 +107,7 @@ export default async function handler(req, res) {
       .gte("created_at", inicioDiaBrasilia.toISOString())
       .eq("publish_method", "portal");
     const horaBrasiliaAtual = (new Date().getUTCHours() - 3 + 24) % 24;
-    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA, currentHour: horaBrasiliaAtual });
+    if (!force && (count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA, currentHour: horaBrasiliaAtual });
 
     // Buscar notícias
     const news = await getNews();

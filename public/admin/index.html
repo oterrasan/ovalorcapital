@@ -187,7 +187,7 @@ function Dashboard() {
   const forceRun = async () => {
     setForcing(true); setRunResult('Executando...');
     try {
-      const r = await fetch('/api/run', {method:'POST',headers:{'Content-Type':'application/json'}});
+      const r = await fetch('/api/run_portal', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
       const j = await r.json();
       setRunResult(JSON.stringify(j));
       load();
@@ -312,7 +312,7 @@ function Pipeline() {
   const forceRun = async () => {
     setForcing(true); setLastResult('Executando...');
     try {
-      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
       const j = await r.json();
       setLastResult(JSON.stringify(j,null,2));
       load();
