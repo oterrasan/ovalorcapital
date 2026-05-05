@@ -16,7 +16,7 @@ function slugify(text) {
 
 function buildSeoPrompt(titulo, conteudo) {
   const fonte = `TÍTULO ORIGINAL: ${titulo}\n\nCONTEÚDO:\n${(conteudo || "").slice(0, 800)}`;
-  return `Você é especialista em SEO para o portal O Valor Capital (OVC), portal de jornalismo econômico e financeiro brasileiro. Com base no título e conteúdo abaixo, gere os campos SEO otimizados.
+  return `Você é especialista em SEO para o portal O Valor Capital (OVC), portal de jornalismo brasileiro. Com base no título e conteúdo abaixo, gere os campos SEO otimizados.
 
 ${fonte}
 
@@ -58,9 +58,9 @@ async function gerarSeo(titulo, conteudo) {
   let novoTitulo = "", focoKeyword = "", slug = "", metaDescricao = "";
   for (const line of lines) {
     const t = line.trim();
-    if (/^TITULO:/i.test(t))          novoTitulo   = t.replace(/^TITULO:/i, "").trim();
-    else if (/^FOCO_KEYWORD:/i.test(t)) focoKeyword = t.replace(/^FOCO_KEYWORD:/i, "").trim();
-    else if (/^SLUG:/i.test(t))         slug        = slugify(t.replace(/^SLUG:/i, "").trim());
+    if (/^TITULO:/i.test(t))             novoTitulo   = t.replace(/^TITULO:/i, "").trim();
+    else if (/^FOCO_KEYWORD:/i.test(t))  focoKeyword  = t.replace(/^FOCO_KEYWORD:/i, "").trim();
+    else if (/^SLUG:/i.test(t))          slug         = slugify(t.replace(/^SLUG:/i, "").trim());
     else if (/^META_DESCRICAO:/i.test(t)) metaDescricao = t.replace(/^META_DESCRICAO:/i, "").trim();
   }
 
@@ -76,26 +76,21 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
-    const offset = parseInt(req.query.offset || req.body?.offset || "0");
-    const limit  = Math.min(parseInt(req.query.limit  || req.body?.limit  || "5"), 8);
+    const limite = 20;
 
-    // Buscar total de posts sem SEO completo
-    const { count: total } = await supabase
+    // Buscar apenas posts que ainda não têm SEO otimizado
+    const { data: posts, error, count } = await supabase
       .from("posts")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "publicado");
-
-    // Buscar lote de posts
-    const { data: posts, error } = await supabase
-      .from("posts")
-      .select("id, titulo, conteudo, metrics")
+      .select("id, titulo, conteudo, metrics", { count: "exact" })
       .eq("status", "publicado")
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .or("metrics.is.null,metrics->>seo_otimizado.neq.true")
+      .order("created_at", { ascending: true })
+      .limit(limite);
 
     if (error) throw new Error(error.message);
+
     if (!posts || posts.length === 0) {
-      return res.status(200).json({ status: "done", processados: 0, total, nextOffset: null });
+      return res.status(200).json({ status: "done", processados: 0, pendentes: 0 });
     }
 
     const resultados = [];
@@ -122,15 +117,12 @@ export default async function handler(req, res) {
       }
     }
 
-    const nextOffset = offset + posts.length;
-    const hasMore = nextOffset < total;
+    const pendentes = (count || 0) - posts.length;
 
     return res.status(200).json({
-      status: hasMore ? "parcial" : "done",
+      status: pendentes > 0 ? "parcial" : "done",
       processados: resultados.length,
-      total,
-      offset,
-      nextOffset: hasMore ? nextOffset : null,
+      pendentes,
       resultados
     });
 

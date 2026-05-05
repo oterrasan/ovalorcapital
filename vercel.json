@@ -5,6 +5,10 @@
     {
       "path": "/api/refresh_token",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/seo_batch",
+      "schedule": "0 * * * *"
     }
   ],
   "functions": {
