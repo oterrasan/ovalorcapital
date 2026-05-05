@@ -14,7 +14,7 @@ function tag(status){
 // ── App ──────────────────────────────────────────────────────
 function App(){
   const [tab,setTab] = React.useState("pendentes");
-  const tabs = ["dashboard","pendentes","publicados","pipeline","fontes","contas","logs","config"];
+  const tabs = ["dashboard","pendentes","publicados","pipeline","fontes","contas","logs","seo","config"];
   return React.createElement("div",{style:{fontFamily:"Inter,sans-serif",background:"#08080f",minHeight:"100vh",color:"#e5e7eb"}},
     React.createElement("div",{style:{background:"#0a0a14",borderBottom:"1px solid #1e293b",padding:"0 16px",display:"flex",gap:4,flexWrap:"wrap"}},
       React.createElement("div",{style:{padding:"12px 8px",fontWeight:700,color:"#ffc800",marginRight:16}},"OVC ADMIN"),
@@ -32,6 +32,7 @@ function App(){
       tab==="fontes" && React.createElement(Fontes),
       tab==="contas" && React.createElement(Contas),
       tab==="logs" && React.createElement(Logs),
+      tab==="seo" && React.createElement(SeoBatch),
       tab==="config" && React.createElement(Config)
     )
   );
@@ -456,6 +457,74 @@ function Logs(){
         React.createElement("span",{style:{fontWeight:700,marginRight:8,color:l.level==="error"?"#ef4444":"#22c55e"}}, l.level?.toUpperCase()),
         l.message
       ))
+    )
+  );
+}
+
+// ── SEO BATCH ───────────────────────────────────────────────
+function SeoBatch(){
+  const [rodando,setRodando] = React.useState(false);
+  const [progresso,setProgresso] = React.useState(null);
+  const [log,setLog] = React.useState([]);
+  const [concluido,setConcluido] = React.useState(false);
+
+  async function iniciar(){
+    setRodando(true); setConcluido(false); setLog([]); setProgresso(null);
+    let offset = 0;
+    let total = 0;
+    let processadosTotal = 0;
+
+    while(true){
+      try {
+        const r = await fetch(`/api/seo_batch?offset=${offset}&limit=5`);
+        const d = await r.json();
+        if(d.status === "error"){ setLog(l=>[...l,`❌ Erro: ${d.error}`]); break; }
+
+        total = d.total || total;
+        processadosTotal += d.processados || 0;
+        setProgresso({ feitos: processadosTotal, total });
+
+        (d.resultados||[]).forEach(p=>{
+          setLog(l=>[...l, p.ok ? `✅ ${p.titulo}` : `⚠️ Falhou: ${p.titulo}`]);
+        });
+
+        if(d.status === "done" || !d.nextOffset){ break; }
+        offset = d.nextOffset;
+        await new Promise(r=>setTimeout(r,800));
+      } catch(e){ setLog(l=>[...l,`❌ Erro de rede: ${e.message}`]); break; }
+    }
+
+    setRodando(false); setConcluido(true);
+  }
+
+  const pct = progresso ? Math.round((progresso.feitos/progresso.total)*100) : 0;
+
+  return React.createElement("div",null,
+    React.createElement("h2",{style:{color:"#ffc800",marginBottom:8}},"⚡ Otimização SEO em Lote"),
+    React.createElement("p",{style:{color:"#94a3b8",fontSize:13,marginBottom:24}},
+      "Reescreve os títulos e gera meta descrição, palavra-chave e slug SEO para todos os posts publicados. Usa a OpenAI. Custo estimado: menos de R$ 0,50 para 120 posts."
+    ),
+
+    !rodando && !concluido && React.createElement("button",{onClick:iniciar,style:{background:"#c81e1e",color:"#fff",border:"none",borderRadius:8,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer"}},
+      "🚀 Iniciar Otimização SEO"
+    ),
+
+    rodando && React.createElement("div",null,
+      React.createElement("div",{style:{marginBottom:12,fontSize:13,color:"#94a3b8"}},
+        progresso ? `Processando... ${progresso.feitos} de ${progresso.total} posts (${pct}%)` : "Iniciando..."
+      ),
+      React.createElement("div",{style:{background:"#1e293b",borderRadius:8,height:12,marginBottom:20,overflow:"hidden"}},
+        React.createElement("div",{style:{background:"#c81e1e",height:"100%",width:`${pct}%`,transition:"width 0.4s",borderRadius:8}})
+      )
+    ),
+
+    concluido && React.createElement("div",{style:{marginBottom:16}},
+      React.createElement("div",{style:{background:"rgba(22,163,74,0.15)",border:"1px solid #16a34a",borderRadius:8,padding:"12px 20px",color:"#22c55e",fontWeight:700,marginBottom:12}},"✅ Otimização concluída!"),
+      React.createElement("button",{onClick:iniciar,style:{background:"#1e293b",color:"#e5e7eb",border:"1px solid #334155",borderRadius:6,padding:"8px 20px",fontSize:13,cursor:"pointer",marginRight:8}},"↺ Rodar novamente"),
+    ),
+
+    log.length > 0 && React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontFamily:"monospace",fontSize:12,maxHeight:400,overflow:"auto",marginTop:16}},
+      log.map((l,i)=>React.createElement("div",{key:i,style:{padding:"3px 0",borderBottom:"1px solid #1e293b",color:l.startsWith("✅")?"#22c55e":l.startsWith("⚠️")?"#f59e0b":"#ef4444"}}, l))
     )
   );
 }
