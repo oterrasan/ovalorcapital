@@ -29,6 +29,24 @@ function getMaxDiaByHora() {
   return 12;
 }
 
+// Fontes que exigem revisão humana antes de publicar
+// (conteúdo satírico, irônico ou opinativo que não deve ir ao ar automaticamente)
+const FONTES_REVISAO = [
+  "piauiherald.com",
+  "sensacionalista.com",
+  "escrevalolaescreva.blogspot",
+  "theintercept.com",
+  "theintercept.com.br",
+  "agenciapublica.org.br",
+  "brasildefato.com.br",
+  "olavete.com.br"
+];
+
+function exigeRevisao(url) {
+  if (!url) return false;
+  return FONTES_REVISAO.some(dominio => url.includes(dominio));
+}
+
 // Filtro de qualidade — rejeita conteudo fora do escopo editorial OVC
 function validarConteudo(content) {
   if (!content || !content.titulo) return false;
@@ -129,29 +147,31 @@ export default async function handler(req, res) {
         content.subcategoria_slug = "geral";
       }
 
-      // Imagem: tentar usar a original da fonte (processada/recortada), senão buscar banco
+      // Fonte satírica/opinativa → revisão obrigatória antes de publicar
+      const revisaoObrigatoria = exigeRevisao(item.link);
+
+      // Imagem: fontes que exigem revisão não usam imagem da fonte (evita associação indevida)
       let imagemFinal = null;
-      if (article.image && article.image.length > 10) {
-        // Usar imagem original — baixa, recorta marca d'água, salva no Supabase Storage
+      if (!revisaoObrigatoria && article.image && article.image.length > 10) {
         const hashImg = hash.slice(0,12);
         imagemFinal = await processAndSaveImage(article.image, hashImg);
       }
       if (!imagemFinal) {
-        // Fallback: buscar imagem relevante nos bancos
-        imagemFinal = await findImage(content.titulo, content.categoria, "", article.image || "");
+        imagemFinal = await findImage(content.titulo, content.categoria, "", "");
       }
 
-      // Publicação automática — gerado e validado pelo sistema
+      const statusFinal = revisaoObrigatoria ? "pendente" : "publicado";
+
       const { data: post, error } = await supabase.from("posts").insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: content.meta_descricao || content.subtitulo || "",
         imagem: imagemFinal,
         hash,
-        status: "publicado",
-        approved: true,
-        publish_method: "portal",
-        published_at: new Date().toISOString(),
+        status: statusFinal,
+        approved: !revisaoObrigatoria,
+        publish_method: revisaoObrigatoria ? "portal_revisao" : "portal",
+        published_at: revisaoObrigatoria ? null : new Date().toISOString(),
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
         subcategoria_slug: content.subcategoria_slug,
@@ -169,10 +189,11 @@ export default async function handler(req, res) {
       if (error) return res.status(200).json({ status: "db_error", error: error.message });
 
       return res.status(200).json({
-        status: "ok",
+        status: revisaoObrigatoria ? "pendente_revisao" : "ok",
         titulo: content.titulo,
         categoria: content.categoria,
         subcategoria: content.subcategoria,
+        revisao: revisaoObrigatoria,
         id: post?.id
       });
     }

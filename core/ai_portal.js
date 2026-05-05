@@ -63,13 +63,17 @@ async function callGemini(prompt) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// PROMPT — REESCRITA FIEL + SEO COMPLETO
-// Nunca inventa. Só usa o que está na fonte.
+// PROMPT — PRODUÇÃO JORNALÍSTICA OVC COM ANTI-PLÁGIO
 // ══════════════════════════════════════════════════════════════════
 
-const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada. Se a fonte não informa algo, você não escreve.
+const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC). Sua tarefa é produzir uma matéria jornalística ORIGINAL sobre o tema do texto fonte abaixo.
 
-REGRA ABSOLUTA: Use SOMENTE as informações do texto fonte. Nada além disso.
+REGRAS ANTI-PLÁGIO — INVIOLÁVEIS:
+- Use o texto fonte APENAS como referência de pauta (fatos, dados, datas, nomes verificáveis)
+- A estrutura, a ordem das informações, as frases e os parágrafos devem ser 100% seus — NUNCA copie frases ou trechos da fonte
+- Se o texto fonte for satírico, irônico ou humorístico, trate o tema com seriedade jornalística
+- NUNCA mencione o veículo de origem
+- NÃO invente fatos que não estão na fonte
 
 FORMATO DE SAÍDA OBRIGATÓRIO — copie os rótulos exatamente:
 
