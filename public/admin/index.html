@@ -542,70 +542,6 @@ function Postagens() {
     setSelected(p=>p.length===pend.length?[]:pend);
   };
 
-  const approveOne = async id => {
-    setApproving(true);
-    try {
-      // Buscar dados do post
-      const { data: post } = await sb.from('posts').select('*').eq('id',id).single();
-      if (!post) { alert('Post não encontrado'); setApproving(false); return; }
-
-      // Gerar card como imagem
-      let cardUrl = post.imagem;
-      try {
-        // Renderizar o card em um elemento oculto
-        const cardEl = document.createElement('div');
-        cardEl.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1350px;';
-        cardEl.innerHTML = `<img src="${post.imagem}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous"/>`;
-        document.body.appendChild(cardEl);
-        
-        const canvas = await html2canvas(cardEl, {
-          width: 1080, height: 1350,
-          useCORS: true, allowTaint: false,
-          scale: 1
-        });
-        document.body.removeChild(cardEl);
-
-        // Converter para blob e fazer upload
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-        const file = new File([blob], `card-${id}.jpg`, {type:'image/jpeg'});
-        
-        const { data: upload, error: upErr } = await sb.storage
-          .from('cards')
-          .upload(`${id}.jpg`, file, {upsert: true, contentType: 'image/jpeg'});
-        
-        if (!upErr) {
-          const { data: urlData } = sb.storage.from('cards').getPublicUrl(`${id}.jpg`);
-          cardUrl = urlData.publicUrl;
-          // Atualizar imagem no post
-          await sb.from('posts').update({imagem: cardUrl}).eq('id', id);
-        }
-      } catch(imgErr) {
-        console.log('Usando imagem original:', imgErr.message);
-      }
-
-      // Aprovar e publicar
-      const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-      const d = await r.json();
-      if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
-      else alert('❌ Erro: '+d.error);
-    } catch(e) {
-      alert('❌ Erro: '+e.message);
-    }
-    setApproving(false);
-  };
-
-  const approveBatch = async () => {
-    if (!selected.length) return;
-    if (!confirm(`Publicar ${selected.length} post(s) no Instagram?`)) return;
-    setApproving(true);
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
-    const d = await r.json();
-    const ok = d.results?.filter(x=>x.ok).length||0;
-    const fail = d.results?.filter(x=>!x.ok).length||0;
-    alert(`✅ ${ok} publicado(s) no Instagram${fail?' · ❌ '+fail+' erro(s)':''}`);
-    load(); setApproving(false);
-  };
-
   const pubPortal = async id => {
     setApproving(true);
     try {
@@ -771,13 +707,6 @@ function Postagens() {
     load(); setApproving(false);
   };
 
-  const retryPost = async id => {
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'retry'})});
-    const d = await r.json();
-    if (d.ok) { alert('Post recolocado na fila.'); load(); }
-    else alert('Erro: '+d.error);
-  };
-
   const saveEdit = async () => {
     await sb.from('posts').update({
       titulo: editPost.titulo,
@@ -913,7 +842,6 @@ function Postagens() {
             <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12}}>
               <span style={{color:'var(--yellow)',fontSize:13}}>{selected.length} selecionado(s)</span>
               <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Portal (lote)</button>
-              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>📱 Instagram (lote)</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>Cancelar</button>
             </div>
           )}
@@ -940,14 +868,14 @@ function Postagens() {
                         {p.status==='pendente'&&<>
                           <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Publicar</button>
                           <button className="btn btn-sm" style={{background:'rgba(255,200,0,0.15)',color:'var(--yellow)',border:'1px solid rgba(255,200,0,0.35)'}} onClick={()=>abrirRevisao(p)} disabled={!!revisando} title="Devolver para revisão">🔄 Revisar</button>
-                          <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 IG</button>
+                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} disabled={!!igPublishing} title="Publicar no Instagram">📱 Instagram</button>
                         </>}
                         {p.status==='publicado'&&<>
                           <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} title="Publicar no Instagram">📱 Instagram</button>
                           <button className="btn btn-sm" style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)'}} onClick={()=>revisarIA(p)} title="Revisar com IA">🤖 Revisar IA</button>
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
-                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
+                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar e republicar">✏️</button>}
                         <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.12)',color:'#f87171',border:'1px solid rgba(200,30,30,0.25)'}} onClick={()=>deletarPost(p.id)} title="Excluir permanentemente">🗑️</button>
                       </div>
                     </td>
@@ -1793,92 +1721,6 @@ Redação OVC — ${hoje}
 
 
 // ── FILA DE PUBLICAÇÃO ──
-function FilaPublicacao() {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await sb.from('posts')
-      .select('*')
-      .in('status', ['pending','approved','scheduled','publishing'])
-      .order('priority', {ascending:false})
-      .order('scheduled_at', {ascending:true})
-      .limit(50);
-    setPosts(data||[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(()=>{load(); const t=setInterval(load,15000); return()=>clearInterval(t);},[load]);
-
-  const runScheduler = async () => {
-    setRunning(true);
-    try {
-      const r = await fetch('/api/scheduler',{method:'POST',headers:{'Content-Type':'application/json'}});
-      const d = await r.json();
-      alert(`Scheduler: ${d.processed||0} post(s) processado(s)`);
-      load();
-    } catch(e){alert('Erro: '+e.message);}
-    setRunning(false);
-  };
-
-  const approvePost = async (id) => {
-    await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
-    load();
-  };
-
-  const publishNow = async (id) => {
-    if (!confirm('Publicar agora no Instagram?')) return;
-    const r = await fetch('/api/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    const d = await r.json();
-    if (d.ok) { alert('✅ Publicado!'); load(); }
-    else alert('❌ Erro: '+d.error);
-  };
-
-  const methodBadge = m => m==='executor'
-    ? <span className="badge badge-orange">executor</span>
-    : <span className="badge badge-gray">api</span>;
-
-  return (
-    <div>
-      <div className="page-header">
-        <div className="page-title">🔄 Fila de Publicação</div>
-        <div className="page-sub">Ordem de publicação, horário e status em tempo real</div>
-      </div>
-      <div className="page-body">
-        <div className="panel">
-          <div className="panel-header">
-            <span className="panel-title">{posts.length} post(s) na fila</span>
-            <div className="gap-8">
-              <button className="btn btn-primary btn-sm" onClick={runScheduler} disabled={running}>{running?'Processando...':'▶ Executar scheduler'}</button>
-              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
-            </div>
-          </div>
-          {loading?<div className="loading">Carregando...</div>:posts.length===0?
-            <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Fila vazia</div></div>:
-            <table><thead><tr><th>#</th><th>Título</th><th>Status</th><th>Método</th><th>Prioridade</th><th>Agendado</th><th>Ações</th></tr></thead>
-            <tbody>{posts.map((p,i)=>(
-              <tr key={p.id} style={p.status==='publishing'?{background:'rgba(255,200,0,0.05)'}:{}}>
-                <td className="text-secondary text-small">{i+1}</td>
-                <td>{truncate(p.titulo,45)}</td>
-                <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-                <td>{methodBadge(p.publish_method)}</td>
-                <td><span className="badge badge-gray">{p.priority||0}</span></td>
-                <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'Imediato'}</td>
-                <td><div className="gap-8">
-                  {p.status==='pending'&&<button className="btn btn-secondary btn-sm" onClick={()=>approvePost(p.id)}>✓ Aprovar</button>}
-                  {['approved','pending'].includes(p.status)&&<button className="btn btn-primary btn-sm" onClick={()=>publishNow(p.id)}>▶ Publicar</button>}
-                </div></td>
-              </tr>
-            ))}</tbody></table>
-          }
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── ALERTAS ──
 function Alertas() {
   const [alerts, setAlerts] = useState([]);
@@ -1944,7 +1786,6 @@ const PAGES = [
   {id:'editorai',label:'Editor IA',icon:'⚡'},
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
-  {id:'fila',label:'Fila de Publicação',icon:'🔄'},
   {id:'postagens',label:'Postagens',icon:'📝'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
@@ -1978,7 +1819,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens}[page];
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens}[page] || Dashboard;
 
   return (
     <div className="layout">
@@ -2029,13 +1870,6 @@ function UploadImagens() {
     setMsg('');
   };
 
-  const toBase64 = (file) => new Promise((res,rej)=>{
-    const r = new FileReader();
-    r.onload = ()=> res(r.result.split(',')[1]);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-
   const uploadAll = async () => {
     if(!files.length){ setMsg('Selecione ao menos 1 imagem.'); return; }
     setUploading(true);
@@ -2043,15 +1877,11 @@ function UploadImagens() {
     const results = [];
     for(const file of files){
       try{
-        const data = await toBase64(file);
-        const resp = await fetch('/api/upload',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({filename:file.name, contentType:file.type, data})
-        });
-        const json = await resp.json();
-        if(json.url) results.push({name:file.name, url:json.url});
-        else results.push({name:file.name, error:json.error});
+        const path = `uploads/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const { error: upErr } = await sb.storage.from('posts-images').upload(path, file, {contentType: file.type, upsert: true});
+        if(upErr) throw new Error(upErr.message);
+        const { data: urlData } = sb.storage.from('posts-images').getPublicUrl(path);
+        results.push({name:file.name, url:urlData.publicUrl});
       }catch(e){
         results.push({name:file.name, error:e.message});
       }
