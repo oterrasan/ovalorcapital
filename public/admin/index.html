@@ -511,6 +511,8 @@ function Pipeline() {
 }
 
 // ── POSTAGENS ──
+const CATS_LIST = ['','politica','economia','negocios','investimentos','seguros','mercados','educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao','parcerias','internacional','vc','colunistas','variedades'];
+
 function Postagens() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -521,25 +523,42 @@ function Postagens() {
   const [editPost, setEditPost] = useState(null);
   const [previewPost, setPreviewPost] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [busca, setBusca] = useState('');
+  const [filterCat, setFilterCat] = useState('');
+  const [filterSub, setFilterSub] = useState('');
+  const [filterDe, setFilterDe] = useState('');
+  const [filterAte, setFilterAte] = useState('');
+  const [filterMethod, setFilterMethod] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const PER = 50;
 
   const load = useCallback(async () => {
     setLoading(true); setSelected([]);
-    let q = sb.from('posts').select('*').order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    let q = sb.from('posts').select('*',{count:'exact'}).order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
     if (filter!=='all') q=q.eq('status',filter);
-    const { data } = await q;
+    if (busca.trim()) q=q.ilike('titulo','%'+busca.trim()+'%');
+    if (filterCat) q=q.eq('categoria',filterCat);
+    if (filterSub.trim()) q=q.ilike('subcategoria','%'+filterSub.trim()+'%');
+    if (filterMethod) q=q.eq('publish_method',filterMethod);
+    if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00');
+    if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59');
+    const { data, count } = await q;
     setPosts(data||[]);
+    setTotalCount(count||0);
     const { data: acc } = await sb.from('ig_accounts').select('id,username').eq('active',true);
     setAccounts(acc||[]);
     setLoading(false);
-  },[filter,page]);
+  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte]);
 
   useEffect(()=>{load();},[load]);
 
+  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilter('all'); setPage(0); };
+
   const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => {
-    const pend = posts.filter(p=>p.status==='pendente').map(p=>p.id);
-    setSelected(p=>p.length===pend.length?[]:pend);
+    const todos = posts.map(p=>p.id);
+    setSelected(p=>p.length===todos.length?[]:todos);
   };
 
   const pubPortal = async id => {
@@ -707,6 +726,16 @@ function Postagens() {
     load(); setApproving(false);
   };
 
+  const deletarBatch = async () => {
+    if (!selected.length) return;
+    if (!confirm(`⚠️ Excluir permanentemente ${selected.length} post(s)? Não há como desfazer.`)) return;
+    setApproving(true);
+    const { error } = await sb.from('posts').delete().in('id', selected);
+    if (error) alert('Erro: ' + error.message);
+    else alert(`🗑️ ${selected.length} post(s) excluído(s).`);
+    load(); setApproving(false);
+  };
+
   const saveEdit = async () => {
     await sb.from('posts').update({
       titulo: editPost.titulo,
@@ -721,8 +750,6 @@ function Postagens() {
     }).eq('id',editPost.id);
     setEditPost(null); load();
   };
-
-  const pendentesCount = posts.filter(p=>p.status==='pendente').length;
 
   return (
     <div>
@@ -828,21 +855,60 @@ function Postagens() {
         )}
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">Filtrar</span>
+            <span className="panel-title">Postagens <span style={{fontSize:12,color:'var(--t3)',fontWeight:400}}>{totalCount} encontrado(s)</span></span>
             <div className="gap-8">
-              {['all','pendente','success','error','scheduled'].map(f=>(
+              {['all','pendente','publicado','error'].map(f=>(
                 <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>
                   {f==='all'?'Todos':f}
                 </button>
               ))}
+              <button className="btn btn-secondary btn-sm" onClick={()=>setFiltrosAbertos(x=>!x)}>🔍 Filtros {filtrosAbertos?'▲':'▼'}</button>
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>
           </div>
+          {filtrosAbertos&&(
+            <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border)',background:'var(--card)',display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:12}}>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Buscar título</label>
+                <input className="form-input" style={{height:32,fontSize:12}} placeholder="palavra-chave..." value={busca} onChange={e=>{setBusca(e.target.value);setPage(0);}}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Categoria</label>
+                <select className="form-select" style={{height:32,fontSize:12}} value={filterCat} onChange={e=>{setFilterCat(e.target.value);setPage(0);}}>
+                  {CATS_LIST.map(c=><option key={c} value={c}>{c||'Todas'}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Subcategoria</label>
+                <input className="form-input" style={{height:32,fontSize:12}} placeholder="ex: Políticas..." value={filterSub} onChange={e=>{setFilterSub(e.target.value);setPage(0);}}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Origem</label>
+                <select className="form-select" style={{height:32,fontSize:12}} value={filterMethod} onChange={e=>{setFilterMethod(e.target.value);setPage(0);}}>
+                  <option value="">Todas</option>
+                  <option value="portal">Automático (RSS)</option>
+                  <option value="manual">Manual</option>
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Data de</label>
+                <input className="form-input" type="date" style={{height:32,fontSize:12}} value={filterDe} onChange={e=>{setFilterDe(e.target.value);setPage(0);}}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Data até</label>
+                <input className="form-input" type="date" style={{height:32,fontSize:12}} value={filterAte} onChange={e=>{setFilterAte(e.target.value);setPage(0);}}/>
+              </div>
+              <div style={{display:'flex',alignItems:'flex-end'}}>
+                <button className="btn btn-secondary btn-sm" onClick={limparFiltros} style={{width:'100%'}}>✕ Limpar filtros</button>
+              </div>
+            </div>
+          )}
           {selected.length>0&&(
-            <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12}}>
-              <span style={{color:'var(--yellow)',fontSize:13}}>{selected.length} selecionado(s)</span>
-              <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Portal (lote)</button>
-              <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>Cancelar</button>
+            <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+              <span style={{color:'var(--yellow)',fontSize:13,fontWeight:600}}>{selected.length} selecionado(s)</span>
+              <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Publicar no Portal</button>
+              <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.2)',color:'#f87171',border:'1px solid rgba(200,30,30,0.4)'}} onClick={deletarBatch} disabled={approving}>🗑️ Excluir selecionados</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>✕ Cancelar seleção</button>
             </div>
           )}
           {loading?<div className="loading">Carregando...</div>:posts.length===0?<div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post encontrado</div></div>:(
@@ -850,16 +916,16 @@ function Postagens() {
             <div className="table-wrap">
               <table>
                 <thead><tr>
-                  <th><input type="checkbox" onChange={toggleAll} checked={selected.length===pendentesCount&&pendentesCount>0}/></th>
-                  <th>Título</th><th>Status</th><th>Conta</th><th>Agendado</th><th>Data</th><th>Ações</th>
+                  <th><input type="checkbox" onChange={toggleAll} checked={selected.length===posts.length&&posts.length>0}/></th>
+                  <th>Título</th><th>Status</th><th>Categoria</th><th>Origem</th><th>Data</th><th>Ações</th>
                 </tr></thead>
                 <tbody>{posts.map(p=>(
                   <tr key={p.id} style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:{}}>
-                    <td>{p.status==='pendente'&&<input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/>}</td>
-                    <td>{truncate(p.titulo,45)}</td>
+                    <td><input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/></td>
+                    <td><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
                     <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-                    <td className="text-secondary text-small">{'auto'}</td>
-                    <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'—'}</td>
+                    <td className="text-secondary text-small">{p.categoria||'—'}</td>
+                    <td className="text-secondary text-small">{p.publish_method==='manual'?'✍️ manual':'🤖 auto'}</td>
                     <td className="text-secondary text-small">{fmt(p.created_at)}</td>
                     <td>
                       <div className="gap-8">
