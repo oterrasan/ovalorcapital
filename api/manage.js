@@ -38,11 +38,14 @@ async function handleStatus(req, res) {
   try {
     const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
     const running = data?.value === "on";
-    const today = new Date().toISOString().split("T")[0];
-    const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",today).eq("status","success");
+    const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
+    const maxPosts = parseInt(cfgMax?.value || "300", 10);
+    const agora = new Date();
+    const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
+    const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",inicioDia.toISOString()).eq("publish_method","portal");
     const { count: pendentes } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","pendente");
     const { count: erros }    = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
-    return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts:300, pendentes:pendentes||0, erros:erros||0 });
+    return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0 });
   } catch(e) {
     return res.status(200).json({ running:false, posts_hoje:0, max_posts:300, pendentes:0, erros:0 });
   }
