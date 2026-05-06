@@ -98,6 +98,8 @@
     { grid: 'grid-industria',         cats: ['industria'],           href: '/industria/' },
     { grid: 'grid-esportes',          cats: ['esportes'],            href: '/esportes/' },
     { grid: 'grid-parcerias',         cats: ['parcerias'],           href: '/parcerias/' },
+    { grid: 'grid-internacional',     cats: ['internacional'],       href: '/internacional/' },
+    { grid: 'grid-variedades',        cats: ['variedades'],          href: '/variedades/' },
   ];
 
   function renderCard(post) {
