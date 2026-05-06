@@ -69,8 +69,10 @@ REGRAS INVIOLÁVEIS:
 - NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
 - NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, blindar, catalisador, protagonista
 
-TEXTO FONTE:
-${texto}`;
+PAUTA EDITORIAL (tema, ângulo e contexto — reescreva com seu próprio estilo jornalístico):
+---
+${texto}
+---`;
 }
 
 async function callGemini(prompt) {
@@ -125,7 +127,15 @@ async function callOpenAI(prompt) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 4000, temperature: 0.65 })
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "Você é redator jornalístico sênior de um portal de notícias brasileiro. Sua função é produzir matérias originais e completas a partir de pautas editoriais. O texto do usuário contém o TEMA e o ÂNGULO EDITORIAL — escreva com seu próprio estilo jornalístico, sem copiar frases da fonte. Siga rigorosamente o formato de saída solicitado." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 4000,
+      temperature: 0.65
+    })
   });
   const d = await res.json();
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message}`);
@@ -268,7 +278,7 @@ export default async function handler(req, res) {
     else if (ia === "groq")   raw = await callGroq(prompt);
     else if (ia === "grok")   raw = await callGrok(prompt);
     else if (ia === "openai") raw = await callOpenAI(prompt);
-    else                       raw = await callGemini(prompt);
+    else                       raw = await callOpenAI(prompt);
 
     const content = parse(raw);
     if (!content || !content.corpo || content.corpo.length < 100) {
