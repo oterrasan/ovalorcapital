@@ -170,7 +170,7 @@ function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/status');
+      const r = await fetch('/api/manage');
       if (r.ok) setStatus(await r.json());
     } catch(_) {}
     const { data: p } = await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(10);
@@ -373,7 +373,7 @@ function Pipeline() {
     setManualRunning(true); setManualResult(null);
     try {
       const body = { pedidos, fonteManual: modoManual ? fonteManual.trim() : null };
-      const r = await fetch('/api/run_manual', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const r = await fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const j = await r.json();
       setManualResult(j);
       load();
@@ -1561,7 +1561,7 @@ function NovoPost() {
       if (error) throw new Error(error.message);
 
       if (status === 'pendente' && form.publicar_agora) {
-        const r = await fetch('/api/approve', {
+        const r = await fetch('/api/manage', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({id: post.id})
