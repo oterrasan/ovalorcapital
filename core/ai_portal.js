@@ -24,9 +24,9 @@ async function callOpenAI(prompt) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
     body: JSON.stringify({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Você é um redator jornalístico sênior especializado em produzir matérias originais para portais de notícias brasileiros. Siga rigorosamente as instruções de formato e conteúdo fornecidas pelo usuário." },
+        { role: "system", content: "Você é redator jornalístico sênior de um portal de notícias brasileiro. Sua função é produzir matérias originais e completas a partir de pautas editoriais. O texto do usuário contém o TEMA e o ÂNGULO EDITORIAL — escreva com seu próprio estilo jornalístico, sem copiar frases da fonte." },
         { role: "user", content: prompt }
       ],
       temperature: 0.4,
