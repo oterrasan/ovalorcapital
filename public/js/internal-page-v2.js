@@ -92,6 +92,29 @@
     return html;
   }
 
+  // ── BARRA DE PROGRESSO DE LEITURA ────────────────────────────────
+  function injetarProgressBar(acento){
+    var bar = document.createElement('div');
+    bar.id = 'ovc-progress-bar';
+    bar.style.cssText = 'position:fixed;top:0;left:0;height:3px;width:0%;background:'+acento+';z-index:9999;transition:width 0.1s linear;pointer-events:none;box-shadow:0 0 6px '+acento+'88;';
+    document.body.appendChild(bar);
+    function atualizar(){
+      var scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if(scrollable <= 0){ bar.style.width='100%'; return; }
+      var pct = Math.min(100, Math.max(0, (window.scrollY / scrollable) * 100));
+      bar.style.width = pct + '%';
+    }
+    window.addEventListener('scroll', atualizar, {passive:true});
+    atualizar();
+  }
+
+  function estimarLeitura(texto){
+    if(!texto) return '1 min';
+    var palavras = texto.trim().split(/\s+/).length;
+    var mins = Math.max(1, Math.round(palavras / 200));
+    return mins + ' min de leitura';
+  }
+
   // ── RENDER BARRA DE COMPARTILHAMENTO ──────────────────────────────
   function renderShare(titulo, urlRel){
     var full = 'https://ovalorcapital.com.br'+urlRel;
@@ -232,6 +255,18 @@
           var urlRel = buildUrl(p);
           var catSlug = CAT_PATH[p.categoria]||'politica';
 
+          // Barra de progresso
+          injetarProgressBar(c);
+
+          // Contabilizar visualização (fire-and-forget)
+          if(p.id && p.id.length >= 36){
+            fetch('/api/manage', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({action:'track_view', post_id: p.id})
+            }).catch(function(){});
+          }
+
           var heroEl = document.querySelector('[data-hero-card]');
           if(heroEl){
             heroEl.style.cssText = 'display:block;padding:24px 28px 32px;box-sizing:border-box;';
@@ -242,11 +277,12 @@
                 +'<a href="/'+catSlug+'/" style="color:#94a3b8;text-decoration:none;">'+lbl(p.categoria)+'</a>'
                 +(p.subcategoria?'<span>›</span><span style="color:#64748b;">'+esc(p.subcategoria)+'</span>':'')
               +'</nav>'
-              // Badge + data
+              // Badge + data + tempo de leitura
               +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">'
                 +'<span style="display:inline-block;background:'+c+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(p.categoria)+'</span>'
                 +(p.subcategoria?'<span style="font-size:11px;color:#64748b;font-weight:600;">'+esc(p.subcategoria)+'</span><span style="color:#e2e8f0;">·</span>':'')
                 +'<span style="font-size:13px;color:#64748b;">Redação OVC · '+dataLonga(p.data)+'</span>'
+                +'<span style="font-size:11px;color:#94a3b8;background:#f1f5f9;padding:3px 9px;border-radius:20px;">⏱ '+estimarLeitura(p.corpo||'')+'</span>'
               +'</div>'
               // Título
               +'<h1 style="font-size:30px;font-weight:900;line-height:1.18;margin:0 0 16px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">'+esc(p.titulo||'')+'</h1>'
@@ -298,17 +334,50 @@
                 localEl.innerHTML = rel.slice(5,10).map(renderCardCompacto).join('');
               }
 
-              // Rail direito — relacionadas
+              // Rail direito — relacionadas + mais lidas + youtube
               var railSec = document.querySelector('[data-banner-sidebar]');
               if(railSec){
                 railSec.innerHTML = railTitulo('Mais em '+lbl(p.categoria), c)
-                  +(rel.length ? rel.slice(0,7).map(renderCardRail).join('')
+                  +(rel.length ? rel.slice(0,5).map(renderCardRail).join('')
                     : '<p style="font-size:13px;color:#94a3b8;padding:12px 0;">Mais conteúdo em breve.</p>')
                   +'<div style="margin-top:20px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:10px;padding:18px;text-align:center;">'
                     +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffc800;margin-bottom:6px;">Redação OVC</div>'
                     +'<p style="font-size:12px;color:#94a3b8;margin:0 0 12px;line-height:1.5;">Tem uma pauta ou denúncia?</p>'
                     +'<a href="/contato/" style="display:block;background:#ffc800;color:#0f172a;padding:8px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:800;text-align:center;">Enviar para a redação</a>'
-                  +'</div>';
+                  +'</div>'
+                  // Mais Lidas placeholder — preenchido abaixo
+                  +'<div id="ovc-mais-lidas-rail" style="margin-top:24px;"></div>'
+                  // OVC TV placeholder — preenchido abaixo
+                  +'<div id="ovc-tv-rail" style="margin-top:24px;"></div>';
+
+                // Mais Lidas
+                fetch('/api/portal-posts?sort=popular&limit=6')
+                  .then(function(r){ return r.json(); })
+                  .then(function(d){
+                    var lidas = (d.posts||[]).filter(function(x){ return x.id !== p.id; }).slice(0,5);
+                    var mlEl = document.getElementById('ovc-mais-lidas-rail');
+                    if(mlEl && lidas.length){
+                      mlEl.innerHTML = railTitulo('🔥 Mais Lidas', '#e11d48')
+                        + lidas.map(function(x){
+                            var vw = (x.metrics && x.metrics.views) ? x.metrics.views : null;
+                            return renderCardRail(x) + (vw ? '' : '');
+                          }).join('');
+                    }
+                  }).catch(function(){});
+
+                // OVC TV — YouTube ao vivo
+                fetch('/api/manage')
+                  .then(function(r){ return r.json(); })
+                  .then(function(cfg){
+                    var ytUrl = cfg.youtube_live_url;
+                    var tvEl = document.getElementById('ovc-tv-rail');
+                    if(tvEl && ytUrl){
+                      tvEl.innerHTML = '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #e11d48;">📺 OVC TV ao Vivo</div>'
+                        +'<div style="border-radius:8px;overflow:hidden;">'
+                        +'<iframe width="100%" height="180" src="'+ytUrl+'" frameborder="0" allow="accelerometer;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe>'
+                        +'</div>';
+                    }
+                  }).catch(function(){});
               }
             })
             .catch(function(){});
@@ -325,6 +394,9 @@
 
     var catFiltro = SLUG_TO_CAT[slug]||slug;
     var acento    = cor(catFiltro);
+
+    // Barra de progresso ao rolar pela categoria
+    injetarProgressBar(acento);
 
     // Substituir seção hero estática por cabeçalho real da categoria
     var sectionHero = document.querySelector('.ovc-section-hero');
@@ -375,7 +447,33 @@
               +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffc800;margin-bottom:6px;">Redação OVC</div>'
               +'<p style="font-size:12px;color:#94a3b8;margin:0 0 12px;line-height:1.5;">Envie sua pauta ou denúncia</p>'
               +'<a href="/contato/" style="display:block;background:#ffc800;color:#0f172a;padding:8px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:800;">Falar com a redação</a>'
-            +'</div>';
+            +'</div>'
+            +'<div id="ovc-mais-lidas-cat" style="margin-top:24px;"></div>'
+            +'<div id="ovc-tv-cat" style="margin-top:24px;"></div>';
+
+          // Mais Lidas na categoria
+          fetch('/api/portal-posts?sort=popular&limit=6')
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+              var mlEl = document.getElementById('ovc-mais-lidas-cat');
+              var lidas = (d.posts||[]).slice(0,5);
+              if(mlEl && lidas.length){
+                mlEl.innerHTML = railTitulo('🔥 Mais Lidas', '#e11d48') + lidas.map(renderCardRail).join('');
+              }
+            }).catch(function(){});
+
+          // OVC TV ao vivo
+          fetch('/api/manage')
+            .then(function(r){ return r.json(); })
+            .then(function(cfg){
+              var tvEl = document.getElementById('ovc-tv-cat');
+              if(tvEl && cfg.youtube_live_url){
+                tvEl.innerHTML = '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #e11d48;">📺 OVC TV ao Vivo</div>'
+                  +'<div style="border-radius:8px;overflow:hidden;">'
+                  +'<iframe width="100%" height="180" src="'+cfg.youtube_live_url+'" frameborder="0" allow="accelerometer;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe>'
+                  +'</div>';
+              }
+            }).catch(function(){});
         }
 
         if(!posts.length){

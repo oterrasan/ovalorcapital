@@ -22,9 +22,9 @@
 ### APIs (Vercel serverless — limite 9 funções no Hobby plan)
 | Arquivo | Função |
 |---|---|
-| `api/manage.js` | Unifica: status do sistema, aprovação manual, geração manual de posts |
+| `api/manage.js` | Unifica: status, aprovação, geração manual, track_view, newsletter, vagas |
 | `api/run_portal.js` | Pipeline automático RSS → scrape → IA → salva como pendente |
-| `api/portal-posts.js` | Serve posts publicados para o frontend |
+| `api/portal-posts.js` | Serve posts publicados para o frontend (inclui ?sort=popular) |
 | `api/editor_ia.js` | Editor IA do admin (reescrever/gerar conteúdo manualmente) |
 | `api/ig_publish.js` | Publica no Instagram via bot Playwright |
 | `api/refresh_token.js` | Renova token do Instagram |
@@ -40,13 +40,15 @@
 
 ### Frontend público
 - `public/index.html` — homepage
-- `public/[categoria]/index.html` — páginas de categoria (14 páginas)
+- `public/[categoria]/index.html` — 29+ páginas de categoria
 - `public/_materia/index.html` — página standalone de artigo
-- `public/admin/index.html` — painel admin (React inline, ~2200 linhas)
-- `public/js/internal-page-v2.js` — JS principal das páginas de categoria + artigos
-- `public/js/ovc-cards.js` — cards dinâmicos da homepage
+- `public/admin/index.html` — painel admin (React inline via Babel)
+- `public/js/internal-page-v2.js` — JS principal de todas as páginas de categoria + artigos
+- `public/js/ovc-cards.js` — cards dinâmicos da homepage + mais lidas + OVC TV
 - `public/js/home.js` — homepage hero/feature/lions + seções dinâmicas
-- `public/css/home.css` — CSS principal (~2010 linhas)
+- `public/js/search.js` — buscador premium com skeleton + debounce
+- `public/js/newsletter-bar.js` — barra de newsletter injetada antes do footer
+- `public/css/home.css` — CSS principal
 - `public/css/site.css` — CSS das páginas internas
 
 ---
@@ -54,28 +56,32 @@
 ## 3. BANCO DE DADOS (Supabase)
 
 ### Tabela `posts`
-Campos principais: `id, titulo, conteudo, comentario_fixado (meta_descricao), imagem, hash, status, approved, publish_method, user_tags (JSON array com categoria), subcategoria, subcategoria_slug, created_at, published_at, metrics (JSON com SEO), priority, retry_count, max_retries`
+Campos principais: `id, titulo, conteudo, comentario_fixado (meta_descricao), imagem, hash, status, approved, publish_method, user_tags (JSON array com categoria), subcategoria, subcategoria_slug, created_at, published_at, metrics (JSON com SEO + views), priority, retry_count, max_retries`
 
 **Fluxo de status:** `pendente` → (admin aprova) → `publicado`
 - Nada vai direto para `publicado` — toda matéria exige aprovação manual
 - `publish_method: "portal"` = gerado pelo pipeline automático RSS
 - `publish_method: "manual"` = gerado pelo editor IA do admin
+- **`metrics.views`** = contador de visualizações (incrementado via `track_view` action)
 
 ### Tabela `config`
 Chaves importantes:
 - `AUTOMATION` = `"on"` ou `"off"` — liga/desliga o pipeline automático
 - `MAX_POSTS_DIA` = `"300"` — limite diário de posts automáticos
 - `IG_SERVICE_URL` = URL do bot Instagram no Render.com (ainda não configurado)
+- `YOUTUBE_LIVE_URL` = URL embed YouTube para OVC TV ao vivo (configurar no admin → Configurações)
 
 ---
 
 ## 4. CATEGORIAS DO SISTEMA
 
-### Categorias válidas (slugs exatos usados no banco):
+### Todas as categorias válidas (29 slugs):
 ```
 politica, economia, negocios, investimentos, seguros, mercados,
 educacao, industria, tecnologia, esportes, saude, familia,
-tributacao, regulacao, parcerias, internacional, variedades, vc, colunistas
+tributacao, regulacao, parcerias, internacional, variedades,
+vc, colunistas, investigativo, seguranca, cultura, profissoes,
+vagas, concursos, imoveis, esg, defesa, religiao
 ```
 
 ### Mapeamento categoria → URL do portal:
@@ -85,94 +91,98 @@ colunistas → /vc/
 todos os outros → /[slug]/
 ```
 
-### Páginas de categoria existentes em `public/`:
-`politica, economia, negocios, investimentos, seguros, mercados, educacao, industria, tecnologia, esportes, saude, familia, tributos, regulacao, parcerias`
-
-### Páginas de categoria FALTANDO (cards no ovc-cards.js mas sem página HTML):
-- `/internacional/` — não existe ainda
-- `/variedades/` — não existe ainda
+### Páginas HTML existentes em `public/`:
+Todas as 29 categorias têm página — incluindo `internacional` e `variedades` (criadas nesta sessão).
 
 ---
 
-## 5. O QUE FOI FEITO NESTA SESSÃO (tudo mergeado ao main)
+## 5. O QUE FOI IMPLEMENTADO (histórico completo)
 
 ### Admin (public/admin/index.html)
-- Removida aba "Fila de Publicação" (chamava `/api/scheduler` que não existe)
-- Corrigido upload de imagens (usa Supabase Storage SDK direto, não `/api/upload`)
-- Removido `approveOne` Instagram (token expirado) — mantido só `publicarIG` (bot Playwright)
-- Todas as chamadas de API corrigidas: `/api/run_manual` → `/api/manage`, `/api/status` → `/api/manage`, `/api/approve` → `/api/manage`
+- Filtros avançados no Postagens: busca por título, categoria, subcategoria, data, origem
+- Ações em lote: aprovar selecionados, deletar selecionados
+- KPI dashboard: cards clicáveis mostrando sem imagem, img suspeita, risco de erro, pendentes
+- Smart filter chip bar: filtrar postagens por diagnóstico client-side
+- Métricas toggle: expandir row com dados de saúde de cada post
+- Configurações: campo `YOUTUBE_LIVE_URL` para OVC TV ao vivo
 - Editor IA: default trocado de Gemini para OpenAI
-- **Filtros avançados no Postagens:** busca por título, categoria, subcategoria, data, origem (auto/manual)
-- **Ações em lote:** aprovar selecionados, deletar selecionados
-- Checkboxes em todos os posts (não só pendentes)
 
-### Pipeline de IA (core/ai_portal.js + api/editor_ia.js)
-- System message adicionada ao callOpenAI() para evitar recusa de conteúdo
-- `NOTÍCIA FONTE:` → `PAUTA EDITORIAL:` para não acionar filtros de conteúdo
-- Removido fallback para Gemini (Gemini não está pago/ativo)
-- Gemini não configurado — só OpenAI gpt-4o-mini ativo
+### API manage.js
+- `track_view` action: incrementa `metrics.views` no post
+- `newsletter_subscribe` action com fallback para tabela config
+- `submit_vaga` action para envio público de vagas
+- GET response inclui `youtube_live_url` do config
 
-### Pipeline automático (api/run_portal.js)
-- Removida lógica de horários com caps (1-6h=12, 6-12h=30, etc.)
-- Agora lê `MAX_POSTS_DIA` do Supabase config (padrão 300)
-- Contador de posts conta só `publish_method="portal"` (manuais não contam)
-- Posts inseridos como `status:"pendente", approved:false` (não vão direto ao ar)
+### API portal-posts.js
+- `?sort=popular`: busca 200 posts, ordena por `metrics.views` desc, retorna top N
+- `?q=termo`: busca full-text em título + conteúdo com dedup
+- CATS_VALIDAS com todas as 29 categorias
 
-### manage.js
-- Posts manuais também vão como `pendente` (não publicado direto)
-- `posts_hoje` conta corretamente só os automáticos do dia
-
-### Portal homepage (ovc-cards.js + home.js)
-- Adicionadas categorias `internacional` e `variedades` ao grid dinâmico
-- `buildUrl` atualizado para mapear essas categorias
-
-### Páginas internas (internal-page-v2.js) — REESCRITA COMPLETA
-**Contaminação resolvida:**
-- API: `like('%"categoria"%')` — filtro exato no JSON
-- JS: `p.categoria === catFiltro` sem fallback — se vazio mostra empty state
-
-**Layout categoria (premium):**
-- Seção hero estática (placeholder) substituída por cabeçalho real com badge colorido
-- 1º post → hero card full-width com imagem + overlay gradient
-- 2º e 3º posts → grid 2 colunas (cards médios)
-- Posts 4+ → lista compacta com thumbnail
-- Rail direito populado com últimas da categoria + CTA de contato
-- Títulos de seção com borda colorida da categoria
-
-**Layout artigo (leitura completa):**
-- Breadcrumb + badge + data
-- Share bar: WhatsApp, Telegram, X, Facebook, Copiar link
-- `##` renderizado como H2 com borda colorida
-- Hashtags como badges
-- Rail direito com relacionadas da mesma categoria
-- CTA de contato ao fim
+### internal-page-v2.js (todas as páginas internas)
+**Modo artigo:**
+- Barra de progresso de leitura (cor da categoria, sticky no topo)
+- Estimativa de tempo de leitura ("⏱ 5 min de leitura")
+- Rastreamento de views (`track_view` fire-and-forget ao carregar artigo)
+- Rail: "Mais em [cat]" + "🔥 Mais Lidas" + "📺 OVC TV ao Vivo" (se configurado)
 - Open Graph dinâmico para preview em redes sociais
 
-### /_materia/index.html — REESCRITA COMPLETA
-- Página autônoma 2 colunas: artigo + sidebar
-- Share bar, relacionadas, CTA de contato
-- Substituiu a versão que usava noticias.js (script da homepage, errado)
+**Modo categoria:**
+- Barra de progresso de leitura
+- Rail: "Últimas em [cat]" + "🔥 Mais Lidas" + "📺 OVC TV" (se configurado)
+- Hero card (1º post) + grid 2 colunas (2º e 3º) + lista compacta (4+)
+
+### ovc-cards.js (homepage)
+- `carregarMaisLidas()`: bloco "🔥 Mais Lidas" com destaque #1 + lista numerada 2-7
+- `carregarOvcTv()`: seção "📺 OVC TV ao Vivo" com iframe YouTube (se configurado)
+- Seções injetadas em `#ovc-mais-lidas-home` e `#ovc-tv-home` no HTML
+
+### Categorias e páginas
+- 7 novas editorias (investigativo, segurança, cultura, profissões, vagas, internacional, variedades)
+- +7 editorias (concursos, imóveis, ESG, defesa, religião, colunistas, busca)
+- Páginas HTML criadas para todas as 29 categorias
+- Menu "Profissões" com 26 subcategorias em 4 grupos (injetado via JS em todas as páginas)
+- Menu "Mais" no supermenu da homepage
+
+### Homepage (public/index.html)
+- Seções `#ovc-mais-lidas-home` e `#ovc-tv-home` adicionadas antes do footer
+- Chips-bar expandida com todas as novas categorias
+- Rail esquerdo: Investigativo + Profissões + Trilhas OVC
+
+### Buscador (public/busca/index.html + public/js/search.js)
+- Busca em tempo real com debounce 400ms
+- Skeleton loader durante busca
+- Cards premium com imagem, badge de categoria, resumo, data
+- Auto-busca a partir de `?q=` na URL
+
+### Newsletter (public/js/newsletter-bar.js)
+- Injetada antes do footer em todas as páginas
+- Fallback: tenta `newsletter_subscribers` → salva em `config` como JSON
+
+### Calculadoras (public/ferramentas/calculadoras/index.html)
+- IRPF 2025, FGTS, Financiamento PRICE, Correção IPCA, Custo de Vida
 
 ---
 
 ## 6. PENDÊNCIAS ABERTAS
 
 ### Código (fazer no repo):
-1. **Criar `/internacional/index.html`** — clonar qualquer categoria, trocar `data-category="internacional"` e o título
-2. **Criar `/variedades/index.html`** — idem
-3. **Adicionar `[data-topic-grid]` e `[data-rail-list]` nos HTMLs das categorias** — slots que o JS procura mas não existem no HTML ainda
+Nenhuma pendência de código conhecida — tudo implementado.
 
 ### Externo (Roberto faz no painel):
-4. **Instagram Bot — deploy no Render.com**
-   - Repo `ovc-instagram-bot` tem `render.yaml` pronto
-   - São 5 cliques no painel do Render
-   - Depois: colocar URL gerada como `IG_SERVICE_URL` na tabela `config` do Supabase e no admin em Configurações
-5. **Bucket `posts-images` no Supabase**
-   - Supabase → Storage → New Bucket → nome: `posts-images` → marcar como público
+1. **Aprovar e mergear PRs para o `main`** — nada vai ao ar sem o merge
+2. **Instagram Bot — deploy no Render.com**
+   - Repo `ovc-instagram-bot` tem `render.yaml` pronto (5 cliques)
+   - Depois: colocar URL em `IG_SERVICE_URL` via admin → Configurações
+3. **Bucket `posts-images` no Supabase**
+   - Supabase → Storage → New Bucket → nome: `posts-images` → marcar público
+4. **OVC TV ao Vivo — configurar YouTube**
+   - Admin → Configurações → "URL YouTube ao Vivo"
+   - Formato: `https://www.youtube.com/embed/VIDEO_ID` ou `https://www.youtube.com/embed/live_stream?channel=CHANNEL_ID`
 
-### Próximos desenvolvimentos planejados:
-6. **Rails e "ao vivos" da homepage** — tickers de cotação estão hard-coded, OVC TV e Áudio também estáticos
-7. **Novas categorias/subcategorias** — Roberto vai informar quais faltam (interrompido por erro 529)
+### Próximos desenvolvimentos:
+5. Sistema multi-usuário para colunistas (Supabase Auth)
+6. Publicação em outras redes (Facebook, LinkedIn)
+7. Redesign completo do admin (kanban editorial, calendário)
 
 ---
 
@@ -183,6 +193,7 @@ todos os outros → /[slug]/
 - **Só OpenAI ativo** — Gemini, Groq, Grok não estão configurados/pagos
 - **9 funções no Vercel Hobby** — não criar novas funções sem deletar outras primeiro
 - **Imagens:** bucket `posts-images` no Supabase Storage (ainda não criado pelo Roberto)
+- **"Mais Lidas"**: baseado em `metrics.views` — cresce à medida que leitores abrem artigos
 
 ---
 

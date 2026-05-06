@@ -531,7 +531,24 @@ function Postagens() {
   const [filterMethod, setFilterMethod] = useState('');
   const [totalCount, setTotalCount] = useState(0);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [smartFilter, setSmartFilter] = useState('');
+  const [showMetrics, setShowMetrics] = useState(false);
   const PER = 50;
+
+  const BLOCKED_IMG = [/perfil/i,/author/i,/avatar/i,/reporter/i,/profile/i,/headshot/i,/\/autores?\//i,/\/pessoas?\//i,/columnist/i,/byline/i,/editor/i,/icon/i,/logo/i,/favicon/i,/sprite/i,/watermark/i,/\.svg$/i,/\.gif$/i,/\.ico$/i];
+  const pSemImg  = p => !p.imagem || p.imagem.trim() === '';
+  const pImgSusp = p => !!p.imagem && BLOCKED_IMG.some(r=>r.test(p.imagem));
+  const pRisco   = p => (!p.conteudo || p.conteudo.length < 200) || p.categoria === 'geral' || !p.categoria;
+  const kpi = {
+    semImg:  posts.filter(pSemImg).length,
+    suspeita:posts.filter(pImgSusp).length,
+    risco:   posts.filter(pRisco).length,
+    pendente:posts.filter(p=>p.status==='pendente').length
+  };
+  const displayPosts = smartFilter==='sem_img'  ? posts.filter(pSemImg)
+                     : smartFilter==='suspeita'  ? posts.filter(pImgSusp)
+                     : smartFilter==='risco'     ? posts.filter(pRisco)
+                     : posts;
 
   const load = useCallback(async () => {
     setLoading(true); setSelected([]);
@@ -853,6 +870,43 @@ function Postagens() {
             </div>
           </div>
         )}
+        {/* ── KPI DASHBOARD ── */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:16}}>
+          {[
+            {label:'Sem imagem',      val:kpi.semImg,   color:'#f59e0b', icon:'🖼️',  key:'sem_img'},
+            {label:'Img suspeita',    val:kpi.suspeita, color:'#8b5cf6', icon:'⚠️',  key:'suspeita'},
+            {label:'Risco de erro',   val:kpi.risco,    color:'#ef4444', icon:'🔴',  key:'risco'},
+            {label:'Pendentes',       val:kpi.pendente, color:'#ffc800', icon:'⏳',  key:'__pendente'},
+            {label:'Total (página)',  val:posts.length, color:'#3b82f6', icon:'📄',  key:''},
+          ].map(({label,val,color,icon,key})=>(
+            <div key={key} onClick={()=>{ if(key==='__pendente'){setFilter('pendente');setSmartFilter('');setPage(0);}else{setSmartFilter(s=>s===key?'':key);} }}
+              style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 16px',cursor:'pointer',transition:'box-shadow 0.15s',boxShadow:((smartFilter===key&&key)||( key==='__pendente'&&filter==='pendente'&&!smartFilter))?`0 0 0 2px ${color}`:'none'}}>
+              <div style={{fontSize:20,marginBottom:4}}>{icon}</div>
+              <div style={{fontSize:22,fontWeight:700,color}}>{val}</div>
+              <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{label}</div>
+            </div>
+          ))}
+        </div>
+        {/* ── SMART FILTER BAR ── */}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12,alignItems:'center'}}>
+          <span style={{fontSize:11,color:'var(--t3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>Filtros rápidos:</span>
+          {[
+            {key:'sem_img', label:'🖼️ Sem imagem',    count:kpi.semImg,   color:'#f59e0b'},
+            {key:'suspeita',label:'⚠️ Img suspeita',   count:kpi.suspeita, color:'#8b5cf6'},
+            {key:'risco',   label:'🔴 Risco de erro',  count:kpi.risco,    color:'#ef4444'},
+          ].map(({key,label,count,color})=>(
+            <button key={key} onClick={()=>setSmartFilter(s=>s===key?'':key)}
+              style={{padding:'5px 12px',borderRadius:999,border:`1px solid ${smartFilter===key?color:'var(--border)'}`,background:smartFilter===key?color+'22':'transparent',color:smartFilter===key?color:'var(--t2)',fontSize:12,fontWeight:600,cursor:'pointer',transition:'all 0.15s'}}>
+              {label} <span style={{fontWeight:700,color:smartFilter===key?color:'var(--t3)'}}>{count}</span>
+            </button>
+          ))}
+          <button onClick={()=>setShowMetrics(x=>!x)}
+            style={{padding:'5px 12px',borderRadius:999,border:`1px solid ${showMetrics?'#3b82f6':'var(--border)'}`,background:showMetrics?'rgba(59,130,246,0.12)':'transparent',color:showMetrics?'#3b82f6':'var(--t2)',fontSize:12,fontWeight:600,cursor:'pointer',transition:'all 0.15s'}}>
+            📊 Métricas
+          </button>
+          {smartFilter&&<button onClick={()=>setSmartFilter('')} style={{padding:'5px 10px',borderRadius:999,border:'1px solid var(--border)',background:'transparent',color:'var(--t3)',fontSize:11,cursor:'pointer'}}>✕ Limpar filtro rápido</button>}
+          {smartFilter&&<span style={{fontSize:11,color:'var(--t3)',marginLeft:4}}>Mostrando <strong style={{color:'var(--t1)'}}>{displayPosts.length}</strong> de {posts.length}</span>}
+        </div>
         <div className="panel">
           <div className="panel-header">
             <span className="panel-title">Postagens <span style={{fontSize:12,color:'var(--t3)',fontWeight:400}}>{totalCount} encontrado(s)</span></span>
@@ -919,8 +973,9 @@ function Postagens() {
                   <th><input type="checkbox" onChange={toggleAll} checked={selected.length===posts.length&&posts.length>0}/></th>
                   <th>Título</th><th>Status</th><th>Categoria</th><th>Origem</th><th>Data</th><th>Ações</th>
                 </tr></thead>
-                <tbody>{posts.map(p=>(
-                  <tr key={p.id} style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:{}}>
+                <tbody>{displayPosts.map(p=>(
+                  <React.Fragment key={p.id}>
+                  <tr style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:pRisco(p)?{background:'rgba(239,68,68,0.04)'}:pSemImg(p)?{background:'rgba(245,158,11,0.04)'}:{}}>
                     <td><input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/></td>
                     <td><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
                     <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
@@ -946,6 +1001,25 @@ function Postagens() {
                       </div>
                     </td>
                   </tr>
+                  {showMetrics&&(
+                    <tr style={{background:'rgba(59,130,246,0.04)'}}>
+                      <td colSpan={7} style={{padding:'8px 16px',borderTop:'none'}}>
+                        <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:11,color:'var(--t2)'}}>
+                          <span title="Imagem">🖼️ {p.imagem?<span style={{color:pImgSusp(p)?'#f59e0b':'#4ade80'}}>{pImgSusp(p)?'Suspeita':'OK'}</span>:<span style={{color:'#ef4444'}}>Sem imagem</span>}</span>
+                          <span title="Tamanho do conteúdo">📝 {p.conteudo?p.conteudo.length:0} chars</span>
+                          <span title="Categoria"># {p.categoria||<span style={{color:'#ef4444'}}>sem categoria</span>}</span>
+                          {p.subcategoria&&<span>🏷 {p.subcategoria}</span>}
+                          {p.metrics&&typeof p.metrics==='object'&&<>
+                            {p.metrics.seo_score!=null&&<span title="SEO Score">📈 SEO {p.metrics.seo_score}</span>}
+                            {p.metrics.foco_keyword&&<span title="Palavra-chave foco">🔑 {p.metrics.foco_keyword}</span>}
+                            {p.metrics.revisao_obs&&<span style={{color:'#fbbf24'}} title="Obs. revisão">💬 {p.metrics.revisao_obs}</span>}
+                          </>}
+                          {pRisco(p)&&<span style={{color:'#ef4444',fontWeight:700}}>🔴 RISCO: {!p.categoria?'sem categoria':p.categoria==='geral'?'cat=geral':(!p.conteudo||p.conteudo.length<200)?'conteúdo curto':''}</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}</tbody>
               </table>
             </div>
@@ -1544,6 +1618,7 @@ function Configuracoes() {
             <Field label="Intervalo máximo entre posts (segundos)" k="MAX_INTERVAL" type="number"/>
             <Field label="Modelo IA" k="AI_MODEL"/>
             <Field label="URL Serviço Instagram (ex: https://ovc-instagram-bot.onrender.com)" k="IG_SERVICE_URL"/>
+            <Field label="URL YouTube ao Vivo — OVC TV (ex: https://www.youtube.com/embed/VIDEO_OU_LIVE_ID)" k="YOUTUBE_LIVE_URL"/>
           </div>
         </div>
         <div className="panel">

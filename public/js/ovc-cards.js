@@ -270,7 +270,86 @@
     load();
     setInterval(load, 120000);
     injetarMenuProfissoes();
+    carregarMaisLidas();
+    carregarOvcTv();
   });
+
+  function carregarMaisLidas(){
+    var sec = document.getElementById('ovc-mais-lidas-home');
+    if(!sec) return;
+    fetch('/api/portal-posts?sort=popular&limit=8')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var posts = (d.posts||[]).slice(0,7);
+        if(!posts.length){ sec.style.display='none'; return; }
+        var primeiro = posts[0];
+        var resto    = posts.slice(1);
+        var c = function(cat){ var CORES={politica:'#dc2626',economia:'#2563eb',negocios:'#7c3aed',investimentos:'#059669',mercados:'#0891b2',tributacao:'#b45309',regulacao:'#9333ea',seguros:'#0284c7',saude:'#16a34a',familia:'#db2777',tecnologia:'#6366f1',industria:'#ea580c',educacao:'#8b5cf6',esportes:'#16a34a',internacional:'#dc2626',variedades:'#ec4899',parcerias:'#14b8a6',vc:'#ffc800',investigativo:'#1a1a2e',seguranca:'#7f1d1d',cultura:'#7e22ce',profissoes:'#0369a1',vagas:'#065f46',concursos:'#1e40af',imoveis:'#b45309',esg:'#166534',defesa:'#1e3a5f',religiao:'#6d28d9'}; return CORES[cat]||'#64748b'; };
+        var LABELS={politica:'Política',economia:'Economia',negocios:'Negócios',investimentos:'Investimentos',mercados:'Mercados',tributacao:'Tributação',regulacao:'Regulação',seguros:'Seguros',saude:'Saúde',familia:'Família',tecnologia:'Tecnologia',industria:'Indústria',educacao:'Educação',esportes:'Esportes',internacional:'Internacional',variedades:'Variedades',parcerias:'Parcerias',vc:'OVC',investigativo:'Investigativo',seguranca:'Seg. Pública',cultura:'Cultura',profissoes:'Profissões',vagas:'Vagas',concursos:'Concursos',imoveis:'Imóveis',esg:'ESG',defesa:'Defesa',religiao:'Religião'};
+        var lbl = function(cat){ return LABELS[cat]||cat; };
+        var esc = function(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+
+        var priCol = primeiro.imagem
+          ? 'background:url("'+primeiro.imagem+'") center/cover no-repeat;'
+          : 'background:'+c(primeiro.categoria)+';';
+        var html = '<div style="display:grid;grid-template-columns:1fr 300px;gap:0;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.12);min-height:320px;">'
+          // Destaque principal
+          +'<a href="'+(primeiro.url||'#')+'" style="display:block;position:relative;'+priCol+'text-decoration:none;">'
+            +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.9) 0%,rgba(0,0,0,0.2) 60%,rgba(0,0,0,0) 100%);"></div>'
+            +'<div style="position:absolute;top:16px;left:16px;">'
+              +'<span style="background:#e11d48;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:3px 10px;border-radius:4px;">🔥 #1 Mais Lida</span>'
+            +'</div>'
+            +'<div style="position:absolute;bottom:0;left:0;right:0;padding:24px 20px;">'
+              +'<span style="display:inline-block;background:'+c(primeiro.categoria)+';color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-bottom:8px;">'+lbl(primeiro.categoria)+'</span>'
+              +'<h3 style="font-size:20px;font-weight:900;color:#fff;margin:0;line-height:1.25;text-shadow:0 2px 8px rgba(0,0,0,0.5);">'+esc(primeiro.titulo)+'</h3>'
+            +'</div>'
+          +'</a>'
+          // Lista lateral
+          +'<div style="background:#0f172a;padding:0;">'
+            + resto.map(function(p, i){
+              return '<a href="'+(p.url||'#')+'" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.07);text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background=\'rgba(255,255,255,0.05)\'" onmouseout="this.style.background=\'transparent\'">'
+                +'<span style="font-size:22px;font-weight:900;color:rgba(255,255,255,0.2);min-width:28px;font-family:Georgia,serif;">'+(i+2)+'</span>'
+                +'<div style="flex:1;min-width:0;">'
+                  +'<span style="font-size:9px;font-weight:700;text-transform:uppercase;color:'+c(p.categoria)+';letter-spacing:.06em;">'+lbl(p.categoria)+'</span>'
+                  +'<p style="font-size:13px;font-weight:600;color:#f1f5f9;margin:3px 0 0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>'
+                +'</div>'
+              +'</a>';
+            }).join('')
+          +'</div>'
+        +'</div>';
+        sec.innerHTML = html;
+        sec.style.display = 'block';
+      }).catch(function(){ sec.style.display='none'; });
+  }
+
+  function carregarOvcTv(){
+    var sec = document.getElementById('ovc-tv-home');
+    if(!sec) return;
+    fetch('/api/manage')
+      .then(function(r){ return r.json(); })
+      .then(function(cfg){
+        var ytUrl = cfg.youtube_live_url;
+        if(!ytUrl){ sec.style.display='none'; return; }
+        sec.innerHTML =
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">'
+            +'<span style="display:inline-flex;align-items:center;gap:6px;background:#e11d48;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;padding:5px 12px;border-radius:4px;">📺 OVC TV — Ao Vivo</span>'
+            +'<span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;box-shadow:0 0 0 3px rgba(34,197,94,0.25);animation:ovc-pulse 2s infinite;"></span>'
+            +'<span style="font-size:12px;color:#64748b;">Transmissão ao vivo</span>'
+          +'</div>'
+          +'<div style="border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.15);">'
+          +'<iframe width="100%" height="400" src="'+ytUrl+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;"></iframe>'
+          +'</div>';
+        sec.style.display = 'block';
+
+        // Injeta a animação pulse se não existir
+        if(!document.getElementById('ovc-pulse-style')){
+          var st = document.createElement('style');
+          st.id = 'ovc-pulse-style';
+          st.textContent = '@keyframes ovc-pulse{0%,100%{opacity:1}50%{opacity:0.4}}';
+          document.head.appendChild(st);
+        }
+      }).catch(function(){ sec.style.display='none'; });
+  }
 
   function injetarMenuProfissoes(){
     var nav = document.querySelector('nav.supermenu');
