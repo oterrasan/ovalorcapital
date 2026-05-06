@@ -25,8 +25,11 @@ async function callOpenAI(prompt) {
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
+      messages: [
+        { role: "system", content: "Você é redator jornalístico sênior de um portal de notícias brasileiro. Sua função é produzir matérias originais e completas a partir de pautas editoriais. O texto do usuário contém o TEMA e o ÂNGULO EDITORIAL — escreva com seu próprio estilo jornalístico, sem copiar frases da fonte." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.4,
       max_tokens: 8192
     })
   });
@@ -119,7 +122,7 @@ REGRAS INVIOLÁVEIS:
 - NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
 - NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar
 
-NOTÍCIA FONTE:
+PAUTA EDITORIAL (tema, ângulo e contexto fornecidos pelo editor — use como referência jornalística e reescreva com seu próprio estilo):
 ${text}`;
 
 function slugify(text) {
