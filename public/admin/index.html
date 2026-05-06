@@ -170,7 +170,7 @@ function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch('/api/manage');
+      const r = await fetch('/api/status');
       if (r.ok) setStatus(await r.json());
     } catch(_) {}
     const { data: p } = await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(10);
@@ -187,7 +187,7 @@ function Dashboard() {
   const forceRun = async () => {
     setForcing(true); setRunResult('Executando...');
     try {
-      const r = await fetch('/api/run', {method:'POST',headers:{'Content-Type':'application/json'}});
+      const r = await fetch('/api/run_portal', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
       const j = await r.json();
       setRunResult(JSON.stringify(j));
       load();
@@ -312,7 +312,7 @@ function Pipeline() {
   const forceRun = async () => {
     setForcing(true); setLastResult('Executando...');
     try {
-      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
       const j = await r.json();
       setLastResult(JSON.stringify(j,null,2));
       load();
@@ -334,11 +334,8 @@ function Pipeline() {
     {id:'tecnologia',label:'🚀 Tecnologia'},
     {id:'esportes',label:'⚽ Esportes'},
     {id:'educacao',label:'🎓 Educação'},
-    {id:'industria',label:'🏭 Indústria'},
     {id:'internacional',label:'🌍 Internacional'},
     {id:'variedades',label:'🎭 Variedades'},
-    {id:'vc',label:'📰 OVC'},
-    {id:'colunistas',label:'✍️ Colunistas'},
   ];
 
   const SUBCATS = {
@@ -359,8 +356,6 @@ function Pipeline() {
     parcerias:   ['Empresas & Startups','Universidades & Faculdades','Órgãos & Associações','Benefícios & Descontos','Programas & Editais','Geral'],
     internacional:['Internacional'],
     variedades:  ['Cultura','Moda','Entretenimento','Carreiras','Tecnologia','Comportamento','Geral'],
-    vc:          ['Editorial','Opinião','Análise','Institucional','Geral'],
-    colunistas:  ['Coluna Semanal','Opinião','Análise','Geral'],
   };
 
   const [pedidos, setPedidos] = useState([{categoria:'politica', subcategoria:'', quantidade:3}]);
@@ -378,7 +373,7 @@ function Pipeline() {
     setManualRunning(true); setManualResult(null);
     try {
       const body = { pedidos, fonteManual: modoManual ? fonteManual.trim() : null };
-      const r = await fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const r = await fetch('/api/run_manual', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const j = await r.json();
       setManualResult(j);
       load();
@@ -547,70 +542,6 @@ function Postagens() {
     setSelected(p=>p.length===pend.length?[]:pend);
   };
 
-  const approveOne = async id => {
-    setApproving(true);
-    try {
-      // Buscar dados do post
-      const { data: post } = await sb.from('posts').select('*').eq('id',id).single();
-      if (!post) { alert('Post não encontrado'); setApproving(false); return; }
-
-      // Gerar card como imagem
-      let cardUrl = post.imagem;
-      try {
-        // Renderizar o card em um elemento oculto
-        const cardEl = document.createElement('div');
-        cardEl.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1350px;';
-        cardEl.innerHTML = `<img src="${post.imagem}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous"/>`;
-        document.body.appendChild(cardEl);
-        
-        const canvas = await html2canvas(cardEl, {
-          width: 1080, height: 1350,
-          useCORS: true, allowTaint: false,
-          scale: 1
-        });
-        document.body.removeChild(cardEl);
-
-        // Converter para blob e fazer upload
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-        const file = new File([blob], `card-${id}.jpg`, {type:'image/jpeg'});
-        
-        const { data: upload, error: upErr } = await sb.storage
-          .from('cards')
-          .upload(`${id}.jpg`, file, {upsert: true, contentType: 'image/jpeg'});
-        
-        if (!upErr) {
-          const { data: urlData } = sb.storage.from('cards').getPublicUrl(`${id}.jpg`);
-          cardUrl = urlData.publicUrl;
-          // Atualizar imagem no post
-          await sb.from('posts').update({imagem: cardUrl}).eq('id', id);
-        }
-      } catch(imgErr) {
-        console.log('Usando imagem original:', imgErr.message);
-      }
-
-      // Aprovar e publicar
-      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-      const d = await r.json();
-      if (d.ok) { alert('✅ Publicado no Instagram!'); load(); }
-      else alert('❌ Erro: '+d.error);
-    } catch(e) {
-      alert('❌ Erro: '+e.message);
-    }
-    setApproving(false);
-  };
-
-  const approveBatch = async () => {
-    if (!selected.length) return;
-    if (!confirm(`Publicar ${selected.length} post(s) no Instagram?`)) return;
-    setApproving(true);
-    const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:selected})});
-    const d = await r.json();
-    const ok = d.results?.filter(x=>x.ok).length||0;
-    const fail = d.results?.filter(x=>!x.ok).length||0;
-    alert(`✅ ${ok} publicado(s) no Instagram${fail?' · ❌ '+fail+' erro(s)':''}`);
-    load(); setApproving(false);
-  };
-
   const pubPortal = async id => {
     setApproving(true);
     try {
@@ -660,6 +591,59 @@ function Postagens() {
   };
 
   const [revisando, setRevisando] = useState(null);
+  const [revisaoModal, setRevisaoModal] = useState({show:false, post:null, flags:{texto:false,imagem:false,fontes:false}, obs:''});
+
+  const abrirRevisao = post => setRevisaoModal({show:true, post, flags:{texto:false,imagem:false,fontes:false}, obs:''});
+
+  const devolverRevisao = async () => {
+    const {post, flags, obs} = revisaoModal;
+    if (!flags.texto && !flags.imagem && !flags.fontes && !obs.trim()) {
+      alert('Selecione ao menos uma opção de revisão ou escreva uma observação.');
+      return;
+    }
+    setRevisando(post.id);
+    setRevisaoModal(m=>({...m, show:false}));
+    try {
+      // Salvar flags e observações no post
+      const metricsAtual = typeof post.metrics === 'object' ? post.metrics : {};
+      await sb.from('posts').update({
+        status: 'pendente',
+        approved: false,
+        published_at: null,
+        metrics: {...metricsAtual, revisao_obs: obs, revisao_flags: flags, revisao_at: new Date().toISOString()}
+      }).eq('id', post.id);
+
+      // Revisar texto com IA se solicitado
+      if (flags.texto) {
+        try {
+          const r = await fetch('/api/editor_ia', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({texto: post.conteudo, acao:'melhorar', ia:'openai', publicar:false})
+          });
+          const d = await r.json();
+          if (d.ok && d.corpo) {
+            await sb.from('posts').update({
+              titulo: d.titulo || post.titulo,
+              conteudo: d.corpo,
+              comentario_fixado: d.meta_descricao || post.comentario_fixado
+            }).eq('id', post.id);
+          }
+        } catch(e) { console.warn('Revisão de texto falhou:', e.message); }
+      }
+
+      // Limpar imagem se solicitado — sistema buscará nova na próxima revisão
+      if (flags.imagem) {
+        await sb.from('posts').update({imagem: ''}).eq('id', post.id);
+      }
+
+      alert('✅ Post devolvido para revisão' + (flags.texto ? ' — texto reprocessado pela IA' : '') + '.');
+      load();
+    } catch(e) {
+      alert('Erro ao devolver: ' + e.message);
+    }
+    setRevisando(null);
+  };
 
   const revisarIA = async (post) => {
     if (!confirm('A IA vai revisar o conteúdo e buscar nova imagem para este post. Continuar?')) return;
@@ -699,6 +683,13 @@ function Postagens() {
     load();
   };
 
+  const deletarPost = async id => {
+    if (!confirm('⚠️ Excluir permanentemente este post? Não há como desfazer.')) return;
+    const {error} = await sb.from('posts').delete().eq('id',id);
+    if (error) alert('Erro ao excluir: ' + error.message);
+    else load();
+  };
+
   const pubPortalBatch = async () => {
     if (!selected.length) return;
     if (!confirm(`Publicar ${selected.length} post(s) no Portal Web?`)) return;
@@ -714,13 +705,6 @@ function Postagens() {
     }
     alert(`✅ ${ok} publicado(s) no Portal!`);
     load(); setApproving(false);
-  };
-
-  const retryPost = async id => {
-    const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'retry'})});
-    const d = await r.json();
-    if (d.ok) { alert('Post recolocado na fila.'); load(); }
-    else alert('Erro: '+d.error);
   };
 
   const saveEdit = async () => {
@@ -761,6 +745,53 @@ function Postagens() {
                   <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Agendado para:</div>
                   <div style={{fontSize:13}}>{previewPost.scheduled_at?fmt(previewPost.scheduled_at):'Publicar imediatamente'}</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {revisaoModal.show&&(
+          <div className="modal-bg" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:500}}>
+              <div className="modal-header">
+                <span className="modal-title">🔄 Devolver para Revisão</span>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div style={{fontSize:13,color:'var(--t2)',marginBottom:16,padding:'8px 12px',background:'rgba(255,200,0,0.07)',borderRadius:8,border:'1px solid rgba(255,200,0,0.2)'}}>
+                  <strong style={{color:'var(--t1)'}}>{revisaoModal.post?.titulo}</strong>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{marginBottom:10}}>O que precisa ser revisado?</label>
+                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                    {[
+                      {key:'texto', icon:'📝', label:'Revisar texto', desc:'A IA reescreve o conteúdo com mais qualidade'},
+                      {key:'imagem', icon:'🖼️', label:'Revisar imagem', desc:'Remove a imagem atual — sistema buscará outra'},
+                      {key:'fontes', icon:'🔍', label:'Revisar fontes', desc:'Marcar para checar as informações manualmente'}
+                    ].map(({key,icon,label,desc})=>(
+                      <label key={key} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',borderRadius:8,border:'1px solid var(--border)',cursor:'pointer',background:revisaoModal.flags[key]?'rgba(255,200,0,0.08)':'var(--card)',transition:'background 0.15s'}}>
+                        <input type="checkbox" checked={revisaoModal.flags[key]}
+                          onChange={e=>setRevisaoModal(m=>({...m,flags:{...m.flags,[key]:e.target.checked}}))}
+                          style={{marginTop:2,accentColor:'var(--yellow)',width:16,height:16,flexShrink:0}}/>
+                        <div>
+                          <div style={{fontWeight:600,fontSize:13}}>{icon} {label}</div>
+                          <div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{desc}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Observações (opcional)</label>
+                  <textarea className="form-textarea" style={{minHeight:80}} placeholder="Ex: título confuso, imagem fora de contexto, dado incorreto no 2º parágrafo..."
+                    value={revisaoModal.obs}
+                    onChange={e=>setRevisaoModal(m=>({...m,obs:e.target.value}))}/>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>Cancelar</button>
+                <button className="btn btn-primary" onClick={devolverRevisao} disabled={revisando===revisaoModal.post?.id}>
+                  {revisando===revisaoModal.post?.id ? 'Processando...' : '🔄 Devolver para Revisão'}
+                </button>
               </div>
             </div>
           </div>
@@ -811,7 +842,6 @@ function Postagens() {
             <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12}}>
               <span style={{color:'var(--yellow)',fontSize:13}}>{selected.length} selecionado(s)</span>
               <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Portal (lote)</button>
-              <button className="btn btn-primary btn-sm" onClick={approveBatch} disabled={approving}>📱 Instagram (lote)</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>Cancelar</button>
             </div>
           )}
@@ -836,15 +866,17 @@ function Postagens() {
                         <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Preview">👁</button>
                         <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
                         {p.status==='pendente'&&<>
-                          <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Portal</button>
-                          <button className="btn btn-primary btn-sm" onClick={()=>approveOne(p.id)} disabled={approving} title="Publicar no Instagram">📱 Instagram</button>
+                          <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Publicar</button>
+                          <button className="btn btn-sm" style={{background:'rgba(255,200,0,0.15)',color:'var(--yellow)',border:'1px solid rgba(255,200,0,0.35)'}} onClick={()=>abrirRevisao(p)} disabled={!!revisando} title="Devolver para revisão">🔄 Revisar</button>
+                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} disabled={!!igPublishing} title="Publicar no Instagram">📱 Instagram</button>
                         </>}
                         {p.status==='publicado'&&<>
                           <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} title="Publicar no Instagram">📱 Instagram</button>
                           <button className="btn btn-sm" style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)'}} onClick={()=>revisarIA(p)} title="Revisar com IA">🤖 Revisar IA</button>
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
-                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>retryPost(p.id)} title="Reprocessar">🔄</button>}
+                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar e republicar">✏️</button>}
+                        <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.12)',color:'#f87171',border:'1px solid rgba(200,30,30,0.25)'}} onClick={()=>deletarPost(p.id)} title="Excluir permanentemente">🗑️</button>
                       </div>
                     </td>
                   </tr>
@@ -1529,7 +1561,7 @@ function NovoPost() {
       if (error) throw new Error(error.message);
 
       if (status === 'pendente' && form.publicar_agora) {
-        const r = await fetch('/api/manage', {
+        const r = await fetch('/api/approve', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({id: post.id})
@@ -1689,92 +1721,6 @@ Redação OVC — ${hoje}
 
 
 // ── FILA DE PUBLICAÇÃO ──
-function FilaPublicacao() {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data } = await sb.from('posts')
-      .select('*')
-      .in('status', ['pending','approved','scheduled','publishing'])
-      .order('priority', {ascending:false})
-      .order('scheduled_at', {ascending:true})
-      .limit(50);
-    setPosts(data||[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(()=>{load(); const t=setInterval(load,15000); return()=>clearInterval(t);},[load]);
-
-  const runScheduler = async () => {
-    setRunning(true);
-    try {
-      const r = await fetch('/api/scheduler',{method:'POST',headers:{'Content-Type':'application/json'}});
-      const d = await r.json();
-      alert(`Scheduler: ${d.processed||0} post(s) processado(s)`);
-      load();
-    } catch(e){alert('Erro: '+e.message);}
-    setRunning(false);
-  };
-
-  const approvePost = async (id) => {
-    await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,action:'approve'})});
-    load();
-  };
-
-  const publishNow = async (id) => {
-    if (!confirm('Publicar agora no Instagram?')) return;
-    const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-    const d = await r.json();
-    if (d.ok) { alert('✅ Publicado!'); load(); }
-    else alert('❌ Erro: '+d.error);
-  };
-
-  const methodBadge = m => m==='executor'
-    ? <span className="badge badge-orange">executor</span>
-    : <span className="badge badge-gray">api</span>;
-
-  return (
-    <div>
-      <div className="page-header">
-        <div className="page-title">🔄 Fila de Publicação</div>
-        <div className="page-sub">Ordem de publicação, horário e status em tempo real</div>
-      </div>
-      <div className="page-body">
-        <div className="panel">
-          <div className="panel-header">
-            <span className="panel-title">{posts.length} post(s) na fila</span>
-            <div className="gap-8">
-              <button className="btn btn-primary btn-sm" onClick={runScheduler} disabled={running}>{running?'Processando...':'▶ Executar scheduler'}</button>
-              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
-            </div>
-          </div>
-          {loading?<div className="loading">Carregando...</div>:posts.length===0?
-            <div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Fila vazia</div></div>:
-            <table><thead><tr><th>#</th><th>Título</th><th>Status</th><th>Método</th><th>Prioridade</th><th>Agendado</th><th>Ações</th></tr></thead>
-            <tbody>{posts.map((p,i)=>(
-              <tr key={p.id} style={p.status==='publishing'?{background:'rgba(255,200,0,0.05)'}:{}}>
-                <td className="text-secondary text-small">{i+1}</td>
-                <td>{truncate(p.titulo,45)}</td>
-                <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-                <td>{methodBadge(p.publish_method)}</td>
-                <td><span className="badge badge-gray">{p.priority||0}</span></td>
-                <td className="text-secondary text-small">{p.scheduled_at?fmt(p.scheduled_at):'Imediato'}</td>
-                <td><div className="gap-8">
-                  {p.status==='pending'&&<button className="btn btn-secondary btn-sm" onClick={()=>approvePost(p.id)}>✓ Aprovar</button>}
-                  {['approved','pending'].includes(p.status)&&<button className="btn btn-primary btn-sm" onClick={()=>publishNow(p.id)}>▶ Publicar</button>}
-                </div></td>
-              </tr>
-            ))}</tbody></table>
-          }
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── ALERTAS ──
 function Alertas() {
   const [alerts, setAlerts] = useState([]);
@@ -1834,112 +1780,12 @@ function Alertas() {
   );
 }
 
-// ── SEO BATCH ──
-function SeoBatch() {
-  const [rodando, setRodando] = React.useState(false);
-  const [progresso, setProgresso] = React.useState(0);
-  const [total, setTotal] = React.useState(0);
-  const [log, setLog] = React.useState([]);
-  const [concluido, setConcluido] = React.useState(false);
-
-  async function iniciar() {
-    setRodando(true);
-    setConcluido(false);
-    setProgresso(0);
-    setTotal(0);
-    setLog([]);
-
-    let offset = 0;
-    const limit = 5;
-    let hasMore = true;
-
-    while (hasMore) {
-      try {
-        const res = await fetch(`/api/seo_batch?offset=${offset}&limit=${limit}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Erro desconhecido');
-
-        if (total === 0 && data.total) setTotal(data.total);
-
-        const novos = (data.resultados || []).map(r =>
-          `${r.ok ? '✅' : '❌'} [${r.id?.toString().slice(0,8)}] ${r.titulo || ''} ${r.ok ? '' : '— ' + (r.erro || '')}`
-        );
-        setLog(prev => [...prev, ...novos]);
-        setProgresso(data.nextOffset || offset + (data.processados || 0));
-
-        if (data.status === 'done' || !data.nextOffset) {
-          hasMore = false;
-        } else {
-          offset = data.nextOffset;
-          await new Promise(r => setTimeout(r, 800));
-        }
-      } catch(e) {
-        setLog(prev => [...prev, '❌ Erro: ' + e.message]);
-        hasMore = false;
-      }
-    }
-
-    setRodando(false);
-    setConcluido(true);
-  }
-
-  const pct = total > 0 ? Math.min(100, Math.round((progresso / total) * 100)) : 0;
-
-  return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">SEO em Lote</h1>
-        <p className="page-subtitle">Otimiza título, meta descrição, palavra-chave e slug de todas as postagens publicadas usando IA.</p>
-      </div>
-      <div className="panel">
-        <div className="panel-header">
-          <span className="panel-title">Otimização em Massa</span>
-        </div>
-        <div style={{padding:'1.5rem'}}>
-          <p style={{marginBottom:'1rem',color:'var(--text-secondary)'}}>
-            Processa as postagens em lotes de 5. Para {total > 0 ? total : '~120'} posts, o processo leva cerca de 2-3 minutos.
-            Cada post recebe um título otimizado (50-65 chars), meta descrição (145-160 chars), palavra-chave e slug SEO.
-          </p>
-          {!rodando && !concluido && (
-            <button className="btn btn-primary" onClick={iniciar}>⚡ Iniciar Otimização SEO</button>
-          )}
-          {rodando && (
-            <div style={{marginBottom:'1rem'}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:'0.4rem'}}>
-                <span style={{fontSize:'0.85rem',color:'var(--text-secondary)'}}>Processando… {progresso}/{total}</span>
-                <span style={{fontSize:'0.85rem',color:'var(--text-secondary)'}}>{pct}%</span>
-              </div>
-              <div style={{background:'var(--border)',borderRadius:'8px',height:'8px',overflow:'hidden'}}>
-                <div style={{width:`${pct}%`,background:'var(--primary)',height:'100%',transition:'width 0.4s'}}></div>
-              </div>
-            </div>
-          )}
-          {concluido && (
-            <div style={{marginBottom:'1rem'}}>
-              <div style={{background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:'8px',padding:'0.75rem 1rem',color:'#16a34a',marginBottom:'0.75rem'}}>
-                ✅ Otimização concluída! {progresso} posts processados.
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={iniciar}>↻ Rodar novamente</button>
-            </div>
-          )}
-          {log.length > 0 && (
-            <div style={{marginTop:'1rem',background:'var(--bg)',border:'1px solid var(--border)',borderRadius:'8px',padding:'1rem',maxHeight:'360px',overflowY:'auto',fontFamily:'monospace',fontSize:'0.78rem',lineHeight:'1.7'}}>
-              {log.map((l,i) => <div key={i}>{l}</div>)}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
   {id:'editorai',label:'Editor IA',icon:'⚡'},
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
-  {id:'fila',label:'Fila de Publicação',icon:'🔄'},
   {id:'postagens',label:'Postagens',icon:'📝'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
@@ -1950,7 +1796,6 @@ const PAGES = [
   {id:'relatorios',label:'Relatórios',icon:'📊'},
   {id:'configuracoes',label:'Configurações',icon:'🔧'},
   {id:'imagens',label:'Imagens',icon:'🖼️'},
-  {id:'seobatch',label:'SEO em Lote',icon:'🔍'},
 ];
 
 function App() {
@@ -1974,7 +1819,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,fila:FilaPublicacao,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,seobatch:SeoBatch}[page];
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens}[page] || Dashboard;
 
   return (
     <div className="layout">
@@ -2025,13 +1870,6 @@ function UploadImagens() {
     setMsg('');
   };
 
-  const toBase64 = (file) => new Promise((res,rej)=>{
-    const r = new FileReader();
-    r.onload = ()=> res(r.result.split(',')[1]);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-
   const uploadAll = async () => {
     if(!files.length){ setMsg('Selecione ao menos 1 imagem.'); return; }
     setUploading(true);
@@ -2039,15 +1877,11 @@ function UploadImagens() {
     const results = [];
     for(const file of files){
       try{
-        const data = await toBase64(file);
-        const resp = await fetch('/api/upload',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({filename:file.name, contentType:file.type, data})
-        });
-        const json = await resp.json();
-        if(json.url) results.push({name:file.name, url:json.url});
-        else results.push({name:file.name, error:json.error});
+        const path = `uploads/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const { error: upErr } = await sb.storage.from('posts-images').upload(path, file, {contentType: file.type, upsert: true});
+        if(upErr) throw new Error(upErr.message);
+        const { data: urlData } = sb.storage.from('posts-images').getPublicUrl(path);
+        results.push({name:file.name, url:urlData.publicUrl});
       }catch(e){
         results.push({name:file.name, error:e.message});
       }
@@ -2123,7 +1957,7 @@ function EditorIA() {
   const [entrada, setEntrada] = React.useState('');
   const [acao, setAcao] = React.useState('reescrever');
   const [promptLivre, setPromptLivre] = React.useState('');
-  const [ia, setIa] = React.useState('gemini');
+  const [ia, setIa] = React.useState('openai');
   const [imagem, setImagem] = React.useState('');
   const [buscarImagem, setBuscarImagem] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -2133,10 +1967,10 @@ function EditorIA() {
   const [salvo, setSalvo] = React.useState(null);
 
   const IAS = [
-    {id:'gemini', label:'Gemini', ativo:true},
-    {id:'groq',   label:'Groq',   ativo:false},
-    {id:'grok',   label:'Grok',   ativo:false},
-    {id:'openai', label:'ChatGPT',ativo:false},
+    {id:'openai', label:'ChatGPT', ativo:true},
+    {id:'gemini', label:'Gemini',  ativo:false},
+    {id:'groq',   label:'Groq',    ativo:false},
+    {id:'grok',   label:'Grok',    ativo:false},
   ];
 
   const ACOES = [
