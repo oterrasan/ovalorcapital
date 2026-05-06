@@ -24,9 +24,12 @@ async function callOpenAI(prompt) {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "Você é um redator jornalístico sênior especializado em produzir matérias originais para portais de notícias brasileiros. Siga rigorosamente as instruções de formato e conteúdo fornecidas pelo usuário." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.4,
       max_tokens: 8192
     })
   });
@@ -204,17 +207,7 @@ function parse(raw) {
 export async function rewritePortal(text, title, useGemini = false) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
 
-  let raw;
-  if (useGemini) {
-    raw = await callGemini(prompt);
-  } else {
-    try {
-      raw = await callOpenAI(prompt);
-    } catch (e) {
-      // Fallback automático para Gemini se OpenAI falhar ou recusar
-      raw = await callGemini(prompt);
-    }
-  }
+  const raw = await callOpenAI(prompt);
   const result = parse(raw);
 
   if (!result || !result.corpo || result.corpo.length < 800) {
