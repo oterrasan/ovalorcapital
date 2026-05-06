@@ -36,6 +36,45 @@ export default async function handler(req, res) {
       return res.status(200).json(formatPost(data, true));
     }
 
+    // Busca por texto livre: ?q=termo
+    const { q: searchTerm } = req.query;
+    if (searchTerm && searchTerm.trim().length > 0) {
+      const termo = searchTerm.trim();
+      const COLS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
+
+      const [{ data: byTitulo }, { data: byConteudo }] = await Promise.all([
+        supabase.from("posts").select(COLS).eq("status", "publicado")
+          .ilike("titulo", `%${termo}%`)
+          .order("published_at", { ascending: false })
+          .limit(40),
+        supabase.from("posts").select(COLS).eq("status", "publicado")
+          .ilike("conteudo", `%${termo}%`)
+          .order("published_at", { ascending: false })
+          .limit(40)
+      ]);
+
+      // Dedup por ID — titulo results primeiro (mais relevante)
+      const seenId = new Set();
+      const combined = [];
+      for (const p of [...(byTitulo || []), ...(byConteudo || [])]) {
+        if (!p.id || seenId.has(p.id)) continue;
+        seenId.add(p.id);
+        combined.push(p);
+        if (combined.length >= 40) break;
+      }
+
+      const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
+      function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
+      const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
+        'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
+        'parcerias','internacional','vc','colunistas','variedades',
+        'investigativo','seguranca','cultura','profissoes','vagas',
+        'concursos','imoveis','esg','defesa','religiao']);
+
+      const posts = combined.map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
+      return res.status(200).json({ posts, total: posts.length, query: termo });
+    }
+
     let q = supabase.from("posts")
       .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at", { count: "exact" })
       .eq("status", "publicado")
@@ -71,7 +110,8 @@ export default async function handler(req, res) {
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
       'parcerias','internacional','vc','colunistas','variedades',
-      'investigativo','seguranca','cultura','profissoes','vagas']);
+      'investigativo','seguranca','cultura','profissoes','vagas',
+      'concursos','imoveis','esg','defesa','religiao']);
 
     const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
 
@@ -107,7 +147,9 @@ function formatPost(p, full) {
     tributacao:"tributos", regulacao:"regulacao", internacional:"internacional",
     parcerias:"parcerias", vc:"vc", colunistas:"vc", variedades:"variedades",
     investigativo:"investigativo", seguranca:"seguranca",
-    cultura:"cultura", profissoes:"profissoes", vagas:"vagas", geral:"politica"
+    cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
+    concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
+    geral:"politica"
   };
   return {
     id: p.id,

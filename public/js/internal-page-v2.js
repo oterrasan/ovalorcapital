@@ -11,7 +11,8 @@
     internacional:'internacional', variedades:'variedades',
     parcerias:'parcerias', regulacao:'regulacao', vc:'vc', colunistas:'vc',
     investigativo:'investigativo', seguranca:'seguranca',
-    cultura:'cultura', profissoes:'profissoes', vagas:'vagas'
+    cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
@@ -21,7 +22,8 @@
     esportes:'Esportes', internacional:'Internacional', variedades:'Variedades',
     parcerias:'Parcerias', vc:'OVC', colunistas:'Colunistas',
     investigativo:'Investigativo', seguranca:'Segurança Pública',
-    cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas'
+    cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas',
+    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Religião'
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
@@ -31,7 +33,8 @@
     educacao:'#8b5cf6', esportes:'#16a34a', internacional:'#dc2626',
     variedades:'#ec4899', parcerias:'#14b8a6', vc:'#ffc800', colunistas:'#ffc800',
     investigativo:'#1a1a2e', seguranca:'#7f1d1d',
-    cultura:'#7e22ce', profissoes:'#0369a1', vagas:'#065f46'
+    cultura:'#7e22ce', profissoes:'#0369a1', vagas:'#065f46',
+    concursos:'#1e40af', imoveis:'#b45309', esg:'#166534', defesa:'#1e3a5f', religiao:'#6d28d9'
   };
   var CAT_PATH = {
     politica:'politica', economia:'economia', negocios:'negocios',
@@ -42,7 +45,8 @@
     vc:'vc', colunistas:'vc', internacional:'internacional',
     variedades:'variedades', geral:'politica',
     investigativo:'investigativo', seguranca:'seguranca',
-    cultura:'cultura', profissoes:'profissoes', vagas:'vagas'
+    cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
   };
 
   function lbl(c){ return LABEL[c]||c||'Geral'; }

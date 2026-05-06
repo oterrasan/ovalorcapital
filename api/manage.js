@@ -29,6 +29,9 @@ export default async function handler(req, res) {
   const portalActions = ["aprovar","rejeitar","editar_aprovar","aprovar_lote","rejeitar_lote"];
   if (portalActions.includes(body.action)) return handleApprovePortal(req, res);
 
+  // POST newsletter
+  if (body.action === "newsletter_subscribe") return handleNewsletterSubscribe(req, res);
+
   // POST vaga pública
   if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
 
@@ -274,6 +277,24 @@ async function handleSubmitVaga(req, res) {
     });
     if (error) throw error;
     return res.status(200).json({ ok: true, message: "Vaga enviada para aprovação!" });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── NEWSLETTER SUBSCRIBE ────────────────────────────────────────────
+async function handleNewsletterSubscribe(req, res) {
+  const { email, categoria } = req.body || {};
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "E-mail inválido" });
+  }
+  try {
+    const { error } = await supabase.from("newsletter_subscribers").upsert(
+      { email: email.toLowerCase().trim(), categoria: categoria || "geral", confirmed: false, created_at: new Date().toISOString() },
+      { onConflict: "email" }
+    );
+    if (error && !error.message?.includes("duplicate")) throw error;
+    return res.status(200).json({ ok: true });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
