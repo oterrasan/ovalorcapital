@@ -182,8 +182,8 @@ async function handleManual(req, res) {
         const imagemFinal = await findImage(content.titulo, content.categoria, "");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"publicado", approved:true, publish_method:"portal",
-          published_at:new Date().toISOString(), user_tags:JSON.stringify([content.categoria]),
+          imagem:imagemFinal, hash, status:"pendente", approved:false, publish_method:"manual",
+          user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
           collaborators:"[]", metrics:{}, priority:1, retry_count:0, max_retries:3
@@ -219,8 +219,8 @@ async function handleManual(req, res) {
         const imagemFinal = await findImage(content.titulo, content.categoria, article.image||"");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"publicado", approved:true, publish_method:"portal",
-          published_at:new Date().toISOString(), user_tags:JSON.stringify([content.categoria]),
+          imagem:imagemFinal, hash, status:"pendente", approved:false, publish_method:"manual",
+          user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
           collaborators:"[]", metrics:{}, priority:0, retry_count:0, max_retries:3
