@@ -9,7 +9,9 @@
     educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
     esportes:'esportes', saude:'saude', familia:'familia',
     internacional:'internacional', variedades:'variedades',
-    parcerias:'parcerias', regulacao:'regulacao', vc:'vc', colunistas:'vc'
+    parcerias:'parcerias', regulacao:'regulacao', vc:'vc', colunistas:'vc',
+    investigativo:'investigativo', seguranca:'seguranca',
+    cultura:'cultura', profissoes:'profissoes', vagas:'vagas'
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
@@ -17,7 +19,9 @@
     regulacao:'Regulação', seguros:'Seguros', saude:'Saúde', familia:'Família',
     tecnologia:'Tecnologia', industria:'Indústria', educacao:'Educação',
     esportes:'Esportes', internacional:'Internacional', variedades:'Variedades',
-    parcerias:'Parcerias', vc:'OVC', colunistas:'Colunistas'
+    parcerias:'Parcerias', vc:'OVC', colunistas:'Colunistas',
+    investigativo:'Investigativo', seguranca:'Segurança Pública',
+    cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas'
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
@@ -25,7 +29,9 @@
     regulacao:'#9333ea', seguros:'#0284c7', saude:'#16a34a',
     familia:'#db2777', tecnologia:'#6366f1', industria:'#ea580c',
     educacao:'#8b5cf6', esportes:'#16a34a', internacional:'#dc2626',
-    variedades:'#ec4899', parcerias:'#14b8a6', vc:'#ffc800', colunistas:'#ffc800'
+    variedades:'#ec4899', parcerias:'#14b8a6', vc:'#ffc800', colunistas:'#ffc800',
+    investigativo:'#1a1a2e', seguranca:'#7f1d1d',
+    cultura:'#7e22ce', profissoes:'#0369a1', vagas:'#065f46'
   };
   var CAT_PATH = {
     politica:'politica', economia:'economia', negocios:'negocios',
@@ -34,7 +40,9 @@
     esportes:'esportes', saude:'saude', familia:'familia',
     tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
     vc:'vc', colunistas:'vc', internacional:'internacional',
-    variedades:'variedades', geral:'politica'
+    variedades:'variedades', geral:'politica',
+    investigativo:'investigativo', seguranca:'seguranca',
+    cultura:'cultura', profissoes:'profissoes', vagas:'vagas'
   };
 
   function lbl(c){ return LABEL[c]||c||'Geral'; }

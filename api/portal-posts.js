@@ -70,7 +70,8 @@ export default async function handler(req, res) {
     // REGRA INVIOLÁVEL: apenas categorias válidas saem pela API — "geral" bloqueado
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional','vc','colunistas']);
+      'parcerias','internacional','vc','colunistas','variedades',
+      'investigativo','seguranca','cultura','profissoes','vagas']);
 
     const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
 
@@ -103,8 +104,10 @@ function formatPost(p, full) {
     investimentos:"investimentos", seguros:"seguros", mercados:"mercados",
     educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
     esportes:"esportes", saude:"saude", familia:"familia",
-    tributacao:"tributos", regulacao:"regulacao", internacional:"economia",
-    parcerias:"parcerias", vc:"vc", colunistas:"vc", geral:"politica"
+    tributacao:"tributos", regulacao:"regulacao", internacional:"internacional",
+    parcerias:"parcerias", vc:"vc", colunistas:"vc", variedades:"variedades",
+    investigativo:"investigativo", seguranca:"seguranca",
+    cultura:"cultura", profissoes:"profissoes", vagas:"vagas", geral:"politica"
   };
   return {
     id: p.id,

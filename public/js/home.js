@@ -100,6 +100,11 @@
     { grid: 'grid-parcerias',         cats: ['parcerias'],           href: '/parcerias/' },
     { grid: 'grid-internacional',     cats: ['internacional'],       href: '/internacional/' },
     { grid: 'grid-variedades',        cats: ['variedades'],          href: '/variedades/' },
+    { grid: 'grid-investigativo',     cats: ['investigativo'],       href: '/investigativo/' },
+    { grid: 'grid-seguranca',         cats: ['seguranca'],           href: '/seguranca/' },
+    { grid: 'grid-cultura',           cats: ['cultura'],             href: '/cultura/' },
+    { grid: 'grid-profissoes',        cats: ['profissoes'],          href: '/profissoes/' },
+    { grid: 'grid-vagas',             cats: ['vagas'],               href: '/vagas/' },
   ];
 
   function renderCard(post) {

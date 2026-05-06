@@ -29,6 +29,9 @@ export default async function handler(req, res) {
   const portalActions = ["aprovar","rejeitar","editar_aprovar","aprovar_lote","rejeitar_lote"];
   if (portalActions.includes(body.action)) return handleApprovePortal(req, res);
 
+  // POST vaga pública
+  if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
+
   // POST padrão → aprovação/publicação
   return handleApprove(req, res);
 }
@@ -241,5 +244,37 @@ async function handleManual(req, res) {
 
   } catch(e) {
     return res.status(500).json({ status:"error", error:e.message, notificacoes:[{tipo:"erro",mensagem:e.message}] });
+  }
+}
+
+// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────
+async function handleSubmitVaga(req, res) {
+  const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
+  if (!empresa || !cargo || !descricao || !email_contato) {
+    return res.status(400).json({ error: "Campos obrigatórios: empresa, cargo, descricao, email_contato" });
+  }
+  if (descricao.length < 50) {
+    return res.status(400).json({ error: "Descrição muito curta (mínimo 50 caracteres)" });
+  }
+  try {
+    const titulo = `[VAGA] ${cargo} — ${empresa}`;
+    const conteudo = `**Empresa:** ${empresa}\n**Cargo:** ${cargo}\n**Área:** ${area||'Não informada'}\n**Localização:** ${localizacao||'Não informada'}\n**Contratação:** ${tipo_contratacao||'Não informado'}\n**Salário:** ${salario||'A combinar'}\n**Contato:** ${email_contato}\n\n## Descrição da Vaga\n\n${descricao}`;
+    const { error } = await supabase.from("posts").insert({
+      titulo,
+      conteudo,
+      comentario_fixado: `${cargo} em ${empresa} — ${localizacao||'Local não informado'}`,
+      status: "pendente",
+      approved: false,
+      publish_method: "vaga_publica",
+      user_tags: JSON.stringify(["vagas"]),
+      subcategoria: area || "Geral",
+      subcategoria_slug: (area||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
+      metrics: { email_contato, tipo_contratacao, salario },
+      priority: 0, retry_count: 0, max_retries: 0
+    });
+    if (error) throw error;
+    return res.status(200).json({ ok: true, message: "Vaga enviada para aprovação!" });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
   }
 }

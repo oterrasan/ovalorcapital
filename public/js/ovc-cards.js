@@ -14,8 +14,13 @@
     { id:'tributos',     label:'Tributos',      path:'/tributos/',     cats:['tributacao'] },
     { id:'regulacao',    label:'Regulação',     path:'/regulacao/',    cats:['regulacao'] },
     { id:'parcerias',    label:'Parcerias',     path:'/parcerias/',    cats:['parcerias'] },
-    { id:'internacional',label:'Internacional', path:'/internacional/',cats:['internacional'] },
-    { id:'variedades',   label:'Variedades',    path:'/variedades/',   cats:['variedades'] }
+    { id:'internacional',  label:'Internacional',   path:'/internacional/',  cats:['internacional'] },
+    { id:'variedades',     label:'Variedades',      path:'/variedades/',     cats:['variedades'] },
+    { id:'investigativo',  label:'Investigativo',   path:'/investigativo/',  cats:['investigativo'] },
+    { id:'seguranca',      label:'Seg. Pública',    path:'/seguranca/',      cats:['seguranca'] },
+    { id:'cultura',        label:'Cultura',         path:'/cultura/',        cats:['cultura'] },
+    { id:'profissoes',     label:'Profissões',      path:'/profissoes/',     cats:['profissoes'] },
+    { id:'vagas',          label:'Vagas',           path:'/vagas/',          cats:['vagas'] }
   ];
 
   var ROTATION_INTERVAL = 7000;
@@ -35,7 +40,8 @@
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
       tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-      vc:'vc', colunistas:'vc', internacional:'internacional', variedades:'variedades', geral:'politica'
+      vc:'vc', colunistas:'vc', internacional:'internacional', variedades:'variedades', geral:'politica',
+      investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas'
     };
     var cat = catPath[p.categoria] || 'politica';
     return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
