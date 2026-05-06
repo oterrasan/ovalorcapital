@@ -215,7 +215,7 @@ export default async function handler(req, res) {
   try {
     const {
       url, texto, acao = "reescrever", promptLivre = "",
-      ia = "gemini", imagem = "", buscarImagem = false, publicar = false
+      ia = "openai", imagem = "", buscarImagem = false, publicar = false
     } = req.body || {};
 
     if (!url && !texto) return res.status(400).json({ error: "Informe URL ou texto" });
