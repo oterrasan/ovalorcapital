@@ -6,7 +6,28 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=30");
 
-  const { categoria, limit = 40, page = 0, id, resources } = req.query;
+  const { categoria, limit = 40, page = 0, id, resources, sort } = req.query;
+
+  // Mais lidas: ?sort=popular — busca 200 posts, ordena por metrics.views desc
+  if (sort === "popular") {
+    const { data } = await supabase.from("posts")
+      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,metrics")
+      .eq("status", "publicado")
+      .order("published_at", { ascending: false })
+      .limit(200);
+    const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
+    function imgOkP(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
+    const sorted = (data||[])
+      .filter(p => p.titulo && p.id)
+      .sort((a,b) => {
+        const va = (a.metrics && typeof a.metrics === "object" ? a.metrics.views : 0) || 0;
+        const vb = (b.metrics && typeof b.metrics === "object" ? b.metrics.views : 0) || 0;
+        return vb - va;
+      })
+      .slice(0, Number(limit) || 10);
+    const posts = sorted.map(p => formatPost(p, false)).filter(p => imgOkP(p.imagem));
+    return res.status(200).json({ posts, total: posts.length });
+  }
 
   try {
     if (id) {

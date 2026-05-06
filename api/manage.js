@@ -35,6 +35,9 @@ export default async function handler(req, res) {
   // POST vaga pública
   if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
 
+  // POST contagem de visualização
+  if (body.action === "track_view") return handleTrackView(req, res);
+
   // POST padrão → aprovação/publicação
   return handleApprove(req, res);
 }
@@ -51,9 +54,26 @@ async function handleStatus(req, res) {
     const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",inicioDia.toISOString()).eq("publish_method","portal");
     const { count: pendentes } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","pendente");
     const { count: erros }    = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
-    return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0 });
+    const { data: cfgYt } = await supabase.from("config").select("value").eq("key","YOUTUBE_LIVE_URL").single();
+    const youtube_live_url = cfgYt?.value || null;
+    return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0, youtube_live_url });
   } catch(e) {
-    return res.status(200).json({ running:false, posts_hoje:0, max_posts:300, pendentes:0, erros:0 });
+    return res.status(200).json({ running:false, posts_hoje:0, max_posts:300, pendentes:0, erros:0, youtube_live_url:null });
+  }
+}
+
+// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────
+async function handleTrackView(req, res) {
+  const { post_id } = req.body || {};
+  if (!post_id) return res.json({ ok: false });
+  try {
+    const { data: post } = await supabase.from("posts").select("metrics").eq("id", post_id).single();
+    const metrics = (post?.metrics && typeof post.metrics === "object") ? { ...post.metrics } : {};
+    metrics.views = (metrics.views || 0) + 1;
+    await supabase.from("posts").update({ metrics }).eq("id", post_id);
+    return res.json({ ok: true, views: metrics.views });
+  } catch(e) {
+    return res.json({ ok: false });
   }
 }
 
