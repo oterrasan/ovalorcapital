@@ -283,17 +283,36 @@ async function handleSubmitVaga(req, res) {
 }
 
 // ── NEWSLETTER SUBSCRIBE ────────────────────────────────────────────
+// Salva na tabela newsletter_subscribers (se existir) OU na tabela config como fallback
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "E-mail inválido" });
   }
+  const emailLimpo = email.toLowerCase().trim();
+  const agora = new Date().toISOString();
+
+  // Tenta tabela newsletter_subscribers
   try {
     const { error } = await supabase.from("newsletter_subscribers").upsert(
-      { email: email.toLowerCase().trim(), categoria: categoria || "geral", confirmed: false, created_at: new Date().toISOString() },
+      { email: emailLimpo, categoria: categoria || "geral", confirmed: false, created_at: agora },
       { onConflict: "email" }
     );
-    if (error && !error.message?.includes("duplicate")) throw error;
+    if (!error || error.message?.includes("duplicate")) {
+      return res.status(200).json({ ok: true });
+    }
+  } catch(_) {}
+
+  // Fallback: salva na tabela config como lista JSON
+  try {
+    const key = "NEWSLETTER_EMAILS";
+    const { data: cfg } = await supabase.from("config").select("value").eq("key", key).single();
+    let lista = [];
+    try { lista = JSON.parse(cfg?.value || "[]"); } catch(_) {}
+    if (!lista.some(e => e.email === emailLimpo)) {
+      lista.push({ email: emailLimpo, categoria: categoria || "geral", data: agora });
+      await supabase.from("config").upsert({ key, value: JSON.stringify(lista) }, { onConflict: "key" });
+    }
     return res.status(200).json({ ok: true });
   } catch(e) {
     return res.status(500).json({ error: e.message });
