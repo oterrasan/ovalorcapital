@@ -43,7 +43,8 @@ export default async function handler(req, res) {
       .range(Number(page) * Number(limit), (Number(page) + 1) * Number(limit) - 1);
 
     if (categoria && categoria !== "all") {
-      q = q.ilike("user_tags", `%${categoria}%`);
+      // Filtro exato: match do slug entre aspas no JSON da coluna user_tags
+      q = q.like("user_tags", `%"${categoria}"%`);
     }
 
     const { data, count, error } = await q;
