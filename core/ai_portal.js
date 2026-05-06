@@ -126,8 +126,10 @@ REGRAS INVIOLÁVEIS:
 - NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
 - NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar
 
-NOTÍCIA FONTE:
-${text}`;
+PAUTA EDITORIAL (tema, ângulo e contexto fornecidos pelo editor — use como referência jornalística e reescreva com seu próprio estilo):
+---
+${text}
+---`;
 
 function slugify(text) {
   return (text || "")
