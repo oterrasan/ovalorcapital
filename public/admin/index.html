@@ -619,7 +619,7 @@ function Postagens() {
           const r = await fetch('/api/editor_ia', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({texto: post.conteudo, acao:'melhorar', ia:'gemini', publicar:false})
+            body: JSON.stringify({texto: post.conteudo, acao:'melhorar', ia:'openai', publicar:false})
           });
           const d = await r.json();
           if (d.ok && d.corpo) {
@@ -1957,7 +1957,7 @@ function EditorIA() {
   const [entrada, setEntrada] = React.useState('');
   const [acao, setAcao] = React.useState('reescrever');
   const [promptLivre, setPromptLivre] = React.useState('');
-  const [ia, setIa] = React.useState('gemini');
+  const [ia, setIa] = React.useState('openai');
   const [imagem, setImagem] = React.useState('');
   const [buscarImagem, setBuscarImagem] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -1967,10 +1967,10 @@ function EditorIA() {
   const [salvo, setSalvo] = React.useState(null);
 
   const IAS = [
-    {id:'gemini', label:'Gemini', ativo:true},
-    {id:'groq',   label:'Groq',   ativo:false},
-    {id:'grok',   label:'Grok',   ativo:false},
-    {id:'openai', label:'ChatGPT',ativo:false},
+    {id:'openai', label:'ChatGPT', ativo:true},
+    {id:'gemini', label:'Gemini',  ativo:false},
+    {id:'groq',   label:'Groq',    ativo:false},
+    {id:'grok',   label:'Grok',    ativo:false},
   ];
 
   const ACOES = [
