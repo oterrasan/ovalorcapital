@@ -204,7 +204,17 @@ function parse(raw) {
 export async function rewritePortal(text, title, useGemini = false) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
 
-  const raw = useGemini ? await callGemini(prompt) : await callOpenAI(prompt);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(prompt);
+  } else {
+    try {
+      raw = await callOpenAI(prompt);
+    } catch (e) {
+      // Fallback automático para Gemini se OpenAI falhar ou recusar
+      raw = await callGemini(prompt);
+    }
+  }
   const result = parse(raw);
 
   if (!result || !result.corpo || result.corpo.length < 800) {
