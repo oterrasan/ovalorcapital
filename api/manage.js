@@ -38,8 +38,24 @@ export default async function handler(req, res) {
   // POST contagem de visualização
   if (body.action === "track_view") return handleTrackView(req, res);
 
+  // POST criação automática do bucket de imagens
+  if (body.action === "setup_storage") return handleSetupStorage(req, res);
+
   // POST padrão → aprovação/publicação
   return handleApprove(req, res);
+}
+
+async function handleSetupStorage(req, res) {
+  try {
+    const { error } = await supabase.storage.createBucket("posts-images", { public: true });
+    // "already exists" não é erro — bucket já está criado
+    if (error && !error.message.toLowerCase().includes("already exist")) {
+      return res.status(200).json({ ok: false, error: error.message });
+    }
+    return res.status(200).json({ ok: true });
+  } catch(e) {
+    return res.status(200).json({ ok: false, error: e.message });
+  }
 }
 
 // ── STATUS ──────────────────────────────────────────────────────────
