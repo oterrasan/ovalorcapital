@@ -118,16 +118,27 @@
   // ── RENDER BARRA DE COMPARTILHAMENTO ──────────────────────────────
   function renderShare(titulo, urlRel){
     var full = 'https://ovalorcapital.com.br'+urlRel;
-    var eu = encodeURIComponent(full);
+    // Extrai ID para URL de compartilhamento com OG meta tags corretos
+    var idMatch = urlRel.match(/[?&]id=([a-f0-9-]+)/i);
+    var shareUrl = idMatch ? 'https://ovalorcapital.com.br/og?id='+idMatch[1] : full;
+    var eu = encodeURIComponent(shareUrl);
     var et = encodeURIComponent((titulo||'O Valor Capital')+' — O Valor Capital');
-    return '<div style="display:flex;align-items:center;gap:8px;padding:14px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin:18px 0 26px;flex-wrap:wrap;">'
-      +'<span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.1em;margin-right:4px;">Compartilhar</span>'
-      +'<a href="https://api.whatsapp.com/send?text='+et+'%20'+eu+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;background:#25D366;color:#fff;padding:7px 14px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700;">WhatsApp</a>'
-      +'<a href="https://t.me/share/url?url='+eu+'&text='+et+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;background:#229ED9;color:#fff;padding:7px 14px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700;">Telegram</a>'
-      +'<a href="https://twitter.com/intent/tweet?text='+et+'&url='+eu+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;background:#000;color:#fff;padding:7px 14px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700;">X</a>'
-      +'<a href="https://www.facebook.com/sharer/sharer.php?u='+eu+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;background:#1877F2;color:#fff;padding:7px 14px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:700;">Facebook</a>'
-      +'<button onclick="(function(b){var u=\''+full.replace(/'/g,"\\'")+'\';;if(navigator.clipboard){navigator.clipboard.writeText(u).then(function(){b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'Copiar link\';},2200);})}else{var t=document.createElement(\'textarea\');t.value=u;document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'Copiar link\';},2200);}})(this)" style="display:inline-flex;align-items:center;background:#f1f5f9;color:#0f172a;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;cursor:pointer;">Copiar link</button>'
-      +'</div>';
+    var linktxt = 'Leia em @ovalorcapital: '+(titulo||'O Valor Capital')+' '+shareUrl;
+    var copyFull = full.replace(/'/g,"\\'");
+    return '<div style="margin:18px 0 26px;">'
+      +'<div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;">Compartilhar esta matéria</div>'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        +'<a href="https://api.whatsapp.com/send?text='+et+'%20'+eu+'" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;gap:5px;background:#25D366;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1F4F1; WhatsApp</a>'
+        +'<a href="https://www.facebook.com/sharer/sharer.php?u='+eu+'" target="_blank" rel="noopener" title="Facebook" style="display:inline-flex;align-items:center;gap:5px;background:#1877F2;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1F426; Facebook</a>'
+        +'<a href="https://www.linkedin.com/shareArticle?mini=true&url='+eu+'&title='+et+'" target="_blank" rel="noopener" title="LinkedIn" style="display:inline-flex;align-items:center;gap:5px;background:#0A66C2;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1F4BC; LinkedIn</a>'
+        +'<a href="https://t.me/share/url?url='+eu+'&text='+et+'" target="_blank" rel="noopener" title="Telegram" style="display:inline-flex;align-items:center;gap:5px;background:#229ED9;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x2708;&#xFE0F; Telegram</a>'
+        +'<a href="https://twitter.com/intent/tweet?text='+et+'&url='+eu+'" target="_blank" rel="noopener" title="X (Twitter)" style="display:inline-flex;align-items:center;gap:5px;background:#000;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1D54F; X</a>'
+        +'<a href="https://pinterest.com/pin/create/button/?url='+eu+'&description='+et+'" target="_blank" rel="noopener" title="Pinterest" style="display:inline-flex;align-items:center;gap:5px;background:#E60023;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1F4CC; Pinterest</a>'
+        +'<a href="mailto:?subject='+et+'&body=Veja+esta+mat%C3%A9ria+do+O+Valor+Capital%3A+'+eu+'" title="E-mail" style="display:inline-flex;align-items:center;gap:5px;background:#64748b;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x2709;&#xFE0F; E-mail</a>'
+        +'<button onclick="(function(b){var opts={text:\''+linktxt.replace(/'/g,"\\'").replace(/\n/g,' ')+'\',url:\''+copyFull+'\'};if(navigator.share){navigator.share(opts).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(opts.url).then(function(){b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'📋 Instagram / Copiar\';},2200);});}else{var t=document.createElement(\'textarea\');t.value=opts.url;document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'📋 Instagram / Copiar\';},2200);}})(this)" style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;">📸 Instagram</button>'
+        +'<button onclick="(function(b){var u=\''+copyFull+'\';if(navigator.clipboard){navigator.clipboard.writeText(u).then(function(){b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'🔗 Copiar link\';},2200);})}else{var t=document.createElement(\'textarea\');t.value=u;document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'🔗 Copiar link\';},2200);}})(this)" style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#0f172a;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;cursor:pointer;">🔗 Copiar link</button>'
+      +'</div>'
+    +'</div>';
   }
 
   // ── RENDER CTA CONTATO ────────────────────────────────────────────
