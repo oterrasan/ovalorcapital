@@ -1,14 +1,9 @@
 (function(){
   var API = '/api/portal-posts';
 
-  // Card Hero: politica, economia
-  var CAT_HERO = ['politica','economia'];
-
-  // Card Direito: seguros, investimentos (produtos financeiros pessoais — previdência, consórcio, poupança), parcerias
-  var CAT_DIREITO = ['seguros']; // REGRA INVIOLÁVEL: só seguros (saude-e-odonto, vida, auto, residencial, empresarial-e-rc, viagem, kpis)
-
-  // Card Central: negocios, mercados, educacao, saude, familia, tributacao, regulacao, internacional
-  var CAT_CENTRAL = ['negocios']; // REGRA INVIOLÁVEL: só negocios (empreender, tributacao-pj, gestao-financeira, credito, vendas-e-preco, contratos-e-societario, lgpd-e-compliance, startups)
+  var CAT_HERO    = ['politica','economia'];
+  var CAT_DIREITO = ['seguros'];
+  var CAT_CENTRAL = ['negocios'];
   var CAT_EXCLUIDAS_CENTRAL = ['politica','economia','seguros','investimentos','parcerias','vc'];
 
   var _heroIndex = 0, _heroPosts = [], _heroTimer = null;
@@ -56,7 +51,6 @@
     el.className = el.className.replace(/tag-\w+/g,'') + ' tag-' + (cat||'geral');
   }
 
-  // Bloqueio de imagens inválidas — segunda barreira no frontend
   var BLOCKED_IMG = [
     /perfil/i,/author/i,/avatar/i,/reporter/i,/jornalista/i,
     /apresentador/i,/anchor/i,/staff/i,/\/autores?\//i,/\/pessoas?\//i,
@@ -80,7 +74,6 @@
     img.className = 'ovc-card-img';
     img.src = p.imagem;
     img.alt = '';
-    // Sem height inline — o CSS define altura fixa e inviolável por classe do card pai
     img.onerror = function(){ this.remove(); };
     card.insertBefore(img, card.firstChild);
   }
@@ -157,7 +150,6 @@
     if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
     var metaEl = el.querySelector('.card-meta');
     if(metaEl) metaEl.textContent = 'Redação OVC · ' + dataBr(p.data);
-    // Imagem como background — nunca como <img> tag
     if(p.imagem && isValidImage(p.imagem)){
       el.style.backgroundImage = "url('"+p.imagem+"')";
       el.style.backgroundSize = 'cover';
@@ -198,7 +190,6 @@
     if(tag)  { setTag(tag, p.categoria); tag.style.position='relative'; tag.style.zIndex='2'; }
     if(meta) { meta.textContent = 'Redação OVC · ' + dataBr(p.data); meta.style.position='relative'; meta.style.zIndex='2'; }
     if(cta)  { cta.href = url; cta.style.position='relative'; cta.style.zIndex='2'; }
-    // Imagem como background — nunca como img tag
     if(p.imagem && isValidImage(p.imagem)){
       el.style.backgroundImage = "url('"+p.imagem+"')";
       el.style.backgroundSize = 'cover';
@@ -222,7 +213,6 @@
   }
 
   // ─── CARDS STANDARD E MINI ──────────────────────────────────────
-  // Card GRANDE: mesmo padrão do hero — gradient+imagem em uma linha, sem overlay div
   function preencherCard(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
@@ -247,7 +237,6 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href=url; };
   }
 
-  // Card MINI: SEM imagem — só categoria + título + botão (igual ao HTML estático)
   function preencherMini(el, p){
     if(!el||!p) return;
     var url = buildUrl(p);
@@ -266,7 +255,6 @@
     return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // Dedup por ID E por título normalizado — elimina duplicatas de qualquer tipo
   function dedup(arr){
     var seenId = {}, seenTitulo = {};
     return arr.filter(function(p){
@@ -280,7 +268,6 @@
     });
   }
 
-  // Ordena pool: posts com imagem válida primeiro, sem imagem por último
   function sortComImagemPrimeiro(pool){
     return pool.slice().sort(function(a, b){
       var aOk = isValidImage(a.imagem) ? 0 : 1;
@@ -293,86 +280,65 @@
     fetch(API + '?limit=120')
       .then(function(res){ return res.json(); })
       .then(function(json){
-        // 1. Dedup global por ID e título
         var todos = dedup((json.posts||[]).filter(function(p){
           return p.titulo && p.titulo.length > 0 && p.imagem && p.imagem.length > 10;
         }));
         if(!todos.length) return;
 
-        // 2. Controle global de IDs já usados na home
+        // Registra apenas o post EXIBIDO no carregamento (índice 0) de cada seção
+        // — não toda a rotação. Assim o grid abre sempre com um post diferente.
         var usedIds = {};
 
-        function pick(pool){
-          for(var i=0;i<pool.length;i++){
-            if(!usedIds[pool[i].id]){
-              usedIds[pool[i].id] = true;
-              return pool[i];
-            }
-          }
-          return null;
+        function markUsedOne(post){
+          if(post) usedIds[post.id] = true;
         }
 
-        function markUsed(pool){
-          pool.forEach(function(p){ usedIds[p.id] = true; });
-        }
-
-        // ── Card 1: Hero — SOMENTE Política e Economia. SEM FALLBACK. ──
-        var heroPool = todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; });
+        // ── Card 1: Hero ─────────────────────────────────────────
+        var heroPool = sortComImagemPrimeiro(
+          todos.filter(function(p){ return CAT_HERO.indexOf(p.categoria) !== -1; })
+        );
         var heroEl = document.querySelector('.card-hero-main');
         if(heroEl && heroPool.length){
-          markUsed(heroPool.slice(0, 20));
+          markUsedOne(heroPool[0]);
           setupHeroRotation(heroEl, heroPool);
         }
 
-        // ── Card 2: Central — SOMENTE categorias permitidas. SEM FALLBACK. ──
-        var centralPool = todos.filter(function(p){
-          return CAT_CENTRAL.indexOf(p.categoria) !== -1 && !usedIds[p.id];
-        });
+        // ── Card 2: Central ──────────────────────────────────────
+        var centralPool = sortComImagemPrimeiro(
+          todos.filter(function(p){
+            return CAT_CENTRAL.indexOf(p.categoria) !== -1 && !usedIds[p.id];
+          })
+        );
         var centralEl = document.querySelector('.card-feature');
         if(centralEl && centralPool.length){
-          markUsed(centralPool.slice(0, 20));
+          markUsedOne(centralPool[0]);
           setupCentralRotation(centralEl, centralPool);
         }
 
-        // ── Card 3: Direito — SOMENTE Seguros, Investimentos, Parcerias. SEM FALLBACK. ──
-        var direitoPool = todos.filter(function(p){
-          return CAT_DIREITO.indexOf(p.categoria) !== -1 && !usedIds[p.id];
-        });
+        // ── Card 3: Direito ──────────────────────────────────────
+        var direitoPool = sortComImagemPrimeiro(
+          todos.filter(function(p){
+            return CAT_DIREITO.indexOf(p.categoria) !== -1 && !usedIds[p.id];
+          })
+        );
         var direitoEl = document.querySelector('.card-monetizado');
         if(direitoEl && direitoPool.length){
-          markUsed(direitoPool.slice(0, 20));
+          markUsedOne(direitoPool[0]);
           setupDireitoRotation(direitoEl, direitoPool);
         }
 
-        // ════════════════════════════════════════════════════════════
-        // REGRAS INVIOLÁVEIS DAS COLUNAS — MAPEADAS DO HTML
-        // Coluna 1 — "Política & Economia"
-        //   std-1, std-2: politica, economia
-        //   mini-1: politica
-        //   mini-2: economia, internacional
-        // Coluna 2 — "Negócios, Investimentos & Mercados"
-        //   std-3: negocios
-        //   std-4: investimentos
-        //   mini-3: mercados
-        //   mini-4: investimentos
-        // Coluna 3 — "Família, Saúde, Educação, Tributos & Regulação"
-        //   std-5: tributacao, regulacao
-        // ════════════════════════════════════════════════════════════
-        // POOLS POR CATEGORIA — REGRA INVIOLÁVEL: cada card só recebe sua categoria
-        // ════════════════════════════════════════════════════════════
-        // Posts não usados nos destaques aparecem primeiro.
-        // Posts já usados nos destaques aparecem no final da rotação (não são descartados).
+        // ── Grids de categoria ───────────────────────────────────
+        // Posts não exibidos nos destaques aparecem primeiro.
+        // Posts já exibidos nos destaques vão para o final da rotação.
         function pool(cats){
-          var novos = sortComImagemPrimeiro(todos.filter(function(p){
-            return cats.indexOf(p.categoria) !== -1 && !usedIds[p.id];
-          }));
-          var repetidos = sortComImagemPrimeiro(todos.filter(function(p){
-            return cats.indexOf(p.categoria) !== -1 && !!usedIds[p.id];
-          }));
+          var all = sortComImagemPrimeiro(
+            todos.filter(function(p){ return cats.indexOf(p.categoria) !== -1; })
+          );
+          var novos     = all.filter(function(p){ return !usedIds[p.id]; });
+          var repetidos = all.filter(function(p){ return !!usedIds[p.id]; });
           return novos.concat(repetidos);
         }
 
-        // ── ROTAÇÃO: intervalo 7s, máximo 10 rotações ────────────────
         function iniciarRotacao(elId, p){
           var el = document.getElementById(elId);
           if(!el || !p || !p.length) return;
@@ -387,7 +353,7 @@
           }, 7000);
         }
 
-        // SEÇÃO 1 — Política, Negócios, Família
+        // SEÇÃO 1
         iniciarRotacao('ovc-card-std-1',  pool(['politica']));
         iniciarRotacao('ovc-card-std-2',  pool(['economia']));
         iniciarRotacao('ovc-card-std-2b', pool(['internacional']));
@@ -400,14 +366,14 @@
         iniciarRotacao('ovc-card-std-5b', pool(['saude']));
         iniciarRotacao('ovc-card-std-5c', pool(['educacao']));
 
-        // SEÇÃO 2 — Tributos, Seguros, Parcerias
+        // SEÇÃO 2
         iniciarRotacao('ovc-card-std-6',  pool(['tributacao']));
         iniciarRotacao('ovc-card-std-6b', pool(['regulacao']));
         iniciarRotacao('ovc-card-std-7b', pool(['seguros']));
         iniciarRotacao('ovc-card-std-8b', pool(['parcerias']));
         iniciarRotacao('ovc-card-std-9b', pool(['vc','colunistas']));
 
-        // SEÇÃO 3 — Esportes, Tecnologia, Indústria
+        // SEÇÃO 3
         iniciarRotacao('ovc-card-std-7',  pool(['esportes']));
         iniciarRotacao('ovc-card-std-8',  pool(['tecnologia']));
         iniciarRotacao('ovc-card-std-9',  pool(['industria']));
