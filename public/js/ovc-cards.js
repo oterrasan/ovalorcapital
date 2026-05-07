@@ -83,9 +83,9 @@
   var STYLE = {
     card: [
       'position:relative',
-      'border-radius:10px',
+      'border-radius:12px',
       'overflow:hidden',
-      'min-height:150px',
+      'min-height:220px',
       'display:flex',
       'flex-direction:column',
       'justify-content:flex-end',
@@ -240,9 +240,9 @@
     grid.className = 'ovc-cat-grid';
     grid.style.cssText = [
       'display:grid',
-      'grid-template-columns:repeat(5,minmax(0,1fr))',
-      'gap:12px',
-      'margin-top:18px',
+      'grid-template-columns:repeat(3,minmax(0,1fr))',
+      'gap:18px',
+      'margin-top:22px',
       'width:100%'
     ].join(';');
     CATS.forEach(function(cat){ grid.appendChild(buildCard(cat)); });
