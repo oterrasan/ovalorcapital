@@ -2120,7 +2120,9 @@ function UploadImagens() {
   }, []);
 
   React.useEffect(() => {
-    carregarGaleria();
+    // Garante que o bucket existe (cria automaticamente se não existir)
+    fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'setup_storage'})})
+      .then(() => carregarGaleria());
     sb.from('posts').select('id,titulo,status').in('status',['pendente','pending']).order('created_at',{ascending:false}).limit(100).then(({data}) => {
       if(data) setPosts(data);
     });
