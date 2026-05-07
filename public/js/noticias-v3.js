@@ -360,7 +360,17 @@
         // ════════════════════════════════════════════════════════════
         // POOLS POR CATEGORIA — REGRA INVIOLÁVEL: cada card só recebe sua categoria
         // ════════════════════════════════════════════════════════════
-        function pool(cats){ return sortComImagemPrimeiro(todos.filter(function(p){ return cats.indexOf(p.categoria) !== -1 && !usedIds[p.id]; })); }
+        // Posts não usados nos destaques aparecem primeiro.
+        // Posts já usados nos destaques aparecem no final da rotação (não são descartados).
+        function pool(cats){
+          var novos = sortComImagemPrimeiro(todos.filter(function(p){
+            return cats.indexOf(p.categoria) !== -1 && !usedIds[p.id];
+          }));
+          var repetidos = sortComImagemPrimeiro(todos.filter(function(p){
+            return cats.indexOf(p.categoria) !== -1 && !!usedIds[p.id];
+          }));
+          return novos.concat(repetidos);
+        }
 
         // ── ROTAÇÃO: intervalo 7s, máximo 10 rotações ────────────────
         function iniciarRotacao(elId, p){
