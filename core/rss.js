@@ -83,6 +83,73 @@ function selecionarFeedsBalanceados() {
   return selecionados;
 }
 
+// Mapeamento de categoria editorial → grupo(s) de feeds relevantes
+const CATEGORIA_PARA_GRUPO = {
+  politica:      ['politica'],
+  economia:      ['economia'],
+  negocios:      ['negocios_mercados'],
+  mercados:      ['negocios_mercados'],
+  investimentos: ['seguros_investimentos'],
+  seguros:       ['seguros_investimentos'],
+  tributacao:    ['tributacao_regulacao'],
+  regulacao:     ['tributacao_regulacao'],
+  tecnologia:    ['tecnologia_industria'],
+  industria:     ['tecnologia_industria'],
+  saude:         ['saude_familia'],
+  familia:       ['saude_familia'],
+  educacao:      ['educacao_profissoes'],
+  profissoes:    ['educacao_profissoes'],
+  vagas:         ['vagas_concursos'],
+  concursos:     ['vagas_concursos'],
+  imoveis:       ['imoveis_parcerias'],
+  parcerias:     ['imoveis_parcerias'],
+  esg:           ['esg_internacional'],
+  internacional: ['esg_internacional'],
+  defesa:        ['defesa_seguranca'],
+  seguranca:     ['defesa_seguranca'],
+  cultura:       ['cultura_variedades_esportes'],
+  variedades:    ['cultura_variedades_esportes'],
+  esportes:      ['cultura_variedades_esportes'],
+  religiao:      ['espiritualidade'],
+  investigativo: ['investigativo'],
+  vc:            ['politica', 'economia'],
+  colunistas:    ['politica', 'economia'],
+};
+
+// Busca notícias de feeds específicos para a categoria solicitada
+async function buscarFeedsEspecificos(feeds) {
+  const results = await Promise.allSettled(
+    feeds.slice(0, 8).map(source =>
+      parser.parseURL(source.url)
+        .then(feed => (feed.items || []).slice(0, 5).map(i => ({
+          title: i.title,
+          link: i.link || i.guid,
+          source: source.name,
+          description: i.contentSnippet || i.summary || i.description || i.content || ""
+        })).filter(i => i.link && i.title))
+        .catch(() => [])
+    )
+  );
+  const items = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+  return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
+}
+
+// Busca notícias priorizando feeds da categoria solicitada
+export async function getNewsByCategoria(categoria) {
+  try {
+    const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
+    const feedsEspecificos = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
+
+    if (feedsEspecificos.length > 0) {
+      return await buscarFeedsEspecificos(feedsEspecificos);
+    }
+    // Fallback: busca geral se não há grupo mapeado
+    return await getNews();
+  } catch(e) {
+    return [];
+  }
+}
+
 // Detecta títulos similares — evita artigos quase iguais da mesma rodada
 function titulosSimilares(a, b) {
   const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);

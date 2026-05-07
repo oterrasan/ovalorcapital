@@ -56,18 +56,19 @@ export default async function handler(req, res) {
       if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
     }
 
-    // Ler limite do admin (MAX_POSTS_DIA) — padrão 300
-    const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
-    const MAX_DIA = parseInt(cfgMax?.value || "300", 10);
+    // Limite diário só se aplica à automação — chamadas manuais (force/batch) ignoram
+    if (!body.force && !body.batch) {
+      const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
+      const MAX_DIA = parseInt(cfgMax?.value || "300", 10);
 
-    // Contar apenas posts automáticos do dia (manuais não contam)
-    const agora = new Date();
-    const inicioDiaBrasilia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
-    const { count } = await supabase.from("posts")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", inicioDiaBrasilia.toISOString())
-      .eq("publish_method", "portal");
-    if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA });
+      const agora = new Date();
+      const inicioDiaBrasilia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
+      const { count } = await supabase.from("posts")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", inicioDiaBrasilia.toISOString())
+        .eq("publish_method", "portal");
+      if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: "limit_reached", count, max: MAX_DIA });
+    }
 
     // Buscar notícias
     const news = await getNews();
