@@ -297,27 +297,28 @@
           +'</div>';
 
         // ── Grade horizontal de cards ─────────────────────────────
-        html += '<div style="display:grid;grid-template-columns:repeat('+posts.length+',minmax(0,1fr));gap:12px;">';
+        html += '<div style="display:grid;grid-template-columns:repeat('+posts.length+',minmax(0,1fr));gap:10px;">';
 
         posts.forEach(function(p, i){
           var rank = i + 1;
           var cor  = c(p.categoria);
-          var bg   = p.imagem
-            ? 'background:url("'+p.imagem+'") center/cover no-repeat;'
-            : 'background:'+cor+';';
+          var imgHtml = p.imagem
+            ? '<img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.parentNode.style.background=\''+cor+'\';this.remove();">'
+            : '';
 
-          html += '<a href="'+(p.url||'#')+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.18)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.10)\'">'
+          html += '<a href="'+(p.url||'#')+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.16)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.10)\'">'
             // Imagem com rank overlay
-            +'<div style="position:relative;height:160px;'+bg+'flex-shrink:0;">'
-              +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.05) 60%);"></div>'
-              +'<div style="position:absolute;top:10px;left:10px;">'
-                +'<span style="'+(rank===1?'background:#e11d48;font-size:12px;':'background:rgba(0,0,0,0.55);font-size:11px;')+'color:#fff;font-weight:900;padding:3px 9px;border-radius:5px;font-family:Georgia,serif;">'+(rank===1?'🔥 #1':'#'+rank)+'</span>'
+            +'<div style="position:relative;height:90px;background:'+(p.imagem?'#0f172a':cor)+';flex-shrink:0;overflow:hidden;">'
+              +imgHtml
+              +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%);pointer-events:none;"></div>'
+              +'<div style="position:absolute;top:6px;left:6px;">'
+                +'<span style="'+(rank===1?'background:#e11d48;font-size:10px;':'background:rgba(0,0,0,0.6);font-size:9px;')+'color:#fff;font-weight:900;padding:2px 7px;border-radius:4px;font-family:Georgia,serif;">'+(rank===1?'🔥 #1':'#'+rank)+'</span>'
               +'</div>'
             +'</div>'
             // Corpo do card
-            +'<div style="flex:1;background:#fff;padding:12px 14px;display:flex;flex-direction:column;gap:6px;">'
-              +'<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:'+cor+';">'+lbl(p.categoria)+'</span>'
-              +'<p style="font-size:13px;font-weight:700;color:#0f172a;margin:0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>'
+            +'<div style="flex:1;background:#fff;padding:8px 10px;display:flex;flex-direction:column;gap:4px;">'
+              +'<span style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:'+cor+';">'+lbl(p.categoria)+'</span>'
+              +'<p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>'
             +'</div>'
           +'</a>';
         });

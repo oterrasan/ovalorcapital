@@ -54,6 +54,14 @@
     {
       "source": "/inteligencia/",
       "destination": "/inteligencia.html"
+    },
+    {
+      "source": "/og",
+      "destination": "/api/portal-posts?format=og"
+    },
+    {
+      "source": "/og/",
+      "destination": "/api/portal-posts?format=og"
     }
   ]
 }

@@ -6,7 +6,55 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=30");
 
-  const { categoria, limit = 40, page = 0, id, resources, sort } = req.query;
+  const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
+
+  // OG meta tags endpoint: /og?id=xxx → retorna HTML com og: correto + redirect para o artigo
+  if (format === "og" && id) {
+    let post = null;
+    try {
+      if (id.length >= 36) {
+        const { data } = await supabase.from("posts")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
+          .eq("status","publicado").eq("id",id).single();
+        post = data;
+      } else {
+        const { data } = await supabase.from("posts")
+          .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
+          .eq("status","publicado").order("published_at",{ascending:false}).limit(200);
+        post = (data||[]).find(r => r.id && r.id.startsWith(id)) || null;
+      }
+    } catch(_) {}
+    const p = post ? formatPost(post, false) : null;
+    const title = p ? p.titulo : "O Valor Capital";
+    const desc  = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de notícias do Brasil.";
+    const img   = (p && p.imagem) ? p.imagem : "https://ovalorcapital.com.br/images/og-default.jpg";
+    const url   = p ? ("https://ovalorcapital.com.br" + p.url) : "https://ovalorcapital.com.br";
+    res.setHeader("Content-Type","text/html; charset=utf-8");
+    res.setHeader("Cache-Control","public, max-age=300");
+    return res.status(200).send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>${title} — O Valor Capital</title>
+<meta name="description" content="${desc}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="O Valor Capital">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${desc}">
+<meta property="og:image" content="${img}">
+<meta property="og:url" content="${url}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@ovalorcapital">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${desc}">
+<meta name="twitter:image" content="${img}">
+<script>window.location.replace("${url}");</script>
+</head>
+<body style="font-family:sans-serif;text-align:center;padding:40px;">
+<p>Redirecionando para <a href="${url}">O Valor Capital</a>…</p>
+</body>
+</html>`);
+  }
 
   // Mais lidas: ?sort=popular — busca 200 posts, ordena por metrics.views desc
   if (sort === "popular") {
