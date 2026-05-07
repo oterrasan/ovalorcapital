@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { publishPost } from "../core/publish_engine.js";
-import { getNews } from "../core/rss.js";
+import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
@@ -223,14 +223,28 @@ async function handleManual(req, res) {
       return res.status(200).json({ status:"ok", modo:"manual", resultados, notificacoes:gerarNotificacoes(resultados) });
     }
 
-    const news = await getNews();
-    if (!news.length) return res.status(200).json({ status:"no_news", resultados:[], notificacoes:[{tipo:"erro",mensagem:"Nenhuma notícia disponível nas fontes RSS no momento."}] });
+    // Pré-carregar feeds por categoria (uma vez por categoria única)
+    const newsCache = {};
+    for (const { categoria } of pedidos) {
+      if (categoria && !newsCache[categoria]) {
+        newsCache[categoria] = await getNewsByCategoria(categoria);
+      }
+    }
 
     for (const pedido of pedidos) {
       const { categoria, subcategoria, quantidade=1 } = pedido;
       const qtd = Math.min(Math.max(parseInt(quantidade)||1,1),20);
       let geradosPedido = 0;
       const errosPedido = [];
+
+      // Usa feeds específicos da categoria — garante conteúdo relevante
+      const news = newsCache[categoria] || await getNews();
+      if (!news.length) {
+        resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:0,
+          motivo:`Nenhuma notícia disponível para ${categoria} no momento` });
+        continue;
+      }
+
       for (const item of news) {
         if (geradosPedido >= qtd) break;
         if (Date.now() - inicio > 50000) break;
@@ -243,8 +257,9 @@ async function handleManual(req, res) {
         let content;
         try { content = await rewritePortal(sourceText, item.title); } catch(e) { errosPedido.push(e.message); continue; }
         if (!validar(content)) continue;
-        if (categoria && content.categoria !== categoria) continue;
-        if (subcategoria && content.subcategoria !== subcategoria) continue;
+        // Admin escolheu a categoria — sobrescreve classificação da IA
+        if (categoria) content.categoria = categoria;
+        if (subcategoria) content.subcategoria = subcategoria;
         const imagemFinal = await findImage(content.titulo, content.categoria, article.image||"");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
