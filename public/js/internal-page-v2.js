@@ -23,7 +23,7 @@
     parcerias:'Parcerias', vc:'OVC', colunistas:'Colunistas',
     investigativo:'Investigativo', seguranca:'Segurança Pública',
     cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas',
-    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Religião'
+    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Fé & Espiritualidade'
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
