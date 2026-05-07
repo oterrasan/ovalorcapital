@@ -289,53 +289,40 @@
         function lbl(cat){ return LABELS[cat]||cat; }
         function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-        // ── Cabeçalho da seção ───────────────────────────────────
-        var html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">'
+        // ── Cabeçalho ────────────────────────────────────────────
+        var html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
           +'<span style="background:#e11d48;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:4px;">🔥 Mais Lidas</span>'
           +'<span style="flex:1;height:2px;background:linear-gradient(to right,#e11d48,transparent);border-radius:2px;"></span>'
           +'<a href="/busca/" style="font-size:12px;color:#64748b;text-decoration:none;font-weight:600;">Ver todas →</a>'
           +'</div>';
 
-        // ── Destaque #1 + lista 2-8 ──────────────────────────────
-        var p1 = posts[0];
-        var resto = posts.slice(1);
-        var bg1 = p1.imagem ? 'url("'+p1.imagem+'") center/cover no-repeat' : c(p1.categoria);
+        // ── Grade horizontal de cards ─────────────────────────────
+        html += '<div style="display:grid;grid-template-columns:repeat('+posts.length+',minmax(0,1fr));gap:12px;">';
 
-        html += '<div style="display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr);gap:2px;border-radius:14px;overflow:hidden;box-shadow:0 6px 30px rgba(0,0,0,0.14);min-height:360px;">'
+        posts.forEach(function(p, i){
+          var rank = i + 1;
+          var cor  = c(p.categoria);
+          var bg   = p.imagem
+            ? 'background:url("'+p.imagem+'") center/cover no-repeat;'
+            : 'background:'+cor+';';
 
-          // Card #1 destaque
-          +'<a href="'+(p1.url||'#')+'" style="display:flex;flex-direction:column;justify-content:flex-end;position:relative;background:'+bg1+';text-decoration:none;padding:28px 24px;">'
-            +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.4) 50%,rgba(0,0,0,0.05) 100%);"></div>'
-            +'<div style="position:absolute;top:18px;left:18px;display:flex;gap:8px;align-items:center;">'
-              +'<span style="background:#e11d48;color:#fff;font-size:11px;font-weight:900;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em;">🔥 #1 Mais Lida</span>'
+          html += '<a href="'+(p.url||'#')+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,0.18)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.10)\'">'
+            // Imagem com rank overlay
+            +'<div style="position:relative;height:160px;'+bg+'flex-shrink:0;">'
+              +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,rgba(0,0,0,0.05) 60%);"></div>'
+              +'<div style="position:absolute;top:10px;left:10px;">'
+                +'<span style="'+(rank===1?'background:#e11d48;font-size:12px;':'background:rgba(0,0,0,0.55);font-size:11px;')+'color:#fff;font-weight:900;padding:3px 9px;border-radius:5px;font-family:Georgia,serif;">'+(rank===1?'🔥 #1':'#'+rank)+'</span>'
+              +'</div>'
             +'</div>'
-            +'<div style="position:relative;z-index:1;">'
-              +'<span style="display:inline-block;background:'+c(p1.categoria)+';color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:2px 9px;border-radius:4px;margin-bottom:10px;">'+lbl(p1.categoria)+'</span>'
-              +'<h2 style="font-size:22px;font-weight:900;color:#fff;margin:0;line-height:1.22;text-shadow:0 2px 12px rgba(0,0,0,0.6);">'+esc(p1.titulo)+'</h2>'
+            // Corpo do card
+            +'<div style="flex:1;background:#fff;padding:12px 14px;display:flex;flex-direction:column;gap:6px;">'
+              +'<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:'+cor+';">'+lbl(p.categoria)+'</span>'
+              +'<p style="font-size:13px;font-weight:700;color:#0f172a;margin:0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>'
             +'</div>'
-          +'</a>'
+          +'</a>';
+        });
 
-          // Lista 2–8 em coluna escura
-          +'<div style="background:#0f172a;display:flex;flex-direction:column;">'
-            +'<div style="padding:16px 18px;border-bottom:1px solid rgba(255,255,255,0.07);">'
-              +'<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,0.35);">Também em alta</span>'
-            +'</div>'
-            + resto.map(function(p, i){
-              var imgHtml = p.imagem
-                ? '<div style="width:52px;min-width:52px;height:52px;border-radius:6px;overflow:hidden;flex-shrink:0;"><img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.background=\''+c(p.categoria)+'33\';this.style.display=\'none\'"></div>'
-                : '<div style="width:52px;min-width:52px;height:52px;border-radius:6px;flex-shrink:0;background:'+c(p.categoria)+'22;display:flex;align-items:center;justify-content:center;"><span style="color:'+c(p.categoria)+';font-size:16px;font-weight:900;">'+(i+2)+'</span></div>';
-              return '<a href="'+(p.url||'#')+'" style="display:flex;gap:12px;align-items:center;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.05);text-decoration:none;transition:background 0.12s;" onmouseover="this.style.background=\'rgba(255,255,255,0.04)\'" onmouseout="this.style.background=\'transparent\'">'
-                + imgHtml
-                +'<div style="flex:1;min-width:0;">'
-                  +'<div style="font-size:9px;font-weight:700;text-transform:uppercase;color:'+c(p.categoria)+';letter-spacing:.06em;margin-bottom:3px;">'+lbl(p.categoria)+'</div>'
-                  +'<p style="font-size:12px;font-weight:600;color:#f1f5f9;margin:0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>'
-                +'</div>'
-                +'<span style="font-size:20px;font-weight:900;color:rgba(255,255,255,0.12);font-family:Georgia,serif;flex-shrink:0;min-width:24px;text-align:right;">'+(i+2)+'</span>'
-              +'</a>';
-            }).join('')
-          +'</div>'
-        +'</div>';
-
+        html += '</div>';
         sec.innerHTML = html;
         sec.style.display = 'block';
       }).catch(function(){ sec.style.display='none'; });
