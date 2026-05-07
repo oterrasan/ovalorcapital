@@ -561,13 +561,18 @@ function Postagens() {
     let q = sb.from('posts').select('*',{count:'exact'}).order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
     if (filter!=='all') q=q.eq('status',filter);
     if (busca.trim()) q=q.ilike('titulo','%'+busca.trim()+'%');
-    if (filterCat) q=q.eq('categoria',filterCat);
+    if (filterCat) q=q.like('user_tags','%"'+filterCat+'"%');
     if (filterSub.trim()) q=q.ilike('subcategoria','%'+filterSub.trim()+'%');
     if (filterMethod) q=q.eq('publish_method',filterMethod);
     if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00');
     if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59');
     const { data, count } = await q;
-    setPosts(data||[]);
+    // Normaliza: extrai categoria de user_tags (JSON array) pois não há coluna 'categoria' no Supabase
+    var norm = (data||[]).map(function(p){
+      var tags = []; try { tags = JSON.parse(p.user_tags||'[]'); } catch(_){}
+      return Object.assign({}, p, { categoria: tags[0]||'' });
+    });
+    setPosts(norm);
     setTotalCount(count||0);
     const { data: acc } = await sb.from('ig_accounts').select('id,username').eq('active',true);
     setAccounts(acc||[]);
