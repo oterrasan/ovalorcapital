@@ -1,5 +1,9 @@
 (function(){
 
+  // IDs de posts já exibidos nas áreas de destaque (hero/feature/lions)
+  // As seções dinâmicas filtram esses IDs para não duplicar
+  const idsDestaque = new Set();
+
   // === COTAÇÕES AO VIVO ===
   async function updateLiveWidgets() {
     try {
@@ -31,6 +35,7 @@
         post = (d.posts||[]).find(p => p.categoria===cat) || null;
       }
       if (!post) return;
+      if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-hero-titulo')) el('card-hero-titulo').textContent = post.titulo;
       if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
@@ -51,6 +56,7 @@
       const d = await r.json();
       const post = (d.posts||[]).find(p => p.categoria==='negocios');
       if (!post) return;
+      if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-feature-titulo')) el('card-feature-titulo').textContent = post.titulo;
       if (el('card-feature-resumo')) el('card-feature-resumo').textContent = post.resumo || post.subtitulo || '';
@@ -71,6 +77,7 @@
       const d = await r.json();
       const post = (d.posts||[]).find(p => p.categoria==='seguros');
       if (!post) return;
+      if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-lions-titulo')) el('card-lions-titulo').textContent = post.titulo;
       if (el('card-lions-resumo')) el('card-lions-resumo').textContent = post.resumo || post.subtitulo || '';
@@ -125,16 +132,18 @@
     try {
       let posts = [];
       for (const cat of secao.cats) {
-        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=6`);
+        // Busca mais posts para compensar os filtrados por já estarem no destaque
+        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=12`);
         if (!r.ok) continue;
         const d = await r.json();
-        // REGRA DURA: filtrar apenas posts da categoria correta
         const filtrados = (d.posts||[]).filter(p => secao.cats.includes(p.categoria));
         posts = posts.concat(filtrados);
       }
       // Dedup por id
       const vistos = new Set();
       posts = posts.filter(p => { if(vistos.has(p.id)) return false; vistos.add(p.id); return true; });
+      // Remove posts já exibidos nas áreas de destaque (hero/feature/lions)
+      posts = posts.filter(p => !idsDestaque.has(p.id));
       posts = posts.slice(0, 6);
       if (!posts.length) {
         grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conteúdo...</p>';
@@ -147,12 +156,12 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     updateLiveWidgets();
     setInterval(updateLiveWidgets, 120000);
-    carregarCardHero();
-    carregarCardNegocios();
-    carregarCardLions();
+    // Carregar destaque primeiro — registra IDs usados
+    await Promise.all([carregarCardHero(), carregarCardNegocios(), carregarCardLions()]);
+    // Só então carregar as seções — garantindo que idsDestaque está populado
     SECOES.forEach(s => carregarSecao(s));
   });
 
