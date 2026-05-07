@@ -2,31 +2,47 @@
   'use strict';
 
   var CATS = [
-    { id:'vc',           label:'OVC',          path:'/vc/',           cats:['vc','colunistas'] },
-    { id:'investimentos',label:'Investimentos', path:'/investimentos/',cats:['investimentos'] },
-    { id:'mercados',     label:'Mercados',      path:'/mercados/',     cats:['mercados'] },
-    { id:'educacao',     label:'Educação',      path:'/educacao/',     cats:['educacao'] },
-    { id:'industria',    label:'Indústria',     path:'/industria/',    cats:['industria'] },
-    { id:'tecnologia',   label:'Tecnologia',    path:'/tecnologia/',   cats:['tecnologia'] },
-    { id:'esportes',     label:'Esportes',      path:'/esportes/',     cats:['esportes'] },
-    { id:'saude',        label:'Saúde',         path:'/saude/',        cats:['saude'] },
-    { id:'familia',      label:'Família',       path:'/familia/',      cats:['familia'] },
-    { id:'tributos',     label:'Tributos',      path:'/tributos/',     cats:['tributacao'] },
-    { id:'regulacao',    label:'Regulação',     path:'/regulacao/',    cats:['regulacao'] },
-    { id:'parcerias',    label:'Parcerias',     path:'/parcerias/',    cats:['parcerias'] },
-    { id:'internacional',  label:'Internacional',   path:'/internacional/',  cats:['internacional'] },
-    { id:'variedades',     label:'Variedades',      path:'/variedades/',     cats:['variedades'] },
-    { id:'investigativo',  label:'Investigativo',   path:'/investigativo/',  cats:['investigativo'] },
-    { id:'seguranca',      label:'Seg. Pública',    path:'/seguranca/',      cats:['seguranca'] },
-    { id:'cultura',        label:'Cultura',         path:'/cultura/',        cats:['cultura'] },
-    { id:'profissoes',     label:'Profissões',      path:'/profissoes/',     cats:['profissoes'] },
-    { id:'vagas',          label:'Vagas',           path:'/vagas/',          cats:['vagas'] },
-    { id:'concursos',      label:'Concursos',       path:'/concursos/',      cats:['concursos'] },
-    { id:'imoveis',        label:'Imóveis',         path:'/imoveis/',        cats:['imoveis'] },
-    { id:'esg',            label:'ESG',             path:'/esg/',            cats:['esg'] },
-    { id:'defesa',         label:'Defesa',          path:'/defesa/',         cats:['defesa'] },
-    { id:'religiao',       label:'Religião',        path:'/religiao/',       cats:['religiao'] }
+    { id:'politica',     label:'Política',       path:'/politica/',     cats:['politica'] },
+    { id:'economia',     label:'Economia',       path:'/economia/',     cats:['economia'] },
+    { id:'negocios',     label:'Negócios',       path:'/negocios/',     cats:['negocios'] },
+    { id:'investimentos',label:'Investimentos',  path:'/investimentos/',cats:['investimentos'] },
+    { id:'mercados',     label:'Mercados',       path:'/mercados/',     cats:['mercados'] },
+    { id:'seguros',      label:'Seguros',        path:'/seguros/',      cats:['seguros'] },
+    { id:'tributacao',   label:'Tributos',       path:'/tributos/',     cats:['tributacao'] },
+    { id:'regulacao',    label:'Regulação',      path:'/regulacao/',    cats:['regulacao'] },
+    { id:'tecnologia',   label:'Tecnologia',     path:'/tecnologia/',   cats:['tecnologia'] },
+    { id:'industria',    label:'Indústria',      path:'/industria/',    cats:['industria'] },
+    { id:'educacao',     label:'Educação',       path:'/educacao/',     cats:['educacao'] },
+    { id:'saude',        label:'Saúde',          path:'/saude/',        cats:['saude'] },
+    { id:'familia',      label:'Família',        path:'/familia/',      cats:['familia'] },
+    { id:'esportes',     label:'Esportes',       path:'/esportes/',     cats:['esportes'] },
+    { id:'internacional',label:'Internacional',  path:'/internacional/',cats:['internacional'] },
+    { id:'variedades',   label:'Variedades',     path:'/variedades/',   cats:['variedades'] },
+    { id:'cultura',      label:'Cultura',        path:'/cultura/',      cats:['cultura'] },
+    { id:'investigativo',label:'Investigativo',  path:'/investigativo/',cats:['investigativo'] },
+    { id:'seguranca',    label:'Seg. Pública',   path:'/seguranca/',    cats:['seguranca'] },
+    { id:'profissoes',   label:'Profissões',     path:'/profissoes/',   cats:['profissoes'] },
+    { id:'vagas',        label:'Vagas',          path:'/vagas/',        cats:['vagas'] },
+    { id:'concursos',    label:'Concursos',      path:'/concursos/',    cats:['concursos'] },
+    { id:'imoveis',      label:'Imóveis',        path:'/imoveis/',      cats:['imoveis'] },
+    { id:'parcerias',    label:'Parcerias',      path:'/parcerias/',    cats:['parcerias'] },
+    { id:'esg',          label:'ESG',            path:'/esg/',          cats:['esg'] },
+    { id:'defesa',       label:'Defesa',         path:'/defesa/',       cats:['defesa'] },
+    { id:'religiao',     label:'Religião',       path:'/religiao/',     cats:['religiao'] },
+    { id:'vc',           label:'OVC / Colunistas',path:'/vc/',          cats:['vc','colunistas'] }
   ];
+
+  var CORES_CAT = {
+    politica:'#dc2626',economia:'#2563eb',negocios:'#7c3aed',
+    investimentos:'#059669',mercados:'#0891b2',seguros:'#0284c7',
+    tributacao:'#b45309',regulacao:'#9333ea',tecnologia:'#6366f1',
+    industria:'#ea580c',educacao:'#8b5cf6',saude:'#16a34a',
+    familia:'#db2777',esportes:'#16a34a',internacional:'#dc2626',
+    variedades:'#ec4899',cultura:'#7e22ce',investigativo:'#1a1a2e',
+    seguranca:'#7f1d1d',profissoes:'#0369a1',vagas:'#065f46',
+    concursos:'#1e40af',imoveis:'#b45309',parcerias:'#14b8a6',
+    esg:'#166534',defesa:'#1e3a5f',religiao:'#6d28d9',vc:'#b8860b'
+  };
 
   var ROTATION_INTERVAL = 7000;
   var ROTATION_MAX      = 10;
@@ -67,9 +83,9 @@
   var STYLE = {
     card: [
       'position:relative',
-      'border-radius:12px',
+      'border-radius:10px',
       'overflow:hidden',
-      'min-height:220px',
+      'min-height:150px',
       'display:flex',
       'flex-direction:column',
       'justify-content:flex-end',
@@ -142,13 +158,16 @@
     ].join(';')
   };
 
-  function renderCard(el, post, path){
+  function renderCard(el, post, catId){
     if(!el||!post) return;
     var url = buildUrl(post);
     if(imgOk(post.imagem)){
       el.style.backgroundImage = "url('"+post.imagem+"')";
+      el.style.background = '#0f172a';
     } else {
+      var cor = CORES_CAT[catId] || CORES_CAT[post.categoria] || '#1e293b';
       el.style.backgroundImage = '';
+      el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'aa 100%)';
     }
     el.querySelector('.ovc-card-title').textContent = post.titulo || '';
     el.querySelector('.ovc-card-meta').textContent  = 'Redação OVC · ' + dataBr(post.data);
@@ -158,15 +177,15 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href = url; };
   }
 
-  function startRotation(el, posts, path){
+  function startRotation(el, posts, catId){
     if(!el||!posts||!posts.length) return;
     var idx = 0, count = 0;
-    renderCard(el, posts[0], path);
+    renderCard(el, posts[0], catId);
     var timer = setInterval(function(){
       count++;
       if(count >= ROTATION_MAX){ clearInterval(timer); return; }
       idx = (idx+1) % posts.length;
-      renderCard(el, posts[idx], path);
+      renderCard(el, posts[idx], catId);
     }, ROTATION_INTERVAL);
   }
 
@@ -221,9 +240,9 @@
     grid.className = 'ovc-cat-grid';
     grid.style.cssText = [
       'display:grid',
-      'grid-template-columns:repeat(3,minmax(0,1fr))',
-      'gap:18px',
-      'margin-top:22px',
+      'grid-template-columns:repeat(5,minmax(0,1fr))',
+      'gap:12px',
+      'margin-top:18px',
       'width:100%'
     ].join(';');
     CATS.forEach(function(cat){ grid.appendChild(buildCard(cat)); });
@@ -254,13 +273,20 @@
         // Renderizar cards com conteúdo
         comPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(el){ startRotation(el, item.pool, item.cat.path); }
+          if(el){ startRotation(el, item.pool, item.cat.id); }
         });
 
-        // Remover completamente os cards sem conteúdo
+        // Cards sem conteúdo: manter visíveis com cor de categoria + badge "em breve"
         semPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(el) el.remove();
+          if(!el) return;
+          var cor = CORES_CAT[item.cat.id] || '#1e293b';
+          el.style.backgroundImage = '';
+          el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'99 100%)';
+          var titleEl = el.querySelector('.ovc-card-title');
+          if(titleEl) titleEl.textContent = 'Em breve — aguarde novos conteúdos';
+          var metaEl = el.querySelector('.ovc-card-meta');
+          if(metaEl) metaEl.textContent = 'Redação OVC';
         });
       })
       .catch(function(e){ console.warn('OVC cards:', e.message); });
