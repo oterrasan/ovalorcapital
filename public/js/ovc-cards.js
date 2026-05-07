@@ -32,6 +32,10 @@
     { id:'vc',           label:'OVC / Colunistas',path:'/vc/',          cats:['vc','colunistas'] }
   ];
 
+  // Categorias exibidas nos cards de destaque (hero/feature/lions)
+  // O grid inicia no índice 1 para estas, evitando duplicata visual
+  var CATS_DESTAQUE = ['politica','economia','negocios','seguros'];
+
   var CORES_CAT = {
     politica:'#dc2626',economia:'#2563eb',negocios:'#7c3aed',
     investimentos:'#059669',mercados:'#0891b2',seguros:'#0284c7',
@@ -79,7 +83,6 @@
     return !BLOCKED.some(function(r){ return r.test(url); });
   }
 
-  // ── ESTILOS FIXOS — idênticos em todos os cards ──────────────────
   var STYLE = {
     card: [
       'position:relative',
@@ -162,7 +165,6 @@
     if(!el||!post) return;
     var url = buildUrl(post);
     if(imgOk(post.imagem)){
-      // Não usar el.style.background aqui — o shorthand apagaria backgroundImage
       el.style.backgroundImage = "url('"+post.imagem+"')";
       el.style.backgroundSize = 'cover';
       el.style.backgroundPosition = 'center';
@@ -179,10 +181,11 @@
     el.onclick = function(e){ if(!e.target.closest('a')) location.href = url; };
   }
 
-  function startRotation(el, posts, catId){
+  function startRotation(el, posts, catId, startIdx){
     if(!el||!posts||!posts.length) return;
-    var idx = 0, count = 0;
-    renderCard(el, posts[0], catId);
+    var idx = (startIdx || 0) % posts.length;
+    var count = 0;
+    renderCard(el, posts[idx], catId);
     var timer = setInterval(function(){
       count++;
       if(count >= ROTATION_MAX){ clearInterval(timer); return; }
@@ -272,13 +275,16 @@
           else            semPost.push({ cat:cat, pool:[] });
         });
 
-        // Renderizar cards com conteúdo
         comPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(el){ startRotation(el, item.pool, item.cat.id); }
+          if(!el) return;
+          // Categorias dos destaques: inicia no índice 1 para não repetir
+          // o post do hero/feature/lions que ocupa o índice 0 (mais recente)
+          var overlap = item.cat.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c) !== -1; });
+          var startIdx = (overlap && item.pool.length > 1) ? 1 : 0;
+          startRotation(el, item.pool, item.cat.id, startIdx);
         });
 
-        // Cards sem conteúdo: manter visíveis com cor de categoria + badge "em breve"
         semPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
           if(!el) return;
@@ -317,14 +323,12 @@
         function lbl(cat){ return LABELS[cat]||cat; }
         function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-        // ── Cabeçalho ────────────────────────────────────────────
         var html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
           +'<span style="background:#e11d48;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:4px;">🔥 Mais Lidas</span>'
           +'<span style="flex:1;height:2px;background:linear-gradient(to right,#e11d48,transparent);border-radius:2px;"></span>'
           +'<a href="/busca/" style="font-size:12px;color:#64748b;text-decoration:none;font-weight:600;">Ver todas →</a>'
           +'</div>';
 
-        // ── Grade horizontal de cards ─────────────────────────────
         html += '<div style="display:grid;grid-template-columns:repeat('+posts.length+',minmax(0,1fr));gap:10px;">';
 
         posts.forEach(function(p, i){
@@ -334,8 +338,7 @@
             ? '<img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.parentNode.style.background=\''+cor+'\';this.remove();">'
             : '';
 
-          html += '<a href="'+(p.url||'#')+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.16)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.10)\'">'
-            // Imagem com rank overlay
+          html += '<a href="'+(p.url||'#')+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.16)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.10)\'">' 
             +'<div style="position:relative;height:90px;background:'+(p.imagem?'#0f172a':cor)+';flex-shrink:0;overflow:hidden;">'
               +imgHtml
               +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%);pointer-events:none;"></div>'
@@ -343,7 +346,6 @@
                 +'<span style="'+(rank===1?'background:#e11d48;font-size:10px;':'background:rgba(0,0,0,0.6);font-size:9px;')+'color:#fff;font-weight:900;padding:2px 7px;border-radius:4px;font-family:Georgia,serif;">'+(rank===1?'🔥 #1':'#'+rank)+'</span>'
               +'</div>'
             +'</div>'
-            // Corpo do card
             +'<div style="flex:1;background:#fff;padding:8px 10px;display:flex;flex-direction:column;gap:4px;">'
               +'<span style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:'+cor+';">'+lbl(p.categoria)+'</span>'
               +'<p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>'
@@ -366,7 +368,6 @@
         var ytUrl = cfg.youtube_live_url;
         if(!ytUrl){ sec.style.display='none'; return; }
 
-        // Injeta keyframes
         if(!document.getElementById('ovc-pulse-style')){
           var st = document.createElement('style');
           st.id = 'ovc-pulse-style';
@@ -375,9 +376,7 @@
         }
 
         sec.innerHTML =
-          // Cabeçalho dark premium
           '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.25);">'
-            // Top bar
             +'<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.08);">'
               +'<div style="display:flex;align-items:center;gap:12px;">'
                 +'<span style="background:#e11d48;color:#fff;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:6px 14px;border-radius:6px;">📺 OVC TV</span>'
@@ -388,7 +387,6 @@
               +'</div>'
               +'<span style="font-size:11px;color:rgba(255,255,255,0.3);">Transmissão integrada • O Valor Capital</span>'
             +'</div>'
-            // Iframe
             +'<div style="position:relative;padding-bottom:42.86%;height:0;overflow:hidden;">'
               +'<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;" src="'+ytUrl+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy"></iframe>'
             +'</div>'
