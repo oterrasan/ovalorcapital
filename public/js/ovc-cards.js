@@ -162,11 +162,13 @@
     if(!el||!post) return;
     var url = buildUrl(post);
     if(imgOk(post.imagem)){
+      // Não usar el.style.background aqui — o shorthand apagaria backgroundImage
       el.style.backgroundImage = "url('"+post.imagem+"')";
-      el.style.background = '#0f172a';
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
     } else {
       var cor = CORES_CAT[catId] || CORES_CAT[post.categoria] || '#1e293b';
-      el.style.backgroundImage = '';
+      el.style.backgroundImage = 'none';
       el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'aa 100%)';
     }
     el.querySelector('.ovc-card-title').textContent = post.titulo || '';
