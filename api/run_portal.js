@@ -44,10 +44,17 @@ function validarConteudo(content) {
 export default async function handler(req, res) {
   const inicio = Date.now();
 
+  // Número de artigos a gerar nesta chamada (padrão 1, máximo 4 por timeout)
+  const body = req.body || {};
+  const meta = req.query || {};
+  const targetCount = Math.min(parseInt(meta.count || body.count || "1", 10), 4);
+
   try {
-    // Checar automação
-    const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
-    if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
+    // Checar automação — force=true ou batch=true ignoram a flag de automação
+    if (!body.force && !body.batch) {
+      const { data: cfg } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
+      if (!cfg || cfg.value !== "on") return res.status(200).json({ status: "automation_paused" });
+    }
 
     // Ler limite do admin (MAX_POSTS_DIA) — padrão 300
     const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
@@ -66,11 +73,13 @@ export default async function handler(req, res) {
     const news = await getNews();
     if (!news.length) return res.status(200).json({ status: "no_news" });
 
-    // Tentar cada notícia até 1 funcionar — rápido e dentro do timeout da Vercel
-    for (const item of news.slice(0, 15)) {
+    const artigos = [];
+
+    // Tentar cada notícia — gerar até targetCount artigos ou atingir timeout
+    for (const item of news.slice(0, 40)) {
       // Verificar tempo restante — Vercel mata em 60s
-      if (Date.now() - inicio > 45000) {
-        return res.status(200).json({ status: "timeout_preventivo" });
+      if (Date.now() - inicio > 50000) break;
+      if (artigos.length >= targetCount) break;
       }
 
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
@@ -139,13 +148,9 @@ export default async function handler(req, res) {
         max_retries: 3
       }).select().single();
 
-      if (error) return res.status(200).json({ status: "db_error", error: error.message });
+      if (error) continue; // tenta próxima notícia
 
-      // Aproveitar o tempo restante para otimizar SEO de posts antigos (até 3)
-      try { await seoBackfill(3); } catch(_) {}
-
-      return res.status(200).json({
-        status: "ok",
+      artigos.push({
         titulo: content.titulo,
         categoria: content.categoria,
         subcategoria: content.subcategoria,
@@ -153,8 +158,20 @@ export default async function handler(req, res) {
       });
     }
 
-    // Mesmo sem post novo, tenta avançar o backfill de SEO
-    try { await seoBackfill(5); } catch(_) {}
+    // Backfill SEO no tempo restante
+    try { await seoBackfill(artigos.length > 0 ? 2 : 5); } catch(_) {}
+
+    if (artigos.length > 0) {
+      return res.status(200).json({
+        status: "ok",
+        artigos,
+        total: artigos.length,
+        // compat. com chamada single
+        titulo: artigos[0].titulo,
+        categoria: artigos[0].categoria,
+        id: artigos[0].id
+      });
+    }
     return res.status(200).json({ status: "no_valid_news" });
 
   } catch(e) {
