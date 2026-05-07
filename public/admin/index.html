@@ -309,15 +309,53 @@ function Pipeline() {
     setTimeout(()=>setMsg(''),3000);
   };
 
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchLog, setBatchLog] = useState([]);
+
   const forceRun = async () => {
     setForcing(true); setLastResult('Executando...');
     try {
-      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true,count:3})});
       const j = await r.json();
       setLastResult(JSON.stringify(j,null,2));
       load();
     } catch(e){setLastResult('Erro: '+e.message);}
     setForcing(false);
+  };
+
+  const runBatch = async () => {
+    setBatchRunning(true);
+    setBatchLog(['🚀 Disparando 8 chamadas em paralelo (até 3 artigos cada)...']);
+    var CHAMADAS = 8;
+    var promises = [];
+    for (var i = 0; i < CHAMADAS; i++) {
+      promises.push(
+        fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({batch:true,count:3})})
+          .then(function(r){ return r.json(); })
+          .catch(function(e){ return {status:'erro',error:e.message}; })
+      );
+    }
+    var resultados = await Promise.allSettled(promises);
+    var totalArtigos = 0;
+    var linhas = [];
+    resultados.forEach(function(r, idx) {
+      var j = r.status === 'fulfilled' ? r.value : {status:'erro'};
+      if (j.artigos && j.artigos.length) {
+        totalArtigos += j.artigos.length;
+        j.artigos.forEach(function(a) {
+          linhas.push('✅ [' + (a.categoria||'?') + '] ' + (a.titulo||'sem título'));
+        });
+      } else if (j.status === 'ok') {
+        totalArtigos++;
+        linhas.push('✅ [' + (j.categoria||'?') + '] ' + (j.titulo||'sem título'));
+      } else {
+        linhas.push('⚠️ Chamada ' + (idx+1) + ': ' + (j.status||'sem retorno'));
+      }
+    });
+    linhas.unshift('📊 Total gerado: ' + totalArtigos + ' artigos pendentes');
+    setBatchLog(linhas);
+    setBatchRunning(false);
+    load();
   };
 
   const CATS_DISPONIVEIS = [
@@ -388,7 +426,10 @@ function Pipeline() {
         {msg&&<div className="alert-banner yellow" style={{marginBottom:16}}><span>✓ {msg}</span></div>}
         <div className="panel">
           <div className="panel-header"><span className="panel-title">Status da Automação</span>
-            <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing}>{forcing?'Executando...':'▶ Forçar execução agora'}</button>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing||batchRunning}>{forcing?'Executando...':'▶ Gerar 3 agora'}</button>
+              <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={runBatch} disabled={forcing||batchRunning}>{batchRunning?'⏳ Gerando em lote...':'🚀 Gerar para TODAS as categorias'}</button>
+            </div>
           </div>
           <div style={{padding:'20px'}}>
             <div className="toggle-wrap">
@@ -396,6 +437,11 @@ function Pipeline() {
               <span style={{fontWeight:600}}>{auto?<span style={{color:'#4ade80'}}>● Automação ATIVA</span>:<span style={{color:'#f87171'}}>● Automação PAUSADA</span>}</span>
             </div>
             {lastResult&&<pre style={{marginTop:12,fontSize:11,color:'#4ade80',background:'rgba(0,0,0,.3)',padding:12,borderRadius:8,overflow:'auto'}}>{lastResult}</pre>}
+            {batchLog.length>0&&(
+              <div style={{marginTop:12,background:'rgba(0,0,0,.3)',borderRadius:8,padding:12,maxHeight:220,overflow:'auto'}}>
+                {batchLog.map(function(l,i){ return <div key={i} style={{fontSize:11,color:l.startsWith('✅')?'#4ade80':l.startsWith('📊')?'#ffc800':'#94a3b8',marginBottom:2}}>{l}</div>; })}
+              </div>
+            )}
           </div>
         </div>
         <div className="panel">
