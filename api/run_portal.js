@@ -80,7 +80,6 @@ export default async function handler(req, res) {
       // Verificar tempo restante — Vercel mata em 60s
       if (Date.now() - inicio > 50000) break;
       if (artigos.length >= targetCount) break;
-      }
 
       const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
 
