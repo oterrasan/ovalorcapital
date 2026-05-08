@@ -286,23 +286,21 @@ function Dashboard(){
   );
 }
 
-// PIPELINE (queue status, manual run, toggle automation, max/day, recent runs)
+// PIPELINE
 function Pipeline(){
   const [cfg,setCfg] = React.useState({});
   const [runs,setRuns] = React.useState([]);
   const [queue,setQueue] = React.useState([]);
+  const [recatLog,setRecatLog] = React.useState(null);
+  const [recatLoading,setRecatLoading] = React.useState(false);
 
   async function load(){
     const { data:c } = await db.from("config").select("*");
     const map = {};
     (c||[]).forEach(x=>map[x.key]=x.value);
     setCfg(map);
-
-    // executions recent (from logs tagged as run)
     const { data:r } = await db.from("logs").select("*").ilike("message","%run%").order("created_at",{ascending:false}).limit(10);
     setRuns(r||[]);
-
-    // queue approximation: recent posts not success
     const { data:q } = await db.from("posts").select("*").neq("status","success").order("created_at",{ascending:false}).limit(20);
     setQueue(q||[]);
   }
@@ -329,6 +327,19 @@ function Pipeline(){
     load();
   }
 
+  async function recategorizar(dryRun){
+    setRecatLoading(true);
+    setRecatLog(null);
+    try{
+      const r = await fetch("/api/recategorizar-vc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dry_run:dryRun})});
+      const d = await r.json();
+      setRecatLog(d);
+    }catch(e){
+      setRecatLog({erro:e.message});
+    }
+    setRecatLoading(false);
+  }
+
   React.useEffect(()=>{load()},[]);
 
   return React.createElement("div",{className:"card"},
@@ -340,6 +351,47 @@ function Pipeline(){
       React.createElement("input",{id:"intervalo",placeholder:"INTERVALO_MIN"}),
       React.createElement("button",{onClick:save},"Salvar")
     ),
+
+    // Bloco: Corrigir artigos mal categorizados em VC
+    React.createElement("div",{style:{marginTop:24,background:"rgba(220,38,38,.07)",border:"1px solid rgba(220,38,38,.25)",borderRadius:12,padding:18}},
+      React.createElement("h3",{style:{color:"#dc2626",margin:"0 0 6px",fontSize:14,fontWeight:800}},"🔧 Corrigir artigos mal categorizados em VC"),
+      React.createElement("p",{style:{fontSize:12,color:"#94a3b8",margin:"0 0 14px",lineHeight:1.6}},
+        "Artigos sobre política, segurança, internacional e outros temas foram incorretamente classificados como 'vc' pelo pipeline. ",
+        "Este botão identifica e move cada um para a categoria correta."
+      ),
+      React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}},
+        React.createElement("button",{
+          onClick:()=>recategorizar(true),
+          disabled:recatLoading,
+          style:{background:"#475569",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",cursor:"pointer",fontWeight:700,fontSize:13,opacity:recatLoading?.6:1}
+        },recatLoading?"⏳ Processando...":"🔍 Pré-visualizar (sem alterar)"),
+        React.createElement("button",{
+          onClick:()=>{ if(window.confirm("Isso vai mover os artigos VC para as categorias corretas. Confirma?")) recategorizar(false); },
+          disabled:recatLoading,
+          style:{background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",cursor:"pointer",fontWeight:700,fontSize:13,opacity:recatLoading?.6:1}
+        },recatLoading?"⏳ Processando...":"🔄 Recategorizar agora")
+      ),
+      recatLog && React.createElement("div",{style:{background:"rgba(0,0,0,.25)",borderRadius:8,padding:14,fontSize:12,maxHeight:300,overflowY:"auto"}},
+        recatLog.erro
+          ? React.createElement("span",{style:{color:"#f87171"}},"Erro: "+recatLog.erro)
+          : React.createElement("div",null,
+              React.createElement("div",{style:{fontWeight:700,color:"#ffc800",marginBottom:10,fontSize:13}},
+                recatLog.dry_run
+                  ? "📋 Prévia: "+recatLog.total_encontrados+" artigos seriam recategorizados"
+                  : "✅ "+recatLog.total_recategorizados+" artigos recategorizados com sucesso!"
+              ),
+              (recatLog.artigos||[]).slice(0,30).map((a,i)=>
+                React.createElement("div",{key:i,style:{padding:"3px 0",borderBottom:"1px solid rgba(255,255,255,.05)",color:"#94a3b8",display:"flex",gap:6,alignItems:"baseline"}},
+                  React.createElement("span",{style:{color:"#f87171",fontWeight:700,flexShrink:0}},"["+a.de+"]"),
+                  React.createElement("span",{style:{color:"#64748b"}},"→"),
+                  React.createElement("span",{style:{color:"#4ade80",fontWeight:700,flexShrink:0}},"["+a.para+"]"),
+                  React.createElement("span",null,a.titulo)
+                )
+              )
+            )
+      )
+    ),
+
     React.createElement("h3",null,"Fila (aprox.)"),
     queue.map(i=>React.createElement("div",{className:"small"},i.titulo+" | "+i.status)),
     React.createElement("h3",null,"Execuções recentes"),
@@ -384,7 +436,6 @@ function Posts(){
       status:"approved", approved:true,
       publish_method:"api", updated_at:now
     }).eq("id",id);
-    // Disparar worker IG
     await fetch("/api/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
     await load(); setSelected(null); setLoading(false);
   }
@@ -423,7 +474,6 @@ function Posts(){
   },label);
 
   return React.createElement("div",{className:"card"},
-    // Filtros e ações em lote
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}},
       React.createElement("select",{value:filter,onChange:e=>setFilter(e.target.value),style:{background:"#111120",color:"#f1f1f1",border:"1px solid rgba(255,255,255,0.1)",borderRadius:5,padding:"6px 10px"}},
         React.createElement("option",{value:"pendente"},"Pendentes"),
@@ -438,8 +488,6 @@ function Posts(){
       selIds.length>0 && bts("📱 Instagram (lote)",loteIG,"#c81e1e"),
       React.createElement("button",{onClick:load,style:{background:"#1e293b",color:"#f1f1f1",border:"none",borderRadius:5,padding:"5px 12px",cursor:"pointer",fontSize:12}},"↺")
     ),
-
-    // Tabela
     React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
       React.createElement("thead",null,
         React.createElement("tr",{style:{background:"#111120",fontSize:11,color:"#888"}},
@@ -486,8 +534,6 @@ function Posts(){
         })
       )
     ),
-
-    // Preview modal
     selected && React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:1000,overflow:"auto",padding:24}},
       React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,maxWidth:760,margin:"0 auto",padding:28}},
         React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}},
@@ -508,7 +554,7 @@ function Posts(){
   );
 }
 
-// ACCOUNTS (CRUD, activate/deactivate, posts per account)
+// ACCOUNTS
 function Accounts(){
   const [items,setItems] = React.useState([]);
   const [form,setForm] = React.useState({});
@@ -532,7 +578,6 @@ function Accounts(){
 
   async function loadPosts(acc){
     setSelected(acc);
-    // approximation: posts today count
     const { data } = await db.from("posts").select("*").order("created_at",{ascending:false}).limit(20);
     setPosts(data||[]);
   }
@@ -558,7 +603,7 @@ function Accounts(){
   );
 }
 
-// SOURCES (CRUD, activate/deactivate, last_fetched, volume)
+// SOURCES
 function Sources(){
   const [items,setItems] = React.useState([]);
   const [form,setForm] = React.useState({});
@@ -595,7 +640,7 @@ function Sources(){
   );
 }
 
-// LOGS (type/date filter)
+// LOGS
 function Logs(){
   const [items,setItems] = React.useState([]);
   const [level,setLevel] = React.useState("");
@@ -624,7 +669,7 @@ function Logs(){
   );
 }
 
-// CONFIG (daily limit, interval, model, fallback)
+// CONFIG
 function Config(){
   const [items,setItems] = React.useState([]);
   const [form,setForm] = React.useState({});
