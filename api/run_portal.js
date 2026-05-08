@@ -8,31 +8,78 @@ import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+// ─── DOMÍNIOS DE IMAGEM PROIBIDOS ────────────────────────────────────────────
+// Espelho do blocklist em scraper.js — garante que mesmo imagens que passaram
+// pelo scraper não sejam processadas/hospedadas aqui.
+const COMPETITOR_IMG_HOSTS = new Set([
+  'glbimg.com','s2.glbimg.com','s3.glbimg.com','i.s3.glbimg.com',
+  'globo.com','g1.globo.com','ge.globo.com','oglobo.globo.com',
+  'extra.globo.com','valor.com.br',
+  'uol.com.br','folha.uol.com.br','f.i.uol.com.br','imguol.i.uol.com.br',
+  'estadao.com.br','broadcast.com.br',
+  'r7.com','record.com.br','sbt.com.br','jovempan.com.br',
+  'band.com.br','cnnbrasil.com.br','assets.cnnbrasil.com.br',
+  'veja.com.br','abril.com.br','exame.com','cartacapital.com.br',
+  'poder360.com.br','gazetadopovo.com.br','metropoles.com',
+  'seudinheiro.com','infomoney.com.br','terra.com.br','ig.com.br',
+  'agenciabrasil.ebc.com.br','imagens.ebc.com.br',
+  'reuters.com','ap.org','canaltech.com.br','apublica.org',
+  'correiobraziliense.com.br','nsctotal.com.br',
+]);
 
-// Filtro de qualidade — rejeita apenas erros técnicos de geração
+function isCompetitorDomain(url) {
+  if (!url || url.length < 10) return false;
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    return [...COMPETITOR_IMG_HOSTS].some(d => hostname === d || hostname.endsWith('.' + d));
+  } catch(_) { return false; }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Filtro de qualidade — garante que apenas conteúdo real entra no banco
 function validarConteudo(content) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
 
-  if (titulo.length < 15) return false;
+  if (titulo.length < 20) return false;
   if (titulo.length > 120) return false;
 
   // Titulos claramente invalidos — IA falhou na geração
   if (/^(prezado|caro|ol[aá]|sem t[ií]tulo|t[ií]tulo:|headline:|assunto:|erro:|teste:|not[ií]cia:|texto:|mat[eé]ria:)/.test(titulo)) return false;
 
-  // Corpo muito raso — IA gerou sem base suficiente
-  if ((content.corpo || '').length < 800) return false;
+  // Corpo mínimo 1.500 chars — garante artigo com substância
+  if ((content.corpo || '').length < 1500) return false;
 
   // Sem assinatura OVC no corpo
   if (!content.corpo.toLowerCase().includes("redação ovc")) return false;
+
+  // Coerência básica título × corpo:
+  // Pelo menos 35% das palavras significativas do título devem aparecer no corpo
+  const stopwords = new Set(['para','com','sem','por','que','uma','uns','das','dos',
+    'nos','nas','seu','sua','seus','suas','como','mais','mas','foi','são','esta',
+    'esse','essa','após','ante','entre','sobre','pelo','pela','num','pode','deve',
+    'será','novo','nova','grande','alto','baixo','todo','toda','após','já','não']);
+  const tituloWords = titulo.split(/\s+/).filter(w => w.length > 4 && !stopwords.has(w));
+  if (tituloWords.length >= 3) {
+    const corpo = (content.corpo || '').toLowerCase();
+    const matches = tituloWords.filter(w => corpo.includes(w)).length;
+    if (matches / tituloWords.length < 0.35) return false;
+  }
 
   // Bloquear apenas padrões que indicam FALHA TÉCNICA da IA, não tema
   const falhasTecnicas = [
     /jornal da oeste|revista oeste/,
     /programa.{0,20}ao ar.*transmis/,
     /colunista.{0,10}folha|colunista.{0,10}globo/,
+    // Marcas d'água textuais de concorrentes que vazaram para o corpo
+    /\bg1\.globo\.com\b/i,
+    /\bfolha de s[\. ]paulo\b/i,
+    /\bestadão\b/i,
+    /\bjovem pan\b/i,
+    /\bcnn brasil\b/i,
+    /\br7\.com\b/i,
   ];
-  const corpo = (content.corpo || '').toLowerCase().slice(0, 300);
+  const corpo = (content.corpo || '').toLowerCase().slice(0, 500);
   for (const r of falhasTecnicas) {
     if (r.test(titulo) || r.test(corpo)) return false;
   }
@@ -90,8 +137,8 @@ export default async function handler(req, res) {
 
       // Scrape
       const article = await scrape(item.link);
-      // Exige conteúdo real — fallback raso causa títulos sem sentido
-      const sourceText = (article.text && article.text.length >= 350)
+      // Exige conteúdo real mínimo — fallback raso causa títulos sem sentido
+      const sourceText = (article.text && article.text.length >= 500)
         ? article.text
         : null;
       if (!sourceText) continue;
@@ -112,17 +159,25 @@ export default async function handler(req, res) {
         content.subcategoria_slug = "geral";
       }
 
-      // Imagem: tentar usar a original da fonte (processada/recortada), senão buscar banco
+      // ─── IMAGEM ──────────────────────────────────────────────────────────────
+      // REGRA: NUNCA usar imagem de domínio concorrente (logo, watermark, marca).
+      // 1. Imagem do scrape: aceitar APENAS se não for de domínio concorrente.
+      // 2. Se não disponível: buscar no banco de imagens neutras (Pixabay/Pexels/pool).
       let imagemFinal = null;
-      if (article.image && article.image.length > 10) {
-        // Usar imagem original — baixa, recorta marca d'água, salva no Supabase Storage
-        const hashImg = hash.slice(0,12);
-        imagemFinal = await processAndSaveImage(article.image, hashImg);
+
+      const imagemOriginal = article.image && article.image.length > 10 ? article.image : null;
+      const imagemAprovada = imagemOriginal && !isCompetitorDomain(imagemOriginal) ? imagemOriginal : null;
+
+      if (imagemAprovada) {
+        // Baixa, recorta e hospeda no próprio Supabase Storage
+        imagemFinal = await processAndSaveImage(imagemAprovada, hash.slice(0, 12));
       }
+
       if (!imagemFinal) {
-        // Fallback: buscar imagem relevante nos bancos
-        imagemFinal = await findImage(content.titulo, content.categoria, "", article.image || "");
+        // Busca imagem neutra relacionada ao tema — Pixabay, Pexels, Wikimedia ou pool
+        imagemFinal = await findImage(content.titulo, content.categoria, "", "");
       }
+      // ─────────────────────────────────────────────────────────────────────────
 
       // Publicação automática — gerado e validado pelo sistema
       const { data: post, error } = await supabase.from("posts").insert({
@@ -179,7 +234,7 @@ export default async function handler(req, res) {
   }
 }
 
-// ── SEO BACKFILL — processa posts antigos sem SEO ─────────────────
+// ── SEO BACKFILL — processa posts antigos sem SEO ─────────────────────────────
 const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
 
 function slugify(t) {
