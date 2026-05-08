@@ -3,11 +3,16 @@
   "outputDirectory": "public",
   "crons": [
     {
+      "path": "/api/run",
+      "schedule": "*/20 * * * *"
+    },
+    {
       "path": "/api/refresh_token",
       "schedule": "0 3 1 * *"
     }
   ],
   "functions": {
+    "api/run.js":         { "maxDuration": 60 },
     "api/run_portal.js": { "maxDuration": 60 },
     "api/manage.js":     { "maxDuration": 60 },
     "api/editor_ia.js":  { "maxDuration": 60 },
@@ -47,21 +52,9 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/inteligencia",
-      "destination": "/inteligencia.html"
-    },
-    {
-      "source": "/inteligencia/",
-      "destination": "/inteligencia.html"
-    },
-    {
-      "source": "/og",
-      "destination": "/api/portal-posts?format=og"
-    },
-    {
-      "source": "/og/",
-      "destination": "/api/portal-posts?format=og"
-    }
+    { "source": "/inteligencia",  "destination": "/inteligencia.html" },
+    { "source": "/inteligencia/", "destination": "/inteligencia.html" },
+    { "source": "/og",            "destination": "/api/portal-posts?format=og" },
+    { "source": "/og/",           "destination": "/api/portal-posts?format=og" }
   ]
 }
