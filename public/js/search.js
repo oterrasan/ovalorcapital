@@ -26,6 +26,23 @@
 
   var debounceTimer = null;
 
+  function buildUrl(p) {
+    var catPath = {
+      politica:'politica', economia:'economia', negocios:'negocios',
+      investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+      educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
+      esportes:'esportes', saude:'saude', familia:'familia',
+      tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
+      vc:'vc', colunistas:'vc', internacional:'internacional',
+      variedades:'variedades', geral:'politica',
+      investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura',
+      profissoes:'profissoes', vagas:'vagas', concursos:'concursos',
+      imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+    };
+    var cat = catPath[p.categoria] || 'politica';
+    return '/' + cat + '/?id=' + (p.id || '').slice(0, 8);
+  }
+
   function cor(cat){ return CORES[cat] || '#64748b'; }
   function lbl(cat){ return LABELS[cat] || cat; }
   function dataBr(d){
@@ -50,11 +67,12 @@
 
   function renderCard(p){
     var c = cor(p.categoria);
+    var url = buildUrl(p);
     var img = p.imagem ? '<div style="height:180px;background:url(\''+p.imagem+'\') center/cover no-repeat;position:relative;">'
-      +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4) 0%,transparent 60%);"></div></div>' : '';
-    return '<a href="'+p.url+'" style="display:block;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);text-decoration:none;color:inherit;transition:transform .2s,box-shadow .2s;" '
+      +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4) 0%,transparent 60%);pointer-events:none;"></div></div>' : '';
+    return '<a href="'+url+'" style="display:block;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);text-decoration:none;color:inherit;transition:transform .2s,box-shadow .2s;" '
       +'onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,.15)\'" '
-      +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'">'
+      +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'">' 
       + img
       +'<div style="padding:16px;">'
       +'<span style="display:inline-block;background:'+c+';color:#fff;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:99px;margin-bottom:10px;">'+lbl(p.categoria)+'</span>'

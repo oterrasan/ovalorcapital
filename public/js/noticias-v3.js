@@ -15,7 +15,7 @@
     investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
     educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
     esportes:'esportes', saude:'saude', familia:'familia',
-    tributacao:'tributos', regulacao:'regulacao', internacional:'economia',
+    tributacao:'tributos', regulacao:'regulacao', internacional:'internacional',
     previdencia:'investimentos', consorcio:'seguros', parcerias:'parcerias',
     vc:'vc', colunistas:'vc',
     geral:'politica'
@@ -285,8 +285,6 @@
         }));
         if(!todos.length) return;
 
-        // Registra apenas o post EXIBIDO no carregamento (índice 0) de cada seção
-        // — não toda a rotação. Assim o grid abre sempre com um post diferente.
         var usedIds = {};
 
         function markUsedOne(post){
@@ -328,8 +326,6 @@
         }
 
         // ── Grids de categoria ───────────────────────────────────
-        // Posts não exibidos nos destaques aparecem primeiro.
-        // Posts já exibidos nos destaques vão para o final da rotação.
         function pool(cats){
           var all = sortComImagemPrimeiro(
             todos.filter(function(p){ return cats.indexOf(p.categoria) !== -1; })

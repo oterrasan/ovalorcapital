@@ -4,6 +4,23 @@
   // As seções dinâmicas filtram esses IDs para não duplicar
   const idsDestaque = new Set();
 
+  function buildUrl(p) {
+    const catPath = {
+      politica:'politica', economia:'economia', negocios:'negocios',
+      investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+      educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
+      esportes:'esportes', saude:'saude', familia:'familia',
+      tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
+      vc:'vc', colunistas:'vc', internacional:'internacional',
+      variedades:'variedades', geral:'politica',
+      investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura',
+      profissoes:'profissoes', vagas:'vagas', concursos:'concursos',
+      imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+    };
+    const cat = catPath[p.categoria] || 'politica';
+    return '/' + cat + '/?id=' + (p.id || '').slice(0, 8);
+  }
+
   // === COTAÇÕES AO VIVO ===
   async function updateLiveWidgets() {
     try {
@@ -40,7 +57,7 @@
       if (el('card-hero-titulo')) el('card-hero-titulo').textContent = post.titulo;
       if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
       if (el('card-hero-resumo')) el('card-hero-resumo').textContent = post.resumo || post.subtitulo || '';
-      if (el('card-hero-link'))   el('card-hero-link').href          = post.url || '/politica/';
+      if (el('card-hero-link'))   el('card-hero-link').href          = buildUrl(post);
     } catch(e) { console.error('[Hero]',e); }
   }
 
@@ -60,7 +77,7 @@
       const el = id => document.getElementById(id);
       if (el('card-feature-titulo')) el('card-feature-titulo').textContent = post.titulo;
       if (el('card-feature-resumo')) el('card-feature-resumo').textContent = post.resumo || post.subtitulo || '';
-      if (el('card-feature-link'))   el('card-feature-link').href          = post.url || '/negocios/';
+      if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
     } catch(e) { console.error('[Negocios]',e); }
   }
 
@@ -81,7 +98,7 @@
       const el = id => document.getElementById(id);
       if (el('card-lions-titulo')) el('card-lions-titulo').textContent = post.titulo;
       if (el('card-lions-resumo')) el('card-lions-resumo').textContent = post.resumo || post.subtitulo || '';
-      if (el('card-lions-link'))   el('card-lions-link').href          = post.url || '/seguros/';
+      if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
     } catch(e) { console.error('[Lions]',e); }
   }
 
@@ -115,13 +132,16 @@
   ];
 
   function renderCard(post) {
+    const url = buildUrl(post);
     const a = document.createElement('article');
     a.className = 'ovc-card-item';
+    a.style.cursor = 'pointer';
+    a.onclick = (e) => { if (!e.target.closest('a')) location.href = url; };
     a.innerHTML = `
       <div class="ovc-card-tag">${post.subcategoria || post.categoria}</div>
       <div class="ovc-card-titulo">${post.titulo}</div>
       <div class="ovc-card-resumo">${(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
-      <a class="ovc-card-link" href="${post.url}">Leia mais ↗</a>
+      <a class="ovc-card-link" href="${url}">Leia mais ↗</a>
     `;
     return a;
   }
