@@ -1,4 +1,3 @@
-
 window.OVC_CONFIG = {
   categories: {
     politica:{title:'Política',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'Negócios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'Educação',color:'#c2410c'}, industria:{title:'Indústria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'Saúde',color:'#be123c'}, familia:{title:'Família',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'Regulação',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
@@ -73,6 +72,25 @@ window.OVC = {
       });
     });
   },
+  bindSearchChips() {
+    const chipMap = {
+      'irpf 2025':          '/tributos/irpf/',
+      'reforma tributária': '/tributos/',
+      'salário & empregos': '/vagas/',
+      'família & patrimônio': '/familia/'
+    };
+    document.querySelectorAll('.search-chip').forEach(chip => {
+      if (chip.tagName === 'A') return;
+      const key = (chip.textContent || '').trim().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const href = chipMap[key] || ('/busca/?q=' + encodeURIComponent((chip.textContent || '').trim()));
+      const a = document.createElement('a');
+      a.className = chip.className;
+      a.href = href;
+      a.textContent = chip.textContent;
+      chip.parentNode.replaceChild(a, chip);
+    });
+  },
   bindNewsletterForms() {
     document.querySelectorAll('.footer-newsletter-form').forEach(form => {
       const input = form.querySelector('input[type="email"]');
@@ -87,7 +105,6 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
-    // live-data separado — falha de site-settings não bloqueia cotações
     this.fetchJSON('/api/live-data').then(live => {
       if (!live) return;
       this._applyLiveData(live);
@@ -103,7 +120,6 @@ window.OVC = {
     try {
       const write = (selector, value) => document.querySelectorAll(selector).forEach(el => el.textContent = value);
 
-      // Cotações — estrutura real da API: live.usd.valor, live.eur.valor, etc.
       const usd   = live.usd?.valor   || live.tax?.usd   || 0;
       const eur   = live.eur?.valor   || live.tax?.eur   || 0;
       const gbp   = live.gbp?.valor   || 0;
@@ -125,7 +141,6 @@ window.OVC = {
       write('#cotacao-dow',    fmtPts(dow));
       write('#impostometro',   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(impost)));
 
-      // Atualizar ticker scrolling (se existir)
       const tickerMap = {
         'dolar': fmtBrl(usd), 'usd': fmtBrl(usd),
         'euro': fmtBrl(eur),  'eur': fmtBrl(eur),
@@ -139,10 +154,9 @@ window.OVC = {
         if (tickerMap[key]) el.textContent = tickerMap[key];
       });
 
-      // Ticker scrolling — atualiza por label (ibov, dólar, euro, bitcoin, nasdaq)
       document.querySelectorAll('.ticker-item').forEach(item => {
         const rawLabel = item.querySelector('.ticker-label')?.textContent?.trim().toLowerCase() || '';
-        const label = rawLabel.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/&/g, "and");
+        const label = rawLabel.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, "and");
         const valueEl = item.querySelector('.ticker-value');
         const changeEl = item.querySelector('.ticker-change');
         if (!label || !valueEl) return;
@@ -178,6 +192,7 @@ window.OVC = {
   document.addEventListener('DOMContentLoaded', () => {
     OVC.initThemePicker();
     OVC.bindGlobalSearch();
+    OVC.bindSearchChips();
     OVC.bindNewsletterForms();
     OVC.hydrateHeaderFooter();
     OVC.enhanceTickerLinks();
