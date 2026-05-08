@@ -84,6 +84,7 @@ function selecionarFeedsBalanceados() {
 }
 
 // Mapeamento de categoria editorial → grupo(s) de feeds relevantes
+// vc e colunistas são categorias MANUAIS — não recebem geração automática por RSS
 const CATEGORIA_PARA_GRUPO = {
   politica:      ['politica'],
   economia:      ['economia'],
@@ -112,8 +113,6 @@ const CATEGORIA_PARA_GRUPO = {
   esportes:      ['cultura_variedades_esportes'],
   religiao:      ['espiritualidade'],
   investigativo: ['investigativo'],
-  vc:            ['politica', 'economia'],
-  colunistas:    ['politica', 'economia'],
 };
 
 // Busca notícias de feeds específicos para a categoria solicitada
@@ -143,7 +142,7 @@ export async function getNewsByCategoria(categoria) {
     if (feedsEspecificos.length > 0) {
       return await buscarFeedsEspecificos(feedsEspecificos);
     }
-    // Fallback: busca geral se não há grupo mapeado
+    // Fallback: busca geral se não há grupo mapeado (ex: vc, colunistas)
     return await getNews();
   } catch(e) {
     return [];
@@ -158,7 +157,7 @@ function titulosSimilares(a, b) {
   if (wa.size === 0 || wb.size === 0) return false;
   const intersect = [...wa].filter(w => wb.has(w)).length;
   const union = new Set([...wa, ...wb]).size;
-  return (intersect / union) >= 0.45; // 45% de palavras em comum = similar demais
+  return (intersect / union) >= 0.45;
 }
 
 // Remove itens cujo título é muito parecido com um já selecionado
@@ -183,15 +182,11 @@ export async function getNews() {
     let feedsParaUsar;
 
     if (allSources && allSources.length > 0) {
-      // Admin tem fontes cadastradas: usa SOMENTE as ativas, ignora hardcoded
-      // Assim feeds pausados pelo admin são realmente excluídos
       feedsParaUsar = allSources.filter(s => s.active !== false);
     } else {
-      // Sem fontes no admin: usa seleção balanceada dos defaults
       feedsParaUsar = selecionarFeedsBalanceados();
     }
 
-    // Limitar a 20 feeds por chamada
     const feedsSelecionados = feedsParaUsar.slice(0, 20);
 
     const results = await Promise.allSettled(
@@ -211,10 +206,7 @@ export async function getNews() {
       .filter(r => r.status === "fulfilled")
       .flatMap(r => r.value);
 
-    // Embaralhar para variar categorias a cada chamada
     const embaralhado = allItems.sort(() => Math.random() - 0.5);
-
-    // Deduplicar por título similar — elimina notícias quase iguais de fontes diferentes
     return dedupPorTitulo(embaralhado);
 
   } catch(e) {

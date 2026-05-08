@@ -68,6 +68,7 @@ async function callGemini(prompt) {
 // ══════════════════════════════════════════════════════════════════
 // PROMPT — REESCRITA FIEL + SEO COMPLETO
 // Nunca inventa. Só usa o que está na fonte.
+// Categorias vc e colunistas são MANUAIS — não aparecem aqui.
 // ══════════════════════════════════════════════════════════════════
 
 const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada. Se a fonte não informa algo, você não escreve.
@@ -80,7 +81,34 @@ TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início
 FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO (ex: taxa selic, reforma tributária, dólar bolsa)
 SLUG: 3 a 5 palavras-chave do título em português, hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
 META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural, sem cortar no meio
-CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | vc | colunistas | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao
+CATEGORIA: escolha exatamente uma das categorias abaixo — escolha pela RELEVÂNCIA TEMÁTICA do artigo:
+  politica → governo federal, congresso, eleições, partidos, poder executivo/legislativo/judiciário
+  economia → PIB, inflação, juros SELIC, câmbio, fiscal, política econômica
+  negocios → empresas, fusões, aquisições, startups, empreendedorismo
+  investimentos → bolsa, fundos, renda fixa, tesouro direto, criptomoedas
+  seguros → seguros de vida, planos de saúde, previdência privada, SUSEP, ANS
+  mercados → commodities, petróleo, ouro, índices, B3
+  educacao → escolas, universidades, ENEM, ensino superior, cursos
+  industria → manufatura, produção industrial, exportação, cadeia produtiva
+  tecnologia → TI, IA, inovação, startups tech, digital
+  esportes → futebol, olimpíadas, esportes em geral
+  saude → medicina, SUS, medicamentos, doenças, bem-estar
+  familia → filhos, casamento, herança, planejamento familiar
+  tributacao → imposto de renda, reforma tributária, IRPF, ICMS, receita federal
+  regulacao → BACEN, CVM, ANBIMA, reguladores, compliance
+  parcerias → acordos, joint ventures, contratos entre empresas
+  internacional → geopolítica, diplomacia, relações exteriores, conflitos globais
+  variedades → entretenimento, comportamento, estilo de vida, cultura pop
+  investigativo → denúncias, corrupção, operações policiais, jornalismo investigativo
+  seguranca → segurança pública, crime, polícia, violência
+  cultura → arte, cinema, música, teatro, literatura
+  profissoes → carreiras específicas, mercado de trabalho por área
+  vagas → empregos, contratações, recrutamento, CLT
+  concursos → concursos públicos, editais, gabaritos
+  imoveis → mercado imobiliário, construtoras, financiamento
+  esg → sustentabilidade, meio ambiente, governança corporativa
+  defesa → forças armadas, defesa nacional, segurança nacional
+  religiao → fé, espiritualidade, igrejas, religiosidade
 SUBCATEGORIA: subcategoria específica dentro da categoria escolhida
 CORPO:
 Redação OVC — ${data}
@@ -162,7 +190,8 @@ function parse(raw) {
     } else if (/^SUBTITULO:/i.test(trimmed)) {
       if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim();
     } else if (/^CATEGORIA:/i.test(trimmed)) {
-      categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().toLowerCase();
+      // Pega apenas a primeira palavra após o rótulo (ignora descrições da lista)
+      categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→]/)[0].toLowerCase();
     } else if (/^SUBCATEGORIA:/i.test(trimmed)) {
       subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
     } else if (/^CORPO:/i.test(trimmed)) {
@@ -180,7 +209,11 @@ function parse(raw) {
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","vc","colunistas","variedades","investigativo","seguranca","cultura","profissoes","vagas","concursos","imoveis","esg","defesa","religiao"];
+  // vc e colunistas NÃO são válidos para geração automática
+  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados",
+    "educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao",
+    "parcerias","internacional","variedades","investigativo","seguranca","cultura",
+    "profissoes","vagas","concursos","imoveis","esg","defesa","religiao"];
   if (!catsValidas.includes(categoriaRaw)) categoriaRaw = "geral";
 
   if (!slug && titulo) {
