@@ -41,9 +41,18 @@ function inferirCategoria(subcategoria, titulo) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
-
-  const dryRun = req.body?.dry_run === true;
+  // GET: acessível pelo browser
+  // GET /api/recategorizar-vc          → dry_run (só mostra o que mudaria)
+  // GET /api/recategorizar-vc?executar=1 → executa a correção
+  // POST: usado pelo painel admin (body.dry_run)
+  let dryRun;
+  if (req.method === 'GET') {
+    dryRun = req.query.executar !== '1';
+  } else if (req.method === 'POST') {
+    dryRun = req.body?.dry_run === true;
+  } else {
+    return res.status(405).json({ error: 'method_not_allowed' });
+  }
 
   const { data: posts, error } = await supabase
     .from('posts')
@@ -52,7 +61,13 @@ export default async function handler(req, res) {
     .order('created_at', { ascending: false })
     .limit(500);
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    if (req.method === 'GET') {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(500).send(`<h2>Erro: ${error.message}</h2>`);
+    }
+    return res.status(500).json({ error: error.message });
+  }
 
   const resultados = [];
   const updates = [];
@@ -84,10 +99,49 @@ export default async function handler(req, res) {
     await Promise.allSettled(updates);
   }
 
-  return res.status(200).json({
+  const result = {
     dry_run: dryRun,
     total_encontrados: resultados.length,
     total_recategorizados: dryRun ? 0 : updates.length,
     artigos: resultados
-  });
+  };
+
+  // Resposta HTML para requisições GET (browser)
+  if (req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const titulo = dryRun
+      ? `PRÉ-VISUALIZAÇÃO — ${result.total_encontrados} artigos encontrados com categoria VC/Colunistas`
+      : `CORREÇÃO EXECUTADA — ${result.total_recategorizados} artigos recategorizados`;
+
+    const linhas = resultados.map(a =>
+      `<tr>
+        <td style="padding:4px 8px;color:#888;font-size:12px">${a.id.slice(0,8)}</td>
+        <td style="padding:4px 8px;color:#c00;font-weight:bold">${a.de}</td>
+        <td style="padding:4px 8px">→</td>
+        <td style="padding:4px 8px;color:#060;font-weight:bold">${a.para}</td>
+        <td style="padding:4px 8px;color:#555">${a.subcategoria || ''}</td>
+        <td style="padding:4px 8px">${a.titulo}</td>
+      </tr>`
+    ).join('');
+
+    const btnExecutar = dryRun
+      ? `<p style="margin-top:20px"><a href="/api/recategorizar-vc?executar=1" style="background:#c00;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;font-size:16px">▶ EXECUTAR CORREÇÃO AGORA</a></p>`
+      : `<p style="margin-top:20px;color:#060;font-size:18px">✅ Correção aplicada com sucesso! <a href="/vc/">Ver página VC →</a></p>`;
+
+    return res.status(200).send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Recategorizar VC — OVC</title>
+<style>body{font-family:sans-serif;padding:20px;max-width:1100px;margin:0 auto} table{border-collapse:collapse;width:100%} tr:nth-child(even){background:#f5f5f5}</style>
+</head>
+<body>
+<h2>${titulo}</h2>
+${btnExecutar}
+<table><thead><tr><th>ID</th><th>De</th><th></th><th>Para</th><th>Subcategoria</th><th>Título</th></tr></thead>
+<tbody>${linhas}</tbody>
+</table>
+${btnExecutar}
+</body></html>`);
+  }
+
+  return res.status(200).json(result);
 }
