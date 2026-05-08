@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 const parser = new Parser({ timeout: 8000, headers: { "User-Agent": "Mozilla/5.0" } });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Feeds padrão por grupo de categoria — só usados se admin não tiver fontes cadastradas
 const FEEDS_POR_GRUPO = {
   politica: [
     { url: "https://g1.globo.com/politica/rss2.xml", name: "G1 Política" },
@@ -73,7 +72,6 @@ const FEEDS_POR_GRUPO = {
   ],
 };
 
-// Seleciona 1-2 feeds aleatórios de cada grupo para cobertura balanceada
 function selecionarFeedsBalanceados() {
   const selecionados = [];
   for (const grupo of Object.values(FEEDS_POR_GRUPO)) {
@@ -83,7 +81,7 @@ function selecionarFeedsBalanceados() {
   return selecionados;
 }
 
-// Mapeamento de categoria editorial → grupo(s) de feeds relevantes
+// vc e colunistas sao categorias MANUAIS — nao recebem geracao automatica por RSS
 const CATEGORIA_PARA_GRUPO = {
   politica:      ['politica'],
   economia:      ['economia'],
@@ -112,11 +110,8 @@ const CATEGORIA_PARA_GRUPO = {
   esportes:      ['cultura_variedades_esportes'],
   religiao:      ['espiritualidade'],
   investigativo: ['investigativo'],
-  vc:            ['politica', 'economia'],
-  colunistas:    ['politica', 'economia'],
 };
 
-// Busca notícias de feeds específicos para a categoria solicitada
 async function buscarFeedsEspecificos(feeds) {
   const results = await Promise.allSettled(
     feeds.slice(0, 8).map(source =>
@@ -134,23 +129,17 @@ async function buscarFeedsEspecificos(feeds) {
   return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
 }
 
-// Busca notícias priorizando feeds da categoria solicitada
 export async function getNewsByCategoria(categoria) {
   try {
     const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
     const feedsEspecificos = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
-
-    if (feedsEspecificos.length > 0) {
-      return await buscarFeedsEspecificos(feedsEspecificos);
-    }
-    // Fallback: busca geral se não há grupo mapeado
+    if (feedsEspecificos.length > 0) return await buscarFeedsEspecificos(feedsEspecificos);
     return await getNews();
   } catch(e) {
     return [];
   }
 }
 
-// Detecta títulos similares — evita artigos quase iguais da mesma rodada
 function titulosSimilares(a, b) {
   const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);
   const wa = new Set(norm(a));
@@ -158,42 +147,30 @@ function titulosSimilares(a, b) {
   if (wa.size === 0 || wb.size === 0) return false;
   const intersect = [...wa].filter(w => wb.has(w)).length;
   const union = new Set([...wa, ...wb]).size;
-  return (intersect / union) >= 0.45; // 45% de palavras em comum = similar demais
+  return (intersect / union) >= 0.45;
 }
 
-// Remove itens cujo título é muito parecido com um já selecionado
 function dedupPorTitulo(items) {
   const unicos = [];
   for (const item of items) {
-    if (!unicos.some(u => titulosSimilares(u.title, item.title))) {
-      unicos.push(item);
-    }
+    if (!unicos.some(u => titulosSimilares(u.title, item.title))) unicos.push(item);
   }
   return unicos;
 }
 
 export async function getNews() {
   try {
-    // Buscar TODAS as fontes do admin (ativas e inativas) para saber se o admin customizou
     const { data: allSources } = await supabase
       .from("rss_sources")
       .select("url,name,active")
       .order("created_at", { ascending: false });
-
     let feedsParaUsar;
-
     if (allSources && allSources.length > 0) {
-      // Admin tem fontes cadastradas: usa SOMENTE as ativas, ignora hardcoded
-      // Assim feeds pausados pelo admin são realmente excluídos
       feedsParaUsar = allSources.filter(s => s.active !== false);
     } else {
-      // Sem fontes no admin: usa seleção balanceada dos defaults
       feedsParaUsar = selecionarFeedsBalanceados();
     }
-
-    // Limitar a 20 feeds por chamada
     const feedsSelecionados = feedsParaUsar.slice(0, 20);
-
     const results = await Promise.allSettled(
       feedsSelecionados.map(source =>
         parser.parseURL(source.url)
@@ -206,17 +183,8 @@ export async function getNews() {
           .catch(() => [])
       )
     );
-
-    const allItems = results
-      .filter(r => r.status === "fulfilled")
-      .flatMap(r => r.value);
-
-    // Embaralhar para variar categorias a cada chamada
-    const embaralhado = allItems.sort(() => Math.random() - 0.5);
-
-    // Deduplicar por título similar — elimina notícias quase iguais de fontes diferentes
-    return dedupPorTitulo(embaralhado);
-
+    const allItems = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+    return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));
   } catch(e) {
     return [];
   }
