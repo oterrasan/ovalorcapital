@@ -1,14 +1,12 @@
-// image_finder.js — Busca imagem em múltiplas fontes gratuitas
-// Ordem: Pixabay → Pexels → Wikimedia → Pool categoria
-// Regra: nunca repetir imagem já usada no banco
-
+// image_finder.js — Busca imagem relevante para o artigo
+// Prioridade: Wikipedia (entidade do artigo) → Wikimedia Commons → Pixabay → Pool
 import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Chave pública de demonstração do Pixabay — funciona sem cadastro
-const PIXABAY_KEY = "47979250-ae3f5a24b1e3f7e2fce76eab5";
+const PIXABAY_KEY = process.env.PIXABAY_KEY || "47979250-ae3f5a24b1e3f7e2fce76eab5";
+const PEXELS_KEY  = process.env.PEXELS_KEY  || "";
 
-// Pool de fallback por categoria — usado APENAS se todas as APIs falharem
+// ─── POOL DE FALLBACK (usado SOMENTE se todas as APIs falharem) ───────────────
 const POOLS = {
   politica:      ["https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800","https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800"],
   economia:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800"],
@@ -29,155 +27,177 @@ const POOLS = {
   parcerias:     ["https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800"],
 };
 
-// Padrões que indicam foto de jornalista/repórter/perfil — bloquear
+// ─── FILTROS ─────────────────────────────────────────────────────────────────────────────
 const BLOQUEIO_PATTERNS = [
-  '/autor/', '/autora/', '/reporter/', '/repórter/', '/jornalista/',
+  '/autor/', '/autora/', '/reporter/', '/jornalista/',
   '/colunista/', '/editor/', '/author/', '/byline/', '/perfil/',
   '/profile/', '/headshot/', '/avatar/', '/staff/', '/equipe/',
-  'foto-autor', 'foto-reporter', 'foto-jornalista',
-  'headshot', 'profile-pic', 'author-photo'
+  'foto-autor', 'foto-reporter', 'headshot', 'profile-pic', 'author-photo',
+  'logo', 'icon', 'favicon', 'banner', 'marca',
 ];
 
+// Domínios de concorrentes — nunca usar como imagem
+const COMPETITOR_HOSTS = new Set([
+  'glbimg.com','globo.com','g1.globo.com','ge.globo.com','valor.com.br',
+  'uol.com.br','folha.uol.com.br','estadao.com.br','r7.com','record.com.br',
+  'sbt.com.br','jovempan.com.br','band.com.br','cnnbrasil.com.br',
+  'veja.com.br','exame.com','cartacapital.com.br','poder360.com.br',
+  'gazetadopovo.com.br','metropoles.com','seudinheiro.com','infomoney.com.br',
+  'terra.com.br','ig.com.br','reuters.com','ap.org','ebc.com.br',
+]);
+
 function isImagemBloqueada(url) {
-  if (!url) return true;
-  const urlLower = url.toLowerCase();
-  // Bloquear padrões de foto de perfil/jornalista
-  if (BLOQUEIO_PATTERNS.some(p => urlLower.includes(p))) return true;
-  // Bloquear SVG (não carregam como imagem)
-  if (urlLower.endsWith('.svg')) return true;
-  // Bloquear imagens muito pequenas (thumbnails de perfil)
-  if (urlLower.includes('16x16') || urlLower.includes('32x32') || urlLower.includes('48x48')) return true;
+  if (!url || url.length < 12) return true;
+  const u = url.toLowerCase();
+  if (BLOQUEIO_PATTERNS.some(p => u.includes(p))) return true;
+  if (/\.(svg|gif|ico|bmp)(\?|$)/i.test(u)) return true;
+  if (/\b(16|32|48|64)x(16|32|48|64)\b/.test(u)) return true;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    if ([...COMPETITOR_HOSTS].some(d => host === d || host.endsWith('.' + d))) return true;
+  } catch(_) {}
   return false;
 }
 
-// Buscar imagens já usadas no banco para evitar repetição
-async function getImagensUsadas() {
-  try {
-    const { data } = await supabase
-      .from("posts")
-      .select("imagem")
-      .not("imagem", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(500);
-    return new Set((data || []).map(p => p.imagem).filter(Boolean));
-  } catch(_) {
-    return new Set();
-  }
-}
+// ─── EXTRAÇÃO DE ENTIDADES DO TÍTULO ─────────────────────────────────────────────
+// Extrai nomes próprios, empresas, órgãos, instituições do título.
+// Ordem: entidades conhecidas > sequências de maiúsculas > palavras longas.
+function extrairEntidades(titulo) {
+  if (!titulo) return [];
 
-// Extrair termos de busca relevantes do título
-function extrairTermos(titulo) {
-  const stopwords = new Set([
-    "para","com","sem","por","que","uma","uns","das","dos","nos","nas",
-    "seu","sua","seus","suas","como","mais","mas","foi","são","esta",
-    "esse","essa","após","ante","entre","sobre","pelo","pela","pelos",
-    "pelas","tem","ter","vai","vão","num","numa","pode","deve","será",
-    "após","novo","nova","grande","alto","baixo","todo","toda","todos",
-    "após","já","não","sim","bem","mal","muito","pouco","ainda","mesmo",
-    "pois","então","quando","onde","quem","qual","quais","cujo","cuja"
-  ]);
-
-  // Termos em inglês para buscas internacionais mais eficazes
-  const traducoes = {
-    "política": "politics brazil",
-    "economia": "economy finance",
-    "presidente": "president",
-    "lula": "lula brazil president",
-    "bolsonaro": "bolsonaro brazil",
-    "stf": "brazil supreme court",
-    "congresso": "brazil congress",
-    "senado": "brazil senate",
-    "câmara": "brazil chamber deputies",
-    "inflação": "inflation brazil",
-    "selic": "interest rate brazil",
-    "dólar": "dollar currency",
-    "petrobras": "petrobras oil brazil",
-    "futebol": "football soccer brazil",
-    "palmeiras": "palmeiras football brazil",
-    "flamengo": "flamengo football brazil",
-    "tecnologia": "technology digital",
-    "saúde": "health medicine brazil",
-    "educação": "education school brazil",
-    "seguro": "insurance brazil",
-    "investimento": "investment finance",
-    "tributação": "tax brazil",
-    "agronegócio": "agribusiness brazil agriculture",
-    "bitcoin": "bitcoin cryptocurrency",
-    "kremlin": "kremlin russia moscow",
-    "trump": "trump united states",
-    "china": "china beijing",
-    "eua": "united states america",
-    "israel": "israel middle east",
-    "ucrânia": "ukraine war",
+  // Mapeamento de apelidos/siglas para nome de busca no Wikipedia
+  const ALIASES = {
+    'lula': 'Luiz Inácio Lula da Silva',
+    'bolsonaro': 'Jair Bolsonaro',
+    'temer': 'Michel Temer',
+    'dilma': 'Dilma Rousseff',
+    'fhc': 'Fernando Henrique Cardoso',
+    'haddad': 'Fernando Haddad',
+    'guedes': 'Paulo Guedes',
+    'meirelles': 'Henrique Meirelles',
+    'campos neto': 'Roberto Campos Neto',
+    'moraes': 'Alexandre de Moraes',
+    'barroso': 'Luís Roberto Barroso',
+    'flavio dino': 'Flávio Dino',
+    'stf': 'Supremo Tribunal Federal',
+    'stj': 'Superior Tribunal de Justiça',
+    'tse': 'Tribunal Superior Eleitoral',
+    'tcu': 'Tribunal de Contas da União',
+    'bacen': 'Banco Central do Brasil',
+    'banco central': 'Banco Central do Brasil',
+    'petrobras': 'Petrobras',
+    'vale': 'Vale S.A.',
+    'embraer': 'Embraer',
+    'bradesco': 'Banco Bradesco',
+    'itaú': 'Itaú Unibanco',
+    'itau': 'Itaú Unibanco',
+    'bb': 'Banco do Brasil',
+    'banco do brasil': 'Banco do Brasil',
+    'caixa': 'Caixa Econômica Federal',
+    'bndes': 'BNDES',
+    'ibge': 'IBGE',
+    'anatel': 'Anatel',
+    'aneel': 'Aneel',
+    'anvisa': 'Anvisa',
+    'receita federal': 'Receita Federal do Brasil',
+    'trump': 'Donald Trump',
+    'biden': 'Joe Biden',
+    'xi jinping': 'Xi Jinping',
+    'putin': 'Vladimir Putin',
+    'zelensky': 'Volodymyr Zelensky',
+    'macron': 'Emmanuel Macron',
+    'elon musk': 'Elon Musk',
+    'amazon': 'Amazon',
+    'microsoft': 'Microsoft',
+    'google': 'Google',
+    'apple': 'Apple Inc',
+    'meta': 'Meta Platforms',
+    'openai': 'OpenAI',
+    'nvidia': 'Nvidia',
+    'congresso': 'Congresso Nacional do Brasil',
+    'senado': 'Senado Federal do Brasil',
+    'câmara': 'Câmara dos Deputados do Brasil',
+    'planalto': 'Palácio do Planalto',
+    'ibovespa': 'Ibovespa',
+    'b3': 'B3 bolsa de valores',
+    'selic': 'taxa Selic Brasil',
+    'pcc': 'Primeiro Comando da Capital',
+    'cv': 'Comando Vermelho',
   };
 
-  const t = titulo.toLowerCase();
+  const tLower = titulo.toLowerCase();
+  const encontrados = [];
 
-  // Verificar traduções diretas
-  for (const [pt, en] of Object.entries(traducoes)) {
-    if (t.includes(pt)) return en;
+  // 1. Verificar aliases conhecidos (mais confiáveis)
+  for (const [alias, nome] of Object.entries(ALIASES)) {
+    if (tLower.includes(alias)) {
+      encontrados.push(nome);
+      if (encontrados.length >= 2) break;
+    }
   }
 
-  // Extrair palavras relevantes
-  const palavras = titulo
-    .replace(/[^\w\sáàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]/g, " ")
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !stopwords.has(w.toLowerCase()))
-    .slice(0, 3);
+  if (encontrados.length >= 2) return encontrados.slice(0, 2);
 
-  return palavras.join(" ") || "brazil news";
+  // 2. Extrair sequências de palavras com maiúscula (nomes próprios)
+  const seqMaiusculas = titulo.match(/[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+){1,3}/g) || [];
+  for (const seq of seqMaiusculas) {
+    if (seq.split(' ').length >= 2) encontrados.push(seq);
+    if (encontrados.length >= 2) break;
+  }
+
+  // 3. Siglas em maiúsculo (3-6 letras)
+  const siglas = titulo.match(/\b[A-Z]{3,6}\b/g) || [];
+  for (const sigla of siglas) {
+    const mapped = ALIASES[sigla.toLowerCase()];
+    if (mapped && !encontrados.includes(mapped)) {
+      encontrados.push(mapped);
+      if (encontrados.length >= 2) break;
+    }
+  }
+
+  return [...new Set(encontrados)].slice(0, 2);
 }
 
-// FONTE 1 — Pixabay (sem autenticação obrigatória para buscas básicas)
-async function buscarPixabay(query, imagensUsadas) {
-  try {
-    const q = encodeURIComponent(query);
-    const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${q}&image_type=photo&orientation=horizontal&min_width=800&per_page=10&safesearch=true&lang=pt`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "OVCPortal/1.0" },
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const hits = data?.hits || [];
-    for (const hit of hits) {
-      const img = hit.largeImageURL || hit.webformatURL;
-      if (img && !imagensUsadas.has(img)) return img;
-    }
-  } catch(_) {}
+// ─── FONTE 1: WIKIPEDIA (melhor para pessoas, empresas, instituições) ────────────
+async function buscarWikipedia(entityName, imagensUsadas) {
+  // Tenta primeiro pt.wikipedia, depois en.wikipedia
+  for (const lang of ['pt', 'en']) {
+    try {
+      const encoded = encodeURIComponent(entityName);
+      const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'OVCPortal/1.0 (ovalorcapital.com.br)' },
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+
+      // Prefer originalimage (maior resolução), depois thumbnail
+      const imgOriginal = data?.originalimage?.source;
+      const imgThumb   = data?.thumbnail?.source;
+      const img = imgOriginal || imgThumb;
+
+      if (!img) continue;
+      // Rejeitar logos, ícones e imagens muito pequenas
+      if (isImagemBloqueada(img)) continue;
+      // Garantir formato válido
+      if (!/\.(jpg|jpeg|png|webp)/i.test(img) && !img.includes('upload.wikimedia')) continue;
+      // Tentar ampliar resolução do thumbnail
+      const imgGrande = img.replace(/\/\d+px-/, '/1000px-');
+      if (!imagensUsadas.has(imgGrande)) return imgGrande;
+      if (!imagensUsadas.has(img)) return img;
+    } catch(_) {}
+  }
   return null;
 }
 
-// FONTE 2 — Pexels (chave pública)
-async function buscarPexels(query, imagensUsadas) {
-  try {
-    const q = encodeURIComponent(query);
-    const url = `https://api.pexels.com/v1/search?query=${q}&per_page=10&orientation=landscape`;
-    const res = await fetch(url, {
-      headers: {
-        "Authorization": "563492ad6f917000010000016b8b1e4d0a1e4d0d8a1c0e1b2f3d4e5a",
-        "User-Agent": "OVCPortal/1.0"
-      },
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const fotos = data?.photos || [];
-    for (const foto of fotos) {
-      const img = foto?.src?.large || foto?.src?.medium;
-      if (img && !imagensUsadas.has(img)) return img;
-    }
-  } catch(_) {}
-  return null;
-}
-
-// FONTE 3 — Wikimedia Commons
+// ─── FONTE 2: WIKIMEDIA COMMONS (busca por termo) ──────────────────────────
 async function buscarWikimedia(query, imagensUsadas) {
   try {
     const q = encodeURIComponent(query);
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${q}&srnamespace=6&srlimit=10&format=json&origin=*`;
+    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${q}&srnamespace=6&srlimit=15&format=json&origin=*`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "OVCPortal/1.0 (ovalorcapital.com.br)" },
+      headers: { 'User-Agent': 'OVCPortal/1.0 (ovalorcapital.com.br)' },
       signal: AbortSignal.timeout(6000)
     });
     if (!res.ok) return null;
@@ -185,62 +205,186 @@ async function buscarWikimedia(query, imagensUsadas) {
     const results = data?.query?.search || [];
 
     for (const result of results) {
-      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg/i.test(result.title)) continue;
+      // Pular logos, ícones, mapas, bandeiras
+      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema/i.test(result.title)) continue;
 
       const infoRes = await fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(result.title)}&prop=imageinfo&iiprop=url&format=json&origin=*`,
-        { headers: { "User-Agent": "OVCPortal/1.0" }, signal: AbortSignal.timeout(5000) }
+        `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(result.title)}&prop=imageinfo&iiprop=url|size&format=json&origin=*`,
+        { headers: { 'User-Agent': 'OVCPortal/1.0' }, signal: AbortSignal.timeout(5000) }
       );
       if (!infoRes.ok) continue;
       const info = await infoRes.json();
       const pages = Object.values(info?.query?.pages || {});
-      const img = pages[0]?.imageinfo?.[0]?.url;
+      const imgInfo = pages[0]?.imageinfo?.[0];
+      const img = imgInfo?.url;
 
-      if (img && /\.(jpg|jpeg|png)/i.test(img) && !imagensUsadas.has(img)) {
-        return img;
-      }
+      if (!img) continue;
+      if (isImagemBloqueada(img)) continue;
+      if (!/\.(jpg|jpeg|png)/i.test(img)) continue;
+      // Exigir imagem com largura mínima de 400px
+      if (imgInfo?.width && imgInfo.width < 400) continue;
+      if (!imagensUsadas.has(img)) return img;
     }
   } catch(_) {}
   return null;
 }
 
-export async function findImage(titulo, categoria, urlProibida = "", urlOriginal = "") {
-  // Imagem original da fonte — sempre a melhor opção
-  if (urlOriginal && !isImagemBloqueada(urlOriginal) && urlOriginal !== urlProibida) {
-    return urlOriginal;
-  }
-  // Buscar imagens já usadas para evitar repetição
-  const imagensUsadas = await getImagensUsadas();
-  if (urlProibida) imagensUsadas.add(urlProibida);
-
-  const termos = extrairTermos(titulo);
-  const termosEn = termos; // já em inglês pela função extrairTermos
-
-  // Tentar cada fonte em cascata
-  const fontes = [
-    () => buscarPixabay(termosEn, imagensUsadas),
-    () => buscarPexels(termosEn, imagensUsadas),
-    () => buscarWikimedia(titulo, imagensUsadas),
-  ];
-
-  for (const fonte of fontes) {
-    try {
-      const img = await fonte();
-      if (img && img !== urlProibida && !imagensUsadas.has(img)) {
-        return img;
-      }
-    } catch(_) {
-      continue;
+// ─── FONTE 3: PIXABAY ──────────────────────────────────────────────────────────────
+async function buscarPixabay(query, imagensUsadas) {
+  if (!PIXABAY_KEY) return null;
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://pixabay.com/api/?key=${PIXABAY_KEY}&q=${q}&image_type=photo&orientation=horizontal&min_width=800&per_page=10&safesearch=true`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const hit of (data?.hits || [])) {
+      const img = hit.largeImageURL || hit.webformatURL;
+      if (img && !imagensUsadas.has(img) && !isImagemBloqueada(img)) return img;
     }
+  } catch(_) {}
+  return null;
+}
+
+// ─── FONTE 4: PEXELS ─────────────────────────────────────────────────────────────────
+async function buscarPexels(query, imagensUsadas) {
+  if (!PEXELS_KEY) return null;
+  try {
+    const q = encodeURIComponent(query);
+    const url = `https://api.pexels.com/v1/search?query=${q}&per_page=10&orientation=landscape`;
+    const res = await fetch(url, {
+      headers: { 'Authorization': PEXELS_KEY },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    for (const foto of (data?.photos || [])) {
+      const img = foto?.src?.large || foto?.src?.medium;
+      if (img && !imagensUsadas.has(img) && !isImagemBloqueada(img)) return img;
+    }
+  } catch(_) {}
+  return null;
+}
+
+// ─── TERMOS DE BUSCA EM INGLÊS (para Pixabay/Pexels) ────────────────────────
+function topicosEmIngles(titulo, categoria) {
+  const mapa = {
+    'economia': 'economy finance brazil',
+    'política': 'politics government brazil',
+    'politica': 'politics government brazil',
+    'inflação': 'inflation money economy',
+    'inflacao': 'inflation money economy',
+    'selic': 'interest rate central bank',
+    'pib': 'gdp economic growth',
+    'investimentos': 'investments stock market finance',
+    'seguros': 'insurance healthcare',
+    'mercados': 'financial markets trading',
+    'tributos': 'taxes fiscal policy',
+    'tributação': 'taxes fiscal policy',
+    'tributacao': 'taxes fiscal policy',
+    'tecnologia': 'technology innovation digital',
+    'saúde': 'healthcare medicine hospital',
+    'saude': 'healthcare medicine hospital',
+    'educação': 'education school university',
+    'educacao': 'education school university',
+    'esportes': 'sports athletes competition',
+    'indústria': 'industry manufacturing factory',
+    'industria': 'industry manufacturing factory',
+    'agronegócio': 'agriculture farm harvest',
+    'agronegocio': 'agriculture farm harvest',
+    'imóveis': 'real estate building construction',
+    'imoveis': 'real estate building construction',
+    'segurança': 'security police law enforcement',
+    'seguranca': 'security police law enforcement',
+    'internacional': 'international diplomacy world politics',
+    'esg': 'sustainability environment green energy',
+    'defesa': 'military defense armed forces',
+    'família': 'family children home',
+    'familia': 'family children home',
+    'cultura': 'culture art music',
+    'variedades': 'lifestyle entertainment',
+  };
+  const t = titulo.toLowerCase();
+  for (const [termo, en] of Object.entries(mapa)) {
+    if (t.includes(termo)) return en;
+  }
+  // Fallback por categoria
+  const catMap = {
+    politica:'politics brazil',economia:'economy finance',negocios:'business meeting',
+    investimentos:'investment finance chart',seguros:'insurance contract',
+    mercados:'stock market trading',tecnologia:'technology digital',
+    saude:'healthcare medicine',educacao:'education learning',
+    esportes:'sports athlete',industria:'industry factory',
+    familia:'family home',tributacao:'tax finance',regulacao:'regulation law',
+    internacional:'international world',variedades:'lifestyle',
+    investigativo:'investigation law',seguranca:'security police',
+    cultura:'culture art',profissoes:'professional career',
+    vagas:'job work employment',concursos:'exam study',
+    imoveis:'real estate building',parcerias:'partnership business',
+    esg:'sustainability green',defesa:'military defense',
+    religiao:'church faith spirituality',
+  };
+  return catMap[categoria] || 'brazil news';
+}
+
+// ─── BUSCAR IMAGENS JÁ USADAS (evitar repetição) ────────────────────────────
+async function getImagensUsadas() {
+  try {
+    const { data } = await supabase
+      .from('posts')
+      .select('imagem')
+      .not('imagem', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    return new Set((data || []).map(p => p.imagem).filter(Boolean));
+  } catch(_) {
+    return new Set();
+  }
+}
+
+// ─── EXPORTAÇÃO PRINCIPAL ──────────────────────────────────────────────────────────────
+export async function findImage(titulo, categoria, _urlProibida = '', _urlOriginal = '') {
+  const imagensUsadas = await getImagensUsadas();
+
+  // === ETAPA 1: Wikipedia por entidade ===
+  // Extrai pessoas, empresas e órgãos do título e busca a foto real deles.
+  const entidades = extrairEntidades(titulo);
+  for (const entidade of entidades) {
+    try {
+      const img = await buscarWikipedia(entidade, imagensUsadas);
+      if (img) return img;
+    } catch(_) {}
   }
 
-  // Fallback: pool da categoria — pegar uma não usada
-  const pool = POOLS[categoria] || POOLS["economia"];
-  const candidatas = pool.filter(u => !imagensUsadas.has(u) && u !== urlProibida);
-  if (candidatas.length > 0) {
-    return candidatas[Math.floor(Math.random() * candidatas.length)];
+  // === ETAPA 2: Wikimedia Commons por entidade ===
+  for (const entidade of entidades) {
+    try {
+      const img = await buscarWikimedia(entidade, imagensUsadas);
+      if (img) return img;
+    } catch(_) {}
   }
 
-  // Último recurso
-  return pool[0];
+  // === ETAPA 3: Wikimedia Commons por tema do artigo ===
+  try {
+    const img = await buscarWikimedia(titulo, imagensUsadas);
+    if (img) return img;
+  } catch(_) {}
+
+  // === ETAPA 4: Pixabay por tema (inglês) ===
+  const termoEn = topicosEmIngles(titulo, categoria);
+  try {
+    const img = await buscarPixabay(termoEn, imagensUsadas);
+    if (img) return img;
+  } catch(_) {}
+
+  // === ETAPA 5: Pexels por tema ===
+  try {
+    const img = await buscarPexels(termoEn, imagensUsadas);
+    if (img) return img;
+  } catch(_) {}
+
+  // === ETAPA 6: Pool estático por categoria (last resort) ===
+  const pool = POOLS[categoria] || POOLS['economia'];
+  const candidatas = pool.filter(u => !imagensUsadas.has(u));
+  return candidatas[0] || pool[0];
 }
