@@ -254,50 +254,54 @@
     container.appendChild(grid);
   }
 
+  function mostrarVazio(el, catId){
+    if(!el) return;
+    var cor = CORES_CAT[catId] || '#1e293b';
+    el.style.backgroundImage = '';
+    el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'99 100%)';
+    var titleEl = el.querySelector('.ovc-card-title');
+    if(titleEl) titleEl.textContent = 'Em breve — aguarde novos conteúdos';
+    var metaEl = el.querySelector('.ovc-card-meta');
+    if(metaEl) metaEl.textContent = 'Redação OVC';
+  }
+
+  function carregarCat(cat){
+    // Busca por categoria primária; para vc busca também colunistas
+    var primaryCat = cat.cats[0];
+    return fetch('/api/portal-posts?categoria=' + primaryCat + '&limit=10')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var posts = (data.posts || []).filter(function(p){
+          return cat.cats.indexOf(p.categoria) !== -1;
+        });
+        // Ordena: posts com imagem primeiro
+        posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        return { cat: cat, pool: posts };
+      })
+      .catch(function(){ return { cat: cat, pool: [] }; });
+  }
+
   function load(){
     var container = document.getElementById('ovc-cards-section');
     if(!container) return;
     if(!container.querySelector('.ovc-cat-grid')) buildSection(container);
 
-    fetch('/api/portal-posts?limit=200')
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        var posts = (data.posts || data || []);
-        var grid  = container.querySelector('.ovc-cat-grid');
-
-        var comPost  = [];
-        var semPost  = [];
-
-        CATS.forEach(function(cat){
-          var pool = posts.filter(function(p){ return cat.cats.indexOf(p.categoria) !== -1; });
-          pool.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
-          if(pool.length) comPost.push({ cat:cat, pool:pool });
-          else            semPost.push({ cat:cat, pool:[] });
-        });
-
-        comPost.forEach(function(item){
-          var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(!el) return;
-          // Categorias dos destaques: inicia no índice 1 para não repetir
-          // o post do hero/feature/lions que ocupa o índice 0 (mais recente)
-          var overlap = item.cat.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c) !== -1; });
-          var startIdx = (overlap && item.pool.length > 1) ? 1 : 0;
-          startRotation(el, item.pool, item.cat.id, startIdx);
-        });
-
-        semPost.forEach(function(item){
-          var el = document.getElementById('ovc-cat-' + item.cat.id);
-          if(!el) return;
-          var cor = CORES_CAT[item.cat.id] || '#1e293b';
-          el.style.backgroundImage = '';
-          el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'99 100%)';
-          var titleEl = el.querySelector('.ovc-card-title');
-          if(titleEl) titleEl.textContent = 'Em breve — aguarde novos conteúdos';
-          var metaEl = el.querySelector('.ovc-card-meta');
-          if(metaEl) metaEl.textContent = 'Redação OVC';
-        });
-      })
-      .catch(function(e){ console.warn('OVC cards:', e.message); });
+    // Uma chamada de API por categoria, todas em paralelo.
+    // Isso garante que cada categoria sempre vê seus próprios posts,
+    // independente do volume global de publicações recentes.
+    Promise.all(CATS.map(carregarCat)).then(function(results){
+      results.forEach(function(item){
+        var el = document.getElementById('ovc-cat-' + item.cat.id);
+        if(!el) return;
+        if(!item.pool.length){
+          mostrarVazio(el, item.cat.id);
+          return;
+        }
+        var overlap = item.cat.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c) !== -1; });
+        var startIdx = (overlap && item.pool.length > 1) ? 1 : 0;
+        startRotation(el, item.pool, item.cat.id, startIdx);
+      });
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function(){
