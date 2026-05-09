@@ -4,7 +4,7 @@
   var CATS = [
     { id:'politica',     label:'Política',       path:'/politica/',     cats:['politica'] },
     { id:'economia',     label:'Economia',       path:'/economia/',     cats:['economia'] },
-    { id:'negocios',     label:'Negócios',       path:'/negocios/',     cats:['negocios'] },
+    { id:'negocios',     label:'Negócios',      path:'/negocios/',     cats:['negocios'] },
     { id:'investimentos',label:'Investimentos',  path:'/investimentos/',cats:['investimentos'] },
     { id:'mercados',     label:'Mercados',       path:'/mercados/',     cats:['mercados'] },
     { id:'seguros',      label:'Seguros',        path:'/seguros/',      cats:['seguros'] },
@@ -32,8 +32,6 @@
     { id:'vc',           label:'OVC / Colunistas',path:'/vc/',          cats:['vc','colunistas'] }
   ];
 
-  // Categorias exibidas nos cards de destaque (hero/feature/lions)
-  // O grid inicia no índice 1 para estas, evitando duplicata visual
   var CATS_DESTAQUE = ['politica','economia','negocios','seguros'];
 
   var CORES_CAT = {
@@ -58,6 +56,12 @@
     return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
   }
 
+  function _slugify(s){
+    return (s||'').toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'')
+      .trim().replace(/\s+/g,'-').slice(0,55);
+  }
+
   function buildUrl(p){
     var catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
@@ -69,8 +73,10 @@
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
       concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
     };
-    var cat = catPath[p.categoria] || 'politica';
-    return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
+    var cp = catPath[p.categoria] || 'politica';
+    var sl = p.slug ? p.slug.slice(0,55) : _slugify(p.titulo||'');
+    var id8 = (p.id||'').slice(0,8);
+    return '/' + cp + '/' + sl + '-' + id8 + '/';
   }
 
   var BLOCKED = [
@@ -266,7 +272,6 @@
   }
 
   function carregarCat(cat){
-    // Busca por categoria primária; para vc busca também colunistas
     var primaryCat = cat.cats[0];
     return fetch('/api/portal-posts?categoria=' + primaryCat + '&limit=10')
       .then(function(r){ return r.json(); })
@@ -274,7 +279,6 @@
         var posts = (data.posts || []).filter(function(p){
           return cat.cats.indexOf(p.categoria) !== -1;
         });
-        // Ordena: posts com imagem primeiro
         posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
         return { cat: cat, pool: posts };
       })
@@ -286,9 +290,6 @@
     if(!container) return;
     if(!container.querySelector('.ovc-cat-grid')) buildSection(container);
 
-    // Uma chamada de API por categoria, todas em paralelo.
-    // Isso garante que cada categoria sempre vê seus próprios posts,
-    // independente do volume global de publicações recentes.
     Promise.all(CATS.map(carregarCat)).then(function(results){
       results.forEach(function(item){
         var el = document.getElementById('ovc-cat-' + item.cat.id);
@@ -328,9 +329,9 @@
         function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
         var html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
-          +'<span style="background:#e11d48;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:4px;">🔥 Mais Lidas</span>'
+          +'<span style="background:#e11d48;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:4px;">Mais Lidas</span>'
           +'<span style="flex:1;height:2px;background:linear-gradient(to right,#e11d48,transparent);border-radius:2px;"></span>'
-          +'<a href="/busca/" style="font-size:12px;color:#64748b;text-decoration:none;font-weight:600;">Ver todas →</a>'
+          +'<a href="/busca/" style="font-size:12px;color:#64748b;text-decoration:none;font-weight:600;">Ver todas &rarr;</a>'
           +'</div>';
 
         html += '<div style="display:grid;grid-template-columns:repeat('+posts.length+',minmax(0,1fr));gap:10px;">';
@@ -347,7 +348,7 @@
               +imgHtml
               +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%);pointer-events:none;"></div>'
               +'<div style="position:absolute;top:6px;left:6px;">'
-                +'<span style="'+(rank===1?'background:#e11d48;font-size:10px;':'background:rgba(0,0,0,0.6);font-size:9px;')+'color:#fff;font-weight:900;padding:2px 7px;border-radius:4px;font-family:Georgia,serif;">'+(rank===1?'🔥 #1':'#'+rank)+'</span>'
+                +'<span style="'+(rank===1?'background:#e11d48;font-size:10px;':'background:rgba(0,0,0,0.6);font-size:9px;')+'color:#fff;font-weight:900;padding:2px 7px;border-radius:4px;font-family:Georgia,serif;">#'+rank+'</span>'
               +'</div>'
             +'</div>'
             +'<div style="flex:1;background:#fff;padding:8px 10px;display:flex;flex-direction:column;gap:4px;">'
@@ -383,13 +384,13 @@
           '<div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.25);">'
             +'<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.08);">'
               +'<div style="display:flex;align-items:center;gap:12px;">'
-                +'<span style="background:#e11d48;color:#fff;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:6px 14px;border-radius:6px;">📺 OVC TV</span>'
+                +'<span style="background:#e11d48;color:#fff;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:6px 14px;border-radius:6px;">OVC TV</span>'
                 +'<div style="display:flex;align-items:center;gap:6px;">'
                   +'<span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;animation:ovc-pulse 2s infinite;"></span>'
                   +'<span style="font-size:12px;color:rgba(255,255,255,0.6);font-weight:500;">AO VIVO</span>'
                 +'</div>'
               +'</div>'
-              +'<span style="font-size:11px;color:rgba(255,255,255,0.3);">Transmissão integrada • O Valor Capital</span>'
+              +'<span style="font-size:11px;color:rgba(255,255,255,0.3);">Transmissão integrada &bull; O Valor Capital</span>'
             +'</div>'
             +'<div style="position:relative;padding-bottom:42.86%;height:0;overflow:hidden;">'
               +'<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;" src="'+ytUrl+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy"></iframe>'

@@ -24,7 +24,8 @@
     "api/live-data.js":   { "maxDuration": 15 },
     "api/refresh_token.js":{ "maxDuration": 30 },
     "api/sitemap.js":     { "maxDuration": 15 },
-    "api/article-ssr.js": { "maxDuration": 10 }
+    "api/article-ssr.js": { "maxDuration": 10 },
+    "api/article.js":     { "maxDuration": 10 }
   },
   "build": {
     "env": {
@@ -56,11 +57,13 @@
   ],
   "rewrites": [
     { "source": "/sitemap.xml",   "destination": "/api/sitemap" },
-    { "source": "/materia",        "destination": "/api/article-ssr" },
-    { "source": "/materia/",       "destination": "/api/article-ssr" },
-    { "source": "/inteligencia",   "destination": "/inteligencia.html" },
-    { "source": "/inteligencia/",  "destination": "/inteligencia.html" },
-    { "source": "/og",             "destination": "/api/portal-posts?format=og" },
-    { "source": "/og/",            "destination": "/api/portal-posts?format=og" }
+    { "source": "/:cat/:slug/",   "destination": "/api/article?cat=:cat&slug=:slug" },
+    { "source": "/:cat/:slug",    "destination": "/api/article?cat=:cat&slug=:slug" },
+    { "source": "/materia",       "destination": "/api/article-ssr" },
+    { "source": "/materia/",      "destination": "/api/article-ssr" },
+    { "source": "/inteligencia",  "destination": "/inteligencia.html" },
+    { "source": "/inteligencia/", "destination": "/inteligencia.html" },
+    { "source": "/og",            "destination": "/api/portal-posts?format=og" },
+    { "source": "/og/",           "destination": "/api/portal-posts?format=og" }
   ]
 }
