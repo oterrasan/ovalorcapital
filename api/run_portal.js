@@ -8,7 +8,7 @@ import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Domínios de imagem de concorrentes — bloquear antes de processar
+// ─── DOMÍNIOS CONCORRENTES ────────────────────────────────────────────────
 const COMPETITOR_IMG_HOSTS = new Set([
   'glbimg.com','s2.glbimg.com','s3.glbimg.com','i.s3.glbimg.com',
   'globo.com','g1.globo.com','ge.globo.com','oglobo.globo.com',
@@ -33,24 +33,89 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
-// Filtro de qualidade — rejeita apenas erros estruturais claros
+// ─── CORRETOR DE CATEGORIA POR PALAVRAS-CHAVE DO TÍTULO ─────────────────────
+// Sobrescreve a categoria gerada pela IA quando o título contém sinais
+// inequívocos. Evita erros como "vaga de emprego" indo para "seguros".
+const REGRAS_CATEGORIA = [
+  { cat: 'vagas', sinal: [
+    'vaga para', 'vagas para', 'vaga de ', 'vagas de ',
+    'oferece vaga', 'abre vaga', 'oferece vagas', 'abre vagas',
+    'home office', 'processo seletivo', 'trainee', 'estágio ',
+    'estagio ', 'auxiliar de vendas', 'auxiliar de atendimento',
+    'analista de rh', 'gerente de vendas', 'coordenador de',
+    'candidature-se', 'clique e candidate',
+  ]},
+  { cat: 'concursos', sinal: [
+    'concurso público', 'concurso publico', 'edital do concurso',
+    'inscrições abertas para concurso', 'gabarito oficial',
+    'provas do concurso', 'aprovados no concurso',
+  ]},
+  { cat: 'imoveis', sinal: [
+    'mercado imobiliário', 'financiamento imobiliário',
+    'minha casa minha vida', 'metro quadrado', 'lançamento imobiliário',
+    'incorporadora', 'construção civil avança',
+  ]},
+  { cat: 'saude', sinal: [
+    'anvisa aprova', 'novo medicamento', 'vacina contra',
+    'cirurgia de', 'diagnóstico de', 'tratamento de',
+    'ministério da saúde anuncia', 'plano de saúde aumenta',
+  ]},
+  { cat: 'tecnologia', sinal: [
+    'inteligência artificial', 'ia generativa', 'chatgpt',
+    'machine learning', 'cibersegurança', 'startup lança',
+    'iphone ', 'android ', 'aplicativo lança',
+  ]},
+  { cat: 'esportes', sinal: [
+    'copa do mundo', 'campeonato brasileiro', 'libertadores',
+    'fórmula 1', 'olimpíadas', 'nba ', 'nfl ', 'futebol brasileiro',
+    'brasileirão', 'seleção brasileira',
+  ]},
+  { cat: 'politica', sinal: [
+    'senado aprova', 'câmara aprova', 'lula sanciona',
+    'presidente veta', 'stf decide', 'eleições 2026',
+    'deputados votam', 'senadores aprovam',
+  ]},
+];
+
+// Primeira subcategoria válida por categoria (fallback quando categoria é corrigida)
+const SUBCAT_DEFAULT = {
+  vagas:'Oportunidades CLT', concursos:'Concursos Federais',
+  imoveis:'Mercado Imobiliário', saude:'Medicina & Tratamentos',
+  tecnologia:'Inteligência Artificial', esportes:'Futebol',
+  politica:'Governo Federal', economia:'Política Econômica',
+  negocios:'Empresas & Corporações', investimentos:'Bolsa de Valores',
+  seguros:'Seguro de Vida', mercados:'Commodities',
+  educacao:'Ensino Superior', industria:'Agronegócio',
+  familia:'Educação dos Filhos', tributacao:'IRPF',
+  regulacao:'BACEN', parcerias:'Acordos Comerciais',
+  internacional:'Relações Exteriores', variedades:'Comportamento',
+  investigativo:'Corrupção', seguranca:'Segurança Pública',
+  cultura:'Cinema', profissoes:'Medicina',
+  esg:'Sustentabilidade', defesa:'Forças Armadas',
+  religiao:'Evangelicalismo',
+};
+
+function slugify(t) {
+  return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-');
+}
+
+function corrigirCategoria(titulo, categoriaAI) {
+  const t = titulo.toLowerCase();
+  for (const { cat, sinal } of REGRAS_CATEGORIA) {
+    if (sinal.some(s => t.includes(s))) return cat;
+  }
+  return categoriaAI;
+}
+
+// ─── VALIDAÇÃO DE CONTEÚDO ────────────────────────────────────────────────
 function validarConteudo(content) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
-
   if (titulo.length < 15) return false;
   if (titulo.length > 120) return false;
-
-  // Títulos inválidos — IA falhou na geração
   if (/^(prezado|caro|ol[aá]|sem t[ií]tulo|t[ií]tulo:|headline:|assunto:|erro:|teste:|not[ií]cia:|texto:|mat[eé]ria:)/.test(titulo)) return false;
-
-  // Corpo mínimo real — artigo com substância
   if ((content.corpo || '').length < 1000) return false;
-
-  // Sem assinatura OVC
   if (!content.corpo.toLowerCase().includes('redação ovc')) return false;
-
-  // Padrões de falha técnica da IA (não bloqueamos por tema)
   const falhasTecnicas = [
     /jornal da oeste|revista oeste/,
     /programa.{0,20}ao ar.*transmis/,
@@ -60,25 +125,21 @@ function validarConteudo(content) {
   for (const r of falhasTecnicas) {
     if (r.test(titulo) || r.test(corpoInicio)) return false;
   }
-
   return true;
 }
 
 export default async function handler(req, res) {
   const inicio = Date.now();
-
   const body = req.body || {};
   const meta = req.query || {};
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 4);
 
   try {
-    // Checar automação
     if (!body.force && !body.batch) {
       const { data: cfg } = await supabase.from('config').select('value').eq('key','AUTOMATION').single();
       if (!cfg || cfg.value !== 'on') return res.status(200).json({ status: 'automation_paused' });
     }
 
-    // Limite diário
     if (!body.force && !body.batch) {
       const { data: cfgMax } = await supabase.from('config').select('value').eq('key','MAX_POSTS_DIA').single();
       const MAX_DIA = parseInt(cfgMax?.value || '300', 10);
@@ -103,12 +164,10 @@ export default async function handler(req, res) {
       if (artigos.length >= targetCount) break;
 
       const hash = crypto.createHash('md5').update(item.link + '_portal').digest('hex');
-
       const { data: dup } = await supabase.from('posts').select('id').eq('hash', hash).single();
       if (dup) continue;
 
       const article = await scrape(item.link);
-      // Mínimo de texto fonte: 380 chars (suficiente para a IA trabalhar)
       const sourceText = (article.text && article.text.length >= 380) ? article.text : null;
       if (!sourceText) continue;
 
@@ -121,12 +180,21 @@ export default async function handler(req, res) {
 
       if (!validarConteudo(content)) continue;
       if (!content.categoria || content.categoria === 'geral') continue;
-      if (!content.subcategoria) {
-        content.subcategoria = 'Geral';
-        content.subcategoria_slug = 'geral';
+
+      // Corrigir categoria com base em sinais objetivos do título
+      const categoriaCorrigida = corrigirCategoria(content.titulo, content.categoria);
+      if (categoriaCorrigida !== content.categoria) {
+        content.categoria = categoriaCorrigida;
+        content.subcategoria = SUBCAT_DEFAULT[categoriaCorrigida] || 'Geral';
+        content.subcategoria_slug = slugify(content.subcategoria);
       }
 
-      // Imagem: NUNCA usar domínio concorrente
+      if (!content.subcategoria) {
+        content.subcategoria = SUBCAT_DEFAULT[content.categoria] || 'Geral';
+        content.subcategoria_slug = slugify(content.subcategoria);
+      }
+
+      // Imagem: nunca usar domínio concorrente
       let imagemFinal = null;
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
@@ -189,12 +257,8 @@ export default async function handler(req, res) {
   }
 }
 
-// SEO Backfill
+// ─── SEO BACKFILL ─────────────────────────────────────────────────────────
 const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
-
-function slugify(t) {
-  return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-');
-}
 
 async function seoBackfill(limite) {
   if (!OPENAI_KEY) return;
@@ -219,9 +283,9 @@ async function seoBackfill(limite) {
       let novoTitulo = '', focoKeyword = '', slug = '', metaDescricao = '';
       for (const line of raw.split('\n')) {
         const t = line.trim();
-        if (/^TITULO:/i.test(t))             novoTitulo   = t.replace(/^TITULO:/i,'').trim();
-        else if (/^FOCO_KEYWORD:/i.test(t))  focoKeyword  = t.replace(/^FOCO_KEYWORD:/i,'').trim();
-        else if (/^SLUG:/i.test(t))          slug         = slugify(t.replace(/^SLUG:/i,'').trim());
+        if (/^TITULO:/i.test(t))              novoTitulo    = t.replace(/^TITULO:/i,'').trim();
+        else if (/^FOCO_KEYWORD:/i.test(t))   focoKeyword   = t.replace(/^FOCO_KEYWORD:/i,'').trim();
+        else if (/^SLUG:/i.test(t))           slug          = slugify(t.replace(/^SLUG:/i,'').trim());
         else if (/^META_DESCRICAO:/i.test(t)) metaDescricao = t.replace(/^META_DESCRICAO:/i,'').trim();
       }
       if (!slug && novoTitulo) slug = slugify(novoTitulo).split('-').slice(0,5).join('-');
