@@ -57,13 +57,13 @@
   ],
   "rewrites": [
     { "source": "/sitemap.xml",   "destination": "/api/sitemap" },
-    { "source": "/:cat/:slug([a-z0-9][a-z0-9-]+-[a-f0-9]{8})/", "destination": "/api/article?cat=:cat&slug=:slug" },
-    { "source": "/:cat/:slug([a-z0-9][a-z0-9-]+-[a-f0-9]{8})",  "destination": "/api/article?cat=:cat&slug=:slug" },
-    { "source": "/materia",        "destination": "/api/article-ssr" },
-    { "source": "/materia/",       "destination": "/api/article-ssr" },
-    { "source": "/inteligencia",   "destination": "/inteligencia.html" },
-    { "source": "/inteligencia/",  "destination": "/inteligencia.html" },
-    { "source": "/og",             "destination": "/api/portal-posts?format=og" },
-    { "source": "/og/",            "destination": "/api/portal-posts?format=og" }
+    { "source": "/:cat/:slug/",   "destination": "/api/article?cat=:cat&slug=:slug" },
+    { "source": "/:cat/:slug",    "destination": "/api/article?cat=:cat&slug=:slug" },
+    { "source": "/materia",       "destination": "/api/article-ssr" },
+    { "source": "/materia/",      "destination": "/api/article-ssr" },
+    { "source": "/inteligencia",  "destination": "/inteligencia.html" },
+    { "source": "/inteligencia/", "destination": "/inteligencia.html" },
+    { "source": "/og",            "destination": "/api/portal-posts?format=og" },
+    { "source": "/og/",           "destination": "/api/portal-posts?format=og" }
   ]
 }
