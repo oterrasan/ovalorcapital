@@ -18,6 +18,18 @@ const CAT_PATH = {
   colunistas:"vc", geral:"politica"
 };
 
+function slugify(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 55);
+}
+
 const STATIC_PATHS = [
   "/","/busca/","/newsletter/","/radar/","/tv-ovc/","/radio-ovc/",
   "/dados/","/dados/cotacoes/","/dados/agenda-economica/",
@@ -96,7 +108,7 @@ export default async function handler(req, res) {
   try {
     const { data: posts } = await supabase
       .from("posts")
-      .select("id,user_tags,published_at,updated_at")
+      .select("id,titulo,user_tags,published_at,updated_at")
       .eq("status", "publicado")
       .order("published_at", { ascending: false })
       .limit(5000);
@@ -111,8 +123,9 @@ export default async function handler(req, res) {
       const cat = tags[0] || "politica";
       const catPath = CAT_PATH[cat] || "politica";
       const id8 = (p.id || "").slice(0, 8);
+      const sl = slugify(p.titulo || "");
       const lastmod = (p.updated_at || p.published_at || "").slice(0, 10);
-      return `  <url><loc>${BASE}/${catPath}/?id=${id8}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>monthly</changefreq><priority>0.9</priority></url>`;
+      return `  <url><loc>${BASE}/${catPath}/${sl}-${id8}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>monthly</changefreq><priority>0.9</priority></url>`;
     }).join("\n");
 
     return res.status(200).send(
