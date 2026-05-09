@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  // ── CONSTANTES ────────────────────────────────────────────────────
+  // ── CONSTANTES ────────────────────────────────────────────────
   var SLUG_TO_CAT = {
     tributos:'tributacao', tributacao:'tributacao',
     politica:'politica', economia:'economia', negocios:'negocios',
@@ -62,12 +62,20 @@
     try{ return new Date(dt).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'}); }
     catch(_){ return ''; }
   }
+  function slugify(s){
+    return (s||'').toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'')
+      .trim().replace(/\s+/g,'-').slice(0,55);
+  }
   function buildUrl(p){
     var cat = p.categoria||'geral';
-    return '/'+(CAT_PATH[cat]||CAT_PATH[SLUG_TO_CAT[cat]]||'politica')+'/?id='+encodeURIComponent((p.id||'').slice(0,8));
+    var cp = CAT_PATH[cat]||CAT_PATH[SLUG_TO_CAT[cat]]||'politica';
+    var sl = p.slug ? p.slug.slice(0,55) : slugify(p.titulo||'');
+    var id8 = (p.id||'').slice(0,8);
+    return '/'+cp+'/'+sl+'-'+id8+'/';
   }
 
-  // ── RENDER CORPO DO ARTIGO ─────────────────────────────────────────
+  // ── RENDER CORPO DO ARTIGO ───────────────────────────────────────────
   function renderCorpo(texto){
     if(!texto) return '';
     var lines = texto.split('\n'), html = '', htags = [];
@@ -92,7 +100,7 @@
     return html;
   }
 
-  // ── BARRA DE PROGRESSO DE LEITURA ────────────────────────────────
+  // ── BARRA DE PROGRESSO DE LEITURA ──────────────────────────────────
   function injetarProgressBar(acento){
     var bar = document.createElement('div');
     bar.id = 'ovc-progress-bar';
@@ -115,11 +123,10 @@
     return mins + ' min de leitura';
   }
 
-  // ── RENDER BARRA DE COMPARTILHAMENTO ──────────────────────────────
+  // ── RENDER BARRA DE COMPARTILHAMENTO ──────────────────────────────────
   function renderShare(titulo, urlRel){
     var full = 'https://ovalorcapital.com.br'+urlRel;
-    // Extrai ID para URL de compartilhamento com OG meta tags corretos
-    var idMatch = urlRel.match(/[?&]id=([a-f0-9-]+)/i);
+    var idMatch = urlRel.match(/[?&]id=([a-f0-9-]+)/i) || urlRel.match(/-([a-f0-9]{8})\/?$/i);
     var shareUrl = idMatch ? 'https://ovalorcapital.com.br/og?id='+idMatch[1] : full;
     var eu = encodeURIComponent(shareUrl);
     var et = encodeURIComponent((titulo||'O Valor Capital')+' — O Valor Capital');
@@ -135,8 +142,8 @@
         +'<a href="https://twitter.com/intent/tweet?text='+et+'&url='+eu+'" target="_blank" rel="noopener" title="X (Twitter)" style="display:inline-flex;align-items:center;gap:5px;background:#000;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1D54F; X</a>'
         +'<a href="https://pinterest.com/pin/create/button/?url='+eu+'&description='+et+'" target="_blank" rel="noopener" title="Pinterest" style="display:inline-flex;align-items:center;gap:5px;background:#E60023;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x1F4CC; Pinterest</a>'
         +'<a href="mailto:?subject='+et+'&body=Veja+esta+mat%C3%A9ria+do+O+Valor+Capital%3A+'+eu+'" title="E-mail" style="display:inline-flex;align-items:center;gap:5px;background:#64748b;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;">&#x2709;&#xFE0F; E-mail</a>'
-        +'<button onclick="(function(b){var opts={text:\''+linktxt.replace(/'/g,"\\'").replace(/\n/g,' ')+'\',url:\''+copyFull+'\'};if(navigator.share){navigator.share(opts).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(opts.url).then(function(){b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'📋 Instagram / Copiar\';},2200);});}else{var t=document.createElement(\'textarea\');t.value=opts.url;document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'📋 Instagram / Copiar\';},2200);}})(this)" style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;">📸 Instagram</button>'
-        +'<button onclick="(function(b){var u=\''+copyFull+'\';if(navigator.clipboard){navigator.clipboard.writeText(u).then(function(){b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'🔗 Copiar link\';},2200);})}else{var t=document.createElement(\'textarea\');t.value=u;document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'🔗 Copiar link\';},2200);}})(this)" style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#0f172a;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;cursor:pointer;">🔗 Copiar link</button>'
+        +'<button onclick="(function(b){var opts={text:\''+linktxt.replace(/\'/g,"\\'").replace(/\n/g,' ')+"\',url:'"+copyFull+"'};if(navigator.share){navigator.share(opts).catch(function(){});}else if(navigator.clipboard){navigator.clipboard.writeText(opts.url).then(function(){b.textContent='✓ Copiado';setTimeout(function(){b.textContent='📋 Instagram / Copiar';},2200);});}else{var t=document.createElement('textarea');t.value=opts.url;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);b.textContent='✓ Copiado';setTimeout(function(){b.textContent='📋 Instagram / Copiar';},2200);}})" style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;">📸 Instagram</button>'
+        +'<button onclick="(function(b){var u=\''+copyFull+'\';if(navigator.clipboard){navigator.clipboard.writeText(u).then(function(){b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'\ud83d� Copiar link\';},2200);})}else{var t=document.createElement(\'textarea\');t.value=u;document.body.appendChild(t);t.select();document.execCommand(\'copy\');document.body.removeChild(t);b.textContent=\'✓ Copiado\';setTimeout(function(){b.textContent=\'\ud83d� Copiar link\';},2200);}})" style="display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;color:#0f172a;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:1px solid #e2e8f0;cursor:pointer;">🔗 Copiar link</button>'
       +'</div>'
     +'</div>';
   }
@@ -154,9 +161,8 @@
     +'</div>';
   }
 
-  // ── RENDER CARDS ─────────────────────────────────────────────────
+  // ── RENDER CARDS ───────────────────────────────────────────────────
 
-  // Card hero — imagem grande com overlay gradient (destaque principal)
   function renderHeroCard(p){
     var url = buildUrl(p), c = cor(p.categoria);
     var bg = p.imagem
@@ -173,7 +179,6 @@
     +'</a>';
   }
 
-  // Card médio — grid 2 colunas (posts 2 e 3)
   function renderCardMedio(p){
     var url = buildUrl(p), c = cor(p.categoria);
     return '<a href="'+url+'" style="display:block;text-decoration:none;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;">'
@@ -188,7 +193,6 @@
     +'</a>';
   }
 
-  // Card compacto — linha com thumbnail (lista principal)
   function renderCardCompacto(p){
     var url = buildUrl(p), c = cor(p.categoria);
     var img = p.imagem
@@ -204,7 +208,6 @@
     +'</a>';
   }
 
-  // Card rail — mini com thumbnail quadrado (sidebar)
   function renderCardRail(p){
     var url = buildUrl(p), c = cor(p.categoria);
     return '<a href="'+url+'" style="display:flex;gap:10px;align-items:flex-start;text-decoration:none;color:inherit;padding:12px 0;border-top:1px solid #f1f5f9;">'
@@ -229,25 +232,33 @@
   // ── MODO ARTIGO ───────────────────────────────────────────────────
   var params = new URLSearchParams(window.location.search);
   var artId = params.get('id');
+  if(!artId){
+    var _ps=window.location.pathname.replace(/\/$/,'').split('/').pop()||'';
+    var _pm=_ps.match(/-([a-f0-9]{8})$/i);
+    if(_pm) artId=_pm[1];
+  }
 
   if(artId){
     document.addEventListener('DOMContentLoaded', function(){
-      // Ocultar seção hero placeholder
       var sectionHero = document.querySelector('.ovc-section-hero');
       if(sectionHero) sectionHero.style.display = 'none';
 
-      // Garantir rail visível e sticky
       var rail = document.querySelector('.ovc-right-rail');
       if(rail) rail.style.cssText = 'display:flex;flex-direction:column;gap:0;min-width:0;position:sticky;top:16px;';
 
-      fetch('/api/portal-posts?id='+encodeURIComponent(artId)+'&full=true')
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(p){
+      var _pre=window.__OVC_ARTICLE__;
+      var _fp;
+      if(_pre&&_pre.id&&(_pre.id===artId||_pre.id.startsWith(artId))){
+        _fp=Promise.resolve(_pre);
+      }else{
+        _fp=fetch('/api/portal-posts?id='+encodeURIComponent(artId)+'&full=true')
+          .then(function(r){ return r.ok ? r.json() : null; });
+      }
+      _fp.then(function(p){
           if(!p||!p.titulo) return;
 
           document.title = p.titulo+' | O Valor Capital';
 
-          // Open Graph para preview social
           (function(){
             function m(attr,key,val){
               var el=document.querySelector('meta['+attr+'="'+key+'"]');
@@ -266,10 +277,8 @@
           var urlRel = buildUrl(p);
           var catSlug = CAT_PATH[p.categoria]||'politica';
 
-          // Barra de progresso
           injetarProgressBar(c);
 
-          // Contabilizar visualização (fire-and-forget)
           if(p.id && p.id.length >= 36){
             fetch('/api/manage', {
               method:'POST',
@@ -282,38 +291,28 @@
           if(heroEl){
             heroEl.style.cssText = 'display:block;padding:24px 28px 32px;box-sizing:border-box;';
             heroEl.innerHTML =
-              // Breadcrumb
               '<nav style="font-size:12px;color:#94a3b8;margin-bottom:20px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
                 +'<a href="/" style="color:#94a3b8;text-decoration:none;">Início</a><span>›</span>'
                 +'<a href="/'+catSlug+'/" style="color:#94a3b8;text-decoration:none;">'+lbl(p.categoria)+'</a>'
                 +(p.subcategoria?'<span>›</span><span style="color:#64748b;">'+esc(p.subcategoria)+'</span>':'')
               +'</nav>'
-              // Badge + data + tempo de leitura
               +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">'
                 +'<span style="display:inline-block;background:'+c+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(p.categoria)+'</span>'
                 +(p.subcategoria?'<span style="font-size:11px;color:#64748b;font-weight:600;">'+esc(p.subcategoria)+'</span><span style="color:#e2e8f0;">·</span>':'')
                 +'<span style="font-size:13px;color:#64748b;">Redação OVC · '+dataLonga(p.data)+'</span>'
                 +'<span style="font-size:11px;color:#94a3b8;background:#f1f5f9;padding:3px 9px;border-radius:20px;">⏱ '+estimarLeitura(p.corpo||'')+'</span>'
               +'</div>'
-              // Título
               +'<h1 style="font-size:30px;font-weight:900;line-height:1.18;margin:0 0 16px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">'+esc(p.titulo||'')+'</h1>'
-              // Subtítulo
               +(p.subtitulo?'<p style="font-size:18px;color:#475569;margin:0 0 4px;line-height:1.6;font-style:italic;border-left:4px solid '+c+';padding:6px 0 6px 16px;margin-bottom:4px;">'+esc(p.subtitulo)+'</p>':'')
-              // Share
               +renderShare(p.titulo, urlRel)
-              // Imagem
               +(p.imagem?'<div style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:30px;"><img src="'+p.imagem+'" alt="'+esc(p.titulo||'')+'" style="width:100%;max-height:460px;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>':'')
-              // Corpo
               +'<div>'+renderCorpo(p.corpo||'')+'</div>'
-              // CTA
               +renderCTA();
           }
 
-          // Ocultar banner genérico
           var banner = document.querySelector('.ovc-banner-slot');
           if(banner) banner.style.display = 'none';
 
-          // Relacionadas
           fetch('/api/portal-posts?categoria='+encodeURIComponent(p.categoria)+'&limit=24')
             .then(function(r){ return r.json(); })
             .then(function(json){
@@ -321,7 +320,6 @@
                 return r.id!==p.id && r.categoria===p.categoria;
               }).slice(0,12);
 
-              // "Leia também" na lista principal
               var mainWrap = document.querySelector('[data-main-list]') ? document.querySelector('[data-main-list]').closest('.ovc-story-list') : null;
               var mainEl = document.querySelector('[data-main-list]');
               if(mainEl && rel.length){
@@ -333,7 +331,6 @@
                 mainEl.innerHTML = rel.slice(0,5).map(renderCardCompacto).join('');
               }
 
-              // "Mais em [cat]" na lista secundária
               var localWrap = document.querySelector('[data-local-list]') ? document.querySelector('[data-local-list]').closest('.ovc-story-list') : null;
               var localEl = document.querySelector('[data-local-list]');
               if(localEl && rel.length>5){
@@ -345,7 +342,6 @@
                 localEl.innerHTML = rel.slice(5,10).map(renderCardCompacto).join('');
               }
 
-              // Rail direito — relacionadas + mais lidas + youtube
               var railSec = document.querySelector('[data-banner-sidebar]');
               if(railSec){
                 railSec.innerHTML = railTitulo('Mais em '+lbl(p.categoria), c)
@@ -356,12 +352,9 @@
                     +'<p style="font-size:12px;color:#94a3b8;margin:0 0 12px;line-height:1.5;">Tem uma pauta ou denúncia?</p>'
                     +'<a href="/contato/" style="display:block;background:#ffc800;color:#0f172a;padding:8px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:800;text-align:center;">Enviar para a redação</a>'
                   +'</div>'
-                  // Mais Lidas placeholder — preenchido abaixo
                   +'<div id="ovc-mais-lidas-rail" style="margin-top:24px;"></div>'
-                  // OVC TV placeholder — preenchido abaixo
                   +'<div id="ovc-tv-rail" style="margin-top:24px;"></div>';
 
-                // Mais Lidas
                 fetch('/api/portal-posts?sort=popular&limit=6')
                   .then(function(r){ return r.json(); })
                   .then(function(d){
@@ -369,14 +362,10 @@
                     var mlEl = document.getElementById('ovc-mais-lidas-rail');
                     if(mlEl && lidas.length){
                       mlEl.innerHTML = railTitulo('🔥 Mais Lidas', '#e11d48')
-                        + lidas.map(function(x){
-                            var vw = (x.metrics && x.metrics.views) ? x.metrics.views : null;
-                            return renderCardRail(x) + (vw ? '' : '');
-                          }).join('');
+                        + lidas.map(function(x){ return renderCardRail(x); }).join('');
                     }
                   }).catch(function(){});
 
-                // OVC TV — YouTube ao vivo
                 fetch('/api/manage')
                   .then(function(r){ return r.json(); })
                   .then(function(cfg){
@@ -398,7 +387,7 @@
     return;
   }
 
-  // ── MODO CATEGORIA ────────────────────────────────────────────────
+  // ── MODO CATEGORIA ───────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function(){
     var slug = document.body.dataset.category;
     if(!slug) return;
@@ -406,10 +395,8 @@
     var catFiltro = SLUG_TO_CAT[slug]||slug;
     var acento    = cor(catFiltro);
 
-    // Barra de progresso ao rolar pela categoria
     injetarProgressBar(acento);
 
-    // Substituir seção hero estática por cabeçalho real da categoria
     var sectionHero = document.querySelector('.ovc-section-hero');
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
@@ -427,27 +414,22 @@
         +'</div>';
     }
 
-    // Garantir rail visível
     var rail = document.querySelector('.ovc-right-rail');
     if(rail) rail.style.cssText = 'display:flex;flex-direction:column;gap:0;min-width:0;position:sticky;top:16px;';
 
-    // Pré-preencher rail com indicador de carregamento
     var railSec = document.querySelector('[data-banner-sidebar]');
     if(railSec){
       railSec.innerHTML = railTitulo('Últimas em '+lbl(catFiltro), acento)
         +'<p style="font-size:13px;color:#94a3b8;padding:12px 0;">Carregando...</p>';
     }
 
-    // Buscar posts com filtro de categoria no servidor
     fetch('/api/portal-posts?categoria='+encodeURIComponent(catFiltro)+'&limit=60')
       .then(function(r){ return r.json(); })
       .then(function(json){
-        // Regra dura: SOMENTE posts exatamente desta categoria
         var posts = (json.posts||[]).filter(function(p){
           return p.titulo && p.categoria === catFiltro;
         });
 
-        // Popular rail com as primeiras antes de dedup
         if(railSec){
           var railPosts = posts.slice(0,7);
           railSec.innerHTML = railTitulo('Últimas em '+lbl(catFiltro), acento)
@@ -462,7 +444,6 @@
             +'<div id="ovc-mais-lidas-cat" style="margin-top:24px;"></div>'
             +'<div id="ovc-tv-cat" style="margin-top:24px;"></div>';
 
-          // Mais Lidas na categoria
           fetch('/api/portal-posts?sort=popular&limit=6')
             .then(function(r){ return r.json(); })
             .then(function(d){
@@ -473,7 +454,6 @@
               }
             }).catch(function(){});
 
-          // OVC TV ao vivo
           fetch('/api/manage')
             .then(function(r){ return r.json(); })
             .then(function(cfg){
@@ -481,7 +461,7 @@
               if(tvEl && cfg.youtube_live_url){
                 tvEl.innerHTML = '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #e11d48;">📺 OVC TV ao Vivo</div>'
                   +'<div style="border-radius:8px;overflow:hidden;">'
-                  +'<iframe width="100%" height="180" src="'+cfg.youtube_live_url+'" frameborder="0" allow="accelerometer;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe>'
+                  +'<iframe width="100%" height="180" src="'+cfg.youtube_live_url+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe>'
                   +'</div>';
               }
             }).catch(function(){});
@@ -500,7 +480,6 @@
           return;
         }
 
-        // Deduplicar
         var usedIds={}, usedTitulos={}, deduped=[];
         posts.forEach(function(p){
           if(!p.id||!p.titulo) return;
@@ -512,14 +491,12 @@
 
         if(!deduped.length) return;
 
-        // ── HERO (1º post — destaque com imagem full + overlay)
         var heroEl = document.querySelector('[data-hero-card]');
         if(heroEl){
           heroEl.style.cssText = 'display:block;padding:0;border:none;background:transparent;box-shadow:none;margin-bottom:20px;';
           heroEl.innerHTML = renderHeroCard(deduped[0]);
         }
 
-        // ── GRID 2 COLUNAS (posts 2 e 3)
         var mainEl = document.querySelector('[data-main-list]');
         if(mainEl){
           var mainWrap = mainEl.closest('.ovc-story-list');
@@ -534,14 +511,12 @@
               +deduped.slice(1, Math.min(3, deduped.length)).map(renderCardMedio).join('')
               +'</div>';
           }
-          // Lista compacta (posts 4+)
           if(deduped.length>3){
             grid2 += deduped.slice(3, 11).map(renderCardCompacto).join('');
           }
           mainEl.innerHTML = grid2;
         }
 
-        // ── MAIS DA SEÇÃO (posts 12+)
         var localEl = document.querySelector('[data-local-list]');
         if(localEl && deduped.length>11){
           var localWrap = localEl.closest('.ovc-story-list');
@@ -559,14 +534,11 @@
       .catch(function(e){ console.warn('OVC categoria:', e.message); });
   });
 
-  // ── INJEÇÃO DO MENU PROFISSÕES ──────────────────────────────────────
-  // Substitui o link simples /profissoes/ da div "Mais" por um supermenu
-  // completo com todas as profissões tradicionais, em todas as páginas.
+  // ── MENU PROFISSÕES ──────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', function(){
     var nav = document.querySelector('nav.supermenu');
     if (!nav) return;
 
-    // Remove link de profissoes de dentro do submenu "Mais"
     var maisItem = null;
     nav.querySelectorAll('.supermenu-item').forEach(function(item){
       var lbl = item.querySelector('a.label');
@@ -577,7 +549,6 @@
       if (profLink) profLink.remove();
     }
 
-    // Cria o supermenu-item de Profissões completo
     var profItem = document.createElement('div');
     profItem.className = 'supermenu-item';
     profItem.innerHTML =
@@ -616,7 +587,6 @@
         '<a href="/profissoes/servico-social/">Serviço Social</a>' +
       '</div>';
 
-    // Insere antes do item "Mais"
     if (maisItem) {
       nav.insertBefore(profItem, maisItem);
     } else {

@@ -8,6 +8,17 @@
     esportes:"Esportes",cultura:"Cultura",patrimonio:"Patrimônio",
     internacional:"Internacional",geral:"Geral"};
 
+  const CAT_PATH_MAP = {
+    politica:'politica', economia:'economia', negocios:'negocios',
+    investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+    educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
+    esportes:'esportes', saude:'saude', familia:'familia',
+    tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
+    vc:'vc', colunistas:'vc', internacional:'internacional', variedades:'variedades', geral:'politica',
+    investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+  };
+
   function catLabel(c){ return CAT[c]||c||"Geral"; }
 
   function dataBr(dt){
@@ -22,15 +33,21 @@
   }
 
   function buildUrl(p){
-    const s = (p.titulo||"").toLowerCase().normalize("NFD")
-      .replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9\s-]/g,"")
-      .trim().replace(/\s+/g,"-").slice(0,60);
-    return "/materia/?id=" + (p.id||"").slice(0,8);
+    const cp = CAT_PATH_MAP[p.categoria] || 'politica';
+    const sl = (p.titulo||"").toLowerCase().normalize("NFD")
+      .replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9\s-]/g,"")
+      .trim().replace(/\s+/g,"-").slice(0,55);
+    return "/" + cp + "/" + sl + "-" + (p.id||"").slice(0,8) + "/";
   }
 
   async function loadMateria(){
     const params = new URLSearchParams(window.location.search);
-    const id = params.get("id");
+    let id = params.get("id");
+    if(!id){
+      const ps = window.location.pathname.replace(/\/$/,'').split('/').pop()||'';
+      const pm = ps.match(/-([a-f0-9]{8})$/i);
+      if(pm) id = pm[1];
+    }
     const bodyEl = document.getElementById("ovc-art-body");
     if(!id){ if(bodyEl) bodyEl.innerHTML="<p>Matéria não encontrada.</p>"; return; }
 
@@ -40,16 +57,13 @@
       const p = await res.json();
       if(!p || !p.titulo) throw new Error("empty");
 
-      // Atualizar categoria no body para aplicar cor certa
       document.body.setAttribute("data-category", p.categoria||"geral");
 
-      // Preencher campos
       set("ovc-art-cat", catLabel(p.categoria));
       set("ovc-art-titulo", p.titulo);
       set("ovc-art-subtitulo", p.subtitulo||"");
       set("ovc-art-data", "Redação OVC · " + dataBr(p.data));
 
-      // Imagem
       const img = document.getElementById("ovc-art-img");
       const imgWrap = document.getElementById("ovc-art-img-wrap");
       if(img && imgWrap && p.imagem){
@@ -58,19 +72,16 @@
         img.onerror = () => imgWrap.style.display = "none";
       }
 
-      // Corpo — separar em parágrafos
       const corpo = p.corpo || p.resumo || "";
       if(bodyEl){
         bodyEl.innerHTML = corpo.split(/\n\n+/).filter(l=>l.trim())
           .map(l => "<p>" + l.replace(/\n/g,"<br>") + "</p>").join("");
       }
 
-      // Título da página e meta
       document.title = p.titulo + " | O Valor Capital";
       const meta = document.querySelector('meta[name="description"]');
       if(meta) meta.setAttribute("content", p.resumo || p.titulo);
 
-      // Open Graph e Twitter Card — para preview em WhatsApp, redes sociais
       (function setOG(post){
         function upsertMeta(attr, key, val){
           let el = document.querySelector('meta[' + attr + '="' + key + '"]');
@@ -100,12 +111,10 @@
         canonical.href = url;
       })(p);
 
-      // Aplicar cor da categoria
       if(typeof OVC !== "undefined" && OVC.applyCategoryColor){
         OVC.applyCategoryColor(p.categoria||"geral");
       }
 
-      // Carregar mais matérias no rail
       loadMais(p.categoria, p.id);
 
     } catch(e){

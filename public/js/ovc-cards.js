@@ -32,8 +32,6 @@
     { id:'vc',           label:'OVC / Colunistas',path:'/vc/',          cats:['vc','colunistas'] }
   ];
 
-  // Categorias exibidas nos cards de destaque (hero/feature/lions)
-  // O grid inicia no índice 1 para estas, evitando duplicata visual
   var CATS_DESTAQUE = ['politica','economia','negocios','seguros'];
 
   var CORES_CAT = {
@@ -58,6 +56,12 @@
     return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
   }
 
+  function _slugify(s){
+    return (s||'').toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'')
+      .trim().replace(/\s+/g,'-').slice(0,55);
+  }
+
   function buildUrl(p){
     var catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
@@ -69,8 +73,10 @@
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
       concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
     };
-    var cat = catPath[p.categoria] || 'politica';
-    return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
+    var cp = catPath[p.categoria] || 'politica';
+    var sl = p.slug ? p.slug.slice(0,55) : _slugify(p.titulo||'');
+    var id8 = (p.id||'').slice(0,8);
+    return '/' + cp + '/' + sl + '-' + id8 + '/';
   }
 
   var BLOCKED = [
@@ -278,8 +284,6 @@
         comPost.forEach(function(item){
           var el = document.getElementById('ovc-cat-' + item.cat.id);
           if(!el) return;
-          // Categorias dos destaques: inicia no índice 1 para não repetir
-          // o post do hero/feature/lions que ocupa o índice 0 (mais recente)
           var overlap = item.cat.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c) !== -1; });
           var startIdx = (overlap && item.pool.length > 1) ? 1 : 0;
           startRotation(el, item.pool, item.cat.id, startIdx);
