@@ -3,22 +3,29 @@
   "outputDirectory": "public",
   "crons": [
     {
+      "path": "/api/run",
+      "schedule": "*/20 * * * *"
+    },
+    {
       "path": "/api/refresh_token",
       "schedule": "0 3 1 * *"
     }
   ],
   "functions": {
-    "api/run_portal.js":  { "maxDuration": 60 },
-    "api/manage.js":      { "maxDuration": 60 },
-    "api/editor_ia.js":   { "maxDuration": 60 },
-    "api/manual_post.js": { "maxDuration": 60 },
-    "api/portal-posts.js":{ "maxDuration": 15 },
-    "api/ig_publish.js":  { "maxDuration": 60 },
-    "api/fix_images.js":  { "maxDuration": 55 },
-    "api/live-data.js":   { "maxDuration": 15 },
+    "api/run.js":          { "maxDuration": 60 },
+    "api/run_portal.js":   { "maxDuration": 60 },
+    "api/manage.js":       { "maxDuration": 60 },
+    "api/editor_ia.js":    { "maxDuration": 60 },
+    "api/manual_post.js":  { "maxDuration": 60 },
+    "api/auditoria.js":    { "maxDuration": 60 },
+    "api/portal-posts.js": { "maxDuration": 15 },
+    "api/ig_publish.js":   { "maxDuration": 60 },
+    "api/fix_images.js":   { "maxDuration": 55 },
+    "api/live-data.js":    { "maxDuration": 15 },
     "api/refresh_token.js":{ "maxDuration": 30 },
-    "api/article.js":     { "maxDuration": 10 },
-    "api/sitemap.js":     { "maxDuration": 15 }
+    "api/sitemap.js":      { "maxDuration": 15 },
+    "api/article-ssr.js":  { "maxDuration": 10 },
+    "api/article.js":      { "maxDuration": 10 }
   },
   "build": {
     "env": {
@@ -30,29 +37,26 @@
       "source": "/js/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Pragma", "value": "no-cache" }
+        { "key": "Pragma",        "value": "no-cache" }
       ]
     },
     {
       "source": "/admin(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Pragma", "value": "no-cache" }
+        { "key": "Pragma",        "value": "no-cache" }
       ]
     },
     {
       "source": "/",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Pragma", "value": "no-cache" }
+        { "key": "Pragma",        "value": "no-cache" }
       ]
     }
   ],
   "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "/api/sitemap"
-    },
+    { "source": "/sitemap.xml",  "destination": "/api/sitemap" },
     {
       "source": "/:cat/:slug([a-z0-9][a-z0-9-]+-[a-f0-9]{8})/",
       "destination": "/api/article?cat=:cat&slug=:slug"
@@ -61,21 +65,11 @@
       "source": "/:cat/:slug([a-z0-9][a-z0-9-]+-[a-f0-9]{8})",
       "destination": "/api/article?cat=:cat&slug=:slug"
     },
-    {
-      "source": "/inteligencia",
-      "destination": "/inteligencia.html"
-    },
-    {
-      "source": "/inteligencia/",
-      "destination": "/inteligencia.html"
-    },
-    {
-      "source": "/og",
-      "destination": "/api/portal-posts?format=og"
-    },
-    {
-      "source": "/og/",
-      "destination": "/api/portal-posts?format=og"
-    }
+    { "source": "/materia",       "destination": "/api/article-ssr" },
+    { "source": "/materia/",      "destination": "/api/article-ssr" },
+    { "source": "/inteligencia",  "destination": "/inteligencia.html" },
+    { "source": "/inteligencia/", "destination": "/inteligencia.html" },
+    { "source": "/og",            "destination": "/api/portal-posts?format=og" },
+    { "source": "/og/",           "destination": "/api/portal-posts?format=og" }
   ]
 }
