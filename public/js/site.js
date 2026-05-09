@@ -74,10 +74,10 @@ window.OVC = {
   },
   bindSearchChips() {
     const chipMap = {
-      'irpf 2025':          '/tributos/irpf/',
-      'reforma tributária': '/tributos/',
-      'salário & empregos': '/vagas/',
-      'família & patrimônio': '/familia/'
+      'irpf 2025':            '/tributos/irpf/',
+      'reforma tributaria':   '/tributos/',
+      'salario & empregos':   '/vagas/',
+      'familia & patrimonio': '/familia/'
     };
     document.querySelectorAll('.search-chip').forEach(chip => {
       if (chip.tagName === 'A') return;
