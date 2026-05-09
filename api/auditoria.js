@@ -1,97 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// ─── REGRAS DE CATEGORIA (espelho de run_portal.js) ───
-const REGRAS_CATEGORIA = [
-  { cat: 'vagas', sinal: [
-    'vaga para', 'vagas para', 'vaga de ', 'vagas de ',
-    'oferece vaga', 'abre vaga', 'oferece vagas', 'abre vagas',
-    'home office', 'processo seletivo', 'trainee', 'estágio ',
-    'estagio ', 'auxiliar de vendas', 'auxiliar de atendimento',
-    'analista de rh', 'gerente de vendas', 'coordenador de',
-    'candidature-se', 'clique e candidate',
-  ]},
-  { cat: 'concursos', sinal: [
-    'concurso público', 'concurso publico', 'edital do concurso',
-    'inscrições abertas para concurso', 'gabarito oficial',
-    'provas do concurso', 'aprovados no concurso',
-  ]},
-  { cat: 'imoveis', sinal: [
-    'mercado imobiliário', 'financiamento imobiliário',
-    'minha casa minha vida', 'metro quadrado', 'lançamento imobiliário',
-    'incorporadora', 'construção civil avança',
-  ]},
-  { cat: 'saude', sinal: [
-    'anvisa aprova', 'novo medicamento', 'vacina contra',
-    'cirurgia de', 'diagnóstico de', 'tratamento de',
-    'ministério da saúde anuncia', 'plano de saúde aumenta',
-  ]},
-  { cat: 'tecnologia', sinal: [
-    'inteligência artificial', 'ia generativa', 'chatgpt',
-    'machine learning', 'cibersegurança', 'startup lança',
-    'iphone ', 'android ', 'aplicativo lança',
-  ]},
-  { cat: 'esportes', sinal: [
-    'copa do mundo', 'campeonato brasileiro', 'libertadores',
-    'fórmula 1', 'olimpíadas', 'nba ', 'nfl ',
-    'futebol brasileiro', 'brasileirão', 'seleção brasileira',
-  ]},
-  { cat: 'politica', sinal: [
-    'senado aprova', 'câmara aprova', 'lula sanciona',
-    'presidente veta', 'stf decide', 'eleições 2026',
-    'deputados votam', 'senadores aprovam',
-  ]},
-];
-
-const SUBCATS_POR_CAT = {
-  politica:      ["Governo Federal","Congresso Nacional","Eleições","Partidos Políticos","STF & Judiciário","Política Estadual","Câmara dos Deputados","Senado Federal","Poder Executivo"],
-  economia:      ["Política Econômica","Inflação & Preços","Taxa Selic","PIB & Crescimento","Câmbio & Dólar","Fiscal & Orçamento","Emprego & Renda","Banco Central"],
-  negocios:      ["Empresas & Corporações","Fusões & Aquisições","Startups","Empreendedorismo","Grandes Corporações","Setor Privado","Varejo","Agronegócio Empresarial"],
-  investimentos: ["Bolsa de Valores","Renda Fixa","Fundos de Investimento","Tesouro Direto","Criptomoedas","Análise de Mercado","Finanças Pessoais","FIIs"],
-  seguros:       ["Seguro de Vida","Planos de Saúde","Seguro Auto","Previdência Privada","Seguro Residencial","SUSEP & ANS","Seguro Empresarial","Corretoras de Seguros"],
-  mercados:      ["Commodities","Petróleo & Energia","Ouro & Metais","B3 & Ibovespa","Câmbio Internacional","Índices Globais","Agro & Grãos"],
-  educacao:      ["Ensino Superior","ENEM","Educação Básica","Cursos & Certificações","Pós-Graduação","Tecnologia na Educação","Bolsas de Estudo","Ensino Técnico"],
-  industria:     ["Agronegócio","Manufatura","Energia","Infraestrutura","Exportações","Cadeia Produtiva","Mineração","Construção Civil"],
-  tecnologia:    ["Inteligência Artificial","Segurança Digital","E-commerce","Telecomunicações","Inovação","Startups Tech","Blockchain","Computação em Nuvem"],
-  esportes:      ["Futebol","Olimpíadas","Fórmula 1","Tênis","Basquete","Natação","Atletismo","Outros Esportes"],
-  saude:         ["Medicina & Tratamentos","SUS","Saúde Mental","Medicamentos","Bem-estar","Epidemiologia","Pediatria","Nutrição"],
-  familia:       ["Educação dos Filhos","Planejamento Familiar","Herança & Patrimônio","Casamento & Divórcio","Finanças Pessoais","Criação de Filhos"],
-  tributacao:    ["IRPF","Reforma Tributária","ICMS & ISS","Receita Federal","Planejamento Tributário","Impostos Federais","Simples Nacional","CSLL & IRPJ"],
-  regulacao:     ["BACEN","CVM","ANBIMA","SUSEP","ANS","ANATEL","ANEEL","Regulação Setorial"],
-  parcerias:     ["Acordos Comerciais","Joint Ventures","Alianças Estratégicas","Contratos Públicos","PPP"],
-  internacional: ["Relações Exteriores","Geopolítica","Conflitos Globais","América Latina","Estados Unidos","Europa","China & Ásia","Oriente Médio","Diplomacia"],
-  variedades:    ["Comportamento","Lifestyle","Entretenimento","Tendências","Gastronomia","Turismo","Moda"],
-  investigativo: ["Corrupção","Operações Policiais","Denúncias","Jornalismo de Dados","Fiscalização Pública","Lavagem de Dinheiro"],
-  seguranca:     ["Segurança Pública","Crime Organizado","Violência Urbana","Polícia Federal","Narcotráfico","Facções","Homicídios"],
-  cultura:       ["Cinema","Música","Arte","Teatro","Literatura","Patrimônio Cultural","Streaming","Festivais"],
-  profissoes:    ["Medicina","Direito","Engenharia","Contabilidade","TI & Programação","Administração","Arquitetura","Recursos Humanos"],
-  vagas:         ["Oportunidades CLT","Trabalho Remoto","Recrutamento & Seleção","Estágio","Trainee","Mercado de Trabalho"],
-  concursos:     ["Concursos Federais","Concursos Estaduais","Concursos Municipais","Militares & Policiais","Judiciário","Saúde Pública"],
-  imoveis:       ["Mercado Imobiliário","Financiamento Habitacional","Construtoras","Aluguel","Lançamentos","Minha Casa Minha Vida"],
-  esg:           ["Sustentabilidade","Meio Ambiente","Governança Corporativa","Energia Limpa","Impacto Social","Carbono & Emissões"],
-  defesa:        ["Forças Armadas","Segurança Nacional","Política de Defesa","Exército","Marinha","Aeronáutica","Fronteiras"],
-  religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
-};
-
-const SUBCAT_DEFAULT = {
-  vagas:'Oportunidades CLT', concursos:'Concursos Federais',
-  imoveis:'Mercado Imobiliário', saude:'Medicina & Tratamentos',
-  tecnologia:'Inteligência Artificial', esportes:'Futebol',
-  politica:'Governo Federal', economia:'Política Econômica',
-  negocios:'Empresas & Corporações', investimentos:'Bolsa de Valores',
-  seguros:'Seguro de Vida', mercados:'Commodities',
-  educacao:'Ensino Superior', industria:'Agronegócio',
-  familia:'Educação dos Filhos', tributacao:'IRPF',
-  regulacao:'BACEN', parcerias:'Acordos Comerciais',
-  internacional:'Relações Exteriores', variedades:'Comportamento',
-  investigativo:'Corrupção', seguranca:'Segurança Pública',
-  cultura:'Cinema', profissoes:'Medicina',
-  esg:'Sustentabilidade', defesa:'Forças Armadas',
-  religiao:'Evangelicalismo',
-};
-
-const COMPETITOR_HOSTS = new Set([
+const COMPETITOR = new Set([
   'glbimg.com','s2.glbimg.com','s3.glbimg.com','globo.com','g1.globo.com',
   'uol.com.br','folha.uol.com.br','estadao.com.br','r7.com','record.com.br',
   'sbt.com.br','jovempan.com.br','band.com.br','cnnbrasil.com.br',
@@ -101,207 +12,139 @@ const COMPETITOR_HOSTS = new Set([
   'valor.com.br','abril.com.br','seudinheiro.com','canaltech.com.br',
 ]);
 
-function isCompetitorDomain(url) {
-  if (!url || url.length < 10) return false;
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, '');
-    return [...COMPETITOR_HOSTS].some(d => host === d || host.endsWith('.' + d));
-  } catch(_) { return false; }
-}
+const SUBCAT = {
+  politica:['Governo Federal','Congresso Nacional','Eleicoes','Partidos Politicos','STF & Judiciario','Politica Estadual','Camara dos Deputados','Senado Federal','Poder Executivo'],
+  economia:['Politica Economica','Inflacao & Precos','Taxa Selic','PIB & Crescimento','Cambio & Dolar','Fiscal & Orcamento','Emprego & Renda','Banco Central'],
+  negocios:['Empresas & Corporacoes','Fusoes & Aquisicoes','Startups','Empreendedorismo','Grandes Corporacoes','Setor Privado','Varejo','Agronegocio Empresarial'],
+  investimentos:['Bolsa de Valores','Renda Fixa','Fundos de Investimento','Tesouro Direto','Criptomoedas','Analise de Mercado','Financas Pessoais','FIIs'],
+  seguros:['Seguro de Vida','Planos de Saude','Seguro Auto','Previdencia Privada','Seguro Residencial','SUSEP & ANS','Seguro Empresarial','Corretoras de Seguros'],
+  mercados:['Commodities','Petroleo & Energia','Ouro & Metais','B3 & Ibovespa','Cambio Internacional','Indices Globais','Agro & Graos'],
+  educacao:['Ensino Superior','ENEM','Educacao Basica','Cursos & Certificacoes','Pos-Graduacao','Tecnologia na Educacao','Bolsas de Estudo','Ensino Tecnico'],
+  industria:['Agronegocio','Manufatura','Energia','Infraestrutura','Exportacoes','Cadeia Produtiva','Mineracao','Construcao Civil'],
+  tecnologia:['Inteligencia Artificial','Seguranca Digital','E-commerce','Telecomunicacoes','Inovacao','Startups Tech','Blockchain','Computacao em Nuvem'],
+  esportes:['Futebol','Olimpiadas','Formula 1','Tenis','Basquete','Natacao','Atletismo','Outros Esportes'],
+  saude:['Medicina & Tratamentos','SUS','Saude Mental','Medicamentos','Bem-estar','Epidemiologia','Pediatria','Nutricao'],
+  familia:['Educacao dos Filhos','Planejamento Familiar','Heranca & Patrimonio','Casamento & Divorcio','Financas Pessoais','Criacao de Filhos'],
+  tributacao:['IRPF','Reforma Tributaria','ICMS & ISS','Receita Federal','Planejamento Tributario','Impostos Federais','Simples Nacional','CSLL & IRPJ'],
+  regulacao:['BACEN','CVM','ANBIMA','SUSEP','ANS','ANATEL','ANEEL','Regulacao Setorial'],
+  parcerias:['Acordos Comerciais','Joint Ventures','Aliancas Estrategicas','Contratos Publicos','PPP'],
+  internacional:['Relacoes Exteriores','Geopolitica','Conflitos Globais','America Latina','Estados Unidos','Europa','China & Asia','Oriente Medio','Diplomacia'],
+  variedades:['Comportamento','Lifestyle','Entretenimento','Tendencias','Gastronomia','Turismo','Moda'],
+  investigativo:['Corrupcao','Operacoes Policiais','Denuncias','Jornalismo de Dados','Fiscalizacao Publica','Lavagem de Dinheiro'],
+  seguranca:['Seguranca Publica','Crime Organizado','Violencia Urbana','Policia Federal','Narcotrafico','Faccoes','Homicidios'],
+  cultura:['Cinema','Musica','Arte','Teatro','Literatura','Patrimonio Cultural','Streaming','Festivais'],
+  profissoes:['Medicina','Direito','Engenharia','Contabilidade','TI & Programacao','Administracao','Arquitetura','Recursos Humanos'],
+  vagas:['Oportunidades CLT','Trabalho Remoto','Recrutamento & Selecao','Estagio','Trainee','Mercado de Trabalho'],
+  concursos:['Concursos Federais','Concursos Estaduais','Concursos Municipais','Militares & Policiais','Judiciario','Saude Publica'],
+  imoveis:['Mercado Imobiliario','Financiamento Habitacional','Construtoras','Aluguel','Lancamentos','Minha Casa Minha Vida'],
+  esg:['Sustentabilidade','Meio Ambiente','Governanca Corporativa','Energia Limpa','Impacto Social','Carbono & Emissoes'],
+  defesa:['Forcas Armadas','Seguranca Nacional','Politica de Defesa','Exercito','Marinha','Aeronautica','Fronteiras'],
+  religiao:['Evangelicalismo','Catolicismo','Espiritualidade','Igrejas','Fe & Sociedade','Missoes','Religioes Afro-brasileiras'],
+};
+
+const SUBCAT_DEF = {
+  vagas:'Oportunidades CLT',concursos:'Concursos Federais',imoveis:'Mercado Imobiliario',
+  saude:'Medicina & Tratamentos',tecnologia:'Inteligencia Artificial',esportes:'Futebol',
+  politica:'Governo Federal',economia:'Politica Economica',negocios:'Empresas & Corporacoes',
+  investimentos:'Bolsa de Valores',seguros:'Seguro de Vida',mercados:'Commodities',
+  educacao:'Ensino Superior',industria:'Agronegocio',familia:'Educacao dos Filhos',
+  tributacao:'IRPF',regulacao:'BACEN',parcerias:'Acordos Comerciais',
+  internacional:'Relacoes Exteriores',variedades:'Comportamento',investigativo:'Corrupcao',
+  seguranca:'Seguranca Publica',cultura:'Cinema',profissoes:'Medicina',
+  esg:'Sustentabilidade',defesa:'Forcas Armadas',religiao:'Evangelicalismo',
+};
+
+const REGRAS = [
+  {cat:'vagas',   s:['vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga','home office','processo seletivo','trainee','estagio ','auxiliar de vendas','analista de rh','gerente de vendas']},
+  {cat:'concursos',s:['concurso publico','concurso público','edital do concurso','gabarito oficial','inscricoes abertas para concurso']},
+  {cat:'imoveis', s:['mercado imobiliário','financiamento imobiliário','minha casa minha vida','metro quadrado','lancamento imobiliario']},
+  {cat:'saude',   s:['anvisa aprova','novo medicamento','vacina contra','ministerio da saude anuncia']},
+  {cat:'tecnologia',s:['inteligencia artificial','inteligência artificial','ia generativa','chatgpt','machine learning','ciberseguranca']},
+  {cat:'esportes',s:['copa do mundo','campeonato brasileiro','libertadores','formula 1','olimpiadas','brasileirao','selecao brasileira']},
+  {cat:'politica',s:['senado aprova','camara aprova','lula sanciona','presidente veta','stf decide','eleicoes 2026']},
+];
 
 function slugify(t) {
-  return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-');
+  return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 -]/g,'').trim().replace(/ +/g,'-');
 }
 
-function corrigirCategoria(titulo, categoriaAtual) {
+function isConcorrente(url) {
+  if (!url) return false;
+  try { const h = new URL(url).hostname.replace(/^www\./,''); return [...COMPETITOR].some(d=>h===d||h.endsWith('.'+d)); } catch(_){return false;}
+}
+
+function corrigirCat(titulo, catAtual) {
   const t = (titulo||'').toLowerCase();
-  for (const { cat, sinal } of REGRAS_CATEGORIA) {
-    if (sinal.some(s => t.includes(s))) return cat;
-  }
-  return categoriaAtual;
-}
-
-function subcategoriaValida(subcat, categoria) {
-  const lista = SUBCATS_POR_CAT[categoria];
-  if (!lista || lista.length === 0) return true;
-  return lista.includes(subcat);
+  for (const {cat,s} of REGRAS) { if (s.some(x=>t.includes(x))) return cat; }
+  return catAtual;
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-
   const executar = req.query.executar === '1';
-  const pagina   = parseInt(req.query.pagina || '0', 10);
-  const limite   = 300;
-  const offset   = pagina * limite;
 
-  // Buscar posts publicados e pendentes
-  const { data: posts, error: fetchErr } = await supabase
-    .from('posts')
-    .select('id, titulo, user_tags, subcategoria, subcategoria_slug, imagem, status')
-    .in('status', ['publicado', 'pendente'])
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limite - 1);
+  const {data:posts, error} = await sb.from('posts')
+    .select('id,titulo,user_tags,subcategoria,imagem,status')
+    .in('status',['publicado','pendente'])
+    .order('created_at',{ascending:false})
+    .limit(500);
 
-  if (fetchErr) {
-    return res.status(500).send(`<pre>Erro ao buscar posts: ${fetchErr.message}</pre>`);
-  }
+  if (error) return res.status(500).send('Erro: '+error.message);
 
-  const totalBuscados = (posts || []).length;
-  const problemas = [];
-  let corrigidos = 0;
-  let erros = 0;
+  const problemas=[], fixes=[];
+  let corrigidos=0, erros=0;
 
-  for (const post of posts || []) {
-    let tagsRaw;
-    try { tagsRaw = typeof post.user_tags === 'string' ? JSON.parse(post.user_tags) : (post.user_tags || []); }
-    catch(_) { tagsRaw = []; }
-    const categoriaAtual = (tagsRaw[0] || 'geral').toLowerCase().trim();
-
-    const categoriaCorrigida = corrigirCategoria(post.titulo, categoriaAtual);
-    const catFinal = categoriaCorrigida;
-
-    const subcatAtual = post.subcategoria || '';
-    const subcatOk = subcategoriaValida(subcatAtual, catFinal);
-    const subcatCorrigida = subcatOk ? subcatAtual : (SUBCAT_DEFAULT[catFinal] || 'Geral');
-
-    const imgConcorrente = isCompetitorDomain(post.imagem);
-
-    const temProblema = (
-      categoriaCorrigida !== categoriaAtual ||
-      !subcatOk ||
-      imgConcorrente
-    );
-
-    if (!temProblema) continue;
-
-    const problema = {
-      id: post.id,
-      status: post.status,
-      titulo: (post.titulo || '').slice(0, 80),
-      categoria_antes: categoriaAtual,
-      categoria_depois: categoriaCorrigida !== categoriaAtual ? categoriaCorrigida : null,
-      subcat_antes: subcatAtual,
-      subcat_depois: !subcatOk ? subcatCorrigida : null,
-      img_concorrente: imgConcorrente ? post.imagem : null,
-    };
-    problemas.push(problema);
-
+  for (const p of posts||[]) {
+    let tags; try{tags=typeof p.user_tags==='string'?JSON.parse(p.user_tags):(p.user_tags||[]);}catch(_){tags=[];}
+    const catAtu = (tags[0]||'geral').toLowerCase().trim();
+    const catNew = corrigirCat(p.titulo, catAtu);
+    const subcAtu = p.subcategoria||'';
+    const subcLista = SUBCAT[catNew]||[];
+    const subcOk = subcLista.length===0 || subcLista.some(s=>s===subcAtu||s.toLowerCase()===subcAtu.toLowerCase());
+    const subcNew = subcOk ? subcAtu : (SUBCAT_DEF[catNew]||'Geral');
+    const imgConc = isConcorrente(p.imagem);
+    const temProb = catNew!==catAtu || !subcOk || imgConc;
+    if (!temProb) continue;
+    problemas.push({id:p.id,status:p.status,titulo:(p.titulo||'').slice(0,70),catAtu,catNew:catNew!==catAtu?catNew:null,subcAtu,subcNew:!subcOk?subcNew:null,imgConc});
     if (executar) {
-      const updates = {};
-      if (categoriaCorrigida !== categoriaAtual) {
-        updates.user_tags = JSON.stringify([catFinal]);
-      }
-      if (!subcatOk || categoriaCorrigida !== categoriaAtual) {
-        updates.subcategoria = subcatCorrigida;
-        updates.subcategoria_slug = slugify(subcatCorrigida);
-      }
-      // Imagem de concorrente: marca para troca mas nao apaga
-      if (imgConcorrente) {
-        updates.metrics = { imagem_concorrente: true, imagem_original: post.imagem };
-        updates.imagem = null;
-      }
-      if (Object.keys(updates).length > 0) {
-        const { error: updErr } = await supabase.from('posts').update(updates).eq('id', post.id);
-        if (updErr) erros++; else corrigidos++;
-      }
+      const u={};
+      if (catNew!==catAtu) u.user_tags=JSON.stringify([catNew]);
+      if (!subcOk||catNew!==catAtu) { u.subcategoria=subcNew; u.subcategoria_slug=slugify(subcNew); }
+      if (imgConc) u.imagem=null;
+      if (Object.keys(u).length) { const {error:e}=await sb.from('posts').update(u).eq('id',p.id); if(e)erros++;else corrigidos++; }
     }
   }
 
-  // ─── HTML REPORT ───
-  const css = `
-    body{font-family:system-ui,sans-serif;background:#08080f;color:#e0e0e0;margin:0;padding:24px}
-    h1{color:#fff;margin-bottom:4px}h2{color:#bbb;font-size:14px;font-weight:400;margin:0 0 24px}
-    .summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:32px}
-    .card{background:#111;border:1px solid #222;border-radius:10px;padding:16px 20px;min-width:140px}
-    .card-n{font-size:32px;font-weight:700}.card-n.red{color:#f87171}.card-n.green{color:#4ade80}.card-n.yellow{color:#fbbf24}
-    .card-l{font-size:11px;color:#888;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th{background:#111;padding:10px 12px;text-align:left;font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #222}
-    td{padding:10px 12px;border-bottom:1px solid #1a1a1a;vertical-align:top;max-width:300px;word-break:break-word}
-    tr:hover td{background:#111}
-    .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
-    .pub{background:rgba(74,222,128,.15);color:#4ade80}.pend{background:rgba(251,191,36,.15);color:#fbbf24}
-    .tag-old{background:rgba(248,113,113,.15);color:#f87171;text-decoration:line-through}
-    .tag-new{background:rgba(74,222,128,.15);color:#4ade80}
-    .tag-warn{background:rgba(251,191,36,.15);color:#fbbf24}
-    .btn{display:inline-block;padding:12px 24px;background:#c81e1e;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:24px}
-    .btn:hover{background:#e02222}.btn-ok{background:#16a34a}.btn-ok:hover{background:#15803d}
-    .ok{color:#4ade80;font-weight:600}.none{color:#555;font-style:italic}
-  `;
+  const total=posts?.length||0;
+  const catErr=problemas.filter(p=>p.catNew).length;
+  const subErr=problemas.filter(p=>p.subcNew).length;
+  const imgErr=problemas.filter(p=>p.imgConc).length;
 
-  if (problemas.length === 0) {
-    return res.status(200).send(`<!DOCTYPE html><html><head><meta charset=UTF-8><style>${css}</style></head><body>
-      <h1>Auditoria OVC</h1><h2>Varredura de posts publicados e pendentes</h2>
-      <div class="summary">
-        <div class="card"><div class="card-n green">${totalBuscados}</div><div class="card-l">Posts verificados</div></div>
-        <div class="card"><div class="card-n green">0</div><div class="card-l">Problemas encontrados</div></div>
-      </div>
-      <p class="ok">✓ Tudo limpo! Nenhum problema encontrado nos ${totalBuscados} posts verificados.</p>
-    </body></html>`);
-  }
+  const rows=problemas.map(p=>`<tr>
+    <td><b>${p.status}</b></td>
+    <td>${p.titulo}</td>
+    <td>${p.catNew?`<s style=color:red>${p.catAtu}</s> => <b style=color:lime>${p.catNew}</b>`:p.catAtu}</td>
+    <td>${p.subcNew?`<s style=color:red>${p.subcAtu||'?'}</s> => <b style=color:lime>${p.subcNew}</b>`:p.subcAtu}</td>
+    <td>${p.imgConc?'<b style=color:orange>CONCORRENTE</b>':'ok'}</td>
+  </tr>`).join('');
 
-  const catErradas   = problemas.filter(p => p.categoria_depois).length;
-  const subcatErradas = problemas.filter(p => p.subcat_depois).length;
-  const imgConc      = problemas.filter(p => p.img_concorrente).length;
+  const btn = executar
+    ? `<p style=color:lime;font-size:18px>CORRECAO EXECUTADA: ${corrigidos} corrigidos, ${erros} erros.</p><a href=/api/auditoria style="background:#16a34a;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none">Ver relatorio</a>`
+    : `<a href="/api/auditoria?executar=1" style="background:#c81e1e;color:#fff;padding:12px 24px;border-radius:6px;font-size:16px;text-decoration:none;display:inline-block;margin:16px 0">CORRIGIR TUDO AGORA (${problemas.length} posts com problema)</a>`;
 
-  const linhas = problemas.map(p => {
-    const statusBadge = p.status === 'publicado'
-      ? '<span class="badge pub">publicado</span>'
-      : '<span class="badge pend">pendente</span>';
-
-    const catCell = p.categoria_depois
-      ? `<span class="badge tag-old">${p.categoria_antes}</span> → <span class="badge tag-new">${p.categoria_depois}</span>`
-      : `<span style="color:#888">${p.categoria_antes}</span>`;
-
-    const subcatCell = p.subcat_depois
-      ? `<span class="badge tag-old">${p.subcat_antes||'(vazio)'}</span> → <span class="badge tag-new">${p.subcat_depois}</span>`
-      : `<span style="color:#888">${p.subcat_antes||'<em>ok</em>'}</span>`;
-
-    const imgCell = p.img_concorrente
-      ? `<span class="badge tag-warn">⚠ concorrente</span>`
-      : '<span class="none">ok</span>';
-
-    return `<tr>
-      <td>${statusBadge}</td>
-      <td>${p.titulo}</td>
-      <td>${catCell}</td>
-      <td>${subcatCell}</td>
-      <td>${imgCell}</td>
-    </tr>`;
-  }).join('');
-
-  const acaoBtn = executar
-    ? `<a class="btn btn-ok" href="/api/auditoria">Ver relatório limpo</a>`
-    : `<a class="btn" href="/api/auditoria?executar=1">▶ Executar correções (${problemas.length} posts)</a>`;
-
-  const resumoExec = executar
-    ? `<p style="margin:16px 0;color:#4ade80;font-size:15px">✓ Correção concluída: <strong>${corrigidos}</strong> corrigidos${erros > 0 ? `, <span style="color:#f87171">${erros} erros</span>` : ''}.</p>`
-    : '';
-
-  const html = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><title>Auditoria OVC</title><style>${css}</style></head>
-<body>
-  <h1>Auditoria OVC</h1>
-  <h2>Posts publicados e pendentes &mdash; página ${pagina + 1} (${offset + 1}–${offset + totalBuscados})</h2>
-  <div class="summary">
-    <div class="card"><div class="card-n">${totalBuscados}</div><div class="card-l">Posts verificados</div></div>
-    <div class="card"><div class="card-n red">${problemas.length}</div><div class="card-l">Com problemas</div></div>
-    <div class="card"><div class="card-n yellow">${catErradas}</div><div class="card-l">Categoria errada</div></div>
-    <div class="card"><div class="card-n yellow">${subcatErradas}</div><div class="card-l">Subcategoria inválida</div></div>
-    <div class="card"><div class="card-n red">${imgConc}</div><div class="card-l">Imagem concorrente</div></div>
-  </div>
-  ${resumoExec}
-  ${acaoBtn}
-  ${pagina > 0 ? `<a class="btn btn-ok" href="/api/auditoria?pagina=${pagina-1}" style="margin-left:8px">← Pág anterior</a>` : ''}
-  <a class="btn btn-ok" href="/api/auditoria?pagina=${pagina+1}" style="margin-left:8px">Próx página →</a>
-  <table style="margin-top:24px">
-    <thead><tr><th>Status</th><th>Título</th><th>Categoria</th><th>Subcategoria</th><th>Imagem</th></tr></thead>
-    <tbody>${linhas}</tbody>
-  </table>
-</body>
-</html>`;
-
-  return res.status(200).send(html);
+  res.setHeader('Content-Type','text/html;charset=utf-8');
+  res.status(200).send(`<!DOCTYPE html><html><head><meta charset=UTF-8><title>Auditoria OVC</title>
+<style>body{background:#0a0a0a;color:#e0e0e0;font-family:system-ui;padding:24px}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}th,td{padding:8px 12px;border-bottom:1px solid #222;text-align:left}th{background:#111;color:#888}tr:hover td{background:#111}.stats{display:flex;gap:12px;margin-bottom:16px}.stat{background:#111;border:1px solid #222;border-radius:8px;padding:12px 16px}.stat-n{font-size:28px;font-weight:700}.red{color:#f87171}.yellow{color:#fbbf24}.green{color:#4ade80}</style>
+</head><body>
+<h1 style=margin-bottom:4px>Auditoria OVC</h1>
+<p style=color:#888;margin-top:0>Posts publicados e pendentes &mdash; ${total} verificados</p>
+<div class=stats>
+  <div class=stat><div class="stat-n ${problemas.length?'red':'green'}">${problemas.length}</div><div>Com problema</div></div>
+  <div class=stat><div class="stat-n yellow">${catErr}</div><div>Categoria errada</div></div>
+  <div class=stat><div class="stat-n yellow">${subErr}</div><div>Subcategoria invalida</div></div>
+  <div class=stat><div class="stat-n red">${imgErr}</div><div>Imagem concorrente</div></div>
+  <div class=stat><div class="stat-n green">${total-problemas.length}</div><div>Corretos</div></div>
+</div>
+${btn}
+${problemas.length?`<table><thead><tr><th>Status</th><th>Titulo</th><th>Categoria</th><th>Subcategoria</th><th>Imagem</th></tr></thead><tbody>${rows}</tbody></table>`:"<p style=color:lime>Tudo limpo!</p>"}
+</body></html>`);
 }
