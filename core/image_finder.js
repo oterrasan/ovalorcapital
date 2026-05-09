@@ -6,7 +6,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const PIXABAY_KEY = process.env.PIXABAY_KEY || "47979250-ae3f5a24b1e3f7e2fce76eab5";
 const PEXELS_KEY  = process.env.PEXELS_KEY  || "";
 
-// ─── POOL DE FALLBACK (usado SOMENTE se todas as APIs falharem) ───────────────
+// ─── POOL DE FALLBACK (usado SOMENTE se todas as APIs falharem ou timeout) ───
 const POOLS = {
   politica:      ["https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800","https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800"],
   economia:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800"],
@@ -27,7 +27,7 @@ const POOLS = {
   parcerias:     ["https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800","https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800"],
 };
 
-// ─── FILTROS ─────────────────────────────────────────────────────────────────────────────
+// ─── FILTROS ─────────────────────────────────────────────────────────────────
 const BLOQUEIO_PATTERNS = [
   '/autor/', '/autora/', '/reporter/', '/jornalista/',
   '/colunista/', '/editor/', '/author/', '/byline/', '/perfil/',
@@ -36,7 +36,6 @@ const BLOQUEIO_PATTERNS = [
   'logo', 'icon', 'favicon', 'banner', 'marca',
 ];
 
-// Domínios de concorrentes — nunca usar como imagem
 const COMPETITOR_HOSTS = new Set([
   'glbimg.com','globo.com','g1.globo.com','ge.globo.com','valor.com.br',
   'uol.com.br','folha.uol.com.br','estadao.com.br','r7.com','record.com.br',
@@ -59,13 +58,10 @@ function isImagemBloqueada(url) {
   return false;
 }
 
-// ─── EXTRAÇÃO DE ENTIDADES DO TÍTULO ─────────────────────────────────────────────
-// Extrai nomes próprios, empresas, órgãos, instituições do título.
-// Ordem: entidades conhecidas > sequências de maiúsculas > palavras longas.
+// ─── EXTRAÇÃO DE ENTIDADES DO TÍTULO ─────────────────────────────────────────
 function extrairEntidades(titulo) {
   if (!titulo) return [];
 
-  // Mapeamento de apelidos/siglas para nome de busca no Wikipedia
   const ALIASES = {
     'lula': 'Luiz Inácio Lula da Silva',
     'bolsonaro': 'Jair Bolsonaro',
@@ -128,7 +124,6 @@ function extrairEntidades(titulo) {
   const tLower = titulo.toLowerCase();
   const encontrados = [];
 
-  // 1. Verificar aliases conhecidos (mais confiáveis)
   for (const [alias, nome] of Object.entries(ALIASES)) {
     if (tLower.includes(alias)) {
       encontrados.push(nome);
@@ -138,14 +133,12 @@ function extrairEntidades(titulo) {
 
   if (encontrados.length >= 2) return encontrados.slice(0, 2);
 
-  // 2. Extrair sequências de palavras com maiúscula (nomes próprios)
   const seqMaiusculas = titulo.match(/[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+){1,3}/g) || [];
   for (const seq of seqMaiusculas) {
     if (seq.split(' ').length >= 2) encontrados.push(seq);
     if (encontrados.length >= 2) break;
   }
 
-  // 3. Siglas em maiúsculo (3-6 letras)
   const siglas = titulo.match(/\b[A-Z]{3,6}\b/g) || [];
   for (const sigla of siglas) {
     const mapped = ALIASES[sigla.toLowerCase()];
@@ -158,31 +151,22 @@ function extrairEntidades(titulo) {
   return [...new Set(encontrados)].slice(0, 2);
 }
 
-// ─── FONTE 1: WIKIPEDIA (melhor para pessoas, empresas, instituições) ────────────
+// ─── FONTE 1: WIKIPEDIA ──────────────────────────────────────────────────────
 async function buscarWikipedia(entityName, imagensUsadas) {
-  // Tenta primeiro pt.wikipedia, depois en.wikipedia
   for (const lang of ['pt', 'en']) {
     try {
       const encoded = encodeURIComponent(entityName);
       const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
       const res = await fetch(url, {
         headers: { 'User-Agent': 'OVCPortal/1.0 (ovalorcapital.com.br)' },
-        signal: AbortSignal.timeout(5000)
+        signal: AbortSignal.timeout(3000)
       });
       if (!res.ok) continue;
       const data = await res.json();
-
-      // Prefer originalimage (maior resolução), depois thumbnail
-      const imgOriginal = data?.originalimage?.source;
-      const imgThumb   = data?.thumbnail?.source;
-      const img = imgOriginal || imgThumb;
-
+      const img = data?.originalimage?.source || data?.thumbnail?.source;
       if (!img) continue;
-      // Rejeitar logos, ícones e imagens muito pequenas
       if (isImagemBloqueada(img)) continue;
-      // Garantir formato válido
       if (!/\.(jpg|jpeg|png|webp)/i.test(img) && !img.includes('upload.wikimedia')) continue;
-      // Tentar ampliar resolução do thumbnail
       const imgGrande = img.replace(/\/\d+px-/, '/1000px-');
       if (!imagensUsadas.has(imgGrande)) return imgGrande;
       if (!imagensUsadas.has(img)) return img;
@@ -191,37 +175,40 @@ async function buscarWikipedia(entityName, imagensUsadas) {
   return null;
 }
 
-// ─── FONTE 2: WIKIMEDIA COMMONS (busca por termo) ──────────────────────────
+// ─── FONTE 2: WIKIMEDIA COMMONS — UMA ÚNICA CHAMADA com generator ────────────
+// Antes: 1 chamada de busca + até 15 chamadas individuais de info = até 90s
+// Agora: 1 chamada só com generator+prop=imageinfo = max ~6s
 async function buscarWikimedia(query, imagensUsadas) {
   try {
     const q = encodeURIComponent(query);
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${q}&srnamespace=6&srlimit=15&format=json&origin=*`;
+    const url = [
+      'https://commons.wikimedia.org/w/api.php',
+      '?action=query',
+      '&generator=search',
+      `&gsrsearch=${q}`,
+      '&gsrnamespace=6',
+      '&gsrlimit=8',
+      '&prop=imageinfo',
+      '&iiprop=url|size',
+      '&format=json',
+      '&origin=*'
+    ].join('');
     const res = await fetch(url, {
       headers: { 'User-Agent': 'OVCPortal/1.0 (ovalorcapital.com.br)' },
       signal: AbortSignal.timeout(6000)
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const results = data?.query?.search || [];
+    const pages = Object.values(data?.query?.pages || {});
 
-    for (const result of results) {
-      // Pular logos, ícones, mapas, bandeiras
-      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema/i.test(result.title)) continue;
-
-      const infoRes = await fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&titles=${encodeURIComponent(result.title)}&prop=imageinfo&iiprop=url|size&format=json&origin=*`,
-        { headers: { 'User-Agent': 'OVCPortal/1.0' }, signal: AbortSignal.timeout(5000) }
-      );
-      if (!infoRes.ok) continue;
-      const info = await infoRes.json();
-      const pages = Object.values(info?.query?.pages || {});
-      const imgInfo = pages[0]?.imageinfo?.[0];
+    for (const page of pages) {
+      const title = page.title || '';
+      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema/i.test(title)) continue;
+      const imgInfo = page?.imageinfo?.[0];
       const img = imgInfo?.url;
-
       if (!img) continue;
       if (isImagemBloqueada(img)) continue;
       if (!/\.(jpg|jpeg|png)/i.test(img)) continue;
-      // Exigir imagem com largura mínima de 400px
       if (imgInfo?.width && imgInfo.width < 400) continue;
       if (!imagensUsadas.has(img)) return img;
     }
@@ -229,7 +216,7 @@ async function buscarWikimedia(query, imagensUsadas) {
   return null;
 }
 
-// ─── FONTE 3: PIXABAY ──────────────────────────────────────────────────────────────
+// ─── FONTE 3: PIXABAY ────────────────────────────────────────────────────────
 async function buscarPixabay(query, imagensUsadas) {
   if (!PIXABAY_KEY) return null;
   try {
@@ -246,7 +233,7 @@ async function buscarPixabay(query, imagensUsadas) {
   return null;
 }
 
-// ─── FONTE 4: PEXELS ─────────────────────────────────────────────────────────────────
+// ─── FONTE 4: PEXELS ─────────────────────────────────────────────────────────
 async function buscarPexels(query, imagensUsadas) {
   if (!PEXELS_KEY) return null;
   try {
@@ -266,7 +253,7 @@ async function buscarPexels(query, imagensUsadas) {
   return null;
 }
 
-// ─── TERMOS DE BUSCA EM INGLÊS (para Pixabay/Pexels) ────────────────────────
+// ─── TERMOS DE BUSCA EM INGLÊS ────────────────────────────────────────────────
 function topicosEmIngles(titulo, categoria) {
   const mapa = {
     'economia': 'economy finance brazil',
@@ -308,7 +295,6 @@ function topicosEmIngles(titulo, categoria) {
   for (const [termo, en] of Object.entries(mapa)) {
     if (t.includes(termo)) return en;
   }
-  // Fallback por categoria
   const catMap = {
     politica:'politics brazil',economia:'economy finance',negocios:'business meeting',
     investimentos:'investment finance chart',seguros:'insurance contract',
@@ -327,7 +313,7 @@ function topicosEmIngles(titulo, categoria) {
   return catMap[categoria] || 'brazil news';
 }
 
-// ─── BUSCAR IMAGENS JÁ USADAS (evitar repetição) ────────────────────────────
+// ─── IMAGENS JÁ USADAS ────────────────────────────────────────────────────────
 async function getImagensUsadas() {
   try {
     const { data } = await supabase
@@ -342,13 +328,13 @@ async function getImagensUsadas() {
   }
 }
 
-// ─── EXPORTAÇÃO PRINCIPAL ──────────────────────────────────────────────────────────────
-export async function findImage(titulo, categoria, _urlProibida = '', _urlOriginal = '') {
+// ─── BUSCA INTERNA (sem timeout) ─────────────────────────────────────────────
+async function _buscarImagem(titulo, categoria) {
   const imagensUsadas = await getImagensUsadas();
 
-  // === ETAPA 1: Wikipedia por entidade ===
-  // Extrai pessoas, empresas e órgãos do título e busca a foto real deles.
   const entidades = extrairEntidades(titulo);
+
+  // Wikipedia por entidade
   for (const entidade of entidades) {
     try {
       const img = await buscarWikipedia(entidade, imagensUsadas);
@@ -356,7 +342,7 @@ export async function findImage(titulo, categoria, _urlProibida = '', _urlOrigin
     } catch(_) {}
   }
 
-  // === ETAPA 2: Wikimedia Commons por entidade ===
+  // Wikimedia Commons por entidade
   for (const entidade of entidades) {
     try {
       const img = await buscarWikimedia(entidade, imagensUsadas);
@@ -364,27 +350,40 @@ export async function findImage(titulo, categoria, _urlProibida = '', _urlOrigin
     } catch(_) {}
   }
 
-  // === ETAPA 3: Wikimedia Commons por tema do artigo ===
+  // Wikimedia Commons por tema
   try {
     const img = await buscarWikimedia(titulo, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // === ETAPA 4: Pixabay por tema (inglês) ===
+  // Pixabay
   const termoEn = topicosEmIngles(titulo, categoria);
   try {
     const img = await buscarPixabay(termoEn, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // === ETAPA 5: Pexels por tema ===
+  // Pexels
   try {
     const img = await buscarPexels(termoEn, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // === ETAPA 6: Pool estático por categoria (last resort) ===
+  return null;
+}
+
+// ─── EXPORTAÇÃO PRINCIPAL — com timeout de 10s ────────────────────────────────
+export async function findImage(titulo, categoria, _urlProibida = '', _urlOriginal = '') {
   const pool = POOLS[categoria] || POOLS['economia'];
-  const candidatas = pool.filter(u => !imagensUsadas.has(u));
-  return candidatas[0] || pool[0];
+  const fallback = pool[Math.floor(Math.random() * pool.length)];
+
+  try {
+    const resultado = await Promise.race([
+      _buscarImagem(titulo, categoria),
+      new Promise(resolve => setTimeout(() => resolve(null), 10000))
+    ]);
+    return resultado || fallback;
+  } catch(_) {
+    return fallback;
+  }
 }
