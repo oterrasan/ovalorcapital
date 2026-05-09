@@ -8,15 +8,17 @@
     }
   ],
   "functions": {
-    "api/run_portal.js": { "maxDuration": 60 },
-    "api/manage.js":     { "maxDuration": 60 },
-    "api/editor_ia.js":  { "maxDuration": 60 },
-    "api/manual_post.js":{ "maxDuration": 60 },
+    "api/run_portal.js":  { "maxDuration": 60 },
+    "api/manage.js":      { "maxDuration": 60 },
+    "api/editor_ia.js":   { "maxDuration": 60 },
+    "api/manual_post.js": { "maxDuration": 60 },
     "api/portal-posts.js":{ "maxDuration": 15 },
-    "api/ig_publish.js": { "maxDuration": 60 },
-    "api/fix_images.js": { "maxDuration": 55 },
-    "api/live-data.js":  { "maxDuration": 15 },
-    "api/refresh_token.js":{ "maxDuration": 30 }
+    "api/ig_publish.js":  { "maxDuration": 60 },
+    "api/fix_images.js":  { "maxDuration": 55 },
+    "api/live-data.js":   { "maxDuration": 15 },
+    "api/refresh_token.js":{ "maxDuration": 30 },
+    "api/article.js":     { "maxDuration": 10 },
+    "api/sitemap.js":     { "maxDuration": 15 }
   },
   "build": {
     "env": {
@@ -47,6 +49,18 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/:cat/:slug([a-z0-9][a-z0-9-]+-[a-f0-9]{8})/",
+      "destination": "/api/article?cat=:cat&slug=:slug"
+    },
+    {
+      "source": "/:cat/:slug([a-z0-9][a-z0-9-]+-[a-f0-9]{8})",
+      "destination": "/api/article?cat=:cat&slug=:slug"
+    },
     {
       "source": "/inteligencia",
       "destination": "/inteligencia.html"

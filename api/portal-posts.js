@@ -122,7 +122,6 @@ export default async function handler(req, res) {
           .limit(40)
       ]);
 
-      // Dedup por ID — titulo results primeiro (mais relevante)
       const seenId = new Set();
       const combined = [];
       for (const p of [...(byTitulo || []), ...(byConteudo || [])]) {
@@ -151,14 +150,12 @@ export default async function handler(req, res) {
       .range(Number(page) * Number(limit), (Number(page) + 1) * Number(limit) - 1);
 
     if (categoria && categoria !== "all") {
-      // Filtro exato: match do slug entre aspas no JSON da coluna user_tags
       q = q.like("user_tags", `%"${categoria}"%`);
     }
 
     const { data, count, error } = await q;
     if (error) throw error;
 
-    // Dedup no servidor: por ID e por título normalizado
     const seenId = new Set();
     const seenTitulo = new Set();
     const postsRaw = (data || []).filter(p => {
@@ -171,11 +168,9 @@ export default async function handler(req, res) {
       return true;
     });
 
-    // Bloquear imagens de logo, avatar ou marca
     const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
     function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
 
-    // REGRA INVIOLÁVEL: apenas categorias válidas saem pela API — "geral" bloqueado
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
       'parcerias','internacional','vc','colunistas','variedades',
@@ -220,6 +215,9 @@ function formatPost(p, full) {
     concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
     geral:"politica"
   };
+  const cp = CAT_PATH[categoria] || "politica";
+  const sl = slugify(p.titulo || "").slice(0,55);
+  const id8 = (p.id||"").slice(0,8);
   return {
     id: p.id,
     titulo: p.titulo || "",
@@ -231,8 +229,8 @@ function formatPost(p, full) {
     subcategoria: p.subcategoria || "",
     subcategoria_slug: p.subcategoria_slug || "",
     tags,
-    slug: slugify(p.titulo || ""),
-    url: `/${CAT_PATH[categoria] || "politica"}/?id=${(p.id||"").slice(0,8)}`,
+    slug: sl,
+    url: `/${cp}/${sl}-${id8}/`,
     data: p.published_at || p.created_at
   };
 }
@@ -244,6 +242,6 @@ function dataBr(dt) {
 }
 
 function slugify(str) {
-  return (str||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  return (str||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
     .replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,60);
 }
