@@ -4,19 +4,18 @@ import { createClient } from "@supabase/supabase-js";
 const parser = new Parser({ timeout: 8000, headers: { "User-Agent": "Mozilla/5.0" } });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Feeds padrão por grupo de categoria — só usados se admin não tiver fontes cadastradas
 const FEEDS_POR_GRUPO = {
   politica: [
-    { url: "https://g1.globo.com/politica/rss2.xml", name: "G1 Política" },
-    { url: "https://news.google.com/rss/search?q=politica+governo+congresso+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Política" },
+    { url: "https://g1.globo.com/politica/rss2.xml", name: "G1 Politica" },
+    { url: "https://news.google.com/rss/search?q=politica+governo+congresso+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Politica" },
   ],
   economia: [
-    { url: "https://www.valor.com.br/rss", name: "Valor Econômico" },
+    { url: "https://www.valor.com.br/rss", name: "Valor Economico" },
     { url: "https://news.google.com/rss/search?q=economia+brasil+pib+inflacao+juros&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Economia" },
   ],
   negocios_mercados: [
     { url: "https://exame.com/feed/", name: "Exame" },
-    { url: "https://news.google.com/rss/search?q=empresas+negocios+fusao+aquisicao+mercado&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Negócios" },
+    { url: "https://news.google.com/rss/search?q=empresas+negocios+fusao+aquisicao+mercado&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Negocios" },
   ],
   seguros_investimentos: [
     { url: "https://www.seudinheiro.com/feed/", name: "Seu Dinheiro" },
@@ -26,29 +25,29 @@ const FEEDS_POR_GRUPO = {
   ],
   tributacao_regulacao: [
     { url: "https://news.google.com/rss/search?q=imposto+renda+reforma+tributaria+receita+federal&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Tributos" },
-    { url: "https://news.google.com/rss/search?q=regulacao+BACEN+CVM+ANBIMA+regulador+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Regulação" },
+    { url: "https://news.google.com/rss/search?q=regulacao+BACEN+CVM+ANBIMA+regulador+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Regulacao" },
   ],
   tecnologia_industria: [
     { url: "https://canaltech.com.br/rss/", name: "Canaltech" },
     { url: "https://news.google.com/rss/search?q=tecnologia+inteligencia+artificial+inovacao+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Tecnologia" },
-    { url: "https://news.google.com/rss/search?q=industria+manufatura+producao+exportacao+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Indústria" },
+    { url: "https://news.google.com/rss/search?q=industria+manufatura+producao+exportacao+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Industria" },
   ],
   saude_familia: [
-    { url: "https://g1.globo.com/saude/rss2.xml", name: "G1 Saúde" },
-    { url: "https://news.google.com/rss/search?q=saude+medicina+tratamento+doenca+sus&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Saúde" },
-    { url: "https://news.google.com/rss/search?q=familia+filhos+criancas+educacao+casamento+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Família" },
+    { url: "https://g1.globo.com/saude/rss2.xml", name: "G1 Saude" },
+    { url: "https://news.google.com/rss/search?q=saude+medicina+tratamento+doenca+sus&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Saude" },
+    { url: "https://news.google.com/rss/search?q=familia+filhos+criancas+educacao+casamento+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Familia" },
   ],
   educacao_profissoes: [
-    { url: "https://g1.globo.com/educacao/rss2.xml", name: "G1 Educação" },
-    { url: "https://news.google.com/rss/search?q=educacao+escola+universidade+enem+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Educação" },
-    { url: "https://news.google.com/rss/search?q=profissoes+carreira+mercado+trabalho+salario+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Profissões" },
+    { url: "https://g1.globo.com/educacao/rss2.xml", name: "G1 Educacao" },
+    { url: "https://news.google.com/rss/search?q=educacao+escola+universidade+enem+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Educacao" },
+    { url: "https://news.google.com/rss/search?q=profissoes+carreira+mercado+trabalho+salario+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Profissoes" },
   ],
   vagas_concursos: [
     { url: "https://news.google.com/rss/search?q=vagas+emprego+contratacao+recrutamento+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Vagas" },
     { url: "https://news.google.com/rss/search?q=concurso+publico+edital+inscricoes+gabarito&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Concursos" },
   ],
   imoveis_parcerias: [
-    { url: "https://news.google.com/rss/search?q=imoveis+mercado+imobiliario+lancamento+construtora&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Imóveis" },
+    { url: "https://news.google.com/rss/search?q=imoveis+mercado+imobiliario+lancamento+construtora&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Imoveis" },
     { url: "https://news.google.com/rss/search?q=parceria+acordo+alianca+joint+venture+empresa+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Parcerias" },
   ],
   esg_internacional: [
@@ -57,7 +56,7 @@ const FEEDS_POR_GRUPO = {
   ],
   defesa_seguranca: [
     { url: "https://news.google.com/rss/search?q=forcas+armadas+defesa+nacional+exercito+marinha+aeronautica&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Defesa" },
-    { url: "https://news.google.com/rss/search?q=seguranca+publica+policia+crime+violencia+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Segurança" },
+    { url: "https://news.google.com/rss/search?q=seguranca+publica+policia+crime+violencia+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Seguranca" },
   ],
   cultura_variedades_esportes: [
     { url: "https://news.google.com/rss/search?q=cultura+arte+cinema+musica+teatro+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Cultura" },
@@ -68,12 +67,11 @@ const FEEDS_POR_GRUPO = {
     { url: "https://news.google.com/rss/search?q=espiritualidade+fe+religiao+igrejas+evangelico+catolicismo+brasil&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Espiritualidade" },
   ],
   investigativo: [
-    { url: "https://apublica.org/feed/", name: "Agência Pública" },
+    { url: "https://apublica.org/feed/", name: "Agencia Publica" },
     { url: "https://news.google.com/rss/search?q=investigacao+corrupcao+denuncia+operacao+policia+federal&hl=pt-BR&gl=BR&ceid=BR:pt-BR", name: "Google Investigativo" },
   ],
 };
 
-// Seleciona 1-2 feeds aleatórios de cada grupo para cobertura balanceada
 function selecionarFeedsBalanceados() {
   const selecionados = [];
   for (const grupo of Object.values(FEEDS_POR_GRUPO)) {
@@ -83,8 +81,7 @@ function selecionarFeedsBalanceados() {
   return selecionados;
 }
 
-// Mapeamento de categoria editorial → grupo(s) de feeds relevantes
-// vc e colunistas são categorias MANUAIS — não recebem geração automática por RSS
+// vc e colunistas sao categorias MANUAIS — nao recebem geracao automatica por RSS
 const CATEGORIA_PARA_GRUPO = {
   politica:      ['politica'],
   economia:      ['economia'],
@@ -115,7 +112,6 @@ const CATEGORIA_PARA_GRUPO = {
   investigativo: ['investigativo'],
 };
 
-// Busca notícias de feeds específicos para a categoria solicitada
 async function buscarFeedsEspecificos(feeds) {
   const results = await Promise.allSettled(
     feeds.slice(0, 8).map(source =>
@@ -133,23 +129,17 @@ async function buscarFeedsEspecificos(feeds) {
   return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
 }
 
-// Busca notícias priorizando feeds da categoria solicitada
 export async function getNewsByCategoria(categoria) {
   try {
     const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
     const feedsEspecificos = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
-
-    if (feedsEspecificos.length > 0) {
-      return await buscarFeedsEspecificos(feedsEspecificos);
-    }
-    // Fallback: busca geral se não há grupo mapeado (ex: vc, colunistas)
+    if (feedsEspecificos.length > 0) return await buscarFeedsEspecificos(feedsEspecificos);
     return await getNews();
   } catch(e) {
     return [];
   }
 }
 
-// Detecta títulos similares — evita artigos quase iguais da mesma rodada
 function titulosSimilares(a, b) {
   const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);
   const wa = new Set(norm(a));
@@ -160,35 +150,27 @@ function titulosSimilares(a, b) {
   return (intersect / union) >= 0.45;
 }
 
-// Remove itens cujo título é muito parecido com um já selecionado
 function dedupPorTitulo(items) {
   const unicos = [];
   for (const item of items) {
-    if (!unicos.some(u => titulosSimilares(u.title, item.title))) {
-      unicos.push(item);
-    }
+    if (!unicos.some(u => titulosSimilares(u.title, item.title))) unicos.push(item);
   }
   return unicos;
 }
 
 export async function getNews() {
   try {
-    // Buscar TODAS as fontes do admin (ativas e inativas) para saber se o admin customizou
     const { data: allSources } = await supabase
       .from("rss_sources")
       .select("url,name,active")
       .order("created_at", { ascending: false });
-
     let feedsParaUsar;
-
     if (allSources && allSources.length > 0) {
       feedsParaUsar = allSources.filter(s => s.active !== false);
     } else {
       feedsParaUsar = selecionarFeedsBalanceados();
     }
-
     const feedsSelecionados = feedsParaUsar.slice(0, 20);
-
     const results = await Promise.allSettled(
       feedsSelecionados.map(source =>
         parser.parseURL(source.url)
@@ -201,14 +183,8 @@ export async function getNews() {
           .catch(() => [])
       )
     );
-
-    const allItems = results
-      .filter(r => r.status === "fulfilled")
-      .flatMap(r => r.value);
-
-    const embaralhado = allItems.sort(() => Math.random() - 0.5);
-    return dedupPorTitulo(embaralhado);
-
+    const allItems = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+    return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));
   } catch(e) {
     return [];
   }
