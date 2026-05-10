@@ -65,10 +65,43 @@ async function callGemini(prompt) {
   throw new Error("Gemini indisponível");
 }
 
-// ══════════════════════════════════════════════════════════════════
-// PROMPT — REESCRITA FIEL + SEO COMPLETO
-// Nunca inventa. Só usa o que está na fonte.
-// ══════════════════════════════════════════════════════════════════
+// ─── SUBCATEGORIAS VÁLIDAS POR CATEGORIA ─────────────────────────────────────
+// A IA DEVE escolher exatamente uma subcategoria desta lista.
+// Fora desta lista = inválido = será substituído pelo primeiro item.
+const SUBCATS_POR_CAT = {
+  politica:      ["Governo Federal","Congresso Nacional","Eleições","Partidos Políticos","STF & Judiciário","Política Estadual","Câmara dos Deputados","Senado Federal","Poder Executivo"],
+  economia:      ["Política Econômica","Inflação & Preços","Taxa Selic","PIB & Crescimento","Câmbio & Dólar","Fiscal & Orçamento","Emprego & Renda","Banco Central"],
+  negocios:      ["Empresas & Corporações","Fusões & Aquisições","Startups","Empreendedorismo","Grandes Corporações","Setor Privado","Varejo","Agronegócio Empresarial"],
+  investimentos: ["Bolsa de Valores","Renda Fixa","Fundos de Investimento","Tesouro Direto","Criptomoedas","Análise de Mercado","Finanças Pessoais","FIIs"],
+  seguros:       ["Seguro de Vida","Planos de Saúde","Seguro Auto","Previdência Privada","Seguro Residencial","SUSEP & ANS","Seguro Empresarial","Corretoras de Seguros"],
+  mercados:      ["Commodities","Petróleo & Energia","Ouro & Metais","B3 & Ibovespa","Câmbio Internacional","Índices Globais","Agro & Grãos"],
+  educacao:      ["Ensino Superior","ENEM","Educação Básica","Cursos & Certificações","Pós-Graduação","Tecnologia na Educação","Bolsas de Estudo","Ensino Técnico"],
+  industria:     ["Agronegócio","Manufatura","Energia","Infraestrutura","Exportações","Cadeia Produtiva","Mineração","Construção Civil"],
+  tecnologia:    ["Inteligência Artificial","Segurança Digital","E-commerce","Telecomunicações","Inovação","Startups Tech","Blockchain","Computação em Nuvem"],
+  esportes:      ["Futebol","Olimpíadas","Fórmula 1","Tênis","Basquete","Natação","Atletismo","Outros Esportes"],
+  saude:         ["Medicina & Tratamentos","SUS","Saúde Mental","Medicamentos","Bem-estar","Epidemiologia","Pediatria","Nutrição"],
+  familia:       ["Educação dos Filhos","Planejamento Familiar","Herança & Patrimônio","Casamento & Divórcio","Finanças Pessoais","Criação de Filhos"],
+  tributacao:    ["IRPF","Reforma Tributária","ICMS & ISS","Receita Federal","Planejamento Tributário","Impostos Federais","Simples Nacional","CSLL & IRPJ"],
+  regulacao:     ["BACEN","CVM","ANBIMA","SUSEP","ANS","ANATEL","ANEEL","Regulação Setorial"],
+  parcerias:     ["Acordos Comerciais","Joint Ventures","Alianças Estratégicas","Contratos Públicos","PPP"],
+  internacional: ["Relações Exteriores","Geopolítica","Conflitos Globais","América Latina","Estados Unidos","Europa","China & Ásia","Oriente Médio","Diplomacia"],
+  variedades:    ["Comportamento","Lifestyle","Entretenimento","Tendências","Gastronomia","Turismo","Moda"],
+  investigativo: ["Corrupção","Operações Policiais","Denúncias","Jornalismo de Dados","Fiscalização Pública","Lavagem de Dinheiro"],
+  seguranca:     ["Segurança Pública","Crime Organizado","Violência Urbana","Polícia Federal","Narcotráfico","Facções","Homicídios"],
+  cultura:       ["Cinema","Música","Arte","Teatro","Literatura","Patrimônio Cultural","Streaming","Festivais"],
+  profissoes:    ["Medicina","Direito","Engenharia","Contabilidade","TI & Programação","Administração","Arquitetura","Recursos Humanos"],
+  vagas:         ["Oportunidades CLT","Trabalho Remoto","Recrutamento & Seleção","Estágio","Trainee","Mercado de Trabalho"],
+  concursos:     ["Concursos Federais","Concursos Estaduais","Concursos Municipais","Militares & Policiais","Judiciário","Saúde Pública"],
+  imoveis:       ["Mercado Imobiliário","Financiamento Habitacional","Construtoras","Aluguel","Lançamentos","Minha Casa Minha Vida"],
+  esg:           ["Sustentabilidade","Meio Ambiente","Governança Corporativa","Energia Limpa","Impacto Social","Carbono & Emissões"],
+  defesa:        ["Forças Armadas","Segurança Nacional","Política de Defesa","Exército","Marinha","Aeronáutica","Fronteiras"],
+  religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
+};
+
+function subcatsListForPrompt(cat) {
+  const list = SUBCATS_POR_CAT[cat];
+  return list ? list.join(' | ') : 'subcategoria específica';
+}
 
 const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada. Se a fonte não informa algo, você não escreve.
 
@@ -80,8 +113,62 @@ TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início
 FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO (ex: taxa selic, reforma tributária, dólar bolsa)
 SLUG: 3 a 5 palavras-chave do título em português, hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
 META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural, sem cortar no meio
-CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | vc | colunistas | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao
-SUBCATEGORIA: subcategoria específica dentro da categoria escolhida
+CATEGORIA: escolha exatamente uma das categorias abaixo — escolha pela RELEVÂNCIA TEMÁTICA do artigo:
+  politica → governo federal, congresso, eleições, partidos, poder executivo/legislativo/judiciário
+  economia → PIB, inflação, juros SELIC, câmbio, fiscal, política econômica
+  negocios → empresas, fusões, aquisições, startups, empreendedorismo
+  investimentos → bolsa, fundos, renda fixa, tesouro direto, criptomoedas
+  seguros → seguros de vida, planos de saúde, previdência privada, SUSEP, ANS
+  mercados → commodities, petróleo, ouro, índices, B3
+  educacao → escolas, universidades, ENEM, ensino superior, cursos
+  industria → manufatura, produção industrial, exportação, cadeia produtiva
+  tecnologia → TI, IA, inovação, startups tech, digital
+  esportes → futebol, olimpíadas, esportes em geral
+  saude → medicina, SUS, medicamentos, doenças, bem-estar
+  familia → filhos, casamento, herança, planejamento familiar
+  tributacao → imposto de renda, reforma tributária, IRPF, ICMS, receita federal
+  regulacao → BACEN, CVM, ANBIMA, reguladores, compliance
+  parcerias → acordos, joint ventures, contratos entre empresas
+  internacional → geopolítica, diplomacia, relações exteriores, conflitos globais
+  variedades → entretenimento, comportamento, estilo de vida, cultura pop
+  investigativo → denúncias, corrupção, operações policiais, jornalismo investigativo
+  seguranca → segurança pública, crime, polícia, violência
+  cultura → arte, cinema, música, teatro, literatura
+  profissoes → carreiras específicas, mercado de trabalho por área
+  vagas → empregos, contratações, recrutamento, CLT
+  concursos → concursos públicos, editais, gabaritos
+  imoveis → mercado imobiliário, construtoras, financiamento
+  esg → sustentabilidade, meio ambiente, governança corporativa
+  defesa → forças armadas, defesa nacional, segurança nacional
+  religiao → fé, espiritualidade, igrejas, religiosidade
+SUBCATEGORIA: escolha EXATAMENTE uma das subcategorias abaixo para a CATEGORIA escolhida — não invente, não use outra:
+  politica → Governo Federal | Congresso Nacional | Eleições | Partidos Políticos | STF & Judiciário | Política Estadual | Câmara dos Deputados | Senado Federal | Poder Executivo
+  economia → Política Econômica | Inflação & Preços | Taxa Selic | PIB & Crescimento | Câmbio & Dólar | Fiscal & Orçamento | Emprego & Renda | Banco Central
+  negocios → Empresas & Corporações | Fusões & Aquisições | Startups | Empreendedorismo | Grandes Corporações | Setor Privado | Varejo | Agronegócio Empresarial
+  investimentos → Bolsa de Valores | Renda Fixa | Fundos de Investimento | Tesouro Direto | Criptomoedas | Análise de Mercado | Finanças Pessoais | FIIs
+  seguros → Seguro de Vida | Planos de Saúde | Seguro Auto | Previdência Privada | Seguro Residencial | SUSEP & ANS | Seguro Empresarial | Corretoras de Seguros
+  mercados → Commodities | Petróleo & Energia | Ouro & Metais | B3 & Ibovespa | Câmbio Internacional | Índices Globais | Agro & Grãos
+  educacao → Ensino Superior | ENEM | Educação Básica | Cursos & Certificações | Pós-Graduação | Tecnologia na Educação | Bolsas de Estudo | Ensino Técnico
+  industria → Agronegócio | Manufatura | Energia | Infraestrutura | Exportações | Cadeia Produtiva | Mineração | Construção Civil
+  tecnologia → Inteligência Artificial | Segurança Digital | E-commerce | Telecomunicações | Inovação | Startups Tech | Blockchain | Computação em Nuvem
+  esportes → Futebol | Olimpíadas | Fórmula 1 | Tênis | Basquete | Natação | Atletismo | Outros Esportes
+  saude → Medicina & Tratamentos | SUS | Saúde Mental | Medicamentos | Bem-estar | Epidemiologia | Pediatria | Nutrição
+  familia → Educação dos Filhos | Planejamento Familiar | Herança & Patrimônio | Casamento & Divórcio | Finanças Pessoais | Criação de Filhos
+  tributacao → IRPF | Reforma Tributária | ICMS & ISS | Receita Federal | Planejamento Tributário | Impostos Federais | Simples Nacional | CSLL & IRPJ
+  regulacao → BACEN | CVM | ANBIMA | SUSEP | ANS | ANATEL | ANEEL | Regulação Setorial
+  parcerias → Acordos Comerciais | Joint Ventures | Alianças Estratégicas | Contratos Públicos | PPP
+  internacional → Relações Exteriores | Geopolítica | Conflitos Globais | América Latina | Estados Unidos | Europa | China & Ásia | Oriente Médio | Diplomacia
+  variedades → Comportamento | Lifestyle | Entretenimento | Tendências | Gastronomia | Turismo | Moda
+  investigativo → Corrupção | Operações Policiais | Denúncias | Jornalismo de Dados | Fiscalização Pública | Lavagem de Dinheiro
+  seguranca → Segurança Pública | Crime Organizado | Violência Urbana | Polícia Federal | Narcotráfico | Facções | Homicídios
+  cultura → Cinema | Música | Arte | Teatro | Literatura | Patrimônio Cultural | Streaming | Festivais
+  profissoes → Medicina | Direito | Engenharia | Contabilidade | TI & Programação | Administração | Arquitetura | Recursos Humanos
+  vagas → Oportunidades CLT | Trabalho Remoto | Recrutamento & Seleção | Estágio | Trainee | Mercado de Trabalho
+  concursos → Concursos Federais | Concursos Estaduais | Concursos Municipais | Militares & Policiais | Judiciário | Saúde Pública
+  imoveis → Mercado Imobiliário | Financiamento Habitacional | Construtoras | Aluguel | Lançamentos | Minha Casa Minha Vida
+  esg → Sustentabilidade | Meio Ambiente | Governança Corporativa | Energia Limpa | Impacto Social | Carbono & Emissões
+  defesa → Forças Armadas | Segurança Nacional | Política de Defesa | Exército | Marinha | Aeronáutica | Fronteiras
+  religiao → Evangelicalismo | Catolicismo | Espiritualidade | Igrejas | Fé & Sociedade | Missões | Religiões Afro-brasileiras
 CORPO:
 Redação OVC — ${data}
 
@@ -138,55 +225,54 @@ function slugify(text) {
 
 function parse(raw) {
   if (!raw) return null;
-
   const lines = raw.split("\n");
-  let titulo = "";
-  let focoKeyword = "";
-  let slug = "";
-  let metaDescricao = "";
-  let categoriaRaw = "";
-  let subcategoriaRaw = "";
-  let corpo = "";
+  let titulo = "", focoKeyword = "", slug = "", metaDescricao = "", categoriaRaw = "", subcategoriaRaw = "", corpo = "";
   let inCorpo = false;
-
   for (const line of lines) {
     const trimmed = line.trim();
-    if (/^TITULO:/i.test(trimmed)) {
-      titulo = trimmed.replace(/^TITULO:/i, "").trim();
-    } else if (/^FOCO_KEYWORD:/i.test(trimmed)) {
-      focoKeyword = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
-    } else if (/^SLUG:/i.test(trimmed)) {
-      slug = slugify(trimmed.replace(/^SLUG:/i, "").trim());
-    } else if (/^META_DESCRICAO:/i.test(trimmed)) {
-      metaDescricao = trimmed.replace(/^META_DESCRICAO:/i, "").trim();
-    } else if (/^SUBTITULO:/i.test(trimmed)) {
-      if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim();
-    } else if (/^CATEGORIA:/i.test(trimmed)) {
-      categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().toLowerCase();
-    } else if (/^SUBCATEGORIA:/i.test(trimmed)) {
-      subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
-    } else if (/^CORPO:/i.test(trimmed)) {
-      inCorpo = true;
-    } else if (inCorpo) {
-      corpo += line + "\n";
-    }
+    if (/^TITULO:/i.test(trimmed)) titulo = trimmed.replace(/^TITULO:/i, "").trim();
+    else if (/^FOCO_KEYWORD:/i.test(trimmed)) focoKeyword = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
+    else if (/^SLUG:/i.test(trimmed)) slug = slugify(trimmed.replace(/^SLUG:/i, "").trim());
+    else if (/^META_DESCRICAO:/i.test(trimmed)) metaDescricao = trimmed.replace(/^META_DESCRICAO:/i, "").trim();
+    else if (/^SUBTITULO:/i.test(trimmed)) { if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim(); }
+    else if (/^CATEGORIA:/i.test(trimmed)) categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→|]/)[0].toLowerCase();
+    else if (/^SUBCATEGORIA:/i.test(trimmed)) subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
+    else if (/^CORPO:/i.test(trimmed)) inCorpo = true;
+    else if (inCorpo) corpo += line + "\n";
   }
-
   corpo = corpo.trim();
-
   if (!corpo && raw.length > 200) {
     corpo = raw.trim();
     const firstLine = raw.split("\n")[0].trim();
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","vc","colunistas","variedades","investigativo","seguranca","cultura","profissoes","vagas","concursos","imoveis","esg","defesa","religiao"];
+  // vc e colunistas NAO sao validos para geracao automatica
+  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados",
+    "educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao",
+    "parcerias","internacional","variedades","investigativo","seguranca","cultura",
+    "profissoes","vagas","concursos","imoveis","esg","defesa","religiao"];
   if (!catsValidas.includes(categoriaRaw)) categoriaRaw = "geral";
 
-  if (!slug && titulo) {
-    slug = slugify(titulo).split("-").slice(0, 5).join("-");
+  // Validar e corrigir subcategoria — deve estar na lista da categoria escolhida
+  const subcatsValidas = SUBCATS_POR_CAT[categoriaRaw] || [];
+  if (subcatsValidas.length > 0) {
+    // Verificar se a subcategoria gerada está na lista (comparação case-insensitive parcial)
+    const subcatNorm = subcategoriaRaw.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+    const match = subcatsValidas.find(s =>
+      s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim() === subcatNorm ||
+      s.toLowerCase().includes(subcatNorm) ||
+      subcatNorm.includes(s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim().slice(0, 6))
+    );
+    if (match) {
+      subcategoriaRaw = match; // normaliza para o valor canônico
+    } else {
+      // Subcategoria inválida — usar o primeiro item da lista da categoria
+      subcategoriaRaw = subcatsValidas[0];
+    }
   }
 
+  if (!slug && titulo) slug = slugify(titulo).split("-").slice(0, 5).join("-");
   return {
     titulo: titulo || "Sem título",
     subtitulo: metaDescricao || "",
@@ -194,7 +280,7 @@ function parse(raw) {
     foco_keyword: focoKeyword || "",
     slug,
     categoria: categoriaRaw,
-    subcategoria: subcategoriaRaw || "Geral",
+    subcategoria: subcategoriaRaw || (SUBCATS_POR_CAT[categoriaRaw]?.[0] || "Geral"),
     subcategoria_slug: slugify(subcategoriaRaw || "geral"),
     corpo
   };
@@ -202,24 +288,19 @@ function parse(raw) {
 
 export async function rewritePortal(text, title, useGemini = false) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
-
   const raw = useGemini ? await callGemini(prompt) : await callOpenAI(prompt);
   const result = parse(raw);
-
-  if (!result || !result.corpo || result.corpo.length < 800) {
+  if (!result || !result.corpo || result.corpo.length < 1200) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
-
   const tituloLower = (result.titulo || "").toLowerCase().trim();
   const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
   const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
   if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
     throw new Error("Conteúdo rejeitado — título ou abertura inválida");
   }
-
   if (!result.corpo.toLowerCase().includes("redação ovc")) {
     throw new Error("Conteúdo rejeitado — sem assinatura Redação OVC");
   }
-
   return result;
 }

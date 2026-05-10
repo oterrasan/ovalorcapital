@@ -21,7 +21,52 @@ const BLOCKED_IMG = [
   /agencia\.gov\.br.*foto.*autor/i
 ];
 
-// Domínios de veículos de imprensa — bloquear imagem SOMENTE se for de seção de autores/perfis
+// ─── DOMÍNIOS DE IMAGEM DE CONCORRENTES ─────────────────────────────────────
+// Qualquer imagem hospedada nestes domínios é de um veículo concorrente e
+// pode conter watermark, logo ou identidade visual alheia. BLOQUEAR SEMPRE.
+const COMPETITOR_IMG_HOSTS = new Set([
+  // Grupo Globo
+  'glbimg.com', 's2.glbimg.com', 's3.glbimg.com', 'i.s3.glbimg.com',
+  'globo.com', 'g1.globo.com', 'ge.globo.com', 'oglobo.globo.com',
+  'extra.globo.com', 'valor.com.br',
+  // UOL / Folha
+  'uol.com.br', 'folha.uol.com.br', 'f.i.uol.com.br',
+  'imguol.i.uol.com.br', 'conteudo.imguol.i.uol.com.br',
+  // Estadão / Grupo Estado
+  'estadao.com.br', 'broadcast.com.br',
+  // SBT / Record / Jovem Pan
+  'r7.com', 'noticias.r7.com', 'record.com.br',
+  'sbt.com.br', 'jovempan.com.br',
+  // Band
+  'band.com.br', 'bandnewsfm.band.com.br',
+  // CNN Brasil
+  'cnnbrasil.com.br', 'assets.cnnbrasil.com.br',
+  // Revistas / portais
+  'veja.com.br', 'abril.com.br', 'exame.com',
+  'cartacapital.com.br', 'poder360.com.br',
+  'gazetadopovo.com.br', 'metropoles.com',
+  'seudinheiro.com', 'infomoney.com.br',
+  'terra.com.br', 'ig.com.br', 'msn.com',
+  // Agências
+  'agenciabrasil.ebc.com.br', 'imagens.ebc.com.br',
+  'reuters.com', 'ap.org',
+  // Outros
+  'canaltech.com.br', 'apublica.org',
+  'correiobraziliense.com.br', 'nsctotal.com.br',
+  'diariodocomercio.com.br', 'correiodopovo.com.br',
+  'oantagonista.com', 'novonoticias.com.br',
+]);
+
+function isCompetitorImage(url) {
+  if (!url) return false;
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    return [...COMPETITOR_IMG_HOSTS].some(d => hostname === d || hostname.endsWith('.' + d));
+  } catch(_) { return false; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const PRESS_AUTHOR_PATHS = [
   /\/autor\//i, /\/autores\//i, /\/jornalista\//i, /\/repórter\//i,
   /\/colunista\//i, /\/equipe\//i, /\/redacao\//i, /\/people\//i,
@@ -30,13 +75,10 @@ const PRESS_AUTHOR_PATHS = [
 
 function isValidImage(url) {
   if (!url || url.length < 12) return false;
-  // Bloquear se bate em padrão genérico
   if (BLOCKED_IMG.some(p => p.test(url))) return false;
-  // Bloquear se url contém caminho de autor em qualquer domínio
   if (PRESS_AUTHOR_PATHS.some(p => p.test(url))) return false;
-  // Aceitar apenas jpg/jpeg/png/webp
+  if (isCompetitorImage(url)) return false;
   if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) {
-    // Se não tem extensão explícita, permitir (CDNs sem extensão)
     if (/\.(svg|gif|ico|bmp|tiff)(\?|$)/i.test(url)) return false;
   }
   return true;
@@ -54,7 +96,7 @@ export async function scrape(url) {
     });
     const $ = cheerio.load(res.data);
 
-    // Candidatas a imagem em ordem de prioridade
+    // Candidatas a imagem em ordem de prioridade — aplica todos os filtros
     const candidates = [
       $('meta[property="og:image"]').attr("content"),
       $('meta[name="twitter:image"]').attr("content"),
@@ -64,7 +106,7 @@ export async function scrape(url) {
       $(".post-thumbnail img, .featured-image img, .entry-thumbnail img").first().attr("src"),
     ].map(s => normalizeUrl(s, url)).filter(Boolean);
 
-    // Primeira imagem válida — sem repórter, sem logo, sem marca d'água
+    // isValidImage já rejeita domínios concorrentes via isCompetitorImage()
     const imageUrl = candidates.find(c => isValidImage(c)) || "";
 
     $("script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement").remove();

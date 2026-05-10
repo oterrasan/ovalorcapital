@@ -8,7 +8,7 @@
   function pct(v){ return `${v>0?'+':''}${Number(v).toFixed(2).replace('.',',')}%`; }
   function safe(v, fallback='—'){ return (v===undefined||v===null||v==='') ? fallback : v; }
   async function loadLive(){
-    try { return await OVC.fetchJSON('/api/live/data'); } catch { return null; }
+    try { return await OVC.fetchJSON('/api/live-data'); } catch { return null; }
   }
   function radioScheduleHtml(schedule=[]){
     return schedule.map(item => `<li><strong>${item.time}</strong><span>${item.label}</span></li>`).join('');
@@ -131,8 +131,7 @@
   }
   async function init(){
     const live = await loadLive();
-    if (!live) return;
-    mountTV(live); mountRadio(live); mountRadar(live); mountQuotes(live); mountImpostometro(live);
+    mountTV(live || {}); mountRadio(live || {}); mountRadar(live || {}); mountQuotes(live || {}); mountImpostometro(live || {});
   }
   document.addEventListener('DOMContentLoaded', init);
 })();
