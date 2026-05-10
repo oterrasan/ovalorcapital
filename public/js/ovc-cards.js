@@ -89,6 +89,10 @@
     return !BLOCKED.some(function(r){ return r.test(url); });
   }
 
+  function escHtml(s){
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   var STYLE = {
     card: [
       'position:relative',
@@ -305,12 +309,93 @@
     });
   }
 
+  // ── SEÇÃO COLUNISTAS & OPINIÃO ────────────────────────────────────
+  function carregarColunistas(){
+    var container = document.getElementById('ovc-cards-section');
+    if(!container || document.getElementById('ovc-colunistas-home')) return;
+
+    var sec = document.createElement('section');
+    sec.id = 'ovc-colunistas-home';
+    sec.style.cssText = 'margin:0 0 32px 0;';
+    container.parentNode.insertBefore(sec, container);
+
+    fetch('/api/portal-posts?categoria=vc&limit=5')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var posts = (data.posts||[]).filter(function(p){ return p.titulo; }).slice(0,5);
+        if(!posts.length){ sec.remove(); return; }
+
+        var featured = posts[0];
+        var others   = posts.slice(1);
+        var fUrl     = buildUrl(featured);
+        var fImg     = featured.imagem && imgOk(featured.imagem) ? featured.imagem : '';
+
+        var html = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">';
+        html += '<div style="width:4px;height:24px;background:#b8860b;border-radius:2px;flex-shrink:0;"></div>';
+        html += '<span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#0f172a;">Colunistas & Opinião</span>';
+        html += '<span style="flex:1;height:1px;background:linear-gradient(to right,#b8860b55,transparent);"></span>';
+        html += '<a href="/vc/" style="font-size:11px;color:#b8860b;font-weight:700;text-decoration:none;white-space:nowrap;">Ver todos →</a>';
+        html += '</div>';
+
+        html += '<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">';
+
+        // Card principal
+        html += '<a href="'+fUrl+'" style="position:relative;border-radius:14px;overflow:hidden;min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;padding:22px;text-decoration:none;';
+        html += fImg ? 'background:url(\''+fImg+'\') center/cover;' : 'background:linear-gradient(135deg,#0f172a,#1a0a2e);';
+        html += 'box-shadow:0 4px 20px rgba(0,0,0,0.18);transition:transform 0.2s,box-shadow 0.2s;" ';
+        html += 'onmouseover="this.style.transform=\'translateY(-3px)\';this.style.boxShadow=\'0 12px 32px rgba(0,0,0,0.28)\'" ';
+        html += 'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 4px 20px rgba(0,0,0,0.18)\'">';
+        html += '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.92) 0%,rgba(0,0,0,0.35) 55%,rgba(0,0,0,0.04) 100%);border-radius:14px;"></div>';
+        html += '<div style="position:relative;z-index:1;">';
+        html += '<span style="background:#b8860b;color:#fff;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:4px;display:inline-block;margin-bottom:10px;">Opinião</span>';
+        html += '<h2 style="font-size:19px;font-weight:800;color:#fff;margin:0 0 8px;line-height:1.28;text-shadow:0 2px 10px rgba(0,0,0,0.7);">'+escHtml(featured.titulo)+'</h2>';
+        html += '<span style="font-size:11px;color:rgba(255,255,255,0.55);">Redação OVC · '+dataBr(featured.data)+'</span>';
+        html += '</div></a>';
+
+        // Coluna direita
+        html += '<div style="display:flex;flex-direction:column;gap:16px;">';
+        others.slice(0,2).forEach(function(p){
+          var url = buildUrl(p);
+          var img = p.imagem && imgOk(p.imagem) ? p.imagem : '';
+          html += '<a href="'+url+'" style="flex:1;position:relative;border-radius:12px;overflow:hidden;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end;padding:14px;text-decoration:none;';
+          html += img ? 'background:url(\''+img+'\') center/cover;' : 'background:linear-gradient(135deg,#1e1b4b,#0f172a);';
+          html += 'box-shadow:0 2px 12px rgba(0,0,0,0.13);transition:transform 0.2s;" ';
+          html += 'onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'\'">';
+          html += '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.18) 70%,transparent 100%);border-radius:12px;"></div>';
+          html += '<div style="position:relative;z-index:1;">';
+          html += '<span style="background:rgba(184,134,11,0.9);color:#fff;font-size:8px;font-weight:900;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:5px;">Opinião</span>';
+          html += '<p style="font-size:12px;font-weight:700;color:#fff;margin:0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,0.8);">'+escHtml(p.titulo)+'</p>';
+          html += '</div></a>';
+        });
+        html += '</div>'; // fim coluna direita
+        html += '</div>'; // fim grid principal
+
+        // Mini-lista de colunas adicionais
+        if(others.length > 2){
+          html += '<div style="display:grid;grid-template-columns:repeat('+Math.min(others.length-2,3)+',minmax(0,1fr));gap:0;margin-top:10px;border-top:2px solid #f1f5f9;">';
+          others.slice(2).forEach(function(p){
+            var url = buildUrl(p);
+            html += '<a href="'+url+'" style="display:flex;gap:10px;align-items:flex-start;padding:12px 8px;text-decoration:none;border-right:1px solid #f1f5f9;" ';
+            html += 'onmouseover="this.style.background=\'#fafafa\'" onmouseout="this.style.background=\'\'">';
+            html += '<span style="background:#b8860b;color:#fff;font-size:8px;font-weight:900;text-transform:uppercase;padding:2px 7px;border-radius:3px;flex-shrink:0;margin-top:2px;">Op.</span>';
+            html += '<p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(p.titulo)+'</p>';
+            html += '</a>';
+          });
+          html += '</div>';
+        }
+
+        sec.innerHTML = html;
+      })
+      .catch(function(){ sec.remove(); });
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     load();
     setInterval(load, 120000);
     injetarMenuProfissoes();
     carregarMaisLidas();
     carregarOvcTv();
+    carregarColunistas();
   });
 
   function carregarMaisLidas(){
@@ -343,7 +428,7 @@
             ? '<img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.parentNode.style.background=\''+cor+'\';this.remove();">'
             : '';
 
-          html += '<a href="'+buildUrl(p)+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.16)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.10)\'">' 
+          html += '<a href="'+buildUrl(p)+'" style="display:flex;flex-direction:column;text-decoration:none;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.10);transition:transform 0.18s,box-shadow 0.18s;" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(0,0,0,0.16)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.10)\'">'
             +'<div style="position:relative;height:90px;background:'+(p.imagem?'#0f172a':cor)+';flex-shrink:0;overflow:hidden;">'
               +imgHtml
               +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.55) 0%,transparent 55%);pointer-events:none;"></div>'

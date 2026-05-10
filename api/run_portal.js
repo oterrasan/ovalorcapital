@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { getNews } from "../core/rss.js";
+import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
@@ -30,6 +30,12 @@ function isCompetitorDomain(url) {
     return [...COMPETITOR_IMG_HOSTS].some(d => h === d || h.endsWith('.' + d));
   } catch(_) { return false; }
 }
+
+// Categorias de alto engajamento — recebem prioridade de busca por execução
+const HIGH_PRIORITY_CATS = [
+  'politica', 'economia', 'internacional', 'tecnologia',
+  'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
+];
 
 const REGRAS_CATEGORIA = [
   { cat: 'vagas',      sinal: ['vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga','home office','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','coordenador de','clique e candidate'] },
@@ -155,7 +161,6 @@ export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
-  // Aumentado de 4 para 8 para dobrar o throughput por execução do cron
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
   try {
@@ -175,7 +180,19 @@ export default async function handler(req, res) {
 
     corrigirPostsExistentes().catch(() => {});
 
-    const news = await getNews();
+    // Busca com prioridade: uma categoria de alto engajamento + pool geral
+    const catAlvo = HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
+    const [priorityNews, generalNews] = await Promise.all([
+      getNewsByCategoria(catAlvo),
+      getNews()
+    ]);
+    const seenLinks = new Set();
+    const news = [...priorityNews, ...generalNews].filter(item => {
+      if (seenLinks.has(item.link)) return false;
+      seenLinks.add(item.link);
+      return true;
+    });
+
     if (!news.length) return res.status(200).json({ status: 'no_news' });
 
     const artigos = [];
