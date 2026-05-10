@@ -10,30 +10,32 @@ const SECTIONS = {
     desc: "Concursos públicos, vagas de emprego, profissões e mercado de trabalho no Brasil. Tudo para crescer na carreira.",
     canonical: "https://ovalorcapital.com.br/trabalho/",
     cats: ["vagas", "concursos", "profissoes", "parcerias", "educacao"],
-    color: "#0d2137",
-    accent: "#f5a623",
-    icon: "💼",
-    badge: "O Valor Capital · Trabalho & Carreira",
+    color: "#0d2137", accent: "#f5a623",
+    icon: "💼", badge: "O Valor Capital · Trabalho & Carreira",
   },
   financas: {
     title: "Finanças Pessoais",
     desc: "Investimentos, seguros, tributação e mercados. Cotações ao vivo, análises e tudo para fazer seu dinheiro trabalhar.",
     canonical: "https://ovalorcapital.com.br/financas/",
     cats: ["investimentos", "seguros", "tributacao", "regulacao", "mercados"],
-    color: "#0a2218",
-    accent: "#00c853",
-    icon: "📈",
-    badge: "O Valor Capital · Finanças Pessoais",
+    color: "#0a2218", accent: "#00c853",
+    icon: "📈", badge: "O Valor Capital · Finanças Pessoais",
   },
   moradia: {
     title: "Moradia & Imóveis",
     desc: "Mercado imobiliário, lançamentos, aluguel, Minha Casa Minha Vida e financiamento habitacional. Decisão de imóvel com informação de qualidade.",
     canonical: "https://ovalorcapital.com.br/moradia/",
     cats: ["imoveis"],
-    color: "#1c0f05",
-    accent: "#e8813a",
-    icon: "🏠",
-    badge: "O Valor Capital · Moradia & Imóveis",
+    color: "#1c0f05", accent: "#e8813a",
+    icon: "🏠", badge: "O Valor Capital · Moradia & Imóveis",
+  },
+  vc: {
+    title: "Colunistas & Opinião",
+    desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira. Sem censura, sem concessões.",
+    canonical: "https://ovalorcapital.com.br/vc/",
+    cats: ["vc", "colunistas"],
+    color: "#0d0d0d", accent: "#c9a84c",
+    icon: "✍️", badge: "O Valor Capital · Opinião",
   },
 };
 
@@ -43,6 +45,7 @@ const CAT_PATH = {
   investimentos: "investimentos", seguros: "seguros",
   tributacao: "tributos", regulacao: "regulacao", mercados: "mercados",
   economia: "economia", imoveis: "imoveis",
+  vc: "vc", colunistas: "vc",
 };
 
 const CAT_LABEL = {
@@ -51,6 +54,7 @@ const CAT_LABEL = {
   investimentos: "Investimentos", seguros: "Seguros",
   tributacao: "Tributação", regulacao: "Regulação",
   mercados: "Mercados", economia: "Economia", imoveis: "Imóveis",
+  vc: "Opinião", colunistas: "Colunistas",
 };
 
 const CAT_DESC = {
@@ -99,7 +103,93 @@ function getTemplate() {
   return _tpl;
 }
 
+// Dark editorial layout for /vc/
+function renderEditorialHTML(posts, cfg) {
+  const trio = posts.slice(0, 3);
+  const list = posts.slice(3, 18);
+
+  const trioCards = trio.map(p => {
+    const imgBg = p.imagem
+      ? `background-image:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.35) 55%,transparent 100%),url('${esc(p.imagem)}')`
+      : `background:#1a1a1a`;
+    return `
+<a class="ed-trio-card" href="${buildUrl(p)}" style="${imgBg}">
+  <div class="ed-trio-body">
+    <span class="ed-badge">Opinião</span>
+    <h2 class="ed-trio-title">${esc(p.titulo)}</h2>
+    <p class="ed-trio-excerpt">${esc((p.comentario_fixado || "").slice(0, 110))}</p>
+  </div>
+</a>`;
+  }).join("");
+
+  const listItems = list.map(p => {
+    const thumb = p.imagem
+      ? `<img class="ed-list-thumb" src="${esc(p.imagem)}" alt="" loading="lazy">`
+      : `<div class="ed-list-thumb ed-list-thumb-empty"></div>`;
+    return `
+<a class="ed-list-item" href="${buildUrl(p)}">
+  ${thumb}
+  <div class="ed-list-text">
+    <div class="ed-list-cat">Opinião</div>
+    <div class="ed-list-title">${esc(p.titulo)}</div>
+  </div>
+</a>`;
+  }).join("");
+
+  return `
+<style>
+.ed-hero{background:#0d0d0d;padding:80px 24px 60px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid #1e1e1e}
+.ed-hero-glow{position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:700px;height:500px;background:radial-gradient(ellipse,#c9a84c14 0%,transparent 68%);pointer-events:none}
+.ed-hero-inner{position:relative;max-width:820px;margin:0 auto}
+.ed-hero-rule{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:28px}
+.ed-hero-rule-line{width:48px;height:1px;background:#c9a84c;opacity:.6}
+.ed-hero-rule-text{font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#c9a84c}
+.ed-hero h1{color:#fff;font-size:clamp(2.6rem,7vw,5rem);font-weight:900;line-height:1.0;margin:0 0 20px;letter-spacing:-2px}
+.ed-hero p{color:rgba(255,255,255,.55);font-size:1.05rem;max-width:560px;margin:0 auto;line-height:1.7;font-style:italic}
+.ed-body{background:#0d0d0d;max-width:1280px;margin:0 auto;padding:56px 24px 80px}
+.ed-section-label{font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#c9a84c;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.ed-section-label::after{content:"";flex:1;height:1px;background:#c9a84c22}
+.ed-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:56px;border-radius:8px;overflow:hidden}
+@media(max-width:768px){.ed-trio{grid-template-columns:1fr}}
+.ed-trio-card{display:block;position:relative;height:400px;background:#111 center/cover no-repeat;text-decoration:none;overflow:hidden;transition:transform .25s}
+.ed-trio-card:hover{transform:scale(1.015)}
+.ed-trio-card:hover .ed-trio-title{color:#c9a84c}
+.ed-trio-body{position:absolute;bottom:0;left:0;right:0;padding:28px 22px}
+.ed-badge{display:inline-block;background:#c9a84c;color:#0d0d0d;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;border-radius:2px;margin-bottom:12px}
+.ed-trio-title{color:#fff;font-size:1.05rem;font-weight:700;line-height:1.3;margin:0 0 8px;transition:color .2s}
+.ed-trio-excerpt{color:rgba(255,255,255,.6);font-size:.8rem;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ed-list{display:flex;flex-direction:column}
+.ed-list-item{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid #1a1a1a;text-decoration:none}
+.ed-list-item:first-child{border-top:1px solid #1a1a1a}
+.ed-list-item:hover .ed-list-title{color:#c9a84c}
+.ed-list-thumb{width:80px;height:58px;object-fit:cover;border-radius:4px;flex-shrink:0;background:#1a1a1a}
+.ed-list-thumb-empty{width:80px;height:58px;background:#1a1a1a;border-radius:4px;flex-shrink:0}
+.ed-list-cat{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c9a84c;margin-bottom:6px}
+.ed-list-title{color:#d8d8d8;font-size:.9rem;font-weight:500;line-height:1.45;transition:color .18s}
+</style>
+<div class="ed-hero">
+  <div class="ed-hero-glow"></div>
+  <div class="ed-hero-inner">
+    <div class="ed-hero-rule">
+      <div class="ed-hero-rule-line"></div>
+      <div class="ed-hero-rule-text">O Valor Capital</div>
+      <div class="ed-hero-rule-line"></div>
+    </div>
+    <h1>Opinião &amp; Análise</h1>
+    <p>Os melhores pensadores escrevem aqui. Política, economia e sociedade com profundidade e sem concessões.</p>
+  </div>
+</div>
+<div class="ed-body">
+  <div class="ed-section-label">Destaques</div>
+  <div class="ed-trio">${trioCards || '<div style="padding:40px;color:#555;background:#111">Nenhuma coluna publicada ainda.</div>'}</div>
+  <div class="ed-section-label">Últimas colunas</div>
+  <div class="ed-list">${listItems}</div>
+</div>`;
+}
+
 function renderLandingHTML(section, posts, cfg) {
+  if (section === "vc") return renderEditorialHTML(posts, cfg);
+
   const featured = posts[0] || null;
   const gridPosts = posts.slice(1, 13);
   const byCat = {};
@@ -179,7 +269,6 @@ function renderLandingHTML(section, posts, cfg) {
 .lp-card-cat{color:${cfg.color};font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase}
 .lp-card-title{color:#1a1a1a;font-size:.9rem;font-weight:600;line-height:1.45;margin:0}
 .lp-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:36px;padding-top:48px;border-top:1px solid #ebebeb}
-.lp-cat-block{}
 .lp-cat-hd{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
 .lp-cat-bar{width:5px;height:42px;border-radius:3px;flex-shrink:0;margin-top:2px}
 .lp-cat-name{font-size:1rem;font-weight:800;color:#1a1a1a;line-height:1.2}
@@ -201,7 +290,7 @@ function renderLandingHTML(section, posts, cfg) {
     <div class="lp-hero-eyebrow">${cfg.icon} ${cfg.badge}</div>
     <h1>${cfg.title}</h1>
     <p>${cfg.desc}</p>
-    <div class="lp-hero-tags">${cfg.cats.map(c => `<a class="lp-hero-tag" href="/${CAT_PATH[c] || c}/">${CAT_LABEL[c] || c}</a>`).join("")}</div>
+    <div class="lp-hero-tags">${cfg.cats.filter(c => CAT_PATH[c]).map(c => `<a class="lp-hero-tag" href="/${CAT_PATH[c] || c}/">${CAT_LABEL[c] || c}</a>`).join("")}</div>
   </div>
 </div>
 <div class="lp-body">
