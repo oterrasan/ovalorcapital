@@ -75,10 +75,11 @@ Cenário otimista: R$ 198.247 (Jun–Dez 2026).
 | `api/ig_publish.js` | Publica no Instagram via bot Playwright |
 | `api/refresh_token.js` | Renova token do Instagram |
 | `api/live-data.js` | Cotações ao vivo |
+| `api/landing.js` | **SSR landing pages temáticas** — /trabalho/, /financas/, /moradia/, /vc/ |
 
 ### Core (lógica de negócio)
 - `core/ai_portal.js` — chamada OpenAI com prompt PAUTA EDITORIAL
-- `core/rss.js` — busca notícias dos feeds RSS
+- `core/rss.js` — busca notícias dos feeds RSS (**240+ feeds em 16 grupos**)
 - `core/scraper.js` — extrai texto de URLs
 - `core/image_finder.js` — busca imagem relevante (timeout 10s, 1 chamada Wikimedia)
 - `core/image_processor.js` — processa/recorta imagem e salva no Supabase Storage
@@ -91,6 +92,7 @@ Cenário otimista: R$ 198.247 (Jun–Dez 2026).
 - `public/js/internal-page-v2.js` — JS principal de todas as páginas de categoria + artigos
 - `public/js/ovc-cards.js` — cards dinâmicos da homepage (inclui seção colunistas 3+3)
 - `public/js/materia-page.js` — JS da página /materia/
+- `public/js/ovc-vc.js` — JS standalone do editorial /vc/ (dark mode, trio de cards + lista)
 
 ---
 
@@ -180,6 +182,11 @@ todos os outros → /[slug]/
 | RSS apenas artigos de HOJE | `core/rss.js` — `isHoje()` | ✅ Implementado |
 | Cron pipeline via GitHub Actions | `.github/workflows/pipeline-cron.yml` | ✅ Implementado |
 | Seção Colunistas 3+3 na homepage | `public/js/ovc-cards.js` — `carregarColunistas()` | ✅ Implementado |
+| SSR landing /trabalho/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| SSR landing /financas/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| SSR landing /moradia/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| SSR editorial /vc/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| 240+ RSS feeds internacionais | `core/rss.js` | ✅ Implementado |
 
 ### Ações pendentes (Roberto faz)
 1. **Search Console** → submeter `https://www.ovalorcapital.com.br/sitemap.xml`
@@ -227,7 +234,6 @@ const HIGH_PRIORITY_CATS = [
   'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
 ];
 ```
-Essa categoria vai para a frente da fila de deduplicação. Garante mix de conteúdo premium.
 
 ### RSS — Filtro de data (CRÍTICO)
 `core/rss.js` contém `isHoje()` — rejeita qualquer artigo não publicado HOJE:
@@ -266,62 +272,71 @@ Implementada em `public/js/ovc-cards.js` — função `carregarColunistas()`.
 
 **Fonte de dados:** `GET /api/portal-posts?categoria=vc&limit=6`
 
-**ID da seção:** `ovc-colunistas-346` (para evitar conflito com outros IDs)
-
 **Nota:** existe `public/js/ovc-colunistas.js` mas é código morto — não está carregado no index.html. A lógica real está em ovc-cards.js.
 
 ---
 
-## 9. MEGA-SECTIONS — ARQUITETURA PLANEJADA
+## 9. LANDING PAGES SSR TEMÁTICAS (implementado mai/2026)
 
-Landing pages SSR com SEO-first design, completamente diferentes do que existe no Brasil.
-**Regra inviolável:** preservar 100% topo e rodapé do portal.
+### Arquitetura
+- Handler: `api/landing.js`
+- Template base: `public/politica/index.html` (preserva header/footer sagrados)
+- Padrão: lê template, injeta SEO tags antes de `</head>`, substitui `<main>...</main>`
+- Cache: `public, s-maxage=180, stale-while-revalidate=60`
 
-### Universo 1 — TRABALHO & CARREIRA
-**URL:** `/trabalho/`  
-**SEO potential:** 500k–1M+ visitas/mês  
-**Categorias agrupadas:** vagas, concursos, profissoes, parcerias, educacao  
-**Palavras-chave:** "concurso público 2026", "vagas de emprego", "salário mínimo 2026", "CLT vs PJ"  
-**Status:** 🔴 NÃO CONSTRUÍDO — PRIORIDADE #1
+### Seções implementadas
+| URL | Tema | Categorias | Cores |
+|---|---|---|---|
+| `/trabalho/` | Trabalho & Carreira | vagas, concursos, profissoes, parcerias, educacao | `#0d2137` / `#f5a623` |
+| `/financas/` | Finanças Pessoais | investimentos, seguros, tributacao, regulacao, mercados | `#0a2218` / `#00c853` |
+| `/moradia/` | Moradia & Imóveis | imoveis | `#1c0f05` / `#e8813a` |
+| `/vc/` | Colunistas & Opinião | vc, colunistas | `#0d0d0d` / `#c9a84c` |
 
-### Universo 2 — FINANÇAS PESSOAIS
-**URL:** `/financas/`  
-**SEO potential:** 200k–400k visitas/mês  
-**Categorias agrupadas:** investimentos, seguros, tributacao, regulacao, mercados  
-**Diferencial:** cotações ao vivo (USD, EUR, IBOV, Bitcoin), Impostômetro, calculadoras  
-**Status:** 🔴 NÃO CONSTRUÍDO — PRIORIDADE #2
+### Layout por seção
+- **trabalho/financas/moradia**: Hero colorido + artigo destaque (460px) + grid 12 cards + blocos por categoria
+- **vc/**: Dark editorial magazine — trio de 3 cards com bg image (400px, overlay gradiente, badge "Opinião" dourado) + lista de artigos restantes (thumb 80px)
 
-### Universo 3 — MORADIA
-**URL:** `/moradia/`  
-**SEO potential:** 100k–300k visitas/mês  
-**Categorias agrupadas:** imoveis + conteúdo sobre aluguel, construção civil, arquitetura, Minha Casa Minha Vida  
-**Status:** 🔴 NÃO CONSTRUÍDO — PRIORIDADE #3
+### SEO de cada landing page
+- `<title>`, `<meta description>`, `og:*`, `twitter:*`, canonical
+- JSON-LD `CollectionPage` schema
+- Cache `s-maxage=180` no Vercel Edge
 
-### Universo 4 — COLUNISTAS & OPINIÃO
-**URL:** `/vc/` (já existe, precisa de redesign radical)  
-**Conceito:** dark, editorial, magazine-style — sem igual no Brasil  
-**Status:** 🟡 EXISTE MAS PRECISA REDESIGN COMPLETO
-
-### Universo 5 — SEGURANÇA & DEFESA
-**URL:** `/seguranca/`  
-**Categorias:** seguranca, defesa, investigativo  
-**Status:** 🔴 NÃO CONSTRUÍDO
-
-### Universo 6 — BEM-ESTAR & CULTURA
-**URL:** `/bem-estar/`  
-**Categorias:** saude, familia, cultura, religiao, variedades, esg  
-**Status:** 🔴 NÃO CONSTRUÍDO
-
-### Requisitos técnicos para todas as mega-sections
-- **SSR obrigatório** — HTML completo retornado pelo servidor, sem depender de JS
-- **JSON-LD** — `CollectionPage` schema
-- **Canonical** adequado
-- **Design visual** completamente diferente do template padrão de categoria
-- **Referência de implementação SSR:** `api/article.js`
+### Rewrites vercel.json (todos ativos)
+```json
+{ "source": "/trabalho",  "destination": "/api/landing?section=trabalho" },
+{ "source": "/trabalho/", "destination": "/api/landing?section=trabalho" },
+{ "source": "/financas",  "destination": "/api/landing?section=financas" },
+{ "source": "/financas/", "destination": "/api/landing?section=financas" },
+{ "source": "/moradia",   "destination": "/api/landing?section=moradia" },
+{ "source": "/moradia/",  "destination": "/api/landing?section=moradia" },
+{ "source": "/vc",        "destination": "/api/landing?section=vc" },
+{ "source": "/vc/",       "destination": "/api/landing?section=vc" }
+```
 
 ---
 
-## 10. BUGS CORRIGIDOS — HISTÓRICO COMPLETO
+## 10. EXPANSÃO RSS — 240+ FEEDS (implementado mai/2026)
+
+### Estado
+- **Antes:** ~35 feeds, cobertura básica nacional
+- **Agora:** 240+ feeds em 16 grupos, cobertura nacional + internacional
+
+### Novos grupos e feeds
+- `agronegocio` — novo grupo com 8 feeds (GN agro, MAPA, exportação)
+- Feeds internacionais: BBC (World/Business/Tech/Health/Sport), Al Jazeera, Guardian (World/Business), El País
+- Feeds tech: TechCrunch, The Verge, Ars Technica, Wired, VentureBeat, MIT Tech Review, TecMundo
+- Feeds financeiros: InfoMoney, Money Times, Suno Research, Investing.com BR, Agência Brasil
+
+### Helpers GN
+```js
+const GN = (q, lang="pt-BR", gl="BR", ceid="BR:pt-BR") =>
+  `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=${lang}&gl=${gl}&ceid=${ceid}`;
+const GN_EN = (q) => GN(q, "en", "US", "US:en");
+```
+
+---
+
+## 11. BUGS CORRIGIDOS — HISTÓRICO COMPLETO
 
 ### Sessão mai/2026 — 3 bugs críticos (commit 87d9059)
 
@@ -341,28 +356,26 @@ Landing pages SSR com SEO-first design, completamente diferentes do que existe n
 **Fix 4 — Pipeline buscando artigos de meses/anos atrás (CRÍTICO QUALIDADE)**
 - Problema: RSS sem filtro de data — qualquer item do feed era aceito independente da data
 - Correção: função `isHoje()` em `core/rss.js` com timezone Brasília (UTC-3)
-- Regra: APENAS artigos publicados hoje são aceitos
 
 **Fix 5 — Cron a cada 20min bloqueado no Vercel Hobby (CRÍTICO INFRA)**
 - Problema: Hobby plan só suporta 1x/dia máximo
-- Correção: removido cron do vercel.json, criado `.github/workflows/pipeline-cron.yml` que chama POST /api/run a cada 20min via GitHub Actions (gratuito)
+- Correção: removido cron do vercel.json, criado `.github/workflows/pipeline-cron.yml`
 
 **Fix 6 — Pipeline sem prioridade de engajamento (MÉDIO)**
-- Problema: todas as categorias tinham peso igual, diluindo conteúdo premium
-- Correção: `HIGH_PRIORITY_CATS` em `run_portal.js` — uma categoria de alto engajamento por execução
+- Correção: `HIGH_PRIORITY_CATS` em `run_portal.js`
 
 **Fix 7 — Imagens de concorrentes em posts manuais (MÉDIO)**
-- Correção em `editor_ia.js` para usar `image_finder.js` e não scraper de concorrentes
+- Correção em `editor_ia.js` para usar `image_finder.js`
 
 **Fix 8 — Categorias faltando no editor admin (MÉDIO)**
 - Correção: expandido de 18 para 29 categorias no editor
 
 **Fix 9 — Seção Colunistas inexistente na homepage (EDITORIAL)**
-- Correção: `carregarColunistas()` em `ovc-cards.js` — 3 bigCards + 3 smallCards antes do ovc-cards-section
+- Correção: `carregarColunistas()` em `ovc-cards.js` — 3 bigCards + 3 smallCards
 
 ---
 
-## 11. COMO RETOMAR EM NOVA SESSÃO
+## 12. COMO RETOMAR EM NOVA SESSÃO
 
 1. Ler este arquivo (CLAUDE.md) completamente
 2. Ler `ESTRATEGIA_SEO.md` para contexto de negócio
@@ -371,17 +384,15 @@ Landing pages SSR com SEO-first design, completamente diferentes do que existe n
 5. Roberto testa em `ovalorcapital.com.br`
 6. **Ao terminar a sessão:** atualizar este CLAUDE.md e fazer push para main
 
-### Prioridade de build pendente
-1. 🔴 Landing page `/trabalho/` — SSR, design inédito — maior SEO impact
-2. 🔴 Landing page `/financas/` — SSR, cotações ao vivo
-3. 🔴 Landing page `/moradia/` — SSR
-4. 🟡 Redesign `/vc/` (colunistas) — dark editorial magazine-style
-5. 🟡 500+ fontes RSS internacionais (Reuters, AP, BBC, Bloomberg, Al Jazeera...)
-6. 🟡 Deletar ou integrar `public/js/ovc-colunistas.js` (código morto)
+### Prioridades pendentes
+1. 🔴 Mega-section `/seguranca/` — seguranca, defesa, investigativo
+2. 🔴 Mega-section `/bem-estar/` — saude, familia, cultura, religiao, esg
+3. 🟡 Adicionar `/trabalho/`, `/financas/`, `/moradia/` ao sitemap dinâmico (`api/sitemap.js`)
+4. 🟡 Deletar `public/js/ovc-colunistas.js` (código morto)
 
 ---
 
-## 12. CONTATO / CONTEXTO DO DONO
+## 13. CONTATO / CONTEXTO DO DONO
 
 - **Nome:** Roberto (Terrasan)
 - **Objetivo:** maior portal premium de notícias do Brasil sustentado por Google AdSense/AdX
