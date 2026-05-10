@@ -1,8 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const __dirname_here = dirname(fileURLToPath(import.meta.url));
 
 const SECTIONS = {
   trabalho: {
@@ -91,19 +94,48 @@ function buildUrl(post) {
   const cat = getCat(post);
   const catPath = CAT_PATH[cat] || cat;
   const id8 = (post.id || "").slice(0, 8);
-  return `/${catPath}/${slugify(post.titulo)}-${id8}/`;
+  return "/" + catPath + "/" + slugify(post.titulo) + "-" + id8 + "/";
 }
+
+// Caminhos a tentar para ler o template (filesystem)
+const TPL_PATHS = [
+  join(process.cwd(), "public", "politica", "index.html"),
+  join(__dirname_here, "..", "public", "politica", "index.html"),
+  join(process.cwd(), "public", "vagas", "index.html"),
+  join(__dirname_here, "..", "public", "vagas", "index.html"),
+];
 
 let _tpl = null;
-function getTemplate() {
+async function getTemplate() {
   if (_tpl) return _tpl;
-  try {
-    _tpl = readFileSync(join(process.cwd(), "public", "politica", "index.html"), "utf8");
-  } catch (_) { _tpl = ""; }
-  return _tpl;
+
+  // Tenta filesystem
+  for (const p of TPL_PATHS) {
+    try {
+      const content = readFileSync(p, "utf8");
+      if (content && content.includes("<body")) { _tpl = content; return _tpl; }
+    } catch (_) {}
+  }
+
+  // Fallback: HTTP do site live (sempre funciona)
+  const urls = [
+    "https://ovalorcapital.com.br/vagas/",
+    "https://ovalorcapital.com.br/politica/",
+    "https://www.ovalorcapital.com.br/vagas/",
+  ];
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      if (r.ok) {
+        const text = await r.text();
+        if (text && text.includes("<body")) { _tpl = text; return _tpl; }
+      }
+    } catch (_) {}
+  }
+
+  return "";
 }
 
-// Substitui o <main> usando indexOf para evitar problemas de regex com $ no replacement
 function injectMain(html, content) {
   const lc = html.toLowerCase();
   const start = lc.indexOf("<main");
@@ -111,7 +143,6 @@ function injectMain(html, content) {
   if (start !== -1 && end !== -1 && end > start) {
     return html.slice(0, start) + '<main class="ovc-main">' + content + "</main>" + html.slice(end + 7);
   }
-  // fallback: insere antes de </body>
   const bodyClose = lc.lastIndexOf("</body>");
   if (bodyClose !== -1) {
     return html.slice(0, bodyClose) + '<main class="ovc-main">' + content + "</main>" + html.slice(bodyClose);
@@ -301,12 +332,13 @@ export default async function handler(req, res) {
   const cfg = SECTIONS[section];
   if (!cfg) return res.status(404).send("Not found");
 
+  // Busca posts: primeiro tenta todos de uma vez, depois por categoria individual
   let posts = [];
   try {
     const { data } = await supabase.from("posts")
       .select("id,titulo,comentario_fixado,imagem,user_tags,published_at")
       .eq("status", "publicado")
-      .contains("user_tags", JSON.stringify(cfg.cats))
+      .contains("user_tags", cfg.cats)
       .order("published_at", { ascending: false })
       .limit(30);
     posts = data || [];
@@ -319,7 +351,7 @@ export default async function handler(req, res) {
           supabase.from("posts")
             .select("id,titulo,comentario_fixado,imagem,user_tags,published_at")
             .eq("status", "publicado")
-            .contains("user_tags", '["' + cat + '"]')
+            .contains("user_tags", [cat])
             .order("published_at", { ascending: false })
             .limit(8)
             .then(r => r.data || [])
@@ -329,9 +361,6 @@ export default async function handler(req, res) {
       posts.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
     } catch (_) {}
   }
-
-  let tpl = getTemplate();
-  if (!tpl) return res.status(500).send("template error");
 
   const mainHtml = renderLandingHTML(section, posts, cfg);
 
@@ -354,7 +383,24 @@ export default async function handler(req, res) {
     + '<meta property="og:url" content="' + cfg.canonical + '">\n'
     + '<script type="application/ld+json">' + jsonLd + '</script>';
 
-  // Remove o script que gerencia páginas de artigo/categoria (sobrescreveria o <main>)
+  let tpl = await getTemplate();
+
+  if (!tpl) {
+    // Último recurso: página sem template mas funcional
+    const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">'
+      + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      + seoTags
+      + '<link rel="stylesheet" href="/css/home.css">'
+      + '<link rel="stylesheet" href="/css/site.css">'
+      + '</head><body class="ovc-inner-page" data-theme="light">'
+      + '<main class="ovc-main">' + mainHtml + '</main>'
+      + '</body></html>';
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "public, s-maxage=60");
+    return res.status(200).send(html);
+  }
+
+  // Remove script que sobrescreveria o <main> com conteúdo client-side
   tpl = tpl.replace(/<script[^>]*internal-page-v2[^>]*><\/script>/gi, "");
   tpl = tpl.replace(/<script[^>]*internal-page-v2[^>]*>/gi, "");
 
@@ -362,7 +408,7 @@ export default async function handler(req, res) {
   tpl = tpl.replace(/<title>[^<]*<\/title>/i, "");
   tpl = tpl.replace("</head>", seoTags + "\n</head>");
 
-  // Substitui <main> usando indexOf (robusto — sem problemas de regex com $ no conteúdo)
+  // Substitui <main> via indexOf (sem risco de regex com $ no conteúdo)
   const html = injectMain(tpl, mainHtml);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
