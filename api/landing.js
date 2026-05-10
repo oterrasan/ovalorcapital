@@ -128,8 +128,6 @@ function buildUrl(post) {
 }
 
 async function fetchPostsByCats(cats) {
-  // user_tags é coluna TEXT com JSON, então usa .like() em vez de .contains()
-  // Ex: user_tags = '["vagas"]' → filtra com LIKE '%"vagas"%'
   const filter = cats.map(c => `user_tags.like.%"${c}"%`).join(",");
   try {
     const { data } = await supabase.from("posts")
@@ -141,7 +139,6 @@ async function fetchPostsByCats(cats) {
     if (data && data.length) return data;
   } catch (_) {}
 
-  // Fallback: busca categoria por categoria
   try {
     const results = await Promise.allSettled(
       cats.map(cat =>
@@ -162,7 +159,6 @@ async function fetchPostsByCats(cats) {
   return [];
 }
 
-// Caminhos a tentar para ler o template (filesystem)
 const TPL_PATHS = [
   join(process.cwd(), "public", "politica", "index.html"),
   join(__dirname_here, "..", "public", "politica", "index.html"),
@@ -174,7 +170,6 @@ let _tpl = null;
 async function getTemplate() {
   if (_tpl) return _tpl;
 
-  // Tenta filesystem
   for (const p of TPL_PATHS) {
     try {
       const content = readFileSync(p, "utf8");
@@ -182,7 +177,6 @@ async function getTemplate() {
     } catch (_) {}
   }
 
-  // Fallback: HTTP do site live (sempre funciona)
   const urls = [
     "https://ovalorcapital.com.br/vagas/",
     "https://ovalorcapital.com.br/politica/",
@@ -398,7 +392,6 @@ export default async function handler(req, res) {
   if (!cfg) return res.status(404).send("Not found");
 
   const posts = await fetchPostsByCats(cfg.cats);
-
   const mainHtml = renderLandingHTML(section, posts, cfg);
 
   const jsonLd = JSON.stringify({
@@ -436,9 +429,9 @@ export default async function handler(req, res) {
     return res.status(200).send(html);
   }
 
-  // Remove script que sobrescreveria o <main> com conteúdo client-side
-  tpl = tpl.replace(/<script[^>]*internal-page-v2[^>]*><\/script>/gi, "");
-  tpl = tpl.replace(/<script[^>]*internal-page-v2[^>]*>/gi, "");
+  // Remove TODOS os <script> do template — a landing page é full SSR e não precisa de JS
+  // (internal-page-v2.js sobrescreveria o <main> com "Carregando..." se não for removido)
+  tpl = tpl.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 
   // Injeta SEO tags
   tpl = tpl.replace(/<title>[^<]*<\/title>/i, "");
