@@ -111,12 +111,15 @@ Exemplo: /politica/lula-sanciona-reforma-tributaria-a1b2c3d4/
 - Canonical aponta para slug URL → Google consolida autoridade
 
 ### buildUrl() — todas as ocorrências
-Presente em 3 arquivos JS, todas gerando slug URLs:
-- `public/js/ovc-cards.js`
-- `public/js/internal-page-v2.js`
-- `public/js/materia-page.js`
+Presente em 4 arquivos JS, **todas** gerando slug URLs:
+- `public/js/noticias-v3.js` — homepage (hero, rotating cards, seção central/direito)
+- `public/js/ovc-cards.js` — cards de categoria
+- `public/js/internal-page-v2.js` — páginas internas de categoria
+- `public/js/materia-page.js` — página /materia/ (legacy)
 
 Formato: `/{catPath}/{slug}-{id8}/`
+
+⚠️ **Atenção:** noticias-v3.js já estava correto desde mai/2026. Se um dia precisar tocar nele, manter o `_slugify()` e o `buildUrl()` com slug — nunca regredir para `?id=`.
 
 ---
 
@@ -169,7 +172,7 @@ todos os outros → /[slug]/
 | Sitemap dinâmico | `api/sitemap.js` | ✅ Implementado |
 | OG meta tags SSR | `api/article.js` + `api/article-ssr.js` | ✅ Implementado |
 | Canonical URL | `api/article.js` | ✅ Implementado |
-| buildUrl() com slug | `ovc-cards.js`, `internal-page-v2.js`, `materia-page.js` | ✅ Implementado |
+| buildUrl() com slug | `noticias-v3.js`, `ovc-cards.js`, `internal-page-v2.js`, `materia-page.js` | ✅ Implementado |
 | Correção automática de categorias | `api/run_portal.js` — `corrigirPostsExistentes()` | ✅ Implementado |
 
 ### Ações pendentes (Roberto faz)
@@ -213,7 +216,27 @@ Nunca mais trava o pipeline por imagem.
 
 ---
 
-## 9. COMO RETOMAR EM NOVA SESSÃO
+## 9. BUGS CORRIGIDOS — HISTÓRICO
+
+### Sessão mai/2026 — 3 bugs críticos corrigidos (commit 87d9059)
+
+**Bug 1 — noticias-v3.js `buildUrl()` gerava URLs `?id=` (CRÍTICO SEO)**
+- Todos os links da homepage (hero, cards rotacionados, seções central/direito) geravam `/{cat}/?id={id8}` em vez de slug URLs
+- Google estava indexando URLs não-canônicas a partir da página mais visitada do portal
+- Correção: adicionado `_slugify()`, reescrito `buildUrl()`, expandido `CAT_PATH` com todas as 29 categorias
+
+**Bug 2 — `api/article.js` limitava a 400 posts (CRÍTICO SEO)**
+- Buscava os 400 posts mais recentes e fazia `.find(r => r.id.startsWith(id8))` em memória
+- Com 300 artigos/dia, qualquer artigo com mais de ~33h retornava 404 para o Googlebot
+- Correção: substituído por `.ilike("id", "${id8}%").limit(1)` — consulta direta no banco, sem limite de janela
+
+**Bug 3 — `core/rss.js` sem fallback quando todos os feeds DB estão desativados (MÉDIO)**
+- Se admin configurava `rss_sources` no Supabase mas desativava todos, `feedsParaUsar` ficava array vazio — pipeline silenciosamente sem feeds
+- Correção: `if (!feedsParaUsar.length) feedsParaUsar = selecionarFeedsBalanceados();`
+
+---
+
+## 10. COMO RETOMAR EM NOVA SESSÃO
 
 1. Ler este arquivo (CLAUDE.md) completamente
 2. Ler `ESTRATEGIA_SEO.md` para contexto de negócio
@@ -223,7 +246,7 @@ Nunca mais trava o pipeline por imagem.
 
 ---
 
-## 10. CONTATO / CONTEXTO DO DONO
+## 11. CONTATO / CONTEXTO DO DONO
 
 - **Nome:** Roberto (Terrasan)
 - **Objetivo:** maior portal premium de notícias do Brasil sustentado por Google AdSense/AdX
