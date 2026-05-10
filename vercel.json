@@ -21,7 +21,8 @@
     "api/refresh_token.js":{ "maxDuration": 30 },
     "api/sitemap.js":     { "maxDuration": 15 },
     "api/article-ssr.js": { "maxDuration": 10 },
-    "api/article.js":     { "maxDuration": 10 }
+    "api/article.js":     { "maxDuration": 10 },
+    "api/landing.js":     { "maxDuration": 15 }
   },
   "build": {
     "env": {
@@ -53,6 +54,12 @@
   ],
   "rewrites": [
     { "source": "/sitemap.xml",   "destination": "/api/sitemap" },
+    { "source": "/trabalho",      "destination": "/api/landing?section=trabalho" },
+    { "source": "/trabalho/",     "destination": "/api/landing?section=trabalho" },
+    { "source": "/financas",      "destination": "/api/landing?section=financas" },
+    { "source": "/financas/",     "destination": "/api/landing?section=financas" },
+    { "source": "/moradia",       "destination": "/api/landing?section=moradia" },
+    { "source": "/moradia/",      "destination": "/api/landing?section=moradia" },
     { "source": "/:cat/:slug/",   "destination": "/api/article?cat=:cat&slug=:slug" },
     { "source": "/:cat/:slug",    "destination": "/api/article?cat=:cat&slug=:slug" },
     { "source": "/materia",       "destination": "/api/article-ssr" },
