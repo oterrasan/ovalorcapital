@@ -61,10 +61,11 @@ Cenário otimista: R$ 198.247 (Jun–Dez 2026).
 | `api/ig_publish.js` | Publica no Instagram via bot Playwright |
 | `api/refresh_token.js` | Renova token do Instagram |
 | `api/live-data.js` | Cotações ao vivo |
+| `api/landing.js` | **SSR landing pages temáticas** — /trabalho/, /financas/, /moradia/, /vc/ |
 
 ### Core (lógica de negócio)
 - `core/ai_portal.js` — chamada OpenAI com prompt PAUTA EDITORIAL
-- `core/rss.js` — busca notícias dos feeds RSS
+- `core/rss.js` — busca notícias dos feeds RSS (**240+ feeds** — ver seção 12)
 - `core/scraper.js` — extrai texto de URLs
 - `core/image_finder.js` — busca imagem relevante (timeout 10s, 1 chamada Wikimedia)
 - `core/image_processor.js` — processa/recorta imagem e salva no Supabase Storage
@@ -77,6 +78,7 @@ Cenário otimista: R$ 198.247 (Jun–Dez 2026).
 - `public/js/internal-page-v2.js` — JS principal de todas as páginas de categoria + artigos
 - `public/js/ovc-cards.js` — cards dinâmicos da homepage
 - `public/js/materia-page.js` — JS da página /materia/
+- `public/js/ovc-vc.js` — JS do editorial /vc/ (dark mode, trio de cards + lista)
 
 ---
 
@@ -174,6 +176,11 @@ todos os outros → /[slug]/
 | Canonical URL | `api/article.js` | ✅ Implementado |
 | buildUrl() com slug | `noticias-v3.js`, `ovc-cards.js`, `internal-page-v2.js`, `materia-page.js` | ✅ Implementado |
 | Correção automática de categorias | `api/run_portal.js` — `corrigirPostsExistentes()` | ✅ Implementado |
+| SSR landing /trabalho/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| SSR landing /financas/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| SSR landing /moradia/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| SSR editorial /vc/ | `api/landing.js` + `vercel.json` | ✅ Implementado |
+| 240+ RSS feeds | `core/rss.js` | ✅ Implementado |
 
 ### Ações pendentes (Roberto faz)
 1. **Search Console** → submeter `https://www.ovalorcapital.com.br/sitemap.xml`
@@ -213,6 +220,7 @@ Nunca mais trava o pipeline por imagem.
 5. **300 artigos/dia sem falha** — consistência é sinal de ranqueamento
 6. **Só OpenAI ativo** — Gemini, Groq não configurados
 7. **Aprovação obrigatória mantida** — nunca auto-publicar
+8. **Topo e rodapé NUNCA mudam** — o header/footer do portal é sagrado; nunca modificar
 
 ---
 
@@ -254,3 +262,81 @@ Nunca mais trava o pipeline por imagem.
 - **Perfil técnico:** não é programador — precisa de implementações diretas, sem explicações longas
 - **Estilo:** cobra resultados reais, não quer links para clicar, não quer status — quer feito
 - **Lema do projeto:** cada artigo, cada categoria, cada pixel deve virar dinheiro com o Google
+
+---
+
+## 12. LANDING PAGES SSR TEMÁTICAS (implementado mai/2026)
+
+### Arquitetura
+- Handler: `api/landing.js`
+- Template base: `public/politica/index.html` (preserva header/footer sagrados)
+- Padrão: lê template, injeta SEO tags antes de `</head>`, substitui `<main>...</main>`
+- Cache: `public, s-maxage=180, stale-while-revalidate=60`
+
+### Seções implementadas
+| URL | Tema | Categorias | Cores |
+|---|---|---|---|
+| `/trabalho/` | Trabalho & Carreira | vagas, concursos, profissoes, parcerias, educacao | `#0d2137` / `#f5a623` |
+| `/financas/` | Finanças Pessoais | investimentos, seguros, tributacao, regulacao, mercados | `#0a2218` / `#00c853` |
+| `/moradia/` | Moradia & Imóveis | imoveis | `#1c0f05` / `#e8813a` |
+| `/vc/` | Colunistas & Opinião | vc, colunistas | `#0d0d0d` / `#c9a84c` |
+
+### Layout por seção
+- **trabalho/financas/moradia**: Hero colorido + artigo destaque (460px) + grid 12 cards + blocos por categoria
+- **vc/**: Dark editorial magazine — trio de 3 cards com bg image (400px, overlay gradiente, badge "Opinião" dourado) + lista de artigos restantes (thumb 80px)
+
+### Query Supabase
+1. Primária: `.contains("user_tags", JSON.stringify(cfg.cats))` — posts com essas categorias
+2. Fallback: query por categoria individual (`.eq("subcategoria", cat)`) se primária retornar vazio
+
+### SEO
+- `<title>`, `<meta description>`, `og:title`, `og:description`, `og:image`, `og:url`
+- `<link rel="canonical">`
+- JSON-LD `CollectionPage` schema com `hasPart` (até 5 artigos)
+- Google News `<meta name="news_keywords">`
+
+### Rewrites vercel.json (todos adicionados)
+```json
+{ "source": "/trabalho",  "destination": "/api/landing?section=trabalho" },
+{ "source": "/trabalho/", "destination": "/api/landing?section=trabalho" },
+{ "source": "/financas",  "destination": "/api/landing?section=financas" },
+{ "source": "/financas/", "destination": "/api/landing?section=financas" },
+{ "source": "/moradia",   "destination": "/api/landing?section=moradia" },
+{ "source": "/moradia/",  "destination": "/api/landing?section=moradia" },
+{ "source": "/vc",        "destination": "/api/landing?section=vc" },
+{ "source": "/vc/",       "destination": "/api/landing?section=vc" }
+```
+
+---
+
+## 13. EXPANSÃO RSS — 240+ FEEDS (implementado mai/2026)
+
+### Estado anterior vs atual
+- **Antes:** ~35 feeds, cobertura básica nacional
+- **Agora:** 240+ feeds em 16 grupos, cobertura nacional + internacional
+
+### Novos grupos adicionados
+- `agronegocio` — feeds nacionais + GN queries agro
+- Feeds internacionais: BBC (World/Business/Tech/Health/Sport), Al Jazeera, Guardian (World/Business), El País, Reuters, AP News
+- Feeds tech: TechCrunch, The Verge, Ars Technica, Wired, VentureBeat, MIT Tech Review, TecMundo
+- Feeds financeiros: InfoMoney, Money Times, Suno Research, Investing.com BR, Agência Brasil (política/saúde/educação)
+
+### Helpers GN adicionados
+```js
+const GN = (q, lang="pt-BR", gl="BR", ceid="BR:pt-BR") =>
+  `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=${lang}&gl=${gl}&ceid=${ceid}`;
+const GN_EN = (q) => GN(q, "en", "US", "US:en");
+```
+
+### CATEGORIA_PARA_GRUPO
+Adicionado: `agronegocio: ["agronegocio"]`
+
+---
+
+## 14. PENDÊNCIAS TÉCNICAS CONHECIDAS
+
+| Item | Prioridade | Detalhe |
+|---|---|---|
+| `public/js/ovc-colunistas.js` | baixa | Arquivo de dead code — não é referenciado em nenhum HTML. Pode ser deletado ou aproveitado em alguma página. |
+| Sitemap para landing pages | média | `/trabalho/`, `/financas/`, `/moradia/` não estão no sitemap dinâmico. Adicionar em `api/sitemap.js`. |
+| Google Search Console | alta (Roberto) | Submeter sitemap e verificar indexação das novas landing pages |
