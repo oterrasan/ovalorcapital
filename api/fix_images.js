@@ -1,73 +1,33 @@
 import { createClient } from "@supabase/supabase-js";
-import * as cheerio from "cheerio";
+import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-const FONTES = [
-  "https://g1.globo.com/busca/?q=",
-  "https://www.cnnbrasil.com.br/busca/?q=",
-  "https://www.metropoles.com/busca?q=",
-  "https://www.infomoney.com.br/busca/?q=",
-  "https://www.gazetadopovo.com.br/busca/?q=",
-];
+const COMPETITOR_HOSTS = new Set([
+  'glbimg.com','s2.glbimg.com','s3.glbimg.com','globo.com','g1.globo.com','ge.globo.com',
+  'oglobo.globo.com','extra.globo.com','valor.com.br','uol.com.br','folha.uol.com.br',
+  'f.i.uol.com.br','imguol.i.uol.com.br','estadao.com.br','broadcast.com.br',
+  'r7.com','record.com.br','sbt.com.br','jovempan.com.br','band.com.br',
+  'cnnbrasil.com.br','assets.cnnbrasil.com.br','veja.com.br','abril.com.br',
+  'exame.com','cartacapital.com.br','poder360.com.br','gazetadopovo.com.br',
+  'metropoles.com','seudinheiro.com','infomoney.com.br','terra.com.br','ig.com.br',
+  'agenciabrasil.ebc.com.br','imagens.ebc.com.br','reuters.com','ap.org',
+  'canaltech.com.br','apublica.org','correiobraziliense.com.br',
+]);
 
-const TRAD = {
-  "lula":"lula brazil","bolsonaro":"bolsonaro brazil","trump":"trump usa",
-  "kremlin":"kremlin russia","petrobras":"petrobras","bitcoin":"bitcoin",
-  "selic":"taxa selic","palmeiras":"palmeiras","flamengo":"flamengo",
-  "corinthians":"corinthians","congresso":"congresso nacional",
-  "stf":"stf","inflação":"inflação","milei":"milei argentina",
-};
-
-function extrairTermos(titulo) {
-  const tl = titulo.toLowerCase();
-  for (const [pt,en] of Object.entries(TRAD)) {
-    if (tl.includes(pt)) return titulo.slice(0,50);
-  }
-  return titulo.slice(0,50);
+function isCompetitorImage(url) {
+  if (!url || url.length < 10) return false;
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, '');
+    return [...COMPETITOR_HOSTS].some(d => h === d || h.endsWith('.' + d));
+  } catch(_) { return false; }
 }
 
-async function buscarImagemOriginal(titulo) {
-  // Buscar no Google News via scraping
-  try {
-    const q = encodeURIComponent(titulo.slice(0,60));
-    const url = `https://news.google.com/search?q=${q}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept-Language": "pt-BR,pt;q=0.9"
-      },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!r.ok) return null;
-    const html = await r.text();
-    const $ = cheerio.load(html);
-    
-    // Pegar primeira imagem de artigo
-    const img = $("article img").first().attr("src") || $("figure img").first().attr("src");
-    if (img && img.startsWith("http") && img.match(/\.(jpg|jpeg|png|webp)/i)) {
-      return img;
-    }
-  } catch {}
-
-  // Fallback: buscar via Bing Images
-  try {
-    const q = encodeURIComponent(titulo.slice(0,50));
-    const url = `https://www.bing.com/images/search?q=${q}&first=1&count=5&mkt=pt-BR`;
-    const r = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!r.ok) return null;
-    const html = await r.text();
-    // Extrair primeira URL de imagem dos resultados
-    const match = html.match(/mediaurl=(https?[^&"]+\.(jpg|jpeg|png|webp))/i);
-    if (match) {
-      return decodeURIComponent(match[1]);
-    }
-  } catch {}
-
-  return null;
+function precisaCorrecao(imagem) {
+  if (!imagem) return true;
+  if (isCompetitorImage(imagem)) return true;
+  if (imagem.includes('unsplash.com')) return true;
+  return false;
 }
 
 export default async function handler(req, res) {
@@ -78,46 +38,51 @@ export default async function handler(req, res) {
   const { cursor = null } = req.query;
 
   try {
+    // Busca posts com imagem de concorrente OU Unsplash (sem nexo)
     let query = supabase.from("posts")
       .select("id,titulo,imagem,user_tags,published_at")
       .eq("status", "publicado")
-      .ilike("imagem", "%unsplash%")
       .order("published_at", { ascending: true })
-      .limit(20);
+      .limit(15);
 
     if (cursor) query = query.gt("published_at", decodeURIComponent(cursor));
 
     const { data: posts, error } = await query;
     if (error) throw new Error(error.message);
-    if (!posts?.length) return res.status(200).json({ done: true, corrigidos: 0, processados: 0 });
 
-    const usadas_raw = await supabase.from("posts")
-      .select("imagem").eq("status","publicado")
-      .not("imagem","is",null).not("imagem","ilike","%unsplash%").limit(600);
-    const usadas = new Set((usadas_raw.data||[]).map(p => p.imagem).filter(Boolean));
+    // Filtra apenas os que precisam de correção
+    const paraCorrigir = (posts || []).filter(p => precisaCorrecao(p.imagem));
+    if (!paraCorrigir.length) {
+      const proxCursor = posts?.[posts.length - 1]?.published_at || null;
+      return res.status(200).json({ done: !posts?.length || posts.length < 15, corrigidos: 0, processados: posts?.length || 0, proxCursor });
+    }
 
     let corrigidos = 0;
     const inicio = Date.now();
 
-    for (const p of posts) {
+    for (const p of paraCorrigir) {
       if (Date.now() - inicio > 50000) break;
 
-      const nova = await buscarImagemOriginal(p.titulo || "");
+      let tags = [];
+      try { tags = typeof p.user_tags === 'string' ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
+      const categoria = tags[0] || 'geral';
 
-      if (nova && !usadas.has(nova)) {
+      // Usa o image_finder com Wikipedia/Wikimedia/Pixabay — mesmo sistema do pipeline
+      const nova = await findImage(p.titulo || '', categoria, '', '');
+
+      if (nova && nova !== p.imagem) {
         const { error: pe } = await supabase.from("posts").update({ imagem: nova }).eq("id", p.id);
-        if (!pe) { usadas.add(nova); corrigidos++; }
+        if (!pe) corrigidos++;
       }
-
-      await new Promise(r => setTimeout(r, 200));
     }
 
     const proxCursor = posts[posts.length - 1]?.published_at || null;
 
     return res.status(200).json({
-      done: posts.length < 20,
+      done: posts.length < 15,
       corrigidos,
       processados: posts.length,
+      paraCorrigir: paraCorrigir.length,
       proxCursor
     });
 
