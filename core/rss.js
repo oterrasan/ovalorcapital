@@ -112,16 +112,42 @@ const CATEGORIA_PARA_GRUPO = {
   investigativo: ['investigativo'],
 };
 
+// Brasília = UTC-3. Rejeita qualquer item que não seja de hoje.
+function isHoje(dateStr) {
+  if (!dateStr) return false;
+  try {
+    const itemDate = new Date(dateStr);
+    if (isNaN(itemDate.getTime())) return false;
+    const offsetMs = -3 * 60 * 60 * 1000; // UTC-3
+    const hojeStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
+    const itemStr = new Date(itemDate.getTime() + offsetMs).toISOString().slice(0, 10);
+    return itemStr === hojeStr;
+  } catch(_) {
+    return false;
+  }
+}
+
+function extrairItem(i, sourceName) {
+  const dateStr = i.isoDate || i.pubDate || "";
+  if (!isHoje(dateStr)) return null;
+  if (!i.link && !i.guid) return null;
+  if (!i.title) return null;
+  return {
+    title: i.title,
+    link: i.link || i.guid,
+    source: sourceName,
+    description: i.contentSnippet || i.summary || i.description || i.content || "",
+    pubDate: dateStr,
+  };
+}
+
 async function buscarFeedsEspecificos(feeds) {
   const results = await Promise.allSettled(
     feeds.slice(0, 8).map(source =>
       parser.parseURL(source.url)
-        .then(feed => (feed.items || []).slice(0, 5).map(i => ({
-          title: i.title,
-          link: i.link || i.guid,
-          source: source.name,
-          description: i.contentSnippet || i.summary || i.description || i.content || ""
-        })).filter(i => i.link && i.title))
+        .then(feed => (feed.items || []).slice(0, 10)
+          .map(i => extrairItem(i, source.name))
+          .filter(Boolean))
         .catch(() => [])
     )
   );
@@ -175,12 +201,9 @@ export async function getNews() {
     const results = await Promise.allSettled(
       feedsSelecionados.map(source =>
         parser.parseURL(source.url)
-          .then(feed => (feed.items || []).slice(0, 4).map(i => ({
-            title: i.title,
-            link: i.link || i.guid,
-            source: source.name,
-            description: i.contentSnippet || i.summary || i.description || i.content || ""
-          })).filter(i => i.link && i.title))
+          .then(feed => (feed.items || []).slice(0, 8)
+            .map(i => extrairItem(i, source.name))
+            .filter(Boolean))
           .catch(() => [])
       )
     );
