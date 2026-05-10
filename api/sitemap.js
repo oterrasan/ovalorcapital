@@ -33,16 +33,15 @@ function slugify(text) {
 const STATIC_PATHS = [
   "/","/busca/","/newsletter/","/radar/","/tv-ovc/","/radio-ovc/",
   "/dados/","/dados/cotacoes/","/dados/agenda-economica/",
-  "/trabalho/","/financas/","/moradia/",
+  "/trabalho/","/financas/","/moradia/","/seguranca/","/bem-estar/","/inteligencia/",
   "/politica/","/economia/","/negocios/","/investimentos/",
   "/seguros/","/mercados/","/educacao/","/industria/",
   "/tecnologia/","/esportes/","/saude/","/familia/",
   "/tributos/","/regulacao/","/parcerias/","/vc/",
   "/vagas/","/concursos/","/imoveis/","/esg/",
   "/defesa/","/religiao/","/cultura/","/profissoes/",
-  "/seguranca/","/investigativo/","/variedades/",
-  "/politica/executivo/","/politica/legislativo-congresso-ao-vivo/",
-  "/politica/judiciario/","/politica/projetos-de-lei/",
+  "/investigativo/","/variedades/",
+  "/politica/executivo/","/politica/legislativo-congresso-ao-vivo/","/politica/judiciario/","/politica/projetos-de-lei/",
   "/politica/eleicoes/","/politica/agenda-regulatoria/","/politica/geral/",
   "/economia/monetaria-copom-selic/","/economia/fiscal-orcamento-divida-pib-primario/",
   "/economia/conjuntura-pib-emprego-consumo-focus/",
@@ -102,8 +101,11 @@ const STATIC_PATHS = [
   "/vc/liberdade-economica/","/vc/familia-e-patrimonio/"
 ];
 
-// Prioridade elevada para landing pages SSR (alto volume de busca)
-const HIGH_PRIORITY = new Set(["/trabalho/", "/financas/", "/moradia/", "/vc/"]);
+const HIGH_PRIORITY = new Set([
+  "/","/trabalho/","/financas/","/moradia/","/vc/","/seguranca/","/bem-estar/",
+  "/politica/","/economia/","/tecnologia/","/investimentos/",
+  "/mercados/","/dados/cotacoes/","/vagas/","/concursos/"
+]);
 
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
