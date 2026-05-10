@@ -33,6 +33,7 @@ function slugify(text) {
 const STATIC_PATHS = [
   "/","/busca/","/newsletter/","/radar/","/tv-ovc/","/radio-ovc/",
   "/dados/","/dados/cotacoes/","/dados/agenda-economica/",
+  "/trabalho/","/financas/","/moradia/",
   "/politica/","/economia/","/negocios/","/investimentos/",
   "/seguros/","/mercados/","/educacao/","/industria/",
   "/tecnologia/","/esportes/","/saude/","/familia/",
@@ -101,6 +102,9 @@ const STATIC_PATHS = [
   "/vc/liberdade-economica/","/vc/familia-e-patrimonio/"
 ];
 
+// Prioridade elevada para landing pages SSR (alto volume de busca)
+const HIGH_PRIORITY = new Set(["/trabalho/", "/financas/", "/moradia/", "/vc/"]);
+
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
@@ -113,9 +117,10 @@ export default async function handler(req, res) {
       .order("published_at", { ascending: false })
       .limit(5000);
 
-    const staticXml = STATIC_PATHS.map(path =>
-      `  <url><loc>${BASE}${path}</loc><changefreq>daily</changefreq><priority>0.7</priority></url>`
-    ).join("\n");
+    const staticXml = STATIC_PATHS.map(path => {
+      const priority = HIGH_PRIORITY.has(path) ? "0.9" : "0.7";
+      return `  <url><loc>${BASE}${path}</loc><changefreq>daily</changefreq><priority>${priority}</priority></url>`;
+    }).join("\n");
 
     const articleXml = (posts || []).map(p => {
       let tags = [];
