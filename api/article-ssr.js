@@ -3,6 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const BASE = "https://www.ovalorcapital.com.br";
 
 const CAT_PATH = {
   politica:"politica", economia:"economia", negocios:"negocios",
@@ -19,20 +20,25 @@ const CAT_PATH = {
 };
 
 const CAT_LABEL = {
-  politica:"Politica", economia:"Economia", negocios:"Negocios",
+  politica:"Política", economia:"Economia", negocios:"Negócios",
   investimentos:"Investimentos", seguros:"Seguros", mercados:"Mercados",
-  educacao:"Educacao", industria:"Industria", tecnologia:"Tecnologia",
-  esportes:"Esportes", saude:"Saude", familia:"Familia",
-  tributacao:"Tributacao", regulacao:"Regulacao", parcerias:"Parcerias",
+  educacao:"Educação", industria:"Indústria", tecnologia:"Tecnologia",
+  esportes:"Esportes", saude:"Saúde", familia:"Família",
+  tributacao:"Tributação", regulacao:"Regulação", parcerias:"Parcerias",
   internacional:"Internacional", vc:"OVC", vagas:"Vagas",
-  concursos:"Concursos", imoveis:"Imoveis", esg:"ESG",
-  defesa:"Defesa", religiao:"Religiao", cultura:"Cultura",
-  profissoes:"Profissoes", seguranca:"Seguranca Publica",
+  concursos:"Concursos Públicos", imoveis:"Imóveis", esg:"ESG",
+  defesa:"Defesa", religiao:"Fé & Espiritualidade", cultura:"Cultura",
+  profissoes:"Profissões", seguranca:"Segurança Pública",
   investigativo:"Investigativo", variedades:"Variedades"
 };
 
 function esc(s) {
   return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function slugify(str) {
+  return (str || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 55);
 }
 
 let _template = null;
@@ -58,19 +64,12 @@ export default async function handler(req, res) {
 
   let post = null;
   try {
-    if (id.length >= 36) {
-      const { data } = await supabase.from("posts")
-        .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
-        .eq("status", "publicado").eq("id", id).single();
-      post = data;
-    } else {
-      const { data } = await supabase.from("posts")
-        .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
-        .eq("status", "publicado")
-        .order("published_at", { ascending: false })
-        .limit(500);
-      post = (data || []).find(r => r.id && r.id.startsWith(id)) || null;
-    }
+    const { data } = await supabase.from("posts")
+      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
+      .eq("status", "publicado")
+      .ilike("id", `${id.slice(0,8)}%`)
+      .limit(1);
+    post = data?.[0] || null;
   } catch(_) {}
 
   if (!post) {
@@ -90,9 +89,10 @@ export default async function handler(req, res) {
   const subtitulo = esc(post.comentario_fixado || "");
   const resumoRaw = (post.conteudo || "").slice(0, 220).replace(/\n/g, " ").replace(/\s+/g, " ").trim();
   const resumo = esc(resumoRaw);
-  const imagemRaw = post.imagem || "https://www.ovalorcapital.com.br/assets/og-default.jpg";
+  const imagemRaw = post.imagem || `${BASE}/images/og-default.jpg`;
   const imagem = esc(imagemRaw);
-  const canonicalUrl = `https://www.ovalorcapital.com.br/${catPath}/?id=${id8}`;
+  const slugClean = slugify(post.titulo || "");
+  const canonicalUrl = `${BASE}/${catPath}/${slugClean}-${id8}/`;
 
   const corpoHtml = (post.conteudo || "").split(/\n\n+/).filter(l => l.trim())
     .map(l => `<p>${esc(l.trim())}</p>`).join("");

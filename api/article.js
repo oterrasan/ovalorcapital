@@ -4,6 +4,8 @@ import { join } from "path";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+const BASE = "https://www.ovalorcapital.com.br";
+
 const CAT_PATH = {
   politica:"politica", economia:"economia", negocios:"negocios",
   investimentos:"investimentos", seguros:"seguros", mercados:"mercados",
@@ -97,9 +99,9 @@ export default async function handler(req, res) {
   const titulo = article.titulo || "";
   const rawDesc = (article.comentario_fixado || (article.conteudo||"").slice(0,220).replace(/\n/g," ")).slice(0,200);
   const desc = rawDesc.trim();
-  const imagem = article.imagem || "https://ovalorcapital.com.br/images/og-default.jpg";
+  const imagem = article.imagem || `${BASE}/images/og-default.jpg`;
   const slug_clean = slugify(titulo);
-  const canonical = `https://ovalorcapital.com.br/${catPath}/${slug_clean}-${id8}/`;
+  const canonical = `${BASE}/${catPath}/${slug_clean}-${id8}/`;
   const publishedAt = article.published_at || article.created_at || new Date().toISOString();
   const modifiedAt = article.updated_at || publishedAt;
 
@@ -119,11 +121,11 @@ export default async function handler(req, res) {
     "image": [imagem],
     "datePublished": publishedAt,
     "dateModified": modifiedAt,
-    "author": [{"@type":"Organization","name":"Redação OVC","url":"https://ovalorcapital.com.br"}],
+    "author": [{"@type":"Organization","name":"Redação OVC","url":BASE}],
     "publisher": {
       "@type": "Organization",
       "name": "O Valor Capital",
-      "logo": {"@type":"ImageObject","url":"https://ovalorcapital.com.br/images/logo-ovc.png"}
+      "logo": {"@type":"ImageObject","url":`${BASE}/images/logo-ovc.png`}
     },
     "mainEntityOfPage": {"@type":"WebPage","@id": canonical},
     "articleSection": catLabel,

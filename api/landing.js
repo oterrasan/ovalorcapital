@@ -2,11 +2,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
+const LOGO = "https://www.ovalorcapital.com.br/images/logo-ovc.png";
+
 const SECTIONS = {
   trabalho: {
     title: "Trabalho & Carreira",
     desc: "Concursos públicos, vagas de emprego, profissões e mercado de trabalho no Brasil. Tudo para crescer na carreira.",
-    canonical: "https://ovalorcapital.com.br/trabalho/",
+    canonical: "https://www.ovalorcapital.com.br/trabalho/",
     cats: ["vagas", "concursos", "profissoes", "parcerias", "educacao"],
     color: "#0d2137", accent: "#f5a623",
     icon: "💼", badge: "Trabalho & Carreira",
@@ -14,7 +17,7 @@ const SECTIONS = {
   financas: {
     title: "Finanças Pessoais",
     desc: "Investimentos, seguros, tributação e mercados. Cotações ao vivo, análises e tudo para fazer seu dinheiro trabalhar.",
-    canonical: "https://ovalorcapital.com.br/financas/",
+    canonical: "https://www.ovalorcapital.com.br/financas/",
     cats: ["investimentos", "seguros", "tributacao", "regulacao", "mercados"],
     color: "#0a2218", accent: "#00c853",
     icon: "📈", badge: "Finanças Pessoais",
@@ -22,7 +25,7 @@ const SECTIONS = {
   moradia: {
     title: "Moradia & Imóveis",
     desc: "Mercado imobiliário, lançamentos, aluguel, Minha Casa Minha Vida e financiamento habitacional.",
-    canonical: "https://ovalorcapital.com.br/moradia/",
+    canonical: "https://www.ovalorcapital.com.br/moradia/",
     cats: ["imoveis"],
     color: "#1c0f05", accent: "#e8813a",
     icon: "🏠", badge: "Moradia & Imóveis",
@@ -30,23 +33,23 @@ const SECTIONS = {
   vc: {
     title: "Colunistas & Opinião",
     desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira.",
-    canonical: "https://ovalorcapital.com.br/vc/",
+    canonical: "https://www.ovalorcapital.com.br/vc/",
     cats: ["vc", "colunistas"],
     color: "#0d0d0d", accent: "#c9a84c",
     icon: "✍️", badge: "Opinião",
   },
   seguranca: {
     title: "Segurança & Defesa",
-    desc: "Segurança pública, forças armadas, investigações e defesa nacional.",
-    canonical: "https://ovalorcapital.com.br/seguranca/",
+    desc: "Segurança pública, forças armadas, investigações e defesa nacional. Cobertura completa de segurança no Brasil.",
+    canonical: "https://www.ovalorcapital.com.br/seguranca/",
     cats: ["seguranca", "defesa", "investigativo"],
     color: "#0d1b2a", accent: "#e63946",
     icon: "🛡️", badge: "Segurança & Defesa",
   },
   "bem-estar": {
     title: "Bem-Estar & Sociedade",
-    desc: "Saúde, família, cultura, espiritualidade e ESG. Informação que melhora sua vida.",
-    canonical: "https://ovalorcapital.com.br/bem-estar/",
+    desc: "Saúde, família, cultura, espiritualidade e ESG. Informação que melhora sua vida e fortalece sua família.",
+    canonical: "https://www.ovalorcapital.com.br/bem-estar/",
     cats: ["saude", "familia", "cultura", "religiao", "esg"],
     color: "#0a1f14", accent: "#52b788",
     icon: "🌱", badge: "Bem-Estar & Sociedade",
@@ -174,7 +177,7 @@ function renderEditorial(posts,cfg){
   }).join("");
   const listItems=list.map(p=>{
     const thumb=p.imagem
-      ?`<img src="${esc(p.imagem)}" alt="" style="width:80px;height:58px;object-fit:cover;border-radius:4px;flex-shrink:0" loading="lazy">`
+      ?`<img src="${esc(p.imagem)}" alt="${esc(p.titulo)}" style="width:80px;height:58px;object-fit:cover;border-radius:4px;flex-shrink:0" loading="lazy">`
       :`<div style="width:80px;height:58px;background:#1a1a1a;border-radius:4px;flex-shrink:0"></div>`;
     return `<a href="${buildUrl(p)}" style="display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid #1a1a1a;text-decoration:none">
 ${thumb}<div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c9a84c;margin-bottom:6px">Opinião</div><div style="color:#d8d8d8;font-size:.9rem;font-weight:500;line-height:1.45">${esc(p.titulo)}</div></div></a>`;
@@ -200,7 +203,7 @@ function renderLanding(section,posts,cfg){
   for(const p of posts){const c=getCat(p);if(!byCat[c])byCat[c]=[];byCat[c].push(p);}
   const a=cfg.accent,c=cfg.color;
   const featHtml=featured
-    ?`<a href="${buildUrl(featured)}" style="display:block;position:relative;height:460px;background:#111 center/cover no-repeat;${featured.imagem?`background-image:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.3) 60%,transparent 100%),url('${esc(featured.imagem)}')`:"background:"+c};border-radius:12px;overflow:hidden;margin-bottom:48px;text-decoration:none">
+    ?`<a href="${buildUrl(featured)}" style="display:block;position:relative;height:460px;background:#111 center/cover no-repeat;${featured.imagem?`background-image:linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.3) 60%,transparent 100%),url('${esc(featured.imagem)}')`:`background:${c}`};border-radius:12px;overflow:hidden;margin-bottom:48px;text-decoration:none">
 <div style="position:absolute;bottom:0;left:0;right:0;padding:48px 36px 36px">
 <span style="display:inline-block;background:${a};color:#111;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:4px 12px;border-radius:3px;margin-bottom:14px">${esc(CAT_LABEL[getCat(featured)]||"Destaque")}</span>
 <h2 style="color:#fff;font-size:clamp(1.5rem,3.5vw,2.2rem);font-weight:800;line-height:1.2;margin:0 0 12px">${esc(featured.titulo)}</h2>
@@ -209,7 +212,7 @@ function renderLanding(section,posts,cfg){
 </div></a>`
     :"";
   const gridHtml=grid.map(p=>`<a href="${buildUrl(p)}" style="display:flex;flex-direction:column;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 2px 16px rgba(0,0,0,.07);text-decoration:none">
-<div style="height:168px;background:#e8e8e8 center/cover no-repeat;${p.imagem?`background-image:url('${esc(p.imagem)}')`:"background:"+c+"22"}"></div>
+<div style="height:168px;background:#e8e8e8 center/cover no-repeat;${p.imagem?`background-image:url('${esc(p.imagem)}')`:`background:${c}22`}"></div>
 <div style="padding:16px">
 <div style="color:${c};font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px">${esc(CAT_LABEL[getCat(p)]||"")}</div>
 <div style="color:#1a1a1a;font-size:.9rem;font-weight:600;line-height:1.45">${esc(p.titulo)}</div>
@@ -218,7 +221,7 @@ function renderLanding(section,posts,cfg){
     const cp=(byCat[cat]||[]).slice(0,5);
     if(!cp.length)return"";
     const items=cp.map(p=>`<a href="${buildUrl(p)}" style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f2f2f2;text-decoration:none">
-${p.imagem?`<img src="${esc(p.imagem)}" alt="" style="width:68px;height:50px;object-fit:cover;border-radius:5px;flex-shrink:0" loading="lazy">`:`<div style="background:${c}18;flex-shrink:0;width:68px;height:50px;border-radius:5px"></div>`}
+${p.imagem?`<img src="${esc(p.imagem)}" alt="${esc(p.titulo)}" style="width:68px;height:50px;object-fit:cover;border-radius:5px;flex-shrink:0" loading="lazy">`:`<div style="background:${c}18;flex-shrink:0;width:68px;height:50px;border-radius:5px"></div>`}
 <span style="color:#2a2a2a;font-size:.87rem;font-weight:500;line-height:1.45">${esc(p.titulo)}</span></a>`).join("");
     return `<div>
 <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
@@ -254,7 +257,8 @@ export default async function handler(req,res){
   const jsonLd=JSON.stringify({
     "@context":"https://schema.org","@type":"CollectionPage",
     "name":cfg.title+" | O Valor Capital","description":cfg.desc,
-    "url":cfg.canonical,"publisher":{"@type":"Organization","name":"O Valor Capital"},
+    "url":cfg.canonical,
+    "publisher":{"@type":"Organization","name":"O Valor Capital","logo":{"@type":"ImageObject","url":LOGO}},
     "inLanguage":"pt-BR"
   });
 
@@ -267,9 +271,17 @@ export default async function handler(req,res){
 <meta name="description" content="${esc(cfg.desc)}">
 <link rel="canonical" href="${cfg.canonical}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="O Valor Capital">
 <meta property="og:title" content="${esc(cfg.title)} | O Valor Capital">
 <meta property="og:description" content="${esc(cfg.desc)}">
+<meta property="og:image" content="${OG_DEFAULT}">
 <meta property="og:url" content="${cfg.canonical}">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@ovalorcapital">
+<meta name="twitter:title" content="${esc(cfg.title)} | O Valor Capital">
+<meta name="twitter:description" content="${esc(cfg.desc)}">
+<meta name="twitter:image" content="${OG_DEFAULT}">
 <script type="application/ld+json">${jsonLd}</script>
 <link rel="stylesheet" href="/css/home.css">
 <style>
