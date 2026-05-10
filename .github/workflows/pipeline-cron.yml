@@ -1,0 +1,23 @@
+name: Pipeline OVC — a cada 20min
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Disparar pipeline
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"count":8}' \
+            "https://www.ovalorcapital.com.br/api/run")
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" -ge 500 ]; then
+            echo "Erro no pipeline (HTTP $STATUS)"
+            exit 1
+          fi

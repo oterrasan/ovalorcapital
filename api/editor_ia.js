@@ -11,7 +11,26 @@ const OPENAI_KEY = process.env.OPENAI_API_KEY || "";
 
 const hoje = () => new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
 
-// ── PROMPT — retorna texto estruturado com campos SEO completos
+const COMPETITOR_HOSTS = new Set([
+  'glbimg.com','s2.glbimg.com','s3.glbimg.com','globo.com','g1.globo.com','ge.globo.com',
+  'oglobo.globo.com','extra.globo.com','valor.com.br','uol.com.br','folha.uol.com.br',
+  'f.i.uol.com.br','imguol.i.uol.com.br','estadao.com.br','broadcast.com.br',
+  'r7.com','record.com.br','sbt.com.br','jovempan.com.br','band.com.br',
+  'cnnbrasil.com.br','assets.cnnbrasil.com.br','veja.com.br','abril.com.br',
+  'exame.com','cartacapital.com.br','poder360.com.br','gazetadopovo.com.br',
+  'metropoles.com','seudinheiro.com','infomoney.com.br','terra.com.br','ig.com.br',
+  'agenciabrasil.ebc.com.br','imagens.ebc.com.br','reuters.com','ap.org',
+  'canaltech.com.br','apublica.org','correiobraziliense.com.br',
+]);
+
+function isCompetitorImage(url) {
+  if (!url || url.length < 10) return false;
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, '');
+    return [...COMPETITOR_HOSTS].some(d => h === d || h.endsWith('.' + d));
+  } catch(_) { return false; }
+}
+
 function buildPrompt(acao, promptLivre, data, texto) {
   const instrucao = {
     reescrever: "Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Reescreva a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos da fonte. NÃO invente nada.",
@@ -28,7 +47,7 @@ TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início
 FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO
 SLUG: 3 a 5 palavras-chave hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
 META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural
-CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | vc | colunistas
+CATEGORIA: escolha exatamente uma: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao | vc | colunistas
 SUBCATEGORIA: subcategoria específica dentro da categoria escolhida
 CORPO:
 Redação OVC — ${data}
@@ -153,7 +172,6 @@ function slugify(text) {
     .replace(/-+/g, "-");
 }
 
-// Parser robusto — lê formato de texto estruturado com campos SEO
 function parse(raw) {
   if (!raw || raw.length < 50) return null;
 
@@ -198,7 +216,14 @@ function parse(raw) {
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","vc","colunistas"];
+  // Todas as 29 categorias válidas
+  const catsValidas = [
+    "politica","economia","negocios","investimentos","seguros","mercados",
+    "educacao","industria","tecnologia","esportes","saude","familia",
+    "tributacao","regulacao","parcerias","internacional","vc","colunistas",
+    "variedades","investigativo","seguranca","cultura","profissoes",
+    "vagas","concursos","imoveis","esg","defesa","religiao"
+  ];
   if (!catsValidas.includes(categoria)) categoria = "geral";
 
   if (!slug && titulo) slug = slugify(titulo).split("-").slice(0, 5).join("-");
@@ -244,6 +269,9 @@ export default async function handler(req, res) {
       if (!sourceImage) sourceImage = article.image || "";
     }
 
+    // Bloquear imagem de domínio concorrente antes de qualquer processamento
+    if (isCompetitorImage(sourceImage)) sourceImage = "";
+
     if (!sourceText || sourceText.trim().length < 20) {
       return res.status(400).json({ error: "Texto muito curto para gerar matéria" });
     }
@@ -264,7 +292,7 @@ export default async function handler(req, res) {
               const info = await infoRes.json();
               const pages = Object.values(info?.query?.pages || {});
               const imgUrl = pages[0]?.imageinfo?.[0]?.url;
-              if (imgUrl && /\.(jpg|jpeg|png)/i.test(imgUrl)) sourceImage = imgUrl;
+              if (imgUrl && /\.(jpg|jpeg|png)/i.test(imgUrl) && !isCompetitorImage(imgUrl)) sourceImage = imgUrl;
             }
           }
         }
@@ -301,7 +329,8 @@ export default async function handler(req, res) {
     }
 
     const hash = crypto.createHash("md5").update((url || texto || "").slice(0, 200) + "_editor_" + Date.now()).digest("hex");
-    const status = publicar === true || publicar === "publicado" ? "publicado" : "pendente";
+    // Sempre salva como pendente — aprovação manual obrigatória
+    const status = "pendente";
 
     const { data: post, error } = await supabase.from("posts").insert({
       titulo: content.titulo,
@@ -310,9 +339,9 @@ export default async function handler(req, res) {
       imagem: sourceImage || "",
       hash,
       status,
-      approved: status === "publicado",
+      approved: false,
       publish_method: "portal",
-      published_at: status === "publicado" ? new Date().toISOString() : null,
+      published_at: null,
       user_tags: JSON.stringify([content.categoria || "geral"]),
       subcategoria: content.subcategoria || "",
       subcategoria_slug: "",

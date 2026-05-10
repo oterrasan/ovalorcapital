@@ -3,10 +3,6 @@
   "outputDirectory": "public",
   "crons": [
     {
-      "path": "/api/run",
-      "schedule": "*/20 * * * *"
-    },
-    {
       "path": "/api/refresh_token",
       "schedule": "0 3 1 * *"
     }

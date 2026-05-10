@@ -35,10 +35,19 @@ const REGRAS_CATEGORIA = [
   { cat: 'vagas',      sinal: ['vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga','home office','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','coordenador de','clique e candidate'] },
   { cat: 'concursos', sinal: ['concurso público','concurso publico','edital do concurso','gabarito oficial','inscrições abertas para concurso','provas do concurso'] },
   { cat: 'imoveis',   sinal: ['mercado imobiliário','financiamento imobiliário','minha casa minha vida','metro quadrado','lançamento imobiliário','incorporadora'] },
-  { cat: 'saude',     sinal: ['anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia','plano de saúde aumenta'] },
-  { cat: 'tecnologia',sinal: ['inteligência artificial','ia generativa','chatgpt','machine learning','cibersegurança','startup lança','iphone ','android '] },
+  { cat: 'saude',     sinal: ['anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia','plano de saúde aumenta','sus atende','tratamento de','hospital federal','doença crônica'] },
+  { cat: 'tecnologia',sinal: ['inteligência artificial','ia generativa','chatgpt','machine learning','cibersegurança','startup lança','iphone ','android ','inteligencia artificial'] },
   { cat: 'esportes',  sinal: ['copa do mundo','campeonato brasileiro','libertadores','fórmula 1','olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão','seleção brasileira'] },
-  { cat: 'politica',  sinal: ['senado aprova','câmara aprova','lula sanciona','presidente veta','stf decide','eleições 2026','deputados votam'] },
+  { cat: 'politica',  sinal: ['senado aprova','câmara aprova','lula sanciona','presidente veta','stf decide','eleições 2026','deputados votam','governo federal anuncia','ministério anuncia'] },
+  { cat: 'economia',  sinal: ['taxa selic','banco central eleva','inflação acelerou','ipca sobe','ipca cai','pib cresce','pib cai','câmbio fecha','dólar sobe','dólar cai','déficit fiscal','superávit primário','copom decide','desemprego cai','desemprego sobe','emprego formal','caged aponta','mercado de trabalho'] },
+  { cat: 'tributacao',sinal: ['imposto de renda','reforma tributária','receita federal autua','irpf 2025','irpf 2026','simples nacional','desoneracao','isenção fiscal','alíquota zero','declaração do ir','restituição do ir','sonegação fiscal','nota fiscal eletrônica'] },
+  { cat: 'seguranca', sinal: ['polícia prende','operação policial','tráfico de drogas','homicídio','assalto a banco','chacina','milícia','facção criminosa','crime organizado','feminicídio','sequestro em'] },
+  { cat: 'internacional', sinal: ['guerra na ucrânia','conflito em gaza','oriente médio','relações exteriores','embaixada brasileira','otan decide','acordo bilateral','sanções econômicas','geopolítica','cúpula do g20','diplomacia brasileira'] },
+  { cat: 'educacao',  sinal: ['enem 2025','enem 2026','vestibular','universidade federal','mec anuncia','prouni','fies ','base curricular','escola pública','ensino fundamental','ensino médio','nota do enem'] },
+  { cat: 'religiao',  sinal: ['igreja evangélica','pastor ','bispo ','papa francisco','vaticano','missa ','culto religioso','fé cristã','dízimo','templo universal','assembleia de deus'] },
+  { cat: 'familia',   sinal: ['guarda dos filhos','pensão alimentícia','divórcio ','adoção de crianças','planejamento familiar','herança e inventário','violência doméstica','lei maria da penha'] },
+  { cat: 'cultura',   sinal: ['festival de cinema','oscar ','grammy ','show de ','exposição de arte','museu ','netflix lança','série da netflix','lançamento de livro','carnaval 2026','carnaval 2025'] },
+  { cat: 'defesa',    sinal: ['exército brasileiro','marinha do brasil','força aérea brasileira','forças armadas','ministério da defesa','segurança nacional','fronteiras do brasil','defesa nacional'] },
 ];
 
 const SUBCATS_POR_CAT = {
@@ -105,7 +114,6 @@ function validarConteudo(content) {
   return true;
 }
 
-// Corrige automaticamente posts com categoria/subcategoria errada ou imagem de concorrente
 async function corrigirPostsExistentes() {
   try {
     const { data: posts } = await supabase
@@ -147,7 +155,8 @@ export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
-  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 4);
+  // Aumentado de 4 para 8 para dobrar o throughput por execução do cron
+  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
   try {
     if (!body.force && !body.batch) {
@@ -164,7 +173,6 @@ export default async function handler(req, res) {
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
 
-    // Corrige posts existentes com problemas automaticamente a cada execucao
     corrigirPostsExistentes().catch(() => {});
 
     const news = await getNews();
@@ -228,8 +236,6 @@ export default async function handler(req, res) {
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
 
-    try { await seoBackfill(artigos.length > 0 ? 2 : 5); } catch(_) {}
-
     if (artigos.length > 0) {
       return res.status(200).json({ status: 'ok', artigos, total: artigos.length, titulo: artigos[0].titulo, categoria: artigos[0].categoria, id: artigos[0].id });
     }
@@ -237,32 +243,5 @@ export default async function handler(req, res) {
 
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
-  }
-}
-
-const OPENAI_KEY = process.env.OPENAI_API_KEY || '';
-
-async function seoBackfill(limite) {
-  if (!OPENAI_KEY) return;
-  const { data: posts } = await supabase.from('posts').select('id,titulo,conteudo,metrics').eq('status','publicado').or('metrics.is.null,metrics->>seo_otimizado.neq.true').order('created_at',{ascending:true}).limit(limite);
-  if (!posts || !posts.length) return;
-  for (const post of posts) {
-    try {
-      const prompt = `Gere SEO para este artigo do portal O Valor Capital.\nTÍTULO: ${post.titulo}\nCONTEÚDO: ${(post.conteudo||'').slice(0,600)}\n\nFormato exato:\nTITULO: manchete 50-65 chars\nFOCO_KEYWORD: 2-4 palavras\nSLUG: 3-5 palavras hifenizadas sem acentos\nMETA_DESCRICAO: 145-160 chars`;
-      const r = await fetch('https://api.openai.com/v1/chat/completions', { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${OPENAI_KEY}`}, body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],temperature:0.2,max_tokens:300}) });
-      const d = await r.json();
-      const raw = d.choices?.[0]?.message?.content || '';
-      let novoTitulo='',focoKeyword='',slug='',metaDescricao='';
-      for (const line of raw.split('\n')) {
-        const t = line.trim();
-        if (/^TITULO:/i.test(t)) novoTitulo=t.replace(/^TITULO:/i,'').trim();
-        else if (/^FOCO_KEYWORD:/i.test(t)) focoKeyword=t.replace(/^FOCO_KEYWORD:/i,'').trim();
-        else if (/^SLUG:/i.test(t)) slug=slugify(t.replace(/^SLUG:/i,'').trim());
-        else if (/^META_DESCRICAO:/i.test(t)) metaDescricao=t.replace(/^META_DESCRICAO:/i,'').trim();
-      }
-      if (!slug && novoTitulo) slug=slugify(novoTitulo).split('-').slice(0,5).join('-');
-      const m=(typeof post.metrics==='object'&&post.metrics)?post.metrics:{};
-      await supabase.from('posts').update({titulo:novoTitulo||post.titulo,comentario_fixado:metaDescricao||'',metrics:{...m,foco_keyword:focoKeyword,seo_slug:slug,meta_descricao:metaDescricao,seo_otimizado:true}}).eq('id',post.id);
-    } catch(_) {}
   }
 }

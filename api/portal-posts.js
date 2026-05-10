@@ -17,10 +17,11 @@ export default async function handler(req, res) {
           .eq("status","publicado").eq("id",id).single();
         post = data;
       } else {
-        const { data } = await supabase.from("posts")
+        // Busca direta por prefixo — sem limite de janela de tempo
+        const { data: rows } = await supabase.from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
-          .eq("status","publicado").order("published_at",{ascending:false}).limit(200);
-        post = (data||[]).find(r => r.id && r.id.startsWith(id)) || null;
+          .eq("status","publicado").ilike("id", `${id}%`).limit(1);
+        post = rows?.[0] || null;
       }
     } catch(_) {}
     const p = post ? formatPost(post, false) : null;
@@ -88,15 +89,14 @@ export default async function handler(req, res) {
           .single();
         data = row;
       } else {
+        // Busca direta por prefixo — funciona para artigos de qualquer data
         const { data: rows } = await supabase
           .from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
           .eq("status", "publicado")
-          .order("published_at", { ascending: false })
-          .limit(200);
-        if (rows) {
-          data = rows.find(r => r.id && r.id.startsWith(id)) || null;
-        }
+          .ilike("id", `${id}%`)
+          .limit(1);
+        data = rows?.[0] || null;
       }
 
       if (!data) return res.status(404).json({ error: "not_found" });
@@ -158,7 +158,7 @@ export default async function handler(req, res) {
     const postsRaw = (data || []).filter(p => {
       if (!p.id || !p.titulo) return false;
       if (seenId.has(p.id)) return false;
-      const tNorm = (p.titulo||"").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,30);
+      const tNorm = (p.titulo||"" ).toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,30);
       if (seenTitulo.has(tNorm)) return false;
       seenId.add(p.id);
       seenTitulo.add(tNorm);
