@@ -40,6 +40,22 @@ const SECTIONS = {
     color: "#0d0d0d", accent: "#c9a84c",
     icon: "✍️", badge: "O Valor Capital · Opinião",
   },
+  seguranca: {
+    title: "Segurança & Defesa",
+    desc: "Segurança pública, forças armadas, investigações e defesa nacional. Jornalismo sério sobre o que protege o Brasil.",
+    canonical: "https://ovalorcapital.com.br/seguranca/",
+    cats: ["seguranca", "defesa", "investigativo"],
+    color: "#0d1b2a", accent: "#e63946",
+    icon: "🛡️", badge: "O Valor Capital · Segurança & Defesa",
+  },
+  "bem-estar": {
+    title: "Bem-Estar & Sociedade",
+    desc: "Saúde, família, cultura, espiritualidade e ESG. Informação que melhora sua vida e a do Brasil.",
+    canonical: "https://ovalorcapital.com.br/bem-estar/",
+    cats: ["saude", "familia", "cultura", "religiao", "esg"],
+    color: "#0a1f14", accent: "#52b788",
+    icon: "🌱", badge: "O Valor Capital · Bem-Estar & Sociedade",
+  },
 };
 
 const CAT_PATH = {
@@ -49,6 +65,9 @@ const CAT_PATH = {
   tributacao: "tributos", regulacao: "regulacao", mercados: "mercados",
   economia: "economia", imoveis: "imoveis",
   vc: "vc", colunistas: "vc",
+  seguranca: "seguranca", defesa: "defesa", investigativo: "investigativo",
+  saude: "saude", familia: "familia", cultura: "cultura",
+  religiao: "religiao", esg: "esg",
 };
 
 const CAT_LABEL = {
@@ -58,6 +77,9 @@ const CAT_LABEL = {
   tributacao: "Tributação", regulacao: "Regulação",
   mercados: "Mercados", economia: "Economia", imoveis: "Imóveis",
   vc: "Opinião", colunistas: "Colunistas",
+  seguranca: "Segurança", defesa: "Defesa", investigativo: "Investigativo",
+  saude: "Saúde", familia: "Família", cultura: "Cultura",
+  religiao: "Fé & Espiritualidade", esg: "ESG",
 };
 
 const CAT_DESC = {
@@ -72,6 +94,14 @@ const CAT_DESC = {
   regulacao: "BACEN, CVM e ambiente regulatório",
   mercados: "Bolsa, câmbio, juros e criptomoedas",
   imoveis: "Compra, venda, aluguel e financiamento",
+  seguranca: "Segurança pública, polícia e criminalidade",
+  defesa: "Forças armadas e defesa nacional",
+  investigativo: "Investigações e jornalismo de profundidade",
+  saude: "Saúde pública, SUS e medicina",
+  familia: "Família, filhos e educação dos filhos",
+  cultura: "Arte, entretenimento e cultura brasileira",
+  religiao: "Fé, espiritualidade e tradições religiosas",
+  esg: "Sustentabilidade, ESG e impacto social",
 };
 
 function slugify(str) {
@@ -95,6 +125,41 @@ function buildUrl(post) {
   const catPath = CAT_PATH[cat] || cat;
   const id8 = (post.id || "").slice(0, 8);
   return "/" + catPath + "/" + slugify(post.titulo) + "-" + id8 + "/";
+}
+
+async function fetchPostsByCats(cats) {
+  // user_tags é coluna TEXT com JSON, então usa .like() em vez de .contains()
+  // Ex: user_tags = '["vagas"]' → filtra com LIKE '%"vagas"%'
+  const filter = cats.map(c => `user_tags.like.%"${c}"%`).join(",");
+  try {
+    const { data } = await supabase.from("posts")
+      .select("id,titulo,comentario_fixado,imagem,user_tags,published_at")
+      .eq("status", "publicado")
+      .or(filter)
+      .order("published_at", { ascending: false })
+      .limit(30);
+    if (data && data.length) return data;
+  } catch (_) {}
+
+  // Fallback: busca categoria por categoria
+  try {
+    const results = await Promise.allSettled(
+      cats.map(cat =>
+        supabase.from("posts")
+          .select("id,titulo,comentario_fixado,imagem,user_tags,published_at")
+          .eq("status", "publicado")
+          .like("user_tags", `%"${cat}"%`)
+          .order("published_at", { ascending: false })
+          .limit(8)
+          .then(r => r.data || [])
+      )
+    );
+    const posts = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+    posts.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    return posts;
+  } catch (_) {}
+
+  return [];
 }
 
 // Caminhos a tentar para ler o template (filesystem)
@@ -332,35 +397,7 @@ export default async function handler(req, res) {
   const cfg = SECTIONS[section];
   if (!cfg) return res.status(404).send("Not found");
 
-  // Busca posts: primeiro tenta todos de uma vez, depois por categoria individual
-  let posts = [];
-  try {
-    const { data } = await supabase.from("posts")
-      .select("id,titulo,comentario_fixado,imagem,user_tags,published_at")
-      .eq("status", "publicado")
-      .contains("user_tags", cfg.cats)
-      .order("published_at", { ascending: false })
-      .limit(30);
-    posts = data || [];
-  } catch (_) {}
-
-  if (!posts.length) {
-    try {
-      const results = await Promise.allSettled(
-        cfg.cats.map(cat =>
-          supabase.from("posts")
-            .select("id,titulo,comentario_fixado,imagem,user_tags,published_at")
-            .eq("status", "publicado")
-            .contains("user_tags", [cat])
-            .order("published_at", { ascending: false })
-            .limit(8)
-            .then(r => r.data || [])
-        )
-      );
-      posts = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
-      posts.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
-    } catch (_) {}
-  }
+  const posts = await fetchPostsByCats(cfg.cats);
 
   const mainHtml = renderLandingHTML(section, posts, cfg);
 
@@ -386,7 +423,6 @@ export default async function handler(req, res) {
   let tpl = await getTemplate();
 
   if (!tpl) {
-    // Último recurso: página sem template mas funcional
     const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">'
       + '<meta name="viewport" content="width=device-width,initial-scale=1">'
       + seoTags
@@ -408,7 +444,6 @@ export default async function handler(req, res) {
   tpl = tpl.replace(/<title>[^<]*<\/title>/i, "");
   tpl = tpl.replace("</head>", seoTags + "\n</head>");
 
-  // Substitui <main> via indexOf (sem risco de regex com $ no conteúdo)
   const html = injectMain(tpl, mainHtml);
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
