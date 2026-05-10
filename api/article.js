@@ -85,11 +85,9 @@ export default async function handler(req, res) {
     const { data: rows } = await supabase.from("posts")
       .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at")
       .eq("status","publicado")
-      .order("published_at",{ascending:false})
-      .limit(400);
-    if (rows) {
-      article = rows.find(r => r.id && r.id.startsWith(id8)) || null;
-    }
+      .ilike("id", `${id8}%`)
+      .limit(1);
+    article = rows?.[0] || null;
   } catch(e) {
     return res.status(500).send("db error");
   }

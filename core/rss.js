@@ -167,6 +167,7 @@ export async function getNews() {
     let feedsParaUsar;
     if (allSources && allSources.length > 0) {
       feedsParaUsar = allSources.filter(s => s.active !== false);
+      if (!feedsParaUsar.length) feedsParaUsar = selecionarFeedsBalanceados();
     } else {
       feedsParaUsar = selecionarFeedsBalanceados();
     }

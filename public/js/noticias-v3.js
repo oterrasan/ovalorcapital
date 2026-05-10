@@ -17,13 +17,24 @@
     esportes:'esportes', saude:'saude', familia:'familia',
     tributacao:'tributos', regulacao:'regulacao', internacional:'internacional',
     previdencia:'investimentos', consorcio:'seguros', parcerias:'parcerias',
-    vc:'vc', colunistas:'vc',
+    vc:'vc', colunistas:'vc', variedades:'variedades', investigativo:'investigativo',
+    seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes',
+    vagas:'vagas', concursos:'concursos', imoveis:'imoveis',
+    esg:'esg', defesa:'defesa', religiao:'religiao',
     geral:'politica'
   };
 
+  function _slugify(s){
+    return (s||'').toLowerCase().normalize('NFD')
+      .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'')
+      .trim().replace(/\s+/g,'-').slice(0,55);
+  }
+
   function buildUrl(p){
-    var cat = CAT_PATH[p.categoria||'geral'] || 'politica';
-    return '/' + cat + '/?id=' + (p.id||'').slice(0,8);
+    var cp = CAT_PATH[p.categoria||'geral'] || 'politica';
+    var sl = p.slug ? p.slug.slice(0,55) : _slugify(p.titulo||'');
+    var id8 = (p.id||'').slice(0,8);
+    return '/' + cp + '/' + sl + '-' + id8 + '/';
   }
 
   function dataBr(dt){
