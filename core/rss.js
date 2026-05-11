@@ -233,22 +233,38 @@ const FEEDS_POR_GRUPO = {
     { url: GN("sistema prisional carcerario preso regaio"),            name: "GN Sistema Prisional" },
     { url: GN("terrorismo extremismo seguranca internacional"),        name: "GN Terrorismo" },
   ],
-  cultura_variedades_esportes: [
+  // ESPORTES — grupo dedicado (antes misturado com cultura/variedades)
+  esportes: [
     { url: "https://ge.globo.com/rss/ge.xml",                         name: "GE Esportes" },
     { url: GN("brasileirao campeonato flamengo corinthians palmeiras"), name: "GN Brasileirão" },
-    { url: GN("copa mundo eurocopa selecao brasileira futebol"),       name: "GN Copa" },
-    { url: GN("formula 1 gp corrida lewis hamilton verstappen"),       name: "GN F1" },
-    { url: GN("olimpiadas jogos paris atleta medalhista"),             name: "GN Olimpíadas" },
+    { url: GN("copa mundo eurocopa selecao brasileira futebol"),       name: "GN Copa Futebol" },
+    { url: GN("formula 1 gp corrida hamilton verstappen ferrari"),     name: "GN F1" },
+    { url: GN("olimpiadas jogos atletismo nadador medalhista"),        name: "GN Olimpíadas" },
     { url: GN("nba nfl mlb beisebol basquete americana esporte"),      name: "GN Esportes USA" },
+    { url: GN("tenis wimbledon roland garros us open atp wta"),        name: "GN Tênis" },
+    { url: GN("mma ufc boxe luta campeonato artes marciais"),          name: "GN MMA/Boxe" },
+    { url: GN_EN("sports soccer champions league premier league"),    name: "GN Sports EN" },
+    { url: "https://feeds.bbci.co.uk/sport/rss.xml",                  name: "BBC Sport" },
+  ],
+  // CULTURA — grupo dedicado
+  cultura: [
     { url: GN("cultura arte cinema festival premio oscar"),            name: "GN Cultura" },
     { url: GN("musica show lancamento album festival"),                name: "GN Música" },
     { url: GN("serie filme streaming netflix amazon disney"),          name: "GN Streaming" },
+    { url: GN("teatro literatura livro leitura publicacao"),           name: "GN Literatura" },
+    { url: GN("patrimonio cultural museu exposicao arte nacional"),    name: "GN Museus/Arte" },
+    { url: GN("carnaval festa popular folclore cultura brasileira"),   name: "GN Cultura Popular" },
+    { url: GN_EN("cinema film award oscar festival culture arts"),    name: "GN Cinema EN" },
+  ],
+  // VARIEDADES — grupo dedicado
+  variedades: [
     { url: GN("gastronomia restaurante chef culinaria receita"),       name: "GN Gastronomia" },
     { url: GN("turismo viagem destino internacional nacional"),        name: "GN Turismo" },
     { url: GN("moda estilo roupa tendência marca luxo"),               name: "GN Moda" },
     { url: GN("entretenimento celebridade fama comportamento viral"),  name: "GN Entretenimento" },
-    { url: GN_EN("sports soccer champions league premier league"),    name: "GN Sports EN" },
-    { url: "https://feeds.bbci.co.uk/sport/rss.xml",                  name: "BBC Sport" },
+    { url: GN("reality show bbb big brother famoso brasil"),           name: "GN Reality Shows" },
+    { url: GN("podcast influencer digital creator redes sociais"),     name: "GN Criadores Digitais" },
+    { url: GN("bem estar autoestima qualidade vida habitos saude"),    name: "GN Bem-estar" },
   ],
   espiritualidade: [
     { url: GN("religiao fe evangelico catolicismo espirita"),          name: "GN Religião" },
@@ -308,9 +324,10 @@ const CATEGORIA_PARA_GRUPO = {
   internacional: ["esg_internacional"],
   defesa:        ["defesa_seguranca"],
   seguranca:     ["defesa_seguranca"],
-  cultura:       ["cultura_variedades_esportes"],
-  variedades:    ["cultura_variedades_esportes"],
-  esportes:      ["cultura_variedades_esportes"],
+  // Grupos dedicados — separados para evitar contaminação cruzada
+  esportes:      ["esportes"],
+  cultura:       ["cultura"],
+  variedades:    ["variedades"],
   religiao:      ["espiritualidade"],
   investigativo: ["investigativo"],
   agronegocio:   ["agronegocio"],
