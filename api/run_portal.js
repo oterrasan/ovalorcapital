@@ -31,6 +31,16 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
+// Faixas horárias (horário de Brasília, UTC-3)
+// Limites configuráveis via tabela config no Supabase
+const FAIXAS_HORARIO = [
+  { chave: 'POSTS_01_06', hInicio: 1,  hFim: 6,  padrao: 20  },
+  { chave: 'POSTS_06_10', hInicio: 6,  hFim: 10, padrao: 40  },
+  { chave: 'POSTS_10_12', hInicio: 10, hFim: 12, padrao: 40  },
+  { chave: 'POSTS_12_17', hInicio: 12, hFim: 17, padrao: 80  },
+  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 }, // hFim=25 cobre hora 0 (meia-noite)
+];
+
 // Categorias de alto engajamento — recebem prioridade de busca por execução
 const HIGH_PRIORITY_CATS = [
   'politica', 'economia', 'internacional', 'tecnologia',
@@ -349,6 +359,34 @@ export default async function handler(req, res) {
       const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
       const { count } = await supabase.from('posts').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia.toISOString()).eq('publish_method', 'portal');
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
+    }
+
+    // ── LIMITE POR FAIXA HORÁRIA (Brasília, UTC-3) ───────────────────────────
+    if (!body.force && !body.batch) {
+      const agoraBR = new Date(Date.now() - 3 * 3600000);
+      const horaBR  = agoraBR.getUTCHours();
+      const faixa   = FAIXAS_HORARIO.find(f => horaBR >= f.hInicio && horaBR < f.hFim)
+                      || FAIXAS_HORARIO[FAIXAS_HORARIO.length - 1]; // hora 0 → POSTS_17_00
+
+      // Converte início da faixa (hora Brasília) para UTC
+      const hInicioReal = faixa.chave === 'POSTS_17_00' ? 17 : faixa.hInicio;
+      const inicioFaixaBR = new Date(agoraBR);
+      inicioFaixaBR.setUTCHours(hInicioReal, 0, 0, 0);
+      // Meia-noite dentro da faixa 17-00 → início foi no dia anterior às 17h
+      if (faixa.chave === 'POSTS_17_00' && horaBR === 0) {
+        inicioFaixaBR.setUTCDate(inicioFaixaBR.getUTCDate() - 1);
+      }
+      const inicioFaixaUTC = new Date(inicioFaixaBR.getTime() + 3 * 3600000);
+
+      const { data: cfgFaixa } = await supabase.from('config').select('value').eq('key', faixa.chave).single();
+      const maxFaixa = parseInt(cfgFaixa?.value || String(faixa.padrao), 10);
+      const { count: countFaixa } = await supabase.from('posts')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', inicioFaixaUTC.toISOString())
+        .eq('publish_method', 'portal');
+      if ((countFaixa || 0) >= maxFaixa) {
+        return res.status(200).json({ status: 'faixa_limit_reached', faixa: faixa.chave, count: countFaixa, max: maxFaixa });
+      }
     }
 
     corrigirPostsExistentes().catch(() => {});
