@@ -71,6 +71,13 @@ function slugify(str) {
     .replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,55);
 }
 
+function safeJsonForScript(obj) {
+  return JSON.stringify(obj)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+}
+
 export default async function handler(req, res) {
   const { cat, slug } = req.query;
   if (!slug) return res.status(400).send("bad request");
@@ -113,7 +120,7 @@ export default async function handler(req, res) {
   const tpl = getTemplate(catPath);
   if (!tpl) return res.status(500).send("template not found");
 
-  const jsonLd = JSON.stringify({
+  const jsonLd = safeJsonForScript({
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     "headline": titulo,
@@ -133,7 +140,7 @@ export default async function handler(req, res) {
     "isAccessibleForFree": true
   });
 
-  const preload = JSON.stringify({
+  const preload = safeJsonForScript({
     id: article.id,
     titulo,
     subtitulo: article.comentario_fixado||"",
