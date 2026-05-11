@@ -7,6 +7,14 @@ import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+const CATS_VALIDAS_MP = new Set([
+  'politica','economia','negocios','investimentos','seguros','mercados',
+  'educacao','industria','tecnologia','esportes','saude','familia',
+  'tributacao','regulacao','parcerias','internacional','variedades',
+  'investigativo','seguranca','cultura','profissoes','vagas',
+  'concursos','imoveis','esg','defesa','religiao'
+]);
+
 const COMPETITOR_IMG_HOSTS = new Set([
   'glbimg.com','s2.glbimg.com','s3.glbimg.com','i.s3.glbimg.com',
   'globo.com','g1.globo.com','ge.globo.com','oglobo.globo.com',
@@ -31,6 +39,17 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
+function slugify(text) {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -39,7 +58,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
 
   try {
-    const { url, texto, publicar } = req.body || {};
+    const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
 
     if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
 
@@ -65,9 +84,17 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     }
 
+    // Sobrescreve categoria e subcategoria se o admin especificou — tem prioridade sobre a IA
+    if (catAlvo && CATS_VALIDAS_MP.has(catAlvo)) {
+      content.categoria = catAlvo;
+      if (subcatAlvo) {
+        content.subcategoria = subcatAlvo;
+        content.subcategoria_slug = slugify(subcatAlvo);
+      }
+    }
+
     const hash = crypto.createHash("md5").update((url || texto).slice(0,200) + "_manual").digest("hex");
 
-    // Imagem: bloquear concorrentes, usar findImage como fallback
     let imagemFinal = null;
     const imgAprovada = imgScrapeada && !isCompetitorDomain(imgScrapeada) ? imgScrapeada : null;
     if (imgAprovada) {
@@ -94,7 +121,7 @@ export default async function handler(req, res) {
       published_at: publicar ? now : null,
       user_tags: JSON.stringify([content.categoria || "geral"]),
       subcategoria: content.subcategoria || "",
-      subcategoria_slug: content.subcategoria_slug || "",
+      subcategoria_slug: content.subcategoria_slug || slugify(content.subcategoria || ''),
       collaborators: "[]",
       metrics: {
         foco_keyword: content.foco_keyword || "",
