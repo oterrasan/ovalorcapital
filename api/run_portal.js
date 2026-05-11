@@ -122,16 +122,26 @@ function validarConteudo(content) {
   const titulo = content.titulo.toLowerCase().trim();
   if (titulo.length < 15 || titulo.length > 120) return false;
   if (/^(prezado|caro|ol[aá]|sem t[ií]tulo|t[ií]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
-  if ((content.corpo || '').length < 1000) return false;
-  if (!content.corpo.toLowerCase().includes('redação ovc')) return false;
+  if ((content.corpo || '').length < 800) return false;
   return true;
+}
+
+function tituloSimilar(a, b) {
+  const norm = t => (t || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 4);
+  const wa = new Set(norm(a));
+  const wb = new Set(norm(b));
+  if (wa.size === 0 || wb.size === 0) return false;
+  const intersect = [...wa].filter(w => wb.has(w)).length;
+  const union = new Set([...wa, ...wb]).size;
+  return (intersect / union) >= 0.40;
 }
 
 export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
-  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
+  // Default 5 articles per call (was 1 — the root cause of low volume)
+  const targetCount = Math.min(parseInt(meta.count || body.count || '5', 10), 8);
 
   const catForcada = (body.categoria || '').trim().toLowerCase();
   const subcatForcada = (body.subcategoria || '').trim();
@@ -150,6 +160,16 @@ export default async function handler(req, res) {
       const { count } = await supabase.from('posts').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia.toISOString()).eq('publish_method', 'portal');
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
+
+    // Load recent titles for in-process dedup (last 24h)
+    let recentTitles = [];
+    try {
+      const { data: rt } = await supabase.from('posts')
+        .select('titulo')
+        .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString())
+        .limit(300);
+      recentTitles = (rt || []).map(p => p.titulo || '');
+    } catch(_) {}
 
     const catAlvo = (catForcada && CATS_VALIDAS.has(catForcada))
       ? catForcada
@@ -171,8 +191,8 @@ export default async function handler(req, res) {
     const artigos = [];
     const now = new Date().toISOString();
 
-    for (const item of news.slice(0, 40)) {
-      if (Date.now() - inicio > 50000) break;
+    for (const item of news.slice(0, 80)) {
+      if (Date.now() - inicio > 55000) break;
       if (artigos.length >= targetCount) break;
 
       const hash = crypto.createHash('md5').update(item.link + '_portal').digest('hex');
@@ -187,7 +207,19 @@ export default async function handler(req, res) {
       try { content = await rewritePortal(sourceText, item.title); } catch(e) { continue; }
 
       if (!validarConteudo(content)) continue;
-      if (!content.categoria || content.categoria === 'geral') continue;
+
+      // If AI assigned 'geral', try keyword-based correction before rejecting
+      if (!content.categoria || content.categoria === 'geral') {
+        const catCorrigida = corrigirCategoria(content.titulo, '');
+        if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) {
+          content.categoria = catCorrigida;
+        } else {
+          continue;
+        }
+      }
+
+      // Dedup: skip if title is too similar to something already published in last 24h
+      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
 
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
         content.categoria = catForcada;
@@ -233,6 +265,9 @@ export default async function handler(req, res) {
       }).select().single();
 
       if (error) continue;
+
+      // Add new title to in-memory dedup list so same-batch duplicates are caught
+      recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
 
