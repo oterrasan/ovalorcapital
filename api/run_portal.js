@@ -133,7 +133,6 @@ export default async function handler(req, res) {
   const meta = req.query || {};
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
-  // Categoria e subcategoria forçadas pelo admin — têm prioridade sobre tudo
   const catForcada = (body.categoria || '').trim().toLowerCase();
   const subcatForcada = (body.subcategoria || '').trim();
 
@@ -152,7 +151,6 @@ export default async function handler(req, res) {
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
 
-    // Se admin especificou categoria, busca RSS dessa categoria; senão usa prioridade aleatória
     const catAlvo = (catForcada && CATS_VALIDAS.has(catForcada))
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
@@ -171,6 +169,7 @@ export default async function handler(req, res) {
     if (!news.length) return res.status(200).json({ status: 'no_news' });
 
     const artigos = [];
+    const now = new Date().toISOString();
 
     for (const item of news.slice(0, 40)) {
       if (Date.now() - inicio > 50000) break;
@@ -190,7 +189,6 @@ export default async function handler(req, res) {
       if (!validarConteudo(content)) continue;
       if (!content.categoria || content.categoria === 'geral') continue;
 
-      // Se admin forçou categoria, sobrescreve o que a IA decidiu
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
         content.categoria = catForcada;
       } else {
@@ -198,7 +196,6 @@ export default async function handler(req, res) {
         if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
       }
 
-      // Se admin forçou subcategoria, usa ela; senão valida/corrige a da IA
       if (subcatForcada) {
         content.subcategoria = subcatForcada;
         content.subcategoria_slug = slugify(subcatForcada);
@@ -223,8 +220,9 @@ export default async function handler(req, res) {
         comentario_fixado: content.meta_descricao || content.subtitulo || '',
         imagem: imagemFinal,
         hash,
-        status: 'pendente',
-        approved: false,
+        status: 'publicado',
+        approved: true,
+        published_at: now,
         publish_method: 'portal',
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
