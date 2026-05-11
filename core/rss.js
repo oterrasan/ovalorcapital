@@ -103,7 +103,7 @@ const FEEDS_POR_GRUPO = {
     { url: GN("lei complementar emenda constitucional aprovada"),      name: "GN Legislação" },
     { url: GN("planejamento tributario elisao fiscal legal"),          name: "GN Planejamento Trib." },
     { url: GN("nota fiscal nfe difal icms iss pis cofins"),            name: "GN Obrigações Fiscais" },
-    { url: GN("desoneracao folha beneficio fiscal incentivo"),         name: "GN Desonerações" },
+    { url: GN("desoneracao folha beneficio fiscal incentivo"),         name: "GN Desonerções" },
     { url: GN_EN("tax reform compliance regulation corporate tax"),   name: "GN Tax EN" },
     { url: GN("open finance open banking pix resolucao"),              name: "GN Open Finance" },
     { url: GN("lgpd dados pessoais privacidade anpd"),                 name: "GN LGPD" },
@@ -321,6 +321,20 @@ const CATEGORIA_PARA_GRUPO = {
   agronegocio:   ["agronegocio"],
 };
 
+// Famílias de categorias — usadas para validar se um artigo é compatível
+// com a categoria forçada pelo usuário
+const FAMILIA_CAT = {
+  seguros:'financas', investimentos:'financas', economia:'financas',
+  mercados:'financas', tributacao:'financas', regulacao:'financas',
+  negocios:'financas', imoveis:'financas', parcerias:'financas', esg:'financas',
+  politica:'poder', seguranca:'poder', defesa:'poder', investigativo:'poder', internacional:'poder',
+  esportes:'entretenimento', cultura:'entretenimento', variedades:'entretenimento', religiao:'entretenimento',
+  tecnologia:'conhecimento', educacao:'conhecimento', saude:'conhecimento',
+  familia:'conhecimento', profissoes:'conhecimento', industria:'conhecimento',
+  vagas:'trabalho', concursos:'trabalho',
+};
+export { FAMILIA_CAT, CATEGORIA_PARA_GRUPO };
+
 function selecionarFeedsBalanceados() {
   const selecionados = [];
   for (const grupo of Object.values(FEEDS_POR_GRUPO)) {
@@ -330,22 +344,19 @@ function selecionarFeedsBalanceados() {
   return selecionados;
 }
 
-// Brasília = UTC-3. Rejeita qualquer item que não seja de hoje.
-function isHoje(dateStr) {
-  if (!dateStr) return false;
+// Aceita notícias das últimas 48h. Itens sem data são aceitos (feeds que omitem pubDate).
+function isRecente(dateStr) {
+  if (!dateStr) return true;
   try {
     const itemDate = new Date(dateStr);
-    if (isNaN(itemDate.getTime())) return false;
-    const offsetMs = -3 * 60 * 60 * 1000;
-    const hojeStr = new Date(Date.now() + offsetMs).toISOString().slice(0, 10);
-    const itemStr = new Date(itemDate.getTime() + offsetMs).toISOString().slice(0, 10);
-    return itemStr === hojeStr;
-  } catch (_) { return false; }
+    if (isNaN(itemDate.getTime())) return true;
+    return (Date.now() - itemDate.getTime()) < 48 * 60 * 60 * 1000;
+  } catch (_) { return true; }
 }
 
 function extrairItem(i, sourceName) {
   const dateStr = i.isoDate || i.pubDate || "";
-  if (!isHoje(dateStr)) return null;
+  if (!isRecente(dateStr)) return null;
   if (!i.link && !i.guid) return null;
   if (!i.title) return null;
   return {
