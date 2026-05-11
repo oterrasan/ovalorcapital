@@ -37,23 +37,196 @@ const HIGH_PRIORITY_CATS = [
   'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
 ];
 
+// Regras de correção de categoria baseadas em palavras-chave do título.
+// ORDEM IMPORTA: mais específico primeiro. Primeira regra que casar vence.
 const REGRAS_CATEGORIA = [
-  { cat: 'vagas',      sinal: ['vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga','home office','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','coordenador de','clique e candidate'] },
-  { cat: 'concursos', sinal: ['concurso público','concurso publico','edital do concurso','gabarito oficial','inscrições abertas para concurso','provas do concurso'] },
-  { cat: 'imoveis',   sinal: ['mercado imobiliário','financiamento imobiliário','minha casa minha vida','metro quadrado','lançamento imobiliário','incorporadora'] },
-  { cat: 'saude',     sinal: ['anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia','plano de saúde aumenta','sus atende','tratamento de','hospital federal','doença crônica'] },
-  { cat: 'tecnologia',sinal: ['inteligência artificial','ia generativa','chatgpt','machine learning','cibersegurança','startup lança','iphone ','android ','inteligencia artificial'] },
-  { cat: 'esportes',  sinal: ['copa do mundo','campeonato brasileiro','libertadores','fórmula 1','olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão','seleção brasileira'] },
-  { cat: 'politica',  sinal: ['senado aprova','câmara aprova','lula sanciona','presidente veta','stf decide','eleições 2026','deputados votam','governo federal anuncia','ministério anuncia'] },
-  { cat: 'economia',  sinal: ['taxa selic','banco central eleva','inflação acelerou','ipca sobe','ipca cai','pib cresce','pib cai','câmbio fecha','dólar sobe','dólar cai','déficit fiscal','superávit primário','copom decide','desemprego cai','desemprego sobe','emprego formal','caged aponta','mercado de trabalho'] },
-  { cat: 'tributacao',sinal: ['imposto de renda','reforma tributária','receita federal autua','irpf 2025','irpf 2026','simples nacional','desoneracao','isenção fiscal','alíquota zero','declaração do ir','restituição do ir','sonegação fiscal','nota fiscal eletrônica'] },
-  { cat: 'seguranca', sinal: ['polícia prende','operação policial','tráfico de drogas','homicídio','assalto a banco','chacina','milícia','facção criminosa','crime organizado','feminicídio','sequestro em'] },
-  { cat: 'internacional', sinal: ['guerra na ucrânia','conflito em gaza','oriente médio','relações exteriores','embaixada brasileira','otan decide','acordo bilateral','sanções econômicas','geopolítica','cúpula do g20','diplomacia brasileira'] },
-  { cat: 'educacao',  sinal: ['enem 2025','enem 2026','vestibular','universidade federal','mec anuncia','prouni','fies ','base curricular','escola pública','ensino fundamental','ensino médio','nota do enem'] },
-  { cat: 'religiao',  sinal: ['igreja evangélica','pastor ','bispo ','papa francisco','vaticano','missa ','culto religioso','fé cristã','dízimo','templo universal','assembleia de deus'] },
-  { cat: 'familia',   sinal: ['guarda dos filhos','pensão alimentícia','divórcio ','adoção de crianças','planejamento familiar','herança e inventário','violência doméstica','lei maria da penha'] },
-  { cat: 'cultura',   sinal: ['festival de cinema','oscar ','grammy ','show de ','exposição de arte','museu ','netflix lança','série da netflix','lançamento de livro','carnaval 2026','carnaval 2025'] },
-  { cat: 'defesa',    sinal: ['exército brasileiro','marinha do brasil','força aérea brasileira','forças armadas','ministério da defesa','segurança nacional','fronteiras do brasil','defesa nacional'] },
+  // Vagas — muito específico, checado primeiro
+  { cat: 'vagas', sinal: [
+    'vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga',
+    'processo seletivo','trainee','estagio ','estágio ','home office emprego',
+    'auxiliar de vendas','auxiliar de atendimento','analista de rh',
+    'gerente de vendas','coordenador de','clique e candidate',
+    'vagas abertas','contratando para','oportunidade de emprego',
+    'recrutamento e seleção','candidatura ','vaga clt','vaga pj',
+    'vaga remota','trabalhe conosco','estágios em',
+  ] },
+  // Concursos
+  { cat: 'concursos', sinal: [
+    'concurso público','concurso publico','edital do concurso','gabarito oficial',
+    'inscrições abertas para concurso','provas do concurso','concurso para policia',
+    'concurso para judiciario','resultado do concurso','banca examinadora',
+    'edital publicado','data das provas','vagas no concurso',
+    'concurso federal','concurso estadual','concurso municipal',
+  ] },
+  // Imóveis
+  { cat: 'imoveis', sinal: [
+    'mercado imobiliário','financiamento imobiliário','minha casa minha vida',
+    'metro quadrado','lançamento imobiliário','incorporadora',
+    'comprar imóvel','aluguel de imóvel','venda de imóvel',
+    'construtora lança','fundo imobiliário','fii de ','fiis ',
+    'igpm aluguel','contrato de locação',
+  ] },
+  // Saúde
+  { cat: 'saude', sinal: [
+    'anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia',
+    'plano de saúde aumenta','sus atende','tratamento de','hospital federal',
+    'doença crônica','câncer ','diabetes ','hipertensão ','obesidade ',
+    'saúde mental','burnout ','depressão clínica','remédio ',
+    'farmácia ','clínica médica','hospital universitário',
+    'profissionais de saúde','sus lança','unidade de saúde',
+  ] },
+  // Tecnologia
+  { cat: 'tecnologia', sinal: [
+    'inteligência artificial','ia generativa','chatgpt','machine learning',
+    'cibersegurança','startup lança','iphone ','android ',
+    'inteligencia artificial','openai ','google ai','gemini ',
+    'llm ','gpt-','robótica','drone ','5g ','blockchain ',
+    'fintech ','cloud computing','big data','hack ','ransomware',
+    'criptografia digital','software lança','aplicativo lança',
+    'plataforma digital','deep learning',
+  ] },
+  // Esportes — expandido
+  { cat: 'esportes', sinal: [
+    'copa do mundo','campeonato brasileiro','libertadores','fórmula 1',
+    'olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão',
+    'seleção brasileira','flamengo ','palmeiras ','corinthians ',
+    'são paulo fc','atlético mineiro','grêmio ','internacional rs',
+    'santos fc','cruzeiro ','botafogo ','vasco ',
+    'champions league','premier league','bundesliga','la liga',
+    'messi ','neymar ','cristiano ronaldo',
+    'gol de ','artilheiro do','campeão do','título do','final da copa',
+    'grand prix','lewis hamilton','max verstappen','ferrari ',
+    'atleta olímpico','medalha de ouro','medalha de prata',
+    'tênis atp','wimbledon','us open tênis','roland garros',
+    'basquete nba','draft nba','mma ufc','luta pelo cinturão',
+    'rodada do brasileirão','campeonato paulista','campeonato carioca',
+  ] },
+  // Política — expandido com mais padrões
+  { cat: 'politica', sinal: [
+    'senado aprova','câmara aprova','lula sanciona','presidente veta',
+    'stf decide','eleições 2026','deputados votam',
+    'governo federal anuncia','ministério anuncia',
+    'bolsonaro ','congresso nacional','pec ','pl aprovado',
+    'votação no senado','votação na câmara','plenário do',
+    'partido político','vereador ','prefeito ','governador ',
+    'deputado federal','deputado estadual','senador ','ministro de estado',
+    'palácio do planalto','brasília ','oposição ','base aliada',
+    'impeachment','cpi ','comissão parlamentar',
+    'eleição municipal','campanha eleitoral','candidato a ',
+    'pesquisa eleitoral','tse ','tribunal superior eleitoral',
+    'supremo tribunal','democracia ','crise política',
+    'governo do estado','poder legislativo','poder executivo',
+    'reforma política','sistema político','voto em',
+  ] },
+  // Economia
+  { cat: 'economia', sinal: [
+    'taxa selic','banco central eleva','inflação acelerou',
+    'ipca sobe','ipca cai','pib cresce','pib cai',
+    'câmbio fecha','dólar sobe','dólar cai','déficit fiscal',
+    'superávit primário','copom decide','desemprego cai',
+    'desemprego sobe','emprego formal','caged aponta',
+    'mercado de trabalho','juros aumenta','taxa de juros',
+    'crédito privado','dívida pública','meta fiscal',
+    'arco fiscal','orçamento federal','risco brasil',
+    'crescimento econômico','recessão ','superavit comercial',
+  ] },
+  // Tributação
+  { cat: 'tributacao', sinal: [
+    'imposto de renda','reforma tributária','receita federal autua',
+    'irpf 2025','irpf 2026','simples nacional','desoneracao',
+    'isenção fiscal','alíquota zero','declaração do ir',
+    'restituição do ir','sonegação fiscal','nota fiscal eletrônica',
+    'tributação ','imposto sobre ','alíquota do',
+    'regime tributário','parcelamento de dívida',
+    'refis ','programa de recuperação fiscal',
+    'icms ','iss ','pis cofins','csll ','irpj ',
+  ] },
+  // Segurança Pública
+  { cat: 'seguranca', sinal: [
+    'polícia prende','operação policial','tráfico de drogas',
+    'homicídio','assalto a banco','chacina ','milícia ',
+    'facção criminosa','crime organizado','feminicídio',
+    'sequestro em','policia civil','polícia federal',
+    'polícia militar','delegacia ','delegado ',
+    'investigação criminal','suspeito de','acusado de',
+    'preso por ','penitênciária','prisão de ',
+    'violência urbana','assassinato ','tiroteio ','baleado ',
+    'gangue ','narcotráfico ','operação da pf',
+  ] },
+  // Internacional
+  { cat: 'internacional', sinal: [
+    'guerra na ucrânia','conflito em gaza','oriente médio',
+    'relações exteriores','embaixada brasileira','otan decide',
+    'acordo bilateral','sanções econômicas','geopolítica',
+    'cúpula do g20','diplomacia brasileira','trump ',
+    'estados unidos ','china ','rússia ','europa ',
+    'nato ','onu ','banco mundial ','fmi ',
+    'mercosul ','g7 ','g20 ','ucrânia','israel ',
+    'palestina','hamas','putin ','xi jinping',
+    'america latina ','crise internacional',
+  ] },
+  // Educação
+  { cat: 'educacao', sinal: [
+    'enem 2025','enem 2026','vestibular','universidade federal',
+    'mec anuncia','prouni','fies ','base curricular',
+    'escola pública','ensino fundamental','ensino médio',
+    'nota do enem','faculdade ','graduação ','pós-graduação ',
+    'mestrado ','doutorado ','bolsa de estudos',
+    'escola privada','aluno de ','professor de ',
+    'educação básica','ensino técnico','ead ',
+    'universidade estadual','universidade pública',
+  ] },
+  // Religião
+  { cat: 'religiao', sinal: [
+    'igreja evangélica','pastor ','bispo ','papa francisco',
+    'vaticano','missa ','culto religioso','fé cristã',
+    'dízimo','templo universal','assembleia de deus',
+    'congregação ','crente ','evangélico ','catolicismo ',
+    'budismo ','islamismo ','judaísmo ','espiritismo ',
+    'umbanda ','candomblé ','oração ','fé religiosa',
+  ] },
+  // Família
+  { cat: 'familia', sinal: [
+    'guarda dos filhos','pensão alimentícia','divórcio ',
+    'adoção de crianças','planejamento familiar',
+    'herança e inventário','violência doméstica',
+    'lei maria da penha','maternidade ','paternidade ',
+    'educação dos filhos','parentalidade ',
+    'família brasileira','guarda compartilhada',
+  ] },
+  // Cultura — expandido
+  { cat: 'cultura', sinal: [
+    'festival de cinema','oscar ','grammy ','show de ',
+    'exposição de arte','museu ','netflix lança',
+    'série da netflix','lançamento de livro',
+    'carnaval 2026','carnaval 2025','teatro ','concerto de ',
+    'arte contemporânea','literatura brasileira',
+    'novela da globo','série da globo','disney lança',
+    'amazon prime lança','hbo max lança','spotify lança',
+    'show musical','disco de ','banda faz show',
+    'cantora lança','cantor lança','atriz vive',
+    'filme de ','premiação de ','patrimônio cultural',
+    'manifestação cultural','semana de arte',
+  ] },
+  // Variedades — categoria nova com regras próprias
+  { cat: 'variedades', sinal: [
+    'novela ','estreia de ','big brother','bbb25','bbb26',
+    'reality show','viral nas redes','meme do ','meme viral',
+    'celebridade ','famoso ','famosa ','influencer ',
+    'tiktoker ','youtuber ','comportamento social',
+    'lifestyle ','gastronomia ','turismo ',
+    'destino turístico','receita de ','bem-estar ',
+    'tendência de ','estilo de vida','hábito saudável',
+    'moda verao','moda inverno','viagem para ',
+  ] },
+  // Defesa
+  { cat: 'defesa', sinal: [
+    'exército brasileiro','marinha do brasil','força aérea brasileira',
+    'forças armadas','ministério da defesa','segurança nacional',
+    'fronteiras do brasil','defesa nacional',
+    'militares ','general ','oficial das forças',
+    'arsenal militar','operação das forças',
+  ] },
 ];
 
 const SUBCATS_POR_CAT = {
@@ -127,7 +300,7 @@ async function corrigirPostsExistentes() {
       .select('id,titulo,user_tags,subcategoria,imagem,status')
       .in('status', ['publicado','pendente'])
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(500);
 
     if (!posts || !posts.length) return;
 
