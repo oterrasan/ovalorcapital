@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { getNews, getNewsByCategoria } from "../core/rss.js";
+import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
@@ -140,11 +140,12 @@ export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
-  // Default 5 articles per call (was 1 — the root cause of low volume)
   const targetCount = Math.min(parseInt(meta.count || body.count || '5', 10), 8);
 
   const catForcada = (body.categoria || '').trim().toLowerCase();
-  const subcatForcada = (body.subcategoria || '').trim();
+  // Treat 'Geral', 'Qualquer subcategoria' etc. as empty — use category default
+  const subcatRaw = (body.subcategoria || '').trim();
+  const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
   try {
     if (!body.force && !body.batch) {
@@ -175,16 +176,28 @@ export default async function handler(req, res) {
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
-    const [priorityNews, generalNews] = await Promise.all([
-      getNewsByCategoria(catAlvo),
-      getNews()
-    ]);
-    const seenLinks = new Set();
-    const news = [...priorityNews, ...generalNews].filter(item => {
-      if (seenLinks.has(item.link)) return false;
-      seenLinks.add(item.link);
-      return true;
-    });
+    // When categoria is forced by the user, use ONLY the specific feeds for that
+    // category (not general news) to avoid off-topic articles being forced in
+    let news;
+    if (catForcada && CATS_VALIDAS.has(catForcada)) {
+      news = await getNewsByCategoria(catForcada);
+      if (!news.length) {
+        const [prio, gen] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
+        const seen = new Set();
+        news = [...prio, ...gen].filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true; });
+      }
+    } else {
+      const [priorityNews, generalNews] = await Promise.all([
+        getNewsByCategoria(catAlvo),
+        getNews()
+      ]);
+      const seenLinks = new Set();
+      news = [...priorityNews, ...generalNews].filter(item => {
+        if (seenLinks.has(item.link)) return false;
+        seenLinks.add(item.link);
+        return true;
+      });
+    }
 
     if (!news.length) return res.status(200).json({ status: 'no_news' });
 
@@ -208,7 +221,7 @@ export default async function handler(req, res) {
 
       if (!validarConteudo(content)) continue;
 
-      // If AI assigned 'geral', try keyword-based correction before rejecting
+      // If AI assigned 'geral', try keyword correction before rejecting
       if (!content.categoria || content.categoria === 'geral') {
         const catCorrigida = corrigirCategoria(content.titulo, '');
         if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) {
@@ -218,10 +231,15 @@ export default async function handler(req, res) {
         }
       }
 
-      // Dedup: skip if title is too similar to something already published in last 24h
+      // Dedup: skip if title is too similar to something published in last 24h
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
 
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
+        // Skip articles that are clearly from a different topic family
+        // (e.g. entertainment articles forced into seguros)
+        const familiaForcada = FAMILIA_CAT[catForcada];
+        const familiaConteudo = FAMILIA_CAT[content.categoria];
+        if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
         content.categoria = catForcada;
       } else {
         const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
@@ -235,7 +253,7 @@ export default async function handler(req, res) {
         const lista = SUBCATS_POR_CAT[content.categoria] || [];
         const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
         if (!subcOk || !content.subcategoria) {
-          content.subcategoria = SUBCAT_DEFAULT[content.categoria] || 'Geral';
+          content.subcategoria = SUBCAT_DEFAULT[content.categoria] || lista[0] || 'Geral';
           content.subcategoria_slug = slugify(content.subcategoria);
         }
       }
@@ -266,7 +284,6 @@ export default async function handler(req, res) {
 
       if (error) continue;
 
-      // Add new title to in-memory dedup list so same-batch duplicates are caught
       recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
