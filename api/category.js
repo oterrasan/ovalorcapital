@@ -201,6 +201,12 @@ function esc(s) {
 }
 
 export default async function handler(req, res) {
+  // Redireciona links antigos ?id=UUID para o handler de artigo (/og redireciona para slug)
+  const artId = (req.query.id || '').trim();
+  if (artId) {
+    return res.redirect(302, '/og?id=' + encodeURIComponent(artId));
+  }
+
   const cat = (req.query.cat || "").toLowerCase();
   const seo = CAT_SEO[cat];
   if (!seo) return res.status(404).send("Not found");

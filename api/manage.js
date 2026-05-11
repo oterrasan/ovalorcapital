@@ -194,6 +194,7 @@ async function handleManual(req, res) {
 
   const inicio = Date.now();
   const resultados = [];
+  const now = new Date().toISOString();
 
   try {
     if (fonteManual) {
@@ -227,7 +228,7 @@ async function handleManual(req, res) {
         const imagemFinal = await findImage(content.titulo, content.categoria, "");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"pendente", approved:false, publish_method:"manual",
+          imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now, publish_method:"manual",
           user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -279,7 +280,7 @@ async function handleManual(req, res) {
         const imagemFinal = await findImage(content.titulo, content.categoria, article.image||"");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"pendente", approved:false, publish_method:"manual",
+          imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now, publish_method:"manual",
           user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -334,7 +335,6 @@ async function handleSubmitVaga(req, res) {
 }
 
 // ── NEWSLETTER SUBSCRIBE ────────────────────────────────────────────
-// Salva na tabela newsletter_subscribers (se existir) OU na tabela config como fallback
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
