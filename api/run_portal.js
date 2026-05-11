@@ -38,10 +38,11 @@ const HIGH_PRIORITY_CATS = [
 ];
 
 const REGRAS_CATEGORIA = [
-  { cat: 'vagas',      sinal: ['vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga','home office','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','coordenador de','clique e candidate'] },
+  // Sinais específicos e sem ambiguidade — evitar false positives
+  { cat: 'vagas',      sinal: ['oferece vaga','abre vaga','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','clique e candidate'] },
   { cat: 'concursos', sinal: ['concurso público','concurso publico','edital do concurso','gabarito oficial','inscrições abertas para concurso','provas do concurso'] },
   { cat: 'imoveis',   sinal: ['mercado imobiliário','financiamento imobiliário','minha casa minha vida','metro quadrado','lançamento imobiliário','incorporadora'] },
-  { cat: 'saude',     sinal: ['anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia','plano de saúde aumenta','sus atende','tratamento de','hospital federal','doença crônica'] },
+  { cat: 'saude',     sinal: ['anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia','plano de saúde aumenta','sus atende','hospital federal','doença crônica'] },
   { cat: 'tecnologia',sinal: ['inteligência artificial','ia generativa','chatgpt','machine learning','cibersegurança','startup lança','iphone ','android ','inteligencia artificial'] },
   { cat: 'esportes',  sinal: ['copa do mundo','campeonato brasileiro','libertadores','fórmula 1','olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão','seleção brasileira'] },
   { cat: 'politica',  sinal: ['senado aprova','câmara aprova','lula sanciona','presidente veta','stf decide','eleições 2026','deputados votam','governo federal anuncia','ministério anuncia'] },
@@ -50,9 +51,9 @@ const REGRAS_CATEGORIA = [
   { cat: 'seguranca', sinal: ['polícia prende','operação policial','tráfico de drogas','homicídio','assalto a banco','chacina','milícia','facção criminosa','crime organizado','feminicídio','sequestro em'] },
   { cat: 'internacional', sinal: ['guerra na ucrânia','conflito em gaza','oriente médio','relações exteriores','embaixada brasileira','otan decide','acordo bilateral','sanções econômicas','geopolítica','cúpula do g20','diplomacia brasileira'] },
   { cat: 'educacao',  sinal: ['enem 2025','enem 2026','vestibular','universidade federal','mec anuncia','prouni','fies ','base curricular','escola pública','ensino fundamental','ensino médio','nota do enem'] },
-  { cat: 'religiao',  sinal: ['igreja evangélica','pastor ','bispo ','papa francisco','vaticano','missa ','culto religioso','fé cristã','dízimo','templo universal','assembleia de deus'] },
+  { cat: 'religiao',  sinal: ['igreja evangélica','bispo ','papa francisco','vaticano','culto religioso','fé cristã','dízimo','templo universal','assembleia de deus'] },
   { cat: 'familia',   sinal: ['guarda dos filhos','pensão alimentícia','divórcio ','adoção de crianças','planejamento familiar','herança e inventário','violência doméstica','lei maria da penha'] },
-  { cat: 'cultura',   sinal: ['festival de cinema','oscar ','grammy ','show de ','exposição de arte','museu ','netflix lança','série da netflix','lançamento de livro','carnaval 2026','carnaval 2025'] },
+  { cat: 'cultura',   sinal: ['festival de cinema','oscar ','grammy ','exposição de arte','netflix lança','série da netflix','lançamento de livro','carnaval 2026','carnaval 2025'] },
   { cat: 'defesa',    sinal: ['exército brasileiro','marinha do brasil','força aérea brasileira','forças armadas','ministério da defesa','segurança nacional','fronteiras do brasil','defesa nacional'] },
 ];
 
@@ -120,43 +121,6 @@ function validarConteudo(content) {
   return true;
 }
 
-async function corrigirPostsExistentes() {
-  try {
-    const { data: posts } = await supabase
-      .from('posts')
-      .select('id,titulo,user_tags,subcategoria,imagem,status')
-      .in('status', ['publicado','pendente'])
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (!posts || !posts.length) return;
-
-    for (const post of posts) {
-      try {
-        let tags;
-        try { tags = typeof post.user_tags === 'string' ? JSON.parse(post.user_tags) : (post.user_tags || []); } catch(_) { tags = []; }
-        const catAtual = (tags[0] || 'geral').toLowerCase().trim();
-        const catNew   = corrigirCategoria(post.titulo, catAtual);
-        const subcAtual = post.subcategoria || '';
-        const lista    = SUBCATS_POR_CAT[catNew] || [];
-        const subcOk   = lista.length === 0 || lista.some(s => s === subcAtual || s.toLowerCase() === subcAtual.toLowerCase());
-        const subcNew  = subcOk ? subcAtual : (SUBCAT_DEFAULT[catNew] || 'Geral');
-        const imgConc  = isCompetitorDomain(post.imagem);
-
-        const temProb = catNew !== catAtual || !subcOk || imgConc;
-        if (!temProb) continue;
-
-        const u = {};
-        if (catNew !== catAtual) u.user_tags = JSON.stringify([catNew]);
-        if (!subcOk || catNew !== catAtual) { u.subcategoria = subcNew; u.subcategoria_slug = slugify(subcNew); }
-        if (imgConc) u.imagem = null;
-
-        if (Object.keys(u).length) await supabase.from('posts').update(u).eq('id', post.id);
-      } catch(_) {}
-    }
-  } catch(_) {}
-}
-
 export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
@@ -177,8 +141,6 @@ export default async function handler(req, res) {
       const { count } = await supabase.from('posts').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia.toISOString()).eq('publish_method', 'portal');
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
-
-    corrigirPostsExistentes().catch(() => {});
 
     // Busca com prioridade: uma categoria de alto engajamento + pool geral
     const catAlvo = HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];

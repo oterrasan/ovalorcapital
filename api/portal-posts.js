@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=30");
@@ -17,7 +19,6 @@ export default async function handler(req, res) {
           .eq("status","publicado").eq("id",id).single();
         post = data;
       } else {
-        // Busca direta por prefixo — sem limite de janela de tempo
         const { data: rows } = await supabase.from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
           .eq("status","publicado").ilike("id", `${id}%`).limit(1);
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     const p = post ? formatPost(post, false) : null;
     const title = p ? p.titulo : "O Valor Capital";
     const desc  = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de notícias do Brasil.";
-    const img   = (p && p.imagem) ? p.imagem : "https://ovalorcapital.com.br/images/og-default.jpg";
+    const img   = (p && p.imagem) ? p.imagem : OG_DEFAULT;
     const url   = p ? ("https://ovalorcapital.com.br" + p.url) : "https://ovalorcapital.com.br";
     res.setHeader("Content-Type","text/html; charset=utf-8");
     res.setHeader("Cache-Control","public, max-age=300");
@@ -62,8 +63,6 @@ export default async function handler(req, res) {
       .eq("status", "publicado")
       .order("published_at", { ascending: false })
       .limit(200);
-    const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
-    function imgOkP(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
     const sorted = (data||[])
       .filter(p => p.titulo && p.id)
       .sort((a,b) => {
@@ -72,7 +71,7 @@ export default async function handler(req, res) {
         return vb - va;
       })
       .slice(0, Number(limit) || 10);
-    const posts = sorted.map(p => formatPost(p, false)).filter(p => imgOkP(p.imagem));
+    const posts = sorted.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem));
     return res.status(200).json({ posts, total: posts.length });
   }
 
@@ -89,7 +88,6 @@ export default async function handler(req, res) {
           .single();
         data = row;
       } else {
-        // Busca direta por prefixo — funciona para artigos de qualquer data
         const { data: rows } = await supabase
           .from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
@@ -128,8 +126,6 @@ export default async function handler(req, res) {
         if (combined.length >= 40) break;
       }
 
-      const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
-      function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
       const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
         'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
         'parcerias','internacional','vc','colunistas','variedades',
@@ -158,15 +154,12 @@ export default async function handler(req, res) {
     const postsRaw = (data || []).filter(p => {
       if (!p.id || !p.titulo) return false;
       if (seenId.has(p.id)) return false;
-      const tNorm = (p.titulo||"" ).toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,30);
+      const tNorm = (p.titulo||"").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,30);
       if (seenTitulo.has(tNorm)) return false;
       seenId.add(p.id);
       seenTitulo.add(tNorm);
       return true;
     });
-
-    const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
-    function imgOk(url){ return url && url.length > 10 && !BLOCKED.some(r=>r.test(url)); }
 
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
@@ -221,7 +214,7 @@ function formatPost(p, full) {
     subtitulo: p.comentario_fixado || "",
     resumo,
     corpo: full ? conteudo : undefined,
-    imagem: p.imagem || "",
+    imagem: p.imagem || OG_DEFAULT,
     categoria,
     subcategoria: p.subcategoria || "",
     subcategoria_slug: p.subcategoria_slug || "",
@@ -230,6 +223,12 @@ function formatPost(p, full) {
     url: `/${cp}/${sl}-${id8}/`,
     data: p.published_at || p.created_at
   };
+}
+
+function imgOk(url) {
+  if (!url || url.length < 10) return false;
+  const BLOCKED = [/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i];
+  return !BLOCKED.some(r => r.test(url));
 }
 
 function dataBr(dt) {
