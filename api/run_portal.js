@@ -31,14 +31,20 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
-// Categorias de alto engajamento — recebem prioridade de busca por execução
 const HIGH_PRIORITY_CATS = [
   'politica', 'economia', 'internacional', 'tecnologia',
   'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
 ];
 
+const CATS_VALIDAS = new Set([
+  'politica','economia','negocios','investimentos','seguros','mercados',
+  'educacao','industria','tecnologia','esportes','saude','familia',
+  'tributacao','regulacao','parcerias','internacional','variedades',
+  'investigativo','seguranca','cultura','profissoes','vagas',
+  'concursos','imoveis','esg','defesa','religiao'
+]);
+
 const REGRAS_CATEGORIA = [
-  // Sinais específicos e sem ambiguidade — evitar false positives
   { cat: 'vagas',      sinal: ['oferece vaga','abre vaga','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','clique e candidate'] },
   { cat: 'concursos', sinal: ['concurso público','concurso publico','edital do concurso','gabarito oficial','inscrições abertas para concurso','provas do concurso'] },
   { cat: 'imoveis',   sinal: ['mercado imobiliário','financiamento imobiliário','minha casa minha vida','metro quadrado','lançamento imobiliário','incorporadora'] },
@@ -127,6 +133,10 @@ export default async function handler(req, res) {
   const meta = req.query || {};
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
+  // Categoria e subcategoria forçadas pelo admin — têm prioridade sobre tudo
+  const catForcada = (body.categoria || '').trim().toLowerCase();
+  const subcatForcada = (body.subcategoria || '').trim();
+
   try {
     if (!body.force && !body.batch) {
       const { data: cfg } = await supabase.from('config').select('value').eq('key','AUTOMATION').single();
@@ -142,8 +152,11 @@ export default async function handler(req, res) {
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
 
-    // Busca com prioridade: uma categoria de alto engajamento + pool geral
-    const catAlvo = HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
+    // Se admin especificou categoria, busca RSS dessa categoria; senão usa prioridade aleatória
+    const catAlvo = (catForcada && CATS_VALIDAS.has(catForcada))
+      ? catForcada
+      : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
+
     const [priorityNews, generalNews] = await Promise.all([
       getNewsByCategoria(catAlvo),
       getNews()
@@ -177,15 +190,25 @@ export default async function handler(req, res) {
       if (!validarConteudo(content)) continue;
       if (!content.categoria || content.categoria === 'geral') continue;
 
-      const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
-      if (catCorrigida !== content.categoria) {
-        content.categoria = catCorrigida;
-        content.subcategoria = SUBCAT_DEFAULT[catCorrigida] || 'Geral';
-        content.subcategoria_slug = slugify(content.subcategoria);
+      // Se admin forçou categoria, sobrescreve o que a IA decidiu
+      if (catForcada && CATS_VALIDAS.has(catForcada)) {
+        content.categoria = catForcada;
+      } else {
+        const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
+        if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
       }
-      if (!content.subcategoria) {
-        content.subcategoria = SUBCAT_DEFAULT[content.categoria] || 'Geral';
-        content.subcategoria_slug = slugify(content.subcategoria);
+
+      // Se admin forçou subcategoria, usa ela; senão valida/corrige a da IA
+      if (subcatForcada) {
+        content.subcategoria = subcatForcada;
+        content.subcategoria_slug = slugify(subcatForcada);
+      } else {
+        const lista = SUBCATS_POR_CAT[content.categoria] || [];
+        const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
+        if (!subcOk || !content.subcategoria) {
+          content.subcategoria = SUBCAT_DEFAULT[content.categoria] || 'Geral';
+          content.subcategoria_slug = slugify(content.subcategoria);
+        }
       }
 
       let imagemFinal = null;

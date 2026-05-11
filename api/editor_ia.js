@@ -23,6 +23,14 @@ const COMPETITOR_HOSTS = new Set([
   'canaltech.com.br','apublica.org','correiobraziliense.com.br',
 ]);
 
+const CATS_VALIDAS_EDITOR = new Set([
+  "politica","economia","negocios","investimentos","seguros","mercados",
+  "educacao","industria","tecnologia","esportes","saude","familia",
+  "tributacao","regulacao","parcerias","internacional","vc","colunistas",
+  "variedades","investigativo","seguranca","cultura","profissoes",
+  "vagas","concursos","imoveis","esg","defesa","religiao"
+]);
+
 function isCompetitorImage(url) {
   if (!url || url.length < 10) return false;
   try {
@@ -31,7 +39,7 @@ function isCompetitorImage(url) {
   } catch(_) { return false; }
 }
 
-function buildPrompt(acao, promptLivre, data, texto) {
+function buildPrompt(acao, promptLivre, data, texto, catAlvo = "", subcatAlvo = "") {
   const instrucao = {
     reescrever: "Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Reescreva a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos da fonte. NÃO invente nada.",
     melhorar:   "Você é redator sênior do portal O Valor Capital (OVC). Melhore o texto abaixo elevando a qualidade jornalística e otimizando para SEO, mantendo todos os fatos originais.",
@@ -39,8 +47,13 @@ function buildPrompt(acao, promptLivre, data, texto) {
     livre:      `Você é redator sênior do portal O Valor Capital (OVC). ${promptLivre}`
   }[acao] || "Você é redator sênior do portal O Valor Capital (OVC). Reescreva no padrão OVC com SEO otimizado.";
 
-  return `${instrucao}
+  // Instrução de categoria/subcategoria forçada pelo admin — aparece no início e no fim do prompt
+  const catInstrucao = catAlvo
+    ? `ATENÇÃO — CATEGORIZAÇÃO OBRIGATÓRIA: Este artigo DEVE ser categorizado exatamente como:\nCATEGORIA: ${catAlvo}${subcatAlvo ? `\nSUBCATEGORIA: ${subcatAlvo}` : ''}\nNão use outra categoria ou subcategoria. O editor definiu isso.`
+    : '';
 
+  return `${instrucao}
+${catInstrucao ? '\n' + catInstrucao + '\n' : ''}
 FORMATO DE SAÍDA OBRIGATÓRIO — copie os rótulos exatamente:
 
 TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início, verbo obrigatório, factual, sem clickbait
@@ -87,7 +100,7 @@ REGRAS INVIOLÁVEIS:
 - Voz informativa e factual — nunca panfletária
 - NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
 - NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, blindar, catalisador, protagonista
-
+${catInstrucao ? '\n' + catInstrucao : ''}
 PAUTA EDITORIAL (tema, ângulo e contexto — reescreva com seu próprio estilo jornalístico):
 ---
 ${texto}
@@ -216,7 +229,6 @@ function parse(raw) {
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  // Todas as 29 categorias válidas
   const catsValidas = [
     "politica","economia","negocios","investimentos","seguros","mercados",
     "educacao","industria","tecnologia","esportes","saude","familia",
@@ -250,7 +262,8 @@ export default async function handler(req, res) {
   try {
     const {
       url, texto, acao = "reescrever", promptLivre = "",
-      ia = "openai", imagem = "", buscarImagem = false, publicar = false
+      ia = "openai", imagem = "", buscarImagem = false, publicar = false,
+      categoria: catAlvo = "", subcategoria: subcatAlvo = ""
     } = req.body || {};
 
     if (!url && !texto) return res.status(400).json({ error: "Informe URL ou texto" });
@@ -269,7 +282,6 @@ export default async function handler(req, res) {
       if (!sourceImage) sourceImage = article.image || "";
     }
 
-    // Bloquear imagem de domínio concorrente antes de qualquer processamento
     if (isCompetitorImage(sourceImage)) sourceImage = "";
 
     if (!sourceText || sourceText.trim().length < 20) {
@@ -299,7 +311,7 @@ export default async function handler(req, res) {
       } catch(_) {}
     }
 
-    const prompt = buildPrompt(acao, promptLivre, hoje(), sourceText);
+    const prompt = buildPrompt(acao, promptLivre, hoje(), sourceText, catAlvo, subcatAlvo);
     let raw = "";
 
     if      (ia === "gemini") raw = await callGemini(prompt);
@@ -311,6 +323,14 @@ export default async function handler(req, res) {
     const content = parse(raw);
     if (!content || !content.corpo || content.corpo.length < 100) {
       throw new Error("A IA não gerou conteúdo suficiente. Tente com um texto mais longo.");
+    }
+
+    // Sobrescreve categoria e subcategoria se o admin especificou — não confiar na IA
+    if (catAlvo && CATS_VALIDAS_EDITOR.has(catAlvo)) {
+      content.categoria = catAlvo;
+      if (subcatAlvo) {
+        content.subcategoria = subcatAlvo;
+      }
     }
 
     if (!publicar) {
@@ -329,7 +349,6 @@ export default async function handler(req, res) {
     }
 
     const hash = crypto.createHash("md5").update((url || texto || "").slice(0, 200) + "_editor_" + Date.now()).digest("hex");
-    // Sempre salva como pendente — aprovação manual obrigatória
     const status = "pendente";
 
     const { data: post, error } = await supabase.from("posts").insert({
@@ -344,7 +363,7 @@ export default async function handler(req, res) {
       published_at: null,
       user_tags: JSON.stringify([content.categoria || "geral"]),
       subcategoria: content.subcategoria || "",
-      subcategoria_slug: "",
+      subcategoria_slug: slugify(content.subcategoria || ""),
       collaborators: "[]",
       metrics: {
         foco_keyword: content.foco_keyword || "",
