@@ -102,7 +102,7 @@ const FEEDS_POR_GRUPO = {
     { url: GN("lei complementar emenda constitucional aprovada"),      name: "GN Legislação" },
     { url: GN("planejamento tributario elisao fiscal legal"),          name: "GN Planejamento Trib." },
     { url: GN("nota fiscal nfe difal icms iss pis cofins"),            name: "GN Obrigações Fiscais" },
-    { url: GN("desoneracao folha beneficio fiscal incentivo"),         name: "GN Desonerções" },
+    { url: GN("desoneracao folha beneficio fiscal incentivo"),         name: "GN Desoner." },
     { url: GN_EN("tax reform compliance regulation corporate tax"),   name: "GN Tax EN" },
     { url: GN("open finance open banking pix resolucao"),              name: "GN Open Finance" },
     { url: GN("lgpd dados pessoais privacidade anpd"),                 name: "GN LGPD" },
@@ -356,7 +356,7 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
 ];
 
-// ─── axios-based RSS fetcher (proven to work through Vercel IPs) ─────────────
+// ─── axios RSS fetcher com responseType explícito ────────────────────────────
 
 const AXIOS_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -369,12 +369,15 @@ const AXIOS_HEADERS = {
 async function fetchFeed(url) {
   try {
     const res = await axios.get(url, {
-      timeout: 12000,
+      timeout: 10000,
+      responseType: 'text',
       headers: AXIOS_HEADERS,
       maxRedirects: 5,
-      validateStatus: s => s < 400,
+      validateStatus: s => s < 500,
     });
-    return parseXML(typeof res.data === 'string' ? res.data : String(res.data));
+    const xml = typeof res.data === 'string' ? res.data : '';
+    if (!xml) return [];
+    return parseXML(xml);
   } catch (_) {
     return [];
   }
@@ -433,16 +436,7 @@ function extractLink(str) {
   return '';
 }
 
-// ─── End XML parser ──────────────────────────────────────────────────────────
-
-function selecionarFeedsBalanceados() {
-  const selecionados = [];
-  for (const grupo of Object.values(FEEDS_POR_GRUPO)) {
-    const embaralhado = [...grupo].sort(() => Math.random() - 0.5);
-    selecionados.push(...embaralhado.slice(0, 2));
-  }
-  return selecionados;
-}
+// ─── End XML parser ─────────────────────────────────────────────────────────
 
 function isRecente(dateStr) {
   if (!dateStr) return true;
@@ -528,13 +522,11 @@ export async function getNews() {
       .select("url,name,active")
       .order("created_at", { ascending: false });
 
-    // Feeds customizados do banco (até 10 aleatórios)
     const feedsCustom = (allSources || [])
       .filter(s => s.active !== false)
       .sort(() => Math.random() - 0.5)
       .slice(0, 10);
 
-    // Sempre inclui feeds diretos garantidos (até 10 aleatórios)
     const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
       .sort(() => Math.random() - 0.5)
       .slice(0, 10);
@@ -545,7 +537,6 @@ export async function getNews() {
     let allItems = await buscarFeedsDiretos(feedsParaUsar);
     console.log('[rss] 1a busca:', allItems.length, 'itens');
 
-    // Fallback: só feeds diretos garantidos se a mistura falhar
     if (allItems.length === 0) {
       console.log('[rss] fallback total para FEEDS_DIRETOS_GARANTIDOS');
       allItems = await buscarFeedsDiretos(FEEDS_DIRETOS_GARANTIDOS);
