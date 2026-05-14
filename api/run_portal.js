@@ -31,6 +31,15 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
+// Faixas horárias (Brasília UTC-3) — limites configuráveis via tabela config
+const FAIXAS_HORARIO = [
+  { chave: 'POSTS_01_06', hInicio: 1,  hFim: 6,  padrao: 20  },
+  { chave: 'POSTS_06_10', hInicio: 6,  hFim: 10, padrao: 40  },
+  { chave: 'POSTS_10_12', hInicio: 10, hFim: 12, padrao: 40  },
+  { chave: 'POSTS_12_17', hInicio: 12, hFim: 17, padrao: 80  },
+  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 }, // hFim=25 cobre hora 0
+];
+
 const HIGH_PRIORITY_CATS = [
   'politica', 'economia', 'internacional', 'tecnologia',
   'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
@@ -143,7 +152,6 @@ export default async function handler(req, res) {
   const targetCount = Math.min(parseInt(meta.count || body.count || '5', 10), 8);
 
   const catForcada = (body.categoria || '').trim().toLowerCase();
-  // Treat 'Geral', 'Qualquer subcategoria' etc. as empty — use category default
   const subcatRaw = (body.subcategoria || '').trim();
   const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
@@ -162,6 +170,30 @@ export default async function handler(req, res) {
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
 
+    // Faixa horária (Brasília UTC-3) — bypassa com force=true ou batch=true
+    if (!body.force && !body.batch) {
+      const agoraBR = new Date(Date.now() - 3 * 3600000);
+      const horaBR  = agoraBR.getUTCHours();
+      const faixa   = FAIXAS_HORARIO.find(f => horaBR >= f.hInicio && horaBR < f.hFim)
+                      || FAIXAS_HORARIO[FAIXAS_HORARIO.length - 1];
+      const hInicioReal = faixa.chave === 'POSTS_17_00' ? 17 : faixa.hInicio;
+      const inicioFaixaBR = new Date(agoraBR);
+      inicioFaixaBR.setUTCHours(hInicioReal, 0, 0, 0);
+      if (faixa.chave === 'POSTS_17_00' && horaBR === 0) {
+        inicioFaixaBR.setUTCDate(inicioFaixaBR.getUTCDate() - 1);
+      }
+      const inicioFaixaUTC = new Date(inicioFaixaBR.getTime() + 3 * 3600000);
+      const { data: cfgFaixa } = await supabase.from('config').select('value').eq('key', faixa.chave).single();
+      const maxFaixa = parseInt(cfgFaixa?.value || String(faixa.padrao), 10);
+      const { count: countFaixa } = await supabase.from('posts')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', inicioFaixaUTC.toISOString())
+        .eq('publish_method', 'portal');
+      if ((countFaixa || 0) >= maxFaixa) {
+        return res.status(200).json({ status: 'faixa_limit_reached', faixa: faixa.chave, count: countFaixa, max: maxFaixa });
+      }
+    }
+
     // Load recent titles for in-process dedup (last 24h)
     let recentTitles = [];
     try {
@@ -176,8 +208,6 @@ export default async function handler(req, res) {
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
-    // When categoria is forced by the user, use ONLY the specific feeds for that
-    // category (not general news) to avoid off-topic articles being forced in
     let news;
     if (catForcada && CATS_VALIDAS.has(catForcada)) {
       news = await getNewsByCategoria(catForcada);
@@ -221,7 +251,6 @@ export default async function handler(req, res) {
 
       if (!validarConteudo(content)) continue;
 
-      // If AI assigned 'geral', try keyword correction before rejecting
       if (!content.categoria || content.categoria === 'geral') {
         const catCorrigida = corrigirCategoria(content.titulo, '');
         if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) {
@@ -231,12 +260,9 @@ export default async function handler(req, res) {
         }
       }
 
-      // Dedup: skip if title is too similar to something published in last 24h
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
 
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
-        // Skip articles that are clearly from a different topic family
-        // (e.g. entertainment articles forced into seguros)
         const familiaForcada = FAMILIA_CAT[catForcada];
         const familiaConteudo = FAMILIA_CAT[content.categoria];
         if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
