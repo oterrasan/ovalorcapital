@@ -92,7 +92,7 @@ export default async function handler(req, res) {
   let article = null;
   try {
     const { data: rows } = await supabase.from("posts")
-      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at")
+      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at,metrics")
       .eq("status","publicado")
       .ilike("id", `${id8}%`)
       .limit(1);
@@ -104,6 +104,13 @@ export default async function handler(req, res) {
   if (!article) return res.status(404).send("not found");
 
   const titulo = article.titulo || "";
+
+  // meta_title: campo SEO dedicado (max 55 chars) salvo em metrics; fallback: titulo truncado
+  let metricsJson = {};
+  try { metricsJson = typeof article.metrics === "string" ? JSON.parse(article.metrics) : (article.metrics || {}); } catch(_) {}
+  const metaTitleRaw = (metricsJson.meta_title || titulo).slice(0, 55).trim();
+  const titleTag = `${metaTitleRaw} | O Valor Capital`;
+
   const rawDesc = (article.comentario_fixado || (article.conteudo||"").slice(0,220).replace(/\n/g," ")).slice(0,200);
   const desc = rawDesc.trim();
   const imagem = article.imagem || `${BASE}/images/og-default.jpg`;
@@ -156,7 +163,7 @@ export default async function handler(req, res) {
   });
 
   const seoTags = [
-    `<title>${esc(titulo)} — O Valor Capital</title>`,
+    `<title>${esc(titleTag)}</title>`,
     `<meta name="description" content="${esc(desc)}">`,
     `<link rel="canonical" href="${canonical}">`,
     `<meta property="og:type" content="article">`,
