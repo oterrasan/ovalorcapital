@@ -8,23 +8,24 @@
     }
   ],
   "functions": {
-    "api/run.js":           { "maxDuration": 60 },
-    "api/run_portal.js":   { "maxDuration": 60 },
-    "api/manage.js":       { "maxDuration": 60 },
-    "api/editor_ia.js":    { "maxDuration": 60 },
-    "api/manual_post.js":  { "maxDuration": 60 },
-    "api/auditoria.js":    { "maxDuration": 60 },
-    "api/portal-posts.js": { "maxDuration": 15 },
-    "api/ig_publish.js":   { "maxDuration": 60 },
-    "api/fix_images.js":   { "maxDuration": 55 },
-    "api/live-data.js":    { "maxDuration": 15 },
-    "api/refresh_token.js":{ "maxDuration": 30 },
-    "api/sitemap.js":      { "maxDuration": 15 },
-    "api/article-ssr.js":  { "maxDuration": 10 },
-    "api/article.js":      { "maxDuration": 10 },
-    "api/landing.js":      { "maxDuration": 15 },
-    "api/category.js":     { "maxDuration": 10 },
-    "api/live.js":         { "maxDuration": 10 }
+    "api/run.js":             { "maxDuration": 60 },
+    "api/run_portal.js":      { "maxDuration": 60 },
+    "api/manage.js":          { "maxDuration": 60 },
+    "api/editor_ia.js":       { "maxDuration": 60 },
+    "api/manual_post.js":     { "maxDuration": 60 },
+    "api/auditoria.js":       { "maxDuration": 60 },
+    "api/portal-posts.js":    { "maxDuration": 15 },
+    "api/ig_publish.js":      { "maxDuration": 60 },
+    "api/fix_images.js":      { "maxDuration": 55 },
+    "api/live-data.js":       { "maxDuration": 15 },
+    "api/refresh_token.js":   { "maxDuration": 30 },
+    "api/sitemap.js":         { "maxDuration": 15 },
+    "api/article-ssr.js":     { "maxDuration": 10 },
+    "api/article.js":         { "maxDuration": 10 },
+    "api/landing.js":         { "maxDuration": 15 },
+    "api/category.js":        { "maxDuration": 10 },
+    "api/live.js":            { "maxDuration": 10 },
+    "api/institutional.js":   { "maxDuration": 10 }
   },
   "build": {
     "env": {
@@ -55,6 +56,11 @@
   ],
   "rewrites": [
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
+
+    { "source": "/quem-somos",              "destination": "/api/institutional?page=quem-somos" },
+    { "source": "/quem-somos/",             "destination": "/api/institutional?page=quem-somos" },
+    { "source": "/politica-editorial",      "destination": "/api/institutional?page=politica-editorial" },
+    { "source": "/politica-editorial/",     "destination": "/api/institutional?page=politica-editorial" },
 
     { "source": "/trabalho",               "destination": "/api/landing?section=trabalho" },
     { "source": "/trabalho/",              "destination": "/api/landing?section=trabalho" },
