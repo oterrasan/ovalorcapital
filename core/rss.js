@@ -333,8 +333,7 @@ const FAMILIA_CAT = {
 };
 export { FAMILIA_CAT, CATEGORIA_PARA_GRUPO };
 
-// Feeds diretos garantidos — sem Google News, nunca sofrem rate-limit
-// Usados como último fallback quando todos os outros feeds falham
+// Feeds diretos — sem Google News, nunca sofrem rate-limit
 const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://agenciabrasil.ebc.com.br/politica/feed.xml",  name: "Agência Brasil Política" },
   { url: "https://agenciabrasil.ebc.com.br/saude/feed.xml",     name: "Agência Brasil Saúde" },
@@ -451,24 +450,27 @@ export async function getNews() {
       .select("url,name,active")
       .order("created_at", { ascending: false });
 
-    let feedsParaUsar;
-    if (allSources && allSources.length > 0) {
-      feedsParaUsar = allSources.filter(s => s.active !== false);
-      if (!feedsParaUsar.length) feedsParaUsar = selecionarFeedsBalanceados();
-    } else {
-      feedsParaUsar = selecionarFeedsBalanceados();
-    }
+    // Feeds customizados do banco (até 10 aleatórios)
+    const feedsCustom = (allSources || [])
+      .filter(s => s.active !== false)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 10);
 
-    feedsParaUsar = feedsParaUsar.sort(() => Math.random() - 0.5).slice(0, 20);
-    console.log('[rss] fontes:', feedsParaUsar.length, '| rss_sources:', allSources?.length || 0);
+    // Sempre inclui feeds diretos garantidos (até 10 aleatórios)
+    // Evita depender 100% de rss_sources que pode ser 100% Google News
+    const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 10);
+
+    const feedsParaUsar = [...feedsCustom, ...feedsGarantidos];
+    console.log(`[rss] fontes: ${feedsParaUsar.length} (custom:${feedsCustom.length} + diretos:${feedsGarantidos.length})`);
 
     let allItems = await buscarFeedsDiretos(feedsParaUsar);
     console.log('[rss] 1a busca:', allItems.length, 'itens');
 
-    // Fallback garantido: feeds diretos que nunca sofrem rate-limit do Google
-    // Não usa selecionarFeedsBalanceados() pois pode sortear só Google News
+    // Fallback: só feeds diretos garantidos se a mistura falhar
     if (allItems.length === 0) {
-      console.log('[rss] fallback para FEEDS_DIRETOS_GARANTIDOS');
+      console.log('[rss] fallback total para FEEDS_DIRETOS_GARANTIDOS');
       allItems = await buscarFeedsDiretos(FEEDS_DIRETOS_GARANTIDOS);
       console.log('[rss] fallback:', allItems.length, 'itens');
     }
