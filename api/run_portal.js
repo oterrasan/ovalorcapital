@@ -309,7 +309,12 @@ export default async function handler(req, res) {
         subcategoria: content.subcategoria,
         subcategoria_slug: content.subcategoria_slug,
         collaborators: '[]',
-        metrics: { foco_keyword: content.foco_keyword || '', seo_slug: content.slug || '', meta_descricao: content.meta_descricao || '' },
+        metrics: {
+          foco_keyword: content.foco_keyword || '',
+          seo_slug: content.slug || '',
+          meta_descricao: content.meta_descricao || '',
+          meta_title: content.meta_title || ''
+        },
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
 
