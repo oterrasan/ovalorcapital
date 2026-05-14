@@ -1,7 +1,7 @@
 import Parser from "rss-parser";
 import { createClient } from "@supabase/supabase-js";
 
-const parser = new Parser({ timeout: 8000, headers: { "User-Agent": "Mozilla/5.0" } });
+const parser = new Parser({ timeout: 10000, headers: { "User-Agent": "Mozilla/5.0" } });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // Google News RSS base — sempre retorna notícias de hoje
@@ -241,7 +241,7 @@ const FEEDS_POR_GRUPO = {
     { url: GN("olimpiadas jogos paris atleta medalhista"),             name: "GN Olimpíadas" },
     { url: GN("nba nfl mlb beisebol basquete americana esporte"),      name: "GN Esportes USA" },
     { url: GN_EN("sports soccer champions league premier league"),    name: "GN Sports EN" },
-    { url: "https://feeds.bbci.co.uk/sport/rss.xml",                  name: "BBC Sport" },
+    { url: "https://feeds.bbci.co.uk/news/sport/rss.xml",             name: "BBC Sport" },
   ],
   cultura: [
     { url: GN("cultura arte cinema festival premio oscar"),            name: "GN Cultura" },
@@ -370,7 +370,7 @@ function extrairItem(i, sourceName) {
 
 async function buscarFeedsEspecificos(feeds) {
   const results = await Promise.allSettled(
-    feeds.slice(0, 10).map(source =>
+    feeds.slice(0, 12).map(source =>
       parser.parseURL(source.url)
         .then(feed => (feed.items || []).slice(0, 10)
           .map(i => extrairItem(i, source.name))
@@ -409,12 +409,26 @@ function dedupPorTitulo(items) {
   return unicos;
 }
 
+async function buscarFeedsDiretos(feeds) {
+  const results = await Promise.allSettled(
+    feeds.slice(0, 20).map(source =>
+      parser.parseURL(source.url)
+        .then(feed => (feed.items || []).slice(0, 8)
+          .map(i => extrairItem(i, source.name))
+          .filter(Boolean))
+        .catch(() => [])
+    )
+  );
+  return results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+}
+
 export async function getNews() {
   try {
     const { data: allSources } = await supabase
       .from("rss_sources")
       .select("url,name,active")
       .order("created_at", { ascending: false });
+
     let feedsParaUsar;
     if (allSources && allSources.length > 0) {
       feedsParaUsar = allSources.filter(s => s.active !== false);
@@ -422,17 +436,16 @@ export async function getNews() {
     } else {
       feedsParaUsar = selecionarFeedsBalanceados();
     }
+
     feedsParaUsar = feedsParaUsar.sort(() => Math.random() - 0.5).slice(0, 20);
-    const results = await Promise.allSettled(
-      feedsParaUsar.map(source =>
-        parser.parseURL(source.url)
-          .then(feed => (feed.items || []).slice(0, 8)
-            .map(i => extrairItem(i, source.name))
-            .filter(Boolean))
-          .catch(() => [])
-      )
-    );
-    const allItems = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+    let allItems = await buscarFeedsDiretos(feedsParaUsar);
+
+    // Se rss_sources falhou completamente, tenta os feeds hardcoded balanceados
+    if (allItems.length === 0) {
+      const fallback = selecionarFeedsBalanceados();
+      allItems = await buscarFeedsDiretos(fallback);
+    }
+
     return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));
   } catch (_) { return []; }
 }

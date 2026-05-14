@@ -21,36 +21,24 @@ const BLOCKED_IMG = [
   /agencia\.gov\.br.*foto.*autor/i
 ];
 
-// ─── DOMÍNIOS DE IMAGEM DE CONCORRENTES ─────────────────────────────────────
-// Qualquer imagem hospedada nestes domínios é de um veículo concorrente e
-// pode conter watermark, logo ou identidade visual alheia. BLOQUEAR SEMPRE.
 const COMPETITOR_IMG_HOSTS = new Set([
-  // Grupo Globo
   'glbimg.com', 's2.glbimg.com', 's3.glbimg.com', 'i.s3.glbimg.com',
   'globo.com', 'g1.globo.com', 'ge.globo.com', 'oglobo.globo.com',
   'extra.globo.com', 'valor.com.br',
-  // UOL / Folha
   'uol.com.br', 'folha.uol.com.br', 'f.i.uol.com.br',
   'imguol.i.uol.com.br', 'conteudo.imguol.i.uol.com.br',
-  // Estadão / Grupo Estado
   'estadao.com.br', 'broadcast.com.br',
-  // SBT / Record / Jovem Pan
   'r7.com', 'noticias.r7.com', 'record.com.br',
   'sbt.com.br', 'jovempan.com.br',
-  // Band
   'band.com.br', 'bandnewsfm.band.com.br',
-  // CNN Brasil
   'cnnbrasil.com.br', 'assets.cnnbrasil.com.br',
-  // Revistas / portais
   'veja.com.br', 'abril.com.br', 'exame.com',
   'cartacapital.com.br', 'poder360.com.br',
   'gazetadopovo.com.br', 'metropoles.com',
   'seudinheiro.com', 'infomoney.com.br',
   'terra.com.br', 'ig.com.br', 'msn.com',
-  // Agências
   'agenciabrasil.ebc.com.br', 'imagens.ebc.com.br',
   'reuters.com', 'ap.org',
-  // Outros
   'canaltech.com.br', 'apublica.org',
   'correiobraziliense.com.br', 'nsctotal.com.br',
   'diariodocomercio.com.br', 'correiodopovo.com.br',
@@ -64,8 +52,6 @@ function isCompetitorImage(url) {
     return [...COMPETITOR_IMG_HOSTS].some(d => hostname === d || hostname.endsWith('.' + d));
   } catch(_) { return false; }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 const PRESS_AUTHOR_PATHS = [
   /\/autor\//i, /\/autores\//i, /\/jornalista\//i, /\/repórter\//i,
@@ -87,36 +73,58 @@ function isValidImage(url) {
 export async function scrape(url) {
   try {
     const res = await axios.get(url, {
-      timeout: 8000,
+      timeout: 12000,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8"
-      }
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+      },
+      maxRedirects: 5,
     });
     const $ = cheerio.load(res.data);
 
-    // Candidatas a imagem em ordem de prioridade — aplica todos os filtros
     const candidates = [
       $('meta[property="og:image"]').attr("content"),
       $('meta[name="twitter:image"]').attr("content"),
       $('meta[property="og:image:url"]').attr("content"),
       $('meta[itemprop="image"]').attr("content"),
-      $("article img").first().attr("src"),
+      $('article img').first().attr("src"),
       $(".post-thumbnail img, .featured-image img, .entry-thumbnail img").first().attr("src"),
     ].map(s => normalizeUrl(s, url)).filter(Boolean);
 
-    // isValidImage já rejeita domínios concorrentes via isCompetitorImage()
     const imageUrl = candidates.find(c => isValidImage(c)) || "";
 
-    $("script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement").remove();
+    $('script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement, .related, .comments, .share, .social, [class*="banner"], [class*="popup"]').remove();
 
-    const text = $("article p, .content p, .entry-content p, main p, p")
+    // Tentativa 1: seletores semânticos de artigo
+    let textParts = $('article p, [class*="content"] p, [class*="article"] p, [class*="corpo"] p, [class*="materia"] p, [itemprop="articleBody"] p, .entry-content p, main p, #content p, p')
       .map((_, el) => $(el).text().trim())
       .get()
-      .filter(t => t.length > 30)
-      .join("\n")
-      .slice(0, 3000);
+      .filter(t => t.length > 40);
+
+    // Tentativa 2: divs de conteúdo se parágrafos insuficientes
+    if (textParts.join('').length < 200) {
+      const divParts = $('[class*="content"], [class*="article"], [class*="corpo"], [class*="materia"], [class*="texto"], [itemprop="articleBody"], .entry-content, main, #content, #main')
+        .find('p, div')
+        .map((_, el) => $(el).text().trim())
+        .get()
+        .filter(t => t.length > 50 && !/<[a-z]/i.test(t));
+      if (divParts.join('').length > textParts.join('').length) textParts = divParts;
+    }
+
+    let text = textParts.join("\n").slice(0, 4000);
+
+    // Tentativa 3: og:description + og:title como fallback mínimo
+    if (text.length < 100) {
+      const ogTitle = $('meta[property="og:title"]').attr('content') || $('h1').first().text().trim() || '';
+      const ogDesc  = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+      if (ogTitle || ogDesc) {
+        text = [ogTitle, ogDesc].filter(Boolean).join('. ');
+      }
+    }
 
     const title =
       $('meta[property="og:title"]').attr("content") ||
