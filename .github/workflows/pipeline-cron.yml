@@ -14,7 +14,7 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -H "Content-Type: application/json" \
-            -d '{"count":8}' \
+            -d '{"force":true,"count":8}' \
             "https://www.ovalorcapital.com.br/api/run")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" -ge 500 ]; then
