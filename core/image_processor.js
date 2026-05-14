@@ -4,7 +4,7 @@ import sharp from "sharp";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Recorte padrão: remove 10% do topo e 14% do rodapé (onde ficam logos e marcas d'água)
+// Recorte padrão: remove bordas com logos e marcas d'água
 const CROP_TOP_PCT    = 0.08; // 8% do topo
 const CROP_BOTTOM_PCT = 0.13; // 13% do rodapé
 const CROP_LEFT_PCT   = 0.02; // 2% lateral esquerda
@@ -54,11 +54,11 @@ async function processImage(buffer) {
 
     if (extractWidth < 100 || extractHeight < 80) return null;
 
-    // Recortar e redimensionar para 1200x675
+    // Recortar, redimensionar para 1200x675 e salvar como WebP
     const processed = await sharp(buffer)
       .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight })
       .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover", position: "centre" })
-      .jpeg({ quality: 85, progressive: true })
+      .webp({ quality: 82 })
       .toBuffer();
 
     return processed;
@@ -72,7 +72,7 @@ async function uploadToSupabase(buffer, filename) {
     const { data, error } = await supabase.storage
       .from("post-images")
       .upload(`imagens/${filename}`, buffer, {
-        contentType: "image/jpeg",
+        contentType: "image/webp",
         upsert: true,
         cacheControl: "31536000"
       });
@@ -93,16 +93,13 @@ export async function processAndSaveImage(sourceUrl, postId) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
 
   try {
-    // 1. Baixar imagem original
     const buffer = await downloadImage(sourceUrl);
     if (!buffer || buffer.length < 5000) return null;
 
-    // 2. Recortar e redimensionar
     const processed = await processImage(buffer);
     if (!processed) return null;
 
-    // 3. Upload para Supabase Storage
-    const filename = `${postId || Date.now()}.jpg`;
+    const filename = `${postId || Date.now()}.webp`;
     const publicUrl = await uploadToSupabase(processed, filename);
 
     return publicUrl;
