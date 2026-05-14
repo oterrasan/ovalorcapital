@@ -76,7 +76,7 @@ Fonte de receita: exclusivamente Google AdSense / Google AdX. O Google é o úni
 
 1. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1 acima.
 2. **Topo e rodapé do portal NUNCA mudam.** Header e footer são identidade da marca.
-3. **Nada publica sem aprovação manual do Roberto** — proteção contra penalidade Google HCU.
+3. **Pipeline publica direto como `publicado`** — não existe aprovação manual no pipeline automático.
 4. **URLs sempre com slug** — nunca regredir para `?id=`.
 5. **SSR obrigatório** — Googlebot não pode depender de JS para ver o conteúdo.
 6. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico, nunca editar sitemap estático.
@@ -85,6 +85,8 @@ Fonte de receita: exclusivamente Google AdSense / Google AdX. O Google é o úni
 9. **NUNCA usar `p.categoria`** — a coluna não existe. Sempre usar `user_tags` (JSON array `'["politica"]'`).
 10. **NUNCA exigir strings fixas da IA no corpo do artigo** — ver Bug #7. A IA gera conteúdo livre.
 11. **`getNews()` sempre mistura feeds diretos garantidos** — nunca depender 100% de `rss_sources`.
+12. **Todo INSERT em `posts` usa `status:'publicado'`, `approved:true`, `published_at:now`** — ver Bug #13.
+13. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14. Nunca processar `?id=` em categorias.
 
 ---
 
@@ -166,6 +168,7 @@ priority, retry_count, max_retries
 
 **CRÍTICO:** `user_tags` é TEXT (não JSONB). Sempre usar `.like()`, nunca `.contains()`.
 **CRÍTICO:** Não existe coluna `categoria` na tabela `posts`. Sempre usar `user_tags`.
+**CRÍTICO:** `comentario_fixado` = meta description do artigo. Gerada pela IA e usada no SSR.
 
 **Fluxo de status:** pipeline salva como `publicado` com `approved: true` direto — aparece imediatamente no portal.
 
@@ -180,8 +183,6 @@ priority, retry_count, max_retries
 | `POSTS_12_17` | string numérica | Máx posts na faixa 12h–17h (padrão: 80) |
 | `POSTS_17_00` | string numérica | Máx posts na faixa 17h–00h (padrão: 120) |
 | `YOUTUBE_LIVE_URL` | string | URL embed YouTube para OVC TV ao vivo |
-
-Se uma chave de faixa não existe no Supabase, o valor padrão é usado automaticamente.
 
 ### Tabela `rss_sources`
 ```
@@ -252,8 +253,6 @@ body.subcategoria   // forçar subcategoria específica
 {status: 'error', error: '...'}                  // exceção inesperada
 ```
 
-**Diagnóstico de `no_news`:** os campos `prio` e `gen` mostram quantos itens cada fonte retornou. Se ambos = 0 com o código atual, significa que até os feeds diretos falharam (muito raro — verificar conectividade Vercel).
-
 ### Faixas horárias (Brasília UTC-3)
 | Faixa | Posts padrão | Justificativa |
 |-------|-------------|---------------|
@@ -301,23 +300,57 @@ if (allItems.length === 0) {
 }
 ```
 
-**Por que essa lógica:** Google News taxa Vercel por IP após chamadas frequentes (cron de 20min). Se `rss_sources` tiver 100% feeds Google News, todos falhariam juntos. A mistura garante que BBC/Agência Brasil sempre estão na primeira tentativa.
-
 ### getNewsByCategoria(categoria)
 Busca feeds específicos do grupo da categoria (ex: politica → feeds do grupo `politica`). Se retorna vazio, retorna array vazio (run_portal.js chama `getNews()` em paralelo de qualquer forma).
 
-### Grupos sem feeds diretos (100% Google News)
-`tributacao_regulacao`, `vagas_concursos`, `imoveis_parcerias` — todos os feeds desses grupos são Google News. Por isso, ao gerar conteúdo dessas categorias, a fonte garantida vem sempre de `getNews()` (que mistura com FEEDS_DIRETOS_GARANTIDOS), não de `getNewsByCategoria()`.
+---
+
+## 8. META DESCRIPTION — IMPLEMENTAÇÃO COMPLETA (já funciona)
+
+> **ATENÇÃO:** A meta description JÁ ESTÁ 100% IMPLEMENTADA no sistema. Não precisa criar nada novo.
+
+### Fluxo completo da meta description
+
+```
+1. IA gera o artigo via core/ai_portal.js
+   → Retorna objeto com { titulo, corpo, meta_descricao, foco_keyword, ... }
+
+2. api/run_portal.js salva no banco:
+   comentario_fixado = content.meta_descricao || content.subtitulo || ''
+   metrics.meta_descricao = content.meta_descricao || ''
+
+3. api/article.js (SSR) lê do banco:
+   const rawDesc = (article.comentario_fixado || article.conteudo.slice(0,220)).slice(0,200)
+
+4. api/article.js injeta no HTML para o Google:
+   <meta name="description" content="[rawDesc]">
+   <meta property="og:description" content="[rawDesc]">
+   <meta name="twitter:description" content="[rawDesc]">
+   "description" no JSON-LD NewsArticle
+```
+
+### Onde fica no banco
+- **Coluna:** `comentario_fixado` (TEXT)
+- **Fallback automático:** se a IA não gerar `meta_descricao`, usa as primeiras 200 chars do `conteudo`
+- **Backup:** também salvo em `metrics` como JSON: `{ meta_descricao: "..." }`
+
+### Coluna `comentario_fixado` — nome confuso, propósito claro
+O nome é legado. A coluna armazena a **meta description** do artigo. Nunca renomear sem atualizar todos os handlers que a leem (`article.js`, `article-ssr.js`, `portal-posts.js`).
+
+### Categorias também têm meta description
+`api/category.js` tem descrição SEO própria para cada uma das 29 categorias — hardcoded no objeto `CAT_SEO`. Não dependem do banco.
 
 ---
 
-## 8. SEO — STATUS COMPLETO
+## 9. SEO — STATUS COMPLETO
 
 | Feature | Arquivo | Status |
 |---|---|---|
 | Slug URLs para artigos | `api/article.js` + `vercel.json` | ✅ |
 | SSR completo por artigo | `api/article.js` | ✅ |
 | JSON-LD NewsArticle | `api/article.js` | ✅ |
+| Meta description automática por artigo | `api/article.js` + `core/ai_portal.js` | ✅ |
+| Meta description por categoria (29) | `api/category.js` | ✅ |
 | SSR listagem de categorias (29) | `api/category.js` + `vercel.json` | ✅ |
 | SSR radar/tv/rádio/dados/cotações/agenda | `api/live.js` + `vercel.json` | ✅ |
 | SSR landing /trabalho/, /financas/, /moradia/ | `api/landing.js` + `vercel.json` | ✅ |
@@ -329,6 +362,7 @@ Busca feeds específicos do grupo da categoria (ex: politica → feeds do grupo 
 | Homepage cache s-maxage=60 | `vercel.json` | ✅ |
 | 240+ RSS feeds | `core/rss.js` | ✅ |
 | Cron pipeline GitHub Actions | `.github/workflows/pipeline-cron.yml` | ✅ |
+| Redirect links antigos ?id= | `api/category.js` | ✅ |
 
 ### Ações pendentes (Roberto faz)
 1. **Search Console** → submeter `https://www.ovalorcapital.com.br/sitemap.xml`
@@ -338,7 +372,7 @@ Busca feeds específicos do grupo da categoria (ex: politica → feeds do grupo 
 
 ---
 
-## 9. BUGS CRÍTICOS — RESUMO RÁPIDO
+## 10. BUGS CRÍTICOS — RESUMO RÁPIDO
 
 Documentação completa em `BUGS_CORRIGIDOS.md`. Resumo:
 
@@ -356,21 +390,22 @@ Documentação completa em `BUGS_CORRIGIDOS.md`. Resumo:
 | 10 | `getNews()` fallback usava GN → mesmo rate-limit | `core/rss.js` | ✅ corrigido |
 | 11 | Scraper só `<p>` → texto vazio em 70%+ sites | `core/scraper.js` | ✅ corrigido |
 | 12 | `no_news` persistente — 1a tentativa dependia 100% de GN | `core/rss.js` | ✅ corrigido |
+| 13 | Pipeline e admin salvavam como `pendente` → portal sem artigos por ~3 dias | `run_portal.js` + `manage.js` | ✅ corrigido |
+| 14 | Links antigos `?id=` abriam categoria vazia | `api/category.js` | ✅ corrigido |
 
 ---
 
-## 10. COMO RETOMAR EM NOVA SESSÃO
+## 11. COMO RETOMAR EM NOVA SESSÃO
 
 1. Ler este arquivo (CLAUDE.md) completamente
 2. Ler `BUGS_CORRIGIDOS.md` para não desfazer correções críticas
-3. Ler `ESTRATEGIA_SEO.md` para contexto de negócio
-4. Qualquer página nova: verificar checklist SEO da Regra #1
-5. Verificar GitHub Actions rodando
-6. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
+3. Qualquer página nova: verificar checklist SEO da Regra #1
+4. Verificar GitHub Actions rodando
+5. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
 
 ---
 
-## 11. CONTATO / CONTEXTO DO DONO
+## 12. CONTATO / CONTEXTO DO DONO
 
 - **Nome:** Roberto (Terrasan)
 - **Objetivo:** maior portal premium de notícias do Brasil sustentado por Google AdSense/AdX
@@ -382,9 +417,9 @@ Documentação completa em `BUGS_CORRIGIDOS.md`. Resumo:
 
 ---
 
-## 12. HISTÓRICO DE SESSÕES
+## 13. HISTÓRICO DE SESSÕES
 
-### Sessão mai/2026 (múltiplas)
+### Sessão mai/2026 — Rodada 1 (múltiplos commits)
 **Commits relevantes em main:**
 - `a2aec9f` — isRecente, catForcada, subcatForcada (Bugs #2, #3, #4)
 - `515d5b8` — validar() Bug #7, automacao.html Bug #8, Bug #9, supabase.sql
@@ -393,10 +428,22 @@ Documentação completa em `BUGS_CORRIGIDOS.md`. Resumo:
 - `a2ec495` — FEEDS_DIRETOS_GARANTIDOS + debug no_news
 - `65928cb` — **getNews() mistura custom+diretos na 1a tentativa (Bug #12, fix definitivo)**
 
-**Status do portal após todas as correções:**
-- ✅ Automação gerando artigos normalmente (verificado 14/mai/2026)
-- ✅ Botão "Forçar agora" funcionando (`{"status":"ok","artigos":[...]}` confirmado)
+**Status após rodada 1:**
+- ✅ Automação gerando artigos normalmente
+- ✅ Botão "Forçar agora" funcionando
 - ✅ Faixas horárias distribuindo posts ao longo do dia
-- ✅ Editor IA gerando conteúdo corretamente
 - ✅ Scraper extraindo texto de >90% dos sites
-- ✅ Pipeline nunca mais deve retornar `no_news` (salvo falha total de rede Vercel)
+
+### Sessão mai/2026 — Rodada 2 (14/mai/2026)
+**Commits em main:**
+- `9c41679` — Bug #13: `run_portal.js` salva como `publicado` (era `pendente`)
+- `89be842` — Bug #13: `manage.js` handleManual salva como `publicado` (era `pendente`)
+- `8318e70` — Bug #14: `category.js` redireciona `?id=` para `/og?id=`
+- `63876848` — docs: BUGS_CORRIGIDOS.md atualizado com bugs #13 e #14
+- Este commit — docs: CLAUDE.md atualizado, meta description documentada (seção 8)
+
+**Status após rodada 2:**
+- ✅ Portal voltou a publicar artigos (bug crítico de 3 dias corrigido)
+- ✅ Links antigos com `?id=` redirecionam corretamente para o artigo
+- ✅ Meta description já estava implementada — documentada na seção 8
+- ✅ CLAUDE.md e BUGS_CORRIGIDOS.md atualizados e em sync com main
