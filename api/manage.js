@@ -48,7 +48,6 @@ export default async function handler(req, res) {
 async function handleSetupStorage(req, res) {
   try {
     const { error } = await supabase.storage.createBucket("posts-images", { public: true });
-    // "already exists" não é erro — bucket já está criado
     if (error && !error.message.toLowerCase().includes("already exist")) {
       return res.status(200).json({ ok: false, error: error.message });
     }
@@ -173,7 +172,7 @@ function validar(content) {
   const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
   if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
   if (content.corpo.length < 500) return false;
-  if (!c.includes("redação ovc")) return false;
+  // Não exigir strings fixas da IA — ela nunca as escreve no corpo
   return true;
 }
 
@@ -239,7 +238,6 @@ async function handleManual(req, res) {
       return res.status(200).json({ status:"ok", modo:"manual", resultados, notificacoes:gerarNotificacoes(resultados) });
     }
 
-    // Pré-carregar feeds por categoria (uma vez por categoria única)
     const newsCache = {};
     for (const { categoria } of pedidos) {
       if (categoria && !newsCache[categoria]) {
@@ -253,7 +251,6 @@ async function handleManual(req, res) {
       let geradosPedido = 0;
       const errosPedido = [];
 
-      // Usa feeds específicos da categoria — garante conteúdo relevante
       const news = newsCache[categoria] || await getNews();
       if (!news.length) {
         resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:0,
@@ -273,7 +270,6 @@ async function handleManual(req, res) {
         let content;
         try { content = await rewritePortal(sourceText, item.title); } catch(e) { errosPedido.push(e.message); continue; }
         if (!validar(content)) continue;
-        // Admin escolheu a categoria — sobrescreve classificação da IA
         if (categoria) content.categoria = categoria;
         if (subcategoria) content.subcategoria = subcategoria;
         const imagemFinal = await findImage(content.titulo, content.categoria, article.image||"");
@@ -314,12 +310,9 @@ async function handleSubmitVaga(req, res) {
     const titulo = `[VAGA] ${cargo} — ${empresa}`;
     const conteudo = `**Empresa:** ${empresa}\n**Cargo:** ${cargo}\n**Área:** ${area||'Não informada'}\n**Localização:** ${localizacao||'Não informada'}\n**Contratação:** ${tipo_contratacao||'Não informado'}\n**Salário:** ${salario||'A combinar'}\n**Contato:** ${email_contato}\n\n## Descrição da Vaga\n\n${descricao}`;
     const { error } = await supabase.from("posts").insert({
-      titulo,
-      conteudo,
+      titulo, conteudo,
       comentario_fixado: `${cargo} em ${empresa} — ${localizacao||'Local não informado'}`,
-      status: "pendente",
-      approved: false,
-      publish_method: "vaga_publica",
+      status: "pendente", approved: false, publish_method: "vaga_publica",
       user_tags: JSON.stringify(["vagas"]),
       subcategoria: area || "Geral",
       subcategoria_slug: (area||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -334,7 +327,6 @@ async function handleSubmitVaga(req, res) {
 }
 
 // ── NEWSLETTER SUBSCRIBE ────────────────────────────────────────────
-// Salva na tabela newsletter_subscribers (se existir) OU na tabela config como fallback
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -342,8 +334,6 @@ async function handleNewsletterSubscribe(req, res) {
   }
   const emailLimpo = email.toLowerCase().trim();
   const agora = new Date().toISOString();
-
-  // Tenta tabela newsletter_subscribers
   try {
     const { error } = await supabase.from("newsletter_subscribers").upsert(
       { email: emailLimpo, categoria: categoria || "geral", confirmed: false, created_at: agora },
@@ -353,8 +343,6 @@ async function handleNewsletterSubscribe(req, res) {
       return res.status(200).json({ ok: true });
     }
   } catch(_) {}
-
-  // Fallback: salva na tabela config como lista JSON
   try {
     const key = "NEWSLETTER_EMAILS";
     const { data: cfg } = await supabase.from("config").select("value").eq("key", key).single();

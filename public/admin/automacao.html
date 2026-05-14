@@ -129,14 +129,20 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 const SUPABASE_URL = 'https://bfsegqdgscudtdgwdyci.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTc3NzQ2NDAsImV4cCI6MjAzMzM1MDY0MH0.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function getCat(post) {
+  try { return JSON.parse(post.user_tags || '[]')[0] || '—'; } catch(_) { return '—'; }
+}
 
 async function loadDados() {
   try {
     const { data } = await supabase.from('posts')
-      .select('id,titulo,categoria,publish_method,created_at,status')
+      .select('id,titulo,user_tags,publish_method,created_at,status')
       .gte('created_at', new Date().toISOString().slice(0,10) + 'T00:00:00')
       .order('created_at', { ascending: false })
       .limit(100);
@@ -156,7 +162,6 @@ async function loadDados() {
     loadTabelaPosts(data);
     loadChartHoras(data);
     loadStatus();
-
   } catch(e) {
     console.error('Erro ao carregar dados:', e);
   }
@@ -167,12 +172,11 @@ function loadTabelaPosts(posts) {
   const html = openaiPosts.map(p => `
     <tr>
       <td>${new Date(p.created_at).toLocaleTimeString('pt-BR')}</td>
-      <td>${p.titulo.slice(0, 50)}...</td>
-      <td>${p.categoria}</td>
+      <td>${(p.titulo || '').slice(0, 50)}...</td>
+      <td>${getCat(p)}</td>
       <td><span class="status-badge ${p.status === 'publicado' ? 'status-ok' : 'status-pending'}">${p.status}</span></td>
     </tr>
   `).join('');
-  
   document.getElementById('tableBody').innerHTML = html || '<tr><td colspan="4" style="text-align:center">Sem posts OpenAI hoje</td></tr>';
 }
 
@@ -182,38 +186,25 @@ function loadChartHoras(posts) {
     const h = new Date(p.created_at).getHours();
     horas[h] = (horas[h] || 0) + 1;
   });
-
   const ranges = [
     {name: '01-06h', hours: [1,2,3,4,5,6]},
     {name: '06-12h', hours: [6,7,8,9,10,11]},
     {name: '12-17h', hours: [12,13,14,15,16]},
     {name: '17-00h', hours: [17,18,19,20,21,22,23,0]}
   ];
-
-  const maxVal = Math.max(...ranges.map(r => r.hours.reduce((a,b) => a + (horas[b] || 0), 0)));
+  const maxVal = Math.max(...ranges.map(r => r.hours.reduce((a,b) => a + (horas[b] || 0), 0)), 1);
   const html = ranges.map(r => {
     const count = r.hours.reduce((a,b) => a + (horas[b] || 0), 0);
-    const pct = maxVal > 0 ? (count / maxVal) * 100 : 0;
-    return `
-      <div class="bar" style="height:${Math.max(pct, 20)}%">
-        <div class="bar-value">${count}</div>
-        <div class="bar-label">${r.name}</div>
-      </div>
-    `;
+    const pct = (count / maxVal) * 100;
+    return `<div class="bar" style="height:${Math.max(pct, 5)}%"><div class="bar-value">${count}</div><div class="bar-label">${r.name}</div></div>`;
   }).join('');
-
   document.getElementById('chartHoras').innerHTML = html;
 }
 
 async function loadStatus() {
   try {
-    const { data } = await supabase.from('config')
-      .select('value')
-      .eq('key', 'AUTOMATION')
-      .single();
-    
-    const status = data && data.value === 'on' ? '🟢 ATIVO' : '🔴 PAUSADO';
-    document.getElementById('statusAutomacao').textContent = status;
+    const { data } = await supabase.from('config').select('value').eq('key', 'AUTOMATION').single();
+    document.getElementById('statusAutomacao').textContent = data?.value === 'on' ? '🟢 ATIVO' : '🔴 PAUSADO';
   } catch(e) {
     document.getElementById('statusAutomacao').textContent = '⚠ Erro ao carregar status';
   }
@@ -221,7 +212,11 @@ async function loadStatus() {
 
 async function forcarExecucao() {
   try {
-    const res = await fetch('/api/run_portal');
+    const res = await fetch('/api/run_portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: true, count: 3 })
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     alert('✓ Execução concluída: ' + (data.status || 'ok'));
@@ -233,16 +228,9 @@ async function forcarExecucao() {
 
 async function toggleAutomacao() {
   try {
-    const { data: cfg } = await supabase.from('config')
-      .select('value')
-      .eq('key', 'AUTOMATION')
-      .single();
-    
+    const { data: cfg } = await supabase.from('config').select('value').eq('key', 'AUTOMATION').single();
     const novoStatus = cfg.value === 'on' ? 'off' : 'on';
-    await supabase.from('config')
-      .update({ value: novoStatus })
-      .eq('key', 'AUTOMATION');
-    
+    await supabase.from('config').update({ value: novoStatus }).eq('key', 'AUTOMATION');
     loadStatus();
     alert('Automação ' + (novoStatus === 'on' ? 'RETOMADA' : 'PAUSADA'));
   } catch(e) {
@@ -250,22 +238,11 @@ async function toggleAutomacao() {
   }
 }
 
-function refreshPosts() {
-  loadDados();
-}
+function refreshPosts() { loadDados(); }
+function refreshHorarios() { loadDados(); }
 
-function refreshHorarios() {
-  loadDados();
-}
-
-// Carregar dados ao abrir
 window.addEventListener('load', loadDados);
-setInterval(loadDados, 30000); // Atualizar a cada 30s
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script>
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+setInterval(loadDados, 30000);
 </script>
 
 </body>
