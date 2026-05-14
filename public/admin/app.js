@@ -283,20 +283,21 @@ function Publicados(){
 
 // ── PIPELINE ────────────────────────────────────────────────
 function Pipeline(){
-  const [cfg,setCfg] = React.useState({});
   const [msg,setMsg] = React.useState("");
   const [loading,setLoading] = React.useState(false);
 
-  async function load(){
-    const { data } = await db.from("config").select("*");
-    const map={}; (data||[]).forEach(x=>map[x.key]=x.value); setCfg(map);
-  }
-
   async function runPortal(){
-    setLoading(true); setMsg("Executando...");
-    try{ const r=await fetch("/api/run_portal",{method:"POST"}); const j=await r.json(); setMsg(JSON.stringify(j,null,2)); }
-    catch(e){ setMsg("Erro: "+e.message); }
-    setLoading(false); load();
+    setLoading(true); setMsg("⏳ Gerando matéria... aguarde até 60 segundos.");
+    try{
+      const r = await fetch("/api/run_portal",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({force:true, count:1})
+      });
+      const j = await r.json();
+      setMsg(JSON.stringify(j,null,2));
+    } catch(e){ setMsg("Erro: "+e.message); }
+    setLoading(false);
   }
 
   async function runIG(){
@@ -306,28 +307,18 @@ function Pipeline(){
     setLoading(false);
   }
 
-  async function toggle(){
-    const v = cfg.AUTOMATION==="on" ? "off" : "on";
-    await db.from("config").upsert({key:"AUTOMATION",value:v},{onConflict:"key"});
-    load();
-  }
-
-  React.useEffect(()=>{ load(); },[]);
-
   const btn = (label,fn,cor) => React.createElement("button",{onClick:fn,disabled:loading,style:{background:cor,color:"#fff",border:"none",borderRadius:6,padding:"10px 20px",cursor:"pointer",fontWeight:700,fontSize:14,opacity:loading?0.6:1}},label);
 
   return React.createElement("div",null,
     React.createElement("h2",{style:{color:"#ffc800",marginBottom:20}},"Pipeline"),
     React.createElement("div",{style:{display:"flex",gap:12,flexWrap:"wrap",marginBottom:20}},
-      btn("▶ Executar Portal Agora", runPortal, "#3b82f6"),
-      btn("▶ Executar Instagram Agora", runIG, "#c81e1e"),
-      btn(cfg.AUTOMATION==="on" ? "⏸ Pausar Automação" : "▶ Ligar Automação", toggle, cfg.AUTOMATION==="on"?"#f59e0b":"#22c55e")
+      btn(loading ? "⏳ Gerando..." : "▶ Gerar Matéria Agora", runPortal, "#3b82f6"),
+      btn("▶ Executar Instagram Agora", runIG, "#c81e1e")
     ),
-    React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginBottom:8}},
-      "Automação: ",React.createElement("strong",{style:{color:cfg.AUTOMATION==="on"?"#22c55e":"#ef4444"}}, cfg.AUTOMATION==="on"?"LIGADA":"DESLIGADA"),
-      " | Cron: a cada 12 min"
+    React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginBottom:16}},
+      "Automação: GitHub Actions dispara a cada 2 minutos (07:00-01:00 BRT)"
     ),
-    msg && React.createElement("pre",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontSize:12,color:"#22c55e",overflow:"auto",maxHeight:300}}, msg)
+    msg && React.createElement("pre",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontSize:12,color: msg.includes('\"ok\"') || msg.includes('status: ok') ? "#22c55e" : "#f59e0b",overflow:"auto",maxHeight:300}}, msg)
   );
 }
 
@@ -388,7 +379,9 @@ function Fontes(){
           filtrados.map((f,i)=>React.createElement("tr",{key:f.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
             React.createElement("td",{style:{padding:"8px 12px",fontSize:13,fontWeight:500}}, f.name),
             React.createElement("td",{style:{padding:"8px 12px",fontSize:11,color:"#6b7280",maxWidth:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}, f.url),
-            React.createElement("td",{style:{padding:"8px 12px",textAlign:"center"}}, tag(f.active?"publicado":"rejeitado").props ? React.createElement("span",{style:{color:f.active?"#22c55e":"#6b7280",fontSize:12,fontWeight:700}},f.active?"ATIVA":"OFF") : null),
+            React.createElement("td",{style:{padding:"8px 12px",textAlign:"center"}},
+              React.createElement("span",{style:{color:f.active?"#22c55e":"#6b7280",fontSize:12,fontWeight:700}},f.active?"ATIVA":"OFF")
+            ),
             React.createElement("td",{style:{padding:"8px 12px",textAlign:"right",display:"flex",gap:6,justifyContent:"flex-end"}},
               React.createElement("button",{onClick:()=>toggle(f.id,f.active),style:{background:f.active?"#f59e0b":"#22c55e",color:"#fff",border:"none",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:700}}, f.active?"Pausar":"Ativar"),
               React.createElement("button",{onClick:()=>remover(f.id),style:{background:"#ef4444",color:"#fff",border:"none",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:700}},"✕")
@@ -520,7 +513,7 @@ function SeoBatch(){
 
     concluido && React.createElement("div",{style:{marginBottom:16}},
       React.createElement("div",{style:{background:"rgba(22,163,74,0.15)",border:"1px solid #16a34a",borderRadius:8,padding:"12px 20px",color:"#22c55e",fontWeight:700,marginBottom:12}},"✅ Otimização concluída!"),
-      React.createElement("button",{onClick:iniciar,style:{background:"#1e293b",color:"#e5e7eb",border:"1px solid #334155",borderRadius:6,padding:"8px 20px",fontSize:13,cursor:"pointer",marginRight:8}},"↺ Rodar novamente"),
+      React.createElement("button",{onClick:iniciar,style:{background:"#1e293b",color:"#e5e7eb",border:"1px solid #334155",borderRadius:6,padding:"8px 20px",fontSize:13,cursor:"pointer",marginRight:8}},"↺ Rodar novamente")
     ),
 
     log.length > 0 && React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontFamily:"monospace",fontSize:12,maxHeight:400,overflow:"auto",marginTop:16}},
@@ -548,9 +541,6 @@ function Config(){
 
   return React.createElement("div",null,
     React.createElement("h2",{style:{color:"#ffc800",marginBottom:20}},"Configurações"),
-    React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginBottom:16}},
-      "Chaves: AUTOMATION (on/off) | GEMINI_API_KEY | GROQ_API_KEY | MAX_POSTS_DIA | INTERVALO_MIN"
-    ),
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
       inp("Chave","key"), inp("Valor","value"),
       React.createElement("button",{onClick:save,style:{background:"#22c55e",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700}},"Salvar")
