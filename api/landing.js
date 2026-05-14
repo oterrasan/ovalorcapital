@@ -31,12 +31,12 @@ const SECTIONS = {
     icon: "🏠", badge: "Moradia & Imóveis",
   },
   vc: {
-    title: "Colunistas & Opinião",
-    desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira.",
+    title: "Variedades & Editorial",
+    desc: "Investigação jornalística, cultura, variedades e análises. O que está além da pauta do dia.",
     canonical: "https://www.ovalorcapital.com.br/vc/",
-    cats: ["vc", "colunistas"],
+    cats: ["investigativo", "variedades", "cultura"],
     color: "#0d0d0d", accent: "#c9a84c",
-    icon: "✍️", badge: "Opinião",
+    icon: "✍️", badge: "Editorial",
   },
   seguranca: {
     title: "Segurança & Defesa",
@@ -62,14 +62,16 @@ const CAT_PATH = {
   economia:"economia",imoveis:"imoveis",vc:"vc",colunistas:"vc",
   seguranca:"seguranca",defesa:"defesa",investigativo:"investigativo",
   saude:"saude",familia:"familia",cultura:"cultura",religiao:"religiao",esg:"esg",
+  variedades:"variedades",
 };
 
 const CAT_LABEL = {
   vagas:"Vagas",concursos:"Concursos Públicos",profissoes:"Profissões",parcerias:"Parcerias",educacao:"Educação",
   investimentos:"Investimentos",seguros:"Seguros",tributacao:"Tributação",regulacao:"Regulação",
-  mercados:"Mercados",economia:"Economia",imoveis:"Imóveis",vc:"Opinião",colunistas:"Colunistas",
+  mercados:"Mercados",economia:"Economia",imoveis:"Imóveis",vc:"Editorial",colunistas:"Editorial",
   seguranca:"Segurança",defesa:"Defesa",investigativo:"Investigativo",
   saude:"Saúde",familia:"Família",cultura:"Cultura",religiao:"Fé & Espiritualidade",esg:"ESG",
+  variedades:"Variedades",
 };
 
 const CAT_DESC = {
@@ -92,6 +94,7 @@ const CAT_DESC = {
   cultura:"Arte, entretenimento e cultura brasileira",
   religiao:"Fé, espiritualidade e tradições religiosas",
   esg:"Sustentabilidade, ESG e impacto social",
+  variedades:"Comportamento, lifestyle e curiosidades",
 };
 
 const NAV_LINKS = [
@@ -154,49 +157,24 @@ function buildHeader(){
 }
 
 function buildFooter(){
-  return `<footer style="background:#0f172a;border-top:1px solid rgba(255,255,255,.08);padding:32px 24px;text-align:center;margin-top:auto">
-<div style="color:rgba(255,255,255,.6);font-size:13px">
-  <strong style="color:#d4af37;font-size:16px;font-weight:900;display:block;margin-bottom:6px">O VALOR CAPITAL</strong>
-  Liberdade Econômica, Família &amp; Patrimônio &middot; ovalorcapital.com.br
+  return `<footer style="background:#0f172a;border-top:1px solid rgba(255,255,255,.08);padding:40px 24px 32px;text-align:center;margin-top:auto">
+<div style="max-width:960px;margin:0 auto;color:rgba(255,255,255,.6);font-size:13px;line-height:1.9">
+  <strong style="color:#d4af37;font-size:16px;font-weight:900;display:block;margin-bottom:8px">O VALOR CAPITAL</strong>
+  © 2026 O Valor Capital — Redação OVC. Todos os direitos reservados.&nbsp;&nbsp;<span style="font-size:.82em;opacity:.7">🔒 Conexão segura HTTPS</span>
+  <br>
+  <span style="display:inline-flex;flex-wrap:wrap;gap:4px 16px;justify-content:center;margin-top:10px">
+    <a href="/quem-somos/" style="color:rgba(255,255,255,.45);text-decoration:none">Quem Somos</a>
+    <a href="/politica-editorial/" style="color:rgba(255,255,255,.45);text-decoration:none">Política Editorial</a>
+    <a href="/termos/" style="color:rgba(255,255,255,.45);text-decoration:none">Termos de Uso</a>
+    <a href="/privacidade/" style="color:rgba(255,255,255,.45);text-decoration:none">Privacidade</a>
+    <a href="/cookies/" style="color:rgba(255,255,255,.45);text-decoration:none">Cookies</a>
+  </span>
+  <span style="display:block;font-size:.76em;opacity:.45;margin-top:12px;line-height:1.6">O conteúdo tem caráter informativo e jornalístico. Não constitui recomendação de investimento. Redação OVC utiliza Inteligência Artificial supervisionada. Responsável editorial: <strong style="opacity:.8">Roberto Cesar Terrasan</strong>.</span>
 </div>
 </footer>`;
 }
 
-function renderEditorial(posts,cfg){
-  const trio=posts.slice(0,3);
-  const list=posts.slice(3,18);
-  const trioCards=trio.map(p=>{
-    const bg=p.imagem
-      ?`background-image:linear-gradient(to top,rgba(0,0,0,.9) 0%,rgba(0,0,0,.35) 55%,transparent 100%),url('${esc(p.imagem)}')`
-      :"background:#1a1a1a";
-    return `<a href="${buildUrl(p)}" style="display:block;position:relative;height:400px;background:#111 center/cover no-repeat;${bg};text-decoration:none;overflow:hidden">
-<div style="position:absolute;bottom:0;left:0;right:0;padding:28px 22px">
-<span style="display:inline-block;background:#c9a84c;color:#0d0d0d;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;border-radius:2px;margin-bottom:12px">Opinião</span>
-<div style="color:#fff;font-size:1.05rem;font-weight:700;line-height:1.3">${esc(p.titulo)}</div>
-</div></a>`;
-  }).join("");
-  const listItems=list.map(p=>{
-    const thumb=p.imagem
-      ?`<img src="${esc(p.imagem)}" alt="${esc(p.titulo)}" style="width:80px;height:58px;object-fit:cover;border-radius:4px;flex-shrink:0" loading="lazy">`
-      :`<div style="width:80px;height:58px;background:#1a1a1a;border-radius:4px;flex-shrink:0"></div>`;
-    return `<a href="${buildUrl(p)}" style="display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid #1a1a1a;text-decoration:none">
-${thumb}<div><div style="font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c9a84c;margin-bottom:6px">Opinião</div><div style="color:#d8d8d8;font-size:.9rem;font-weight:500;line-height:1.45">${esc(p.titulo)}</div></div></a>`;
-  }).join("");
-  return `<div style="background:#0d0d0d;padding:80px 24px 60px;text-align:center;border-bottom:1px solid #1e1e1e">
-<div style="max-width:820px;margin:0 auto">
-<h1 style="color:#fff;font-size:clamp(2.6rem,7vw,5rem);font-weight:900;line-height:1;margin:0 0 20px;letter-spacing:-2px">Opinião &amp; Análise</h1>
-<p style="color:rgba(255,255,255,.55);font-size:1.05rem;max-width:560px;margin:0 auto;line-height:1.7;font-style:italic">Os melhores pensadores escrevem aqui. Política, economia e sociedade com profundidade.</p>
-</div></div>
-<div style="background:#0d0d0d;max-width:1280px;margin:0 auto;padding:56px 24px 80px">
-<div style="font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#c9a84c;margin-bottom:20px">Destaques</div>
-<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:56px;border-radius:8px;overflow:hidden">${trioCards||'<div style="padding:40px;color:#555;background:#111">Nenhuma coluna publicada ainda.</div>'}</div>
-<div style="font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:#c9a84c;margin-bottom:20px">Últimas colunas</div>
-<div>${listItems}</div>
-</div>`;
-}
-
 function renderLanding(section,posts,cfg){
-  if(section==="vc")return renderEditorial(posts,cfg);
   const featured=posts[0]||null;
   const grid=posts.slice(1,13);
   const byCat={};
