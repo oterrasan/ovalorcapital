@@ -65,9 +65,6 @@ async function callGemini(prompt) {
   throw new Error("Gemini indisponível");
 }
 
-// ─── SUBCATEGORIAS VÁLIDAS POR CATEGORIA ─────────────────────────────────────
-// A IA DEVE escolher exatamente uma subcategoria desta lista.
-// Fora desta lista = inválido = será substituído pelo primeiro item.
 const SUBCATS_POR_CAT = {
   politica:      ["Governo Federal","Congresso Nacional","Eleições","Partidos Políticos","STF & Judiciário","Política Estadual","Câmara dos Deputados","Senado Federal","Poder Executivo"],
   economia:      ["Política Econômica","Inflação & Preços","Taxa Selic","PIB & Crescimento","Câmbio & Dólar","Fiscal & Orçamento","Emprego & Renda","Banco Central"],
@@ -98,18 +95,14 @@ const SUBCATS_POR_CAT = {
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
 };
 
-function subcatsListForPrompt(cat) {
-  const list = SUBCATS_POR_CAT[cat];
-  return list ? list.join(' | ') : 'subcategoria específica';
-}
-
-const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada. Se a fonte não informa algo, você não escreve.
+const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada.
 
 REGRA ABSOLUTA: Use SOMENTE as informações do texto fonte. Nada além disso.
 
 FORMATO DE SAÍDA OBRIGATÓRIO — copie os rótulos exatamente:
 
-TITULO: manchete entre 50 e 65 caracteres — palavra-chave principal no início, verbo obrigatório, factual, sem clickbait
+TITULO: manchete visual entre 50 e 65 caracteres — palavra-chave principal no início, verbo obrigatório, factual, sem clickbait
+META_TITLE: versão SEO da manchete com NO MÁXIMO 55 caracteres — keyword no início, factual, sem a marca "O Valor Capital" (o Google trunca acima de 55 chars)
 FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO (ex: taxa selic, reforma tributária, dólar bolsa)
 SLUG: 3 a 5 palavras-chave do título em português, hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
 META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural, sem cortar no meio
@@ -172,23 +165,26 @@ SUBCATEGORIA: escolha EXATAMENTE uma das subcategorias abaixo para a CATEGORIA e
 CORPO:
 Redação OVC — ${data}
 
-[Parágrafo de abertura — 4 a 5 frases. Responda quem, o quê, quando, onde e por quê usando os fatos da fonte. Inclua a palavra-chave principal na primeira frase. Este parágrafo é o mais importante para SEO.]
+[LEAD — máximo 3 frases curtas (até 40 palavras no total). Responda QUEM, O QUÊ e QUANDO. Coloque a **palavra-chave principal em negrito** na primeira frase. Seja direto — sem enrolação, sem contexto histórico.]
 
-## [Subheading H2 — variação natural da palavra-chave, factual, 4 a 7 palavras]
+## [H2 — variação natural da keyword, factual, 4 a 7 palavras — NÃO use "Introdução", "Contexto" ou "Conclusão"]
 
-[Parágrafo — 4 frases. Desdobramentos e contexto que estão NA FONTE.]
+[Parágrafo de 2 a 3 frases — máximo 40 palavras. Use **negrito** nos nomes de pessoas, empresas, cargos e valores-chave. Somente fatos da fonte.]
 
-[Parágrafo — 4 frases. Dados, números e nomes presentes NA FONTE.]
+[Se a fonte contiver 3 ou mais dados, valores, datas ou etapas — obrigatoriamente use lista:]
+• **Dado ou entidade** — descrição objetiva
+• **Dado ou entidade** — descrição objetiva
+• **Dado ou entidade** — descrição objetiva
 
-## [Subheading H2 — impacto ou consequências práticas, factual]
+## [H2 — impacto concreto ou consequência direta, factual, 4 a 7 palavras]
 
-[Parágrafo — 4 frases. Impacto concreto para o leitor, usando os fatos da fonte.]
+[Parágrafo de 2 a 3 frases — máximo 40 palavras. Impacto prático para o leitor. **Negrito** nas entidades principais.]
 
-[Parágrafo — 4 frases. Quem é afetado, como e por quê — somente o que a fonte diz.]
+[Parágrafo de 2 a 3 frases — máximo 40 palavras. Quem é afetado e como — somente o que a fonte diz.]
 
-## [Subheading H2 — perspectiva ou próximos passos, factual]
+## [H2 — próximos passos ou perspectiva, factual, 4 a 7 palavras]
 
-[Parágrafo — 3 a 4 frases. Próximos passos ou perspectivas mencionados NA FONTE. Não conclua além do que a fonte informa.]
+[Parágrafo de 2 a 3 frases — máximo 40 palavras. Próximos passos mencionados NA FONTE. Não conclua além do que a fonte informa.]
 
 #hashtag_tema_1
 #hashtag_tema_2
@@ -196,7 +192,7 @@ Redação OVC — ${data}
 #ovalorcapital
 
 REGRAS INVIOLÁVEIS:
-- CORPO mínimo 2.000 caracteres — escreva parágrafos densos e completos
+- CORPO mínimo 1.500 caracteres — escreva todos os blocos acima com densidade jornalística
 - Use SOMENTE fatos do texto fonte. Se não está na fonte, não escreva.
 - NUNCA invente nomes de pessoas, empresas, valores, datas ou declarações.
 - NUNCA adicione contexto histórico que não está na fonte.
@@ -204,7 +200,11 @@ REGRAS INVIOLÁVEIS:
 - Primeira linha do CORPO sempre: Redação OVC — ${data}
 - Os subheadings ## devem aparecer exatamente como marcados (## seguido de espaço e texto)
 - TITULO deve ter entre 50 e 65 caracteres — conte e ajuste
+- META_TITLE deve ter NO MÁXIMO 55 caracteres — conte letra por letra e ajuste
 - META_DESCRICAO deve ter entre 145 e 160 caracteres — conte e ajuste
+- PARÁGRAFOS com no máximo 3 linhas ou 40 palavras — sem exceção — blocos grandes destroem o SEO mobile
+- NEGRITO obrigatório: nomes de pessoas, empresas, cargos, valores numéricos e datas relevantes
+- LISTAS com marcadores (•) sempre que houver 3+ dados, valores ou etapas na fonte
 - Linguagem direta e acessível, sem academicismo
 - NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
 - NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar
@@ -226,11 +226,12 @@ function slugify(text) {
 function parse(raw) {
   if (!raw) return null;
   const lines = raw.split("\n");
-  let titulo = "", focoKeyword = "", slug = "", metaDescricao = "", categoriaRaw = "", subcategoriaRaw = "", corpo = "";
+  let titulo = "", metaTitle = "", focoKeyword = "", slug = "", metaDescricao = "", categoriaRaw = "", subcategoriaRaw = "", corpo = "";
   let inCorpo = false;
   for (const line of lines) {
     const trimmed = line.trim();
     if (/^TITULO:/i.test(trimmed)) titulo = trimmed.replace(/^TITULO:/i, "").trim();
+    else if (/^META_TITLE:/i.test(trimmed)) metaTitle = trimmed.replace(/^META_TITLE:/i, "").trim().slice(0, 55);
     else if (/^FOCO_KEYWORD:/i.test(trimmed)) focoKeyword = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
     else if (/^SLUG:/i.test(trimmed)) slug = slugify(trimmed.replace(/^SLUG:/i, "").trim());
     else if (/^META_DESCRICAO:/i.test(trimmed)) metaDescricao = trimmed.replace(/^META_DESCRICAO:/i, "").trim();
@@ -247,34 +248,31 @@ function parse(raw) {
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  // vc e colunistas NAO sao validos para geracao automatica
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados",
     "educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao",
     "parcerias","internacional","variedades","investigativo","seguranca","cultura",
     "profissoes","vagas","concursos","imoveis","esg","defesa","religiao"];
   if (!catsValidas.includes(categoriaRaw)) categoriaRaw = "geral";
 
-  // Validar e corrigir subcategoria — deve estar na lista da categoria escolhida
   const subcatsValidas = SUBCATS_POR_CAT[categoriaRaw] || [];
   if (subcatsValidas.length > 0) {
-    // Verificar se a subcategoria gerada está na lista (comparação case-insensitive parcial)
     const subcatNorm = subcategoriaRaw.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
     const match = subcatsValidas.find(s =>
       s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim() === subcatNorm ||
       s.toLowerCase().includes(subcatNorm) ||
       subcatNorm.includes(s.toLowerCase().replace(/[^a-z0-9\s]/g, "").trim().slice(0, 6))
     );
-    if (match) {
-      subcategoriaRaw = match; // normaliza para o valor canônico
-    } else {
-      // Subcategoria inválida — usar o primeiro item da lista da categoria
-      subcategoriaRaw = subcatsValidas[0];
-    }
+    subcategoriaRaw = match || subcatsValidas[0];
   }
 
   if (!slug && titulo) slug = slugify(titulo).split("-").slice(0, 5).join("-");
+
+  // meta_title: usa o gerado pela IA; fallback: trunca o titulo visual a 55 chars
+  const finalMetaTitle = (metaTitle || titulo || "").slice(0, 55).trim();
+
   return {
     titulo: titulo || "Sem título",
+    meta_title: finalMetaTitle,
     subtitulo: metaDescricao || "",
     meta_descricao: metaDescricao || "",
     foco_keyword: focoKeyword || "",
