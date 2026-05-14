@@ -1,19 +1,19 @@
-name: OVC Pipeline — a cada 20min
+name: OVC Pipeline — a cada 2min
 
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '*/2 * * * *'
   workflow_dispatch:
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
-      - name: Gerar artigos
+      - name: Gerar artigo
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"count":5}' \
-            --max-time 120
+            -d '{"count":1}' \
+            --max-time 90
           echo "done"

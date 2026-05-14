@@ -363,7 +363,25 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
 ];
 
-// Busca XML via axios (browser headers) + parse via rss-parser (robusto)
+// Extrai items de XML bruto via regex — fallback quando rss-parser falha
+function parseXmlFallback(xml) {
+  const items = [];
+  const itemRx = /<(?:item|entry)[\s>][\s\S]*?<\/(?:item|entry)>/gi;
+  let m;
+  while ((m = itemRx.exec(xml)) !== null) {
+    const block = m[0];
+    const title = (block.match(/<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/i) || [])[1]?.trim().replace(/<[^>]+>/g, '') || '';
+    const link =
+      (block.match(/<link[^>]+href=["']([^"']+)["']/i) || [])[1] ||
+      (block.match(/<link[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i) || [])[1]?.trim() || '';
+    const pubDate = (block.match(/<(?:pubDate|published|updated)[^>]*>([\s\S]*?)<\/(?:pubDate|published|updated)>/i) || [])[1]?.trim() || '';
+    const desc = (block.match(/<(?:description|summary|content(?:encoded)?)[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/(?:description|summary|content(?:encoded)?)>/i) || [])[1]?.trim().replace(/<[^>]+>/g, '').slice(0, 500) || '';
+    if (title && link) items.push({ title, link, isoDate: pubDate, pubDate, description: desc });
+  }
+  return items;
+}
+
+// Busca XML via axios (browser headers) + parse via rss-parser; regex como fallback
 async function fetchFeed(url) {
   try {
     const res = await axios.get(url, {
@@ -381,9 +399,14 @@ async function fetchFeed(url) {
     });
     const xml = res.data;
     if (!xml || typeof xml !== 'string' || xml.length < 50) return [];
-    const feed = await parser.parseString(xml);
-    return feed.items || [];
-  } catch(_) {
+    // tenta rss-parser primeiro
+    try {
+      const feed = await parser.parseString(xml);
+      if (feed.items && feed.items.length > 0) return feed.items;
+    } catch (_) {}
+    // fallback regex — funciona mesmo com XML malformado ou encoding misto
+    return parseXmlFallback(xml);
+  } catch (_) {
     return [];
   }
 }
