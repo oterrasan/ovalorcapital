@@ -1,7 +1,5 @@
-import Parser from "rss-parser";
 import { createClient } from "@supabase/supabase-js";
 
-const parser = new Parser({ timeout: 10000, headers: { "User-Agent": "Mozilla/5.0" } });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // Google News RSS base — sempre retorna notícias de hoje
@@ -357,6 +355,83 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
 ];
 
+// ─── Native fetch XML parser (replaces rss-parser) ───────────────────────────
+
+async function fetchFeed(url) {
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+      }
+    });
+    clearTimeout(tid);
+    if (!res.ok) return [];
+    const xml = await res.text();
+    return parseXML(xml);
+  } catch (_) {
+    return [];
+  }
+}
+
+function parseXML(xml) {
+  const items = [];
+  const blockRx = /<(?:item|entry)\b[^>]*>([\s\S]*?)<\/(?:item|entry)>/gi;
+  let m;
+  while ((m = blockRx.exec(xml)) !== null) {
+    const b = m[1];
+    const title = extractField(b, 'title');
+    const link = extractLink(b);
+    if (!title || !link) continue;
+    const pubDate = extractField(b, 'pubDate') ||
+                    extractField(b, 'published') ||
+                    extractField(b, 'updated') ||
+                    extractField(b, 'dc:date');
+    const desc = extractField(b, 'description') ||
+                 extractField(b, 'summary') ||
+                 extractField(b, 'content');
+    items.push({
+      title,
+      link,
+      isoDate: pubDate,
+      contentSnippet: desc ? desc.replace(/<[^>]+>/g, '').slice(0, 300) : '',
+    });
+  }
+  return items;
+}
+
+function extractField(str, tag) {
+  const escaped = tag.replace(':', '\\:');
+  const rx = new RegExp(`<${escaped}(?:\\s[^>]*)?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${escaped}>`, 'i');
+  const m = str.match(rx);
+  if (!m) return '';
+  return m[1].replace(/<[^>]+>/g, '').trim();
+}
+
+function extractLink(str) {
+  // Atom: <link href="url" ...>
+  const atom = str.match(/<link[^>]+href="([^"]+)"/i);
+  if (atom) return atom[1].trim();
+  // RSS: <link>url</link>
+  const rss = str.match(/<link[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i);
+  if (rss) {
+    const v = rss[1].replace(/<[^>]+>/g, '').trim();
+    if (v) return v;
+  }
+  // Fallback: <guid isPermaLink="true">url</guid>
+  const guid = str.match(/<guid[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/guid>/i);
+  if (guid) {
+    const g = guid[1].replace(/<[^>]+>/g, '').trim();
+    if (g.startsWith('http')) return g;
+  }
+  return '';
+}
+
+// ─── End XML parser ──────────────────────────────────────────────────────────
+
 function selecionarFeedsBalanceados() {
   const selecionados = [];
   for (const grupo of Object.values(FEEDS_POR_GRUPO)) {
@@ -392,8 +467,8 @@ function extrairItem(i, sourceName) {
 async function buscarFeedsEspecificos(feeds) {
   const results = await Promise.allSettled(
     feeds.slice(0, 12).map(source =>
-      parser.parseURL(source.url)
-        .then(feed => (feed.items || []).slice(0, 10)
+      fetchFeed(source.url)
+        .then(items => items.slice(0, 10)
           .map(i => extrairItem(i, source.name))
           .filter(Boolean))
         .catch(() => [])
@@ -433,8 +508,8 @@ function dedupPorTitulo(items) {
 async function buscarFeedsDiretos(feeds) {
   const results = await Promise.allSettled(
     feeds.slice(0, 20).map(source =>
-      parser.parseURL(source.url)
-        .then(feed => (feed.items || []).slice(0, 8)
+      fetchFeed(source.url)
+        .then(items => items.slice(0, 8)
           .map(i => extrairItem(i, source.name))
           .filter(Boolean))
         .catch(() => [])
@@ -457,7 +532,6 @@ export async function getNews() {
       .slice(0, 10);
 
     // Sempre inclui feeds diretos garantidos (até 10 aleatórios)
-    // Evita depender 100% de rss_sources que pode ser 100% Google News
     const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
       .sort(() => Math.random() - 0.5)
       .slice(0, 10);

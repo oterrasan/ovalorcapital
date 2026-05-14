@@ -105,6 +105,62 @@ const SUBCAT_DEFAULT = {
   esg:'Sustentabilidade',defesa:'Forças Armadas',religiao:'Evangelicalismo',
 };
 
+// Homepages confiáveis para fallback quando todos os RSS falharem
+const HOMEPAGE_FALLBACK = [
+  { url: 'https://agenciabrasil.ebc.com.br', domain: 'agenciabrasil.ebc.com.br' },
+  { url: 'https://www.infomoney.com.br', domain: 'infomoney.com.br' },
+  { url: 'https://exame.com', domain: 'exame.com' },
+  { url: 'https://canaltech.com.br', domain: 'canaltech.com.br' },
+  { url: 'https://www.metropoles.com', domain: 'metropoles.com' },
+  { url: 'https://www.moneytimes.com.br', domain: 'moneytimes.com.br' },
+  { url: 'https://www.seudinheiro.com', domain: 'seudinheiro.com' },
+  { url: 'https://techcrunch.com', domain: 'techcrunch.com' },
+];
+
+async function getLinksFromHomepages() {
+  const results = await Promise.allSettled(
+    HOMEPAGE_FALLBACK.map(async ({ url, domain }) => {
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }
+        });
+        clearTimeout(tid);
+        if (!res.ok) return [];
+        const html = await res.text();
+        const links = new Set();
+        const hrefRx = /href="(https?:\/\/[^"#?]+)"/g;
+        let m;
+        while ((m = hrefRx.exec(html)) !== null) {
+          const link = m[1];
+          if (!link.includes(domain)) continue;
+          const path = link.replace(/^https?:\/\/[^\/]+/, '');
+          const segs = path.split('/').filter(Boolean);
+          // Article heuristic: year in URL OR deep path with slug-like ending
+          const hasYear = /\/20(2[3-9]|[3-9]\d)\//.test(link);
+          const hasSlug = segs.length >= 2 && /[a-z]+-[a-z]/.test(segs[segs.length - 1]);
+          if ((hasYear || hasSlug) && link.length < 200) links.add(link);
+          if (links.size >= 12) break;
+        }
+        return [...links].map(link => ({ title: '', link, source: domain }));
+      } catch (_) {
+        return [];
+      }
+    })
+  );
+
+  const allLinks = results
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value);
+
+  const seen = new Set();
+  return allLinks
+    .filter(item => { if (seen.has(item.link)) return false; seen.add(item.link); return true; })
+    .sort(() => Math.random() - 0.5);
+}
+
 function slugify(t) {
   return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-');
 }
@@ -196,6 +252,13 @@ export default async function handler(req, res) {
         seenLinks.add(item.link);
         return true;
       });
+    }
+
+    // Fallback: scrape homepages quando todos os RSS falharem
+    if (!news.length) {
+      console.log('[pipeline] RSS zerou — tentando fallback de homepages');
+      news = await getLinksFromHomepages();
+      console.log('[pipeline] fallback homepages:', news.length, 'links');
     }
 
     if (!news.length) {
