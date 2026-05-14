@@ -160,7 +160,6 @@ function validar(content) {
   const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
   if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
   if (content.corpo.length < 500) return false;
-  if (!c.includes("redação ovc")) return false;
   return true;
 }
 
@@ -269,7 +268,7 @@ async function handleManual(req, res) {
           publish_method:"manual",
           user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
-          subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
+          subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"-").replace(/[^a-z0-9]+/g,"-"),
           collaborators:"[]", metrics:{}, priority:0, retry_count:0, max_retries:3
         }).select().single();
         if (error) { errosPedido.push(error.message); continue; }
