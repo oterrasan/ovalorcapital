@@ -1,18 +1,13 @@
-name: OVC Pipeline Instagram
+name: OVC Keepalive
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
-  pipeline:
+  ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Executar pipeline Instagram
-        run: |
-          curl -s -X POST https://www.ovalorcapital.com.br/api/run \
-            -H "Content-Type: application/json" \
-            --max-time 55 \
-            -o /tmp/result.json 2>&1
-          cat /tmp/result.json
+      - name: Ping portal
+        run: curl -s https://www.ovalorcapital.com.br/ -o /dev/null
