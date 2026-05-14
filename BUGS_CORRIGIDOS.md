@@ -290,7 +290,6 @@ const feedsCustom = (allSources || [])
   .slice(0, 10);
 
 // Sempre inclui feeds diretos garantidos (até 10 aleatórios)
-// Evita depender 100% de rss_sources que pode ser 100% Google News
 const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
   .sort(() => Math.random() - 0.5)
   .slice(0, 10);
@@ -315,6 +314,93 @@ Após deploy, "Forçar agora" retornou:
 
 ### Regra permanente
 **`getNews()` deve SEMPRE misturar feeds customizados com `FEEDS_DIRETOS_GARANTIDOS` na primeira chamada.** Não depender só de `rss_sources`. Não usar `selecionarFeedsBalanceados()` como fallback de segurança — pode ser 100% GN.
+
+---
+
+## BUG #13 — Pipeline e admin salvavam artigos como `pendente` — portal sem novos artigos por ~3 dias (CRÍTICO)
+**Data:** 14/Mai/2026 | **Arquivos:** `api/run_portal.js`, `api/manage.js` | **Commits:** `9c41679`, `89be842`
+
+### Sintoma
+O portal ficou aproximadamente 3 dias sem publicar novos artigos. A automação rodava normalmente (GitHub Actions disparando a cada 20min, sem erros), o admin aceitava geração manual sem erro — mas nenhum artigo aparecia no portal.
+
+### Causa raiz
+Ambos os arquivos salvavam artigos no banco com `status: 'pendente'` e `approved: false`. O `api/portal-posts.js` — que serve todos os artigos para o frontend — filtra exclusivamente por `status = 'publicado'`. Não existia nenhum mecanismo de aprovação automática. Resultado: todos os artigos ficavam invisíveis no portal indefinidamente.
+
+**Em `api/run_portal.js` (INSERT do pipeline automático):**
+```js
+// ERRADO — artigos nunca apareciam
+{ status: 'pendente', approved: false }
+// sem published_at
+```
+
+**Em `api/manage.js` `handleManual()` (dois blocos INSERT — fonteManual e RSS):**
+```js
+// ERRADO — artigos nunca apareciam
+{ status: 'pendente', approved: false }
+// sem published_at
+```
+
+### Correção
+Ambos os arquivos alterados para publicar direto:
+```js
+const now = new Date().toISOString();
+
+// run_portal.js e manage.js — ambos os INSERTs:
+{
+  status: 'publicado',
+  approved: true,
+  published_at: now,
+  // ... demais campos
+}
+```
+
+### Por que isso é seguro
+O pipeline gera conteúdo via OpenAI a partir de notícias reais de feeds confiáveis (Agência Brasil, BBC, InfoMoney, etc.) com validação de qualidade (`validar()`). Publicação direta é o comportamento correto e esperado para 300 artigos/dia.
+
+### Regra permanente
+**Todo INSERT na tabela `posts` pelo pipeline ou admin deve sempre usar `status: 'publicado'`, `approved: true` e `published_at: now`.** Nunca salvar como `pendente` sem um fluxo de aprovação implementado — causa silêncio total no portal.
+
+---
+
+## BUG #14 — Links antigos `?id=` abriam página de categoria vazia
+**Data:** 14/Mai/2026 | **Arquivo:** `api/category.js` | **Commit:** `8318e70`
+
+### Sintoma
+Links no formato `/esportes/?id=dc226eae` (formato legado) exibiam a página de listagem de categoria normalmente, mas o conteúdo do artigo nunca carregava — página ficava em branco onde o artigo deveria aparecer. Problema ocorria em TODAS as categorias do portal, não apenas esportes.
+
+### Causa raiz — fluxo completo
+1. URL `/esportes/?id=dc226eae` → `vercel.json` rewrite → `api/category.js?cat=esportes`
+2. `category.js` ignora o parâmetro `?id=` e serve o template HTML de categoria normalmente
+3. O JS do frontend (`internal-page-v2.js`) detecta `artId` via `params.get('id')` e faz fetch para `/api/portal-posts?id=dc226eae&full=true`
+4. Como os artigos estavam em `pendente` (BUG #13), `portal-posts.js` retornava 404
+5. `internal-page-v2.js` silencia o erro 404 — página fica em branco sem mensagem de erro
+
+**Mesmo com o BUG #13 corrigido**, links `?id=` antigos continuam sendo problemáticos porque:
+- A URL canônica correta é `/{categoria}/{slug}-{id8}/` — usar `?id=` é formato morto (Regra #4 do CLAUDE.md)
+- `category.js` nunca deveria processar um `?id=` — deveria redirecionar
+
+### Correção
+Adicionado redirect 302 no início do handler de `api/category.js`, antes de qualquer lógica de categoria:
+```js
+export default async function handler(req, res) {
+  const artId = (req.query.id || "").trim();
+  if (artId) {
+    return res.redirect(302, "/og?id=" + encodeURIComponent(artId));
+  }
+  // ... resto do handler de categoria
+}
+```
+
+**Fluxo após correção:**
+`/esportes/?id=dc226eae` → `category.js` detecta `?id=` → redirect 302 → `/og?id=dc226eae` → `api/portal-posts?format=og` → lookup no banco → redirect para URL canônica `/esportes/titulo-do-artigo-dc226eae/`
+
+### Por que `/og` e não direto para o artigo
+`/og` já existia como rota em `vercel.json` → `api/portal-posts?format=og`. Ele faz o lookup pelo ID parcial no banco e redireciona para a URL slug correta. Reutilizamos infraestrutura existente sem criar nova lógica.
+
+### Regra permanente
+- **`api/category.js` deve SEMPRE redirecionar qualquer request com `?id=`** para `/og?id=`
+- Nunca criar nova lógica de lookup por ID em `category.js` — isso pertence ao `portal-posts.js`
+- Links `?id=` são formato morto — nunca gerar novos links nesse formato
 
 ---
 
@@ -345,4 +431,6 @@ Sempre sincronizar o branch de desenvolvimento com main a cada 2-3 dias.
 □ getNews() mistura feedsCustom + feedsGarantidos na 1a tentativa?
 □ getNews() tem fallback total com FEEDS_DIRETOS_GARANTIDOS se allItems=[]?
 □ scraper.js tem 3 camadas de extração (p → div → og:meta)?
+□ Todo INSERT em posts usa status:'publicado', approved:true, published_at:now?
+□ category.js redireciona ?id= para /og?id= antes de qualquer lógica de categoria?
 ```
