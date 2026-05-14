@@ -31,14 +31,6 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
-const FAIXAS_HORARIO = [
-  { chave: 'POSTS_01_06', hInicio: 1,  hFim: 6,  padrao: 20  },
-  { chave: 'POSTS_06_10', hInicio: 6,  hFim: 10, padrao: 40  },
-  { chave: 'POSTS_10_12', hInicio: 10, hFim: 12, padrao: 40  },
-  { chave: 'POSTS_12_17', hInicio: 12, hFim: 17, padrao: 80  },
-  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 },
-];
-
 const HIGH_PRIORITY_CATS = [
   'politica', 'economia', 'internacional', 'tecnologia',
   'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
@@ -148,47 +140,21 @@ export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
-  const targetCount = Math.min(parseInt(meta.count || body.count || '5', 10), 8);
+  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
   const catForcada = (body.categoria || '').trim().toLowerCase();
   const subcatRaw = (body.subcategoria || '').trim();
   const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
   try {
-    if (!body.force && !body.batch) {
-      const { data: cfg } = await supabase.from('config').select('value').eq('key','AUTOMATION').single();
-      if (!cfg || cfg.value !== 'on') return res.status(200).json({ status: 'automation_paused' });
-    }
-
-    if (!body.force && !body.batch) {
-      const { data: cfgMax } = await supabase.from('config').select('value').eq('key','MAX_POSTS_DIA').single();
-      const MAX_DIA = parseInt(cfgMax?.value || '300', 10);
-      const agora = new Date();
-      const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
-      const { count } = await supabase.from('posts').select('id', { count: 'exact', head: true }).gte('created_at', inicioDia.toISOString()).eq('publish_method', 'portal');
-      if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
-    }
-
-    if (!body.force && !body.batch) {
+    // Janela de operação: 07:00 – 01:00 hora Brasília (UTC-3)
+    // force=true bypassa a janela (uso manual/testes)
+    if (!body.force) {
       const agoraBR = new Date(Date.now() - 3 * 3600000);
       const horaBR  = agoraBR.getUTCHours();
-      const faixa   = FAIXAS_HORARIO.find(f => horaBR >= f.hInicio && horaBR < f.hFim)
-                      || FAIXAS_HORARIO[FAIXAS_HORARIO.length - 1];
-      const hInicioReal = faixa.chave === 'POSTS_17_00' ? 17 : faixa.hInicio;
-      const inicioFaixaBR = new Date(agoraBR);
-      inicioFaixaBR.setUTCHours(hInicioReal, 0, 0, 0);
-      if (faixa.chave === 'POSTS_17_00' && horaBR === 0) {
-        inicioFaixaBR.setUTCDate(inicioFaixaBR.getUTCDate() - 1);
-      }
-      const inicioFaixaUTC = new Date(inicioFaixaBR.getTime() + 3 * 3600000);
-      const { data: cfgFaixa } = await supabase.from('config').select('value').eq('key', faixa.chave).single();
-      const maxFaixa = parseInt(cfgFaixa?.value || String(faixa.padrao), 10);
-      const { count: countFaixa } = await supabase.from('posts')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', inicioFaixaUTC.toISOString())
-        .eq('publish_method', 'portal');
-      if ((countFaixa || 0) >= maxFaixa) {
-        return res.status(200).json({ status: 'faixa_limit_reached', faixa: faixa.chave, count: countFaixa, max: maxFaixa });
+      const dentroJanela = horaBR >= 7 || horaBR < 1;
+      if (!dentroJanela) {
+        return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
       }
     }
 
