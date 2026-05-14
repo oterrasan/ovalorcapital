@@ -106,7 +106,6 @@ const SUBCAT_DEFAULT = {
   esg:'Sustentabilidade',defesa:'Forças Armadas',religiao:'Evangelicalismo',
 };
 
-// Homepages confiáveis para fallback quando todos os RSS falharem
 const HOMEPAGE_FALLBACK = [
   { url: 'https://agenciabrasil.ebc.com.br', domain: 'agenciabrasil.ebc.com.br' },
   { url: 'https://www.infomoney.com.br', domain: 'infomoney.com.br' },
@@ -132,8 +131,10 @@ async function getLinksFromHomepages() {
           },
           maxRedirects: 5,
           validateStatus: s => s < 400,
+          responseType: 'text',
         });
-        const html = typeof res.data === 'string' ? res.data : String(res.data);
+        const html = typeof res.data === 'string' ? res.data : '';
+        if (!html) return [];
         const links = new Set();
         const hrefRx = /href="(https?:\/\/[^"#?]+)"/g;
         let m;
@@ -142,23 +143,18 @@ async function getLinksFromHomepages() {
           if (!link.includes(domain)) continue;
           const path = link.replace(/^https?:\/\/[^\/]+/, '');
           const segs = path.split('/').filter(Boolean);
-          // Article heuristic: year in URL OR deep path with slug-like ending
           const hasYear = /\/20(2[3-9]|[3-9]\d)\//.test(link);
           const hasSlug = segs.length >= 2 && /[a-z]+-[a-z]/.test(segs[segs.length - 1]);
           if ((hasYear || hasSlug) && link.length < 200) links.add(link);
           if (links.size >= 12) break;
         }
-        return [...links].map(link => ({ title: '', link, source: domain }));
+        return [...links].map(link => ({ title: '', link, source: domain, description: '' }));
       } catch (_) {
         return [];
       }
     })
   );
-
-  const allLinks = results
-    .filter(r => r.status === 'fulfilled')
-    .flatMap(r => r.value);
-
+  const allLinks = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
   const seen = new Set();
   return allLinks
     .filter(item => { if (seen.has(item.link)) return false; seen.add(item.link); return true; })
@@ -207,8 +203,6 @@ export default async function handler(req, res) {
   const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
   try {
-    // Janela de operação: 07:00 – 01:00 hora Brasília (UTC-3)
-    // force=true bypassa a janela (uso manual/testes)
     if (!body.force) {
       const agoraBR = new Date(Date.now() - 3 * 3600000);
       const horaBR  = agoraBR.getUTCHours();
@@ -258,7 +252,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Fallback: scrape homepages quando todos os RSS falharem
     if (!news.length) {
       console.log('[pipeline] RSS zerou — tentando fallback de homepages');
       news = await getLinksFromHomepages();
@@ -266,7 +259,7 @@ export default async function handler(req, res) {
     }
 
     if (!news.length) {
-      return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen });
+      return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
     }
 
     const artigos = [];
@@ -281,7 +274,13 @@ export default async function handler(req, res) {
       if (dup) continue;
 
       const article = await scrape(item.link);
-      const sourceText = (article.text && article.text.length >= 380) ? article.text : null;
+
+      // Usa texto do scraper se suficiente; senao usa titulo+descricao do RSS
+      let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
+      if (!sourceText) {
+        const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
+        if (rssText.length >= 150) sourceText = rssText;
+      }
       if (!sourceText) continue;
 
       let content;
@@ -360,7 +359,7 @@ export default async function handler(req, res) {
     if (artigos.length > 0) {
       return res.status(200).json({ status: 'ok', artigos, total: artigos.length, titulo: artigos[0].titulo, categoria: artigos[0].categoria, id: artigos[0].id });
     }
-    return res.status(200).json({ status: 'no_valid_news' });
+    return res.status(200).json({ status: 'no_valid_news', ts: Date.now() });
 
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
