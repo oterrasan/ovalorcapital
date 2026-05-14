@@ -6,6 +6,58 @@
 
 ---
 
+# 🚨 ALERTA CRÍTICO — VERCEL HOBBY PLAN — LER ANTES DE QUALQUER COISA
+
+## LIMITES QUE MATAM O BUILD SILENCIOSAMENTE
+
+Se esses limites forem violados, o Vercel **rejeita o deploy sem aviso visível**. O portal continua rodando código antigo. Ninguém percebe. Isso ficou assim por ~1 semana em mai/2026.
+
+### Regras absolutas do Vercel Hobby:
+```
+❌ NUNCA mais de 12 arquivos em api/ — limit é 12 funções serverless
+❌ NUNCA usar maxDuration > 10 no vercel.json — Hobby plan máx é 10s
+```
+
+### Estado atual: 12 funções (no limite exato)
+```
+api/article.js
+api/category.js
+api/ig_publish.js
+api/institutional.js
+api/landing.js
+api/live.js
+api/manage.js
+api/manual_post.js
+api/portal-posts.js
+api/refresh_token.js
+api/run_portal.js   ← PIPELINE AUTOMÁTICO
+api/sitemap.js
+```
+
+### Arquivos DELETADOS em 14/05/2026 para caber no limite:
+```
+api/debug_rss.js       — diagnóstico
+api/fix_images.js      — utilitário
+api/recategorizar-vc.js — utilitário
+api/run.js             — era alias redundante de run_portal.js
+api/article-ssr.js     — rota /materia agora vai para api/article
+api/auditoria.js       — utilitário de auditoria
+api/editor_ia.js       — tab Editor IA do admin (quebrou — ok por ora)
+api/live-data.js       — widgets de dados ao vivo (quebrou — ok por ora)
+```
+
+### REGRA PERMANENTE:
+```
+Antes de criar qualquer arquivo novo em api/, delete um existente primeiro.
+Se precisar de mais de 12 funções: upgrade para Vercel Pro ($20/mês).
+Vercel Pro: 160 funções, maxDuration até 300s.
+```
+
+### Por que isso fica invisível:
+O Vercel não manda email de erro. O dashboard mostra deployment como "falhou" mas o site continua servindo o último deploy bem-sucedido. O admin mostra respostas do código antigo. Parece que as mudanças não surtiram efeito.
+
+---
+
 # 🔴 REGRA NÚMERO 1 — LEI ABSOLUTA E INVIOLÁVEL DO PORTAL
 
 ## TODA PÁGINA DO PORTAL DEVE TER SEO 100% COMPLETO. SEM EXCEÇÃO. SEM NEGOCIAÇÃO.
@@ -84,6 +136,7 @@ Fonte de receita: exclusivamente Google AdSense / Google AdX. O Google é o úni
 14. **`vc` e `colunistas` NÃO são categorias do pipeline** — o pipeline nunca gera artigos com essas tags. São reservadas para conteúdo manual de colunistas.
 15. **Landing pages (`/vc/`, `/trabalho/`, etc.) têm footer inline** — não usam a classe `.footer-bottom`. Qualquer mudança no footer dessas páginas deve ser feita diretamente em `api/landing.js` `buildFooter()`.
 16. **META_TITLE (≤55 chars) separado do TITULO** — `<title>` usa META_TITLE + " | O Valor Capital". og:title e JSON-LD usam TITULO completo.
+17. **VERCEL: máximo 12 arquivos em api/**  — exceder esse número faz o build falhar silenciosamente. Ver seção de alerta no topo deste arquivo.
 
 ---
 
@@ -92,7 +145,7 @@ Fonte de receita: exclusivamente Google AdSense / Google AdX. O Google é o úni
 **O Valor Capital (OVC)** é um portal premium de notícias brasileiro focado em política, economia, negócios, investimentos, família, tributos e regulação. O dono é Roberto Cesar Terrasan (usuário: oterrasan).
 
 - **URL produção:** https://www.ovalorcapital.com.br
-- **Stack:** Vercel (serverless), Supabase (PostgreSQL + Storage), React (admin via Babel), OpenAI gpt-4o-mini
+- **Stack:** Vercel (serverless — plano Hobby, 12 funções máx, 10s máx), Supabase (PostgreSQL + Storage), React (admin via Babel), OpenAI gpt-4o-mini
 - **Repo:** `oterrasan/ovalorcapital`
 - **Branch principal:** `main` (Vercel deploya automaticamente em ~2 min após push)
 - **Instagram:** 2,6M views/mês em Reels autorais
@@ -103,22 +156,25 @@ Fonte de receita: exclusivamente Google AdSense / Google AdX. O Google é o úni
 
 ## 2. ARQUITETURA DO SISTEMA
 
-### APIs (Vercel serverless)
+### APIs (Vercel serverless) — 12 FUNÇÕES TOTAL (LIMITE HOBBY)
 | Arquivo | Função |
 |---|---|
 | `api/article.js` | SSR completo de artigos por slug URL — **crítico para SEO** |
-| `api/article-ssr.js` | SSR para rota /materia/ (legacy) |
 | `api/category.js` | SSR para listagem das 29 categorias |
-| `api/live.js` | SSR para radar, tv-ovc, radio-ovc, dados, cotações, agenda |
-| `api/sitemap.js` | Sitemap dinâmico com todos os artigos publicados |
-| `api/manage.js` | Status, aprovação, track_view, newsletter |
-| `api/run_portal.js` | **Pipeline automático** RSS → scrape → IA → salva post |
-| `api/run.js` | Alias de run_portal.js — cron do GitHub Actions usa esta rota |
-| `api/portal-posts.js` | Serve posts publicados para o frontend |
-| `api/editor_ia.js` | Editor IA do admin |
 | `api/ig_publish.js` | Publica no Instagram via bot Playwright |
-| `api/landing.js` | SSR landing pages temáticas (/vc/, /trabalho/, /financas/, /moradia/, /seguranca/, /bem-estar/) |
 | `api/institutional.js` | SSR páginas institucionais (/quem-somos/, /politica-editorial/) |
+| `api/landing.js` | SSR landing pages temáticas (/vc/, /trabalho/, /financas/, /moradia/, /seguranca/, /bem-estar/) |
+| `api/live.js` | SSR para radar, tv-ovc, radio-ovc, dados, cotações, agenda |
+| `api/manage.js` | Status, aprovação, track_view, newsletter — gestão geral do admin |
+| `api/manual_post.js` | Geração manual de artigos via URL — chamado pelo admin "Novo Post" |
+| `api/portal-posts.js` | Serve posts publicados para o frontend |
+| `api/refresh_token.js` | Renova token do Instagram (cron mensal) |
+| `api/run_portal.js` | **Pipeline automático** RSS → scrape → IA → salva post |
+| `api/sitemap.js` | Sitemap dinâmico com todos os artigos publicados |
+
+> ⚠️ ATENÇÃO: Se precisar criar um novo arquivo em api/, você DEVE deletar um existente primeiro.
+> As funções `editor_ia.js` (Editor IA do admin) e `live-data.js` (dados ao vivo) foram deletadas
+> em 14/05/2026 para caber no limite. Para restaurá-las, upgrade para Vercel Pro.
 
 ### Core (lógica de negócio)
 | Arquivo | Função |
@@ -213,34 +269,47 @@ vc, colunistas — reservadas para conteúdo manual de colunistas/editorial
 
 ## 6. PIPELINE DE AUTOMAÇÃO — DETALHE COMPLETO
 
-### Fluxo
+### Fluxo atual (14/05/2026)
 ```
-GitHub Actions (.github/workflows/pipeline-cron.yml)
-  schedule: '*/20 * * * *'
-  → POST https://www.ovalorcapital.com.br/api/run
-  → Verifica AUTOMATION = 'on'
-  → Verifica MAX_POSTS_DIA
-  → Verifica faixa horária atual
+GitHub Actions (.github/workflows/pipeline_portal.yml)
+  schedule: '*/2 * * * *'   ← a cada 2 minutos
+  → POST https://www.ovalorcapital.com.br/api/run_portal
+  → body: {"count":1}        ← 1 artigo por execução, SEM force
+  → Verifica janela horária 07:00–01:00 BRT
   → getNewsByCategoria() + getNews() em paralelo
   → Para cada notícia: scrape() → rewritePortal() → validar() → salva como publicado
 ```
 
 ### Parâmetros do handler
 ```js
-body.force = true   // bypassa AUTOMATION, MAX_POSTS_DIA e FAIXAS_HORARIO
-body.count = N      // número de artigos a gerar (máx 8, padrão 5)
+body.force = true   // bypassa verificação de horário (07:00-01:00 BRT)
+body.count = N      // número de artigos a gerar (máx 8, padrão 1)
 body.categoria      // forçar categoria específica
 body.subcategoria   // forçar subcategoria específica
 ```
 
-### Faixas horárias (Brasília UTC-3)
-| Faixa | Posts padrão |
-|-------|-------------|
-| 01h–06h | 20 |
-| 06h–10h | 40 |
-| 10h–12h | 40 |
-| 12h–17h | 80 |
-| 17h–00h | 120 |
+### Janela horária
+```
+Roda de 07:00 às 01:00 BRT — fora desse horário retorna {status:'fora_horario'}
+BRT = UTC-3 (Brasil não usa horário de verão desde 2019)
+```
+
+### Diagnóstico da resposta
+```
+{"status":"ok"}           → artigo gerado com sucesso
+{"status":"no_news"}      → RSS retornou vazio (prio:N, gen:N, ts:timestamp)
+{"status":"no_valid_news"} → RSS retornou itens mas todos falharam (scrape/IA/dedup)
+{"status":"fora_horario"} → fora da janela 07:00-01:00 BRT
+{"status":"error"}        → exceção não tratada
+```
+
+Se a resposta de `no_news` NÃO tiver campo `ts`: **o código novo não deployou** → verificar limite de funções/maxDuration no vercel.json.
+
+### RSS — como funciona
+- `core/rss.js` usa **axios** (browser headers) para buscar + **rss-parser** para parsear + **regex fallback** se rss-parser falhar
+- `FEEDS_DIRETOS_GARANTIDOS`: 20 feeds diretos (BBC, Agência Brasil, TechCrunch, The Verge, etc.)
+- `FEEDS_POR_GRUPO`: 240+ feeds Google News RSS por categoria
+- `isRecente()`: janela de 48h — items sem data são aceitos
 
 ---
 
@@ -362,16 +431,19 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 14 | Links ?id= abriam categoria vazia | `api/category.js` | ✅ |
 | 15 | /vc/ mostrava conteúdo sem sentido (cats vc/colunistas inexistentes no pipeline) | `api/landing.js` | ✅ |
 | 16 | Footer de landing pages sem copyright/links institucionais | `api/landing.js` | ✅ |
+| 17 | **Build Vercel falhando silenciosamente por ~1 semana** — maxDuration:60 no vercel.json (Hobby máx é 10s) + 20 funções em api/ (Hobby máx é 12) → portal rodava código de semana atrás | `vercel.json` + `api/` | ✅ 14/05/2026 |
 
 ---
 
 ## 12. COMO RETOMAR EM NOVA SESSÃO
 
-1. Ler este arquivo completamente
+1. **Ler este arquivo completamente** — especialmente a seção de ALERTA VERCEL no topo
 2. Ler `BUGS_CORRIGIDOS.md` — nunca desfazer correções listadas
-3. Qualquer página nova: verificar checklist SEO da Regra #1
-4. Verificar GitHub Actions rodando (repo → Actions)
-5. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
+3. **ANTES de criar qualquer arquivo em api/**: verificar que há ≤11 arquivos lá. Hobby plan = 12 máx.
+4. **NUNCA adicionar maxDuration > 10 no vercel.json** — Hobby plan máx é 10s
+5. Qualquer página nova: verificar checklist SEO da Regra #1
+6. Verificar GitHub Actions rodando (repo → Actions)
+7. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
 
 ---
 
@@ -408,10 +480,32 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - `api/run_portal.js` → salva meta_title em metrics JSON
 - `api/institutional.js` → NOVO — SSR /quem-somos/ e /politica-editorial/ com dados reais
 - `vercel.json` → rotas para /quem-somos/ e /politica-editorial/
-- `public/js/newsletter-bar.js` → footer patch (funciona em pages com footer.footer/.footer-bottom)
+- `public/js/newsletter-bar.js` → footer patch
 - Bug #15: `api/landing.js` → vc section: cats mudadas de [vc,colunistas] para [investigativo,variedades,cultura]
 - Bug #16: `api/landing.js` → `buildFooter()` agora tem copyright 2026, links institucionais, disclaimer
 
-**Problemas conhecidos desta sessão:**
-- Footer de páginas de categoria/homepage via newsletter-bar.js: requer hard-refresh no browser (Ctrl+Shift+R). Mudança de código está em main e deployada.
-- Artigos antigos no banco com user_tags=[vc] ou [colunistas]: ainda existem no banco, mas não aparecem mais em /vc/ após o fix do Bug #15.
+### Sessão mai/2026 — Rodada 4 (14/mai/2026) — BUG #17 — CRÍTICO
+**Diagnóstico:** Build Vercel falhando silenciosamente por ~1 semana. Causa: dois problemas simultâneos no vercel.json:
+1. `maxDuration: 60` em várias funções — Hobby plan permite máx 10s
+2. 20 arquivos em `api/` — Hobby plan permite máx 12 funções
+
+O Vercel rejeitava cada novo deploy sem aviso visível. O portal continuava servindo código antigo. Nenhuma das correções das últimas semanas estava chegando ao ar.
+
+**Correções aplicadas:**
+- Deletados 8 arquivos de `api/` (debug_rss, fix_images, recategorizar-vc, run, article-ssr, auditoria, editor_ia, live-data)
+- `vercel.json` → removido todo bloco `functions` com maxDuration (usa default do plano)
+- `vercel.json` → rota `/materia` atualizada para `/api/article`
+- `core/rss.js` → restaurado `rss-parser` + adicionado fallback regex para XML malformado
+- `core/rss.js` → `fetchFeed()` agora: axios (HTTP) → rss-parser (parse) → regex fallback
+- `.github/workflows/pipeline_portal.yml` → cron volta para `*/2 * * * *` com `count:1`
+
+**Estado atual do pipeline:**
+- Cron: `*/2 * * * *` — POST `/api/run_portal` com `{"count":1}` sem force
+- Janela: 07:00–01:00 BRT
+- `run_portal.js` tem timeout de 10s no Hobby plan — funciona para artigos rápidos
+- Se pipeline travar de novo: verificar plano Vercel → se Hobby, considerar upgrade Pro
+
+**Funcionalidades temporariamente quebradas (aceitável):**
+- Tab "Editor IA" no admin → 404 (api/editor_ia.js deletado)
+- Widgets de dados ao vivo → 404 (api/live-data.js deletado)
+- Auditoria de posts → 404 (api/auditoria.js deletado)
