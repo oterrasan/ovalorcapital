@@ -1,7 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import axios from 'axios';
+import RSSParser from 'rss-parser';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const parser = new RSSParser({
+  timeout: 10000,
+  customFields: {
+    item: [['pubDate','pubDate'],['published','published'],['updated','updated']],
+  }
+});
 
 // Google News RSS base — sempre retorna notícias de hoje
 const GN = (q, lang="pt-BR", gl="BR", ceid="BR:pt-BR") =>
@@ -332,7 +340,6 @@ const FAMILIA_CAT = {
 };
 export { FAMILIA_CAT, CATEGORIA_PARA_GRUPO };
 
-// Feeds diretos — sem Google News, nunca sofrem rate-limit
 const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://agenciabrasil.ebc.com.br/politica/feed.xml",  name: "Agência Brasil Política" },
   { url: "https://agenciabrasil.ebc.com.br/saude/feed.xml",     name: "Agência Brasil Saúde" },
@@ -356,87 +363,30 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
 ];
 
-// ─── axios RSS fetcher com responseType explícito ────────────────────────────
-
-const AXIOS_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
-  'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-  'Accept-Encoding': 'gzip, deflate, br',
-  'Cache-Control': 'no-cache',
-};
-
+// Busca XML via axios (browser headers) + parse via rss-parser (robusto)
 async function fetchFeed(url) {
   try {
     const res = await axios.get(url, {
       timeout: 10000,
       responseType: 'text',
-      headers: AXIOS_HEADERS,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+      },
       maxRedirects: 5,
       validateStatus: s => s < 500,
     });
-    const xml = typeof res.data === 'string' ? res.data : '';
-    if (!xml) return [];
-    return parseXML(xml);
-  } catch (_) {
+    const xml = res.data;
+    if (!xml || typeof xml !== 'string' || xml.length < 50) return [];
+    const feed = await parser.parseString(xml);
+    return feed.items || [];
+  } catch(_) {
     return [];
   }
 }
-
-function parseXML(xml) {
-  const items = [];
-  const blockRx = /<(?:item|entry)\b[^>]*>([\s\S]*?)<\/(?:item|entry)>/gi;
-  let m;
-  while ((m = blockRx.exec(xml)) !== null) {
-    const b = m[1];
-    const title = extractField(b, 'title');
-    const link = extractLink(b);
-    if (!title || !link) continue;
-    const pubDate = extractField(b, 'pubDate') ||
-                    extractField(b, 'published') ||
-                    extractField(b, 'updated') ||
-                    extractField(b, 'dc:date');
-    const desc = extractField(b, 'description') ||
-                 extractField(b, 'summary') ||
-                 extractField(b, 'content');
-    items.push({
-      title,
-      link,
-      isoDate: pubDate,
-      contentSnippet: desc ? desc.replace(/<[^>]+>/g, '').slice(0, 300) : '',
-    });
-  }
-  return items;
-}
-
-function extractField(str, tag) {
-  const escaped = tag.replace(':', '\\:');
-  const rx = new RegExp(`<${escaped}(?:\\s[^>]*)?>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${escaped}>`, 'i');
-  const m = str.match(rx);
-  if (!m) return '';
-  return m[1].replace(/<[^>]+>/g, '').trim();
-}
-
-function extractLink(str) {
-  // Atom: <link href="url" ...>
-  const atom = str.match(/<link[^>]+href="([^"]+)"/i);
-  if (atom) return atom[1].trim();
-  // RSS: <link>url</link>
-  const rss = str.match(/<link[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/i);
-  if (rss) {
-    const v = rss[1].replace(/<[^>]+>/g, '').trim();
-    if (v) return v;
-  }
-  // Fallback: <guid isPermaLink="true">url</guid>
-  const guid = str.match(/<guid[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/guid>/i);
-  if (guid) {
-    const g = guid[1].replace(/<[^>]+>/g, '').trim();
-    if (g.startsWith('http')) return g;
-  }
-  return '';
-}
-
-// ─── End XML parser ─────────────────────────────────────────────────────────
 
 function isRecente(dateStr) {
   if (!dateStr) return true;
@@ -448,7 +398,7 @@ function isRecente(dateStr) {
 }
 
 function extrairItem(i, sourceName) {
-  const dateStr = i.isoDate || i.pubDate || "";
+  const dateStr = i.isoDate || i.pubDate || i.published || i.updated || "";
   if (!isRecente(dateStr)) return null;
   if (!i.link && !i.guid) return null;
   if (!i.title) return null;
