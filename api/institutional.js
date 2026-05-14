@@ -38,6 +38,7 @@ const PAGES = {
   <li><strong>E-mail de Contato Geral:</strong> <a href="mailto:contato@ovalorcapital.com.br">contato@ovalorcapital.com.br</a></li>
   <li><strong>Redação e Pauta:</strong> <a href="mailto:pauta@ovalorcapital.com.br">pauta@ovalorcapital.com.br</a></li>
   <li><strong>Ouvidoria e Retificações:</strong> <a href="mailto:juridico@ovalorcapital.com.br">juridico@ovalorcapital.com.br</a></li>
+  <li><strong>Endereço de Correspondência:</strong> Rua Juiz de Fora, 367 — Via Ema — São Paulo/SP — CEP 03286-000</li>
 </ul>
 `
   },
@@ -81,7 +82,8 @@ const PAGES = {
 
 <p><strong>Roberto Cesar Terrasan</strong> — Fundador, Diretor Editorial e Editor-Chefe do portal O Valor Capital. Responsável legal por todo o conteúdo publicado na plataforma.</p>
 
-<p>Contato: <a href="mailto:contato@ovalorcapital.com.br">contato@ovalorcapital.com.br</a></p>
+<p>Contato: <a href="mailto:contato@ovalorcapital.com.br">contato@ovalorcapital.com.br</a><br>
+Endereço: Rua Juiz de Fora, 367 — Via Ema — São Paulo/SP — CEP 03286-000</p>
 `
   }
 };
@@ -151,8 +153,9 @@ ${page.html}
 }
 
 export default async function handler(req, res) {
-  const url = req.url || "";
-  const pageKey = url.includes("politica-editorial") ? "politica-editorial" : "quem-somos";
+  const pageKey = (req.query.page || req.url || "").includes("politica-editorial")
+    ? "politica-editorial"
+    : "quem-somos";
   const page = PAGES[pageKey];
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
