@@ -31,13 +31,12 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
-// Faixas horárias (Brasília UTC-3) — limites configuráveis via tabela config
 const FAIXAS_HORARIO = [
   { chave: 'POSTS_01_06', hInicio: 1,  hFim: 6,  padrao: 20  },
   { chave: 'POSTS_06_10', hInicio: 6,  hFim: 10, padrao: 40  },
   { chave: 'POSTS_10_12', hInicio: 10, hFim: 12, padrao: 40  },
   { chave: 'POSTS_12_17', hInicio: 12, hFim: 17, padrao: 80  },
-  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 }, // hFim=25 cobre hora 0
+  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 },
 ];
 
 const HIGH_PRIORITY_CATS = [
@@ -170,7 +169,6 @@ export default async function handler(req, res) {
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
 
-    // Faixa horária (Brasília UTC-3) — bypassa com force=true ou batch=true
     if (!body.force && !body.batch) {
       const agoraBR = new Date(Date.now() - 3 * 3600000);
       const horaBR  = agoraBR.getUTCHours();
@@ -194,7 +192,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Load recent titles for in-process dedup (last 24h)
     let recentTitles = [];
     try {
       const { data: rt } = await supabase.from('posts')
@@ -209,10 +206,14 @@ export default async function handler(req, res) {
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
     let news;
+    let _dbgPrio = 0, _dbgGen = 0;
+
     if (catForcada && CATS_VALIDAS.has(catForcada)) {
       news = await getNewsByCategoria(catForcada);
+      _dbgPrio = news.length;
       if (!news.length) {
         const [prio, gen] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
+        _dbgPrio = prio.length; _dbgGen = gen.length;
         const seen = new Set();
         news = [...prio, ...gen].filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true; });
       }
@@ -221,6 +222,8 @@ export default async function handler(req, res) {
         getNewsByCategoria(catAlvo),
         getNews()
       ]);
+      _dbgPrio = priorityNews.length;
+      _dbgGen = generalNews.length;
       const seenLinks = new Set();
       news = [...priorityNews, ...generalNews].filter(item => {
         if (seenLinks.has(item.link)) return false;
@@ -229,7 +232,9 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!news.length) return res.status(200).json({ status: 'no_news' });
+    if (!news.length) {
+      return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen });
+    }
 
     const artigos = [];
     const now = new Date().toISOString();

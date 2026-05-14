@@ -204,7 +204,7 @@ const FEEDS_POR_GRUPO = {
     { url: "https://www.theguardian.com/world/rss",                   name: "Guardian World" },
     { url: GN("esg sustentabilidade ambiental social governanca"),     name: "GN ESG Brasil" },
     { url: GN("mudancas climaticas emissoes carbono cop acordo"),      name: "GN Clima" },
-    { url: GN("energia renovavel solar eolica hidrogênio verde"),      name: "GN Energia Limpa" },
+    { url: GN("energia renovavel solar eolica hidrôgênio verde"),      name: "GN Energia Limpa" },
     { url: GN("geopolitica guerra conflito diplomatico internacional"), name: "GN Geopolítica" },
     { url: GN("eua estados unidos trump biden washington"),            name: "GN EUA" },
     { url: GN("china asia economia crescimento exportacao"),           name: "GN China" },
@@ -321,8 +321,6 @@ const CATEGORIA_PARA_GRUPO = {
   agronegocio:   ["agronegocio"],
 };
 
-// Famílias de categorias — usadas para validar se um artigo é compatível
-// com a categoria forçada pelo usuário
 const FAMILIA_CAT = {
   seguros:'financas', investimentos:'financas', economia:'financas',
   mercados:'financas', tributacao:'financas', regulacao:'financas',
@@ -335,6 +333,31 @@ const FAMILIA_CAT = {
 };
 export { FAMILIA_CAT, CATEGORIA_PARA_GRUPO };
 
+// Feeds diretos garantidos — sem Google News, nunca sofrem rate-limit
+// Usados como último fallback quando todos os outros feeds falham
+const FEEDS_DIRETOS_GARANTIDOS = [
+  { url: "https://agenciabrasil.ebc.com.br/politica/feed.xml",  name: "Agência Brasil Política" },
+  { url: "https://agenciabrasil.ebc.com.br/saude/feed.xml",     name: "Agência Brasil Saúde" },
+  { url: "https://agenciabrasil.ebc.com.br/educacao/feed.xml",  name: "Agência Brasil Educação" },
+  { url: "https://www.metropoles.com/feed",                      name: "Metrópoles" },
+  { url: "https://apublica.org/feed/",                           name: "Agência Pública" },
+  { url: "https://www.infomoney.com.br/feed/",                   name: "InfoMoney" },
+  { url: "https://exame.com/feed/",                              name: "Exame" },
+  { url: "https://www.seudinheiro.com/feed/",                    name: "Seu Dinheiro" },
+  { url: "https://www.moneytimes.com.br/feed/",                  name: "Money Times" },
+  { url: "https://canaltech.com.br/rss/",                        name: "Canaltech" },
+  { url: "https://rss.tecmundo.com.br/feed",                     name: "TecMundo" },
+  { url: "https://techcrunch.com/feed/",                         name: "TechCrunch" },
+  { url: "https://www.theverge.com/rss/index.xml",               name: "The Verge" },
+  { url: "https://feeds.bbci.co.uk/news/world/rss.xml",          name: "BBC World" },
+  { url: "https://feeds.bbci.co.uk/news/technology/rss.xml",     name: "BBC Technology" },
+  { url: "https://feeds.bbci.co.uk/news/business/rss.xml",       name: "BBC Business" },
+  { url: "https://feeds.bbci.co.uk/news/health/rss.xml",         name: "BBC Health" },
+  { url: "https://feeds.bbci.co.uk/news/sport/rss.xml",          name: "BBC Sport" },
+  { url: "https://www.theguardian.com/world/rss",                name: "Guardian World" },
+  { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
+];
+
 function selecionarFeedsBalanceados() {
   const selecionados = [];
   for (const grupo of Object.values(FEEDS_POR_GRUPO)) {
@@ -344,7 +367,6 @@ function selecionarFeedsBalanceados() {
   return selecionados;
 }
 
-// Aceita notícias das últimas 48h. Itens sem data são aceitos (feeds que omitem pubDate).
 function isRecente(dateStr) {
   if (!dateStr) return true;
   try {
@@ -438,14 +460,22 @@ export async function getNews() {
     }
 
     feedsParaUsar = feedsParaUsar.sort(() => Math.random() - 0.5).slice(0, 20);
-    let allItems = await buscarFeedsDiretos(feedsParaUsar);
+    console.log('[rss] fontes:', feedsParaUsar.length, '| rss_sources:', allSources?.length || 0);
 
-    // Se rss_sources falhou completamente, tenta os feeds hardcoded balanceados
+    let allItems = await buscarFeedsDiretos(feedsParaUsar);
+    console.log('[rss] 1a busca:', allItems.length, 'itens');
+
+    // Fallback garantido: feeds diretos que nunca sofrem rate-limit do Google
+    // Não usa selecionarFeedsBalanceados() pois pode sortear só Google News
     if (allItems.length === 0) {
-      const fallback = selecionarFeedsBalanceados();
-      allItems = await buscarFeedsDiretos(fallback);
+      console.log('[rss] fallback para FEEDS_DIRETOS_GARANTIDOS');
+      allItems = await buscarFeedsDiretos(FEEDS_DIRETOS_GARANTIDOS);
+      console.log('[rss] fallback:', allItems.length, 'itens');
     }
 
     return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));
-  } catch (_) { return []; }
+  } catch (e) {
+    console.error('[rss] erro em getNews:', e.message);
+    return [];
+  }
 }
