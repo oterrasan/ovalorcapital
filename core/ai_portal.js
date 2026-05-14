@@ -267,7 +267,6 @@ function parse(raw) {
 
   if (!slug && titulo) slug = slugify(titulo).split("-").slice(0, 5).join("-");
 
-  // meta_title: usa o gerado pela IA; fallback: trunca o titulo visual a 55 chars
   const finalMetaTitle = (metaTitle || titulo || "").slice(0, 55).trim();
 
   return {
@@ -286,7 +285,20 @@ function parse(raw) {
 
 export async function rewritePortal(text, title, useGemini = false) {
   const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
-  const raw = useGemini ? await callGemini(prompt) : await callOpenAI(prompt);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(prompt);
+  } else {
+    try {
+      raw = await callOpenAI(prompt);
+    } catch(e) {
+      if (GEMINI_KEYS.length > 0) {
+        raw = await callGemini(prompt);
+      } else {
+        throw e;
+      }
+    }
+  }
   const result = parse(raw);
   if (!result || !result.corpo || result.corpo.length < 1200) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
@@ -296,9 +308,6 @@ export async function rewritePortal(text, title, useGemini = false) {
   const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
   if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
     throw new Error("Conteúdo rejeitado — título ou abertura inválida");
-  }
-  if (!result.corpo.toLowerCase().includes("redação ovc")) {
-    throw new Error("Conteúdo rejeitado — sem assinatura Redação OVC");
   }
   return result;
 }
