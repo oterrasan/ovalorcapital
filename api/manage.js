@@ -15,33 +15,21 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // GET → status do sistema
   if (req.method === "GET") return handleStatus(req, res);
-
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
 
   const body = req.body || {};
 
-  // POST com pedidos → geração manual de posts
   if (body.pedidos !== undefined) return handleManual(req, res);
 
-  // POST com action de portal (português)
   const portalActions = ["aprovar","rejeitar","editar_aprovar","aprovar_lote","rejeitar_lote"];
   if (portalActions.includes(body.action)) return handleApprovePortal(req, res);
 
-  // POST newsletter
   if (body.action === "newsletter_subscribe") return handleNewsletterSubscribe(req, res);
-
-  // POST vaga pública
   if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
-
-  // POST contagem de visualização
   if (body.action === "track_view") return handleTrackView(req, res);
-
-  // POST criação automática do bucket de imagens
   if (body.action === "setup_storage") return handleSetupStorage(req, res);
 
-  // POST padrão → aprovação/publicação
   return handleApprove(req, res);
 }
 
@@ -172,7 +160,7 @@ function validar(content) {
   const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
   if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
   if (content.corpo.length < 500) return false;
-  // Não exigir strings fixas da IA — ela nunca as escreve no corpo
+  if (!c.includes("redação ovc")) return false;
   return true;
 }
 
@@ -193,6 +181,7 @@ async function handleManual(req, res) {
 
   const inicio = Date.now();
   const resultados = [];
+  const now = new Date().toISOString();
 
   try {
     if (fonteManual) {
@@ -226,7 +215,8 @@ async function handleManual(req, res) {
         const imagemFinal = await findImage(content.titulo, content.categoria, "");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"pendente", approved:false, publish_method:"manual",
+          imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now,
+          publish_method:"manual",
           user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -275,7 +265,8 @@ async function handleManual(req, res) {
         const imagemFinal = await findImage(content.titulo, content.categoria, article.image||"");
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"pendente", approved:false, publish_method:"manual",
+          imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now,
+          publish_method:"manual",
           user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -310,9 +301,12 @@ async function handleSubmitVaga(req, res) {
     const titulo = `[VAGA] ${cargo} — ${empresa}`;
     const conteudo = `**Empresa:** ${empresa}\n**Cargo:** ${cargo}\n**Área:** ${area||'Não informada'}\n**Localização:** ${localizacao||'Não informada'}\n**Contratação:** ${tipo_contratacao||'Não informado'}\n**Salário:** ${salario||'A combinar'}\n**Contato:** ${email_contato}\n\n## Descrição da Vaga\n\n${descricao}`;
     const { error } = await supabase.from("posts").insert({
-      titulo, conteudo,
+      titulo,
+      conteudo,
       comentario_fixado: `${cargo} em ${empresa} — ${localizacao||'Local não informado'}`,
-      status: "pendente", approved: false, publish_method: "vaga_publica",
+      status: "pendente",
+      approved: false,
+      publish_method: "vaga_publica",
       user_tags: JSON.stringify(["vagas"]),
       subcategoria: area || "Geral",
       subcategoria_slug: (area||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -334,6 +328,7 @@ async function handleNewsletterSubscribe(req, res) {
   }
   const emailLimpo = email.toLowerCase().trim();
   const agora = new Date().toISOString();
+
   try {
     const { error } = await supabase.from("newsletter_subscribers").upsert(
       { email: emailLimpo, categoria: categoria || "geral", confirmed: false, created_at: agora },
@@ -343,6 +338,7 @@ async function handleNewsletterSubscribe(req, res) {
       return res.status(200).json({ ok: true });
     }
   } catch(_) {}
+
   try {
     const key = "NEWSLETTER_EMAILS";
     const { data: cfg } = await supabase.from("config").select("value").eq("key", key).single();
