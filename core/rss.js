@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import axios from 'axios';
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
@@ -355,23 +356,25 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
 ];
 
-// ─── Native fetch XML parser (replaces rss-parser) ───────────────────────────
+// ─── axios-based RSS fetcher (proven to work through Vercel IPs) ─────────────
+
+const AXIOS_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+  'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+};
 
 async function fetchFeed(url) {
   try {
-    const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
-      }
+    const res = await axios.get(url, {
+      timeout: 12000,
+      headers: AXIOS_HEADERS,
+      maxRedirects: 5,
+      validateStatus: s => s < 400,
     });
-    clearTimeout(tid);
-    if (!res.ok) return [];
-    const xml = await res.text();
-    return parseXML(xml);
+    return parseXML(typeof res.data === 'string' ? res.data : String(res.data));
   } catch (_) {
     return [];
   }
