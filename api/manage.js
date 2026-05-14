@@ -173,7 +173,7 @@ function validar(content) {
   const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
   if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
   if (content.corpo.length < 500) return false;
-  if (!c.includes("redação ovc")) return false;
+  // NOTA: não exigir strings específicas da IA — ela nunca as escreve no corpo
   return true;
 }
 

@@ -129,14 +129,16 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 const SUPABASE_URL = 'https://bfsegqdgscudtdgwdyci.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTc3NzQ2NDAsImV4cCI6MjAzMzM1MDY0MH0.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function loadDados() {
   try {
     const { data } = await supabase.from('posts')
-      .select('id,titulo,categoria,publish_method,created_at,status')
+      .select('id,titulo,user_tags,publish_method,created_at,status')
       .gte('created_at', new Date().toISOString().slice(0,10) + 'T00:00:00')
       .order('created_at', { ascending: false })
       .limit(100);
@@ -162,13 +164,17 @@ async function loadDados() {
   }
 }
 
+function getCat(post) {
+  try { return JSON.parse(post.user_tags || '[]')[0] || '—'; } catch(_) { return '—'; }
+}
+
 function loadTabelaPosts(posts) {
   const openaiPosts = posts.filter(p => p.publish_method === 'portal').slice(0, 10);
   const html = openaiPosts.map(p => `
     <tr>
       <td>${new Date(p.created_at).toLocaleTimeString('pt-BR')}</td>
-      <td>${p.titulo.slice(0, 50)}...</td>
-      <td>${p.categoria}</td>
+      <td>${(p.titulo || '').slice(0, 50)}...</td>
+      <td>${getCat(p)}</td>
       <td><span class="status-badge ${p.status === 'publicado' ? 'status-ok' : 'status-pending'}">${p.status}</span></td>
     </tr>
   `).join('');
@@ -221,7 +227,11 @@ async function loadStatus() {
 
 async function forcarExecucao() {
   try {
-    const res = await fetch('/api/run_portal');
+    const res = await fetch('/api/run_portal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: true, count: 3 })
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     alert('✓ Execução concluída: ' + (data.status || 'ok'));
@@ -258,14 +268,8 @@ function refreshHorarios() {
   loadDados();
 }
 
-// Carregar dados ao abrir
 window.addEventListener('load', loadDados);
-setInterval(loadDados, 30000); // Atualizar a cada 30s
-</script>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script>
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+setInterval(loadDados, 30000);
 </script>
 
 </body>
