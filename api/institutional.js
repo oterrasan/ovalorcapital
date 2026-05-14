@@ -27,7 +27,7 @@ const PAGES = {
 
 <ul>
   <li><strong>Diretor Editorial e Editor-Chefe:</strong> Roberto Cesar Terrasan — Responsável legal e pela curadoria do conteúdo e governança de dados do portal.</li>
-  <li><strong>Contato de Redação:</strong> <a href="mailto:ovalorcapital@gmail.com">ovalorcapital@gmail.com</a></li>
+  <li><strong>Contato de Redação:</strong> <a href="mailto:betoterrasan@gmail.com">betoterrasan@gmail.com</a></li>
 </ul>
 
 <h2>Canais de Atendimento e Ouvidoria</h2>
@@ -35,9 +35,9 @@ const PAGES = {
 <p>Em conformidade com as diretrizes de transparência para veículos de comunicação digitais e motores de busca, disponibilizamos canais diretos de atendimento para leitores, notificações e retificações:</p>
 
 <ul>
-  <li><strong>E-mail de Contato Geral:</strong> <a href="mailto:ovalorcapital@gmail.com">ovalorcapital@gmail.com</a></li>
-  <li><strong>Redação e Pauta:</strong> <a href="mailto:ovalorcapital@gmail.com">ovalorcapital@gmail.com</a></li>
-  <li><strong>Ouvidoria e Retificações:</strong> <a href="mailto:ovalorcapital@gmail.com">ovalorcapital@gmail.com</a></li>
+  <li><strong>E-mail de Contato Geral:</strong> <a href="mailto:betoterrasan@gmail.com">betoterrasan@gmail.com</a></li>
+  <li><strong>Redação e Pauta:</strong> <a href="mailto:betoterrasan@gmail.com">betoterrasan@gmail.com</a></li>
+  <li><strong>Ouvidoria e Retificações:</strong> <a href="mailto:betoterrasan@gmail.com">betoterrasan@gmail.com</a></li>
   <li><strong>Endereço de Correspondência:</strong> Rua Juiz de Fora, 367 — Via Ema — São Paulo/SP — CEP 03286-000</li>
 </ul>
 `
@@ -65,7 +65,7 @@ const PAGES = {
 <ul>
   <li>Sempre que uma matéria sofrer alteração substancial após a publicação, uma nota de rodapé será adicionada explicando o que foi corrigido.</li>
   <li>A tag <code>dateModified</code> do artigo será atualizada para refletir a data da correção.</li>
-  <li>Pedidos de retificação: <a href="mailto:ovalorcapital@gmail.com">ovalorcapital@gmail.com</a></li>
+  <li>Pedidos de retificação: <a href="mailto:betoterrasan@gmail.com">betoterrasan@gmail.com</a></li>
 </ul>
 
 <h2>3. Uso de Inteligência Artificial</h2>
@@ -82,7 +82,7 @@ const PAGES = {
 
 <p><strong>Roberto Cesar Terrasan</strong> — Fundador, Diretor Editorial e Editor-Chefe do portal O Valor Capital. Responsável legal por todo o conteúdo publicado na plataforma.</p>
 
-<p>Contato: <a href="mailto:ovalorcapital@gmail.com">ovalorcapital@gmail.com</a><br>
+<p>Contato: <a href="mailto:betoterrasan@gmail.com">betoterrasan@gmail.com</a><br>
 Endereço: Rua Juiz de Fora, 367 — Via Ema — São Paulo/SP — CEP 03286-000</p>
 `
   }
