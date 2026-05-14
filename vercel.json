@@ -14,6 +14,7 @@
     "api/editor_ia.js":       { "maxDuration": 60 },
     "api/manual_post.js":     { "maxDuration": 60 },
     "api/auditoria.js":       { "maxDuration": 60 },
+    "api/debug_rss.js":       { "maxDuration": 30 },
     "api/portal-posts.js":    { "maxDuration": 15 },
     "api/ig_publish.js":      { "maxDuration": 60 },
     "api/fix_images.js":      { "maxDuration": 55 },
