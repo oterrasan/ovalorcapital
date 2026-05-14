@@ -136,6 +136,9 @@ Linha removida. Validação verifica apenas título, comprimento mínimo e palav
 ### Regra permanente
 **NUNCA** exigir strings fixas da IA no corpo do artigo.
 
+### ⚠️ REGRESSÃO REGISTRADA — 14/mai/2026
+A linha `if (!c.includes("redação ovc")) return false;` voltou ao código em alguma sessão e ficou por ~1 semana matando 100% das gerações manuais do admin. Corrigida novamente em 14/mai/2026. **NUNCA mais colocar essa linha de volta.**
+
 ---
 
 ## BUG #8 — Botão "Forçar Execução" enviava GET sem body
@@ -322,6 +325,34 @@ function buildFooter(){
 
 ---
 
+## BUG #17 — Regressão do Bug #7 — geração manual parada por ~1 semana (CRÍTICO)
+**Data:** 14/Mai/2026 | **Arquivo:** `api/manage.js`
+
+### Sintoma
+Admin não gerava nenhuma matéria manual há aproximadamente 1 semana. Nenhum erro visível — falha silenciosa.
+
+### Causa raiz
+A linha `if (!c.includes("redação ovc")) return false;` voltou para dentro da função `validar()` em `api/manage.js` em alguma sessão anterior. A IA **nunca** escreve essa string no corpo do artigo, logo 100% das validações falhavam silenciosamente.
+
+### Correção
+Linha removida novamente. Função `validar()` correta:
+```js
+function validar(content) {
+  if (!content?.titulo || !content?.corpo) return false;
+  const t = content.titulo.toLowerCase().trim();
+  const c = content.corpo.toLowerCase();
+  const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
+  if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
+  if (content.corpo.length < 500) return false;
+  return true;  // NUNCA adicionar checagem de string fixa da IA aqui
+}
+```
+
+### Regra permanente
+**ABSOLUTAMENTE NUNCA** adicionar `c.includes("qualquer string fixa")` dentro de `validar()`. A IA não produz strings deterministas. Isso mata 100% das gerações sem erro visível.
+
+---
+
 ## CHECKLIST — Antes de qualquer mudança no pipeline
 
 ```
@@ -333,7 +364,8 @@ function buildFooter(){
 □ O GitHub Actions ainda envia count=8 no body?
 □ MAX_POSTS_DIA=300 ainda está sendo verificado?
 □ validar() em manage.js NÃO exige strings fixas da IA no corpo?
-□ forcarExecucao() em automacao.html envia POST com {force:true, count:3}?
+□ validar() em manage.js NÃO tem c.includes("redação ovc")? (Bug #7 ja regrediu 2x)
+□ forçarExecucao() em automacao.html envia POST com {force:true, count:3}?
 □ automacao.html usa user_tags (não categoria) no select e na tabela?
 □ getNews() mistura feedsCustom + feedsGarantidos na 1a tentativa?
 □ getNews() tem fallback total com FEEDS_DIRETOS_GARANTIDOS se allItems=[]?
