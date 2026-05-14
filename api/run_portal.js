@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { getNews, getNewsByCategoria } from "../core/rss.js";
+import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
@@ -31,212 +31,45 @@ function isCompetitorDomain(url) {
   } catch(_) { return false; }
 }
 
-// Faixas horárias (horário de Brasília, UTC-3)
-// Limites configuráveis via tabela config no Supabase
+// Faixas horárias (Brasília UTC-3) — limites configuráveis via tabela config
 const FAIXAS_HORARIO = [
   { chave: 'POSTS_01_06', hInicio: 1,  hFim: 6,  padrao: 20  },
   { chave: 'POSTS_06_10', hInicio: 6,  hFim: 10, padrao: 40  },
   { chave: 'POSTS_10_12', hInicio: 10, hFim: 12, padrao: 40  },
   { chave: 'POSTS_12_17', hInicio: 12, hFim: 17, padrao: 80  },
-  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 }, // hFim=25 cobre hora 0 (meia-noite)
+  { chave: 'POSTS_17_00', hInicio: 17, hFim: 25, padrao: 120 }, // hFim=25 cobre hora 0
 ];
 
-// Categorias de alto engajamento — recebem prioridade de busca por execução
 const HIGH_PRIORITY_CATS = [
   'politica', 'economia', 'internacional', 'tecnologia',
   'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
 ];
 
-// Regras de correção de categoria baseadas em palavras-chave do título.
-// ORDEM IMPORTA: mais específico primeiro. Primeira regra que casar vence.
+const CATS_VALIDAS = new Set([
+  'politica','economia','negocios','investimentos','seguros','mercados',
+  'educacao','industria','tecnologia','esportes','saude','familia',
+  'tributacao','regulacao','parcerias','internacional','variedades',
+  'investigativo','seguranca','cultura','profissoes','vagas',
+  'concursos','imoveis','esg','defesa','religiao'
+]);
+
 const REGRAS_CATEGORIA = [
-  // Vagas — muito específico, checado primeiro
-  { cat: 'vagas', sinal: [
-    'vaga para','vagas para','vaga de ','vagas de ','oferece vaga','abre vaga',
-    'processo seletivo','trainee','estagio ','estágio ','home office emprego',
-    'auxiliar de vendas','auxiliar de atendimento','analista de rh',
-    'gerente de vendas','coordenador de','clique e candidate',
-    'vagas abertas','contratando para','oportunidade de emprego',
-    'recrutamento e seleção','candidatura ','vaga clt','vaga pj',
-    'vaga remota','trabalhe conosco','estágios em',
-  ] },
-  // Concursos
-  { cat: 'concursos', sinal: [
-    'concurso público','concurso publico','edital do concurso','gabarito oficial',
-    'inscrições abertas para concurso','provas do concurso','concurso para policia',
-    'concurso para judiciario','resultado do concurso','banca examinadora',
-    'edital publicado','data das provas','vagas no concurso',
-    'concurso federal','concurso estadual','concurso municipal',
-  ] },
-  // Imóveis
-  { cat: 'imoveis', sinal: [
-    'mercado imobiliário','financiamento imobiliário','minha casa minha vida',
-    'metro quadrado','lançamento imobiliário','incorporadora',
-    'comprar imóvel','aluguel de imóvel','venda de imóvel',
-    'construtora lança','fundo imobiliário','fii de ','fiis ',
-    'igpm aluguel','contrato de locação',
-  ] },
-  // Saúde
-  { cat: 'saude', sinal: [
-    'anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia',
-    'plano de saúde aumenta','sus atende','tratamento de','hospital federal',
-    'doença crônica','câncer ','diabetes ','hipertensão ','obesidade ',
-    'saúde mental','burnout ','depressão clínica','remédio ',
-    'farmácia ','clínica médica','hospital universitário',
-    'profissionais de saúde','sus lança','unidade de saúde',
-  ] },
-  // Tecnologia
-  { cat: 'tecnologia', sinal: [
-    'inteligência artificial','ia generativa','chatgpt','machine learning',
-    'cibersegurança','startup lança','iphone ','android ',
-    'inteligencia artificial','openai ','google ai','gemini ',
-    'llm ','gpt-','robótica','drone ','5g ','blockchain ',
-    'fintech ','cloud computing','big data','hack ','ransomware',
-    'criptografia digital','software lança','aplicativo lança',
-    'plataforma digital','deep learning',
-  ] },
-  // Esportes — expandido
-  { cat: 'esportes', sinal: [
-    'copa do mundo','campeonato brasileiro','libertadores','fórmula 1',
-    'olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão',
-    'seleção brasileira','flamengo ','palmeiras ','corinthians ',
-    'são paulo fc','atlético mineiro','grêmio ','internacional rs',
-    'santos fc','cruzeiro ','botafogo ','vasco ',
-    'champions league','premier league','bundesliga','la liga',
-    'messi ','neymar ','cristiano ronaldo',
-    'gol de ','artilheiro do','campeão do','título do','final da copa',
-    'grand prix','lewis hamilton','max verstappen','ferrari ',
-    'atleta olímpico','medalha de ouro','medalha de prata',
-    'tênis atp','wimbledon','us open tênis','roland garros',
-    'basquete nba','draft nba','mma ufc','luta pelo cinturão',
-    'rodada do brasileirão','campeonato paulista','campeonato carioca',
-  ] },
-  // Política — expandido com mais padrões
-  { cat: 'politica', sinal: [
-    'senado aprova','câmara aprova','lula sanciona','presidente veta',
-    'stf decide','eleições 2026','deputados votam',
-    'governo federal anuncia','ministério anuncia',
-    'bolsonaro ','congresso nacional','pec ','pl aprovado',
-    'votação no senado','votação na câmara','plenário do',
-    'partido político','vereador ','prefeito ','governador ',
-    'deputado federal','deputado estadual','senador ','ministro de estado',
-    'palácio do planalto','brasília ','oposição ','base aliada',
-    'impeachment','cpi ','comissão parlamentar',
-    'eleição municipal','campanha eleitoral','candidato a ',
-    'pesquisa eleitoral','tse ','tribunal superior eleitoral',
-    'supremo tribunal','democracia ','crise política',
-    'governo do estado','poder legislativo','poder executivo',
-    'reforma política','sistema político','voto em',
-  ] },
-  // Economia
-  { cat: 'economia', sinal: [
-    'taxa selic','banco central eleva','inflação acelerou',
-    'ipca sobe','ipca cai','pib cresce','pib cai',
-    'câmbio fecha','dólar sobe','dólar cai','déficit fiscal',
-    'superávit primário','copom decide','desemprego cai',
-    'desemprego sobe','emprego formal','caged aponta',
-    'mercado de trabalho','juros aumenta','taxa de juros',
-    'crédito privado','dívida pública','meta fiscal',
-    'arco fiscal','orçamento federal','risco brasil',
-    'crescimento econômico','recessão ','superavit comercial',
-  ] },
-  // Tributação
-  { cat: 'tributacao', sinal: [
-    'imposto de renda','reforma tributária','receita federal autua',
-    'irpf 2025','irpf 2026','simples nacional','desoneracao',
-    'isenção fiscal','alíquota zero','declaração do ir',
-    'restituição do ir','sonegação fiscal','nota fiscal eletrônica',
-    'tributação ','imposto sobre ','alíquota do',
-    'regime tributário','parcelamento de dívida',
-    'refis ','programa de recuperação fiscal',
-    'icms ','iss ','pis cofins','csll ','irpj ',
-  ] },
-  // Segurança Pública
-  { cat: 'seguranca', sinal: [
-    'polícia prende','operação policial','tráfico de drogas',
-    'homicídio','assalto a banco','chacina ','milícia ',
-    'facção criminosa','crime organizado','feminicídio',
-    'sequestro em','policia civil','polícia federal',
-    'polícia militar','delegacia ','delegado ',
-    'investigação criminal','suspeito de','acusado de',
-    'preso por ','penitênciária','prisão de ',
-    'violência urbana','assassinato ','tiroteio ','baleado ',
-    'gangue ','narcotráfico ','operação da pf',
-  ] },
-  // Internacional
-  { cat: 'internacional', sinal: [
-    'guerra na ucrânia','conflito em gaza','oriente médio',
-    'relações exteriores','embaixada brasileira','otan decide',
-    'acordo bilateral','sanções econômicas','geopolítica',
-    'cúpula do g20','diplomacia brasileira','trump ',
-    'estados unidos ','china ','rússia ','europa ',
-    'nato ','onu ','banco mundial ','fmi ',
-    'mercosul ','g7 ','g20 ','ucrânia','israel ',
-    'palestina','hamas','putin ','xi jinping',
-    'america latina ','crise internacional',
-  ] },
-  // Educação
-  { cat: 'educacao', sinal: [
-    'enem 2025','enem 2026','vestibular','universidade federal',
-    'mec anuncia','prouni','fies ','base curricular',
-    'escola pública','ensino fundamental','ensino médio',
-    'nota do enem','faculdade ','graduação ','pós-graduação ',
-    'mestrado ','doutorado ','bolsa de estudos',
-    'escola privada','aluno de ','professor de ',
-    'educação básica','ensino técnico','ead ',
-    'universidade estadual','universidade pública',
-  ] },
-  // Religião
-  { cat: 'religiao', sinal: [
-    'igreja evangélica','pastor ','bispo ','papa francisco',
-    'vaticano','missa ','culto religioso','fé cristã',
-    'dízimo','templo universal','assembleia de deus',
-    'congregação ','crente ','evangélico ','catolicismo ',
-    'budismo ','islamismo ','judaísmo ','espiritismo ',
-    'umbanda ','candomblé ','oração ','fé religiosa',
-  ] },
-  // Família
-  { cat: 'familia', sinal: [
-    'guarda dos filhos','pensão alimentícia','divórcio ',
-    'adoção de crianças','planejamento familiar',
-    'herança e inventário','violência doméstica',
-    'lei maria da penha','maternidade ','paternidade ',
-    'educação dos filhos','parentalidade ',
-    'família brasileira','guarda compartilhada',
-  ] },
-  // Cultura — expandido
-  { cat: 'cultura', sinal: [
-    'festival de cinema','oscar ','grammy ','show de ',
-    'exposição de arte','museu ','netflix lança',
-    'série da netflix','lançamento de livro',
-    'carnaval 2026','carnaval 2025','teatro ','concerto de ',
-    'arte contemporânea','literatura brasileira',
-    'novela da globo','série da globo','disney lança',
-    'amazon prime lança','hbo max lança','spotify lança',
-    'show musical','disco de ','banda faz show',
-    'cantora lança','cantor lança','atriz vive',
-    'filme de ','premiação de ','patrimônio cultural',
-    'manifestação cultural','semana de arte',
-  ] },
-  // Variedades — categoria nova com regras próprias
-  { cat: 'variedades', sinal: [
-    'novela ','estreia de ','big brother','bbb25','bbb26',
-    'reality show','viral nas redes','meme do ','meme viral',
-    'celebridade ','famoso ','famosa ','influencer ',
-    'tiktoker ','youtuber ','comportamento social',
-    'lifestyle ','gastronomia ','turismo ',
-    'destino turístico','receita de ','bem-estar ',
-    'tendência de ','estilo de vida','hábito saudável',
-    'moda verao','moda inverno','viagem para ',
-  ] },
-  // Defesa
-  { cat: 'defesa', sinal: [
-    'exército brasileiro','marinha do brasil','força aérea brasileira',
-    'forças armadas','ministério da defesa','segurança nacional',
-    'fronteiras do brasil','defesa nacional',
-    'militares ','general ','oficial das forças',
-    'arsenal militar','operação das forças',
-  ] },
+  { cat: 'vagas',      sinal: ['oferece vaga','abre vaga','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','clique e candidate'] },
+  { cat: 'concursos', sinal: ['concurso público','concurso publico','edital do concurso','gabarito oficial','inscrições abertas para concurso','provas do concurso'] },
+  { cat: 'imoveis',   sinal: ['mercado imobiliário','financiamento imobiliário','minha casa minha vida','metro quadrado','lançamento imobiliário','incorporadora'] },
+  { cat: 'saude',     sinal: ['anvisa aprova','novo medicamento','vacina contra','ministério da saúde anuncia','plano de saúde aumenta','sus atende','hospital federal','doença crônica'] },
+  { cat: 'tecnologia',sinal: ['inteligência artificial','ia generativa','chatgpt','machine learning','cibersegurança','startup lança','iphone ','android ','inteligencia artificial'] },
+  { cat: 'esportes',  sinal: ['copa do mundo','campeonato brasileiro','libertadores','fórmula 1','olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão','seleção brasileira'] },
+  { cat: 'politica',  sinal: ['senado aprova','câmara aprova','lula sanciona','presidente veta','stf decide','eleições 2026','deputados votam','governo federal anuncia','ministério anuncia'] },
+  { cat: 'economia',  sinal: ['taxa selic','banco central eleva','inflação acelerou','ipca sobe','ipca cai','pib cresce','pib cai','câmbio fecha','dólar sobe','dólar cai','déficit fiscal','superávit primário','copom decide','desemprego cai','desemprego sobe','emprego formal','caged aponta','mercado de trabalho'] },
+  { cat: 'tributacao',sinal: ['imposto de renda','reforma tributária','receita federal autua','irpf 2025','irpf 2026','simples nacional','desoneracao','isenção fiscal','alíquota zero','declaração do ir','restituição do ir','sonegação fiscal','nota fiscal eletrônica'] },
+  { cat: 'seguranca', sinal: ['polícia prende','operação policial','tráfico de drogas','homicídio','assalto a banco','chacina','milícia','facção criminosa','crime organizado','feminicídio','sequestro em'] },
+  { cat: 'internacional', sinal: ['guerra na ucrânia','conflito em gaza','oriente médio','relações exteriores','embaixada brasileira','otan decide','acordo bilateral','sanções econômicas','geopolítica','cúpula do g20','diplomacia brasileira'] },
+  { cat: 'educacao',  sinal: ['enem 2025','enem 2026','vestibular','universidade federal','mec anuncia','prouni','fies ','base curricular','escola pública','ensino fundamental','ensino médio','nota do enem'] },
+  { cat: 'religiao',  sinal: ['igreja evangélica','bispo ','papa francisco','vaticano','culto religioso','fé cristã','dízimo','templo universal','assembleia de deus'] },
+  { cat: 'familia',   sinal: ['guarda dos filhos','pensão alimentícia','divórcio ','adoção de crianças','planejamento familiar','herança e inventário','violência doméstica','lei maria da penha'] },
+  { cat: 'cultura',   sinal: ['festival de cinema','oscar ','grammy ','exposição de arte','netflix lança','série da netflix','lançamento de livro','carnaval 2026','carnaval 2025'] },
+  { cat: 'defesa',    sinal: ['exército brasileiro','marinha do brasil','força aérea brasileira','forças armadas','ministério da defesa','segurança nacional','fronteiras do brasil','defesa nacional'] },
 ];
 
 const SUBCATS_POR_CAT = {
@@ -298,53 +131,29 @@ function validarConteudo(content) {
   const titulo = content.titulo.toLowerCase().trim();
   if (titulo.length < 15 || titulo.length > 120) return false;
   if (/^(prezado|caro|ol[aá]|sem t[ií]tulo|t[ií]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
-  if ((content.corpo || '').length < 1000) return false;
-  if (!content.corpo.toLowerCase().includes('redação ovc')) return false;
+  if ((content.corpo || '').length < 800) return false;
   return true;
 }
 
-async function corrigirPostsExistentes() {
-  try {
-    const { data: posts } = await supabase
-      .from('posts')
-      .select('id,titulo,user_tags,subcategoria,imagem,status')
-      .in('status', ['publicado','pendente'])
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    if (!posts || !posts.length) return;
-
-    for (const post of posts) {
-      try {
-        let tags;
-        try { tags = typeof post.user_tags === 'string' ? JSON.parse(post.user_tags) : (post.user_tags || []); } catch(_) { tags = []; }
-        const catAtual = (tags[0] || 'geral').toLowerCase().trim();
-        const catNew   = corrigirCategoria(post.titulo, catAtual);
-        const subcAtual = post.subcategoria || '';
-        const lista    = SUBCATS_POR_CAT[catNew] || [];
-        const subcOk   = lista.length === 0 || lista.some(s => s === subcAtual || s.toLowerCase() === subcAtual.toLowerCase());
-        const subcNew  = subcOk ? subcAtual : (SUBCAT_DEFAULT[catNew] || 'Geral');
-        const imgConc  = isCompetitorDomain(post.imagem);
-
-        const temProb = catNew !== catAtual || !subcOk || imgConc;
-        if (!temProb) continue;
-
-        const u = {};
-        if (catNew !== catAtual) u.user_tags = JSON.stringify([catNew]);
-        if (!subcOk || catNew !== catAtual) { u.subcategoria = subcNew; u.subcategoria_slug = slugify(subcNew); }
-        if (imgConc) u.imagem = null;
-
-        if (Object.keys(u).length) await supabase.from('posts').update(u).eq('id', post.id);
-      } catch(_) {}
-    }
-  } catch(_) {}
+function tituloSimilar(a, b) {
+  const norm = t => (t || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 4);
+  const wa = new Set(norm(a));
+  const wb = new Set(norm(b));
+  if (wa.size === 0 || wb.size === 0) return false;
+  const intersect = [...wa].filter(w => wb.has(w)).length;
+  const union = new Set([...wa, ...wb]).size;
+  return (intersect / union) >= 0.40;
 }
 
 export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
-  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
+  const targetCount = Math.min(parseInt(meta.count || body.count || '5', 10), 8);
+
+  const catForcada = (body.categoria || '').trim().toLowerCase();
+  const subcatRaw = (body.subcategoria || '').trim();
+  const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
   try {
     if (!body.force && !body.batch) {
@@ -361,23 +170,19 @@ export default async function handler(req, res) {
       if ((count || 0) >= MAX_DIA) return res.status(200).json({ status: 'limit_reached', count, max: MAX_DIA });
     }
 
-    // ── LIMITE POR FAIXA HORÁRIA (Brasília, UTC-3) ───────────────────────────
+    // Faixa horária (Brasília UTC-3) — bypassa com force=true ou batch=true
     if (!body.force && !body.batch) {
       const agoraBR = new Date(Date.now() - 3 * 3600000);
       const horaBR  = agoraBR.getUTCHours();
       const faixa   = FAIXAS_HORARIO.find(f => horaBR >= f.hInicio && horaBR < f.hFim)
-                      || FAIXAS_HORARIO[FAIXAS_HORARIO.length - 1]; // hora 0 → POSTS_17_00
-
-      // Converte início da faixa (hora Brasília) para UTC
+                      || FAIXAS_HORARIO[FAIXAS_HORARIO.length - 1];
       const hInicioReal = faixa.chave === 'POSTS_17_00' ? 17 : faixa.hInicio;
       const inicioFaixaBR = new Date(agoraBR);
       inicioFaixaBR.setUTCHours(hInicioReal, 0, 0, 0);
-      // Meia-noite dentro da faixa 17-00 → início foi no dia anterior às 17h
       if (faixa.chave === 'POSTS_17_00' && horaBR === 0) {
         inicioFaixaBR.setUTCDate(inicioFaixaBR.getUTCDate() - 1);
       }
       const inicioFaixaUTC = new Date(inicioFaixaBR.getTime() + 3 * 3600000);
-
       const { data: cfgFaixa } = await supabase.from('config').select('value').eq('key', faixa.chave).single();
       const maxFaixa = parseInt(cfgFaixa?.value || String(faixa.padrao), 10);
       const { count: countFaixa } = await supabase.from('posts')
@@ -389,27 +194,48 @@ export default async function handler(req, res) {
       }
     }
 
-    corrigirPostsExistentes().catch(() => {});
+    // Load recent titles for in-process dedup (last 24h)
+    let recentTitles = [];
+    try {
+      const { data: rt } = await supabase.from('posts')
+        .select('titulo')
+        .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString())
+        .limit(300);
+      recentTitles = (rt || []).map(p => p.titulo || '');
+    } catch(_) {}
 
-    // Busca com prioridade: uma categoria de alto engajamento + pool geral
-    const catAlvo = HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
-    const [priorityNews, generalNews] = await Promise.all([
-      getNewsByCategoria(catAlvo),
-      getNews()
-    ]);
-    const seenLinks = new Set();
-    const news = [...priorityNews, ...generalNews].filter(item => {
-      if (seenLinks.has(item.link)) return false;
-      seenLinks.add(item.link);
-      return true;
-    });
+    const catAlvo = (catForcada && CATS_VALIDAS.has(catForcada))
+      ? catForcada
+      : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
+
+    let news;
+    if (catForcada && CATS_VALIDAS.has(catForcada)) {
+      news = await getNewsByCategoria(catForcada);
+      if (!news.length) {
+        const [prio, gen] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
+        const seen = new Set();
+        news = [...prio, ...gen].filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true; });
+      }
+    } else {
+      const [priorityNews, generalNews] = await Promise.all([
+        getNewsByCategoria(catAlvo),
+        getNews()
+      ]);
+      const seenLinks = new Set();
+      news = [...priorityNews, ...generalNews].filter(item => {
+        if (seenLinks.has(item.link)) return false;
+        seenLinks.add(item.link);
+        return true;
+      });
+    }
 
     if (!news.length) return res.status(200).json({ status: 'no_news' });
 
     const artigos = [];
+    const now = new Date().toISOString();
 
-    for (const item of news.slice(0, 40)) {
-      if (Date.now() - inicio > 50000) break;
+    for (const item of news.slice(0, 80)) {
+      if (Date.now() - inicio > 55000) break;
       if (artigos.length >= targetCount) break;
 
       const hash = crypto.createHash('md5').update(item.link + '_portal').digest('hex');
@@ -424,17 +250,38 @@ export default async function handler(req, res) {
       try { content = await rewritePortal(sourceText, item.title); } catch(e) { continue; }
 
       if (!validarConteudo(content)) continue;
-      if (!content.categoria || content.categoria === 'geral') continue;
 
-      const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
-      if (catCorrigida !== content.categoria) {
-        content.categoria = catCorrigida;
-        content.subcategoria = SUBCAT_DEFAULT[catCorrigida] || 'Geral';
-        content.subcategoria_slug = slugify(content.subcategoria);
+      if (!content.categoria || content.categoria === 'geral') {
+        const catCorrigida = corrigirCategoria(content.titulo, '');
+        if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) {
+          content.categoria = catCorrigida;
+        } else {
+          continue;
+        }
       }
-      if (!content.subcategoria) {
-        content.subcategoria = SUBCAT_DEFAULT[content.categoria] || 'Geral';
-        content.subcategoria_slug = slugify(content.subcategoria);
+
+      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
+
+      if (catForcada && CATS_VALIDAS.has(catForcada)) {
+        const familiaForcada = FAMILIA_CAT[catForcada];
+        const familiaConteudo = FAMILIA_CAT[content.categoria];
+        if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
+        content.categoria = catForcada;
+      } else {
+        const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
+        if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
+      }
+
+      if (subcatForcada) {
+        content.subcategoria = subcatForcada;
+        content.subcategoria_slug = slugify(subcatForcada);
+      } else {
+        const lista = SUBCATS_POR_CAT[content.categoria] || [];
+        const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
+        if (!subcOk || !content.subcategoria) {
+          content.subcategoria = SUBCAT_DEFAULT[content.categoria] || lista[0] || 'Geral';
+          content.subcategoria_slug = slugify(content.subcategoria);
+        }
       }
 
       let imagemFinal = null;
@@ -449,8 +296,9 @@ export default async function handler(req, res) {
         comentario_fixado: content.meta_descricao || content.subtitulo || '',
         imagem: imagemFinal,
         hash,
-        status: 'pendente',
-        approved: false,
+        status: 'publicado',
+        approved: true,
+        published_at: now,
         publish_method: 'portal',
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
@@ -461,6 +309,8 @@ export default async function handler(req, res) {
       }).select().single();
 
       if (error) continue;
+
+      recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
 
