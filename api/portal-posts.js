@@ -233,7 +233,7 @@ function imgOk(url) {
 
 function dataBr(dt) {
   if (!dt) return "";
-  try { return new Date(dt).toLocaleDateString("pt-BR",{day:"02-digit",month:"short",year:"numeric"}); }
+  try { return new Date(dt).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"}); }
   catch(_){ return ""; }
 }
 
