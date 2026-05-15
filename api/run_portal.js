@@ -19,7 +19,7 @@ const COMPETITOR_IMG_HOSTS = new Set([
   'poder360.com.br','gazetadopovo.com.br','metropoles.com',
   'seudinheiro.com','infomoney.com.br','terra.com.br','ig.com.br',
   'agenciabrasil.ebc.com.br','imagens.ebc.com.br',
-  'reuters.com','ap.org','canaltech.com.br','apublica.org',
+  'reuters.com','investing.com','ap.org','canaltech.com.br','apublica.org',
   'correiobraziliense.com.br','nsctotal.com.br',
 ]);
 
@@ -52,10 +52,17 @@ const REGRAS_CATEGORIA = [
   { cat: 'tecnologia',sinal: ['inteligência artificial','ia generativa','chatgpt','machine learning','cibersegurança','startup lança','iphone ','android ','inteligencia artificial'] },
   { cat: 'esportes',  sinal: ['copa do mundo','campeonato brasileiro','libertadores','fórmula 1','olimpíadas','nba ','nfl ','futebol brasileiro','brasileirão','seleção brasileira'] },
   { cat: 'politica',  sinal: ['senado aprova','câmara aprova','lula sanciona','presidente veta','stf decide','eleições 2026','deputados votam','governo federal anuncia','ministério anuncia'] },
+  { cat: 'internacional', sinal: [
+    'trump ','xi jinping','putin ','guerra comercial','tarifa americana','tarifas americanas',
+    'tarifas de trump','sanções dos eua','casa branca anuncia','kremlin ',
+    'secretário de estado','negociação entre países','cúpula entre ',
+    'guerra na ucrânia','conflito em gaza','oriente médio','relações exteriores',
+    'embaixada brasileira','otan decide','acordo bilateral','sanções econômicas',
+    'geopolítica','cúpula do g20','diplomacia brasileira'
+  ]},
   { cat: 'economia',  sinal: ['taxa selic','banco central eleva','inflação acelerou','ipca sobe','ipca cai','pib cresce','pib cai','câmbio fecha','dólar sobe','dólar cai','déficit fiscal','superávit primário','copom decide','desemprego cai','desemprego sobe','emprego formal','caged aponta','mercado de trabalho'] },
   { cat: 'tributacao',sinal: ['imposto de renda','reforma tributária','receita federal autua','irpf 2025','irpf 2026','simples nacional','desoneracao','isenção fiscal','alíquota zero','declaração do ir','restituição do ir','sonegação fiscal','nota fiscal eletrônica'] },
   { cat: 'seguranca', sinal: ['polícia prende','operação policial','tráfico de drogas','homicídio','assalto a banco','chacina','milícia','facção criminosa','crime organizado','feminicídio','sequestro em'] },
-  { cat: 'internacional', sinal: ['guerra na ucrânia','conflito em gaza','oriente médio','relações exteriores','embaixada brasileira','otan decide','acordo bilateral','sanções econômicas','geopolítica','cúpula do g20','diplomacia brasileira'] },
   { cat: 'educacao',  sinal: ['enem 2025','enem 2026','vestibular','universidade federal','mec anuncia','prouni','fies ','base curricular','escola pública','ensino fundamental','ensino médio','nota do enem'] },
   { cat: 'religiao',  sinal: ['igreja evangélica','bispo ','papa francisco','vaticano','culto religioso','fé cristã','dízimo','templo universal','assembleia de deus'] },
   { cat: 'familia',   sinal: ['guarda dos filhos','pensão alimentícia','divórcio ','adoção de crianças','planejamento familiar','herança e inventário','violência doméstica','lei maria da penha'] },
@@ -164,6 +171,10 @@ function slugify(t) {
   return (t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-');
 }
 
+function stripTitle(t) {
+  return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/,'').trim();
+}
+
 function corrigirCategoria(titulo, cat) {
   const t = (titulo||'').toLowerCase();
   for (const { cat: c, sinal } of REGRAS_CATEGORIA) {
@@ -196,6 +207,28 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
+
+  // Limpeza pontual de títulos com markdown no banco
+  if (body.action === 'cleanup_titles') {
+    if (!body.force) return res.status(403).json({ error: 'requires force:true' });
+    try {
+      const { data: dirty } = await supabase.from('posts')
+        .select('id, titulo')
+        .like('titulo', '%**%')
+        .limit(500);
+      let fixed = 0;
+      for (const p of dirty || []) {
+        const clean = stripTitle(p.titulo);
+        if (clean !== p.titulo) {
+          await supabase.from('posts').update({ titulo: clean }).eq('id', p.id);
+          fixed++;
+        }
+      }
+      return res.status(200).json({ status: 'ok', fixed });
+    } catch(e) {
+      return res.status(500).json({ status: 'error', error: e.message });
+    }
+  }
 
   const catForcada = (body.categoria || '').trim().toLowerCase();
   const subcatRaw = (body.subcategoria || '').trim();
@@ -285,6 +318,9 @@ export default async function handler(req, res) {
 
       if (!validarConteudo(content)) continue;
 
+      // Limpa markdown do título gerado pela IA antes de qualquer comparação
+      content.titulo = stripTitle(content.titulo);
+
       if (!content.categoria || content.categoria === 'geral') {
         const catCorrigida = corrigirCategoria(content.titulo, '');
         if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) {
@@ -323,12 +359,14 @@ export default async function handler(req, res) {
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
       if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12));
-      // Se nao ha imagem valida da fonte, salva sem imagem — editor insere manualmente
+
+      const metaTitle = stripTitle(content.meta_title || content.titulo);
+      const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
 
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo,
         conteudo: content.corpo,
-        comentario_fixado: content.meta_descricao || content.subtitulo || '',
+        comentario_fixado: metaDesc,
         imagem: imagemFinal,
         hash,
         status: 'pendente',
@@ -342,8 +380,8 @@ export default async function handler(req, res) {
         metrics: {
           foco_keyword: content.foco_keyword || '',
           seo_slug: content.slug || '',
-          meta_descricao: content.meta_descricao || '',
-          meta_title: content.meta_title || ''
+          meta_descricao: metaDesc,
+          meta_title: metaTitle
         },
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
