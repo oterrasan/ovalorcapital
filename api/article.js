@@ -78,14 +78,16 @@ function safeJsonForScript(obj) {
     .replace(/&/g, "\\u0026");
 }
 
-async function queryArticle(id8, withMetrics) {
-  const cols = withMetrics
-    ? "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at,metrics"
-    : "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at";
+async function findByPrefix(id8, cols) {
+  // UUID range query: works for both UUID-type and text-type id columns
+  // All UUIDs starting with id8 are in range [id8-0000..., id8-ffff...]
+  const lo = id8 + "-0000-0000-0000-000000000000";
+  const hi = id8 + "-ffff-ffff-ffff-ffffffffffff";
   const { data: rows, error } = await supabase.from("posts")
     .select(cols)
-    .eq("status","publicado")
-    .filter("id::text", "ilike", `${id8}%`)
+    .eq("status", "publicado")
+    .gte("id", lo)
+    .lte("id", hi)
     .limit(1);
   return { row: rows?.[0] || null, error };
 }
@@ -103,13 +105,15 @@ export default async function handler(req, res) {
 
   let article = null;
   try {
-    // Try with metrics column first
-    let { row, error } = await queryArticle(id8, true);
+    const colsWithMetrics = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at,metrics";
+    const colsNoMetrics  = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at";
+
+    let { row, error } = await findByPrefix(id8, colsWithMetrics);
     if (error) {
       // metrics column may not exist — retry without it
-      const result2 = await queryArticle(id8, false);
-      if (result2.error) return res.status(500).send("db error");
-      row = result2.row;
+      const r2 = await findByPrefix(id8, colsNoMetrics);
+      if (r2.error) return res.status(500).send("db error");
+      row = r2.row;
     }
     article = row;
   } catch(e) {
@@ -120,7 +124,6 @@ export default async function handler(req, res) {
 
   const titulo = article.titulo || "";
 
-  // meta_title: campo SEO dedicado (max 55 chars) salvo em metrics; fallback: titulo truncado
   let metricsJson = {};
   try { metricsJson = typeof article.metrics === "string" ? JSON.parse(article.metrics) : (article.metrics || {}); } catch(_) {}
   const metaTitleRaw = (metricsJson.meta_title || titulo).slice(0, 55).trim();

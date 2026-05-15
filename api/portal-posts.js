@@ -4,6 +4,12 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
 
+function idRange(id8) {
+  const lo = id8 + "-0000-0000-0000-000000000000";
+  const hi = id8 + "-ffff-ffff-ffff-ffffffffffff";
+  return { lo, hi };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=30");
@@ -19,9 +25,10 @@ export default async function handler(req, res) {
           .eq("status","publicado").eq("id",id).single();
         post = data;
       } else {
+        const { lo, hi } = idRange(id.slice(0,8));
         const { data: rows } = await supabase.from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
-          .eq("status","publicado").filter("id::text", "ilike", `${id.slice(0,8)}%`).limit(1);
+          .eq("status","publicado").gte("id",lo).lte("id",hi).limit(1);
         post = rows?.[0] || null;
       }
     } catch(_) {}
@@ -88,11 +95,13 @@ export default async function handler(req, res) {
           .single();
         data = row;
       } else {
+        const { lo, hi } = idRange(id.slice(0,8));
         const { data: rows } = await supabase
           .from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
           .eq("status", "publicado")
-          .filter("id::text", "ilike", `${id.slice(0,8)}%`)
+          .gte("id", lo)
+          .lte("id", hi)
           .limit(1);
         data = rows?.[0] || null;
       }
