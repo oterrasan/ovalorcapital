@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       } else {
         const { data: rows } = await supabase.from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,published_at")
-          .eq("status","publicado").ilike("id", `${id}%`).limit(1);
+          .eq("status","publicado").filter("id::text", "ilike", `${id.slice(0,8)}%`).limit(1);
         post = rows?.[0] || null;
       }
     } catch(_) {}
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
           .from("posts")
           .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
           .eq("status", "publicado")
-          .ilike("id", `${id}%`)
+          .filter("id::text", "ilike", `${id.slice(0,8)}%`)
           .limit(1);
         data = rows?.[0] || null;
       }
@@ -233,7 +233,7 @@ function imgOk(url) {
 
 function dataBr(dt) {
   if (!dt) return "";
-  try { return new Date(dt).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"}); }
+  try { return new Date(dt).toLocaleDateString("pt-BR",{day:"02-digit",month:"short",year:"numeric"}); }
   catch(_){ return ""; }
 }
 

@@ -78,25 +78,40 @@ function safeJsonForScript(obj) {
     .replace(/&/g, "\\u0026");
 }
 
+async function queryArticle(id8, withMetrics) {
+  const cols = withMetrics
+    ? "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at,metrics"
+    : "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at";
+  const { data: rows, error } = await supabase.from("posts")
+    .select(cols)
+    .eq("status","publicado")
+    .filter("id::text", "ilike", `${id8}%`)
+    .limit(1);
+  return { row: rows?.[0] || null, error };
+}
+
 export default async function handler(req, res) {
   const { cat, slug } = req.query;
   if (!slug) return res.status(400).send("bad request");
 
   const idMatch = (slug||"").match(/-([a-f0-9]{8})$/i);
   if (!idMatch) return res.status(400).send("invalid slug");
-  const id8 = idMatch[1];
+  const id8 = idMatch[1].toLowerCase();
 
   const catKey = SLUG_TO_CAT[cat] || cat || "politica";
   const catPath = CAT_PATH[catKey] || "politica";
 
   let article = null;
   try {
-    const { data: rows } = await supabase.from("posts")
-      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at,metrics")
-      .eq("status","publicado")
-      .ilike("id", `${id8}%`)
-      .limit(1);
-    article = rows?.[0] || null;
+    // Try with metrics column first
+    let { row, error } = await queryArticle(id8, true);
+    if (error) {
+      // metrics column may not exist — retry without it
+      const result2 = await queryArticle(id8, false);
+      if (result2.error) return res.status(500).send("db error");
+      row = result2.row;
+    }
+    article = row;
   } catch(e) {
     return res.status(500).send("db error");
   }
