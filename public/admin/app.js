@@ -4,14 +4,22 @@ const db = createClient(
   "sb_publishable_Unww7VA8g1mlixn65Mq0EA_WhG0L-S_"
 );
 
-// ── Utilitários ──────────────────────────────────────────────
 function fmt(dt){ return dt ? new Date(dt).toLocaleString("pt-BR") : "-"; }
 function tag(status){
   const c = {pendente:"#f59e0b",publicado:"#22c55e",rejeitado:"#ef4444",error:"#ef4444",duplicate:"#6b7280",approved:"#22c55e"};
   return React.createElement("span",{style:{background:c[status]||"#6b7280",color:"#fff",borderRadius:4,padding:"2px 8px",fontSize:12,fontWeight:700}}, status);
 }
+function cleanMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/g,'').trim(); }
+function renderMdHtml(text){
+  if(!text) return '';
+  return text.split('\n').map(function(l){
+    var t=l.trim();
+    if(!t) return '';
+    if(/^##\s+/.test(t)) return '<h3 style="font-size:16px;font-weight:700;margin:14px 0 8px;color:#e5e7eb;border-left:3px solid #ffc800;padding-left:10px;">'+t.replace(/^##\s+/,'').replace(/\*\*/g,'')+'</h3>';
+    return '<p style="margin:0 0 8px;font-size:14px;line-height:1.8;">'+t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</p>';
+  }).filter(Boolean).join('');
+}
 
-// ── App ──────────────────────────────────────────────────────
 function App(){
   const [tab,setTab] = React.useState("pendentes");
   const tabs = ["dashboard","pendentes","publicados","pipeline","fontes","contas","logs","seo","config"];
@@ -38,7 +46,6 @@ function App(){
   );
 }
 
-// ── Dashboard ────────────────────────────────────────────────
 function Dashboard(){
   const [stats,setStats] = React.useState({});
   const [recentes,setRecentes] = React.useState([]);
@@ -75,14 +82,13 @@ function Dashboard(){
       React.createElement("h3",{style:{color:"#e5e7eb",margin:"0 0 12px"}},"Últimas matérias"),
       recentes.map(p=>React.createElement("div",{key:p.id,style:{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid #1e293b"}},
         tag(p.status),
-        React.createElement("span",{style:{flex:1,fontSize:14}}, p.titulo||"-"),
+        React.createElement("span",{style:{flex:1,fontSize:14}}, cleanMd(p.titulo)||"—"),
         React.createElement("span",{style:{fontSize:12,color:"#6b7280"}}, fmt(p.created_at))
       ))
     )
   );
 }
 
-// ── PENDENTES (aprovação individual + lote) ──────────────────
 function Pendentes(){
   const [items,setItems] = React.useState([]);
   const [selected,setSelected] = React.useState([]);
@@ -100,7 +106,7 @@ function Pendentes(){
 
   React.useEffect(()=>{ load(); },[]);
 
-  const filtrados = items.filter(p=> !busca || (p.titulo||"").toLowerCase().includes(busca.toLowerCase()));
+  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()));
 
   async function aprovar(id){
     setLoading(true);
@@ -116,7 +122,8 @@ function Pendentes(){
 
   async function editarAprovar(){
     setLoading(true);
-    await fetch("/api/approve_portal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"editar_aprovar",id:preview.id,...editData})});
+    const tituloLimpo = cleanMd(editData.titulo);
+    await fetch("/api/approve_portal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"editar_aprovar",id:preview.id,...editData,titulo:tituloLimpo})});
     await load(); setPreview(null); setEditMode(false); setLoading(false);
   }
 
@@ -137,7 +144,7 @@ function Pendentes(){
   function toggleSel(id){ setSelected(s=> s.includes(id)?s.filter(x=>x!==id):[...s,id]); }
   function toggleAll(){ setSelected(s=> s.length===filtrados.length ? [] : filtrados.map(p=>p.id)); }
 
-  function abrirPreview(p){ setPreview(p); setEditMode(false); setEditData({titulo:p.titulo,conteudo:p.conteudo,imagem:p.imagem,comentario_fixado:p.comentario_fixado}); }
+  function abrirPreview(p){ setPreview(p); setEditMode(false); setEditData({titulo:cleanMd(p.titulo),conteudo:p.conteudo,imagem:p.imagem,comentario_fixado:p.comentario_fixado}); }
 
   const btnStyle = (cor) => ({background:cor,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13});
   const inp = (val,key,multiline) => multiline
@@ -154,7 +161,6 @@ function Pendentes(){
       React.createElement("button",{onClick:load,style:btnStyle("#3b82f6"),disabled:loading},"↺ Atualizar")
     ),
 
-    // Tabela
     React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"hidden"}},
       React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
         React.createElement("thead",null,
@@ -176,7 +182,7 @@ function Pendentes(){
                 React.createElement("input",{type:"checkbox",checked:selected.includes(p.id),onChange:()=>toggleSel(p.id)})
               ),
               React.createElement("td",{style:{padding:"10px 12px"}},
-                React.createElement("a",{href:"#",onClick:e=>{e.preventDefault();abrirPreview(p)},style:{color:"#e5e7eb",textDecoration:"none",fontSize:14,fontWeight:500}}, p.titulo||"(sem título)")
+                React.createElement("a",{href:"#",onClick:e=>{e.preventDefault();abrirPreview(p)},style:{color:"#e5e7eb",textDecoration:"none",fontSize:14,fontWeight:500}}, cleanMd(p.titulo)||"(sem título)")
               ),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.created_at)),
@@ -191,18 +197,17 @@ function Pendentes(){
       )
     ),
 
-    // Modal preview
     preview && React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:1000,overflow:"auto",padding:24}},
       React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:12,maxWidth:800,margin:"0 auto",padding:32}},
         React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}},
-          React.createElement("h3",{style:{color:"#ffc800",margin:0,flex:1}}, editMode ? "Editar matéria" : preview.titulo),
+          React.createElement("h3",{style:{color:"#ffc800",margin:0,flex:1}}, editMode ? "Editar matéria" : cleanMd(preview.titulo)),
           React.createElement("button",{onClick:()=>setPreview(null),style:{background:"transparent",color:"#94a3b8",border:"none",fontSize:20,cursor:"pointer"}},"✕")
         ),
 
         !editMode && React.createElement("div",null,
           preview.imagem && React.createElement("img",{src:preview.imagem,style:{width:"100%",maxHeight:300,objectFit:"cover",borderRadius:8,marginBottom:16},onError:e=>e.target.style.display="none"}),
           React.createElement("div",{style:{fontSize:12,color:"#94a3b8",marginBottom:8}}, "Subtítulo: "+(preview.comentario_fixado||"-")),
-          React.createElement("div",{style:{background:"#08080f",borderRadius:8,padding:16,fontSize:14,lineHeight:1.8,whiteSpace:"pre-wrap",color:"#e5e7eb",maxHeight:400,overflow:"auto"}}, preview.conteudo)
+          React.createElement("div",{style:{background:"#08080f",borderRadius:8,padding:16,color:"#e5e7eb",maxHeight:400,overflow:"auto"},dangerouslySetInnerHTML:{__html:renderMdHtml(preview.conteudo)}})
         ),
 
         editMode && React.createElement("div",null,
@@ -228,7 +233,6 @@ function Pendentes(){
   );
 }
 
-// ── PUBLICADOS ───────────────────────────────────────────────
 function Publicados(){
   const [items,setItems] = React.useState([]);
   const [busca,setBusca] = React.useState("");
@@ -245,7 +249,7 @@ function Publicados(){
 
   React.useEffect(()=>{ load(); },[]);
 
-  const filtrados = items.filter(p=> !busca || (p.titulo||"").toLowerCase().includes(busca.toLowerCase()));
+  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()));
   const btnStyle = (cor) => ({background:cor,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontWeight:700,fontSize:12});
 
   return React.createElement("div",null,
@@ -267,7 +271,7 @@ function Publicados(){
           filtrados.map((p,i)=>{
             let cat="-"; try{const t=JSON.parse(p.user_tags||"[]");cat=t[0]||"-";}catch(_){}
             return React.createElement("tr",{key:p.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
-              React.createElement("td",{style:{padding:"10px 12px",fontSize:14}}, p.titulo||"-"),
+              React.createElement("td",{style:{padding:"10px 12px",fontSize:14}}, cleanMd(p.titulo)||"-"),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.published_at)),
               React.createElement("td",{style:{padding:"10px 12px",textAlign:"right"}},
@@ -281,7 +285,6 @@ function Publicados(){
   );
 }
 
-// ── PIPELINE ────────────────────────────────────────────────
 function Pipeline(){
   const [msg,setMsg] = React.useState("");
   const [loading,setLoading] = React.useState(false);
@@ -318,11 +321,10 @@ function Pipeline(){
     React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginBottom:16}},
       "Automação: GitHub Actions dispara a cada 2 minutos (07:00-01:00 BRT)"
     ),
-    msg && React.createElement("pre",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontSize:12,color: msg.includes('\"ok\"') || msg.includes('status: ok') ? "#22c55e" : "#f59e0b",overflow:"auto",maxHeight:300}}, msg)
+    msg && React.createElement("pre",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontSize:12,color: msg.includes('"ok"') || msg.includes('status: ok') ? "#22c55e" : "#f59e0b",overflow:"auto",maxHeight:300}}, msg)
   );
 }
 
-// ── FONTES ──────────────────────────────────────────────────
 function Fontes(){
   const [items,setItems] = React.useState([]);
   const [form,setForm] = React.useState({});
@@ -352,7 +354,7 @@ function Fontes(){
 
   React.useEffect(()=>{ load(); },[]);
 
-  const filtrados = items.filter(p=> !busca || (p.name||"").toLowerCase().includes(busca.toLowerCase()));
+  const filtrados = items.filter(p=> !busca || (p.name||'').toLowerCase().includes(busca.toLowerCase()));
   const ativas = items.filter(x=>x.active).length;
 
   return React.createElement("div",null,
@@ -393,7 +395,6 @@ function Fontes(){
   );
 }
 
-// ── CONTAS IG ───────────────────────────────────────────────
 function Contas(){
   const [items,setItems] = React.useState([]);
   const [form,setForm] = React.useState({});
@@ -421,7 +422,6 @@ function Contas(){
   );
 }
 
-// ── LOGS ────────────────────────────────────────────────────
 function Logs(){
   const [items,setItems] = React.useState([]);
   const [level,setLevel] = React.useState("");
@@ -454,7 +454,6 @@ function Logs(){
   );
 }
 
-// ── SEO BATCH ───────────────────────────────────────────────
 function SeoBatch(){
   const [rodando,setRodando] = React.useState(false);
   const [progresso,setProgresso] = React.useState(null);
@@ -522,7 +521,6 @@ function SeoBatch(){
   );
 }
 
-// ── CONFIG ──────────────────────────────────────────────────
 function Config(){
   const [items,setItems] = React.useState([]);
   const [form,setForm] = React.useState({});
