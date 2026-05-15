@@ -4,7 +4,6 @@ import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
-import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -274,7 +273,6 @@ export default async function handler(req, res) {
 
       const article = await scrape(item.link);
 
-      // Usa texto do scraper se suficiente; senao usa titulo+descricao do RSS
       let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
       if (!sourceText) {
         const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
@@ -320,11 +318,12 @@ export default async function handler(req, res) {
         }
       }
 
+      // Usa apenas imagem original da fonte — sem bancos de imagens
       let imagemFinal = null;
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
       if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12));
-      if (!imagemFinal) imagemFinal = await findImage(content.titulo, content.categoria, '', '');
+      // Se nao ha imagem valida da fonte, salva sem imagem — editor insere manualmente
 
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo,

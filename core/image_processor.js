@@ -1,16 +1,16 @@
-// image_processor.js — Baixa imagem da fonte, recorta marcas d'água e salva no Supabase Storage
+// image_processor.js — Baixa imagem da fonte, recorta, espelha e salva no Supabase Storage
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Recorte padrão: remove bordas com logos e marcas d'água
-const CROP_TOP_PCT    = 0.08; // 8% do topo
-const CROP_BOTTOM_PCT = 0.13; // 13% do rodapé
-const CROP_LEFT_PCT   = 0.02; // 2% lateral esquerda
-const CROP_RIGHT_PCT  = 0.02; // 2% lateral direita
+// Recorte: remove bordas com logos e marcas d'água
+const CROP_TOP_PCT    = 0.08;
+const CROP_BOTTOM_PCT = 0.13;
+const CROP_LEFT_PCT   = 0.02;
+const CROP_RIGHT_PCT  = 0.02;
 
-// Dimensão final: 1200x675 (16:9 jornalístico)
+// Dimensão final: 1200x675 (16:9)
 const OUT_WIDTH  = 1200;
 const OUT_HEIGHT = 675;
 
@@ -43,7 +43,6 @@ async function processImage(buffer) {
     const { width, height } = meta;
     if (!width || !height || width < 200 || height < 150) return null;
 
-    // Calcular área de recorte — remove bordas com marcas d'água
     const cropTop    = Math.floor(height * CROP_TOP_PCT);
     const cropBottom = Math.floor(height * CROP_BOTTOM_PCT);
     const cropLeft   = Math.floor(width  * CROP_LEFT_PCT);
@@ -54,9 +53,10 @@ async function processImage(buffer) {
 
     if (extractWidth < 100 || extractHeight < 80) return null;
 
-    // Recortar, redimensionar para 1200x675 e salvar como WebP
+    // Recortar, espelhar horizontalmente, redimensionar para 1200x675 e salvar como WebP
     const processed = await sharp(buffer)
       .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight })
+      .flop()
       .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover", position: "centre" })
       .webp({ quality: 82 })
       .toBuffer();
