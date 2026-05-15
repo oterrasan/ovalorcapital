@@ -51,6 +51,7 @@
   function lbl(c){ return LABEL[c]||c||'Geral'; }
   function cor(c){ return CORES[c]||CORES[SLUG_TO_CAT[c]]||'#dc2626'; }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function stripMd(s){ return (s||'').replace(/\*\*/g,'').replace(/^#+\s*/,'').trim(); }
   function dataCurta(dt){
     if(!dt) return '';
     try{ return new Date(dt).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}); }
@@ -69,7 +70,7 @@
   function buildUrl(p){
     var cat = p.categoria||'geral';
     var cp = CAT_PATH[cat]||CAT_PATH[SLUG_TO_CAT[cat]]||'politica';
-    var sl = p.slug ? p.slug.slice(0,55) : slugify(p.titulo||'');
+    var sl = p.slug ? p.slug.slice(0,55) : slugify(stripMd(p.titulo));
     var id8 = (p.id||'').slice(0,8);
     return '/'+cp+'/'+sl+'-'+id8+'/';
   }
@@ -81,13 +82,13 @@
       var t = lines[i].trim();
       if(!t) continue;
       if(/^##\s+/.test(t)){
-        html += '<h2 style="font-size:21px;font-weight:800;line-height:1.25;margin:36px 0 14px;color:var(--text-main,#0f172a);border-left:3px solid var(--ovc-accent,#dc2626);padding-left:14px;">'+esc(t.replace(/^##\s+/,''))+'</h2>';
+        html += '<h2 style="font-size:21px;font-weight:800;line-height:1.25;margin:36px 0 14px;color:var(--text-main,#0f172a);border-left:3px solid var(--ovc-accent,#dc2626);padding-left:14px;">'+esc(stripMd(t.replace(/^##\s+/,'')))+'</h2>';
       } else if(/^(#[^\s#,]+[\s,]*)+$/.test(t) && t[0]==='#'){
         htags = htags.concat(t.match(/#[^\s#,]+/g)||[]);
       } else if(/^Redação OVC/i.test(t)){
         html += '<p style="font-size:13px;font-weight:600;color:#94a3b8;margin:0 0 24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0;">'+esc(t)+'</p>';
       } else {
-        html += '<p style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);margin:0 0 22px;">'+esc(t)+'</p>';
+        html += '<p style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);margin:0 0 22px;">'+esc(t).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</p>';
       }
     }
     if(htags.length){
@@ -155,13 +156,14 @@
 
   function renderHeroCard(p){
     var url = buildUrl(p), c = cor(p.categoria);
+    var titulo = stripMd(p.titulo);
     var bg = p.imagem ? 'background:url(\''+p.imagem+'\') center/cover no-repeat;' : 'background:'+c+';';
     return '<a href="'+url+'" style="display:block;text-decoration:none;border-radius:16px;overflow:hidden;position:relative;min-height:340px;'+bg+'">'
       +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.35) 55%,rgba(0,0,0,0.05) 100%);"></div>'
       +'<div style="position:absolute;bottom:0;left:0;right:0;padding:24px 28px;">'
         +'<span style="display:inline-block;background:'+c+';color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:4px;margin-bottom:10px;">'+lbl(p.categoria)+(p.subcategoria?'&nbsp;&middot;&nbsp;'+esc(p.subcategoria):'')+'</span>'
-        +'<h2 style="font-size:24px;font-weight:900;line-height:1.2;color:#fff;margin:0 0 8px;text-shadow:0 2px 8px rgba(0,0,0,0.5);">'+esc(p.titulo||'')+'</h2>'
-        +'<p style="font-size:14px;color:rgba(255,255,255,0.8);margin:0 0 10px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc((p.resumo||'').slice(0,160))+'</p>'
+        +'<h2 style="font-size:24px;font-weight:900;line-height:1.2;color:#fff;margin:0 0 8px;text-shadow:0 2px 8px rgba(0,0,0,0.5);">'+esc(titulo)+'</h2>'
+        +'<p style="font-size:14px;color:rgba(255,255,255,0.8);margin:0 0 10px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(stripMd(p.resumo).slice(0,160))+'</p>'
         +'<span style="font-size:12px;color:rgba(255,255,255,0.6);">Redação OVC &middot; '+dataCurta(p.data)+'</span>'
       +'</div>'
     +'</a>';
@@ -169,11 +171,12 @@
 
   function renderCardMedio(p){
     var url = buildUrl(p), c = cor(p.categoria);
+    var titulo = stripMd(p.titulo);
     return '<a href="'+url+'" style="display:block;text-decoration:none;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;">'
       +(p.imagem ? '<div style="height:160px;overflow:hidden;"><img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>' : '<div style="height:100px;background:'+c+'18;display:flex;align-items:center;justify-content:center;"><span style="color:'+c+';font-weight:900;font-size:13px;">OVC</span></div>')
       +'<div style="padding:14px;">'
         +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:'+c+';margin-bottom:6px;">'+lbl(p.categoria)+(p.subcategoria?' &middot; '+esc(p.subcategoria):'')+'</div>'
-        +'<h3 style="font-size:15px;font-weight:800;line-height:1.3;margin:0 0 8px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo||'')+'</h3>'
+        +'<h3 style="font-size:15px;font-weight:800;line-height:1.3;margin:0 0 8px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(titulo)+'</h3>'
         +'<span style="font-size:11px;color:#94a3b8;">Redação OVC &middot; '+dataCurta(p.data)+'</span>'
       +'</div>'
     +'</a>';
@@ -181,6 +184,7 @@
 
   function renderCardCompacto(p){
     var url = buildUrl(p), c = cor(p.categoria);
+    var titulo = stripMd(p.titulo);
     var img = p.imagem
       ? '<div style="width:88px;min-width:88px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;"><img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>'
       : '<div style="width:88px;min-width:88px;height:72px;border-radius:8px;background:'+c+'18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:'+c+';font-size:10px;font-weight:900;">OVC</span></div>';
@@ -188,7 +192,7 @@
       +img
       +'<div style="flex:1;min-width:0;">'
         +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+c+';margin-bottom:5px;">'+lbl(p.categoria)+(p.subcategoria?' &middot; '+esc(p.subcategoria):'')+'</div>'
-        +'<h4 style="font-size:14px;font-weight:700;line-height:1.35;margin:0 0 5px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo||'')+'</h4>'
+        +'<h4 style="font-size:14px;font-weight:700;line-height:1.35;margin:0 0 5px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(titulo)+'</h4>'
         +'<span style="font-size:11px;color:#94a3b8;">Redação OVC &middot; '+dataCurta(p.data)+'</span>'
       +'</div>'
     +'</a>';
@@ -196,10 +200,11 @@
 
   function renderCardRail(p){
     var url = buildUrl(p), c = cor(p.categoria);
+    var titulo = stripMd(p.titulo);
     return '<a href="'+url+'" style="display:flex;gap:10px;align-items:flex-start;text-decoration:none;color:inherit;padding:12px 0;border-top:1px solid #f1f5f9;">'
       +(p.imagem ? '<div style="width:60px;min-width:60px;height:60px;border-radius:6px;overflow:hidden;flex-shrink:0;"><img src="'+p.imagem+'" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'"></div>' : '<div style="width:60px;min-width:60px;height:60px;border-radius:6px;background:'+c+'18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:'+c+';font-size:9px;font-weight:900;">OVC</span></div>')
       +'<div style="flex:1;min-width:0;">'
-        +'<h4 style="font-size:13px;font-weight:700;line-height:1.3;margin:0 0 4px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo||'')+'</h4>'
+        +'<h4 style="font-size:13px;font-weight:700;line-height:1.3;margin:0 0 4px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(titulo)+'</h4>'
         +'<span style="font-size:10px;color:#94a3b8;">'+dataCurta(p.data)+'</span>'
       +'</div>'
     +'</a>';
@@ -236,7 +241,8 @@
       _fp.then(function(p){
           if(!p || !p.titulo) return;
 
-          document.title = p.titulo + ' | O Valor Capital';
+          var tituloLimpo = stripMd(p.titulo);
+          document.title = tituloLimpo + ' | O Valor Capital';
 
           (function(){
             function m(attr, key, val){
@@ -244,11 +250,11 @@
               if(!el){ el = document.createElement('meta'); el.setAttribute(attr, key); document.head.appendChild(el); }
               el.setAttribute('content', val);
             }
-            var desc = (p.subtitulo || p.resumo || '').slice(0, 160);
-            m('property','og:type','article'); m('property','og:title', p.titulo);
+            var desc = stripMd(p.subtitulo || p.resumo || '').slice(0, 160);
+            m('property','og:type','article'); m('property','og:title', tituloLimpo);
             m('property','og:description', desc); m('property','og:image', p.imagem || '');
             m('property','og:url', window.location.href); m('property','og:site_name','O Valor Capital');
-            m('name','twitter:card','summary_large_image'); m('name','twitter:title', p.titulo);
+            m('name','twitter:card','summary_large_image'); m('name','twitter:title', tituloLimpo);
             m('name','twitter:description', desc); m('name','twitter:image', p.imagem || '');
           })();
 
@@ -281,10 +287,10 @@
                 +'<span style="font-size:13px;color:#64748b;">Redação OVC &middot; '+dataLonga(p.data)+'</span>'
                 +'<span style="font-size:11px;color:#94a3b8;background:#f1f5f9;padding:3px 9px;border-radius:20px;">&#9201; '+estimarLeitura(p.corpo || '')+'</span>'
               +'</div>'
-              +'<h1 style="font-size:30px;font-weight:900;line-height:1.18;margin:0 0 16px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">'+esc(p.titulo||'')+'</h1>'
-              +(p.subtitulo ? '<p style="font-size:18px;color:#475569;margin:0 0 4px;line-height:1.6;font-style:italic;border-left:4px solid '+c+';padding:6px 0 6px 16px;">'+esc(p.subtitulo)+'</p>' : '')
-              +renderShare(p.titulo, urlRel)
-              +(p.imagem ? '<div style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:30px;"><img src="'+p.imagem+'" alt="'+esc(p.titulo||'')+'" style="width:100%;max-height:460px;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>' : '')
+              +'<h1 style="font-size:30px;font-weight:900;line-height:1.18;margin:0 0 16px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">'+esc(tituloLimpo)+'</h1>'
+              +(p.subtitulo ? '<p style="font-size:18px;color:#475569;margin:0 0 4px;line-height:1.6;font-style:italic;border-left:4px solid '+c+';padding:6px 0 6px 16px;">'+esc(stripMd(p.subtitulo))+'</p>' : '')
+              +renderShare(tituloLimpo, urlRel)
+              +(p.imagem ? '<div style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:30px;"><img src="'+p.imagem+'" alt="'+esc(tituloLimpo)+'" style="width:100%;max-height:460px;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>' : '')
               +'<div>'+renderCorpo(p.corpo||'')+'</div>'
               +renderCTA();
           }
@@ -375,7 +381,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'";>'
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'";">'
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
