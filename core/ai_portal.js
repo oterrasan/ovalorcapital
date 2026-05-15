@@ -26,10 +26,10 @@ async function callOpenAI(prompt) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Você é redator jornalístico sênior de um portal de notícias brasileiro. Sua função é produzir matérias originais e completas a partir de pautas editoriais. O texto do usuário contém o TEMA e o ÂNGULO EDITORIAL — escreva com seu próprio estilo jornalístico, sem copiar frases da fonte." },
+        { role: "system", content: "Você é redator jornalístico sênior especializado em SEO para portais de notícias brasileiros. Siga o formato solicitado à risca — cada campo tem regras de caracteres obrigatórias." },
         { role: "user", content: prompt }
       ],
-      temperature: 0.4,
+      temperature: 0.3,
       max_tokens: 8192
     })
   });
@@ -37,7 +37,7 @@ async function callOpenAI(prompt) {
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message || ""}`);
   const text = d.choices?.[0]?.message?.content;
   if (text && text.length > 100) return text;
-  throw new Error("OpenAI retornou resposta vazia ou muito curta");
+  throw new Error("OpenAI retornou resposta vazia");
 }
 
 async function callGemini(prompt) {
@@ -50,7 +50,7 @@ async function callGemini(prompt) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 8192 }
+          generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
         })
       });
       const d = await res.json();
@@ -95,121 +95,58 @@ const SUBCATS_POR_CAT = {
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
 };
 
-const PROMPT = (data, text) => `Você é redator sênior do portal O Valor Capital (OVC), especializado em jornalismo econômico e financeiro com foco em SEO. Sua tarefa é REESCREVER a notícia abaixo com outras palavras, mantendo EXATAMENTE os mesmos fatos, números, nomes e informações da fonte. Você NÃO pode inventar nada.
+const PROMPT = (data, text) => `Reescreva a notícia abaixo como matéria jornalística do portal O Valor Capital, otimizada para SEO.
+Use SOMENTE os fatos do texto fonte. Não invente dados, nomes, valores ou declarações.
+Não mencione o veículo de origem.
 
-REGRA ABSOLUTA: Use SOMENTE as informações do texto fonte. Nada além disso.
+RETORNE EXATAMENTE neste formato (copie os rótulos):
 
-FORMATO DE SAÍDA OBRIGATÓRIO — copie os rótulos exatamente:
-
-TITULO: manchete visual entre 50 e 65 caracteres — palavra-chave principal no início, verbo obrigatório, factual, sem clickbait
-META_TITLE: versão SEO da manchete com NO MÁXIMO 55 caracteres — keyword no início, factual, sem a marca "O Valor Capital" (o Google trunca acima de 55 chars)
-FOCO_KEYWORD: 2 a 4 palavras que definem o tema central para SEO (ex: taxa selic, reforma tributária, dólar bolsa)
-SLUG: 3 a 5 palavras-chave do título em português, hifenizadas, sem acentos, sem artigos (ex: selic-sobe-inflacao-alta)
-META_DESCRICAO: 145 a 160 caracteres — resumo factual com a palavra-chave principal integrada de forma natural, sem cortar no meio
-CATEGORIA: escolha exatamente uma das categorias abaixo — escolha pela RELEVÂNCIA TEMÁTICA do artigo:
-  politica → governo federal, congresso, eleições, partidos, poder executivo/legislativo/judiciário
-  economia → PIB, inflação, juros SELIC, câmbio, fiscal, política econômica
-  negocios → empresas, fusões, aquisições, startups, empreendedorismo
-  investimentos → bolsa, fundos, renda fixa, tesouro direto, criptomoedas
-  seguros → seguros de vida, planos de saúde, previdência privada, SUSEP, ANS
-  mercados → commodities, petróleo, ouro, índices, B3
-  educacao → escolas, universidades, ENEM, ensino superior, cursos
-  industria → manufatura, produção industrial, exportação, cadeia produtiva
-  tecnologia → TI, IA, inovação, startups tech, digital
-  esportes → futebol, olimpíadas, esportes em geral
-  saude → medicina, SUS, medicamentos, doenças, bem-estar
-  familia → filhos, casamento, herança, planejamento familiar
-  tributacao → imposto de renda, reforma tributária, IRPF, ICMS, receita federal
-  regulacao → BACEN, CVM, ANBIMA, reguladores, compliance
-  parcerias → acordos, joint ventures, contratos entre empresas
-  internacional → geopolítica, diplomacia, relações exteriores, conflitos globais
-  variedades → entretenimento, comportamento, estilo de vida, cultura pop
-  investigativo → denúncias, corrupção, operações policiais, jornalismo investigativo
-  seguranca → segurança pública, crime, polícia, violência
-  cultura → arte, cinema, música, teatro, literatura
-  profissoes → carreiras específicas, mercado de trabalho por área
-  vagas → empregos, contratações, recrutamento, CLT
-  concursos → concursos públicos, editais, gabaritos
-  imoveis → mercado imobiliário, construtoras, financiamento
-  esg → sustentabilidade, meio ambiente, governança corporativa
-  defesa → forças armadas, defesa nacional, segurança nacional
-  religiao → fé, espiritualidade, igrejas, religiosidade
-SUBCATEGORIA: escolha EXATAMENTE uma das subcategorias abaixo para a CATEGORIA escolhida — não invente, não use outra:
-  politica → Governo Federal | Congresso Nacional | Eleições | Partidos Políticos | STF & Judiciário | Política Estadual | Câmara dos Deputados | Senado Federal | Poder Executivo
-  economia → Política Econômica | Inflação & Preços | Taxa Selic | PIB & Crescimento | Câmbio & Dólar | Fiscal & Orçamento | Emprego & Renda | Banco Central
-  negocios → Empresas & Corporações | Fusões & Aquisições | Startups | Empreendedorismo | Grandes Corporações | Setor Privado | Varejo | Agronegócio Empresarial
-  investimentos → Bolsa de Valores | Renda Fixa | Fundos de Investimento | Tesouro Direto | Criptomoedas | Análise de Mercado | Finanças Pessoais | FIIs
-  seguros → Seguro de Vida | Planos de Saúde | Seguro Auto | Previdência Privada | Seguro Residencial | SUSEP & ANS | Seguro Empresarial | Corretoras de Seguros
-  mercados → Commodities | Petróleo & Energia | Ouro & Metais | B3 & Ibovespa | Câmbio Internacional | Índices Globais | Agro & Grãos
-  educacao → Ensino Superior | ENEM | Educação Básica | Cursos & Certificações | Pós-Graduação | Tecnologia na Educação | Bolsas de Estudo | Ensino Técnico
-  industria → Agronegócio | Manufatura | Energia | Infraestrutura | Exportações | Cadeia Produtiva | Mineração | Construção Civil
-  tecnologia → Inteligência Artificial | Segurança Digital | E-commerce | Telecomunicações | Inovação | Startups Tech | Blockchain | Computação em Nuvem
-  esportes → Futebol | Olimpíadas | Fórmula 1 | Tênis | Basquete | Natação | Atletismo | Outros Esportes
-  saude → Medicina & Tratamentos | SUS | Saúde Mental | Medicamentos | Bem-estar | Epidemiologia | Pediatria | Nutrição
-  familia → Educação dos Filhos | Planejamento Familiar | Herança & Patrimônio | Casamento & Divórcio | Finanças Pessoais | Criação de Filhos
-  tributacao → IRPF | Reforma Tributária | ICMS & ISS | Receita Federal | Planejamento Tributário | Impostos Federais | Simples Nacional | CSLL & IRPJ
-  regulacao → BACEN | CVM | ANBIMA | SUSEP | ANS | ANATEL | ANEEL | Regulação Setorial
-  parcerias → Acordos Comerciais | Joint Ventures | Alianças Estratégicas | Contratos Públicos | PPP
-  internacional → Relações Exteriores | Geopolítica | Conflitos Globais | América Latina | Estados Unidos | Europa | China & Ásia | Oriente Médio | Diplomacia
-  variedades → Comportamento | Lifestyle | Entretenimento | Tendências | Gastronomia | Turismo | Moda
-  investigativo → Corrupção | Operações Policiais | Denúncias | Jornalismo de Dados | Fiscalização Pública | Lavagem de Dinheiro
-  seguranca → Segurança Pública | Crime Organizado | Violência Urbana | Polícia Federal | Narcotráfico | Facções | Homicídios
-  cultura → Cinema | Música | Arte | Teatro | Literatura | Patrimônio Cultural | Streaming | Festivais
-  profissoes → Medicina | Direito | Engenharia | Contabilidade | TI & Programação | Administração | Arquitetura | Recursos Humanos
-  vagas → Oportunidades CLT | Trabalho Remoto | Recrutamento & Seleção | Estágio | Trainee | Mercado de Trabalho
-  concursos → Concursos Federais | Concursos Estaduais | Concursos Municipais | Militares & Policiais | Judiciário | Saúde Pública
-  imoveis → Mercado Imobiliário | Financiamento Habitacional | Construtoras | Aluguel | Lançamentos | Minha Casa Minha Vida
-  esg → Sustentabilidade | Meio Ambiente | Governança Corporativa | Energia Limpa | Impacto Social | Carbono & Emissões
-  defesa → Forças Armadas | Segurança Nacional | Política de Defesa | Exército | Marinha | Aeronáutica | Fronteiras
-  religiao → Evangelicalismo | Catolicismo | Espiritualidade | Igrejas | Fé & Sociedade | Missões | Religiões Afro-brasileiras
+TITULO: [manchete entre 55 e 65 caracteres — keyword principal no início — verbo ativo — factual]
+META_TITLE: [versão SEO máximo 55 caracteres — keyword no início — sem "O Valor Capital"]
+FOCO_KEYWORD: [2 a 4 palavras que definem o tema central — ex: taxa selic, reforma tributária]
+SLUG: [3 a 5 palavras do título hifenizadas sem acentos — ex: selic-sobe-inflacao]
+META_DESCRICAO: [entre 150 e 160 caracteres — inclua a keyword de forma natural — termine com ponto]
+CATEGORIA: [UMA categoria: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao]
+SUBCATEGORIA: [subcategoria específica da categoria escolhida]
 CORPO:
 Redação OVC — ${data}
 
-[LEAD — máximo 3 frases curtas (até 40 palavras no total). Responda QUEM, O QUÊ e QUANDO. Coloque a **palavra-chave principal em negrito** na primeira frase. Seja direto — sem enrolação, sem contexto histórico.]
+[LEAD: 2 frases diretas — QUEM fez O QUÊ. Coloque a **keyword principal em negrito** na primeira frase. Máximo 40 palavras.]
 
-## [H2 — variação natural da keyword, factual, 4 a 7 palavras — NÃO use "Introdução", "Contexto" ou "Conclusão"]
+## [Subtítulo H2 com variação natural da keyword — 4 a 7 palavras — factual]
 
-[Parágrafo de 2 a 3 frases — máximo 40 palavras. Use **negrito** nos nomes de pessoas, empresas, cargos e valores-chave. Somente fatos da fonte.]
+[Parágrafo de 2 a 3 frases com os fatos principais. Máximo 40 palavras. **Negrito** em nomes, valores e datas-chave.]
 
-[Se a fonte contiver 3 ou mais dados, valores, datas ou etapas — obrigatoriamente use lista:]
-• **Dado ou entidade** — descrição objetiva
-• **Dado ou entidade** — descrição objetiva
-• **Dado ou entidade** — descrição objetiva
+[Se a fonte tiver 3 ou mais dados, datas ou etapas, use lista obrigatória:]
+• **Item** — descrição
+• **Item** — descrição
+• **Item** — descrição
 
-## [H2 — impacto concreto ou consequência direta, factual, 4 a 7 palavras]
+## [Subtítulo H2 com impacto concreto — 4 a 7 palavras — factual]
 
-[Parágrafo de 2 a 3 frases — máximo 40 palavras. Impacto prático para o leitor. **Negrito** nas entidades principais.]
+[Parágrafo de 2 a 3 frases — impacto prático. Máximo 40 palavras.]
 
-[Parágrafo de 2 a 3 frases — máximo 40 palavras. Quem é afetado e como — somente o que a fonte diz.]
+[Parágrafo de 2 a 3 frases — quem é afetado. Máximo 40 palavras.]
 
-## [H2 — próximos passos ou perspectiva, factual, 4 a 7 palavras]
+## [Subtítulo H2 com próximos passos ou contexto — 4 a 7 palavras — factual]
 
-[Parágrafo de 2 a 3 frases — máximo 40 palavras. Próximos passos mencionados NA FONTE. Não conclua além do que a fonte informa.]
+[Parágrafo de 2 a 3 frases — próximos passos mencionados NA FONTE apenas. Máximo 40 palavras.]
 
-#hashtag_tema_1
-#hashtag_tema_2
-#hashtag_tema_3
-#ovalorcapital
+#hashtag1 #hashtag2 #hashtag3 #ovalorcapital
 
-REGRAS INVIOLÁVEIS:
-- CORPO mínimo 1.500 caracteres — escreva todos os blocos acima com densidade jornalística
-- Use SOMENTE fatos do texto fonte. Se não está na fonte, não escreva.
-- NUNCA invente nomes de pessoas, empresas, valores, datas ou declarações.
-- NUNCA adicione contexto histórico que não está na fonte.
-- NUNCA mencione o veículo de origem.
-- Primeira linha do CORPO sempre: Redação OVC — ${data}
-- Os subheadings ## devem aparecer exatamente como marcados (## seguido de espaço e texto)
-- TITULO deve ter entre 50 e 65 caracteres — conte e ajuste
-- META_TITLE deve ter NO MÁXIMO 55 caracteres — conte letra por letra e ajuste
-- META_DESCRICAO deve ter entre 145 e 160 caracteres — conte e ajuste
-- PARÁGRAFOS com no máximo 3 linhas ou 40 palavras — sem exceção — blocos grandes destroem o SEO mobile
-- NEGRITO obrigatório: nomes de pessoas, empresas, cargos, valores numéricos e datas relevantes
-- LISTAS com marcadores (•) sempre que houver 3+ dados, valores ou etapas na fonte
-- Linguagem direta e acessível, sem academicismo
-- NÃO comece com saudação, "Prezado", "Caro", "Olá" ou similar
-- NÃO use: isso mostra, vale destacar, em meio a, diante disso, chama atenção, acende alerta, especialistas apontam, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar
+REGRAS OBRIGATÓRIAS:
+— TITULO: conte os caracteres. Mínimo 55, máximo 65. Ajuste se necessário.
+— META_TITLE: máximo 55 caracteres absolutos. Google corta acima disso.
+— META_DESCRICAO: entre 150 e 160 caracteres. Conte e ajuste.
+— CORPO: mínimo 1.500 caracteres. Escreva todos os blocos com densidade jornalística.
+— Use a FOCO_KEYWORD pelo menos 2 vezes no CORPO de forma natural.
+— Parágrafos: máximo 3 linhas ou 40 palavras. Blocos longos prejudicam SEO mobile.
+— Negrito obrigatório: nomes de pessoas, empresas, cargos, valores numéricos e datas.
+— Proibido: robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam.
+— Não comece com saudação, "Prezado", "Caro", "Olá" ou similar.
+— Não adicione contexto histórico que não está na fonte.
 
-PAUTA EDITORIAL (tema, ângulo e contexto fornecidos pelo editor — use como referência jornalística e reescreva com seu próprio estilo):
+TEXTO FONTE:
 ${text}`;
 
 function slugify(text) {
@@ -230,15 +167,15 @@ function parse(raw) {
   let inCorpo = false;
   for (const line of lines) {
     const trimmed = line.trim();
-    if (/^TITULO:/i.test(trimmed)) titulo = trimmed.replace(/^TITULO:/i, "").trim();
-    else if (/^META_TITLE:/i.test(trimmed)) metaTitle = trimmed.replace(/^META_TITLE:/i, "").trim().slice(0, 55);
-    else if (/^FOCO_KEYWORD:/i.test(trimmed)) focoKeyword = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
-    else if (/^SLUG:/i.test(trimmed)) slug = slugify(trimmed.replace(/^SLUG:/i, "").trim());
+    if (/^TITULO:/i.test(trimmed))        titulo        = trimmed.replace(/^TITULO:/i, "").trim();
+    else if (/^META_TITLE:/i.test(trimmed))   metaTitle     = trimmed.replace(/^META_TITLE:/i, "").trim().slice(0, 55);
+    else if (/^FOCO_KEYWORD:/i.test(trimmed)) focoKeyword   = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
+    else if (/^SLUG:/i.test(trimmed))         slug          = slugify(trimmed.replace(/^SLUG:/i, "").trim());
     else if (/^META_DESCRICAO:/i.test(trimmed)) metaDescricao = trimmed.replace(/^META_DESCRICAO:/i, "").trim();
-    else if (/^SUBTITULO:/i.test(trimmed)) { if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim(); }
-    else if (/^CATEGORIA:/i.test(trimmed)) categoriaRaw = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→|]/)[0].toLowerCase();
+    else if (/^SUBTITULO:/i.test(trimmed))  { if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim(); }
+    else if (/^CATEGORIA:/i.test(trimmed))    categoriaRaw  = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→|]/)[0].toLowerCase();
     else if (/^SUBCATEGORIA:/i.test(trimmed)) subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
-    else if (/^CORPO:/i.test(trimmed)) inCorpo = true;
+    else if (/^CORPO:/i.test(trimmed))        inCorpo = true;
     else if (inCorpo) corpo += line + "\n";
   }
   corpo = corpo.trim();
