@@ -263,7 +263,6 @@ export default async function handler(req, res) {
     }
 
     const artigos = [];
-    const now = new Date().toISOString();
 
     for (const item of news.slice(0, 80)) {
       if (Date.now() - inicio > 55000) break;
@@ -333,9 +332,9 @@ export default async function handler(req, res) {
         comentario_fixado: content.meta_descricao || content.subtitulo || '',
         imagem: imagemFinal,
         hash,
-        status: 'publicado',
-        approved: true,
-        published_at: now,
+        status: 'pendente',
+        approved: false,
+        published_at: null,
         publish_method: 'portal',
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
