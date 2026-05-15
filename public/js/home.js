@@ -21,6 +21,8 @@
     return '/' + cat + '/?id=' + (p.id || '').slice(0, 8);
   }
 
+  function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
+
   // === COTAÇÕES AO VIVO ===
   async function updateLiveWidgets() {
     try {
@@ -54,9 +56,9 @@
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
-      if (el('card-hero-titulo')) el('card-hero-titulo').textContent = post.titulo;
+      if (el('card-hero-titulo')) el('card-hero-titulo').textContent = stripMd(post.titulo);
       if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
-      if (el('card-hero-resumo')) el('card-hero-resumo').textContent = post.resumo || post.subtitulo || '';
+      if (el('card-hero-resumo')) el('card-hero-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-hero-link'))   el('card-hero-link').href          = buildUrl(post);
     } catch(e) { console.error('[Hero]',e); }
   }
@@ -75,8 +77,8 @@
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
-      if (el('card-feature-titulo')) el('card-feature-titulo').textContent = post.titulo;
-      if (el('card-feature-resumo')) el('card-feature-resumo').textContent = post.resumo || post.subtitulo || '';
+      if (el('card-feature-titulo')) el('card-feature-titulo').textContent = stripMd(post.titulo);
+      if (el('card-feature-resumo')) el('card-feature-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
     } catch(e) { console.error('[Negocios]',e); }
   }
@@ -96,8 +98,8 @@
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
-      if (el('card-lions-titulo')) el('card-lions-titulo').textContent = post.titulo;
-      if (el('card-lions-resumo')) el('card-lions-resumo').textContent = post.resumo || post.subtitulo || '';
+      if (el('card-lions-titulo')) el('card-lions-titulo').textContent = stripMd(post.titulo);
+      if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
     } catch(e) { console.error('[Lions]',e); }
   }
@@ -139,8 +141,8 @@
     a.onclick = (e) => { if (!e.target.closest('a')) location.href = url; };
     a.innerHTML = `
       <div class="ovc-card-tag">${post.subcategoria || post.categoria}</div>
-      <div class="ovc-card-titulo">${post.titulo}</div>
-      <div class="ovc-card-resumo">${(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
+      <div class="ovc-card-titulo">${stripMd(post.titulo)}</div>
+      <div class="ovc-card-resumo">${stripMd(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
       <a class="ovc-card-link" href="${url}">Leia mais ↗</a>
     `;
     return a;

@@ -93,6 +93,8 @@
     return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
+
   var STYLE = {
     card: [
       'position:relative','border-radius:12px','overflow:hidden','min-height:220px',
@@ -136,7 +138,7 @@
       el.style.backgroundImage = 'none';
       el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'aa 100%)';
     }
-    el.querySelector('.ovc-card-title').textContent = post.titulo || '';
+    el.querySelector('.ovc-card-title').textContent = stripMd(post.titulo);
     el.querySelector('.ovc-card-meta').textContent  = 'Redação OVC · ' + dataBr(post.data);
     var cta = el.querySelector('.ovc-card-cta');
     if(cta) cta.href = url;
@@ -244,12 +246,12 @@
       +'text-decoration:none;'
       +(img?'background:url(\''+img+'\') center/cover;':'background:linear-gradient(135deg,#0f172a,#1a0a2e);')
       +'box-shadow:0 4px 20px rgba(0,0,0,0.18);transition:transform 0.22s,box-shadow 0.22s;" '
-      +'onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 14px 36px rgba(0,0,0,0.28)\'" '
-      +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 4px 20px rgba(0,0,0,0.18)\'">' 
+      +'onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 14px 36px rgba(0,0,0,0.28)\';" '
+      +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 4px 20px rgba(0,0,0,0.18)\';">'
       +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.93) 0%,rgba(0,0,0,0.38) 55%,rgba(0,0,0,0.06) 100%);border-radius:14px;"></div>'
       +'<div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;">'
         +'<span style="background:#b8860b;color:#fff;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:4px;width:fit-content;">Opinião</span>'
-        +'<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0;line-height:1.3;text-shadow:0 2px 10px rgba(0,0,0,0.7);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(p.titulo)+'</h2>'
+        +'<h2 style="font-size:16px;font-weight:800;color:#fff;margin:0;line-height:1.3;text-shadow:0 2px 10px rgba(0,0,0,0.7);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(stripMd(p.titulo))+'</h2>'
         +'<span style="font-size:11px;color:rgba(255,255,255,0.5);">Redação OVC · '+dataBr(p.data)+'</span>'
       +'</div>'
     +'</a>';
@@ -265,13 +267,12 @@
       +'onmouseout="this.style.background=\'\'">'
       +(img
         ?'<div style="width:68px;height:52px;border-radius:7px;overflow:hidden;flex-shrink:0;">'
-          +'<img src="'+img+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.parentNode.style.display=\'none\';">'
-          +'</div>'
+          +'<img src="'+img+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" loading="lazy" onerror="this.parentNode.style.display=\'none\';">'+'</div>'
         :'<div style="width:3px;height:40px;background:#b8860b;border-radius:2px;flex-shrink:0;margin-top:3px;"></div>'
       )
       +'<div style="display:flex;flex-direction:column;gap:4px;min-width:0;">'
         +'<span style="background:rgba(184,134,11,0.12);color:#92670a;font-size:8px;font-weight:900;text-transform:uppercase;padding:2px 7px;border-radius:3px;width:fit-content;">Opinião</span>'
-        +'<p style="font-size:12px;font-weight:700;color:#0f172a;margin:0;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(p.titulo)+'</p>'
+        +'<p style="font-size:12px;font-weight:700;color:#0f172a;margin:0;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(stripMd(p.titulo))+'</p>'
         +'<span style="font-size:10px;color:#94a3b8;">'+dataBr(p.data)+'</span>'
       +'</div>'
     +'</a>';
@@ -363,7 +364,7 @@
           html+='<div style="position:absolute;top:6px;left:6px;"><span style="'+(i===0?'background:#e11d48;font-size:10px;':'background:rgba(0,0,0,0.6);font-size:9px;')+'color:#fff;font-weight:900;padding:2px 7px;border-radius:4px;">#'+(i+1)+'</span></div>';
           html+='</div><div style="flex:1;background:#fff;padding:8px 10px;display:flex;flex-direction:column;gap:4px;">';
           html+='<span style="font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:'+cor+';">'+lbl(p.categoria)+'</span>';
-          html+='<p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(p.titulo)+'</p>';
+          html+='<p style="font-size:11px;font-weight:700;color:#0f172a;margin:0;line-height:1.3;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(stripMd(p.titulo))+'</p>';
           html+='</div></a>';
         });
         html+='</div>';

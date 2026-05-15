@@ -98,8 +98,8 @@
     var tag  = heroEl.querySelector('.tag');
     var cta  = heroEl.querySelector('.card-cta');
     var meta = heroEl.querySelector('.card-meta');
-    if(tit)  tit.textContent = p.titulo;
-    if(exc)  exc.textContent = (p.resumo||'').slice(0,160);
+    if(tit)  tit.textContent = stripMd(p.titulo);
+    if(exc)  exc.textContent = stripMd(p.resumo||'').slice(0,160);
     if(tag)  setTag(tag, p.categoria);
     if(meta) meta.textContent = 'Redação OVC · ' + dataBr(p.data);
     if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
@@ -155,8 +155,8 @@
     var exc  = el.querySelector('.card-feature-excerpt,.card-excerpt');
     var tag  = el.querySelector('.tag');
     var cta  = el.querySelector('.card-cta');
-    if(tit)  tit.textContent = p.titulo;
-    if(exc)  exc.textContent = (p.resumo||'').slice(0,160);
+    if(tit)  tit.textContent = stripMd(p.titulo);
+    if(exc)  exc.textContent = stripMd(p.resumo||'').slice(0,160);
     if(tag)  setTag(tag, p.categoria);
     if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
     var metaEl = el.querySelector('.card-meta');
@@ -196,8 +196,8 @@
     var tag  = el.querySelector('.tag');
     var cta  = el.querySelector('.card-cta');
     var meta = el.querySelector('.card-meta');
-    if(tit)  { tit.textContent = p.titulo; tit.style.position='relative'; tit.style.zIndex='2'; }
-    if(exc)  { exc.textContent = (p.resumo||'').slice(0,150); exc.style.position='relative'; exc.style.zIndex='2'; }
+    if(tit)  { tit.textContent = stripMd(p.titulo); tit.style.position='relative'; tit.style.zIndex='2'; }
+    if(exc)  { exc.textContent = stripMd(p.resumo||'').slice(0,150); exc.style.position='relative'; exc.style.zIndex='2'; }
     if(tag)  { setTag(tag, p.categoria); tag.style.position='relative'; tag.style.zIndex='2'; }
     if(meta) { meta.textContent = 'Redação OVC · ' + dataBr(p.data); meta.style.position='relative'; meta.style.zIndex='2'; }
     if(cta)  { cta.href = url; cta.style.position='relative'; cta.style.zIndex='2'; }
@@ -233,7 +233,7 @@
     var meta = el.querySelector('.card-meta');
     var cta  = el.querySelector('.card-cta');
     if(tag){ tag.className = 'tag tag-'+cat; tag.innerHTML = '<span class="tag-dot"></span>'+label(cat); }
-    if(tit){ tit.textContent = p.titulo||''; }
+    if(tit){ tit.textContent = stripMd(p.titulo); }
     if(meta) meta.textContent = 'Redação OVC · '+dataBr(p.data);
     if(cta){ cta.href = url; cta.innerHTML = '<span>LEIA MAIS</span>'; }
     if(p.imagem && isValidImage(p.imagem)){
@@ -254,7 +254,7 @@
     var cat = p.categoria||'geral';
     el.innerHTML =
       '<span class="tag tag-'+cat+'"><span class="tag-dot"></span>'+label(cat)+'</span>' +
-      '<h3 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(p.titulo||'')+'</a></h3>' +
+      '<h3 class="card-title"><a href="'+url+'" style="color:inherit;text-decoration:none;">'+escHtml(stripMd(p.titulo))+'</a></h3>' +
       '<div class="card-meta">Redação OVC · '+label(cat)+'</div>' +
       '<a class="card-cta" href="'+url+'"><span>LEIA MAIS</span></a>';
     el.style.cursor = 'pointer';
@@ -265,6 +265,8 @@
   function escHtml(str){
     return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 
   function dedup(arr){
     var seenId = {}, seenTitulo = {};
