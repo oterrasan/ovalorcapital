@@ -202,10 +202,81 @@ function tituloSimilar(a, b) {
   return (intersect / union) >= 0.40;
 }
 
+async function regenerarConteudo(res) {
+  const inicio = Date.now();
+  const desde48h = new Date(Date.now() - 48 * 3600000).toISOString();
+  const limite = parseInt(process.env.REGENERAR_LIMITE || '15', 10);
+
+  const { data: posts, error } = await supabase
+    .from('posts')
+    .select('id, titulo, conteudo, user_tags, subcategoria')
+    .gte('created_at', desde48h)
+    .or('conteudo.like.%**%,conteudo.like.%## %')
+    .order('created_at', { ascending: false })
+    .limit(limite);
+
+  if (error) {
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(500).send(`<pre style="color:red;padding:20px">Erro Supabase: ${error.message}</pre>`);
+  }
+
+  const total = (posts || []).length;
+  const resultados = [];
+
+  for (const post of posts || []) {
+    if (Date.now() - inicio > 55000) {
+      resultados.push({ id: post.id, titulo: post.titulo, status: 'timeout — chame novamente' });
+      break;
+    }
+    try {
+      const novoConteudo = await rewritePortal(post.conteudo, post.titulo);
+      if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 800) {
+        resultados.push({ id: post.id, titulo: post.titulo, status: 'rejeitado — conteúdo insuficiente' });
+        continue;
+      }
+      const metaDesc = (novoConteudo.meta_descricao || novoConteudo.subtitulo || '').replace(/\*\*/g,'').trim();
+      const metaTitle = stripTitle(novoConteudo.meta_title || novoConteudo.titulo);
+      await supabase.from('posts').update({
+        titulo: stripTitle(novoConteudo.titulo) || stripTitle(post.titulo),
+        conteudo: novoConteudo.corpo,
+        comentario_fixado: metaDesc,
+        metrics: {
+          foco_keyword: novoConteudo.foco_keyword || '',
+          seo_slug: novoConteudo.slug || '',
+          meta_descricao: metaDesc,
+          meta_title: metaTitle
+        }
+      }).eq('id', post.id);
+      resultados.push({ id: post.id, titulo: stripTitle(novoConteudo.titulo), status: 'ok ✓', chars: novoConteudo.corpo.length });
+    } catch(e) {
+      resultados.push({ id: post.id, titulo: post.titulo, status: `erro: ${e.message}` });
+    }
+  }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Regeneração concluída</title></head><body style="font-family:monospace;background:#111;color:#0f0;padding:32px">
+<h2 style="color:#fff">Regeneração de conteúdo — últimas 48h</h2>
+<p>Total encontrado com markdown: <strong style="color:#ff0">${total}</strong> | Processados: <strong style="color:#ff0">${resultados.length}</strong></p>
+<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;color:#ccc">
+<tr style="color:#fff"><th>ID</th><th>Título</th><th>Status</th><th>Chars</th></tr>
+${resultados.map(r => `<tr><td>${r.id}</td><td>${r.titulo}</td><td style="color:${r.status.startsWith('ok') ? '#0f0' : '#f66'}">${r.status}</td><td>${r.chars||'-'}</td></tr>`).join('')}
+</table>
+${total > resultados.length ? `<p style="color:#fa0">⚠️ Restam ${total - resultados.length} artigos. Atualize a página para continuar.</p>` : '<p style="color:#0f0">✅ Todos os artigos processados.</p>'}
+</body></html>`;
+
+  res.setHeader('Content-Type', 'text/html');
+  return res.status(200).send(html);
+}
+
 export default async function handler(req, res) {
   const inicio = Date.now();
   const body = req.body || {};
   const meta = req.query || {};
+
+  // Regenerar conteúdo das últimas 48h via IA (GET ?action=regenerar)
+  if (meta.action === 'regenerar') {
+    return regenerarConteudo(res);
+  }
+
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
   // Limpeza pontual de títulos com markdown no banco
@@ -285,9 +356,7 @@ export default async function handler(req, res) {
     }
 
     if (!news.length) {
-      console.log('[pipeline] RSS zerou — tentando fallback de homepages');
       news = await getLinksFromHomepages();
-      console.log('[pipeline] fallback homepages:', news.length, 'links');
     }
 
     if (!news.length) {
@@ -318,7 +387,6 @@ export default async function handler(req, res) {
 
       if (!validarConteudo(content)) continue;
 
-      // Limpa markdown do título gerado pela IA antes de qualquer comparação
       content.titulo = stripTitle(content.titulo);
 
       if (!content.categoria || content.categoria === 'geral') {
@@ -354,7 +422,6 @@ export default async function handler(req, res) {
         }
       }
 
-      // Usa apenas imagem original da fonte — sem bancos de imagens
       let imagemFinal = null;
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
