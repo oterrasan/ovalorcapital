@@ -51,8 +51,6 @@
     catch(_){ return ''; }
   }
 
-  function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
-
   function skeleton(){
     var s = '';
     for(var i=0;i<6;i++){
@@ -74,12 +72,12 @@
       +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.4) 0%,transparent 60%);pointer-events:none;"></div></div>' : '';
     return '<a href="'+url+'" style="display:block;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);text-decoration:none;color:inherit;transition:transform .2s,box-shadow .2s;" '
       +'onmouseover="this.style.transform=\'translateY(-4px)\';this.style.boxShadow=\'0 8px 24px rgba(0,0,0,.15)\'" '
-      +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'">'
+      +'onmouseout="this.style.transform=\'\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\'">' 
       + img
       +'<div style="padding:16px;">'
       +'<span style="display:inline-block;background:'+c+';color:#fff;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:3px 9px;border-radius:99px;margin-bottom:10px;">'+lbl(p.categoria)+'</span>'
-      +'<div style="font-size:15px;font-weight:700;line-height:1.4;color:#0f172a;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+stripMd(p.titulo)+'</div>'
-      +'<div style="font-size:13px;color:#64748b;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:12px;">'+stripMd(p.resumo||p.subtitulo||'').slice(0,140)+'</div>'
+      +'<div style="font-size:15px;font-weight:700;line-height:1.4;color:#0f172a;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+p.titulo+'</div>'
+      +'<div style="font-size:13px;color:#64748b;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:12px;">'+(p.resumo||p.subtitulo||'').slice(0,140)+'</div>'
       +'<div style="display:flex;align-items:center;justify-content:space-between;">'
       +'<span style="font-size:11px;color:#94a3b8;">'+dataBr(p.data)+'</span>'
       +'<span style="font-size:12px;font-weight:600;color:'+c+';">Ler mais →</span>'

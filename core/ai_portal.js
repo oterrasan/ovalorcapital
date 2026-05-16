@@ -26,7 +26,7 @@ async function callOpenAI(prompt) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Você é redator jornalístico sênior especializado em SEO para portais de notícias brasileiros. Siga o formato solicitado à risca — cada campo tem regras de caracteres obrigatórias." },
+        { role: "system", content: "Você é um compilador jornalístico automatizado especializado em SEO para Google News e Google Discover. PROIBIDO inventar fatos, dados estatísticos, nomes ou datas ausentes no texto fonte — use exclusivamente os dados fornecidos. Siga o formato de output solicitado com precisão absoluta: cada rótulo, regra de caracteres e seção é mandatória. Zero tolerância a conteúdo conversacional, saudações ou explicações fora do template. O output deve iniciar diretamente no rótulo TITULO: e encerrar na última linha de hashtags." },
         { role: "user", content: prompt }
       ],
       temperature: 0.3,
@@ -95,8 +95,8 @@ const SUBCATS_POR_CAT = {
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
 };
 
-const PROMPT = (data, text) => `Reescreva a notícia abaixo como matéria jornalística do portal O Valor Capital, otimizada para SEO.
-Use SOMENTE os fatos do texto fonte. Não invente dados, nomes, valores ou declarações.
+const PROMPT = (data, text) => `Reescreva a notícia abaixo como matéria jornalística do portal O Valor Capital, otimizada para Google News e Google Discover.
+Use SOMENTE os fatos do texto fonte. PROIBIDO inventar dados, nomes, valores ou declarações ausentes na fonte.
 Não mencione o veículo de origem.
 
 RETORNE EXATAMENTE neste formato (copie os rótulos):
@@ -111,13 +111,20 @@ SUBCATEGORIA: [subcategoria específica da categoria escolhida]
 CORPO:
 Redação OVC — ${data}
 
-[LEAD: 2 frases diretas — QUEM fez O QUÊ. Coloque a **keyword principal em negrito** na primeira frase. Máximo 40 palavras.]
+[LEAD: 2 frases. QUEM fez O QUÊ. Coloque a **keyword principal em negrito** na primeira frase. Máximo 40 palavras. Configurado para clique imediato no Google Discover.]
 
 ## [Subtítulo H2 com variação natural da keyword — 4 a 7 palavras — factual]
 
 [Parágrafo de 2 a 3 frases com os fatos principais. Máximo 40 palavras. **Negrito** em nomes, valores e datas-chave.]
 
-[Se a fonte tiver 3 ou mais dados, datas ou etapas, use lista obrigatória:]
+[Se a fonte tiver 3 ou mais dados numéricos, datas ou etapas, insira tabela obrigatória:]
+| Indicador | Valor / Projeção | Impacto Direto |
+| :--- | :--- | :--- |
+| [métrica 1] | [valor] | [efeito prático] |
+| [métrica 2] | [valor] | [efeito prático] |
+| [métrica 3] | [valor] | [efeito prático] |
+
+[Se não houver 3 dados numéricos, use lista:]
 • **Item** — descrição
 • **Item** — descrição
 • **Item** — descrição
@@ -140,11 +147,12 @@ REGRAS OBRIGATÓRIAS:
 — META_DESCRICAO: entre 150 e 160 caracteres. Conte e ajuste.
 — CORPO: mínimo 1.500 caracteres. Escreva todos os blocos com densidade jornalística.
 — Use a FOCO_KEYWORD pelo menos 2 vezes no CORPO de forma natural.
-— Parágrafos: máximo 3 linhas ou 40 palavras. Blocos longos prejudicam SEO mobile.
+— BURSTINESS obrigatória: alterne frases curtas (3 a 5 palavras) com frases médias (12 a 15 palavras). Blocos longos prejudicam SEO mobile.
 — Negrito obrigatório: nomes de pessoas, empresas, cargos, valores numéricos e datas.
-— Proibido: robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam.
-— Não comece com saudação, "Prezado", "Caro", "Olá" ou similar.
-— Não adicione contexto histórico que não está na fonte.
+— PROIBIDO (lista expandida): robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale ressaltar, vale destacar, é importante destacar, em meio a, diante disso, acende alerta, especialistas apontam, no cenário atual, em um mundo cada vez mais, como uma faca de dois gumes, em suma, no tecido social, por fim cabe destacar, cabe ressaltar.
+— Não comece com saudação, "Prezado", "Caro", "Olá", "Aqui está" ou similar.
+— Não adicione contexto histórico ausente na fonte.
+— Não mencione o veículo de origem.
 
 TEXTO FONTE:
 ${text}`;
@@ -180,8 +188,16 @@ function parse(raw) {
   }
   corpo = corpo.trim();
   if (!corpo && raw.length > 200) {
-    corpo = raw.trim();
-    const firstLine = raw.split("\n")[0].trim();
+    const metaRx = /^(TITULO|META_TITLE|FOCO_KEYWORD|SLUG|META_DESCRICAO|SUBTITULO|CATEGORIA|SUBCATEGORIA|CORPO)\s*:/i;
+    const rawLines = raw.split('\n');
+    const corpoIdx = rawLines.findIndex(l => /^CORPO\s*:/i.test(l.trim()));
+    if (corpoIdx !== -1) {
+      corpo = rawLines.slice(corpoIdx + 1).join('\n').trim();
+    } else {
+      corpo = rawLines.filter(l => !metaRx.test(l.trim())).join('\n').trim();
+    }
+    if (!corpo) corpo = raw.trim();
+    const firstLine = rawLines[0].trim();
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
@@ -242,7 +258,7 @@ export async function rewritePortal(text, title, useGemini = false) {
   }
   const tituloLower = (result.titulo || "").toLowerCase().trim();
   const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
-  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe", "aqui está"];
   if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
     throw new Error("Conteúdo rejeitado — título ou abertura inválida");
   }
