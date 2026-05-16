@@ -66,18 +66,6 @@ function markdownToHtml(text) {
 }
 
 export default async function handler(req, res) {
-  const isGet = req.method === 'GET';
-  const isPost = req.method === 'POST';
-
-  if (!isGet && !isPost) return res.status(405).json({ error: 'Method not allowed' });
-
-  const forceGet = isGet && req.query?.force === '1';
-  const forcePost = isPost && req.body?.force === true;
-
-  if (!forceGet && !forcePost) {
-    return res.status(403).json({ error: 'Passe ?force=1 na URL (GET) ou force:true no body (POST)' });
-  }
-
   // 7h BRT = 10h UTC
   const hojeUTC = new Date().toISOString().split('T')[0];
   const desde = `${hojeUTC}T10:00:00Z`;
@@ -119,11 +107,10 @@ export default async function handler(req, res) {
       erros: erros.length ? erros : undefined
     };
 
-    if (isGet) {
-      res.setHeader('Content-Type', 'text/html');
-      return res.status(200).send(`<pre style="font-family:monospace;font-size:16px;padding:20px">${JSON.stringify(resultado, null, 2)}</pre>`);
-    }
-    return res.status(200).json(resultado);
+    res.setHeader('Content-Type', 'text/html');
+    return res.status(200).send(
+      `<pre style="font-family:monospace;font-size:16px;padding:32px;background:#1a1a1a;color:#00ff88;min-height:100vh">${JSON.stringify(resultado, null, 2)}</pre>`
+    );
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
   }
