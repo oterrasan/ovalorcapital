@@ -202,10 +202,10 @@ function tituloSimilar(a, b) {
   return (intersect / union) >= 0.40;
 }
 
-async function regenerarConteudo(res) {
+async function regenerarConteudo(res, meta) {
   const inicio = Date.now();
   const desde48h = new Date(Date.now() - 48 * 3600000).toISOString();
-  const limite = parseInt(process.env.REGENERAR_LIMITE || '15', 10);
+  const limite = Math.min(parseInt(meta.limit || '1', 10), 3);
 
   const { data: posts, error } = await supabase
     .from('posts')
@@ -216,22 +216,24 @@ async function regenerarConteudo(res) {
     .limit(limite);
 
   if (error) {
-    res.setHeader('Content-Type', 'text/html');
-    return res.status(500).send(`<pre style="color:red;padding:20px">Erro Supabase: ${error.message}</pre>`);
+    return res.status(500).json({ status: 'error', error: error.message });
   }
 
-  const total = (posts || []).length;
+  if (!posts || posts.length === 0) {
+    return res.status(200).json({ status: 'ok', processados: 0, ok: 0, restantes: 0 });
+  }
+
   const resultados = [];
 
-  for (const post of posts || []) {
-    if (Date.now() - inicio > 55000) {
-      resultados.push({ id: post.id, titulo: post.titulo, status: 'timeout — chame novamente' });
+  for (const post of posts) {
+    if (Date.now() - inicio > 8000) {
+      resultados.push({ id: post.id, status: 'timeout' });
       break;
     }
     try {
       const novoConteudo = await rewritePortal(post.conteudo, post.titulo);
       if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 800) {
-        resultados.push({ id: post.id, titulo: post.titulo, status: 'rejeitado — conteúdo insuficiente' });
+        resultados.push({ id: post.id, status: 'rejeitado' });
         continue;
       }
       const metaDesc = (novoConteudo.meta_descricao || novoConteudo.subtitulo || '').replace(/\*\*/g,'').trim();
@@ -247,24 +249,23 @@ async function regenerarConteudo(res) {
           meta_title: metaTitle
         }
       }).eq('id', post.id);
-      resultados.push({ id: post.id, titulo: stripTitle(novoConteudo.titulo), status: 'ok ✓', chars: novoConteudo.corpo.length });
+      resultados.push({ id: post.id, titulo: stripTitle(novoConteudo.titulo), status: 'ok', chars: novoConteudo.corpo.length });
     } catch(e) {
-      resultados.push({ id: post.id, titulo: post.titulo, status: `erro: ${e.message}` });
+      resultados.push({ id: post.id, status: 'erro', msg: e.message });
     }
   }
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Regeneração concluída</title></head><body style="font-family:monospace;background:#111;color:#0f0;padding:32px">
-<h2 style="color:#fff">Regeneração de conteúdo — últimas 48h</h2>
-<p>Total encontrado com markdown: <strong style="color:#ff0">${total}</strong> | Processados: <strong style="color:#ff0">${resultados.length}</strong></p>
-<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;color:#ccc">
-<tr style="color:#fff"><th>ID</th><th>Título</th><th>Status</th><th>Chars</th></tr>
-${resultados.map(r => `<tr><td>${r.id}</td><td>${r.titulo}</td><td style="color:${r.status.startsWith('ok') ? '#0f0' : '#f66'}">${r.status}</td><td>${r.chars||'-'}</td></tr>`).join('')}
-</table>
-${total > resultados.length ? `<p style="color:#fa0">⚠️ Restam ${total - resultados.length} artigos. Atualize a página para continuar.</p>` : '<p style="color:#0f0">✅ Todos os artigos processados.</p>'}
-</body></html>`;
+  // Se processamos algum artigo com sucesso, assume que podem ter mais
+  const okCount = resultados.filter(r => r.status === 'ok').length;
+  const restantes = okCount > 0 ? 1 : 0;
 
-  res.setHeader('Content-Type', 'text/html');
-  return res.status(200).send(html);
+  return res.status(200).json({
+    status: 'ok',
+    processados: resultados.length,
+    ok: okCount,
+    restantes,
+    resultados
+  });
 }
 
 export default async function handler(req, res) {
@@ -272,14 +273,12 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
 
-  // Regenerar conteúdo das últimas 48h via IA (GET ?action=regenerar)
   if (meta.action === 'regenerar') {
-    return regenerarConteudo(res);
+    return regenerarConteudo(res, meta);
   }
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
-  // Limpeza pontual de títulos com markdown no banco
   if (body.action === 'cleanup_titles') {
     if (!body.force) return res.status(403).json({ error: 'requires force:true' });
     try {
@@ -436,9 +435,9 @@ export default async function handler(req, res) {
         comentario_fixado: metaDesc,
         imagem: imagemFinal,
         hash,
-        status: 'pendente',
-        approved: false,
-        published_at: null,
+        status: 'publicado',
+        approved: true,
+        published_at: new Date().toISOString(),
         publish_method: 'portal',
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
