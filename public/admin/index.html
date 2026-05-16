@@ -1,1 +1,1044 @@
-PLACEHOLDER_WILL_BE_REPLACED
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Admin OVC — Centro de Comando</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<style>
+:root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(200,30,30,0.06) 0%,transparent 70%)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.6)}
+.login-logo{text-align:center;margin-bottom:8px}
+.login-logo .ovc{font-size:22px;font-weight:700;color:var(--t1);letter-spacing:.08em}
+.login-logo .accent{color:var(--red)}
+.login-tag{text-align:center;font-size:11px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:36px}
+.login-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:6px}
+.login-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--t1);font-size:14px;outline:none;transition:border .15s}
+.login-input:focus{border-color:var(--red)}
+.login-btn{width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .15s}
+.login-btn:hover{background:var(--red-h)}
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo .name{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--t1)}
+.sidebar-logo .name .a{color:var(--red)}
+.sidebar-logo .sub{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.nav{padding:12px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;transition:all .15s;border-left:2px solid transparent}
+.nav-item:hover{color:var(--t1);background:rgba(255,255,255,0.03)}
+.nav-item.active{color:var(--t1);background:rgba(200,30,30,0.08);border-left-color:var(--red)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .ver{font-size:11px;color:var(--t3)}
+.logout-btn{background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px;margin-top:8px}
+.logout-btn:hover{color:var(--t1)}
+.main{flex:1;overflow-y:auto;background:var(--bg)}
+.page-header{padding:28px 32px 0;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px}
+.page-title{font-size:20px;font-weight:700}
+.page-sub{font-size:13px;color:var(--t2);margin-top:3px}
+.content{padding:0 32px 32px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card-title{font-size:13px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.stat-num{font-size:32px;font-weight:700;color:var(--t1);line-height:1}
+.stat-label{font-size:12px;color:var(--t3);margin-top:4px}
+.stat-trend{font-size:11px;margin-top:8px}
+.stat-trend.up{color:var(--green)}
+.stat-trend.down{color:var(--red)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--red);color:#fff}
+.btn-primary:hover{background:var(--red-h)}
+.btn-secondary{background:rgba(255,255,255,0.06);color:var(--t1);border:1px solid var(--border)}
+.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-success{background:var(--green);color:#fff}
+.btn-success:hover{background:#15803d}
+.btn-warning{background:#d97706;color:#fff}
+.btn-warning:hover{background:#b45309}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-danger{background:rgba(200,30,30,0.15);color:#f87171;border:1px solid rgba(200,30,30,0.3)}
+.btn-danger:hover{background:rgba(200,30,30,0.25)}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.form-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;transition:border .15s;font-family:var(--font)}
+.form-input:focus{border-color:rgba(255,255,255,0.3)}
+.form-textarea{resize:vertical;min-height:120px}
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);padding:8px 12px;border-bottom:1px solid var(--border)}
+.table td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px;vertical-align:middle}
+.table tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.badge-green{background:var(--green-s);color:#4ade80}
+.badge-red{background:var(--red-s2);color:#f87171}
+.badge-yellow{background:var(--yellow-s);color:var(--yellow)}
+.badge-gray{background:rgba(255,255,255,0.06);color:var(--t2)}
+.tag-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--t2);cursor:pointer;transition:all .15s}
+.tag-chip:hover,.tag-chip.active{background:rgba(200,30,30,0.15);border-color:rgba(200,30,30,0.4);color:var(--t1)}
+.search-input{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--t1);font-size:13px;outline:none;width:260px;font-family:var(--font)}
+.search-input:focus{border-color:rgba(255,255,255,0.2)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--card);border:1px solid var(--bh);border-radius:16px;padding:28px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.img-preview{width:100%;height:180px;object-fit:cover;border-radius:8px;margin-top:8px;background:rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.img-preview img{width:100%;height:100%;object-fit:cover}
+.status-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.green{background:var(--green)}
+.status-dot.red{background:var(--red)}
+.status-dot.yellow{background:var(--yellow)}
+.tabs{display:flex;gap:4px;background:var(--input);border-radius:10px;padding:4px;margin-bottom:20px}
+.tab{flex:1;text-align:center;padding:7px 12px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--t2);transition:all .15s}
+.tab.active{background:var(--card);color:var(--t1);box-shadow:0 1px 4px rgba(0,0,0,0.4)}
+.notif{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.notif-item{background:var(--card);border:1px solid var(--bh);border-radius:10px;padding:12px 18px;font-size:13px;font-weight:500;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:slideIn .2s ease;pointer-events:auto}
+.notif-item.ok{border-left:3px solid var(--green)}
+.notif-item.err{border-left:3px solid var(--red)}
+.notif-item.warn{border-left:3px solid var(--yellow)}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+.skeleton{background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.prog-bar{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:6px}
+.prog-fill{height:100%;border-radius:2px;transition:width .4s}
+select.form-input option{background:#0f0f1a;color:#f1f1f1}
+.editor-toolbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none}
+.editor-btn{background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:5px;padding:4px 9px;color:var(--t1);font-size:12px;cursor:pointer;font-family:var(--font);transition:background .12s}
+.editor-btn:hover{background:rgba(255,255,255,0.12)}
+.editor-area{border-radius:0 0 8px 8px!important;border-top:none!important}
+.post-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;gap:12px;align-items:flex-start;transition:border-color .15s}
+.post-card:hover{border-color:rgba(255,255,255,0.15)}
+.post-thumb{width:72px;height:54px;border-radius:6px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,0.05)}
+.post-info{flex:1;min-width:0}
+.post-titulo{font-size:13px;font-weight:600;line-height:1.4;color:var(--t1);margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.post-meta{font-size:11px;color:var(--t3);display:flex;gap:10px;flex-wrap:wrap}
+.post-actions{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.switch{position:relative;display:inline-block;width:36px;height:20px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,0.1);border-radius:20px;transition:.3s}
+.slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+input:checked+.slider{background:var(--green)}
+input:checked+.slider:before{transform:translateX(16px)}
+.color-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.divider{height:1px;background:var(--border);margin:20px 0}
+.empty-state{text-align:center;padding:60px 20px;color:var(--t3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-text{font-size:14px}
+.select-input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:12px}
+.img-item{position:relative;border-radius:8px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
+.img-item:hover,.img-item.selected{border-color:var(--red)}
+.img-item img{width:100%;height:100%;object-fit:cover}
+.img-item .img-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;border-radius:4px;color:#fff;font-size:11px;padding:2px 6px;cursor:pointer;opacity:0;transition:opacity .15s}
+.img-item:hover .img-del{opacity:1}
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.15);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tooltip-wrap{position:relative;display:inline-flex}
+.tooltip-wrap .tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1a2e;border:1px solid var(--bh);border-radius:6px;padding:5px 10px;font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:100}
+.tooltip-wrap:hover .tooltip{opacity:1}
+.rich-preview{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:16px;max-height:300px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--t2)}
+.rich-preview h1,.rich-preview h2,.rich-preview h3{color:var(--t1);font-weight:700;margin:12px 0 6px}
+.rich-preview p{margin-bottom:10px}
+.rich-preview ul,.rich-preview ol{margin:8px 0 8px 20px}
+.rich-preview li{margin-bottom:4px}
+.rich-preview blockquote{border-left:3px solid var(--red);padding-left:12px;color:var(--t3);font-style:italic;margin:12px 0}
+.rich-preview code{background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:12px}
+.rich-preview strong,.rich-preview b{color:var(--t1)}
+.kbd{background:rgba(255,255,255,0.08);border:1px solid var(--bh);border-radius:4px;padding:2px 6px;font-size:11px;font-family:monospace}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
+const SB_URL=window.__SB_URL||'https://niqtysxfymhxkhluarcc.supabase.co';
+const SB_KEY=window.__SB_KEY||'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pcXR5c3hmeW1oeGtobHVhcmNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ2NTcyODMsImV4cCI6MjA2MDIzMzI4M30.p4UHXSXAeIVK8E7SMEZv_VhQK-r7aSuG8_RkKDlxXac';
+const sb=supabase.createClient(SB_URL,SB_KEY);
+
+const CATS=['politica','economia','negocios','investimentos','mercados','seguros','tributacao','regulacao','tecnologia','industria','educacao','saude','familia','esportes','internacional','variedades','cultura','investigativo','seguranca','profissoes','vagas','concursos','imoveis','parcerias','esg','defesa','religiao','vc'];
+const CAT_LABEL={politica:'Política',economia:'Economia',negocios:'Negócios',investimentos:'Investimentos',mercados:'Mercados',seguros:'Seguros',tributacao:'Tributação',regulacao:'Regulação',tecnologia:'Tecnologia',industria:'Indústria',educacao:'Educação',saude:'Saúde',familia:'Família',esportes:'Esportes',internacional:'Internacional',variedades:'Variedades',cultura:'Cultura',investigativo:'Investigativo',seguranca:'Seg. Pública',profissoes:'Profissões',vagas:'Vagas',concursos:'Concursos',imoveis:'Imóveis',parcerias:'Parcerias',esg:'ESG',defesa:'Defesa',religiao:'Religião',vc:'Colunistas'};
+const CAT_COLOR={politica:'#dc2626',economia:'#2563eb',negocios:'#7c3aed',investimentos:'#059669',mercados:'#0891b2',seguros:'#0284c7',tributacao:'#b45309',regulacao:'#9333ea',tecnologia:'#6366f1',industria:'#ea580c',educacao:'#8b5cf6',saude:'#16a34a',familia:'#db2777',esportes:'#16a34a',internacional:'#dc2626',variedades:'#ec4899',cultura:'#7e22ce',investigativo:'#1a1a2e',seguranca:'#7f1d1d',profissoes:'#0369a1',vagas:'#065f46',concursos:'#1e40af',imoveis:'#b45309',parcerias:'#14b8a6',esg:'#166534',defesa:'#1e3a5f',religiao:'#6d28d9',vc:'#b8860b'};
+
+function useNotif(){
+  const [ns,setNs]=useState([]);
+  const add=(msg,type='ok')=>{
+    const id=Date.now();
+    setNs(p=>[...p,{id,msg,type}]);
+    setTimeout(()=>setNs(p=>p.filter(n=>n.id!==id)),3500);
+  };
+  return {ns,ok:msg=>add(msg,'ok'),err:msg=>add(msg,'err'),warn:msg=>add(msg,'warn')};
+}
+
+function Notifs({ns}){
+  return <div className="notif">{ns.map(n=><div key={n.id} className={`notif-item ${n.type}`}>{n.msg}</div>)}</div>;
+}
+
+function Login({onLogin}){
+  const [pw,setPw]=useState('');
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+  const submit=async e=>{
+    e.preventDefault();setLoading(true);setErr('');
+    try{
+      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',password:pw})});
+      const d=await r.json();
+      if(d.ok){localStorage.setItem('ovc_adm',pw);onLogin(pw);}
+      else setErr('Senha incorreta');
+    }catch{setErr('Erro de conexão');}
+    setLoading(false);
+  };
+  return(
+    <div className="login-wrap">
+      <div className="login-box">
+        <div className="login-logo"><span className="ovc">O<span className="accent">V</span>C</span></div>
+        <div className="login-tag">Centro de Comando</div>
+        <form onSubmit={submit}>
+          <label className="login-label">Senha de acesso</label>
+          <input className="login-input" type="password" value={pw} onChange={e=>setPw(e.target.value)} autoFocus placeholder="••••••••"/>
+          {err&&<div style={{color:'#f87171',fontSize:12,marginTop:8}}>{err}</div>}
+          <button className="login-btn" type="submit" disabled={loading}>{loading?'Verificando...':'Entrar'}</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const NAV=[
+  {id:'dashboard',icon:'📊',label:'Dashboard'},
+  {id:'posts',icon:'📰',label:'Publicações'},
+  {id:'rascunhos',icon:'✏️',label:'Rascunhos'},
+  {id:'agendados',icon:'🕐',label:'Agendados'},
+  {id:'ia',icon:'🤖',label:'IA & Portal'},
+  {id:'categorias',icon:'🗂️',label:'Categorias'},
+  {id:'midia',icon:'🖼️',label:'Mídia'},
+  {id:'config',icon:'⚙️',label:'Configurações'},
+  {id:'analytics',icon:'📈',label:'Analytics'},
+];
+
+function Sidebar({page,setPage,onLogout}){
+  return(
+    <div className="sidebar">
+      <div className="sidebar-logo">
+        <div className="name">O<span className="a">V</span>C</div>
+        <div className="sub">Admin</div>
+      </div>
+      <nav className="nav">
+        {NAV.map(n=>(
+          <div key={n.id} className={`nav-item${page===n.id?' active':''}`} onClick={()=>setPage(n.id)}>
+            <span className="nav-icon">{n.icon}</span>{n.label}
+          </div>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <div className="ver">v3.2.0</div>
+        <button className="logout-btn" onClick={onLogout}>⬅ Sair</button>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({pw}){
+  const [stats,setStats]=useState(null);
+  const [recent,setRecent]=useState([]);
+  const [cfg,setCfg]=useState({});
+  useEffect(()=>{
+    fetch('/api/portal-posts?limit=5').then(r=>r.json()).then(d=>{
+      setRecent(d.posts||[]);
+    }).catch(()=>{});
+    fetch('/api/manage').then(r=>r.json()).then(d=>{
+      setStats(d.stats||{total:0,hoje:0,semana:0});
+      setCfg(d);
+    }).catch(()=>{});
+  },[]);
+  const run=async(action,label)=>{
+    if(!confirm(`Executar: ${label}?`)) return;
+    try{
+      const r=await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,password:pw,force:true})});
+      const d=await r.json();
+      alert(JSON.stringify(d,null,2));
+    }catch(e){alert('Erro: '+e.message);}
+  };
+  return(
+    <div>
+      <div className="page-header">
+        <div className="page-title">Dashboard</div>
+        <div className="page-sub">Visão geral do portal</div>
+      </div>
+      <div className="content">
+        <div className="grid-3" style={{marginBottom:20}}>
+          {[
+            {label:'Total publicações',val:stats?.total??'—',color:'#6366f1'},
+            {label:'Hoje',val:stats?.hoje??'—',color:'#059669'},
+            {label:'Esta semana',val:stats?.semana??'—',color:'#0891b2'},
+          ].map(s=>(
+            <div key={s.label} className="card">
+              <div className="stat-num" style={{color:s.color}}>{s.val}</div>
+              <div className="stat-label">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <div className="grid-2" style={{marginBottom:20}}>
+          <div className="card">
+            <div className="card-title">⚡ Ações Rápidas</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+              <button className="btn btn-primary btn-sm" onClick={()=>run('full_pipeline','Pipeline completo')}>🔄 Pipeline completo</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>run('fetch_only','Coletar notícias')}>📥 Coletar notícias</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>run('rewrite_only','Reescrever')}>✍️ Reescrever</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>run('publish_only','Publicar')}>📤 Publicar</button>
+              <button className="btn btn-warning btn-sm" onClick={cleanupTitles}>🧹 Limpar Títulos</button>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-title">📋 Status do Portal</div>
+            <div style={{fontSize:13,color:'var(--t2)',lineHeight:1.8}}>
+              <div><span className="status-dot green"></span>API ativa</div>
+              <div><span className="status-dot green"></span>Supabase conectado</div>
+              <div><span className="status-dot yellow"></span>IA em standby</div>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-title">📰 Publicações recentes</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {recent.map(p=>(
+              <div key={p.id} style={{display:'flex',gap:12,alignItems:'center',padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+                {p.imagem&&<img src={p.imagem} style={{width:48,height:36,objectFit:'cover',borderRadius:4,flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:'var(--t1)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.titulo}</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>{p.categoria} · {p.data?new Date(p.data).toLocaleDateString('pt-BR'):''}</div>
+                </div>
+                <span className={`badge badge-${p.status==='publicado'?'green':p.status==='rascunho'?'yellow':'gray'}`}>{p.status||'—'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Posts({pw,status='publicado'}){
+  const [posts,setPosts]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [search,setSearch]=useState('');
+  const [cat,setCat]=useState('');
+  const [editing,setEditing]=useState(null);
+  const [page,setPage]=useState(1);
+  const PER=20;
+  const notif=useNotif();
+
+  const load=useCallback(async()=>{
+    setLoading(true);
+    try{
+      let url=`/api/portal-posts?limit=200${status?`&status=${status}`:''}${cat?`&categoria=${cat}`:''}`;
+      const r=await fetch(url);
+      const d=await r.json();
+      setPosts(d.posts||[]);
+    }catch{}
+    setLoading(false);
+  },[status,cat]);
+
+  useEffect(()=>{load();},[load]);
+
+  const filtered=useMemo(()=>{
+    if(!search) return posts;
+    const q=search.toLowerCase();
+    return posts.filter(p=>(p.titulo||'').toLowerCase().includes(q)||(p.categoria||'').includes(q));
+  },[posts,search]);
+
+  const paginated=filtered.slice((page-1)*PER,page*PER);
+  const totalPages=Math.ceil(filtered.length/PER);
+
+  const del=async p=>{
+    if(!confirm('Excluir publicação?')) return;
+    try{
+      const r=await fetch('/api/portal-posts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:p.id,password:pw})});
+      const d=await r.json();
+      if(d.ok){notif.ok('Excluído!');load();}
+      else notif.err(d.error||'Erro');
+    }catch(e){notif.err(e.message);}
+  };
+
+  const togglePub=async p=>{
+    const novo=p.status==='publicado'?'rascunho':'publicado';
+    try{
+      const r=await fetch('/api/portal-posts',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:p.id,status:novo,password:pw})});
+      const d=await r.json();
+      if(d.ok){notif.ok(`Status: ${novo}`);load();}
+      else notif.err(d.error||'Erro');
+    }catch(e){notif.err(e.message);}
+  };
+
+  return(
+    <div>
+      <Notifs ns={notif.ns}/>
+      <div className="page-header">
+        <div className="page-title">{status==='publicado'?'Publicações':status==='rascunho'?'Rascunhos':'Agendados'}</div>
+        <div className="page-sub">{filtered.length} itens</div>
+      </div>
+      <div className="content">
+        <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <input className="search-input" placeholder="Buscar..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/>
+          <select className="form-input select-input" style={{width:180}} value={cat} onChange={e=>{setCat(e.target.value);setPage(1);}}>
+            <option value="">Todas categorias</option>
+            {CATS.map(c=><option key={c} value={c}>{CAT_LABEL[c]||c}</option>)}
+          </select>
+          <button className="btn btn-secondary btn-sm" onClick={load}>🔄 Atualizar</button>
+          <button className="btn btn-primary btn-sm" onClick={()=>setEditing({})}>+ Novo</button>
+        </div>
+        {loading?<div style={{padding:40,textAlign:'center',color:'var(--t3)'}}>Carregando...</div>:(
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {paginated.map(p=>(
+              <div key={p.id} className="post-card">
+                {p.imagem&&<img className="post-thumb" src={p.imagem} onError={e=>e.target.style.display='none'}/>}
+                <div className="post-info">
+                  <div className="post-titulo">{p.titulo}</div>
+                  <div className="post-meta">
+                    <span style={{color:CAT_COLOR[p.categoria]||'#64748b'}}>{CAT_LABEL[p.categoria]||p.categoria}</span>
+                    <span>{p.data?new Date(p.data).toLocaleDateString('pt-BR'):''}</span>
+                    <span className={`badge badge-${p.status==='publicado'?'green':p.status==='rascunho'?'yellow':'gray'}`}>{p.status||'—'}</span>
+                  </div>
+                </div>
+                <div className="post-actions">
+                  <button className="btn btn-secondary btn-sm" onClick={()=>setEditing(p)}>✏️</button>
+                  <button className="btn btn-secondary btn-sm" onClick={()=>togglePub(p)}>{p.status==='publicado'?'⬇️':'⬆️'}</button>
+                  <button className="btn btn-danger btn-sm" onClick={()=>del(p)}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {totalPages>1&&(
+          <div style={{display:'flex',gap:6,marginTop:16,justifyContent:'center'}}>
+            <button className="btn btn-secondary btn-sm" disabled={page===1} onClick={()=>setPage(p=>p-1)}>‹</button>
+            <span style={{padding:'5px 12px',fontSize:13,color:'var(--t2)'}}>{page}/{totalPages}</span>
+            <button className="btn btn-secondary btn-sm" disabled={page===totalPages} onClick={()=>setPage(p=>p+1)}>›</button>
+          </div>
+        )}
+      </div>
+      {editing&&<PostModal post={editing} pw={pw} onClose={()=>setEditing(null)} onSaved={()=>{setEditing(null);load();}} notif={notif}/>}
+    </div>
+  );
+}
+
+function PostModal({post,pw,onClose,onSaved,notif}){
+  const isNew=!post.id;
+  const [f,setF]=useState({
+    titulo:post.titulo||'',
+    resumo:post.resumo||'',
+    conteudo:post.conteudo||'',
+    categoria:post.categoria||'politica',
+    status:post.status||'rascunho',
+    imagem:post.imagem||'',
+    slug:post.slug||'',
+    tags:post.tags||'',
+    fonte:post.fonte||'',
+    agendado_para:post.agendado_para||'',
+  });
+  const [saving,setSaving]=useState(false);
+  const [tab,setTab]=useState('basico');
+  const [preview,setPreview]=useState(false);
+
+  const set=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+
+  const toolbarAction=(action,val)=>{
+    const ta=document.getElementById('conteudo-editor');
+    if(!ta) return;
+    const s=ta.selectionStart,e=ta.selectionEnd;
+    const sel=f.conteudo.substring(s,e);
+    let rep='';
+    if(action==='bold') rep=`**${sel||'texto'}**`;
+    else if(action==='italic') rep=`_${sel||'texto'}_`;
+    else if(action==='h2') rep=`## ${sel||'Título'}`;
+    else if(action==='h3') rep=`### ${sel||'Subtítulo'}`;
+    else if(action==='ul') rep=`\n- ${sel||'item'}`;
+    else if(action==='ol') rep=`\n1. ${sel||'item'}`;
+    else if(action==='quote') rep=`\n> ${sel||'citação'}`;
+    else if(action==='link') rep=`[${sel||'texto'}](url)`;
+    else if(action==='hr') rep='\n---\n';
+    const novo=f.conteudo.substring(0,s)+rep+f.conteudo.substring(e);
+    setF(p=>({...p,conteudo:novo}));
+  };
+
+  const save=async()=>{
+    if(!f.titulo.trim()){notif.err('Título obrigatório');return;}
+    setSaving(true);
+    try{
+      const body={...f,password:pw};
+      if(!isNew) body.id=post.id;
+      const r=await fetch('/api/portal-posts',{
+        method:isNew?'POST':'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      const d=await r.json();
+      if(d.ok||d.id){notif.ok(isNew?'Criado!':'Salvo!');onSaved();}
+      else notif.err(d.error||'Erro ao salvar');
+    }catch(e){notif.err(e.message);}
+    setSaving(false);
+  };
+
+  const renderMd=txt=>{
+    return txt
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+      .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+      .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/_(.+?)_/g,'<em>$1</em>')
+      .replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
+      .replace(/^- (.+)$/gm,'<li>$1</li>')
+      .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+      .replace(/---/g,'<hr/>')
+      .replace(/\n\n/g,'</p><p>')
+      .replace(/^(?!<[hbuoli])/gm,'<p>')+'</p>';
+  };
+
+  return(
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:760}}>
+        <div className="modal-title">{isNew?'Nova publicação':'Editar publicação'}</div>
+        <div className="tabs">
+          {['basico','conteudo','seo','avancado'].map(t=>(
+            <div key={t} className={`tab${tab===t?' active':''}`} onClick={()=>setTab(t)}>
+              {t==='basico'?'Básico':t==='conteudo'?'Conteúdo':t==='seo'?'SEO':'Avançado'}
+            </div>
+          ))}
+        </div>
+        {tab==='basico'&&(
+          <div>
+            <div className="form-group">
+              <label className="form-label">Título *</label>
+              <input className="form-input" value={f.titulo} onChange={set('titulo')} placeholder="Título da publicação"/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Resumo</label>
+              <textarea className="form-input form-textarea" style={{minHeight:80}} value={f.resumo} onChange={set('resumo')} placeholder="Resumo curto (160 chars)"/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div className="form-group">
+                <label className="form-label">Categoria</label>
+                <select className="form-input select-input" value={f.categoria} onChange={set('categoria')}>
+                  {CATS.map(c=><option key={c} value={c}>{CAT_LABEL[c]||c}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select className="form-input select-input" value={f.status} onChange={set('status')}>
+                  <option value="rascunho">Rascunho</option>
+                  <option value="publicado">Publicado</option>
+                  <option value="agendado">Agendado</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">URL da imagem</label>
+              <input className="form-input" value={f.imagem} onChange={set('imagem')} placeholder="https://..."/>
+              {f.imagem&&<div className="img-preview"><img src={f.imagem} onError={e=>e.target.style.display='none'}/></div>}
+            </div>
+          </div>
+        )}
+        {tab==='conteudo'&&(
+          <div>
+            <div style={{marginBottom:8,display:'flex',gap:6,justifyContent:'flex-end'}}>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setPreview(p=>!p)}>{preview?'✏️ Editar':'👁 Preview'}</button>
+            </div>
+            {preview?(
+              <div className="rich-preview" dangerouslySetInnerHTML={{__html:renderMd(f.conteudo)}}/>
+            ):(
+              <>
+                <div className="editor-toolbar">
+                  {[['bold','**B**'],['italic','_I_'],['h2','H2'],['h3','H3'],['ul','• Lista'],['ol','1. Lista'],['quote','❝'],['link','🔗'],['hr','—']].map(([a,l])=>(
+                    <button key={a} className="editor-btn" onClick={()=>toolbarAction(a)}>{l}</button>
+                  ))}
+                </div>
+                <textarea id="conteudo-editor" className="form-input form-textarea editor-area" style={{minHeight:280,fontFamily:'monospace',fontSize:12}} value={f.conteudo} onChange={set('conteudo')} placeholder="Conteúdo em Markdown..."/>
+              </>
+            )}
+          </div>
+        )}
+        {tab==='seo'&&(
+          <div>
+            <div className="form-group">
+              <label className="form-label">Slug (URL)</label>
+              <input className="form-input" value={f.slug} onChange={set('slug')} placeholder="meu-artigo-aqui"/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tags</label>
+              <input className="form-input" value={f.tags} onChange={set('tags')} placeholder="tag1, tag2, tag3"/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Fonte</label>
+              <input className="form-input" value={f.fonte} onChange={set('fonte')} placeholder="https://fonte.com.br/artigo"/>
+            </div>
+          </div>
+        )}
+        {tab==='avancado'&&(
+          <div>
+            <div className="form-group">
+              <label className="form-label">Agendar publicação</label>
+              <input className="form-input" type="datetime-local" value={f.agendado_para} onChange={set('agendado_para')}/>
+            </div>
+            {!isNew&&(
+              <div className="form-group">
+                <label className="form-label">ID</label>
+                <input className="form-input" value={post.id} readOnly style={{opacity:.5}}/>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving?'Salvando...':'Salvar'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IAPortal({pw}){
+  const [cfg,setCfg]=useState({});
+  const [loading,setLoading]=useState(true);
+  const [running,setRunning]=useState(false);
+  const [log,setLog]=useState('');
+  const [activeTab,setActiveTab]=useState('executar');
+  const notif=useNotif();
+
+  useEffect(()=>{
+    fetch('/api/manage').then(r=>r.json()).then(d=>{setCfg(d);setLoading(false);}).catch(()=>setLoading(false));
+  },[]);
+
+  const saveCfg=async()=>{
+    try{
+      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_config',...cfg,password:pw})});
+      const d=await r.json();
+      if(d.ok) notif.ok('Configurações salvas!');
+      else notif.err(d.error||'Erro');
+    }catch(e){notif.err(e.message);}
+  };
+
+  const runAction=async(action,label,extra={})=>{
+    if(!confirm(`Executar: ${label}?`)) return;
+    setRunning(true);setLog(`Iniciando ${label}...\n`);
+    try{
+      const r=await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,password:pw,force:true,...extra})});
+      const d=await r.json();
+      setLog(JSON.stringify(d,null,2));
+      if(d.ok||d.published>=0) notif.ok(`${label} concluído!`);
+      else notif.warn('Concluído com avisos');
+    }catch(e){setLog('Erro: '+e.message);notif.err(e.message);}
+    setRunning(false);
+  };
+
+  const set=k=>e=>setCfg(p=>({...p,[k]:e.target.value}));
+
+  if(loading) return <div style={{padding:40,textAlign:'center',color:'var(--t3)'}}>Carregando...</div>;
+
+  return(
+    <div>
+      <Notifs ns={notif.ns}/>
+      <div className="page-header">
+        <div className="page-title">IA & Portal</div>
+        <div className="page-sub">Controle do pipeline de IA</div>
+      </div>
+      <div className="content">
+        <div className="tabs">
+          {['executar','config','prompt'].map(t=>(
+            <div key={t} className={`tab${activeTab===t?' active':''}`} onClick={()=>setActiveTab(t)}>
+              {t==='executar'?'▶ Executar':t==='config'?'⚙ Config':'📝 Prompt'}
+            </div>
+          ))}
+        </div>
+
+        {activeTab==='executar'&&(
+          <div>
+            <div className="grid-2" style={{marginBottom:20}}>
+              <div className="card">
+                <div className="card-title">Pipeline</div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {[
+                    ['full_pipeline','🔄 Pipeline completo','Coleta + reescrita + publicação'],
+                    ['fetch_only','📥 Coletar notícias','Busca novas notícias das fontes'],
+                    ['rewrite_only','✍️ Reescrever','Reescreve rascunhos com IA'],
+                    ['publish_only','📤 Publicar','Publica rascunhos aprovados'],
+                  ].map(([action,label,desc])=>(
+                    <div key={action} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid var(--border)'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600}}>{label}</div>
+                        <div style={{fontSize:11,color:'var(--t3)'}}>{desc}</div>
+                      </div>
+                      <button className="btn btn-primary btn-sm" disabled={running} onClick={()=>runAction(action,label)}>{running?'...':'Executar'}</button>
+                    </div>
+                  ))}
+                  <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0'}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600}}>🧹 Limpar Títulos</div>
+                      <div style={{fontSize:11,color:'var(--t3)'}}>Remove marcações Markdown dos títulos</div>
+                    </div>
+                    <button className="btn btn-warning btn-sm" disabled={running} onClick={()=>runAction('cleanup_titles','Limpar Títulos')}>Executar</button>
+                  </div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-title">Log de execução</div>
+                <pre style={{fontSize:11,color:'var(--t2)',background:'rgba(0,0,0,0.3)',padding:12,borderRadius:8,minHeight:200,maxHeight:300,overflow:'auto',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>
+                  {log||'Nenhuma execução ainda...'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab==='config'&&(
+          <div className="card">
+            <div className="card-title">Configurações do portal</div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Posts por execução</label>
+                <input className="form-input" type="number" value={cfg.posts_por_execucao||10} onChange={set('posts_por_execucao')}/>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Categorias ativas</label>
+                <input className="form-input" value={cfg.categorias_ativas||''} onChange={set('categorias_ativas')} placeholder="politica,economia,..."/>
+              </div>
+              <div className="form-group">
+                <label className="form-label">YouTube Live URL</label>
+                <input className="form-input" value={cfg.youtube_live_url||''} onChange={set('youtube_live_url')} placeholder="https://youtube.com/embed/..."/>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Senha admin</label>
+                <input className="form-input" type="password" value={cfg.admin_password||''} onChange={set('admin_password')}/>
+              </div>
+            </div>
+            <button className="btn btn-primary" onClick={saveCfg}>💾 Salvar configurações</button>
+          </div>
+        )}
+
+        {activeTab==='prompt'&&(
+          <div className="card">
+            <div className="card-title">Prompt da IA</div>
+            <div className="form-group">
+              <label className="form-label">Prompt sistema</label>
+              <textarea className="form-input form-textarea" style={{minHeight:320,fontFamily:'monospace',fontSize:12}} value={cfg.prompt_sistema||''} onChange={set('prompt_sistema')} placeholder="Você é um jornalista..."/>
+            </div>
+            <button className="btn btn-primary" onClick={saveCfg}>💾 Salvar prompt</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Categorias(){
+  const CATS_FULL=CATS.map(id=>({id,label:CAT_LABEL[id]||id,color:CAT_COLOR[id]||'#64748b',path:`/${id==='tributacao'?'tributos':id}/`}));
+  return(
+    <div>
+      <div className="page-header">
+        <div className="page-title">Categorias</div>
+        <div className="page-sub">{CATS_FULL.length} categorias</div>
+      </div>
+      <div className="content">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12}}>
+          {CATS_FULL.map(c=>(
+            <div key={c.id} className="card" style={{borderLeft:`3px solid ${c.color}`}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                <span className="color-dot" style={{background:c.color}}></span>
+                <span style={{fontWeight:600,fontSize:13}}>{c.label}</span>
+              </div>
+              <div style={{fontSize:11,color:'var(--t3)'}}>{c.path}</div>
+              <a href={c.path} target="_blank" style={{fontSize:11,color:'var(--red)',marginTop:8,display:'inline-block'}}>Ver no site →</a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Midia({pw}){
+  const [images,setImages]=useState([]);
+  const [uploading,setUploading]=useState(false);
+  const [search,setSearch]=useState('');
+  const [selected,setSelected]=useState(null);
+  const notif=useNotif();
+  const inputRef=useRef();
+
+  useEffect(()=>{loadImages();},[]);
+
+  const loadImages=async()=>{
+    try{
+      const {data}=await sb.storage.from('media').list('',{limit:200,sortBy:{column:'created_at',order:'desc'}});
+      setImages(data||[]);
+    }catch{}
+  };
+
+  const upload=async files=>{
+    setUploading(true);
+    for(const file of files){
+      const name=`${Date.now()}-${file.name.replace(/[^a-z0-9.-]/gi,'_')}`;
+      const {error}=await sb.storage.from('media').upload(name,file,{cacheControl:'3600',upsert:false});
+      if(error) notif.err(error.message);
+      else notif.ok(`Enviado: ${file.name}`);
+    }
+    await loadImages();setUploading(false);
+  };
+
+  const getUrl=name=>{
+    const {data}=sb.storage.from('media').getPublicUrl(name);
+    return data?.publicUrl||'';
+  };
+
+  const del=async name=>{
+    if(!confirm('Excluir imagem?')) return;
+    const {error}=await sb.storage.from('media').remove([name]);
+    if(error) notif.err(error.message);
+    else{notif.ok('Removida');loadImages();}
+  };
+
+  const filtered=images.filter(i=>i.name.toLowerCase().includes(search.toLowerCase()));
+
+  return(
+    <div>
+      <Notifs ns={notif.ns}/>
+      <div className="page-header">
+        <div className="page-title">Mídia</div>
+        <div className="page-sub">{images.length} arquivos</div>
+      </div>
+      <div className="content">
+        <div style={{display:'flex',gap:10,marginBottom:16,alignItems:'center'}}>
+          <input className="search-input" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <button className="btn btn-primary btn-sm" onClick={()=>inputRef.current.click()} disabled={uploading}>
+            {uploading?'Enviando...':'📤 Upload'}
+          </button>
+          <input ref={inputRef} type="file" accept="image/*" multiple style={{display:'none'}} onChange={e=>upload(Array.from(e.target.files))}/>
+        </div>
+        <div
+          style={{border:'2px dashed var(--border)',borderRadius:10,padding:24,textAlign:'center',marginBottom:16,cursor:'pointer'}}
+          onClick={()=>inputRef.current.click()}
+          onDragOver={e=>{e.preventDefault();}}
+          onDrop={e=>{e.preventDefault();upload(Array.from(e.dataTransfer.files));}}
+        >
+          <div style={{fontSize:24,marginBottom:8}}>🖼️</div>
+          <div style={{fontSize:13,color:'var(--t2)'}}>Arraste imagens aqui ou clique para selecionar</div>
+        </div>
+        <div className="img-grid">
+          {filtered.map(img=>{
+            const url=getUrl(img.name);
+            return(
+              <div key={img.name} className={`img-item${selected===img.name?' selected':''}`} onClick={()=>setSelected(img.name===selected?null:img.name)}>
+                <img src={url} alt={img.name} loading="lazy" onError={e=>e.target.parentNode.style.display='none'}/>
+                <button className="img-del" onClick={e=>{e.stopPropagation();del(img.name);}}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+        {selected&&(
+          <div className="card" style={{marginTop:16}}>
+            <div className="card-title">Imagem selecionada</div>
+            <div style={{fontSize:12,color:'var(--t2)',wordBreak:'break-all',marginBottom:8}}>{getUrl(selected)}</div>
+            <button className="btn btn-secondary btn-sm" onClick={()=>{navigator.clipboard.writeText(getUrl(selected));}} >📋 Copiar URL</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Config({pw}){
+  const [cfg,setCfg]=useState({});
+  const [loading,setLoading]=useState(true);
+  const notif=useNotif();
+
+  useEffect(()=>{
+    fetch('/api/manage').then(r=>r.json()).then(d=>{setCfg(d);setLoading(false);}).catch(()=>setLoading(false));
+  },[]);
+
+  const set=k=>e=>setCfg(p=>({...p,[k]:e.target.value}));
+  const setCheck=k=>e=>setCfg(p=>({...p,[k]:e.target.checked}));
+
+  const save=async()=>{
+    try{
+      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_config',...cfg,password:pw})});
+      const d=await r.json();
+      if(d.ok) notif.ok('Salvo!');
+      else notif.err(d.error||'Erro');
+    }catch(e){notif.err(e.message);}
+  };
+
+  if(loading) return <div style={{padding:40,textAlign:'center'}}>Carregando...</div>;
+  return(
+    <div>
+      <Notifs ns={notif.ns}/>
+      <div className="page-header">
+        <div className="page-title">Configurações</div>
+        <div className="page-sub">Configurações globais do sistema</div>
+      </div>
+      <div className="content">
+        <div className="card" style={{marginBottom:20}}>
+          <div className="card-title">🔑 Acesso</div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Senha admin</label>
+              <input className="form-input" type="password" value={cfg.admin_password||''} onChange={set('admin_password')} placeholder="Nova senha"/>
+            </div>
+          </div>
+        </div>
+        <div className="card" style={{marginBottom:20}}>
+          <div className="card-title">📺 Mídia</div>
+          <div className="form-group">
+            <label className="form-label">YouTube Live URL (embed)</label>
+            <input className="form-input" value={cfg.youtube_live_url||''} onChange={set('youtube_live_url')} placeholder="https://www.youtube.com/embed/LIVE_ID"/>
+          </div>
+        </div>
+        <div className="card" style={{marginBottom:20}}>
+          <div className="card-title">🤖 IA</div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Posts por execução</label>
+              <input className="form-input" type="number" min="1" max="50" value={cfg.posts_por_execucao||10} onChange={set('posts_por_execucao')}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Categorias ativas</label>
+              <input className="form-input" value={cfg.categorias_ativas||''} onChange={set('categorias_ativas')} placeholder="politica,economia,negocios"/>
+            </div>
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={save}>💾 Salvar tudo</button>
+      </div>
+    </div>
+  );
+}
+
+function Analytics(){
+  const [data,setData]=useState({});
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    fetch('/api/portal-posts?limit=500').then(r=>r.json()).then(d=>{
+      const posts=d.posts||[];
+      const byCat={};
+      posts.forEach(p=>{
+        const c=p.categoria||'geral';
+        byCat[c]=(byCat[c]||0)+1;
+      });
+      const byDay={};
+      posts.forEach(p=>{
+        if(!p.data) return;
+        const day=p.data.slice(0,10);
+        byDay[day]=(byDay[day]||0)+1;
+      });
+      setData({total:posts.length,byCat,byDay,posts});
+      setLoading(false);
+    }).catch(()=>setLoading(false));
+  },[]);
+  if(loading) return <div style={{padding:40,textAlign:'center',color:'var(--t3)'}}>Carregando...</div>;
+  const cats=Object.entries(data.byCat||{}).sort((a,b)=>b[1]-a[1]);
+  const maxCat=cats[0]?.[1]||1;
+  return(
+    <div>
+      <div className="page-header">
+        <div className="page-title">Analytics</div>
+        <div className="page-sub">Estatísticas do portal</div>
+      </div>
+      <div className="content">
+        <div className="grid-3" style={{marginBottom:20}}>
+          <div className="card">
+            <div className="stat-num" style={{color:'#6366f1'}}>{data.total}</div>
+            <div className="stat-label">Total de publicações</div>
+          </div>
+          <div className="card">
+            <div className="stat-num" style={{color:'#059669'}}>{cats.length}</div>
+            <div className="stat-label">Categorias com conteúdo</div>
+          </div>
+          <div className="card">
+            <div className="stat-num" style={{color:'#0891b2'}}>{Object.keys(data.byDay||{}).length}</div>
+            <div className="stat-label">Dias com publicação</div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-title">Publicações por categoria</div>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {cats.map(([cat,count])=>(
+              <div key={cat} style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:120,fontSize:12,color:'var(--t2)',flexShrink:0}}>{CAT_LABEL[cat]||cat}</div>
+                <div style={{flex:1,background:'rgba(255,255,255,0.05)',borderRadius:4,height:18,overflow:'hidden'}}>
+                  <div style={{width:`${(count/maxCat)*100}%`,height:'100%',background:CAT_COLOR[cat]||'#6366f1',borderRadius:4,transition:'width .4s'}}></div>
+                </div>
+                <div style={{width:32,fontSize:12,color:'var(--t1)',textAlign:'right',flexShrink:0}}>{count}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const [pw,setPw]=useState(()=>localStorage.getItem('ovc_adm')||'');
+  const [authed,setAuthed]=useState(false);
+  const [page,setPage]=useState('dashboard');
+  const [checking,setChecking]=useState(!!localStorage.getItem('ovc_adm'));
+
+  useEffect(()=>{
+    const saved=localStorage.getItem('ovc_adm');
+    if(!saved){setChecking(false);return;}
+    fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',password:saved})})
+      .then(r=>r.json()).then(d=>{
+        if(d.ok){setPw(saved);setAuthed(true);}
+        else localStorage.removeItem('ovc_adm');
+        setChecking(false);
+      }).catch(()=>setChecking(false));
+  },[]);
+
+  if(checking) return <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t2)'}}>Verificando...</div>;
+  if(!authed) return <Login onLogin={p=>{setPw(p);setAuthed(true);}}/>;
+
+  const renderPage=()=>{
+    if(page==='posts') return <Posts pw={pw} status="publicado"/>;
+    if(page==='rascunhos') return <Posts pw={pw} status="rascunho"/>;
+    if(page==='agendados') return <Posts pw={pw} status="agendado"/>;
+    if(page==='ia') return <IAPortal pw={pw}/>;
+    if(page==='categorias') return <Categorias/>;
+    if(page==='midia') return <Midia pw={pw}/>;
+    if(page==='config') return <Config pw={pw}/>;
+    if(page==='analytics') return <Analytics/>;
+    return <Dashboard pw={pw}/>;
+  };
+
+  return(
+    <div className="layout">
+      <Sidebar page={page} setPage={setPage} onLogout={()=>{localStorage.removeItem('ovc_adm');setAuthed(false);setPw('');}}/>
+      <div className="main">{renderPage()}</div>
+    </div>
+  );
+}
+
+async function cleanupTitles(){
+  if(!confirm('Isso vai limpar marcações Markdown dos títulos e conteúdos armazenada no banco. Continuar?')) return;
+  try {
+    const r = await fetch('/api/run_portal', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action:'cleanup_titles', force:true})
+    });
+    const d = await r.json();
+    alert('Limpeza concluída!\nTítulos corrigidos: ' + (d.fixedTitles||0) + '\nConteúdos corrigidos: ' + (d.fixedContent||0));
+  } catch(e) {
+    alert('Erro na limpeza: ' + e.message);
+  }
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
