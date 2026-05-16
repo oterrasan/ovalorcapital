@@ -21,7 +21,6 @@ function markdownToHtml(text) {
 
     if (!trimmed) { i++; continue; }
 
-    // Linha "Redação OVC — data"
     if (/^Reda[cç][aã]o OVC/i.test(trimmed)) {
       const converted = trimmed.replace(/^(Reda[cç][aã]o OVC)/i, '<strong>$1</strong>');
       output.push(`<p>${converted}</p>`);
@@ -29,7 +28,6 @@ function markdownToHtml(text) {
       continue;
     }
 
-    // H2
     if (/^##\s+/.test(trimmed)) {
       const heading = trimmed.replace(/^##\s+/, '');
       output.push(`<h2>${inlineBold(heading)}</h2>`);
@@ -37,7 +35,6 @@ function markdownToHtml(text) {
       continue;
     }
 
-    // Lista de bullets
     if (/^[•\-]\s+/.test(trimmed)) {
       const items = [];
       while (i < lines.length && /^[•\-]\s+/.test(lines[i].trim())) {
@@ -49,14 +46,12 @@ function markdownToHtml(text) {
       continue;
     }
 
-    // Linha de hashtags
     if (/^#[a-zA-Z]/.test(trimmed)) {
       output.push(`<p>${trimmed}</p>`);
       i++;
       continue;
     }
 
-    // Parágrafo normal — agrega linhas até linha em branco
     const paraLines = [];
     while (i < lines.length && lines[i].trim()) {
       paraLines.push(lines[i].trim());
@@ -71,8 +66,17 @@ function markdownToHtml(text) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (!req.body?.force) return res.status(403).json({ error: 'requires force:true' });
+  const isGet = req.method === 'GET';
+  const isPost = req.method === 'POST';
+
+  if (!isGet && !isPost) return res.status(405).json({ error: 'Method not allowed' });
+
+  const forceGet = isGet && req.query?.force === '1';
+  const forcePost = isPost && req.body?.force === true;
+
+  if (!forceGet && !forcePost) {
+    return res.status(403).json({ error: 'Passe ?force=1 na URL (GET) ou force:true no body (POST)' });
+  }
 
   // 7h BRT = 10h UTC
   const hojeUTC = new Date().toISOString().split('T')[0];
@@ -107,13 +111,19 @@ export default async function handler(req, res) {
       else fixed++;
     }
 
-    return res.status(200).json({
+    const resultado = {
       status: 'ok',
       total_verificados: (posts || []).length,
       corrigidos: fixed,
       sem_markdown: skipped,
       erros: erros.length ? erros : undefined
-    });
+    };
+
+    if (isGet) {
+      res.setHeader('Content-Type', 'text/html');
+      return res.status(200).send(`<pre style="font-family:monospace;font-size:16px;padding:20px">${JSON.stringify(resultado, null, 2)}</pre>`);
+    }
+    return res.status(200).json(resultado);
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
   }
