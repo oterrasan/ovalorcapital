@@ -153,6 +153,59 @@
     +'</div>';
   }
 
+  var _BANNER_WA = 'https://wa.me/5511988510361';
+  var _BANNER_PRODS = [null,
+    {t:'Sua empresa está pagando até 35% acima do mercado no plano de saúde atual?',a:'Reduza custos com a gestão de benefícios corporativos da Terrasan. Opções PME com hospitais de elite.',c:'Solicitar Estudo Gratuito',m:'Olá! Gostaria de um estudo gratuito sobre Plano de Saúde Corporativo.'},
+    {t:'Acesso à medicina de elite com tabelas diferenciadas para o seu perfil.',a:'Compare as coberturas das operadoras mais renomadas do país com consultoria VIP Terrasan.',c:'Comparar Coberturas',m:'Olá! Gostaria de comparar coberturas de convênios médicos.'},
+    {t:'Proteção integral para a saúde de quem cuida da saúde dos outros.',a:'Seguro médico desenhado sob medida para as necessidades específicas e rotina de médicos e especialistas.',c:'Conhecer Apólice',m:'Olá! Sou médico e gostaria de conhecer o seguro médico da Lions.'},
+    {t:'Construa uma linha de defesa financeira inabalável para quem você ama.',a:'Garanta estabilidade e proteção para sua família nos momentos mais críticos com o Seguro de Vida Lions.',c:'Proteger Família',m:'Olá! Gostaria de informações sobre Seguro de Vida.'},
+    {t:'Proteção vitalícia com a inteligência financeira de formação de reserva.',a:'Um ativo estratégico que protege seu patrimônio e permite o resgate do capital capitalizado no futuro.',c:'Simular Reserva',m:'Olá! Gostaria de simular um Seguro Resgatável com formação de reserva.'},
+    {t:'Planejamento de longo prazo com eficiência fiscal e independência financeira.',a:'Construa o seu amanhã sem depender do Estado. Soluções estruturadas de Previdência Privada.',c:'Planejar Futuro',m:'Olá! Gostaria de informações sobre Previdência Privada.'},
+    {t:'Alocação estratégica global de capital para investidores exigentes.',a:'Acesse os principais mercados do mundo com assessoria especializada em preservação e ganho real.',c:'Falar com Assessor',m:'Olá! Gostaria de falar com um assessor de investimentos.'},
+    {t:'Proteja o seu patrimônio contra a oscilação da moeda local.',a:'Diversifique geograficamente os seus ativos e construa patrimônio na moeda mais forte do planeta.',c:'Dolarizar Ativos',m:'Olá! Gostaria de informações sobre dolarização de patrimônio.'},
+    {t:'Alavanque seu patrimônio imobiliário e veicular sem juros de financiamento.',a:'Planeje a aquisição de imóveis, frotas e ativos pesados com as cotas estratégicas do Grupo Terrasan.',c:'Analisar Tabelas',m:'Olá! Gostaria de analisar tabelas de consórcio.'},
+    {t:'Se você precisar parar de trabalhar hoje, quem paga o seu faturamento?',a:'Garanta o recebimento de diárias por afastamento temporário profissional e blinde seu padrão de vida.',c:'Blindar Renda',m:'Olá! Gostaria de informações sobre Seguro de Renda Garantida.'},
+    {t:'Liquidez imediata em momentos de diagnóstico crítico de saúde.',a:'Receba o capital segurado diretamente em conta para custear tratamentos de ponta sem tocar nas suas reservas.',c:'Solicitar Cotação',m:'Olá! Gostaria de uma cotação de Seguro de Acidentes e Doenças Graves.'},
+    {t:'A segurança definitiva para a sua maior ferramenta de trabalho: a sua capacidade produtiva.',a:'Proteção financeira robusta contra imprevistos que possam comprometer permanentemente sua atividade profissional.',c:'Garantir Segurança',m:'Olá! Gostaria de informações sobre Seguro de Invalidez.'},
+    {t:'Proteja a reputação da sua empresa e o seu patrimônio profissional.',a:'Seguro de Responsabilidade Civil Profissional contra erros, omissões ou falhas involuntárias na prestação de serviços.',c:'Blindar Carreira',m:'Olá! Gostaria de uma cotação de Seguro RC Profissional.'},
+    {t:'Defesa jurídica cível, criminal e ética especializada para médicos.',a:'Proteja o seu CRM e o patrimônio da sua clínica com o suporte e blindagem especializada Anadem através da Lions.',c:'Solicitar Blindagem',m:'Olá! Sou médico e gostaria de informações sobre o seguro jurídico Anadem.'},
+    {t:'Explore o mundo com a retaguarda global e atendimento VIP da Lions.',a:'Assistência médica internacional, extravio de bagagens e suporte jurídico 24h em qualquer continente.',c:'Emitir Seguro',m:'Olá! Gostaria de emitir um seguro viagem.'},
+    {t:'Apoio e respeito absoluto nos momentos de transição familiar.',a:'Resolva os trâmites burocráticos e financeiros com total assistência, dignidade e discrição.',c:'Conhecer Planos',m:'Olá! Gostaria de informações sobre Assistência Funeral.'},
+    {t:'Inteligência financeira em proteção, seguros e investimentos.',a:'Da proteção da sua empresa à sucessão da sua família, centralize todos os riscos do seu ecossistema na Lions Corretora.',c:'Conhecer Portfólio',m:'Olá! Gostaria de conhecer o portfólio completo da Lions Corretora.'}
+  ];
+  var _BANNER_MAP = {
+    saude:[1,2,11,16],familia:[4,6,16],negocios:[1,9,13],investimentos:[5,6,7,8],
+    economia:[6,7,8],mercados:[7,8,5],internacional:[8,15],profissoes:[10,12,13],
+    seguros:[4,5,10,11],tributacao:[6,17],politica:[17],regulacao:[17],
+    educacao:[17],industria:[9,17],tecnologia:[13,17],esportes:[15,17],
+    variedades:[15,17],investigativo:[17],seguranca:[17],cultura:[15,17],
+    vagas:[10,17],concursos:[17],imoveis:[9,17],esg:[17],defesa:[17],religiao:[17],parcerias:[17]
+  };
+  var _SUBCAT_MAP = {
+    'medicina':[3,14],'advocacia':[13],'contabilidade':[13],'ti &':[13],
+    'heran':[5],'sucess':[5],'inválid':[12],'renda':[10],'acident':[11],
+    'viagem':[15],'funeral':[16],'previd':[6],'consórc':[9],'dolariz':[8]
+  };
+  function _getBannerIdx(cat, subcat) {
+    if (subcat) {
+      var sl = subcat.toLowerCase();
+      for (var k in _SUBCAT_MAP) { if (sl.indexOf(k) !== -1) { var o = _SUBCAT_MAP[k]; return o[Math.floor(Math.random()*o.length)]; } }
+    }
+    var opts = _BANNER_MAP[cat] || [17];
+    return opts[Math.floor(Math.random()*opts.length)];
+  }
+  function renderBanner(cat, subcat) {
+    var idx = _getBannerIdx(cat, subcat);
+    var p = _BANNER_PRODS[idx] || _BANNER_PRODS[17];
+    var url = _BANNER_WA + '?text=' + encodeURIComponent(p.m);
+    return '<div style="background:#0A192F;border-radius:8px;padding:24px 28px;margin:36px 0;border:1px solid rgba(100,255,218,0.12);">'
+      +'<p style="color:#64FFDA;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;margin:0 0 12px;font-weight:600;">Lions Corretora · Grupo Terrasan</p>'
+      +'<h3 style="color:#FFFFFF;font-size:17px;font-weight:700;margin:0 0 10px;line-height:1.4;">' + esc(p.t) + '</h3>'
+      +'<p style="color:#8892B0;font-size:13px;margin:0 0 20px;line-height:1.65;">' + esc(p.a) + '</p>'
+      +'<a href="' + url + '" target="_blank" rel="noopener" style="display:inline-block;border:1px solid #64FFDA;color:#64FFDA;padding:10px 24px;border-radius:4px;font-size:12px;text-decoration:none;letter-spacing:1px;font-weight:600;">[ ' + esc(p.c) + ' ]</a>'
+      +'</div>';
+  }
+
   function renderHeroCard(p){
     var url = buildUrl(p), c = cor(p.categoria);
     var bg = p.imagem ? 'background:url(\''+p.imagem+'\') center/cover no-repeat;' : 'background:'+c+';';
@@ -252,6 +305,22 @@
             m('name','twitter:description', desc); m('name','twitter:image', p.imagem || '');
           })();
 
+          (function(){
+            var ld = document.createElement('script');
+            ld.type = 'application/ld+json';
+            ld.text = JSON.stringify({
+              '@context':'https://schema.org','@type':'NewsArticle',
+              'headline': p.titulo,
+              'image': p.imagem ? [p.imagem] : [],
+              'datePublished': p.data, 'dateModified': p.data,
+              'author':[{'@type':'Organization','name':'Redação OVC'}],
+              'publisher':{'@type':'Organization','name':'O Valor Capital','url':'https://ovalorcapital.com.br'},
+              'url':'https://ovalorcapital.com.br'+buildUrl(p),
+              'description':(p.subtitulo||p.resumo||'').slice(0,160),
+              'articleSection': lbl(p.categoria)
+            });
+            document.head.appendChild(ld);
+          })();
           var c = cor(p.categoria);
           var urlRel = buildUrl(p);
           var catSlug = CAT_PATH[p.categoria] || 'politica';
@@ -285,12 +354,13 @@
               +(p.subtitulo ? '<p style="font-size:18px;color:#475569;margin:0 0 4px;line-height:1.6;font-style:italic;border-left:4px solid '+c+';padding:6px 0 6px 16px;">'+esc(p.subtitulo)+'</p>' : '')
               +renderShare(p.titulo, urlRel)
               +(p.imagem ? '<div style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:30px;"><img src="'+p.imagem+'" alt="'+esc(p.titulo||'')+'" style="width:100%;max-height:460px;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>' : '')
+              +renderBanner(p.categoria, p.subcategoria)
               +'<div>'+renderCorpo(p.corpo||'')+'</div>'
               +renderCTA();
           }
 
           var banner = document.querySelector('.ovc-banner-slot');
-          if(banner) banner.style.display = 'none';
+          if(banner){ banner.innerHTML = renderBanner(p.categoria, p.subcategoria); banner.style.display = 'block'; }
 
           fetch('/api/portal-posts?categoria=' + encodeURIComponent(p.categoria) + '&limit=24')
             .then(function(r){ return r.json(); })
@@ -375,7 +445,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'";>'
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
