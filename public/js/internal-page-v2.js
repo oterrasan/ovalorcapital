@@ -75,12 +75,15 @@
     return '/'+cp+'/'+sl+'-'+id8+'/';
   }
 
+  var META_HEADER_RX = /^(TITULO|META_TITLE|FOCO_KEYWORD|SLUG|META_DESCRICAO|SUBTITULO|CATEGORIA|SUBCATEGORIA|CORPO)\s*:/i;
+
   function renderCorpo(texto){
     if(!texto) return '';
     var lines = texto.split('\n'), html = '', htags = [];
     for(var i=0;i<lines.length;i++){
       var t = lines[i].trim();
       if(!t) continue;
+      if(META_HEADER_RX.test(t)) continue;
       if(/^##\s+/.test(t)){
         html += '<h2 style="font-size:21px;font-weight:800;line-height:1.25;margin:36px 0 14px;color:var(--text-main,#0f172a);border-left:3px solid var(--ovc-accent,#dc2626);padding-left:14px;">'+esc(stripMd(t.replace(/^##\s+/,'')))+'</h2>';
       } else if(/^(#[^\s#,]+[\s,]*)+$/.test(t) && t[0]==='#'){
@@ -381,7 +384,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'";">'
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'";>'
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
