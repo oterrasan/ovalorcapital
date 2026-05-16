@@ -26,7 +26,7 @@ async function callOpenAI(prompt) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Você é redator jornalístico sênior especializado em SEO para portais de notícias brasileiros. Siga o formato solicitado à risca — cada campo tem regras de caracteres obrigatórias." },
+        { role: "system", content: "Você é redator jornalístico sênior especializado em SEO para portais de notícias brasileiros. Siga o formato solicitado à risca — cada campo tem regras de caracteres obrigatórias. O campo CORPO deve ser entregue em HTML válido, sem markdown." },
         { role: "user", content: prompt }
       ],
       temperature: 0.3,
@@ -95,7 +95,7 @@ const SUBCATS_POR_CAT = {
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
 };
 
-const PROMPT = (data, text) => `Reescreva a notícia abaixo como matéria jornalística do portal O Valor Capital, otimizada para SEO.
+const PROMPT = (data, text) => `Reescreva a notícia abaixo como matéria jornalística completa e densa do portal O Valor Capital, otimizada para SEO.
 Use SOMENTE os fatos do texto fonte. Não invente dados, nomes, valores ou declarações.
 Não mencione o veículo de origem.
 
@@ -109,38 +109,44 @@ META_DESCRICAO: [entre 150 e 160 caracteres — inclua a keyword de forma natura
 CATEGORIA: [UMA categoria: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao]
 SUBCATEGORIA: [subcategoria específica da categoria escolhida]
 CORPO:
-Redação OVC — ${data}
+<p><strong>Redação OVC</strong> — ${data}</p>
 
-[LEAD: 2 frases diretas — QUEM fez O QUÊ. Coloque a **keyword principal em negrito** na primeira frase. Máximo 40 palavras.]
+<p>[LEAD obrigatório: 3 a 4 frases densas respondendo QUEM, O QUÊ, QUANDO, ONDE e POR QUÊ. Coloque a <strong>keyword principal em negrito</strong> na primeira frase. Mínimo 80 palavras neste parágrafo.]</p>
 
-## [Subtítulo H2 com variação natural da keyword — 4 a 7 palavras — factual]
+<h2>[Subtítulo H2 com variação natural da keyword — 4 a 7 palavras — factual]</h2>
 
-[Parágrafo de 2 a 3 frases com os fatos principais. Máximo 40 palavras. **Negrito** em nomes, valores e datas-chave.]
+<p>[Parágrafo com desenvolvimento dos fatos principais — mínimo 80 palavras. Use <strong>negrito</strong> em nomes, valores e datas-chave. Desenvolva o contexto com profundidade jornalística.]</p>
+
+<p>[Segundo parágrafo desta seção — mínimo 60 palavras. Aprofunde os detalhes, números, declarações e implicações do fato.]</p>
 
 [Se a fonte tiver 3 ou mais dados, datas ou etapas, use lista obrigatória:]
-• **Item** — descrição
-• **Item** — descrição
-• **Item** — descrição
+<ul>
+  <li><strong>Item 1</strong> — descrição detalhada com contexto</li>
+  <li><strong>Item 2</strong> — descrição detalhada com contexto</li>
+  <li><strong>Item 3</strong> — descrição detalhada com contexto</li>
+</ul>
 
-## [Subtítulo H2 com impacto concreto — 4 a 7 palavras — factual]
+<h2>[Subtítulo H2 com impacto concreto — 4 a 7 palavras — factual]</h2>
 
-[Parágrafo de 2 a 3 frases — impacto prático. Máximo 40 palavras.]
+<p>[Parágrafo sobre o impacto prático — mínimo 80 palavras. Explique quem é afetado, de que forma e em que magnitude. Inclua dados quantitativos se disponíveis na fonte.]</p>
 
-[Parágrafo de 2 a 3 frases — quem é afetado. Máximo 40 palavras.]
+<p>[Segundo parágrafo desta seção — mínimo 60 palavras. Aborde as consequências econômicas, sociais ou políticas do fato, sempre baseado na fonte.]</p>
 
-## [Subtítulo H2 com próximos passos ou contexto — 4 a 7 palavras — factual]
+<h2>[Subtítulo H2 com contexto ou próximos passos — 4 a 7 palavras — factual]</h2>
 
-[Parágrafo de 2 a 3 frases — próximos passos mencionados NA FONTE apenas. Máximo 40 palavras.]
+<p>[Parágrafo com contexto ou próximos passos — mínimo 80 palavras. Inclua cronograma, votações, decisões ou desdobramentos mencionados NA FONTE. Finalize com declaração ou dado relevante.]</p>
 
-#hashtag1 #hashtag2 #hashtag3 #ovalorcapital
+<p>[Parágrafo de fechamento — mínimo 60 palavras. Situe o leitor no cenário mais amplo usando apenas informações presentes na fonte. Termine com uma perspectiva concreta.]</p>
+
+<p>#hashtag1 #hashtag2 #hashtag3 #ovalorcapital</p>
 
 REGRAS OBRIGATÓRIAS:
 — TITULO: conte os caracteres. Mínimo 55, máximo 65. Ajuste se necessário.
 — META_TITLE: máximo 55 caracteres absolutos. Google corta acima disso.
 — META_DESCRICAO: entre 150 e 160 caracteres. Conte e ajuste.
-— CORPO: mínimo 1.500 caracteres. Escreva todos os blocos com densidade jornalística.
-— Use a FOCO_KEYWORD pelo menos 2 vezes no CORPO de forma natural.
-— Parágrafos: máximo 3 linhas ou 40 palavras. Blocos longos prejudicam SEO mobile.
+— CORPO: mínimo 4.000 caracteres. Escreva todos os blocos com máxima densidade jornalística. Parágrafos curtos são PROIBIDOS — cada parágrafo deve ter no mínimo 60 palavras.
+— O CORPO deve ser entregue inteiramente em HTML válido. NUNCA use markdown (**, ##, *, •). Use apenas tags HTML: <p>, <h2>, <strong>, <ul>, <li>.
+— Use a FOCO_KEYWORD pelo menos 3 vezes no CORPO de forma natural.
 — Negrito obrigatório: nomes de pessoas, empresas, cargos, valores numéricos e datas.
 — Proibido: robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam.
 — Não comece com saudação, "Prezado", "Caro", "Olá" ou similar.
@@ -237,7 +243,7 @@ export async function rewritePortal(text, title, useGemini = false) {
     }
   }
   const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 1200) {
+  if (!result || !result.corpo || result.corpo.length < 2500) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   const tituloLower = (result.titulo || "").toLowerCase().trim();
