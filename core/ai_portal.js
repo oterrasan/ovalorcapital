@@ -180,8 +180,16 @@ function parse(raw) {
   }
   corpo = corpo.trim();
   if (!corpo && raw.length > 200) {
-    corpo = raw.trim();
-    const firstLine = raw.split("\n")[0].trim();
+    const metaRx = /^(TITULO|META_TITLE|FOCO_KEYWORD|SLUG|META_DESCRICAO|SUBTITULO|CATEGORIA|SUBCATEGORIA|CORPO)\s*:/i;
+    const rawLines = raw.split('\n');
+    const corpoIdx = rawLines.findIndex(l => /^CORPO\s*:/i.test(l.trim()));
+    if (corpoIdx !== -1) {
+      corpo = rawLines.slice(corpoIdx + 1).join('\n').trim();
+    } else {
+      corpo = rawLines.filter(l => !metaRx.test(l.trim())).join('\n').trim();
+    }
+    if (!corpo) corpo = raw.trim();
+    const firstLine = rawLines[0].trim();
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
