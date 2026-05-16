@@ -208,37 +208,23 @@ export default async function handler(req, res) {
   const meta = req.query || {};
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
-  // Limpeza de títulos e conteúdo com markdown/metadados no banco (ação pontual)
+  // Limpeza pontual de títulos com markdown no banco
   if (body.action === 'cleanup_titles') {
     if (!body.force) return res.status(403).json({ error: 'requires force:true' });
     try {
-      const metaRx = /^(TITULO|META_TITLE|FOCO_KEYWORD|SLUG|META_DESCRICAO|SUBTITULO|CATEGORIA|SUBCATEGORIA|CORPO)\s*:/i;
-      const { data: dirtyTitles } = await supabase.from('posts')
+      const { data: dirty } = await supabase.from('posts')
         .select('id, titulo')
         .like('titulo', '%**%')
         .limit(500);
-      let fixedTitles = 0;
-      for (const p of dirtyTitles || []) {
+      let fixed = 0;
+      for (const p of dirty || []) {
         const clean = stripTitle(p.titulo);
         if (clean !== p.titulo) {
           await supabase.from('posts').update({ titulo: clean }).eq('id', p.id);
-          fixedTitles++;
+          fixed++;
         }
       }
-      const { data: dirtyContent } = await supabase.from('posts')
-        .select('id, conteudo')
-        .or('conteudo.like.%TITULO:%,conteudo.like.%META_TITLE:%,conteudo.like.%FOCO_KEYWORD:%')
-        .limit(500);
-      let fixedContent = 0;
-      for (const p of dirtyContent || []) {
-        if (!p.conteudo) continue;
-        const cleaned = p.conteudo.split('\n').filter(l => !metaRx.test(l.trim())).join('\n').trim();
-        if (cleaned !== p.conteudo) {
-          await supabase.from('posts').update({ conteudo: cleaned }).eq('id', p.id);
-          fixedContent++;
-        }
-      }
-      return res.status(200).json({ status: 'ok', fixedTitles, fixedContent });
+      return res.status(200).json({ status: 'ok', fixed });
     } catch(e) {
       return res.status(500).json({ status: 'error', error: e.message });
     }
@@ -373,7 +359,6 @@ export default async function handler(req, res) {
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
       if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12));
-      // Se nao ha imagem valida da fonte, salva sem imagem — editor insere manualmente
 
       const metaTitle = stripTitle(content.meta_title || content.titulo);
       const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
