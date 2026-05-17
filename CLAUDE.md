@@ -6,70 +6,109 @@
 
 ---
 
-# 🚨🚨🚨 REGRA ZERO — INVIOLÁVEL — NUNCA NEGOCIÁVEL 🚨🚨🚨
+# ══════════════════════════════════════════════════════
+# 🚨🚨🚨 REGRAS ABSOLUTAMENTE INVIOLÁVEIS 🚨🚨🚨
+# ══════════════════════════════════════════════════════
 
-## API/: MÁXIMO 10 ARQUIVOS. NUNCA MAIS QUE 10.
+## ❌ REGRA ZERO-A — MAX 10 ARQUIVOS EM `api/` — NUNCA MAIS QUE 10
 
 > Esta regra foi violada em 16/05/2026 causando build silencioso quebrado e um dia inteiro de caos.
-> Roberto (dono) determinou esta regra múltiplas vezes. Ela é inviolável.
+> Roberto (dono) determinou esta regra dezenas de vezes. É inviolável.
 
 ```
 ❌❌❌ PROIBIDO criar qualquer arquivo novo em api/ sem antes deletar um existente
 ❌❌❌ PROIBIDO ter mais de 10 arquivos em api/ EM QUALQUER MOMENTO
-❌❌❌ PROIBIDO criar funções de uso único — cada arquivo DEVE servir 3 ou 4 finalidades
+❌❌❌ PROIBIDO criar funções de uso único — cada arquivo DEVE servir 3+ finalidades
+❌❌❌ PROIBIDO atingir 11, 12 ou mais — nem que seja por 1 commit
 ```
 
-### Por que 10 e não 12 (o limite real do Vercel Hobby):
-O limite do Hobby é 12. Ficamos no máximo de 12 por um dia e quando o agente criou um arquivo novo, chegou a 13 e o build quebrou silenciosamente. A margem de segurança obrigatória é 2 arquivos. **NUNCA ultrapassar 10.**
+**Por que 10 e não 12 (o limite real do Vercel Hobby):**
+O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 13 e o build quebrou silenciosamente sem aviso nenhum. A margem de segurança obrigatória é 2 arquivos. NUNCA ultrapassar 10.
 
-### Como consolidar quando precisar de nova funcionalidade:
-- Utilitários de manutenção → dentro de `api/manage.js` (ação via `body.action`)
-- Correções pontuais de banco → dentro de `api/manage.js`
-- Regeneração de conteúdo → dentro de `api/run_portal.js` (ação via `?action=`)
+**Como adicionar nova funcionalidade sem criar arquivo:**
+- Utilitários/manutenção/correções de banco → `api/manage.js` (ação via `body.action`)
+- Regeneração/processamento de conteúdo → `api/run_portal.js` (ação via `?action=`)
 - Scripts de diagnóstico → NUNCA no Vercel. Rodar local com Node.js direto no Supabase.
-
-### Estado atual de api/ (12 arquivos — 2 acima do limite de 10, próximo a consolidar)
-```
-api/article.js        ← SSR artigos
-api/category.js       ← SSR categorias
-api/ig_publish.js     ← Instagram
-api/institutional.js  ← SSR páginas institucionais
-api/landing.js        ← SSR landing pages
-api/live.js           ← SSR radar/tv/radio
-api/manage.js         ← gestão, aprovação, status, newsletters
-api/manual_post.js    ← geração manual de artigos
-api/portal-posts.js   ← serve posts para frontend
-api/refresh_token.js  ← renova token Instagram
-api/run_portal.js     ← pipeline automático RSS→IA→banco
-api/sitemap.js        ← sitemap dinâmico
-```
-
-### Consolidações pendentes (próxima sessão técnica)
-- `api/refresh_token.js` (1.2KB, uso único mensal) → mover para dentro de `api/manage.js`
-- `api/portal-posts.js` → avaliar fusão com `api/article.js`
-- Meta: chegar a 10 arquivos
+- Qualquer outra coisa → avaliar fusão com arquivo existente antes de criar novo
 
 ---
 
+## ❌ REGRA ZERO-B — NUNCA TOCAR NO PROMPT DE IA SEM AUTORIZAÇÃO EXPLÍCITA DO DONO
+
+> O prompt em `core/ai_portal.js` foi definido e aprovado pelo dono Roberto após semanas de iteração.
+> Alterar sem autorização causou centenas de artigos quebrados em 16/05/2026.
+
+```
+❌❌❌ PROIBIDO alterar core/ai_portal.js sem aprovação verbal explícita de Roberto
+❌❌❌ PROIBIDO mudar o formato de saída (HTML, markdown, estrutura de campos)
+❌❌❌ PROIBIDO mudar parâmetros da OpenAI (model, temperature, max_tokens)
+❌❌❌ PROIBIDO mudar a system message
+❌❌❌ PROIBIDO "melhorar" o prompt por iniciativa própria
+```
+
+**O comentário no código deixa claro:**
+```js
+// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
+```
+
+**Prompt atual (aprovado pelo dono em 17/05/2026):**
+- Estilo: Reuters/Bloomberg, jornalístico sênior
+- SEO: Google News + Google Discover
+- Formato de saída: HTML puro (nunca markdown)
+- META_DESCRICAO: 141–155 chars
+- Parágrafos: máx 3 frases (MobileUX)
+- Jargão proibido: 21 termos listados
+- Gancho final proibido (ex: "Acompanhe o portal...")
+- gpt-4o-mini, temperature 0.3, max_tokens 8192
+
+---
+
+## ❌ REGRA ZERO-C — NUNCA DAR PUSH PARA MAIN SEM REVISAR O DIFF
+
+```
+❌❌❌ PROIBIDO push em api/ sem antes listar os arquivos de api/ e contar quantos são
+❌❌❌ PROIBIDO push em core/ai_portal.js sem aprovação do dono
+❌❌❌ PROIBIDO push que sobrescreva public/admin/index.html (admin crítico)
+❌❌❌ PROIBIDO push que sobrescreva public/index.html (302KB — homepage crítica)
+```
+
+---
+
+## ❌ REGRA ZERO-D — TODO INSERT EM `posts` USA `publicado` + `approved:true`
+
+```
+❌❌❌ NUNCA salvar artigo novo com status:'pendente' ou approved:false no pipeline automático
+✅ Sempre: status:'publicado', approved:true, published_at:new Date().toISOString()
+```
+
+Esta regra foi violada em mai/2026 e corrigida na sessão 17/05/2026.
+
+---
+
+# ══════════════════════════════════════════════════════
 # 🚨 ALERTA VERCEL HOBBY PLAN
+# ══════════════════════════════════════════════════════
 
 ```
-❌ NUNCA mais de 10 arquivos em api/ (limite real é 12, margem de segurança é 2)
-❌ NUNCA usar maxDuration > 10 no vercel.json — Hobby plan máx é 10s
+❌ NUNCA mais de 10 arquivos em api/ (limite real 12, margem segurança 2)
+❌ NUNCA maxDuration > 10 no vercel.json (Hobby máx 10s)
+❌ O Vercel NÃO manda email de erro — o site continua servindo código antigo silenciosamente
+❌ O dashboard mostra "falhou" mas parece que "não surtiu efeito" — MUITO perigoso
 ```
 
-O Vercel não manda email de erro. O dashboard mostra deployment como "falhou" mas o site continua servindo o último deploy bem-sucedido. Parece que as mudanças não surtiram efeito. Isso ficou assim por ~1 semana em mai/2026 e causou o incidente de 16/05/2026.
+**Como saber se o deploy está funcionando:**
+- Artigo gerado com campo `ts` no JSON de resposta → código novo deployou
+- `{"status":"no_news"}` sem campo `ts` → código antigo ainda em execução
+- Verificar: contar arquivos em api/ + checar maxDuration
 
 ---
 
 # 🔴 REGRA NÚMERO 1 — TODA PÁGINA TEM SEO 100% COMPLETO
 
-> Estabelecida pelo dono Roberto (Terrasan) em mai/2026. Nunca pode ser revertida.
-
-### CHECKLIST OBRIGATÓRIO
+> Estabelecida pelo dono Roberto em mai/2026. Nunca pode ser revertida.
 
 ```
-✅ <title> único, descritivo, com keywords reais
+✅ <title> único, descritivo, com keywords reais (META_TITLE ≤55 chars + " | O Valor Capital")
 ✅ <meta name="description"> única, entre 120-160 chars
 ✅ <link rel="canonical"> sempre com www
 ✅ og:type, og:site_name, og:title, og:description, og:image, og:url, og:locale
@@ -80,9 +119,8 @@ O Vercel não manda email de erro. O dashboard mostra deployment como "falhou" m
 ✅ Presente no sitemap.xml dinâmico
 ```
 
-### PROIBIDO
 ```
-❌ <title> com TITULO completo (65+ chars) — usar META_TITLE (≤55 chars) + " | O Valor Capital"
+❌ <title> com TITULO completo (65+ chars)
 ❌ Página sem canonical
 ❌ Canonical apontando para ?id=
 ❌ og:image ausente
@@ -100,26 +138,29 @@ Fonte de receita única: Google AdSense / Google AdX.
 
 ---
 
-## ⛔ REGRAS SAGRADAS
+## ⛔ REGRAS SAGRADAS — LISTA COMPLETA
 
-1. **MAX 10 ARQUIVOS EM `api/`** — Ver Regra Zero no topo deste arquivo.
-2. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
-3. **Topo e rodapé do portal NUNCA mudam.**
-4. **Pipeline publica direto como `publicado`** — nunca `pendente` sem fluxo de aprovação.
-5. **URLs sempre com slug** — nunca `?id=`.
-6. **SSR obrigatório** — Googlebot não pode depender de JS.
-7. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
-8. **300 artigos/dia sem falha.**
-9. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md e BUGS_CORRIGIDOS.md e fazer push para main.
-10. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array).
-11. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
-12. **`getNews()` sempre mistura feeds diretos garantidos.**
-13. **Todo INSERT em `posts` usa `status:'publicado'`, `approved:true`, `published_at:now`** — ver Bug #13.
-14. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14.
-15. **`vc` e `colunistas` NÃO são categorias do pipeline.**
-16. **Landing pages têm footer inline** — não usar `.footer-bottom`. Editar diretamente em `api/landing.js` `buildFooter()`.
-17. **META_TITLE (≤55 chars) separado do TITULO.**
-18. **NUNCA dar push direto para `main` sem revisão do diff** — ver incidente 16/05/2026.
+1. **MAX 10 ARQUIVOS EM `api/`** — Ver Regra Zero-A. NUNCA, em hipótese alguma, ter 11 ou mais.
+2. **NUNCA TOCAR NO PROMPT SEM AUTORIZAÇÃO** — Ver Regra Zero-B.
+3. **NUNCA PUSH SEM REVISAR DIFF** — Ver Regra Zero-C.
+4. **TODO INSERT USA `publicado` + `approved:true`** — Ver Regra Zero-D.
+5. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
+6. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
+7. **URLs sempre com slug** — nunca `?id=`.
+8. **SSR obrigatório** — Googlebot não pode depender de JS.
+9. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
+10. **300 artigos/dia sem falha.**
+11. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main.
+12. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array TEXT, usar `.like()`).
+13. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
+14. **`getNews()` sempre mistura feeds diretos garantidos.**
+15. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14.
+16. **`vc` e `colunistas` NÃO são categorias do pipeline.**
+17. **Landing pages têm footer inline** — editar direto em `api/landing.js` `buildFooter()`.
+18. **META_TITLE (≤55 chars) separado do TITULO.**
+19. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
+20. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
+21. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
 
 ---
 
@@ -139,7 +180,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 
 ## 2. ARQUITETURA
 
-### APIs — 12 ARQUIVOS ATUAIS (REDUZIR PARA 10 NA PRÓXIMA SESSÃO)
+### APIs — 12 ARQUIVOS ATUAIS (CONSOLIDAR PARA 10 — PRÓXIMA SESSÃO TÉCNICA)
 
 | Arquivo | Funções que atende |
 |---|---|
@@ -156,23 +197,30 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `api/run_portal.js` | Pipeline RSS→scrape→IA→banco + `?action=regenerar` |
 | `api/sitemap.js` | Sitemap dinâmico |
 
-> ⚠️ Antes de criar qualquer arquivo em api/, deletar um existente. Máximo absoluto: 10 arquivos.
+> ⚠️⚠️⚠️ ANTES DE CRIAR QUALQUER ARQUIVO EM api/, DELETAR UM EXISTENTE. MÁXIMO ABSOLUTO: 10 ARQUIVOS.
 
-### Core
+**Consolidações pendentes (próxima sessão técnica):**
+- `api/refresh_token.js` (1.2KB, uso único mensal) → fundir com `api/manage.js` via `?action=refresh_token`
+- `api/portal-posts.js` → avaliar fusão com `api/article.js` ou `api/category.js`
+- Meta: chegar a 10 arquivos
+
+### Core (NUNCA alterar sem autorização do dono)
 | Arquivo | Função |
 |---|---|
 | `core/rss.js` | 240+ feeds RSS em 16 grupos + feeds diretos garantidos |
 | `core/scraper.js` | Extrai texto (3 camadas: p → div → og:meta) |
-| `core/ai_portal.js` | Prompt OpenAI → META_TITLE, TITULO, CORPO em HTML, etc. |
+| `core/ai_portal.js` | **🔒 PROMPT TRAVADO** — gera META_TITLE, TITULO, CORPO HTML, META_DESCRICAO |
 | `core/image_finder.js` | Busca imagem relevante (timeout 10s) |
 | `core/image_processor.js` | Processa → WebP quality 82 → Supabase Storage |
 
-### Frontend
-- `public/index.html` — homepage (302KB — não editar via MCP)
-- `public/[categoria]/index.html` — 29+ páginas de categoria
-- `public/admin/index.html` — painel admin
-- `public/js/newsletter-bar.js` — injeta newsletter bar + patcha footer
-- `public/robots.txt` — bloqueia /admin/
+### Frontend JS Crítico
+| Arquivo | Função |
+|---|---|
+| `public/js/internal-page-v2.js` | Renderização artigos — `renderCorpo()` detecta HTML vs markdown |
+| `public/js/home.js` | Homepage dinâmica |
+| `public/js/noticias-v3.js` | Listagem de notícias |
+| `public/js/ovc-cards.js` | Cards de artigos |
+| `public/js/newsletter-bar.js` | Injeta newsletter bar + patcha footer |
 
 ---
 
@@ -206,6 +254,7 @@ priority, retry_count, max_retries
 **CRÍTICO:** Não existe coluna `categoria`. Sempre usar `user_tags`.
 **CRÍTICO:** `comentario_fixado` = meta description.
 **CRÍTICO:** `metrics.meta_title` = título SEO ≤55 chars para `<title>`.
+**CRÍTICO:** Pipeline automático SEMPRE insere com `status:'publicado'`, `approved:true`, `published_at:now`.
 
 ### Tabela `config`
 | Chave | Descrição |
@@ -260,10 +309,17 @@ body.force = true     // bypassa verificação de horário
 body.count = N        // artigos a gerar (máx 8, padrão 1)
 body.categoria        // forçar categoria
 body.subcategoria     // forçar subcategoria
-?action=regenerar     // regenerar artigos com markdown das últimas 48h (Vercel Pro apenas)
+?action=regenerar     // regenerar artigos com markdown das últimas 48h (1 por chamada, JSON response)
+?action=regenerar&limit=N  // processar N artigos por chamada (padrão 1)
 ```
 
-### Diagnóstico
+### Respostas `?action=regenerar`
+```json
+{"status":"ok","processados":1,"ok":1,"restantes":42}
+{"status":"ok","processados":0,"ok":0,"restantes":0}  // todos processados
+```
+
+### Diagnóstico pipeline normal
 ```
 {"status":"ok"}            → artigo gerado
 {"status":"no_news"}       → RSS vazio
@@ -274,15 +330,42 @@ body.subcategoria     // forçar subcategoria
 
 Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar limite de funções/maxDuration.
 
+### GitHub Actions existentes
+| Workflow | Gatilho | Função |
+|---|---|---|
+| `pipeline.yml` (ou similar) | Cron 2min | POST /api/run_portal — pipeline principal |
+| `.github/workflows/corrigir_artigos.yml` | workflow_dispatch + push neste arquivo | Loop GET ?action=regenerar até `restantes:0` |
+
 ---
 
-## 7. META_TITLE
+## 7. RENDERIZAÇÃO DE ARTIGOS (CRÍTICO)
+
+**Fluxo:** `api/article.js` (SSR) → `window.__OVC_ARTICLE__` JSON → `public/js/internal-page-v2.js` renderiza client-side via `renderCorpo()`
+
+**`renderCorpo()` — comportamento atual (17/05/2026):**
+```js
+function renderCorpo(texto){
+  if(!texto) return '';
+  // Conteúdo HTML (prompt novo) — renderizar direto sem escapar
+  if(/^\s*<[a-z]/i.test(texto.trim())){
+    return '<div style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);">'+texto+'</div>';
+  }
+  // Legado: conteúdo markdown (artigos antigos não regenerados)
+  // ... renderer markdown existente ...
+}
+```
+
+**NUNCA reverter esta lógica.** O `esc()` não pode ser aplicado a conteúdo HTML — converte `<p>` em `&lt;p&gt;` tornando as tags visíveis como texto.
+
+---
+
+## 8. META_TITLE
 
 `core/ai_portal.js` gera `META_TITLE` ≤55 chars. `api/run_portal.js` salva em `metrics.meta_title`. `api/article.js` usa no `<title>` → `metaTitleRaw + " | O Valor Capital"`. `og:title` e JSON-LD usam o TITULO completo.
 
 ---
 
-## 8. PÁGINAS INSTITUCIONAIS
+## 9. PÁGINAS INSTITUCIONAIS
 
 - `/quem-somos/` e `/politica-editorial/` → `api/institutional.js`
 - Responsável: Roberto Cesar Terrasan
@@ -290,14 +373,14 @@ Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar
 
 ---
 
-## 9. FOOTER
+## 10. FOOTER
 
 - **Categorias e homepage:** `newsletter-bar.js` injeta + patcha
 - **Landing pages:** footer inline em `api/landing.js` `buildFooter()` — editar direto lá
 
 ---
 
-## 10. SEO — STATUS
+## 11. SEO — STATUS
 
 | Feature | Arquivo | Status |
 |---|---|---|
@@ -322,48 +405,52 @@ Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar
 
 ---
 
-## 11. BUGS CORRIGIDOS — RESUMO
+## 12. BUGS CORRIGIDOS — RESUMO
 
 Documentação completa em `BUGS_CORRIGIDOS.md`.
 
-| # | Bug | Arquivo | Status |
+| # | Bug | Arquivo | Quando |
 |---|-----|---------|--------|
-| 1 | `</script>` em JSON → página branca | `api/article.js` | ✅ |
-| 2 | `isHoje()` rejeita itens sem data | `core/rss.js` | ✅ |
-| 3 | Feeds gerais misturados na geração forçada | `api/run_portal.js` | ✅ |
-| 4 | Subcategoria "Geral" salva no banco | `api/run_portal.js` | ✅ |
-| 5 | targetCount=1, pool=40, sem dedup | `api/run_portal.js` | ✅ |
-| 6 | Sem faixas horárias | `api/run_portal.js` | ✅ |
-| 7 | validar() exigia 'redação ovc' | `api/manage.js` | ✅ |
-| 8 | forcarExecucao() enviava GET | `automacao.html` | ✅ |
-| 9 | p.categoria inexistente | `automacao.html` | ✅ |
-| 10 | getNews() fallback usava GN | `core/rss.js` | ✅ |
-| 11 | Scraper só `<p>` | `core/scraper.js` | ✅ |
-| 12 | no_news persistente | `core/rss.js` | ✅ |
-| 13 | Pipeline salvava como pendente | `run_portal.js` + `manage.js` | ✅ |
-| 14 | Links ?id= abriam categoria vazia | `api/category.js` | ✅ |
-| 15 | /vc/ mostrava conteúdo sem sentido | `api/landing.js` | ✅ |
-| 16 | Footer landing sem copyright/links | `api/landing.js` | ✅ |
-| 17 | Build Vercel falhando silenciosamente | `vercel.json` + `api/` | ✅ 14/05/2026 |
-| 18 | Prompt gerava markdown em vez de HTML | `core/ai_portal.js` | ✅ 16/05/2026 |
-| 19 | Agente criou 13º arquivo em api/ → build quebrado | `api/corrigir-markdown-hoje.js` deletado | ✅ 16/05/2026 |
+| 1 | `</script>` em JSON → página branca | `api/article.js` | mai/2026 |
+| 2 | `isHoje()` rejeita itens sem data | `core/rss.js` | mai/2026 |
+| 3 | Feeds gerais misturados na geração forçada | `api/run_portal.js` | mai/2026 |
+| 4 | Subcategoria "Geral" salva no banco | `api/run_portal.js` | mai/2026 |
+| 5 | targetCount=1, pool=40, sem dedup | `api/run_portal.js` | mai/2026 |
+| 6 | Sem faixas horárias | `api/run_portal.js` | mai/2026 |
+| 7 | validar() exigia 'redação ovc' | `api/manage.js` | mai/2026 |
+| 8 | forcarExecucao() enviava GET | `automacao.html` | mai/2026 |
+| 9 | p.categoria inexistente | `automacao.html` | mai/2026 |
+| 10 | getNews() fallback usava GN | `core/rss.js` | mai/2026 |
+| 11 | Scraper só `<p>` | `core/scraper.js` | mai/2026 |
+| 12 | no_news persistente | `core/rss.js` | mai/2026 |
+| 13 | Pipeline salvava como pendente | `run_portal.js` + `manage.js` | mai/2026 |
+| 14 | Links ?id= abriam categoria vazia | `api/category.js` | mai/2026 |
+| 15 | /vc/ mostrava conteúdo sem sentido | `api/landing.js` | mai/2026 |
+| 16 | Footer landing sem copyright/links | `api/landing.js` | mai/2026 |
+| 17 | Build Vercel falhando silenciosamente | `vercel.json` + `api/` | 14/05/2026 |
+| 18 | Prompt gerava markdown em vez de HTML | `core/ai_portal.js` | 16/05/2026 |
+| 19 | Agente criou 13º arquivo em api/ → build quebrado | `api/corrigir-markdown-hoje.js` deletado | 16/05/2026 |
+| 20 | `renderCorpo()` escapava HTML → tags visíveis como texto | `public/js/internal-page-v2.js` | 17/05/2026 |
+| 21 | INSERT pipeline usava `pendente`+`approved:false` | `api/run_portal.js` | 17/05/2026 |
+| 22 | `regenerarConteudo` tentava 15 artigos → timeout 10s | `api/run_portal.js` | 17/05/2026 |
 
 ---
 
-## 12. COMO RETOMAR EM NOVA SESSÃO
+## 13. COMO RETOMAR EM NOVA SESSÃO
 
-1. **Ler este arquivo completamente**
+**OBRIGATÓRIO antes de qualquer coisa:**
+1. Ler este arquivo completamente
 2. Ler `BUGS_CORRIGIDOS.md`
 3. **CONTAR os arquivos em `api/`** — se tiver mais de 10, parar e consolidar antes de qualquer coisa
 4. **NUNCA adicionar maxDuration > 10 no vercel.json**
-5. Checklist SEO em toda página nova
-6. Verificar GitHub Actions rodando
-7. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
-8. **Ler `INCIDENTE_16_05_2026.md`** — entender o que foi quebrado em 16/05 e se os artigos já foram corrigidos
+5. Verificar se tem artigos com markdown no banco (Bug #18/20) — se sim, rodar `?action=regenerar`
+6. Checklist SEO em toda página nova
+7. Verificar GitHub Actions rodando
+8. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
 
 ---
 
-## 13. CONTATO
+## 14. CONTATO
 
 - **Nome:** Roberto Cesar Terrasan
 - **Objetivo:** maior portal premium de notícias do Brasil
@@ -371,10 +458,11 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Estilo:** cobra resultados reais. Não quer links nem status — quer feito e funcionando.
 - **Comunicação:** português, direto ao ponto
 - **NUNCA perguntar** coisas óbvias sobre infraestrutura que claramente está no ar
+- **NUNCA mexer em nada enquanto conversa com o dono** — esperar OK explícito antes de cada ação
 
 ---
 
-## 14. HISTÓRICO DE SESSÕES
+## 15. HISTÓRICO DE SESSÕES
 
 ### Sessão mai/2026 — Rodada 1
 - isRecente, catForcada, subcatForcada (Bugs #2, #3, #4)
@@ -396,13 +484,21 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - Causa: maxDuration:60 (Hobby máx 10s) + 20 arquivos em api/ (Hobby máx 12)
 - Correção: deletados 8 arquivos, vercel.json limpo, rss.js restaurado
 
-### Sessão 16/05/2026 — INCIDENTE GRAVE
+### Sessão 16/05/2026 — INCIDENTE GRAVE (ver INCIDENTE_16_05_2026.md)
 - Agente alterou `core/ai_portal.js` sem autorização → prompt passou a gerar markdown
 - Admin derrubado (public/admin/index.html sobrescrito com placeholder)
-- Centenas de artigos gerados com markdown bruto, conteúdo raso
-- Tentativas de correção criaram 13º arquivo em api/ → build quebrado novamente
-- **Estado ao final do dia:**
-  - Prompt corrigido (gera HTML desde 22:07 UTC)
-  - Build corrigido (13º arquivo deletado)
-  - **Artigos quebrados de 07:00–22:07 BRT permanecem no banco — precisam ser corrigidos**
-  - Ver `INCIDENTE_16_05_2026.md` para SQL de correção
+- Centenas de artigos gerados com markdown bruto entre 07:00 e 22:07 BRT
+- Agente criou 13º arquivo em api/ → build quebrado silenciosamente
+- **Corrigido ao fim do dia:** prompt restaurado, 13º arquivo deletado, build voltou
+- **Pendente ao fim do dia:** artigos com markdown no banco ainda quebrados
+
+### Sessão 17/05/2026 — CORREÇÃO DO INCIDENTE
+- **Bug #20 corrigido:** `renderCorpo()` em `internal-page-v2.js` agora detecta HTML e renderiza direto — corrige 400+ artigos sem tocar no banco
+- **Bug #21 corrigido:** INSERT em `run_portal.js` agora usa `publicado`+`approved:true`+`published_at:now`
+- **Bug #22 corrigido:** `regenerarConteudo` processa 1 artigo por chamada com 8s de timeout interno — se encaixa no Hobby
+- **Workflow criado:** `.github/workflows/corrigir_artigos.yml` — loop automático que chama `?action=regenerar` até `restantes:0`
+- **Prompt novo aprovado e travado:** gera HTML, Google News+Discover, Reuters/Bloomberg style, comentário de trava no código
+- **Regras Zero-A a Zero-D** documentadas neste arquivo
+- **Consolidação api/ 12→10:** pendente para próxima sessão técnica
+  - `refresh_token.js` → fundir com `manage.js`
+  - `portal-posts.js` → avaliar fusão
