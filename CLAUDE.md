@@ -349,6 +349,7 @@ Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar
 |---|---|---|
 | `pipeline.yml` (ou similar) | Cron 2min | POST /api/run_portal — pipeline principal |
 | `.github/workflows/corrigir_artigos.yml` | workflow_dispatch + push neste arquivo | Loop GET ?action=regenerar até `restantes:0` |
+| `.github/workflows/regenerar_recentes.yml` | workflow_dispatch manual | Loop GET ?action=regenerar&pendente=true&limit=2 — regenera artigos dos últimos 5 dias com markdown |
 
 ---
 
@@ -452,6 +453,12 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 20 | `renderCorpo()` escapava HTML → tags visíveis como texto | `public/js/internal-page-v2.js` | 17/05/2026 |
 | 21 | INSERT pipeline usava `pendente`+`approved:false` (corrigido, revertido intencionalmente no Block 6) | `api/run_portal.js` | 17/05/2026 |
 | 22 | `regenerarConteudo` tentava 15 artigos → timeout 10s | `api/run_portal.js` | 17/05/2026 |
+| 23 | Markdown `**bold**`/`## h2` visível em títulos e corpo | `core/ai_portal.js`, `api/article.js`, `public/js/internal-page-v2.js` | 17/05/2026 |
+| 24 | "Leia também" aparecendo como HTML escapado no corpo | `api/article.js` | 17/05/2026 |
+| 25 | Foto de Jair usada em artigos de Flávio/Eduardo/Carlos Bolsonaro | `core/image_finder.js` | 17/05/2026 |
+| 26 | Artigos salvos sem imagem quando scrape falha | `api/run_portal.js` | 17/05/2026 |
+| 27 | 15+ artigos sobre mesma entidade em 1 dia | `api/run_portal.js` | 17/05/2026 |
+| 28 | Conteúdo gerado muito curto (< 800 chars aceito) | `api/run_portal.js`, `core/ai_portal.js` | 17/05/2026 |
 
 ---
 
@@ -560,3 +567,30 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 #### Documentação
 - CLAUDE.md atualizado com estado final completo
 - BUGS_CORRIGIDOS.md atualizado: Bug #13 anotado como invertido intencionalmente pelo Block 6, checklist corrigido
+
+### Sessão 17/05/2026 — CRISE DE QUALIDADE DE CONTEÚDO (Bugs #23–28 + features)
+
+**Problema:** 1100+ artigos publicados com markdown visível, fotos erradas, "Leia também" escapado, conteúdo curto e duplicatas excessivas.
+
+**Decisão de Roberto:** despublicar apenas os últimos 5 dias e regenerar com o sistema corrigido. Artigos anteriores a 12/mai estão ok.
+
+**7 correções implementadas (commits `200c5904`, `39619657`, `384d8f1a`):**
+
+| Arquivo | O que mudou |
+|---|---|
+| `core/ai_portal.js` | `markdownToHtml()` — converte markdown→HTML no parse(). Strip `**` do titulo. Threshold 2500→3000 chars. |
+| `api/article.js` | Strip `**` do titulo antes dos SEO tags. Guard HTML no inject "Leia também". |
+| `core/image_finder.js` | ALIASES reordenados (específicos antes do genérico 'bolsonaro'). Dedup em extrairEntidades(). POOLS 2→5 imagens por categoria. |
+| `api/run_portal.js` | validarConteudo 800→2500. extrairNomePrincipal() + dedup entidade (max 3/24h). findImage fallback quando processAndSaveImage retorna null. regenerarConteudo() suporta modo pendente. |
+| `api/manage.js` | handleUnpublishRecent() + routing GET ?action=unpublish_recent&dias=N |
+| `public/js/internal-page-v2.js` | stripMd() nos 4 renders de card + h1/title do artigo. |
+| `.github/workflows/regenerar_recentes.yml` | NOVO — loop de regeneração de pendentes (max 80 ciclos, 15s entre calls) |
+
+**Ação executada por Roberto:** `GET /api/manage?action=unpublish_recent&dias=5` → moveu artigos 12–17/mai de `publicado` para `pendente`. Retornou `{"ok":true}`.
+
+**Pendente (Roberto):**
+- Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions
+- Revisar e aprovar artigos regenerados no admin
+
+**Feature adicional (commit `756905c`):**
+- Admin → Imagens → nova aba **"📰 Imagens dos Artigos"** — mostra todas as imagens únicas do campo `imagem` da tabela `posts` (até 600, dedupado por URL). Cada card: foto, título do artigo, badge status, Copiar URL, botão Usar.

@@ -322,6 +322,114 @@ Linha removida novamente.
 
 ---
 
+---
+
+## BUG #23 — Markdown bruto visível nos títulos e corpo dos artigos (CRÍTICO)
+**Data:** 17/Mai/2026 | **Arquivos:** `core/ai_portal.js`, `public/js/internal-page-v2.js`, `api/article.js`
+
+### Sintoma
+Títulos aparecendo como `**Lula sanciona reforma**` e corpo com `## Contexto`, `* bullet` visíveis no portal para artigos gerados após 16/05/2026.
+
+### Causa raiz
+O prompt (corrigido em 17/05) passou a gerar HTML, mas artigos gerados entre 16/05 e início de 17/05 ainda tinham markdown. Além disso, os SEO tags (`<title>`, og:title) em article.js não faziam strip de `**`.
+
+### Correções aplicadas
+1. `core/ai_portal.js`: função `markdownToHtml()` — converte `##`→`<h2>`, `* item`→`<ul><li>`, `**bold**`→`<strong>`, texto plano→`<p>`. Aplicada no `parse()` antes de salvar no banco. Strip de `**` no titulo também.
+2. `api/article.js`: strip de `**` do `titulo` no topo do handler (antes dos SEO tags).
+3. `api/article.js`: injeção do "Leia também" só ocorre quando `corpo` é HTML (guard `^\s*<[a-z]`).
+4. `public/js/internal-page-v2.js`: `stripMd()` aplicada em todos os 4 renders de card e no h1/title do artigo.
+
+### Regra permanente
+O corpo dos artigos SEMPRE deve ser HTML. Qualquer conteúdo markdown que entrar no banco deve ser convertido via `markdownToHtml()` no `parse()`. O frontend tem `stripMd()` como linha de defesa adicional nos títulos.
+
+---
+
+## BUG #24 — "Leia também" aparecendo como texto escapado no corpo do artigo
+**Data:** 17/Mai/2026 | **Arquivo:** `api/article.js`
+
+### Sintoma
+Bloco `&lt;div class="leia-tambem"&gt;...&lt;/div&gt;` visível como texto no final dos artigos.
+
+### Causa raiz
+`corpoFinal` tinha conteúdo markdown (não HTML). O inject do bloco "Leia também" injetava HTML no meio de markdown, que depois era renderizado via path legado do `renderCorpo()` que usa `esc()` — escapando todo o HTML.
+
+### Correção
+Guard no inject: `if (related.length > 0 && /^\s*<[a-z]/i.test(corpoFinal.trim())) { ... inject ... }`
+
+### Regra permanente
+**NUNCA** injetar HTML em `corpoFinal` sem verificar primeiro que o corpo já é HTML.
+
+---
+
+## BUG #25 — Foto errada para entidades Bolsonaro (Jair usado para Flávio/Eduardo/Carlos)
+**Data:** 17/Mai/2026 | **Arquivo:** `core/image_finder.js`
+
+### Sintoma
+Artigos sobre Flávio Bolsonaro, Eduardo Bolsonaro ou Carlos Bolsonaro exibiam foto de Jair Bolsonaro.
+
+### Causa raiz
+No objeto `ALIASES`, a entrada genérica `'bolsonaro': 'Jair Bolsonaro'` aparecia ANTES das específicas `'flávio bolsonaro': 'Flávio Bolsonaro'`. O texto "Flávio Bolsonaro" batia primeiro na string "bolsonaro" genérica.
+
+### Correção
+Reordenamento: aliases específicos multi-palavra (`'flávio bolsonaro'`, `'eduardo bolsonaro'`, `'carlos bolsonaro'`, `'jair bolsonaro'`) ANTES do genérico `'bolsonaro'`. Lógica de dedup em `extrairEntidades()` para pular alias genérico se específico já foi encontrado.
+
+### Regra permanente
+**SEMPRE** colocar aliases mais específicos (multi-palavra) ANTES dos genéricos no objeto `ALIASES`. Nunca inverter essa ordem.
+
+---
+
+## BUG #26 — Artigos sem imagem quando `processAndSaveImage` falha
+**Data:** 17/Mai/2026 | **Arquivo:** `api/run_portal.js`
+
+### Sintoma
+Artigos salvos com `imagem: null` quando a imagem scrapeada era de domínio concorrente ou inválida.
+
+### Causa raiz
+O pipeline chamava `processAndSaveImage(scraped_image)` mas, se a imagem era de concorrente ou inválida, retornava `null`. Não havia fallback para buscar uma imagem via `findImage()`.
+
+### Correção
+Após `processAndSaveImage` retornar null, pipeline tenta `findImage(titulo, categoria)` como fallback. Se o resultado ainda falhar no `processAndSaveImage`, usa a URL direta como último recurso.
+
+### Regra permanente
+O pipeline NUNCA deve salvar artigo com `imagem: null` sem ter tentado todas as opções: scrape → processAndSaveImage → findImage → URL direta.
+
+---
+
+## BUG #27 — Artigos duplicados (15+ sobre mesma entidade em 1 dia)
+**Data:** 17/Mai/2026 | **Arquivo:** `api/run_portal.js`
+
+### Sintoma
+15+ artigos sobre Flávio Bolsonaro publicados no mesmo dia.
+
+### Causa raiz
+O dedup existente era apenas por Jaccard de títulos (40% threshold). Dois artigos com títulos diferentes mas sobre a mesma pessoa passavam o filtro.
+
+### Correção
+Função `extrairNomePrincipal(titulo)` identifica o nome principal de um título. No pipeline, antes de processar cada item, conta quantos artigos das últimas 24h contêm o sobrenome da entidade. Se ≥3, descarta. Limite: 3 artigos por entidade por 24h.
+
+### Regra permanente
+Dedup duplo: Jaccard de títulos (40%) + entidade (máx 3/entidade/24h). Nunca remover um sem o outro.
+
+---
+
+## BUG #28 — Conteúdo gerado muito curto (3 parágrafos, < 800 chars)
+**Data:** 17/Mai/2026 | **Arquivos:** `api/run_portal.js`, `core/ai_portal.js`
+
+### Sintoma
+Artigos com apenas 3 parágrafos, ~600–800 chars de conteúdo.
+
+### Causa raiz
+`validarConteudo()` em `run_portal.js` aceitava conteúdo com ≥800 chars. `rewritePortal()` em `ai_portal.js` aceitava ≥2500 chars. Thresholds muito baixos.
+
+### Correção
+- `validarConteudo()`: threshold 800 → 2500 chars
+- `rewritePortal()`: threshold 2500 → 3000 chars
+
+### Regra permanente
+Artigo mínimo aceitável: 2500 chars de `corpo` (≈ 5–6 parágrafos HTML). NUNCA reduzir esses thresholds.
+
+---
+
 ## CHECKLIST — Antes de qualquer mudança no pipeline
 
 ```
@@ -347,4 +455,12 @@ Linha removida novamente.
 □ newsletter-bar.js NÃO é usado para patchear footer de landing pages?
 □ api/ tem exatamente 10 arquivos? (contar antes de qualquer push)
 □ vercel.json não tem maxDuration > 10?
+□ markdownToHtml() existe em core/ai_portal.js e é chamado no parse()?
+□ stripMd() existe em public/js/internal-page-v2.js e é aplicado nos 4 renders de card?
+□ Injeção de "Leia também" em article.js tem guard de HTML antes de injetar?
+□ ALIASES em image_finder.js tem específicos ANTES do genérico 'bolsonaro'?
+□ Pipeline tem fallback findImage() quando processAndSaveImage retorna null?
+□ Dedup de entidade (max 3/entidade/24h) ativo em run_portal.js?
+□ validarConteudo() rejeita corpo < 2500 chars?
+□ rewritePortal() rejeita corpo < 3000 chars?
 ```
