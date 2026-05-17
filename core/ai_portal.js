@@ -152,13 +152,14 @@ REGRAS OBRIGATÓRIAS DE RIGOR MÁXIMO E BLINDAGEM ALGORÍTMICA:
 — O CORPO deve ser entregue inteiramente em HTML válido. NUNCA use markdown (**, ##, *, •). Use apenas tags HTML em caixa baixa: <p>, <h2>, <strong>, <ul>, <li>.
 — Use a FOCO_KEYWORD pelo menos 3 vezes no CORPO de forma natural.
 — Negrito obrigatório (tag <strong>): nomes de pessoas, empresas, cargos, valores numéricos e datas.
-— PROIBIÇÃO ABSOLUTA DE JARGÕES SINTÉTICOS: Fica terminantemente banido o uso de termos robóticos de IA ou clichês de marketing. Se o texto contiver qualquer um destes termos, a matéria será rejeitada: [robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam, prospecção, radiografia do fato, cenário prospectivo, vetores de risco, no tecido social, em um mundo cada vez mais, no cenário atual].
+— PROIBIÇÃO ABSOLUTA DE JARGÕES SINTÉTICOS: Fica terminantemente banido o uso de termos robóticos de IA ou clichês de marketing. Se o texto contiver qualquer um destes termos, a matéria será rejeitada: [robust, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam, prospecção, radiografia do fato, cenário prospectivo, vetores de risco, no tecido social, em um mundo cada vez mais, no cenário atual, vale ressaltar, de suma importância].
 — Não comece com saudação, "Prezado", "Caro", "Olá" ou similar.
 — Não adicione contexto histórico, geográfico ou especulativo que não está na fonte.
 — O texto deve possuir a assinatura estilística limpa de agências de notícias internacionais (Reuters / Bloomberg).
 
-TEXTO FONTE:
-${text}`;
+<TEXTO_FONTE>
+${text}
+</TEXTO_FONTE>`;
 // =====================================================================
 
 function slugify(text) {
