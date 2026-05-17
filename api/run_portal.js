@@ -467,15 +467,15 @@ export default async function handler(req, res) {
       const metaTitle = stripTitle(content.meta_title || content.titulo);
       const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
 
+      // Block 6: save as pendente — awaits human approval before publishing
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo,
         conteudo: content.corpo,
         comentario_fixado: metaDesc,
         imagem: imagemFinal,
         hash,
-        status: 'publicado',
-        approved: true,
-        published_at: new Date().toISOString(),
+        status: 'pendente',
+        approved: false,
         publish_method: 'portal',
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria,
@@ -491,12 +491,6 @@ export default async function handler(req, res) {
       }).select().single();
 
       if (error) continue;
-
-      if (post) {
-        const canonicalPath = catToPath(content.categoria);
-        const canonicalSlug = slugify(content.titulo);
-        pingGoogleIndexing(`${BASE}/${canonicalPath}/${canonicalSlug}-${post.id.slice(0, 8)}/`);
-      }
 
       recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
