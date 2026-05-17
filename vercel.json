@@ -3,7 +3,7 @@
   "outputDirectory": "public",
   "crons": [
     {
-      "path": "/api/refresh_token",
+      "path": "/api/manage?action=refresh_token",
       "schedule": "0 3 1 * *"
     }
   ],

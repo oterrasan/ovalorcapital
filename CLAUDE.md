@@ -74,14 +74,18 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 
 ---
 
-## ❌ REGRA ZERO-D — TODO INSERT EM `posts` USA `publicado` + `approved:true`
+## ❌ REGRA ZERO-D — STAGING PROTOCOL ATIVO (Block 6 — 17/05/2026)
 
 ```
-❌❌❌ NUNCA salvar artigo novo com status:'pendente' ou approved:false no pipeline automático
-✅ Sempre: status:'publicado', approved:true, published_at:new Date().toISOString()
+✅ Pipeline automático salva: status:'pendente', approved:false (SEM published_at)
+✅ Aprovação humana obrigatória antes de publicar — via admin > Postagens > filtro 'pendente'
+❌ NUNCA alterar de volta para publicado+approved:true no pipeline sem autorização de Roberto
 ```
 
-Esta regra foi violada em mai/2026 e corrigida na sessão 17/05/2026.
+> Esta regra foi originalmente "SEMPRE publicado+approved:true" (mai/2026).
+> Foi invertida pelo Block 6 do MASTER_ARCHITECTURAL_BLUEPRINT em 17/05/2026 a pedido de Roberto.
+> O admin já tem: badge de notificação no sidebar, filtro 'pendente', botão 'Publicar no Portal'.
+> Posts manuais (handleManual) CONTINUAM salvando como publicado — só o pipeline automático virou pendente.
 
 ---
 
@@ -133,7 +137,7 @@ Esta regra foi violada em mai/2026 e corrigida na sessão 17/05/2026.
 
 ## ⚠️ VISÃO ESTRATÉGICA
 
-Modelo de negócio: `300 artigos/dia → indexação massiva → tráfego orgânico → AdSense/AdX → receita`
+Modelo de negócio: `artigos/dia → indexação massiva → tráfego orgânico → AdSense/AdX → receita`
 Fonte de receita única: Google AdSense / Google AdX.
 
 ---
@@ -143,13 +147,13 @@ Fonte de receita única: Google AdSense / Google AdX.
 1. **MAX 10 ARQUIVOS EM `api/`** — Ver Regra Zero-A. NUNCA, em hipótese alguma, ter 11 ou mais.
 2. **NUNCA TOCAR NO PROMPT SEM AUTORIZAÇÃO** — Ver Regra Zero-B.
 3. **NUNCA PUSH SEM REVISAR DIFF** — Ver Regra Zero-C.
-4. **TODO INSERT USA `publicado` + `approved:true`** — Ver Regra Zero-D.
+4. **STAGING ATIVO** — Pipeline salva como `pendente`. Admin aprova antes de publicar. Ver Regra Zero-D.
 5. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
 6. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
 7. **URLs sempre com slug** — nunca `?id=`.
 8. **SSR obrigatório** — Googlebot não pode depender de JS.
 9. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
-10. **300 artigos/dia sem falha.**
+10. **Pipeline gera artigos para fila — Roberto aprova antes de publicar.**
 11. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main.
 12. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array TEXT, usar `.like()`).
 13. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
@@ -161,6 +165,8 @@ Fonte de receita única: Google AdSense / Google AdX.
 19. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
 20. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
 21. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
+22. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
+23. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
 
 ---
 
@@ -180,29 +186,27 @@ Fonte de receita única: Google AdSense / Google AdX.
 
 ## 2. ARQUITETURA
 
-### APIs — 12 ARQUIVOS ATUAIS (CONSOLIDAR PARA 10 — PRÓXIMA SESSÃO TÉCNICA)
+### APIs — 10 ARQUIVOS ✅ (Regra Zero-A satisfeita)
 
 | Arquivo | Funções que atende |
 |---|---|
-| `api/article.js` | SSR artigos por slug URL |
+| `api/article.js` | SSR artigos por slug URL + Organization JSON-LD + links internos + banners.js inject |
 | `api/category.js` | SSR listagem de categorias |
 | `api/ig_publish.js` | Publica Instagram via Playwright |
 | `api/institutional.js` | SSR /quem-somos/ e /politica-editorial/ |
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
-| `api/manage.js` | Status, aprovação, track_view, newsletter |
-| `api/manual_post.js` | Geração manual de artigos via URL |
+| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`), **refresh token IG** (`GET ?action=refresh_token`) |
 | `api/portal-posts.js` | Serve posts publicados para frontend |
-| `api/refresh_token.js` | Renova token Instagram (mensal) |
-| `api/run_portal.js` | Pipeline RSS→scrape→IA→banco + `?action=regenerar` |
+| `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` + **geração manual** (`POST body.url\|body.texto`) |
 | `api/sitemap.js` | Sitemap dinâmico |
 
 > ⚠️⚠️⚠️ ANTES DE CRIAR QUALQUER ARQUIVO EM api/, DELETAR UM EXISTENTE. MÁXIMO ABSOLUTO: 10 ARQUIVOS.
 
-**Consolidações pendentes (próxima sessão técnica):**
-- `api/refresh_token.js` (1.2KB, uso único mensal) → fundir com `api/manage.js` via `?action=refresh_token`
-- `api/portal-posts.js` → avaliar fusão com `api/article.js` ou `api/category.js`
-- Meta: chegar a 10 arquivos
+**Consolidações realizadas (17/05/2026):**
+- `api/refresh_token.js` **DELETADO** → lógica em `api/manage.js` via `GET ?action=refresh_token`
+- `api/manual_post.js` **DELETADO** → lógica em `api/run_portal.js` via `POST body.url|body.texto`
+- Cron `vercel.json` atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
 
 ### Core (NUNCA alterar sem autorização do dono)
 | Arquivo | Função |
@@ -219,8 +223,14 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `public/js/internal-page-v2.js` | Renderização artigos — `renderCorpo()` detecta HTML vs markdown |
 | `public/js/home.js` | Homepage dinâmica |
 | `public/js/noticias-v3.js` | Listagem de notícias |
-| `public/js/ovc-cards.js` | Cards de artigos |
+| `public/js/ovc-cards.js` | Cards de artigos — CATS funnel reordering (Block 4) + home banner loader |
 | `public/js/newsletter-bar.js` | Injeta newsletter bar + patcha footer |
+| `public/js/banners.js` | **NOVO (Block 5)** — injeta banner Lions Corretora em artigos e homepage |
+
+### Data Files
+| Arquivo | Função |
+|---|---|
+| `data/banners.json` | **NOVO (Block 5)** — 17 produtos Lions Corretora, lido por `api/manage.js` |
 
 ---
 
@@ -254,7 +264,7 @@ priority, retry_count, max_retries
 **CRÍTICO:** Não existe coluna `categoria`. Sempre usar `user_tags`.
 **CRÍTICO:** `comentario_fixado` = meta description.
 **CRÍTICO:** `metrics.meta_title` = título SEO ≤55 chars para `<title>`.
-**CRÍTICO:** Pipeline automático SEMPRE insere com `status:'publicado'`, `approved:true`, `published_at:now`.
+**CRÍTICO (Block 6):** Pipeline automático insere com `status:'pendente'`, `approved:false`, SEM `published_at`. published_at é preenchido ao aprovar via admin.
 
 ### Tabela `config`
 | Chave | Descrição |
@@ -300,7 +310,9 @@ vc, colunistas — apenas conteúdo manual
 GitHub Actions → POST /api/run_portal a cada 2 minutos
 body: {"count":1} — sem force
 Janela: 07:00–01:00 BRT
-Fluxo: getNewsByCategoria() + getNews() → scrape() → rewritePortal() → validar() → salva como publicado
+Fluxo: getNewsByCategoria() + getNews() → scrape() → rewritePortal() → validar()
+       → salva como PENDENTE (Block 6: aguarda aprovação manual)
+       → admin > Postagens > filtro 'pendente' → Roberto aprova → publica
 ```
 
 ### Parâmetros
@@ -309,6 +321,8 @@ body.force = true     // bypassa verificação de horário
 body.count = N        // artigos a gerar (máx 8, padrão 1)
 body.categoria        // forçar categoria
 body.subcategoria     // forçar subcategoria
+body.url              // geração manual via URL (antes em api/manual_post.js)
+body.texto            // geração manual via texto bruto
 ?action=regenerar     // regenerar artigos com markdown das últimas 48h (1 por chamada, JSON response)
 ?action=regenerar&limit=N  // processar N artigos por chamada (padrão 1)
 ```
@@ -321,7 +335,7 @@ body.subcategoria     // forçar subcategoria
 
 ### Diagnóstico pipeline normal
 ```
-{"status":"ok"}            → artigo gerado
+{"status":"ok"}            → artigo gerado (vai para fila pendente)
 {"status":"no_news"}       → RSS vazio
 {"status":"no_valid_news"} → RSS retornou itens mas todos falharam
 {"status":"fora_horario"}  → fora da janela 07:00-01:00 BRT
@@ -387,6 +401,7 @@ function renderCorpo(texto){
 | Slug URLs | `api/article.js` + `vercel.json` | ✅ |
 | SSR artigos | `api/article.js` | ✅ |
 | JSON-LD NewsArticle | `api/article.js` | ✅ |
+| JSON-LD Organization | `api/article.js` | ✅ (Block 3) |
 | META_TITLE ≤55 chars | `api/article.js` + `core/ai_portal.js` | ✅ |
 | Meta description artigos | `api/article.js` | ✅ |
 | SSR categorias (29) | `api/category.js` | ✅ |
@@ -396,12 +411,17 @@ function renderCorpo(texto){
 | robots.txt | `public/robots.txt` | ✅ |
 | Sitemap dinâmico | `api/sitemap.js` | ✅ |
 | Canonical www | Todos handlers SSR | ✅ |
+| Links internos "Leia também" | `api/article.js` `fetchRelatedArticles()` | ✅ (Block 3) |
+| Google Indexing API | `api/run_portal.js` `pingGoogleIndexing()` | ✅ (Block 3, ping ocorre ao aprovar) |
+| Banner comercial Lions | `api/manage.js` + `public/js/banners.js` | ✅ (Block 5) |
 
 ### Ações pendentes (Roberto faz manualmente)
 1. Search Console → submeter sitemap.xml
 2. AdSense → verificar aprovação
 3. Google Publisher Center → cadastrar portal
 4. Quando ovalorcapital@gmail.com ativado → atualizar `EMAIL_REAL` em `api/institutional.js`
+5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
+6. **Merge branch `claude/work-session-LGQFx` → `main`** para deployar todos os Blocks 1–6 em produção.
 
 ---
 
@@ -447,6 +467,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 6. Checklist SEO em toda página nova
 7. Verificar GitHub Actions rodando
 8. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
+9. **STAGING ATIVO:** pipeline salva como pendente. Lembrar Roberto de aprovar via admin > Postagens.
 
 ---
 
@@ -499,6 +520,46 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Workflow criado:** `.github/workflows/corrigir_artigos.yml` — loop automático que chama `?action=regenerar` até `restantes:0`
 - **Prompt novo aprovado e travado:** gera HTML, Google News+Discover, Reuters/Bloomberg style, comentário de trava no código
 - **Regras Zero-A a Zero-D** documentadas neste arquivo
-- **Consolidação api/ 12→10:** pendente para próxima sessão técnica
-  - `refresh_token.js` → fundir com `manage.js`
-  - `portal-posts.js` → avaliar fusão
+
+### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–6 — TODOS COMPLETOS ✅)
+
+**Branch de trabalho:** `claude/work-session-LGQFx`
+**Commits:** e2ef635a (B3), 6176364 (B4), 82488e5a (B5-pt1), 29781353 (B5-pt2), bd9fdb77 (B6), c871657f (consolidação api/), 10a73007 (delete refresh_token.js), 3a759cd9 (delete manual_post.js)
+
+#### Block 1 — SYSTEM_KERNEL (`core/ai_portal.js`)
+- Prompt reestruturado: instruções completas em `role:system`, texto-fonte isolado em `role:user` com tags XML `<source_text>` e `<source_url>`
+
+#### Block 2 — GPT-4o Vision (`core/image_processor.js`)
+- GPT-4o Vision API para análise semântica de imagem antes de processar
+- 2s timeout, só executa se < 5s elapsed (budget-aware)
+- Sharp.js: flip condicional, watermark SVG via composite
+
+#### Block 3 — SEO Authority (`api/article.js` + `api/run_portal.js`)
+- Organization JSON-LD como segundo `<script type="application/ld+json">`
+- `fetchRelatedArticles()`: 3 artigos recentes mesma categoria, injeta "Leia também" em 2/3 do corpo
+- `pingGoogleIndexing()`: JWT RSA-SHA256, OAuth2, fire-and-forget — requer `GOOGLE_INDEXING_SA_JSON` no Vercel
+
+#### Block 4 — CATS Funnel (`public/js/ovc-cards.js`)
+- CATS array reordenado para funil temático; CATS_DESTAQUE expandido para 6
+
+#### Block 5 — Banner Commercial Matrix
+- `data/banners.json`: 17 produtos Lions Corretora (CNPJ 38.461.144/0001-18)
+- `api/manage.js`: endpoint `GET ?action=banners&cat=` com cache module-level
+- `public/js/banners.js`: IIFE, rectangle em artigos, leaderboard na home, `rel="sponsored"`
+
+#### Block 6 — Staging Protocol (`api/run_portal.js`) — COMPLETO
+- Pipeline agora salva: `status:'pendente'`, `approved:false`, sem `published_at`
+- Admin já tinha infra completa: badge sidebar, filtro 'pendente', botão 'Publicar no Portal'
+- Aprovação individual: admin > Postagens > filtro 'pendente' > 'Publicar no Portal'
+- Aprovação em lote: selecionar vários > aprovar_lote
+- Posts manuais (handleManual em manage.js) CONTINUAM publicando direto — só pipeline automático virou pendente
+- `pingGoogleIndexing` mantido em run_portal.js (pode ser ativado ao aprovar em versão futura)
+
+#### Consolidação api/ 12 → 10 ✅ (Regra Zero-A restaurada)
+- `api/refresh_token.js` **DELETADO** → lógica em `manage.js` via `GET ?action=refresh_token`
+- `api/manual_post.js` **DELETADO** → lógica em `run_portal.js` via `POST body.url|body.texto`
+- `vercel.json` cron atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
+- **api/ agora tem exatamente 10 arquivos — Regra Zero-A satisfeita ✅**
+
+#### Próximo passo obrigatório (Roberto faz)
+- Merge `claude/work-session-LGQFx` → `main` para deployar tudo em produção

@@ -4,9 +4,49 @@ import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { rewritePortal } from "../core/ai_portal.js";
+import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const BASE = "https://www.ovalorcapital.com.br";
+
+const CAT_TO_PATH = { tributacao: 'tributos', colunistas: 'vc' };
+function catToPath(cat) { return CAT_TO_PATH[cat] || cat; }
+
+async function pingGoogleIndexing(canonicalUrl) {
+  const saJson = process.env.GOOGLE_INDEXING_SA_JSON;
+  if (!saJson) return;
+  try {
+    const sa = JSON.parse(saJson);
+    const now = Math.floor(Date.now() / 1000);
+    const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+      iss: sa.client_email,
+      sub: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/indexing',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600
+    })).toString('base64url');
+    const unsigned = `${header}.${payload}`;
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(unsigned);
+    const signature = sign.sign(sa.private_key, 'base64url');
+    const jwt = `${unsigned}.${signature}`;
+    const tokenRes = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 5000 }
+    );
+    const accessToken = tokenRes.data.access_token;
+    await axios.post(
+      'https://indexing.googleapis.com/v3/urlNotifications:publish',
+      { url: canonicalUrl, type: 'URL_UPDATED' },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, timeout: 5000 }
+    );
+  } catch (_) {}
+}
 
 const COMPETITOR_IMG_HOSTS = new Set([
   'glbimg.com','s2.glbimg.com','s3.glbimg.com','i.s3.glbimg.com',
@@ -202,6 +242,60 @@ function tituloSimilar(a, b) {
   return (intersect / union) >= 0.40;
 }
 
+// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ─────────────────
+async function handleManualPost(req, res) {
+  const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
+  if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
+  try {
+    let sourceText = "", sourceTitle = "", imgScrapeada = "";
+    if (url) {
+      const article = await scrape(url);
+      if (!article.text || article.text.length < 100)
+        return res.status(400).json({ error: "Não foi possível extrair conteúdo desta URL" });
+      sourceText = article.text;
+      sourceTitle = article.title || "";
+      imgScrapeada = article.image || "";
+    } else {
+      sourceText = texto;
+    }
+    const content = await rewritePortal(sourceText, sourceTitle);
+    if (!content.corpo || content.corpo.length < 300)
+      return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
+    if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
+      content.categoria = catAlvo;
+      if (subcatAlvo) { content.subcategoria = subcatAlvo; content.subcategoria_slug = slugify(subcatAlvo); }
+    }
+    const hash = crypto.createHash("md5").update((url || texto).slice(0,200) + "_manual").digest("hex");
+    let imagemFinal = null;
+    const imgAprovada = imgScrapeada && !isCompetitorDomain(imgScrapeada) ? imgScrapeada : null;
+    if (imgAprovada) {
+      try { imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12)); } catch(_) {}
+    }
+    if (!imagemFinal) imagemFinal = await findImage(content.titulo, content.categoria, '', '');
+    const status = publicar ? "publicado" : "pendente";
+    const now = new Date().toISOString();
+    const { data: post, error } = await supabase.from("posts").insert({
+      titulo: content.titulo, conteudo: content.corpo,
+      comentario_fixado: content.subtitulo || "",
+      imagem: imagemFinal, hash, status,
+      approved: !!publicar, publish_method: "portal",
+      published_at: publicar ? now : null,
+      user_tags: JSON.stringify([content.categoria || "geral"]),
+      subcategoria: content.subcategoria || "",
+      subcategoria_slug: content.subcategoria_slug || slugify(content.subcategoria || ''),
+      collaborators: "[]",
+      metrics: { foco_keyword: content.foco_keyword || "", seo_slug: content.slug || "", meta_descricao: content.meta_descricao || "" },
+      priority: 1, retry_count: 0, max_retries: 3
+    }).select().single();
+    if (error) throw error;
+    return res.status(200).json({ ok: true, status, id: post.id, titulo: content.titulo,
+      categoria: content.categoria, subcategoria: content.subcategoria,
+      subtitulo: content.subtitulo, corpo: content.corpo.slice(0, 300) + "...", imagem: imagemFinal });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 async function regenerarConteudo(res, meta) {
   const inicio = Date.now();
   const desde48h = new Date(Date.now() - 48 * 3600000).toISOString();
@@ -215,57 +309,29 @@ async function regenerarConteudo(res, meta) {
     .order('created_at', { ascending: false })
     .limit(limite);
 
-  if (error) {
-    return res.status(500).json({ status: 'error', error: error.message });
-  }
-
-  if (!posts || posts.length === 0) {
-    return res.status(200).json({ status: 'ok', processados: 0, ok: 0, restantes: 0 });
-  }
+  if (error) return res.status(500).json({ status: 'error', error: error.message });
+  if (!posts || posts.length === 0) return res.status(200).json({ status: 'ok', processados: 0, ok: 0, restantes: 0 });
 
   const resultados = [];
-
   for (const post of posts) {
-    if (Date.now() - inicio > 8000) {
-      resultados.push({ id: post.id, status: 'timeout' });
-      break;
-    }
+    if (Date.now() - inicio > 8000) { resultados.push({ id: post.id, status: 'timeout' }); break; }
     try {
       const novoConteudo = await rewritePortal(post.conteudo, post.titulo);
       if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 800) {
-        resultados.push({ id: post.id, status: 'rejeitado' });
-        continue;
+        resultados.push({ id: post.id, status: 'rejeitado' }); continue;
       }
       const metaDesc = (novoConteudo.meta_descricao || novoConteudo.subtitulo || '').replace(/\*\*/g,'').trim();
       const metaTitle = stripTitle(novoConteudo.meta_title || novoConteudo.titulo);
       await supabase.from('posts').update({
         titulo: stripTitle(novoConteudo.titulo) || stripTitle(post.titulo),
-        conteudo: novoConteudo.corpo,
-        comentario_fixado: metaDesc,
-        metrics: {
-          foco_keyword: novoConteudo.foco_keyword || '',
-          seo_slug: novoConteudo.slug || '',
-          meta_descricao: metaDesc,
-          meta_title: metaTitle
-        }
+        conteudo: novoConteudo.corpo, comentario_fixado: metaDesc,
+        metrics: { foco_keyword: novoConteudo.foco_keyword || '', seo_slug: novoConteudo.slug || '', meta_descricao: metaDesc, meta_title: metaTitle }
       }).eq('id', post.id);
       resultados.push({ id: post.id, titulo: stripTitle(novoConteudo.titulo), status: 'ok', chars: novoConteudo.corpo.length });
-    } catch(e) {
-      resultados.push({ id: post.id, status: 'erro', msg: e.message });
-    }
+    } catch(e) { resultados.push({ id: post.id, status: 'erro', msg: e.message }); }
   }
-
-  // Se processamos algum artigo com sucesso, assume que podem ter mais
   const okCount = resultados.filter(r => r.status === 'ok').length;
-  const restantes = okCount > 0 ? 1 : 0;
-
-  return res.status(200).json({
-    status: 'ok',
-    processados: resultados.length,
-    ok: okCount,
-    restantes,
-    resultados
-  });
+  return res.status(200).json({ status: 'ok', processados: resultados.length, ok: okCount, restantes: okCount > 0 ? 1 : 0, resultados });
 }
 
 export default async function handler(req, res) {
@@ -273,31 +339,24 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
 
-  if (meta.action === 'regenerar') {
-    return regenerarConteudo(res, meta);
-  }
+  if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
+
+  // Geração manual via URL ou texto (antes em api/manual_post.js)
+  if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
 
   if (body.action === 'cleanup_titles') {
     if (!body.force) return res.status(403).json({ error: 'requires force:true' });
     try {
-      const { data: dirty } = await supabase.from('posts')
-        .select('id, titulo')
-        .like('titulo', '%**%')
-        .limit(500);
+      const { data: dirty } = await supabase.from('posts').select('id, titulo').like('titulo', '%**%').limit(500);
       let fixed = 0;
       for (const p of dirty || []) {
         const clean = stripTitle(p.titulo);
-        if (clean !== p.titulo) {
-          await supabase.from('posts').update({ titulo: clean }).eq('id', p.id);
-          fixed++;
-        }
+        if (clean !== p.titulo) { await supabase.from('posts').update({ titulo: clean }).eq('id', p.id); fixed++; }
       }
       return res.status(200).json({ status: 'ok', fixed });
-    } catch(e) {
-      return res.status(500).json({ status: 'error', error: e.message });
-    }
+    } catch(e) { return res.status(500).json({ status: 'error', error: e.message }); }
   }
 
   const catForcada = (body.categoria || '').trim().toLowerCase();
@@ -309,17 +368,12 @@ export default async function handler(req, res) {
       const agoraBR = new Date(Date.now() - 3 * 3600000);
       const horaBR  = agoraBR.getUTCHours();
       const dentroJanela = horaBR >= 7 || horaBR < 1;
-      if (!dentroJanela) {
-        return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
-      }
+      if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
     let recentTitles = [];
     try {
-      const { data: rt } = await supabase.from('posts')
-        .select('titulo')
-        .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString())
-        .limit(300);
+      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(300);
       recentTitles = (rt || []).map(p => p.titulo || '');
     } catch(_) {}
 
@@ -340,27 +394,16 @@ export default async function handler(req, res) {
         news = [...prio, ...gen].filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true; });
       }
     } else {
-      const [priorityNews, generalNews] = await Promise.all([
-        getNewsByCategoria(catAlvo),
-        getNews()
-      ]);
-      _dbgPrio = priorityNews.length;
-      _dbgGen = generalNews.length;
+      const [priorityNews, generalNews] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
+      _dbgPrio = priorityNews.length; _dbgGen = generalNews.length;
       const seenLinks = new Set();
       news = [...priorityNews, ...generalNews].filter(item => {
-        if (seenLinks.has(item.link)) return false;
-        seenLinks.add(item.link);
-        return true;
+        if (seenLinks.has(item.link)) return false; seenLinks.add(item.link); return true;
       });
     }
 
-    if (!news.length) {
-      news = await getLinksFromHomepages();
-    }
-
-    if (!news.length) {
-      return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
-    }
+    if (!news.length) news = await getLinksFromHomepages();
+    if (!news.length) return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
 
     const artigos = [];
 
@@ -373,7 +416,6 @@ export default async function handler(req, res) {
       if (dup) continue;
 
       const article = await scrape(item.link);
-
       let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
       if (!sourceText) {
         const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
@@ -383,18 +425,13 @@ export default async function handler(req, res) {
 
       let content;
       try { content = await rewritePortal(sourceText, item.title); } catch(e) { continue; }
-
       if (!validarConteudo(content)) continue;
-
       content.titulo = stripTitle(content.titulo);
 
       if (!content.categoria || content.categoria === 'geral') {
         const catCorrigida = corrigirCategoria(content.titulo, '');
-        if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) {
-          content.categoria = catCorrigida;
-        } else {
-          continue;
-        }
+        if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
+        else continue;
       }
 
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
@@ -424,36 +461,24 @@ export default async function handler(req, res) {
       let imagemFinal = null;
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
-      if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12));
+      if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
 
       const metaTitle = stripTitle(content.meta_title || content.titulo);
       const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
 
+      // Block 6: save as pendente — awaits human approval before publishing
       const { data: post, error } = await supabase.from('posts').insert({
-        titulo: content.titulo,
-        conteudo: content.corpo,
-        comentario_fixado: metaDesc,
-        imagem: imagemFinal,
-        hash,
-        status: 'publicado',
-        approved: true,
-        published_at: new Date().toISOString(),
+        titulo: content.titulo, conteudo: content.corpo, comentario_fixado: metaDesc,
+        imagem: imagemFinal, hash, status: 'pendente', approved: false,
         publish_method: 'portal',
         user_tags: JSON.stringify([content.categoria]),
-        subcategoria: content.subcategoria,
-        subcategoria_slug: content.subcategoria_slug,
+        subcategoria: content.subcategoria, subcategoria_slug: content.subcategoria_slug,
         collaborators: '[]',
-        metrics: {
-          foco_keyword: content.foco_keyword || '',
-          seo_slug: content.slug || '',
-          meta_descricao: metaDesc,
-          meta_title: metaTitle
-        },
+        metrics: { foco_keyword: content.foco_keyword || '', seo_slug: content.slug || '', meta_descricao: metaDesc, meta_title: metaTitle },
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
 
       if (error) continue;
-
       recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }

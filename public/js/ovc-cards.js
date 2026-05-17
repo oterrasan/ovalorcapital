@@ -4,35 +4,35 @@
   var CATS = [
     { id:'politica',     label:'Política',       path:'/politica/',     cats:['politica'] },
     { id:'economia',     label:'Economia',       path:'/economia/',     cats:['economia'] },
+    { id:'internacional',label:'Internacional',  path:'/internacional/',cats:['internacional'] },
+    { id:'investigativo',label:'Investigativo',  path:'/investigativo/',cats:['investigativo'] },
     { id:'negocios',     label:'Negócios',      path:'/negocios/',     cats:['negocios'] },
     { id:'investimentos',label:'Investimentos',  path:'/investimentos/',cats:['investimentos'] },
     { id:'mercados',     label:'Mercados',       path:'/mercados/',     cats:['mercados'] },
     { id:'seguros',      label:'Seguros',        path:'/seguros/',      cats:['seguros'] },
     { id:'tributacao',   label:'Tributos',       path:'/tributos/',     cats:['tributacao'] },
-    { id:'regulacao',    label:'Regulação',      path:'/regulacao/',    cats:['regulacao'] },
     { id:'tecnologia',   label:'Tecnologia',     path:'/tecnologia/',   cats:['tecnologia'] },
     { id:'industria',    label:'Indústria',      path:'/industria/',    cats:['industria'] },
-    { id:'educacao',     label:'Educação',       path:'/educacao/',     cats:['educacao'] },
+    { id:'regulacao',    label:'Regulação',      path:'/regulacao/',    cats:['regulacao'] },
     { id:'saude',        label:'Saúde',          path:'/saude/',        cats:['saude'] },
-    { id:'familia',      label:'Família',        path:'/familia/',      cats:['familia'] },
+    { id:'educacao',     label:'Educação',       path:'/educacao/',     cats:['educacao'] },
     { id:'esportes',     label:'Esportes',       path:'/esportes/',     cats:['esportes'] },
-    { id:'internacional',label:'Internacional',  path:'/internacional/',cats:['internacional'] },
-    { id:'variedades',   label:'Variedades',     path:'/variedades/',   cats:['variedades'] },
-    { id:'cultura',      label:'Cultura',        path:'/cultura/',      cats:['cultura'] },
-    { id:'investigativo',label:'Investigativo',  path:'/investigativo/',cats:['investigativo'] },
     { id:'seguranca',    label:'Seg. Pública',   path:'/seguranca/',    cats:['seguranca'] },
+    { id:'familia',      label:'Família',        path:'/familia/',      cats:['familia'] },
+    { id:'cultura',      label:'Cultura',        path:'/cultura/',      cats:['cultura'] },
+    { id:'variedades',   label:'Variedades',     path:'/variedades/',   cats:['variedades'] },
     { id:'profissoes',   label:'Profissões',     path:'/profissoes/',   cats:['profissoes'] },
     { id:'vagas',        label:'Vagas',          path:'/vagas/',        cats:['vagas'] },
     { id:'concursos',    label:'Concursos',      path:'/concursos/',    cats:['concursos'] },
     { id:'imoveis',      label:'Imóveis',        path:'/imoveis/',      cats:['imoveis'] },
-    { id:'parcerias',    label:'Parcerias',      path:'/parcerias/',    cats:['parcerias'] },
     { id:'esg',          label:'ESG',            path:'/esg/',          cats:['esg'] },
     { id:'defesa',       label:'Defesa',         path:'/defesa/',       cats:['defesa'] },
     { id:'religiao',     label:'Fé & Espiritualidade', path:'/religiao/', cats:['religiao'] },
+    { id:'parcerias',    label:'Parcerias',      path:'/parcerias/',    cats:['parcerias'] },
     { id:'vc',           label:'OVC / Colunistas',path:'/vc/',          cats:['vc','colunistas'] }
   ];
 
-  var CATS_DESTAQUE = ['politica','economia','negocios','seguros'];
+  var CATS_DESTAQUE = ['politica','economia','internacional','investigativo','negocios','seguros'];
 
   var CORES_CAT = {
     politica:'#dc2626',economia:'#2563eb',negocios:'#7c3aed',
@@ -234,7 +234,7 @@
     });
   }
 
-  // ── SEÇÃO COLUNISTAS 3+3 ─────────────────────────────────────
+  // ── SEÇÃO COLUNISTAS 3+3 ────────────────────────────────────────────
   function bigCard(p){
     var url = buildUrl(p);
     var img = p.imagem && imgOk(p.imagem) ? p.imagem : '';
@@ -305,17 +305,15 @@
           +'<a href="/vc/" style="font-size:11px;color:#b8860b;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid #b8860b33;padding:5px 12px;border-radius:6px;">Ver todos →</a>'
           +'</div>';
 
-        // Linha 1: 3 cards grandes
         html += '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:12px;">';
         html += big.map(bigCard).join('');
         html += '</div>';
 
-        // Linha 2: 3 cards pequenos
         if(small.length){
           html += '<div style="background:#fff;border:1px solid #f0ede4;border-radius:12px;overflow:hidden;">';
           html += '<div style="display:grid;grid-template-columns:repeat('+Math.min(small.length,3)+',minmax(0,1fr));">';
           small.forEach(function(p,i){
-            html += '<div style="'+(i>0?'border-left:1px solid #f0ede4;':'')+'">'+smallCard(p)+'</div>';
+            html += '<div style="'+(i>0?'border-left:1px solid #f0ede4;':'')+'">'+ smallCard(p)+'</div>';
           });
           html += '</div></div>';
         }
@@ -333,6 +331,12 @@
     carregarMaisLidas();
     carregarOvcTv();
     carregarColunistas();
+    // Carrega sistema de banners Lions na home
+    if(!document.getElementById('ovc-banner-home')){
+      var bs = document.createElement('script');
+      bs.src = '/js/banners.js';
+      document.head.appendChild(bs);
+    }
   });
 
   function carregarMaisLidas(){

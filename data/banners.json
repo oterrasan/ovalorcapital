@@ -1,37 +1,189 @@
 [
   {
-    "slot": "home_top",
-    "label": "Patrocínio discreto · espaço premium da Home",
-    "cta": "Anuncie no OVC",
-    "url": "/anuncie/",
-    "active": true
+    "id": "vida-individual",
+    "product": "Seguro de Vida Individual",
+    "headline": "Proteja o futuro de quem você ama",
+    "subheadline": "Cobertura por morte, invalidez permanente e doenças graves. Fácil de contratar, sem burocracia.",
+    "cta": "Simular no WhatsApp",
+    "categories": ["seguros", "familia", "saude", "geral"],
+    "priority": 10,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e gostaria de simular um Seguro de Vida Individual."
   },
   {
-    "slot": "category_top",
-    "label": "Patrocínio discreto · topo da editoria",
-    "cta": "Anuncie no OVC",
-    "url": "/anuncie/",
-    "active": true
+    "id": "vida-empresarial",
+    "product": "Seguro de Vida em Grupo",
+    "headline": "Valorize sua equipe com proteção de vida",
+    "subheadline": "Benefícios que retêm talentos e protegem colaboradores. Ideal para PMEs e grandes corporações.",
+    "cta": "Cotar para minha empresa",
+    "categories": ["negocios", "industria", "regulacao"],
+    "priority": 9,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero cotar um Seguro de Vida em Grupo para minha empresa."
   },
   {
-    "slot": "sidebar_1",
-    "label": "Patrocínio discreto · rail lateral",
-    "cta": "Saiba mais",
-    "url": "/anuncie/",
-    "active": true
+    "id": "saude-pme",
+    "product": "Plano de Saúde PME",
+    "headline": "Saúde corporativa sem burocracia",
+    "subheadline": "Planos para empresas de 2 a 999 vidas. Ampla rede credenciada em todo o Brasil.",
+    "cta": "Receber cotação",
+    "categories": ["saude", "negocios", "economia"],
+    "priority": 9,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e preciso de uma cotação de Plano de Saúde para minha empresa."
   },
   {
-    "slot": "inline_1",
-    "label": "Patrocínio discreto · entre blocos",
-    "cta": "Ver formatos",
-    "url": "/anuncie/",
-    "active": true
+    "id": "odonto",
+    "product": "Plano Odontológico",
+    "headline": "Plano odonto para família ou empresa",
+    "subheadline": "Consultas, tratamentos e emergências com ampla rede de dentistas credenciados.",
+    "cta": "Ver planos disponíveis",
+    "categories": ["saude", "familia", "profissoes"],
+    "priority": 7,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e gostaria de conhecer os planos odontológicos disponíveis."
   },
   {
-    "slot": "footer_band",
-    "label": "Patrocínio discreto · faixa institucional",
-    "cta": "Anuncie",
-    "url": "/anuncie/",
-    "active": true
+    "id": "auto",
+    "product": "Seguro Auto",
+    "headline": "Seguro auto com assistência 24h em todo o Brasil",
+    "subheadline": "Cobertura completa ou básica, carro reserva, guincho ilimitado e o melhor atendimento.",
+    "cta": "Cotar meu seguro",
+    "categories": ["variedades", "familia", "economia"],
+    "priority": 8,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero cotar um Seguro Auto."
+  },
+  {
+    "id": "residencial",
+    "product": "Seguro Residencial",
+    "headline": "Seu imóvel protegido contra qualquer imprevisto",
+    "subheadline": "Cobertura para incêndio, roubo, danos elétricos e muito mais. Para casas e apartamentos.",
+    "cta": "Proteger meu imóvel",
+    "categories": ["imoveis", "familia"],
+    "priority": 7,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero cotar um Seguro Residencial."
+  },
+  {
+    "id": "viagem",
+    "product": "Seguro Viagem",
+    "headline": "Viaje com total segurança ao redor do mundo",
+    "subheadline": "Cobertura médica internacional, cancelamento de voo, bagagem e assistência 24h em qualquer país.",
+    "cta": "Cotar minha viagem",
+    "categories": ["internacional", "variedades", "cultura"],
+    "priority": 7,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e preciso de um Seguro Viagem."
+  },
+  {
+    "id": "pgbl",
+    "product": "Previdência Privada PGBL",
+    "headline": "PGBL: invista e deduza até 12% no IR",
+    "subheadline": "Para quem faz declaração completa do Imposto de Renda. Rentabilidade e benefício fiscal combinados.",
+    "cta": "Simular benefício fiscal",
+    "categories": ["tributacao", "investimentos", "economia"],
+    "priority": 9,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero simular um plano de Previdência PGBL."
+  },
+  {
+    "id": "vgbl",
+    "product": "Previdência Privada VGBL",
+    "headline": "VGBL: acumule patrimônio com eficiência",
+    "subheadline": "Ideal para quem usa o modelo simplificado do IR. Sucessão patrimônial facilitada e liquidez.",
+    "cta": "Simular minha previdência",
+    "categories": ["investimentos", "mercados", "educacao"],
+    "priority": 8,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero simular um plano de Previdência VGBL."
+  },
+  {
+    "id": "prev-corporativa",
+    "product": "Previdência Corporativa",
+    "headline": "Previdência corporativa que retém talentos",
+    "subheadline": "Planos que atraem e fidelizam profissionais qualificados. Vantagens fiscais para empresa e colaborador.",
+    "cta": "Montar pacote corporativo",
+    "categories": ["negocios", "tributacao", "industria"],
+    "priority": 8,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero implantar um plano de Previdência Corporativa."
+  },
+  {
+    "id": "consorcio-imoveis",
+    "product": "Consórcio de Imóveis",
+    "headline": "Compre seu imóvel sem juros com consórcio",
+    "subheadline": "Sem entrada e sem juros. Use o FGTS para antecipar a carta e conquiste seu imóvel agora.",
+    "cta": "Simular consórcio",
+    "categories": ["imoveis", "economia", "investimentos"],
+    "priority": 8,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero simular um Consórcio de Imóveis."
+  },
+  {
+    "id": "consorcio-auto",
+    "product": "Consórcio Automotivo",
+    "headline": "Adquira seu veículo sem entrada nem juros",
+    "subheadline": "Parcelas que cabem no bolso, sem IOF e sem juros. Carro novo ou usado, nacional ou importado.",
+    "cta": "Simular parcelas",
+    "categories": ["variedades", "economia"],
+    "priority": 7,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero simular um Consórcio Automotivo."
+  },
+  {
+    "id": "consorcio-servicos",
+    "product": "Consórcio de Serviços",
+    "headline": "Consórcio para viagens, reformas e educação",
+    "subheadline": "Transforme seus planos em realidade sem comprometer o orçamento. Cartas de até R$ 200 mil.",
+    "cta": "Conhecer opções",
+    "categories": ["cultura", "esportes", "educacao"],
+    "priority": 6,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero saber mais sobre o Consórcio de Serviços."
+  },
+  {
+    "id": "empresarial",
+    "product": "Seguro Empresarial",
+    "headline": "Proteja sua empresa contra riscos operacionais",
+    "subheadline": "Cobertura para incêndio, roubo, responsabilidade civil e interrupção de negócios.",
+    "cta": "Cotar para minha empresa",
+    "categories": ["negocios", "regulacao", "industria"],
+    "priority": 8,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e preciso de uma cotação de Seguro Empresarial."
+  },
+  {
+    "id": "garantia",
+    "product": "Seguro Garantia",
+    "headline": "Garantia financeira para contratos e licitações",
+    "subheadline": "Substitui caução e fiança bancária. Obrigatório em contratos públicos acima de R$ 100 mil.",
+    "cta": "Falar com especialista",
+    "categories": ["regulacao", "industria", "politica"],
+    "priority": 7,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e preciso de informações sobre Seguro Garantia."
+  },
+  {
+    "id": "rural",
+    "product": "Seguro Rural e Agronegócio",
+    "headline": "Proteja sua produção e seus investimentos no campo",
+    "subheadline": "Cobertura para lavouras, rebanhos, máquinas agrícolas e receita do produtor rural.",
+    "cta": "Cotar seguro rural",
+    "categories": ["industria", "economia", "esg"],
+    "priority": 7,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e quero cotar um Seguro Rural para minha propriedade."
+  },
+  {
+    "id": "consultoria",
+    "product": "Consultoria Financeira Lions",
+    "headline": "Fale grátis com um especialista Lions",
+    "subheadline": "Analistas certificados para proteger seu patrimônio, planejar aposentadoria e reduzir impostos.",
+    "cta": "Falar com especialista",
+    "categories": ["economia", "politica", "investigativo", "seguranca", "defesa", "religiao", "concursos", "vagas", "profissoes", "parcerias", "vc", "geral"],
+    "priority": 5,
+    "active": true,
+    "whatsapp_msg": "Olá! Vim pelo O Valor Capital e gostaria de falar com um especialista Lions."
   }
 ]

@@ -1,18 +1,75 @@
-// image_processor.js — Baixa imagem da fonte, recorta, espelha e salva no Supabase Storage
+// image_processor.js — Download, análise Vision, crop, flip condicional, watermark OVC, upload Supabase
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-// Recorte: remove bordas com logos e marcas d'água
 const CROP_TOP_PCT    = 0.08;
 const CROP_BOTTOM_PCT = 0.13;
 const CROP_LEFT_PCT   = 0.02;
 const CROP_RIGHT_PCT  = 0.02;
 
-// Dimensão final: 1200x675 (16:9)
 const OUT_WIDTH  = 1200;
 const OUT_HEIGHT = 675;
+
+// Analisa imagem via GPT-4o Vision (timeout 2s — fallback seguro se falhar)
+async function analyzeImageVision(buffer) {
+  if (!OPENAI_KEY) return null;
+  try {
+    const base64 = buffer.toString("base64");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        max_tokens: 80,
+        temperature: 0,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"has_competitor_logo": true/false, "is_chart_or_table": true/false}\nhas_competitor_logo: true if you see logos or watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if the image is a chart, graph, infographic, map, table, or contains critical readable text/numbers that a horizontal flip would distort or invert.'
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:image/jpeg;base64,${base64}`, detail: "low" }
+            }
+          ]
+        }]
+      })
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const d = await res.json();
+    const text = (d.choices?.[0]?.message?.content || "").trim();
+    const m = text.match(/\{[^}]+\}/);
+    if (!m) return null;
+    return JSON.parse(m[0]);
+  } catch(_) {
+    return null;
+  }
+}
+
+// Gera overlay SVG com marca d'água OVC (canto inferior direito, fundo semitransparente)
+function buildWatermark(width, height) {
+  const fontSize = Math.max(13, Math.floor(width * 0.017));
+  const padding  = Math.floor(width * 0.014);
+  const label    = "ovalorcapital.com.br";
+  const approxW  = label.length * fontSize * 0.58;
+  const approxH  = fontSize + 6;
+  const x = width  - Math.round(approxW) - padding;
+  const y = height - Math.round(approxH) - padding;
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="${x - 6}" y="${y - 3}" width="${Math.round(approxW) + 12}" height="${Math.round(approxH) + 8}" rx="3" fill="rgba(0,0,0,0.48)"/>
+    <text x="${x}" y="${y + fontSize}" font-family="Arial,Helvetica,sans-serif" font-size="${fontSize}" font-weight="bold" fill="rgba(255,255,255,0.88)" letter-spacing="0.4">${label}</text>
+  </svg>`;
+  return Buffer.from(svg);
+}
 
 async function downloadImage(url) {
   const controller = new AbortController();
@@ -37,7 +94,7 @@ async function downloadImage(url) {
   }
 }
 
-async function processImage(buffer) {
+async function processImage(buffer, visionMetrics) {
   try {
     const meta = await sharp(buffer).metadata();
     const { width, height } = meta;
@@ -50,18 +107,29 @@ async function processImage(buffer) {
 
     const extractWidth  = width  - cropLeft - cropRight;
     const extractHeight = height - cropTop  - cropBottom;
-
     if (extractWidth < 100 || extractHeight < 80) return null;
 
-    // Recortar, espelhar horizontalmente, redimensionar para 1200x675 e salvar como WebP
-    const processed = await sharp(buffer)
-      .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight })
-      .flop()
+    // Flip condicional: apenas em fotos limpas — nunca em gráficos, tabelas ou mapas
+    const applyFlip = !(visionMetrics?.is_chart_or_table === true);
+
+    let pipeline = sharp(buffer)
+      .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight });
+
+    if (applyFlip) pipeline = pipeline.flop();
+
+    const processed = await pipeline
       .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover", position: "centre" })
       .webp({ quality: 82 })
       .toBuffer();
 
-    return processed;
+    // Watermark OVC
+    const watermark = buildWatermark(OUT_WIDTH, OUT_HEIGHT);
+    const final = await sharp(processed)
+      .composite([{ input: watermark, blend: "over" }])
+      .webp({ quality: 82 })
+      .toBuffer();
+
+    return final;
   } catch(_) {
     return null;
   }
@@ -76,33 +144,37 @@ async function uploadToSupabase(buffer, filename) {
         upsert: true,
         cacheControl: "31536000"
       });
-
     if (error) return null;
-
     const { data: urlData } = supabase.storage
       .from("post-images")
       .getPublicUrl(`imagens/${filename}`);
-
     return urlData?.publicUrl || null;
   } catch(_) {
     return null;
   }
 }
 
-export async function processAndSaveImage(sourceUrl, postId) {
+export async function processAndSaveImage(sourceUrl, postId, startTime) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
-
   try {
     const buffer = await downloadImage(sourceUrl);
     if (!buffer || buffer.length < 5000) return null;
 
-    const processed = await processImage(buffer);
+    // Chama Vision só se há orçamento de tempo (< 5s decorridos desde início da request)
+    const elapsed = startTime ? Date.now() - startTime : 0;
+    let visionMetrics = null;
+    if (elapsed < 5000) {
+      visionMetrics = await analyzeImageVision(buffer);
+    }
+
+    // Rejeita imagem com logo de concorrente detectado visualmente
+    if (visionMetrics?.has_competitor_logo === true) return null;
+
+    const processed = await processImage(buffer, visionMetrics);
     if (!processed) return null;
 
     const filename = `${postId || Date.now()}.webp`;
-    const publicUrl = await uploadToSupabase(processed, filename);
-
-    return publicUrl;
+    return await uploadToSupabase(processed, filename);
   } catch(_) {
     return null;
   }
