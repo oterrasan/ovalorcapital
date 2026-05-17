@@ -23,6 +23,7 @@ function handler(req, res) {
     if (req.query.action === 'banners') return handleBanners(req, res);
     if (req.query.action === 'refresh_token') return handleRefreshToken(req, res);
     if (req.query.action === 'unpublish_recent') return handleUnpublishRecent(req, res);
+    if (req.query.action === 'unpublish_no_image') return handleUnpublishNoImage(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -52,6 +53,21 @@ async function handleSetupStorage(req, res) {
     return res.status(200).json({ ok: true });
   } catch(e) {
     return res.status(200).json({ ok: false, error: e.message });
+  }
+}
+
+// ── DESPUBLICAR POSTS SEM IMAGEM (move publicado → pendente) ────────────────────────────────
+async function handleUnpublishNoImage(req, res) {
+  try {
+    const { error, count } = await supabase.from('posts')
+      .update({ status: 'pendente', approved: false })
+      .eq('status', 'publicado')
+      .or('imagem.is.null,imagem.eq.')
+      .select('id', { count: 'exact', head: true });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, message: 'Posts sem imagem movidos para pendente', total: count || 0 });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
   }
 }
 
