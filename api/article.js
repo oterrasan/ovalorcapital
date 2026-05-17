@@ -92,6 +92,19 @@ async function findByPrefix(id8, cols) {
   return { row: rows?.[0] || null, error };
 }
 
+async function fetchRelatedArticles(catKey, excludeId) {
+  try {
+    const { data } = await supabase.from('posts')
+      .select('id,titulo')
+      .eq('status', 'publicado')
+      .neq('id', excludeId)
+      .like('user_tags', `%"${catKey}"%`)
+      .order('published_at', { ascending: false })
+      .limit(3);
+    return data || [];
+  } catch (_) { return []; }
+}
+
 export default async function handler(req, res) {
   const { cat, slug } = req.query;
   if (!slug) return res.status(400).send("bad request");
@@ -142,6 +155,25 @@ export default async function handler(req, res) {
   const artCat = tags[0] || catKey;
   const catLabel = CAT_LABEL[artCat] || CAT_LABEL[catKey] || "Notícias";
 
+  // Fetch related articles from same category and inject into body's final third
+  const related = await fetchRelatedArticles(artCat, article.id);
+  let corpoFinal = article.conteudo || '';
+  if (related.length > 0) {
+    const relItems = related.map(r => {
+      const rId8 = r.id.slice(0, 8);
+      const rSlug = slugify(r.titulo);
+      return `<li><a href="/${catPath}/${rSlug}-${rId8}/" title="${esc(r.titulo)}">${esc(r.titulo)}</a></li>`;
+    }).join('');
+    const relBlock = `<div class="leia-tambem"><strong>Leia também</strong><ul>${relItems}</ul></div>`;
+    const matches = [...corpoFinal.matchAll(/<\/p>/gi)];
+    if (matches.length > 3) {
+      const insertPos = matches[Math.floor(matches.length * 2 / 3)].index + 4;
+      corpoFinal = corpoFinal.slice(0, insertPos) + relBlock + corpoFinal.slice(insertPos);
+    } else {
+      corpoFinal = corpoFinal + relBlock;
+    }
+  }
+
   const tpl = getTemplate(catPath);
   if (!tpl) return res.status(500).send("template not found");
 
@@ -165,12 +197,29 @@ export default async function handler(req, res) {
     "isAccessibleForFree": true
   });
 
+  const orgJsonLd = safeJsonForScript({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "O Valor Capital",
+    "url": BASE,
+    "logo": {
+      "@type": "ImageObject",
+      "url": `${BASE}/images/logo-ovc.png`,
+      "width": 200,
+      "height": 60
+    },
+    "sameAs": [
+      "https://www.instagram.com/ovalorcapital",
+      "https://www.youtube.com/@ovalorcapital"
+    ]
+  });
+
   const preload = safeJsonForScript({
     id: article.id,
     titulo,
     subtitulo: article.comentario_fixado||"",
     resumo: desc,
-    corpo: article.conteudo||"",
+    corpo: corpoFinal,
     imagem,
     categoria: artCat,
     subcategoria: article.subcategoria||"",
@@ -197,6 +246,7 @@ export default async function handler(req, res) {
     `<meta name="twitter:description" content="${esc(desc)}">`,
     `<meta name="twitter:image" content="${esc(imagem)}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
+    `<script type="application/ld+json">${orgJsonLd}</script>`,
     `<script>window.__OVC_ARTICLE__=${preload};</script>`
   ].join("\n");
 

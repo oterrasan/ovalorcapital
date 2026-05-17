@@ -8,6 +8,45 @@ import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
+const BASE = "https://www.ovalorcapital.com.br";
+
+const CAT_TO_PATH = { tributacao: 'tributos', colunistas: 'vc' };
+function catToPath(cat) { return CAT_TO_PATH[cat] || cat; }
+
+async function pingGoogleIndexing(canonicalUrl) {
+  const saJson = process.env.GOOGLE_INDEXING_SA_JSON;
+  if (!saJson) return;
+  try {
+    const sa = JSON.parse(saJson);
+    const now = Math.floor(Date.now() / 1000);
+    const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+      iss: sa.client_email,
+      sub: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/indexing',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600
+    })).toString('base64url');
+    const unsigned = `${header}.${payload}`;
+    const sign = crypto.createSign('RSA-SHA256');
+    sign.update(unsigned);
+    const signature = sign.sign(sa.private_key, 'base64url');
+    const jwt = `${unsigned}.${signature}`;
+    const tokenRes = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 5000 }
+    );
+    const accessToken = tokenRes.data.access_token;
+    await axios.post(
+      'https://indexing.googleapis.com/v3/urlNotifications:publish',
+      { url: canonicalUrl, type: 'URL_UPDATED' },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, timeout: 5000 }
+    );
+  } catch (_) {}
+}
+
 const COMPETITOR_IMG_HOSTS = new Set([
   'glbimg.com','s2.glbimg.com','s3.glbimg.com','i.s3.glbimg.com',
   'globo.com','g1.globo.com','ge.globo.com','oglobo.globo.com','extra.globo.com','valor.com.br',
@@ -452,6 +491,12 @@ export default async function handler(req, res) {
       }).select().single();
 
       if (error) continue;
+
+      if (post) {
+        const canonicalPath = catToPath(content.categoria);
+        const canonicalSlug = slugify(content.titulo);
+        pingGoogleIndexing(`${BASE}/${canonicalPath}/${canonicalSlug}-${post.id.slice(0, 8)}/`);
+      }
 
       recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
