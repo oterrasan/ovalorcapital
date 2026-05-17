@@ -22,6 +22,7 @@ function handler(req, res) {
   if (req.method === "GET") {
     if (req.query.action === 'banners') return handleBanners(req, res);
     if (req.query.action === 'refresh_token') return handleRefreshToken(req, res);
+    if (req.query.action === 'unpublish_recent') return handleUnpublishRecent(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -51,6 +52,22 @@ async function handleSetupStorage(req, res) {
     return res.status(200).json({ ok: true });
   } catch(e) {
     return res.status(200).json({ ok: false, error: e.message });
+  }
+}
+
+// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ────────────────────
+async function handleUnpublishRecent(req, res) {
+  const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
+  const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
+  try {
+    const { error } = await supabase.from('posts')
+      .update({ status: 'pendente', approved: false })
+      .eq('status', 'publicado')
+      .gte('created_at', desde);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, message: `Artigos dos últimos ${dias} dias movidos para pendente`, desde });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
   }
 }
 

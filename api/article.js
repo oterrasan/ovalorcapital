@@ -132,11 +132,12 @@ export default async function handler(req, res) {
 
   if (!article) return res.status(404).send("not found");
 
-  const titulo = article.titulo || "";
+  // strip markdown from titulo for all SEO tags
+  const titulo = (article.titulo || "").replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
 
   let metricsJson = {};
   try { metricsJson = typeof article.metrics === "string" ? JSON.parse(article.metrics) : (article.metrics || {}); } catch(_) {}
-  const metaTitleRaw = (metricsJson.meta_title || titulo).slice(0, 55).trim();
+  const metaTitleRaw = (metricsJson.meta_title || titulo).replace(/\*\*/g,'').slice(0, 55).trim();
   const titleTag = `${metaTitleRaw} | O Valor Capital`;
 
   const rawDesc = (article.comentario_fixado || (article.conteudo||"").slice(0,220).replace(/\n/g," ")).slice(0,200);
@@ -154,7 +155,9 @@ export default async function handler(req, res) {
 
   const related = await fetchRelatedArticles(artCat, article.id);
   let corpoFinal = article.conteudo || '';
-  if (related.length > 0) {
+
+  // only inject "Leia também" when corpo is HTML — prevents raw HTML showing as escaped text
+  if (related.length > 0 && /^\s*<[a-z]/i.test(corpoFinal.trim())) {
     const relItems = related.map(r => {
       const rId8 = r.id.slice(0, 8);
       const rSlug = slugify(r.titulo);

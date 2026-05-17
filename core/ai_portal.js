@@ -186,6 +186,30 @@ function slugify(text) {
     .replace(/-+/g, "-");
 }
 
+function markdownToHtml(texto) {
+  if (!texto || typeof texto !== 'string') return texto;
+  if (/^\s*<[a-z]/i.test(texto.trim())) {
+    return texto.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  }
+  const linhas = texto.split('\n');
+  const saida = [];
+  let listaAberta = false;
+  for (const linha of linhas) {
+    const t = linha.trim();
+    if (!t) { if (listaAberta) { saida.push('</ul>'); listaAberta = false; } continue; }
+    const conv = s => s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    const mH = t.match(/^#{1,3}\s+(.+)$/);
+    if (mH) { if (listaAberta) { saida.push('</ul>'); listaAberta = false; } saida.push('<h2>' + conv(mH[1]) + '</h2>'); continue; }
+    const mL = t.match(/^[\*\-]\s+(.+)$/);
+    if (mL) { if (!listaAberta) { saida.push('<ul>'); listaAberta = true; } saida.push('<li>' + conv(mL[1]) + '</li>'); continue; }
+    if (t.startsWith('<')) { if (listaAberta) { saida.push('</ul>'); listaAberta = false; } saida.push(conv(t)); continue; }
+    if (listaAberta) { saida.push('</ul>'); listaAberta = false; }
+    saida.push('<p>' + conv(t) + '</p>');
+  }
+  if (listaAberta) saida.push('</ul>');
+  return saida.join('\n');
+}
+
 function parse(raw) {
   if (!raw) return null;
   const lines = raw.split("\n");
@@ -204,12 +228,19 @@ function parse(raw) {
     else if (/^CORPO:/i.test(trimmed))          inCorpo = true;
     else if (inCorpo)                           corpo += line + "\n";
   }
+
+  // strip markdown from titulo
+  titulo = titulo.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
+
   corpo = corpo.trim();
   if (!corpo && raw.length > 200) {
     corpo = raw.trim();
     const firstLine = raw.split("\n")[0].trim();
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
+
+  // convert markdown to HTML
+  if (corpo) corpo = markdownToHtml(corpo);
 
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados",
     "educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao",
@@ -264,7 +295,7 @@ export async function rewritePortal(text, title, useGemini = false) {
     }
   }
   const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 2500) {
+  if (!result || !result.corpo || result.corpo.length < 3000) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   const tituloLower = (result.titulo || "").toLowerCase().trim();
