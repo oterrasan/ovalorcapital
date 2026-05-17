@@ -76,6 +76,11 @@
 
   function renderCorpo(texto){
     if(!texto) return '';
+    // Conteúdo HTML (prompt novo) — renderizar direto sem escapar
+    if(/^\s*<[a-z]/i.test(texto.trim())){
+      return '<div style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);">'+texto+'</div>';
+    }
+    // Legado: conteúdo markdown (artigos antigos não regenerados)
     var lines = texto.split('\n'), html = '', htags = [];
     for(var i=0;i<lines.length;i++){
       var t = lines[i].trim();
@@ -159,7 +164,7 @@
     {t:'Acesso à medicina de elite com tabelas diferenciadas para o seu perfil.',a:'Compare as coberturas das operadoras mais renomadas do país com consultoria VIP Terrasan.',c:'Comparar Coberturas',m:'Olá! Gostaria de comparar coberturas de convênios médicos.'},
     {t:'Proteção integral para a saúde de quem cuida da saúde dos outros.',a:'Seguro médico desenhado sob medida para as necessidades específicas e rotina de médicos e especialistas.',c:'Conhecer Apólice',m:'Olá! Sou médico e gostaria de conhecer o seguro médico da Lions.'},
     {t:'Construa uma linha de defesa financeira inabalaçvel para quem você ama.',a:'Garanta estabilidade e proteção para sua família nos momentos mais críticos com o Seguro de Vida Lions.',c:'Proteger Família',m:'Olá! Gostaria de informações sobre Seguro de Vida.'},
-    {t:'Proteção vitalícia com a inteligência financeira de formação de reserva.',a:'Um ativo estratégico que protege seu patrimônio e permite o resgate do capital capitalizado no futuro.',c:'Simular Reserva',m:'Olá! Gostaria de simular um Seguro Rescatável com formação de reserva.'},
+    {t:'Proteção vitalícia com a inteligência financeira de formação de reserva.',a:'Um ativo estratégico que protege seu patrimônio e permite o resgate do capital capitalizado no futuro.',c:'Simular Reserva',m:'Olá! Gostaria de simular um Seguro Resgatável com formação de reserva.'},
     {t:'Planejamento de longo prazo com eficiência fiscal e independência financeira.',a:'Construa o seu amanhã sem depender do Estado. Soluções estruturadas de Previdência Privada.',c:'Planejar Futuro',m:'Olá! Gostaria de informações sobre Previdência Privada.'},
     {t:'Alocação estratégica global de capital para investidores exigentes.',a:'Acesse os principais mercados do mundo com assessoria especializada em preservação e ganho real.',c:'Falar com Assessor',m:'Olá! Gostaria de falar com um assessor de investimentos.'},
     {t:'Proteja o seu patrimônio contra a oscilação da moeda local.',a:'Diversifique geograficamente os seus ativos e construa patrimônio na moeda mais forte do planeta.',c:'Dolarizar Ativos',m:'Olá! Gostaria de informações sobre dolarização de patrimônio.'},
@@ -445,7 +450,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
