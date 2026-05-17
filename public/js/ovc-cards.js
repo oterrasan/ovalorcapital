@@ -305,12 +305,10 @@
           +'<a href="/vc/" style="font-size:11px;color:#b8860b;font-weight:700;text-decoration:none;white-space:nowrap;border:1px solid #b8860b33;padding:5px 12px;border-radius:6px;">Ver todos →</a>'
           +'</div>';
 
-        // Linha 1: 3 cards grandes
         html += '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:12px;">';
         html += big.map(bigCard).join('');
         html += '</div>';
 
-        // Linha 2: 3 cards pequenos
         if(small.length){
           html += '<div style="background:#fff;border:1px solid #f0ede4;border-radius:12px;overflow:hidden;">';
           html += '<div style="display:grid;grid-template-columns:repeat('+Math.min(small.length,3)+',minmax(0,1fr));">';
@@ -333,6 +331,12 @@
     carregarMaisLidas();
     carregarOvcTv();
     carregarColunistas();
+    // Carrega sistema de banners Lions na home
+    if(!document.getElementById('ovc-banner-home')){
+      var bs = document.createElement('script');
+      bs.src = '/js/banners.js';
+      document.head.appendChild(bs);
+    }
   });
 
   function carregarMaisLidas(){

@@ -79,8 +79,6 @@ function safeJsonForScript(obj) {
 }
 
 async function findByPrefix(id8, cols) {
-  // UUID range query: works for both UUID-type and text-type id columns
-  // All UUIDs starting with id8 are in range [id8-0000..., id8-ffff...]
   const lo = id8 + "-0000-0000-0000-000000000000";
   const hi = id8 + "-ffff-ffff-ffff-ffffffffffff";
   const { data: rows, error } = await supabase.from("posts")
@@ -123,7 +121,6 @@ export default async function handler(req, res) {
 
     let { row, error } = await findByPrefix(id8, colsWithMetrics);
     if (error) {
-      // metrics column may not exist — retry without it
       const r2 = await findByPrefix(id8, colsNoMetrics);
       if (r2.error) return res.status(500).send("db error");
       row = r2.row;
@@ -155,7 +152,6 @@ export default async function handler(req, res) {
   const artCat = tags[0] || catKey;
   const catLabel = CAT_LABEL[artCat] || CAT_LABEL[catKey] || "Notícias";
 
-  // Fetch related articles from same category and inject into body's final third
   const related = await fetchRelatedArticles(artCat, article.id);
   let corpoFinal = article.conteudo || '';
   if (related.length > 0) {
@@ -247,7 +243,8 @@ export default async function handler(req, res) {
     `<meta name="twitter:image" content="${esc(imagem)}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
     `<script type="application/ld+json">${orgJsonLd}</script>`,
-    `<script>window.__OVC_ARTICLE__=${preload};</script>`
+    `<script>window.__OVC_ARTICLE__=${preload};</script>`,
+    `<script src="/js/banners.js" defer></script>`
   ].join("\n");
 
   let html = tpl.replace(/<title>[^<]*<\/title>/i, "");
