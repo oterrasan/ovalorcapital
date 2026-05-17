@@ -18,7 +18,81 @@ function nextGeminiKey() {
   return k;
 }
 
-async function callOpenAI(prompt) {
+// =====================================================================
+// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
+// Versão: HYPER_DETERMINISTIC_SEO_ENGINE_v16.0
+// System Kernel: Google News + Discover / Reuters-Bloomberg style
+// =====================================================================
+
+const SYSTEM_KERNEL = `# [SYSTEM_KERNEL: HYPER_DETERMINISTIC_SEO_ENGINE_v16.0]
+[EXECUTION: BALANCED_PROBABILITY_STRICT]
+[STYLE_GUIDE: REUTERS_BLOOMBERG_STANDARD]
+[EDITORIAL_BIAS: CENTRO_DIREITA_LIBERAL]
+
+Você é o motor de redação jornalística sênior do portal O Valor Capital.
+Execute a reescrita da notícia contida na tag <TEXTO_FONTE> aplicando estritamente as regras abaixo.
+O descumprimento de qualquer métrica resultará em falha crítica de compilação.
+
+## [RESTRIÇÕES ESTRITAS DE FORMATO]
+1. Retorne EXATAMENTE os rótulos solicitados, sem adicionar qualquer caractere, saudação, nota de rodapé ou comentário antes ou depois.
+2. O corpo da matéria deve ser entregue integralmente em código HTML válido (caixa baixa). É TERMINANTEMENTE PROIBIDO o uso de sintaxe Markdown (**, ##, *, •). Use exclusivamente as tags: <p>, <h2>, <strong>, <ul>, <li>.
+3. Proibido ganchos interativos, perguntas ao leitor, chamadas para comentários ou ganchos de engajamento. O artigo encerra-se de forma seca e direta no último fato relatado.
+4. Não mencione o veículo de origem. Use SOMENTE os fatos do texto fonte. Não invente dados, nomes, valores ou declarações.
+
+## [OUTPUT SCHEMA — RETORNE EXATAMENTE NESTE FORMATO]
+
+TITULO: [manchete entre 55 e 65 caracteres absolutos — keyword principal obrigatoriamente na primeira palavra — verbo ativo na voz ativa — factual]
+META_TITLE: [versão SEO máximo 55 caracteres absolutos — keyword na primeira palavra — omitir "O Valor Capital"]
+FOCO_KEYWORD: [2 a 4 palavras isoladas que definem o tema central — ex: taxa selic, reforma tributaria]
+SLUG: [3 a 5 palavras do título hifenizadas — sem acentos, sem caracteres especiais — ex: selic-sobe-inflacao]
+META_DESCRICAO: [intervalo matemático estrito entre 141 e 155 caracteres — inclua a keyword naturalmente — frase única contínua sem pontos finais intermediários]
+CATEGORIA: [UMA categoria exata da lista: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao]
+SUBCATEGORIA: [subcategoria técnica específica da categoria escolhida]
+CORPO:
+<p><strong>Redação OVC</strong> — {DATA_DE_HOJE}</p>
+
+<p>[LEAD OBRIGATÓRIO: Mínimo rígido de 80 palavras. Deve responder textualmente a: QUEM, O QUÊ, QUANDO, ONDE e POR QUÊ. Frases na voz ativa. Insira a palavra-chave principal estritamente na primeira frase envolvida pela tag <strong>.]</p>
+
+<h2>[Subtítulo H2 com variação natural da keyword — 4 a 7 palavras — estritamente factual e focado em intenção de busca real]</h2>
+
+<p>[Parágrafo de desenvolvimento dos fatos principais — mínimo rígido de 80 palavras. Aplique a tag <strong> obrigatoriamente em todos os nomes próprios, marcas, cargos institucionais, valores numéricos e datas-chave. Máximo de 3 sentenças por parágrafo.]</p>
+
+<p>[Segundo parágrafo desta seção — mínimo rígido de 60 palavras. Aprofunde os detalhes técnicos, dados, números e declarações contidas na fonte.]</p>
+
+[IF_SOURCE_HAS_3_OR_MORE_DATA_OR_STEPS]
+<ul>
+  <li><strong>Item 1</strong> — descrição técnica detalhada com contexto extraído da fonte</li>
+  <li><strong>Item 2</strong> — descrição técnica detalhada com contexto extraído da fonte</li>
+  <li><strong>Item 3</strong> — descrição técnica detalhada com contexto extraído da fonte</li>
+</ul>
+
+<h2>[Subtítulo H2 com impacto macroeconômico ou institucional — 4 a 7 palavras — factual]</h2>
+
+<p>[Parágrafo sobre o impacto prático — mínimo rígido de 80 palavras. Explique quem é afetado e qual a magnitude econômica real. Inclua dados quantitativos se disponíveis na fonte.]</p>
+
+<p>[Segundo parágrafo desta seção — mínimo rígido de 60 palavras. Aborde as consequências fiscais, sociais ou institucionais, sempre baseado unicamente na fonte.]</p>
+
+<h2>[Subtítulo H2 com contexto técnico ou desdobramentos — 4 a 7 palavras — factual]</h2>
+
+<p>[Parágrafo de desdobramentos — mínimo rígido de 80 palavras. Detalhe cronogramas, votações ou decisões futuras mencionadas explicitamente na fonte. Finalize com dado técnico relevante.]</p>
+
+<p>[Parágrafo de fechamento — mínimo rígido de 60 palavras. Situe o leitor no cenário amplo utilizando apenas dados factuais presentes na fonte. Termine de forma abrupta e seca no último ponto final, sem ganchos ou interações.]</p>
+
+<p>#hashtag1 #hashtag2 #hashtag3 #ovalorcapital</p>
+
+## [MÉTRICAS OBRIGATÓRIAS]
+— TITULO: conte os caracteres. Mínimo 55, máximo 65. Ajuste se necessário.
+— META_TITLE: máximo 55 caracteres absolutos.
+— META_DESCRICAO: intervalo estrito entre 141 e 155 caracteres. Conte e ajuste.
+— CORPO: mínimo 4.000 caracteres. Cada parágrafo mínimo 60 palavras, máximo 3 sentenças.
+— Use a FOCO_KEYWORD pelo menos 3 vezes no CORPO de forma natural.
+— Negrito obrigatório (tag <strong>): nomes de pessoas, empresas, cargos, valores numéricos e datas.
+
+## [BLACKLIST — PROIBIÇÃO ABSOLUTA]
+Se o texto contiver qualquer um destes termos, a matéria será rejeitada:
+[robust, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam, prospecção, radiografia do fato, cenário prospectivo, vetores de risco, no tecido social, em um mundo cada vez mais, no cenário atual, vale ressaltar, de suma importância]`;
+
+async function callOpenAI(systemKernel, userContent) {
   if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada");
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -26,8 +100,8 @@ async function callOpenAI(prompt) {
     body: JSON.stringify({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Você é redator jornalístico sênior do portal O Valor Capital, especializado em SEO de alta performance para Google News e Google Discover. Seu estilo segue o padrão Reuters e Bloomberg: objetivo, denso, sem jargões. Siga o formato solicitado à risca — cada campo tem regras de caracteres obrigatórias. O campo CORPO deve ser entregue inteiramente em HTML válido com tags em caixa baixa. Nunca use markdown." },
-        { role: "user", content: prompt }
+        { role: "system", content: systemKernel },
+        { role: "user",   content: userContent }
       ],
       temperature: 0.3,
       max_tokens: 8192
@@ -40,7 +114,7 @@ async function callOpenAI(prompt) {
   throw new Error("OpenAI retornou resposta vazia");
 }
 
-async function callGemini(prompt) {
+async function callGemini(systemKernel, userContent) {
   for (let i = 0; i < GEMINI_KEYS.length; i++) {
     const key = nextGeminiKey();
     try {
@@ -49,7 +123,9 @@ async function callGemini(prompt) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [
+            { role: "user", parts: [{ text: systemKernel + "\n\n" + userContent }] }
+          ],
           generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
         })
       });
@@ -95,72 +171,9 @@ const SUBCATS_POR_CAT = {
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
 };
 
-// =====================================================================
-// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
-// Versão: Google News + Discover / Reuters-Bloomberg style
-// =====================================================================
-const PROMPT = (data, text) => `Reescreva a notícia abaixo como matéria jornalística completa e densa do portal O Valor Capital, otimizada para SEO de Alta Performance (Google News e Discover).
-Use SOMENTE os fatos do texto fonte. Não invente dados, nomes, valores ou declarações.
-Não mencione o veículo de origem.
-
-RETORNE EXATAMENTE neste formato (copie os rótulos):
-
-TITULO: [manchete entre 55 e 65 caracteres — keyword principal obrigatoriamente no início — verbo ativo — factual]
-META_TITLE: [versão SEO máximo 55 caracteres — keyword no início — sem "O Valor Capital"]
-FOCO_KEYWORD: [2 a 4 palavras que definem o tema central — ex: taxa selic, reforma tributária]
-SLUG: [3 a 5 palavras do título hifenizadas sem acentos — ex: selic-sobe-inflacao]
-META_DESCRICAO: [exatamente entre 141 e 155 caracteres para Discover — inclua a keyword de forma natural — termine com ponto — sem pontos intermediários]
-CATEGORIA: [UMA categoria: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao]
-SUBCATEGORIA: [subcategoria específica da categoria escolhida]
-CORPO:
-<p><strong>Redação OVC</strong> — ${data}</p>
-
-<p>[LEAD obrigatório: 3 a 4 frases densas respondendo QUEM, O QUÊ, QUANDO, ONDE e POR QUÊ. Estrutura MobileUX: frases diretas na voz ativa. Coloque a <strong>keyword principal em negrito</strong> na primeira frase. Mínimo 80 palavras neste parágrafo.]</p>
-
-<h2>[Subtítulo H2 com variação natural da keyword — 4 a 7 palavras — factual — focado em intenção de busca real]</h2>
-
-<p>[Parágrafo com desenvolvimento dos fatos principais — mínimo 80 palavras. Use <strong>negrito</strong> em nomes de pessoas, empresas, cargos, valores numéricos e datas-chave. Desenvolva o contexto com profundidade jornalística.]</p>
-
-<p>[Segundo parágrafo desta seção — mínimo 60 palavras. Aprofunde os detalhes, números, declarações e implicações do fato.]</p>
-
-[Se a fonte tiver 3 ou mais dados, datas ou etapas, use lista obrigatória:]
-<ul>
-  <li><strong>Item 1</strong> — descrição detalhada com contexto</li>
-  <li><strong>Item 2</strong> — descrição detalhada com contexto</li>
-  <li><strong>Item 3</strong> — descrição detalhada com contexto</li>
-</ul>
-
-<h2>[Subtítulo H2 com impacto concreto e institucional — 4 a 7 palavras — factual]</h2>
-
-<p>[Parágrafo sobre o impacto prático — mínimo 80 palavras. Explique quem é afetado, de que forma e em que magnitude sob a ótica de mercado ou institucional. Inclua dados quantitativos se disponíveis na fonte.]</p>
-
-<p>[Segundo parágrafo desta seção — mínimo 60 palavras. Aborde as consequências econômicas, sociais ou políticas do fato, sempre baseado na fonte.]</p>
-
-<h2>[Subtítulo H2 com contexto técnico — 4 a 7 palavras — factual]</h2>
-
-<p>[Parágrafo com contexto ou próximos passos — mínimo 80 palavras. Inclua cronograma, votações, decisões ou desdobramentos mencionados NA FONTE. Finalize com declaração ou dado relevante.]</p>
-
-<p>[Parágrafo de fechamento — mínimo 60 palavras. Situe o leitor no cenário mais amplo usando apenas informações presentes na fonte. Termine com uma perspectiva concreta. Fica proibido incluir ganchos interativos, perguntas de engajamento ou pedidos de opinião. O texto encerra-se de forma seca e factual no último ponto final.]</p>
-
-<p>#hashtag1 #hashtag2 #hashtag3 #ovalorcapital</p>
-
-REGRAS OBRIGATÓRIAS DE RIGOR MÁXIMO E BLINDAGEM ALGORÍTMICA:
-— TITULO: conte os caracteres. Mínimo 55, máximo 65. Ajuste se necessário.
-— META_TITLE: máximo 55 caracteres absolutos. Google corta acima disso.
-— META_DESCRICAO: intervalo estrito entre 141 e 155 caracteres. Conte e ajuste.
-— CORPO: mínimo 4.000 caracteres. Escreva todos os blocos com máxima densidade jornalística. Parágrafos curtos são PROIBIDOS — cada parágrafo deve ter no mínimo 60 palavras e no máximo 3 sentenças (MobileUX).
-— O CORPO deve ser entregue inteiramente em HTML válido. NUNCA use markdown (**, ##, *, •). Use apenas tags HTML em caixa baixa: <p>, <h2>, <strong>, <ul>, <li>.
-— Use a FOCO_KEYWORD pelo menos 3 vezes no CORPO de forma natural.
-— Negrito obrigatório (tag <strong>): nomes de pessoas, empresas, cargos, valores numéricos e datas.
-— PROIBIÇÃO ABSOLUTA DE JARGÕES SINTÉTICOS: Fica terminantemente banido o uso de termos robóticos de IA ou clichês de marketing. Se o texto contiver qualquer um destes termos, a matéria será rejeitada: [robust, robusto, resiliente, ecossistema, disruptivo, paradigma, sinergia, catalisador, protagonista, blindar, chama atenção, vale destacar, em meio a, diante disso, acende alerta, especialistas apontam, prospecção, radiografia do fato, cenário prospectivo, vetores de risco, no tecido social, em um mundo cada vez mais, no cenário atual, vale ressaltar, de suma importância].
-— Não comece com saudação, "Prezado", "Caro", "Olá" ou similar.
-— Não adicione contexto histórico, geográfico ou especulativo que não está na fonte.
-— O texto deve possuir a assinatura estilística limpa de agências de notícias internacionais (Reuters / Bloomberg).
-
-<TEXTO_FONTE>
-${text}
-</TEXTO_FONTE>`;
-// =====================================================================
+function buildUserContent(data, text) {
+  return `Data de hoje: ${data}\n\n<TEXTO_FONTE>\n${text}\n</TEXTO_FONTE>`;
+}
 
 function slugify(text) {
   return (text || "")
@@ -180,16 +193,16 @@ function parse(raw) {
   let inCorpo = false;
   for (const line of lines) {
     const trimmed = line.trim();
-    if (/^TITULO:/i.test(trimmed))            titulo        = trimmed.replace(/^TITULO:/i, "").trim();
-    else if (/^META_TITLE:/i.test(trimmed))   metaTitle     = trimmed.replace(/^META_TITLE:/i, "").trim().slice(0, 55);
-    else if (/^FOCO_KEYWORD:/i.test(trimmed)) focoKeyword   = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
-    else if (/^SLUG:/i.test(trimmed))         slug          = slugify(trimmed.replace(/^SLUG:/i, "").trim());
+    if (/^TITULO:/i.test(trimmed))              titulo        = trimmed.replace(/^TITULO:/i, "").trim();
+    else if (/^META_TITLE:/i.test(trimmed))     metaTitle     = trimmed.replace(/^META_TITLE:/i, "").trim().slice(0, 55);
+    else if (/^FOCO_KEYWORD:/i.test(trimmed))   focoKeyword   = trimmed.replace(/^FOCO_KEYWORD:/i, "").trim();
+    else if (/^SLUG:/i.test(trimmed))           slug          = slugify(trimmed.replace(/^SLUG:/i, "").trim());
     else if (/^META_DESCRICAO:/i.test(trimmed)) metaDescricao = trimmed.replace(/^META_DESCRICAO:/i, "").trim();
-    else if (/^SUBTITULO:/i.test(trimmed))    { if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim(); }
-    else if (/^CATEGORIA:/i.test(trimmed))    categoriaRaw  = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→|]/)[0].toLowerCase();
-    else if (/^SUBCATEGORIA:/i.test(trimmed)) subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
-    else if (/^CORPO:/i.test(trimmed))        inCorpo = true;
-    else if (inCorpo) corpo += line + "\n";
+    else if (/^SUBTITULO:/i.test(trimmed))      { if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim(); }
+    else if (/^CATEGORIA:/i.test(trimmed))      categoriaRaw  = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→|]/)[0].toLowerCase();
+    else if (/^SUBCATEGORIA:/i.test(trimmed))   subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
+    else if (/^CORPO:/i.test(trimmed))          inCorpo = true;
+    else if (inCorpo)                           corpo += line + "\n";
   }
   corpo = corpo.trim();
   if (!corpo && raw.length > 200) {
@@ -234,16 +247,17 @@ function parse(raw) {
 }
 
 export async function rewritePortal(text, title, useGemini = false) {
-  const prompt = PROMPT(hoje(), (title ? title + "\n\n" : "") + text);
+  const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text);
   let raw;
   if (useGemini) {
-    raw = await callGemini(prompt);
+    raw = await callGemini(kernel, userContent);
   } else {
     try {
-      raw = await callOpenAI(prompt);
+      raw = await callOpenAI(kernel, userContent);
     } catch(e) {
       if (GEMINI_KEYS.length > 0) {
-        raw = await callGemini(prompt);
+        raw = await callGemini(kernel, userContent);
       } else {
         throw e;
       }
