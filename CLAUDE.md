@@ -186,7 +186,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 
 ## 2. ARQUITETURA
 
-### APIs — 12 ARQUIVOS ATUAIS (CONSOLIDAR PARA 10 — PRÓXIMA SESSÃO TÉCNICA)
+### APIs — 10 ARQUIVOS ✅ (Regra Zero-A satisfeita)
 
 | Arquivo | Funções que atende |
 |---|---|
@@ -196,19 +196,17 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `api/institutional.js` | SSR /quem-somos/ e /politica-editorial/ |
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
-| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`) |
-| `api/manual_post.js` | Geração manual de artigos via URL |
+| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`), **refresh token IG** (`GET ?action=refresh_token`) |
 | `api/portal-posts.js` | Serve posts publicados para frontend |
-| `api/refresh_token.js` | Renova token Instagram (mensal) |
-| `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` |
+| `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` + **geração manual** (`POST body.url\|body.texto`) |
 | `api/sitemap.js` | Sitemap dinâmico |
 
 > ⚠️⚠️⚠️ ANTES DE CRIAR QUALQUER ARQUIVO EM api/, DELETAR UM EXISTENTE. MÁXIMO ABSOLUTO: 10 ARQUIVOS.
 
-**Consolidações pendentes (próxima sessão técnica):**
-- `api/refresh_token.js` (1.2KB, uso único mensal) → fundir com `api/manage.js` via `?action=refresh_token`
-- `api/portal-posts.js` → avaliar fusão com `api/article.js` ou `api/category.js`
-- Meta: chegar a 10 arquivos
+**Consolidações realizadas (17/05/2026):**
+- `api/refresh_token.js` **DELETADO** → lógica em `api/manage.js` via `GET ?action=refresh_token`
+- `api/manual_post.js` **DELETADO** → lógica em `api/run_portal.js` via `POST body.url|body.texto`
+- Cron `vercel.json` atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
 
 ### Core (NUNCA alterar sem autorização do dono)
 | Arquivo | Função |
@@ -323,6 +321,8 @@ body.force = true     // bypassa verificação de horário
 body.count = N        // artigos a gerar (máx 8, padrão 1)
 body.categoria        // forçar categoria
 body.subcategoria     // forçar subcategoria
+body.url              // geração manual via URL (antes em api/manual_post.js)
+body.texto            // geração manual via texto bruto
 ?action=regenerar     // regenerar artigos com markdown das últimas 48h (1 por chamada, JSON response)
 ?action=regenerar&limit=N  // processar N artigos por chamada (padrão 1)
 ```
@@ -421,6 +421,7 @@ function renderCorpo(texto){
 3. Google Publisher Center → cadastrar portal
 4. Quando ovalorcapital@gmail.com ativado → atualizar `EMAIL_REAL` em `api/institutional.js`
 5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
+6. **Merge branch `claude/work-session-LGQFx` → `main`** para deployar todos os Blocks 1–6 em produção.
 
 ---
 
@@ -519,14 +520,11 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Workflow criado:** `.github/workflows/corrigir_artigos.yml` — loop automático que chama `?action=regenerar` até `restantes:0`
 - **Prompt novo aprovado e travado:** gera HTML, Google News+Discover, Reuters/Bloomberg style, comentário de trava no código
 - **Regras Zero-A a Zero-D** documentadas neste arquivo
-- **Consolidação api/ 12→10:** pendente para próxima sessão técnica
-  - `refresh_token.js` → fundir com `manage.js`
-  - `portal-posts.js` → avaliar fusão
 
-### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–6 — TODOS COMPLETOS)
+### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–6 — TODOS COMPLETOS ✅)
 
 **Branch de trabalho:** `claude/work-session-LGQFx`
-**Commits:** e2ef635a (B3), 6176364 (B4), 82488e5a (B5-pt1), 29781353 (B5-pt2), bd9fdb77 (B6)
+**Commits:** e2ef635a (B3), 6176364 (B4), 82488e5a (B5-pt1), 29781353 (B5-pt2), bd9fdb77 (B6), c871657f (consolidação api/), 10a73007 (delete refresh_token.js), 3a759cd9 (delete manual_post.js)
 
 #### Block 1 — SYSTEM_KERNEL (`core/ai_portal.js`)
 - Prompt reestruturado: instruções completas em `role:system`, texto-fonte isolado em `role:user` com tags XML `<source_text>` e `<source_url>`
@@ -556,3 +554,12 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - Aprovação em lote: selecionar vários > aprovar_lote
 - Posts manuais (handleManual em manage.js) CONTINUAM publicando direto — só pipeline automático virou pendente
 - `pingGoogleIndexing` mantido em run_portal.js (pode ser ativado ao aprovar em versão futura)
+
+#### Consolidação api/ 12 → 10 ✅ (Regra Zero-A restaurada)
+- `api/refresh_token.js` **DELETADO** → lógica em `manage.js` via `GET ?action=refresh_token`
+- `api/manual_post.js` **DELETADO** → lógica em `run_portal.js` via `POST body.url|body.texto`
+- `vercel.json` cron atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
+- **api/ agora tem exatamente 10 arquivos — Regra Zero-A satisfeita ✅**
+
+#### Próximo passo obrigatório (Roberto faz)
+- Merge `claude/work-session-LGQFx` → `main` para deployar tudo em produção
