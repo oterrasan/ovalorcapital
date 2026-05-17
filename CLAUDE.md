@@ -83,6 +83,9 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 
 Esta regra foi violada em mai/2026 e corrigida na sessão 17/05/2026.
 
+> ⚠️ BLOCK 6 (Staging Protocol) altera esta regra — NÃO IMPLEMENTAR sem discussão prévia com Roberto.
+> Ver seção 16 para detalhes do conflito.
+
 ---
 
 # ══════════════════════════════════════════════════════
@@ -143,7 +146,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 1. **MAX 10 ARQUIVOS EM `api/`** — Ver Regra Zero-A. NUNCA, em hipótese alguma, ter 11 ou mais.
 2. **NUNCA TOCAR NO PROMPT SEM AUTORIZAÇÃO** — Ver Regra Zero-B.
 3. **NUNCA PUSH SEM REVISAR DIFF** — Ver Regra Zero-C.
-4. **TODO INSERT USA `publicado` + `approved:true`** — Ver Regra Zero-D.
+4. **TODO INSERT USA `publicado` + `approved:true`** — Ver Regra Zero-D (Block 6 muda isso — discutir primeiro).
 5. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
 6. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
 7. **URLs sempre com slug** — nunca `?id=`.
@@ -161,6 +164,8 @@ Fonte de receita única: Google AdSense / Google AdX.
 19. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
 20. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
 21. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
+22. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
+23. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
 
 ---
 
@@ -184,17 +189,17 @@ Fonte de receita única: Google AdSense / Google AdX.
 
 | Arquivo | Funções que atende |
 |---|---|
-| `api/article.js` | SSR artigos por slug URL |
+| `api/article.js` | SSR artigos por slug URL + Organization JSON-LD + links internos + banners.js inject |
 | `api/category.js` | SSR listagem de categorias |
 | `api/ig_publish.js` | Publica Instagram via Playwright |
 | `api/institutional.js` | SSR /quem-somos/ e /politica-editorial/ |
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
-| `api/manage.js` | Status, aprovação, track_view, newsletter |
+| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`) |
 | `api/manual_post.js` | Geração manual de artigos via URL |
 | `api/portal-posts.js` | Serve posts publicados para frontend |
 | `api/refresh_token.js` | Renova token Instagram (mensal) |
-| `api/run_portal.js` | Pipeline RSS→scrape→IA→banco + `?action=regenerar` |
+| `api/run_portal.js` | Pipeline RSS→scrape→IA→banco + `?action=regenerar` + **Google Indexing API ping** |
 | `api/sitemap.js` | Sitemap dinâmico |
 
 > ⚠️⚠️⚠️ ANTES DE CRIAR QUALQUER ARQUIVO EM api/, DELETAR UM EXISTENTE. MÁXIMO ABSOLUTO: 10 ARQUIVOS.
@@ -219,8 +224,14 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `public/js/internal-page-v2.js` | Renderização artigos — `renderCorpo()` detecta HTML vs markdown |
 | `public/js/home.js` | Homepage dinâmica |
 | `public/js/noticias-v3.js` | Listagem de notícias |
-| `public/js/ovc-cards.js` | Cards de artigos |
+| `public/js/ovc-cards.js` | Cards de artigos — CATS funnel reordering (Block 4) + home banner loader |
 | `public/js/newsletter-bar.js` | Injeta newsletter bar + patcha footer |
+| `public/js/banners.js` | **NOVO (Block 5)** — injeta banner Lions Corretora em artigos e homepage |
+
+### Data Files
+| Arquivo | Função |
+|---|---|
+| `data/banners.json` | **NOVO (Block 5)** — 17 produtos Lions Corretora, lido por `api/manage.js` |
 
 ---
 
@@ -301,6 +312,7 @@ GitHub Actions → POST /api/run_portal a cada 2 minutos
 body: {"count":1} — sem force
 Janela: 07:00–01:00 BRT
 Fluxo: getNewsByCategoria() + getNews() → scrape() → rewritePortal() → validar() → salva como publicado
+       → pingGoogleIndexing() fire-and-forget (Block 3)
 ```
 
 ### Parâmetros
@@ -387,6 +399,7 @@ function renderCorpo(texto){
 | Slug URLs | `api/article.js` + `vercel.json` | ✅ |
 | SSR artigos | `api/article.js` | ✅ |
 | JSON-LD NewsArticle | `api/article.js` | ✅ |
+| JSON-LD Organization | `api/article.js` | ✅ (Block 3) |
 | META_TITLE ≤55 chars | `api/article.js` + `core/ai_portal.js` | ✅ |
 | Meta description artigos | `api/article.js` | ✅ |
 | SSR categorias (29) | `api/category.js` | ✅ |
@@ -396,12 +409,16 @@ function renderCorpo(texto){
 | robots.txt | `public/robots.txt` | ✅ |
 | Sitemap dinâmico | `api/sitemap.js` | ✅ |
 | Canonical www | Todos handlers SSR | ✅ |
+| Links internos "Leia também" | `api/article.js` `fetchRelatedArticles()` | ✅ (Block 3) |
+| Google Indexing API | `api/run_portal.js` `pingGoogleIndexing()` | ✅ (Block 3) |
+| Banner comercial Lions | `api/manage.js` + `public/js/banners.js` | ✅ (Block 5) |
 
 ### Ações pendentes (Roberto faz manualmente)
 1. Search Console → submeter sitemap.xml
 2. AdSense → verificar aprovação
 3. Google Publisher Center → cadastrar portal
 4. Quando ovalorcapital@gmail.com ativado → atualizar `EMAIL_REAL` em `api/institutional.js`
+5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3). Sem ela, pingGoogleIndexing retorna silenciosamente sem erro.
 
 ---
 
@@ -502,3 +519,68 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Consolidação api/ 12→10:** pendente para próxima sessão técnica
   - `refresh_token.js` → fundir com `manage.js`
   - `portal-posts.js` → avaliar fusão
+
+### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–5)
+
+**Branch de trabalho:** `claude/work-session-LGQFx`
+**Commits:** e2ef635a (B3), 6176364 (B4), 82488e5a (B5-pt1), 29781353 (B5-pt2)
+
+#### Block 1 — SYSTEM_KERNEL (`core/ai_portal.js`)
+- Prompt reestruturado: instruções completas em `role:system`, texto-fonte isolado em `role:user` com tags XML `<source_text>` e `<source_url>`
+- Elimina vazamento de instruções para o contexto de usuário
+
+#### Block 2 — GPT-4o Vision (`core/image_processor.js`)
+- GPT-4o Vision API para análise semântica de imagem antes de processar
+- 2s timeout, só executa se < 5s elapsed (budget-aware)
+- Sharp.js: flip condicional, watermark SVG via composite
+
+#### Block 3 — SEO Authority (`api/article.js` + `api/run_portal.js`)
+- **Organization JSON-LD** adicionado como segundo `<script type="application/ld+json">` em toda página de artigo
+- **Links internos dinâmicos:** `fetchRelatedArticles(catKey, excludeId)` — consulta 3 artigos mais recentes da mesma categoria via `.like('user_tags', '%"catKey"%')`, injeta bloco `<div class="leia-tambem">` em 2/3 do corpo usando `matchAll(/<\/p>/gi)`, fallback: appenda ao fim
+- **Google Indexing API:** `pingGoogleIndexing(canonicalUrl)` em `run_portal.js` — JWT RSA-SHA256 via `crypto.createSign` (sem deps externas), OAuth2 token exchange, fire-and-forget após insert
+  - Requer env var `GOOGLE_INDEXING_SA_JSON` no Vercel Dashboard (ainda não configurada)
+  - Se ausente: retorna silenciosamente sem erro
+
+#### Block 4 — CATS Funnel (`public/js/ovc-cards.js`)
+- CATS array reordenado para funil temático editorial
+- CATS_DESTAQUE expandido de 4 para 6 entradas
+
+#### Block 5 — Banner Commercial Matrix
+- **`data/banners.json`:** 17 produtos Lions Corretora (CNPJ 38.461.144/0001-18), WhatsApp `https://wa.me/5511988510361`
+  - Cada produto: `{id, product, headline, subheadline, cta, categories[], priority, active, whatsapp_msg}`
+  - Categorias por produto: vida-individual(geral), pgbl(tributacao/investimentos), auto(variedades), etc.
+- **`api/manage.js`:** endpoint `GET ?action=banners&cat={slug}` — filtra por categoria exata → fallback 'geral' → top 3 por priority; cache module-level `_bannersCache`; `Cache-Control: s-maxage=300`
+- **`public/js/banners.js`:** IIFE client-side — detecta contexto (artigo vs home), fetch `/api/manage?action=banners&cat=`, renderiza rectangle (artigos) ou leaderboard (home), dark theme #0A192F, CTA WhatsApp verde #25D366, `rel="sponsored"` em todos links
+- **`api/article.js`:** adiciona `<script src="/js/banners.js" defer></script>` no SSR
+- **`public/js/ovc-cards.js`:** dynamic loader banners.js para homepage (idempotente via `document.getElementById('ovc-banner-home')`)
+
+#### Block 6 — Staging Protocol (PENDENTE — NÃO IMPLEMENTADO)
+- **Não implementar sem discussão com Roberto**
+- Objetivo: artigos novos salvos como `status:'draft'` ou `'pendente'`, aguardam aprovação humana antes de publicar
+- **Conflito direto com Regra Zero-D** (mandato: sempre `publicado`+`approved:true`)
+- Soft launch previsto: 11/06/2026 (aniversário de Roberto)
+- Meta de produção: 250 artigos/dia (vs atual 300)
+- Discutir: onde fica a interface de aprovação? quem aprova? qual SLA?
+
+---
+
+## 16. BLOCK 6 — STAGING PROTOCOL (DISCUSSÃO NECESSÁRIA)
+
+> **NÃO IMPLEMENTAR** sem aprovação explícita de Roberto e resolução dos conflitos abaixo.
+
+### O que o Block 6 faz
+- Pipeline passa a salvar artigos como `status:'pendente'` (ou `'draft'`) em vez de `'publicado'` direto
+- Fluxo de aprovação humana antes da publicação
+- Meta: 250 artigos/dia revisados
+
+### Conflitos a resolver antes de implementar
+
+1. **Regra Zero-D violada** — atualmente MANDATÓRIO `status:'publicado'`+`approved:true` no insert. Block 6 inverte isso.
+2. **Interface de aprovação** — onde? admin panel existente? nova tela?
+3. **SLA de aprovação** — se Roberto não aprovar em X horas, artigo caduca? publica automaticamente?
+4. **Contagem diária** — 250 artigos/dia aprovados, ou 250 gerados (podendo publicar menos)?
+5. **Rollback** — como voltar para modo automático se necessário?
+6. **Compatibilidade** com `?action=regenerar` — artigos regenerados também viram pendentes?
+
+### Pergunta direta para Roberto antes de implementar:
+> "Block 6 muda o pipeline: artigos vão para fila de aprovação antes de publicar. Isso quebra a Regra Zero-D que diz SEMPRE publicar direto. Como você quer resolver? Quer uma interface de aprovação no admin? E se você não aprovar em X horas, publica automático ou descarta?"
