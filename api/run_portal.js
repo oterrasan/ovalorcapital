@@ -22,12 +22,10 @@ async function pingGoogleIndexing(canonicalUrl) {
     const now = Math.floor(Date.now() / 1000);
     const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
     const payload = Buffer.from(JSON.stringify({
-      iss: sa.client_email,
-      sub: sa.client_email,
+      iss: sa.client_email, sub: sa.client_email,
       scope: 'https://www.googleapis.com/auth/indexing',
       aud: 'https://oauth2.googleapis.com/token',
-      iat: now,
-      exp: now + 3600
+      iat: now, exp: now + 3600
     })).toString('base64url');
     const unsigned = `${header}.${payload}`;
     const sign = crypto.createSign('RSA-SHA256');
@@ -215,6 +213,16 @@ function stripTitle(t) {
   return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/,'').trim();
 }
 
+function extrairNomePrincipal(titulo) {
+  const NOMES = [
+    'flávio bolsonaro','flavio bolsonaro','eduardo bolsonaro','carlos bolsonaro',
+    'bolsonaro','lula','trump','haddad','moraes','barroso','dino','milei','musk',
+    'zelensky','putin','macron','xi jinping'
+  ];
+  const t = (titulo || '').toLowerCase();
+  return NOMES.find(n => t.includes(n)) || null;
+}
+
 function corrigirCategoria(titulo, cat) {
   const t = (titulo||'').toLowerCase();
   for (const { cat: c, sinal } of REGRAS_CATEGORIA) {
@@ -227,8 +235,8 @@ function validarConteudo(content) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
   if (titulo.length < 15 || titulo.length > 120) return false;
-  if (/^(prezado|caro|ol[aá]|sem t[ií]tulo|t[ií]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
-  if ((content.corpo || '').length < 800) return false;
+  if (/^(prezado|caro|ol[aá]|sem t[í]tulo|t[í]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
+  if ((content.corpo || '').length < 2500) return false;
   return true;
 }
 
@@ -242,7 +250,7 @@ function tituloSimilar(a, b) {
   return (intersect / union) >= 0.40;
 }
 
-// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ─────────────────
+// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ─────────────────────────────────────────────────────
 async function handleManualPost(req, res) {
   const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
   if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
@@ -298,16 +306,31 @@ async function handleManualPost(req, res) {
 
 async function regenerarConteudo(res, meta) {
   const inicio = Date.now();
-  const desde48h = new Date(Date.now() - 48 * 3600000).toISOString();
   const limite = Math.min(parseInt(meta.limit || '1', 10), 3);
+  const modoPendente = meta.pendente === 'true';
 
-  const { data: posts, error } = await supabase
-    .from('posts')
-    .select('id, titulo, conteudo, user_tags, subcategoria')
-    .gte('created_at', desde48h)
-    .or('conteudo.like.%**%,conteudo.like.%## %')
-    .order('created_at', { ascending: false })
-    .limit(limite);
+  let posts, error;
+
+  if (modoPendente) {
+    const desde5d = new Date(Date.now() - 5 * 24 * 3600000).toISOString();
+    ({ data: posts, error } = await supabase
+      .from('posts')
+      .select('id, titulo, conteudo, user_tags, subcategoria, imagem')
+      .eq('status', 'pendente')
+      .gte('created_at', desde5d)
+      .or('conteudo.like.%**%,conteudo.like.%## %')
+      .order('created_at', { ascending: false })
+      .limit(limite));
+  } else {
+    const desde48h = new Date(Date.now() - 48 * 3600000).toISOString();
+    ({ data: posts, error } = await supabase
+      .from('posts')
+      .select('id, titulo, conteudo, user_tags, subcategoria, imagem')
+      .gte('created_at', desde48h)
+      .or('conteudo.like.%**%,conteudo.like.%## %')
+      .order('created_at', { ascending: false })
+      .limit(limite));
+  }
 
   if (error) return res.status(500).json({ status: 'error', error: error.message });
   if (!posts || posts.length === 0) return res.status(200).json({ status: 'ok', processados: 0, ok: 0, restantes: 0 });
@@ -317,21 +340,49 @@ async function regenerarConteudo(res, meta) {
     if (Date.now() - inicio > 8000) { resultados.push({ id: post.id, status: 'timeout' }); break; }
     try {
       const novoConteudo = await rewritePortal(post.conteudo, post.titulo);
-      if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 800) {
+      if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 2500) {
         resultados.push({ id: post.id, status: 'rejeitado' }); continue;
       }
       const metaDesc = (novoConteudo.meta_descricao || novoConteudo.subtitulo || '').replace(/\*\*/g,'').trim();
       const metaTitle = stripTitle(novoConteudo.meta_title || novoConteudo.titulo);
+
+      // update image: always try to find a better one for pendente mode, or if missing
+      let novaImagem = post.imagem;
+      if (!novaImagem || modoPendente) {
+        try {
+          const cat = novoConteudo.categoria || (post.user_tags ? JSON.parse(post.user_tags)[0] : 'geral');
+          novaImagem = await findImage(novoConteudo.titulo, cat);
+        } catch(_) {}
+      }
+
       await supabase.from('posts').update({
         titulo: stripTitle(novoConteudo.titulo) || stripTitle(post.titulo),
-        conteudo: novoConteudo.corpo, comentario_fixado: metaDesc,
+        conteudo: novoConteudo.corpo,
+        comentario_fixado: metaDesc,
+        imagem: novaImagem || post.imagem,
         metrics: { foco_keyword: novoConteudo.foco_keyword || '', seo_slug: novoConteudo.slug || '', meta_descricao: metaDesc, meta_title: metaTitle }
       }).eq('id', post.id);
       resultados.push({ id: post.id, titulo: stripTitle(novoConteudo.titulo), status: 'ok', chars: novoConteudo.corpo.length });
     } catch(e) { resultados.push({ id: post.id, status: 'erro', msg: e.message }); }
   }
+
   const okCount = resultados.filter(r => r.status === 'ok').length;
-  return res.status(200).json({ status: 'ok', processados: resultados.length, ok: okCount, restantes: okCount > 0 ? 1 : 0, resultados });
+
+  // for pendente mode: count real remaining articles with markdown
+  let restantes = okCount > 0 ? 1 : 0;
+  if (modoPendente) {
+    try {
+      const desde5d = new Date(Date.now() - 5 * 24 * 3600000).toISOString();
+      const { count } = await supabase.from('posts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pendente')
+        .gte('created_at', desde5d)
+        .or('conteudo.like.%**%,conteudo.like.%## %');
+      restantes = count || 0;
+    } catch(_) {}
+  }
+
+  return res.status(200).json({ status: 'ok', processados: resultados.length, ok: okCount, restantes, resultados });
 }
 
 export default async function handler(req, res) {
@@ -436,6 +487,14 @@ export default async function handler(req, res) {
 
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
 
+      // entity-based dedup: max 3 articles per named entity per 24h
+      const nomePrincipal = extrairNomePrincipal(content.titulo);
+      if (nomePrincipal) {
+        const sobrenome = nomePrincipal.split(' ').slice(-1)[0];
+        const contagem = recentTitles.filter(t => (t||'').toLowerCase().includes(sobrenome)).length;
+        if (contagem >= 3) continue;
+      }
+
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
         const familiaForcada = FAMILIA_CAT[catForcada];
         const familiaConteudo = FAMILIA_CAT[content.categoria];
@@ -462,6 +521,17 @@ export default async function handler(req, res) {
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
       if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
+
+      // findImage fallback: always find an image if scrape didn't provide one
+      if (!imagemFinal) {
+        try {
+          const imgUrl = await findImage(content.titulo, content.categoria);
+          if (imgUrl) {
+            try { imagemFinal = await processAndSaveImage(imgUrl, hash.slice(0, 12) + '_f', inicio); }
+            catch(_) { imagemFinal = imgUrl; }
+          }
+        } catch(_) {}
+      }
 
       const metaTitle = stripTitle(content.meta_title || content.titulo);
       const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();

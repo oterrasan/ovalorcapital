@@ -1,0 +1,44 @@
+name: Regenerar artigos recentes pendentes
+on:
+  workflow_dispatch:
+    inputs:
+      max_ciclos:
+        description: 'Numero maximo de ciclos (default: 80)'
+        default: '80'
+        required: false
+
+jobs:
+  regenerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Loop de regeneracao
+        run: |
+          BASE_URL="https://www.ovalorcapital.com.br"
+          MAX=${{ github.event.inputs.max_ciclos || '80' }}
+          ciclo=0
+          consecutivos_zero=0
+
+          while [ $ciclo -lt $MAX ]; do
+            echo "--- Ciclo $((ciclo+1))/$MAX ---"
+            RESP=$(curl -sf --max-time 25 "${BASE_URL}/api/run_portal?action=regenerar&pendente=true&limit=2" || echo '{"restantes":1,"ok":0,"status":"erro"}')
+            echo "Resposta: $RESP"
+
+            RESTANTES=$(echo "$RESP" | grep -oP '"restantes"\s*:\s*\K[0-9]+' || echo "1")
+            OK=$(echo "$RESP" | grep -oP '"ok"\s*:\s*\K[0-9]+' || echo "0")
+
+            if [ "$RESTANTES" = "0" ]; then
+              consecutivos_zero=$((consecutivos_zero+1))
+              if [ $consecutivos_zero -ge 2 ]; then
+                echo "Todos os artigos processados. Encerrando."
+                break
+              fi
+            else
+              consecutivos_zero=0
+            fi
+
+            ciclo=$((ciclo+1))
+            sleep 15
+          done
+
+          echo "Regeneracao concluida. Ciclos executados: $ciclo"
