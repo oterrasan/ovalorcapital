@@ -255,7 +255,6 @@ async function regenerarConteudo(res, meta) {
     }
   }
 
-  // Se processamos algum artigo com sucesso, assume que podem ter mais
   const okCount = resultados.filter(r => r.status === 'ok').length;
   const restantes = okCount > 0 ? 1 : 0;
 
@@ -424,7 +423,7 @@ export default async function handler(req, res) {
       let imagemFinal = null;
       const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
-      if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12));
+      if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
 
       const metaTitle = stripTitle(content.meta_title || content.titulo);
       const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
