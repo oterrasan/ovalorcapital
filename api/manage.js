@@ -12,8 +12,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 let _bannersCache = null;
 
-// ── ROTEADOR ──────────────────────────────────────────────────────────────────
-export default async function handler(req, res) {
+// ── ROTEADOR ────────────────────────────────────────────────────────────────────────────────
+function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -21,6 +21,7 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     if (req.query.action === 'banners') return handleBanners(req, res);
+    if (req.query.action === 'refresh_token') return handleRefreshToken(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
 
   return handleApprove(req, res);
 }
+export default handler;
 
 async function handleSetupStorage(req, res) {
   try {
@@ -52,7 +54,32 @@ async function handleSetupStorage(req, res) {
   }
 }
 
-// ── BANNERS ───────────────────────────────────────────────────────────────────
+// ── RENOVAR TOKEN INSTAGRAM (mensal via cron) ────────────────────────────────
+async function handleRefreshToken(req, res) {
+  try {
+    const { data: accounts } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null);
+    const results = [];
+    for (const account of (accounts || [])) {
+      try {
+        const refreshRes = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${account.token}`);
+        const refreshData = await refreshRes.json();
+        if (refreshData.access_token) {
+          await supabase.from("ig_accounts").update({ token: refreshData.access_token }).eq("id", account.id);
+          results.push({ account: account.username, status: "renovado" });
+        } else {
+          results.push({ account: account.username, status: "erro", detail: refreshData });
+        }
+      } catch(e) {
+        results.push({ account: account.username, status: "erro", detail: e.message });
+      }
+    }
+    return res.status(200).json({ ok: true, results });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── BANNERS ────────────────────────────────────────────────────────────────────────────────
 async function handleBanners(req, res) {
   const cat = (req.query.cat || '').trim().toLowerCase();
   try {
@@ -72,7 +99,7 @@ async function handleBanners(req, res) {
   }
 }
 
-// ── STATUS ──────────────────────────────────────────────────────────────────
+// ── STATUS ────────────────────────────────────────────────────────────────────────────
 async function handleStatus(req, res) {
   try {
     const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
@@ -92,7 +119,7 @@ async function handleStatus(req, res) {
   }
 }
 
-// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────
+// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────────────
 async function handleTrackView(req, res) {
   const { post_id } = req.body || {};
   if (!post_id) return res.json({ ok: false });
@@ -107,7 +134,7 @@ async function handleTrackView(req, res) {
   }
 }
 
-// ── APROVAÇÃO (approve.js) ──────────────────────────────────────────────────
+// ── APROVAÇÃO (approve.js) ────────────────────────────────────────────────────────
 async function handleApprove(req, res) {
   const { id, ids, action, scheduled_at } = req.body || {};
   try {
@@ -143,7 +170,7 @@ async function handleApprove(req, res) {
   }
 }
 
-// ── APROVAÇÃO PORTAL (approve_portal.js) ───────────────────────────────────────
+// ── APROVAÇÃO PORTAL (approve_portal.js) ───────────────────────────────────────────────────
 async function handleApprovePortal(req, res) {
   const { id, ids, action } = req.body || {};
   const now = new Date().toISOString();
@@ -179,7 +206,7 @@ async function handleApprovePortal(req, res) {
   }
 }
 
-// ── GERAÇÃO MANUAL (run_manual.js) ─────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL (run_manual.js) ─────────────────────────────────────────────────────────────────
 function validar(content) {
   if (!content?.titulo || !content?.corpo) return false;
   const t = content.titulo.toLowerCase().trim();
@@ -314,7 +341,7 @@ async function handleManual(req, res) {
   }
 }
 
-// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────────
+// ── SUBMISSÃO PÚBLICA DE VAGAS ────────────────────────────────────────────────────
 async function handleSubmitVaga(req, res) {
   const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
   if (!empresa || !cargo || !descricao || !email_contato) {
@@ -346,7 +373,7 @@ async function handleSubmitVaga(req, res) {
   }
 }
 
-// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────────────────
+// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────────────────────
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
