@@ -229,14 +229,24 @@ const feedsParaUsar = [...feedsCustom, ...feedsGarantidos];
 ### Causa raiz
 Ambos salvavam `status: 'pendente'`, `approved: false`. `portal-posts.js` filtra só por `status = 'publicado'`. Resultado: artigos invisíveis indefinidamente.
 
-### Correção
+### Correção (14/mai/2026)
 ```js
 const now = new Date().toISOString();
 { status: 'publicado', approved: true, published_at: now }
 ```
 
+### ⚠️ ATENÇÃO — INVERTIDO INTENCIONALMENTE pelo Block 6 (17/mai/2026)
+> Roberto determinou em 17/05/2026 que **o pipeline automático deve salvar como `pendente`** para aprovação humana obrigatória antes de publicar. Isso é o **Block 6 — Staging Protocol** e é intencional.
+>
+> **O que mudou:**
+> - Pipeline (`api/run_portal.js`): salva `status:'pendente'`, `approved:false`, SEM `published_at` ✅ INTENCIONAL
+> - Posts manuais (`handleManual` em `api/manage.js`): CONTINUAM salvando como `publicado` — apenas o pipeline automático virou pendente
+>
+> **Fluxo correto desde 17/mai/2026:**
+> Pipeline gera → salva como pendente → Roberto aprova no admin (Postagens > filtro pendente > Publicar no Portal) → status vira publicado
+
 ### Regra permanente
-**Todo INSERT em `posts` pelo pipeline ou admin DEVE usar `status:'publicado'`, `approved:true`, `published_at:now`.** Nunca salvar como `pendente` sem fluxo de aprovação implementado.
+**NUNCA reverter `api/run_portal.js` para `status:'publicado'` sem autorização explícita de Roberto.** O staging protocol é intencional e inviolável (ver Regra Zero-D no CLAUDE.md).
 
 ---
 
@@ -269,84 +279,43 @@ export default async function handler(req, res) {
 A página `/vc/` mostrava artigos completamente fora de contexto, ou ficava vazia.
 
 ### Causa raiz
-O objeto `vc` em `SECTIONS` de `api/landing.js` tinha `cats: ["vc", "colunistas"]`. A query buscava artigos com `user_tags` contendo `"vc"` ou `"colunistas"`. O pipeline automático **nunca** gera artigos com essas tags — elas são reservadas para conteúdo de colunistas humanos. O banco tinha artigos antigos com essas tags de operações anteriores, resultando em conteúdo aleatório e sem sentido na seção "Opinião & Análise".
-
-Além disso, a função `renderEditorial()` aplicava o badge "Opinião" em cima de qualquer artigo retornado, mesmo que fossem notícias genéricas.
+O objeto `vc` em `SECTIONS` de `api/landing.js` tinha `cats: ["vc", "colunistas"]`. A query buscava artigos com `user_tags` contendo `"vc"` ou `"colunistas"`. O pipeline automático **nunca** gera artigos com essas tags — elas são reservadas para conteúdo de colunistas humanos.
 
 ### Correção
 ```js
-// ANTES (errado):
-vc: { cats: ["vc", "colunistas"], ... }
-
-// DEPOIS (correto):
 vc: {
   title: "Variedades & Editorial",
   desc: "Investigação jornalística, cultura, variedades e análises.",
   cats: ["investigativo", "variedades", "cultura"],
-  ...
 }
 ```
-A função `renderEditorial()` foi removida. A seção `/vc/` agora usa `renderLanding()` padrão com categorias que o pipeline efetivamente popula.
 
 ### Regra permanente
-- **`vc` e `colunistas` NÃO são categorias do pipeline automático.** O pipeline nunca gera artigos com essas tags.
+- **`vc` e `colunistas` NÃO são categorias do pipeline automático.**
 - A landing page `/vc/` deve usar cats que o pipeline efetivamente usa (`investigativo`, `variedades`, `cultura`).
-- Se Roberto quiser criar uma seção de colunistas humanos no futuro, ela requer fluxo próprio de publicação manual — não o pipeline automático.
 
 ---
 
 ## BUG #16 — Footer de landing pages sem copyright 2026 e links institucionais
 **Data:** 14/Mai/2026 | **Arquivo:** `api/landing.js`
 
-### Sintoma
-As landing pages (`/vc/`, `/trabalho/`, `/financas/`, `/moradia/`, `/seguranca/`, `/bem-estar/`) tinham footer antigo sem: copyright 2026, link "Quem Somos", link "Política Editorial", badge HTTPS, disclaimer editorial.
-
-### Causa raiz
-O `newsletter-bar.js` — que patcha o footer via JavaScript — funciona APENAS em páginas com `<footer class="footer">` e `.footer-bottom` no HTML estático. As landing pages são geradas 100% por `api/landing.js` e têm footer inline sem essas classes CSS. O newsletter-bar.js não é carregado nessas páginas.
-
 ### Correção
-Atualização direta de `buildFooter()` em `api/landing.js`:
-```js
-function buildFooter(){
-  return `<footer style="background:#0f172a;...">
-    © 2026 O Valor Capital — Redação OVC. Todos os direitos reservados. 🔒 HTTPS
-    <a href="/quem-somos/">Quem Somos</a>
-    <a href="/politica-editorial/">Política Editorial</a>
-    ...
-    Responsável editorial: Roberto Cesar Terrasan.
-  </footer>`;
-}
-```
+Atualização direta de `buildFooter()` em `api/landing.js`.
 
 ### Regra permanente
 - **Qualquer mudança no footer das landing pages DEVE ser feita diretamente em `buildFooter()` em `api/landing.js`.**
-- O `newsletter-bar.js` NÃO funciona em landing pages — não tentar usá-lo para esse fim.
-- Footer de páginas de categoria/homepage: atualizar via `newsletter-bar.js` OU nos templates estáticos `public/[cat]/index.html` (requer edição manual de cada arquivo).
+- O `newsletter-bar.js` NÃO funciona em landing pages.
 
 ---
 
 ## BUG #17 — Regressão do Bug #7 — geração manual parada por ~1 semana (CRÍTICO)
 **Data:** 14/Mai/2026 | **Arquivo:** `api/manage.js`
 
-### Sintoma
-Admin não gerava nenhuma matéria manual há aproximadamente 1 semana. Nenhum erro visível — falha silenciosa.
-
 ### Causa raiz
-A linha `if (!c.includes("redação ovc")) return false;` voltou para dentro da função `validar()` em `api/manage.js` em alguma sessão anterior. A IA **nunca** escreve essa string no corpo do artigo, logo 100% das validações falhavam silenciosamente.
+A linha `if (!c.includes("redação ovc")) return false;` voltou para dentro da função `validar()` em alguma sessão anterior.
 
 ### Correção
-Linha removida novamente. Função `validar()` correta:
-```js
-function validar(content) {
-  if (!content?.titulo || !content?.corpo) return false;
-  const t = content.titulo.toLowerCase().trim();
-  const c = content.corpo.toLowerCase();
-  const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
-  if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
-  if (content.corpo.length < 500) return false;
-  return true;  // NUNCA adicionar checagem de string fixa da IA aqui
-}
-```
+Linha removida novamente.
 
 ### Regra permanente
 **ABSOLUTAMENTE NUNCA** adicionar `c.includes("qualquer string fixa")` dentro de `validar()`. A IA não produz strings deterministas. Isso mata 100% das gerações sem erro visível.
@@ -364,15 +333,18 @@ function validar(content) {
 □ O GitHub Actions ainda envia count=8 no body?
 □ MAX_POSTS_DIA=300 ainda está sendo verificado?
 □ validar() em manage.js NÃO exige strings fixas da IA no corpo?
-□ validar() em manage.js NÃO tem c.includes("redação ovc")? (Bug #7 ja regrediu 2x)
+□ validar() em manage.js NÃO tem c.includes("redação ovc")? (Bug #7 já regrediu 2x)
 □ forçarExecucao() em automacao.html envia POST com {force:true, count:3}?
 □ automacao.html usa user_tags (não categoria) no select e na tabela?
 □ getNews() mistura feedsCustom + feedsGarantidos na 1a tentativa?
 □ getNews() tem fallback total com FEEDS_DIRETOS_GARANTIDOS se allItems=[]?
 □ scraper.js tem 3 camadas de extração (p → div → og:meta)?
-□ Todo INSERT em posts usa status:'publicado', approved:true, published_at:now?
+□ api/run_portal.js pipeline salva status:'pendente', approved:false, SEM published_at? (Block 6 — INTENCIONAL)
+□ api/manage.js handleManual salva status:'publicado', approved:true, published_at:now? (posts manuais publicam direto)
 □ category.js redireciona ?id= para /og?id= antes de qualquer lógica?
 □ api/landing.js vc section usa cats: ["investigativo","variedades","cultura"]?
 □ api/landing.js buildFooter() tem copyright 2026 + links institucionais?
 □ newsletter-bar.js NÃO é usado para patchear footer de landing pages?
+□ api/ tem exatamente 10 arquivos? (contar antes de qualquer push)
+□ vercel.json não tem maxDuration > 10?
 ```

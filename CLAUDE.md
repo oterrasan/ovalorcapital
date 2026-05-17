@@ -412,7 +412,7 @@ function renderCorpo(texto){
 | Sitemap dinâmico | `api/sitemap.js` | ✅ |
 | Canonical www | Todos handlers SSR | ✅ |
 | Links internos "Leia também" | `api/article.js` `fetchRelatedArticles()` | ✅ (Block 3) |
-| Google Indexing API | `api/run_portal.js` `pingGoogleIndexing()` | ✅ (Block 3, ping ocorre ao aprovar) |
+| Google Indexing API | `api/run_portal.js` `pingGoogleIndexing()` | ✅ (Block 3, requer GOOGLE_INDEXING_SA_JSON) |
 | Banner comercial Lions | `api/manage.js` + `public/js/banners.js` | ✅ (Block 5) |
 
 ### Ações pendentes (Roberto faz manualmente)
@@ -421,7 +421,6 @@ function renderCorpo(texto){
 3. Google Publisher Center → cadastrar portal
 4. Quando ovalorcapital@gmail.com ativado → atualizar `EMAIL_REAL` em `api/institutional.js`
 5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
-6. **Merge branch `claude/work-session-LGQFx` → `main`** para deployar todos os Blocks 1–6 em produção.
 
 ---
 
@@ -443,7 +442,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 10 | getNews() fallback usava GN | `core/rss.js` | mai/2026 |
 | 11 | Scraper só `<p>` | `core/scraper.js` | mai/2026 |
 | 12 | no_news persistente | `core/rss.js` | mai/2026 |
-| 13 | Pipeline salvava como pendente | `run_portal.js` + `manage.js` | mai/2026 |
+| 13 | Pipeline salvava como pendente (corrigido em mai, revertido intencionalmente em Block 6) | `run_portal.js` | mai/2026 |
 | 14 | Links ?id= abriam categoria vazia | `api/category.js` | mai/2026 |
 | 15 | /vc/ mostrava conteúdo sem sentido | `api/landing.js` | mai/2026 |
 | 16 | Footer landing sem copyright/links | `api/landing.js` | mai/2026 |
@@ -451,7 +450,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 18 | Prompt gerava markdown em vez de HTML | `core/ai_portal.js` | 16/05/2026 |
 | 19 | Agente criou 13º arquivo em api/ → build quebrado | `api/corrigir-markdown-hoje.js` deletado | 16/05/2026 |
 | 20 | `renderCorpo()` escapava HTML → tags visíveis como texto | `public/js/internal-page-v2.js` | 17/05/2026 |
-| 21 | INSERT pipeline usava `pendente`+`approved:false` | `api/run_portal.js` | 17/05/2026 |
+| 21 | INSERT pipeline usava `pendente`+`approved:false` (corrigido, revertido intencionalmente no Block 6) | `api/run_portal.js` | 17/05/2026 |
 | 22 | `regenerarConteudo` tentava 15 artigos → timeout 10s | `api/run_portal.js` | 17/05/2026 |
 
 ---
@@ -514,17 +513,16 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Pendente ao fim do dia:** artigos com markdown no banco ainda quebrados
 
 ### Sessão 17/05/2026 — CORREÇÃO DO INCIDENTE
-- **Bug #20 corrigido:** `renderCorpo()` em `internal-page-v2.js` agora detecta HTML e renderiza direto — corrige 400+ artigos sem tocar no banco
-- **Bug #21 corrigido:** INSERT em `run_portal.js` agora usa `publicado`+`approved:true`+`published_at:now`
-- **Bug #22 corrigido:** `regenerarConteudo` processa 1 artigo por chamada com 8s de timeout interno — se encaixa no Hobby
-- **Workflow criado:** `.github/workflows/corrigir_artigos.yml` — loop automático que chama `?action=regenerar` até `restantes:0`
-- **Prompt novo aprovado e travado:** gera HTML, Google News+Discover, Reuters/Bloomberg style, comentário de trava no código
+- **Bug #20 corrigido:** `renderCorpo()` em `internal-page-v2.js` agora detecta HTML e renderiza direto
+- **Bug #21 corrigido:** INSERT em `run_portal.js` voltou para `publicado`+`approved:true`+`published_at:now`
+- **Bug #22 corrigido:** `regenerarConteudo` processa 1 artigo por chamada com 8s de timeout interno
+- **Workflow criado:** `.github/workflows/corrigir_artigos.yml`
+- **Prompt novo aprovado e travado:** gera HTML, Google News+Discover, Reuters/Bloomberg style
 - **Regras Zero-A a Zero-D** documentadas neste arquivo
 
 ### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–6 — TODOS COMPLETOS ✅)
 
-**Branch de trabalho:** `claude/work-session-LGQFx`
-**Commits:** e2ef635a (B3), 6176364 (B4), 82488e5a (B5-pt1), 29781353 (B5-pt2), bd9fdb77 (B6), c871657f (consolidação api/), 10a73007 (delete refresh_token.js), 3a759cd9 (delete manual_post.js)
+**Branch:** `claude/work-session-LGQFx` → mergeada em `main` (PR #38, commit `bd0c0465`)
 
 #### Block 1 — SYSTEM_KERNEL (`core/ai_portal.js`)
 - Prompt reestruturado: instruções completas em `role:system`, texto-fonte isolado em `role:user` com tags XML `<source_text>` e `<source_url>`
@@ -550,16 +548,15 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 #### Block 6 — Staging Protocol (`api/run_portal.js`) — COMPLETO
 - Pipeline agora salva: `status:'pendente'`, `approved:false`, sem `published_at`
 - Admin já tinha infra completa: badge sidebar, filtro 'pendente', botão 'Publicar no Portal'
-- Aprovação individual: admin > Postagens > filtro 'pendente' > 'Publicar no Portal'
-- Aprovação em lote: selecionar vários > aprovar_lote
-- Posts manuais (handleManual em manage.js) CONTINUAM publicando direto — só pipeline automático virou pendente
-- `pingGoogleIndexing` mantido em run_portal.js (pode ser ativado ao aprovar em versão futura)
+- Posts manuais (handleManual em manage.js) CONTINUAM publicando direto
+- `pingGoogleIndexing` mantido para uso futuro ao aprovar
 
 #### Consolidação api/ 12 → 10 ✅ (Regra Zero-A restaurada)
 - `api/refresh_token.js` **DELETADO** → lógica em `manage.js` via `GET ?action=refresh_token`
 - `api/manual_post.js` **DELETADO** → lógica em `run_portal.js` via `POST body.url|body.texto`
 - `vercel.json` cron atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
-- **api/ agora tem exatamente 10 arquivos — Regra Zero-A satisfeita ✅**
+- **api/ tem exatamente 10 arquivos — Regra Zero-A satisfeita ✅**
 
-#### Próximo passo obrigatório (Roberto faz)
-- Merge `claude/work-session-LGQFx` → `main` para deployar tudo em produção
+#### Documentação
+- CLAUDE.md atualizado com estado final completo
+- BUGS_CORRIGIDOS.md atualizado: Bug #13 anotado como invertido intencionalmente pelo Block 6, checklist corrigido
