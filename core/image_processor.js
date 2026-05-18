@@ -10,10 +10,11 @@ const CROP_BOTTOM_PCT = 0.08;
 const CROP_LEFT_PCT   = 0.03;
 const CROP_RIGHT_PCT  = 0.03;
 
+// Formato Instagram Feed portrait 4:5 — funciona no portal (float esquerda) e no IG
 const OUT_WIDTH  = 1080;
 const OUT_HEIGHT = 1350;
 
-// Analisa imagem via GPT-4o Vision (timeout 2s — fallback seguro se falhar)
+// Analisa imagem via GPT-4o Vision — rejeita logos de concorrentes, gráficos e ilustrações
 async function analyzeImageVision(buffer) {
   if (!OPENAI_KEY) return null;
   try {
@@ -33,7 +34,7 @@ async function analyzeImageVision(buffer) {
           content: [
             {
               type: "text",
-              text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"has_competitor_logo": true/false, "is_chart_or_table": true/false, "is_illustration": true/false}\nhas_competitor_logo: true if you see logos or watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if the image is a chart, graph, infographic, map, or table.\nis_illustration: true if the image is a drawing, cartoon, clip art, vector illustration, or digitally painted artwork (not a real photograph).'
+              text: 'Analyze this image. Respond ONLY with valid JSON: {"has_competitor_logo":true/false,"is_chart_or_table":true/false,"is_illustration":true/false}\nhas_competitor_logo: true if logos/watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if image is a chart, graph, infographic, map, table, or has critical readable text/numbers.\nis_illustration: true if image is a drawing, cartoon, illustration, clipart, painting, animation, or any non-photographic artwork — NOT a real photograph of a person, place or event.'
             },
             {
               type: "image_url",
@@ -55,7 +56,7 @@ async function analyzeImageVision(buffer) {
   }
 }
 
-// Gera overlay SVG com marca d'água OVC (canto inferior direito, fundo semitransparente)
+// Gera overlay SVG com marca d'água OVC (canto inferior direito) — será substituído por logomarca oficial
 function buildWatermark(width, height) {
   const fontSize = Math.max(13, Math.floor(width * 0.017));
   const padding  = Math.floor(width * 0.014);
@@ -115,6 +116,7 @@ async function processImage(buffer) {
       .webp({ quality: 82 })
       .toBuffer();
 
+    // Watermark OVC — será substituído por logomarca oficial quando fornecida
     const watermark = buildWatermark(OUT_WIDTH, OUT_HEIGHT);
     const final = await sharp(processed)
       .composite([{ input: watermark, blend: "over" }])
@@ -159,7 +161,7 @@ export async function processAndSaveImage(sourceUrl, postId, startTime) {
       visionMetrics = await analyzeImageVision(buffer);
     }
 
-    // Rejeita imagem com logo de concorrente, gráfico/tabela ou ilustração/desenho
+    // Rejeita: logo de concorrente, gráfico/tabela, ou ilustração/desenho
     if (visionMetrics?.has_competitor_logo === true) return null;
     if (visionMetrics?.is_chart_or_table === true) return null;
     if (visionMetrics?.is_illustration === true) return null;

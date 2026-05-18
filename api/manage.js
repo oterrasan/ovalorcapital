@@ -70,7 +70,6 @@ async function handleAuditImages(req, res) {
   const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
 
   try {
-    // Busca posts publicados com imagem, do mais antigo para o mais novo
     const { data: posts, error: fetchErr } = await supabase
       .from('posts')
       .select('id, titulo, imagem')
