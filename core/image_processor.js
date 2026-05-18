@@ -1,4 +1,4 @@
-// image_processor.js — Download, análise Vision, crop, flip condicional, watermark OVC, upload Supabase
+// image_processor.js — Download, análise Vision, crop, watermark OVC, upload Supabase
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
@@ -94,7 +94,7 @@ async function downloadImage(url) {
   }
 }
 
-async function processImage(buffer, visionMetrics) {
+async function processImage(buffer) {
   try {
     const meta = await sharp(buffer).metadata();
     const { width, height } = meta;
@@ -109,20 +109,13 @@ async function processImage(buffer, visionMetrics) {
     const extractHeight = height - cropTop  - cropBottom;
     if (extractWidth < 100 || extractHeight < 80) return null;
 
-    // Flip condicional: apenas em fotos limpas — nunca em gráficos, tabelas ou mapas
-    const applyFlip = !(visionMetrics?.is_chart_or_table === true);
-
-    let pipeline = sharp(buffer)
-      .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight });
-
-    if (applyFlip) pipeline = pipeline.flop();
-
-    const processed = await pipeline
+    const processed = await sharp(buffer)
+      .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight })
       .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover", position: "centre" })
       .webp({ quality: 82 })
       .toBuffer();
 
-    // Watermark OVC
+    // Watermark OVC — será substituído por logomarca oficial quando fornecida
     const watermark = buildWatermark(OUT_WIDTH, OUT_HEIGHT);
     const final = await sharp(processed)
       .composite([{ input: watermark, blend: "over" }])
@@ -172,7 +165,7 @@ export async function processAndSaveImage(sourceUrl, postId, startTime) {
     if (visionMetrics?.is_chart_or_table === true) return null;
     if (visionMetrics?.is_illustration === true) return null;
 
-    const processed = await processImage(buffer, visionMetrics);
+    const processed = await processImage(buffer);
     if (!processed) return null;
 
     const filename = `${postId || Date.now()}.webp`;
