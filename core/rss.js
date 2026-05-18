@@ -295,6 +295,75 @@ const FEEDS_POR_GRUPO = {
     { url: GN_EN("agriculture soybean corn commodity price harvest"), name: "GN Agriculture EN" },
     { url: GN("mapa ministerio agricultura pec portaria"),             name: "GN MAPA" },
   ],
+
+  // ─── RADAR OVC ─────────────────────────────────────────────────────────────
+  // Fontes dedicadas para cada subcategoria do Radar OVC
+  // Prioridade: internacionais em cima (slice(0,12) pega os primeiros)
+  radar: [
+    // ── Futebol internacional & Copa do Mundo ──
+    { url: "https://feeds.bbci.co.uk/sport/football/rss.xml",               name: "BBC Football" },
+    { url: GN_EN("world cup 2026 fifa qualification goal result"),           name: "GN World Cup EN" },
+    { url: GN_EN("champions league premier league la liga goal result"),     name: "GN Europe Football EN" },
+    { url: GN("copa do mundo 2026 gol resultado classificacao fifa"),        name: "GN Copa do Mundo" },
+    // ── Futebol nacional ──
+    { url: "https://ge.globo.com/rss/ge.xml",                               name: "GE Esportes" },
+    { url: GN("brasileirao serie a gol resultado rodada lider"),             name: "GN Brasileirão Série A" },
+    { url: GN("brasileirao serie b acesso rebaixamento resultado"),          name: "GN Brasileirão Série B" },
+    { url: GN("libertadores sulamericana gol resultado brasileiro"),         name: "GN Libertadores" },
+    // ── Fórmula 1 ──
+    { url: "https://www.autosport.com/rss/feed/f1",                         name: "Autosport F1" },
+    { url: "https://www.motorsport.com/rss/f1/news/",                       name: "Motorsport F1" },
+    { url: GN_EN("formula 1 f1 grand prix race result pole fastest lap"),   name: "GN F1 EN" },
+    { url: GN("formula 1 gp corrida hamilton verstappen pole resultado"),    name: "GN F1 BR" },
+    // ── Automóveis & Lançamentos ──
+    { url: "https://www.motor1.com/rss/news/all/",                          name: "Motor1" },
+    { url: GN_EN("car launch electric vehicle ev reveal debut auto show"),   name: "GN Auto EN" },
+    { url: GN("carro lancamento novo modelo eletrico hibrido preco"),        name: "GN Automóveis BR" },
+    // ── Música ──
+    { url: "https://www.rollingstone.com/music/feed/",                      name: "Rolling Stone Music" },
+    { url: "https://pitchfork.com/rss/news",                                name: "Pitchfork" },
+    { url: GN_EN("music album release concert tour rock jazz pop"),          name: "GN Music EN" },
+    { url: GN("musica lancamento album show rock mpb jazz festival"),        name: "GN Música BR" },
+    // ── Cinema & Streaming ──
+    { url: "https://variety.com/feed/",                                     name: "Variety" },
+    { url: "https://deadline.com/feed/",                                    name: "Deadline Hollywood" },
+    { url: GN_EN("movie film release streaming netflix box office oscar"),   name: "GN Cinema EN" },
+    { url: GN("cinema filme estreia streaming netflix amazon disney"),       name: "GN Cinema BR" },
+    // ── Corrupção & Fiscalização ──
+    { url: "https://www.occrp.org/en/rss",                                  name: "OCCRP Corrupção" },
+    { url: "https://apublica.org/feed/",                                     name: "Agência Pública" },
+    { url: GN_EN("corruption investigation bribery fraud government"),       name: "GN Corruption EN" },
+    { url: GN("corrupcao operacao policia federal desvio delacao"),          name: "GN Corrupção BR" },
+    { url: GN("tcu cgu fiscalizacao controle auditoria governo federal"),    name: "GN Fiscalização" },
+    { url: GN("impostometro carga tributaria imposto recorde arrecadacao"),  name: "GN Impostômetro" },
+    // ── Eleições ──
+    { url: GN("eleicoes 2026 candidatos pesquisa eleitoral presidente"),     name: "GN Eleições 2026" },
+    { url: GN_EN("brazil election 2026 candidates polls campaign"),          name: "GN Brazil Elections EN" },
+    // ── Dólar & Câmbio ──
+    { url: "https://br.investing.com/rss/news_301.rss",                     name: "Investing Câmbio BR" },
+    { url: GN("dolar cambio real alta baixa cotacao banco central"),         name: "GN Dólar/Câmbio" },
+    { url: GN_EN("dollar real brazil exchange rate currency brl"),           name: "GN Dollar EN" },
+    // ── Olimpíadas ──
+    { url: GN_EN("olympics athletics swimming track field world record"),    name: "GN Olympics EN" },
+    { url: GN("olimpiadas atletismo natacao brasil medalhista esporte"),     name: "GN Olimpíadas BR" },
+    // ── Tênis ──
+    { url: GN_EN("tennis grand slam wimbledon us open roland garros atp"),  name: "GN Tennis EN" },
+    { url: GN("tenis atp wta grand slam wimbledon rio open"),                name: "GN Tênis BR" },
+    // ── Basquete / NBA ──
+    { url: GN_EN("nba basketball playoffs championship finals mvp"),         name: "GN NBA EN" },
+    // ── MMA & UFC ──
+    { url: GN_EN("ufc mma fight result knockout championship belt"),         name: "GN UFC EN" },
+    // ── Games & E-sports ──
+    { url: "https://feeds.ign.com/ign/all",                                 name: "IGN" },
+    { url: GN_EN("video games release esports gaming tournament streamer"),  name: "GN Games EN" },
+    { url: GN("games jogos lancamento playstation xbox nintendo pc"),        name: "GN Games BR" },
+    // ── Viagens & Turismo ──
+    { url: GN_EN("travel tourism destination flight deal hotel"),            name: "GN Travel EN" },
+    { url: GN("turismo viagem destino passagem barata hotel brasil"),        name: "GN Turismo BR" },
+    // ── Imóvel & Casa ──
+    { url: GN("imoveis casa apartamento lancamento construtora preco"),      name: "GN Imóvel Radar" },
+    { url: GN_EN("real estate property home price housing market"),          name: "GN Real Estate Radar EN" },
+  ],
 };
 
 const CATEGORIA_PARA_GRUPO = {
@@ -326,6 +395,7 @@ const CATEGORIA_PARA_GRUPO = {
   religiao:      ["espiritualidade"],
   investigativo: ["investigativo"],
   agronegocio:   ["agronegocio"],
+  radar:         ["radar"],
 };
 
 const FAMILIA_CAT = {
@@ -333,7 +403,7 @@ const FAMILIA_CAT = {
   mercados:'financas', tributacao:'financas', regulacao:'financas',
   negocios:'financas', imoveis:'financas', parcerias:'financas', esg:'financas',
   politica:'poder', seguranca:'poder', defesa:'poder', investigativo:'poder', internacional:'poder',
-  esportes:'entretenimento', cultura:'entretenimento', variedades:'entretenimento', religiao:'entretenimento',
+  esportes:'entretenimento', cultura:'entretenimento', variedades:'entretenimento', religiao:'entretenimento', radar:'entretenimento',
   tecnologia:'conhecimento', educacao:'conhecimento', saude:'conhecimento',
   familia:'conhecimento', profissoes:'conhecimento', industria:'conhecimento',
   vagas:'trabalho', concursos:'trabalho',
