@@ -430,6 +430,49 @@ Artigo mínimo aceitável: 2500 chars de `corpo` (≈ 5–6 parágrafos HTML). N
 
 ---
 
+## PERF #1 — 57 requests simultâneos na homepage travando o portal (18/05/2026)
+**Data:** 18/Mai/2026 | **Arquivos:** `api/portal-posts.js`, `public/js/home.js`, `public/js/ovc-cards.js`
+
+### Sintoma
+Portal muito lento, até travando no carregamento. Usuário relata portal "travando em alguns momentos".
+
+### Causa raiz
+Homepage disparava **57 requests HTTP simultâneos** a cada carregamento:
+- `ovc-cards.js`: `Promise.all` com 28 fetches individuais (1 por categoria)
+- `home.js`: ~25 fetches individuais (hero cards + 21 seções de categoria)
+- Mais lidas, OVC TV, colunistas, banners: ~4 fetches
+- `setInterval(load, 120000)` em `ovc-cards.js` repetia os 28 fetches a cada 2 minutos enquanto o usuário navegava
+
+Cada fetch era uma serverless function separada no Vercel Hobby → esgotamento de concorrência.
+
+### Solução
+**Novo endpoint bulk `?recentes=true` em `api/portal-posts.js`:**
+```js
+if (req.query.recentes === 'true') {
+  const lim = Math.min(parseInt(limit || '300', 10), 500);
+  const { data: recentData } = await supabase.from("posts")
+    .select("id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
+    .eq("status", "publicado")
+    .order("published_at", { ascending: false })
+    .limit(lim);
+  // filtra por CATS_VALIDAS_R, formata, retorna
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+  return res.status(200).json({ posts: recentPosts, total: recentPosts.length });
+}
+```
+
+**`home.js`:** 1 fetch bulk → cache `{categoria: [posts]}` → distribui para todas as funções client-side.
+
+**`ovc-cards.js`:** 1 fetch bulk → cache → distribui para todos os 28 CATS client-side. `setInterval(load, 120000)` removido.
+
+### Resultado
+57 requests → ~4 requests por carregamento de homepage. Cache de 60s evita re-fetch desnecessário.
+
+### Regra permanente
+**NUNCA** retornar para múltiplos fetches por categoria em `home.js` ou `ovc-cards.js`. O endpoint `?recentes=true` é a única fonte de dados para cards da homepage. Ao adicionar nova seção de categoria, usar o cache já carregado — não criar novo fetch.
+
+---
+
 ## CHECKLIST — Antes de qualquer mudança no pipeline
 
 ```
@@ -463,4 +506,7 @@ Artigo mínimo aceitável: 2500 chars de `corpo` (≈ 5–6 parágrafos HTML). N
 □ Dedup de entidade (max 3/entidade/24h) ativo em run_portal.js?
 □ validarConteudo() rejeita corpo < 2500 chars?
 □ rewritePortal() rejeita corpo < 3000 chars?
+□ home.js faz 1 fetch bulk (/api/portal-posts?recentes=true) — NÃO retornar para múltiplos fetches? (Perf #1)
+□ ovc-cards.js faz 1 fetch bulk — NÃO retornar para múltiplos fetches? NÃO tem setInterval(load)? (Perf #1)
+□ api/portal-posts.js tem endpoint ?recentes=true com Cache-Control: public, max-age=60? (Perf #1)
 ```

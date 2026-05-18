@@ -167,6 +167,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 21. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
 22. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
 23. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
+24. **`home.js` e `ovc-cards.js` usam 1 fetch bulk** — NUNCA retornar para múltiplos fetches por categoria. Ver Perf #1 (18/05/2026).
 
 ---
 
@@ -197,7 +198,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
 | `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`), **refresh token IG** (`GET ?action=refresh_token`) |
-| `api/portal-posts.js` | Serve posts publicados para frontend |
+| `api/portal-posts.js` | Serve posts publicados para frontend + **endpoint bulk `?recentes=true`** (1 query, Cache-Control 60s) |
 | `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` + **geração manual** (`POST body.url\|body.texto`) |
 | `api/sitemap.js` | Sitemap dinâmico |
 
@@ -221,9 +222,9 @@ Fonte de receita única: Google AdSense / Google AdX.
 | Arquivo | Função |
 |---|---|
 | `public/js/internal-page-v2.js` | Renderização artigos — `renderCorpo()` detecta HTML vs markdown |
-| `public/js/home.js` | Homepage dinâmica |
+| `public/js/home.js` | Homepage dinâmica — **1 fetch bulk** `/api/portal-posts?recentes=true` (Perf #1, 18/05/2026) |
 | `public/js/noticias-v3.js` | Listagem de notícias |
-| `public/js/ovc-cards.js` | Cards de artigos — CATS funnel reordering (Block 4) + home banner loader |
+| `public/js/ovc-cards.js` | Cards de artigos — CATS funnel reordering (Block 4) + **1 fetch bulk** (Perf #1, 18/05/2026) — **sem setInterval** |
 | `public/js/newsletter-bar.js` | Injeta newsletter bar + patcha footer |
 | `public/js/banners.js` | **NOVO (Block 5)** — injeta banner Lions Corretora em artigos e homepage |
 
@@ -594,3 +595,31 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 **Feature adicional (commit `756905c`):**
 - Admin → Imagens → nova aba **"📰 Imagens dos Artigos"** — mostra todas as imagens únicas do campo `imagem` da tabela `posts` (até 600, dedupado por URL). Cada card: foto, título do artigo, badge status, Copiar URL, botão Usar.
+
+### Sessão 18/05/2026 — OTIMIZAÇÃO DE PERFORMANCE (homepage)
+
+**Problema:** Portal muito lento, até travando. Homepage fazia **57 requests HTTP simultâneos** a cada carregamento:
+- 28 fetches individuais por categoria em `ovc-cards.js` (via Promise.all)
+- ~25 fetches em `home.js` (hero cards + 21 seções de categoria)
+- mais lidas, OVC TV, colunistas, banners
+- `setInterval(load, 120000)` repetia os 28 fetches a cada 2 minutos enquanto o usuário navegava
+
+**Solução — endpoint bulk `?recentes=true` (commit `7ea8f79c`):**
+- `api/portal-posts.js`: novo branch `?recentes=true` — 1 query Supabase, retorna todos os posts recentes filtrados por CATS_VALIDAS_R, `Cache-Control: public, max-age=60, stale-while-revalidate=120`
+- `public/js/home.js`: refatorado de ~25 fetches individuais para 1 fetch bulk + distribuição client-side por categoria em cache `{categoria: [posts]}`
+- `public/js/ovc-cards.js`: refatorado de 28 fetches individuais para 1 fetch bulk + distribuição client-side; `setInterval(load, 120000)` removido
+
+**Resultado:** 57 requests → ~4 requests por carregamento de homepage.
+
+**Regra adicionada:** Regra #24 — `home.js` e `ovc-cards.js` usam 1 fetch bulk. NUNCA retornar para múltiplos fetches por categoria.
+
+**PRs obsoletas fechadas (sem merge):** #2, #20, #23, #27, #31, #36, #37 — conteúdo já estava em main, PRs estavam estagnadas.
+
+**Ações pendentes (Roberto):**
+- Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions (da sessão anterior)
+- Revisar e aprovar artigos regenerados no admin
+- Adicionar `GOOGLE_INDEXING_SA_JSON` no Vercel Dashboard
+- Submeter sitemap.xml no Google Search Console
+- Verificar aprovação Google AdSense
+- Registrar no Google Publisher Center
+- Ativar ovalorcapital@gmail.com e atualizar `EMAIL_REAL` em `api/institutional.js`
