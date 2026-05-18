@@ -11,7 +11,8 @@
     parcerias:'parcerias', regulacao:'regulacao', vc:'vc', colunistas:'vc',
     investigativo:'investigativo', seguranca:'seguranca',
     cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
-    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
+    radar:'radar'
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
@@ -22,7 +23,8 @@
     parcerias:'Parcerias', vc:'OVC', colunistas:'Colunistas',
     investigativo:'Investigativo', seguranca:'Segurança Pública',
     cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas',
-    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Fé & Espiritualidade'
+    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Fé & Espiritualidade',
+    radar:'Radar OVC'
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
@@ -33,7 +35,8 @@
     variedades:'#ec4899', parcerias:'#14b8a6', vc:'#ffc800', colunistas:'#ffc800',
     investigativo:'#1a1a2e', seguranca:'#7f1d1d',
     cultura:'#7e22ce', profissoes:'#0369a1', vagas:'#065f46',
-    concursos:'#1e40af', imoveis:'#b45309', esg:'#166534', defesa:'#1e3a5f', religiao:'#6d28d9'
+    concursos:'#1e40af', imoveis:'#b45309', esg:'#166534', defesa:'#1e3a5f', religiao:'#6d28d9',
+    radar:'#f97316'
   };
   var CAT_PATH = {
     politica:'politica', economia:'economia', negocios:'negocios',
@@ -45,7 +48,8 @@
     variedades:'variedades', geral:'politica',
     investigativo:'investigativo', seguranca:'seguranca',
     cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
-    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
+    radar:'radar'
   };
 
   function lbl(c){ return LABEL[c]||c||'Geral'; }
@@ -163,7 +167,7 @@
     {t:'Acesso à medicina de elite com tabelas diferenciadas para o seu perfil.',a:'Compare as coberturas das operadoras mais renomadas do país com consultoria VIP Terrasan.',c:'Comparar Coberturas',m:'Olá! Gostaria de comparar coberturas de convênios médicos.'},
     {t:'Proteção integral para a saúde de quem cuida da saúde dos outros.',a:'Seguro médico desenhado sob medida para as necessidades específicas e rotina de médicos e especialistas.',c:'Conhecer Apólice',m:'Olá! Sou médico e gostaria de conhecer o seguro médico da Lions.'},
     {t:'Construa uma linha de defesa financeira inabalaçvel para quem você ama.',a:'Garanta estabilidade e proteção para sua família nos momentos mais críticos com o Seguro de Vida Lions.',c:'Proteger Família',m:'Olá! Gostaria de informações sobre Seguro de Vida.'},
-    {t:'Proteção vitalícia com a inteligência financeira de formação de reserva.',a:'Um ativo estratégico que protege seu patrimônio e permite o resgate do capital capitalizado no futuro.',c:'Simular Reserva',m:'Olá! Gostaria de simular um Seguro Resgatável com formação de reserva.'},
+    {t:'Proteção vitalícia com a inteligência financeira de formação de reserva.',a:'Um ativo estratégico que protege seu patrimônio e permite o resgate do capital capitalizado no futuro.',c:'Simular Reserva',m:'Olá! Gostaria de simular um Seguro Rescatável com formação de reserva.'},
     {t:'Planejamento de longo prazo com eficiência fiscal e independência financeira.',a:'Construa o seu amanhã sem depender do Estado. Soluções estruturadas de Previdência Privada.',c:'Planejar Futuro',m:'Olá! Gostaria de informações sobre Previdência Privada.'},
     {t:'Alocação estratégica global de capital para investidores exigentes.',a:'Acesse os principais mercados do mundo com assessoria especializada em preservação e ganho real.',c:'Falar com Assessor',m:'Olá! Gostaria de falar com um assessor de investimentos.'},
     {t:'Proteja o seu patrimônio contra a oscilação da moeda local.',a:'Diversifique geograficamente os seus ativos e construa patrimônio na moeda mais forte do planeta.',c:'Dolarizar Ativos',m:'Olá! Gostaria de informações sobre dolarização de patrimônio.'},
@@ -183,7 +187,8 @@
     seguros:[4,5,10,11],tributacao:[6,17],politica:[17],regulacao:[17],
     educacao:[17],industria:[9,17],tecnologia:[13,17],esportes:[15,17],
     variedades:[15,17],investigativo:[17],seguranca:[17],cultura:[15,17],
-    vagas:[10,17],concursos:[17],imoveis:[9,17],esg:[17],defesa:[17],religiao:[17],parcerias:[17]
+    vagas:[10,17],concursos:[17],imoveis:[9,17],esg:[17],defesa:[17],religiao:[17],parcerias:[17],
+    radar:[15,17]
   };
   var _SUBCAT_MAP = {
     'medicina':[3,14],'advocacia':[13],'contabilidade':[13],'ti &':[13],
@@ -489,7 +494,7 @@
               if(outrasEl){
                 var CATS_MAIN = ['politica','economia','negocios','investimentos','mercados','tributacao',
                   'saude','familia','tecnologia','industria','educacao','esportes','internacional',
-                  'variedades','seguros','regulacao','cultura','profissoes','vagas','imoveis','esg'];
+                  'variedades','seguros','regulacao','cultura','profissoes','vagas','imoveis','esg','radar'];
                 var catCards = CATS_MAIN.filter(function(k){ return k !== p.categoria && LABEL[k]; })
                   .map(function(k){
                     return '<a href="/'+CAT_PATH[k]+'/" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;text-decoration:none;">'
@@ -524,7 +529,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
