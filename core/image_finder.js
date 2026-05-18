@@ -44,6 +44,11 @@ const BLOQUEIO_PATTERNS = [
   '/profile/', '/headshot/', '/avatar/', '/staff/', '/equipe/',
   'foto-autor', 'foto-reporter', 'headshot', 'profile-pic', 'author-photo',
   'logo', 'icon', 'favicon', 'banner', 'marca',
+  // Bloqueio de ilustrações, gráficos e imagens não-fotográficas
+  'vector', 'ilustra', 'illustration', 'diagram', 'diagrama',
+  'infograph', 'infografia', 'cartoon', 'drawing', 'clipart',
+  'clip-art', 'clip_art', 'sketch', 'esquema', 'graphic-design',
+  'template', 'stock-illustr', 'shutterstock', 'gettyimages',
 ];
 
 const COMPETITOR_HOSTS = new Set([
@@ -144,7 +149,6 @@ function extrairEntidades(titulo) {
 
   for (const [alias, nome] of Object.entries(ALIASES)) {
     if (!tLower.includes(alias)) continue;
-    // skip if this alias is already covered by a more specific entity found earlier
     const alreadyCovered = encontrados.some(e =>
       alias.split(' ').every(w => e.toLowerCase().includes(w))
     );
@@ -189,6 +193,9 @@ async function buscarWikipedia(entityName, imagensUsadas) {
       if (!img) continue;
       if (isImagemBloqueada(img)) continue;
       if (!/\.(jpg|jpeg|png|webp)/i.test(img) && !img.includes('upload.wikimedia')) continue;
+      // Rejeita imagens muito pequenas do Wikipedia (ícones, logos, brasões)
+      const widthMatch = img.match(/\/(\d+)px-/);
+      if (widthMatch && parseInt(widthMatch[1]) < 400) continue;
       const imgGrande = img.replace(/\/\d+px-/, '/1000px-');
       if (!imagensUsadas.has(imgGrande)) return imgGrande;
       if (!imagensUsadas.has(img)) return img;
@@ -223,7 +230,8 @@ async function buscarWikimedia(query, imagensUsadas) {
 
     for (const page of pages) {
       const title = page.title || '';
-      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema/i.test(title)) continue;
+      // Filtro expandido — rejeita mapas, bandeiras, ícones, diagramas, ilustrações, gráficos
+      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge/i.test(title)) continue;
       const imgInfo = page?.imageinfo?.[0];
       const img = imgInfo?.url;
       if (!img) continue;

@@ -82,6 +82,17 @@ const CATS_VALIDAS = new Set([
   'concursos','imoveis','esg','defesa','religiao'
 ]);
 
+// Stopwords PT — ignoradas no dedup de títulos
+const STOPWORDS_DEDUP = new Set([
+  'para','pelo','pela','pelos','pelas','como','mais','sobre','apos','entre',
+  'nova','novo','novas','novos','com','sem','que','uma','uns','umas',
+  'dos','das','nos','nas','aos','seu','sua','seus','suas','sera',
+  'antes','nao','nem','mas','ate','alem','desde','isso','esta','este',
+  'esse','essa','eles','elas','onde','quando','qual','quais','fica',
+  'faz','fez','foi','sao','tem','ter','tinha','seria','pode','deve',
+  'diz','disse','afirma','anuncia','revela','aponta','destaca','alerta',
+]);
+
 const REGRAS_CATEGORIA = [
   { cat: 'vagas',      sinal: ['oferece vaga','abre vaga','processo seletivo','trainee','estagio ','estágio ','auxiliar de vendas','auxiliar de atendimento','analista de rh','gerente de vendas','clique e candidate'] },
   { cat: 'concursos', sinal: ['concurso público','concurso publico','edital do concurso','gabarito oficial','inscrições abertas para concurso','provas do concurso'] },
@@ -235,19 +246,37 @@ function validarConteudo(content) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
   if (titulo.length < 15 || titulo.length > 120) return false;
-  if (/^(prezado|caro|ol[aá]|sem t[í]tulo|t[í]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
+  if (/^(prezado|caro|ol[aá]|sem t[íi]tulo|t[íi]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
   if ((content.corpo || '').length < 2500) return false;
   return true;
 }
 
+// Dedup por similaridade Jaccard — threshold 0.55 (era 0.40)
+// Filtra stopwords antes de comparar — evita falsos positivos por palavras comuns
 function tituloSimilar(a, b) {
-  const norm = t => (t || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 4);
+  const norm = t => (t || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 4 && !STOPWORDS_DEDUP.has(w));
   const wa = new Set(norm(a));
   const wb = new Set(norm(b));
   if (wa.size === 0 || wb.size === 0) return false;
   const intersect = [...wa].filter(w => wb.has(w)).length;
   const union = new Set([...wa, ...wb]).size;
-  return (intersect / union) >= 0.40;
+  return (intersect / union) >= 0.55;
+}
+
+// Dedup por tópico — bloqueia mesmo evento com título diferente (>=3 keywords em comum)
+function topicoDuplicado(novoTitulo, titulos) {
+  const kws = t => (t || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 5 && !STOPWORDS_DEDUP.has(w));
+  const kw = kws(novoTitulo);
+  if (kw.length < 3) return false;
+  return titulos.some(t => kws(t).filter(w => kw.includes(w)).length >= 3);
 }
 
 // ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ─────────────────────────────────────────────────────
@@ -346,7 +375,6 @@ async function regenerarConteudo(res, meta) {
       const metaDesc = (novoConteudo.meta_descricao || novoConteudo.subtitulo || '').replace(/\*\*/g,'').trim();
       const metaTitle = stripTitle(novoConteudo.meta_title || novoConteudo.titulo);
 
-      // update image: always try to find a better one for pendente mode, or if missing
       let novaImagem = post.imagem;
       if (!novaImagem || modoPendente) {
         try {
@@ -368,7 +396,6 @@ async function regenerarConteudo(res, meta) {
 
   const okCount = resultados.filter(r => r.status === 'ok').length;
 
-  // for pendente mode: count real remaining articles with markdown
   let restantes = okCount > 0 ? 1 : 0;
   if (modoPendente) {
     try {
@@ -392,7 +419,6 @@ export default async function handler(req, res) {
 
   if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
 
-  // Geração manual via URL ou texto (antes em api/manual_post.js)
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
@@ -422,9 +448,10 @@ export default async function handler(req, res) {
       if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
+    // Busca títulos das últimas 48h (era 24h) — janela maior = dedup mais rigoroso
     let recentTitles = [];
     try {
-      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(300);
+      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 48 * 3600000).toISOString()).limit(500);
       recentTitles = (rt || []).map(p => p.titulo || '');
     } catch(_) {}
 
@@ -485,9 +512,13 @@ export default async function handler(req, res) {
         else continue;
       }
 
+      // Dedup 1: Jaccard ≥ 55% nas palavras significativas (era 40%)
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
 
-      // entity-based dedup: max 3 articles per named entity per 24h
+      // Dedup 2: tópico — bloqueia se ≥3 keywords em comum com qualquer artigo das últimas 48h
+      if (topicoDuplicado(content.titulo, recentTitles)) continue;
+
+      // Dedup 3: entidade — máx 3 artigos por entidade nomeada por 48h
       const nomePrincipal = extrairNomePrincipal(content.titulo);
       if (nomePrincipal) {
         const sobrenome = nomePrincipal.split(' ').slice(-1)[0];
@@ -522,7 +553,6 @@ export default async function handler(req, res) {
       const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
       if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
 
-      // findImage fallback: always find an image if scrape didn't provide one
       if (!imagemFinal) {
         try {
           const imgUrl = await findImage(content.titulo, content.categoria);

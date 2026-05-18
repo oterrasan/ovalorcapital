@@ -13,7 +13,7 @@ const CROP_RIGHT_PCT  = 0.02;
 const OUT_WIDTH  = 1200;
 const OUT_HEIGHT = 675;
 
-// Analisa imagem via GPT-4o Vision (timeout 2s — fallback seguro se falhar)
+// Analisa imagem via GPT-4o Vision — rejeita logos de concorrentes, gráficos e ilustrações
 async function analyzeImageVision(buffer) {
   if (!OPENAI_KEY) return null;
   try {
@@ -33,7 +33,7 @@ async function analyzeImageVision(buffer) {
           content: [
             {
               type: "text",
-              text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"has_competitor_logo": true/false, "is_chart_or_table": true/false}\nhas_competitor_logo: true if you see logos or watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if the image is a chart, graph, infographic, map, table, or contains critical readable text/numbers that a horizontal flip would distort or invert.'
+              text: 'Analyze this image. Respond ONLY with valid JSON: {"has_competitor_logo":true/false,"is_chart_or_table":true/false,"is_illustration":true/false}\nhas_competitor_logo: true if logos/watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if image is a chart, graph, infographic, map, table, or has critical readable text/numbers.\nis_illustration: true if image is a drawing, cartoon, illustration, clipart, painting, animation, or any non-photographic artwork — NOT a real photograph of a person, place or event.'
             },
             {
               type: "image_url",
@@ -167,8 +167,10 @@ export async function processAndSaveImage(sourceUrl, postId, startTime) {
       visionMetrics = await analyzeImageVision(buffer);
     }
 
-    // Rejeita imagem com logo de concorrente detectado visualmente
+    // Rejeita: logo de concorrente, gráfico/tabela, ou ilustração/desenho
     if (visionMetrics?.has_competitor_logo === true) return null;
+    if (visionMetrics?.is_chart_or_table === true) return null;
+    if (visionMetrics?.is_illustration === true) return null;
 
     const processed = await processImage(buffer, visionMetrics);
     if (!processed) return null;
