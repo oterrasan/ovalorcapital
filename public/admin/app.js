@@ -22,20 +22,23 @@ function renderMdHtml(text){
 
 function App(){
   const [tab,setTab] = React.useState("pendentes");
-  const tabs = ["dashboard","pendentes","publicados","pipeline","fontes","contas","logs","seo","config"];
+  const tabs = ["dashboard","pendentes","publicados","sem_foto","pipeline","fontes","contas","logs","seo","config"];
+  const tabLabel = t => t==="sem_foto" ? "📷 SEM FOTO" : t.toUpperCase();
   return React.createElement("div",{style:{fontFamily:"Inter,sans-serif",background:"#08080f",minHeight:"100vh",color:"#e5e7eb"}},
     React.createElement("div",{style:{background:"#0a0a14",borderBottom:"1px solid #1e293b",padding:"0 16px",display:"flex",gap:4,flexWrap:"wrap"}},
       React.createElement("div",{style:{padding:"12px 8px",fontWeight:700,color:"#ffc800",marginRight:16}},"OVC ADMIN"),
       tabs.map(t=>React.createElement("button",{key:t,onClick:()=>setTab(t),style:{
-        background:tab===t?"#1e293b":"transparent",color:tab===t?"#ffc800":"#94a3b8",
+        background:tab===t?"#1e293b":"transparent",
+        color:tab===t?(t==="sem_foto"?"#ef4444":"#ffc800"):"#94a3b8",
         border:"none",padding:"12px 16px",cursor:"pointer",fontSize:13,fontWeight:600,
-        borderBottom:tab===t?"2px solid #ffc800":"2px solid transparent"
-      }},t.toUpperCase()))
+        borderBottom:tab===t?(t==="sem_foto"?"2px solid #ef4444":"2px solid #ffc800"):"2px solid transparent"
+      }},tabLabel(t)))
     ),
     React.createElement("div",{style:{padding:24,maxWidth:1400,margin:"0 auto"}},
       tab==="dashboard" && React.createElement(Dashboard),
       tab==="pendentes" && React.createElement(Pendentes),
       tab==="publicados" && React.createElement(Publicados),
+      tab==="sem_foto" && React.createElement(SemFoto),
       tab==="pipeline" && React.createElement(Pipeline),
       tab==="fontes" && React.createElement(Fontes),
       tab==="contas" && React.createElement(Contas),
@@ -52,20 +55,21 @@ function Dashboard(){
 
   async function load(){
     const hoje = new Date().toISOString().slice(0,10);
-    const [r1,r2,r3,r4,r5] = await Promise.all([
+    const [r1,r2,r3,r4,r5,r6] = await Promise.all([
       db.from("posts").select("id",{count:"exact",head:true}).eq("status","pendente"),
       db.from("posts").select("id",{count:"exact",head:true}).eq("status","publicado").gte("published_at",hoje),
       db.from("posts").select("id",{count:"exact",head:true}).eq("status","publicado"),
       db.from("posts").select("id",{count:"exact",head:true}).eq("status","rejeitado"),
-      db.from("posts").select("id,titulo,status,created_at").order("created_at",{ascending:false}).limit(8)
+      db.from("posts").select("id,titulo,status,created_at").order("created_at",{ascending:false}).limit(8),
+      db.from("posts").select("id",{count:"exact",head:true}).eq("status","publicado").or("imagem.is.null,imagem.eq.")
     ]);
-    setStats({ pendentes:r1.count||0, publicadosHoje:r2.count||0, total:r3.count||0, rejeitados:r4.count||0 });
+    setStats({ pendentes:r1.count||0, publicadosHoje:r2.count||0, total:r3.count||0, rejeitados:r4.count||0, semFoto:r6.count||0 });
     setRecentes(r5.data||[]);
   }
 
   React.useEffect(()=>{ load(); const id=setInterval(load,30000); return()=>clearInterval(id); },[]);
 
-  const card = (label,val,cor) => React.createElement("div",{style:{background:"#0f0f1a",border:`1px solid ${cor}33`,borderRadius:8,padding:"20px 24px",flex:1,minWidth:160}},
+  const card = (label,val,cor,alerta) => React.createElement("div",{style:{background:"#0f0f1a",border:`1px solid ${cor}33`,borderRadius:8,padding:"20px 24px",flex:1,minWidth:160,cursor:alerta?"pointer":"default"},onClick:alerta||undefined},
     React.createElement("div",{style:{fontSize:28,fontWeight:700,color:cor}}, val),
     React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:4}}, label)
   );
@@ -76,7 +80,8 @@ function Dashboard(){
       card("Pendentes de aprovação", stats.pendentes, "#f59e0b"),
       card("Publicados hoje", stats.publicadosHoje, "#22c55e"),
       card("Total publicados", stats.total, "#3b82f6"),
-      card("Rejeitados", stats.rejeitados, "#ef4444")
+      card("Rejeitados", stats.rejeitados, "#ef4444"),
+      stats.semFoto > 0 && card("⚠ Publicados sem foto", stats.semFoto, "#ef4444")
     ),
     React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:20}},
       React.createElement("h3",{style:{color:"#e5e7eb",margin:"0 0 12px"}},"Últimas matérias"),
@@ -85,6 +90,112 @@ function Dashboard(){
         React.createElement("span",{style:{flex:1,fontSize:14}}, cleanMd(p.titulo)||"—"),
         React.createElement("span",{style:{fontSize:12,color:"#6b7280"}}, fmt(p.created_at))
       ))
+    )
+  );
+}
+
+function SemFoto(){
+  const [items,setItems] = React.useState([]);
+  const [selected,setSelected] = React.useState([]);
+  const [loading,setLoading] = React.useState(false);
+  const [busca,setBusca] = React.useState("");
+
+  async function load(){
+    setLoading(true);
+    const { data } = await db.from("posts")
+      .select("id,titulo,user_tags,published_at,created_at")
+      .eq("status","publicado")
+      .or("imagem.is.null,imagem.eq.")
+      .order("published_at",{ascending:false});
+    setItems(data||[]);
+    setSelected([]);
+    setLoading(false);
+  }
+
+  async function despublicarIds(ids){
+    if(!ids.length) return;
+    setLoading(true);
+    for(let i=0;i<ids.length;i+=50){
+      const chunk=ids.slice(i,i+50);
+      await db.from("posts").update({status:"pendente",approved:false}).in("id",chunk);
+    }
+    await load();
+  }
+
+  async function despublicarTodas(){
+    if(!confirm(`Despublicar TODAS as ${items.length} matérias sem foto e mover para Pendente?`)) return;
+    await despublicarIds(items.map(p=>p.id));
+  }
+
+  function toggleSel(id){ setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]); }
+  function toggleAll(){ setSelected(s=>s.length===filtrados.length?[]:filtrados.map(p=>p.id)); }
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()));
+  const btn = (cor,label,fn,dis) => React.createElement("button",{onClick:fn,disabled:dis||loading,style:{background:cor,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13,opacity:(dis||loading)?0.5:1}},label);
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid #ef444488",borderRadius:10,padding:"16px 24px",marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}},
+      React.createElement("span",{style:{fontSize:24}},"📷"),
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:20,fontWeight:800,color:"#ef4444"}},
+          loading ? "Carregando..." : `${items.length} matérias publicadas sem foto`
+        ),
+        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:2}},
+          "Estas matérias estão visíveis no portal sem imagem. Selecione e despublique para corrigir."
+        )
+      )
+    ),
+
+    React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}},
+      React.createElement("input",{placeholder:"Buscar por título...",value:busca,onChange:e=>setBusca(e.target.value),style:{background:"#0f0f1a",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"7px 12px",fontSize:13,flex:1,maxWidth:360}}),
+      selected.length>0 && React.createElement("span",{style:{fontSize:13,color:"#94a3b8"}},`${selected.length} selecionadas`),
+      selected.length>0 && btn("#f59e0b",`Despublicar ${selected.length} selecionadas`,()=>despublicarIds(selected)),
+      items.length>0 && btn("#ef4444",`⚠ Despublicar TODAS (${items.length})`,despublicarTodas),
+      btn("#3b82f6","↺ Atualizar",load)
+    ),
+
+    React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"auto",maxHeight:"calc(100vh - 300px)"}},
+      React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
+        React.createElement("thead",null,
+          React.createElement("tr",{style:{background:"#1e293b",position:"sticky",top:0,zIndex:1}},
+            React.createElement("th",{style:{padding:"10px 12px",width:40}},
+              React.createElement("input",{type:"checkbox",checked:selected.length===filtrados.length&&filtrados.length>0,onChange:toggleAll})
+            ),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8"}},"TÍTULO"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:130}},"CATEGORIA"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:160}},"PUBLICADO"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#94a3b8",width:130}},"AÇÃO")
+          )
+        ),
+        React.createElement("tbody",null,
+          filtrados.length===0
+          ? React.createElement("tr",null,
+              React.createElement("td",{colSpan:5,style:{padding:48,textAlign:"center",color:loading?"#94a3b8":"#22c55e",fontWeight:700,fontSize:16}},
+                loading ? "Carregando..." : "✅ Nenhuma matéria publicada sem foto!"
+              )
+            )
+          : filtrados.map((p,i)=>{
+              let cat="-"; try{const t=JSON.parse(p.user_tags||"[]");cat=t[0]||"-";}catch(_){}
+              return React.createElement("tr",{key:p.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
+                React.createElement("td",{style:{padding:"10px 12px"}},
+                  React.createElement("input",{type:"checkbox",checked:selected.includes(p.id),onChange:()=>toggleSel(p.id)})
+                ),
+                React.createElement("td",{style:{padding:"10px 12px",fontSize:14,color:"#e5e7eb"}}, cleanMd(p.titulo)||"(sem título)"),
+                React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
+                React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.published_at)),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right"}},
+                  React.createElement("button",{
+                    onClick:async()=>{ setLoading(true); await db.from("posts").update({status:"pendente",approved:false}).eq("id",p.id); await load(); },
+                    style:{background:"#f59e0b",color:"#fff",border:"none",borderRadius:4,padding:"4px 12px",cursor:"pointer",fontSize:12,fontWeight:700},
+                    disabled:loading
+                  },"Despublicar")
+                )
+              );
+            })
+        )
+      )
     )
   );
 }
@@ -271,7 +382,7 @@ function Publicados(){
           filtrados.map((p,i)=>{
             let cat="-"; try{const t=JSON.parse(p.user_tags||"[]");cat=t[0]||"-";}catch(_){}
             return React.createElement("tr",{key:p.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
-              React.createElement("td",{style:{padding:"10px 12px",fontSize:14}}, cleanMd(p.titulo)||"-"),
+              React.createElement("td",{style:{padding:"10px 12px",fontSize:14}}, cleanMd(p.titulo)||"--"),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.published_at)),
               React.createElement("td",{style:{padding:"10px 12px",textAlign:"right"}},
