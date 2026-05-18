@@ -328,11 +328,20 @@
             });
             document.head.appendChild(ld);
           })();
+
           var c = cor(p.categoria);
           var urlRel = buildUrl(p);
           var catSlug = CAT_PATH[p.categoria] || 'politica';
 
           injetarProgressBar(c);
+
+          // Injeta CSS responsivo para imagem flutuante (uma vez só)
+          if (!document.getElementById('ovc-art-float-style')) {
+            var sty = document.createElement('style');
+            sty.id = 'ovc-art-float-style';
+            sty.textContent = '.ovc-art-img{float:left;width:38%;max-width:360px;margin:0 24px 20px 0;border-radius:12px;display:block;object-fit:cover;}.ovc-art-body{overflow:hidden;}@media(max-width:680px){.ovc-art-img{float:none;width:100%;max-width:100%;margin:0 0 20px 0;}}';
+            document.head.appendChild(sty);
+          }
 
           if(p.id && p.id.length >= 36){
             fetch('/api/manage', {
@@ -360,22 +369,30 @@
               +'<h1 style="font-size:30px;font-weight:900;line-height:1.18;margin:0 0 16px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">'+esc(tituloLimpo)+'</h1>'
               +(p.subtitulo ? '<p style="font-size:18px;color:#475569;margin:0 0 4px;line-height:1.6;font-style:italic;border-left:4px solid '+c+';padding:6px 0 6px 16px;">'+esc(p.subtitulo)+'</p>' : '')
               +renderShare(tituloLimpo, urlRel)
-              +(p.imagem ? '<div style="width:100%;border-radius:12px;overflow:hidden;margin-bottom:30px;"><img src="'+p.imagem+'" alt="'+esc(tituloLimpo)+'" style="width:100%;max-height:460px;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>' : '')
-              +renderBanner(p.categoria, p.subcategoria)
+              // Imagem flutua à esquerda, texto do artigo ao lado
+              +'<div class="ovc-art-body">'
+              +(p.imagem ? '<img src="'+p.imagem+'" class="ovc-art-img" alt="'+esc(tituloLimpo)+'" onerror="this.style.display=\'none\'">' : '')
               +'<div>'+renderCorpo(p.corpo||'')+'</div>'
-              +renderCTA();
+              +'<div style="clear:both;"></div>'
+              +'</div>'
+              +renderBanner(p.categoria, p.subcategoria)
+              +renderCTA()
+              // Seções de mais artigos abaixo do artigo
+              +'<div id="ovc-subcat-more"></div>'
+              +'<div id="ovc-cat-more"></div>';
           }
 
           var banner = document.querySelector('.ovc-banner-slot');
           if(banner){ banner.innerHTML = renderBanner(p.categoria, p.subcategoria); banner.style.display = 'block'; }
 
-          fetch('/api/portal-posts?categoria=' + encodeURIComponent(p.categoria) + '&limit=24')
+          fetch('/api/portal-posts?categoria=' + encodeURIComponent(p.categoria) + '&limit=60')
             .then(function(r){ return r.json(); })
             .then(function(json){
               var rel = (json.posts || []).filter(function(r){
                 return r.id !== p.id && r.categoria === p.categoria;
-              }).slice(0, 12);
+              });
 
+              // Sidebar rail — primeiros 5
               var mainEl = document.querySelector('[data-main-list]');
               var mainWrap = mainEl ? mainEl.closest('.ovc-story-list') : null;
               if(mainEl && rel.length){
@@ -431,6 +448,37 @@
                     }
                   }).catch(function(){});
               }
+
+              // Seção subcategoria abaixo do artigo
+              var subcatPosts = p.subcategoria
+                ? rel.filter(function(r){ return r.subcategoria === p.subcategoria; }).slice(0, 8)
+                : [];
+              var subcatIdMap = {};
+              subcatPosts.forEach(function(r){ subcatIdMap[r.id] = true; });
+
+              var subcatEl = document.getElementById('ovc-subcat-more');
+              if(subcatEl && subcatPosts.length >= 2){
+                subcatEl.innerHTML =
+                  '<div style="margin-top:48px;padding-top:28px;border-top:3px solid '+c+';">' 
+                  +'<h3 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 20px;letter-spacing:-.01em;">Mais em <span style="color:'+c+';">'+esc(p.subcategoria)+'</span></h3>'
+                  +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">'
+                  +subcatPosts.map(renderCardMedio).join('')
+                  +'</div>'
+                  +'</div>';
+              }
+
+              // Seção categoria abaixo do artigo
+              var moreCat = rel.filter(function(r){ return !subcatIdMap[r.id]; }).slice(0, 16);
+              var catEl = document.getElementById('ovc-cat-more');
+              if(catEl && moreCat.length >= 2){
+                catEl.innerHTML =
+                  '<div style="margin-top:40px;padding-top:28px;border-top:2px solid #e2e8f0;margin-bottom:48px;">'
+                  +'<h3 style="font-size:20px;font-weight:900;color:#0f172a;margin:0 0 20px;letter-spacing:-.01em;">Mais em <span style="color:'+c+';">'+lbl(p.categoria)+'</span></h3>'
+                  +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">'
+                  +moreCat.map(renderCardMedio).join('')
+                  +'</div>'
+                  +'</div>';
+              }
             })
             .catch(function(){});
         })
@@ -452,7 +500,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'

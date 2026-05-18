@@ -5,13 +5,14 @@ import sharp from "sharp";
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-const CROP_TOP_PCT    = 0.08;
-const CROP_BOTTOM_PCT = 0.13;
-const CROP_LEFT_PCT   = 0.02;
-const CROP_RIGHT_PCT  = 0.02;
+const CROP_TOP_PCT    = 0.05;
+const CROP_BOTTOM_PCT = 0.08;
+const CROP_LEFT_PCT   = 0.03;
+const CROP_RIGHT_PCT  = 0.03;
 
-const OUT_WIDTH  = 1200;
-const OUT_HEIGHT = 675;
+// Formato Instagram Feed portrait 4:5 — funciona no portal (float esquerda) e no IG
+const OUT_WIDTH  = 1080;
+const OUT_HEIGHT = 1350;
 
 // Analisa imagem via GPT-4o Vision — rejeita logos de concorrentes, gráficos e ilustrações
 async function analyzeImageVision(buffer) {
@@ -55,7 +56,7 @@ async function analyzeImageVision(buffer) {
   }
 }
 
-// Gera overlay SVG com marca d'água OVC (canto inferior direito, fundo semitransparente)
+// Gera overlay SVG com marca d'água OVC (canto inferior direito) — será substituído por logomarca oficial
 function buildWatermark(width, height) {
   const fontSize = Math.max(13, Math.floor(width * 0.017));
   const padding  = Math.floor(width * 0.014);
