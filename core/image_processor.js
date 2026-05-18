@@ -1,17 +1,17 @@
-// image_processor.js — Download, análise Vision, crop, flip condicional, watermark OVC, upload Supabase
+// image_processor.js — Download, análise Vision, crop, watermark OVC, upload Supabase
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-const CROP_TOP_PCT    = 0.08;
-const CROP_BOTTOM_PCT = 0.13;
-const CROP_LEFT_PCT   = 0.02;
-const CROP_RIGHT_PCT  = 0.02;
+const CROP_TOP_PCT    = 0.05;
+const CROP_BOTTOM_PCT = 0.08;
+const CROP_LEFT_PCT   = 0.03;
+const CROP_RIGHT_PCT  = 0.03;
 
-const OUT_WIDTH  = 1200;
-const OUT_HEIGHT = 675;
+const OUT_WIDTH  = 1080;
+const OUT_HEIGHT = 1350;
 
 // Analisa imagem via GPT-4o Vision (timeout 2s — fallback seguro se falhar)
 async function analyzeImageVision(buffer) {
@@ -33,7 +33,7 @@ async function analyzeImageVision(buffer) {
           content: [
             {
               type: "text",
-              text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"has_competitor_logo": true/false, "is_chart_or_table": true/false}\nhas_competitor_logo: true if you see logos or watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if the image is a chart, graph, infographic, map, table, or contains critical readable text/numbers that a horizontal flip would distort or invert.'
+              text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"has_competitor_logo": true/false, "is_chart_or_table": true/false, "is_illustration": true/false}\nhas_competitor_logo: true if you see logos or watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if the image is a chart, graph, infographic, map, or table.\nis_illustration: true if the image is a drawing, cartoon, clip art, vector illustration, or digitally painted artwork (not a real photograph).'
             },
             {
               type: "image_url",
@@ -94,7 +94,7 @@ async function downloadImage(url) {
   }
 }
 
-async function processImage(buffer, visionMetrics) {
+async function processImage(buffer) {
   try {
     const meta = await sharp(buffer).metadata();
     const { width, height } = meta;
@@ -109,20 +109,12 @@ async function processImage(buffer, visionMetrics) {
     const extractHeight = height - cropTop  - cropBottom;
     if (extractWidth < 100 || extractHeight < 80) return null;
 
-    // Flip condicional: apenas em fotos limpas — nunca em gráficos, tabelas ou mapas
-    const applyFlip = !(visionMetrics?.is_chart_or_table === true);
-
-    let pipeline = sharp(buffer)
-      .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight });
-
-    if (applyFlip) pipeline = pipeline.flop();
-
-    const processed = await pipeline
+    const processed = await sharp(buffer)
+      .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight })
       .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover", position: "centre" })
       .webp({ quality: 82 })
       .toBuffer();
 
-    // Watermark OVC
     const watermark = buildWatermark(OUT_WIDTH, OUT_HEIGHT);
     const final = await sharp(processed)
       .composite([{ input: watermark, blend: "over" }])
@@ -167,10 +159,12 @@ export async function processAndSaveImage(sourceUrl, postId, startTime) {
       visionMetrics = await analyzeImageVision(buffer);
     }
 
-    // Rejeita imagem com logo de concorrente detectado visualmente
+    // Rejeita imagem com logo de concorrente, gráfico/tabela ou ilustração/desenho
     if (visionMetrics?.has_competitor_logo === true) return null;
+    if (visionMetrics?.is_chart_or_table === true) return null;
+    if (visionMetrics?.is_illustration === true) return null;
 
-    const processed = await processImage(buffer, visionMetrics);
+    const processed = await processImage(buffer);
     if (!processed) return null;
 
     const filename = `${postId || Date.now()}.webp`;
