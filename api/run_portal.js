@@ -82,7 +82,6 @@ const CATS_VALIDAS = new Set([
   'concursos','imoveis','esg','defesa','religiao'
 ]);
 
-// Stopwords PT — ignoradas no dedup de títulos
 const STOPWORDS_DEDUP = new Set([
   'para','pelo','pela','pelos','pelas','como','mais','sobre','apos','entre',
   'nova','novo','novas','novos','com','sem','que','uma','uns','umas',
@@ -241,7 +240,6 @@ function validarConteudo(content) {
   return true;
 }
 
-// Dedup 1: similaridade Jaccard — threshold 0.55 (era 0.40), filtra stopwords
 function tituloSimilar(a, b) {
   const norm = t => (t || '').toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -256,7 +254,6 @@ function tituloSimilar(a, b) {
   return (intersect / union) >= 0.55;
 }
 
-// Dedup 2: tópico — bloqueia mesmo evento com título diferente (>=3 keywords em comum)
 function topicoDuplicado(novoTitulo, titulos) {
   const kws = t => (t || '').toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -268,7 +265,6 @@ function topicoDuplicado(novoTitulo, titulos) {
   return titulos.some(t => kws(t).filter(w => kw.includes(w)).length >= 3);
 }
 
-// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ───────────────────────────────────────────────────
 async function handleManualPost(req, res) {
   const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
   if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
@@ -408,6 +404,7 @@ export default async function handler(req, res) {
 
   if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
 
+  // Geração manual (URL ou texto) — sem limite diário
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
@@ -437,7 +434,25 @@ export default async function handler(req, res) {
       if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
-    // Busca títulos das últimas 24h para dedup interno (janela do dia)
+    // Cap diário: máximo 100 artigos automáticos por dia (BRT) — não afeta geração manual
+    {
+      const agora = new Date();
+      const hUtc = agora.getUTCHours();
+      const inicioDiaBRT = new Date(
+        Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) +
+        (hUtc < 3 ? -1 : 0) * 86400000 + 3 * 3600000
+      );
+      const { count: postsHoje } = await supabase
+        .from('posts')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', inicioDiaBRT.toISOString())
+        .eq('publish_method', 'portal');
+      if ((postsHoje || 0) >= 100) {
+        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 100 });
+      }
+    }
+
+    // Busca títulos das últimas 24h para dedup interno
     let recentTitles = [];
     try {
       const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(500);
@@ -501,10 +516,7 @@ export default async function handler(req, res) {
         else continue;
       }
 
-      // Dedup 1: Jaccard ≥ 55% nas palavras significativas
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
-
-      // Dedup 2: tópico — bloqueia se ≥3 keywords em comum com qualquer artigo do dia
       if (topicoDuplicado(content.titulo, recentTitles)) continue;
 
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
@@ -547,7 +559,6 @@ export default async function handler(req, res) {
       const metaTitle = stripTitle(content.meta_title || content.titulo);
       const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
 
-      // Block 6: save as pendente — awaits human approval before publishing
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo, conteudo: content.corpo, comentario_fixado: metaDesc,
         imagem: imagemFinal, hash, status: 'pendente', approved: false,
