@@ -1,0 +1,146 @@
+name: Varredura e limpeza de imagens ruins
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Simulacao sem despublicar (true/false)'
+        required: false
+        default: 'false'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Executar varredura
+        uses: actions/github-script@v7
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        with:
+          script: |
+            const SUPABASE_URL = process.env.SUPABASE_URL;
+            const SUPABASE_KEY = process.env.SUPABASE_KEY;
+            const OPENAI_KEY   = process.env.OPENAI_API_KEY;
+            const DRY_RUN      = process.env.DRY_RUN === 'true';
+
+            if (!SUPABASE_URL || !SUPABASE_KEY || !OPENAI_KEY) {
+              core.setFailed('Secrets SUPABASE_URL, SUPABASE_KEY e OPENAI_API_KEY sao obrigatorios.');
+              return;
+            }
+
+            async function fetchPosts(offset = 0, pageSize = 200) {
+              const url = `${SUPABASE_URL}/rest/v1/posts?select=id,titulo,imagem&status=eq.publicado&imagem=not.is.null&imagem=neq.&order=created_at.asc&offset=${offset}&limit=${pageSize}`;
+              const res = await fetch(url, {
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Range-Unit': 'items',
+                  'Range': `${offset}-${offset + pageSize - 1}`
+                }
+              });
+              if (!res.ok) throw new Error(`Supabase error ${res.status}: ${await res.text()}`);
+              return res.json();
+            }
+
+            async function checkImage(imageUrl) {
+              try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                  method: 'POST',
+                  signal: controller.signal,
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+                  body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    max_tokens: 60,
+                    temperature: 0,
+                    messages: [{ role: 'user', content: [
+                      {
+                        type: 'text',
+                        text: 'Analyze this image. Respond ONLY with valid JSON: {"bad": true/false, "reason": "".\nbad=true if: drawing, cartoon, vector art, clip art, icon, app icon, logo, infographic, chart, graph, table, or any digitally-created non-photographic image.\nbad=false if: a real photograph of a real scene, person, place or event.\nreason: brief label (e.g. "app icon", "illustration", "chart", "photo ok").'
+                      },
+                      { type: 'image_url', image_url: { url: imageUrl, detail: 'low' } }
+                    ]}]
+                  })
+                });
+                clearTimeout(timer);
+                if (!res.ok) return { bad: false, reason: `vision_error_${res.status}` };
+                const d = await res.json();
+                const txt = (d.choices?.[0]?.message?.content || '').trim();
+                const m = txt.match(/\{[^}]+\}/);
+                return m ? JSON.parse(m[0]) : { bad: false, reason: 'parse_error' };
+              } catch(e) {
+                return { bad: false, reason: `timeout_or_error` };
+              }
+            }
+
+            async function unpublishPost(id) {
+              const res = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({ status: 'pendente', approved: false })
+              });
+              return res.ok;
+            }
+
+            let offset = 0;
+            const pageSize = 50;
+            let totalProcessed = 0;
+            let totalBad = 0;
+            const badList = [];
+
+            console.log(`Modo: ${DRY_RUN ? 'SIMULACAO (sem despublicar)' : 'REAL (despublica ruins)'}`);
+
+            while (true) {
+              const posts = await fetchPosts(offset, pageSize);
+              if (!posts.length) break;
+
+              console.log(`\n--- Lote offset=${offset}, ${posts.length} posts ---`);
+
+              for (const post of posts) {
+                if (!post.imagem) continue;
+
+                const result = await checkImage(post.imagem);
+                totalProcessed++;
+
+                if (result.bad) {
+                  totalBad++;
+                  const titulo = (post.titulo || '').slice(0, 70);
+                  console.log(`[RUIM] ${titulo} | motivo: ${result.reason} | id: ${post.id}`);
+                  badList.push({ id: post.id, titulo, reason: result.reason });
+
+                  if (!DRY_RUN) {
+                    const ok = await unpublishPost(post.id);
+                    console.log(`  -> despublicado: ${ok}`);
+                  }
+                } else {
+                  console.log(`[OK]   ${(post.titulo || '').slice(0, 60)}`);
+                }
+
+                await new Promise(r => setTimeout(r, 200));
+              }
+
+              offset += posts.length;
+              if (posts.length < pageSize) break;
+            }
+
+            console.log(`\n========================================`);
+            console.log(`Total processado : ${totalProcessed}`);
+            console.log(`Total ruins      : ${totalBad}`);
+            if (DRY_RUN) console.log('(Simulacao — nenhum post foi alterado)');
+            console.log(`\nLista de posts ruins:`);
+            badList.forEach(p => console.log(`  - [${p.reason}] ${p.titulo} (${p.id})`));
+
+            if (totalBad > 0 && !DRY_RUN) {
+              core.notice(`${totalBad} posts com imagens ruins despublicados e movidos para Pendente.`);
+            }
