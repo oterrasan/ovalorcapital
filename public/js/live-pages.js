@@ -1,4 +1,3 @@
-
 (function(){
   const CURRENCY = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:2 });
   const BIG_CURRENCY = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 });
@@ -54,9 +53,18 @@
         </aside>
       </section>`;
   }
-  function mountRadar(live){
+  async function mountRadar(live){
     const mount = q('[data-radar-page]');
     if (!mount) return;
+    const SUBCATS = [
+      'Copa do Mundo','Fórmula 1','Campeonato Brasileiro Série A','Libertadores',
+      'Sul-Americana','Campeonatos Europeus','Campeonato Brasileiro Série B',
+      'Olímpíadas','Tênis','Basquete','MMA & UFC',
+      'Cinema & Streaming','Música','Games & E-sports','Viagens & Turismo',
+      'Corrupção','Fiscalização & Controle','Fiscalização de Políticos','Eleições',
+      'Dólar & Câmbio','Real & Economia Doméstica','Automóveis & Lançamentos',
+      'Imóvel & Casa','Impostos & Fiscal'
+    ];
     const cards = [
       ['IBOV', `${INT.format(Number(live?.indices?.ibov||128450))} pts`, '/dados/cotacoes/?ticker=ibov'],
       ['Selic', `${safe(live?.indices?.selic,10.5)}%`, '/dados/cotacoes/?ticker=selic'],
@@ -65,26 +73,40 @@
       ['Dólar', CURRENCY.format(Number(live?.rates?.usd||5.2)), '/dados/cotacoes/?ticker=dolar'],
       ['Euro', CURRENCY.format(Number(live?.rates?.eur||5.7)), '/dados/cotacoes/?ticker=euro'],
       ['Bitcoin', BIG_CURRENCY.format(Number(live?.rates?.btc||380000)), '/dados/cotacoes/?ticker=bitcoin'],
-      ['Impostômetro', BIG_CURRENCY.format(Number(live?.impostometro||0)), '/ferramentas/impostometro/']
+      ['Impostosômetro', BIG_CURRENCY.format(Number(live?.impostometro||0)), '/ferramentas/impostometro/']
     ];
     mount.innerHTML = `
-      <section class="ovc-panel ovc-hero"><span class="ovc-badge">Radar OVC</span><h1>Radar OVC</h1><p>Painel rápido com indicadores, atalhos editoriais e destinos internos úteis.</p></section>
+      <section class="ovc-panel ovc-hero"><span class="ovc-badge">Radar OVC</span><h1>Radar OVC</h1><p>Painel de indicadores, notícias e atalhos editoriais do portal.</p></section>
       <section class="ovc-live-card-grid">${cards.map(([label,val,href]) => `<a class="ovc-data-card ovc-stat" href="${href}"><div class="ovc-kicker">Indicador</div><strong>${label}</strong><p>${val}</p></a>`).join('')}</section>
-      <section class="ovc-grid" style="margin-top:18px">
-        <div class="ovc-story-stack">
-          <section class="ovc-panel ovc-story-list"><h3>Monitor central</h3><div class="ovc-mini-list">
-            <article class="ovc-mini-item"><div><h4><a href="/dados/cotacoes/">Cotações em foco</a></h4><p>Moedas, índices, inflação e juros organizados no ambiente de dados.</p></div></article>
-            <article class="ovc-mini-item"><div><h4><a href="/dados/agenda-economica/">Agenda econômica</a></h4><p>Próximos gatilhos para mercado, política monetária e atividade.</p></div></article>
-            <article class="ovc-mini-item"><div><h4><a href="/tv-ovc/">TV OVC</a></h4><p>Acompanhe as transmissões públicas e institucionais mais relevantes.</p></div></article>
-          </div></section>
-        </div>
-        <aside class="ovc-right-rail">
-          <section class="ovc-panel ovc-rail-card"><h3>Atalhos úteis</h3><div class="ovc-mini-list">
-            <article class="ovc-mini-item"><div><h4><a href="/ferramentas/impostometro/">Impostômetro</a></h4><p>Leitura fiscal em ambiente próprio.</p></div></article>
-            <article class="ovc-mini-item"><div><h4><a href="/radio-ovc/">Rádio OVC</a></h4><p>Boletins e faixas em áudio.</p></div></article>
-          </div></section>
-        </aside>
-      </section>`;
+      <div id="radar-news-panels" style="margin-top:28px"><p style="color:#888;text-align:center;padding:32px 0">Carregando notícias…</p></div>`;
+    let posts = [];
+    try {
+      const data = await OVC.fetchJSON('/api/portal-posts?categoria=radar&limit=60');
+      posts = Array.isArray(data) ? data : (data?.posts || []);
+    } catch(e) {}
+    const panelsEl = mount.querySelector('#radar-news-panels');
+    if (!panelsEl) return;
+    const bySubcat = {};
+    for (const p of posts) {
+      const sub = p.subcategoria || 'Outros';
+      if (!bySubcat[sub]) bySubcat[sub] = [];
+      bySubcat[sub].push(p);
+    }
+    const orderedSubs = [...SUBCATS, ...Object.keys(bySubcat).filter(k => !SUBCATS.includes(k))];
+    const activeSubs = orderedSubs.filter(s => bySubcat[s]?.length);
+    if (!activeSubs.length) {
+      panelsEl.innerHTML = `<p style="color:#888;text-align:center;padding:40px 0">Nenhuma notícia disponível ainda. Aguarde a próxima geração do Radar.</p>`;
+      return;
+    }
+    const panelHtml = activeSubs.map(sub => {
+      const items = bySubcat[sub].slice(0, 5);
+      const rows = items.map(p => {
+        const date = p.data ? new Date(p.data).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : '';
+        return `<article class="ovc-mini-item"><div><h4><a href="${p.url}">${p.titulo}</a></h4>${date ? `<time style="font-size:.75rem;color:#999">${date}</time>` : ''}</div></article>`;
+      }).join('');
+      return `<section class="ovc-panel ovc-story-list" style="break-inside:avoid;margin-bottom:0"><h3>${sub}</h3><div class="ovc-mini-list">${rows}</div></section>`;
+    }).join('');
+    panelsEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">${panelHtml}</div>`;
   }
   function mountQuotes(live){
     const mount = q('[data-quotes-page]');
@@ -122,7 +144,7 @@
     const mount = q('[data-impostometro-page]');
     if (!mount) return;
     mount.innerHTML = `
-      <section class="ovc-panel ovc-hero"><span class="ovc-badge">Fiscal</span><h1>Impostômetro</h1><p>Leitura fiscal em atualização contínua para compor a experiência editorial do portal.</p></section>
+      <section class="ovc-panel ovc-hero"><span class="ovc-badge">Fiscal</span><h1>Impostosômetro</h1><p>Leitura fiscal em atualização contínua para compor a experiência editorial do portal.</p></section>
       <section class="ovc-live-card-grid" style="margin-top:18px">
         <article class="ovc-data-card ovc-stat"><div class="ovc-kicker">Acumulado</div><strong>${BIG_CURRENCY.format(Number(live?.impostometro||0))}</strong><p>Estimativa exibida no portal em tempo real.</p></article>
         <a class="ovc-data-card ovc-stat" href="/economia/minuto-fiscal/"><div class="ovc-kicker">Editorial</div><strong>Minuto Fiscal</strong><p>Contexto e interpretação para o usuário final.</p></a>
