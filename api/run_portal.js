@@ -224,16 +224,6 @@ function stripTitle(t) {
   return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/,'').trim();
 }
 
-function extrairNomePrincipal(titulo) {
-  const NOMES = [
-    'flávio bolsonaro','flavio bolsonaro','eduardo bolsonaro','carlos bolsonaro',
-    'bolsonaro','lula','trump','haddad','moraes','barroso','dino','milei','musk',
-    'zelensky','putin','macron','xi jinping'
-  ];
-  const t = (titulo || '').toLowerCase();
-  return NOMES.find(n => t.includes(n)) || null;
-}
-
 function corrigirCategoria(titulo, cat) {
   const t = (titulo||'').toLowerCase();
   for (const { cat: c, sinal } of REGRAS_CATEGORIA) {
@@ -278,7 +268,7 @@ function topicoDuplicado(novoTitulo, titulos) {
   return titulos.some(t => kws(t).filter(w => kw.includes(w)).length >= 3);
 }
 
-// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ────────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ───────────────────────────────────────────────────
 async function handleManualPost(req, res) {
   const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
   if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
@@ -516,14 +506,6 @@ export default async function handler(req, res) {
 
       // Dedup 2: tópico — bloqueia se ≥3 keywords em comum com qualquer artigo do dia
       if (topicoDuplicado(content.titulo, recentTitles)) continue;
-
-      // Dedup 3: entidade — máx 3 artigos por entidade nomeada por 24h
-      const nomePrincipal = extrairNomePrincipal(content.titulo);
-      if (nomePrincipal) {
-        const sobrenome = nomePrincipal.split(' ').slice(-1)[0];
-        const contagem = recentTitles.filter(t => (t||'').toLowerCase().includes(sobrenome)).length;
-        if (contagem >= 3) continue;
-      }
 
       if (catForcada && CATS_VALIDAS.has(catForcada)) {
         const familiaForcada = FAMILIA_CAT[catForcada];
