@@ -71,7 +71,7 @@ function isCompetitorDomain(url) {
 
 const HIGH_PRIORITY_CATS = [
   'politica', 'economia', 'internacional', 'tecnologia',
-  'investigativo', 'esportes', 'saude', 'negocios', 'investimentos'
+  'investigativo', 'esportes', 'saude', 'negocios', 'investimentos', 'radar'
 ];
 
 const CATS_VALIDAS = new Set([
@@ -146,6 +146,7 @@ const SUBCATS_POR_CAT = {
   esg:['Sustentabilidade','Meio Ambiente','Governança Corporativa','Energia Limpa','Impacto Social','Carbono & Emissões'],
   defesa:['Forças Armadas','Segurança Nacional','Política de Defesa','Exército','Marinha','Aeronáutica','Fronteiras'],
   religiao:['Evangelicalismo','Catolicismo','Espiritualidade','Igrejas','Fé & Sociedade','Missões','Religiões Afro-brasileiras'],
+  radar:['Copa do Mundo','Fórmula 1','Campeonato Brasileiro Série A','Libertadores','Sul-Americana','Campeonatos Europeus','Campeonato Brasileiro Série B','Olimpíadas','Tênis','Basquete','MMA & UFC','Cinema & Streaming','Música','Games & E-sports','Viagens & Turismo','Corrupção','Fiscalização & Controle','Fiscalização de Políticos','Eleições','Dólar & Câmbio','Real & Economia Doméstica','Automóveis & Lançamentos','Imóvel & Casa','Impostos & Fiscal'],
 };
 
 const SUBCAT_DEFAULT = {
@@ -158,6 +159,7 @@ const SUBCAT_DEFAULT = {
   internacional:'Relações Exteriores',variedades:'Comportamento',investigativo:'Corrupção',
   seguranca:'Segurança Pública',cultura:'Cinema',profissoes:'Medicina',
   esg:'Sustentabilidade',defesa:'Forças Armadas',religiao:'Evangelicalismo',
+  radar:'Copa do Mundo',
 };
 
 const HOMEPAGE_FALLBACK = [
@@ -463,6 +465,9 @@ export default async function handler(req, res) {
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
+    // Categoria efetiva para forçar: catForcada explícita OU catAlvo quando for 'radar'
+    const catEfetiva = catForcada || (catAlvo === 'radar' ? 'radar' : '');
+
     let news;
     let _dbgPrio = 0, _dbgGen = 0;
 
@@ -519,11 +524,12 @@ export default async function handler(req, res) {
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
       if (topicoDuplicado(content.titulo, recentTitles)) continue;
 
-      if (catForcada && CATS_VALIDAS.has(catForcada)) {
-        const familiaForcada = FAMILIA_CAT[catForcada];
+      if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
+        // categoria forcada (manual ou radar via HIGH_PRIORITY_CATS)
+        const familiaForcada = FAMILIA_CAT[catEfetiva];
         const familiaConteudo = FAMILIA_CAT[content.categoria];
         if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
-        content.categoria = catForcada;
+        content.categoria = catEfetiva;
       } else {
         const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
         if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
