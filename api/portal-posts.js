@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
       'parcerias','internacional','vc','colunistas','variedades',
       'investigativo','seguranca','cultura','profissoes','vagas',
-      'concursos','imoveis','esg','defesa','religiao']);
+      'concursos','imoveis','esg','defesa','religiao','radar']);
     const lim = Math.min(parseInt(limit || '300', 10), 500);
     const { data: recentData } = await supabase.from("posts")
       .select("id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
@@ -160,7 +160,7 @@ export default async function handler(req, res) {
         'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
         'parcerias','internacional','vc','colunistas','variedades',
         'investigativo','seguranca','cultura','profissoes','vagas',
-        'concursos','imoveis','esg','defesa','religiao']);
+        'concursos','imoveis','esg','defesa','religiao','radar']);
 
       const posts = combined.map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
       return res.status(200).json({ posts, total: posts.length, query: termo });
@@ -195,7 +195,7 @@ export default async function handler(req, res) {
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
       'parcerias','internacional','vc','colunistas','variedades',
       'investigativo','seguranca','cultura','profissoes','vagas',
-      'concursos','imoveis','esg','defesa','religiao']);
+      'concursos','imoveis','esg','defesa','religiao','radar']);
 
     const posts = postsRaw.map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
 
@@ -235,6 +235,7 @@ function formatPost(p, full) {
     investigativo:"investigativo", seguranca:"seguranca",
     cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
     concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
+    radar:"radar",
     geral:"politica"
   };
   const sl = slugify(p.titulo || "").slice(0, 55);
