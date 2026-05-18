@@ -52,12 +52,6 @@
     radar:'radar'
   };
 
-  // Radares que aparecem em destaque em outras seções do portal
-  var RADARES_DESTAQUE = [
-    'Copa do Mundo', 'Campeonato Brasileiro Série A', 'Eleições',
-    'Fiscalização & Controle', 'Corrupção'
-  ];
-
   function lbl(c){ return LABEL[c]||c||'Geral'; }
   function cor(c){ return CORES[c]||CORES[SLUG_TO_CAT[c]]||'#dc2626'; }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -535,7 +529,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
