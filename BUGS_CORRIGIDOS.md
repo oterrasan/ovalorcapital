@@ -322,8 +322,6 @@ Linha removida novamente.
 
 ---
 
----
-
 ## BUG #23 — Markdown bruto visível nos títulos e corpo dos artigos (CRÍTICO)
 **Data:** 17/Mai/2026 | **Arquivos:** `core/ai_portal.js`, `public/js/internal-page-v2.js`, `api/article.js`
 
@@ -395,38 +393,112 @@ O pipeline NUNCA deve salvar artigo com `imagem: null` sem ter tentado todas as 
 
 ---
 
-## BUG #27 — Artigos duplicados (15+ sobre mesma entidade em 1 dia)
-**Data:** 17/Mai/2026 | **Arquivo:** `api/run_portal.js`
+## QUALIDADE #1 — Conteúdos praticamente idênticos publicados
+**Data:** 18/Mai/2026 | **Arquivo:** `api/run_portal.js` | **Commit:** `8be31a95`
 
 ### Sintoma
-15+ artigos sobre Flávio Bolsonaro publicados no mesmo dia.
+Artigos com títulos e tópicos muito parecidos sendo publicados em sequência. "dão vergonha num portal desta magnitude" — Roberto.
 
 ### Causa raiz
-O dedup existente era apenas por Jaccard de títulos (40% threshold). Dois artigos com títulos diferentes mas sobre a mesma pessoa passavam o filtro.
+Dedup Jaccard com threshold 0.40 muito permissivo. Stopwords PT ("para", "pelo", "sobre", etc.) inflacionavam a interseção de palavras sem valor semântico. Dois artigos cobrindo exatamente o mesmo evento com títulos ligeiramente diferentes passavam sem bloqueio.
 
 ### Correção
-Função `extrairNomePrincipal(titulo)` identifica o nome principal de um título. No pipeline, antes de processar cada item, conta quantos artigos das últimas 24h contêm o sobrenome da entidade. Se ≥3, descarta. Limite: 3 artigos por entidade por 24h.
+```js
+const STOPWORDS_DEDUP = new Set([
+  'para','pelo','pela','pelos','pelas','como','mais','sobre','apos','entre',
+  'nova','novo','novas','novos','com','sem','que','uma','uns','umas',
+  'dos','das','nos','nas','aos','seu','sua','seus','suas','sera',
+  'antes','nao','nem','mas','ate','alem','desde','isso','esta','este',
+  'esse','essa','eles','elas','onde','quando','qual','quais','fica',
+  'faz','fez','foi','sao','tem','ter','tinha','seria','pode','deve',
+  'diz','disse','afirma','anuncia','revela','aponta','destaca','alerta',
+]);
+
+// Dedup 1: Jaccard 0.40 → 0.55, filtra stopwords antes
+function tituloSimilar(a, b) {
+  const norm = t => (t || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 4 && !STOPWORDS_DEDUP.has(w));
+  const wa = new Set(norm(a));
+  const wb = new Set(norm(b));
+  if (wa.size === 0 || wb.size === 0) return false;
+  const intersect = [...wa].filter(w => wb.has(w)).length;
+  const union = new Set([...wa, ...wb]).size;
+  return (intersect / union) >= 0.55;
+}
+
+// Dedup 2: tópico — bloqueia mesmo evento com título diferente
+function topicoDuplicado(novoTitulo, titulos) {
+  const kws = t => (t || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 5 && !STOPWORDS_DEDUP.has(w));
+  const kw = kws(novoTitulo);
+  if (kw.length < 3) return false;
+  return titulos.some(t => kws(t).filter(w => kw.includes(w)).length >= 3);
+}
+
+// recentTitles: janela 24h, limit 500
+const { data: rt } = await supabase.from('posts').select('titulo')
+  .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString())
+  .limit(500);
+```
+
+### Instruções críticas de Roberto (18/05/2026 — INVIOLÁVEIS)
+1. **Janela `recentTitles` PERMANECE 24h** — "o portal deve buscar nas fontes apenas conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS"
+2. **Dedup de entidade NÃO PODE EXISTIR** — "especialmente em eleições, copa do mundo, política, sempre, o dia todo tem assuntos envolvendo as mesmas figuras"
 
 ### Regra permanente
-Dedup duplo: Jaccard de títulos (40%) + entidade (máx 3/entidade/24h). Nunca remover um sem o outro.
+- **NUNCA reduzir** o threshold Jaccard abaixo de 0.55
+- **NUNCA remover** `topicoDuplicado()` — é a segunda camada essencial para bloqueio de mesmo evento
+- **NUNCA criar** dedup por entidade/personagem — em eleições/Copa/política a mesma figura aparece legitimamente o dia todo
+- **NUNCA alterar** a janela `recentTitles` de 24h — é o ciclo fundamental do portal
 
 ---
 
-## BUG #28 — Conteúdo gerado muito curto (3 parágrafos, < 800 chars)
-**Data:** 17/Mai/2026 | **Arquivos:** `api/run_portal.js`, `core/ai_portal.js`
+## QUALIDADE #2 — Imagens aleatórias e inadequadas (ilustrações, desenhos, gráficos)
+**Data:** 18/Mai/2026 | **Arquivos:** `core/image_finder.js`, `core/image_processor.js` | **Commit:** `8be31a95`
 
 ### Sintoma
-Artigos com apenas 3 parágrafos, ~600–800 chars de conteúdo.
+Artigos publicados com desenhos, ilustrações, gráficos, cliparts e imagens sem relação com o conteúdo. "dão vergonha" — Roberto.
 
 ### Causa raiz
-`validarConteudo()` em `run_portal.js` aceitava conteúdo com ≥800 chars. `rewritePortal()` em `ai_portal.js` aceitava ≥2500 chars. Thresholds muito baixos.
+O filtro `BLOQUEIO_PATTERNS` existente cobria apenas logos e fotos de autores. O Wikimedia Commons tem muitas ilustrações e diagramas que passavam o filtro por terem URLs aparentemente válidas. A Vision API verificava logos e gráficos/tabelas mas não detectava ilustrações/desenhos.
 
-### Correção
-- `validarConteudo()`: threshold 800 → 2500 chars
-- `rewritePortal()`: threshold 2500 → 3000 chars
+### Correção — 3 camadas
+
+**Camada 1 — `BLOQUEIO_PATTERNS` em `core/image_finder.js` (filtro URL):**
+```js
+// Novos patterns adicionados:
+'vector', 'ilustra', 'illustration', 'diagram', 'diagrama',
+'infograph', 'infografia', 'cartoon', 'drawing', 'clipart',
+'clip-art', 'clip_art', 'sketch', 'esquema', 'graphic-design',
+'template', 'stock-illustr', 'shutterstock', 'gettyimages',
+```
+
+**Camada 2 — Filtro de título em `buscarWikimedia()`:**
+```js
+if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge/i.test(title)) continue;
+```
+`buscarWikipedia()`: size check — rejeita imagens com `width < 400px` na URL.
+
+**Camada 3 — Vision API em `core/image_processor.js` (novo campo `is_illustration`):**
+```js
+text: 'Analyze this image. Respond ONLY with valid JSON: {"has_competitor_logo":true/false,"is_chart_or_table":true/false,"is_illustration":true/false}\nis_illustration: true if image is a drawing, cartoon, illustration, clipart, painting, animation, or any non-photographic artwork — NOT a real photograph of a person, place or event.'
+
+// Pipeline rejeita 3 tipos:
+if (visionMetrics?.has_competitor_logo === true) return null;
+if (visionMetrics?.is_chart_or_table === true) return null;
+if (visionMetrics?.is_illustration === true) return null;
+```
 
 ### Regra permanente
-Artigo mínimo aceitável: 2500 chars de `corpo` (≈ 5–6 parágrafos HTML). NUNCA reduzir esses thresholds.
+- **NUNCA remover** nenhuma das 3 camadas de rejeição — cada uma cobre casos que as outras não pegam
+- Ao adicionar nova fonte de imagens, verificar se passa pelas 3 camadas
+- `is_illustration` é tão importante quanto `has_competitor_logo` — ilustrações destroem a credibilidade do portal
 
 ---
 
@@ -503,7 +575,14 @@ if (req.query.recentes === 'true') {
 □ Injeção de "Leia também" em article.js tem guard de HTML antes de injetar?
 □ ALIASES em image_finder.js tem específicos ANTES do genérico 'bolsonaro'?
 □ Pipeline tem fallback findImage() quando processAndSaveImage retorna null?
-□ Dedup de entidade (max 3/entidade/24h) ativo em run_portal.js?
+□ Dedup Jaccard threshold ≥ 0.55 em tituloSimilar()? (Qualidade #1 — NUNCA reduzir)
+□ topicoDuplicado() existe e bloqueia ≥3 keywords em comum? (Qualidade #1)
+□ STOPWORDS_DEDUP filtradas antes do Jaccard e do tópico? (Qualidade #1)
+□ recentTitles tem janela de 24h e limit 500? (Qualidade #1 — 24h INVIOLÁVEL)
+□ NÃO existe dedup por entidade/personagem no pipeline? (Qualidade #1 — REMOVIDO intencionalmente)
+□ BLOQUEIO_PATTERNS inclui vector, illustration, cartoon, diagram, sketch, template? (Qualidade #2)
+□ buscarWikimedia() rejeita títulos com illustration, cartoon, chart, diagram, sketch? (Qualidade #2)
+□ Vision API verifica is_illustration E is_chart_or_table E has_competitor_logo? (Qualidade #2)
 □ validarConteudo() rejeita corpo < 2500 chars?
 □ rewritePortal() rejeita corpo < 3000 chars?
 □ home.js faz 1 fetch bulk (/api/portal-posts?recentes=true) — NÃO retornar para múltiplos fetches? (Perf #1)

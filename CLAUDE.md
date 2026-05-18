@@ -168,6 +168,10 @@ Fonte de receita única: Google AdSense / Google AdX.
 22. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
 23. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
 24. **`home.js` e `ovc-cards.js` usam 1 fetch bulk** — NUNCA retornar para múltiplos fetches por categoria. Ver Perf #1 (18/05/2026).
+25. **Dedup de conteúdo: Jaccard 55% + tópico (≥3 keywords)** — NUNCA reduzir threshold Jaccard abaixo de 0.55. Ver Qualidade #1 (18/05/2026).
+26. **Dedup de entidade NÃO EXISTE** — removido por instrução de Roberto. Em eleições/Copa/política a mesma figura aparece legitimamente o dia todo. Ver Qualidade #1 (18/05/2026).
+27. **Imagens: 3 camadas de rejeição** — BLOQUEIO_PATTERNS URL + filtro título Wikimedia + Vision API (is_illustration). NUNCA remover nenhuma camada. Ver Qualidade #2 (18/05/2026).
+28. **`recentTitles` janela 24h é INVIOLÁVEL** — "portal busca APENAS conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS" (Roberto, 18/05/2026).
 
 ---
 
@@ -215,8 +219,8 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `core/rss.js` | 240+ feeds RSS em 16 grupos + feeds diretos garantidos |
 | `core/scraper.js` | Extrai texto (3 camadas: p → div → og:meta) |
 | `core/ai_portal.js` | **🔒 PROMPT TRAVADO** — gera META_TITLE, TITULO, CORPO HTML, META_DESCRICAO |
-| `core/image_finder.js` | Busca imagem relevante (timeout 10s) |
-| `core/image_processor.js` | Processa → WebP quality 82 → Supabase Storage |
+| `core/image_finder.js` | Busca imagem relevante (timeout 10s) — BLOQUEIO_PATTERNS expandido (18/05/2026) |
+| `core/image_processor.js` | Processa → WebP quality 82 → Supabase Storage — Vision API rejeita is_illustration (18/05/2026) |
 
 ### Frontend JS Crítico
 | Arquivo | Função |
@@ -423,6 +427,9 @@ function renderCorpo(texto){
 3. Google Publisher Center → cadastrar portal
 4. Quando ovalorcapital@gmail.com ativado → atualizar `EMAIL_REAL` em `api/institutional.js`
 5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
+6. Executar `GET /api/manage?action=unpublish_no_image` para despublicar artigos sem imagem (quando autorizado).
+7. Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions.
+8. Revisar e aprovar artigos regenerados no admin (filtro 'pendente').
 
 ---
 
@@ -458,8 +465,8 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 24 | "Leia também" aparecendo como HTML escapado no corpo | `api/article.js` | 17/05/2026 |
 | 25 | Foto de Jair usada em artigos de Flávio/Eduardo/Carlos Bolsonaro | `core/image_finder.js` | 17/05/2026 |
 | 26 | Artigos salvos sem imagem quando scrape falha | `api/run_portal.js` | 17/05/2026 |
-| 27 | 15+ artigos sobre mesma entidade em 1 dia | `api/run_portal.js` | 17/05/2026 |
-| 28 | Conteúdo gerado muito curto (< 800 chars aceito) | `api/run_portal.js`, `core/ai_portal.js` | 17/05/2026 |
+| 27 | Conteúdos praticamente idênticos publicados | `api/run_portal.js` | 18/05/2026 |
+| 28 | Imagens aleatórias e inadequadas (ilustrações, desenhos, gráficos) | `core/image_finder.js`, `core/image_processor.js` | 18/05/2026 |
 
 ---
 
@@ -589,10 +596,6 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 **Ação executada por Roberto:** `GET /api/manage?action=unpublish_recent&dias=5` → moveu artigos 12–17/mai de `publicado` para `pendente`. Retornou `{"ok":true}`.
 
-**Pendente (Roberto):**
-- Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions
-- Revisar e aprovar artigos regenerados no admin
-
 **Feature adicional (commit `756905c`):**
 - Admin → Imagens → nova aba **"📰 Imagens dos Artigos"** — mostra todas as imagens únicas do campo `imagem` da tabela `posts` (até 600, dedupado por URL). Cada card: foto, título do artigo, badge status, Copiar URL, botão Usar.
 
@@ -615,11 +618,33 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 **PRs obsoletas fechadas (sem merge):** #2, #20, #23, #27, #31, #36, #37 — conteúdo já estava em main, PRs estavam estagnadas.
 
-**Ações pendentes (Roberto):**
-- Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions (da sessão anterior)
-- Revisar e aprovar artigos regenerados no admin
-- Adicionar `GOOGLE_INDEXING_SA_JSON` no Vercel Dashboard
-- Submeter sitemap.xml no Google Search Console
-- Verificar aprovação Google AdSense
-- Registrar no Google Publisher Center
-- Ativar ovalorcapital@gmail.com e atualizar `EMAIL_REAL` em `api/institutional.js`
+### Sessão 18/05/2026 (continuação) — QUALIDADE DE CONTEÚDO E IMAGENS
+
+**Problema 1 — Conteúdos praticamente idênticos sendo publicados (Qualidade #1)**
+
+Sistema gerava artigos com títulos/tópicos muito parecidos que passavam pelo dedup Jaccard original (40%). Roberto: "isso precisa ser RÍGIDO, rígido MESMO".
+
+**Correções em `api/run_portal.js` (commit `8be31a95`):**
+- `STOPWORDS_DEDUP`: Set com 40+ palavras PT ignoradas no dedup (conjunções, artigos, verbos comuns de manchete)
+- `tituloSimilar()`: threshold Jaccard 0.40 → **0.55** + filtragem de stopwords antes de comparar
+- `topicoDuplicado()`: **nova função** — bloqueia se ≥3 keywords (>5 chars, sem stopwords) em comum com qualquer artigo do dia (mesmo evento com título diferente)
+- `recentTitles`: limit 300 → **500** (garante dedup contra mais artigos do dia)
+- **Dedup 3 (entidade) REMOVIDO** por instrução explícita de Roberto: "especialmente em eleições, copa do mundo, política, sempre, o dia todo tem assuntos envolvendo as mesmas figuras"
+
+**Instrução crítica de Roberto (18/05/2026 — INVIOLÁVEL):**
+- **Janela `recentTitles` PERMANECE 24h** — "o portal deve buscar nas fontes apenas conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS"
+- **Dedup de entidade NÃO PODE EXISTIR** — eleições/Copa/política têm o mesmo personagem legitimamente o dia todo
+
+**Problema 2 — Imagens aleatórias e inadequadas: desenhos, ilustrações, gráficos (Qualidade #2)**
+
+**Correções em `core/image_finder.js` (commit `8be31a95`):**
+- `BLOQUEIO_PATTERNS`: expandido com `vector`, `ilustra`, `illustration`, `diagram`, `diagrama`, `infograph`, `infografia`, `cartoon`, `drawing`, `clipart`, `clip-art`, `clip_art`, `sketch`, `esquema`, `graphic-design`, `template`, `stock-illustr`, `shutterstock`, `gettyimages`
+- `buscarWikimedia()`: filtro de título expandido — rejeita `mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge`
+- `buscarWikipedia()`: size check — rejeita imagens com `width < 400px` na URL
+
+**Correções em `core/image_processor.js` (commit `8be31a95`):**
+- Vision API (GPT-4o-mini): novo campo `is_illustration` no prompt
+- `is_illustration: true` = desenho, cartoon, ilustração, clipart, pintura, animação ou qualquer obra não-fotográfica
+- Pipeline rejeita **3 tipos**: `has_competitor_logo`, `is_chart_or_table`, `is_illustration`
+
+**Regras adicionadas:** Regra #25 (Jaccard 55% + tópico), Regra #26 (sem dedup entidade), Regra #27 (3 camadas imagem), Regra #28 (24h inviolável).
