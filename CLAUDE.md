@@ -89,6 +89,43 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 
 ---
 
+## 🚨❌ REGRA ZERO-E — O PORTAL NUNCA PODE FICAR OFFLINE — JAMAIS
+
+> **INCIDENTE 18/05/2026:** Um merge de PR destruiu 734 linhas do `public/index.html`, deixando a homepage com 1 linha de conteúdo. O portal ficou completamente fora do ar. Roberto ficou furioso. NUNCA MAIS.
+
+```
+❌❌❌ PROIBIDO fazer push de public/index.html para main sem verificar que o arquivo tem 700+ linhas
+❌❌❌ PROIBIDO fazer merge de qualquer PR que altere public/index.html em mais de 50 linhas sem revisar o diff completo
+❌❌❌ PROIBIDO usar agentes/subagents para push de arquivos HTML críticos (eles podem enviar base64 em vez de HTML)
+❌❌❌ PROIBIDO resolver merge conflict em public/index.html automaticamente — sempre revisar manualmente
+❌❌❌ PROIBIDO deixar qualquer arquivo crítico com conteúdo inválido no main, mesmo por 1 minuto
+```
+
+**Arquivos críticos que NUNCA podem ser corrompidos em main:**
+- `public/index.html` — homepage (302KB, 741 linhas) → NUNCA pode ter menos de 700 linhas
+- `public/admin/index.html` — painel admin
+- `api/article.js` — SSR de artigos
+- `api/portal-posts.js` — feed de posts
+- `vercel.json` — configuração de deploy
+
+**Protocolo obrigatório antes de qualquer push que toque public/index.html:**
+1. Verificar número de linhas do arquivo: deve ser ≥700
+2. Verificar que começa com `<!DOCTYPE html>` e termina com `</html>`
+3. Verificar que o diff NÃO mostra centenas de linhas deletadas
+4. Se o diff mostrar -100 linhas ou mais: PARAR e investigar antes de fazer o push
+
+**Como o incidente aconteceu (18/05/2026):**
+- PR #44 tinha um merge conflict em `public/index.html`
+- A resolução do conflito apagou 734 linhas (o conteúdo inteiro), deixando só 1 linha
+- O commit foi para main sem revisão do diff
+- Portal ficou offline imediatamente
+- Dois agentes de restauração subsequentes enviaram base64 em vez de HTML (bug de subagent)
+- Levou ~40 minutos para restaurar completamente
+
+**Lição:** Nunca confiar em agentes para push de arquivos binários ou HTML de grande porte. Sempre usar `mcp__github__create_or_update_file` diretamente com o conteúdo literal — nunca via subagent.
+
+---
+
 # ══════════════════════════════════════════════════════
 # 🚨 ALERTA VERCEL HOBBY PLAN
 # ══════════════════════════════════════════════════════
@@ -148,30 +185,32 @@ Fonte de receita única: Google AdSense / Google AdX.
 2. **NUNCA TOCAR NO PROMPT SEM AUTORIZAÇÃO** — Ver Regra Zero-B.
 3. **NUNCA PUSH SEM REVISAR DIFF** — Ver Regra Zero-C.
 4. **STAGING ATIVO** — Pipeline salva como `pendente`. Admin aprova antes de publicar. Ver Regra Zero-D.
-5. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
-6. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
-7. **URLs sempre com slug** — nunca `?id=`.
-8. **SSR obrigatório** — Googlebot não pode depender de JS.
-9. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
-10. **Pipeline gera artigos para fila — Roberto aprova antes de publicar.**
-11. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main.
-12. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array TEXT, usar `.like()`).
-13. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
-14. **`getNews()` sempre mistura feeds diretos garantidos.**
-15. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14.
-16. **`vc` e `colunistas` NÃO são categorias do pipeline.**
-17. **Landing pages têm footer inline** — editar direto em `api/landing.js` `buildFooter()`.
-18. **META_TITLE (≤55 chars) separado do TITULO.**
-19. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
-20. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
-21. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
-22. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
-23. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
-24. **`home.js` e `ovc-cards.js` usam 1 fetch bulk** — NUNCA retornar para múltiplos fetches por categoria. Ver Perf #1 (18/05/2026).
-25. **Dedup de conteúdo: Jaccard 55% + tópico (≥3 keywords)** — NUNCA reduzir threshold Jaccard abaixo de 0.55. Ver Qualidade #1 (18/05/2026).
-26. **Dedup de entidade NÃO EXISTE** — removido por instrução de Roberto. Em eleições/Copa/política a mesma figura aparece legitimamente o dia todo. Ver Qualidade #1 (18/05/2026).
-27. **Imagens: 3 camadas de rejeição** — BLOQUEIO_PATTERNS URL + filtro título Wikimedia + Vision API (is_illustration). NUNCA remover nenhuma camada. Ver Qualidade #2 (18/05/2026).
-28. **`recentTitles` janela 24h é INVIOLÁVEL** — "portal busca APENAS conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS" (Roberto, 18/05/2026).
+5. **PORTAL NUNCA OFFLINE** — Ver Regra Zero-E. public/index.html NUNCA pode ter menos de 700 linhas em main.
+6. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
+7. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
+8. **URLs sempre com slug** — nunca `?id=`.
+9. **SSR obrigatório** — Googlebot não pode depender de JS.
+10. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
+11. **Pipeline gera artigos para fila — Roberto aprova antes de publicar.**
+12. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main.
+13. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array TEXT, usar `.like()`).
+14. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
+15. **`getNews()` sempre mistura feeds diretos garantidos.**
+16. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14.
+17. **`vc` e `colunistas` NÃO são categorias do pipeline.**
+18. **Landing pages têm footer inline** — editar direto em `api/landing.js` `buildFooter()`.
+19. **META_TITLE (≤55 chars) separado do TITULO.**
+20. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
+21. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
+22. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
+23. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
+24. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
+25. **`home.js` e `ovc-cards.js` usam 1 fetch bulk** — NUNCA retornar para múltiplos fetches por categoria. Ver Perf #1 (18/05/2026).
+26. **Dedup de conteúdo: Jaccard 55% + tópico (≥3 keywords)** — NUNCA reduzir threshold Jaccard abaixo de 0.55. Ver Qualidade #1 (18/05/2026).
+27. **Dedup de entidade NÃO EXISTE** — removido por instrução de Roberto. Em eleições/Copa/política a mesma figura aparece legitimamente o dia todo. Ver Qualidade #1 (18/05/2026).
+28. **Imagens: 3 camadas de rejeição** — BLOQUEIO_PATTERNS URL + filtro título Wikimedia + Vision API (is_illustration). NUNCA remover nenhuma camada. Ver Qualidade #2 (18/05/2026).
+29. **`recentTitles` janela 24h é INVIOLÁVEL** — "portal busca APENAS conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS" (Roberto, 18/05/2026).
+30. **PORTAL NUNCA OFFLINE** — public/index.html ≥700 linhas em main. Verificar SEMPRE antes de qualquer push que toque esse arquivo. Ver Regra Zero-E (18/05/2026).
 
 ---
 
@@ -467,6 +506,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 26 | Artigos salvos sem imagem quando scrape falha | `api/run_portal.js` | 17/05/2026 |
 | 27 | Conteúdos praticamente idênticos publicados | `api/run_portal.js` | 18/05/2026 |
 | 28 | Imagens aleatórias e inadequadas (ilustrações, desenhos, gráficos) | `core/image_finder.js`, `core/image_processor.js` | 18/05/2026 |
+| 29 | **CRÍTICO** — PR merge destruiu 734 linhas de public/index.html → portal offline | `public/index.html` restaurado | 18/05/2026 |
 
 ---
 
@@ -648,3 +688,23 @@ Sistema gerava artigos com títulos/tópicos muito parecidos que passavam pelo d
 - Pipeline rejeita **3 tipos**: `has_competitor_logo`, `is_chart_or_table`, `is_illustration`
 
 **Regras adicionadas:** Regra #25 (Jaccard 55% + tópico), Regra #26 (sem dedup entidade), Regra #27 (3 camadas imagem), Regra #28 (24h inviolável).
+
+### Sessão 18/05/2026 (tarde) — INCIDENTE CRÍTICO: PORTAL OFFLINE (Bug #29)
+
+**O que aconteceu:**
+- PR #44 foi mergeado para main com resolução de merge conflict que destruiu 734 linhas de `public/index.html`
+- Homepage ficou com ~1 linha de conteúdo (essencialmente vazia)
+- Portal ficou completamente offline
+- Tentativas de restauração via subagentes enviaram base64 em vez de HTML (bug de subagent com arquivos grandes)
+- Restauração completa levou ~40 minutos
+
+**REGRA ZERO-E criada (18/05/2026 — INVIOLÁVEL):**
+- Portal NUNCA pode ficar offline
+- public/index.html NUNCA pode ter menos de 700 linhas em main
+- Verificar SEMPRE número de linhas antes de push que toque esse arquivo
+- NUNCA usar subagentes para push de arquivos HTML críticos > 50KB
+- Ver seção REGRA ZERO-E acima para protocolo completo
+
+**Radar OVC — news panels implementados (branch claude/setup-capital-value-YDWUA):**
+- `public/js/live-pages.js`: `mountRadar()` agora async, busca `/api/portal-posts?categoria=radar&limit=60`, renderiza grid de painéis por subcategoria
+- `api/portal-posts.js`: `radar` adicionado a CATS_VALIDAS (3 instâncias) e CAT_PATH
