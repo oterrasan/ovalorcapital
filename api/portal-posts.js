@@ -82,6 +82,27 @@ export default async function handler(req, res) {
     return res.status(200).json({ posts, total: posts.length });
   }
 
+  // Endpoint bulk para homepage — 1 query única retorna todos os posts recentes
+  if (req.query.recentes === 'true') {
+    const CATS_VALIDAS_R = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
+      'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
+      'parcerias','internacional','vc','colunistas','variedades',
+      'investigativo','seguranca','cultura','profissoes','vagas',
+      'concursos','imoveis','esg','defesa','religiao']);
+    const lim = Math.min(parseInt(limit || '300', 10), 500);
+    const { data: recentData } = await supabase.from("posts")
+      .select("id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
+      .eq("status", "publicado")
+      .order("published_at", { ascending: false })
+      .limit(lim);
+    const recentPosts = (recentData||[])
+      .filter(p => p.titulo && p.id)
+      .map(p => formatPost(p, false))
+      .filter(p => CATS_VALIDAS_R.has(p.categoria));
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+    return res.status(200).json({ posts: recentPosts, total: recentPosts.length });
+  }
+
   try {
     if (id) {
       let data = null;
@@ -201,7 +222,9 @@ function formatPost(p, full) {
   try { tags = typeof p.user_tags === "string" ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
   const categoria = tags[0] || "geral";
   const conteudo = p.conteudo || "";
-  const resumo = conteudo.slice(0, 220).replace(/^Redação OVC.*?\n/, "").trim() + "...";
+  const resumo = conteudo
+    ? conteudo.slice(0, 220).replace(/^Redação OVC.*?\n/, "").trim() + "..."
+    : (p.comentario_fixado || "").slice(0, 220);
   const CAT_PATH = {
     politica:"politica", economia:"economia", negocios:"negocios",
     investimentos:"investimentos", seguros:"seguros", mercados:"mercados",

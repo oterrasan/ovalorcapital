@@ -43,15 +43,12 @@
   // ACEITA: "politica" OU "economia" — todas subcategorias
   // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
-  async function carregarCardHero() {
+  function carregarCardHero(cache) {
     try {
       let post = null;
       for (const cat of ['politica','economia']) {
         if (post) break;
-        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=10`);
-        if (!r.ok) continue;
-        const d = await r.json();
-        post = (d.posts||[]).find(p => p.categoria===cat) || null;
+        post = (cache[cat]||[]).find(p => p.categoria===cat) || null;
       }
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -68,12 +65,9 @@
   // ACEITA: "negocios" — todas subcategorias
   // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
-  async function carregarCardNegocios() {
+  function carregarCardNegocios(cache) {
     try {
-      const r = await fetch('/api/portal-posts?categoria=negocios&limit=10');
-      if (!r.ok) return;
-      const d = await r.json();
-      const post = (d.posts||[]).find(p => p.categoria==='negocios');
+      const post = (cache['negocios']||[]).find(p => p.categoria==='negocios');
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
@@ -89,12 +83,9 @@
   //   residencial, empresarial-e-rc, viagem, kpis
   // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
-  async function carregarCardLions() {
+  function carregarCardLions(cache) {
     try {
-      const r = await fetch('/api/portal-posts?categoria=seguros&limit=10');
-      if (!r.ok) return;
-      const d = await r.json();
-      const post = (d.posts||[]).find(p => p.categoria==='seguros');
+      const post = (cache['seguros']||[]).find(p => p.categoria==='seguros');
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
@@ -148,23 +139,19 @@
     return a;
   }
 
-  async function carregarSecao(secao) {
+  function carregarSecao(secao, cache) {
     const grid = document.getElementById(secao.grid);
     if (!grid) return;
     try {
       let posts = [];
       for (const cat of secao.cats) {
-        // Busca mais posts para compensar os filtrados por já estarem no destaque
-        const r = await fetch(`/api/portal-posts?categoria=${cat}&limit=12`);
-        if (!r.ok) continue;
-        const d = await r.json();
-        const filtrados = (d.posts||[]).filter(p => secao.cats.includes(p.categoria));
+        const filtrados = (cache[cat]||[]).filter(p => secao.cats.includes(p.categoria));
         posts = posts.concat(filtrados);
       }
       // Dedup por id
       const vistos = new Set();
       posts = posts.filter(p => { if(vistos.has(p.id)) return false; vistos.add(p.id); return true; });
-      // Remove posts já exibidos nas áreas de destaque (hero/feature/lions)
+      // Remove posts já exibidos nas áreas de destaque
       posts = posts.filter(p => !idsDestaque.has(p.id));
       posts = posts.slice(0, 6);
       if (!posts.length) {
@@ -181,10 +168,26 @@
   document.addEventListener('DOMContentLoaded', async () => {
     updateLiveWidgets();
     setInterval(updateLiveWidgets, 120000);
+
+    // 1 fetch único para todas as seções e cards de destaque
+    const cache = {};
+    try {
+      const r = await fetch('/api/portal-posts?recentes=true&limit=300');
+      if (r.ok) {
+        const d = await r.json();
+        (d.posts||[]).forEach(p => {
+          if (!cache[p.categoria]) cache[p.categoria] = [];
+          cache[p.categoria].push(p);
+        });
+      }
+    } catch(e) { console.error('[Home]', e); }
+
     // Carregar destaque primeiro — registra IDs usados
-    await Promise.all([carregarCardHero(), carregarCardNegocios(), carregarCardLions()]);
-    // Só então carregar as seções — garantindo que idsDestaque está populado
-    SECOES.forEach(s => carregarSecao(s));
+    carregarCardHero(cache);
+    carregarCardNegocios(cache);
+    carregarCardLions(cache);
+    // Seções — idsDestaque já populado
+    SECOES.forEach(s => carregarSecao(s, cache));
   });
 
 })();

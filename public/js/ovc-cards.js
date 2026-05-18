@@ -208,30 +208,35 @@
     var m = el.querySelector('.ovc-card-meta');  if(m) m.textContent = 'Redação OVC';
   }
 
-  function carregarCat(cat){
-    return fetch('/api/portal-posts?categoria='+cat.cats[0]+'&limit=10')
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        var posts = (data.posts||[]).filter(function(p){ return cat.cats.indexOf(p.categoria)!==-1; });
-        posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
-        return { cat:cat, pool:posts };
-      })
-      .catch(function(){ return { cat:cat, pool:[] }; });
-  }
-
   function load(){
     var container = document.getElementById('ovc-cards-section');
     if(!container) return;
     if(!container.querySelector('.ovc-cat-grid')) buildSection(container);
-    Promise.all(CATS.map(carregarCat)).then(function(results){
-      results.forEach(function(item){
-        var el = document.getElementById('ovc-cat-'+item.cat.id);
-        if(!el) return;
-        if(!item.pool.length){ mostrarVazio(el, item.cat.id); return; }
-        var overlap = item.cat.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
-        startRotation(el, item.pool, item.cat.id, overlap&&item.pool.length>1?1:0);
+    fetch('/api/portal-posts?recentes=true&limit=300')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var cache = {};
+        (data.posts||[]).forEach(function(p){
+          if(!cache[p.categoria]) cache[p.categoria] = [];
+          cache[p.categoria].push(p);
+        });
+        CATS.forEach(function(item){
+          var el = document.getElementById('ovc-cat-'+item.id);
+          if(!el) return;
+          var posts = [];
+          item.cats.forEach(function(c){ posts = posts.concat(cache[c]||[]); });
+          posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+          if(!posts.length){ mostrarVazio(el, item.id); return; }
+          var overlap = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
+          startRotation(el, posts, item.id, overlap&&posts.length>1?1:0);
+        });
+      })
+      .catch(function(){
+        CATS.forEach(function(item){
+          var el = document.getElementById('ovc-cat-'+item.id);
+          if(el) mostrarVazio(el, item.id);
+        });
       });
-    });
   }
 
   // ── SEÇÃO COLUNISTAS 3+3 ────────────────────────────────────────────
@@ -313,7 +318,7 @@
           html += '<div style="background:#fff;border:1px solid #f0ede4;border-radius:12px;overflow:hidden;">';
           html += '<div style="display:grid;grid-template-columns:repeat('+Math.min(small.length,3)+',minmax(0,1fr));">';
           small.forEach(function(p,i){
-            html += '<div style="'+(i>0?'border-left:1px solid #f0ede4;':'')+'">'+ smallCard(p)+'</div>';
+            html += '<div style="'+(i>0?'border-left:1px solid #f0ede4;':'')+'">'+smallCard(p)+'</div>';
           });
           html += '</div></div>';
         }
@@ -326,7 +331,6 @@
 
   document.addEventListener('DOMContentLoaded', function(){
     load();
-    setInterval(load, 120000);
     injetarMenuProfissoes();
     carregarMaisLidas();
     carregarOvcTv();
