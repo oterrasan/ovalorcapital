@@ -11,7 +11,8 @@
     parcerias:'parcerias', regulacao:'regulacao', vc:'vc', colunistas:'vc',
     investigativo:'investigativo', seguranca:'seguranca',
     cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
-    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
+    radar:'radar'
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
@@ -22,7 +23,8 @@
     parcerias:'Parcerias', vc:'OVC', colunistas:'Colunistas',
     investigativo:'Investigativo', seguranca:'Segurança Pública',
     cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas',
-    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Fé & Espiritualidade'
+    concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Fé & Espiritualidade',
+    radar:'Radar OVC'
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
@@ -33,7 +35,8 @@
     variedades:'#ec4899', parcerias:'#14b8a6', vc:'#ffc800', colunistas:'#ffc800',
     investigativo:'#1a1a2e', seguranca:'#7f1d1d',
     cultura:'#7e22ce', profissoes:'#0369a1', vagas:'#065f46',
-    concursos:'#1e40af', imoveis:'#b45309', esg:'#166534', defesa:'#1e3a5f', religiao:'#6d28d9'
+    concursos:'#1e40af', imoveis:'#b45309', esg:'#166534', defesa:'#1e3a5f', religiao:'#6d28d9',
+    radar:'#f97316'
   };
   var CAT_PATH = {
     politica:'politica', economia:'economia', negocios:'negocios',
@@ -45,8 +48,15 @@
     variedades:'variedades', geral:'politica',
     investigativo:'investigativo', seguranca:'seguranca',
     cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
-    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+    concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
+    radar:'radar'
   };
+
+  // Radares que aparecem em destaque em outras seções do portal
+  var RADARES_DESTAQUE = [
+    'Copa do Mundo', 'Campeonato Brasileiro Série A', 'Eleições',
+    'Fiscalização & Controle', 'Corrupção'
+  ];
 
   function lbl(c){ return LABEL[c]||c||'Geral'; }
   function cor(c){ return CORES[c]||CORES[SLUG_TO_CAT[c]]||'#dc2626'; }
@@ -183,7 +193,8 @@
     seguros:[4,5,10,11],tributacao:[6,17],politica:[17],regulacao:[17],
     educacao:[17],industria:[9,17],tecnologia:[13,17],esportes:[15,17],
     variedades:[15,17],investigativo:[17],seguranca:[17],cultura:[15,17],
-    vagas:[10,17],concursos:[17],imoveis:[9,17],esg:[17],defesa:[17],religiao:[17],parcerias:[17]
+    vagas:[10,17],concursos:[17],imoveis:[9,17],esg:[17],defesa:[17],religiao:[17],parcerias:[17],
+    radar:[15,17]
   };
   var _SUBCAT_MAP = {
     'medicina':[3,14],'advocacia':[13],'contabilidade':[13],'ti &':[13],
@@ -276,7 +287,6 @@
 
   if(artId){
     document.addEventListener('DOMContentLoaded', function(){
-      // Inject float CSS for article image layout
       if(!document.getElementById('ovc-art-float-style')){
         var sty = document.createElement('style');
         sty.id = 'ovc-art-float-style';
@@ -445,7 +455,6 @@
                   }).catch(function(){});
               }
 
-              // Mais em [Subcategoria]
               var subcatPosts = p.subcategoria
                 ? rel.filter(function(r){ return r.subcategoria === p.subcategoria; }).slice(0,8)
                 : [];
@@ -471,7 +480,6 @@
                   +'</div></div>';
               }
 
-              // Você Pode Gostar — artigos populares de outras categorias
               fetch('/api/portal-posts?sort=popular&limit=20')
                 .then(function(r){ return r.json(); })
                 .then(function(d){
@@ -488,12 +496,11 @@
                   }
                 }).catch(function(){});
 
-              // Explore Outras Categorias
               var outrasEl = document.getElementById('ovc-outras-cats');
               if(outrasEl){
                 var CATS_MAIN = ['politica','economia','negocios','investimentos','mercados','tributacao',
                   'saude','familia','tecnologia','industria','educacao','esportes','internacional',
-                  'variedades','seguros','regulacao','cultura','profissoes','vagas','imoveis','esg'];
+                  'variedades','seguros','regulacao','cultura','profissoes','vagas','imoveis','esg','radar'];
                 var catCards = CATS_MAIN.filter(function(k){ return k !== p.categoria && LABEL[k]; })
                   .map(function(k){
                     return '<a href="/'+CAT_PATH[k]+'/" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;text-decoration:none;">'
@@ -528,7 +535,7 @@
     if(sectionHero){
       sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
       sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
