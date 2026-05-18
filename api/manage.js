@@ -12,7 +12,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 let _bannersCache = null;
 
-// ── ROTEADOR ────────────────────────────────────────────────────────────────────────────────
+// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -24,6 +24,7 @@ function handler(req, res) {
     if (req.query.action === 'refresh_token') return handleRefreshToken(req, res);
     if (req.query.action === 'unpublish_recent') return handleUnpublishRecent(req, res);
     if (req.query.action === 'unpublish_no_image') return handleUnpublishNoImage(req, res);
+    if (req.query.action === 'audit_images') return handleAuditImages(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -56,6 +57,104 @@ async function handleSetupStorage(req, res) {
   }
 }
 
+// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ──────────────
+async function handleAuditImages(req, res) {
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
+
+  const batch  = Math.min(parseInt(req.query.batch  || '4', 10), 6);
+  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+
+  try {
+    const { data: posts, error: fetchErr } = await supabase
+      .from('posts')
+      .select('id, titulo, imagem')
+      .eq('status', 'publicado')
+      .not('imagem', 'is', null)
+      .neq('imagem', '')
+      .order('created_at', { ascending: true })
+      .range(offset, offset + batch - 1);
+
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    if (!posts || posts.length === 0) {
+      return res.status(200).json({ ok: true, processed: 0, unpublished: 0, done: true, message: 'Varredura concluída.' });
+    }
+
+    const results = [];
+
+    for (const post of posts) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+
+        const vRes = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            max_tokens: 60,
+            temperature: 0,
+            messages: [{ role: 'user', content: [
+              {
+                type: 'text',
+                text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if this is a drawing, cartoon, vector art, clip art, icon, app icon, logo, or any digitally created non-photographic image. false if it is a real photograph of a real scene, person, or place.\\nis_chart_or_table: true if chart, graph, infographic, table.'
+              },
+              {
+                type: 'image_url',
+                image_url: { url: post.imagem, detail: 'low' }
+              }
+            ]}]
+          })
+        });
+        clearTimeout(timer);
+
+        if (!vRes.ok) {
+          results.push({ id: post.id, status: 'skip', reason: 'vision_api_error' });
+          continue;
+        }
+
+        const vd = await vRes.json();
+        const txt = (vd.choices?.[0]?.message?.content || '').trim();
+        const m = txt.match(/\{[^}]+\}/);
+        const metrics = m ? JSON.parse(m[0]) : null;
+
+        if (metrics?.is_illustration === true || metrics?.is_chart_or_table === true) {
+          await supabase.from('posts')
+            .update({ status: 'pendente', approved: false })
+            .eq('id', post.id);
+          results.push({
+            id: post.id,
+            titulo: (post.titulo || '').slice(0, 60),
+            status: 'despublicado',
+            motivo: metrics.is_illustration ? 'ilustração/ícone' : 'gráfico/tabela'
+          });
+        } else {
+          results.push({ id: post.id, status: 'ok' });
+        }
+      } catch(e) {
+        results.push({ id: post.id, status: 'skip', reason: e.message?.slice(0, 60) });
+      }
+    }
+
+    const unpublished = results.filter(r => r.status === 'despublicado').length;
+    const nextOffset  = offset + posts.length;
+    const done        = posts.length < batch;
+
+    return res.status(200).json({
+      ok: true,
+      lote: `${offset}–${nextOffset - 1}`,
+      processed: posts.length,
+      unpublished,
+      done,
+      next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}`,
+      results
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 // ── DESPUBLICAR POSTS SEM IMAGEM (move publicado → pendente) ────────────────────────────────
 async function handleUnpublishNoImage(req, res) {
   try {
@@ -71,7 +170,7 @@ async function handleUnpublishNoImage(req, res) {
   }
 }
 
-// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ────────────────────
+// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ────────────
 async function handleUnpublishRecent(req, res) {
   const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
   const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
@@ -112,7 +211,7 @@ async function handleRefreshToken(req, res) {
   }
 }
 
-// ── BANNERS ────────────────────────────────────────────────────────────────────────────────
+// ── BANNERS ─────────────────────────────────────────────────────────────────────────────────────
 async function handleBanners(req, res) {
   const cat = (req.query.cat || '').trim().toLowerCase();
   try {
@@ -152,7 +251,7 @@ async function handleStatus(req, res) {
   }
 }
 
-// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────────────
+// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────────────────────────
 async function handleTrackView(req, res) {
   const { post_id } = req.body || {};
   if (!post_id) return res.json({ ok: false });
@@ -167,7 +266,7 @@ async function handleTrackView(req, res) {
   }
 }
 
-// ── APROVAÇÃO (approve.js) ────────────────────────────────────────────────────────
+// ── APROVAÇÃO (approve.js) ──────────────────────────────────────────────────
 async function handleApprove(req, res) {
   const { id, ids, action, scheduled_at } = req.body || {};
   try {
@@ -203,7 +302,7 @@ async function handleApprove(req, res) {
   }
 }
 
-// ── APROVAÇÃO PORTAL (approve_portal.js) ───────────────────────────────────────────────────
+// ── APROVAÇÃO PORTAL (approve_portal.js) ──────────────────────────────────────────────────────────────
 async function handleApprovePortal(req, res) {
   const { id, ids, action } = req.body || {};
   const now = new Date().toISOString();
@@ -239,7 +338,7 @@ async function handleApprovePortal(req, res) {
   }
 }
 
-// ── GERAÇÃO MANUAL (run_manual.js) ─────────────────────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL (run_manual.js) ────────────────────────────────────────────────────────────────────────────────────────────────
 function validar(content) {
   if (!content?.titulo || !content?.corpo) return false;
   const t = content.titulo.toLowerCase().trim();
@@ -374,7 +473,7 @@ async function handleManual(req, res) {
   }
 }
 
-// ── SUBMISSÃO PÚBLICA DE VAGAS ────────────────────────────────────────────────────
+// ── SUBMISSÃO PÚBLICA DE VAGAS ────────────────────────────────────────────
 async function handleSubmitVaga(req, res) {
   const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
   if (!empresa || !cargo || !descricao || !email_contato) {
@@ -406,7 +505,7 @@ async function handleSubmitVaga(req, res) {
   }
 }
 
-// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────────────────────
+// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────────────
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
