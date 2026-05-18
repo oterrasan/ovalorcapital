@@ -79,7 +79,7 @@ const CATS_VALIDAS = new Set([
   'educacao','industria','tecnologia','esportes','saude','familia',
   'tributacao','regulacao','parcerias','internacional','variedades',
   'investigativo','seguranca','cultura','profissoes','vagas',
-  'concursos','imoveis','esg','defesa','religiao'
+  'concursos','imoveis','esg','defesa','religiao','radar'
 ]);
 
 const STOPWORDS_DEDUP = new Set([
