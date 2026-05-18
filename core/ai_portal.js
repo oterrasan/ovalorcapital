@@ -18,12 +18,6 @@ function nextGeminiKey() {
   return k;
 }
 
-// =====================================================================
-// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
-// Versão: HYPER_DETERMINISTIC_SEO_ENGINE_v16.0
-// System Kernel: Google News + Discover / Reuters-Bloomberg style
-// =====================================================================
-
 const SYSTEM_KERNEL = `# [SYSTEM_KERNEL: HYPER_DETERMINISTIC_SEO_ENGINE_v16.0]
 [EXECUTION: BALANCED_PROBABILITY_STRICT]
 [STYLE_GUIDE: REUTERS_BLOOMBERG_STANDARD]
@@ -46,7 +40,7 @@ META_TITLE: [versão SEO máximo 55 caracteres absolutos — keyword na primeira
 FOCO_KEYWORD: [2 a 4 palavras isoladas que definem o tema central — ex: taxa selic, reforma tributaria]
 SLUG: [3 a 5 palavras do título hifenizadas — sem acentos, sem caracteres especiais — ex: selic-sobe-inflacao]
 META_DESCRICAO: [intervalo matemático estrito entre 141 e 155 caracteres — inclua a keyword naturalmente — frase única contínua sem pontos finais intermediários]
-CATEGORIA: [UMA categoria exata da lista: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao]
+CATEGORIA: [UMA categoria exata da lista: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao | radar]
 SUBCATEGORIA: [subcategoria técnica específica da categoria escolhida]
 CORPO:
 <p><strong>Redação OVC</strong> — {DATA_DE_HOJE}</p>
@@ -169,6 +163,7 @@ const SUBCATS_POR_CAT = {
   esg:           ["Sustentabilidade","Meio Ambiente","Governança Corporativa","Energia Limpa","Impacto Social","Carbono & Emissões"],
   defesa:        ["Forças Armadas","Segurança Nacional","Política de Defesa","Exército","Marinha","Aeronáutica","Fronteiras"],
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
+  radar:         ["Copa do Mundo","Campeonato Brasileiro Série A","Campeonato Brasileiro Série B","Libertadores","Sul-Americana","Campeonatos Europeus","Fórmula 1","Automóveis & Lançamentos","Imóvel & Casa","Fiscalização & Controle","Fiscalização de Políticos","Corrupção","Impostômetro","Dólar & Câmbio","Real & Economia Doméstica","Música","Cinema & Streaming","Eleições","Olimpíadas","Tênis","Basquete","MMA & UFC","Games & E-sports","Viagens & Turismo"],
 };
 
 function buildUserContent(data, text) {
@@ -229,7 +224,6 @@ function parse(raw) {
     else if (inCorpo)                           corpo += line + "\n";
   }
 
-  // strip markdown from titulo
   titulo = titulo.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
 
   corpo = corpo.trim();
@@ -239,13 +233,12 @@ function parse(raw) {
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
-  // convert markdown to HTML
   if (corpo) corpo = markdownToHtml(corpo);
 
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","mercados",
     "educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao",
     "parcerias","internacional","variedades","investigativo","seguranca","cultura",
-    "profissoes","vagas","concursos","imoveis","esg","defesa","religiao"];
+    "profissoes","vagas","concursos","imoveis","esg","defesa","religiao","radar"];
   if (!catsValidas.includes(categoriaRaw)) categoriaRaw = "geral";
 
   const subcatsValidas = SUBCATS_POR_CAT[categoriaRaw] || [];
