@@ -251,8 +251,7 @@ function validarConteudo(content) {
   return true;
 }
 
-// Dedup por similaridade Jaccard — threshold 0.55 (era 0.40)
-// Filtra stopwords antes de comparar — evita falsos positivos por palavras comuns
+// Dedup 1: similaridade Jaccard — threshold 0.55 (era 0.40), filtra stopwords
 function tituloSimilar(a, b) {
   const norm = t => (t || '').toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -267,7 +266,7 @@ function tituloSimilar(a, b) {
   return (intersect / union) >= 0.55;
 }
 
-// Dedup por tópico — bloqueia mesmo evento com título diferente (>=3 keywords em comum)
+// Dedup 2: tópico — bloqueia mesmo evento com título diferente (>=3 keywords em comum)
 function topicoDuplicado(novoTitulo, titulos) {
   const kws = t => (t || '').toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -279,7 +278,7 @@ function topicoDuplicado(novoTitulo, titulos) {
   return titulos.some(t => kws(t).filter(w => kw.includes(w)).length >= 3);
 }
 
-// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ─────────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL VIA URL OU TEXTO (antes em api/manual_post.js) ────────────────────────────────────────────────────
 async function handleManualPost(req, res) {
   const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
   if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
@@ -448,10 +447,10 @@ export default async function handler(req, res) {
       if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
-    // Busca títulos das últimas 48h (era 24h) — janela maior = dedup mais rigoroso
+    // Busca títulos das últimas 24h para dedup interno (janela do dia)
     let recentTitles = [];
     try {
-      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 48 * 3600000).toISOString()).limit(500);
+      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(500);
       recentTitles = (rt || []).map(p => p.titulo || '');
     } catch(_) {}
 
@@ -512,13 +511,13 @@ export default async function handler(req, res) {
         else continue;
       }
 
-      // Dedup 1: Jaccard ≥ 55% nas palavras significativas (era 40%)
+      // Dedup 1: Jaccard ≥ 55% nas palavras significativas
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
 
-      // Dedup 2: tópico — bloqueia se ≥3 keywords em comum com qualquer artigo das últimas 48h
+      // Dedup 2: tópico — bloqueia se ≥3 keywords em comum com qualquer artigo do dia
       if (topicoDuplicado(content.titulo, recentTitles)) continue;
 
-      // Dedup 3: entidade — máx 3 artigos por entidade nomeada por 48h
+      // Dedup 3: entidade — máx 3 artigos por entidade nomeada por 24h
       const nomePrincipal = extrairNomePrincipal(content.titulo);
       if (nomePrincipal) {
         const sobrenome = nomePrincipal.split(' ').slice(-1)[0];
