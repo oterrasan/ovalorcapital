@@ -240,7 +240,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `api/institutional.js` | SSR /quem-somos/ e /politica-editorial/ |
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
-| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`), **refresh token IG** (`GET ?action=refresh_token`) |
+| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`), **refresh token IG** (`GET ?action=refresh_token`), **colunistas** (login/list/create/toggle/delete via `body.action` ou `?action=`) |
 | `api/portal-posts.js` | Serve posts publicados para frontend + **endpoint bulk `?recentes=true`** (1 query, Cache-Control 60s) |
 | `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` + **geração manual** (`POST body.url\|body.texto`) |
 | `api/sitemap.js` | Sitemap dinâmico |
@@ -251,6 +251,10 @@ Fonte de receita única: Google AdSense / Google AdX.
 - `api/refresh_token.js` **DELETADO** → lógica em `api/manage.js` via `GET ?action=refresh_token`
 - `api/manual_post.js` **DELETADO** → lógica em `api/run_portal.js` via `POST body.url|body.texto`
 - Cron `vercel.json` atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
+
+**Consolidações realizadas (19/05/2026):**
+- `api/colunista.js` **CRIADO e IMEDIATAMENTE DELETADO** (violaria REGRA ZERO-A — 11º arquivo)
+- Toda lógica de colunistas integrada em `api/manage.js` como novas actions
 
 ### Core (NUNCA alterar sem autorização do dono)
 | Arquivo | Função |
@@ -270,6 +274,12 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `public/js/ovc-cards.js` | Cards de artigos — CATS funnel reordering (Block 4) + **1 fetch bulk** (Perf #1, 18/05/2026) — **sem setInterval** |
 | `public/js/newsletter-bar.js` | Injeta newsletter bar + patcha footer |
 | `public/js/banners.js` | **NOVO (Block 5)** — injeta banner Lions Corretora em artigos e homepage |
+
+### Admin
+| Arquivo | Função |
+|---|---|
+| `public/admin/app.js` | Painel admin React — tabs: dashboard, pendentes, publicados, sem_foto, **galeria**, pipeline, fontes, contas, **colunistas**, logs, seo, config |
+| `public/admin/colunista/index.html` | Portal do colunista — login + lista de posts + submissão |
 
 ### Data Files
 | Arquivo | Função |
@@ -317,6 +327,33 @@ priority, retry_count, max_retries
 | `MAX_POSTS_DIA` | Limite diário (padrão: `"300"`) |
 | `POSTS_01_06` … `POSTS_17_00` | Máx posts por faixa horária |
 | `YOUTUBE_LIVE_URL` | URL embed YouTube para OVC TV |
+
+### Tabela `image_bank` ⚠️ MIGRAÇÃO MANUAL NECESSÁRIA
+```sql
+CREATE TABLE IF NOT EXISTS image_bank (
+  id uuid primary key default uuid_generate_v4(),
+  url text unique,
+  titulo text,
+  post_id uuid,
+  created_at timestamp default now()
+);
+```
+Usada pela aba **Galeria** do admin. Salva automaticamente toda imagem de post aprovado.
+
+### Tabela `colunistas` ⚠️ MIGRAÇÃO MANUAL NECESSÁRIA
+```sql
+CREATE TABLE IF NOT EXISTS colunistas (
+  id uuid primary key default uuid_generate_v4(),
+  nome text,
+  email text unique,
+  senha_hash text,
+  ativo boolean default true,
+  session_token text,
+  last_login timestamp,
+  created_at timestamp default now()
+);
+```
+Usada pelo sistema de colunistas. Senha armazenada como SHA-256 + salt `ovc_salt_2026`.
 
 ---
 
@@ -469,6 +506,7 @@ function renderCorpo(texto){
 6. Executar `GET /api/manage?action=unpublish_no_image` para despublicar artigos sem imagem (quando autorizado).
 7. Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions.
 8. Revisar e aprovar artigos regenerados no admin (filtro 'pendente').
+9. **Executar SQL de migração no Supabase** para as tabelas `image_bank` e `colunistas` (ver seção 4).
 
 ---
 
@@ -507,6 +545,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 27 | Conteúdos praticamente idênticos publicados | `api/run_portal.js` | 18/05/2026 |
 | 28 | Imagens aleatórias e inadequadas (ilustrações, desenhos, gráficos) | `core/image_finder.js`, `core/image_processor.js` | 18/05/2026 |
 | 29 | **CRÍTICO** — PR merge destruiu 734 linhas de public/index.html → portal offline | `public/index.html` restaurado | 18/05/2026 |
+| 30 | ColunistasAdmin chamava `/api/colunista` (deletado) em vez de `/api/manage` | `public/admin/app.js` | 19/05/2026 |
 
 ---
 
@@ -522,6 +561,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 7. Verificar GitHub Actions rodando
 8. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
 9. **STAGING ATIVO:** pipeline salva como pendente. Lembrar Roberto de aprovar via admin > Postagens.
+10. **TABELAS SUPABASE:** `image_bank` e `colunistas` precisam ser criadas manualmente — ver seção 4.
 
 ---
 
@@ -641,11 +681,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 ### Sessão 18/05/2026 — OTIMIZAÇÃO DE PERFORMANCE (homepage)
 
-**Problema:** Portal muito lento, até travando. Homepage fazia **57 requests HTTP simultâneos** a cada carregamento:
-- 28 fetches individuais por categoria em `ovc-cards.js` (via Promise.all)
-- ~25 fetches em `home.js` (hero cards + 21 seções de categoria)
-- mais lidas, OVC TV, colunistas, banners
-- `setInterval(load, 120000)` repetia os 28 fetches a cada 2 minutos enquanto o usuário navegava
+**Problema:** Portal muito lento, até travando. Homepage fazia **57 requests HTTP simultâneos** a cada carregamento.
 
 **Solução — endpoint bulk `?recentes=true` (commit `7ea8f79c`):**
 - `api/portal-posts.js`: novo branch `?recentes=true` — 1 query Supabase, retorna todos os posts recentes filtrados por CATS_VALIDAS_R, `Cache-Control: public, max-age=60, stale-while-revalidate=120`
@@ -654,57 +690,67 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 **Resultado:** 57 requests → ~4 requests por carregamento de homepage.
 
-**Regra adicionada:** Regra #24 — `home.js` e `ovc-cards.js` usam 1 fetch bulk. NUNCA retornar para múltiplos fetches por categoria.
-
-**PRs obsoletas fechadas (sem merge):** #2, #20, #23, #27, #31, #36, #37 — conteúdo já estava em main, PRs estavam estagnadas.
-
 ### Sessão 18/05/2026 (continuação) — QUALIDADE DE CONTEÚDO E IMAGENS
 
-**Problema 1 — Conteúdos praticamente idênticos sendo publicados (Qualidade #1)**
+**Correções em `api/run_portal.js`:** Jaccard 0.40 → 0.55, `topicoDuplicado()`, recentTitles limit 300 → 500, dedup entidade removido.
 
-Sistema gerava artigos com títulos/tópicos muito parecidos que passavam pelo dedup Jaccard original (40%). Roberto: "isso precisa ser RÍGIDO, rígido MESMO".
-
-**Correções em `api/run_portal.js` (commit `8be31a95`):**
-- `STOPWORDS_DEDUP`: Set com 40+ palavras PT ignoradas no dedup (conjunções, artigos, verbos comuns de manchete)
-- `tituloSimilar()`: threshold Jaccard 0.40 → **0.55** + filtragem de stopwords antes de comparar
-- `topicoDuplicado()`: **nova função** — bloqueia se ≥3 keywords (>5 chars, sem stopwords) em comum com qualquer artigo do dia (mesmo evento com título diferente)
-- `recentTitles`: limit 300 → **500** (garante dedup contra mais artigos do dia)
-- **Dedup 3 (entidade) REMOVIDO** por instrução explícita de Roberto: "especialmente em eleições, copa do mundo, política, sempre, o dia todo tem assuntos envolvendo as mesmas figuras"
-
-**Instrução crítica de Roberto (18/05/2026 — INVIOLÁVEL):**
-- **Janela `recentTitles` PERMANECE 24h** — "o portal deve buscar nas fontes apenas conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS"
-- **Dedup de entidade NÃO PODE EXISTIR** — eleições/Copa/política têm o mesmo personagem legitimamente o dia todo
-
-**Problema 2 — Imagens aleatórias e inadequadas: desenhos, ilustrações, gráficos (Qualidade #2)**
-
-**Correções em `core/image_finder.js` (commit `8be31a95`):**
-- `BLOQUEIO_PATTERNS`: expandido com `vector`, `ilustra`, `illustration`, `diagram`, `diagrama`, `infograph`, `infografia`, `cartoon`, `drawing`, `clipart`, `clip-art`, `clip_art`, `sketch`, `esquema`, `graphic-design`, `template`, `stock-illustr`, `shutterstock`, `gettyimages`
-- `buscarWikimedia()`: filtro de título expandido — rejeita `mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge`
-- `buscarWikipedia()`: size check — rejeita imagens com `width < 400px` na URL
-
-**Correções em `core/image_processor.js` (commit `8be31a95`):**
-- Vision API (GPT-4o-mini): novo campo `is_illustration` no prompt
-- `is_illustration: true` = desenho, cartoon, ilustração, clipart, pintura, animação ou qualquer obra não-fotográfica
-- Pipeline rejeita **3 tipos**: `has_competitor_logo`, `is_chart_or_table`, `is_illustration`
-
-**Regras adicionadas:** Regra #25 (Jaccard 55% + tópico), Regra #26 (sem dedup entidade), Regra #27 (3 camadas imagem), Regra #28 (24h inviolável).
+**Correções em `core/image_finder.js` e `core/image_processor.js`:** BLOQUEIO_PATTERNS expandido, filtro título Wikimedia, Vision API `is_illustration`.
 
 ### Sessão 18/05/2026 (tarde) — INCIDENTE CRÍTICO: PORTAL OFFLINE (Bug #29)
 
-**O que aconteceu:**
-- PR #44 foi mergeado para main com resolução de merge conflict que destruiu 734 linhas de `public/index.html`
-- Homepage ficou com ~1 linha de conteúdo (essencialmente vazia)
-- Portal ficou completamente offline
-- Tentativas de restauração via subagentes enviaram base64 em vez de HTML (bug de subagent com arquivos grandes)
-- Restauração completa levou ~40 minutos
+- PR #44 merge destruiu 734 linhas de `public/index.html` → portal offline ~40 minutos
+- **REGRA ZERO-E criada:** public/index.html ≥700 linhas em main, SEMPRE verificar antes de push
+- Radar OVC news panels implementados em `public/js/live-pages.js` e `api/portal-posts.js`
 
-**REGRA ZERO-E criada (18/05/2026 — INVIOLÁVEL):**
-- Portal NUNCA pode ficar offline
-- public/index.html NUNCA pode ter menos de 700 linhas em main
-- Verificar SEMPRE número de linhas antes de push que toque esse arquivo
-- NUNCA usar subagentes para push de arquivos HTML críticos > 50KB
-- Ver seção REGRA ZERO-E acima para protocolo completo
+### Sessão 19/05/2026 — 4 NOVAS FEATURES ADMIN (branch claude/implement-admin-feature-qTTvg)
 
-**Radar OVC — news panels implementados (branch claude/setup-capital-value-YDWUA):**
-- `public/js/live-pages.js`: `mountRadar()` agora async, busca `/api/portal-posts?categoria=radar&limit=60`, renderiza grid de painéis por subcategoria
-- `api/portal-posts.js`: `radar` adicionado a CATS_VALIDAS (3 instâncias) e CAT_PATH
+**Features implementadas — apenas em arquivos admin, ZERO toque no portal público:**
+
+#### 1. Filtros de imagem nas Postagens (`public/admin/app.js` — `Pendentes`)
+- Função `imageStatus(p)`: classifica posts em `ok` (URL http + ≥40 chars), `sem` (vazio/nulo), `suspeita` (URL presente mas inválida)
+- Botões de filtro rápido na aba Pendentes: **Todos / Com imagem ✓ (N) / Suspeita ⚠ (N) / Sem imagem ✗ (N)**
+- Coluna IMG na tabela com ícone colorido (✓ verde / ⚠ amarelo / ✗ vermelho)
+- Filtros combinam com a busca por texto
+
+#### 2. Barra de busca sempre visível (`public/admin/app.js` — `Pendentes` + navbar)
+- Navbar do admin com `position: sticky, top: 0, zIndex: 200`
+- Controles da aba Pendentes (busca + filtros) com `position: sticky, top: 57, zIndex: 100`
+- Busca filtra por título E categoria simultaneamente
+- Visual: borda dourada + glow quando ativa
+
+#### 3. Banco de imagens automático (`public/admin/app.js` — `Galeria`)
+- Nova aba **🖼 GALERIA** no admin
+- Toda imagem aprovada é salva automaticamente na tabela `image_bank` (upsert por URL)
+- `aprovar()`, `aprovarLote()` e `editarAprovar()` chamam `salvarImagemGaleria()` antes de aprovar
+- Botão "Sincronizar Posts Publicados" para popular o banco com posts já existentes
+- Grid de cards com preview, título, remoção
+- ⚠️ Tabela `image_bank` precisa ser criada manualmente no Supabase (SQL na seção 4)
+
+#### 4. Sistema de colunistas
+- **Portal do colunista:** `public/admin/colunista/index.html` — login email+senha, lista de posts próprios, submissão de novo post
+- **Admin — aba ✍ COLUNISTAS:** `ColunistasAdmin` em `public/admin/app.js` — criar/listar/suspender/excluir colunistas
+- **Backend:** lógica integrada em `api/manage.js` (sem criar novo arquivo — Regra Zero-A)
+  - `GET ?action=list_colunistas` — lista todos
+  - `GET ?action=list_posts_colunista&colunista_id=X&token=Y` — posts do colunista
+  - `POST {action: "login_colunista"}` — autentica, retorna session_token
+  - `POST {action: "create_colunista"}` — admin cria colunista
+  - `POST {action: "toggle_colunista"}` — ativa/suspende
+  - `POST {action: "delete_colunista"}` — exclui
+  - `POST {action: "submit_colunista_post"}` — colunista submete post (salva como pendente)
+- Senha: SHA-256 + salt `ovc_salt_2026`, session_token aleatório 32 bytes
+- Posts de colunistas: `publish_method: "colunista"`, chegam na aba Pendentes para aprovação do admin
+- ⚠️ Tabela `colunistas` precisa ser criada manualmente no Supabase (SQL na seção 4)
+
+**Bug corrigido nesta sessão (Bug #30):**
+- `ColunistasAdmin` chamava `/api/colunista` (arquivo criado e deletado por Regra Zero-A) → corrigido para `/api/manage`
+
+**Commits na branch `claude/implement-admin-feature-qTTvg`:**
+1. `3345227` — implementação inicial (app.js, colunista/index.html, api/colunista.js)
+2. `b1da60d` — delete api/colunista.js (REGRA ZERO-A)
+3. `650e94e` — integra colunistas em manage.js, corrige colunista/index.html
+4. `d692a777` — fix: ColunistasAdmin usa /api/manage (Bug #30)
+5. (este commit) — docs: CLAUDE.md atualizado
+
+**⚠️ PENDENTE — Roberto deve fazer manualmente:**
+1. Criar PR desta branch para main e revisar diff
+2. Executar SQL de migração no Supabase (tabelas `image_bank` e `colunistas`)

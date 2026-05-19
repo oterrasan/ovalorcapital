@@ -12,7 +12,10 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 let _bannersCache = null;
 
-// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────
+function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
+function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
+
+// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -25,6 +28,8 @@ function handler(req, res) {
     if (req.query.action === 'unpublish_recent') return handleUnpublishRecent(req, res);
     if (req.query.action === 'unpublish_no_image') return handleUnpublishNoImage(req, res);
     if (req.query.action === 'audit_images') return handleAuditImages(req, res);
+    if (req.query.action === 'list_colunistas') return handleListColunistas(req, res);
+    if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -40,6 +45,11 @@ function handler(req, res) {
   if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
   if (body.action === "track_view") return handleTrackView(req, res);
   if (body.action === "setup_storage") return handleSetupStorage(req, res);
+  if (body.action === "login_colunista") return handleLoginColunista(req, res);
+  if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
+  if (body.action === "create_colunista") return handleCreateColunista(req, res);
+  if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
+  if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
 
   return handleApprove(req, res);
 }
@@ -57,7 +67,7 @@ async function handleSetupStorage(req, res) {
   }
 }
 
-// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ──────────────
+// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ───────────
 async function handleAuditImages(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
@@ -155,7 +165,7 @@ async function handleAuditImages(req, res) {
   }
 }
 
-// ── DESPUBLICAR POSTS SEM IMAGEM (move publicado → pendente) ────────────────────────────────
+// ── DESPUBLICAR POSTS SEM IMAGEM (move publicado → pendente) ───────────────────────
 async function handleUnpublishNoImage(req, res) {
   try {
     const { error, count } = await supabase.from('posts')
@@ -170,7 +180,7 @@ async function handleUnpublishNoImage(req, res) {
   }
 }
 
-// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ────────────
+// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ─────────
 async function handleUnpublishRecent(req, res) {
   const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
   const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
@@ -186,7 +196,7 @@ async function handleUnpublishRecent(req, res) {
   }
 }
 
-// ── RENOVAR TOKEN INSTAGRAM (mensal via cron) ────────────────────────────────
+// ── RENOVAR TOKEN INSTAGRAM (mensal via cron) ──────────────────────────────
 async function handleRefreshToken(req, res) {
   try {
     const { data: accounts } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null);
@@ -211,7 +221,7 @@ async function handleRefreshToken(req, res) {
   }
 }
 
-// ── BANNERS ─────────────────────────────────────────────────────────────────────────────────────
+// ── BANNERS ───────────────────────────────────────────────────────────────────────────────────────────
 async function handleBanners(req, res) {
   const cat = (req.query.cat || '').trim().toLowerCase();
   try {
@@ -231,7 +241,7 @@ async function handleBanners(req, res) {
   }
 }
 
-// ── STATUS ────────────────────────────────────────────────────────────────────────────
+// ── STATUS ───────────────────────────────────────────────────────────────────────────────
 async function handleStatus(req, res) {
   try {
     const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
@@ -251,7 +261,7 @@ async function handleStatus(req, res) {
   }
 }
 
-// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────────────────────────
+// ── CONTAGEM DE VIEWS ───────────────────────────────────────────────────────────────────────────
 async function handleTrackView(req, res) {
   const { post_id } = req.body || {};
   if (!post_id) return res.json({ ok: false });
@@ -266,7 +276,7 @@ async function handleTrackView(req, res) {
   }
 }
 
-// ── APROVAÇÃO (approve.js) ──────────────────────────────────────────────────
+// ── APROVAÇÃO (approve.js) ──────────────────────────
 async function handleApprove(req, res) {
   const { id, ids, action, scheduled_at } = req.body || {};
   try {
@@ -302,7 +312,7 @@ async function handleApprove(req, res) {
   }
 }
 
-// ── APROVAÇÃO PORTAL (approve_portal.js) ──────────────────────────────────────────────────────────────
+// ── APROVAÇÃO PORTAL ────────────────────────────────────────────────────────────────────────────────────
 async function handleApprovePortal(req, res) {
   const { id, ids, action } = req.body || {};
   const now = new Date().toISOString();
@@ -338,7 +348,7 @@ async function handleApprovePortal(req, res) {
   }
 }
 
-// ── GERAÇÃO MANUAL (run_manual.js) ────────────────────────────────────────────────────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL ──────────────────────────────────────────────────────────────────────────────────────────────
 function validar(content) {
   if (!content?.titulo || !content?.corpo) return false;
   const t = content.titulo.toLowerCase().trim();
@@ -473,7 +483,7 @@ async function handleManual(req, res) {
   }
 }
 
-// ── SUBMISSÃO PÚBLICA DE VAGAS ────────────────────────────────────────────
+// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────
 async function handleSubmitVaga(req, res) {
   const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
   if (!empresa || !cargo || !descricao || !email_contato) {
@@ -505,7 +515,7 @@ async function handleSubmitVaga(req, res) {
   }
 }
 
-// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────────────
+// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -537,4 +547,133 @@ async function handleNewsletterSubscribe(req, res) {
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
+}
+
+// ── SISTEMA DE COLUNISTAS ──────────────────────────────────────────────────────────────────────
+// Portal: /admin/colunista/ — GET ?action=list_colunistas / list_posts_colunista
+// POST action: login_colunista | submit_colunista_post | create_colunista | toggle_colunista | delete_colunista
+
+async function validarTokenColunista(colunista_id, token) {
+  if (!colunista_id || !token) return null;
+  const { data } = await supabase
+    .from("colunistas")
+    .select("id,nome,email,ativo")
+    .eq("id", colunista_id)
+    .eq("session_token", token)
+    .eq("ativo", true)
+    .single();
+  return data || null;
+}
+
+async function handleLoginColunista(req, res) {
+  const { email, senha } = req.body || {};
+  if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
+  try {
+    const { data: colunista } = await supabase
+      .from("colunistas")
+      .select("id,nome,email,senha_hash,ativo")
+      .eq("email", email.toLowerCase().trim())
+      .single();
+    if (!colunista) return res.status(401).json({ error: "Credenciais inválidas" });
+    if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
+    if (colunista.senha_hash !== hashSenha(senha)) return res.status(401).json({ error: "Credenciais inválidas" });
+    const token = gerarToken();
+    await supabase.from("colunistas").update({ session_token: token, last_login: new Date().toISOString() }).eq("id", colunista.id);
+    return res.status(200).json({ ok: true, token, colunista_id: colunista.id, nome: colunista.nome, email: colunista.email });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleListPostsColunista(req, res) {
+  const { colunista_id, token } = req.query;
+  const colunista = await validarTokenColunista(colunista_id, token);
+  if (!colunista) return res.status(401).json({ error: "Sessão inválida" });
+  try {
+    const { data } = await supabase
+      .from("posts")
+      .select("id,titulo,status,imagem,created_at,published_at,comentario_fixado")
+      .eq("publish_method", "colunista")
+      .contains("collaborators", JSON.stringify([colunista_id]))
+      .order("created_at", { ascending: false })
+      .limit(50);
+    return res.status(200).json({ ok: true, posts: data || [] });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleSubmitColunista(req, res) {
+  const { colunista_id, token, titulo, conteudo, imagem } = req.body || {};
+  const colunista = await validarTokenColunista(colunista_id, token);
+  if (!colunista) return res.status(401).json({ error: "Sessão inválida" });
+  if (!titulo || !conteudo) return res.status(400).json({ error: "título e conteúdo obrigatórios" });
+  if (titulo.length < 10) return res.status(400).json({ error: "Título muito curto" });
+  if (conteudo.length < 200) return res.status(400).json({ error: "Conteúdo mínimo de 200 caracteres" });
+  try {
+    const hash = crypto.createHash("md5").update(titulo + colunista_id + Date.now()).digest("hex");
+    const nomeSlug = colunista.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-");
+    const { data: post, error } = await supabase.from("posts").insert({
+      titulo, conteudo,
+      imagem: imagem || null,
+      comentario_fixado: `Artigo de ${colunista.nome}`,
+      hash, status: "pendente", approved: false,
+      publish_method: "colunista",
+      user_tags: JSON.stringify(["colunistas"]),
+      subcategoria: colunista.nome,
+      subcategoria_slug: nomeSlug,
+      collaborators: JSON.stringify([colunista_id]),
+      metrics: {}, priority: 0, retry_count: 0, max_retries: 0
+    }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, post_id: post.id, message: "Artigo enviado para revisão!" });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleListColunistas(req, res) {
+  try {
+    const { data } = await supabase.from("colunistas").select("id,nome,email,ativo,created_at,last_login").order("nome");
+    return res.status(200).json({ ok: true, colunistas: data || [] });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleCreateColunista(req, res) {
+  const { nome, email, senha } = req.body || {};
+  if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
+  if (senha.length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
+  try {
+    const { error } = await supabase.from("colunistas").insert({
+      nome: nome.trim(),
+      email: email.toLowerCase().trim(),
+      senha_hash: hashSenha(senha),
+      ativo: true
+    });
+    if (error) {
+      if (error.message.includes("unique") || error.message.includes("duplicate")) {
+        return res.status(400).json({ error: "E-mail já cadastrado" });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    return res.status(200).json({ ok: true });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleToggleColunista(req, res) {
+  const { id, ativo } = req.body || {};
+  if (!id) return res.status(400).json({ error: "id obrigatório" });
+  await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
+  return res.status(200).json({ ok: true });
+}
+
+async function handleDeleteColunista(req, res) {
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: "id obrigatório" });
+  await supabase.from("colunistas").delete().eq("id", id);
+  return res.status(200).json({ ok: true });
 }
