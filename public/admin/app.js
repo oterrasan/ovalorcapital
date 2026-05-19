@@ -327,7 +327,6 @@ function Pendentes(){
   }, [items]);
 
   return React.createElement("div",null,
-    // Barra sticky de filtros
     React.createElement("div",{style:{position:"sticky",top:57,zIndex:100,background:"#08080f",padding:"12px 0",borderBottom:"1px solid #1e293b",marginBottom:16}},
       React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:10}},
         React.createElement("h2",{style:{color:"#f59e0b",margin:0,marginRight:8}},`Pendentes (${filtrados.length}/${items.length})`),
@@ -870,7 +869,7 @@ function ColunistasAdmin(){
 
   async function load(){
     try {
-      const r = await fetch("/api/colunista?action=list_colunistas");
+      const r = await fetch("/api/manage?action=list_colunistas");
       const d = await r.json();
       setItems(d.colunistas||[]);
     } catch(e) {
@@ -881,7 +880,7 @@ function ColunistasAdmin(){
   async function criar(){
     if(!form.nome||!form.email||!form.senha){ setMsg("Preencha todos os campos."); return; }
     setLoading(true);
-    const r = await fetch("/api/colunista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create_colunista",...form})});
+    const r = await fetch("/api/manage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create_colunista",...form})});
     const d = await r.json();
     if(d.ok){ setForm({nome:"",email:"",senha:""}); setMsg("✅ Colunista criado com sucesso!"); load(); }
     else setMsg("❌ "+(d.error||"Erro desconhecido"));
@@ -889,13 +888,13 @@ function ColunistasAdmin(){
   }
 
   async function toggle(c){
-    await fetch("/api/colunista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"toggle_colunista",id:c.id,ativo:c.ativo})});
+    await fetch("/api/manage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"toggle_colunista",id:c.id,ativo:c.ativo})});
     load();
   }
 
   async function excluir(id){
     if(!confirm("Excluir este colunista permanentemente?")) return;
-    await fetch("/api/colunista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_colunista",id})});
+    await fetch("/api/manage",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_colunista",id})});
     load();
   }
 
