@@ -680,17 +680,18 @@ async function handleDeleteColunista(req, res) {
 }
 
 async function handleLimparPendentesAntigos(req, res) {
-  // Deleta posts com status 'pendente' criados antes de 2026-05-18 (dia 17 para trás)
+  // Arquiva posts com status 'pendente' criados antes de 2026-05-18 (dia 17 para trás)
+  // Status 'arquivado' = invisível no admin, preservado no banco
   const corte = req.query.antes || '2026-05-18T00:00:00';
   try {
     const { data, error } = await supabase
       .from("posts")
-      .delete()
+      .update({ status: "arquivado" })
       .eq("status", "pendente")
       .lt("created_at", corte)
       .select("id");
     if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true, deletados: (data || []).length, corte });
+    return res.status(200).json({ ok: true, arquivados: (data || []).length, corte });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
