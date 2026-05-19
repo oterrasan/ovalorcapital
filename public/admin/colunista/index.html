@@ -18,7 +18,6 @@
     .btn{display:inline-block;padding:10px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;transition:opacity .2s}
     .btn:disabled{opacity:.5;cursor:default}
     .btn-primary{background:#ffc800;color:#08080f}
-    .btn-danger{background:#ef4444;color:#fff}
     .btn-secondary{background:#1e293b;color:#e5e7eb}
     .msg{padding:10px 16px;border-radius:6px;font-size:13px;margin-top:12px}
     .msg.ok{background:rgba(34,197,94,.15);border:1px solid #22c55e;color:#22c55e}
@@ -34,7 +33,7 @@
     #login-section h2{color:#ffc800;margin-bottom:20px;font-size:22px}
     #portal-section h2{color:#ffc800;margin-bottom:4px;font-size:18px}
     .user-info{font-size:13px;color:#94a3b8;margin-bottom:20px}
-    .tabs{display:flex;gap:4;margin-bottom:20px;border-bottom:1px solid #1e293b}
+    .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid #1e293b}
     .tab{padding:10px 20px;cursor:pointer;border:none;background:transparent;color:#94a3b8;font-weight:600;font-size:13px;border-bottom:2px solid transparent;transition:all .2s}
     .tab.active{color:#ffc800;border-bottom-color:#ffc800}
     .char-count{font-size:11px;color:#6b7280;text-align:right;margin-top:4px}
@@ -124,7 +123,7 @@
 </div>
 
 <script>
-const API = '/api/colunista';
+const API = '/api/manage';
 let session = null;
 
 function showMsg(id, text, isOk) {
@@ -170,7 +169,7 @@ async function doLogin() {
     const r = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', email, senha })
+      body: JSON.stringify({ action: 'login_colunista', email, senha })
     });
     const d = await r.json();
     if (!d.ok) {
@@ -202,7 +201,7 @@ async function loadPosts() {
   document.getElementById('posts-table-wrap').classList.add('hidden');
 
   try {
-    const r = await fetch(`${API}?action=list_posts&colunista_id=${session.colunista_id}&token=${session.token}`);
+    const r = await fetch(`${API}?action=list_posts_colunista&colunista_id=${session.colunista_id}&token=${session.token}`);
     const d = await r.json();
     if (!d.ok) { document.getElementById('posts-loading').textContent = 'Erro: ' + d.error; return; }
 
@@ -273,7 +272,7 @@ async function submitPost() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'submit_post',
+        action: 'submit_colunista_post',
         colunista_id: session.colunista_id,
         token: session.token,
         titulo,
