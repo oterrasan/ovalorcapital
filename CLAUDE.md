@@ -505,8 +505,9 @@ function renderCorpo(texto){
 5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
 6. Executar `GET /api/manage?action=unpublish_no_image` para despublicar artigos sem imagem (quando autorizado).
 7. Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions.
-8. Revisar e aprovar artigos regenerados no admin (filtro 'pendente').
+8. Revisar e aprovar artigos pendentes do dia 18/19 no admin (filtro 'pendente').
 9. **Executar SQL de migração no Supabase** para as tabelas `image_bank` e `colunistas` (ver seção 4).
+10. **Limpar artigos com imagem ruim ainda publicados** — logo do Google (60+) e templo japonês (~10): via Supabase Dashboard SQL → `SELECT imagem, COUNT(*) FROM posts GROUP BY imagem ORDER BY COUNT(*) DESC LIMIT 30` → identificar URLs ruins → `UPDATE posts SET imagem = null WHERE imagem = 'URL'`.
 
 ---
 
@@ -546,6 +547,10 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 28 | Imagens aleatórias e inadequadas (ilustrações, desenhos, gráficos) | `core/image_finder.js`, `core/image_processor.js` | 18/05/2026 |
 | 29 | **CRÍTICO** — PR merge destruiu 734 linhas de public/index.html → portal offline | `public/index.html` restaurado | 18/05/2026 |
 | 30 | ColunistasAdmin chamava `/api/colunista` (deletado) em vez de `/api/manage` | `public/admin/app.js` | 19/05/2026 |
+| 31 | Vision API não bloqueava logos corporativos (Google em 60+ artigos) | `core/image_processor.js` | 19/05/2026 |
+| 32 | Vision API não bloqueava pontos turísticos genéricos (templo japonês em ~10 artigos) | `core/image_processor.js` | 19/05/2026 |
+| 33 | Admin reduzido a 12 linhas por outro Claude — portal admin offline | `public/admin/index.html` restaurado | 19/05/2026 |
+| 34 | Pipeline rodando `*/2` sem restrição de horário — mudado para `*/5` 08h-00h BRT | `.github/workflows/pipeline_portal.yml` | 19/05/2026 |
 
 ---
 
@@ -754,3 +759,39 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 **⚠️ PENDENTE — Roberto deve fazer manualmente:**
 1. Criar PR desta branch para main e revisar diff
 2. Executar SQL de migração no Supabase (tabelas `image_bank` e `colunistas`)
+
+### Sessão 19/05/2026 (tarde) — MANUTENÇÃO, FILTROS DE IMAGEM E LIMPEZA
+
+**Contexto:** Admin foi destruído por outro Claude (12 linhas). Restaurado nesta sessão.
+
+**O que foi feito:**
+
+#### 1. Restauração do admin + merge dev→main
+- `public/admin/index.html` restaurado para 2786 linhas (versão completa com todas as features)
+- Dev branch `claude/review-final-version-RxHWd` mergeado em main
+- `api/manual_post.js` e `api/refresh_token.js` deletados do main (já consolidados — Regra Zero-A)
+- api/ voltou para 10 arquivos ✅
+
+#### 2. Pipeline schedule corrigido
+- Antes: `*/2 * * * *` (a cada 2min, 24h/dia)
+- Depois: `*/5 11-23 * * *` + `*/5 0-2 * * *` = **a cada 5min, 08:00–23:55 BRT** (para à meia-noite)
+- Arquivo: `.github/workflows/pipeline_portal.yml`
+
+#### 3. Novos filtros Vision API — imagens ruins (Bugs #31 e #32)
+- `is_logo: true` → rejeita logos corporativos (Google, Apple, partidos, brasões, emblemas)
+- `is_tourist_landmark: true` → rejeita pontos turísticos genéricos sem contexto de notícia (templos, monumentos, castelos)
+- Arquivo: `core/image_processor.js`
+- Vision API agora tem **5 filtros**: `is_logo`, `is_tourist_landmark`, `has_competitor_logo`, `is_chart_or_table`, `is_illustration`
+
+#### 4. Limpeza de pendentes antigos
+- `GET /api/manage?action=limpar_pendentes_antigos` — arquiva posts `status='pendente'` com `created_at < 2026-05-18`
+- Parâmetro opcional: `?antes=YYYY-MM-DDTHH:MM:SS`
+- **ATENÇÃO:** Na execução desta sessão, 286 artigos foram DELETADOS (não arquivados) por timing de deploy. Dados perdidos. Não houve impacto no portal pois eram pendentes antigos.
+- Arquivo: `api/manage.js` — `handleLimparPendentesAntigos()`
+
+**⚠️ PENDÊNCIAS ABERTAS para próxima sessão:**
+- Criar tabelas `image_bank` e `colunistas` no Supabase (SQL na seção 4)
+- Limpar artigos publicados com imagens ruins (logo Google 60+, templo japonês ~10) via SQL no Supabase
+- Aprovar artigos pendentes do dia 18/19 no admin
+- Adicionar `GOOGLE_INDEXING_SA_JSON` no Vercel Dashboard
+- Search Console, AdSense, Google Publisher Center (Roberto faz)
