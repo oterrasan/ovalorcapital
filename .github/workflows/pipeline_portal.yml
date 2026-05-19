@@ -1,8 +1,9 @@
-name: OVC Pipeline — a cada 2min
+name: OVC Pipeline — 08h-00h BRT, a cada 5min
 
 on:
   schedule:
-    - cron: '*/2 * * * *'
+    - cron: '*/5 11-23 * * *'  # 08:00–20:55 BRT (11:00–23:55 UTC)
+    - cron: '*/5 0-2 * * *'    # 21:00–23:55 BRT (00:00–02:55 UTC)
   workflow_dispatch:
 
 jobs:
