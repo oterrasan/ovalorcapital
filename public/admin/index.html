@@ -2016,6 +2016,186 @@ function Alertas() {
   );
 }
 
+// ── GALERIA ──
+function Galeria(){
+  const SUPA_URL='https://bfsegqdgscudtdgwdyci.supabase.co';
+  const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDYzNTIsImV4cCI6MjA5MTAyMjM1Mn0.mDSBEZK0DsC_9x1AKw2ZF4vPFJWlmKCt_hn3hvsAVdo';
+  const [imgs,setImgs]=React.useState([]);
+  const [loading,setLoading]=React.useState(true);
+  const [syncing,setSyncing]=React.useState(false);
+  const [busca,setBusca]=React.useState('');
+  const [msg,setMsg]=React.useState('');
+
+  async function carregarGaleria(){
+    setLoading(true);
+    const r=await fetch(`${SUPA_URL}/rest/v1/image_bank?select=*&order=created_at.desc`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
+    if(r.ok){const d=await r.json();setImgs(d);}
+    setLoading(false);
+  }
+
+  async function sincronizar(){
+    setSyncing(true);setMsg('');
+    try{
+      const r=await fetch(`${SUPA_URL}/rest/v1/posts?select=id,titulo,imagem_url&imagem_url=not.is.null&status=eq.publicado`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
+      if(!r.ok)throw new Error('Erro ao buscar posts');
+      const posts=await r.json();
+      let salvos=0;
+      for(const p of posts){
+        if(!p.imagem_url)continue;
+        const body={url:p.imagem_url,titulo:p.titulo||'',post_id:p.id};
+        const ins=await fetch(`${SUPA_URL}/rest/v1/image_bank`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates'},body:JSON.stringify(body)});
+        if(ins.ok)salvos++;
+      }
+      setMsg(`Sincronização concluída: ${salvos} imagens salvas.`);
+      carregarGaleria();
+    }catch(e){setMsg('Erro: '+e.message);}
+    setSyncing(false);
+  }
+
+  async function deletarImagem(id){
+    if(!confirm('Remover imagem do banco?'))return;
+    await fetch(`${SUPA_URL}/rest/v1/image_bank?id=eq.${id}`,{method:'DELETE',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
+    setImgs(prev=>prev.filter(i=>i.id!==id));
+  }
+
+  React.useEffect(()=>{carregarGaleria();},[]);
+
+  const filtradas=imgs.filter(i=>{
+    if(!busca)return true;
+    const b=busca.toLowerCase();
+    return (i.titulo||'').toLowerCase().includes(b)||(i.url||'').toLowerCase().includes(b);
+  });
+
+  return(
+    <div className="panel">
+      <div className="panel-header" style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+        <h2 style={{margin:0}}>🗂️ Banco de Imagens</h2>
+        <input className="form-input" placeholder="Buscar por título ou URL..." value={busca} onChange={e=>setBusca(e.target.value)} style={{flex:1,minWidth:200,maxWidth:400}}/>
+        <button className="btn btn-primary" onClick={sincronizar} disabled={syncing}>{syncing?'Sincronizando...':'🔄 Sincronizar Posts Publicados'}</button>
+      </div>
+      {msg&&<div style={{padding:'8px 16px',background:'#e8f5e9',color:'#2e7d32',borderRadius:6,margin:'8px 0'}}>{msg}</div>}
+      {loading?<div className="empty-state">Carregando galeria...</div>:
+      filtradas.length===0?<div className="empty-state">Nenhuma imagem no banco. Clique em Sincronizar para importar imagens dos posts publicados.</div>:
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16,padding:16}}>
+        {filtradas.map(img=>(
+          <div key={img.id} style={{border:'1px solid #e0e0e0',borderRadius:8,overflow:'hidden',background:'#fff',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+            <img src={img.url} alt={img.titulo||'imagem'} style={{width:'100%',height:140,objectFit:'cover',display:'block'}} onError={e=>{e.target.style.display='none';}}/>
+            <div style={{padding:'8px 12px'}}>
+              <div style={{fontWeight:600,fontSize:13,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{img.titulo||'(sem título)'}</div>
+              <div style={{fontSize:11,color:'#888',marginBottom:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{img.url}</div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <a href={img.url} target="_blank" rel="noreferrer" className="btn" style={{fontSize:11,padding:'4px 10px'}}>Ver</a>
+                <button className="btn" style={{fontSize:11,padding:'4px 10px',background:'#ffebee',color:'#c62828',border:'1px solid #ef9a9a'}} onClick={()=>deletarImagem(img.id)}>🗑️</button>
+                {img.post_id&&<span style={{fontSize:10,color:'#aaa',marginLeft:'auto'}}>Post #{img.post_id}</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
+
+// ── COLUNISTAS ──
+function ColunistasAdmin(){
+  const [lista,setLista]=React.useState([]);
+  const [loading,setLoading]=React.useState(true);
+  const [form,setForm]=React.useState({nome:'',email:'',senha:''});
+  const [criando,setCriando]=React.useState(false);
+  const [msg,setMsg]=React.useState('');
+  const [showForm,setShowForm]=React.useState(false);
+
+  async function carregar(){
+    setLoading(true);
+    const r=await fetch('/api/manage?action=list_colunistas');
+    if(r.ok){const d=await r.json();setLista(d.colunistas||[]);}
+    setLoading(false);
+  }
+
+  async function criarColunista(e){
+    e.preventDefault();setCriando(true);setMsg('');
+    const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
+    const d=await r.json();
+    if(r.ok){setMsg('Colunista criado com sucesso!');setForm({nome:'',email:'',senha:''});setShowForm(false);carregar();}
+    else setMsg('Erro: '+(d.error||'falha ao criar'));
+    setCriando(false);
+  }
+
+  async function toggleColunista(id,ativo){
+    await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'toggle_colunista',colunista_id:id,ativo:!ativo})});
+    carregar();
+  }
+
+  async function deletarColunista(id,nome){
+    if(!confirm(`Remover colunista "${nome}"?`))return;
+    await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete_colunista',colunista_id:id})});
+    carregar();
+  }
+
+  React.useEffect(()=>{carregar();},[]);
+
+  return(
+    <div className="panel">
+      <div className="panel-header" style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+        <h2 style={{margin:0}}>✍️ Colunistas</h2>
+        <button className="btn btn-primary" onClick={()=>setShowForm(f=>!f)}>{showForm?'✕ Cancelar':'+ Novo Colunista'}</button>
+        <a href="/admin/colunista/" target="_blank" className="btn" style={{marginLeft:'auto'}}>🔗 Portal do Colunista</a>
+      </div>
+      {msg&&<div style={{padding:'8px 16px',background:msg.startsWith('Erro')?'#ffebee':'#e8f5e9',color:msg.startsWith('Erro')?'#c62828':'#2e7d32',borderRadius:6,margin:'8px 0'}}>{msg}</div>}
+      {showForm&&(
+        <form onSubmit={criarColunista} style={{padding:16,background:'#f9f9f9',borderRadius:8,marginBottom:16,display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 160px'}}>
+            <label style={{fontSize:12,fontWeight:600}}>Nome</label>
+            <input className="form-input" required value={form.nome} onChange={e=>setForm(f=>({...f,nome:e.target.value}))} placeholder="Nome do colunista"/>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 180px'}}>
+            <label style={{fontSize:12,fontWeight:600}}>Email</label>
+            <input className="form-input" type="email" required value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="email@exemplo.com"/>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 160px'}}>
+            <label style={{fontSize:12,fontWeight:600}}>Senha</label>
+            <input className="form-input" type="password" required value={form.senha} onChange={e=>setForm(f=>({...f,senha:e.target.value}))} placeholder="Senha de acesso"/>
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={criando}>{criando?'Criando...':'Criar Colunista'}</button>
+        </form>
+      )}
+      {loading?<div className="empty-state">Carregando colunistas...</div>:
+      lista.length===0?<div className="empty-state">Nenhum colunista cadastrado. Clique em "+ Novo Colunista" para adicionar.</div>:
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead>
+          <tr style={{background:'#f5f5f5'}}>
+            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Nome</th>
+            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Email</th>
+            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Status</th>
+            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Cadastro</th>
+            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lista.map(c=>(
+            <tr key={c.id} style={{borderBottom:'1px solid #f0f0f0'}}>
+              <td style={{padding:'10px 12px',fontWeight:600}}>{c.nome}</td>
+              <td style={{padding:'10px 12px',color:'#555'}}>{c.email}</td>
+              <td style={{padding:'10px 12px'}}>
+                <span style={{display:'inline-block',padding:'3px 10px',borderRadius:12,fontSize:12,fontWeight:600,background:c.ativo?'#e8f5e9':'#ffebee',color:c.ativo?'#2e7d32':'#c62828'}}>
+                  {c.ativo?'Ativo':'Suspenso'}
+                </span>
+              </td>
+              <td style={{padding:'10px 12px',fontSize:12,color:'#888'}}>{c.created_at?new Date(c.created_at).toLocaleDateString('pt-BR'):'-'}</td>
+              <td style={{padding:'10px 12px'}}>
+                <div style={{display:'flex',gap:8}}>
+                  <button className="btn" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>toggleColunista(c.id,c.ativo)}>{c.ativo?'Suspender':'Ativar'}</button>
+                  <button className="btn" style={{fontSize:11,padding:'4px 10px',background:'#ffebee',color:'#c62828',border:'1px solid #ef9a9a'}} onClick={()=>deletarColunista(c.id,c.nome)}>🗑️</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>}
+    </div>
+  );
+}
+
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
@@ -2032,6 +2212,8 @@ const PAGES = [
   {id:'relatorios',label:'Relatórios',icon:'📊'},
   {id:'configuracoes',label:'Configurações',icon:'🔧'},
   {id:'imagens',label:'Imagens',icon:'🖼️'},
+  {id:'galeria',label:'Galeria',icon:'🗂️'},
+  {id:'colunistas',label:'Colunistas',icon:'✍️'},
 ];
 
 function App() {
@@ -2055,7 +2237,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">
