@@ -20,18 +20,29 @@ function renderMdHtml(text){
   }).filter(Boolean).join('');
 }
 
+function imageStatus(p) {
+  if (!p.imagem || p.imagem.trim() === '') return 'sem';
+  if (!p.imagem.startsWith('http') || p.imagem.length < 40) return 'suspeita';
+  return 'ok';
+}
+
 function App(){
   const [tab,setTab] = React.useState("pendentes");
-  const tabs = ["dashboard","pendentes","publicados","sem_foto","pipeline","fontes","contas","logs","seo","config"];
-  const tabLabel = t => t==="sem_foto" ? "📷 SEM FOTO" : t.toUpperCase();
+  const tabs = ["dashboard","pendentes","publicados","sem_foto","galeria","pipeline","fontes","contas","colunistas","logs","seo","config"];
+  const tabLabel = t => {
+    if(t==="sem_foto") return "📷 SEM FOTO";
+    if(t==="galeria") return "🖼 GALERIA";
+    if(t==="colunistas") return "✍ COLUNISTAS";
+    return t.toUpperCase();
+  };
   return React.createElement("div",{style:{fontFamily:"Inter,sans-serif",background:"#08080f",minHeight:"100vh",color:"#e5e7eb"}},
-    React.createElement("div",{style:{background:"#0a0a14",borderBottom:"1px solid #1e293b",padding:"0 16px",display:"flex",gap:4,flexWrap:"wrap"}},
+    React.createElement("div",{style:{background:"#0a0a14",borderBottom:"1px solid #1e293b",padding:"0 16px",display:"flex",gap:4,flexWrap:"wrap",position:"sticky",top:0,zIndex:200}},
       React.createElement("div",{style:{padding:"12px 8px",fontWeight:700,color:"#ffc800",marginRight:16}},"OVC ADMIN"),
       tabs.map(t=>React.createElement("button",{key:t,onClick:()=>setTab(t),style:{
         background:tab===t?"#1e293b":"transparent",
-        color:tab===t?(t==="sem_foto"?"#ef4444":"#ffc800"):"#94a3b8",
+        color:tab===t?(t==="sem_foto"?"#ef4444":t==="galeria"?"#3b82f6":t==="colunistas"?"#22c55e":"#ffc800"):"#94a3b8",
         border:"none",padding:"12px 16px",cursor:"pointer",fontSize:13,fontWeight:600,
-        borderBottom:tab===t?(t==="sem_foto"?"2px solid #ef4444":"2px solid #ffc800"):"2px solid transparent"
+        borderBottom:tab===t?(t==="sem_foto"?"2px solid #ef4444":t==="galeria"?"2px solid #3b82f6":t==="colunistas"?"2px solid #22c55e":"2px solid #ffc800"):"2px solid transparent"
       }},tabLabel(t)))
     ),
     React.createElement("div",{style:{padding:24,maxWidth:1400,margin:"0 auto"}},
@@ -39,9 +50,11 @@ function App(){
       tab==="pendentes" && React.createElement(Pendentes),
       tab==="publicados" && React.createElement(Publicados),
       tab==="sem_foto" && React.createElement(SemFoto),
+      tab==="galeria" && React.createElement(Galeria),
       tab==="pipeline" && React.createElement(Pipeline),
       tab==="fontes" && React.createElement(Fontes),
       tab==="contas" && React.createElement(Contas),
+      tab==="colunistas" && React.createElement(ColunistasAdmin),
       tab==="logs" && React.createElement(Logs),
       tab==="seo" && React.createElement(SeoBatch),
       tab==="config" && React.createElement(Config)
@@ -208,6 +221,7 @@ function Pendentes(){
   const [editData,setEditData] = React.useState({});
   const [loading,setLoading] = React.useState(false);
   const [busca,setBusca] = React.useState("");
+  const [filtroImagem,setFiltroImagem] = React.useState("todos");
 
   async function load(){
     const { data } = await db.from("posts").select("*").eq("status","pendente").order("created_at",{ascending:false}).limit(200);
@@ -217,10 +231,37 @@ function Pendentes(){
 
   React.useEffect(()=>{ load(); },[]);
 
-  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()));
+  const filtrados = items
+    .filter(p => {
+      if (filtroImagem === "com_imagem") return imageStatus(p) === "ok";
+      if (filtroImagem === "sem_imagem") return imageStatus(p) === "sem";
+      if (filtroImagem === "suspeita") return imageStatus(p) === "suspeita";
+      return true;
+    })
+    .filter(p => {
+      if (!busca) return true;
+      const b = busca.toLowerCase();
+      const titulo = (p.titulo||'').toLowerCase();
+      let cat = "";
+      try { cat = (JSON.parse(p.user_tags||"[]")[0]||"").toLowerCase(); } catch(_) {}
+      return titulo.includes(b) || cat.includes(b);
+    });
+
+  async function salvarImagemGaleria(post, imagemUrl, tituloPost) {
+    const url = imagemUrl || post?.imagem;
+    if (!url || !url.startsWith("http")) return;
+    try {
+      await db.from("image_bank").upsert(
+        { url, titulo: tituloPost || post?.titulo, post_id: post?.id },
+        { onConflict: "url" }
+      );
+    } catch(_) {}
+  }
 
   async function aprovar(id){
     setLoading(true);
+    const post = items.find(p => p.id === id);
+    await salvarImagemGaleria(post);
     await fetch("/api/approve_portal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"aprovar",id})});
     await load(); setPreview(null); setLoading(false);
   }
@@ -234,6 +275,7 @@ function Pendentes(){
   async function editarAprovar(){
     setLoading(true);
     const tituloLimpo = cleanMd(editData.titulo);
+    await salvarImagemGaleria(preview, editData.imagem, tituloLimpo);
     await fetch("/api/approve_portal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"editar_aprovar",id:preview.id,...editData,titulo:tituloLimpo})});
     await load(); setPreview(null); setEditMode(false); setLoading(false);
   }
@@ -241,6 +283,10 @@ function Pendentes(){
   async function aprovarLote(){
     if(!selected.length) return;
     setLoading(true);
+    const selectedPosts = items.filter(p => selected.includes(p.id));
+    for (const post of selectedPosts) {
+      await salvarImagemGaleria(post);
+    }
     await fetch("/api/approve_portal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"aprovar_lote",ids:selected})});
     await load(); setLoading(false);
   }
@@ -262,14 +308,54 @@ function Pendentes(){
     ? React.createElement("textarea",{value:val||"",rows:10,onChange:e=>setEditData(d=>({...d,[key]:e.target.value})),style:{width:"100%",background:"#08080f",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:8,fontSize:13,resize:"vertical"}})
     : React.createElement("input",{value:val||"",onChange:e=>setEditData(d=>({...d,[key]:e.target.value})),style:{width:"100%",background:"#08080f",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"8px",fontSize:13,marginBottom:8}});
 
+  const filtroStyle = (key) => ({
+    background: filtroImagem === key ? "#ffc800" : "#1e293b",
+    color: filtroImagem === key ? "#08080f" : "#94a3b8",
+    border: "none", borderRadius: 6, padding: "6px 14px",
+    cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap"
+  });
+
+  const contagens = React.useMemo(() => {
+    let com=0, sem=0, sus=0;
+    items.forEach(p => {
+      const s = imageStatus(p);
+      if(s==="ok") com++;
+      else if(s==="sem") sem++;
+      else sus++;
+    });
+    return { com, sem, sus };
+  }, [items]);
+
   return React.createElement("div",null,
-    React.createElement("div",{style:{display:"flex",gap:12,alignItems:"center",marginBottom:16,flexWrap:"wrap"}},
-      React.createElement("h2",{style:{color:"#f59e0b",margin:0}},`Pendentes (${items.length})`),
-      React.createElement("input",{placeholder:"Buscar...",value:busca,onChange:e=>setBusca(e.target.value),style:{background:"#0f0f1a",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"6px 12px",fontSize:13,flex:1,maxWidth:300}}),
-      selected.length>0 && React.createElement("span",{style:{fontSize:13,color:"#94a3b8"}},`${selected.length} selecionadas`),
-      selected.length>0 && React.createElement("button",{onClick:aprovarLote,style:btnStyle("#22c55e"),disabled:loading},`✓ Aprovar ${selected.length}`),
-      selected.length>0 && React.createElement("button",{onClick:rejeitarLote,style:btnStyle("#ef4444"),disabled:loading},`✗ Rejeitar ${selected.length}`),
-      React.createElement("button",{onClick:load,style:btnStyle("#3b82f6"),disabled:loading},"↺ Atualizar")
+    // Barra sticky de filtros
+    React.createElement("div",{style:{position:"sticky",top:57,zIndex:100,background:"#08080f",padding:"12px 0",borderBottom:"1px solid #1e293b",marginBottom:16}},
+      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:10}},
+        React.createElement("h2",{style:{color:"#f59e0b",margin:0,marginRight:8}},`Pendentes (${filtrados.length}/${items.length})`),
+        selected.length>0 && React.createElement("span",{style:{fontSize:13,color:"#94a3b8"}},`${selected.length} selecionadas`),
+        selected.length>0 && React.createElement("button",{onClick:aprovarLote,style:btnStyle("#22c55e"),disabled:loading},`✓ Aprovar ${selected.length}`),
+        selected.length>0 && React.createElement("button",{onClick:rejeitarLote,style:btnStyle("#ef4444"),disabled:loading},`✗ Rejeitar ${selected.length}`),
+        React.createElement("button",{onClick:load,style:btnStyle("#3b82f6"),disabled:loading},"↺ Atualizar")
+      ),
+      React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}},
+        React.createElement("input",{
+          placeholder:"🔍 Buscar por título ou categoria...",
+          value:busca,
+          onChange:e=>setBusca(e.target.value),
+          style:{
+            background:"#0f0f1a",color:"#e5e7eb",
+            border: busca ? "1.5px solid #ffc800" : "1px solid #1e293b",
+            borderRadius:6,padding:"7px 14px",fontSize:13,
+            flex:1,maxWidth:340,outline:"none",
+            boxShadow: busca ? "0 0 0 2px #ffc80022" : "none",
+            transition:"border .2s,box-shadow .2s"
+          }
+        }),
+        React.createElement("span",{style:{fontSize:12,color:"#6b7280",marginLeft:4}},"Filtrar:"),
+        React.createElement("button",{onClick:()=>setFiltroImagem("todos"),style:filtroStyle("todos")},"Todos"),
+        React.createElement("button",{onClick:()=>setFiltroImagem("com_imagem"),style:filtroStyle("com_imagem")},`Com imagem ✓ (${contagens.com})`),
+        React.createElement("button",{onClick:()=>setFiltroImagem("suspeita"),style:{...filtroStyle("suspeita"),color:filtroImagem==="suspeita"?"#08080f":"#f59e0b"}},`Suspeita ⚠ (${contagens.sus})`),
+        React.createElement("button",{onClick:()=>setFiltroImagem("sem_imagem"),style:{...filtroStyle("sem_imagem"),color:filtroImagem==="sem_imagem"?"#08080f":"#ef4444"}},`Sem imagem ✗ (${contagens.sem})`)
+      )
     ),
 
     React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"hidden"}},
@@ -280,14 +366,23 @@ function Pendentes(){
               React.createElement("input",{type:"checkbox",checked:selected.length===filtrados.length&&filtrados.length>0,onChange:toggleAll})
             ),
             React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8"}},"TÍTULO"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#94a3b8",width:50}},"IMG"),
             React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:120}},"CATEGORIA"),
             React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:150}},"CRIADO"),
             React.createElement("th",{style:{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#94a3b8",width:200}},"AÇÕES")
           )
         ),
         React.createElement("tbody",null,
+          filtrados.length === 0 && React.createElement("tr",null,
+            React.createElement("td",{colSpan:6,style:{padding:40,textAlign:"center",color:"#6b7280",fontSize:14}},
+              "Nenhum post encontrado com os filtros selecionados."
+            )
+          ),
           filtrados.map((p,i)=>{
             let cat = "-"; try{ const t=JSON.parse(p.user_tags||"[]"); cat=t[0]||"-"; }catch(_){}
+            const imgSt = imageStatus(p);
+            const imgIcon = imgSt==="ok" ? "✓" : imgSt==="suspeita" ? "⚠" : "✗";
+            const imgColor = imgSt==="ok" ? "#22c55e" : imgSt==="suspeita" ? "#f59e0b" : "#ef4444";
             return React.createElement("tr",{key:p.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
               React.createElement("td",{style:{padding:"10px 12px"}},
                 React.createElement("input",{type:"checkbox",checked:selected.includes(p.id),onChange:()=>toggleSel(p.id)})
@@ -295,6 +390,7 @@ function Pendentes(){
               React.createElement("td",{style:{padding:"10px 12px"}},
                 React.createElement("a",{href:"#",onClick:e=>{e.preventDefault();abrirPreview(p)},style:{color:"#e5e7eb",textDecoration:"none",fontSize:14,fontWeight:500}}, cleanMd(p.titulo)||"(sem título)")
               ),
+              React.createElement("td",{style:{padding:"10px 12px",textAlign:"center",fontSize:16,fontWeight:700,color:imgColor},title:imgSt==="ok"?"Com imagem":imgSt==="suspeita"?"Imagem suspeita":"Sem imagem"}, imgIcon),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
               React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.created_at)),
               React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",display:"flex",gap:6,justifyContent:"flex-end"}},
@@ -660,6 +756,211 @@ function Config(){
       React.createElement("span",{style:{fontSize:11,color:"#6b7280"}}, fmt(c.updated_at)),
       React.createElement("button",{onClick:()=>remover(c.id),style:{background:"#ef4444",color:"#fff",border:"none",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:12}},"✕")
     ))
+  );
+}
+
+function Galeria(){
+  const [items,setItems] = React.useState([]);
+  const [loading,setLoading] = React.useState(false);
+  const [msg,setMsg] = React.useState("");
+  const [busca,setBusca] = React.useState("");
+
+  async function load(){
+    setLoading(true);
+    try {
+      const { data, error } = await db.from("image_bank").select("*").order("created_at",{ascending:false}).limit(300);
+      if (error) throw new Error(error.message);
+      setItems(data||[]);
+    } catch(e) {
+      setMsg("⚠ Tabela image_bank não encontrada. Execute o SQL de migração no Supabase (veja abaixo).");
+    }
+    setLoading(false);
+  }
+
+  async function syncAll(){
+    setLoading(true);
+    setMsg("Sincronizando imagens dos posts publicados...");
+    try {
+      const { data: posts } = await db.from("posts")
+        .select("id,titulo,imagem")
+        .eq("status","publicado")
+        .not("imagem","is",null)
+        .neq("imagem","")
+        .order("published_at",{ascending:false})
+        .limit(500);
+      let saved = 0;
+      for (const post of (posts||[])) {
+        if (!post.imagem || !post.imagem.startsWith("http")) continue;
+        const { error } = await db.from("image_bank").upsert(
+          { url: post.imagem, titulo: post.titulo, post_id: post.id },
+          { onConflict: "url" }
+        );
+        if (!error) saved++;
+      }
+      setMsg(`✅ ${saved} imagens sincronizadas dos posts publicados.`);
+      await load();
+    } catch(e) {
+      setMsg(`❌ Erro: ${e.message}`);
+      setLoading(false);
+    }
+  }
+
+  async function removerImagem(id){
+    await db.from("image_bank").delete().eq("id",id);
+    setItems(prev => prev.filter(x => x.id !== id));
+  }
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()) || (p.url||'').toLowerCase().includes(busca.toLowerCase()));
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"flex",gap:12,alignItems:"center",marginBottom:16,flexWrap:"wrap"}},
+      React.createElement("h2",{style:{color:"#3b82f6",margin:0}},`🖼 Galeria de Imagens (${items.length})`),
+      React.createElement("input",{placeholder:"Buscar...",value:busca,onChange:e=>setBusca(e.target.value),style:{background:"#0f0f1a",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"6px 12px",fontSize:13,flex:1,maxWidth:280}}),
+      React.createElement("button",{onClick:syncAll,disabled:loading,style:{background:"#3b82f6",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13}},"↺ Sincronizar Posts Publicados"),
+      React.createElement("button",{onClick:load,disabled:loading,style:{background:"#1e293b",color:"#e5e7eb",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13}},"↺ Atualizar")
+    ),
+
+    msg && React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:13,color:msg.startsWith("✅")?"#22c55e":msg.startsWith("❌")?"#ef4444":"#f59e0b"}}, msg),
+
+    React.createElement("div",{style:{background:"rgba(59,130,246,0.06)",border:"1px solid #3b82f633",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:12,color:"#6b7280"}},
+      "SQL necessário no Supabase (apenas uma vez): ",
+      React.createElement("code",{style:{color:"#ffc800",fontSize:11}},
+        "CREATE TABLE IF NOT EXISTS image_bank (id uuid primary key default uuid_generate_v4(), url text unique, titulo text, post_id uuid, created_at timestamp default now());"
+      )
+    ),
+
+    loading && React.createElement("div",{style:{padding:40,textAlign:"center",color:"#94a3b8"}},"Carregando..."),
+
+    !loading && filtrados.length === 0 && React.createElement("div",{style:{padding:40,textAlign:"center",color:"#6b7280",fontSize:14}},
+      "Nenhuma imagem na galeria. Aprove posts pendentes com imagem, ou clique em 'Sincronizar Posts Publicados'."
+    ),
+
+    !loading && React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:16}},
+      filtrados.map(img=>React.createElement("div",{key:img.id,style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"hidden",position:"relative"}},
+        React.createElement("img",{
+          src:img.url, alt:img.titulo||"",
+          style:{width:"100%",height:140,objectFit:"cover",display:"block"},
+          onError:e=>{ e.target.style.background="#1e293b"; e.target.style.height="60px"; }
+        }),
+        React.createElement("div",{style:{padding:"8px 10px"}},
+          React.createElement("div",{style:{fontSize:12,color:"#e5e7eb",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}, cleanMd(img.titulo)||"—"),
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+            React.createElement("div",{style:{fontSize:10,color:"#4b5563",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}},
+              (img.url||'').replace(/^https?:\/\//,"").slice(0,40)+"..."
+            ),
+            React.createElement("button",{
+              onClick:()=>removerImagem(img.id),
+              style:{background:"transparent",color:"#6b7280",border:"none",cursor:"pointer",fontSize:14,padding:"0 4px",lineHeight:1},
+              title:"Remover da galeria"
+            },"✕")
+          )
+        )
+      ))
+    )
+  );
+}
+
+function ColunistasAdmin(){
+  const [items,setItems] = React.useState([]);
+  const [form,setForm] = React.useState({nome:"",email:"",senha:""});
+  const [loading,setLoading] = React.useState(false);
+  const [msg,setMsg] = React.useState("");
+
+  async function load(){
+    try {
+      const r = await fetch("/api/colunista?action=list_colunistas");
+      const d = await r.json();
+      setItems(d.colunistas||[]);
+    } catch(e) {
+      setMsg("❌ Erro ao carregar colunistas: "+e.message);
+    }
+  }
+
+  async function criar(){
+    if(!form.nome||!form.email||!form.senha){ setMsg("Preencha todos os campos."); return; }
+    setLoading(true);
+    const r = await fetch("/api/colunista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create_colunista",...form})});
+    const d = await r.json();
+    if(d.ok){ setForm({nome:"",email:"",senha:""}); setMsg("✅ Colunista criado com sucesso!"); load(); }
+    else setMsg("❌ "+(d.error||"Erro desconhecido"));
+    setLoading(false);
+  }
+
+  async function toggle(c){
+    await fetch("/api/colunista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"toggle_colunista",id:c.id,ativo:c.ativo})});
+    load();
+  }
+
+  async function excluir(id){
+    if(!confirm("Excluir este colunista permanentemente?")) return;
+    await fetch("/api/colunista",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_colunista",id})});
+    load();
+  }
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const inp = (ph,key,type="text") => React.createElement("input",{
+    type, placeholder:ph, value:form[key]||"",
+    onChange:e=>setForm(f=>({...f,[key]:e.target.value})),
+    style:{background:"#0f0f1a",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"8px 12px",fontSize:13,flex:1}
+  });
+
+  return React.createElement("div",null,
+    React.createElement("h2",{style:{color:"#22c55e",marginBottom:16}},"✍ Sistema de Colunistas"),
+
+    React.createElement("div",{style:{background:"rgba(34,197,94,0.06)",border:"1px solid #22c55e33",borderRadius:8,padding:"12px 18px",marginBottom:20,fontSize:13,color:"#94a3b8"}},
+      "Colunistas acessam o portal em ",
+      React.createElement("a",{href:"/admin/colunista/",target:"_blank",style:{color:"#ffc800",fontWeight:700}},"/admin/colunista/"),
+      " com e-mail e senha. Posts submetidos chegam como 'pendente' na aba Postagens para aprovação do admin."
+    ),
+
+    React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,marginBottom:20}},
+      React.createElement("h3",{style:{color:"#e5e7eb",margin:"0 0 12px",fontSize:15}},"Novo Colunista"),
+      React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+        inp("Nome completo","nome"),
+        inp("E-mail","email","email"),
+        inp("Senha (mín. 6 chars)","senha","password"),
+        React.createElement("button",{onClick:criar,disabled:loading,style:{background:"#22c55e",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,opacity:loading?0.6:1}},
+          loading ? "Criando..." : "+ Criar"
+        )
+      ),
+      msg && React.createElement("div",{style:{marginTop:10,fontSize:13,color:msg.startsWith("✅")?"#22c55e":"#ef4444"}}, msg)
+    ),
+
+    React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"hidden"}},
+      React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
+        React.createElement("thead",null,
+          React.createElement("tr",{style:{background:"#1e293b"}},
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8"}},"NOME"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8"}},"E-MAIL"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"center",fontSize:12,color:"#94a3b8",width:80}},"STATUS"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:160}},"ÚLTIMO LOGIN"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#94a3b8",width:160}},"AÇÕES")
+          )
+        ),
+        React.createElement("tbody",null,
+          items.length===0 && React.createElement("tr",null,
+            React.createElement("td",{colSpan:5,style:{padding:32,textAlign:"center",color:"#6b7280",fontSize:14}},
+              "Nenhum colunista cadastrado ainda. Use o formulário acima para adicionar."
+            )
+          ),
+          items.map((c,i)=>React.createElement("tr",{key:c.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
+            React.createElement("td",{style:{padding:"10px 12px",fontSize:14,fontWeight:600}}, c.nome),
+            React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, c.email),
+            React.createElement("td",{style:{padding:"10px 12px",textAlign:"center"}},
+              React.createElement("span",{style:{color:c.ativo?"#22c55e":"#6b7280",fontWeight:700,fontSize:12}}, c.ativo?"ATIVO":"OFF")
+            ),
+            React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, c.last_login ? fmt(c.last_login) : "Nunca"),
+            React.createElement("td",{style:{padding:"10px 12px",textAlign:"right",display:"flex",gap:6,justifyContent:"flex-end"}},
+              React.createElement("button",{onClick:()=>toggle(c),style:{background:c.ativo?"#f59e0b":"#22c55e",color:"#fff",border:"none",borderRadius:4,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:700}}, c.ativo?"Suspender":"Ativar"),
+              React.createElement("button",{onClick:()=>excluir(c.id),style:{background:"#ef4444",color:"#fff",border:"none",borderRadius:4,padding:"4px 10px",cursor:"pointer",fontSize:12,fontWeight:700}},"✕")
+            )
+          ))
+        )
+      )
+    )
   );
 }
 

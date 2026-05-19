@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal do Colunista — OVC</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,sans-serif;background:#08080f;color:#e5e7eb;min-height:100vh}
+    .container{max-width:860px;margin:0 auto;padding:24px 16px}
+    .header{background:#0a0a14;border-bottom:1px solid #1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+    .logo{color:#ffc800;font-weight:800;font-size:18px;letter-spacing:.5px}
+    .card{background:#0f0f1a;border:1px solid #1e293b;border-radius:10px;padding:28px;margin-bottom:20px}
+    label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600}
+    input,textarea{width:100%;background:#08080f;color:#e5e7eb;border:1px solid #1e293b;border-radius:6px;padding:10px 14px;font-size:14px;outline:none;transition:border .2s}
+    input:focus,textarea:focus{border-color:#ffc800}
+    textarea{resize:vertical;min-height:200px;font-family:inherit;line-height:1.7}
+    .btn{display:inline-block;padding:10px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;transition:opacity .2s}
+    .btn:disabled{opacity:.5;cursor:default}
+    .btn-primary{background:#ffc800;color:#08080f}
+    .btn-danger{background:#ef4444;color:#fff}
+    .btn-secondary{background:#1e293b;color:#e5e7eb}
+    .msg{padding:10px 16px;border-radius:6px;font-size:13px;margin-top:12px}
+    .msg.ok{background:rgba(34,197,94,.15);border:1px solid #22c55e;color:#22c55e}
+    .msg.err{background:rgba(239,68,68,.12);border:1px solid #ef4444;color:#ef4444}
+    .status-badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700}
+    .s-pendente{background:#f59e0b;color:#fff}
+    .s-publicado{background:#22c55e;color:#fff}
+    .s-rejeitado{background:#ef4444;color:#fff}
+    table{width:100%;border-collapse:collapse}
+    th{padding:10px 12px;text-align:left;font-size:11px;color:#94a3b8;background:#1e293b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+    td{padding:10px 12px;font-size:13px;border-top:1px solid #1e293b}
+    .hidden{display:none}
+    #login-section h2{color:#ffc800;margin-bottom:20px;font-size:22px}
+    #portal-section h2{color:#ffc800;margin-bottom:4px;font-size:18px}
+    .user-info{font-size:13px;color:#94a3b8;margin-bottom:20px}
+    .tabs{display:flex;gap:4;margin-bottom:20px;border-bottom:1px solid #1e293b}
+    .tab{padding:10px 20px;cursor:pointer;border:none;background:transparent;color:#94a3b8;font-weight:600;font-size:13px;border-bottom:2px solid transparent;transition:all .2s}
+    .tab.active{color:#ffc800;border-bottom-color:#ffc800}
+    .char-count{font-size:11px;color:#6b7280;text-align:right;margin-top:4px}
+    .img-preview{max-width:100%;max-height:160px;border-radius:6px;margin-top:8px;display:none}
+    .section-title{font-size:16px;font-weight:700;color:#e5e7eb;margin-bottom:16px}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">OVC · Portal do Colunista</div>
+  <button id="btn-logout" class="btn btn-secondary hidden" style="padding:6px 16px;font-size:12px" onclick="logout()">Sair</button>
+</div>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="login-section" class="card" style="max-width:420px;margin:60px auto">
+    <h2>Acesso Colunista</h2>
+    <div style="margin-bottom:16px">
+      <label>E-mail</label>
+      <input type="email" id="inp-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div style="margin-bottom:20px">
+      <label>Senha</label>
+      <input type="password" id="inp-senha" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()" id="btn-login">Entrar</button>
+    <div id="login-msg"></div>
+  </div>
+
+  <!-- PORTAL LOGADO -->
+  <div id="portal-section" class="hidden">
+    <h2>Bem-vindo, <span id="span-nome"></span></h2>
+    <div class="user-info">Colunista OVC · Seus artigos são revisados antes de publicação</div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('tab-posts',this)">Meus Artigos</button>
+      <button class="tab" onclick="showTab('tab-submit',this)">Enviar Novo Artigo</button>
+    </div>
+
+    <!-- LISTA DE POSTS -->
+    <div id="tab-posts">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="section-title" style="margin:0">Meus Artigos</div>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="loadPosts()">↺ Atualizar</button>
+      </div>
+      <div id="posts-loading" style="color:#94a3b8;font-size:13px;padding:20px 0">Carregando...</div>
+      <div id="posts-table-wrap" class="hidden">
+        <table>
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th style="width:120px">Status</th>
+              <th style="width:150px">Enviado em</th>
+            </tr>
+          </thead>
+          <tbody id="posts-tbody"></tbody>
+        </table>
+        <div id="posts-empty" class="hidden" style="padding:32px;text-align:center;color:#6b7280;font-size:13px">Nenhum artigo enviado ainda. Use a aba 'Enviar Novo Artigo'.</div>
+      </div>
+    </div>
+
+    <!-- ENVIAR POST -->
+    <div id="tab-submit" class="hidden">
+      <div class="section-title">Enviar Novo Artigo</div>
+      <div style="margin-bottom:14px">
+        <label>Título do Artigo *</label>
+        <input type="text" id="post-titulo" placeholder="Título claro e objetivo (mínimo 10 caracteres)" oninput="updateCharCount('post-titulo','count-titulo')">
+        <div class="char-count" id="count-titulo">0 caracteres</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label>Conteúdo *</label>
+        <textarea id="post-conteudo" placeholder="Escreva seu artigo aqui (mínimo 200 caracteres). Você pode usar **negrito** e ## para subtítulos." oninput="updateCharCount('post-conteudo','count-conteudo')"></textarea>
+        <div class="char-count" id="count-conteudo">0 caracteres · mínimo 200</div>
+      </div>
+      <div style="margin-bottom:20px">
+        <label>URL da Imagem (opcional)</label>
+        <input type="url" id="post-imagem" placeholder="https://exemplo.com/imagem.jpg" oninput="previewImg()">
+        <img id="img-preview" class="img-preview" alt="Pré-visualização">
+      </div>
+      <button class="btn btn-primary" onclick="submitPost()" id="btn-submit">Enviar para Revisão</button>
+      <div id="submit-msg"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = '/api/colunista';
+let session = null;
+
+function showMsg(id, text, isOk) {
+  const el = document.getElementById(id);
+  el.className = 'msg ' + (isOk ? 'ok' : 'err');
+  el.textContent = text;
+}
+
+function showTab(tabId, btn) {
+  ['tab-posts','tab-submit'].forEach(t => document.getElementById(t).classList.add('hidden'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.remove('hidden');
+  btn.classList.add('active');
+  if (tabId === 'tab-posts') loadPosts();
+}
+
+function fmt(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function logout() {
+  localStorage.removeItem('ovc_colunista');
+  session = null;
+  document.getElementById('portal-section').classList.add('hidden');
+  document.getElementById('login-section').classList.remove('hidden');
+  document.getElementById('btn-logout').classList.add('hidden');
+  document.getElementById('inp-email').value = '';
+  document.getElementById('inp-senha').value = '';
+  document.getElementById('login-msg').textContent = '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('inp-email').value.trim();
+  const senha = document.getElementById('inp-senha').value;
+  if (!email || !senha) { showMsg('login-msg', 'Preencha email e senha.', false); return; }
+
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  try {
+    const r = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login', email, senha })
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      showMsg('login-msg', d.error || 'Erro ao autenticar.', false);
+    } else {
+      session = d;
+      localStorage.setItem('ovc_colunista', JSON.stringify(d));
+      initPortal();
+    }
+  } catch(e) {
+    showMsg('login-msg', 'Erro de conexão. Tente novamente.', false);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+}
+
+function initPortal() {
+  document.getElementById('login-section').classList.add('hidden');
+  document.getElementById('portal-section').classList.remove('hidden');
+  document.getElementById('btn-logout').classList.remove('hidden');
+  document.getElementById('span-nome').textContent = session.nome;
+  loadPosts();
+}
+
+async function loadPosts() {
+  if (!session) return;
+  document.getElementById('posts-loading').classList.remove('hidden');
+  document.getElementById('posts-table-wrap').classList.add('hidden');
+
+  try {
+    const r = await fetch(`${API}?action=list_posts&colunista_id=${session.colunista_id}&token=${session.token}`);
+    const d = await r.json();
+    if (!d.ok) { document.getElementById('posts-loading').textContent = 'Erro: ' + d.error; return; }
+
+    document.getElementById('posts-loading').classList.add('hidden');
+    document.getElementById('posts-table-wrap').classList.remove('hidden');
+
+    const tbody = document.getElementById('posts-tbody');
+    const empty = document.getElementById('posts-empty');
+    tbody.innerHTML = '';
+
+    if (!d.posts.length) {
+      empty.classList.remove('hidden');
+    } else {
+      empty.classList.add('hidden');
+      d.posts.forEach(p => {
+        const s = p.status || 'pendente';
+        const badgeClass = s === 'publicado' ? 's-publicado' : s === 'rejeitado' ? 's-rejeitado' : 's-pendente';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="color:#e5e7eb;font-weight:500">${(p.titulo||'').replace(/\*\*/g,'')}</td>
+          <td><span class="status-badge ${badgeClass}">${s.toUpperCase()}</span></td>
+          <td style="color:#6b7280">${fmt(p.created_at)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  } catch(e) {
+    document.getElementById('posts-loading').textContent = 'Erro de conexão.';
+  }
+}
+
+function updateCharCount(inputId, countId) {
+  const val = document.getElementById(inputId).value;
+  const el = document.getElementById(countId);
+  const len = val.length;
+  const min = inputId === 'post-conteudo' ? 200 : 10;
+  el.textContent = len + ' caracteres' + (len < min ? ` · mínimo ${min}` : ' ✓');
+  el.style.color = len >= min ? '#22c55e' : '#6b7280';
+}
+
+function previewImg() {
+  const url = document.getElementById('post-imagem').value.trim();
+  const img = document.getElementById('img-preview');
+  if (url.startsWith('http')) {
+    img.src = url;
+    img.style.display = 'block';
+    img.onerror = () => { img.style.display = 'none'; };
+  } else {
+    img.style.display = 'none';
+  }
+}
+
+async function submitPost() {
+  if (!session) return;
+  const titulo = document.getElementById('post-titulo').value.trim();
+  const conteudo = document.getElementById('post-conteudo').value.trim();
+  const imagem = document.getElementById('post-imagem').value.trim();
+
+  if (titulo.length < 10) { showMsg('submit-msg', 'Título muito curto (mínimo 10 caracteres).', false); return; }
+  if (conteudo.length < 200) { showMsg('submit-msg', 'Conteúdo mínimo de 200 caracteres.', false); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    const r = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'submit_post',
+        colunista_id: session.colunista_id,
+        token: session.token,
+        titulo,
+        conteudo,
+        imagem: imagem || undefined
+      })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      showMsg('submit-msg', '✅ Artigo enviado! Aguarde a revisão do administrador.', true);
+      document.getElementById('post-titulo').value = '';
+      document.getElementById('post-conteudo').value = '';
+      document.getElementById('post-imagem').value = '';
+      document.getElementById('img-preview').style.display = 'none';
+      updateCharCount('post-titulo', 'count-titulo');
+      updateCharCount('post-conteudo', 'count-conteudo');
+    } else {
+      showMsg('submit-msg', '❌ ' + (d.error || 'Erro ao enviar.'), false);
+    }
+  } catch(e) {
+    showMsg('submit-msg', '❌ Erro de conexão. Tente novamente.', false);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Enviar para Revisão';
+}
+
+// Checar sessão salva ao carregar
+(function() {
+  try {
+    const saved = localStorage.getItem('ovc_colunista');
+    if (saved) {
+      session = JSON.parse(saved);
+      if (session?.token && session?.colunista_id) {
+        initPortal();
+        return;
+      }
+    }
+  } catch(_) {}
+})();
+</script>
+</body>
+</html>
