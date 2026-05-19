@@ -30,6 +30,7 @@ function handler(req, res) {
     if (req.query.action === 'audit_images') return handleAuditImages(req, res);
     if (req.query.action === 'list_colunistas') return handleListColunistas(req, res);
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
+    if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -676,4 +677,21 @@ async function handleDeleteColunista(req, res) {
   if (!id) return res.status(400).json({ error: "id obrigatório" });
   await supabase.from("colunistas").delete().eq("id", id);
   return res.status(200).json({ ok: true });
+}
+
+async function handleLimparPendentesAntigos(req, res) {
+  // Deleta posts com status 'pendente' criados antes de 2026-05-18 (dia 17 para trás)
+  const corte = req.query.antes || '2026-05-18T00:00:00';
+  try {
+    const { data, error } = await supabase
+      .from("posts")
+      .delete()
+      .eq("status", "pendente")
+      .lt("created_at", corte)
+      .select("id");
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ ok: true, deletados: (data || []).length, corte });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
 }
