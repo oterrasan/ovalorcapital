@@ -27,14 +27,14 @@ async function analyzeImageVision(buffer) {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
-        max_tokens: 100,
+        max_tokens: 120,
         temperature: 0,
         messages: [{
           role: "user",
           content: [
             {
               type: "text",
-              text: 'Analyze this image. Respond ONLY with valid JSON: {"has_competitor_logo":true/false,"is_chart_or_table":true/false,"is_illustration":true/false,"is_logo":true/false}\nhas_competitor_logo: true if logos/watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if image is a chart, graph, infographic, map, table, or has critical readable text/numbers.\nis_illustration: true if image is a drawing, cartoon, illustration, clipart, painting, animation, or any non-photographic artwork — NOT a real photograph of a person, place or event.\nis_logo: true if image is primarily a brand logo, company symbol, product icon, app icon, or corporate identity — examples: Google logo, Apple logo, government seal, party symbol, team badge. False if the logo is small/secondary in a real photograph.'
+              text: 'Analyze this image. Respond ONLY with valid JSON: {"has_competitor_logo":true/false,"is_chart_or_table":true/false,"is_illustration":true/false,"is_logo":true/false,"is_tourist_landmark":true/false}\nhas_competitor_logo: true if logos/watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if image is a chart, graph, infographic, map, table, or has critical readable text/numbers.\nis_illustration: true if image is a drawing, cartoon, illustration, clipart, painting, animation, or any non-photographic artwork — NOT a real photograph of a person, place or event.\nis_logo: true if image is primarily a brand logo, company symbol, product icon, app icon, or corporate identity — examples: Google logo, Apple logo, government seal, party symbol, team badge. False if the logo is small/secondary in a real photograph.\nis_tourist_landmark: true if image shows ONLY a tourist attraction, historic monument, temple, pagoda, castle, church exterior, famous building, or scenic landscape with NO people or news context — i.e. a generic travel/stock photo of a place. False if there are people, protest, event, or clear news context.'
             },
             {
               type: "image_url",
@@ -161,8 +161,9 @@ export async function processAndSaveImage(sourceUrl, postId, startTime) {
       visionMetrics = await analyzeImageVision(buffer);
     }
 
-    // Rejeita: logo corporativo, logo de concorrente, gráfico/tabela, ou ilustração/desenho
+    // Rejeita: logo, ponto turístico genérico, logo concorrente, gráfico/tabela, ilustração
     if (visionMetrics?.is_logo === true) return null;
+    if (visionMetrics?.is_tourist_landmark === true) return null;
     if (visionMetrics?.has_competitor_logo === true) return null;
     if (visionMetrics?.is_chart_or_table === true) return null;
     if (visionMetrics?.is_illustration === true) return null;
