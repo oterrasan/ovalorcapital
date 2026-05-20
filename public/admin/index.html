@@ -2000,8 +2000,24 @@ Redação OVC — ${hoje}
                   <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>{form.comentario_fixado.length}/200</div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">URL da Imagem</label>
-                  <input className="form-input" value={form.imagem} onChange={e=>setForm({...form,imagem:e.target.value})} placeholder="https://..."/>
+                  <label className="form-label">Imagem</label>
+                  <input className="form-input" value={form.imagem} onChange={e=>setForm({...form,imagem:e.target.value})} placeholder="Cole a URL da imagem..."/>
+                  <div style={{display:'flex',gap:6,marginTop:6,flexWrap:'wrap'}}>
+                    {['foto do Lula','foto do Bolsonaro','campo de futebol','bitcoin','congresso nacional','bolsa de valores'].map(q=>(
+                      <button key={q} className="btn btn-secondary btn-sm" style={{fontSize:10,padding:'3px 8px'}} onClick={async()=>{
+                        const r=await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(q)}`);
+                        const d=await r.json();
+                        if(d.url) setForm(f=>({...f,imagem:d.url}));
+                      }}>🔍 {q}</button>
+                    ))}
+                  </div>
+                  <input className="form-input" style={{marginTop:6,fontSize:12}} placeholder='🔍 Ou descreva aqui: "moto esportiva", "médico cirurgião"...' onKeyDown={async e=>{
+                    if(e.key==='Enter'&&e.target.value.trim()){
+                      const r=await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(e.target.value.trim())}`);
+                      const d=await r.json();
+                      if(d.url){setForm(f=>({...f,imagem:d.url}));e.target.value='';}
+                    }
+                  }}/>
                   {form.imagem && <img src={form.imagem} style={{marginTop:8,width:'100%',maxHeight:200,objectFit:'cover',borderRadius:6}} onError={e=>e.target.style.display='none'} alt="preview"/>}
                 </div>
               </div>
@@ -2156,20 +2172,21 @@ function Galeria(){
   async function carregarGaleria(){
     setLoading(true);
     const r=await fetch(`${SUPA_URL}/rest/v1/image_bank?select=*&order=created_at.desc`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
-    if(r.ok){const d=await r.json();setImgs(d);}
+    if(r.ok){const d=await r.json();setImgs(Array.isArray(d)?d:[]);}
+    else if(r.status===404||r.status===400){setMsg('⚠️ Tabela image_bank não existe no Supabase. Execute o SQL de migração (seção Configurações → Banco de Dados).');}
     setLoading(false);
   }
 
   async function sincronizar(){
     setSyncing(true);setMsg('');
     try{
-      const r=await fetch(`${SUPA_URL}/rest/v1/posts?select=id,titulo,imagem_url&imagem_url=not.is.null&status=eq.publicado`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
+      const r=await fetch(`${SUPA_URL}/rest/v1/posts?select=id,titulo,imagem&imagem=not.is.null&status=eq.publicado`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
       if(!r.ok)throw new Error('Erro ao buscar posts');
       const posts=await r.json();
       let salvos=0;
       for(const p of posts){
-        if(!p.imagem_url)continue;
-        const body={url:p.imagem_url,titulo:p.titulo||'',post_id:p.id};
+        if(!p.imagem)continue;
+        const body={url:p.imagem,titulo:p.titulo||'',post_id:p.id};
         const ins=await fetch(`${SUPA_URL}/rest/v1/image_bank`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates'},body:JSON.stringify(body)});
         if(ins.ok)salvos++;
       }
@@ -2234,17 +2251,24 @@ function ColunistasAdmin(){
 
   async function carregar(){
     setLoading(true);
-    const r=await fetch('/api/manage?action=list_colunistas');
-    if(r.ok){const d=await r.json();setLista(d.colunistas||[]);}
+    try{
+      const r=await fetch('/api/manage?action=list_colunistas');
+      const d=await r.json();
+      if(d.tabela_ausente){setMsg('⚠️ Tabela "colunistas" não existe no Supabase. Peça ao Roberto executar o SQL de criação (está no CLAUDE.md seção 4).');}
+      else if(d.ok){setLista(d.colunistas||[]);}
+      else setMsg('Erro ao carregar: '+(d.error||'falha'));
+    }catch(e){setMsg('Erro de conexão: '+e.message);}
     setLoading(false);
   }
 
   async function criarColunista(e){
     e.preventDefault();setCriando(true);setMsg('');
-    const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
-    const d=await r.json();
-    if(r.ok){setMsg('Colunista criado com sucesso!');setForm({nome:'',email:'',senha:''});setShowForm(false);carregar();}
-    else setMsg('Erro: '+(d.error||'falha ao criar'));
+    try{
+      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
+      const d=await r.json();
+      if(r.ok&&d.ok){setMsg('✅ Colunista criado com sucesso!');setForm({nome:'',email:'',senha:''});setShowForm(false);carregar();}
+      else setMsg('❌ Erro: '+(d.error||'falha ao criar'));
+    }catch(e){setMsg('❌ Erro de conexão: '+e.message);}
     setCriando(false);
   }
 
@@ -2343,8 +2367,33 @@ const PAGES = [
   {id:'colunistas',label:'Colunistas',icon:'✍️'},
 ];
 
+// ── SELETOR DE IMAGEM ──
+function ImagemSelector({value, onChange, disabled}) {
+  const [mode, setMode] = useState('auto');
+  const btnStyle = (m) => ({
+    padding:'5px 12px',fontSize:11,fontWeight:600,cursor:'pointer',border:'none',borderRadius:6,
+    background: mode===m ? 'var(--red)' : 'rgba(255,255,255,0.06)',
+    color: mode===m ? '#fff' : 'var(--t2)'
+  });
+  const handleMode = (m) => { setMode(m); onChange({mode:m, value:''}); };
+  const handleValue = (v) => onChange({mode, value:v});
+  return (
+    <div style={{marginTop:10}}>
+      <div style={{fontSize:11,color:'var(--t2)',marginBottom:6,fontWeight:600}}>🖼 Imagem do artigo</div>
+      <div style={{display:'flex',gap:4,marginBottom:6,flexWrap:'wrap'}}>
+        <button style={btnStyle('auto')} onClick={()=>handleMode('auto')} disabled={disabled}>🤖 Automática</button>
+        <button style={btnStyle('url')}  onClick={()=>handleMode('url')}  disabled={disabled}>🔗 URL direta</button>
+        <button style={btnStyle('query')} onClick={()=>handleMode('query')} disabled={disabled}>🔍 Descrever</button>
+      </div>
+      {mode==='url' && <input className="form-input" style={{fontSize:12}} placeholder="https://site.com/foto.jpg" value={value} onChange={e=>handleValue(e.target.value)} disabled={disabled}/>}
+      {mode==='query' && <input className="form-input" style={{fontSize:12}} placeholder='ex: "foto do Lula", "campo de futebol", "moto", "bitcoin"...' value={value} onChange={e=>handleValue(e.target.value)} disabled={disabled}/>}
+      {mode==='auto' && <div style={{fontSize:11,color:'var(--t3)'}}>A IA busca a imagem mais relevante para o tema do artigo.</div>}
+    </div>
+  );
+}
+
 // ── REESCRITA OVC ──
-function ReescritaOVC() {
+function ReescritaOVC({onVerPendentes}) {
   const [aberto, setAberto] = useState(false);
   const [modo, setModo] = useState('url'); // 'url' | 'texto'
   const [urls, setUrls] = useState(Array(10).fill(''));
@@ -2352,6 +2401,7 @@ function ReescritaOVC() {
   const [texto, setTexto] = useState('');
   const [resTexto, setResTexto] = useState(null);
   const [rodando, setRodando] = useState(false);
+  const [imgTexto, setImgTexto] = useState({mode:'auto', value:''});
 
   const enviarUrls = async () => {
     setRodando(true);
@@ -2376,7 +2426,10 @@ function ReescritaOVC() {
     setRodando(true);
     setResTexto({estado:'enviando'});
     try {
-      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:texto.trim()})});
+      const body = {texto:texto.trim()};
+      if (imgTexto.mode==='url' && imgTexto.value) body.image_url = imgTexto.value;
+      if (imgTexto.mode==='query' && imgTexto.value) body.image_query = imgTexto.value;
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const j = await r.json();
       setResTexto({estado:j.ok===true?'ok':'erro',msg:j.titulo||j.error||j.status||''});
     } catch(e) { setResTexto({estado:'erro',msg:e.message}); }
@@ -2385,7 +2438,7 @@ function ReescritaOVC() {
 
   const limpar = () => {
     setUrls(Array(10).fill('')); setRes(Array(10).fill(null));
-    setTexto(''); setResTexto(null);
+    setTexto(''); setResTexto(null); setImgTexto({mode:'auto',value:''});
   };
 
   const tabStyle = (m) => ({
@@ -2434,13 +2487,19 @@ function ReescritaOVC() {
                   placeholder="Cole aqui o texto completo da matéria..."
                   disabled={rodando}
                 />
-                {resTexto&&<div style={{padding:'8px 12px',borderRadius:6,background:resTexto.estado==='ok'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',border:'1px solid '+(resTexto.estado==='ok'?'rgba(74,222,128,0.3)':'rgba(248,113,113,0.3)'),fontSize:13,color:resTexto.estado==='ok'?'#4ade80':'#f87171'}}>
+                <ImagemSelector value={imgTexto.value} onChange={setImgTexto} disabled={rodando}/>
+                {resTexto&&<div style={{padding:'8px 12px',borderRadius:6,marginTop:8,background:resTexto.estado==='ok'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',border:'1px solid '+(resTexto.estado==='ok'?'rgba(74,222,128,0.3)':'rgba(248,113,113,0.3)'),fontSize:13,color:resTexto.estado==='ok'?'#4ade80':'#f87171'}}>
                   {resTexto.estado==='enviando'?'⏳ Processando...':resTexto.estado==='ok'?('✓ Salvo como pendente: '+resTexto.msg):('✗ Erro: '+resTexto.msg)}
                 </div>}
               </>}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={limpar}>Limpar</button>
+              {(modo==='url'?res.some(r=>r&&r.estado==='ok'):resTexto&&resTexto.estado==='ok')&&(
+                <button className="btn btn-secondary" style={{color:'#4ade80',borderColor:'#4ade80'}} onClick={()=>{if(onVerPendentes)onVerPendentes();setAberto(false);}}>
+                  📋 Ver pendentes →
+                </button>
+              )}
               {modo==='url'
                 ?<button className="btn btn-primary" onClick={enviarUrls} disabled={rodando||urls.every(u=>!u.trim())}>{rodando?'⏳ Enviando...':'▶ Reescrever URLs'}</button>
                 :<button className="btn btn-primary" onClick={enviarTexto} disabled={rodando||!texto.trim()}>{rodando?'⏳ Processando...':'▶ Reescrever texto'}</button>
@@ -2499,7 +2558,7 @@ function App() {
         </div>
       </div>
       <div className="main"><PageComp/></div>
-      <ReescritaOVC/>
+      <ReescritaOVC onVerPendentes={()=>setPage('postagens')}/>
     </div>
   );
 }

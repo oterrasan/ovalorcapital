@@ -635,7 +635,13 @@ async function handleSubmitColunista(req, res) {
 
 async function handleListColunistas(req, res) {
   try {
-    const { data } = await supabase.from("colunistas").select("id,nome,email,ativo,created_at,last_login").order("nome");
+    const { data, error } = await supabase.from("colunistas").select("id,nome,email,ativo,created_at,last_login").order("nome");
+    if (error) {
+      if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01')) {
+        return res.status(200).json({ ok: false, tabela_ausente: true, colunistas: [] });
+      }
+      return res.status(500).json({ error: error.message });
+    }
     return res.status(200).json({ ok: true, colunistas: data || [] });
   } catch(e) {
     return res.status(500).json({ error: e.message });
