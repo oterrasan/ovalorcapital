@@ -96,4 +96,21 @@
       bottom.appendChild(disc);
     }
   });
+  // Proteção de conteúdo OVC
+  (function(){
+    var s = document.createElement('style');
+    s.textContent = '*{-webkit-user-select:none!important;user-select:none!important}'
+      + 'input,textarea,[contenteditable]{-webkit-user-select:text!important;user-select:text!important}'
+      + 'img{-webkit-user-drag:none!important;pointer-events:none!important}'
+      + 'a img,a>img{pointer-events:auto!important}';
+    document.head.appendChild(s);
+    document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    document.addEventListener('keydown', function(e){
+      if(e.ctrlKey||e.metaKey){
+        if(['c','a','u','s','p'].indexOf(e.key.toLowerCase())>-1) e.preventDefault();
+      }
+      if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['i','j','c'].indexOf(e.key.toLowerCase())>-1)) e.preventDefault();
+    });
+    document.addEventListener('dragstart', function(e){ if(e.target.tagName==='IMG') e.preventDefault(); });
+  })();
 })();
