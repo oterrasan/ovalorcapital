@@ -273,7 +273,9 @@ function Dashboard() {
               {[{label:'USD/BRL',data:usd,icon:'🇺🇸'},{label:'EUR/BRL',data:eur,icon:'🇪🇺'},{label:'BTC/BRL',data:btc,icon:'₿'}].map(function(item){
                 var chg=pct(item.data);
                 var raw=item.data?parseFloat(item.data.bid||item.data.high||0):0;
-                var val=raw?raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:item.label.includes('BTC')?0:2}):'---';
+                var isBtc=item.label.includes('BTC');
+                var fmtOpts=isBtc?{minimumFractionDigits:0,maximumFractionDigits:0}:{minimumFractionDigits:2,maximumFractionDigits:2};
+                var val=raw?raw.toLocaleString('pt-BR',fmtOpts):'---';
                 return (
                   <div key={item.label} style={{flex:1,minWidth:90,background:'rgba(255,255,255,0.03)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--border)'}}>
                     <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{item.icon} {item.label}</div>
