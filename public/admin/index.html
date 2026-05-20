@@ -2386,7 +2386,7 @@ function ReescritaOVC() {
                 <div key={i} style={{display:'flex',gap:8,alignItems:'center'}}>
                   <span style={{fontSize:11,color:'var(--t3)',width:18,textAlign:'right'}}>{i+1}</span>
                   <input className="form-input" style={{flex:1}} value={u} onChange={function(e){var n=[...urls];n[i]=e.target.value;setUrls(n);}} placeholder="https://..." disabled={rodando}/>
-                  {res[i]&&<span style={{fontSize:12,color:res[i].estado==='enviando'?'var(--yellow)':res[i].estado==='ok'?'#4ade80':'#f87171',whiteSpace:'nowrap'}}>{res[i].estado==='enviando'?'⏳':res[i].estado==='ok'?'✓ OK':'✗ Erro'}</span>}
+                  {res[i]&&<span title={res[i].msg||''} style={{fontSize:11,color:res[i].estado==='enviando'?'var(--yellow)':res[i].estado==='ok'?'#4ade80':'#f87171',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block',verticalAlign:'middle'}}>{res[i].estado==='enviando'?'⏳ enviando...':res[i].estado==='ok'?('✓ '+(res[i].msg||'OK').slice(0,30)):('✗ '+(res[i].msg||'Erro'))}</span>}
                 </div>
               );})}
             </div>
