@@ -624,7 +624,7 @@ export async function rewritePortalManual(text, title, useGemini = false) {
     }
   }
   const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 3000) {
+  if (!result || !result.corpo || result.corpo.length < 1500) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   const tituloLower = (result.titulo || "").toLowerCase().trim();
