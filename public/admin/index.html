@@ -161,106 +161,222 @@ function Login({ onLogin }) {
 
 // ── DASHBOARD ──
 function Dashboard() {
-  const [status, setStatus] = useState({running:false,posts_hoje:0,max_posts:60,pendentes:0,erros:0});
+  const [status, setStatus] = useState({running:false,posts_hoje:0,max_posts:300,pendentes:0});
   const [posts, setPosts] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [forcing, setForcing] = useState(false);
-  const [runResult, setRunResult] = useState('');
-  const [alertas, setAlertas] = useState([]);
+  const [cats, setCats] = useState([]);
+  const [cotacoes, setCotacoes] = useState(null);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [aprovando, setAprovando] = useState(null);
 
   const load = useCallback(async () => {
-    try {
-      const r = await fetch('/api/manage');
-      if (r.ok) setStatus(await r.json());
-    } catch(_) {}
-    const { data: p } = await sb.from('posts').select('*').order('created_at',{ascending:false}).limit(10);
+    try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
+    const { data: p } = await sb.from('posts').select('id,titulo,status,approved,imagem,user_tags,created_at,published_at').order('created_at',{ascending:false}).limit(15);
     setPosts(p||[]);
-    const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(10);
-    setLogs(l||[]);
-    // Alertas: posts com erro recentes
-    const { data: errs } = await sb.from('posts').select('*').eq('status','error').order('updated_at',{ascending:false}).limit(5);
-    setAlertas(errs||[]);
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const { data: hp } = await sb.from('posts').select('user_tags').gte('created_at', hoje.toISOString());
+    const cc = {}; (hp||[]).forEach(x=>{ try{JSON.parse(x.user_tags||'[]').forEach(t=>cc[t]=(cc[t]||0)+1);}catch(_){} });
+    setCats(Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,8));
+    setLoadingPosts(false);
   }, []);
 
-  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+  useEffect(()=>{ load(); const t=setInterval(load,30000); return()=>clearInterval(t); },[load]);
 
-  const forceRun = async () => {
-    setForcing(true); setRunResult('Executando...');
-    try {
-      const r = await fetch('/api/run_portal', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});
-      const j = await r.json();
-      setRunResult(JSON.stringify(j));
-      load();
-    } catch(e) { setRunResult('Erro: '+e.message); }
-    setForcing(false);
+  useEffect(()=>{
+    const fetchCot = async()=>{ try{ const r=await fetch('https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL'); if(r.ok) setCotacoes(await r.json()); }catch(_){} };
+    fetchCot(); const t=setInterval(fetchCot,60000); return()=>clearInterval(t);
+  },[]);
+
+  const aprovar = async(id)=>{
+    setAprovando(id);
+    await sb.from('posts').update({status:'publicado',approved:true,published_at:new Date().toISOString()}).eq('id',id);
+    setPosts(ps=>ps.map(p=>p.id===id?{...p,status:'publicado',approved:true}:p));
+    setAprovando(null);
   };
 
-  const semana = posts.filter(p=>{
-    const d=new Date(p.created_at);
-    return (Date.now()-d.getTime())<7*24*60*60*1000;
-  }).length;
+  const exportCSV = ()=>{
+    const rows=[['Título','Status','Categoria','Data'],...posts.map(p=>{
+      let cat=''; try{cat=JSON.parse(p.user_tags||'[]')[0]||'';}catch(_){}
+      return ['"'+(p.titulo||'').replace(/"/g,'""')+'"',p.status,cat,fmt(p.created_at)];
+    })];
+    const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download='ovc-posts.csv'; a.click();
+  };
 
-  const novos = posts.filter(p=>p.status==='pendente').length;
+  const pendentes = posts.filter(p=>p.status==='pendente').length;
+  const semana = posts.filter(p=>(Date.now()-new Date(p.created_at).getTime())<7*24*3600*1000).length;
+  const semImagem = posts.filter(p=>!p.imagem).length;
+  const usd=cotacoes&&cotacoes['USDBRL'], eur=cotacoes&&cotacoes['EURBRL'], btc=cotacoes&&cotacoes['BTCBRL'];
+  const pct=v=>parseFloat((v&&v.pctChange)||0);
+  const maxCat=cats.length?cats[0][1]:1;
+
+  const OVC_AO_VIVO=[
+    {label:'OVC TV',href:'https://www.ovalorcapital.com.br/tv-ovc/',icon:'📺',cor:'#c81e1e'},
+    {label:'OVC Rádio',href:'https://www.ovalorcapital.com.br/radio-ovc/',icon:'📻',cor:'#7c3aed'},
+    {label:'YouTube',href:'https://youtube.com/@ovalorcapital',icon:'▶️',cor:'#dc2626'},
+    {label:'Dados',href:'https://www.ovalorcapital.com.br/dados/',icon:'📊',cor:'#0ea5e9'},
+    {label:'Radar',href:'https://www.ovalorcapital.com.br/radar/',icon:'📡',cor:'#16a34a'},
+    {label:'Especiais',href:'https://www.ovalorcapital.com.br/especiais/',icon:'⭐',cor:'#f59e0b'},
+  ];
 
   return (
     <div>
-      <div className="page-header">
-        <div className="page-title">Dashboard Global</div>
-        <div className="page-sub">Visão em tempo real do ecossistema OVC</div>
+      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16}}>
+        <div>
+          <div className="page-title">Centro de Comando OVC</div>
+          <div className="page-sub">Painel em tempo real — {new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'long',day:'numeric',month:'long'})}</div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇️ CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
+        </div>
       </div>
       <div className="page-body">
-        {alertas.length>0&&<div className="alert-banner"><span>⚠️</span><span>{alertas.length} post(s) com erro recente</span></div>}
-        {novos>0&&<div className="alert-banner yellow"><span>🆕</span><span>{novos} novo(s) conteúdo(s) aguardando aprovação</span></div>}
-        <div className="metrics">
+        <div className="metrics" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
           <div className="metric-card">
             <div className="metric-label">Posts Hoje</div>
-            <div className="metric-value">{status.posts_hoje}</div>
+            <div className="metric-value">{status.posts_hoje||0}</div>
             <div className="metric-icon">📅</div>
-            <span className="badge badge-green">limite: {status.max_posts}</span>
+            <div className="perf-bar" style={{marginTop:8}}><div className="perf-fill" style={{width:Math.min(100,((status.posts_hoje||0)/(status.max_posts||300))*100)+'%'}}></div></div>
+            <div style={{fontSize:10,color:'var(--t3)',marginTop:4}}>meta: {status.max_posts||300}</div>
           </div>
           <div className="metric-card">
-            <div className="metric-label">Posts na Semana</div>
+            <div className="metric-label">Pendentes</div>
+            <div className="metric-value" style={{color:pendentes>0?'var(--yellow)':'var(--t1)'}}>{status.pendentes||pendentes}</div>
+            <div className="metric-icon">⏳</div>
+            {pendentes>0&&<span className="badge badge-yellow">aguardando aprovação</span>}
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Últimos 7 dias</div>
             <div className="metric-value">{semana}</div>
-            <div className="metric-icon">📊</div>
+            <div className="metric-icon">📈</div>
           </div>
           <div className="metric-card">
             <div className="metric-label">Automação</div>
-            <div className="metric-value" style={{fontSize:20,paddingTop:6}}>{status.running?'ATIVA':'PAUSADA'}</div>
+            <div className="metric-value" style={{fontSize:16,paddingTop:6}}>{status.running?'ATIVA':'PAUSADA'}</div>
             <div className="metric-icon">{status.running?'🟢':'🔴'}</div>
-            <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Rodando':'Parada'}</span>
+            <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Online':'Offline'}</span>
           </div>
-          <div className="metric-card">
-            <div className="metric-label">Execução Manual</div>
-            <div className="metric-value" style={{fontSize:14,paddingTop:8}}>
-              <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing}>
-                {forcing?'Executando...':'▶ Forçar agora'}
-              </button>
-            </div>
-            <div className="metric-icon">⚡</div>
+          <div className="metric-card" style={{borderColor:semImagem>0?'rgba(200,30,30,0.4)':'var(--border)'}}>
+            <div className="metric-label">Sem Imagem</div>
+            <div className="metric-value" style={{color:semImagem>0?'#f87171':'#4ade80'}}>{semImagem}</div>
+            <div className="metric-icon">🖼️</div>
+            {semImagem>0&&<span className="badge badge-red">revisar</span>}
           </div>
         </div>
-        {runResult&&<div className="alert-banner" style={{marginBottom:16}}><code style={{fontSize:11}}>{runResult}</code></div>}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
           <div className="panel">
-            <div className="panel-header"><span className="panel-title">Últimos 10 Posts</span><button className="btn btn-secondary btn-sm" onClick={load}>↻</button></div>
-            {posts.length===0?<div className="empty-state"><div className="empty-icon">📄</div><div className="empty-text">Nenhum post</div></div>:
-            <table><thead><tr><th>Título</th><th>Status</th><th>Data</th></tr></thead>
-            <tbody>{posts.map(p=><tr key={p.id}>
-              <td>{truncate(p.titulo,40)}</td>
-              <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
-              <td className="text-secondary text-small">{fmt(p.created_at)}</td>
-            </tr>)}</tbody></table>}
+            <div className="panel-header">
+              <span className="panel-title">💱 Cotações em Tempo Real</span>
+              <span style={{fontSize:10,color:'var(--t3)'}}>AwesomeAPI · atualiza/min</span>
+            </div>
+            <div style={{padding:'12px 20px',display:'flex',gap:12,flexWrap:'wrap'}}>
+              {[{label:'USD/BRL',data:usd,icon:'🇺🇸'},{label:'EUR/BRL',data:eur,icon:'🇪🇺'},{label:'BTC/BRL',data:btc,icon:'₿'}].map(function(item){
+                var chg=pct(item.data);
+                var raw=item.data?parseFloat(item.data.bid||item.data.high||0):0;
+                var val=raw?raw.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:item.label.includes('BTC')?0:2}):'---';
+                return (
+                  <div key={item.label} style={{flex:1,minWidth:90,background:'rgba(255,255,255,0.03)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{item.icon} {item.label}</div>
+                    <div style={{fontSize:18,fontWeight:700}}>R$ {val}</div>
+                    <div style={{fontSize:10,color:chg>=0?'#4ade80':'#f87171',marginTop:2}}>{chg>=0?'▲':'▼'} {Math.abs(chg).toFixed(2)}%</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{padding:'8px 20px',borderTop:'1px solid var(--border)'}}>
+              <a href="https://www.impostometro.com.br" target="_blank" rel="noopener" style={{fontSize:11,color:'#60a5fa',textDecoration:'none'}}>📟 Impostômetro ↗</a>
+            </div>
           </div>
           <div className="panel">
-            <div className="panel-header"><span className="panel-title">Erros Recentes {alertas.length>0&&<span className="notif-dot"></span>}</span></div>
-            {alertas.length===0?<div className="empty-state"><div className="empty-icon">✅</div><div className="empty-text">Nenhum erro recente</div></div>:
-            <table><thead><tr><th>Post</th><th>Erro</th><th>Data</th></tr></thead>
-            <tbody>{alertas.map(p=><tr key={p.id}>
-              <td>{truncate(p.titulo,30)}</td>
-              <td className="text-small" style={{color:'#f87171'}}>{truncate(p.error_msg,40)}</td>
-              <td className="text-secondary text-small">{fmt(p.updated_at)}</td>
-            </tr>)}</tbody></table>}
+            <div className="panel-header"><span className="panel-title">📡 OVC ao Vivo</span></div>
+            <div style={{padding:'12px 20px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+              {OVC_AO_VIVO.map(function(item){return(
+                <a key={item.label} href={item.href} target="_blank" rel="noopener"
+                  style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'10px 6px',background:'rgba(255,255,255,0.03)',borderRadius:8,border:'1px solid var(--border)',textDecoration:'none'}}
+                  onMouseOver={function(e){e.currentTarget.style.borderColor=item.cor;}}
+                  onMouseOut={function(e){e.currentTarget.style.borderColor='var(--border)';}}>
+                  <span style={{fontSize:22}}>{item.icon}</span>
+                  <span style={{fontSize:11,color:'var(--t2)',textAlign:'center'}}>{item.label}</span>
+                </a>
+              );})}
+            </div>
           </div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">📊 Categorias Hoje</span></div>
+            <div style={{padding:'12px 20px'}}>
+              {cats.length===0?<div className="empty-state"><div className="empty-text">Nenhum post hoje ainda</div></div>:
+              cats.map(function(item){var cat=item[0],count=item[1]; return(
+                <div key={cat} style={{marginBottom:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                    <span style={{color:'var(--t2)',textTransform:'capitalize'}}>{cat}</span>
+                    <span style={{fontWeight:600}}>{count}</span>
+                  </div>
+                  <div className="perf-bar"><div className="perf-fill" style={{width:(count/maxCat*100)+'%',background:'var(--red)'}}></div></div>
+                </div>
+              );})}
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">⚙️ Pipeline</span></div>
+            <div style={{padding:'12px 20px',display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Status</span>
+                <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Ativo':'Pausado'}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Posts hoje</span>
+                <span style={{fontWeight:600}}>{status.posts_hoje||0} / {status.max_posts||300}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Horários BRT</span>
+                <span style={{fontSize:10,color:'var(--t3)',textAlign:'right'}}>07h-10h · 10h40-12h40<br/>14h-16h30 · 18h-00h</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Intervalo</span>
+                <span style={{fontSize:11,color:'var(--t3)'}}>1 post a cada 10 min</span>
+              </div>
+              <button className="btn btn-primary btn-sm" style={{width:'100%',marginTop:4}} onClick={async function(){
+                try{const r=await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});const j=await r.json();alert(JSON.stringify(j));load();}catch(e){alert('Erro: '+e.message);}
+              }}>▶ Forçar execução agora</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">📰 Últimas 15 Postagens</span>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇️ CSV</button>
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loadingPosts?<div className="loading">Carregando...</div>:
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Título</th><th>Categoria</th><th>Status</th><th>IMG</th><th>Data</th><th>Ação</th></tr></thead>
+              <tbody>
+                {posts.map(function(p){
+                  var cat='—'; try{cat=JSON.parse(p.user_tags||'[]')[0]||'—';}catch(_){}
+                  return (
+                    <tr key={p.id}>
+                      <td style={{maxWidth:280}}><span title={p.titulo}>{truncate(p.titulo,50)}</span></td>
+                      <td style={{fontSize:11,color:'var(--t3)',textTransform:'capitalize'}}>{cat}</td>
+                      <td><span className={`status-pill status-${p.status==='publicado'?'success':p.status}`}><span className="dot"></span>{p.status}</span></td>
+                      <td style={{textAlign:'center',fontSize:13,color:p.imagem?'#4ade80':'#f87171'}}>{p.imagem?'✓':'✗'}</td>
+                      <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+                      <td>
+                        {p.status==='pendente'&&<button className="btn btn-green btn-sm" onClick={function(){aprovar(p.id);}} disabled={aprovando===p.id}>{aprovando===p.id?'...':'✓ Aprovar'}</button>}
+                        {p.status==='publicado'&&<span style={{fontSize:11,color:'#4ade80'}}>✓ Online</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>}
         </div>
       </div>
     </div>
@@ -2225,6 +2341,64 @@ const PAGES = [
   {id:'colunistas',label:'Colunistas',icon:'✍️'},
 ];
 
+// ── REESCRITA OVC ──
+function ReescritaOVC() {
+  const [aberto, setAberto] = useState(false);
+  const [urls, setUrls] = useState(Array(10).fill(''));
+  const [res, setRes] = useState(Array(10).fill(null));
+  const [rodando, setRodando] = useState(false);
+
+  const enviar = async () => {
+    setRodando(true);
+    const novosRes = Array(10).fill(null);
+    setRes([...novosRes]);
+    const ativos = urls.map((u,i)=>({u:u.trim(),i})).filter(x=>x.u);
+    await Promise.all(ativos.map(async ({u,i})=>{
+      novosRes[i]={estado:'enviando'};
+      setRes([...novosRes]);
+      try {
+        const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});
+        const j = await r.json();
+        novosRes[i]={estado:j.status==='ok'?'ok':'erro',msg:j.titulo||j.status||''};
+      } catch(e) { novosRes[i]={estado:'erro',msg:e.message}; }
+      setRes([...novosRes]);
+    }));
+    setRodando(false);
+  };
+
+  return (
+    <>
+      <button onClick={()=>setAberto(true)} style={{position:'fixed',top:16,right:20,zIndex:1000,background:'var(--red)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:700,fontSize:13,cursor:'pointer',boxShadow:'0 4px 16px rgba(200,30,30,0.4)'}}>
+        ✍️ REESCRITA OVC
+      </button>
+      {aberto&&(
+        <div className="modal-bg" onClick={()=>setAberto(false)}>
+          <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">✍️ Reescrita OVC — Cole até 10 URLs</span>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setAberto(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:8}}>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Cada URL será reescrita no padrão OVC e enviada para Pendentes.</div>
+              {urls.map(function(u,i){return(
+                <div key={i} style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:11,color:'var(--t3)',width:18,textAlign:'right'}}>{i+1}</span>
+                  <input className="form-input" style={{flex:1}} value={u} onChange={function(e){var n=[...urls];n[i]=e.target.value;setUrls(n);}} placeholder="https://..." disabled={rodando}/>
+                  {res[i]&&<span style={{fontSize:12,color:res[i].estado==='enviando'?'var(--yellow)':res[i].estado==='ok'?'#4ade80':'#f87171',whiteSpace:'nowrap'}}>{res[i].estado==='enviando'?'⏳':res[i].estado==='ok'?'✓ OK':'✗ Erro'}</span>}
+                </div>
+              );})}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={()=>{setUrls(Array(10).fill(''));setRes(Array(10).fill(null));}}>Limpar</button>
+              <button className="btn btn-primary" onClick={enviar} disabled={rodando||urls.every(u=>!u.trim())}>{rodando?'⏳ Enviando...':'▶ Reescrever tudo'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function App() {
   const [auth, setAuth] = useState(()=>sessionStorage.getItem('ovc_auth')==='1');
   const [page, setPage] = useState('dashboard');
@@ -2271,6 +2445,7 @@ function App() {
         </div>
       </div>
       <div className="main"><PageComp/></div>
+      <ReescritaOVC/>
     </div>
   );
 }
@@ -2618,22 +2793,21 @@ function EditorIA() {
     setLoading(false);
   }
 
-  async function salvar(publicarDireto) {
+  async function salvar() {
     if (!resultado) return;
     setSalvando(true);
     try {
       // Salvar diretamente no banco o conteúdo já gerado — NÃO chamar a IA de novo
-      const status = publicarDireto ? 'publicado' : 'pendente';
       const postData = {
         titulo: resultado.titulo,
         conteudo: resultado.corpo,
         comentario_fixado: resultado.subtitulo || '',
         imagem: resultado.imagem || imagem.trim() || '',
         hash: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        status,
-        approved: publicarDireto,
+        status: 'pendente',
+        approved: false,
         publish_method: 'portal',
-        published_at: publicarDireto ? new Date().toISOString() : null,
+        published_at: null,
         user_tags: JSON.stringify([resultado.categoria || 'geral']),
         subcategoria: resultado.subcategoria || '',
         subcategoria_slug: (resultado.subcategoria||'geral').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-'),
@@ -2645,7 +2819,7 @@ function EditorIA() {
       };
       const { data: post, error } = await sb.from('posts').insert([postData]).select().single();
       if (error) throw new Error(error.message);
-      setSalvo({ ok: true, status, titulo: resultado.titulo, categoria: resultado.categoria, id: post?.id });
+      setSalvo({ ok: true, status: 'pendente', titulo: resultado.titulo, categoria: resultado.categoria, id: post?.id });
       setResultado(null); setEntrada(''); setImagem('');
     } catch(e) { setErro(e.message); }
     setSalvando(false);
@@ -2731,8 +2905,7 @@ function EditorIA() {
                   <div style={{fontSize:12,color:'var(--t2)',marginBottom:12}}>Categoria: {resultado.categoria}{resultado.subtitulo?' · '+resultado.subtitulo:''}</div>
                   <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:14,fontSize:13,lineHeight:1.7,maxHeight:320,overflowY:'auto',whiteSpace:'pre-wrap',marginBottom:16}}>{resultado.corpo}</div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <button className="btn btn-green" onClick={()=>salvar(false)} disabled={salvando}>{salvando?'Salvando...':'💾 Salvar como pendente'}</button>
-                    <button className="btn btn-primary" onClick={()=>salvar(true)} disabled={salvando}>🚀 Publicar direto</button>
+                    <button className="btn btn-green" onClick={()=>salvar()} disabled={salvando}>{salvando?'Salvando...':'💾 Salvar como pendente'}</button>
                     <button className="btn btn-secondary" onClick={()=>setResultado(null)}>✕ Descartar</button>
                   </div>
                 </div>
