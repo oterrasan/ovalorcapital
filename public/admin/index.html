@@ -2361,7 +2361,7 @@ function ReescritaOVC() {
       try {
         const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});
         const j = await r.json();
-        novosRes[i]={estado:j.status==='ok'?'ok':'erro',msg:j.titulo||j.status||''};
+        novosRes[i]={estado:j.ok===true?'ok':'erro',msg:j.titulo||j.error||j.status||''};
       } catch(e) { novosRes[i]={estado:'erro',msg:e.message}; }
       setRes([...novosRes]);
     }));
