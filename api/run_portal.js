@@ -268,7 +268,7 @@ function topicoDuplicado(novoTitulo, titulos) {
 }
 
 async function handleManualPost(req, res) {
-  const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "" } = req.body || {};
+  const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "", image_url, image_query } = req.body || {};
   if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
   try {
     let sourceText = "", sourceTitle = "", imgScrapeada = "";
@@ -282,6 +282,14 @@ async function handleManualPost(req, res) {
     } else {
       sourceText = texto;
     }
+    // Inject recent titles so AI avoids repeating today's topics
+    try {
+      const { data: rt } = await supabase.from('posts').select('titulo')
+        .gte('created_at', new Date(Date.now() - 24*3600000).toISOString())
+        .eq('status','publicado').order('created_at',{ascending:false}).limit(25);
+      const titles = (rt||[]).map(p=>p.titulo).filter(Boolean);
+      if (titles.length > 0) sourceText = `[Temas já publicados hoje — não repetir:\n${titles.join('\n')}\n]\n\n${sourceText}`;
+    } catch(_) {}
     const content = await rewritePortalManual(sourceText, sourceTitle);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
@@ -291,11 +299,15 @@ async function handleManualPost(req, res) {
     }
     const hash = crypto.createHash("md5").update((url || texto).slice(0,200) + "_manual").digest("hex");
     let imagemFinal = null;
-    const imgAprovada = imgScrapeada && !isCompetitorDomain(imgScrapeada) ? imgScrapeada : null;
-    if (imgAprovada) {
-      try { imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12)); } catch(_) {}
+    if (image_url) {
+      try { imagemFinal = await processAndSaveImage(image_url, hash.slice(0,12)); } catch(_) { imagemFinal = image_url; }
+    } else {
+      const imgAprovada = imgScrapeada && !isCompetitorDomain(imgScrapeada) ? imgScrapeada : null;
+      if (imgAprovada) {
+        try { imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12)); } catch(_) {}
+      }
+      if (!imagemFinal) imagemFinal = await findImage(image_query || content.titulo, content.categoria, '', '');
     }
-    if (!imagemFinal) imagemFinal = await findImage(content.titulo, content.categoria, '', '');
     const status = publicar ? "publicado" : "pendente";
     const now = new Date().toISOString();
     const { data: post, error } = await supabase.from("posts").insert({
@@ -406,6 +418,16 @@ export default async function handler(req, res) {
 
   if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
 
+  // Busca de imagem por query — para o admin (NovoPost, etc.)
+  if (meta.action === 'buscar_imagem') {
+    const q = (meta.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'q obrigatório' });
+    try {
+      const url = await findImage(q, '', '', '');
+      return res.status(200).json({ url: url || null });
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+  }
+
   // Geração manual (URL ou texto) — sem limite diário
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
@@ -511,7 +533,8 @@ export default async function handler(req, res) {
       if (!sourceText) continue;
 
       let content;
-      try { content = await rewritePortal(sourceText, item.title); } catch(e) { continue; }
+      const titlesCtx = recentTitles.length > 0 ? `[Temas recentes publicados — NÃO REPETIR:\n${recentTitles.slice(0,15).join('\n')}\n]\n\n` : '';
+      try { content = await rewritePortal(titlesCtx + sourceText, item.title); } catch(e) { continue; }
       if (!validarConteudo(content)) continue;
       content.titulo = stripTitle(content.titulo);
 
