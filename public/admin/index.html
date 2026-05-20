@@ -2346,11 +2346,14 @@ const PAGES = [
 // ── REESCRITA OVC ──
 function ReescritaOVC() {
   const [aberto, setAberto] = useState(false);
+  const [modo, setModo] = useState('url'); // 'url' | 'texto'
   const [urls, setUrls] = useState(Array(10).fill(''));
   const [res, setRes] = useState(Array(10).fill(null));
+  const [texto, setTexto] = useState('');
+  const [resTexto, setResTexto] = useState(null);
   const [rodando, setRodando] = useState(false);
 
-  const enviar = async () => {
+  const enviarUrls = async () => {
     setRodando(true);
     const novosRes = Array(10).fill(null);
     setRes([...novosRes]);
@@ -2368,6 +2371,29 @@ function ReescritaOVC() {
     setRodando(false);
   };
 
+  const enviarTexto = async () => {
+    if (!texto.trim()) return;
+    setRodando(true);
+    setResTexto({estado:'enviando'});
+    try {
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:texto.trim()})});
+      const j = await r.json();
+      setResTexto({estado:j.ok===true?'ok':'erro',msg:j.titulo||j.error||j.status||''});
+    } catch(e) { setResTexto({estado:'erro',msg:e.message}); }
+    setRodando(false);
+  };
+
+  const limpar = () => {
+    setUrls(Array(10).fill('')); setRes(Array(10).fill(null));
+    setTexto(''); setResTexto(null);
+  };
+
+  const tabStyle = (m) => ({
+    padding:'6px 16px',fontSize:12,fontWeight:600,cursor:'pointer',border:'none',borderRadius:6,
+    background: modo===m ? 'var(--red)' : 'rgba(255,255,255,0.06)',
+    color: modo===m ? '#fff' : 'var(--t2)'
+  });
+
   return (
     <>
       <button onClick={()=>setAberto(true)} style={{position:'fixed',top:16,right:20,zIndex:1000,background:'var(--red)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:700,fontSize:13,cursor:'pointer',boxShadow:'0 4px 16px rgba(200,30,30,0.4)'}}>
@@ -2375,24 +2401,50 @@ function ReescritaOVC() {
       </button>
       {aberto&&(
         <div className="modal-bg" onClick={()=>setAberto(false)}>
-          <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+          <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">✍️ Reescrita OVC — Cole até 10 URLs</span>
+              <span className="modal-title">✍️ Reescrita OVC</span>
               <button className="btn btn-secondary btn-sm" onClick={()=>setAberto(false)}>✕</button>
             </div>
+            <div style={{padding:'12px 20px 0',display:'flex',gap:6}}>
+              <button style={tabStyle('url')} onClick={()=>setModo('url')}>🔗 Por URL (até 10)</button>
+              <button style={tabStyle('texto')} onClick={()=>setModo('texto')}>📋 Colar Texto</button>
+            </div>
             <div className="modal-body" style={{display:'flex',flexDirection:'column',gap:8}}>
-              <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Cada URL será reescrita no padrão OVC e enviada para Pendentes.</div>
-              {urls.map(function(u,i){return(
-                <div key={i} style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:11,color:'var(--t3)',width:18,textAlign:'right'}}>{i+1}</span>
-                  <input className="form-input" style={{flex:1}} value={u} onChange={function(e){var n=[...urls];n[i]=e.target.value;setUrls(n);}} placeholder="https://..." disabled={rodando}/>
-                  {res[i]&&<span title={res[i].msg||''} style={{fontSize:11,color:res[i].estado==='enviando'?'var(--yellow)':res[i].estado==='ok'?'#4ade80':'#f87171',maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block',verticalAlign:'middle'}}>{res[i].estado==='enviando'?'⏳ enviando...':res[i].estado==='ok'?('✓ '+(res[i].msg||'OK').slice(0,30)):('✗ '+(res[i].msg||'Erro'))}</span>}
+              {modo==='url'&&<>
+                <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>Cada URL será reescrita no padrão OVC e enviada para Pendentes.<br/><span style={{color:'#f87171'}}>⚠ Sites com Cloudflare (Folha, Veja, R7) bloqueiam — prefira UOL, Agência Brasil, Metrópoles.</span></div>
+                {urls.map(function(u,i){return(
+                  <div key={i} style={{display:'flex',gap:8,alignItems:'center'}}>
+                    <span style={{fontSize:11,color:'var(--t3)',width:18,textAlign:'right'}}>{i+1}</span>
+                    <input className="form-input" style={{flex:1}} value={u} onChange={function(e){var n=[...urls];n[i]=e.target.value;setUrls(n);}} placeholder="https://..." disabled={rodando}/>
+                    {res[i]&&<span title={res[i].msg||''} style={{fontSize:11,color:res[i].estado==='enviando'?'var(--yellow)':res[i].estado==='ok'?'#4ade80':'#f87171',maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'inline-block',verticalAlign:'middle'}}>{res[i].estado==='enviando'?'⏳':res[i].estado==='ok'?('✓ '+(res[i].msg||'OK').slice(0,25)):('✗ '+(res[i].msg||'Erro').slice(0,25))}</span>}
+                  </div>
+                );})}
+              </>}
+              {modo==='texto'&&<>
+                <div style={{fontSize:12,color:'var(--t2)',marginBottom:4}}>
+                  Abra a matéria no browser → selecione tudo (Ctrl+A) → copie → cole aqui.<br/>
+                  <span style={{color:'#4ade80'}}>✓ Funciona com qualquer site, inclusive Folha, Veja, Terra, etc.</span>
                 </div>
-              );})}
+                <textarea
+                  className="form-textarea"
+                  style={{minHeight:200,fontSize:13,lineHeight:1.6,resize:'vertical'}}
+                  value={texto}
+                  onChange={e=>setTexto(e.target.value)}
+                  placeholder="Cole aqui o texto completo da matéria..."
+                  disabled={rodando}
+                />
+                {resTexto&&<div style={{padding:'8px 12px',borderRadius:6,background:resTexto.estado==='ok'?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',border:'1px solid '+(resTexto.estado==='ok'?'rgba(74,222,128,0.3)':'rgba(248,113,113,0.3)'),fontSize:13,color:resTexto.estado==='ok'?'#4ade80':'#f87171'}}>
+                  {resTexto.estado==='enviando'?'⏳ Processando...':resTexto.estado==='ok'?('✓ Salvo como pendente: '+resTexto.msg):('✗ Erro: '+resTexto.msg)}
+                </div>}
+              </>}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={()=>{setUrls(Array(10).fill(''));setRes(Array(10).fill(null));}}>Limpar</button>
-              <button className="btn btn-primary" onClick={enviar} disabled={rodando||urls.every(u=>!u.trim())}>{rodando?'⏳ Enviando...':'▶ Reescrever tudo'}</button>
+              <button className="btn btn-secondary" onClick={limpar}>Limpar</button>
+              {modo==='url'
+                ?<button className="btn btn-primary" onClick={enviarUrls} disabled={rodando||urls.every(u=>!u.trim())}>{rodando?'⏳ Enviando...':'▶ Reescrever URLs'}</button>
+                :<button className="btn btn-primary" onClick={enviarTexto} disabled={rodando||!texto.trim()}>{rodando?'⏳ Processando...':'▶ Reescrever texto'}</button>
+              }
             </div>
           </div>
         </div>
