@@ -3,7 +3,7 @@ import crypto from "crypto";
 import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal } from "../core/ai_portal.js";
+import { rewritePortal, rewritePortalManual } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
@@ -282,7 +282,7 @@ async function handleManualPost(req, res) {
     } else {
       sourceText = texto;
     }
-    const content = await rewritePortal(sourceText, sourceTitle);
+    const content = await rewritePortalManual(sourceText, sourceTitle);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
