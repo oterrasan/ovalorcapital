@@ -139,7 +139,16 @@ window.OVC = {
       write('#cotacao-ibov',   fmtPts(ibov));
       write('#cotacao-nasdaq', fmtPts(nasdaq));
       write('#cotacao-dow',    fmtPts(dow));
-      write('#impostometro',   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(impost)));
+      const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+      write('#impostometro', fmtImposto(Number(impost)));
+      if (!window.__ovcImpostTicker) {
+        let _impostVal = Number(impost);
+        const _rate = Number(live.ratePerSec || 114155);
+        window.__ovcImpostTicker = setInterval(() => {
+          _impostVal += _rate;
+          document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(_impostVal); });
+        }, 1000);
+      }
 
       const tickerMap = {
         'dolar': fmtBrl(usd), 'usd': fmtBrl(usd),
