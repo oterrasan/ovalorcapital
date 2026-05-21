@@ -27,14 +27,42 @@
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/live-data');
-      const usd = document.getElementById('cotacao-usd');
-      const eur = document.getElementById('cotacao-eur');
-      const ibov = document.getElementById('cotacao-ibov');
-      if (usd) usd.textContent = `R$ ${Number(data.rates?.usd || 0).toFixed(2)}`;
-      if (eur) eur.textContent = `R$ ${Number(data.rates?.eur || 0).toFixed(2)}`;
-      if (ibov) ibov.textContent = `${Number(data.indices?.ibov || 0).toLocaleString('pt-BR')} pts`;
-      const impost = document.getElementById('impostometro');
-      if (impost) impost.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(data.impostometro || 0));
+      const usdVal  = data.usd?.valor  || 0;
+      const eurVal  = data.eur?.valor  || 0;
+      const ibovVal = data.ibov?.valor || 0;
+      const fmtBrl  = v => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+      const usdEl  = document.getElementById('cotacao-usd');
+      const eurEl  = document.getElementById('cotacao-eur');
+      const ibovEl = document.getElementById('cotacao-ibov');
+      if (usdEl)  usdEl.textContent  = fmtBrl(usdVal);
+      if (eurEl)  eurEl.textContent  = fmtBrl(eurVal);
+      if (ibovEl) ibovEl.textContent = `${Number(ibovVal).toLocaleString('pt-BR')} pts`;
+
+      // Impostômetro: valor base + ticking em tempo real
+      const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+      let impostVal = Number(data.impostometro || 0);
+      const ratePerSec = Number(data.ratePerSec || 114155);
+      if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
+      document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
+      window.__ovcImpostTicker = setInterval(() => {
+        impostVal += ratePerSec;
+        document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
+      }, 1000);
+
+      // Atualiza chips do Radar OVC (variações USD e BTC)
+      document.querySelectorAll('.market-chip').forEach(chip => {
+        const sym = (chip.querySelector('.market-symbol')?.textContent || '').trim().toUpperCase();
+        const changeEl = chip.querySelector('.market-change');
+        if (!changeEl) return;
+        const chgMap = { 'USD/BRL': data.usd?.variacao, 'BTC': data.btc?.variacao };
+        const chg = chgMap[sym];
+        if (chg !== undefined && chg !== null) {
+          const v = Number(chg);
+          changeEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%';
+          changeEl.className = 'market-change ' + (v >= 0 ? 'up' : 'down');
+        }
+      });
     } catch(e) { console.error(e); }
   }
 

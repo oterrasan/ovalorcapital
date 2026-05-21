@@ -35,6 +35,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/live-data",            "destination": "/api/portal-posts?format=live" },
+
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
 
     { "source": "/quem-somos",              "destination": "/api/institutional?page=quem-somos" },
@@ -47,7 +49,7 @@
     { "source": "/financas",               "destination": "/api/landing?section=financas" },
     { "source": "/financas/",              "destination": "/api/landing?section=financas" },
     { "source": "/moradia",                "destination": "/api/landing?section=moradia" },
-    { "source": "/moradia/",               "destination": "/api/landing?section=moradia" },
+    { "source": "/moradia/",              "destination": "/api/landing?section=moradia" },
     { "source": "/vc",                     "destination": "/api/landing?section=vc" },
     { "source": "/vc/",                    "destination": "/api/landing?section=vc" },
     { "source": "/seguranca",              "destination": "/api/landing?section=seguranca" },
