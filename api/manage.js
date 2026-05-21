@@ -69,78 +69,44 @@ async function handleSetupStorage(req, res) {
   }
 }
 
-// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ───────────
 async function handleAuditImages(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
-
   const batch  = Math.min(parseInt(req.query.batch  || '4', 10), 6);
   const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
-
   try {
     const { data: posts, error: fetchErr } = await supabase
-      .from('posts')
-      .select('id, titulo, imagem')
-      .eq('status', 'publicado')
-      .not('imagem', 'is', null)
-      .neq('imagem', '')
-      .order('created_at', { ascending: true })
-      .range(offset, offset + batch - 1);
-
+      .from('posts').select('id, titulo, imagem').eq('status', 'publicado')
+      .not('imagem', 'is', null).neq('imagem', '')
+      .order('created_at', { ascending: true }).range(offset, offset + batch - 1);
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
-    if (!posts || posts.length === 0) {
+    if (!posts || posts.length === 0)
       return res.status(200).json({ ok: true, processed: 0, unpublished: 0, done: true, message: 'Varredura concluída.' });
-    }
-
     const results = [];
-
     for (const post of posts) {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
-
         const vRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          signal: controller.signal,
+          method: 'POST', signal: controller.signal,
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            max_tokens: 60,
-            temperature: 0,
+            model: 'gpt-4o-mini', max_tokens: 60, temperature: 0,
             messages: [{ role: 'user', content: [
-              {
-                type: 'text',
-                text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if this is a drawing, cartoon, vector art, clip art, icon, app icon, logo, or any digitally created non-photographic image. false if it is a real photograph of a real scene, person, or place.\\nis_chart_or_table: true if chart, graph, infographic, table.'
-              },
-              {
-                type: 'image_url',
-                image_url: { url: post.imagem, detail: 'low' }
-              }
+              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\\nis_chart_or_table: true if chart, graph, infographic, table.' },
+              { type: 'image_url', image_url: { url: post.imagem, detail: 'low' } }
             ]}]
           })
         });
         clearTimeout(timer);
-
-        if (!vRes.ok) {
-          results.push({ id: post.id, status: 'skip', reason: 'vision_api_error' });
-          continue;
-        }
-
+        if (!vRes.ok) { results.push({ id: post.id, status: 'skip', reason: 'vision_api_error' }); continue; }
         const vd = await vRes.json();
         const txt = (vd.choices?.[0]?.message?.content || '').trim();
         const m = txt.match(/\{[^}]+\}/);
         const metrics = m ? JSON.parse(m[0]) : null;
-
         if (metrics?.is_illustration === true || metrics?.is_chart_or_table === true) {
-          await supabase.from('posts')
-            .update({ status: 'pendente', approved: false })
-            .eq('id', post.id);
-          results.push({
-            id: post.id,
-            titulo: (post.titulo || '').slice(0, 60),
-            status: 'despublicado',
-            motivo: metrics.is_illustration ? 'ilustração/ícone' : 'gráfico/tabela'
-          });
+          await supabase.from('posts').update({ status: 'pendente', approved: false }).eq('id', post.id);
+          results.push({ id: post.id, titulo: (post.titulo || '').slice(0, 60), status: 'despublicado', motivo: metrics.is_illustration ? 'ilustração/ícone' : 'gráfico/tabela' });
         } else {
           results.push({ id: post.id, status: 'ok' });
         }
@@ -148,33 +114,20 @@ async function handleAuditImages(req, res) {
         results.push({ id: post.id, status: 'skip', reason: e.message?.slice(0, 60) });
       }
     }
-
     const unpublished = results.filter(r => r.status === 'despublicado').length;
-    const nextOffset  = offset + posts.length;
-    const done        = posts.length < batch;
-
-    return res.status(200).json({
-      ok: true,
-      lote: `${offset}–${nextOffset - 1}`,
-      processed: posts.length,
-      unpublished,
-      done,
-      next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}`,
-      results
-    });
+    const nextOffset = offset + posts.length;
+    const done = posts.length < batch;
+    return res.status(200).json({ ok: true, lote: `${offset}–${nextOffset - 1}`, processed: posts.length, unpublished, done, next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}`, results });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
 }
 
-// ── DESPUBLICAR POSTS SEM IMAGEM (move publicado → pendente) ───────────────────────
 async function handleUnpublishNoImage(req, res) {
   try {
     const { error, count } = await supabase.from('posts')
-      .update({ status: 'pendente', approved: false })
-      .eq('status', 'publicado')
-      .or('imagem.is.null,imagem.eq.')
-      .select('id', { count: 'exact', head: true });
+      .update({ status: 'pendente', approved: false }).eq('status', 'publicado')
+      .or('imagem.is.null,imagem.eq.').select('id', { count: 'exact', head: true });
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true, message: 'Posts sem imagem movidos para pendente', total: count || 0 });
   } catch(e) {
@@ -182,15 +135,12 @@ async function handleUnpublishNoImage(req, res) {
   }
 }
 
-// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ─────────
 async function handleUnpublishRecent(req, res) {
   const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
   const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
   try {
     const { error } = await supabase.from('posts')
-      .update({ status: 'pendente', approved: false })
-      .eq('status', 'publicado')
-      .gte('created_at', desde);
+      .update({ status: 'pendente', approved: false }).eq('status', 'publicado').gte('created_at', desde);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true, message: `Artigos dos últimos ${dias} dias movidos para pendente`, desde });
   } catch(e) {
@@ -198,7 +148,6 @@ async function handleUnpublishRecent(req, res) {
   }
 }
 
-// ── RENOVAR TOKEN INSTAGRAM (mensal via cron) ──────────────────────────────
 async function handleRefreshToken(req, res) {
   try {
     const { data: accounts } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null);
@@ -223,13 +172,11 @@ async function handleRefreshToken(req, res) {
   }
 }
 
-// ── BANNERS ───────────────────────────────────────────────────────────────────────────────────────────
 async function handleBanners(req, res) {
   const cat = (req.query.cat || '').trim().toLowerCase();
   try {
-    if (!_bannersCache) {
+    if (!_bannersCache)
       _bannersCache = JSON.parse(readFileSync(join(process.cwd(), 'data', 'banners.json'), 'utf8'));
-    }
     let list = _bannersCache.filter(b => b.active);
     if (cat) {
       const exact = list.filter(b => Array.isArray(b.categories) && b.categories.includes(cat));
@@ -243,7 +190,6 @@ async function handleBanners(req, res) {
   }
 }
 
-// ── STATUS ───────────────────────────────────────────────────────────────────────────────
 async function handleStatus(req, res) {
   try {
     const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
@@ -254,7 +200,7 @@ async function handleStatus(req, res) {
     const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
     const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",inicioDia.toISOString()).eq("publish_method","portal");
     const { count: pendentes } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","pendente");
-    const { count: erros }    = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
+    const { count: erros } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
     const { data: cfgYt } = await supabase.from("config").select("value").eq("key","YOUTUBE_LIVE_URL").single();
     const youtube_live_url = cfgYt?.value || null;
     return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0, youtube_live_url });
@@ -263,7 +209,6 @@ async function handleStatus(req, res) {
   }
 }
 
-// ── CONTAGEM DE VIEWS ───────────────────────────────────────────────────────────────────────────
 async function handleTrackView(req, res) {
   const { post_id } = req.body || {};
   if (!post_id) return res.json({ ok: false });
@@ -278,7 +223,6 @@ async function handleTrackView(req, res) {
   }
 }
 
-// ── APROVAÇÃO (approve.js) ──────────────────────────
 async function handleApprove(req, res) {
   const { id, ids, action, scheduled_at } = req.body || {};
   try {
@@ -314,7 +258,6 @@ async function handleApprove(req, res) {
   }
 }
 
-// ── APROVAÇÃO PORTAL ────────────────────────────────────────────────────────────────────────────────────
 async function handleApprovePortal(req, res) {
   const { id, ids, action } = req.body || {};
   const now = new Date().toISOString();
@@ -350,7 +293,6 @@ async function handleApprovePortal(req, res) {
   }
 }
 
-// ── GERAÇÃO MANUAL ──────────────────────────────────────────────────────────────────────────────────────────────
 function validar(content) {
   if (!content?.titulo || !content?.corpo) return false;
   const t = content.titulo.toLowerCase().trim();
@@ -367,19 +309,17 @@ function gerarNotificacoes(resultados) {
   const erros   = resultados.filter(r => r.status==="erro");
   const parciais = resultados.filter(r => r.status==="parcial");
   if (ok.length) notifs.push({tipo:"sucesso", mensagem:`✅ ${ok.length} matéria(s) gerada(s) com sucesso.`});
-  parciais.forEach(p => notifs.push({tipo:"aviso",  mensagem:`⚠️ ${p.motivo}`}));
-  erros.forEach(e   => notifs.push({tipo:"erro",    mensagem:`❌ ${e.categoria}${e.subcategoria?' → '+e.subcategoria:''}: ${e.motivo}`}));
+  parciais.forEach(p => notifs.push({tipo:"aviso", mensagem:`⚠️ ${p.motivo}`}));
+  erros.forEach(e => notifs.push({tipo:"erro", mensagem:`❌ ${e.categoria}${e.subcategoria?' → '+e.subcategoria:''}: ${e.motivo}`}));
   return notifs;
 }
 
 async function handleManual(req, res) {
   const { pedidos = [], fonteManual = null } = req.body || {};
   if (!pedidos.length) return res.status(400).json({ error:"Informe ao menos um pedido" });
-
   const inicio = Date.now();
   const resultados = [];
   const now = new Date().toISOString();
-
   try {
     if (fonteManual) {
       let sourceText = "", sourceTitle = "";
@@ -390,15 +330,14 @@ async function handleManual(req, res) {
       } else {
         sourceText = fonteManual;
       }
-      if (!sourceText || sourceText.length < 50) {
+      if (!sourceText || sourceText.length < 50)
         return res.status(200).json({ status:"error", resultados:[], notificacoes:[{tipo:"erro",mensagem:"Não foi possível extrair conteúdo da fonte informada."}] });
-      }
       for (const pedido of pedidos) {
         if (Date.now() - inicio > 50000) break;
         let content;
         try {
           content = await rewritePortal(sourceText, sourceTitle);
-          if (pedido.categoria)    content.categoria    = pedido.categoria;
+          if (pedido.categoria) content.categoria = pedido.categoria;
           if (pedido.subcategoria) content.subcategoria = pedido.subcategoria;
         } catch(e) {
           resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"erro", motivo:e.message });
@@ -413,38 +352,31 @@ async function handleManual(req, res) {
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
           imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now,
-          publish_method:"manual",
-          user_tags:JSON.stringify([content.categoria]),
+          publish_method:"manual", user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
           collaborators:"[]", metrics:{}, priority:1, retry_count:0, max_retries:3
         }).select().single();
         if (error) resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"erro", motivo:error.message });
-        else        resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"ok", titulo:content.titulo, id:post?.id });
+        else resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"ok", titulo:content.titulo, id:post?.id });
       }
       return res.status(200).json({ status:"ok", modo:"manual", resultados, notificacoes:gerarNotificacoes(resultados) });
     }
-
     const newsCache = {};
     for (const { categoria } of pedidos) {
-      if (categoria && !newsCache[categoria]) {
+      if (categoria && !newsCache[categoria])
         newsCache[categoria] = await getNewsByCategoria(categoria);
-      }
     }
-
     for (const pedido of pedidos) {
       const { categoria, subcategoria, quantidade=1 } = pedido;
       const qtd = Math.min(Math.max(parseInt(quantidade)||1,1),20);
       let geradosPedido = 0;
       const errosPedido = [];
-
       const news = newsCache[categoria] || await getNews();
       if (!news.length) {
-        resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:0,
-          motivo:`Nenhuma notícia disponível para ${categoria} no momento` });
+        resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:0, motivo:`Nenhuma notícia disponível para ${categoria} no momento` });
         continue;
       }
-
       for (const item of news) {
         if (geradosPedido >= qtd) break;
         if (Date.now() - inicio > 50000) break;
@@ -463,8 +395,7 @@ async function handleManual(req, res) {
         const { data:post, error } = await supabase.from("posts").insert({
           titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
           imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now,
-          publish_method:"manual",
-          user_tags:JSON.stringify([content.categoria]),
+          publish_method:"manual", user_tags:JSON.stringify([content.categoria]),
           subcategoria:content.subcategoria||"Geral",
           subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"-").replace(/[^a-z0-9]+/g,"-"),
           collaborators:"[]", metrics:{}, priority:0, retry_count:0, max_retries:3
@@ -473,37 +404,29 @@ async function handleManual(req, res) {
         resultados.push({ categoria, subcategoria:subcategoria||content.subcategoria, status:"ok", titulo:content.titulo, id:post?.id });
         geradosPedido++;
       }
-      if (geradosPedido < qtd) {
+      if (geradosPedido < qtd)
         resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:geradosPedido,
           motivo: geradosPedido===0 ? `Nenhuma notícia encontrada para ${categoria}${subcategoria?' → '+subcategoria:''}` : `Gerado ${geradosPedido} de ${qtd} — fontes RSS insuficientes` });
-      }
     }
     return res.status(200).json({ status:"ok", modo:"rss", resultados, notificacoes:gerarNotificacoes(resultados) });
-
   } catch(e) {
     return res.status(500).json({ status:"error", error:e.message, notificacoes:[{tipo:"erro",mensagem:e.message}] });
   }
 }
 
-// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────
 async function handleSubmitVaga(req, res) {
   const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
-  if (!empresa || !cargo || !descricao || !email_contato) {
+  if (!empresa || !cargo || !descricao || !email_contato)
     return res.status(400).json({ error: "Campos obrigatórios: empresa, cargo, descricao, email_contato" });
-  }
-  if (descricao.length < 50) {
+  if (descricao.length < 50)
     return res.status(400).json({ error: "Descrição muito curta (mínimo 50 caracteres)" });
-  }
   try {
     const titulo = `[VAGA] ${cargo} — ${empresa}`;
     const conteudo = `**Empresa:** ${empresa}\n**Cargo:** ${cargo}\n**Área:** ${area||'Não informada'}\n**Localização:** ${localizacao||'Não informada'}\n**Contratação:** ${tipo_contratacao||'Não informado'}\n**Salário:** ${salario||'A combinar'}\n**Contato:** ${email_contato}\n\n## Descrição da Vaga\n\n${descricao}`;
     const { error } = await supabase.from("posts").insert({
-      titulo,
-      conteudo,
+      titulo, conteudo,
       comentario_fixado: `${cargo} em ${empresa} — ${localizacao||'Local não informado'}`,
-      status: "pendente",
-      approved: false,
-      publish_method: "vaga_publica",
+      status: "pendente", approved: false, publish_method: "vaga_publica",
       user_tags: JSON.stringify(["vagas"]),
       subcategoria: area || "Geral",
       subcategoria_slug: (area||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
@@ -517,25 +440,20 @@ async function handleSubmitVaga(req, res) {
   }
 }
 
-// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: "E-mail inválido" });
-  }
   const emailLimpo = email.toLowerCase().trim();
   const agora = new Date().toISOString();
-
   try {
     const { error } = await supabase.from("newsletter_subscribers").upsert(
       { email: emailLimpo, categoria: categoria || "geral", confirmed: false, created_at: agora },
       { onConflict: "email" }
     );
-    if (!error || error.message?.includes("duplicate")) {
+    if (!error || error.message?.includes("duplicate"))
       return res.status(200).json({ ok: true });
-    }
   } catch(_) {}
-
   try {
     const key = "NEWSLETTER_EMAILS";
     const { data: cfg } = await supabase.from("config").select("value").eq("key", key).single();
@@ -551,19 +469,11 @@ async function handleNewsletterSubscribe(req, res) {
   }
 }
 
-// ── SISTEMA DE COLUNISTAS ──────────────────────────────────────────────────────────────────────
-// Portal: /admin/colunista/ — GET ?action=list_colunistas / list_posts_colunista
-// POST action: login_colunista | submit_colunista_post | create_colunista | toggle_colunista | delete_colunista
-
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
-  const { data } = await supabase
-    .from("colunistas")
-    .select("id,nome,email,ativo")
-    .eq("id", colunista_id)
-    .eq("session_token", token)
-    .eq("ativo", true)
-    .single();
+  const { data } = await supabase.from("colunistas")
+    .select("id,nome,email,ativo").eq("id", colunista_id)
+    .eq("session_token", token).eq("ativo", true).single();
   return data || null;
 }
 
@@ -571,11 +481,8 @@ async function handleLoginColunista(req, res) {
   const { email, senha } = req.body || {};
   if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
   try {
-    const { data: colunista } = await supabase
-      .from("colunistas")
-      .select("id,nome,email,senha_hash,ativo")
-      .eq("email", email.toLowerCase().trim())
-      .single();
+    const { data: colunista } = await supabase.from("colunistas")
+      .select("id,nome,email,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
     if (!colunista) return res.status(401).json({ error: "Credenciais inválidas" });
     if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
     if (colunista.senha_hash !== hashSenha(senha)) return res.status(401).json({ error: "Credenciais inválidas" });
@@ -592,13 +499,10 @@ async function handleListPostsColunista(req, res) {
   const colunista = await validarTokenColunista(colunista_id, token);
   if (!colunista) return res.status(401).json({ error: "Sessão inválida" });
   try {
-    const { data } = await supabase
-      .from("posts")
+    const { data } = await supabase.from("posts")
       .select("id,titulo,status,imagem,created_at,published_at,comentario_fixado")
-      .eq("publish_method", "colunista")
-      .contains("collaborators", JSON.stringify([colunista_id]))
-      .order("created_at", { ascending: false })
-      .limit(50);
+      .eq("publish_method", "colunista").contains("collaborators", JSON.stringify([colunista_id]))
+      .order("created_at", { ascending: false }).limit(50);
     return res.status(200).json({ ok: true, posts: data || [] });
   } catch(e) {
     return res.status(500).json({ error: e.message });
@@ -616,15 +520,11 @@ async function handleSubmitColunista(req, res) {
     const hash = crypto.createHash("md5").update(titulo + colunista_id + Date.now()).digest("hex");
     const nomeSlug = colunista.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-");
     const { data: post, error } = await supabase.from("posts").insert({
-      titulo, conteudo,
-      imagem: imagem || null,
+      titulo, conteudo, imagem: imagem || null,
       comentario_fixado: `Artigo de ${colunista.nome}`,
-      hash, status: "pendente", approved: false,
-      publish_method: "colunista",
-      user_tags: JSON.stringify(["colunistas"]),
-      subcategoria: colunista.nome,
-      subcategoria_slug: nomeSlug,
-      collaborators: JSON.stringify([colunista_id]),
+      hash, status: "pendente", approved: false, publish_method: "colunista",
+      user_tags: JSON.stringify(["colunistas"]), subcategoria: colunista.nome,
+      subcategoria_slug: nomeSlug, collaborators: JSON.stringify([colunista_id]),
       metrics: {}, priority: 0, retry_count: 0, max_retries: 0
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
@@ -636,11 +536,11 @@ async function handleSubmitColunista(req, res) {
 
 async function handleListColunistas(req, res) {
   try {
-    const { data, error } = await supabase.from("colunistas").select("id,nome,email,ativo,created_at,last_login").order("nome");
+    const { data, error } = await supabase.from("colunistas")
+      .select("id,nome,email,ativo,created_at,last_login").order("nome");
     if (error) {
-      if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01')) {
+      if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01'))
         return res.status(200).json({ ok: false, tabela_ausente: true, colunistas: [] });
-      }
       return res.status(500).json({ error: error.message });
     }
     return res.status(200).json({ ok: true, colunistas: data || [] });
@@ -656,16 +556,12 @@ async function handleCreateColunista(req, res) {
   try {
     const slug = nome.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
     const { error } = await supabase.from("colunistas").insert({
-      nome: nome.trim(),
-      email: email.toLowerCase().trim(),
-      senha_hash: hashSenha(senha),
-      ativo: true,
-      slug
+      nome: nome.trim(), email: email.toLowerCase().trim(),
+      senha_hash: hashSenha(senha), ativo: true, slug
     });
     if (error) {
-      if (error.message.includes("unique") || error.message.includes("duplicate")) {
+      if (error.message.includes("unique") || error.message.includes("duplicate"))
         return res.status(400).json({ error: "E-mail já cadastrado" });
-      }
       return res.status(500).json({ error: error.message });
     }
     return res.status(200).json({ ok: true });
@@ -689,16 +585,10 @@ async function handleDeleteColunista(req, res) {
 }
 
 async function handleLimparPendentesAntigos(req, res) {
-  // Arquiva posts com status 'pendente' criados antes de 2026-05-18 (dia 17 para trás)
-  // Status 'arquivado' = invisível no admin, preservado no banco
   const corte = req.query.antes || '2026-05-18T00:00:00';
   try {
-    const { data, error } = await supabase
-      .from("posts")
-      .update({ status: "arquivado" })
-      .eq("status", "pendente")
-      .lt("created_at", corte)
-      .select("id");
+    const { data, error } = await supabase.from("posts")
+      .update({ status: "arquivado" }).eq("status", "pendente").lt("created_at", corte).select("id");
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true, arquivados: (data || []).length, corte });
   } catch(e) {
@@ -713,14 +603,13 @@ async function handleSeedRssLote2(req, res) {
   try {
     const csv = readFileSync(join(process.cwd(), 'data', 'rss_lote2.csv'), 'utf-8');
     const records = csv.split('\n').filter(l => l.trim()).map(line => {
-      const [name, domain, categoria, br] = line.split('|');
+      const [name, domain, , br] = line.split('|');
       const lang = br === '1' ? 'pt-BR' : 'en';
       const gl   = br === '1' ? 'BR'    : 'US';
       const ceid = br === '1' ? 'BR:pt-BR' : 'US:en';
       return {
         name,
         url: `https://news.google.com/rss/search?q=site:${domain}&hl=${lang}&gl=${gl}&ceid=${ceid}`,
-        categoria,
         active: true
       };
     });
