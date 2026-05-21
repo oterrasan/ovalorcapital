@@ -5,3 +5,5 @@ node_modules/
 .vercel/output/
 *.log
 .DS_Store
+fontes_rss_insert.sql
+data/rss_sources_lote2.json
