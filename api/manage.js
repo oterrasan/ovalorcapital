@@ -110,7 +110,7 @@ async function handleAuditImages(req, res) {
             messages: [{ role: 'user', content: [
               {
                 type: 'text',
-                text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\nis_illustration: true if this is a drawing, cartoon, vector art, clip art, icon, app icon, logo, or any digitally created non-photographic image. false if it is a real photograph of a real scene, person, or place.\nis_chart_or_table: true if chart, graph, infographic, table.'
+                text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if this is a drawing, cartoon, vector art, clip art, icon, app icon, logo, or any digitally created non-photographic image. false if it is a real photograph of a real scene, person, or place.\\nis_chart_or_table: true if chart, graph, infographic, table.'
               },
               {
                 type: 'image_url',
@@ -689,6 +689,8 @@ async function handleDeleteColunista(req, res) {
 }
 
 async function handleLimparPendentesAntigos(req, res) {
+  // Arquiva posts com status 'pendente' criados antes de 2026-05-18 (dia 17 para trás)
+  // Status 'arquivado' = invisível no admin, preservado no banco
   const corte = req.query.antes || '2026-05-18T00:00:00';
   try {
     const { data, error } = await supabase
@@ -709,8 +711,19 @@ async function handleSeedRssLote2(req, res) {
   const ADMIN_PASS = 'ovc-admin-2026-secreto';
   if (req.query.pass !== ADMIN_PASS) return res.status(403).json({ error: 'forbidden' });
   try {
-    const filePath = join(process.cwd(), 'data', 'rss_sources_lote2.json');
-    const records = JSON.parse(readFileSync(filePath, 'utf-8'));
+    const csv = readFileSync(join(process.cwd(), 'data', 'rss_lote2.csv'), 'utf-8');
+    const records = csv.split('\n').filter(l => l.trim()).map(line => {
+      const [name, domain, categoria, br] = line.split('|');
+      const lang = br === '1' ? 'pt-BR' : 'en';
+      const gl   = br === '1' ? 'BR'    : 'US';
+      const ceid = br === '1' ? 'BR:pt-BR' : 'US:en';
+      return {
+        name,
+        url: `https://news.google.com/rss/search?q=site:${domain}&hl=${lang}&gl=${gl}&ceid=${ceid}`,
+        categoria,
+        active: true
+      };
+    });
     const BATCH = 100;
     let inserted = 0;
     for (let i = 0; i < records.length; i += BATCH) {

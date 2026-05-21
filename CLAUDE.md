@@ -303,6 +303,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 | Arquivo | Função |
 |---|---|
 | `data/banners.json` | **NOVO (Block 5)** — 17 produtos Lions Corretora, lido por `api/manage.js` |
+| `data/rss_lote2.csv` | **NOVO (21/05/2026)** — 617 fontes RSS Lote 2, pipe-delimited `name\|domain\|categoria\|br_flag` |
 
 ---
 
@@ -372,6 +373,12 @@ CREATE TABLE IF NOT EXISTS colunistas (
 );
 ```
 Usada pelo sistema de colunistas. Senha armazenada como SHA-256 + salt `ovc_salt_2026`.
+
+### Tabela `rss_sources`
+```
+id, name, url (unique), categoria, active, created_at
+```
+Usada por `core/rss.js` para buscar feeds RSS. Lote 2 (617 fontes) importado via `GET /api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`.
 
 ---
 
@@ -688,3 +695,24 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - `2d5b5b1`: home.js fallback AwesomeAPI client-side para cotações homepage
 - `b950f2c`: site.js injeção CSS compacto do header via style tag
 - `356e664`: site.js fallback AwesomeAPI no ticker do header
+
+### Sessão 21/05/2026 — RSS LOTE 2 (617 fontes)
+- Criado `data/rss_lote2.csv` com 617 fontes RSS (pipe-delimited: `name|domain|categoria|br_flag`)
+- 53 categorias: Portais Financeiros, Polêmicas Brasil (57), Bancos Brasil (27), Petróleo Global (23), etc.
+- `api/manage.js` ganhou `GET ?action=seed_rss_lote2&pass=ovc-admin-2026-secreto` → importa CSV → upsert `rss_sources`
+- Para executar a importação: `https://www.ovalorcapital.com.br/api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`
+
+---
+
+## 16. CREDENCIAIS SUPABASE (nunca commitar em repo público)
+
+> Salvas aqui a pedido de Roberto em 21/05/2026 para evitar precisar pedir novamente.
+
+```
+SUPABASE_URL=https://bfsegqdgscudtdgwdyci.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50
+Project ID: bfsegqdgscudtdgwdyci
+Region: sa-east-1 (São Paulo)
+```
+
+> Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
