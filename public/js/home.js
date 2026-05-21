@@ -27,10 +27,22 @@
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/live-data');
-      const usdVal  = data.usd?.valor  || 0;
-      const eurVal  = data.eur?.valor  || 0;
-      const ibovVal = data.ibov?.valor || 0;
+      let usdVal  = data.usd?.valor  || 0;
+      let eurVal  = data.eur?.valor  || 0;
+      let ibovVal = data.ibov?.valor || 0;
+      let usdVar  = data.usd?.variacao || 0;
+      let btcVar  = data.btc?.variacao || 0;
       const fmtBrl  = v => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+      if (!usdVal) {
+        try {
+          const raw = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,BTC-BRL').then(r=>r.json());
+          usdVal = parseFloat(raw.USDBRL?.bid || 0);
+          eurVal = parseFloat(raw.EURBRL?.bid || 0);
+          usdVar = parseFloat(raw.USDBRL?.pctChange || 0);
+          btcVar = parseFloat(raw.BTCBRL?.pctChange || 0);
+        } catch(_) {}
+      }
 
       const usdEl  = document.getElementById('cotacao-usd');
       const eurEl  = document.getElementById('cotacao-eur');
@@ -55,7 +67,7 @@
         const sym = (chip.querySelector('.market-symbol')?.textContent || '').trim().toUpperCase();
         const changeEl = chip.querySelector('.market-change');
         if (!changeEl) return;
-        const chgMap = { 'USD/BRL': data.usd?.variacao, 'BTC': data.btc?.variacao };
+        const chgMap = { 'USD/BRL': usdVar, 'BTC': btcVar };
         const chg = chgMap[sym];
         if (chg !== undefined && chg !== null) {
           const v = Number(chg);
@@ -93,129 +105,145 @@
   // ACEITA: "negocios" — todas subcategorias
   // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
-  function carregarCardNegocios(cache) {
+  function carregarCardMeio(cache) {
     try {
-      const post = (cache['negocios']||[]).find(p => p.categoria==='negocios');
+      const post = (cache['negocios']||[]).find(p => p.categoria==='negocios') || null;
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
-      if (el('card-feature-titulo')) el('card-feature-titulo').textContent = stripMd(post.titulo);
-      if (el('card-feature-resumo')) el('card-feature-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
-      if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
-    } catch(e) { console.error('[Negocios]',e); }
+      if (el('card-meio-titulo')) el('card-meio-titulo').textContent = stripMd(post.titulo);
+      if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Redação OVC';
+      if (el('card-meio-link'))   el('card-meio-link').href          = buildUrl(post);
+      if (post.imagem) {
+        const imgEl = document.getElementById('card-meio-img');
+        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        const wrapEl = document.getElementById('card-meio-wrap');
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+      }
+    } catch(e) { console.error('[Meio]',e); }
   }
 
   // ============================================================
   // CARD LIONS — REGRA INVIOLÁVEL
-  // ACEITA: "seguros" — subcategorias: saude-e-odonto, vida, auto,
-  //   residencial, empresarial-e-rc, viagem, kpis
+  // ACEITA: "investimentos", "seguros", "mercados", "economia"
   // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
   function carregarCardLions(cache) {
     try {
-      const post = (cache['seguros']||[]).find(p => p.categoria==='seguros');
+      let post = null;
+      for (const cat of ['investimentos','seguros','mercados','economia']) {
+        if (post) break;
+        const pool = (cache[cat]||[]).filter(p => !idsDestaque.has(p.id));
+        post = pool.find(p => p.categoria===cat) || null;
+      }
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-lions-titulo')) el('card-lions-titulo').textContent = stripMd(post.titulo);
-      if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
+      if (el('card-lions-meta'))   el('card-lions-meta').textContent   = 'Redação OVC';
       if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
+      if (post.imagem) {
+        const imgEl = document.getElementById('card-lions-img');
+        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        const wrapEl = document.getElementById('card-lions-wrap');
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+      }
     } catch(e) { console.error('[Lions]',e); }
   }
 
   // ============================================================
-  // SEÇÕES DINÂMICAS — REGRA INVIOLÁVEL POR CATEGORIA
-  // Cada seção aceita APENAS posts da categoria declarada.
-  // Mapa: gridId -> categoria -> href da seção
+  // SEÇÕES DINÂMICAS — filtram idsDestaque automaticamente
   // ============================================================
-  const SECOES = [
-    { grid: 'grid-politica-economia', cats: ['politica','economia'], href: '/politica/' },
-    { grid: 'grid-negocios',          cats: ['negocios'],            href: '/negocios/' },
-    { grid: 'grid-investimentos',     cats: ['investimentos'],       href: '/investimentos/' },
-    { grid: 'grid-mercados',          cats: ['mercados'],            href: '/mercados/' },
-    { grid: 'grid-seguros',           cats: ['seguros'],             href: '/seguros/' },
-    { grid: 'grid-familia',           cats: ['familia'],             href: '/familia/' },
-    { grid: 'grid-saude',             cats: ['saude'],               href: '/saude/' },
-    { grid: 'grid-educacao',          cats: ['educacao'],            href: '/educacao/' },
-    { grid: 'grid-tributos',          cats: ['tributacao'],          href: '/tributos/' },
-    { grid: 'grid-regulacao',         cats: ['regulacao'],           href: '/regulacao/' },
-    { grid: 'grid-tecnologia',        cats: ['tecnologia'],          href: '/tecnologia/' },
-    { grid: 'grid-industria',         cats: ['industria'],           href: '/industria/' },
-    { grid: 'grid-esportes',          cats: ['esportes'],            href: '/esportes/' },
-    { grid: 'grid-parcerias',         cats: ['parcerias'],           href: '/parcerias/' },
-    { grid: 'grid-internacional',     cats: ['internacional'],       href: '/internacional/' },
-    { grid: 'grid-variedades',        cats: ['variedades'],          href: '/variedades/' },
-    { grid: 'grid-investigativo',     cats: ['investigativo'],       href: '/investigativo/' },
-    { grid: 'grid-seguranca',         cats: ['seguranca'],           href: '/seguranca/' },
-    { grid: 'grid-cultura',           cats: ['cultura'],             href: '/cultura/' },
-    { grid: 'grid-profissoes',        cats: ['profissoes'],          href: '/profissoes/' },
-    { grid: 'grid-vagas',             cats: ['vagas'],               href: '/vagas/' },
-  ];
-
-  function renderCard(post) {
-    const url = buildUrl(post);
-    const a = document.createElement('article');
-    a.className = 'ovc-card-item';
-    a.style.cursor = 'pointer';
-    a.onclick = (e) => { if (!e.target.closest('a')) location.href = url; };
-    a.innerHTML = `
-      <div class="ovc-card-tag">${post.subcategoria || post.categoria}</div>
-      <div class="ovc-card-titulo">${stripMd(post.titulo)}</div>
-      <div class="ovc-card-resumo">${stripMd(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
-      <a class="ovc-card-link" href="${url}">Leia mais ↗</a>
-    `;
-    return a;
-  }
-
-  function carregarSecao(secao, cache) {
-    const grid = document.getElementById(secao.grid);
-    if (!grid) return;
+  function renderSecao(containerId, cats, cache, max) {
     try {
-      let posts = [];
-      for (const cat of secao.cats) {
-        const filtrados = (cache[cat]||[]).filter(p => secao.cats.includes(p.categoria));
-        posts = posts.concat(filtrados);
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const posts = [];
+      for (const cat of cats) {
+        for (const p of (cache[cat]||[])) {
+          if (!idsDestaque.has(p.id) && posts.length < max) posts.push(p);
+        }
       }
-      // Dedup por id
-      const vistos = new Set();
-      posts = posts.filter(p => { if(vistos.has(p.id)) return false; vistos.add(p.id); return true; });
-      // Remove posts já exibidos nas áreas de destaque
-      posts = posts.filter(p => !idsDestaque.has(p.id));
-      posts = posts.slice(0, 6);
-      if (!posts.length) {
-        grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conteúdo...</p>';
-        return;
-      }
-      grid.innerHTML = '';
-      posts.forEach(p => grid.appendChild(renderCard(p)));
-    } catch(e) {
-      console.error(`[Secao ${secao.grid}]`, e);
-    }
+      if (!posts.length) return;
+      el.innerHTML = posts.map(p => {
+        const url = buildUrl(p);
+        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy">` : '';
+        return `<a class="card card-mini" href="${url}">
+          ${img}
+          <span class="tag tag-${p.categoria}">${p.categoria}</span>
+          <h3 class="card-title">${stripMd(p.titulo)}</h3>
+          <span class="card-meta">Redação OVC</span>
+          <span class="card-cta">LEIA +</span>
+        </a>`;
+      }).join('');
+    } catch(e) { console.error('[Secao '+containerId+']',e); }
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  function renderSecaoStandard(containerId, cats, cache, max) {
+    try {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const posts = [];
+      for (const cat of cats) {
+        for (const p of (cache[cat]||[])) {
+          if (!idsDestaque.has(p.id) && posts.length < max) posts.push(p);
+        }
+      }
+      if (!posts.length) return;
+      el.innerHTML = posts.map(p => {
+        const url = buildUrl(p);
+        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy">` : '';
+        return `<a class="card card-standard" href="${url}">
+          ${img}
+          <span class="tag tag-${p.categoria}">${p.categoria}</span>
+          <h3 class="card-title">${stripMd(p.titulo)}</h3>
+          <span class="card-meta">Redação OVC</span>
+          <span class="card-cta">LEIA +</span>
+        </a>`;
+      }).join('');
+    } catch(e) { console.error('[SecaoStd '+containerId+']',e); }
+  }
+
+  // ============================================================
+  // BOOT — 1 fetch bulk, distribui por categoria
+  // ============================================================
+  async function boot() {
+    try {
+      const res  = await OVC.fetchJSON('/api/portal-posts?recentes=true&limit=300');
+      const list = res.posts || [];
+
+      // monta cache por categoria
+      const cache = {};
+      for (const p of list) {
+        const cat = p.categoria || 'geral';
+        if (!cache[cat]) cache[cat] = [];
+        cache[cat].push(p);
+      }
+
+      carregarCardHero(cache);
+      carregarCardMeio(cache);
+      carregarCardLions(cache);
+
+      renderSecaoStandard('secao-politica',      ['politica'],                           cache, 3);
+      renderSecaoStandard('secao-economia',      ['economia'],                           cache, 3);
+      renderSecaoStandard('secao-negocios',      ['negocios'],                           cache, 3);
+      renderSecao('secao-investimentos', ['investimentos','seguros','mercados'],          cache, 6);
+      renderSecao('secao-tecnologia',    ['tecnologia','industria'],                     cache, 4);
+      renderSecao('secao-saude',         ['saude','familia','bem_estar'],                cache, 4);
+      renderSecao('secao-internacional', ['internacional'],                              cache, 4);
+      renderSecao('secao-variedades',    ['variedades','cultura','religiao','esportes'], cache, 4);
+      renderSecao('secao-educacao',      ['educacao','profissoes','vagas','concursos'],  cache, 4);
+      renderSecao('secao-regulacao',     ['regulacao','tributacao','tributos'],          cache, 4);
+      renderSecao('secao-seguranca',     ['seguranca','defesa','investigativo'],         cache, 4);
+      renderSecao('secao-imoveis',       ['imoveis','esg'],                              cache, 4);
+
+    } catch(e) { console.error('[boot]',e); }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    boot();
     updateLiveWidgets();
     setInterval(updateLiveWidgets, 120000);
-
-    // 1 fetch único para todas as seções e cards de destaque
-    const cache = {};
-    try {
-      const r = await fetch('/api/portal-posts?recentes=true&limit=300');
-      if (r.ok) {
-        const d = await r.json();
-        (d.posts||[]).forEach(p => {
-          if (!cache[p.categoria]) cache[p.categoria] = [];
-          cache[p.categoria].push(p);
-        });
-      }
-    } catch(e) { console.error('[Home]', e); }
-
-    // Carregar destaque primeiro — registra IDs usados
-    carregarCardHero(cache);
-    carregarCardNegocios(cache);
-    carregarCardLions(cache);
-    // Seções — idsDestaque já populado
-    SECOES.forEach(s => carregarSecao(s, cache));
   });
 
 })();
