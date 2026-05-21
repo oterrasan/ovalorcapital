@@ -239,7 +239,7 @@
       });
   }
 
-  // ── SEÇÃO COLUNISTAS 3+3 ────────────────────────────────────────────
+  // ── SEÇÃO COLUNISTAS 3+3 ──────────────────────────────────────────────────
   function bigCard(p){
     var url = buildUrl(p);
     var img = p.imagem && imgOk(p.imagem) ? p.imagem : '';
@@ -318,7 +318,7 @@
           html += '<div style="background:#fff;border:1px solid #f0ede4;border-radius:12px;overflow:hidden;">';
           html += '<div style="display:grid;grid-template-columns:repeat('+Math.min(small.length,3)+',minmax(0,1fr));">';
           small.forEach(function(p,i){
-            html += '<div style="'+(i>0?'border-left:1px solid #f0ede4;':'')+'">'+smallCard(p)+'</div>';
+            html += '<div style="'+(i>0?'border-left:1px solid #f0ede4;':'')+'">' + smallCard(p) + '</div>';
           });
           html += '</div></div>';
         }
@@ -386,11 +386,26 @@
       .then(function(r){ return r.json(); })
       .then(function(cfg){
         var ytUrl = cfg.youtube_live_url;
-        if(!ytUrl){ sec.style.display='none'; return; }
         if(!document.getElementById('ovc-pulse-style')){
           var st=document.createElement('style'); st.id='ovc-pulse-style';
           st.textContent='@keyframes ovc-pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}'; document.head.appendChild(st);
         }
+        // Sidebar rail TV
+        var sidebarTv = document.querySelector('.rail-block-tv');
+        if (sidebarTv) {
+          if (ytUrl) {
+            sidebarTv.innerHTML = '<div class="rail-title">OVC TV • Ao vivo</div>'
+              +'<div class="tv-live-pill"><span class="tv-dot"></span> ao vivo agora</div>'
+              +'<div style="border-radius:8px;overflow:hidden;margin-top:8px;">'
+              +'<iframe width="100%" height="158" src="'+ytUrl+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe>'
+              +'</div>';
+          } else {
+            var ph = sidebarTv.querySelector('.tv-player-placeholder');
+            if (ph) { ph.style.cursor='pointer'; ph.title='Abrir canal OVC no YouTube'; ph.onclick=function(){ window.open('https://youtube.com/@ovalorcapital','_blank'); }; }
+          }
+        }
+        // Full-width TV section
+        if(!ytUrl){ sec.style.display='none'; return; }
         sec.innerHTML='<div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.25);">'
           +'<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.08);">'
             +'<div style="display:flex;align-items:center;gap:12px;"><span style="background:#e11d48;color:#fff;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;padding:6px 14px;border-radius:6px;">OVC TV</span>'

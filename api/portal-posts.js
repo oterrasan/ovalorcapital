@@ -16,6 +16,37 @@ export default async function handler(req, res) {
 
   const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
 
+  if (format === "live") {
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+    const elapsed = (now - startOfYear) / 1000;
+    const ratePerSec = 3600000000000 / (365.25 * 86400); // ~R$114k/s estimativa 2025
+    const impostometro = Math.round(ratePerSec * elapsed);
+
+    let rates = {};
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 4500);
+      const r = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL", { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (r.ok) rates = await r.json();
+    } catch(_) {}
+
+    res.setHeader("Cache-Control", "public, s-maxage=45, stale-while-revalidate=90");
+    return res.status(200).json({
+      usd:    { valor: parseFloat(rates.USDBRL?.bid || 0),  variacao: parseFloat(rates.USDBRL?.pctChange || 0) },
+      eur:    { valor: parseFloat(rates.EURBRL?.bid || 0),  variacao: parseFloat(rates.EURBRL?.pctChange || 0) },
+      gbp:    { valor: parseFloat(rates.GBPBRL?.bid || 0),  variacao: parseFloat(rates.GBPBRL?.pctChange || 0) },
+      btc:    { valor: parseFloat(rates.BTCBRL?.bid || 0),  variacao: parseFloat(rates.BTCBRL?.pctChange || 0) },
+      ibov:   { valor: 0, variacao: 0 },
+      nasdaq: { valor: 0, variacao: 0 },
+      dow:    { valor: 0, variacao: 0 },
+      impostometro,
+      ratePerSec: Math.round(ratePerSec),
+      ts: Date.now()
+    });
+  }
+
   if (format === "og" && id) {
     let post = null;
     try {
@@ -56,12 +87,12 @@ export default async function handler(req, res) {
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${desc}">
 <meta name="twitter:image" content="${img}">
-<script>window.location.replace("${url}");</script>
-</head>
+<script>window.location.replace("${url}");<\/script>
+<\/head>
 <body style="font-family:sans-serif;text-align:center;padding:40px;">
-<p>Redirecionando para <a href="${url}">O Valor Capital</a>…</p>
-</body>
-</html>`);
+<p>Redirecionando para <a href="${url}">O Valor Capital<\/a>…<\/p>
+<\/body>
+<\/html>`);
   }
 
   if (sort === "popular") {
