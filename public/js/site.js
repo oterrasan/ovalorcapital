@@ -256,3 +256,9 @@ OVC.bindHomeCriticalLinks = function(){
     });
   });
 };
+
+(function(){
+  const s = document.createElement('style');
+  s.textContent = '.header-identity{padding:6px 28px!important;column-gap:20px!important}.logo-mark{height:42px!important}.search-input{padding:6px 16px 6px 34px!important}.header-menu-bar{padding:5px 28px 6px!important}.logo-block .logo-link{text-decoration:none!important;color:inherit!important;display:flex!important;align-items:center!important;gap:14px!important}';
+  document.head.appendChild(s);
+})();
