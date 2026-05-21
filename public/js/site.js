@@ -108,7 +108,7 @@ window.OVC = {
     this.fetchJSON('/api/live-data').then(async live => {
       if (!live) return;
 
-      // Fallback client-side: moedas via AwesomeAPI quando servidor retorna 0
+      // Fallback client-side: moedas + ouro via AwesomeAPI
       if (!live.usd?.valor) {
         try {
           const raw = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL,XAU-BRL').then(r => r.json());
@@ -129,21 +129,33 @@ window.OVC = {
         } catch(_) {}
       }
 
-      // Índices: IBOV, S&P500, NASDAQ via brapi.dev
+      // Índices brasileiros e americanos via brapi.dev (sem token, sem caret)
       if (!live.ibov?.valor) {
         try {
-          const idx = await fetch('https://brapi.dev/api/quote/%5EBVSP,%5EGSPC,%5EIXIC?token=demo&fundamental=false&dividends=false').then(r => r.json());
+          const idx = await fetch('https://brapi.dev/api/quote/IBOV,BOVA11?fundamental=false&dividends=false').then(r => r.json());
           for (const item of (idx?.results || [])) {
             const sym = (item.symbol || '').toUpperCase();
-            if (sym === '^BVSP') {
+            if (sym === 'IBOV' || sym === 'BOVA11') {
               if (!live.ibov) live.ibov = {};
               live.ibov.valor    = item.regularMarketPrice || 0;
               live.ibov.variacao = item.regularMarketChangePercent || 0;
-            } else if (sym === '^GSPC') {
+              break;
+            }
+          }
+        } catch(_) {}
+      }
+
+      // S&P500 e NASDAQ via Yahoo Finance (sem CORS com mode no-cors não funciona — usando brapi.dev US stocks)
+      if (!live.sp500?.valor) {
+        try {
+          const us = await fetch('https://brapi.dev/api/quote/IVV,QQQ?fundamental=false&dividends=false').then(r => r.json());
+          for (const item of (us?.results || [])) {
+            const sym = (item.symbol || '').toUpperCase();
+            if (sym === 'IVV') {
               if (!live.sp500) live.sp500 = {};
               live.sp500.valor    = item.regularMarketPrice || 0;
               live.sp500.variacao = item.regularMarketChangePercent || 0;
-            } else if (sym === '^IXIC') {
+            } else if (sym === 'QQQ') {
               if (!live.nasdaq) live.nasdaq = {};
               live.nasdaq.valor    = item.regularMarketPrice || 0;
               live.nasdaq.variacao = item.regularMarketChangePercent || 0;
@@ -183,11 +195,11 @@ window.OVC = {
       write('#cotacao-eur',    fmtBrl(eur));
       write('#cotacao-gbp',    fmtBrl(gbp));
       write('#cotacao-btc',    fmtBrl(btc));
-      write('#cotacao-ibov',   ibov  ? fmtPts(ibov)  : '—');
-      write('#cotacao-nasdaq', nasdaq? fmtPts(nasdaq) : '—');
-      write('#cotacao-dow',    dow   ? fmtPts(dow)    : '—');
-      write('#cotacao-sp500',  sp500 ? fmtPts(sp500)  : '—');
-      write('#cotacao-xau',    xau   ? fmtBrl(xau)    : '—');
+      write('#cotacao-ibov',   ibov   ? fmtPts(ibov)   : '—');
+      write('#cotacao-nasdaq', nasdaq ? fmtPts(nasdaq)  : '—');
+      write('#cotacao-dow',    dow    ? fmtPts(dow)     : '—');
+      write('#cotacao-sp500',  sp500  ? fmtPts(sp500)   : '—');
+      write('#cotacao-xau',    xau    ? fmtBrl(xau)     : '—');
 
       const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
       write('#impostometro', fmtImposto(Number(impost)));
