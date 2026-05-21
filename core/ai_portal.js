@@ -197,6 +197,11 @@ Antes de iniciar, identificar internamente:
 — estrutura aplicável
 — intenção central do leitor
 
+FILTRO DE DIFERENCIAÇÃO (executar antes de redigir):
+Verificar internamente: "Este ângulo entrega algo diferente do que os principais resultados do Google já oferecem sobre este tema?"
+Se NÃO → reframing obrigatório. Encontrar ângulo econômico, regulatório ou patrimonial distinto.
+Commodity content é automaticamente invalidado.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONTINUIDADE CONTROLADA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -225,7 +230,12 @@ PROIBIDO: ganchos interativos, perguntas ao leitor, chamadas para comentários.
 PROIBIDO: mencionar veículo de origem.
 Encerramento seco no último fato — sem gancho final.
 FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
-<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.]
+<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.
+
+Estrutura obrigatória do CORPO:
+— parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com o fato central
+— 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
+— <h2>Interpretação Estratégica</h2> OBRIGATÓRIO ao final — leitura de segunda ordem: impactos não óbvios, consequências futuras, posicionamento institucional, o que o leitor precisa entender além do fato]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -233,8 +243,9 @@ MÉTRICAS DE VALIDAÇÃO
 — TITULO: contar caracteres. Mínimo 55, máximo 65. Ajustar se necessário.
 — META_TITLE: máximo 55 caracteres absolutos.
 — META_DESCRICAO: intervalo estrito 141–155 caracteres. Contar e ajustar.
-— CORPO: mínimo 4.000 caracteres. Parágrafos com máximo 3 sentenças.
+— CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO.
+— INTERPRETACAO: seção obrigatória presente ao final do CORPO.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLACKLIST — PROIBIÇÃO ABSOLUTA
@@ -333,8 +344,24 @@ const SUBCATS_POR_CAT = {
   radar:         ["Copa do Mundo","Campeonato Brasileiro Série A","Campeonato Brasileiro Série B","Libertadores","Sul-Americana","Campeonatos Europeus","Fórmula 1","Automóveis & Lançamentos","Imóvel & Casa","Fiscalização & Controle","Fiscalização de Políticos","Corrupção","Impostômetro","Dólar & Câmbio","Real & Economia Doméstica","Música","Cinema & Streaming","Eleições","Olimpíadas","Tênis","Basquete","MMA & UFC","Games & E-sports","Viagens & Turismo"],
 };
 
-function buildUserContent(data, text) {
-  return `Data de hoje: ${data}\n\n<TEXTO_FONTE>\n${text}\n</TEXTO_FONTE>`;
+function buildUserContent(data, text, context = '') {
+  const ctxBlock = context ? `\n<CONTEXTO_EDITORIAL>\n${context}\n</CONTEXTO_EDITORIAL>\n` : '';
+  return `Data de hoje: ${data}${ctxBlock}\n<TEXTO_FONTE>\n${text}\n</TEXTO_FONTE>`;
+}
+
+export function buildDynamicContext({ recentTitles = [], recentKeywords = [], recentCategories = [] } = {}) {
+  const parts = [];
+  if (recentTitles.length > 0) {
+    parts.push(`TEMAS PUBLICADOS HOJE — NÃO repetir ângulo ou abordagem:\n${recentTitles.slice(0, 20).map(t => `— ${t}`).join('\n')}`);
+  }
+  if (recentKeywords.length > 0) {
+    const uniq = [...new Set(recentKeywords)].slice(0, 12);
+    parts.push(`KEYWORDS SATURADAS HOJE: ${uniq.join(', ')}`);
+  }
+  if (recentCategories.length > 0) {
+    parts.push(`CATEGORIAS ATIVAS HOJE: ${recentCategories.join(', ')}`);
+  }
+  return parts.join('\n\n');
 }
 
 function slugify(text) {
@@ -589,7 +616,12 @@ PROIBIDO: Markdown (**, ##, *, •).
 PROIBIDO: mencionar veículo de origem, ganchos interativos, perguntas ao leitor, chamadas para comentários.
 Encerramento seco no último fato — sem gancho final.
 FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
-<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.]
+<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.
+
+Estrutura obrigatória do CORPO:
+— parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com ângulo original OVC
+— 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
+— <h2>Interpretação Estratégica</h2> OBRIGATÓRIO ao final — leitura de segunda ordem: impactos não óbvios, consequências futuras, posicionamento institucional, information gain que a fonte não entregou]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -597,8 +629,9 @@ MÉTRICAS DE VALIDAÇÃO
 — TITULO: mínimo 55, máximo 65 caracteres
 — META_TITLE: máximo 55 caracteres
 — META_DESCRICAO: intervalo estrito 141–155 caracteres
-— CORPO: mínimo 4.000 caracteres. Parágrafos com máximo 3 sentenças.
+— CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
+— INTERPRETACAO: seção obrigatória presente ao final do CORPO
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRA MÁXIMA
@@ -606,39 +639,9 @@ REGRA MÁXIMA
 O resultado final deve operar como jornalismo econômico institucional sênior.
 Nunca parecer IA. Nunca parecer reescrita. Nunca repetir o ângulo da fonte.`;
 
-export async function rewritePortalManual(text, title, useGemini = false) {
+export async function rewritePortalManual(text, title, context = '', useGemini = false) {
   const kernel = REESCRITA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
-  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text);
-  let raw;
-  if (useGemini) {
-    raw = await callGemini(kernel, userContent);
-  } else {
-    try {
-      raw = await callOpenAI(kernel, userContent);
-    } catch(e) {
-      if (GEMINI_KEYS.length > 0) {
-        raw = await callGemini(kernel, userContent);
-      } else {
-        throw e;
-      }
-    }
-  }
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 1500) {
-    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  const tituloLower = (result.titulo || "").toLowerCase().trim();
-  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
-  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
-  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
-    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
-  }
-  return result;
-}
-
-export async function rewritePortal(text, title, useGemini = false) {
-  const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
-  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text);
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   let raw;
   if (useGemini) {
     raw = await callGemini(kernel, userContent);
@@ -655,6 +658,36 @@ export async function rewritePortal(text, title, useGemini = false) {
   }
   const result = parse(raw);
   if (!result || !result.corpo || result.corpo.length < 3000) {
+    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
+  }
+  const tituloLower = (result.titulo || "").toLowerCase().trim();
+  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
+  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
+    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
+  }
+  return result;
+}
+
+export async function rewritePortal(text, title, context = '', useGemini = false) {
+  const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(kernel, userContent);
+  } else {
+    try {
+      raw = await callOpenAI(kernel, userContent);
+    } catch(e) {
+      if (GEMINI_KEYS.length > 0) {
+        raw = await callGemini(kernel, userContent);
+      } else {
+        throw e;
+      }
+    }
+  }
+  const result = parse(raw);
+  if (!result || !result.corpo || result.corpo.length < 4000) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   const tituloLower = (result.titulo || "").toLowerCase().trim();
