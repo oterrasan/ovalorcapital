@@ -617,8 +617,9 @@ async function handleSeedRssLote2(req, res) {
     let inserted = 0;
     for (let i = 0; i < records.length; i += BATCH) {
       const batch = records.slice(i, i + BATCH);
-      const { error } = await supabase.from('rss_sources').upsert(batch, { onConflict: 'url', ignoreDuplicates: true });
-      if (error) return res.status(500).json({ error: error.message, batch_index: i });
+      const { error } = await supabase.from('rss_sources').insert(batch);
+      if (error && !error.message.includes('duplicate') && !error.message.includes('unique'))
+        return res.status(500).json({ error: error.message, batch_index: i });
       inserted += batch.length;
     }
     return res.status(200).json({ ok: true, inserted, total: records.length });
