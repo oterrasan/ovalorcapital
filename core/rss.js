@@ -462,7 +462,7 @@ function isRecente(dateStr) {
   try {
     const itemDate = new Date(dateStr);
     if (isNaN(itemDate.getTime())) return true;
-    return (Date.now() - itemDate.getTime()) < 48 * 60 * 60 * 1000;
+    return (Date.now() - itemDate.getTime()) < 3 * 60 * 60 * 1000;
   } catch (_) { return true; }
 }
 

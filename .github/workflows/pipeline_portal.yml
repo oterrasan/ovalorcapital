@@ -1,24 +1,13 @@
-name: OVC Pipeline — pausa 10h/12h40/16h30 BRT, 1 post/10min
+name: OVC Pipeline — manhã 10min (9h-12h) | pausa 12h-14h | tarde 20min até 50/dia
 
 on:
   schedule:
-    # 07:00–09:50 BRT (10:00–12:50 UTC) — toda hora, a cada 10min
-    - cron: '*/10 10,11,12 * * *'
-    # 10:40–10:50 BRT (13:40–13:50 UTC) — retorno após pausa 10h-10h40
-    - cron: '40,50 13 * * *'
-    # 11:00–11:50 BRT (14:00–14:50 UTC)
-    - cron: '*/10 14 * * *'
-    # 12:00–12:30 BRT (15:00–15:30 UTC) — para antes de 12:40
-    - cron: '0,10,20,30 15 * * *'
-    # 14:00–14:50 BRT (17:00–17:50 UTC) — retorno após pausa 12h40-14h
-    - cron: '*/10 17 * * *'
-    # 15:00–16:20 BRT (18:00–19:20 UTC) — para antes de 16h30
-    - cron: '*/10 18 * * *'
-    - cron: '0,10,20 19 * * *'
-    # 18:00–20:50 BRT (21:00–23:50 UTC) — retorno após pausa 16h30-18h
-    - cron: '*/10 21,22,23 * * *'
-    # 21:00–23:50 BRT (00:00–02:50 UTC)
-    - cron: '*/10 0,1,2 * * *'
+    # MANHÃ: 09:00–11:50 BRT = 12:00–14:50 UTC, a cada 10 minutos
+    - cron: '*/10 12,13,14 * * *'
+    # TARDE: 14:00–20:40 BRT = 17:00–23:40 UTC, a cada 20 minutos
+    - cron: '0,20,40 17,18,19,20,21,22,23 * * *'
+    # NOITE/OVERFLOW: 21:00–01:40 BRT = 00:00–04:40 UTC, a cada 20 minutos
+    - cron: '0,20,40 0,1,2,3,4 * * *'
   workflow_dispatch:
 
 jobs:
