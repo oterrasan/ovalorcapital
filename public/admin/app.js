@@ -516,16 +516,36 @@ function Pipeline(){
     setLoading(false);
   }
 
+  async function runTipo(tipo, label){
+    setLoading(true); setMsg("⏳ Gerando " + label + "... aguarde até 60 segundos.");
+    try{
+      const r = await fetch("/api/run_portal",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({force:true, count:1, tipo})
+      });
+      const j = await r.json();
+      setMsg(JSON.stringify(j,null,2));
+    } catch(e){ setMsg("Erro: "+e.message); }
+    setLoading(false);
+  }
+
   const btn = (label,fn,cor) => React.createElement("button",{onClick:fn,disabled:loading,style:{background:cor,color:"#fff",border:"none",borderRadius:6,padding:"10px 20px",cursor:"pointer",fontWeight:700,fontSize:14,opacity:loading?0.6:1}},label);
 
   return React.createElement("div",null,
     React.createElement("h2",{style:{color:"#ffc800",marginBottom:20}},"Pipeline"),
-    React.createElement("div",{style:{display:"flex",gap:12,flexWrap:"wrap",marginBottom:20}},
-      btn(loading ? "⏳ Gerando..." : "▶ Gerar Matéria Agora", runPortal, "#3b82f6"),
-      btn("▶ Executar Instagram Agora", runIG, "#c81e1e")
+    React.createElement("div",{style:{display:"flex",gap:12,flexWrap:"wrap",marginBottom:8}},
+      btn(loading ? "⏳ Gerando..." : "▶ Matéria", runPortal, "#3b82f6"),
+      btn(loading ? "⏳..." : "✍ Coluna", ()=>runTipo('coluna','coluna'), "#7c3aed"),
+      btn(loading ? "⏳..." : "💊 Pílula", ()=>runTipo('pilula','pílula'), "#0891b2"),
+      btn(loading ? "⏳..." : "⚡ Micro-Pílula", ()=>runTipo('micro_pilula','micro-pílula'), "#059669"),
+      btn("▶ Instagram", runIG, "#c81e1e")
+    ),
+    React.createElement("div",{style:{fontSize:11,color:"#475569",marginBottom:16,paddingLeft:2}},
+      "Matéria: análise completa ≥5k chars · Coluna: ensaio opinativo ≥4.5k · Pílula: nota rápida 2-4.5k · Micro-Pílula: flash informativo 800-2.2k"
     ),
     React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginBottom:16}},
-      "Automação: GitHub Actions dispara a cada 2 minutos (07:00-01:00 BRT)"
+      "Automação: GitHub Actions dispara a cada 10min (09:00-12:00 BRT) e 20min (14:00-02:00 BRT)"
     ),
     msg && React.createElement("pre",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontSize:12,color: msg.includes('"ok"') || msg.includes('status: ok') ? "#22c55e" : "#f59e0b",overflow:"auto",maxHeight:300}}, msg)
   );
