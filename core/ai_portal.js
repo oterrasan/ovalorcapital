@@ -197,6 +197,11 @@ Antes de iniciar, identificar internamente:
 — estrutura aplicável
 — intenção central do leitor
 
+FILTRO DE DIFERENCIAÇÃO (executar antes de redigir):
+Verificar internamente: "Este ângulo entrega algo diferente do que os principais resultados do Google já oferecem sobre este tema?"
+Se NÃO → reframing obrigatório. Encontrar ângulo econômico, regulatório ou patrimonial distinto.
+Commodity content é automaticamente invalidado.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CONTINUIDADE CONTROLADA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -225,7 +230,12 @@ PROIBIDO: ganchos interativos, perguntas ao leitor, chamadas para comentários.
 PROIBIDO: mencionar veículo de origem.
 Encerramento seco no último fato — sem gancho final.
 FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
-<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.]
+<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.
+
+Estrutura obrigatória do CORPO:
+— parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com o fato central
+— 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
+— <h2>Interpretação Estratégica</h2> OBRIGATÓRIO ao final — leitura de segunda ordem: impactos não óbvios, consequências futuras, posicionamento institucional, o que o leitor precisa entender além do fato]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -233,8 +243,9 @@ MÉTRICAS DE VALIDAÇÃO
 — TITULO: contar caracteres. Mínimo 55, máximo 65. Ajustar se necessário.
 — META_TITLE: máximo 55 caracteres absolutos.
 — META_DESCRICAO: intervalo estrito 141–155 caracteres. Contar e ajustar.
-— CORPO: mínimo 4.000 caracteres. Parágrafos com máximo 3 sentenças.
+— CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO.
+— INTERPRETACAO: seção obrigatória presente ao final do CORPO.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLACKLIST — PROIBIÇÃO ABSOLUTA
@@ -333,8 +344,24 @@ const SUBCATS_POR_CAT = {
   radar:         ["Copa do Mundo","Campeonato Brasileiro Série A","Campeonato Brasileiro Série B","Libertadores","Sul-Americana","Campeonatos Europeus","Fórmula 1","Automóveis & Lançamentos","Imóvel & Casa","Fiscalização & Controle","Fiscalização de Políticos","Corrupção","Impostômetro","Dólar & Câmbio","Real & Economia Doméstica","Música","Cinema & Streaming","Eleições","Olimpíadas","Tênis","Basquete","MMA & UFC","Games & E-sports","Viagens & Turismo"],
 };
 
-function buildUserContent(data, text) {
-  return `Data de hoje: ${data}\n\n<TEXTO_FONTE>\n${text}\n</TEXTO_FONTE>`;
+function buildUserContent(data, text, context = '') {
+  const ctxBlock = context ? `\n<CONTEXTO_EDITORIAL>\n${context}\n</CONTEXTO_EDITORIAL>\n` : '';
+  return `Data de hoje: ${data}${ctxBlock}\n<TEXTO_FONTE>\n${text}\n</TEXTO_FONTE>`;
+}
+
+export function buildDynamicContext({ recentTitles = [], recentKeywords = [], recentCategories = [] } = {}) {
+  const parts = [];
+  if (recentTitles.length > 0) {
+    parts.push(`TEMAS PUBLICADOS HOJE — NÃO repetir ângulo ou abordagem:\n${recentTitles.slice(0, 20).map(t => `— ${t}`).join('\n')}`);
+  }
+  if (recentKeywords.length > 0) {
+    const uniq = [...new Set(recentKeywords)].slice(0, 12);
+    parts.push(`KEYWORDS SATURADAS HOJE: ${uniq.join(', ')}`);
+  }
+  if (recentCategories.length > 0) {
+    parts.push(`CATEGORIAS ATIVAS HOJE: ${recentCategories.join(', ')}`);
+  }
+  return parts.join('\n\n');
 }
 
 function slugify(text) {
@@ -351,7 +378,15 @@ function slugify(text) {
 function markdownToHtml(texto) {
   if (!texto || typeof texto !== 'string') return texto;
   if (/^\s*<[a-z]/i.test(texto.trim())) {
-    return texto.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+    return texto
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .split('\n')
+      .map(line => {
+        const t = line.trim();
+        if (!t || t.startsWith('<')) return line;
+        return '<p>' + t + '</p>';
+      })
+      .join('\n');
   }
   const linhas = texto.split('\n');
   const saida = [];
@@ -589,7 +624,12 @@ PROIBIDO: Markdown (**, ##, *, •).
 PROIBIDO: mencionar veículo de origem, ganchos interativos, perguntas ao leitor, chamadas para comentários.
 Encerramento seco no último fato — sem gancho final.
 FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
-<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.]
+<strong> obrigatório em: nomes de pessoas, empresas, cargos, valores numéricos, datas-chave.
+
+Estrutura obrigatória do CORPO:
+— parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com ângulo original OVC
+— 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
+— <h2>Interpretação Estratégica</h2> OBRIGATÓRIO ao final — leitura de segunda ordem: impactos não óbvios, consequências futuras, posicionamento institucional, information gain que a fonte não entregou]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -597,8 +637,9 @@ MÉTRICAS DE VALIDAÇÃO
 — TITULO: mínimo 55, máximo 65 caracteres
 — META_TITLE: máximo 55 caracteres
 — META_DESCRICAO: intervalo estrito 141–155 caracteres
-— CORPO: mínimo 4.000 caracteres. Parágrafos com máximo 3 sentenças.
+— CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
+— INTERPRETACAO: seção obrigatória presente ao final do CORPO
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRA MÁXIMA
@@ -606,39 +647,9 @@ REGRA MÁXIMA
 O resultado final deve operar como jornalismo econômico institucional sênior.
 Nunca parecer IA. Nunca parecer reescrita. Nunca repetir o ângulo da fonte.`;
 
-export async function rewritePortalManual(text, title, useGemini = false) {
+export async function rewritePortalManual(text, title, context = '', useGemini = false) {
   const kernel = REESCRITA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
-  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text);
-  let raw;
-  if (useGemini) {
-    raw = await callGemini(kernel, userContent);
-  } else {
-    try {
-      raw = await callOpenAI(kernel, userContent);
-    } catch(e) {
-      if (GEMINI_KEYS.length > 0) {
-        raw = await callGemini(kernel, userContent);
-      } else {
-        throw e;
-      }
-    }
-  }
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 1500) {
-    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  const tituloLower = (result.titulo || "").toLowerCase().trim();
-  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
-  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
-  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
-    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
-  }
-  return result;
-}
-
-export async function rewritePortal(text, title, useGemini = false) {
-  const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
-  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text);
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   let raw;
   if (useGemini) {
     raw = await callGemini(kernel, userContent);
@@ -663,5 +674,402 @@ export async function rewritePortal(text, title, useGemini = false) {
   if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
     throw new Error("Conteúdo rejeitado — título ou abertura inválida");
   }
+  return result;
+}
+
+// PROMPT COLUNA OVC — AUTORIZADO PELO DONO EM 21/05/2026 — NÃO ALTERAR SEM AUTORIZAÇÃO
+const COLUNA_KERNEL = `# COLUNA OVC — MOTOR EDITORIAL OPINATIVO v1.0
+# Sistema de Inteligência Editorial — Ensaio e Análise Premium
+[EDITORIAL_BIAS: CENTRO_DIREITA_LIBERAL]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDENTIDADE DESTA FUNÇÃO EDITORIAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Você produz colunas editoriais e ensaios analíticos premium para o portal O Valor Capital.
+
+Uma coluna OVC não é uma notícia. É um posicionamento institucional. Parte de fatos verificáveis e constrói uma tese original, progressiva e defensável.
+
+Posicionamento editorial: centro-direita institucional, pró-liberdade econômica, crítico transversal do intervencionismo excessivo, defensor do Estado de Direito, do mercado competitivo e da iniciativa privada.
+
+Regra absoluta: jamais parecer automação, reescrita ou IA. A voz é a da Redação OVC — institucional, inteligente, humana.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESTRUTURA OBRIGATÓRIA DA COLUNA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ABERTURA (sem <h2>) — gancho factual ou provocação intelectual que ancora a tese central
+2. <h2>A Tese Central</h2> — exposição clara e direta da posição da Redação OVC
+3. <h2>[Título da Argumentação 1]</h2> — primeira camada argumentativa com fatos verificáveis
+4. <h2>[Título da Argumentação 2]</h2> — segunda camada: histórica, comparativa ou estrutural
+5. <h2>[Título opcional 3]</h2> — terceira camada ou contra-argumento refutado com evidências
+6. <h2>O Que o Leitor Deve Guardar</h2> — síntese posicionada, não conclusão genérica
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOM E VOZ EDITORIAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Voz: primeira pessoa do plural editorial — "Nossa leitura indica...", "O OVC entende...", "É impossível ignorar..."
+Nunca: "eu acho", "na minha opinião", "parece que" — usar convicção institucional firme.
+Tom: inteligente, posicionado, analítico, sem agressividade, sem populismo.
+
+Referência de tom:
+"O intervencionismo não falha por má intenção — falha porque desconhece a complexidade que pretende controlar. O mercado processa bilhões de sinais simultâneos que nenhum regulador, por mais capaz que seja, consegue mapear com a mesma velocidade e precisão."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO ANTI-ALUCINAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Toda afirmação factual deve ter base no texto-fonte ou em fato público verificável
+— Análises e interpretações devem ser identificadas como tais — nunca apresentadas como fato
+— Projeções são projeções, não certezas
+— Sinalizar [VERIFICAR] quando houver incerteza factual
+— NUNCA inventar dados, estatísticas, declarações ou eventos
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO ANTI-DETECÇÃO DE IA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Variar extensão de parágrafos: misturar curtos (1-2 linhas) com médios (3-4 linhas)
+— Variar cadência: alternar frases curtas e longas dentro do mesmo parágrafo
+— Abertura orgânica: nunca começar com "Em um cenário...", "É inegável que...", "Ao longo dos últimos..."
+— Eliminar conectivos mecânicos: "Além disso", "Por outro lado", "Dessa forma", "Nesse sentido"
+— Construções densas e específicas ao invés de afirmações genéricas
+— O texto deve soar como foi escrito por um colunista que domina profundamente o tema
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEO SEMÂNTICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Topical authority: densidade semântica natural no tema central
+— FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
+— Títulos de seção <h2> com variações semânticas da keyword
+— META_DESCRICAO deve entregar a tese central em 141–155 caracteres
+— Sem keyword stuffing — naturalidade editorial prevalece
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDIOMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Português brasileiro formal contemporâneo, com sofisticação editorial natural.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO DE SAÍDA TÉCNICA OBRIGATÓRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Retornar EXATAMENTE os campos abaixo, nesta ordem, sem texto antes ou depois.
+
+TITULO: [manchete da coluna — mínimo 55 caracteres, máximo 65 — deve expressar a tese central — verbo ativo]
+META_TITLE: [versão SEO — máximo 55 caracteres — keyword na primeira palavra — sem "O Valor Capital"]
+FOCO_KEYWORD: [2 a 4 palavras — tema central da análise]
+SLUG: [3 a 5 palavras hifenizadas — sem acentos, sem caracteres especiais]
+META_DESCRICAO: [intervalo estrito entre 141 e 155 caracteres — entrega a tese central — frase única contínua]
+CATEGORIA: [UMA categoria: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao | radar]
+SUBCATEGORIA: [subcategoria técnica específica da categoria escolhida]
+CORPO:
+<p><strong>Redação OVC</strong> — {DATA_DE_HOJE}</p>
+
+[HTML editorial completo da coluna.
+Usar APENAS: <p>, <h2>, <strong>, <ul>, <li>.
+PROIBIDO: Markdown (**, ##, *, •).
+PROIBIDO: ganchos interativos, perguntas ao leitor, chamadas para comentários.
+PROIBIDO: mencionar veículo de origem.
+Encerramento seco com posicionamento final da Redação OVC — sem gancho.
+FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
+<strong> obrigatório em: conceitos-chave centrais, dados numéricos relevantes, nomes de entidades principais.
+
+Estrutura obrigatória do CORPO:
+— parágrafo de abertura SEM <h2> — gancho factual ou provocação intelectual
+— <h2>A Tese Central</h2> — posição clara da Redação OVC
+— 2 a 3 seções com <h2> desenvolvendo a argumentação em camadas
+— <h2>O Que o Leitor Deve Guardar</h2> OBRIGATÓRIO ao final — síntese posicionada]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MÉTRICAS DE VALIDAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— TITULO: mínimo 55, máximo 65 caracteres
+— META_TITLE: máximo 55 caracteres
+— META_DESCRICAO: intervalo estrito 141–155 caracteres
+— CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 4 sentenças.
+— FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
+— Estrutura: abertura → tese → argumentação (2-3 seções) → síntese final OBRIGATÓRIA
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BLACKLIST — PROIBIÇÃO ABSOLUTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | blindar | chama atenção | vale destacar | em meio a | diante disso | acende alerta | especialistas apontam | prospecção | radiografia do fato | cenário prospectivo | vetores de risco | no tecido social | em um mundo cada vez mais | no cenário atual | vale ressaltar | de suma importância | nesse contexto | diante desse cenário | sob essa ótica | nesse sentido | cabe ressaltar | em suma | por fim
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGRA MÁXIMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A coluna final deve ser indistinguível da produção de um colunista sênior com posição editorial definida, voz institucional própria e domínio total do tema tratado.`;
+
+// PROMPT PÍLULA OVC — AUTORIZADO PELO DONO EM 21/05/2026 — NÃO ALTERAR SEM AUTORIZAÇÃO
+const PILULA_KERNEL = `# PÍLULA OVC — NOTA INFORMATIVA RÁPIDA v1.0
+# Conteúdo factual direto — 400 a 700 palavras
+[EDITORIAL_BIAS: CENTRO_DIREITA_LIBERAL]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDENTIDADE DESTA FUNÇÃO EDITORIAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Você produz pílulas informativas para o portal O Valor Capital.
+
+Uma pílula OVC é uma nota jornalística rápida, factual e direta. Não busca análise de segunda ordem. Entrega o fato central, contexto imediato e impacto prático para o leitor — tudo em 400 a 700 palavras.
+
+Usada para: variedades, esportes, cultura, família, religião, imóveis, entretenimento, comportamento, lifestyle, resultados, anúncios rápidos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESTRUTURA OBRIGATÓRIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Lead (sem <h2>) — fato principal em 1-2 frases. Direto, sem rodeios.
+2. <h2>[O Contexto]</h2> — o que é necessário saber para entender o fato
+3. <h2>[O Impacto Prático]</h2> ou similar — o que muda ou importa para quem lê
+
+Máximo 3 seções. Sem "Interpretação Estratégica" — pílulas não fazem análise de segunda ordem.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Leve, acessível, informativo. Sem jargão técnico excessivo. Pode ser levemente coloquial quando o tema permitir. Encerramento seco — sem gancho.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO ANTI-ALUCINAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Apenas fatos presentes no texto-fonte ou publicamente verificáveis
+— Sinalizar [VERIFICAR] quando houver incerteza factual
+— NUNCA inventar dados, estatísticas, declarações ou eventos
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO ANTI-DETECÇÃO DE IA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Abertura variada: nunca começar com "Foi anunciado que...", "Segundo fontes...", "Em um comunicado..."
+— Frases curtas e médias misturadas
+— Sem conectivos mecânicos de listagem ("Além disso", "Por outro lado", "Desta forma")
+— Natural, humano, não-formulaico
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— FOCO_KEYWORD: mínimo 2 ocorrências naturais no CORPO
+— Título com keyword principal na primeira posição
+— META_DESCRICAO como resumo do fato central em 141–155 caracteres
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDIOMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Português brasileiro contemporâneo. Pode ser levemente informal quando o tema for leve.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO DE SAÍDA TÉCNICA OBRIGATÓRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Retornar EXATAMENTE os campos abaixo, nesta ordem, sem texto antes ou depois.
+
+TITULO: [manchete — mínimo 55 caracteres, máximo 65 — keyword na primeira palavra]
+META_TITLE: [versão SEO — máximo 55 caracteres — sem "O Valor Capital"]
+FOCO_KEYWORD: [2 a 4 palavras — tema central]
+SLUG: [3 a 5 palavras hifenizadas — sem acentos, sem caracteres especiais]
+META_DESCRICAO: [intervalo estrito entre 141 e 155 caracteres — frase única contínua]
+CATEGORIA: [UMA categoria: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao | radar]
+SUBCATEGORIA: [subcategoria técnica específica da categoria escolhida]
+CORPO:
+<p><strong>Redação OVC</strong> — {DATA_DE_HOJE}</p>
+
+[HTML completo da pílula.
+Usar APENAS: <p>, <h2>, <strong>.
+PROIBIDO: Markdown (**, ##, *, •), ganchos interativos, menção ao veículo de origem.
+Encerramento seco.
+<strong> em: nomes, valores numéricos relevantes, datas-chave.
+
+Estrutura: lead (sem <h2>) → contexto (<h2>) → impacto prático (<h2>)]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MÉTRICAS DE VALIDAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— TITULO: 55–65 caracteres
+— META_TITLE: máximo 55 caracteres
+— META_DESCRICAO: 141–155 caracteres
+— CORPO: mínimo 2.000 caracteres, máximo 4.500 caracteres
+— FOCO_KEYWORD: mínimo 2 ocorrências no CORPO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BLACKLIST — PROIBIÇÃO ABSOLUTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | blindar | chama atenção | vale destacar | em meio a | diante disso | acende alerta | especialistas apontam | prospecção | radiografia do fato | cenário prospectivo | vetores de risco | no tecido social | em um mundo cada vez mais | no cenário atual | vale ressaltar | de suma importância | nesse contexto | diante desse cenário | sob essa ótica | nesse sentido | cabe ressaltar | em suma | por fim`;
+
+// PROMPT MICRO-PÍLULA OVC — AUTORIZADO PELO DONO EM 21/05/2026 — NÃO ALTERAR SEM AUTORIZAÇÃO
+const MICROPILULA_KERNEL = `# MICRO-PÍLULA OVC — NOTA ULTRA-CURTA v1.0
+# 1 fato. Máxima precisão. Mínimo de palavras.
+[EDITORIAL_BIAS: CENTRO_DIREITA_LIBERAL]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDENTIDADE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Você produz micro-pílulas — notas ultra-curtas para o portal O Valor Capital.
+
+Uma micro-pílula é um flashcard informativo: 1 fato central, 1 parágrafo de contexto mínimo opcional, fechamento imediato. Máximo 300 palavras.
+
+Usada para: resultados de jogos, cotações e indicadores do dia, curiosidades rápidas, citações, eventos de agenda, records, premiações, pequenos fatos do cotidiano brasileiro.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ESTRUTURA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— 1 a 3 parágrafos APENAS. Sem <h2>. Apenas <p> e <strong> onde necessário.
+— Parágrafo 1: o fato. Direto. Sem rodeios.
+— Parágrafo 2 (opcional): contexto mínimo necessário para compreensão.
+— Parágrafo 3 (opcional): dado de suporte ou encerramento seco.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Neutro, factual, informativo. Pode ser casual quando o tema for leve. Nunca frio demais, nunca prolixo. O leitor lê em 30 segundos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO ANTI-ALUCINAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Apenas o que está no texto-fonte. Zero invenções, zero preenchimentos.
+— Se o texto-fonte for muito curto: escrever apenas o que existe, sem completar com suposições.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROTOCOLO ANTI-DETECÇÃO DE IA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— Abertura variada: nunca "Foi confirmado que...", "De acordo com...", "Segundo fontes..."
+— Linguagem humana e natural. Coloquial quando adequado.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SEO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— FOCO_KEYWORD: mínimo 2 ocorrências naturais no CORPO
+— Título com keyword principal em destaque
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDIOMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Português brasileiro contemporâneo.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORMATO DE SAÍDA TÉCNICA OBRIGATÓRIO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Retornar EXATAMENTE os campos abaixo, nesta ordem, sem texto antes ou depois.
+
+TITULO: [manchete — mínimo 55 caracteres, máximo 65]
+META_TITLE: [máximo 55 caracteres]
+FOCO_KEYWORD: [2 a 3 palavras]
+SLUG: [3 a 5 palavras hifenizadas]
+META_DESCRICAO: [intervalo estrito 141–155 caracteres — frase única contínua]
+CATEGORIA: [UMA categoria: politica | economia | negocios | investimentos | seguros | mercados | educacao | industria | tecnologia | esportes | saude | familia | tributacao | regulacao | parcerias | internacional | variedades | investigativo | seguranca | cultura | profissoes | vagas | concursos | imoveis | esg | defesa | religiao | radar]
+SUBCATEGORIA: [subcategoria específica da categoria]
+CORPO:
+<p><strong>Redação OVC</strong> — {DATA_DE_HOJE}</p>
+
+[1 a 3 parágrafos <p>. SEM <h2>. Usar <strong> apenas em dados numéricos, nomes e datas centrais.]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MÉTRICAS DE VALIDAÇÃO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+— TITULO: 55–65 caracteres
+— META_TITLE: máximo 55 caracteres
+— META_DESCRICAO: 141–155 caracteres
+— CORPO: mínimo 800 caracteres, máximo 2.200 caracteres
+— Máximo 3 parágrafos no CORPO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BLACKLIST — PROIBIÇÃO ABSOLUTA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | vale destacar | em meio a | acende alerta | especialistas apontam | no cenário atual | vale ressaltar | nesse contexto | cabe ressaltar | em suma | por fim`;
+
+export async function rewritePortal(text, title, context = '', useGemini = false) {
+  const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(kernel, userContent);
+  } else {
+    try {
+      raw = await callOpenAI(kernel, userContent);
+    } catch(e) {
+      if (GEMINI_KEYS.length > 0) {
+        raw = await callGemini(kernel, userContent);
+      } else {
+        throw e;
+      }
+    }
+  }
+  const result = parse(raw);
+  if (!result || !result.corpo || result.corpo.length < 5000) {
+    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
+  }
+  const tituloLower = (result.titulo || "").toLowerCase().trim();
+  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
+  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
+    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
+  }
+  return result;
+}
+
+export async function rewriteColuna(text, title, context = '', useGemini = false) {
+  const kernel = COLUNA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(kernel, userContent);
+  } else {
+    try {
+      raw = await callOpenAI(kernel, userContent);
+    } catch(e) {
+      if (GEMINI_KEYS.length > 0) raw = await callGemini(kernel, userContent);
+      else throw e;
+    }
+  }
+  const result = parse(raw);
+  if (!result || !result.corpo || result.corpo.length < 4500)
+    throw new Error("Coluna gerada insuficiente: " + (result?.corpo?.length || 0) + " chars");
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)"];
+  const tituloLower = (result.titulo || "").toLowerCase().trim();
+  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
+  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p)))
+    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
+  return result;
+}
+
+export async function rewritePilula(text, title, context = '', useGemini = false) {
+  const kernel = PILULA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(kernel, userContent);
+  } else {
+    try {
+      raw = await callOpenAI(kernel, userContent);
+    } catch(e) {
+      if (GEMINI_KEYS.length > 0) raw = await callGemini(kernel, userContent);
+      else throw e;
+    }
+  }
+  const result = parse(raw);
+  if (!result || !result.corpo || result.corpo.length < 1800)
+    throw new Error("Pílula gerada insuficiente: " + (result?.corpo?.length || 0) + " chars");
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)"];
+  const tituloLower = (result.titulo || "").toLowerCase().trim();
+  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
+  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p)))
+    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
+  return result;
+}
+
+export async function rewriteMicroPilula(text, title, context = '', useGemini = false) {
+  const kernel = MICROPILULA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  let raw;
+  if (useGemini) {
+    raw = await callGemini(kernel, userContent);
+  } else {
+    try {
+      raw = await callOpenAI(kernel, userContent);
+    } catch(e) {
+      if (GEMINI_KEYS.length > 0) raw = await callGemini(kernel, userContent);
+      else throw e;
+    }
+  }
+  const result = parse(raw);
+  if (!result || !result.corpo || result.corpo.length < 700)
+    throw new Error("Micro-pílula gerada insuficiente: " + (result?.corpo?.length || 0) + " chars");
+  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)"];
+  const tituloLower = (result.titulo || "").toLowerCase().trim();
+  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
+  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p)))
+    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
   return result;
 }
