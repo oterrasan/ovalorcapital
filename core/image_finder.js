@@ -44,11 +44,17 @@ const BLOQUEIO_PATTERNS = [
   '/profile/', '/headshot/', '/avatar/', '/staff/', '/equipe/',
   'foto-autor', 'foto-reporter', 'headshot', 'profile-pic', 'author-photo',
   'logo', 'icon', 'favicon', 'banner', 'marca',
-  // Bloqueio de ilustrações, gráficos e imagens não-fotográficas
+  // Ilustrações, gráficos e imagens não-fotográficas
   'vector', 'ilustra', 'illustration', 'diagram', 'diagrama',
   'infograph', 'infografia', 'cartoon', 'drawing', 'clipart',
   'clip-art', 'clip_art', 'sketch', 'esquema', 'graphic-design',
   'template', 'stock-illustr', 'shutterstock', 'gettyimages',
+  // Google CDN — logos, favicons, thumbnails de canal, profile pics
+  'lh3.googleusercontent', 'lh4.googleusercontent', 'lh5.googleusercontent',
+  'lh6.googleusercontent', 'yt3.ggpht', 'googlelogo', 'google_logo',
+  'google-logo', 'gstatic.com/images', 'ssl.gstatic', 'encrypted-tbn',
+  // Imagens genéricas de stock/turismo que aparecem frequentemente
+  'placeholder', 'default-image', 'no-image', 'sem-imagem',
 ];
 
 const COMPETITOR_HOSTS = new Set([
@@ -77,16 +83,13 @@ function isImagemBloqueada(url) {
 function extrairEntidades(titulo) {
   if (!titulo) return [];
 
-  // IMPORTANT: specific multi-word aliases MUST come before generic single-word ones
   const ALIASES = {
-    // Bolsonaro family — specific before generic
     'flávio bolsonaro': 'Flávio Bolsonaro',
     'flavio bolsonaro': 'Flávio Bolsonaro',
     'eduardo bolsonaro': 'Eduardo Bolsonaro',
     'carlos bolsonaro': 'Carlos Bolsonaro',
     'jair bolsonaro': 'Jair Bolsonaro',
     'bolsonaro': 'Jair Bolsonaro',
-    // Lula
     'lula': 'Luiz Inácio Lula da Silva',
     'temer': 'Michel Temer',
     'dilma': 'Dilma Rousseff',
@@ -193,7 +196,6 @@ async function buscarWikipedia(entityName, imagensUsadas) {
       if (!img) continue;
       if (isImagemBloqueada(img)) continue;
       if (!/\.(jpg|jpeg|png|webp)/i.test(img) && !img.includes('upload.wikimedia')) continue;
-      // Rejeita imagens muito pequenas do Wikipedia (ícones, logos, brasões)
       const widthMatch = img.match(/\/(\d+)px-/);
       if (widthMatch && parseInt(widthMatch[1]) < 400) continue;
       const imgGrande = img.replace(/\/\d+px-/, '/1000px-');
@@ -230,8 +232,7 @@ async function buscarWikimedia(query, imagensUsadas) {
 
     for (const page of pages) {
       const title = page.title || '';
-      // Filtro expandido — rejeita mapas, bandeiras, ícones, diagramas, ilustrações, gráficos
-      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge/i.test(title)) continue;
+      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge|temple|pagoda|palace|mosque|cathedral|shrine|stupa|landmark|monument|tourist|tourism|stock_photo|placeholder/i.test(title)) continue;
       const imgInfo = page?.imageinfo?.[0];
       const img = imgInfo?.url;
       if (!img) continue;
@@ -362,7 +363,6 @@ async function _buscarImagem(titulo, categoria) {
 
   const entidades = extrairEntidades(titulo);
 
-  // Wikipedia por entidade
   for (const entidade of entidades) {
     try {
       const img = await buscarWikipedia(entidade, imagensUsadas);
@@ -370,7 +370,6 @@ async function _buscarImagem(titulo, categoria) {
     } catch(_) {}
   }
 
-  // Wikimedia Commons por entidade
   for (const entidade of entidades) {
     try {
       const img = await buscarWikimedia(entidade, imagensUsadas);
@@ -378,20 +377,17 @@ async function _buscarImagem(titulo, categoria) {
     } catch(_) {}
   }
 
-  // Wikimedia Commons por tema
   try {
     const img = await buscarWikimedia(titulo, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // Pixabay
   const termoEn = topicosEmIngles(titulo, categoria);
   try {
     const img = await buscarPixabay(termoEn, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // Pexels
   try {
     const img = await buscarPexels(termoEn, imagensUsadas);
     if (img) return img;
