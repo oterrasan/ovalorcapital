@@ -3,7 +3,7 @@ import crypto from "crypto";
 import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal, rewritePortalManual } from "../core/ai_portal.js";
+import { rewritePortal, rewritePortalManual, rewriteColuna, rewritePilula, rewriteMicroPilula, buildDynamicContext } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
@@ -268,7 +268,7 @@ function topicoDuplicado(novoTitulo, titulos) {
 }
 
 async function handleManualPost(req, res) {
-  const { url, texto, publicar, categoria: catAlvo = "", subcategoria: subcatAlvo = "", image_url, image_query } = req.body || {};
+  const { url, texto, publicar, tipo: tipoManual = 'materia', categoria: catAlvo = "", subcategoria: subcatAlvo = "", image_url, image_query } = req.body || {};
   if (!url && !texto) return res.status(400).json({ error: "Informe url ou texto" });
   try {
     let sourceText = "", sourceTitle = "", imgScrapeada = "";
@@ -282,15 +282,24 @@ async function handleManualPost(req, res) {
     } else {
       sourceText = texto;
     }
-    // Inject recent titles so AI avoids repeating today's topics
+    let manualContext = '';
     try {
-      const { data: rt } = await supabase.from('posts').select('titulo')
+      const { data: rt } = await supabase.from('posts').select('titulo, user_tags, metrics')
         .gte('created_at', new Date(Date.now() - 24*3600000).toISOString())
         .eq('status','publicado').order('created_at',{ascending:false}).limit(25);
-      const titles = (rt||[]).map(p=>p.titulo).filter(Boolean);
-      if (titles.length > 0) sourceText = `[Temas já publicados hoje — não repetir:\n${titles.join('\n')}\n]\n\n${sourceText}`;
+      if (rt && rt.length > 0) {
+        const titles = rt.map(p => p.titulo).filter(Boolean);
+        const keywords = rt.map(p => p.metrics?.foco_keyword).filter(Boolean);
+        const cats = [...new Set(rt.map(p => { try { return JSON.parse(p.user_tags||'[]')[0]; } catch(_) { return null; } }).filter(Boolean))];
+        manualContext = buildDynamicContext({ recentTitles: titles, recentKeywords: keywords, recentCategories: cats });
+      }
     } catch(_) {}
-    const content = await rewritePortalManual(sourceText, sourceTitle);
+    let content;
+    const tipoNorm = (tipoManual || 'materia').toLowerCase().replace(/[^a-z_]/g, '');
+    if (tipoNorm === 'coluna') content = await rewriteColuna(sourceText, sourceTitle, manualContext);
+    else if (tipoNorm === 'pilula') content = await rewritePilula(sourceText, sourceTitle, manualContext);
+    else if (tipoNorm === 'micro_pilula') content = await rewriteMicroPilula(sourceText, sourceTitle, manualContext);
+    else content = await rewritePortalManual(sourceText, sourceTitle, manualContext);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
@@ -418,7 +427,6 @@ export default async function handler(req, res) {
 
   if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
 
-  // Busca de imagem por query — para o admin (NovoPost, etc.)
   if (meta.action === 'buscar_imagem') {
     const q = (meta.q || '').trim();
     if (!q) return res.status(400).json({ error: 'q obrigatório' });
@@ -428,10 +436,10 @@ export default async function handler(req, res) {
     } catch(e) { return res.status(500).json({ error: e.message }); }
   }
 
-  // Geração manual (URL ou texto) — sem limite diário
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
+  const tipoAuto = (body.tipo || 'materia').toLowerCase().replace(/[^a-z_]/g, '');
 
   if (body.action === 'cleanup_titles') {
     if (!body.force) return res.status(403).json({ error: 'requires force:true' });
@@ -454,40 +462,45 @@ export default async function handler(req, res) {
     if (!body.force) {
       const agoraBR = new Date(Date.now() - 3 * 3600000);
       const horaBR  = agoraBR.getUTCHours();
-      const dentroJanela = horaBR >= 7 || horaBR < 1;
-      if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
+      const dentroJanela = (horaBR >= 9 && horaBR < 12) || horaBR >= 14 || horaBR <= 1;
+      if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '09:00-12:00 | 14:00-02:00 BRT' });
     }
 
-    // Cap diário: máximo 100 artigos automáticos por dia (BRT) — não afeta geração manual
+    // Cap diário: 50 artigos por dia editorial (dia editorial começa às 09:00 BRT = 12:00 UTC)
     {
       const agora = new Date();
       const hUtc = agora.getUTCHours();
       const inicioDiaBRT = new Date(
         Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) +
-        (hUtc < 3 ? -1 : 0) * 86400000 + 3 * 3600000
+        (hUtc < 12 ? -1 : 0) * 86400000 + 12 * 3600000
       );
       const { count: postsHoje } = await supabase
         .from('posts')
         .select('id', { count: 'exact', head: true })
         .gte('created_at', inicioDiaBRT.toISOString())
         .eq('publish_method', 'portal');
-      if ((postsHoje || 0) >= 100) {
-        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 100 });
+      if ((postsHoje || 0) >= 50) {
+        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 50 });
       }
     }
 
-    // Busca títulos das últimas 24h para dedup interno
     let recentTitles = [];
+    let dynamicContext = '';
     try {
-      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(500);
+      const { data: rt } = await supabase.from('posts').select('titulo, user_tags, metrics')
+        .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(500);
       recentTitles = (rt || []).map(p => p.titulo || '');
+      if (rt && rt.length > 0) {
+        const keywords = rt.map(p => p.metrics?.foco_keyword).filter(Boolean);
+        const cats = [...new Set(rt.map(p => { try { return JSON.parse(p.user_tags||'[]')[0]; } catch(_) { return null; } }).filter(Boolean))];
+        dynamicContext = buildDynamicContext({ recentTitles: recentTitles.slice(0, 20), recentKeywords: keywords, recentCategories: cats });
+      }
     } catch(_) {}
 
     const catAlvo = (catForcada && CATS_VALIDAS.has(catForcada))
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
-    // Categoria efetiva para forçar: catForcada explícita OU catAlvo quando for 'radar'
     const catEfetiva = catForcada || (catAlvo === 'radar' ? 'radar' : '');
 
     let news;
@@ -533,8 +546,12 @@ export default async function handler(req, res) {
       if (!sourceText) continue;
 
       let content;
-      const titlesCtx = recentTitles.length > 0 ? `[Temas recentes publicados — NÃO REPETIR:\n${recentTitles.slice(0,15).join('\n')}\n]\n\n` : '';
-      try { content = await rewritePortal(titlesCtx + sourceText, item.title); } catch(e) { continue; }
+      try {
+        if (tipoAuto === 'coluna') content = await rewriteColuna(sourceText, item.title, dynamicContext);
+        else if (tipoAuto === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
+        else if (tipoAuto === 'micro_pilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
+        else content = await rewritePortal(sourceText, item.title, dynamicContext);
+      } catch(e) { continue; }
       if (!validarConteudo(content)) continue;
       content.titulo = stripTitle(content.titulo);
 
@@ -548,7 +565,6 @@ export default async function handler(req, res) {
       if (topicoDuplicado(content.titulo, recentTitles)) continue;
 
       if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
-        // categoria forcada (manual ou radar via HIGH_PRIORITY_CATS)
         const familiaForcada = FAMILIA_CAT[catEfetiva];
         const familiaConteudo = FAMILIA_CAT[content.categoria];
         if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
