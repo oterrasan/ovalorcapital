@@ -61,6 +61,11 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 - Gancho final proibido (ex: "Acompanhe o portal...")
 - gpt-4o-mini, temperature 0.3, max_tokens 8192
 
+**Novos prompts AUTORIZADOS em 21/05/2026:**
+- `COLUNA_KERNEL` — coluna opinativa/ensaio, mín 4500 chars
+- `PILULA_KERNEL` — nota rápida 400-700 palavras, mín 1800 chars no corpo
+- `MICROPILULA_KERNEL` — ultra-curto 1-3 parágrafos SEM `<h2>`, mín 700 chars
+
 ---
 
 ## ❌ REGRA ZERO-C — NUNCA DAR PUSH PARA MAIN SEM REVISAR O DIFF
@@ -114,15 +119,30 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 3. Verificar que o diff NÃO mostra centenas de linhas deletadas
 4. Se o diff mostrar -100 linhas ou mais: PARAR e investigar antes de fazer o push
 
-**Como o incidente aconteceu (18/05/2026):**
-- PR #44 tinha um merge conflict em `public/index.html`
-- A resolução do conflito apagou 734 linhas (o conteúdo inteiro), deixando só 1 linha
-- O commit foi para main sem revisão do diff
-- Portal ficou offline imediatamente
-- Dois agentes de restauração subsequentes enviaram base64 em vez de HTML (bug de subagent)
-- Levou ~40 minutos para restaurar completamente
+---
 
-**Lição:** Nunca confiar em agentes para push de arquivos binários ou HTML de grande porte. Sempre usar `mcp__github__create_or_update_file` diretamente com o conteúdo literal — nunca via subagent.
+## 🚨❌ REGRA ZERO-F — vercel.json É ARQUIVO DE DEPLOY CRÍTICO — TOCAR COM EXTREMO CUIDADO
+
+> **INCIDENTE 21/05/2026:** Adição de header `/css/(.*)` no-cache em vercel.json causou **403 Forbidden em TODO o portal e admin**. Portal ficou fora do ar por vários minutos. Roberto fez 843+ refreshes confirmando o problema. 3 quedas no mesmo dia.
+
+```
+❌❌❌ PROIBIDO alterar vercel.json junto com qualquer outro arquivo — SEMPRE commit isolado
+❌❌❌ PROIBIDO adicionar novos blocos em "headers" sem testar exatamente como os existentes funcionam
+❌❌❌ PROIBIDO usar vercel.json para resolver problema de cache de CSS/JS — usar ?v=N no HTML ou injeção via site.js
+❌❌❌ PROIBIDO fazer push de vercel.json sem ter plano de revert imediato preparado e confirmado
+❌❌❌ NUNCA assumir que um padrão novo em "headers" é seguro só porque um padrão similar funciona
+```
+
+**O que causou o 403 (21/05/2026):**
+- Adicionei `{ "source": "/css/(.*)", headers: [no-cache] }` — padrão idêntico ao `/js/(.*)` que funciona
+- Isso causou 403 Forbidden imediato em todo o portal (homepage + admin)
+- Causa exata não confirmada — pode ser conflito de edge cache Vercel com assets CSS estáticos
+- Revert imediato (remover o bloco CSS) restaurou o portal
+
+**Como fazer cache-busting sem tocar vercel.json:**
+- Adicionar `?v=N` na URL no HTML: `<link href="/css/home.css?v=2">`
+- Injetar `<style>` override via `site.js` (que já tem no-cache via regra `/js/(.*)`)
+- NUNCA tentar resolver cache de CSS/JS adicionando headers no vercel.json
 
 ---
 
@@ -186,31 +206,33 @@ Fonte de receita única: Google AdSense / Google AdX.
 3. **NUNCA PUSH SEM REVISAR DIFF** — Ver Regra Zero-C.
 4. **STAGING ATIVO** — Pipeline salva como `pendente`. Admin aprova antes de publicar. Ver Regra Zero-D.
 5. **PORTAL NUNCA OFFLINE** — Ver Regra Zero-E. public/index.html NUNCA pode ter menos de 700 linhas em main.
-6. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
-7. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
-8. **URLs sempre com slug** — nunca `?id=`.
-9. **SSR obrigatório** — Googlebot não pode depender de JS.
-10. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
-11. **Pipeline gera artigos para fila — Roberto aprova antes de publicar.**
-12. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main.
-13. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array TEXT, usar `.like()`).
-14. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
-15. **`getNews()` sempre mistura feeds diretos garantidos.**
-16. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14.
-17. **`vc` e `colunistas` NÃO são categorias do pipeline.**
-18. **Landing pages têm footer inline** — editar direto em `api/landing.js` `buildFooter()`.
-19. **META_TITLE (≤55 chars) separado do TITULO.**
-20. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
-21. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
-22. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
-23. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
-24. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
-25. **`home.js` e `ovc-cards.js` usam 1 fetch bulk** — NUNCA retornar para múltiplos fetches por categoria. Ver Perf #1 (18/05/2026).
-26. **Dedup de conteúdo: Jaccard 55% + tópico (≥3 keywords)** — NUNCA reduzir threshold Jaccard abaixo de 0.55. Ver Qualidade #1 (18/05/2026).
-27. **Dedup de entidade NÃO EXISTE** — removido por instrução de Roberto. Em eleições/Copa/política a mesma figura aparece legitimamente o dia todo. Ver Qualidade #1 (18/05/2026).
-28. **Imagens: 3 camadas de rejeição** — BLOQUEIO_PATTERNS URL + filtro título Wikimedia + Vision API (is_illustration). NUNCA remover nenhuma camada. Ver Qualidade #2 (18/05/2026).
-29. **`recentTitles` janela 24h é INVIOLÁVEL** — "portal busca APENAS conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS" (Roberto, 18/05/2026).
-30. **PORTAL NUNCA OFFLINE** — public/index.html ≥700 linhas em main. Verificar SEMPRE antes de qualquer push que toque esse arquivo. Ver Regra Zero-E (18/05/2026).
+6. **vercel.json É CRÍTICO** — Ver Regra Zero-F. Commit isolado, nunca para cache-busting. 403 imediato se errar.
+7. **SEO 100% COMPLETO EM TODA PÁGINA** — Ver Regra #1.
+8. **Topo e rodapé do portal NUNCA mudam** sem aprovação do dono.
+9. **URLs sempre com slug** — nunca `?id=`.
+10. **SSR obrigatório** — Googlebot não pode depender de JS.
+11. **Sitemap sempre atualizado** — `api/sitemap.js` é dinâmico.
+12. **Pipeline gera artigos para fila — Roberto aprova antes de publicar.**
+13. **REGRA DE DOCUMENTAÇÃO:** Ao final de toda sessão, atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main.
+14. **NUNCA usar `p.categoria`** — não existe. Sempre usar `user_tags` (JSON array TEXT, usar `.like()`).
+15. **NUNCA exigir strings fixas da IA no corpo** — ver Bug #7.
+16. **`getNews()` sempre mistura feeds diretos garantidos.**
+17. **`category.js` redireciona `?id=` para `/og?id=`** — ver Bug #14.
+18. **`vc` e `colunistas` NÃO são categorias do pipeline.**
+19. **Landing pages têm footer inline** — editar direto em `api/landing.js` `buildFooter()`.
+20. **META_TITLE (≤55 chars) separado do TITULO.**
+21. **`renderCorpo()` em `public/js/internal-page-v2.js` detecta HTML vs markdown** — não reverter.
+22. **Artigos gerados SEMPRE em HTML** — nunca markdown. Validar antes de salvar: conteúdo deve conter `<p>`.
+23. **`core/ai_portal.js`** tem comentário `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO` — respeitar.
+24. **`banners.json` em `data/`** — não tem coluna `categoria`, usa array `categories[]`. Ver seção 2.
+25. **Links de banner usam `rel="sponsored"`** — obrigatório por compliance Google.
+26. **`home.js` e `ovc-cards.js` usam 1 fetch bulk** — NUNCA retornar para múltiplos fetches por categoria. Ver Perf #1 (18/05/2026).
+27. **Dedup de conteúdo: Jaccard 55% + tópico (≥3 keywords)** — NUNCA reduzir threshold Jaccard abaixo de 0.55. Ver Qualidade #1 (18/05/2026).
+28. **Dedup de entidade NÃO EXISTE** — removido por instrução de Roberto. Em eleições/Copa/política a mesma figura aparece legitimamente o dia todo. Ver Qualidade #1 (18/05/2026).
+29. **Imagens: 3 camadas de rejeição** — BLOQUEIO_PATTERNS URL + filtro título Wikimedia + Vision API (is_illustration). NUNCA remover nenhuma camada. Ver Qualidade #2 (18/05/2026).
+30. **`recentTitles` janela 24h é INVIOLÁVEL** — "portal busca APENAS conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS" (Roberto, 18/05/2026).
+31. **PORTAL NUNCA OFFLINE** — public/index.html ≥700 linhas em main. Verificar SEMPRE antes de qualquer push que toque esse arquivo. Ver Regra Zero-E (18/05/2026).
+32. **vercel.json NUNCA para cache-busting** — causa 403. Usar `?v=N` no HTML ou injeção via site.js. Ver Regra Zero-F (21/05/2026).
 
 ---
 
@@ -261,30 +283,32 @@ Fonte de receita única: Google AdSense / Google AdX.
 |---|---|
 | `core/rss.js` | 240+ feeds RSS em 16 grupos + feeds diretos garantidos |
 | `core/scraper.js` | Extrai texto (3 camadas: p → div → og:meta) |
-| `core/ai_portal.js` | **🔒 PROMPT TRAVADO** — gera META_TITLE, TITULO, CORPO HTML, META_DESCRICAO |
-| `core/image_finder.js` | Busca imagem relevante (timeout 10s) — BLOQUEIO_PATTERNS expandido (18/05/2026) |
+| `core/ai_portal.js` | **🔒 PROMPT TRAVADO** — gera META_TITLE, TITULO, CORPO HTML, META_DESCRICAO + **rewriteColuna/Pilula/MicroPilula (autorizados 21/05/2026)** |
+| `core/image_finder.js` | Busca imagem relevante (timeout 10s) — BLOQUEIO_PATTERNS expandido (22/05/2026: Google CDN + tourist/landmark) |
 | `core/image_processor.js` | Processa → WebP quality 82 → Supabase Storage — Vision API rejeita is_illustration (18/05/2026) |
 
 ### Frontend JS Crítico
 | Arquivo | Função |
 |---|---|
 | `public/js/internal-page-v2.js` | Renderização artigos — `renderCorpo()` detecta HTML vs markdown |
-| `public/js/home.js` | Homepage dinâmica — **1 fetch bulk** `/api/portal-posts?recentes=true` (Perf #1, 18/05/2026) |
+| `public/js/home.js` | Homepage dinâmica — **1 fetch bulk** `/api/portal-posts?recentes=true` (Perf #1, 18/05/2026) + **fallback AwesomeAPI client-side** (21/05/2026) |
 | `public/js/noticias-v3.js` | Listagem de notícias |
 | `public/js/ovc-cards.js` | Cards de artigos — CATS funnel reordering (Block 4) + **1 fetch bulk** (Perf #1, 18/05/2026) — **sem setInterval** |
 | `public/js/newsletter-bar.js` | Injeta newsletter bar + patcha footer |
 | `public/js/banners.js` | **NOVO (Block 5)** — injeta banner Lions Corretora em artigos e homepage |
+| `public/js/site.js` | Globals OVC, ticker header, impostômetro, temas — **fallback AwesomeAPI client-side** (21/05/2026) + **injeção CSS compacto** |
 
 ### Admin
 | Arquivo | Função |
 |---|---|
-| `public/admin/app.js` | Painel admin React — tabs: dashboard, pendentes, publicados, sem_foto, **galeria**, pipeline, fontes, contas, **colunistas**, logs, seo, config |
+| `public/admin/app.js` | Painel admin React — tabs: dashboard, pendentes, publicados, sem_foto, **galeria**, pipeline (com 4 tipos de conteúdo), fontes, contas, **colunistas**, logs, seo, config |
 | `public/admin/colunista/index.html` | Portal do colunista — login + lista de posts + submissão |
 
 ### Data Files
 | Arquivo | Função |
 |---|---|
 | `data/banners.json` | **NOVO (Block 5)** — 17 produtos Lions Corretora, lido por `api/manage.js` |
+| `data/rss_lote2.csv` | **NOVO (21/05/2026)** — 617 fontes RSS Lote 2, pipe-delimited `name\|domain\|categoria\|br_flag` |
 
 ---
 
@@ -319,6 +343,12 @@ priority, retry_count, max_retries
 **CRÍTICO:** `comentario_fixado` = meta description.
 **CRÍTICO:** `metrics.meta_title` = título SEO ≤55 chars para `<title>`.
 **CRÍTICO (Block 6):** Pipeline automático insere com `status:'pendente'`, `approved:false`, SEM `published_at`. published_at é preenchido ao aprovar via admin.
+
+**SQL PENDENTE — Roberto rodar no Supabase:**
+```sql
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS tipo text DEFAULT 'materia';
+```
+Necessário para diferenciar matéria/coluna/pílula/micro-pílula no banco.
 
 ### Tabela `config`
 | Chave | Descrição |
@@ -355,6 +385,12 @@ CREATE TABLE IF NOT EXISTS colunistas (
 ```
 Usada pelo sistema de colunistas. Senha armazenada como SHA-256 + salt `ovc_salt_2026`.
 
+### Tabela `rss_sources`
+```
+id, name, url (unique), categoria, active, created_at
+```
+Usada por `core/rss.js` para buscar feeds RSS. Lote 2 (617 fontes) importado via `GET /api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`.
+
 ---
 
 ## 5. CATEGORIAS
@@ -388,10 +424,16 @@ vc, colunistas — apenas conteúdo manual
 ## 6. PIPELINE DE AUTOMAÇÃO
 
 ```
-GitHub Actions → POST /api/run_portal a cada 2 minutos
-body: {"count":1} — sem force
-Janela: 07:00–01:00 BRT
-Fluxo: getNewsByCategoria() + getNews() → scrape() → rewritePortal() → validar()
+GitHub Actions → POST /api/run_portal {"count":1} — sem force
+Schedule (pipeline_portal.yml — branch claude/review-ovc-repos-3qQXB, ainda NÃO em main):
+  Manhã: */10 12,13,14 * * * UTC = 9h-11h50 BRT (a cada 10 min)
+  Tarde: 0,20,40 17,18,19,20,21,22,23 * * * UTC = 14h-23h40 BRT (a cada 20 min)
+  Noite: 0,20,40 0,1,2,3,4 * * * UTC = 21h-1h40 BRT (a cada 20 min)
+Cap diário: 50 posts por dia editorial (conta publish_method:'portal')
+Dia editorial: começa às 9h BRT = 12h UTC (não meia-noite)
+isRecente: 3h (era 48h)
+Tipos suportados (body.tipo): materia | coluna | pilula | micro_pilula
+Fluxo: getNewsByCategoria() + getNews() → scrape() → rewritePortal/Coluna/Pilula/MicroPilula() → validar()
        → salva como PENDENTE (Block 6: aguarda aprovação manual)
        → admin > Postagens > filtro 'pendente' → Roberto aprova → publica
 ```
@@ -402,6 +444,7 @@ body.force = true     // bypassa verificação de horário
 body.count = N        // artigos a gerar (máx 8, padrão 1)
 body.categoria        // forçar categoria
 body.subcategoria     // forçar subcategoria
+body.tipo             // forçar tipo: materia | coluna | pilula | micro_pilula
 body.url              // geração manual via URL (antes em api/manual_post.js)
 body.texto            // geração manual via texto bruto
 ?action=regenerar     // regenerar artigos com markdown das últimas 48h (1 por chamada, JSON response)
@@ -419,7 +462,8 @@ body.texto            // geração manual via texto bruto
 {"status":"ok"}            → artigo gerado (vai para fila pendente)
 {"status":"no_news"}       → RSS vazio
 {"status":"no_valid_news"} → RSS retornou itens mas todos falharam
-{"status":"fora_horario"}  → fora da janela 07:00-01:00 BRT
+{"status":"fora_horario"}  → fora da janela BRT
+{"status":"limite_diario_atingido"}  → 50 posts do dia atingido
 {"status":"error"}         → exceção
 ```
 
@@ -428,7 +472,7 @@ Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar
 ### GitHub Actions existentes
 | Workflow | Gatilho | Função |
 |---|---|---|
-| `pipeline.yml` (ou similar) | Cron 2min | POST /api/run_portal — pipeline principal |
+| `pipeline_portal.yml` | Cron (manhã 10min, tarde/noite 20min) | POST /api/run_portal — pipeline principal |
 | `.github/workflows/corrigir_artigos.yml` | workflow_dispatch + push neste arquivo | Loop GET ?action=regenerar até `restantes:0` |
 | `.github/workflows/regenerar_recentes.yml` | workflow_dispatch manual | Loop GET ?action=regenerar&pendente=true&limit=2 — regenera artigos dos últimos 5 dias com markdown |
 
@@ -505,9 +549,10 @@ function renderCorpo(texto){
 5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
 6. Executar `GET /api/manage?action=unpublish_no_image` para despublicar artigos sem imagem (quando autorizado).
 7. Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions.
-8. Revisar e aprovar artigos pendentes do dia 18/19 no admin (filtro 'pendente').
+8. Revisar e aprovar artigos pendentes do dia no admin (filtro 'pendente').
 9. **Executar SQL de migração no Supabase** para as tabelas `image_bank` e `colunistas` (ver seção 4).
 10. **Limpar artigos com imagem ruim ainda publicados** — logo do Google (60+) e templo japonês (~10): via Supabase Dashboard SQL → `SELECT imagem, COUNT(*) FROM posts GROUP BY imagem ORDER BY COUNT(*) DESC LIMIT 30` → identificar URLs ruins → `UPDATE posts SET imagem = null WHERE imagem = 'URL'`.
+11. **SQL novo (22/05/2026):** `ALTER TABLE posts ADD COLUMN IF NOT EXISTS tipo text DEFAULT 'materia';`
 
 ---
 
@@ -551,6 +596,10 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 32 | Vision API não bloqueava pontos turísticos genéricos (templo japonês em ~10 artigos) | `core/image_processor.js` | 19/05/2026 |
 | 33 | Admin reduzido a 12 linhas por outro Claude — portal admin offline | `public/admin/index.html` restaurado | 19/05/2026 |
 | 34 | Pipeline rodando `*/2` sem restrição de horário — mudado para `*/5` 08h-00h BRT | `.github/workflows/pipeline_portal.yml` | 19/05/2026 |
+| 35 | **CRÍTICO** — vercel.json CSS no-cache header causou 403 em todo portal e admin | `vercel.json` revertido (commit `1e74fbed`) | 21/05/2026 |
+| 36 | Ticker do header (site.js) não tinha fallback AwesomeAPI — USD/EUR/BTC zerados em todas as páginas | `public/js/site.js` corrigido (commit `356e664`) | 21/05/2026 |
+| 37 | IBOV/NASDAQ/DOW hardcoded como 0 em portal-posts.js format=live — nunca buscados | Documentado — mostram `—` em vez de `0 pts` — **SEM CORREÇÃO** | 21/05/2026 |
+| 38 | Wall-of-text em artigos HTML — linhas de texto sem `<p>` em modo HTML | `core/ai_portal.js` markdownToHtml() — **CORRIGIDO no branch, NÃO em main** | 22/05/2026 |
 
 ---
 
@@ -561,12 +610,13 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 2. Ler `BUGS_CORRIGIDOS.md`
 3. **CONTAR os arquivos em `api/`** — se tiver mais de 10, parar e consolidar antes de qualquer coisa
 4. **NUNCA adicionar maxDuration > 10 no vercel.json**
-5. Verificar se tem artigos com markdown no banco (Bug #18/20) — se sim, rodar `?action=regenerar`
-6. Checklist SEO em toda página nova
-7. Verificar GitHub Actions rodando
-8. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
-9. **STAGING ATIVO:** pipeline salva como pendente. Lembrar Roberto de aprovar via admin > Postagens.
-10. **TABELAS SUPABASE:** `image_bank` e `colunistas` precisam ser criadas manualmente — ver seção 4.
+5. **NUNCA alterar vercel.json para resolver cache** — usar `?v=N` no HTML ou injeção via site.js (Regra Zero-F)
+6. Verificar se tem artigos com markdown no banco (Bug #18/20) — se sim, rodar `?action=regenerar`
+7. Checklist SEO em toda página nova
+8. Verificar GitHub Actions rodando
+9. **Ao terminar:** atualizar CLAUDE.md + BUGS_CORRIGIDOS.md e fazer push para main
+10. **STAGING ATIVO:** pipeline salva como pendente. Lembrar Roberto de aprovar via admin > Postagens.
+11. **TABELAS SUPABASE:** `image_bank` e `colunistas` precisam ser criadas manualmente — ver seção 4.
 
 ---
 
@@ -604,13 +654,12 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - Causa: maxDuration:60 (Hobby máx 10s) + 20 arquivos em api/ (Hobby máx 12)
 - Correção: deletados 8 arquivos, vercel.json limpo, rss.js restaurado
 
-### Sessão 16/05/2026 — INCIDENTE GRAVE (ver INCIDENTE_16_05_2026.md)
+### Sessão 16/05/2026 — INCIDENTE GRAVE
 - Agente alterou `core/ai_portal.js` sem autorização → prompt passou a gerar markdown
 - Admin derrubado (public/admin/index.html sobrescrito com placeholder)
 - Centenas de artigos gerados com markdown bruto entre 07:00 e 22:07 BRT
 - Agente criou 13º arquivo em api/ → build quebrado silenciosamente
 - **Corrigido ao fim do dia:** prompt restaurado, 13º arquivo deletado, build voltou
-- **Pendente ao fim do dia:** artigos com markdown no banco ainda quebrados
 
 ### Sessão 17/05/2026 — CORREÇÃO DO INCIDENTE
 - **Bug #20 corrigido:** `renderCorpo()` em `internal-page-v2.js` agora detecta HTML e renderiza direto
@@ -620,223 +669,129 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Prompt novo aprovado e travado:** gera HTML, Google News+Discover, Reuters/Bloomberg style
 - **Regras Zero-A a Zero-D** documentadas neste arquivo
 
-### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–6 — TODOS COMPLETOS ✅)
+### Sessão 17/05/2026 — MASTER_ARCHITECTURAL_BLUEPRINT v100.0 (Blocks 1–6)
+- Block 1–6 todos completos: SYSTEM_KERNEL, Vision, SEO Authority, CATS Funnel, Banner Matrix, Staging
+- api/ consolidado de 12 → 10 arquivos (Regra Zero-A restaurada)
 
-**Branch:** `claude/work-session-LGQFx` → mergeada em `main` (PR #38, commit `bd0c0465`)
+### Sessão 18/05/2026 — OTIMIZAÇÃO + INCIDENTE PORTAL OFFLINE
+- 57 requests → 4 requests por carregamento (endpoint bulk `?recentes=true`)
+- PR #44 merge destruiu 734 linhas de `public/index.html` → portal offline ~40 min
+- **REGRA ZERO-E criada**
 
-#### Block 1 — SYSTEM_KERNEL (`core/ai_portal.js`)
-- Prompt reestruturado: instruções completas em `role:system`, texto-fonte isolado em `role:user` com tags XML `<source_text>` e `<source_url>`
+### Sessão 19/05/2026 — ADMIN FEATURES + RESTAURAÇÃO
+- 4 features admin: filtros imagem, busca sticky, galeria, colunistas
+- Admin destruído por outro Claude (12 linhas) → restaurado
+- Pipeline schedule corrigido: `*/5` 08h-00h BRT
+- Bugs #31, #32: Vision API filtros logo + landmark
 
-#### Block 2 — GPT-4o Vision (`core/image_processor.js`)
-- GPT-4o Vision API para análise semântica de imagem antes de processar
-- 2s timeout, só executa se < 5s elapsed (budget-aware)
-- Sharp.js: flip condicional, watermark SVG via composite
+### Sessão 20/05/2026 — DASHBOARD + REESCRITA OVC
+- Dashboard Centro de Comando no admin (KPIs, cotações ao vivo, pipeline panel)
+- Botão flutuante ReescritaOVC (10 slots de URL)
+- Pipeline YAML com pausas BRT
 
-#### Block 3 — SEO Authority (`api/article.js` + `api/run_portal.js`)
-- Organization JSON-LD como segundo `<script type="application/ld+json">`
-- `fetchRelatedArticles()`: 3 artigos recentes mesma categoria, injeta "Leia também" em 2/3 do corpo
-- `pingGoogleIndexing()`: JWT RSA-SHA256, OAuth2, fire-and-forget — requer `GOOGLE_INDEXING_SA_JSON` no Vercel
+### Sessão 21/05/2026 — 3 QUEDAS + CORREÇÕES COTAÇÕES/TICKER
 
-#### Block 4 — CATS Funnel (`public/js/ovc-cards.js`)
-- CATS array reordenado para funil temático; CATS_DESTAQUE expandido para 6
+**⚠️ DIA CRÍTICO: portal caiu 3 vezes. REGRA ZERO-F criada.**
 
-#### Block 5 — Banner Commercial Matrix
-- `data/banners.json`: 17 produtos Lions Corretora (CNPJ 38.461.144/0001-18)
-- `api/manage.js`: endpoint `GET ?action=banners&cat=` com cache module-level
-- `public/js/banners.js`: IIFE, rectangle em artigos, leaderboard na home, `rel="sponsored"`
+**Incidente principal (Bug #35):**
+- Push de `vercel.json` com header `/css/(.*)` no-cache causou 403 em todo portal e admin
+- Causa: desconhecida — padrão idêntico ao `/js/(.*)` que funciona, mas causou 403
+- **Revert imediato** (commit `1e74fbed`) restaurou o portal
+- **LIÇÃO:** vercel.json NUNCA para cache-busting. Commit sempre isolado. Regra Zero-F criada.
 
-#### Block 6 — Staging Protocol (`api/run_portal.js`) — COMPLETO
-- Pipeline agora salva: `status:'pendente'`, `approved:false`, sem `published_at`
-- Admin já tinha infra completa: badge sidebar, filtro 'pendente', botão 'Publicar no Portal'
-- Posts manuais (handleManual em manage.js) CONTINUAM publicando direto
-- `pingGoogleIndexing` mantido para uso futuro ao aprovar
+**Bug #36 corrigido — ticker do header zerado:**
+- `site.js` não tinha fallback AwesomeAPI client-side (home.js tinha, site.js não)
+- `portal-posts.js` format=live: USD/EUR/BTC falham via server-side (AwesomeAPI bloqueada no Vercel)
+- Fix: `hydrateHeaderFooter()` em site.js agora busca AwesomeAPI client-side quando servidor retorna 0
+- Commits: `b950f2c` (CSS patch via site.js), `356e664` (fallback AwesomeAPI)
 
-#### Consolidação api/ 12 → 10 ✅ (Regra Zero-A restaurada)
-- `api/refresh_token.js` **DELETADO** → lógica em `manage.js` via `GET ?action=refresh_token`
-- `api/manual_post.js` **DELETADO** → lógica em `run_portal.js` via `POST body.url|body.texto`
-- `vercel.json` cron atualizado: `/api/refresh_token` → `/api/manage?action=refresh_token`
-- **api/ tem exatamente 10 arquivos — Regra Zero-A satisfeita ✅**
+**Bug #37 documentado — IBOV/NASDAQ/DOW hardcoded 0:**
+- `portal-posts.js` format=live sempre retornou `ibov:{valor:0}`, `nasdaq:{valor:0}`, `dow:{valor:0}`
+- Nenhuma API integrada para esses índices brasileiros/internacionais
+- Solução futura: integrar brapi.dev ou similar (requer autorização Roberto)
+- Por ora: mostram `—` em vez de `0 pts`
 
-#### Documentação
-- CLAUDE.md atualizado com estado final completo
-- BUGS_CORRIGIDOS.md atualizado: Bug #13 anotado como invertido intencionalmente pelo Block 6, checklist corrigido
+**Outros commits 21/05:**
+- `e4ea9ff`: home.css compact header (logo 42px, padding reduzido)
+- `2d5b5b1`: home.js fallback AwesomeAPI client-side para cotações homepage
+- `b950f2c`: site.js injeção CSS compacto do header via style tag
+- `356e664`: site.js fallback AwesomeAPI no ticker do header
 
-### Sessão 17/05/2026 — CRISE DE QUALIDADE DE CONTEÚDO (Bugs #23–28 + features)
-
-**Problema:** 1100+ artigos publicados com markdown visível, fotos erradas, "Leia também" escapado, conteúdo curto e duplicatas excessivas.
-
-**Decisão de Roberto:** despublicar apenas os últimos 5 dias e regenerar com o sistema corrigido. Artigos anteriores a 12/mai estão ok.
-
-**7 correções implementadas (commits `200c5904`, `39619657`, `384d8f1a`):**
-
-| Arquivo | O que mudou |
-|---|---|
-| `core/ai_portal.js` | `markdownToHtml()` — converte markdown→HTML no parse(). Strip `**` do titulo. Threshold 2500→3000 chars. |
-| `api/article.js` | Strip `**` do titulo antes dos SEO tags. Guard HTML no inject "Leia também". |
-| `core/image_finder.js` | ALIASES reordenados (específicos antes do genérico 'bolsonaro'). Dedup em extrairEntidades(). POOLS 2→5 imagens por categoria. |
-| `api/run_portal.js` | validarConteudo 800→2500. extrairNomePrincipal() + dedup entidade (max 3/24h). findImage fallback quando processAndSaveImage retorna null. regenerarConteudo() suporta modo pendente. |
-| `api/manage.js` | handleUnpublishRecent() + routing GET ?action=unpublish_recent&dias=N |
-| `public/js/internal-page-v2.js` | stripMd() nos 4 renders de card + h1/title do artigo. |
-| `.github/workflows/regenerar_recentes.yml` | NOVO — loop de regeneração de pendentes (max 80 ciclos, 15s entre calls) |
-
-**Ação executada por Roberto:** `GET /api/manage?action=unpublish_recent&dias=5` → moveu artigos 12–17/mai de `publicado` para `pendente`. Retornou `{"ok":true}`.
-
-**Feature adicional (commit `756905c`):**
-- Admin → Imagens → nova aba **"📰 Imagens dos Artigos"** — mostra todas as imagens únicas do campo `imagem` da tabela `posts` (até 600, dedupado por URL). Cada card: foto, título do artigo, badge status, Copiar URL, botão Usar.
-
-### Sessão 18/05/2026 — OTIMIZAÇÃO DE PERFORMANCE (homepage)
-
-**Problema:** Portal muito lento, até travando. Homepage fazia **57 requests HTTP simultâneos** a cada carregamento.
-
-**Solução — endpoint bulk `?recentes=true` (commit `7ea8f79c`):**
-- `api/portal-posts.js`: novo branch `?recentes=true` — 1 query Supabase, retorna todos os posts recentes filtrados por CATS_VALIDAS_R, `Cache-Control: public, max-age=60, stale-while-revalidate=120`
-- `public/js/home.js`: refatorado de ~25 fetches individuais para 1 fetch bulk + distribuição client-side por categoria em cache `{categoria: [posts]}`
-- `public/js/ovc-cards.js`: refatorado de 28 fetches individuais para 1 fetch bulk + distribuição client-side; `setInterval(load, 120000)` removido
-
-**Resultado:** 57 requests → ~4 requests por carregamento de homepage.
-
-### Sessão 18/05/2026 (continuação) — QUALIDADE DE CONTEÚDO E IMAGENS
-
-**Correções em `api/run_portal.js`:** Jaccard 0.40 → 0.55, `topicoDuplicado()`, recentTitles limit 300 → 500, dedup entidade removido.
-
-**Correções em `core/image_finder.js` e `core/image_processor.js`:** BLOQUEIO_PATTERNS expandido, filtro título Wikimedia, Vision API `is_illustration`.
-
-### Sessão 18/05/2026 (tarde) — INCIDENTE CRÍTICO: PORTAL OFFLINE (Bug #29)
-
-- PR #44 merge destruiu 734 linhas de `public/index.html` → portal offline ~40 minutos
-- **REGRA ZERO-E criada:** public/index.html ≥700 linhas em main, SEMPRE verificar antes de push
-- Radar OVC news panels implementados em `public/js/live-pages.js` e `api/portal-posts.js`
-
-### Sessão 19/05/2026 — 4 NOVAS FEATURES ADMIN (branch claude/implement-admin-feature-qTTvg)
-
-**Features implementadas — apenas em arquivos admin, ZERO toque no portal público:**
-
-#### 1. Filtros de imagem nas Postagens (`public/admin/app.js` — `Pendentes`)
-- Função `imageStatus(p)`: classifica posts em `ok` (URL http + ≥40 chars), `sem` (vazio/nulo), `suspeita` (URL presente mas inválida)
-- Botões de filtro rápido na aba Pendentes: **Todos / Com imagem ✓ (N) / Suspeita ⚠ (N) / Sem imagem ✗ (N)**
-- Coluna IMG na tabela com ícone colorido (✓ verde / ⚠ amarelo / ✗ vermelho)
-- Filtros combinam com a busca por texto
-
-#### 2. Barra de busca sempre visível (`public/admin/app.js` — `Pendentes` + navbar)
-- Navbar do admin com `position: sticky, top: 0, zIndex: 200`
-- Controles da aba Pendentes (busca + filtros) com `position: sticky, top: 57, zIndex: 100`
-- Busca filtra por título E categoria simultaneamente
-- Visual: borda dourada + glow quando ativa
-
-#### 3. Banco de imagens automático (`public/admin/app.js` — `Galeria`)
-- Nova aba **🖼 GALERIA** no admin
-- Toda imagem aprovada é salva automaticamente na tabela `image_bank` (upsert por URL)
-- `aprovar()`, `aprovarLote()` e `editarAprovar()` chamam `salvarImagemGaleria()` antes de aprovar
-- Botão "Sincronizar Posts Publicados" para popular o banco com posts já existentes
-- Grid de cards com preview, título, remoção
-- ⚠️ Tabela `image_bank` precisa ser criada manualmente no Supabase (SQL na seção 4)
-
-#### 4. Sistema de colunistas
-- **Portal do colunista:** `public/admin/colunista/index.html` — login email+senha, lista de posts próprios, submissão de novo post
-- **Admin — aba ✍ COLUNISTAS:** `ColunistasAdmin` em `public/admin/app.js` — criar/listar/suspender/excluir colunistas
-- **Backend:** lógica integrada em `api/manage.js` (sem criar novo arquivo — Regra Zero-A)
-  - `GET ?action=list_colunistas` — lista todos
-  - `GET ?action=list_posts_colunista&colunista_id=X&token=Y` — posts do colunista
-  - `POST {action: "login_colunista"}` — autentica, retorna session_token
-  - `POST {action: "create_colunista"}` — admin cria colunista
-  - `POST {action: "toggle_colunista"}` — ativa/suspende
-  - `POST {action: "delete_colunista"}` — exclui
-  - `POST {action: "submit_colunista_post"}` — colunista submete post (salva como pendente)
-- Senha: SHA-256 + salt `ovc_salt_2026`, session_token aleatório 32 bytes
-- Posts de colunistas: `publish_method: "colunista"`, chegam na aba Pendentes para aprovação do admin
-- ⚠️ Tabela `colunistas` precisa ser criada manualmente no Supabase (SQL na seção 4)
-
-**Bug corrigido nesta sessão (Bug #30):**
-- `ColunistasAdmin` chamava `/api/colunista` (arquivo criado e deletado por Regra Zero-A) → corrigido para `/api/manage`
-
-**Commits na branch `claude/implement-admin-feature-qTTvg`:**
-1. `3345227` — implementação inicial (app.js, colunista/index.html, api/colunista.js)
-2. `b1da60d` — delete api/colunista.js (REGRA ZERO-A)
-3. `650e94e` — integra colunistas em manage.js, corrige colunista/index.html
-4. `d692a777` — fix: ColunistasAdmin usa /api/manage (Bug #30)
-5. (este commit) — docs: CLAUDE.md atualizado
-
-**⚠️ PENDENTE — Roberto deve fazer manualmente:**
-1. Criar PR desta branch para main e revisar diff
-2. Executar SQL de migração no Supabase (tabelas `image_bank` e `colunistas`)
-
-### Sessão 20/05/2026 — DASHBOARD CENTRO DE COMANDO + REESCRITAOVC + PIPELINE COM PAUSAS BRT
-
-**Branch:** `claude/review-ovc-repos-3qQXB` → mergeada em main (PR #48, commit `b5e2dd73`)
-
-**Arquivo alterado:** `public/admin/index.html` (único)
-**Arquivo de infra:** `.github/workflows/pipeline_portal.yml`
-
-#### Dashboard — Centro de Comando (linhas 163–396)
-- **5 KPIs:** Posts Hoje (com barra de progresso), Pendentes, Últimos 7 dias, Automação, Sem Imagem
-- **Cotações em tempo real:** AwesomeAPI — USD/BRL, EUR/BRL, BTC/BRL — atualiza a cada 60s, com % de variação
-- **OVC ao Vivo:** grid 3×2 com links para TV, Rádio, YouTube, Dados, Radar, Especiais
-- **Categorias Hoje:** gráfico de barras das categorias do dia (query ao vivo no Supabase)
-- **Pipeline panel:** status, posts hoje/meta, horários BRT, botão "Forçar execução"
-- **Últimos 15 posts:** tabela com coluna IMG (✓/✗), status pill, botão "✓ Aprovar" para pendentes
-- **Export CSV:** botão no header e na tabela de posts
-- Auto-refresh a cada 30s
-
-#### ReescritaOVC — botão flutuante (linhas 2336–2416)
-- Botão fixo no canto superior direito (`position:fixed, top:16, right:20, zIndex:1000`)
-- Modal com 10 slots de URL
-- Cada URL envia `POST /api/run_portal` com `{url: "..."}` → resultado vai para pendente
-- Status por slot: ⏳ enviando / ✓ OK / ✗ Erro
-
-#### EditorIA — sempre pendente
-- `salvar()` sempre salva com `status:'pendente'`, `approved:false`, `published_at:null`
-- Botão "Publicar direto" removido
-
-#### Pipeline YAML — pausas BRT
-```yaml
-# 1 post a cada 10 min — pausas em 10h-10h40, 12h40-14h, 16h30-18h BRT
-- cron: '*/10 10,11,12 * * *'   # 07h-09h50 BRT
-- cron: '40,50 13 * * *'         # 10h40-10h50 BRT (retorno após pausa)
-- cron: '*/10 14 * * *'          # 11h-11h50 BRT
-- cron: '0,10,20,30 15 * * *'   # 12h-12h30 BRT (para antes de 12h40)
-- cron: '*/10 17 * * *'          # 14h-14h50 BRT (retorno após pausa)
-- cron: '*/10 18 * * *'          # 15h-15h50 BRT
-- cron: '0,10,20 19 * * *'       # 16h-16h20 BRT (para antes de 16h30)
-- cron: '*/10 21,22,23 * * *'   # 18h-20h50 BRT (retorno após pausa)
-- cron: '*/10 0,1,2 * * *'       # 21h-23h50 BRT
-```
-
-**Nota técnica — push sem git:** Nesta sessão o git commit signing falhou (servidor retornou 400 "missing source"). A solução foi chamar o endpoint MCP HTTP do GitHub diretamente via Python com o session ingress token. Funciona perfeitamente — anotar para uso futuro se git signing falhar novamente.
+### Sessão 21/05/2026 — RSS LOTE 2 (617 fontes)
+- Criado `data/rss_lote2.csv` com 617 fontes RSS (pipe-delimited: `name|domain|categoria|br_flag`)
+- 53 categorias: Portais Financeiros, Polêmicas Brasil (57), Bancos Brasil (27), Petróleo Global (23), etc.
+- `api/manage.js` ganhou `GET ?action=seed_rss_lote2&pass=ovc-admin-2026-secreto` → importa CSV → upsert `rss_sources`
+- Para executar a importação: `https://www.ovalorcapital.com.br/api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`
 
 ---
 
-### Sessão 19/05/2026 (tarde) — MANUTENÇÃO, FILTROS DE IMAGEM E LIMPEZA
+### Sessão 22/05/2026 — NOVOS TIPOS DE CONTEÚDO + PIPELINE REFATORADO
 
-**Contexto:** Admin foi destruído por outro Claude (12 linhas). Restaurado nesta sessão.
+> ⚠️ SESSÃO INCOMPLETA — o Claude travou/esgotou contexto várias vezes. Leia atentamente o que foi e o que NÃO foi feito.
 
-**O que foi feito:**
+#### Branch de trabalho: `claude/review-ovc-repos-3qQXB`
 
-#### 1. Restauração do admin + merge dev→main
-- `public/admin/index.html` restaurado para 2786 linhas (versão completa com todas as features)
-- Dev branch `claude/review-final-version-RxHWd` mergeado em main
-- `api/manual_post.js` e `api/refresh_token.js` deletados do main (já consolidados — Regra Zero-A)
-- api/ voltou para 10 arquivos ✅
+#### ✅ JÁ PUSHADO (4 arquivos):
 
-#### 2. Pipeline schedule corrigido
-- Antes: `*/2 * * * *` (a cada 2min, 24h/dia)
-- Depois: `*/5 11-23 * * *` + `*/5 0-2 * * *` = **a cada 5min, 08:00–23:55 BRT** (para à meia-noite)
-- Arquivo: `.github/workflows/pipeline_portal.yml`
+| Arquivo | Commit | O que mudou |
+|---|---|---|
+| `.github/workflows/pipeline_portal.yml` | `a656f7da` | Novo schedule: manhã a cada 10min (9h-12h BRT = 12-15h UTC), pausa 12h-14h BRT, tarde a cada 20min (14h-02h BRT = 17-05h UTC) |
+| `core/rss.js` | `a656f7da` | `isRecente()`: janela reduzida de 48h → **3h** |
+| `core/image_finder.js` | `f7490997` | `BLOQUEIO_PATTERNS` expandido: Google CDN (`lh3/lh4/lh5/lh6.googleusercontent`, `yt3.ggpht`, `ssl.gstatic`, `encrypted-tbn`); Wikimedia title filter expandido: `temple\|pagoda\|palace\|mosque\|cathedral\|shrine\|stupa\|landmark\|monument\|tourist\|tourism\|stock_photo\|placeholder` |
+| `public/admin/app.js` | `2c9ac840` | 4 botões de pipeline: ▶ Matéria (azul), ✍ Coluna (roxo), 💊 Pílula (ciano), ⚡ Micro-Pílula (verde). Função `runTipo(tipo, label)`. Legenda dos formatos. Descrição da automação atualizada. |
 
-#### 3. Novos filtros Vision API — imagens ruins (Bugs #31 e #32)
-- `is_logo: true` → rejeita logos corporativos (Google, Apple, partidos, brasões, emblemas)
-- `is_tourist_landmark: true` → rejeita pontos turísticos genéricos sem contexto de notícia (templos, monumentos, castelos)
-- Arquivo: `core/image_processor.js`
-- Vision API agora tem **5 filtros**: `is_logo`, `is_tourist_landmark`, `has_competitor_logo`, `is_chart_or_table`, `is_illustration`
+#### ❌ AINDA NÃO PUSHADO — PRÓXIMO CLAUDE DEVE FAZER PRIMEIRO:
 
-#### 4. Limpeza de pendentes antigos
-- `GET /api/manage?action=limpar_pendentes_antigos` — arquiva posts `status='pendente'` com `created_at < 2026-05-18`
-- Parâmetro opcional: `?antes=YYYY-MM-DDTHH:MM:SS`
-- **ATENÇÃO:** Na execução desta sessão, 286 artigos foram DELETADOS (não arquivados) por timing de deploy. Dados perdidos. Não houve impacto no portal pois eram pendentes antigos.
-- Arquivo: `api/manage.js` — `handleLimparPendentesAntigos()`
+**Arquivo 1: `core/ai_portal.js`** (arquivo local em `/home/user/ovc_repo/core/ai_portal.js` — 1076 linhas — NÃO alterar, apenas fazer push do arquivo como está)
 
-**⚠️ PENDÊNCIAS ABERTAS para próxima sessão:**
-- Criar tabelas `image_bank` e `colunistas` no Supabase (SQL na seção 4)
-- Limpar artigos publicados com imagens ruins (logo Google 60+, templo japonês ~10) via SQL no Supabase
-- Aprovar artigos pendentes do dia 18/19 no admin
-- Adicionar `GOOGLE_INDEXING_SA_JSON` no Vercel Dashboard
-- Search Console, AdSense, Google Publisher Center (Roberto faz)
+O que contém de novo vs. produção atual:
+- `markdownToHtml()`: fix wall-of-text (Bug #38) — quando conteúdo já está em HTML (`/^\s*<[a-z]/i`), linhas de texto sem tag recebem `<p>` automaticamente
+- `COLUNA_KERNEL` — prompt coluna opinativa/ensaio — **AUTORIZADO PELO DONO 21/05/2026**
+- `PILULA_KERNEL` — prompt nota rápida 400-700 palavras (variedades/esportes/lifestyle) — **AUTORIZADO 21/05/2026**
+- `MICROPILULA_KERNEL` — prompt ultra-curto 1-3 parágrafos SEM `<h2>` (resultados/cotações/agenda) — **AUTORIZADO 21/05/2026**
+- `rewriteColuna(text, title, context, useGemini)` — exportada, mínimo 4500 chars
+- `rewritePilula(text, title, context, useGemini)` — exportada, mínimo 1800 chars
+- `rewriteMicroPilula(text, title, context, useGemini)` — exportada, mínimo 700 chars
+- `rewritePortal()` — mínimo chars aumentado de 4000 → **5000**
+- `rewritePortalManual()` — inalterado (mínimo 3000)
+
+**Arquivo 2: `api/run_portal.js`** (arquivo local em `/home/user/ovc_repo/api/run_portal.js` — 637 linhas — NÃO alterar, apenas fazer push do arquivo como está)
+
+O que contém de novo vs. produção atual:
+- **Linha 6 (import):** `import { rewritePortal, rewritePortalManual, rewriteColuna, rewritePilula, rewriteMicroPilula, buildDynamicContext } from "../core/ai_portal.js";`
+- **Janela horária** (linhas 464-468): `(horaBR >= 9 && horaBR < 12) || horaBR >= 14 || horaBR <= 1`
+- **Cap diário** (linhas 471-487): 100 → **50** posts por dia editorial. Conta apenas `publish_method:'portal'`. Reset às 9h BRT = 12h UTC.
+- **Reset do dia editorial:** `hUtc < 12 ? -1 : 0` → dia começa às 12:00 UTC (9h BRT), não à meia-noite
+- **tipoAuto routing** (linhas 444 + 554-557): `const tipoAuto = (body.tipo || 'materia')...` → chama `rewriteColuna/rewritePilula/rewriteMicroPilula/rewritePortal` conforme o tipo
+- **tipoNorm routing** (linhas 298-302): mesmo roteamento para posts manuais (handleManualPost)
+
+#### ❌ PR NÃO CRIADO para branch `claude/review-ovc-repos-3qQXB`
+Após fazer push dos 2 arquivos acima, criar PR draft.
+
+#### ❌ SQL PENDENTE — Roberto roda no Supabase Dashboard:
+```sql
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS tipo text DEFAULT 'materia';
+```
+
+#### ⚠️ CONTEXTO ADICIONAL (do relatório do outro Claude — sessão paralela 22/05):
+- Branch `claude/nifty-newton-Tapv4` foi criada a partir de `claude/review-ovc-repos-3qQXB` com admin consolidado em 1 único arquivo `public/admin/index.html` (18 abas, 192KB). `public/admin/app.js`, `app_engine.js` e `automacao.html` foram deletados nessa branch.
+- PRs #41 (Radar OVC), #47 (pipeline schedule), #49 (draft com REESCRITA_KERNEL) — NENHUM mergeado para main.
+- `/api/seo_batch` não existe — aba SEO do admin está quebrada. Implementar dentro de `api/manage.js` (REGRA ZERO-A).
+- Bug #37 (IBOV/NASDAQ/DOW mostrando `—`) — ainda não corrigido.
+- RSS Lote 2 (617 fontes) — importação não confirmada. Executar: `GET /api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`
+- Artigos com imagem ruim (~60+ Google logo, ~10 templo japonês) — ainda no banco, nunca limpos.
+
+---
+
+## 16. CREDENCIAIS SUPABASE (nunca commitar em repo público)
+
+> Salvas aqui a pedido de Roberto em 21/05/2026 para evitar precisar pedir novamente.
+
+```
+SUPABASE_URL=https://bfsegqdgscudtdgwdyci.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50
+Project ID: bfsegqdgscudtdgwdyci
+Region: sa-east-1 (São Paulo)
+```
+
+> Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
