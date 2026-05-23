@@ -105,6 +105,7 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
+    // Use the new live-data endpoint from portal-posts
     this.fetchJSON('/api/portal-posts?format=live-data').then(live => {
       if (!live) return;
       this._applyLiveData(live);
@@ -139,7 +140,16 @@ window.OVC = {
       write('#cotacao-ibov',   fmtPts(ibov));
       write('#cotacao-nasdaq', fmtPts(nasdaq));
       write('#cotacao-dow',    fmtPts(dow));
-      write('#impostometro',   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(impost)));
+      const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+      write('#impostometro', fmtImposto(Number(impost)));
+      if (!window.__ovcImpostTicker) {
+        let _impostVal = Number(impost);
+        const _rate = Number(live.ratePerSec || 114155);
+        window.__ovcImpostTicker = setInterval(() => {
+          _impostVal += _rate;
+          document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(_impostVal); });
+        }, 1000);
+      }
 
       const tickerMap = {
         'dolar': fmtBrl(usd), 'usd': fmtBrl(usd),
@@ -161,16 +171,16 @@ window.OVC = {
         const changeEl = item.querySelector('.ticker-change');
         if (!label || !valueEl) return;
         const map = {
-          'ibov':      { val: fmtPts(ibov),   chg: live.ibov?.variacao },
-          'sandp 500': { val: '—',             chg: null },
-          's&p 500':   { val: '—',             chg: null },
-          'nasdaq':    { val: fmtPts(nasdaq),  chg: live.nasdaq?.variacao },
-          'dow jones': { val: fmtPts(dow),     chg: live.dow?.variacao },
-          'dolar':     { val: fmtBrl(usd),     chg: live.usd?.variacao },
-          'euro':      { val: fmtBrl(eur),     chg: live.eur?.variacao },
-          'libra':     { val: fmtBrl(gbp),     chg: live.gbp?.variacao },
-          'bitcoin':   { val: `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}`, chg: live.btc?.variacao },
-          'ouro':      { val: '—',             chg: null }
+          'ibov':      { val: ibov   ? fmtPts(ibov)   : '—', chg: live.ibov?.variacao },
+          'sandp 500': { val: '—',                            chg: null },
+          's&p 500':   { val: '—',                            chg: null },
+          'nasdaq':    { val: nasdaq ? fmtPts(nasdaq)  : '—', chg: live.nasdaq?.variacao },
+          'dow jones': { val: dow    ? fmtPts(dow)     : '—', chg: live.dow?.variacao },
+          'dolar':     { val: usd    ? fmtBrl(usd)     : '—', chg: live.usd?.variacao },
+          'euro':      { val: eur    ? fmtBrl(eur)     : '—', chg: live.eur?.variacao },
+          'libra':     { val: gbp    ? fmtBrl(gbp)     : '—', chg: live.gbp?.variacao },
+          'bitcoin':   { val: btc    ? `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}` : '—', chg: live.btc?.variacao },
+          'ouro':      { val: '—',                            chg: null }
         };
         const entry = map[label];
         if (!entry) return;
@@ -247,3 +257,9 @@ OVC.bindHomeCriticalLinks = function(){
     });
   });
 };
+
+(function(){
+  const s = document.createElement('style');
+  s.textContent = '.header-identity{padding:6px 28px!important;column-gap:20px!important}.logo-mark{height:42px!important}.search-input{padding:6px 16px 6px 34px!important}.header-menu-bar{padding:5px 28px 6px!important}.logo-block .logo-link{text-decoration:none!important;color:inherit!important;display:flex!important;align-items:center!important;gap:14px!important}';
+  document.head.appendChild(s);
+})();

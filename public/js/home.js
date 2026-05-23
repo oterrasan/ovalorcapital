@@ -27,14 +27,44 @@
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/portal-posts?format=live-data');
-      const usd = document.getElementById('cotacao-usd');
-      const eur = document.getElementById('cotacao-eur');
-      const ibov = document.getElementById('cotacao-ibov');
-      if (usd) usd.textContent = `R$ ${Number(data.rates?.usd || data.usd?.valor || 0).toFixed(2)}`;
-      if (eur) eur.textContent = `R$ ${Number(data.rates?.eur || data.eur?.valor || 0).toFixed(2)}`;
-      if (ibov) ibov.textContent = `${Number(data.indices?.ibov || data.ibov?.valor || 0).toLocaleString('pt-BR')} pts`;
-      const impost = document.getElementById('impostometro');
-      if (impost) impost.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(data.impostometro || 0));
+      let usdVal  = data.usd?.valor  || 0;
+      let eurVal  = data.eur?.valor  || 0;
+      let ibovVal = data.ibov?.valor || 0;
+      let usdVar  = data.usd?.variacao || 0;
+      let btcVar  = data.btc?.variacao || 0;
+      const fmtBrl  = v => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+
+      const usdEl  = document.getElementById('cotacao-usd');
+      const eurEl  = document.getElementById('cotacao-eur');
+      const ibovEl = document.getElementById('cotacao-ibov');
+      if (usdEl)  usdEl.textContent  = fmtBrl(usdVal);
+      if (eurEl)  eurEl.textContent  = fmtBrl(eurVal);
+      if (ibovEl) ibovEl.textContent = `${Number(ibovVal).toLocaleString('pt-BR')} pts`;
+
+      // Impostômetro: valor base + ticking em tempo real
+      const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+      let impostVal = Number(data.impostometro || 0);
+      const ratePerSec = Number(data.ratePerSec || 114155);
+      if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
+      document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
+      window.__ovcImpostTicker = setInterval(() => {
+        impostVal += ratePerSec;
+        document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
+      }, 1000);
+
+      // Atualiza chips do Radar OVC (variações USD e BTC)
+      document.querySelectorAll('.market-chip').forEach(chip => {
+        const sym = (chip.querySelector('.market-symbol')?.textContent || '').trim().toUpperCase();
+        const changeEl = chip.querySelector('.market-change');
+        if (!changeEl) return;
+        const chgMap = { 'USD/BRL': usdVar, 'BTC': btcVar };
+        const chg = chgMap[sym];
+        if (chg !== undefined && chg !== null) {
+          const v = Number(chg);
+          changeEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%';
+          changeEl.className = 'market-change ' + (v >= 0 ? 'up' : 'down');
+        }
+      });
     } catch(e) { console.error(e); }
   }
 
@@ -71,34 +101,53 @@
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
+      // Support both old (card-meio-*) and new (card-feature-*) element IDs
+      if (el('card-meio-titulo')) el('card-meio-titulo').textContent = stripMd(post.titulo);
+      if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Redação OVC';
+      if (el('card-meio-link'))   el('card-meio-link').href          = buildUrl(post);
       if (el('card-feature-titulo')) el('card-feature-titulo').textContent = stripMd(post.titulo);
       if (el('card-feature-resumo')) el('card-feature-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
+      if (post.imagem) {
+        const imgEl = document.getElementById('card-meio-img');
+        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        const wrapEl = document.getElementById('card-meio-wrap');
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+      }
     } catch(e) { console.error('[Negocios]',e); }
   }
 
   // ============================================================
   // CARD LIONS — REGRA INVIOLÁVEL
-  // ACEITA: "seguros" — subcategorias: saude-e-odonto, vida, auto,
-  //   residencial, empresarial-e-rc, viagem, kpis
+  // ACEITA: "investimentos", "seguros", "mercados", "economia"
   // REJEITA: qualquer outra categoria, sem exceção
   // ============================================================
   function carregarCardLions(cache) {
     try {
-      const post = (cache['seguros']||[]).find(p => p.categoria==='seguros');
+      let post = null;
+      for (const cat of ['investimentos','seguros','mercados','economia']) {
+        if (post) break;
+        const pool = (cache[cat]||[]).filter(p => !idsDestaque.has(p.id));
+        post = pool.find(p => p.categoria===cat) || null;
+      }
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-lions-titulo')) el('card-lions-titulo').textContent = stripMd(post.titulo);
+      if (el('card-lions-meta'))   el('card-lions-meta').textContent   = 'Redação OVC';
       if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
+      if (post.imagem) {
+        const imgEl = document.getElementById('card-lions-img');
+        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        const wrapEl = document.getElementById('card-lions-wrap');
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+      }
     } catch(e) { console.error('[Lions]',e); }
   }
 
   // ============================================================
   // SEÇÕES DINÂMICAS — REGRA INVIOLÁVEL POR CATEGORIA
-  // Cada seção aceita APENAS posts da categoria declarada.
-  // Mapa: gridId -> categoria -> href da seção
   // ============================================================
   const SECOES = [
     { grid: 'grid-politica-economia', cats: ['politica','economia'], href: '/politica/' },
@@ -139,6 +188,32 @@
     return a;
   }
 
+  // Also support the older renderSecao / renderSecaoStandard style containers
+  function renderSecao(containerId, cats, cache, max) {
+    try {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const posts = [];
+      for (const cat of cats) {
+        for (const p of (cache[cat]||[])) {
+          if (!idsDestaque.has(p.id) && posts.length < max) posts.push(p);
+        }
+      }
+      if (!posts.length) return;
+      el.innerHTML = posts.map(p => {
+        const url = buildUrl(p);
+        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy">` : '';
+        return `<a class="card card-mini" href="${url}">
+          ${img}
+          <span class="tag tag-${p.categoria}">${p.categoria}</span>
+          <h3 class="card-title">${stripMd(p.titulo)}</h3>
+          <span class="card-meta">Redação OVC</span>
+          <span class="card-cta">LEIA +</span>
+        </a>`;
+      }).join('');
+    } catch(e) { console.error('[Secao '+containerId+']',e); }
+  }
+
   function carregarSecao(secao, cache) {
     const grid = document.getElementById(secao.grid);
     if (!grid) return;
@@ -148,10 +223,8 @@
         const filtrados = (cache[cat]||[]).filter(p => secao.cats.includes(p.categoria));
         posts = posts.concat(filtrados);
       }
-      // Dedup por id
       const vistos = new Set();
       posts = posts.filter(p => { if(vistos.has(p.id)) return false; vistos.add(p.id); return true; });
-      // Remove posts já exibidos nas áreas de destaque
       posts = posts.filter(p => !idsDestaque.has(p.id));
       posts = posts.slice(0, 6);
       if (!posts.length) {
@@ -186,8 +259,23 @@
     carregarCardHero(cache);
     carregarCardNegocios(cache);
     carregarCardLions(cache);
-    // Seções — idsDestaque já populado
+
+    // Seções grid (novo layout)
     SECOES.forEach(s => carregarSecao(s, cache));
+
+    // Seções legacy (layout antigo com secao-* IDs)
+    renderSecao('secao-politica',      ['politica'],                           cache, 3);
+    renderSecao('secao-economia',      ['economia'],                           cache, 3);
+    renderSecao('secao-negocios',      ['negocios'],                           cache, 3);
+    renderSecao('secao-investimentos', ['investimentos','seguros','mercados'],  cache, 6);
+    renderSecao('secao-tecnologia',    ['tecnologia','industria'],             cache, 4);
+    renderSecao('secao-saude',         ['saude','familia'],                    cache, 4);
+    renderSecao('secao-internacional', ['internacional'],                      cache, 4);
+    renderSecao('secao-variedades',    ['variedades','cultura','religiao','esportes'], cache, 4);
+    renderSecao('secao-educacao',      ['educacao','profissoes','vagas','concursos'],  cache, 4);
+    renderSecao('secao-regulacao',     ['regulacao','tributacao','tributos'],  cache, 4);
+    renderSecao('secao-seguranca',     ['seguranca','defesa','investigativo'], cache, 4);
+    renderSecao('secao-imoveis',       ['imoveis','esg'],                      cache, 4);
   });
 
 })();
