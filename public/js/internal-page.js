@@ -61,7 +61,11 @@
       investimentos:'investimentos',seguros:'seguros',mercados:'mercados',
       educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
       esportes:'esportes',saude:'saude',familia:'familia',
-      tributacao:'tributos',regulacao:'regulacao',internacional:'economia',
+      tributacao:'tributos',regulacao:'regulacao',internacional:'internacional',
+      parcerias:'parcerias',variedades:'variedades',investigativo:'investigativo',
+      seguranca:'seguranca',cultura:'cultura',profissoes:'profissoes',
+      vagas:'vagas',concursos:'concursos',imoveis:'imoveis',esg:'esg',
+      defesa:'defesa',religiao:'religiao',colunistas:'vc',vc:'vc',
       geral:'politica'
     };
 
@@ -106,10 +110,13 @@
         if (!all.length) return;
 
         var filtered = slug
-          ? all.filter(function(p){ return p.categoria===slug || (p.tags && p.tags.indexOf(slug)!==-1); })
+          ? all.filter(function(p){
+              var mappedCat = CAT_PATH[p.categoria] || p.categoria;
+              return mappedCat === slug || (p.tags && p.tags.indexOf(slug) !== -1);
+            })
           : all;
 
-        var toShow = filtered.length > 0 ? filtered : all;
+        var toShow = filtered;
 
         // Hero
         var heroEl = document.querySelector('[data-hero-card]');
