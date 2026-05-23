@@ -16,6 +16,16 @@ export default async function handler(req, res) {
 
   const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
 
+  // ── COMMENTS: GET ?format=comments&post_id=X ──────────────────────────────
+  if (format === "comments" && req.query.post_id) {
+    return handleGetComments(req, res);
+  }
+
+  // ── COMMENTS: POST ?action=comment ───────────────────────────────────────
+  if (req.method === "POST" && req.query.action === "comment") {
+    return handlePostComment(req, res);
+  }
+
   if (format === "live-data") return handleLiveData(req, res);
 
   if (format === "og" && id) {
@@ -207,6 +217,107 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ posts, total: count || 0 });
 
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── GET COMMENTS ──────────────────────────────────────────────────────────────
+async function handleGetComments(req, res) {
+  const { post_id } = req.query;
+  try {
+    // Fetch approved comments
+    const { data: comments, error } = await supabase
+      .from("comentarios")
+      .select("id,user_nome,texto,created_at")
+      .eq("post_id", post_id)
+      .eq("oculto_moderacao", false)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (error) throw error;
+
+    // Fetch pinned comment from post
+    const { data: post } = await supabase
+      .from("posts")
+      .select("comentario_fixado")
+      .eq("id", post_id)
+      .single();
+
+    res.setHeader("Cache-Control", "public, max-age=30");
+    return res.status(200).json({
+      comments: comments || [],
+      pinned: post?.comentario_fixado || null
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── POST COMMENT ──────────────────────────────────────────────────────────────
+async function handlePostComment(req, res) {
+  const { post_id, texto, token } = req.body || {};
+  if (!post_id || !texto || !token) {
+    return res.status(400).json({ error: "post_id, texto e token obrigatórios" });
+  }
+  if (texto.trim().length < 2 || texto.length > 2000) {
+    return res.status(400).json({ error: "Comentário deve ter entre 2 e 2000 caracteres" });
+  }
+
+  // Verify JWT via Supabase auth
+  let userId = null;
+  let userNome = "Usuário";
+  try {
+    // Use service role client to verify token
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !user) return res.status(401).json({ error: "Token inválido ou expirado" });
+    userId = user.id;
+    // Get user name from profile or metadata
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("nome,sobrenome")
+      .eq("id", userId)
+      .single();
+    if (profile && profile.nome) {
+      userNome = [profile.nome, profile.sobrenome].filter(Boolean).join(" ");
+    } else {
+      const meta = user.user_metadata || {};
+      userNome = meta.full_name || meta.name || user.email?.split("@")[0] || "Usuário";
+    }
+  } catch(e) {
+    return res.status(401).json({ error: "Falha na verificação de token" });
+  }
+
+  // OpenAI Moderation
+  let flagged = false;
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (OPENAI_KEY) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const modRes = await fetch("https://api.openai.com/v1/moderations", {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({ input: texto.trim() })
+      });
+      clearTimeout(timer);
+      if (modRes.ok) {
+        const modData = await modRes.json();
+        flagged = modData?.results?.[0]?.flagged === true;
+      }
+    } catch(_) { /* moderation failed, allow through */ }
+  }
+
+  try {
+    const { error: insertErr } = await supabase.from("comentarios").insert({
+      post_id,
+      user_id: userId,
+      user_nome: userNome,
+      texto: texto.trim(),
+      oculto_moderacao: flagged
+    });
+    if (insertErr) throw insertErr;
+    return res.status(200).json({ ok: true, flagged });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }

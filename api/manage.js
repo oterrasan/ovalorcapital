@@ -12,14 +12,20 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 let _bannersCache = null;
 
+const ADMIN_PASSWORD = "ovc-admin-2026-secreto";
+
 function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
 function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
 
-// ── ROTEADOR ──────────────────────────────────────────────────────────────────────────────────────────────────
+function checkAdminAuth(req) {
+  return req.headers["x-admin-password"] === ADMIN_PASSWORD;
+}
+
+// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,x-admin-password");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method === "GET") {
@@ -32,6 +38,10 @@ function handler(req, res) {
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
     if (req.query.action === 'seo_batch') return handleSeoBatch(req, res);
+    // ── ADMIN: users and comments ──
+    if (req.query.action === 'usuarios') return handleListUsuarios(req, res);
+    if (req.query.action === 'usuarios_csv') return handleListUsuariosCsv(req, res);
+    if (req.query.action === 'comentarios_admin') return handleListComentariosAdmin(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -52,10 +62,81 @@ function handler(req, res) {
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
+  // ── ADMIN: delete comment ──
+  if (body.action === "deletar_comentario") return handleDeletarComentario(req, res);
 
   return handleApprove(req, res);
 }
 export default handler;
+
+// ── ADMIN: LIST USERS ───────────────────────────────────────────────────────────
+async function handleListUsuarios(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  try {
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id,nome,sobrenome,celular,cidade,idade,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, usuarios: profiles || [], total: (profiles||[]).length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleListUsuariosCsv(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  try {
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id,nome,sobrenome,celular,cidade,idade,created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) throw error;
+    const rows = profiles || [];
+    const header = "id,nome,sobrenome,celular,cidade,idade,created_at";
+    const csv = [header, ...rows.map(r =>
+      [r.id, r.nome||'', r.sobrenome||'', r.celular||'', r.cidade||'', r.idade||'', r.created_at||'']
+        .map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+    )].join('\n');
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="usuarios_ovc.csv"');
+    return res.status(200).send(csv);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── ADMIN: LIST ALL COMMENTS ──────────────────────────────────────────────────
+async function handleListComentariosAdmin(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  try {
+    const { data: comentarios, error } = await supabase
+      .from("comentarios")
+      .select("id,post_id,user_id,user_nome,texto,oculto_moderacao,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, comentarios: comentarios || [], total: (comentarios||[]).length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── ADMIN: DELETE COMMENT ────────────────────────────────────────────────────
+async function handleDeletarComentario(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: "id obrigatório" });
+  try {
+    const { error } = await supabase.from("comentarios").delete().eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
 
 async function handleSetupStorage(req, res) {
   try {
@@ -69,7 +150,7 @@ async function handleSetupStorage(req, res) {
   }
 }
 
-// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ────────────────────────────────
+// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ────────────────────────────
 async function handleAuditImages(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
@@ -167,7 +248,7 @@ async function handleAuditImages(req, res) {
   }
 }
 
-// ── DESPUBLICAR POSTS SEM IMAGEM ────────────────────────────────────────────────────────
+// ── DESPUBLICAR POSTS SEM IMAGEM ──────────────────────────────────────────────
 async function handleUnpublishNoImage(req, res) {
   try {
     const { error, count } = await supabase.from('posts')
@@ -182,7 +263,7 @@ async function handleUnpublishNoImage(req, res) {
   }
 }
 
-// ── DESPUBLICAR ARTIGOS RECENTES ───────────────────────────────────────────────────────────
+// ── DESPUBLICAR ARTIGOS RECENTES ──────────────────────────────────────────────────
 async function handleUnpublishRecent(req, res) {
   const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
   const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
@@ -198,7 +279,7 @@ async function handleUnpublishRecent(req, res) {
   }
 }
 
-// ── RENOVAR TOKEN INSTAGRAM ──────────────────────────────────────────────
+// ── RENOVAR TOKEN INSTAGRAM ──────────────────────────────────────────
 async function handleRefreshToken(req, res) {
   try {
     const { data: accounts } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null);
@@ -223,7 +304,7 @@ async function handleRefreshToken(req, res) {
   }
 }
 
-// ── BANNERS ──────────────────────────────────────────────────────────────────────────────────────────────────
+// ── BANNERS ───────────────────────────────────────────────────────────────────────────────────
 async function handleBanners(req, res) {
   const cat = (req.query.cat || '').trim().toLowerCase();
   try {
@@ -265,7 +346,7 @@ function handleStatus(req, res) {
   })();
 }
 
-// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────────────────────────────────────
+// ── CONTAGEM DE VIEWS ──────────────────────────────────────────────────────────────────────────────
 async function handleTrackView(req, res) {
   const { post_id } = req.body || {};
   if (!post_id) return res.json({ ok: false });
@@ -280,7 +361,7 @@ async function handleTrackView(req, res) {
   }
 }
 
-// ── APROVAÇÃO (approve.js) ──────────────────────────
+// ── APROVAÇÃO (approve.js) ──────────────────────────────────
 function handleApprove(req, res) {
   (async () => {
     const { id, ids, action, scheduled_at } = req.body || {};
@@ -318,7 +399,7 @@ function handleApprove(req, res) {
   })();
 }
 
-// ── APROVAÇÃO PORTAL ──────────────────────────────────────────────────────────────────────────────────────────────────
+// ── APROVAÇÃO PORTAL ──────────────────────────────────────────────────────────────────────────────────────
 async function handleApprovePortal(req, res) {
   const { id, ids, action } = req.body || {};
   const now = new Date().toISOString();
@@ -354,7 +435,7 @@ async function handleApprovePortal(req, res) {
   }
 }
 
-// ── GERAÇÃO MANUAL ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL ────────────────────────────────────────────────────────────────────────────────────────────────────────
 function validar(content) {
   if (!content?.titulo || !content?.corpo) return false;
   const t = content.titulo.toLowerCase().trim();
@@ -489,7 +570,7 @@ async function handleManual(req, res) {
   }
 }
 
-// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────────────────
+// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────────
 async function handleSubmitVaga(req, res) {
   const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
   if (!empresa || !cargo || !descricao || !email_contato) {
@@ -521,7 +602,7 @@ async function handleSubmitVaga(req, res) {
   }
 }
 
-// ── NEWSLETTER SUBSCRIBE ──────────────────────────────
+// ── NEWSLETTER SUBSCRIBE ──────────────────────────
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -555,7 +636,7 @@ async function handleNewsletterSubscribe(req, res) {
   }
 }
 
-// ── SISTEMA DE COLUNISTAS ──────────────────────────────────────────────────────────────────────────────────────
+// ── SISTEMA DE COLUNISTAS ────────────────────────────────────────────────────────────────────────────────────
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
   const { data } = await supabase
@@ -697,7 +778,7 @@ async function handleLimparPendentesAntigos(req, res) {
   }
 }
 
-// ── SEO BATCH — otimiza título, meta desc, keyword e slug via OpenAI ───────────────────────────────────
+// ── SEO BATCH ─────────────────────────────────────────────────────────────────────────────────────────
 async function handleSeoBatch(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_KEY) return res.status(200).json({ status: 'error', error: 'OPENAI_API_KEY não configurado' });
