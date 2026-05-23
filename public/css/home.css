@@ -469,6 +469,50 @@
       font-size: var(--font-size-md);
     }
 
+    .ovc-access-wrap {
+      position: relative;
+    }
+    .btn-access {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 5px 13px;
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-access:hover { border-color: rgba(148,163,184,0.85); color: #f1f5f9; }
+    .ovc-access-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #0f172a;
+      border: 1px solid rgba(148,163,184,0.25);
+      border-radius: 10px;
+      min-width: 180px;
+      z-index: 9999;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    .ovc-access-menu.open { display: block; }
+    .ovc-access-item {
+      display: block;
+      padding: 11px 16px;
+      color: #cbd5e1;
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+    }
+    .ovc-access-item:hover { background: rgba(148,163,184,0.1); color: #f1f5f9; }
+    .ovc-access-item + .ovc-access-item { border-top: 1px solid rgba(148,163,184,0.12); }
+
     .header-menu-bar {
       background: var(--bg-header-top);
       border-bottom: 1px solid #111827;

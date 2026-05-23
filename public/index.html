@@ -124,6 +124,13 @@
 </div>
 </div>
 <div class="header-actions">
+<div class="ovc-access-wrap" id="ovcAccessWrap">
+<button class="btn-access" id="ovcAccessBtn" onclick="var m=document.getElementById('ovcAccessMenu');m.classList.toggle('open');event.stopPropagation()">🔐 Acesso</button>
+<div class="ovc-access-menu" id="ovcAccessMenu">
+<a class="ovc-access-item" href="/admin/">⚙️ Administrador</a>
+<a class="ovc-access-item" href="/admin/colunista/">✍️ Colaborador</a>
+</div>
+</div>
 <a class="btn-newsletter" href="/newsletter/">✉️Newsletter</a>
 <button class="btn-theme" id="themeToggle">
 <span class="icon">☾</span>
@@ -740,5 +747,6 @@
 
 </div>
 <script src="/js/newsletter-bar.js" defer></script>
+<script>document.addEventListener('click',function(e){var m=document.getElementById('ovcAccessMenu');if(m&&!document.getElementById('ovcAccessWrap').contains(e.target))m.classList.remove('open');});</script>
 </body>
 </html>
