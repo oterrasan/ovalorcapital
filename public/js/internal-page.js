@@ -52,6 +52,9 @@
   document.addEventListener('DOMContentLoaded', function(){
     var slug = document.body.dataset.category;
 
+    // VC é área institucional — sem feed de artigos
+    if (slug === 'vc') return;
+
     if (typeof OVC !== 'undefined' && OVC.applyCategoryColor) {
       OVC.applyCategoryColor(slug);
     }
@@ -65,7 +68,7 @@
       parcerias:'parcerias',variedades:'variedades',investigativo:'investigativo',
       seguranca:'seguranca',cultura:'cultura',profissoes:'profissoes',
       vagas:'vagas',concursos:'concursos',imoveis:'imoveis',esg:'esg',
-      defesa:'defesa',religiao:'religiao',colunistas:'vc',vc:'vc',
+      defesa:'defesa',religiao:'religiao',colunistas:'colunistas',vc:'colunistas',
       geral:'politica'
     };
 
