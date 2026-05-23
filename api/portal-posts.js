@@ -350,7 +350,12 @@ async function handleLiveData(_req, res) {
     ibov:   bvsp   ? { valor: bvsp.regularMarketPrice,   variacao: bvsp.regularMarketChangePercent   } : null,
     nasdaq: nasdaq ? { valor: nasdaq.regularMarketPrice, variacao: nasdaq.regularMarketChangePercent } : null,
     dow:    dow    ? { valor: dow.regularMarketPrice,    variacao: dow.regularMarketChangePercent    } : null,
-    impostometro: 0,
+    impostometro: (() => {
+      const RATE = 114155; // R$/segundo (aprox. arrecadação tributária brasileira)
+      const inicio = new Date(new Date().getFullYear() + '-01-01T03:00:00Z'); // 1º jan 00:00 BRT
+      return Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 1000)) * RATE;
+    })(),
+    ratePerSec: 114155,
     ts: Date.now(),
   };
 

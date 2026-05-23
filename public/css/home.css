@@ -547,6 +547,11 @@
       color: var(--gold);
     }
 
+    .submenu-right {
+      left: auto;
+      right: 0;
+    }
+
     .chips-bar {
       background: var(--bg-header-mid);
       padding: 6px 28px 7px;
