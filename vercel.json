@@ -123,6 +123,7 @@
     { "source": "/colunistas",             "destination": "/api/category?cat=colunistas" },
     { "source": "/colunistas/",            "destination": "/api/category?cat=colunistas" },
 
+    { "source": "/api/editor_ia",          "destination": "/api/manage?action=editor_ia" },
     { "source": "/api/seo_batch",          "destination": "/api/manage?action=seo_batch" },
 
     { "source": "/:cat/:slug/",            "destination": "/api/article?cat=:cat&slug=:slug" },
