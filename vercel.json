@@ -35,8 +35,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/live-data",            "destination": "/api/portal-posts?format=live" },
-
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
 
     { "source": "/quem-somos",              "destination": "/api/institutional?page=quem-somos" },
@@ -49,7 +47,7 @@
     { "source": "/financas",               "destination": "/api/landing?section=financas" },
     { "source": "/financas/",              "destination": "/api/landing?section=financas" },
     { "source": "/moradia",                "destination": "/api/landing?section=moradia" },
-    { "source": "/moradia/",              "destination": "/api/landing?section=moradia" },
+    { "source": "/moradia/",               "destination": "/api/landing?section=moradia" },
     { "source": "/vc",                     "destination": "/api/landing?section=vc" },
     { "source": "/vc/",                    "destination": "/api/landing?section=vc" },
     { "source": "/seguranca",              "destination": "/api/landing?section=seguranca" },
@@ -124,6 +122,8 @@
     { "source": "/religiao/",              "destination": "/api/category?cat=religiao" },
     { "source": "/colunistas",             "destination": "/api/category?cat=colunistas" },
     { "source": "/colunistas/",            "destination": "/api/category?cat=colunistas" },
+
+    { "source": "/api/seo_batch",          "destination": "/api/manage?action=seo_batch" },
 
     { "source": "/:cat/:slug/",            "destination": "/api/article?cat=:cat&slug=:slug" },
     { "source": "/:cat/:slug",             "destination": "/api/article?cat=:cat&slug=:slug" },
