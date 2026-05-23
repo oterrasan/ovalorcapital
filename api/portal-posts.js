@@ -16,12 +16,12 @@ export default async function handler(req, res) {
 
   const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
 
-  // ── COMMENTS: GET ?format=comments&post_id=X ──────────────────────────────
+  // ── COMMENTS: GET ?format=comments&post_id=X ───────────────────────────────────────────
   if (format === "comments" && req.query.post_id) {
     return handleGetComments(req, res);
   }
 
-  // ── COMMENTS: POST ?action=comment ───────────────────────────────────────
+  // ── COMMENTS: POST ?action=comment ────────────────────────────────────────────────
   if (req.method === "POST" && req.query.action === "comment") {
     return handlePostComment(req, res);
   }
@@ -68,12 +68,12 @@ export default async function handler(req, res) {
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${desc}">
 <meta name="twitter:image" content="${img}">
-<script>window.location.replace("${url}");</script>
-</head>
+<script>window.location.replace("${url}");<\/script>
+<\/head>
 <body style="font-family:sans-serif;text-align:center;padding:40px;">
-<p>Redirecionando para <a href="${url}">O Valor Capital</a>…</p>
-</body>
-</html>`);
+<p>Redirecionando para <a href="${url}">O Valor Capital<\/a>…<\/p>
+<\/body>
+<\/html>`);
   }
 
   if (sort === "popular") {
@@ -222,11 +222,10 @@ export default async function handler(req, res) {
   }
 }
 
-// ── GET COMMENTS ──────────────────────────────────────────────────────────────
+// ── GET COMMENTS ────────────────────────────────────────────────────────────────────
 async function handleGetComments(req, res) {
   const { post_id } = req.query;
   try {
-    // Fetch approved comments
     const { data: comments, error } = await supabase
       .from("comentarios")
       .select("id,user_nome,texto,created_at")
@@ -236,7 +235,6 @@ async function handleGetComments(req, res) {
       .limit(100);
     if (error) throw error;
 
-    // Fetch pinned comment from post
     const { data: post } = await supabase
       .from("posts")
       .select("comentario_fixado")
@@ -253,7 +251,7 @@ async function handleGetComments(req, res) {
   }
 }
 
-// ── POST COMMENT ──────────────────────────────────────────────────────────────
+// ── POST COMMENT ────────────────────────────────────────────────────────────────────
 async function handlePostComment(req, res) {
   const { post_id, texto, token } = req.body || {};
   if (!post_id || !texto || !token) {
@@ -263,15 +261,12 @@ async function handlePostComment(req, res) {
     return res.status(400).json({ error: "Comentário deve ter entre 2 e 2000 caracteres" });
   }
 
-  // Verify JWT via Supabase auth
   let userId = null;
   let userNome = "Usuário";
   try {
-    // Use service role client to verify token
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) return res.status(401).json({ error: "Token inválido ou expirado" });
     userId = user.id;
-    // Get user name from profile or metadata
     const { data: profile } = await supabase
       .from("profiles")
       .select("nome,sobrenome")
@@ -287,7 +282,6 @@ async function handlePostComment(req, res) {
     return res.status(401).json({ error: "Falha na verificação de token" });
   }
 
-  // OpenAI Moderation
   let flagged = false;
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (OPENAI_KEY) {
