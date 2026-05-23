@@ -585,8 +585,11 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 35 | **CRÍTICO** — vercel.json CSS no-cache header causou 403 em todo portal e admin | `vercel.json` revertido (commit `1e74fbed`) | 21/05/2026 |
 | 36 | Ticker do header (site.js) não tinha fallback AwesomeAPI — USD/EUR/BTC zerados em todas as páginas | `public/js/site.js` corrigido (commit `356e664`) | 21/05/2026 |
 | 37 | IBOV/NASDAQ/DOW hardcoded como 0 em portal-posts.js format=live — nunca buscados | Documentado — mostram `—` em vez de `0 pts` | 21/05/2026 |
-| 38 | AdSense verification falhando — script injetado via JS deferido invisível para bot | `public/ads.txt` criado + script nos SSR handlers | 23/05/2026 |
-| 39 | VC subpages exibindo artigos — faltava early return em `internal-page.js` | `public/js/internal-page.js` corrigido | 23/05/2026 |
+| 38 | Editor IA "Criar do tema" gerava só 2518 chars (acao=tema caia no rewritePortal) | `api/manage.js` handleEditorIA com acao=tema chamando OpenAI direto | 23/05/2026 |
+| 39 | Impostômetro hardcoded 0 — cada página reiniciava do zero | `api/portal-posts.js` calcula desde 1º jan do ano corrente a 114.155 R$/s | 23/05/2026 |
+| 40 | MAIS dropdown abria para direita cortando nomes — CSS especificidade errada | `public/css/home.css` `.supermenu-item .submenu-right` (especificidade correta) + `public/js/internal-page.js` CAT_PATH completo + remoção de fallback | 23/05/2026 |
+| 41 | AdSense verification falhando — script injetado via JS deferido invisível para bot | `public/ads.txt` criado + script nos SSR handlers | 23/05/2026 |
+| 42 | VC subpages exibindo artigos — faltava early return em `internal-page.js` | `public/js/internal-page.js` corrigido | 23/05/2026 |
 
 ---
 
@@ -710,6 +713,15 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - 53 categorias: Portais Financeiros, Polêmicas Brasil (57), Bancos Brasil (27), Petróleo Global (23), etc.
 - `api/manage.js` ganhou `GET ?action=seed_rss_lote2&pass=ovc-admin-2026-secreto` → importa CSV → upsert `rss_sources`
 - Para executar a importação: `https://www.ovalorcapital.com.br/api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`
+
+### Sessão 23/05/2026 — MANHÃ — FIXES LAYOUT E PIPELINE
+
+- **Bug #38 — Editor IA "tema"**: `handleEditorIA` com `acao=tema` chamava `rewritePortal()` (reescrita de texto) em vez de gerar do zero. Corrigido: branch separado que chama OpenAI diretamente com 4000 tokens
+- **Bug #39 — Impostômetro**: `portal-posts.js` retornava `impostometro: 0` hardcoded. Corrigido para calcular `secElapsed * 114155` desde 1º jan do ano corrente
+- **Bug #40 — MAIS dropdown**: Problema duplo: (1) `home.css` não tinha `?v=2` para bust cache; (2) regra `.submenu-right` tinha especificidade menor que `.supermenu-item .submenu`, então `left: 0` sempre ganhava. Corrigido para `.supermenu-item .submenu-right`
+- **Bug #40 — internal-page.js**: CAT_PATH expandido com todas as categorias (colunistas→vc, tributacao→tributos, etc.) + remoção do fallback que mostrava o artigo mais recente em páginas sem conteúdo
+- Commit `60bef96`: internal-page.js + index.html home.css?v=2
+- Commit `78770a4`: home.css especificidade + landing.js (incorretamente adicionou colunistas ao vc — depois corrigido pelo outro Claude)
 
 ### Sessão 23/05/2026 — GOOGLE ADSENSE VERIFICADO ✅
 
