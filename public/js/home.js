@@ -235,6 +235,7 @@
 
     SECOES.forEach(s => carregarSecao(s, cache));
 
+
     renderSecao('secao-politica',      ['politica'],                           cache, 3);
     renderSecao('secao-economia',      ['economia'],                           cache, 3);
     renderSecao('secao-negocios',      ['negocios'],                           cache, 3);

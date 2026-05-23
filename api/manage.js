@@ -816,7 +816,7 @@ async function handleSeoBatch(req, res) {
     const resultados = await Promise.all(posts.map(async post => {
       try {
         const excerpt = (post.conteudo || '').slice(0, 900);
-        const prompt = `SEO editorial brasileiro. Retorne SOMENTE JSON válido:\n\nTÍTULO: ${post.titulo}\nCONTEÚRO: ${excerpt}\n\n{"titulo":"título SEO (máx 65 chars)","meta_desc":"meta description (130-155 chars)","keyword":"palavra-chave (2-4 palavras)","slug":"slug-seo (máx 55 chars)"}`;
+        const prompt = `SEO editorial brasileiro. Retorne SOMENTE JSON válido:\n\nTÍTULO: ${post.titulo}\nCONTEÚDO: ${excerpt}\n\n{"titulo":"título SEO (máx 65 chars)","meta_desc":"meta description (130-155 chars)","keyword":"palavra-chave (2-4 palavras)","slug":"slug-seo (máx 55 chars)"}`;
 
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 7000);

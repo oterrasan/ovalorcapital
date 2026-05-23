@@ -476,6 +476,21 @@ function Pipeline() {
     load();
   };
 
+  const runTipo = async (tipo, label) => {
+    setForcing(true); setLastResult('⏳ Gerando ' + label + '... aguarde até 60 segundos.');
+    try {
+      const r = await fetch('/api/run_portal',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({force:true, count:1, tipo})
+      });
+      const j = await r.json();
+      setLastResult(JSON.stringify(j,null,2));
+      load();
+    } catch(e){setLastResult('Erro: '+e.message);}
+    setForcing(false);
+  };
+
   const CATS_DISPONIVEIS = [
     {id:'politica',label:'🧠 Política'},
     {id:'economia',label:'💰 Economia'},
@@ -572,6 +587,9 @@ function Pipeline() {
               <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing||batchRunning}>{forcing?'Executando...':'▶ Gerar 3 agora'}</button>
               <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={runBatch} disabled={forcing||batchRunning}>{batchRunning?'⏳ Gerando em lote...':'🚀 Gerar para TODAS as categorias'}</button>
               <button onClick={limparArtigosCorrompidos} style={{background:'#1a1a2e',color:'#e94560',border:'1px solid #e94560',padding:'4px 14px',borderRadius:4,cursor:'pointer',fontSize:12,fontWeight:700}}>🧹 Limpar Artigos Corrompidos</button>
+              <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer',opacity:(forcing||batchRunning)?0.6:1}} onClick={()=>runTipo('coluna','coluna')} disabled={forcing||batchRunning}>{(forcing||batchRunning)?'⏳...':'✍ Coluna'}</button>
+              <button style={{background:'#0891b2',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer',opacity:(forcing||batchRunning)?0.6:1}} onClick={()=>runTipo('pilula','pílula')} disabled={forcing||batchRunning}>{(forcing||batchRunning)?'⏳...':'💊 Pílula'}</button>
+              <button style={{background:'#059669',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer',opacity:(forcing||batchRunning)?0.6:1}} onClick={()=>runTipo('micro_pilula','micro-pílula')} disabled={forcing||batchRunning}>{(forcing||batchRunning)?'⏳...':'⚡ Micro-Pílula'}</button>
             </div>
           </div>
           <div style={{padding:'20px'}}>
@@ -2354,6 +2372,7 @@ const PAGES = [
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'postagens',label:'Postagens',icon:'📝'},
+  {id:'sem_foto',label:'Sem Foto',icon:'🖼️'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
   {id:'alertas',label:'Alertas',icon:'🚨'},
@@ -2361,6 +2380,7 @@ const PAGES = [
   {id:'logs',label:'Logs',icon:'📋'},
   {id:'desempenho',label:'Desempenho',icon:'📈'},
   {id:'relatorios',label:'Relatórios',icon:'📊'},
+  {id:'seo',label:'SEO Batch',icon:'🔍'},
   {id:'configuracoes',label:'Configurações',icon:'🔧'},
   {id:'imagens',label:'Imagens',icon:'🖼️'},
   {id:'galeria',label:'Galeria',icon:'🗂️'},
@@ -2512,6 +2532,181 @@ function ReescritaOVC({onVerPendentes}) {
   );
 }
 
+function cleanMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
+function SemFoto(){
+  const [items,setItems] = React.useState([]);
+  const [selected,setSelected] = React.useState([]);
+  const [loading,setLoading] = React.useState(false);
+  const [busca,setBusca] = React.useState("");
+
+  async function load(){
+    setLoading(true);
+    const { data } = await sb.from("posts")
+      .select("id,titulo,user_tags,published_at,created_at")
+      .eq("status","publicado")
+      .or("imagem.is.null,imagem.eq.")
+      .order("published_at",{ascending:false});
+    setItems(data||[]);
+    setSelected([]);
+    setLoading(false);
+  }
+
+  async function despublicarIds(ids){
+    if(!ids.length) return;
+    setLoading(true);
+    for(let i=0;i<ids.length;i+=50){
+      const chunk=ids.slice(i,i+50);
+      await sb.from("posts").update({status:"pendente",approved:false}).in("id",chunk);
+    }
+    await load();
+  }
+
+  async function despublicarTodas(){
+    if(!confirm(`Despublicar TODAS as ${items.length} matérias sem foto e mover para Pendente?`)) return;
+    await despublicarIds(items.map(p=>p.id));
+  }
+
+  function toggleSel(id){ setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]); }
+  function toggleAll(){ setSelected(s=>s.length===filtrados.length?[]:filtrados.map(p=>p.id)); }
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()));
+  const btn = (cor,label,fn,dis) => React.createElement("button",{onClick:fn,disabled:dis||loading,style:{background:cor,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13,opacity:(dis||loading)?0.5:1}},label);
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid #ef444488",borderRadius:10,padding:"16px 24px",marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}},
+      React.createElement("span",{style:{fontSize:24}},"📷"),
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:20,fontWeight:800,color:"#ef4444"}},
+          loading ? "Carregando..." : `${items.length} matérias publicadas sem foto`
+        ),
+        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:2}},
+          "Estas matérias estão visíveis no portal sem imagem. Selecione e despublique para corrigir."
+        )
+      )
+    ),
+
+    React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}},
+      React.createElement("input",{placeholder:"Buscar por título...",value:busca,onChange:e=>setBusca(e.target.value),style:{background:"#0f0f1a",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"7px 12px",fontSize:13,flex:1,maxWidth:360}}),
+      selected.length>0 && React.createElement("span",{style:{fontSize:13,color:"#94a3b8"}},`${selected.length} selecionadas`),
+      selected.length>0 && btn("#f59e0b",`Despublicar ${selected.length} selecionadas`,()=>despublicarIds(selected)),
+      items.length>0 && btn("#ef4444",`⚠ Despublicar TODAS (${items.length})`,despublicarTodas),
+      btn("#3b82f6","↺ Atualizar",load)
+    ),
+
+    React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"auto",maxHeight:"calc(100vh - 300px)"}},
+      React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
+        React.createElement("thead",null,
+          React.createElement("tr",{style:{background:"#1e293b",position:"sticky",top:0,zIndex:1}},
+            React.createElement("th",{style:{padding:"10px 12px",width:40}},
+              React.createElement("input",{type:"checkbox",checked:selected.length===filtrados.length&&filtrados.length>0,onChange:toggleAll})
+            ),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8"}},"TÍTULO"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:130}},"CATEGORIA"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:160}},"PUBLICADO"),
+            React.createElement("th",{style:{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#94a3b8",width:130}},"AÇÃO")
+          )
+        ),
+        React.createElement("tbody",null,
+          filtrados.length===0
+          ? React.createElement("tr",null,
+              React.createElement("td",{colSpan:5,style:{padding:48,textAlign:"center",color:loading?"#94a3b8":"#22c55e",fontWeight:700,fontSize:16}},
+                loading ? "Carregando..." : "✅ Nenhuma matéria publicada sem foto!"
+              )
+            )
+          : filtrados.map((p,i)=>{
+              let cat="-"; try{const t=JSON.parse(p.user_tags||"[]");cat=t[0]||"-";}catch(_){}
+              return React.createElement("tr",{key:p.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
+                React.createElement("td",{style:{padding:"10px 12px"}},
+                  React.createElement("input",{type:"checkbox",checked:selected.includes(p.id),onChange:()=>toggleSel(p.id)})
+                ),
+                React.createElement("td",{style:{padding:"10px 12px",fontSize:14,color:"#e5e7eb"}}, cleanMd(p.titulo)||"(sem título)"),
+                React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
+                React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.published_at)),
+                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right"}},
+                  React.createElement("button",{
+                    onClick:async()=>{ setLoading(true); await sb.from("posts").update({status:"pendente",approved:false}).eq("id",p.id); await load(); },
+                    style:{background:"#f59e0b",color:"#fff",border:"none",borderRadius:4,padding:"4px 12px",cursor:"pointer",fontSize:12,fontWeight:700},
+                    disabled:loading
+                  },"Despublicar")
+                )
+              );
+            })
+        )
+      )
+    )
+  );
+}
+
+// ── SEO BATCH ──
+function SeoBatch(){
+  const [rodando,setRodando] = React.useState(false);
+  const [progresso,setProgresso] = React.useState(null);
+  const [log,setLog] = React.useState([]);
+  const [concluido,setConcluido] = React.useState(false);
+
+  async function iniciar(){
+    setRodando(true); setConcluido(false); setLog([]); setProgresso(null);
+    let offset = 0;
+    let total = 0;
+    let processadosTotal = 0;
+
+    while(true){
+      try {
+        const r = await fetch(`/api/seo_batch?offset=${offset}&limit=5`);
+        const d = await r.json();
+        if(d.status === "error"){ setLog(l=>[...l,`❌ Erro: ${d.error}`]); break; }
+
+        total = d.total || total;
+        processadosTotal += d.processados || 0;
+        setProgresso({ feitos: processadosTotal, total });
+
+        (d.resultados||[]).forEach(p=>{
+          setLog(l=>[...l, p.ok ? `✅ ${p.titulo}` : `⚠️ Falhou: ${p.titulo}`]);
+        });
+
+        if(d.status === "done" || !d.nextOffset){ break; }
+        offset = d.nextOffset;
+        await new Promise(r=>setTimeout(r,800));
+      } catch(e){ setLog(l=>[...l,`❌ Erro de rede: ${e.message}`]); break; }
+    }
+
+    setRodando(false); setConcluido(true);
+  }
+
+  const pct = progresso ? Math.round((progresso.feitos/progresso.total)*100) : 0;
+
+  return React.createElement("div",null,
+    React.createElement("h2",{style:{color:"#ffc800",marginBottom:8}},"⚡ Otimização SEO em Lote"),
+    React.createElement("p",{style:{color:"#94a3b8",fontSize:13,marginBottom:24}},
+      "Reescreve os títulos e gera meta descrição, palavra-chave e slug SEO para todos os posts publicados. Usa a OpenAI. Custo estimado: menos de R$ 0,50 para 120 posts."
+    ),
+
+    !rodando && !concluido && React.createElement("button",{onClick:iniciar,style:{background:"#c81e1e",color:"#fff",border:"none",borderRadius:8,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer"}},
+      "🚀 Iniciar Otimização SEO"
+    ),
+
+    rodando && React.createElement("div",null,
+      React.createElement("div",{style:{marginBottom:12,fontSize:13,color:"#94a3b8"}},
+        progresso ? `Processando... ${progresso.feitos} de ${progresso.total} posts (${pct}%)` : "Iniciando..."
+      ),
+      React.createElement("div",{style:{background:"#1e293b",borderRadius:8,height:12,marginBottom:20,overflow:"hidden"}},
+        React.createElement("div",{style:{background:"#c81e1e",height:"100%",width:`${pct}%`,transition:"width 0.4s",borderRadius:8}})
+      )
+    ),
+
+    concluido && React.createElement("div",{style:{marginBottom:16}},
+      React.createElement("div",{style:{background:"rgba(22,163,74,0.15)",border:"1px solid #16a34a",borderRadius:8,padding:"12px 20px",color:"#22c55e",fontWeight:700,marginBottom:12}},"✅ Otimização concluída!"),
+      React.createElement("button",{onClick:iniciar,style:{background:"#1e293b",color:"#e5e7eb",border:"1px solid #334155",borderRadius:6,padding:"8px 20px",fontSize:13,cursor:"pointer",marginRight:8}},"↺ Rodar novamente")
+    ),
+
+    log.length > 0 && React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontFamily:"monospace",fontSize:12,maxHeight:400,overflow:"auto",marginTop:16}},
+      log.map((l,i)=>React.createElement("div",{key:i,style:{padding:"3px 0",borderBottom:"1px solid #1e293b",color:l.startsWith("✅")?"#22c55e":l.startsWith("⚠️")?"#f59e0b":"#ef4444"}}, l))
+    )
+  );
+}
+
 function App() {
   const [auth, setAuth] = useState(()=>sessionStorage.getItem('ovc_auth')==='1');
   const [page, setPage] = useState('dashboard');
@@ -2533,7 +2728,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,sem_foto:SemFoto,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,seo:SeoBatch,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">

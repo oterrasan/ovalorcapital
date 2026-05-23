@@ -762,3 +762,22 @@ Region: sa-east-1 (São Paulo)
 ```
 
 > Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
+
+### Sessão 23/05/2026 — TARDE — MERGE + EXECUÇÃO DE PENDÊNCIAS
+
+**O que foi feito:**
+- `create_tables.yml` atualizado: trigger em `main` + step "Seed RSS Lote 2" (chama `/api/manage?action=seed_rss_lote2`)
+- Branch `claude/nifty-newton-Tapv4` mergeada em `main` (PR #50) — inclui sistema de comentários, seo_batch, live-data, admin consolidado
+- Conflitos de merge resolvidos: vercel.json (3 rotas novas de main preservadas), CLAUDE.md (versão main preservada), api/* (changes de ambos os lados integrados)
+
+**PRs ainda abertas (Roberto precisa revisar):**
+- PR #49 — novos kernels editoriais (Coluna/Pílula/Micro-Pílula), pipeline 4 tipos, schedule otimizado — **requer SQL: `ALTER TABLE posts ADD COLUMN tipo text DEFAULT 'materia';`**
+- PR #47 — pipeline schedule 08h-00h BRT
+- PR #41 — Radar OVC (nova categoria com 44 fontes)
+
+**Pendências restantes apenas para Roberto:**
+- AdSense: preencher dados bancários ("Conte sobre você")
+- Vercel: identificar qual projeto serve www + deletar duplicados (`ovalorcapital-xuhw`, `ovalorcapital-hubx`)
+- Supabase SQL: tabelas `image_bank` e `colunistas` (ou aguardar workflow `create_tables.yml` rodar após merge)
+- Limpar artigos com imagem ruim: logo Google (60+), templo japonês (~10)
+- Aprovar artigos pendentes no admin
