@@ -88,7 +88,30 @@ async function handleEditorIA(req, res) {
       return res.status(400).json({ error: 'Forneça URL ou texto' });
     }
     let content;
-    if (acao === 'livre' && promptLivre) {
+    if (acao === 'tema') {
+      // texto é apenas o tema/tópico — criar matéria do zero sem conteúdo fonte
+      const tema = sourceText.trim();
+      if (!tema) return res.status(400).json({ error: 'Informe o tema da matéria' });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 25000);
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', max_tokens: 4000, temperature: 0.7,
+          messages: [
+            { role: 'system', content: 'Você é um editor jornalístico sênior do portal O Valor Capital (OVC), especializado em economia, finanças, política e negócios brasileiros. Escreva matérias no estilo Reuters/Bloomberg: factuais, analíticas, sem sensacionalismo. HTML puro (sem markdown). Parágrafos curtos (máx 3 frases). Responda SOMENTE em JSON válido: {"titulo":"...","subtitulo":"...","corpo":"HTML completo com <p>, <h2>, <ul><li> quando pertinente","categoria":"politica|economia|negocios|investimentos|mercados|tecnologia|saude|esportes|variedades","subcategoria":"texto"}' },
+            { role: 'user', content: `Escreva uma matéria jornalística completa e detalhada sobre o seguinte tema:\n\n"${tema}"\n\nA matéria deve ter:\n- Título impactante e objetivo (máx 70 chars)\n- Subtítulo explicativo com contexto\n- Corpo com no mínimo 6 parágrafos substanciais em HTML (<p>), incluindo contexto histórico, dados relevantes, análise e implicações\n- Usar subtítulos <h2> para organizar seções quando pertinente` }
+          ]
+        })
+      });
+      clearTimeout(timer);
+      const rd = await r.json();
+      const txt = (rd.choices?.[0]?.message?.content || '').trim();
+      const m = txt.match(/\{[\s\S]*\}/);
+      content = m ? JSON.parse(m[0]) : null;
+      if (!content) return res.status(500).json({ error: 'IA não retornou conteúdo válido' });
+    } else if (acao === 'livre' && promptLivre) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 25000);
       const r = await fetch('https://api.openai.com/v1/chat/completions', {
