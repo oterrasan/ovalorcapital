@@ -717,7 +717,6 @@ async function handleListColunistas(req, res) {
 async function handleCreateColunista(req, res) {
   const { nome, email, senha } = req.body || {};
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
-  if (senha.length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
   try {
     const { error } = await supabase.from("colunistas").insert({
       nome: nome.trim(), email: email.toLowerCase().trim(),
