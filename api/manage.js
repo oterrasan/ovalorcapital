@@ -15,7 +15,7 @@ let _bannersCache = null;
 function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
 function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
 
-// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────────────
+// ── ROTEADOR ──────────────────────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -31,6 +31,7 @@ function handler(req, res) {
     if (req.query.action === 'list_colunistas') return handleListColunistas(req, res);
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
+    if (req.query.action === 'seo_batch') return handleSeoBatch(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -68,7 +69,7 @@ async function handleSetupStorage(req, res) {
   }
 }
 
-// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ───────────
+// ── VARREDURA DE IMAGENS — despublica matérias com ícones/ilustrações/desenhos ────────────────────────────────
 async function handleAuditImages(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
@@ -166,7 +167,7 @@ async function handleAuditImages(req, res) {
   }
 }
 
-// ── DESPUBLICAR POSTS SEM IMAGEM (move publicado → pendente) ───────────────────────
+// ── DESPUBLICAR POSTS SEM IMAGEM ────────────────────────────────────────────────────────
 async function handleUnpublishNoImage(req, res) {
   try {
     const { error, count } = await supabase.from('posts')
@@ -181,7 +182,7 @@ async function handleUnpublishNoImage(req, res) {
   }
 }
 
-// ── DESPUBLICAR ARTIGOS RECENTES (move publicado → pendente para revisão) ─────────
+// ── DESPUBLICAR ARTIGOS RECENTES ───────────────────────────────────────────────────────────
 async function handleUnpublishRecent(req, res) {
   const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
   const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
@@ -197,7 +198,7 @@ async function handleUnpublishRecent(req, res) {
   }
 }
 
-// ── RENOVAR TOKEN INSTAGRAM (mensal via cron) ──────────────────────────────
+// ── RENOVAR TOKEN INSTAGRAM ──────────────────────────────────────────────
 async function handleRefreshToken(req, res) {
   try {
     const { data: accounts } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null);
@@ -222,7 +223,7 @@ async function handleRefreshToken(req, res) {
   }
 }
 
-// ── BANNERS ───────────────────────────────────────────────────────────────────────────────────────────
+// ── BANNERS ──────────────────────────────────────────────────────────────────────────────────────────────────
 async function handleBanners(req, res) {
   const cat = (req.query.cat || '').trim().toLowerCase();
   try {
@@ -242,27 +243,29 @@ async function handleBanners(req, res) {
   }
 }
 
-// ── STATUS ───────────────────────────────────────────────────────────────────────────────
-async function handleStatus(req, res) {
-  try {
-    const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
-    const running = data?.value === "on";
-    const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
-    const maxPosts = parseInt(cfgMax?.value || "300", 10);
-    const agora = new Date();
-    const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
-    const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",inicioDia.toISOString()).eq("publish_method","portal");
-    const { count: pendentes } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","pendente");
-    const { count: erros }    = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
-    const { data: cfgYt } = await supabase.from("config").select("value").eq("key","YOUTUBE_LIVE_URL").single();
-    const youtube_live_url = cfgYt?.value || null;
-    return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0, youtube_live_url });
-  } catch(e) {
-    return res.status(200).json({ running:false, posts_hoje:0, max_posts:300, pendentes:0, erros:0, youtube_live_url:null });
-  }
+// ── STATUS ────────────────────────────────────────────────────────────────────────────────────
+function handleStatus(req, res) {
+  (async () => {
+    try {
+      const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
+      const running = data?.value === "on";
+      const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
+      const maxPosts = parseInt(cfgMax?.value || "300", 10);
+      const agora = new Date();
+      const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
+      const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",inicioDia.toISOString()).eq("publish_method","portal");
+      const { count: pendentes } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","pendente");
+      const { count: erros }    = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
+      const { data: cfgYt } = await supabase.from("config").select("value").eq("key","YOUTUBE_LIVE_URL").single();
+      const youtube_live_url = cfgYt?.value || null;
+      return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0, youtube_live_url });
+    } catch(e) {
+      return res.status(200).json({ running:false, posts_hoje:0, max_posts:300, pendentes:0, erros:0, youtube_live_url:null });
+    }
+  })();
 }
 
-// ── CONTAGEM DE VIEWS ───────────────────────────────────────────────────────────────────────────
+// ── CONTAGEM DE VIEWS ────────────────────────────────────────────────────────────────────────────────────────
 async function handleTrackView(req, res) {
   const { post_id } = req.body || {};
   if (!post_id) return res.json({ ok: false });
@@ -278,42 +281,44 @@ async function handleTrackView(req, res) {
 }
 
 // ── APROVAÇÃO (approve.js) ──────────────────────────
-async function handleApprove(req, res) {
-  const { id, ids, action, scheduled_at } = req.body || {};
-  try {
-    if (action === "retry" && id) {
-      await supabase.from("posts").update({ status:"pending", error_msg:null, retry_count:0, updated_at:new Date().toISOString() }).eq("id",id);
-      return res.status(200).json({ ok:true });
-    }
-    if (action === "approve" && id) {
-      await supabase.from("posts").update({ status:"approved", approved:true, updated_at:new Date().toISOString() }).eq("id",id);
-      return res.status(200).json({ ok:true });
-    }
-    if (action === "schedule" && id) {
-      await supabase.from("posts").update({ status:"scheduled", approved:true, scheduled_at, updated_at:new Date().toISOString() }).eq("id",id);
-      return res.status(200).json({ ok:true });
-    }
-    if (id && !ids) {
-      await supabase.from("posts").update({ approved:true, status:"approved", updated_at:new Date().toISOString() }).eq("id",id);
-      const result = await publishPost(id);
-      return res.status(200).json(result);
-    }
-    if (ids && Array.isArray(ids)) {
-      const results = [];
-      for (const pid of ids) {
-        await supabase.from("posts").update({ approved:true }).eq("id",pid);
-        const r = await publishPost(pid);
-        results.push({ id:pid, ...r });
+function handleApprove(req, res) {
+  (async () => {
+    const { id, ids, action, scheduled_at } = req.body || {};
+    try {
+      if (action === "retry" && id) {
+        await supabase.from("posts").update({ status:"pending", error_msg:null, retry_count:0, updated_at:new Date().toISOString() }).eq("id",id);
+        return res.status(200).json({ ok:true });
       }
-      return res.status(200).json({ status:"batch", results });
+      if (action === "approve" && id) {
+        await supabase.from("posts").update({ status:"approved", approved:true, updated_at:new Date().toISOString() }).eq("id",id);
+        return res.status(200).json({ ok:true });
+      }
+      if (action === "schedule" && id) {
+        await supabase.from("posts").update({ status:"scheduled", approved:true, scheduled_at, updated_at:new Date().toISOString() }).eq("id",id);
+        return res.status(200).json({ ok:true });
+      }
+      if (id && !ids) {
+        await supabase.from("posts").update({ approved:true, status:"approved", updated_at:new Date().toISOString() }).eq("id",id);
+        const result = await publishPost(id);
+        return res.status(200).json(result);
+      }
+      if (ids && Array.isArray(ids)) {
+        const results = [];
+        for (const pid of ids) {
+          await supabase.from("posts").update({ approved:true }).eq("id",pid);
+          const r = await publishPost(pid);
+          results.push({ id:pid, ...r });
+        }
+        return res.status(200).json({ status:"batch", results });
+      }
+      return res.status(400).json({ error:"missing_params" });
+    } catch(e) {
+      return res.status(200).json({ ok:false, error:e.message });
     }
-    return res.status(400).json({ error:"missing_params" });
-  } catch(e) {
-    return res.status(200).json({ ok:false, error:e.message });
-  }
+  })();
 }
 
-// ── APROVAÇÃO PORTAL ────────────────────────────────────────────────────────────────────────────────────
+// ── APROVAÇÃO PORTAL ──────────────────────────────────────────────────────────────────────────────────────────────────
 async function handleApprovePortal(req, res) {
   const { id, ids, action } = req.body || {};
   const now = new Date().toISOString();
@@ -349,7 +354,7 @@ async function handleApprovePortal(req, res) {
   }
 }
 
-// ── GERAÇÃO MANUAL ──────────────────────────────────────────────────────────────────────────────────────────────
+// ── GERAÇÃO MANUAL ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 function validar(content) {
   if (!content?.titulo || !content?.corpo) return false;
   const t = content.titulo.toLowerCase().trim();
@@ -484,7 +489,7 @@ async function handleManual(req, res) {
   }
 }
 
-// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────
+// ── SUBMISSÃO PÚBLICA DE VAGAS ──────────────────────────────────────────────────────
 async function handleSubmitVaga(req, res) {
   const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
   if (!empresa || !cargo || !descricao || !email_contato) {
@@ -516,7 +521,7 @@ async function handleSubmitVaga(req, res) {
   }
 }
 
-// ── NEWSLETTER SUBSCRIBE ──────────────────────────────────────
+// ── NEWSLETTER SUBSCRIBE ──────────────────────────────
 async function handleNewsletterSubscribe(req, res) {
   const { email, categoria } = req.body || {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -550,10 +555,7 @@ async function handleNewsletterSubscribe(req, res) {
   }
 }
 
-// ── SISTEMA DE COLUNISTAS ──────────────────────────────────────────────────────────────────────
-// Portal: /admin/colunista/ — GET ?action=list_colunistas / list_posts_colunista
-// POST action: login_colunista | submit_colunista_post | create_colunista | toggle_colunista | delete_colunista
-
+// ── SISTEMA DE COLUNISTAS ──────────────────────────────────────────────────────────────────────────────────────
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
   const { data } = await supabase
@@ -680,8 +682,6 @@ async function handleDeleteColunista(req, res) {
 }
 
 async function handleLimparPendentesAntigos(req, res) {
-  // Arquiva posts com status 'pendente' criados antes de 2026-05-18 (dia 17 para trás)
-  // Status 'arquivado' = invisível no admin, preservado no banco
   const corte = req.query.antes || '2026-05-18T00:00:00';
   try {
     const { data, error } = await supabase
@@ -694,5 +694,81 @@ async function handleLimparPendentesAntigos(req, res) {
     return res.status(200).json({ ok: true, arquivados: (data || []).length, corte });
   } catch(e) {
     return res.status(500).json({ error: e.message });
+  }
+}
+
+// ── SEO BATCH — otimiza título, meta desc, keyword e slug via OpenAI ───────────────────────────────────
+async function handleSeoBatch(req, res) {
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res.status(200).json({ status: 'error', error: 'OPENAI_API_KEY não configurado' });
+
+  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+  const limit  = Math.min(parseInt(req.query.limit  || '5', 10), 5);
+
+  try {
+    const { count: total } = await supabase.from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'publicado');
+
+    const { data: posts, error: fetchErr } = await supabase.from('posts')
+      .select('id, titulo, conteudo, comentario_fixado, metrics')
+      .eq('status', 'publicado')
+      .order('created_at', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (fetchErr) return res.status(200).json({ status: 'error', error: fetchErr.message });
+    if (!posts || posts.length === 0) {
+      return res.status(200).json({ status: 'done', total: total || 0, processados: 0, nextOffset: null, resultados: [] });
+    }
+
+    const resultados = await Promise.all(posts.map(async post => {
+      try {
+        const excerpt = (post.conteudo || '').slice(0, 900);
+        const prompt = `SEO editorial brasileiro. Retorne SOMENTE JSON válido:\n\nTÍTULO: ${post.titulo}\nCONTEÚDO: ${excerpt}\n\n{"titulo":"título SEO (máx 65 chars)","meta_desc":"meta description (130-155 chars)","keyword":"palavra-chave (2-4 palavras)","slug":"slug-seo (máx 55 chars)"}`;
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const r = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST', signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+          body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 220, temperature: 0.3,
+            messages: [{ role: 'user', content: prompt }] })
+        });
+        clearTimeout(timer);
+
+        const rd = await r.json();
+        const txt = (rd.choices?.[0]?.message?.content || '').trim();
+        const m = txt.match(/\{[\s\S]*?\}/);
+        const seo = m ? JSON.parse(m[0]) : null;
+        if (!seo) return { ok: false, titulo: post.titulo };
+
+        const metricsAtual = (post.metrics && typeof post.metrics === 'object') ? { ...post.metrics } : {};
+        metricsAtual.meta_desc    = (seo.meta_desc || '').slice(0, 200);
+        metricsAtual.foco_keyword = (seo.keyword   || '').slice(0, 60);
+        metricsAtual.seo_score    = 80;
+
+        const updateData = { metrics: metricsAtual, updated_at: new Date().toISOString() };
+        if (seo.titulo && seo.titulo.length >= 10) updateData.titulo = seo.titulo.slice(0, 120);
+        if (seo.meta_desc) updateData.comentario_fixado = seo.meta_desc.slice(0, 200);
+
+        await supabase.from('posts').update(updateData).eq('id', post.id);
+        return { ok: true, titulo: seo.titulo || post.titulo };
+      } catch(_) {
+        return { ok: false, titulo: post.titulo };
+      }
+    }));
+
+    const nextOffset = offset + posts.length;
+    const done = posts.length < limit || nextOffset >= (total || 0);
+
+    return res.status(200).json({
+      status: done ? 'done' : 'ok',
+      total: total || 0,
+      processados: posts.length,
+      nextOffset: done ? null : nextOffset,
+      resultados
+    });
+  } catch(e) {
+    return res.status(200).json({ status: 'error', error: e.message });
   }
 }

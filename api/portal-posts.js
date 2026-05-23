@@ -16,6 +16,8 @@ export default async function handler(req, res) {
 
   const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
 
+  if (format === "live-data") return handleLiveData(req, res);
+
   if (format === "og" && id) {
     let post = null;
     try {
@@ -82,7 +84,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ posts, total: posts.length });
   }
 
-  // Endpoint bulk para homepage — 1 query única retorna todos os posts recentes
   if (req.query.recentes === 'true') {
     const CATS_VALIDAS_R = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
@@ -106,7 +107,6 @@ export default async function handler(req, res) {
   try {
     if (id) {
       let data = null;
-
       if (id.length >= 36) {
         const { data: row } = await supabase
           .from("posts")
@@ -126,7 +126,6 @@ export default async function handler(req, res) {
           .limit(1);
         data = rows?.[0] || null;
       }
-
       if (!data) return res.status(404).json({ error: "not_found" });
       return res.status(200).json(formatPost(data, true));
     }
@@ -135,7 +134,6 @@ export default async function handler(req, res) {
     if (searchTerm && searchTerm.trim().length > 0) {
       const termo = searchTerm.trim();
       const COLS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
-
       const [{ data: byTitulo }, { data: byConteudo }] = await Promise.all([
         supabase.from("posts").select(COLS).eq("status", "publicado")
           .ilike("titulo", `%${termo}%`)
@@ -146,7 +144,6 @@ export default async function handler(req, res) {
           .order("published_at", { ascending: false })
           .limit(40)
       ]);
-
       const seenId = new Set();
       const combined = [];
       for (const p of [...(byTitulo || []), ...(byConteudo || [])]) {
@@ -155,13 +152,11 @@ export default async function handler(req, res) {
         combined.push(p);
         if (combined.length >= 40) break;
       }
-
       const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
         'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
         'parcerias','internacional','vc','colunistas','variedades',
         'investigativo','seguranca','cultura','profissoes','vagas',
         'concursos','imoveis','esg','defesa','religiao','radar']);
-
       const posts = combined.map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
       return res.status(200).json({ posts, total: posts.length, query: termo });
     }
@@ -215,6 +210,50 @@ export default async function handler(req, res) {
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
+}
+
+async function handleLiveData(_req, res) {
+  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=60");
+
+  async function safeFetch(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch(_) { clearTimeout(timer); return null; }
+  }
+
+  const [awResult, brapiResult] = await Promise.allSettled([
+    safeFetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL'),
+    safeFetch('https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI'),
+  ]);
+
+  const aw = awResult.status === 'fulfilled' ? awResult.value : null;
+  const br = brapiResult.status === 'fulfilled' ? brapiResult.value : null;
+
+  const brapiMap = {};
+  (br?.results || []).forEach(r => { brapiMap[r.symbol] = r; });
+
+  const bvsp   = brapiMap['^BVSP'];
+  const nasdaq = brapiMap['^IXIC'];
+  const dow    = brapiMap['^DJI'];
+
+  const data = {
+    usd:    aw?.USDBRL ? { valor: parseFloat(aw.USDBRL.bid),  variacao: parseFloat(aw.USDBRL.pctChange)  } : null,
+    eur:    aw?.EURBRL ? { valor: parseFloat(aw.EURBRL.bid),  variacao: parseFloat(aw.EURBRL.pctChange)  } : null,
+    gbp:    aw?.GBPBRL ? { valor: parseFloat(aw.GBPBRL.bid),  variacao: parseFloat(aw.GBPBRL.pctChange)  } : null,
+    btc:    aw?.BTCBRL ? { valor: parseFloat(aw.BTCBRL.bid),  variacao: parseFloat(aw.BTCBRL.pctChange)  } : null,
+    ibov:   bvsp   ? { valor: bvsp.regularMarketPrice,   variacao: bvsp.regularMarketChangePercent   } : null,
+    nasdaq: nasdaq ? { valor: nasdaq.regularMarketPrice, variacao: nasdaq.regularMarketChangePercent } : null,
+    dow:    dow    ? { valor: dow.regularMarketPrice,    variacao: dow.regularMarketChangePercent    } : null,
+    impostometro: 0,
+    ts: Date.now(),
+  };
+
+  return res.status(200).json(data);
 }
 
 function formatPost(p, full) {
