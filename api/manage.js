@@ -634,10 +634,12 @@ async function handleNewsletterSubscribe(req, res) {
 
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
-  const { data } = await supabase.from("colunistas")
-    .select("id,nome,email,ativo").eq("id", colunista_id)
-    .eq("session_token", token).eq("ativo", true).single();
-  return data || null;
+  try {
+    const { data } = await supabase.from("colunistas")
+      .select("id,nome,email,ativo").eq("id", colunista_id)
+      .eq("session_token", token).eq("ativo", true).single();
+    return data || null;
+  } catch(_) { return null; }
 }
 
 async function handleLoginColunista(req, res) {
@@ -664,7 +666,7 @@ async function handleListPostsColunista(req, res) {
   try {
     const { data } = await supabase.from("posts")
       .select("id,titulo,status,imagem,created_at,published_at,comentario_fixado")
-      .eq("publish_method", "colunista").contains("collaborators", JSON.stringify([colunista_id]))
+      .eq("publish_method", "colunista").eq("subcategoria", colunista.nome)
       .order("created_at", { ascending: false }).limit(50);
     return res.status(200).json({ ok: true, posts: data || [] });
   } catch(e) {
@@ -687,7 +689,7 @@ async function handleSubmitColunista(req, res) {
       comentario_fixado: `Artigo de ${colunista.nome}`,
       hash, status: "pendente", approved: false, publish_method: "colunista",
       user_tags: JSON.stringify(["colunistas"]), subcategoria: colunista.nome,
-      subcategoria_slug: nomeSlug, collaborators: JSON.stringify([colunista_id]),
+      subcategoria_slug: nomeSlug,
       metrics: {}, priority: 0, retry_count: 0, max_retries: 0
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
@@ -717,10 +719,9 @@ async function handleCreateColunista(req, res) {
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
   if (senha.length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
   try {
-    const slug = nome.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
     const { error } = await supabase.from("colunistas").insert({
       nome: nome.trim(), email: email.toLowerCase().trim(),
-      senha_hash: hashSenha(senha), ativo: true, slug
+      senha_hash: hashSenha(senha), ativo: true
     });
     if (error) {
       if (error.message.includes("unique") || error.message.includes("duplicate"))
