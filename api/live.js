@@ -103,6 +103,7 @@ export default async function handler(req, res) {
     `<meta name="twitter:description" content="${esc(cfg.desc)}">`,
     `<meta name="twitter:image" content="${OG_DEFAULT}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
+    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`,
   ].join("\n");
 
   let html = tpl;
