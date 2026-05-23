@@ -95,7 +95,7 @@ export default async function handler(req, res) {
   if (req.query.recentes === 'true') {
     const CATS_VALIDAS_R = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional','vc','colunistas','variedades',
+      'parcerias','internacional','colunistas','variedades',
       'investigativo','seguranca','cultura','profissoes','vagas',
       'concursos','imoveis','esg','defesa','religiao','radar']);
     const lim = Math.min(parseInt(limit || '300', 10), 500);
@@ -162,7 +162,7 @@ export default async function handler(req, res) {
       }
       const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
         'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-        'parcerias','internacional','vc','colunistas','variedades',
+        'parcerias','internacional','colunistas','variedades',
         'investigativo','seguranca','cultura','profissoes','vagas',
         'concursos','imoveis','esg','defesa','religiao','radar']);
       const posts = combined.map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
@@ -196,7 +196,7 @@ export default async function handler(req, res) {
 
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional','vc','colunistas','variedades',
+      'parcerias','internacional','colunistas','variedades',
       'investigativo','seguranca','cultura','profissoes','vagas',
       'concursos','imoveis','esg','defesa','religiao','radar']);
 
@@ -351,8 +351,8 @@ async function handleLiveData(_req, res) {
     nasdaq: nasdaq ? { valor: nasdaq.regularMarketPrice, variacao: nasdaq.regularMarketChangePercent } : null,
     dow:    dow    ? { valor: dow.regularMarketPrice,    variacao: dow.regularMarketChangePercent    } : null,
     impostometro: (() => {
-      const RATE = 114155; // R$/segundo (aprox. arrecadação tributária brasileira)
-      const inicio = new Date(new Date().getFullYear() + '-01-01T03:00:00Z'); // 1º jan 00:00 BRT
+      const RATE = 114155;
+      const inicio = new Date(new Date().getFullYear() + '-01-01T03:00:00Z');
       return Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 1000)) * RATE;
     })(),
     ratePerSec: 114155,
@@ -376,7 +376,7 @@ function formatPost(p, full) {
     educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
     esportes:"esportes", saude:"saude", familia:"familia",
     tributacao:"tributos", regulacao:"regulacao", internacional:"internacional",
-    parcerias:"parcerias", vc:"vc", colunistas:"vc", variedades:"variedades",
+    parcerias:"parcerias", vc:"colunistas", colunistas:"colunistas", variedades:"variedades",
     investigativo:"investigativo", seguranca:"seguranca",
     cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
     concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",

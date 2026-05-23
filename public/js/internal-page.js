@@ -26,15 +26,15 @@
           var heroEl = document.querySelector('[data-hero-card]');
           if (heroEl) {
             heroEl.innerHTML =
-              '<article class="ovc-story-card" style="padding:0;">' +
-                '<div style="max-width:820px;">' +
-                  (p.imagem ? '<img src="' + p.imagem + '" alt="" style="width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;" onerror="this.style.display=\'none\'">' : '') +
-                  '<div style="font-size:12px;color:var(--ovc-muted,#64748b);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Redação OVC · ' + data + '</div>' +
-                  '<h1 style="font-size:28px;font-weight:800;line-height:1.25;margin:0 0 16px;">' + (p.titulo || '') + '</h1>' +
-                  (p.subtitulo ? '<p style="font-size:17px;color:var(--ovc-muted,#64748b);margin:0 0 20px;line-height:1.5;">' + p.subtitulo + '</p>' : '') +
-                  '<div style="border-top:2px solid var(--ovc-line,#e2e8f0);padding-top:20px;">' + corpo + '</div>' +
-                '</div>' +
-              '</article>';
+              '<article class="ovc-story-card" style="padding:0;">'
+                + '<div style="max-width:820px;">'
+                  + (p.imagem ? '<img src="' + p.imagem + '" alt="" style="width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;" onerror="this.style.display=\'none\'">' : '')
+                  + '<div style="font-size:12px;color:var(--ovc-muted,#64748b);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em;">Redação OVC · ' + data + '</div>'
+                  + '<h1 style="font-size:28px;font-weight:800;line-height:1.25;margin:0 0 16px;">' + (p.titulo || '') + '</h1>'
+                  + (p.subtitulo ? '<p style="font-size:17px;color:var(--ovc-muted,#64748b);margin:0 0 20px;line-height:1.5;">' + p.subtitulo + '</p>' : '')
+                  + '<div style="border-top:2px solid var(--ovc-line,#e2e8f0);padding-top:20px;">' + corpo + '</div>'
+                + '</div>'
+              + '</article>';
           }
 
           // Limpar listas de categoria
@@ -52,6 +52,9 @@
   document.addEventListener('DOMContentLoaded', function(){
     var slug = document.body.dataset.category;
 
+    // VC é área institucional — sem feed de artigos
+    if (slug === 'vc') return;
+
     if (typeof OVC !== 'undefined' && OVC.applyCategoryColor) {
       OVC.applyCategoryColor(slug);
     }
@@ -65,7 +68,7 @@
       parcerias:'parcerias',variedades:'variedades',investigativo:'investigativo',
       seguranca:'seguranca',cultura:'cultura',profissoes:'profissoes',
       vagas:'vagas',concursos:'concursos',imoveis:'imoveis',esg:'esg',
-      defesa:'defesa',religiao:'religiao',colunistas:'vc',vc:'vc',
+      defesa:'defesa',religiao:'religiao',colunistas:'colunistas',vc:'colunistas',
       geral:'politica'
     };
 
@@ -95,12 +98,12 @@
       var url = buildUrl(p);
       return '<article class="ovc-mini-item" style="cursor:pointer;display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--ovc-line,#e2e8f0);" onclick="location.href=\'' + url + '\'">' +
         (p.imagem ? '<a href="' + url + '" style="flex-shrink:0;"><img src="' + p.imagem + '" alt="" style="width:80px;height:60px;object-fit:cover;border-radius:6px;" onerror="this.parentElement.style.display=\'none\'"></a>' : '') +
-        '<div style="flex:1;">' +
-          '<div style="font-size:11px;color:var(--ovc-muted,#64748b);margin-bottom:4px;">Redação OVC</div>' +
-          '<h4 style="font-size:14px;font-weight:600;line-height:1.35;margin:0 0 4px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h4>' +
-          '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">' + dataBr(p.data) + '</div>' +
-        '</div>' +
-      '</article>';
+        '<div style="flex:1;">'
+          + '<div style="font-size:11px;color:var(--ovc-muted,#64748b);margin-bottom:4px;">Redação OVC</div>'
+          + '<h4 style="font-size:14px;font-weight:600;line-height:1.35;margin:0 0 4px;"><a href="' + url + '" style="color:inherit;text-decoration:none;">' + (p.titulo||'') + '</a></h4>'
+          + '<div style="font-size:11px;color:var(--ovc-muted,#64748b);">' + dataBr(p.data) + '</div>'
+        + '</div>'
+      + '</article>';
     }
 
     fetch('/api/portal-posts?limit=60')
@@ -150,10 +153,10 @@
           var bottom = toShow.slice(11,20);
           var groups = [0,1,2].map(function(idx){ return bottom.slice(idx*3,idx*3+3); });
           topicGrid.innerHTML = groups.map(function(group,idx){
-            return '<section class="ovc-panel ovc-topic-box">' +
-              '<h3>' + (titles[idx]||label(slug)) + '</h3>' +
-              group.map(renderMini).join('') +
-            '</section>';
+            return '<section class="ovc-panel ovc-topic-box">'
+              + '<h3>' + (titles[idx]||label(slug)) + '</h3>'
+              + group.map(renderMini).join('')
+            + '</section>';
           }).join('');
         }
       })

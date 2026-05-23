@@ -12,7 +12,7 @@ const CAT_PATH = {
   educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
   esportes:"esportes", saude:"saude", familia:"familia",
   tributacao:"tributos", regulacao:"regulacao", parcerias:"parcerias",
-  vc:"vc", colunistas:"vc", internacional:"internacional", variedades:"variedades",
+  vc:"colunistas", colunistas:"colunistas", internacional:"internacional", variedades:"variedades",
   investigativo:"investigativo", seguranca:"seguranca",
   cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
   concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
@@ -26,7 +26,7 @@ const SLUG_TO_CAT = {
   educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
   esportes:"esportes", saude:"saude", familia:"familia",
   internacional:"internacional", variedades:"variedades",
-  parcerias:"parcerias", regulacao:"regulacao", vc:"vc", colunistas:"vc",
+  parcerias:"parcerias", regulacao:"regulacao", vc:"colunistas", colunistas:"colunistas",
   investigativo:"investigativo", seguranca:"seguranca",
   cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
   concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao"
@@ -63,12 +63,22 @@ function getTemplate(catPath) {
 }
 
 function esc(s) {
-  return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return (s||"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
 }
 
 function slugify(str) {
-  return (str||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
-    .replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,55);
+  return (str||"")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g,"")
+    .replace(/[^a-z0-9\s-]/g,"")
+    .trim()
+    .replace(/\s+/g,"-")
+    .slice(0,55);
 }
 
 function safeJsonForScript(obj) {

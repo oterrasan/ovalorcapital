@@ -177,8 +177,8 @@ const CAT_SEO = {
   colunistas: {
     title: "Colunistas & Opinião | O Valor Capital",
     desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira.",
-    canonical: "https://www.ovalorcapital.com.br/vc/",
-    tplPath: "vc",
+    canonical: "https://www.ovalorcapital.com.br/colunistas/",
+    tplPath: "colunistas",
   },
 };
 
