@@ -105,7 +105,7 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
-    this.fetchJSON('/api/live-data').then(live => {
+    this.fetchJSON('/api/portal-posts?format=live-data').then(live => {
       if (!live) return;
       this._applyLiveData(live);
     }).catch(() => {});
