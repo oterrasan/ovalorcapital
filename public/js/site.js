@@ -105,61 +105,8 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
-    this.fetchJSON('/api/live-data').then(async live => {
+    this.fetchJSON('/api/portal-posts?format=live-data').then(live => {
       if (!live) return;
-      if (!live.usd?.valor) {
-        try {
-          const raw = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL,XAU-BRL').then(r => r.json());
-          if (!live.usd) live.usd = {};
-          if (!live.eur) live.eur = {};
-          if (!live.gbp) live.gbp = {};
-          if (!live.btc) live.btc = {};
-          if (!live.xau) live.xau = {};
-          live.usd.valor    = parseFloat(raw.USDBRL?.bid || 0);
-          live.eur.valor    = parseFloat(raw.EURBRL?.bid || 0);
-          live.gbp.valor    = parseFloat(raw.GBPBRL?.bid || 0);
-          live.btc.valor    = parseFloat(raw.BTCBRL?.bid || 0);
-          live.xau.valor    = parseFloat(raw.XAUBRL?.bid || 0);
-          live.usd.variacao = parseFloat(raw.USDBRL?.pctChange || 0);
-          live.eur.variacao = parseFloat(raw.EURBRL?.pctChange || 0);
-          live.btc.variacao = parseFloat(raw.BTCBRL?.pctChange || 0);
-          live.xau.variacao = parseFloat(raw.XAUBRL?.pctChange || 0);
-        } catch(_) {}
-      }
-      if (!live.ibov?.valor) {
-        try {
-          const idx = await fetch('https://brapi.dev/api/quote/IBOV,BOVA11?fundamental=false&dividends=false').then(r => r.json());
-          for (const item of (idx?.results || [])) {
-            const sym = (item.symbol || '').toUpperCase();
-            if (sym === 'IBOV' || sym === 'BOVA11') {
-              if (!live.ibov) live.ibov = {};
-              live.ibov.valor    = item.regularMarketPrice || 0;
-              live.ibov.variacao = item.regularMarketChangePercent || 0;
-              break;
-            }
-          }
-        } catch(_) {}
-      }
-      if (!live.sp500?.valor) {
-        try {
-          const [spRes, ndRes] = await Promise.all([
-            fetch('https://query2.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=1d').then(r => r.json()).catch(() => null),
-            fetch('https://query2.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=1d').then(r => r.json()).catch(() => null)
-          ]);
-          if (spRes?.chart?.result?.[0]) {
-            const m = spRes.chart.result[0].meta;
-            if (!live.sp500) live.sp500 = {};
-            live.sp500.valor    = m.regularMarketPrice || 0;
-            live.sp500.variacao = m.previousClose ? ((m.regularMarketPrice - m.previousClose) / m.previousClose * 100) : 0;
-          }
-          if (ndRes?.chart?.result?.[0]) {
-            const m = ndRes.chart.result[0].meta;
-            if (!live.nasdaq) live.nasdaq = {};
-            live.nasdaq.valor    = m.regularMarketPrice || 0;
-            live.nasdaq.variacao = m.previousClose ? ((m.regularMarketPrice - m.previousClose) / m.previousClose * 100) : 0;
-          }
-        } catch(_) {}
-      }
       this._applyLiveData(live);
     }).catch(() => {});
 
@@ -177,9 +124,7 @@ window.OVC = {
       const eur   = live.eur?.valor   || live.tax?.eur   || 0;
       const gbp   = live.gbp?.valor   || 0;
       const btc   = live.btc?.valor   || live.tax?.btc   || 0;
-      const xau   = live.xau?.valor   || 0;
       const ibov  = live.ibov?.valor  || live.indices?.ibov  || 0;
-      const sp500 = live.sp500?.valor || 0;
       const nasdaq= live.nasdaq?.valor|| live.indices?.nasdaq || 0;
       const dow   = live.dow?.valor   || 0;
       const impost= live.impostometro || 0;
@@ -226,15 +171,15 @@ window.OVC = {
         if (!label || !valueEl) return;
         const map = {
           'ibov':      { val: ibov   ? fmtPts(ibov)   : '—', chg: live.ibov?.variacao },
-          'sandp 500': { val: sp500  ? fmtPts(sp500)  : '—', chg: live.sp500?.variacao },
-          's&p 500':   { val: sp500  ? fmtPts(sp500)  : '—', chg: live.sp500?.variacao },
+          'sandp 500': { val: '—',                            chg: null },
+          's&p 500':   { val: '—',                            chg: null },
           'nasdaq':    { val: nasdaq ? fmtPts(nasdaq)  : '—', chg: live.nasdaq?.variacao },
           'dow jones': { val: dow    ? fmtPts(dow)     : '—', chg: live.dow?.variacao },
           'dolar':     { val: usd    ? fmtBrl(usd)     : '—', chg: live.usd?.variacao },
           'euro':      { val: eur    ? fmtBrl(eur)     : '—', chg: live.eur?.variacao },
           'libra':     { val: gbp    ? fmtBrl(gbp)     : '—', chg: live.gbp?.variacao },
           'bitcoin':   { val: btc    ? `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}` : '—', chg: live.btc?.variacao },
-          'ouro':      { val: xau    ? fmtBrl(xau)     : '—', chg: live.xau?.variacao }
+          'ouro':      { val: '—',                            chg: null }
         };
         const entry = map[label];
         if (!entry) return;
