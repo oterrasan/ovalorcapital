@@ -34,7 +34,7 @@ const SECTIONS = {
     title: "O Valor Capital — Institucional",
     desc: "Quem somos, princípios editoriais, parcerias e contato. O portal premium de política, economia, negócios e família do Brasil.",
     canonical: "https://www.ovalorcapital.com.br/vc/",
-    cats: ["vc"],
+    cats: ["vc", "colunistas"],
     color: "#0d0d0d", accent: "#c9a84c",
     icon: "🏛️", badge: "Institucional",
   },

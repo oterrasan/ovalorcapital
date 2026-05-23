@@ -547,7 +547,7 @@
       color: var(--gold);
     }
 
-    .submenu-right {
+    .supermenu-item .submenu-right {
       left: auto;
       right: 0;
     }
