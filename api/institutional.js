@@ -80,6 +80,7 @@ function buildHtml(page) {
     `<meta property="og:image" content="${OG_DEFAULT}">`,
     `<meta property="og:url" content="${page.canonical}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
+    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`,
   ].join("\n");
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">${seoTags}<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:860px;margin:0 auto;padding:24px 16px 64px;color:#1a1a1a;line-height:1.7}h1{font-size:1.8rem;font-weight:700;color:#111}h2{font-size:1.2rem;font-weight:600;margin-top:36px;border-left:4px solid #c8102e;padding-left:12px}a{color:#c8102e}</style></head><body><a href="/"><img src="/images/logo-ovc.png" alt="O Valor Capital" style="height:36px;margin-bottom:32px;display:block"></a>${page.html}</body></html>`;
 }

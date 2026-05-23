@@ -259,7 +259,8 @@ export default async function handler(req, res) {
     `<script>window.__OVC_ARTICLE__=${preload};window.SUPABASE_ANON_KEY=${JSON.stringify(anonKey)};</script>`,
     `<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>`,
     `<script src="/js/auth.js" defer></script>`,
-    `<script src="/js/banners.js" defer></script>`
+    `<script src="/js/banners.js" defer></script>`,
+    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`
   ].join("\n");
 
   const commentsAndAuthHtml = `
