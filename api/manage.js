@@ -45,6 +45,9 @@ function handler(req, res) {
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
 
+  // Editor IA — roteado pelo vercel.json via /api/editor_ia
+  if (req.query.action === "editor_ia") return handleEditorIA(req, res);
+
   const body = req.body || {};
 
   if (body.pedidos !== undefined) return handleManual(req, res);
@@ -66,6 +69,65 @@ function handler(req, res) {
   return handleApprove(req, res);
 }
 export default handler;
+
+async function handleEditorIA(req, res) {
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res.status(400).json({ error: 'OPENAI_API_KEY não configurado' });
+  const { acao, url, texto, imagem, buscarImagem, promptLivre } = req.body || {};
+  let sourceText = '', sourceTitle = '';
+  try {
+    if (url) {
+      const article = await scrape(url);
+      sourceText = article.text || '';
+      sourceTitle = article.title || '';
+      if (!sourceText || sourceText.length < 30)
+        return res.status(400).json({ error: 'Não foi possível extrair conteúdo da URL' });
+    } else if (texto) {
+      sourceText = texto;
+    } else {
+      return res.status(400).json({ error: 'Forneça URL ou texto' });
+    }
+    let content;
+    if (acao === 'livre' && promptLivre) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 25000);
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', max_tokens: 2500, temperature: 0.7,
+          messages: [
+            { role: 'system', content: 'Editor jornalístico brasileiro. Responda SOMENTE em JSON válido: {"titulo":"...","subtitulo":"...","corpo":"HTML da matéria","categoria":"politica","subcategoria":"Geral"}' },
+            { role: 'user', content: promptLivre + '\n\nTexto base:\n' + sourceText.slice(0, 3000) }
+          ]
+        })
+      });
+      clearTimeout(timer);
+      const rd = await r.json();
+      const txt = (rd.choices?.[0]?.message?.content || '').trim();
+      const m = txt.match(/\{[\s\S]*\}/);
+      content = m ? JSON.parse(m[0]) : null;
+      if (!content) return res.status(500).json({ error: 'IA não retornou conteúdo válido' });
+    } else {
+      content = await rewritePortal(sourceText, sourceTitle || sourceText.slice(0, 100));
+    }
+    let imagemFinal = (imagem || '').trim();
+    if (!imagemFinal && buscarImagem) {
+      try { imagemFinal = await findImage(content.titulo || '', content.categoria || 'politica', ''); } catch(_) {}
+    }
+    return res.status(200).json({
+      ok: true,
+      titulo: content.titulo || '',
+      subtitulo: content.subtitulo || '',
+      corpo: content.corpo || '',
+      categoria: content.categoria || 'politica',
+      subcategoria: content.subcategoria || 'Geral',
+      imagem: imagemFinal || ''
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message || 'Erro interno' });
+  }
+}
 
 async function handleListUsuarios(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
@@ -731,7 +793,7 @@ async function handleSeoBatch(req, res) {
     const resultados = await Promise.all(posts.map(async post => {
       try {
         const excerpt = (post.conteudo || '').slice(0, 900);
-        const prompt = `SEO editorial brasileiro. Retorne SOMENTE JSON válido:\n\nTÍTULO: ${post.titulo}\nCONTEÚDO: ${excerpt}\n\n{"titulo":"título SEO (máx 65 chars)","meta_desc":"meta description (130-155 chars)","keyword":"palavra-chave (2-4 palavras)","slug":"slug-seo (máx 55 chars)"}`;
+        const prompt = `SEO editorial brasileiro. Retorne SOMENTE JSON válido:\n\nTÍTULO: ${post.titulo}\nCONTEÚRO: ${excerpt}\n\n{"titulo":"título SEO (máx 65 chars)","meta_desc":"meta description (130-155 chars)","keyword":"palavra-chave (2-4 palavras)","slug":"slug-seo (máx 55 chars)"}`;
 
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 7000);
