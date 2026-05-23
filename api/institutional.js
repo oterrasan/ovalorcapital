@@ -8,7 +8,7 @@ function esc(s) {
 }
 
 // E-mail real (para onde vai) x e-mail exibido (visual profissional)
-const EMAIL_REAL    = "betoterrasan@gmail.com";
+const EMAIL_REAL    = "ovalorcapital@gmail.com";
 const EMAIL_DISPLAY = "contato@ovalorcapital.com.br";
 
 const PAGES = {
