@@ -12,14 +12,19 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 let _bannersCache = null;
 
+const ADMIN_PASSWORD = "ovc-admin-2026-secreto";
+
 function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
 function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
 
-// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────────────
+function checkAdminAuth(req) {
+  return req.headers["x-admin-password"] === ADMIN_PASSWORD;
+}
+
 function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,x-admin-password");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method === "GET") {
@@ -32,6 +37,10 @@ function handler(req, res) {
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
     if (req.query.action === 'seed_rss_lote2') return handleSeedRssLote2(req, res);
+    if (req.query.action === 'seo_batch') return handleSeoBatch(req, res);
+    if (req.query.action === 'usuarios') return handleListUsuarios(req, res);
+    if (req.query.action === 'usuarios_csv') return handleListUsuariosCsv(req, res);
+    if (req.query.action === 'comentarios_admin') return handleListComentariosAdmin(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -52,10 +61,77 @@ function handler(req, res) {
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
+  if (body.action === "deletar_comentario") return handleDeletarComentario(req, res);
 
   return handleApprove(req, res);
 }
 export default handler;
+
+async function handleListUsuarios(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  try {
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id,nome,sobrenome,celular,cidade,idade,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, usuarios: profiles || [], total: (profiles||[]).length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleListUsuariosCsv(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  try {
+    const { data: profiles, error } = await supabase
+      .from("profiles")
+      .select("id,nome,sobrenome,celular,cidade,idade,created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) throw error;
+    const rows = profiles || [];
+    const header = "id,nome,sobrenome,celular,cidade,idade,created_at";
+    const csv = [header, ...rows.map(r =>
+      [r.id, r.nome||'', r.sobrenome||'', r.celular||'', r.cidade||'', r.idade||'', r.created_at||'']
+        .map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+    )].join('\n');
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="usuarios_ovc.csv"');
+    return res.status(200).send(csv);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleListComentariosAdmin(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  try {
+    const { data: comentarios, error } = await supabase
+      .from("comentarios")
+      .select("id,post_id,user_id,user_nome,texto,oculto_moderacao,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, comentarios: comentarios || [], total: (comentarios||[]).length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleDeletarComentario(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: "id obrigatório" });
+  try {
+    const { error } = await supabase.from("comentarios").delete().eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
 
 async function handleSetupStorage(req, res) {
   try {
@@ -93,7 +169,7 @@ async function handleAuditImages(req, res) {
           body: JSON.stringify({
             model: 'gpt-4o-mini', max_tokens: 60, temperature: 0,
             messages: [{ role: 'user', content: [
-              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\\nis_chart_or_table: true if chart, graph, infographic, table.' },
+              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\nis_chart_or_table: true if chart, graph, infographic, table.' },
               { type: 'image_url', image_url: { url: post.imagem, detail: 'low' } }
             ]}]
           })
@@ -140,7 +216,9 @@ async function handleUnpublishRecent(req, res) {
   const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
   try {
     const { error } = await supabase.from('posts')
-      .update({ status: 'pendente', approved: false }).eq('status', 'publicado').gte('created_at', desde);
+      .update({ status: 'pendente', approved: false })
+      .eq('status', 'publicado')
+      .gte('created_at', desde);
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true, message: `Artigos dos últimos ${dias} dias movidos para pendente`, desde });
   } catch(e) {
@@ -596,7 +674,6 @@ async function handleLimparPendentesAntigos(req, res) {
   }
 }
 
-// ── SEED RSS LOTE 2 — executa uma vez para importar fontes ─────────────────────────────
 async function handleSeedRssLote2(req, res) {
   const ADMIN_PASS = 'ovc-admin-2026-secreto';
   if (req.query.pass !== ADMIN_PASS) return res.status(403).json({ error: 'forbidden' });
@@ -625,5 +702,80 @@ async function handleSeedRssLote2(req, res) {
     return res.status(200).json({ ok: true, inserted, total: records.length });
   } catch(e) {
     return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleSeoBatch(req, res) {
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res.status(200).json({ status: 'error', error: 'OPENAI_API_KEY não configurado' });
+
+  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+  const limit  = Math.min(parseInt(req.query.limit  || '5', 10), 5);
+
+  try {
+    const { count: total } = await supabase.from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'publicado');
+
+    const { data: posts, error: fetchErr } = await supabase.from('posts')
+      .select('id, titulo, conteudo, comentario_fixado, metrics')
+      .eq('status', 'publicado')
+      .order('created_at', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (fetchErr) return res.status(200).json({ status: 'error', error: fetchErr.message });
+    if (!posts || posts.length === 0) {
+      return res.status(200).json({ status: 'done', total: total || 0, processados: 0, nextOffset: null, resultados: [] });
+    }
+
+    const resultados = await Promise.all(posts.map(async post => {
+      try {
+        const excerpt = (post.conteudo || '').slice(0, 900);
+        const prompt = `SEO editorial brasileiro. Retorne SOMENTE JSON válido:\n\nTÍTULO: ${post.titulo}\nCONTEÚDO: ${excerpt}\n\n{"titulo":"título SEO (máx 65 chars)","meta_desc":"meta description (130-155 chars)","keyword":"palavra-chave (2-4 palavras)","slug":"slug-seo (máx 55 chars)"}`;
+
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const r = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST', signal: ctrl.signal,
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+          body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 220, temperature: 0.3,
+            messages: [{ role: 'user', content: prompt }] })
+        });
+        clearTimeout(timer);
+
+        const rd = await r.json();
+        const txt = (rd.choices?.[0]?.message?.content || '').trim();
+        const m = txt.match(/\{[\s\S]*?\}/);
+        const seo = m ? JSON.parse(m[0]) : null;
+        if (!seo) return { ok: false, titulo: post.titulo };
+
+        const metricsAtual = (post.metrics && typeof post.metrics === 'object') ? { ...post.metrics } : {};
+        metricsAtual.meta_desc    = (seo.meta_desc || '').slice(0, 200);
+        metricsAtual.foco_keyword = (seo.keyword   || '').slice(0, 60);
+        metricsAtual.seo_score    = 80;
+
+        const updateData = { metrics: metricsAtual, updated_at: new Date().toISOString() };
+        if (seo.titulo && seo.titulo.length >= 10) updateData.titulo = seo.titulo.slice(0, 120);
+        if (seo.meta_desc) updateData.comentario_fixado = seo.meta_desc.slice(0, 200);
+
+        await supabase.from('posts').update(updateData).eq('id', post.id);
+        return { ok: true, titulo: seo.titulo || post.titulo };
+      } catch(_) {
+        return { ok: false, titulo: post.titulo };
+      }
+    }));
+
+    const nextOffset = offset + posts.length;
+    const done = posts.length < limit || nextOffset >= (total || 0);
+
+    return res.status(200).json({
+      status: done ? 'done' : 'ok',
+      total: total || 0,
+      processados: posts.length,
+      nextOffset: done ? null : nextOffset,
+      resultados
+    });
+  } catch(e) {
+    return res.status(200).json({ status: 'error', error: e.message });
   }
 }
