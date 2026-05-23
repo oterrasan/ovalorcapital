@@ -137,23 +137,37 @@ const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '')
 
 // ── LOGIN ──
 function Login({ onLogin }) {
+  const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
-  const submit = () => {
-    if (pass === ADMIN_PASS) { onLogin(); }
-    else setErr('Senha incorreta');
+  const [loading, setLoading] = useState(false);
+  const submit = async () => {
+    if (!email || !pass) { setErr('Preencha email e senha'); return; }
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'admin_login', email, senha:pass}) });
+      const d = await r.json();
+      if (d.ok) { onLogin(); }
+      else setErr(d.error || 'Credenciais inválidas');
+    } catch(e) { setErr('Erro de conexão'); }
+    setLoading(false);
   };
+  const onKey = e => e.key === 'Enter' && submit();
   return (
     <div className="login-wrap">
       <div className="login-box">
         <div className="login-logo"><span className="ovc">O <span className="accent">VALOR</span> CAP.</span></div>
         <div className="login-tag">Centro de Comando</div>
         <div className="form-group">
-          <label className="login-label">Senha</label>
-          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/>
+          <label className="login-label">E-mail</label>
+          <input className="login-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey} autoFocus placeholder="seu@email.com"/>
         </div>
-        {err && <div style={{color:'#f87171',fontSize:12,marginTop:4}}>{err}</div>}
-        <button className="login-btn" onClick={submit}>Entrar</button>
+        <div className="form-group" style={{marginTop:12}}>
+          <label className="login-label">Senha</label>
+          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={onKey} placeholder="••••••"/>
+        </div>
+        {err && <div style={{color:'#f87171',fontSize:12,marginTop:6}}>{err}</div>}
+        <button className="login-btn" onClick={submit} disabled={loading}>{loading?'Entrando...':'Entrar'}</button>
       </div>
     </div>
   );

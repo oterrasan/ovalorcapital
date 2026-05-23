@@ -59,6 +59,7 @@ function handler(req, res) {
   if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
   if (body.action === "track_view") return handleTrackView(req, res);
   if (body.action === "setup_storage") return handleSetupStorage(req, res);
+  if (body.action === "admin_login") return handleAdminLogin(req, res);
   if (body.action === "login_colunista") return handleLoginColunista(req, res);
   if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
@@ -640,6 +641,17 @@ async function validarTokenColunista(colunista_id, token) {
       .eq("session_token", token).eq("ativo", true).single();
     return data || null;
   } catch(_) { return null; }
+}
+
+async function handleAdminLogin(req, res) {
+  const { email, senha } = req.body || {};
+  if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'roterrasan@gmail.com';
+  const ADMIN_HASH  = process.env.ADMIN_PASS_HASH || 'a69eb777894137ff36d5e010260eb859c874a62d1ae9ba4e9941745a8dd9e1e0';
+  if (email.toLowerCase().trim() !== ADMIN_EMAIL || hashSenha(senha) !== ADMIN_HASH) {
+    return res.status(401).json({ error: "Credenciais inválidas" });
+  }
+  return res.status(200).json({ ok: true });
 }
 
 async function handleLoginColunista(req, res) {
