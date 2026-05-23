@@ -12,7 +12,6 @@
     return _supabase;
   }
 
-  // ─── MODAL IDS ────────────────────────────────────────
   var MODAL_AUTH = 'ovc-auth-modal';
   var MODAL_PROFILE = 'ovc-profile-modal';
 
@@ -25,7 +24,6 @@
     if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
   }
 
-  // ─── AUTH FUNCTIONS ───────────────────────────────────
   async function loginEmail(email, pass) {
     var sb = getSupabase(); if (!sb) return { error: { message: 'Supabase not configured' } };
     return sb.auth.signInWithPassword({ email: email, password: pass });
@@ -91,7 +89,6 @@
     });
   }
 
-  // ─── UI UPDATE ────────────────────────────────────────
   function updateUI(session) {
     var loggedEls = document.querySelectorAll('[data-ovc-logged-in]');
     var guestEls = document.querySelectorAll('[data-ovc-guest]');
@@ -115,7 +112,6 @@
     }
   }
 
-  // ─── AUTH STATE LISTENER ──────────────────────────────
   function initAuthListener() {
     var sb = getSupabase(); if (!sb) return;
     sb.auth.onAuthStateChange(async function(event, session) {
@@ -123,7 +119,6 @@
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && session.user) {
         var complete = await checkProfileComplete(session.user);
         if (!complete) {
-          // pre-fill name from OAuth metadata
           var meta = session.user.user_metadata || {};
           var nomeEl = document.getElementById('ovc-profile-nome');
           var sobrenomeEl = document.getElementById('ovc-profile-sobrenome');
@@ -138,16 +133,13 @@
     });
   }
 
-  // ─── BIND MODAL FORMS ─────────────────────────────────
   function bindAuthModal() {
-    // Close buttons
     document.querySelectorAll('[data-ovc-close-auth]').forEach(function(btn) {
       btn.addEventListener('click', function() { hideModal(MODAL_AUTH); });
     });
     document.querySelectorAll('[data-ovc-close-profile]').forEach(function(btn) {
       btn.addEventListener('click', function() { hideModal(MODAL_PROFILE); });
     });
-    // Click outside to close
     var authModal = document.getElementById(MODAL_AUTH);
     if (authModal) {
       authModal.addEventListener('click', function(e) {
@@ -155,7 +147,6 @@
       });
     }
 
-    // Tab switching
     var tabLogin = document.getElementById('ovc-tab-login');
     var tabRegister = document.getElementById('ovc-tab-register');
     var panelLogin = document.getElementById('ovc-panel-login');
@@ -171,24 +162,19 @@
       if(panelLogin) panelLogin.style.display = 'none';
     });
 
-    // Google login
     document.querySelectorAll('[data-ovc-login-google]').forEach(function(btn) {
       btn.addEventListener('click', function() { hideModal(MODAL_AUTH); loginGoogle(); });
     });
-    // Facebook login
     document.querySelectorAll('[data-ovc-login-facebook]').forEach(function(btn) {
       btn.addEventListener('click', function() { hideModal(MODAL_AUTH); loginFacebook(); });
     });
-    // Logout
     document.querySelectorAll('[data-ovc-logout]').forEach(function(btn) {
       btn.addEventListener('click', logout);
     });
-    // Open auth modal
     document.querySelectorAll('[data-ovc-open-auth]').forEach(function(btn) {
       btn.addEventListener('click', function() { showModal(MODAL_AUTH); });
     });
 
-    // Login form
     var loginForm = document.getElementById('ovc-login-form');
     if (loginForm) {
       loginForm.addEventListener('submit', async function(e) {
@@ -209,7 +195,6 @@
       });
     }
 
-    // Register form
     var regForm = document.getElementById('ovc-register-form');
     if (regForm) {
       regForm.addEventListener('submit', async function(e) {
@@ -231,7 +216,6 @@
       });
     }
 
-    // Profile completion form
     var profileForm = document.getElementById('ovc-profile-form');
     if (profileForm) {
       profileForm.addEventListener('submit', async function(e) {
@@ -254,7 +238,6 @@
     }
   }
 
-  // ─── COMMENTS ────────────────────────────────────────
   async function loadComments(postId) {
     var container = document.getElementById('ovc-comments-list');
     var pinnedContainer = document.getElementById('ovc-pinned-comment');
@@ -266,7 +249,6 @@
       var data = await r.json();
       var comments = data.comments || [];
 
-      // Pinned comment
       if (pinnedContainer) {
         var pinned = data.pinned || null;
         if (pinned) {
@@ -342,7 +324,6 @@
     catch(_) { return ''; }
   }
 
-  // ─── INIT ─────────────────────────────────────────────
   window.OVCAuth = {
     loginEmail: loginEmail,
     registerEmail: registerEmail,
@@ -359,14 +340,12 @@
     initAuthListener();
     bindAuthModal();
 
-    // load comments if article page
     var art = window.__OVC_ARTICLE__;
     if (art && art.id) {
       loadComments(art.id);
       bindCommentForm(art.id);
     }
 
-    // initial session check
     sb.auth.getSession().then(function(r) {
       updateUI(r.data && r.data.session ? r.data.session : null);
     });

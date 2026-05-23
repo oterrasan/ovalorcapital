@@ -21,7 +21,6 @@ function checkAdminAuth(req) {
   return req.headers["x-admin-password"] === ADMIN_PASSWORD;
 }
 
-// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -39,13 +38,15 @@ function handler(req, res) {
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
     if (req.query.action === 'seed_rss_lote2') return handleSeedRssLote2(req, res);
     if (req.query.action === 'seo_batch') return handleSeoBatch(req, res);
-    // ── ADMIN: users and comments ──
     if (req.query.action === 'usuarios') return handleListUsuarios(req, res);
     if (req.query.action === 'usuarios_csv') return handleListUsuariosCsv(req, res);
     if (req.query.action === 'comentarios_admin') return handleListComentariosAdmin(req, res);
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
+
+  // Editor IA — roteado pelo vercel.json via /api/editor_ia
+  if (req.query.action === "editor_ia") return handleEditorIA(req, res);
 
   const body = req.body || {};
 
@@ -63,14 +64,94 @@ function handler(req, res) {
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
-  // ── ADMIN: delete comment ──
   if (body.action === "deletar_comentario") return handleDeletarComentario(req, res);
 
   return handleApprove(req, res);
 }
 export default handler;
 
-// ── ADMIN: LIST USERS ───────────────────────────────────────────────────────────
+async function handleEditorIA(req, res) {
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res.status(400).json({ error: 'OPENAI_API_KEY não configurado' });
+  const { acao, url, texto, imagem, buscarImagem, promptLivre } = req.body || {};
+  let sourceText = '', sourceTitle = '';
+  try {
+    if (url) {
+      const article = await scrape(url);
+      sourceText = article.text || '';
+      sourceTitle = article.title || '';
+      if (!sourceText || sourceText.length < 30)
+        return res.status(400).json({ error: 'Não foi possível extrair conteúdo da URL' });
+    } else if (texto) {
+      sourceText = texto;
+    } else {
+      return res.status(400).json({ error: 'Forneça URL ou texto' });
+    }
+    let content;
+    if (acao === 'tema') {
+      // texto é apenas o tema/tópico — criar matéria do zero sem conteúdo fonte
+      const tema = sourceText.trim();
+      if (!tema) return res.status(400).json({ error: 'Informe o tema da matéria' });
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 25000);
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', max_tokens: 4000, temperature: 0.7,
+          messages: [
+            { role: 'system', content: 'Você é um editor jornalístico sênior do portal O Valor Capital (OVC), especializado em economia, finanças, política e negócios brasileiros. Escreva matérias no estilo Reuters/Bloomberg: factuais, analíticas, sem sensacionalismo. HTML puro (sem markdown). Parágrafos curtos (máx 3 frases). Responda SOMENTE em JSON válido: {"titulo":"...","subtitulo":"...","corpo":"HTML completo com <p>, <h2>, <ul><li> quando pertinente","categoria":"politica|economia|negocios|investimentos|mercados|tecnologia|saude|esportes|variedades","subcategoria":"texto"}' },
+            { role: 'user', content: `Escreva uma matéria jornalística completa e detalhada sobre o seguinte tema:\n\n"${tema}"\n\nA matéria deve ter:\n- Título impactante e objetivo (máx 70 chars)\n- Subtítulo explicativo com contexto\n- Corpo com no mínimo 6 parágrafos substanciais em HTML (<p>), incluindo contexto histórico, dados relevantes, análise e implicações\n- Usar subtítulos <h2> para organizar seções quando pertinente` }
+          ]
+        })
+      });
+      clearTimeout(timer);
+      const rd = await r.json();
+      const txt = (rd.choices?.[0]?.message?.content || '').trim();
+      const m = txt.match(/\{[\s\S]*\}/);
+      content = m ? JSON.parse(m[0]) : null;
+      if (!content) return res.status(500).json({ error: 'IA não retornou conteúdo válido' });
+    } else if (acao === 'livre' && promptLivre) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 25000);
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST', signal: ctrl.signal,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini', max_tokens: 2500, temperature: 0.7,
+          messages: [
+            { role: 'system', content: 'Editor jornalístico brasileiro. Responda SOMENTE em JSON válido: {"titulo":"...","subtitulo":"...","corpo":"HTML da matéria","categoria":"politica","subcategoria":"Geral"}' },
+            { role: 'user', content: promptLivre + '\n\nTexto base:\n' + sourceText.slice(0, 3000) }
+          ]
+        })
+      });
+      clearTimeout(timer);
+      const rd = await r.json();
+      const txt = (rd.choices?.[0]?.message?.content || '').trim();
+      const m = txt.match(/\{[\s\S]*\}/);
+      content = m ? JSON.parse(m[0]) : null;
+      if (!content) return res.status(500).json({ error: 'IA não retornou conteúdo válido' });
+    } else {
+      content = await rewritePortal(sourceText, sourceTitle || sourceText.slice(0, 100));
+    }
+    let imagemFinal = (imagem || '').trim();
+    if (!imagemFinal && buscarImagem) {
+      try { imagemFinal = await findImage(content.titulo || '', content.categoria || 'politica', ''); } catch(_) {}
+    }
+    return res.status(200).json({
+      ok: true,
+      titulo: content.titulo || '',
+      subtitulo: content.subtitulo || '',
+      corpo: content.corpo || '',
+      categoria: content.categoria || 'politica',
+      subcategoria: content.subcategoria || 'Geral',
+      imagem: imagemFinal || ''
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message || 'Erro interno' });
+  }
+}
+
 async function handleListUsuarios(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   try {
@@ -109,7 +190,6 @@ async function handleListUsuariosCsv(req, res) {
   }
 }
 
-// ── ADMIN: LIST ALL COMMENTS ──────────────────────────────────────────────────
 async function handleListComentariosAdmin(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   try {
@@ -125,7 +205,6 @@ async function handleListComentariosAdmin(req, res) {
   }
 }
 
-// ── ADMIN: DELETE COMMENT ────────────────────────────────────────────────────
 async function handleDeletarComentario(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id } = req.body || {};
@@ -175,7 +254,7 @@ async function handleAuditImages(req, res) {
           body: JSON.stringify({
             model: 'gpt-4o-mini', max_tokens: 60, temperature: 0,
             messages: [{ role: 'user', content: [
-              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\\nis_chart_or_table: true if chart, graph, infographic, table.' },
+              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\nis_chart_or_table: true if chart, graph, infographic, table.' },
               { type: 'image_url', image_url: { url: post.imagem, detail: 'low' } }
             ]}]
           })
@@ -680,7 +759,6 @@ async function handleLimparPendentesAntigos(req, res) {
   }
 }
 
-// ── SEED RSS LOTE 2 — executa uma vez para importar fontes ─────────────────────────────
 async function handleSeedRssLote2(req, res) {
   const ADMIN_PASS = 'ovc-admin-2026-secreto';
   if (req.query.pass !== ADMIN_PASS) return res.status(403).json({ error: 'forbidden' });
@@ -712,7 +790,6 @@ async function handleSeedRssLote2(req, res) {
   }
 }
 
-// ── SEO BATCH ─────────────────────────────────────────────────────────────────────────────────────────
 async function handleSeoBatch(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_KEY) return res.status(200).json({ status: 'error', error: 'OPENAI_API_KEY não configurado' });

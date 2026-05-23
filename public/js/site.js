@@ -1,3 +1,11 @@
+(function(){
+  var s=document.createElement('script');
+  s.async=true;
+  s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586';
+  s.crossOrigin='anonymous';
+  document.head.appendChild(s);
+})();
+
 window.OVC_CONFIG = {
   categories: {
     politica:{title:'Política',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'Negócios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'Educação',color:'#c2410c'}, industria:{title:'Indústria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'Saúde',color:'#be123c'}, familia:{title:'Família',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'Regulação',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
@@ -105,7 +113,6 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
-    // Use the new live-data endpoint from portal-posts
     this.fetchJSON('/api/portal-posts?format=live-data').then(live => {
       if (!live) return;
       this._applyLiveData(live);

@@ -177,8 +177,8 @@ const CAT_SEO = {
   colunistas: {
     title: "Colunistas & Opinião | O Valor Capital",
     desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira.",
-    canonical: "https://www.ovalorcapital.com.br/vc/",
-    tplPath: "vc",
+    canonical: "https://www.ovalorcapital.com.br/colunistas/",
+    tplPath: "colunistas",
   },
 };
 
@@ -245,6 +245,7 @@ export default async function handler(req, res) {
     `<meta name="twitter:description" content="${esc(seo.desc)}">`,
     `<meta name="twitter:image" content="${OG_DEFAULT}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
+    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`,
   ].join("\n");
 
   let html = tpl;

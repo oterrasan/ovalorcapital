@@ -219,7 +219,7 @@ function Dashboard() {
 
   return (
     <div>
-      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16}}>
+      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16,paddingRight:180}}>
         <div>
           <div className="page-title">Centro de Comando OVC</div>
           <div className="page-sub">Painel em tempo real — {new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'long',day:'numeric',month:'long'})}</div>
@@ -2190,20 +2190,21 @@ function Galeria(){
   async function carregarGaleria(){
     setLoading(true);
     const r=await fetch(`${SUPA_URL}/rest/v1/image_bank?select=*&order=created_at.desc`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
-    if(r.ok){const d=await r.json();setImgs(d);}
+    if(r.ok){const d=await r.json();setImgs(Array.isArray(d)?d:[]);}
+    else if(r.status===404||r.status===400){setMsg('⚠️ Tabela image_bank não existe no Supabase. Execute o SQL de migração (seção Configurações → Banco de Dados).');}
     setLoading(false);
   }
 
   async function sincronizar(){
     setSyncing(true);setMsg('');
     try{
-      const r=await fetch(`${SUPA_URL}/rest/v1/posts?select=id,titulo,imagem_url&imagem_url=not.is.null&status=eq.publicado`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
+      const r=await fetch(`${SUPA_URL}/rest/v1/posts?select=id,titulo,imagem&imagem=not.is.null&status=eq.publicado`,{headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`}});
       if(!r.ok)throw new Error('Erro ao buscar posts');
       const posts=await r.json();
       let salvos=0;
       for(const p of posts){
-        if(!p.imagem_url)continue;
-        const body={url:p.imagem_url,titulo:p.titulo||'',post_id:p.id};
+        if(!p.imagem)continue;
+        const body={url:p.imagem,titulo:p.titulo||'',post_id:p.id};
         const ins=await fetch(`${SUPA_URL}/rest/v1/image_bank`,{method:'POST',headers:{'apikey':SUPA_KEY,'Authorization':`Bearer ${SUPA_KEY}`,'Content-Type':'application/json','Prefer':'resolution=ignore-duplicates'},body:JSON.stringify(body)});
         if(ins.ok)salvos++;
       }
@@ -2268,17 +2269,24 @@ function ColunistasAdmin(){
 
   async function carregar(){
     setLoading(true);
-    const r=await fetch('/api/manage?action=list_colunistas');
-    if(r.ok){const d=await r.json();setLista(d.colunistas||[]);}
+    try{
+      const r=await fetch('/api/manage?action=list_colunistas');
+      const d=await r.json();
+      if(d.tabela_ausente){setMsg('⚠️ Tabela "colunistas" não existe no Supabase. Peça ao Roberto executar o SQL de criação (está no CLAUDE.md seção 4).');}
+      else if(d.ok){setLista(d.colunistas||[]);}
+      else setMsg('Erro ao carregar: '+(d.error||'falha'));
+    }catch(e){setMsg('Erro de conexão: '+e.message);}
     setLoading(false);
   }
 
   async function criarColunista(e){
     e.preventDefault();setCriando(true);setMsg('');
-    const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
-    const d=await r.json();
-    if(r.ok){setMsg('Colunista criado com sucesso!');setForm({nome:'',email:'',senha:''});setShowForm(false);carregar();}
-    else setMsg('Erro: '+(d.error||'falha ao criar'));
+    try{
+      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
+      const d=await r.json();
+      if(r.ok&&d.ok){setMsg('✅ Colunista criado com sucesso!');setForm({nome:'',email:'',senha:''});setShowForm(false);carregar();}
+      else setMsg('❌ Erro: '+(d.error||'falha ao criar'));
+    }catch(e){setMsg('❌ Erro de conexão: '+e.message);}
     setCriando(false);
   }
 
@@ -2524,8 +2532,6 @@ function ReescritaOVC({onVerPendentes}) {
   );
 }
 
-
-// ── SEM FOTO ──
 function cleanMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 function SemFoto(){
   const [items,setItems] = React.useState([]);

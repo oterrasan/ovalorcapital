@@ -12,7 +12,7 @@ const CAT_PATH = {
   educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
   esportes:"esportes", saude:"saude", familia:"familia",
   tributacao:"tributos", regulacao:"regulacao", parcerias:"parcerias",
-  vc:"vc", colunistas:"vc", internacional:"internacional", variedades:"variedades",
+  vc:"colunistas", colunistas:"colunistas", internacional:"internacional", variedades:"variedades",
   investigativo:"investigativo", seguranca:"seguranca",
   cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
   concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
@@ -26,7 +26,7 @@ const SLUG_TO_CAT = {
   educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
   esportes:"esportes", saude:"saude", familia:"familia",
   internacional:"internacional", variedades:"variedades",
-  parcerias:"parcerias", regulacao:"regulacao", vc:"vc", colunistas:"vc",
+  parcerias:"parcerias", regulacao:"regulacao", vc:"colunistas", colunistas:"colunistas",
   investigativo:"investigativo", seguranca:"seguranca",
   cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
   concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao"
@@ -63,12 +63,22 @@ function getTemplate(catPath) {
 }
 
 function esc(s) {
-  return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return (s||"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
 }
 
 function slugify(str) {
-  return (str||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
-    .replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,55);
+  return (str||"")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g,"")
+    .replace(/[^a-z0-9\s-]/g,"")
+    .trim()
+    .replace(/\s+/g,"-")
+    .slice(0,55);
 }
 
 function safeJsonForScript(obj) {
@@ -226,7 +236,6 @@ export default async function handler(req, res) {
     data: publishedAt
   });
 
-  // Supabase anon key — injected from env for client-side auth
   const anonKey = process.env.SUPABASE_ANON_KEY || '';
 
   const seoTags = [
@@ -250,10 +259,10 @@ export default async function handler(req, res) {
     `<script>window.__OVC_ARTICLE__=${preload};window.SUPABASE_ANON_KEY=${JSON.stringify(anonKey)};</script>`,
     `<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>`,
     `<script src="/js/auth.js" defer></script>`,
-    `<script src="/js/banners.js" defer></script>`
+    `<script src="/js/banners.js" defer></script>`,
+    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`
   ].join("\n");
 
-  // ── COMMENTS + AUTH HTML BLOCKS ──────────────────────────────────────────────────────────────────────────────
   const commentsAndAuthHtml = `
 <!-- OVC Auth + Comments -->
 <style>
@@ -377,7 +386,6 @@ export default async function handler(req, res) {
 
   let html = tpl.replace(/<title>[^<]*<\/title>/i, "");
   html = html.replace("</head>", seoTags + "\n</head>");
-  // Append comments + auth HTML before </body>
   html = html.replace("</body>", commentsAndAuthHtml + "\n</body>");
 
   res.setHeader("Content-Type","text/html; charset=utf-8");

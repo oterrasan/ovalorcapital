@@ -1,7 +1,5 @@
 (function(){
 
-  // IDs de posts já exibidos nas áreas de destaque (hero/feature/lions)
-  // As seções dinâmicas filtram esses IDs para não duplicar
   const idsDestaque = new Set();
 
   function buildUrl(p) {
@@ -23,7 +21,6 @@
 
   function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 
-  // === COTAÇÕES AO VIVO ===
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/portal-posts?format=live-data');
@@ -41,7 +38,6 @@
       if (eurEl)  eurEl.textContent  = fmtBrl(eurVal);
       if (ibovEl) ibovEl.textContent = `${Number(ibovVal).toLocaleString('pt-BR')} pts`;
 
-      // Impostômetro: valor base + ticking em tempo real
       const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
       let impostVal = Number(data.impostometro || 0);
       const ratePerSec = Number(data.ratePerSec || 114155);
@@ -52,7 +48,6 @@
         document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
       }, 1000);
 
-      // Atualiza chips do Radar OVC (variações USD e BTC)
       document.querySelectorAll('.market-chip').forEach(chip => {
         const sym = (chip.querySelector('.market-symbol')?.textContent || '').trim().toUpperCase();
         const changeEl = chip.querySelector('.market-change');
@@ -68,11 +63,6 @@
     } catch(e) { console.error(e); }
   }
 
-  // ============================================================
-  // CARD HERO — REGRA INVIOLÁVEL
-  // ACEITA: "politica" OU "economia" — todas subcategorias
-  // REJEITA: qualquer outra categoria, sem exceção
-  // ============================================================
   function carregarCardHero(cache) {
     try {
       let post = null;
@@ -90,18 +80,12 @@
     } catch(e) { console.error('[Hero]',e); }
   }
 
-  // ============================================================
-  // CARD MEIO — REGRA INVIOLÁVEL
-  // ACEITA: "negocios" — todas subcategorias
-  // REJEITA: qualquer outra categoria, sem exceção
-  // ============================================================
   function carregarCardNegocios(cache) {
     try {
       const post = (cache['negocios']||[]).find(p => p.categoria==='negocios');
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
-      // Support both old (card-meio-*) and new (card-feature-*) element IDs
       if (el('card-meio-titulo')) el('card-meio-titulo').textContent = stripMd(post.titulo);
       if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Redação OVC';
       if (el('card-meio-link'))   el('card-meio-link').href          = buildUrl(post);
@@ -117,11 +101,6 @@
     } catch(e) { console.error('[Negocios]',e); }
   }
 
-  // ============================================================
-  // CARD LIONS — REGRA INVIOLÁVEL
-  // ACEITA: "investimentos", "seguros", "mercados", "economia"
-  // REJEITA: qualquer outra categoria, sem exceção
-  // ============================================================
   function carregarCardLions(cache) {
     try {
       let post = null;
@@ -146,9 +125,6 @@
     } catch(e) { console.error('[Lions]',e); }
   }
 
-  // ============================================================
-  // SEÇÕES DINÂMICAS — REGRA INVIOLÁVEL POR CATEGORIA
-  // ============================================================
   const SECOES = [
     { grid: 'grid-politica-economia', cats: ['politica','economia'], href: '/politica/' },
     { grid: 'grid-negocios',          cats: ['negocios'],            href: '/negocios/' },
@@ -188,7 +164,6 @@
     return a;
   }
 
-  // Also support the older renderSecao / renderSecaoStandard style containers
   function renderSecao(containerId, cats, cache, max) {
     try {
       const el = document.getElementById(containerId);
@@ -242,7 +217,6 @@
     updateLiveWidgets();
     setInterval(updateLiveWidgets, 120000);
 
-    // 1 fetch único para todas as seções e cards de destaque
     const cache = {};
     try {
       const r = await fetch('/api/portal-posts?recentes=true&limit=300');
@@ -255,15 +229,13 @@
       }
     } catch(e) { console.error('[Home]', e); }
 
-    // Carregar destaque primeiro — registra IDs usados
     carregarCardHero(cache);
     carregarCardNegocios(cache);
     carregarCardLions(cache);
 
-    // Seções grid (novo layout)
     SECOES.forEach(s => carregarSecao(s, cache));
 
-    // Seções legacy (layout antigo com secao-* IDs)
+
     renderSecao('secao-politica',      ['politica'],                           cache, 3);
     renderSecao('secao-economia',      ['economia'],                           cache, 3);
     renderSecao('secao-negocios',      ['negocios'],                           cache, 3);

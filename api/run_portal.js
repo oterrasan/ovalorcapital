@@ -3,7 +3,7 @@ import crypto from "crypto";
 import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal, rewritePortalManual } from "../core/ai_portal.js";
+import { rewritePortal, rewritePortalManual, buildDynamicContext } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
@@ -282,15 +282,19 @@ async function handleManualPost(req, res) {
     } else {
       sourceText = texto;
     }
-    // Inject recent titles so AI avoids repeating today's topics
+    let manualContext = '';
     try {
-      const { data: rt } = await supabase.from('posts').select('titulo')
+      const { data: rt } = await supabase.from('posts').select('titulo, user_tags, metrics')
         .gte('created_at', new Date(Date.now() - 24*3600000).toISOString())
         .eq('status','publicado').order('created_at',{ascending:false}).limit(25);
-      const titles = (rt||[]).map(p=>p.titulo).filter(Boolean);
-      if (titles.length > 0) sourceText = `[Temas já publicados hoje — não repetir:\n${titles.join('\n')}\n]\n\n${sourceText}`;
+      if (rt && rt.length > 0) {
+        const titles = rt.map(p => p.titulo).filter(Boolean);
+        const keywords = rt.map(p => p.metrics?.foco_keyword).filter(Boolean);
+        const cats = [...new Set(rt.map(p => { try { return JSON.parse(p.user_tags||'[]')[0]; } catch(_) { return null; } }).filter(Boolean))];
+        manualContext = buildDynamicContext({ recentTitles: titles, recentKeywords: keywords, recentCategories: cats });
+      }
     } catch(_) {}
-    const content = await rewritePortalManual(sourceText, sourceTitle);
+    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
@@ -476,11 +480,18 @@ export default async function handler(req, res) {
       }
     }
 
-    // Busca títulos das últimas 24h para dedup interno
+    // Busca contexto das últimas 24h para dedup + contexto dinâmico da IA
     let recentTitles = [];
+    let dynamicContext = '';
     try {
-      const { data: rt } = await supabase.from('posts').select('titulo').gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(500);
+      const { data: rt } = await supabase.from('posts').select('titulo, user_tags, metrics')
+        .gte('created_at', new Date(Date.now() - 24 * 3600000).toISOString()).limit(500);
       recentTitles = (rt || []).map(p => p.titulo || '');
+      if (rt && rt.length > 0) {
+        const keywords = rt.map(p => p.metrics?.foco_keyword).filter(Boolean);
+        const cats = [...new Set(rt.map(p => { try { return JSON.parse(p.user_tags||'[]')[0]; } catch(_) { return null; } }).filter(Boolean))];
+        dynamicContext = buildDynamicContext({ recentTitles: recentTitles.slice(0, 20), recentKeywords: keywords, recentCategories: cats });
+      }
     } catch(_) {}
 
     const catAlvo = (catForcada && CATS_VALIDAS.has(catForcada))
@@ -533,8 +544,7 @@ export default async function handler(req, res) {
       if (!sourceText) continue;
 
       let content;
-      const titlesCtx = recentTitles.length > 0 ? `[Temas recentes publicados — NÃO REPETIR:\n${recentTitles.slice(0,15).join('\n')}\n]\n\n` : '';
-      try { content = await rewritePortal(titlesCtx + sourceText, item.title); } catch(e) { continue; }
+      try { content = await rewritePortal(sourceText, item.title, dynamicContext); } catch(e) { continue; }
       if (!validarConteudo(content)) continue;
       content.titulo = stripTitle(content.titulo);
 

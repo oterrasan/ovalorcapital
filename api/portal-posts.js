@@ -16,12 +16,10 @@ export default async function handler(req, res) {
 
   const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
 
-  // ── COMMENTS: GET ?format=comments&post_id=X ───────────────────────────────────────────
   if (format === "comments" && req.query.post_id) {
     return handleGetComments(req, res);
   }
 
-  // ── COMMENTS: POST ?action=comment ────────────────────────────────────────────────
   if (req.method === "POST" && req.query.action === "comment") {
     return handlePostComment(req, res);
   }
@@ -97,7 +95,7 @@ export default async function handler(req, res) {
   if (req.query.recentes === 'true') {
     const CATS_VALIDAS_R = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional','vc','colunistas','variedades',
+      'parcerias','internacional','colunistas','variedades',
       'investigativo','seguranca','cultura','profissoes','vagas',
       'concursos','imoveis','esg','defesa','religiao','radar']);
     const lim = Math.min(parseInt(limit || '300', 10), 500);
@@ -164,7 +162,7 @@ export default async function handler(req, res) {
       }
       const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
         'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-        'parcerias','internacional','vc','colunistas','variedades',
+        'parcerias','internacional','colunistas','variedades',
         'investigativo','seguranca','cultura','profissoes','vagas',
         'concursos','imoveis','esg','defesa','religiao','radar']);
       const posts = combined.map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
@@ -198,7 +196,7 @@ export default async function handler(req, res) {
 
     const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados',
       'educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao',
-      'parcerias','internacional','vc','colunistas','variedades',
+      'parcerias','internacional','colunistas','variedades',
       'investigativo','seguranca','cultura','profissoes','vagas',
       'concursos','imoveis','esg','defesa','religiao','radar']);
 
@@ -222,7 +220,6 @@ export default async function handler(req, res) {
   }
 }
 
-// ── GET COMMENTS ────────────────────────────────────────────────────────────────────
 async function handleGetComments(req, res) {
   const { post_id } = req.query;
   try {
@@ -251,7 +248,6 @@ async function handleGetComments(req, res) {
   }
 }
 
-// ── POST COMMENT ────────────────────────────────────────────────────────────────────
 async function handlePostComment(req, res) {
   const { post_id, texto, token } = req.body || {};
   if (!post_id || !texto || !token) {
@@ -299,7 +295,7 @@ async function handlePostComment(req, res) {
         const modData = await modRes.json();
         flagged = modData?.results?.[0]?.flagged === true;
       }
-    } catch(_) { /* moderation failed, allow through */ }
+    } catch(_) {}
   }
 
   try {
@@ -354,7 +350,12 @@ async function handleLiveData(_req, res) {
     ibov:   bvsp   ? { valor: bvsp.regularMarketPrice,   variacao: bvsp.regularMarketChangePercent   } : null,
     nasdaq: nasdaq ? { valor: nasdaq.regularMarketPrice, variacao: nasdaq.regularMarketChangePercent } : null,
     dow:    dow    ? { valor: dow.regularMarketPrice,    variacao: dow.regularMarketChangePercent    } : null,
-    impostometro: 0,
+    impostometro: (() => {
+      const RATE = 114155;
+      const inicio = new Date(new Date().getFullYear() + '-01-01T03:00:00Z');
+      return Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 1000)) * RATE;
+    })(),
+    ratePerSec: 114155,
     ts: Date.now(),
   };
 
@@ -375,7 +376,7 @@ function formatPost(p, full) {
     educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
     esportes:"esportes", saude:"saude", familia:"familia",
     tributacao:"tributos", regulacao:"regulacao", internacional:"internacional",
-    parcerias:"parcerias", vc:"vc", colunistas:"vc", variedades:"variedades",
+    parcerias:"parcerias", vc:"colunistas", colunistas:"colunistas", variedades:"variedades",
     investigativo:"investigativo", seguranca:"seguranca",
     cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
     concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
