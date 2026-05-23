@@ -228,6 +228,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 30. **`recentTitles` janela 24h é INVIOLÁVEL** — "portal busca APENAS conteúdos DO DIA, NUNCA DO DIA ANTERIOR PARA TRÁS" (Roberto, 18/05/2026).
 31. **PORTAL NUNCA OFFLINE** — public/index.html ≥700 linhas em main. Verificar SEMPRE antes de qualquer push que toque esse arquivo. Ver Regra Zero-E (18/05/2026).
 32. **vercel.json NUNCA para cache-busting** — causa 403. Usar `?v=N` no HTML ou injeção via site.js. Ver Regra Zero-F (21/05/2026).
+33. **AdSense: usar `ads.txt` para verificação** — é arquivo estático, independe de SSR/JS. Script no `<head>` dos SSR handlers para os anúncios aparecerem nas páginas.
 
 ---
 
@@ -304,6 +305,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 |---|---|
 | `data/banners.json` | **NOVO (Block 5)** — 17 produtos Lions Corretora, lido por `api/manage.js` |
 | `data/rss_lote2.csv` | **NOVO (21/05/2026)** — 617 fontes RSS Lote 2, pipe-delimited `name\|domain\|categoria\|br_flag` |
+| `public/ads.txt` | **NOVO (23/05/2026)** — verificação AdSense: `google.com, pub-3652391568977586, DIRECT, f08c47fec0942fa0` |
 
 ---
 
@@ -401,7 +403,7 @@ vc, colunistas — apenas conteúdo manual
 ### Landing pages
 | URL | Categorias |
 |---|---|
-| `/vc/` | investigativo, variedades, cultura |
+| `/vc/` | institucional (sem artigos) |
 | `/trabalho/` | vagas, concursos, profissoes, parcerias, educacao |
 | `/financas/` | investimentos, seguros, tributacao, regulacao, mercados |
 | `/moradia/` | imoveis |
@@ -521,18 +523,22 @@ function renderCorpo(texto){
 | Links internos "Leia também" | `api/article.js` `fetchRelatedArticles()` | ✅ (Block 3) |
 | Google Indexing API | `api/run_portal.js` `pingGoogleIndexing()` | ✅ (Block 3, requer GOOGLE_INDEXING_SA_JSON) |
 | Banner comercial Lions | `api/manage.js` + `public/js/banners.js` | ✅ (Block 5) |
+| Google Search Console | sitemap.xml submetido | ✅ (23/05/2026) |
+| **AdSense verificado** | `public/ads.txt` | ✅ (23/05/2026) |
+| Script AdSense nos SSR | todos os 5 handlers | ✅ (23/05/2026) |
 
 ### Ações pendentes (Roberto faz manualmente)
-1. Search Console → submeter sitemap.xml
-2. AdSense → verificar aprovação
-3. Google Publisher Center → cadastrar portal
+1. **AdSense aprovação** — aguardar email do Google (alguns dias)
+2. **AdSense pagamento** — preencher dados bancários em "Conte sobre você" → "Inserir informações"
+3. Google Publisher Center → cadastrar portal (Google Discover)
 4. Quando ovalorcapital@gmail.com ativado → atualizar `EMAIL_REAL` em `api/institutional.js`
 5. **Variável de ambiente `GOOGLE_INDEXING_SA_JSON`** → adicionar no Vercel Dashboard com JSON da service account (Block 3).
 6. Executar `GET /api/manage?action=unpublish_no_image` para despublicar artigos sem imagem (quando autorizado).
 7. Disparar workflow "Regenerar artigos recentes pendentes" no GitHub Actions.
-8. Revisar e aprovar artigos pendentes do dia 18/19 no admin (filtro 'pendente').
+8. Revisar e aprovar artigos pendentes no admin (filtro 'pendente').
 9. **Executar SQL de migração no Supabase** para as tabelas `image_bank` e `colunistas` (ver seção 4).
-10. **Limpar artigos com imagem ruim ainda publicados** — logo do Google (60+) e templo japonês (~10): via Supabase Dashboard SQL → `SELECT imagem, COUNT(*) FROM posts GROUP BY imagem ORDER BY COUNT(*) DESC LIMIT 30` → identificar URLs ruins → `UPDATE posts SET imagem = null WHERE imagem = 'URL'`.
+10. **Limpar artigos com imagem ruim ainda publicados** — logo do Google (60+) e templo japonês (~10).
+11. **Limpar projetos Vercel duplicados** — existem 3 projetos (`ovalorcapital`, `ovalorcapital-xuhw`, `ovalorcapital-hubx`) todos ligados ao mesmo repo. Identificar qual serve `www.ovalorcapital.com.br` e deletar os outros com cuidado.
 
 ---
 
@@ -579,6 +585,8 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 35 | **CRÍTICO** — vercel.json CSS no-cache header causou 403 em todo portal e admin | `vercel.json` revertido (commit `1e74fbed`) | 21/05/2026 |
 | 36 | Ticker do header (site.js) não tinha fallback AwesomeAPI — USD/EUR/BTC zerados em todas as páginas | `public/js/site.js` corrigido (commit `356e664`) | 21/05/2026 |
 | 37 | IBOV/NASDAQ/DOW hardcoded como 0 em portal-posts.js format=live — nunca buscados | Documentado — mostram `—` em vez de `0 pts` | 21/05/2026 |
+| 38 | AdSense verification falhando — script injetado via JS deferido invisível para bot | `public/ads.txt` criado + script nos SSR handlers | 23/05/2026 |
+| 39 | VC subpages exibindo artigos — faltava early return em `internal-page.js` | `public/js/internal-page.js` corrigido | 23/05/2026 |
 
 ---
 
@@ -608,6 +616,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Comunicação:** português, direto ao ponto
 - **NUNCA perguntar** coisas óbvias sobre infraestrutura que claramente está no ar
 - **NUNCA mexer em nada enquanto conversa com o dono** — esperar OK explícito antes de cada ação
+- **IMPORTANTE:** Quando há múltiplos métodos para resolver um problema, testar o mais simples PRIMEIRO (ex: ads.txt antes de injetar script em HTML)
 
 ---
 
@@ -701,6 +710,31 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - 53 categorias: Portais Financeiros, Polêmicas Brasil (57), Bancos Brasil (27), Petróleo Global (23), etc.
 - `api/manage.js` ganhou `GET ?action=seed_rss_lote2&pass=ovc-admin-2026-secreto` → importa CSV → upsert `rss_sources`
 - Para executar a importação: `https://www.ovalorcapital.com.br/api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto`
+
+### Sessão 23/05/2026 — GOOGLE ADSENSE VERIFICADO ✅
+
+**AdSense verificado e revisão solicitada.**
+
+**Problema raiz:** AdSense bot visita `ovalorcapital.com.br` — a homepage é `public/index.html` (arquivo estático), que NÃO passa pelos SSR handlers. Script injetado via JS dinâmico (`site.js` com `defer`) é invisível para o bot.
+
+**O que foi feito:**
+- Adicionado script AdSense nos 5 SSR handlers (`article.js`, `category.js`, `live.js`, `institutional.js`, `landing.js`) — necessário para anúncios nas páginas
+- Criado `public/ads.txt` com `google.com, pub-3652391568977586, DIRECT, f08c47fec0942fa0` — foi o que **resolveu** a verificação
+- `internal-page.js`: early return quando `slug === 'vc'` + `colunistas:'colunistas'`, `vc:'colunistas'` no CAT_PATH
+
+**Lição importante:** Para verificação AdSense, SEMPRE usar `ads.txt` primeiro — é arquivo estático, independe de SSR ou JS.
+
+**Status AdSense:**
+- Pub ID: `ca-pub-3652391568977586`
+- Site: `ovalorcapital.com.br`
+- Propriedade verificada ✅
+- Revisão solicitada ✅ (aguardando aprovação Google — alguns dias)
+- Pagamento: Roberto ainda precisa preencher dados bancários no AdSense ("Conte sobre você")
+
+**Vercel — observação importante (Roberto pediu limpeza):**
+- Existem 3 projetos Vercel conectados ao mesmo repo `oterrasan/ovalorcapital`: `ovalorcapital`, `ovalorcapital-xuhw`, `ovalorcapital-hubx`
+- Roberto quer limpar repositórios duplicados — fazer em sessão futura com cuidado
+- Identificar qual projeto serve `www.ovalorcapital.com.br` ANTES de deletar qualquer coisa
 
 ---
 
