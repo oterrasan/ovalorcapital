@@ -236,9 +236,15 @@ async function handleSetupStorage(req, res) {
 
 async function handleAuditImages(req, res) {
   const OPENAI_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
-  const batch  = Math.min(parseInt(req.query.batch  || '4', 10), 6);
+  const batch  = Math.min(parseInt(req.query.batch || '4', 10), 8);
   const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+
+  const BAD_URL_PATTERNS = [
+    'googleusercontent.com','encrypted-tbn','ssl.gstatic','gstatic.com/images',
+    'news.google.com','yt3.ggpht','googlelogo','google_logo','google-logo',
+    'photo-1611974789855',
+  ];
+
   try {
     const { data: posts, error: fetchErr } = await supabase
       .from('posts').select('id, titulo, imagem').eq('status', 'publicado')
@@ -247,8 +253,24 @@ async function handleAuditImages(req, res) {
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
     if (!posts || posts.length === 0)
       return res.status(200).json({ ok: true, processed: 0, unpublished: 0, done: true, message: 'Varredura concluída.' });
+
     const results = [];
+    const badIds = [];
+
     for (const post of posts) {
+      const imgUrl = post.imagem || '';
+      const imgLower = imgUrl.toLowerCase();
+
+      // Camada 1: URL pattern — instantâneo, sem custo de API
+      if (BAD_URL_PATTERNS.some(p => imgLower.includes(p))) {
+        badIds.push(post.id);
+        results.push({ id: post.id, titulo: (post.titulo||'').slice(0,60), status: 'despublicado', motivo: 'url_bloqueada' });
+        continue;
+      }
+
+      // Camada 2: Vision AI
+      if (!OPENAI_KEY) { results.push({ id: post.id, status: 'skip', reason: 'sem_openai_key' }); continue; }
+
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 5000);
@@ -256,10 +278,10 @@ async function handleAuditImages(req, res) {
           method: 'POST', signal: controller.signal,
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
           body: JSON.stringify({
-            model: 'gpt-4o-mini', max_tokens: 60, temperature: 0,
+            model: 'gpt-4o-mini', max_tokens: 80, temperature: 0,
             messages: [{ role: 'user', content: [
-              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\nis_chart_or_table: true if chart, graph, infographic, table.' },
-              { type: 'image_url', image_url: { url: post.imagem, detail: 'low' } }
+              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON: {"is_bad":true/false,"motivo":""}\nis_bad:true if: (1) app icon or brand logo like Google News GE icon, news app icon, corporate logo/seal, (2) stock market chart or candlestick graph especially on dark background, (3) illustration/cartoon/clipart/vector/drawing, (4) Chinese or Asian temple/pagoda or tourist landmark with no people/news context, (5) generic travel stock photo with zero news relevance.\nmotivo: brief reason if bad, empty string if ok.' },
+              { type: 'image_url', image_url: { url: imgUrl, detail: 'low' } }
             ]}]
           })
         });
@@ -269,20 +291,25 @@ async function handleAuditImages(req, res) {
         const txt = (vd.choices?.[0]?.message?.content || '').trim();
         const m = txt.match(/\{[^}]+\}/);
         const metrics = m ? JSON.parse(m[0]) : null;
-        if (metrics?.is_illustration === true || metrics?.is_chart_or_table === true) {
-          await supabase.from('posts').update({ status: 'pendente', approved: false }).eq('id', post.id);
-          results.push({ id: post.id, titulo: (post.titulo || '').slice(0, 60), status: 'despublicado', motivo: metrics.is_illustration ? 'ilustração/ícone' : 'gráfico/tabela' });
+        if (metrics?.is_bad === true) {
+          badIds.push(post.id);
+          results.push({ id: post.id, titulo: (post.titulo||'').slice(0,60), status: 'despublicado', motivo: metrics.motivo || 'vision_bad' });
         } else {
           results.push({ id: post.id, status: 'ok' });
         }
       } catch(e) {
-        results.push({ id: post.id, status: 'skip', reason: e.message?.slice(0, 60) });
+        results.push({ id: post.id, status: 'skip', reason: e.message?.slice(0,60) });
       }
     }
+
+    if (badIds.length > 0) {
+      await supabase.from('posts').update({ status: 'pendente', approved: false }).in('id', badIds);
+    }
+
     const unpublished = results.filter(r => r.status === 'despublicado').length;
     const nextOffset = offset + posts.length;
     const done = posts.length < batch;
-    return res.status(200).json({ ok: true, lote: `${offset}–${nextOffset - 1}`, processed: posts.length, unpublished, done, next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}`, results });
+    return res.status(200).json({ ok: true, lote: `${offset}–${nextOffset-1}`, processed: posts.length, unpublished, done, next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}&batch=${batch}`, results });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
