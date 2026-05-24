@@ -5,7 +5,7 @@ import { join } from "path";
 import { publishPost } from "../core/publish_engine.js";
 import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal } from "../core/ai_portal.js";
+import { rewritePortal, normalizarParagrafos } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -61,6 +61,7 @@ function handler(req, res) {
   if (body.action === "setup_storage") return handleSetupStorage(req, res);
   if (body.action === "admin_login") return handleAdminLogin(req, res);
   if (body.action === "fix_conclusao_ovc") return handleFixConclusaoOvc(req, res);
+  if (body.action === "fix_paragrafos") return handleFixParagrafos(req, res);
   if (body.action === "login_colunista") return handleLoginColunista(req, res);
   if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
@@ -875,6 +876,43 @@ async function handleSeoBatch(req, res) {
     });
   } catch(e) {
     return res.status(200).json({ status: 'error', error: e.message });
+  }
+}
+
+async function handleFixParagrafos(req, res) {
+  if (!checkAdminAuth(req)) return res.status(403).json({ error: 'Não autorizado' });
+  try {
+    const offset = parseInt(req.body.offset || 0, 10);
+    const BATCH = 100;
+    const { data: posts, error, count } = await supabase
+      .from('posts')
+      .select('id, conteudo', { count: 'exact' })
+      .not('conteudo', 'is', null)
+      .range(offset, offset + BATCH - 1);
+    if (error) throw new Error(error.message);
+    if (!posts || posts.length === 0) {
+      return res.status(200).json({ status: 'done', atualizados: 0, total: 0, nextOffset: null });
+    }
+    let atualizados = 0;
+    for (const post of posts) {
+      if (!post.conteudo || !post.conteudo.includes('<p>')) continue;
+      const novo = normalizarParagrafos(post.conteudo);
+      if (novo !== post.conteudo) {
+        await supabase.from('posts').update({ conteudo: novo, updated_at: new Date().toISOString() }).eq('id', post.id);
+        atualizados++;
+      }
+    }
+    const nextOffset = offset + posts.length;
+    const done = posts.length < BATCH;
+    return res.status(200).json({
+      status: done ? 'done' : 'ok',
+      atualizados,
+      processados: posts.length,
+      nextOffset: done ? null : nextOffset,
+      total: count || 0
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
   }
 }
 

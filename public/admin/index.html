@@ -1900,6 +1900,67 @@ function Configuracoes() {
           </div>
         </div>
         <MigracaoConclusaoOVC/>
+        <FixParagrafos/>
+      </div>
+    </div>
+  );
+}
+
+function FixParagrafos() {
+  const [status, setStatus] = useState('idle');
+  const [log, setLog] = useState([]);
+  const [totalAtualizado, setTotalAtualizado] = useState(0);
+
+  const rodar = async () => {
+    if (!window.confirm('Quebrar todos os parágrafos gigantes (>350 chars) em todos os posts publicados e pendentes?\n\nEsta operação pode demorar alguns minutos.')) return;
+    setStatus('running'); setLog([]); setTotalAtualizado(0);
+    let offset = 0, total = 0, soma = 0;
+    while (true) {
+      try {
+        const r = await fetch('/api/manage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS },
+          body: JSON.stringify({ action: 'fix_paragrafos', offset })
+        });
+        const d = await r.json();
+        if (d.error) { setLog(l => [...l, `❌ Erro: ${d.error}`]); break; }
+        soma += (d.atualizados || 0);
+        total = d.total || total;
+        setTotalAtualizado(soma);
+        const processados = offset + (d.processados || 0);
+        setLog(l => [...l, `✔ ${processados}/${total} verificados — ${soma} corrigidos`]);
+        if (d.status === 'done' || !d.nextOffset) break;
+        offset = d.nextOffset;
+      } catch(e) { setLog(l => [...l, `❌ ${e.message}`]); break; }
+    }
+    setStatus('done');
+  };
+
+  return (
+    <div className="panel">
+      <div className="panel-header"><span className="panel-title">📐 Corrigir Blocos de Texto</span></div>
+      <div style={{padding:20}}>
+        <div style={{marginBottom:10,fontSize:13,color:'var(--t2)'}}>
+          Quebra automaticamente parágrafos com mais de <strong>350 caracteres</strong> em grupos de até 3 sentenças — aplica em <strong>todos os posts publicados e pendentes</strong>.
+        </div>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={rodar}
+          disabled={status==='running'}
+          style={{background:'#0f766e'}}
+        >
+          {status==='running' ? '⏳ Processando...' : '📐 Corrigir blocos gigantes agora'}
+        </button>
+        {log.length > 0 && (
+          <div style={{marginTop:12,maxHeight:120,overflowY:'auto',fontSize:12,background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',color:'var(--t2)'}}>
+            {log.map((l,i)=><div key={i}>{l}</div>)}
+          </div>
+        )}
+        {status==='done' && (
+          <div style={{marginTop:10,fontSize:13,padding:'10px 14px',borderRadius:8,background:'rgba(16,185,129,0.12)',color:'#34d399'}}>
+            ✅ Concluído — <strong>{totalAtualizado}</strong> post(s) com parágrafos corrigidos
+          </div>
+        )}
       </div>
     </div>
   );
