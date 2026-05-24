@@ -14,6 +14,21 @@ const CROP_RIGHT_PCT  = 0.03;
 const OUT_WIDTH  = 1080;
 const OUT_HEIGHT = 1350;
 
+// URLs de origem que nunca devem ser processadas — ícone GE do Google News, CDN Google, etc.
+const _BAD_SRC_PATTERNS = [
+  'googleusercontent.com','encrypted-tbn','ssl.gstatic','gstatic.com',
+  'news.google.com','yt3.ggpht','googlelogo','google_logo','google-logo',
+  'vector','ilustra','illustration','diagram','infograph','cartoon',
+  'drawing','clipart','sketch','template','shutterstock','gettyimages',
+];
+function _isUrlBloqueada(url) {
+  if (!url || url.length < 10) return true;
+  const u = url.toLowerCase();
+  return _BAD_SRC_PATTERNS.some(p => u.includes(p)) ||
+    /\.(svg|gif|ico|bmp)(\?|$)/i.test(u) ||
+    /\b(16|32|48|64)x(16|32|48|64)\b/.test(u);
+}
+
 // Analisa imagem via GPT-4o Vision — rejeita logos, gráficos, ilustrações e concorrentes
 async function analyzeImageVision(buffer) {
   if (!OPENAI_KEY) return null;
@@ -150,6 +165,8 @@ async function uploadToSupabase(buffer, filename) {
 
 export async function processAndSaveImage(sourceUrl, postId, startTime) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
+  // Rejeita URLs de origem ruins antes de qualquer download — ícone GE, CDN Google, etc.
+  if (_isUrlBloqueada(sourceUrl)) return null;
   try {
     const buffer = await downloadImage(sourceUrl);
     if (!buffer || buffer.length < 5000) return null;
