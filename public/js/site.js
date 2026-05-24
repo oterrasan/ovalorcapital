@@ -202,7 +202,88 @@ window.OVC = {
       console.error('live-data apply error:', error);
     }
   },
-  renderMiniItems(items){ return items.map(item => `<article class="ovc-mini-item"><div><div class="ovc-kicker">${item.source || 'OVC'}</div><h4><a href="${this.articleUrl(item)}">${item.title}</a></h4><p>${item.excerpt || ''}</p><div class="ovc-meta"><span>${item.relativeDate || ''}</span></div></div><a class="ovc-thumb" href="${this.articleUrl(item)}">${item.image ? `<img src="${item.image}" alt="">` : ''}</a></article>`).join(''); }
+  renderMiniItems(items){ return items.map(item => `<article class="ovc-mini-item"><div><div class="ovc-kicker">${item.source || 'OVC'}</div><h4><a href="${this.articleUrl(item)}">${item.title}</a></h4><p>${item.excerpt || ''}</p><div class="ovc-meta"><span>${item.relativeDate || ''}</span></div></div><a class="ovc-thumb" href="${this.articleUrl(item)}">${item.image ? `<img src="${item.image}" alt="">` : ''}</a></article>`).join(''); },
+
+  initMobileMenu() {
+    // Skip if hamburger already exists in the HTML
+    if (document.querySelector('.btn-hamburger')) return;
+
+    const headerActions = document.querySelector('.header-actions');
+    if (!headerActions) return;
+
+    // Inject hamburger button
+    const btn = document.createElement('button');
+    btn.className = 'btn-hamburger';
+    btn.setAttribute('aria-label', 'Abrir menu');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('id', 'hamburgerBtn');
+    btn.innerHTML = '<span class="hamburger-bar"></span><span class="hamburger-bar"></span><span class="hamburger-bar"></span>';
+    headerActions.appendChild(btn);
+
+    // Inject overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'mobile-menu-overlay';
+    overlay.id = 'mobileMenuOverlay';
+    document.body.appendChild(overlay);
+
+    // Inject mobile menu drawer
+    const menu = document.createElement('div');
+    menu.className = 'mobile-menu';
+    menu.id = 'mobileMenu';
+    menu.setAttribute('role', 'dialog');
+    menu.setAttribute('aria-modal', 'true');
+    menu.setAttribute('aria-label', 'Menu de navegação');
+    const links = [
+      ['VC', '/vc/'],
+      ['Política', '/politica/'],
+      ['Economia', '/economia/'],
+      ['Negócios', '/negocios/'],
+      ['Investimentos', '/investimentos/'],
+      ['Mercados', '/mercados/'],
+      ['Tecnologia', '/tecnologia/'],
+      ['Indústria', '/industria/'],
+      ['Saúde', '/saude/'],
+      ['Educação', '/educacao/'],
+      ['Esportes', '/esportes/'],
+      ['Cultura', '/cultura/'],
+      ['Internacional', '/internacional/'],
+      ['Dados & Indicadores', '/dados/'],
+      ['Radar OVC', '/radar/'],
+      ['TV OVC', '/tv-ovc/'],
+      ['Rádio OVC', '/radio-ovc/'],
+      ['Newsletter', '/newsletter/'],
+      ['Busca', '/busca/']
+    ];
+    menu.innerHTML =
+      '<div class="mobile-menu-header">' +
+        '<span class="mobile-menu-title">O Valor Capital</span>' +
+        '<button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">✕</button>' +
+      '</div>' +
+      '<nav class="mobile-menu-nav" aria-label="Navegação mobile">' +
+        links.map(([label, href]) => `<a class="mobile-menu-link" href="${href}">${label}</a>`).join('') +
+      '</nav>';
+    document.body.appendChild(menu);
+
+    function openMenu() {
+      menu.classList.add('open');
+      overlay.classList.add('open');
+      btn.classList.add('active');
+      btn.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMenu() {
+      menu.classList.remove('open');
+      overlay.classList.remove('open');
+      btn.classList.remove('active');
+      btn.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    btn.addEventListener('click', openMenu);
+    document.getElementById('mobileMenuClose').addEventListener('click', closeMenu);
+    overlay.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+  }
 };
 
 (function(){
@@ -214,6 +295,7 @@ window.OVC = {
     OVC.hydrateHeaderFooter();
     OVC.enhanceTickerLinks();
     OVC.bindHomeCriticalLinks();
+    OVC.initMobileMenu();
   });
 })();
 
