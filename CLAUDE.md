@@ -592,6 +592,9 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 42 | VC subpages exibindo artigos — faltava early return em `internal-page.js` | `public/js/internal-page.js` corrigido | 23/05/2026 |
 | 43 | "Leia também" interrompia artigo a 2/3 do conteúdo — artigo continuava depois dos links | `api/article.js` — removida lógica 2/3, agora sempre ao final | 24/05/2026 |
 | 44 | Sem espaçamento profissional entre fim do artigo e bloco "Leia também" — ficava grudado | `public/js/internal-page-v2.js` — CSS `.leia-tambem` com margin-top:52px + styling | 24/05/2026 |
+| 45 | `quebrarParagrafos` não capturava `<p>` com atributos, 1 único pass, threshold alto | `internal-page-v2.js` — reescrito multi-pass, regex `<p[^>]*>`, threshold 300/60 | 24/05/2026 |
+| 46 | Botão admin usava `apiFetch` inexistente — erro silencioso | `admin/index.html` — trocado para `fetch` com header `x-admin-password` | 24/05/2026 |
+| 47 | **INCIDENTE** — Botão "Publicar todos pendentes" publicou 74 artigos pessoais de Roberto | `api/manage.js` — filtro `publish_method='portal'` não protegia artigos de curadoria | 24/05/2026 |
 
 ---
 
@@ -764,6 +767,93 @@ Region: sa-east-1 (São Paulo)
 ```
 
 > Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
+
+### Sessão 24/05/2026 — TARDE — FIXES, GOOGLE, E INCIDENTE GRAVE
+
+---
+
+#### ⚠️⚠️⚠️ INCIDENTE GRAVE — BOTÃO "PUBLICAR TODOS PENDENTES"
+
+**O que aconteceu:**
+Roberto tinha ~70 artigos pendentes que ele estava curadoriando manualmente (revisão pessoal). Foi criado um botão "Publicar todos pendentes" no admin com filtro `publish_method='portal'`. O botão publicou **74 artigos** — que incluíram os artigos pessoais de Roberto sem permissão. Roberto ficou furioso e disse que estava perdendo tempo.
+
+**Root cause:**
+Os artigos de curadoria pessoal de Roberto também tinham `publish_method='portal'` (foram gerados pelo pipeline), então o filtro não os protegeu. Não existe campo que distingue "artigos do pipeline que Roberto quer revisar" de "artigos do pipeline que podem ser publicados automaticamente".
+
+**Estado atual:**
+- Os 74 artigos foram publicados e Roberto disse "deixa pra lá" — NÃO reverter sem autorização explícita
+- O botão "Publicar todos pendentes" está no admin mas é PERIGOSO
+
+**O QUE O PRÓXIMO CLAUDE DEVE FAZER:**
+```
+❌ NUNCA criar botão de aprovação em lote sem entender exatamente quais artigos serão afetados
+❌ NUNCA assumir que publish_method distingue artigos pessoais de artigos do pipeline
+❌ O botão "Publicar todos pendentes" no admin É PERIGOSO — remover ou desabilitar quando Roberto autorizar
+```
+
+---
+
+#### Parágrafos gigantes — status atual
+
+**O que foi feito:**
+- `public/js/internal-page-v2.js`: `quebrarParagrafos()` reescrito com multi-pass (5x), regex `<p[^>]*>`, threshold 300 chars, frases mínimas de 60 chars, fallback por vírgulas
+- `api/manage.js`: `normalizarParagrafosV2()` com mesmo algoritmo melhorado, usado em `handleFixParagrafos`
+- Botão "Corrigir blocos gigantes agora" no admin foi melhorado
+
+**Estado atual:**
+- Roberto disse que AINDA NÃO ESTÁ FUNCIONANDO nos artigos publicados
+- Causa raiz não confirmada — pode ser cache do browser, pode ser que `</p>` não existe nos artigos do banco
+- **PENDENTE**: verificar o HTML bruto de um artigo específico no banco para confirmar estrutura real do conteúdo
+
+---
+
+#### Google — configurações realizadas
+
+**AdSense:**
+- Setup completo — perfil, anúncios e site configurados ✅
+- Aguardando aprovação do Google (prazo: alguns dias)
+- Pub ID: `ca-pub-3652391568977586`
+
+**Google Publisher Center:**
+- "O Valor Capital" cadastrado em `publishercenter.google.com` ✅
+- URL: `https://www.ovalorcapital.com.br/`
+
+**Reader Revenue Manager:**
+- Ativado — habilita Google News Showcase ✅
+- Nome: Roberto Cesar Terrasan / Cargo: Sócio Proprietário e Redator Responsável
+- Status: Para fins lucrativos
+
+**Google Search Console:**
+- Sitemap já enviado desde 23/05 ✅
+- **PROBLEMA**: Sitemap mostrava apenas 150 páginas de ~1.572 — maioria estava como `pendente` e não aparecia no sitemap (sitemap só inclui `status='publicado'`)
+- Após aprovação em lote (74 artigos), mais páginas devem aparecer
+
+---
+
+#### Sitemap — problema de cobertura
+
+O `api/sitemap.js` só inclui artigos com `status='publicado'`. Com o pipeline Block 6 salvando tudo como `pendente`, o Google só via ~150 artigos. Após a aprovação dos 74, melhora um pouco, mas ainda há ~24 pendentes.
+
+**Para maximizar indexação:** aprovar artigos pendentes regularmente via admin → filtro "pendente".
+
+---
+
+#### Bugs corrigidos nesta sessão
+
+| # | Bug | Arquivo | Quando |
+|---|-----|---------|--------|
+| 43 | "Leia também" interrompia artigo a 2/3 — artigo continuava depois dos links | `api/article.js` — removida lógica 2/3 | 24/05/2026 |
+| 44 | Sem espaçamento entre fim do artigo e "Leia também" | `internal-page-v2.js` — CSS `.leia-tambem` margin-top:52px | 24/05/2026 |
+| 45 | `quebrarParagrafos` client-side não capturava `<p>` com atributos, 1 único pass | `internal-page-v2.js` — reescrito com multi-pass e regex melhorada | 24/05/2026 |
+| 46 | Botão admin usava `apiFetch` inexistente | `admin/index.html` — trocado para `fetch` com `x-admin-password` | 24/05/2026 |
+
+---
+
+#### ⚠️ INCIDENTE #2 — Botão publicou 74 artigos pessoais de Roberto
+
+Ver seção acima. Roberto disse "deixa pra lá". Artigos foram publicados sem reversão.
+
+---
 
 ### Sessão 24/05/2026 — ESPAÇAMENTO E POSIÇÃO "LEIA TAMBÉM"
 
