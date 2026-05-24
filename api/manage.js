@@ -60,6 +60,7 @@ function handler(req, res) {
   if (body.action === "track_view") return handleTrackView(req, res);
   if (body.action === "setup_storage") return handleSetupStorage(req, res);
   if (body.action === "admin_login") return handleAdminLogin(req, res);
+  if (body.action === "fix_conclusao_ovc") return handleFixConclusaoOvc(req, res);
   if (body.action === "login_colunista") return handleLoginColunista(req, res);
   if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
@@ -874,5 +875,39 @@ async function handleSeoBatch(req, res) {
     });
   } catch(e) {
     return res.status(200).json({ status: 'error', error: e.message });
+  }
+}
+
+async function handleFixConclusaoOvc(req, res) {
+  if (!checkAdminAuth(req)) return res.status(403).json({ error: 'Não autorizado' });
+  try {
+    const variantes = [
+      '<h2>Interpretação Estratégica</h2>',
+      '<h2>Interpretação Estratégica </h2>',
+      '<h2> Interpretação Estratégica</h2>',
+    ];
+    let totalAtualizado = 0;
+    for (const variante of variantes) {
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('id, corpo')
+        .ilike('corpo', `%Interpretação Estratégica%`);
+      if (!posts || posts.length === 0) continue;
+      for (const post of posts) {
+        if (!post.corpo || !post.corpo.includes('Interpretação Estratégica')) continue;
+        const novoCorpo = post.corpo.replace(
+          /<h2>\s*Interpretação Estratégica\s*<\/h2>/gi,
+          '<h2>Conclusão OVC</h2>'
+        );
+        if (novoCorpo !== post.corpo) {
+          await supabase.from('posts').update({ corpo: novoCorpo, updated_at: new Date().toISOString() }).eq('id', post.id);
+          totalAtualizado++;
+        }
+      }
+      break;
+    }
+    return res.status(200).json({ ok: true, atualizados: totalAtualizado });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
   }
 }

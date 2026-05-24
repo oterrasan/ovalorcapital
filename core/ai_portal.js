@@ -235,7 +235,7 @@ FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
 Estrutura obrigatória do CORPO:
 — parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com o fato central
 — 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
-— última seção com <h2> específico ao conteúdo da matéria (ex: "O que muda para o consumidor", "Próximos passos", "O impacto nos mercados", "O que está em jogo") — o título DEVE ser concreto e jornalístico, criado para esta matéria específica, NUNCA genérico
+— última seção OBRIGATÓRIA com exatamente <h2>Conclusão OVC</h2> — síntese objetiva do que o leitor precisa reter: o fato central, o impacto concreto e o próximo movimento esperado
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -245,7 +245,7 @@ MÉTRICAS DE VALIDAÇÃO
 — META_DESCRICAO: intervalo estrito 141–155 caracteres. Contar e ajustar.
 — CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO.
-— SECAO_FINAL: última seção presente ao final do CORPO com título <h2> específico e jornalístico.
+— CONCLUSAO_OVC: seção obrigatória com exatamente <h2>Conclusão OVC</h2> ao final do CORPO.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLACKLIST — PROIBIÇÃO ABSOLUTA
@@ -621,7 +621,7 @@ FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
 Estrutura obrigatória do CORPO:
 — parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com ângulo original OVC
 — 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
-— última seção com <h2> específico ao conteúdo da matéria (ex: "O que muda para o consumidor", "Próximos passos", "O impacto nos mercados", "O que está em jogo") — o título DEVE ser concreto e jornalístico, criado para esta matéria específica, NUNCA genérico
+— última seção OBRIGATÓRIA com exatamente <h2>Conclusão OVC</h2> — síntese objetiva do que o leitor precisa reter: o fato central, o impacto concreto e o próximo movimento esperado
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -631,7 +631,7 @@ MÉTRICAS DE VALIDAÇÃO
 — META_DESCRICAO: intervalo estrito 141–155 caracteres
 — CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
-— SECAO_FINAL: última seção presente ao final do CORPO com título <h2> específico e jornalístico.
+— CONCLUSAO_OVC: seção obrigatória com exatamente <h2>Conclusão OVC</h2> ao final do CORPO.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRA MÁXIMA

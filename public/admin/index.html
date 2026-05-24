@@ -1899,6 +1899,47 @@ function Configuracoes() {
             <div style={{color:'var(--t2)',fontSize:13}}>⚙️ O controle de automação está no módulo <strong>Pipeline</strong>. Use o toggle de lá para ligar ou desligar.</div>
           </div>
         </div>
+        <MigracaoConclusaoOVC/>
+      </div>
+    </div>
+  );
+}
+
+function MigracaoConclusaoOVC() {
+  const [status, setStatus] = useState('idle');
+  const [resultado, setResultado] = useState(null);
+  const rodar = async () => {
+    if (!window.confirm('Substituir "Interpretação Estratégica" por "Conclusão OVC" em TODOS os posts publicados e pendentes?')) return;
+    setStatus('running'); setResultado(null);
+    try {
+      const r = await fetch('/api/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS },
+        body: JSON.stringify({ action: 'fix_conclusao_ovc' })
+      });
+      const d = await r.json();
+      setResultado(d);
+    } catch(e) { setResultado({ error: e.message }); }
+    setStatus('idle');
+  };
+  return (
+    <div className="panel">
+      <div className="panel-header"><span className="panel-title">🔧 Manutenção de Conteúdo</span></div>
+      <div style={{padding:20}}>
+        <div style={{marginBottom:10,fontSize:13,color:'var(--t2)'}}>Substitui <strong>"Interpretação Estratégica"</strong> por <strong>"Conclusão OVC"</strong> em todos os posts (publicados e pendentes).</div>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={rodar}
+          disabled={status==='running'}
+          style={{background:'#7c3aed'}}
+        >
+          {status==='running' ? '⏳ Rodando migração...' : '🔄 Rodar migração Conclusão OVC'}
+        </button>
+        {resultado && (
+          <div style={{marginTop:12, fontSize:13, padding:'10px 14px', borderRadius:8, background: resultado.error ? 'rgba(220,38,38,0.12)' : 'rgba(16,185,129,0.12)', color: resultado.error ? '#f87171' : '#34d399'}}>
+            {resultado.error ? `❌ Erro: ${resultado.error}` : `✅ Concluído — ${resultado.atualizados} post(s) atualizado(s)`}
+          </div>
+        )}
       </div>
     </div>
   );
