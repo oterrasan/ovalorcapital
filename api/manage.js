@@ -889,8 +889,8 @@ async function handleFixConclusaoOvc(req, res) {
     while (true) {
       const { data: posts, error } = await supabase
         .from('posts')
-        .select('id, corpo')
-        .not('corpo', 'is', null)
+        .select('id, conteudo')
+        .not('conteudo', 'is', null)
         .range(offset, offset + BATCH - 1);
 
       if (error) throw new Error(error.message);
@@ -899,17 +899,16 @@ async function handleFixConclusaoOvc(req, res) {
       totalVerificado += posts.length;
 
       for (const post of posts) {
-        if (!post.corpo) continue;
-        // detecta qualquer variante: com/sem espaços, acentuação normalizada ou não
-        const temInterpretacao = /interpreta[çc][aã]o\s+estrat[eé]gica/i.test(post.corpo);
+        if (!post.conteudo) continue;
+        const temInterpretacao = /interpreta[çc][aã]o\s+estrat[eé]gica/i.test(post.conteudo);
         if (!temInterpretacao) continue;
 
-        const novoCorpo = post.corpo
+        const novoConteudo = post.conteudo
           .replace(/<h2>\s*interpreta[çc][aã]o\s+estrat[eé]gica\s*<\/h2>/gi, '<h2>Conclusão OVC</h2>');
 
-        if (novoCorpo !== post.corpo) {
+        if (novoConteudo !== post.conteudo) {
           await supabase.from('posts')
-            .update({ corpo: novoCorpo, updated_at: new Date().toISOString() })
+            .update({ conteudo: novoConteudo, updated_at: new Date().toISOString() })
             .eq('id', post.id);
           totalAtualizado++;
         }
