@@ -590,6 +590,8 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 40 | MAIS dropdown abria para direita cortando nomes — CSS especificidade errada | `public/css/home.css` `.supermenu-item .submenu-right` (especificidade correta) + `public/js/internal-page.js` CAT_PATH completo + remoção de fallback | 23/05/2026 |
 | 41 | AdSense verification falhando — script injetado via JS deferido invisível para bot | `public/ads.txt` criado + script nos SSR handlers | 23/05/2026 |
 | 42 | VC subpages exibindo artigos — faltava early return em `internal-page.js` | `public/js/internal-page.js` corrigido | 23/05/2026 |
+| 43 | "Leia também" interrompia artigo a 2/3 do conteúdo — artigo continuava depois dos links | `api/article.js` — removida lógica 2/3, agora sempre ao final | 24/05/2026 |
+| 44 | Sem espaçamento profissional entre fim do artigo e bloco "Leia também" — ficava grudado | `public/js/internal-page-v2.js` — CSS `.leia-tambem` com margin-top:52px + styling | 24/05/2026 |
 
 ---
 
@@ -762,6 +764,19 @@ Region: sa-east-1 (São Paulo)
 ```
 
 > Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
+
+### Sessão 24/05/2026 — ESPAÇAMENTO E POSIÇÃO "LEIA TAMBÉM"
+
+**O que foi feito:**
+- `api/article.js`: removida lógica de inserção de "Leia também" a 2/3 do artigo — agora SEMPRE vai ao final do conteúdo
+- `public/js/internal-page-v2.js`: adicionado CSS `.leia-tambem` no `sty.textContent` com `margin-top:52px`, fundo sutil (`#f8fafc`), borda vermelha no topo, tipografia limpa
+- Resultado: artigo nunca mais interrompido no meio; "Leia também" aparece separado e profissional após todo o conteúdo
+
+**Bugs corrigidos:**
+- Bug #43: "Leia também" interrompia artigo a 2/3 do conteúdo — artigo continuava depois dos links (`api/article.js` linha ~175)
+- Bug #44: Sem espaçamento entre fim do artigo e bloco "Leia também" — ficava grudado (`sty.textContent` em `internal-page-v2.js`)
+
+---
 
 ### Sessão 23/05/2026 — TARDE — MERGE + EXECUÇÃO DE PENDÊNCIAS
 

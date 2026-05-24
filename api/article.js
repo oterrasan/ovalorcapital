@@ -172,13 +172,7 @@ export default async function handler(req, res) {
       return `<li><a href="/${catPath}/${rSlug}-${rId8}/" title="${esc(r.titulo)}">${esc(r.titulo)}</a></li>`;
     }).join('');
     const relBlock = `<div class="leia-tambem"><strong>Leia também</strong><ul>${relItems}</ul></div>`;
-    const matches = [...corpoFinal.matchAll(/<\/p>/gi)];
-    if (matches.length > 3) {
-      const insertPos = matches[Math.floor(matches.length * 2 / 3)].index + 4;
-      corpoFinal = corpoFinal.slice(0, insertPos) + relBlock + corpoFinal.slice(insertPos);
-    } else {
-      corpoFinal = corpoFinal + relBlock;
-    }
+    corpoFinal = corpoFinal + relBlock;
   }
 
   const tpl = getTemplate(catPath);
