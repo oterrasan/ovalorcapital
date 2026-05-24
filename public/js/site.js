@@ -205,13 +205,9 @@ window.OVC = {
   renderMiniItems(items){ return items.map(item => `<article class="ovc-mini-item"><div><div class="ovc-kicker">${item.source || 'OVC'}</div><h4><a href="${this.articleUrl(item)}">${item.title}</a></h4><p>${item.excerpt || ''}</p><div class="ovc-meta"><span>${item.relativeDate || ''}</span></div></div><a class="ovc-thumb" href="${this.articleUrl(item)}">${item.image ? `<img src="${item.image}" alt="">` : ''}</a></article>`).join(''); },
 
   initMobileMenu() {
-    // Skip if hamburger already exists in the HTML
     if (document.querySelector('.btn-hamburger')) return;
-
     const headerActions = document.querySelector('.header-actions');
     if (!headerActions) return;
-
-    // Inject hamburger button
     const btn = document.createElement('button');
     btn.className = 'btn-hamburger';
     btn.setAttribute('aria-label', 'Abrir menu');
@@ -219,70 +215,25 @@ window.OVC = {
     btn.setAttribute('id', 'hamburgerBtn');
     btn.innerHTML = '<span class="hamburger-bar"></span><span class="hamburger-bar"></span><span class="hamburger-bar"></span>';
     headerActions.appendChild(btn);
-
-    // Inject overlay
     const overlay = document.createElement('div');
     overlay.className = 'mobile-menu-overlay';
     overlay.id = 'mobileMenuOverlay';
     document.body.appendChild(overlay);
-
-    // Inject mobile menu drawer
     const menu = document.createElement('div');
     menu.className = 'mobile-menu';
     menu.id = 'mobileMenu';
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-modal', 'true');
     menu.setAttribute('aria-label', 'Menu de navegação');
-    const links = [
-      ['VC', '/vc/'],
-      ['Política', '/politica/'],
-      ['Economia', '/economia/'],
-      ['Negócios', '/negocios/'],
-      ['Investimentos', '/investimentos/'],
-      ['Mercados', '/mercados/'],
-      ['Tecnologia', '/tecnologia/'],
-      ['Indústria', '/industria/'],
-      ['Saúde', '/saude/'],
-      ['Educação', '/educacao/'],
-      ['Esportes', '/esportes/'],
-      ['Cultura', '/cultura/'],
-      ['Internacional', '/internacional/'],
-      ['Dados & Indicadores', '/dados/'],
-      ['Radar OVC', '/radar/'],
-      ['TV OVC', '/tv-ovc/'],
-      ['Rádio OVC', '/radio-ovc/'],
-      ['Newsletter', '/newsletter/'],
-      ['Busca', '/busca/']
-    ];
-    menu.innerHTML =
-      '<div class="mobile-menu-header">' +
-        '<span class="mobile-menu-title">O Valor Capital</span>' +
-        '<button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">✕</button>' +
-      '</div>' +
-      '<nav class="mobile-menu-nav" aria-label="Navegação mobile">' +
-        links.map(([label, href]) => `<a class="mobile-menu-link" href="${href}">${label}</a>`).join('') +
-      '</nav>';
+    const links = [['VC','/vc/'],['Política','/politica/'],['Economia','/economia/'],['Negócios','/negocios/'],['Investimentos','/investimentos/'],['Mercados','/mercados/'],['Tecnologia','/tecnologia/'],['Indústria','/industria/'],['Saúde','/saude/'],['Educação','/educacao/'],['Esportes','/esportes/'],['Cultura','/cultura/'],['Internacional','/internacional/'],['Dados & Indicadores','/dados/'],['Radar OVC','/radar/'],['TV OVC','/tv-ovc/'],['Rádio OVC','/radio-ovc/'],['Newsletter','/newsletter/'],['Busca','/busca/']];
+    menu.innerHTML='<div class="mobile-menu-header"><span class="mobile-menu-title">O Valor Capital</span><button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">✕</button></div><nav class="mobile-menu-nav" aria-label="Navegação mobile">'+links.map(([l,h])=>`<a class="mobile-menu-link" href="${h}">${l}</a>`).join('')+'</nav>';
     document.body.appendChild(menu);
-
-    function openMenu() {
-      menu.classList.add('open');
-      overlay.classList.add('open');
-      btn.classList.add('active');
-      btn.setAttribute('aria-expanded', 'true');
-      document.body.style.overflow = 'hidden';
-    }
-    function closeMenu() {
-      menu.classList.remove('open');
-      overlay.classList.remove('open');
-      btn.classList.remove('active');
-      btn.setAttribute('aria-expanded', 'false');
-      document.body.style.overflow = '';
-    }
-
-    btn.addEventListener('click', openMenu);
-    document.getElementById('mobileMenuClose').addEventListener('click', closeMenu);
-    overlay.addEventListener('click', closeMenu);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+    function openMenu(){menu.classList.add('open');overlay.classList.add('open');btn.classList.add('active');btn.setAttribute('aria-expanded','true');document.body.style.overflow='hidden';}
+    function closeMenu(){menu.classList.remove('open');overlay.classList.remove('open');btn.classList.remove('active');btn.setAttribute('aria-expanded','false');document.body.style.overflow='';}
+    btn.addEventListener('click',openMenu);
+    document.getElementById('mobileMenuClose').addEventListener('click',closeMenu);
+    overlay.addEventListener('click',closeMenu);
+    document.addEventListener('keydown',(e)=>{if(e.key==='Escape')closeMenu();});
   }
 };
 
@@ -350,5 +301,30 @@ OVC.bindHomeCriticalLinks = function(){
 (function(){
   const s = document.createElement('style');
   s.textContent = '.header-identity{padding:6px 28px!important;column-gap:20px!important}.logo-mark{height:42px!important}.search-input{padding:6px 16px 6px 34px!important}.header-menu-bar{padding:5px 28px 6px!important}.logo-block .logo-link{text-decoration:none!important;color:inherit!important;display:flex!important;align-items:center!important;gap:14px!important}';
+  document.head.appendChild(s);
+})();
+
+/* ── FIX TABLET (769–1024px): header e cards de destaque ── */
+(function(){
+  const s = document.createElement('style');
+  s.textContent = [
+    '@media (min-width:769px) and (max-width:1024px){',
+      /* Header: manter logo | search | actions em uma linha */
+      '.header-identity{grid-template-columns:auto 1fr auto!important;grid-template-rows:auto!important;align-items:center!important;}',
+      '.search-block{grid-column:auto!important;grid-row:auto!important;}',
+      '.header-actions{grid-column:auto!important;grid-row:auto!important;justify-content:flex-end!important;margin-top:0!important;flex-wrap:nowrap!important;}',
+      '.search-chips,.link-anuncie{display:none!important;}',
+      /* Cards destaque: mostrar 2 (main + feature), ocultar só o monetizado */
+      '.card-hero-grid{grid-template-columns:1.6fr 1fr!important;}',
+      '.card-hero-grid>.card-feature{display:block!important;}',
+      '.card-hero-grid>.card-hero-main{height:340px!important;min-height:340px!important;max-height:340px!important;}',
+    '}',
+    '@media (min-width:769px) and (max-width:900px){',
+      /* Tablet menor: 2 cards em colunas iguais */
+      '.card-hero-grid{grid-template-columns:1fr 1fr!important;}',
+      '.card-hero-grid>.card-feature{display:block!important;}',
+      '.card-hero-grid>.card-hero-main{height:280px!important;min-height:280px!important;max-height:280px!important;}',
+    '}'
+  ].join('');
   document.head.appendChild(s);
 })();
