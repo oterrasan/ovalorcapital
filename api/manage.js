@@ -879,11 +879,51 @@ async function handleSeoBatch(req, res) {
   }
 }
 
+function normalizarParagrafosV2(html) {
+  if (!html) return html;
+  let prev, result = html, passes = 0;
+  do {
+    prev = result;
+    result = result.replace(/<p[^>]*>([\s\S]+?)<\/p>/gi, function(match, inner) {
+      if (inner.length < 300) return match;
+      const partes = inner.split(/([.!?]["»]?\s+)/);
+      const frases = [];
+      let buf = '';
+      for (let i = 0; i < partes.length; i++) {
+        buf += partes[i];
+        if (/[.!?]["»]?\s*$/.test(buf) && buf.trim().length > 60) {
+          frases.push(buf.trim()); buf = '';
+        }
+      }
+      if (buf.trim()) frases.push(buf.trim());
+      if (frases.length <= 1) {
+        const words = inner.split(/\s+/);
+        let wchunk = '', wchars = 0; const wsplits = [];
+        words.forEach(w => { wchunk += (wchunk ? ' ' : '') + w; wchars += w.length + 1; if (wchars > 220 && /[,;]$/.test(w)) { wsplits.push(wchunk.trim()); wchunk = ''; wchars = 0; } });
+        if (wchunk.trim()) wsplits.push(wchunk.trim());
+        if (wsplits.length <= 1) return match;
+        const maxG2 = passes === 0 ? 3 : 2;
+        let o2 = '', c2 = '', n2 = 0;
+        wsplits.forEach(f => { c2 += (c2 ? ' ' : '') + f; n2++; if (n2 >= maxG2) { o2 += '<p>' + c2 + '</p>\n'; c2 = ''; n2 = 0; } });
+        if (c2) o2 += '<p>' + c2 + '</p>';
+        return o2;
+      }
+      const maxG = passes === 0 ? 3 : 2;
+      let out = '', chk = '', cnt = 0;
+      frases.forEach(f => { chk += (chk ? ' ' : '') + f; cnt++; if (cnt >= maxG) { out += '<p>' + chk + '</p>\n'; chk = ''; cnt = 0; } });
+      if (chk) out += '<p>' + chk + '</p>';
+      return out;
+    });
+    passes++;
+  } while (result !== prev && passes < 5);
+  return result;
+}
+
 async function handleFixParagrafos(req, res) {
   if (!checkAdminAuth(req)) return res.status(403).json({ error: 'Não autorizado' });
   try {
     const offset = parseInt(req.body.offset || 0, 10);
-    const BATCH = 100;
+    const BATCH = 80;
     const { data: posts, error, count } = await supabase
       .from('posts')
       .select('id, conteudo', { count: 'exact' })
@@ -895,8 +935,8 @@ async function handleFixParagrafos(req, res) {
     }
     let atualizados = 0;
     for (const post of posts) {
-      if (!post.conteudo || !post.conteudo.includes('<p>')) continue;
-      const novo = normalizarParagrafos(post.conteudo);
+      if (!post.conteudo || !post.conteudo.includes('<p')) continue;
+      const novo = normalizarParagrafosV2(post.conteudo);
       if (novo !== post.conteudo) {
         await supabase.from('posts').update({ conteudo: novo, updated_at: new Date().toISOString() }).eq('id', post.id);
         atualizados++;
