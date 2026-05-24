@@ -304,27 +304,34 @@ OVC.bindHomeCriticalLinks = function(){
   document.head.appendChild(s);
 })();
 
-/* ── FIX TABLET (769–1024px): header e cards de destaque ── */
+/* ── FIX TABLET (769–1024px) ──
+   Header: logo | search | actions em linha única
+   Cards: HERO grande à esquerda + 2 cards iguais à direita
+*/
 (function(){
   const s = document.createElement('style');
-  s.textContent = [
-    '@media (min-width:769px) and (max-width:1024px){',
-      /* Header: manter logo | search | actions em uma linha */
-      '.header-identity{grid-template-columns:auto 1fr auto!important;grid-template-rows:auto!important;align-items:center!important;}',
-      '.search-block{grid-column:auto!important;grid-row:auto!important;}',
-      '.header-actions{grid-column:auto!important;grid-row:auto!important;justify-content:flex-end!important;margin-top:0!important;flex-wrap:nowrap!important;}',
-      '.search-chips,.link-anuncie{display:none!important;}',
-      /* Cards destaque: mostrar 2 (main + feature), ocultar só o monetizado */
-      '.card-hero-grid{grid-template-columns:1.6fr 1fr!important;}',
-      '.card-hero-grid>.card-feature{display:block!important;}',
-      '.card-hero-grid>.card-hero-main{height:340px!important;min-height:340px!important;max-height:340px!important;}',
-    '}',
-    '@media (min-width:769px) and (max-width:900px){',
-      /* Tablet menor: 2 cards em colunas iguais */
-      '.card-hero-grid{grid-template-columns:1fr 1fr!important;}',
-      '.card-hero-grid>.card-feature{display:block!important;}',
-      '.card-hero-grid>.card-hero-main{height:280px!important;min-height:280px!important;max-height:280px!important;}',
-    '}'
-  ].join('');
+  s.textContent =
+    /* 900–1024px: 3 colunas lado a lado */
+    '@media (min-width:901px) and (max-width:1024px){' +
+      '.header-identity{grid-template-columns:auto 1fr auto!important;grid-template-rows:auto!important;align-items:center!important}' +
+      '.search-block{grid-column:auto!important;grid-row:auto!important}' +
+      '.header-actions{grid-column:auto!important;grid-row:auto!important;justify-content:flex-end!important;margin-top:0!important;flex-wrap:nowrap!important}' +
+      '.search-chips,.link-anuncie{display:none!important}' +
+      '.card-hero-grid{display:grid!important;grid-template-columns:1.6fr 1fr 1fr!important;gap:12px!important}' +
+      '.card-hero-grid>.card-hero-main{display:block!important;height:380px!important;min-height:380px!important;max-height:380px!important}' +
+      '.card-hero-grid>.card-feature{display:block!important;height:380px!important;min-height:380px!important;max-height:380px!important}' +
+      '.card-hero-grid>.card-monetizado{display:block!important;height:380px!important;min-height:380px!important;max-height:380px!important}' +
+    '}' +
+    /* 769–900px (Samsung 11" portrait): hero à esquerda 2 linhas, feature+monetizado empilhados à direita */
+    '@media (min-width:769px) and (max-width:900px){' +
+      '.header-identity{grid-template-columns:auto 1fr auto!important;grid-template-rows:auto!important;align-items:center!important}' +
+      '.search-block{grid-column:auto!important;grid-row:auto!important}' +
+      '.header-actions{grid-column:auto!important;grid-row:auto!important;justify-content:flex-end!important;margin-top:0!important;flex-wrap:nowrap!important}' +
+      '.search-chips,.link-anuncie{display:none!important}' +
+      '.card-hero-grid{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:auto auto!important;gap:10px!important}' +
+      '.card-hero-grid>.card-hero-main{display:block!important;grid-row:1/3!important;height:320px!important;min-height:320px!important;max-height:320px!important}' +
+      '.card-hero-grid>.card-feature{display:block!important;height:154px!important;min-height:154px!important;max-height:154px!important}' +
+      '.card-hero-grid>.card-monetizado{display:block!important;height:154px!important;min-height:154px!important;max-height:154px!important}' +
+    '}';
   document.head.appendChild(s);
 })();
