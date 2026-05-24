@@ -1184,6 +1184,13 @@ function Postagens() {
                   {f==='all'?'Todos':f}
                 </button>
               ))}
+              <button className="btn btn-sm" style={{background:'#16a34a',color:'#fff',fontWeight:700}} onClick={async()=>{
+                if(!window.confirm('Aprovar TODOS os artigos pendentes e publicar no portal agora?\n\nEsta ação não pode ser desfeita.')) return;
+                const r = await apiFetch('/api/manage',{method:'POST',body:JSON.stringify({action:'aprovar_todos_pendentes'})});
+                const d = await r.json();
+                if(d.ok){ alert(`✅ ${d.aprovados} artigos publicados com sucesso!`); load(); }
+                else alert('Erro: ' + (d.error||'desconhecido'));
+              }}>✅ Publicar todos pendentes</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setFiltrosAbertos(x=>!x)}>🔍 Filtros {filtrosAbertos?'▲':'▼'}</button>
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>

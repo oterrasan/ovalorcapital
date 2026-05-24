@@ -62,6 +62,7 @@ function handler(req, res) {
   if (body.action === "admin_login") return handleAdminLogin(req, res);
   if (body.action === "fix_conclusao_ovc") return handleFixConclusaoOvc(req, res);
   if (body.action === "fix_paragrafos") return handleFixParagrafos(req, res);
+  if (body.action === "aprovar_todos_pendentes") return handleAprovarTodosPendentes(req, res);
   if (body.action === "login_colunista") return handleLoginColunista(req, res);
   if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
@@ -876,6 +877,22 @@ async function handleSeoBatch(req, res) {
     });
   } catch(e) {
     return res.status(200).json({ status: 'error', error: e.message });
+  }
+}
+
+async function handleAprovarTodosPendentes(req, res) {
+  if (!checkAdminAuth(req)) return res.status(403).json({ error: 'Não autorizado' });
+  try {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('posts')
+      .update({ status: 'publicado', approved: true, published_at: now, updated_at: now })
+      .eq('status', 'pendente')
+      .select('id');
+    if (error) throw new Error(error.message);
+    return res.status(200).json({ ok: true, aprovados: (data || []).length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
   }
 }
 
