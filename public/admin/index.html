@@ -1937,7 +1937,7 @@ function MigracaoConclusaoOVC() {
         </button>
         {resultado && (
           <div style={{marginTop:12, fontSize:13, padding:'10px 14px', borderRadius:8, background: resultado.error ? 'rgba(220,38,38,0.12)' : 'rgba(16,185,129,0.12)', color: resultado.error ? '#f87171' : '#34d399'}}>
-            {resultado.error ? `❌ Erro: ${resultado.error}` : `✅ Concluído — ${resultado.atualizados} post(s) atualizado(s)`}
+            {resultado.error ? `❌ Erro: ${resultado.error}` : `✅ Concluído — ${resultado.atualizados} post(s) atualizado(s) de ${resultado.verificados||'?'} verificados`}
           </div>
         )}
       </div>
