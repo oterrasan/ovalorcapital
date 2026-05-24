@@ -80,19 +80,35 @@
   }
 
   function quebrarParagrafos(html){
-    return html.replace(/<p>([\s\S]{350,}?)<\/p>/gi, function(_,txt){
-      var frases=[], buf='', partes=txt.split(/([.!?]\s+)/);
-      for(var i=0;i<partes.length;i++){
-        buf+=partes[i];
-        if(/[.!?]\s*$/.test(buf)&&buf.length>200){frases.push(buf.trim());buf='';}
-      }
-      if(buf.trim())frases.push(buf.trim());
-      if(frases.length<=1)return '<p>'+txt+'</p>';
-      var out='',chunk='',count=0;
-      frases.forEach(function(f){chunk+=(chunk?' ':'')+f;count++;if(count>=3){out+='<p>'+chunk+'</p>';chunk='';count=0;}});
-      if(chunk)out+='<p>'+chunk+'</p>';
-      return out;
-    });
+    if(!html) return html;
+    var prev, r = html, passes = 0;
+    do {
+      prev = r;
+      r = r.replace(/<p[^>]*>([\s\S]+?)<\/p>/gi, function(match, inner){
+        if(inner.length < 300) return match;
+        var partes = inner.split(/([.!?]["»]?\s+)/);
+        var frases = [], buf = '';
+        for(var i = 0; i < partes.length; i++){
+          buf += partes[i];
+          if(/[.!?]["»]?\s*$/.test(buf) && buf.trim().length > 60){ frases.push(buf.trim()); buf = ''; }
+        }
+        if(buf.trim()) frases.push(buf.trim());
+        if(frases.length <= 1){
+          var words = inner.split(/\s+/), wchunk = '', wchars = 0, wsplits = [];
+          words.forEach(function(w){ wchunk += (wchunk?' ':'')+w; wchars += w.length+1; if(wchars>220&&/[,;]$/.test(w)){wsplits.push(wchunk.trim());wchunk='';wchars=0;} });
+          if(wchunk.trim()) wsplits.push(wchunk.trim());
+          if(wsplits.length <= 1) return match;
+          frases = wsplits;
+        }
+        var maxG = passes === 0 ? 3 : 2;
+        var out = '', chk = '', cnt = 0;
+        frases.forEach(function(f){ chk += (chk?' ':'')+f; cnt++; if(cnt >= maxG){ out += '<p>'+chk+'</p>\n'; chk=''; cnt=0; } });
+        if(chk) out += '<p>'+chk+'</p>';
+        return out;
+      });
+      passes++;
+    } while(r !== prev && passes < 5);
+    return r;
   }
   function renderCorpo(texto){
     if(!texto) return '';
