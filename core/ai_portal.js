@@ -235,7 +235,7 @@ FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
 Estrutura obrigatória do CORPO:
 — parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com o fato central
 — 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
-— <h2>Interpretação Estratégica</h2> OBRIGATÓRIO ao final — leitura de segunda ordem: impactos não óbvios, consequências futuras, posicionamento institucional, o que o leitor precisa entender além do fato]
+— última seção com <h2> específico ao conteúdo da matéria (ex: "O que muda para o consumidor", "Próximos passos", "O impacto nos mercados", "O que está em jogo") — o título DEVE ser concreto e jornalístico, criado para esta matéria específica, NUNCA genérico
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -245,13 +245,13 @@ MÉTRICAS DE VALIDAÇÃO
 — META_DESCRICAO: intervalo estrito 141–155 caracteres. Contar e ajustar.
 — CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO.
-— INTERPRETACAO: seção obrigatória presente ao final do CORPO.
+— SECAO_FINAL: última seção presente ao final do CORPO com título <h2> específico e jornalístico.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BLACKLIST — PROIBIÇÃO ABSOLUTA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Uso de qualquer destes termos invalida o conteúdo:
-robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | blindar | chama atenção | vale destacar | em meio a | diante disso | acende alerta | especialistas apontam | prospecção | radiografia do fato | cenário prospectivo | vetores de risco | no tecido social | em um mundo cada vez mais | no cenário atual | vale ressaltar | de suma importância | nesse contexto | diante desse cenário | sob essa ótica | nesse sentido | cabe ressaltar | em suma | por fim
+robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | blindar | chama atenção | vale destacar | em meio a | diante disso | acende alerta | especialistas apontam | prospecção | radiografia do fato | cenário prospectivo | vetores de risco | no tecido social | em um mundo cada vez mais | no cenário atual | vale ressaltar | de suma importância | nesse contexto | diante desse cenário | sob essa ótica | nesse sentido | cabe ressaltar | em suma | por fim | interpretação estratégica | análise estratégica | reflexões finais | perspectiva estratégica | considerações finais | palavras finais | leitura de segunda ordem | impactos não óbvios | posicionamento institucional
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VALIDAÇÃO FINAL
@@ -579,7 +579,7 @@ NATURALIDADE HUMANA AVANÇADA
 — abertura orgânica (nunca fórmula)
 
 BLACKLIST absoluta (uso invalida o conteúdo):
-robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | blindar | chama atenção | vale destacar | em meio a | diante disso | acende alerta | especialistas apontam | prospecção | radiografia do fato | cenário prospectivo | vetores de risco | no tecido social | em um mundo cada vez mais | no cenário atual | vale ressaltar | de suma importância | nesse contexto | diante desse cenário | sob essa ótica | nesse sentido | cabe ressaltar | em suma | por fim
+robust | robusto | resiliente | ecossistema | disruptivo | paradigma | sinergia | catalisador | protagonista | blindar | chama atenção | vale destacar | em meio a | diante disso | acende alerta | especialistas apontam | prospecção | radiografia do fato | cenário prospectivo | vetores de risco | no tecido social | em um mundo cada vez mais | no cenário atual | vale ressaltar | de suma importância | nesse contexto | diante desse cenário | sob essa ótica | nesse sentido | cabe ressaltar | em suma | por fim | interpretação estratégica | análise estratégica | reflexões finais | perspectiva estratégica | considerações finais | palavras finais | leitura de segunda ordem | impactos não óbvios | posicionamento institucional
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SEO SEMÂNTICO INVISÍVEL
@@ -621,7 +621,7 @@ FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
 Estrutura obrigatória do CORPO:
 — parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com ângulo original OVC
 — 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
-— <h2>Interpretação Estratégica</h2> OBRIGATÓRIO ao final — leitura de segunda ordem: impactos não óbvios, consequências futuras, posicionamento institucional, information gain que a fonte não entregou]
+— última seção com <h2> específico ao conteúdo da matéria (ex: "O que muda para o consumidor", "Próximos passos", "O impacto nos mercados", "O que está em jogo") — o título DEVE ser concreto e jornalístico, criado para esta matéria específica, NUNCA genérico
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -631,7 +631,7 @@ MÉTRICAS DE VALIDAÇÃO
 — META_DESCRICAO: intervalo estrito 141–155 caracteres
 — CORPO: mínimo 5.000 caracteres. Parágrafos com máximo 3 sentenças.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
-— INTERPRETACAO: seção obrigatória presente ao final do CORPO
+— SECAO_FINAL: última seção presente ao final do CORPO com título <h2> específico e jornalístico.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGRA MÁXIMA
