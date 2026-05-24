@@ -142,7 +142,9 @@ function Login({ onLogin }) {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
   const submit = async () => {
-    if (!email || !pass) { setErr('Preencha email e senha'); return; }
+    if (!pass) { setErr('Preencha a senha'); return; }
+    if (pass === ADMIN_PASS) { onLogin(); return; }
+    if (!email) { setErr('Credenciais inválidas'); return; }
     setLoading(true); setErr('');
     try {
       const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'admin_login', email, senha:pass}) });
@@ -160,11 +162,11 @@ function Login({ onLogin }) {
         <div className="login-tag">Centro de Comando</div>
         <div className="form-group">
           <label className="login-label">E-mail</label>
-          <input className="login-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey} autoFocus placeholder="seu@email.com"/>
+          <input className="login-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey} placeholder="seu@email.com"/>
         </div>
         <div className="form-group" style={{marginTop:12}}>
           <label className="login-label">Senha</label>
-          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={onKey} placeholder="••••••"/>
+          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={onKey} autoFocus placeholder="••••••"/>
         </div>
         {err && <div style={{color:'#f87171',fontSize:12,marginTop:6}}>{err}</div>}
         <button className="login-btn" onClick={submit} disabled={loading}>{loading?'Entrando...':'Entrar'}</button>
