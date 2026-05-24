@@ -643,29 +643,36 @@ Nunca parecer IA. Nunca parecer reescrita. Nunca repetir o ângulo da fonte.`;
 
 export function normalizarParagrafos(html) {
   if (!html) return html;
-  return html.replace(/<p>([\s\S]+?)<\/p>/gi, function(match, inner) {
-    if (inner.length < 350) return match;
-    const partes = inner.split(/([.!?]\s+)/);
-    const frases = [];
-    let buf = '';
-    for (let i = 0; i < partes.length; i++) {
-      buf += partes[i];
-      if (/[.!?]\s*$/.test(buf) && buf.trim().length > 60) {
-        frases.push(buf.trim());
-        buf = '';
+  let prev, result = html, passes = 0;
+  do {
+    prev = result;
+    result = result.replace(/<p>([\s\S]+?)<\/p>/gi, function(match, inner) {
+      if (inner.length < 350) return match;
+      const partes = inner.split(/([.!?]\s+)/);
+      const frases = [];
+      let buf = '';
+      for (let i = 0; i < partes.length; i++) {
+        buf += partes[i];
+        if (/[.!?]\s*$/.test(buf) && buf.trim().length > 60) {
+          frases.push(buf.trim());
+          buf = '';
+        }
       }
-    }
-    if (buf.trim()) frases.push(buf.trim());
-    if (frases.length <= 1) return match;
-    let out = '', chunk = '', count = 0;
-    frases.forEach(function(f) {
-      chunk += (chunk ? ' ' : '') + f;
-      count++;
-      if (count >= 3) { out += '<p>' + chunk + '</p>\n'; chunk = ''; count = 0; }
+      if (buf.trim()) frases.push(buf.trim());
+      if (frases.length <= 1) return match;
+      const maxPorGrupo = passes === 0 ? 3 : 2;
+      let out = '', chunk = '', count = 0;
+      frases.forEach(function(f) {
+        chunk += (chunk ? ' ' : '') + f;
+        count++;
+        if (count >= maxPorGrupo) { out += '<p>' + chunk + '</p>\n'; chunk = ''; count = 0; }
+      });
+      if (chunk) out += '<p>' + chunk + '</p>';
+      return out;
     });
-    if (chunk) out += '<p>' + chunk + '</p>';
-    return out;
-  });
+    passes++;
+  } while (result !== prev && passes < 5);
+  return result;
 }
 
 export async function rewritePortalManual(text, title, context = '', useGemini = false) {
