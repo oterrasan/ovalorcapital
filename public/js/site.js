@@ -298,49 +298,8 @@ OVC.bindHomeCriticalLinks = function(){
   });
 };
 
-/* Fixes base do header (sempre ativos) */
 (function(){
   const s = document.createElement('style');
   s.textContent = '.header-identity{padding:6px 28px!important;column-gap:20px!important}.logo-mark{height:42px!important}.search-input{padding:6px 16px 6px 34px!important}.header-menu-bar{padding:5px 28px 6px!important}.logo-block .logo-link{text-decoration:none!important;color:inherit!important;display:flex!important;align-items:center!important;gap:14px!important}';
-  document.head.appendChild(s);
-})();
-
-/*
-  RESTAURAR LAYOUT DESKTOP EM TABLETS (min-width: 769px)
-  -------------------------------------------------------
-  O responsive.css appendado ao home.css tem breakpoints max-width
-  em 900px e 1024px que quebram o header e ocultam cards.
-  Este bloco usa min-width:769px para sobrepor esses danos
-  e garantir que tablets vejam o layout desktop original.
-  O mobile (<=768px) NÃO é afetado.
-*/
-(function(){
-  const s = document.createElement('style');
-  s.textContent =
-    '@media (min-width:769px){' +
-      /* Ticker e impostômetro: sempre visíveis em tablets */
-      '.header-topbar{display:flex!important;overflow:hidden!important}' +
-      '.impostometro{display:flex!important}' +
-      /* Header: 3 colunas exatas do desktop original */
-      '.header-identity{grid-template-columns:1.4fr 2.6fr 1.2fr!important;grid-template-rows:auto!important;padding:6px 28px!important;align-items:center!important}' +
-      '.search-block{display:flex!important;grid-column:auto!important;grid-row:1!important;flex-direction:row!important}' +
-      '.header-actions{display:flex!important;grid-column:auto!important;grid-row:1!important;margin-top:0!important;justify-content:flex-end!important;align-items:center!important}' +
-      '.header-menu-bar{display:flex!important}' +
-      '.btn-newsletter{display:inline-flex!important}' +
-      '.btn-theme{display:inline-flex!important}' +
-      '.ovc-access-wrap{display:block!important}' +
-      /* Logo: valores exatos do desktop */
-      '.logo-tagline{display:block!important}' +
-      '.logo-name{font-size:19px!important;letter-spacing:0.18em!important}' +
-      '.logo-mark{height:42px!important;width:auto!important}' +
-      '.logo-block{display:flex!important;align-items:center!important;gap:14px!important}' +
-      /* Hamburger: oculto em tablets */
-      '.btn-hamburger{display:none!important}' +
-      /* Cards destaque: 3 colunas, alturas originais */
-      '.card-hero-grid{display:grid!important;grid-template-columns:1.8fr 1fr 1fr!important;gap:12px!important}' +
-      '.card-hero-grid>.card-hero-main{display:block!important;height:432px!important;min-height:432px!important;max-height:432px!important}' +
-      '.card-hero-grid>.card-feature{display:block!important;height:432px!important;min-height:432px!important;max-height:432px!important}' +
-      '.card-hero-grid>.card-monetizado{display:block!important;height:432px!important;min-height:432px!important;max-height:432px!important}' +
-    '}';
   document.head.appendChild(s);
 })();
