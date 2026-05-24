@@ -884,10 +884,13 @@ async function handleAprovarTodosPendentes(req, res) {
   if (!checkAdminAuth(req)) return res.status(403).json({ error: 'Não autorizado' });
   try {
     const now = new Date().toISOString();
+    // Apenas artigos do pipeline automático (publish_method='portal')
+    // Artigos manuais, colunistas e vagas ficam intocados para revisão humana
     const { data, error } = await supabase
       .from('posts')
       .update({ status: 'publicado', approved: true, published_at: now, updated_at: now })
       .eq('status', 'pendente')
+      .eq('publish_method', 'portal')
       .select('id');
     if (error) throw new Error(error.message);
     return res.status(200).json({ ok: true, aprovados: (data || []).length });
