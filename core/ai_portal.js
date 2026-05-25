@@ -186,6 +186,7 @@ GATILHO DE FAQ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Ativar seção FAQ ao final do CORPO quando houver 3 ou mais dúvidas previsíveis do leitor.
 Usar <h2> para perguntas e <p> para respostas. Manter tom editorial — não usar formato de manual.
+Hierarquia obrigatória quando FAQ ativado: <h2>Conclusão OVC</h2> encerra o texto principal, seguida da seção FAQ como fechamento final.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PRÉ-EXECUÇÃO OBRIGATÓRIA
@@ -234,8 +235,9 @@ FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
 
 Estrutura obrigatória do CORPO:
 — parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com o fato central
-— 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
+— 4 a 6 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
 — última seção OBRIGATÓRIA com exatamente <h2>Conclusão OVC</h2> — síntese objetiva do que o leitor precisa reter: o fato central, o impacto concreto e o próximo movimento esperado
+— se ativado o Gatilho de FAQ, a seção FAQ vem APÓS a <h2>Conclusão OVC</h2> como seção final
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
@@ -574,7 +576,7 @@ Critério automático: usar complexidade do tema como guia. Fallback: Cobertura 
 NATURALIDADE HUMANA AVANÇADA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 — variação de ritmo textual
-— mistura de parágrafos curtos e longos
+— variação de ritmo através de frases de comprimentos diferentes, mantendo os parágrafos sempre curtos (máximo 350 caracteres)
 — eliminação de conectivos artificiais
 — linguagem institucional natural
 — abertura orgânica (nunca fórmula)
@@ -595,6 +597,7 @@ SEO SEMÂNTICO INVISÍVEL
 GATILHO DE FAQ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Ativar seção FAQ ao final do CORPO quando houver 3 ou mais dúvidas previsíveis do leitor. Usar <h2> para perguntas e <p> para respostas.
+Hierarquia obrigatória quando FAQ ativado: <h2>Conclusão OVC</h2> encerra o texto principal, seguida da seção FAQ como fechamento final.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FORMATO DE SAÍDA TÉCNICA OBRIGATÓRIO
@@ -621,8 +624,9 @@ FOCO_KEYWORD deve aparecer pelo menos 3 vezes no corpo de forma natural.
 
 Estrutura obrigatória do CORPO:
 — parágrafo de abertura (lead) SEM <h2> — gancho factual imediato com ângulo original OVC
-— 2 a 4 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
+— 4 a 6 seções com <h2> desenvolvendo análise factual, contextual e consequências diretas
 — última seção OBRIGATÓRIA com exatamente <h2>Conclusão OVC</h2> — síntese objetiva do que o leitor precisa reter: o fato central, o impacto concreto e o próximo movimento esperado
+— se ativado o Gatilho de FAQ, a seção FAQ vem APÓS a <h2>Conclusão OVC</h2> como seção final
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MÉTRICAS DE VALIDAÇÃO
