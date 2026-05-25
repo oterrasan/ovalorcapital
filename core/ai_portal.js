@@ -4,8 +4,6 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-
 const GEMINI_KEYS = [
   process.env.GEMINI_API_KEY,
   process.env.GEMINI_KEY_2,
@@ -267,29 +265,8 @@ REGRA MÁXIMA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 O texto final deve ser indistinguível da produção de um jornalista sênior especializado, com mais de 15 anos de experiência na editoria correspondente. Produzir naturalidade editorial orgânica integral.`;
 
-async function callOpenAI(systemKernel, userContent) {
-  if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemKernel },
-        { role: "user",   content: userContent }
-      ],
-      temperature: 0.3,
-      max_tokens: 8192
-    })
-  });
-  const d = await res.json();
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message || ""}`);
-  const text = d.choices?.[0]?.message?.content;
-  if (text && text.length > 100) return text;
-  throw new Error("OpenAI retornou resposta vazia");
-}
-
 async function callGemini(systemKernel, userContent) {
+  if (GEMINI_KEYS.length === 0) throw new Error("GEMINI_API_KEY não configurada");
   for (let i = 0; i < GEMINI_KEYS.length; i++) {
     const key = nextGeminiKey();
     try {
@@ -682,20 +659,7 @@ export function normalizarParagrafos(html) {
 export async function rewritePortalManual(text, title, context = '', useGemini = false) {
   const kernel = REESCRITA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  let raw;
-  if (useGemini) {
-    raw = await callGemini(kernel, userContent);
-  } else {
-    try {
-      raw = await callOpenAI(kernel, userContent);
-    } catch(e) {
-      if (GEMINI_KEYS.length > 0) {
-        raw = await callGemini(kernel, userContent);
-      } else {
-        throw e;
-      }
-    }
-  }
+  const raw = await callGemini(kernel, userContent);
   const result = parse(raw);
   if (!result || !result.corpo || result.corpo.length < 3000) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
@@ -713,20 +677,7 @@ export async function rewritePortalManual(text, title, context = '', useGemini =
 export async function rewritePortal(text, title, context = '', useGemini = false) {
   const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  let raw;
-  if (useGemini) {
-    raw = await callGemini(kernel, userContent);
-  } else {
-    try {
-      raw = await callOpenAI(kernel, userContent);
-    } catch(e) {
-      if (GEMINI_KEYS.length > 0) {
-        raw = await callGemini(kernel, userContent);
-      } else {
-        throw e;
-      }
-    }
-  }
+  const raw = await callGemini(kernel, userContent);
   const result = parse(raw);
   if (!result || !result.corpo || result.corpo.length < 4000) {
     throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
