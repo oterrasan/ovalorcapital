@@ -294,8 +294,7 @@ async function handleManualPost(req, res) {
         manualContext = buildDynamicContext({ recentTitles: titles, recentKeywords: keywords, recentCategories: cats });
       }
     } catch(_) {}
-    // Gemini como primário, OpenAI como fallback
-    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext, true);
+    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext, false);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
@@ -372,8 +371,7 @@ async function regenerarConteudo(res, meta) {
   for (const post of posts) {
     if (Date.now() - inicio > 8000) { resultados.push({ id: post.id, status: 'timeout' }); break; }
     try {
-      // Gemini como primário na regeneração
-      const novoConteudo = await rewritePortal(post.conteudo, post.titulo, '', true);
+      const novoConteudo = await rewritePortal(post.conteudo, post.titulo, '', false);
       if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 2500) {
         resultados.push({ id: post.id, status: 'rejeitado' }); continue;
       }
@@ -424,7 +422,6 @@ export default async function handler(req, res) {
 
   if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
 
-  // Busca de imagem por query — para o admin (NovoPost, etc.)
   if (meta.action === 'buscar_imagem') {
     const q = (meta.q || '').trim();
     if (!q) return res.status(400).json({ error: 'q obrigatório' });
@@ -434,7 +431,6 @@ export default async function handler(req, res) {
     } catch(e) { return res.status(500).json({ error: e.message }); }
   }
 
-  // Geração manual (URL ou texto) — sem limite diário
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
@@ -464,7 +460,6 @@ export default async function handler(req, res) {
       if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
-    // Cap diário: máximo 100 artigos automáticos por dia (BRT)
     {
       const agora = new Date();
       const hUtc = agora.getUTCHours();
@@ -482,7 +477,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Busca contexto das últimas 24h para dedup + contexto dinâmico da IA
     let recentTitles = [];
     let dynamicContext = '';
     try {
@@ -545,8 +539,7 @@ export default async function handler(req, res) {
       if (!sourceText) continue;
 
       let content;
-      // Gemini como primário, OpenAI como fallback automático se Gemini falhar
-      try { content = await rewritePortal(sourceText, item.title, dynamicContext, true); } catch(e) { continue; }
+      try { content = await rewritePortal(sourceText, item.title, dynamicContext, false); } catch(e) { continue; }
       if (!validarConteudo(content)) continue;
       content.titulo = stripTitle(content.titulo);
 
