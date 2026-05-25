@@ -1,9 +1,9 @@
-name: OVC Pipeline — manhã 10min (9h-12h) | pausa 12h-14h | tarde 20min até 50/dia
+name: OVC Pipeline — automático (manhã 10min | tarde 20min)
 
 on:
   schedule:
     # MANHÃ: 09:00–11:50 BRT = 12:00–14:50 UTC, a cada 10 minutos
-    - cron: '*/10 12,13,14 * * *'
+    - cron: '0,10,20,30,40,50 12,13,14 * * *'
     # TARDE: 14:00–20:40 BRT = 17:00–23:40 UTC, a cada 20 minutos
     - cron: '0,20,40 17,18,19,20,21,22,23 * * *'
     # NOITE/OVERFLOW: 21:00–01:40 BRT = 00:00–04:40 UTC, a cada 20 minutos
