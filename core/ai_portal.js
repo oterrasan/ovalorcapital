@@ -7,6 +7,7 @@ const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", mont
 const GEMINI_KEYS = [
   process.env.GEMINI_API_KEY,
   process.env.GEMINI_KEY_2,
+  'AIzaSyD0QBNrsr7OsVGJxqcBHhl9XvIxhTLuV0Y',
 ].filter(Boolean);
 
 let geminiKeyIndex = 0;
