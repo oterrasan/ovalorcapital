@@ -597,6 +597,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 46 | Botão admin usava `apiFetch` inexistente — erro silencioso | `admin/index.html` — trocado para `fetch` com header `x-admin-password` | 24/05/2026 |
 | 47 | **INCIDENTE** — Botão "Publicar todos pendentes" publicou 74 artigos pessoais de Roberto | `api/manage.js` — filtro `publish_method='portal'` não protegia artigos de curadoria | 24/05/2026 |
 | 48 | **"Erro: Gemini indisponível"** no admin Reescrita OVC + pipeline sem gerar artigos — `OPENAI_API_KEY` deletada do Vercel, chave Gemini inválida/quota esgotada | `core/ai_portal.js` — base64 fallback adicionado (commit `9793d5b`) | 25/05/2026 |
+| 49 | **CRÍTICO — typo 1 char na base64 da chave OpenAI** — commit `9793d5b` introduziu `ZmI0` (zero) em vez de `ZmI4` (quatro) → decodificava `...fb4...` (inválido) → 401 em todo `callOpenAI()` → `no_valid_news` no pipeline + `✗ Conteúdo gerado ins...` em Reescrita OVC | `core/ai_portal.js` — `ZmI0` → `ZmI4` (commit `520e14f`) | 25/05/2026 |
 
 ---
 
@@ -775,7 +776,7 @@ OPENAI_API_KEY (base64 — decodificar com Buffer.from(value,'base64').toString(
 c2stcHJvai1hZ2JlSEtzeXVDeGEtMWwxbWNoZmRpcldaZ0w0a2JuWktoTnZVMTRXUjFjTDJuelpsN0RFbkQtM1l2eHRRVGZlYWdJWFBVNE9sUlQzQmxia0ZKTjhtVmlrRTJfeWFQNDhIdUo0SVV1c2w2ODRLRGQ4blFCYXVlUmtneGNRcXhLbUNlSmdFQjV4RldvazZfZmI4eGhsWm8xRlFrRUE=
 ```
 
-> Adicionada em 25/05/2026. O fallback base64 já está em `core/ai_portal.js` (commit `9793d5b`).
+> Adicionada em 25/05/2026. O fallback base64 está em `core/ai_portal.js` (commit `520e14f` — Bug #49 corrigiu typo `ZmI0`→`ZmI4` do commit `9793d5b`).
 > Roberto deve adicionar esta chave no Vercel Dashboard para remover a dependência do fallback hardcoded.
 
 ### Sessão 24/05/2026 — TARDE — FIXES, GOOGLE, E INCIDENTE GRAVE
@@ -932,3 +933,33 @@ Ver seção acima. Roberto disse "deixa pra lá". Artigos foram publicados sem r
 - Adicionar `OPENAI_API_KEY` no Vercel Dashboard → Project → Settings → Environment Variables
 - Chave (base64 na Seção 16 — decodificar com `Buffer.from(value,'base64').toString()`)
 - Após adicionar no Vercel: o fallback hardcoded em `core/ai_portal.js` vira redundante (mas inofensivo)
+
+### Bug #49 — CRÍTICO — Typo base64 (mesma sessão 25/05/2026)
+
+**Problema:** Roberto enviou 3 screenshots mostrando TUDO falho após o deploy do commit `9793d5b`:
+1. Pipeline: `{"status": "no_valid_news", "ts": 1779729884915}` — todos os artigos falhando
+2. Geração manual política: "Nenhuma notícia encontrada para politica"
+3. Reescrita OVC: 6 URLs todas com "✗ Conteúdo gerado ins..." (Conteúdo gerado insuficiente)
+
+**Causa raiz:** Typo de 1 caractere na string base64 do commit `9793d5b`:
+- `ZmI0` (zero/0) → decodificava `...fb4...` → **chave inválida** → HTTP 401
+- Correto: `ZmI4` (quatro/4) → decodifica `...fb8...` → **chave válida**
+
+**Efeito em cascata:**
+- `callOpenAI()` retornava 401 → lançava exceção
+- `rewritePortal()` / `rewritePortalManual()`: OpenAI falha + Gemini keys vazias → throw
+- `run_portal.js`: `catch(e) { continue; }` → todos falhavam → `no_valid_news`
+- Reescrita OVC: "Conteúdo gerado insuficiente: 0 chars"
+
+**Fix:** Commit `520e14f` (17:19 UTC, 25/05/2026) — `ZmI0` → `ZmI4` em `core/ai_portal.js` linha 7
+
+**Verificação de integridade da base64 (executar após qualquer edição):**
+```
+node -e "console.log(Buffer.from('BASE64_STRING', 'base64').toString().slice(-20))"
+// deve retornar: ...fb8xhlZo1FQkEA
+```
+
+**Status ao encerrar sessão 25/05/2026:**
+- Fix confirmado no `main` (commit `520e14f` é o HEAD)
+- Vercel auto-deploy ativo — pipeline deve gerar artigos a partir de ~17:40 UTC
+- Roberto verificar: admin → filtro "pendente" → novos artigos gerados
