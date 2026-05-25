@@ -1,0 +1,57 @@
+name: Atualizar GEMINI_API_KEY no Vercel
+
+on:
+  workflow_dispatch:
+    inputs:
+      gemini_key:
+        description: 'Nova chave Gemini API (AIzaSy...)'
+        required: true
+
+jobs:
+  update-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Atualizar variável no Vercel
+        run: |
+          PROJECT_ID="prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b"
+          TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          KEY_VALUE="${{ github.event.inputs.gemini_key }}"
+
+          # Busca ID da variável existente
+          ENV_ID=$(curl -s "https://api.vercel.com/v9/projects/${PROJECT_ID}/env" \
+            -H "Authorization: Bearer ${TOKEN}" | \
+            python3 -c "import sys,json; envs=json.load(sys.stdin).get('envs',[]); match=[e['id'] for e in envs if e['key']=='GEMINI_API_KEY']; print(match[0] if match else '')")
+
+          if [ -n "$ENV_ID" ]; then
+            # Atualiza existente
+            curl -s -X PATCH "https://api.vercel.com/v9/projects/${PROJECT_ID}/env/${ENV_ID}" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"value\":\"${KEY_VALUE}\",\"target\":[\"production\",\"preview\"]}"
+            echo "✅ GEMINI_API_KEY atualizada"
+          else
+            # Cria nova
+            curl -s -X POST "https://api.vercel.com/v10/projects/${PROJECT_ID}/env" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "[{\"key\":\"GEMINI_API_KEY\",\"value\":\"${KEY_VALUE}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\"]}]"
+            echo "✅ GEMINI_API_KEY criada"
+          fi
+
+      - name: Trigger redeploy
+        run: |
+          PROJECT_ID="prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b"
+          TOKEN="${{ secrets.VERCEL_TOKEN }}"
+
+          # Busca último deployment de produção
+          DEPLOY_ID=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${PROJECT_ID}&limit=1&target=production" \
+            -H "Authorization: Bearer ${TOKEN}" | \
+            python3 -c "import sys,json; d=json.load(sys.stdin).get('deployments',[]); print(d[0]['uid'] if d else '')")
+
+          if [ -n "$DEPLOY_ID" ]; then
+            curl -s -X POST "https://api.vercel.com/v13/deployments" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"deploymentId\":\"${DEPLOY_ID}\",\"name\":\"ovalorcapital\",\"target\":\"production\"}"
+            echo "✅ Redeploy disparado"
+          fi
