@@ -16,7 +16,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Mercado de seguros no Brasil em 2026. Seguros de vida, residencial, automovel e empresarial. Crescimento do setor, principais coberturas, melhores seguradoras e como proteger patrimonio e renda da familia brasileira.","force":true}' \
+            -d '{"texto":"Mercado de seguros no Brasil em 2026. Seguros de vida, residencial, automovel e empresarial. Crescimento do setor, principais coberturas, melhores seguradoras e como proteger patrimonio e renda da familia brasileira.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -24,7 +24,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Previdencia privada no Brasil: PGBL e VGBL, rentabilidade, beneficios fiscais e estrategias para aposentadoria complementar em 2026. Como planejar renda no longo prazo e escolher o melhor plano previdenciario.","force":true}' \
+            -d '{"texto":"Previdencia privada no Brasil: PGBL e VGBL, rentabilidade, beneficios fiscais e estrategias para aposentadoria complementar em 2026. Como planejar renda no longo prazo e escolher o melhor plano previdenciario.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -32,7 +32,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Consorcios de automoveis no Brasil crescem em 2026. Vantagens sobre o financiamento, taxas administrativas, lances e contemplacao. Como funciona o consorcio de veiculos e quais sao as melhores administradoras do mercado.","force":true}' \
+            -d '{"texto":"Consorcios de automoveis no Brasil crescem em 2026. Vantagens sobre o financiamento, taxas administrativas, lances e contemplacao. Como funciona o consorcio de veiculos e quais sao as melhores administradoras do mercado.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -40,7 +40,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Estado de saude do ex-presidente Jair Bolsonaro em 2026. Atualizacoes sobre internacoes, tratamentos medicos e boletins clinicos. Impactos politicos e repercussao nacional sobre a saude do lider da direita brasileira.","force":true}' \
+            -d '{"texto":"Estado de saude do ex-presidente Jair Bolsonaro em 2026. Atualizacoes sobre internacoes, tratamentos medicos e boletins clinicos. Impactos politicos e repercussao nacional sobre a saude do lider da direita brasileira.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -48,7 +48,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Copa do Mundo 2026 nos Estados Unidos, Canada e Mexico. Grupos, favoritos, sedes e formato do torneio com 48 selecoes. Maior Copa da historia e a batalha das nacoes pelo titulo mundial de futebol.","force":true}' \
+            -d '{"texto":"Copa do Mundo 2026 nos Estados Unidos, Canada e Mexico. Grupos, favoritos, sedes e formato do torneio com 48 selecoes. Maior Copa da historia e a batalha das nacoes pelo titulo mundial de futebol.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -56,7 +56,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Selecao Brasileira de futebol rumo a Copa do Mundo 2026. Convocacoes, jogadores em destaque, tecnico, formacao tatica e desempenho nas Eliminatorias Sul-Americanas. Chances do Brasil conquistar o hexacampeonato mundial.","force":true}' \
+            -d '{"texto":"Selecao Brasileira de futebol rumo a Copa do Mundo 2026. Convocacoes, jogadores em destaque, tecnico, formacao tatica e desempenho nas Eliminatorias Sul-Americanas. Chances do Brasil conquistar o hexacampeonato mundial.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -64,7 +64,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Investimento em dolar como protecao cambial e diversificacao de portfolio em 2026. Estrategias para exposicao ao dolar: fundos cambiais, ETFs, BDRs e contas em moeda estrangeira. Riscos e oportunidades para o investidor brasileiro.","force":true}' \
+            -d '{"texto":"Investimento em dolar como protecao cambial e diversificacao de portfolio em 2026. Estrategias para exposicao ao dolar: fundos cambiais, ETFs, BDRs e contas em moeda estrangeira. Riscos e oportunidades para o investidor brasileiro.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -72,7 +72,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Mercado de criptomoedas em 2026. Bitcoin, Ethereum e altcoins: analise de precos, regulacao no Brasil pela Receita Federal e Banco Central, perspectivas e estrategias de investimento em ativos digitais para investidores brasileiros.","force":true}' \
+            -d '{"texto":"Mercado de criptomoedas em 2026. Bitcoin, Ethereum e altcoins: analise de precos, regulacao no Brasil pela Receita Federal e Banco Central, perspectivas e estrategias de investimento em ativos digitais para investidores brasileiros.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -80,7 +80,7 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Chevrolet Omega O Absoluto: historia do lendario sedao brasileiro. Versoes, motorizacoes V8, Omega A, B, C e series especiais. Legado cultural do icone automotivo nacional que dominou estradas brasileiras por decadas e encerrou producao deixando saudades.","force":true}' \
+            -d '{"texto":"Chevrolet Omega O Absoluto: historia do lendario sedao brasileiro. Versoes, motorizacoes V8, Omega A, B, C e series especiais. Legado cultural do icone automotivo nacional que dominou estradas brasileiras por decadas e encerrou producao deixando saudades.","force":true,"publicar":true}' \
             --max-time 90
           sleep 8
 
@@ -88,5 +88,5 @@ jobs:
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"texto":"Consorcios de imoveis no Brasil em 2026: alternativa inteligente ao financiamento imobiliario. Como funciona, taxas administrativas, contemplacao por lance e sorteio, e por que o consorcio imobiliario pode ser a melhor opcao para conquistar casa propria.","force":true}' \
+            -d '{"texto":"Consorcios de imoveis no Brasil em 2026: alternativa inteligente ao financiamento imobiliario. Como funciona, taxas administrativas, contemplacao por lance e sorteio, e por que o consorcio imobiliario pode ser a melhor opcao para conquistar casa propria.","force":true,"publicar":true}' \
             --max-time 90
