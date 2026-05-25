@@ -294,7 +294,8 @@ async function handleManualPost(req, res) {
         manualContext = buildDynamicContext({ recentTitles: titles, recentKeywords: keywords, recentCategories: cats });
       }
     } catch(_) {}
-    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext);
+    // Gemini como primário, OpenAI como fallback
+    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext, true);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
@@ -371,7 +372,8 @@ async function regenerarConteudo(res, meta) {
   for (const post of posts) {
     if (Date.now() - inicio > 8000) { resultados.push({ id: post.id, status: 'timeout' }); break; }
     try {
-      const novoConteudo = await rewritePortal(post.conteudo, post.titulo);
+      // Gemini como primário na regeneração
+      const novoConteudo = await rewritePortal(post.conteudo, post.titulo, '', true);
       if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 2500) {
         resultados.push({ id: post.id, status: 'rejeitado' }); continue;
       }
@@ -462,7 +464,7 @@ export default async function handler(req, res) {
       if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
-    // Cap diário: máximo 100 artigos automáticos por dia (BRT) — não afeta geração manual
+    // Cap diário: máximo 100 artigos automáticos por dia (BRT)
     {
       const agora = new Date();
       const hUtc = agora.getUTCHours();
@@ -498,7 +500,6 @@ export default async function handler(req, res) {
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
-    // Categoria efetiva para forçar: catForcada explícita OU catAlvo quando for 'radar'
     const catEfetiva = catForcada || (catAlvo === 'radar' ? 'radar' : '');
 
     let news;
@@ -544,7 +545,8 @@ export default async function handler(req, res) {
       if (!sourceText) continue;
 
       let content;
-      try { content = await rewritePortal(sourceText, item.title, dynamicContext); } catch(e) { continue; }
+      // Gemini como primário, OpenAI como fallback automático se Gemini falhar
+      try { content = await rewritePortal(sourceText, item.title, dynamicContext, true); } catch(e) { continue; }
       if (!validarConteudo(content)) continue;
       content.titulo = stripTitle(content.titulo);
 
@@ -558,7 +560,6 @@ export default async function handler(req, res) {
       if (topicoDuplicado(content.titulo, recentTitles)) continue;
 
       if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
-        // categoria forcada (manual ou radar via HIGH_PRIORITY_CATS)
         const familiaForcada = FAMILIA_CAT[catEfetiva];
         const familiaConteudo = FAMILIA_CAT[content.categoria];
         if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
