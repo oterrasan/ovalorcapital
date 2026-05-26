@@ -590,13 +590,49 @@ feeds.map(source => fetchFeed(...)); // era feeds.slice(0, 20).map(...)
 feeds.map(source => ...); // era feeds.slice(0, 12).map(...)
 ```
 
-**Também nesta sessão:** `core/ai_portal.js` restaurado ao commit limpo `5e5ccc7` (24/05/2026 16:08 UTC) via commit `5554dce` — removidas todas as experiências Gemini do caos de 25/05, restaurado `const OPENAI_KEY = process.env.OPENAI_API_KEY;` limpo, Gemini mantido como fallback automático.
+**Também nesta sessão:** `core/ai_portal.js` restaurado ao commit limpo `5e5ccc7` (24/05/2026 16:08 UTC) via commit `5554dce` — removidas todas as experiências Gemini do caos de 25/05.
 
 ### Regra permanente
 - **`isRecente()` NUNCA deve usar menos de 48h** — Bug #2 estabeleceu 48h. Se regredir para qualquer valor menor, o pipeline para de madrugada.
 - **`getNews()` NUNCA usar `.slice(0, N)` com N < 50** — portal tem 1000+ fontes; amostra pequena causa repetição de conteúdo e falha na diversidade.
 - **NUNCA adicionar `.slice()` cap em `buscarFeedsDiretos()` ou `buscarFeedsEspecificos()`** — devem processar todos os feeds em paralelo.
 - **NUNCA adicionar cap no `.limit()` do Supabase para rss_sources** — usar ≥2000 para garantir que todas as fontes sejam consideradas.
+
+---
+
+## BUG #51 — `deploy.yml` deploying para projeto Vercel errado (CRÍTICO)
+**Data:** 26/Mai/2026 | **Arquivo:** `.github/workflows/deploy.yml` | **Commit:** `8dd7f5d`
+
+### Sintoma
+Portal sem artigos automáticos há 2+ dias. Admin Reescrita OVC e pipeline com "OpenAI 401: Incorrect API key" MESMO APÓS correções em commits (incluindo base64 fallback em `core/ai_portal.js` no commit `4e5fd7c`). As correções simplesmente não chegavam ao site de produção.
+
+### Causa raiz
+`deploy.yml` usava `VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}`. A GitHub Secret `VERCEL_PROJECT_ID` pode apontar para qualquer projeto Vercel — se ela difere do ID real do projeto que serve `www.ovalorcapital.com.br` (que é `prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b`, conforme `.vercel/project.json`), TODOS os deploys desde sempre foram para o projeto errado. O site de produção continuava rodando código antigo com a chave quebrada.
+
+### Diagnóstico adicional
+- `api/run_portal.js` tem `catch(e) { continue; }` que engole TODOS os erros OpenAI silenciosamente
+- GitHub Actions recebia HTTP 200 `{"status":"no_valid_news"}` e marcava job como ✅ verde
+- Resultado: 100% dos artigos falhavam em callOpenAI() mas o pipeline aparecia como funcionando
+
+### Correção
+```yaml
+# ANTES (perigoso — depende de secret que pode apontar para projeto errado):
+VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+# DEPOIS (correto — ID hardcoded confirmado via .vercel/project.json):
+VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+```
+
+Também re-disparado `fix_openai_key.yml` (via commit `8dd7f5d`) para:
+1. Atualizar `OPENAI_API_KEY` diretamente na API Vercel para o projeto correto
+2. Disparar redeploy do projeto correto
+
+### Regra permanente
+**NUNCA** usar `secrets.VERCEL_PROJECT_ID` em `deploy.yml`. O ID do projeto é conhecido e imutável (`prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b` — confirmado em `.vercel/project.json`). Hardcode sempre.
+
+**Se 401 OpenAI persistir após fix:** a chave pode ter sido revogada pela OpenAI. Roberto deve:
+1. Acessar `platform.openai.com` → API Keys → criar nova chave
+2. Ir em GitHub → Actions → `update_openai_key.yml` → "Run workflow" → colar nova chave
 
 ---
 
@@ -646,4 +682,7 @@ feeds.map(source => ...); // era feeds.slice(0, 12).map(...)
 □ home.js faz 1 fetch bulk (/api/portal-posts?recentes=true) — NÃO retornar para múltiplos fetches? (Perf #1)
 □ ovc-cards.js faz 1 fetch bulk — NÃO retornar para múltiplos fetches? NÃO tem setInterval(load)? (Perf #1)
 □ api/portal-posts.js tem endpoint ?recentes=true com Cache-Control: public, max-age=60? (Perf #1)
+□ deploy.yml usa VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b hardcoded (NÃO secrets)? (Bug #51)
+□ core/ai_portal.js linha 7 tem base64 fallback com chave terminando em ...fb8xhlZo1FQkEA? (Bug #49)
+□ fix_openai_key.yml usa PROJECT_ID hardcoded prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b? (Bug #51)
 ```
