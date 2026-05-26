@@ -1,3 +1,4 @@
+# v2 - re-applying OPENAI_API_KEY fix to correct Vercel project
 name: Fix OPENAI_API_KEY no Vercel
 
 on:
