@@ -453,13 +453,7 @@ export default async function handler(req, res) {
   const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
   try {
-    if (!body.force) {
-      const agoraBR = new Date(Date.now() - 3 * 3600000);
-      const horaBR  = agoraBR.getUTCHours();
-      const dentroJanela = horaBR >= 7 || horaBR < 1;
-      if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
-    }
-
+    // Verificar limite diario (500 por dia)
     {
       const agora = new Date();
       const hUtc = agora.getUTCHours();
@@ -472,8 +466,8 @@ export default async function handler(req, res) {
         .select('id', { count: 'exact', head: true })
         .gte('created_at', inicioDiaBRT.toISOString())
         .eq('publish_method', 'portal');
-      if ((postsHoje || 0) >= 100) {
-        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 100 });
+      if ((postsHoje || 0) >= 500) {
+        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 500 });
       }
     }
 
@@ -517,7 +511,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Supplement RSS with homepage news to handle stale feeds
     const homepageItems = await getLinksFromHomepages();
     if (!news.length) {
       news = homepageItems;
@@ -530,7 +523,7 @@ export default async function handler(req, res) {
 
     const artigos = [];
 
-    for (const item of news.slice(0, 80)) {
+    for (const item of news.slice(0, 300)) {
       if (Date.now() - inicio > 55000) break;
       if (artigos.length >= targetCount) break;
 
