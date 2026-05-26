@@ -480,7 +480,7 @@ function extrairItem(i, sourceName) {
   };
 }
 
-async function buscarFeedsEspecificos(feeds) {
+async function buscarFeedsEmParalelo(feeds) {
   const results = await Promise.allSettled(
     feeds.map(source =>
       fetchFeed(source.url)
@@ -490,18 +490,13 @@ async function buscarFeedsEspecificos(feeds) {
         .catch(() => [])
     )
   );
-  const items = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+  const items = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
   return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
 }
 
-export async function getNewsByCategoria(categoria) {
-  try {
-    const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
-    const feedsEspecificos = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
-    if (feedsEspecificos.length > 0) return await buscarFeedsEspecificos(feedsEspecificos);
-    return await getNews();
-  } catch (_) { return []; }
-}
+// alias mantido para compatibilidade interna
+const buscarFeedsEspecificos = buscarFeedsEmParalelo;
+const buscarFeedsDiretos = buscarFeedsEmParalelo;
 
 function titulosSimilares(a, b) {
   const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);
@@ -521,44 +516,54 @@ function dedupPorTitulo(items) {
   return unicos;
 }
 
-async function buscarFeedsDiretos(feeds) {
-  const results = await Promise.allSettled(
-    feeds.map(source =>
-      fetchFeed(source.url)
-        .then(items => items.slice(0, 8)
-          .map(i => extrairItem(i, source.name))
-          .filter(Boolean))
-        .catch(() => [])
-    )
-  );
-  return results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
+async function carregarFontesSupabase() {
+  try {
+    const { data } = await supabase
+      .from('rss_sources')
+      .select('url,name,active')
+      .limit(2000);
+    return (data || []).filter(s => s.active !== false);
+  } catch (_) {
+    return [];
+  }
+}
+
+export async function getNewsByCategoria(categoria) {
+  try {
+    const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
+    const feedsHardcoded = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
+
+    // Carregar TODAS as fontes do Supabase (1000+)
+    const fontesSupabase = await carregarFontesSupabase();
+
+    // Unir hardcoded + Supabase sem duplicar URLs
+    const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
+    const extras = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
+    const feedsParaUsar = [...feedsHardcoded, ...extras].sort(() => Math.random() - 0.5);
+
+    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${extras.length} Supabase)`);
+    return await buscarFeedsEmParalelo(feedsParaUsar);
+  } catch (_) { return []; }
 }
 
 export async function getNews() {
   try {
-    const { data: allSources } = await supabase
-      .from("rss_sources")
-      .select("url,name,active")
-      .limit(2000);
+    // Carregar TODAS as fontes do Supabase (1000+)
+    const fontesSupabase = await carregarFontesSupabase();
 
-    // TODAS as fontes ativas sem limite — shuffle garante variedade por rodada
-    const feedsCustom = (allSources || [])
-      .filter(s => s.active !== false)
-      .sort(() => Math.random() - 0.5);
+    // Unir com feeds garantidos sem duplicar
+    const urlsCustom = new Set(fontesSupabase.map(f => f.url));
+    const extras = FEEDS_DIRETOS_GARANTIDOS.filter(f => !urlsCustom.has(f.url));
+    const feedsParaUsar = [...fontesSupabase, ...extras].sort(() => Math.random() - 0.5);
 
-    const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
-      .sort(() => Math.random() - 0.5);
+    console.log(`[rss] getNews: varrendo ${feedsParaUsar.length} fontes (${fontesSupabase.length} Supabase + ${extras.length} diretos)`);
 
-    const feedsParaUsar = [...feedsCustom, ...feedsGarantidos];
-    console.log(`[rss] varrendo ${feedsParaUsar.length} fontes (custom:${feedsCustom.length} + diretos:${feedsGarantidos.length})`);
-
-    let allItems = await buscarFeedsDiretos(feedsParaUsar);
-    console.log('[rss] 1a busca:', allItems.length, 'itens');
+    let allItems = await buscarFeedsEmParalelo(feedsParaUsar);
+    console.log('[rss] total itens:', allItems.length);
 
     if (allItems.length === 0) {
-      console.log('[rss] fallback total para FEEDS_DIRETOS_GARANTIDOS');
-      allItems = await buscarFeedsDiretos(FEEDS_DIRETOS_GARANTIDOS);
-      console.log('[rss] fallback:', allItems.length, 'itens');
+      console.log('[rss] fallback para feeds garantidos');
+      allItems = await buscarFeedsEmParalelo(FEEDS_DIRETOS_GARANTIDOS);
     }
 
     return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));

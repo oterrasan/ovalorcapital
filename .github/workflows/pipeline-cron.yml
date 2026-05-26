@@ -1,8 +1,10 @@
-name: Pipeline OVC — automático
+name: Pipeline OVC — a cada 5 minutos
 
 on:
   schedule:
-    - cron: '0,30 * * * *'
+    - cron: '*/5 10-23 * * *'
+    - cron: '*/5 0-2 * * *'
+    - cron: '0,5,10,15,20,25,30 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -10,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Disparar pipeline (force)
+      - name: Disparar pipeline
         run: |
           RESP=$(curl -s -X POST \
             -H "Content-Type: application/json" \
@@ -21,7 +23,7 @@ jobs:
 
       - name: Segunda rodada
         run: |
-          sleep 10
+          sleep 5
           RESP=$(curl -s -X POST \
             -H "Content-Type: application/json" \
             -d '{"force":true,"count":8}' \
