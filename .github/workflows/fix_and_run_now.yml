@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/fix_and_run_now.yml'
+      - 'core/ai_portal.js'
   workflow_dispatch:
 
 jobs:
@@ -57,7 +58,7 @@ jobs:
               -d "{\"deploymentId\":\"${DEPLOY_ID}\",\"name\":\"ovalorcapital\",\"target\":\"production\"}"
             echo "Redeploy disparado."
           else
-            echo "Nenhum deployment encontrado — deploy.yml ja esta rodando."
+            echo "Nenhum deployment encontrado."
           fi
 
       - name: 3. Aguardar deploy estabilizar
@@ -71,7 +72,7 @@ jobs:
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"force":true,"count":8}' \
-            --max-time 110)
+            --max-time 120)
           echo "Resposta: $RESP"
 
       - name: 5. Segunda rodada (mais artigos)
@@ -81,5 +82,5 @@ jobs:
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"force":true,"count":8}' \
-            --max-time 110)
+            --max-time 120)
           echo "Resposta: $RESP"
