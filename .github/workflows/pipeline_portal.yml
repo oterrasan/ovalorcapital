@@ -1,26 +1,10 @@
-name: OVC Pipeline — automático (manhã 10min | tarde 20min)
-
+# REMOVIDO — substituido por pipeline-cron.yml (a cada 5min)
+# Este arquivo mantido vazio para evitar erro de sintaxe no Git
+name: _removido
 on:
-  schedule:
-    # MANHÃ: 09:00–11:50 BRT = 12:00–14:50 UTC, a cada 10 minutos
-    - cron: '0,10,20,30,40,50 12,13,14 * * *'
-    # MEIO-DIA: 12:00–13:40 BRT = 15:00–16:40 UTC, a cada 20 minutos (cobre gap anterior)
-    - cron: '0,20,40 15,16 * * *'
-    # TARDE: 14:00–20:40 BRT = 17:00–23:40 UTC, a cada 20 minutos
-    - cron: '0,20,40 17,18,19,20,21,22,23 * * *'
-    # NOITE/OVERFLOW: 21:00–01:40 BRT = 00:00–04:40 UTC, a cada 20 minutos
-    - cron: '0,20,40 0,1,2,3,4 * * *'
   workflow_dispatch:
-
 jobs:
-  run:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
-      - name: Gerar artigo
-        run: |
-          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"count":1}' \
-            --max-time 90
-          echo "done"
+      - run: echo noop
