@@ -462,7 +462,7 @@ function isRecente(dateStr) {
   try {
     const itemDate = new Date(dateStr);
     if (isNaN(itemDate.getTime())) return true;
-    return (Date.now() - itemDate.getTime()) < 3 * 60 * 60 * 1000;
+    return (Date.now() - itemDate.getTime()) < 48 * 60 * 60 * 1000;
   } catch (_) { return true; }
 }
 
@@ -482,7 +482,7 @@ function extrairItem(i, sourceName) {
 
 async function buscarFeedsEspecificos(feeds) {
   const results = await Promise.allSettled(
-    feeds.slice(0, 12).map(source =>
+    feeds.map(source =>
       fetchFeed(source.url)
         .then(items => items.slice(0, 10)
           .map(i => extrairItem(i, source.name))
@@ -523,7 +523,7 @@ function dedupPorTitulo(items) {
 
 async function buscarFeedsDiretos(feeds) {
   const results = await Promise.allSettled(
-    feeds.slice(0, 20).map(source =>
+    feeds.map(source =>
       fetchFeed(source.url)
         .then(items => items.slice(0, 8)
           .map(i => extrairItem(i, source.name))
@@ -539,16 +539,15 @@ export async function getNews() {
     const { data: allSources } = await supabase
       .from("rss_sources")
       .select("url,name,active")
-      .order("created_at", { ascending: false });
+      .limit(2000);
 
     const feedsCustom = (allSources || [])
       .filter(s => s.active !== false)
       .sort(() => Math.random() - 0.5)
-      .slice(0, 10);
+      .slice(0, 100);
 
     const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 10);
+      .sort(() => Math.random() - 0.5);
 
     const feedsParaUsar = [...feedsCustom, ...feedsGarantidos];
     console.log(`[rss] fontes: ${feedsParaUsar.length} (custom:${feedsCustom.length} + diretos:${feedsGarantidos.length})`);
