@@ -89,7 +89,7 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 
 ---
 
-## 🚨❌ REGRA ZERO-E — O PORTAL NUNCA PODE FICAR OFFLINE — JAMAIS
+## 🚨❌ REGRA ZERO-E — O PORTAL NUNCA PODE FICAR OFFLINE — JAMÁIS
 
 > **INCIDENTE 18/05/2026:** Um merge de PR destruiu 734 linhas do `public/index.html`, deixando a homepage com 1 linha de conteúdo. O portal ficou completamente fora do ar. Roberto ficou furioso. NUNCA MAIS.
 
@@ -229,6 +229,8 @@ Fonte de receita única: Google AdSense / Google AdX.
 31. **PORTAL NUNCA OFFLINE** — public/index.html ≥700 linhas em main. Verificar SEMPRE antes de qualquer push que toque esse arquivo. Ver Regra Zero-E (18/05/2026).
 32. **vercel.json NUNCA para cache-busting** — causa 403. Usar `?v=N` no HTML ou injeção via site.js. Ver Regra Zero-F (21/05/2026).
 33. **AdSense: usar `ads.txt` para verificação** — é arquivo estático, independe de SSR/JS. Script no `<head>` dos SSR handlers para os anúncios aparecerem nas páginas.
+34. **`isRecente()` MÍNIMO 48h** — NUNCA reduzir para menos de 48h. Bug #50: regressão para 3h matou pipeline de madrugada. Bug #2 estabeleceu 48h como valor correto e definitivo.
+35. **`getNews()` NUNCA usar `.slice(0, N)` com N < 50 para fontes** — portal tem 1000+ fontes. Bug #50: limite de 10 causou conteúdo repetitivo. Usar .slice(0,100) para custom.
 
 ---
 
@@ -540,7 +542,7 @@ function renderCorpo(texto){
 9. **Executar SQL de migração no Supabase** para as tabelas `image_bank` e `colunistas` (ver seção 4).
 10. **Limpar artigos com imagem ruim ainda publicados** — logo do Google (60+) e templo japonês (~10).
 11. **Limpar projetos Vercel duplicados** — existem 3 projetos (`ovalorcapital`, `ovalorcapital-xuhw`, `ovalorcapital-hubx`) todos ligados ao mesmo repo. Identificar qual serve `www.ovalorcapital.com.br` e deletar os outros com cuidado.
-12. **Adicionar `OPENAI_API_KEY` no Vercel Dashboard** → Project → Settings → Environment Variables (ver Seção 16). Atualmente existe fallback base64 em `core/ai_portal.js`, mas ter a variável no Vercel é mais seguro.
+12. **Confirmar `OPENAI_API_KEY` no projeto Vercel correto** — Roberto adicionou em `ovalorcapital-xuhw` (25/05/2026). Confirmar se é esse o projeto que serve www.ovalorcapital.com.br. `core/ai_portal.js` agora usa apenas `process.env.OPENAI_API_KEY` (sem fallback base64 hardcoded).
 
 ---
 
@@ -557,7 +559,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 5 | targetCount=1, pool=40, sem dedup | `api/run_portal.js` | mai/2026 |
 | 6 | Sem faixas horárias | `api/run_portal.js` | mai/2026 |
 | 7 | validar() exigia 'redação ovc' | `api/manage.js` | mai/2026 |
-| 8 | forcarExecucao() enviava GET | `automacao.html` | mai/2026 |
+| 8 | forçarExecucao() enviava GET | `automacao.html` | mai/2026 |
 | 9 | p.categoria inexistente | `automacao.html` | mai/2026 |
 | 10 | getNews() fallback usava GN | `core/rss.js` | mai/2026 |
 | 11 | Scraper só `<p>` | `core/scraper.js` | mai/2026 |
@@ -599,7 +601,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 47 | **INCIDENTE** — Botão "Publicar todos pendentes" publicou 74 artigos pessoais de Roberto | `api/manage.js` — filtro `publish_method='portal'` não protegia artigos de curadoria | 24/05/2026 |
 | 48 | **"Erro: Gemini indisponível"** no admin Reescrita OVC + pipeline sem gerar artigos — `OPENAI_API_KEY` deletada do Vercel, chave Gemini inválida/quota esgotada | `core/ai_portal.js` — base64 fallback adicionado (commit `9793d5b`) | 25/05/2026 |
 | 49 | **CRÍTICO — typo 1 char na base64 da chave OpenAI** — commit `9793d5b` introduziu `ZmI0` (zero) em vez de `ZmI4` (quatro) → decodificava `...fb4...` (inválido) → 401 em todo `callOpenAI()` → `no_valid_news` no pipeline + `✗ Conteúdo gerado ins...` em Reescrita OVC | `core/ai_portal.js` — `ZmI0` → `ZmI4` (commit `520e14f`) | 25/05/2026 |
-| 50 | **ENCONTRADO NÃO CORRIGIDO — `isRecente()` filtro 3h mata pipeline** — `core/rss.js` rejeita todos os artigos RSS com mais de 3 horas. De madrugada todos os feeds ficam "velhos" → `no_valid_news` em 100% das rodadas. Segunda causa: `getNews()` usa só 10 fontes aleatórias do Supabase mesmo havendo 1000+. Descoberto na sessão 26/05/2026 — Roberto interrompeu antes de corrigir | `core/rss.js` — `isRecente()` linha `< 3 * 60 * 60 * 1000` → ampliar para 12h ou 24h; aumentar `.slice(0,10)` para 30-50 fontes | 26/05/2026 |
+| 50 | **CORRIGIDO — `isRecente()` 3h→48h + fontes 10→100** — pipeline sem artigos de madrugada (rejeita itens com >3h) + conteúdo repetitivo (só 10 de 1000+ fontes por rodada). Também: `core/ai_portal.js` restaurado ao estado limpo do commit `5e5ccc7` (24/05) | `core/rss.js` — isRecente 3h→48h, fontes .slice(0,100), removidos .slice caps de buscarFeedsDiretos e buscarFeedsEspecificos (commits `764af56`, `5554dce`) | 26/05/2026 |
 
 ---
 
@@ -772,14 +774,14 @@ Region: sa-east-1 (São Paulo)
 ```
 
 > Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
+> **NOTA:** Esta remote execution environment bloqueia conexões de saída para Supabase (network policy). Para backups ou scripts diretos, executar localmente com Node.js.
 
 ```
 OPENAI_API_KEY (base64 — decodificar com Buffer.from(value,'base64').toString()):
 c2stcHJvai1hZ2JlSEtzeXVDeGEtMWwxbWNoZmRpcldaZ0w0a2JuWktoTnZVMTRXUjFjTDJuelpsN0RFbkQtM1l2eHRRVGZlYWdJWFBVNE9sUlQzQmxia0ZKTjhtVmlrRTJfeWFQNDhIdUo0SVV1c2w2ODRLRGQ4blFCYXVlUmtneGNRcXhLbUNlSmdFQjV4RldvazZfZmI4eGhsWm8xRlFrRUE=
 ```
 
-> Adicionada em 25/05/2026. O fallback base64 está em `core/ai_portal.js` (commit `520e14f` — Bug #49 corrigiu typo `ZmI0`→`ZmI4` do commit `9793d5b`).
-> Roberto deve adicionar esta chave no Vercel Dashboard para remover a dependência do fallback hardcoded.
+> Base64 acima é referência. O `core/ai_portal.js` atual (commit `5554dce`) usa apenas `process.env.OPENAI_API_KEY` — sem fallback base64 hardcoded. Roberto adicionou a chave em `ovalorcapital-xuhw` (25/05/2026). Confirmar se esse é o projeto correto que serve www.
 
 ### Sessão 24/05/2026 — TARDE — FIXES, GOOGLE, E INCIDENTE GRAVE
 
@@ -919,19 +921,17 @@ node -e "console.log(Buffer.from('BASE64_STRING', 'base64').toString().slice(-20
 
 ---
 
-### Sessão 25/05/2026 → 26/05/2026 — TENTATIVAS FRUSTRADAS — PIPELINE ZERO ARTIGOS AUTOMÁTICOS
+### Sessão 25/05/2026 → 26/05/2026 — TENTATIVAS FRUSTRADAS + BUG #50 IDENTIFICADO
 
 **⚠️ SESSÃO DIFÍCIL — DOCUMENTAR PARA NÃO REPETIR ERROS**
 
 **Confirmação de Roberto:** 100% dos artigos com data de hoje foram adicionados MANUALMENTE por ele. O pipeline automático não gerou NENHUM artigo.
 
----
-
 #### Tentativas frustradas (em ordem cronológica)
 
 1. **Force workflow sem `publicar:true`** (commit `25843e3`) → 10 artigos gerados e salvos como `pendente` → não apareceram no portal → Roberto não viu nada. Erro: faltava `publicar:true` no body do curl.
 
-2. **Fix `publicar:true` no force workflow** (commit `b549db0`) → workflow re-disparado → artigos possivelmente gerados entre 15:00-17:00 BRT mas não confirmados. Suspeita: Vercel timeout ou conteúdo rejeitado.
+2. **Fix `publicar:true` no force workflow** (commit `b549db0`) → workflow re-disparado → artigos possivelmente gerados entre 15:00-17:00 BRT mas não confirmados.
 
 3. **Sugestão de homepage fallback** → Claude sugeriu adicionar fallback para InfoMoney/Exame/etc. → Roberto apontou com razão que tem **mais de 1000 fontes RSS configuradas** → sugestão era irrelevante e frustrante. **NUNCA mais sugerir fontes alternativas quando Roberto tem 1000+ feeds.**
 
@@ -939,44 +939,9 @@ node -e "console.log(Buffer.from('BASE64_STRING', 'base64').toString().slice(-20
 
 5. **Re-trigger force workflow** (commit `b1115d3`) com 60s delay → resultado não confirmado antes de Roberto pedir para parar.
 
----
+#### 🔴 CAUSA RAIZ DO PIPELINE ZERO ARTIGOS — Bug #50 (identificado, corrigido na sessão seguinte)
 
-#### 🔴 CAUSA RAIZ DO PIPELINE ZERO ARTIGOS — Bug #50 (ENCONTRADO, NÃO CORRIGIDO)
-
-Duas causas em `core/rss.js`:
-
-**Causa 1 — `isRecente()` filtro de 3 horas mata tudo:**
-```js
-function isRecente(dateStr) {
-  // ...
-  return (Date.now() - itemDate.getTime()) < 3 * 60 * 60 * 1000; // APENAS 3 HORAS
-}
-```
-De madrugada (21:00-07:00 BRT), notícias publicadas às 18h-20h têm 5-10 horas de vida → **todas rejeitadas** → zero itens no pool → `no_valid_news` em 100% das rodadas. Com REGRA ZERO-D (pendente), Roberto também não aprovava porque não havia o que aprovar.
-
-**Causa 2 — `getNews()` usa apenas 10 fontes:**
-```js
-.sort(() => Math.random() - 0.5)
-.slice(0, 10)  // SÓ 10 DE 1000+
-```
-Com 1000+ fontes no Supabase, apenas 10 aleatórias são consultadas por rodada. Probabilidade baixa de encontrar artigo novo e recente.
-
-**Correção necessária (PEDIR AUTORIZAÇÃO DE ROBERTO ANTES):**
-```js
-// core/rss.js — isRecente()
-return (Date.now() - itemDate.getTime()) < 12 * 60 * 60 * 1000; // 12h em vez de 3h
-// OU remover completamente (hash dedup em run_portal.js já previne reprocessar URLs)
-
-// core/rss.js — getNews()
-.slice(0, 30)  // 30 em vez de 10
-```
-
-**Gap de schedule (também não corrigido):**
-- Último cron noite: `0,20,40 0,1,2,3,4 * * *` = cobre até 04:40 UTC = 01:40 BRT
-- Primeiro cron manhã: `0,10,20,30,40,50 12,13,14 * * *` = começa 12:00 UTC = 09:00 BRT
-- **GAP DE 7h20min: 01:40 BRT → 09:00 BRT sem nenhum cron rodando**
-
----
+Duas causas em `core/rss.js` (corrigidas na sessão 26/05 — ver abaixo).
 
 #### Commits desta sessão
 
@@ -988,12 +953,31 @@ return (Date.now() - itemDate.getTime()) < 12 * 60 * 60 * 1000; // 12h em vez de
 | `b1115d3` | Re-trigger force workflow com delay 60s | ✅ mantido |
 | `d196db4` | REVERT: restaurar `status:'pendente'` no pipeline | ✅ correto |
 
-#### O que o próximo Claude DEVE fazer ao retomar
+---
 
-1. **PRIMEIRO: pedir autorização de Roberto** para corrigir Bug #50 em `core/rss.js`
-   - Ampliar `isRecente()` de 3h para 12h
-   - Aumentar fontes de 10 para 30 por rodada
-2. Verificar se artigos do force workflow (commits `b549db0`/`b1115d3`) estão em pendente no admin
-3. **NÃO mexer em REGRA ZERO-D** sem autorização explícita
-4. **NÃO sugerir fontes alternativas** — Roberto tem 1000+ feeds
-5. **NÃO rodar em círculos** — diagnosticar primeiro, agir depois com OK do Roberto
+### Sessão 26/05/2026 — BUG #50 CORRIGIDO + ai_portal.js RESTAURADO
+
+**Bug #50 corrigido em `core/rss.js` (commit `764af56`):**
+- `isRecente()`: 3h → 48h (restaura o valor correto estabelecido pelo Bug #2)
+- `getNews()` fontes customizadas: `.slice(0, 10)` → `.slice(0, 100)`
+- `getNews()` feeds garantidos: removido `.slice(0, 10)` — processa todos
+- Supabase query: `.limit(2000)` para capturar todas as fontes
+- `buscarFeedsDiretos()`: removido `.slice(0, 20)` — processa todos em paralelo
+- `buscarFeedsEspecificos()`: removido `.slice(0, 12)` — processa todos
+
+**`core/ai_portal.js` restaurado ao estado limpo (commit `5554dce`):**
+- Estado base: commit `5e5ccc7` (24/05/2026 16:08 UTC — último commit limpo antes do caos de 25/05)
+- Removidas todas as experiências Gemini hardcoded do caos de 25/05
+- Removido fallback base64 com typo (Bug #49 já corrigido separadamente)
+- Restaurado `const OPENAI_KEY = process.env.OPENAI_API_KEY;` limpo
+- Gemini mantido como fallback automático se OpenAI falhar
+- PROMPT OFICIAL OVC preservado integralmente (Regra Zero-B respeitada)
+
+**Documentos atualizados:**
+- `BUGS_CORRIGIDOS.md`: Bug #50 adicionado com detalhes completos + CHECKLIST atualizado
+- `CLAUDE.md`: esta sessão documentada + Bug #50 marcado como CORRIGIDO
+
+**Pendências identificadas mas NÃO resolvidas (aguardando autorização Roberto):**
+- Gap de schedule: 01:40 BRT → 09:00 BRT sem pipeline rodando (7h20min) — identificado, não corrigido
+- Confirmar qual projeto Vercel serve www.ovalorcapital.com.br (OPENAI_API_KEY foi adicionada em `ovalorcapital-xuhw`)
+- Aprovar artigos pendentes no admin (filtro 'pendente')
