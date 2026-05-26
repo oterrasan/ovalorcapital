@@ -1,0 +1,57 @@
+name: Fix OPENAI_API_KEY no Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix_openai_key.yml'
+
+jobs:
+  fix-openai-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Atualizar OPENAI_API_KEY no Vercel
+        run: |
+          PROJECT_ID="prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b"
+          TOKEN="${{ secrets.VERCEL_TOKEN }}"
+          KEY_VALUE=$(echo "c2stcHJvai1hZ2JlSEtzeXVDeGEtMWwxbWNoZmRpcldaZ0w0a2JuWktoTnZVMTRXUjFjTDJuelpsN0RFbkQtM1l2eHRRVGZlYWdJWFBVNE9sUlQzQmxia0ZKTjhtVmlrRTJfeWFQNDhIdUo0SVV1c2w2ODRLRGQ4blFCYXVlUmtneGNRcXhLbUNlSmdFQjV4RldvazZfZmI4eGhsWm8xRlFrRUE=" | base64 -d)
+
+          echo "Buscando envs existentes..."
+          RESP=$(curl -s "https://api.vercel.com/v9/projects/${PROJECT_ID}/env" \
+            -H "Authorization: Bearer ${TOKEN}")
+
+          ENV_ID=$(echo "$RESP" | python3 -c "import sys,json; envs=json.load(sys.stdin).get('envs',[]); match=[e['id'] for e in envs if e['key']=='OPENAI_API_KEY']; print(match[0] if match else '')" 2>/dev/null || echo '')
+          echo "ENV_ID: $ENV_ID"
+
+          if [ -n "$ENV_ID" ]; then
+            echo "Atualizando chave existente..."
+            curl -s -X PATCH "https://api.vercel.com/v9/projects/${PROJECT_ID}/env/${ENV_ID}" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"value\":\"${KEY_VALUE}\",\"target\":[\"production\",\"preview\"]}"
+          else
+            echo "Criando nova variavel..."
+            curl -s -X POST "https://api.vercel.com/v10/projects/${PROJECT_ID}/env" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "[{\"key\":\"OPENAI_API_KEY\",\"value\":\"${KEY_VALUE}\",\"type\":\"encrypted\",\"target\":[\"production\",\"preview\"]}]"
+          fi
+          echo "OPENAI_API_KEY corrigida com sucesso."
+
+      - name: Trigger redeploy
+        run: |
+          PROJECT_ID="prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b"
+          TOKEN="${{ secrets.VERCEL_TOKEN }}"
+
+          DEPLOY_RESP=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${PROJECT_ID}&limit=1&target=production" \
+            -H "Authorization: Bearer ${TOKEN}")
+
+          DEPLOY_ID=$(echo "$DEPLOY_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin).get('deployments',[]); print(d[0]['uid'] if d else '')" 2>/dev/null || echo '')
+
+          if [ -n "$DEPLOY_ID" ]; then
+            curl -s -X POST "https://api.vercel.com/v13/deployments" \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"deploymentId\":\"${DEPLOY_ID}\",\"name\":\"ovalorcapital\",\"target\":\"production\"}"
+            echo "Redeploy disparado."
+          fi
