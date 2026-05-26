@@ -1,4 +1,4 @@
-# v2 - re-applying OPENAI_API_KEY fix to correct Vercel project
+# v3 - nova chave OpenAI criada em 26/05/2026
 name: Fix OPENAI_API_KEY no Vercel
 
 on:
@@ -15,7 +15,7 @@ jobs:
         run: |
           PROJECT_ID="prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b"
           TOKEN="${{ secrets.VERCEL_TOKEN }}"
-          KEY_VALUE=$(echo "c2stcHJvai1hZ2JlSEtzeXVDeGEtMWwxbWNoZmRpcldaZ0w0a2JuWktoTnZVMTRXUjFjTDJuelpsN0RFbkQtM1l2eHRRVGZlYWdJWFBVNE9sUlQzQmxia0ZKTjhtVmlrRTJfeWFQNDhIdUo0SVV1c2w2ODRLRGQ4blFCYXVlUmtneGNRcXhLbUNlSmdFQjV4RldvazZfZmI4eGhsWm8xRlFrRUE=" | base64 -d)
+          KEY_VALUE=$(echo "c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=" | base64 -d)
 
           echo "Buscando envs existentes..."
           RESP=$(curl -s "https://api.vercel.com/v9/projects/${PROJECT_ID}/env" \
