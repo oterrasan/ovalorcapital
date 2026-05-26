@@ -541,16 +541,16 @@ export async function getNews() {
       .select("url,name,active")
       .limit(2000);
 
+    // TODAS as fontes ativas sem limite — shuffle garante variedade por rodada
     const feedsCustom = (allSources || [])
       .filter(s => s.active !== false)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 100);
+      .sort(() => Math.random() - 0.5);
 
     const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
       .sort(() => Math.random() - 0.5);
 
     const feedsParaUsar = [...feedsCustom, ...feedsGarantidos];
-    console.log(`[rss] fontes: ${feedsParaUsar.length} (custom:${feedsCustom.length} + diretos:${feedsGarantidos.length})`);
+    console.log(`[rss] varrendo ${feedsParaUsar.length} fontes (custom:${feedsCustom.length} + diretos:${feedsGarantidos.length})`);
 
     let allItems = await buscarFeedsDiretos(feedsParaUsar);
     console.log('[rss] 1a busca:', allItems.length, 'itens');
