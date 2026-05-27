@@ -453,24 +453,25 @@ body.texto            // geração manual via texto bruto
 {"status":"error"}         → exceção
 ```
 
-**NOVO (27/05/2026):** `no_valid_news` agora inclui diagnóstico expandido:
+**ATUALIZADO (27/05/2026):** `no_valid_news` inclui diagnóstico:
 ```json
 {
   "status": "no_valid_news",
-  "lastError": "string com último erro OpenAI/scrape",
-  "stats": {
-    "skipped": 0,   // hash duplicado — já existe no banco
-    "noText": 0,    // scrape não retornou texto
-    "aiError": 0,   // erro na chamada OpenAI
-    "invalid": 0,   // validação de conteúdo falhou
-    "cat": 0,       // categoria inválida
-    "dedup": 0      // deduplicação Jaccard rejeitou
-  },
-  "ts": 1234567890
+  "ts": 1234567890,
+  "catAlvo": "politica",
+  "prio": 45,
+  "gen": 120,
+  "candidates": 60,
+  "news_total": 300
 }
 ```
-Se `skipped` for alto (≥280) e os demais forem 0 → TODOS os artigos são duplicados no banco → pipeline está saudável, apenas não há conteúdo novo.
-Se `aiError` for alto → problema com chave OpenAI ou quota.
+- `prio` = artigos retornados por `getNewsByCategoria()` — se 0, feeds da categoria não funcionaram
+- `gen` = artigos retornados por `getNews()` — se 0, feeds gerais não funcionaram
+- `candidates` = artigos não duplicados que entraram no processo de scrape+IA — se 0, todos são hash-dedup
+- `news_total` = total bruto antes de dedup por hash
+
+Se `gen=0` e `prio=0` → RSS completamente vazio → verificar feeds / Supabase.
+Se `candidates=0` e `news_total>0` → tudo já existe no banco (hash duplicado) — normal se pipeline rodou muito hoje.
 
 Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar limite de funções/maxDuration.
 
@@ -625,6 +626,8 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 49 | **CRÍTICO — typo 1 char na base64 da chave OpenAI** — commit `9793d5b` introduziu `ZmI0` (zero) em vez de `ZmI4` (quatro) → decodificava `...fb4...` (inválido) → 401 em todo `callOpenAI()` → `no_valid_news` no pipeline + `✗ Conteúdo gerado ins...` em Reescrita OVC | `core/ai_portal.js` — `ZmI0` → `ZmI4` (commit `520e14f`) | 25/05/2026 |
 | 50 | **CORRIGIDO — `isRecente()` 3h→48h + fontes 10→100** — pipeline sem artigos de madrugada (rejeita itens com >3h) + conteúdo repetitivo (só 10 de 1000+ fontes por rodada). Também: `core/ai_portal.js` restaurado ao estado limpo do commit `5e5ccc7` (24/05) | `core/rss.js` — isRecente 3h→48h, fontes .slice(0,100), removidos .slice caps de buscarFeedsDiretos e buscarFeedsEspecificos (commits `764af56`, `5554dce`) | 26/05/2026 |
 | 51 | **CORRIGIDO — 300 queries sequenciais de hash consumindo 30s do budget de 55s** — `run_portal.js` fazia 1 query Supabase POR ARTIGO para checar hash duplicado. Com 300 itens = 300 queries = ~30s gastos ANTES de gerar qualquer artigo. Restavam apenas ~25s para scrape+OpenAI — insuficiente. Fix: 3 queries batch `.in()` em chunks de 100 (total <1s). | `api/run_portal.js` — batch hash check (commit `faf671b`) | 27/05/2026 |
+| 52 | **CORRIGIDO — rss.js dev branch com 3 bugs críticos: `buscarFeedsEspecificos` cap em 12, pool `getNews()` saturado, `catForcada` nunca chamava `getNews()` em paralelo** — Pool de 10+10=20 feeds após horas = tudo hash-dedup. Fix: `buscarFeedsEmParalelo` sem cap, `loteOffset`+`TODOS_FEEDS_EXTRAS` para rotação sustentável, sempre paralelo. | `core/rss.js` — reescrito + PR #55 mergeado em main (commit `6980387`) | 27/05/2026 |
+| 53 | **CORRIGIDO — limite diário 100→500** — PR #55 squash-merge introduziu limite de 100 artigos/dia (era 500). Pipeline parava completamente após poucas horas retornando `limite_diario_atingido`. Fix: `>= 100` → `>= 500`. | `api/run_portal.js` — commit `c66af7c` direto em main | 27/05/2026 |
 
 ---
 
@@ -1143,3 +1146,56 @@ Cada trigger faz 2 rodadas (Rodada 1 e Rodada 2) com `count:8` cada.
 3. **Se `skipped ≈ 300`** → banco saturado com hashes, pipeline saudável mas conteúdo esgotado — normal
 4. **Se artigos ainda não chegam** → investigar `statsNoText` (scrape falhando) ou `statsInvalid` (validação)
 5. **NUNCA mais pedir chave OpenAI** — está na seção 16 e hardcoded no código
+
+---
+
+### Sessão 27/05/2026 — CONTINUAÇÃO — BUG #52 + #53 + LIMITE DIÁRIO
+
+> ⚠️ Pipeline AINDA sem artigos após Bug #51 ter sido corrigido. Roberto extremamente frustrado.
+
+#### Causa raiz identificada: dev branch com 3 bugs no rss.js (Bug #52)
+
+O branch `claude/friendly-carson-N3sgs` tinha uma versão de `core/rss.js` muito mais antiga que main, com 3 bugs críticos:
+
+1. **`buscarFeedsEspecificos` cap em 12** — função buscava no máximo 12 feeds por chamada. Com centenas de feeds disponíveis, só 12 eram consultados = muito pouco conteúdo novo.
+
+2. **Pool `getNews()` saturado** — usava `slice` de 10 aleatórios do Supabase + 10 garantidos = apenas 20 feeds por rodada. Após horas de execução, TODOS os 20 feeds já tinham hashes no banco = `candidates=0` = zero artigos.
+
+3. **`catForcada` nunca chamava `getNews()` em paralelo** — quando uma categoria era forçada, se `getNewsByCategoria()` retornava qualquer coisa, `getNews()` era PULADA completamente. Menos conteúdo = mais chances de 0 candidatos.
+
+**Fix aplicado:**
+- `buscarFeedsEmParalelo()` sem qualquer cap
+- `loteOffset(pool, 100)` — rotação por slot de 5min sobre todos os 1000+ feeds
+- `TODOS_FEEDS_EXTRAS` — pool de 280+ feeds hardcoded de todos os grupos
+- Sempre `Promise.all([getNewsByCategoria(), getNews()])` independente de catForcada
+- PR #55 squash-mergeado em main (commit `6980387`)
+
+#### Bug #53 — Limite diário 100 introduzido pelo merge do PR #55
+
+O squash-merge do PR #55 introduziu `>= 100` como limite diário (era 500 no main original). Pipeline parava completamente após ~35 chamadas de `count:3` (105 artigos). **Corrigido direto em main** (commit `c66af7c`):
+- `100 → 500` no check
+- Resposta `no_valid_news` expandida com `catAlvo, prio, gen, candidates, news_total`
+
+#### Commits desta sessão (continuação 27/05)
+
+| Commit | Branch | Descrição |
+|---|---|---|
+| `6980387` | main | PR #55 squash-merge — rss.js reescrito + catForcada paralelo |
+| `c66af7c` | main | **Bug #53 FIX** — limite 100→500 + diagnóstico no_valid_news expandido |
+
+#### Status ao final desta sessão
+
+| Item | Status |
+|---|---|
+| Bug #52 (rss.js 3 bugs) | ✅ CORRIGIDO — commit `6980387` em main |
+| Bug #53 (limite 100/dia) | ✅ CORRIGIDO — commit `c66af7c` em main |
+| Diagnóstico `no_valid_news` | ✅ EXPANDIDO — catAlvo, prio, gen, candidates, news_total |
+| Deploy Vercel | ✅ Ativo — building após commit `c66af7c` |
+| Artigos chegando no admin | ❓ A confirmar — aguardando próxima rodada do cron |
+
+#### O que a próxima sessão deve verificar PRIMEIRO
+
+1. **Verificar admin > Postagens > filtro 'pendente'** — se apareceram artigos após `c66af7c` deployar
+2. **Se ainda zero artigos** — verificar resposta `no_valid_news`: campo `gen` = 0 → rss.js não busca feeds; `candidates` = 0 → tudo hash-dedup; `prio` e `gen` > 0 mas zero artigos → scrape+OpenAI falhando
+3. **NUNCA pedir chave OpenAI** — seção 16 + hardcoded no código
+4. **NUNCA mudar limite diário abaixo de 500** — foi esse limite em 100 que parou o pipeline hoje
