@@ -558,12 +558,16 @@ export async function getNewsByCategoria(categoria) {
 export async function getNews() {
   try {
     const fontesSupabase = await carregarFontesSupabase();
-    const urlsCustom = new Set(fontesSupabase.map(f => f.url));
-    const extras = FEEDS_DIRETOS_GARANTIDOS.filter(f => !urlsCustom.has(f.url));
-    const pool = [...fontesSupabase, ...extras];
+    const urlsGarantidos = new Set(FEEDS_DIRETOS_GARANTIDOS.map(f => f.url));
 
-    // Lote rotativo de 120 feeds — cobre todos os 1000+ ao longo do dia
-    const feedsParaUsar = loteOffset(pool, 120);
+    // Lote rotativo dos feeds Supabase (excluindo os garantidos que já entram sempre)
+    const feedsSupabaseExtras = fontesSupabase.filter(f => !urlsGarantidos.has(f.url));
+    const lote = loteOffset(feedsSupabaseExtras, 100);
+
+    // Garantidos SEMPRE incluídos + lote rotativo do Supabase
+    const feedsParaUsar = [...FEEDS_DIRETOS_GARANTIDOS, ...lote];
+
+    console.log(`[rss] getNews: ${feedsParaUsar.length} fontes (${FEEDS_DIRETOS_GARANTIDOS.length} garantidos + ${lote.length} Supabase rotativo de ${feedsSupabaseExtras.length})`);
 
     console.log(`[rss] getNews: lote ${feedsParaUsar.length} fontes de ${pool.length} total`);
 
