@@ -547,8 +547,8 @@ export default async function handler(req, res) {
       candidates.push({ item: newsSlice[i], hash: allHashes[i] });
     }
 
-    // Process targetCount*4 candidates in parallel — eliminates sequential 13s×3 bottleneck
-    const batchCandidates = candidates.slice(0, Math.min(targetCount * 4, 16));
+    // Process targetCount*6 candidates in parallel — higher hit rate for count:3 and count:8
+    const batchCandidates = candidates.slice(0, Math.min(targetCount * 6, 48));
 
     const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
