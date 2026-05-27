@@ -521,15 +521,31 @@ export default async function handler(req, res) {
 
     if (!news.length) return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
 
-    const artigos = [];
+    // Pré-computar hashes e verificar existentes em batch (1 query por 100 itens em vez de 1 por item)
+    const newsSlice = news.slice(0, 300);
+    const allHashes = newsSlice.map(item =>
+      crypto.createHash('md5').update(item.link + '_portal').digest('hex')
+    );
+    const existingHashes = new Set();
+    try {
+      for (let i = 0; i < allHashes.length; i += 100) {
+        const chunk = allHashes.slice(i, i + 100);
+        const { data: batch } = await supabase.from('posts').select('hash').in('hash', chunk);
+        (batch || []).forEach(p => existingHashes.add(p.hash));
+      }
+    } catch(_) {}
 
-    for (const item of news.slice(0, 300)) {
+    const artigos = [];
+    let lastError = '';
+    let statsSkipped = 0, statsNoText = 0, statsAiError = 0, statsInvalid = 0, statsCat = 0, statsDedup = 0;
+
+    for (let idx = 0; idx < newsSlice.length; idx++) {
+      const item = newsSlice[idx];
       if (Date.now() - inicio > 55000) break;
       if (artigos.length >= targetCount) break;
 
-      const hash = crypto.createHash('md5').update(item.link + '_portal').digest('hex');
-      const { data: dup } = await supabase.from('posts').select('id').eq('hash', hash).single();
-      if (dup) continue;
+      const hash = allHashes[idx];
+      if (existingHashes.has(hash)) { statsSkipped++; continue; }
 
       const article = await scrape(item.link);
       let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
@@ -537,21 +553,22 @@ export default async function handler(req, res) {
         const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
         if (rssText.length >= 150) sourceText = rssText;
       }
-      if (!sourceText) continue;
+      if (!sourceText) { statsNoText++; continue; }
 
       let content;
-      try { content = await rewritePortal(sourceText, item.title, dynamicContext, false); } catch(e) { continue; }
-      if (!validarConteudo(content)) continue;
+      try { content = await rewritePortal(sourceText, item.title, dynamicContext, false); }
+      catch(e) { lastError = e.message; statsAiError++; continue; }
+      if (!validarConteudo(content)) { statsInvalid++; continue; }
       content.titulo = stripTitle(content.titulo);
 
       if (!content.categoria || content.categoria === 'geral') {
         const catCorrigida = corrigirCategoria(content.titulo, '');
         if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
-        else continue;
+        else { statsCat++; continue; }
       }
 
-      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
-      if (topicoDuplicado(content.titulo, recentTitles)) continue;
+      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) { statsDedup++; continue; }
+      if (topicoDuplicado(content.titulo, recentTitles)) { statsDedup++; continue; }
 
       if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
         const familiaForcada = FAMILIA_CAT[catEfetiva];
@@ -604,7 +621,7 @@ export default async function handler(req, res) {
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
 
-      if (error) continue;
+      if (error) { lastError = error.message; continue; }
       recentTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
@@ -612,7 +629,12 @@ export default async function handler(req, res) {
     if (artigos.length > 0) {
       return res.status(200).json({ status: 'ok', artigos, total: artigos.length, titulo: artigos[0].titulo, categoria: artigos[0].categoria, id: artigos[0].id });
     }
-    return res.status(200).json({ status: 'no_valid_news', ts: Date.now() });
+    return res.status(200).json({
+      status: 'no_valid_news',
+      lastError,
+      stats: { skipped: statsSkipped, noText: statsNoText, aiError: statsAiError, invalid: statsInvalid, cat: statsCat, dedup: statsDedup },
+      ts: Date.now()
+    });
 
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
