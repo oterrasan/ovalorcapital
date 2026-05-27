@@ -480,6 +480,7 @@ function extrairItem(i, sourceName) {
   };
 }
 
+// Busca todos os feeds em paralelo sem limite artificial de slice
 async function buscarFeedsEmParalelo(feeds) {
   const results = await Promise.allSettled(
     feeds.map(source =>
@@ -490,30 +491,20 @@ async function buscarFeedsEmParalelo(feeds) {
         .catch(() => [])
     )
   );
-  const items = results.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
+  const items = results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
   return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
 }
 
-// alias mantido para compatibilidade interna
+// alias mantido para compatibilidade
 const buscarFeedsEspecificos = buscarFeedsEmParalelo;
-const buscarFeedsDiretos = buscarFeedsEmParalelo;
 
-function titulosSimilares(a, b) {
-  const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);
-  const wa = new Set(norm(a));
-  const wb = new Set(norm(b));
-  if (wa.size === 0 || wb.size === 0) return false;
-  const intersect = [...wa].filter(w => wb.has(w)).length;
-  const union = new Set([...wa, ...wb]).size;
-  return (intersect / union) >= 0.45;
-}
-
-function dedupPorTitulo(items) {
-  const unicos = [];
-  for (const item of items) {
-    if (!unicos.some(u => titulosSimilares(u.title, item.title))) unicos.push(item);
-  }
-  return unicos;
+// Rotação por janela de 5 min — garante que todos os feeds sejam visitados ao longo do dia
+function loteOffset(pool, loteSize) {
+  if (pool.length === 0) return [];
+  const slot = Math.floor(Date.now() / (5 * 60 * 1000));
+  const total = Math.ceil(pool.length / loteSize);
+  const start = (slot % total) * loteSize;
+  return pool.slice(start, start + loteSize);
 }
 
 async function carregarFontesSupabase() {
@@ -523,12 +514,10 @@ async function carregarFontesSupabase() {
       .select('url,name,active,categoria')
       .limit(2000);
     return (data || []).filter(s => s.active !== false);
-  } catch (_) {
-    return [];
-  }
+  } catch (_) { return []; }
 }
 
-// Mapeamento portal categoria → nomes de categoria no Lote 2 (rss_sources.categoria)
+// Mapeamento portal categoria → nomes de categoria Lote 2 (rss_sources.categoria)
 const LOTE2_POR_CATEGORIA = {
   politica:      ['Polêmicas Brasil','Transparência e Espionagem'],
   economia:      ['Portais Financeiros','Bancos Brasil','Combustíveis Brasil','Varejo Brasil'],
@@ -560,21 +549,11 @@ const LOTE2_POR_CATEGORIA = {
   radar:         ['Esportes','Federações Esportivas','Música'],
 };
 
-// Rotação por janela de tempo: cada rodada de 5min usa lote diferente de feeds
-// Garante que todos os 1000+ feeds sejam varridos ao longo do dia
-function loteOffset(pool, loteSize) {
-  const slot = Math.floor(Date.now() / (5 * 60 * 1000)); // muda a cada 5 min
-  const total = Math.ceil(pool.length / loteSize);
-  const start = (slot % total) * loteSize;
-  return pool.slice(start, start + loteSize);
-}
-
 export async function getNewsByCategoria(categoria) {
   try {
     const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
     const feedsHardcoded = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
 
-    // Fontes do Supabase filtradas pelas categorias Lote2 relevantes para esta categoria
     const categoriasLote2 = LOTE2_POR_CATEGORIA[categoria] || [];
     const fontesSupabase = await carregarFontesSupabase();
     const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
@@ -583,37 +562,71 @@ export async function getNewsByCategoria(categoria) {
       ? fontesSupabase.filter(f => !urlsHardcoded.has(f.url) && categoriasLote2.includes(f.categoria))
       : fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
 
-    // Se poucos feeds específicos, complementar com lote rotativo geral
     if (fontesFiltradas.length < 20) {
-      const extras = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
-      fontesFiltradas = [...fontesFiltradas, ...loteOffset(extras, 60)];
+      const extrasSupabase = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
+      const poolFallback = extrasSupabase.length >= 20
+        ? extrasSupabase
+        : TODOS_FEEDS_EXTRAS.filter(f => !urlsHardcoded.has(f.url));
+      fontesFiltradas = [...fontesFiltradas, ...loteOffset(poolFallback, 60)];
     }
 
     const feedsParaUsar = [...feedsHardcoded, ...fontesFiltradas].slice(0, 120);
-    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${fontesFiltradas.length} Supabase por categoria)`);
+    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes`);
     return await buscarFeedsEmParalelo(feedsParaUsar);
   } catch (_) { return []; }
 }
 
+function titulosSimilares(a, b) {
+  const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);
+  const wa = new Set(norm(a));
+  const wb = new Set(norm(b));
+  if (wa.size === 0 || wb.size === 0) return false;
+  const intersect = [...wa].filter(w => wb.has(w)).length;
+  const union = new Set([...wa, ...wb]).size;
+  return (intersect / union) >= 0.45;
+}
+
+function dedupPorTitulo(items) {
+  const unicos = [];
+  for (const item of items) {
+    if (!unicos.some(u => titulosSimilares(u.title, item.title))) unicos.push(item);
+  }
+  return unicos;
+}
+
+// alias mantido para compatibilidade interna
+const buscarFeedsDiretos = buscarFeedsEmParalelo;
+
+// Todos os feeds hardcoded de todos os grupos, excluindo os garantidos (sem duplicatas)
+// Usado como pool de rotação quando Supabase tem poucas fontes ativas
+const _urlsGarantidas = new Set(FEEDS_DIRETOS_GARANTIDOS.map(f => f.url));
+const TODOS_FEEDS_EXTRAS = (() => {
+  const vistos = new Set(_urlsGarantidas);
+  const lista = [];
+  for (const feeds of Object.values(FEEDS_POR_GRUPO)) {
+    for (const f of feeds) {
+      if (!vistos.has(f.url)) { vistos.add(f.url); lista.push(f); }
+    }
+  }
+  return lista;
+})();
+
 export async function getNews() {
   try {
     const fontesSupabase = await carregarFontesSupabase();
-    const urlsGarantidos = new Set(FEEDS_DIRETOS_GARANTIDOS.map(f => f.url));
 
-    // Lote rotativo dos feeds Supabase (excluindo os garantidos que já entram sempre)
-    const feedsSupabaseExtras = fontesSupabase.filter(f => !urlsGarantidos.has(f.url));
-    const lote = loteOffset(feedsSupabaseExtras, 100);
+    // Pool para rotação: Supabase quando tem volume, senão todos os feeds hardcoded
+    const feedsSupabaseExtras = fontesSupabase.filter(f => !_urlsGarantidas.has(f.url));
+    const poolExtra = feedsSupabaseExtras.length >= 30 ? feedsSupabaseExtras : TODOS_FEEDS_EXTRAS;
+    const lote = loteOffset(poolExtra, 100);
 
-    // Garantidos SEMPRE incluídos + lote rotativo do Supabase
     const feedsParaUsar = [...FEEDS_DIRETOS_GARANTIDOS, ...lote];
-
-    console.log(`[rss] getNews: ${feedsParaUsar.length} fontes (${FEEDS_DIRETOS_GARANTIDOS.length} garantidos + ${lote.length} Supabase rotativo de ${feedsSupabaseExtras.length})`);
+    console.log(`[rss] getNews: ${feedsParaUsar.length} fontes (20 garantidos + ${lote.length} de pool=${poolExtra.length})`);
 
     let allItems = await buscarFeedsEmParalelo(feedsParaUsar);
     console.log('[rss] total itens:', allItems.length);
 
     if (allItems.length === 0) {
-      console.log('[rss] fallback para feeds garantidos');
       allItems = await buscarFeedsEmParalelo(FEEDS_DIRETOS_GARANTIDOS);
     }
 

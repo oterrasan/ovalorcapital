@@ -137,39 +137,23 @@ const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '')
 
 // ── LOGIN ──
 function Login({ onLogin }) {
-  const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState(false);
-  const submit = async () => {
-    if (!pass) { setErr('Preencha a senha'); return; }
-    if (pass === ADMIN_PASS) { onLogin(); return; }
-    if (!email) { setErr('Credenciais inválidas'); return; }
-    setLoading(true); setErr('');
-    try {
-      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'admin_login', email, senha:pass}) });
-      const d = await r.json();
-      if (d.ok) { onLogin(); }
-      else setErr(d.error || 'Credenciais inválidas');
-    } catch(e) { setErr('Erro de conexão'); }
-    setLoading(false);
+  const submit = () => {
+    if (pass === ADMIN_PASS) { onLogin(); }
+    else setErr('Senha incorreta');
   };
-  const onKey = e => e.key === 'Enter' && submit();
   return (
     <div className="login-wrap">
       <div className="login-box">
         <div className="login-logo"><span className="ovc">O <span className="accent">VALOR</span> CAP.</span></div>
         <div className="login-tag">Centro de Comando</div>
         <div className="form-group">
-          <label className="login-label">E-mail</label>
-          <input className="login-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey} placeholder="seu@email.com"/>
-        </div>
-        <div className="form-group" style={{marginTop:12}}>
           <label className="login-label">Senha</label>
-          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={onKey} autoFocus placeholder="••••••"/>
+          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/>
         </div>
-        {err && <div style={{color:'#f87171',fontSize:12,marginTop:6}}>{err}</div>}
-        <button className="login-btn" onClick={submit} disabled={loading}>{loading?'Entrando...':'Entrar'}</button>
+        {err && <div style={{color:'#f87171',fontSize:12,marginTop:4}}>{err}</div>}
+        <button className="login-btn" onClick={submit}>Entrar</button>
       </div>
     </div>
   );
@@ -235,7 +219,7 @@ function Dashboard() {
 
   return (
     <div>
-      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16,paddingRight:180}}>
+      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16}}>
         <div>
           <div className="page-title">Centro de Comando OVC</div>
           <div className="page-sub">Painel em tempo real — {new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'long',day:'numeric',month:'long'})}</div>
@@ -492,21 +476,6 @@ function Pipeline() {
     load();
   };
 
-  const runTipo = async (tipo, label) => {
-    setForcing(true); setLastResult('⏳ Gerando ' + label + '... aguarde até 60 segundos.');
-    try {
-      const r = await fetch('/api/run_portal',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({force:true, count:1, tipo})
-      });
-      const j = await r.json();
-      setLastResult(JSON.stringify(j,null,2));
-      load();
-    } catch(e){setLastResult('Erro: '+e.message);}
-    setForcing(false);
-  };
-
   const CATS_DISPONIVEIS = [
     {id:'politica',label:'🧠 Política'},
     {id:'economia',label:'💰 Economia'},
@@ -603,9 +572,6 @@ function Pipeline() {
               <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing||batchRunning}>{forcing?'Executando...':'▶ Gerar 3 agora'}</button>
               <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={runBatch} disabled={forcing||batchRunning}>{batchRunning?'⏳ Gerando em lote...':'🚀 Gerar para TODAS as categorias'}</button>
               <button onClick={limparArtigosCorrompidos} style={{background:'#1a1a2e',color:'#e94560',border:'1px solid #e94560',padding:'4px 14px',borderRadius:4,cursor:'pointer',fontSize:12,fontWeight:700}}>🧹 Limpar Artigos Corrompidos</button>
-              <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer',opacity:(forcing||batchRunning)?0.6:1}} onClick={()=>runTipo('coluna','coluna')} disabled={forcing||batchRunning}>{(forcing||batchRunning)?'⏳...':'✍ Coluna'}</button>
-              <button style={{background:'#0891b2',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer',opacity:(forcing||batchRunning)?0.6:1}} onClick={()=>runTipo('pilula','pílula')} disabled={forcing||batchRunning}>{(forcing||batchRunning)?'⏳...':'💊 Pílula'}</button>
-              <button style={{background:'#059669',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer',opacity:(forcing||batchRunning)?0.6:1}} onClick={()=>runTipo('micro_pilula','micro-pílula')} disabled={forcing||batchRunning}>{(forcing||batchRunning)?'⏳...':'⚡ Micro-Pílula'}</button>
             </div>
           </div>
           <div style={{padding:'20px'}}>
@@ -1184,15 +1150,6 @@ function Postagens() {
                   {f==='all'?'Todos':f}
                 </button>
               ))}
-              <button className="btn btn-sm" style={{background:'#16a34a',color:'#fff',fontWeight:700}} onClick={async()=>{
-                if(!window.confirm('Aprovar TODOS os artigos pendentes e publicar no portal agora?\n\nEsta ação não pode ser desfeita.')) return;
-                try{
-                  const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS},body:JSON.stringify({action:'aprovar_todos_pendentes'})});
-                  const d = await r.json();
-                  if(d.ok){ alert('✅ ' + d.aprovados + ' artigos publicados com sucesso!'); load(); }
-                  else alert('Erro: ' + (d.error||'desconhecido'));
-                }catch(e){alert('Erro: '+e.message);}
-              }}>✅ Publicar todos pendentes</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setFiltrosAbertos(x=>!x)}>🔍 Filtros {filtrosAbertos?'▲':'▼'}</button>
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>
@@ -1908,158 +1865,6 @@ function Configuracoes() {
             <div style={{color:'var(--t2)',fontSize:13}}>⚙️ O controle de automação está no módulo <strong>Pipeline</strong>. Use o toggle de lá para ligar ou desligar.</div>
           </div>
         </div>
-        <MigracaoConclusaoOVC/>
-        <FixParagrafos/>
-        <VarreduraImagens/>
-      </div>
-    </div>
-  );
-}
-
-function FixParagrafos() {
-  const [status, setStatus] = useState('idle');
-  const [log, setLog] = useState([]);
-  const [totalAtualizado, setTotalAtualizado] = useState(0);
-
-  const rodar = async () => {
-    if (!window.confirm('Quebrar todos os parágrafos gigantes (>350 chars) em todos os posts publicados e pendentes?\n\nEsta operação pode demorar alguns minutos.')) return;
-    setStatus('running'); setLog([]); setTotalAtualizado(0);
-    let offset = 0, total = 0, soma = 0;
-    while (true) {
-      try {
-        const r = await fetch('/api/manage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS },
-          body: JSON.stringify({ action: 'fix_paragrafos', offset })
-        });
-        const d = await r.json();
-        if (d.error) { setLog(l => [...l, `❌ Erro: ${d.error}`]); break; }
-        soma += (d.atualizados || 0);
-        total = d.total || total;
-        setTotalAtualizado(soma);
-        const processados = offset + (d.processados || 0);
-        setLog(l => [...l, `✔ ${processados}/${total} verificados — ${soma} corrigidos`]);
-        if (d.status === 'done' || !d.nextOffset) break;
-        offset = d.nextOffset;
-      } catch(e) { setLog(l => [...l, `❌ ${e.message}`]); break; }
-    }
-    setStatus('done');
-  };
-
-  return (
-    <div className="panel">
-      <div className="panel-header"><span className="panel-title">📐 Corrigir Blocos de Texto</span></div>
-      <div style={{padding:20}}>
-        <div style={{marginBottom:10,fontSize:13,color:'var(--t2)'}}>
-          Quebra automaticamente parágrafos com mais de <strong>350 caracteres</strong> em grupos de até 3 sentenças — aplica em <strong>todos os posts publicados e pendentes</strong>.
-        </div>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={rodar}
-          disabled={status==='running'}
-          style={{background:'#0f766e'}}
-        >
-          {status==='running' ? '⏳ Processando...' : '📐 Corrigir blocos gigantes agora'}
-        </button>
-        {log.length > 0 && (
-          <div style={{marginTop:12,maxHeight:120,overflowY:'auto',fontSize:12,background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',color:'var(--t2)'}}>
-            {log.map((l,i)=><div key={i}>{l}</div>)}
-          </div>
-        )}
-        {status==='done' && (
-          <div style={{marginTop:10,fontSize:13,padding:'10px 14px',borderRadius:8,background:'rgba(16,185,129,0.12)',color:'#34d399'}}>
-            ✅ Concluído — <strong>{totalAtualizado}</strong> post(s) com parágrafos corrigidos
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function VarreduraImagens(){
-  const [status,setStatus]=React.useState('idle');
-  const [total,setTotal]=React.useState(0);
-  const [checked,setChecked]=React.useState(0);
-  const [log,setLog]=React.useState([]);
-  async function rodar(){
-    setStatus('running');setLog([]);setTotal(0);setChecked(0);
-    let offset=0,totalFlag=0,totalCheck=0;
-    while(true){
-      try{
-        const r=await fetch('/api/manage?action=audit_images&offset='+offset+'&batch=4',{headers:{'x-admin-password':ADMIN_PASS}});
-        const d=await r.json();
-        if(!d.ok){setLog(l=>[...l,'Erro: '+(d.error||'desconhecido')]);break;}
-        totalCheck+=d.processed||0;
-        totalFlag+=d.unpublished||0;
-        setChecked(totalCheck);setTotal(totalFlag);
-        const flagged=(d.results||[]).filter(r=>r.status==='despublicado');
-        if(flagged.length>0) setLog(l=>[...l,...flagged.map(f=>'\u26a0\ufe0f '+f.titulo+' ['+f.motivo+']')]);
-        if(d.done)break;
-        offset+=(d.processed||4);
-      }catch(e){setLog(l=>[...l,'Erro: '+e.message]);break;}
-    }
-    setStatus('done');
-  }
-  return(
-    <div className="panel">
-      <div className="panel-header"><span className="panel-title">\uD83D\uDDBC\uFE0F Varredura de Imagens Ruins</span></div>
-      <div style={{padding:20}}>
-        <div style={{marginBottom:10,fontSize:13,color:'var(--t2)'}}>
-          Escaneia <strong>todos os artigos publicados</strong> — detecta \u00edcones do Google News, gr\u00e1ficos de bolsa, templos asi\u00e1ticos, ilustra\u00e7\u00f5es e logos. Artigos com imagens ruins voltam para <strong>Pendentes</strong>.
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={rodar} disabled={status==='running'} style={{background:'#dc2626'}}>
-          {status==='running'?'\u23F3 Verificando... ('+checked+' analisados, '+total+' flagados)':'\uD83D\uDD0D Varrer imagens ruins agora'}
-        </button>
-        {log.length>0&&(
-          <div style={{marginTop:12,maxHeight:160,overflowY:'auto',fontSize:12,background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'8px 12px',fontFamily:'monospace',color:'var(--t2)'}}>
-            {log.map((l,i)=><div key={i}>{l}</div>)}
-          </div>
-        )}
-        {status==='done'&&(
-          <div style={{marginTop:10,fontSize:13,padding:'10px 14px',borderRadius:8,background:'rgba(220,38,38,0.1)',color:'#f87171'}}>
-            \u2705 Varredura conclu\u00edda \u2014 <strong>{checked}</strong> verificados, <strong>{total}</strong> movidos para pendentes
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MigracaoConclusaoOVC() {
-  const [status, setStatus] = useState('idle');
-  const [resultado, setResultado] = useState(null);
-  const rodar = async () => {
-    if (!window.confirm('Substituir "Interpretação Estratégica" por "Conclusão OVC" em TODOS os posts publicados e pendentes?')) return;
-    setStatus('running'); setResultado(null);
-    try {
-      const r = await fetch('/api/manage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS },
-        body: JSON.stringify({ action: 'fix_conclusao_ovc' })
-      });
-      const d = await r.json();
-      setResultado(d);
-    } catch(e) { setResultado({ error: e.message }); }
-    setStatus('idle');
-  };
-  return (
-    <div className="panel">
-      <div className="panel-header"><span className="panel-title">🔧 Manutenção de Conteúdo</span></div>
-      <div style={{padding:20}}>
-        <div style={{marginBottom:10,fontSize:13,color:'var(--t2)'}}>Substitui <strong>"Interpretação Estratégica"</strong> por <strong>"Conclusão OVC"</strong> em todos os posts (publicados e pendentes).</div>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={rodar}
-          disabled={status==='running'}
-          style={{background:'#7c3aed'}}
-        >
-          {status==='running' ? '⏳ Rodando migração...' : '🔄 Rodar migração Conclusão OVC'}
-        </button>
-        {resultado && (
-          <div style={{marginTop:12, fontSize:13, padding:'10px 14px', borderRadius:8, background: resultado.error ? 'rgba(220,38,38,0.12)' : 'rgba(16,185,129,0.12)', color: resultado.error ? '#f87171' : '#34d399'}}>
-            {resultado.error ? `❌ Erro: ${resultado.error}` : `✅ Concluído — ${resultado.atualizados} post(s) atualizado(s) de ${resultado.verificados||'?'} verificados`}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2435,339 +2240,372 @@ function Galeria(){
   );
 }
 
-// ── COLUNISTAS — PERFIS NETFLIX ──
+// ── COLUNISTAS ──
 const COLUNISTAS_PERFIS = [
-  {nome:'Roberto Terrasan',tag:'Fundador & Editor',grad:['#b71c1c','#880e4f'],foto:'',bio:'Visceral, feroz, incansável na busca pela verdade. Patriota convicto.'},
-  {nome:'Beta Ferreira',tag:'Análise Política',grad:['#1a237e','#4a148c'],foto:'',bio:'Intelectual, elegante, provocativa. Conservadora de alto nível.'},
-  {nome:'Adriana Ferreira',tag:'Investigação',grad:['#1b5e20','#004d40'],foto:'',bio:'Apuratória, rigorosa. Escreve com sofisticação jornalística.'},
-  {nome:'Michele Froiz',tag:'Comportamento',grad:['#e65100','#bf360c'],foto:'',bio:'Leve, comunicativa. Conecta política e cotidiano com naturalidade.'},
-  {nome:'Coluna OVC',tag:'Editorial OVC',grad:['#212121','#37474f'],foto:'',bio:'Voz institucional do portal: segura, autoritativa, comprometida.'},
-  {nome:'Prof. Marcos Pizzolatto',tag:'Filosofia & Política',grad:['#4a148c','#1a237e'],foto:'',bio:'Filosófico, socrático. Cada coluna é uma aula de pensamento crítico.'},
-  {nome:'Gabriel Thiede',tag:'Finanças Pessoais',grad:['#006064','#01579b'],foto:'',bio:'Didático, prático. Ensina decisões financeiras melhores.'},
-  {nome:'Fabiana Campos',tag:'Jornalismo Clássico',grad:['#880e4f','#ad1457'],foto:'',bio:'Factual, objetiva, rigorosa. Sem opinião gratuita.'},
-  {nome:'Larissa Corvetto',tag:'Crítica Política',grad:['#bf360c','#e65100'],foto:'',bio:'Incisiva, cirúrgica. Desmonta narrativas progressistas com dados.'},
-  {nome:'Taísa da Fonseca',tag:'Empreendedorismo',grad:['#4a148c','#880e4f'],foto:'',bio:'Inspiradora, empreendedora. Independência financeira com elegância.'},
-  {nome:'André Oliveira',tag:'Grande Reportagem',grad:['#1b5e20','#33691e'],foto:'',bio:'Experiente, equilibrado. Maturidade de décadas de redação.'},
+  { nome:'Roberto Terrasan',    tag:'Fundador & Editor',          grad:['#7f0000','#c81e1e'],   foto:'',
+    bio:'Visceral, feroz, incorruptível. Patriota, família, conservador, direita.' },
+  { nome:'Beta Ferreira',       tag:'Colunista Internacional',    grad:['#4a148c','#7b1fa2'],   foto:'',
+    bio:'Intelectual, elegante, provocativa. Nível dos maiores jornais globais.' },
+  { nome:'Adriana Ferreira',    tag:'Colunista Investigativa',    grad:['#0d47a1','#1565c0'],   foto:'',
+    bio:'Intelectual, elegante, investigativa. Conservadora de alto nível.' },
+  { nome:'Michele Froiz',       tag:'Colunista Comportamento',    grad:['#004d40','#00695c'],   foto:'',
+    bio:'Leve, sutil, fala a língua da galera sem perder substância.' },
+  { nome:'Coluna OVC',          tag:'Voz Institucional',          grad:['#263238','#455a64'],   foto:'',
+    bio:'Padrão editorial OVC estilo coluna. Conservador, analítico, factual.' },
+  { nome:'Prof. Marcos Pizzolatto', tag:'Filosofia & Política',   grad:['#1a237e','#283593'],   foto:'',
+    bio:'Filosófico, socrático. Desmonta progressismo com rigor intelectual.' },
+  { nome:'Gabriel Thiede',      tag:'Finanças Pessoais',          grad:['#1b5e20','#2e7d32'],   foto:'',
+    bio:'Didático, acessível, prático. Ensina o leitor a construir patrimônio.' },
+  { nome:'Fabiana Campos',      tag:'Jornalismo Factual',         grad:['#e65100','#ef6c00'],   foto:'',
+    bio:'Jornalística clássica: factual, objetiva, conservadora, rigor apuratório.' },
+  { nome:'Larissa Corvetto',    tag:'Crítica Política',           grad:['#880e4f','#ad1457'],   foto:'',
+    bio:'Incisiva, cirúrgica na crítica política. Desmonta narrativas com dados.' },
+  { nome:'Taísa da Fonseca',    tag:'Empreendedorismo & Moda',    grad:['#6a1b9a','#8e24aa'],   foto:'',
+    bio:'Inspiradora, feminina, empreendedora. Independência com elegância.' },
+  { nome:'André Oliveira',      tag:'Jornalismo Geral',           grad:['#37474f','#546e7a'],   foto:'',
+    bio:'Experiente, equilibrado, jornalista de carreira. Temas amplos.' },
 ];
 
-const COLUNISTAS_LISTA = COLUNISTAS_PERFIS.map(c=>c.nome);
+function ColunistasAdmin({ setPage }){
+  const [dbList, setDbList] = React.useState([]);
+  const [hover, setHover] = React.useState(null);
+  const [showModal, setShowModal] = React.useState(null);
+  const [form, setForm] = React.useState({nome:'',email:'',senha:''});
+  const [criando, setCriando] = React.useState(false);
+  const [msg, setMsg] = React.useState('');
+  const [showFotoModal, setShowFotoModal] = React.useState(null);
+  const [fotoUrl, setFotoUrl] = React.useState('');
+  const [selectedCard, setSelectedCard] = React.useState(null);
+  const [cardPosts, setCardPosts] = React.useState([]);
+  const [loadingPosts, setLoadingPosts] = React.useState(false);
 
-function CardColunista({c, profile, isSel, onClick}){
-  const g0=c.grad[0], g1=c.grad[1];
-  const bgGrad='linear-gradient(135deg,'+g0+','+g1+')';
-  const border=isSel?'3px solid rgba(255,255,255,0.9)':'3px solid transparent';
-  const shadow=isSel?('0 0 0 2px '+g0+',0 8px 32px rgba(0,0,0,0.5)'):'0 2px 12px rgba(0,0,0,0.35)';
-  const initials=c.nome.split(' ').slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
-  const foto=profile.foto||c.foto||'';
-  return(
-    <div onClick={onClick} style={{position:'relative',cursor:'pointer',flexShrink:0,width:180,height:220,borderRadius:12,overflow:'hidden',background:bgGrad,border:border,boxShadow:shadow,transition:'all .2s',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',padding:12}}>
-      {foto?<img src={foto} alt={c.nome} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'cover',opacity:0.75}} onError={function(e){e.target.style.display='none';}}/>:<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-65%)',fontSize:52,fontWeight:900,color:'rgba(255,255,255,0.2)',fontFamily:'serif',userSelect:'none'}}>{initials}</div>}
-      <div style={{position:'relative',zIndex:2,textAlign:'center',width:'100%'}}>
-        <div style={{fontSize:12,fontWeight:700,color:'#fff',textShadow:'0 1px 6px rgba(0,0,0,0.9)',lineHeight:1.3,marginBottom:2}}>{c.nome}</div>
-        <div style={{fontSize:10,color:'rgba(255,255,255,0.85)',fontWeight:500,textShadow:'0 1px 3px rgba(0,0,0,0.8)'}}>{profile.tag||c.tag}</div>
-      </div>
-    </div>
-  );
-}
+  React.useEffect(()=>{
+    fetch('/api/manage?action=list_colunistas')
+      .then(r=>r.json())
+      .then(d=>{ if(d.ok) setDbList(d.colunistas||[]); })
+      .catch(()=>{});
+  },[]);
 
-function EditPanelColunista({c, editForm, setEditForm, cardPosts, loadingPosts, onSave, onGerar, onClose, onAprovar, onRejeitar}){
-  const g0=c.grad[0], g1=c.grad[1];
-  const bgAvatar='linear-gradient(135deg,'+g0+','+g1+')';
-  const dotColor=g0;
-  const initials=c.nome.split(' ').slice(0,2).map(function(w){return w[0];}).join('');
-  return(
-    <div style={{background:'rgba(255,255,255,0.04)',borderRadius:12,padding:20,marginBottom:20,border:'1px solid rgba(255,255,255,0.09)'}}>
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-        <div style={{width:8,height:8,borderRadius:'50%',background:dotColor,flexShrink:0}}></div>
-        <span style={{fontWeight:700,fontSize:15}}>{c.nome}</span>
-        <div style={{marginLeft:'auto',display:'flex',gap:8}}>
-          <button className="btn btn-primary" style={{fontSize:11,padding:'5px 12px'}} onClick={onGerar}>✒️ Gerar Coluna</button>
-          <button className="btn" style={{fontSize:11,padding:'5px 10px'}} onClick={onClose}>✕</button>
-        </div>
-      </div>
-      <div style={{display:'flex',gap:20,flexWrap:'wrap',marginBottom:16}}>
-        <div style={{flexShrink:0}}>
-          {editForm.foto?<img src={editForm.foto} alt="" style={{width:76,height:76,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,255,255,0.2)',display:'block'}} onError={function(e){e.target.style.display='none';}}/>:<div style={{width:76,height:76,borderRadius:'50%',background:bgAvatar,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:700,color:'rgba(255,255,255,0.5)'}}>{initials}</div>}
-        </div>
-        <div style={{flex:'1 1 260px',display:'flex',flexDirection:'column',gap:10}}>
-          <div>
-            <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>URL da Foto</label>
-            <input className="form-input" style={{width:'100%',fontSize:12}} placeholder="https://..." value={editForm.foto} onChange={function(e){setEditForm(function(f){return Object.assign({},f,{foto:e.target.value});});}}/>
-          </div>
-          <div>
-            <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Tag / Cargo</label>
-            <input className="form-input" style={{width:'100%',fontSize:12}} placeholder="ex: Fundador & Editor" value={editForm.tag} onChange={function(e){setEditForm(function(f){return Object.assign({},f,{tag:e.target.value});});}}/>
-          </div>
-          <div>
-            <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Bio</label>
-            <textarea className="form-input" rows={2} style={{width:'100%',fontSize:12,resize:'vertical'}} placeholder="Bio curta..." value={editForm.bio} onChange={function(e){setEditForm(function(f){return Object.assign({},f,{bio:e.target.value});});}}/>
-          </div>
-          <button className="btn btn-primary" style={{alignSelf:'flex-start',padding:'7px 18px',fontSize:12}} onClick={onSave}>💾 Salvar Perfil</button>
-        </div>
-      </div>
-      <div style={{borderTop:'1px solid rgba(255,255,255,0.07)',paddingTop:14}}>
-        <div style={{fontSize:12,fontWeight:600,color:'var(--t2)',marginBottom:8}}>Posts de {c.nome}</div>
-        {loadingPosts?<div style={{color:'var(--t2)',fontSize:13}}>Carregando...</div>:
-        cardPosts.length===0?<div style={{color:'var(--t3)',fontSize:13}}>Nenhum post ainda. Use "✒️ Gerar Coluna" para criar o primeiro.</div>:
-        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-          <thead><tr>
-            <th style={{padding:'6px 10px',textAlign:'left',color:'var(--t2)',fontWeight:600,borderBottom:'1px solid rgba(255,255,255,0.07)'}}>Título</th>
-            <th style={{padding:'6px 10px',textAlign:'left',color:'var(--t2)',fontWeight:600,borderBottom:'1px solid rgba(255,255,255,0.07)',width:85}}>Status</th>
-            <th style={{padding:'6px 10px',textAlign:'left',color:'var(--t2)',fontWeight:600,borderBottom:'1px solid rgba(255,255,255,0.07)',width:90}}>Data</th>
-            <th style={{padding:'6px 10px',textAlign:'left',color:'var(--t2)',fontWeight:600,borderBottom:'1px solid rgba(255,255,255,0.07)',width:90}}>Ações</th>
-          </tr></thead>
-          <tbody>
-            {cardPosts.map(function(p){
-              const stBg=p.status==='publicado'?'rgba(22,163,74,0.15)':p.status==='pendente'?'rgba(230,81,0,0.15)':'rgba(200,30,30,0.15)';
-              const stCol=p.status==='publicado'?'#4ade80':p.status==='pendente'?'#fb923c':'#f87171';
-              return(
-                <tr key={p.id} style={{borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
-                  <td style={{padding:'7px 10px',color:'var(--t1)'}}>{p.titulo||'—'}</td>
-                  <td style={{padding:'7px 10px'}}><span style={{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:10,fontWeight:600,background:stBg,color:stCol}}>{p.status}</span></td>
-                  <td style={{padding:'7px 10px',color:'var(--t2)',fontSize:11}}>{p.created_at?new Date(p.created_at).toLocaleDateString('pt-BR'):'-'}</td>
-                  <td style={{padding:'7px 10px'}}>
-                    <div style={{display:'flex',gap:5}}>
-                      {p.status!=='publicado'&&<button className="btn btn-primary" style={{fontSize:10,padding:'3px 8px'}} onClick={function(){onAprovar(p.id);}}>✅</button>}
-                      <button className="btn" style={{fontSize:10,padding:'3px 8px',color:'#f87171',border:'1px solid rgba(248,113,113,0.25)'}} onClick={function(){onRejeitar(p.id);}}>🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>}
-      </div>
-    </div>
-  );
-}
+  const getDbEntry = nome => dbList.find(d=>d.nome===nome);
 
-function ColunistasAdmin({setPage}){
-  const [profiles,setProfiles]=useState(function(){
-    var p={};
-    COLUNISTAS_PERFIS.forEach(function(c){
-      try{ var s=JSON.parse(localStorage.getItem('ovc_p_'+c.nome)||'null'); p[c.nome]=s||{foto:c.foto,bio:c.bio,tag:c.tag}; }
-      catch(_){ p[c.nome]={foto:c.foto,bio:c.bio,tag:c.tag}; }
-    });
-    return p;
-  });
-  const [extraCols,setExtraCols]=useState(function(){
-    try{ return JSON.parse(localStorage.getItem('ovc_extra_cols')||'[]'); }catch(_){ return []; }
-  });
-  const [selectedCard,setSelectedCard]=useState(null);
-  const [editForm,setEditForm]=useState({foto:'',bio:'',tag:''});
-  const [cardPosts,setCardPosts]=useState([]);
-  const [loadingPosts,setLoadingPosts]=useState(false);
-  const [showNewForm,setShowNewForm]=useState(false);
-  const [newForm,setNewForm]=useState({nome:'',tag:'',grad1:'#1a237e',grad2:'#4a148c',foto:'',bio:''});
-  const [msg,setMsg]=useState('');
-
-  const allCols=COLUNISTAS_PERFIS.concat(extraCols);
-
-  async function openCard(c){
-    if(selectedCard&&selectedCard.nome===c.nome){setSelectedCard(null);setCardPosts([]);setEditForm({foto:'',bio:'',tag:''});return;}
-    const prof=profiles[c.nome]||{foto:c.foto||'',bio:c.bio||'',tag:c.tag||''};
-    setSelectedCard(c);
-    setEditForm({foto:prof.foto||'',bio:prof.bio||'',tag:prof.tag||''});
-    setLoadingPosts(true);
+  async function criarLogin(e){
+    e.preventDefault(); setCriando(true); setMsg('');
     try{
-      const {data}=await sb.from('posts').select('id,titulo,status,created_at').eq('subcategoria',c.nome).order('created_at',{ascending:false}).limit(30);
-      setCardPosts(data||[]);
-    }catch(e){ setCardPosts([]); }
-    setLoadingPosts(false);
-  }
-
-  function saveProfile(){
-    if(!selectedCard)return;
-    const saved=Object.assign({},profiles[selectedCard.nome]||{},editForm);
-    localStorage.setItem('ovc_p_'+selectedCard.nome,JSON.stringify(saved));
-    setProfiles(function(p){ var n=Object.assign({},p); n[selectedCard.nome]=saved; return n; });
-    setMsg('✅ Perfil salvo!');
-    setTimeout(function(){setMsg('');},2500);
-  }
-
-  async function aprovarPost(id){
-    await sb.from('posts').update({status:'publicado',approved:true}).eq('id',id);
-    setCardPosts(function(ps){ return ps.map(function(p){ return p.id===id?Object.assign({},p,{status:'publicado'}):p; }); });
-  }
-
-  async function rejeitarPost(id){
-    if(!confirm('Rejeitar e excluir este post?'))return;
-    await sb.from('posts').delete().eq('id',id);
-    setCardPosts(function(ps){ return ps.filter(function(p){ return p.id!==id; }); });
+      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
+      const d = await r.json();
+      if(r.ok&&d.ok){
+        setMsg('✅ Login criado!');
+        setForm({nome:'',email:'',senha:''});
+        setShowModal(null);
+        fetch('/api/manage?action=list_colunistas').then(r=>r.json()).then(d=>{ if(d.ok) setDbList(d.colunistas||[]); });
+      } else setMsg('❌ '+(d.error||'erro'));
+    }catch(e){ setMsg('❌ '+e.message); }
+    setCriando(false);
   }
 
   function handleGerarColuna(nome){
-    sessionStorage.setItem('ovc_colunista_sel',nome);
-    setPage('editor_colunas');
+    sessionStorage.setItem('ovc_colunista_sel', nome);
+    if(setPage) setPage('editor_colunas');
   }
 
-  function adicionarColunista(e){
-    e.preventDefault();
-    if(!newForm.nome.trim())return;
-    var novo={nome:newForm.nome.trim(),tag:newForm.tag.trim()||'Colunista',grad:[newForm.grad1||'#1a237e',newForm.grad2||'#4a148c'],foto:newForm.foto.trim(),bio:newForm.bio.trim()};
-    var updated=extraCols.concat([novo]);
-    setExtraCols(updated);
-    localStorage.setItem('ovc_extra_cols',JSON.stringify(updated));
-    var np=Object.assign({},profiles);
-    np[novo.nome]={foto:novo.foto,bio:novo.bio,tag:novo.tag};
-    setProfiles(np);
-    setNewForm({nome:'',tag:'',grad1:'#1a237e',grad2:'#4a148c',foto:'',bio:''});
-    setShowNewForm(false);
-    setMsg('✅ Colunista adicionado!');
-    setTimeout(function(){setMsg('');},2500);
+  async function openCard(c){
+    setSelectedCard(c);
+    setCardPosts([]);
+    setLoadingPosts(true);
+    try{
+      const { data } = await sb.from('posts')
+        .select('id,titulo,status,created_at,published_at,imagem,comentario_fixado')
+        .eq('subcategoria', c.nome)
+        .in('publish_method', ['coluna','colunista'])
+        .order('created_at', { ascending: false })
+        .limit(30);
+      setCardPosts(data||[]);
+    }catch(_){}
+    setLoadingPosts(false);
   }
 
-  return(
-    <div className="panel">
-      <div className="panel-header" style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-        <h2 style={{margin:0}}>🎬 Colunistas OVC</h2>
-        {msg&&<span style={{fontSize:13,color:msg.includes('✅')?'#4ade80':'#f87171',marginLeft:8}}>{msg}</span>}
-      </div>
+  async function aprovarPost(id){
+    const now = new Date().toISOString();
+    await sb.from('posts').update({status:'publicado',approved:true,published_at:now}).eq('id',id);
+    setCardPosts(p=>p.map(x=>x.id===id?{...x,status:'publicado'}:x));
+  }
 
-      <div style={{display:'flex',flexWrap:'wrap',gap:18,padding:'20px 0'}}>
-        {allCols.map(function(c){
-          var prof=profiles[c.nome]||{foto:c.foto||'',bio:c.bio||'',tag:c.tag||''};
-          var isSel=selectedCard&&selectedCard.nome===c.nome;
-          return(
-            <CardColunista key={c.nome} c={c} profile={prof} isSel={isSel} onClick={function(){openCard(c);}}/>
-          );
-        })}
-        <div onClick={function(){setShowNewForm(function(v){return !v;});}} style={{flexShrink:0,width:180,height:220,borderRadius:12,border:'2px dashed rgba(255,255,255,0.2)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',gap:8,transition:'border-color .2s',color:'var(--t2)'}}>
-          <div style={{fontSize:36,lineHeight:1}}>+</div>
-          <div style={{fontSize:12,fontWeight:600}}>Novo Colunista</div>
+  async function rejeitarPost(id){
+    await sb.from('posts').update({status:'rejeitado',approved:false}).eq('id',id);
+    setCardPosts(p=>p.filter(x=>x.id!==id));
+  }
+
+  function salvarFoto(nome){
+    try{
+      const saved = JSON.parse(sessionStorage.getItem('ovc_fotos_colunistas')||'{}');
+      saved[nome] = fotoUrl;
+      sessionStorage.setItem('ovc_fotos_colunistas', JSON.stringify(saved));
+    }catch(_){}
+    setShowFotoModal(null); setFotoUrl('');
+  }
+
+  function getFoto(nome){
+    try{
+      const saved = JSON.parse(sessionStorage.getItem('ovc_fotos_colunistas')||'{}');
+      return saved[nome] || '';
+    }catch(_){ return ''; }
+  }
+
+  const initials = nome => nome.split(' ').filter((_,i)=>i<2).map(w=>w[0]||'').join('').toUpperCase();
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">✍️ Colunistas OVC</div>
+        <div className="page-sub">11 vozes — clique em "Gerar Coluna" para criar um artigo assinado</div>
+      </div>
+      <div className="page-body">
+        {msg && <div style={{marginBottom:16,padding:'10px 16px',borderRadius:8,fontSize:13,fontWeight:500,background:msg.startsWith('❌')?'var(--red-s2)':'var(--green-s)',color:msg.startsWith('❌')?'#f87171':'#4ade80'}}>{msg}</div>}
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:20,marginBottom:32}}>
+          {COLUNISTAS_PERFIS.map(c=>{
+            const db = getDbEntry(c.nome);
+            const foto = c.foto || getFoto(c.nome);
+            const isHov = hover===c.nome;
+            const isSel = selectedCard?.nome === c.nome;
+            return (
+              <div key={c.nome}
+                onMouseEnter={()=>setHover(c.nome)}
+                onMouseLeave={()=>setHover(null)}
+                onClick={()=>openCard(c)}
+                style={{borderRadius:12,overflow:'hidden',position:'relative',cursor:'pointer',
+                  boxShadow: isSel ? `0 0 0 2px ${c.grad[1]}, 0 8px 32px rgba(0,0,0,.7)` : isHov ? '0 8px 32px rgba(0,0,0,.6)' : '0 2px 12px rgba(0,0,0,.4)',
+                  transform: isHov ? 'scale(1.04)' : 'scale(1)',
+                  transition:'all .25s ease',background:'var(--card)',border: isSel ? `1px solid ${c.grad[1]}` : '1px solid var(--border)'}}>
+
+                {/* Foto / Gradiente */}
+                <div style={{height:220,position:'relative',overflow:'hidden',
+                  background:`linear-gradient(145deg, ${c.grad[0]}, ${c.grad[1]})`}}>
+                  {foto
+                    ? <img src={foto} alt={c.nome} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top',opacity:.92}}/>
+                    : <div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <span style={{fontSize:64,fontWeight:800,color:'rgba(255,255,255,.25)',letterSpacing:-2}}>{initials(c.nome)}</span>
+                      </div>
+                  }
+                  {/* Status badge */}
+                  {db && <span style={{position:'absolute',top:10,right:10,padding:'3px 8px',borderRadius:6,fontSize:10,fontWeight:700,
+                    background: db.ativo ? 'rgba(22,163,74,.9)' : 'rgba(200,30,30,.9)', color:'#fff'}}>
+                    {db.ativo ? 'ATIVO' : 'SUSPENSO'}
+                  </span>}
+                  {/* Hover overlay */}
+                  {isHov && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.55)',display:'flex',flexDirection:'column',
+                    alignItems:'center',justifyContent:'center',gap:8,padding:12}}
+                    onClick={e=>e.stopPropagation()}>
+                    <button onClick={e=>{e.stopPropagation();handleGerarColuna(c.nome);}} style={{width:'100%',padding:'8px 0',borderRadius:6,border:'none',cursor:'pointer',
+                      background:'var(--red)',color:'#fff',fontWeight:700,fontSize:12}}>✒️ Gerar Coluna</button>
+                    {!db
+                      ? <button onClick={e=>{e.stopPropagation();setShowModal(c.nome);setForm(f=>({...f,nome:c.nome}));}} style={{width:'100%',padding:'6px 0',borderRadius:6,border:'1px solid rgba(255,255,255,.3)',cursor:'pointer',
+                          background:'transparent',color:'#fff',fontSize:11}}>+ Criar Login</button>
+                      : <button onClick={e=>e.stopPropagation()} style={{width:'100%',padding:'6px 0',borderRadius:6,border:'1px solid rgba(255,255,255,.2)',cursor:'default',
+                          background:'transparent',color:'rgba(255,255,255,.6)',fontSize:11}}>🔑 Login ativo</button>
+                    }
+                    <button onClick={e=>{e.stopPropagation();setShowFotoModal(c.nome);}} style={{width:'100%',padding:'6px 0',borderRadius:6,border:'1px solid rgba(255,255,255,.2)',cursor:'pointer',
+                      background:'transparent',color:'rgba(255,255,255,.6)',fontSize:11}}>🖼️ Definir foto</button>
+                  </div>}
+                </div>
+
+                {/* Info */}
+                <div style={{padding:'12px 14px 14px'}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--t1)',lineHeight:1.3,marginBottom:4}}>{c.nome}</div>
+                  <div style={{fontSize:10,fontWeight:600,color:c.grad[1],textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6}}>{c.tag}</div>
+                  <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5}}>{c.bio}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>
 
-      {showNewForm&&(
-        <div style={{background:'rgba(255,255,255,0.04)',borderRadius:12,padding:20,marginBottom:20,border:'1px solid rgba(255,255,255,0.12)'}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:14}}>Adicionar Novo Colunista</div>
-          <form onSubmit={adicionarColunista}>
-            <div style={{display:'flex',flexWrap:'wrap',gap:12,marginBottom:12}}>
-              <div style={{flex:'1 1 200px'}}>
-                <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Nome *</label>
-                <input className="form-input" required placeholder="Nome completo" value={newForm.nome} onChange={function(e){setNewForm(function(f){return Object.assign({},f,{nome:e.target.value});});}} style={{width:'100%',fontSize:12}}/>
-              </div>
-              <div style={{flex:'1 1 160px'}}>
-                <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Tag / Cargo</label>
-                <input className="form-input" placeholder="ex: Análise Política" value={newForm.tag} onChange={function(e){setNewForm(function(f){return Object.assign({},f,{tag:e.target.value});});}} style={{width:'100%',fontSize:12}}/>
-              </div>
-              <div style={{flex:'0 0 auto'}}>
-                <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Cor 1</label>
-                <input type="color" value={newForm.grad1} onChange={function(e){setNewForm(function(f){return Object.assign({},f,{grad1:e.target.value});});}} style={{width:48,height:32,border:'none',borderRadius:6,cursor:'pointer',background:'none'}}/>
-              </div>
-              <div style={{flex:'0 0 auto'}}>
-                <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Cor 2</label>
-                <input type="color" value={newForm.grad2} onChange={function(e){setNewForm(function(f){return Object.assign({},f,{grad2:e.target.value});});}} style={{width:48,height:32,border:'none',borderRadius:6,cursor:'pointer',background:'none'}}/>
-              </div>
-              <div style={{flex:'1 1 260px'}}>
-                <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>URL da Foto</label>
-                <input className="form-input" placeholder="https://..." value={newForm.foto} onChange={function(e){setNewForm(function(f){return Object.assign({},f,{foto:e.target.value});});}} style={{width:'100%',fontSize:12}}/>
-              </div>
-              <div style={{flex:'2 1 300px'}}>
-                <label style={{fontSize:11,fontWeight:600,color:'var(--t2)',display:'block',marginBottom:3}}>Bio</label>
-                <textarea className="form-input" rows={2} placeholder="Bio curta..." value={newForm.bio} onChange={function(e){setNewForm(function(f){return Object.assign({},f,{bio:e.target.value});});}} style={{width:'100%',fontSize:12,resize:'vertical'}}/>
+        {/* Modal criar login */}
+        {showModal && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowModal(null)}>
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:28,width:400,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>🔑 Criar Login — {showModal}</div>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:20}}>Credenciais para o Portal do Colunista</div>
+              <form onSubmit={criarLogin} style={{display:'flex',flexDirection:'column',gap:14}}>
+                <input className="form-input" type="email" required placeholder="Email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
+                <input className="form-input" type="password" required placeholder="Senha de acesso" value={form.senha} onChange={e=>setForm(f=>({...f,senha:e.target.value}))}/>
+                {msg && <div style={{fontSize:12,color:msg.startsWith('❌')?'#f87171':'#4ade80'}}>{msg}</div>}
+                <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setShowModal(null);setMsg('');}}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={criando}>{criando?'Criando...':'Criar Login'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal foto */}
+        {showFotoModal && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowFotoModal(null)}>
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:28,width:420,maxWidth:'90vw'}} onClick={e=>e.stopPropagation()}>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>🖼️ Foto — {showFotoModal}</div>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:16}}>Cole a URL da foto do colunista (JPG, PNG, WebP)</div>
+              <input className="form-input" style={{marginBottom:16}} placeholder="https://..." value={fotoUrl} onChange={e=>setFotoUrl(e.target.value)}/>
+              {fotoUrl && <img src={fotoUrl} alt="" style={{width:'100%',height:180,objectFit:'cover',objectPosition:'top',borderRadius:8,marginBottom:16}}/>}
+              <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setShowFotoModal(null)}>Cancelar</button>
+                <button className="btn btn-primary btn-sm" onClick={()=>salvarFoto(showFotoModal)}>Salvar Foto</button>
               </div>
             </div>
-            <div style={{display:'flex',gap:10}}>
-              <button className="btn btn-primary" type="submit" style={{fontSize:12,padding:'7px 18px'}}>✅ Adicionar</button>
-              <button className="btn" type="button" onClick={function(){setShowNewForm(false);}} style={{fontSize:12,padding:'7px 14px'}}>Cancelar</button>
-            </div>
-          </form>
-        </div>
-      )}
+          </div>
+        )}
 
-      {selectedCard&&(
-        <EditPanelColunista
-          c={selectedCard}
-          editForm={editForm}
-          setEditForm={setEditForm}
-          cardPosts={cardPosts}
-          loadingPosts={loadingPosts}
-          onSave={saveProfile}
-          onGerar={function(){handleGerarColuna(selectedCard.nome);}}
-          onClose={function(){setSelectedCard(null);setCardPosts([]);}}
-          onAprovar={aprovarPost}
-          onRejeitar={rejeitarPost}
-        />
-      )}
+        {/* Painel de conteúdo do colunista selecionado */}
+        {selectedCard && (
+          <div className="panel" style={{marginTop:8}}>
+            <div className="panel-header" style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+              <div style={{width:44,height:44,borderRadius:'50%',flexShrink:0,overflow:'hidden',
+                background:`linear-gradient(135deg,${selectedCard.grad[0]},${selectedCard.grad[1]})`,
+                display:'flex',alignItems:'center',justifyContent:'center'}}>
+                {getFoto(selectedCard.nome)
+                  ? <img src={getFoto(selectedCard.nome)} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  : <span style={{fontSize:16,fontWeight:800,color:'rgba(255,255,255,.5)'}}>{initials(selectedCard.nome)}</span>
+                }
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15,fontWeight:700}}>{selectedCard.nome}</div>
+                <div style={{fontSize:11,color:selectedCard.grad[1],fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em'}}>{selectedCard.tag}</div>
+              </div>
+              <button className="btn btn-primary btn-sm" onClick={()=>handleGerarColuna(selectedCard.nome)}>✒️ Gerar Coluna</button>
+              <button className="btn btn-secondary btn-sm" onClick={()=>setSelectedCard(null)}>✕ Fechar</button>
+            </div>
+            <div style={{padding:'0 20px 20px'}}>
+              {loadingPosts
+                ? <div style={{padding:24,textAlign:'center',color:'var(--t2)',fontSize:13}}>Carregando artigos...</div>
+                : cardPosts.length === 0
+                ? <div style={{padding:24,textAlign:'center',color:'var(--t3)',fontSize:13}}>
+                    Nenhum artigo de <strong style={{color:'var(--t2)'}}>{selectedCard.nome}</strong> ainda.{' '}
+                    <span style={{color:'var(--red)',cursor:'pointer',fontWeight:600}} onClick={()=>handleGerarColuna(selectedCard.nome)}>Gerar a primeira coluna →</span>
+                  </div>
+                : <div style={{display:'flex',flexDirection:'column',gap:0}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:12,padding:'10px 0',borderBottom:'1px solid var(--border)',fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em'}}>
+                      <span>Título</span><span>Status</span><span>Data</span><span>Ações</span>
+                    </div>
+                    {cardPosts.map(p=>(
+                      <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:12,alignItems:'center',padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,.04)'}}>
+                        <div style={{fontSize:13,color:'var(--t1)',lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.titulo}</div>
+                        <span className={`badge badge-${p.status==='publicado'?'green':p.status==='pendente'?'yellow':'red'}`}>{p.status}</span>
+                        <span style={{fontSize:11,color:'var(--t3)',whiteSpace:'nowrap'}}>{p.created_at?new Date(p.created_at).toLocaleDateString('pt-BR'):'-'}</span>
+                        <div style={{display:'flex',gap:6}}>
+                          {p.status==='pendente' && <>
+                            <button className="btn btn-green btn-sm" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>aprovarPost(p.id)}>✓ Pub.</button>
+                            <button className="btn btn-sm" style={{fontSize:11,padding:'4px 8px',background:'var(--red-s2)',color:'#f87171',border:'none'}} onClick={()=>rejeitarPost(p.id)}>✕</button>
+                          </>}
+                          {p.status==='publicado' && <span style={{fontSize:11,color:'#4ade80'}}>✓ Live</span>}
+                          {p.status==='rejeitado' && <span style={{fontSize:11,color:'#f87171'}}>Rejeitado</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // ── EDITOR DE COLUNAS ──
-function EditorColunas({setPage}){
-  const [colunista,setColunista]=React.useState(()=>{
-    const sel=sessionStorage.getItem('ovc_colunista_sel');
-    if(sel){sessionStorage.removeItem('ovc_colunista_sel');return sel;}
+const COLUNISTAS_LISTA = [
+  'Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Coluna OVC',
+  'Prof. Marcos Pizzolatto','Gabriel Thiede','Fabiana Campos','Larissa Corvetto',
+  'Taísa da Fonseca','André Oliveira'
+];
+
+function EditorColunas() {
+  const [colunista, setColunista] = useState(()=>{
+    const sel = sessionStorage.getItem('ovc_colunista_sel');
+    if(sel) { sessionStorage.removeItem('ovc_colunista_sel'); return sel; }
     return 'Roberto Terrasan';
   });
-  const [tema,setTema]=React.useState('');
-  const [referencias,setReferencias]=React.useState('');
-  const [contexto,setContexto]=React.useState('');
-  const [gerando,setGerando]=React.useState(false);
-  const [resultado,setResultado]=React.useState(null);
-  const [erro,setErro]=React.useState('');
+  const [tema, setTema] = useState('');
+  const [referencias, setReferencias] = useState('');
+  const [contexto, setContexto] = useState('');
+  const [gerando, setGerando] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [msgTipo, setMsgTipo] = useState('ok');
+  const [resultado, setResultado] = useState(null);
 
-  async function gerarColuna(e){
-    e.preventDefault();
-    if(!tema.trim()||tema.trim().length<10){setErro('Tema muito curto (mínimo 10 caracteres)');return;}
-    setGerando(true);setErro('');setResultado(null);
-    try{
-      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'gerar_coluna',colunista_nome:colunista,tema,referencias,contexto,__admin_token:'ovc-admin-2026-secreto'})});
-      const d=await r.json();
-      if(r.ok&&d.ok){setResultado(d);}
-      else setErro('❌ '+(d.error||'Falha ao gerar'));
-    }catch(e){setErro('❌ '+e.message);}
-    setGerando(false);
-  }
+  const showMsg = (txt, tipo) => { setMsg(txt); setMsgTipo(tipo||'ok'); setTimeout(()=>setMsg(''),6000); };
 
-  return(
-    <div className="panel">
-      <div className="panel-header" style={{display:'flex',alignItems:'center',gap:12}}>
-        <h2 style={{margin:0}}>✒️ Editor de Colunas</h2>
-        <button className="btn" onClick={()=>setPage('colunistas')} style={{marginLeft:'auto',fontSize:12}}>← Colunistas</button>
+  const handleGerar = async () => {
+    if (!tema.trim()) { showMsg('Informe o tema da coluna.','erro'); return; }
+    setGerando(true);
+    setResultado(null);
+    try {
+      const r = await fetch('/api/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': 'ovc-admin-2026-secreto' },
+        body: JSON.stringify({ action: 'gerar_coluna', colunista_nome: colunista, tema, referencias, contexto })
+      });
+      const d = await r.json();
+      if (!d.ok) { showMsg('Erro: ' + (d.error || 'falha desconhecida'), 'erro'); return; }
+      setResultado(d);
+      showMsg(`✅ Coluna gerada com ${d.chars} chars — salva como pendente (ID: ${d.id})`, 'ok');
+      setTema(''); setReferencias(''); setContexto('');
+    } catch(e) {
+      showMsg('Erro de conexão: ' + e.message, 'erro');
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const inp = {width:'100%',background:'var(--input)',border:'1px solid var(--border)',borderRadius:8,color:'var(--t1)',padding:'10px 14px',fontSize:13,fontFamily:'var(--font)',resize:'vertical'};
+  const sel = {...inp, resize:undefined, cursor:'pointer'};
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">✒️ Editor de Colunas</div>
+        <div className="page-sub">Gere colunas assinadas com o tom de cada colunista OVC</div>
       </div>
-      <form onSubmit={gerarColuna} style={{display:'flex',flexDirection:'column',gap:16,maxWidth:720,marginTop:16}}>
-        <div>
-          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Colunista</label>
-          <select className="form-select" value={colunista} onChange={e=>setColunista(e.target.value)} style={{width:'100%',height:38}}>
-            {COLUNISTAS_LISTA.map(n=><option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Tema da Coluna *</label>
-          <textarea className="form-input" required rows={3} placeholder="Ex: O impacto da reforma tributária nas micro-empresas brasileiras" value={tema} onChange={e=>setTema(e.target.value)} style={{width:'100%',resize:'vertical'}}/>
-        </div>
-        <div>
-          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Referências / Links (opcional)</label>
-          <textarea className="form-input" rows={2} placeholder="URLs, dados, fontes para embasar a coluna" value={referencias} onChange={e=>setReferencias(e.target.value)} style={{width:'100%',resize:'vertical'}}/>
-        </div>
-        <div>
-          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Contexto Adicional (opcional)</label>
-          <textarea className="form-input" rows={2} placeholder="Informações de contexto ou diretrizes específicas" value={contexto} onChange={e=>setContexto(e.target.value)} style={{width:'100%',resize:'vertical'}}/>
-        </div>
-        {erro&&<div style={{padding:'8px 16px',background:'#ffebee',color:'#c62828',borderRadius:6,fontSize:13}}>{erro}</div>}
-        <button className="btn btn-primary" type="submit" disabled={gerando} style={{alignSelf:'flex-start',padding:'10px 24px',fontSize:14}}>
-          {gerando?'⏳ Gerando coluna...':'✒️ Gerar Coluna com IA'}
-        </button>
-      </form>
-      {resultado&&(
-        <div style={{marginTop:24,padding:16,background:'#e8f5e9',borderRadius:10,maxWidth:720}}>
-          <div style={{fontWeight:700,color:'#2e7d32',marginBottom:8}}>✅ Coluna gerada com sucesso!</div>
-          <div style={{fontSize:13,marginBottom:4}}><strong>Título:</strong> {resultado.titulo}</div>
-          <div style={{fontSize:13,marginBottom:4}}><strong>Colunista:</strong> {resultado.colunista}</div>
-          <div style={{fontSize:13,marginBottom:4}}><strong>Categoria:</strong> {resultado.categoria}</div>
-          <div style={{fontSize:13,marginBottom:8}}><strong>Tamanho:</strong> {resultado.chars?.toLocaleString()} caracteres</div>
-          <div style={{fontSize:12,color:'#555',fontStyle:'italic',background:'rgba(255,255,255,0.6)',padding:10,borderRadius:6}}>
-            {resultado.preview}...
-          </div>
-          <div style={{marginTop:12,display:'flex',gap:10}}>
-            <button className="btn btn-primary" onClick={()=>setPage('postagens')} style={{fontSize:12}}>📋 Ver Pendentes</button>
-            <button className="btn" onClick={()=>{setResultado(null);setTema('');}} style={{fontSize:12}}>✒️ Nova Coluna</button>
+      <div className="page-body">
+        {msg && <div style={{marginBottom:16,padding:'10px 16px',borderRadius:8,fontSize:13,fontWeight:500,background:msgTipo==='erro'?'var(--red-s2)':'var(--green-s)',color:msgTipo==='erro'?'#f87171':'#4ade80'}}>{msg}</div>}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Nova Coluna</span></div>
+          <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:16}}>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Colunista</label>
+              <select style={sel} value={colunista} onChange={e=>setColunista(e.target.value)} disabled={gerando}>
+                {COLUNISTAS_LISTA.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Tema Central <span style={{color:'var(--red)'}}>*</span></label>
+              <textarea rows={3} style={inp} placeholder="Ex: O desmonte da educação pública pelo PT e o crescimento das escolas privadas" value={tema} onChange={e=>setTema(e.target.value)} disabled={gerando}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Links e Referências</label>
+              <textarea rows={4} style={inp} placeholder="Cole aqui links, trechos de notícias, dados, declarações relevantes..." value={referencias} onChange={e=>setReferencias(e.target.value)} disabled={gerando}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Contexto Adicional</label>
+              <textarea rows={3} style={inp} placeholder="Instruções extras, ângulo específico, tom desejado para esta coluna..." value={contexto} onChange={e=>setContexto(e.target.value)} disabled={gerando}/>
+            </div>
+            <button className="btn btn-primary" onClick={handleGerar} disabled={gerando||!tema.trim()} style={{alignSelf:'flex-start',minWidth:180}}>
+              {gerando ? '⏳ Gerando coluna...' : '✒️ Gerar Coluna'}
+            </button>
           </div>
         </div>
-      )}
+        {resultado && (
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">✅ Coluna Gerada</span></div>
+            <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{fontSize:13,color:'var(--t2)'}}>Colunista: <strong style={{color:'var(--t1)'}}>{resultado.colunista}</strong></div>
+              <div style={{fontSize:13,color:'var(--t2)'}}>Título: <strong style={{color:'var(--t1)'}}>{resultado.titulo}</strong></div>
+              <div style={{fontSize:12,color:'var(--t2)'}}>Categoria: {resultado.categoria} · {resultado.chars} chars · ID: {resultado.id}</div>
+              <div style={{marginTop:8,padding:12,background:'var(--bg)',borderRadius:8,fontSize:12,color:'var(--t2)',lineHeight:1.6}}>{resultado.preview}</div>
+              <div style={{fontSize:12,color:'#4ade80',marginTop:4}}>Coluna salva como pendente — acesse Postagens para revisar e publicar.</div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2779,7 +2617,6 @@ const PAGES = [
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'postagens',label:'Postagens',icon:'📝'},
-  {id:'sem_foto',label:'Sem Foto',icon:'🖼️'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
   {id:'alertas',label:'Alertas',icon:'🚨'},
@@ -2787,7 +2624,6 @@ const PAGES = [
   {id:'logs',label:'Logs',icon:'📋'},
   {id:'desempenho',label:'Desempenho',icon:'📈'},
   {id:'relatorios',label:'Relatórios',icon:'📊'},
-  {id:'seo',label:'SEO Batch',icon:'🔍'},
   {id:'configuracoes',label:'Configurações',icon:'🔧'},
   {id:'imagens',label:'Imagens',icon:'🖼️'},
   {id:'galeria',label:'Galeria',icon:'🗂️'},
@@ -2940,181 +2776,6 @@ function ReescritaOVC({onVerPendentes}) {
   );
 }
 
-function cleanMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
-function SemFoto(){
-  const [items,setItems] = React.useState([]);
-  const [selected,setSelected] = React.useState([]);
-  const [loading,setLoading] = React.useState(false);
-  const [busca,setBusca] = React.useState("");
-
-  async function load(){
-    setLoading(true);
-    const { data } = await sb.from("posts")
-      .select("id,titulo,user_tags,published_at,created_at")
-      .eq("status","publicado")
-      .or("imagem.is.null,imagem.eq.")
-      .order("published_at",{ascending:false});
-    setItems(data||[]);
-    setSelected([]);
-    setLoading(false);
-  }
-
-  async function despublicarIds(ids){
-    if(!ids.length) return;
-    setLoading(true);
-    for(let i=0;i<ids.length;i+=50){
-      const chunk=ids.slice(i,i+50);
-      await sb.from("posts").update({status:"pendente",approved:false}).in("id",chunk);
-    }
-    await load();
-  }
-
-  async function despublicarTodas(){
-    if(!confirm(`Despublicar TODAS as ${items.length} matérias sem foto e mover para Pendente?`)) return;
-    await despublicarIds(items.map(p=>p.id));
-  }
-
-  function toggleSel(id){ setSelected(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id]); }
-  function toggleAll(){ setSelected(s=>s.length===filtrados.length?[]:filtrados.map(p=>p.id)); }
-
-  React.useEffect(()=>{ load(); },[]);
-
-  const filtrados = items.filter(p=> !busca || (p.titulo||'').toLowerCase().includes(busca.toLowerCase()));
-  const btn = (cor,label,fn,dis) => React.createElement("button",{onClick:fn,disabled:dis||loading,style:{background:cor,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontWeight:700,fontSize:13,opacity:(dis||loading)?0.5:1}},label);
-
-  return React.createElement("div",null,
-    React.createElement("div",{style:{background:"rgba(239,68,68,0.08)",border:"1px solid #ef444488",borderRadius:10,padding:"16px 24px",marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}},
-      React.createElement("span",{style:{fontSize:24}},"📷"),
-      React.createElement("div",null,
-        React.createElement("div",{style:{fontSize:20,fontWeight:800,color:"#ef4444"}},
-          loading ? "Carregando..." : `${items.length} matérias publicadas sem foto`
-        ),
-        React.createElement("div",{style:{fontSize:13,color:"#94a3b8",marginTop:2}},
-          "Estas matérias estão visíveis no portal sem imagem. Selecione e despublique para corrigir."
-        )
-      )
-    ),
-
-    React.createElement("div",{style:{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}},
-      React.createElement("input",{placeholder:"Buscar por título...",value:busca,onChange:e=>setBusca(e.target.value),style:{background:"#0f0f1a",color:"#e5e7eb",border:"1px solid #1e293b",borderRadius:6,padding:"7px 12px",fontSize:13,flex:1,maxWidth:360}}),
-      selected.length>0 && React.createElement("span",{style:{fontSize:13,color:"#94a3b8"}},`${selected.length} selecionadas`),
-      selected.length>0 && btn("#f59e0b",`Despublicar ${selected.length} selecionadas`,()=>despublicarIds(selected)),
-      items.length>0 && btn("#ef4444",`⚠ Despublicar TODAS (${items.length})`,despublicarTodas),
-      btn("#3b82f6","↺ Atualizar",load)
-    ),
-
-    React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,overflow:"auto",maxHeight:"calc(100vh - 300px)"}},
-      React.createElement("table",{style:{width:"100%",borderCollapse:"collapse"}},
-        React.createElement("thead",null,
-          React.createElement("tr",{style:{background:"#1e293b",position:"sticky",top:0,zIndex:1}},
-            React.createElement("th",{style:{padding:"10px 12px",width:40}},
-              React.createElement("input",{type:"checkbox",checked:selected.length===filtrados.length&&filtrados.length>0,onChange:toggleAll})
-            ),
-            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8"}},"TÍTULO"),
-            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:130}},"CATEGORIA"),
-            React.createElement("th",{style:{padding:"10px 12px",textAlign:"left",fontSize:12,color:"#94a3b8",width:160}},"PUBLICADO"),
-            React.createElement("th",{style:{padding:"10px 12px",textAlign:"right",fontSize:12,color:"#94a3b8",width:130}},"AÇÃO")
-          )
-        ),
-        React.createElement("tbody",null,
-          filtrados.length===0
-          ? React.createElement("tr",null,
-              React.createElement("td",{colSpan:5,style:{padding:48,textAlign:"center",color:loading?"#94a3b8":"#22c55e",fontWeight:700,fontSize:16}},
-                loading ? "Carregando..." : "✅ Nenhuma matéria publicada sem foto!"
-              )
-            )
-          : filtrados.map((p,i)=>{
-              let cat="-"; try{const t=JSON.parse(p.user_tags||"[]");cat=t[0]||"-";}catch(_){}
-              return React.createElement("tr",{key:p.id,style:{borderTop:"1px solid #1e293b",background:i%2===0?"#0f0f1a":"#0d0d18"}},
-                React.createElement("td",{style:{padding:"10px 12px"}},
-                  React.createElement("input",{type:"checkbox",checked:selected.includes(p.id),onChange:()=>toggleSel(p.id)})
-                ),
-                React.createElement("td",{style:{padding:"10px 12px",fontSize:14,color:"#e5e7eb"}}, cleanMd(p.titulo)||"(sem título)"),
-                React.createElement("td",{style:{padding:"10px 12px",fontSize:13,color:"#94a3b8"}}, cat),
-                React.createElement("td",{style:{padding:"10px 12px",fontSize:12,color:"#6b7280"}}, fmt(p.published_at)),
-                React.createElement("td",{style:{padding:"10px 12px",textAlign:"right"}},
-                  React.createElement("button",{
-                    onClick:async()=>{ setLoading(true); await sb.from("posts").update({status:"pendente",approved:false}).eq("id",p.id); await load(); },
-                    style:{background:"#f59e0b",color:"#fff",border:"none",borderRadius:4,padding:"4px 12px",cursor:"pointer",fontSize:12,fontWeight:700},
-                    disabled:loading
-                  },"Despublicar")
-                )
-              );
-            })
-        )
-      )
-    )
-  );
-}
-
-// ── SEO BATCH ──
-function SeoBatch(){
-  const [rodando,setRodando] = React.useState(false);
-  const [progresso,setProgresso] = React.useState(null);
-  const [log,setLog] = React.useState([]);
-  const [concluido,setConcluido] = React.useState(false);
-
-  async function iniciar(){
-    setRodando(true); setConcluido(false); setLog([]); setProgresso(null);
-    let offset = 0;
-    let total = 0;
-    let processadosTotal = 0;
-
-    while(true){
-      try {
-        const r = await fetch(`/api/seo_batch?offset=${offset}&limit=5`);
-        const d = await r.json();
-        if(d.status === "error"){ setLog(l=>[...l,`❌ Erro: ${d.error}`]); break; }
-
-        total = d.total || total;
-        processadosTotal += d.processados || 0;
-        setProgresso({ feitos: processadosTotal, total });
-
-        (d.resultados||[]).forEach(p=>{
-          setLog(l=>[...l, p.ok ? `✅ ${p.titulo}` : `⚠️ Falhou: ${p.titulo}`]);
-        });
-
-        if(d.status === "done" || !d.nextOffset){ break; }
-        offset = d.nextOffset;
-        await new Promise(r=>setTimeout(r,800));
-      } catch(e){ setLog(l=>[...l,`❌ Erro de rede: ${e.message}`]); break; }
-    }
-
-    setRodando(false); setConcluido(true);
-  }
-
-  const pct = progresso ? Math.round((progresso.feitos/progresso.total)*100) : 0;
-
-  return React.createElement("div",null,
-    React.createElement("h2",{style:{color:"#ffc800",marginBottom:8}},"⚡ Otimização SEO em Lote"),
-    React.createElement("p",{style:{color:"#94a3b8",fontSize:13,marginBottom:24}},
-      "Reescreve os títulos e gera meta descrição, palavra-chave e slug SEO para todos os posts publicados. Usa a OpenAI. Custo estimado: menos de R$ 0,50 para 120 posts."
-    ),
-
-    !rodando && !concluido && React.createElement("button",{onClick:iniciar,style:{background:"#c81e1e",color:"#fff",border:"none",borderRadius:8,padding:"12px 28px",fontSize:15,fontWeight:700,cursor:"pointer"}},
-      "🚀 Iniciar Otimização SEO"
-    ),
-
-    rodando && React.createElement("div",null,
-      React.createElement("div",{style:{marginBottom:12,fontSize:13,color:"#94a3b8"}},
-        progresso ? `Processando... ${progresso.feitos} de ${progresso.total} posts (${pct}%)` : "Iniciando..."
-      ),
-      React.createElement("div",{style:{background:"#1e293b",borderRadius:8,height:12,marginBottom:20,overflow:"hidden"}},
-        React.createElement("div",{style:{background:"#c81e1e",height:"100%",width:`${pct}%`,transition:"width 0.4s",borderRadius:8}})
-      )
-    ),
-
-    concluido && React.createElement("div",{style:{marginBottom:16}},
-      React.createElement("div",{style:{background:"rgba(22,163,74,0.15)",border:"1px solid #16a34a",borderRadius:8,padding:"12px 20px",color:"#22c55e",fontWeight:700,marginBottom:12}},"✅ Otimização concluída!"),
-      React.createElement("button",{onClick:iniciar,style:{background:"#1e293b",color:"#e5e7eb",border:"1px solid #334155",borderRadius:6,padding:"8px 20px",fontSize:13,cursor:"pointer",marginRight:8}},"↺ Rodar novamente")
-    ),
-
-    log.length > 0 && React.createElement("div",{style:{background:"#0f0f1a",border:"1px solid #1e293b",borderRadius:8,padding:16,fontFamily:"monospace",fontSize:12,maxHeight:400,overflow:"auto",marginTop:16}},
-      log.map((l,i)=>React.createElement("div",{key:i,style:{padding:"3px 0",borderBottom:"1px solid #1e293b",color:l.startsWith("✅")?"#22c55e":l.startsWith("⚠️")?"#f59e0b":"#ef4444"}}, l))
-    )
-  );
-}
-
 function App() {
   const [auth, setAuth] = useState(()=>sessionStorage.getItem('ovc_auth')==='1');
   const [page, setPage] = useState('dashboard');
@@ -3136,7 +2797,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,sem_foto:SemFoto,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,seo:SeoBatch,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas}[page] || Dashboard;
 
   return (
     <div className="layout">
@@ -3619,7 +3280,7 @@ function EditorIA() {
                   {resultado.imagem && <img src={resultado.imagem} alt="" style={{width:'100%',height:160,objectFit:'cover',borderRadius:8,marginBottom:12,display:'block'}} onError={e=>e.target.style.display='none'}/>}
                   <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{resultado.titulo}</div>
                   <div style={{fontSize:12,color:'var(--t2)',marginBottom:12}}>Categoria: {resultado.categoria}{resultado.subtitulo?' · '+resultado.subtitulo:''}</div>
-                  <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:14,fontSize:13,lineHeight:1.7,maxHeight:320,overflowY:'auto',marginBottom:16}} dangerouslySetInnerHTML={{__html:resultado.corpo}}></div>
+                  <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:14,fontSize:13,lineHeight:1.7,maxHeight:320,overflowY:'auto',whiteSpace:'pre-wrap',marginBottom:16}}>{resultado.corpo}</div>
                   <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
                     <button className="btn btn-green" onClick={()=>salvar()} disabled={salvando}>{salvando?'Salvando...':'💾 Salvar como pendente'}</button>
                     <button className="btn btn-secondary" onClick={()=>setResultado(null)}>✕ Descartar</button>

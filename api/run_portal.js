@@ -294,7 +294,7 @@ async function handleManualPost(req, res) {
         manualContext = buildDynamicContext({ recentTitles: titles, recentKeywords: keywords, recentCategories: cats });
       }
     } catch(_) {}
-    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext, false);
+    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext);
     if (!content.corpo || content.corpo.length < 300)
       return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
@@ -371,7 +371,7 @@ async function regenerarConteudo(res, meta) {
   for (const post of posts) {
     if (Date.now() - inicio > 8000) { resultados.push({ id: post.id, status: 'timeout' }); break; }
     try {
-      const novoConteudo = await rewritePortal(post.conteudo, post.titulo, '', false);
+      const novoConteudo = await rewritePortal(post.conteudo, post.titulo);
       if (!novoConteudo || !novoConteudo.corpo || novoConteudo.corpo.length < 2500) {
         resultados.push({ id: post.id, status: 'rejeitado' }); continue;
       }
@@ -422,6 +422,7 @@ export default async function handler(req, res) {
 
   if (meta.action === 'regenerar') return regenerarConteudo(res, meta);
 
+  // Busca de imagem por query — para o admin (NovoPost, etc.)
   if (meta.action === 'buscar_imagem') {
     const q = (meta.q || '').trim();
     if (!q) return res.status(400).json({ error: 'q obrigatório' });
@@ -431,6 +432,7 @@ export default async function handler(req, res) {
     } catch(e) { return res.status(500).json({ error: e.message }); }
   }
 
+  // Geração manual (URL ou texto) — sem limite diário
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
@@ -454,7 +456,14 @@ export default async function handler(req, res) {
   const subcatForcada = /^(geral|qualquer|qualquer subcategoria|any|todos?)$/i.test(subcatRaw) ? '' : subcatRaw;
 
   try {
-    // Verificar limite diario (500 por dia)
+    if (!body.force) {
+      const agoraBR = new Date(Date.now() - 3 * 3600000);
+      const horaBR  = agoraBR.getUTCHours();
+      const dentroJanela = horaBR >= 7 || horaBR < 1;
+      if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
+    }
+
+    // Cap diário: máximo 100 artigos automáticos por dia (BRT) — não afeta geração manual
     {
       const agora = new Date();
       const hUtc = agora.getUTCHours();
@@ -467,11 +476,12 @@ export default async function handler(req, res) {
         .select('id', { count: 'exact', head: true })
         .gte('created_at', inicioDiaBRT.toISOString())
         .eq('publish_method', 'portal');
-      if ((postsHoje || 0) >= 500) {
-        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 500 });
+      if ((postsHoje || 0) >= 100) {
+        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 100 });
       }
     }
 
+    // Busca contexto das últimas 24h para dedup + contexto dinâmico da IA
     let recentTitles = [];
     let dynamicContext = '';
     try {
@@ -489,22 +499,18 @@ export default async function handler(req, res) {
       ? catForcada
       : HIGH_PRIORITY_CATS[Math.floor(Math.random() * HIGH_PRIORITY_CATS.length)];
 
+    // Categoria efetiva para forçar: catForcada explícita OU catAlvo quando for 'radar'
     const catEfetiva = catForcada || (catAlvo === 'radar' ? 'radar' : '');
 
     let news;
     let _dbgPrio = 0, _dbgGen = 0;
 
-    if (catForcada && CATS_VALIDAS.has(catForcada)) {
-      news = await getNewsByCategoria(catForcada);
-      _dbgPrio = news.length;
-      if (!news.length) {
-        const [prio, gen] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
-        _dbgPrio = prio.length; _dbgGen = gen.length;
-        const seen = new Set();
-        news = [...prio, ...gen].filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true; });
-      }
-    } else {
-      const [priorityNews, generalNews] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
+    {
+      const catParaBuscar = (catForcada && CATS_VALIDAS.has(catForcada)) ? catForcada : catAlvo;
+      const [priorityNews, generalNews] = await Promise.all([
+        getNewsByCategoria(catParaBuscar),
+        getNews()
+      ]);
       _dbgPrio = priorityNews.length; _dbgGen = generalNews.length;
       const seenLinks = new Set();
       news = [...priorityNews, ...generalNews].filter(item => {
@@ -512,21 +518,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const homepageItems = await getLinksFromHomepages();
-    if (!news.length) {
-      news = homepageItems;
-    } else {
-      const seenExtra = new Set(news.map(n => n.link));
-      news = [...news, ...homepageItems.filter(n => !seenExtra.has(n.link))];
-    }
-
+    if (!news.length) news = await getLinksFromHomepages();
     if (!news.length) return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
 
-    // Pré-computar hashes e verificar existentes em batch (1 query por 100 itens em vez de 1 por item)
+    // Batch hash check — 1 query per 100 items instead of N+1 individual queries
     const newsSlice = news.slice(0, 300);
-    const allHashes = newsSlice.map(item =>
-      crypto.createHash('md5').update(item.link + '_portal').digest('hex')
-    );
+    const allHashes = newsSlice.map(item => crypto.createHash('md5').update(item.link + '_portal').digest('hex'));
     const existingHashes = new Set();
     try {
       for (let i = 0; i < allHashes.length; i += 100) {
@@ -537,18 +534,12 @@ export default async function handler(req, res) {
     } catch(_) {}
 
     const artigos = [];
-    let lastError = '';
-    let statsSkipped = 0, statsNoText = 0, statsAiError = 0, statsInvalid = 0, statsCat = 0, statsDedup = 0;
 
-    // Pre-filter candidates (skip already-inserted hashes)
-    const candidates = [];
-    for (let i = 0; i < newsSlice.length; i++) {
-      if (existingHashes.has(allHashes[i])) { statsSkipped++; continue; }
-      candidates.push({ item: newsSlice[i], hash: allHashes[i] });
-    }
-
-    // Process targetCount*6 candidates in parallel — higher hit rate for count:3 and count:8
-    const batchCandidates = candidates.slice(0, Math.min(targetCount * 6, 48));
+    // Pre-filter candidates and process in parallel (wide net for scraping + AI failure rates)
+    const candidates = newsSlice
+      .map((item, i) => ({ item, hash: allHashes[i] }))
+      .filter(({ hash }) => !existingHashes.has(hash))
+      .slice(0, Math.min(targetCount * 10, 60));
 
     const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
@@ -567,8 +558,8 @@ export default async function handler(req, res) {
         try {
           if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
           else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
-          else content = await rewritePortal(sourceText, item.title, dynamicContext, false);
-        } catch(e) { lastError = e.message; return null; }
+          else content = await rewritePortal(sourceText, item.title, dynamicContext);
+        } catch(e) { return null; }
 
         if (!validarConteudo(content)) return null;
         content.titulo = stripTitle(content.titulo);
@@ -626,7 +617,7 @@ export default async function handler(req, res) {
     };
 
     const batchSettled = await Promise.allSettled(
-      batchCandidates.map((candidate, batchPos) => _processOneArticle(candidate, batchPos))
+      candidates.map((candidate, batchPos) => _processOneArticle(candidate, batchPos))
     );
 
     const successResults = batchSettled
@@ -638,8 +629,8 @@ export default async function handler(req, res) {
       if (artigos.length >= targetCount) break;
       const { content, hash, imagemFinal, metaTitle, metaDesc, tipoConteudo } = result;
 
-      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) { statsDedup++; continue; }
-      if (topicoDuplicado(content.titulo, [...recentTitles, ...batchTitles])) { statsDedup++; continue; }
+      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
+      if (topicoDuplicado(content.titulo, [...recentTitles, ...batchTitles])) continue;
 
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo, conteudo: content.corpo, comentario_fixado: metaDesc,
@@ -652,7 +643,7 @@ export default async function handler(req, res) {
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
 
-      if (error) { lastError = error.message; continue; }
+      if (error) continue;
       recentTitles.push(content.titulo);
       batchTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
@@ -661,12 +652,7 @@ export default async function handler(req, res) {
     if (artigos.length > 0) {
       return res.status(200).json({ status: 'ok', artigos, total: artigos.length, titulo: artigos[0].titulo, categoria: artigos[0].categoria, id: artigos[0].id });
     }
-    return res.status(200).json({
-      status: 'no_valid_news',
-      lastError,
-      stats: { skipped: statsSkipped, noText: statsNoText, aiError: statsAiError, invalid: statsInvalid, cat: statsCat, dedup: statsDedup },
-      ts: Date.now()
-    });
+    return res.status(200).json({ status: 'no_valid_news', ts: Date.now() });
 
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
