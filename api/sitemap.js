@@ -10,12 +10,12 @@ const CAT_PATH = {
   educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
   esportes:"esportes", saude:"saude", familia:"familia",
   tributacao:"tributos", regulacao:"regulacao", parcerias:"parcerias",
-  internacional:"internacional", vc:"vc", vagas:"vagas",
+  internacional:"internacional", vc:"colunistas", vagas:"vagas",
   concursos:"concursos", imoveis:"imoveis", esg:"esg",
   defesa:"defesa", religiao:"religiao", cultura:"cultura",
   profissoes:"profissoes", seguranca:"seguranca",
   investigativo:"investigativo", variedades:"variedades",
-  colunistas:"vc", geral:"politica"
+  colunistas:"colunistas", geral:"politica"
 };
 
 function slugify(text) {
@@ -37,7 +37,7 @@ const STATIC_PATHS = [
   "/politica/","/economia/","/negocios/","/investimentos/",
   "/seguros/","/mercados/","/educacao/","/industria/",
   "/tecnologia/","/esportes/","/saude/","/familia/",
-  "/tributos/","/regulacao/","/parcerias/","/vc/",
+  "/tributos/","/regulacao/","/parcerias/","/colunistas/",
   "/vagas/","/concursos/","/imoveis/","/esg/",
   "/defesa/","/religiao/","/cultura/","/profissoes/",
   "/investigativo/","/variedades/",

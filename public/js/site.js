@@ -1,3 +1,11 @@
+(function(){
+  var s=document.createElement('script');
+  s.async=true;
+  s.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586';
+  s.crossOrigin='anonymous';
+  document.head.appendChild(s);
+})();
+
 window.OVC_CONFIG = {
   categories: {
     politica:{title:'Política',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'Negócios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'Educação',color:'#c2410c'}, industria:{title:'Indústria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'Saúde',color:'#be123c'}, familia:{title:'Família',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'Regulação',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
@@ -105,61 +113,8 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
-    this.fetchJSON('/api/live-data').then(async live => {
+    this.fetchJSON('/api/portal-posts?format=live-data').then(live => {
       if (!live) return;
-      if (!live.usd?.valor) {
-        try {
-          const raw = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL,XAU-BRL').then(r => r.json());
-          if (!live.usd) live.usd = {};
-          if (!live.eur) live.eur = {};
-          if (!live.gbp) live.gbp = {};
-          if (!live.btc) live.btc = {};
-          if (!live.xau) live.xau = {};
-          live.usd.valor    = parseFloat(raw.USDBRL?.bid || 0);
-          live.eur.valor    = parseFloat(raw.EURBRL?.bid || 0);
-          live.gbp.valor    = parseFloat(raw.GBPBRL?.bid || 0);
-          live.btc.valor    = parseFloat(raw.BTCBRL?.bid || 0);
-          live.xau.valor    = parseFloat(raw.XAUBRL?.bid || 0);
-          live.usd.variacao = parseFloat(raw.USDBRL?.pctChange || 0);
-          live.eur.variacao = parseFloat(raw.EURBRL?.pctChange || 0);
-          live.btc.variacao = parseFloat(raw.BTCBRL?.pctChange || 0);
-          live.xau.variacao = parseFloat(raw.XAUBRL?.pctChange || 0);
-        } catch(_) {}
-      }
-      if (!live.ibov?.valor) {
-        try {
-          const idx = await fetch('https://brapi.dev/api/quote/IBOV,BOVA11?fundamental=false&dividends=false').then(r => r.json());
-          for (const item of (idx?.results || [])) {
-            const sym = (item.symbol || '').toUpperCase();
-            if (sym === 'IBOV' || sym === 'BOVA11') {
-              if (!live.ibov) live.ibov = {};
-              live.ibov.valor    = item.regularMarketPrice || 0;
-              live.ibov.variacao = item.regularMarketChangePercent || 0;
-              break;
-            }
-          }
-        } catch(_) {}
-      }
-      if (!live.sp500?.valor) {
-        try {
-          const [spRes, ndRes] = await Promise.all([
-            fetch('https://query2.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=1d').then(r => r.json()).catch(() => null),
-            fetch('https://query2.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=1d').then(r => r.json()).catch(() => null)
-          ]);
-          if (spRes?.chart?.result?.[0]) {
-            const m = spRes.chart.result[0].meta;
-            if (!live.sp500) live.sp500 = {};
-            live.sp500.valor    = m.regularMarketPrice || 0;
-            live.sp500.variacao = m.previousClose ? ((m.regularMarketPrice - m.previousClose) / m.previousClose * 100) : 0;
-          }
-          if (ndRes?.chart?.result?.[0]) {
-            const m = ndRes.chart.result[0].meta;
-            if (!live.nasdaq) live.nasdaq = {};
-            live.nasdaq.valor    = m.regularMarketPrice || 0;
-            live.nasdaq.variacao = m.previousClose ? ((m.regularMarketPrice - m.previousClose) / m.previousClose * 100) : 0;
-          }
-        } catch(_) {}
-      }
       this._applyLiveData(live);
     }).catch(() => {});
 
@@ -177,9 +132,7 @@ window.OVC = {
       const eur   = live.eur?.valor   || live.tax?.eur   || 0;
       const gbp   = live.gbp?.valor   || 0;
       const btc   = live.btc?.valor   || live.tax?.btc   || 0;
-      const xau   = live.xau?.valor   || 0;
       const ibov  = live.ibov?.valor  || live.indices?.ibov  || 0;
-      const sp500 = live.sp500?.valor || 0;
       const nasdaq= live.nasdaq?.valor|| live.indices?.nasdaq || 0;
       const dow   = live.dow?.valor   || 0;
       const impost= live.impostometro || 0;
@@ -226,15 +179,15 @@ window.OVC = {
         if (!label || !valueEl) return;
         const map = {
           'ibov':      { val: ibov   ? fmtPts(ibov)   : '—', chg: live.ibov?.variacao },
-          'sandp 500': { val: sp500  ? fmtPts(sp500)  : '—', chg: live.sp500?.variacao },
-          's&p 500':   { val: sp500  ? fmtPts(sp500)  : '—', chg: live.sp500?.variacao },
+          'sandp 500': { val: '—',                            chg: null },
+          's&p 500':   { val: '—',                            chg: null },
           'nasdaq':    { val: nasdaq ? fmtPts(nasdaq)  : '—', chg: live.nasdaq?.variacao },
           'dow jones': { val: dow    ? fmtPts(dow)     : '—', chg: live.dow?.variacao },
           'dolar':     { val: usd    ? fmtBrl(usd)     : '—', chg: live.usd?.variacao },
           'euro':      { val: eur    ? fmtBrl(eur)     : '—', chg: live.eur?.variacao },
           'libra':     { val: gbp    ? fmtBrl(gbp)     : '—', chg: live.gbp?.variacao },
           'bitcoin':   { val: btc    ? `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}` : '—', chg: live.btc?.variacao },
-          'ouro':      { val: xau    ? fmtBrl(xau)     : '—', chg: live.xau?.variacao }
+          'ouro':      { val: '—',                            chg: null }
         };
         const entry = map[label];
         if (!entry) return;
@@ -249,7 +202,39 @@ window.OVC = {
       console.error('live-data apply error:', error);
     }
   },
-  renderMiniItems(items){ return items.map(item => `<article class="ovc-mini-item"><div><div class="ovc-kicker">${item.source || 'OVC'}</div><h4><a href="${this.articleUrl(item)}">${item.title}</a></h4><p>${item.excerpt || ''}</p><div class="ovc-meta"><span>${item.relativeDate || ''}</span></div></div><a class="ovc-thumb" href="${this.articleUrl(item)}">${item.image ? `<img src="${item.image}" alt="">` : ''}</a></article>`).join(''); }
+  renderMiniItems(items){ return items.map(item => `<article class="ovc-mini-item"><div><div class="ovc-kicker">${item.source || 'OVC'}</div><h4><a href="${this.articleUrl(item)}">${item.title}</a></h4><p>${item.excerpt || ''}</p><div class="ovc-meta"><span>${item.relativeDate || ''}</span></div></div><a class="ovc-thumb" href="${this.articleUrl(item)}">${item.image ? `<img src="${item.image}" alt="">` : ''}</a></article>`).join(''); },
+
+  initMobileMenu() {
+    if (document.querySelector('.btn-hamburger')) return;
+    const headerActions = document.querySelector('.header-actions');
+    if (!headerActions) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn-hamburger';
+    btn.setAttribute('aria-label', 'Abrir menu');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('id', 'hamburgerBtn');
+    btn.innerHTML = '<span class="hamburger-bar"></span><span class="hamburger-bar"></span><span class="hamburger-bar"></span>';
+    headerActions.appendChild(btn);
+    const overlay = document.createElement('div');
+    overlay.className = 'mobile-menu-overlay';
+    overlay.id = 'mobileMenuOverlay';
+    document.body.appendChild(overlay);
+    const menu = document.createElement('div');
+    menu.className = 'mobile-menu';
+    menu.id = 'mobileMenu';
+    menu.setAttribute('role', 'dialog');
+    menu.setAttribute('aria-modal', 'true');
+    menu.setAttribute('aria-label', 'Menu de navegação');
+    const links = [['VC','/vc/'],['Política','/politica/'],['Economia','/economia/'],['Negócios','/negocios/'],['Investimentos','/investimentos/'],['Mercados','/mercados/'],['Tecnologia','/tecnologia/'],['Indústria','/industria/'],['Saúde','/saude/'],['Educação','/educacao/'],['Esportes','/esportes/'],['Cultura','/cultura/'],['Internacional','/internacional/'],['Dados & Indicadores','/dados/'],['Radar OVC','/radar/'],['TV OVC','/tv-ovc/'],['Rádio OVC','/radio-ovc/'],['Newsletter','/newsletter/'],['Busca','/busca/']];
+    menu.innerHTML='<div class="mobile-menu-header"><span class="mobile-menu-title">O Valor Capital</span><button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">✕</button></div><nav class="mobile-menu-nav" aria-label="Navegação mobile">'+links.map(([l,h])=>`<a class="mobile-menu-link" href="${h}">${l}</a>`).join('')+'</nav>';
+    document.body.appendChild(menu);
+    function openMenu(){menu.classList.add('open');overlay.classList.add('open');btn.classList.add('active');btn.setAttribute('aria-expanded','true');document.body.style.overflow='hidden';}
+    function closeMenu(){menu.classList.remove('open');overlay.classList.remove('open');btn.classList.remove('active');btn.setAttribute('aria-expanded','false');document.body.style.overflow='';}
+    btn.addEventListener('click',openMenu);
+    document.getElementById('mobileMenuClose').addEventListener('click',closeMenu);
+    overlay.addEventListener('click',closeMenu);
+    document.addEventListener('keydown',(e)=>{if(e.key==='Escape')closeMenu();});
+  }
 };
 
 (function(){
@@ -261,6 +246,7 @@ window.OVC = {
     OVC.hydrateHeaderFooter();
     OVC.enhanceTickerLinks();
     OVC.bindHomeCriticalLinks();
+    OVC.initMobileMenu();
   });
 })();
 

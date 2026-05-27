@@ -1,8 +1,8 @@
-name: Criar Tabelas Supabase (image_bank + colunistas)
+name: Setup Supabase — Tabelas + RSS Lote 2
 on:
   push:
     branches:
-      - claude/implement-admin-feature-qTTvg
+      - main
     paths:
       - '.github/workflows/create_tables.yml'
   workflow_dispatch:
@@ -43,4 +43,16 @@ jobs:
             -H "Authorization: Bearer $SUPA_KEY"
           echo ""
 
+          echo "=== DONE ==="
+
+      - name: Seed RSS Lote 2
+        run: |
+          echo "=== Disparando seed RSS Lote 2 ==="
+          RESP=$(curl -s -w "\n%{http_code}" "https://www.ovalorcapital.com.br/api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto")
+          HTTP_CODE=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | head -n -1)
+          echo "HTTP $HTTP_CODE: $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning::Seed RSS Lote 2 retornou HTTP $HTTP_CODE"
+          fi
           echo "=== DONE ==="

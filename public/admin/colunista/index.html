@@ -6,60 +6,75 @@
   <title>Portal do Colunista — OVC</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Inter,sans-serif;background:#08080f;color:#e5e7eb;min-height:100vh}
-    .container{max-width:860px;margin:0 auto;padding:24px 16px}
-    .header{background:#0a0a14;border-bottom:1px solid #1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+    body{font-family:Inter,system-ui,sans-serif;background:#08080f;color:#e5e7eb;min-height:100vh}
+    .header{background:#0a0a14;border-bottom:1px solid #1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
     .logo{color:#ffc800;font-weight:800;font-size:18px;letter-spacing:.5px}
-    .card{background:#0f0f1a;border:1px solid #1e293b;border-radius:10px;padding:28px;margin-bottom:20px}
-    label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600}
-    input,textarea{width:100%;background:#08080f;color:#e5e7eb;border:1px solid #1e293b;border-radius:6px;padding:10px 14px;font-size:14px;outline:none;transition:border .2s}
+    .container{max-width:900px;margin:0 auto;padding:28px 16px}
+    .card{background:#0f0f1a;border:1px solid #1e293b;border-radius:12px;padding:28px;margin-bottom:20px}
+    label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;font-weight:600;letter-spacing:.03em}
+    input,textarea{width:100%;background:#08080f;color:#e5e7eb;border:1px solid #1e293b;border-radius:8px;padding:10px 14px;font-size:14px;outline:none;transition:border .2s}
     input:focus,textarea:focus{border-color:#ffc800}
-    textarea{resize:vertical;min-height:200px;font-family:inherit;line-height:1.7}
-    .btn{display:inline-block;padding:10px 24px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px;transition:opacity .2s}
-    .btn:disabled{opacity:.5;cursor:default}
+    textarea{resize:vertical;min-height:220px;font-family:inherit;line-height:1.75}
+    .btn{display:inline-block;padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:14px;transition:opacity .2s}
+    .btn:disabled{opacity:.45;cursor:default}
     .btn-primary{background:#ffc800;color:#08080f}
     .btn-secondary{background:#1e293b;color:#e5e7eb}
-    .msg{padding:10px 16px;border-radius:6px;font-size:13px;margin-top:12px}
-    .msg.ok{background:rgba(34,197,94,.15);border:1px solid #22c55e;color:#22c55e}
-    .msg.err{background:rgba(239,68,68,.12);border:1px solid #ef4444;color:#ef4444}
-    .status-badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700}
-    .s-pendente{background:#f59e0b;color:#fff}
-    .s-publicado{background:#22c55e;color:#fff}
-    .s-rejeitado{background:#ef4444;color:#fff}
+    .btn-sm{padding:6px 16px;font-size:12px}
+    .msg{padding:10px 16px;border-radius:8px;font-size:13px;margin-top:12px}
+    .msg.ok{background:rgba(34,197,94,.12);border:1px solid #22c55e;color:#22c55e}
+    .msg.err{background:rgba(239,68,68,.10);border:1px solid #ef4444;color:#ef4444}
+    .badge{display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:700}
+    .b-pendente{background:#f59e0b;color:#fff}
+    .b-publicado{background:#22c55e;color:#fff}
+    .b-rejeitado{background:#ef4444;color:#fff}
     table{width:100%;border-collapse:collapse}
-    th{padding:10px 12px;text-align:left;font-size:11px;color:#94a3b8;background:#1e293b;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-    td{padding:10px 12px;font-size:13px;border-top:1px solid #1e293b}
+    th{padding:10px 12px;text-align:left;font-size:11px;color:#94a3b8;background:#0a0a14;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+    td{padding:10px 12px;font-size:13px;border-top:1px solid #1e293b;vertical-align:middle}
     .hidden{display:none}
-    #login-section h2{color:#ffc800;margin-bottom:20px;font-size:22px}
-    #portal-section h2{color:#ffc800;margin-bottom:4px;font-size:18px}
-    .user-info{font-size:13px;color:#94a3b8;margin-bottom:20px}
-    .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid #1e293b}
+    .tabs{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid #1e293b}
     .tab{padding:10px 20px;cursor:pointer;border:none;background:transparent;color:#94a3b8;font-weight:600;font-size:13px;border-bottom:2px solid transparent;transition:all .2s}
     .tab.active{color:#ffc800;border-bottom-color:#ffc800}
     .char-count{font-size:11px;color:#6b7280;text-align:right;margin-top:4px}
-    .img-preview{max-width:100%;max-height:160px;border-radius:6px;margin-top:8px;display:none}
-    .section-title{font-size:16px;font-weight:700;color:#e5e7eb;margin-bottom:16px}
+    .img-preview{max-width:100%;max-height:160px;border-radius:8px;margin-top:8px;display:none}
+    /* Stats cards */
+    .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+    .stat-card{background:#0a0a14;border:1px solid #1e293b;border-radius:10px;padding:16px 20px;text-align:center}
+    .stat-num{font-size:28px;font-weight:800;line-height:1}
+    .stat-label{font-size:11px;color:#64748b;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+    .stat-pendente .stat-num{color:#f59e0b}
+    .stat-publicado .stat-num{color:#22c55e}
+    .stat-rejeitado .stat-num{color:#ef4444}
+    /* Mini bar chart */
+    .bar-wrap{margin-bottom:24px}
+    .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px}
+    .bar-label{width:80px;color:#94a3b8;flex-shrink:0;font-weight:600}
+    .bar-track{flex:1;background:#1e293b;border-radius:4px;height:14px;overflow:hidden}
+    .bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
+    .bar-count{width:28px;text-align:right;color:#94a3b8;font-size:11px;flex-shrink:0}
+    .welcome-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
+    @media(max-width:600px){.stats-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 
 <div class="header">
   <div class="logo">OVC · Portal do Colunista</div>
-  <button id="btn-logout" class="btn btn-secondary hidden" style="padding:6px 16px;font-size:12px" onclick="logout()">Sair</button>
+  <button id="btn-logout" class="btn btn-secondary btn-sm hidden" onclick="logout()">Sair</button>
 </div>
 
 <div class="container">
 
   <!-- LOGIN -->
   <div id="login-section" class="card" style="max-width:420px;margin:60px auto">
-    <h2>Acesso Colunista</h2>
+    <div style="color:#ffc800;font-size:22px;font-weight:800;margin-bottom:6px">Acesso Colunista</div>
+    <div style="color:#64748b;font-size:13px;margin-bottom:24px">Portal exclusivo para colunistas O Valor Capital</div>
     <div style="margin-bottom:16px">
       <label>E-mail</label>
-      <input type="email" id="inp-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="email" id="inp-email" placeholder="seu@email.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <div style="margin-bottom:20px">
+    <div style="margin-bottom:24px">
       <label>Senha</label>
-      <input type="password" id="inp-senha" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      <input type="password" id="inp-senha" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-primary" style="width:100%" onclick="doLogin()" id="btn-login">Entrar</button>
     <div id="login-msg"></div>
@@ -67,21 +82,41 @@
 
   <!-- PORTAL LOGADO -->
   <div id="portal-section" class="hidden">
-    <h2>Bem-vindo, <span id="span-nome"></span></h2>
-    <div class="user-info">Colunista OVC · Seus artigos são revisados antes de publicação</div>
 
+    <!-- Header pessoal -->
+    <div class="welcome-row" style="margin-bottom:20px">
+      <div>
+        <div style="font-size:20px;font-weight:800;color:#ffc800">Olá, <span id="span-nome"></span></div>
+        <div style="font-size:13px;color:#64748b;margin-top:2px">Colunista OVC · Seus artigos passam por revisão antes de publicação</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card stat-pendente"><div class="stat-num" id="cnt-pendente">—</div><div class="stat-label">Aguardando revisão</div></div>
+      <div class="stat-card stat-publicado"><div class="stat-num" id="cnt-publicado">—</div><div class="stat-label">Publicados</div></div>
+      <div class="stat-card stat-rejeitado"><div class="stat-num" id="cnt-rejeitado">—</div><div class="stat-label">Não aprovados</div></div>
+    </div>
+
+    <!-- Mini chart -->
+    <div class="card" id="chart-card" style="padding:20px 24px;display:none">
+      <div style="font-size:13px;font-weight:700;color:#94a3b8;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">Distribuição dos artigos</div>
+      <div class="bar-wrap" id="bar-chart"></div>
+    </div>
+
+    <!-- Tabs -->
     <div class="tabs">
-      <button class="tab active" onclick="showTab('tab-posts',this)">Meus Artigos</button>
-      <button class="tab" onclick="showTab('tab-submit',this)">Enviar Novo Artigo</button>
+      <button class="tab active" onclick="showTab('tab-posts',this)">📋 Meus Artigos</button>
+      <button class="tab" onclick="showTab('tab-submit',this)">✏️ Enviar Novo Artigo</button>
     </div>
 
     <!-- LISTA DE POSTS -->
     <div id="tab-posts">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="section-title" style="margin:0">Meus Artigos</div>
-        <button class="btn btn-secondary" style="padding:6px 14px;font-size:12px" onclick="loadPosts()">↺ Atualizar</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:15px;font-weight:700">Meus Artigos</div>
+        <button class="btn btn-secondary btn-sm" onclick="loadPosts()">↺ Atualizar</button>
       </div>
-      <div id="posts-loading" style="color:#94a3b8;font-size:13px;padding:20px 0">Carregando...</div>
+      <div id="posts-loading" style="color:#64748b;font-size:13px;padding:20px 0;text-align:center">Carregando...</div>
       <div id="posts-table-wrap" class="hidden">
         <table>
           <thead>
@@ -93,30 +128,34 @@
           </thead>
           <tbody id="posts-tbody"></tbody>
         </table>
-        <div id="posts-empty" class="hidden" style="padding:32px;text-align:center;color:#6b7280;font-size:13px">Nenhum artigo enviado ainda. Use a aba 'Enviar Novo Artigo'.</div>
+        <div id="posts-empty" class="hidden" style="padding:40px;text-align:center;color:#6b7280;font-size:13px">
+          Nenhum artigo enviado ainda.<br>Use a aba <strong style="color:#ffc800">Enviar Novo Artigo</strong>.
+        </div>
       </div>
     </div>
 
     <!-- ENVIAR POST -->
     <div id="tab-submit" class="hidden">
-      <div class="section-title">Enviar Novo Artigo</div>
-      <div style="margin-bottom:14px">
-        <label>Título do Artigo *</label>
-        <input type="text" id="post-titulo" placeholder="Título claro e objetivo (mínimo 10 caracteres)" oninput="updateCharCount('post-titulo','count-titulo')">
-        <div class="char-count" id="count-titulo">0 caracteres</div>
+      <div class="card">
+        <div style="font-size:15px;font-weight:700;margin-bottom:20px">Enviar Novo Artigo</div>
+        <div style="margin-bottom:16px">
+          <label>Título do Artigo *</label>
+          <input type="text" id="post-titulo" placeholder="Título claro e objetivo (mínimo 10 caracteres)" oninput="updateCharCount('post-titulo','count-titulo')">
+          <div class="char-count" id="count-titulo">0 caracteres</div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label>Conteúdo *</label>
+          <textarea id="post-conteudo" placeholder="Escreva seu artigo aqui (mínimo 200 caracteres). Você pode usar **negrito** e ## Subtítulo." oninput="updateCharCount('post-conteudo','count-conteudo')"></textarea>
+          <div class="char-count" id="count-conteudo">0 caracteres · mínimo 200</div>
+        </div>
+        <div style="margin-bottom:24px">
+          <label>URL da Imagem (opcional)</label>
+          <input type="url" id="post-imagem" placeholder="https://exemplo.com/imagem.jpg" oninput="previewImg()">
+          <img id="img-preview" class="img-preview" alt="Pré-visualização">
+        </div>
+        <button class="btn btn-primary" onclick="submitPost()" id="btn-submit">Enviar para Revisão</button>
+        <div id="submit-msg"></div>
       </div>
-      <div style="margin-bottom:14px">
-        <label>Conteúdo *</label>
-        <textarea id="post-conteudo" placeholder="Escreva seu artigo aqui (mínimo 200 caracteres). Você pode usar **negrito** e ## para subtítulos." oninput="updateCharCount('post-conteudo','count-conteudo')"></textarea>
-        <div class="char-count" id="count-conteudo">0 caracteres · mínimo 200</div>
-      </div>
-      <div style="margin-bottom:20px">
-        <label>URL da Imagem (opcional)</label>
-        <input type="url" id="post-imagem" placeholder="https://exemplo.com/imagem.jpg" oninput="previewImg()">
-        <img id="img-preview" class="img-preview" alt="Pré-visualização">
-      </div>
-      <button class="btn btn-primary" onclick="submitPost()" id="btn-submit">Enviar para Revisão</button>
-      <div id="submit-msg"></div>
     </div>
   </div>
 
@@ -125,6 +164,7 @@
 <script>
 const API = '/api/manage';
 let session = null;
+let allPosts = [];
 
 function showMsg(id, text, isOk) {
   const el = document.getElementById(id);
@@ -147,7 +187,7 @@ function fmt(dt) {
 
 function logout() {
   localStorage.removeItem('ovc_colunista');
-  session = null;
+  session = null; allPosts = [];
   document.getElementById('portal-section').classList.add('hidden');
   document.getElementById('login-section').classList.remove('hidden');
   document.getElementById('btn-logout').classList.add('hidden');
@@ -160,11 +200,8 @@ async function doLogin() {
   const email = document.getElementById('inp-email').value.trim();
   const senha = document.getElementById('inp-senha').value;
   if (!email || !senha) { showMsg('login-msg', 'Preencha email e senha.', false); return; }
-
   const btn = document.getElementById('btn-login');
-  btn.disabled = true;
-  btn.textContent = 'Entrando...';
-
+  btn.disabled = true; btn.textContent = 'Entrando...';
   try {
     const r = await fetch(API, {
       method: 'POST',
@@ -182,9 +219,7 @@ async function doLogin() {
   } catch(e) {
     showMsg('login-msg', 'Erro de conexão. Tente novamente.', false);
   }
-
-  btn.disabled = false;
-  btn.textContent = 'Entrar';
+  btn.disabled = false; btn.textContent = 'Entrar';
 }
 
 function initPortal() {
@@ -195,41 +230,73 @@ function initPortal() {
   loadPosts();
 }
 
+function updateStats(posts) {
+  const cnts = { pendente: 0, publicado: 0, rejeitado: 0 };
+  posts.forEach(p => { const s = p.status || 'pendente'; if (cnts[s] !== undefined) cnts[s]++; });
+  document.getElementById('cnt-pendente').textContent = cnts.pendente;
+  document.getElementById('cnt-publicado').textContent = cnts.publicado;
+  document.getElementById('cnt-rejeitado').textContent = cnts.rejeitado;
+
+  const total = posts.length;
+  if (total > 0) {
+    const chart = document.getElementById('bar-chart');
+    const chartCard = document.getElementById('chart-card');
+    chartCard.style.display = 'block';
+    const bars = [
+      { label: 'Pendentes', count: cnts.pendente, color: '#f59e0b' },
+      { label: 'Publicados', count: cnts.publicado, color: '#22c55e' },
+      { label: 'Rejeitados', count: cnts.rejeitado, color: '#ef4444' }
+    ];
+    chart.innerHTML = bars.map(b => `
+      <div class="bar-row">
+        <div class="bar-label">${b.label}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${Math.round(b.count/total*100)}%;background:${b.color}"></div>
+        </div>
+        <div class="bar-count">${b.count}</div>
+      </div>
+    `).join('');
+  }
+}
+
 async function loadPosts() {
   if (!session) return;
   document.getElementById('posts-loading').classList.remove('hidden');
+  document.getElementById('posts-loading').textContent = 'Carregando...';
   document.getElementById('posts-table-wrap').classList.add('hidden');
-
   try {
     const r = await fetch(`${API}?action=list_posts_colunista&colunista_id=${session.colunista_id}&token=${session.token}`);
     const d = await r.json();
     if (!d.ok) { document.getElementById('posts-loading').textContent = 'Erro: ' + d.error; return; }
-
+    allPosts = d.posts || [];
     document.getElementById('posts-loading').classList.add('hidden');
     document.getElementById('posts-table-wrap').classList.remove('hidden');
-
-    const tbody = document.getElementById('posts-tbody');
-    const empty = document.getElementById('posts-empty');
-    tbody.innerHTML = '';
-
-    if (!d.posts.length) {
-      empty.classList.remove('hidden');
-    } else {
-      empty.classList.add('hidden');
-      d.posts.forEach(p => {
-        const s = p.status || 'pendente';
-        const badgeClass = s === 'publicado' ? 's-publicado' : s === 'rejeitado' ? 's-rejeitado' : 's-pendente';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td style="color:#e5e7eb;font-weight:500">${(p.titulo||'').replace(/\*\*/g,'')}</td>
-          <td><span class="status-badge ${badgeClass}">${s.toUpperCase()}</span></td>
-          <td style="color:#6b7280">${fmt(p.created_at)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+    updateStats(allPosts);
+    renderTable(allPosts);
   } catch(e) {
     document.getElementById('posts-loading').textContent = 'Erro de conexão.';
+  }
+}
+
+function renderTable(posts) {
+  const tbody = document.getElementById('posts-tbody');
+  const empty = document.getElementById('posts-empty');
+  tbody.innerHTML = '';
+  if (!posts.length) {
+    empty.classList.remove('hidden');
+  } else {
+    empty.classList.add('hidden');
+    posts.forEach(p => {
+      const s = p.status || 'pendente';
+      const bc = s === 'publicado' ? 'b-publicado' : s === 'rejeitado' ? 'b-rejeitado' : 'b-pendente';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:#e5e7eb;font-weight:500;line-height:1.4">${(p.titulo||'').replace(/\*\*/g,'')}</td>
+        <td><span class="badge ${bc}">${s.toUpperCase()}</span></td>
+        <td style="color:#6b7280">${fmt(p.created_at)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 }
 
@@ -246,8 +313,7 @@ function previewImg() {
   const url = document.getElementById('post-imagem').value.trim();
   const img = document.getElementById('img-preview');
   if (url.startsWith('http')) {
-    img.src = url;
-    img.style.display = 'block';
+    img.src = url; img.style.display = 'block';
     img.onerror = () => { img.style.display = 'none'; };
   } else {
     img.style.display = 'none';
@@ -259,14 +325,10 @@ async function submitPost() {
   const titulo = document.getElementById('post-titulo').value.trim();
   const conteudo = document.getElementById('post-conteudo').value.trim();
   const imagem = document.getElementById('post-imagem').value.trim();
-
   if (titulo.length < 10) { showMsg('submit-msg', 'Título muito curto (mínimo 10 caracteres).', false); return; }
   if (conteudo.length < 200) { showMsg('submit-msg', 'Conteúdo mínimo de 200 caracteres.', false); return; }
-
   const btn = document.getElementById('btn-submit');
-  btn.disabled = true;
-  btn.textContent = 'Enviando...';
-
+  btn.disabled = true; btn.textContent = 'Enviando...';
   try {
     const r = await fetch(API, {
       method: 'POST',
@@ -275,41 +337,34 @@ async function submitPost() {
         action: 'submit_colunista_post',
         colunista_id: session.colunista_id,
         token: session.token,
-        titulo,
-        conteudo,
-        imagem: imagem || undefined
+        titulo, conteudo, imagem: imagem || undefined
       })
     });
     const d = await r.json();
     if (d.ok) {
-      showMsg('submit-msg', '✅ Artigo enviado! Aguarde a revisão do administrador.', true);
+      showMsg('submit-msg', '✅ Artigo enviado! Aguarde a revisão da redação OVC.', true);
       document.getElementById('post-titulo').value = '';
       document.getElementById('post-conteudo').value = '';
       document.getElementById('post-imagem').value = '';
       document.getElementById('img-preview').style.display = 'none';
       updateCharCount('post-titulo', 'count-titulo');
       updateCharCount('post-conteudo', 'count-conteudo');
+      setTimeout(() => { showTab('tab-posts', document.querySelector('.tab')); }, 1500);
     } else {
       showMsg('submit-msg', '❌ ' + (d.error || 'Erro ao enviar.'), false);
     }
   } catch(e) {
     showMsg('submit-msg', '❌ Erro de conexão. Tente novamente.', false);
   }
-
-  btn.disabled = false;
-  btn.textContent = 'Enviar para Revisão';
+  btn.disabled = false; btn.textContent = 'Enviar para Revisão';
 }
 
-// Checar sessão salva ao carregar
 (function() {
   try {
     const saved = localStorage.getItem('ovc_colunista');
     if (saved) {
-      session = JSON.parse(saved);
-      if (session?.token && session?.colunista_id) {
-        initPortal();
-        return;
-      }
+      const s = JSON.parse(saved);
+      if (s?.token && s?.colunista_id) { session = s; initPortal(); return; }
     }
   } catch(_) {}
 })();

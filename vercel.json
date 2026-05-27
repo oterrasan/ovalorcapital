@@ -1,6 +1,10 @@
 {
   "version": 2,
   "outputDirectory": "public",
+  "functions": {
+    "api/run_portal.js": { "maxDuration": 60 },
+    "api/manage.js":     { "maxDuration": 60 }
+  },
   "crons": [
     {
       "path": "/api/manage?action=refresh_token",
@@ -35,8 +39,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/live-data",            "destination": "/api/portal-posts?format=live" },
-
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
 
     { "source": "/quem-somos",              "destination": "/api/institutional?page=quem-somos" },
@@ -49,7 +51,7 @@
     { "source": "/financas",               "destination": "/api/landing?section=financas" },
     { "source": "/financas/",              "destination": "/api/landing?section=financas" },
     { "source": "/moradia",                "destination": "/api/landing?section=moradia" },
-    { "source": "/moradia/",              "destination": "/api/landing?section=moradia" },
+    { "source": "/moradia/",               "destination": "/api/landing?section=moradia" },
     { "source": "/vc",                     "destination": "/api/landing?section=vc" },
     { "source": "/vc/",                    "destination": "/api/landing?section=vc" },
     { "source": "/seguranca",              "destination": "/api/landing?section=seguranca" },
@@ -79,7 +81,7 @@
     { "source": "/investimentos",          "destination": "/api/category?cat=investimentos" },
     { "source": "/investimentos/",         "destination": "/api/category?cat=investimentos" },
     { "source": "/seguros",                "destination": "/api/category?cat=seguros" },
-    { "source": "/seguros/",               "destination": "/api/category?cat=seguros" },
+    { "source": "/seguros/",              "destination": "/api/category?cat=seguros" },
     { "source": "/mercados",               "destination": "/api/category?cat=mercados" },
     { "source": "/mercados/",              "destination": "/api/category?cat=mercados" },
     { "source": "/educacao",               "destination": "/api/category?cat=educacao" },
@@ -124,6 +126,10 @@
     { "source": "/religiao/",              "destination": "/api/category?cat=religiao" },
     { "source": "/colunistas",             "destination": "/api/category?cat=colunistas" },
     { "source": "/colunistas/",            "destination": "/api/category?cat=colunistas" },
+
+    { "source": "/api/editor_ia",          "destination": "/api/manage?action=editor_ia" },
+    { "source": "/api/seo_batch",          "destination": "/api/manage?action=seo_batch" },
+    { "source": "/api/live-data",          "destination": "/api/portal-posts?format=live-data" },
 
     { "source": "/:cat/:slug/",            "destination": "/api/article?cat=:cat&slug=:slug" },
     { "source": "/:cat/:slug",             "destination": "/api/article?cat=:cat&slug=:slug" },

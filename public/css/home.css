@@ -3,7 +3,7 @@
        OVC DESIGN SYSTEM — variáveis base (imutáveis por tema)
        ========================================================= */
     :root {
-      /* --- Tipografia: fonte ÚNICA em todo o portal --- */
+      /* --- Tipografia: fonte Única em todo o portal --- */
       --font-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
@@ -469,6 +469,50 @@
       font-size: var(--font-size-md);
     }
 
+    .ovc-access-wrap {
+      position: relative;
+    }
+    .btn-access {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 5px 13px;
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-access:hover { border-color: rgba(148,163,184,0.85); color: #f1f5f9; }
+    .ovc-access-menu {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #0f172a;
+      border: 1px solid rgba(148,163,184,0.25);
+      border-radius: 10px;
+      min-width: 180px;
+      z-index: 9999;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    .ovc-access-menu.open { display: block; }
+    .ovc-access-item {
+      display: block;
+      padding: 11px 16px;
+      color: #cbd5e1;
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      text-decoration: none;
+    }
+    .ovc-access-item:hover { background: rgba(148,163,184,0.1); color: #f1f5f9; }
+    .ovc-access-item + .ovc-access-item { border-top: 1px solid rgba(148,163,184,0.12); }
+
     .header-menu-bar {
       background: var(--bg-header-top);
       border-bottom: 1px solid #111827;
@@ -545,6 +589,11 @@
     .submenu a:hover {
       background: rgba(148,163,184,0.18);
       color: var(--gold);
+    }
+
+    .supermenu-item .submenu-right {
+      left: auto;
+      right: 0;
     }
 
     .chips-bar {
@@ -1140,7 +1189,7 @@
     }
 
     .card-mini .ovc-card-img {
-      /* REGRA INVIOLÁVEL: todas as imagens dos cards mini com exatamente 192px de altura */
+      /* REGRA INVIOLAVEL: todas as imagens dos cards mini com exatamente 192px de altura */
       width: 100% !important;
       height: 192px !important;
       min-height: 192px !important;
@@ -2015,4 +2064,1040 @@
 /* Garantir position:relative nos cards para o absolute funcionar */
 .card-standard, .card-mini, .card-hero-main, .card-feature, .card-monetizado {
   position: relative !important;
+}
+
+
+/* ==========================================================
+   RESPONSIVE AUDIT — mobile fixes included via home.css
+   ========================================================== */
+/* =============================================================
+   OVC RESPONSIVE.CSS — Auditoria Responsiva Completa
+   Breakpoints: 1200 | 1024 | 900 | 768 | 640 | 480 | 375px
+   Cobre: mobile, tablet, iPad, iPhone SE, Android
+   Não remove CSS existente — apenas adiciona e corrige
+   ============================================================= */
+
+/* ------------------------------------------------------------------
+   1. GLOBAL: overflow prevention + imagens responsivas
+   ------------------------------------------------------------------ */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+img, video, iframe, embed, object {
+  max-width: 100%;
+  height: auto;
+}
+
+/* iOS Safari: min-height fix */
+.page-root {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* ------------------------------------------------------------------
+   2. WEBKIT PREFIXES — backdrop-filter, sticky, fill-available
+   ------------------------------------------------------------------ */
+
+/* backdrop-filter Safari support */
+.card-hero-main[style*="background-image"] .tag,
+.card-feature[style*="background-image"] .tag,
+.card-feature.has-image .tag,
+.card-mini[style*="background-image"] .tag,
+.card-cta,
+.card-standard .card-cta,
+.card-mini .card-cta,
+.card-hero-main .card-cta,
+.card-feature .card-cta,
+.card-monetizado .card-cta {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* position: sticky iOS Safari */
+.header {
+  position: -webkit-sticky;
+  position: sticky;
+}
+
+.sticky-tech {
+  position: -webkit-sticky;
+  position: sticky;
+}
+
+/* ------------------------------------------------------------------
+   3. HAMBURGER MENU — botão visível apenas em mobile
+   ------------------------------------------------------------------ */
+
+/* Ocultar em desktop */
+.btn-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.hamburger-bar {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.btn-hamburger.active .hamburger-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.btn-hamburger.active .hamburger-bar:nth-child(2) {
+  opacity: 0;
+}
+.btn-hamburger.active .hamburger-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* ------------------------------------------------------------------
+   4. MOBILE MENU — drawer lateral
+   ------------------------------------------------------------------ */
+
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9998;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.mobile-menu-overlay.open {
+  display: block;
+}
+
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 88vw);
+  background: #050816;
+  border-left: 1px solid #1e293b;
+  z-index: 9999;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex-direction: column;
+  padding: 0;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.7);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+}
+
+.mobile-menu.open {
+  display: flex;
+  transform: translateX(0);
+}
+
+.mobile-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #1e293b;
+  background: #030712;
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.mobile-menu-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #e5e7eb;
+}
+
+.mobile-menu-close {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  color: #e5e7eb;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.mobile-menu-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0 40px;
+  gap: 0;
+}
+
+.mobile-menu-link {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  color: #e5e7eb;
+  font-size: 15px;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.6);
+  transition: background 0.15s, color 0.15s;
+  min-height: 44px;
+}
+
+.mobile-menu-link:hover {
+  background: rgba(148, 163, 184, 0.08);
+  color: #d4af37;
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------
+   5. FORMULÁRIOS MOBILE — evitar zoom no iOS (font-size >= 16px)
+   ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .search-input,
+  .footer-newsletter-input,
+  .ovc-field input,
+  .ovc-field textarea,
+  .ovc-field select,
+  .ovc-admin-form input,
+  .ovc-admin-form textarea,
+  .ovc-admin-form select,
+  .ovc-admin-input {
+    font-size: 16px !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   6. BREAKPOINT 1200px — Tablet largo
+   ------------------------------------------------------------------ */
+
+@media (max-width: 1200px) {
+  .page-main {
+    padding: 14px 16px 8px;
+  }
+
+  .main-grid {
+    grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 220px;
+    column-gap: 14px;
+  }
+
+  .footer {
+    padding: 32px 28px 20px;
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .category-page-title {
+    font-size: 38px;
+  }
+
+  .ovc-hero h1 {
+    font-size: 38px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   7. BREAKPOINT 1024px — Tablet
+   ------------------------------------------------------------------ */
+
+@media (max-width: 1024px) {
+  .page-main {
+    padding: 12px 14px 8px;
+  }
+
+  .main-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 14px;
+  }
+
+  .rail-left {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .rail-right {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .hero-region {
+    grid-column: 1 / -1;
+  }
+
+  .cols-region {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 14px;
+  }
+
+  .cols-region-2 {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 14px;
+  }
+
+  .card-hero-grid {
+    grid-template-columns: 1.8fr 1fr;
+  }
+
+  .card-hero-grid > .card-hero-main,
+  .card-hero-grid > .card-feature,
+  .card-hero-grid > .card-monetizado {
+    height: 360px !important;
+    min-height: 360px !important;
+    max-height: 360px !important;
+  }
+
+  .card-hero-grid > .card-monetizado {
+    display: none;
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .footer-middle {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .category-page-title {
+    font-size: 34px;
+  }
+
+  .ovc-hero h1 {
+    font-size: 34px;
+  }
+
+  .ovc-article-page h1 {
+    font-size: 36px;
+  }
+
+  .search-chips {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   8. BREAKPOINT 900px — Tablet pequeno
+   ------------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .main-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  .cols-region {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .cols-region-2 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .card-hero-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-hero-grid > .card-hero-main {
+    height: 340px !important;
+    min-height: 340px !important;
+    max-height: 340px !important;
+  }
+
+  .card-hero-grid > .card-feature,
+  .card-hero-grid > .card-monetizado {
+    display: none;
+  }
+
+  .header-identity {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto;
+    column-gap: 12px;
+  }
+
+  .search-block {
+    grid-column: 1 / -1;
+  }
+
+  .header-actions {
+    grid-column: auto;
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .footer-middle {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .category-page-title {
+    font-size: 28px;
+  }
+
+  .ovc-hero h1 {
+    font-size: 30px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   9. BREAKPOINT 768px — Mobile grande (ponto crítico)
+   ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  /* Mostrar hamburger */
+  .btn-hamburger {
+    display: flex;
+  }
+
+  /* Ocultar nav desktop, search chips e elementos desnecessários */
+  .header-menu-bar,
+  .chips-bar,
+  .search-block,
+  .link-anuncie,
+  .btn-newsletter,
+  .btn-theme,
+  .ovc-access-wrap {
+    display: none !important;
+  }
+
+  /* Header identity simplificado: logo | hamburger */
+  .header-identity {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto;
+    padding: 8px 16px;
+    column-gap: 12px;
+    align-items: center;
+  }
+
+  .header-actions {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    margin-top: 0 !important;
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  /* Ticker topbar — mais compacto */
+  .header-topbar {
+    padding: 4px 14px;
+    gap: 12px;
+  }
+
+  .impostometro {
+    display: none;
+  }
+
+  .ticker-item {
+    gap: 3px;
+  }
+
+  /* Layout principal: 1 coluna */
+  .page-main {
+    padding: 10px 12px 8px;
+  }
+
+  .main-grid {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 14px;
+  }
+
+  .rail-left,
+  .rail-right {
+    display: none;
+  }
+
+  .hero-region {
+    grid-column: 1;
+    margin-bottom: 12px;
+  }
+
+  .cols-region {
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 12px;
+  }
+
+  .cols-region-2 {
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 12px;
+    margin-top: 12px;
+  }
+
+  /* Cards hero: 1 coluna */
+  .card-hero-grid {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+    row-gap: 12px;
+  }
+
+  .card-hero-grid > .card-hero-main {
+    height: 280px !important;
+    min-height: 280px !important;
+    max-height: 280px !important;
+  }
+
+  .card-hero-grid > .card-feature,
+  .card-hero-grid > .card-monetizado {
+    display: none;
+  }
+
+  /* Cards: min-height reduzidos */
+  .card-mini {
+    min-height: 200px;
+  }
+
+  .card-mini .ovc-card-img {
+    height: 140px !important;
+    min-height: 140px !important;
+    max-height: 140px !important;
+  }
+
+  .card-standard {
+    min-height: 280px;
+  }
+
+  .card-standard .ovc-card-img {
+    height: 160px !important;
+    min-height: 160px !important;
+    max-height: 160px !important;
+  }
+
+  .card-feature {
+    min-height: 240px;
+  }
+
+  /* Footer: 1 coluna */
+  .footer {
+    padding: 24px 16px 20px;
+    margin-top: 20px;
+  }
+
+  .footer-top {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .footer-brand {
+    flex: none;
+  }
+
+  .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    flex: none;
+  }
+
+  .footer-middle {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .footer-newsletter-form {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .footer-newsletter-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px 16px;
+    min-height: 44px;
+  }
+
+  /* Tipografia */
+  .category-page-title {
+    font-size: 26px;
+  }
+
+  .category-page-header {
+    padding: 24px 16px;
+  }
+
+  .category-page-subtitle {
+    font-size: 15px;
+  }
+
+  .ovc-hero h1 {
+    font-size: 26px;
+  }
+
+  .ovc-hero {
+    padding: 16px;
+  }
+
+  .ovc-article-page h1 {
+    font-size: 26px;
+  }
+
+  .ovc-article-page {
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .ovc-article-body {
+    font-size: 17px;
+    line-height: 1.7;
+  }
+
+  .ovc-quote-hero {
+    font-size: 28px;
+  }
+
+  /* Grids de página interna */
+  .page-content-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  /* Admin */
+  .ovc-admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ovc-admin-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Touch targets */
+  .search-chip {
+    padding: 8px 12px;
+    min-height: 36px;
+  }
+
+  .footer-social-chip {
+    padding: 10px 14px;
+    min-height: 44px;
+  }
+
+  .chip-pill {
+    padding: 8px 12px;
+    min-height: 36px;
+  }
+
+  /* story card interno */
+  .ovc-story-card {
+    grid-template-columns: 1fr;
+  }
+
+  .ovc-story-card h2 {
+    font-size: 24px;
+  }
+
+  .ovc-story-card h3 {
+    font-size: 18px;
+  }
+
+  .ovc-mini-item h4 {
+    font-size: 15px;
+  }
+
+  /* Logo: esconder tagline em mobile */
+  .logo-tagline {
+    display: none;
+  }
+
+  .logo-name {
+    font-size: 14px;
+    letter-spacing: 0.12em;
+  }
+}
+
+/* ------------------------------------------------------------------
+   10. BREAKPOINT 640px — Mobile médio
+   ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .header-identity {
+    padding: 6px 12px;
+  }
+
+  .logo-mark {
+    height: 34px;
+  }
+
+  .logo-name {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .card-hero-grid > .card-hero-main {
+    height: 240px !important;
+    min-height: 240px !important;
+    max-height: 240px !important;
+  }
+
+  .ovc-hero h1 {
+    font-size: 24px;
+  }
+
+  .category-page-title {
+    font-size: 24px;
+  }
+
+  .ovc-article-page h1 {
+    font-size: 22px;
+  }
+
+  .ovc-article-body {
+    font-size: 16px;
+  }
+
+  .ovc-live-frame,
+  .ovc-live-frame iframe {
+    min-height: 200px;
+    height: 200px;
+  }
+
+  .ovc-admin-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-bottom-links {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   11. BREAKPOINT 480px — Mobile pequeno (iPhone SE, Android pequeno)
+   ------------------------------------------------------------------ */
+
+@media (max-width: 480px) {
+  .header-topbar {
+    padding: 3px 10px;
+  }
+
+  .ticker-item {
+    font-size: 10px;
+    gap: 2px;
+  }
+
+  .ticker-label {
+    font-size: 9px;
+  }
+
+  .header-identity {
+    padding: 5px 10px;
+  }
+
+  .logo-mark {
+    height: 30px;
+  }
+
+  .page-main {
+    padding: 8px 10px 8px;
+  }
+
+  .footer {
+    padding: 20px 12px 16px;
+  }
+
+  .category-page-title {
+    font-size: 20px;
+  }
+
+  .ovc-hero h1 {
+    font-size: 20px;
+  }
+
+  .ovc-article-page h1 {
+    font-size: 20px;
+  }
+
+  .card-hero-grid > .card-hero-main {
+    height: 200px !important;
+    min-height: 200px !important;
+    max-height: 200px !important;
+  }
+
+  .ovc-article-body {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .breadcrumb-navigation {
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  .ovc-main {
+    width: calc(100vw - 16px);
+  }
+
+  .ovc-quote-hero {
+    font-size: 24px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   12. BREAKPOINT 375px — Mobile muito pequeno
+   ------------------------------------------------------------------ */
+
+@media (max-width: 375px) {
+  .logo-name {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .logo-mark {
+    height: 26px;
+  }
+
+  .btn-hamburger {
+    width: 38px;
+    height: 38px;
+  }
+
+  .hamburger-bar {
+    width: 16px;
+  }
+
+  .category-page-title {
+    font-size: 18px;
+    letter-spacing: 0.02em;
+  }
+
+  .ovc-hero h1 {
+    font-size: 18px;
+  }
+
+  .card-hero-grid > .card-hero-main {
+    height: 180px !important;
+    min-height: 180px !important;
+    max-height: 180px !important;
+  }
+
+  .footer {
+    padding: 16px 10px 14px;
+  }
+}
+
+/* ------------------------------------------------------------------
+   13. LANDSCAPE MOBILE
+   ------------------------------------------------------------------ */
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .card-hero-grid > .card-hero-main {
+    height: 200px !important;
+    min-height: 200px !important;
+    max-height: 200px !important;
+  }
+
+  .mobile-menu {
+    width: min(400px, 92vw);
+  }
+}
+
+/* ------------------------------------------------------------------
+   14. TABELAS — evitar overflow horizontal
+   ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .ovc-admin-table,
+  .ovc-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+}
+
+/* ------------------------------------------------------------------
+   15. NOTICIAS — fixes responsivos
+   ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  #ovc-news-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .ovc-news-img {
+    height: 200px;
+  }
+
+  .ovc-news-img-sm {
+    height: 120px;
+  }
+
+  .ovc-news-titulo {
+    font-size: 18px;
+  }
+
+  .ovc-news-titulo-sm {
+    font-size: 15px;
+  }
+
+  .ovc-sec-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #ovc-materia-titulo {
+    font-size: 22px;
+    line-height: 1.3;
+  }
+
+  #ovc-materia-subtitulo {
+    font-size: 16px;
+  }
+
+  .ovc-news-item {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ovc-news-cat-xs {
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------------------
+   16. PÁGINAS INTERNAS — fixes
+   ------------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .ovc-section-hero {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .ovc-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .ovc-story-card h2 {
+    font-size: 22px;
+  }
+
+  .ovc-story-list h3 {
+    font-size: 20px;
+  }
+
+  .ovc-mini-item {
+    grid-template-columns: 1fr;
+  }
+
+  .ovc-theme-panel {
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+    top: auto;
+    min-width: auto;
+  }
+
+  .breadcrumb-navigation {
+    padding: 8px 14px;
+  }
+
+  body.ovc-inner-page .ovc-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.ovc-inner-page [data-hero-card] {
+    padding: 16px !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   17. PRINT
+   ------------------------------------------------------------------ */
+
+@media print {
+  .header,
+  .footer,
+  .rail-left,
+  .rail-right,
+  .chips-bar,
+  .header-menu-bar,
+  .ad-slot,
+  .mobile-menu,
+  .mobile-menu-overlay {
+    display: none !important;
+  }
+
+  .page-main {
+    padding: 0;
+  }
+
+  body {
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+}
+
+/* ------------------------------------------------------------------
+   18. REDUCED MOTION
+   ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track,
+  .chips-track {
+    animation: none;
+  }
+
+  .card,
+  .rail-block,
+  .card-feature,
+  .mobile-menu {
+    transition: none;
+  }
 }

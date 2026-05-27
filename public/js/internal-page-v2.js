@@ -79,10 +79,42 @@
     return '/'+cp+'/'+sl+'-'+id8+'/';
   }
 
+  function quebrarParagrafos(html){
+    if(!html) return html;
+    var prev, r = html, passes = 0;
+    do {
+      prev = r;
+      r = r.replace(/<p[^>]*>([\s\S]+?)<\/p>/gi, function(match, inner){
+        if(inner.length < 300) return match;
+        var partes = inner.split(/([.!?]["»]?\s+)/);
+        var frases = [], buf = '';
+        for(var i = 0; i < partes.length; i++){
+          buf += partes[i];
+          if(/[.!?]["»]?\s*$/.test(buf) && buf.trim().length > 60){ frases.push(buf.trim()); buf = ''; }
+        }
+        if(buf.trim()) frases.push(buf.trim());
+        if(frases.length <= 1){
+          var words = inner.split(/\s+/), wchunk = '', wchars = 0, wsplits = [];
+          words.forEach(function(w){ wchunk += (wchunk?' ':'')+w; wchars += w.length+1; if(wchars>220&&/[,;]$/.test(w)){wsplits.push(wchunk.trim());wchunk='';wchars=0;} });
+          if(wchunk.trim()) wsplits.push(wchunk.trim());
+          if(wsplits.length <= 1) return match;
+          frases = wsplits;
+        }
+        var maxG = passes === 0 ? 3 : 2;
+        var out = '', chk = '', cnt = 0;
+        frases.forEach(function(f){ chk += (chk?' ':'')+f; cnt++; if(cnt >= maxG){ out += '<p>'+chk+'</p>\n'; chk=''; cnt=0; } });
+        if(chk) out += '<p>'+chk+'</p>';
+        return out;
+      });
+      passes++;
+    } while(r !== prev && passes < 5);
+    return r;
+  }
   function renderCorpo(texto){
     if(!texto) return '';
     if(/^\s*<[a-z]/i.test(texto.trim())){
-      return '<div style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);">'+texto+'</div>';
+      var html=quebrarParagrafos(texto);
+      return '<style>.ovc-corpo p{margin:0 0 22px;font-size:17px;line-height:1.9;color:var(--text-main,#1e293b)}.ovc-corpo h2{font-size:20px;font-weight:800;margin:32px 0 12px;border-left:3px solid var(--ovc-accent,#dc2626);padding-left:12px;color:var(--text-main,#0f172a)}.ovc-corpo h3{font-size:18px;font-weight:700;margin:24px 0 10px;color:var(--text-main,#0f172a)}.ovc-corpo strong,.ovc-corpo b{font-weight:700}.ovc-corpo blockquote{border-left:3px solid var(--ovc-accent,#dc2626);padding:12px 16px;margin:20px 0;font-style:italic;color:#475569;background:rgba(0,0,0,.03);border-radius:0 6px 6px 0}.ovc-corpo ul,.ovc-corpo ol{margin:0 0 22px;padding-left:24px}.ovc-corpo li{margin-bottom:8px;font-size:17px;line-height:1.8;color:var(--text-main,#1e293b)}</style><div class="ovc-corpo" style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);">'+html+'</div>';
     }
     var lines = texto.split('\n'), html = '', htags = [];
     for(var i=0;i<lines.length;i++){
@@ -284,7 +316,7 @@
       if(!document.getElementById('ovc-art-float-style')){
         var sty = document.createElement('style');
         sty.id = 'ovc-art-float-style';
-        sty.textContent = '.ovc-art-img{float:left;width:38%;max-width:360px;margin:0 24px 20px 0;border-radius:12px;display:block;object-fit:cover;aspect-ratio:4/5;}.ovc-art-body{overflow:hidden;}@media(max-width:680px){.ovc-art-img{float:none;width:100%;max-width:100%;margin:0 0 20px 0;aspect-ratio:auto;}}';
+        sty.textContent = '.ovc-art-img{float:left;width:38%;max-width:360px;margin:0 24px 20px 0;border-radius:12px;display:block;object-fit:cover;aspect-ratio:4/5;}.ovc-art-body{overflow:hidden;}.ovc-corpo p{margin:0 0 22px!important;font-size:17px;line-height:1.9;color:var(--text-main,#1e293b)}.ovc-corpo h2{font-size:20px;font-weight:800;margin:32px 0 12px!important;border-left:3px solid var(--ovc-accent,#dc2626);padding-left:12px}.ovc-corpo h3{font-size:18px;font-weight:700;margin:24px 0 10px!important}.ovc-corpo strong,.ovc-corpo b{font-weight:700}.ovc-corpo ul,.ovc-corpo ol{margin:0 0 22px!important;padding-left:24px}.ovc-corpo li{margin-bottom:8px;font-size:17px;line-height:1.8}.leia-tambem{margin-top:52px!important;padding:22px 24px;background:var(--surface-2,#f8fafc);border-radius:10px;border-top:3px solid var(--ovc-accent,#dc2626);clear:both}.leia-tambem strong{display:block;font-size:15px;font-weight:800;margin-bottom:14px!important;color:var(--text-main,#0f172a);text-transform:uppercase;letter-spacing:.04em}.leia-tambem ul{margin:0!important;padding-left:18px}.leia-tambem li{margin-bottom:10px!important;font-size:15px}.leia-tambem a{color:var(--ovc-accent,#dc2626);text-decoration:none;font-weight:500}.leia-tambem a:hover{text-decoration:underline}@media(max-width:680px){.ovc-art-img{float:none;width:100%;max-width:100%;margin:0 0 20px 0;aspect-ratio:auto;}}';
         document.head.appendChild(sty);
       }
 

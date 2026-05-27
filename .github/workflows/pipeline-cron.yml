@@ -1,16 +1,19 @@
-name: Pipeline OVC — manual
+name: Pipeline OVC — a cada 5 minutos
 
 on:
+  schedule:
+    - cron: '*/5 9-23 * * *'
+    - cron: '*/5 0-2 * * *'
   workflow_dispatch:
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Disparar pipeline (force)
+      - name: Gerar matérias
         run: |
-          curl -s -X POST \
+          RESP=$(curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
             -H "Content-Type: application/json" \
-            -d '{"force":true,"count":8}' \
-            "https://www.ovalorcapital.com.br/api/run_portal"
+            -d '{"force":true,"count":3}' --max-time 120)
+          echo "RESP: $RESP"

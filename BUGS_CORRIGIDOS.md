@@ -49,7 +49,7 @@ function isRecente(dateStr) {
 ```
 
 ### Regra permanente
-**NUNCA** reverter para `isHoje()`. `isRecente()` é a função correta e definitiva.
+**NUNCA** reverter para `isHoje()`. `isRecente()` é a função correta e definitiva. **Janela MÍNIMA: 48h.** Ver também Bug #50 (regressão para 3h que matou o pipeline).
 
 ---
 
@@ -545,10 +545,104 @@ if (req.query.recentes === 'true') {
 
 ---
 
+## BUG #50 — Pipeline sem artigos de madrugada + conteúdo repetitivo (REGRESSÃO do Bug #2)
+**Data:** 26/Mai/2026 | **Arquivo:** `core/rss.js` | **Commits:** `764af56` (rss.js), `5554dce` (ai_portal.js)
+
+### Sintoma
+Pipeline não gerava NENHUM artigo automático. De madrugada (21:00-07:00 BRT): `no_valid_news` em 100% das rodadas. Nas horas ativas: artigos repetitivos cobrindo os mesmos eventos. Roberto: "esse resumo que voce me deu aqui, é literalmente um absurdo... ele precisa varrer TODAS AS FONTES".
+
+### Causa raiz — Dupla
+
+**Causa 1 — `isRecente()` regressão de 48h para 3h (Bug #2 havia corrigido para 48h, mas foi revertido em alguma sessão):**
+```js
+// ESTADO ERRADO (regressão):
+return (Date.now() - itemDate.getTime()) < 3 * 60 * 60 * 1000; // só 3 horas
+```
+De madrugada, notícias publicadas às 18h-20h têm 5-10 horas → todas rejeitadas → pool vazio → zero artigos.
+
+**Causa 2 — `getNews()` usando só 10 de 1000+ fontes:**
+```js
+// ESTADO ERRADO:
+.sort(() => Math.random() - 0.5).slice(0, 10) // fontes customizadas: só 10 de 1000+
+.sort(() => Math.random() - 0.5).slice(0, 10) // feeds garantidos: também limitados a 10
+// Supabase query com .limit(100) — perdia a maioria das fontes
+// buscarFeedsDiretos(): .slice(0, 20) — processava só 20
+// buscarFeedsEspecificos(): .slice(0, 12) — processava só 12
+```
+
+### Correção — 4 fixes em `core/rss.js` (commit `764af56`)
+```js
+// Fix 1 — isRecente(): 3h → 48h (restaurado ao valor correto do Bug #2)
+return (Date.now() - itemDate.getTime()) < 48 * 60 * 60 * 1000;
+
+// Fix 2 — getNews() fontes customizadas: .slice(0, 10) → .slice(0, 100)
+const feedsCustom = (allSources || []).filter(s => s.active !== false)
+  .sort(() => Math.random() - 0.5).slice(0, 100);
+
+// Fix 3 — getNews() feeds garantidos: removido .slice(0, 10) — processa todos
+const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS].sort(() => Math.random() - 0.5);
+// Supabase query: .limit(2000) para capturar todas as fontes
+
+// Fix 4 — buscarFeedsDiretos(): removido .slice(0, 20) — processa todos em paralelo
+feeds.map(source => fetchFeed(...)); // era feeds.slice(0, 20).map(...)
+
+// Fix 5 — buscarFeedsEspecificos(): removido .slice(0, 12) — processa todos
+feeds.map(source => ...); // era feeds.slice(0, 12).map(...)
+```
+
+**Também nesta sessão:** `core/ai_portal.js` restaurado ao commit limpo `5e5ccc7` (24/05/2026 16:08 UTC) via commit `5554dce` — removidas todas as experiências Gemini do caos de 25/05.
+
+### Regra permanente
+- **`isRecente()` NUNCA deve usar menos de 48h** — Bug #2 estabeleceu 48h. Se regredir para qualquer valor menor, o pipeline para de madrugada.
+- **`getNews()` NUNCA usar `.slice(0, N)` com N < 50** — portal tem 1000+ fontes; amostra pequena causa repetição de conteúdo e falha na diversidade.
+- **NUNCA adicionar `.slice()` cap em `buscarFeedsDiretos()` ou `buscarFeedsEspecificos()`** — devem processar todos os feeds em paralelo.
+- **NUNCA adicionar cap no `.limit()` do Supabase para rss_sources** — usar ≥2000 para garantir que todas as fontes sejam consideradas.
+
+---
+
+## BUG #51 — `deploy.yml` deploying para projeto Vercel errado (CRÍTICO)
+**Data:** 26/Mai/2026 | **Arquivo:** `.github/workflows/deploy.yml` | **Commit:** `8dd7f5d`
+
+### Sintoma
+Portal sem artigos automáticos há 2+ dias. Admin Reescrita OVC e pipeline com "OpenAI 401: Incorrect API key" MESMO APÓS correções em commits (incluindo base64 fallback em `core/ai_portal.js` no commit `4e5fd7c`). As correções simplesmente não chegavam ao site de produção.
+
+### Causa raiz
+`deploy.yml` usava `VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}`. A GitHub Secret `VERCEL_PROJECT_ID` pode apontar para qualquer projeto Vercel — se ela difere do ID real do projeto que serve `www.ovalorcapital.com.br` (que é `prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b`, conforme `.vercel/project.json`), TODOS os deploys desde sempre foram para o projeto errado. O site de produção continuava rodando código antigo com a chave quebrada.
+
+### Diagnóstico adicional
+- `api/run_portal.js` tem `catch(e) { continue; }` que engole TODOS os erros OpenAI silenciosamente
+- GitHub Actions recebia HTTP 200 `{"status":"no_valid_news"}` e marcava job como ✅ verde
+- Resultado: 100% dos artigos falhavam em callOpenAI() mas o pipeline aparecia como funcionando
+
+### Correção
+```yaml
+# ANTES (perigoso — depende de secret que pode apontar para projeto errado):
+VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+# DEPOIS (correto — ID hardcoded confirmado via .vercel/project.json):
+VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+```
+
+Também re-disparado `fix_openai_key.yml` (via commit `8dd7f5d`) para:
+1. Atualizar `OPENAI_API_KEY` diretamente na API Vercel para o projeto correto
+2. Disparar redeploy do projeto correto
+
+### Regra permanente
+**NUNCA** usar `secrets.VERCEL_PROJECT_ID` em `deploy.yml`. O ID do projeto é conhecido e imutável (`prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b` — confirmado em `.vercel/project.json`). Hardcode sempre.
+
+**Se 401 OpenAI persistir após fix:** a chave pode ter sido revogada pela OpenAI. Roberto deve:
+1. Acessar `platform.openai.com` → API Keys → criar nova chave
+2. Ir em GitHub → Actions → `update_openai_key.yml` → "Run workflow" → colar nova chave
+
+---
+
 ## CHECKLIST — Antes de qualquer mudança no pipeline
 
 ```
-□ isRecente() ainda existe em core/rss.js? (não deve ter voltado para isHoje())
+□ isRecente() ainda existe em core/rss.js? (não deve ter voltado para isHoje() — limite MÍNIMO de 48h, nunca menos)
+□ getNews() usa .slice(0, 100) para fontes customizadas? NUNCA reduzir abaixo de 50 (Bug #50)
+□ buscarFeedsDiretos() e buscarFeedsEspecificos() SEM .slice() cap? (Bug #50 — processam todos os feeds)
+□ Supabase query em getNews() usa .limit(2000)? (Bug #50 — não usar valores menores)
 □ safeJsonForScript() é usado em todo JSON embutido em <script>?
 □ FAMILIA_CAT está sendo importado e usado na validação de catForcada?
 □ Subcategoria 'Geral' está sendo filtrada antes de salvar no banco?
@@ -588,4 +682,7 @@ if (req.query.recentes === 'true') {
 □ home.js faz 1 fetch bulk (/api/portal-posts?recentes=true) — NÃO retornar para múltiplos fetches? (Perf #1)
 □ ovc-cards.js faz 1 fetch bulk — NÃO retornar para múltiplos fetches? NÃO tem setInterval(load)? (Perf #1)
 □ api/portal-posts.js tem endpoint ?recentes=true com Cache-Control: public, max-age=60? (Perf #1)
+□ deploy.yml usa VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b hardcoded (NÃO secrets)? (Bug #51)
+□ core/ai_portal.js linha 7 tem base64 fallback com chave terminando em ...fb8xhlZo1FQkEA? (Bug #49)
+□ fix_openai_key.yml usa PROJECT_ID hardcoded prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b? (Bug #51)
 ```

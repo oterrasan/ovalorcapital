@@ -9,11 +9,11 @@ const PEXELS_KEY  = process.env.PEXELS_KEY  || "";
 // ─── POOL DE FALLBACK (usado SOMENTE se todas as APIs falharem ou timeout) ───
 const POOLS = {
   politica:      ["https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800","https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=800","https://images.unsplash.com/photo-1555848962-6e79363ec58f?w=800","https://images.unsplash.com/photo-1494172961521-33799ddd43a5?w=800","https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800"],
-  economia:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800","https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800","https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=800","https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800"],
+  economia:      ["https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800","https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800","https://images.unsplash.com/photo-1543286386-2e659306cd6c?w=800","https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800","https://images.unsplash.com/photo-1434626881859-194d67b2b86f?w=800"],
   negocios:      ["https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800","https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800","https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800","https://images.unsplash.com/photo-1553877522-43269d4ea984?w=800","https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=800"],
-  investimentos: ["https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800","https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800","https://images.unsplash.com/photo-1565373679580-fc0cb538f49b?w=800","https://images.unsplash.com/photo-1642790551116-18e150f248e3?w=800","https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800"],
+  investimentos: ["https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800","https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800","https://images.unsplash.com/photo-1565373679580-fc0cb538f49b?w=800","https://images.unsplash.com/photo-1642790551116-18e150f248e3?w=800","https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800"],
   seguros:       ["https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800","https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800","https://images.unsplash.com/photo-1521791055366-0d553872952f?w=800","https://images.unsplash.com/photo-1491895200222-0fc4a4c35e18?w=800","https://images.unsplash.com/photo-1559526324-593bc073d938?w=800"],
-  mercados:      ["https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800","https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800","https://images.unsplash.com/photo-1642790551116-18e150f248e3?w=800","https://images.unsplash.com/photo-1535320903710-d993d3d77d29?w=800","https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"],
+  mercados:      ["https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800","https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800","https://images.unsplash.com/photo-1642790551116-18e150f248e3?w=800","https://images.unsplash.com/photo-1535320903710-d993d3d77d29?w=800","https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800"],
   tecnologia:    ["https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800","https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800","https://images.unsplash.com/photo-1518770660439-4636190af475?w=800","https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=800","https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800"],
   esportes:      ["https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800","https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800","https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=800","https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800","https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800"],
   saude:         ["https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800","https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800","https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=800","https://images.unsplash.com/photo-1504813184591-01572f98c85f?w=800","https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=800"],
@@ -44,11 +44,17 @@ const BLOQUEIO_PATTERNS = [
   '/profile/', '/headshot/', '/avatar/', '/staff/', '/equipe/',
   'foto-autor', 'foto-reporter', 'headshot', 'profile-pic', 'author-photo',
   'logo', 'icon', 'favicon', 'banner', 'marca',
-  // Bloqueio de ilustrações, gráficos e imagens não-fotográficas
+  // Ilustrações, gráficos e imagens não-fotográficas
   'vector', 'ilustra', 'illustration', 'diagram', 'diagrama',
   'infograph', 'infografia', 'cartoon', 'drawing', 'clipart',
   'clip-art', 'clip_art', 'sketch', 'esquema', 'graphic-design',
   'template', 'stock-illustr', 'shutterstock', 'gettyimages',
+  // Google CDN — logos, favicons, thumbnails de canal, profile pics
+  'lh3.googleusercontent', 'lh4.googleusercontent', 'lh5.googleusercontent',
+  'lh6.googleusercontent', 'yt3.ggpht', 'googlelogo', 'google_logo',
+  'google-logo', 'gstatic.com/images', 'ssl.gstatic', 'encrypted-tbn',
+  // Imagens genéricas de stock/turismo que aparecem frequentemente
+  'placeholder', 'default-image', 'no-image', 'sem-imagem',
 ];
 
 const COMPETITOR_HOSTS = new Set([
@@ -77,16 +83,13 @@ function isImagemBloqueada(url) {
 function extrairEntidades(titulo) {
   if (!titulo) return [];
 
-  // IMPORTANT: specific multi-word aliases MUST come before generic single-word ones
   const ALIASES = {
-    // Bolsonaro family — specific before generic
     'flávio bolsonaro': 'Flávio Bolsonaro',
     'flavio bolsonaro': 'Flávio Bolsonaro',
     'eduardo bolsonaro': 'Eduardo Bolsonaro',
     'carlos bolsonaro': 'Carlos Bolsonaro',
     'jair bolsonaro': 'Jair Bolsonaro',
     'bolsonaro': 'Jair Bolsonaro',
-    // Lula
     'lula': 'Luiz Inácio Lula da Silva',
     'temer': 'Michel Temer',
     'dilma': 'Dilma Rousseff',
@@ -107,7 +110,7 @@ function extrairEntidades(titulo) {
     'petrobras': 'Petrobras',
     'vale': 'Vale S.A.',
     'embraer': 'Embraer',
-    'bradesco': 'Banco Bradesco',
+    'bradesco': 'Banco Bradeco',
     'itaú': 'Itaú Unibanco',
     'itau': 'Itaú Unibanco',
     'bb': 'Banco do Brasil',
@@ -193,7 +196,6 @@ async function buscarWikipedia(entityName, imagensUsadas) {
       if (!img) continue;
       if (isImagemBloqueada(img)) continue;
       if (!/\.(jpg|jpeg|png|webp)/i.test(img) && !img.includes('upload.wikimedia')) continue;
-      // Rejeita imagens muito pequenas do Wikipedia (ícones, logos, brasões)
       const widthMatch = img.match(/\/(\d+)px-/);
       if (widthMatch && parseInt(widthMatch[1]) < 400) continue;
       const imgGrande = img.replace(/\/\d+px-/, '/1000px-');
@@ -230,8 +232,7 @@ async function buscarWikimedia(query, imagensUsadas) {
 
     for (const page of pages) {
       const title = page.title || '';
-      // Filtro expandido — rejeita mapas, bandeiras, ícones, diagramas, ilustrações, gráficos
-      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge/i.test(title)) continue;
+      if (/flag|bandeira|icon|logo|coat|arms|seal|emblem|svg|mapa|map|diagram|schema|vector|illustration|ilustr|cartoon|chart|graph|infograph|drawing|sketch|template|clipart|badge|temple|pagoda|palace|mosque|cathedral|shrine|stupa|landmark|monument|tourist|tourism|stock_photo|placeholder/i.test(title)) continue;
       const imgInfo = page?.imageinfo?.[0];
       const img = imgInfo?.url;
       if (!img) continue;
@@ -362,7 +363,6 @@ async function _buscarImagem(titulo, categoria) {
 
   const entidades = extrairEntidades(titulo);
 
-  // Wikipedia por entidade
   for (const entidade of entidades) {
     try {
       const img = await buscarWikipedia(entidade, imagensUsadas);
@@ -370,7 +370,6 @@ async function _buscarImagem(titulo, categoria) {
     } catch(_) {}
   }
 
-  // Wikimedia Commons por entidade
   for (const entidade of entidades) {
     try {
       const img = await buscarWikimedia(entidade, imagensUsadas);
@@ -378,20 +377,17 @@ async function _buscarImagem(titulo, categoria) {
     } catch(_) {}
   }
 
-  // Wikimedia Commons por tema
   try {
     const img = await buscarWikimedia(titulo, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // Pixabay
   const termoEn = topicosEmIngles(titulo, categoria);
   try {
     const img = await buscarPixabay(termoEn, imagensUsadas);
     if (img) return img;
   } catch(_) {}
 
-  // Pexels
   try {
     const img = await buscarPexels(termoEn, imagensUsadas);
     if (img) return img;
