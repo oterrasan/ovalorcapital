@@ -520,13 +520,45 @@ async function carregarFontesSupabase() {
   try {
     const { data } = await supabase
       .from('rss_sources')
-      .select('url,name,active')
+      .select('url,name,active,categoria')
       .limit(2000);
     return (data || []).filter(s => s.active !== false);
   } catch (_) {
     return [];
   }
 }
+
+// Mapeamento portal categoria → nomes de categoria no Lote 2 (rss_sources.categoria)
+const LOTE2_POR_CATEGORIA = {
+  politica:      ['Polêmicas Brasil','Transparência e Espionagem'],
+  economia:      ['Portais Financeiros','Bancos Brasil','Combustíveis Brasil','Varejo Brasil'],
+  negocios:      ['Varejo Brasil','Varejo e Consumo','Marketing','Bens de Consumo Global','Feiras e Exposições'],
+  investimentos: ['Fundos Brasil','DeFi e Cripto','Portais Financeiros','Bancos Brasil'],
+  seguros:       ['Nichos Regulados','Farmacêutica Brasil'],
+  mercados:      ['Petróleo Global','Mineração Brasil','Bancos Globais','DeFi e Cripto','Combustíveis Brasil','Fundos Brasil'],
+  tributacao:    ['Nichos Regulados','Portais Financeiros'],
+  regulacao:     ['Nichos Regulados','Bancos Brasil','Telecom Brasil','Direito'],
+  tecnologia:    ['Tech Brasil','AGI e Neurotecnologia','Big Techs Global','Pagamentos Global','Games','Telecom Brasil','Telecom Global','Biologia Sintética'],
+  industria:     ['Manufatura Brasil','Logística Brasil','Indústria de Base','Infraestrutura','Agronegócio','Alimentos Brasil','Montadoras Global'],
+  saude:         ['Farmacêutica Brasil','Farmacêutica Global','Psicologia','Biologia Sintética'],
+  familia:       ['Psicologia'],
+  educacao:      ['Empregos','Direito'],
+  profissoes:    ['Direito','Psicologia','Empregos'],
+  vagas:         ['Empregos'],
+  concursos:     ['Empregos'],
+  imoveis:       ['Imobiliário'],
+  esg:           ['Climatologia','Biologia Sintética','Energia Elétrica Brasil'],
+  defesa:        ['Aeroespacial e Defesa','Transparência e Espionagem'],
+  seguranca:     ['Polêmicas Brasil','Transparência e Espionagem'],
+  internacional: ['Geopolítica','Bancos Globais','Alimentos Global','Varejo Global','Montadoras Global','Big Techs Global','Bens de Consumo Global','Aeroespacial e Defesa'],
+  investigativo: ['Polêmicas Brasil','Transparência e Espionagem'],
+  cultura:       ['Música','Fotografia','Feiras e Exposições','Moda'],
+  esportes:      ['Esportes','Federações Esportivas'],
+  variedades:    ['Moda','Cosméticos Brasil','Fotografia','Feiras e Exposições'],
+  religiao:      [],
+  parcerias:     ['Feiras e Exposições'],
+  radar:         ['Esportes','Federações Esportivas','Música'],
+};
 
 // Rotação por janela de tempo: cada rodada de 5min usa lote diferente de feeds
 // Garante que todos os 1000+ feeds sejam varridos ao longo do dia
@@ -542,15 +574,23 @@ export async function getNewsByCategoria(categoria) {
     const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
     const feedsHardcoded = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
 
+    // Fontes do Supabase filtradas pelas categorias Lote2 relevantes para esta categoria
+    const categoriasLote2 = LOTE2_POR_CATEGORIA[categoria] || [];
     const fontesSupabase = await carregarFontesSupabase();
     const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
-    const extras = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
 
-    // Hardcoded sempre incluídos + lote rotativo do Supabase (cap 120 total)
-    const loteExtras = loteOffset(extras, Math.max(120 - feedsHardcoded.length, 40));
-    const feedsParaUsar = [...feedsHardcoded, ...loteExtras];
+    let fontesFiltradas = categoriasLote2.length > 0
+      ? fontesSupabase.filter(f => !urlsHardcoded.has(f.url) && categoriasLote2.includes(f.categoria))
+      : fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
 
-    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${loteExtras.length} Supabase rotativo)`);
+    // Se poucos feeds específicos, complementar com lote rotativo geral
+    if (fontesFiltradas.length < 20) {
+      const extras = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
+      fontesFiltradas = [...fontesFiltradas, ...loteOffset(extras, 60)];
+    }
+
+    const feedsParaUsar = [...feedsHardcoded, ...fontesFiltradas].slice(0, 120);
+    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${fontesFiltradas.length} Supabase por categoria)`);
     return await buscarFeedsEmParalelo(feedsParaUsar);
   } catch (_) { return []; }
 }
@@ -568,8 +608,6 @@ export async function getNews() {
     const feedsParaUsar = [...FEEDS_DIRETOS_GARANTIDOS, ...lote];
 
     console.log(`[rss] getNews: ${feedsParaUsar.length} fontes (${FEEDS_DIRETOS_GARANTIDOS.length} garantidos + ${lote.length} Supabase rotativo de ${feedsSupabaseExtras.length})`);
-
-    console.log(`[rss] getNews: lote ${feedsParaUsar.length} fontes de ${pool.length} total`);
 
     let allItems = await buscarFeedsEmParalelo(feedsParaUsar);
     console.log('[rss] total itens:', allItems.length);
