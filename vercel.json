@@ -1,10 +1,6 @@
 {
   "version": 2,
   "outputDirectory": "public",
-  "functions": {
-    "api/run_portal.js": { "maxDuration": 60 },
-    "api/manage.js":     { "maxDuration": 60 }
-  },
   "crons": [
     {
       "path": "/api/manage?action=refresh_token",
