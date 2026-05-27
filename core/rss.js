@@ -536,10 +536,10 @@ export async function getNewsByCategoria(categoria) {
     // Carregar TODAS as fontes do Supabase (1000+)
     const fontesSupabase = await carregarFontesSupabase();
 
-    // Unir hardcoded + Supabase sem duplicar URLs
+    // Unir hardcoded + Supabase sem duplicar URLs — cap 80 para evitar connection storm
     const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
     const extras = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
-    const feedsParaUsar = [...feedsHardcoded, ...extras].sort(() => Math.random() - 0.5);
+    const feedsParaUsar = [...feedsHardcoded, ...extras].sort(() => Math.random() - 0.5).slice(0, 80);
 
     console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${extras.length} Supabase)`);
     return await buscarFeedsEmParalelo(feedsParaUsar);
@@ -551,10 +551,10 @@ export async function getNews() {
     // Carregar TODAS as fontes do Supabase (1000+)
     const fontesSupabase = await carregarFontesSupabase();
 
-    // Unir com feeds garantidos sem duplicar
+    // Unir com feeds garantidos sem duplicar — cap 80 para evitar connection storm
     const urlsCustom = new Set(fontesSupabase.map(f => f.url));
     const extras = FEEDS_DIRETOS_GARANTIDOS.filter(f => !urlsCustom.has(f.url));
-    const feedsParaUsar = [...fontesSupabase, ...extras].sort(() => Math.random() - 0.5);
+    const feedsParaUsar = [...fontesSupabase, ...extras].sort(() => Math.random() - 0.5).slice(0, 80);
 
     console.log(`[rss] getNews: varrendo ${feedsParaUsar.length} fontes (${fontesSupabase.length} Supabase + ${extras.length} diretos)`);
 

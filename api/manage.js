@@ -528,7 +528,7 @@ async function handleManual(req, res) {
       if (!sourceText || sourceText.length < 50)
         return res.status(200).json({ status:"error", resultados:[], notificacoes:[{tipo:"erro",mensagem:"Não foi possível extrair conteúdo da fonte informada."}] });
       for (const pedido of pedidos) {
-        if (Date.now() - inicio > 50000) break;
+        if (Date.now() - inicio > 42000) break;
         let content;
         try {
           content = await rewritePortal(sourceText, sourceTitle);
@@ -558,10 +558,11 @@ async function handleManual(req, res) {
       return res.status(200).json({ status:"ok", modo:"manual", resultados, notificacoes:gerarNotificacoes(resultados) });
     }
     const newsCache = {};
-    for (const { categoria } of pedidos) {
-      if (categoria && !newsCache[categoria])
-        newsCache[categoria] = await getNewsByCategoria(categoria);
-    }
+    await Promise.all(
+      [...new Set(pedidos.map(p => p.categoria).filter(Boolean))].map(async (cat) => {
+        newsCache[cat] = await getNewsByCategoria(cat);
+      })
+    );
     for (const pedido of pedidos) {
       const { categoria, subcategoria, quantidade=1 } = pedido;
       const qtd = Math.min(Math.max(parseInt(quantidade)||1,1),20);
@@ -574,7 +575,7 @@ async function handleManual(req, res) {
       }
       for (const item of news) {
         if (geradosPedido >= qtd) break;
-        if (Date.now() - inicio > 50000) break;
+        if (Date.now() - inicio > 42000) break;
         const hash = crypto.createHash("md5").update(item.link+"_portal").digest("hex");
         const { data:dup } = await supabase.from("posts").select("id").eq("hash",hash).single();
         if (dup) continue;

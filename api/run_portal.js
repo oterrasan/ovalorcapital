@@ -540,81 +540,106 @@ export default async function handler(req, res) {
     let lastError = '';
     let statsSkipped = 0, statsNoText = 0, statsAiError = 0, statsInvalid = 0, statsCat = 0, statsDedup = 0;
 
-    for (let idx = 0; idx < newsSlice.length; idx++) {
-      const item = newsSlice[idx];
-      if (Date.now() - inicio > 55000) break;
-      if (artigos.length >= targetCount) break;
+    // Pre-filter candidates (skip already-inserted hashes)
+    const candidates = [];
+    for (let i = 0; i < newsSlice.length; i++) {
+      if (existingHashes.has(allHashes[i])) { statsSkipped++; continue; }
+      candidates.push({ item: newsSlice[i], hash: allHashes[i] });
+    }
 
-      const hash = allHashes[idx];
-      if (existingHashes.has(hash)) { statsSkipped++; continue; }
+    // Process targetCount*4 candidates in parallel — eliminates sequential 13s×3 bottleneck
+    const batchCandidates = candidates.slice(0, Math.min(targetCount * 4, 16));
 
-      const article = await scrape(item.link);
-      let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
-      if (!sourceText) {
-        const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
-        if (rssText.length >= 150) sourceText = rssText;
-      }
-      if (!sourceText) { statsNoText++; continue; }
-
-      const tipoConteudo = TIPO_POR_POSICAO[artigos.length] || 'padrao';
-      let content;
+    const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
-        if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
-        else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
-        else content = await rewritePortal(sourceText, item.title, dynamicContext, false);
-      }
-      catch(e) { lastError = e.message; statsAiError++; continue; }
-      if (!validarConteudo(content)) { statsInvalid++; continue; }
-      content.titulo = stripTitle(content.titulo);
+        if (Date.now() - inicio > 42000) return null;
 
-      if (!content.categoria || content.categoria === 'geral') {
-        const catCorrigida = corrigirCategoria(content.titulo, '');
-        if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
-        else { statsCat++; continue; }
+        const article = await scrape(item.link);
+        let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
+        if (!sourceText) {
+          const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
+          if (rssText.length >= 150) sourceText = rssText;
+        }
+        if (!sourceText) return null;
+
+        const tipoConteudo = TIPO_POR_POSICAO[batchPos] || 'padrao';
+        let content;
+        try {
+          if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
+          else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
+          else content = await rewritePortal(sourceText, item.title, dynamicContext, false);
+        } catch(e) { lastError = e.message; return null; }
+
+        if (!validarConteudo(content)) return null;
+        content.titulo = stripTitle(content.titulo);
+
+        if (!content.categoria || content.categoria === 'geral') {
+          const catCorrigida = corrigirCategoria(content.titulo, '');
+          if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
+          else return null;
+        }
+
+        if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
+          const familiaForcada = FAMILIA_CAT[catEfetiva];
+          const familiaConteudo = FAMILIA_CAT[content.categoria];
+          if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) return null;
+          content.categoria = catEfetiva;
+        } else {
+          const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
+          if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
+        }
+
+        if (subcatForcada) {
+          content.subcategoria = subcatForcada;
+          content.subcategoria_slug = slugify(subcatForcada);
+        } else {
+          const lista = SUBCATS_POR_CAT[content.categoria] || [];
+          const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
+          if (!subcOk || !content.subcategoria) {
+            content.subcategoria = SUBCAT_DEFAULT[content.categoria] || lista[0] || 'Geral';
+            content.subcategoria_slug = slugify(content.subcategoria);
+          }
+        }
+
+        let imagemFinal = null;
+        const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
+        const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
+        if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
+
+        if (!imagemFinal) {
+          try {
+            const imgUrl = await findImage(content.titulo, content.categoria);
+            if (imgUrl) {
+              try { imagemFinal = await processAndSaveImage(imgUrl, hash.slice(0, 12) + '_f', inicio); }
+              catch(_) { imagemFinal = imgUrl; }
+            }
+          } catch(_) {}
+        }
+
+        const metaTitle = stripTitle(content.meta_title || content.titulo);
+        const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
+
+        return { content, hash, imagemFinal, metaTitle, metaDesc, tipoConteudo };
+      } catch(_) {
+        return null;
       }
+    };
+
+    const batchSettled = await Promise.allSettled(
+      batchCandidates.map((candidate, batchPos) => _processOneArticle(candidate, batchPos))
+    );
+
+    const successResults = batchSettled
+      .filter(r => r.status === 'fulfilled' && r.value !== null)
+      .map(r => r.value);
+
+    const batchTitles = [];
+    for (const result of successResults) {
+      if (artigos.length >= targetCount) break;
+      const { content, hash, imagemFinal, metaTitle, metaDesc, tipoConteudo } = result;
 
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) { statsDedup++; continue; }
-      if (topicoDuplicado(content.titulo, recentTitles)) { statsDedup++; continue; }
-
-      if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
-        const familiaForcada = FAMILIA_CAT[catEfetiva];
-        const familiaConteudo = FAMILIA_CAT[content.categoria];
-        if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
-        content.categoria = catEfetiva;
-      } else {
-        const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
-        if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
-      }
-
-      if (subcatForcada) {
-        content.subcategoria = subcatForcada;
-        content.subcategoria_slug = slugify(subcatForcada);
-      } else {
-        const lista = SUBCATS_POR_CAT[content.categoria] || [];
-        const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
-        if (!subcOk || !content.subcategoria) {
-          content.subcategoria = SUBCAT_DEFAULT[content.categoria] || lista[0] || 'Geral';
-          content.subcategoria_slug = slugify(content.subcategoria);
-        }
-      }
-
-      let imagemFinal = null;
-      const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
-      const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
-      if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
-
-      if (!imagemFinal) {
-        try {
-          const imgUrl = await findImage(content.titulo, content.categoria);
-          if (imgUrl) {
-            try { imagemFinal = await processAndSaveImage(imgUrl, hash.slice(0, 12) + '_f', inicio); }
-            catch(_) { imagemFinal = imgUrl; }
-          }
-        } catch(_) {}
-      }
-
-      const metaTitle = stripTitle(content.meta_title || content.titulo);
-      const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
+      if (topicoDuplicado(content.titulo, [...recentTitles, ...batchTitles])) { statsDedup++; continue; }
 
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo, conteudo: content.corpo, comentario_fixado: metaDesc,
@@ -629,6 +654,7 @@ export default async function handler(req, res) {
 
       if (error) { lastError = error.message; continue; }
       recentTitles.push(content.titulo);
+      batchTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
 
