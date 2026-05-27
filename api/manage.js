@@ -5,7 +5,7 @@ import { join } from "path";
 import { publishPost } from "../core/publish_engine.js";
 import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal, normalizarParagrafos } from "../core/ai_portal.js";
+import { rewritePortal, normalizarParagrafos, rewriteColuna, COLUNISTAS_OVC } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -69,6 +69,7 @@ function handler(req, res) {
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
   if (body.action === "deletar_comentario") return handleDeletarComentario(req, res);
+  if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
 
   return handleApprove(req, res);
 }
@@ -1044,6 +1045,59 @@ async function handleFixConclusaoOvc(req, res) {
     }
 
     return res.status(200).json({ ok: true, atualizados: totalAtualizado, verificados: totalVerificado });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleGerarColuna(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  const { colunista_nome, tema, referencias, contexto } = req.body || {};
+  if (!colunista_nome || !COLUNISTAS_OVC[colunista_nome]) {
+    return res.status(400).json({ error: "Colunista inválido: " + colunista_nome });
+  }
+  if (!tema || tema.trim().length < 10) {
+    return res.status(400).json({ error: "Tema muito curto (mínimo 10 caracteres)" });
+  }
+  try {
+    const result = await rewriteColuna(colunista_nome, tema, referencias || '', contexto || '');
+    const nomeSlug = colunista_nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    const hash = crypto.createHash('md5').update('coluna_' + colunista_nome + '_' + Date.now()).digest('hex');
+    const metaTitle = (result.meta_title || result.titulo || '').slice(0, 55);
+    const metaDesc = (result.meta_descricao || '').replace(/\*\*/g, '').trim();
+    const { data: post, error } = await supabase.from('posts').insert({
+      titulo: result.titulo,
+      conteudo: result.corpo,
+      comentario_fixado: metaDesc,
+      imagem: null,
+      hash,
+      status: 'pendente',
+      approved: false,
+      publish_method: 'coluna',
+      user_tags: JSON.stringify([result.categoria || 'variedades']),
+      subcategoria: colunista_nome,
+      subcategoria_slug: nomeSlug,
+      collaborators: '[]',
+      metrics: {
+        foco_keyword: result.foco_keyword || '',
+        seo_slug: result.slug || '',
+        meta_descricao: metaDesc,
+        meta_title: metaTitle,
+        tipo_conteudo: 'coluna',
+        colunista: colunista_nome
+      },
+      priority: 0, retry_count: 0, max_retries: 3
+    }).select().single();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({
+      ok: true,
+      id: post?.id,
+      titulo: result.titulo,
+      colunista: colunista_nome,
+      categoria: result.categoria,
+      chars: result.corpo?.length || 0,
+      preview: result.corpo?.slice(0, 300) || ''
+    });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }

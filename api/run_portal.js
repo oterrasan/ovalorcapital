@@ -3,7 +3,7 @@ import crypto from "crypto";
 import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal, rewritePortalManual, buildDynamicContext } from "../core/ai_portal.js";
+import { rewritePortal, rewritePortalManual, rewritePilula, rewriteMicroPilula, buildDynamicContext } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
@@ -434,6 +434,7 @@ export default async function handler(req, res) {
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
   const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
+  const TIPO_POR_POSICAO = ['padrao','padrao','padrao','padrao','padrao','pilula','pilula','micropilula'];
 
   if (body.action === 'cleanup_titles') {
     if (!body.force) return res.status(403).json({ error: 'requires force:true' });
@@ -555,8 +556,13 @@ export default async function handler(req, res) {
       }
       if (!sourceText) { statsNoText++; continue; }
 
+      const tipoConteudo = TIPO_POR_POSICAO[artigos.length] || 'padrao';
       let content;
-      try { content = await rewritePortal(sourceText, item.title, dynamicContext, false); }
+      try {
+        if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
+        else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
+        else content = await rewritePortal(sourceText, item.title, dynamicContext, false);
+      }
       catch(e) { lastError = e.message; statsAiError++; continue; }
       if (!validarConteudo(content)) { statsInvalid++; continue; }
       content.titulo = stripTitle(content.titulo);
@@ -617,7 +623,7 @@ export default async function handler(req, res) {
         user_tags: JSON.stringify([content.categoria]),
         subcategoria: content.subcategoria, subcategoria_slug: content.subcategoria_slug,
         collaborators: '[]',
-        metrics: { foco_keyword: content.foco_keyword || '', seo_slug: content.slug || '', meta_descricao: metaDesc, meta_title: metaTitle },
+        metrics: { foco_keyword: content.foco_keyword || '', seo_slug: content.slug || '', meta_descricao: metaDesc, meta_title: metaTitle, tipo_conteudo: tipoConteudo },
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
 

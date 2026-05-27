@@ -2435,109 +2435,271 @@ function Galeria(){
   );
 }
 
-// ── COLUNISTAS ──
-function ColunistasAdmin(){
-  const [lista,setLista]=React.useState([]);
-  const [loading,setLoading]=React.useState(true);
+// ── COLUNISTAS — PERFIS NETFLIX ──
+const COLUNISTAS_PERFIS = [
+  {nome:'Roberto Terrasan',tag:'Fundador & Editor',grad:['#b71c1c','#880e4f'],foto:'',bio:'Visceral, feroz, incansável na busca pela verdade. Patriota convicto.'},
+  {nome:'Beta Ferreira',tag:'Análise Política',grad:['#1a237e','#4a148c'],foto:'',bio:'Intelectual, elegante, provocativa. Conservadora de alto nível.'},
+  {nome:'Adriana Ferreira',tag:'Investigação',grad:['#1b5e20','#004d40'],foto:'',bio:'Apuratória, rigorosa. Escreve com sofisticação jornalística.'},
+  {nome:'Michele Froiz',tag:'Comportamento',grad:['#e65100','#bf360c'],foto:'',bio:'Leve, comunicativa. Conecta política e cotidiano com naturalidade.'},
+  {nome:'Coluna OVC',tag:'Editorial OVC',grad:['#212121','#37474f'],foto:'',bio:'Voz institucional do portal: segura, autoritativa, comprometida.'},
+  {nome:'Prof. Marcos Pizzolatto',tag:'Filosofia & Política',grad:['#4a148c','#1a237e'],foto:'',bio:'Filosófico, socrático. Cada coluna é uma aula de pensamento crítico.'},
+  {nome:'Gabriel Thiede',tag:'Finanças Pessoais',grad:['#006064','#01579b'],foto:'',bio:'Didático, prático. Ensina decisões financeiras melhores.'},
+  {nome:'Fabiana Campos',tag:'Jornalismo Clássico',grad:['#880e4f','#ad1457'],foto:'',bio:'Factual, objetiva, rigorosa. Sem opinião gratuita.'},
+  {nome:'Larissa Corvetto',tag:'Crítica Política',grad:['#bf360c','#e65100'],foto:'',bio:'Incisiva, cirúrgica. Desmonta narrativas progressistas com dados.'},
+  {nome:'Taísa da Fonseca',tag:'Empreendedorismo',grad:['#4a148c','#880e4f'],foto:'',bio:'Inspiradora, empreendedora. Independência financeira com elegância.'},
+  {nome:'André Oliveira',tag:'Grande Reportagem',grad:['#1b5e20','#33691e'],foto:'',bio:'Experiente, equilibrado. Maturidade de décadas de redação.'},
+];
+
+const COLUNISTAS_LISTA = COLUNISTAS_PERFIS.map(c=>c.nome);
+
+function ColunistasAdmin({setPage}){
+  const [hover,setHover]=React.useState(null);
+  const [showModal,setShowModal]=React.useState(false);
   const [form,setForm]=React.useState({nome:'',email:'',senha:''});
   const [criando,setCriando]=React.useState(false);
   const [msg,setMsg]=React.useState('');
-  const [showForm,setShowForm]=React.useState(false);
+  const [selectedCard,setSelectedCard]=React.useState(null);
+  const [cardPosts,setCardPosts]=React.useState([]);
+  const [loadingPosts,setLoadingPosts]=React.useState(false);
+  const [showFotoModal,setShowFotoModal]=React.useState(null);
+  const [fotoUrl,setFotoUrl]=React.useState('');
 
-  async function carregar(){
-    setLoading(true);
-    try{
-      const r=await fetch('/api/manage?action=list_colunistas');
-      const d=await r.json();
-      if(d.tabela_ausente){setMsg('⚠️ Tabela "colunistas" não existe no Supabase. Peça ao Roberto executar o SQL de criação (está no CLAUDE.md seção 4).');}
-      else if(d.ok){setLista(d.colunistas||[]);}
-      else setMsg('Erro ao carregar: '+(d.error||'falha'));
-    }catch(e){setMsg('Erro de conexão: '+e.message);}
-    setLoading(false);
+  async function openCard(c){
+    if(selectedCard&&selectedCard.nome===c.nome){setSelectedCard(null);setCardPosts([]);return;}
+    setSelectedCard(c);setLoadingPosts(true);
+    const {data}=await sb.from('posts').select('id,titulo,status,created_at,metrics').or('publish_method.eq.coluna,publish_method.eq.colunista').eq('subcategoria',c.nome).order('created_at',{ascending:false}).limit(30);
+    setCardPosts(data||[]);setLoadingPosts(false);
   }
 
-  async function criarColunista(e){
+  async function aprovarPost(id){
+    await sb.from('posts').update({status:'publicado',approved:true}).eq('id',id);
+    setCardPosts(ps=>ps.map(p=>p.id===id?{...p,status:'publicado'}:p));
+  }
+
+  async function rejeitarPost(id){
+    if(!confirm('Rejeitar e excluir este post?'))return;
+    await sb.from('posts').delete().eq('id',id);
+    setCardPosts(ps=>ps.filter(p=>p.id!==id));
+  }
+
+  function handleGerarColuna(nome){
+    sessionStorage.setItem('ovc_colunista_sel',nome);
+    setPage('editor_colunas');
+  }
+
+  async function criarLogin(e){
     e.preventDefault();setCriando(true);setMsg('');
     try{
       const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
       const d=await r.json();
-      if(r.ok&&d.ok){setMsg('✅ Colunista criado com sucesso!');setForm({nome:'',email:'',senha:''});setShowForm(false);carregar();}
-      else setMsg('❌ Erro: '+(d.error||'falha ao criar'));
-    }catch(e){setMsg('❌ Erro de conexão: '+e.message);}
+      if(r.ok&&d.ok){setMsg('✅ Login criado!');setForm({nome:'',email:'',senha:''});setShowModal(false);}
+      else setMsg('❌ '+(d.error||'falha'));
+    }catch(e){setMsg('❌ '+e.message);}
     setCriando(false);
   }
 
-  async function toggleColunista(id,ativo){
-    await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'toggle_colunista',colunista_id:id,ativo:!ativo})});
-    carregar();
-  }
-
-  async function deletarColunista(id,nome){
-    if(!confirm(`Remover colunista "${nome}"?`))return;
-    await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete_colunista',colunista_id:id})});
-    carregar();
-  }
-
-  React.useEffect(()=>{carregar();},[]);
-
+  const cardW=180,cardH=220;
   return(
     <div className="panel">
       <div className="panel-header" style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-        <h2 style={{margin:0}}>✍️ Colunistas</h2>
-        <button className="btn btn-primary" onClick={()=>setShowForm(f=>!f)}>{showForm?'✕ Cancelar':'+ Novo Colunista'}</button>
-        <a href="/admin/colunista/" target="_blank" className="btn" style={{marginLeft:'auto'}}>🔗 Portal do Colunista</a>
+        <h2 style={{margin:0}}>🎬 Colunistas OVC</h2>
+        <button className="btn btn-primary" onClick={()=>setShowModal(true)}>+ Criar Login</button>
+        <a href="/admin/colunista/" target="_blank" className="btn" style={{marginLeft:'auto'}}>🔗 Portal Colunista</a>
       </div>
-      {msg&&<div style={{padding:'8px 16px',background:msg.startsWith('Erro')?'#ffebee':'#e8f5e9',color:msg.startsWith('Erro')?'#c62828':'#2e7d32',borderRadius:6,margin:'8px 0'}}>{msg}</div>}
-      {showForm&&(
-        <form onSubmit={criarColunista} style={{padding:16,background:'#f9f9f9',borderRadius:8,marginBottom:16,display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end'}}>
-          <div style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 160px'}}>
-            <label style={{fontSize:12,fontWeight:600}}>Nome</label>
-            <input className="form-input" required value={form.nome} onChange={e=>setForm(f=>({...f,nome:e.target.value}))} placeholder="Nome do colunista"/>
-          </div>
-          <div style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 180px'}}>
-            <label style={{fontSize:12,fontWeight:600}}>Email</label>
-            <input className="form-input" type="email" required value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="email@exemplo.com"/>
-          </div>
-          <div style={{display:'flex',flexDirection:'column',gap:4,flex:'1 1 160px'}}>
-            <label style={{fontSize:12,fontWeight:600}}>Senha</label>
-            <input className="form-input" type="password" required value={form.senha} onChange={e=>setForm(f=>({...f,senha:e.target.value}))} placeholder="Senha de acesso"/>
-          </div>
-          <button className="btn btn-primary" type="submit" disabled={criando}>{criando?'Criando...':'Criar Colunista'}</button>
-        </form>
-      )}
-      {loading?<div className="empty-state">Carregando colunistas...</div>:
-      lista.length===0?<div className="empty-state">Nenhum colunista cadastrado. Clique em "+ Novo Colunista" para adicionar.</div>:
-      <table style={{width:'100%',borderCollapse:'collapse'}}>
-        <thead>
-          <tr style={{background:'#f5f5f5'}}>
-            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Nome</th>
-            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Email</th>
-            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Status</th>
-            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Cadastro</th>
-            <th style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,borderBottom:'1px solid #e0e0e0'}}>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lista.map(c=>(
-            <tr key={c.id} style={{borderBottom:'1px solid #f0f0f0'}}>
-              <td style={{padding:'10px 12px',fontWeight:600}}>{c.nome}</td>
-              <td style={{padding:'10px 12px',color:'#555'}}>{c.email}</td>
-              <td style={{padding:'10px 12px'}}>
-                <span style={{display:'inline-block',padding:'3px 10px',borderRadius:12,fontSize:12,fontWeight:600,background:c.ativo?'#e8f5e9':'#ffebee',color:c.ativo?'#2e7d32':'#c62828'}}>
-                  {c.ativo?'Ativo':'Suspenso'}
-                </span>
-              </td>
-              <td style={{padding:'10px 12px',fontSize:12,color:'#888'}}>{c.created_at?new Date(c.created_at).toLocaleDateString('pt-BR'):'-'}</td>
-              <td style={{padding:'10px 12px'}}>
-                <div style={{display:'flex',gap:8}}>
-                  <button className="btn" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>toggleColunista(c.id,c.ativo)}>{c.ativo?'Suspender':'Ativar'}</button>
-                  <button className="btn" style={{fontSize:11,padding:'4px 10px',background:'#ffebee',color:'#c62828',border:'1px solid #ef9a9a'}} onClick={()=>deletarColunista(c.id,c.nome)}>🗑️</button>
+      {msg&&<div style={{padding:'8px 16px',background:msg.includes('✅')?'#e8f5e9':'#ffebee',color:msg.includes('✅')?'#2e7d32':'#c62828',borderRadius:6,margin:'8px 0'}}>{msg}</div>}
+
+      <div style={{display:'flex',flexWrap:'wrap',gap:18,padding:'20px 0'}}>
+        {COLUNISTAS_PERFIS.map((c,i)=>{
+          const isHov=hover===c.nome;
+          const isSel=selectedCard&&selectedCard.nome===c.nome;
+          const initials=c.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+          return(
+            <div key={c.nome} style={{position:'relative',cursor:'pointer',flexShrink:0}} onMouseEnter={()=>setHover(c.nome)} onMouseLeave={()=>setHover(null)}>
+              <div onClick={()=>openCard(c)} style={{
+                width:cardW,height:cardH,borderRadius:12,overflow:'hidden',
+                background:`linear-gradient(135deg,${c.grad[0]},${c.grad[1]})`,
+                border: isSel?`3px solid ${c.grad[0]}`:'3px solid transparent',
+                boxShadow:isHov||isSel?'0 8px 32px rgba(0,0,0,0.4)':'0 2px 8px rgba(0,0,0,0.2)',
+                transform:isHov?'scale(1.04)':'scale(1)',
+                transition:'all .2s',
+                display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',padding:12
+              }}>
+                {c.foto?<img src={c.foto} alt={c.nome} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',objectFit:'cover',opacity:0.7}}/>:
+                  <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-65%)',fontSize:48,fontWeight:900,color:'rgba(255,255,255,0.25)',fontFamily:'serif'}}>{initials}</div>}
+                <div style={{position:'relative',zIndex:2,textAlign:'center'}}>
+                  <div style={{fontSize:13,fontWeight:700,color:'#fff',textShadow:'0 1px 4px rgba(0,0,0,0.8)',lineHeight:1.2}}>{c.nome}</div>
+                  <div style={{fontSize:10,color:'rgba(255,255,255,0.8)',marginTop:3,fontWeight:500}}>{c.tag}</div>
                 </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>}
+              </div>
+              {isHov&&(
+                <div style={{position:'absolute',bottom:-44,left:'50%',transform:'translateX(-50%)',display:'flex',gap:6,zIndex:10,whiteSpace:'nowrap'}}>
+                  <button className="btn btn-primary" style={{fontSize:10,padding:'4px 8px'}} onClick={(e)=>{e.stopPropagation();handleGerarColuna(c.nome);}}>✒️ Gerar</button>
+                  <button className="btn" style={{fontSize:10,padding:'4px 8px'}} onClick={(e)=>{e.stopPropagation();openCard(c);}}>📋 Posts</button>
+                  <button className="btn" style={{fontSize:10,padding:'4px 8px'}} onClick={(e)=>{e.stopPropagation();setShowFotoModal(c.nome);setFotoUrl(c.foto||'');}}>📷</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedCard&&(
+        <div style={{marginTop:48,background:'#f9f9f9',borderRadius:12,padding:16,border:`2px solid ${selectedCard.grad[0]}22`}}>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+            <div style={{width:10,height:10,borderRadius:'50%',background:selectedCard.grad[0]}}></div>
+            <h3 style={{margin:0,fontSize:15}}>Posts de {selectedCard.nome}</h3>
+            <button className="btn" style={{marginLeft:'auto',fontSize:11,padding:'3px 10px'}} onClick={()=>{setSelectedCard(null);setCardPosts([])}}>✕ Fechar</button>
+          </div>
+          {loadingPosts?<div style={{color:'#888',padding:8}}>Carregando...</div>:
+          cardPosts.length===0?<div style={{color:'#888',padding:8}}>Nenhum post encontrado.</div>:
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+            <thead><tr style={{background:'#f0f0f0'}}>
+              <th style={{padding:'8px 12px',textAlign:'left',fontWeight:600}}>Título</th>
+              <th style={{padding:'8px 12px',textAlign:'left',fontWeight:600,width:100}}>Status</th>
+              <th style={{padding:'8px 12px',textAlign:'left',fontWeight:600,width:110}}>Data</th>
+              <th style={{padding:'8px 12px',textAlign:'left',fontWeight:600,width:130}}>Ações</th>
+            </tr></thead>
+            <tbody>
+              {cardPosts.map(p=>(
+                <tr key={p.id} style={{borderBottom:'1px solid #eee'}}>
+                  <td style={{padding:'8px 12px'}}>{p.titulo||'—'}</td>
+                  <td style={{padding:'8px 12px'}}>
+                    <span style={{display:'inline-block',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,
+                      background:p.status==='publicado'?'#e8f5e9':p.status==='pendente'?'#fff3e0':'#ffebee',
+                      color:p.status==='publicado'?'#2e7d32':p.status==='pendente'?'#e65100':'#c62828'}}>
+                      {p.status}
+                    </span>
+                  </td>
+                  <td style={{padding:'8px 12px',fontSize:12,color:'#888'}}>{p.created_at?new Date(p.created_at).toLocaleDateString('pt-BR'):'-'}</td>
+                  <td style={{padding:'8px 12px'}}>
+                    <div style={{display:'flex',gap:6}}>
+                      {p.status!=='publicado'&&<button className="btn btn-primary" style={{fontSize:10,padding:'3px 8px'}} onClick={()=>aprovarPost(p.id)}>✅ Aprovar</button>}
+                      <button className="btn" style={{fontSize:10,padding:'3px 8px',background:'#ffebee',color:'#c62828',border:'1px solid #ef9a9a'}} onClick={()=>rejeitarPost(p.id)}>🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>}
+        </div>
+      )}
+
+      {showModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'#fff',borderRadius:12,padding:24,width:400,maxWidth:'95vw'}}>
+            <h3 style={{margin:'0 0 16px'}}>Criar Login de Colunista</h3>
+            <form onSubmit={criarLogin}>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <input className="form-input" required placeholder="Nome" value={form.nome} onChange={e=>setForm(f=>({...f,nome:e.target.value}))}/>
+                <input className="form-input" type="email" required placeholder="Email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
+                <input className="form-input" type="password" required placeholder="Senha" value={form.senha} onChange={e=>setForm(f=>({...f,senha:e.target.value}))}/>
+                <div style={{display:'flex',gap:10,marginTop:4}}>
+                  <button className="btn btn-primary" type="submit" disabled={criando}>{criando?'Criando...':'Criar'}</button>
+                  <button className="btn" type="button" onClick={()=>{setShowModal(false);setMsg('');}}>Cancelar</button>
+                </div>
+                {msg&&<div style={{fontSize:12,color:msg.includes('✅')?'#2e7d32':'#c62828'}}>{msg}</div>}
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showFotoModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'#fff',borderRadius:12,padding:24,width:380,maxWidth:'95vw'}}>
+            <h3 style={{margin:'0 0 12px'}}>Foto de {showFotoModal}</h3>
+            <p style={{fontSize:12,color:'#666',marginBottom:12}}>Cole a URL da foto (JPG/PNG). A foto é salva apenas nesta sessão do navegador.</p>
+            <input className="form-input" placeholder="https://..." value={fotoUrl} onChange={e=>setFotoUrl(e.target.value)} style={{marginBottom:12}}/>
+            {fotoUrl&&<img src={fotoUrl} alt="" style={{width:80,height:80,borderRadius:'50%',objectFit:'cover',display:'block',marginBottom:12}} onError={e=>e.target.style.display='none'}/>}
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn btn-primary" onClick={()=>{
+                const p=COLUNISTAS_PERFIS.find(x=>x.nome===showFotoModal);
+                if(p)p.foto=fotoUrl;
+                setShowFotoModal(null);
+              }}>Salvar</button>
+              <button className="btn" onClick={()=>setShowFotoModal(null)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── EDITOR DE COLUNAS ──
+function EditorColunas({setPage}){
+  const [colunista,setColunista]=React.useState(()=>{
+    const sel=sessionStorage.getItem('ovc_colunista_sel');
+    if(sel){sessionStorage.removeItem('ovc_colunista_sel');return sel;}
+    return 'Roberto Terrasan';
+  });
+  const [tema,setTema]=React.useState('');
+  const [referencias,setReferencias]=React.useState('');
+  const [contexto,setContexto]=React.useState('');
+  const [gerando,setGerando]=React.useState(false);
+  const [resultado,setResultado]=React.useState(null);
+  const [erro,setErro]=React.useState('');
+
+  async function gerarColuna(e){
+    e.preventDefault();
+    if(!tema.trim()||tema.trim().length<10){setErro('Tema muito curto (mínimo 10 caracteres)');return;}
+    setGerando(true);setErro('');setResultado(null);
+    try{
+      const r=await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'gerar_coluna',colunista_nome:colunista,tema,referencias,contexto,__admin_token:'ovc-admin-2026-secreto'})});
+      const d=await r.json();
+      if(r.ok&&d.ok){setResultado(d);}
+      else setErro('❌ '+(d.error||'Falha ao gerar'));
+    }catch(e){setErro('❌ '+e.message);}
+    setGerando(false);
+  }
+
+  return(
+    <div className="panel">
+      <div className="panel-header" style={{display:'flex',alignItems:'center',gap:12}}>
+        <h2 style={{margin:0}}>✒️ Editor de Colunas</h2>
+        <button className="btn" onClick={()=>setPage('colunistas')} style={{marginLeft:'auto',fontSize:12}}>← Colunistas</button>
+      </div>
+      <form onSubmit={gerarColuna} style={{display:'flex',flexDirection:'column',gap:16,maxWidth:720,marginTop:16}}>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Colunista</label>
+          <select className="form-select" value={colunista} onChange={e=>setColunista(e.target.value)} style={{width:'100%',height:38}}>
+            {COLUNISTAS_LISTA.map(n=><option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Tema da Coluna *</label>
+          <textarea className="form-input" required rows={3} placeholder="Ex: O impacto da reforma tributária nas micro-empresas brasileiras" value={tema} onChange={e=>setTema(e.target.value)} style={{width:'100%',resize:'vertical'}}/>
+        </div>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Referências / Links (opcional)</label>
+          <textarea className="form-input" rows={2} placeholder="URLs, dados, fontes para embasar a coluna" value={referencias} onChange={e=>setReferencias(e.target.value)} style={{width:'100%',resize:'vertical'}}/>
+        </div>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,display:'block',marginBottom:4}}>Contexto Adicional (opcional)</label>
+          <textarea className="form-input" rows={2} placeholder="Informações de contexto ou diretrizes específicas" value={contexto} onChange={e=>setContexto(e.target.value)} style={{width:'100%',resize:'vertical'}}/>
+        </div>
+        {erro&&<div style={{padding:'8px 16px',background:'#ffebee',color:'#c62828',borderRadius:6,fontSize:13}}>{erro}</div>}
+        <button className="btn btn-primary" type="submit" disabled={gerando} style={{alignSelf:'flex-start',padding:'10px 24px',fontSize:14}}>
+          {gerando?'⏳ Gerando coluna...':'✒️ Gerar Coluna com IA'}
+        </button>
+      </form>
+      {resultado&&(
+        <div style={{marginTop:24,padding:16,background:'#e8f5e9',borderRadius:10,maxWidth:720}}>
+          <div style={{fontWeight:700,color:'#2e7d32',marginBottom:8}}>✅ Coluna gerada com sucesso!</div>
+          <div style={{fontSize:13,marginBottom:4}}><strong>Título:</strong> {resultado.titulo}</div>
+          <div style={{fontSize:13,marginBottom:4}}><strong>Colunista:</strong> {resultado.colunista}</div>
+          <div style={{fontSize:13,marginBottom:4}}><strong>Categoria:</strong> {resultado.categoria}</div>
+          <div style={{fontSize:13,marginBottom:8}}><strong>Tamanho:</strong> {resultado.chars?.toLocaleString()} caracteres</div>
+          <div style={{fontSize:12,color:'#555',fontStyle:'italic',background:'rgba(255,255,255,0.6)',padding:10,borderRadius:6}}>
+            {resultado.preview}...
+          </div>
+          <div style={{marginTop:12,display:'flex',gap:10}}>
+            <button className="btn btn-primary" onClick={()=>setPage('postagens')} style={{fontSize:12}}>📋 Ver Pendentes</button>
+            <button className="btn" onClick={()=>{setResultado(null);setTema('');}} style={{fontSize:12}}>✒️ Nova Coluna</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2562,6 +2724,7 @@ const PAGES = [
   {id:'imagens',label:'Imagens',icon:'🖼️'},
   {id:'galeria',label:'Galeria',icon:'🗂️'},
   {id:'colunistas',label:'Colunistas',icon:'✍️'},
+  {id:'editor_colunas',label:'Editor de Colunas',icon:'✒️'},
 ];
 
 // ── SELETOR DE IMAGEM ──
@@ -2905,7 +3068,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,sem_foto:SemFoto,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,seo:SeoBatch,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,sem_foto:SemFoto,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,seo:SeoBatch,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas}[page] || Dashboard;
 
   return (
     <div className="layout">
@@ -2929,7 +3092,7 @@ function App() {
           <button className="logout-btn" onClick={()=>{sessionStorage.removeItem('ovc_auth');setAuth(false);}}>↩ Sair</button>
         </div>
       </div>
-      <div className="main"><PageComp/></div>
+      <div className="main"><PageComp setPage={setPage}/></div>
       <ReescritaOVC onVerPendentes={()=>setPage('postagens')}/>
     </div>
   );
