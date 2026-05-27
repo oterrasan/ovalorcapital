@@ -253,7 +253,7 @@ REGRA MÁXIMA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 O texto final deve ser indistinguível da produção de um jornalista sênior especializado, com mais de 15 anos de experiência na editoria correspondente. Produzir naturalidade editorial orgânica integral.`;
 
-async function callOpenAI(systemKernel, userContent) {
+async function callOpenAI(systemKernel, userContent, maxTokens = 8192) {
   if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada no Vercel");
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -265,7 +265,7 @@ async function callOpenAI(systemKernel, userContent) {
         { role: "user",   content: userContent }
       ],
       temperature: 0.3,
-      max_tokens: 8192
+      max_tokens: maxTokens
     })
   });
   const d = await res.json();
@@ -898,7 +898,7 @@ export async function rewriteMicroPilula(text, title, context = '') {
 export async function rewriteInvestigativo(text, title, context = '') {
   const kernel = INVESTIGATIVO_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callOpenAI(kernel, userContent);
+  const raw = await callOpenAI(kernel, userContent, 16000);
   const result = parse(raw);
   if (!result || !result.corpo || result.corpo.length < 10000) {
     throw new Error("Investigativo insuficiente: " + (result?.corpo?.length || 0) + " chars");
@@ -914,7 +914,7 @@ export async function rewriteColuna(colunistaNome, tema, referencias = '', conte
   if (referencias) parts.push(`REFERÊNCIAS E LINKS: ${referencias}`);
   if (contexto) parts.push(`CONTEXTO ADICIONAL: ${contexto}`);
   const userContent = parts.join('\n\n');
-  const raw = await callOpenAI(kernel, userContent);
+  const raw = await callOpenAI(kernel, userContent, 16000);
   const result = parse(raw);
   if (!result || !result.corpo || result.corpo.length < 5000) {
     throw new Error("Coluna insuficiente: " + (result?.corpo?.length || 0) + " chars");
