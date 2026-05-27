@@ -900,7 +900,7 @@ export async function rewriteInvestigativo(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   const raw = await callOpenAI(kernel, userContent);
   const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 8000) {
+  if (!result || !result.corpo || result.corpo.length < 10000) {
     throw new Error("Investigativo insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   result.tipo_conteudo = 'investigativo';

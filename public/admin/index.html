@@ -2569,8 +2569,10 @@ function ColunistasAdmin({setPage}){
     setSelectedCard(c);
     setEditForm({foto:prof.foto||'',bio:prof.bio||'',tag:prof.tag||''});
     setLoadingPosts(true);
-    const {data}=await sb.from('posts').select('id,titulo,status,created_at').or('publish_method.eq.coluna,publish_method.eq.colunista').eq('subcategoria',c.nome).order('created_at',{ascending:false}).limit(30);
-    setCardPosts(data||[]);
+    try{
+      const {data}=await sb.from('posts').select('id,titulo,status,created_at').eq('subcategoria',c.nome).order('created_at',{ascending:false}).limit(30);
+      setCardPosts(data||[]);
+    }catch(e){ setCardPosts([]); }
     setLoadingPosts(false);
   }
 
