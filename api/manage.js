@@ -5,7 +5,7 @@ import { join } from "path";
 import { publishPost } from "../core/publish_engine.js";
 import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal } from "../core/ai_portal.js";
+import { rewritePortal, rewriteColuna, COLUNISTAS_OVC } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -52,6 +52,7 @@ function handler(req, res) {
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
+  if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
 
   return handleApprove(req, res);
 }
@@ -623,6 +624,60 @@ async function handleSeedRssLote2(req, res) {
       inserted += batch.length;
     }
     return res.status(200).json({ ok: true, inserted, total: records.length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+async function handleGerarColuna(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  const { colunista_nome, tema, referencias, contexto } = req.body || {};
+  if (!colunista_nome) return res.status(400).json({ error: "colunista_nome obrigatório" });
+  if (!tema || tema.trim().length < 10) return res.status(400).json({ error: "tema obrigatório (mínimo 10 caracteres)" });
+  if (!COLUNISTAS_OVC[colunista_nome]) {
+    return res.status(400).json({ error: `Colunista não encontrado. Disponíveis: ${Object.keys(COLUNISTAS_OVC).join(', ')}` });
+  }
+  try {
+    const content = await rewriteColuna(colunista_nome, tema.trim(), referencias || '', contexto || '');
+    if (!content || !content.corpo || content.corpo.length < 3000) {
+      return res.status(500).json({ error: "Coluna gerada insuficiente: " + (content?.corpo?.length || 0) + " chars" });
+    }
+    const hash = crypto.createHash("md5").update(colunista_nome + tema + Date.now()).digest("hex");
+    const nomeSlug = colunista_nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-");
+    const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g, '').trim();
+    const { data: post, error } = await supabase.from("posts").insert({
+      titulo: content.titulo,
+      conteudo: content.corpo,
+      comentario_fixado: metaDesc,
+      imagem: null,
+      hash,
+      status: "pendente",
+      approved: false,
+      publish_method: "coluna",
+      user_tags: JSON.stringify([content.categoria || "variedades"]),
+      subcategoria: colunista_nome,
+      subcategoria_slug: nomeSlug,
+      collaborators: "[]",
+      metrics: {
+        foco_keyword: content.foco_keyword || '',
+        seo_slug: content.slug || '',
+        meta_descricao: metaDesc,
+        meta_title: (content.meta_title || content.titulo || '').slice(0, 55),
+        tipo_conteudo: 'coluna',
+        colunista: colunista_nome
+      },
+      priority: 1, retry_count: 0, max_retries: 0
+    }).select().single();
+    if (error) throw error;
+    return res.status(200).json({
+      ok: true,
+      id: post.id,
+      titulo: content.titulo,
+      colunista: colunista_nome,
+      categoria: content.categoria,
+      chars: content.corpo.length,
+      preview: content.corpo.slice(0, 300) + "..."
+    });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }

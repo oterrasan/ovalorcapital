@@ -2347,6 +2347,101 @@ function ColunistasAdmin(){
   );
 }
 
+// ── EDITOR DE COLUNAS ──
+const COLUNISTAS_LISTA = [
+  'Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Coluna OVC',
+  'Prof. Marcos Pizzolatto','Gabriel Thiede','Fabiana Campos','Larissa Corvetto',
+  'Taísa da Fonseca','André Oliveira'
+];
+
+function EditorColunas() {
+  const [colunista, setColunista] = useState('Roberto Terrasan');
+  const [tema, setTema] = useState('');
+  const [referencias, setReferencias] = useState('');
+  const [contexto, setContexto] = useState('');
+  const [gerando, setGerando] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [msgTipo, setMsgTipo] = useState('ok');
+  const [resultado, setResultado] = useState(null);
+
+  const showMsg = (txt, tipo) => { setMsg(txt); setMsgTipo(tipo||'ok'); setTimeout(()=>setMsg(''),6000); };
+
+  const handleGerar = async () => {
+    if (!tema.trim()) { showMsg('Informe o tema da coluna.','erro'); return; }
+    setGerando(true);
+    setResultado(null);
+    try {
+      const r = await fetch('/api/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': 'ovc-admin-2026-secreto' },
+        body: JSON.stringify({ action: 'gerar_coluna', colunista_nome: colunista, tema, referencias, contexto })
+      });
+      const d = await r.json();
+      if (!d.ok) { showMsg('Erro: ' + (d.error || 'falha desconhecida'), 'erro'); return; }
+      setResultado(d);
+      showMsg(`✅ Coluna gerada com ${d.chars} chars — salva como pendente (ID: ${d.id})`, 'ok');
+      setTema(''); setReferencias(''); setContexto('');
+    } catch(e) {
+      showMsg('Erro de conexão: ' + e.message, 'erro');
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const inp = {width:'100%',background:'var(--input)',border:'1px solid var(--border)',borderRadius:8,color:'var(--t1)',padding:'10px 14px',fontSize:13,fontFamily:'var(--font)',resize:'vertical'};
+  const sel = {...inp, resize:undefined, cursor:'pointer'};
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">✒️ Editor de Colunas</div>
+        <div className="page-sub">Gere colunas assinadas com o tom de cada colunista OVC</div>
+      </div>
+      <div className="page-body">
+        {msg && <div style={{marginBottom:16,padding:'10px 16px',borderRadius:8,fontSize:13,fontWeight:500,background:msgTipo==='erro'?'var(--red-s2)':'var(--green-s)',color:msgTipo==='erro'?'#f87171':'#4ade80'}}>{msg}</div>}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Nova Coluna</span></div>
+          <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:16}}>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Colunista</label>
+              <select style={sel} value={colunista} onChange={e=>setColunista(e.target.value)} disabled={gerando}>
+                {COLUNISTAS_LISTA.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Tema Central <span style={{color:'var(--red)'}}>*</span></label>
+              <textarea rows={3} style={inp} placeholder="Ex: O desmonte da educação pública pelo PT e o crescimento das escolas privadas" value={tema} onChange={e=>setTema(e.target.value)} disabled={gerando}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Links e Referências</label>
+              <textarea rows={4} style={inp} placeholder="Cole aqui links, trechos de notícias, dados, declarações relevantes..." value={referencias} onChange={e=>setReferencias(e.target.value)} disabled={gerando}/>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:6,display:'block'}}>Contexto Adicional</label>
+              <textarea rows={3} style={inp} placeholder="Instruções extras, ângulo específico, tom desejado para esta coluna..." value={contexto} onChange={e=>setContexto(e.target.value)} disabled={gerando}/>
+            </div>
+            <button className="btn btn-primary" onClick={handleGerar} disabled={gerando||!tema.trim()} style={{alignSelf:'flex-start',minWidth:180}}>
+              {gerando ? '⏳ Gerando coluna...' : '✒️ Gerar Coluna'}
+            </button>
+          </div>
+        </div>
+        {resultado && (
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">✅ Coluna Gerada</span></div>
+            <div style={{padding:'20px',display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{fontSize:13,color:'var(--t2)'}}>Colunista: <strong style={{color:'var(--t1)'}}>{resultado.colunista}</strong></div>
+              <div style={{fontSize:13,color:'var(--t2)'}}>Título: <strong style={{color:'var(--t1)'}}>{resultado.titulo}</strong></div>
+              <div style={{fontSize:12,color:'var(--t2)'}}>Categoria: {resultado.categoria} · {resultado.chars} chars · ID: {resultado.id}</div>
+              <div style={{marginTop:8,padding:12,background:'var(--bg)',borderRadius:8,fontSize:12,color:'var(--t2)',lineHeight:1.6}}>{resultado.preview}</div>
+              <div style={{fontSize:12,color:'#4ade80',marginTop:4}}>Coluna salva como pendente — acesse Postagens para revisar e publicar.</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
@@ -2365,6 +2460,7 @@ const PAGES = [
   {id:'imagens',label:'Imagens',icon:'🖼️'},
   {id:'galeria',label:'Galeria',icon:'🗂️'},
   {id:'colunistas',label:'Colunistas',icon:'✍️'},
+  {id:'editor_colunas',label:'Editor de Colunas',icon:'✒️'},
 ];
 
 // ── SELETOR DE IMAGEM ──
@@ -2533,7 +2629,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas}[page] || Dashboard;
 
   return (
     <div className="layout">
