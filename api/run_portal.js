@@ -526,83 +526,116 @@ export default async function handler(req, res) {
     if (!news.length) news = await getLinksFromHomepages();
     if (!news.length) return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
 
+    // Batch hash check — 1 query per 100 items instead of N+1 individual queries
+    const newsSlice = news.slice(0, 80);
+    const allHashes = newsSlice.map(item => crypto.createHash('md5').update(item.link + '_portal').digest('hex'));
+    const existingHashes = new Set();
+    try {
+      for (let i = 0; i < allHashes.length; i += 100) {
+        const chunk = allHashes.slice(i, i + 100);
+        const { data: batch } = await supabase.from('posts').select('hash').in('hash', chunk);
+        (batch || []).forEach(p => existingHashes.add(p.hash));
+      }
+    } catch(_) {}
+
     const artigos = [];
 
-    for (const item of news.slice(0, 80)) {
-      if (Date.now() - inicio > 55000) break;
-      if (artigos.length >= targetCount) break;
+    // Pre-filter candidates and process targetCount * 4 in parallel (buffer for failures/dedup)
+    const candidates = newsSlice
+      .map((item, i) => ({ item, hash: allHashes[i] }))
+      .filter(({ hash }) => !existingHashes.has(hash))
+      .slice(0, Math.min(targetCount * 4, 16));
 
-      const hash = crypto.createHash('md5').update(item.link + '_portal').digest('hex');
-      const { data: dup } = await supabase.from('posts').select('id').eq('hash', hash).single();
-      if (dup) continue;
-
-      const article = await scrape(item.link);
-      let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
-      if (!sourceText) {
-        const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
-        if (rssText.length >= 150) sourceText = rssText;
-      }
-      if (!sourceText) continue;
-
-      const tipoConteudo = TIPO_POR_POSICAO[artigos.length] || 'padrao';
-      let content;
+    const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
-        if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
-        else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
-        else content = await rewritePortal(sourceText, item.title, dynamicContext);
-      } catch(e) { continue; }
-      if (!validarConteudo(content)) continue;
-      content.titulo = stripTitle(content.titulo);
+        if (Date.now() - inicio > 42000) return null;
 
-      if (!content.categoria || content.categoria === 'geral') {
-        const catCorrigida = corrigirCategoria(content.titulo, '');
-        if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
-        else continue;
+        const article = await scrape(item.link);
+        let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
+        if (!sourceText) {
+          const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
+          if (rssText.length >= 150) sourceText = rssText;
+        }
+        if (!sourceText) return null;
+
+        const tipoConteudo = TIPO_POR_POSICAO[batchPos] || 'padrao';
+        let content;
+        try {
+          if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
+          else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
+          else content = await rewritePortal(sourceText, item.title, dynamicContext);
+        } catch(e) { return null; }
+
+        if (!validarConteudo(content)) return null;
+        content.titulo = stripTitle(content.titulo);
+
+        if (!content.categoria || content.categoria === 'geral') {
+          const catCorrigida = corrigirCategoria(content.titulo, '');
+          if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
+          else return null;
+        }
+
+        if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
+          const familiaForcada = FAMILIA_CAT[catEfetiva];
+          const familiaConteudo = FAMILIA_CAT[content.categoria];
+          if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) return null;
+          content.categoria = catEfetiva;
+        } else {
+          const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
+          if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
+        }
+
+        if (subcatForcada) {
+          content.subcategoria = subcatForcada;
+          content.subcategoria_slug = slugify(subcatForcada);
+        } else {
+          const lista = SUBCATS_POR_CAT[content.categoria] || [];
+          const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
+          if (!subcOk || !content.subcategoria) {
+            content.subcategoria = SUBCAT_DEFAULT[content.categoria] || lista[0] || 'Geral';
+            content.subcategoria_slug = slugify(content.subcategoria);
+          }
+        }
+
+        let imagemFinal = null;
+        const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
+        const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
+        if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
+
+        if (!imagemFinal) {
+          try {
+            const imgUrl = await findImage(content.titulo, content.categoria);
+            if (imgUrl) {
+              try { imagemFinal = await processAndSaveImage(imgUrl, hash.slice(0, 12) + '_f', inicio); }
+              catch(_) { imagemFinal = imgUrl; }
+            }
+          } catch(_) {}
+        }
+
+        const metaTitle = stripTitle(content.meta_title || content.titulo);
+        const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
+
+        return { content, hash, imagemFinal, metaTitle, metaDesc, tipoConteudo };
+      } catch(_) {
+        return null;
       }
+    };
+
+    const batchSettled = await Promise.allSettled(
+      candidates.map((candidate, batchPos) => _processOneArticle(candidate, batchPos))
+    );
+
+    const successResults = batchSettled
+      .filter(r => r.status === 'fulfilled' && r.value !== null)
+      .map(r => r.value);
+
+    const batchTitles = [];
+    for (const result of successResults) {
+      if (artigos.length >= targetCount) break;
+      const { content, hash, imagemFinal, metaTitle, metaDesc, tipoConteudo } = result;
 
       if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
-      if (topicoDuplicado(content.titulo, recentTitles)) continue;
-
-      if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
-        // categoria forcada (manual ou radar via HIGH_PRIORITY_CATS)
-        const familiaForcada = FAMILIA_CAT[catEfetiva];
-        const familiaConteudo = FAMILIA_CAT[content.categoria];
-        if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) continue;
-        content.categoria = catEfetiva;
-      } else {
-        const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
-        if (catCorrigida !== content.categoria) content.categoria = catCorrigida;
-      }
-
-      if (subcatForcada) {
-        content.subcategoria = subcatForcada;
-        content.subcategoria_slug = slugify(subcatForcada);
-      } else {
-        const lista = SUBCATS_POR_CAT[content.categoria] || [];
-        const subcOk = lista.length === 0 || lista.includes(content.subcategoria);
-        if (!subcOk || !content.subcategoria) {
-          content.subcategoria = SUBCAT_DEFAULT[content.categoria] || lista[0] || 'Geral';
-          content.subcategoria_slug = slugify(content.subcategoria);
-        }
-      }
-
-      let imagemFinal = null;
-      const imgOriginal = article.image && article.image.length > 10 ? article.image : null;
-      const imgAprovada = imgOriginal && !isCompetitorDomain(imgOriginal) ? imgOriginal : null;
-      if (imgAprovada) imagemFinal = await processAndSaveImage(imgAprovada, hash.slice(0, 12), inicio);
-
-      if (!imagemFinal) {
-        try {
-          const imgUrl = await findImage(content.titulo, content.categoria);
-          if (imgUrl) {
-            try { imagemFinal = await processAndSaveImage(imgUrl, hash.slice(0, 12) + '_f', inicio); }
-            catch(_) { imagemFinal = imgUrl; }
-          }
-        } catch(_) {}
-      }
-
-      const metaTitle = stripTitle(content.meta_title || content.titulo);
-      const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g,'').trim();
+      if (topicoDuplicado(content.titulo, [...recentTitles, ...batchTitles])) continue;
 
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo, conteudo: content.corpo, comentario_fixado: metaDesc,
@@ -617,6 +650,7 @@ export default async function handler(req, res) {
 
       if (error) continue;
       recentTitles.push(content.titulo);
+      batchTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
     }
 
