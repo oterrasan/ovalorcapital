@@ -528,35 +528,44 @@ async function carregarFontesSupabase() {
   }
 }
 
+// Rotação por janela de tempo: cada rodada de 5min usa lote diferente de feeds
+// Garante que todos os 1000+ feeds sejam varridos ao longo do dia
+function loteOffset(pool, loteSize) {
+  const slot = Math.floor(Date.now() / (5 * 60 * 1000)); // muda a cada 5 min
+  const total = Math.ceil(pool.length / loteSize);
+  const start = (slot % total) * loteSize;
+  return pool.slice(start, start + loteSize);
+}
+
 export async function getNewsByCategoria(categoria) {
   try {
     const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
     const feedsHardcoded = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
 
-    // Carregar TODAS as fontes do Supabase (1000+)
     const fontesSupabase = await carregarFontesSupabase();
-
-    // Unir hardcoded + Supabase sem duplicar URLs — cap 80 para evitar connection storm
     const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
     const extras = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
-    const feedsParaUsar = [...feedsHardcoded, ...extras].sort(() => Math.random() - 0.5).slice(0, 80);
 
-    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${extras.length} Supabase)`);
+    // Hardcoded sempre incluídos + lote rotativo do Supabase (cap 120 total)
+    const loteExtras = loteOffset(extras, Math.max(120 - feedsHardcoded.length, 40));
+    const feedsParaUsar = [...feedsHardcoded, ...loteExtras];
+
+    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes (${feedsHardcoded.length} hardcoded + ${loteExtras.length} Supabase rotativo)`);
     return await buscarFeedsEmParalelo(feedsParaUsar);
   } catch (_) { return []; }
 }
 
 export async function getNews() {
   try {
-    // Carregar TODAS as fontes do Supabase (1000+)
     const fontesSupabase = await carregarFontesSupabase();
-
-    // Unir com feeds garantidos sem duplicar — cap 80 para evitar connection storm
     const urlsCustom = new Set(fontesSupabase.map(f => f.url));
     const extras = FEEDS_DIRETOS_GARANTIDOS.filter(f => !urlsCustom.has(f.url));
-    const feedsParaUsar = [...fontesSupabase, ...extras].sort(() => Math.random() - 0.5).slice(0, 80);
+    const pool = [...fontesSupabase, ...extras];
 
-    console.log(`[rss] getNews: varrendo ${feedsParaUsar.length} fontes (${fontesSupabase.length} Supabase + ${extras.length} diretos)`);
+    // Lote rotativo de 120 feeds — cobre todos os 1000+ ao longo do dia
+    const feedsParaUsar = loteOffset(pool, 120);
+
+    console.log(`[rss] getNews: lote ${feedsParaUsar.length} fontes de ${pool.length} total`);
 
     let allItems = await buscarFeedsEmParalelo(feedsParaUsar);
     console.log('[rss] total itens:', allItems.length);
