@@ -916,7 +916,7 @@ export async function rewriteColuna(colunistaNome, tema, referencias = '', conte
   const userContent = parts.join('\n\n');
   const raw = await callOpenAI(kernel, userContent);
   const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 6000) {
+  if (!result || !result.corpo || result.corpo.length < 3000) {
     throw new Error("Coluna insuficiente: " + (result?.corpo?.length || 0) + " chars");
   }
   result.tipo_conteudo = 'coluna';
