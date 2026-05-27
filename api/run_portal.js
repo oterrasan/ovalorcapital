@@ -463,7 +463,7 @@ export default async function handler(req, res) {
       if (!dentroJanela) return res.status(200).json({ status: 'fora_horario', hora: horaBR, janela: '07:00-01:00 BRT' });
     }
 
-    // Cap diário: máximo 100 artigos automáticos por dia (BRT) — não afeta geração manual
+    // Cap diário: máximo 500 artigos automáticos por dia (BRT) — não afeta geração manual
     {
       const agora = new Date();
       const hUtc = agora.getUTCHours();
@@ -476,8 +476,8 @@ export default async function handler(req, res) {
         .select('id', { count: 'exact', head: true })
         .gte('created_at', inicioDiaBRT.toISOString())
         .eq('publish_method', 'portal');
-      if ((postsHoje || 0) >= 100) {
-        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 100 });
+      if ((postsHoje || 0) >= 500) {
+        return res.status(200).json({ status: 'limite_diario_atingido', posts_hoje: postsHoje, limite: 500 });
       }
     }
 
@@ -652,7 +652,7 @@ export default async function handler(req, res) {
     if (artigos.length > 0) {
       return res.status(200).json({ status: 'ok', artigos, total: artigos.length, titulo: artigos[0].titulo, categoria: artigos[0].categoria, id: artigos[0].id });
     }
-    return res.status(200).json({ status: 'no_valid_news', ts: Date.now() });
+    return res.status(200).json({ status: 'no_valid_news', ts: Date.now(), catAlvo, prio: _dbgPrio, gen: _dbgGen, candidates: candidates.length, news_total: news.length });
 
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
