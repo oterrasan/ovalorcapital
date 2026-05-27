@@ -480,9 +480,10 @@ function extrairItem(i, sourceName) {
   };
 }
 
-async function buscarFeedsEspecificos(feeds) {
+// Busca todos os feeds em paralelo sem limite artificial de slice
+async function buscarFeedsEmParalelo(feeds) {
   const results = await Promise.allSettled(
-    feeds.slice(0, 12).map(source =>
+    feeds.map(source =>
       fetchFeed(source.url)
         .then(items => items.slice(0, 10)
           .map(i => extrairItem(i, source.name))
@@ -494,12 +495,84 @@ async function buscarFeedsEspecificos(feeds) {
   return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
 }
 
+// alias mantido para compatibilidade
+const buscarFeedsEspecificos = buscarFeedsEmParalelo;
+
+// Rotação por janela de 5 min — garante que todos os feeds sejam visitados ao longo do dia
+function loteOffset(pool, loteSize) {
+  if (pool.length === 0) return [];
+  const slot = Math.floor(Date.now() / (5 * 60 * 1000));
+  const total = Math.ceil(pool.length / loteSize);
+  const start = (slot % total) * loteSize;
+  return pool.slice(start, start + loteSize);
+}
+
+async function carregarFontesSupabase() {
+  try {
+    const { data } = await supabase
+      .from('rss_sources')
+      .select('url,name,active,categoria')
+      .limit(2000);
+    return (data || []).filter(s => s.active !== false);
+  } catch (_) { return []; }
+}
+
+// Mapeamento portal categoria → nomes de categoria Lote 2 (rss_sources.categoria)
+const LOTE2_POR_CATEGORIA = {
+  politica:      ['Polêmicas Brasil','Transparência e Espionagem'],
+  economia:      ['Portais Financeiros','Bancos Brasil','Combustíveis Brasil','Varejo Brasil'],
+  negocios:      ['Varejo Brasil','Varejo e Consumo','Marketing','Bens de Consumo Global','Feiras e Exposições'],
+  investimentos: ['Fundos Brasil','DeFi e Cripto','Portais Financeiros','Bancos Brasil'],
+  seguros:       ['Nichos Regulados','Farmacêutica Brasil'],
+  mercados:      ['Petróleo Global','Mineração Brasil','Bancos Globais','DeFi e Cripto','Combustíveis Brasil','Fundos Brasil'],
+  tributacao:    ['Nichos Regulados','Portais Financeiros'],
+  regulacao:     ['Nichos Regulados','Bancos Brasil','Telecom Brasil','Direito'],
+  tecnologia:    ['Tech Brasil','AGI e Neurotecnologia','Big Techs Global','Pagamentos Global','Games','Telecom Brasil','Telecom Global','Biologia Sintética'],
+  industria:     ['Manufatura Brasil','Logística Brasil','Indústria de Base','Infraestrutura','Agronegócio','Alimentos Brasil','Montadoras Global'],
+  saude:         ['Farmacêutica Brasil','Farmacêutica Global','Psicologia','Biologia Sintética'],
+  familia:       ['Psicologia'],
+  educacao:      ['Empregos','Direito'],
+  profissoes:    ['Direito','Psicologia','Empregos'],
+  vagas:         ['Empregos'],
+  concursos:     ['Empregos'],
+  imoveis:       ['Imobiliário'],
+  esg:           ['Climatologia','Biologia Sintética','Energia Elétrica Brasil'],
+  defesa:        ['Aeroespacial e Defesa','Transparência e Espionagem'],
+  seguranca:     ['Polêmicas Brasil','Transparência e Espionagem'],
+  internacional: ['Geopolítica','Bancos Globais','Alimentos Global','Varejo Global','Montadoras Global','Big Techs Global','Bens de Consumo Global','Aeroespacial e Defesa'],
+  investigativo: ['Polêmicas Brasil','Transparência e Espionagem'],
+  cultura:       ['Música','Fotografia','Feiras e Exposições','Moda'],
+  esportes:      ['Esportes','Federações Esportivas'],
+  variedades:    ['Moda','Cosméticos Brasil','Fotografia','Feiras e Exposições'],
+  religiao:      [],
+  parcerias:     ['Feiras e Exposições'],
+  radar:         ['Esportes','Federações Esportivas','Música'],
+};
+
 export async function getNewsByCategoria(categoria) {
   try {
     const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
-    const feedsEspecificos = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
-    if (feedsEspecificos.length > 0) return await buscarFeedsEspecificos(feedsEspecificos);
-    return await getNews();
+    const feedsHardcoded = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
+
+    const categoriasLote2 = LOTE2_POR_CATEGORIA[categoria] || [];
+    const fontesSupabase = await carregarFontesSupabase();
+    const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
+
+    let fontesFiltradas = categoriasLote2.length > 0
+      ? fontesSupabase.filter(f => !urlsHardcoded.has(f.url) && categoriasLote2.includes(f.categoria))
+      : fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
+
+    if (fontesFiltradas.length < 20) {
+      const extrasSupabase = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
+      const poolFallback = extrasSupabase.length >= 20
+        ? extrasSupabase
+        : TODOS_FEEDS_EXTRAS.filter(f => !urlsHardcoded.has(f.url));
+      fontesFiltradas = [...fontesFiltradas, ...loteOffset(poolFallback, 60)];
+    }
+
+    const feedsParaUsar = [...feedsHardcoded, ...fontesFiltradas].slice(0, 120);
+    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes`);
+    return await buscarFeedsEmParalelo(feedsParaUsar);
   } catch (_) { return []; }
 }
 
@@ -521,45 +594,40 @@ function dedupPorTitulo(items) {
   return unicos;
 }
 
-async function buscarFeedsDiretos(feeds) {
-  const results = await Promise.allSettled(
-    feeds.slice(0, 20).map(source =>
-      fetchFeed(source.url)
-        .then(items => items.slice(0, 8)
-          .map(i => extrairItem(i, source.name))
-          .filter(Boolean))
-        .catch(() => [])
-    )
-  );
-  return results.filter(r => r.status === "fulfilled").flatMap(r => r.value);
-}
+// alias mantido para compatibilidade interna
+const buscarFeedsDiretos = buscarFeedsEmParalelo;
+
+// Todos os feeds hardcoded de todos os grupos, excluindo os garantidos (sem duplicatas)
+// Usado como pool de rotação quando Supabase tem poucas fontes ativas
+const _urlsGarantidas = new Set(FEEDS_DIRETOS_GARANTIDOS.map(f => f.url));
+const TODOS_FEEDS_EXTRAS = (() => {
+  const vistos = new Set(_urlsGarantidas);
+  const lista = [];
+  for (const feeds of Object.values(FEEDS_POR_GRUPO)) {
+    for (const f of feeds) {
+      if (!vistos.has(f.url)) { vistos.add(f.url); lista.push(f); }
+    }
+  }
+  return lista;
+})();
 
 export async function getNews() {
   try {
-    const { data: allSources } = await supabase
-      .from("rss_sources")
-      .select("url,name,active")
-      .order("created_at", { ascending: false });
+    const fontesSupabase = await carregarFontesSupabase();
 
-    const feedsCustom = (allSources || [])
-      .filter(s => s.active !== false)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 10);
+    // Pool para rotação: Supabase quando tem volume, senão todos os feeds hardcoded
+    const feedsSupabaseExtras = fontesSupabase.filter(f => !_urlsGarantidas.has(f.url));
+    const poolExtra = feedsSupabaseExtras.length >= 30 ? feedsSupabaseExtras : TODOS_FEEDS_EXTRAS;
+    const lote = loteOffset(poolExtra, 100);
 
-    const feedsGarantidos = [...FEEDS_DIRETOS_GARANTIDOS]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 10);
+    const feedsParaUsar = [...FEEDS_DIRETOS_GARANTIDOS, ...lote];
+    console.log(`[rss] getNews: ${feedsParaUsar.length} fontes (20 garantidos + ${lote.length} de pool=${poolExtra.length})`);
 
-    const feedsParaUsar = [...feedsCustom, ...feedsGarantidos];
-    console.log(`[rss] fontes: ${feedsParaUsar.length} (custom:${feedsCustom.length} + diretos:${feedsGarantidos.length})`);
-
-    let allItems = await buscarFeedsDiretos(feedsParaUsar);
-    console.log('[rss] 1a busca:', allItems.length, 'itens');
+    let allItems = await buscarFeedsEmParalelo(feedsParaUsar);
+    console.log('[rss] total itens:', allItems.length);
 
     if (allItems.length === 0) {
-      console.log('[rss] fallback total para FEEDS_DIRETOS_GARANTIDOS');
-      allItems = await buscarFeedsDiretos(FEEDS_DIRETOS_GARANTIDOS);
-      console.log('[rss] fallback:', allItems.length, 'itens');
+      allItems = await buscarFeedsEmParalelo(FEEDS_DIRETOS_GARANTIDOS);
     }
 
     return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));

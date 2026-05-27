@@ -505,17 +505,12 @@ export default async function handler(req, res) {
     let news;
     let _dbgPrio = 0, _dbgGen = 0;
 
-    if (catForcada && CATS_VALIDAS.has(catForcada)) {
-      news = await getNewsByCategoria(catForcada);
-      _dbgPrio = news.length;
-      if (!news.length) {
-        const [prio, gen] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
-        _dbgPrio = prio.length; _dbgGen = gen.length;
-        const seen = new Set();
-        news = [...prio, ...gen].filter(i => { if (seen.has(i.link)) return false; seen.add(i.link); return true; });
-      }
-    } else {
-      const [priorityNews, generalNews] = await Promise.all([getNewsByCategoria(catAlvo), getNews()]);
+    {
+      const catParaBuscar = (catForcada && CATS_VALIDAS.has(catForcada)) ? catForcada : catAlvo;
+      const [priorityNews, generalNews] = await Promise.all([
+        getNewsByCategoria(catParaBuscar),
+        getNews()
+      ]);
       _dbgPrio = priorityNews.length; _dbgGen = generalNews.length;
       const seenLinks = new Set();
       news = [...priorityNews, ...generalNews].filter(item => {
@@ -527,7 +522,7 @@ export default async function handler(req, res) {
     if (!news.length) return res.status(200).json({ status: 'no_news', catAlvo, prio: _dbgPrio, gen: _dbgGen, ts: Date.now() });
 
     // Batch hash check — 1 query per 100 items instead of N+1 individual queries
-    const newsSlice = news.slice(0, 80);
+    const newsSlice = news.slice(0, 300);
     const allHashes = newsSlice.map(item => crypto.createHash('md5').update(item.link + '_portal').digest('hex'));
     const existingHashes = new Set();
     try {
@@ -540,11 +535,11 @@ export default async function handler(req, res) {
 
     const artigos = [];
 
-    // Pre-filter candidates and process targetCount * 6 in parallel (higher hit rate for count:3/8)
+    // Pre-filter candidates and process in parallel (wide net for scraping + AI failure rates)
     const candidates = newsSlice
       .map((item, i) => ({ item, hash: allHashes[i] }))
       .filter(({ hash }) => !existingHashes.has(hash))
-      .slice(0, Math.min(targetCount * 6, 48));
+      .slice(0, Math.min(targetCount * 10, 60));
 
     const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
