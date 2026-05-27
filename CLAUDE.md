@@ -1143,3 +1143,45 @@ Cada trigger faz 2 rodadas (Rodada 1 e Rodada 2) com `count:8` cada.
 3. **Se `skipped ≈ 300`** → banco saturado com hashes, pipeline saudável mas conteúdo esgotado — normal
 4. **Se artigos ainda não chegam** → investigar `statsNoText` (scrape falhando) ou `statsInvalid` (validação)
 5. **NUNCA mais pedir chave OpenAI** — está na seção 16 e hardcoded no código
+
+---
+
+### Sessão 27/05/2026 — CONTINUAÇÃO — BUG #52 + #53 + MERGE PR #55
+
+> Roberto extremamente frustrado — zero artigos, pipeline continuava retornando `no_valid_news`.
+
+#### Bug #52 — `buscarFeedsEspecificos` cap de 12 feeds (CORRIGIDO)
+
+`core/rss.js` no branch de desenvolvimento tinha `buscarFeedsEspecificos` com `feeds.slice(0, 12)` — buscava no máximo 12 feeds por categoria. Com 18 feeds hardcoded para política (16 GN + 2 diretos), apenas 12 eram usados. Corrigido: substituído por `buscarFeedsEmParalelo` sem cap.
+
+#### Bug #53 — `getNews()` pool de 20 feeds aleatórios saturava em horas (CORRIGIDO)
+
+`getNews()` no branch de desenvolvimento escolhia aleatoriamente 10 fontes Supabase + 10 dos `FEEDS_DIRETOS_GARANTIDOS`. Após algumas horas de pipeline rodando, TODOS esses ~20 artigos já estavam no banco (hash-dedup). `candidates = []` → `no_valid_news` permanente.
+
+**Fix aplicado (PR #55, commit `514c656`):**
+1. `buscarFeedsEmParalelo` substitui `buscarFeedsEspecificos` (sem cap de feeds)
+2. `getNews()` reescrito com `loteOffset`: 20 garantidos SEMPRE + 100 rotativos a cada 5 min
+3. `TODOS_FEEDS_EXTRAS`: pool de 280+ feeds hardcoded de todos os grupos — fallback quando Supabase < 30 fontes
+4. `LOTE2_POR_CATEGORIA`: filtro Supabase por categoria temática adicionado
+5. `run_portal.js` `catForcada`: agora SEMPRE roda `getNews()` em paralelo (antes só se catNews=0)
+6. `newsSlice`: 80 → 300 candidatos
+7. `batchCandidates`: 48 → 60
+
+**PR #55 mergeado em main (27/05/2026 17:xx BRT).** Deploy Vercel ~2 min após merge.
+
+#### Bugs da tabela (atualizar seção 12)
+
+| # | Bug | Arquivo | Quando |
+|---|-----|---------|--------|
+| 52 | `buscarFeedsEspecificos` cap de 12 feeds — cortava maioria dos feeds de categoria | `core/rss.js` — substituído por `buscarFeedsEmParalelo` sem cap | 27/05/2026 |
+| 53 | `getNews()` pool de 20 aleatórios saturava em horas — todos hash-deduped | `core/rss.js` — loteOffset + TODOS_FEEDS_EXTRAS (280+ feeds) | 27/05/2026 |
+
+#### Status após merge
+
+| Item | Status |
+|---|---|
+| Bug #52 (cap de 12 feeds) | ✅ CORRIGIDO |
+| Bug #53 (pool 20 feeds saturava) | ✅ CORRIGIDO |
+| catForcada sempre chama getNews() | ✅ CORRIGIDO |
+| PR #55 mergeado em main | ✅ |
+| Artigos chegando no admin | ❓ Aguardar próximas rodadas do cron |
