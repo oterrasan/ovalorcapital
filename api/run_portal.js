@@ -540,11 +540,11 @@ export default async function handler(req, res) {
 
     const artigos = [];
 
-    // Pre-filter candidates and process targetCount * 4 in parallel (buffer for failures/dedup)
+    // Pre-filter candidates and process targetCount * 6 in parallel (higher hit rate for count:3/8)
     const candidates = newsSlice
       .map((item, i) => ({ item, hash: allHashes[i] }))
       .filter(({ hash }) => !existingHashes.has(hash))
-      .slice(0, Math.min(targetCount * 4, 16));
+      .slice(0, Math.min(targetCount * 6, 48));
 
     const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
