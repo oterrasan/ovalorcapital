@@ -685,4 +685,63 @@ Também re-disparado `fix_openai_key.yml` (via commit `8dd7f5d`) para:
 □ deploy.yml usa VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b hardcoded (NÃO secrets)? (Bug #51)
 □ core/ai_portal.js linha 7 tem base64 fallback com chave terminando em ...fb8xhlZo1FQkEA? (Bug #49)
 □ fix_openai_key.yml usa PROJECT_ID hardcoded prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b? (Bug #51)
+□ core/image_processor.js usa OUT_WIDTH=1200, OUT_HEIGHT=675 (16:9 web)? NUNCA voltar para 1080×1350 (era formato IG, Instagram desabilitado)
+□ public/index.html NÃO foi modificado para PageSpeed sem plano SSR aprovado? (Incidente 28/05)
+
+---
+
+## BUG #54 — INCIDENTE PAGESPEED — Extração de base64 inline piorou LCP de 6.8s para 27s
+**Data:** 28/05/2026 | **Arquivos:** `public/index.html` (revertido), `core/image_processor.js` (mantido)
+
+### Sintoma
+Score PageSpeed mobile caiu de ~50 para ~43 após extração de imagens base64. Em seguida, nova tentativa de fix levou o score para ~30s mobile e derrubou desktop de 92 para ~70.
+
+### Causa raiz
+`public/index.html` tinha 3 imagens base64 inline: favicon (88KB PNG), logo (105KB PNG), thumbnail (2.3KB). Total: ~261KB de base64 num HTML de 295KB.
+
+Ao extrair o logo para arquivo externo (`/img/logo-ovc.webp`), o browser mudou o candidato LCP:
+- **Antes**: Logo (inline base64) = LCP instantâneo com o HTML → LCP ~6.8s
+- **Depois**: Cards de artigo (carregados via JavaScript após chamada de API) = LCP ~27s
+
+A segunda tentativa (logo WebP base64 inline, 9KB) ainda resultou em LCP alto e CLS 1.001 — os cards de artigo carregados via JS continuavam sendo o maior elemento na tela e causavam layout shifts ao serem inseridos dinamicamente.
+
+### O problema real (estrutural)
+O homepage é arquivo estático + JavaScript que busca artigos de uma API. O Google Lighthouse identifica o primeiro card de artigo com imagem como o elemento LCP. Esse elemento só aparece depois de:
+1. HTML carregado
+2. CSS+JS baixados e executados
+3. Chamada para `/api/portal-posts?recentes=true` completada
+4. Cards renderizados no DOM
+5. Imagem do primeiro card baixada do Supabase Storage
+
+**Nenhuma otimização de HTML resolve isso.** A solução correta é SSR da homepage.
+
+### Correção aplicada
+REVERT total de `public/index.html` ao estado do commit `e96f999` (commit `2fb2a0c`).
+
+### O que FOI mantido desta sessão
+`core/image_processor.js`: dimensões 1080×1350 → 1200×675 (16:9 web) — Roberto confirmou que Instagram está desabilitado. Artigos novos gerados pelo pipeline saem ~3x menores (50–100KB vs 150–300KB).
+
+### Arquivos órfãos no repo (inofensivos mas não referenciados)
+- `public/favicon.png` — criado mas index.html revertido ao base64 original
+- `public/img/logo-ovc.webp` — idem
+- `public/img/tv-thumb.webp` — idem
+
+### Como resolver PageSpeed corretamente (SEM criar 11º arquivo em api/)
+```
+1. Adicionar ?format=homepage em api/portal-posts.js
+   → retorna HTML completo com artigos pré-renderizados (SSR)
+2. Adicionar rewrite em vercel.json (commit isolado!):
+   { "source": "/", "destination": "/api/portal-posts?format=homepage" }
+3. public/index.html passa a ser ignorado para a homepage
+4. LCP: primeira imagem de artigo já está no HTML → browser faz preload → rápido
+5. CLS: zero — layout não muda porque artigos já estão no HTML
+```
+**RISCO**: Mudança grande. Fazer com planejamento, com staging branch, NÃO na pressa.
+
+### Regra permanente
+```
+❌❌❌ NUNCA mexer em public/index.html para PageSpeed sem plano SSR aprovado
+❌❌❌ Extrair base64 inline piora LCP quando conteúdo principal carrega via JS
+❌❌❌ NÃO tentar "otimizações rápidas" em arquivos críticos da homepage
+```
 ```

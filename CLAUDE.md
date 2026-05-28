@@ -1199,3 +1199,96 @@ O squash-merge do PR #55 introduziu `>= 100` como limite diário (era 500 no mai
 2. **Se ainda zero artigos** — verificar resposta `no_valid_news`: campo `gen` = 0 → rss.js não busca feeds; `candidates` = 0 → tudo hash-dedup; `prio` e `gen` > 0 mas zero artigos → scrape+OpenAI falhando
 3. **NUNCA pedir chave OpenAI** — seção 16 + hardcoded no código
 4. **NUNCA mudar limite diário abaixo de 500** — foi esse limite em 100 que parou o pipeline hoje
+
+---
+
+### Sessão 28/05/2026 — INCIDENTE PAGESPEED + REVERT
+
+> ⚠️ SESSÃO COM DANO REAL. Claude piorou a nota de performance do portal. Roberto muito irritado.
+
+#### Contexto inicial
+
+- Pipeline corrigido (commit `e96f999` da sessão anterior havia resolvido o SyntaxError no `ai_portal.js`)
+- Roberto compartilhou análise do Gemini: PageSpeed mobile 59/100, LCP 6.8s, causado por imagens base64 inline no `public/index.html`
+- `public/index.html` tinha 3 imagens base64 embutidas: favicon (88KB PNG), logo (105KB PNG), thumbnail TV (2.3KB PNG) — total ~261KB de base64 no HTML de 295KB
+
+#### O que foi feito (e o que deu errado)
+
+**Commit `86c53ac` — extração de base64 para arquivos externos:**
+- Extraiu favicon → `/public/favicon.png`
+- Extraiu logo → `/public/img/logo-ovc.webp` (6.7KB WebP — 15x menor que PNG)
+- Extraiu thumbnail TV → `/public/img/tv-thumb.webp`
+- HTML: 295KB → 34KB ✅
+- **PROBLEMA:** Com o logo externo, o browser mudou o elemento LCP — deixou de ser o logo (inline, instantâneo) e passou a ser os cards de artigos (carregados via JavaScript após chamada de API). LCP foi de 6.8s para **27s**.
+
+**Commit `0319984` — `image_processor.js` 1080×1350 → 1200×675:** ✅ CORRETO, MANTIDO
+- Roberto confirmou que Instagram está desabilitado — sem motivo para manter formato portrait IG
+- Imagens novas saem ~3x menores (50–100KB vs 150–300KB)
+- Não afeta PageSpeed (só artigos novos gerados daqui para frente)
+
+**Commit `2834642` — logo de volta inline como WebP base64:**
+- Tentativa de corrigir: logo WebP base64 inline (9KB) em vez de PNG base64 (141KB)
+- HTML: 43KB — muito melhor que 295KB original
+- **RESULTADO:** Score ainda pior (~30s mobile, desktop caiu de 92 para ~70)
+- Causa: CLS de 1.001 + LCP ainda alto (cards de artigo carregados via JS)
+
+**Commit `2fb2a0c` — REVERT TOTAL do `index.html`:**
+- `public/index.html` restaurado exatamente ao estado do commit `e96f999`
+- 751 linhas, 295KB, base64 PNG original — idêntico ao que estava antes desta sessão
+
+#### Estado atual após revert
+
+| Item | Status |
+|---|---|
+| `public/index.html` | ✅ REVERTIDO — idêntico ao estado pré-sessão |
+| `core/image_processor.js` | ✅ MANTIDO — 1200×675 para artigos novos |
+| `public/favicon.png` | ⚠️ Arquivo existe no repo mas NÃO é referenciado pelo index.html (inofensivo) |
+| `public/img/logo-ovc.webp` | ⚠️ Arquivo existe no repo mas NÃO é referenciado (inofensivo) |
+| `public/img/tv-thumb.webp` | ⚠️ Arquivo existe no repo mas NÃO é referenciado (inofensivo) |
+| Score PageSpeed mobile | ~50 (voltou ao que era antes) |
+| Score PageSpeed desktop | ~92 (voltou ao que era antes) |
+
+#### Lição CRÍTICA — NÃO REPETIR
+
+```
+❌❌❌ PROIBIDO mexer em public/index.html para tentar melhorar PageSpeed sem planejamento SSR
+❌❌❌ Extrair imagens base64 inline piora o LCP quando o conteúdo principal carrega via JS
+❌❌❌ O problema real de PageSpeed da homepage é ESTRUTURAL: artigos carregam via JavaScript
+❌❌❌ A solução correta é SSR da homepage — artigos pré-renderizados no HTML pelo servidor
+```
+
+#### Por que o PageSpeed da homepage é um problema estrutural
+
+O `public/index.html` é um arquivo estático. Os artigos são carregados via `home.js` que faz:
+1. Fetch para `/api/portal-posts?recentes=true`
+2. Recebe lista de artigos
+3. Renderiza cards com imagens no DOM
+
+Isso significa:
+- **LCP**: O elemento LCP identificado pelo Lighthouse é o primeiro card de artigo com imagem — que só aparece depois de toda a cadeia JS+API
+- **CLS**: 1.001 — os cards empurram o layout quando inseridos dinamicamente
+- **Solução correta**: Converter homepage para SSR (artigos já vêm no HTML do servidor)
+
+#### Como fazer SSR da homepage SEM criar 11º arquivo em api/
+
+A solução que NÃO viola REGRA ZERO-A:
+- Adicionar `?format=homepage` em `api/portal-posts.js` — retorna HTML completo com artigos pré-renderizados
+- Adicionar rewrite em `vercel.json`: `{ "source": "/", "destination": "/api/portal-posts?format=homepage" }`
+- Isso elimina o `public/index.html` como homepage e usa SSR
+- **RISCO**: Grande mudança — fazer com planejamento, não na pressa
+
+#### Commits da sessão 28/05/2026
+
+| Commit | Descrição | Status |
+|---|---|---|
+| `86c53ac` | Extração base64 inline — HTML 295KB→34KB | 🔴 CAUSOU REGRESSÃO LCP |
+| `0319984` | image_processor.js 1080×1350→1200×675 | ✅ MANTIDO |
+| `2834642` | Logo de volta inline como WebP base64 | 🔴 AINDA PIOR |
+| `2fb2a0c` | REVERT index.html ao estado original | ✅ REVERTIDO |
+
+#### O que a próxima sessão deve fazer
+
+1. **NÃO mexer em `public/index.html` sem plano de SSR aprovado por Roberto**
+2. **Verificar admin → Postagens → filtro 'pendente'** — confirmar pipeline gerando artigos após fix do SyntaxError (commit `e96f999`)
+3. **Se Roberto quiser melhorar PageSpeed**: planejar SSR da homepage (portal-posts.js `?format=homepage`) antes de qualquer commit
+4. **NUNCA pedir chave OpenAI** — seção 16 + hardcoded no código
