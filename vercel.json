@@ -35,9 +35,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/admin",                  "destination": "/admin-shell.html" },
-    { "source": "/admin/",                 "destination": "/admin-shell.html" },
-
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
 
     { "source": "/quem-somos",              "destination": "/api/institutional?page=quem-somos" },
