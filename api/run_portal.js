@@ -233,12 +233,18 @@ function corrigirCategoria(titulo, cat) {
   return cat;
 }
 
-function validarConteudo(content) {
+function minCharsPorTipo(tipoConteudo = 'padrao') {
+  if (tipoConteudo === 'micropilula') return 300;
+  if (tipoConteudo === 'pilula') return 600;
+  return 1200;
+}
+
+function validarConteudo(content, minChars = 1200) {
   if (!content || !content.titulo) return false;
   const titulo = content.titulo.toLowerCase().trim();
   if (titulo.length < 15 || titulo.length > 120) return false;
   if (/^(prezado|caro|ol[aá]|sem t[íi]tulo|t[íi]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
-  if ((content.corpo || '').length < 2500) return false;
+  if ((content.corpo || '').trim().length < minChars) return false;
   return true;
 }
 
@@ -294,9 +300,25 @@ async function handleManualPost(req, res) {
         manualContext = buildDynamicContext({ recentTitles: titles, recentKeywords: keywords, recentCategories: cats });
       }
     } catch(_) {}
-    const content = await rewritePortalManual(sourceText, sourceTitle, manualContext);
-    if (!content.corpo || content.corpo.length < 300)
-      return res.status(500).json({ error: "Conteúdo gerado insuficiente" });
+    let content;
+    let tipoConteudo = 'padrao';
+    let ultimoErro = '';
+    const tentativas = [
+      ['padrao', rewritePortalManual],
+      ['pilula', rewritePilula],
+      ['micropilula', rewriteMicroPilula],
+    ];
+    for (const [tipo, fn] of tentativas) {
+      try {
+        content = await fn(sourceText, sourceTitle, manualContext);
+        tipoConteudo = tipo;
+        break;
+      } catch(e) {
+        ultimoErro = e?.message || String(e);
+      }
+    }
+    if (!content || !content.corpo || content.corpo.length < 250)
+      return res.status(500).json({ error: ultimoErro || "Conteudo gerado insuficiente" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
       content.categoria = catAlvo;
       if (subcatAlvo) { content.subcategoria = subcatAlvo; content.subcategoria_slug = slugify(subcatAlvo); }
@@ -324,7 +346,7 @@ async function handleManualPost(req, res) {
       subcategoria: content.subcategoria || "",
       subcategoria_slug: content.subcategoria_slug || slugify(content.subcategoria || ''),
       collaborators: "[]",
-      metrics: { foco_keyword: content.foco_keyword || "", seo_slug: content.slug || "", meta_descricao: content.meta_descricao || "" },
+      metrics: { foco_keyword: content.foco_keyword || "", seo_slug: content.slug || "", meta_descricao: content.meta_descricao || "", tipo_conteudo: tipoConteudo },
       priority: 1, retry_count: 0, max_retries: 3
     }).select().single();
     if (error) throw error;
@@ -534,46 +556,87 @@ export default async function handler(req, res) {
     } catch(_) {}
 
     const artigos = [];
+    const debug = {
+      no_source: 0,
+      rewrite_error: 0,
+      invalid_content: 0,
+      category_mismatch: 0,
+      duplicate: 0,
+      insert_error: 0,
+      timeout: 0,
+      last_errors: []
+    };
+    const rememberError = (msg) => {
+      if (msg && debug.last_errors.length < 6) debug.last_errors.push(String(msg).slice(0, 180));
+    };
 
-    // Pre-filter candidates and process in parallel (wide net for scraping + AI failure rates)
+    // Pre-filter candidates and process in small batches to reduce OpenAI pressure.
     const candidates = newsSlice
       .map((item, i) => ({ item, hash: allHashes[i] }))
       .filter(({ hash }) => !existingHashes.has(hash))
-      .slice(0, Math.min(targetCount * 10, 60));
+      .slice(0, Math.min(targetCount * 8, 32));
 
     const _processOneArticle = async ({ item, hash }, batchPos) => {
       try {
-        if (Date.now() - inicio > 42000) return null;
+        if (Date.now() - inicio > 42000) {
+          debug.timeout++;
+          return null;
+        }
 
         const article = await scrape(item.link);
-        let sourceText = (article.text && article.text.length >= 200) ? article.text : null;
-        if (!sourceText) {
-          const rssText = [item.title, item.description].filter(s => s && s.trim()).join('\n\n').trim();
-          if (rssText.length >= 150) sourceText = rssText;
+        const sourceText = [article.text, item.description, item.title]
+          .filter(s => s && String(s).trim())
+          .join('\n\n')
+          .trim();
+        if (!sourceText || sourceText.length < 30) {
+          debug.no_source++;
+          return null;
         }
-        if (!sourceText) return null;
 
-        const tipoConteudo = TIPO_POR_POSICAO[batchPos] || 'padrao';
+        let tipoConteudo = TIPO_POR_POSICAO[batchPos] || 'padrao';
+        const tentativas = tipoConteudo === 'padrao'
+          ? ['padrao', 'pilula', 'micropilula']
+          : tipoConteudo === 'pilula'
+            ? ['pilula', 'micropilula']
+            : ['micropilula'];
         let content;
-        try {
-          if (tipoConteudo === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
-          else if (tipoConteudo === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
-          else content = await rewritePortal(sourceText, item.title, dynamicContext);
-        } catch(e) { return null; }
+        for (const tentativa of tentativas) {
+          try {
+            if (tentativa === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
+            else if (tentativa === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
+            else content = await rewritePortal(sourceText, item.title, dynamicContext);
+            tipoConteudo = tentativa;
+            break;
+          } catch(e) {
+            debug.rewrite_error++;
+            rememberError(e?.message || e);
+          }
+        }
+        if (!content) return null;
 
-        if (!validarConteudo(content)) return null;
+        if (!validarConteudo(content, minCharsPorTipo(tipoConteudo))) {
+          debug.invalid_content++;
+          rememberError(`invalid_${tipoConteudo}_${(content?.corpo || '').length}`);
+          return null;
+        }
         content.titulo = stripTitle(content.titulo);
 
         if (!content.categoria || content.categoria === 'geral') {
           const catCorrigida = corrigirCategoria(content.titulo, '');
           if (catCorrigida && CATS_VALIDAS.has(catCorrigida)) content.categoria = catCorrigida;
-          else return null;
+          else {
+            debug.category_mismatch++;
+            return null;
+          }
         }
 
         if (catEfetiva && CATS_VALIDAS.has(catEfetiva)) {
           const familiaForcada = FAMILIA_CAT[catEfetiva];
           const familiaConteudo = FAMILIA_CAT[content.categoria];
-          if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) return null;
+          if (familiaForcada && familiaConteudo && familiaForcada !== familiaConteudo) {
+            debug.category_mismatch++;
+            return null;
+          }
           content.categoria = catEfetiva;
         } else {
           const catCorrigida = corrigirCategoria(content.titulo, content.categoria);
@@ -616,21 +679,32 @@ export default async function handler(req, res) {
       }
     };
 
-    const batchSettled = await Promise.allSettled(
-      candidates.map((candidate, batchPos) => _processOneArticle(candidate, batchPos))
-    );
-
-    const successResults = batchSettled
-      .filter(r => r.status === 'fulfilled' && r.value !== null)
-      .map(r => r.value);
+    const successResults = [];
+    const concurrency = 2;
+    for (let i = 0; i < candidates.length && successResults.length < targetCount; i += concurrency) {
+      const batch = candidates.slice(i, i + concurrency);
+      const batchSettled = await Promise.allSettled(
+        batch.map((candidate, pos) => _processOneArticle(candidate, i + pos))
+      );
+      for (const result of batchSettled) {
+        if (result.status === 'fulfilled' && result.value !== null) successResults.push(result.value);
+      }
+      if (Date.now() - inicio > 50000) break;
+    }
 
     const batchTitles = [];
     for (const result of successResults) {
       if (artigos.length >= targetCount) break;
       const { content, hash, imagemFinal, metaTitle, metaDesc, tipoConteudo } = result;
 
-      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) continue;
-      if (topicoDuplicado(content.titulo, [...recentTitles, ...batchTitles])) continue;
+      if (recentTitles.some(t => tituloSimilar(t, content.titulo))) {
+        debug.duplicate++;
+        continue;
+      }
+      if (topicoDuplicado(content.titulo, [...recentTitles, ...batchTitles])) {
+        debug.duplicate++;
+        continue;
+      }
 
       const { data: post, error } = await supabase.from('posts').insert({
         titulo: content.titulo, conteudo: content.corpo, comentario_fixado: metaDesc,
@@ -643,7 +717,11 @@ export default async function handler(req, res) {
         priority: 0, retry_count: 0, max_retries: 3
       }).select().single();
 
-      if (error) continue;
+      if (error) {
+        debug.insert_error++;
+        rememberError(error.message);
+        continue;
+      }
       recentTitles.push(content.titulo);
       batchTitles.push(content.titulo);
       artigos.push({ titulo: content.titulo, categoria: content.categoria, subcategoria: content.subcategoria, id: post?.id });
@@ -652,7 +730,7 @@ export default async function handler(req, res) {
     if (artigos.length > 0) {
       return res.status(200).json({ status: 'ok', artigos, total: artigos.length, titulo: artigos[0].titulo, categoria: artigos[0].categoria, id: artigos[0].id });
     }
-    return res.status(200).json({ status: 'no_valid_news', ts: Date.now(), catAlvo, prio: _dbgPrio, gen: _dbgGen, candidates: candidates.length, news_total: news.length });
+    return res.status(200).json({ status: 'no_valid_news', ts: Date.now(), catAlvo, prio: _dbgPrio, gen: _dbgGen, candidates: candidates.length, news_total: news.length, debug });
 
   } catch(e) {
     return res.status(500).json({ status: 'error', error: e.message });
