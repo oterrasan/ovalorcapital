@@ -128,6 +128,8 @@
     { "source": "/api/live-data",          "destination": "/api/portal-posts?format=live-data" },
     { "source": "/api/ig-setup",           "destination": "/api/ig-handler?op=setup" },
     { "source": "/api/ig-queue",           "destination": "/api/ig-handler?op=queue" },
+    { "source": "/admin/instagram",        "destination": "/admin/instagram.html" },
+    { "source": "/admin/instagram/",       "destination": "/admin/instagram.html" },
 
     { "source": "/:cat/:slug/",            "destination": "/api/article?cat=:cat&slug=:slug" },
     { "source": "/:cat/:slug",             "destination": "/api/article?cat=:cat&slug=:slug" },
