@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin OVC - Ferramentas Recuperadas</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#08080f;--card:#0f0f1a;--input:#111120;--border:rgba(255,255,255,.08);--muted:#8b8b96;--text:#f2f2f4;--red:#c81e1e;--red2:#e02222;--green:#16a34a;--yellow:#ffc800;--blue:#3b82f6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.5}.wrap{max-width:1280px;margin:0 auto;padding:28px 24px 48px}.top{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}.brand{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#fff;font-weight:700}.brand span{color:var(--red)}h1{font-size:24px;margin:6px 0 4px}.sub{color:var(--muted);font-size:13px}.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.login .card{width:100%;max-width:390px;padding:34px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px}.metric b{display:block;font-size:24px;margin-top:4px}.metric span,.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.tab{border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);border-radius:8px;padding:9px 12px;cursor:pointer;font-weight:600}.tab.active{background:rgba(200,30,30,.15);border-color:rgba(200,30,30,.55);color:#fff}.section{display:none}.section.active{display:block}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.btn{border:0;border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;color:#fff;background:var(--red)}.btn:hover{background:var(--red2)}.btn.secondary{background:rgba(255,255,255,.07);border:1px solid var(--border);color:#fff}.btn.green{background:var(--green)}.btn.blue{background:var(--blue)}.btn.warn{background:#a16207}.btn:disabled{opacity:.55;cursor:not-allowed}input,select,textarea{background:var(--input);border:1px solid var(--border);border-radius:8px;color:#fff;padding:10px 12px;font:inherit}input{min-width:220px}textarea{width:100%;min-height:120px}.msg{white-space:pre-wrap;color:#d6d6de;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:12px;max-height:260px;overflow:auto}.ok{color:#4ade80}.bad{color:#f87171}.warnText{color:#facc15}.muted{color:var(--muted)}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border-bottom:1px solid rgba(255,255,255,.06);padding:10px;text-align:left;vertical-align:top}th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}td.small{font-size:12px;color:var(--muted)}.pill{display:inline-flex;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.08);color:#ddd}.pill.green{background:rgba(22,163,74,.15);color:#4ade80}.pill.yellow{background:rgba(255,200,0,.15);color:#facc15}.pill.red{background:rgba(200,30,30,.18);color:#f87171}.thumb{width:74px;height:48px;border-radius:6px;object-fit:cover;background:#191923;border:1px solid var(--border)}.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}.hide{display:none!important}@media(max-width:900px){.grid,.two{grid-template-columns:1fr}.top{display:block}th:nth-child(4),td:nth-child(4){display:none}}
+</style>
+</head>
+<body>
+<div id="login" class="login">
+  <div class="card">
+    <div class="brand">O <span>Valor</span> Capital</div>
+    <h1>Ferramentas Recuperadas</h1>
+    <p class="sub">Acesso administrativo</p>
+    <div class="label" style="margin-top:18px">Senha</div>
+    <input id="pass" type="password" style="width:100%;margin-top:6px" autocomplete="current-password" />
+    <button id="enter" class="btn" style="width:100%;margin-top:14px">Entrar</button>
+    <div id="loginMsg" class="bad" style="margin-top:10px"></div>
+  </div>
+</div>
+<div id="app" class="wrap hide">
+  <div class="top">
+    <div>
+      <div class="brand">O <span>Valor</span> Capital</div>
+      <h1>Ferramentas Recuperadas</h1>
+      <div class="sub">Painel paralelo para recuperar recursos removidos no rollback, sem alterar o pipeline.</div>
+    </div>
+    <div class="row">
+      <a class="btn secondary" href="/admin/">Voltar ao admin</a>
+      <button id="refreshAll" class="btn secondary">Atualizar</button>
+      <button id="logout" class="btn secondary">Sair</button>
+    </div>
+  </div>
+
+  <div class="grid" id="metrics"></div>
+  <div class="tabs">
+    <button class="tab active" data-tab="semfoto">Sem Foto</button>
+    <button class="tab" data-tab="seo">SEO Batch</button>
+    <button class="tab" data-tab="blocos">Blocos Gigantes</button>
+    <button class="tab" data-tab="conclusao">Conclusão OVC</button>
+    <button class="tab" data-tab="imagens">Imagens Ruins</button>
+    <button class="tab" data-tab="limpeza">Limpeza</button>
+  </div>
+
+  <section id="semfoto" class="section active card">
+    <div class="row"><h2 style="margin:0;flex:1">Matérias sem foto</h2><button class="btn secondary" id="loadSemFoto">Carregar</button></div>
+    <div class="msg" id="semfotoMsg">Aguardando carregamento.</div>
+    <div id="semfotoTable"></div>
+  </section>
+
+  <section id="seo" class="section card">
+    <div class="row"><h2 style="margin:0;flex:1">SEO Batch</h2><button class="btn secondary" id="loadSeo">Carregar</button><button class="btn green" id="applySeo">Aplicar 10</button></div>
+    <div class="msg" id="seoMsg">Atualiza metrics.meta_title, metrics.meta_descricao, metrics.seo_slug e resumo quando estiver vazio.</div>
+    <div id="seoTable"></div>
+  </section>
+
+  <section id="blocos" class="section card">
+    <div class="row"><h2 style="margin:0;flex:1">Corrigir blocos gigantes</h2><button class="btn secondary" id="loadBlocos">Carregar</button><button class="btn green" id="applyBlocos">Corrigir 10</button></div>
+    <div class="msg" id="blocosMsg">Divide parágrafos grandes sem mudar status, título ou imagem.</div>
+    <div id="blocosTable"></div>
+  </section>
+
+  <section id="conclusao" class="section card">
+    <div class="row"><h2 style="margin:0;flex:1">Migrar para Conclusão OVC</h2><button class="btn secondary" id="loadConclusao">Carregar</button><button class="btn green" id="applyConclusao">Migrar 10</button></div>
+    <div class="msg" id="conclusaoMsg">Troca cabeçalhos antigos como Interpretação Estratégica e Considerações Finais por Conclusão OVC.</div>
+    <div id="conclusaoTable"></div>
+  </section>
+
+  <section id="imagens" class="section card">
+    <div class="row"><h2 style="margin:0;flex:1">Varredura de imagens ruins</h2><button class="btn secondary" id="loadImagens">Carregar suspeitas</button><button class="btn warn" id="runVision">Rodar IA em 4 publicadas</button></div>
+    <div class="msg" id="imagensMsg">A lista local apenas mostra suspeitas. O botão de IA usa a função existente do servidor e pode mover itens para pendente.</div>
+    <div id="imagensTable"></div>
+  </section>
+
+  <section id="limpeza" class="section card">
+    <h2 style="margin-top:0">Limpeza operacional</h2>
+    <div class="two">
+      <div class="card" style="margin:0">
+        <div class="label">Pendentes antigos antes de</div>
+        <div class="row" style="margin-top:8px"><input id="cutDate" type="date" /><button class="btn warn" id="cleanOld">Arquivar pendentes antigos</button></div>
+        <div class="msg" id="limpezaMsg">Ação usa /api/manage?action=limpar_pendentes_antigos.</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="label">Consulta rápida</div>
+        <div class="row" style="margin-top:8px"><button class="btn secondary" id="loadStatus">Status do motor</button><button class="btn secondary" id="loadCounts">Contagens</button></div>
+        <div class="msg" id="statusMsg">Aguardando consulta.</div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+const SUPABASE_URL = 'https://bfsegqdgscudtdgwdyci.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIc3VwYWJhc2UiLCJyZWYiOiJiZnNlZ3FkZ3NjdWR0ZGd3ZHljaSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE3NzU0NDYzNTIsImV4cCI6MjA5MTAyMjM1Mn0.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50';
+const ADMIN_PASS = 'ovc-admin-2026-secreto';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const state = { semfoto: [], seo: [], blocos: [], conclusao: [], imagens: [] };
+const $ = id => document.getElementById(id);
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(d){if(!d)return '-';return new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function msg(id,text,kind){$(id).className='msg '+(kind||'');$(id).textContent=text;}
+function cleanText(s){return String(s||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\*\*/g,'').replace(/#+\s*/g,'').replace(/\s+/g,' ').trim();}
+function slugify(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').replace(/-+/g,'-').slice(0,65);}
+function fitText(s,max,min){let t=cleanText(s);if(t.length>max)t=t.slice(0,max-1).replace(/\s+\S*$/,'')+'…';if(min&&t.length<min){t=cleanText(s).slice(0,max);};return t;}
+function metricsOf(p){if(!p||!p.metrics)return {};if(typeof p.metrics==='string'){try{return JSON.parse(p.metrics)||{};}catch(e){return {};}}return p.metrics||{};}
+async function fetchPosts(limit){const {data,error}=await sb.from('posts').select('id,titulo,status,approved,imagem,user_tags,subcategoria,created_at,published_at,conteudo,comentario_fixado,metrics').order('created_at',{ascending:false}).limit(limit||80);if(error)throw error;return data||[];}
+async function refreshMetrics(){try{const r=await fetch('/api/manage');const j=await r.json();const {count:pub}=await sb.from('posts').select('id',{count:'exact',head:true}).eq('status','publicado');const {count:pend}=await sb.from('posts').select('id',{count:'exact',head:true}).eq('status','pendente');const {count:noimg}=await sb.from('posts').select('id',{count:'exact',head:true}).or('imagem.is.null,imagem.eq.');$('metrics').innerHTML=[['Motor',j.running?'Ativo':'Pausado',j.running?'green':'red'],['Hoje',j.posts_hoje||0,''],['Publicadas',pub||0,'green'],['Pendentes',pend||0,'yellow'],['Sem foto',noimg||0,(noimg||0)>0?'red':'green']].map(x=>`<div class="metric"><span>${x[0]}</span><b class="${x[2]||''}">${x[1]}</b></div>`).join('');}catch(e){$('metrics').innerHTML='<div class="metric"><span>Status</span><b class="bad">Erro</b></div>';}}
+function renderRows(target, rows, cols){$(target).innerHTML=rows.length?`<table><thead><tr>${cols.map(c=>`<th>${c.h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${c.cls||''}">${c.f(r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<div class="msg">Nada encontrado.</div>';}
+async function loadSemFoto(){msg('semfotoMsg','Carregando...');try{const posts=await fetchPosts(120);state.semfoto=posts.filter(p=>!String(p.imagem||'').trim());renderRows('semfotoTable',state.semfoto,[{h:'Titulo',f:p=>esc(p.titulo)},{h:'Status',f:p=>`<span class="pill ${p.status==='publicado'?'green':'yellow'}">${esc(p.status)}</span>`},{h:'Data',cls:'small',f:p=>fmt(p.created_at)},{h:'Acao',f:p=>`<button class="btn secondary" onclick="pendenciar('${p.id}')">Mover p/ pendente</button>`}]);msg('semfotoMsg',`${state.semfoto.length} matérias sem foto encontradas.`,'ok');}catch(e){msg('semfotoMsg',e.message,'bad');}}
+async function pendenciar(id){if(!confirm('Mover esta matéria para pendente?'))return;const {error}=await sb.from('posts').update({status:'pendente',approved:false,updated_at:new Date().toISOString()}).eq('id',id);if(error)alert(error.message);else{await loadSemFoto();await refreshMetrics();}}
+function buildSeo(p){const m=metricsOf(p);const base=cleanText(p.comentario_fixado||p.conteudo||p.titulo);const meta_title=m.meta_title||fitText(p.titulo,55);const meta_descricao=m.meta_descricao||fitText(base,155,120);const seo_slug=m.seo_slug||slugify(p.titulo).split('-').slice(0,5).join('-');return {id:p.id,titulo:p.titulo,status:p.status,created_at:p.created_at,meta_title,meta_descricao,seo_slug,metrics:{...m,meta_title,meta_descricao,seo_slug},needs:!m.meta_title||!m.meta_descricao||!m.seo_slug||!p.comentario_fixado,comentario_fixado:p.comentario_fixado||meta_descricao};}
+async function loadSeo(){msg('seoMsg','Carregando...');try{const posts=(await fetchPosts(80)).filter(p=>p.status==='publicado');state.seo=posts.map(buildSeo).filter(x=>x.needs);renderRows('seoTable',state.seo,[{h:'Titulo',f:p=>esc(p.titulo)},{h:'Meta title',f:p=>esc(p.meta_title)},{h:'Meta descricao',f:p=>esc(p.meta_descricao)},{h:'Slug',cls:'small',f:p=>esc(p.seo_slug)}]);msg('seoMsg',`${state.seo.length} publicadas com SEO incompleto no lote recente.`,'ok');}catch(e){msg('seoMsg',e.message,'bad');}}
+async function applySeo(){const batch=state.seo.slice(0,10);if(!batch.length)return msg('seoMsg','Carregue o lote primeiro.','warnText');if(!confirm(`Aplicar SEO em ${batch.length} matérias?`))return;let ok=0;for(const p of batch){const {error}=await sb.from('posts').update({metrics:p.metrics,comentario_fixado:p.comentario_fixado,updated_at:new Date().toISOString()}).eq('id',p.id);if(!error)ok++;}msg('seoMsg',`SEO aplicado em ${ok}/${batch.length}.`,'ok');await loadSeo();}
+function splitInner(inner){const plain=cleanText(inner);if(plain.length<=420)return [`<p>${inner.trim()}</p>`];const sentences=String(inner).match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[inner];const out=[];let buf='';for(const s of sentences){const next=(buf+' '+s).trim();if(cleanText(next).length>360&&buf){out.push(`<p>${buf.trim()}</p>`);buf=s.trim();}else buf=next;}if(buf)out.push(`<p>${buf.trim()}</p>`);return out;}
+function normalizeContent(html){const v=String(html||'').trim();if(!v)return v;if(/<p[\s>]/i.test(v)){return v.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi,(full,inner)=>splitInner(inner).join('\n'));}const sentences=v.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g)||[v];let blocks=[],buf='';for(const s of sentences){const next=(buf+' '+s).trim();if(cleanText(next).length>360&&buf){blocks.push(`<p>${buf.trim()}</p>`);buf=s.trim();}else buf=next;}if(buf)blocks.push(`<p>${buf.trim()}</p>`);return blocks.join('\n');}
+function longCount(html){let n=0;String(html||'').replace(/<p[^>]*>([\s\S]*?)<\/p>/gi,(m,inner)=>{if(cleanText(inner).length>420)n++;return m;});if(!n&&cleanText(html).length>900&&!/<p[\s>]/i.test(String(html||'')))n=1;return n;}
+async function loadBlocos(){msg('blocosMsg','Carregando...');try{const posts=await fetchPosts(100);state.blocos=posts.map(p=>({...p,longs:longCount(p.conteudo)})).filter(p=>p.longs>0);renderRows('blocosTable',state.blocos,[{h:'Titulo',f:p=>esc(p.titulo)},{h:'Status',f:p=>`<span class="pill">${esc(p.status)}</span>`},{h:'Blocos',f:p=>String(p.longs)},{h:'Data',cls:'small',f:p=>fmt(p.created_at)}]);msg('blocosMsg',`${state.blocos.length} matérias com blocos grandes no lote recente.`,'ok');}catch(e){msg('blocosMsg',e.message,'bad');}}
+async function applyBlocos(){const batch=state.blocos.slice(0,10);if(!batch.length)return msg('blocosMsg','Carregue o lote primeiro.','warnText');if(!confirm(`Corrigir parágrafos de ${batch.length} matérias?`))return;let ok=0;for(const p of batch){const novo=normalizeContent(p.conteudo);if(novo!==p.conteudo){const {error}=await sb.from('posts').update({conteudo:novo,updated_at:new Date().toISOString()}).eq('id',p.id);if(!error)ok++;}}msg('blocosMsg',`Blocos corrigidos em ${ok}/${batch.length}.`,'ok');await loadBlocos();}
+const OLD_HEADINGS=['Interpretação Estratégica','Análise Estratégica','Reflexões Finais','Considerações Finais','Perspectiva Estratégica','Leitura de Segunda Ordem','Impactos Não Óbvios','Posicionamento Institucional'];
+function fixConclusion(html){let out=String(html||'');for(const h of OLD_HEADINGS){const rx=new RegExp(`<h2[^>]*>\\s*${h.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*<\\/h2>`,'gi');out=out.replace(rx,'<h2>Conclusão OVC</h2>');const md=new RegExp(`(^|\\n)#{1,3}\\s*${h.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\s*(?=\\n|$)`,'gi');out=out.replace(md,'$1<h2>Conclusão OVC</h2>');}return out;}
+async function loadConclusao(){msg('conclusaoMsg','Carregando...');try{const posts=await fetchPosts(120);state.conclusao=posts.filter(p=>fixConclusion(p.conteudo)!==String(p.conteudo||''));renderRows('conclusaoTable',state.conclusao,[{h:'Titulo',f:p=>esc(p.titulo)},{h:'Status',f:p=>`<span class="pill">${esc(p.status)}</span>`},{h:'Data',cls:'small',f:p=>fmt(p.created_at)},{h:'Achado',f:p=>esc(OLD_HEADINGS.find(h=>String(p.conteudo||'').toLowerCase().includes(h.toLowerCase()))||'Cabeçalho antigo')}]);msg('conclusaoMsg',`${state.conclusao.length} matérias com cabeçalho antigo no lote recente.`,'ok');}catch(e){msg('conclusaoMsg',e.message,'bad');}}
+async function applyConclusao(){const batch=state.conclusao.slice(0,10);if(!batch.length)return msg('conclusaoMsg','Carregue o lote primeiro.','warnText');if(!confirm(`Migrar cabeçalho em ${batch.length} matérias?`))return;let ok=0;for(const p of batch){const novo=fixConclusion(p.conteudo);const {error}=await sb.from('posts').update({conteudo:novo,updated_at:new Date().toISOString()}).eq('id',p.id);if(!error)ok++;}msg('conclusaoMsg',`Conclusão OVC aplicada em ${ok}/${batch.length}.`,'ok');await loadConclusao();}
+function imageReason(p){const u=String(p.imagem||'').trim().toLowerCase();if(!u)return 'sem imagem';if(u.endsWith('.svg'))return 'svg';if(/logo|placeholder|avatar|icon|default|favicon|sprite|banner/i.test(u))return 'arquivo suspeito';if(u.startsWith('data:image'))return 'imagem embutida';return '';}
+async function loadImagens(){msg('imagensMsg','Carregando...');try{const posts=await fetchPosts(120);state.imagens=posts.map(p=>({...p,reason:imageReason(p)})).filter(p=>p.reason);renderRows('imagensTable',state.imagens,[{h:'Imagem',f:p=>p.imagem?`<img class="thumb" src="${esc(p.imagem)}"/>`:'<span class="pill red">sem foto</span>'},{h:'Titulo',f:p=>esc(p.titulo)},{h:'Motivo',f:p=>`<span class="pill yellow">${esc(p.reason)}</span>`},{h:'Acao',f:p=>`<button class="btn secondary" onclick="pendenciar('${p.id}')">Mover p/ pendente</button>`}]);msg('imagensMsg',`${state.imagens.length} imagens suspeitas por regra local.`,'ok');}catch(e){msg('imagensMsg',e.message,'bad');}}
+async function runVision(){if(!confirm('A varredura por IA pode mover matérias publicadas para pendente. Rodar apenas 4 agora?'))return;msg('imagensMsg','Rodando IA do servidor...');try{const r=await fetch('/api/manage?action=audit_images&batch=4&offset=0');const j=await r.json();msg('imagensMsg',JSON.stringify(j,null,2),j.ok?'ok':'bad');await refreshMetrics();}catch(e){msg('imagensMsg',e.message,'bad');}}
+async function cleanOld(){const d=$('cutDate').value;if(!d)return msg('limpezaMsg','Informe a data de corte.','warnText');if(!confirm(`Arquivar pendentes anteriores a ${d}?`))return;msg('limpezaMsg','Arquivando...');try{const r=await fetch(`/api/manage?action=limpar_pendentes_antigos&antes=${encodeURIComponent(d+'T00:00:00')}`);const j=await r.json();msg('limpezaMsg',JSON.stringify(j,null,2),j.ok?'ok':'bad');await refreshMetrics();}catch(e){msg('limpezaMsg',e.message,'bad');}}
+async function loadStatusBox(){try{const r=await fetch('/api/manage');const j=await r.json();msg('statusMsg',JSON.stringify(j,null,2),'ok');}catch(e){msg('statusMsg',e.message,'bad');}}
+async function loadCounts(){try{const statuses=['publicado','pendente','rejeitado','arquivado','error'];const out={};for(const s of statuses){const {count}=await sb.from('posts').select('id',{count:'exact',head:true}).eq('status',s);out[s]=count||0;}msg('statusMsg',JSON.stringify(out,null,2),'ok');}catch(e){msg('statusMsg',e.message,'bad');}}
+function bind(){document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab,.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active');});$('refreshAll').onclick=refreshMetrics;$('logout').onclick=()=>{localStorage.removeItem('ovc_admin_ok');location.reload();};$('loadSemFoto').onclick=loadSemFoto;$('loadSeo').onclick=loadSeo;$('applySeo').onclick=applySeo;$('loadBlocos').onclick=loadBlocos;$('applyBlocos').onclick=applyBlocos;$('loadConclusao').onclick=loadConclusao;$('applyConclusao').onclick=applyConclusao;$('loadImagens').onclick=loadImagens;$('runVision').onclick=runVision;$('cleanOld').onclick=cleanOld;$('loadStatus').onclick=loadStatusBox;$('loadCounts').onclick=loadCounts;}
+function enter(){if($('pass').value===ADMIN_PASS){localStorage.setItem('ovc_admin_ok','1');$('login').classList.add('hide');$('app').classList.remove('hide');refreshMetrics();}else $('loginMsg').textContent='Senha incorreta';}
+$('enter').onclick=enter;$('pass').onkeydown=e=>{if(e.key==='Enter')enter();};bind();const cut=new Date(Date.now()-7*24*3600*1000);$('cutDate').value=cut.toISOString().slice(0,10);if(localStorage.getItem('ovc_admin_ok')==='1'){ $('login').classList.add('hide'); $('app').classList.remove('hide'); refreshMetrics(); }
+</script>
+</body>
+</html>
