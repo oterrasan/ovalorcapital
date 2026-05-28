@@ -18,6 +18,6 @@ jobs:
           set -e
           RESP=$(curl -sS -X POST https://www.ovalorcapital.com.br/api/run_portal \
             -H "Content-Type: application/json" \
-            -d '{"force":true,"count":3}' --max-time 120)
+            -d '{"force":true,"count":1}' --max-time 120)
           echo "RESP: $RESP"
           echo "$RESP" | grep -q '"status":"ok"'
