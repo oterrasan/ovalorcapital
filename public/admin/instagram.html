@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>OVC — Instagram Publisher</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#08080f;color:#f1f1f1;font-family:Inter,Arial,sans-serif;min-height:100vh}
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-card{background:#0f0f1a;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:40px;width:360px;text-align:center}
+.login-card .logo{font-size:28px;font-weight:900;color:#D4AF37;margin-bottom:8px;letter-spacing:2px}
+.login-card p{color:#888;font-size:13px;margin-bottom:28px}
+.login-card input{width:100%;padding:12px 16px;background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:15px;outline:none;margin-bottom:12px}
+.login-card button{width:100%;padding:13px;background:#D4AF37;color:#08080f;font-weight:700;font-size:15px;border:none;border-radius:8px;cursor:pointer}
+.login-err{color:#ff5252;font-size:13px;margin-top:10px;min-height:20px}
+#app{display:none;padding:24px;max-width:1200px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,.08)}
+header h1{font-size:22px;font-weight:700;color:#D4AF37}
+.section-title{font-size:16px;font-weight:700;color:#ccc;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.queue-empty{color:#555;font-size:14px;padding:16px 0}
+.queue-item{background:#0f0f1a;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.queue-item img{width:60px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0}
+.queue-item .info{flex:1;min-width:0}
+.queue-item .info h4{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-item .info small{color:#666;font-size:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase}
+.badge-pending{background:rgba(212,175,55,.15);color:#D4AF37}
+.badge-done{background:rgba(34,197,94,.15);color:#22c55e}
+.badge-error{background:rgba(239,68,68,.15);color:#ef4444}
+.badge-processing{background:rgba(59,130,246,.15);color:#3b82f6}
+.btn-retry{padding:5px 12px;background:#1a1a2e;border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#ccc;font-size:12px;cursor:pointer}
+#posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:8px}
+.post-card{background:#0f0f1a;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.post-card:hover{border-color:rgba(212,175,55,.3)}
+.post-card img{width:100%;height:160px;object-fit:cover;display:block}
+.post-card .body{padding:14px}
+.post-card h4{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.post-card small{color:#666;font-size:12px}
+.post-card .actions{padding:10px 14px;border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between}
+.btn-add{padding:7px 16px;background:#D4AF37;color:#08080f;font-weight:700;font-size:13px;border:none;border-radius:7px;cursor:pointer}
+.btn-add:disabled{background:#333;color:#666;cursor:not-allowed}
+.tag-cat{padding:3px 8px;background:rgba(212,175,55,.1);color:#D4AF37;border-radius:4px;font-size:11px;font-weight:600}
+.setup-box{background:#0d0d1f;border:1px solid rgba(212,175,55,.2);border-radius:10px;padding:20px;margin-bottom:28px}
+.setup-box h3{color:#D4AF37;font-size:15px;margin-bottom:8px}
+.setup-box p{color:#888;font-size:13px;margin-bottom:12px;line-height:1.5}
+.loading{color:#666;font-size:14px;padding:20px 0}
+.btn-logout{padding:7px 14px;background:transparent;border:1px solid rgba(255,255,255,.12);color:#888;border-radius:7px;cursor:pointer;font-size:13px}
+.refresh-btn{padding:7px 14px;background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);color:#D4AF37;border-radius:7px;cursor:pointer;font-size:13px}
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo">OVC</div>
+    <p>Instagram Publisher — acesso restrito</p>
+    <input type="password" id="pass-input" placeholder="Senha de acesso" />
+    <button onclick="doLogin()">Entrar</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+<div id="app">
+  <header>
+    <div><h1>📱 Instagram Publisher</h1><small style="color:#666;font-size:13px">Publica matérias do portal no @ovalorcapital</small></div>
+    <div style="display:flex;gap:10px">
+      <button class="refresh-btn" onclick="loadAll()">↻ Atualizar</button>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </div>
+  </header>
+  <div class="setup-box" id="setup-box" style="display:none">
+    <h3>⚙️ Primeira utilização</h3>
+    <p>A tabela do banco de dados ainda não foi criada. Clique abaixo para configurar automaticamente:</p>
+    <button onclick="runSetup()" style="padding:10px 20px;background:#D4AF37;color:#08080f;font-weight:700;border:none;border-radius:7px;cursor:pointer;font-size:14px">Configurar banco de dados agora</button>
+    <p id="setup-result" style="margin-top:10px"></p>
+  </div>
+  <div id="queue-section" style="margin-bottom:36px">
+    <div class="section-title">Fila de publicação</div>
+    <div id="queue-list"><div class="loading">Carregando...</div></div>
+  </div>
+  <div>
+    <div class="section-title">Matérias recentes do portal</div>
+    <p style="color:#666;font-size:13px;margin-bottom:16px">Selecione as matérias para publicar no Instagram.</p>
+    <div id="posts-grid"><div class="loading">Carregando...</div></div>
+  </div>
+</div>
+<script>
+const PASS='ovc-admin-2026-secreto',API='/api';
+let queuedIds=new Set();
+function doLogin(){const v=document.getElementById('pass-input').value;if(v===PASS){localStorage.setItem('ig_auth','1');document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';loadAll();}else{document.getElementById('login-err').textContent='Senha incorreta';}}
+function logout(){localStorage.removeItem('ig_auth');location.reload();}
+document.getElementById('pass-input').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+if(localStorage.getItem('ig_auth')==='1'){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';loadAll();}
+async function runSetup(){const btn=event.target;btn.disabled=true;btn.textContent='Configurando...';try{const r=await fetch(`${API}/ig-setup?pass=${PASS}`);const d=await r.json();const p=document.getElementById('setup-result');if(d.ok){p.style.color='#22c55e';p.textContent='✅ '+d.message;document.getElementById('setup-box').style.display='none';loadAll();}else{p.style.color='#ff5252';p.textContent=d.message||'Erro';}}catch(e){document.getElementById('setup-result').textContent='Erro: '+e.message;}}
+async function loadAll(){await Promise.all([loadQueue(),loadPosts()]);}
+async function loadQueue(){const el=document.getElementById('queue-list');try{const[rP,rD,rE]=await Promise.all([fetch(`${API}/ig-queue?status=pending`).then(r=>r.json()),fetch(`${API}/ig-queue?status=done`).then(r=>r.json()),fetch(`${API}/ig-queue?status=error`).then(r=>r.json())]);if(rP.error){document.getElementById('setup-box').style.display='block';el.innerHTML='<div class="queue-empty">Banco não configurado ainda.</div>';return;}const all=[...(rP.jobs||[]),...(rE.jobs||[]),...(rD.jobs||[]).slice(0,3)];queuedIds=new Set((rP.jobs||[]).map(j=>j.post_id));if(!all.length){el.innerHTML='<div class="queue-empty">Nenhuma publicação na fila.</div>';return;}el.innerHTML=all.map(j=>`<div class="queue-item"><img src="${j.imagem}" onerror="this.style.display='none'"/><div class="info"><h4>${j.titulo}</h4><small>${new Date(j.created_at).toLocaleString('pt-BR')}</small></div><span class="badge badge-${j.status}">${statusLabel(j.status)}</span>${j.status==='error'?`<button class="btn-retry" onclick="retry('${j.id}')">Tentar novamente</button>`:''}</div>`).join('');}catch(e){el.innerHTML='<div class="queue-empty" style="color:#ff5252">Erro: '+e.message+'</div>';}}
+async function loadPosts(){const el=document.getElementById('posts-grid');try{const r=await fetch(`${API}/portal-posts?limit=20`);const d=await r.json();const posts=d.posts||[];if(!posts.length){el.innerHTML='<div class="loading">Nenhuma matéria encontrada.</div>';return;}el.innerHTML=posts.map(p=>{const inQ=queuedIds.has(p.id);return`<div class="post-card"><img src="${p.imagem}" onerror="this.src='/assets/vc-logo.png'"/><div class="body"><h4>${p.titulo}</h4><small>${new Date(p.data).toLocaleDateString('pt-BR')}</small></div><div class="actions"><span class="tag-cat">${p.categoria}</span><button class="btn-add" id="btn-${p.id}" onclick='addToQueue(${JSON.stringify(p).replace(/"/g,"&quot;")})' ${inQ?'disabled':''}>${inQ?'✓ Na fila':'+ Adicionar à fila'}</button></div></div>`;}).join('');}catch(e){el.innerHTML='<div class="loading" style="color:#ff5252">Erro: '+e.message+'</div>';}}
+async function addToQueue(post){const btn=document.getElementById('btn-'+post.id);if(btn){btn.disabled=true;btn.textContent='Adicionando...';}try{const r=await fetch(`${API}/ig-queue`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post_id:post.id,titulo:post.titulo,imagem:post.imagem,resumo:post.subtitulo||post.resumo||'',categoria:post.categoria})});const d=await r.json();if(d.ok){if(btn)btn.textContent='✓ Na fila';queuedIds.add(post.id);setTimeout(loadQueue,500);}else{if(btn){btn.disabled=false;btn.textContent='+ Adicionar à fila';}alert('Erro: '+(d.error||'desconhecido'));}}catch(e){if(btn){btn.disabled=false;btn.textContent='+ Adicionar à fila';}alert('Erro: '+e.message);}}
+async function retry(id){await fetch(`${API}/ig-queue?action=retry`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});loadQueue();}
+function statusLabel(s){return{pending:'Na fila',processing:'Publicando...',done:'Publicado ✓',error:'Erro'}[s]||s;}
+</script>
+</body>
+</html>
