@@ -35,8 +35,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/admin/recuperado",        "destination": "/admin/recuperado/index.html" },
-    { "source": "/admin/recuperado/",       "destination": "/admin/recuperado/index.html" },
+    { "source": "/admin",                  "destination": "/admin-shell.html" },
+    { "source": "/admin/",                 "destination": "/admin-shell.html" },
 
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
 
