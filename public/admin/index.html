@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>Admin OVC — Centro de Comando</title>
+<title>Admin OVC - Centro de Comando</title>
 <style>
-html,body{height:100%;margin:0;background:#08080f;color:#f1f1f1;font-family:Inter,Arial,sans-serif}.loader{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px}.loader b{font-size:14px}.loader span{font-size:12px;color:#888}.err{max-width:560px;margin:20vh auto;background:#0f0f1a;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:22px;line-height:1.5}.err a{color:#f87171}
+html,body{height:100%;margin:0;background:#08080f;color:#f1f1f1;font-family:Inter,Arial,sans-serif}.loader{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px}.loader b{font-size:14px}.loader span{font-size:12px;color:#888}.err{max-width:560px;margin:20vh auto;background:#0f0f1a;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:22px;line-height:1.5}
 </style>
 </head>
 <body>
-<div class="loader"><b>Carregando Centro de Comando OVC</b><span>Preparando admin único...</span></div>
+<div class="loader"><b>Carregando Centro de Comando OVC</b><span>Preparando admin unico...</span></div>
 <script>
 (async function(){
   try {
-    const r = await fetch('/admin/original.html', { cache: 'no-store' });
-    if (!r.ok) throw new Error('Falha ao carregar admin original: HTTP ' + r.status);
+    const r = await fetch('/admin-source.txt', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     let html = await r.text();
-    const tools = '<script src="/admin-tools.js?v=20260528-3"><\/script>';
+    const tools = '<script src="/admin-tools.js?v=20260528-4"><\/script>';
     html = html.replace('</body>', tools + '</body>');
     document.open();
     document.write(html);
     document.close();
   } catch (e) {
-    document.body.innerHTML = '<div class="err"><h1>Admin indisponível</h1><p>' + String(e.message || e) + '</p><p>Contingência técnica: <a href="/admin/original.html">abrir admin original</a>.</p></div>';
+    document.body.innerHTML = '<div class="err"><h1>Admin indisponivel</h1><p>Nao foi possivel carregar o Centro de Comando agora. Atualize a pagina em alguns segundos.</p></div>';
   }
 })();
 </script>
