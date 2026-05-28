@@ -10,9 +10,9 @@ const CROP_BOTTOM_PCT = 0.08;
 const CROP_LEFT_PCT   = 0.03;
 const CROP_RIGHT_PCT  = 0.03;
 
-// Formato Instagram Feed portrait 4:5 — funciona no portal (float esquerda) e no IG
-const OUT_WIDTH  = 1080;
-const OUT_HEIGHT = 1350;
+// Formato web 16:9 landscape — leve e rápido para portal e mobile
+const OUT_WIDTH  = 1200;
+const OUT_HEIGHT = 675;
 
 // URLs de origem que nunca devem ser processadas — ícone GE do Google News, CDN Google, etc.
 const _BAD_SRC_PATTERNS = [
