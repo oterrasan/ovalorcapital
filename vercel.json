@@ -127,8 +127,8 @@
     { "source": "/api/seo_batch",          "destination": "/api/manage?action=seo_batch" },
     { "source": "/api/live-data",          "destination": "/api/portal-posts?format=live-data" },
 
-    { "source": "/:cat((?!api(?:/|$))[^/]+)/:slug/", "destination": "/api/article?cat=:cat&slug=:slug" },
-    { "source": "/:cat((?!api(?:/|$))[^/]+)/:slug",  "destination": "/api/article?cat=:cat&slug=:slug" },
+    { "source": "/:cat/:slug/",            "destination": "/api/article?cat=:cat&slug=:slug" },
+    { "source": "/:cat/:slug",             "destination": "/api/article?cat=:cat&slug=:slug" },
 
     { "source": "/materia",                "destination": "/api/article" },
     { "source": "/materia/",               "destination": "/api/article" },
