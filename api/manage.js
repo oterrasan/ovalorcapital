@@ -41,6 +41,8 @@ function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
 
   const body = req.body || {};
+  // query.action (via rewrite) tem mesma precedência que body.action
+  if (!body.action && req.query.action) body.action = req.query.action;
 
   if (body.pedidos !== undefined) return handleManual(req, res);
 
