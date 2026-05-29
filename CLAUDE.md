@@ -1292,3 +1292,70 @@ A solução que NÃO viola REGRA ZERO-A:
 2. **Verificar admin → Postagens → filtro 'pendente'** — confirmar pipeline gerando artigos após fix do SyntaxError (commit `e96f999`)
 3. **Se Roberto quiser melhorar PageSpeed**: planejar SSR da homepage (portal-posts.js `?format=homepage`) antes de qualquer commit
 4. **NUNCA pedir chave OpenAI** — seção 16 + hardcoded no código
+
+---
+
+### Sessão 29/05/2026 — PÁGINAS INSTITUCIONAIS /vc/ PREENCHIDAS COM CONTEÚDO REAL
+
+#### Contexto
+
+Roberto pediu para preencher as páginas institucionais `/vc/` com conteúdo real (antes eram placeholders) e corrigir o hub `/vc/` que mostrava página escura customizada em vez do template padrão do portal.
+
+#### Root cause do /vc/ mostrar página escura
+
+`vercel.json` tinha duas regras de rewrite que redirecionavam `/vc` e `/vc/` para `api/landing.js?section=vc`, que renderizava um design customizado dark. Essas regras tinham PRIORIDADE sobre qualquer arquivo estático em `public/`. Mesmo criando `public/vc/index.html`, ele era ignorado.
+
+**Fix:** Removidas as duas linhas do `vercel.json` em commit ISOLADO (PR #66 — REGRA ZERO-F respeitada).
+
+#### Arquivos criados/alterados
+
+| Arquivo | O que foi feito |
+|---|---|
+| `public/vc/index.html` | **NOVO** — hub `/vc/` com template padrão do portal, lista links para 4 sub-páginas |
+| `public/vc/quem-somos/index.html` | Conteúdo real: Roberto Cesar Terrasan, missão, visão, contato, endereço |
+| `public/vc/principios-editoriais/index.html` | 6 princípios editoriais numerados + política de correções |
+| `public/vc/liberdade-economica/index.html` | Manifesto editorial sobre liberdade econômica como norte |
+| `public/vc/familia-e-patrimonio/index.html` | Cobertura de família/patrimônio, sucessão, planejamento |
+| `vercel.json` | **ISOLADO** — removidas rotas `/vc` e `/vc/` → `api/landing?section=vc` |
+
+#### Problema: rails laterais sumindo
+
+- **PR #66 (conteúdo + vercel.json):** Páginas mostravam caixas vazias "Principais notícias" e "Mais da seção" porque `ovc-story-stack` tinha containers `data-hero-card`, `data-main-list`, `data-local-list` que ficavam vazios em páginas institucionais.
+- **PR #67:** Removeu toda a seção `ovc-grid` para sumir com as caixas vazias. Mas isso também removeu `ovc-right-rail` — o fundo dark do `ovc-main` ficou exposto como área vazia entre conteúdo e footer.
+- **PR #68 (fix final):** Restaurou seção `ovc-grid` mínima em TODOS os 5 arquivos HTML:
+  ```html
+  <section class="ovc-grid">
+    <div class="ovc-story-stack"></div>
+    <aside class="ovc-right-rail"><section data-banner-sidebar></section></aside>
+  </section>
+  ```
+  Sem containers de artigos vazios, mas com o rail lateral que preenche o layout e recebe banners via `banners.js`.
+
+#### Regras reforçadas nesta sessão
+
+- **`topo, rodapé e rails laterais sempre engessados`** — estrutura do portal NUNCA muda em nenhuma página
+- **NUNCA remover `ovc-right-rail`** — causa área dark vazia entre conteúdo e footer
+- **NUNCA misturar alterações em `vercel.json` com outros arquivos** — REGRA ZERO-F sempre
+
+#### PRs desta sessão
+
+| PR | Descrição | Status |
+|---|---|---|
+| #65 | Conteúdo institucional real nas 4 sub-páginas | ✅ MERGEADO |
+| #66 | `public/vc/index.html` novo + remoção rotas vercel.json (commit isolado) | ✅ MERGEADO |
+| #67 | Remove ovc-grid vazio das páginas /vc/ | ✅ MERGEADO (causou regressão: sem rails) |
+| #68 | Restaura ovc-right-rail sem caixas de artigos | ✅ MERGEADO |
+
+#### Estado das páginas /vc/ após PR #68
+
+- `/vc/` → hub com 4 links, template padrão ✅
+- `/vc/quem-somos/` → conteúdo real Roberto/missão/contato ✅
+- `/vc/principios-editoriais/` → 6 princípios numerados ✅
+- `/vc/liberdade-economica/` → manifesto editorial ✅
+- `/vc/familia-e-patrimonio/` → cobertura família/patrimônio ✅
+- `/vc/contato/` → **NÃO EXISTE** como arquivo estático — cai no handler de artigos e mostra página quebrada. Pendente se Roberto reportar problema.
+
+#### Atenção para próxima sessão
+
+- Se Roberto reclamar de `/vc/contato/` quebrado: criar `public/vc/contato/` usando o mesmo template dos outros arquivos `/vc/*.html`
+- O `/vc/contato/` não tem rewrite no `vercel.json` — quando criado como estático será servido diretamente
