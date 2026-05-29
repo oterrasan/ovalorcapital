@@ -1,58 +1,11 @@
-name: Setup Supabase — Tabelas + RSS Lote 2
+name: Setup Supabase — pausado
+
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/create_tables.yml'
   workflow_dispatch:
+
 jobs:
-  create:
+  paused:
     runs-on: ubuntu-latest
     steps:
-      - name: Criar tabela image_bank
-        run: |
-          SUPA_URL="https://bfsegqdgscudtdgwdyci.supabase.co"
-          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50"
-
-          echo "=== Criando tabela image_bank ==="
-          curl -s "$SUPA_URL/rest/v1/rpc/exec_sql" \
-            -H "apikey: $SUPA_KEY" \
-            -H "Authorization: Bearer $SUPA_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"sql":"CREATE TABLE IF NOT EXISTS image_bank (id uuid primary key default uuid_generate_v4(), url text unique not null, titulo text, post_id uuid, created_at timestamp default now());"}'
-          echo ""
-
-          echo "=== Criando tabela colunistas ==="
-          curl -s "$SUPA_URL/rest/v1/rpc/exec_sql" \
-            -H "apikey: $SUPA_KEY" \
-            -H "Authorization: Bearer $SUPA_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"sql":"CREATE TABLE IF NOT EXISTS colunistas (id uuid primary key default uuid_generate_v4(), nome text not null, email text unique not null, senha_hash text not null, ativo boolean default true, session_token text, last_login timestamp, created_at timestamp default now());"}'
-          echo ""
-
-          echo "=== Verificando image_bank ==="
-          curl -s "$SUPA_URL/rest/v1/image_bank?select=id&limit=1" \
-            -H "apikey: $SUPA_KEY" \
-            -H "Authorization: Bearer $SUPA_KEY"
-          echo ""
-
-          echo "=== Verificando colunistas ==="
-          curl -s "$SUPA_URL/rest/v1/colunistas?select=id&limit=1" \
-            -H "apikey: $SUPA_KEY" \
-            -H "Authorization: Bearer $SUPA_KEY"
-          echo ""
-
-          echo "=== DONE ==="
-
-      - name: Seed RSS Lote 2
-        run: |
-          echo "=== Disparando seed RSS Lote 2 ==="
-          RESP=$(curl -s -w "\n%{http_code}" "https://www.ovalorcapital.com.br/api/manage?action=seed_rss_lote2&pass=ovc-admin-2026-secreto")
-          HTTP_CODE=$(echo "$RESP" | tail -1)
-          BODY=$(echo "$RESP" | head -n -1)
-          echo "HTTP $HTTP_CODE: $BODY"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::warning::Seed RSS Lote 2 retornou HTTP $HTTP_CODE"
-          fi
-          echo "=== DONE ==="
+      - name: Workflow pausado
+        run: echo "Workflow legado pausado. Setup/seed de banco deve ser feito somente com revisao explicita."
