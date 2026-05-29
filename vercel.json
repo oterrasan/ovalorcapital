@@ -48,8 +48,6 @@
     { "source": "/financas/",              "destination": "/api/landing?section=financas" },
     { "source": "/moradia",                "destination": "/api/landing?section=moradia" },
     { "source": "/moradia/",               "destination": "/api/landing?section=moradia" },
-    { "source": "/vc",                     "destination": "/api/landing?section=vc" },
-    { "source": "/vc/",                    "destination": "/api/landing?section=vc" },
     { "source": "/seguranca",              "destination": "/api/landing?section=seguranca" },
     { "source": "/seguranca/",             "destination": "/api/landing?section=seguranca" },
     { "source": "/bem-estar",              "destination": "/api/landing?section=bem-estar" },
