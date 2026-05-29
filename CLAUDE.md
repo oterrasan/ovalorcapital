@@ -257,11 +257,11 @@ Fonte de receita única: Google AdSense / Google AdX.
 |---|---|
 | `api/article.js` | SSR artigos por slug URL + Organization JSON-LD + links internos + banners.js inject |
 | `api/category.js` | SSR listagem de categorias |
-| `api/ig_publish.js` | Publica Instagram via Playwright |
+| `api/ig-handler.js` | Instagram: fila de posts (`op=queue`), setup (`op=setup`), proxy de imagem CORS (`op=proxy`) — usa tabela `config` com keys `ig_q_*` |
 | `api/institutional.js` | SSR /quem-somos/ e /politica-editorial/ |
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
-| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners** (`?action=banners`), **refresh token IG** (`GET ?action=refresh_token`), **colunistas** (login/list/create/toggle/delete via `body.action` ou `?action=`) |
+| `api/manage.js` | Status, aprovação, track_view, newsletter, **banners**, **refresh token IG**, **colunistas**, **inteligencia** (18 ferramentas IA via `action=inteligencia`), **validate-token**, **editor_ia**, **seo_batch** |
 | `api/portal-posts.js` | Serve posts publicados para frontend + **endpoint bulk `?recentes=true`** (1 query, Cache-Control 60s) |
 | `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` + **geração manual** (`POST body.url\|body.texto`) |
 | `api/sitemap.js` | Sitemap dinâmico |
@@ -276,6 +276,10 @@ Fonte de receita única: Google AdSense / Google AdX.
 **Consolidações realizadas (19/05/2026):**
 - `api/colunista.js` **CRIADO e IMEDIATAMENTE DELETADO** (violaria REGRA ZERO-A — 11º arquivo)
 - Toda lógica de colunistas integrada em `api/manage.js` como novas actions
+
+**Consolidações realizadas (29/05/2026):**
+- `api/ig-queue.js` **DELETADO** — código morto (vercel.json roteava `/api/ig-queue` → `ig-handler.js?op=queue`, então ig-queue.js nunca era alcançado; além disso usava tabela `ig_queue` diferente da abordagem atual que usa `config`)
+- `api/ig-setup.js` **DELETADO** — código morto pelo mesmo motivo (`/api/ig-setup` → `ig-handler.js?op=setup`)
 
 ### Core (NUNCA alterar sem autorização do dono)
 | Arquivo | Função |
@@ -1409,9 +1413,106 @@ Após os PRs #65–#68 todos mergeados em `main`, Roberto disse "NADA MUDOU". In
 
 ---
 
-#### 🔧 Para a próxima sessão
+#### 🔧 Para a próxima sessão (atualizado 29/05/2026 — pós OVC Inteligência)
 
-1. **Verificar se o deploy do PR #69 chegou ao ar** — se ainda "nada mudou", VERCEL_TOKEN expirou
-2. **Se VERCEL_TOKEN expirado:** Roberto precisa regenerar no Vercel e atualizar o secret no GitHub Actions
-3. **`/vc/contato/` quebrado:** Se Roberto reclamar, criar `public/vc/contato/index.html` com o mesmo template dos outros `/vc/*.html`
-4. **NUNCA pedir chave OpenAI** — está na seção 16 e hardcoded no código
+1. **Verificar se `/inteligencia` mostra a nova versão** — 26 ferramentas, design premium, sidebar com categorias coloridas. Commit `8e20163` (no-store header) + deploy.yml devem resolver o problema de cache.
+2. **Se AINDA não aparecer:** Roberto precisa purgar manualmente o cache no Cloudflare Dashboard → Caching → Purge Cache → Custom Purge → `www.ovalorcapital.com.br/inteligencia`
+3. **Se deploy.yml falhar:** VERCEL_TOKEN expirou → Roberto regenera no Vercel Dashboard → Settings → Tokens → atualiza GitHub Secrets
+4. **`/vc/contato/` quebrado:** criar `public/vc/contato/index.html` com template igual aos outros `/vc/*.html`
+5. **NUNCA pedir chave OpenAI** — está na seção 16 e hardcoded no código
+6. **Próximo passo maior:** separar OVC Inteligência para repo próprio (Roberto pediu após resolver o deploy)
+
+---
+
+### Sessão 29/05/2026 — CONTINUAÇÃO — OVC Inteligência + REGRA ZERO-A + Cache CDN
+
+---
+
+#### Contexto
+
+Continuação da sessão anterior. OVC Inteligência (PR #73) estava mergeada em `main` com 26 ferramentas e design premium, mas Roberto continuava vendo a versão antiga em múltiplos computadores. Objetivo: fazer a nova versão aparecer em produção.
+
+---
+
+#### O que foi investigado e feito
+
+**1. REGRA ZERO-A VIOLADA — 12 arquivos em api/ (corrigido)**
+
+O repo tinha chegado a 12 arquivos em `api/` por causa de `ig-queue.js` e `ig-setup.js`:
+- Ambos eram **código morto**: o `vercel.json` roteava `/api/ig-queue` → `ig-handler.js?op=queue` e `/api/ig-setup` → `ig-handler.js?op=setup`, então esses arquivos NUNCA eram alcançados via URL
+- Além disso, `ig-queue.js` usava a tabela `ig_queue` (abordagem antiga) enquanto `ig-handler.js` usa a tabela `config` (abordagem atual) — eram sistemas diferentes
+- **Fix:** Ambos deletados (commits `b5fe7b2` e `8293977`) → api/ voltou a 10 arquivos ✅
+
+**2. Diagnóstico do "nada mudou"**
+
+- Código em `main` confirmado correto: `public/inteligencia.html` com 821 linhas, 27 painéis (`data-inteligencia-panel`), `?v=2` no script tag
+- Vercel Dashboard (sessão anterior) mostrava `ovalorcapital-xuhw` como "Ready" com commit correto
+- **Conclusão:** O deploy estava acontecendo. O problema era **Cloudflare/CDN cacheando o HTML antigo**
+- Prova: `curl https://www.ovalorcapital.com.br/inteligencia` retorna 403 "Host not in allowlist" — servidor da cloud tem IP bloqueado pelo WAF Cloudflare/Vercel, confirmando que o tráfego PASSA pelo Cloudflare
+
+**3. Fix aplicado — no-store header para /inteligencia (commit `8e20163`)**
+
+Adicionado ao `vercel.json` (commit ISOLADO — REGRA ZERO-F respeitada):
+```json
+{
+  "source": "/inteligencia",
+  "headers": [
+    { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+    { "key": "Pragma", "value": "no-cache" }
+  ]
+}
+```
+
+Isso instrui Cloudflare e o Vercel Edge a NUNCA cachear a página `/inteligencia`. Padrão idêntico ao `/js/(.*)` e `/admin(.*)` que já funcionam sem causar 403.
+
+---
+
+#### OVC Inteligência — o que foi entregue (PR #73)
+
+**26 ferramentas no total:**
+- 6 originais preservadas: reescrever, corretor, detector-ia, humanizar, tradutor, resumidor
+- 18 novas via IA (`api/manage.js` → `IA_TOOLS`): reformular-tom, email-profissional, resposta-critica, whatsapp-pro, roteiro-conversa, reclamacao, recurso-multa, carta-apresentacao, peticao-simples, discurso, mensagem-especial, bio-perfil, ata-reuniao, descricao-produto, proposta-comercial, gerador-nome, roteiro-video, gerador-piada
+- 2 client-side (sem IA): limpador (normaliza texto, remove HTML), contador (estatísticas em tempo real)
+
+**UI premium:**
+- Sidebar com grupos por categoria e ícones coloridos
+- Badge de categoria no header do painel
+- Animação fade entre painéis (`.panel-fade`)
+- Layout 2 colunas (input | output) em todos os painéis
+- Botão loading animado + botão "Copiar" com feedback visual
+- Cores: Clássicas (slate), Comunicação (azul), Burocracia (roxo), Vida Pessoal (rosa), Trabalho (verde), Criatividade (laranja)
+
+**Rota:** `/inteligencia` → `inteligencia.html` → frontend chama `/api/inteligencia` → rewrite → `/api/manage?action=inteligencia` → `handleInteligencia()`
+
+**Autenticação:** login com token, `localStorage` preserva sessão, `/api/auth/validate-token` valida
+
+---
+
+#### Commits desta sessão (29/05/2026 continuação)
+
+| Commit | SHA | Descrição |
+|---|---|---|
+| CDN purge ?v=2 | `ba1b292` | inteligencia.html com `?v=2` no script tag para forçar hash novo |
+| Remove ig-queue.js | `b5fe7b2` | código morto deletado |
+| Remove ig-setup.js | `8293977` | código morto deletado |
+| no-store /inteligencia | `8e20163` | vercel.json — header Cache-Control para bypass CDN (commit isolado) |
+
+---
+
+#### Estado de api/ após esta sessão — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🚨 Regras reforçadas nesta sessão
+
+```
+❌ NUNCA assumir que ig-queue.js e ig-setup.js existem — foram deletados (29/05/2026)
+❌ ig-handler.js é o único handler de Instagram — usa tabela config, NÃO ig_queue
+❌ Após qualquer push para main, verificar se deploy.yml rodou (GitHub Actions)
+❌ Se site não atualizar: primeiro tentar aba anônima. Se ainda igual → problema é CDN/Cloudflare
+```
