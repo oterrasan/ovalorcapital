@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Colunistas | O Valor Capital</title>
-  <meta name="description" content="Colunistas e articulistas de O Valor Capital — vozes que formam opinião.">
+  <title>Colunistas &amp; Articulistas | O Valor Capital</title>
+  <meta name="description" content="Conheça os 11 colunistas de O Valor Capital — analistas, jornalistas e especialistas que formam opinião com rigor e liberdade.">
+  <link rel="canonical" href="https://www.ovalorcapital.com.br/colunistas/">
   <link rel="icon" type="image/png" href="/assets/vc-logo.png">
   <link rel="stylesheet" href="/css/home.css">
   <link rel="stylesheet" href="/css/site.css">
@@ -413,89 +414,260 @@
 </div>
 </div>
 </header>
-<main style="background:#f8fafc;min-height:60vh;padding:0;">
-<div style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);padding:56px 24px;text-align:center;">
-  <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffc800;margin-bottom:12px;">Editorial OVC</div>
-  <h1 style="font-size:clamp(28px,5vw,44px);font-weight:900;color:#fff;margin:0 0 12px;line-height:1.15;">Colunistas &amp; Articulistas</h1>
-  <p style="font-size:16px;color:#94a3b8;max-width:560px;margin:0 auto;">Vozes que formam opinião em O Valor Capital. Análises profundas, sem filtros, de quem entende.</p>
+<style>
+.col-hero{background:linear-gradient(160deg,#06091a 0%,#0f172a 55%,#16043a 100%);padding:80px 24px 88px;text-align:center;position:relative;overflow:hidden}
+.col-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 0%,rgba(255,200,0,.07) 0%,transparent 70%);pointer-events:none}
+.col-hero-eye{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#ffc800;margin-bottom:14px}
+.col-hero h1{font-size:clamp(30px,5vw,54px);font-weight:900;color:#fff;margin:0 0 16px;line-height:1.08;letter-spacing:-.02em}
+.col-hero-sub{font-size:17px;color:#94a3b8;max-width:520px;margin:0 auto 44px;line-height:1.65}
+.col-hero-stats{display:flex;justify-content:center;gap:52px;flex-wrap:wrap}
+.col-stat{display:flex;flex-direction:column;align-items:center}
+.col-stat-n{font-size:38px;font-weight:900;color:#ffc800;line-height:1}
+.col-stat-l{font-size:11px;color:#64748b;margin-top:5px;text-transform:uppercase;letter-spacing:.07em}
+.col-wrap{max-width:1200px;margin:0 auto;padding:64px 24px 48px}
+.col-sec-lbl{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;margin-bottom:36px;text-align:center}
+.col-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:28px;margin-bottom:72px}
+.col-card{background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08);transition:transform .22s,box-shadow .22s;cursor:pointer}
+.col-card:hover{transform:translateY(-7px);box-shadow:0 14px 44px rgba(0,0,0,.15)}
+.col-card-cover{height:170px;position:relative;display:flex;align-items:flex-end;justify-content:center}
+.col-card-cover-bg{position:absolute;inset:0}
+.col-card-av{position:relative;width:92px;height:92px;border-radius:50%;border:4px solid #fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;margin-bottom:-46px;box-shadow:0 4px 18px rgba(0,0,0,.28);overflow:hidden;flex-shrink:0;z-index:1;background:#0f172a}
+.col-card-av img{width:100%;height:100%;object-fit:cover}
+.col-card-body{padding:60px 26px 26px;display:flex;flex-direction:column;gap:10px;text-align:center}
+.col-card-name{font-size:18.5px;font-weight:800;color:#0f172a;line-height:1.2}
+.col-card-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 13px;border-radius:999px;align-self:center}
+.col-card-bio{font-size:13.5px;color:#475569;line-height:1.65;margin:0}
+.col-card-foot{display:flex;justify-content:space-between;align-items:center;padding-top:14px;border-top:1px solid #f1f5f9;margin-top:4px}
+.col-card-cnt{font-size:12px;color:#94a3b8}
+.col-card-cnt b{color:#475569}
+.col-card-btn{font-size:12.5px;font-weight:700;padding:7px 16px;border-radius:8px;text-decoration:none;transition:opacity .15s;color:#fff}
+.col-card-btn:hover{opacity:.82}
+.col-filter-hdr{padding:56px 24px 68px;text-align:center;position:relative}
+.col-filter-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#94a3b8;text-decoration:none;margin-bottom:28px;transition:color .15s;position:relative;z-index:1}
+.col-filter-back:hover{color:#fff}
+.col-filter-av{width:108px;height:108px;border-radius:50%;border:4px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#fff;margin:0 auto 18px;box-shadow:0 4px 24px rgba(0,0,0,.32);overflow:hidden;position:relative;z-index:1}
+.col-filter-av img{width:100%;height:100%;object-fit:cover}
+.col-filter-name{font-size:clamp(24px,4vw,34px);font-weight:900;color:#fff;margin:0 0 10px;position:relative;z-index:1}
+.col-filter-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 15px;border-radius:999px;margin-bottom:16px;position:relative;z-index:1}
+.col-filter-bio{font-size:16px;color:#94a3b8;max-width:440px;margin:0 auto;line-height:1.65;position:relative;z-index:1}
+.col-arts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:22px;margin-top:36px}
+.col-art-card{background:#fff;border-radius:14px;padding:0 0 20px;box-shadow:0 2px 10px rgba(0,0,0,.07);text-decoration:none;color:inherit;display:flex;flex-direction:column;overflow:hidden;transition:transform .18s,box-shadow .18s}
+.col-art-card:hover{transform:translateY(-4px);box-shadow:0 8px 28px rgba(0,0,0,.12)}
+.col-art-img{width:100%;height:148px;object-fit:cover;display:block;flex-shrink:0}
+.col-art-body{padding:16px 18px 0;display:flex;flex-direction:column;gap:8px;flex:1}
+.col-art-ttl{font-size:14.5px;font-weight:700;color:#0f172a;line-height:1.4}
+.col-art-meta{font-size:11.5px;color:#94a3b8;margin-top:auto}
+.col-cta-box{background:linear-gradient(135deg,#0f172a 0%,#1a1040 100%);border-radius:24px;padding:60px 40px;text-align:center;margin-bottom:64px}
+.col-cta-eye{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffc800;margin-bottom:12px}
+.col-cta-title{font-size:clamp(22px,3vw,32px);font-weight:900;color:#fff;margin:0 0 14px;line-height:1.15}
+.col-cta-sub{font-size:15px;color:#94a3b8;max-width:460px;margin:0 auto 28px;line-height:1.65}
+.col-cta-btn{display:inline-block;background:#ffc800;color:#0f172a;font-weight:800;font-size:15px;padding:15px 34px;border-radius:10px;text-decoration:none;transition:background .15s}
+.col-cta-btn:hover{background:#e8b800}
+.col-latest-ttl{font-size:22px;font-weight:800;color:#0f172a;margin:0 0 24px;padding-bottom:14px;border-bottom:3px solid #ffc800}
+.col-no-posts{color:#94a3b8;text-align:center;padding:60px 0;font-size:15px}
+@media(max-width:640px){.col-hero{padding:56px 20px 64px}.col-hero-stats{gap:28px}.col-cta-box{padding:40px 24px}.col-grid{grid-template-columns:1fr}.col-card-cover{height:140px}.col-card-av{width:80px;height:80px;font-size:26px;margin-bottom:-40px}}
+</style>
+
+<main style="background:#f0f4f8;min-height:60vh;padding:0;">
+
+<!-- HERO -->
+<section class="col-hero">
+  <div class="col-hero-eye">Editorial OVC</div>
+  <h1>As Vozes que Formam Opinião</h1>
+  <p class="col-hero-sub">11 colunistas. Análises profundas, sem filtros, de quem realmente entende do Brasil e do mundo.</p>
+  <div class="col-hero-stats">
+    <div class="col-stat"><span class="col-stat-n">11</span><span class="col-stat-l">Colunistas</span></div>
+    <div class="col-stat"><span class="col-stat-n" id="col-art-total">—</span><span class="col-stat-l">Artigos publicados</span></div>
+  </div>
+</section>
+
+<!-- FILTER VIEW: shown when ?c=slug -->
+<div id="col-filter-view" style="display:none;">
+  <div class="col-filter-hdr" id="cfv-hdr">
+    <a href="/colunistas/" class="col-filter-back">← Todos os colunistas</a>
+    <div class="col-filter-av" id="cfv-av"></div>
+    <h1 class="col-filter-name" id="cfv-name"></h1>
+    <div class="col-filter-tag" id="cfv-tag"></div>
+    <p class="col-filter-bio" id="cfv-bio"></p>
+  </div>
+  <div class="col-wrap">
+    <div class="col-arts-grid" id="cfv-arts"></div>
+  </div>
 </div>
 
-<div style="max-width:1040px;margin:0 auto;padding:48px 24px;">
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px;margin-bottom:56px;">
-    <div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 28px rgba(0,0,0,.13)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,.07)'">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="width:56px;height:56px;border-radius:50%;background:#ffc800;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">RT</div>
-    <div><div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px;">Roberto Terrasan</div><div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Fundador & Editor-Chefe</div></div>
-  </div>
-  <p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">Política econômica, investimentos e liberdade econômica. Visão sem filtros sobre o Brasil e o mundo.</p>
-  <a href="/colunistas/" style="font-size:13px;font-weight:700;color:#ffc800;text-decoration:none;">Ver artigos →</a>
-</div><div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 28px rgba(0,0,0,.13)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,.07)'">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="width:56px;height:56px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">AB</div>
-    <div><div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px;">Ana Beatriz Santos</div><div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Correspondente Econômica</div></div>
-  </div>
-  <p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">Mercados financeiros, análise macroeconômica e indicadores que movem a economia brasileira.</p>
-  <a href="/colunistas/" style="font-size:13px;font-weight:700;color:#2563eb;text-decoration:none;">Ver artigos →</a>
-</div><div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 28px rgba(0,0,0,.13)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,.07)'">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="width:56px;height:56px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">CM</div>
-    <div><div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px;">Dr. Carlos Menezes</div><div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Colunista Jurídico</div></div>
-  </div>
-  <p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">Direito tributário, regulação, compliance e os impactos jurídicos nas empresas e no cidadão.</p>
-  <a href="/colunistas/" style="font-size:13px;font-weight:700;color:#7c3aed;text-decoration:none;">Ver artigos →</a>
-</div><div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 28px rgba(0,0,0,.13)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,.07)'">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="width:56px;height:56px;border-radius:50%;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">MF</div>
-    <div><div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px;">Marina Figueiredo</div><div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Repórter Investigativa</div></div>
-  </div>
-  <p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">Fiscalização de políticos, contas públicas, denúncias e o que o poder não quer que você saiba.</p>
-  <a href="/colunistas/" style="font-size:13px;font-weight:700;color:#1a1a2e;text-decoration:none;">Ver artigos →</a>
-</div><div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 28px rgba(0,0,0,.13)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,.07)'">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="width:56px;height:56px;border-radius:50%;background:#059669;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">PA</div>
-    <div><div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px;">Paulo Andrade</div><div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Analista de Mercados</div></div>
-  </div>
-  <p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">Bolsa, fundos, renda fixa, estratégias de investimento e análise técnica para o investidor brasileiro.</p>
-  <a href="/colunistas/" style="font-size:13px;font-weight:700;color:#059669;text-decoration:none;">Ver artigos →</a>
-</div><div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:14px;transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 28px rgba(0,0,0,.13)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(0,0,0,.07)'">
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="width:56px;height:56px;border-radius:50%;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0;">FC</div>
-    <div><div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:3px;">Dra. Fernanda Costa</div><div style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Colunista de Saúde</div></div>
-  </div>
-  <p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">Saúde pública, medicina preventiva, bem-estar e as políticas que definem a saúde dos brasileiros.</p>
-  <a href="/colunistas/" style="font-size:13px;font-weight:700;color:#16a34a;text-decoration:none;">Ver artigos →</a>
-</div>
-  </div>
+<!-- GRID VIEW: shown by default -->
+<div id="col-grid-view">
+  <div class="col-wrap">
+    <div class="col-sec-lbl">11 VOZES EDITORIAIS DO O VALOR CAPITAL</div>
+    <div class="col-grid" id="col-grid"></div>
 
-  <!-- CTA ser colunista -->
-  <div style="background:#0f172a;border-radius:20px;padding:48px 40px;text-align:center;margin-bottom:48px;">
-    <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ffc800;margin-bottom:12px;">Escreva para o OVC</div>
-    <h2 style="font-size:28px;font-weight:900;color:#fff;margin:0 0 12px;">Quer ser colunista?</h2>
-    <p style="font-size:15px;color:#94a3b8;max-width:480px;margin:0 auto 24px;">Publique sua análise para milhares de leitores qualificados. Aceitamos artigos de opinião, análises técnicas e colunas fixas.</p>
-    <a href="/contato/" style="display:inline-block;background:#ffc800;color:#0f172a;font-weight:800;font-size:15px;padding:14px 32px;border-radius:10px;text-decoration:none;">Entrar em contato →</a>
-  </div>
+    <div class="col-cta-box">
+      <div class="col-cta-eye">Escreva para o OVC</div>
+      <h2 class="col-cta-title">Quer ser colunista?</h2>
+      <p class="col-cta-sub">Publique sua análise para milhares de leitores qualificados. Aceitamos artigos de opinião, análises técnicas e colunas fixas.</p>
+      <a href="mailto:contato@ovalorcapital.com.br" class="col-cta-btn">Entrar em contato →</a>
+    </div>
 
-  <!-- Últimas colunas -->
-  <div id="ovc-colunistas-posts"></div>
+    <div id="col-latest"></div>
+  </div>
 </div>
+
 </main>
 
 <script>
-fetch('/api/portal-posts?categoria=colunistas&limit=6')
-  .then(function(r){return r.json();})
-  .then(function(d){
-    var posts = d.posts||[];
-    if(!posts.length) return;
-    var el = document.getElementById('ovc-colunistas-posts');
-    el.innerHTML = '<h2 style="font-size:22px;font-weight:800;color:#0f172a;margin-bottom:24px;padding-bottom:12px;border-bottom:3px solid #ffc800;">Últimas colunas</h2>'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">'
-      +posts.map(function(p){
-        return '<a href="'+p.url+'" style="display:block;background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-decoration:none;color:inherit;transition:transform .2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">'
-          +'<div style="font-size:14px;font-weight:700;color:#0f172a;line-height:1.4;margin-bottom:8px;">'+p.titulo+'</div>'
-          +'<div style="font-size:12px;color:#64748b;">'+new Date(p.data).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+'</div>'
-          +'</a>';
+(function(){
+  var COLS=[
+    {nome:'Roberto Terrasan',tag:'Fundador &amp; Editor',slug:'roberto-terrasan',grad:['#7f0000','#c81e1e'],acc:'#c81e1e',
+     bio:'Visceral, feroz, incorruptível. Conservador, patriota e defensor da liberdade econômica e da família brasileira.'},
+    {nome:'Beta Ferreira',tag:'Colunista Internacional',slug:'beta-ferreira',grad:['#4a148c','#7b1fa2'],acc:'#7b1fa2',
+     bio:'Intelectual, elegante, provocativa. Análises no nível dos maiores jornais globais, com olhar conservador único.'},
+    {nome:'Adriana Ferreira',tag:'Colunista Investigativa',slug:'adriana-ferreira',grad:['#0d47a1','#1565c0'],acc:'#1565c0',
+     bio:'Intelectual, elegante, investigativa. Jornalismo conservador de alto nível, sem concessões ao poder.'},
+    {nome:'Michele Froiz',tag:'Comportamento &amp; Sociedade',slug:'michele-froiz',grad:['#004d40','#00695c'],acc:'#00695c',
+     bio:'Leve, sutil, fala a língua do leitor sem perder substância. Comportamento com profundidade real.'},
+    {nome:'Coluna OVC',tag:'Voz Institucional',slug:'coluna-ovc',grad:['#263238','#455a64'],acc:'#455a64',
+     bio:'O padrão editorial O Valor Capital. Conservador, analítico, factual. A voz oficial da redação OVC.'},
+    {nome:'Prof. Marcos Pizzolatto',tag:'Filosofia &amp; Política',slug:'prof-marcos-pizzolatto',grad:['#1a237e','#283593'],acc:'#283593',
+     bio:'Filosófico, socrático. Desmonta o progressismo com rigor intelectual e precisão histórica incomuns.'},
+    {nome:'Gabriel Thiede',tag:'Finanças Pessoais',slug:'gabriel-thiede',grad:['#1b5e20','#2e7d32'],acc:'#2e7d32',
+     bio:'Didático, acessível, prático. Ensina o leitor a construir, proteger e multiplicar patrimônio de verdade.'},
+    {nome:'Fabiana Campos',tag:'Jornalismo Factual',slug:'fabiana-campos',grad:['#e65100','#ef6c00'],acc:'#ef6c00',
+     bio:'Jornalismo clássico: factual, objetivo, conservador. Rigor apuratório acima de qualquer narrativa.'},
+    {nome:'Larissa Corvetto',tag:'Crítica Política',slug:'larissa-corvetto',grad:['#880e4f','#ad1457'],acc:'#ad1457',
+     bio:'Incisiva, cirúrgica. Desmonta as narrativas da mídia dominante com dados e argumentos sólidos.'},
+    {nome:'Taísa da Fonseca',tag:'Empreendedorismo &amp; Moda',slug:'taisa-da-fonseca',grad:['#6a1b9a','#8e24aa'],acc:'#8e24aa',
+     bio:'Inspiradora, feminina, empreendedora. Independência financeira com elegância e propósito de vida.'},
+    {nome:'André Oliveira',tag:'Jornalismo Geral',slug:'andre-oliveira',grad:['#37474f','#546e7a'],acc:'#546e7a',
+     bio:'Experiente, equilibrado, jornalista de carreira. Temas amplos analisados com visão madura e apurada.'}
+  ];
+
+  function ini(nome){return nome.split(' ').filter(function(_,i){return i<2;}).map(function(w){return(w[0]||'').toUpperCase();}).join('');}
+
+  function fmtDate(d){try{return new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return '';}}
+
+  function renderGrid(){
+    var g=document.getElementById('col-grid');
+    if(!g)return;
+    g.innerHTML=COLS.map(function(c){
+      return '<div class="col-card" onclick="location.href=\'/colunistas/?c='+c.slug+'\'">'
+        +'<div class="col-card-cover">'
+        +'<div class="col-card-cover-bg" style="background:linear-gradient(145deg,'+c.grad[0]+','+c.grad[1]+')"></div>'
+        +'<div class="col-card-av" id="av-'+c.slug+'" style="background:linear-gradient(145deg,'+c.grad[0]+','+c.grad[1]+')">'
+        +ini(c.nome)+'</div></div>'
+        +'<div class="col-card-body">'
+        +'<div class="col-card-name">'+c.nome+'</div>'
+        +'<div class="col-card-tag" style="background:'+c.acc+'1a;color:'+c.acc+'">'+c.tag+'</div>'
+        +'<p class="col-card-bio">'+c.bio+'</p>'
+        +'<div class="col-card-foot">'
+        +'<span class="col-card-cnt" id="cnt-'+c.slug+'">carregando...</span>'
+        +'<a class="col-card-btn" href="/colunistas/?c='+c.slug+'" onclick="event.stopPropagation()" style="background:'+c.acc+'">Ver artigos →</a>'
+        +'</div></div></div>';
+    }).join('');
+  }
+
+  function renderLatest(posts){
+    var el=document.getElementById('col-latest');
+    if(!el||!posts.length)return;
+    el.innerHTML='<h2 class="col-latest-ttl">Últimas colunas publicadas</h2>'
+      +'<div class="col-arts-grid">'
+      +posts.slice(0,12).map(function(p){
+        var img=p.imagem?'<img class="col-art-img" src="'+p.imagem+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'';
+        return '<a class="col-art-card" href="'+p.url+'">'
+          +img+'<div class="col-art-body">'
+          +'<div class="col-art-ttl">'+p.titulo+'</div>'
+          +(p.subcategoria?'<div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;">'+p.subcategoria+'</div>':'')
+          +'<div class="col-art-meta">'+fmtDate(p.data)+'</div>'
+          +'</div></a>';
       }).join('')+'</div>';
-  }).catch(function(){});
+  }
+
+  function showFilter(col,posts){
+    document.getElementById('col-grid-view').style.display='none';
+    var fv=document.getElementById('col-filter-view');
+    fv.style.display='';
+    var hdr=document.getElementById('cfv-hdr');
+    hdr.style.background='linear-gradient(160deg,'+col.grad[0]+' 0%,'+col.grad[1]+' 100%)';
+    var av=document.getElementById('cfv-av');
+    av.style.background='linear-gradient(145deg,'+col.grad[0]+','+col.grad[1]+')';
+    av.innerHTML=ini(col.nome);
+    document.getElementById('cfv-name').textContent=col.nome;
+    var t=document.getElementById('cfv-tag');
+    t.innerHTML=col.tag; t.style.background=col.acc+'28'; t.style.color=col.acc;
+    document.getElementById('cfv-bio').textContent=col.bio.replace(/&amp;/g,'&');
+    var arts=document.getElementById('cfv-arts');
+    if(!posts.length){arts.innerHTML='<p class="col-no-posts">Nenhum artigo publicado ainda por este colunista.</p>';return;}
+    arts.innerHTML=posts.map(function(p){
+      var img=p.imagem?'<img class="col-art-img" src="'+p.imagem+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'';
+      return '<a class="col-art-card" href="'+p.url+'">'
+        +img+'<div class="col-art-body">'
+        +'<div class="col-art-ttl">'+p.titulo+'</div>'
+        +'<div class="col-art-meta">'+fmtDate(p.data)+'</div>'
+        +'</div></a>';
+    }).join('');
+  }
+
+  renderGrid();
+
+  var params=new URLSearchParams(window.location.search);
+  var cSlug=params.get('c');
+  var activeCol=cSlug?COLS.find(function(c){return c.slug===cSlug;}):null;
+
+  if(activeCol){
+    document.getElementById('col-grid-view').style.display='none';
+    var fv=document.getElementById('col-filter-view');
+    fv.style.display='';
+    var hdr=document.getElementById('cfv-hdr');
+    hdr.style.background='linear-gradient(160deg,'+activeCol.grad[0]+' 0%,'+activeCol.grad[1]+' 100%)';
+    var av=document.getElementById('cfv-av');
+    av.style.background='linear-gradient(145deg,'+activeCol.grad[0]+','+activeCol.grad[1]+')';
+    av.innerHTML=ini(activeCol.nome);
+    document.getElementById('cfv-name').textContent=activeCol.nome;
+    var t=document.getElementById('cfv-tag');
+    t.innerHTML=activeCol.tag; t.style.background=activeCol.acc+'28'; t.style.color=activeCol.acc;
+    document.getElementById('cfv-bio').textContent=activeCol.bio.replace(/&amp;/g,'&');
+    document.getElementById('cfv-arts').innerHTML='<p class="col-no-posts">Carregando artigos...</p>';
+  }
+
+  fetch('/api/portal-posts?categoria=colunistas&limit=100')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var posts=d.posts||[];
+      var counts={};
+      posts.forEach(function(p){if(p.subcategoria_slug)counts[p.subcategoria_slug]=(counts[p.subcategoria_slug]||0)+1;});
+
+      var tot=document.getElementById('col-art-total');
+      if(tot)tot.textContent=posts.length;
+
+      COLS.forEach(function(c){
+        var el=document.getElementById('cnt-'+c.slug);
+        if(el){var n=counts[c.slug]||0;el.innerHTML=n?'<b>'+n+'</b> artigos':'Sem artigos ainda';}
+      });
+
+      if(activeCol){
+        var filtered=posts.filter(function(p){return p.subcategoria_slug===activeCol.slug;});
+        showFilter(activeCol,filtered);
+      } else {
+        renderLatest(posts);
+      }
+    })
+    .catch(function(){
+      var tot=document.getElementById('col-art-total');
+      if(tot)tot.textContent='—';
+      COLS.forEach(function(c){var el=document.getElementById('cnt-'+c.slug);if(el)el.innerHTML='—';});
+    });
+
+  fetch('/api/manage?action=list_colunistas')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      (d.colunistas||[]).forEach(function(c){
+        if(!c.foto_url)return;
+        var slug=c.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+        var av=document.getElementById('av-'+slug);
+        if(av)av.innerHTML='<img src="'+c.foto_url+'" alt="'+c.nome+'">';
+        if(activeCol&&activeCol.slug===slug){var cfv=document.getElementById('cfv-av');if(cfv)cfv.innerHTML='<img src="'+c.foto_url+'" alt="'+c.nome+'">';}
+      });
+    }).catch(function(){});
+})();
 </script>
 <footer class="footer">
 <div class="footer-inner">
