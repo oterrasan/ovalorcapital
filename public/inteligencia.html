@@ -6,326 +6,816 @@
     <title>OVC Inteligência | Ferramentas de IA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#0A1A2F',
-                        secondary: '#D4AF37',
-                        dark: '#121212',
-                        light: '#F8F9FA'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                    },
-                }
-            }
+            theme: { extend: { colors: { primary: '#0A1A2F', secondary: '#D4AF37' }, fontFamily: { sans: ['Inter','system-ui','sans-serif'] } } }
         }
     </script>
-    <style type="text/tailwindcss">
-        @layer utilities {
-            .gradient-bg {
-                background: linear-gradient(135deg, #0A1A2F 0%, #1a2f4a 100%);
-            }
-            .card-hover {
-                transition: all 0.3s ease;
-            }
-            .card-hover:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 20px 25px -5px rgba(212, 175, 55, 0.1);
-            }
-        }
+    <style>
+        .gradient-bg { background: linear-gradient(150deg, #0A1A2F 0%, #162840 100%); }
+        .panel-fade { animation: pFade .22s ease-out; }
+        @keyframes pFade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        .card-hover { transition: transform .18s ease, box-shadow .18s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -4px rgba(0,0,0,.1); }
+        .output-area { white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+        .copy-btn.copied { background-color: #10B981 !important; color: #fff !important; border-color: #10B981 !important; }
+        .process-btn:disabled { opacity:.65; cursor:not-allowed; }
+        .nav-btn { width:100%; display:flex; align-items:center; gap:.6rem; padding:.45rem .7rem; border-radius:.6rem; font-size:.8125rem; color:rgba(255,255,255,.65); transition:all .14s; cursor:pointer; border:none; background:transparent; text-align:left; }
+        .nav-btn:hover { background:rgba(255,255,255,.08); color:#fff; }
+        .nav-btn.active { background:rgba(255,255,255,.14); color:#fff; font-weight:600; }
+        .nav-icon { width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:.7rem; }
+        .grp-label { font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.35); padding:.7rem .7rem .2rem; }
+        aside::-webkit-scrollbar { width:3px; }
+        aside::-webkit-scrollbar-thumb { background:rgba(255,255,255,.12); border-radius:2px; }
+        .sel-opt { font-size:.8125rem; padding:.45rem .75rem; border:1px solid #e5e7eb; border-radius:.6rem; outline:none; background:#fff; color:#0A1A2F; }
+        .sel-opt:focus { border-color:#D4AF37; box-shadow:0 0 0 2px rgba(212,175,55,.2); }
+        textarea { outline:none; }
+        textarea:focus { border-color:#D4AF37; box-shadow:0 0 0 2px rgba(212,175,55,.15); }
     </style>
 </head>
-<body class="bg-gray-50 font-sans">
-    <!-- Login Screen -->
-    <div data-inteligencia-login class="fixed inset-0 gradient-bg flex items-center justify-center z-50">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-            <div class="flex justify-center mb-8">
-                <div class="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center">
-                    <span class="text-primary font-bold text-3xl">VC</span>
-                </div>
+<body class="bg-slate-50 font-sans text-sm">
+
+<!-- LOGIN -->
+<div data-inteligencia-login class="fixed inset-0 gradient-bg flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
+        <div class="flex justify-center mb-7">
+            <div class="w-14 h-14 bg-secondary rounded-xl flex items-center justify-center">
+                <span class="text-primary font-bold text-2xl">VC</span>
             </div>
-            <h1 class="text-2xl font-bold text-center text-primary mb-2">OVC Inteligência</h1>
-            <p class="text-center text-gray-600 mb-8">Ferramentas de IA para sua produtividade</p>
-            
-            <form data-inteligencia-login-form class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha de Acesso</label>
-                    <input type="password" name="token" placeholder="Digite sua senha" required 
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary">
-                </div>
-                <button type="submit" class="w-full bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-4 rounded-lg transition-all">
-                    Acessar
-                </button>
-            </form>
-            
-            <div data-inteligencia-login-status class="mt-4 text-center text-sm text-red-600 hidden"></div>
         </div>
+        <h1 class="text-2xl font-bold text-center text-primary mb-1">OVC Inteligência</h1>
+        <p class="text-center text-gray-400 text-sm mb-7">26 ferramentas de IA para sua produtividade</p>
+        <form data-inteligencia-login-form class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1.5">Senha de Acesso</label>
+                <input type="password" name="token" placeholder="Digite sua senha" required
+                       class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-gray-50 text-sm">
+            </div>
+            <button type="submit" class="w-full bg-secondary hover:bg-yellow-400 text-primary font-bold py-3 rounded-xl transition-all text-sm">
+                Acessar
+            </button>
+        </form>
+        <div data-inteligencia-login-status class="mt-3 text-center text-xs text-red-500 hidden"></div>
     </div>
+</div>
 
-    <!-- Main App -->
-    <div data-inteligencia-app style="display:none;" class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        <aside class="w-64 gradient-bg text-white hidden md:block overflow-y-auto">
-            <div class="p-6 border-b border-gray-700 sticky top-0 bg-gradient-to-b from-primary to-transparent">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
-                        <span class="text-primary font-bold text-xl">VC</span>
+<!-- APP -->
+<div data-inteligencia-app style="display:none;" class="flex h-screen overflow-hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="w-56 gradient-bg text-white hidden md:flex flex-col shrink-0 overflow-y-auto">
+        <div class="px-4 py-4 border-b border-white/10 flex items-center gap-2.5 shrink-0">
+            <div class="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center shrink-0">
+                <span class="text-primary font-bold text-sm">VC</span>
+            </div>
+            <div>
+                <div class="font-bold text-xs leading-tight">OVC Inteligência</div>
+                <div class="text-[10px] text-white/35 mt-0.5">26 ferramentas</div>
+            </div>
+        </div>
+        <nav class="flex-1 px-1.5 py-2 overflow-y-auto">
+            <button data-inteligencia-nav="home" class="nav-btn active">
+                <span class="nav-icon bg-white/10"><i class="fas fa-home text-white/60 text-[11px]"></i></span><span>Início</span>
+            </button>
+            <div class="grp-label">Clássicas</div>
+            <button data-inteligencia-nav="reescrever" class="nav-btn"><span class="nav-icon bg-slate-600/50"><i class="fas fa-edit text-slate-200 text-[11px]"></i></span><span>Reescrever</span></button>
+            <button data-inteligencia-nav="corretor" class="nav-btn"><span class="nav-icon bg-slate-600/50"><i class="fas fa-spell-check text-slate-200 text-[11px]"></i></span><span>Corretor</span></button>
+            <button data-inteligencia-nav="detector-ia" class="nav-btn"><span class="nav-icon bg-slate-600/50"><i class="fas fa-robot text-slate-200 text-[11px]"></i></span><span>Detector IA</span></button>
+            <button data-inteligencia-nav="humanizar" class="nav-btn"><span class="nav-icon bg-slate-600/50"><i class="fas fa-user-edit text-slate-200 text-[11px]"></i></span><span>Humanizar</span></button>
+            <button data-inteligencia-nav="tradutor" class="nav-btn"><span class="nav-icon bg-slate-600/50"><i class="fas fa-language text-slate-200 text-[11px]"></i></span><span>Tradutor</span></button>
+            <button data-inteligencia-nav="resumidor" class="nav-btn"><span class="nav-icon bg-slate-600/50"><i class="fas fa-compress-alt text-slate-200 text-[11px]"></i></span><span>Resumidor</span></button>
+            <div class="grp-label">Comunicação</div>
+            <button data-inteligencia-nav="reformular-tom" class="nav-btn"><span class="nav-icon bg-blue-500/30"><i class="fas fa-sliders-h text-blue-300 text-[11px]"></i></span><span>Reformular Tom</span></button>
+            <button data-inteligencia-nav="email-profissional" class="nav-btn"><span class="nav-icon bg-blue-500/30"><i class="fas fa-envelope text-blue-300 text-[11px]"></i></span><span>E-mail Profissional</span></button>
+            <button data-inteligencia-nav="resposta-critica" class="nav-btn"><span class="nav-icon bg-blue-500/30"><i class="fas fa-comment-alt text-blue-300 text-[11px]"></i></span><span>Resposta a Crítica</span></button>
+            <button data-inteligencia-nav="whatsapp-pro" class="nav-btn"><span class="nav-icon bg-blue-500/30"><i class="fab fa-whatsapp text-blue-300 text-[11px]"></i></span><span>WhatsApp Pro</span></button>
+            <button data-inteligencia-nav="roteiro-conversa" class="nav-btn"><span class="nav-icon bg-blue-500/30"><i class="fas fa-comments text-blue-300 text-[11px]"></i></span><span>Roteiro de Conversa</span></button>
+            <div class="grp-label">Burocracia</div>
+            <button data-inteligencia-nav="reclamacao" class="nav-btn"><span class="nav-icon bg-violet-500/30"><i class="fas fa-file-alt text-violet-300 text-[11px]"></i></span><span>Reclamação</span></button>
+            <button data-inteligencia-nav="recurso-multa" class="nav-btn"><span class="nav-icon bg-violet-500/30"><i class="fas fa-car text-violet-300 text-[11px]"></i></span><span>Recurso de Multa</span></button>
+            <button data-inteligencia-nav="carta-apresentacao" class="nav-btn"><span class="nav-icon bg-violet-500/30"><i class="fas fa-id-card text-violet-300 text-[11px]"></i></span><span>Carta de Apresentação</span></button>
+            <button data-inteligencia-nav="peticao-simples" class="nav-btn"><span class="nav-icon bg-violet-500/30"><i class="fas fa-stamp text-violet-300 text-[11px]"></i></span><span>Petição Simples</span></button>
+            <div class="grp-label">Vida Pessoal</div>
+            <button data-inteligencia-nav="discurso" class="nav-btn"><span class="nav-icon bg-pink-500/30"><i class="fas fa-microphone text-pink-300 text-[11px]"></i></span><span>Discurso</span></button>
+            <button data-inteligencia-nav="mensagem-especial" class="nav-btn"><span class="nav-icon bg-pink-500/30"><i class="fas fa-heart text-pink-300 text-[11px]"></i></span><span>Mensagem Especial</span></button>
+            <button data-inteligencia-nav="bio-perfil" class="nav-btn"><span class="nav-icon bg-pink-500/30"><i class="fas fa-user-circle text-pink-300 text-[11px]"></i></span><span>Bio &amp; Perfil</span></button>
+            <div class="grp-label">Trabalho</div>
+            <button data-inteligencia-nav="ata-reuniao" class="nav-btn"><span class="nav-icon bg-emerald-500/30"><i class="fas fa-clipboard-list text-emerald-300 text-[11px]"></i></span><span>Ata de Reunião</span></button>
+            <button data-inteligencia-nav="descricao-produto" class="nav-btn"><span class="nav-icon bg-emerald-500/30"><i class="fas fa-tag text-emerald-300 text-[11px]"></i></span><span>Desc. de Produto</span></button>
+            <button data-inteligencia-nav="proposta-comercial" class="nav-btn"><span class="nav-icon bg-emerald-500/30"><i class="fas fa-handshake text-emerald-300 text-[11px]"></i></span><span>Proposta Comercial</span></button>
+            <div class="grp-label">Criatividade</div>
+            <button data-inteligencia-nav="gerador-nome" class="nav-btn"><span class="nav-icon bg-amber-500/30"><i class="fas fa-lightbulb text-amber-300 text-[11px]"></i></span><span>Gerador de Nome</span></button>
+            <button data-inteligencia-nav="roteiro-video" class="nav-btn"><span class="nav-icon bg-amber-500/30"><i class="fas fa-video text-amber-300 text-[11px]"></i></span><span>Roteiro de Vídeo</span></button>
+            <button data-inteligencia-nav="gerador-piada" class="nav-btn"><span class="nav-icon bg-amber-500/30"><i class="fas fa-laugh text-amber-300 text-[11px]"></i></span><span>Gerador de Piada</span></button>
+            <div class="grp-label">Utilitários</div>
+            <button data-inteligencia-nav="limpador" class="nav-btn"><span class="nav-icon bg-slate-600/40"><i class="fas fa-broom text-slate-300 text-[11px]"></i></span><span>Limpador</span></button>
+            <button data-inteligencia-nav="contador" class="nav-btn"><span class="nav-icon bg-slate-600/40"><i class="fas fa-calculator text-slate-300 text-[11px]"></i></span><span>Contador</span></button>
+        </nav>
+        <div class="px-2 py-2.5 border-t border-white/10 shrink-0">
+            <button data-inteligencia-logout class="w-full bg-white/8 hover:bg-red-600 text-white/70 hover:text-white text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                <i class="fas fa-sign-out-alt"></i><span>Sair</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2.5">
+                <h2 data-inteligencia-title class="text-lg font-bold text-primary">OVC Inteligência</h2>
+                <span data-inteligencia-cat-badge class="hidden text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
+            </div>
+            <span data-inteligencia-user-info class="text-xs text-gray-400"></span>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-5">
+
+            <!-- HOME -->
+            <div data-inteligencia-panel="home" class="block panel-fade">
+                <div class="max-w-5xl mx-auto">
+                    <h3 class="text-xl font-bold text-primary mb-0.5">Bem-vindo à OVC Inteligência</h3>
+                    <p class="text-gray-400 text-xs mb-7">26 ferramentas de IA e utilitários — escolha uma categoria para começar</p>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">Clássicas</div>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                            <button data-inteligencia-nav="reescrever" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-edit text-slate-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Reescrever</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Parafraseie textos</div>
+                            </button>
+                            <button data-inteligencia-nav="corretor" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-spell-check text-slate-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Corretor</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Corrija gramática</div>
+                            </button>
+                            <button data-inteligencia-nav="detector-ia" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-robot text-slate-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Detector IA</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Identifique IA</div>
+                            </button>
+                            <button data-inteligencia-nav="humanizar" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-user-edit text-slate-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Humanizar</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Texto natural</div>
+                            </button>
+                            <button data-inteligencia-nav="tradutor" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-language text-slate-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Tradutor</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">50+ idiomas</div>
+                            </button>
+                            <button data-inteligencia-nav="resumidor" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-compress-alt text-slate-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Resumidor</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Resumos rápidos</div>
+                            </button>
+                        </div>
                     </div>
-                    <div>
-                        <h1 class="font-bold text-sm">OVC</h1>
-                        <p class="text-xs text-gray-400">Inteligência</p>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-blue-500 mb-2.5">Comunicação</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                            <button data-inteligencia-nav="reformular-tom" class="card-hover bg-white rounded-xl p-3.5 border border-blue-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-sliders-h text-blue-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Reformular Tom</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Formal, casual, técnico</div>
+                            </button>
+                            <button data-inteligencia-nav="email-profissional" class="card-hover bg-white rounded-xl p-3.5 border border-blue-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-envelope text-blue-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">E-mail Profissional</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">E-mails completos</div>
+                            </button>
+                            <button data-inteligencia-nav="resposta-critica" class="card-hover bg-white rounded-xl p-3.5 border border-blue-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-comment-alt text-blue-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Resposta a Crítica</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Resposta empática</div>
+                            </button>
+                            <button data-inteligencia-nav="whatsapp-pro" class="card-hover bg-white rounded-xl p-3.5 border border-blue-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fab fa-whatsapp text-blue-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">WhatsApp Pro</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Mensagem profissional</div>
+                            </button>
+                            <button data-inteligencia-nav="roteiro-conversa" class="card-hover bg-white rounded-xl p-3.5 border border-blue-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-comments text-blue-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Roteiro de Conversa</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Conversas difíceis</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-violet-500 mb-2.5">Burocracia Brasileira</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            <button data-inteligencia-nav="reclamacao" class="card-hover bg-white rounded-xl p-3.5 border border-violet-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-file-alt text-violet-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Reclamação</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Procon, Reclame Aqui</div>
+                            </button>
+                            <button data-inteligencia-nav="recurso-multa" class="card-hover bg-white rounded-xl p-3.5 border border-violet-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-car text-violet-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Recurso de Multa</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Contestação trânsito</div>
+                            </button>
+                            <button data-inteligencia-nav="carta-apresentacao" class="card-hover bg-white rounded-xl p-3.5 border border-violet-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-id-card text-violet-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Carta de Apresentação</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Para vagas de emprego</div>
+                            </button>
+                            <button data-inteligencia-nav="peticao-simples" class="card-hover bg-white rounded-xl p-3.5 border border-violet-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-stamp text-violet-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Petição Simples</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Órgãos públicos</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-pink-500 mb-2.5">Vida Pessoal</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            <button data-inteligencia-nav="discurso" class="card-hover bg-white rounded-xl p-3.5 border border-pink-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-microphone text-pink-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Discurso</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Casamento, formatura...</div>
+                            </button>
+                            <button data-inteligencia-nav="mensagem-especial" class="card-hover bg-white rounded-xl p-3.5 border border-pink-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-heart text-pink-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Mensagem Especial</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Aniversário, homenagem</div>
+                            </button>
+                            <button data-inteligencia-nav="bio-perfil" class="card-hover bg-white rounded-xl p-3.5 border border-pink-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-user-circle text-pink-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Bio &amp; Perfil</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">LinkedIn, Instagram...</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-2.5">Trabalho</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            <button data-inteligencia-nav="ata-reuniao" class="card-hover bg-white rounded-xl p-3.5 border border-emerald-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-clipboard-list text-emerald-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Ata de Reunião</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Anotações → ata formal</div>
+                            </button>
+                            <button data-inteligencia-nav="descricao-produto" class="card-hover bg-white rounded-xl p-3.5 border border-emerald-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-tag text-emerald-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Descrição de Produto</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Marketplace, Instagram</div>
+                            </button>
+                            <button data-inteligencia-nav="proposta-comercial" class="card-hover bg-white rounded-xl p-3.5 border border-emerald-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-handshake text-emerald-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Proposta Comercial</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Proposta profissional</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-2.5">Criatividade</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            <button data-inteligencia-nav="gerador-nome" class="card-hover bg-white rounded-xl p-3.5 border border-amber-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-lightbulb text-amber-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Gerador de Nome</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Empresa, produto, pet</div>
+                            </button>
+                            <button data-inteligencia-nav="roteiro-video" class="card-hover bg-white rounded-xl p-3.5 border border-amber-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-video text-amber-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Roteiro de Vídeo</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Reels, TikTok, Shorts</div>
+                            </button>
+                            <button data-inteligencia-nav="gerador-piada" class="card-hover bg-white rounded-xl p-3.5 border border-amber-50 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-laugh text-amber-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Gerador de Piada</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Humor leve</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-7">
+                        <div class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">Utilitários (sem IA)</div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <button data-inteligencia-nav="limpador" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-broom text-gray-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Limpador de Texto</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Remove formatação estranha</div>
+                            </button>
+                            <button data-inteligencia-nav="contador" class="card-hover bg-white rounded-xl p-3.5 border border-gray-100 text-left shadow-sm">
+                                <div class="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-calculator text-gray-500 text-sm"></i></div>
+                                <div class="font-semibold text-primary text-xs">Contador Avançado</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">Palavras, chars, top 5...</div>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <nav class="p-4">
-                <ul class="space-y-2">
-                    <li><button data-inteligencia-nav="home" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg bg-white/20 font-bold transition-colors"><i class="fas fa-home"></i><span>Início</span></button></li>
-                    <li><button data-inteligencia-nav="reescrever" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-edit"></i><span>Reescrever</span></button></li>
-                    <li><button data-inteligencia-nav="corretor" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-spell-check"></i><span>Corretor</span></button></li>
-                    <li><button data-inteligencia-nav="detector-ia" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-robot"></i><span>Detector IA</span></button></li>
-                    <li><button data-inteligencia-nav="humanizar" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-user-edit"></i><span>Humanizar</span></button></li>
-                    <li><button data-inteligencia-nav="tradutor" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-language"></i><span>Tradutor</span></button></li>
-                    <li><button data-inteligencia-nav="resumidor" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-compress-alt"></i><span>Resumidor</span></button></li>
-                </ul>
-            </nav>
-            <div class="p-4 border-t border-gray-700 mt-auto sticky bottom-0">
-                <button data-inteligencia-logout class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center space-x-2">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
-                </button>
+
+            <!-- MACRO: standard 2-col AI panel -->
+            <!-- reescrever -->
+            <div data-inteligencia-panel="reescrever" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-edit text-slate-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Clássicas</span><h3 class="font-bold text-primary text-base mt-0.5">Reescrever Texto</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto Original</label><textarea data-inteligencia-input="reescrever" placeholder="Cole seu texto aqui..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm bg-white"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Resultado</label><button data-copy-btn="reescrever" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="reescrever" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="reescrever" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-sync-alt"></i> Reescrever</button></div>
+                </div>
             </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
-            <header class="bg-white shadow-sm p-4 flex justify-between items-center">
-                <h2 data-inteligencia-title class="text-2xl font-bold text-primary">OVC Inteligência</h2>
-                <div class="text-sm text-gray-600">
-                    <span data-inteligencia-user-info></span>
-                </div>
-            </header>
-
-            <!-- Content Area -->
-            <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
-                <!-- Home Panel -->
-                <div data-inteligencia-panel="home" class="block">
-                    <div class="max-w-6xl mx-auto">
-                        <h3 class="text-3xl font-bold text-primary mb-2">Bem-vindo à OVC Inteligência</h3>
-                        <p class="text-gray-600 mb-8">Escolha uma ferramenta abaixo para começar</p>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <button data-inteligencia-nav="reescrever" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
-                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                                    <i class="fas fa-edit text-blue-600 text-xl"></i>
-                                </div>
-                                <h4 class="text-lg font-bold text-primary mb-2">Reescrever Texto</h4>
-                                <p class="text-gray-600 text-sm">Parafraseie e melhore seus textos mantendo o sentido original.</p>
-                            </button>
-
-                            <button data-inteligencia-nav="corretor" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
-                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                                    <i class="fas fa-spell-check text-green-600 text-xl"></i>
-                                </div>
-                                <h4 class="text-lg font-bold text-primary mb-2">Corretor Ortográfico</h4>
-                                <p class="text-gray-600 text-sm">Corrija erros de gramática, ortografia e pontuação instantaneamente.</p>
-                            </button>
-
-                            <button data-inteligencia-nav="detector-ia" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
-                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                                    <i class="fas fa-robot text-purple-600 text-xl"></i>
-                                </div>
-                                <h4 class="text-lg font-bold text-primary mb-2">Detector de IA</h4>
-                                <p class="text-gray-600 text-sm">Identifique se um texto foi escrito por Inteligência Artificial.</p>
-                            </button>
-
-                            <button data-inteligencia-nav="humanizar" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
-                                <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                                    <i class="fas fa-user-edit text-indigo-600 text-xl"></i>
-                                </div>
-                                <h4 class="text-lg font-bold text-primary mb-2">Humanizar Texto</h4>
-                                <p class="text-gray-600 text-sm">Transforme textos de IA em linguagem natural e humana.</p>
-                            </button>
-
-                            <button data-inteligencia-nav="tradutor" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
-                                <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                                    <i class="fas fa-language text-orange-600 text-xl"></i>
-                                </div>
-                                <h4 class="text-lg font-bold text-primary mb-2">Tradutor</h4>
-                                <p class="text-gray-600 text-sm">Traduza textos para mais de 50 idiomas com precisão.</p>
-                            </button>
-
-                            <button data-inteligencia-nav="resumidor" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
-                                <div class="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
-                                    <i class="fas fa-compress-alt text-teal-600 text-xl"></i>
-                                </div>
-                                <h4 class="text-lg font-bold text-primary mb-2">Resumidor de Texto</h4>
-                                <p class="text-gray-600 text-sm">Crie resumos curtos e objetivos de textos longos.</p>
-                            </button>
+            <!-- corretor -->
+            <div data-inteligencia-panel="corretor" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-spell-check text-slate-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Clássicas</span><h3 class="font-bold text-primary text-base mt-0.5">Corretor Ortográfico</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto Original</label><textarea data-inteligencia-input="corretor" placeholder="Cole o texto para corrigir..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Texto Corrigido</label><button data-copy-btn="corretor" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="corretor" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
                         </div>
                     </div>
+                    <div class="mt-4"><button data-inteligencia-process="corretor" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-check-circle"></i> Corrigir</button></div>
                 </div>
+            </div>
 
-                <!-- Reescrever Panel -->
-                <div data-inteligencia-panel="reescrever" class="hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold text-primary mb-6">Reescrever Texto</h3>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
-                                <textarea data-inteligencia-input="reescrever" placeholder="Cole seu texto aqui..." 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Reescrito</label>
-                                <textarea data-inteligencia-output="reescrever" readonly 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
-                            </div>
-                        </div>
-                        <button data-inteligencia-process="reescrever" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
-                            Reescrever
-                        </button>
+            <!-- detector-ia -->
+            <div data-inteligencia-panel="detector-ia" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-robot text-slate-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Clássicas</span><h3 class="font-bold text-primary text-base mt-0.5">Detector de IA</h3></div>
                     </div>
-                </div>
-
-                <!-- Corretor Panel -->
-                <div data-inteligencia-panel="corretor" class="hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold text-primary mb-6">Corretor Ortográfico</h3>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
-                                <textarea data-inteligencia-input="corretor" placeholder="Cole seu texto aqui..." 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Corrigido</label>
-                                <textarea data-inteligencia-output="corretor" readonly 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
-                            </div>
+                    <label class="text-xs font-semibold text-gray-500 block mb-1.5">Texto para Análise</label>
+                    <textarea data-inteligencia-input="detector-ia" placeholder="Cole o texto para analisar..." class="w-full min-h-[180px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm mb-4"></textarea>
+                    <button data-inteligencia-process="detector-ia" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-search"></i> Analisar</button>
+                    <div data-inteligencia-output="detector-ia" class="mt-5 hidden bg-slate-50 border border-gray-200 p-5 rounded-xl">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="font-semibold text-gray-700 text-sm">Probabilidade de IA</span>
+                            <span data-ia-percentage class="text-3xl font-bold text-secondary">0%</span>
                         </div>
-                        <button data-inteligencia-process="corretor" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
-                            Corrigir
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Detector IA Panel -->
-                <div data-inteligencia-panel="detector-ia" class="hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold text-primary mb-6">Detector de IA</h3>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Texto para Análise</label>
-                        <textarea data-inteligencia-input="detector-ia" placeholder="Cole o texto para análise..." 
-                                  class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none mb-4"></textarea>
-                        <button data-inteligencia-process="detector-ia" class="bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
-                            Analisar
-                        </button>
-                        <div data-inteligencia-output="detector-ia" class="mt-6 hidden bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-center justify-between mb-4">
-                                <span class="text-lg font-semibold text-gray-700">Probabilidade de IA:</span>
-                                <span data-ia-percentage class="text-3xl font-bold text-secondary">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-300 rounded-full h-3">
-                                <div data-ia-bar class="bg-secondary h-3 rounded-full" style="width: 0%;"></div>
-                            </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
+                            <div data-ia-bar class="bg-secondary h-3 rounded-full transition-all duration-700" style="width:0%"></div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Humanizar Panel -->
-                <div data-inteligencia-panel="humanizar" class="hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold text-primary mb-6">Humanizar Texto</h3>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto de IA</label>
-                                <textarea data-inteligencia-input="humanizar" placeholder="Cole o texto gerado por IA..." 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Humanizado</label>
-                                <textarea data-inteligencia-output="humanizar" readonly 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
-                            </div>
-                        </div>
-                        <button data-inteligencia-process="humanizar" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
-                            Humanizar
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tradutor Panel -->
-                <div data-inteligencia-panel="tradutor" class="hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold text-primary mb-6">Tradutor</h3>
-                        <div class="grid grid-cols-2 gap-6 mb-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Idioma Original</label>
-                                <select data-inteligencia-source-lang class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary">
-                                    <option value="pt">Português</option>
-                                    <option value="en">Inglês</option>
-                                    <option value="es">Espanhol</option>
-                                    <option value="fr">Francês</option>
-                                    <option value="de">Alemão</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Idioma Destino</label>
-                                <select data-inteligencia-target-lang class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary">
-                                    <option value="en">Inglês</option>
-                                    <option value="pt">Português</option>
-                                    <option value="es">Espanhol</option>
-                                    <option value="fr">Francês</option>
-                                    <option value="de">Alemão</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
-                                <textarea data-inteligencia-input="tradutor" placeholder="Cole o texto a traduzir..." 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Traduzido</label>
-                                <textarea data-inteligencia-output="tradutor" readonly 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
-                            </div>
-                        </div>
-                        <button data-inteligencia-process="tradutor" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
-                            Traduzir
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Resumidor Panel -->
-                <div data-inteligencia-panel="resumidor" class="hidden">
-                    <div class="bg-white rounded-xl shadow-lg p-6">
-                        <h3 class="text-2xl font-bold text-primary mb-6">Resumidor de Texto</h3>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
-                                <textarea data-inteligencia-input="resumidor" placeholder="Cole o texto a resumir..." 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Resumo</label>
-                                <textarea data-inteligencia-output="resumidor" readonly 
-                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
-                            </div>
-                        </div>
-                        <button data-inteligencia-process="resumidor" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
-                            Resumir
-                        </button>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
 
-    <script src="/js/inteligencia.js"></script>
+            <!-- humanizar -->
+            <div data-inteligencia-panel="humanizar" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-user-edit text-slate-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Clássicas</span><h3 class="font-bold text-primary text-base mt-0.5">Humanizar Texto</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto de IA</label><textarea data-inteligencia-input="humanizar" placeholder="Cole o texto gerado por IA..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Texto Humanizado</label><button data-copy-btn="humanizar" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="humanizar" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="humanizar" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-user"></i> Humanizar</button></div>
+                </div>
+            </div>
+
+            <!-- tradutor -->
+            <div data-inteligencia-panel="tradutor" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-language text-slate-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Clássicas</span><h3 class="font-bold text-primary text-base mt-0.5">Tradutor</h3></div>
+                    </div>
+                    <div class="flex gap-4 mb-4 flex-wrap">
+                        <div><label class="text-xs font-semibold text-gray-500 block mb-1">De</label><select data-opt="tradutor" data-opt-key="sourceLang" class="sel-opt"><option value="pt">Português</option><option value="en">Inglês</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="zh">Chinês</option></select></div>
+                        <div><label class="text-xs font-semibold text-gray-500 block mb-1">Para</label><select data-opt="tradutor" data-opt-key="targetLang" class="sel-opt"><option value="en">Inglês</option><option value="pt">Português</option><option value="es">Espanhol</option><option value="fr">Francês</option><option value="de">Alemão</option><option value="it">Italiano</option><option value="ja">Japonês</option><option value="zh">Chinês</option></select></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto Original</label><textarea data-inteligencia-input="tradutor" placeholder="Cole o texto a traduzir..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Tradução</label><button data-copy-btn="tradutor" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="tradutor" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="tradutor" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-globe"></i> Traduzir</button></div>
+                </div>
+            </div>
+
+            <!-- resumidor -->
+            <div data-inteligencia-panel="resumidor" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-compress-alt text-slate-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Clássicas</span><h3 class="font-bold text-primary text-base mt-0.5">Resumidor de Texto</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto Original</label><textarea data-inteligencia-input="resumidor" placeholder="Cole o texto a resumir..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Resumo</label><button data-copy-btn="resumidor" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="resumidor" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="resumidor" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-compress-alt"></i> Resumir</button></div>
+                </div>
+            </div>
+
+            <!-- reformular-tom -->
+            <div data-inteligencia-panel="reformular-tom" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><i class="fas fa-sliders-h text-blue-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Comunicação</span><h3 class="font-bold text-primary text-base mt-0.5">Reformular Tom</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Tom desejado</label><select data-opt="reformular-tom" data-opt-key="tom" class="sel-opt"><option value="Formal">Formal</option><option value="Casual">Casual</option><option value="Técnico">Técnico</option><option value="Persuasivo">Persuasivo</option><option value="Criativo">Criativo</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto Original</label><textarea data-inteligencia-input="reformular-tom" placeholder="Cole o texto para reformular..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Texto Reformulado</label><button data-copy-btn="reformular-tom" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="reformular-tom" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="reformular-tom" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-sliders-h"></i> Reformular</button></div>
+                </div>
+            </div>
+
+            <!-- email-profissional -->
+            <div data-inteligencia-panel="email-profissional" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><i class="fas fa-envelope text-blue-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Comunicação</span><h3 class="font-bold text-primary text-base mt-0.5">E-mail Profissional</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Tipo de e-mail</label><select data-opt="email-profissional" data-opt-key="tipo" class="sel-opt"><option value="Profissional">Profissional</option><option value="Solicitação">Solicitação</option><option value="Seguimento">Seguimento / Follow-up</option><option value="Apresentação">Apresentação</option><option value="Agradecimento">Agradecimento</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva a situação</label><textarea data-inteligencia-input="email-profissional" placeholder="Ex: Preciso pedir ao RH aprovação para home office dois dias por semana..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">E-mail Gerado</label><button data-copy-btn="email-profissional" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="email-profissional" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="email-profissional" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-paper-plane"></i> Gerar E-mail</button></div>
+                </div>
+            </div>
+
+            <!-- resposta-critica -->
+            <div data-inteligencia-panel="resposta-critica" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><i class="fas fa-comment-alt text-blue-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Comunicação</span><h3 class="font-bold text-primary text-base mt-0.5">Resposta a Crítica</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Crítica / Avaliação negativa</label><textarea data-inteligencia-input="resposta-critica" placeholder="Cole a crítica ou avaliação negativa recebida..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Resposta Profissional</label><button data-copy-btn="resposta-critica" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="resposta-critica" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="resposta-critica" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-reply"></i> Gerar Resposta</button></div>
+                </div>
+            </div>
+
+            <!-- whatsapp-pro -->
+            <div data-inteligencia-panel="whatsapp-pro" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><i class="fab fa-whatsapp text-blue-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Comunicação</span><h3 class="font-bold text-primary text-base mt-0.5">WhatsApp Pro</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Direção</label><select data-opt="whatsapp-pro" data-opt-key="direcao" class="sel-opt"><option value="informal-para-formal">Informal → Profissional</option><option value="formal-para-informal">Profissional → Casual</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Mensagem Original</label><textarea data-inteligencia-input="whatsapp-pro" placeholder="Ex: oi, cê pode me mandar o relatorio de ontem? obg" class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Mensagem Transformada</label><button data-copy-btn="whatsapp-pro" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="whatsapp-pro" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="whatsapp-pro" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fab fa-whatsapp"></i> Transformar</button></div>
+                </div>
+            </div>
+
+            <!-- roteiro-conversa -->
+            <div data-inteligencia-panel="roteiro-conversa" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0"><i class="fas fa-comments text-blue-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Comunicação</span><h3 class="font-bold text-primary text-base mt-0.5">Roteiro de Conversa</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Tipo de conversa</label><select data-opt="roteiro-conversa" data-opt-key="tipo" class="sel-opt"><option value="Feedback">Feedback difícil</option><option value="Pedido de Aumento">Pedido de aumento</option><option value="Conversa com Cliente">Conversa com cliente</option><option value="Demissão">Demissão de funcionário</option><option value="Negociação">Negociação</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva o contexto</label><textarea data-inteligencia-input="roteiro-conversa" placeholder="Ex: Preciso dar feedback para um colega que está entregando projetos atrasados há 3 meses..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Roteiro Gerado</label><button data-copy-btn="roteiro-conversa" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="roteiro-conversa" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="roteiro-conversa" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-map-signs"></i> Gerar Roteiro</button></div>
+                </div>
+            </div>
+
+            <!-- reclamacao -->
+            <div data-inteligencia-panel="reclamacao" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0"><i class="fas fa-file-alt text-violet-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">Burocracia</span><h3 class="font-bold text-primary text-base mt-0.5">Carta de Reclamação</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva o problema</label><textarea data-inteligencia-input="reclamacao" placeholder="Ex: Comprei um produto na loja X em 15/01, ele parou de funcionar em 3 dias, já fui na loja duas vezes e não resolveram..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Carta Gerada</label><button data-copy-btn="reclamacao" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="reclamacao" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="reclamacao" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-file-alt"></i> Gerar Carta</button></div>
+                </div>
+            </div>
+
+            <!-- recurso-multa -->
+            <div data-inteligencia-panel="recurso-multa" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0"><i class="fas fa-car text-violet-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">Burocracia</span><h3 class="font-bold text-primary text-base mt-0.5">Recurso de Multa de Trânsito</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Informe os dados da multa</label><textarea data-inteligencia-input="recurso-multa" placeholder="Ex: Multa por excesso de velocidade na Av. Brasil, placa ABC-1234, em 20/03/2025 às 14h. Estava a 72 km/h em via sinalizada como 60..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Recurso Gerado</label><button data-copy-btn="recurso-multa" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="recurso-multa" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="recurso-multa" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-gavel"></i> Gerar Recurso</button></div>
+                </div>
+            </div>
+
+            <!-- carta-apresentacao -->
+            <div data-inteligencia-panel="carta-apresentacao" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0"><i class="fas fa-id-card text-violet-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">Burocracia</span><h3 class="font-bold text-primary text-base mt-0.5">Carta de Apresentação</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Sua experiência e a vaga</label><textarea data-inteligencia-input="carta-apresentacao" placeholder="Ex: Sou formado em Administração, 5 anos de experiência em vendas B2B, estou me candidatando para gerente comercial na empresa Y..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Carta Gerada</label><button data-copy-btn="carta-apresentacao" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="carta-apresentacao" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="carta-apresentacao" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-file-signature"></i> Gerar Carta</button></div>
+                </div>
+            </div>
+
+            <!-- peticao-simples -->
+            <div data-inteligencia-panel="peticao-simples" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0"><i class="fas fa-stamp text-violet-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">Burocracia</span><h3 class="font-bold text-primary text-base mt-0.5">Petição Simples</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Destino</label><select data-opt="peticao-simples" data-opt-key="orgao" class="sel-opt"><option value="PROCON">PROCON</option><option value="Prefeitura">Prefeitura</option><option value="INSS">INSS</option><option value="Receita Federal">Receita Federal</option><option value="Tribunal">Tribunal</option><option value="outro órgão público">Outro órgão público</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva sua solicitação</label><textarea data-inteligencia-input="peticao-simples" placeholder="Ex: Solicitar revisão do benefício negado pelo INSS, número do processo 123456, já enviei os documentos mas não obtive resposta..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Petição Gerada</label><button data-copy-btn="peticao-simples" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="peticao-simples" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="peticao-simples" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-stamp"></i> Gerar Petição</button></div>
+                </div>
+            </div>
+
+            <!-- discurso -->
+            <div data-inteligencia-panel="discurso" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0"><i class="fas fa-microphone text-pink-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">Vida Pessoal</span><h3 class="font-bold text-primary text-base mt-0.5">Discurso</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Tipo de evento</label><select data-opt="discurso" data-opt-key="evento" class="sel-opt"><option value="Casamento">Casamento</option><option value="Formatura">Formatura</option><option value="Despedida">Despedida</option><option value="Aniversário">Aniversário</option><option value="Homenagem">Homenagem</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Informações sobre a pessoa / evento</label><textarea data-inteligencia-input="discurso" placeholder="Ex: Meu amigo João se forma em medicina. Nos conhecemos há 10 anos, ele é muito dedicado e vai trabalhar numa cidade do interior..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Discurso Gerado</label><button data-copy-btn="discurso" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="discurso" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="discurso" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-microphone"></i> Gerar Discurso</button></div>
+                </div>
+            </div>
+
+            <!-- mensagem-especial -->
+            <div data-inteligencia-panel="mensagem-especial" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0"><i class="fas fa-heart text-pink-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">Vida Pessoal</span><h3 class="font-bold text-primary text-base mt-0.5">Mensagem Especial</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Ocasião</label><select data-opt="mensagem-especial" data-opt-key="tipo" class="sel-opt"><option value="Aniversário">Aniversário</option><option value="Homenagem">Homenagem</option><option value="Condolências">Condolências</option><option value="Parabéns Profissional">Parabéns profissional</option><option value="Declaração de Amor">Declaração de amor</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Informações sobre a pessoa</label><textarea data-inteligencia-input="mensagem-especial" placeholder="Ex: Minha mãe faz 60 anos, ela é professora aposentada, adora cozinhar, sempre nos apoiou muito..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Mensagem Gerada</label><button data-copy-btn="mensagem-especial" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="mensagem-especial" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="mensagem-especial" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-heart"></i> Gerar Mensagem</button></div>
+                </div>
+            </div>
+
+            <!-- bio-perfil -->
+            <div data-inteligencia-panel="bio-perfil" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center shrink-0"><i class="fas fa-user-circle text-pink-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">Vida Pessoal</span><h3 class="font-bold text-primary text-base mt-0.5">Bio &amp; Perfil</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Plataforma</label><select data-opt="bio-perfil" data-opt-key="plataforma" class="sel-opt"><option value="LinkedIn">LinkedIn</option><option value="Instagram">Instagram</option><option value="Tinder">Tinder</option><option value="Apresentação">Apresentação profissional</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Suas informações</label><textarea data-inteligencia-input="bio-perfil" placeholder="Ex: Sou designer gráfico, 7 anos de experiência, especialista em branding, trabalho com marcas de moda e lifestyle..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Bio Gerada</label><button data-copy-btn="bio-perfil" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="bio-perfil" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="bio-perfil" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-user-circle"></i> Gerar Bio</button></div>
+                </div>
+            </div>
+
+            <!-- ata-reuniao -->
+            <div data-inteligencia-panel="ata-reuniao" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0"><i class="fas fa-clipboard-list text-emerald-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Trabalho</span><h3 class="font-bold text-primary text-base mt-0.5">Ata de Reunião</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Anotações da reunião</label><textarea data-inteligencia-input="ata-reuniao" placeholder="Cole suas anotações bagunçadas... data, participantes, assuntos discutidos, decisões, próximos passos..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Ata Formatada</label><button data-copy-btn="ata-reuniao" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="ata-reuniao" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="ata-reuniao" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-clipboard-check"></i> Gerar Ata</button></div>
+                </div>
+            </div>
+
+            <!-- descricao-produto -->
+            <div data-inteligencia-panel="descricao-produto" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0"><i class="fas fa-tag text-emerald-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Trabalho</span><h3 class="font-bold text-primary text-base mt-0.5">Descrição de Produto</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Canal de venda</label><select data-opt="descricao-produto" data-opt-key="canal" class="sel-opt"><option value="Marketplace">Marketplace (Mercado Livre, Shopee...)</option><option value="Instagram">Instagram / TikTok</option><option value="Site">Site / E-commerce</option><option value="WhatsApp">WhatsApp</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva o produto</label><textarea data-inteligencia-input="descricao-produto" placeholder="Ex: Tênis casual masculino couro legítimo, cor caramelo, solado antiderrapante, disponível do 38 ao 44, R$189..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Descrição Gerada</label><button data-copy-btn="descricao-produto" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="descricao-produto" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="descricao-produto" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-tag"></i> Gerar Descrição</button></div>
+                </div>
+            </div>
+
+            <!-- proposta-comercial -->
+            <div data-inteligencia-panel="proposta-comercial" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0"><i class="fas fa-handshake text-emerald-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Trabalho</span><h3 class="font-bold text-primary text-base mt-0.5">Proposta Comercial</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva serviço, preço e contexto</label><textarea data-inteligencia-input="proposta-comercial" placeholder="Ex: Ofereço serviço de gestão de redes sociais para pequenos negócios. Inclui 3 posts/semana, stories diários e relatório mensal. Valor R$800/mês..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Proposta Gerada</label><button data-copy-btn="proposta-comercial" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="proposta-comercial" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="proposta-comercial" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-handshake"></i> Gerar Proposta</button></div>
+                </div>
+            </div>
+
+            <!-- gerador-nome -->
+            <div data-inteligencia-panel="gerador-nome" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><i class="fas fa-lightbulb text-amber-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Criatividade</span><h3 class="font-bold text-primary text-base mt-0.5">Gerador de Nome</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">O que você quer nomear?</label><select data-opt="gerador-nome" data-opt-key="tipo" class="sel-opt"><option value="Empresa">Empresa</option><option value="Produto">Produto</option><option value="Personagem">Personagem</option><option value="Pet">Pet</option><option value="Projeto">Projeto</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Descreva a ideia</label><textarea data-inteligencia-input="gerador-nome" placeholder="Ex: Empresa de cupcakes artesanais para festas infantis, foco em personalização, público feminino..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">5 Opções Geradas</label><button data-copy-btn="gerador-nome" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="gerador-nome" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="gerador-nome" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-lightbulb"></i> Gerar Nomes</button></div>
+                </div>
+            </div>
+
+            <!-- roteiro-video -->
+            <div data-inteligencia-panel="roteiro-video" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><i class="fas fa-video text-amber-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Criatividade</span><h3 class="font-bold text-primary text-base mt-0.5">Roteiro de Vídeo Curto</h3></div>
+                    </div>
+                    <div class="mb-4"><label class="text-xs font-semibold text-gray-500 block mb-1.5">Plataforma</label><select data-opt="roteiro-video" data-opt-key="plataforma" class="sel-opt"><option value="Instagram Reels">Instagram Reels</option><option value="TikTok">TikTok</option><option value="YouTube Shorts">YouTube Shorts</option></select></div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Tema / produto / ideia</label><textarea data-inteligencia-input="roteiro-video" placeholder="Ex: Vídeo sobre como economizar dinheiro no supermercado, público jovem adulto, tom descontraído e prático..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Roteiro Gerado</label><button data-copy-btn="roteiro-video" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="roteiro-video" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="roteiro-video" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-video"></i> Gerar Roteiro</button></div>
+                </div>
+            </div>
+
+            <!-- gerador-piada -->
+            <div data-inteligencia-panel="gerador-piada" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><i class="fas fa-laugh text-amber-500 text-base"></i></div>
+                        <div><span class="text-[10px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Criatividade</span><h3 class="font-bold text-primary text-base mt-0.5">Gerador de Piada</h3></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Tema</label><textarea data-inteligencia-input="gerador-piada" placeholder="Ex: programadores, segunda-feira, café, gatos..." class="flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Piadas Geradas</label><button data-copy-btn="gerador-piada" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="gerador-piada" readonly class="output-area flex-1 min-h-[200px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-process="gerador-piada" class="process-btn bg-secondary hover:bg-yellow-400 text-primary font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-laugh"></i> Gerar Piadas</button></div>
+                </div>
+            </div>
+
+            <!-- limpador (client-side) -->
+            <div data-inteligencia-panel="limpador" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-broom text-slate-500 text-base"></i></div>
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Utilitários</span>
+                            <h3 class="font-bold text-primary text-base mt-0.5">Limpador de Texto</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-4">Remove tags HTML, normaliza espaços, caracteres especiais e quebras de linha. Processamento 100% local — sem IA.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5"><label class="text-xs font-semibold text-gray-500">Texto com sujeira</label><textarea data-inteligencia-input="limpador" placeholder="Cole texto com formatação estranha, tags HTML, espaços duplos, caracteres especiais..." class="flex-1 min-h-[220px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea></div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between"><label class="text-xs font-semibold text-gray-500">Texto Limpo</label><button data-copy-btn="limpador" class="copy-btn text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all"><i class="fas fa-copy"></i> Copiar</button></div>
+                            <textarea data-inteligencia-output="limpador" readonly class="output-area flex-1 min-h-[220px] px-4 py-3 border border-gray-200 rounded-xl bg-slate-50 resize-none text-sm"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-4"><button data-inteligencia-client="limpador" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 text-sm"><i class="fas fa-broom"></i> Limpar Texto</button></div>
+                </div>
+            </div>
+
+            <!-- contador (client-side) -->
+            <div data-inteligencia-panel="contador" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fas fa-calculator text-slate-500 text-base"></i></div>
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full">Utilitários</span>
+                            <h3 class="font-bold text-primary text-base mt-0.5">Contador Avançado</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-4">Estatísticas em tempo real enquanto você digita. Processamento 100% local — sem IA.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-xs font-semibold text-gray-500">Seu texto</label>
+                            <textarea data-inteligencia-input="contador" placeholder="Digite ou cole seu texto aqui..." class="flex-1 min-h-[300px] px-4 py-3 border border-gray-200 rounded-xl resize-none text-sm"></textarea>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-xs font-semibold text-gray-500">Estatísticas</label>
+                            <div data-contador-stats class="flex-1 min-h-[300px] p-4 border border-gray-200 rounded-xl bg-slate-50 overflow-y-auto">
+                                <p class="text-gray-400 text-xs text-center py-8">Digite ou cole um texto ao lado para ver as estatísticas em tempo real.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end content area -->
+    </main>
+</div><!-- end app -->
+
+<script src="/js/inteligencia.js"></script>
 </body>
 </html>
