@@ -57,8 +57,8 @@ function handler(req, res) {
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
   if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
-  if (body.action === "inteligencia") return handleInteligencia(req, res);
-  if (body.action === "validate-token") {
+  if (body.action === "inteligencia" || req.query.action === "inteligencia") return handleInteligencia(req, res);
+  if (body.action === "validate-token" || req.query.action === "validate-token") {
     const token = req.body?.token || '';
     return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
   }
