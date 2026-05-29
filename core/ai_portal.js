@@ -231,7 +231,7 @@ MÉTRICAS DE VALIDAÇÃO
 — TITULO: contar caracteres. Mínimo 55, máximo 65. Ajustar se necessário.
 — META_TITLE: máximo 55 caracteres absolutos.
 — META_DESCRICAO: intervalo estrito 141–155 caracteres. Contar e ajustar.
-— CORPO: mínimo 5.000 caracteres.
+— CORPO: mirar entre 2.000 e 4.500 caracteres em matérias padrão. Curto pode; pobre não pode. Se a fonte for pequena, ampliar com contexto factual seguro, sem inventar.
 — PARAGRAFOS: cada <p> MÁXIMO 3 sentenças E MÁXIMO 350 caracteres — parágrafo único longo é FALHA CRÍTICA que invalida o conteúdo. Se um <p> ultrapassar 350 chars, dividir obrigatoriamente em dois ou mais <p>.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO.
 — CONCLUSAO_OVC: seção obrigatória com exatamente <h2>Conclusão OVC</h2> ao final do CORPO.
@@ -591,7 +591,7 @@ MÉTRICAS DE VALIDAÇÃO
 — TITULO: mínimo 55, máximo 65 caracteres
 — META_TITLE: máximo 55 caracteres
 — META_DESCRICAO: intervalo estrito 141–155 caracteres
-— CORPO: mínimo 5.000 caracteres.
+— CORPO: mirar entre 2.000 e 4.500 caracteres em matérias padrão. Curto pode; pobre não pode. Se a fonte for pequena, ampliar com contexto factual seguro, sem inventar.
 — PARAGRAFOS: cada <p> MÁXIMO 3 sentenças E MÁXIMO 350 caracteres — parágrafo único longo é FALHA CRÍTICA que invalida o conteúdo. Se um <p> ultrapassar 350 chars, dividir obrigatoriamente em dois ou mais <p>.
 — FOCO_KEYWORD: mínimo 3 ocorrências naturais no CORPO
 — CONCLUSAO_OVC: seção obrigatória com exatamente <h2>Conclusão OVC</h2> ao final do CORPO.
@@ -636,40 +636,84 @@ export function normalizarParagrafos(html) {
   return result;
 }
 
+const PROIBIDOS_ABERTURA = ["prezado", "caro", "dear", "editor(a)", "redator-chefe", "headline:", "assunto:", "erro:", "teste:"];
+
+const OVC_REPAIR_RULES = `
+REESCRITA CORRETIVA OVC:
+- Nunca inventar fatos, datas, valores, fontes, crimes, intencoes ou declaracoes.
+- Usar apenas fatos verificaveis do material recebido. Se algo for incerto, escrever [VERIFICAR].
+- O artigo final deve ser diferente da fonte: novo angulo, nova estrutura, nova abertura e analise propria.
+- Proibido copiar, resumir mecanicamente ou apenas trocar palavras da fonte.
+- Padrao OVC: texto humano, juridicamente cauteloso, factual, com atribuicao quando houver numero ou acusacao.
+- Para materia padrao, mirar 2.000 a 4.500 caracteres no CORPO. Curto pode; pobre nao pode.
+- Usar paragrafos curtos: cada <p> com no maximo 3 frases e 350 caracteres.
+- Incluir obrigatoriamente assinatura, secoes com <h2>, <h2>Conclusao OVC</h2>, <h2>Perguntas frequentes</h2> e <h2>Temas relacionados</h2>.
+- Retornar exatamente os mesmos campos tecnicos do formato OVC, sem texto antes ou depois.
+`;
+
+function auditarConteudoOVC(result, opts = {}) {
+  const corpo = result?.corpo || "";
+  const titulo = (result?.titulo || "").toLowerCase().trim();
+  const issues = [];
+  if (!result || !result.titulo || !corpo) issues.push("estrutura incompleta");
+  if (titulo.length < 15 || titulo.length > 120) issues.push("titulo fora do tamanho seguro");
+  if (PROIBIDOS_ABERTURA.some(p => titulo.startsWith(p) || corpo.slice(0, 160).toLowerCase().includes(p))) issues.push("abertura invalida");
+  if (opts.minChars && corpo.trim().length < opts.minChars) issues.push(`corpo curto: ${corpo.trim().length}/${opts.minChars}`);
+  if (opts.minParagraphs && (corpo.match(/<p>/gi) || []).length < opts.minParagraphs) issues.push("poucos paragrafos");
+  if (opts.requireSignature && !/<p>\s*<strong>Reda/i.test(corpo)) issues.push("assinatura ausente");
+  if (opts.requireConclusion && !/<h2>\s*Conclus/i.test(corpo)) issues.push("Conclusao OVC ausente");
+  if (opts.requireFaq && !/<h2>\s*Perguntas frequentes\s*<\/h2>/i.test(corpo)) issues.push("FAQ ausente");
+  if (opts.requireRelated && !/<h2>\s*Temas relacionados\s*<\/h2>/i.test(corpo)) issues.push("temas relacionados ausentes");
+  if (/\*\*|^##|\n##|\n\s*[-*]\s+/m.test(corpo)) issues.push("markdown no corpo");
+  return issues;
+}
+
+function buildRepairContent(originalUserContent, issues) {
+  return `${originalUserContent}
+
+O conteudo anterior falhou na auditoria editorial OVC:
+${issues.map(i => `- ${i}`).join("\n")}
+
+Reescreva integralmente agora, corrigindo os pontos acima e obedecendo ao padrao editorial.`;
+}
+
+async function gerarComRevisao(kernel, userContent, {
+  maxTokens = 8192,
+  auditOptions = {},
+  tipoConteudo = "padrao"
+} = {}) {
+  let raw = await callOpenAI(kernel + "\n\n" + OVC_REPAIR_RULES, userContent, maxTokens);
+  let result = parse(raw);
+  let issues = auditarConteudoOVC(result, auditOptions);
+  if (issues.length > 0) {
+    raw = await callOpenAI(kernel + "\n\n" + OVC_REPAIR_RULES, buildRepairContent(userContent, issues), maxTokens);
+    result = parse(raw);
+    issues = auditarConteudoOVC(result, auditOptions);
+  }
+  if (issues.length > 0) {
+    throw new Error(`Conteudo fora do padrao OVC apos reescrita corretiva: ${issues.join("; ")}`);
+  }
+  result.tipo_conteudo = tipoConteudo;
+  result.corpo = normalizarParagrafos(result.corpo);
+  return result;
+}
+
 export async function rewritePortalManual(text, title, context = '', useGemini = false) {
   const kernel = REESCRITA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callOpenAI(kernel, userContent);
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 3000) {
-    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  const tituloLower = (result.titulo || "").toLowerCase().trim();
-  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
-  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
-  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
-    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
-  }
-  result.corpo = normalizarParagrafos(result.corpo);
-  return result;
+  return gerarComRevisao(kernel, userContent, {
+    auditOptions: { minChars: 2000, minParagraphs: 7, requireSignature: true, requireConclusion: true, requireFaq: true, requireRelated: true },
+    tipoConteudo: "padrao"
+  });
 }
 
 export async function rewritePortal(text, title, context = '', useGemini = false) {
   const kernel = SYSTEM_KERNEL.replace("{DATA_DE_HOJE}", hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callOpenAI(kernel, userContent);
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 4000) {
-    throw new Error("Conteúdo gerado insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  const tituloLower = (result.titulo || "").toLowerCase().trim();
-  const corpoInicio = result.corpo.slice(0, 100).toLowerCase();
-  const proibidos = ["prezado", "caro usuário", "olá,", "atenção:", "dear", "editor(a)", "redator-chefe"];
-  if (proibidos.some(p => tituloLower.startsWith(p) || corpoInicio.includes(p))) {
-    throw new Error("Conteúdo rejeitado — título ou abertura inválida");
-  }
-  result.corpo = normalizarParagrafos(result.corpo);
-  return result;
+  return gerarComRevisao(kernel, userContent, {
+    auditOptions: { minChars: 2000, minParagraphs: 7, requireSignature: true, requireConclusion: true, requireFaq: true, requireRelated: true },
+    tipoConteudo: "padrao"
+  });
 }
 
 // ── KERNEL PÍLULA — AUTORIZADO PELO DONO EM 27/05/2026 — NÃO ALTERAR SEM AUTORIZAÇÃO ──
@@ -873,39 +917,29 @@ MÍNIMO 8.000 caracteres no CORPO total.]`;
 export async function rewritePilula(text, title, context = '') {
   const kernel = PILULA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callOpenAI(kernel, userContent);
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 700) {
-    throw new Error("Pílula insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  result.tipo_conteudo = 'pilula';
-  result.corpo = normalizarParagrafos(result.corpo);
-  return result;
+  return gerarComRevisao(kernel, userContent, {
+    auditOptions: { minChars: 800, minParagraphs: 3, requireSignature: true },
+    tipoConteudo: "pilula"
+  });
 }
 
 export async function rewriteMicroPilula(text, title, context = '') {
   const kernel = MICROPILULA_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callOpenAI(kernel, userContent);
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 350) {
-    throw new Error("Micro-pílula insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  result.tipo_conteudo = 'micropilula';
-  return result;
+  return gerarComRevisao(kernel, userContent, {
+    auditOptions: { minChars: 400, minParagraphs: 2, requireSignature: true },
+    tipoConteudo: "micropilula"
+  });
 }
 
 export async function rewriteInvestigativo(text, title, context = '') {
   const kernel = INVESTIGATIVO_KERNEL.replace(/{DATA_DE_HOJE}/g, hoje());
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callOpenAI(kernel, userContent, 16000);
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 10000) {
-    throw new Error("Investigativo insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  result.tipo_conteudo = 'investigativo';
-  result.corpo = normalizarParagrafos(result.corpo);
-  return result;
+  return gerarComRevisao(kernel, userContent, {
+    maxTokens: 16000,
+    auditOptions: { minChars: 8000, minParagraphs: 16, requireSignature: true, requireConclusion: true },
+    tipoConteudo: "investigativo"
+  });
 }
 
 export async function rewriteColuna(colunistaNome, tema, referencias = '', contexto = '') {
@@ -914,13 +948,11 @@ export async function rewriteColuna(colunistaNome, tema, referencias = '', conte
   if (referencias) parts.push(`REFERÊNCIAS E LINKS: ${referencias}`);
   if (contexto) parts.push(`CONTEXTO ADICIONAL: ${contexto}`);
   const userContent = parts.join('\n\n');
-  const raw = await callOpenAI(kernel, userContent, 16000);
-  const result = parse(raw);
-  if (!result || !result.corpo || result.corpo.length < 5000) {
-    throw new Error("Coluna insuficiente: " + (result?.corpo?.length || 0) + " chars");
-  }
-  result.tipo_conteudo = 'coluna';
+  const result = await gerarComRevisao(kernel, userContent, {
+    maxTokens: 16000,
+    auditOptions: { minChars: 4000, minParagraphs: 9 },
+    tipoConteudo: "coluna"
+  });
   result.colunista = colunistaNome;
-  result.corpo = normalizarParagrafos(result.corpo);
   return result;
 }
