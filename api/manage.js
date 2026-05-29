@@ -32,6 +32,10 @@ function handler(req, res) {
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
     if (req.query.action === 'seed_rss_lote2') return handleSeedRssLote2(req, res);
+    if (req.query.action === 'validate-token') {
+      const token = req.query.token || '';
+      return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
+    }
     return handleStatus(req, res);
   }
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
@@ -53,10 +57,79 @@ function handler(req, res) {
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
   if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
+  if (body.action === "inteligencia") return handleInteligencia(req, res);
+  if (body.action === "validate-token") {
+    const token = req.body?.token || '';
+    return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
+  }
 
   return handleApprove(req, res);
 }
 export default handler;
+
+// ── INTELIGÊNCIA IA ──────────────────────────────────────────────────────────
+async function _getAIKeys() {
+  try {
+    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
+    const m = {};
+    (data || []).forEach(r => m[r.key] = r.value);
+    return { gemini: m.GEMINI_API_KEY || process.env.GEMINI_API_KEY || "", groq: m.GROQ_API_KEY || process.env.GROQ_API_KEY || "" };
+  } catch (_) { return { gemini: process.env.GEMINI_API_KEY || "", groq: process.env.GROQ_API_KEY || "" }; }
+}
+async function _callGemini(prompt, key) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 2000 } })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error("Gemini: " + (d.error?.message || "erro"));
+  return d.candidates[0].content.parts[0].text;
+}
+async function _callGroq(system, user, key) {
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+    body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: 2000, temperature: 0.7 })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error("Groq: " + (d.error?.message || "erro"));
+  return d.choices[0].message.content;
+}
+async function _callAI(prompt, system, keys) {
+  if (keys.gemini) { try { return await _callGemini(prompt, keys.gemini); } catch (e) { /* fallthrough */ } }
+  if (keys.groq) return await _callGroq(system, prompt, keys.groq);
+  throw new Error("Nenhuma chave de IA configurada");
+}
+const LANGS_MAP = { pt:"Português",en:"Inglês",es:"Espanhol",fr:"Francês",de:"Alemão",it:"Italiano",ja:"Japonês",zh:"Chinês",ar:"Árabe",ru:"Russo" };
+const IA_TOOLS = {
+  reescrever:{ system:"Você é especialista em reescrita de textos em português brasileiro. Retorne APENAS o texto reescrito.", buildPrompt:(t)=>`Reescreva o texto abaixo usando palavras e construções diferentes, mantendo o sentido original. Retorne APENAS o texto reescrito.\n\nTEXTO:\n${t}` },
+  corretor:{ system:"Você é corretor ortográfico especialista em português brasileiro. Retorne APENAS o texto corrigido.", buildPrompt:(t)=>`Corrija todos os erros de ortografia, gramática e pontuação do texto abaixo. Retorne APENAS o texto corrigido.\n\nTEXTO:\n${t}` },
+  "detector-ia":{ system:"Você é especialista em detectar textos gerados por IA. Responda APENAS com JSON válido.", buildPrompt:(t)=>`Analise e estime a probabilidade de ser gerado por IA. Retorne APENAS: {"percentage":75,"reason":"explicação curta"}\n\nTEXTO:\n${t}` },
+  humanizar:{ system:"Você é especialista em tornar textos de IA mais naturais. Retorne APENAS o texto humanizado.", buildPrompt:(t)=>`Reescreva para soar mais natural e humano, removendo padrões de IA. Retorne APENAS o texto.\n\nTEXTO:\n${t}` },
+  tradutor:{ system:"Você é tradutor profissional. Retorne APENAS a tradução.", buildPrompt:(t,o)=>{ const s=LANGS_MAP[o?.sourceLang]||"Português"; const g=LANGS_MAP[o?.targetLang]||"Inglês"; return `Traduza de ${s} para ${g}. Retorne APENAS a tradução.\n\nTEXTO:\n${t}`; } },
+  resumidor:{ system:"Você é especialista em resumos objetivos em português. Retorne APENAS o resumo.", buildPrompt:(t)=>`Crie um resumo claro em até 30% do tamanho original. Retorne APENAS o resumo.\n\nTEXTO:\n${t}` }
+};
+async function handleInteligencia(req, res) {
+  const { tool, text, options } = req.body || {};
+  if (!tool || !text?.trim()) return res.status(400).json({ error: "Informe tool e text" });
+  const cfg = IA_TOOLS[tool];
+  if (!cfg) return res.status(400).json({ error: "Ferramenta desconhecida: " + tool });
+  try {
+    const keys = await _getAIKeys();
+    const raw = await _callAI(cfg.buildPrompt(text.trim(), options), cfg.system, keys);
+    if (tool === "detector-ia") {
+      try {
+        const parsed = JSON.parse(raw.replace(/```json?\s?/g,"").replace(/```/g,"").trim());
+        return res.status(200).json({ ok:true, percentage:Math.min(100,Math.max(0,parseInt(parsed.percentage)||50)), reason:parsed.reason||"" });
+      } catch(_) {
+        const m = raw.match(/\d+/);
+        return res.status(200).json({ ok:true, percentage:m?Math.min(100,parseInt(m[0])):50, reason:raw.slice(0,200) });
+      }
+    }
+    return res.status(200).json({ ok: true, result: raw.trim() });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
 
 async function handleSetupStorage(req, res) {
   try {
