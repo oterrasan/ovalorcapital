@@ -41,6 +41,8 @@ function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
 
   const body = req.body || {};
+  // query.action (via rewrite) tem mesma precedência que body.action
+  if (!body.action && req.query.action) body.action = req.query.action;
 
   if (body.pedidos !== undefined) return handleManual(req, res);
 
@@ -57,8 +59,8 @@ function handler(req, res) {
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
   if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
-  if (body.action === "inteligencia" || req.query.action === "inteligencia") return handleInteligencia(req, res);
-  if (body.action === "validate-token" || req.query.action === "validate-token") {
+  if (body.action === "inteligencia") return handleInteligencia(req, res);
+  if (body.action === "validate-token") {
     const token = req.body?.token || '';
     return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
   }
