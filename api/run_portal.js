@@ -3,7 +3,7 @@ import crypto from "crypto";
 import axios from 'axios';
 import { getNews, getNewsByCategoria, FAMILIA_CAT } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { rewritePortal, rewritePortalManual, rewritePilula, rewriteMicroPilula, buildDynamicContext } from "../core/ai_portal.js";
+import { rewritePortal, rewritePortalManual, buildDynamicContext } from "../core/ai_portal.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
@@ -234,9 +234,9 @@ function corrigirCategoria(titulo, cat) {
 }
 
 function minCharsPorTipo(tipoConteudo = 'padrao') {
-  if (tipoConteudo === 'micropilula') return 300;
-  if (tipoConteudo === 'pilula') return 600;
-  return 1200;
+  if (tipoConteudo === 'micropilula') return 400;
+  if (tipoConteudo === 'pilula') return 800;
+  return 2000;
 }
 
 function validarConteudo(content, minChars = 1200) {
@@ -244,7 +244,15 @@ function validarConteudo(content, minChars = 1200) {
   const titulo = content.titulo.toLowerCase().trim();
   if (titulo.length < 15 || titulo.length > 120) return false;
   if (/^(prezado|caro|ol[aá]|sem t[íi]tulo|t[íi]tulo:|headline:|assunto:|erro:|teste:)/.test(titulo)) return false;
-  if ((content.corpo || '').trim().length < minChars) return false;
+  const corpo = (content.corpo || '').trim();
+  if (corpo.length < minChars) return false;
+  if (!/<p>\s*<strong>Reda/i.test(corpo)) return false;
+  if (!/<h2>\s*Conclus/i.test(corpo)) return false;
+  if (!/<h2>\s*Perguntas frequentes\s*<\/h2>/i.test(corpo)) return false;
+  if (!/<h2>\s*Temas relacionados\s*<\/h2>/i.test(corpo)) return false;
+  if (/\*\*|^##|\n##/m.test(corpo)) return false;
+  if ((corpo.match(/<p>/gi) || []).length < 7) return false;
+  if ((corpo.match(/<h2>/gi) || []).length < 4) return false;
   return true;
 }
 
@@ -302,23 +310,13 @@ async function handleManualPost(req, res) {
     } catch(_) {}
     let content;
     let tipoConteudo = 'padrao';
-    let ultimoErro = '';
-    const tentativas = [
-      ['padrao', rewritePortalManual],
-      ['pilula', rewritePilula],
-      ['micropilula', rewriteMicroPilula],
-    ];
-    for (const [tipo, fn] of tentativas) {
-      try {
-        content = await fn(sourceText, sourceTitle, manualContext);
-        tipoConteudo = tipo;
-        break;
-      } catch(e) {
-        ultimoErro = e?.message || String(e);
-      }
+    try {
+      content = await rewritePortalManual(sourceText, sourceTitle, manualContext);
+    } catch(e) {
+      return res.status(500).json({ error: e?.message || "Conteudo fora do padrao editorial OVC apos reescrita corretiva" });
     }
-    if (!content || !content.corpo || content.corpo.length < 250)
-      return res.status(500).json({ error: ultimoErro || "Conteudo gerado insuficiente" });
+    if (!validarConteudo(content, minCharsPorTipo(tipoConteudo)))
+      return res.status(500).json({ error: "Conteudo fora do padrao editorial OVC apos reescrita corretiva" });
     if (catAlvo && CATS_VALIDAS.has(catAlvo)) {
       content.categoria = catAlvo;
       if (subcatAlvo) { content.subcategoria = subcatAlvo; content.subcategoria_slug = slugify(subcatAlvo); }
@@ -457,8 +455,7 @@ export default async function handler(req, res) {
   // Geração manual (URL ou texto) — sem limite diário
   if (req.method === 'POST' && (body.url || body.texto)) return handleManualPost(req, res);
 
-  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 8);
-  const TIPO_POR_POSICAO = ['padrao','padrao','padrao','padrao','padrao','pilula','pilula','micropilula'];
+  const targetCount = Math.min(parseInt(meta.count || body.count || '1', 10), 1);
 
   if (body.action === 'cleanup_titles') {
     if (!body.force) return res.status(403).json({ error: 'requires force:true' });
@@ -588,29 +585,18 @@ export default async function handler(req, res) {
           .filter(s => s && String(s).trim())
           .join('\n\n')
           .trim();
-        if (!sourceText || sourceText.length < 30) {
+        if (!sourceText || sourceText.length < 400) {
           debug.no_source++;
           return null;
         }
 
-        let tipoConteudo = TIPO_POR_POSICAO[batchPos] || 'padrao';
-        const tentativas = tipoConteudo === 'padrao'
-          ? ['padrao', 'pilula', 'micropilula']
-          : tipoConteudo === 'pilula'
-            ? ['pilula', 'micropilula']
-            : ['micropilula'];
+        let tipoConteudo = 'padrao';
         let content;
-        for (const tentativa of tentativas) {
-          try {
-            if (tentativa === 'micropilula') content = await rewriteMicroPilula(sourceText, item.title, dynamicContext);
-            else if (tentativa === 'pilula') content = await rewritePilula(sourceText, item.title, dynamicContext);
-            else content = await rewritePortal(sourceText, item.title, dynamicContext);
-            tipoConteudo = tentativa;
-            break;
-          } catch(e) {
-            debug.rewrite_error++;
-            rememberError(e?.message || e);
-          }
+        try {
+          content = await rewritePortal(sourceText, item.title, dynamicContext);
+        } catch(e) {
+          debug.rewrite_error++;
+          rememberError(e?.message || e);
         }
         if (!content) return null;
 
