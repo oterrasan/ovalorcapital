@@ -4,9 +4,6 @@ import crypto from "crypto";
 const PASS = 'ovc-admin-2026-secreto';
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Usa a tabela config existente com chaves ig_q_{id}
-// Sem necessidade de criar nova tabela
-
 function newId() { return crypto.randomBytes(8).toString('hex'); }
 
 async function listJobs(status) {
@@ -34,7 +31,26 @@ export default async function handler(req, res) {
 
   const op = req.query.op;
 
-  // ── SETUP (verifica conexão apenas) ─────────────────────────────────────────
+  // ── PROXY DE IMAGEM (resolve CORS da extensão Chrome) ───────────────────────
+  if (op === 'proxy') {
+    const url = req.query.url;
+    if (!url) return res.status(400).json({ error: 'url required' });
+    if (!url.startsWith('http://') && !url.startsWith('https://'))
+      return res.status(400).json({ error: 'invalid url' });
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return res.status(502).json({ error: 'upstream error', status: r.status });
+      const buf = await r.arrayBuffer();
+      const ct = r.headers.get('content-type') || 'image/jpeg';
+      res.setHeader('Content-Type', ct);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.status(200).send(Buffer.from(buf));
+    } catch (e) {
+      return res.status(502).json({ error: e.message });
+    }
+  }
+
+  // ── SETUP ───────────────────────────────────────────────────────────────────
   if (op === 'setup') {
     if (req.query.pass !== PASS) return res.status(403).json({ error: 'Acesso negado' });
     const { error } = await sb.from('config').select('key').limit(1);
@@ -42,7 +58,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, message: 'Sistema pronto! A fila usa a tabela config existente.' });
   }
 
-  // ── QUEUE ───────────────────────────────────────────────────────────────
+  // ── QUEUE ───────────────────────────────────────────────────────────────────
   if (op === 'queue') {
     if (req.method === 'GET') {
       const { status } = req.query;
@@ -68,12 +84,10 @@ export default async function handler(req, res) {
         return res.status(200).json(await updateJob(body.id, { status: 'pending', error_msg: null }));
       }
 
-      // Adicionar à fila
       const { post_id, titulo, imagem, resumo, categoria } = body;
       if (!post_id || !titulo || !imagem)
         return res.status(400).json({ error: 'post_id, titulo e imagem obrigatórios' });
 
-      // Verifica duplicata
       const { jobs: existing } = await listJobs('pending');
       const dup = (existing || []).find(j => j.post_id === post_id);
       if (dup) return res.status(200).json({ ok: true, duplicate: true, id: dup.id });
@@ -88,5 +102,5 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'method not allowed' });
   }
 
-  return res.status(400).json({ error: 'op param required: setup or queue' });
+  return res.status(400).json({ error: 'op param required: setup, queue or proxy' });
 }
