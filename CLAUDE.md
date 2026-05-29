@@ -1295,19 +1295,25 @@ A solução que NÃO viola REGRA ZERO-A:
 
 ---
 
-### Sessão 29/05/2026 — PÁGINAS INSTITUCIONAIS /vc/ PREENCHIDAS COM CONTEÚDO REAL
+### Sessão 29/05/2026 — PÁGINAS /vc/ + DESCOBERTA CRÍTICA DO DEPLOY
 
-#### Contexto
+---
+
+#### 🎯 Objetivo da sessão
 
 Roberto pediu para preencher as páginas institucionais `/vc/` com conteúdo real (antes eram placeholders) e corrigir o hub `/vc/` que mostrava página escura customizada em vez do template padrão do portal.
 
-#### Root cause do /vc/ mostrar página escura
+---
 
-`vercel.json` tinha duas regras de rewrite que redirecionavam `/vc` e `/vc/` para `api/landing.js?section=vc`, que renderizava um design customizado dark. Essas regras tinham PRIORIDADE sobre qualquer arquivo estático em `public/`. Mesmo criando `public/vc/index.html`, ele era ignorado.
+#### 🔴 Root cause #1 — `/vc/` mostrava página escura
+
+`vercel.json` tinha duas regras de rewrite que redirecionavam `/vc` e `/vc/` para `api/landing.js?section=vc`, que renderizava um design customizado dark. **Rewrites têm prioridade sobre arquivos estáticos em `public/`.** Mesmo criando `public/vc/index.html`, ele era ignorado.
 
 **Fix:** Removidas as duas linhas do `vercel.json` em commit ISOLADO (PR #66 — REGRA ZERO-F respeitada).
 
-#### Arquivos criados/alterados
+---
+
+#### 📁 Arquivos criados/alterados
 
 | Arquivo | O que foi feito |
 |---|---|
@@ -1318,44 +1324,94 @@ Roberto pediu para preencher as páginas institucionais `/vc/` com conteúdo rea
 | `public/vc/familia-e-patrimonio/index.html` | Cobertura de família/patrimônio, sucessão, planejamento |
 | `vercel.json` | **ISOLADO** — removidas rotas `/vc` e `/vc/` → `api/landing?section=vc` |
 
-#### Problema: rails laterais sumindo
+---
 
-- **PR #66 (conteúdo + vercel.json):** Páginas mostravam caixas vazias "Principais notícias" e "Mais da seção" porque `ovc-story-stack` tinha containers `data-hero-card`, `data-main-list`, `data-local-list` que ficavam vazios em páginas institucionais.
-- **PR #67:** Removeu toda a seção `ovc-grid` para sumir com as caixas vazias. Mas isso também removeu `ovc-right-rail` — o fundo dark do `ovc-main` ficou exposto como área vazia entre conteúdo e footer.
-- **PR #68 (fix final):** Restaurou seção `ovc-grid` mínima em TODOS os 5 arquivos HTML:
-  ```html
-  <section class="ovc-grid">
-    <div class="ovc-story-stack"></div>
-    <aside class="ovc-right-rail"><section data-banner-sidebar></section></aside>
-  </section>
-  ```
-  Sem containers de artigos vazios, mas com o rail lateral que preenche o layout e recebe banners via `banners.js`.
+#### 🔴 Root cause #2 — Rails laterais sumindo (3 iterações)
 
-#### Regras reforçadas nesta sessão
+**Iteração 1 — PR #65+#66:** Páginas mostravam caixas vazias "Principais notícias" e "Mais da seção" porque `ovc-story-stack` tinha containers `data-hero-card`, `data-main-list`, `data-local-list` sem conteúdo em páginas institucionais.
 
-- **`topo, rodapé e rails laterais sempre engessados`** — estrutura do portal NUNCA muda em nenhuma página
-- **NUNCA remover `ovc-right-rail`** — causa área dark vazia entre conteúdo e footer
-- **NUNCA misturar alterações em `vercel.json` com outros arquivos** — REGRA ZERO-F sempre
+**Iteração 2 — PR #67:** Removeu toda a seção `ovc-grid` para sumir com as caixas vazias. **REGRESSÃO:** isso também removeu `ovc-right-rail` — o fundo dark do `ovc-main` ficou exposto como área vazia entre conteúdo e footer.
 
-#### PRs desta sessão
+**Iteração 3 — PR #68 (fix final):** Restaurou `ovc-grid` mínima em TODOS os 5 arquivos HTML:
+```html
+<section class="ovc-grid">
+  <div class="ovc-story-stack"></div>
+  <aside class="ovc-right-rail"><section data-banner-sidebar></section></aside>
+</section>
+```
+Sem containers de artigos vazios, mas com o rail lateral que preenche o layout e recebe banners via `banners.js`.
+
+**LIÇÃO:** `ovc-right-rail` NUNCA pode ser removida. Sem ela, `ovc-main` expõe fundo dark como espaço vazio entre conteúdo e footer.
+
+---
+
+#### 🔴 Root cause #3 — "NADA MUDOU" após 4 PRs mergeados ← DESCOBERTA CRÍTICA
+
+Após os PRs #65–#68 todos mergeados em `main`, Roberto disse "NADA MUDOU". Investigação revelou o seguinte:
+
+**Arquitetura Vercel — 3 projetos ligados ao mesmo repo:**
+
+| Projeto | Project ID | Deploy |
+|---|---|---|
+| `ovalorcapital` | `prj_xsVkTIYEEZWcBiCl8WW7AzXrP6ZD` | Preview automático via GitHub integration |
+| `ovalorcapital-hubx` | `prj_zW6nDsScVWCPkRLYLpAptEP5duoR` | Preview automático via GitHub integration |
+| `ovalorcapital-xuhw` | `prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b` | **PRODUÇÃO** — apenas via `deploy.yml` (push para `main`) |
+
+**O que acontece na prática:**
+- Quando uma PR é criada → Vercel cria preview em `ovalorcapital` e `ovalorcapital-hubx` automaticamente
+- Quando a PR é mergeada em `main` → **PRECISA** que o `deploy.yml` rode com sucesso para o site de produção atualizar
+- O `deploy.yml` depende do secret `VERCEL_TOKEN` no GitHub — se expirado, **deploy falha silenciosamente** e o site fica no código antigo
+
+**Sintoma:** PRs #65–#68 mergeadas mas site permanecia igual → deploy.yml provavelmente falhando por `VERCEL_TOKEN` expirado ou outro erro.
+
+**Fix aplicado:** PR #69 criada e mergeada para forçar novo ciclo de deploy do `deploy.yml`.
+
+**Se o problema persistir → AÇÃO OBRIGATÓRIA DE ROBERTO:**
+1. Acessar Vercel Dashboard → Settings → Tokens → gerar novo token
+2. Acessar GitHub → `Settings → Secrets and variables → Actions → VERCEL_TOKEN` → atualizar com novo valor
+3. Re-disparar `deploy.yml` via Actions → "Re-run failed jobs"
+
+---
+
+#### 📋 PRs desta sessão
 
 | PR | Descrição | Status |
 |---|---|---|
-| #65 | Conteúdo institucional real nas 4 sub-páginas | ✅ MERGEADO |
-| #66 | `public/vc/index.html` novo + remoção rotas vercel.json (commit isolado) | ✅ MERGEADO |
-| #67 | Remove ovc-grid vazio das páginas /vc/ | ✅ MERGEADO (causou regressão: sem rails) |
+| #65 | Conteúdo institucional real nas 4 sub-páginas /vc/ | ✅ MERGEADO |
+| #66 | `public/vc/index.html` novo + remoção rotas vercel.json (isolado) | ✅ MERGEADO |
+| #67 | Remove ovc-grid vazio das páginas /vc/ | ✅ MERGEADO (causou regressão) |
 | #68 | Restaura ovc-right-rail sem caixas de artigos | ✅ MERGEADO |
+| #69 | Atualiza CLAUDE.md + força redeploy Vercel | ✅ MERGEADO |
 
-#### Estado das páginas /vc/ após PR #68
+---
 
-- `/vc/` → hub com 4 links, template padrão ✅
-- `/vc/quem-somos/` → conteúdo real Roberto/missão/contato ✅
-- `/vc/principios-editoriais/` → 6 princípios numerados ✅
-- `/vc/liberdade-economica/` → manifesto editorial ✅
-- `/vc/familia-e-patrimonio/` → cobertura família/patrimônio ✅
-- `/vc/contato/` → **NÃO EXISTE** como arquivo estático — cai no handler de artigos e mostra página quebrada. Pendente se Roberto reportar problema.
+#### ✅ Estado das páginas /vc/ (código em main — aguardando deploy)
 
-#### Atenção para próxima sessão
+- `/vc/` → hub com 4 links, template padrão do portal ✅
+- `/vc/quem-somos/` → Roberto Cesar Terrasan, missão, contato, endereço ✅
+- `/vc/principios-editoriais/` → 6 princípios editoriais numerados ✅
+- `/vc/liberdade-economica/` → manifesto editorial de liberdade econômica ✅
+- `/vc/familia-e-patrimonio/` → cobertura família/patrimônio, sucessão ✅
+- `/vc/contato/` → **NÃO EXISTE** como arquivo estático — cai no article handler e mostra página quebrada
 
-- Se Roberto reclamar de `/vc/contato/` quebrado: criar `public/vc/contato/` usando o mesmo template dos outros arquivos `/vc/*.html`
-- O `/vc/contato/` não tem rewrite no `vercel.json` — quando criado como estático será servido diretamente
+---
+
+#### 🚨 Regras reforçadas nesta sessão
+
+```
+❌ NUNCA remover ovc-right-rail — causa área dark vazia entre conteúdo e footer
+❌ NUNCA misturar vercel.json com outros arquivos no mesmo commit (REGRA ZERO-F)
+❌ NUNCA assumir que merge de PR = deploy em produção — verificar se deploy.yml rodou
+```
+
+**Regra nova a adicionar ao checklist:**
+> Após merge de PR em main, verificar se o deploy.yml rodou com sucesso antes de reportar para Roberto. Se o site não atualizar em 5 minutos: verificar GitHub Actions → se `deploy.yml` com erro → VERCEL_TOKEN pode estar expirado.
+
+---
+
+#### 🔧 Para a próxima sessão
+
+1. **Verificar se o deploy do PR #69 chegou ao ar** — se ainda "nada mudou", VERCEL_TOKEN expirou
+2. **Se VERCEL_TOKEN expirado:** Roberto precisa regenerar no Vercel e atualizar o secret no GitHub Actions
+3. **`/vc/contato/` quebrado:** Se Roberto reclamar, criar `public/vc/contato/index.html` com o mesmo template dos outros `/vc/*.html`
+4. **NUNCA pedir chave OpenAI** — está na seção 16 e hardcoded no código
