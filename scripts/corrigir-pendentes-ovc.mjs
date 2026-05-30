@@ -11,9 +11,7 @@ function loadEnvFile(path) {
     if (idx <= 0) continue;
     const key = trimmed.slice(0, idx).trim();
     let value = trimmed.slice(idx + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
     if (!process.env[key]) process.env[key] = value;
   }
 }
@@ -26,10 +24,21 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error('SUPABASE_URL/SUPABASE_KEY ausentes. Rode vercel pull ou configure os secrets.');
-if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY ausente. A correcao OVC precisa da IA oficial.');
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function hydrateOpenAIKey() {
+  if (process.env.OPENAI_API_KEY) return;
+  const { data, error } = await supabase.from('config').select('key,value').in('key', ['OPENAI_API_KEY', 'OPENAI_KEY']);
+  if (error) throw error;
+  const row = (data || []).find(r => r.value && String(r.value).trim());
+  if (row?.value) process.env.OPENAI_API_KEY = String(row.value).trim();
+}
+
+await hydrateOpenAIKey();
+if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY ausente. Configure no Vercel ou na tabela config.');
 
 const { rewritePortalManual } = await import('../core/ai_portal.js');
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const limit = Math.min(Math.max(parseInt(process.env.LIMIT || '2', 10) || 2, 1), 5);
 const dryRun = String(process.env.DRY_RUN || '').toLowerCase() === 'true';
