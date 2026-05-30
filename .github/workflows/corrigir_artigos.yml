@@ -1,6 +1,10 @@
 name: Corrigir pendentes OVC
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/corrigir_artigos.yml"
   workflow_dispatch:
     inputs:
       limit:
@@ -54,7 +58,7 @@ jobs:
       - name: Corrigir materias pendentes no padrao OVC
         run: node scripts/corrigir-pendentes-ovc.mjs
         env:
-          LIMIT: ${{ inputs.limit }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          POST_IDS: ${{ inputs.post_ids }}
-          INCLUDE_COLUNAS: ${{ inputs.include_colunas }}
+          LIMIT: ${{ inputs.limit || '2' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          POST_IDS: ${{ inputs.post_ids || '' }}
+          INCLUDE_COLUNAS: ${{ inputs.include_colunas || 'false' }}
