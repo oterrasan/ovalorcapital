@@ -1,47 +1,24 @@
-/* Final polish: reduce empty hero area and add richer first-screen density */
+/* Final correction: tool interface, not landing-page hero */
 [data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type {
-  min-height: 230px !important;
-  padding-bottom: 1.15rem !important;
-}
-
-[data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type::after {
-  content: "26 ferramentas  |  IA + utilitarios  |  CRM local  |  Estudio visual" !important;
-  position: absolute !important;
-  right: 2rem !important;
-  top: 2rem !important;
-  width: min(390px, 34vw) !important;
-  height: auto !important;
-  padding: .9rem 1rem !important;
-  border-radius: 18px !important;
-  border: 1px solid rgba(226,235,255,.16) !important;
-  background: linear-gradient(145deg, rgba(255,255,255,.13), rgba(255,255,255,.045)) !important;
-  color: rgba(235,241,255,.82) !important;
-  font-size: .72rem !important;
-  font-weight: 780 !important;
-  letter-spacing: .04em !important;
-  text-transform: uppercase !important;
-  box-shadow: 0 20px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.13) !important;
-  backdrop-filter: blur(20px) saturate(1.12) !important;
-}
-
-[data-inteligencia-panel=home] [data-suite-home-card]::after,
-[data-inteligencia-panel=home] [data-studio-home-card]::after {
-  content: none !important;
   display: none !important;
 }
 
-[data-inteligencia-panel=home] h3 {
-  padding-top: 1.35rem !important;
-  font-size: clamp(2.15rem, 4.4vw, 4.7rem) !important;
-}
-
-[data-inteligencia-panel=home] h3 + p {
-  margin-bottom: .8rem !important;
+[data-inteligencia-panel=home] .max-w-5xl {
+  padding-top: .25rem !important;
 }
 
 [data-inteligencia-panel=home] [data-suite-home-card],
 [data-inteligencia-panel=home] [data-studio-home-card] {
-  border-radius: 1.65rem !important;
+  border-radius: 1.55rem !important;
+  margin-bottom: 1rem !important;
+}
+
+[data-inteligencia-panel=home] [data-suite-home-card]::before,
+[data-inteligencia-panel=home] [data-suite-home-card]::after,
+[data-inteligencia-panel=home] [data-studio-home-card]::before,
+[data-inteligencia-panel=home] [data-studio-home-card]::after {
+  content: none !important;
+  display: none !important;
 }
 
 [data-inteligencia-panel=home] [data-suite-home-card] .grid,
@@ -51,10 +28,28 @@
 
 [data-inteligencia-panel=home] [data-suite-home-card] .card-hover,
 [data-inteligencia-panel=home] [data-studio-home-card] .card-hover {
-  min-height: 118px;
-  padding: 1.15rem !important;
+  min-height: 112px !important;
+  padding: 1rem !important;
 }
 
-@media (max-width: 1100px) {
-  [data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type::after { display: none; }
+[data-inteligencia-panel=home] .text-[10px].font-bold.uppercase {
+  color: rgba(235,241,255,.58) !important;
+  letter-spacing: .18em !important;
+}
+
+.card-hover,
+.ovc-suite-module,
+.ovc-suite-card,
+.ovc-suite-view,
+.ovc-suite-tab,
+.ovc-suite-item,
+.ovc-suite-tool {
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  [data-inteligencia-panel=home] [data-suite-home-card] .card-hover,
+  [data-inteligencia-panel=home] [data-studio-home-card] .card-hover {
+    min-height: auto !important;
+  }
 }
