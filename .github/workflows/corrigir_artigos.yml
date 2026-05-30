@@ -1,11 +1,60 @@
-name: Corrigir artigos com markdown — pausado
+name: Corrigir pendentes OVC
 
 on:
   workflow_dispatch:
+    inputs:
+      limit:
+        description: "Quantidade de posts pendentes por lote (1 a 5)"
+        required: true
+        default: "2"
+      dry_run:
+        description: "Simular sem gravar alteracoes"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      post_ids:
+        description: "IDs especificos separados por virgula (opcional)"
+        required: false
+        default: ""
+      include_colunas:
+        description: "Incluir colunas/colunistas no reparo"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 jobs:
-  paused:
+  repair:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Workflow pausado
-        run: echo "Workflow legado pausado. Correcao em massa desativada ate novo funil editorial."
+      - uses: actions/checkout@v3
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Puxar variaveis de producao da Vercel
+        run: |
+          npm install -g vercel@latest
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+
+      - name: Corrigir materias pendentes no padrao OVC
+        run: node scripts/corrigir-pendentes-ovc.mjs
+        env:
+          LIMIT: ${{ inputs.limit }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_IDS: ${{ inputs.post_ids }}
+          INCLUDE_COLUNAS: ${{ inputs.include_colunas }}
