@@ -43,6 +43,13 @@
     writeState(state);
   }
 
+  function polishShell(){
+    qsa('[data-inteligencia-app] span, [data-inteligencia-app] small, [data-inteligencia-app] div').forEach(function(el){
+      if (el.children && el.children.length) return;
+      var value = text(el.textContent).trim().toLowerCase();
+      if (value === '26 ferramentas') el.textContent = 'Command OS';
+    });
+  }
   function clickNav(nav){
     var btn = qs('[data-inteligencia-nav="' + nav + '"]');
     if (btn) btn.click();
@@ -161,18 +168,18 @@
       + '    <div class="ovc-gauge-row">' + gauge('Uso',91,'#5df4ff') + gauge('Entrega',84,'#9b7cff') + gauge('Rotina',76,'#d9f071') + '</div>'
       + '  </div>'
       + '  <div class="ovc-cockpit-module">'
+      + '    <div class="ovc-module-title"><span>Logs</span><strong>Trilha operacional</strong></div>'
+      + '    <div class="ovc-logs">' + logRows(state.logs.slice(0, 4)) + '</div>'
+      + '  </div>'
+      + '  <div class="ovc-cockpit-module">'
       + '    <div class="ovc-module-title"><span>Acesso</span><strong>Usuarios e permissoes</strong></div>'
       + '    <div class="ovc-users">' + userRows(state.users) + '</div>'
       + '    <form class="ovc-user-form" data-ovc-user-form>'
       + '      <input name="name" type="text" placeholder="Nome" autocomplete="off">'
       + '      <select name="role"><option>Admin</option><option>Editor</option><option>Vendas</option><option>Cliente</option></select>'
       + '      <input name="perm" type="text" placeholder="Permissoes">'
-      + '      <button type="submit">Adicionar</button>'
+      + '      <button type="submit">Cadastrar acesso</button>'
       + '    </form>'
-      + '  </div>'
-      + '  <div class="ovc-cockpit-module">'
-      + '    <div class="ovc-module-title"><span>Logs</span><strong>Trilha operacional</strong></div>'
-      + '    <div class="ovc-logs">' + logRows(state.logs) + '</div>'
       + '  </div>'
       + '</aside>'
       + '<div class="ovc-dash-strip"><strong>Atalhos</strong><div class="ovc-dash-pills">'
@@ -223,9 +230,11 @@
     dash.innerHTML = dashboardHtml(state);
     bindDashboard(dash, home, state);
     hideLegacyIntro(home);
+    polishShell();
   }
   function installDashboard(){
     var home = qs('[data-inteligencia-panel="home"] .max-w-5xl');
+    polishShell();
     if (!home) return;
     var state = readState();
     renderDashboard(home, state);
