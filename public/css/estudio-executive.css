@@ -1,0 +1,348 @@
+/* Executive SaaS visual layer for Studio Visual */
+:root {
+  --exec-bg: #0b0f19;
+  --exec-sidebar: #0f1420;
+  --exec-panel: #151b2a;
+  --exec-panel-soft: #111827;
+  --exec-border: rgba(226, 232, 240, .12);
+  --exec-text: #eef2f7;
+  --exec-muted: #94a3b8;
+  --exec-subtle: #64748b;
+  --exec-purple: #7c5cff;
+  --exec-purple-soft: rgba(124, 92, 255, .14);
+  --exec-cyan: #38d5f5;
+  --exec-danger: #ef4444;
+}
+
+html,
+body {
+  background: var(--exec-bg) !important;
+  color: var(--exec-text) !important;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  font-size: 14px !important;
+}
+
+body {
+  background: linear-gradient(135deg, #0b0f19 0%, #101624 54%, #0c111d 100%) !important;
+}
+
+body::before,
+body::after {
+  opacity: .14 !important;
+  background-size: 32px 32px !important;
+  mix-blend-mode: normal !important;
+}
+
+.app {
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+}
+
+.sidebar {
+  padding: 14px !important;
+  background: var(--exec-sidebar) !important;
+  border-right: 1px solid var(--exec-border) !important;
+  box-shadow: none !important;
+}
+
+.brand,
+.panel,
+.tool-card,
+.stage-header,
+.canvas-shell {
+  border: 1px solid var(--exec-border) !important;
+  border-radius: 10px !important;
+  background: var(--exec-panel) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.brand {
+  padding: 12px !important;
+  margin-bottom: 12px !important;
+}
+
+.brand-mark,
+.brand-mark.small {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, var(--exec-purple), #a78bfa) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  font-size: 11px !important;
+}
+
+.brand strong {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+}
+
+.brand span,
+.card-title small,
+.stage-header span,
+label,
+.note p,
+.layer,
+.template-item small {
+  color: var(--exec-muted) !important;
+}
+
+.panel,
+.tool-card {
+  padding: 12px !important;
+  margin-bottom: 10px !important;
+}
+
+.topbar {
+  min-height: 68px !important;
+  padding: 14px 20px !important;
+  background: rgba(11, 15, 25, .94) !important;
+  border-bottom: 1px solid var(--exec-border) !important;
+  box-shadow: none !important;
+}
+
+.eyebrow {
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--exec-purple) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .14em !important;
+}
+
+h1,
+h2 {
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+}
+
+h2 {
+  font-size: 24px !important;
+  line-height: 1.15 !important;
+  font-weight: 680 !important;
+}
+
+.card-title {
+  margin-bottom: 10px !important;
+}
+
+.card-title span {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.card-title small,
+label {
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: .02em !important;
+}
+
+button,
+input,
+select,
+textarea {
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+button {
+  min-height: 32px !important;
+  padding: 0 11px !important;
+  background: var(--exec-panel-soft) !important;
+  color: var(--exec-text) !important;
+  border: 1px solid var(--exec-border) !important;
+  box-shadow: none !important;
+  font-weight: 620 !important;
+}
+
+button:hover {
+  border-color: rgba(124, 92, 255, .42) !important;
+  background: rgba(124, 92, 255, .12) !important;
+}
+
+.actions button:first-child,
+#generateCopy,
+#exportPng,
+.format-grid button.active {
+  background: var(--exec-purple) !important;
+  border-color: rgba(167, 139, 250, .5) !important;
+  color: #ffffff !important;
+}
+
+button.secondary,
+button.ghost,
+.format-grid button,
+.template-item,
+.zoom-controls button,
+#exportJpg {
+  background: var(--exec-panel-soft) !important;
+  color: var(--exec-text) !important;
+  border: 1px solid var(--exec-border) !important;
+  box-shadow: none !important;
+}
+
+button.danger,
+#clearProject,
+#deleteEl {
+  background: rgba(239, 68, 68, .1) !important;
+  border-color: rgba(239, 68, 68, .24) !important;
+  color: #fecaca !important;
+}
+
+input,
+select,
+textarea {
+  min-height: 34px !important;
+  background: #0b1020 !important;
+  border: 1px solid var(--exec-border) !important;
+  color: var(--exec-text) !important;
+  box-shadow: none !important;
+}
+
+textarea {
+  min-height: 82px !important;
+  line-height: 1.45 !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(124, 92, 255, .62) !important;
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, .14) !important;
+}
+
+.format-grid,
+.button-grid {
+  gap: 7px !important;
+}
+
+.template-list {
+  gap: 7px !important;
+}
+
+.template-item {
+  padding: 9px 10px !important;
+  text-align: left !important;
+  min-height: 48px !important;
+}
+
+.template-item:hover,
+.layer.active {
+  background: var(--exec-purple-soft) !important;
+  color: var(--exec-text) !important;
+  border-color: rgba(124, 92, 255, .38) !important;
+}
+
+.stack {
+  gap: 7px !important;
+}
+
+.back-link {
+  color: var(--exec-cyan) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+}
+
+.studio-grid {
+  grid-template-columns: 300px minmax(560px, 1fr) 240px !important;
+  gap: 14px !important;
+  padding: 14px !important;
+}
+
+.split {
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
+
+.ai-card textarea {
+  min-height: 98px !important;
+}
+
+.copy-result {
+  color: var(--exec-muted) !important;
+  font-size: 11px !important;
+}
+
+.upload-box {
+  min-height: 56px !important;
+  border: 1px dashed rgba(124, 92, 255, .35) !important;
+  background: rgba(124, 92, 255, .08) !important;
+  color: #c4b5fd !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  font-weight: 620 !important;
+}
+
+.stage-header {
+  margin-bottom: 10px !important;
+  padding: 10px 12px !important;
+}
+
+.stage-header strong {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.zoom-controls button {
+  min-width: 30px !important;
+  width: 30px !important;
+  padding: 0 !important;
+}
+
+.canvas-shell {
+  height: calc(100vh - 112px) !important;
+  min-height: 520px !important;
+  padding: 22px !important;
+  background: #0a0f1c !important;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02) !important;
+}
+
+canvas {
+  border-radius: 6px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45) !important;
+}
+
+.palette-row {
+  gap: 5px !important;
+}
+
+.swatch {
+  height: 26px !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+.layers-list {
+  gap: 6px !important;
+}
+
+.layer {
+  padding: 8px !important;
+  border-radius: 8px !important;
+  background: var(--exec-panel-soft) !important;
+  font-size: 11px !important;
+}
+
+.note strong {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+@media (max-width: 1280px) {
+  .studio-grid { grid-template-columns: 290px minmax(520px, 1fr) !important; }
+  .rightbar { grid-column: 1 / -1 !important; display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 10px !important; }
+}
+
+@media (max-width: 920px) {
+  .app { display: block !important; }
+  .sidebar { position: relative !important; height: auto !important; }
+  .topbar { align-items: flex-start !important; flex-direction: column !important; }
+  .studio-grid { grid-template-columns: 1fr !important; padding: 10px !important; }
+  .rightbar { display: block !important; }
+  .canvas-shell { min-height: 420px !important; height: 62vh !important; }
+}
