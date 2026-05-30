@@ -8,9 +8,14 @@
   }
 
   function hideLegacyIntro(home){
-    qsa(':scope > .mb-7', home).forEach(function(block){
+    Array.from(home.children).forEach(function(block){
       var text = (block.textContent || '').toLowerCase();
-      if (text.includes('26 ferramentas de ia') && text.includes('escolha uma categoria')) {
+      var isLegacy = text.includes('26 ferramentas') && text.includes('escolha uma categoria');
+      var isDashboard = block.hasAttribute('data-ovc-home-dashboard');
+      var isSuite = block.hasAttribute('data-suite-home-card');
+      var isStudio = block.hasAttribute('data-studio-home-card');
+      if (isLegacy && !isDashboard && !isSuite && !isStudio) {
+        block.hidden = true;
         block.style.display = 'none';
         block.setAttribute('data-ovc-hidden-legacy-intro', 'true');
       }
