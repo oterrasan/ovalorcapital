@@ -16,8 +16,60 @@
     document.documentElement.classList.add('ovc-inteligencia-premium');
   }
 
+  function injectStudioModule() {
+    if (document.querySelector('[data-inteligencia-panel="estudio"]')) return;
+
+    const nav = qs('aside nav');
+    const homeBtn = qs('[data-inteligencia-nav="home"]');
+    if (nav && homeBtn) {
+      const btn = document.createElement('button');
+      btn.setAttribute('data-inteligencia-nav', 'estudio');
+      btn.className = 'nav-btn';
+      btn.innerHTML = '<span class="nav-icon bg-amber-500/30"><i class="fas fa-palette text-amber-300 text-[11px]"></i></span><span>Estudio Criativo</span>';
+      homeBtn.insertAdjacentElement('afterend', btn);
+    }
+
+    const content = qs('main > div.flex-1');
+    if (content) {
+      const panel = document.createElement('div');
+      panel.setAttribute('data-inteligencia-panel', 'estudio');
+      panel.className = 'hidden';
+      panel.innerHTML = '<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5" style="height:calc(100vh - 7.5rem); min-height:680px;">'
+        + '<div class="flex items-center justify-between gap-4 mb-4">'
+        + '<div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0"><i class="fas fa-palette text-amber-500 text-base"></i></div><div><span class="text-[10px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Criatividade</span><h3 class="font-bold text-primary text-base mt-0.5">Estudio Criativo</h3></div></div>'
+        + '<a href="/estudio/" target="_blank" rel="noopener" class="copy-btn text-xs border px-3 py-2 rounded-lg">Abrir em tela cheia</a>'
+        + '</div>'
+        + '<iframe title="Estudio Criativo" src="/estudio/?embedded=1" style="width:100%;height:calc(100% - 4.2rem);border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#050711;"></iframe>'
+        + '</div>';
+      content.appendChild(panel);
+    }
+
+    const home = qs('[data-inteligencia-panel="home"] .max-w-5xl');
+    if (home && !qs('[data-studio-home-card]')) {
+      const block = document.createElement('div');
+      block.setAttribute('data-studio-home-card', 'true');
+      block.className = 'mb-7';
+      block.innerHTML = '<div class="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-2.5">Estudio Criativo</div>'
+        + '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">'
+        + '<button data-inteligencia-nav="estudio" class="card-hover bg-white rounded-xl p-4 border border-amber-50 text-left shadow-sm">'
+        + '<div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-palette text-amber-500 text-sm"></i></div>'
+        + '<div class="font-semibold text-primary text-xs">Criar arte profissional</div>'
+        + '<div class="text-gray-400 text-[10px] mt-0.5">Mini Canva com templates, upload, textos, camadas e exportacao PNG/JPG.</div>'
+        + '</button>'
+        + '<button data-inteligencia-nav="estudio" class="card-hover bg-white rounded-xl p-4 border border-amber-50 text-left shadow-sm">'
+        + '<div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-2.5"><i class="fas fa-wand-magic-sparkles text-amber-500 text-sm"></i></div>'
+        + '<div class="font-semibold text-primary text-xs">Gerar campanha visual</div>'
+        + '<div class="text-gray-400 text-[10px] mt-0.5">Escolha profissao, objetivo e crie chamada, legenda e arte editavel.</div>'
+        + '</button>'
+        + '</div>';
+      const firstSection = home.querySelector('.mb-7');
+      if (firstSection) firstSection.insertAdjacentElement('afterend', block); else home.appendChild(block);
+    }
+  }
+
   const toolMeta = {
     home: { title: 'OVC Inteligencia', cat: '', catColor: '' },
+    estudio: { title: 'Estudio Criativo', cat: 'Criatividade', catColor: 'amber' },
     'reescrever': { title: 'Reescrever Texto', cat: 'Classicas', catColor: 'slate' },
     'corretor': { title: 'Corretor Ortografico', cat: 'Classicas', catColor: 'slate' },
     'detector-ia': { title: 'Detector de IA', cat: 'Classicas', catColor: 'slate' },
@@ -42,8 +94,8 @@
     'gerador-nome': { title: 'Gerador de Nome', cat: 'Criatividade', catColor: 'amber' },
     'roteiro-video': { title: 'Roteiro de Video', cat: 'Criatividade', catColor: 'amber' },
     'gerador-piada': { title: 'Gerador de Piada', cat: 'Criatividade', catColor: 'amber' },
-    'limpador': { title: 'Limpador de Texto', cat: 'Utilitarios', catColor: 'slate' },
-    'contador': { title: 'Contador Avancado', cat: 'Utilitarios', catColor: 'slate' }
+    limpador: { title: 'Limpador de Texto', cat: 'Utilitarios', catColor: 'slate' },
+    contador: { title: 'Contador Avancado', cat: 'Utilitarios', catColor: 'slate' }
   };
 
   const catBadgeClasses = {
@@ -101,9 +153,7 @@
       });
       const data = await res.json();
       if (data.valid === true) return true;
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
     return token === 'ovc-admin-2026-secreto';
   }
 
@@ -203,9 +253,7 @@
   }
 
   function renderContador(stats) {
-    if (!stats) {
-      return '<p class="text-gray-400 text-sm text-center py-8">Digite ou cole um texto acima para ver as estatisticas em tempo real.</p>';
-    }
+    if (!stats) return '<p class="text-gray-400 text-sm text-center py-8">Digite ou cole um texto acima para ver as estatisticas em tempo real.</p>';
     const top5Html = stats.top5.map(([word, count]) => (
       '<span class="inline-flex items-center gap-1 bg-slate-100 rounded-full px-3 py-1 text-sm"><span class="font-semibold text-primary">' + word + '</span><span class="text-gray-400 text-xs">' + count + 'x</span></span>'
     )).join('');
@@ -232,10 +280,7 @@
       setLoginStatus('Validando...');
       try {
         const token = event.currentTarget.token.value.trim();
-        if (!await validateToken(token)) {
-          setLoginStatus('Senha invalida.');
-          return;
-        }
+        if (!await validateToken(token)) { setLoginStatus('Senha invalida.'); return; }
         localStorage.setItem(tokenKey, token);
         state.token = token;
         state.authenticated = true;
@@ -263,8 +308,7 @@
   }
 
   function bindAiTools() {
-    Object.keys(toolMeta).filter(key => key !== 'home').forEach(bindCopyBtn);
-
+    Object.keys(toolMeta).filter(key => key !== 'home' && key !== 'estudio').forEach(bindCopyBtn);
     qsa('[data-inteligencia-process]').forEach(btn => {
       const tool = btn.dataset.inteligenciaProcess;
       const originalHTML = btn.innerHTML;
@@ -273,11 +317,7 @@
         const outputEl = qs('[data-inteligencia-output="' + tool + '"]');
         if (!inputEl) return;
         const text = inputEl.value.trim();
-        if (!text) {
-          alert('Por favor, insira um texto.');
-          return;
-        }
-
+        if (!text) { alert('Por favor, insira um texto.'); return; }
         setBtnState(btn, true, originalHTML);
         try {
           if (tool === 'detector-ia') {
@@ -302,12 +342,8 @@
             if (outputEl) outputEl.classList.remove('hidden');
             return;
           }
-
           const opts = tool === 'tradutor'
-            ? {
-                sourceLang: qs('[data-opt="tradutor"][data-opt-key="sourceLang"]')?.value || 'pt',
-                targetLang: qs('[data-opt="tradutor"][data-opt-key="targetLang"]')?.value || 'en'
-              }
+            ? { sourceLang: qs('[data-opt="tradutor"][data-opt-key="sourceLang"]')?.value || 'pt', targetLang: qs('[data-opt="tradutor"][data-opt-key="targetLang"]')?.value || 'en' }
             : getOptions(tool);
           const result = await callTool(tool, text, opts);
           if (outputEl) outputEl.value = result.result || '';
@@ -328,14 +364,10 @@
         const output = qs('[data-inteligencia-output="limpador"]');
         if (!input || !output) return;
         const text = input.value.trim();
-        if (!text) {
-          alert('Por favor, insira um texto.');
-          return;
-        }
+        if (!text) { alert('Por favor, insira um texto.'); return; }
         output.value = processLimpador(text);
       });
     }
-
     const contadorInput = qs('[data-inteligencia-input="contador"]');
     if (contadorInput) {
       const update = () => {
@@ -356,12 +388,10 @@
 
   async function init() {
     injectPremiumVisuals();
+    injectStudioModule();
     bind();
     const token = localStorage.getItem(tokenKey) || '';
-    if (!token) {
-      showLogin();
-      return;
-    }
+    if (!token) { showLogin(); return; }
     try {
       if (await validateToken(token)) {
         state.token = token;
