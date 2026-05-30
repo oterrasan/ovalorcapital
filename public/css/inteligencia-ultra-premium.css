@@ -1,0 +1,268 @@
+/* Ultra premium polish layer - OVC Inteligencia */
+:root {
+  --lux-void: #03050d;
+  --lux-ink: #070816;
+  --lux-plum: #160b2f;
+  --lux-violet: #8f5cff;
+  --lux-aqua: #5df4ff;
+  --lux-champagne: #e7c875;
+  --lux-silver: #dfe8f7;
+  --lux-line: rgba(226, 235, 255, .16);
+  --lux-line-soft: rgba(226, 235, 255, .08);
+  --lux-glass: rgba(9, 12, 26, .72);
+  --lux-glass-strong: rgba(8, 10, 22, .88);
+  --lux-glow: 0 28px 90px rgba(0, 0, 0, .46), 0 0 70px rgba(143, 92, 255, .10);
+}
+
+body {
+  background:
+    radial-gradient(circle at 18% -8%, rgba(143, 92, 255, .46), transparent 34rem),
+    radial-gradient(circle at 92% 4%, rgba(93, 244, 255, .18), transparent 30rem),
+    radial-gradient(circle at 50% 115%, rgba(231, 200, 117, .08), transparent 36rem),
+    linear-gradient(135deg, #03050d 0%, #080b18 36%, #160b2f 72%, #050711 100%) !important;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 0 18%, rgba(255,255,255,.055) 18.15%, transparent 18.35% 58%, rgba(255,255,255,.035) 58.15%, transparent 58.35%),
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,.12), transparent 42rem);
+  mix-blend-mode: screen;
+  opacity: .42;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.95), rgba(0,0,0,.34));
+}
+
+aside {
+  background:
+    linear-gradient(180deg, rgba(3,5,13,.98), rgba(9,12,26,.94) 42%, rgba(16,8,34,.92)) !important;
+  border-right: 1px solid rgba(226,235,255,.13) !important;
+}
+
+aside > div:first-child {
+  background: linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  margin: .35rem .35rem .65rem !important;
+  border: 1px solid rgba(226,235,255,.10) !important;
+  border-radius: 1.15rem;
+}
+
+aside > div:first-child .bg-secondary,
+aside .bg-secondary {
+  background: linear-gradient(145deg, #f4db93, #b6903b 52%, #fff1b3) !important;
+  box-shadow: 0 18px 46px rgba(231,200,117,.28), inset 0 1px 0 rgba(255,255,255,.56) !important;
+}
+
+.nav-btn {
+  min-height: 2.72rem;
+  border-radius: 1rem !important;
+  color: rgba(235,241,255,.70) !important;
+}
+.nav-btn.active {
+  background:
+    linear-gradient(135deg, rgba(143,92,255,.38), rgba(93,244,255,.12)),
+    linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.025)) !important;
+  border-color: rgba(143,92,255,.55) !important;
+  box-shadow: 0 18px 42px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+.nav-icon {
+  border-radius: .85rem !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+main > header {
+  background: rgba(3, 5, 13, .72) !important;
+  border-bottom: 1px solid rgba(226,235,255,.13) !important;
+  box-shadow: 0 18px 60px rgba(0,0,0,.24) !important;
+}
+[data-inteligencia-title] {
+  font-size: 1.16rem !important;
+  font-weight: 820 !important;
+  letter-spacing: -.015em;
+}
+[data-inteligencia-cat-badge] {
+  background: rgba(143,92,255,.18) !important;
+  color: #e2d6ff !important;
+  border: 1px solid rgba(143,92,255,.35);
+}
+
+[data-inteligencia-panel=home] .mb-7:first-of-type {
+  min-height: 360px;
+  padding: 1.65rem !important;
+  border: 1px solid rgba(226,235,255,.18) !important;
+  border-radius: 2rem !important;
+  background:
+    linear-gradient(125deg, rgba(255,255,255,.12), rgba(255,255,255,.035) 34%, rgba(93,244,255,.07)),
+    radial-gradient(circle at 80% 14%, rgba(93,244,255,.22), transparent 22rem),
+    radial-gradient(circle at 18% 12%, rgba(143,92,255,.38), transparent 28rem),
+    linear-gradient(145deg, rgba(9,12,26,.96), rgba(19,10,42,.92)) !important;
+  box-shadow: var(--lux-glow) !important;
+}
+
+[data-inteligencia-panel=home] .mb-7:first-of-type::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.045) 0 1px, transparent 1px 88px);
+  opacity: .38;
+}
+
+[data-inteligencia-panel=home] h3 {
+  max-width: 860px;
+  font-weight: 880 !important;
+  text-wrap: balance;
+  text-shadow: 0 18px 70px rgba(0,0,0,.55);
+}
+[data-inteligencia-panel=home] h3::before {
+  width: fit-content;
+  padding: .42rem .72rem;
+  border: 1px solid rgba(93,244,255,.28);
+  border-radius: 999px;
+  background: rgba(93,244,255,.08);
+  color: #9cf8ff !important;
+}
+[data-inteligencia-panel=home] h3 + p {
+  color: rgba(235,241,255,.74) !important;
+}
+
+.card-hover,
+[data-inteligencia-panel] .bg-white.rounded-xl,
+.ovc-suite-card,
+.ovc-suite-module,
+.ovc-suite-view,
+.ovc-suite-tab,
+.ovc-suite-item,
+.ovc-suite-tool {
+  border-color: rgba(226,235,255,.14) !important;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,.125), rgba(255,255,255,.042)),
+    linear-gradient(135deg, rgba(143,92,255,.10), rgba(93,244,255,.035)) !important;
+  box-shadow: 0 24px 72px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.10) !important;
+}
+
+.card-hover,
+.ovc-suite-module,
+.ovc-suite-card,
+.ovc-suite-view {
+  backdrop-filter: blur(22px) saturate(1.16);
+}
+
+.card-hover:hover,
+.ovc-suite-module:hover,
+.ovc-suite-tool:hover {
+  border-color: rgba(93,244,255,.38) !important;
+  box-shadow: 0 30px 84px rgba(0,0,0,.34), 0 0 44px rgba(143,92,255,.18), inset 0 1px 0 rgba(255,255,255,.16) !important;
+}
+
+.card-hover .font-semibold,
+.ovc-suite-module strong,
+.ovc-suite-view h3,
+.ovc-suite-item strong {
+  font-weight: 760 !important;
+  letter-spacing: -.012em;
+}
+
+.ovc-suite-title {
+  max-width: 820px;
+  font-weight: 880 !important;
+  text-wrap: balance;
+  text-shadow: 0 18px 70px rgba(0,0,0,.48);
+}
+.ovc-suite-eyebrow {
+  color: #9cf8ff !important;
+}
+.ovc-suite-kpi {
+  background: linear-gradient(160deg, rgba(255,255,255,.11), rgba(255,255,255,.04)) !important;
+  border-color: rgba(226,235,255,.13) !important;
+}
+.ovc-suite-kpi strong {
+  color: #f1d98f !important;
+}
+.ovc-suite-module {
+  min-height: 156px;
+  border-radius: 22px !important;
+}
+.ovc-suite-module i {
+  background: linear-gradient(145deg, rgba(93,244,255,.18), rgba(143,92,255,.18)) !important;
+  border: 1px solid rgba(226,235,255,.13);
+  color: #9cf8ff !important;
+}
+.ovc-suite-workspace {
+  margin-top: 22px !important;
+}
+.ovc-suite-tabs {
+  padding: 10px;
+  border: 1px solid rgba(226,235,255,.10);
+  border-radius: 22px;
+  background: rgba(3,5,13,.34);
+}
+.ovc-suite-tab.active {
+  background: linear-gradient(135deg, rgba(143,92,255,.42), rgba(93,244,255,.13)) !important;
+  border-color: rgba(143,92,255,.52) !important;
+}
+.ovc-suite-view {
+  min-height: 620px;
+  padding: 24px !important;
+  border-radius: 26px !important;
+}
+.ovc-suite-output,
+.output-area,
+[data-contador-stats] {
+  background: rgba(3,5,13,.45) !important;
+  border-color: rgba(93,244,255,.18) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+}
+
+textarea,
+select,
+input,
+.sel-opt,
+.ovc-suite-form input,
+.ovc-suite-form textarea,
+.ovc-suite-form select {
+  background: rgba(3,5,13,.58) !important;
+  border-color: rgba(226,235,255,.14) !important;
+  border-radius: 15px !important;
+}
+
+.process-btn,
+[data-inteligencia-client=limpador],
+button[type=submit],
+.ovc-suite-actions button,
+.ovc-ai-assistant button {
+  background: linear-gradient(135deg, #f5dc94, #c7a14e 48%, #fff2b9) !important;
+  color: #070816 !important;
+  border: 1px solid rgba(255,255,255,.28) !important;
+  box-shadow: 0 18px 46px rgba(231,200,117,.22), inset 0 1px 0 rgba(255,255,255,.62) !important;
+}
+.copy-btn,
+.ovc-suite-actions button.ghost,
+.ovc-ai-quick button,
+.ovc-ai-close {
+  background: rgba(255,255,255,.075) !important;
+  color: rgba(235,241,255,.86) !important;
+  border: 1px solid rgba(226,235,255,.14) !important;
+  box-shadow: none !important;
+}
+
+.ovc-ai-launch {
+  background: linear-gradient(135deg, #9cf8ff, #f1d98f 62%, #8f5cff) !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,.42), 0 0 42px rgba(93,244,255,.20) !important;
+}
+.ovc-ai-assistant {
+  border-color: rgba(226,235,255,.16) !important;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(143,92,255,.22), transparent 18rem),
+    linear-gradient(160deg, rgba(5,7,17,.98), rgba(19,10,42,.96)) !important;
+}
+
+@media (max-width: 900px) {
+  [data-inteligencia-panel=home] .mb-7:first-of-type { min-height: auto; }
+  .ovc-suite-view { min-height: 520px; }
+}
