@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estudio Criativo | OVC Inteligencia</title>
+  <meta name="description" content="Estudio criativo com editor visual, templates, upload local e exportacao de artes para profissionais.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/estudio.css?v=1">
+</head>
+<body>
+  <div id="login" class="login-screen">
+    <section class="login-card">
+      <div class="brand-mark">GT</div>
+      <p class="eyebrow">GRUPO TERRASAN</p>
+      <h1>Estudio Criativo</h1>
+      <p class="muted">Editor visual custo zero para posts, stories, anuncios e materiais comerciais.</p>
+      <form id="loginForm">
+        <label>Senha de acesso</label>
+        <input name="token" type="password" placeholder="Digite sua senha" required>
+        <button type="submit">Entrar no estudio</button>
+        <p id="loginStatus" class="status"></p>
+      </form>
+    </section>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark small">GT</div>
+        <div>
+          <strong>Estudio Criativo</strong>
+          <span>OVC Inteligencia</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label>Profissao</label>
+        <select id="professionSelect"></select>
+      </div>
+
+      <div class="panel">
+        <label>Formato</label>
+        <div class="format-grid">
+          <button data-format="post" class="active">Post</button>
+          <button data-format="story">Story</button>
+          <button data-format="linkedin">LinkedIn</button>
+          <button data-format="banner">Banner</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <label>Templates</label>
+        <div id="templateList" class="template-list"></div>
+      </div>
+
+      <div class="panel">
+        <label>Projeto</label>
+        <div class="stack">
+          <button id="saveProject" class="ghost">Salvar no navegador</button>
+          <button id="loadProject" class="ghost">Carregar salvo</button>
+          <button id="clearProject" class="danger">Limpar tela</button>
+        </div>
+      </div>
+
+      <a class="back-link" href="/inteligencia">Voltar para OVC Inteligencia</a>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">MINI CANVA CUSTO ZERO</p>
+          <h2>Crie artes profissionais em minutos</h2>
+        </div>
+        <div class="actions">
+          <button id="exportPng">Exportar PNG</button>
+          <button id="exportJpg" class="secondary">Exportar JPG</button>
+          <button id="logout" class="secondary">Sair</button>
+        </div>
+      </header>
+
+      <section class="studio-grid">
+        <div class="tools">
+          <div class="tool-card ai-card">
+            <div class="card-title">
+              <span>IA comercial</span>
+              <small>texto + legenda</small>
+            </div>
+            <textarea id="briefInput" placeholder="Ex: Sou corretor de seguros e quero um post sobre seguro de vida para medicos."></textarea>
+            <div class="split">
+              <select id="objectiveSelect">
+                <option value="vender">Vender</option>
+                <option value="educar">Educar</option>
+                <option value="captar leads">Captar leads</option>
+                <option value="autoridade">Autoridade</option>
+                <option value="avisar">Avisar</option>
+              </select>
+              <button id="generateCopy">Gerar texto</button>
+            </div>
+            <div id="copyResult" class="copy-result"></div>
+          </div>
+
+          <div class="tool-card">
+            <div class="card-title"><span>Elementos</span><small>editor local</small></div>
+            <div class="button-grid">
+              <button id="addText">Texto</button>
+              <button id="addSubtitle">Subtitulo</button>
+              <button id="addBox">Faixa</button>
+              <button id="addBadge">Selo</button>
+            </div>
+            <label class="upload-box">
+              <input id="imageUpload" type="file" accept="image/*">
+              <span>Enviar imagem do computador</span>
+            </label>
+          </div>
+
+          <div class="tool-card properties">
+            <div class="card-title"><span>Selecionado</span><small id="selectedType">nenhum</small></div>
+            <label>Texto</label>
+            <textarea id="propText" rows="3"></textarea>
+            <div class="split three">
+              <div><label>Tamanho</label><input id="propFont" type="number" min="10" max="180"></div>
+              <div><label>Cor</label><input id="propColor" type="color"></div>
+              <div><label>Fundo</label><input id="propBg" type="color"></div>
+            </div>
+            <div class="split">
+              <button id="bringFront" class="ghost">Trazer frente</button>
+              <button id="deleteEl" class="danger">Excluir</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-wrap">
+          <div class="stage-header">
+            <div>
+              <strong id="canvasTitle">Post quadrado</strong>
+              <span id="canvasSize">1080 x 1080</span>
+            </div>
+            <div class="zoom-controls">
+              <button id="zoomOut">-</button>
+              <span id="zoomLabel">50%</span>
+              <button id="zoomIn">+</button>
+            </div>
+          </div>
+          <div class="canvas-shell">
+            <canvas id="designCanvas" width="1080" height="1080"></canvas>
+          </div>
+        </div>
+
+        <div class="rightbar">
+          <div class="tool-card">
+            <div class="card-title"><span>Paleta</span><small>por profissao</small></div>
+            <div id="paletteList" class="palette-list"></div>
+          </div>
+          <div class="tool-card">
+            <div class="card-title"><span>Camadas</span><small>clique para editar</small></div>
+            <div id="layersList" class="layers-list"></div>
+          </div>
+          <div class="tool-card note">
+            <strong>Custo zero real</strong>
+            <p>Upload, edicao, templates, salvamento e exportacao rodam no navegador. Sem API externa de imagem.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/estudio.js?v=1"></script>
+</body>
+</html>
