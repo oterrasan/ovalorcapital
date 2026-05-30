@@ -7,6 +7,16 @@
     if (btn) btn.click();
   }
 
+  function hideLegacyIntro(home){
+    qsa(':scope > .mb-7', home).forEach(function(block){
+      var text = (block.textContent || '').toLowerCase();
+      if (text.includes('26 ferramentas de ia') && text.includes('escolha uma categoria')) {
+        block.style.display = 'none';
+        block.setAttribute('data-ovc-hidden-legacy-intro', 'true');
+      }
+    });
+  }
+
   function scrollToLabel(text){
     var labels = qsa('[data-inteligencia-panel="home"] .text-[10px].font-bold.uppercase');
     var target = labels.find(function(el){ return (el.textContent || '').toLowerCase().includes(text.toLowerCase()); });
@@ -15,7 +25,9 @@
 
   function installDashboard(){
     var home = qs('[data-inteligencia-panel="home"] .max-w-5xl');
-    if (!home || qs('[data-ovc-home-dashboard]', home)) return;
+    if (!home) return;
+    hideLegacyIntro(home);
+    if (qs('[data-ovc-home-dashboard]', home)) return;
 
     var dash = document.createElement('section');
     dash.className = 'ovc-home-dashboard';
@@ -39,8 +51,8 @@
       + flow('home','Texto urgente','Ferramentas classicas')
       + '</div></aside>'
       + '<div class="ovc-dash-strip"><h4>Atalhos por necessidade</h4><div class="ovc-dash-pills">'
-      + pill('Clássicas','Clássicas')
-      + pill('Comunicação','Comunicação')
+      + pill('Classicas','Classicas')
+      + pill('Comunicacao','Comunicacao')
       + pill('Burocracia','Burocracia')
       + pill('Vida pessoal','Vida pessoal')
       + pill('Trabalho','Trabalho')
@@ -53,6 +65,7 @@
       var scroll = e.target.closest('[data-dash-scroll]');
       if (scroll) scrollToLabel(scroll.getAttribute('data-dash-scroll'));
     });
+    hideLegacyIntro(home);
   }
 
   function action(nav, icon, title, desc){
