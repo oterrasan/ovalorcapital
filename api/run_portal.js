@@ -14,7 +14,7 @@ const SUBCAT = { politica:"Governo Federal", economia:"Política Econômica", ne
 const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","trump","putin","haddad","stf","congresso","senado","camara","governo","presidente","ministro","deputado","senador","pcc","policia","federal","dolar","selic","ipca","copom","ibovespa","brasil","eua","china","russia"]);
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
 const EVENTO = new Set(["aprova","aprovacao","vota","votacao","sanciona","veto","decide","decisao","prende","prisao","operacao","bloqueia","bloqueio","investiga","denuncia","condena","absolve","autoriza","suspende","aumenta","reduz","corta","eleva","queda","alta","lanca","anuncia","acordo","cobra","multa","reforma","projeto","relatorio","pesquisa","levantamento","resultado","balanco"]);
-const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante desse cenário","diante desse cenario","sob essa ótica","sob essa otica","nesse sentido","em suma","por fim","considerações finais","consideracoes finais","reflexões finais","reflexoes finais","perspectiva estratégica","perspectiva estrategica","leitura de segunda ordem","impactos não óbvios","impactos nao obvios","ecossistema","disruptivo","sinergia","catalisador"];
+const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante desse cenário","diante desse cenario","sob essa ótica","sob essa otica","nesse sentido","em suma","por fim","considerações finais","consideracoes finais","reflexões finais","reflexoes finais","perspectiva estratégica","perspectiva estrategica","leitura de segunda ordem","impactos não óbvios","impactos nao obvios","ecossistema","disruptivo","sinergia","catalisador","robusto","robusta","robustos","robustas","nova era"];
 const IMG_HOSTS = new Set(["glbimg.com","globo.com","g1.globo.com","ge.globo.com","valor.com.br","uol.com.br","folha.uol.com.br","estadao.com.br","r7.com","sbt.com.br","jovempan.com.br","band.com.br","cnnbrasil.com.br","veja.com.br","abril.com.br","exame.com","cartacapital.com.br","poder360.com.br","gazetadopovo.com.br","metropoles.com","infomoney.com.br","terra.com.br","agenciabrasil.ebc.com.br","reuters.com","investing.com","ap.org"]);
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
@@ -35,6 +35,7 @@ function validar(content) {
   const corpo = String(content.corpo || "").trim();
   const texto = plain(corpo);
   if (content.titulo.length < 35 || content.titulo.length > 115) erros.push("titulo fora da faixa");
+  if (/nova era|desafio[s]? de|impactos de|futuro de/i.test(content.titulo)) erros.push("titulo generico");
   if (texto.length < 2000) erros.push("texto curto");
   if (!/<p>\s*<strong>Reda(?:ç|c)(?:ã|a)o OVC<\/strong>\s*—/i.test(corpo)) erros.push("assinatura ausente");
   if (!/<h2\b[^>]*>/i.test(corpo)) erros.push("subtitulos ausentes");
@@ -67,7 +68,7 @@ Produza uma matéria jornalística OVC em português brasileiro formal, com SEO 
 
 Segurança factual: não inventar fatos, datas, valores, fontes, acusações, crimes, intenções ou declarações. Quando houver incerteza, use [VERIFICAR]. Números e declarações precisam de atribuição contextual. Não copiar a fonte.
 
-Anti-IA: evitar fórmulas repetidas como vale destacar, cabe ressaltar, nesse contexto, diante desse cenário, em suma, por fim, sob essa ótica e nesse sentido. FAQ é opcional; use apenas se o tema realmente pedir dúvidas práticas. O encerramento é obrigatório, mas pode variar entre Conclusão OVC, Leitura OVC, Fechamento OVC ou Síntese OVC.
+Anti-IA: evitar fórmulas repetidas como vale destacar, cabe ressaltar, nesse contexto, diante desse cenário, em suma, por fim, sob essa ótica e nesse sentido. Proibido usar robusto, robusta, ecossistema, disruptivo, sinergia, catalisador e títulos genéricos como "nova era", "desafios de" ou "impactos de". FAQ é opcional; use apenas se o tema realmente pedir dúvidas práticas. O encerramento é obrigatório, mas pode variar entre Conclusão OVC, Leitura OVC, Fechamento OVC ou Síntese OVC.
 
 Formato: 2.000 a 4.500 caracteres no CORPO; 8 a 12 parágrafos curtos; usar <h2>; começar o CORPO exatamente com <p><strong>Redação OVC</strong> — ${hoje}</p>; usar só <p>, <h2>, <strong>, <ul>, <li>; proibido markdown.
 
@@ -130,7 +131,7 @@ async function manual(req, res, rec) {
   const cat = CATS.has(categoria) ? categoria : "economia";
   const content = await gerarOVC(sourceText, sourceTitle, rec.contexto, cat);
   content.categoria = cat;
-  if (subcategoria) content.subcategoria = subcategoria;
+  content.subcategoria = subcategoria || SUBCAT[cat] || "Geral";
   const erros = validar(content);
   if (erros.length) return res.status(422).json({ status: "reprovado", generated: 0, erros });
   const hash = crypto.createHash("md5").update((url || texto).slice(0, 300) + "_manual").digest("hex");
@@ -158,8 +159,8 @@ async function auto(req, res, rec) {
       const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 400) { debug.sem_fonte++; continue; }
       const content = await gerarOVC(sourceText, item.title || a.title || "", rec.contexto, cat);
-      if (!CATS.has(content.categoria)) content.categoria = cat;
-      if (!content.subcategoria) content.subcategoria = SUBCAT[content.categoria] || "Geral";
+      content.categoria = cat;
+      content.subcategoria = SUBCAT[cat] || "Geral";
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
