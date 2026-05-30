@@ -23,6 +23,7 @@
 .ovc-dash-pills { display: flex; flex-wrap: wrap; gap: .5rem; }
 .ovc-dash-pills button { min-height: 2.35rem; padding: 0 .85rem; border-radius: 999px; border: 1px solid rgba(226,235,255,.13); background: rgba(255,255,255,.055) !important; color: rgba(235,241,255,.78) !important; box-shadow: none !important; font-size: .75rem; }
 
+[data-inteligencia-panel=home] p[data-ovc-hidden-legacy-intro] { display: none !important; }
 [data-inteligencia-panel=home] h3 + p + .mb-7 { display: none !important; }
 [data-inteligencia-panel=home] .ovc-home-dashboard + .mb-7 { display: none !important; }
 [data-inteligencia-panel=home] .max-w-5xl > .mb-7:not([data-ovc-home-dashboard]) { margin-bottom: 1rem !important; }
