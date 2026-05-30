@@ -13,6 +13,37 @@
     button.innerHTML = title + '<small>' + subtitle + '</small>';
   }
 
+  function canvasZoom() {
+    var label = document.getElementById('zoomLabel');
+    var value = label ? parseInt((label.textContent || '').replace(/\D/g, ''), 10) : 50;
+    if (!value || value < 20) value = 50;
+    return value / 100;
+  }
+
+  function normalizeCanvasScale() {
+    var canvas = document.getElementById('designCanvas');
+    if (!canvas) return;
+    var zoom = canvasZoom();
+    canvas.style.transform = 'none';
+    canvas.style.transformOrigin = 'top left';
+    canvas.style.width = Math.round(canvas.width * zoom) + 'px';
+    canvas.style.height = Math.round(canvas.height * zoom) + 'px';
+  }
+
+  function bindCanvasControls() {
+    ['zoomIn', 'zoomOut'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (!btn || btn.dataset.execBound) return;
+      btn.dataset.execBound = 'true';
+      btn.addEventListener('click', function () { setTimeout(normalizeCanvasScale, 0); });
+    });
+    Array.from(document.querySelectorAll('[data-format]')).forEach(function (btn) {
+      if (btn.dataset.execBound) return;
+      btn.dataset.execBound = 'true';
+      btn.addEventListener('click', function () { setTimeout(normalizeCanvasScale, 0); });
+    });
+  }
+
   function applyLabels() {
     text(document.querySelector('.brand strong'), 'Studio Visual');
     text(document.querySelector('.brand span'), 'OVC Inteligencia');
@@ -58,6 +89,9 @@
     renameTemplate(templates[1], 'Comunicado executivo', 'Alerta, contexto e orientacao');
     renameTemplate(templates[2], 'Autoridade', 'Prova, metodo e reputacao');
     renameTemplate(templates[3], 'Conteudo educativo', 'Lista, explicacao e clareza');
+
+    bindCanvasControls();
+    normalizeCanvasScale();
   }
 
   if (document.readyState === 'loading') {
@@ -68,4 +102,5 @@
 
   setTimeout(applyLabels, 200);
   setTimeout(applyLabels, 900);
+  setTimeout(normalizeCanvasScale, 1500);
 })();
