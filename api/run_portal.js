@@ -36,6 +36,8 @@ function validar(content) {
   const texto = plain(corpo);
   if (content.titulo.length < 35 || content.titulo.length > 115) erros.push("titulo fora da faixa");
   if (/nova era|desafio[s]? de|impactos de|futuro de/i.test(content.titulo)) erros.push("titulo generico");
+  const tcat = `${content.titulo} ${texto}`.toLowerCase();
+  if (content.categoria !== "esportes" && /roland garros|futebol|tenis|tênis|campeonato|copa do mundo|libertadores|formula 1|fórmula 1/.test(tcat)) erros.push("categoria incoerente");
   if (texto.length < 2000) erros.push("texto curto");
   if (!/<p>\s*<strong>Reda(?:ç|c)(?:ã|a)o OVC<\/strong>\s*—/i.test(corpo)) erros.push("assinatura ausente");
   if (!/<h2\b[^>]*>/i.test(corpo)) erros.push("subtitulos ausentes");
@@ -147,7 +149,8 @@ async function auto(req, res, rec) {
   const cat = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
   const [prio, geral] = await Promise.all([getNewsByCategoria(cat), getNews()]);
   const seen = new Set();
-  const news = [...prio, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 40);
+  const baseNews = prio.length ? prio : geral;
+  const news = baseNews.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 40);
   const debug = { sem_fonte: 0, duplicado: 0, reprovado: 0, erro: 0, erros: [] };
   for (const item of news) {
     if (Date.now() - start > 52000) break;
