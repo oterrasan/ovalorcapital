@@ -1,8 +1,8 @@
 /* Final correction: tool interface, not landing-page hero */
 [data-inteligencia-panel=home] h3,
-[data-inteligencia-panel=home] h3 + p,
 [data-inteligencia-panel=home] h3::before,
-[data-inteligencia-panel=home] h3 + p::after {
+[data-inteligencia-panel=home] .max-w-5xl > p.mb-7,
+[data-inteligencia-panel=home] .max-w-5xl > p.text-gray-400 {
   display: none !important;
   content: none !important;
 }
