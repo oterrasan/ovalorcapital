@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/corrigir_artigos.yml"
+      - "scripts/corrigir-pendentes-ovc.mjs"
   workflow_dispatch:
     inputs:
       limit:
