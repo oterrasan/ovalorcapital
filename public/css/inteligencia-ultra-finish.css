@@ -1,5 +1,22 @@
 /* Final correction: tool interface, not landing-page hero */
+[data-inteligencia-panel=home] h3,
+[data-inteligencia-panel=home] h3 + p,
+[data-inteligencia-panel=home] h3::before,
+[data-inteligencia-panel=home] h3 + p::after {
+  display: none !important;
+  content: none !important;
+}
+
 [data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type {
+  display: block !important;
+  min-height: auto !important;
+  padding: 1.25rem !important;
+  border-radius: 1.55rem !important;
+}
+
+[data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type::before,
+[data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type::after {
+  content: none !important;
   display: none !important;
 }
 
@@ -27,7 +44,8 @@
 }
 
 [data-inteligencia-panel=home] [data-suite-home-card] .card-hover,
-[data-inteligencia-panel=home] [data-studio-home-card] .card-hover {
+[data-inteligencia-panel=home] [data-studio-home-card] .card-hover,
+[data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type .card-hover {
   min-height: 112px !important;
   padding: 1rem !important;
 }
@@ -49,7 +67,8 @@
 
 @media (max-width: 900px) {
   [data-inteligencia-panel=home] [data-suite-home-card] .card-hover,
-  [data-inteligencia-panel=home] [data-studio-home-card] .card-hover {
+  [data-inteligencia-panel=home] [data-studio-home-card] .card-hover,
+  [data-inteligencia-panel=home] .max-w-5xl > .mb-7:first-of-type .card-hover {
     min-height: auto !important;
   }
 }
