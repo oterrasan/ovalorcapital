@@ -110,7 +110,7 @@ export default async function handler(req, res) {
   const page = Math.max(0, parseInt(req.query.page || "0", 10));
   const today = new Date().toISOString().slice(0, 10);
 
-  // ── SITEMAP ESTÁTICO ──────────────────────────────────────────────────────
+  // SITEMAP ESTATICO
   if (type === "static") {
     const xml = STATIC_PATHS.map(path =>
       `  <url><loc>${BASE}${path}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
     );
   }
 
-  // ── SITEMAP DE ARTIGOS (por página) ──────────────────────────────────────
+  // SITEMAP DE ARTIGOS (por pagina)
   if (type === "posts") {
     try {
       const from = page * PAGE_SIZE;
@@ -155,7 +155,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── SITEMAP INDEX (padrão, sem parâmetros) ────────────────────────────────
+  // SITEMAP INDEX (padrao, sem parametros)
   try {
     const { count, error } = await supabase
       .from("posts")
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
     ];
     for (let i = 0; i < totalPages; i++) {
       sitemaps.push(
-        `  <sitemap><loc>${BASE}/sitemap.xml?type=posts&page=${i}</loc><lastmod>${today}</lastmod></sitemap>`
+        `  <sitemap><loc>${BASE}/sitemap.xml?type=posts&amp;page=${i}</loc><lastmod>${today}</lastmod></sitemap>`
       );
     }
 
