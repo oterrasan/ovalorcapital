@@ -237,8 +237,15 @@ body[data-theme="claro"] .user-chip span {
 
 .merlin-browser {
   display: grid;
-  grid-template-columns: 350px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+}
+
+.company-page > .page,
+.merlin-browser,
+.merlin-browser > *,
+.merlin-detail {
+  min-width: 0;
 }
 
 .merlin-search {
@@ -301,6 +308,21 @@ body[data-theme="claro"] .user-chip span {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.merlin-detail .field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.merlin-detail .field {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1680px) {
+  .merlin-browser {
+    grid-template-columns: 350px minmax(0, 1fr);
+  }
 }
 
 body[data-theme="claro"] .merlin-search input,
