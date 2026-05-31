@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Valor Command CRM</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23070808'/%3E%3Cpath d='M12 16h40L36 50h-8L12 16z' fill='%2349d5d1'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegacao principal">
+        <div class="brand-block">
+          <div class="brand-mark">VC</div>
+          <div>
+            <strong>Valor Command</strong>
+            <span>CRM / ERP Suite</span>
+          </div>
+        </div>
+
+        <nav class="main-nav" id="mainNav"></nav>
+
+        <div class="route-box">
+          <span>Rota alvo</span>
+          <strong>/admin/crm</strong>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div class="search-control">
+            <i data-lucide="search"></i>
+            <input aria-label="Busca global" value="Super Terminais, decisores, faturas, follow-ups..." />
+            <kbd>AI</kbd>
+          </div>
+          <div class="top-actions">
+            <button class="icon-btn" title="Agenda"><i data-lucide="calendar-days"></i></button>
+            <button class="icon-btn has-alert" title="Alertas"><i data-lucide="bell"></i></button>
+            <button class="icon-btn" title="Automacoes"><i data-lucide="workflow"></i></button>
+            <button class="user-chip">
+              <span>RA</span>
+              <strong>Roberto</strong>
+            </button>
+          </div>
+        </header>
+
+        <section class="content-grid">
+          <section class="module-stage" id="moduleStage"></section>
+          <aside class="ai-rail">
+            <div class="ai-header">
+              <div>
+                <span>Copiloto</span>
+                <strong>IA Contextual</strong>
+              </div>
+              <button class="icon-btn compact" title="Nova conversa"><i data-lucide="sparkles"></i></button>
+            </div>
+            <div class="ai-context">
+              <span>Contexto ativo</span>
+              <strong id="aiContext">Cockpit executivo</strong>
+            </div>
+            <div class="ai-feed" id="aiFeed"></div>
+            <div class="ai-composer">
+              <input aria-label="Perguntar ao CRM" placeholder="Pergunte sobre empresa, contato, faturamento..." />
+              <button title="Enviar"><i data-lucide="send"></i></button>
+            </div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <script src="./lucide.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
