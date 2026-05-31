@@ -2,6 +2,16 @@
 
   const idsDestaque = new Set();
 
+  // Resize Supabase Storage images via transform API — serves smaller images to all devices
+  function supabaseImg(url, w, h) {
+    if (!url) return url;
+    if (url.includes('.supabase.co/storage/v1/object/public/')) {
+      const t = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+      return t + '?width=' + w + '&height=' + h + '&resize=cover&format=webp&quality=78';
+    }
+    return url;
+  }
+
   function buildUrl(p) {
     const catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
@@ -94,9 +104,15 @@
       if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
       if (post.imagem) {
         const imgEl = document.getElementById('card-meio-img');
-        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        if (imgEl) {
+          imgEl.src = supabaseImg(post.imagem, 800, 450);
+          imgEl.width = 800;
+          imgEl.height = 450;
+          imgEl.decoding = 'async';
+          imgEl.style.display='block';
+        }
         const wrapEl = document.getElementById('card-meio-wrap');
-        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${supabaseImg(post.imagem, 800, 450)}')`;
       }
     } catch(e) { console.error('[Negocios]',e); }
   }
@@ -118,9 +134,15 @@
       if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
       if (post.imagem) {
         const imgEl = document.getElementById('card-lions-img');
-        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        if (imgEl) {
+          imgEl.src = supabaseImg(post.imagem, 800, 450);
+          imgEl.width = 800;
+          imgEl.height = 450;
+          imgEl.decoding = 'async';
+          imgEl.style.display='block';
+        }
         const wrapEl = document.getElementById('card-lions-wrap');
-        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${supabaseImg(post.imagem, 800, 450)}')`;
       }
     } catch(e) { console.error('[Lions]',e); }
   }
@@ -177,7 +199,8 @@
       if (!posts.length) return;
       el.innerHTML = posts.map(p => {
         const url = buildUrl(p);
-        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy">` : '';
+        const imgSrc = p.imagem ? supabaseImg(p.imagem, 400, 225) : '';
+        const img = imgSrc ? `<img class="ovc-card-img" src="${imgSrc}" alt="" loading="lazy" width="400" height="225" decoding="async">` : '';
         return `<a class="card card-mini" href="${url}">
           ${img}
           <span class="tag tag-${p.categoria}">${p.categoria}</span>
@@ -234,7 +257,6 @@
     carregarCardLions(cache);
 
     SECOES.forEach(s => carregarSecao(s, cache));
-
 
     renderSecao('secao-politica',      ['politica'],                           cache, 3);
     renderSecao('secao-economia',      ['economia'],                           cache, 3);
