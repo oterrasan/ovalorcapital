@@ -180,7 +180,7 @@
           ${pageHead(data)}
           <section class="panel">
             <div class="merlin-search">
-              <input id="companyFilter" value="${escapeHtml(companyFilter)}" placeholder="Buscar empresa, cidade, ID..." />
+              <input id="companyFilter" value="${escapeHtml(companyFilter)}" placeholder="Buscar empresa..." />
             </div>
             <p style="color: var(--muted); margin: 0">Nenhuma empresa encontrada para esse filtro.</p>
           </section>
@@ -223,7 +223,7 @@
                   <span class="status-chip">${companies.length}/${summary.empresa_count}</span>
                 </div>
                 <div class="merlin-search">
-                  <input id="companyFilter" value="${escapeHtml(companyFilter)}" placeholder="Buscar empresa, cidade, ID..." />
+                  <input id="companyFilter" value="${escapeHtml(companyFilter)}" placeholder="Buscar empresa..." />
                 </div>
                 <div class="company-list-scroll">
                   ${companies.slice(0, 80).map(companyRow).join("")}
