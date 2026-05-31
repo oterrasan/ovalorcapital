@@ -1,0 +1,148 @@
+:root {
+  --grid-a: rgba(255, 255, 255, 0.035);
+  --grid-b: rgba(255, 255, 255, 0.026);
+  --glow-a: rgba(73, 213, 209, 0.11);
+  --glow-b: rgba(242, 189, 85, 0.09);
+}
+
+body[data-theme="orbital"] {
+  --bg: #050910;
+  --panel: #0d131d;
+  --panel-2: #111a26;
+  --panel-3: #162232;
+  --line: #2a3548;
+  --line-soft: #202a3a;
+  --text: #eef4ff;
+  --muted: #a8b5c9;
+  --faint: #6f7c92;
+  --cyan: #66d4ff;
+  --green: #6ee7b7;
+  --amber: #f7c75c;
+  --red: #ff6b7a;
+  --blue: #8ea7ff;
+  --violet: #c8a2ff;
+  --steel: #c3cedd;
+  --glow-a: rgba(102, 212, 255, 0.13);
+  --glow-b: rgba(142, 167, 255, 0.1);
+}
+
+body[data-theme="aurora"] {
+  --bg: #06100d;
+  --panel: #101712;
+  --panel-2: #142019;
+  --panel-3: #1b2b20;
+  --line: #2c3a31;
+  --line-soft: #223029;
+  --text: #f1f8ee;
+  --muted: #a7b5a7;
+  --faint: #718073;
+  --cyan: #45e0bf;
+  --green: #95ea72;
+  --amber: #f6d260;
+  --red: #ff7a66;
+  --blue: #72b7ff;
+  --violet: #d2a7ff;
+  --steel: #c6d2c8;
+  --glow-a: rgba(69, 224, 191, 0.12);
+  --glow-b: rgba(246, 210, 96, 0.1);
+}
+
+body[data-theme="pulse"] {
+  --bg: #0a070b;
+  --panel: #141015;
+  --panel-2: #1b141c;
+  --panel-3: #241927;
+  --line: #382d3d;
+  --line-soft: #2b2230;
+  --text: #fff3fb;
+  --muted: #b7a7b4;
+  --faint: #817181;
+  --cyan: #ff5aa5;
+  --green: #4de2c2;
+  --amber: #ffd166;
+  --red: #ff6d61;
+  --blue: #7a8cff;
+  --violet: #c084fc;
+  --steel: #d0becd;
+  --glow-a: rgba(255, 90, 165, 0.12);
+  --glow-b: rgba(77, 226, 194, 0.09);
+}
+
+body {
+  background:
+    linear-gradient(90deg, var(--grid-a) 1px, transparent 1px) 0 0 / 72px 72px,
+    linear-gradient(var(--grid-b) 1px, transparent 1px) 0 0 / 72px 72px,
+    radial-gradient(circle at 82% 10%, var(--glow-a), transparent 34%),
+    radial-gradient(circle at 18% 88%, var(--glow-b), transparent 30%),
+    var(--bg);
+}
+
+.theme-control {
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #131715;
+  display: grid;
+  grid-template-columns: repeat(4, 24px);
+  gap: 4px;
+  align-items: center;
+  padding: 0 7px;
+}
+
+.theme-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0;
+  background:
+    linear-gradient(135deg, var(--swatch-a) 0 48%, transparent 49%),
+    linear-gradient(315deg, var(--swatch-b) 0 48%, var(--swatch-c) 49%);
+}
+
+.theme-swatch[data-theme-option="command"] {
+  --swatch-a: #49d5d1;
+  --swatch-b: #f2bd55;
+  --swatch-c: #111513;
+}
+
+.theme-swatch[data-theme-option="orbital"] {
+  --swatch-a: #66d4ff;
+  --swatch-b: #8ea7ff;
+  --swatch-c: #0d131d;
+}
+
+.theme-swatch[data-theme-option="aurora"] {
+  --swatch-a: #45e0bf;
+  --swatch-b: #95ea72;
+  --swatch-c: #101712;
+}
+
+.theme-swatch[data-theme-option="pulse"] {
+  --swatch-a: #ff5aa5;
+  --swatch-b: #4de2c2;
+  --swatch-c: #141015;
+}
+
+.theme-swatch.active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cyan) 35%, transparent);
+}
+
+body[data-theme] .nav-item.active {
+  border-color: color-mix(in srgb, var(--cyan) 45%, transparent);
+}
+
+body[data-theme] .brand-mark {
+  border-color: color-mix(in srgb, var(--cyan) 62%, transparent);
+}
+
+body[data-theme] .btn.primary {
+  border-color: color-mix(in srgb, var(--cyan) 60%, transparent);
+  background: color-mix(in srgb, var(--cyan) 15%, #080b0a);
+}
+
+body[data-theme] .btn.warning,
+body[data-theme] .role-pill {
+  border-color: color-mix(in srgb, var(--amber) 52%, transparent);
+}
