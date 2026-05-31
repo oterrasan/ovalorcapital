@@ -1,7 +1,7 @@
 (function(){
-  function ensureTvRails(){
+  function ensureLiveRails(){
     const main = document.querySelector('main.ovc-main');
-    const mount = main && main.querySelector('[data-tv-page]');
+    const mount = main && main.querySelector('[data-tv-page],[data-radio-page],[data-radar-page],[data-quotes-page],[data-agenda-page],[data-impostometro-page]');
     if (!main || !mount || main.querySelector('.ovc-right-rail')) return;
     const grid = document.createElement('section');
     grid.className = 'ovc-grid';
@@ -15,9 +15,9 @@
     grid.appendChild(right);
     main.appendChild(grid);
   }
-  ensureTvRails();
+  ensureLiveRails();
   const script = document.createElement('script');
-  script.src = '/js/live-pages-core.js?v=1';
+  script.src = '/js/live-pages-core.js?v=2';
   script.async = false;
   script.onload = function(){
     if (document.readyState !== 'loading') document.dispatchEvent(new Event('DOMContentLoaded'));
