@@ -71,6 +71,19 @@ const SECTION_LABELS = {
     pedagogia: "Pedagogia e Docencia",
     rh: "Recursos Humanos",
     "servico-social": "Servico Social"
+  },
+  colunistas: {
+    "roberto-terrasan": "Roberto Terrasan",
+    "beta-ferreira": "Beta Ferreira",
+    "adriana-ferreira": "Adriana Ferreira",
+    "michele-froiz": "Michele Froiz",
+    "coluna-ovc": "Coluna OVC",
+    "prof-marcos-pizzolatto": "Prof. Marcos Pizzolatto",
+    "gabriel-thiede": "Gabriel Thiede",
+    "fabiana-campos": "Fabiana Campos",
+    "larissa-corvetto": "Larissa Corvetto",
+    "taisa-da-fonseca": "Taisa da Fonseca",
+    "andre-oliveira": "Andre Oliveira"
   }
 };
 
@@ -127,7 +140,14 @@ function normalizeLayout(html, cat, label, desc, section) {
   html = setBodyAttr(html, "data-section", section || "geral");
   html = ensureScripts(html);
 
-  if (cat === "colunistas") return html;
+  if (cat === "colunistas") {
+    html = html.replace(/\/colunistas\/\?c=/g, "/colunistas/");
+    html = html.replace(
+      "var cSlug=params.get('c');",
+      "var sectionSlug=(document.body.getAttribute('data-section')||'').replace(/^geral$/,'');\n  var cSlug=params.get('c')||sectionSlug;"
+    );
+    return html;
+  }
 
   const hasShell = html.includes("data-hero-card") && html.includes("data-main-list") && html.includes("ovc-right-rail");
   if (!hasShell) return html.replace(/<main\b[\s\S]*?<\/main>/i, standardMain(label, desc));
@@ -179,7 +199,9 @@ export default async function handler(req, res) {
   const sectionLabel = (SECTION_LABELS[cat] && SECTION_LABELS[cat][rawSection]) || "";
   const label = sectionLabel || baseLabel;
   const desc = sectionLabel
-    ? `Cobertura de ${sectionLabel} no O Valor Capital, com noticias, analises e contexto no padrao editorial do portal.`
+    ? (cat === "colunistas"
+      ? `Artigos, opinioes e analises de ${sectionLabel} no O Valor Capital, dentro da area oficial de colunistas do portal.`
+      : `Cobertura de ${sectionLabel} no O Valor Capital, com noticias, analises e contexto no padrao editorial do portal.`)
     : baseDesc;
   const canonicalBase = `${ORIGIN}/${templatePath}/`;
   const canonical = sectionLabel ? `${canonicalBase}${rawSection}/` : canonicalBase;
@@ -189,6 +211,7 @@ export default async function handler(req, res) {
   html = normalizeLayout(html, cat, label, desc, sectionLabel ? rawSection : "geral");
   html = html.replace(/<title>[^<]*<\/title>/i, "");
   html = html.replace(/<meta\s+name="description"[^>]*>/i, "");
+  html = html.replace(/<link\s+rel="canonical"[^>]*>/i, "");
   html = html.replace("</head>", seoBlock(title, desc, canonical) + "\n</head>");
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
