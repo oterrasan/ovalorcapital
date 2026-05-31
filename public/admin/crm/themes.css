@@ -26,6 +26,31 @@ body[data-theme="orbital"] {
   --glow-b: rgba(142, 167, 255, 0.1);
 }
 
+body[data-theme="claro"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f8fbff;
+  --panel-3: #eef5ff;
+  --line: #d8e3f0;
+  --line-soft: #e8eef7;
+  --text: #172033;
+  --muted: #5d6d82;
+  --faint: #7d8da1;
+  --cyan: #2563eb;
+  --green: #16a34a;
+  --amber: #d97706;
+  --red: #dc2626;
+  --blue: #0284c7;
+  --violet: #7c3aed;
+  --steel: #64748b;
+  --grid-a: rgba(37, 99, 235, 0.055);
+  --grid-b: rgba(15, 23, 42, 0.035);
+  --glow-a: rgba(37, 99, 235, 0.08);
+  --glow-b: rgba(14, 165, 233, 0.07);
+  --shadow: rgba(15, 23, 42, 0.08);
+}
+
 body[data-theme="aurora"] {
   --bg: #06100d;
   --panel: #101712;
@@ -83,7 +108,7 @@ body {
   border-radius: 6px;
   background: #131715;
   display: grid;
-  grid-template-columns: repeat(4, 24px);
+  grid-template-columns: repeat(5, 24px);
   gap: 4px;
   align-items: center;
   padding: 0 7px;
@@ -104,6 +129,12 @@ body {
   --swatch-a: #49d5d1;
   --swatch-b: #f2bd55;
   --swatch-c: #111513;
+}
+
+.theme-swatch[data-theme-option="claro"] {
+  --swatch-a: #ffffff;
+  --swatch-b: #2563eb;
+  --swatch-c: #eaf2ff;
 }
 
 .theme-swatch[data-theme-option="orbital"] {
@@ -145,4 +176,134 @@ body[data-theme] .btn.primary {
 body[data-theme] .btn.warning,
 body[data-theme] .role-pill {
   border-color: color-mix(in srgb, var(--amber) 52%, transparent);
+}
+
+body[data-theme="claro"] .sidebar,
+body[data-theme="claro"] .topbar,
+body[data-theme="claro"] .brand-block,
+body[data-theme="claro"] .route-box,
+body[data-theme="claro"] .search-control,
+body[data-theme="claro"] .icon-btn,
+body[data-theme="claro"] .theme-control,
+body[data-theme="claro"] .user-chip,
+body[data-theme="claro"] .ai-rail,
+body[data-theme="claro"] .ai-context,
+body[data-theme="claro"] .ai-card,
+body[data-theme="claro"] .ai-composer input,
+body[data-theme="claro"] .page-head,
+body[data-theme="claro"] .panel,
+body[data-theme="claro"] .kpi,
+body[data-theme="claro"] .company-strip,
+body[data-theme="claro"] .data-table,
+body[data-theme="claro"] .timeline,
+body[data-theme="claro"] .contact-card,
+body[data-theme="claro"] .pipeline-col,
+body[data-theme="claro"] .module-tile,
+body[data-theme="claro"] .field,
+body[data-theme="claro"] .score,
+body[data-theme="claro"] .work-item,
+body[data-theme="claro"] .deal,
+body[data-theme="claro"] .social-tile,
+body[data-theme="claro"] .mini-action {
+  background: var(--panel);
+}
+
+body[data-theme="claro"] .sidebar {
+  background: #f8fbff;
+}
+
+body[data-theme="claro"] .topbar {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+body[data-theme="claro"] .nav-item.active,
+body[data-theme="claro"] th {
+  background: #eaf2ff;
+}
+
+body[data-theme="claro"] .ops-map,
+body[data-theme="claro"] .radar {
+  background: #f8fbff;
+}
+
+body[data-theme="claro"] .node {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+body[data-theme="claro"] .avatar,
+body[data-theme="claro"] .user-chip span {
+  background: #eaf2ff;
+}
+
+.merlin-browser {
+  display: grid;
+  grid-template-columns: 350px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.merlin-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.merlin-search input {
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0d100f;
+  color: var(--text);
+  padding: 0 10px;
+  outline: 0;
+}
+
+.company-list-scroll {
+  max-height: 620px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.company-row {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #0f1412;
+  color: var(--text);
+  text-align: left;
+  padding: 9px;
+}
+
+.company-row strong,
+.company-row span {
+  display: block;
+}
+
+.company-row strong {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.company-row span {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.company-row.active {
+  border-color: var(--cyan);
+  box-shadow: inset 3px 0 0 var(--cyan);
+}
+
+.merlin-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+body[data-theme="claro"] .merlin-search input,
+body[data-theme="claro"] .company-row {
+  background: #ffffff;
 }
