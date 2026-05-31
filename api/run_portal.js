@@ -15,7 +15,6 @@ const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","tru
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
 const EVENTO = new Set(["aprova","aprovacao","vota","votacao","sanciona","veto","decide","decisao","prende","prisao","operacao","bloqueia","bloqueio","investiga","denuncia","condena","absolve","autoriza","suspende","aumenta","reduz","corta","eleva","queda","alta","lanca","anuncia","acordo","cobra","multa","reforma","projeto","relatorio","pesquisa","levantamento","resultado","balanco"]);
 const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante desse cenário","diante desse cenario","sob essa ótica","sob essa otica","nesse sentido","em suma","por fim","considerações finais","consideracoes finais","reflexões finais","reflexoes finais","perspectiva estratégica","perspectiva estrategica","leitura de segunda ordem","impactos não óbvios","impactos nao obvios","ecossistema","disruptivo","sinergia","catalisador","robusto","robusta","robustos","robustas","nova era"];
-const IMG_HOSTS = new Set(["glbimg.com","globo.com","g1.globo.com","ge.globo.com","valor.com.br","uol.com.br","folha.uol.com.br","estadao.com.br","r7.com","sbt.com.br","jovempan.com.br","band.com.br","cnnbrasil.com.br","veja.com.br","abril.com.br","exame.com","cartacapital.com.br","poder360.com.br","gazetadopovo.com.br","metropoles.com","infomoney.com.br","terra.com.br","agenciabrasil.ebc.com.br","reuters.com","investing.com","ap.org"]);
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
 function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
@@ -25,8 +24,56 @@ function field(raw, name) { const rx = new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\
 function parseOVC(raw) { const txt = String(raw || "").replace(/```(?:html|json)?/gi, "").replace(/```/g, "").trim(); return { titulo: field(txt, "TITULO"), meta_title: field(txt, "META_TITLE"), foco_keyword: field(txt, "FOCO_KEYWORD"), slug: field(txt, "SLUG"), meta_descricao: field(txt, "META_DESCRICAO"), categoria: field(txt, "CATEGORIA").toLowerCase(), subcategoria: field(txt, "SUBCATEGORIA"), corpo: (txt.match(/CORPO:\s*([\s\S]*)$/i)?.[1] || "").trim() }; }
 function palavras(titulo = "") { return titulo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !STOP.has(w) && !RECORRENTES.has(w)).slice(0, 10); }
 function pautaParecida(titulo, recentes) { const novo = new Set(palavras(titulo)); if (novo.size < 3) return false; return (recentes || []).some(t => { const antigo = new Set(palavras(t)); if (antigo.size < 3) return false; const inter = [...novo].filter(w => antigo.has(w)); return inter.some(w => EVENTO.has(w)) && inter.length >= 3 && inter.length / Math.min(novo.size, antigo.size) >= 0.62; }); }
-function competitorImage(url) { if (!url) return false; try { const h = new URL(url).hostname.replace(/^www\./, ""); return [...IMG_HOSTS].some(d => h === d || h.endsWith("." + d)); } catch (_) { return false; } }
 function janelaOk() { const br = new Date(Date.now() - 3 * 3600000); const minutos = br.getUTCHours() * 60 + br.getUTCMinutes(); return minutos >= 420 || minutos <= 30; }
+function badSourceImageUrl(url) {
+  if (!url || url.length < 12) return true;
+  const u = url.toLowerCase();
+  if (/autor|author|avatar|perfil|profile|headshot|logo|favicon|sprite|icon|placeholder|watermark/.test(u)) return true;
+  if (/vector|illustration|ilustra|diagram|infograph|cartoon|drawing|clipart|sketch|template/.test(u)) return true;
+  if (/\.(svg|gif|ico|bmp|tiff)(\?|$)/i.test(u)) return true;
+  if (/\b(16|32|48|64)x(16|32|48|64)\b/.test(u)) return true;
+  return false;
+}
+function absolutizeImageUrl(src, base) {
+  if (!src) return "";
+  try {
+    if (src.startsWith("http")) return src;
+    const u = new URL(base);
+    if (src.startsWith("//")) return u.protocol + src;
+    if (src.startsWith("/")) return u.origin + src;
+    return new URL(src, u.origin + "/").toString();
+  } catch (_) {
+    return src || "";
+  }
+}
+async function extractSourceImage(url) {
+  if (!url) return "";
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6500);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html,application/xhtml+xml"
+      }
+    });
+    clearTimeout(timer);
+    if (!res.ok) return "";
+    const html = await res.text();
+    const candidates = [
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i,
+      /<meta[^>]+property=["']og:image:url["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i
+    ].map(rx => absolutizeImageUrl(html.match(rx)?.[1] || "", url));
+    return candidates.find(img => img && !badSourceImageUrl(img)) || "";
+  } catch (_) {
+    return "";
+  }
+}
 
 function validar(content) {
   const erros = [];
@@ -96,10 +143,20 @@ ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 9000)}`;
   return parseOVC(d.choices?.[0]?.message?.content || "");
 }
 
-async function imagem(content, articleImage, hash, start) {
-  const okSource = articleImage && !competitorImage(articleImage) ? articleImage : null;
-  if (okSource) { try { const saved = await processAndSaveImage(okSource, hash.slice(0, 12), start); if (saved) return saved; } catch (_) {} }
-  try { return await findImage(content.titulo, content.categoria || ""); } catch (_) { return null; }
+async function resolverImagem(content, articleImage, hash, start) {
+  const sourceImage = !badSourceImageUrl(articleImage) ? articleImage : "";
+  if (sourceImage) {
+    try {
+      const saved = await processAndSaveImage(sourceImage, hash.slice(0, 12), start);
+      if (saved) return { url: saved, source: "source_article", original: sourceImage };
+    } catch (_) {}
+  }
+  try {
+    const found = await findImage(content.titulo, content.categoria || "");
+    return { url: found || null, source: found ? "resolver_fallback" : "none", original: "" };
+  } catch (_) {
+    return { url: null, source: "none", original: "" };
+  }
 }
 
 async function cleanupTitles(res, body) {
@@ -110,7 +167,7 @@ async function cleanupTitles(res, body) {
   return res.status(200).json({ status: "ok", fixedTitles, fixedContent: 0 });
 }
 
-async function inserir(content, hash, img, tipo = "padrao") {
+async function inserir(content, hash, img, tipo = "padrao", extraMetrics = {}) {
   const metaDesc = (content.meta_descricao || "").replace(/\*\*/g, "").trim();
   const cat = CATS.has(content.categoria) ? content.categoria : "economia";
   const sub = content.subcategoria || SUBCAT[cat] || "Geral";
@@ -118,7 +175,7 @@ async function inserir(content, hash, img, tipo = "padrao") {
     titulo: stripTitle(content.titulo), conteudo: content.corpo, comentario_fixado: metaDesc, imagem: img, hash,
     status: "pendente", approved: false, publish_method: "portal", published_at: null,
     user_tags: JSON.stringify([cat]), subcategoria: sub, subcategoria_slug: slugify(sub), collaborators: "[]",
-    metrics: { foco_keyword: content.foco_keyword || "", seo_slug: content.slug || "", meta_descricao: metaDesc, meta_title: stripTitle(content.meta_title || content.titulo), tipo_conteudo: tipo },
+    metrics: { foco_keyword: content.foco_keyword || "", seo_slug: content.slug || "", meta_descricao: metaDesc, meta_title: stripTitle(content.meta_title || content.titulo), tipo_conteudo: tipo, ...extraMetrics },
     priority: tipo === "manual" ? 1 : 0, retry_count: 0, max_retries: 3
   }).select().single();
   if (error) throw error;
@@ -128,7 +185,7 @@ async function inserir(content, hash, img, tipo = "padrao") {
 async function manual(req, res, rec) {
   const { url, texto, categoria = "economia", subcategoria = "", image_url, image_query } = req.body || {};
   let sourceText = texto || "", sourceTitle = "", articleImage = "";
-  if (url) { const a = await scrape(url); sourceText = a.text || ""; sourceTitle = a.title || ""; articleImage = a.image || ""; }
+  if (url) { const a = await scrape(url); sourceText = a.text || ""; sourceTitle = a.title || ""; articleImage = a.image || await extractSourceImage(url); }
   if (!sourceText || sourceText.length < 300) return res.status(400).json({ error: "Fonte curta demais para reescrita editorial segura" });
   const cat = CATS.has(categoria) ? categoria : "economia";
   const content = await gerarOVC(sourceText, sourceTitle, rec.contexto, cat);
@@ -137,9 +194,18 @@ async function manual(req, res, rec) {
   const erros = validar(content);
   if (erros.length) return res.status(422).json({ status: "reprovado", generated: 0, erros });
   const hash = crypto.createHash("md5").update((url || texto).slice(0, 300) + "_manual").digest("hex");
-  let img = image_url || await imagem(content, articleImage, hash, Date.now());
+  const resolvedImage = image_url
+    ? { url: image_url, source: "manual_url", original: image_url }
+    : await resolverImagem(content, articleImage, hash, Date.now());
+  let img = resolvedImage.url;
   if (!img && image_query) img = await findImage(image_query, cat);
-  const post = await inserir(content, hash, img, "manual");
+  const post = await inserir(content, hash, img, "manual", {
+    source_url: url || "",
+    source_title: sourceTitle || "",
+    source_image_url: articleImage || "",
+    image_strategy: img ? (resolvedImage.source || "query_fallback") : "none",
+    image_original_url: resolvedImage.original || ""
+  });
   return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, modo: "manual_pendente" });
 }
 
@@ -167,8 +233,16 @@ async function auto(req, res, rec) {
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
-      const img = await imagem(content, a.image || "", hash, start);
-      const post = await inserir(content, hash, img, "padrao");
+      const sourceImage = a.image || await extractSourceImage(item.link);
+      const resolvedImage = await resolverImagem(content, sourceImage, hash, start);
+      const img = resolvedImage.url;
+      const post = await inserir(content, hash, img, "padrao", {
+        source_url: item.link || "",
+        source_title: item.title || a.title || "",
+        source_image_url: sourceImage || "",
+        image_strategy: img ? resolvedImage.source : "none",
+        image_original_url: resolvedImage.original || ""
+      });
       return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, categoria: content.categoria, subcategoria: content.subcategoria, imagem: !!img });
     } catch (e) { debug.erro++; if (debug.erros.length < 5) debug.erros.push(e.message); }
   }
