@@ -1,6 +1,6 @@
 (() => {
   const storageKey = "valor-command-theme";
-  const themes = ["command", "orbital", "aurora", "pulse"];
+  const themes = ["command", "claro", "orbital", "aurora", "pulse"];
 
   function readTheme() {
     try {
