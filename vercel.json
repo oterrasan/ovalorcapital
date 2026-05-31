@@ -37,11 +37,14 @@
     {
       "source": "/",
       "headers": [
-        { "key": "Cache-Control", "value": "public, s-maxage=60, stale-while-revalidate=300" }
+        { "key": "Cache-Control", "value": "public, s-maxage=120, stale-while-revalidate=600" }
       ]
     }
   ],
   "rewrites": [
+    { "source": "/",                         "destination": "/api/home" },
+    { "source": "/index.html",               "destination": "/api/home" },
+
     { "source": "/sitemap.xml",             "destination": "/api/sitemap" },
 
     { "source": "/quem-somos",              "destination": "/api/institutional?page=quem-somos" },
