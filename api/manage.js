@@ -89,6 +89,7 @@ function handler(req, res) {
   if (body.action === "login_colunista") return handleLoginColunista(req, res);
   if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
+  if (body.action === "set_colunista_foto") return handleSetColunistaFoto(req, res);
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
   if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
@@ -628,6 +629,7 @@ async function handleNewsletterSubscribe(req, res) {
 }
 
 const COLUNISTAS_CONFIG_KEY = "COLUNISTAS_ACCOUNTS";
+const COLUNISTAS_PHOTOS_KEY = "COLUNISTAS_PHOTOS";
 function isMissingTableError(error) {
   const msg = String(error?.message || "");
   return error?.code === "42P01" || msg.includes("does not exist") || msg.includes("relation");
@@ -644,6 +646,23 @@ async function saveColunistasConfig(list) {
   );
   if (error) throw error;
 }
+async function getColunistasPhotosConfig() {
+  const { data, error } = await supabase.from("config").select("value").eq("key", COLUNISTAS_PHOTOS_KEY).single();
+  if (error && !/PGRST116|single|multiple/i.test(error.code || error.message || "")) return {};
+  try {
+    const parsed = JSON.parse(data?.value || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch(_) {
+    return {};
+  }
+}
+async function saveColunistasPhotosConfig(map) {
+  const { error } = await supabase.from("config").upsert(
+    { key: COLUNISTAS_PHOTOS_KEY, value: JSON.stringify(map || {}), updated_at: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+  if (error) throw error;
+}
 function publicColunista(c) {
   if (!c) return null;
   const { senha_hash, session_token, ...safe } = c;
@@ -651,9 +670,10 @@ function publicColunista(c) {
 }
 
 async function getColunistaPhotoMap() {
+  const configMap = await getColunistasPhotosConfig();
   try {
     const { data, error } = await supabase.storage.from("posts-images").list("colunistas", { limit: 100 });
-    if (error) return {};
+    if (error) return configMap;
     const base = `${process.env.SUPABASE_URL}/storage/v1/object/public/posts-images/colunistas/`;
     const map = {};
     (data || []).forEach(f => {
@@ -661,9 +681,9 @@ async function getColunistaPhotoMap() {
       const slug = f.name.replace(/\.[^.]+$/, "");
       map[slug] = base + f.name;
     });
-    return map;
+    return { ...map, ...configMap };
   } catch (_) {
-    return {};
+    return configMap;
   }
 }
 
@@ -672,7 +692,8 @@ function attachFotoColunista(c, photoMap = {}) {
   if (!safe) return null;
   if (safe.foto_url) return safe;
   const slug = safe.slug || slugifyBase(safe.nome);
-  return photoMap[slug] ? { ...safe, foto_url: photoMap[slug] } : safe;
+  const foto = photoMap[slug] || photoMap[safe.nome] || "";
+  return foto ? { ...safe, foto_url: foto } : safe;
 }
 
 async function validarTokenColunista(colunista_id, token) {
@@ -828,6 +849,25 @@ async function handleListColunistas(req, res) {
   }
 }
 
+async function handleSetColunistaFoto(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  const { nome, slug, foto_url } = req.body || {};
+  const nomeLimpo = String(nome || "").trim();
+  const slugLimpo = slugifyBase(slug || nomeLimpo);
+  const fotoLimpa = String(foto_url || "").trim();
+  if (!slugLimpo) return res.status(400).json({ error: "Colunista obrigatório" });
+  if (!/^https?:\/\//i.test(fotoLimpa)) return res.status(400).json({ error: "URL da foto inválida" });
+  try {
+    const map = await getColunistasPhotosConfig();
+    map[slugLimpo] = fotoLimpa;
+    if (nomeLimpo) delete map[nomeLimpo];
+    await saveColunistasPhotosConfig(map);
+    return res.status(200).json({ ok: true, slug: slugLimpo, foto_url: fotoLimpa });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 async function handleCreateColunista(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { nome, email, senha, telefone = "", foto_url = "", bio = "", especialidade = "" } = req.body || {};
@@ -863,12 +903,22 @@ async function handleCreateColunista(req, res) {
         created_at: new Date().toISOString()
       });
       await saveColunistasConfig(list);
+      if (payload.foto_url) {
+        const photoMap = await getColunistasPhotosConfig();
+        photoMap[payload.slug] = payload.foto_url;
+        await saveColunistasPhotosConfig(photoMap);
+      }
       return res.status(200).json({ ok: true, fallback_config: true });
     }
     if (error) {
       if (error.message.includes("unique") || error.message.includes("duplicate"))
         return res.status(400).json({ error: "E-mail já cadastrado" });
       return res.status(500).json({ error: error.message });
+    }
+    if (payload.foto_url) {
+      const photoMap = await getColunistasPhotosConfig();
+      photoMap[payload.slug] = payload.foto_url;
+      await saveColunistasPhotosConfig(photoMap);
     }
     return res.status(200).json({ ok: true });
   } catch(e) {
