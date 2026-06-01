@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Admin OVC â€” Centro de Comando</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="/api/manage?action=vendor_js&name=react"></script>
+<script src="/api/manage?action=vendor_js&name=react-dom"></script>
+<script src="/api/manage?action=vendor_js&name=babel"></script>
+<script src="/api/manage?action=vendor_js&name=supabase"></script>
+<script src="/api/manage?action=vendor_js&name=html2canvas"></script>
 <style>
 :root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
