@@ -29,7 +29,7 @@
     { id:'defesa',       label:'Defesa',         path:'/defesa/',       cats:['defesa'] },
     { id:'religiao',     label:'Fé & Espiritualidade', path:'/religiao/', cats:['religiao'] },
     { id:'parcerias',    label:'Parcerias',      path:'/parcerias/',    cats:['parcerias'] },
-    { id:'vc',           label:'OVC / Colunistas',path:'/vc/',          cats:['vc','colunistas'] }
+    { id:'vc',           label:'Colunistas OVC',  path:'/colunistas/',  cats:['vc','colunistas'] }
   ];
 
   var CATS_DESTAQUE = ['politica','economia','internacional','investigativo','negocios','seguros'];
@@ -69,7 +69,7 @@
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
       tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-      vc:'vc', colunistas:'vc', internacional:'internacional', variedades:'variedades', geral:'politica',
+      vc:'vc', colunistas:'colunistas', internacional:'internacional', variedades:'variedades', geral:'politica',
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
       concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
     };
@@ -286,10 +286,15 @@
     var container = document.getElementById('ovc-cards-section');
     if(!container || document.getElementById('ovc-colunistas-346')) return;
 
-    fetch('/api/portal-posts?categoria=vc&limit=6')
+    fetch('/api/portal-posts?recentes=true&limit=120')
       .then(function(r){ return r.json(); })
       .then(function(data){
-        var posts = (data.posts||[]).filter(function(p){ return p.titulo; }).slice(0,6);
+        var posts = (data.posts||[]).filter(function(p){
+          var cat = String(p.categoria||'').toLowerCase();
+          var sub = String(p.subcategoria||'').toLowerCase();
+          var method = String(p.publish_method||p.tipo||'').toLowerCase();
+          return p.titulo && (cat==='colunistas' || cat==='vc' || sub.indexOf('colun')!==-1 || method.indexOf('colun')!==-1);
+        }).slice(0,6);
         if(!posts.length) return;
 
         var sec = document.createElement('section');
@@ -323,13 +328,116 @@
           html += '</div></div>';
         }
 
+        html = html.replace('href="/vc/"','href="/colunistas/"');
         sec.innerHTML = html;
         container.parentNode.insertBefore(sec, container);
       })
       .catch(function(){});
   }
 
+  function injetarMenuColunistas(){
+    var nav = document.querySelector('nav.supermenu');
+    if(!nav || nav.querySelector('a[href="/colunistas/"]')) return;
+    var item = document.createElement('div');
+    item.className = 'supermenu-item';
+    item.innerHTML = '<a class="label" href="/colunistas/">Colunistas</a><div class="submenu">'
+      +'<div class="submenu-title">Opinião OVC</div>'
+      +'<a href="/colunistas/">Todos os colunistas</a>'
+      +'<a href="/colunistas/">Artigos e colunas</a>'
+      +'</div>';
+    var first = nav.querySelector('.supermenu-item');
+    if(first && first.nextSibling) nav.insertBefore(item, first.nextSibling);
+    else nav.appendChild(item);
+  }
+
+  function organizarRailsHome(){
+    var right = document.querySelector('.rail-right');
+    var left = document.querySelector('.rail-left');
+    var tv = document.querySelector('.rail-block-tv');
+    if(right && tv && right.firstElementChild !== tv) right.insertBefore(tv, right.firstElementChild);
+
+    if(!left) return;
+    var investigativo = null;
+    var rightBlocks = right ? right.querySelectorAll('.rail-block') : [];
+    Array.prototype.forEach.call(rightBlocks, function(block){
+      var title = block.querySelector('.rail-title');
+      if(!investigativo && title && title.textContent.toLowerCase().indexOf('investigativo') !== -1) investigativo = block;
+    });
+    if(!investigativo) return;
+
+    var atalhos = null;
+    var leftBlocks = left.querySelectorAll('.rail-block');
+    Array.prototype.forEach.call(leftBlocks, function(block){
+      var title = block.querySelector('.rail-title');
+      if(!atalhos && title && title.textContent.toLowerCase().indexOf('atalhos') !== -1) atalhos = block;
+    });
+    if(atalhos){
+      investigativo.classList.add('rail-block-investigativo');
+      investigativo.style.marginTop = '10px';
+      left.insertBefore(investigativo, atalhos.nextSibling);
+    }
+  }
+
+  function garantirRailColunistas(){
+    var tv = document.querySelector('.rail-block-tv');
+    if(!tv || !tv.parentNode) return null;
+    var block = document.querySelector('[data-home-colunistas-rail]');
+    if(!block){
+      block = document.createElement('div');
+      block.className = 'rail-block rail-block-colunistas';
+      block.setAttribute('data-home-colunistas-rail','1');
+      block.innerHTML = '<div class="rail-title">Colunistas OVC</div>'
+        +'<div class="home-colunistas-rail-body" style="font-size:11px;color:#6b7280;">Carregando colunistas...</div>';
+    }
+    if(tv.nextElementSibling !== block) tv.parentNode.insertBefore(block, tv.nextSibling);
+    return block.querySelector('.home-colunistas-rail-body');
+  }
+
+  function iniciais(nome){
+    return String(nome||'OVC').trim().split(/\s+/).slice(0,2).map(function(p){ return p.charAt(0).toUpperCase(); }).join('');
+  }
+
+  function carregarRailColunistas(){
+    var body = garantirRailColunistas();
+    if(!body) return;
+    fetch('/api/manage?action=list_colunistas')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var list = Array.isArray(data) ? data : (data.colunistas || data.data || data.items || []);
+        list = list.filter(function(c){ return c && c.ativo !== false && (c.nome || c.name); });
+        if(!list.length) throw new Error('sem colunistas');
+        var ordem = ['Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Coluna OVC','Prof. Marcos Pizzolatto','Larissa Corvetto','Taísa da Fonseca','André Oliveira'];
+        list.sort(function(a,b){
+          var an = a.nome || a.name || '';
+          var bn = b.nome || b.name || '';
+          var ai = ordem.indexOf(an); if(ai === -1) ai = 99;
+          var bi = ordem.indexOf(bn); if(bi === -1) bi = 99;
+          return ai - bi || an.localeCompare(bn);
+        });
+        var html = '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">';
+        list.slice(0,9).forEach(function(c){
+          var nome = c.nome || c.name || 'Colunista OVC';
+          var foto = c.foto_url || c.photo_url || c.avatar_url || c.imagem || '';
+          html += '<a href="/colunistas/" title="'+escHtml(nome)+'" style="display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;color:#0f172a;min-width:0;">';
+          if(foto){
+            html += '<img src="'+foto+'" alt="'+escHtml(nome)+'" loading="lazy" style="width:42px;height:42px;border-radius:8px;object-fit:cover;object-position:center top;display:block;border:1px solid #e5e7eb;background:#111827;" onerror="this.outerHTML=\'<span style=&quot;width:42px;height:42px;border-radius:8px;background:#101827;color:#d4af37;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;&quot;>'+iniciais(nome)+'</span>\';">';
+          } else {
+            html += '<span style="width:42px;height:42px;border-radius:8px;background:#101827;color:#d4af37;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">'+iniciais(nome)+'</span>';
+          }
+          html += '<span style="font-size:9px;font-weight:700;line-height:1.15;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(nome)+'</span></a>';
+        });
+        html += '</div><a href="/colunistas/" style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px solid #edf0f5;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#b8860b;text-decoration:none;">Ver colunas <span>→</span></a>';
+        body.innerHTML = html;
+      })
+      .catch(function(){
+        body.innerHTML = '<a href="/colunistas/" style="display:block;text-decoration:none;color:#0f172a;font-size:12px;font-weight:700;line-height:1.35;">Acesse os artigos e colunas do O Valor Capital</a>';
+      });
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
+    injetarMenuColunistas();
+    organizarRailsHome();
+    carregarRailColunistas();
     load();
     injetarMenuProfissoes();
     carregarMaisLidas();
