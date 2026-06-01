@@ -1,4 +1,4 @@
-name: Executar migração Supabase
+name: Rollback Supabase (banco original)
 
 on:
   push:
@@ -7,9 +7,8 @@ on:
       - '.github/workflows/run_migration.yml'
 
 env:
-  NEW_URL: https://xjzoyzsdyxwaiihppngi.supabase.co
-  NEW_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhqem95enNkeXh3YWlpaHBwbmdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM0NzIwMSwiZXhwIjoyMDk1OTIzMjAxfQ.7qB72j63-sB_D8uISIc4s46Iz_ggZvaC_MpnAflJrQM
-  DB_PASS: fEkAur912eR35rH4
+  NEW_URL: https://bfsegqdgscudtdgwdyci.supabase.co
+  NEW_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50
 
 jobs:
   migrar:
@@ -18,21 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: "1. Criar schema no novo banco"
-        continue-on-error: true
-        run: |
-          sudo apt-get install -y postgresql-client 2>/dev/null || true
-          PROJECT_REF=$(echo "$NEW_URL" | sed 's|https://||' | sed 's|\.supabase\.co.*||')
-          DB_HOST="db.${PROJECT_REF}.supabase.co"
-          echo "Conectando em $DB_HOST"
-          PGPASSWORD="$DB_PASS" psql \
-            --connect-timeout=20 \
-            "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" \
-            -f db/schema.sql \
-            && echo "Schema criado" \
-            || echo "AVISO: psql falhou — tabelas precisam ser criadas manualmente no Supabase SQL Editor"
-
-      - name: "2. Atualizar credenciais no Vercel"
+      - name: "1. Atualizar credenciais no Vercel"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
