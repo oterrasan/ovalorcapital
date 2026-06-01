@@ -849,6 +849,7 @@ async function handleCreateColunista(req, res) {
         nome: payload.nome,
         email: payload.email,
         senha_hash: payload.senha_hash,
+        slug: payload.slug,
         ativo: true
       });
       error = fallback.error;
