@@ -602,11 +602,39 @@ async function handleNewsletterSubscribe(req, res) {
   }
 }
 
+const COLUNISTAS_CONFIG_KEY = "COLUNISTAS_ACCOUNTS";
+function isMissingTableError(error) {
+  const msg = String(error?.message || "");
+  return error?.code === "42P01" || msg.includes("does not exist") || msg.includes("relation");
+}
+async function getColunistasConfig() {
+  const { data, error } = await supabase.from("config").select("value").eq("key", COLUNISTAS_CONFIG_KEY).single();
+  if (error && !/PGRST116|single|multiple/i.test(error.code || error.message || "")) throw error;
+  try { return JSON.parse(data?.value || "[]"); } catch(_) { return []; }
+}
+async function saveColunistasConfig(list) {
+  const { error } = await supabase.from("config").upsert(
+    { key: COLUNISTAS_CONFIG_KEY, value: JSON.stringify(list), updated_at: new Date().toISOString() },
+    { onConflict: "key" }
+  );
+  if (error) throw error;
+}
+function publicColunista(c) {
+  if (!c) return null;
+  const { senha_hash, session_token, ...safe } = c;
+  return safe;
+}
+
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
   let { data, error } = await supabase.from("colunistas")
     .select("id,nome,email,telefone,foto_url,bio,especialidade,slug,ativo").eq("id", colunista_id)
     .eq("session_token", token).eq("ativo", true).single();
+  if (error && isMissingTableError(error)) {
+    const list = await getColunistasConfig();
+    const found = list.find(c => c.id === colunista_id && c.session_token === token && c.ativo !== false);
+    return publicColunista(found);
+  }
   if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
     const fallback = await supabase.from("colunistas")
       .select("id,nome,email,ativo").eq("id", colunista_id)
@@ -622,6 +650,13 @@ async function handleLoginColunista(req, res) {
   try {
     let { data: colunista, error } = await supabase.from("colunistas")
       .select("id,nome,email,telefone,foto_url,bio,especialidade,slug,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
+    let usarConfigFallback = false;
+    if (error && isMissingTableError(error)) {
+      const list = await getColunistasConfig();
+      colunista = list.find(c => c.email === email.toLowerCase().trim());
+      usarConfigFallback = true;
+      error = null;
+    }
     if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
       const fallback = await supabase.from("colunistas")
         .select("id,nome,email,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
@@ -632,7 +667,17 @@ async function handleLoginColunista(req, res) {
     if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
     if (colunista.senha_hash !== hashSenha(senha)) return res.status(401).json({ error: "Credenciais inválidas" });
     const token = gerarToken();
-    await supabase.from("colunistas").update({ session_token: token, last_login: new Date().toISOString() }).eq("id", colunista.id);
+    const lastLogin = new Date().toISOString();
+    if (usarConfigFallback) {
+      const list = await getColunistasConfig();
+      const idx = list.findIndex(c => c.id === colunista.id);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], session_token: token, last_login: lastLogin };
+        await saveColunistasConfig(list);
+      }
+    } else {
+      await supabase.from("colunistas").update({ session_token: token, last_login: lastLogin }).eq("id", colunista.id);
+    }
     return res.status(200).json({
       ok: true,
       token,
@@ -720,6 +765,14 @@ async function handleListColunistas(req, res) {
   try {
     let { data, error } = await supabase.from("colunistas")
       .select("id,nome,email,telefone,ativo,created_at,last_login,slug,foto_url,bio,especialidade").order("nome");
+    if (error && isMissingTableError(error)) {
+      const list = await getColunistasConfig();
+      return res.status(200).json({
+        ok: true,
+        fallback_config: true,
+        colunistas: list.map(publicColunista).sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
+      });
+    }
     if (error && error.message && /foto_url|bio|especialidade|slug/i.test(error.message)) {
       const fallback = await supabase.from("colunistas")
         .select("id,nome,email,ativo,created_at,last_login").order("nome");
@@ -753,6 +806,19 @@ async function handleCreateColunista(req, res) {
       especialidade: String(especialidade || "").trim()
     };
     let { error } = await supabase.from("colunistas").insert(payload);
+    if (error && isMissingTableError(error)) {
+      const list = await getColunistasConfig();
+      if (list.some(c => c.email === payload.email)) return res.status(400).json({ error: "E-mail jÃ¡ cadastrado" });
+      list.push({
+        id: crypto.randomUUID(),
+        ...payload,
+        session_token: "",
+        last_login: null,
+        created_at: new Date().toISOString()
+      });
+      await saveColunistasConfig(list);
+      return res.status(200).json({ ok: true, fallback_config: true });
+    }
     if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
       const fallback = await supabase.from("colunistas").insert({
         nome: payload.nome,
@@ -777,7 +843,15 @@ async function handleToggleColunista(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id, ativo } = req.body || {};
   if (!id) return res.status(400).json({ error: "id obrigatório" });
-  await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
+  const { error } = await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
+  if (error && isMissingTableError(error)) {
+    const list = await getColunistasConfig();
+    const idx = list.findIndex(c => c.id === id);
+    if (idx >= 0) {
+      list[idx].ativo = !ativo;
+      await saveColunistasConfig(list);
+    }
+  }
   return res.status(200).json({ ok: true });
 }
 
@@ -785,7 +859,11 @@ async function handleDeleteColunista(req, res) {
   if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id } = req.body || {};
   if (!id) return res.status(400).json({ error: "id obrigatório" });
-  await supabase.from("colunistas").delete().eq("id", id);
+  const { error } = await supabase.from("colunistas").delete().eq("id", id);
+  if (error && isMissingTableError(error)) {
+    const list = await getColunistasConfig();
+    await saveColunistasConfig(list.filter(c => c.id !== id));
+  }
   return res.status(200).json({ ok: true });
 }
 
