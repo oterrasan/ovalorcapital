@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     } catch(_) {}
     const p = post ? formatPost(post, false) : null;
     const title = p ? p.titulo : "O Valor Capital";
-    const desc  = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de notícias do Brasil.";
+    const desc  = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de notÃ­cias do Brasil.";
     const img   = (p && p.imagem) ? p.imagem : OG_DEFAULT;
     const url   = p ? ("https://ovalorcapital.com.br" + p.url) : "https://ovalorcapital.com.br";
     res.setHeader("Content-Type","text/html; charset=utf-8");
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>${title} — O Valor Capital</title>
+<title>${title} â€” O Valor Capital</title>
 <meta name="description" content="${desc}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="O Valor Capital">
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
 <script>window.location.replace("${url}");<\/script>
 <\/head>
 <body style="font-family:sans-serif;text-align:center;padding:40px;">
-<p>Redirecionando para <a href="${url}">O Valor Capital<\/a>…<\/p>
+<p>Redirecionando para <a href="${url}">O Valor Capital<\/a>â€¦<\/p>
 <\/body>
 <\/html>`);
   }
@@ -206,7 +206,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         articles: posts.map(p => ({
           title: p.titulo, excerpt: p.resumo, image: p.imagem,
-          url: p.url, category: p.categoria, source: "Redação OVC",
+          url: p.url, category: p.categoria, source: "RedaÃ§Ã£o OVC",
           relativeDate: dataBr(p.data), readingTime: "3 min", slug: p.slug
         })),
         banners: []
@@ -251,17 +251,17 @@ async function handleGetComments(req, res) {
 async function handlePostComment(req, res) {
   const { post_id, texto, token } = req.body || {};
   if (!post_id || !texto || !token) {
-    return res.status(400).json({ error: "post_id, texto e token obrigatórios" });
+    return res.status(400).json({ error: "post_id, texto e token obrigatÃ³rios" });
   }
   if (texto.trim().length < 2 || texto.length > 2000) {
-    return res.status(400).json({ error: "Comentário deve ter entre 2 e 2000 caracteres" });
+    return res.status(400).json({ error: "ComentÃ¡rio deve ter entre 2 e 2000 caracteres" });
   }
 
   let userId = null;
-  let userNome = "Usuário";
+  let userNome = "UsuÃ¡rio";
   try {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) return res.status(401).json({ error: "Token inválido ou expirado" });
+    if (authErr || !user) return res.status(401).json({ error: "Token invÃ¡lido ou expirado" });
     userId = user.id;
     const { data: profile } = await supabase
       .from("profiles")
@@ -272,10 +272,10 @@ async function handlePostComment(req, res) {
       userNome = [profile.nome, profile.sobrenome].filter(Boolean).join(" ");
     } else {
       const meta = user.user_metadata || {};
-      userNome = meta.full_name || meta.name || user.email?.split("@")[0] || "Usuário";
+      userNome = meta.full_name || meta.name || user.email?.split("@")[0] || "UsuÃ¡rio";
     }
   } catch(e) {
-    return res.status(401).json({ error: "Falha na verificação de token" });
+    return res.status(401).json({ error: "Falha na verificaÃ§Ã£o de token" });
   }
 
   let flagged = false;
@@ -368,7 +368,7 @@ function formatPost(p, full) {
   const categoria = tags[0] || "geral";
   const conteudo = p.conteudo || "";
   const resumo = conteudo
-    ? conteudo.slice(0, 220).replace(/^Redação OVC.*?\n/, "").trim() + "..."
+    ? conteudo.slice(0, 220).replace(/^RedaÃ§Ã£o OVC.*?\n/, "").trim() + "..."
     : (p.comentario_fixado || "").slice(0, 220);
   const CAT_PATH = {
     politica:"politica", economia:"economia", negocios:"negocios",
@@ -386,9 +386,7 @@ function formatPost(p, full) {
   const sl = slugify(p.titulo || "").slice(0, 55);
   const id8 = (p.id || "").slice(0, 8);
   const cp = CAT_PATH[categoria] || "politica";
-  const url = (categoria === "colunistas" || categoria === "vc")
-    ? `/materia/?cat=colunistas&slug=${encodeURIComponent(`${sl}-${id8}`)}`
-    : `/${cp}/${sl}-${id8}/`;
+  const url = `/${cp}/${sl}-${id8}/`;
   return {
     id: p.id,
     titulo: p.titulo || "",
@@ -419,6 +417,6 @@ function dataBr(dt) {
 }
 
 function slugify(str) {
-  return (str||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"")
+  return (str||"").toLowerCase().normalize("NFD").replace(/[Ì€-Í¯]/g,"")
     .replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,60);
 }
