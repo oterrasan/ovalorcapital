@@ -14,6 +14,38 @@ let _bannersCache = null;
 
 function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
 function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
+function checkAdminAuth(req) {
+  const expected = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || "ovc-admin-2026-secreto";
+  const auth = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  const supplied = auth || req.headers?.["x-admin-token"] || req.headers?.["x-admin-password"] || req.body?.token || req.body?.admin_token || req.query?.token || req.query?.pass || "";
+  return String(supplied) === String(expected);
+}
+function slugifyBase(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+function plainText(html = "") {
+  return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const COLUNISTAS_COM_IA = new Set([
+  "roberto terrasan",
+  "coluna ovc",
+  "ovc",
+  "beta ferreira",
+  "adriana ferreira",
+  "michele froiz"
+]);
 
 // ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
@@ -572,9 +604,15 @@ async function handleNewsletterSubscribe(req, res) {
 
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
-  const { data } = await supabase.from("colunistas")
-    .select("id,nome,email,ativo").eq("id", colunista_id)
+  let { data, error } = await supabase.from("colunistas")
+    .select("id,nome,email,telefone,foto_url,bio,especialidade,slug,ativo").eq("id", colunista_id)
     .eq("session_token", token).eq("ativo", true).single();
+  if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
+    const fallback = await supabase.from("colunistas")
+      .select("id,nome,email,ativo").eq("id", colunista_id)
+      .eq("session_token", token).eq("ativo", true).single();
+    data = fallback.data;
+  }
   return data || null;
 }
 
@@ -582,14 +620,31 @@ async function handleLoginColunista(req, res) {
   const { email, senha } = req.body || {};
   if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
   try {
-    const { data: colunista } = await supabase.from("colunistas")
-      .select("id,nome,email,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
+    let { data: colunista, error } = await supabase.from("colunistas")
+      .select("id,nome,email,telefone,foto_url,bio,especialidade,slug,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
+    if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
+      const fallback = await supabase.from("colunistas")
+        .select("id,nome,email,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
+      colunista = fallback.data;
+      error = fallback.error;
+    }
     if (!colunista) return res.status(401).json({ error: "Credenciais inválidas" });
     if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
     if (colunista.senha_hash !== hashSenha(senha)) return res.status(401).json({ error: "Credenciais inválidas" });
     const token = gerarToken();
     await supabase.from("colunistas").update({ session_token: token, last_login: new Date().toISOString() }).eq("id", colunista.id);
-    return res.status(200).json({ ok: true, token, colunista_id: colunista.id, nome: colunista.nome, email: colunista.email });
+    return res.status(200).json({
+      ok: true,
+      token,
+      colunista_id: colunista.id,
+      nome: colunista.nome,
+      email: colunista.email,
+      telefone: colunista.telefone || "",
+      foto_url: colunista.foto_url || "",
+      bio: colunista.bio || "",
+      especialidade: colunista.especialidade || "",
+      slug: colunista.slug || slugifyBase(colunista.nome)
+    });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -602,12 +657,29 @@ async function handleListPostsColunista(req, res) {
   try {
     const { data } = await supabase.from("posts")
       .select("id,titulo,status,imagem,created_at,published_at,comentario_fixado")
-      .eq("publish_method", "colunista").contains("collaborators", JSON.stringify([colunista_id]))
+      .eq("publish_method", "colunista").like("collaborators", `%"${colunista_id}"%`)
       .order("created_at", { ascending: false }).limit(50);
     return res.status(200).json({ ok: true, posts: data || [] });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
+}
+
+function formatarConteudoColunista(conteudo, nome) {
+  const raw = String(conteudo || "").trim();
+  if (/^\s*<[a-z][\s\S]*>/i.test(raw)) return raw;
+  const linhas = raw.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const corpo = linhas.map(l => {
+    if (/^#{1,3}\s+/.test(l)) return `<h2>${escapeHtml(l.replace(/^#{1,3}\s+/, ""))}</h2>`;
+    return `<p>${escapeHtml(l)}</p>`;
+  }).join("\n");
+  const hoje = new Date().toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo"
+  });
+  return `<p><strong>${escapeHtml(nome)}</strong> — ${hoje}</p>\n${corpo}`;
 }
 
 async function handleSubmitColunista(req, res) {
@@ -619,14 +691,23 @@ async function handleSubmitColunista(req, res) {
   if (conteudo.length < 200) return res.status(400).json({ error: "Conteúdo mínimo de 200 caracteres" });
   try {
     const hash = crypto.createHash("md5").update(titulo + colunista_id + Date.now()).digest("hex");
-    const nomeSlug = colunista.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-");
+    const nomeSlug = colunista.slug || slugifyBase(colunista.nome);
+    const corpoHtml = formatarConteudoColunista(conteudo, colunista.nome);
+    const resumo = plainText(corpoHtml).replace(new RegExp("^" + colunista.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+—\\s+[^.]+", "i"), "").trim().slice(0, 220);
     const { data: post, error } = await supabase.from("posts").insert({
-      titulo, conteudo, imagem: imagem || null,
-      comentario_fixado: `Artigo de ${colunista.nome}`,
+      titulo: titulo.trim(), conteudo: corpoHtml, imagem: imagem || null,
+      comentario_fixado: resumo || `Artigo enviado por ${colunista.nome} para revisão editorial.`,
       hash, status: "pendente", approved: false, publish_method: "colunista",
       user_tags: JSON.stringify(["colunistas"]), subcategoria: colunista.nome,
       subcategoria_slug: nomeSlug, collaborators: JSON.stringify([colunista_id]),
-      metrics: {}, priority: 0, retry_count: 0, max_retries: 0
+      metrics: {
+        tipo_conteudo: "colunista_manual",
+        colunista: colunista.nome,
+        colunista_id,
+        origem: "portal_colunista",
+        sem_ia: true
+      },
+      priority: 0, retry_count: 0, max_retries: 0
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true, post_id: post.id, message: "Artigo enviado para revisão!" });
@@ -637,8 +718,14 @@ async function handleSubmitColunista(req, res) {
 
 async function handleListColunistas(req, res) {
   try {
-    const { data, error } = await supabase.from("colunistas")
-      .select("id,nome,email,ativo,created_at,last_login").order("nome");
+    let { data, error } = await supabase.from("colunistas")
+      .select("id,nome,email,telefone,ativo,created_at,last_login,slug,foto_url,bio,especialidade").order("nome");
+    if (error && error.message && /foto_url|bio|especialidade|slug/i.test(error.message)) {
+      const fallback = await supabase.from("colunistas")
+        .select("id,nome,email,ativo,created_at,last_login").order("nome");
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) {
       if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01'))
         return res.status(200).json({ ok: false, tabela_ausente: true, colunistas: [] });
@@ -651,15 +738,30 @@ async function handleListColunistas(req, res) {
 }
 
 async function handleCreateColunista(req, res) {
-  const { nome, email, senha } = req.body || {};
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
+  const { nome, email, senha, telefone = "", foto_url = "", bio = "", especialidade = "" } = req.body || {};
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
   if (senha.length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
   try {
-    const slug = nome.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-    const { error } = await supabase.from("colunistas").insert({
+    const slug = slugifyBase(nome.trim());
+    const payload = {
       nome: nome.trim(), email: email.toLowerCase().trim(),
-      senha_hash: hashSenha(senha), ativo: true, slug
-    });
+      senha_hash: hashSenha(senha), ativo: true, slug,
+      telefone: String(telefone || "").trim(),
+      foto_url: String(foto_url || "").trim(),
+      bio: String(bio || "").trim(),
+      especialidade: String(especialidade || "").trim()
+    };
+    let { error } = await supabase.from("colunistas").insert(payload);
+    if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
+      const fallback = await supabase.from("colunistas").insert({
+        nome: payload.nome,
+        email: payload.email,
+        senha_hash: payload.senha_hash,
+        ativo: true
+      });
+      error = fallback.error;
+    }
     if (error) {
       if (error.message.includes("unique") || error.message.includes("duplicate"))
         return res.status(400).json({ error: "E-mail já cadastrado" });
@@ -672,6 +774,7 @@ async function handleCreateColunista(req, res) {
 }
 
 async function handleToggleColunista(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id, ativo } = req.body || {};
   if (!id) return res.status(400).json({ error: "id obrigatório" });
   await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
@@ -679,6 +782,7 @@ async function handleToggleColunista(req, res) {
 }
 
 async function handleDeleteColunista(req, res) {
+  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id } = req.body || {};
   if (!id) return res.status(400).json({ error: "id obrigatório" });
   await supabase.from("colunistas").delete().eq("id", id);
@@ -734,6 +838,11 @@ async function handleGerarColuna(req, res) {
   const { colunista_nome, tema, referencias, contexto } = req.body || {};
   if (!colunista_nome) return res.status(400).json({ error: "colunista_nome obrigatório" });
   if (!tema || tema.trim().length < 10) return res.status(400).json({ error: "tema obrigatório (mínimo 10 caracteres)" });
+  if (!COLUNISTAS_COM_IA.has(String(colunista_nome).toLowerCase().trim())) {
+    return res.status(403).json({
+      error: "Este colunista não usa geração por IA. O envio deve ser feito pelo Portal do Colunista e ficará pendente para aprovação."
+    });
+  }
   if (!COLUNISTAS_OVC[colunista_nome]) {
     return res.status(400).json({ error: `Colunista não encontrado. Disponíveis: ${Object.keys(COLUNISTAS_OVC).join(', ')}` });
   }
