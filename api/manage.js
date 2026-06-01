@@ -653,18 +653,12 @@ function publicColunista(c) {
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
   let { data, error } = await supabase.from("colunistas")
-    .select("id,nome,email,telefone,foto_url,bio,especialidade,slug,ativo").eq("id", colunista_id)
+    .select("id,nome,email,bio,slug,ativo").eq("id", colunista_id)
     .eq("session_token", token).eq("ativo", true).single();
   if (error && isMissingTableError(error)) {
     const list = await getColunistasConfig();
     const found = list.find(c => c.id === colunista_id && c.session_token === token && c.ativo !== false);
     return publicColunista(found);
-  }
-  if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
-    const fallback = await supabase.from("colunistas")
-      .select("id,nome,email,ativo").eq("id", colunista_id)
-      .eq("session_token", token).eq("ativo", true).single();
-    data = fallback.data;
   }
   return data || null;
 }
@@ -674,19 +668,13 @@ async function handleLoginColunista(req, res) {
   if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
   try {
     let { data: colunista, error } = await supabase.from("colunistas")
-      .select("id,nome,email,telefone,foto_url,bio,especialidade,slug,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
+      .select("id,nome,email,bio,slug,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
     let usarConfigFallback = false;
     if (error && isMissingTableError(error)) {
       const list = await getColunistasConfig();
       colunista = list.find(c => c.email === email.toLowerCase().trim());
       usarConfigFallback = true;
       error = null;
-    }
-    if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
-      const fallback = await supabase.from("colunistas")
-        .select("id,nome,email,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
-      colunista = fallback.data;
-      error = fallback.error;
     }
     if (!colunista) return res.status(401).json({ error: "Credenciais inválidas" });
     if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
@@ -789,7 +777,7 @@ async function handleSubmitColunista(req, res) {
 async function handleListColunistas(req, res) {
   try {
     let { data, error } = await supabase.from("colunistas")
-      .select("id,nome,email,telefone,ativo,created_at,last_login,slug,foto_url,bio,especialidade").order("nome");
+      .select("id,nome,email,ativo,created_at,last_login,slug,bio").order("nome");
     if (error && isMissingTableError(error)) {
       const list = await getColunistasConfig();
       return res.status(200).json({
@@ -797,12 +785,6 @@ async function handleListColunistas(req, res) {
         fallback_config: true,
         colunistas: list.map(publicColunista).sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
       });
-    }
-    if (error && error.message && /foto_url|bio|especialidade|slug/i.test(error.message)) {
-      const fallback = await supabase.from("colunistas")
-        .select("id,nome,email,ativo,created_at,last_login").order("nome");
-      data = fallback.data;
-      error = fallback.error;
     }
     if (error) {
       if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01'))
@@ -830,7 +812,15 @@ async function handleCreateColunista(req, res) {
       bio: String(bio || "").trim(),
       especialidade: String(especialidade || "").trim()
     };
-    let { error } = await supabase.from("colunistas").insert(payload);
+    const tablePayload = {
+      nome: payload.nome,
+      email: payload.email,
+      senha_hash: payload.senha_hash,
+      slug: payload.slug,
+      bio: payload.bio || null,
+      ativo: true
+    };
+    let { error } = await supabase.from("colunistas").insert(tablePayload);
     if (error && isMissingTableError(error)) {
       const list = await getColunistasConfig();
       if (list.some(c => c.email === payload.email)) return res.status(400).json({ error: "E-mail jÃ¡ cadastrado" });
@@ -843,16 +833,6 @@ async function handleCreateColunista(req, res) {
       });
       await saveColunistasConfig(list);
       return res.status(200).json({ ok: true, fallback_config: true });
-    }
-    if (error && /telefone|foto_url|bio|especialidade|slug/i.test(error.message || "")) {
-      const fallback = await supabase.from("colunistas").insert({
-        nome: payload.nome,
-        email: payload.email,
-        senha_hash: payload.senha_hash,
-        slug: payload.slug,
-        ativo: true
-      });
-      error = fallback.error;
     }
     if (error) {
       if (error.message.includes("unique") || error.message.includes("duplicate"))
