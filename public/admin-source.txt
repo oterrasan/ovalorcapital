@@ -963,7 +963,7 @@ function Postagens() {
   };
 
   const saveEdit = async () => {
-    const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[Ì€-Í¯]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     await sb.from('posts').update({
       titulo: editPost.titulo,
       conteudo: editPost.conteudo,
