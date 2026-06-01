@@ -98,7 +98,6 @@
 
   var parts = location.pathname.split('/').filter(Boolean);
   if (parts[0] === 'colunistas' && parts[1] && /-[a-f0-9]{8}$/i.test(parts[1])) {
-    location.replace('/materia/?cat=colunistas&slug=' + encodeURIComponent(parts[1]));
     return;
   }
 
