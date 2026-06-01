@@ -6,6 +6,11 @@ on:
     paths:
       - '.github/workflows/run_migration.yml'
 
+env:
+  NEW_URL: https://xjzoyzsdyxwaiihppngi.supabase.co
+  NEW_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhqem95enNkeXh3YWlpaHBwbmdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM0NzIwMSwiZXhwIjoyMDk1OTIzMjAxfQ.7qB72j63-sB_D8uISIc4s46Iz_ggZvaC_MpnAflJrQM
+  DB_PASS: fEkAur912eR35rH4
+
 jobs:
   migrar:
     runs-on: ubuntu-latest
@@ -14,93 +19,19 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: "1. Criar schema no novo banco"
-        env:
-          NEW_URL: https://xjzoyzsdyxwaiihppngi.supabase.co
-          NEW_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhqem95enNkeXh3YWlpaHBwbmdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM0NzIwMSwiZXhwIjoyMDk1OTIzMjAxfQ.7qB72j63-sB_D8uISIc4s46Iz_ggZvaC_MpnAflJrQM
-          DB_PASS: fEkAur912eR35rH4
         run: |
           PROJECT_REF=$(echo "$NEW_URL" | sed 's|https://||' | sed 's|\.supabase\.co.*||')
           DB_HOST="db.${PROJECT_REF}.supabase.co"
           echo "Conectando em $DB_HOST"
-
-          psql "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" << 'SQL'
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-CREATE TABLE IF NOT EXISTS posts (
-  id uuid primary key default uuid_generate_v4(),
-  titulo text,
-  conteudo text,
-  comentario_fixado text,
-  imagem text,
-  hash text unique,
-  status text default 'pendente',
-  approved boolean default false,
-  publish_method text default 'portal',
-  user_tags text,
-  subcategoria text,
-  subcategoria_slug text,
-  created_at timestamp with time zone default now(),
-  published_at timestamp with time zone,
-  metrics jsonb default '{}',
-  priority integer default 0,
-  retry_count integer default 0,
-  max_retries integer default 3
-);
-
-CREATE TABLE IF NOT EXISTS config (
-  key text primary key,
-  value text
-);
-
-INSERT INTO config (key, value) VALUES
-  ('AUTOMATION', 'on'),
-  ('MAX_POSTS_DIA', '300')
-ON CONFLICT (key) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS colunistas (
-  id uuid primary key default uuid_generate_v4(),
-  nome text,
-  email text unique,
-  senha_hash text,
-  ativo boolean default true,
-  session_token text,
-  last_login timestamp,
-  created_at timestamp default now()
-);
-
-CREATE TABLE IF NOT EXISTS image_bank (
-  id uuid primary key default uuid_generate_v4(),
-  url text unique,
-  titulo text,
-  post_id uuid,
-  created_at timestamp default now()
-);
-
-CREATE TABLE IF NOT EXISTS rss_sources (
-  id uuid primary key default uuid_generate_v4(),
-  name text,
-  url text unique,
-  categoria text,
-  active boolean default true,
-  created_at timestamp default now()
-);
-
-CREATE INDEX IF NOT EXISTS posts_status_idx ON posts(status);
-CREATE INDEX IF NOT EXISTS posts_published_at_idx ON posts(published_at DESC);
-CREATE INDEX IF NOT EXISTS posts_hash_idx ON posts(hash);
-SELECT 'Schema criado com sucesso' AS resultado;
-SQL
+          PGPASSWORD="$DB_PASS" psql "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" -f db/schema.sql
 
       - name: "2. Atualizar credenciais no Vercel"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
-          NEW_URL: https://xjzoyzsdyxwaiihppngi.supabase.co
-          NEW_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhqem95enNkeXh3YWlpaHBwbmdpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM0NzIwMSwiZXhwIjoyMDk1OTIzMjAxfQ.7qB72j63-sB_D8uISIc4s46Iz_ggZvaC_MpnAflJrQM
         run: |
           npm install -g vercel@54.6.1
           vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
           for target in production preview development; do
             echo "--- $target ---"
             vercel env rm SUPABASE_URL "$target" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
@@ -123,6 +54,7 @@ SQL
 
       - name: "4. Verificar e disparar pipeline"
         run: |
+          echo "Aguardando deploy..."
           sleep 90
           echo "=== Portal ==="
           curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=1" | head -c 300
@@ -132,4 +64,4 @@ SQL
             -H "Content-Type: application/json" \
             -d '{"force":true,"count":8}' | head -c 300
           echo ""
-          echo "Migracao concluida. Artigos chegarao em ~5 minutos."
+          echo "Migracao concluida."
