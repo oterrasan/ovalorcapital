@@ -65,7 +65,6 @@ function handler(req, res) {
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
     if (req.query.action === 'seed_rss_lote2') return handleSeedRssLote2(req, res);
-    if (req.query.action === 'republish') return handleRepublish(req, res);
     if (req.query.action === 'validate-token') {
       const token = req.query.token || '';
       return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
@@ -277,24 +276,6 @@ async function handleAuditImages(req, res) {
     const nextOffset = offset + posts.length;
     const done = posts.length < batch;
     return res.status(200).json({ ok: true, lote: `${offset}–${nextOffset - 1}`, processed: posts.length, unpublished, done, next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}`, results });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleRepublish(req, res) {
-  const confirm = req.query.confirm === 'true';
-  try {
-    if (!confirm) {
-      const { count: total } = await supabase.from('posts').select('id', { count: 'exact', head: true }).eq('status', 'pendente').eq('approved', false).not('published_at', 'is', null);
-      const { count: publicado } = await supabase.from('posts').select('id', { count: 'exact', head: true }).eq('status', 'publicado');
-      const { count: pendente } = await supabase.from('posts').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
-      return res.status(200).json({ ok: true, diagnostico: true, publicados_agora: publicado || 0, pendentes_total: pendente || 0, recuperaveis: total || 0, instrucao: total > 0 ? 'Adicione ?confirm=true para republicar os artigos recuperaveis' : 'Nenhum artigo para recuperar' });
-    }
-    const now = new Date().toISOString();
-    const { error, count } = await supabase.from('posts').update({ status: 'publicado', approved: true, updated_at: now }).eq('status', 'pendente').eq('approved', false).not('published_at', 'is', null).select('id', { count: 'exact', head: true });
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true, republicados: count || 0, mensagem: `${count || 0} artigos republicados com sucesso` });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }

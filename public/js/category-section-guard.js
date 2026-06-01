@@ -32,10 +32,91 @@
     });
   }
 
+  var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+
+  function isColunistasPage(){
+    return document.body && document.body.dataset && document.body.dataset.category === 'colunistas';
+  }
+
+  function normalizeColumnistsPage(){
+    if (!isColunistasPage()) return;
+    var blocked = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos'];
+    var path = location.pathname.split('/').filter(Boolean);
+
+    if (path[0] === 'colunistas' && blocked.indexOf(normalize(path[1])) !== -1) {
+      location.replace('/colunistas/');
+      return;
+    }
+
+    document.querySelectorAll('.col-card').forEach(function(card){
+      var text = normalize((card.getAttribute('onclick') || '') + ' ' + card.textContent);
+      if (blocked.some(function(slug){ return text.indexOf(slug) !== -1; })) card.remove();
+    });
+
+    document.querySelectorAll('.col-stat-n').forEach(function(el){
+      if ((el.textContent || '').trim() === '11') el.textContent = '9';
+    });
+
+    document.querySelectorAll('.col-hero-sub').forEach(function(el){
+      el.textContent = (el.textContent || '').replace(/^11\s+colunistas\.?\s*/i, '');
+    });
+
+    document.querySelectorAll('.col-sec-lbl').forEach(function(el){
+      el.textContent = (el.textContent || '').replace(/^11\s+/i, '');
+    });
+
+    var main = document.querySelector('main.ovc-main');
+    if (!main || main.querySelector(':scope > .ovc-grid')) return;
+    var children = Array.prototype.slice.call(main.children);
+    var grid = document.createElement('section');
+    var stack = document.createElement('div');
+    var rail = document.createElement('aside');
+    grid.className = 'ovc-grid';
+    stack.className = 'ovc-story-stack';
+    rail.className = 'ovc-right-rail';
+    rail.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>Ultimas colunas</h3><div class="ovc-mini-list" data-colunistas-guard-list><p style="font-size:13px;color:#64748b;margin:0">Carregando...</p></div></section><section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>OVC TV</h3><p style="font-size:13px;color:#64748b;line-height:1.55;margin:0 0 12px">Analises, entrevistas e especiais do portal.</p><a class="ovc-btn" href="/tv-ovc/" style="display:flex;justify-content:center">Assistir</a></section>';
+    children.forEach(function(child){ stack.appendChild(child); });
+    grid.appendChild(stack);
+    grid.appendChild(rail);
+    main.appendChild(grid);
+
+    if (!nativeFetch) return;
+    nativeFetch('/api/portal-posts?categoria=colunistas&limit=5')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var slot = rail.querySelector('[data-colunistas-guard-list]');
+        var posts = ((d && d.posts) || []).filter(function(post){
+          return blocked.indexOf(normalize(post && post.subcategoria_slug)) === -1;
+        }).slice(0, 5);
+        if (!slot) return;
+        slot.innerHTML = posts.length ? posts.map(function(post){
+          return '<article class="ovc-mini-item"><div><h4><a href="' + (post.url || '#') + '">' + (post.titulo || 'Coluna OVC') + '</a></h4><p>' + (post.subcategoria || 'Colunistas') + '</p></div><div></div></article>';
+        }).join('') : '<p style="font-size:13px;color:#64748b;margin:0">Conteudo em organizacao editorial.</p>';
+      })
+      .catch(function(){});
+  }
+
+  var parts = location.pathname.split('/').filter(Boolean);
+  if (parts[0] === 'colunistas' && parts[1] && /-[a-f0-9]{8}$/i.test(parts[1])) {
+    return;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){
+      normalizeColumnistsPage();
+      setTimeout(normalizeColumnistsPage, 500);
+      setTimeout(normalizeColumnistsPage, 1200);
+    });
+  } else {
+    normalizeColumnistsPage();
+    setTimeout(normalizeColumnistsPage, 500);
+    setTimeout(normalizeColumnistsPage, 1200);
+  }
+
   if (!window.fetch || window.__OVC_SECTION_GUARD__) return;
   window.__OVC_SECTION_GUARD__ = true;
 
-  var nativeFetch = window.fetch.bind(window);
+  nativeFetch = nativeFetch || window.fetch.bind(window);
   window.fetch = function(input, init){
     return nativeFetch(input, init).then(function(response){
       try {

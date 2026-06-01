@@ -108,7 +108,7 @@ export default async function handler(req, res) {
       .filter(p => p.titulo && p.id)
       .map(p => formatPost(p, false))
       .filter(p => CATS_VALIDAS_R.has(p.categoria));
-    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=86400");
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
     return res.status(200).json({ posts: recentPosts, total: recentPosts.length });
   }
 
@@ -386,6 +386,7 @@ function formatPost(p, full) {
   const sl = slugify(p.titulo || "").slice(0, 55);
   const id8 = (p.id || "").slice(0, 8);
   const cp = CAT_PATH[categoria] || "politica";
+  const url = `/${cp}/${sl}-${id8}/`;
   return {
     id: p.id,
     titulo: p.titulo || "",
@@ -398,7 +399,7 @@ function formatPost(p, full) {
     subcategoria_slug: p.subcategoria_slug || "",
     tags,
     slug: sl,
-    url: `/${cp}/${sl}-${id8}/`,
+    url,
     data: p.published_at || p.created_at
   };
 }
