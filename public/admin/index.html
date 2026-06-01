@@ -15,14 +15,46 @@ html,body{height:100%;margin:0;background:#08080f;color:#f1f1f1;font-family:Inte
   try {
     const r = await fetch('/admin-source.txt', { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    let html = await r.text();
-    const tools = '<script src="/admin-tools.js?v=20260528-4"><\/script>';
-    html = html.replace('</body>', tools + '</body>');
-    document.open();
-    document.write(html);
-    document.close();
+    const html = await r.text();
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+
+    document.title = parsed.title || document.title;
+    parsed.head.querySelectorAll('link,style,meta').forEach(node => {
+      if (node.tagName === 'META' && node.getAttribute('charset')) return;
+      document.head.appendChild(node.cloneNode(true));
+    });
+
+    const scripts = Array.from(parsed.querySelectorAll('script'));
+    const bodyClone = parsed.body.cloneNode(true);
+    bodyClone.querySelectorAll('script').forEach(s => s.remove());
+    document.body.innerHTML = bodyClone.innerHTML;
+
+    const loadScript = src => new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Falha ao carregar ' + src));
+      document.head.appendChild(s);
+    });
+
+    for (const s of scripts.filter(s => s.src)) {
+      await loadScript(s.src);
+    }
+
+    for (const s of scripts.filter(s => !s.src)) {
+      const type = (s.type || '').toLowerCase();
+      const code = type === 'text/babel'
+        ? Babel.transform(s.textContent, { presets: ['react'] }).code
+        : s.textContent;
+      const out = document.createElement('script');
+      out.textContent = code;
+      document.body.appendChild(out);
+    }
+
+    await loadScript('/admin-tools.js?v=20260528-4');
   } catch (e) {
     document.body.innerHTML = '<div class="err"><h1>Admin indisponivel</h1><p>Nao foi possivel carregar o Centro de Comando agora. Atualize a pagina em alguns segundos.</p></div>';
+    console.error(e);
   }
 })();
 </script>
