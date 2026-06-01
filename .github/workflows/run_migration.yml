@@ -19,11 +19,18 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: "1. Criar schema no novo banco"
+        continue-on-error: true
         run: |
+          sudo apt-get install -y postgresql-client 2>/dev/null || true
           PROJECT_REF=$(echo "$NEW_URL" | sed 's|https://||' | sed 's|\.supabase\.co.*||')
           DB_HOST="db.${PROJECT_REF}.supabase.co"
           echo "Conectando em $DB_HOST"
-          PGPASSWORD="$DB_PASS" psql "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" -f db/schema.sql
+          PGPASSWORD="$DB_PASS" psql \
+            --connect-timeout=20 \
+            "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" \
+            -f db/schema.sql \
+            && echo "Schema criado" \
+            || echo "AVISO: psql falhou — tabelas precisam ser criadas manualmente no Supabase SQL Editor"
 
       - name: "2. Atualizar credenciais no Vercel"
         env:
