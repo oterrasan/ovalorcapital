@@ -650,6 +650,31 @@ function publicColunista(c) {
   return safe;
 }
 
+async function getColunistaPhotoMap() {
+  try {
+    const { data, error } = await supabase.storage.from("posts-images").list("colunistas", { limit: 100 });
+    if (error) return {};
+    const base = `${process.env.SUPABASE_URL}/storage/v1/object/public/posts-images/colunistas/`;
+    const map = {};
+    (data || []).forEach(f => {
+      if (!f?.name || f.name.startsWith(".")) return;
+      const slug = f.name.replace(/\.[^.]+$/, "");
+      map[slug] = base + f.name;
+    });
+    return map;
+  } catch (_) {
+    return {};
+  }
+}
+
+function attachFotoColunista(c, photoMap = {}) {
+  const safe = publicColunista(c);
+  if (!safe) return null;
+  if (safe.foto_url) return safe;
+  const slug = safe.slug || slugifyBase(safe.nome);
+  return photoMap[slug] ? { ...safe, foto_url: photoMap[slug] } : safe;
+}
+
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
   let { data, error } = await supabase.from("colunistas")
@@ -691,6 +716,8 @@ async function handleLoginColunista(req, res) {
     } else {
       await supabase.from("colunistas").update({ session_token: token, last_login: lastLogin }).eq("id", colunista.id);
     }
+    const photoMap = await getColunistaPhotoMap();
+    const fotoUrl = colunista.foto_url || photoMap[colunista.slug || slugifyBase(colunista.nome)] || "";
     return res.status(200).json({
       ok: true,
       token,
@@ -698,7 +725,7 @@ async function handleLoginColunista(req, res) {
       nome: colunista.nome,
       email: colunista.email,
       telefone: colunista.telefone || "",
-      foto_url: colunista.foto_url || "",
+      foto_url: fotoUrl,
       bio: colunista.bio || "",
       especialidade: colunista.especialidade || "",
       slug: colunista.slug || slugifyBase(colunista.nome)
@@ -725,7 +752,10 @@ async function handleListPostsColunista(req, res) {
 
 function formatarConteudoColunista(conteudo, nome) {
   const raw = String(conteudo || "").trim();
-  if (/^\s*<[a-z][\s\S]*>/i.test(raw)) return raw;
+  const aviso = `<p><em>A opini&atilde;o dos colunistas n&atilde;o necessariamente reflete a opini&atilde;o de O Valor Capital.</em></p>`;
+  if (/^\s*<[a-z][\s\S]*>/i.test(raw)) {
+    return raw.includes("colunistas") && raw.includes("O Valor Capital") ? raw : `${raw}\n${aviso}`;
+  }
   const linhas = raw.split(/\n+/).map(l => l.trim()).filter(Boolean);
   const corpo = linhas.map(l => {
     if (/^#{1,3}\s+/.test(l)) return `<h2>${escapeHtml(l.replace(/^#{1,3}\s+/, ""))}</h2>`;
@@ -737,7 +767,7 @@ function formatarConteudoColunista(conteudo, nome) {
     year: "numeric",
     timeZone: "America/Sao_Paulo"
   });
-  return `<p><strong>${escapeHtml(nome)}</strong> — ${hoje}</p>\n${corpo}`;
+  return `<p><strong>${escapeHtml(nome)}</strong> &mdash; ${hoje}</p>\n${corpo}\n${aviso}`;
 }
 
 async function handleSubmitColunista(req, res) {
@@ -751,7 +781,7 @@ async function handleSubmitColunista(req, res) {
     const hash = crypto.createHash("md5").update(titulo + colunista_id + Date.now()).digest("hex");
     const nomeSlug = colunista.slug || slugifyBase(colunista.nome);
     const corpoHtml = formatarConteudoColunista(conteudo, colunista.nome);
-    const resumo = plainText(corpoHtml).replace(new RegExp("^" + colunista.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+—\\s+[^.]+", "i"), "").trim().slice(0, 220);
+    const resumo = plainText(conteudo).trim().slice(0, 220);
     const { data: post, error } = await supabase.from("posts").insert({
       titulo: titulo.trim(), conteudo: corpoHtml, imagem: imagem || null,
       comentario_fixado: resumo || `Artigo enviado por ${colunista.nome} para revisão editorial.`,
@@ -778,12 +808,13 @@ async function handleListColunistas(req, res) {
   try {
     let { data, error } = await supabase.from("colunistas")
       .select("id,nome,email,ativo,created_at,last_login,slug,bio").order("nome");
+    const photoMap = await getColunistaPhotoMap();
     if (error && isMissingTableError(error)) {
       const list = await getColunistasConfig();
       return res.status(200).json({
         ok: true,
         fallback_config: true,
-        colunistas: list.map(publicColunista).sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
+        colunistas: list.map(c => attachFotoColunista(c, photoMap)).sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
       });
     }
     if (error) {
@@ -791,7 +822,7 @@ async function handleListColunistas(req, res) {
         return res.status(200).json({ ok: false, tabela_ausente: true, colunistas: [] });
       return res.status(500).json({ error: error.message });
     }
-    return res.status(200).json({ ok: true, colunistas: data || [] });
+    return res.status(200).json({ ok: true, colunistas: (data || []).map(c => attachFotoColunista(c, photoMap)) });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
