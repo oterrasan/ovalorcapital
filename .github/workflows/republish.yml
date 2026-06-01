@@ -1,0 +1,27 @@
+name: Republicar artigos despublicados
+
+on:
+  workflow_dispatch:
+
+jobs:
+  republish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Diagnóstico
+        run: |
+          echo "=== Diagnóstico ==="
+          curl -s "https://www.ovalorcapital.com.br/api/manage?action=republish"
+          echo ""
+
+      - name: Republicar artigos com published_at
+        run: |
+          echo "=== Republicando ==="
+          curl -s "https://www.ovalorcapital.com.br/api/manage?action=republish&confirm=true"
+          echo ""
+
+      - name: Verificar resultado
+        run: |
+          echo "=== Estado final ==="
+          curl -s "https://www.ovalorcapital.com.br/api/manage?action=republish"
+          echo ""
