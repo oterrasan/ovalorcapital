@@ -1,0 +1,173 @@
+name: Migrar para novo Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      new_supabase_url:
+        description: "URL do projeto (ex: https://xyzabc.supabase.co)"
+        required: true
+      new_supabase_key:
+        description: "service_role key (Supabase → Settings → API → service_role)"
+        required: true
+
+jobs:
+  migrar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: "1. Criar schema no novo banco"
+        env:
+          SUPA_URL: ${{ github.event.inputs.new_supabase_url }}
+          SUPA_KEY: ${{ github.event.inputs.new_supabase_key }}
+          DB_PASS: fEkAur912eR35rH4
+        run: |
+          # Extrair project ref da URL (ex: https://xyzabc.supabase.co → xyzabc)
+          PROJECT_REF=$(echo "$SUPA_URL" | sed 's|https://||' | sed 's|\.supabase\.co.*||')
+          echo "Project ref: $PROJECT_REF"
+
+          DB_HOST="db.${PROJECT_REF}.supabase.co"
+          export PGPASSWORD="$DB_PASS"
+
+          echo "=== Conectando ao banco ==="
+          psql "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" -c "SELECT 1 AS ok;" || {
+            echo "❌ Falha na conexão ao banco"
+            echo "Verifique se a URL está correta: $SUPA_URL"
+            exit 1
+          }
+
+          echo "=== Criando tabelas ==="
+          psql "postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres" << 'SQLEOF'
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE IF NOT EXISTS posts (
+  id uuid primary key default uuid_generate_v4(),
+  titulo text,
+  conteudo text,
+  comentario_fixado text,
+  imagem text,
+  hash text unique,
+  status text default 'pendente',
+  approved boolean default false,
+  publish_method text default 'portal',
+  user_tags text,
+  subcategoria text,
+  subcategoria_slug text,
+  created_at timestamp with time zone default now(),
+  published_at timestamp with time zone,
+  metrics jsonb default '{}',
+  priority integer default 0,
+  retry_count integer default 0,
+  max_retries integer default 3
+);
+
+CREATE TABLE IF NOT EXISTS config (
+  key text primary key,
+  value text
+);
+
+INSERT INTO config (key, value) VALUES
+  ('AUTOMATION', 'on'),
+  ('MAX_POSTS_DIA', '300'),
+  ('POSTS_07_09', '2'),
+  ('POSTS_09_12', '4'),
+  ('POSTS_12_15', '4'),
+  ('POSTS_15_18', '4'),
+  ('POSTS_18_21', '4'),
+  ('POSTS_21_24', '4'),
+  ('POSTS_00_01', '2')
+ON CONFLICT (key) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS colunistas (
+  id uuid primary key default uuid_generate_v4(),
+  nome text,
+  email text unique,
+  senha_hash text,
+  ativo boolean default true,
+  session_token text,
+  last_login timestamp,
+  created_at timestamp default now()
+);
+
+CREATE TABLE IF NOT EXISTS image_bank (
+  id uuid primary key default uuid_generate_v4(),
+  url text unique,
+  titulo text,
+  post_id uuid,
+  created_at timestamp default now()
+);
+
+CREATE TABLE IF NOT EXISTS rss_sources (
+  id uuid primary key default uuid_generate_v4(),
+  name text,
+  url text unique,
+  categoria text,
+  active boolean default true,
+  created_at timestamp default now()
+);
+
+CREATE INDEX IF NOT EXISTS posts_status_idx ON posts(status);
+CREATE INDEX IF NOT EXISTS posts_published_at_idx ON posts(published_at DESC);
+CREATE INDEX IF NOT EXISTS posts_hash_idx ON posts(hash);
+CREATE INDEX IF NOT EXISTS posts_created_at_idx ON posts(created_at DESC);
+
+SELECT 'Tabelas criadas com sucesso' AS resultado;
+SQLEOF
+
+          echo "✅ Schema criado"
+
+      - name: "2. Atualizar credenciais no Vercel"
+        run: |
+          npm install -g vercel@latest
+
+          SUPA_URL="${{ github.event.inputs.new_supabase_url }}"
+          SUPA_KEY="${{ github.event.inputs.new_supabase_key }}"
+
+          for target in production preview development; do
+            echo "--- Atualizando $target ---"
+            vercel env rm SUPABASE_URL "$target" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            vercel env rm SUPABASE_KEY "$target" --yes --token=${{ secrets.VERCEL_TOKEN }} 2>/dev/null || true
+            printf "%s" "$SUPA_URL" | vercel env add SUPABASE_URL "$target" --token=${{ secrets.VERCEL_TOKEN }}
+            printf "%s" "$SUPA_KEY" | vercel env add SUPABASE_KEY "$target" --token=${{ secrets.VERCEL_TOKEN }}
+          done
+          echo "✅ Vercel env vars atualizadas"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+
+      - name: "3. Redeploy Vercel"
+        run: |
+          npm install -g vercel@latest
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          echo "✅ Deploy enviado — aguardando propagação..."
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+
+      - name: "4. Aguardar e verificar portal"
+        run: |
+          echo "Aguardando 90s para deploy propagar..."
+          sleep 90
+
+          echo "=== Verificando portal ==="
+          RESULT=$(curl -sf "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=3" 2>/dev/null || echo '{"error":"portal ainda subindo"}')
+          echo "$RESULT" | head -c 400
+
+          echo ""
+          echo "=== Disparando pipeline para gerar conteúdo ==="
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"force":true,"count":8}' | head -c 300
+          echo ""
+
+          # Segunda rodada 30s depois
+          sleep 30
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"force":true,"count":8}' | head -c 300
+          echo ""
+
+          echo "✅ Portal migrado! Artigos chegarão em ~5 minutos (aguardando aprovação no admin)."
