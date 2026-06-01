@@ -64,6 +64,25 @@ create index if not exists posts_created_at_idx on posts(created_at desc);
 create index if not exists posts_publish_method_idx on posts(publish_method);
 create index if not exists posts_user_tags_idx on posts(user_tags);
 
+create table if not exists colunistas (
+  id uuid primary key default uuid_generate_v4(),
+  nome text not null,
+  email text unique not null,
+  telefone text,
+  foto_url text,
+  bio text,
+  especialidade text,
+  slug text unique,
+  senha_hash text not null,
+  session_token text,
+  ativo boolean default true,
+  last_login timestamp,
+  created_at timestamp default now()
+);
+
+create index if not exists colunistas_email_idx on colunistas(email);
+create index if not exists colunistas_slug_idx on colunistas(slug);
+
 create table if not exists alerts (
   id uuid primary key default uuid_generate_v4(),
   type text default 'info',

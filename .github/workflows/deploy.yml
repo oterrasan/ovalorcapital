@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -19,21 +23,3 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
-
-      - name: Teste OpenAI direto
-        run: |
-          sleep 15
-          RESP=$(curl -s -X POST https://api.openai.com/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $(node -e "console.log(Buffer.from('c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=','base64').toString())")" \
-            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"responda apenas: ok"}],"max_tokens":5}' \
-            --max-time 30)
-          echo "OPENAI_TEST: $RESP"
-
-      - name: Disparar pipeline
-        run: |
-          sleep 5
-          curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
-            -H "Content-Type: application/json" \
-            -d '{"force":true,"count":5}' --max-time 120 || true
-          echo "Pipeline disparado"

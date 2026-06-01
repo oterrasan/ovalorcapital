@@ -52,7 +52,13 @@
     .bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
     .bar-count{width:28px;text-align:right;color:#94a3b8;font-size:11px;flex-shrink:0}
     .welcome-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
+    .profile-card{display:grid;grid-template-columns:86px 1fr;gap:18px;align-items:center}
+    .profile-photo{width:86px;height:86px;border-radius:50%;overflow:hidden;background:linear-gradient(145deg,#1e293b,#0f172a);display:grid;place-items:center;color:#ffc800;font-size:24px;font-weight:900;border:2px solid rgba(255,200,0,.28)}
+    .profile-photo img{width:100%;height:100%;object-fit:cover;display:block}
+    .profile-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .profile-meta span{font-size:12px;color:#94a3b8;background:#08080f;border:1px solid #1e293b;border-radius:999px;padding:6px 10px}
     @media(max-width:600px){.stats-grid{grid-template-columns:1fr}}
+    @media(max-width:600px){.profile-card{grid-template-columns:1fr}.profile-photo{width:72px;height:72px}}
   </style>
 </head>
 <body>
@@ -88,6 +94,19 @@
       <div>
         <div style="font-size:20px;font-weight:800;color:#ffc800">Olá, <span id="span-nome"></span></div>
         <div style="font-size:13px;color:#64748b;margin-top:2px">Colunista OVC · Seus artigos passam por revisão antes de publicação</div>
+      </div>
+    </div>
+
+    <div class="card profile-card">
+      <div class="profile-photo" id="profile-photo"></div>
+      <div>
+        <div style="font-size:18px;font-weight:800;color:#e5e7eb" id="profile-name"></div>
+        <div style="font-size:13px;color:#ffc800;font-weight:700;margin-top:3px" id="profile-specialty"></div>
+        <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:10px 0 0" id="profile-bio"></p>
+        <div class="profile-meta">
+          <span id="profile-email"></span>
+          <span id="profile-phone"></span>
+        </div>
       </div>
     </div>
 
@@ -227,12 +246,35 @@ function initPortal() {
   document.getElementById('portal-section').classList.remove('hidden');
   document.getElementById('btn-logout').classList.remove('hidden');
   document.getElementById('span-nome').textContent = session.nome;
+  renderProfile();
   loadPosts();
+}
+
+function initials(nome) {
+  return (nome || '').split(/\s+/).filter(Boolean).slice(0, 2).map(function(w){ return (w[0] || '').toUpperCase(); }).join('');
+}
+
+function renderProfile() {
+  document.getElementById('profile-name').textContent = session.nome || '';
+  document.getElementById('profile-specialty').textContent = session.especialidade || 'Colunista OVC';
+  document.getElementById('profile-bio').textContent = session.bio || 'Painel reservado para envio manual de artigos autorais.';
+  document.getElementById('profile-email').textContent = session.email || '';
+  document.getElementById('profile-phone').textContent = session.telefone || 'telefone não informado';
+  var photo = document.getElementById('profile-photo');
+  if (session.foto_url) {
+    photo.innerHTML = '<img src="' + session.foto_url.replace(/"/g, '&quot;') + '" alt="' + (session.nome || '').replace(/"/g, '&quot;') + '">';
+  } else {
+    photo.textContent = initials(session.nome);
+  }
 }
 
 function updateStats(posts) {
   const cnts = { pendente: 0, publicado: 0, rejeitado: 0 };
-  posts.forEach(p => { const s = p.status || 'pendente'; if (cnts[s] !== undefined) cnts[s]++; });
+  posts.forEach(p => {
+    let s = p.status || 'pendente';
+    if (s === 'success' || s === 'approved') s = 'publicado';
+    if (cnts[s] !== undefined) cnts[s]++;
+  });
   document.getElementById('cnt-pendente').textContent = cnts.pendente;
   document.getElementById('cnt-publicado').textContent = cnts.publicado;
   document.getElementById('cnt-rejeitado').textContent = cnts.rejeitado;
@@ -287,7 +329,8 @@ function renderTable(posts) {
   } else {
     empty.classList.add('hidden');
     posts.forEach(p => {
-      const s = p.status || 'pendente';
+      let s = p.status || 'pendente';
+      if (s === 'success' || s === 'approved') s = 'publicado';
       const bc = s === 'publicado' ? 'b-publicado' : s === 'rejeitado' ? 'b-rejeitado' : 'b-pendente';
       const tr = document.createElement('tr');
       tr.innerHTML = `

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const BASE = "https://www.ovalorcapital.com.br";
+const PAGE_SIZE = 500;
 
 const CAT_PATH = {
   politica:"politica", economia:"economia", negocios:"negocios",
@@ -101,46 +102,85 @@ const STATIC_PATHS = [
   "/vc/liberdade-economica/","/vc/familia-e-patrimonio/"
 ];
 
-const HIGH_PRIORITY = new Set([
-  "/","/trabalho/","/financas/","/moradia/","/vc/","/seguranca/","/bem-estar/",
-  "/politica/","/economia/","/tecnologia/","/investimentos/",
-  "/mercados/","/dados/cotacoes/","/vagas/","/concursos/"
-]);
-
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
-  res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=3600");
 
+  const type = req.query.type || "index";
+  const page = Math.max(0, parseInt(req.query.page || "0", 10));
+  const today = new Date().toISOString().slice(0, 10);
+
+  // SITEMAP ESTATICO
+  if (type === "static") {
+    const xml = STATIC_PATHS.map(path =>
+      `  <url><loc>${BASE}${path}</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`
+    ).join("\n");
+    return res.status(200).send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xml}\n</urlset>`
+    );
+  }
+
+  // SITEMAP DE ARTIGOS (por pagina)
+  if (type === "posts") {
+    try {
+      const from = page * PAGE_SIZE;
+      const to   = from + PAGE_SIZE - 1;
+      const { data: posts, error } = await supabase
+        .from("posts")
+        .select("id,titulo,user_tags,published_at,updated_at")
+        .eq("status", "publicado")
+        .order("published_at", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const xml = (posts || []).map(p => {
+        let tags = [];
+        try { tags = JSON.parse(p.user_tags || "[]"); } catch(_) {}
+        const cat     = (tags[0] || "politica").toLowerCase();
+        const catPath = CAT_PATH[cat] || "politica";
+        const id8     = (p.id || "").slice(0, 8);
+        const sl      = slugify(p.titulo || "");
+        const lastmod = (p.updated_at || p.published_at || "").slice(0, 10);
+        return `  <url><loc>${BASE}/${catPath}/${sl}-${id8}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>monthly</changefreq><priority>0.9</priority></url>`;
+      }).join("\n");
+
+      return res.status(200).send(
+        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xml}\n</urlset>`
+      );
+    } catch(e) {
+      return res.status(500).send(
+        `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`
+      );
+    }
+  }
+
+  // SITEMAP INDEX (padrao, sem parametros)
   try {
-    const { data: posts } = await supabase
+    const { count, error } = await supabase
       .from("posts")
-      .select("id,titulo,user_tags,published_at,updated_at")
-      .eq("status", "publicado")
-      .order("published_at", { ascending: false })
-      .limit(5000);
+      .select("*", { count: "exact", head: true })
+      .eq("status", "publicado");
 
-    const staticXml = STATIC_PATHS.map(path => {
-      const priority = HIGH_PRIORITY.has(path) ? "0.9" : "0.7";
-      return `  <url><loc>${BASE}${path}</loc><changefreq>daily</changefreq><priority>${priority}</priority></url>`;
-    }).join("\n");
+    if (error) throw error;
 
-    const articleXml = (posts || []).map(p => {
-      let tags = [];
-      try { tags = typeof p.user_tags === "string" ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
-      const cat = tags[0] || "politica";
-      const catPath = CAT_PATH[cat] || "politica";
-      const id8 = (p.id || "").slice(0, 8);
-      const sl = slugify(p.titulo || "");
-      const lastmod = (p.updated_at || p.published_at || "").slice(0, 10);
-      return `  <url><loc>${BASE}/${catPath}/${sl}-${id8}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>monthly</changefreq><priority>0.9</priority></url>`;
-    }).join("\n");
+    const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
+
+    const sitemaps = [
+      `  <sitemap><loc>${BASE}/sitemap.xml?type=static</loc><lastmod>${today}</lastmod></sitemap>`
+    ];
+    for (let i = 0; i < totalPages; i++) {
+      sitemaps.push(
+        `  <sitemap><loc>${BASE}/sitemap.xml?type=posts&amp;page=${i}</loc><lastmod>${today}</lastmod></sitemap>`
+      );
+    }
 
     return res.status(200).send(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${staticXml}\n${articleXml}\n</urlset>`
+      `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemaps.join("\n")}\n</sitemapindex>`
     );
   } catch(e) {
     return res.status(500).send(
-      '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>'
+      `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>${BASE}/sitemap.xml?type=static</loc></sitemap></sitemapindex>`
     );
   }
 }

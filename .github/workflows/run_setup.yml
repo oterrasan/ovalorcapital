@@ -1,12 +1,11 @@
-name: Run Setup Categories
+name: Run Setup Categories — pausado
+
 on:
   workflow_dispatch:
+
 jobs:
-  run:
+  paused:
     runs-on: ubuntu-latest
     steps:
-      - name: Criar categorias no banco
-        run: |
-          curl -s -X POST https://www.ovalorcapital.com.br/api/setup_categories \
-            -H "Content-Type: application/json" \
-            --max-time 55
+      - name: Workflow pausado
+        run: echo "Workflow legado pausado. Setup de categorias desativado ate revisao."

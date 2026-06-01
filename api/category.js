@@ -1,257 +1,218 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
-const LOGO = "https://www.ovalorcapital.com.br/images/logo-ovc.png";
 const SITE = "O Valor Capital";
+const ORIGIN = "https://www.ovalorcapital.com.br";
+const OG_DEFAULT = `${ORIGIN}/images/og-default.jpg`;
+const LOGO = `${ORIGIN}/images/logo-ovc.png`;
 
-const CAT_SEO = {
-  politica: {
-    title: "Política | O Valor Capital",
-    desc: "Cobertura completa da política brasileira: Presidência, Congresso Nacional, STF, eleições e projetos de lei. Notícias e análises em tempo real.",
-    canonical: "https://www.ovalorcapital.com.br/politica/",
-    tplPath: "politica",
-  },
-  economia: {
-    title: "Economia | O Valor Capital",
-    desc: "Análise econômica: COPOM, Selic, PIB, inflação, câmbio e conjuntura macroeconômica do Brasil e do mundo. Dados e notícias em tempo real.",
-    canonical: "https://www.ovalorcapital.com.br/economia/",
-    tplPath: "economia",
-  },
-  negocios: {
-    title: "Negócios | O Valor Capital",
-    desc: "Empreendedorismo, gestão financeira, startups, MEI, crédito e tributação para PJ. Tudo o que sua empresa precisa saber.",
-    canonical: "https://www.ovalorcapital.com.br/negocios/",
-    tplPath: "negocios",
-  },
-  investimentos: {
-    title: "Investimentos | O Valor Capital",
-    desc: "Renda fixa, renda variável, fundos, previdência e educação do investidor. Análises e estratégias para seu patrimônio crescer.",
-    canonical: "https://www.ovalorcapital.com.br/investimentos/",
-    tplPath: "investimentos",
-  },
-  seguros: {
-    title: "Seguros | O Valor Capital",
-    desc: "Seguros de vida, saúde, auto, residencial e empresarial. Tudo sobre proteção patrimonial e familiar no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/seguros/",
-    tplPath: "seguros",
-  },
-  mercados: {
-    title: "Mercados Financeiros | O Valor Capital",
-    desc: "Bolsa de valores, câmbio, juros, commodities, criptomoedas e cotações em tempo real. O melhor dos mercados financeiros do Brasil e do mundo.",
-    canonical: "https://www.ovalorcapital.com.br/mercados/",
-    tplPath: "mercados",
-  },
-  educacao: {
-    title: "Educação | O Valor Capital",
-    desc: "Educação financeira, ENEM, carreira, cursos e certificações. Conteúdo para quem quer crescer profissional e financeiramente.",
-    canonical: "https://www.ovalorcapital.com.br/educacao/",
-    tplPath: "educacao",
-  },
-  industria: {
-    title: "Indústria | O Valor Capital",
-    desc: "Notícias da indústria brasileira: agronegócio, energia, construção, mineração, automotivo, logística e indústria 4.0.",
-    canonical: "https://www.ovalorcapital.com.br/industria/",
-    tplPath: "industria",
-  },
-  tecnologia: {
-    title: "Tecnologia | O Valor Capital",
-    desc: "Inteligência artificial, fintechs, e-commerce, cibersegurança, 5G e transformação digital no Brasil e no mundo.",
-    canonical: "https://www.ovalorcapital.com.br/tecnologia/",
-    tplPath: "tecnologia",
-  },
-  esportes: {
-    title: "Esportes | O Valor Capital",
-    desc: "Futebol, basquete, tênis, automobilismo, NFL, MMA e eSports. Notícias esportivas com análise de negócios e impacto econômico.",
-    canonical: "https://www.ovalorcapital.com.br/esportes/",
-    tplPath: "esportes",
-  },
-  saude: {
-    title: "Saúde | O Valor Capital",
-    desc: "Saúde pública, SUS, saúde mental, planos de saúde e políticas de saúde no Brasil. Informação para decisões mais saudáveis.",
-    canonical: "https://www.ovalorcapital.com.br/saude/",
-    tplPath: "saude",
-  },
-  familia: {
-    title: "Família | O Valor Capital",
-    desc: "Orçamento familiar, educação dos filhos, habitação, seguros da família, planejamento patrimonial e sucessão.",
-    canonical: "https://www.ovalorcapital.com.br/familia/",
-    tplPath: "familia",
-  },
-  tributos: {
-    title: "Tributação | O Valor Capital",
-    desc: "IRPF, reforma tributária, planejamento tributário, obrigações fiscais e simuladores. Tudo sobre impostos e tributos no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/tributos/",
-    tplPath: "tributos",
-  },
-  tributacao: {
-    title: "Tributação | O Valor Capital",
-    desc: "IRPF, reforma tributária, planejamento tributário, obrigações fiscais e simuladores. Tudo sobre impostos e tributos no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/tributos/",
-    tplPath: "tributos",
-  },
-  regulacao: {
-    title: "Regulação | O Valor Capital",
-    desc: "Regulação financeira, fiscal, de infraestrutura, telecom, saúde e concorrência no Brasil. Notícias sobre BACEN, CVM e agências reguladoras.",
-    canonical: "https://www.ovalorcapital.com.br/regulacao/",
-    tplPath: "regulacao",
-  },
-  parcerias: {
-    title: "Parcerias | O Valor Capital",
-    desc: "Parcerias empresariais, acadêmicas, institucionais e oportunidades de crescimento com O Valor Capital.",
-    canonical: "https://www.ovalorcapital.com.br/parcerias/",
-    tplPath: "parcerias",
-  },
-  internacional: {
-    title: "Internacional | O Valor Capital",
-    desc: "Notícias internacionais: geopolítica, economia global, EUA, Europa, China e mercados que impactam o Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/internacional/",
-    tplPath: "internacional",
-  },
-  variedades: {
-    title: "Variedades | O Valor Capital",
-    desc: "Notícias de variedades, comportamento, lifestyle e curiosidades do Brasil e do mundo.",
-    canonical: "https://www.ovalorcapital.com.br/variedades/",
-    tplPath: "variedades",
-  },
-  investigativo: {
-    title: "Investigativo | O Valor Capital",
-    desc: "Jornalismo investigativo, reportagens especiais e apurações exclusivas sobre política, economia e poder no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/investigativo/",
-    tplPath: "investigativo",
-  },
-  seguranca: {
-    title: "Segurança Pública | O Valor Capital",
-    desc: "Segurança pública, polícia, criminalidade, defesa nacional e forças armadas. Notícias e análises sobre segurança no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/seguranca/",
-    tplPath: "seguranca",
-  },
-  cultura: {
-    title: "Cultura | O Valor Capital",
-    desc: "Arte, entretenimento, cinema, literatura, música e cultura brasileira. O melhor da produção cultural nacional.",
-    canonical: "https://www.ovalorcapital.com.br/cultura/",
-    tplPath: "cultura",
-  },
-  profissoes: {
-    title: "Profissões | O Valor Capital",
-    desc: "Tendências de mercado, perspectivas e análises das principais profissões e carreiras em alta no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/profissoes/",
-    tplPath: "profissoes",
-  },
-  vagas: {
-    title: "Vagas de Emprego | O Valor Capital",
-    desc: "Vagas de emprego abertas no Brasil, oportunidades no mercado de trabalho, CLT, home office e as melhores empresas para trabalhar.",
-    canonical: "https://www.ovalorcapital.com.br/vagas/",
-    tplPath: "vagas",
-  },
-  concursos: {
-    title: "Concursos Públicos | O Valor Capital",
-    desc: "Concursos públicos abertos, novos editais, inscrições, gabaritos e resultados. Oportunidades no setor público brasileiro.",
-    canonical: "https://www.ovalorcapital.com.br/concursos/",
-    tplPath: "concursos",
-  },
-  imoveis: {
-    title: "Imóveis | O Valor Capital",
-    desc: "Mercado imobiliário, lançamentos, financiamento habitacional, Minha Casa Minha Vida, FGTS, aluguel e compra de imóveis.",
-    canonical: "https://www.ovalorcapital.com.br/imoveis/",
-    tplPath: "imoveis",
-  },
-  esg: {
-    title: "ESG | O Valor Capital",
-    desc: "ESG, sustentabilidade empresarial, impacto social e ambiental, finanças verdes e agenda ESG no Brasil e no mundo.",
-    canonical: "https://www.ovalorcapital.com.br/esg/",
-    tplPath: "esg",
-  },
-  defesa: {
-    title: "Defesa Nacional | O Valor Capital",
-    desc: "Forças armadas, defesa nacional, Exército, Marinha, Aeronáutica, política de defesa e segurança do Estado brasileiro.",
-    canonical: "https://www.ovalorcapital.com.br/defesa/",
-    tplPath: "defesa",
-  },
-  religiao: {
-    title: "Fé & Espiritualidade | O Valor Capital",
-    desc: "Notícias religiosas, espiritualidade, tradições de fé, valores familiares e o papel da religião na sociedade brasileira.",
-    canonical: "https://www.ovalorcapital.com.br/religiao/",
-    tplPath: "religiao",
-  },
-  colunistas: {
-    title: "Colunistas & Opinião | O Valor Capital",
-    desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira.",
-    canonical: "https://www.ovalorcapital.com.br/colunistas/",
-    tplPath: "colunistas",
-  },
+const CATEGORIES = {
+  politica: ["Politica", "Cobertura de poder, governo, Congresso, Judiciario, eleicoes e agenda institucional.", "politica"],
+  economia: ["Economia", "Analise economica, Selic, inflacao, PIB, emprego, contas publicas e conjuntura.", "economia"],
+  negocios: ["Negocios", "Empresas, empreendedorismo, credito, gestao, contratos, startups e ambiente de negocios.", "negocios"],
+  investimentos: ["Investimentos", "Renda fixa, renda variavel, fundos, previdencia, dividendos e educacao do investidor.", "investimentos"],
+  seguros: ["Seguros", "Seguro de vida, saude, auto, residencial, empresarial e protecao patrimonial.", "seguros"],
+  mercados: ["Mercados", "Bolsa, juros, cambio, commodities, cripto, indices e sinais relevantes para o capital.", "mercados"],
+  educacao: ["Educacao", "Educacao financeira, carreira, cursos, certificacoes, universidades e formacao profissional.", "educacao"],
+  industria: ["Industria", "Agro, energia, construcao, mineracao, logistica, portos, ferrovias e industria 4.0.", "industria"],
+  tecnologia: ["Tecnologia", "Inteligencia artificial, dados, fintechs, pagamentos, telecom, govtech e transformacao digital.", "tecnologia"],
+  esportes: ["Esportes", "Futebol, automobilismo, tenis, MMA, eSports e negocio do esporte.", "esportes"],
+  saude: ["Saude", "Saude publica, planos, medicina, saude mental, custos e indicadores do setor.", "saude"],
+  familia: ["Familia", "Educacao dos filhos, orcamento familiar, habitacao, sucessao, patrimonio e protecao.", "familia"],
+  tributos: ["Tributos", "IRPF, reforma tributaria, planejamento, obrigacoes fiscais e impactos no contribuinte.", "tributos"],
+  tributacao: ["Tributos", "IRPF, reforma tributaria, planejamento, obrigacoes fiscais e impactos no contribuinte.", "tributos"],
+  regulacao: ["Regulacao", "Banco Central, CVM, agencias reguladoras, normas, fiscalizacao e ambiente institucional.", "regulacao"],
+  parcerias: ["Parcerias", "Parcerias academicas, empresariais, institucionais, programas e oportunidades comerciais.", "parcerias"],
+  internacional: ["Internacional", "Geopolitica, economia global, EUA, Europa, China e fatos externos que afetam o Brasil.", "internacional"],
+  variedades: ["Variedades", "Comportamento, cultura popular, cotidiano, entretenimento e temas leves do dia.", "variedades"],
+  investigativo: ["Investigativo", "Apuracao, contas publicas, denuncias, fiscalizacao e reportagens especiais.", "investigativo"],
+  seguranca: ["Seguranca", "Seguranca publica, criminalidade, policia, defesa social e ordem institucional.", "seguranca"],
+  cultura: ["Cultura", "Arte, cinema, musica, literatura, entretenimento e producao cultural brasileira.", "cultura"],
+  profissoes: ["Profissoes", "Medicina, Direito, Engenharia, TI, Comunicacao e mercado profissional brasileiro.", "profissoes"],
+  vagas: ["Vagas", "Vagas de emprego, oportunidades CLT, carreira, recrutamento e mercado de trabalho.", "vagas"],
+  concursos: ["Concursos", "Concursos publicos, editais, inscricoes, provas, cargos e oportunidades no setor publico.", "concursos"],
+  imoveis: ["Imoveis", "Mercado imobiliario, financiamento, casa propria, aluguel, FGTS e habitacao.", "imoveis"],
+  esg: ["ESG", "Sustentabilidade, governanca, impacto social, agenda ambiental e negocios responsaveis.", "esg"],
+  defesa: ["Defesa", "Forcas Armadas, defesa nacional, tecnologia militar e seguranca do Estado brasileiro.", "defesa"],
+  religiao: ["Religiao", "Fe, espiritualidade, valores familiares, comunidades religiosas e sociedade.", "religiao"],
+  colunistas: ["Colunistas", "Artigos, opiniao, analises autorais e vozes do O Valor Capital.", "colunistas"]
 };
 
-const _tpl = {};
-function getTemplate(tplPath) {
-  if (_tpl[tplPath]) return _tpl[tplPath];
+const SECTION_LABELS = {
+  investigativo: {
+    denuncias: "Denuncias e Exposicao",
+    "contas-publicas": "Contas Publicas"
+  },
+  profissoes: {
+    medicina: "Medicina",
+    enfermagem: "Enfermagem",
+    odontologia: "Odontologia",
+    farmacia: "Farmacia",
+    psicologia: "Psicologia",
+    fisioterapia: "Fisioterapia",
+    nutricao: "Nutricao",
+    veterinaria: "Medicina Veterinaria",
+    biomedicina: "Biomedicina",
+    fonoaudiologia: "Fonoaudiologia",
+    direito: "Direito e Advocacia",
+    contabilidade: "Contabilidade",
+    administracao: "Administracao",
+    economia: "Economia",
+    auditoria: "Auditoria e Compliance",
+    "engenharia-civil": "Engenharia Civil e Construcao",
+    arquitetura: "Arquitetura e Urbanismo",
+    "engenharia-eletrica": "Engenharia Eletrica e Eletronica",
+    "engenharia-quimica": "Engenharia Quimica e Materiais",
+    ti: "TI e Programacao",
+    agronomia: "Agronomia e Agro",
+    jornalismo: "Jornalismo",
+    publicidade: "Publicidade e Propaganda",
+    "relacoes-publicas": "Relacoes Publicas",
+    pedagogia: "Pedagogia e Docencia",
+    rh: "Recursos Humanos",
+    "servico-social": "Servico Social"
+  },
+  colunistas: {
+    "roberto-terrasan": "Roberto Terrasan",
+    "beta-ferreira": "Beta Ferreira",
+    "adriana-ferreira": "Adriana Ferreira",
+    "michele-froiz": "Michele Froiz",
+    "coluna-ovc": "Coluna OVC",
+    "prof-marcos-pizzolatto": "Prof. Marcos Pizzolatto",
+    "gabriel-thiede": "Gabriel Thiede",
+    "fabiana-campos": "Fabiana Campos",
+    "larissa-corvetto": "Larissa Corvetto",
+    "taisa-da-fonseca": "Taisa da Fonseca",
+    "andre-oliveira": "Andre Oliveira"
+  }
+};
+
+const cache = {};
+
+function esc(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function getTemplate(path) {
+  const chosen = path || "politica";
+  if (cache[chosen]) return cache[chosen];
   try {
-    _tpl[tplPath] = readFileSync(join(process.cwd(), "public", tplPath, "index.html"), "utf8");
-    return _tpl[tplPath];
+    cache[chosen] = readFileSync(join(process.cwd(), "public", chosen, "index.html"), "utf8");
+    return cache[chosen];
   } catch (_) {
-    try {
-      _tpl["politica"] = _tpl["politica"] || readFileSync(join(process.cwd(), "public", "politica", "index.html"), "utf8");
-      return _tpl["politica"];
-    } catch (__) { return null; }
+    cache.politica = cache.politica || readFileSync(join(process.cwd(), "public", "politica", "index.html"), "utf8");
+    return cache.politica;
   }
 }
 
-function esc(s) {
-  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function setBodyAttr(html, name, value) {
+  const attr = `${name}="${esc(value)}"`;
+  const re = new RegExp(`\\s${name}="[^"]*"`, "i");
+  if (re.test(html)) return html.replace(re, ` ${attr}`);
+  return html.replace(/<body\b([^>]*)>/i, `<body$1 ${attr}>`);
 }
 
-export default async function handler(req, res) {
-  const artId = (req.query.id || "").trim();
-  if (artId) {
-    return res.redirect(302, "/og?id=" + encodeURIComponent(artId));
+function ensureScripts(html) {
+  const guard = '<script src="/js/category-section-guard.js" defer></script>';
+  if (!html.includes("/js/category-section-guard.js")) {
+    if (html.includes("/js/internal-page-v2.js")) {
+      html = html.replace(/<script\s+src="\/js\/internal-page-v2\.js"[^>]*><\/script>/i, `${guard}\n$&`);
+    } else {
+      html = html.replace("</head>", `  ${guard}\n</head>`);
+    }
+  }
+  if (!html.includes("/js/internal-page-v2.js")) {
+    html = html.replace("</head>", '  <script src="/js/internal-page-v2.js" defer></script>\n</head>');
+  }
+  return html;
+}
+
+function standardMain(label, description) {
+  return `<main class="ovc-main"><section class="ovc-section-hero"><div class="ovc-panel ovc-hero"><span class="ovc-badge">${esc(label)}</span><h1>${esc(label)}</h1><p>${esc(description)}</p></div><aside class="ovc-panel ovc-weather"><h3>Leitura rapida</h3><div class="temp">${esc(label)}</div><p>Conteudo organizado no mesmo padrao editorial do portal, com coluna principal, lateral, imagens e modulos de apoio.</p><div class="ovc-banner-slot"><div><strong>Espaco premium</strong><span>Area preparada para publicidade e chamadas institucionais.</span></div><a class="ovc-btn secondary" href="/anuncie/">Anuncie</a></div></aside></section><section class="ovc-grid"><div class="ovc-story-stack"><div class="ovc-panel" data-hero-card></div><div class="ovc-panel ovc-story-list"><h3>Principais noticias</h3><div class="ovc-mini-list" data-main-list></div></div><div class="ovc-panel ovc-story-list"><h3>Mais da secao</h3><div class="ovc-mini-list" data-local-list></div></div></div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main>`;
+}
+
+function normalizeLayout(html, cat, label, desc, section) {
+  html = setBodyAttr(html, "data-category", cat);
+  html = setBodyAttr(html, "data-section", section || "geral");
+  html = ensureScripts(html);
+
+  if (cat === "colunistas") {
+    html = html.replace(/\/colunistas\/\?c=/g, "/colunistas/");
+    html = html.replace(
+      "var cSlug=params.get('c');",
+      "var sectionSlug=(document.body.getAttribute('data-section')||'').replace(/^geral$/,'');\n  var cSlug=params.get('c')||sectionSlug;"
+    );
+    return html;
   }
 
-  const cat = (req.query.cat || "").toLowerCase();
-  const seo = CAT_SEO[cat];
-  if (!seo) return res.status(404).send("Not found");
+  const hasShell = html.includes("data-hero-card") && html.includes("data-main-list") && html.includes("ovc-right-rail");
+  if (!hasShell) return html.replace(/<main\b[\s\S]*?<\/main>/i, standardMain(label, desc));
+  return html.replace(/<h1>[^<]*<\/h1>/i, `<h1>${esc(label)}</h1>`);
+}
 
-  const tpl = getTemplate(seo.tplPath);
-  if (!tpl) return res.status(500).send("Template error");
-
+function seoBlock(title, desc, canonical) {
   const jsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    "name": seo.title,
-    "description": seo.desc,
-    "url": seo.canonical,
-    "publisher": {
-      "@type": "Organization",
-      "name": SITE,
-      "logo": { "@type": "ImageObject", "url": LOGO }
-    },
-    "inLanguage": "pt-BR",
-    "isAccessibleForFree": true
+    name: title,
+    description: desc,
+    url: canonical,
+    publisher: { "@type": "Organization", name: SITE, logo: { "@type": "ImageObject", url: LOGO } },
+    inLanguage: "pt-BR",
+    isAccessibleForFree: true
   });
-
-  const seoTags = [
-    `<title>${esc(seo.title)}</title>`,
-    `<meta name="description" content="${esc(seo.desc)}">`,
-    `<link rel="canonical" href="${seo.canonical}">`,
+  return [
+    `<title>${esc(title)}</title>`,
+    `<meta name="description" content="${esc(desc)}">`,
+    `<link rel="canonical" href="${canonical}">`,
     `<meta property="og:type" content="website">`,
     `<meta property="og:site_name" content="${SITE}">`,
-    `<meta property="og:title" content="${esc(seo.title)}">`,
-    `<meta property="og:description" content="${esc(seo.desc)}">`,
+    `<meta property="og:title" content="${esc(title)}">`,
+    `<meta property="og:description" content="${esc(desc)}">`,
     `<meta property="og:image" content="${OG_DEFAULT}">`,
-    `<meta property="og:url" content="${seo.canonical}">`,
+    `<meta property="og:url" content="${canonical}">`,
     `<meta property="og:locale" content="pt_BR">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:site" content="@ovalorcapital">`,
-    `<meta name="twitter:title" content="${esc(seo.title)}">`,
-    `<meta name="twitter:description" content="${esc(seo.desc)}">`,
+    `<meta name="twitter:title" content="${esc(title)}">`,
+    `<meta name="twitter:description" content="${esc(desc)}">`,
     `<meta name="twitter:image" content="${OG_DEFAULT}">`,
     `<script type="application/ld+json">${jsonLd}</script>`,
-    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`,
+    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`
   ].join("\n");
+}
 
-  let html = tpl;
+export default async function handler(req, res) {
+  const id = String(req.query.id || "").trim();
+  if (id) return res.redirect(302, "/og?id=" + encodeURIComponent(id));
+
+  const cat = String(req.query.cat || "").toLowerCase();
+  const cfg = CATEGORIES[cat];
+  if (!cfg) return res.status(404).send("Not found");
+
+  const [baseLabel, baseDesc, templatePath] = cfg;
+  const rawSection = String(req.query.section || "").toLowerCase().replace(/\/+$/g, "").trim();
+  const sectionLabel = (SECTION_LABELS[cat] && SECTION_LABELS[cat][rawSection]) || "";
+  const label = sectionLabel || baseLabel;
+  const desc = sectionLabel
+    ? (cat === "colunistas"
+      ? `Artigos, opinioes e analises de ${sectionLabel} no O Valor Capital, dentro da area oficial de colunistas do portal.`
+      : `Cobertura de ${sectionLabel} no O Valor Capital, com noticias, analises e contexto no padrao editorial do portal.`)
+    : baseDesc;
+  const canonicalBase = `${ORIGIN}/${templatePath}/`;
+  const canonical = sectionLabel ? `${canonicalBase}${rawSection}/` : canonicalBase;
+  const title = `${label} | ${SITE}`;
+
+  let html = getTemplate(templatePath);
+  html = normalizeLayout(html, cat, label, desc, sectionLabel ? rawSection : "geral");
   html = html.replace(/<title>[^<]*<\/title>/i, "");
   html = html.replace(/<meta\s+name="description"[^>]*>/i, "");
-  html = html.replace("</head>", seoTags + "\n</head>");
+  html = html.replace(/<link\s+rel="canonical"[^>]*>/i, "");
+  html = html.replace("</head>", seoBlock(title, desc, canonical) + "\n</head>");
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");

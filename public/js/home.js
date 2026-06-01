@@ -94,7 +94,13 @@
       if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
       if (post.imagem) {
         const imgEl = document.getElementById('card-meio-img');
-        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        if (imgEl) {
+          imgEl.src = post.imagem;
+          imgEl.width = 800;
+          imgEl.height = 450;
+          imgEl.decoding = 'async';
+          imgEl.style.display='block';
+        }
         const wrapEl = document.getElementById('card-meio-wrap');
         if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
       }
@@ -118,7 +124,13 @@
       if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
       if (post.imagem) {
         const imgEl = document.getElementById('card-lions-img');
-        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        if (imgEl) {
+          imgEl.src = post.imagem;
+          imgEl.width = 800;
+          imgEl.height = 450;
+          imgEl.decoding = 'async';
+          imgEl.style.display='block';
+        }
         const wrapEl = document.getElementById('card-lions-wrap');
         if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
       }
@@ -177,7 +189,7 @@
       if (!posts.length) return;
       el.innerHTML = posts.map(p => {
         const url = buildUrl(p);
-        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy">` : '';
+        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy" width="400" height="225" decoding="async">` : '';
         return `<a class="card card-mini" href="${url}">
           ${img}
           <span class="tag tag-${p.categoria}">${p.categoria}</span>
@@ -234,7 +246,6 @@
     carregarCardLions(cache);
 
     SECOES.forEach(s => carregarSecao(s, cache));
-
 
     renderSecao('secao-politica',      ['politica'],                           cache, 3);
     renderSecao('secao-economia',      ['economia'],                           cache, 3);
