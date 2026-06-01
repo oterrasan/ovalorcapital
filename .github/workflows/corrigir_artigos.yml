@@ -1,65 +1,56 @@
-name: Corrigir pendentes OVC
+name: Corrigir Artigos com Markdown
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/corrigir_artigos.yml"
-      - "scripts/corrigir-pendentes-ovc.mjs"
-  workflow_dispatch:
-    inputs:
-      limit:
-        description: "Quantidade de posts pendentes por lote (1 a 5)"
-        required: true
-        default: "2"
-      dry_run:
-        description: "Simular sem gravar alteracoes"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
-      post_ids:
-        description: "IDs especificos separados por virgula (opcional)"
-        required: false
-        default: ""
-      include_colunas:
-        description: "Incluir colunas/colunistas no reparo"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
+      - '.github/workflows/corrigir_artigos.yml'
 
 jobs:
-  repair:
+  corrigir:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Preparar Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Instalar dependencias
-        run: npm install
-
-      - name: Puxar variaveis de producao da Vercel
+      - name: Processar todos os artigos quebrados
         run: |
-          npm install -g vercel@latest
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+          RODADA=0
+          MAX_RODADAS=600
+          ERROS_CONSECUTIVOS=0
 
-      - name: Corrigir materias pendentes no padrao OVC
-        run: node scripts/corrigir-pendentes-ovc.mjs
-        env:
-          LIMIT: ${{ inputs.limit || '2' }}
-          DRY_RUN: ${{ inputs.dry_run || 'false' }}
-          POST_IDS: ${{ inputs.post_ids || '' }}
-          INCLUDE_COLUNAS: ${{ inputs.include_colunas || 'false' }}
+          echo "Iniciando correcao de artigos com markdown..."
+
+          while [ "$RODADA" -lt "$MAX_RODADAS" ]; do
+            RODADA=$((RODADA + 1))
+
+            RESP=$(curl -s --max-time 20 \
+              "https://www.ovalorcapital.com.br/api/run_portal?action=regenerar&limit=1")
+
+            RESTANTES=$(echo "$RESP" | grep -o '"restantes":[0-9]*' | grep -o '[0-9]*$')
+            OK=$(echo "$RESP" | grep -o '"ok":[0-9]*' | grep -o '[0-9]*$')
+            STATUS=$(echo "$RESP" | grep -o '"status":"[^"]*"' | head -1 | sed 's/"status"://;s/"//g')
+
+            echo "[Rodada $RODADA] status=$STATUS ok=$OK restantes=$RESTANTES"
+
+            if [ -z "$RESTANTES" ] || [ "$STATUS" = "error" ]; then
+              ERROS_CONSECUTIVOS=$((ERROS_CONSECUTIVOS + 1))
+              echo "  Resposta invalida (tentativa $ERROS_CONSECUTIVOS): $RESP"
+              if [ "$ERROS_CONSECUTIVOS" -ge 5 ]; then
+                echo "5 erros consecutivos — abortando"
+                exit 1
+              fi
+              sleep 30
+              continue
+            fi
+
+            ERROS_CONSECUTIVOS=0
+
+            if [ "$RESTANTES" = "0" ]; then
+              echo "TODOS OS ARTIGOS CORRIGIDOS apos $RODADA rodadas!"
+              break
+            fi
+
+            sleep 13
+          done
+
+          echo "Fim: $RODADA rodadas executadas"

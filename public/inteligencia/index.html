@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVC Inteligência | Ferramentas de IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0A1A2F',
+                        secondary: '#D4AF37',
+                        dark: '#121212',
+                        light: '#F8F9FA'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .gradient-bg {
+                background: linear-gradient(135deg, #0A1A2F 0%, #1a2f4a 100%);
+            }
+            .card-hover {
+                transition: all 0.3s ease;
+            }
+            .card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 20px 25px -5px rgba(212, 175, 55, 0.1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Login Screen -->
+    <div data-inteligencia-login class="fixed inset-0 gradient-bg flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+            <div class="flex justify-center mb-8">
+                <div class="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center">
+                    <span class="text-primary font-bold text-3xl">VC</span>
+                </div>
+            </div>
+            <h1 class="text-2xl font-bold text-center text-primary mb-2">OVC Inteligência</h1>
+            <p class="text-center text-gray-600 mb-8">Ferramentas de IA para sua produtividade</p>
+            
+            <form data-inteligencia-login-form class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha de Acesso</label>
+                    <input type="password" name="token" placeholder="Digite sua senha" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary">
+                </div>
+                <button type="submit" class="w-full bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-4 rounded-lg transition-all">
+                    Acessar
+                </button>
+            </form>
+            
+            <div data-inteligencia-login-status class="mt-4 text-center text-sm text-red-600 hidden"></div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div data-inteligencia-app style="display:none;" class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 gradient-bg text-white hidden md:block overflow-y-auto">
+            <div class="p-6 border-b border-gray-700 sticky top-0 bg-gradient-to-b from-primary to-transparent">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                        <span class="text-primary font-bold text-xl">VC</span>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-sm">OVC</h1>
+                        <p class="text-xs text-gray-400">Inteligência</p>
+                    </div>
+                </div>
+            </div>
+            <nav class="p-4">
+                <ul class="space-y-2">
+                    <li><button data-inteligencia-nav="home" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg bg-white/20 font-bold transition-colors"><i class="fas fa-home"></i><span>Início</span></button></li>
+                    <li><button data-inteligencia-nav="reescrever" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-edit"></i><span>Reescrever</span></button></li>
+                    <li><button data-inteligencia-nav="corretor" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-spell-check"></i><span>Corretor</span></button></li>
+                    <li><button data-inteligencia-nav="detector-ia" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-robot"></i><span>Detector IA</span></button></li>
+                    <li><button data-inteligencia-nav="humanizar" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-user-edit"></i><span>Humanizar</span></button></li>
+                    <li><button data-inteligencia-nav="tradutor" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-language"></i><span>Tradutor</span></button></li>
+                    <li><button data-inteligencia-nav="resumidor" class="w-full text-left flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition-colors"><i class="fas fa-compress-alt"></i><span>Resumidor</span></button></li>
+                </ul>
+            </nav>
+            <div class="p-4 border-t border-gray-700 mt-auto sticky bottom-0">
+                <button data-inteligencia-logout class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center space-x-2">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+                <h2 data-inteligencia-title class="text-2xl font-bold text-primary">OVC Inteligência</h2>
+                <div class="text-sm text-gray-600">
+                    <span data-inteligencia-user-info></span>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
+                <!-- Home Panel -->
+                <div data-inteligencia-panel="home" class="block">
+                    <div class="max-w-6xl mx-auto">
+                        <h3 class="text-3xl font-bold text-primary mb-2">Bem-vindo à OVC Inteligência</h3>
+                        <p class="text-gray-600 mb-8">Escolha uma ferramenta abaixo para começar</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <button data-inteligencia-nav="reescrever" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
+                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                                    <i class="fas fa-edit text-blue-600 text-xl"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-primary mb-2">Reescrever Texto</h4>
+                                <p class="text-gray-600 text-sm">Parafraseie e melhore seus textos mantendo o sentido original.</p>
+                            </button>
+
+                            <button data-inteligencia-nav="corretor" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
+                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                                    <i class="fas fa-spell-check text-green-600 text-xl"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-primary mb-2">Corretor Ortográfico</h4>
+                                <p class="text-gray-600 text-sm">Corrija erros de gramática, ortografia e pontuação instantaneamente.</p>
+                            </button>
+
+                            <button data-inteligencia-nav="detector-ia" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
+                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                                    <i class="fas fa-robot text-purple-600 text-xl"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-primary mb-2">Detector de IA</h4>
+                                <p class="text-gray-600 text-sm">Identifique se um texto foi escrito por Inteligência Artificial.</p>
+                            </button>
+
+                            <button data-inteligencia-nav="humanizar" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
+                                <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+                                    <i class="fas fa-user-edit text-indigo-600 text-xl"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-primary mb-2">Humanizar Texto</h4>
+                                <p class="text-gray-600 text-sm">Transforme textos de IA em linguagem natural e humana.</p>
+                            </button>
+
+                            <button data-inteligencia-nav="tradutor" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
+                                <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+                                    <i class="fas fa-language text-orange-600 text-xl"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-primary mb-2">Tradutor</h4>
+                                <p class="text-gray-600 text-sm">Traduza textos para mais de 50 idiomas com precisão.</p>
+                            </button>
+
+                            <button data-inteligencia-nav="resumidor" class="block bg-white rounded-xl shadow-lg p-6 card-hover border border-gray-100 text-left hover:border-secondary">
+                                <div class="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
+                                    <i class="fas fa-compress-alt text-teal-600 text-xl"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-primary mb-2">Resumidor de Texto</h4>
+                                <p class="text-gray-600 text-sm">Crie resumos curtos e objetivos de textos longos.</p>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reescrever Panel -->
+                <div data-inteligencia-panel="reescrever" class="hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold text-primary mb-6">Reescrever Texto</h3>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
+                                <textarea data-inteligencia-input="reescrever" placeholder="Cole seu texto aqui..." 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Reescrito</label>
+                                <textarea data-inteligencia-output="reescrever" readonly 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <button data-inteligencia-process="reescrever" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
+                            Reescrever
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Corretor Panel -->
+                <div data-inteligencia-panel="corretor" class="hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold text-primary mb-6">Corretor Ortográfico</h3>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
+                                <textarea data-inteligencia-input="corretor" placeholder="Cole seu texto aqui..." 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Corrigido</label>
+                                <textarea data-inteligencia-output="corretor" readonly 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <button data-inteligencia-process="corretor" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
+                            Corrigir
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Detector IA Panel -->
+                <div data-inteligencia-panel="detector-ia" class="hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold text-primary mb-6">Detector de IA</h3>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Texto para Análise</label>
+                        <textarea data-inteligencia-input="detector-ia" placeholder="Cole o texto para análise..." 
+                                  class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none mb-4"></textarea>
+                        <button data-inteligencia-process="detector-ia" class="bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
+                            Analisar
+                        </button>
+                        <div data-inteligencia-output="detector-ia" class="mt-6 hidden bg-gray-50 p-4 rounded-lg">
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-lg font-semibold text-gray-700">Probabilidade de IA:</span>
+                                <span data-ia-percentage class="text-3xl font-bold text-secondary">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-300 rounded-full h-3">
+                                <div data-ia-bar class="bg-secondary h-3 rounded-full" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Humanizar Panel -->
+                <div data-inteligencia-panel="humanizar" class="hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold text-primary mb-6">Humanizar Texto</h3>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto de IA</label>
+                                <textarea data-inteligencia-input="humanizar" placeholder="Cole o texto gerado por IA..." 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Humanizado</label>
+                                <textarea data-inteligencia-output="humanizar" readonly 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <button data-inteligencia-process="humanizar" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
+                            Humanizar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tradutor Panel -->
+                <div data-inteligencia-panel="tradutor" class="hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold text-primary mb-6">Tradutor</h3>
+                        <div class="grid grid-cols-2 gap-6 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Idioma Original</label>
+                                <select data-inteligencia-source-lang class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary">
+                                    <option value="pt">Português</option>
+                                    <option value="en">Inglês</option>
+                                    <option value="es">Espanhol</option>
+                                    <option value="fr">Francês</option>
+                                    <option value="de">Alemão</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Idioma Destino</label>
+                                <select data-inteligencia-target-lang class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary">
+                                    <option value="en">Inglês</option>
+                                    <option value="pt">Português</option>
+                                    <option value="es">Espanhol</option>
+                                    <option value="fr">Francês</option>
+                                    <option value="de">Alemão</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
+                                <textarea data-inteligencia-input="tradutor" placeholder="Cole o texto a traduzir..." 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Traduzido</label>
+                                <textarea data-inteligencia-output="tradutor" readonly 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <button data-inteligencia-process="tradutor" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
+                            Traduzir
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Resumidor Panel -->
+                <div data-inteligencia-panel="resumidor" class="hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-2xl font-bold text-primary mb-6">Resumidor de Texto</h3>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Texto Original</label>
+                                <textarea data-inteligencia-input="resumidor" placeholder="Cole o texto a resumir..." 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Resumo</label>
+                                <textarea data-inteligencia-output="resumidor" readonly 
+                                          class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 resize-none"></textarea>
+                            </div>
+                        </div>
+                        <button data-inteligencia-process="resumidor" class="mt-4 bg-secondary hover:bg-yellow-500 text-primary font-bold py-2 px-6 rounded-lg transition-all">
+                            Resumir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/inteligencia.js"></script>
+</body>
+</html>

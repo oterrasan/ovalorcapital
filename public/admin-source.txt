@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Admin OVC — Centro de Comando</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<script src="/api/manage?action=vendor_js&name=react"></script>
-<script src="/api/manage?action=vendor_js&name=react-dom"></script>
-<script src="/api/manage?action=vendor_js&name=babel"></script>
-<script src="/api/manage?action=vendor_js&name=supabase"></script>
-<script src="/api/manage?action=vendor_js&name=html2canvas"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <style>
 :root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -963,7 +963,7 @@ function Postagens() {
   };
 
   const saveEdit = async () => {
-    const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     await sb.from('posts').update({
       titulo: editPost.titulo,
       conteudo: editPost.conteudo,
@@ -2266,19 +2266,11 @@ const COLUNISTAS_PERFIS = [
     bio:'Experiente, equilibrado, jornalista de carreira. Temas amplos.' },
 ];
 
-const COLUNISTAS_COM_IA = new Set([
-  'Roberto Terrasan',
-  'Coluna OVC',
-  'Beta Ferreira',
-  'Adriana Ferreira',
-  'Michele Froiz'
-]);
-
 function ColunistasAdmin({ setPage }){
   const [dbList, setDbList] = React.useState([]);
   const [hover, setHover] = React.useState(null);
   const [showModal, setShowModal] = React.useState(null);
-  const [form, setForm] = React.useState({nome:'',email:'',senha:'',telefone:'',foto_url:'',bio:'',especialidade:''});
+  const [form, setForm] = React.useState({nome:'',email:'',senha:''});
   const [criando, setCriando] = React.useState(false);
   const [msg, setMsg] = React.useState('');
   const [showFotoModal, setShowFotoModal] = React.useState(null);
@@ -2299,11 +2291,11 @@ function ColunistasAdmin({ setPage }){
   async function criarLogin(e){
     e.preventDefault(); setCriando(true); setMsg('');
     try{
-      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS},body:JSON.stringify({action:'create_colunista',...form})});
+      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create_colunista',...form})});
       const d = await r.json();
       if(r.ok&&d.ok){
         setMsg('✅ Login criado!');
-        setForm({nome:'',email:'',senha:'',telefone:'',foto_url:'',bio:'',especialidade:''});
+        setForm({nome:'',email:'',senha:''});
         setShowModal(null);
         fetch('/api/manage?action=list_colunistas').then(r=>r.json()).then(d=>{ if(d.ok) setDbList(d.colunistas||[]); });
       } else setMsg('❌ '+(d.error||'erro'));
@@ -2312,10 +2304,6 @@ function ColunistasAdmin({ setPage }){
   }
 
   function handleGerarColuna(nome){
-    if(!COLUNISTAS_COM_IA.has(nome)){
-      setMsg('Este colunista envia artigo manual pelo Portal do Colunista. Crie/mande o login dele; não usamos IA para este perfil.');
-      return;
-    }
     sessionStorage.setItem('ovc_colunista_sel', nome);
     if(setPage) setPage('editor_colunas');
   }
@@ -2369,7 +2357,7 @@ function ColunistasAdmin({ setPage }){
     <div>
       <div className="page-header">
         <div className="page-title">✍️ Colunistas OVC</div>
-        <div className="page-sub">IA só para Roberto, OVC, Beta, Adriana e Michele. Os demais enviam artigo manual pelo Portal do Colunista.</div>
+        <div className="page-sub">11 vozes — clique em "Gerar Coluna" para criar um artigo assinado</div>
       </div>
       <div className="page-body">
         {msg && <div style={{marginBottom:16,padding:'10px 16px',borderRadius:8,fontSize:13,fontWeight:500,background:msg.startsWith('❌')?'var(--red-s2)':'var(--green-s)',color:msg.startsWith('❌')?'#f87171':'#4ade80'}}>{msg}</div>}
@@ -2408,12 +2396,8 @@ function ColunistasAdmin({ setPage }){
                   {isHov && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.55)',display:'flex',flexDirection:'column',
                     alignItems:'center',justifyContent:'center',gap:8,padding:12}}
                     onClick={e=>e.stopPropagation()}>
-                    {COLUNISTAS_COM_IA.has(c.nome)
-                      ? <button onClick={e=>{e.stopPropagation();handleGerarColuna(c.nome);}} style={{width:'100%',padding:'8px 0',borderRadius:6,border:'none',cursor:'pointer',
-                          background:'var(--red)',color:'#fff',fontWeight:700,fontSize:12}}>Gerar Coluna IA</button>
-                      : <button onClick={e=>e.stopPropagation()} style={{width:'100%',padding:'8px 0',borderRadius:6,border:'1px solid rgba(255,255,255,.25)',cursor:'default',
-                          background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.72)',fontWeight:700,fontSize:12}}>Envio manual</button>
-                    }
+                    <button onClick={e=>{e.stopPropagation();handleGerarColuna(c.nome);}} style={{width:'100%',padding:'8px 0',borderRadius:6,border:'none',cursor:'pointer',
+                      background:'var(--red)',color:'#fff',fontWeight:700,fontSize:12}}>✒️ Gerar Coluna</button>
                     {!db
                       ? <button onClick={e=>{e.stopPropagation();setShowModal(c.nome);setForm(f=>({...f,nome:c.nome}));}} style={{width:'100%',padding:'6px 0',borderRadius:6,border:'1px solid rgba(255,255,255,.3)',cursor:'pointer',
                           background:'transparent',color:'#fff',fontSize:11}}>+ Criar Login</button>
@@ -2445,10 +2429,6 @@ function ColunistasAdmin({ setPage }){
               <form onSubmit={criarLogin} style={{display:'flex',flexDirection:'column',gap:14}}>
                 <input className="form-input" type="email" required placeholder="Email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
                 <input className="form-input" type="password" required placeholder="Senha de acesso" value={form.senha} onChange={e=>setForm(f=>({...f,senha:e.target.value}))}/>
-                <input className="form-input" placeholder="Telefone / WhatsApp" value={form.telefone} onChange={e=>setForm(f=>({...f,telefone:e.target.value}))}/>
-                <input className="form-input" placeholder="URL da foto" value={form.foto_url} onChange={e=>setForm(f=>({...f,foto_url:e.target.value}))}/>
-                <input className="form-input" placeholder="Especialidade / assinatura" value={form.especialidade} onChange={e=>setForm(f=>({...f,especialidade:e.target.value}))}/>
-                <textarea className="form-textarea" style={{minHeight:76}} placeholder="Bio curta do colunista" value={form.bio} onChange={e=>setForm(f=>({...f,bio:e.target.value}))}/>
                 {msg && <div style={{fontSize:12,color:msg.startsWith('❌')?'#f87171':'#4ade80'}}>{msg}</div>}
                 <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setShowModal(null);setMsg('');}}>Cancelar</button>
@@ -2491,10 +2471,7 @@ function ColunistasAdmin({ setPage }){
                 <div style={{fontSize:15,fontWeight:700}}>{selectedCard.nome}</div>
                 <div style={{fontSize:11,color:selectedCard.grad[1],fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em'}}>{selectedCard.tag}</div>
               </div>
-              {COLUNISTAS_COM_IA.has(selectedCard.nome)
-                ? <button className="btn btn-primary btn-sm" onClick={()=>handleGerarColuna(selectedCard.nome)}>Gerar Coluna IA</button>
-                : <button className="btn btn-secondary btn-sm" disabled>Envio manual pelo Portal do Colunista</button>
-              }
+              <button className="btn btn-primary btn-sm" onClick={()=>handleGerarColuna(selectedCard.nome)}>✒️ Gerar Coluna</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setSelectedCard(null)}>✕ Fechar</button>
             </div>
             <div style={{padding:'0 20px 20px'}}>
@@ -2503,10 +2480,7 @@ function ColunistasAdmin({ setPage }){
                 : cardPosts.length === 0
                 ? <div style={{padding:24,textAlign:'center',color:'var(--t3)',fontSize:13}}>
                     Nenhum artigo de <strong style={{color:'var(--t2)'}}>{selectedCard.nome}</strong> ainda.{' '}
-                    {COLUNISTAS_COM_IA.has(selectedCard.nome)
-                      ? <span style={{color:'var(--red)',cursor:'pointer',fontWeight:600}} onClick={()=>handleGerarColuna(selectedCard.nome)}>Gerar a primeira coluna →</span>
-                      : <span style={{color:'var(--t2)',fontWeight:600}}>Aguardando envio manual pelo Portal do Colunista.</span>
-                    }
+                    <span style={{color:'var(--red)',cursor:'pointer',fontWeight:600}} onClick={()=>handleGerarColuna(selectedCard.nome)}>Gerar a primeira coluna →</span>
                   </div>
                 : <div style={{display:'flex',flexDirection:'column',gap:0}}>
                     <div style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:12,padding:'10px 0',borderBottom:'1px solid var(--border)',fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em'}}>
@@ -2539,7 +2513,9 @@ function ColunistasAdmin({ setPage }){
 
 // ── EDITOR DE COLUNAS ──
 const COLUNISTAS_LISTA = [
-  'Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Coluna OVC'
+  'Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Coluna OVC',
+  'Prof. Marcos Pizzolatto','Gabriel Thiede','Fabiana Campos','Larissa Corvetto',
+  'Taísa da Fonseca','André Oliveira'
 ];
 
 function EditorColunas() {

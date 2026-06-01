@@ -14,38 +14,6 @@ let _bannersCache = null;
 
 function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
 function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
-function checkAdminAuth(req) {
-  const expected = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || "ovc-admin-2026-secreto";
-  const auth = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
-  const supplied = auth || req.headers?.["x-admin-token"] || req.headers?.["x-admin-password"] || req.body?.token || req.body?.admin_token || req.query?.token || req.query?.pass || "";
-  return String(supplied) === String(expected);
-}
-function slugifyBase(s) {
-  return String(s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-function plainText(html = "") {
-  return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-const COLUNISTAS_COM_IA = new Set([
-  "roberto terrasan",
-  "coluna ovc",
-  "ovc",
-  "beta ferreira",
-  "adriana ferreira",
-  "michele froiz"
-]);
 
 // ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────────────
 function handler(req, res) {
@@ -60,7 +28,6 @@ function handler(req, res) {
     if (req.query.action === 'unpublish_recent') return handleUnpublishRecent(req, res);
     if (req.query.action === 'unpublish_no_image') return handleUnpublishNoImage(req, res);
     if (req.query.action === 'audit_images') return handleAuditImages(req, res);
-    if (req.query.action === 'vendor_js') return handleVendorJs(req, res);
     if (req.query.action === 'list_colunistas') return handleListColunistas(req, res);
     if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
     if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
@@ -89,7 +56,6 @@ function handler(req, res) {
   if (body.action === "login_colunista") return handleLoginColunista(req, res);
   if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
   if (body.action === "create_colunista") return handleCreateColunista(req, res);
-  if (body.action === "set_colunista_foto") return handleSetColunistaFoto(req, res);
   if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
   if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
   if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
@@ -102,30 +68,6 @@ function handler(req, res) {
   return handleApprove(req, res);
 }
 export default handler;
-
-const VENDOR_JS = {
-  react: "https://unpkg.com/react@18/umd/react.production.min.js",
-  "react-dom": "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
-  babel: "https://unpkg.com/@babel/standalone/babel.min.js",
-  supabase: "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
-  html2canvas: "https://html2canvas.hertzen.com/dist/html2canvas.min.js"
-};
-
-async function handleVendorJs(req, res) {
-  const name = String(req.query.name || "");
-  const url = VENDOR_JS[name];
-  if (!url) return res.status(404).send("not found");
-  try {
-    const upstream = await fetch(url);
-    if (!upstream.ok) return res.status(502).send("vendor unavailable");
-    const code = await upstream.text();
-    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
-    return res.status(200).send(code);
-  } catch(e) {
-    return res.status(502).send("vendor error");
-  }
-}
 
 // ── INTELIGÊNCIA IA ──────────────────────────────────────────────────────────
 async function _getAIKeys() {
@@ -628,84 +570,11 @@ async function handleNewsletterSubscribe(req, res) {
   }
 }
 
-const COLUNISTAS_CONFIG_KEY = "COLUNISTAS_ACCOUNTS";
-const COLUNISTAS_PHOTOS_KEY = "COLUNISTAS_PHOTOS";
-function isMissingTableError(error) {
-  const msg = String(error?.message || "");
-  return error?.code === "42P01" || msg.includes("does not exist") || msg.includes("relation");
-}
-async function getColunistasConfig() {
-  const { data, error } = await supabase.from("config").select("value").eq("key", COLUNISTAS_CONFIG_KEY).single();
-  if (error && !/PGRST116|single|multiple/i.test(error.code || error.message || "")) throw error;
-  try { return JSON.parse(data?.value || "[]"); } catch(_) { return []; }
-}
-async function saveColunistasConfig(list) {
-  const { error } = await supabase.from("config").upsert(
-    { key: COLUNISTAS_CONFIG_KEY, value: JSON.stringify(list), updated_at: new Date().toISOString() },
-    { onConflict: "key" }
-  );
-  if (error) throw error;
-}
-async function getColunistasPhotosConfig() {
-  const { data, error } = await supabase.from("config").select("value").eq("key", COLUNISTAS_PHOTOS_KEY).single();
-  if (error && !/PGRST116|single|multiple/i.test(error.code || error.message || "")) return {};
-  try {
-    const parsed = JSON.parse(data?.value || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch(_) {
-    return {};
-  }
-}
-async function saveColunistasPhotosConfig(map) {
-  const { error } = await supabase.from("config").upsert(
-    { key: COLUNISTAS_PHOTOS_KEY, value: JSON.stringify(map || {}), updated_at: new Date().toISOString() },
-    { onConflict: "key" }
-  );
-  if (error) throw error;
-}
-function publicColunista(c) {
-  if (!c) return null;
-  const { senha_hash, session_token, ...safe } = c;
-  return safe;
-}
-
-async function getColunistaPhotoMap() {
-  const configMap = await getColunistasPhotosConfig();
-  try {
-    const { data, error } = await supabase.storage.from("posts-images").list("colunistas", { limit: 100 });
-    if (error) return configMap;
-    const base = `${process.env.SUPABASE_URL}/storage/v1/object/public/posts-images/colunistas/`;
-    const map = {};
-    (data || []).forEach(f => {
-      if (!f?.name || f.name.startsWith(".")) return;
-      const slug = f.name.replace(/\.[^.]+$/, "");
-      map[slug] = base + f.name;
-    });
-    return { ...map, ...configMap };
-  } catch (_) {
-    return configMap;
-  }
-}
-
-function attachFotoColunista(c, photoMap = {}) {
-  const safe = publicColunista(c);
-  if (!safe) return null;
-  if (safe.foto_url) return safe;
-  const slug = safe.slug || slugifyBase(safe.nome);
-  const foto = photoMap[slug] || photoMap[safe.nome] || "";
-  return foto ? { ...safe, foto_url: foto } : safe;
-}
-
 async function validarTokenColunista(colunista_id, token) {
   if (!colunista_id || !token) return null;
-  let { data, error } = await supabase.from("colunistas")
-    .select("id,nome,email,bio,slug,ativo").eq("id", colunista_id)
+  const { data } = await supabase.from("colunistas")
+    .select("id,nome,email,ativo").eq("id", colunista_id)
     .eq("session_token", token).eq("ativo", true).single();
-  if (error && isMissingTableError(error)) {
-    const list = await getColunistasConfig();
-    const found = list.find(c => c.id === colunista_id && c.session_token === token && c.ativo !== false);
-    return publicColunista(found);
-  }
   return data || null;
 }
 
@@ -713,44 +582,14 @@ async function handleLoginColunista(req, res) {
   const { email, senha } = req.body || {};
   if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
   try {
-    let { data: colunista, error } = await supabase.from("colunistas")
-      .select("id,nome,email,bio,slug,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
-    let usarConfigFallback = false;
-    if (error && isMissingTableError(error)) {
-      const list = await getColunistasConfig();
-      colunista = list.find(c => c.email === email.toLowerCase().trim());
-      usarConfigFallback = true;
-      error = null;
-    }
+    const { data: colunista } = await supabase.from("colunistas")
+      .select("id,nome,email,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
     if (!colunista) return res.status(401).json({ error: "Credenciais inválidas" });
     if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
     if (colunista.senha_hash !== hashSenha(senha)) return res.status(401).json({ error: "Credenciais inválidas" });
     const token = gerarToken();
-    const lastLogin = new Date().toISOString();
-    if (usarConfigFallback) {
-      const list = await getColunistasConfig();
-      const idx = list.findIndex(c => c.id === colunista.id);
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], session_token: token, last_login: lastLogin };
-        await saveColunistasConfig(list);
-      }
-    } else {
-      await supabase.from("colunistas").update({ session_token: token, last_login: lastLogin }).eq("id", colunista.id);
-    }
-    const photoMap = await getColunistaPhotoMap();
-    const fotoUrl = colunista.foto_url || photoMap[colunista.slug || slugifyBase(colunista.nome)] || "";
-    return res.status(200).json({
-      ok: true,
-      token,
-      colunista_id: colunista.id,
-      nome: colunista.nome,
-      email: colunista.email,
-      telefone: colunista.telefone || "",
-      foto_url: fotoUrl,
-      bio: colunista.bio || "",
-      especialidade: colunista.especialidade || "",
-      slug: colunista.slug || slugifyBase(colunista.nome)
-    });
+    await supabase.from("colunistas").update({ session_token: token, last_login: new Date().toISOString() }).eq("id", colunista.id);
+    return res.status(200).json({ ok: true, token, colunista_id: colunista.id, nome: colunista.nome, email: colunista.email });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -763,32 +602,12 @@ async function handleListPostsColunista(req, res) {
   try {
     const { data } = await supabase.from("posts")
       .select("id,titulo,status,imagem,created_at,published_at,comentario_fixado")
-      .eq("publish_method", "colunista").like("collaborators", `%"${colunista_id}"%`)
+      .eq("publish_method", "colunista").contains("collaborators", JSON.stringify([colunista_id]))
       .order("created_at", { ascending: false }).limit(50);
     return res.status(200).json({ ok: true, posts: data || [] });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
-}
-
-function formatarConteudoColunista(conteudo, nome) {
-  const raw = String(conteudo || "").trim();
-  const aviso = `<p><em>A opini&atilde;o dos colunistas n&atilde;o necessariamente reflete a opini&atilde;o de O Valor Capital.</em></p>`;
-  if (/^\s*<[a-z][\s\S]*>/i.test(raw)) {
-    return raw.includes("colunistas") && raw.includes("O Valor Capital") ? raw : `${raw}\n${aviso}`;
-  }
-  const linhas = raw.split(/\n+/).map(l => l.trim()).filter(Boolean);
-  const corpo = linhas.map(l => {
-    if (/^#{1,3}\s+/.test(l)) return `<h2>${escapeHtml(l.replace(/^#{1,3}\s+/, ""))}</h2>`;
-    return `<p>${escapeHtml(l)}</p>`;
-  }).join("\n");
-  const hoje = new Date().toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    timeZone: "America/Sao_Paulo"
-  });
-  return `<p><strong>${escapeHtml(nome)}</strong> &mdash; ${hoje}</p>\n${corpo}\n${aviso}`;
 }
 
 async function handleSubmitColunista(req, res) {
@@ -800,23 +619,14 @@ async function handleSubmitColunista(req, res) {
   if (conteudo.length < 200) return res.status(400).json({ error: "Conteúdo mínimo de 200 caracteres" });
   try {
     const hash = crypto.createHash("md5").update(titulo + colunista_id + Date.now()).digest("hex");
-    const nomeSlug = colunista.slug || slugifyBase(colunista.nome);
-    const corpoHtml = formatarConteudoColunista(conteudo, colunista.nome);
-    const resumo = plainText(conteudo).trim().slice(0, 220);
+    const nomeSlug = colunista.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-");
     const { data: post, error } = await supabase.from("posts").insert({
-      titulo: titulo.trim(), conteudo: corpoHtml, imagem: imagem || null,
-      comentario_fixado: resumo || `Artigo enviado por ${colunista.nome} para revisão editorial.`,
+      titulo, conteudo, imagem: imagem || null,
+      comentario_fixado: `Artigo de ${colunista.nome}`,
       hash, status: "pendente", approved: false, publish_method: "colunista",
       user_tags: JSON.stringify(["colunistas"]), subcategoria: colunista.nome,
       subcategoria_slug: nomeSlug, collaborators: JSON.stringify([colunista_id]),
-      metrics: {
-        tipo_conteudo: "colunista_manual",
-        colunista: colunista.nome,
-        colunista_id,
-        origem: "portal_colunista",
-        sem_ia: true
-      },
-      priority: 0, retry_count: 0, max_retries: 0
+      metrics: {}, priority: 0, retry_count: 0, max_retries: 0
     }).select().single();
     if (error) return res.status(500).json({ error: error.message });
     return res.status(200).json({ ok: true, post_id: post.id, message: "Artigo enviado para revisão!" });
@@ -827,98 +637,33 @@ async function handleSubmitColunista(req, res) {
 
 async function handleListColunistas(req, res) {
   try {
-    let { data, error } = await supabase.from("colunistas")
-      .select("id,nome,email,ativo,created_at,last_login,slug,bio").order("nome");
-    const photoMap = await getColunistaPhotoMap();
-    if (error && isMissingTableError(error)) {
-      const list = await getColunistasConfig();
-      return res.status(200).json({
-        ok: true,
-        fallback_config: true,
-        colunistas: list.map(c => attachFotoColunista(c, photoMap)).sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
-      });
-    }
+    const { data, error } = await supabase.from("colunistas")
+      .select("id,nome,email,ativo,created_at,last_login").order("nome");
     if (error) {
       if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01'))
         return res.status(200).json({ ok: false, tabela_ausente: true, colunistas: [] });
       return res.status(500).json({ error: error.message });
     }
-    return res.status(200).json({ ok: true, colunistas: (data || []).map(c => attachFotoColunista(c, photoMap)) });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleSetColunistaFoto(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { nome, slug, foto_url } = req.body || {};
-  const nomeLimpo = String(nome || "").trim();
-  const slugLimpo = slugifyBase(slug || nomeLimpo);
-  const fotoLimpa = String(foto_url || "").trim();
-  if (!slugLimpo) return res.status(400).json({ error: "Colunista obrigatório" });
-  if (!/^https?:\/\//i.test(fotoLimpa)) return res.status(400).json({ error: "URL da foto inválida" });
-  try {
-    const map = await getColunistasPhotosConfig();
-    map[slugLimpo] = fotoLimpa;
-    if (nomeLimpo) delete map[nomeLimpo];
-    await saveColunistasPhotosConfig(map);
-    return res.status(200).json({ ok: true, slug: slugLimpo, foto_url: fotoLimpa });
+    return res.status(200).json({ ok: true, colunistas: data || [] });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
 }
 
 async function handleCreateColunista(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { nome, email, senha, telefone = "", foto_url = "", bio = "", especialidade = "" } = req.body || {};
+  const { nome, email, senha } = req.body || {};
   if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
   if (senha.length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
   try {
-    const slug = slugifyBase(nome.trim());
-    const payload = {
+    const slug = nome.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+    const { error } = await supabase.from("colunistas").insert({
       nome: nome.trim(), email: email.toLowerCase().trim(),
-      senha_hash: hashSenha(senha), ativo: true, slug,
-      telefone: String(telefone || "").trim(),
-      foto_url: String(foto_url || "").trim(),
-      bio: String(bio || "").trim(),
-      especialidade: String(especialidade || "").trim()
-    };
-    const tablePayload = {
-      nome: payload.nome,
-      email: payload.email,
-      senha_hash: payload.senha_hash,
-      slug: payload.slug,
-      bio: payload.bio || null,
-      ativo: true
-    };
-    let { error } = await supabase.from("colunistas").insert(tablePayload);
-    if (error && isMissingTableError(error)) {
-      const list = await getColunistasConfig();
-      if (list.some(c => c.email === payload.email)) return res.status(400).json({ error: "E-mail jÃ¡ cadastrado" });
-      list.push({
-        id: crypto.randomUUID(),
-        ...payload,
-        session_token: "",
-        last_login: null,
-        created_at: new Date().toISOString()
-      });
-      await saveColunistasConfig(list);
-      if (payload.foto_url) {
-        const photoMap = await getColunistasPhotosConfig();
-        photoMap[payload.slug] = payload.foto_url;
-        await saveColunistasPhotosConfig(photoMap);
-      }
-      return res.status(200).json({ ok: true, fallback_config: true });
-    }
+      senha_hash: hashSenha(senha), ativo: true, slug
+    });
     if (error) {
       if (error.message.includes("unique") || error.message.includes("duplicate"))
         return res.status(400).json({ error: "E-mail já cadastrado" });
       return res.status(500).json({ error: error.message });
-    }
-    if (payload.foto_url) {
-      const photoMap = await getColunistasPhotosConfig();
-      photoMap[payload.slug] = payload.foto_url;
-      await saveColunistasPhotosConfig(photoMap);
     }
     return res.status(200).json({ ok: true });
   } catch(e) {
@@ -927,30 +672,16 @@ async function handleCreateColunista(req, res) {
 }
 
 async function handleToggleColunista(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id, ativo } = req.body || {};
   if (!id) return res.status(400).json({ error: "id obrigatório" });
-  const { error } = await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
-  if (error && isMissingTableError(error)) {
-    const list = await getColunistasConfig();
-    const idx = list.findIndex(c => c.id === id);
-    if (idx >= 0) {
-      list[idx].ativo = !ativo;
-      await saveColunistasConfig(list);
-    }
-  }
+  await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
   return res.status(200).json({ ok: true });
 }
 
 async function handleDeleteColunista(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
   const { id } = req.body || {};
   if (!id) return res.status(400).json({ error: "id obrigatório" });
-  const { error } = await supabase.from("colunistas").delete().eq("id", id);
-  if (error && isMissingTableError(error)) {
-    const list = await getColunistasConfig();
-    await saveColunistasConfig(list.filter(c => c.id !== id));
-  }
+  await supabase.from("colunistas").delete().eq("id", id);
   return res.status(200).json({ ok: true });
 }
 
@@ -1003,11 +734,6 @@ async function handleGerarColuna(req, res) {
   const { colunista_nome, tema, referencias, contexto } = req.body || {};
   if (!colunista_nome) return res.status(400).json({ error: "colunista_nome obrigatório" });
   if (!tema || tema.trim().length < 10) return res.status(400).json({ error: "tema obrigatório (mínimo 10 caracteres)" });
-  if (!COLUNISTAS_COM_IA.has(String(colunista_nome).toLowerCase().trim())) {
-    return res.status(403).json({
-      error: "Este colunista não usa geração por IA. O envio deve ser feito pelo Portal do Colunista e ficará pendente para aprovação."
-    });
-  }
   if (!COLUNISTAS_OVC[colunista_nome]) {
     return res.status(400).json({ error: `Colunista não encontrado. Disponíveis: ${Object.keys(COLUNISTAS_OVC).join(', ')}` });
   }

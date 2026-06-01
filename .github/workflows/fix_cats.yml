@@ -1,11 +1,10 @@
-name: Fix Categories — pausado
-
+name: Fix Categories
 on:
   workflow_dispatch:
-
 jobs:
-  paused:
+  fix:
     runs-on: ubuntu-latest
     steps:
-      - name: Workflow pausado
-        run: echo "Workflow legado pausado. Correcao de categorias desativada para evitar alteracoes em massa."
+      - name: Fix categorias no banco
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/fix_cats -H "Content-Type: application/json" --max-time 55

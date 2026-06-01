@@ -56,7 +56,6 @@
   }
 
   function injectHome(b, cat){
-    removeExtraColumnistsBlock();
     if(document.getElementById('ovc-banner-home')) return;
     var wrap = document.createElement('aside');
     wrap.id = 'ovc-banner-home';
@@ -67,16 +66,7 @@
     else document.body.appendChild(wrap);
   }
 
-  function removeExtraColumnistsBlock(){
-    if(location.pathname !== '/' && location.pathname !== '/index.html') return;
-    var block = document.getElementById('ovc-colunistas-346');
-    if(block) block.remove();
-  }
-
   function init(){
-    removeExtraColumnistsBlock();
-    setTimeout(removeExtraColumnistsBlock, 400);
-    setTimeout(removeExtraColumnistsBlock, 1200);
     var cat = detectCat();
     fetch('/api/manage?action=banners&cat='+encodeURIComponent(cat))
       .then(function(r){ return r.json(); })

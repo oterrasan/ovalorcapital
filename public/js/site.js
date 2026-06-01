@@ -8,10 +8,10 @@
 
 window.OVC_CONFIG = {
   categories: {
-    politica:{title:'PolÃ­tica',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'NegÃ³cios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'EducaÃ§Ã£o',color:'#c2410c'}, industria:{title:'IndÃºstria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'SaÃºde',color:'#be123c'}, familia:{title:'FamÃ­lia',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'RegulaÃ§Ã£o',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
+    politica:{title:'Política',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'Negócios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'Educação',color:'#c2410c'}, industria:{title:'Indústria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'Saúde',color:'#be123c'}, familia:{title:'Família',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'Regulação',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
   },
   themes: {
-    classic:  { name: 'ClÃ¡ssico OVC',    key: 'classic'  },
+    classic:  { name: 'Clássico OVC',    key: 'classic'  },
     gold:     { name: 'Executivo Gold',   key: 'gold'     },
     graphite: { name: 'Grafite',          key: 'graphite' }
   }
@@ -27,7 +27,7 @@ window.OVC = {
     const query = encodeURIComponent(resources.join(','));
     return this.fetchJSON(`/api/public/content?resources=${query}`);
   },
-  slugify(text){ return String(text||'').toLowerCase().normalize('NFD').replace(/[Ì€-Í¯]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); },
+  slugify(text){ return String(text||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); },
   getCategoryConfig(slug){ return window.OVC_CONFIG.categories[slug] || {title:slug,color:'#1d4ed8'}; },
   articleUrl(item){ return item?.url || `/materia/?slug=${encodeURIComponent(item?.slug || '')}`; },
   formatDate(value){ try { return new Date(value).toLocaleString('pt-BR'); } catch { return value || ''; } },
@@ -44,7 +44,7 @@ window.OVC = {
     localStorage.setItem('ovc-theme', name);
     const label = document.querySelector('[data-theme-label]');
     if (label) {
-      const names = { classic: 'ClÃ¡ssico OVC', gold: 'Executivo Gold', graphite: 'Grafite' };
+      const names = { classic: 'Clássico OVC', gold: 'Executivo Gold', graphite: 'Grafite' };
       label.textContent = names[name] || name;
     }
   },
@@ -90,7 +90,7 @@ window.OVC = {
     document.querySelectorAll('.search-chip').forEach(chip => {
       if (chip.tagName === 'A') return;
       const key = (chip.textContent || '').trim().toLowerCase()
-        .normalize('NFD').replace(/[Ì€-Í¯]/g, '');
+        .normalize('NFD').replace(/[̀-ͯ]/g, '');
       const href = chipMap[key] || ('/busca/?q=' + encodeURIComponent((chip.textContent || '').trim()));
       const a = document.createElement('a');
       a.className = chip.className;
@@ -107,7 +107,7 @@ window.OVC = {
         const email = input?.value.trim();
         if (!email) return alert('Digite seu e-mail.');
         const data = await this.fetchJSON('/api/newsletter/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, source: 'footer' }) });
-        alert(data.duplicate ? 'Este e-mail jÃ¡ estÃ¡ cadastrado.' : 'E-mail cadastrado com sucesso.');
+        alert(data.duplicate ? 'Este e-mail já está cadastrado.' : 'E-mail cadastrado com sucesso.');
         if (input) input.value = '';
       });
     });
@@ -173,21 +173,21 @@ window.OVC = {
 
       document.querySelectorAll('.ticker-item').forEach(item => {
         const rawLabel = item.querySelector('.ticker-label')?.textContent?.trim().toLowerCase() || '';
-        const label = rawLabel.normalize("NFD").replace(/[Ì€-Í¯]/g, "").replace(/&/g, "and");
+        const label = rawLabel.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, "and");
         const valueEl = item.querySelector('.ticker-value');
         const changeEl = item.querySelector('.ticker-change');
         if (!label || !valueEl) return;
         const map = {
-          'ibov':      { val: ibov   ? fmtPts(ibov)   : 'â€”', chg: live.ibov?.variacao },
-          'sandp 500': { val: 'â€”',                            chg: null },
-          's&p 500':   { val: 'â€”',                            chg: null },
-          'nasdaq':    { val: nasdaq ? fmtPts(nasdaq)  : 'â€”', chg: live.nasdaq?.variacao },
-          'dow jones': { val: dow    ? fmtPts(dow)     : 'â€”', chg: live.dow?.variacao },
-          'dolar':     { val: usd    ? fmtBrl(usd)     : 'â€”', chg: live.usd?.variacao },
-          'euro':      { val: eur    ? fmtBrl(eur)     : 'â€”', chg: live.eur?.variacao },
-          'libra':     { val: gbp    ? fmtBrl(gbp)     : 'â€”', chg: live.gbp?.variacao },
-          'bitcoin':   { val: btc    ? `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}` : 'â€”', chg: live.btc?.variacao },
-          'ouro':      { val: 'â€”',                            chg: null }
+          'ibov':      { val: ibov   ? fmtPts(ibov)   : '—', chg: live.ibov?.variacao },
+          'sandp 500': { val: '—',                            chg: null },
+          's&p 500':   { val: '—',                            chg: null },
+          'nasdaq':    { val: nasdaq ? fmtPts(nasdaq)  : '—', chg: live.nasdaq?.variacao },
+          'dow jones': { val: dow    ? fmtPts(dow)     : '—', chg: live.dow?.variacao },
+          'dolar':     { val: usd    ? fmtBrl(usd)     : '—', chg: live.usd?.variacao },
+          'euro':      { val: eur    ? fmtBrl(eur)     : '—', chg: live.eur?.variacao },
+          'libra':     { val: gbp    ? fmtBrl(gbp)     : '—', chg: live.gbp?.variacao },
+          'bitcoin':   { val: btc    ? `US$ ${Number(btc / (usd||1)).toLocaleString('pt-BR',{maximumFractionDigits:0})}` : '—', chg: live.btc?.variacao },
+          'ouro':      { val: '—',                            chg: null }
         };
         const entry = map[label];
         if (!entry) return;
@@ -224,9 +224,9 @@ window.OVC = {
     menu.id = 'mobileMenu';
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-modal', 'true');
-    menu.setAttribute('aria-label', 'Menu de navegaÃ§Ã£o');
-    const links = [['VC','/vc/'],['PolÃ­tica','/politica/'],['Economia','/economia/'],['NegÃ³cios','/negocios/'],['Investimentos','/investimentos/'],['Mercados','/mercados/'],['Tecnologia','/tecnologia/'],['IndÃºstria','/industria/'],['SaÃºde','/saude/'],['EducaÃ§Ã£o','/educacao/'],['Esportes','/esportes/'],['Cultura','/cultura/'],['Internacional','/internacional/'],['Dados & Indicadores','/dados/'],['Radar OVC','/radar/'],['TV OVC','/tv-ovc/'],['RÃ¡dio OVC','/radio-ovc/'],['Newsletter','/newsletter/'],['Busca','/busca/']];
-    menu.innerHTML='<div class="mobile-menu-header"><span class="mobile-menu-title">O Valor Capital</span><button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">âœ•</button></div><nav class="mobile-menu-nav" aria-label="NavegaÃ§Ã£o mobile">'+links.map(([l,h])=>`<a class="mobile-menu-link" href="${h}">${l}</a>`).join('')+'</nav>';
+    menu.setAttribute('aria-label', 'Menu de navegação');
+    const links = [['VC','/vc/'],['Política','/politica/'],['Economia','/economia/'],['Negócios','/negocios/'],['Investimentos','/investimentos/'],['Mercados','/mercados/'],['Tecnologia','/tecnologia/'],['Indústria','/industria/'],['Saúde','/saude/'],['Educação','/educacao/'],['Esportes','/esportes/'],['Cultura','/cultura/'],['Internacional','/internacional/'],['Dados & Indicadores','/dados/'],['Radar OVC','/radar/'],['TV OVC','/tv-ovc/'],['Rádio OVC','/radio-ovc/'],['Newsletter','/newsletter/'],['Busca','/busca/']];
+    menu.innerHTML='<div class="mobile-menu-header"><span class="mobile-menu-title">O Valor Capital</span><button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">✕</button></div><nav class="mobile-menu-nav" aria-label="Navegação mobile">'+links.map(([l,h])=>`<a class="mobile-menu-link" href="${h}">${l}</a>`).join('')+'</nav>';
     document.body.appendChild(menu);
     function openMenu(){menu.classList.add('open');overlay.classList.add('open');btn.classList.add('active');btn.setAttribute('aria-expanded','true');document.body.style.overflow='hidden';}
     function closeMenu(){menu.classList.remove('open');overlay.classList.remove('open');btn.classList.remove('active');btn.setAttribute('aria-expanded','false');document.body.style.overflow='';}
@@ -246,14 +246,12 @@ window.OVC = {
     OVC.hydrateHeaderFooter();
     OVC.enhanceTickerLinks();
     OVC.bindHomeCriticalLinks();
-    OVC.fillInstitutionalGaps();
-    OVC.normalizeInnerLayout();
     OVC.initMobileMenu();
   });
 })();
 
 OVC.enhanceTickerLinks = function(){
-  const map = { 'ibov':'/dados/cotacoes/?ticker=ibov', 's&p 500':'/dados/cotacoes/?ticker=sp500', 'nasdaq':'/dados/cotacoes/?ticker=nasdaq', 'dÃ³lar':'/dados/cotacoes/?ticker=dolar', 'euro':'/dados/cotacoes/?ticker=euro', 'bitcoin':'/dados/cotacoes/?ticker=bitcoin', 'ouro':'/dados/cotacoes/?ticker=ouro' };
+  const map = { 'ibov':'/dados/cotacoes/?ticker=ibov', 's&p 500':'/dados/cotacoes/?ticker=sp500', 'nasdaq':'/dados/cotacoes/?ticker=nasdaq', 'dólar':'/dados/cotacoes/?ticker=dolar', 'euro':'/dados/cotacoes/?ticker=euro', 'bitcoin':'/dados/cotacoes/?ticker=bitcoin', 'ouro':'/dados/cotacoes/?ticker=ouro' };
   document.querySelectorAll('.ticker-item').forEach(item => {
     if (item.querySelector('a.ovc-ticker-link')) return;
     const label = item.querySelector('.ticker-label')?.textContent?.trim().toLowerCase();
@@ -297,37 +295,6 @@ OVC.bindHomeCriticalLinks = function(){
         location.href = '/radio-ovc/';
       }
     });
-  });
-};
-OVC.fillInstitutionalGaps = function(){
-  const bodyCat = document.body?.dataset?.category;
-  if (bodyCat !== 'vc') return;
-  const stack = document.querySelector('.ovc-story-stack');
-  if (stack && !stack.textContent.trim()) {
-    stack.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>Institucional OVC</h3><div class="ovc-mini-list"><article class="ovc-mini-item"><div><h4><a href="/vc/quem-somos/">Quem somos</a></h4><p>Identidade, ambiÃ§Ã£o editorial e razÃ£o de existir do portal.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/vc/principios-editoriais/">PrincÃ­pios editoriais</a></h4><p>CritÃ©rios de apuraÃ§Ã£o, anÃ¡lise, opiniÃ£o e responsabilidade pÃºblica.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/vc/liberdade-economica/">Liberdade econÃ´mica</a></h4><p>VisÃ£o sobre mercado, Estado, iniciativa privada e prosperidade.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/vc/familia-e-patrimonio/">FamÃ­lia e patrimÃ´nio</a></h4><p>O eixo familiar, sucessÃ³rio e patrimonial da cobertura editorial.</p></div><div></div></article></div></section><section class="ovc-panel ovc-story-list"><h3>Como o portal se organiza</h3><div class="ovc-mini-list"><article class="ovc-mini-item"><div><h4>ConteÃºdo editorial</h4><p>NotÃ­cias, anÃ¡lises, colunas e especiais seguem a mesma hierarquia visual do portal.</p></div><div></div></article><article class="ovc-mini-item"><div><h4>Leitura por editoria</h4><p>Categorias e subcategorias mantÃªm cabeÃ§alho, caixas, laterais, imagens e mÃ³dulos no mesmo padrÃ£o.</p></div><div></div></article></div></section>';
-  }
-  const rail = document.querySelector('.ovc-right-rail');
-  if (rail && !rail.textContent.trim()) {
-    rail.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>NavegaÃ§Ã£o VC</h3><div class="ovc-mini-list"><article class="ovc-mini-item"><div><h4><a href="/vc/">VisÃ£o geral</a></h4><p>Centro institucional do O Valor Capital.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/colunistas/">Colunistas</a></h4><p>OpiniÃ£o, anÃ¡lise e leitura de contexto.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/parcerias/">Parcerias</a></h4><p>Projetos comerciais, institucionais e editoriais.</p></div><div></div></article></div></section><section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>RedaÃ§Ã£o OVC</h3><p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 12px">Envie pautas, denÃºncias, sugestÃµes editoriais ou propostas institucionais.</p><a class="ovc-btn" href="/contato/" style="display:flex;justify-content:center">Falar com a redaÃ§Ã£o</a></section>';
-  }
-};
-OVC.normalizeInnerLayout = function(){
-  document.querySelectorAll('main.ovc-main').forEach(main => {
-    if (main.querySelector('.ovc-grid') || main.dataset.layoutNormalized === '1') return;
-    const children = Array.from(main.children);
-    if (!children.length) return;
-    const grid = document.createElement('section');
-    grid.className = 'ovc-grid';
-    const left = document.createElement('div');
-    left.className = 'ovc-story-stack';
-    const right = document.createElement('aside');
-    right.className = 'ovc-right-rail';
-    right.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>Atalhos OVC</h3><div class="ovc-mini-list"><article class="ovc-mini-item"><div><h4><a href="/radar/">Radar OVC</a></h4><p>Indicadores e temas em acompanhamento.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/dados/">Dados OVC</a></h4><p>CotaÃ§Ãµes, agenda econÃ´mica e painÃ©is Ãºteis.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/newsletter/">Newsletter</a></h4><p>Resumo editorial do portal.</p></div><div></div></article></div></section><section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>RedaÃ§Ã£o OVC</h3><p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 12px">Envie pautas, denÃºncias ou propostas institucionais.</p><a class="ovc-btn" href="/contato/" style="display:flex;justify-content:center">Falar com a redaÃ§Ã£o</a></section>';
-    children.forEach(child => left.appendChild(child));
-    grid.appendChild(left);
-    grid.appendChild(right);
-    main.appendChild(grid);
-    main.dataset.layoutNormalized = '1';
   });
 };
 

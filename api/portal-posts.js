@@ -386,7 +386,6 @@ function formatPost(p, full) {
   const sl = slugify(p.titulo || "").slice(0, 55);
   const id8 = (p.id || "").slice(0, 8);
   const cp = CAT_PATH[categoria] || "politica";
-  const url = `/${cp}/${sl}-${id8}/`;
   return {
     id: p.id,
     titulo: p.titulo || "",
@@ -399,7 +398,7 @@ function formatPost(p, full) {
     subcategoria_slug: p.subcategoria_slug || "",
     tags,
     slug: sl,
-    url,
+    url: `/${cp}/${sl}-${id8}/`,
     data: p.published_at || p.created_at
   };
 }

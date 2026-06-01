@@ -638,7 +638,7 @@ export function normalizarParagrafos(html) {
 
 const PROIBIDOS_ABERTURA = ["prezado", "caro", "dear", "editor(a)", "redator-chefe", "headline:", "assunto:", "erro:", "teste:"];
 
-const OVC_REPAIR_BASE = `
+const OVC_REPAIR_RULES = `
 REESCRITA CORRETIVA OVC:
 - Nunca inventar fatos, datas, valores, fontes, crimes, intencoes ou declaracoes.
 - Usar apenas fatos verificaveis do material recebido. Se algo for incerto, escrever [VERIFICAR].
@@ -647,20 +647,8 @@ REESCRITA CORRETIVA OVC:
 - Padrao OVC: texto humano, juridicamente cauteloso, factual, com atribuicao quando houver numero ou acusacao.
 - Para materia padrao, mirar 2.000 a 4.500 caracteres no CORPO. Curto pode; pobre nao pode.
 - Usar paragrafos curtos: cada <p> com no maximo 3 frases e 350 caracteres.
-`;
-
-const OVC_REPAIR_RULES = `${OVC_REPAIR_BASE}
 - Incluir obrigatoriamente assinatura, secoes com <h2>, <h2>Conclusao OVC</h2>, <h2>Perguntas frequentes</h2> e <h2>Temas relacionados</h2>.
 - Retornar exatamente os mesmos campos tecnicos do formato OVC, sem texto antes ou depois.
-`;
-
-const COLUNA_REPAIR_RULES = `${OVC_REPAIR_BASE}
-- Isto e uma COLUNA ASSINADA, nao uma materia da redacao.
-- Proibido usar "Redacao OVC", "Redação OVC" ou assinatura institucional no CORPO.
-- Proibido usar <h2>Conclusao OVC</h2>, <h2>Conclusão OVC</h2>, FAQ obrigatoria ou estrutura padronizada de materia.
-- A assinatura obrigatoria deve ser do proprio colunista informado no kernel.
-- O fechamento deve soar autoral, sem formula fixa e sem titulo padrao de conclusao institucional.
-- Retornar exatamente os mesmos campos tecnicos do formato da coluna, sem texto antes ou depois.
 `;
 
 function auditarConteudoOVC(result, opts = {}) {
@@ -674,8 +662,6 @@ function auditarConteudoOVC(result, opts = {}) {
   if (opts.minParagraphs && (corpo.match(/<p>/gi) || []).length < opts.minParagraphs) issues.push("poucos paragrafos");
   if (opts.requireSignature && !/<p>\s*<strong>Reda/i.test(corpo)) issues.push("assinatura ausente");
   if (opts.requireConclusion && !/<h2>\s*Conclus/i.test(corpo)) issues.push("Conclusao OVC ausente");
-  if (opts.forbidOvcSignature && /Reda(?:ç|c|&ccedil;)ao OVC|Reda(?:ç|c|&ccedil;)[aã]o OVC/i.test(corpo)) issues.push("assinatura Redacao OVC proibida em coluna");
-  if (opts.forbidOvcConclusion && /<h2[^>]*>\s*Conclus(?:a|ã|&atilde;)o OVC\s*<\/h2>/i.test(corpo)) issues.push("Conclusao OVC proibida em coluna");
   if (opts.requireFaq && !/<h2>\s*Perguntas frequentes\s*<\/h2>/i.test(corpo)) issues.push("FAQ ausente");
   if (opts.requireRelated && !/<h2>\s*Temas relacionados\s*<\/h2>/i.test(corpo)) issues.push("temas relacionados ausentes");
   if (/\*\*|^##|\n##|\n\s*[-*]\s+/m.test(corpo)) issues.push("markdown no corpo");
@@ -691,28 +677,16 @@ ${issues.map(i => `- ${i}`).join("\n")}
 Reescreva integralmente agora, corrigindo os pontos acima e obedecendo ao padrao editorial.`;
 }
 
-function limparCorpoColuna(corpo, colunistaNome) {
-  let out = String(corpo || "");
-  out = out
-    .replace(/<p>\s*<strong>\s*Reda(?:ç|c|&ccedil;)[aã]o OVC\s*<\/strong>\s*(?:—|&mdash;|-)\s*[^<]*<\/p>\s*/gi, "")
-    .replace(/<h2[^>]*>\s*Conclus(?:a|ã|&atilde;)o OVC\s*<\/h2>\s*/gi, "");
-  if (colunistaNome && !new RegExp(`<p>\\s*<strong>\\s*${colunistaNome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(out)) {
-    out = `<p><strong>${colunistaNome}</strong> &mdash; ${hoje()}</p>\n${out.trim()}`;
-  }
-  return out.trim();
-}
-
 async function gerarComRevisao(kernel, userContent, {
   maxTokens = 8192,
   auditOptions = {},
   tipoConteudo = "padrao"
 } = {}) {
-  const repairRules = tipoConteudo === "coluna" ? COLUNA_REPAIR_RULES : OVC_REPAIR_RULES;
-  let raw = await callOpenAI(kernel + "\n\n" + repairRules, userContent, maxTokens);
+  let raw = await callOpenAI(kernel + "\n\n" + OVC_REPAIR_RULES, userContent, maxTokens);
   let result = parse(raw);
   let issues = auditarConteudoOVC(result, auditOptions);
   if (issues.length > 0) {
-    raw = await callOpenAI(kernel + "\n\n" + repairRules, buildRepairContent(userContent, issues), maxTokens);
+    raw = await callOpenAI(kernel + "\n\n" + OVC_REPAIR_RULES, buildRepairContent(userContent, issues), maxTokens);
     result = parse(raw);
     issues = auditarConteudoOVC(result, auditOptions);
   }
@@ -976,10 +950,9 @@ export async function rewriteColuna(colunistaNome, tema, referencias = '', conte
   const userContent = parts.join('\n\n');
   const result = await gerarComRevisao(kernel, userContent, {
     maxTokens: 16000,
-    auditOptions: { minChars: 4000, minParagraphs: 9, forbidOvcSignature: true, forbidOvcConclusion: true },
+    auditOptions: { minChars: 4000, minParagraphs: 9 },
     tipoConteudo: "coluna"
   });
   result.colunista = colunistaNome;
-  result.corpo = limparCorpoColuna(result.corpo, colunistaNome);
   return result;
 }

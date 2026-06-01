@@ -1,24 +1,27 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Centro de Comando OVC | O Valor Capital</title>
-  <meta name="robots" content="noindex,nofollow">
-  <meta name="description" content="Acesso administrativo centralizado do O Valor Capital.">
-  <style>
-    :root{--bg:#05070a;--panel:#10151d;--line:#273140;--gold:#d6a84f;--red:#b7182b;--text:#f4f0e8;--muted:#aab2bf}
-    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#151d29 0,#05070a 55%);color:var(--text);font-family:Inter,Arial,sans-serif;min-height:100vh;display:grid;place-items:center;padding:28px}.panel{width:min(760px,100%);border:1px solid var(--line);background:linear-gradient(135deg,rgba(255,255,255,.07),rgba(255,255,255,.02));padding:34px}.brand{font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:34px}.brand span{color:var(--red)}.kicker{color:var(--gold);text-transform:uppercase;font-size:13px;font-weight:800;letter-spacing:.14em}h1{font-size:clamp(34px,6vw,62px);line-height:1;margin:12px 0 18px;letter-spacing:0}p{color:var(--muted);font-size:18px;line-height:1.65}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}a{color:var(--text);text-decoration:none;border:1px solid var(--line);padding:12px 16px;background:rgba(255,255,255,.04)}a.primary{background:var(--red);border-color:var(--red);font-weight:800}.note{margin-top:24px;border-left:4px solid var(--gold);padding:14px 16px;background:rgba(255,255,255,.035);color:var(--muted);font-size:15px}
-  </style>
+<meta charset="UTF-8">
+<title>OVC Admin</title>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<style>
+body { background:#0b0b0b; color:#fff; font-family:Arial }
+.nav { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap }
+.card { background:#1a1a1a; padding:15px; margin-bottom:15px }
+button { padding:8px; margin:4px }
+input,select { padding:6px; margin:4px }
+.row { display:flex; gap:10px; flex-wrap:wrap }
+.col { flex:1; min-width:280px }
+.small { opacity:.8; font-size:12px }
+</style>
+
 </head>
 <body>
-  <main class="panel">
-    <div class="brand">O Valor <span>Capital</span></div>
-    <div class="kicker">Administração</div>
-    <h1>Centro de comando único</h1>
-    <p>As operações administrativas do OVC devem ficar concentradas no admin principal. Esta antiga tela técnica foi substituída para evitar duplicidade operacional.</p>
-    <div class="actions"><a class="primary" href="/admin/">Abrir admin principal</a><a href="/vc/">Voltar ao institucional</a></div>
-    <div class="note">Página marcada como noindex para não disputar indexação com áreas públicas do portal.</div>
-  </main>
+<div id="app"></div>
+<script src="/ovc-engine/app.js"></script>
 </body>
 </html>
