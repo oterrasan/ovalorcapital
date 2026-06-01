@@ -108,7 +108,7 @@ export default async function handler(req, res) {
       .filter(p => p.titulo && p.id)
       .map(p => formatPost(p, false))
       .filter(p => CATS_VALIDAS_R.has(p.categoria));
-    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=86400");
     return res.status(200).json({ posts: recentPosts, total: recentPosts.length });
   }
 
