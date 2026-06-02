@@ -243,7 +243,7 @@
 
     const cache = {};
     try {
-      const r = await fetch('/api/portal-posts?recentes=true&limit=300');
+      const r = await fetch('/api/portal-posts?recentes=true&limit=180');
       if (r.ok) {
         const d = await r.json();
         (d.posts||[]).forEach(p => {
