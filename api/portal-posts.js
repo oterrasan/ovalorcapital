@@ -1,244 +1,258 @@
 import { createClient } from "@supabase/supabase-js";
-import { emergencyById8, emergencyList } from "../lib/emergency-content.js";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const OG_DEFAULT = "https://www.ovalorcapital.com.br/assets/template-ovc.jpg";
-const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados','educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao','parcerias','internacional','colunistas','variedades','investigativo','seguranca','cultura','profissoes','vagas','concursos','imoveis','esg','defesa','religiao','radar']);
+const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function idRange(id8) {
-  return { lo: id8 + "-0000-0000-0000-000000000000", hi: id8 + "-ffff-ffff-ffff-ffffffffffff" };
-}
+const BASE = "https://www.ovalorcapital.com.br";
+const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
+const OLD_SUPABASE_REF = "bfsegqdgscudtdgwdyci";
+
+const CAT_PATH = {
+  politica: "politica", economia: "economia", negocios: "negocios",
+  investimentos: "investimentos", seguros: "seguros", mercados: "mercados",
+  educacao: "educacao", industria: "industria", tecnologia: "tecnologia",
+  esportes: "esportes", saude: "saude", familia: "familia",
+  tributacao: "tributos", tributos: "tributos", regulacao: "regulacao",
+  parcerias: "parcerias", internacional: "internacional", variedades: "variedades",
+  investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
+  profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
+  imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
+  radar: "radar", vc: "colunistas", colunistas: "colunistas", geral: "politica"
+};
+
+const VALID_CATS = new Set(Object.keys(CAT_PATH));
+const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,updated_at,metrics";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
 
-  const { categoria, limit = 40, page = 0, id, resources, sort, format } = req.query;
-  const safeLimit = Math.min(Math.max(parseInt(limit || "40", 10) || 40, 1), 80);
-  const safePage = Math.max(parseInt(page || "0", 10) || 0, 0);
-
-  if (format === "comments" && req.query.post_id) return handleGetComments(req, res);
-  if (req.method === "POST" && req.query.action === "comment") return handlePostComment(req, res);
-  if (format === "live-data") return handleLiveData(req, res);
-  if (format === "og" && id) return handleOg(req, res, id);
+  if (req.query.format === "live-data") return handleLiveData(res);
 
   try {
-    if (sort === "popular") {
-      const { data, error } = await supabase.from("posts")
-        .select("id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,metrics")
-        .eq("status", "publicado")
-        .order("published_at", { ascending: false })
-        .limit(80);
-      if (error) throw error;
-      const posts = (data || [])
-        .filter(p => p.titulo && p.id)
-        .sort((a,b) => (((b.metrics && b.metrics.views) || 0) - ((a.metrics && a.metrics.views) || 0)))
-        .slice(0, Math.min(Number(limit) || 10, 10))
-        .map(p => formatPost(p, false))
-        .filter(p => imgOk(p.imagem));
-      return res.status(200).json({ posts, total: posts.length });
-    }
-
-    if (req.query.recentes === 'true') {
-      const lim = Math.min(parseInt(limit || '80', 10) || 80, 80);
-      const { data, error } = await supabase.from("posts")
-        .select("id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
-        .eq("status", "publicado")
-        .order("published_at", { ascending: false })
-        .limit(lim);
-      if (error) throw error;
-      const posts = (data || []).filter(p => p.titulo && p.id).map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
-      return res.status(200).json({ posts, total: posts.length });
-    }
-
-    if (id) {
-      const data = await getPostById(id, true);
-      if (!data) return sendEmergencyById(req, res, id);
-      return res.status(200).json(formatPost(data, true));
-    }
-
-    const { q: searchTerm } = req.query;
-    if (searchTerm && searchTerm.trim()) return handleSearch(req, res, searchTerm.trim());
-
-    let q = supabase.from("posts")
-      .select("id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
-      .eq("status", "publicado")
-      .order("published_at", { ascending: false })
-      .range(safePage * safeLimit, (safePage + 1) * safeLimit - 1);
-
-    if (categoria && categoria !== "all") q = q.like("user_tags", `%\"${categoria}\"%`);
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    const posts = dedupe(data || []).map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
-
-    if (resources) return sendResourcePayload(res, posts, false);
-    return res.status(200).json({ posts, total: posts.length });
-  } catch (e) {
-    return sendEmergencyList(req, res, { categoria, limit, page, resources, sort, q: req.query.q });
+    if (req.query.id) return handleOne(req, res);
+    if (req.query.format === "og" && req.query.id) return handleOne(req, res);
+    return handleList(req, res);
+  } catch (error) {
+    return res.status(500).json({ posts: [], total: 0, error: "portal_posts_failed", detail: error?.message || String(error) });
   }
 }
 
-async function getPostById(id, full) {
-  const cols = full ? "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at" : "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
+async function handleOne(req, res) {
+  const id = String(req.query.id || "").trim();
+  let row = null;
+
   if (id.length >= 36) {
-    const { data, error } = await supabase.from("posts").select(cols).eq("status", "publicado").eq("id", id).single();
-    if (error) throw error;
-    return data || null;
+    const result = await supabase.from("posts").select(POST_COLUMNS).eq("id", id).maybeSingle();
+    if (result.error) throw result.error;
+    row = result.data;
+  } else if (/^[a-f0-9]{8}$/i.test(id.slice(0, 8))) {
+    const id8 = id.slice(0, 8).toLowerCase();
+    const lo = `${id8}-0000-0000-0000-000000000000`;
+    const hi = `${id8}-ffff-ffff-ffff-ffffffffffff`;
+    const result = await supabase.from("posts").select(POST_COLUMNS).gte("id", lo).lte("id", hi).limit(1);
+    if (result.error) throw result.error;
+    row = result.data?.[0] || null;
   }
-  const { lo, hi } = idRange(id.slice(0,8));
-  const { data, error } = await supabase.from("posts").select(cols).eq("status", "publicado").gte("id", lo).lte("id", hi).limit(1);
+
+  if (!row) return res.status(404).json({ error: "not_found" });
+  return res.status(200).json(formatPost(row, true));
+}
+
+async function handleList(req, res) {
+  const limit = clampInt(req.query.limit, 40, 1, 80);
+  const page = clampInt(req.query.page, 0, 0, 5000);
+  const categoria = normalizeCat(req.query.categoria || req.query.cat || "");
+  const searchTerm = String(req.query.q || "").trim();
+
+  let q = supabase.from("posts")
+    .select(POST_COLUMNS)
+    .eq("status", "publicado")
+    .order("published_at", { ascending: false })
+    .range(page * limit, (page + 1) * limit - 1);
+
+  if (categoria && categoria !== "all") q = q.like("user_tags", `%\"${categoria}\"%`);
+  if (searchTerm) q = q.or(`titulo.ilike.%${escapeLike(searchTerm)}%,conteudo.ilike.%${escapeLike(searchTerm)}%`);
+
+  const { data, error } = await q;
   if (error) throw error;
-  return data?.[0] || null;
-}
 
-async function handleSearch(req, res, termo) {
-  try {
-    const COLS = "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
-    const { data, error } = await supabase.from("posts").select(COLS).eq("status", "publicado")
-      .ilike("titulo", `%${termo}%`).order("published_at", { ascending: false }).limit(30);
-    if (error) throw error;
-    const posts = dedupe(data || []).map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
-    return res.status(200).json({ posts, total: posts.length, query: termo });
-  } catch (_) {
-    return sendEmergencyList(req, res, { ...req.query, q: termo });
+  const posts = dedupe(data || []).map(row => formatPost(row, false)).filter(p => VALID_CATS.has(p.categoria));
+
+  if (req.query.resources) {
+    return res.status(200).json({
+      articles: posts.map(p => ({
+        title: p.titulo,
+        excerpt: p.resumo,
+        image: p.imagem,
+        url: p.url,
+        category: p.categoria,
+        source: "Redacao OVC",
+        relativeDate: dataBr(p.data),
+        readingTime: "3 min",
+        slug: p.slug
+      })),
+      banners: []
+    });
   }
+
+  return res.status(200).json({ posts, total: posts.length });
 }
 
-async function handleOg(req, res, id) {
-  let post = await getPostById(id, false).catch(() => null);
-  if (!post) post = emergencyById8(id.slice(0, 8));
-  const p = post ? formatPost(post, false) : null;
-  const title = p ? p.titulo : "O Valor Capital";
-  const desc = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de noticias do Brasil.";
-  const img = p?.imagem || OG_DEFAULT;
-  const url = p ? ("https://ovalorcapital.com.br" + p.url) : "https://ovalorcapital.com.br";
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
-  return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${esc(title)} - O Valor Capital</title><meta name="description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:site_name" content="O Valor Capital"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(img)}"><meta property="og:url" content="${esc(url)}"><meta name="twitter:card" content="summary_large_image"><script>window.location.replace(${JSON.stringify(url)});<\/script></head><body><p>Redirecionando para <a href="${esc(url)}">O Valor Capital</a>.</p></body></html>`);
-}
+async function handleLiveData(res) {
+  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
 
-function sendEmergencyById(_req, res, id) {
-  const post = emergencyById8(id.slice(0, 8));
-  if (!post) return res.status(404).json({ error: "not_found" });
-  res.setHeader("X-OVC-Emergency-Fallback", "static");
-  return res.status(200).json(formatPost(post, true));
-}
+  const [awResult, brapiResult] = await Promise.allSettled([
+    safeFetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL"),
+    safeFetch("https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI")
+  ]);
 
-function sendEmergencyList(req, res, opts = {}) {
-  const posts = emergencyList(opts).map(p => formatPost(p, Boolean(req.query.id)));
-  res.setHeader("X-OVC-Emergency-Fallback", "static");
-  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
-  if (opts.resources) return sendResourcePayload(res, posts, true);
-  return res.status(200).json({ posts, total: posts.length, degraded: true, source: "static-fallback" });
-}
+  const aw = awResult.status === "fulfilled" ? awResult.value : null;
+  const br = brapiResult.status === "fulfilled" ? brapiResult.value : null;
+  const brapiMap = {};
+  for (const item of br?.results || []) brapiMap[item.symbol] = item;
 
-function sendResourcePayload(res, posts, degraded) {
   return res.status(200).json({
-    degraded,
-    source: degraded ? "static-fallback" : "supabase",
-    articles: posts.map(p => ({ title: p.titulo, excerpt: p.resumo, image: p.imagem, url: p.url, category: p.categoria, source: "Redacao OVC", relativeDate: dataBr(p.data), readingTime: "3 min", slug: p.slug })),
-    banners: []
+    usd: aw?.USDBRL ? { valor: Number(aw.USDBRL.bid), variacao: Number(aw.USDBRL.pctChange) } : null,
+    eur: aw?.EURBRL ? { valor: Number(aw.EURBRL.bid), variacao: Number(aw.EURBRL.pctChange) } : null,
+    gbp: aw?.GBPBRL ? { valor: Number(aw.GBPBRL.bid), variacao: Number(aw.GBPBRL.pctChange) } : null,
+    btc: aw?.BTCBRL ? { valor: Number(aw.BTCBRL.bid), variacao: Number(aw.BTCBRL.pctChange) } : null,
+    ibov: marketValue(brapiMap["^BVSP"]),
+    nasdaq: marketValue(brapiMap["^IXIC"]),
+    dow: marketValue(brapiMap["^DJI"]),
+    impostometro: impostometro(),
+    ratePerSec: 114155,
+    ts: Date.now()
   });
 }
 
-async function handleGetComments(req, res) {
-  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
-  const { post_id } = req.query;
-  try {
-    const { data: comments } = await supabase.from("comentarios").select("id,user_nome,texto,created_at").eq("post_id", post_id).eq("oculto_moderacao", false).order("created_at", { ascending: true }).limit(50);
-    const { data: post } = await supabase.from("posts").select("comentario_fixado").eq("id", post_id).single();
-    return res.status(200).json({ comments: comments || [], pinned: post?.comentario_fixado || null });
-  } catch(e) {
-    return res.status(200).json({ comments: [], pinned: null, degraded: true });
-  }
-}
+function formatPost(row, full) {
+  const tags = parseTags(row.user_tags);
+  const categoria = normalizeCat(tags[0] || row.categoria || "politica") || "politica";
+  const catPath = CAT_PATH[categoria] || "politica";
+  const titulo = clean(row.titulo || "");
+  const id8 = String(row.id || "").slice(0, 8);
+  const slug = slugify(titulo);
+  const conteudo = row.conteudo || "";
+  const resumo = clean(row.comentario_fixado || stripHtml(conteudo).slice(0, 220));
+  const data = row.published_at || row.created_at || row.updated_at || new Date().toISOString();
 
-async function handlePostComment(req, res) {
-  const { post_id, texto, token } = req.body || {};
-  if (!post_id || !texto || !token) return res.status(400).json({ error: "post_id, texto e token obrigatorios" });
-  if (texto.trim().length < 2 || texto.length > 2000) return res.status(400).json({ error: "Comentario deve ter entre 2 e 2000 caracteres" });
-  try {
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) return res.status(401).json({ error: "Token invalido ou expirado" });
-    const { data: profile } = await supabase.from("profiles").select("nome,sobrenome").eq("id", user.id).single();
-    const userNome = profile?.nome ? [profile.nome, profile.sobrenome].filter(Boolean).join(" ") : (user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuario");
-    const { error } = await supabase.from("comentarios").insert({ post_id, user_id: user.id, user_nome: userNome, texto: texto.trim(), oculto_moderacao: false });
-    if (error) throw error;
-    return res.status(200).json({ ok: true, flagged: false });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleLiveData(_req, res) {
-  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
-  async function safeFetch(url) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 4000);
-    try { const r = await fetch(url, { signal: ctrl.signal }); clearTimeout(timer); return r.ok ? await r.json() : null; }
-    catch(_) { clearTimeout(timer); return null; }
-  }
-  const [awResult, brapiResult] = await Promise.allSettled([
-    safeFetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL'),
-    safeFetch('https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI'),
-  ]);
-  const aw = awResult.status === 'fulfilled' ? awResult.value : null;
-  const br = brapiResult.status === 'fulfilled' ? brapiResult.value : null;
-  const brapiMap = {};
-  (br?.results || []).forEach(r => { brapiMap[r.symbol] = r; });
-  const data = {
-    usd: aw?.USDBRL ? { valor: parseFloat(aw.USDBRL.bid), variacao: parseFloat(aw.USDBRL.pctChange) } : null,
-    eur: aw?.EURBRL ? { valor: parseFloat(aw.EURBRL.bid), variacao: parseFloat(aw.EURBRL.pctChange) } : null,
-    gbp: aw?.GBPBRL ? { valor: parseFloat(aw.GBPBRL.bid), variacao: parseFloat(aw.GBPBRL.pctChange) } : null,
-    btc: aw?.BTCBRL ? { valor: parseFloat(aw.BTCBRL.bid), variacao: parseFloat(aw.BTCBRL.pctChange) } : null,
-    ibov: brapiMap['^BVSP'] ? { valor: brapiMap['^BVSP'].regularMarketPrice, variacao: brapiMap['^BVSP'].regularMarketChangePercent } : null,
-    nasdaq: brapiMap['^IXIC'] ? { valor: brapiMap['^IXIC'].regularMarketPrice, variacao: brapiMap['^IXIC'].regularMarketChangePercent } : null,
-    dow: brapiMap['^DJI'] ? { valor: brapiMap['^DJI'].regularMarketPrice, variacao: brapiMap['^DJI'].regularMarketChangePercent } : null,
-    impostometro: (() => { const RATE = 114155; const inicio = new Date(new Date().getFullYear() + '-01-01T03:00:00Z'); return Math.max(0, Math.floor((Date.now() - inicio.getTime()) / 1000)) * RATE; })(),
-    ratePerSec: 114155,
-    ts: Date.now(),
+  return {
+    id: row.id,
+    titulo,
+    title: titulo,
+    subtitulo: row.comentario_fixado || resumo,
+    comentario_fixado: row.comentario_fixado || resumo,
+    resumo,
+    conteudo: full ? conteudo : undefined,
+    corpo: full ? conteudo : undefined,
+    imagem: safeImage(row.imagem),
+    categoria,
+    subcategoria: row.subcategoria || "",
+    subcategoria_slug: row.subcategoria_slug || "",
+    tags,
+    slug,
+    url: `/${catPath}/${slug}-${id8}/`,
+    data,
+    published_at: data,
+    metrics: row.metrics || {}
   };
-  return res.status(200).json(data);
 }
 
-function formatPost(p, full) {
-  let tags = [];
-  try { tags = typeof p.user_tags === "string" ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
-  const categoria = tags[0] || "geral";
-  const conteudo = p.conteudo || "";
-  const resumo = conteudo ? conteudo.slice(0, 220).replace(/^Redacao OVC.*?\n/, "").trim() + "..." : (p.comentario_fixado || "").slice(0, 220);
-  const CAT_PATH = { politica:"politica", economia:"economia", negocios:"negocios", investimentos:"investimentos", seguros:"seguros", mercados:"mercados", educacao:"educacao", industria:"industria", tecnologia:"tecnologia", esportes:"esportes", saude:"saude", familia:"familia", tributacao:"tributos", regulacao:"regulacao", internacional:"internacional", parcerias:"parcerias", vc:"colunistas", colunistas:"colunistas", variedades:"variedades", investigativo:"investigativo", seguranca:"seguranca", cultura:"cultura", profissoes:"profissoes", vagas:"vagas", concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao", radar:"radar", geral:"politica" };
-  const sl = slugify(p.titulo || "").slice(0, 55);
-  const id8 = (p.id || "").slice(0, 8);
-  const cp = CAT_PATH[categoria] || "politica";
-  return { id: p.id, titulo: p.titulo || "", subtitulo: p.comentario_fixado || "", resumo, corpo: full ? conteudo : undefined, imagem: p.imagem || OG_DEFAULT, categoria, subcategoria: p.subcategoria || "", subcategoria_slug: p.subcategoria_slug || "", tags, slug: sl, url: `/${cp}/${sl}-${id8}/`, data: p.published_at || p.created_at };
+function parseTags(value) {
+  if (Array.isArray(value)) return value.map(normalizeCat).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map(normalizeCat).filter(Boolean);
+  } catch (_) {}
+  return String(value).split(/[;,\s]+/).map(normalizeCat).filter(Boolean);
+}
+
+function normalizeCat(value) {
+  const s = slugify(String(value || "")).replace(/-/g, "");
+  if (!s) return "";
+  const map = { politica: "politica", economica: "economia", negocio: "negocios", negocios: "negocios", tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", coluna: "colunistas", colunista: "colunistas", colunistas: "colunistas", saude: "saude", familia: "familia", fe: "religiao", religiao: "religiao", seguranca: "seguranca", segurancapublica: "seguranca", profissoes: "profissoes", vagas: "vagas" };
+  return map[s] || s;
+}
+
+function safeImage(url) {
+  const value = String(url || "").trim();
+  if (!value || value.includes(OLD_SUPABASE_REF)) return OG_DEFAULT;
+  return value;
 }
 
 function dedupe(rows) {
-  const seenId = new Set(), seenTitulo = new Set();
-  return rows.filter(p => {
-    if (!p.id || !p.titulo || seenId.has(p.id)) return false;
-    const tNorm = (p.titulo || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30);
-    if (seenTitulo.has(tNorm)) return false;
-    seenId.add(p.id); seenTitulo.add(tNorm); return true;
-  });
+  const ids = new Set();
+  const titles = new Set();
+  const out = [];
+  for (const row of rows) {
+    if (!row?.id || !row?.titulo) continue;
+    const t = slugify(row.titulo).slice(0, 45);
+    if (ids.has(row.id) || titles.has(t)) continue;
+    ids.add(row.id);
+    titles.add(t);
+    out.push(row);
+  }
+  return out;
 }
 
-function imgOk(url) {
-  if (!url || url.length < 10) return false;
-  return ![/logo/i,/icon/i,/avatar/i,/author/i,/reporter/i,/profile/i,/headshot/i,/perfil/i,/brand/i,/\.svg$/i,/\.gif$/i].some(r => r.test(url));
+async function safeFetch(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4500);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!response.ok) return null;
+    return response.json();
+  } catch (_) {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+function marketValue(item) {
+  return item ? { valor: item.regularMarketPrice, variacao: item.regularMarketChangePercent } : null;
+}
+
+function impostometro() {
+  const start = new Date(`${new Date().getFullYear()}-01-01T03:00:00Z`).getTime();
+  return Math.max(0, Math.floor((Date.now() - start) / 1000)) * 114155;
+}
+
+function clampInt(value, fallback, min, max) {
+  const n = Number.parseInt(value ?? fallback, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(n, min), max);
+}
+
+function escapeLike(value) {
+  return String(value).replace(/[%,]/g, " ").slice(0, 80);
+}
+
+function clean(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function dataBr(dt) {
-  try { return dt ? new Date(dt).toLocaleDateString("pt-BR", { day:"2-digit", month:"short", year:"numeric" }) : ""; } catch(_) { return ""; }
+  try { return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }); }
+  catch (_) { return ""; }
 }
 
-function slugify(str) {
-  return (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 60);
-}
-
-function esc(v) {
-  return String(v || "").replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 60) || "materia";
 }
