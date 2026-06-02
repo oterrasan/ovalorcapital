@@ -113,6 +113,21 @@ async function handleRecentes(req, res) {
     fillers.flat().forEach(addRow);
   }
 
+  const primaryCats = new Set(posts.map(post => post.categoria).filter(Boolean));
+  HOME_CATS.forEach(cat => {
+    if (primaryCats.has(cat)) return;
+    const source = posts.find(post => (post.tags || []).includes(cat));
+    if (!source) return;
+    const id8 = String(source.id || "").slice(0, 8);
+    posts.push({
+      ...source,
+      id: `${source.id}-${cat}`,
+      categoria: cat,
+      url: `/${CAT_PATH[cat] || "politica"}/${source.slug}-${id8}/`
+    });
+    primaryCats.add(cat);
+  });
+
   return res.status(200).json({ posts, total: posts.length });
 }
 
