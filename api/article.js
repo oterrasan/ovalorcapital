@@ -1,182 +1,245 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { emergencyByArticleSlug } from "../lib/emergency-content.js";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const BASE = "https://www.ovalorcapital.com.br";
+const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
+const OLD_SUPABASE_REF = "bfsegqdgscudtdgwdyci";
+const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,created_at,published_at,updated_at,metrics";
 
 const CAT_PATH = {
-  politica:"politica", economia:"economia", negocios:"negocios", investimentos:"investimentos",
-  seguros:"seguros", mercados:"mercados", educacao:"educacao", industria:"industria",
-  tecnologia:"tecnologia", esportes:"esportes", saude:"saude", familia:"familia",
-  tributacao:"tributos", regulacao:"regulacao", parcerias:"parcerias", internacional:"internacional",
-  vc:"colunistas", colunistas:"colunistas", variedades:"variedades", investigativo:"investigativo",
-  seguranca:"seguranca", cultura:"cultura", profissoes:"profissoes", vagas:"vagas",
-  concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao",
-  radar:"radar", geral:"politica"
+  politica: "politica", economia: "economia", negocios: "negocios",
+  investimentos: "investimentos", seguros: "seguros", mercados: "mercados",
+  educacao: "educacao", industria: "industria", tecnologia: "tecnologia",
+  esportes: "esportes", saude: "saude", familia: "familia",
+  tributacao: "tributos", tributos: "tributos", regulacao: "regulacao",
+  parcerias: "parcerias", internacional: "internacional", variedades: "variedades",
+  investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
+  profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
+  imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
+  vc: "colunistas", colunistas: "colunistas", geral: "politica"
 };
 
 const SLUG_TO_CAT = {
-  tributos:"tributacao", tributacao:"tributacao", politica:"politica", economia:"economia",
-  negocios:"negocios", investimentos:"investimentos", seguros:"seguros", mercados:"mercados",
-  educacao:"educacao", industria:"industria", tecnologia:"tecnologia", esportes:"esportes",
-  saude:"saude", familia:"familia", internacional:"internacional", variedades:"variedades",
-  parcerias:"parcerias", regulacao:"regulacao", vc:"colunistas", colunistas:"colunistas",
-  investigativo:"investigativo", seguranca:"seguranca", cultura:"cultura", profissoes:"profissoes",
-  vagas:"vagas", concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa",
-  religiao:"religiao", radar:"radar"
+  politica: "politica", economia: "economia", negocios: "negocios",
+  investimentos: "investimentos", seguros: "seguros", mercados: "mercados",
+  educacao: "educacao", industria: "industria", tecnologia: "tecnologia",
+  esportes: "esportes", saude: "saude", familia: "familia",
+  tributacao: "tributacao", tributos: "tributacao", regulacao: "regulacao",
+  parcerias: "parcerias", internacional: "internacional", variedades: "variedades",
+  investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
+  profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
+  imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
+  vc: "colunistas", colunistas: "colunistas"
 };
 
 const CAT_LABEL = {
-  politica:"Politica", economia:"Economia", negocios:"Negocios", investimentos:"Investimentos",
-  mercados:"Mercados", tributacao:"Tributacao", regulacao:"Regulacao", seguros:"Seguros",
-  saude:"Saude", familia:"Familia", tecnologia:"Tecnologia", industria:"Industria",
-  educacao:"Educacao", esportes:"Esportes", internacional:"Internacional", variedades:"Variedades",
-  parcerias:"Parcerias", vc:"OVC", colunistas:"Colunistas", investigativo:"Investigativo",
-  seguranca:"Seguranca Publica", cultura:"Cultura", profissoes:"Profissoes", vagas:"Vagas",
-  concursos:"Concursos Publicos", imoveis:"Imoveis", esg:"ESG", defesa:"Defesa", religiao:"Fe & Espiritualidade",
-  radar:"Radar"
+  politica: "Política", economia: "Economia", negocios: "Negócios",
+  investimentos: "Investimentos", seguros: "Seguros", mercados: "Mercados",
+  educacao: "Educação", industria: "Indústria", tecnologia: "Tecnologia",
+  esportes: "Esportes", saude: "Saúde", familia: "Família",
+  tributacao: "Tributação", regulacao: "Regulação", parcerias: "Parcerias",
+  internacional: "Internacional", variedades: "Variedades", investigativo: "Investigativo",
+  seguranca: "Segurança Pública", cultura: "Cultura", profissoes: "Profissões",
+  vagas: "Vagas", concursos: "Concursos", imoveis: "Imóveis", esg: "ESG",
+  defesa: "Defesa", religiao: "Fé & Espiritualidade", colunistas: "Colunistas"
 };
 
-const templateCache = {};
+const templates = new Map();
+
+export default async function handler(req, res) {
+  try {
+    const slug = String(req.query.slug || "").replace(/\/+$/g, "");
+    if (!slug) return res.status(400).send("bad request");
+
+    const idMatch = slug.match(/-([a-f0-9]{8})$/i);
+    if (!idMatch) return res.status(400).send("invalid slug");
+
+    const id8 = idMatch[1].toLowerCase();
+    const catKey = SLUG_TO_CAT[String(req.query.cat || "").toLowerCase()] || "politica";
+    const row = await findArticle(id8);
+    if (!row) return res.status(404).send("not found");
+
+    const tags = parseTags(row.user_tags);
+    const articleCat = normalizeCat(tags[0]) || catKey;
+    const catPath = CAT_PATH[articleCat] || CAT_PATH[catKey] || "politica";
+    const title = clean(row.titulo || "O Valor Capital");
+    const image = safeImage(row.imagem);
+    const description = clean(row.comentario_fixado || stripHtml(row.conteudo || "").slice(0, 220));
+    const slugClean = slugify(title);
+    const canonical = `${BASE}/${catPath}/${slugClean}-${id8}/`;
+    const publishedAt = row.published_at || row.created_at || new Date().toISOString();
+    const modifiedAt = row.updated_at || publishedAt;
+    const catLabel = CAT_LABEL[articleCat] || CAT_LABEL[catKey] || "Notícias";
+
+    const tpl = getTemplate(catPath) || getTemplate("politica");
+    if (!tpl) return res.status(500).send("template not found");
+
+    const preload = {
+      id: row.id,
+      titulo: title,
+      subtitulo: row.comentario_fixado || description,
+      resumo: description,
+      corpo: row.conteudo || "",
+      conteudo: row.conteudo || "",
+      imagem: image,
+      categoria: articleCat,
+      subcategoria: row.subcategoria || "",
+      tags,
+      slug: slugClean,
+      url: `/${catPath}/${slugClean}-${id8}/`,
+      data: publishedAt,
+      published_at: publishedAt
+    };
+
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "NewsArticle",
+      headline: title,
+      description,
+      image: [image],
+      datePublished: publishedAt,
+      dateModified: modifiedAt,
+      author: [{ "@type": "Organization", name: "Redação OVC", url: BASE }],
+      publisher: {
+        "@type": "Organization",
+        name: "O Valor Capital",
+        logo: { "@type": "ImageObject", url: `${BASE}/images/logo-ovc.png` }
+      },
+      mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+      articleSection: catLabel,
+      inLanguage: "pt-BR",
+      isAccessibleForFree: true
+    };
+
+    const seoTags = [
+      `<title>${esc(title)} | O Valor Capital</title>`,
+      `<meta name="description" content="${esc(description)}">`,
+      `<link rel="canonical" href="${canonical}">`,
+      `<meta property="og:type" content="article">`,
+      `<meta property="og:site_name" content="O Valor Capital">`,
+      `<meta property="og:title" content="${esc(title)}">`,
+      `<meta property="og:description" content="${esc(description)}">`,
+      `<meta property="og:image" content="${esc(image)}">`,
+      `<meta property="og:url" content="${canonical}">`,
+      `<meta property="og:locale" content="pt_BR">`,
+      `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:title" content="${esc(title)}">`,
+      `<meta name="twitter:description" content="${esc(description)}">`,
+      `<meta name="twitter:image" content="${esc(image)}">`,
+      `<script type="application/ld+json">${safeJson(jsonLd)}</script>`,
+      `<script>window.__OVC_ARTICLE__=${safeJson(preload)};window.SUPABASE_ANON_KEY=${JSON.stringify(SUPABASE_KEY)};</script>`,
+      `<script src="/js/banners.js" defer></script>`
+    ].join("\n");
+
+    let html = tpl;
+    html = setBodyAttr(html, "data-category", articleCat);
+    html = html.replace(/<title>[\s\S]*?<\/title>/i, "");
+    html = html.replace(/<meta\s+name=["']description["'][^>]*>/i, "");
+    html = html.replace(/<link\s+rel=["']canonical["'][^>]*>/i, "");
+    html = html.includes("</head>") ? html.replace("</head>", `${seoTags}\n</head>`) : `${seoTags}\n${html}`;
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+    return res.status(200).send(html);
+  } catch (error) {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    return res.status(500).send(`article failed: ${error?.message || String(error)}`);
+  }
+}
+
+async function findArticle(id8) {
+  const lo = `${id8}-0000-0000-0000-000000000000`;
+  const hi = `${id8}-ffff-ffff-ffff-ffffffffffff`;
+  let result = await supabase.from("posts")
+    .select(POST_COLUMNS)
+    .eq("status", "publicado")
+    .gte("id", lo)
+    .lte("id", hi)
+    .limit(1);
+
+  if (result.error && String(result.error.message || "").includes("metrics")) {
+    result = await supabase.from("posts")
+      .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,created_at,published_at,updated_at")
+      .eq("status", "publicado")
+      .gte("id", lo)
+      .lte("id", hi)
+      .limit(1);
+  }
+
+  if (result.error) throw result.error;
+  return result.data?.[0] || null;
+}
 
 function getTemplate(catPath) {
-  if (templateCache[catPath]) return templateCache[catPath];
-  for (const path of [catPath, "politica"]) {
-    try {
-      const html = readFileSync(join(process.cwd(), "public", path, "index.html"), "utf8");
-      templateCache[catPath] = html;
-      return html;
-    } catch (_) {}
+  if (templates.has(catPath)) return templates.get(catPath);
+  try {
+    const html = readFileSync(join(process.cwd(), "public", catPath, "index.html"), "utf8");
+    templates.set(catPath, html);
+    return html;
+  } catch (_) {
+    return null;
   }
-  return null;
 }
 
-function esc(value) {
-  return String(value || "").replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]));
+function parseTags(value) {
+  if (Array.isArray(value)) return value.map(normalizeCat).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map(normalizeCat).filter(Boolean);
+  } catch (_) {}
+  return String(value).split(/[;,\s]+/).map(normalizeCat).filter(Boolean);
 }
 
-function slugify(value) {
-  return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 55);
+function normalizeCat(value) {
+  const s = slugify(String(value || "")).replace(/-/g, "");
+  const map = { tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", colunista: "colunistas", colunistas: "colunistas", segurancapublica: "seguranca", fe: "religiao" };
+  return map[s] || s || "";
+}
+
+function safeImage(url) {
+  const value = String(url || "").trim();
+  if (!value || value.includes(OLD_SUPABASE_REF)) return OG_DEFAULT;
+  return value;
+}
+
+function setBodyAttr(html, name, value) {
+  const attr = `${name}="${esc(value)}"`;
+  if (new RegExp(`\\s${name}="[^"]*"`, "i").test(html)) {
+    return html.replace(new RegExp(`\\s${name}="[^"]*"`, "i"), ` ${attr}`);
+  }
+  return html.replace(/<body\b([^>]*)>/i, `<body$1 ${attr}>`);
 }
 
 function safeJson(obj) {
   return JSON.stringify(obj).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
-function idRange(id8) {
-  return { lo: id8 + "-0000-0000-0000-000000000000", hi: id8 + "-ffff-ffff-ffff-ffffffffffff" };
+function esc(value) {
+  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-async function findByPrefix(id8) {
-  const { lo, hi } = idRange(id8);
-  const { data, error } = await supabase.from("posts")
-    .select("id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,published_at,created_at,updated_at,metrics")
-    .eq("status", "publicado")
-    .gte("id", lo)
-    .lte("id", hi)
-    .limit(1);
-  if (error) throw error;
-  return data?.[0] || null;
+function clean(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-export default async function handler(req, res) {
-  const { cat, slug } = req.query;
-  const idMatch = String(slug || "").match(/-([a-f0-9]{8})$/i);
-  if (!idMatch) return res.status(400).send("invalid slug");
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
 
-  const id8 = idMatch[1].toLowerCase();
-  const catKey = SLUG_TO_CAT[cat] || cat || "politica";
-  const catPath = CAT_PATH[catKey] || "politica";
-
-  let article = null;
-  try { article = await findByPrefix(id8); } catch (_) { article = null; }
-  if (!article) article = emergencyByArticleSlug(slug, catKey);
-  if (!article) return res.status(404).send("not found");
-
-  let tags = [];
-  try { tags = typeof article.user_tags === "string" ? JSON.parse(article.user_tags) : (article.user_tags || []); } catch (_) {}
-
-  const titulo = String(article.titulo || "").replace(/\*\*/g, "").replace(/^#+\s*/, "").trim();
-  let metrics = {};
-  try { metrics = typeof article.metrics === "string" ? JSON.parse(article.metrics) : (article.metrics || {}); } catch (_) {}
-
-  const artCat = tags[0] || catKey;
-  const catLabel = CAT_LABEL[artCat] || CAT_LABEL[catKey] || "Noticias";
-  const slugClean = slugify(titulo);
-  const canonical = `${BASE}/${catPath}/${slugClean}-${id8}/`;
-  const desc = String(article.comentario_fixado || String(article.conteudo || "").replace(/<[^>]+>/g, " ").slice(0, 220)).trim().slice(0, 200);
-  const imagem = article.imagem || `${BASE}/assets/template-ovc.jpg`;
-  const publishedAt = article.published_at || article.created_at || new Date().toISOString();
-  const modifiedAt = article.updated_at || publishedAt;
-  const titleTag = `${String(metrics.meta_title || titulo).replace(/\*\*/g, "").slice(0, 55).trim()} | O Valor Capital`;
-
-  const preload = safeJson({
-    id: article.id,
-    titulo,
-    subtitulo: article.comentario_fixado || "",
-    resumo: desc,
-    corpo: article.conteudo || "",
-    imagem,
-    categoria: artCat,
-    subcategoria: article.subcategoria || "",
-    tags,
-    slug: slugClean,
-    url: `/${catPath}/${slugClean}-${id8}/`,
-    data: publishedAt
-  });
-
-  const jsonLd = safeJson({
-    "@context":"https://schema.org",
-    "@type":"NewsArticle",
-    headline: titulo,
-    description: desc,
-    image: [imagem],
-    datePublished: publishedAt,
-    dateModified: modifiedAt,
-    author: [{"@type":"Organization", name:"Redacao OVC", url:BASE}],
-    publisher: {"@type":"Organization", name:"O Valor Capital", logo:{"@type":"ImageObject", url:`${BASE}/img/logo-ovc.webp`}},
-    mainEntityOfPage: {"@type":"WebPage", "@id": canonical},
-    articleSection: catLabel,
-    inLanguage: "pt-BR",
-    isAccessibleForFree: true
-  });
-
-  const emergencyFetchGuard = `<script>(function(){window.__OVC_SUPABASE_EMERGENCY__=true;var nativeFetch=window.fetch&&window.fetch.bind(window);if(!nativeFetch)return;window.fetch=function(input,init){try{var url=typeof input==='string'?input:(input&&input.url)||'';var u=new URL(url,location.origin);if(u.pathname==='/api/manage')return Promise.resolve(new Response(JSON.stringify({ok:true,youtube_live_url:null,degraded:true}),{status:200,headers:{'Content-Type':'application/json'}}));if(u.pathname==='/api/portal-posts'&&!u.searchParams.has('id')&&!u.searchParams.has('format')&&!u.searchParams.has('action'))return Promise.resolve(new Response(JSON.stringify({posts:[],total:0,degraded:true}),{status:200,headers:{'Content-Type':'application/json'}}));}catch(e){}return nativeFetch(input,init);};})();</script>`;
-
-  const seoTags = [
-    `<title>${esc(titleTag)}</title>`,
-    `<meta name="description" content="${esc(desc)}">`,
-    `<link rel="canonical" href="${canonical}">`,
-    `<meta property="og:type" content="article">`,
-    `<meta property="og:site_name" content="O Valor Capital">`,
-    `<meta property="og:title" content="${esc(titulo)}">`,
-    `<meta property="og:description" content="${esc(desc)}">`,
-    `<meta property="og:image" content="${esc(imagem)}">`,
-    `<meta property="og:url" content="${canonical}">`,
-    `<meta property="og:locale" content="pt_BR">`,
-    `<meta name="twitter:card" content="summary_large_image">`,
-    `<meta name="twitter:title" content="${esc(titulo)}">`,
-    `<meta name="twitter:description" content="${esc(desc)}">`,
-    `<meta name="twitter:image" content="${esc(imagem)}">`,
-    `<script type="application/ld+json">${jsonLd}</script>`,
-    `<script>window.__OVC_ARTICLE__=${preload};window.SUPABASE_ANON_KEY="";</script>`,
-    emergencyFetchGuard,
-    `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>`
-  ].join("\n");
-
-  const tpl = getTemplate(catPath);
-  if (!tpl) return res.status(500).send("template not found");
-
-  let html = tpl.replace(/<title>[^<]*<\/title>/i, "");
-  html = html.replace("</head>", seoTags + "\n</head>");
-  html = html.replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js[^>]*><\/script>/ig, "");
-  html = html.replace(/<script\s+src="\/js\/auth\.js"[^>]*><\/script>/ig, "");
-
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  if (article._emergency) res.setHeader("X-OVC-Emergency-Fallback", "static");
-  res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
-  return res.status(200).send(html);
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 60) || "materia";
 }
