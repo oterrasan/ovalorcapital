@@ -15,6 +15,8 @@ const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","tru
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
 const EVENTO = new Set(["aprova","aprovacao","vota","votacao","sanciona","veto","decide","decisao","prende","prisao","operacao","bloqueia","bloqueio","investiga","denuncia","condena","absolve","autoriza","suspende","aumenta","reduz","corta","eleva","queda","alta","lanca","anuncia","acordo","cobra","multa","reforma","projeto","relatorio","pesquisa","levantamento","resultado","balanco"]);
 const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante desse cenário","diante desse cenario","sob essa ótica","sob essa otica","nesse sentido","em suma","por fim","considerações finais","consideracoes finais","reflexões finais","reflexoes finais","perspectiva estratégica","perspectiva estrategica","leitura de segunda ordem","impactos não óbvios","impactos nao obvios","ecossistema","disruptivo","sinergia","catalisador","robusto","robusta","robustos","robustas","nova era"];
+const STOCK_IMAGE_CATS = new Set(["economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","saude","familia","tributacao","regulacao","parcerias","variedades","cultura","profissoes","vagas","concursos","imoveis","esg","religiao","radar"]);
+const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
 function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
@@ -33,6 +35,11 @@ function badSourceImageUrl(url) {
   if (/\.(svg|gif|ico|bmp|tiff)(\?|$)/i.test(u)) return true;
   if (/\b(16|32|48|64)x(16|32|48|64)\b/.test(u)) return true;
   return false;
+}
+function canUseStockImageSearch(titulo, categoria) {
+  const cat = slugify(categoria || "");
+  const tituloSeguro = slugify(titulo || "").replace(/-/g, " ");
+  return STOCK_IMAGE_CATS.has(cat) && !SENSITIVE_IMAGE_RE.test(tituloSeguro);
 }
 function sourceImageHostSeguro(url) {
   try {
@@ -178,6 +185,7 @@ async function resolverImagem(content, articleImage, hash, start) {
     } catch (_) {}
   }
   try {
+    if (!canUseStockImageSearch(content.titulo, content.categoria || "")) return { url: null, source: "none", original: "" };
     const found = await findImage(content.titulo, content.categoria || "");
     return { url: found || null, source: found ? "resolver_fallback" : "none", original: "" };
   } catch (_) {
@@ -224,7 +232,7 @@ async function manual(req, res, rec) {
     ? { url: image_url, source: "manual_url", original: image_url }
     : await resolverImagem(content, articleImage, hash, Date.now());
   let img = resolvedImage.url;
-  if (!img && image_query) img = await findImage(image_query, cat);
+  if (!img && image_query && canUseStockImageSearch(image_query, cat)) img = await findImage(image_query, cat);
   const post = await inserir(content, hash, img, "manual", {
     source_url: url || "",
     source_title: sourceTitle || "",
@@ -282,6 +290,7 @@ export default async function handler(req, res) {
     const q = String(meta.q || "").trim();
     const cat = String(meta.categoria || meta.cat || "").trim();
     if (!q) return res.status(400).json({ error: "q obrigatorio" });
+    if (!canUseStockImageSearch(q, cat)) return res.status(200).json({ url: null, categoria: cat || null });
     const url = await findImage(q, cat, "", "");
     return res.status(200).json({ url: url || null, categoria: cat || null });
   }
