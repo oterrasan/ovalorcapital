@@ -159,13 +159,14 @@ function isImagemBloqueada(url) {
   return false;
 }
 
-function extrairEntidades(titulo) {
+function extrairEntidades(titulo, somenteAliases = false) {
   const tLower = normalizeText(titulo);
   const encontrados = [];
   for (const [alias, nome] of Object.entries(ALIASES)) {
     if (tLower.includes(normalizeText(alias))) encontrados.push(nome);
     if (encontrados.length >= 2) return encontrados;
   }
+  if (somenteAliases) return encontrados;
   const nomes = String(titulo || "").match(/[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+){1,3}/g) || [];
   for (const nome of nomes) {
     if (!encontrados.includes(nome)) encontrados.push(nome);
@@ -285,7 +286,8 @@ async function getImagensUsadas() {
 
 async function buscarImagemInterna(titulo, categoria) {
   const imagensUsadas = await getImagensUsadas();
-  const entidades = extrairEntidades(titulo);
+  const stockSeguro = podeUsarBancoStock(titulo, categoria);
+  const entidades = extrairEntidades(titulo, !stockSeguro);
 
   for (const entidade of entidades) {
     const img = await buscarWikipedia(entidade, imagensUsadas);
@@ -297,10 +299,12 @@ async function buscarImagemInterna(titulo, categoria) {
     if (img) return img;
   }
 
-  const imgWiki = await buscarWikimedia(titulo, imagensUsadas);
-  if (imgWiki) return imgWiki;
+  if (stockSeguro) {
+    const imgWiki = await buscarWikimedia(titulo, imagensUsadas);
+    if (imgWiki) return imgWiki;
+  }
 
-  if (!podeUsarBancoStock(titulo, categoria)) return null;
+  if (!stockSeguro) return null;
 
   for (const query of buildQueries(titulo, categoria)) {
     const pexels = await buscarPexels(query, imagensUsadas);
