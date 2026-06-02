@@ -1,107 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { publishPost } from "../core/publish_engine.js";
-import { getNews, getNewsByCategoria } from "../core/rss.js";
-import { scrape } from "../core/scraper.js";
-import { rewritePortal, rewriteColuna, COLUNISTAS_OVC } from "../core/ai_portal.js";
-import { findImage } from "../core/image_finder.js";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-let _bannersCache = null;
-
-function hashSenha(s) { return crypto.createHash("sha256").update(s + "ovc_salt_2026").digest("hex"); }
-function gerarToken() { return crypto.randomBytes(32).toString("hex"); }
-function checkAdminAuth(req) {
-  const expected = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || "ovc-admin-2026-secreto";
-  const auth = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
-  const supplied = auth || req.headers?.["x-admin-token"] || req.headers?.["x-admin-password"] || req.body?.token || req.body?.admin_token || req.query?.token || req.query?.pass || "";
-  return String(supplied) === String(expected);
-}
-function slugifyBase(s) {
-  return String(s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-function plainText(html = "") {
-  return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-const COLUNISTAS_COM_IA = new Set([
-  "roberto terrasan",
-  "coluna ovc",
-  "ovc",
-  "beta ferreira",
-  "adriana ferreira",
-  "michele froiz"
-]);
-
-// ── ROTEADOR ───────────────────────────────────────────────────────────────────────────────────────────────
-function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
-
-  if (req.method === "GET") {
-    if (req.query.action === 'banners') return handleBanners(req, res);
-    if (req.query.action === 'refresh_token') return handleRefreshToken(req, res);
-    if (req.query.action === 'unpublish_recent') return handleUnpublishRecent(req, res);
-    if (req.query.action === 'unpublish_no_image') return handleUnpublishNoImage(req, res);
-    if (req.query.action === 'audit_images') return handleAuditImages(req, res);
-    if (req.query.action === 'vendor_js') return handleVendorJs(req, res);
-    if (req.query.action === 'list_colunistas') return handleListColunistas(req, res);
-    if (req.query.action === 'list_posts_colunista') return handleListPostsColunista(req, res);
-    if (req.query.action === 'limpar_pendentes_antigos') return handleLimparPendentesAntigos(req, res);
-    if (req.query.action === 'seed_rss_lote2') return handleSeedRssLote2(req, res);
-    if (req.query.action === 'validate-token') {
-      const token = req.query.token || '';
-      return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
-    }
-    return handleStatus(req, res);
-  }
-  if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
-
-  const body = req.body || {};
-  // query.action (via rewrite) tem mesma precedência que body.action
-  if (!body.action && req.query.action) body.action = req.query.action;
-
-  if (body.pedidos !== undefined) return handleManual(req, res);
-
-  const portalActions = ["aprovar","rejeitar","editar_aprovar","aprovar_lote","rejeitar_lote"];
-  if (portalActions.includes(body.action)) return handleApprovePortal(req, res);
-
-  if (body.action === "newsletter_subscribe") return handleNewsletterSubscribe(req, res);
-  if (body.action === "submit_vaga") return handleSubmitVaga(req, res);
-  if (body.action === "track_view") return handleTrackView(req, res);
-  if (body.action === "setup_storage") return handleSetupStorage(req, res);
-  if (body.action === "login_colunista") return handleLoginColunista(req, res);
-  if (body.action === "submit_colunista_post") return handleSubmitColunista(req, res);
-  if (body.action === "create_colunista") return handleCreateColunista(req, res);
-  if (body.action === "set_colunista_foto") return handleSetColunistaFoto(req, res);
-  if (body.action === "toggle_colunista") return handleToggleColunista(req, res);
-  if (body.action === "delete_colunista") return handleDeleteColunista(req, res);
-  if (body.action === "gerar_coluna") return handleGerarColuna(req, res);
-  if (body.action === "inteligencia" || req.query.action === "inteligencia") return handleInteligencia(req, res);
-  if (body.action === "validate-token" || req.query.action === "validate-token") {
-    const token = req.body?.token || '';
-    return res.status(200).json({ valid: token === 'ovc-admin-2026-secreto' });
-  }
-
-  return handleApprove(req, res);
-}
-export default handler;
+const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf";
+const OLD_REF = "bfsegqdgscudtdgwdyci";
+const ADMIN_PASS = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || "ovc-admin-2026-secreto";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const VENDOR_JS = {
   react: "https://unpkg.com/react@18/umd/react.production.min.js",
@@ -111,948 +14,192 @@ const VENDOR_JS = {
   html2canvas: "https://html2canvas.hertzen.com/dist/html2canvas.min.js"
 };
 
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  try {
+    if (req.method === "GET") {
+      const action = String(req.query.action || "");
+      if (action === "vendor_js") return handleVendorJs(req, res);
+      if (action === "validate-token") return res.status(200).json({ valid: String(req.query.token || "") === ADMIN_PASS });
+      if (action === "list_colunistas") return handleListColunistas(res);
+      if (action === "setup_storage") return handleSetupStorage(res);
+      if (action === "limpar_pendentes_antigos") return handleLimparPendentesAntigos(req, res);
+      return handleStatus(res);
+    }
+
+    if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
+    const body = req.body || {};
+    const action = String(body.action || "");
+
+    if (action === "create_colunista") return handleCreateColunista(req, res, body);
+    if (action === "update_colunista_photo") return handleUpdateColunistaPhoto(req, res, body);
+    if (action === "toggle_colunista") return handleToggleColunista(req, res, body);
+    if (action === "delete_colunista") return handleDeleteColunista(req, res, body);
+    if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
+    if (body.id && !action) return handleApprovePortal(res, { id: body.id, action: "aprovar" });
+
+    return res.status(200).json({ ok: false, degraded: true, error: "acao_indisponivel_no_modo_emergencia" });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error?.message || String(error) });
+  }
+}
+
 async function handleVendorJs(req, res) {
   const name = String(req.query.name || "");
   const url = VENDOR_JS[name];
   if (!url) return res.status(404).send("not found");
-  try {
-    const upstream = await fetch(url);
-    if (!upstream.ok) return res.status(502).send("vendor unavailable");
-    const code = await upstream.text();
-    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
-    return res.status(200).send(code);
-  } catch(e) {
-    return res.status(502).send("vendor error");
+
+  const upstream = await fetch(url);
+  if (!upstream.ok) return res.status(502).send("vendor unavailable");
+  let code = await upstream.text();
+
+  if (name === "supabase") {
+    code += `\n;(function(){\n  var NEW_URL=${JSON.stringify(SUPABASE_URL)};\n  var NEW_KEY=${JSON.stringify(SUPABASE_KEY)};\n  var OLD_REF=${JSON.stringify(OLD_REF)};\n  window.SUPABASE_ANON_KEY=NEW_KEY;\n  if(window.supabase&&window.supabase.createClient){\n    var original=window.supabase.createClient.bind(window.supabase);\n    window.supabase.createClient=function(url,key,options){\n      try{ if(String(url||'').indexOf(OLD_REF)>=0){ return original(NEW_URL, NEW_KEY, options); } }catch(e){}\n      return original(url||NEW_URL, key||NEW_KEY, options);\n    };\n  }\n})();`;
   }
+
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  return res.status(200).send(code);
 }
 
-// ── INTELIGÊNCIA IA ──────────────────────────────────────────────────────────
-async function _getAIKeys() {
-  try {
-    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
-    const m = {};
-    (data || []).forEach(r => m[r.key] = r.value);
-    return { gemini: m.GEMINI_API_KEY || process.env.GEMINI_API_KEY || "", groq: m.GROQ_API_KEY || process.env.GROQ_API_KEY || "" };
-  } catch (_) { return { gemini: process.env.GEMINI_API_KEY || "", groq: process.env.GROQ_API_KEY || "" }; }
-}
-async function _callGemini(prompt, key) {
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 2000 } })
+async function handleStatus(res) {
+  const today = new Date();
+  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 3, 0, 0));
+
+  const [autoCfg, maxCfg, pendentes, erros, hoje, youtube] = await Promise.allSettled([
+    supabase.from("config").select("value").eq("key", "AUTOMATION").maybeSingle(),
+    supabase.from("config").select("value").eq("key", "MAX_POSTS_DIA").maybeSingle(),
+    supabase.from("posts").select("id", { count: "exact", head: true }).eq("status", "pendente"),
+    supabase.from("posts").select("id", { count: "exact", head: true }).eq("status", "error"),
+    supabase.from("posts").select("id", { count: "exact", head: true }).gte("created_at", start.toISOString()),
+    supabase.from("config").select("value").eq("key", "YOUTUBE_LIVE_URL").maybeSingle()
+  ]);
+
+  return res.status(200).json({
+    running: autoCfg.value?.data?.value === "on",
+    posts_hoje: hoje.value?.count || 0,
+    max_posts: Number(maxCfg.value?.data?.value || 300),
+    pendentes: pendentes.value?.count || 0,
+    erros: erros.value?.count || 0,
+    youtube_live_url: youtube.value?.data?.value || null,
+    supabase_project: "yntwvfcxjardzafdqanj",
+    emergency_manage: true
   });
-  const d = await r.json();
-  if (!r.ok) throw new Error("Gemini: " + (d.error?.message || "erro"));
-  return d.candidates[0].content.parts[0].text;
-}
-async function _callGroq(system, user, key) {
-  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-    body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: system }, { role: "user", content: user }], max_tokens: 2000, temperature: 0.7 })
-  });
-  const d = await r.json();
-  if (!r.ok) throw new Error("Groq: " + (d.error?.message || "erro"));
-  return d.choices[0].message.content;
-}
-async function _callAI(prompt, system, keys) {
-  if (keys.gemini) { try { return await _callGemini(prompt, keys.gemini); } catch (e) { /* fallthrough */ } }
-  if (keys.groq) return await _callGroq(system, prompt, keys.groq);
-  throw new Error("Nenhuma chave de IA configurada");
-}
-const LANGS_MAP = { pt:"Português",en:"Inglês",es:"Espanhol",fr:"Francês",de:"Alemão",it:"Italiano",ja:"Japonês",zh:"Chinês",ar:"Árabe",ru:"Russo" };
-const IA_TOOLS = {
-  // Clássicas
-  reescrever:{ system:"Você é especialista em reescrita de textos em português brasileiro. Retorne APENAS o texto reescrito.", buildPrompt:(t)=>`Reescreva o texto abaixo usando palavras e construções diferentes, mantendo o sentido original. Retorne APENAS o texto reescrito.\n\nTEXTO:\n${t}` },
-  corretor:{ system:"Você é corretor ortográfico especialista em português brasileiro. Retorne APENAS o texto corrigido.", buildPrompt:(t)=>`Corrija todos os erros de ortografia, gramática e pontuação do texto abaixo. Retorne APENAS o texto corrigido.\n\nTEXTO:\n${t}` },
-  "detector-ia":{ system:"Você é especialista em detectar textos gerados por IA. Responda APENAS com JSON válido.", buildPrompt:(t)=>`Analise e estime a probabilidade de ser gerado por IA. Retorne APENAS: {"percentage":75,"reason":"explicação curta"}\n\nTEXTO:\n${t}` },
-  humanizar:{ system:"Você é especialista em tornar textos de IA mais naturais. Retorne APENAS o texto humanizado.", buildPrompt:(t)=>`Reescreva para soar mais natural e humano, removendo padrões de IA. Retorne APENAS o texto.\n\nTEXTO:\n${t}` },
-  tradutor:{ system:"Você é tradutor profissional. Retorne APENAS a tradução.", buildPrompt:(t,o)=>{ const s=LANGS_MAP[o?.sourceLang]||"Português"; const g=LANGS_MAP[o?.targetLang]||"Inglês"; return `Traduza de ${s} para ${g}. Retorne APENAS a tradução.\n\nTEXTO:\n${t}`; } },
-  resumidor:{ system:"Você é especialista em resumos objetivos em português. Retorne APENAS o resumo.", buildPrompt:(t)=>`Crie um resumo claro em até 30% do tamanho original. Retorne APENAS o resumo.\n\nTEXTO:\n${t}` },
-  // Comunicação
-  "reformular-tom":{ system:"Você é especialista em comunicação e reescrita em português brasileiro.", buildPrompt:(t,o)=>{ const tom=o?.tom||"Formal"; const d={Formal:"Use linguagem culta, frases elaboradas e tom respeitoso",Casual:"Use linguagem descontraída, palavras simples e tom amigável",Técnico:"Use terminologia especializada e linguagem objetiva e precisa",Persuasivo:"Use argumentos convincentes e linguagem que motiva e convence",Criativo:"Use metáforas, linguagem expressiva e criatividade"}[tom]||"Use linguagem formal"; return `Reformule o texto abaixo com tom ${tom}. ${d}. Retorne APENAS o texto reformulado.\n\nTEXTO:\n${t}`; } },
-  "email-profissional":{ system:"Você é especialista em comunicação corporativa e escrita de e-mails profissionais em português brasileiro.", buildPrompt:(t,o)=>{ const tipo=o?.tipo||"Profissional"; return `Crie um e-mail profissional do tipo "${tipo}" baseado nas informações abaixo. Inclua Assunto, Saudação, corpo bem estruturado e despedida. Retorne o e-mail completo.\n\nINFORMAÇÕES:\n${t}`; } },
-  "resposta-critica":{ system:"Você é especialista em gestão de reputação e comunicação empática em português brasileiro.", buildPrompt:(t)=>`Crie uma resposta profissional, empática e construtiva para a crítica/avaliação abaixo. Reconheça o problema, peça desculpas, apresente solução e convide a retomar contato. Retorne APENAS a resposta.\n\nCRÍTICA:\n${t}` },
-  "whatsapp-pro":{ system:"Você é especialista em comunicação profissional em português brasileiro.", buildPrompt:(t,o)=>{ const dir=o?.direcao||"informal-para-formal"; return dir==="informal-para-formal"?`Reescreva esta mensagem de forma profissional e educada para comunicação corporativa. Retorne APENAS a mensagem reescrita.\n\nMENSAGEM:\n${t}`:`Reescreva esta mensagem formal de modo mais casual e próximo. Mantenha o sentido. Retorne APENAS a mensagem reescrita.\n\nMENSAGEM:\n${t}`; } },
-  "roteiro-conversa":{ system:"Você é coach de comunicação especialista em conversas difíceis em ambiente profissional.", buildPrompt:(t,o)=>{ const tipo=o?.tipo||"Feedback"; return `Crie um roteiro prático para a conversa de "${tipo}". Inclua: abertura, pontos principais a abordar com sugestões de como falar, possíveis reações e como lidar, e fechamento. Baseie-se nas informações abaixo.\n\nINFORMAÇÕES:\n${t}`; } },
-  // Burocracia
-  "reclamacao":{ system:"Você é especialista em direito do consumidor brasileiro e redação formal.", buildPrompt:(t)=>`Escreva uma carta de reclamação formal baseada no problema abaixo. Inclua: identificação do problema, impactos sofridos, referência ao CDC, solicitação clara de solução e prazo para resposta. Retorne APENAS a carta completa.\n\nPROBLEMA:\n${t}` },
-  "recurso-multa":{ system:"Você é especialista em direito de trânsito brasileiro.", buildPrompt:(t)=>`Escreva um recurso de multa de trânsito formal e juridicamente embasado. Inclua: identificação da autuação, argumentos de defesa, pedido de cancelamento/redução e fundamentação legal. Baseie-se nas informações abaixo. Retorne APENAS o texto do recurso.\n\nINFORMAÇÕES:\n${t}` },
-  "carta-apresentacao":{ system:"Você é especialista em RH e recrutamento no mercado brasileiro.", buildPrompt:(t)=>`Escreva uma carta de apresentação profissional e impactante baseada nas informações abaixo. Destaque os pontos mais relevantes, demonstre motivação genuína e diferenciais. Máximo 3 parágrafos. Retorne APENAS a carta.\n\nINFORMAÇÕES:\n${t}` },
-  "peticao-simples":{ system:"Você é especialista em redação oficial e comunicação com órgãos públicos no Brasil.", buildPrompt:(t,o)=>{ const org=o?.orgao||"órgão público"; return `Escreva uma petição/requerimento simples e formal dirigida a ${org}. Inclua: identificação do solicitante, objeto do pedido, fundamentação e requerimento final. Baseie-se nas informações abaixo. Retorne APENAS o texto.\n\nINFORMAÇÕES:\n${t}`; } },
-  // Vida Pessoal
-  "discurso":{ system:"Você é especialista em oratória e redação de discursos emocionantes em português brasileiro.", buildPrompt:(t,o)=>{ const ev=o?.evento||"Casamento"; return `Escreva um discurso emocionante e pessoal para ${ev}. Inclua: abertura impactante, momentos especiais baseados nas informações, mensagem central e encerramento memorável. Retorne APENAS o discurso.\n\nINFORMAÇÕES:\n${t}`; } },
-  "mensagem-especial":{ system:"Você é especialista em comunicação pessoal e emocional em português brasileiro.", buildPrompt:(t,o)=>{ const tipo=o?.tipo||"Aniversário"; return `Escreva uma mensagem especial de ${tipo} genuína e tocante. Baseie-se nas informações abaixo. Retorne APENAS a mensagem.\n\nINFORMAÇÕES:\n${t}`; } },
-  "bio-perfil":{ system:"Você é especialista em marketing pessoal e presença digital em português brasileiro.", buildPrompt:(t,o)=>{ const pl=o?.plataforma||"LinkedIn"; const d={LinkedIn:"profissional, 1ª pessoa, conquistas e valor, até 300 palavras",Instagram:"curta, com personalidade, pode incluir emojis, máx 150 chars",Tinder:"autêntica, bem-humorada, que gere curiosidade",Apresentação:"clara e memorável para qualquer contexto"}[pl]||"profissional"; return `Escreva uma bio para ${pl}: ${d}. Baseie-se nas informações abaixo. Retorne APENAS a bio.\n\nINFORMAÇÕES:\n${t}`; } },
-  // Trabalho
-  "ata-reuniao":{ system:"Você é especialista em secretariado executivo e redação de atas corporativas.", buildPrompt:(t)=>`Transforme as anotações abaixo em uma ata de reunião profissional. Inclua: Data/Hora/Local (se mencionados), Participantes, Pauta, Discussões e Decisões, Próximos Passos com responsáveis e Encerramento. Retorne APENAS a ata.\n\nANOTAÇÕES:\n${t}` },
-  "descricao-produto":{ system:"Você é especialista em copywriting e marketing digital brasileiro.", buildPrompt:(t,o)=>{ const canal=o?.canal||"Marketplace"; const d={Marketplace:"SEO otimizada, benefícios em bullet points, specs e CTA",Instagram:"envolvente, com storytelling, emojis estratégicos e hashtags",Site:"persuasiva, com storytelling da marca e CTA claro",WhatsApp:"direta, com benefícios principais, preço e como comprar"}[canal]||"persuasiva"; return `Escreva uma descrição de produto para ${canal}: ${d}. Baseie-se nas informações abaixo. Retorne APENAS a descrição.\n\nINFORMAÇÕES:\n${t}`; } },
-  "proposta-comercial":{ system:"Você é especialista em vendas e redação de propostas comerciais no mercado brasileiro.", buildPrompt:(t)=>`Crie uma proposta comercial profissional baseada nas informações abaixo. Inclua: apresentação do serviço, benefícios principais, o que está incluído, investimento/prazo, diferenciais e próximos passos. Retorne APENAS a proposta completa.\n\nINFORMAÇÕES:\n${t}` },
-  // Criatividade
-  "gerador-nome":{ system:"Você é especialista em branding e naming de marcas.", buildPrompt:(t,o)=>{ const tipo=o?.tipo||"Empresa"; return `Gere 5 opções criativas de nome para ${tipo} baseadas nas informações abaixo. Para cada nome forneça o nome e uma breve explicação do conceito. Formato: **Nome:** [nome] | **Por quê:** [explicação]\n\nINFORMAÇÕES:\n${t}`; } },
-  "roteiro-video":{ system:"Você é criador de conteúdo especialista em vídeos curtos para redes sociais.", buildPrompt:(t,o)=>{ const pl=o?.plataforma||"Instagram Reels"; return `Crie um roteiro completo para ${pl}. Inclua: GANCHO (primeiros 3s), DESENVOLVIMENTO (conteúdo em partes), CTA (chamada final). Indique tempo estimado de cada parte. Baseie-se no tema abaixo.\n\nTEMA:\n${t}`; } },
-  "gerador-piada":{ system:"Você é comediante brasileiro especialista em humor leve e inteligente.", buildPrompt:(t)=>`Crie 3 piadas ou textos bem-humorados sobre o tema abaixo. Humor leve, inteligente e adequado para qualquer público. Retorne APENAS as piadas numeradas.\n\nTEMA:\n${t}` }
-};
-async function handleInteligencia(req, res) {
-  const { tool, text, options } = req.body || {};
-  if (!tool || !text?.trim()) return res.status(400).json({ error: "Informe tool e text" });
-  const cfg = IA_TOOLS[tool];
-  if (!cfg) return res.status(400).json({ error: "Ferramenta desconhecida: " + tool });
-  try {
-    const keys = await _getAIKeys();
-    const raw = await _callAI(cfg.buildPrompt(text.trim(), options), cfg.system, keys);
-    if (tool === "detector-ia") {
-      try {
-        const parsed = JSON.parse(raw.replace(/```json?\s?/g,"").replace(/```/g,"").trim());
-        return res.status(200).json({ ok:true, percentage:Math.min(100,Math.max(0,parseInt(parsed.percentage)||50)), reason:parsed.reason||"" });
-      } catch(_) {
-        const m = raw.match(/\d+/);
-        return res.status(200).json({ ok:true, percentage:m?Math.min(100,parseInt(m[0])):50, reason:raw.slice(0,200) });
-      }
-    }
-    return res.status(200).json({ ok: true, result: raw.trim() });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
 }
 
-async function handleSetupStorage(req, res) {
-  try {
-    const { error } = await supabase.storage.createBucket("posts-images", { public: true });
-    if (error && !error.message.toLowerCase().includes("already exist")) {
-      return res.status(200).json({ ok: false, error: error.message });
-    }
-    return res.status(200).json({ ok: true });
-  } catch(e) {
-    return res.status(200).json({ ok: false, error: e.message });
-  }
-}
-
-async function handleAuditImages(req, res) {
-  const OPENAI_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_KEY) return res.status(200).json({ ok: false, error: 'OPENAI_API_KEY não configurado' });
-  const batch  = Math.min(parseInt(req.query.batch  || '4', 10), 6);
-  const offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
-  try {
-    const { data: posts, error: fetchErr } = await supabase
-      .from('posts').select('id, titulo, imagem').eq('status', 'publicado')
-      .not('imagem', 'is', null).neq('imagem', '')
-      .order('created_at', { ascending: true }).range(offset, offset + batch - 1);
-    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
-    if (!posts || posts.length === 0)
-      return res.status(200).json({ ok: true, processed: 0, unpublished: 0, done: true, message: 'Varredura concluída.' });
-    const results = [];
-    for (const post of posts) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
-        const vRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST', signal: controller.signal,
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini', max_tokens: 60, temperature: 0,
-            messages: [{ role: 'user', content: [
-              { type: 'text', text: 'Analyze this image. Respond ONLY with valid JSON, nothing else: {"is_illustration": true/false, "is_chart_or_table": true/false}\\nis_illustration: true if drawing, cartoon, vector art, clip art, icon, logo, or digitally created non-photographic image.\\nis_chart_or_table: true if chart, graph, infographic, table.' },
-              { type: 'image_url', image_url: { url: post.imagem, detail: 'low' } }
-            ]}]
-          })
-        });
-        clearTimeout(timer);
-        if (!vRes.ok) { results.push({ id: post.id, status: 'skip', reason: 'vision_api_error' }); continue; }
-        const vd = await vRes.json();
-        const txt = (vd.choices?.[0]?.message?.content || '').trim();
-        const m = txt.match(/\{[^}]+\}/);
-        const metrics = m ? JSON.parse(m[0]) : null;
-        if (metrics?.is_illustration === true || metrics?.is_chart_or_table === true) {
-          await supabase.from('posts').update({ status: 'pendente', approved: false }).eq('id', post.id);
-          results.push({ id: post.id, titulo: (post.titulo || '').slice(0, 60), status: 'despublicado', motivo: metrics.is_illustration ? 'ilustração/ícone' : 'gráfico/tabela' });
-        } else {
-          results.push({ id: post.id, status: 'ok' });
-        }
-      } catch(e) {
-        results.push({ id: post.id, status: 'skip', reason: e.message?.slice(0, 60) });
-      }
-    }
-    const unpublished = results.filter(r => r.status === 'despublicado').length;
-    const nextOffset = offset + posts.length;
-    const done = posts.length < batch;
-    return res.status(200).json({ ok: true, lote: `${offset}–${nextOffset - 1}`, processed: posts.length, unpublished, done, next_url: done ? null : `/api/manage?action=audit_images&offset=${nextOffset}`, results });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleUnpublishNoImage(req, res) {
-  try {
-    const { error, count } = await supabase.from('posts')
-      .update({ status: 'pendente', approved: false }).eq('status', 'publicado')
-      .or('imagem.is.null,imagem.eq.').select('id', { count: 'exact', head: true });
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true, message: 'Posts sem imagem movidos para pendente', total: count || 0 });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleUnpublishRecent(req, res) {
-  const dias = Math.min(parseInt(req.query.dias || '5', 10), 30);
-  const desde = new Date(Date.now() - dias * 24 * 3600000).toISOString();
-  try {
-    const { error } = await supabase.from('posts')
-      .update({ status: 'pendente', approved: false }).eq('status', 'publicado').gte('created_at', desde);
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true, message: `Artigos dos últimos ${dias} dias movidos para pendente`, desde });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleRefreshToken(req, res) {
-  try {
-    const { data: accounts } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null);
-    const results = [];
-    for (const account of (accounts || [])) {
-      try {
-        const refreshRes = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${account.token}`);
-        const refreshData = await refreshRes.json();
-        if (refreshData.access_token) {
-          await supabase.from("ig_accounts").update({ token: refreshData.access_token }).eq("id", account.id);
-          results.push({ account: account.username, status: "renovado" });
-        } else {
-          results.push({ account: account.username, status: "erro", detail: refreshData });
-        }
-      } catch(e) {
-        results.push({ account: account.username, status: "erro", detail: e.message });
-      }
-    }
-    return res.status(200).json({ ok: true, results });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleBanners(req, res) {
-  const cat = (req.query.cat || '').trim().toLowerCase();
-  try {
-    if (!_bannersCache)
-      _bannersCache = JSON.parse(readFileSync(join(process.cwd(), 'data', 'banners.json'), 'utf8'));
-    let list = _bannersCache.filter(b => b.active);
-    if (cat) {
-      const exact = list.filter(b => Array.isArray(b.categories) && b.categories.includes(cat));
-      list = exact.length > 0 ? exact : list.filter(b => Array.isArray(b.categories) && b.categories.includes('geral'));
-    }
-    list = list.slice().sort((a, b) => (b.priority || 0) - (a.priority || 0)).slice(0, 3);
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60');
-    return res.status(200).json({ banners: list, cat });
-  } catch(e) {
-    return res.status(200).json({ banners: [], cat });
-  }
-}
-
-async function handleStatus(req, res) {
-  try {
-    const { data } = await supabase.from("config").select("value").eq("key","AUTOMATION").single();
-    const running = data?.value === "on";
-    const { data: cfgMax } = await supabase.from("config").select("value").eq("key","MAX_POSTS_DIA").single();
-    const maxPosts = parseInt(cfgMax?.value || "300", 10);
-    const agora = new Date();
-    const inicioDia = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()) + (agora.getUTCHours() < 3 ? -1 : 0) * 86400000 + 3 * 3600000);
-    const { count: postsHoje } = await supabase.from("posts").select("*",{count:"exact",head:true}).gte("created_at",inicioDia.toISOString()).eq("publish_method","portal");
-    const { count: pendentes } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","pendente");
-    const { count: erros } = await supabase.from("posts").select("*",{count:"exact",head:true}).eq("status","error");
-    const { data: cfgYt } = await supabase.from("config").select("value").eq("key","YOUTUBE_LIVE_URL").single();
-    const youtube_live_url = cfgYt?.value || null;
-    return res.status(200).json({ running, posts_hoje: postsHoje||0, max_posts: maxPosts, pendentes:pendentes||0, erros:erros||0, youtube_live_url });
-  } catch(e) {
-    return res.status(200).json({ running:false, posts_hoje:0, max_posts:300, pendentes:0, erros:0, youtube_live_url:null });
-  }
-}
-
-async function handleTrackView(req, res) {
-  const { post_id } = req.body || {};
-  if (!post_id) return res.json({ ok: false });
-  try {
-    const { data: post } = await supabase.from("posts").select("metrics").eq("id", post_id).single();
-    const metrics = (post?.metrics && typeof post.metrics === "object") ? { ...post.metrics } : {};
-    metrics.views = (metrics.views || 0) + 1;
-    await supabase.from("posts").update({ metrics }).eq("id", post_id);
-    return res.json({ ok: true, views: metrics.views });
-  } catch(e) {
-    return res.json({ ok: false });
-  }
-}
-
-async function handleApprove(req, res) {
-  const { id, ids, action, scheduled_at } = req.body || {};
-  try {
-    if (action === "retry" && id) {
-      await supabase.from("posts").update({ status:"pending", error_msg:null, retry_count:0, updated_at:new Date().toISOString() }).eq("id",id);
-      return res.status(200).json({ ok:true });
-    }
-    if (action === "approve" && id) {
-      await supabase.from("posts").update({ status:"approved", approved:true, updated_at:new Date().toISOString() }).eq("id",id);
-      return res.status(200).json({ ok:true });
-    }
-    if (action === "schedule" && id) {
-      await supabase.from("posts").update({ status:"scheduled", approved:true, scheduled_at, updated_at:new Date().toISOString() }).eq("id",id);
-      return res.status(200).json({ ok:true });
-    }
-    if (id && !ids) {
-      await supabase.from("posts").update({ approved:true, status:"approved", updated_at:new Date().toISOString() }).eq("id",id);
-      const result = await publishPost(id);
-      return res.status(200).json(result);
-    }
-    if (ids && Array.isArray(ids)) {
-      const results = [];
-      for (const pid of ids) {
-        await supabase.from("posts").update({ approved:true }).eq("id",pid);
-        const r = await publishPost(pid);
-        results.push({ id:pid, ...r });
-      }
-      return res.status(200).json({ status:"batch", results });
-    }
-    return res.status(400).json({ error:"missing_params" });
-  } catch(e) {
-    return res.status(200).json({ ok:false, error:e.message });
-  }
-}
-
-async function handleApprovePortal(req, res) {
-  const { id, ids, action } = req.body || {};
-  const now = new Date().toISOString();
-  try {
-    if (action === "aprovar" && id) {
-      await supabase.from("posts").update({ status:"publicado", approved:true, published_at:now, updated_at:now }).eq("id",id);
-      return res.status(200).json({ ok:true, action:"aprovado", id });
-    }
-    if (action === "rejeitar" && id) {
-      await supabase.from("posts").update({ status:"rejeitado", approved:false, updated_at:now }).eq("id",id);
-      return res.status(200).json({ ok:true, action:"rejeitado", id });
-    }
-    if (action === "editar_aprovar" && id) {
-      const { titulo, conteudo, imagem, comentario_fixado } = req.body;
-      await supabase.from("posts").update({ titulo, conteudo, imagem, comentario_fixado, status:"publicado", approved:true, published_at:now, updated_at:now }).eq("id",id);
-      return res.status(200).json({ ok:true, action:"editado_aprovado", id });
-    }
-    if (action === "aprovar_lote" && ids && Array.isArray(ids)) {
-      const results = [];
-      for (const pid of ids) {
-        const { error } = await supabase.from("posts").update({ status:"publicado", approved:true, published_at:now, updated_at:now }).eq("id",pid);
-        results.push({ id:pid, ok:!error });
-      }
-      return res.status(200).json({ ok:true, action:"lote_aprovado", total:results.length, results });
-    }
-    if (action === "rejeitar_lote" && ids && Array.isArray(ids)) {
-      await supabase.from("posts").update({ status:"rejeitado", approved:false, updated_at:now }).in("id",ids);
-      return res.status(200).json({ ok:true, action:"lote_rejeitado", total:ids.length });
-    }
-    return res.status(400).json({ error:"acao_invalida" });
-  } catch(e) {
-    return res.status(500).json({ ok:false, error:e.message });
-  }
-}
-
-function validar(content) {
-  if (!content?.titulo || !content?.corpo) return false;
-  const t = content.titulo.toLowerCase().trim();
-  const c = content.corpo.toLowerCase();
-  const proibidos = ["prezado","caro usuário","olá,","atenção:","dear","editor(a)"];
-  if (proibidos.some(p => t.startsWith(p) || c.slice(0,100).includes(p))) return false;
-  if (content.corpo.length < 500) return false;
-  return true;
-}
-
-function gerarNotificacoes(resultados) {
-  const notifs = [];
-  const ok      = resultados.filter(r => r.status==="ok");
-  const erros   = resultados.filter(r => r.status==="erro");
-  const parciais = resultados.filter(r => r.status==="parcial");
-  if (ok.length) notifs.push({tipo:"sucesso", mensagem:`✅ ${ok.length} matéria(s) gerada(s) com sucesso.`});
-  parciais.forEach(p => notifs.push({tipo:"aviso", mensagem:`⚠️ ${p.motivo}`}));
-  erros.forEach(e => notifs.push({tipo:"erro", mensagem:`❌ ${e.categoria}${e.subcategoria?' → '+e.subcategoria:''}: ${e.motivo}`}));
-  return notifs;
-}
-
-async function handleManual(req, res) {
-  const { pedidos = [], fonteManual = null } = req.body || {};
-  if (!pedidos.length) return res.status(400).json({ error:"Informe ao menos um pedido" });
-  const inicio = Date.now();
-  const resultados = [];
-  const now = new Date().toISOString();
-  try {
-    if (fonteManual) {
-      let sourceText = "", sourceTitle = "";
-      if (fonteManual.startsWith("http")) {
-        const article = await scrape(fonteManual);
-        sourceText = article.text || "";
-        sourceTitle = article.title || "";
-      } else {
-        sourceText = fonteManual;
-      }
-      if (!sourceText || sourceText.length < 50)
-        return res.status(200).json({ status:"error", resultados:[], notificacoes:[{tipo:"erro",mensagem:"Não foi possível extrair conteúdo da fonte informada."}] });
-      for (const pedido of pedidos) {
-        if (Date.now() - inicio > 42000) break;
-        let content;
-        try {
-          content = await rewritePortal(sourceText, sourceTitle);
-          if (pedido.categoria) content.categoria = pedido.categoria;
-          if (pedido.subcategoria) content.subcategoria = pedido.subcategoria;
-        } catch(e) {
-          resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"erro", motivo:e.message });
-          continue;
-        }
-        if (!validar(content)) {
-          resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"erro", motivo:"Conteúdo inválido gerado pela IA" });
-          continue;
-        }
-        const hash = crypto.createHash("md5").update(sourceText.slice(0,100)+pedido.categoria+Date.now()).digest("hex");
-        const imagemFinal = await findImage(content.titulo, content.categoria, "");
-        const { data:post, error } = await supabase.from("posts").insert({
-          titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now,
-          publish_method:"manual", user_tags:JSON.stringify([content.categoria]),
-          subcategoria:content.subcategoria||"Geral",
-          subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
-          collaborators:"[]", metrics:{}, priority:1, retry_count:0, max_retries:3
-        }).select().single();
-        if (error) resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"erro", motivo:error.message });
-        else resultados.push({ categoria:pedido.categoria, subcategoria:pedido.subcategoria, status:"ok", titulo:content.titulo, id:post?.id });
-      }
-      return res.status(200).json({ status:"ok", modo:"manual", resultados, notificacoes:gerarNotificacoes(resultados) });
-    }
-    const newsCache = {};
-    await Promise.all(
-      [...new Set(pedidos.map(p => p.categoria).filter(Boolean))].map(async (cat) => {
-        newsCache[cat] = await getNewsByCategoria(cat);
-      })
-    );
-    for (const pedido of pedidos) {
-      const { categoria, subcategoria, quantidade=1 } = pedido;
-      const qtd = Math.min(Math.max(parseInt(quantidade)||1,1),20);
-      let geradosPedido = 0;
-      const errosPedido = [];
-      const news = newsCache[categoria] || await getNews();
-      if (!news.length) {
-        resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:0, motivo:`Nenhuma notícia disponível para ${categoria} no momento` });
-        continue;
-      }
-      for (const item of news) {
-        if (geradosPedido >= qtd) break;
-        if (Date.now() - inicio > 42000) break;
-        const hash = crypto.createHash("md5").update(item.link+"_portal").digest("hex");
-        const { data:dup } = await supabase.from("posts").select("id").eq("hash",hash).single();
-        if (dup) continue;
-        const article = await scrape(item.link);
-        const sourceText = (article.text?.length>=100) ? article.text : (item.description?.length>=50) ? item.title+". "+item.description : null;
-        if (!sourceText) continue;
-        let content;
-        try { content = await rewritePortal(sourceText, item.title); } catch(e) { errosPedido.push(e.message); continue; }
-        if (!validar(content)) continue;
-        if (categoria) content.categoria = categoria;
-        if (subcategoria) content.subcategoria = subcategoria;
-        const imagemFinal = await findImage(content.titulo, content.categoria, article.image||"");
-        const { data:post, error } = await supabase.from("posts").insert({
-          titulo:content.titulo, conteudo:content.corpo, comentario_fixado:content.subtitulo||"",
-          imagem:imagemFinal, hash, status:"publicado", approved:true, published_at:now,
-          publish_method:"manual", user_tags:JSON.stringify([content.categoria]),
-          subcategoria:content.subcategoria||"Geral",
-          subcategoria_slug:(content.subcategoria||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"-").replace(/[^a-z0-9]+/g,"-"),
-          collaborators:"[]", metrics:{}, priority:0, retry_count:0, max_retries:3
-        }).select().single();
-        if (error) { errosPedido.push(error.message); continue; }
-        resultados.push({ categoria, subcategoria:subcategoria||content.subcategoria, status:"ok", titulo:content.titulo, id:post?.id });
-        geradosPedido++;
-      }
-      if (geradosPedido < qtd)
-        resultados.push({ categoria, subcategoria, status:"parcial", solicitado:qtd, gerado:geradosPedido,
-          motivo: geradosPedido===0 ? `Nenhuma notícia encontrada para ${categoria}${subcategoria?' → '+subcategoria:''}` : `Gerado ${geradosPedido} de ${qtd} — fontes RSS insuficientes` });
-    }
-    return res.status(200).json({ status:"ok", modo:"rss", resultados, notificacoes:gerarNotificacoes(resultados) });
-  } catch(e) {
-    return res.status(500).json({ status:"error", error:e.message, notificacoes:[{tipo:"erro",mensagem:e.message}] });
-  }
-}
-
-async function handleSubmitVaga(req, res) {
-  const { empresa, cargo, area, localizacao, tipo_contratacao, salario, descricao, email_contato } = req.body || {};
-  if (!empresa || !cargo || !descricao || !email_contato)
-    return res.status(400).json({ error: "Campos obrigatórios: empresa, cargo, descricao, email_contato" });
-  if (descricao.length < 50)
-    return res.status(400).json({ error: "Descrição muito curta (mínimo 50 caracteres)" });
-  try {
-    const titulo = `[VAGA] ${cargo} — ${empresa}`;
-    const conteudo = `**Empresa:** ${empresa}\n**Cargo:** ${cargo}\n**Área:** ${area||'Não informada'}\n**Localização:** ${localizacao||'Não informada'}\n**Contratação:** ${tipo_contratacao||'Não informado'}\n**Salário:** ${salario||'A combinar'}\n**Contato:** ${email_contato}\n\n## Descrição da Vaga\n\n${descricao}`;
-    const { error } = await supabase.from("posts").insert({
-      titulo, conteudo,
-      comentario_fixado: `${cargo} em ${empresa} — ${localizacao||'Local não informado'}`,
-      status: "pendente", approved: false, publish_method: "vaga_publica",
-      user_tags: JSON.stringify(["vagas"]),
-      subcategoria: area || "Geral",
-      subcategoria_slug: (area||"geral").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-"),
-      metrics: { email_contato, tipo_contratacao, salario },
-      priority: 0, retry_count: 0, max_retries: 0
-    });
-    if (error) throw error;
-    return res.status(200).json({ ok: true, message: "Vaga enviada para aprovação!" });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleNewsletterSubscribe(req, res) {
-  const { email, categoria } = req.body || {};
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return res.status(400).json({ error: "E-mail inválido" });
-  const emailLimpo = email.toLowerCase().trim();
-  const agora = new Date().toISOString();
-  try {
-    const { error } = await supabase.from("newsletter_subscribers").upsert(
-      { email: emailLimpo, categoria: categoria || "geral", confirmed: false, created_at: agora },
-      { onConflict: "email" }
-    );
-    if (!error || error.message?.includes("duplicate"))
-      return res.status(200).json({ ok: true });
-  } catch(_) {}
-  try {
-    const key = "NEWSLETTER_EMAILS";
-    const { data: cfg } = await supabase.from("config").select("value").eq("key", key).single();
-    let lista = [];
-    try { lista = JSON.parse(cfg?.value || "[]"); } catch(_) {}
-    if (!lista.some(e => e.email === emailLimpo)) {
-      lista.push({ email: emailLimpo, categoria: categoria || "geral", data: agora });
-      await supabase.from("config").upsert({ key, value: JSON.stringify(lista) }, { onConflict: "key" });
-    }
-    return res.status(200).json({ ok: true });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-const COLUNISTAS_CONFIG_KEY = "COLUNISTAS_ACCOUNTS";
-const COLUNISTAS_PHOTOS_KEY = "COLUNISTAS_PHOTOS";
-function isMissingTableError(error) {
-  const msg = String(error?.message || "");
-  return error?.code === "42P01" || msg.includes("does not exist") || msg.includes("relation");
-}
-async function getColunistasConfig() {
-  const { data, error } = await supabase.from("config").select("value").eq("key", COLUNISTAS_CONFIG_KEY).single();
-  if (error && !/PGRST116|single|multiple/i.test(error.code || error.message || "")) throw error;
-  try { return JSON.parse(data?.value || "[]"); } catch(_) { return []; }
-}
-async function saveColunistasConfig(list) {
-  const { error } = await supabase.from("config").upsert(
-    { key: COLUNISTAS_CONFIG_KEY, value: JSON.stringify(list), updated_at: new Date().toISOString() },
-    { onConflict: "key" }
-  );
-  if (error) throw error;
-}
-async function getColunistasPhotosConfig() {
-  const { data, error } = await supabase.from("config").select("value").eq("key", COLUNISTAS_PHOTOS_KEY).single();
-  if (error && !/PGRST116|single|multiple/i.test(error.code || error.message || "")) return {};
-  try {
-    const parsed = JSON.parse(data?.value || "{}");
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch(_) {
-    return {};
-  }
-}
-async function saveColunistasPhotosConfig(map) {
-  const { error } = await supabase.from("config").upsert(
-    { key: COLUNISTAS_PHOTOS_KEY, value: JSON.stringify(map || {}), updated_at: new Date().toISOString() },
-    { onConflict: "key" }
-  );
-  if (error) throw error;
-}
-function publicColunista(c) {
-  if (!c) return null;
-  const { senha_hash, session_token, ...safe } = c;
-  return safe;
-}
-
-async function getColunistaPhotoMap() {
-  const configMap = await getColunistasPhotosConfig();
-  try {
-    const { data, error } = await supabase.storage.from("posts-images").list("colunistas", { limit: 100 });
-    if (error) return configMap;
-    const base = `${process.env.SUPABASE_URL}/storage/v1/object/public/posts-images/colunistas/`;
-    const map = {};
-    (data || []).forEach(f => {
-      if (!f?.name || f.name.startsWith(".")) return;
-      const slug = f.name.replace(/\.[^.]+$/, "");
-      map[slug] = base + f.name;
-    });
-    return { ...map, ...configMap };
-  } catch (_) {
-    return configMap;
-  }
-}
-
-function attachFotoColunista(c, photoMap = {}) {
-  const safe = publicColunista(c);
-  if (!safe) return null;
-  if (safe.foto_url) return safe;
-  const slug = safe.slug || slugifyBase(safe.nome);
-  const foto = photoMap[slug] || photoMap[safe.nome] || "";
-  return foto ? { ...safe, foto_url: foto } : safe;
-}
-
-async function validarTokenColunista(colunista_id, token) {
-  if (!colunista_id || !token) return null;
-  let { data, error } = await supabase.from("colunistas")
-    .select("id,nome,email,bio,slug,ativo").eq("id", colunista_id)
-    .eq("session_token", token).eq("ativo", true).single();
-  if (error && isMissingTableError(error)) {
-    const list = await getColunistasConfig();
-    const found = list.find(c => c.id === colunista_id && c.session_token === token && c.ativo !== false);
-    return publicColunista(found);
-  }
-  return data || null;
-}
-
-async function handleLoginColunista(req, res) {
-  const { email, senha } = req.body || {};
-  if (!email || !senha) return res.status(400).json({ error: "email e senha obrigatórios" });
-  try {
-    let { data: colunista, error } = await supabase.from("colunistas")
-      .select("id,nome,email,bio,slug,senha_hash,ativo").eq("email", email.toLowerCase().trim()).single();
-    let usarConfigFallback = false;
-    if (error && isMissingTableError(error)) {
-      const list = await getColunistasConfig();
-      colunista = list.find(c => c.email === email.toLowerCase().trim());
-      usarConfigFallback = true;
-      error = null;
-    }
-    if (!colunista) return res.status(401).json({ error: "Credenciais inválidas" });
-    if (!colunista.ativo) return res.status(401).json({ error: "Conta inativa. Contate o administrador." });
-    if (colunista.senha_hash !== hashSenha(senha)) return res.status(401).json({ error: "Credenciais inválidas" });
-    const token = gerarToken();
-    const lastLogin = new Date().toISOString();
-    if (usarConfigFallback) {
-      const list = await getColunistasConfig();
-      const idx = list.findIndex(c => c.id === colunista.id);
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], session_token: token, last_login: lastLogin };
-        await saveColunistasConfig(list);
-      }
-    } else {
-      await supabase.from("colunistas").update({ session_token: token, last_login: lastLogin }).eq("id", colunista.id);
-    }
-    const photoMap = await getColunistaPhotoMap();
-    const fotoUrl = colunista.foto_url || photoMap[colunista.slug || slugifyBase(colunista.nome)] || "";
-    return res.status(200).json({
-      ok: true,
-      token,
-      colunista_id: colunista.id,
-      nome: colunista.nome,
-      email: colunista.email,
-      telefone: colunista.telefone || "",
-      foto_url: fotoUrl,
-      bio: colunista.bio || "",
-      especialidade: colunista.especialidade || "",
-      slug: colunista.slug || slugifyBase(colunista.nome)
-    });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleListPostsColunista(req, res) {
-  const { colunista_id, token } = req.query;
-  const colunista = await validarTokenColunista(colunista_id, token);
-  if (!colunista) return res.status(401).json({ error: "Sessão inválida" });
-  try {
-    const { data } = await supabase.from("posts")
-      .select("id,titulo,status,imagem,created_at,published_at,comentario_fixado")
-      .eq("publish_method", "colunista").like("collaborators", `%"${colunista_id}"%`)
-      .order("created_at", { ascending: false }).limit(50);
-    return res.status(200).json({ ok: true, posts: data || [] });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-function formatarConteudoColunista(conteudo, nome) {
-  const raw = String(conteudo || "").trim();
-  const aviso = `<p><em>A opini&atilde;o dos colunistas n&atilde;o necessariamente reflete a opini&atilde;o de O Valor Capital.</em></p>`;
-  if (/^\s*<[a-z][\s\S]*>/i.test(raw)) {
-    return raw.includes("colunistas") && raw.includes("O Valor Capital") ? raw : `${raw}\n${aviso}`;
-  }
-  const linhas = raw.split(/\n+/).map(l => l.trim()).filter(Boolean);
-  const corpo = linhas.map(l => {
-    if (/^#{1,3}\s+/.test(l)) return `<h2>${escapeHtml(l.replace(/^#{1,3}\s+/, ""))}</h2>`;
-    return `<p>${escapeHtml(l)}</p>`;
-  }).join("\n");
-  const hoje = new Date().toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    timeZone: "America/Sao_Paulo"
-  });
-  return `<p><strong>${escapeHtml(nome)}</strong> &mdash; ${hoje}</p>\n${corpo}\n${aviso}`;
-}
-
-async function handleSubmitColunista(req, res) {
-  const { colunista_id, token, titulo, conteudo, imagem } = req.body || {};
-  const colunista = await validarTokenColunista(colunista_id, token);
-  if (!colunista) return res.status(401).json({ error: "Sessão inválida" });
-  if (!titulo || !conteudo) return res.status(400).json({ error: "título e conteúdo obrigatórios" });
-  if (titulo.length < 10) return res.status(400).json({ error: "Título muito curto" });
-  if (conteudo.length < 200) return res.status(400).json({ error: "Conteúdo mínimo de 200 caracteres" });
-  try {
-    const hash = crypto.createHash("md5").update(titulo + colunista_id + Date.now()).digest("hex");
-    const nomeSlug = colunista.slug || slugifyBase(colunista.nome);
-    const corpoHtml = formatarConteudoColunista(conteudo, colunista.nome);
-    const resumo = plainText(conteudo).trim().slice(0, 220);
-    const { data: post, error } = await supabase.from("posts").insert({
-      titulo: titulo.trim(), conteudo: corpoHtml, imagem: imagem || null,
-      comentario_fixado: resumo || `Artigo enviado por ${colunista.nome} para revisão editorial.`,
-      hash, status: "pendente", approved: false, publish_method: "colunista",
-      user_tags: JSON.stringify(["colunistas"]), subcategoria: colunista.nome,
-      subcategoria_slug: nomeSlug, collaborators: JSON.stringify([colunista_id]),
-      metrics: {
-        tipo_conteudo: "colunista_manual",
-        colunista: colunista.nome,
-        colunista_id,
-        origem: "portal_colunista",
-        sem_ia: true
-      },
-      priority: 0, retry_count: 0, max_retries: 0
-    }).select().single();
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true, post_id: post.id, message: "Artigo enviado para revisão!" });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleListColunistas(req, res) {
-  try {
-    let { data, error } = await supabase.from("colunistas")
-      .select("id,nome,email,ativo,created_at,last_login,slug,bio").order("nome");
-    const photoMap = await getColunistaPhotoMap();
-    if (error && isMissingTableError(error)) {
-      const list = await getColunistasConfig();
-      return res.status(200).json({
-        ok: true,
-        fallback_config: true,
-        colunistas: list.map(c => attachFotoColunista(c, photoMap)).sort((a, b) => String(a.nome).localeCompare(String(b.nome)))
-      });
-    }
-    if (error) {
-      if (error.message && (error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01'))
-        return res.status(200).json({ ok: false, tabela_ausente: true, colunistas: [] });
-      return res.status(500).json({ error: error.message });
-    }
-    return res.status(200).json({ ok: true, colunistas: (data || []).map(c => attachFotoColunista(c, photoMap)) });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleSetColunistaFoto(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { nome, slug, foto_url } = req.body || {};
-  const nomeLimpo = String(nome || "").trim();
-  const slugLimpo = slugifyBase(slug || nomeLimpo);
-  const fotoLimpa = String(foto_url || "").trim();
-  if (!slugLimpo) return res.status(400).json({ error: "Colunista obrigatório" });
-  if (!/^https?:\/\//i.test(fotoLimpa)) return res.status(400).json({ error: "URL da foto inválida" });
-  try {
-    const map = await getColunistasPhotosConfig();
-    map[slugLimpo] = fotoLimpa;
-    if (nomeLimpo) delete map[nomeLimpo];
-    await saveColunistasPhotosConfig(map);
-    return res.status(200).json({ ok: true, slug: slugLimpo, foto_url: fotoLimpa });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleCreateColunista(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { nome, email, senha, telefone = "", foto_url = "", bio = "", especialidade = "" } = req.body || {};
-  if (!nome || !email || !senha) return res.status(400).json({ error: "nome, email e senha obrigatórios" });
-  if (senha.length < 6) return res.status(400).json({ error: "Senha mínima de 6 caracteres" });
-  try {
-    const slug = slugifyBase(nome.trim());
-    const payload = {
-      nome: nome.trim(), email: email.toLowerCase().trim(),
-      senha_hash: hashSenha(senha), ativo: true, slug,
-      telefone: String(telefone || "").trim(),
-      foto_url: String(foto_url || "").trim(),
-      bio: String(bio || "").trim(),
-      especialidade: String(especialidade || "").trim()
-    };
-    const tablePayload = {
-      nome: payload.nome,
-      email: payload.email,
-      senha_hash: payload.senha_hash,
-      slug: payload.slug,
-      bio: payload.bio || null,
-      ativo: true
-    };
-    let { error } = await supabase.from("colunistas").insert(tablePayload);
-    if (error && isMissingTableError(error)) {
-      const list = await getColunistasConfig();
-      if (list.some(c => c.email === payload.email)) return res.status(400).json({ error: "E-mail jÃ¡ cadastrado" });
-      list.push({
-        id: crypto.randomUUID(),
-        ...payload,
-        session_token: "",
-        last_login: null,
-        created_at: new Date().toISOString()
-      });
-      await saveColunistasConfig(list);
-      if (payload.foto_url) {
-        const photoMap = await getColunistasPhotosConfig();
-        photoMap[payload.slug] = payload.foto_url;
-        await saveColunistasPhotosConfig(photoMap);
-      }
-      return res.status(200).json({ ok: true, fallback_config: true });
-    }
-    if (error) {
-      if (error.message.includes("unique") || error.message.includes("duplicate"))
-        return res.status(400).json({ error: "E-mail já cadastrado" });
-      return res.status(500).json({ error: error.message });
-    }
-    if (payload.foto_url) {
-      const photoMap = await getColunistasPhotosConfig();
-      photoMap[payload.slug] = payload.foto_url;
-      await saveColunistasPhotosConfig(photoMap);
-    }
-    return res.status(200).json({ ok: true });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-async function handleToggleColunista(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { id, ativo } = req.body || {};
-  if (!id) return res.status(400).json({ error: "id obrigatório" });
-  const { error } = await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
-  if (error && isMissingTableError(error)) {
-    const list = await getColunistasConfig();
-    const idx = list.findIndex(c => c.id === id);
-    if (idx >= 0) {
-      list[idx].ativo = !ativo;
-      await saveColunistasConfig(list);
-    }
-  }
+async function handleSetupStorage(res) {
+  const { error } = await supabase.storage.createBucket("posts-images", { public: true });
+  if (error && !String(error.message || "").toLowerCase().includes("already")) return res.status(200).json({ ok: false, error: error.message });
   return res.status(200).json({ ok: true });
 }
 
-async function handleDeleteColunista(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { id } = req.body || {};
-  if (!id) return res.status(400).json({ error: "id obrigatório" });
-  const { error } = await supabase.from("colunistas").delete().eq("id", id);
-  if (error && isMissingTableError(error)) {
-    const list = await getColunistasConfig();
-    await saveColunistasConfig(list.filter(c => c.id !== id));
+async function handleApprovePortal(res, body) {
+  const now = new Date().toISOString();
+  const { id, ids, action, titulo, conteudo, imagem, comentario_fixado } = body;
+
+  if (action === "aprovar" && id) {
+    const { error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, action: "aprovado", id });
   }
+
+  if (action === "rejeitar" && id) {
+    const { error } = await supabase.from("posts").update({ status: "rejeitado", approved: false, updated_at: now }).eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, action: "rejeitado", id });
+  }
+
+  if (action === "editar_aprovar" && id) {
+    const patch = { titulo, conteudo, imagem, comentario_fixado, status: "publicado", approved: true, published_at: now, updated_at: now };
+    const { error } = await supabase.from("posts").update(patch).eq("id", id);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, action: "editado_aprovado", id });
+  }
+
+  if (action === "aprovar_lote" && Array.isArray(ids)) {
+    const { error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).in("id", ids);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, action: "lote_aprovado", total: ids.length });
+  }
+
+  if (action === "rejeitar_lote" && Array.isArray(ids)) {
+    const { error } = await supabase.from("posts").update({ status: "rejeitado", approved: false, updated_at: now }).in("id", ids);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, action: "lote_rejeitado", total: ids.length });
+  }
+
+  return res.status(400).json({ ok: false, error: "missing_params" });
+}
+
+async function handleListColunistas(res) {
+  const { data, error } = await supabase.from("colunistas").select("id,nome,email,ativo,created_at,last_login,slug,bio,foto_url").order("nome");
+  if (error) return res.status(200).json({ ok: true, colunistas: [], warning: error.message });
+  return res.status(200).json({ ok: true, colunistas: data || [] });
+}
+
+async function handleCreateColunista(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const payload = {
+    nome: body.nome,
+    email: String(body.email || "").toLowerCase().trim(),
+    telefone: body.telefone || null,
+    slug: slugify(body.slug || body.nome),
+    bio: body.bio || null,
+    foto_url: body.foto_url || null,
+    ativo: true,
+    senha_hash: body.senha_hash || null
+  };
+  const { error } = await supabase.from("colunistas").insert(payload);
+  if (error) return res.status(400).json({ ok: false, error: error.message });
+  return res.status(200).json({ ok: true });
+}
+
+async function handleUpdateColunistaPhoto(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const { id, foto_url } = body;
+  if (!id || !foto_url) return res.status(400).json({ error: "id e foto_url obrigatorios" });
+  const { error } = await supabase.from("colunistas").update({ foto_url }).eq("id", id);
+  if (error) return res.status(400).json({ ok: false, error: error.message });
+  return res.status(200).json({ ok: true });
+}
+
+async function handleToggleColunista(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const { id, ativo } = body;
+  const { error } = await supabase.from("colunistas").update({ ativo: !ativo }).eq("id", id);
+  if (error) return res.status(400).json({ ok: false, error: error.message });
+  return res.status(200).json({ ok: true });
+}
+
+async function handleDeleteColunista(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const { error } = await supabase.from("colunistas").delete().eq("id", body.id);
+  if (error) return res.status(400).json({ ok: false, error: error.message });
   return res.status(200).json({ ok: true });
 }
 
 async function handleLimparPendentesAntigos(req, res) {
-  const corte = req.query.antes || '2026-05-18T00:00:00';
-  try {
-    const { data, error } = await supabase.from("posts")
-      .update({ status: "arquivado" }).eq("status", "pendente").lt("created_at", corte).select("id");
-    if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ ok: true, arquivados: (data || []).length, corte });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
+  const corte = req.query.antes || "2026-05-18T00:00:00";
+  const { data, error } = await supabase.from("posts").update({ status: "arquivado" }).eq("status", "pendente").lt("created_at", corte).select("id");
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ ok: true, arquivados: (data || []).length, corte });
 }
 
-// ── SEED RSS LOTE 2 — executa uma vez para importar fontes ─────────────────────────────
-async function handleSeedRssLote2(req, res) {
-  const ADMIN_PASS = 'ovc-admin-2026-secreto';
-  if (req.query.pass !== ADMIN_PASS) return res.status(403).json({ error: 'forbidden' });
-  try {
-    const csv = readFileSync(join(process.cwd(), 'data', 'rss_lote2.csv'), 'utf-8');
-    const records = csv.split('\n').filter(l => l.trim()).map(line => {
-      const [name, domain, , br] = line.split('|');
-      const lang = br === '1' ? 'pt-BR' : 'en';
-      const gl   = br === '1' ? 'BR'    : 'US';
-      const ceid = br === '1' ? 'BR:pt-BR' : 'US:en';
-      return {
-        name,
-        url: `https://news.google.com/rss/search?q=site:${domain}&hl=${lang}&gl=${gl}&ceid=${ceid}`,
-        active: true
-      };
-    });
-    const BATCH = 100;
-    let inserted = 0;
-    for (let i = 0; i < records.length; i += BATCH) {
-      const batch = records.slice(i, i + BATCH);
-      const { error } = await supabase.from('rss_sources').insert(batch);
-      if (error && !error.message.includes('duplicate') && !error.message.includes('unique'))
-        return res.status(500).json({ error: error.message, batch_index: i });
-      inserted += batch.length;
-    }
-    return res.status(200).json({ ok: true, inserted, total: records.length });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
+function checkAdmin(req, body) {
+  const auth = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  const supplied = auth || req.headers?.["x-admin-token"] || req.headers?.["x-admin-password"] || body?.token || body?.admin_token || req.query?.token || req.query?.pass || "";
+  return String(supplied) === String(ADMIN_PASS);
 }
 
-async function handleGerarColuna(req, res) {
-  if (!checkAdminAuth(req)) return res.status(401).json({ error: "Não autorizado" });
-  const { colunista_nome, tema, referencias, contexto } = req.body || {};
-  if (!colunista_nome) return res.status(400).json({ error: "colunista_nome obrigatório" });
-  if (!tema || tema.trim().length < 10) return res.status(400).json({ error: "tema obrigatório (mínimo 10 caracteres)" });
-  if (!COLUNISTAS_COM_IA.has(String(colunista_nome).toLowerCase().trim())) {
-    return res.status(403).json({
-      error: "Este colunista não usa geração por IA. O envio deve ser feito pelo Portal do Colunista e ficará pendente para aprovação."
-    });
-  }
-  if (!COLUNISTAS_OVC[colunista_nome]) {
-    return res.status(400).json({ error: `Colunista não encontrado. Disponíveis: ${Object.keys(COLUNISTAS_OVC).join(', ')}` });
-  }
-  try {
-    const content = await rewriteColuna(colunista_nome, tema.trim(), referencias || '', contexto || '');
-    if (!content || !content.corpo || content.corpo.length < 3000) {
-      return res.status(500).json({ error: "Coluna gerada insuficiente: " + (content?.corpo?.length || 0) + " chars" });
-    }
-    const hash = crypto.createHash("md5").update(colunista_nome + tema + Date.now()).digest("hex");
-    const nomeSlug = colunista_nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-");
-    const metaDesc = (content.meta_descricao || content.subtitulo || '').replace(/\*\*/g, '').trim();
-    const { data: post, error } = await supabase.from("posts").insert({
-      titulo: content.titulo,
-      conteudo: content.corpo,
-      comentario_fixado: metaDesc,
-      imagem: null,
-      hash,
-      status: "pendente",
-      approved: false,
-      publish_method: "coluna",
-      user_tags: JSON.stringify([content.categoria || "variedades"]),
-      subcategoria: colunista_nome,
-      subcategoria_slug: nomeSlug,
-      collaborators: "[]",
-      metrics: {
-        foco_keyword: content.foco_keyword || '',
-        seo_slug: content.slug || '',
-        meta_descricao: metaDesc,
-        meta_title: (content.meta_title || content.titulo || '').slice(0, 55),
-        tipo_conteudo: 'coluna',
-        colunista: colunista_nome
-      },
-      priority: 1, retry_count: 0, max_retries: 0
-    }).select().single();
-    if (error) throw error;
-    return res.status(200).json({
-      ok: true,
-      id: post.id,
-      titulo: content.titulo,
-      colunista: colunista_nome,
-      categoria: content.categoria,
-      chars: content.corpo.length,
-      preview: content.corpo.slice(0, 300) + "..."
-    });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 80);
 }
