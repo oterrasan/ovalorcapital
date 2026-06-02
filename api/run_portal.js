@@ -34,6 +34,32 @@ function badSourceImageUrl(url) {
   if (/\b(16|32|48|64)x(16|32|48|64)\b/.test(u)) return true;
   return false;
 }
+function sourceImageHostSeguro(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    const allowed = [
+      "supabase.co",
+      "wikimedia.org",
+      "wikipedia.org",
+      "agenciabrasil.ebc.com.br",
+      "imagens.ebc.com.br",
+      "gov.br",
+      "camara.leg.br",
+      "senado.leg.br",
+      "bcb.gov.br",
+      "stf.jus.br",
+      "tse.jus.br",
+      "whitehouse.gov",
+      "pexels.com",
+      "pixabay.com",
+      "staticflickr.com",
+      "flickr.com"
+    ];
+    return allowed.some(d => host === d || host.endsWith("." + d));
+  } catch (_) {
+    return false;
+  }
+}
 function absolutizeImageUrl(src, base) {
   if (!src) return "";
   try {
@@ -144,7 +170,7 @@ ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 9000)}`;
 }
 
 async function resolverImagem(content, articleImage, hash, start) {
-  const sourceImage = !badSourceImageUrl(articleImage) ? articleImage : "";
+  const sourceImage = !badSourceImageUrl(articleImage) && sourceImageHostSeguro(articleImage) ? articleImage : "";
   if (sourceImage) {
     try {
       const saved = await processAndSaveImage(sourceImage, hash.slice(0, 12), start);
