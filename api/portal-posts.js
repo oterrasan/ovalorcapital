@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { emergencyById8, emergencyList } from "../lib/emergency-content.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
+const OG_DEFAULT = "https://www.ovalorcapital.com.br/assets/template-ovc.jpg";
 const CATS_VALIDAS = new Set(['politica','economia','negocios','investimentos','seguros','mercados','educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao','parcerias','internacional','colunistas','variedades','investigativo','seguranca','cultura','profissoes','vagas','concursos','imoveis','esg','defesa','religiao','radar']);
 
 function idRange(id8) {
@@ -52,7 +53,7 @@ export default async function handler(req, res) {
 
     if (id) {
       const data = await getPostById(id, true);
-      if (!data) return res.status(404).json({ error: "not_found" });
+      if (!data) return sendEmergencyById(req, res, id);
       return res.status(200).json(formatPost(data, true));
     }
 
@@ -72,52 +73,74 @@ export default async function handler(req, res) {
 
     const posts = dedupe(data || []).map(p => formatPost(p, false)).filter(p => imgOk(p.imagem) && CATS_VALIDAS.has(p.categoria));
 
-    if (resources) {
-      return res.status(200).json({
-        articles: posts.map(p => ({ title: p.titulo, excerpt: p.resumo, image: p.imagem, url: p.url, category: p.categoria, source: "Redação OVC", relativeDate: dataBr(p.data), readingTime: "3 min", slug: p.slug })),
-        banners: []
-      });
-    }
-
+    if (resources) return sendResourcePayload(res, posts, false);
     return res.status(200).json({ posts, total: posts.length });
   } catch (e) {
-    return res.status(200).json({ posts: [], total: 0, degraded: true, error: "public_api_degraded" });
+    return sendEmergencyList(req, res, { categoria, limit, page, resources, sort, q: req.query.q });
   }
 }
 
 async function getPostById(id, full) {
+  const cols = full ? "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at" : "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
   if (id.length >= 36) {
-    const { data } = await supabase.from("posts")
-      .select(full ? "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at" : "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
-      .eq("status", "publicado").eq("id", id).single();
+    const { data, error } = await supabase.from("posts").select(cols).eq("status", "publicado").eq("id", id).single();
+    if (error) throw error;
     return data || null;
   }
   const { lo, hi } = idRange(id.slice(0,8));
-  const { data } = await supabase.from("posts")
-    .select(full ? "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at" : "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at")
-    .eq("status", "publicado").gte("id", lo).lte("id", hi).limit(1);
+  const { data, error } = await supabase.from("posts").select(cols).eq("status", "publicado").gte("id", lo).lte("id", hi).limit(1);
+  if (error) throw error;
   return data?.[0] || null;
 }
 
 async function handleSearch(req, res, termo) {
-  const COLS = "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
-  const { data, error } = await supabase.from("posts").select(COLS).eq("status", "publicado")
-    .ilike("titulo", `%${termo}%`).order("published_at", { ascending: false }).limit(30);
-  if (error) throw error;
-  const posts = dedupe(data || []).map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
-  return res.status(200).json({ posts, total: posts.length, query: termo });
+  try {
+    const COLS = "id,titulo,comentario_fixado,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at";
+    const { data, error } = await supabase.from("posts").select(COLS).eq("status", "publicado")
+      .ilike("titulo", `%${termo}%`).order("published_at", { ascending: false }).limit(30);
+    if (error) throw error;
+    const posts = dedupe(data || []).map(p => formatPost(p, false)).filter(p => CATS_VALIDAS.has(p.categoria));
+    return res.status(200).json({ posts, total: posts.length, query: termo });
+  } catch (_) {
+    return sendEmergencyList(req, res, { ...req.query, q: termo });
+  }
 }
 
 async function handleOg(req, res, id) {
-  const post = await getPostById(id, false).catch(() => null);
+  let post = await getPostById(id, false).catch(() => null);
+  if (!post) post = emergencyById8(id.slice(0, 8));
   const p = post ? formatPost(post, false) : null;
   const title = p ? p.titulo : "O Valor Capital";
-  const desc = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de notícias do Brasil.";
+  const desc = p ? (p.subtitulo || p.resumo || "").slice(0,200) : "Portal premium de noticias do Brasil.";
   const img = p?.imagem || OG_DEFAULT;
   const url = p ? ("https://ovalorcapital.com.br" + p.url) : "https://ovalorcapital.com.br";
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
-  return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${esc(title)} — O Valor Capital</title><meta name="description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:site_name" content="O Valor Capital"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(img)}"><meta property="og:url" content="${esc(url)}"><meta name="twitter:card" content="summary_large_image"><script>window.location.replace(${JSON.stringify(url)});<\/script></head><body><p>Redirecionando para <a href="${esc(url)}">O Valor Capital</a>.</p></body></html>`);
+  return res.status(200).send(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${esc(title)} - O Valor Capital</title><meta name="description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:site_name" content="O Valor Capital"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:image" content="${esc(img)}"><meta property="og:url" content="${esc(url)}"><meta name="twitter:card" content="summary_large_image"><script>window.location.replace(${JSON.stringify(url)});<\/script></head><body><p>Redirecionando para <a href="${esc(url)}">O Valor Capital</a>.</p></body></html>`);
+}
+
+function sendEmergencyById(_req, res, id) {
+  const post = emergencyById8(id.slice(0, 8));
+  if (!post) return res.status(404).json({ error: "not_found" });
+  res.setHeader("X-OVC-Emergency-Fallback", "static");
+  return res.status(200).json(formatPost(post, true));
+}
+
+function sendEmergencyList(req, res, opts = {}) {
+  const posts = emergencyList(opts).map(p => formatPost(p, Boolean(req.query.id)));
+  res.setHeader("X-OVC-Emergency-Fallback", "static");
+  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
+  if (opts.resources) return sendResourcePayload(res, posts, true);
+  return res.status(200).json({ posts, total: posts.length, degraded: true, source: "static-fallback" });
+}
+
+function sendResourcePayload(res, posts, degraded) {
+  return res.status(200).json({
+    degraded,
+    source: degraded ? "static-fallback" : "supabase",
+    articles: posts.map(p => ({ title: p.titulo, excerpt: p.resumo, image: p.imagem, url: p.url, category: p.categoria, source: "Redacao OVC", relativeDate: dataBr(p.data), readingTime: "3 min", slug: p.slug })),
+    banners: []
+  });
 }
 
 async function handleGetComments(req, res) {
@@ -134,16 +157,14 @@ async function handleGetComments(req, res) {
 
 async function handlePostComment(req, res) {
   const { post_id, texto, token } = req.body || {};
-  if (!post_id || !texto || !token) return res.status(400).json({ error: "post_id, texto e token obrigatórios" });
-  if (texto.trim().length < 2 || texto.length > 2000) return res.status(400).json({ error: "Comentário deve ter entre 2 e 2000 caracteres" });
-  let userId = null, userNome = "Usuário";
+  if (!post_id || !texto || !token) return res.status(400).json({ error: "post_id, texto e token obrigatorios" });
+  if (texto.trim().length < 2 || texto.length > 2000) return res.status(400).json({ error: "Comentario deve ter entre 2 e 2000 caracteres" });
   try {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) return res.status(401).json({ error: "Token inválido ou expirado" });
-    userId = user.id;
-    const { data: profile } = await supabase.from("profiles").select("nome,sobrenome").eq("id", userId).single();
-    userNome = profile?.nome ? [profile.nome, profile.sobrenome].filter(Boolean).join(" ") : (user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuário");
-    const { error } = await supabase.from("comentarios").insert({ post_id, user_id: userId, user_nome: userNome, texto: texto.trim(), oculto_moderacao: false });
+    if (authErr || !user) return res.status(401).json({ error: "Token invalido ou expirado" });
+    const { data: profile } = await supabase.from("profiles").select("nome,sobrenome").eq("id", user.id).single();
+    const userNome = profile?.nome ? [profile.nome, profile.sobrenome].filter(Boolean).join(" ") : (user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuario");
+    const { error } = await supabase.from("comentarios").insert({ post_id, user_id: user.id, user_nome: userNome, texto: texto.trim(), oculto_moderacao: false });
     if (error) throw error;
     return res.status(200).json({ ok: true, flagged: false });
   } catch(e) {
@@ -187,7 +208,7 @@ function formatPost(p, full) {
   try { tags = typeof p.user_tags === "string" ? JSON.parse(p.user_tags) : (p.user_tags || []); } catch(_) {}
   const categoria = tags[0] || "geral";
   const conteudo = p.conteudo || "";
-  const resumo = conteudo ? conteudo.slice(0, 220).replace(/^Redação OVC.*?\n/, "").trim() + "..." : (p.comentario_fixado || "").slice(0, 220);
+  const resumo = conteudo ? conteudo.slice(0, 220).replace(/^Redacao OVC.*?\n/, "").trim() + "..." : (p.comentario_fixado || "").slice(0, 220);
   const CAT_PATH = { politica:"politica", economia:"economia", negocios:"negocios", investimentos:"investimentos", seguros:"seguros", mercados:"mercados", educacao:"educacao", industria:"industria", tecnologia:"tecnologia", esportes:"esportes", saude:"saude", familia:"familia", tributacao:"tributos", regulacao:"regulacao", internacional:"internacional", parcerias:"parcerias", vc:"colunistas", colunistas:"colunistas", variedades:"variedades", investigativo:"investigativo", seguranca:"seguranca", cultura:"cultura", profissoes:"profissoes", vagas:"vagas", concursos:"concursos", imoveis:"imoveis", esg:"esg", defesa:"defesa", religiao:"religiao", radar:"radar", geral:"politica" };
   const sl = slugify(p.titulo || "").slice(0, 55);
   const id8 = (p.id || "").slice(0, 8);
@@ -219,5 +240,5 @@ function slugify(str) {
 }
 
 function esc(v) {
-  return String(v || "").replace(/[&<>\"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+  return String(v || "").replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
 }
