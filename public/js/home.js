@@ -21,6 +21,15 @@
 
   function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 
+  function aplicarFundoCard(cardId, post) {
+    const card = document.getElementById(cardId);
+    if (!card || !post || !post.imagem) return;
+    card.style.backgroundImage = `linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.34) 58%, rgba(0,0,0,0.08) 100%), url('${post.imagem}')`;
+    card.style.backgroundSize = 'cover';
+    card.style.backgroundPosition = 'center';
+    card.classList.add('has-image');
+  }
+
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/portal-posts?format=live-data');
@@ -74,9 +83,10 @@
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-hero-titulo')) el('card-hero-titulo').textContent = stripMd(post.titulo);
-      if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
+      if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Reda\u00e7\u00e3o OVC';
       if (el('card-hero-resumo')) el('card-hero-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-hero-link'))   el('card-hero-link').href          = buildUrl(post);
+      aplicarFundoCard('card-hero-politica-economia', post);
     } catch(e) { console.error('[Hero]',e); }
   }
 
@@ -87,11 +97,12 @@
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-meio-titulo')) el('card-meio-titulo').textContent = stripMd(post.titulo);
-      if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Redação OVC';
+      if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Reda\u00e7\u00e3o OVC';
       if (el('card-meio-link'))   el('card-meio-link').href          = buildUrl(post);
       if (el('card-feature-titulo')) el('card-feature-titulo').textContent = stripMd(post.titulo);
       if (el('card-feature-resumo')) el('card-feature-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
+      aplicarFundoCard('card-feature-negocios', post);
       if (post.imagem) {
         const imgEl = document.getElementById('card-meio-img');
         if (imgEl) {
@@ -119,9 +130,10 @@
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
       if (el('card-lions-titulo')) el('card-lions-titulo').textContent = stripMd(post.titulo);
-      if (el('card-lions-meta'))   el('card-lions-meta').textContent   = 'Redação OVC';
+      if (el('card-lions-meta'))   el('card-lions-meta').textContent   = 'Reda\u00e7\u00e3o OVC';
       if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
+      aplicarFundoCard('card-lions-seguros', post);
       if (post.imagem) {
         const imgEl = document.getElementById('card-lions-img');
         if (imgEl) {
@@ -171,7 +183,7 @@
       <div class="ovc-card-tag">${post.subcategoria || post.categoria}</div>
       <div class="ovc-card-titulo">${stripMd(post.titulo)}</div>
       <div class="ovc-card-resumo">${stripMd(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
-      <a class="ovc-card-link" href="${url}">Leia mais ↗</a>
+      <a class="ovc-card-link" href="${url}">Leia mais \u2197</a>
     `;
     return a;
   }
@@ -194,7 +206,7 @@
           ${img}
           <span class="tag tag-${p.categoria}">${p.categoria}</span>
           <h3 class="card-title">${stripMd(p.titulo)}</h3>
-          <span class="card-meta">Redação OVC</span>
+          <span class="card-meta">Reda\u00e7\u00e3o OVC</span>
           <span class="card-cta">LEIA +</span>
         </a>`;
       }).join('');
@@ -215,7 +227,7 @@
       posts = posts.filter(p => !idsDestaque.has(p.id));
       posts = posts.slice(0, 6);
       if (!posts.length) {
-        grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conteúdo...</p>';
+        grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conte\u00fado...</p>';
         return;
       }
       grid.innerHTML = '';
