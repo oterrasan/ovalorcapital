@@ -22,6 +22,13 @@ const CAT_PATH = {
 };
 
 const VALID_CATS = new Set(Object.keys(CAT_PATH));
+const HOME_CATS = [
+  "politica", "economia", "negocios", "investimentos", "seguros", "mercados",
+  "educacao", "industria", "tecnologia", "esportes", "saude", "familia",
+  "tributacao", "regulacao", "parcerias", "internacional", "colunistas",
+  "variedades", "investigativo", "seguranca", "cultura", "profissoes", "vagas",
+  "concursos", "imoveis", "esg", "defesa", "religiao"
+];
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,updated_at,metrics";
 
 export default async function handler(req, res) {
@@ -33,6 +40,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.query.id) return handleOne(req, res);
+    if (req.query.recentes === "true") return handleRecentes(req, res);
     return handleList(req, res);
   } catch (error) {
     return res.status(500).json({ posts: [], total: 0, error: "portal_posts_failed", detail: error?.message || String(error) });
@@ -58,6 +66,54 @@ async function handleOne(req, res) {
 
   if (!row) return res.status(404).json({ error: "not_found" });
   return res.status(200).json(formatPost(row, true));
+}
+
+async function handleRecentes(req, res) {
+  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
+
+  const limit = clampInt(req.query.limit, 80, 1, 300);
+  const { data, error } = await supabase.from("posts")
+    .select(POST_COLUMNS)
+    .eq("status", "publicado")
+    .order("published_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const seenIds = new Set();
+  const seenCats = new Set();
+  const posts = [];
+
+  function addRow(row) {
+    if (!row?.id || seenIds.has(row.id)) return;
+    const post = formatPost(row, false);
+    if (!VALID_CATS.has(post.categoria)) return;
+    seenIds.add(row.id);
+    posts.push(post);
+    if (post.categoria) seenCats.add(post.categoria);
+    (post.tags || []).forEach(tag => VALID_CATS.has(tag) && seenCats.add(tag));
+  }
+
+  dedupe(data || []).forEach(addRow);
+
+  if (limit >= 120) {
+    const missing = HOME_CATS.filter(cat => !seenCats.has(cat));
+    const fillers = await Promise.all(missing.map(async cat => {
+      try {
+        const result = await supabase.from("posts")
+          .select(POST_COLUMNS)
+          .eq("status", "publicado")
+          .like("user_tags", `%"${cat}"%`)
+          .order("published_at", { ascending: false })
+          .limit(4);
+        return result.data || [];
+      } catch (_) {
+        return [];
+      }
+    }));
+    fillers.flat().forEach(addRow);
+  }
+
+  return res.status(200).json({ posts, total: posts.length });
 }
 
 async function handleList(req, res) {
