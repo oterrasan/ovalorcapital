@@ -33,7 +33,6 @@ export default async function handler(req, res) {
 
   try {
     if (req.query.id) return handleOne(req, res);
-    if (req.query.format === "og" && req.query.id) return handleOne(req, res);
     return handleList(req, res);
   } catch (error) {
     return res.status(500).json({ posts: [], total: 0, error: "portal_posts_failed", detail: error?.message || String(error) });
@@ -134,7 +133,7 @@ function formatPost(row, full) {
   const catPath = CAT_PATH[categoria] || "politica";
   const titulo = clean(row.titulo || "");
   const id8 = String(row.id || "").slice(0, 8);
-  const slug = slugify(titulo);
+  const slug = slugify(titulo) || "materia";
   const conteudo = row.conteudo || "";
   const resumo = clean(row.comentario_fixado || stripHtml(conteudo).slice(0, 220));
   const data = row.published_at || row.created_at || row.updated_at || new Date().toISOString();
@@ -172,7 +171,9 @@ function parseTags(value) {
 }
 
 function normalizeCat(value) {
-  const s = slugify(String(value || "")).replace(/-/g, "");
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const s = slugify(raw).replace(/-/g, "");
   if (!s) return "";
   const map = { politica: "politica", economica: "economia", negocio: "negocios", negocios: "negocios", tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", coluna: "colunistas", colunista: "colunistas", colunistas: "colunistas", saude: "saude", familia: "familia", fe: "religiao", religiao: "religiao", seguranca: "seguranca", segurancapublica: "seguranca", profissoes: "profissoes", vagas: "vagas" };
   return map[s] || s;
@@ -254,5 +255,5 @@ function slugify(value) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .slice(0, 60) || "materia";
+    .slice(0, 60);
 }
