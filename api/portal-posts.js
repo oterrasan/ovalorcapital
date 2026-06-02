@@ -185,7 +185,8 @@ async function handleLiveData(res) {
 
 function formatPost(row, full) {
   const tags = parseTags(row.user_tags);
-  const categoria = normalizeCat(tags[0] || row.categoria || "politica") || "politica";
+  const isColunista = tags.includes("colunistas");
+  const categoria = isColunista ? "colunistas" : (normalizeCat(tags[0] || row.categoria || "politica") || "politica");
   const catPath = CAT_PATH[categoria] || "politica";
   const titulo = clean(row.titulo || "");
   const id8 = String(row.id || "").slice(0, 8);
