@@ -133,9 +133,62 @@ async function handleApprovePortal(res, body) {
 }
 
 async function handleListColunistas(res) {
-  const { data, error } = await supabase.from("colunistas").select("id,nome,email,ativo,created_at,last_login,slug,bio,foto_url").order("nome");
-  if (error) return res.status(200).json({ ok: true, colunistas: [], warning: error.message });
-  return res.status(200).json({ ok: true, colunistas: data || [] });
+  let { data, error } = await supabase
+    .from("colunistas")
+    .select("id,nome,email,ativo,created_at,last_login,slug,bio")
+    .order("nome");
+
+  if (error) {
+    const fallback = await getColunistasConfig();
+    return res.status(200).json({ ok: true, fallback_config: true, colunistas: fallback });
+  }
+
+  const photoMap = await getColunistaPhotoMap();
+  const colunistas = (data || []).map(c => attachFotoColunista(c, photoMap));
+  return res.status(200).json({ ok: true, colunistas });
+}
+
+async function getColunistasConfig() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "COLUNISTAS_ACCOUNTS").maybeSingle();
+    const parsed = JSON.parse(data?.value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function getColunistaPhotoMap() {
+  const map = {};
+
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "COLUNISTAS_PHOTOS").maybeSingle();
+    const parsed = JSON.parse(data?.value || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) Object.assign(map, parsed);
+  } catch (_) {}
+
+  try {
+    const { data, error } = await supabase.storage.from("posts-images").list("colunistas", { limit: 100 });
+    if (!error) {
+      const base = `${SUPABASE_URL}/storage/v1/object/public/posts-images/colunistas/`;
+      (data || []).forEach(file => {
+        if (!file?.name || file.name.startsWith(".")) return;
+        const slug = file.name.replace(/\.[^.]+$/, "");
+        map[slug] = base + file.name;
+      });
+    }
+  } catch (_) {}
+
+  return map;
+}
+
+function attachFotoColunista(c, photoMap) {
+  const safe = { ...c };
+  const slug = safe.slug || slugify(safe.nome);
+  if (!safe.slug) safe.slug = slug;
+  const foto = safe.foto_url || photoMap[slug] || photoMap[safe.nome] || photoMap[slugify(safe.nome)];
+  if (foto && !String(foto).includes(OLD_REF)) safe.foto_url = foto;
+  return safe;
 }
 
 async function handleCreateColunista(req, res, body) {
@@ -146,22 +199,29 @@ async function handleCreateColunista(req, res, body) {
     telefone: body.telefone || null,
     slug: slugify(body.slug || body.nome),
     bio: body.bio || null,
-    foto_url: body.foto_url || null,
     ativo: true,
     senha_hash: body.senha_hash || null
   };
   const { error } = await supabase.from("colunistas").insert(payload);
   if (error) return res.status(400).json({ ok: false, error: error.message });
+  if (body.foto_url) await savePhoto(payload.slug, body.foto_url);
   return res.status(200).json({ ok: true });
 }
 
 async function handleUpdateColunistaPhoto(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
-  const { id, foto_url } = body;
-  if (!id || !foto_url) return res.status(400).json({ error: "id e foto_url obrigatorios" });
-  const { error } = await supabase.from("colunistas").update({ foto_url }).eq("id", id);
-  if (error) return res.status(400).json({ ok: false, error: error.message });
-  return res.status(200).json({ ok: true });
+  const slug = slugify(body.slug || body.nome || "");
+  const foto = String(body.foto_url || "").trim();
+  if (!slug || !foto) return res.status(400).json({ error: "slug/nome e foto_url obrigatorios" });
+  await savePhoto(slug, foto);
+  return res.status(200).json({ ok: true, slug, foto_url: foto });
+}
+
+async function savePhoto(slug, foto) {
+  const current = await getColunistaPhotoMap();
+  current[slug] = foto;
+  const { error } = await supabase.from("config").upsert({ key: "COLUNISTAS_PHOTOS", value: JSON.stringify(current), updated_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) throw error;
 }
 
 async function handleToggleColunista(req, res, body) {
