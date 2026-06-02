@@ -35,8 +35,7 @@
     cats.forEach(cat => {
       (cache[cat] || []).forEach(p => {
         if (!p || vistos.has(p.id)) return;
-        const tags = Array.isArray(p.tags) ? p.tags : [];
-        if (p.categoria !== cat && !tags.includes(cat)) return;
+        if (p.categoria !== cat) return;
         vistos.add(p.id);
         posts.push(p);
       });
@@ -293,11 +292,6 @@
         (d.posts||[]).forEach(p => {
           if (!cache[p.categoria]) cache[p.categoria] = [];
           cache[p.categoria].push(p);
-          (p.tags || []).forEach(tag => {
-            if (!tag || tag === p.categoria) return;
-            if (!cache[tag]) cache[tag] = [];
-            cache[tag].push(p);
-          });
         });
       }
     } catch(e) { console.error('[Home]', e); }
