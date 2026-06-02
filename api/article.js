@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { emergencyByArticleSlug } from "../lib/emergency-content.js";
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const BASE = "https://www.ovalorcapital.com.br";
@@ -28,13 +29,13 @@ const SLUG_TO_CAT = {
 };
 
 const CAT_LABEL = {
-  politica:"Política", economia:"Economia", negocios:"Negócios", investimentos:"Investimentos",
-  mercados:"Mercados", tributacao:"Tributação", regulacao:"Regulação", seguros:"Seguros",
-  saude:"Saúde", familia:"Família", tecnologia:"Tecnologia", industria:"Indústria",
-  educacao:"Educação", esportes:"Esportes", internacional:"Internacional", variedades:"Variedades",
+  politica:"Politica", economia:"Economia", negocios:"Negocios", investimentos:"Investimentos",
+  mercados:"Mercados", tributacao:"Tributacao", regulacao:"Regulacao", seguros:"Seguros",
+  saude:"Saude", familia:"Familia", tecnologia:"Tecnologia", industria:"Industria",
+  educacao:"Educacao", esportes:"Esportes", internacional:"Internacional", variedades:"Variedades",
   parcerias:"Parcerias", vc:"OVC", colunistas:"Colunistas", investigativo:"Investigativo",
-  seguranca:"Segurança Pública", cultura:"Cultura", profissoes:"Profissões", vagas:"Vagas",
-  concursos:"Concursos Públicos", imoveis:"Imóveis", esg:"ESG", defesa:"Defesa", religiao:"Fé & Espiritualidade",
+  seguranca:"Seguranca Publica", cultura:"Cultura", profissoes:"Profissoes", vagas:"Vagas",
+  concursos:"Concursos Publicos", imoveis:"Imoveis", esg:"ESG", defesa:"Defesa", religiao:"Fe & Espiritualidade",
   radar:"Radar"
 };
 
@@ -90,12 +91,9 @@ export default async function handler(req, res) {
   const catKey = SLUG_TO_CAT[cat] || cat || "politica";
   const catPath = CAT_PATH[catKey] || "politica";
 
-  let article;
-  try {
-    article = await findByPrefix(id8);
-  } catch (_) {
-    return res.status(503).send("temporarily unavailable");
-  }
+  let article = null;
+  try { article = await findByPrefix(id8); } catch (_) { article = null; }
+  if (!article) article = emergencyByArticleSlug(slug, catKey);
   if (!article) return res.status(404).send("not found");
 
   let tags = [];
@@ -106,11 +104,11 @@ export default async function handler(req, res) {
   try { metrics = typeof article.metrics === "string" ? JSON.parse(article.metrics) : (article.metrics || {}); } catch (_) {}
 
   const artCat = tags[0] || catKey;
-  const catLabel = CAT_LABEL[artCat] || CAT_LABEL[catKey] || "Notícias";
+  const catLabel = CAT_LABEL[artCat] || CAT_LABEL[catKey] || "Noticias";
   const slugClean = slugify(titulo);
   const canonical = `${BASE}/${catPath}/${slugClean}-${id8}/`;
   const desc = String(article.comentario_fixado || String(article.conteudo || "").replace(/<[^>]+>/g, " ").slice(0, 220)).trim().slice(0, 200);
-  const imagem = article.imagem || `${BASE}/images/og-default.jpg`;
+  const imagem = article.imagem || `${BASE}/assets/template-ovc.jpg`;
   const publishedAt = article.published_at || article.created_at || new Date().toISOString();
   const modifiedAt = article.updated_at || publishedAt;
   const titleTag = `${String(metrics.meta_title || titulo).replace(/\*\*/g, "").slice(0, 55).trim()} | O Valor Capital`;
@@ -138,8 +136,8 @@ export default async function handler(req, res) {
     image: [imagem],
     datePublished: publishedAt,
     dateModified: modifiedAt,
-    author: [{"@type":"Organization", name:"Redação OVC", url:BASE}],
-    publisher: {"@type":"Organization", name:"O Valor Capital", logo:{"@type":"ImageObject", url:`${BASE}/images/logo-ovc.png`}},
+    author: [{"@type":"Organization", name:"Redacao OVC", url:BASE}],
+    publisher: {"@type":"Organization", name:"O Valor Capital", logo:{"@type":"ImageObject", url:`${BASE}/img/logo-ovc.webp`}},
     mainEntityOfPage: {"@type":"WebPage", "@id": canonical},
     articleSection: catLabel,
     inLanguage: "pt-BR",
@@ -178,6 +176,7 @@ export default async function handler(req, res) {
   html = html.replace(/<script\s+src="\/js\/auth\.js"[^>]*><\/script>/ig, "");
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  if (article._emergency) res.setHeader("X-OVC-Emergency-Fallback", "static");
   res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
   return res.status(200).send(html);
 }
