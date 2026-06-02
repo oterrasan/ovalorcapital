@@ -5,7 +5,7 @@ import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf");
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 const CATS = new Set(["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","variedades","investigativo","seguranca","cultura","profissoes","vagas","concursos","imoveis","esg","defesa","religiao","radar"]);
@@ -36,26 +36,26 @@ function badSourceImageUrl(url) {
 }
 function sourceImageHostSeguro(url) {
   try {
-    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    const host = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
     const allowed = [
-      "supabase.co",
-      "wikimedia.org",
-      "wikipedia.org",
-      "agenciabrasil.ebc.com.br",
-      "imagens.ebc.com.br",
-      "gov.br",
-      "camara.leg.br",
-      "senado.leg.br",
-      "bcb.gov.br",
-      "stf.jus.br",
-      "tse.jus.br",
-      "whitehouse.gov",
-      "pexels.com",
-      "pixabay.com",
-      "staticflickr.com",
-      "flickr.com"
+      'supabase.co',
+      'wikimedia.org',
+      'wikipedia.org',
+      'agenciabrasil.ebc.com.br',
+      'imagens.ebc.com.br',
+      'gov.br',
+      'camara.leg.br',
+      'senado.leg.br',
+      'bcb.gov.br',
+      'stf.jus.br',
+      'tse.jus.br',
+      'whitehouse.gov',
+      'pexels.com',
+      'pixabay.com',
+      'staticflickr.com',
+      'flickr.com'
     ];
-    return allowed.some(d => host === d || host.endsWith("." + d));
+    return allowed.some(d => host === d || host.endsWith('.' + d));
   } catch (_) {
     return false;
   }
@@ -278,7 +278,13 @@ async function auto(req, res, rec) {
 export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
-  if (meta.action === "buscar_imagem") { const q = String(meta.q || "").trim(); if (!q) return res.status(400).json({ error: "q obrigatorio" }); const url = await findImage(q, "", "", ""); return res.status(200).json({ url: url || null }); }
+  if (meta.action === "buscar_imagem") {
+    const q = String(meta.q || "").trim();
+    const cat = String(meta.categoria || meta.cat || "").trim();
+    if (!q) return res.status(400).json({ error: "q obrigatorio" });
+    const url = await findImage(q, cat, "", "");
+    return res.status(200).json({ url: url || null, categoria: cat || null });
+  }
   if (body.action === "cleanup_titles") return cleanupTitles(res, body);
   if (req.method !== "POST") return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
