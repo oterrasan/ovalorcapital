@@ -635,6 +635,9 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 | 51 | **CORRIGIDO — 300 queries sequenciais de hash consumindo 30s do budget de 55s** — `run_portal.js` fazia 1 query Supabase POR ARTIGO para checar hash duplicado. Com 300 itens = 300 queries = ~30s gastos ANTES de gerar qualquer artigo. Restavam apenas ~25s para scrape+OpenAI — insuficiente. Fix: 3 queries batch `.in()` em chunks de 100 (total <1s). | `api/run_portal.js` — batch hash check (commit `faf671b`) | 27/05/2026 |
 | 52 | **CORRIGIDO — rss.js dev branch com 3 bugs críticos: `buscarFeedsEspecificos` cap em 12, pool `getNews()` saturado, `catForcada` nunca chamava `getNews()` em paralelo** — Pool de 10+10=20 feeds após horas = tudo hash-dedup. Fix: `buscarFeedsEmParalelo` sem cap, `loteOffset`+`TODOS_FEEDS_EXTRAS` para rotação sustentável, sempre paralelo. | `core/rss.js` — reescrito + PR #55 mergeado em main (commit `6980387`) | 27/05/2026 |
 | 53 | **CORRIGIDO — limite diário 100→500** — PR #55 squash-merge introduziu limite de 100 artigos/dia (era 500). Pipeline parava completamente após poucas horas retornando `limite_diario_atingido`. Fix: `>= 100` → `>= 500`. | `api/run_portal.js` — commit `c66af7c` direto em main | 27/05/2026 |
+| 54 | **CRÍTICO — Codex alterou `getTemplate()` para usar sempre `public/_materia/index.html`** → header dark em TODOS os artigos | `api/article.js` — revertido `getTemplate()` para usar `public/{catPath}/index.html` (commit `d91c2ab`) | 03/06/2026 |
+| 55 | **`category-section-guard.js` loop infinito** — MutationObserver chamava `run()` a cada DOM mutation, `forceColumnistProfile()` setava `innerHTML` disparando novo mutation → "Página sem resposta" em perfis colunistas | `public/js/category-section-guard.js` — flag `profileSetup` em `forceColumnistProfile()` (commit `16fb83f`) | 03/06/2026 |
+| 56 | `ovc-cards.js` gerava URLs `/vc/` para artigos de colunistas com `categoria='vc'` em vez de `/colunistas/` | `public/js/ovc-cards.js` — catPath `vc:'vc'` → `vc:'colunistas'` (commit `16fb83f`) | 03/06/2026 |
 
 ---
 
@@ -1577,3 +1580,67 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Roberto deve re-adicionar sitemap ao Google Search Console** após deploy: Search Console → Sitemaps → `https://www.ovalorcapital.com.br/sitemap.xml`
 2. **Atualizar env vars no Vercel** (recomendado): `SUPABASE_URL` e `SUPABASE_KEY` no projeto `ovalorcapital-xuhw` para os novos valores (embora o fallback hardcoded já funcione)
 3. **Aprovar artigos pendentes** no admin → Postagens → filtro 'pendente'
+
+---
+
+### Sessão 03/06/2026 (continuação) — LAYOUT ARTIGOS + COLUNISTAS
+
+---
+
+#### Contexto
+
+Codex agent (sessão anterior) quebrou layout de TODOS os artigos ao tentar corrigir bug de colunistas. Roberto furioso: "AGORA O ERRO QUE ELE TENTOU CORRIGIR ONTEM VOLTOU! NENHUM CONTEUDO DE COLUNISTAS ABRE".
+
+Duas rotas de bug:
+1. **Codex mudou `getTemplate()` em `api/article.js`** para sempre usar `public/_materia/index.html` (template Codex-criado com header dark, sem ticker, sem nav) — quebrou layout de TODOS os artigos do portal
+2. **`category-section-guard.js` causava loop infinito** em páginas de perfil de colunistas (`/colunistas/roberto-terrasan/`) — MutationObserver observava `documentElement`, `forceColumnistProfile()` setava `articles.innerHTML` disparando o observer indefinidamente → "Página sem resposta" no browser
+
+---
+
+#### Bugs corrigidos
+
+| # | Bug | Arquivo | Commit |
+|---|-----|---------|--------|
+| 54 | **CRÍTICO** — Codex alterou `getTemplate()` para usar sempre `public/_materia/index.html` → header dark em TODOS os artigos | `api/article.js` — revertido `getTemplate()` para usar `public/{catPath}/index.html` | `d91c2ab` |
+| 55 | `category-section-guard.js` causava loop infinito em `/colunistas/{slug}/` → "Página sem resposta" | `public/js/category-section-guard.js` — adicionado flag `profileSetup` em `forceColumnistProfile()` | `16fb83f` |
+| 56 | `ovc-cards.js` gerava URLs `/vc/` para artigos de colunistas com `categoria='vc'` em vez de `/colunistas/` | `public/js/ovc-cards.js` — catPath `vc:'vc'` → `vc:'colunistas'` | `16fb83f` |
+
+---
+
+#### Outros commits desta sessão
+
+| Commit | Descrição |
+|---|---|
+| `28d5e61` | vercel.json — adicionada rota `^/colunistas/([^/]+-[a-f0-9]{8})/?$` antes da rota de seção (artigos de colunistas direto para article.js) |
+| `d91c2ab` | Fix `getTemplate()` — remove referência ao `_materia` template do Codex |
+| `16fb83f` | Fix loop infinito colunistas + fix URL ovc-cards.js |
+
+---
+
+#### Arquivos problemáticos criados pelo Codex (ainda existem no repo)
+
+| Arquivo | Status |
+|---|---|
+| `public/_materia/index.html` | Existe mas NÃO é referenciado — era o template dark do Codex, 373 linhas. Inofensivo. |
+
+---
+
+#### Estado do sistema de colunistas após esta sessão
+
+**Fluxo correto:**
+- `/colunistas/` → `category.js` → template colunistas (grid de colunistas)
+- `/colunistas/roberto-terrasan/` → `category.js` → template com `data-section=roberto-terrasan` → `category-section-guard.js` ativa perfil (UMA VEZ, sem loop) → busca artigos
+- `/colunistas/titulo-a1b2c3d4/` → `vercel.json` rota específica → `article.js?cat=colunistas` → template colunistas ✓
+- `/vc/titulo-a1b2c3d4/` → catch-all → `article.js?cat=vc` → `SLUG_TO_CAT['vc']='colunistas'` → template colunistas ✓
+
+**Artigos de perfil mostrando 0 (andre-oliveira etc.)**: provável problema de DADOS — artigos precisam ter `subcategoria_slug` = slug do colunista. Se não existirem artigos no novo Supabase para aquele colunista, aparece "Nenhum artigo publicado".
+
+---
+
+#### 🚨 Regras reforçadas
+
+```
+❌ NUNCA deixar que Codex/agentes toquem em api/article.js sem revisão — getTemplate() é crítico
+❌ NUNCA criar template alternativo em public/_materia/ — pode virar referência acidental
+❌ category-section-guard.js tem MutationObserver — qualquer DOM mutation no callback causa loop
+```
