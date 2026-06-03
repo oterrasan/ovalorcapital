@@ -200,20 +200,13 @@ async function findArticle(id8) {
 }
 
 function getTemplate(catPath) {
-  const key = "article";
-  if (templates.has(key)) return templates.get(key);
+  if (templates.has(catPath)) return templates.get(catPath);
   try {
-    const html = readFileSync(join(process.cwd(), "public", "_materia", "index.html"), "utf8");
-    templates.set(key, html);
+    const html = readFileSync(join(process.cwd(), "public", catPath, "index.html"), "utf8");
+    templates.set(catPath, html);
     return html;
   } catch (_) {
-    try {
-      const html = readFileSync(join(process.cwd(), "public", catPath, "index.html"), "utf8");
-      templates.set(key, html);
-      return html;
-    } catch (__) {
-      return null;
-    }
+    return null;
   }
 }
 
