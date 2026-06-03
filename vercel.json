@@ -97,6 +97,7 @@
     { "src": "^/defesa/?$",                 "dest": "/api/category?cat=defesa" },
     { "src": "^/religiao/?$",               "dest": "/api/category?cat=religiao" },
     { "src": "^/colunistas/?$",             "dest": "/api/category?cat=colunistas" },
+    { "src": "^/colunistas/([^/]+-[a-f0-9]{8})/?$", "dest": "/api/article?cat=colunistas&slug=$1" },
     { "src": "^/colunistas/([^/]+)/?$",      "dest": "/api/category?cat=colunistas&section=$1" },
 
     { "src": "^/api/editor_ia$",            "dest": "/api/manage?action=editor_ia" },
