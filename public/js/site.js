@@ -6,6 +6,13 @@
   document.head.appendChild(s);
 })();
 
+// Shared fetch cache — start network requests immediately, before DOMContentLoaded
+// home.js and ovc-cards.js reuse these promises instead of making duplicate requests
+window.__OVC_CACHE__ = {
+  recentes: fetch('/api/portal-posts?recentes=true&limit=300', {cache:'no-store'}).then(function(r){ return r.json(); }).catch(function(){ return {posts:[]}; }),
+  live: fetch('/api/portal-posts?format=live-data', {cache:'no-store'}).then(function(r){ return r.json(); }).catch(function(){ return {}; })
+};
+
 window.OVC_CONFIG = {
   categories: {
     politica:{title:'PolÃ­tica',color:'#b91c1c'}, economia:{title:'Economia',color:'#1d4ed8'}, negocios:{title:'NegÃ³cios',color:'#15803d'}, investimentos:{title:'Investimentos',color:'#0f766e'}, seguros:{title:'Seguros',color:'#7c3aed'}, mercados:{title:'Mercados',color:'#0f766e'}, educacao:{title:'EducaÃ§Ã£o',color:'#c2410c'}, industria:{title:'IndÃºstria',color:'#475569'}, tecnologia:{title:'Tecnologia',color:'#2563eb'}, esportes:{title:'Esportes',color:'#15803d'}, saude:{title:'SaÃºde',color:'#be123c'}, familia:{title:'FamÃ­lia',color:'#9333ea'}, tributos:{title:'Tributos',color:'#b45309'}, regulacao:{title:'RegulaÃ§Ã£o',color:'#4338ca'}, parcerias:{title:'Parcerias',color:'#0f766e'}, vc:{title:'VC',color:'#1d4ed8'}
@@ -113,7 +120,7 @@ window.OVC = {
     });
   },
   async hydrateHeaderFooter() {
-    this.fetchJSON('/api/portal-posts?format=live-data').then(live => {
+    (window.__OVC_CACHE__?.live || this.fetchJSON('/api/portal-posts?format=live-data')).then(live => {
       if (!live) return;
       this._applyLiveData(live);
     }).catch(() => {});

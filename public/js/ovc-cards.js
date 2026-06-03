@@ -212,8 +212,7 @@
     var container = document.getElementById('ovc-cards-section');
     if(!container) return;
     if(!container.querySelector('.ovc-cat-grid')) buildSection(container);
-    fetch('/api/portal-posts?recentes=true&limit=300')
-      .then(function(r){ return r.json(); })
+    (window.__OVC_CACHE__?.recentes || fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }))
       .then(function(data){
         var cache = {};
         (data.posts||[]).forEach(function(p){
@@ -285,9 +284,10 @@
   function carregarColunistas(){
     var container = document.getElementById('ovc-cards-section');
     if(!container || document.getElementById('ovc-colunistas-346')) return;
+    // Skip on homepage — banners.js removes this block there causing double CLS
+    if(location.pathname === '/' || location.pathname === '/index.html') return;
 
-    fetch('/api/portal-posts?recentes=true&limit=120')
-      .then(function(r){ return r.json(); })
+    (window.__OVC_CACHE__?.recentes || fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }))
       .then(function(data){
         var posts = (data.posts||[]).filter(function(p){
           var cat = String(p.categoria||'').toLowerCase();

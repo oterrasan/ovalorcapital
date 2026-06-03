@@ -56,15 +56,10 @@
   }
 
   function injectHome(b, cat){
-    removeExtraColumnistsBlock();
-    if(document.getElementById('ovc-banner-home')) return;
-    var wrap = document.createElement('aside');
-    wrap.id = 'ovc-banner-home';
-    wrap.setAttribute('aria-label', 'Conteúdo patrocinado');
+    // Fill the pre-allocated slot (avoids insertBefore CLS)
+    var wrap = document.getElementById('ovc-banner-home');
+    if(!wrap || wrap.innerHTML.trim()) return;
     wrap.innerHTML = renderLeaderboard(b, cat);
-    var sec = document.getElementById('ovc-cards-section');
-    if(sec && sec.parentNode) sec.parentNode.insertBefore(wrap, sec);
-    else document.body.appendChild(wrap);
   }
 
   function removeExtraColumnistsBlock(){
