@@ -79,7 +79,8 @@ export default async function handler(req, res) {
     const modifiedAt = row.updated_at || publishedAt;
     const catLabel = CAT_LABEL[articleCat] || CAT_LABEL[catKey] || "Notícias";
 
-    const tpl = getTemplate(catPath) || getTemplate("politica");
+    const tplPath = catPath === "colunistas" ? "politica" : catPath;
+    const tpl = getTemplate(tplPath) || getTemplate("politica");
     if (!tpl) return res.status(500).send("template not found");
 
     const preload = {
