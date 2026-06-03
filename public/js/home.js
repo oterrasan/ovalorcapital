@@ -3,128 +3,27 @@
   const idsDestaque = new Set();
 
   function buildUrl(p) {
+    if (p && p.url && /^\/[a-z0-9-]+\/.+-[a-f0-9]{8}\/?$/i.test(p.url)) return p.url;
     const catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
       investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
       tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-      vc:'vc', colunistas:'vc', internacional:'internacional',
+      vc:'colunistas', colunistas:'colunistas', internacional:'internacional',
       variedades:'variedades', geral:'politica',
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura',
       profissoes:'profissoes', vagas:'vagas', concursos:'concursos',
       imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
     };
     const cat = catPath[p.categoria] || 'politica';
-    return '/' + cat + '/?id=' + (p.id || '').slice(0, 8);
+    const rawSlug = p.slug || stripMd(p.titulo || '').toLowerCase().normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s-]/g,'')
+      .trim().replace(/\s+/g,'-').slice(0,55);
+    return '/' + cat + '/' + rawSlug + '-' + (p.id || '').slice(0, 8) + '/';
   }
 
   function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
-
-  function postTime(p) {
-    return Date.parse(p?.published_at || p?.created_at || p?.updated_at || p?.data_publicacao || '') || 0;
-  }
-
-  function ordenarPosts(posts) {
-    return [...posts].sort((a,b) => postTime(b) - postTime(a));
-  }
-
-  function postsPorCategorias(cache, cats) {
-    const vistos = new Set();
-    const posts = [];
-    cats.forEach(cat => {
-      (cache[cat] || []).forEach(p => {
-        if (!p || vistos.has(p.id)) return;
-        if (p.categoria !== cat) return;
-        vistos.add(p.id);
-        posts.push(p);
-      });
-    });
-    return ordenarPosts(posts);
-  }
-
-  function aplicarFundoCard(cardId, post) {
-    const card = document.getElementById(cardId);
-    if (!card || !post || !post.imagem) return;
-    card.style.backgroundImage = `linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.34) 58%, rgba(0,0,0,0.08) 100%), url('${post.imagem}')`;
-    card.style.backgroundSize = 'cover';
-    card.style.backgroundPosition = 'center';
-    card.classList.add('has-image');
-  }
-
-  function prepararCardClicavel(cardId, post) {
-    const card = document.getElementById(cardId);
-    if (!card || !post) return;
-    const url = buildUrl(post);
-    card.style.cursor = 'pointer';
-    card.dataset.href = url;
-    card.setAttribute('role', 'link');
-    card.setAttribute('tabindex', '0');
-    card.onclick = event => {
-      if (event.target.closest('a')) return;
-      window.location.href = url;
-    };
-    card.onkeydown = event => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      window.location.href = url;
-    };
-  }
-
-  function aplicarDestaqueCard(cardId, post) {
-    aplicarFundoCard(cardId, post);
-    prepararCardClicavel(cardId, post);
-  }
-
-  function renderDestaque(slot, post) {
-    if (!post) return;
-    if (post.id) idsDestaque.add(post.id);
-    const el = id => document.getElementById(id);
-    if (el(slot.titleId)) el(slot.titleId).textContent = stripMd(post.titulo);
-    if (slot.metaId && el(slot.metaId)) el(slot.metaId).textContent = 'Reda\u00e7\u00e3o OVC';
-    if (slot.excerptId && el(slot.excerptId)) el(slot.excerptId).textContent = stripMd(post.resumo || post.subtitulo || '');
-    if (el(slot.linkId)) el(slot.linkId).href = buildUrl(post);
-    aplicarDestaqueCard(slot.cardId, post);
-  }
-
-  function iniciarRotacaoDestaques(cache) {
-    const slots = [
-      { cardId:'card-hero-politica-economia', titleId:'card-hero-titulo', metaId:'card-hero-meta', excerptId:'card-hero-resumo', linkId:'card-hero-link', cats:['politica','economia'], index:0 },
-      { cardId:'card-feature-negocios', titleId:'card-feature-titulo', excerptId:'card-feature-resumo', linkId:'card-feature-link', cats:['negocios'], index:0 },
-      { cardId:'card-lions-seguros', titleId:'card-lions-titulo', metaId:'card-lions-meta', excerptId:'card-lions-resumo', linkId:'card-lions-link', cats:['seguros','investimentos','mercados','economia'], index:0 },
-    ].map(slot => ({ ...slot, posts: postsPorCategorias(cache, slot.cats) }));
-
-    function escolher(slot, usados) {
-      if (!slot.posts.length) return null;
-      for (let tentativas = 0; tentativas < slot.posts.length; tentativas++) {
-        const idx = (slot.index + tentativas) % slot.posts.length;
-        const post = slot.posts[idx];
-        if (!post?.id || !usados.has(post.id)) {
-          slot.index = idx;
-          usados.add(post?.id);
-          return post;
-        }
-      }
-      const post = slot.posts[slot.index % slot.posts.length];
-      usados.add(post?.id);
-      return post;
-    }
-
-    function renderTodos(avancar) {
-      const usados = new Set();
-      slots.forEach(slot => {
-        if (avancar && slot.posts.length > 1) slot.index = (slot.index + 1) % slot.posts.length;
-        renderDestaque(slot, escolher(slot, usados));
-      });
-    }
-
-    renderTodos(false);
-
-    if (window.__ovcDestaquesTimer) clearInterval(window.__ovcDestaquesTimer);
-    if (slots.some(slot => slot.posts.length > 1)) {
-      window.__ovcDestaquesTimer = setInterval(() => renderTodos(true), 30000);
-    }
-  }
 
   async function updateLiveWidgets() {
     try {
@@ -170,25 +69,63 @@
 
   function carregarCardHero(cache) {
     try {
-      const post = postsPorCategorias(cache, ['politica','economia'])[0] || null;
+      let post = null;
+      for (const cat of ['politica','economia']) {
+        if (post) break;
+        post = (cache[cat]||[]).find(p => p.categoria===cat) || null;
+      }
       if (!post) return;
-      renderDestaque({ cardId:'card-hero-politica-economia', titleId:'card-hero-titulo', metaId:'card-hero-meta', excerptId:'card-hero-resumo', linkId:'card-hero-link' }, post);
+      if (post.id) idsDestaque.add(post.id);
+      const el = id => document.getElementById(id);
+      if (el('card-hero-titulo')) el('card-hero-titulo').textContent = stripMd(post.titulo);
+      if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
+      if (el('card-hero-resumo')) el('card-hero-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
+      if (el('card-hero-link'))   el('card-hero-link').href          = buildUrl(post);
     } catch(e) { console.error('[Hero]',e); }
   }
 
   function carregarCardNegocios(cache) {
     try {
-      const post = postsPorCategorias(cache, ['negocios'])[0] || null;
+      const post = (cache['negocios']||[]).find(p => p.categoria==='negocios');
       if (!post) return;
-      renderDestaque({ cardId:'card-feature-negocios', titleId:'card-feature-titulo', excerptId:'card-feature-resumo', linkId:'card-feature-link' }, post);
+      if (post.id) idsDestaque.add(post.id);
+      const el = id => document.getElementById(id);
+      if (el('card-meio-titulo')) el('card-meio-titulo').textContent = stripMd(post.titulo);
+      if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Redação OVC';
+      if (el('card-meio-link'))   el('card-meio-link').href          = buildUrl(post);
+      if (el('card-feature-titulo')) el('card-feature-titulo').textContent = stripMd(post.titulo);
+      if (el('card-feature-resumo')) el('card-feature-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
+      if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
+      if (post.imagem) {
+        const imgEl = document.getElementById('card-meio-img');
+        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        const wrapEl = document.getElementById('card-meio-wrap');
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+      }
     } catch(e) { console.error('[Negocios]',e); }
   }
 
   function carregarCardLions(cache) {
     try {
-      const post = postsPorCategorias(cache, ['seguros','investimentos','mercados','economia']).find(p => !idsDestaque.has(p.id)) || null;
+      let post = null;
+      for (const cat of ['investimentos','seguros','mercados','economia']) {
+        if (post) break;
+        const pool = (cache[cat]||[]).filter(p => !idsDestaque.has(p.id));
+        post = pool.find(p => p.categoria===cat) || null;
+      }
       if (!post) return;
-      renderDestaque({ cardId:'card-lions-seguros', titleId:'card-lions-titulo', metaId:'card-lions-meta', excerptId:'card-lions-resumo', linkId:'card-lions-link' }, post);
+      if (post.id) idsDestaque.add(post.id);
+      const el = id => document.getElementById(id);
+      if (el('card-lions-titulo')) el('card-lions-titulo').textContent = stripMd(post.titulo);
+      if (el('card-lions-meta'))   el('card-lions-meta').textContent   = 'Redação OVC';
+      if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
+      if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
+      if (post.imagem) {
+        const imgEl = document.getElementById('card-lions-img');
+        if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
+        const wrapEl = document.getElementById('card-lions-wrap');
+        if (wrapEl) wrapEl.style.backgroundImage = `url('${post.imagem}')`;
+      }
     } catch(e) { console.error('[Lions]',e); }
   }
 
@@ -226,7 +163,7 @@
       <div class="ovc-card-tag">${post.subcategoria || post.categoria}</div>
       <div class="ovc-card-titulo">${stripMd(post.titulo)}</div>
       <div class="ovc-card-resumo">${stripMd(post.resumo || post.subtitulo || '').slice(0,160)}...</div>
-      <a class="ovc-card-link" href="${url}">Leia mais \u2197</a>
+      <a class="ovc-card-link" href="${url}">Leia mais →</a>
     `;
     return a;
   }
@@ -244,12 +181,12 @@
       if (!posts.length) return;
       el.innerHTML = posts.map(p => {
         const url = buildUrl(p);
-        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy" width="400" height="225" decoding="async">` : '';
+        const img = p.imagem ? `<img class="ovc-card-img" src="${p.imagem}" alt="" loading="lazy">` : '';
         return `<a class="card card-mini" href="${url}">
           ${img}
           <span class="tag tag-${p.categoria}">${p.categoria}</span>
           <h3 class="card-title">${stripMd(p.titulo)}</h3>
-          <span class="card-meta">Reda\u00e7\u00e3o OVC</span>
+          <span class="card-meta">Redação OVC</span>
           <span class="card-cta">LEIA +</span>
         </a>`;
       }).join('');
@@ -262,7 +199,10 @@
     try {
       let posts = [];
       for (const cat of secao.cats) {
-        const filtrados = (cache[cat]||[]).filter(p => secao.cats.includes(p.categoria));
+        const filtrados = (cache[cat]||[]).filter(p => {
+          const tags = Array.isArray(p.tags) ? p.tags : [];
+          return secao.cats.includes(p.categoria) || tags.some(t => secao.cats.includes(t));
+        });
         posts = posts.concat(filtrados);
       }
       const vistos = new Set();
@@ -270,7 +210,7 @@
       posts = posts.filter(p => !idsDestaque.has(p.id));
       posts = posts.slice(0, 6);
       if (!posts.length) {
-        grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conte\u00fado...</p>';
+        grid.innerHTML = '<p class="ovc-card-vazio">Aguardando conteúdo...</p>';
         return;
       }
       grid.innerHTML = '';
@@ -286,19 +226,27 @@
 
     const cache = {};
     try {
-      const r = await fetch('/api/portal-posts?recentes=true&limit=180');
+      const r = await fetch('/api/portal-posts?recentes=true&limit=300');
       if (r.ok) {
         const d = await r.json();
         (d.posts||[]).forEach(p => {
           if (!cache[p.categoria]) cache[p.categoria] = [];
           cache[p.categoria].push(p);
+          (p.tags||[]).forEach(tag => {
+            if (!tag || tag === p.categoria) return;
+            if (!cache[tag]) cache[tag] = [];
+            cache[tag].push(p);
+          });
         });
       }
     } catch(e) { console.error('[Home]', e); }
 
-    iniciarRotacaoDestaques(cache);
+    carregarCardHero(cache);
+    carregarCardNegocios(cache);
+    carregarCardLions(cache);
 
     SECOES.forEach(s => carregarSecao(s, cache));
+
 
     renderSecao('secao-politica',      ['politica'],                           cache, 3);
     renderSecao('secao-economia',      ['economia'],                           cache, 3);
