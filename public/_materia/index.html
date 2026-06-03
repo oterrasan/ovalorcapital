@@ -164,7 +164,7 @@ body{background:#f8fafc;color:#0f172a;margin:0;font-family:-apple-system,BlinkMa
     educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
     esportes:'esportes', saude:'saude', familia:'familia',
     tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-    vc:'vc', colunistas:'vc', internacional:'internacional',
+    vc:'colunistas', colunistas:'colunistas', internacional:'internacional',
     variedades:'variedades', geral:'politica'
   };
 
@@ -186,11 +186,13 @@ body{background:#f8fafc;color:#0f172a;margin:0;font-family:-apple-system,BlinkMa
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   function buildUrl(p){
+    if(p && p.url && /^\/[a-z0-9-]+\/.+-[a-f0-9]{8}\/?$/i.test(p.url)) return p.url;
     return '/' + catUrl(p.categoria) + '/?id=' + encodeURIComponent((p.id||'').slice(0,8));
   }
 
   function renderCorpo(texto){
     if(!texto) return '';
+    if(/^\s*</.test(texto)) return texto;
     var lines = texto.split('\n');
     var html = '';
     var htags = [];
@@ -278,7 +280,9 @@ body{background:#f8fafc;color:#0f172a;margin:0;font-family:-apple-system,BlinkMa
 
   document.addEventListener('DOMContentLoaded', function(){
     var params = new URLSearchParams(window.location.search);
-    var id = params.get('id');
+    var preload = window.__OVC_ARTICLE__ || null;
+    var pathId = (location.pathname.match(/-([a-f0-9]{8})\/?$/i) || [])[1] || '';
+    var id = params.get('id') || pathId || (preload && preload.id ? String(preload.id).slice(0,8) : '');
     var body = document.getElementById('mat-body');
 
     if(!id){
