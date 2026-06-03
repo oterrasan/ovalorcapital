@@ -5,6 +5,7 @@
   var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
   var profileCache = null;
   var profileLoading = false;
+  var profileSetup = false;
 
   function normalize(value){
     return String(value || '')
@@ -194,6 +195,9 @@
     var grid = document.getElementById('col-grid-view');
     var articles = document.getElementById('cfv-arts');
     if (!filter || !grid || !articles) return;
+
+    if (profileSetup) return;
+    profileSetup = true;
 
     grid.style.display = 'none';
     filter.style.display = '';

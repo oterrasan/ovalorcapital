@@ -69,7 +69,7 @@
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
       tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-      vc:'vc', colunistas:'colunistas', internacional:'internacional', variedades:'variedades', geral:'politica',
+      vc:'colunistas', colunistas:'colunistas', internacional:'internacional', variedades:'variedades', geral:'politica',
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
       concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
     };
