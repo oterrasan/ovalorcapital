@@ -25,6 +25,24 @@
 
   function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 
+  function wireFeaturedCard(cardId, url) {
+    const card = document.getElementById(cardId);
+    if (!card || !url) return;
+    card.style.cursor = 'pointer';
+    card.setAttribute('role', 'link');
+    card.setAttribute('tabindex', '0');
+    card.onclick = (e) => {
+      if (e.target.closest('a,button,input,select,textarea')) return;
+      location.href = url;
+    };
+    card.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        location.href = url;
+      }
+    };
+  }
+
   async function updateLiveWidgets() {
     try {
       const data = await OVC.fetchJSON('/api/portal-posts?format=live-data');
@@ -80,7 +98,9 @@
       if (el('card-hero-titulo')) el('card-hero-titulo').textContent = stripMd(post.titulo);
       if (el('card-hero-meta'))   el('card-hero-meta').textContent   = 'Redação OVC';
       if (el('card-hero-resumo')) el('card-hero-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
-      if (el('card-hero-link'))   el('card-hero-link').href          = buildUrl(post);
+      const url = buildUrl(post);
+      if (el('card-hero-link'))   el('card-hero-link').href          = url;
+      wireFeaturedCard('card-hero-politica-economia', url);
     } catch(e) { console.error('[Hero]',e); }
   }
 
@@ -92,10 +112,12 @@
       const el = id => document.getElementById(id);
       if (el('card-meio-titulo')) el('card-meio-titulo').textContent = stripMd(post.titulo);
       if (el('card-meio-meta'))   el('card-meio-meta').textContent   = 'Redação OVC';
-      if (el('card-meio-link'))   el('card-meio-link').href          = buildUrl(post);
+      const url = buildUrl(post);
+      if (el('card-meio-link'))   el('card-meio-link').href          = url;
       if (el('card-feature-titulo')) el('card-feature-titulo').textContent = stripMd(post.titulo);
       if (el('card-feature-resumo')) el('card-feature-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
-      if (el('card-feature-link'))   el('card-feature-link').href          = buildUrl(post);
+      if (el('card-feature-link'))   el('card-feature-link').href          = url;
+      wireFeaturedCard('card-feature-negocios', url);
       if (post.imagem) {
         const imgEl = document.getElementById('card-meio-img');
         if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
@@ -119,7 +141,9 @@
       if (el('card-lions-titulo')) el('card-lions-titulo').textContent = stripMd(post.titulo);
       if (el('card-lions-meta'))   el('card-lions-meta').textContent   = 'Redação OVC';
       if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
-      if (el('card-lions-link'))   el('card-lions-link').href          = buildUrl(post);
+      const url = buildUrl(post);
+      if (el('card-lions-link'))   el('card-lions-link').href          = url;
+      wireFeaturedCard('card-lions-seguros', url);
       if (post.imagem) {
         const imgEl = document.getElementById('card-lions-img');
         if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
