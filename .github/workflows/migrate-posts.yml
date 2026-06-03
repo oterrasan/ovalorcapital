@@ -1,0 +1,28 @@
+name: Migrar posts banco antigo → novo
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: 'Digite CONFIRMAR para executar a migração'
+        required: true
+        default: ''
+
+jobs:
+  migrar:
+    if: ${{ github.event.inputs.confirmar == 'CONFIRMAR' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências
+        run: npm install @supabase/supabase-js
+
+      - name: Executar migração
+        run: node migrate-old-to-new.mjs
