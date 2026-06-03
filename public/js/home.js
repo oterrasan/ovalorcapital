@@ -1,6 +1,8 @@
 (function(){
 
   const idsDestaque = new Set();
+  let __cache = null;
+  let heroOffset = 0, negociosOffset = 0, lionsOffset = 0;
 
   function buildUrl(p) {
     if (p && p.url && /^\/[a-z0-9-]+\/.+-[a-f0-9]{8}\/?$/i.test(p.url)) return p.url;
@@ -85,13 +87,14 @@
     } catch(e) { console.error(e); }
   }
 
-  function carregarCardHero(cache) {
+  function carregarCardHero(cache, offset) {
     try {
-      let post = null;
+      let pool = [];
       for (const cat of ['politica','economia']) {
-        if (post) break;
-        post = (cache[cat]||[]).find(p => p.categoria===cat) || null;
+        (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
+      if (!pool.length) return;
+      const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
@@ -108,9 +111,11 @@
     } catch(e) { console.error('[Hero]',e); }
   }
 
-  function carregarCardNegocios(cache) {
+  function carregarCardNegocios(cache, offset) {
     try {
-      const post = (cache['negocios']||[]).find(p => p.categoria==='negocios');
+      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
+      if (!pool.length) return;
+      const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
@@ -133,14 +138,14 @@
     } catch(e) { console.error('[Negocios]',e); }
   }
 
-  function carregarCardLions(cache) {
+  function carregarCardLions(cache, offset) {
     try {
-      let post = null;
+      let pool = [];
       for (const cat of ['investimentos','seguros','mercados','economia']) {
-        if (post) break;
-        const pool = (cache[cat]||[]).filter(p => !idsDestaque.has(p.id));
-        post = pool.find(p => p.categoria===cat) || null;
+        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
       }
+      if (!pool.length) return;
+      const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
       const el = id => document.getElementById(id);
@@ -253,6 +258,19 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    // Impostômetro independente — não depende de API, sempre funciona
+    (function() {
+      const fmtI = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v);
+      const start = new Date(`${new Date().getFullYear()}-01-01T03:00:00Z`).getTime();
+      let val = Math.max(0, Math.floor((Date.now()-start)/1000)) * 114155;
+      document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtI(val); });
+      if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
+      window.__ovcImpostTicker = setInterval(() => {
+        val += 114155;
+        document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtI(val); });
+      }, 1000);
+    })();
+
     updateLiveWidgets();
     setInterval(updateLiveWidgets, 120000);
 
@@ -272,9 +290,22 @@
       }
     } catch(e) { console.error('[Home]', e); }
 
-    carregarCardHero(cache);
-    carregarCardNegocios(cache);
-    carregarCardLions(cache);
+    __cache = cache;
+    carregarCardHero(cache, 0);
+    carregarCardNegocios(cache, 0);
+    carregarCardLions(cache, 0);
+
+    // Rotação dos cards de destaque a cada 8 segundos
+    setInterval(() => {
+      if (!__cache) return;
+      heroOffset++;
+      negociosOffset++;
+      lionsOffset++;
+      idsDestaque.clear();
+      carregarCardHero(__cache, heroOffset);
+      carregarCardNegocios(__cache, negociosOffset);
+      carregarCardLions(__cache, lionsOffset);
+    }, 8000);
 
     SECOES.forEach(s => carregarSecao(s, cache));
 
