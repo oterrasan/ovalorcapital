@@ -1644,3 +1644,55 @@ Duas rotas de bug:
 ❌ NUNCA criar template alternativo em public/_materia/ — pode virar referência acidental
 ❌ category-section-guard.js tem MutationObserver — qualquer DOM mutation no callback causa loop
 ```
+
+---
+
+### Sessão 03/06/2026 (continuação 2) — ADMIN COLUNISTA + ROTAÇÃO CARDS + IMPOSTÔMETRO
+
+---
+
+#### Contexto
+
+Roberto reportou 3 problemas:
+1. Não conseguia vincular artigo a colunista no admin (subiu uma coluna e não tinha como dizer que era dele)
+2. Cards de destaque na homepage não rotacionavam
+3. Impostômetro estava desligado
+
+Também: migração do banco antigo (bfsegqdgscudtdgwdyci) impossível sem pagar — banco bloqueado por quota. Roberto decidiu deixar pra lá. `data/articles.json` tem 560 artigos fake de placeholder (Codex), NÃO são artigos reais.
+
+---
+
+#### O que foi corrigido (PR #81 — mergeado em main, commit `c97d2424`)
+
+**1. Admin — vincular artigo a colunista (`public/admin/index.html`)**
+- Campo Subcategoria na edição de post: quando categoria = `colunistas` ou `vc`, vira input de texto livre em vez de select
+- Roberto digita o nome do colunista (ex: "Roberto Terrasan"), slug calculado automaticamente ("roberto-terrasan")
+- Isso salva `subcategoria_slug` correto no banco, vinculando o artigo ao perfil do colunista
+
+**2. Rotação dos cards de destaque (`public/js/home.js`)**
+- Variáveis `heroOffset`, `negociosOffset`, `lionsOffset` para controlar qual artigo exibir
+- Funções `carregarCardHero`, `carregarCardNegocios`, `carregarCardLions` agora aceitam parâmetro offset
+- `setInterval` de 8 segundos cicla pelos artigos disponíveis em cada categoria
+- Cache guardado em `__cache` para reutilização na rotação
+
+**3. Impostômetro independente (`public/js/home.js`)**
+- IIFE inicializada no DOMContentLoaded ANTES de qualquer chamada de API
+- Calcula valor correto (114.155 R$/s desde 1º jan) e inicia o ticker imediatamente
+- Não depende mais de `/api/portal-posts?format=live-data` — sempre funciona mesmo se API falhar
+
+---
+
+#### Estado do banco
+
+- **Banco novo** (`yntwvfcxjardzafdqanj`): poucos artigos recentes (pipeline parado há 3 dias por Roberto)
+- **Banco antigo** (`bfsegqdgscudtdgwdyci`): bloqueado por quota — Roberto decidiu não pagar para desbloquear
+- **Pipeline parado**: Roberto pausou porque artigos não estavam respeitando o padrão. Será retomado quando ele autorizar.
+- **`data/articles.json`**: 560 artigos fake de placeholder criados pelo Codex — NÃO são artigos reais do portal
+
+---
+
+#### 🔧 Pendências para próxima sessão
+
+1. **Pipeline parado** — Roberto vai autorizar retomada quando decidir. NÃO ligar sem autorização explícita.
+2. **Padrão dos artigos** — Roberto pausou o pipeline porque artigos não estavam respeitando o padrão editorial. Entender qual padrão está sendo violado antes de religar.
+3. **Banco antigo perdido** — aceito por Roberto. Continuar gerando novos artigos no banco novo.

@@ -54,6 +54,12 @@ const templates = new Map();
 
 export default async function handler(req, res) {
   try {
+    const host = req.headers['host'] || '';
+    if (host === 'ovalorcapital.com.br') {
+      res.setHeader('Location', `https://www.ovalorcapital.com.br${req.url}`);
+      return res.status(301).end();
+    }
+
     if (serveStaticAsset(req, res)) return;
 
     const slug = String(req.query.slug || "").replace(/\/+$/g, "");
