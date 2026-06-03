@@ -294,6 +294,12 @@ function normalizeCategoryLayout(html, cat, label, desc, section) {
 }
 
 export default async function handler(req, res) {
+  const host = req.headers['host'] || '';
+  if (host === 'ovalorcapital.com.br') {
+    res.setHeader('Location', `https://www.ovalorcapital.com.br${req.url}`);
+    return res.status(301).end();
+  }
+
   const artId = (req.query.id || "").trim();
   if (artId) {
     return res.redirect(302, "/og?id=" + encodeURIComponent(artId));
