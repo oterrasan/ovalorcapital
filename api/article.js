@@ -49,10 +49,13 @@ const CAT_LABEL = {
   defesa: "Defesa", religiao: "Fé & Espiritualidade", colunistas: "Colunistas"
 };
 
+const STATIC_DIRS = new Set(["js", "css", "assets", "images", "img", "fonts"]);
 const templates = new Map();
 
 export default async function handler(req, res) {
   try {
+    if (serveStaticAsset(req, res)) return;
+
     const slug = String(req.query.slug || "").replace(/\/+$/g, "");
     if (!slug) return res.status(400).send("bad request");
 
@@ -152,6 +155,27 @@ export default async function handler(req, res) {
   }
 }
 
+function serveStaticAsset(req, res) {
+  const cat = String(req.query.cat || "").toLowerCase();
+  if (!STATIC_DIRS.has(cat)) return false;
+
+  const slug = String(req.query.slug || "").replace(/^\/+|\/+$/g, "");
+  if (!slug || slug.includes("..") || slug.includes("/") || slug.includes("\\")) {
+    res.status(400).send("bad static request");
+    return true;
+  }
+
+  try {
+    const body = readFileSync(join(process.cwd(), "public", cat, slug));
+    res.setHeader("Content-Type", mimeFor(slug));
+    res.setHeader("Cache-Control", cat === "js" ? "no-cache, no-store, must-revalidate" : "public, max-age=3600, stale-while-revalidate=86400");
+    return res.status(200).send(body);
+  } catch (_) {
+    res.status(404).send("static not found");
+    return true;
+  }
+}
+
 async function findArticle(id8) {
   const lo = `${id8}-0000-0000-0000-000000000000`;
   const hi = `${id8}-ffff-ffff-ffff-ffffffffffff`;
@@ -218,6 +242,24 @@ function setBodyAttr(html, name, value) {
 
 function safeJson(obj) {
   return JSON.stringify(obj).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+}
+
+function mimeFor(filename) {
+  const ext = String(filename || "").toLowerCase().split(".").pop();
+  const map = {
+    js: "application/javascript; charset=utf-8",
+    css: "text/css; charset=utf-8",
+    json: "application/json; charset=utf-8",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    svg: "image/svg+xml; charset=utf-8",
+    ico: "image/x-icon",
+    woff: "font/woff",
+    woff2: "font/woff2"
+  };
+  return map[ext] || "application/octet-stream";
 }
 
 function esc(value) {
