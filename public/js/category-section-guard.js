@@ -1,6 +1,11 @@
 (function(){
   'use strict';
 
+  var blocked = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos'];
+  var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+  var profileCache = null;
+  var profileLoading = false;
+
   function normalize(value){
     return String(value || '')
       .toLowerCase()
@@ -9,30 +14,6 @@
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
   }
-
-  function sectionIsGeneric(section){
-    var s = normalize(section);
-    return !s || s === 'geral' || s === 'home' || s === 'institucional';
-  }
-
-  function postMatchesSection(post, section){
-    var target = normalize(section);
-    if (!target) return true;
-    var candidates = [
-      post && post.subcategoria_slug,
-      post && post.subcategoria,
-      post && post.subcategoria_nome
-    ].map(normalize).filter(Boolean);
-
-    if (!candidates.length) return false;
-    return candidates.some(function(candidate){
-      return candidate === target ||
-        candidate.indexOf(target) !== -1 ||
-        target.indexOf(candidate) !== -1;
-    });
-  }
-
-  var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
 
   function escapeHtml(value){
     return String(value || '')
@@ -45,6 +26,7 @@
 
   function formatDate(value){
     try {
+      if (!value) return '';
       return new Date(value).toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: 'short',
@@ -55,33 +37,100 @@
     }
   }
 
+  function sectionIsGeneric(section){
+    var s = normalize(section);
+    return !s || s === 'geral' || s === 'home' || s === 'institucional';
+  }
+
+  function isArticleSlug(value){
+    return /-[a-f0-9]{8}$/i.test(String(value || ''));
+  }
+
+  function pathParts(){
+    return location.pathname.split('/').filter(Boolean);
+  }
+
+  function querySection(){
+    try {
+      var params = new URLSearchParams(location.search || '');
+      return params.get('c') || params.get('colunista') || params.get('section') || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function activeSection(){
+    var parts = pathParts();
+    var bodySection = document.body && document.body.dataset ? document.body.dataset.section : '';
+    return normalize(parts[1] || querySection() || bodySection);
+  }
+
   function isColunistasPage(){
     return document.body && document.body.dataset && document.body.dataset.category === 'colunistas';
   }
 
+  function isBlocked(section){
+    return blocked.indexOf(normalize(section)) !== -1;
+  }
+
+  function postMatchesSection(post, section){
+    var target = normalize(section);
+    if (!target) return true;
+    var candidates = [
+      post && post.subcategoria_slug,
+      post && post.colunista_slug,
+      post && post.autor_slug,
+      post && post.author_slug,
+      post && post.subcategoria,
+      post && post.colunista,
+      post && post.autor,
+      post && post.author,
+      post && post.nome_colunista
+    ].map(normalize).filter(Boolean);
+
+    if (!candidates.length) return false;
+    return candidates.some(function(candidate){
+      return candidate === target ||
+        candidate.indexOf(target) !== -1 ||
+        target.indexOf(candidate) !== -1;
+    });
+  }
+
   function normalizeColumnistsPage(){
     if (!isColunistasPage()) return;
-    var blocked = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos'];
-    var path = location.pathname.split('/').filter(Boolean);
+    var parts = pathParts();
+    var section = activeSection();
 
-    if (path[0] === 'colunistas' && blocked.indexOf(normalize(path[1])) !== -1) {
+    if (parts[0] === 'colunistas' && isBlocked(section)) {
       location.replace('/colunistas/');
       return;
     }
 
+    if (parts[0] === 'colunistas' && !parts[1] && section && !sectionIsGeneric(section) && !isArticleSlug(section)) {
+      try { history.replaceState(null, '', '/colunistas/' + encodeURIComponent(section) + '/'); } catch (_) {}
+      if (document.body && document.body.dataset) document.body.dataset.section = section;
+    }
+
     document.querySelectorAll('.col-card').forEach(function(card){
-      var text = normalize((card.getAttribute('onclick') || '') + ' ' + card.textContent);
-      if (blocked.some(function(slug){ return text.indexOf(slug) !== -1; })) card.remove();
+      var text = normalize((card.getAttribute('onclick') || '') + ' ' + card.innerHTML + ' ' + card.textContent);
+      if (blocked.some(function(slug){ return text.indexOf(slug) !== -1; })) {
+        card.remove();
+        return;
+      }
+      var href = card.querySelector('a[href*="/colunistas/?c="]');
+      if (href) {
+        var slug = '';
+        try { slug = new URL(href.getAttribute('href'), location.origin).searchParams.get('c') || ''; } catch (_) {}
+        if (slug) href.setAttribute('href', '/colunistas/' + normalize(slug) + '/');
+      }
     });
 
     document.querySelectorAll('.col-stat-n').forEach(function(el){
       if ((el.textContent || '').trim() === '11') el.textContent = '9';
     });
-
     document.querySelectorAll('.col-hero-sub').forEach(function(el){
       el.textContent = (el.textContent || '').replace(/^11\s+colunistas\.?\s*/i, '');
     });
-
     document.querySelectorAll('.col-sec-lbl').forEach(function(el){
       el.textContent = (el.textContent || '').replace(/^11\s+/i, '');
     });
@@ -107,23 +156,39 @@
       .then(function(d){
         var slot = rail.querySelector('[data-colunistas-guard-list]');
         var posts = ((d && d.posts) || []).filter(function(post){
-          return blocked.indexOf(normalize(post && post.subcategoria_slug)) === -1;
+          return !isBlocked(post && (post.subcategoria_slug || post.colunista_slug));
         }).slice(0, 5);
         if (!slot) return;
         slot.innerHTML = posts.length ? posts.map(function(post){
-          return '<article class="ovc-mini-item"><div><h4><a href="' + (post.url || '#') + '">' + (post.titulo || 'Coluna OVC') + '</a></h4><p>' + (post.subcategoria || 'Colunistas') + '</p></div><div></div></article>';
+          return '<article class="ovc-mini-item"><div><h4><a href="' + escapeHtml(post.url || '#') + '">' + escapeHtml(post.titulo || post.title || 'Coluna OVC') + '</a></h4><p>' + escapeHtml(post.subcategoria || 'Colunistas') + '</p></div><div></div></article>';
         }).join('') : '<p style="font-size:13px;color:#64748b;margin:0">Conteudo em organizacao editorial.</p>';
       })
       .catch(function(){});
   }
 
+  function renderProfilePosts(posts, section){
+    var articles = document.getElementById('cfv-arts');
+    if (!articles) return;
+    var filtered = posts.filter(function(post){ return postMatchesSection(post, section); });
+    articles.innerHTML = filtered.length ? filtered.map(function(post){
+      var image = post.imagem
+        ? '<img class="col-art-img" src="' + escapeHtml(post.imagem) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
+        : '';
+      return '<a class="col-art-card" href="' + escapeHtml(post.url || '#') + '">'
+        + image
+        + '<div class="col-art-body">'
+        + '<div class="col-art-ttl">' + escapeHtml(post.titulo || post.title || 'Coluna OVC') + '</div>'
+        + '<div class="col-art-meta">' + escapeHtml(formatDate(post.data || post.published_at || post.created_at)) + '</div>'
+        + '</div></a>';
+    }).join('') : '<p class="col-no-posts">Nenhum artigo publicado ainda por este colunista.</p>';
+  }
+
   function forceColumnistProfile(){
     if (!isColunistasPage()) return;
-    var path = location.pathname.split('/').filter(Boolean);
-    var section = normalize(path[1] || (document.body && document.body.dataset && document.body.dataset.section));
-    var blocked = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos'];
-    if (path[0] !== 'colunistas' || !section || sectionIsGeneric(section)) return;
-    if (/-[a-f0-9]{8}$/i.test(section) || blocked.indexOf(section) !== -1) return;
+    var parts = pathParts();
+    var section = activeSection();
+    if (parts[0] !== 'colunistas' || !section || sectionIsGeneric(section)) return;
+    if (isArticleSlug(section) || isBlocked(section)) return;
 
     var filter = document.getElementById('col-filter-view');
     var grid = document.getElementById('col-grid-view');
@@ -132,10 +197,12 @@
 
     grid.style.display = 'none';
     filter.style.display = '';
-    articles.innerHTML = '<p class="col-no-posts">Carregando artigos...</p>';
+    if (!articles.querySelector('.col-art-card')) {
+      articles.innerHTML = '<p class="col-no-posts">Carregando artigos...</p>';
+    }
 
     var card = Array.prototype.find.call(document.querySelectorAll('.col-card'), function(item){
-      return normalize((item.getAttribute('onclick') || '') + ' ' + item.innerHTML).indexOf(section) !== -1;
+      return normalize((item.getAttribute('onclick') || '') + ' ' + item.innerHTML + ' ' + item.textContent).indexOf(section) !== -1;
     });
     var fallbackName = section.split('-').map(function(part){
       return part ? part.charAt(0).toUpperCase() + part.slice(1) : part;
@@ -151,7 +218,7 @@
     var av = document.getElementById('cfv-av');
     if (nameEl) nameEl.textContent = name || fallbackName;
     if (tagEl) tagEl.innerHTML = tag || 'Colunista OVC';
-    if (bioEl) bioEl.textContent = bio || '';
+    if (bioEl && bio) bioEl.textContent = bio;
     if (av && !av.querySelector('img')) {
       av.innerHTML = '<img src="/assets/colunistas/' + section + '.jpg" alt="' + escapeHtml(name || fallbackName) + '" loading="lazy" onerror="this.remove()">';
     }
@@ -160,57 +227,57 @@
       tagEl.style.background = 'rgba(255,255,255,.14)';
     }
 
+    if (profileCache) {
+      renderProfilePosts(profileCache, section);
+      return;
+    }
+    if (profileLoading) return;
     var fetcher = nativeFetch || (window.fetch && window.fetch.bind(window));
     if (!fetcher) return;
+    profileLoading = true;
     fetcher('/api/portal-posts?categoria=colunistas&limit=100')
       .then(function(r){ return r.json(); })
       .then(function(payload){
-        var posts = ((payload && payload.posts) || []).filter(function(post){
-          return postMatchesSection(post, section);
-        });
-        articles.innerHTML = posts.length ? posts.map(function(post){
-          var image = post.imagem
-            ? '<img class="col-art-img" src="' + escapeHtml(post.imagem) + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">'
-            : '';
-          return '<a class="col-art-card" href="' + escapeHtml(post.url || '#') + '">'
-            + image
-            + '<div class="col-art-body">'
-            + '<div class="col-art-ttl">' + escapeHtml(post.titulo || post.title || 'Coluna OVC') + '</div>'
-            + '<div class="col-art-meta">' + escapeHtml(formatDate(post.data || post.published_at || post.created_at)) + '</div>'
-            + '</div></a>';
-        }).join('') : '<p class="col-no-posts">Nenhum artigo publicado ainda por este colunista.</p>';
+        profileCache = (payload && payload.posts) || [];
+        renderProfilePosts(profileCache, section);
       })
       .catch(function(){
         articles.innerHTML = '<p class="col-no-posts">Nao foi possivel carregar os artigos agora.</p>';
-      });
+      })
+      .finally(function(){ profileLoading = false; });
   }
 
-  var parts = location.pathname.split('/').filter(Boolean);
-  if (parts[0] === 'colunistas' && parts[1] && /-[a-f0-9]{8}$/i.test(parts[1])) {
+  function run(){
+    normalizeColumnistsPage();
+    forceColumnistProfile();
+  }
+
+  var parts = pathParts();
+  if (parts[0] === 'colunistas' && parts[1] && isArticleSlug(parts[1])) {
     return;
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){
-      normalizeColumnistsPage();
-      forceColumnistProfile();
-      setTimeout(normalizeColumnistsPage, 500);
-      setTimeout(forceColumnistProfile, 650);
-      setTimeout(normalizeColumnistsPage, 1200);
-      setTimeout(forceColumnistProfile, 1300);
-    });
+    document.addEventListener('DOMContentLoaded', run);
   } else {
-    normalizeColumnistsPage();
-    forceColumnistProfile();
-    setTimeout(normalizeColumnistsPage, 500);
-    setTimeout(forceColumnistProfile, 650);
-    setTimeout(normalizeColumnistsPage, 1200);
-    setTimeout(forceColumnistProfile, 1300);
+    run();
   }
+
+  var ticks = 0;
+  var interval = setInterval(function(){
+    run();
+    ticks += 1;
+    if (ticks >= 24) clearInterval(interval);
+  }, 500);
+
+  try {
+    var observer = new MutationObserver(function(){ run(); });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(function(){ observer.disconnect(); }, 15000);
+  } catch (_) {}
 
   if (!window.fetch || window.__OVC_SECTION_GUARD__) return;
   window.__OVC_SECTION_GUARD__ = true;
-
   nativeFetch = nativeFetch || window.fetch.bind(window);
   window.fetch = function(input, init){
     return nativeFetch(input, init).then(function(response){
@@ -222,7 +289,7 @@
 
         var body = document.body || {};
         var category = body.dataset && body.dataset.category;
-        var section = body.dataset && body.dataset.section;
+        var section = activeSection();
         if (!category || sectionIsGeneric(section)) return response;
         if (normalize(parsed.searchParams.get('categoria')) !== normalize(category)) return response;
 
@@ -242,9 +309,7 @@
             statusText: response.statusText,
             headers: headers
           });
-        }).catch(function(){
-          return response;
-        });
+        }).catch(function(){ return response; });
       } catch (_) {
         return response;
       }
