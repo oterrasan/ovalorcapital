@@ -797,18 +797,25 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 ## 16. CREDENCIAIS SUPABASE (nunca commitar em repo público)
 
-> Salvas aqui a pedido de Roberto em 21/05/2026 para evitar precisar pedir novamente.
+> **ATENÇÃO: BANCO MIGRADO EM 02/06/2026** — Roberto criou novo projeto Supabase na conta betoterrasan@gmail.com após incidente de 24h fora do ar no banco antigo.
 
+### Banco NOVO (ativo desde 02/06/2026) ✅
 ```
-SUPABASE_URL=https://bfsegqdgscudtdgwdyci.supabase.co
-SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50
-Project ID: bfsegqdgscudtdgwdyci
+SUPABASE_URL=https://yntwvfcxjardzafdqanj.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+Project ID: yntwvfcxjardzafdqanj
+Conta: betoterrasan@gmail.com
 Region: sa-east-1 (São Paulo)
 ```
 
-> ⚠️ AVISO: Organização Supabase excedeu quota no ciclo anterior. Período de graça até 22/06/2026. DB ainda funcional.
-> Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
-> **NOTA:** Esta remote execution environment bloqueia conexões de saída para Supabase (network policy). Para backups ou scripts diretos, executar localmente com Node.js.
+> Hardcoded como fallback em todos os arquivos api/ e core/ (03/06/2026).
+> Vercel env vars SUPABASE_URL e SUPABASE_KEY devem ser atualizadas no projeto ovalorcapital-xuhw.
+
+### Banco ANTIGO (morto — NÃO usar)
+```
+SUPABASE_URL=https://bfsegqdgscudtdgwdyci.supabase.co  ← MORTO
+Project ID: bfsegqdgscudtdgwdyci
+```
 
 **Chave OpenAI atual (hardcoded em `core/ai_portal.js` — FORNECIDA POR ROBERTO EM 27/05/2026):**
 ```
