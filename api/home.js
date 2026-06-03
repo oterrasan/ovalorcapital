@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
 const FOUC_GUARD = `<style id="ovc-fouc-guard">html.ovc-boot{background:#f4f6fb}html.ovc-boot body{opacity:0}html.ovc-ready body{opacity:1}@media (prefers-reduced-motion:no-preference){html.ovc-ready body{transition:opacity .12s ease}}</style><script id="ovc-fouc-guard-js">(function(d){d.classList.add('ovc-boot');function r(){d.classList.remove('ovc-boot');d.classList.add('ovc-ready')}if(document.readyState!=='loading'){requestAnimationFrame(r)}else{document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(r)},{once:true})}setTimeout(r,1800)})(document.documentElement);</script>`;
 

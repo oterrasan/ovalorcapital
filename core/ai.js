@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-const _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const _sb = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 async function _getKeys() {
   try {
     const { data } = await _sb.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
