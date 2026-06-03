@@ -262,7 +262,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 | `api/landing.js` | SSR landing pages temáticas |
 | `api/live.js` | SSR radar, tv-ovc, radio-ovc, dados, cotações |
 | `api/manage.js` | Status, aprovação, track_view, newsletter, **banners**, **refresh token IG**, **colunistas**, **inteligencia** (18 ferramentas IA via `action=inteligencia`), **validate-token**, **editor_ia**, **seo_batch** |
-| `api/portal-posts.js` | Serve posts publicados para frontend + **endpoint bulk `?recentes=true`** (1 query, Cache-Control 60s) |
+| `api/portal-posts.js` | Serve posts publicados para frontend + **endpoint bulk `?recentes=true`** + **SSR homepage** (`?format=home`) + live-data |
 | `api/run_portal.js` | Pipeline RSS→scrape→IA→banco (salva como **pendente**) + `?action=regenerar` + **geração manual** (`POST body.url\|body.texto`) |
 | `api/sitemap.js` | Sitemap dinâmico |
 
@@ -280,6 +280,9 @@ Fonte de receita única: Google AdSense / Google AdX.
 **Consolidações realizadas (29/05/2026):**
 - `api/ig-queue.js` **DELETADO** — código morto (vercel.json roteava `/api/ig-queue` → `ig-handler.js?op=queue`, então ig-queue.js nunca era alcançado; além disso usava tabela `ig_queue` diferente da abordagem atual que usa `config`)
 - `api/ig-setup.js` **DELETADO** — código morto pelo mesmo motivo (`/api/ig-setup` → `ig-handler.js?op=setup`)
+
+**Consolidações realizadas (03/06/2026):**
+- `api/home.js` **DELETADO** — lógica de SSR da homepage migrada para `api/portal-posts.js` com `?format=home`. vercel.json rota `/` → `/api/portal-posts?format=home`.
 
 ### Core (NUNCA alterar sem autorização do dono)
 | Arquivo | Função |
@@ -797,18 +800,22 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 
 ## 16. CREDENCIAIS SUPABASE (nunca commitar em repo público)
 
-> Salvas aqui a pedido de Roberto em 21/05/2026 para evitar precisar pedir novamente.
+> **MIGRAÇÃO DE BANCO — 03/06/2026.** Banco antigo (`bfsegqdgscudtdgwdyci`) inacessível. Roberto criou novo projeto Supabase em betoterrasan@gmail.com. TODOS os arquivos api/ e core/ foram atualizados com novo URL/key no PR #78.
 
 ```
-SUPABASE_URL=https://bfsegqdgscudtdgwdyci.supabase.co
-SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmc2VncWRnc2N1ZHRkZ3dkeWNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTQ0NjM1MiwiZXhwIjoyMDkxMDIyMzUyfQ.WmkHzK33qqtlvtal92WXVeyIE1DGRZOrw_pZtPGeV50
-Project ID: bfsegqdgscudtdgwdyci
+SUPABASE_URL=https://yntwvfcxjardzafdqanj.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+Project ID: yntwvfcxjardzafdqanj
+Account: betoterrasan@gmail.com
 Region: sa-east-1 (São Paulo)
 ```
 
-> ⚠️ AVISO: Organização Supabase excedeu quota no ciclo anterior. Período de graça até 22/06/2026. DB ainda funcional.
-> Em sessões futuras: usar `SUPABASE_URL` e `SUPABASE_KEY` acima para conexão direta via REST API.
-> **NOTA:** Esta remote execution environment bloqueia conexões de saída para Supabase (network policy). Para backups ou scripts diretos, executar localmente com Node.js.
+Chave publishable (Codex/portal-posts.js): `sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf`
+Chave service_role (JWT acima): usada como `process.env.SUPABASE_KEY || "JWT..."` em todos os demais arquivos.
+
+**Banco antigo (MORTO — NÃO USAR):** `bfsegqdgscudtdgwdyci` — qualquer referência a este ID é código antigo.
+
+> **NOTA:** Esta remote execution environment bloqueia conexões de saída para Supabase. Para backups ou scripts diretos, executar localmente com Node.js.
 
 **Chave OpenAI atual (hardcoded em `core/ai_portal.js` — FORNECIDA POR ROBERTO EM 27/05/2026):**
 ```
@@ -1516,3 +1523,57 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ❌ Após qualquer push para main, verificar se deploy.yml rodou (GitHub Actions)
 ❌ Se site não atualizar: primeiro tentar aba anônima. Se ainda igual → problema é CDN/Cloudflare
 ```
+
+---
+
+### Sessão 03/06/2026 — MIGRAÇÃO SUPABASE + FIX REGRA ZERO-A
+
+---
+
+#### Contexto
+
+Roberto compartilhou screenshot mostrando sitemap com 674 páginas em vez de 1915+. Causa raiz: o banco Supabase antigo (`bfsegqdgscudtdgwdyci`) estava inacessível. Roberto havia criado novo projeto Supabase em betoterrasan@gmail.com (`yntwvfcxjardzafdqanj`). As env vars do Vercel ainda apontavam para o banco morto, fazendo todas as queries falharem silenciosamente e cair no fallback de `data/articles.json` (~509 artigos).
+
+---
+
+#### O que foi feito
+
+**PR #78 (branch `fix/supabase-novo-banco`) — mergeado em main (commit `abf34576`):**
+- 12 arquivos atualizados com novo Supabase URL/key como hardcoded fallback:
+  - `api/sitemap.js`, `api/landing.js`, `api/ig-handler.js`
+  - `core/rss.js`, `core/image_processor.js`, `core/image_finder.js`, `core/db.js`, `core/instagram.js`, `core/ai_portal.js`, `core/ai.js`, `core/publish_engine.js`
+- Padrão: `createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "JWT_SERVICE_ROLE_HARDCODED")`
+- `api/home.js` foi adicionado pelo Codex como 11º arquivo — REGRA ZERO-A violada
+
+**Correção REGRA ZERO-A (PR #79 — branch `claude/festive-hamilton-x2qpI`):**
+- Lógica de `api/home.js` (SSR homepage) migrada para `api/portal-posts.js` com `?format=home`
+- `vercel.json` atualizado (commit isolado — REGRA ZERO-F): `/` → `/api/portal-posts?format=home`
+- `api/home.js` **DELETADO** → api/ de volta a 10 arquivos ✅
+
+**CLAUDE.md seção 16 atualizada** com novas credenciais Supabase.
+
+---
+
+#### Novos arquivos adicionados pelo Codex (agora em main)
+
+| Arquivo | Função |
+|---|---|
+| `core/ai.js` | Reescrita IA para Instagram (usa Gemini + Groq) — usa `_sb` como variável do client |
+| `core/publish_engine.js` | Engine de publicação Instagram — exporta `publishPost()` e `runScheduler()` |
+
+---
+
+#### Estado de api/ após esta sessão — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🔧 Pendências
+
+1. **Roberto deve re-adicionar sitemap ao Google Search Console** após deploy: Search Console → Sitemaps → `https://www.ovalorcapital.com.br/sitemap.xml`
+2. **Atualizar env vars no Vercel** (recomendado): `SUPABASE_URL` e `SUPABASE_KEY` no projeto `ovalorcapital-xuhw` para os novos valores (embora o fallback hardcoded já funcione)
+3. **Aprovar artigos pendentes** no admin → Postagens → filtro 'pendente'
