@@ -100,6 +100,10 @@
       if (el('card-hero-resumo')) el('card-hero-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       const url = buildUrl(post);
       if (el('card-hero-link'))   el('card-hero-link').href          = url;
+      if (post.imagem) {
+        const heroEl = document.getElementById('card-hero-politica-economia');
+        if (heroEl) { heroEl.style.backgroundImage = `url('${post.imagem}')`; heroEl.style.backgroundSize = 'cover'; heroEl.style.backgroundPosition = 'center'; }
+      }
       wireFeaturedCard('card-hero-politica-economia', url);
     } catch(e) { console.error('[Hero]',e); }
   }
@@ -119,6 +123,8 @@
       if (el('card-feature-link'))   el('card-feature-link').href          = url;
       wireFeaturedCard('card-feature-negocios', url);
       if (post.imagem) {
+        const featureEl = document.getElementById('card-feature-negocios');
+        if (featureEl) { featureEl.style.backgroundImage = `url('${post.imagem}')`; featureEl.style.backgroundSize = 'cover'; featureEl.style.backgroundPosition = 'center'; }
         const imgEl = document.getElementById('card-meio-img');
         if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
         const wrapEl = document.getElementById('card-meio-wrap');
@@ -145,6 +151,8 @@
       if (el('card-lions-link'))   el('card-lions-link').href          = url;
       wireFeaturedCard('card-lions-seguros', url);
       if (post.imagem) {
+        const lionsEl = document.getElementById('card-lions-seguros');
+        if (lionsEl) { lionsEl.style.backgroundImage = `url('${post.imagem}')`; lionsEl.style.backgroundSize = 'cover'; lionsEl.style.backgroundPosition = 'center'; }
         const imgEl = document.getElementById('card-lions-img');
         if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
         const wrapEl = document.getElementById('card-lions-wrap');
