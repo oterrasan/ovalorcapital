@@ -1696,3 +1696,59 @@ Também: migração do banco antigo (bfsegqdgscudtdgwdyci) impossível sem pagar
 1. **Pipeline parado** — Roberto vai autorizar retomada quando decidir. NÃO ligar sem autorização explícita.
 2. **Padrão dos artigos** — Roberto pausou o pipeline porque artigos não estavam respeitando o padrão editorial. Entender qual padrão está sendo violado antes de religar.
 3. **Banco antigo perdido** — aceito por Roberto. Continuar gerando novos artigos no banco novo.
+4. **Instagram SSL** — links `ovalorcapital.com.br` (non-www) falham com `ERR_CONNECTION_TIMED_OUT` no IAB do Instagram. Requer Roberto: verificar certificado SSL no Vercel Dashboard para o domínio sem www.
+
+---
+
+### Sessão 04/06/2026 — PAGESPEED RESTAURADO + FIXES PÁGINAS
+
+#### Contexto
+
+Roberto reportou múltiplos problemas acumulados:
+- PageSpeed caído de 95+ para ~60 (causado pela rota SSR da homepage)
+- `/empregos/` e `/vagas/` caiam no vazio (template customizado errado)
+- Páginas `/vc/` fora do padrão (usavam `internal-page.js` em vez de `v2`)
+- TV/YouTube não funcionava dentro do portal
+- TODAS as páginas devem ter mesmo padrão: topo, laterais, rodapé
+
+#### O que foi feito
+
+**PR #83 (mergeado em main):**
+- `/vagas/index.html` substituído por cópia de `politica/index.html` com `data-category="vagas"` — padrão correto
+- `/vc/index.html` + 4 sub-páginas: trocado `internal-page.js` → `internal-page-v2.js`
+- `api/portal-posts.js` `handleLiveData`: adicionados canais de TV brasileiros (TV Câmara, TV Senado, TV Brasil) — buscam o live stream via YouTube embed
+
+**PR #84 (mergeado em main):**
+- `api/category.js`: cache aumentado de `s-maxage=300` para `s-maxage=3600, stale-while-revalidate=86400` — reduz cold starts em páginas de categoria
+- `api/portal-posts.js`: cache listing aumentado de `s-maxage=60` para `s-maxage=300`
+
+**PR #85 (mergeado em main — 04/06/2026) — CRÍTICO — PageSpeed:**
+- **Root cause identificado**: após a consolidação de `api/home.js` (03/06), o `vercel.json` mantinha rotas SSR para `^/$` e `^/index\.html$` → função serverless com cold start 1-3s + cache 2min = PageSpeed ~60
+- **Fix 1 — `public/index.html`**: baked in as otimizações de `injectHeadGuards()`:
+  - FOUC guard (evita flash de conteúdo sem estilo)
+  - Critical CSS inline (elimina request bloqueante)
+  - CSS links convertidos para `rel="preload"` com `onload` (não bloqueiam renderização)
+- **Fix 2 — `vercel.json` (commit isolado — REGRA ZERO-F)**: removidas as rotas SSR `^/$` e `^/index\.html$`
+- Resultado esperado: homepage volta a ser servida como arquivo estático do CDN → PageSpeed 95+
+
+#### Regras reforçadas
+
+```
+❌ NUNCA rotear / ou /index.html para função serverless — destrói PageSpeed
+❌ homepage DEVE ser arquivo estático public/index.html servido pelo CDN
+❌ Otimizações de SSR (FOUC guard, critical CSS, preloads) devem ser baked no static HTML
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para próxima sessão
+
+1. **Pipeline parado** — NÃO religar sem autorização explícita de Roberto.
+2. **Instagram SSL** — `ovalorcapital.com.br` non-www falha com `ERR_CONNECTION_TIMED_OUT` no IAB do Instagram. Roberto precisa verificar certificado SSL no Vercel Dashboard para o domínio sem www.
+3. **Confirmar PageSpeed** — após deploy do PR #85, verificar nota no PageSpeed Insights. Deve voltar para 95+.
+4. **Artigos vazios nas categorias** — banco novo tem poucos artigos (pipeline parado). Normal até pipeline ser religado.
