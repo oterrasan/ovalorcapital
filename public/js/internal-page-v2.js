@@ -651,19 +651,19 @@
               +'<span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;">Últimas em '+lbl(catFiltro)+'</span>'
               +(subLabel ? '<span style="font-size:9px;background:'+acento+';color:#fff;padding:2px 7px;border-radius:4px;font-weight:700;">'+subLabel+'</span>' : '')
             +'</div>'
-            +'<div style="padding:0 12px;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>'
+            +'<div id="cat-ultimas-body" style="padding:0 12px;background:#fff;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>'
           +'</div>'
           +'<div class="cat-bloco" id="cat-mais-lidas" style="margin-top:12px;">'
             +'<div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:10px 14px;">'
               +'<span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fbbf24;">Mais Lidas</span>'
             +'</div>'
-            +'<div style="padding:0 12px;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>'
+            +'<div id="cat-mais-lidas-body" style="padding:0 12px;background:#fff;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>'
           +'</div>'
           +'<div class="cat-bloco" id="cat-tv" style="margin-top:12px;">'
             +'<div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:10px 14px;">'
               +'<span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;">OVC TV ao Vivo</span>'
             +'</div>'
-            +'<div style="padding:8px;"><p style="font-size:12px;color:#94a3b8;">Aguardando stream.</p></div>'
+            +'<div id="cat-tv-body" style="padding:8px;background:#fff;"><p style="font-size:12px;color:#94a3b8;">Aguardando stream.</p></div>'
           +'</div>'
         +'</aside>'
       +'</div>';
@@ -680,10 +680,10 @@
           return p.categoria === catFiltro;
         });
 
-        var ultEl = document.getElementById('cat-ultimas');
+        var ultEl = document.getElementById('cat-ultimas-body');
         if(ultEl){
           var railPosts = posts.slice(0, 7);
-          ultEl.querySelector('div').innerHTML = railPosts.length
+          ultEl.innerHTML = railPosts.length
             ? railPosts.map(renderCardRail).join('')
             : '<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
         }
@@ -736,10 +736,10 @@
     fetch('/api/portal-posts?sort=popular&limit=6')
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var mlEl = document.getElementById('cat-mais-lidas');
+        var mlEl = document.getElementById('cat-mais-lidas-body');
         if(mlEl){
           var lidas = (d.posts||[]).slice(0,5);
-          mlEl.querySelector('div').innerHTML = lidas.length
+          mlEl.innerHTML = lidas.length
             ? lidas.map(renderCardRail).join('')
             : '<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Em breve.</p>';
         }
@@ -748,9 +748,9 @@
     fetch('/api/manage')
       .then(function(r){ return r.json(); })
       .then(function(cfg){
-        var tvEl = document.getElementById('cat-tv');
+        var tvEl = document.getElementById('cat-tv-body');
         if(tvEl && cfg.youtube_live_url){
-          tvEl.querySelector('div').innerHTML = '<div style="border-radius:6px;overflow:hidden;"><iframe width="100%" height="160" src="'+cfg.youtube_live_url+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;"></iframe></div>';
+          tvEl.innerHTML = '<div style="border-radius:6px;overflow:hidden;"><iframe width="100%" height="160" src="'+cfg.youtube_live_url+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;"></iframe></div>';
         }
       }).catch(function(){});
   });
