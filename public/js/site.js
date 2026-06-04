@@ -246,6 +246,19 @@ window.OVC = {
 
 (function(){
   document.addEventListener('DOMContentLoaded', () => {
+    // Impostômetro independente — funciona em todas as páginas sem esperar API
+    (function(){
+      var fmtI = function(v){ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v); };
+      var start = new Date(new Date().getFullYear()+'-01-01T03:00:00Z').getTime();
+      var val = Math.max(0, Math.floor((Date.now()-start)/1000)) * 114155;
+      document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmtI(val); });
+      if (!window.__ovcImpostTicker) {
+        window.__ovcImpostTicker = setInterval(function(){
+          val += 114155;
+          document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmtI(val); });
+        }, 1000);
+      }
+    })();
     OVC.initThemePicker();
     OVC.bindGlobalSearch();
     OVC.bindSearchChips();
