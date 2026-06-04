@@ -594,7 +594,7 @@
     };
     var subList = SUB_CATS[catFiltro] || [];
     var navLinks = subList.map(function(c){
-      return '<a href="/'+catFiltro+'/?s='+c[1]+'" style="display:block;padding:7px 12px;font-size:12px;text-decoration:none;border-radius:6px;color:#475569;" onmouseover="this.style.color=''+acento+''" onmouseout="this.style.color='#475569'">'+c[0]+'</a>';
+      return '<a href="/'+catFiltro+'/?s='+c[1]+'" style="display:block;padding:7px 12px;font-size:12px;text-decoration:none;border-radius:6px;color:#475569;" onmouseover="this.style.color=\''+acento+'\'" onmouseout="this.style.color=\'#475569\'">'+c[0]+'</a>';
     }).join('') || '<p style="font-size:12px;color:#94a3b8;padding:8px 12px;margin:0;">Em breve.</p>';
 
     orcMain.innerHTML =
