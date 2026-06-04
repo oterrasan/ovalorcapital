@@ -562,7 +562,7 @@
     if(slug === 'vc') return;
     if(slug === 'colunistas'){
       setTimeout(function(){
-        var m = document.querySelector('main.ovc-main');
+        var m = document.querySelector('main.ovc-main') || document.querySelector('main');
         if(!m) return;
         injetarProgressBar('#1d4ed8');
         var navCats2=[['colunistas','Colunistas'],['politica','Política'],['economia','Economia'],
