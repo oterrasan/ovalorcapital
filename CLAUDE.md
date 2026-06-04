@@ -1752,3 +1752,31 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Instagram SSL** — `ovalorcapital.com.br` non-www falha com `ERR_CONNECTION_TIMED_OUT` no IAB do Instagram. Roberto precisa verificar certificado SSL no Vercel Dashboard para o domínio sem www.
 3. **Confirmar PageSpeed** — após deploy do PR #85, verificar nota no PageSpeed Insights. Deve voltar para 95+.
 4. **Artigos vazios nas categorias** — banco novo tem poucos artigos (pipeline parado). Normal até pipeline ser religado.
+
+---
+
+### Sessão 04/06/2026 — NAV REORGANIZAÇÃO + LAYOUT 3 COLUNAS
+
+#### O que foi feito (PR #86 — mergeado em main)
+
+**Nav limpa:**
+- 17 itens com dropdowns substituídos por 19 links `.supermenu-link` simples
+- Categorias: Colunistas, Política, Economia, Brasil On, Negócios, Investimentos, Tecnologia, Internacional, Saúde, Esportes, Família, Indústria, Seguros, Tributos, Cultura, Religião, Carreira, Imóveis, VC
+- Consolidações: MERCADOS→INVESTIMENTOS, EDUCAÇÃO+VAGAS+PROFISSÕES→CARREIRA, REGULAÇÃO→TRIBUTOS, SEGURANÇA+INVESTIGATIVO+VARIEDADES→BRASIL ON, PARCERIAS→NEGÓCIOS/VC
+
+**CSS supermenu corrigido:**
+- `gap: 18px` → `gap: 2px`, `overflow-x: auto`, sem `justify-content: center` — VC e todas as categorias sempre visíveis
+
+**CSS `.cat-*` adicionado (seção 19 home.css):**
+- Layout 3 colunas: `.cat-corpo` grid `240px / 1fr / 280px`
+- Rail esq sticky: subcategorias, cotações, trending, tags, nav portal
+- Rail dir sticky: últimas notícias, impostômetro, newsletter, ads, cross-links
+- Centro: breadcrumb, destaque exclusivo, grid 2 cols, lista padrão, paginação
+- Responsivo: 1100px → 2 colunas, 860px → 1 coluna
+
+#### 🔧 Pendências
+
+1. **Rotas novas no vercel.json** (commit ISOLADO — REGRA ZERO-F): `/brasil-on/` e `/carreira/` → `api/category.js`
+2. **Templates HTML novos**: `public/brasil-on/index.html`, `public/carreira/index.html`
+3. **Aplicar `.cat-corpo`** nos templates de categoria existentes para ativar layout 3 colunas
+4. **Pipeline parado** — NÃO religar sem autorização explícita de Roberto.
