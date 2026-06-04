@@ -186,6 +186,8 @@
       margin: 0;
       padding: 0;
       height: 100%;
+      background: var(--bg-page, #f8fafc);
+      color: var(--text-main, #1e293b);
     }
 
     body {
