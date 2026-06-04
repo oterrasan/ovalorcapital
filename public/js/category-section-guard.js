@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  var blocked = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos'];
+  var blocked = [];
   var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
   var profileCache = null;
   var profileLoading = false;
