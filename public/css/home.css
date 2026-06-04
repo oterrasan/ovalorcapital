@@ -424,8 +424,7 @@
     }
 
     .header-actions .search-block {
-      flex: 1;
-      min-width: 0;
+      flex: 0 0 260px;
       flex-direction: row;
       align-items: center;
       gap: 0;
@@ -437,8 +436,7 @@
 
     .header-actions .search-input-wrap {
       flex: 1;
-      min-width: 120px;
-      max-width: 340px;
+      min-width: 0;
     }
 
     .link-anuncie {
