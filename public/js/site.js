@@ -323,7 +323,14 @@ OVC.fillInstitutionalGaps = function(){
 OVC.moveSearchToActions = function(){
   var sb = document.querySelector('.search-block');
   var ha = document.querySelector('.header-actions');
-  if(sb && ha) ha.insertBefore(sb, ha.firstChild);
+  if(!sb || !ha) return;
+  ha.insertBefore(sb, ha.firstChild);
+  // Aplica estilos inline para não depender de cache do CSS externo
+  sb.style.cssText = 'flex:0 0 260px;flex-direction:row;align-items:center;gap:0;display:flex;';
+  var chips = sb.querySelector('.search-chips');
+  if(chips) chips.style.display = 'none';
+  var hi = document.querySelector('.header-identity');
+  if(hi) hi.style.gridTemplateColumns = 'auto 1fr';
 };
 OVC.updateInnerNav = function(){
   var nav = document.querySelector('nav.supermenu');
