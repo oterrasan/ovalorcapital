@@ -546,7 +546,7 @@
     var g=document.getElementById('col-grid');
     if(!g)return;
     g.innerHTML=COLS.map(function(c){
-      return '<div class="col-card" onclick="location.href=\'/colunistas/?c='+c.slug+'\'">'
+      return '<div class="col-card" onclick="location.href=\'/colunistas/'+c.slug+'/\'">'
         +'<div class="col-card-cover">'
         +'<div class="col-card-cover-bg" style="background:linear-gradient(145deg,'+c.grad[0]+','+c.grad[1]+')"></div>'
         +'<div class="col-card-av" id="av-'+c.slug+'" style="background:linear-gradient(145deg,'+c.grad[0]+','+c.grad[1]+')">'
@@ -557,7 +557,7 @@
         +'<p class="col-card-bio">'+c.bio+'</p>'
         +'<div class="col-card-foot">'
         +'<span class="col-card-cnt" id="cnt-'+c.slug+'">carregando...</span>'
-        +'<a class="col-card-btn" href="/colunistas/?c='+c.slug+'" onclick="event.stopPropagation()" style="background:'+c.acc+'">Ver artigos →</a>'
+        +'<a class="col-card-btn" href="/colunistas/'+c.slug+'/" onclick="event.stopPropagation()" style="background:'+c.acc+'">Ver artigos →</a>'
         +'</div></div></div>';
     }).join('');
   }

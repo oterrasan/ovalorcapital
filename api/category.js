@@ -238,7 +238,9 @@ const SECTION_LABELS = {
     "prof-marcos-pizzolatto": "Prof. Marcos Pizzolatto",
     "larissa-corvetto": "Larissa Corvetto",
     "taisa-da-fonseca": "Taisa da Fonseca",
-    "andre-oliveira": "Andre Oliveira"
+    "andre-oliveira": "Andre Oliveira",
+    "gabriel-thiede": "Gabriel Thiede",
+    "fabiana-campos": "Fabiana Campos"
   }
 };
 
