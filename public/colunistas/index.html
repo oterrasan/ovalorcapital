@@ -465,7 +465,7 @@
 @media(max-width:640px){.col-hero{padding:56px 20px 64px}.col-hero-stats{gap:28px}.col-cta-box{padding:40px 24px}.col-grid{grid-template-columns:1fr}.col-card-cover{height:140px}.col-card-av{width:80px;height:80px;font-size:26px;margin-bottom:-40px}}
 </style>
 
-<main style="background:#f0f4f8;min-height:60vh;padding:0;">
+<main class="ovc-main">
 
 <!-- HERO -->
 <section class="col-hero">
@@ -478,7 +478,10 @@
   </div>
 </section>
 
-<!-- FILTER VIEW: shown when ?c=slug -->
+<section class="ovc-grid">
+<div class="ovc-story-stack">
+
+<!-- FILTER VIEW: shown when profile is active -->
 <div id="col-filter-view" style="display:none;">
   <div class="col-filter-hdr" id="cfv-hdr">
     <a href="/colunistas/" class="col-filter-back">← Todos os colunistas</a>
@@ -508,6 +511,10 @@
     <div id="col-latest"></div>
   </div>
 </div>
+
+</div><!-- /ovc-story-stack -->
+<aside class="ovc-right-rail"><section data-banner-sidebar></section></aside>
+</section><!-- /ovc-grid -->
 
 </main>
 
