@@ -255,6 +255,7 @@ window.OVC = {
     OVC.bindHomeCriticalLinks();
     OVC.fillInstitutionalGaps();
     OVC.normalizeInnerLayout();
+    OVC.moveSearchToActions();
     OVC.updateInnerNav();
     OVC.initMobileMenu();
   });
@@ -318,6 +319,11 @@ OVC.fillInstitutionalGaps = function(){
   if (rail && !rail.textContent.trim()) {
     rail.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>NavegaÃ§Ã£o VC</h3><div class="ovc-mini-list"><article class="ovc-mini-item"><div><h4><a href="/vc/">VisÃ£o geral</a></h4><p>Centro institucional do O Valor Capital.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/colunistas/">Colunistas</a></h4><p>OpiniÃ£o, anÃ¡lise e leitura de contexto.</p></div><div></div></article><article class="ovc-mini-item"><div><h4><a href="/parcerias/">Parcerias</a></h4><p>Projetos comerciais, institucionais e editoriais.</p></div><div></div></article></div></section><section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>RedaÃ§Ã£o OVC</h3><p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 12px">Envie pautas, denÃºncias, sugestÃµes editoriais ou propostas institucionais.</p><a class="ovc-btn" href="/contato/" style="display:flex;justify-content:center">Falar com a redaÃ§Ã£o</a></section>';
   }
+};
+OVC.moveSearchToActions = function(){
+  var sb = document.querySelector('.search-block');
+  var ha = document.querySelector('.header-actions');
+  if(sb && ha) ha.insertBefore(sb, ha.firstChild);
 };
 OVC.updateInnerNav = function(){
   var nav = document.querySelector('nav.supermenu');
