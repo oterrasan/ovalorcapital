@@ -559,6 +559,7 @@
   document.addEventListener('DOMContentLoaded', function(){
     var slug = document.body.dataset.category;
     if(!slug) return;
+    if(slug === 'colunistas' || slug === 'vc') return;
 
     var catFiltro = SLUG_TO_CAT[slug] || slug;
     var aliases = CATEGORY_ALIASES[catFiltro] || null;
