@@ -432,7 +432,7 @@
     }
 
     .header-actions .search-chips {
-      display: none;
+      display: none !important;
     }
 
     .header-actions .search-input-wrap {
