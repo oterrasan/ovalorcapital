@@ -12,7 +12,12 @@
     investigativo:'investigativo', seguranca:'seguranca',
     cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
     concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
-    radar:'radar'
+    radar:'radar',
+    'brasil-on':'brasil-on', carreira:'carreira'
+  };
+  var CATEGORY_ALIASES = {
+    'brasil-on': ['seguranca','investigativo','variedades'],
+    'carreira': ['vagas','concursos','profissoes','parcerias','educacao']
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
@@ -24,7 +29,8 @@
     investigativo:'Investigativo', seguranca:'Segurança Pública',
     cultura:'Cultura', profissoes:'Profissões', vagas:'Vagas',
     concursos:'Concursos Públicos', imoveis:'Imóveis', esg:'ESG', defesa:'Defesa', religiao:'Fé & Espiritualidade',
-    radar:'Radar OVC'
+    radar:'Radar OVC',
+    'brasil-on':'Brasil On', carreira:'Carreira'
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
@@ -36,7 +42,8 @@
     investigativo:'#1a1a2e', seguranca:'#7f1d1d',
     cultura:'#7e22ce', profissoes:'#0369a1', vagas:'#065f46',
     concursos:'#1e40af', imoveis:'#b45309', esg:'#166534', defesa:'#1e3a5f', religiao:'#6d28d9',
-    radar:'#f97316'
+    radar:'#f97316',
+    'brasil-on':'#b91c1c', carreira:'#0f766e'
   };
   var CAT_PATH = {
     politica:'politica', economia:'economia', negocios:'negocios',
@@ -49,7 +56,8 @@
     investigativo:'investigativo', seguranca:'seguranca',
     cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
     concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
-    radar:'radar'
+    radar:'radar',
+    'brasil-on':'brasil-on', carreira:'carreira'
   };
 
   function lbl(c){ return LABEL[c]||c||'Geral'; }
@@ -553,78 +561,80 @@
     if(!slug) return;
 
     var catFiltro = SLUG_TO_CAT[slug] || slug;
+    var aliases = CATEGORY_ALIASES[catFiltro] || null;
     var acento = cor(catFiltro);
 
     injetarProgressBar(acento);
 
-    var sectionHero = document.querySelector('.ovc-section-hero');
-    if(sectionHero){
-      sectionHero.style.cssText = 'display:block;margin-bottom:24px;padding:0;border:none;background:transparent;box-shadow:none;';
-      sectionHero.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:20px 0 16px;border-bottom:2px solid '+acento+'"">'  
+    var orcMain = document.querySelector('.ovc-main') || document.querySelector('main.ovc-main') || document.querySelector('main');
+    if(!orcMain) return;
+
+    var navCats = [
+      ['politica','Política'],['economia','Economia'],['negocios','Negócios'],
+      ['investimentos','Investimentos'],['tecnologia','Tecnologia'],['saude','Saúde'],
+      ['esportes','Esportes'],['cultura','Cultura'],['internacional','Internacional'],
+      ['brasil-on','Brasil On'],['carreira','Carreira']
+    ];
+    var navLinks = navCats.map(function(c){
+      var isActive = c[0] === catFiltro;
+      return '<a href="/'+c[0]+'/" style="display:block;padding:7px 12px;font-size:12px;text-decoration:none;border-radius:6px;'
+        +(isActive ? 'background:#f8fafc;color:'+acento+';font-weight:800;' : 'color:#475569;')+'">'+c[1]+'</a>';
+    }).join('');
+
+    orcMain.innerHTML =
+      '<div style="background:linear-gradient(to bottom,#f1f5f9,var(--bg-page,#f3f4f8));padding:16px 16px 0;border-bottom:2px solid '+acento+';">'
+        +'<div style="max-width:1380px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;">'
           +'<div style="display:flex;align-items:center;gap:12px;">'
-            +'<span style="display:inline-block;background:'+acento+';color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
+            +'<span style="background:'+acento+';color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
           +'</div>'
           +'<a href="/busca/" style="font-size:12px;color:'+acento+';text-decoration:none;font-weight:700;">Ver todos &rsaquo;</a>'
-        +'</div>';
-    }
-
-    var rail = document.querySelector('.ovc-right-rail');
-    if(rail) rail.style.cssText = 'display:flex;flex-direction:column;gap:0;min-width:0;position:sticky;top:16px;';
-
-    var railSec = document.querySelector('[data-banner-sidebar]');
-    if(railSec){
-      railSec.innerHTML = railTitulo('Últimas em ' + lbl(catFiltro), acento)
-        + '<p style="font-size:13px;color:#94a3b8;padding:12px 0;">Carregando...</p>';
-    }
+        +'</div>'
+      +'</div>'
+      +'<div class="cat-corpo">'
+        +'<aside class="cat-rail-esq">'
+          +'<div class="cat-bloco"><div class="cat-bloco-header">Seções</div><div id="cat-nav-links" style="padding:8px 4px;">'+navLinks+'</div></div>'
+          +'<div class="cat-bloco" id="cat-rail-esq-tags"><div class="cat-bloco-header">Temas</div><div style="padding:10px;"><p style="font-size:12px;color:#94a3b8;margin:0;">Carregando...</p></div></div>'
+        +'</aside>'
+        +'<div class="cat-centro" id="cat-centro-area">'
+          +'<div id="cat-hero-slot" style="margin-bottom:20px;"></div>'
+          +'<div id="cat-main-grid"></div>'
+          +'<div id="cat-more-list" style="margin-top:20px;"></div>'
+        +'</div>'
+        +'<aside class="cat-rail-dir">'
+          +'<div class="cat-bloco" id="cat-ultimas"><div class="cat-bloco-header">Últimas em '+lbl(catFiltro)+'</div><div style="padding:8px;"><p style="font-size:12px;color:#94a3b8;padding:8px 0;">Carregando...</p></div></div>'
+          +'<div class="cat-bloco" id="cat-mais-lidas"><div class="cat-bloco-header">Mais Lidas</div><div style="padding:8px;"><p style="font-size:12px;color:#94a3b8;padding:8px 0;">Carregando...</p></div></div>'
+          +'<div class="cat-bloco" style="background:linear-gradient(135deg,#0f172a,#1e293b);border:none;"><div style="padding:16px;text-align:center;">'
+            +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffc800;margin-bottom:6px;">Redação OVC</div>'
+            +'<p style="font-size:12px;color:#94a3b8;margin:0 0 10px;line-height:1.5;">Envie sua pauta ou denúncia</p>'
+            +'<a href="/contato/" style="display:block;background:#ffc800;color:#0f172a;padding:8px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:800;">Falar com a redação</a>'
+          +'</div></div>'
+          +'<div class="cat-bloco" id="cat-tv"><div class="cat-bloco-header">OVC TV ao Vivo</div><div style="padding:8px;"><p style="font-size:12px;color:#94a3b8;">Aguardando stream.</p></div></div>'
+        +'</aside>'
+      +'</div>';
 
     fetch('/api/portal-posts?categoria=' + encodeURIComponent(catFiltro) + '&limit=60')
       .then(function(r){ return r.json(); })
       .then(function(json){
+        var validCats = aliases ? new Set(aliases) : null;
         var posts = (json.posts || []).filter(function(p){
-          return p.titulo && p.categoria === catFiltro;
+          if(!p.titulo) return false;
+          if(validCats) return validCats.has(p.categoria);
+          return p.categoria === catFiltro;
         });
 
-        if(railSec){
+        var ultEl = document.getElementById('cat-ultimas');
+        if(ultEl){
           var railPosts = posts.slice(0, 7);
-          railSec.innerHTML = railTitulo('Últimas em ' + lbl(catFiltro), acento)
-            + (railPosts.length ? railPosts.map(renderCardRail).join('') : '<p style="font-size:13px;color:#94a3b8;padding:12px 0;">Aguardando conteúdo.</p>')
-            + '<div style="margin-top:20px;background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:10px;padding:18px;text-align:center;">'
-              + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffc800;margin-bottom:6px;">Redação OVC</div>'
-              + '<p style="font-size:12px;color:#94a3b8;margin:0 0 12px;line-height:1.5;">Envie sua pauta ou denúncia</p>'
-              + '<a href="/contato/" style="display:block;background:#ffc800;color:#0f172a;padding:8px 12px;border-radius:6px;text-decoration:none;font-size:12px;font-weight:800;">Falar com a redação</a>'
-            + '</div>'
-            + '<div id="ovc-mais-lidas-cat" style="margin-top:24px;"></div>'
-            + '<div id="ovc-tv-cat" style="margin-top:24px;"></div>';
-
-          fetch('/api/portal-posts?sort=popular&limit=6')
-            .then(function(r){ return r.json(); })
-            .then(function(d){
-              var mlEl = document.getElementById('ovc-mais-lidas-cat');
-              var lidas = (d.posts || []).slice(0, 5);
-              if(mlEl && lidas.length){
-                mlEl.innerHTML = railTitulo('Mais Lidas', '#e11d48') + lidas.map(renderCardRail).join('');
-              }
-            }).catch(function(){});
-
-          fetch('/api/manage')
-            .then(function(r){ return r.json(); })
-            .then(function(cfg){
-              var tvEl = document.getElementById('ovc-tv-cat');
-              if(tvEl && cfg.youtube_live_url){
-                tvEl.innerHTML = '<div style="font-size:13px;font-weight:800;color:#0f172a;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid #e11d48;">OVC TV ao Vivo</div>'
-                  + '<div style="border-radius:8px;overflow:hidden;"><iframe width="100%" height="180" src="' + cfg.youtube_live_url + '" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;border-radius:8px;"></iframe></div>';
-              }
-            }).catch(function(){});
+          ultEl.querySelector('div').innerHTML = railPosts.length
+            ? railPosts.map(renderCardRail).join('')
+            : '<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
         }
 
         if(!posts.length){
-          var heroEl2 = document.querySelector('[data-hero-card]');
-          if(heroEl2){
-            heroEl2.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:220px;padding:24px;border-radius:16px;border:2px dashed #e2e8f0;';
-            heroEl2.innerHTML = '<div style="text-align:center;"><p style="color:#64748b;font-size:16px;line-height:1.6;margin:0;">Aguardando conteúdo para <strong style="color:'+acento+';">'+lbl(catFiltro)+'</strong>.<br>A automação está gerando matérias. Volte em breve.</p></div>';
-          }
+          var centroEl = document.getElementById('cat-hero-slot');
+          if(centroEl) centroEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:220px;padding:24px;border-radius:16px;border:2px dashed #e2e8f0;">'
+            +'<p style="text-align:center;color:#64748b;font-size:15px;line-height:1.6;margin:0;">Aguardando conteúdo para <strong style="color:'+acento+';">'+lbl(catFiltro)+'</strong>.<br>A automação está gerando matérias. Volte em breve.</p></div>';
           return;
         }
 
@@ -632,48 +642,60 @@
         posts.forEach(function(p){
           if(!p.id || !p.titulo) return;
           if(usedIds[p.id]) return;
-          var tNorm = (p.titulo || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 30);
+          var tNorm = (p.titulo||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,30);
           if(usedTitulos[tNorm]) return;
-          usedIds[p.id] = true; usedTitulos[tNorm] = true; deduped.push(p);
+          usedIds[p.id]=true; usedTitulos[tNorm]=true; deduped.push(p);
         });
-
         if(!deduped.length) return;
 
-        var heroEl = document.querySelector('[data-hero-card]');
-        if(heroEl){
-          heroEl.style.cssText = 'display:block;padding:0;border:none;background:transparent;box-shadow:none;margin-bottom:20px;';
-          heroEl.innerHTML = renderHeroCard(deduped[0]);
+        var heroSlot = document.getElementById('cat-hero-slot');
+        if(heroSlot) heroSlot.innerHTML = renderHeroCard(deduped[0]);
+
+        var tagsEl = document.getElementById('cat-rail-esq-tags');
+        if(tagsEl && deduped.length > 1){
+          var tagSet = {}, topTags = [];
+          deduped.forEach(function(p){ (p.tags||[]).forEach(function(t){ if(LABEL[t]) tagSet[t]=(tagSet[t]||0)+1; }); });
+          topTags = Object.keys(tagSet).sort(function(a,b){ return tagSet[b]-tagSet[a]; }).slice(0,8);
+          tagsEl.querySelector('div').innerHTML = topTags.length
+            ? '<div style="padding:10px;display:flex;flex-wrap:wrap;gap:6px;">'
+              + topTags.map(function(t){ return '<a href="/'+(CAT_PATH[t]||t)+'/" style="display:inline-block;font-size:11px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:3px 8px;color:#475569;text-decoration:none;">'+lbl(t)+'</a>'; }).join('')
+              + '</div>'
+            : '<div style="padding:10px;"><p style="font-size:12px;color:#94a3b8;margin:0;">Em breve.</p></div>';
         }
 
-        var mainEl = document.querySelector('[data-main-list]');
-        if(mainEl){
-          var mainWrap = mainEl.closest('.ovc-story-list');
-          if(mainWrap){
-            var h3 = mainWrap.querySelector('h3');
-            if(h3){ h3.style.cssText = 'font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#0f172a;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid '+acento+';'; h3.textContent = 'Destaques de ' + lbl(catFiltro); }
-          }
-          var grid2 = '';
-          if(deduped.length > 1){
-            grid2 += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">' + deduped.slice(1, Math.min(3, deduped.length)).map(renderCardMedio).join('') + '</div>';
-          }
-          if(deduped.length > 3){ grid2 += deduped.slice(3, 11).map(renderCardCompacto).join(''); }
-          mainEl.innerHTML = grid2;
+        var gridEl = document.getElementById('cat-main-grid');
+        if(gridEl && deduped.length > 1){
+          var g = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">'
+            + deduped.slice(1, Math.min(3,deduped.length)).map(renderCardMedio).join('') + '</div>';
+          if(deduped.length > 3) g += deduped.slice(3,11).map(renderCardCompacto).join('');
+          gridEl.innerHTML = g;
         }
 
-        var localEl = document.querySelector('[data-local-list]');
-        if(localEl && deduped.length > 11){
-          var localWrap = localEl.closest('.ovc-story-list');
-          if(localWrap){
-            var h3b = localWrap.querySelector('h3');
-            if(h3b){ h3b.style.cssText = 'font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#0f172a;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid '+acento+';'; h3b.textContent = 'Mais em ' + lbl(catFiltro); }
-          }
-          localEl.innerHTML = deduped.slice(11, 20).map(renderCardCompacto).join('');
-        } else if(localEl){
-          var lw = localEl.closest('.ovc-story-list');
-          if(lw) lw.style.display = 'none';
+        var moreEl = document.getElementById('cat-more-list');
+        if(moreEl && deduped.length > 11) moreEl.innerHTML = deduped.slice(11,22).map(renderCardCompacto).join('');
+
+      }).catch(function(e){ console.warn('OVC categoria:', e.message); });
+
+    fetch('/api/portal-posts?sort=popular&limit=6')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var mlEl = document.getElementById('cat-mais-lidas');
+        if(mlEl){
+          var lidas = (d.posts||[]).slice(0,5);
+          mlEl.querySelector('div').innerHTML = lidas.length
+            ? lidas.map(renderCardRail).join('')
+            : '<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Em breve.</p>';
         }
-      })
-      .catch(function(e){ console.warn('OVC categoria:', e.message); });
+      }).catch(function(){});
+
+    fetch('/api/manage')
+      .then(function(r){ return r.json(); })
+      .then(function(cfg){
+        var tvEl = document.getElementById('cat-tv');
+        if(tvEl && cfg.youtube_live_url){
+          tvEl.querySelector('div').innerHTML = '<div style="border-radius:6px;overflow:hidden;"><iframe width="100%" height="160" src="'+cfg.youtube_live_url+'" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;picture-in-picture" allowfullscreen loading="lazy" style="display:block;"></iframe></div>';
+        }
+      }).catch(function(){});
   });
 
   document.addEventListener('DOMContentLoaded', function(){
