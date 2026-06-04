@@ -3135,12 +3135,13 @@ img, video, iframe, embed, object {
 
 .cat-corpo {
   display: grid;
-  grid-template-columns: 240px 1fr 280px;
-  gap: 24px;
-  max-width: 1380px;
-  margin: 0 auto;
-  padding: 24px 16px 48px;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 20px;
+  width: 100%;
+  max-width: 100%;
+  padding: 24px 24px 48px;
   align-items: start;
+  box-sizing: border-box;
 }
 
 /* Rail esquerdo */
@@ -3698,10 +3699,11 @@ img, video, iframe, embed, object {
 .cat-paginacao span.ativo { background: var(--gold, #b8962e); color: #fff; border-color: transparent; }
 
 /* Responsivo */
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .cat-corpo {
-    grid-template-columns: 200px 1fr 240px;
+    grid-template-columns: 240px 1fr 260px;
     gap: 16px;
+    padding: 20px 16px 40px;
   }
 }
 

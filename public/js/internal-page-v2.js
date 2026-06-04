@@ -583,7 +583,7 @@
 
     orcMain.innerHTML =
       '<div style="background:linear-gradient(to bottom,#f1f5f9,var(--bg-page,#f3f4f8));padding:16px 16px 0;border-bottom:2px solid '+acento+';">'
-        +'<div style="max-width:1380px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;">'
+        +'<div style="max-width:100%;display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;padding-left:8px;padding-right:8px;">'
           +'<div style="display:flex;align-items:center;gap:12px;">'
             +'<span style="background:'+acento+';color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">'+lbl(catFiltro)+'</span>'
             +'<nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">'+lbl(catFiltro)+'</span></nav>'
