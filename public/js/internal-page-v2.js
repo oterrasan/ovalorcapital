@@ -571,17 +571,31 @@
     var orcMain = document.querySelector('.ovc-main') || document.querySelector('main.ovc-main') || document.querySelector('main');
     if(!orcMain) return;
 
-    var navCats = [
-      ['politica','Política'],['economia','Economia'],['negocios','Negócios'],
-      ['investimentos','Investimentos'],['tecnologia','Tecnologia'],['saude','Saúde'],
-      ['esportes','Esportes'],['cultura','Cultura'],['internacional','Internacional'],
-      ['brasil-on','Brasil On'],['carreira','Carreira']
-    ];
-    var navLinks = navCats.map(function(c){
-      var isActive = c[0] === catFiltro;
-      return '<a href="/'+c[0]+'/" style="display:block;padding:7px 12px;font-size:12px;text-decoration:none;border-radius:6px;'
-        +(isActive ? 'background:#f8fafc;color:'+acento+';font-weight:800;' : 'color:#475569;')+'">'+c[1]+'</a>';
-    }).join('');
+    var SUB_CATS = {
+      politica:      [['Executivo','executivo'],['Legislativo','legislativo'],['Judiciário','judiciario'],['Eleições','eleicoes'],['Partidos','partidos'],['Defesa Nacional','defesa']],
+      economia:      [['PIB & Crescimento','pib'],['Inflação & IPCA','inflacao'],['Câmbio','cambio'],['Selic & COPOM','selic'],['Política Fiscal','fiscal'],['Previdência','previdencia']],
+      negocios:      [['Empreendedorismo','empreendedorismo'],['Gestão','gestao'],['Startups','startups'],['MEI & Pequenas','mei'],['Crédito & Captação','credito'],['Franquias','franquias']],
+      investimentos:  [['Renda Fixa','renda-fixa'],['Renda Variável','renda-variavel'],['Fundos','fundos'],['Previdência Privada','previdencia'],['Cripto','cripto'],['Internacional','internacional']],
+      tecnologia:    [['Inteligência Artificial','ia'],['Fintechs','fintechs'],['Cibersegurança','ciberseguranca'],['5G & Telecom','5g'],['E-commerce','e-commerce'],['Inovação','inovacao']],
+      saude:         [['Saúde Pública','saude-publica'],['Planos de Saúde','planos'],['SUS','sus'],['Saúde Mental','saude-mental'],['Medicamentos','medicamentos'],['Vigilância Sanitária','anvisa']],
+      esportes:      [['Futebol','futebol'],['Basquete','basquete'],['Tênis','tenis'],['Automobilismo','automobilismo'],['MMA & Lutas','mma'],['E-sports','e-sports']],
+      cultura:       [['Cinema & Streaming','cinema'],['Música','musica'],['Literatura','literatura'],['Artes','artes'],['Gastronomia','gastronomia'],['Turismo','turismo']],
+      internacional: [['América Latina','america-latina'],['Estados Unidos','eua'],['Europa','europa'],['Ásia','asia'],['Oriente Médio','oriente-medio'],['Geopolítica','geopolitica']],
+      'brasil-on':   [['Segurança Pública','seguranca'],['Investigativo','investigativo'],['Denúncias','denuncias'],['Defesa Civil','defesa'],['Brasil Real','brasil-real'],['Variedades','variedades']],
+      carreira:      [['Vagas & Empregos','vagas'],['Concursos','concursos'],['Profissões','profissoes'],['Educação','educacao'],['Parcerias','parcerias'],['Mercado de Trabalho','mercado']],
+      familia:       [['Orçamento Familiar','orcamento'],['Filhos & Educação','filhos'],['Habitação','habitacao'],['Sucessão','sucessao'],['Seguros da Família','seguros'],['Bem-estar','bem-estar']],
+      seguros:       [['Seguro de Vida','vida'],['Saúde','saude'],['Auto','auto'],['Residencial','residencial'],['Empresarial','empresarial'],['Previdência','previdencia']],
+      tributos:      [['IRPF','irpf'],['IRPJ & Empresas','irpj'],['Planejamento Tributário','planejamento'],['Obrigações Acessórias','obrigacoes'],['Reforma Tributária','reforma'],['Simples Nacional','simples']],
+      mercados:      [['Bolsa de Valores','bolsa'],['Câmbio','cambio'],['Juros & Bonds','juros'],['Commodities','commodities'],['Cripto','cripto'],['Índices Globais','indices']],
+      industria:     [['Agronegócio','agronegocio'],['Energia','energia'],['Construção Civil','construcao'],['Mineração','mineracao'],['Setor Automotivo','automotivo'],['Logística','logistica']],
+      religiao:      [['Evangélicos','evangelicos'],['Católicos','catolicos'],['Outras Religiões','outras'],['Fé & Sociedade','fe-sociedade'],['Missões','missoes'],['Família & Valores','familia']],
+      imoveis:       [['Compra & Venda','compra-venda'],['Aluguel','aluguel'],['Financiamento','financiamento'],['Minha Casa Minha Vida','mcmv'],['Fundos Imobiliários','fiis'],['Mercado Imobiliário','mercado']],
+      colunistas:    [['Roberto Terrasan','roberto-terrasan'],['Beta Ferreira','beta-ferreira'],['Adriana Ferreira','adriana-ferreira'],['Michele Froiz','michele-froiz'],['Coluna OVC','coluna-ovc'],['Prof. Pizzolatto','prof-marcos-pizzolatto']]
+    };
+    var subList = SUB_CATS[catFiltro] || [];
+    var navLinks = subList.map(function(c){
+      return '<a href="/'+catFiltro+'/?s='+c[1]+'" style="display:block;padding:7px 12px;font-size:12px;text-decoration:none;border-radius:6px;color:#475569;" onmouseover="this.style.color=''+acento+''" onmouseout="this.style.color='#475569'">'+c[0]+'</a>';
+    }).join('') || '<p style="font-size:12px;color:#94a3b8;padding:8px 12px;margin:0;">Em breve.</p>';
 
     orcMain.innerHTML =
       '<div style="background:linear-gradient(to bottom,#f1f5f9,var(--bg-page,#f3f4f8));padding:16px 16px 0;border-bottom:2px solid '+acento+';">'
