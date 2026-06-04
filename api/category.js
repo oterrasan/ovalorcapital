@@ -181,6 +181,18 @@ const CAT_SEO = {
     canonical: "https://www.ovalorcapital.com.br/colunistas/",
     tplPath: "colunistas",
   },
+  "brasil-on": {
+    title: "Brasil On | O Valor Capital",
+    desc: "Segurança pública, investigação jornalística, denúncias, defesa civil e variedades do Brasil real. O país sem filtro.",
+    canonical: "https://www.ovalorcapital.com.br/brasil-on/",
+    tplPath: "brasil-on",
+  },
+  carreira: {
+    title: "Carreira | O Valor Capital",
+    desc: "Vagas de emprego, concursos públicos, profissões em alta, educação e parcerias. Tudo para crescer na carreira e no mercado de trabalho.",
+    canonical: "https://www.ovalorcapital.com.br/carreira/",
+    tplPath: "carreira",
+  },
 };
 
 const SECTION_LABELS = {

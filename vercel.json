@@ -93,6 +93,8 @@
     { "src": "^/esg/?$",                    "dest": "/api/category?cat=esg" },
     { "src": "^/defesa/?$",                 "dest": "/api/category?cat=defesa" },
     { "src": "^/religiao/?$",               "dest": "/api/category?cat=religiao" },
+    { "src": "^/brasil-on/?$",              "dest": "/api/category?cat=brasil-on" },
+    { "src": "^/carreira/?$",              "dest": "/api/category?cat=carreira" },
     { "src": "^/colunistas/?$",             "dest": "/api/category?cat=colunistas" },
     { "src": "^/colunistas/([^/]+-[a-f0-9]{8})/?$", "dest": "/api/article?cat=colunistas&slug=$1" },
     { "src": "^/colunistas/([^/]+)/?$",      "dest": "/api/category?cat=colunistas&section=$1" },

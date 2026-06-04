@@ -20,7 +20,13 @@ const CAT_PATH = {
   investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
   profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
   imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
-  radar: "radar", vc: "colunistas", colunistas: "colunistas", geral: "politica"
+  radar: "radar", vc: "colunistas", colunistas: "colunistas", geral: "politica",
+  "brasil-on": "brasil-on", carreira: "carreira"
+};
+
+const CATEGORY_ALIASES = {
+  "brasil-on": ["seguranca", "investigativo", "variedades"],
+  "carreira": ["vagas", "concursos", "profissoes", "parcerias", "educacao"]
 };
 
 const VALID_CATS = new Set(Object.keys(CAT_PATH));
@@ -209,7 +215,14 @@ async function handleList(req, res) {
     .order("published_at", { ascending: false })
     .range(page * limit, (page + 1) * limit - 1);
 
-  if (categoria && categoria !== "all") q = q.like("user_tags", `%\"${categoria}\"%`);
+  if (categoria && categoria !== "all") {
+    const aliases = CATEGORY_ALIASES[categoria];
+    if (aliases) {
+      q = q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","));
+    } else {
+      q = q.like("user_tags", `%"${categoria}"%`);
+    }
+  }
   if (searchTerm) q = q.or(`titulo.ilike.%${escapeLike(searchTerm)}%,conteudo.ilike.%${escapeLike(searchTerm)}%`);
 
   const { data, error } = await q;
@@ -322,7 +335,8 @@ function normalizeCat(value) {
   if (!raw) return "";
   const s = slugify(raw).replace(/-/g, "");
   if (!s) return "";
-  const map = { politica: "politica", economica: "economia", negocio: "negocios", negocios: "negocios", tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", coluna: "colunistas", colunista: "colunistas", colunistas: "colunistas", saude: "saude", familia: "familia", fe: "religiao", religiao: "religiao", seguranca: "seguranca", segurancapublica: "seguranca", profissoes: "profissoes", vagas: "vagas" };
+  const map = { politica: "politica", economica: "economia", negocio: "negocios", negocios: "negocios", tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", coluna: "colunistas", colunista: "colunistas", colunistas: "colunistas", saude: "saude", familia: "familia", fe: "religiao", religiao: "religiao", seguranca: "seguranca", segurancapublica: "seguranca", profissoes: "profissoes", vagas: "vagas", brasillon: "brasil-on", brasilon: "brasil-on", brasilieon: "brasil-on", brasilnews: "brasil-on" };
+  if (raw === "brasil-on") return "brasil-on";
   return map[s] || s;
 }
 
