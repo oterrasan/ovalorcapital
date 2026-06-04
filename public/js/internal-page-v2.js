@@ -559,7 +559,42 @@
   document.addEventListener('DOMContentLoaded', function(){
     var slug = document.body.dataset.category;
     if(!slug) return;
-    if(slug === 'colunistas' || slug === 'vc') return;
+    if(slug === 'vc') return;
+    if(slug === 'colunistas'){
+      setTimeout(function(){
+        var m = document.querySelector('main.ovc-main');
+        if(!m) return;
+        injetarProgressBar('#1d4ed8');
+        var navCats2=[['colunistas','Colunistas'],['politica','Política'],['economia','Economia'],
+          ['brasil-on','Brasil On'],['negocios','Negócios'],['investimentos','Investimentos'],
+          ['tecnologia','Tecnologia'],['internacional','Internacional'],['saude','Saúde'],
+          ['esportes','Esportes'],['familia','Família'],['industria','Indústria'],
+          ['seguros','Seguros'],['tributos','Tributos'],['cultura','Cultura'],
+          ['religiao','Religião'],['carreira','Carreira'],['imoveis','Imóveis']];
+        var cAcc='#1d4ed8';
+        var navHtml=navCats2.map(function(c){
+          return '<a href="/'+c[0]+'/" style="display:block;padding:7px 12px;font-size:12px;text-decoration:none;border-radius:6px;'
+            +(c[0]==='colunistas'?'background:#f8fafc;color:'+cAcc+';font-weight:800;':'color:#475569;')+'">'+c[1]+'</a>';
+        }).join('');
+        var railEl=document.createElement('aside');
+        railEl.className='cat-rail-esq';
+        railEl.innerHTML='<div class="cat-bloco"><div class="cat-bloco-header">Seções</div><div style="padding:8px 4px;">'+navHtml+'</div></div>';
+        var kids=Array.from(m.children);
+        var centro=document.createElement('div');
+        centro.style.cssText='flex:1;min-width:0;';
+        kids.forEach(function(k){centro.appendChild(k);});
+        var wrap=document.createElement('div');
+        wrap.style.cssText='display:flex;gap:20px;align-items:start;padding:24px 24px 48px;width:100%;box-sizing:border-box;';
+        wrap.appendChild(railEl);
+        wrap.appendChild(centro);
+        var hdr=document.createElement('div');
+        hdr.innerHTML='<div style="background:linear-gradient(to bottom,#f1f5f9,var(--bg-page,#f3f4f8));padding:16px 16px 0;border-bottom:2px solid '+cAcc+';"><div style="display:flex;align-items:center;gap:12px;padding-bottom:14px;padding-left:8px;"><span style="background:'+cAcc+';color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">Colunistas</span><nav style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <span style="color:#64748b;font-weight:600;">Colunistas</span></nav></div></div>';
+        m.innerHTML='';
+        m.appendChild(hdr.firstChild);
+        m.appendChild(wrap);
+      },0);
+      return;
+    }
 
     var catFiltro = SLUG_TO_CAT[slug] || slug;
     var aliases = CATEGORY_ALIASES[catFiltro] || null;
