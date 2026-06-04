@@ -304,7 +304,7 @@
       background: var(--bg-header-top);
       padding: 6px 28px;
       display: grid;
-      grid-template-columns: auto 1fr;
+      grid-template-columns: auto 1fr auto;
       align-items: center;
       column-gap: 20px;
       border-bottom: 1px solid #111827;
