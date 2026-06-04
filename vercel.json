@@ -13,9 +13,6 @@
     }
   },
   "routes": [
-    { "src": "^/$",          "dest": "/api/portal-posts?format=home", "headers": { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } },
-    { "src": "^/index\\.html$", "dest": "/api/portal-posts?format=home" },
-
     { "src": "^/js/(.+)$",    "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/admin(.*)",   "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/inteligencia$","headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
