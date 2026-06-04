@@ -250,6 +250,14 @@ async function handleLiveData(res) {
   const brapiMap = {};
   for (const item of br?.results || []) brapiMap[item.symbol] = item;
 
+  const youtubeUrl = process.env.YOUTUBE_LIVE_URL || "";
+  const tvChannels = [
+    ...(youtubeUrl ? [{ label: "TV OVC", url: youtubeUrl, group: "ao vivo", kind: "embed" }] : []),
+    { label: "TV Câmara", url: "https://www.youtube.com/embed/live_stream?channel=UCcr3e8PiJTJDlLkwE_9vlqg", group: "institucional", kind: "embed" },
+    { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCccCfUCGP-6s8X6-_VQ8RFA", group: "institucional", kind: "embed" },
+    { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCcLvHFM2XLj2JqLwFAjpHUw", group: "pública", kind: "embed" },
+  ];
+
   return res.status(200).json({
     usd: aw?.USDBRL ? { valor: Number(aw.USDBRL.bid), variacao: Number(aw.USDBRL.pctChange) } : null,
     eur: aw?.EURBRL ? { valor: Number(aw.EURBRL.bid), variacao: Number(aw.EURBRL.pctChange) } : null,
@@ -260,6 +268,7 @@ async function handleLiveData(res) {
     dow: marketValue(brapiMap["^DJI"]),
     impostometro: impostometro(),
     ratePerSec: 114155,
+    tv: tvChannels,
     ts: Date.now()
   });
 }
