@@ -557,6 +557,31 @@
   }
 
   document.addEventListener('DOMContentLoaded', function(){
+    // Aplica tema salvo imediatamente
+    (function(){
+      var _t = localStorage.getItem('ovc-theme');
+      if(_t && ['classic','gold','graphite'].indexOf(_t) !== -1){
+        document.body.setAttribute('data-theme', _t);
+        document.documentElement.setAttribute('data-theme', _t);
+      }
+    })();
+    // Substitui nav antiga pelo novo supermenu-link
+    (function(){
+      var nav = document.querySelector('nav.supermenu');
+      if(!nav || !nav.querySelector('.supermenu-item')) return;
+      var path = window.location.pathname;
+      var items = [['Colunistas','/colunistas/'],['Política','/politica/'],['Economia','/economia/'],
+        ['Brasil On','/brasil-on/'],['Negócios','/negocios/'],['Investimentos','/investimentos/'],
+        ['Tecnologia','/tecnologia/'],['Internacional','/internacional/'],['Saúde','/saude/'],
+        ['Esportes','/esportes/'],['Família','/familia/'],['Indústria','/industria/'],
+        ['Seguros','/seguros/'],['Tributos','/tributos/'],['Cultura','/cultura/'],
+        ['Religião','/religiao/'],['Carreira','/carreira/'],['Imóveis','/imoveis/'],['VC','/vc/']];
+      nav.innerHTML = items.map(function(it){
+        var active = path === it[1] || path.startsWith(it[1].slice(0,-1)+'/');
+        return '<a class="supermenu-link'+(active?' ativo':'')+'" href="'+it[1]+'">'+it[0]+'</a>';
+      }).join('');
+    })();
+
     var slug = document.body.dataset.category;
     if(!slug) return;
     if(slug === 'vc') return;
@@ -755,43 +780,4 @@
       }).catch(function(){});
   });
 
-  document.addEventListener('DOMContentLoaded', function(){
-    var nav = document.querySelector('nav.supermenu');
-    if(!nav) return;
-    var maisItem = null;
-    nav.querySelectorAll('.supermenu-item').forEach(function(item){
-      var a = item.querySelector('a.label');
-      if(a && a.textContent.indexOf('Mais') !== -1) maisItem = item;
-    });
-    if(maisItem){
-      var profLink = maisItem.querySelector('a[href="/profissoes/"]');
-      if(profLink) profLink.remove();
-    }
-    var profItem = document.createElement('div');
-    profItem.className = 'supermenu-item';
-    profItem.innerHTML = '<a class="label" href="/profissoes/">Profissões</a><div class="submenu">'
-      +'<div class="submenu-title">Saúde</div>'
-      +'<a href="/profissoes/medicina/">Medicina</a><a href="/profissoes/enfermagem/">Enfermagem</a>'
-      +'<a href="/profissoes/odontologia/">Odontologia</a><a href="/profissoes/farmacia/">Farmácia</a>'
-      +'<a href="/profissoes/psicologia/">Psicologia</a><a href="/profissoes/fisioterapia/">Fisioterapia</a>'
-      +'<a href="/profissoes/nutricao/">Nutrição</a><a href="/profissoes/veterinaria/">Med. Veterinária</a>'
-      +'<a href="/profissoes/biomedicina/">Biomedicina</a><a href="/profissoes/fonoaudiologia/">Fonoaudiologia</a>'
-      +'<div class="submenu-title">Jurídico &amp; Finanças</div>'
-      +'<a href="/profissoes/direito/">Direito &amp; Advocacia</a><a href="/profissoes/contabilidade/">Contabilidade</a>'
-      +'<a href="/profissoes/administracao/">Administração</a><a href="/profissoes/economia/">Economia</a>'
-      +'<a href="/profissoes/auditoria/">Auditoria &amp; Compliance</a>'
-      +'<div class="submenu-title">Engenharia &amp; TI</div>'
-      +'<a href="/profissoes/engenharia-civil/">Eng. Civil &amp; Construção</a>'
-      +'<a href="/profissoes/arquitetura/">Arquitetura &amp; Urbanismo</a>'
-      +'<a href="/profissoes/engenharia-eletrica/">Eng. Elétrica &amp; Eletrônica</a>'
-      +'<a href="/profissoes/engenharia-quimica/">Eng. Química &amp; Materiais</a>'
-      +'<a href="/profissoes/ti/">TI &amp; Programação</a><a href="/profissoes/agronomia/">Agronomia &amp; Agro</a>'
-      +'<div class="submenu-title">Comunicação &amp; Educação</div>'
-      +'<a href="/profissoes/jornalismo/">Jornalismo</a><a href="/profissoes/publicidade/">Publicidade &amp; Propaganda</a>'
-      +'<a href="/profissoes/relacoes-publicas/">Relações Públicas</a><a href="/profissoes/pedagogia/">Pedagogia &amp; Docência</a>'
-      +'<a href="/profissoes/rh/">Recursos Humanos</a><a href="/profissoes/servico-social/">Serviço Social</a>'
-      +'</div>';
-    if(maisItem) nav.insertBefore(profItem, maisItem);
-    else nav.appendChild(profItem);
-  });
 })();
