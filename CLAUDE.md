@@ -142,6 +142,50 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 
 ---
 
+## 🚨❌ REGRA ZERO-G — NUNCA FAZER REVERT DE index.html PELA INTERFACE WEB DO GITHUB
+
+> **INCIDENTE 05/06/2026:** Roberto fez 3 commits de revert pela interface web do GitHub. Os deploys falharam e o arquivo `public/index.html` ficou corrompido: salvo como uma ÚNICA LINHA de texto base64 (`PCFET0NUWVBFIGh0bWw+...`) em vez de HTML real. Browser exibia texto base64 puro.
+
+```
+❌❌❌ PROIBIDO fazer revert ou edição de public/index.html pela interface web do GitHub
+❌❌❌ PROIBIDO fazer upload de arquivos HTML grandes pelo GitHub Web — pode base64-encodar
+❌❌❌ Se index.html precisar de revert: fazer via git local (git checkout <sha> -- public/index.html)
+❌❌❌ Sempre verificar após qualquer operação: head -c 20 public/index.html deve começar com <!DOCTYPE
+```
+
+**Como identificar arquivo corrompido:**
+- `wc -l public/index.html` retorna 0 ou 1 (arquivo de linha única)
+- Conteúdo começa com `PCFET0NUWVBFIGh0bWw+` (base64 de `<!DOCTYPE html>`)
+- Browser mostra texto base64 em vez de página
+
+**Fix quando corrompido:**
+```bash
+python3 -c "import base64; c=open('public/index.html').read().strip(); open('public/index.html','w').write(base64.b64decode(c+'==').decode('utf-8'))"
+```
+
+---
+
+## 🚨❌ REGRA ZERO-H — BRANCH PROTECTION EM main — NUNCA DESATIVAR
+
+> Roberto ativou esta proteção em 05/06/2026 após incidentes de PRs quebrando o portal.
+
+```
+❌❌❌ PROIBIDO desativar branch protection em main sem autorização explícita de Roberto
+❌❌❌ PROIBIDO fazer push direto para main — SEMPRE via PR com review
+❌❌❌ PROIBIDO fazer merge de PR que falhe no check "Verificar arquivos críticos" (portal-validate.yml)
+❌❌❌ NUNCA usar --force ou bypass nas proteções de branch
+```
+
+**Como está configurado:**
+- Branch `main` tem "Require status checks to pass before merging" ativado
+- Check obrigatório: "Verificar arquivos críticos" (`.github/workflows/portal-validate.yml`)
+- Para PRs do agente: sempre push para branch `claude/*`, criar PR, aguardar CI verde, então mergear
+
+**Regra nova a cada nova sessão:**
+> Após merge de PR em main, verificar se o `deploy.yml` rodou com sucesso (5 min) antes de reportar para Roberto. Se o site não atualizar: verificar GitHub Actions → se `deploy.yml` com erro → VERCEL_TOKEN pode estar expirado.
+
+---
+
 # ══════════════════════════════════════════════════════
 # 🚨 ALERTA VERCEL HOBBY PLAN
 # ══════════════════════════════════════════════════════
@@ -233,6 +277,8 @@ Fonte de receita única: Google AdSense / Google AdX.
 34. **`isRecente()` MÍNIMO 48h** — NUNCA reduzir para menos de 48h. Bug #50: regressão para 3h matou pipeline de madrugada. Bug #2 estabeleceu 48h como valor correto e definitivo.
 35. **`getNews()` NUNCA usar `.slice(0, N)` com N < 50 para fontes** — portal tem 1000+ fontes. Bug #50: limite de 10 causou conteúdo repetitivo. Usar .slice(0,100) para custom.
 36. **`run_portal.js` NUNCA fazer queries individuais por hash** — Bug #51: 300 queries sequenciais consumiam 30s do budget de 55s. Sempre usar batch `.in()` em chunks de 100 (3 queries no total para 300 hashes).
+37. **NUNCA fazer revert de `public/index.html` pela interface web do GitHub** — causa corrupção base64. Usar `git checkout <sha> -- public/index.html`. Ver Regra Zero-G (05/06/2026).
+38. **Branch protection em main é INVIOLÁVEL** — "Require status checks to pass" sempre ativo. Push direto para main proibido. SEMPRE via PR + CI verde. Ver Regra Zero-H (05/06/2026).
 
 ---
 
@@ -2008,3 +2054,53 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Pipeline ATIVO** — Roberto confirmou que o pipeline está rodando. NÃO assumir que está parado.
 4. **Instagram SSL** — `ovalorcapital.com.br` non-www falha no IAB do Instagram. Roberto precisa verificar certificado SSL no Vercel Dashboard.
 5. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Artigos novos não são pingados ao Google automaticamente.
+
+---
+
+### Sessão 05/06/2026 (continuação 3) — PR #110 + REGRAS ZERO-G E ZERO-H DOCUMENTADAS
+
+#### Contexto
+
+Continuação da sessão anterior. PR #110 (admin/index.html com categorias corrigidas) estava pendente de merge. Git push para main falhava com 403 — resolvido via cherry-pick no branch dev + criação de PR.
+
+---
+
+#### O que foi feito
+
+**Admin/index.html — PR #110 (mergeado em main, squash commit `4760bf2e`):**
+- `CATS_DISPONIVEIS`: 18 categorias com emojis e labels corretos
+- `SUBCATS`: subcategorias detalhadas por categoria (profissoes com 27 profissões, investimentos com 8 subcats, etc.)
+- `CATS_LIST`: 21 categorias incluindo `vc` e `colunistas` para o editor de posts
+- `SUBCATS_POST`: espelho de SUBCATS para o editor de posts com `vc:[]` e `colunistas:[]`
+- Categoria colunistas/vc → input de texto livre para nome do colunista (slug gerado automaticamente)
+- Supabase URL correto (`yntwvfcxjardzafdqanj`) nas linhas 128-129
+
+**Git workflow confirmado:**
+- Push direto para `main` → 403 via proxy local `127.0.0.1:43401`
+- Solução: push para branch `claude/jolly-davinci-J5Lcu`, criar PR, resolver conflitos via rebase, mergear
+- `git rebase origin/main` limpou automaticamente commits já em upstream
+
+**REGRA ZERO-G e ZERO-H:**
+- Adicionadas ao topo do CLAUDE.md (seção de regras invioláveis)
+- Adicionadas ao checklist REGRAS SAGRADAS como items 37 e 38
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🔧 Pendências para próxima sessão
+
+1. **Pipeline ATIVO** — Roberto confirmou que o pipeline está rodando. NÃO assumir que está parado.
+2. **Branch protection** — Roberto ativou `main` branch protection em 05/06/2026. Para PRs: push para `claude/*` branch, criar PR, aguardar CI verde, mergear.
+3. **Env var SUPABASE_KEY no Vercel** — ainda aponta para banco morto. Roberto deve deletar `SUPABASE_KEY` do projeto `ovalorcapital-xuhw` (ou atualizar para o novo valor). Código já usa hardcoded como fallback.
+4. **Instagram SSL** — `ovalorcapital.com.br` non-www falha no IAB do Instagram. Roberto verifica no Vercel Dashboard.
+5. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Artigos novos não são pingados automaticamente.
+6. **Portal audit** — Roberto pediu auditoria completa de páginas quebradas/lixo. Pendente de autorização para executar.
+7. **Outros ajustes admin** — Roberto disse "preciso que voce ajuste outras coisas". Confirmar o que especificamente ao retomar.
