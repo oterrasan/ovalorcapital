@@ -99,6 +99,7 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 ❌❌❌ PROIBIDO usar agentes/subagents para push de arquivos HTML críticos (eles podem enviar base64 em vez de HTML)
 ❌❌❌ PROIBIDO resolver merge conflict em public/index.html automaticamente — sempre revisar manualmente
 ❌❌❌ PROIBIDO deixar qualquer arquivo crítico com conteúdo inválido no main, mesmo por 1 minuto
+❌❌❌ PROIBIDO usar agentes/subagents para push de public/admin/index.html (3362 linhas — trunca para 998)
 ```
 
 **Arquivos críticos que NUNCA podem ser corrompidos em main:**
@@ -1890,9 +1891,120 @@ Roberto reportou números de indexação do Google completamente parados há 2 d
 - `api/article.js`: Chave trocada de publishable para `process.env.SUPABASE_KEY || "JWT_service_role"`
 - `api/portal-posts.js`: Mesma correção de chave
 
+**⚠️ ATENÇÃO:** A mudança de chave em article.js e portal-posts.js para `process.env.SUPABASE_KEY || JWT` foi problemática porque a env var `SUPABASE_KEY` no Vercel ainda apontava para o banco morto. Isso causou nova queda do portal. Ver sessão seguinte.
+
 #### Estado de api/ — 10 ARQUIVOS ✅
 
 ```
 article.js  category.js  ig-handler.js  institutional.js  landing.js
 live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ```
+
+---
+
+### Sessão 05/06/2026 — PORTAL OFFLINE + ADMIN OFFLINE + SISTEMA DE SEGURANÇA
+
+#### Contexto
+
+Continuação. Portal continuava fora do ar mesmo após PR #108. Admin também estava fora do ar.
+
+---
+
+#### Root cause #1 — Portal offline após PR #108
+
+PR #108 (commit `ff8bee0e`) mudou `api/portal-posts.js` e `api/article.js` para usar `process.env.SUPABASE_KEY || "JWT_service_role"`. O problema: a env var `SUPABASE_KEY` no Vercel Dashboard ainda apontava para o banco MORTO (`bfsegqdgscudtdgwdyci`). Como a env var existia, ela "ganhava" do fallback hardcoded — mas era a chave do banco morto. Todas as queries falhavam silenciosamente.
+
+**Fix (commit `03c91ea4` — direto em main):**
+- `api/portal-posts.js` linha 6: hardcoded `const SUPABASE_KEY = "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf";`
+- `api/article.js` linha 6: mesmo fix
+
+**Lição:** NUNCA usar `process.env.SUPABASE_KEY || fallback` enquanto a env var do Vercel existir com valor inválido. Ou hardcode direto, ou remover a env var velha do Vercel Dashboard.
+
+---
+
+#### Root cause #2 — Admin offline (duplo problema)
+
+**Problema A:** `public/admin/index.html` ainda apontava para banco MORTO (`bfsegqdgscudtdgwdyci`) em dois lugares:
+- Linha 129-131: `SUPABASE_URL` + `SUPABASE_ANON`
+- Linha 2164-2165: `SUPA_URL` + `SUPA_KEY` (componente Galeria)
+
+**Problema B:** Um agente foi usado para fazer push do admin/index.html corrigido — o agente leu apenas os primeiros ~500 linhas (limite default da ferramenta Read) e empurrou 998 linhas em vez de 3362. Admin completamente quebrado.
+
+**Fix (commit `ce02aad` — via git direto em main):**
+```bash
+git fetch origin main
+git checkout -b temp-admin-fix origin/main
+git checkout claude/jolly-davinci-J5Lcu -- public/admin/index.html
+git add public/admin/index.html
+git commit -m "fix: admin restaurado com 3362 linhas — corrige truncamento do push anterior"
+git push origin temp-admin-fix:main
+```
+Resultado: `2365 insertions(+), 2 deletions(-)` — arquivo completo de 3362 linhas com banco correto.
+
+---
+
+#### 🚨 NOVA REGRA — NUNCA usar agente/subagente para push de public/admin/index.html
+
+Adicionado à REGRA ZERO-E (e repetido aqui para ênfase):
+```
+❌❌❌ PROIBIDO usar agentes/subagents para push de public/admin/index.html (3362 linhas — trunca para 998)
+❌❌❌ Para corrigir admin/index.html: SEMPRE usar git checkout <branch> -- public/admin/index.html
+```
+
+---
+
+#### Sistema de segurança implementado (Roberto pediu explicitamente)
+
+**`.github/workflows/portal-validate.yml` (NOVO):**
+- Roda em todo PR para main ANTES do merge
+- Verifica: `public/index.html` ≥700 linhas + começa com `<!DOCTYPE html>`
+- Verifica: `api/` ≤10 arquivos
+- Verifica: nenhum arquivo com referência ao banco morto (`bfsegqdgscudtdgwdyci`)
+- Verifica: `vercel.json` é JSON válido
+- **Bloqueia o merge se qualquer verificação falhar**
+
+**`.github/workflows/portal-smoke-test.yml` (NOVO):**
+- Roda após todo push para main (aguarda 3 minutos o deploy do Vercel)
+- Faz GET na homepage — verifica HTTP 200, sem placeholder "Em breve", tem "O Valor Capital"
+- Faz GET na `/politica/` — verifica que carregou corretamente
+- **Abre issue automática no GitHub se o portal cair após um deploy**
+
+**Branch protection (MANUAL — Roberto precisa fazer):**
+Ir em `github.com/oterrasan/ovalorcapital/settings/branches` → Add rule → branch `main` → "Require status checks to pass before merging" → selecionar "Verificar arquivos críticos" → "Do not allow bypassing" → Save changes.
+
+---
+
+#### Bug #58 — admin/index.html truncado por agente
+
+| # | Bug | Arquivo | Quando |
+|---|-----|---------|--------|
+| 58 | **CRÍTICO — `public/admin/index.html` truncado para 998 linhas por agente** — agente leu apenas 500 primeiras linhas e empurrou arquivo incompleto de 998 linhas em vez de 3362. Admin completamente offline. Fix: git checkout do branch correto | `public/admin/index.html` restaurado via git — commit `ce02aad` | 05/06/2026 |
+
+---
+
+#### Commits desta sessão
+
+| Commit | Descrição |
+|---|---|
+| `03c91ea4` | portal-posts.js + article.js — hardcoded publishable key (bypass env var morta) |
+| `f4794a00` | portal-validate.yml + portal-smoke-test.yml — sistema de segurança |
+| `ce02aad` | admin/index.html restaurado completo (3362 linhas) + banco novo correto |
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🔧 Pendências para próxima sessão
+
+1. **Branch protection MANUAL** — Roberto precisa ativar em `github.com/oterrasan/ovalorcapital/settings/branches`. Sem isso, a validação pré-merge não bloqueia automaticamente.
+2. **Env var SUPABASE_KEY no Vercel** — ainda aponta para banco morto. Roberto deve atualizar ou deletar a env var `SUPABASE_KEY` no projeto `ovalorcapital-xuhw` para evitar confusão futura com fallbacks.
+3. **Pipeline ATIVO** — Roberto confirmou que o pipeline está rodando. NÃO assumir que está parado.
+4. **Instagram SSL** — `ovalorcapital.com.br` non-www falha no IAB do Instagram. Roberto precisa verificar certificado SSL no Vercel Dashboard.
+5. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Artigos novos não são pingados ao Google automaticamente.
