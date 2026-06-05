@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
+const SUPABASE_KEY = "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const BASE = "https://www.ovalorcapital.com.br";
@@ -46,7 +46,7 @@ let _templateCache = null;
 function getHomeTemplate() {
   if (_templateCache) return _templateCache;
   let html = readFileSync(join(process.cwd(), "public", "index.html"), "utf8");
-  html = html.replace(/<link href="data:image\/png;base64,[^"]{100,}" rel="icon"\/>/, '<link rel="icon" href="/favicon.png" type="image/png">');
+  html = html.replace(/<link href="data:image\/png;base64,[^"]{100,}" rel="icon"\/>/,  '<link rel="icon" href="/favicon.png" type="image/png">');
   _templateCache = html;
   return _templateCache;
 }
@@ -411,7 +411,7 @@ function slugify(value) {
   return String(value || "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-")
