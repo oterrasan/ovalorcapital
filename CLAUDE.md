@@ -1861,7 +1861,38 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 #### 🔧 Pendências para próxima sessão
 
-1. **Pipeline parado** — NÃO religar sem autorização explícita de Roberto.
+1. **Pipeline ATIVO** — Roberto confirmou que o pipeline está rodando. NÃO assumir que está parado.
 2. **Instagram SSL** — `ovalorcapital.com.br` non-www falha no IAB do Instagram. Roberto precisa verificar certificado SSL no Vercel Dashboard para o domínio sem www.
-3. **Rotas vercel.json** (commit ISOLADO — REGRA ZERO-F): `/brasil-on/` e `/carreira/` já têm templates mas faltam rotas no vercel.json (embora já existam rotas adicionadas em sessão anterior — verificar).
-4. **Pipeline parado** — aguardar autorização de Roberto para religar.
+3. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` não configurada no Vercel. Sem ela, artigos novos só são descobertos pelo crawl orgânico do Google (pode levar dias). Roberto precisa adicionar a service account JSON do Google Cloud no Vercel Dashboard.
+4. **Artigos pendentes** — Sitemap só mostra `status='publicado'`. Aprovar artigos via admin → Postagens → filtro 'pendente' para aumentar cobertura do sitemap.
+
+---
+
+### Sessão 05/06/2026 — DIAGNÓSTICO INDEXAÇÃO GOOGLE + FIX CRÍTICO category.js
+
+#### Contexto
+
+Roberto reportou números de indexação do Google completamente parados há 2 dias. Pediu diagnóstico e correção.
+
+#### Root causes identificados
+
+1. **CRÍTICO — Double-encoding UTF-8 em `api/category.js`**: Todos os 27 entries de `CAT_SEO` (títulos e descrições das páginas de categoria) estavam com caracteres portugueses corrompidos — `Ã­nternacional`, `PolÃ­tica`, `EducaÃ§Ã£o` etc. O Googlebot recebia títulos garbled em TODAS as páginas de categoria, destruindo CTR e classificação.
+
+2. **Chave Supabase errada em `api/article.js` e `api/portal-posts.js`**: Ambos usavam a chave publishable (`sb_publishable_3SXiMraMn_...`) em vez da service_role JWT. Com RLS ativo no Supabase, queries podiam falhar silenciosamente e retornar 404 para artigos existentes.
+
+3. **Google Indexing API não configurada** (problema existente, não fixável por código): `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Artigos novos não são pingados ao Google automaticamente.
+
+4. **Sitemap esparso** (problema estrutural): Sitemap só inclui artigos `status='publicado'`. Artigos pendentes não aparecem.
+
+#### O que foi corrigido (PR #108 — mergeado em main, commit `ff8bee0e`)
+
+- `api/category.js`: Todos os 27 entries `CAT_SEO` corrigidos — encoding double-UTF8 resolvido via `encode('latin-1').decode('utf-8')`
+- `api/article.js`: Chave trocada de publishable para `process.env.SUPABASE_KEY || "JWT_service_role"`
+- `api/portal-posts.js`: Mesma correção de chave
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
