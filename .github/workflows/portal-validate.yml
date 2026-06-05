@@ -1,0 +1,81 @@
+name: Validar antes de merge
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Verificar arquivos críticos
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: index.html — mínimo 700 linhas
+        run: |
+          LINES=$(wc -l < public/index.html)
+          echo "public/index.html tem $LINES linhas"
+          if [ "$LINES" -lt 700 ]; then
+            echo "❌ BLOQUEADO: public/index.html tem $LINES linhas (mínimo 700)"
+            echo "O portal ficará offline com este arquivo!"
+            exit 1
+          fi
+          echo "✅ OK"
+
+      - name: index.html — não pode ser base64 ou estar corrompido
+        run: |
+          FIRST=$(head -c 15 public/index.html)
+          if [ "$FIRST" != "<!DOCTYPE html>" ]; then
+            echo "❌ BLOQUEADO: public/index.html não começa com <!DOCTYPE html>"
+            echo "Arquivo pode estar corrompido (base64 ou vazio)"
+            echo "Início detectado: $FIRST"
+            exit 1
+          fi
+          echo "✅ OK"
+
+      - name: api/ — máximo 10 arquivos (limite Vercel Hobby)
+        run: |
+          COUNT=$(ls api/*.js 2>/dev/null | wc -l)
+          echo "api/ tem $COUNT arquivo(s)"
+          if [ "$COUNT" -gt 10 ]; then
+            echo "❌ BLOQUEADO: api/ tem $COUNT arquivos (máximo 10)"
+            echo "O deploy vai quebrar silenciosamente no Vercel Hobby!"
+            exit 1
+          fi
+          echo "✅ OK"
+
+      - name: Supabase — nenhum arquivo pode apontar para banco morto
+        run: |
+          DEAD="bfsegqdgscudtdgwdyci.supabase.co"
+          FAILED=0
+
+          for FILE in api/portal-posts.js api/article.js api/manage.js api/category.js api/run_portal.js public/admin/index.html; do
+            if [ -f "$FILE" ]; then
+              if grep -q "$DEAD" "$FILE"; then
+                echo "❌ $FILE aponta para o banco MORTO ($DEAD)"
+                FAILED=1
+              else
+                echo "✅ $FILE OK"
+              fi
+            fi
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "BLOQUEADO: um ou mais arquivos estão conectados ao banco antigo."
+            echo "O portal ou admin vão falhar silenciosamente!"
+            exit 1
+          fi
+
+      - name: vercel.json — deve ser JSON válido
+        run: |
+          if ! python3 -c "import json; json.load(open('vercel.json'))" 2>&1; then
+            echo "❌ BLOQUEADO: vercel.json não é JSON válido"
+            echo "O deploy vai falhar completamente!"
+            exit 1
+          fi
+          echo "✅ vercel.json OK"
+
+      - name: Resumo final
+        run: echo "✅ Todos os checks passaram — seguro para merge."
