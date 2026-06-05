@@ -374,6 +374,23 @@ OVC.normalizeInnerLayout = function(){
 
 (function(){
   const s = document.createElement('style');
-  s.textContent = '.header-identity{padding:6px 28px!important;column-gap:20px!important}.logo-mark{height:42px!important}.search-input{padding:6px 16px 6px 34px!important}.header-menu-bar{padding:5px 28px 6px!important}.logo-block .logo-link{text-decoration:none!important;color:inherit!important;display:flex!important;align-items:center!important;gap:14px!important}';
+  s.textContent = '.header-identity{padding:6px 28px!important;column-gap:20px!important}.logo-mark{height:42px!important}.search-input{padding:6px 16px 6px 34px!important}.header-menu-bar{padding:5px 28px 6px!important}.logo-block .logo-link{text-decoration:none!important;color:inherit!important;display:flex!important;align-items:center!important;gap:14px!important}'
+  + '.ovc-theme-panel{display:none;position:fixed;bottom:70px;right:16px;z-index:9999;background:#0f172a;border:1px solid rgba(148,163,184,0.3);border-radius:12px;padding:8px;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,0.6)}'
+  + '.ovc-theme-panel.is-open{display:flex;flex-direction:column;gap:4px}'
+  + '.ovc-theme-choice{background:transparent;border:1px solid transparent;border-radius:8px;color:#cbd5e1;cursor:pointer;padding:8px 12px;text-align:left;display:flex;flex-direction:column;gap:2px}'
+  + '.ovc-theme-choice:hover{background:rgba(148,163,184,0.15);border-color:rgba(148,163,184,0.3)}'
+  + '.ovc-theme-choice strong{font-size:13px;color:#f1f5f9;display:block}.ovc-theme-choice span{font-size:10px;color:#94a3b8;display:block}';
   document.head.appendChild(s);
+})();
+
+// Impostômetro independente — não depende de API
+(function(){
+  var start = new Date(new Date().getFullYear(), 0, 1).getTime();
+  var rate = 114155;
+  var fmt = function(v){ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v); };
+  function tick(){ var val = Math.max(0,Math.floor((Date.now()-start)/1000))*rate; document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmt(val); }); }
+  document.addEventListener('DOMContentLoaded', function(){
+    tick();
+    if(!window.__ovcImpostTicker){ window.__ovcImpostTicker = setInterval(tick, 1000); }
+  });
 })();
