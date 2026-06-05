@@ -1780,3 +1780,88 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Templates HTML novos**: `public/brasil-on/index.html`, `public/carreira/index.html`
 3. **Aplicar `.cat-corpo`** nos templates de categoria existentes para ativar layout 3 colunas
 4. **Pipeline parado** — NÃO religar sem autorização explícita de Roberto.
+
+---
+
+### Sessão 05/06/2026 — FIXES HEADER/TEMA/IMPOSTÔMETRO + INCIDENTE CRÍTICO index.html BASE64
+
+---
+
+#### PRs #105 e #106 (sessão anterior continuada)
+
+**PR #105 — Fix homepage header layout:**
+- `public/index.html`: `search-block` restaurado como coluna central do grid `header-identity` (fora de `header-actions`)
+- Header homepage agora idêntico ao das páginas de categoria: `logo-block | search+chips | ACESSO+Newsletter+Tema`
+
+**PR #106 — Fix impostômetro e tema em todas as páginas:**
+- `public/js/site.js`: adicionada IIFE que injeta CSS do `.ovc-theme-panel` (painel de tema era invisível — não tinha CSS base, só media query em home.css)
+- `public/js/site.js`: adicionada IIFE independente para impostômetro — calcula localmente sem depender de API, funciona em todas as páginas
+- Squash merge em main — commit `a02afb1c`, deploy sucesso às 01:20 UTC
+
+**Nota: Vercel free plan 100 deployments/day limit** — atingido em 04/06. PRs ficaram em main sem deploy até o reset à meia-noite UTC de 05/06.
+
+---
+
+#### 🚨🚨🚨 INCIDENTE CRÍTICO — public/index.html CORROMPIDO COMO BASE64
+
+**O que aconteceu (04/06/2026, 22:38 UTC):**
+Roberto fez 3 commits de revert diretamente na interface web do GitHub ("REVERT: restaura index.html completo 293KB"). Os deploys desses commits FALHARAM. Mas o arquivo `public/index.html` no repositório ficou corrompido: foi salvo como uma única linha de texto base64 (`PCFET0NUWVBFIGh0bWw+...`) em vez de HTML real.
+
+**Causa provável:** A interface web do GitHub (ou a ferramenta usada para fazer o revert) codificou o arquivo em base64 ao fazer o upload. Resultado: Vercel servia o arquivo como texto puro com conteúdo base64 — exatamente o que Roberto via no browser.
+
+**Como diagnosticar:**
+```bash
+wc -l public/index.html   # retorna 0 — arquivo de linha única
+head -c 20 public/index.html  # retorna PCFET0NUWVBFIGh0bWw+
+```
+
+**Fix aplicado (PR #107 — hotfix — commit `2d19b266`, mergeado 05/06 01:34 UTC):**
+```python
+import base64
+content = open('public/index.html').read().strip()
+decoded = base64.b64decode(content + '==').decode('utf-8')
+open('public/index.html', 'w').write(decoded)
+# Resultado: 515 linhas de HTML válido, começa com <!DOCTYPE html>
+```
+
+---
+
+#### 🚨 NOVA REGRA CRÍTICA — REGRA ZERO-G — NUNCA FAZER REVERT DE index.html PELA INTERFACE WEB DO GITHUB
+
+```
+❌❌❌ PROIBIDO fazer revert ou edição de public/index.html pela interface web do GitHub
+❌❌❌ PROIBIDO fazer upload de arquivos HTML grandes pelo GitHub Web — pode base64-encodar
+❌❌❌ Se index.html precisar de revert: fazer via git local (git checkout <sha> -- public/index.html)
+❌❌❌ Sempre verificar após qualquer operação: head -c 20 public/index.html deve começar com <!DOCTYPE
+```
+
+**Como identificar arquivo corrompido:**
+- `wc -l public/index.html` retorna 0 ou 1
+- Conteúdo começa com `PCFET0NUWVBFIGh0bWw+` (base64 de `<!DOCTYPE html>`)
+- Browser mostra texto base64 em vez de página
+
+---
+
+#### Adicionado à lista de Bugs Corrigidos
+
+| # | Bug | Arquivo | Quando |
+|---|-----|---------|--------|
+| 57 | **CRÍTICO — `public/index.html` corrompido como base64** — revert via GitHub Web codificou arquivo como base64 puro (linha única), browser exibia `PCFET0NUWVBFIGh0bWw+` | `public/index.html` decodificado + PR #107 | 05/06/2026 |
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🔧 Pendências para próxima sessão
+
+1. **Pipeline parado** — NÃO religar sem autorização explícita de Roberto.
+2. **Instagram SSL** — `ovalorcapital.com.br` non-www falha no IAB do Instagram. Roberto precisa verificar certificado SSL no Vercel Dashboard para o domínio sem www.
+3. **Rotas vercel.json** (commit ISOLADO — REGRA ZERO-F): `/brasil-on/` e `/carreira/` já têm templates mas faltam rotas no vercel.json (embora já existam rotas adicionadas em sessão anterior — verificar).
+4. **Pipeline parado** — aguardar autorização de Roberto para religar.
