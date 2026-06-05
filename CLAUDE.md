@@ -2104,3 +2104,86 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 5. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Artigos novos não são pingados automaticamente.
 6. **Portal audit** — Roberto pediu auditoria completa de páginas quebradas/lixo. Pendente de autorização para executar.
 7. **Outros ajustes admin** — Roberto disse "preciso que voce ajuste outras coisas". Confirmar o que especificamente ao retomar.
+
+---
+
+### Sessão 05/06/2026 (continuação 4) — NAV SUBCATEGORIAS + ADMIN TAXONOMY
+
+---
+
+#### Contexto
+
+Roberto pediu: "garanta agora que todas as subcategorias estejam presentes nas páginas internas e apareçam de forma correta." A taxonomia definitiva de 19 categorias (nav) e 17 categorias (pipeline) foi consolidada e aplicada em toda a base de código.
+
+---
+
+#### O que foi feito
+
+**PR #116 — Subcategorias definitivas em todas as 18 páginas de categoria (mergeado em main):**
+
+Todas as 18 páginas HTML (`public/index.html` + 17 pages de categoria) foram atualizadas via script Python com:
+- Supermenu com 19 itens em ordem: `Brasil On → Política → Economia → Investimentos → Negócios → Tecnologia → Internacional → Saúde → Tributos → Carreira → Imóveis → Seguros → Indústria → Família → Esportes → Cultura → Religião → Colunistas → VC`
+- Submenus de subcategorias corretos por categoria (substituindo menus antigos ou incompletos)
+- Template consistente em todas as páginas
+
+**PR #117 — Admin SUBCATS/CATS_LIST alinhados com nova taxonomia (mergeado em main):**
+
+`public/admin/index.html` atualizado com:
+- `CATS_DISPONIVEIS`: 17 categorias (sem `profissoes`) em ordem correta da nav
+- `SUBCATS`: subcategorias definitivas para todas as 17 categorias (alinhadas com os submenus da nav)
+- `CATS_LIST`: 20 itens incluindo `vc` e `colunistas`
+- `SUBCATS_POST`: espelho de `SUBCATS` para o editor de posts + `vc:[]` + `colunistas:[]`
+- `portal-validate.yml`: trigger `workflow_dispatch` adicionado (para testes manuais de CI)
+
+**Nota importante — limitação de CI neste ambiente:**
+O proxy git local (`http://127.0.0.1:46545`) NÃO repassa eventos `pull_request:synchronize` ao GitHub Actions. Isso significa que `portal-validate.yml` não é disparado automaticamente quando novos commits são feitos num PR neste ambiente de execução remota. O merge dos PRs foi possível porque o `mergeable_state` estava `clean` no GitHub após rebase.
+
+---
+
+#### Taxonomia de categorias — versão definitiva (05/06/2026)
+
+**Nav (19 categorias):**
+```
+Brasil On → Política → Economia → Investimentos → Negócios → Tecnologia →
+Internacional → Saúde → Tributos → Carreira → Imóveis → Seguros →
+Indústria → Família → Esportes → Cultura → Religião → Colunistas → VC
+```
+
+**Pipeline (17 categorias — exclui Colunistas e VC):**
+```
+brasil-on, politica, economia, investimentos, negocios, tecnologia,
+internacional, saude, tributos, carreira, imoveis, seguros, industria,
+familia, esportes, cultura, religiao
+```
+
+**Consolidações desta taxonomia:**
+- `mercados` → `investimentos`
+- `educacao` + `vagas` + `profissoes` + `concursos` → `carreira`
+- `regulacao` + `tributacao` → `tributos`
+- `seguranca` + `investigativo` + `variedades` + `defesa` → `brasil-on`
+- `parcerias` → `negocios` / `vc`
+- `imoveis` = antigo `imobiliario` (mantido slug `imoveis`)
+- `esg` → absorvido por `brasil-on` ou `economia`
+- `profissoes` **REMOVIDA** como categoria standalone
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🔧 Pendências para próxima sessão
+
+1. **Pipeline ATIVO** — Roberto confirmou que o pipeline está rodando.
+2. **api/category.js CAT_SEO** — Entradas SEO (título, descrição) para as novas categorias `brasil-on`, `carreira`, `tributos` ainda estão desatualizadas. Aguardando autorização de Roberto.
+3. **api/run_portal.js + core/rss.js** — Pipeline ainda usa categorias antigas (sem `brasil-on`, `carreira`, `tributos`). Atualizar mapeamento de categorias para o novo schema. Aguardando autorização.
+4. **Cards de destaque (homepage)** — Podem estar mostrando artigos de categorias antigas. Verificar após pipeline gerar artigos nas novas categorias.
+5. **Env var SUPABASE_KEY no Vercel** — ainda aponta para banco morto. Roberto deve deletar ou atualizar.
+6. **Instagram SSL** — `ovalorcapital.com.br` non-www falha no IAB do Instagram.
+7. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel.
+8. **NUNCA pedir chave OpenAI** — está na seção 16 e hardcoded no `core/ai_portal.js`.
