@@ -10,3 +10,990 @@
 <script src="/api/manage?action=vendor_js&name=babel"></script>
 <script src="/api/manage?action=vendor_js&name=supabase"></script>
 <script src="/api/manage?action=vendor_js&name=html2canvas"></script>
+<style>
+:root{--bg:#08080f;--card:#0f0f1a;--sidebar:#0a0a14;--input:#111120;--border:rgba(255,255,255,0.06);--bh:rgba(255,255,255,0.12);--red:#c81e1e;--red-h:#e02222;--red-s:rgba(200,30,30,0.08);--yellow:#ffc800;--green:#16a34a;--green-s:rgba(22,163,74,0.15);--red-s2:rgba(200,30,30,0.15);--yellow-s:rgba(255,200,0,0.15);--orange:#e85d00;--t1:#f1f1f1;--t2:#888;--t3:#555;--font:'Inter',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(200,30,30,0.06) 0%,transparent 70%)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.6)}
+.login-logo{text-align:center;margin-bottom:8px}
+.login-logo .ovc{font-size:22px;font-weight:700;color:var(--t1);letter-spacing:.08em}
+.login-logo .accent{color:var(--red)}
+.login-tag{text-align:center;font-size:11px;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:36px}
+.login-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:6px}
+.login-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--t1);font-size:14px;outline:none;transition:border .15s}
+.login-input:focus{border-color:var(--red)}
+.login-btn{width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .15s}
+.login-btn:hover{background:var(--red-h)}
+.layout{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo .name{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--t1)}
+.sidebar-logo .name .a{color:var(--red)}
+.sidebar-logo .sub{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+.nav{padding:12px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;color:var(--t2);font-size:13px;font-weight:500;transition:all .15s;border-left:2px solid transparent}
+.nav-item:hover{color:var(--t1);background:rgba(255,255,255,0.03)}
+.nav-item.active{color:var(--t1);background:rgba(200,30,30,0.08);border-left-color:var(--red)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.sidebar-footer .ver{font-size:11px;color:var(--t3)}
+.logout-btn{background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px;margin-top:8px}
+.logout-btn:hover{color:var(--t1)}
+.main{flex:1;overflow-y:auto;background:var(--bg)}
+.page-header{padding:28px 32px 0;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px}
+.page-title{font-size:20px;font-weight:700}
+.page-sub{font-size:13px;color:var(--t2);margin-top:3px}
+.page-body{padding:0 32px 32px}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:20px;overflow:hidden}
+.panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:13px;font-weight:600;color:var(--t1)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative}
+.metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);margin-bottom:8px}
+.metric-value{font-size:28px;font-weight:700;color:var(--t1)}
+.metric-icon{position:absolute;top:20px;right:20px;font-size:20px;opacity:.4}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:var(--green-s);color:#4ade80}
+.badge-red{background:var(--red-s2);color:#f87171}
+.badge-yellow{background:var(--yellow-s);color:var(--yellow)}
+.badge-gray{background:rgba(255,255,255,0.06);color:var(--t2)}
+.badge-orange{background:rgba(232,93,0,0.15);color:#fb923c}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:500;border:none;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--red);color:#fff}.btn-primary:hover{background:var(--red-h)}
+.btn-secondary{background:rgba(255,255,255,0.06);color:var(--t1);border:1px solid var(--border)}.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#15803d}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.gap-8{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 16px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.text-secondary{color:var(--t2)}
+.text-small{font-size:12px}
+.loading{padding:40px;text-align:center;color:var(--t2)}
+.empty-state{padding:48px;text-align:center}
+.empty-icon{font-size:32px;margin-bottom:8px;opacity:.4}
+.empty-text{color:var(--t2);font-size:13px}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.status-pendente{background:var(--yellow-s);color:var(--yellow)}.status-pendente .dot{background:var(--yellow)}
+.status-success{background:var(--green-s);color:#4ade80}.status-success .dot{background:#4ade80}
+.status-error{background:var(--red-s2);color:#f87171}.status-error .dot{background:#f87171}
+.status-duplicate{background:rgba(255,255,255,0.06);color:var(--t2)}.status-duplicate .dot{background:var(--t2)}
+.status-scheduled{background:rgba(59,130,246,0.15);color:#60a5fa}.status-scheduled .dot{background:#60a5fa}
+.pagination{padding:12px 16px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--border)}
+.pagination-info{font-size:12px;color:var(--t2);flex:1}
+.toggle-wrap{display:flex;align-items:center;gap:10px}
+.toggle{position:relative;width:40px;height:22px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:rgba(255,255,255,0.1);border-radius:22px;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.toggle-slider{background:var(--red)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(18px)}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.form-input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;transition:border .15s}
+.form-input:focus{border-color:var(--red)}
+.form-select{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none}
+.form-textarea{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13px;outline:none;resize:vertical;min-height:120px;font-family:var(--font)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto}
+.modal-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:15px;font-weight:600}
+.modal-body{padding:24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.preview-card{background:#0a0a14;border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:360px}
+.preview-img{width:100%;aspect-ratio:4/5;object-fit:cover;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:12px}
+.preview-caption{padding:12px;font-size:12px;color:var(--t2);line-height:1.5;white-space:pre-wrap;max-height:120px;overflow-y:auto}
+.alert-banner{background:rgba(200,30,30,0.1);border:1px solid rgba(200,30,30,0.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.alert-banner.yellow{background:var(--yellow-s);border-color:rgba(255,200,0,0.3)}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-left:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.suggestion-card{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.perf-bar{height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin-top:4px}
+.perf-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const SUPABASE_URL = 'https://yntwvfcxjardzafdqanj.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const ADMIN_PASS = 'ovc-admin-2026-secreto';
+
+const fmt = d => { if(!d) return '—'; const dt = new Date(d); return dt.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); };
+const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
+const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
+
+// ── LOGIN ──
+function Login({ onLogin }) {
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const submit = () => {
+    if (pass === ADMIN_PASS) { onLogin(); }
+    else setErr('Senha incorreta');
+  };
+  return (
+    <div className="login-wrap">
+      <div className="login-box">
+        <div className="login-logo"><span className="ovc">O <span className="accent">VALOR</span> CAP.</span></div>
+        <div className="login-tag">Centro de Comando</div>
+        <div className="form-group">
+          <label className="login-label">Senha</label>
+          <input className="login-input" type="password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()} autoFocus/>
+        </div>
+        {err && <div style={{color:'#f87171',fontSize:12,marginTop:4}}>{err}</div>}
+        <button className="login-btn" onClick={submit}>Entrar</button>
+      </div>
+    </div>
+  );
+}
+
+// ── DASHBOARD ──
+function Dashboard() {
+  const [status, setStatus] = useState({running:false,posts_hoje:0,max_posts:300,pendentes:0});
+  const [posts, setPosts] = useState([]);
+  const [cats, setCats] = useState([]);
+  const [cotacoes, setCotacoes] = useState(null);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  const [aprovando, setAprovando] = useState(null);
+
+  const load = useCallback(async () => {
+    try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
+    const { data: p } = await sb.from('posts').select('id,titulo,status,approved,imagem,user_tags,created_at,published_at').order('created_at',{ascending:false}).limit(15);
+    setPosts(p||[]);
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const { data: hp } = await sb.from('posts').select('user_tags').gte('created_at', hoje.toISOString());
+    const cc = {}; (hp||[]).forEach(x=>{ try{JSON.parse(x.user_tags||'[]').forEach(t=>cc[t]=(cc[t]||0)+1);}catch(_){} });
+    setCats(Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,8));
+    setLoadingPosts(false);
+  }, []);
+
+  useEffect(()=>{ load(); const t=setInterval(load,30000); return()=>clearInterval(t); },[load]);
+
+  useEffect(()=>{
+    const fetchCot = async()=>{ try{ const r=await fetch('https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,BTC-BRL'); if(r.ok) setCotacoes(await r.json()); }catch(_){} };
+    fetchCot(); const t=setInterval(fetchCot,60000); return()=>clearInterval(t);
+  },[]);
+
+  const aprovar = async(id)=>{
+    setAprovando(id);
+    await sb.from('posts').update({status:'publicado',approved:true,published_at:new Date().toISOString()}).eq('id',id);
+    setPosts(ps=>ps.map(p=>p.id===id?{...p,status:'publicado',approved:true}:p));
+    setAprovando(null);
+  };
+
+  const exportCSV = ()=>{
+    const rows=[['Título','Status','Categoria','Data'],...posts.map(p=>{
+      let cat=''; try{cat=JSON.parse(p.user_tags||'[]')[0]||'';}catch(_){}
+      return ['"'+(p.titulo||'').replace(/"/g,'""')+'"',p.status,cat,fmt(p.created_at)];
+    })];
+    const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n')); a.download='ovc-posts.csv'; a.click();
+  };
+
+  const pendentes = posts.filter(p=>p.status==='pendente').length;
+  const semana = posts.filter(p=>(Date.now()-new Date(p.created_at).getTime())<7*24*3600*1000).length;
+  const semImagem = posts.filter(p=>!p.imagem).length;
+  const usd=cotacoes&&cotacoes['USDBRL'], eur=cotacoes&&cotacoes['EURBRL'], btc=cotacoes&&cotacoes['BTCBRL'];
+  const pct=v=>parseFloat((v&&v.pctChange)||0);
+  const maxCat=cats.length?cats[0][1]:1;
+
+  const OVC_AO_VIVO=[
+    {label:'OVC TV',href:'https://www.ovalorcapital.com.br/tv-ovc/',icon:'📺',cor:'#c81e1e'},
+    {label:'OVC Rádio',href:'https://www.ovalorcapital.com.br/radio-ovc/',icon:'📻',cor:'#7c3aed'},
+    {label:'YouTube',href:'https://youtube.com/@ovalorcapital',icon:'▶️',cor:'#dc2626'},
+    {label:'Dados',href:'https://www.ovalorcapital.com.br/dados/',icon:'📊',cor:'#0ea5e9'},
+    {label:'Radar',href:'https://www.ovalorcapital.com.br/radar/',icon:'📡',cor:'#16a34a'},
+    {label:'Especiais',href:'https://www.ovalorcapital.com.br/especiais/',icon:'⭐',cor:'#f59e0b'},
+  ];
+
+  return (
+    <div>
+      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16}}>
+        <div>
+          <div className="page-title">Centro de Comando OVC</div>
+          <div className="page-sub">Painel em tempo real — {new Date().toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',weekday:'long',day:'numeric',month:'long'})}</div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇️ CSV</button>
+          <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
+        </div>
+      </div>
+      <div className="page-body">
+        <div className="metrics" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
+          <div className="metric-card">
+            <div className="metric-label">Posts Hoje</div>
+            <div className="metric-value">{status.posts_hoje||0}</div>
+            <div className="metric-icon">📅</div>
+            <div className="perf-bar" style={{marginTop:8}}><div className="perf-fill" style={{width:Math.min(100,((status.posts_hoje||0)/(status.max_posts||300))*100)+'%'}}></div></div>
+            <div style={{fontSize:10,color:'var(--t3)',marginTop:4}}>meta: {status.max_posts||300}</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Pendentes</div>
+            <div className="metric-value" style={{color:pendentes>0?'var(--yellow)':'var(--t1)'}}>{status.pendentes||pendentes}</div>
+            <div className="metric-icon">⏳</div>
+            {pendentes>0&&<span className="badge badge-yellow">aguardando aprovação</span>}
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Últimos 7 dias</div>
+            <div className="metric-value">{semana}</div>
+            <div className="metric-icon">📈</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-label">Automação</div>
+            <div className="metric-value" style={{fontSize:16,paddingTop:6}}>{status.running?'ATIVA':'PAUSADA'}</div>
+            <div className="metric-icon">{status.running?'🟢':'🔴'}</div>
+            <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Online':'Offline'}</span>
+          </div>
+          <div className="metric-card" style={{borderColor:semImagem>0?'rgba(200,30,30,0.4)':'var(--border)'}}>
+            <div className="metric-label">Sem Imagem</div>
+            <div className="metric-value" style={{color:semImagem>0?'#f87171':'#4ade80'}}>{semImagem}</div>
+            <div className="metric-icon">🖼️</div>
+            {semImagem>0&&<span className="badge badge-red">revisar</span>}
+          </div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div className="panel">
+            <div className="panel-header">
+              <span className="panel-title">💱 Cotações em Tempo Real</span>
+              <span style={{fontSize:10,color:'var(--t3)'}}>AwesomeAPI · atualiza/min</span>
+            </div>
+            <div style={{padding:'12px 20px',display:'flex',gap:12,flexWrap:'wrap'}}>
+              {[{label:'USD/BRL',data:usd,icon:'🇺🇸'},{label:'EUR/BRL',data:eur,icon:'🇪🇺'},{label:'BTC/BRL',data:btc,icon:'₿'}].map(function(item){
+                var chg=pct(item.data);
+                var raw=item.data?parseFloat(item.data.bid||item.data.high||0):0;
+                var isBtc=item.label.includes('BTC');
+                var fmtOpts=isBtc?{minimumFractionDigits:0,maximumFractionDigits:0}:{minimumFractionDigits:2,maximumFractionDigits:2};
+                var val=raw?raw.toLocaleString('pt-BR',fmtOpts):'---';
+                return (
+                  <div key={item.label} style={{flex:1,minWidth:90,background:'rgba(255,255,255,0.03)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--border)'}}>
+                    <div style={{fontSize:10,color:'var(--t3)',marginBottom:4}}>{item.icon} {item.label}</div>
+                    <div style={{fontSize:18,fontWeight:700}}>R$ {val}</div>
+                    <div style={{fontSize:10,color:chg>=0?'#4ade80':'#f87171',marginTop:2}}>{chg>=0?'▲':'▼'} {Math.abs(chg).toFixed(2)}%</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{padding:'8px 20px',borderTop:'1px solid var(--border)'}}>
+              <a href="https://www.impostometro.com.br" target="_blank" rel="noopener" style={{fontSize:11,color:'#60a5fa',textDecoration:'none'}}>📟 Impostômetro ↗</a>
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">📡 OVC ao Vivo</span></div>
+            <div style={{padding:'12px 20px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+              {OVC_AO_VIVO.map(function(item){return(
+                <a key={item.label} href={item.href} target="_blank" rel="noopener"
+                  style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'10px 6px',background:'rgba(255,255,255,0.03)',borderRadius:8,border:'1px solid var(--border)',textDecoration:'none'}}
+                  onMouseOver={function(e){e.currentTarget.style.borderColor=item.cor;}}
+                  onMouseOut={function(e){e.currentTarget.style.borderColor='var(--border)';}}>
+                  <span style={{fontSize:22}}>{item.icon}</span>
+                  <span style={{fontSize:11,color:'var(--t2)',textAlign:'center'}}>{item.label}</span>
+                </a>
+              );})}
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">📊 Categorias Hoje</span></div>
+            <div style={{padding:'12px 20px'}}>
+              {cats.length===0?<div className="empty-state"><div className="empty-text">Nenhum post hoje ainda</div></div>:
+              cats.map(function(item){var cat=item[0],count=item[1]; return(
+                <div key={cat} style={{marginBottom:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+                    <span style={{color:'var(--t2)',textTransform:'capitalize'}}>{cat}</span>
+                    <span style={{fontWeight:600}}>{count}</span>
+                  </div>
+                  <div className="perf-bar"><div className="perf-fill" style={{width:(count/maxCat*100)+'%',background:'var(--red)'}}></div></div>
+                </div>
+              );})}
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">⚙️ Pipeline</span></div>
+            <div style={{padding:'12px 20px',display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Status</span>
+                <span className={`badge ${status.running?'badge-green':'badge-red'}`}>{status.running?'Ativo':'Pausado'}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Posts hoje</span>
+                <span style={{fontWeight:600}}>{status.posts_hoje||0} / {status.max_posts||300}</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Horários BRT</span>
+                <span style={{fontSize:10,color:'var(--t3)',textAlign:'right'}}>07h-10h · 10h40-12h40<br/>14h-16h30 · 18h-00h</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,color:'var(--t2)'}}>Intervalo</span>
+                <span style={{fontSize:11,color:'var(--t3)'}}>1 post a cada 10 min</span>
+              </div>
+              <button className="btn btn-primary btn-sm" style={{width:'100%',marginTop:4}} onClick={async function(){
+                try{const r=await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true})});const j=await r.json();alert(JSON.stringify(j));load();}catch(e){alert('Erro: '+e.message);}
+              }}>▶ Forçar execução agora</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">📰 Últimas 15 Postagens</span>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-secondary btn-sm" onClick={exportCSV}>⬇️ CSV</button>
+              <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
+            </div>
+          </div>
+          {loadingPosts?<div className="loading">Carregando...</div>:
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Título</th><th>Categoria</th><th>Status</th><th>IMG</th><th>Data</th><th>Ação</th></tr></thead>
+              <tbody>
+                {posts.map(function(p){
+                  var cat='—'; try{cat=JSON.parse(p.user_tags||'[]')[0]||'—';}catch(_){}
+                  return (
+                    <tr key={p.id}>
+                      <td style={{maxWidth:280}}><span title={p.titulo}>{truncate(p.titulo,50)}</span></td>
+                      <td style={{fontSize:11,color:'var(--t3)',textTransform:'capitalize'}}>{cat}</td>
+                      <td><span className={`status-pill status-${p.status==='publicado'?'success':p.status}`}><span className="dot"></span>{p.status}</span></td>
+                      <td style={{textAlign:'center',fontSize:13,color:p.imagem?'#4ade80':'#f87171'}}>{p.imagem?'✓':'✗'}</td>
+                      <td className="text-secondary text-small">{fmt(p.created_at)}</td>
+                      <td>
+                        {p.status==='pendente'&&<button className="btn btn-green btn-sm" onClick={function(){aprovar(p.id);}} disabled={aprovando===p.id}>{aprovando===p.id?'...':'✓ Aprovar'}</button>}
+                        {p.status==='publicado'&&<span style={{fontSize:11,color:'#4ade80'}}>✓ Online</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PIPELINE ──
+function Pipeline() {
+  const [auto, setAuto] = useState(null);
+  const [maxPosts, setMaxPosts] = useState(60);
+  const [intervalo, setIntervalo] = useState(10);
+  const [logs, setLogs] = useState([]);
+  const [forcing, setForcing] = useState(false);
+  const [lastResult, setLastResult] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = useCallback(async () => {
+    const { data: cfgs } = await sb.from('config').select('*');
+    if (cfgs) {
+      const a = cfgs.find(c=>c.key==='AUTOMATION');
+      const mp = cfgs.find(c=>c.key==='MAX_POSTS_DIA');
+      const iv = cfgs.find(c=>c.key==='INTERVALO');
+      setAuto(a?a.value==='on':false);
+      if (mp) setMaxPosts(parseInt(mp.value)||300);
+      if (iv) setIntervalo(parseInt(iv.value)||10);
+    }
+    const { data: l } = await sb.from('logs').select('*').order('created_at',{ascending:false}).limit(20);
+    setLogs(l||[]);
+  }, []);
+
+  useEffect(()=>{load();},[load]);
+
+  const toggleAuto = async () => {
+    const n = !auto; setAuto(n);
+    // DELETE + INSERT para evitar duplicata — garante que só existe 1 registro
+    await sb.from('config').delete().eq('key','AUTOMATION');
+    await sb.from('config').insert({key:'AUTOMATION',value:n?'on':'off',updated_at:new Date().toISOString()});
+    setMsg('Automação '+(n?'✅ ATIVADA':'⏸ PAUSADA'));
+    setTimeout(()=>{ setMsg(''); load(); },3000);
+  };
+
+  const saveConfig = async () => {
+    await sb.from('config').upsert({key:'MAX_POSTS_DIA',value:String(maxPosts),updated_at:new Date().toISOString()},{onConflict:'key'});
+    await sb.from('config').upsert({key:'INTERVALO',value:String(intervalo),updated_at:new Date().toISOString()},{onConflict:'key'});
+    setMsg('Configurações salvas');
+    setTimeout(()=>setMsg(''),3000);
+  };
+
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchLog, setBatchLog] = useState([]);
+
+  const forceRun = async () => {
+    setForcing(true); setLastResult('Executando...');
+    try {
+      const r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true,count:3})});
+      const j = await r.json();
+      setLastResult(JSON.stringify(j,null,2));
+      load();
+    } catch(e){setLastResult('Erro: '+e.message);}
+    setForcing(false);
+  };
+
+  const runBatch = async () => {
+    setBatchRunning(true);
+    setBatchLog(['🚀 Disparando 8 chamadas em paralelo (até 3 artigos cada)...']);
+    var CHAMADAS = 8;
+    var promises = [];
+    for (var i = 0; i < CHAMADAS; i++) {
+      promises.push(
+        fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({batch:true,count:3})})
+          .then(function(r){ return r.json(); })
+          .catch(function(e){ return {status:'erro',error:e.message}; })
+      );
+    }
+    var resultados = await Promise.allSettled(promises);
+    var totalArtigos = 0;
+    var linhas = [];
+    resultados.forEach(function(r, idx) {
+      var j = r.status === 'fulfilled' ? r.value : {status:'erro'};
+      if (j.artigos && j.artigos.length) {
+        totalArtigos += j.artigos.length;
+        j.artigos.forEach(function(a) {
+          linhas.push('✅ [' + (a.categoria||'?') + '] ' + (a.titulo||'sem título'));
+        });
+      } else if (j.status === 'ok') {
+        totalArtigos++;
+        linhas.push('✅ [' + (j.categoria||'?') + '] ' + (j.titulo||'sem título'));
+      } else {
+        linhas.push('⚠️ Chamada ' + (idx+1) + ': ' + (j.status||'sem retorno'));
+      }
+    });
+    linhas.unshift('📊 Total gerado: ' + totalArtigos + ' artigos pendentes');
+    setBatchLog(linhas);
+    setBatchRunning(false);
+    load();
+  };
+
+  const CATS_DISPONIVEIS = [
+    {id:'politica',label:'🧠 Política'},
+    {id:'economia',label:'💰 Economia'},
+    {id:'mercados',label:'📈 Mercados'},
+    {id:'investimentos',label:'📊 Investimentos'},
+    {id:'negocios',label:'🏢 Negócios'},
+    {id:'seguros',label:'🛡️ Seguros'},
+    {id:'tributacao',      label:'⚖️ Tributos'},
+    {id:'regulacao',       label:'📋 Regulação'},
+    {id:'saude',           label:'🏥 Saúde'},
+    {id:'familia',         label:'👨‍👩‍👧 Família'},
+    {id:'tecnologia',      label:'💻 Tecnologia'},
+    {id:'industria',       label:'🏭 Indústria'},
+    {id:'esportes',        label:'⚽ Esportes'},
+    {id:'educacao',        label:'🎓 Educação'},
+    {id:'internacional',   label:'🌍 Internacional'},
+    {id:'variedades',      label:'🎭 Variedades'},
+    {id:'cultura',         label:'🎨 Cultura'},
+    {id:'investigativo',   label:'🔍 Investigativo'},
+    {id:'seguranca',       label:'🚔 Seg. Pública'},
+    {id:'profissoes',      label:'👔 Profissões'},
+    {id:'vagas',           label:'💼 Vagas'},
+    {id:'concursos',       label:'📝 Concursos'},
+    {id:'imoveis',         label:'🏠 Imóveis'},
+    {id:'parcerias',       label:'🤝 Parcerias'},
+    {id:'esg',             label:'🌱 ESG'},
+    {id:'defesa',          label:'🛡️ Defesa'},
+    {id:'religiao',        label:'✝️ Fé & Espiritualidade'},
+    {id:'vc',              label:'✍️ OVC / Colunistas'},
+  ];
+
+  const SUBCATS = {
+    politica:      ['Executivo','Legislativo','Judiciário','Projetos de Lei','Eleições','Geral'],
+    economia:      ['Monetária (Copom, Selic)','Fiscal (Orçamento, Dívida)','Conjuntura (PIB, Emprego)','Internacional','Minuto Fiscal','Geral'],
+    negocios:      ['Empreender (MEI, ME, Ltda)','Tributação PJ','Gestão Financeira','Crédito','Vendas & Preço','Contratos & Societário','LGPD & Compliance','Startups','Geral'],
+    investimentos: ['Renda Fixa','Renda Variável','Fundos','Previdência','Alternativos','Estratégias','Calendário & Dividendos','Educação do Investidor','Geral'],
+    seguros:       ['Vida','Saúde & Odonto','Auto','Residencial','Empresarial & RC','Previdência Privada','Viagem','Rural','Geral'],
+    mercados:      ['Bolsa / Earnings / Dividendos','Juros / DI','Câmbio','Commodities','Cripto','IPOs/FOs','Índices','Cotações em Tempo Real','Geral'],
+    educacao:      ['Trilha Zero','Finanças Pessoais','Carreira & Empregos','Cursos & Certificações','Glossário','Workshops & Aulas','ENEM & Vestibular','Geral'],
+    industria:     ['Construção & Imobiliário','Energia & Infra','Agronegócio','Mineração & Siderurgia','Química & Materiais','Automotivo','Logística & Portos','Indústria 4.0','Geral'],
+    tecnologia:    ['Fintechs & Pagamentos','E-commerce','Telecom & 5G','Cibersegurança','Inteligência Artificial','GovTech','Saúde Digital','Transformação Digital','Geral'],
+    esportes:      ['Futebol','Basquete','NFL','MLB','MMA','Automobilismo','Tênis','eSports','Olímpicos','Geral'],
+    saude:         ['Custos & Indicadores','Políticas de Saúde','Medicina Preventiva','Saúde Mental','Saúde Digital','Planos de Saúde','Medicamentos','Geral'],
+    familia:       ['Orçamento Familiar','Educação dos Filhos','Habitação','Lazer & Esportes','Segurança','Seguros da Família','Sucessão & Patrimônio','Geral'],
+    tributacao:    ['IRPF','IRPJ & PJ','Investimentos (tributação)','Obrigações Acessórias','Planejamento Tributário','Simples Nacional','Reforma Tributária','Geral'],
+    regulacao:     ['Financeiro','Fiscal & Receita','Concorrência & Controle','Consumidor & Normas','Infra & Energia','Saúde','Telecom & Mídia','Transporte & Logística','Geral'],
+    parcerias:     ['Empresas & Startups','Universidades & Faculdades','Órgãos & Associações','Benefícios & Descontos','Programas & Editais','Geral'],
+    internacional: ['Geopolítica','EUA & América','Europa','Ásia & China','América Latina','Organismos Internacionais','Comércio Exterior','Geral'],
+    variedades:    ['Entretenimento','Moda & Estilo','Gastronomia','Viagens','Comportamento','Bem-estar','Geral'],
+    cultura:       ['Cinema & TV','Música','Literatura','Artes Visuais','Teatro & Dança','Patrimônio','Festivais','Geral'],
+    investigativo: ['Corrupção & Desvios','Operações Policiais','Crimes Financeiros','Irregularidades','Denúncias','Geral'],
+    seguranca:     ['Segurança Pública','Polícia Federal','Polícia Civil','Crime Organizado','Trânsito','Defesa Civil','Geral'],
+    profissoes:    ['Medicina','Direito','Engenharia','Contabilidade','Tecnologia','Administração','Educação','Saúde','Geral'],
+    vagas:         ['CLT','PJ & Freelancer','Estágio','Trainee','Remoto','Internacional','Concurso','Geral'],
+    concursos:     ['Federal','Estadual','Municipal','Militar','Judiciário','Saúde','Educação','Geral'],
+    imoveis:       ['Compra & Venda','Aluguel','Lançamentos','Financiamento Imobiliário','Comercial','Rurais','Tendências','Geral'],
+    esg:           ['Meio Ambiente','Sustentabilidade','Governança Corporativa','ESG Investimentos','Clima','Energia Limpa','Geral'],
+    defesa:        ['Forças Armadas','Defesa Nacional','Tecnologia Militar','Orçamento Defesa','Fronteiras','Geral'],
+    religiao:      ['Catolicismo','Evangélico','Espiritismo','Budismo','Judaísmo','Espiritualidade','Geral'],
+    vc:            ['Opinião','Análise','Colunistas','Mercado Financeiro','Política Econômica','Geral'],
+  };
+
+  const [pedidos, setPedidos] = useState([{categoria:'politica', subcategoria:'', quantidade:3}]);
+  const [fonteManual, setFonteManual] = useState('');
+  const [modoManual, setModoManual] = useState(false);
+  const [manualRunning, setManualRunning] = useState(false);
+  const [manualResult, setManualResult] = useState(null);
+
+  const addPedido = () => setPedidos(prev => [...prev, {categoria:'economia', subcategoria:'', quantidade:2}]);
+  const removePedido = idx => setPedidos(prev => prev.filter((_,i)=>i!==idx));
+  const updatePedido = (idx, field, val) => setPedidos(prev => prev.map((p,i) => i===idx ? {...p, [field]:val, ...(field==='categoria'?{subcategoria:''}:{})} : p));
+
+  const runManual = async () => {
+    if (modoManual && !fonteManual.trim()) { alert('Informe a URL ou texto da fonte.'); return; }
+    setManualRunning(true); setManualResult(null);
+    try {
+      const body = { pedidos, fonteManual: modoManual ? fonteManual.trim() : null };
+      const r = await fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const j = await r.json();
+      setManualResult(j);
+      load();
+    } catch(e){ setManualResult({status:'error', notificacoes:[{tipo:'erro', mensagem:e.message}]}); }
+    setManualRunning(false);
+  };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Pipeline / Automação</div><div className="page-sub">Controle do pipeline editorial automatizado</div></div>
+      <div className="page-body">
+        {msg&&<div className="alert-banner yellow" style={{marginBottom:16}}><span>✓ {msg}</span></div>}
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Status da Automação</span>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing||batchRunning}>{forcing?'Executando...':'▶ Gerar 3 agora'}</button>
+              <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={runBatch} disabled={forcing||batchRunning}>{batchRunning?'⏳ Gerando em lote...':'🚀 Gerar para TODAS as categorias'}</button>
+              <button onClick={limparArtigosCorrompidos} style={{background:'#1a1a2e',color:'#e94560',border:'1px solid #e94560',padding:'4px 14px',borderRadius:4,cursor:'pointer',fontSize:12,fontWeight:700}}>🧹 Limpar Artigos Corrompidos</button>
+            </div>
+          </div>
+          <div style={{padding:'20px'}}>
+            <div className="toggle-wrap">
+              <label className="toggle"><input type="checkbox" checked={!!auto} onChange={toggleAuto}/><span className="toggle-slider"></span></label>
+              <span style={{fontWeight:600}}>{auto?<span style={{color:'#4ade80'}}>● Automação ATIVA</span>:<span style={{color:'#f87171'}}>● Automação PAUSADA</span>}</span>
+            </div>
+            {lastResult&&<pre style={{marginTop:12,fontSize:11,color:'#4ade80',background:'rgba(0,0,0,.3)',padding:12,borderRadius:8,overflow:'auto'}}>{lastResult}</pre>}
+            {batchLog.length>0&&(
+              <div style={{marginTop:12,background:'rgba(0,0,0,.3)',borderRadius:8,padding:12,maxHeight:220,overflow:'auto'}}>
+                {batchLog.map(function(l,i){ return <div key={i} style={{fontSize:11,color:l.startsWith('✅')?'#4ade80':l.startsWith('📊')?'#ffc800':'#94a3b8',marginBottom:2}}>{l}</div>; })}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Parâmetros</span></div>
+          <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div className="form-group">
+              <label className="form-label">Max Posts por Dia</label>
+              <input className="form-input" type="number" value={maxPosts} onChange={e=>setMaxPosts(parseInt(e.target.value)||300)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Intervalo entre Execuções (min)</label>
+              <input className="form-input" type="number" value={intervalo} onChange={e=>setIntervalo(parseInt(e.target.value)||10)}/>
+            </div>
+          </div>
+          <div style={{padding:'0 20px 20px'}}><button className="btn btn-primary" onClick={saveConfig}>Salvar parâmetros</button></div>
+        </div>
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">⚡ Geração Manual Controlada</span>
+            <div style={{display:'flex',gap:8}}>
+              <button className={`btn btn-sm ${!modoManual?'btn-primary':'btn-secondary'}`} onClick={()=>setModoManual(false)}>📡 Modo A — RSS</button>
+              <button className={`btn btn-sm ${modoManual?'btn-primary':'btn-secondary'}`} onClick={()=>setModoManual(true)}>✍️ Modo B — Fonte Manual</button>
+            </div>
+          </div>
+          <div style={{padding:20}}>
+
+            {/* Fonte manual — Modo B */}
+            {modoManual && (
+              <div className="form-group" style={{marginBottom:16}}>
+                <label className="form-label">URL ou texto da notícia fonte</label>
+                <textarea className="form-textarea" style={{minHeight:80}} value={fonteManual} onChange={e=>setFonteManual(e.target.value)}
+                  placeholder="Cole aqui a URL da notícia ou o texto completo da fonte..."/>
+                <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>A IA vai reescrever exatamente este conteúdo no padrão OVC — sem inventar nada.</div>
+              </div>
+            )}
+
+            {/* Lista de pedidos */}
+            <div style={{marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <label className="form-label" style={{margin:0}}>Pedidos de geração</label>
+                <button className="btn btn-secondary btn-sm" onClick={addPedido}>+ Adicionar linha</button>
+              </div>
+
+              {/* Cabeçalho */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 36px',gap:8,marginBottom:6,padding:'0 4px'}}>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:600}}>CATEGORIA</span>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:600}}>SUBCATEGORIA</span>
+                <span style={{fontSize:11,color:'var(--t2)',fontWeight:600}}>QTD</span>
+                <span></span>
+              </div>
+
+              {pedidos.map((p,idx)=>(
+                <div key={idx} style={{display:'grid',gridTemplateColumns:'1fr 1fr 80px 36px',gap:8,marginBottom:8,alignItems:'center'}}>
+                  <select className="form-select" value={p.categoria} onChange={e=>updatePedido(idx,'categoria',e.target.value)}>
+                    {CATS_DISPONIVEIS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                  <select className="form-select" value={p.subcategoria} onChange={e=>updatePedido(idx,'subcategoria',e.target.value)}>
+                    <option value="">Qualquer subcategoria</option>
+                    {(SUBCATS[p.categoria]||[]).map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <input className="form-input" type="number" min={1} max={20} value={p.quantidade}
+                    onChange={e=>updatePedido(idx,'quantidade',parseInt(e.target.value)||1)}
+                    style={{textAlign:'center'}}/>
+                  <button className="btn btn-secondary btn-sm" style={{padding:'4px 8px',color:'#f87171'}}
+                    onClick={()=>removePedido(idx)} disabled={pedidos.length===1}>✕</button>
+                </div>
+              ))}
+
+              <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>
+                Total: {pedidos.reduce((s,p)=>s+(parseInt(p.quantidade)||0),0)} matérias solicitadas • Máx 20 por linha
+              </div>
+            </div>
+
+            <button className="btn btn-primary" style={{padding:'10px 28px',fontSize:14,marginTop:8}} onClick={runManual} disabled={manualRunning}>
+              {manualRunning ? '⏳ Gerando...' : `⚡ Gerar ${pedidos.reduce((s,p)=>s+(parseInt(p.quantidade)||0),0)} matéria(s) agora`}
+            </button>
+
+            {/* Notificações e resultado */}
+            {manualResult && (
+              <div style={{marginTop:16}}>
+                {manualResult.notificacoes?.map((n,i)=>(
+                  <div key={i} style={{
+                    padding:'10px 14px', borderRadius:6, marginBottom:6,
+                    background: n.tipo==='sucesso'?'rgba(22,163,74,0.1)':n.tipo==='aviso'?'rgba(255,200,0,0.1)':'rgba(200,30,30,0.1)',
+                    border: `1px solid ${n.tipo==='sucesso'?'rgba(22,163,74,0.3)':n.tipo==='aviso'?'rgba(255,200,0,0.3)':'rgba(200,30,30,0.3)'}`,
+                    fontSize:13
+                  }}>{n.mensagem}</div>
+                ))}
+                {manualResult.resultados?.filter(r=>r.status==='ok').map((r,i)=>(
+                  <div key={i} style={{fontSize:12,color:'var(--t2)',marginBottom:4,paddingLeft:8,borderLeft:'2px solid #4ade80',marginTop:4}}>
+                    <span style={{textTransform:'capitalize',color:'#4ade80',marginRight:6}}>[{r.categoria}{r.subcategoria?' → '+r.subcategoria:''}]</span>
+                    {r.titulo}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Execuções Recentes (Logs)</span><button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button></div>
+          {logs.length===0?<div className="empty-state"><div className="empty-icon">📋</div><div className="empty-text">Nenhuma execução registrada</div></div>:
+          <table><thead><tr><th>Nível</th><th>Mensagem</th><th>Data</th></tr></thead>
+          <tbody>{logs.map(l=><tr key={l.id}>
+            <td><span className={`badge ${l.level==='error'?'badge-red':l.level==='warn'?'badge-yellow':'badge-gray'}`}>{l.level}</span></td>
+            <td className="text-small">{truncate(l.message,80)}</td>
+            <td className="text-secondary text-small">{fmt(l.created_at)}</td>
+          </tr>)}</tbody></table>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── POSTAGENS ──
+const CATS_LIST = ['','politica','economia','negocios','investimentos','seguros','mercados','educacao','industria','tecnologia','esportes','saude','familia','tributacao','regulacao','parcerias','internacional','vc','colunistas','variedades','investigativo','seguranca','cultura','profissoes','vagas','concursos','imoveis','esg','defesa','religiao'];
+const SUBCATS_POST = {politica:['Governo Federal','Congresso Nacional','Eleições','Partidos Políticos','STF & Judiciário','Política Estadual','Câmara dos Deputados','Senado Federal','Poder Executivo'],economia:['Política Econômica','Inflação & Preços','Taxa Selic','PIB & Crescimento','Câmbio & Dólar','Fiscal & Orçamento','Emprego & Renda','Banco Central'],negocios:['Empresas & Corporações','Fusões & Aquisições','Startups','Empreendedorismo','Grandes Corporações','Setor Privado','Varejo','Agronegócio Empresarial'],investimentos:['Bolsa de Valores','Renda Fixa','Fundos de Investimento','Tesouro Direto','Criptomoedas','Análise de Mercado','Finanças Pessoais','FIIs'],seguros:['Seguro de Vida','Planos de Saúde','Seguro Auto','Previdência Privada','Seguro Residencial','SUSEP & ANS','Seguro Empresarial','Corretoras de Seguros'],mercados:['Commodities','Petróleo & Energia','Ouro & Metais','B3 & Ibovespa','Câmbio Internacional','Índices Globais','Agro & Grãos'],educacao:['Ensino Superior','ENEM','Educação Básica','Cursos & Certificações','Pós-Graduação','Tecnologia na Educação','Bolsas de Estudo','Ensino Técnico'],industria:['Agronegócio','Manufatura','Energia','Infraestrutura','Exportações','Cadeia Produtiva','Mineração','Construção Civil'],tecnologia:['Inteligência Artificial','Segurança Digital','E-commerce','Telecomunicações','Inovação','Startups Tech','Blockchain','Computação em Nuvem'],esportes:['Futebol','Olimpíadas','Fórmula 1','Tênis','Basquete','Natação','Atletismo','Outros Esportes'],saude:['Medicina & Tratamentos','SUS','Saúde Mental','Medicamentos','Bem-estar','Epidemiologia','Pediatria','Nutrição'],familia:['Educação dos Filhos','Planejamento Familiar','Herança & Patrimônio','Casamento & Divórcio','Finanças Pessoais','Criação de Filhos'],tributacao:['IRPF','Reforma Tributária','ICMS & ISS','Receita Federal','Planejamento Tributário','Impostos Federais','Simples Nacional','CSLL & IRPJ'],regulacao:['BACEN','CVM','ANBIMA','SUSEP','ANS','ANATEL','ANEEL','Regulação Setorial'],parcerias:['Acordos Comerciais','Joint Ventures','Alianças Estratégicas','Contratos Públicos','PPP'],internacional:['Relações Exteriores','Geopolítica','Conflitos Globais','América Latina','Estados Unidos','Europa','China & Ásia','Oriente Médio','Diplomacia'],variedades:['Comportamento','Lifestyle','Entretenimento','Tendências','Gastronomia','Turismo','Moda'],investigativo:['Corrupção','Operações Policiais','Denúncias','Jornalismo de Dados','Fiscalização Pública','Lavagem de Dinheiro'],seguranca:['Segurança Pública','Crime Organizado','Violência Urbana','Polícia Federal','Narcotráfico','Facções','Homicídios'],cultura:['Cinema','Música','Arte','Teatro','Literatura','Patrimônio Cultural','Streaming','Festivais'],profissoes:['Medicina','Direito','Engenharia','Contabilidade','TI & Programação','Administração','Arquitetura','Recursos Humanos'],vagas:['Oportunidades CLT','Trabalho Remoto','Recrutamento & Seleção','Estágio','Trainee','Mercado de Trabalho'],concursos:['Concursos Federais','Concursos Estaduais','Concursos Municipais','Militares & Policiais','Judiciário','Saúde Pública'],imoveis:['Mercado Imobiliário','Financiamento Habitacional','Construtoras','Aluguel','Lançamentos','Minha Casa Minha Vida'],esg:['Sustentabilidade','Meio Ambiente','Governança Corporativa','Energia Limpa','Impacto Social','Carbono & Emissões'],defesa:['Forças Armadas','Segurança Nacional','Política de Defesa','Exército','Marinha','Aeronáutica','Fronteiras'],religiao:['Evangelicalismo','Catolicismo','Espiritualidade','Igrejas','Fé & Sociedade','Missões','Religiões Afro-brasileiras']};
+
+function Postagens() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState([]);
+  const [approving, setApproving] = useState(false);
+  const [editPost, setEditPost] = useState(null);
+  const [previewPost, setPreviewPost] = useState(null);
+  const [accounts, setAccounts] = useState([]);
+  const [busca, setBusca] = useState('');
+  const [filterCat, setFilterCat] = useState('');
+  const [filterSub, setFilterSub] = useState('');
+  const [filterDe, setFilterDe] = useState('');
+  const [filterAte, setFilterAte] = useState('');
+  const [filterMethod, setFilterMethod] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [smartFilter, setSmartFilter] = useState('');
+  const [showMetrics, setShowMetrics] = useState(false);
+  const PER = 50;
+
+  const BLOCKED_IMG_RE = [/perfil/i,/author/i,/avatar/i,/reporter/i,/profile/i,/headshot/i,/icon/i,/logo/i,/favicon/i,/sprite/i,/watermark/i,/\.svg$/i,/\.gif$/i,/\.ico$/i,/placeholder/i,/picsum/i,/lorempixel/i,/dummyimage/i,/placehold\.it/i,/fakeimg/i,/loremflickr/i,/fillmurray/i,/placekitten/i];
+  function chkSemImg(p)  { return !p.imagem || p.imagem.trim() === ''; }
+  function chkImgSusp(p) { return !!p.imagem && BLOCKED_IMG_RE.some(function(r){ return r.test(p.imagem); }); }
+  function chkImgOk(p)   { return !!p.imagem && p.imagem.trim() !== '' && !chkImgSusp(p); }
+  function chkRisco(p)   { return (!p.conteudo || p.conteudo.length < 200) || p.categoria === 'geral' || !p.categoria; }
+
+  const kpi = React.useMemo(function(){
+    return {
+      semImg:  posts.filter(chkSemImg).length,
+      suspeita:posts.filter(chkImgSusp).length,
+      imgOk:   posts.filter(chkImgOk).length,
+      risco:   posts.filter(chkRisco).length,
+      pendente:posts.filter(function(p){ return p.status==='pendente'; }).length
+    };
+  }, [posts]);
+
+  const displayPosts = React.useMemo(function(){
+    if (smartFilter === 'sem_img')  return posts.filter(chkSemImg);
+    if (smartFilter === 'suspeita') return posts.filter(chkImgSusp);
+    if (smartFilter === 'img_ok')   return posts.filter(chkImgOk);
+    if (smartFilter === 'risco')    return posts.filter(chkRisco);
+    return posts;
+  }, [posts, smartFilter]);
+
+  const load = useCallback(async () => {
+    setLoading(true); setSelected([]);
+    let q = sb.from('posts').select('*',{count:'exact'}).order('created_at',{ascending:false}).range(page*PER,(page+1)*PER-1);
+    if (filter!=='all') q=q.eq('status',filter);
+    if (busca.trim()) q=q.ilike('titulo','%'+busca.trim()+'%');
+    if (filterCat) q=q.like('user_tags','%"'+filterCat+'"%');
+    if (filterSub.trim()) q=q.ilike('subcategoria','%'+filterSub.trim()+'%');
+    if (filterMethod) q=q.eq('publish_method',filterMethod);
+    if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00');
+    if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59');
+    const { data, count } = await q;
+    // Normaliza: extrai categoria de user_tags (JSON array) pois não há coluna 'categoria' no Supabase
+    var norm = (data||[]).map(function(p){
+      var tags = []; try { tags = JSON.parse(p.user_tags||'[]'); } catch(_){}
+      return Object.assign({}, p, { categoria: tags[0]||'' });
+    });
+    setPosts(norm);
+    setTotalCount(count||0);
+    const { data: acc } = await sb.from('ig_accounts').select('id,username').eq('active',true);
+    setAccounts(acc||[]);
+    setLoading(false);
+  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte]);
+
+  useEffect(()=>{load();},[load]);
+
+  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilter('all'); setPage(0); };
+
+  const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const toggleAll = () => {
+    const todos = posts.map(p=>p.id);
+    setSelected(p=>p.length===todos.length?[]:todos);
+  };
+
+  const salvarImagemBanco = async function(post) {
+    if (!post || !post.imagem) return;
+    try { await sb.from('image_bank').upsert({url:post.imagem,titulo:post.titulo||'',post_id:post.id},{onConflict:'url',ignoreDuplicates:true}); } catch(e){}
+  };
+
+  const pubPortal = async id => {
+    setApproving(true);
+    try {
+      const now = new Date().toISOString();
+      const { error } = await sb.from('posts').update({
+        status: 'publicado', approved: true,
+        publish_method: 'portal', published_at: now, updated_at: now
+      }).eq('id', id);
+      if (error) alert('❌ Erro: ' + error.message);
+      else { const post=posts.find(function(p){return p.id===id;}); if(post) salvarImagemBanco(post); alert('✅ Publicado no Portal!'); load(); }
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    setApproving(false);
+  };
+
+  const [igPublishing, setIgPublishing] = useState(null);
+
+  const publicarIG = async (post) => {
+    // Buscar URL do serviço nas configurações
+    const { data: cfg } = await sb.from('config').select('value').eq('key','IG_SERVICE_URL').single();
+    const serviceUrl = cfg?.value;
+    if (!serviceUrl) {
+      alert('Configure a URL do serviço Instagram em Configurações → URL Serviço Instagram.');
+      return;
+    }
+    if (!confirm(`Publicar "${post.titulo}" no Instagram?`)) return;
+    setIgPublishing(post.id);
+    try {
+      const r = await fetch('/api/ig_publish', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          post_id: post.id,
+          image_url: post.imagem,
+          caption: post.conteudo ? post.conteudo.slice(0, 2200) : post.titulo
+        })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        alert('✅ Publicado no Instagram com sucesso!');
+      } else {
+        alert('❌ Erro: ' + (d.error || 'Falha ao publicar'));
+      }
+    } catch(e) {
+      alert('❌ Erro de conexão com o serviço: ' + e.message);
+    }
+    setIgPublishing(null);
+  };
+
+  const [revisando, setRevisando] = useState(null);
+  const [revisaoModal, setRevisaoModal] = useState({show:false, post:null, flags:{texto:false,imagem:false,fontes:false}, obs:''});
+
+  const abrirRevisao = post => setRevisaoModal({show:true, post, flags:{texto:false,imagem:false,fontes:false}, obs:''});
+
+  const devolverRevisao = async () => {
+    const {post, flags, obs} = revisaoModal;
+    if (!flags.texto && !flags.imagem && !flags.fontes && !obs.trim()) {
+      alert('Selecione ao menos uma opção de revisão ou escreva uma observação.');
+      return;
+    }
+    setRevisando(post.id);
+    setRevisaoModal(m=>({...m, show:false}));
+    try {
+      // Salvar flags e observações no post
+      const metricsAtual = typeof post.metrics === 'object' ? post.metrics : {};
+      await sb.from('posts').update({
+        status: 'pendente',
+        approved: false,
+        published_at: null,
+        metrics: {...metricsAtual, revisao_obs: obs, revisao_flags: flags, revisao_at: new Date().toISOString()}
+      }).eq('id', post.id);
+
+      // Revisar texto com IA se solicitado
+      if (flags.texto) {
+        try {
+          const r = await fetch('/api/editor_ia', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({texto: post.conteudo, acao:'melhorar', ia:'openai', publicar:false})
+          });
+          const d = await r.json();
+          if (d.ok && d.corpo) {
+            await sb.from('posts').update({
+              titulo: d.titulo || post.titulo,
+              conteudo: d.corpo,
+              comentario_fixado: d.meta_descricao || post.comentario_fixado
+            }).eq('id', post.id);
+          }
+        } catch(e) { console.warn('Revisão de texto falhou:', e.message); }
+      }
+
+      // Limpar imagem se solicitado — sistema buscará nova na próxima revisão
+      if (flags.imagem) {
+        await sb.from('posts').update({imagem: ''}).eq('id', post.id);
+      }
+
+      alert('✅ Post devolvido para revisão' + (flags.texto ? ' — texto reprocessado pela IA' : '') + '.');
+      load();
+    } catch(e) {
+      alert('Erro ao devolver: ' + e.message);
+    }
+    setRevisando(null);
+  };
+
+  const revisarIA = async (post) => {
+    if (!confirm('A IA vai revisar o conteúdo e buscar nova imagem para este post. Continuar?')) return;
+    setRevisando(post.id);
+    try {
+      // Pedir revisão ao editor_ia
+      const r = await fetch('/api/editor_ia', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          texto: post.conteudo,
+          acao: 'melhorar',
+          ia: 'gemini',
+          buscarImagem: true,
+          publicar: false
+        })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Erro ao revisar');
+      // Abrir modal de edição com o resultado revisado
+      setEditPost({
+        ...post,
+        titulo: d.titulo || post.titulo,
+        conteudo: d.corpo || post.conteudo,
+        imagem: d.imagem || post.imagem,
+        _revisado: true
+      });
+    } catch(e) {
+      alert('Erro ao revisar: ' + e.message);
+    }
+    setRevisando(null);
+  };
+
+  const despublicar = async id => {
+    if (!confirm('Despublicar este post? Ele sairá do portal imediatamente.')) return;
+    await sb.from('posts').update({status:'pendente', approved:false, published_at:null}).eq('id',id);
+    load();
+  };
+
+  const deletarPost = async id => {
+    if (!confirm('⚠️ Excluir permanentemente este post? Não há como desfazer.')) return;
+    const {error} = await sb.from('posts').delete().eq('id',id);
+    if (error) alert('Erro ao excluir: ' + error.message);
+    else load();
+  };
+
+  const pubPortalBatch = async () => {
+    if (!selected.length) return;
+    if (!confirm(`Publicar ${selected.length} post(s) no Portal Web?`)) return;
+    setApproving(true);
+    const now = new Date().toISOString();
+    let ok = 0;
+    for (const id of selected) {
+      const { error } = await sb.from('posts').update({
+        status: 'publicado', approved: true,
+        publish_method: 'portal', published_at: now, updated_at: now
+      }).eq('id', id);
+      if (!error) { ok++; const post=posts.find(function(p){return p.id===id;}); if(post) salvarImagemBanco(post); }
+    }
+    alert(`✅ ${ok} publicado(s) no Portal!`);
+    load(); setApproving(false);
+  };
+
+  const deletarBatch = async () => {
+    if (!selected.length) return;
+    if (!confirm(`⚠️ Excluir permanentemente ${selected.length} post(s)? Não há como desfazer.`)) return;
+    setApproving(true);
+    const { error } = await sb.from('posts').delete().in('id', selected);
+    if (error) alert('Erro: ' + error.message);
+    else alert(`🗑️ ${selected.length} post(s) excluído(s).`);
+    load(); setApproving(false);
+  };
+
+  const saveEdit = async () => {
+    const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    await sb.from('posts').update({
+      titulo: editPost.titulo,
+      conteudo: editPost.conteudo,
+      comentario_fixado: editPost.comentario_fixado,
+      imagem: editPost.imagem,
+      ig_account_id: editPost.ig_account_id||null,
+      scheduled_at: editPost.scheduled_at||null,
+      user_tags: editPost.categoria ? JSON.stringify([editPost.categoria]) : (editPost.user_tags||'[]'),
+      subcategoria: editPost.subcategoria||'',
+      subcategoria_slug: slugSub,
+      collaborators: editPost.collaborators||'[]',
+      updated_at: new Date().toISOString()
+    }).eq('id',editPost.id);
+    setEditPost(null); load();
+  };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">Postagens</div><div className="page-sub">Aprovação, edição e histórico de posts</div></div>
+      <div className="page-body">
+        {previewPost&&(
+          <div className="modal-bg" onClick={()=>setPreviewPost(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <div className="modal-header"><span className="modal-title">Preview do Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(null)}>✕</button></div>
+              <div className="modal-body" style={{display:'flex',gap:20,flexWrap:'wrap'}}>
+                <div className="preview-card" style={{flex:'0 0 280px'}}>
+                  {previewPost.imagem?<img src={previewPost.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover'}} onError={e=>e.target.style.display='none'} alt=""/>:<div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>}
+                  <div className="preview-caption">{previewPost.conteudo}</div>
+                </div>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:8}}>Comentário fixado:</div>
+                  <div style={{fontSize:13,color:'var(--t1)',background:'var(--input)',padding:12,borderRadius:8}}>{previewPost.comentario_fixado||'—'}</div>
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Conta:</div>
