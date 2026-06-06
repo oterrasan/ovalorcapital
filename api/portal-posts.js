@@ -301,12 +301,8 @@ function formatPost(row, full) {
   return {
     id: row.id,
     titulo,
-    title: titulo,
-    subtitulo: row.comentario_fixado || resumo,
     comentario_fixado: row.comentario_fixado || resumo,
-    resumo,
     conteudo: full ? conteudo : undefined,
-    corpo: full ? conteudo : undefined,
     imagem: safeImage(row.imagem),
     categoria,
     subcategoria: row.subcategoria || "",
@@ -315,8 +311,7 @@ function formatPost(row, full) {
     slug,
     url: `/${catPath}/${slug}-${id8}/`,
     data,
-    published_at: data,
-    metrics: row.metrics || {}
+    metrics: full ? (row.metrics || {}) : undefined
   };
 }
 
