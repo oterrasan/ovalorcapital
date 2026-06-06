@@ -6,6 +6,13 @@ import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
+
+async function log(level, message) {
+  try {
+    await supabase.from("logs").insert({ level, message });
+  } catch (_) {}
+}
+
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 const CATS = new Set(["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","variedades","investigativo","seguranca","cultura","profissoes","vagas","concursos","imoveis","esg","defesa","religiao","radar"]);
@@ -277,6 +284,7 @@ async function auto(req, res, rec) {
         image_strategy: img ? resolvedImage.source : "none",
         image_original_url: resolvedImage.original || ""
       });
+      await log("info", `[pipeline] gerado: ${content.titulo?.slice(0,60)} | cat:${content.categoria} | img:${!!img}`);
       return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, categoria: content.categoria, subcategoria: content.subcategoria, imagem: !!img });
     } catch (e) { debug.erro++; if (debug.erros.length < 5) debug.erros.push(e.message); }
   }
@@ -297,9 +305,11 @@ export default async function handler(req, res) {
   if (body.action === "cleanup_titles") return cleanupTitles(res, body);
   if (req.method !== "POST") return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
-  if (!override && !(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "Pipeline OVC pausado no controle central. Nenhum conteudo foi gerado.", generated: 0 });
+  if (!override && !(await automacaoAtiva())) await log("warn", "[pipeline] chamada recebida mas AUTOMATION=off");
+  return res.status(200).json({ status: "pipeline_pausado", message: "Pipeline OVC pausado no controle central. Nenhum conteudo foi gerado.", generated: 0 });
   if (!body.force && !janelaOk()) return res.status(200).json({ status: "fora_horario", janela: "07:00-00:30 BRT", generated: 0 });
   const rec = await recentes();
   try { if (body.url || body.texto) return manual(req, res, rec); return auto(req, res, rec); }
-  catch (e) { return res.status(500).json({ status: "error", error: e.message, generated: 0 }); }
+  catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
+  return res.status(500).json({ status: "error", error: e.message, generated: 0 }); }
 }
