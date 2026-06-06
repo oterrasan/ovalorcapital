@@ -2188,4 +2188,4 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 7. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel.
 8. **NUNCA pedir chave OpenAI** — está na seção 16 e hardcoded no `core/ai_portal.js`.
 
-<!-- redeploy -->
+<!-- redeploy env fix -->
