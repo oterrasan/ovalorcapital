@@ -5,7 +5,7 @@ import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 
-const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf");
+const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 const CATS = new Set(["politica","economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","esportes","saude","familia","tributacao","regulacao","parcerias","internacional","variedades","investigativo","seguranca","cultura","profissoes","vagas","concursos","imoveis","esg","defesa","religiao","radar"]);
