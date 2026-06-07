@@ -335,10 +335,11 @@ function renderBlocoB(posts){
 function preencherBlocoB(bloco, posts){
   var grid = bloco.querySelector('#ovc-pilulas-grid');
   if(!grid) return;
-  // Selecionar 4 posts com categorias todas diferentes entre si
+  // Selecionar 6 posts: prioriza categorias unicas, completa sem repetir adjacente
   var usados = [];
   var catsUsadas = {};
-  var tentativas = posts.slice(0, 40);
+  var tentativas = posts.slice(0, 100);
+  // Passagem 1: 1 post por categoria
   for(var i=0; i<tentativas.length && usados.length<6; i++){
     var p = tentativas[i];
     var cat = p.categoria || 'geral';
@@ -347,10 +348,19 @@ function preencherBlocoB(bloco, posts){
       catsUsadas[cat] = true;
     }
   }
-  // Se não conseguiu 4 com categorias únicas, completa com posts não usados ainda
-  if(usados.length < 4){
+  // Passagem 2: se ainda faltam, aceita repetir categoria mas nao adjacente
+  if(usados.length < 6){
     for(var j=0; j<tentativas.length && usados.length<6; j++){
-      if(usados.indexOf(tentativas[j]) === -1) usados.push(tentativas[j]);
+      var pj = tentativas[j];
+      if(usados.indexOf(pj) !== -1) continue;
+      var catAnterior = usados.length > 0 ? (usados[usados.length-1].categoria||'geral') : '';
+      if((pj.categoria||'geral') !== catAnterior) usados.push(pj);
+    }
+  }
+  // Passagem 3: forca completar com qualquer post nao usado
+  if(usados.length < 6){
+    for(var k=0; k<tentativas.length && usados.length<6; k++){
+      if(usados.indexOf(tentativas[k]) === -1) usados.push(tentativas[k]);
     }
   }
   if(!usados.length){
