@@ -30,7 +30,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px
 .login-btn{width:100%;background:var(--red);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .15s}
 .login-btn:hover{background:var(--red-h)}
 .layout{display:flex;height:100vh;overflow:hidden}
-.sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sidebar{width:220px;min-width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;transition:width .2s ease}
+.sidebar.collapsed{width:52px;min-width:52px}
+.sidebar.collapsed .nav-item span:not(.nav-icon):not(.notif-dot){display:none}
+.sidebar.collapsed .sidebar-logo .name,.sidebar.collapsed .sidebar-logo .sub{display:none}
+.sidebar.collapsed .sidebar-footer .ver,.sidebar.collapsed .logout-btn span{display:none}
+.sidebar.collapsed .nav-item{justify-content:center;padding:9px 0}
+.sidebar-toggle{background:none;border:none;color:var(--t2);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:4px;transition:color .15s}
+.sidebar-toggle:hover{color:var(--t1)}
 .sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border)}
 .sidebar-logo .name{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--t1)}
 .sidebar-logo .name .a{color:var(--red)}
@@ -167,6 +174,7 @@ function Dashboard() {
   const [cotacoes, setCotacoes] = useState(null);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [aprovando, setAprovando] = useState(null);
+  const [chart7dias, setChart7dias] = useState([]);
 
   const load = useCallback(async () => {
     try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
@@ -176,6 +184,12 @@ function Dashboard() {
     const { data: hp } = await sb.from('posts').select('user_tags').gte('created_at', hoje.toISOString());
     const cc = {}; (hp||[]).forEach(x=>{ try{JSON.parse(x.user_tags||'[]').forEach(t=>cc[t]=(cc[t]||0)+1);}catch(_){} });
     setCats(Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,8));
+    // Gráfico 7 dias
+    const d7 = new Date(); d7.setDate(d7.getDate()-6); d7.setHours(0,0,0,0);
+    const { data: p7 } = await sb.from('posts').select('created_at,status').gte('created_at',d7.toISOString()).eq('status','publicado');
+    const dias = {}; for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);const k=d.toISOString().slice(0,10);dias[k]=0;}
+    (p7||[]).forEach(x=>{const k=x.created_at.slice(0,10);if(k in dias)dias[k]++;});
+    setChart7dias(Object.entries(dias).sort((a,b)=>a[0]>b[0]?1:-1).map(([d,v])=>({d:d.slice(5),v})));
     setLoadingPosts(false);
   }, []);
 
@@ -1243,10 +1257,21 @@ function Postagens() {
                 ))}</tbody>
               </table>
             </div>
-            <div className="pagination">
-              <span className="pagination-info">Página {page+1}</span>
-              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>← Anterior</button>
-              <button className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={posts.length<PER}>Próxima →</button>
+            <div className="pagination" style={{display:'flex',alignItems:'center',gap:4,flexWrap:'wrap',padding:'8px 0'}}>
+              {(()=>{
+                const totalPages=Math.ceil(totalCount/PER)||1;
+                const pages=[];
+                const start=Math.max(0,page-2),end=Math.min(totalPages-1,page+2);
+                pages.push(<button key="prev" className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={page===0}>←</button>);
+                if(start>0) pages.push(<button key="f0" className="btn btn-secondary btn-sm" onClick={()=>setPage(0)}>1</button>);
+                if(start>1) pages.push(<span key="e1" style={{color:'var(--t3)',padding:'0 2px'}}>…</span>);
+                for(let i=start;i<=end;i++) pages.push(<button key={i} className={'btn btn-sm '+(i===page?'btn-primary':'btn-secondary')} onClick={()=>setPage(i)}>{i+1}</button>);
+                if(end<totalPages-2) pages.push(<span key="e2" style={{color:'var(--t3)',padding:'0 2px'}}>…</span>);
+                if(end<totalPages-1) pages.push(<button key={'l'+totalPages} className="btn btn-secondary btn-sm" onClick={()=>setPage(totalPages-1)}>{totalPages}</button>);
+                pages.push(<button key="next" className="btn btn-secondary btn-sm" onClick={()=>setPage(p=>p+1)} disabled={posts.length<PER}>→</button>);
+                pages.push(<span key="info" style={{fontSize:11,color:'var(--t3)',marginLeft:8}}>{totalCount} posts · {page+1}/{totalPages}</span>);
+                return pages;
+              })()}
             </div>
             </>
           )}
@@ -2652,6 +2677,8 @@ const PAGES = [
   {id:'colunistas',label:'Colunistas',icon:'✍️'},
   {id:'editor_colunas',label:'Editor de Colunas',icon:'✒️'},
   {id:'editor_imagens',label:'Editor de Imagens',icon:'✂️'},
+  {id:'banners',label:'Banners',icon:'📢'},
+  {id:'portal_colunistas',label:'Portal Colunistas',icon:'🪪'},
 ];
 
 // ── SELETOR DE IMAGEM ──
@@ -2800,10 +2827,11 @@ function ReescritaOVC({onVerPendentes}) {
 }
 
 function App() {
-  const [auth, setAuth] = useState(()=>sessionStorage.getItem('ovc_auth')==='1');
+  const [auth, setAuth] = useState(()=>localStorage.getItem('ovc_auth')==='1');
   const [page, setPage] = useState('dashboard');
   const [notif, setNotif] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(()=>localStorage.getItem('ovc_sidebar_collapsed')==='1');
 
   useEffect(()=>{
     if (!auth) return;
@@ -2818,13 +2846,13 @@ function App() {
     return ()=>clearInterval(t);
   },[auth]);
 
-  if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
+  if (!auth) return <Login onLogin={()=>{localStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">
-      <div className="sidebar">
+      <div className={`sidebar${sidebarCollapsed?' collapsed':''}`}>
         <div className="sidebar-logo">
           <div className="name">O <span className="a">VALOR</span> CAP.</div>
           <div className="sub">Centro de Comando</div>
@@ -2841,7 +2869,7 @@ function App() {
         </nav>
         <div className="sidebar-footer">
           <div className="ver">Admin OVC v3.1 · 2026</div>
-          <button className="logout-btn" onClick={()=>{sessionStorage.removeItem('ovc_auth');setAuth(false);}}>↩ Sair</button>
+          <button className="logout-btn" onClick={()=>{localStorage.removeItem('ovc_auth');setAuth(false);}}>↩ Sair</button>
         </div>
       </div>
       <div className="main"><PageComp setPage={setPage}/></div>
@@ -3785,6 +3813,508 @@ function EditorImagens() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+
+// ── BANNERS PUBLICITÁRIOS ──
+function Banners() {
+  const [banners, setBanners] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [form, setForm] = React.useState({titulo:'',url_destino:'',url_imagem:'',posicao:'home_topo',ativo:true,data_inicio:'',data_fim:''});
+  const [editId, setEditId] = React.useState(null);
+  const [salvando, setSalvando] = React.useState(false);
+  const [msg, setMsg] = React.useState('');
+  const [showForm, setShowForm] = React.useState(false);
+
+  const POSICOES = [
+    {id:'home_topo',label:'Home — Topo'},
+    {id:'home_meio',label:'Home — Meio'},
+    {id:'home_rodape',label:'Home — Rodapé'},
+    {id:'categoria_topo',label:'Categorias — Topo'},
+    {id:'categoria_lateral',label:'Categorias — Lateral'},
+    {id:'artigo_topo',label:'Artigo — Topo'},
+    {id:'artigo_meio',label:'Artigo — Meio'},
+    {id:'artigo_lateral',label:'Artigo — Lateral'},
+    {id:'artigo_rodape',label:'Artigo — Rodapé'},
+  ];
+
+  const showMsg = (t,tipo)=>{setMsg({t,tipo});setTimeout(()=>setMsg(''),4000);};
+
+  const load = async()=>{
+    setLoading(true);
+    try{
+      const {data,error}=await sb.from('banners').select('*').order('created_at',{ascending:false});
+      if(error&&error.code==='42P01'){
+        // Tabela não existe ainda
+        setBanners([]);
+        showMsg({t:'⚠️ Tabela "banners" não existe. Execute o SQL abaixo no Supabase Dashboard para criá-la.',tipo:'warn'});
+      } else {
+        setBanners(data||[]);
+      }
+    }catch(e){ setBanners([]); }
+    setLoading(false);
+  };
+
+  React.useEffect(()=>{ load(); },[]);
+
+  const resetForm = ()=>setForm({titulo:'',url_destino:'',url_imagem:'',posicao:'home_topo',ativo:true,data_inicio:'',data_fim:''});
+
+  const salvar = async()=>{
+    if(!form.titulo.trim()||!form.url_destino.trim()){showMsg({t:'Título e URL de destino são obrigatórios',tipo:'erro'});return;}
+    setSalvando(true);
+    try{
+      const payload={titulo:form.titulo.trim(),url_destino:form.url_destino.trim(),url_imagem:form.url_imagem.trim()||null,posicao:form.posicao,ativo:form.ativo,data_inicio:form.data_inicio||null,data_fim:form.data_fim||null};
+      if(editId){
+        await sb.from('banners').update(payload).eq('id',editId);
+        showMsg({t:'✅ Banner atualizado',tipo:'ok'});
+      } else {
+        await sb.from('banners').insert(payload);
+        showMsg({t:'✅ Banner criado',tipo:'ok'});
+      }
+      resetForm(); setEditId(null); setShowForm(false); load();
+    }catch(e){showMsg({t:'❌ Erro: '+e.message,tipo:'erro'});}
+    setSalvando(false);
+  };
+
+  const toggleAtivo = async(id,val)=>{
+    await sb.from('banners').update({ativo:!val}).eq('id',id);
+    setBanners(b=>b.map(x=>x.id===id?{...x,ativo:!val}:x));
+  };
+
+  const excluir = async(id)=>{
+    if(!confirm('Excluir este banner?')) return;
+    await sb.from('banners').delete().eq('id',id);
+    setBanners(b=>b.filter(x=>x.id!==id));
+    showMsg({t:'🗑️ Banner excluído',tipo:'ok'});
+  };
+
+  const editar=(b)=>{
+    setForm({titulo:b.titulo||'',url_destino:b.url_destino||'',url_imagem:b.url_imagem||'',posicao:b.posicao||'home_topo',ativo:b.ativo!==false,data_inicio:b.data_inicio?b.data_inicio.slice(0,10):'',data_fim:b.data_fim?b.data_fim.slice(0,10):''});
+    setEditId(b.id); setShowForm(true);
+  };
+
+  const fmtDate=d=>d?new Date(d).toLocaleDateString('pt-BR'):'—';
+  const posLabel=id=>POSICOES.find(p=>p.id===id)?.label||id;
+
+  const SQL_CREATE = `CREATE TABLE IF NOT EXISTS banners (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  titulo text NOT NULL,
+  url_destino text NOT NULL,
+  url_imagem text,
+  posicao text DEFAULT 'home_topo',
+  ativo boolean DEFAULT true,
+  data_inicio date,
+  data_fim date,
+  cliques integer DEFAULT 0,
+  impressoes integer DEFAULT 0,
+  created_at timestamptz DEFAULT now()
+);`;
+
+  return (
+    <div>
+      <div className="page-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',paddingBottom:16}}>
+        <div>
+          <div className="page-title">📢 Banners Publicitários</div>
+          <div className="page-sub">Gerencie os espaços de anúncio do portal</div>
+        </div>
+        <button className="btn btn-primary" onClick={()=>{resetForm();setEditId(null);setShowForm(s=>!s);}}>
+          {showForm?'✕ Cancelar':'+ Novo Banner'}
+        </button>
+      </div>
+      <div className="page-body">
+
+        {msg&&<div style={{padding:'10px 16px',borderRadius:8,marginBottom:16,
+          background:msg.tipo==='ok'?'var(--green-s)':msg.tipo==='warn'?'var(--yellow-s)':'var(--red-s2)',
+          color:msg.tipo==='ok'?'#4ade80':msg.tipo==='warn'?'var(--yellow)':'#f87171',fontSize:13}}>{msg.t}</div>}
+
+        {/* SQL helper */}
+        {!loading&&banners.length===0&&(
+          <div className="panel" style={{marginBottom:20,border:'1px solid rgba(255,200,0,0.3)'}}>
+            <div className="panel-header"><span className="panel-title">⚙️ Setup necessário — rode este SQL no Supabase Dashboard</span></div>
+            <div style={{padding:'12px 20px'}}>
+              <pre style={{background:'rgba(0,0,0,0.4)',borderRadius:8,padding:12,fontSize:11,color:'#a5f3fc',overflowX:'auto',whiteSpace:'pre-wrap'}}>{SQL_CREATE}</pre>
+              <div style={{fontSize:12,color:'var(--t2)',marginTop:8}}>Acesse: Supabase Dashboard → SQL Editor → cole o código acima → Run</div>
+            </div>
+          </div>
+        )}
+
+        {/* Formulário */}
+        {showForm&&(
+          <div className="panel" style={{marginBottom:20}}>
+            <div className="panel-header"><span className="panel-title">{editId?'Editar Banner':'Novo Banner'}</span></div>
+            <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+              <div style={{gridColumn:'1/-1'}}>
+                <label style={{fontSize:11,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>Título *</label>
+                <input className="form-input" value={form.titulo} onChange={e=>setForm(f=>({...f,titulo:e.target.value}))} placeholder="Ex: Anúncio Seguro de Vida"/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>URL de Destino *</label>
+                <input className="form-input" value={form.url_destino} onChange={e=>setForm(f=>({...f,url_destino:e.target.value}))} placeholder="https://..."/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>URL da Imagem</label>
+                <input className="form-input" value={form.url_imagem} onChange={e=>setForm(f=>({...f,url_imagem:e.target.value}))} placeholder="https://... ou deixe vazio"/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>Posição</label>
+                <select className="form-select" value={form.posicao} onChange={e=>setForm(f=>({...f,posicao:e.target.value}))}>
+                  {POSICOES.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>Data início</label>
+                <input className="form-input" type="date" value={form.data_inicio} onChange={e=>setForm(f=>({...f,data_inicio:e.target.value}))}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.06em',display:'block',marginBottom:4}}>Data fim</label>
+                <input className="form-input" type="date" value={form.data_fim} onChange={e=>setForm(f=>({...f,data_fim:e.target.value}))}/>
+              </div>
+              <div style={{gridColumn:'1/-1',display:'flex',gap:12,alignItems:'center'}}>
+                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}>
+                  <input type="checkbox" checked={form.ativo} onChange={e=>setForm(f=>({...f,ativo:e.target.checked}))} style={{accentColor:'var(--green)',width:16,height:16}}/>
+                  <span>Banner ativo</span>
+                </label>
+              </div>
+              <div style={{gridColumn:'1/-1',display:'flex',gap:8}}>
+                <button className="btn btn-primary" onClick={salvar} disabled={salvando}>{salvando?'Salvando…':'Salvar Banner'}</button>
+                <button className="btn btn-secondary" onClick={()=>{setShowForm(false);resetForm();setEditId(null);}}>Cancelar</button>
+              </div>
+            </div>
+            {form.url_imagem&&(
+              <div style={{padding:'0 20px 16px'}}>
+                <div style={{fontSize:11,color:'var(--t2)',marginBottom:6}}>Preview:</div>
+                <img src={form.url_imagem} alt="preview" style={{maxWidth:400,maxHeight:120,objectFit:'contain',borderRadius:6,border:'1px solid var(--border)'}} onError={e=>e.target.style.display='none'}/>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tabela */}
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">Banners cadastrados ({banners.length})</span>
+            <button className="btn btn-secondary btn-sm" onClick={load}>↻ Atualizar</button>
+          </div>
+          {loading?<div className="loading">Carregando...</div>:
+          banners.length===0?<div style={{padding:40,textAlign:'center',color:'var(--t2)'}}>
+            <div style={{fontSize:32,marginBottom:12}}>📢</div>
+            <div>Nenhum banner cadastrado ainda</div>
+            <div style={{fontSize:12,marginTop:4}}>Clique em "Novo Banner" para começar</div>
+          </div>:
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Preview</th><th>Título</th><th>Posição</th><th>Vigência</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody>
+                {banners.map(b=>(
+                  <tr key={b.id}>
+                    <td style={{width:80}}>
+                      {b.url_imagem
+                        ?<img src={b.url_imagem} style={{width:72,height:40,objectFit:'cover',borderRadius:4,border:'1px solid var(--border)'}} onError={e=>e.target.style.display='none'} alt=""/>
+                        :<div style={{width:72,height:40,background:'rgba(255,255,255,0.05)',borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📢</div>
+                      }
+                    </td>
+                    <td>
+                      <div style={{fontWeight:500,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.titulo}</div>
+                      <div style={{fontSize:11,color:'var(--t3)',maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.url_destino}</div>
+                    </td>
+                    <td><span className="badge badge-gray">{posLabel(b.posicao)}</span></td>
+                    <td style={{fontSize:12,color:'var(--t2)'}}>{fmtDate(b.data_inicio)} → {fmtDate(b.data_fim)}</td>
+                    <td>
+                      <button onClick={()=>toggleAtivo(b.id,b.ativo)}
+                        className={`badge ${b.ativo?'badge-green':'badge-red'}`}
+                        style={{border:'none',cursor:'pointer',fontWeight:600}}>
+                        {b.ativo?'● Ativo':'○ Inativo'}
+                      </button>
+                    </td>
+                    <td>
+                      <div style={{display:'flex',gap:6'}}>
+                        <button className="btn btn-secondary btn-sm" onClick={()=>editar(b)}>✏️</button>
+                        <button className="btn btn-secondary btn-sm" style={{color:'#f87171'}} onClick={()=>excluir(b.id)}>🗑️</button>
+                        <a href={b.url_destino} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">↗</a>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// ── PORTAL COLUNISTAS — ADMIN ──
+function PortalColunistasAdmin() {
+  const [tokens, setTokens] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [submissoes, setSubmissoes] = React.useState([]);
+  const [loadingSub, setLoadingSub] = React.useState(true);
+  const [msg, setMsg] = React.useState('');
+  const [novoForm, setNovoForm] = React.useState({nome:'',email:''});
+  const [gerando, setGerando] = React.useState(false);
+  const [copiado, setCopiado] = React.useState('');
+  const [aprovando, setAprovando] = React.useState(null);
+  const [rejeitando, setRejeitando] = React.useState(null);
+  const [abaAtiva, setAbaAtiva] = React.useState('submissoes');
+
+  const BASE_URL = 'https://www.ovalorcapital.com.br';
+
+  const showMsg=(t,tipo)=>{setMsg({t,tipo});setTimeout(()=>setMsg(''),5000);};
+
+  const loadTokens = async()=>{
+    try{
+      const {data,error}=await sb.from('colunista_tokens').select('*').order('created_at',{ascending:false});
+      if(error&&error.code==='42P01') setTokens([]);
+      else setTokens(data||[]);
+    }catch(_){ setTokens([]); }
+  };
+
+  const loadSubmissoes = async()=>{
+    setLoadingSub(true);
+    try{
+      const {data}=await sb.from('posts')
+        .select('id,titulo,conteudo,created_at,status,subcategoria,user_tags,comentario_fixado')
+        .in('publish_method',['coluna','colunista','portal_colunista'])
+        .order('created_at',{ascending:false})
+        .limit(50);
+      setSubmissoes(data||[]);
+    }catch(_){ setSubmissoes([]); }
+    setLoadingSub(false);
+  };
+
+  React.useEffect(()=>{ loadTokens(); loadSubmissoes(); setLoading(false); },[]);
+
+  const gerarToken = async()=>{
+    if(!novoForm.nome.trim()||!novoForm.email.trim()){showMsg({t:'Nome e e-mail são obrigatórios',tipo:'erro'});return;}
+    setGerando(true);
+    try{
+      const token = btoa(novoForm.nome.trim().toLowerCase().replace(/\s+/g,'_')+'_'+Date.now()).replace(/[^a-zA-Z0-9]/g,'').slice(0,32);
+      const {error}=await sb.from('colunista_tokens').insert({nome:novoForm.nome.trim(),email:novoForm.email.trim(),token,ativo:true});
+      if(error&&error.code==='42P01'){
+        showMsg({t:'⚠️ Tabela "colunista_tokens" não existe. Execute o SQL de setup abaixo.',tipo:'warn'});
+      } else if(error){
+        showMsg({t:'❌ Erro: '+error.message,tipo:'erro'});
+      } else {
+        showMsg({t:'✅ Token gerado para '+novoForm.nome,tipo:'ok'});
+        setNovoForm({nome:'',email:''});
+        loadTokens();
+      }
+    }catch(e){showMsg({t:'❌ '+e.message,tipo:'erro'});}
+    setGerando(false);
+  };
+
+  const revogarToken = async(id)=>{
+    if(!confirm('Revogar acesso deste colunista?')) return;
+    await sb.from('colunista_tokens').update({ativo:false}).eq('id',id);
+    loadTokens();
+  };
+
+  const reativarToken = async(id)=>{
+    await sb.from('colunista_tokens').update({ativo:true}).eq('id',id);
+    loadTokens();
+  };
+
+  const copiarLink=(token)=>{
+    const link=`${BASE_URL}/colunista?token=${token}`;
+    navigator.clipboard.writeText(link).then(()=>{setCopiado(token);setTimeout(()=>setCopiado(''),2000);});
+  };
+
+  const aprovar = async(id)=>{
+    setAprovando(id);
+    await sb.from('posts').update({status:'publicado',approved:true,published_at:new Date().toISOString()}).eq('id',id);
+    setSubmissoes(s=>s.map(x=>x.id===id?{...x,status:'publicado'}:x));
+    setAprovando(null);
+    showMsg({t:'✅ Artigo publicado',tipo:'ok'});
+  };
+
+  const rejeitar = async(id)=>{
+    setRejeitando(id);
+    await sb.from('posts').update({status:'reprovado'}).eq('id',id);
+    setSubmissoes(s=>s.filter(x=>x.id!==id));
+    setRejeitando(null);
+    showMsg({t:'🗑️ Artigo rejeitado',tipo:'ok'});
+  };
+
+  const pendentes = submissoes.filter(x=>x.status==='pendente').length;
+  const fmtDate=d=>d?new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+
+  const SQL_SETUP = `-- Tabela de tokens de acesso
+CREATE TABLE IF NOT EXISTS colunista_tokens (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  nome text NOT NULL,
+  email text NOT NULL,
+  token text UNIQUE NOT NULL,
+  ativo boolean DEFAULT true,
+  created_at timestamptz DEFAULT now()
+);
+
+-- Coluna publish_method em posts (se não existir)
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS publish_method text;`;
+
+  const abaStyle=(id)=>({
+    padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer',border:'none',borderRadius:6,
+    background:abaAtiva===id?'var(--red)':'rgba(255,255,255,0.06)',
+    color:abaAtiva===id?'#fff':'var(--t2)',transition:'all .15s'
+  });
+
+  return (
+    <div>
+      <div className="page-header" style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',paddingBottom:16}}>
+        <div>
+          <div className="page-title">🪪 Portal de Colunistas</div>
+          <div className="page-sub">Gerencie acessos e aprove submissões de artigos</div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button style={abaStyle('submissoes')} onClick={()=>setAbaAtiva('submissoes')}>
+            Submissões {pendentes>0&&<span style={{background:'var(--yellow)',color:'#000',borderRadius:10,padding:'1px 6px',fontSize:10,marginLeft:4}}>{pendentes}</span>}
+          </button>
+          <button style={abaStyle('acessos')} onClick={()=>setAbaAtiva('acessos')}>Acessos</button>
+          <button style={abaStyle('setup')} onClick={()=>setAbaAtiva('setup')}>Setup</button>
+        </div>
+      </div>
+      <div className="page-body">
+
+        {msg&&<div style={{padding:'10px 16px',borderRadius:8,marginBottom:16,
+          background:msg.tipo==='ok'?'var(--green-s)':msg.tipo==='warn'?'var(--yellow-s)':'var(--red-s2)',
+          color:msg.tipo==='ok'?'#4ade80':msg.tipo==='warn'?'var(--yellow)':'#f87171',fontSize:13}}>{msg.t}</div>}
+
+        {/* ABA: SUBMISSÕES */}
+        {abaAtiva==='submissoes'&&(
+          <div>
+            <div style={{display:'flex',gap:8,marginBottom:16,alignItems:'center'}}>
+              <div style={{fontSize:13,color:'var(--t2)'}}>{submissoes.length} submissões encontradas · {pendentes} aguardando aprovação</div>
+              <button className="btn btn-secondary btn-sm" onClick={loadSubmissoes}>↻ Atualizar</button>
+            </div>
+            {loadingSub?<div className="loading">Carregando...</div>:
+            submissoes.length===0?<div style={{padding:60,textAlign:'center',color:'var(--t2)'}}>
+              <div style={{fontSize:32,marginBottom:12}}>📝</div>
+              <div>Nenhuma submissão de colunistas ainda</div>
+            </div>:
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {submissoes.map(s=>{
+                const cat=()=>{try{return JSON.parse(s.user_tags||'[]')[0]||'—';}catch(_){return s.subcategoria||'—';}};
+                const preview=(s.conteudo||'').replace(/<[^>]*>/g,'').slice(0,200);
+                return (
+                  <div key={s.id} className="panel" style={{border:s.status==='pendente'?'1px solid rgba(255,200,0,0.3)':'1px solid var(--border)'}}>
+                    <div style={{padding:16}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:8}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>{s.titulo||'(sem título)'}</div>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <span className="badge badge-gray">{cat()}</span>
+                            <span className={`badge ${s.status==='pendente'?'badge-yellow':s.status==='publicado'?'badge-green':'badge-red'}`}>{s.status}</span>
+                            <span style={{fontSize:11,color:'var(--t3)'}}>{fmtDate(s.created_at)}</span>
+                            {s.subcategoria&&<span style={{fontSize:11,color:'var(--t3)'}}>por: {s.subcategoria}</span>}
+                          </div>
+                        </div>
+                        {s.status==='pendente'&&(
+                          <div style={{display:'flex',gap:6,flexShrink:0}}>
+                            <button className="btn btn-green btn-sm" onClick={()=>aprovar(s.id)} disabled={aprovando===s.id}>
+                              {aprovando===s.id?'…':'✓ Publicar'}
+                            </button>
+                            <button className="btn btn-sm" style={{background:'var(--red-s2)',color:'#f87171',border:'1px solid rgba(200,30,30,0.3)'}}
+                              onClick={()=>rejeitar(s.id)} disabled={rejeitando===s.id}>
+                              {rejeitando===s.id?'…':'✗ Rejeitar'}
+                            </button>
+                          </div>
+                        )}
+                        {s.status==='publicado'&&<span style={{fontSize:11,color:'#4ade80',fontWeight:600}}>✓ Publicado</span>}
+                      </div>
+                      {preview&&<div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5,borderTop:'1px solid var(--border)',paddingTop:8}}>{preview}{(s.conteudo||'').length>200?'…':''}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>}
+          </div>
+        )}
+
+        {/* ABA: ACESSOS */}
+        {abaAtiva==='acessos'&&(
+          <div>
+            <div className="panel" style={{marginBottom:20}}>
+              <div className="panel-header"><span className="panel-title">Gerar novo acesso</span></div>
+              <div style={{padding:20,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'flex-end'}}>
+                <div>
+                  <label style={{fontSize:11,color:'var(--t2)',display:'block',marginBottom:4}}>Nome do colunista</label>
+                  <input className="form-input" value={novoForm.nome} onChange={e=>setNovoForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: João Silva"/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,color:'var(--t2)',display:'block',marginBottom:4}}>E-mail</label>
+                  <input className="form-input" type="email" value={novoForm.email} onChange={e=>setNovoForm(f=>({...f,email:e.target.value}))} placeholder="joao@email.com"/>
+                </div>
+                <button className="btn btn-primary" onClick={gerarToken} disabled={gerando}>{gerando?'Gerando…':'Gerar link de acesso'}</button>
+              </div>
+              <div style={{padding:'0 20px 16px',fontSize:12,color:'var(--t2)'}}>
+                O colunista receberá um link único. Ao acessar, poderá enviar artigos que chegarão aqui como pendentes para sua aprovação.
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-header">
+                <span className="panel-title">Acessos gerados ({tokens.length})</span>
+                <button className="btn btn-secondary btn-sm" onClick={loadTokens}>↻ Atualizar</button>
+              </div>
+              {tokens.length===0?<div style={{padding:40,textAlign:'center',color:'var(--t2)'}}>
+                <div style={{fontSize:32,marginBottom:12}}>🪪</div>
+                <div>Nenhum acesso gerado ainda</div>
+              </div>:
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Colunista</th><th>E-mail</th><th>Link de acesso</th><th>Status</th><th>Gerado em</th><th>Ações</th></tr></thead>
+                  <tbody>
+                    {tokens.map(t=>(
+                      <tr key={t.id}>
+                        <td style={{fontWeight:500}}>{t.nome}</td>
+                        <td style={{fontSize:12,color:'var(--t2)'}}>{t.email}</td>
+                        <td>
+                          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                            <code style={{fontSize:10,color:'var(--t3)',background:'rgba(255,255,255,0.04)',padding:'2px 6px',borderRadius:4}}>{BASE_URL}/colunista?token={t.token.slice(0,12)}…</code>
+                            <button className="btn btn-secondary btn-sm" onClick={()=>copiarLink(t.token)}>
+                              {copiado===t.token?'✓ Copiado':'📋 Copiar'}
+                            </button>
+                          </div>
+                        </td>
+                        <td><span className={`badge ${t.ativo?'badge-green':'badge-red'}`}>{t.ativo?'Ativo':'Revogado'}</span></td>
+                        <td style={{fontSize:12,color:'var(--t2)'}}>{fmtDate(t.created_at)}</td>
+                        <td>
+                          {t.ativo
+                            ?<button className="btn btn-secondary btn-sm" style={{color:'#f87171'}} onClick={()=>revogarToken(t.id)}>Revogar</button>
+                            :<button className="btn btn-secondary btn-sm" onClick={()=>reativarToken(t.id)}>Reativar</button>
+                          }
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>}
+            </div>
+          </div>
+        )}
+
+        {/* ABA: SETUP */}
+        {abaAtiva==='setup'&&(
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">⚙️ SQL de Setup — rode no Supabase Dashboard</span></div>
+            <div style={{padding:20}}>
+              <pre style={{background:'rgba(0,0,0,0.4)',borderRadius:8,padding:16,fontSize:12,color:'#a5f3fc',overflowX:'auto',whiteSpace:'pre-wrap',lineHeight:1.6}}>{SQL_SETUP}</pre>
+              <div style={{fontSize:12,color:'var(--t2)',marginTop:12}}>
+                Acesse: <strong style={{color:'var(--t1)'}}>Supabase Dashboard → SQL Editor</strong> → cole o código acima → clique em <strong style={{color:'var(--t1)'}}>Run</strong>
+              </div>
+              <div style={{marginTop:16,padding:12,background:'rgba(255,200,0,0.08)',borderRadius:8,border:'1px solid rgba(255,200,0,0.2)',fontSize:12,color:'var(--yellow)'}}>
+                ⚠️ O portal de submissão do colunista fica em <strong>/colunista?token=TOKEN</strong>. Esta página precisa ser criada no frontend do portal separadamente.
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
