@@ -250,6 +250,30 @@ async function manual(req, res, rec) {
   return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, modo: "manual_pendente" });
 }
 
+async function gerarPilula(sourceText, sourceTitle, contexto, categoria) {
+  const prompt = `Você é um redator de notas jornalísticas rápidas do portal O Valor Capital (OVC), viés centro-direita liberal.
+Produza uma NOTA RÁPIDA (pílula) objetiva e direta sobre o fato abaixo.
+Sem análise profunda. Foco no fato e sua relevância imediata. Linguagem acessível e direta.
+Evite: vale destacar | cabe ressaltar | nesse contexto | acende alerta | especialistas apontam.
+Formato OBRIGATÓRIO:
+TITULO: [manchete direta — 45 a 65 caracteres]
+FOCO_KEYWORD: [2 a 3 palavras]
+META_DESCRICAO: [120 a 155 caracteres]
+CATEGORIA: [uma de: politica|economia|negocios|investimentos|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao|brasil-on]
+CORPO:
+<p><strong>Redação OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
+[2 a 3 parágrafos curtos em HTML, 300 a 600 caracteres total, sem h2, sem imagem]
+Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 800, temperature: 0.7 })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI pilula");
+  return parseOVC(d.choices?.[0]?.message?.content || "");
+}
+
 async function auto(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
@@ -285,6 +309,28 @@ async function auto(req, res, rec) {
         image_original_url: resolvedImage.original || ""
       });
       await log("info", `[pipeline] gerado: ${content.titulo?.slice(0,60)} | cat:${content.categoria} | img:${!!img}`);
+      // Gerar pílula paralela — publica direto, sem imagem
+      try {
+        const hashP = crypto.createHash("md5").update(item.link + "_pilula").digest("hex");
+        const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
+        if (!dupP) {
+          const pilula = await gerarPilula(sourceText, item.title || a.title || "", rec.contexto, cat);
+          if (pilula && pilula.titulo && pilula.corpo && pilula.corpo.length >= 300) {
+            const catP = CATS.has(pilula.categoria) ? pilula.categoria : cat;
+            await supabase.from("posts").insert({
+              titulo: stripTitle(pilula.titulo), conteudo: pilula.corpo,
+              comentario_fixado: (pilula.meta_descricao||"").trim(), imagem: null, hash: hashP,
+              status: "publicado", approved: true, publish_method: "portal",
+              published_at: new Date().toISOString(),
+              user_tags: JSON.stringify([catP]), subcategoria: SUBCAT[catP]||"Geral",
+              subcategoria_slug: slugify(SUBCAT[catP]||"geral"), collaborators: "[]",
+              tipo_conteudo: "pilula", metrics: { foco_keyword: pilula.foco_keyword||"", tipo:"pilula" },
+              priority: 0, retry_count: 0, max_retries: 3
+            });
+            await log("info", `[pipeline] pilula: ${pilula.titulo?.slice(0,50)} | cat:${catP}`);
+          }
+        }
+      } catch(eP) { await log("warn", `[pipeline] falha pilula: ${eP.message?.slice(0,80)}`); }
       return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, categoria: content.categoria, subcategoria: content.subcategoria, imagem: !!img });
     } catch (e) { debug.erro++; if (debug.erros.length < 5) debug.erros.push(e.message); }
   }
