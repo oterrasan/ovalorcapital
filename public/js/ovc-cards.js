@@ -63,6 +63,8 @@
   }
 
   function buildUrl(p){
+    // Usar URL já calculada pela API quando disponível
+    if(p.url) return p.url;
     var catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
       investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
