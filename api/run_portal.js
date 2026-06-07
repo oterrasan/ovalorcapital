@@ -305,8 +305,7 @@ export default async function handler(req, res) {
   if (body.action === "cleanup_titles") return cleanupTitles(res, body);
   if (req.method !== "POST") return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
-  if (!override && !(await automacaoAtiva())) await log("warn", "[pipeline] chamada recebida mas AUTOMATION=off");
-  return res.status(200).json({ status: "pipeline_pausado", message: "Pipeline OVC pausado no controle central. Nenhum conteudo foi gerado.", generated: 0 });
+  if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });
   if (!body.force && !janelaOk()) return res.status(200).json({ status: "fora_horario", janela: "07:00-00:30 BRT", generated: 0 });
   const rec = await recentes();
   try { if (body.url || body.texto) return manual(req, res, rec); return auto(req, res, rec); }
