@@ -147,7 +147,7 @@ async function handleRecentes(req, res) {
   const tipoFiltro = req.query.tipo || null;
   let q = supabase.from("posts").select(POST_COLUMNS).eq("status", "publicado");
   if (tipoFiltro) q = q.eq("tipo_conteudo", tipoFiltro);
-  else q = q.or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao");
+  else q = q.not("tipo_conteudo", "in", "(pilula,micropilula)");
   const { data, error } = await q.order("published_at", { ascending: false }).limit(limit);
   if (error) throw error;
 
