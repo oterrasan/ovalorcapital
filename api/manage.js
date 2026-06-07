@@ -6,6 +6,11 @@ const OLD_REF = "bfsegqdgscudtdgwdyci";
 const ADMIN_PASS = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || "ovc-admin-2026-secreto";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+async function writeLog(level, message) {
+  try { await supabase.from('logs').insert({ level, message }); } catch(_) {}
+}
+
+
 const VENDOR_JS = {
   react: "https://unpkg.com/react@18/umd/react.production.min.js",
   "react-dom": "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
