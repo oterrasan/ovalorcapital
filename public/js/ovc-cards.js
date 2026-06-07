@@ -63,8 +63,6 @@
   }
 
   function buildUrl(p){
-    // Usar URL já calculada pela API quando disponível
-    if(p.url) return p.url;
     var catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
       investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
@@ -224,7 +222,7 @@ function injetarEstilosMiolo(){
 
     /* Bloco B — faixa pílulas: fundo branco, borda sutil */
     '.ovc-faixa-pilulas{background:#fff;border:1px solid #e2e5ea;',
-    'border-radius:12px;padding:20px 18px;width:100%;}',
+    'border-radius:12px;padding:16px 18px;width:100%;}',
     '.ovc-pilulas-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;',
     'border-bottom:1px solid #f0f2f5;padding-bottom:10px;}',
     '.ovc-pilulas-dot{width:7px;height:7px;border-radius:50%;background:#c81e1e;',
@@ -232,8 +230,8 @@ function injetarEstilosMiolo(){
     '@keyframes ovc-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}',
     '.ovc-pilulas-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;',
     'color:#c81e1e;font-weight:700;font-family:inherit;}',
-    '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;width:100%;align-items:start;}',
-    '.ovc-pilula-item{padding:0 8px;border-right:1px solid #f0f2f5;min-width:0;overflow:hidden;word-break:break-word;display:flex;flex-direction:column;}',
+    '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;width:100%;}',
+    '.ovc-pilula-item{padding:0 8px;border-right:1px solid #f0f2f5;min-width:0;overflow:hidden;word-break:break-word;}',
     '.ovc-pilula-item:first-child{padding-left:0;}',
     '.ovc-pilula-item:last-child{border-right:none;}',
     '.ovc-pilula-cat{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
