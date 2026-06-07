@@ -91,8 +91,36 @@
         img.onerror = () => imgWrap.style.display = 'none';
       }
 
-      const corpo = p.corpo || p.resumo || '';
-      if(bodyEl) bodyEl.innerHTML = renderBody(corpo);
+    
+const notaEditorial = `
+<div style="margin-top:40px;padding:20px 24px;border-top:2px solid #e2e5ea;border-radius:0 0 8px 8px;background:#f8f9fb;font-size:13px;line-height:1.7;color:#444;">
+  <div style="display:flex;align-items:flex-start;gap:12px;">
+    <div style="flex-shrink:0;width:36px;height:36px;background:#0A1A2F;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div style="flex:1;">
+      <div style="font-weight:700;color:#0A1A2F;font-size:13px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;">Nota de Responsabilidade Editorial</div>
+      <p style="margin:0 0 8px;">O conteúdo publicado pelo <strong>O Valor Capital</strong> tem caráter informativo e jornalístico, produzido com base em fontes públicas, comunicados oficiais e informações verificadas na data de publicação. As informações aqui veiculadas não constituem aconselhamento jurídico, financeiro, médico ou de qualquer outra natureza profissional.</p>
+      <p style="margin:0 0 8px;">O portal não se responsabiliza por decisões tomadas com base exclusiva nas informações aqui veiculadas, tampouco por eventuais imprecisões decorrentes de alterações posteriores à publicação.</p>
+      <p style="margin:0 0 12px;">O <strong>O Valor Capital</strong> está comprometido com a precisão e a transparência. Caso identifique erro factual, imprecisão ou informação desatualizada neste conteúdo, entre em contato com a nossa redação. Correções são realizadas com transparência e registradas na própria publicação.</p>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <a href="mailto:redacao@ovalorcapital.com.br" style="display:inline-flex;align-items:center;gap:6px;background:#0A1A2F;color:#D4AF37;text-decoration:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;letter-spacing:.04em;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Reportar erro ou correção
+        </a>
+        <span style="color:#9aa0ab;font-size:11px;">redacao@ovalorcapital.com.br</span>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e5ea;font-size:11px;color:#9aa0ab;">
+    © ${new Date().getFullYear()} O Valor Capital — Liberdade Econômica, Família e Patrimônio. Todos os direitos reservados. 
+    Reprodução parcial ou total permitida desde que citada a fonte com link para o conteúdo original.
+  </div>
+</div>
+`;
+
+  const corpo = p.corpo || p.resumo || '';
+      if(bodyEl) bodyEl.innerHTML = renderBody(corpo) + notaEditorial;
 
       document.title = tituloLimpo + ' | O Valor Capital';
       const metaDesc = document.querySelector('meta[name="description"]');
