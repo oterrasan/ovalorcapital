@@ -643,7 +643,7 @@ function load(){
     // Preencher Bloco B — pílulas (posts mais recentes de qualquer categoria)
     var bB = container._blocoB;
     if(bB){
-      var todosPosts = (data.posts||[]).slice(0,8);
+      var todosPosts = (data.posts||[]).slice(0,60);
       preencherBlocoB(bB, todosPosts);
     }
 
