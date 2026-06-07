@@ -230,13 +230,13 @@ function injetarEstilosMiolo(){
     '@keyframes ovc-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}',
     '.ovc-pilulas-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;',
     'color:#c81e1e;font-weight:700;font-family:inherit;}',
-    '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}',
-    '.ovc-pilula-item{padding:0 20px;border-right:1px solid #f0f2f5;}',
+    '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0;}',
+    '.ovc-pilula-item{padding:0 12px;border-right:1px solid #f0f2f5;}',
     '.ovc-pilula-item:first-child{padding-left:0;}',
     '.ovc-pilula-item:last-child{border-right:none;}',
     '.ovc-pilula-cat{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
     'font-weight:700;margin-bottom:5px;font-family:inherit;}',
-    '.ovc-pilula-texto{font-size:13px;color:#1a1a2e;line-height:1.55;font-weight:500;',
+    '.ovc-pilula-texto{font-size:12px;color:#1a1a2e;line-height:1.5;font-weight:500;',
     'font-family:inherit;display:-webkit-box;-webkit-line-clamp:3;',
     '-webkit-box-orient:vertical;overflow:hidden;}',
     '.ovc-pilula-hora{font-size:10px;color:#9aa0ab;margin-top:5px;font-family:inherit;}',
@@ -339,7 +339,7 @@ function preencherBlocoB(bloco, posts){
   var usados = [];
   var catsUsadas = {};
   var tentativas = posts.slice(0, 40);
-  for(var i=0; i<tentativas.length && usados.length<4; i++){
+  for(var i=0; i<tentativas.length && usados.length<6; i++){
     var p = tentativas[i];
     var cat = p.categoria || 'geral';
     if(!catsUsadas[cat]){
@@ -349,7 +349,7 @@ function preencherBlocoB(bloco, posts){
   }
   // Se não conseguiu 4 com categorias únicas, completa com posts não usados ainda
   if(usados.length < 4){
-    for(var j=0; j<tentativas.length && usados.length<4; j++){
+    for(var j=0; j<tentativas.length && usados.length<6; j++){
       if(usados.indexOf(tentativas[j]) === -1) usados.push(tentativas[j]);
     }
   }
