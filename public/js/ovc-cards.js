@@ -203,97 +203,97 @@ function injetarEstilosMiolo(){
   var st = document.createElement('style');
   st.id = 'ovc-miolo-style';
   st.textContent = [
-    /* respiro geral */
     '.ovc-miolo{display:flex;flex-direction:column;gap:0;width:100%;}',
-    '.ovc-bloco{margin-bottom:36px;}',
+    '.ovc-bloco{margin-bottom:40px;}',
     '.ovc-bloco:last-child{margin-bottom:0;}',
 
-    /* Bloco A — grade 3 colunas */
+    /* Bloco A — grade 3, cards com imagem sobre fundo branco */
     '.ovc-grade-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;width:100%;}',
 
-    /* Card padrão (igual ao atual, mas min-height maior) */
+    /* Card padrão — imagem com overlay, mantém visual atual mas com mais altura */
     '.ovc-cat-card{position:relative;border-radius:14px;overflow:hidden;min-height:240px;',
     'display:flex;flex-direction:column;justify-content:flex-end;padding:18px;',
-    'background:#0f172a;background-size:cover;background-position:center;',
-    'box-shadow:0 2px 14px rgba(0,0,0,0.18);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
-    '.ovc-cat-card:hover{transform:translateY(-4px);box-shadow:0 10px 32px rgba(0,0,0,0.28);}',
+    'background:#1a1a2e;background-size:cover;background-position:center;',
+    'box-shadow:0 2px 12px rgba(0,0,0,0.10);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
+    '.ovc-cat-card:hover{transform:translateY(-4px);box-shadow:0 10px 32px rgba(0,0,0,0.18);}',
 
-    /* Separador entre blocos */
-    '.ovc-sep{height:1px;background:rgba(255,255,255,0.06);margin:0 0 36px;}',
+    /* Separador */
+    '.ovc-sep{height:1px;background:#e8eaed;margin:0 0 40px;}',
 
-    /* Bloco B — faixa de pílulas */
-    '.ovc-faixa-pilulas{background:#0a0a14;border:1px solid rgba(200,30,30,0.18);',
-    'border-radius:12px;padding:18px 22px;width:100%;}',
-    '.ovc-pilulas-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;',
-    'border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;}',
+    /* Bloco B — faixa pílulas: fundo branco, borda sutil */
+    '.ovc-faixa-pilulas{background:#fff;border:1px solid #e2e5ea;',
+    'border-radius:12px;padding:20px 24px;width:100%;}',
+    '.ovc-pilulas-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;',
+    'border-bottom:1px solid #f0f2f5;padding-bottom:12px;}',
     '.ovc-pilulas-dot{width:7px;height:7px;border-radius:50%;background:#c81e1e;',
     'animation:ovc-pulse-dot 1.6s infinite;}',
     '@keyframes ovc-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}',
     '.ovc-pilulas-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;',
     'color:#c81e1e;font-weight:700;font-family:inherit;}',
     '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}',
-    '.ovc-pilula-item{padding:0 18px;border-right:1px solid rgba(255,255,255,0.05);}',
+    '.ovc-pilula-item{padding:0 20px;border-right:1px solid #f0f2f5;}',
     '.ovc-pilula-item:first-child{padding-left:0;}',
     '.ovc-pilula-item:last-child{border-right:none;}',
     '.ovc-pilula-cat{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
-    'color:#555;font-weight:700;margin-bottom:5px;font-family:inherit;}',
-    '.ovc-pilula-texto{font-size:12px;color:#aaa;line-height:1.55;font-weight:500;',
+    'font-weight:700;margin-bottom:5px;font-family:inherit;}',
+    '.ovc-pilula-texto{font-size:13px;color:#1a1a2e;line-height:1.55;font-weight:500;',
     'font-family:inherit;display:-webkit-box;-webkit-line-clamp:3;',
     '-webkit-box-orient:vertical;overflow:hidden;}',
-    '.ovc-pilula-hora{font-size:10px;color:#3a3a4a;margin-top:5px;font-family:inherit;}',
+    '.ovc-pilula-hora{font-size:10px;color:#9aa0ab;margin-top:5px;font-family:inherit;}',
     '.ovc-pilula-link{text-decoration:none;display:block;}',
-    '.ovc-pilula-link:hover .ovc-pilula-texto{color:#e0e0e0;}',
+    '.ovc-pilula-link:hover .ovc-pilula-texto{color:#c81e1e;}',
 
     /* Bloco C — assimétrico */
     '.ovc-grade-assimetrica{display:grid;grid-template-columns:1.65fr 1fr;gap:22px;width:100%;}',
     '.ovc-card-grande{border-radius:14px;overflow:hidden;min-height:280px;',
     'position:relative;display:flex;flex-direction:column;justify-content:flex-end;',
-    'padding:24px;background:#0f172a;background-size:cover;background-position:center;',
-    'box-shadow:0 2px 14px rgba(0,0,0,0.18);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
-    '.ovc-card-grande:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(0,0,0,0.30);}',
+    'padding:24px;background:#1a1a2e;background-size:cover;background-position:center;',
+    'box-shadow:0 2px 12px rgba(0,0,0,0.10);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
+    '.ovc-card-grande:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(0,0,0,0.18);}',
     '.ovc-card-grande .ovc-card-title-g{font-size:17px;font-weight:800;color:#fff;',
     'line-height:1.35;text-shadow:0 2px 10px rgba(0,0,0,0.8);margin:0;',
     'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}',
     '.ovc-pilha{display:flex;flex-direction:column;gap:16px;}',
-    '.ovc-card-horizontal{background:#111122;border-radius:12px;overflow:hidden;',
+
+    /* Card horizontal (Bloco C pilha) — BRANCO */
+    '.ovc-card-horizontal{background:#fff;border-radius:12px;overflow:hidden;',
     'display:grid;grid-template-columns:96px 1fr;gap:0;cursor:pointer;',
-    'box-shadow:0 2px 10px rgba(0,0,0,0.15);transition:transform 0.2s,box-shadow 0.2s;}',
-    '.ovc-card-horizontal:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.25);}',
-    '.ovc-card-h-img{width:96px;min-height:96px;background-size:cover;background-position:center;background-color:#1a1a2e;flex-shrink:0;}',
+    'border:1px solid #e2e5ea;',
+    'box-shadow:0 1px 6px rgba(0,0,0,0.06);transition:transform 0.2s,box-shadow 0.2s;}',
+    '.ovc-card-horizontal:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.12);}',
+    '.ovc-card-h-img{width:96px;min-height:96px;background-size:cover;background-position:center;background-color:#e8eaed;flex-shrink:0;}',
     '.ovc-card-h-body{padding:12px 14px;display:flex;flex-direction:column;gap:4px;justify-content:center;}',
     '.ovc-card-h-cat{font-size:9px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;font-family:inherit;}',
-    '.ovc-card-h-titulo{font-size:12px;font-weight:700;color:#e0e0e0;line-height:1.4;',
+    '.ovc-card-h-titulo{font-size:12px;font-weight:700;color:#0f172a;line-height:1.45;',
     'font-family:inherit;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}',
-    '.ovc-card-h-meta{font-size:10px;color:#444;font-family:inherit;}',
+    '.ovc-card-h-meta{font-size:10px;color:#9aa0ab;font-family:inherit;}',
 
-    /* Bloco D — 4 mini cards */
+    /* Bloco D — 4 mini cards BRANCOS */
     '.ovc-grade-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;width:100%;}',
-    '.ovc-mini-card{background:#111122;border-radius:11px;overflow:hidden;',
-    'box-shadow:0 2px 10px rgba(0,0,0,0.14);transition:transform 0.2s,box-shadow 0.2s;cursor:pointer;}',
-    '.ovc-mini-card:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,0.24);}',
-    '.ovc-mini-img{width:100%;aspect-ratio:4/3;background-size:cover;background-position:center;background-color:#1a1a2e;}',
-    '.ovc-mini-body{padding:10px 12px 13px;}',
-    '.ovc-mini-cat{font-size:9px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;font-family:inherit;margin-bottom:4px;}',
-    '.ovc-mini-titulo{font-size:12px;font-weight:700;color:#ddd;line-height:1.42;font-family:inherit;',
+    '.ovc-mini-card{background:#fff;border-radius:11px;overflow:hidden;',
+    'border:1px solid #e2e5ea;',
+    'box-shadow:0 1px 6px rgba(0,0,0,0.06);transition:transform 0.2s,box-shadow 0.2s;cursor:pointer;text-decoration:none;display:block;}',
+    '.ovc-mini-card:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,0.12);}',
+    '.ovc-mini-img{width:100%;aspect-ratio:4/3;background-size:cover;background-position:center;background-color:#e8eaed;}',
+    '.ovc-mini-body{padding:10px 12px 14px;}',
+    '.ovc-mini-cat{font-size:9px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;font-family:inherit;margin-bottom:5px;}',
+    '.ovc-mini-titulo{font-size:12px;font-weight:700;color:#0f172a;line-height:1.42;font-family:inherit;',
     'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}',
 
-    /* Bloco E — full width editorial */
-    '.ovc-card-editorial{background:#111122;border-radius:16px;overflow:hidden;',
+    /* Bloco E — editorial full width BRANCO */
+    '.ovc-card-editorial{background:#fff;border-radius:16px;overflow:hidden;',
     'display:grid;grid-template-columns:1fr 1fr;width:100%;',
-    'box-shadow:0 4px 24px rgba(0,0,0,0.22);transition:box-shadow 0.22s;cursor:pointer;}',
-    '.ovc-card-editorial:hover{box-shadow:0 12px 48px rgba(0,0,0,0.36);}',
-    '.ovc-editorial-img{min-height:260px;background-size:cover;background-position:center;background-color:#1a1a2e;}',
+    'border:1px solid #e2e5ea;',
+    'box-shadow:0 2px 14px rgba(0,0,0,0.07);transition:box-shadow 0.22s;cursor:pointer;text-decoration:none;display:grid;}',
+    '.ovc-card-editorial:hover{box-shadow:0 12px 48px rgba(0,0,0,0.14);}',
+    '.ovc-editorial-img{min-height:260px;background-size:cover;background-position:center;background-color:#e8eaed;}',
     '.ovc-editorial-body{padding:36px 40px;display:flex;flex-direction:column;justify-content:center;gap:14px;}',
     '.ovc-editorial-cat{font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;font-family:inherit;}',
-    '.ovc-editorial-titulo{font-size:22px;font-weight:800;color:#f0f0f0;line-height:1.32;font-family:inherit;}',
-    '.ovc-editorial-desc{font-size:13px;color:#666;line-height:1.75;font-family:inherit;}',
+    '.ovc-editorial-titulo{font-size:22px;font-weight:800;color:#0f172a;line-height:1.32;font-family:inherit;}',
+    '.ovc-editorial-desc{font-size:13px;color:#64748b;line-height:1.75;font-family:inherit;}',
     '.ovc-editorial-leia{font-size:11px;letter-spacing:.1em;text-transform:uppercase;',
     'font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}',
     '.ovc-editorial-leia:hover{text-decoration:underline;}',
-
-    /* Label de bloco (oculto em produção, visível aqui para debug — remover se quiser) */
-    '.ovc-bloco-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
-    'color:#2a2a3a;font-weight:600;margin-bottom:10px;font-family:inherit;}',
   ].join('');
   document.head.appendChild(st);
 }
