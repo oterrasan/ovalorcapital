@@ -89,23 +89,10 @@
 
   function carregarCardHero(cache, offset) {
     try {
-      const lim24h = Date.now() - 24*60*60*1000;
-      const lim48h = Date.now() - 48*60*60*1000;
       let pool = [];
       for (const cat of ['politica','economia']) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem && new Date(p.data||p.published_at||p.created_at).getTime() >= lim24h).forEach(p => pool.push(p));
+        (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
-      if (!pool.length) {
-        for (const cat of ['politica','economia']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem && new Date(p.data||p.published_at||p.created_at).getTime() >= lim48h).forEach(p => pool.push(p));
-        }
-      }
-      if (!pool.length) {
-        for (const cat of ['politica','economia']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem).forEach(p => pool.push(p));
-        }
-      }
-      pool = pool.slice(0, 10);
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -126,23 +113,7 @@
 
   function carregarCardNegocios(cache, offset) {
     try {
-      const lim48h = Date.now() - 48*60*60*1000;
-      const lim72h = Date.now() - 72*60*60*1000;
-      let pool = [];
-      for (const cat of ['negocios','investimentos','mercados']) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem && new Date(p.data||p.published_at||p.created_at).getTime() >= lim48h).forEach(p => pool.push(p));
-      }
-      if (!pool.length) {
-        for (const cat of ['negocios','investimentos','mercados']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem && new Date(p.data||p.published_at||p.created_at).getTime() >= lim72h).forEach(p => pool.push(p));
-        }
-      }
-      if (!pool.length) {
-        for (const cat of ['negocios','investimentos','mercados']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem).forEach(p => pool.push(p));
-        }
-      }
-      pool = pool.slice(0, 8);
+      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -170,15 +141,9 @@
   function carregarCardLions(cache, offset) {
     try {
       let pool = [];
-      for (const cat of ['seguros','familia']) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && p.imagem && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
+      for (const cat of ['investimentos','seguros','mercados','economia']) {
+        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
       }
-      if (!pool.length) {
-        for (const cat of ['seguros','familia']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
-        }
-      }
-      pool = pool.slice(0, 6);
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -330,25 +295,17 @@
     carregarCardNegocios(cache, 0);
     carregarCardLions(cache, 0);
 
-    // Card 1 — rotação 7s
+    // Rotação dos cards de destaque a cada 8 segundos
     setInterval(() => {
       if (!__cache) return;
       heroOffset++;
+      negociosOffset++;
+      lionsOffset++;
       idsDestaque.clear();
       carregarCardHero(__cache, heroOffset);
-    }, 7000);
-    // Card 2 — rotação 11s
-    setInterval(() => {
-      if (!__cache) return;
-      negociosOffset++;
       carregarCardNegocios(__cache, negociosOffset);
-    }, 11000);
-    // Card 3 — rotação 13s
-    setInterval(() => {
-      if (!__cache) return;
-      lionsOffset++;
       carregarCardLions(__cache, lionsOffset);
-    }, 13000);
+    }, 8000);
 
     SECOES.forEach(s => carregarSecao(s, cache));
 
