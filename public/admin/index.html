@@ -989,6 +989,7 @@ function Postagens() {
       scheduled_at: editPost.scheduled_at||null,
       user_tags: editPost.categoria ? JSON.stringify([editPost.categoria]) : (editPost.user_tags||'[]'),
       subcategoria: editPost.subcategoria||'',
+      tipo_conteudo: editPost.tipo_conteudo||'padrao',
       subcategoria_slug: slugSub,
       collaborators: editPost.collaborators||'[]',
       updated_at: new Date().toISOString()
@@ -1092,7 +1093,7 @@ function Postagens() {
                   <div className="form-group"><label className="form-label">Agendar para</label><input className="form-input" type="datetime-local" value={editPost.scheduled_at?editPost.scheduled_at.slice(0,16):''} onChange={e=>setEditPost({...editPost,scheduled_at:e.target.value})}/></div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-                  <div className="form-group"><label className="form-label">Categoria</label><select className="form-select" value={editPost.categoria||''} onChange={e=>{const c=e.target.value;setEditPost({...editPost,categoria:c,subcategoria:''})}}><option value="">Selecionar...</option>{CATS_LIST.filter(c=>c).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                  <div className="form-group"><label className="form-label">Tipo de conteúdo</label><select className="form-select" value={editPost.tipo_conteudo||'padrao'} onChange={e=>setEditPost({...editPost,tipo_conteudo:e.target.value})}><option value="padrao">📰 Padrão</option><option value="pilula">💊 Pílula (sem imagem)</option><option value="micropilula">⚡ Micro-pílula</option></select></div><div className="form-group"><label className="form-label">Categoria</label><select className="form-select" value={editPost.categoria||''} onChange={e=>{const c=e.target.value;setEditPost({...editPost,categoria:c,subcategoria:''})}}><option value="">Selecionar...</option>{CATS_LIST.filter(c=>c).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                   <div className="form-group"><label className="form-label">Subcategoria{(editPost.categoria==='colunistas'||editPost.categoria==='vc')?' — nome do colunista':''}</label>{(editPost.categoria==='colunistas'||editPost.categoria==='vc')?<input className="form-input" placeholder="Ex: Roberto Terrasan" value={editPost.subcategoria||''} onChange={e=>setEditPost({...editPost,subcategoria:e.target.value})}/>:<select className="form-select" value={editPost.subcategoria||''} onChange={e=>setEditPost({...editPost,subcategoria:e.target.value})}><option value="">Selecionar...</option>{(SUBCATS_POST[editPost.categoria]||[]).map(s=><option key={s} value={s}>{s}</option>)}</select>}</div>
                 </div>
                 <div className="form-group"><label className="form-label">Marcar usuários (@usuario1,@usuario2)</label><input className="form-input" value={editPost.user_tags||''} onChange={e=>setEditPost({...editPost,user_tags:e.target.value})} placeholder="@usuario1, @usuario2"/></div>
