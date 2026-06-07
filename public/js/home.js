@@ -278,7 +278,7 @@
     try {
       const d = await (window.__OVC_CACHE__?.recentes || fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }));
       if (d) {
-        (d.posts||[]).forEach(p => {
+        (d.posts||[]).filter(p => p.tipo_conteudo!=='pilula' && p.tipo_conteudo!=='micropilula').forEach(p => {
           if (!cache[p.categoria]) cache[p.categoria] = [];
           cache[p.categoria].push(p);
           (p.tags||[]).forEach(tag => {
