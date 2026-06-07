@@ -245,7 +245,7 @@ function injetarEstilosMiolo(){
 
     /* Bloco C — assimétrico */
     '.ovc-grade-assimetrica{display:grid;grid-template-columns:1.65fr 1fr;gap:22px;width:100%;}',
-    '.ovc-card-grande{border-radius:14px;overflow:hidden;min-height:280px;',
+    '.ovc-card-grande{border-radius:14px;overflow:hidden;min-height:340px;',
     'position:relative;display:flex;flex-direction:column;justify-content:flex-end;',
     'padding:24px;background:#1a1a2e;background-size:cover;background-position:center;',
     'box-shadow:0 2px 12px rgba(0,0,0,0.10);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
@@ -505,8 +505,8 @@ function buildSection(container){
   var blocoACats1 = CATS.slice(0,3);   // Política, Economia, Internacional
   var blocoBPosts = [];                 // Pílulas — preenchido após fetch
   var bloCACatGrande = CATS[3];        // Investigativo (grande)
-  var blocoCCatsPilha = [CATS[4], CATS[5]]; // Negócios, Investimentos
-  var blocoACats2 = CATS.slice(6,9);   // Mercados, Seguros, Tributos
+  var blocoCCatsPilha = [CATS[4], CATS[5], CATS[6]]; // Negócios, Investimentos, Mercados
+  var blocoACats2 = CATS.slice(7,10);   // Seguros, Tributos, Tecnologia
   var blocoDCats = CATS.slice(9,13);   // Tecnologia, Indústria, Regulação, Saúde
   var blocoECat = CATS[13];            // Educação (editorial)
   var blocoACats3 = CATS.slice(14,17); // Esportes, Seg Pública, Família
