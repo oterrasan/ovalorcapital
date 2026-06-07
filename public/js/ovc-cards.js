@@ -518,8 +518,8 @@ function buildSection(container){
   miolo.appendChild(bB);
   miolo.appendChild(sep1);
   miolo.appendChild(bA1);
-  miolo.appendChild(bA2);
   miolo.appendChild(bC);
+  miolo.appendChild(bA2);
   miolo.appendChild(sep2);
   miolo.appendChild(bD);
   miolo.appendChild(sep3);
