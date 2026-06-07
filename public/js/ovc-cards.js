@@ -191,54 +191,444 @@
     return card;
   }
 
-  function buildSection(container){
-    var grid = document.createElement('div');
-    grid.className = 'ovc-cat-grid';
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:22px;width:100%;';
-    CATS.forEach(function(cat){ grid.appendChild(buildCard(cat)); });
-    container.appendChild(grid);
-  }
 
-  function mostrarVazio(el, catId){
-    if(!el) return;
-    var cor = CORES_CAT[catId] || '#1e293b';
-    el.style.backgroundImage = '';
-    el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'99 100%)';
-    var t = el.querySelector('.ovc-card-title'); if(t) t.textContent = 'Em breve — aguarde novos conteúdos';
-    var m = el.querySelector('.ovc-card-meta');  if(m) m.textContent = 'Redação OVC';
-  }
+// ── NOVO MIOLO OVC — LAYOUT COM GRANDEZA ─────────────────────────────────────
+// Substitui buildSection() e load() do ovc-cards.js
+// Preserva: rotação, renderCard, buildUrl, imgOk, dataBr, escHtml, STYLE, CATS
+// Blocos: A (grade 3), B (pilulas), C (assimétrico), D (mini 4), E (full-width)
 
-  function load(){
-    var container = document.getElementById('ovc-cards-section');
-    if(!container) return;
-    if(!container.querySelector('.ovc-cat-grid')) buildSection(container);
-    (window.__OVC_CACHE__?.recentes || fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }))
-      .then(function(data){
-        var cache = {};
-        (data.posts||[]).forEach(function(p){
-          if(!cache[p.categoria]) cache[p.categoria] = [];
-          cache[p.categoria].push(p);
-        });
-        CATS.forEach(function(item){
-          var el = document.getElementById('ovc-cat-'+item.id);
-          if(!el) return;
-          var posts = [];
-          item.cats.forEach(function(c){ posts = posts.concat(cache[c]||[]); });
-          posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
-          if(!posts.length){ mostrarVazio(el, item.id); return; }
-          var overlap = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
-          startRotation(el, posts, item.id, overlap&&posts.length>1?1:0);
-        });
-      })
-      .catch(function(){
-        CATS.forEach(function(item){
-          var el = document.getElementById('ovc-cat-'+item.id);
-          if(el) mostrarVazio(el, item.id);
-        });
-      });
-  }
+// ── ESTILOS DO NOVO MIOLO ────────────────────────────────────────────────────
+function injetarEstilosMiolo(){
+  if(document.getElementById('ovc-miolo-style')) return;
+  var st = document.createElement('style');
+  st.id = 'ovc-miolo-style';
+  st.textContent = [
+    /* respiro geral */
+    '.ovc-miolo{display:flex;flex-direction:column;gap:0;width:100%;}',
+    '.ovc-bloco{margin-bottom:36px;}',
+    '.ovc-bloco:last-child{margin-bottom:0;}',
 
-  // ── SEÇÃO COLUNISTAS 3+3 ──────────────────────────────────────────────────
+    /* Bloco A — grade 3 colunas */
+    '.ovc-grade-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;width:100%;}',
+
+    /* Card padrão (igual ao atual, mas min-height maior) */
+    '.ovc-cat-card{position:relative;border-radius:14px;overflow:hidden;min-height:240px;',
+    'display:flex;flex-direction:column;justify-content:flex-end;padding:18px;',
+    'background:#0f172a;background-size:cover;background-position:center;',
+    'box-shadow:0 2px 14px rgba(0,0,0,0.18);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
+    '.ovc-cat-card:hover{transform:translateY(-4px);box-shadow:0 10px 32px rgba(0,0,0,0.28);}',
+
+    /* Separador entre blocos */
+    '.ovc-sep{height:1px;background:rgba(255,255,255,0.06);margin:0 0 36px;}',
+
+    /* Bloco B — faixa de pílulas */
+    '.ovc-faixa-pilulas{background:#0a0a14;border:1px solid rgba(200,30,30,0.18);',
+    'border-radius:12px;padding:18px 22px;width:100%;}',
+    '.ovc-pilulas-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;',
+    'border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:12px;}',
+    '.ovc-pilulas-dot{width:7px;height:7px;border-radius:50%;background:#c81e1e;',
+    'animation:ovc-pulse-dot 1.6s infinite;}',
+    '@keyframes ovc-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}',
+    '.ovc-pilulas-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;',
+    'color:#c81e1e;font-weight:700;font-family:inherit;}',
+    '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}',
+    '.ovc-pilula-item{padding:0 18px;border-right:1px solid rgba(255,255,255,0.05);}',
+    '.ovc-pilula-item:first-child{padding-left:0;}',
+    '.ovc-pilula-item:last-child{border-right:none;}',
+    '.ovc-pilula-cat{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
+    'color:#555;font-weight:700;margin-bottom:5px;font-family:inherit;}',
+    '.ovc-pilula-texto{font-size:12px;color:#aaa;line-height:1.55;font-weight:500;',
+    'font-family:inherit;display:-webkit-box;-webkit-line-clamp:3;',
+    '-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-pilula-hora{font-size:10px;color:#3a3a4a;margin-top:5px;font-family:inherit;}',
+    '.ovc-pilula-link{text-decoration:none;display:block;}',
+    '.ovc-pilula-link:hover .ovc-pilula-texto{color:#e0e0e0;}',
+
+    /* Bloco C — assimétrico */
+    '.ovc-grade-assimetrica{display:grid;grid-template-columns:1.65fr 1fr;gap:22px;width:100%;}',
+    '.ovc-card-grande{border-radius:14px;overflow:hidden;min-height:280px;',
+    'position:relative;display:flex;flex-direction:column;justify-content:flex-end;',
+    'padding:24px;background:#0f172a;background-size:cover;background-position:center;',
+    'box-shadow:0 2px 14px rgba(0,0,0,0.18);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;}',
+    '.ovc-card-grande:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(0,0,0,0.30);}',
+    '.ovc-card-grande .ovc-card-title-g{font-size:17px;font-weight:800;color:#fff;',
+    'line-height:1.35;text-shadow:0 2px 10px rgba(0,0,0,0.8);margin:0;',
+    'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-pilha{display:flex;flex-direction:column;gap:16px;}',
+    '.ovc-card-horizontal{background:#111122;border-radius:12px;overflow:hidden;',
+    'display:grid;grid-template-columns:96px 1fr;gap:0;cursor:pointer;',
+    'box-shadow:0 2px 10px rgba(0,0,0,0.15);transition:transform 0.2s,box-shadow 0.2s;}',
+    '.ovc-card-horizontal:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.25);}',
+    '.ovc-card-h-img{width:96px;min-height:96px;background-size:cover;background-position:center;background-color:#1a1a2e;flex-shrink:0;}',
+    '.ovc-card-h-body{padding:12px 14px;display:flex;flex-direction:column;gap:4px;justify-content:center;}',
+    '.ovc-card-h-cat{font-size:9px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;font-family:inherit;}',
+    '.ovc-card-h-titulo{font-size:12px;font-weight:700;color:#e0e0e0;line-height:1.4;',
+    'font-family:inherit;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-card-h-meta{font-size:10px;color:#444;font-family:inherit;}',
+
+    /* Bloco D — 4 mini cards */
+    '.ovc-grade-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;width:100%;}',
+    '.ovc-mini-card{background:#111122;border-radius:11px;overflow:hidden;',
+    'box-shadow:0 2px 10px rgba(0,0,0,0.14);transition:transform 0.2s,box-shadow 0.2s;cursor:pointer;}',
+    '.ovc-mini-card:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,0.24);}',
+    '.ovc-mini-img{width:100%;aspect-ratio:4/3;background-size:cover;background-position:center;background-color:#1a1a2e;}',
+    '.ovc-mini-body{padding:10px 12px 13px;}',
+    '.ovc-mini-cat{font-size:9px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;font-family:inherit;margin-bottom:4px;}',
+    '.ovc-mini-titulo{font-size:12px;font-weight:700;color:#ddd;line-height:1.42;font-family:inherit;',
+    'display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}',
+
+    /* Bloco E — full width editorial */
+    '.ovc-card-editorial{background:#111122;border-radius:16px;overflow:hidden;',
+    'display:grid;grid-template-columns:1fr 1fr;width:100%;',
+    'box-shadow:0 4px 24px rgba(0,0,0,0.22);transition:box-shadow 0.22s;cursor:pointer;}',
+    '.ovc-card-editorial:hover{box-shadow:0 12px 48px rgba(0,0,0,0.36);}',
+    '.ovc-editorial-img{min-height:260px;background-size:cover;background-position:center;background-color:#1a1a2e;}',
+    '.ovc-editorial-body{padding:36px 40px;display:flex;flex-direction:column;justify-content:center;gap:14px;}',
+    '.ovc-editorial-cat{font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;font-family:inherit;}',
+    '.ovc-editorial-titulo{font-size:22px;font-weight:800;color:#f0f0f0;line-height:1.32;font-family:inherit;}',
+    '.ovc-editorial-desc{font-size:13px;color:#666;line-height:1.75;font-family:inherit;}',
+    '.ovc-editorial-leia{font-size:11px;letter-spacing:.1em;text-transform:uppercase;',
+    'font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}',
+    '.ovc-editorial-leia:hover{text-decoration:underline;}',
+
+    /* Label de bloco (oculto em produção, visível aqui para debug — remover se quiser) */
+    '.ovc-bloco-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
+    'color:#2a2a3a;font-weight:600;margin-bottom:10px;font-family:inherit;}',
+  ].join('');
+  document.head.appendChild(st);
+}
+
+// ── RENDERIZAÇÃO DOS BLOCOS ───────────────────────────────────────────────────
+
+function renderBlocoA(posts, cats3){
+  // Grade 3 colunas — usa os cards existentes com novo gap
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-bloco';
+  var grade = document.createElement('div');
+  grade.className = 'ovc-grade-3';
+  cats3.forEach(function(cat){
+    var card = buildCard(cat);
+    grade.appendChild(card);
+  });
+  bloco.appendChild(grade);
+  return bloco;
+}
+
+function renderBlocoB(posts){
+  // Faixa de pílulas — 4 posts mais recentes sem imagem ou qualquer tipo
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-bloco';
+  var faixa = document.createElement('div');
+  faixa.className = 'ovc-faixa-pilulas';
+  faixa.innerHTML =
+    '<div class="ovc-pilulas-header">'
+    +'<span class="ovc-pilulas-dot"></span>'
+    +'<span class="ovc-pilulas-label">Notas do dia</span>'
+    +'</div>'
+    +'<div class="ovc-pilulas-grid" id="ovc-pilulas-grid"></div>';
+  bloco.appendChild(faixa);
+  // Preencher após load
+  bloco._posts = posts;
+  return bloco;
+}
+
+function preencherBlocoB(bloco, posts){
+  var grid = bloco.querySelector('#ovc-pilulas-grid');
+  if(!grid) return;
+  var usados = posts.slice(0,4);
+  if(!usados.length){
+    bloco.style.display='none';
+    return;
+  }
+  grid.innerHTML = '';
+  usados.forEach(function(p){
+    var url = buildUrl(p);
+    var cor = CORES_CAT[p.categoria] || '#c81e1e';
+    var hora = p.data ? new Date(p.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+    var item = document.createElement('a');
+    item.className = 'ovc-pilula-link';
+    item.href = url;
+    item.innerHTML =
+      '<div class="ovc-pilula-cat" style="color:'+cor+'">'+escHtml(p.categoria||'')+'</div>'
+      +'<div class="ovc-pilula-texto">'+escHtml(p.titulo||'')+'</div>'
+      +(hora?'<div class="ovc-pilula-hora">'+hora+'</div>':'');
+    var wrapper = document.createElement('div');
+    wrapper.className = 'ovc-pilula-item';
+    wrapper.appendChild(item);
+    grid.appendChild(wrapper);
+  });
+}
+
+function renderBlocoC(catGrande, catsPilha){
+  // 1 card grande + 2 horizontais empilhados
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-bloco';
+  var grade = document.createElement('div');
+  grade.className = 'ovc-grade-assimetrica';
+
+  // Card grande
+  var grande = document.createElement('article');
+  grande.className = 'ovc-card-grande';
+  grande.id = 'ovc-cat-' + catGrande.id;
+  var overlayG = document.createElement('div');
+  overlayG.style.cssText = 'position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.30) 55%,rgba(0,0,0,0.04) 100%);border-radius:inherit;pointer-events:none;z-index:0;';
+  var innerG = document.createElement('div');
+  innerG.style.cssText = 'position:relative;z-index:1;display:flex;flex-direction:column;gap:7px;';
+  var tagG = document.createElement('span');
+  tagG.className = 'ovc-card-tag';
+  tagG.style.cssText = STYLE.tag;
+  tagG.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:#ffc800;display:inline-block;flex-shrink:0;"></span>' + catGrande.label;
+  var titleG = document.createElement('h2');
+  titleG.className = 'ovc-card-title ovc-card-title-g';
+  titleG.textContent = '';
+  var metaG = document.createElement('div');
+  metaG.className = 'ovc-card-meta';
+  metaG.style.cssText = STYLE.meta;
+  metaG.textContent = 'Redação OVC';
+  var ctaG = document.createElement('a');
+  ctaG.className = 'ovc-card-cta';
+  ctaG.href = catGrande.path;
+  ctaG.style.cssText = STYLE.cta;
+  ctaG.textContent = 'LEIA MAIS';
+  innerG.appendChild(tagG); innerG.appendChild(titleG); innerG.appendChild(metaG); innerG.appendChild(ctaG);
+  grande.appendChild(overlayG); grande.appendChild(innerG);
+  grande.addEventListener('mouseenter', function(){ this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 36px rgba(0,0,0,0.30)'; });
+  grande.addEventListener('mouseleave', function(){ this.style.transform=''; this.style.boxShadow='0 2px 14px rgba(0,0,0,0.18)'; });
+  grade.appendChild(grande);
+
+  // Pilha de 2 horizontais
+  var pilha = document.createElement('div');
+  pilha.className = 'ovc-pilha';
+  catsPilha.forEach(function(cat){
+    var card = document.createElement('a');
+    card.className = 'ovc-card-horizontal';
+    card.href = cat.path;
+    card.id = 'ovc-cat-' + cat.id;
+    var cor = CORES_CAT[cat.id] || '#64748b';
+    card.innerHTML =
+      '<div class="ovc-card-h-img" id="ovc-h-img-'+cat.id+'" style="background-color:#1a1a2e;"></div>'
+      +'<div class="ovc-card-h-body">'
+      +'<div class="ovc-card-h-cat" style="color:'+cor+'">'+escHtml(cat.label)+'</div>'
+      +'<div class="ovc-card-h-titulo ovc-card-title" id="ovc-h-titulo-'+cat.id+'">Carregando...</div>'
+      +'<div class="ovc-card-h-meta ovc-card-meta" id="ovc-h-meta-'+cat.id+'">Redação OVC</div>'
+      +'</div>';
+    pilha.appendChild(card);
+  });
+  grade.appendChild(pilha);
+  bloco.appendChild(grade);
+  return bloco;
+}
+
+function renderBlocoD(cats4){
+  // 4 mini cards
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-bloco';
+  var grade = document.createElement('div');
+  grade.className = 'ovc-grade-4';
+  cats4.forEach(function(cat){
+    var cor = CORES_CAT[cat.id] || '#64748b';
+    var card = document.createElement('a');
+    card.className = 'ovc-mini-card';
+    card.href = cat.path;
+    card.id = 'ovc-cat-' + cat.id;
+    card.innerHTML =
+      '<div class="ovc-mini-img" id="ovc-mini-img-'+cat.id+'"></div>'
+      +'<div class="ovc-mini-body">'
+      +'<div class="ovc-mini-cat" style="color:'+cor+'">'+escHtml(cat.label)+'</div>'
+      +'<div class="ovc-mini-titulo ovc-card-title" id="ovc-mini-titulo-'+cat.id+'">Carregando...</div>'
+      +'</div>';
+    card.addEventListener('mouseenter', function(){ this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 22px rgba(0,0,0,0.24)'; });
+    card.addEventListener('mouseleave', function(){ this.style.transform=''; this.style.boxShadow='0 2px 10px rgba(0,0,0,0.14)'; });
+    grade.appendChild(card);
+  });
+  bloco.appendChild(grade);
+  return bloco;
+}
+
+function renderBlocoE(cat){
+  // Full width editorial
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-bloco';
+  var cor = CORES_CAT[cat.id] || '#c81e1e';
+  var card = document.createElement('a');
+  card.className = 'ovc-card-editorial';
+  card.href = cat.path;
+  card.id = 'ovc-cat-' + cat.id;
+  card.innerHTML =
+    '<div class="ovc-editorial-img" id="ovc-e-img-'+cat.id+'"></div>'
+    +'<div class="ovc-editorial-body">'
+    +'<div class="ovc-editorial-cat" style="color:'+cor+'">'+escHtml(cat.label)+'</div>'
+    +'<h2 class="ovc-editorial-titulo ovc-card-title" id="ovc-e-titulo-'+cat.id+'">Carregando...</h2>'
+    +'<p class="ovc-editorial-desc ovc-card-meta" id="ovc-e-meta-'+cat.id+'">Redação OVC</p>'
+    +'<span class="ovc-editorial-leia" style="color:'+cor+'">Ler análise completa <span>→</span></span>'
+    +'</div>';
+  bloco.appendChild(card);
+  return bloco;
+}
+
+// ── NOVA buildSection ────────────────────────────────────────────────────────
+function buildSection(container){
+  injetarEstilosMiolo();
+  var miolo = document.createElement('div');
+  miolo.className = 'ovc-miolo';
+
+  // Distribuição das categorias nos blocos
+  // CATS array tem 32 categorias — distribuímos estrategicamente
+
+  var blocoACats1 = CATS.slice(0,3);   // Política, Economia, Internacional
+  var blocoBPosts = [];                 // Pílulas — preenchido após fetch
+  var bloCACatGrande = CATS[3];        // Investigativo (grande)
+  var blocoCCatsPilha = [CATS[4], CATS[5]]; // Negócios, Investimentos
+  var blocoACats2 = CATS.slice(6,9);   // Mercados, Seguros, Tributos
+  var blocoDCats = CATS.slice(9,13);   // Tecnologia, Indústria, Regulação, Saúde
+  var blocoECat = CATS[13];            // Educação (editorial)
+  var blocoACats3 = CATS.slice(14,17); // Esportes, Seg Pública, Família
+  var blocoACats4 = CATS.slice(17,20); // Cultura, Variedades, Profissões
+
+  // Montar sequência: A → B → A → C → sep → A → D → sep → E → A → A
+  var bA1 = renderBlocoA([], blocoACats1);
+  var bB  = renderBlocoB([]);
+  var sep1 = document.createElement('div'); sep1.className='ovc-sep';
+  var bA2 = renderBlocoA([], blocoACats2);
+  var bC  = renderBlocoC(bloCACatGrande, blocoCCatsPilha);
+  var sep2 = document.createElement('div'); sep2.className='ovc-sep';
+  var bD  = renderBlocoD(blocoDCats);
+  var sep3 = document.createElement('div'); sep3.className='ovc-sep';
+  var bE  = renderBlocoE(blocoECat);
+  var bA3 = renderBlocoA([], blocoACats3);
+  var bA4 = renderBlocoA([], blocoACats4);
+
+  miolo.appendChild(bA1);
+  miolo.appendChild(bB);
+  miolo.appendChild(sep1);
+  miolo.appendChild(bA2);
+  miolo.appendChild(bC);
+  miolo.appendChild(sep2);
+  miolo.appendChild(bD);
+  miolo.appendChild(sep3);
+  miolo.appendChild(bE);
+  miolo.appendChild(bA3);
+  miolo.appendChild(bA4);
+
+  container.appendChild(miolo);
+  container._blocoB = bB;
+}
+
+// ── NOVA load() ──────────────────────────────────────────────────────────────
+function load(){
+  var container = document.getElementById('ovc-cards-section');
+  if(!container) return;
+  if(!container.querySelector('.ovc-miolo')) buildSection(container);
+
+  var fetchPosts = window.__OVC_CACHE__?.recentes
+    || fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); });
+
+  fetchPosts.then(function(data){
+    var cache = {};
+    (data.posts||[]).forEach(function(p){
+      if(!cache[p.categoria]) cache[p.categoria] = [];
+      cache[p.categoria].push(p);
+    });
+
+    // Preencher cards normais (grade A) — rotação existente
+    CATS.forEach(function(item){
+      var el = document.getElementById('ovc-cat-'+item.id);
+      if(!el) return;
+
+      // Verificar se é card horizontal (Bloco C pilha)
+      if(el.classList.contains('ovc-card-horizontal')){
+        var posts = [];
+        item.cats.forEach(function(c){ posts=posts.concat(cache[c]||[]); });
+        posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        if(!posts.length) return;
+        var p = posts[0];
+        var url = buildUrl(p);
+        el.href = url;
+        var imgEl = document.getElementById('ovc-h-img-'+item.id);
+        if(imgEl && imgOk(p.imagem)){
+          imgEl.style.backgroundImage = 'url(\''+p.imagem+'\')';
+        }
+        var tituloEl = document.getElementById('ovc-h-titulo-'+item.id);
+        if(tituloEl) tituloEl.textContent = p.titulo||'';
+        var metaEl = document.getElementById('ovc-h-meta-'+item.id);
+        if(metaEl) metaEl.textContent = 'Redação OVC · '+dataBr(p.data);
+        return;
+      }
+
+      // Verificar se é mini card (Bloco D)
+      if(el.classList.contains('ovc-mini-card')){
+        var posts2 = [];
+        item.cats.forEach(function(c){ posts2=posts2.concat(cache[c]||[]); });
+        posts2.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        if(!posts2.length) return;
+        var p2 = posts2[0];
+        var url2 = buildUrl(p2);
+        el.href = url2;
+        var imgEl2 = document.getElementById('ovc-mini-img-'+item.id);
+        if(imgEl2 && imgOk(p2.imagem)){
+          imgEl2.style.backgroundImage = 'url(\''+p2.imagem+'\')';
+        }
+        var tituloEl2 = document.getElementById('ovc-mini-titulo-'+item.id);
+        if(tituloEl2) tituloEl2.textContent = p2.titulo||'';
+        return;
+      }
+
+      // Verificar se é card editorial (Bloco E)
+      if(el.classList.contains('ovc-card-editorial')){
+        var posts3 = [];
+        item.cats.forEach(function(c){ posts3=posts3.concat(cache[c]||[]); });
+        posts3.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        if(!posts3.length) return;
+        var p3 = posts3[0];
+        var url3 = buildUrl(p3);
+        el.href = url3;
+        var imgEl3 = document.getElementById('ovc-e-img-'+item.id);
+        if(imgEl3 && imgOk(p3.imagem)){
+          imgEl3.style.backgroundImage = 'url(\''+p3.imagem+'\')';
+        }
+        var tituloEl3 = document.getElementById('ovc-e-titulo-'+item.id);
+        if(tituloEl3) tituloEl3.textContent = p3.titulo||'';
+        var metaEl3 = document.getElementById('ovc-e-meta-'+item.id);
+        if(metaEl3) metaEl3.textContent = 'Redação OVC · '+dataBr(p3.data);
+        return;
+      }
+
+      // Card grande (Bloco C)
+      if(el.classList.contains('ovc-card-grande')){
+        var posts4 = [];
+        item.cats.forEach(function(c){ posts4=posts4.concat(cache[c]||[]); });
+        posts4.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        if(!posts4.length){ mostrarVazio(el, item.id); return; }
+        var overlap4 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
+        startRotation(el, posts4, item.id, overlap4&&posts4.length>1?1:0);
+        return;
+      }
+
+      // Card padrão Bloco A — rotação existente
+      var posts5 = [];
+      item.cats.forEach(function(c){ posts5=posts5.concat(cache[c]||[]); });
+      posts5.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+      if(!posts5.length){ mostrarVazio(el, item.id); return; }
+      var overlap5 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
+      startRotation(el, posts5, item.id, overlap5&&posts5.length>1?1:0);
+    });
+
+    // Preencher Bloco B — pílulas (posts mais recentes de qualquer categoria)
+    var bB = container._blocoB;
+    if(bB){
+      var todosPosts = (data.posts||[]).slice(0,8);
+      preencherBlocoB(bB, todosPosts);
+    }
+
+  }).catch(function(){
+    CATS.forEach(function(item){
+      var el = document.getElementById('ovc-cat-'+item.id);
+      if(el && el.classList.contains('ovc-cat-card')) mostrarVazio(el, item.id);
+    });
+  });
+}
+
+
   function bigCard(p){
     var url = buildUrl(p);
     var img = p.imagem && imgOk(p.imagem) ? p.imagem : '';
