@@ -335,7 +335,24 @@ function renderBlocoB(posts){
 function preencherBlocoB(bloco, posts){
   var grid = bloco.querySelector('#ovc-pilulas-grid');
   if(!grid) return;
-  var usados = posts.slice(0,4);
+  // Selecionar 4 posts sem repetir categoria na sequência
+  var usados = [];
+  var ultimaCat = null;
+  var tentativas = posts.slice(0, 20); // pega até 20 para ter margem de escolha
+  for(var i=0; i<tentativas.length && usados.length<4; i++){
+    var p = tentativas[i];
+    var cat = p.categoria || 'geral';
+    if(cat !== ultimaCat){
+      usados.push(p);
+      ultimaCat = cat;
+    }
+  }
+  // Se não conseguiu 4 sem repetir, completa com o que tem
+  if(usados.length < 4){
+    for(var j=0; j<tentativas.length && usados.length<4; j++){
+      if(usados.indexOf(tentativas[j]) === -1) usados.push(tentativas[j]);
+    }
+  }
   if(!usados.length){
     bloco.style.display='none';
     return;
