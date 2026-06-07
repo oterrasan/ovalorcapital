@@ -348,21 +348,9 @@ function preencherBlocoB(bloco, posts){
       catsUsadas[cat] = true;
     }
   }
-  // Passagem 2: se ainda faltam, aceita repetir categoria mas nao adjacente
-  if(usados.length < 6){
-    for(var j=0; j<tentativas.length && usados.length<6; j++){
-      var pj = tentativas[j];
-      if(usados.indexOf(pj) !== -1) continue;
-      var catAnterior = usados.length > 0 ? (usados[usados.length-1].categoria||'geral') : '';
-      if((pj.categoria||'geral') !== catAnterior) usados.push(pj);
-    }
-  }
-  // Passagem 3: forca completar com qualquer post nao usado
-  if(usados.length < 6){
-    for(var k=0; k<tentativas.length && usados.length<6; k++){
-      if(usados.indexOf(tentativas[k]) === -1) usados.push(tentativas[k]);
-    }
-  }
+  // Passagem 2: completa apenas se categoria ainda nao usada — sem repeticao alguma
+  // Se nao ha posts suficientes com categorias diferentes, mostra menos pilulas
+  // Nao aceita repeticao de categoria em hipotese alguma
   if(!usados.length){
     bloco.style.display='none';
     return;
