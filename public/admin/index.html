@@ -731,6 +731,7 @@ function Postagens() {
   const [filterDe, setFilterDe] = useState('');
   const [filterAte, setFilterAte] = useState('');
   const [filterMethod, setFilterMethod] = useState('');
+  const [filterTipo, setFilterTipo] = useState('');
   const [totalCount, setTotalCount] = useState(0);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [smartFilter, setSmartFilter] = useState('');
@@ -758,6 +759,7 @@ function Postagens() {
     if (smartFilter === 'suspeita') return posts.filter(chkImgSusp);
     if (smartFilter === 'img_ok')   return posts.filter(chkImgOk);
     if (smartFilter === 'risco')    return posts.filter(chkRisco);
+    if (smartFilter === 'pilula')   return posts.filter(function(p){ return p.tipo_conteudo==='pilula'||p.tipo_conteudo==='micropilula'; });
     return posts;
   }, [posts, smartFilter]);
 
@@ -769,6 +771,8 @@ function Postagens() {
     if (filterCat) q=q.like('user_tags','%"'+filterCat+'"%');
     if (filterSub.trim()) q=q.ilike('subcategoria','%'+filterSub.trim()+'%');
     if (filterMethod) q=q.eq('publish_method',filterMethod);
+    if (filterTipo==='sem_tipo') q=q.is('tipo_conteudo',null);
+    else if (filterTipo) q=q.eq('tipo_conteudo',filterTipo);
     if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00');
     if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59');
     const { data, count } = await q;
@@ -786,7 +790,7 @@ function Postagens() {
 
   useEffect(()=>{load();},[load]);
 
-  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilter('all'); setPage(0); };
+  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilter('all'); setPage(0); };
 
   const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => {
@@ -1107,6 +1111,7 @@ function Postagens() {
             {label:'Risco de erro',  val:kpi.risco,    cor:'#ef4444', icon:'🔴', sf:'risco'},
             {label:'Pendentes',      val:kpi.pendente, cor:'#ffc800', icon:'⏳', sf:'__pendente'},
             {label:'Total (página)', val:posts.length, cor:'#3b82f6', icon:'📄', sf:''},
+{label:'Pílulas',        val:posts.filter(function(p){ return p.tipo_conteudo==='pilula'||p.tipo_conteudo==='micropilula'; }).length, cor:'#fbbf24', icon:'💊', sf:'pilula'},
           ].map(function(item){
             var ativo = smartFilter===item.sf && item.sf!=='';
             var shadow = ativo ? ('0 0 0 2px '+item.cor) : 'none';
@@ -1181,6 +1186,16 @@ function Postagens() {
                 </select>
               </div>
               <div>
+                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Tipo de conteúdo</label>
+                <select className="form-select" style={{height:32,fontSize:12}} value={filterTipo} onChange={e=>{setFilterTipo(e.target.value);setPage(0);}}>
+                  <option value="">Todos os tipos</option>
+                  <option value="padrao">📰 Padrão</option>
+                  <option value="pilula">💊 Pílula</option>
+                  <option value="micropilula">⚡ Micro-pílula</option>
+                  <option value="sem_tipo">❓ Sem tipo</option>
+                </select>
+              </div>
+              <div>
                 <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Data de</label>
                 <input className="form-input" type="date" style={{height:32,fontSize:12}} value={filterDe} onChange={e=>{setFilterDe(e.target.value);setPage(0);}}/>
               </div>
@@ -1213,7 +1228,7 @@ function Postagens() {
                   <React.Fragment key={p.id}>
                   <tr style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:chkRisco(p)?{background:'rgba(239,68,68,0.04)'}:chkSemImg(p)?{background:'rgba(245,158,11,0.04)'}:{}}>
                     <td><input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/></td>
-                    <td><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
+                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
                     <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
                     <td className="text-secondary text-small">{p.categoria||'—'}</td>
                     <td className="text-secondary text-small">{p.publish_method==='manual'?'✍️ manual':'🤖 auto'}</td>
@@ -1902,6 +1917,7 @@ function NovoPost() {
     conteudo: '',
     comentario_fixado: '',
     imagem: '',
+    tipo_conteudo: 'padrao',
     ig_account_id: '',
     scheduled_at: '',
     user_tags: '',
@@ -1933,6 +1949,7 @@ function NovoPost() {
         conteudo: form.conteudo,
         comentario_fixado: form.comentario_fixado,
         imagem: form.imagem || '',
+        tipo_conteudo: form.tipo_conteudo || 'padrao',
         ig_account_id: form.ig_account_id || null,
         scheduled_at: form.scheduled_at || null,
         user_tags: form.user_tags || '[]',
@@ -1998,6 +2015,14 @@ function NovoPost() {
             <div className="panel">
               <div className="panel-header"><span className="panel-title">Conteúdo do Post</span></div>
               <div style={{padding:20}}>
+                <div className="form-group">
+                  <label className="form-label">Tipo de conteúdo</label>
+                  <select className="form-select" value={form.tipo_conteudo||'padrao'} onChange={e=>setForm({...form,tipo_conteudo:e.target.value})}>
+                    <option value="padrao">📰 Padrão (artigo com imagem)</option>
+                    <option value="pilula">💊 Pílula (nota rápida, sem imagem)</option>
+                    <option value="micropilula">⚡ Micro-pílula (muito curta, sem imagem)</option>
+                  </select>
+                </div>
                 <div className="form-group">
                   <label className="form-label">Título / Tag da Chamada</label>
                   <input className="form-input" value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} placeholder="Ex: EXTRADIÇÃO AUTORIZADA"/>
