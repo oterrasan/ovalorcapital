@@ -498,9 +498,9 @@ function buildSection(container){
   var bA3 = renderBlocoA([], blocoACats3);
   var bA4 = renderBlocoA([], blocoACats4);
 
-  miolo.appendChild(bA1);
   miolo.appendChild(bB);
   miolo.appendChild(sep1);
+  miolo.appendChild(bA1);
   miolo.appendChild(bA2);
   miolo.appendChild(bC);
   miolo.appendChild(sep2);
