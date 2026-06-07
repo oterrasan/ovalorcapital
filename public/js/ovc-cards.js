@@ -640,11 +640,25 @@ function load(){
       startRotation(el, posts5, item.id, overlap5&&posts5.length>1?1:0);
     });
 
-    // Preencher Bloco B — pílulas (posts mais recentes de qualquer categoria)
+    // Preencher Bloco B — busca APENAS posts tipo pilula ou micropilula
     var bB = container._blocoB;
     if(bB){
-      var todosPosts = (data.posts||[]).slice(0,60);
-      preencherBlocoB(bB, todosPosts);
+      fetch('/api/portal-posts?tipo=pilula&limit=60')
+        .then(function(r){ return r.json(); })
+        .then(function(dp){
+          var pilulas = (dp.posts||[]).filter(function(p){
+            return p.tipo_conteudo==='pilula' || p.tipo_conteudo==='micropilula';
+          });
+          if(!pilulas.length){
+            // Sem pílulas reais no banco — ocultar a faixa
+            bB.style.display='none';
+            var sep = bB.previousSibling;
+            if(sep && sep.className==='ovc-sep') sep.style.display='none';
+          } else {
+            preencherBlocoB(bB, pilulas);
+          }
+        })
+        .catch(function(){ bB.style.display='none'; });
     }
 
   }).catch(function(){
