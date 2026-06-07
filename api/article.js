@@ -6,6 +6,11 @@ const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+async function writeLog(level, message) {
+  try { await supabase.from('logs').insert({ level, message }); } catch(_) {}
+}
+
+
 const BASE = "https://www.ovalorcapital.com.br";
 const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
 const OLD_SUPABASE_REF = "bfsegqdgscudtdgwdyci";
