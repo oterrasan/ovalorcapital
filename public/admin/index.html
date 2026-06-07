@@ -2651,6 +2651,7 @@ const PAGES = [
   {id:'galeria',label:'Galeria',icon:'🗂️'},
   {id:'colunistas',label:'Colunistas',icon:'✍️'},
   {id:'editor_colunas',label:'Editor de Colunas',icon:'✒️'},
+  {id:'editor_imagens',label:'Editor de Imagens',icon:'✂️'},
 ];
 
 // ── SELETOR DE IMAGEM ──
@@ -2819,7 +2820,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{sessionStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens}[page] || Dashboard;
 
   return (
     <div className="layout">
@@ -3351,6 +3352,444 @@ async function limparArtigosCorrompidos() {
     alert('Erro na limpeza: ' + e.message);
   }
 }
+
+
+// ── EDITOR DE IMAGENS ──
+function EditorImagens() {
+  const canvasRef = React.useRef(null);
+  const cropCanvasRef = React.useRef(null);
+  const fileInputRef = React.useRef(null);
+  const [imgSrc, setImgSrc] = React.useState(null);
+  const [imgObj, setImgObj] = React.useState(null);
+  const [ajustes, setAjustes] = React.useState({brilho:100,contraste:100,saturacao:100,nitidez:0,opacidade:100});
+  const [filtro, setFiltro] = React.useState('none');
+  const [texto, setTexto] = React.useState({texto:'',fonte:'Inter',tamanho:36,cor:'#ffffff',posX:50,posY:90,sombra:true,bg:false,bgCor:'rgba(0,0,0,0.5)'});
+  const [crop, setCrop] = React.useState({ativo:false,x:0,y:0,w:0,h:0,arrastando:false,startX:0,startY:0});
+  const [msg, setMsg] = React.useState('');
+  const [posts, setPosts] = React.useState([]);
+  const [postSel, setPostSel] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [galeria, setGaleria] = React.useState([]);
+  const [mostraGaleria, setMostraGaleria] = React.useState(false);
+  const [proporcao, setProporcao] = React.useState('livre');
+  const [zoom, setZoom] = React.useState(1);
+
+  const PROPORCOES = [
+    {id:'livre',label:'Livre'},
+    {id:'16:9',label:'16:9 (Banner)'},
+    {id:'1:1',label:'1:1 (Quadrado)'},
+    {id:'4:3',label:'4:3'},
+    {id:'9:16',label:'9:16 (Story)'},
+    {id:'3:2',label:'3:2 (Foto)'},
+  ];
+
+  const FILTROS = [
+    {id:'none',label:'Original'},
+    {id:'grayscale',label:'P&B'},
+    {id:'sepia',label:'Sépia'},
+    {id:'vivid',label:'Vívido'},
+    {id:'cold',label:'Frio'},
+    {id:'warm',label:'Quente'},
+  ];
+
+  React.useEffect(()=>{
+    sb.from('posts').select('id,titulo').order('created_at',{ascending:false}).limit(100)
+      .then(({data})=>setPosts(data||[]));
+    carregarGaleria();
+  },[]);
+
+  const carregarGaleria = async()=>{
+    try{
+      const {data}=await sb.storage.from('posts-images').list('',{limit:50,sortBy:{column:'created_at',order:'desc'}});
+      if(data) setGaleria(data.filter(f=>f.name&&/\.(jpg|jpeg|png|webp|gif)$/i.test(f.name)));
+    }catch(_){}
+  };
+
+  const carregarImgGaleria = async(nome)=>{
+    const {data}=sb.storage.from('posts-images').getPublicUrl(nome);
+    if(data&&data.publicUrl) carregarUrl(data.publicUrl);
+    setMostraGaleria(false);
+  };
+
+  const carregarUrl = (url)=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{setImgObj(img);setImgSrc(url);setCrop({ativo:false,x:0,y:0,w:0,h:0,arrastando:false,startX:0,startY:0});};
+    img.src=url;
+  };
+
+  const onUpload=(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      const img=new Image();
+      img.onload=()=>{setImgObj(img);setImgSrc(ev.target.result);setCrop({ativo:false,x:0,y:0,w:0,h:0,arrastando:false,startX:0,startY:0});};
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const getFilter=()=>{
+    let f=`brightness(${ajustes.brilho}%) contrast(${ajustes.contraste}%) saturate(${ajustes.saturacao}%) opacity(${ajustes.opacidade}%)`;
+    if(filtro==='grayscale') f+=' grayscale(100%)';
+    else if(filtro==='sepia') f+=' sepia(80%)';
+    else if(filtro==='vivid') f+=` saturate(180%) contrast(110%)`;
+    else if(filtro==='cold') f+=` hue-rotate(200deg) saturate(120%)`;
+    else if(filtro==='warm') f+=` hue-rotate(-15deg) saturate(130%) brightness(105%)`;
+    return f;
+  };
+
+  const renderCanvas=React.useCallback(()=>{
+    if(!imgObj||!canvasRef.current) return;
+    const canvas=canvasRef.current;
+    const ctx=canvas.getContext('2d');
+    const maxW=700, maxH=500;
+    let w=imgObj.naturalWidth, h=imgObj.naturalHeight;
+    const ratio=Math.min(maxW/w,maxH/h,1);
+    w=Math.round(w*ratio); h=Math.round(h*ratio);
+    canvas.width=w; canvas.height=h;
+    ctx.filter=getFilter();
+    ctx.drawImage(imgObj,0,0,w,h);
+    ctx.filter='none';
+    if(ajustes.nitidez>0){
+      const d=ctx.getImageData(0,0,w,h);
+      const sharp=ajustes.nitidez/100;
+      const kernel=[-sharp,-sharp,-sharp,-sharp,1+8*sharp,-sharp,-sharp,-sharp,-sharp];
+      const src=new Uint8ClampedArray(d.data);
+      for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+        const idx=(y*w+x)*4;
+        for(let c=0;c<3;c++){
+          let v=0;
+          for(let ky=-1;ky<=1;ky++) for(let kx=-1;kx<=1;kx++) v+=src[((y+ky)*w+(x+kx))*4+c]*kernel[(ky+1)*3+(kx+1)];
+          d.data[idx+c]=Math.min(255,Math.max(0,v));
+        }
+        d.data[idx+3]=src[idx+3];
+      }
+      ctx.putImageData(d,0,0);
+    }
+    if(texto.texto){
+      const px=texto.tamanho*(w/600);
+      ctx.font=`bold ${px}px ${texto.fonte},sans-serif`;
+      const tw=ctx.measureText(texto.texto).width;
+      const px2=texto.posX/100*w, py2=texto.posY/100*h;
+      if(texto.bg){
+        ctx.fillStyle=texto.bgCor;
+        ctx.fillRect(px2-tw/2-8,py2-px-4,tw+16,px+12);
+      }
+      if(texto.sombra){ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=6;ctx.shadowOffsetX=1;ctx.shadowOffsetY=1;}
+      ctx.fillStyle=texto.cor;
+      ctx.textAlign='center';
+      ctx.fillText(texto.texto,px2,py2);
+      ctx.shadowColor='transparent';ctx.shadowBlur=0;
+    }
+    if(crop.ativo&&crop.w>0&&crop.h>0){
+      ctx.strokeStyle='#ffc800';ctx.lineWidth=2;ctx.setLineDash([6,3]);
+      ctx.strokeRect(crop.x,crop.y,crop.w,crop.h);
+      ctx.setLineDash([]);
+      ctx.fillStyle='rgba(255,200,0,0.08)';
+      ctx.fillRect(crop.x,crop.y,crop.w,crop.h);
+      ctx.fillStyle='rgba(0,0,0,0.35)';
+      if(crop.y>0) ctx.fillRect(0,0,w,crop.y);
+      if(crop.y+crop.h<h) ctx.fillRect(0,crop.y+crop.h,w,h-(crop.y+crop.h));
+      if(crop.x>0) ctx.fillRect(0,crop.y,crop.x,crop.h);
+      if(crop.x+crop.w<w) ctx.fillRect(crop.x+crop.w,crop.y,w-(crop.x+crop.w),crop.h);
+    }
+  },[imgObj,ajustes,filtro,texto,crop]);
+
+  React.useEffect(()=>{ renderCanvas(); },[renderCanvas]);
+
+  const calcPropCrop=(canvas,startX,startY,endX,endY)=>{
+    if(proporcao==='livre') return {x:Math.min(startX,endX),y:Math.min(startY,endY),w:Math.abs(endX-startX),h:Math.abs(endY-startY)};
+    const [rw,rh]=proporcao.split(':').map(Number);
+    let w=Math.abs(endX-startX), h=w*(rh/rw);
+    if(startY+h>canvas.height) h=canvas.height-startY, w=h*(rw/rh);
+    return {x:Math.min(startX,startX+w*(endX>startX?1:-1)),y:startY,w,h};
+  };
+
+  const onMouseDown=(e)=>{
+    if(!crop.ativo||!canvasRef.current) return;
+    const r=canvasRef.current.getBoundingClientRect();
+    const sx=(e.clientX-r.left)*(canvasRef.current.width/r.width);
+    const sy=(e.clientY-r.top)*(canvasRef.current.height/r.height);
+    setCrop(c=>({...c,arrastando:true,startX:sx,startY:sy,x:sx,y:sy,w:0,h:0}));
+  };
+  const onMouseMove=(e)=>{
+    if(!crop.arrastando||!canvasRef.current) return;
+    const r=canvasRef.current.getBoundingClientRect();
+    const ex=(e.clientX-r.left)*(canvasRef.current.width/r.width);
+    const ey=(e.clientY-r.top)*(canvasRef.current.height/r.height);
+    const nc=calcPropCrop(canvasRef.current,crop.startX,crop.startY,ex,ey);
+    setCrop(c=>({...c,...nc}));
+  };
+  const onMouseUp=()=>{ if(crop.arrastando) setCrop(c=>({...c,arrastando:false})); };
+
+  const aplicarCrop=()=>{
+    if(!imgObj||!canvasRef.current||crop.w<10||crop.h<10){setMsg('Selecione uma área maior');return;}
+    const canvas=canvasRef.current;
+    const scaleX=imgObj.naturalWidth/canvas.width;
+    const scaleY=imgObj.naturalHeight/canvas.height;
+    const tmpCanvas=document.createElement('canvas');
+    const cw=Math.round(crop.w*scaleX), ch=Math.round(crop.h*scaleY);
+    tmpCanvas.width=cw; tmpCanvas.height=ch;
+    const ctx=tmpCanvas.getContext('2d');
+    ctx.filter=getFilter();
+    ctx.drawImage(imgObj,Math.round(crop.x*scaleX),Math.round(crop.y*scaleY),cw,ch,0,0,cw,ch);
+    const newImg=new Image();
+    newImg.onload=()=>{setImgObj(newImg);setImgSrc(tmpCanvas.toDataURL('image/jpeg',0.95));};
+    newImg.src=tmpCanvas.toDataURL('image/jpeg',0.95);
+    setCrop({ativo:false,x:0,y:0,w:0,h:0,arrastando:false,startX:0,startY:0});
+    setMsg('✅ Crop aplicado');
+  };
+
+  const resetAjustes=()=>{setAjustes({brilho:100,contraste:100,saturacao:100,nitidez:0,opacidade:100});setFiltro('none');setTexto({texto:'',fonte:'Inter',tamanho:36,cor:'#ffffff',posX:50,posY:90,sombra:true,bg:false,bgCor:'rgba(0,0,0,0.5)'});};
+
+  const baixarImagem=()=>{
+    if(!canvasRef.current||!imgObj) return;
+    const c=document.createElement('canvas');
+    c.width=imgObj.naturalWidth; c.height=imgObj.naturalHeight;
+    const ctx=c.getContext('2d');
+    ctx.filter=getFilter();
+    ctx.drawImage(imgObj,0,0);
+    ctx.filter='none';
+    if(texto.texto){
+      const px=texto.tamanho*(imgObj.naturalWidth/600);
+      ctx.font=`bold ${px}px ${texto.fonte},sans-serif`;
+      const tw=ctx.measureText(texto.texto).width;
+      const px2=texto.posX/100*imgObj.naturalWidth,py2=texto.posY/100*imgObj.naturalHeight;
+      if(texto.bg){ctx.fillStyle=texto.bgCor;ctx.fillRect(px2-tw/2-8,py2-px-4,tw+16,px+12);}
+      if(texto.sombra){ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=8;}
+      ctx.fillStyle=texto.cor;ctx.textAlign='center';ctx.fillText(texto.texto,px2,py2);
+    }
+    const a=document.createElement('a'); a.href=c.toDataURL('image/jpeg',0.92); a.download='ovc-imagem.jpg'; a.click();
+  };
+
+  const usarNoPost=async()=>{
+    if(!postSel||!canvasRef.current||!imgObj){setMsg('Selecione um post');return;}
+    setSalvando(true);
+    try{
+      const c=document.createElement('canvas');
+      c.width=Math.min(imgObj.naturalWidth,1200); c.height=Math.round(c.width*(imgObj.naturalHeight/imgObj.naturalWidth));
+      const ctx=c.getContext('2d'); ctx.filter=getFilter(); ctx.drawImage(imgObj,0,0,c.width,c.height); ctx.filter='none';
+      if(texto.texto){
+        const px=texto.tamanho*(c.width/600);
+        ctx.font=`bold ${px}px ${texto.fonte},sans-serif`;
+        const tw=ctx.measureText(texto.texto).width;
+        const px2=texto.posX/100*c.width,py2=texto.posY/100*c.height;
+        if(texto.bg){ctx.fillStyle=texto.bgCor;ctx.fillRect(px2-tw/2-8,py2-px-4,tw+16,px+12);}
+        if(texto.sombra){ctx.shadowColor='rgba(0,0,0,0.8)';ctx.shadowBlur=8;}
+        ctx.fillStyle=texto.cor;ctx.textAlign='center';ctx.fillText(texto.texto,px2,py2);
+      }
+      const blob=await new Promise(res=>c.toBlob(res,'image/jpeg',0.90));
+      const fname=`edited_${Date.now()}.jpg`;
+      const {error:ue}=await sb.storage.from('posts-images').upload(fname,blob,{contentType:'image/jpeg',upsert:true});
+      if(ue) throw new Error(ue.message);
+      const {data:pu}=sb.storage.from('posts-images').getPublicUrl(fname);
+      const url=pu.publicUrl;
+      await sb.from('posts').update({imagem:url}).eq('id',postSel);
+      setMsg('✅ Imagem salva e atribuída ao post!'); setPostSel('');
+    }catch(e){setMsg('❌ Erro: '+e.message);}
+    setSalvando(false);
+  };
+
+  const slider=(label,key,min,max,unit='%')=>(
+    <div style={{marginBottom:12}}>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--t2)',marginBottom:4}}>
+        <span>{label}</span><span style={{color:'var(--t1)',fontWeight:600}}>{ajustes[key]}{unit}</span>
+      </div>
+      <input type="range" min={min} max={max} value={ajustes[key]}
+        onChange={e=>setAjustes(a=>({...a,[key]:+e.target.value}))}
+        style={{width:'100%',accentColor:'var(--red)',cursor:'pointer'}}/>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">✂️ Editor de Imagens</div>
+        <div className="page-sub">Recorte, ajuste e adicione texto — tudo sem sair do admin</div>
+      </div>
+      <div className="page-body">
+        {msg&&<div style={{padding:'10px 16px',borderRadius:8,marginBottom:16,background:msg.startsWith('✅')?'var(--green-s)':'var(--red-s2)',color:msg.startsWith('✅')?'#4ade80':'#f87171',fontSize:13}}>{msg}</div>}
+
+        {!imgSrc ? (
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+            <div className="panel" style={{padding:40,textAlign:'center',cursor:'pointer',border:'2px dashed var(--border)'}}
+              onClick={()=>fileInputRef.current.click()}
+              onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){const fr=new FileReader();fr.onload=ev=>{const img=new Image();img.onload=()=>{setImgObj(img);setImgSrc(ev.target.result);};img.src=ev.target.result;};fr.readAsDataURL(f);}}}
+              onDragOver={e=>e.preventDefault()}>
+              <div style={{fontSize:48,marginBottom:12}}>📁</div>
+              <div style={{fontWeight:600,marginBottom:6}}>Carregar do computador</div>
+              <div style={{fontSize:12,color:'var(--t2)'}}>Clique ou arraste a imagem aqui</div>
+              <div style={{fontSize:11,color:'var(--t3)',marginTop:8}}>JPG, PNG, WEBP, GIF</div>
+              <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={onUpload}/>
+            </div>
+            <div className="panel" style={{padding:40,textAlign:'center',cursor:'pointer'}} onClick={()=>{setMostraGaleria(true);carregarGaleria();}}>
+              <div style={{fontSize:48,marginBottom:12}}>🗂️</div>
+              <div style={{fontWeight:600,marginBottom:6}}>Abrir da galeria</div>
+              <div style={{fontSize:12,color:'var(--t2)'}}>Imagens já no Supabase Storage</div>
+              <div style={{fontSize:11,color:'var(--t3)',marginTop:8}}>{galeria.length} imagens disponíveis</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:20}}>
+
+            {/* CANVAS */}
+            <div>
+              <div className="panel" style={{padding:16}}>
+                <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+                  <button className="btn btn-secondary btn-sm" onClick={()=>{setImgSrc(null);setImgObj(null);resetAjustes();}}>↩ Nova imagem</button>
+                  <button className={`btn btn-sm ${crop.ativo?'btn-primary':'btn-secondary'}`}
+                    onClick={()=>setCrop(c=>({...c,ativo:!c.ativo,w:0,h:0}))}>
+                    ✂️ {crop.ativo?'Cancelar crop':'Ativar crop'}
+                  </button>
+                  {crop.ativo&&crop.w>10&&<button className="btn btn-green btn-sm" onClick={aplicarCrop}>✓ Aplicar</button>}
+                  <button className="btn btn-secondary btn-sm" onClick={resetAjustes}>↺ Reset</button>
+                  <button className="btn btn-secondary btn-sm" onClick={baixarImagem}>⬇️ Baixar</button>
+                </div>
+
+                {crop.ativo&&(
+                  <div style={{marginBottom:10,display:'flex',gap:6,flexWrap:'wrap'}}>
+                    {PROPORCOES.map(p=>(
+                      <button key={p.id} className={`btn btn-sm ${proporcao===p.id?'btn-primary':'btn-secondary'}`}
+                        onClick={()=>setProporcao(p.id)}>{p.label}</button>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{position:'relative',lineHeight:0}}>
+                  <canvas ref={canvasRef}
+                    style={{width:'100%',maxWidth:700,cursor:crop.ativo?'crosshair':'default',borderRadius:8,display:'block'}}
+                    onMouseDown={onMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}/>
+                </div>
+
+                {crop.ativo&&<div style={{marginTop:8,fontSize:12,color:'var(--t2)'}}>
+                  {crop.w>0?`Área: ${Math.round(crop.w)}×${Math.round(crop.h)}px — clique "Aplicar" para cortar`:'Clique e arraste na imagem para selecionar a área de recorte'}
+                </div>}
+              </div>
+
+              {/* ATRIBUIR A POST */}
+              <div className="panel" style={{padding:16,marginTop:16}}>
+                <div className="panel-title" style={{marginBottom:12}}>Usar esta imagem em um post</div>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <select value={postSel} onChange={e=>setPostSel(e.target.value)}
+                    style={{flex:1,background:'var(--input)',border:'1px solid var(--border)',borderRadius:6,padding:'8px 12px',color:'var(--t1)',fontSize:13}}>
+                    <option value="">— selecione um post —</option>
+                    {posts.map(p=><option key={p.id} value={p.id}>{p.titulo&&p.titulo.length>60?p.titulo.slice(0,60)+'…':p.titulo}</option>)}
+                  </select>
+                  <button className="btn btn-primary" onClick={usarNoPost} disabled={salvando||!postSel}>
+                    {salvando?'Salvando…':'Salvar no post'}
+                  </button>
+                  <button className="btn btn-secondary" onClick={baixarImagem}>⬇️ Baixar</button>
+                </div>
+              </div>
+            </div>
+
+            {/* PAINEL LATERAL */}
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+
+              {/* FILTROS */}
+              <div className="panel" style={{padding:16}}>
+                <div className="panel-title" style={{marginBottom:12}}>Filtros</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  {FILTROS.map(f=>(
+                    <button key={f.id} className={`btn btn-sm ${filtro===f.id?'btn-primary':'btn-secondary'}`}
+                      onClick={()=>setFiltro(f.id)}>{f.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* AJUSTES */}
+              <div className="panel" style={{padding:16}}>
+                <div className="panel-title" style={{marginBottom:12}}>Ajustes</div>
+                {slider('Brilho','brilho',50,200)}
+                {slider('Contraste','contraste',50,200)}
+                {slider('Saturação','saturacao',0,200)}
+                {slider('Nitidez','nitidez',0,100)}
+                {slider('Opacidade','opacidade',10,100)}
+              </div>
+
+              {/* TEXTO */}
+              <div className="panel" style={{padding:16}}>
+                <div className="panel-title" style={{marginBottom:12}}>Texto sobre imagem</div>
+                <textarea value={texto.texto} onChange={e=>setTexto(t=>({...t,texto:e.target.value}))}
+                  placeholder="Digite o texto..."
+                  style={{width:'100%',background:'var(--input)',border:'1px solid var(--border)',borderRadius:6,padding:'8px 12px',color:'var(--t1)',fontSize:13,resize:'vertical',minHeight:60,fontFamily:'inherit',marginBottom:10}}/>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:11,color:'var(--t2)',marginBottom:4}}>Tamanho</div>
+                    <input type="number" min="12" max="120" value={texto.tamanho}
+                      onChange={e=>setTexto(t=>({...t,tamanho:+e.target.value}))}
+                      style={{width:'100%',background:'var(--input)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 10px',color:'var(--t1)',fontSize:13}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:'var(--t2)',marginBottom:4}}>Cor</div>
+                    <input type="color" value={texto.cor} onChange={e=>setTexto(t=>({...t,cor:e.target.value}))}
+                      style={{width:'100%',height:34,border:'none',borderRadius:6,cursor:'pointer',background:'transparent'}}/>
+                  </div>
+                </div>
+
+                <div style={{marginBottom:8}}>
+                  <div style={{fontSize:11,color:'var(--t2)',marginBottom:4}}>Posição horizontal: {texto.posX}%</div>
+                  <input type="range" min="5" max="95" value={texto.posX}
+                    onChange={e=>setTexto(t=>({...t,posX:+e.target.value}))}
+                    style={{width:'100%',accentColor:'var(--red)'}}/>
+                </div>
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,color:'var(--t2)',marginBottom:4}}>Posição vertical: {texto.posY}%</div>
+                  <input type="range" min="5" max="99" value={texto.posY}
+                    onChange={e=>setTexto(t=>({...t,posY:+e.target.value}))}
+                    style={{width:'100%',accentColor:'var(--red)'}}/>
+                </div>
+
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  <button className={`btn btn-sm ${texto.sombra?'btn-primary':'btn-secondary'}`}
+                    onClick={()=>setTexto(t=>({...t,sombra:!t.sombra}))}>
+                    🌑 Sombra
+                  </button>
+                  <button className={`btn btn-sm ${texto.bg?'btn-primary':'btn-secondary'}`}
+                    onClick={()=>setTexto(t=>({...t,bg:!t.bg}))}>
+                    ▬ Fundo texto
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* MODAL GALERIA */}
+        {mostraGaleria&&(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+            onClick={e=>{if(e.target===e.currentTarget)setMostraGaleria(false);}}>
+            <div style={{background:'var(--card)',borderRadius:16,padding:24,width:'min(90vw,700px)',maxHeight:'80vh',overflow:'auto'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                <div style={{fontWeight:700}}>Galeria de imagens</div>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setMostraGaleria(false)}>✕ Fechar</button>
+              </div>
+              {galeria.length===0
+                ? <div style={{padding:40,textAlign:'center',color:'var(--t2)'}}>Nenhuma imagem no storage ainda</div>
+                : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:10}}>
+                    {galeria.map(f=>(
+                      <div key={f.name} onClick={()=>carregarImgGaleria(f.name)}
+                        style={{cursor:'pointer',borderRadius:8,overflow:'hidden',border:'2px solid transparent',transition:'border .15s'}}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor='var(--red)'}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor='transparent'}>
+                        <img src={sb.storage.from('posts-images').getPublicUrl(f.name).data.publicUrl}
+                          style={{width:'100%',height:90,objectFit:'cover',display:'block'}} alt={f.name}/>
+                        <div style={{padding:'4px 6px',fontSize:10,color:'var(--t2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</div>
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
