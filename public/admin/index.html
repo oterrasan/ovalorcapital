@@ -980,21 +980,26 @@ function Postagens() {
 
   const saveEdit = async () => {
     const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-    await sb.from('posts').update({
-      titulo: editPost.titulo,
-      conteudo: editPost.conteudo,
-      comentario_fixado: editPost.comentario_fixado,
-      imagem: editPost.imagem,
-      ig_account_id: editPost.ig_account_id||null,
-      scheduled_at: editPost.scheduled_at||null,
-      user_tags: JSON.stringify(editPost.categoria ? [editPost.categoria] : (() => { try { return JSON.parse(editPost.user_tags||'[]'); } catch(_) { return []; } })()),
-      subcategoria: editPost.subcategoria||'',
-      tipo_conteudo: editPost.tipo_conteudo||'padrao',
-      subcategoria_slug: slugSub,
-      collaborators: editPost.collaborators||'[]',
-      updated_at: new Date().toISOString()
-    }).eq('id',editPost.id);
-    setEditPost(null); load();
+    try {
+      const novaCategoria = editPost.categoria||'';
+      const payload = {
+        titulo: editPost.titulo,
+        conteudo: editPost.conteudo,
+        comentario_fixado: editPost.comentario_fixado,
+        imagem: editPost.imagem||'',
+        ig_account_id: editPost.ig_account_id||null,
+        scheduled_at: editPost.scheduled_at||null,
+        user_tags: novaCategoria ? JSON.stringify([novaCategoria]) : (editPost.user_tags||'[]'),
+        subcategoria: editPost.subcategoria||'',
+        tipo_conteudo: editPost.tipo_conteudo||'padrao',
+        subcategoria_slug: slugSub,
+        collaborators: editPost.collaborators||'[]',
+        updated_at: new Date().toISOString()
+      };
+      const {error} = await sb.from('posts').update(payload).eq('id',editPost.id);
+      if(error) { alert('❌ Erro ao salvar: ' + error.message); return; }
+      setEditPost(null); load();
+    } catch(e) { alert('❌ Erro: ' + e.message); }
   };
 
   return (
