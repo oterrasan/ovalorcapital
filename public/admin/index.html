@@ -992,8 +992,7 @@ function Postagens() {
         scheduled_at: editPost.scheduled_at||null,
         user_tags: novaCategoria ? JSON.stringify([novaCategoria]) : (editPost.user_tags||'[]'),
         subcategoria: editPost.subcategoria||'',
-        tipo_conteudo: editPost.tipo_conteudo||'padrao',
-        subcategoria_slug: slugSub,
+          subcategoria_slug: slugSub,
         collaborators: editPost.collaborators||'[]',
         updated_at: new Date().toISOString()
       };
@@ -1956,7 +1955,6 @@ function NovoPost() {
         conteudo: form.conteudo,
         comentario_fixado: form.comentario_fixado,
         imagem: form.imagem || '',
-        tipo_conteudo: form.tipo_conteudo || 'padrao',
         ig_account_id: form.ig_account_id || null,
         scheduled_at: form.scheduled_at || null,
         user_tags: form.user_tags || '[]',
