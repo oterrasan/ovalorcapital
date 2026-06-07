@@ -981,6 +981,7 @@ function Postagens() {
   const saveEdit = async () => {
     const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     try {
+      if(!editPost.id){ alert('❌ ID do post não encontrado: ' + JSON.stringify(editPost.id)); return; }
       const novaCategoria = editPost.categoria||'';
       const payload = {
         titulo: editPost.titulo,
