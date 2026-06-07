@@ -987,7 +987,7 @@ function Postagens() {
       imagem: editPost.imagem,
       ig_account_id: editPost.ig_account_id||null,
       scheduled_at: editPost.scheduled_at||null,
-      user_tags: editPost.categoria ? JSON.stringify([editPost.categoria]) : (editPost.user_tags||'[]'),
+      user_tags: editPost.categoria ? [editPost.categoria] : (() => { try { return JSON.parse(editPost.user_tags||'[]'); } catch(_) { return []; } })(),
       subcategoria: editPost.subcategoria||'',
       tipo_conteudo: editPost.tipo_conteudo||'padrao',
       subcategoria_slug: slugSub,
