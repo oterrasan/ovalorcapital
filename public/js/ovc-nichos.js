@@ -217,23 +217,23 @@
       // Minuto → no meio (após 1/3 dos blocos)
       // Pílulas → no final (antes do último bloco)
 
-      // Radar: antes do primeiro card original
+      // Estrutura do miolo (ovc-cards.js):
+      // [0]=bB [1]=sep1 [2]=bA1(1a fileira cards) [3]=bC [4]=bA2 [5]=sep2 [6]=bD [7]=sep3 [8]=bE [9]=bA3 [10]=bA4
+
+      // Radar: antes do índice [0] — acima de tudo
       if (blocoRadar && filhos.length >= 1) {
         miolo.insertBefore(blocoRadar, filhos[0]);
       }
 
-      // Minuto: após o segundo card original (filhos[1])
-      // Usa filhos[] capturado ANTES de qualquer inserção — índices originais
-      if (blocoMinuto && filhos.length >= 2) {
-        var refMin = filhos[1]; // segundo bloco original
-        if (refMin && refMin.nextSibling) {
-          miolo.insertBefore(blocoMinuto, refMin.nextSibling);
-        } else {
-          miolo.appendChild(blocoMinuto);
-        }
+      // Minuto: depois do índice [2] (primeira fileira de cards bA1)
+      // filhos[3] é bC — inserir ANTES dele = depois de bA1
+      if (blocoMinuto && filhos.length >= 4) {
+        miolo.insertBefore(blocoMinuto, filhos[3]);
+      } else if (blocoMinuto) {
+        miolo.appendChild(blocoMinuto);
       }
 
-      // Pilulas: antes do último card original
+      // Pilulas: antes do último bloco original
       if (blocoPilulas && filhos.length >= 2) {
         var ultimo = filhos[filhos.length - 1];
         if (ultimo) miolo.insertBefore(blocoPilulas, ultimo);
