@@ -186,6 +186,68 @@ python3 -c "import base64; c=open('public/index.html').read().strip(); open('pub
 
 ---
 
+---
+
+# ══════════════════════════════════════════════════════
+# 🚨🚨🚨 REGRA ZERO-I — SISTEMA DE NICHOS OVC — INVIOLÁVEL
+# ══════════════════════════════════════════════════════
+
+> Estabelecida por Roberto Terrasan em 08/06/2026. Nunca pode ser revertida ou alterada sem autorização explícita do dono.
+
+## Os 3 nichos de conteúdo curto do OVC
+
+| Nicho | tipo_conteudo | Tom | Categorias |
+|---|---|---|---|
+| Pílula | `pilula` / `micropilula` | Factual, direto, qualquer tema | Todas as 17 categorias |
+| Radar OVC | `radar` | Urgente, ao vivo, grande repercussão | politica, esportes, internacional, brasil-on |
+| Minuto OVC | `minuto` | Executivo, seco, impacto econômico | economia, negocios, investimentos, tributos, tecnologia, industria, imoveis, seguros, carreira |
+
+## REGRAS ABSOLUTAMENTE INVIOLÁVEIS
+
+```
+❌❌❌ REGRA 0 — NUNCA tocar em home.js para exibir nichos na home
+❌❌❌ REGRA 0 — Os nichos na home são carregados EXCLUSIVAMENTE por ovc-nichos.js (arquivo separado e independente)
+❌❌❌ REGRA 0 — home.js NÃO SABE que ovc-nichos.js existe — são completamente independentes
+❌❌❌ REGRA 0 — Se ovc-nichos.js quebrar, os cards da home continuam funcionando normalmente
+❌❌❌ REGRA 0 — NUNCA misturar lógica de nichos com lógica de cards da home
+❌❌❌ REGRA 0 — NUNCA inserir conteúdo de nicho (pilula/radar/minuto) dentro de um card da home
+❌❌❌ REGRA 0 — Nichos aparecem ENTRE os cards, como blocos independentes — nunca DENTRO dos cards
+❌❌❌ REGRA 0 — Se não houver conteúdo de nicho disponível, o bloco NÃO aparece — zero espaço vazio
+❌❌❌ REGRA 0 — O padrão visual OVC das páginas internas NUNCA muda para acomodar nichos
+❌❌❌ REGRA 0 — Nichos nas páginas de categoria usam o layout existente — nunca criar estrutura nova
+```
+
+## Arquitetura do sistema de nichos (08/06/2026)
+
+**Backend — endpoint exclusivo:**
+- `/api/portal-posts?curtinhas=true&categoria=SLUG&limit=N`
+- Retorna APENAS tipo_conteudo IN (pilula, micropilula, radar, minuto)
+- Handler: `handleCurtinhas()` em `api/portal-posts.js`
+- NUNCA misturar com `handleRecentes()` que alimenta os cards da home
+
+**Pipeline — geração automática:**
+- `gerarPilula()` — qualquer categoria, exclui grandes eventos (esses vão para Radar)
+- `gerarRadar()` — SOMENTE grande repercussão: eleição, Copa, STF, crise política
+- `gerarMinuto()` — SOMENTE economia/negócios/mercado com impacto para decisões executivas
+- Todos salvam com `tipo_conteudo` correto e `status: publicado` diretamente
+
+**Frontend — exibição na home:**
+- `public/js/ovc-nichos.js` — arquivo independente, carrega DEPOIS do home.js
+- Injeta blocos entre os cards via DOM, sem tocar em home.js
+- Blocos desaparecem se não houver conteúdo — nunca deixam espaço vazio
+
+**Frontend — exibição nas páginas de categoria:**
+- Blocos de nichos respeitam o padrão visual OVC existente
+- Inseridos dentro da estrutura atual, nunca criando layout novo
+
+## Prompts editoriais travados (não alterar sem autorização de Roberto)
+
+**Pílula:** cobre qualquer categoria. Proibido gerar para grandes eventos nacionais.
+**Radar OVC:** SOMENTE eleição, Copa, STF, crise política, catástrofe, conflito internacional.
+**Minuto OVC:** SOMENTE economia, negócios, mercado, tributos, regulação, política econômica.
+
+---
+
 # ══════════════════════════════════════════════════════
 # 🚨 ALERTA VERCEL HOBBY PLAN
 # ══════════════════════════════════════════════════════
@@ -279,6 +341,7 @@ Fonte de receita única: Google AdSense / Google AdX.
 36. **`run_portal.js` NUNCA fazer queries individuais por hash** — Bug #51: 300 queries sequenciais consumiam 30s do budget de 55s. Sempre usar batch `.in()` em chunks de 100 (3 queries no total para 300 hashes).
 37. **NUNCA fazer revert de `public/index.html` pela interface web do GitHub** — causa corrupção base64. Usar `git checkout <sha> -- public/index.html`. Ver Regra Zero-G (05/06/2026).
 38. **Branch protection em main é INVIOLÁVEL** — "Require status checks to pass" sempre ativo. Push direto para main proibido. SEMPRE via PR + CI verde. Ver Regra Zero-H (05/06/2026).
+39. **SISTEMA DE NICHOS OVC É INVIOLÁVEL** — Pílula/Radar OVC/Minuto OVC NUNCA entram em cards da home. Exibição na home SOMENTE via `ovc-nichos.js` independente. NUNCA tocar em `home.js` para isso. Ver Regra Zero-I (08/06/2026).
 
 ---
 
