@@ -101,6 +101,54 @@ async function handleHome(req, res) {
   return res.status(200).send(html);
 }
 
+
+// ─── CURTINHAS (pilula/micropilula/radar/minuto) por categoria ───────────────
+// REGRA 0: esses conteúdos NUNCA aparecem nos cards normais da home.
+// Este endpoint é exclusivo: ?curtinhas=true&categoria=SLUG&limit=N
+async function handleCurtinhas(req, res) {
+  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+
+  const TIPOS_CURTINHAS = ["pilula", "micropilula", "radar", "minuto"];
+  const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
+  const limit = clampInt(req.query.limit, 10, 1, 50);
+
+  // query base: apenas tipos curtos, apenas publicados
+  let q = supabase.from("posts")
+    .select("id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at")
+    .eq("status", "publicado")
+    .in("tipo_conteudo", TIPOS_CURTINHAS)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+
+  // filtrar por categoria se informada
+  if (cat && cat !== "all") {
+    const aliases = CATEGORY_ALIASES[cat];
+    if (aliases) {
+      q = q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","));
+    } else {
+      q = q.like("user_tags", `%"${cat}"%`);
+    }
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const posts = (data || []).map(row => {
+    const tags = parseTags(row.user_tags);
+    const categoria = normalizeCat(tags[0] || "politica") || "politica";
+    return {
+      id: row.id,
+      titulo: clean(row.titulo || ""),
+      resumo: clean(row.comentario_fixado || stripHtml(row.conteudo || "").slice(0, 200)),
+      categoria,
+      tipo: row.tipo_conteudo || "pilula",
+      data: row.published_at || row.created_at || new Date().toISOString()
+    };
+  });
+
+  return res.status(200).json({ curtinhas: posts, total: posts.length });
+}
+
 export default async function handler(req, res) {
   if (req.query.format === "home") return handleHome(req, res);
 
@@ -113,6 +161,7 @@ export default async function handler(req, res) {
   try {
     if (req.query.id) return handleOne(req, res);
     if (req.query.recentes === "true") return handleRecentes(req, res);
+    if (req.query.curtinhas === "true") return handleCurtinhas(req, res);
     return handleList(req, res);
   } catch (error) {
     return res.status(500).json({ posts: [], total: 0, error: "portal_posts_failed", detail: error?.message || String(error) });
