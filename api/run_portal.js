@@ -251,10 +251,12 @@ async function manual(req, res, rec) {
 }
 
 async function gerarPilula(sourceText, sourceTitle, contexto, categoria) {
-  const prompt = `Você é um redator de notas jornalísticas rápidas do portal O Valor Capital (OVC), viés centro-direita liberal.
-Produza uma NOTA RÁPIDA (pílula) objetiva e direta sobre o fato abaixo.
-Sem análise profunda. Foco no fato e sua relevância imediata. Linguagem acessível e direta.
-Evite: vale destacar | cabe ressaltar | nesse contexto | acende alerta | especialistas apontam.
+  const prompt = `Você é redator de pílulas do portal O Valor Capital (OVC), viés centro-direita liberal.
+MISSÃO: transformar o fato abaixo numa nota rápida e objetiva para a seção de cada categoria do portal.
+REGRA EDITORIAL: pílulas cobrem fatos do dia de QUALQUER categoria — política, saúde, tecnologia, cultura, esportes, variedades. São o registro factual do que aconteceu, sem análise profunda.
+REGRA DE EXCLUSÃO: NÃO gere pílula se o fato for de grande repercussão nacional como eleição, Copa ou decisão histórica do STF — esses temas pertencem ao Radar OVC.
+LINGUAGEM: direta, acessível, sem jargão. Máximo 3 frases por parágrafo.
+PROIBIDO: vale destacar | cabe ressaltar | nesse contexto | acende alerta | especialistas apontam | é importante destacar.
 Formato OBRIGATÓRIO:
 TITULO: [manchete direta — 45 a 65 caracteres]
 FOCO_KEYWORD: [2 a 3 palavras]
@@ -262,7 +264,7 @@ META_DESCRICAO: [120 a 155 caracteres]
 CATEGORIA: [uma de: politica|economia|negocios|investimentos|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao|brasil-on]
 CORPO:
 <p><strong>Redação OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
-[2 a 3 parágrafos curtos em HTML, 300 a 600 caracteres total, sem h2, sem imagem]
+[2 parágrafos curtos em HTML, 250 a 500 caracteres total, sem h2, sem imagem]
 Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -276,21 +278,23 @@ Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
 
 
 async function gerarRadar(sourceText, sourceTitle, categoria) {
-  const prompt = `Você é repórter do Radar OVC, seção de cobertura em tempo real do portal O Valor Capital (centro-direita liberal).
-Produza uma NOTA DE RADAR objetiva sobre o fato. Foco em: eleições, Copa do Mundo, eventos de grande repercussão política ou esportiva.
-Linguagem direta, factual. Sem análise. Sem jargão.
-Evite: vale destacar | cabe ressaltar | nesse contexto | acende alerta.
+  const prompt = `Você é repórter do Radar OVC, seção de cobertura em tempo real de grandes eventos do portal O Valor Capital (centro-direita liberal).
+MISSÃO: cobrir em tempo real fatos de alto impacto nacional ou internacional.
+REGRA EDITORIAL ABSOLUTA: SOMENTE gere se o fato for de grande repercussão — eleições, Copa do Mundo, votações decisivas no Congresso, crises políticas, decisões históricas do STF, grandes catástrofes, conflitos internacionais.
+REGRA DE EXCLUSÃO: NÃO gere para notas de empresa, produtos, curiosidades, saúde rotineira, tecnologia comum, cultura ou entretenimento. Prefira não gerar a gerar conteúdo raso.
+EXEMPLOS QUE COBRE: eleição presidencial, jogo da Copa, STF decide sobre Bolsonaro, Congresso aprova reforma, terremoto, conflito armado.
+EXEMPLOS QUE NAO COBRE: lançamento de produto, pesquisa de saúde, evento cultural, nota de empresa.
+LINGUAGEM: urgente, factual, seco. Tom de agência de notícias. Sem adjetivos desnecessários.
+PROIBIDO: vale destacar | cabe ressaltar | nesse contexto | acende alerta | é importante destacar.
 Formato OBRIGATÓRIO:
-TITULO: [manchete direta — 45 a 65 caracteres]
+TITULO: [manchete urgente — 45 a 65 caracteres]
 FOCO_KEYWORD: [2 a 3 palavras]
 META_DESCRICAO: [120 a 155 caracteres]
-CATEGORIA: [uma de: politica|esportes|internacional|economia|brasil-on]
+CATEGORIA: [uma de: politica|esportes|internacional|brasil-on]
 CORPO:
 <p><strong>Radar OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
-[2 parágrafos curtos em HTML, 200 a 400 caracteres total, sem h2, sem imagem]
-Fonte: ${sourceTitle ? sourceTitle + "
-
-" : ""}${sourceText.slice(0, 2500)}`;
+[2 parágrafos curtos em HTML, 200 a 350 caracteres total, sem h2, sem imagem]
+Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -302,21 +306,23 @@ Fonte: ${sourceTitle ? sourceTitle + "
 }
 
 async function gerarMinuto(sourceText, sourceTitle, categoria) {
-  const prompt = `Você é redator do Minuto OVC, seção de resumos rápidos do portal O Valor Capital (centro-direita liberal).
-Produza um RESUMO DE 1 MINUTO de leitura sobre o fato. Objetivo, informativo, acessível.
-Qualquer categoria: economia, negócios, saúde, tecnologia, etc.
-Evite: vale destacar | cabe ressaltar | nesse contexto | acende alerta.
+  const prompt = `Você é redator do Minuto OVC, seção de resumos executivos do portal O Valor Capital (centro-direita liberal).
+MISSÃO: transformar o fato em resumo de 1 minuto de leitura para o leitor executivo — empresário, investidor, profissional liberal.
+REGRA EDITORIAL: cobre EXCLUSIVAMENTE economia, negócios, mercado financeiro, investimentos, tributos, regulação, política econômica e tecnologia aplicada a negócios.
+REGRA DE EXCLUSÃO: NÃO gere se o fato não tiver impacto direto para quem toma decisões de negócio ou investimento. NÃO cobre esportes, cultura, celebridades, variedades, saúde pública geral ou política eleitoral.
+EXEMPLOS QUE COBRE: IPCA, Selic, dólar, resultado de empresa, fusão, regulação do Banco Central, reforma tributária, PIB, bolsa, startup, política econômica.
+EXEMPLOS QUE NAO COBRE: Copa do Mundo, eleição, entretenimento, saúde sem impacto econômico, esportes.
+LINGUAGEM: seco, preciso, sem rodeios. Tom do Valor Econômico e da Reuters Brasil. Sem adjetivos emocionais.
+PROIBIDO: vale destacar | cabe ressaltar | nesse contexto | acende alerta | é importante destacar | mercado preocupado.
 Formato OBRIGATÓRIO:
-TITULO: [manchete direta — 45 a 65 caracteres]
+TITULO: [manchete executiva — 45 a 65 caracteres]
 FOCO_KEYWORD: [2 a 3 palavras]
 META_DESCRICAO: [120 a 155 caracteres]
-CATEGORIA: [uma de: politica|economia|negocios|investimentos|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao|brasil-on]
+CATEGORIA: [uma de: economia|negocios|investimentos|tributos|tecnologia|industria|imoveis|seguros|carreira]
 CORPO:
 <p><strong>Minuto OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
-[3 parágrafos curtos em HTML, 400 a 700 caracteres total, sem h2, sem imagem]
-Fonte: ${sourceTitle ? sourceTitle + "
-
-" : ""}${sourceText.slice(0, 2500)}`;
+[3 parágrafos curtos em HTML, 400 a 650 caracteres total, sem h2, sem imagem]
+Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
   const r = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
