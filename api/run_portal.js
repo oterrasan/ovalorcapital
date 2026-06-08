@@ -433,9 +433,10 @@ async function auto(req, res, rec) {
         }
       } catch(eP) { await log("warn", `[pipeline] falha pilula: ${eP.message?.slice(0,80)}`); }
 
-        // Gerar Radar OVC (para categorias: politica, esportes, internacional)
+        // Gerar Radar OVC — só grandes eventos, só fontes das últimas 3h
         const CATS_RADAR = ["politica", "esportes", "internacional", "brasil-on"];
-        if (CATS_RADAR.includes(cat)) {
+        const itemAge = item.pubDate ? (Date.now() - new Date(item.pubDate).getTime()) : 9999999999;
+        if (CATS_RADAR.includes(cat) && itemAge < 3 * 60 * 60 * 1000) {
           try {
             const hashR = crypto.createHash("md5").update(item.link + "_radar").digest("hex");
             const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
@@ -456,8 +457,9 @@ async function auto(req, res, rec) {
           } catch(eR) { await log("warn", `[pipeline] falha radar: ${eR.message?.slice(0,80)}`); }
         }
 
-        // Gerar Minuto OVC (para todas as categorias, 1 em cada 3 artigos)
-        try {
+        // Gerar Minuto OVC — só categorias econômicas, só fontes das últimas 3h
+        const CATS_MINUTO = ["economia", "negocios", "investimentos", "tributos", "tecnologia", "industria", "imoveis", "seguros", "carreira"];
+        if (CATS_MINUTO.includes(cat) && itemAge < 3 * 60 * 60 * 1000) { try {
           const hashM = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
           const { data: dupM } = await supabase.from("posts").select("id").eq("hash", hashM).maybeSingle();
           if (!dupM) {
@@ -474,7 +476,7 @@ async function auto(req, res, rec) {
               await log("info", `[pipeline] minuto: ${minuto.titulo?.slice(0,50)} | cat:${catM}`);
             }
           }
-        } catch(eM) { await log("warn", `[pipeline] falha minuto: ${eM.message?.slice(0,80)}`); }
+        } catch(eM) { await log("warn", `[pipeline] falha minuto: ${eM.message?.slice(0,80)}`); } } // fim if CATS_MINUTO
       return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, categoria: content.categoria, subcategoria: content.subcategoria, imagem: !!img });
     } catch (e) { debug.erro++; if (debug.erros.length < 5) debug.erros.push(e.message); }
   }
