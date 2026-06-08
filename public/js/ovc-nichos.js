@@ -222,7 +222,7 @@
       }
 
       if (blocoMinuto && total >= 3) {
-        var posMin = Math.floor(total * 2 / 3);
+        var posMin = 2;
         var refMin = miolo.children[posMin];
         if (refMin) miolo.insertBefore(blocoMinuto, refMin);
         else miolo.appendChild(blocoMinuto);
