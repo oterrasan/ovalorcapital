@@ -147,8 +147,7 @@ async function handleRecentes(req, res) {
   const { data, error } = await supabase.from("posts")
     .select(POST_COLUMNS)
     .eq("status", "publicado")
-    .not("tipo_conteudo", "eq", "pilula")
-    .not("tipo_conteudo", "eq", "micropilula")
+    .or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao")
     .order("published_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -176,8 +175,7 @@ async function handleRecentes(req, res) {
         const result = await supabase.from("posts")
           .select(POST_COLUMNS)
           .eq("status", "publicado")
-          .not("tipo_conteudo", "eq", "pilula")
-          .not("tipo_conteudo", "eq", "micropilula")
+          .or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao")
           .like("user_tags", `%"${cat}"%`)
           .order("published_at", { ascending: false })
           .limit(4);
@@ -216,8 +214,7 @@ async function handleList(req, res) {
   let q = supabase.from("posts")
     .select(POST_COLUMNS)
     .eq("status", "publicado")
-    .not("tipo_conteudo", "eq", "pilula")
-    .not("tipo_conteudo", "eq", "micropilula")
+    .or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao")
     .order("published_at", { ascending: false })
     .range(page * limit, (page + 1) * limit - 1);
 
