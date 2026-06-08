@@ -37,7 +37,7 @@ const HOME_CATS = [
   "variedades", "investigativo", "seguranca", "cultura", "profissoes", "vagas",
   "concursos", "imoveis", "esg", "defesa", "religiao"
 ];
-const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,updated_at,metrics,tipo_conteudo";
+const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,updated_at,metrics";
 
 const FOUC_GUARD = `<style id="ovc-fouc-guard">html.ovc-boot{background:#f4f6fb}html.ovc-boot body{opacity:0}html.ovc-ready body{opacity:1}@media (prefers-reduced-motion:no-preference){html.ovc-ready body{transition:opacity .12s ease}}</style><script id="ovc-fouc-guard-js">(function(d){d.classList.add('ovc-boot');function r(){d.classList.remove('ovc-boot');d.classList.add('ovc-ready')}if(document.readyState!=='loading'){requestAnimationFrame(r)}else{document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(r)},{once:true})}setTimeout(r,1800)})(document.documentElement);</script>`;
 const CRITICAL_CSS = `*,*::before,*::after{box-sizing:border-box}:root{--font-base:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;--font-mono:"SF Mono",ui-monospace,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;--bg-header-top:#050816;--bg-header-mid:#050816;--bg-header-menu:#050816;--bg-footer:#030712;--gold:#d4af37;--bg-page:#f3f4f8;--bg-elevated:#fff;--bg-card:#fff;--border-subtle:#e2e8f0;--text-main:#0f172a;--text-soft:#475569;--text-muted:#94a3b8;--accent:#b91c1c;--shadow-card:0 4px 20px rgba(15,23,42,.08);--ovc-body-bg:var(--bg-page);--ovc-surface:var(--bg-elevated);--ovc-text:var(--text-main);--ovc-muted:var(--text-soft);--ovc-accent:var(--accent);--ovc-line:var(--border-subtle);--ovc-shadow:var(--shadow-card)}[data-theme="dark"],[data-theme="graphite"]{--bg-page:#0b0f1a;--bg-elevated:#131929;--bg-card:#131929;--border-subtle:#1e2d45;--text-main:#e8edf5;--text-soft:#94a3b8;--text-muted:#64748b;--accent:#60a5fa;--shadow-card:0 4px 20px rgba(0,0,0,.35);--ovc-body-bg:var(--bg-page);--ovc-surface:var(--bg-elevated);--ovc-text:var(--text-main);--ovc-muted:var(--text-soft);--ovc-accent:var(--accent);--ovc-line:var(--border-subtle);--ovc-shadow:var(--shadow-card)}[data-theme="gold"]{--bg-page:#faf7f0;--bg-elevated:#fffdf8;--bg-card:#fffdf8;--border-subtle:#e8e0ce;--text-main:#1a1208;--text-soft:#5c4a28;--text-muted:#8a7455;--accent:#9a6700;--shadow-card:0 4px 20px rgba(90,60,0,.09);--ovc-body-bg:var(--bg-page);--ovc-surface:var(--bg-elevated);--ovc-text:var(--text-main);--ovc-muted:var(--text-soft);--ovc-accent:var(--accent);--ovc-line:var(--border-subtle);--ovc-shadow:var(--shadow-card)}html,body{margin:0;padding:0;min-height:100%}body{font-family:var(--font-base);background:var(--bg-page);color:var(--text-main);line-height:1.5}a{color:inherit;text-decoration:none}.page-root{display:flex;flex-direction:column;min-height:100vh;background:var(--bg-page)}`;
@@ -144,11 +144,11 @@ async function handleRecentes(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
 
   const limit = clampInt(req.query.limit, 80, 1, 300);
-  const tipoFiltro = req.query.tipo || null;
-  let q = supabase.from("posts").select(POST_COLUMNS).eq("status", "publicado");
-  if (tipoFiltro) q = q.eq("tipo_conteudo", tipoFiltro);
-  else q = q.not("tipo_conteudo", "in", "(pilula,micropilula)");
-  const { data, error } = await q.order("published_at", { ascending: false }).limit(limit);
+  const { data, error } = await supabase.from("posts")
+    .select(POST_COLUMNS)
+    .eq("status", "publicado")
+    .order("published_at", { ascending: false })
+    .limit(limit);
   if (error) throw error;
 
   const seenIds = new Set();
@@ -311,7 +311,6 @@ function formatPost(row, full) {
     slug,
     url: `/${catPath}/${slug}-${id8}/`,
     data,
-    tipo_conteudo: row.tipo_conteudo || null,
     metrics: full ? (row.metrics || {}) : undefined
   };
 }
