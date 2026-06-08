@@ -4,8 +4,7 @@ const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
 const GOLD = "#d4af37";
 const NAVY = "#0f172a";
 
-const EMAIL_REAL    = "ovalorcapital@gmail.com";
-const EMAIL_DISPLAY = "contato@ovalorcapital.com.br";
+const EMAIL_DISPLAY = "redacao@ovalorcapital.com.br";
 
 const NAV_LINKS = [
   ["Política","/politica/"],["Economia","/economia/"],["Investimentos","/investimentos/"],
@@ -39,7 +38,7 @@ function buildFooter(){
     <a href="/privacidade/" style="color:rgba(255,255,255,.45);text-decoration:none">Privacidade</a>
     <a href="/cookies/" style="color:rgba(255,255,255,.45);text-decoration:none">Cookies</a>
   </span>
-  <span style="display:block;font-size:.76em;opacity:.45;margin-top:12px;line-height:1.6">O conteúdo tem caráter informativo e jornalístico. Não constitui recomendação de investimento. Redação OVC utiliza Inteligência Artificial supervisionada. Responsável editorial: <strong style="opacity:.8">Roberto Cesar Terrasan</strong>.</span>
+  <span style="display:block;font-size:.76em;opacity:.45;margin-top:12px;line-height:1.6">O conteúdo tem caráter informativo e jornalístico. Não constitui recomendação de investimento. Responsável editorial: <strong style="opacity:.8">Redação OVC</strong>.</span>
 </div>
 </footer>`;
 }
@@ -76,31 +75,31 @@ function buildQuemsomosPage(){
       </div>
       <div>
         <h2 style="font-size:1.1rem;font-weight:800;color:#111;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:4px;height:20px;background:${GOLD};border-radius:2px"></span>Nossa Visão</h2>
-        <p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0">Ser o portal de referência em economia, política e mercado financeiro para o cidadão brasileiro, combinando o rigor do jornalismo tradicional com a agilidade e escala da inteligência artificial supervisionada.</p>
+        <p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0">Ser o portal de referência em economia, política e mercado financeiro para o cidadão brasileiro, combinando o rigor do jornalismo tradicional com a agilidade e escala das melhores tecnologias editoriais disponíveis.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- DIRETOR EDITORIAL -->
+<!-- EXPEDIENTE -->
 <section style="background:#f8fafc;padding:72px 24px;border-top:1px solid #e2e8f0">
   <div style="max-width:900px;margin:0 auto">
     <div style="text-align:center;margin-bottom:48px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${GOLD}">LIDERANÇA EDITORIAL</span>
-      <h2 style="font-size:2rem;font-weight:900;color:#111;margin:8px 0 0;letter-spacing:-.5px">Corpo Diretivo</h2>
+      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${GOLD}">EXPEDIENTE</span>
+      <h2 style="font-size:2rem;font-weight:900;color:#111;margin:8px 0 0;letter-spacing:-.5px">Corpo Editorial</h2>
     </div>
     <div style="background:#fff;border-radius:16px;box-shadow:0 4px 40px rgba(0,0,0,.09);overflow:hidden;display:flex;flex-wrap:wrap">
       <div style="background:linear-gradient(135deg,${NAVY} 0%,#1e3a5f 100%);padding:48px 36px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:220px;flex:0 0 220px">
-        <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,${GOLD} 0%,#b8860b 100%);display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;color:${NAVY};margin-bottom:16px;box-shadow:0 4px 20px rgba(212,175,55,.4)">RT</div>
+        <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,${GOLD} 0%,#b8860b 100%);display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;color:${NAVY};margin-bottom:16px;box-shadow:0 4px 20px rgba(212,175,55,.4)">OVC</div>
         <div style="text-align:center">
-          <div style="color:rgba(255,255,255,.5);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Fundador</div>
-          <div style="color:${GOLD};font-size:12px;font-weight:800;letter-spacing:.5px">Diretor Editorial</div>
+          <div style="color:rgba(255,255,255,.5);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Portal</div>
+          <div style="color:${GOLD};font-size:12px;font-weight:800;letter-spacing:.5px">Direção Editorial</div>
         </div>
       </div>
       <div style="padding:40px 40px 40px 36px;flex:1;min-width:260px">
-        <h3 style="font-size:1.8rem;font-weight:900;color:#111;margin:0 0 6px;letter-spacing:-.5px">Roberto Cesar Terrasan</h3>
-        <p style="color:${GOLD};font-size:.95rem;font-weight:700;margin:0 0 20px">Fundador, Diretor Editorial e Editor-Chefe</p>
-        <p style="color:#374151;line-height:1.8;font-size:.95rem;margin:0 0 20px">Fundou o <strong>O Valor Capital</strong> em 2026 com o propósito de oferecer ao público brasileiro informação econômica e política de alta qualidade, combinando jornalismo independente com tecnologia de ponta. Responsável pela curadoria editorial e governança de dados do portal.</p>
+        <h3 style="font-size:1.8rem;font-weight:900;color:#111;margin:0 0 6px;letter-spacing:-.5px">Redação OVC</h3>
+        <p style="color:${GOLD};font-size:.95rem;font-weight:700;margin:0 0 20px">Equipe Editorial — O Valor Capital</p>
+        <p style="color:#374151;line-height:1.8;font-size:.95rem;margin:0 0 20px">O <strong>O Valor Capital</strong> é um portal jornalístico independente fundado em 2026. Nossa equipe editorial é responsável pela curadoria, produção e governança de todo o conteúdo publicado, com compromisso integral com a qualidade informativa e os princípios do jornalismo ético.</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
           <span style="background:#f1f5f9;color:#374151;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">#Economia</span>
           <span style="background:#f1f5f9;color:#374151;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">#Política</span>
@@ -109,7 +108,7 @@ function buildQuemsomosPage(){
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="${GOLD}" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          <a href="mailto:${EMAIL_REAL}" style="color:#1a56db;font-size:.9rem;font-weight:600;text-decoration:none">${EMAIL_DISPLAY}</a>
+          <a href="mailto:${EMAIL_DISPLAY}" style="color:#1a56db;font-size:.9rem;font-weight:600;text-decoration:none">${EMAIL_DISPLAY}</a>
         </div>
       </div>
     </div>
@@ -127,7 +126,7 @@ function buildQuemsomosPage(){
       ${[
         ["🎯","Precisão","Verificação rigorosa de fatos em fontes primárias, documentos públicos e agências de credibilidade reconhecida."],
         ["🔓","Independência","Sem afiliações partidárias ou corporativas. Liberdade editorial total para cobrir os fatos como eles são."],
-        ["🤖","Inovação","IA supervisionada otimiza o fluxo de publicação mantendo total responsabilidade editorial humana."],
+        ["🏆","Qualidade","Padrão editorial de excelência em cada publicação, com revisão humana de todo o conteúdo antes da publicação."],
         ["⚖️","Equilíbrio","Cobertura plural que apresenta múltiplos ângulos, dando voz a diferentes perspectivas e setores da sociedade."],
       ].map(([icon,title,desc])=>`
       <div style="background:#f8fafc;border-radius:12px;padding:28px 24px;border:1px solid #e2e8f0;transition:transform .2s">
@@ -149,20 +148,15 @@ function buildQuemsomosPage(){
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px">
       ${[
-        ["📧","E-mail de Contato Geral",EMAIL_DISPLAY,`mailto:${EMAIL_REAL}`],
-        ["📝","Redação e Pauta",EMAIL_DISPLAY,`mailto:${EMAIL_REAL}`],
-        ["🔔","Ouvidoria e Retificações",EMAIL_DISPLAY,`mailto:${EMAIL_REAL}`],
+        ["📧","E-mail de Contato Geral",EMAIL_DISPLAY,`mailto:${EMAIL_DISPLAY}`],
+        ["📝","Redação e Pauta",EMAIL_DISPLAY,`mailto:${EMAIL_DISPLAY}`],
+        ["🔔","Ouvidoria e Retificações",EMAIL_DISPLAY,`mailto:${EMAIL_DISPLAY}`],
       ].map(([icon,label,val,href])=>`
       <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:24px">
         <div style="font-size:1.5rem;margin-bottom:10px">${icon}</div>
         <div style="color:rgba(255,255,255,.55);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${label}</div>
         <a href="${href}" style="color:${GOLD};font-size:.93rem;font-weight:700;text-decoration:none">${val}</a>
       </div>`).join("")}
-      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:24px">
-        <div style="font-size:1.5rem;margin-bottom:10px">📍</div>
-        <div style="color:rgba(255,255,255,.55);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Endereço</div>
-        <span style="color:rgba(255,255,255,.85);font-size:.88rem;line-height:1.6">Rua Juiz de Fora, 367<br>Via Ema — São Paulo/SP<br>CEP 03286-000</span>
-      </div>
     </div>
   </div>
 </section>`;
@@ -181,9 +175,9 @@ function buildPoliticaPage(){
       body:`O Valor Capital não possui afiliações políticas, partidárias ou corporativas. A linha editorial é determinada exclusivamente pelo valor jornalístico dos fatos, sem influência de anunciantes, governos ou grupos de pressão. A autonomia editorial é condição inegociável para a credibilidade do portal.`
     },
     {
-      n:"03", title:"Uso Ético de Inteligência Artificial",
-      icon:"🤖",
-      body:`O portal utiliza sistemas de <strong>Inteligência Artificial</strong> — modelos de linguagem — para otimizar o fluxo de publicação, auxiliar na redação e ampliar a cobertura de temas econômicos e políticos. Todo conteúdo gerado ou assistido por IA é revisado e aprovado pelo responsável editorial antes da publicação. O portal assume <strong>total responsabilidade editorial</strong> por todo o conteúdo final publicado, independentemente do método de produção.`
+      n:"03", title:"Padrão de Produção Editorial",
+      icon:"🏆",
+      body:`Todo o conteúdo publicado é produzido com rigor editorial e supervisionado pela equipe de redação antes da publicação. O portal assume <strong>total responsabilidade editorial</strong> por todo o conteúdo final publicado, independentemente do método de produção utilizado.`
     },
     {
       n:"04", title:"Política de Correções e Retificações",
@@ -196,9 +190,9 @@ function buildPoliticaPage(){
       body:`O conteúdo editorial do portal é protegido por direitos autorais. A reprodução parcial (até 50 palavras) é permitida com citação de fonte e link para o original. Reprodução integral requer autorização expressa da redação. Imagens de terceiros são utilizadas sob licenças Creative Commons, fair use jornalístico ou com autorização.`
     },
     {
-      n:"06", title:"Responsável Editorial",
-      icon:"👤",
-      body:`Nos termos da legislação brasileira e das normas da <strong>Federação Nacional dos Jornalistas (FENAJ)</strong>, o responsável editorial pelo portal O Valor Capital é <strong>Roberto Cesar Terrasan</strong> — Fundador, Diretor Editorial e Editor-Chefe. Contato direto: <a href="mailto:${EMAIL_REAL}" style="color:#1a56db">${EMAIL_DISPLAY}</a>. Endereço: Rua Juiz de Fora, 367 — Via Ema — São Paulo/SP — CEP 03286-000.`
+      n:"06", title:"Canal de Contato Editorial",
+      icon:"📧",
+      body:`Para solicitações de pauta, retificações, parcerias editoriais ou qualquer questão relacionada ao conteúdo publicado, entre em contato exclusivamente por meio do canal oficial: <a href="mailto:${EMAIL_DISPLAY}" style="color:#1a56db">${EMAIL_DISPLAY}</a>. Nossa equipe responde em até 48 horas úteis.`
     },
   ];
 
@@ -226,7 +220,7 @@ function buildPoliticaPage(){
     <p style="color:rgba(255,255,255,.75);font-size:1.1rem;line-height:1.7;max-width:600px;margin:0 auto 32px">A carta de valores que norteia cada publicação do portal: independência, rigor factual e responsabilidade editorial integral.</p>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
       <a href="/quem-somos/" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:6px;text-decoration:none">Quem Somos →</a>
-      <a href="mailto:${EMAIL_REAL}" style="background:${GOLD};color:#111;font-size:14px;font-weight:800;padding:12px 28px;border-radius:6px;text-decoration:none;letter-spacing:.3px">Enviar Retificação</a>
+      <a href="mailto:${EMAIL_DISPLAY}" style="background:${GOLD};color:#111;font-size:14px;font-weight:800;padding:12px 28px;border-radius:6px;text-decoration:none;letter-spacing:.3px">Enviar Retificação</a>
     </div>
   </div>
 </section>
@@ -262,7 +256,7 @@ function buildPoliticaPage(){
     <div style="font-size:2.5rem;margin-bottom:16px">✉️</div>
     <h2 style="color:#fff;font-size:1.8rem;font-weight:900;margin:0 0 12px;letter-spacing:-.5px">Encontrou um erro?</h2>
     <p style="color:rgba(255,255,255,.7);font-size:1rem;line-height:1.7;margin:0 0 28px">Nossa equipe analisa pedidos de retificação em até <strong style="color:${GOLD}">48 horas úteis</strong>. Envie o link do artigo, o trecho incorreto e a correção sugerida.</p>
-    <a href="mailto:${EMAIL_REAL}?subject=Retificação%20-%20O%20Valor%20Capital" style="display:inline-block;background:${GOLD};color:#111;font-size:15px;font-weight:800;padding:14px 36px;border-radius:8px;text-decoration:none;letter-spacing:.3px">Solicitar Retificação</a>
+    <a href="mailto:${EMAIL_DISPLAY}?subject=Retificação%20-%20O%20Valor%20Capital" style="display:inline-block;background:${GOLD};color:#111;font-size:15px;font-weight:800;padding:14px 36px;border-radius:8px;text-decoration:none;letter-spacing:.3px">Solicitar Retificação</a>
     <div style="margin-top:16px;color:rgba(255,255,255,.4);font-size:.85rem">${EMAIL_DISPLAY}</div>
   </div>
 </section>`;
@@ -270,11 +264,11 @@ function buildPoliticaPage(){
 
 function buildPage(pageKey){
   const isQuemSomos = pageKey === "quem-somos";
-  const title    = isQuemSomos ? "Quem Somos e Expediente | O Valor Capital"          : "Política Editorial e Uso de IA | O Valor Capital";
+  const title    = isQuemSomos ? "Quem Somos e Expediente | O Valor Capital"          : "Política Editorial | O Valor Capital";
   const metaT    = isQuemSomos ? "Quem Somos | O Valor Capital"                        : "Política Editorial | O Valor Capital";
   const desc     = isQuemSomos
-    ? "Conheça o portal O Valor Capital: jornalismo independente de economia, política e mercado financeiro fundado por Roberto Cesar Terrasan."
-    : "Conheça os princípios editoriais do portal O Valor Capital: verificação de fatos, política de correções e uso ético de Inteligência Artificial.";
+    ? "Conheça o portal O Valor Capital: jornalismo independente de economia, política e mercado financeiro."
+    : "Conheça os princípios editoriais do portal O Valor Capital: verificação de fatos, política de correções e responsabilidade editorial integral.";
   const canonical = isQuemSomos ? `${BASE}/quem-somos/` : `${BASE}/politica-editorial/`;
   const bodyContent = isQuemSomos ? buildQuemsomosPage() : buildPoliticaPage();
 
