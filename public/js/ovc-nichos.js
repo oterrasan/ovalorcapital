@@ -53,7 +53,7 @@
 
     var bloco = document.createElement('div');
     bloco.id = 'ovc-nicho-pilulas';
-    bloco.style.cssText = 'margin:0;padding:20px 0 4px;border-top:2px solid #e2e8f0;';
+    bloco.style.cssText = 'margin:32px 0;padding:28px 0 8px;border-top:3px solid #e2e8f0;border-bottom:1px solid #e2e8f0;';
 
     var header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 4px;';
@@ -64,7 +64,7 @@
     bloco.appendChild(header);
 
     var lista = document.createElement('div');
-    lista.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;';
+    lista.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;';
 
     items.forEach(function (p) {
       var resumo = stripHtml(p.resumo || '').slice(0, 120);
@@ -96,7 +96,7 @@
 
     var bloco = document.createElement('div');
     bloco.id = 'ovc-nicho-radar';
-    bloco.style.cssText = 'margin:0;padding:20px 0 4px;border-top:2px solid #dc2626;';
+    bloco.style.cssText = 'margin:32px 0;padding:28px 0 16px;border-top:3px solid #dc2626;background:linear-gradient(180deg,#fff5f5 0%,transparent 100%);border-radius:8px;padding-left:8px;padding-right:8px;';
 
     var header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 4px;';
@@ -107,7 +107,7 @@
     bloco.appendChild(header);
 
     var lista = document.createElement('div');
-    lista.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+    lista.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
 
     items.forEach(function (p) {
       var resumo = stripHtml(p.resumo || '').slice(0, 160);
@@ -139,7 +139,7 @@
 
     var bloco = document.createElement('div');
     bloco.id = 'ovc-nicho-minuto';
-    bloco.style.cssText = 'margin:0;padding:20px 0 4px;border-top:2px solid #0369a1;';
+    bloco.style.cssText = 'margin:32px 0;padding:28px 0 16px;border-top:3px solid #0369a1;background:linear-gradient(180deg,#f0f9ff 0%,transparent 100%);border-radius:8px;padding-left:8px;padding-right:8px;';
 
     var header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 4px;';
@@ -151,7 +151,7 @@
     bloco.appendChild(header);
 
     var lista = document.createElement('div');
-    lista.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;';
+    lista.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;';
 
     items.forEach(function (p) {
       var resumo = stripHtml(p.resumo || '').slice(0, 140);
