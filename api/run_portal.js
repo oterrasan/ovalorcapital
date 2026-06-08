@@ -274,6 +274,59 @@ Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
   return parseOVC(d.choices?.[0]?.message?.content || "");
 }
 
+
+async function gerarRadar(sourceText, sourceTitle, categoria) {
+  const prompt = `Você é repórter do Radar OVC, seção de cobertura em tempo real do portal O Valor Capital (centro-direita liberal).
+Produza uma NOTA DE RADAR objetiva sobre o fato. Foco em: eleições, Copa do Mundo, eventos de grande repercussão política ou esportiva.
+Linguagem direta, factual. Sem análise. Sem jargão.
+Evite: vale destacar | cabe ressaltar | nesse contexto | acende alerta.
+Formato OBRIGATÓRIO:
+TITULO: [manchete direta — 45 a 65 caracteres]
+FOCO_KEYWORD: [2 a 3 palavras]
+META_DESCRICAO: [120 a 155 caracteres]
+CATEGORIA: [uma de: politica|esportes|internacional|economia|brasil-on]
+CORPO:
+<p><strong>Radar OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
+[2 parágrafos curtos em HTML, 200 a 400 caracteres total, sem h2, sem imagem]
+Fonte: ${sourceTitle ? sourceTitle + "
+
+" : ""}${sourceText.slice(0, 2500)}`;
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 600, temperature: 0.6 })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI radar");
+  return parseOVC(d.choices?.[0]?.message?.content || "");
+}
+
+async function gerarMinuto(sourceText, sourceTitle, categoria) {
+  const prompt = `Você é redator do Minuto OVC, seção de resumos rápidos do portal O Valor Capital (centro-direita liberal).
+Produza um RESUMO DE 1 MINUTO de leitura sobre o fato. Objetivo, informativo, acessível.
+Qualquer categoria: economia, negócios, saúde, tecnologia, etc.
+Evite: vale destacar | cabe ressaltar | nesse contexto | acende alerta.
+Formato OBRIGATÓRIO:
+TITULO: [manchete direta — 45 a 65 caracteres]
+FOCO_KEYWORD: [2 a 3 palavras]
+META_DESCRICAO: [120 a 155 caracteres]
+CATEGORIA: [uma de: politica|economia|negocios|investimentos|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao|brasil-on]
+CORPO:
+<p><strong>Minuto OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
+[3 parágrafos curtos em HTML, 400 a 700 caracteres total, sem h2, sem imagem]
+Fonte: ${sourceTitle ? sourceTitle + "
+
+" : ""}${sourceText.slice(0, 2500)}`;
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 800, temperature: 0.6 })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI minuto");
+  return parseOVC(d.choices?.[0]?.message?.content || "");
+}
+
 async function auto(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
@@ -331,6 +384,49 @@ async function auto(req, res, rec) {
           }
         }
       } catch(eP) { await log("warn", `[pipeline] falha pilula: ${eP.message?.slice(0,80)}`); }
+
+        // Gerar Radar OVC (para categorias: politica, esportes, internacional)
+        const CATS_RADAR = ["politica", "esportes", "internacional", "brasil-on"];
+        if (CATS_RADAR.includes(cat)) {
+          try {
+            const hashR = crypto.createHash("md5").update(item.link + "_radar").digest("hex");
+            const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
+            if (!dupR) {
+              const radar = await gerarRadar(sourceText, item.title || a.title || "", cat);
+              if (radar && radar.titulo && radar.corpo && radar.corpo.length >= 150) {
+                const catR = CATS.has(radar.categoria) ? radar.categoria : cat;
+                await supabase.from("posts").insert({
+                  titulo: stripTitle(radar.titulo), conteudo: radar.corpo,
+                  comentario_fixado: (radar.meta_descricao||"").trim(), imagem: null, hash: hashR,
+                  status: "publicado", approved: true, publish_method: "portal",
+                  user_tags: JSON.stringify([catR]), published_at: new Date().toISOString(),
+                  tipo_conteudo: "radar", metrics: { foco_keyword: radar.foco_keyword||"", tipo:"radar" }
+                });
+                await log("info", `[pipeline] radar: ${radar.titulo?.slice(0,50)} | cat:${catR}`);
+              }
+            }
+          } catch(eR) { await log("warn", `[pipeline] falha radar: ${eR.message?.slice(0,80)}`); }
+        }
+
+        // Gerar Minuto OVC (para todas as categorias, 1 em cada 3 artigos)
+        try {
+          const hashM = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
+          const { data: dupM } = await supabase.from("posts").select("id").eq("hash", hashM).maybeSingle();
+          if (!dupM) {
+            const minuto = await gerarMinuto(sourceText, item.title || a.title || "", cat);
+            if (minuto && minuto.titulo && minuto.corpo && minuto.corpo.length >= 300) {
+              const catM = CATS.has(minuto.categoria) ? minuto.categoria : cat;
+              await supabase.from("posts").insert({
+                titulo: stripTitle(minuto.titulo), conteudo: minuto.corpo,
+                comentario_fixado: (minuto.meta_descricao||"").trim(), imagem: null, hash: hashM,
+                status: "publicado", approved: true, publish_method: "portal",
+                user_tags: JSON.stringify([catM]), published_at: new Date().toISOString(),
+                tipo_conteudo: "minuto", metrics: { foco_keyword: minuto.foco_keyword||"", tipo:"minuto" }
+              });
+              await log("info", `[pipeline] minuto: ${minuto.titulo?.slice(0,50)} | cat:${catM}`);
+            }
+          }
+        } catch(eM) { await log("warn", `[pipeline] falha minuto: ${eM.message?.slice(0,80)}`); }
       return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, categoria: content.categoria, subcategoria: content.subcategoria, imagem: !!img });
     } catch (e) { debug.erro++; if (debug.erros.length < 5) debug.erros.push(e.message); }
   }
