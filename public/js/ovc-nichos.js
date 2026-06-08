@@ -217,19 +217,25 @@
       // Minuto → no meio (após 1/3 dos blocos)
       // Pílulas → no final (antes do último bloco)
 
-      if (blocoRadar && total >= 1) {
+      // Radar: antes do primeiro card original
+      if (blocoRadar && filhos.length >= 1) {
         miolo.insertBefore(blocoRadar, filhos[0]);
       }
 
-      if (blocoMinuto && total >= 3) {
-        var posMin = 2;
-        var refMin = miolo.children[posMin];
-        if (refMin) miolo.insertBefore(blocoMinuto, refMin);
-        else miolo.appendChild(blocoMinuto);
+      // Minuto: após o segundo card original (filhos[1])
+      // Usa filhos[] capturado ANTES de qualquer inserção — índices originais
+      if (blocoMinuto && filhos.length >= 2) {
+        var refMin = filhos[1]; // segundo bloco original
+        if (refMin && refMin.nextSibling) {
+          miolo.insertBefore(blocoMinuto, refMin.nextSibling);
+        } else {
+          miolo.appendChild(blocoMinuto);
+        }
       }
 
-      if (blocoPilulas && total >= 2) {
-        var ultimo = miolo.lastChild;
+      // Pilulas: antes do último card original
+      if (blocoPilulas && filhos.length >= 2) {
+        var ultimo = filhos[filhos.length - 1];
         if (ultimo) miolo.insertBefore(blocoPilulas, ultimo);
         else miolo.appendChild(blocoPilulas);
       }
