@@ -1,13 +1,49 @@
-name: Pipeline OVC — pausado temporariamente
+name: Pipeline OVC — Matérias e Curtinhas
 
 on:
+  schedule:
+    - cron: '*/7 * * * *'
   workflow_dispatch:
+    inputs:
+      tipo:
+        description: 'materias | curtinhas | ambos'
+        default: 'ambos'
+        required: false
 
 jobs:
-  run-pipeline:
+  curtinhas:
+    name: Curtinhas 24h
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: Pipeline pausado
+      - name: Gerar curtinhas
         run: |
-          echo "Pipeline automatico pausado temporariamente. Nao gerar materias ate nova validacao editorial."
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"curtinhas","force":true}')
+          echo "CURTINHAS: $RESP" | head -c 300
+
+  materias:
+    name: Matéria 08h–00h BRT
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verificar janela BRT
+        id: janela
+        run: |
+          M=$(( $(date -u +%H) * 60 + $(date -u +%M) ))
+          # 08:00 BRT = 11:00 UTC = 660 min | 00:00 BRT = 03:00 UTC = 180 min
+          # Janela: 660–1439 (11:00–23:59 UTC) OU 0–179 (00:00–02:59 UTC)
+          if [ $M -ge 660 ] || [ $M -lt 180 ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Gerar matéria
+        if: steps.janela.outputs.ok == 'true'
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true}')
+          echo "MATERIA: $RESP" | head -c 300
