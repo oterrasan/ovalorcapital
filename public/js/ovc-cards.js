@@ -557,7 +557,11 @@ function load(){
         var posts = [];
         item.cats.forEach(function(c){ posts=posts.concat(cache[c]||[]); });
         posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
-        if(!posts.length) return;
+        if(!posts.length){
+          var tH = document.getElementById('ovc-h-titulo-'+item.id);
+          if(tH) tH.textContent = 'Em breve';
+          return;
+        }
         var p = posts[0];
         var url = buildUrl(p);
         el.href = url;
@@ -577,7 +581,11 @@ function load(){
         var posts2 = [];
         item.cats.forEach(function(c){ posts2=posts2.concat(cache[c]||[]); });
         posts2.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
-        if(!posts2.length) return;
+        if(!posts2.length){
+          var tE = document.getElementById('ovc-mini-titulo-'+item.id);
+          if(tE) tE.textContent = 'Em breve';
+          return;
+        }
         var p2 = posts2[0];
         var url2 = buildUrl(p2);
         el.href = url2;
@@ -595,7 +603,11 @@ function load(){
         var posts3 = [];
         item.cats.forEach(function(c){ posts3=posts3.concat(cache[c]||[]); });
         posts3.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
-        if(!posts3.length) return;
+        if(!posts3.length){
+          var tE3 = document.getElementById('ovc-e-titulo-'+item.id);
+          if(tE3) tE3.textContent = 'Em breve';
+          return;
+        }
         var p3 = posts3[0];
         var url3 = buildUrl(p3);
         el.href = url3;
