@@ -200,7 +200,7 @@ META_TITLE: [até 55 caracteres]
 FOCO_KEYWORD: [2 a 4 palavras]
 SLUG: [3 a 5 palavras hifenizadas sem acento]
 META_DESCRICAO: [141 a 155 caracteres]
-CATEGORIA: [${categoria}]
+CATEGORIA: [uma de: brasil-on|politica|economia|investimentos|negocios|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao]
 SUBCATEGORIA: [subcategoria específica]
 CORPO:
 [HTML completo]
@@ -450,8 +450,6 @@ async function autoMaterias(req, res, rec) {
       const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 400) { debug.sem_fonte++; continue; }
       const content = await gerarOVC(sourceText, item.title || a.title || "", rec.contexto, cat);
-      content.categoria = cat;
-      content.subcategoria = SUBCAT[cat] || "Geral";
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
