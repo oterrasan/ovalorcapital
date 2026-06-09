@@ -713,6 +713,49 @@
             : '<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
         }
 
+        // Conteudo institucional estatico para /vc/
+        if(catFiltro === 'vc'){
+          var centroVc = document.getElementById('cat-hero-slot');
+          if(centroVc) centroVc.innerHTML = ''
+            +'<div style="margin-bottom:28px;padding:28px 28px 24px;background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.06);border-left:4px solid #d4af37;">'
+              +'<span style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#d4af37;">QUEM SOMOS</span>'
+              +'<h2 style="font-size:1.4rem;font-weight:900;color:#0f172a;margin:10px 0 12px;letter-spacing:-.3px;">O Valor Capital</h2>'
+              +'<p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0 0 14px;">Portal independente de jornalismo econômico, político e financeiro. Fundado por <strong>Roberto Cesar Terrasan</strong> com o compromisso de entregar informação de qualidade — sem intermediários políticos, sem viés corporativo, sem eufemismos.</p>'
+              +'<p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0;">Cobrimos política, economia, negócios, investimentos, mercados, família, tributos e regulação com o rigor de quem entende que a informação é a base de toda decisão patrimonial bem tomada.</p>'
+            +'</div>'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">'
+              +'<a href="/vc/quem-somos/" style="display:block;background:#fff;border-radius:12px;padding:22px 20px;text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.06);border-top:3px solid #d4af37;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,.06)'">'
+                +'<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#d4af37;margin-bottom:8px;">QUEM SOMOS</div>'
+                +'<div style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:8px;">Missão, visão e fundador</div>'
+                +'<p style="font-size:.87rem;color:#64748b;line-height:1.6;margin:0;">Conheça a origem, os valores e a equipe editorial do O Valor Capital.</p>'
+              +'</a>'
+              +'<a href="/vc/principios-editoriais/" style="display:block;background:#fff;border-radius:12px;padding:22px 20px;text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.06);border-top:3px solid #d4af37;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,.06)'">'
+                +'<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#d4af37;margin-bottom:8px;">PRINCÍPIOS EDITORIAIS</div>'
+                +'<div style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:8px;">Os 6 pilares que nos guiam</div>'
+                +'<p style="font-size:.87rem;color:#64748b;line-height:1.6;margin:0;">Precisão, independência, verificação de fatos e responsabilidade editorial integral.</p>'
+              +'</a>'
+              +'<a href="/vc/liberdade-economica/" style="display:block;background:#fff;border-radius:12px;padding:22px 20px;text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.06);border-top:3px solid #d4af37;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,.06)'">'
+                +'<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#d4af37;margin-bottom:8px;">LIBERDADE ECONÔMICA</div>'
+                +'<div style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:8px;">Nossa linha editorial</div>'
+                +'<p style="font-size:.87rem;color:#64748b;line-height:1.6;margin:0;">Por que a liberdade econômica e a solidez patrimonial familiar estão no centro de tudo que publicamos.</p>'
+              +'</a>'
+              +'<a href="/vc/familia-e-patrimonio/" style="display:block;background:#fff;border-radius:12px;padding:22px 20px;text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.06);border-top:3px solid #d4af37;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 10px rgba(0,0,0,.06)'">'
+                +'<div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#d4af37;margin-bottom:8px;">FAMÍLIA & PATRIMÔNIO</div>'
+                +'<div style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:8px;">A unidade econômica central</div>'
+                +'<p style="font-size:.87rem;color:#64748b;line-height:1.6;margin:0;">Como cobrimos sucessão, planejamento patrimonial e a família como núcleo de decisões financeiras.</p>'
+              +'</a>'
+            +'</div>'
+            +'<div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);border-radius:12px;padding:28px;text-align:center;">'
+              +'<div style="font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#d4af37;margin-bottom:10px;">CONTATO EDITORIAL</div>'
+              +'<p style="color:rgba(255,255,255,.8);font-size:.95rem;line-height:1.7;margin:0 0 16px;">Pauta, denúncia, retificação ou parceria editorial.</p>'
+              +'<a href="mailto:redacao@ovalorcapital.com.br" style="display:inline-block;background:#d4af37;color:#111;font-size:14px;font-weight:800;padding:11px 28px;border-radius:8px;text-decoration:none;">Falar com a Redação</a>'
+            +'</div>';
+          // rail esq tags — limpar carregando
+          var tagsVc = document.getElementById('cat-rail-esq-tags');
+          if(tagsVc) tagsVc.style.display='none';
+          return;
+        }
+
         if(!posts.length){
           var centroEl = document.getElementById('cat-hero-slot');
           if(centroEl) centroEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:220px;padding:24px;border-radius:16px;border:2px dashed #e2e8f0;">'
