@@ -584,7 +584,6 @@
 
     var slug = document.body.dataset.category;
     if(!slug) return;
-    if(slug === 'vc') return;
     if(slug === 'colunistas') return;
 
     var catFiltro = SLUG_TO_CAT[slug] || slug;
@@ -616,7 +615,8 @@
       religiao:      [['Evangélicos','evangelicos'],['Católicos','catolicos'],['Outras Religiões','outras'],['Fé & Sociedade','fe-sociedade'],['Missões','missoes'],['Família & Valores','familia']],
       imoveis:       [['Compra & Venda','compra-venda'],['Aluguel','aluguel'],['Financiamento','financiamento'],['Minha Casa Minha Vida','mcmv'],['Fundos Imobiliários','fiis'],['Mercado Imobiliário','mercado']],
       profissoes:    [['Saúde & Medicina','saude'],['Jurídico & Finanças','juridico'],['Engenharia & TI','engenharia'],['Comunicação & Mídia','comunicacao'],['Gestão & Negócios','gestao'],['Empregos & Vagas','vagas']],
-      colunistas:    [['Roberto Terrasan','roberto-terrasan'],['Beta Ferreira','beta-ferreira'],['Adriana Ferreira','adriana-ferreira'],['Michele Froiz','michele-froiz'],['Coluna OVC','coluna-ovc'],['Prof. Pizzolatto','prof-marcos-pizzolatto']]
+      colunistas:    [['Roberto Terrasan','roberto-terrasan'],['Beta Ferreira','beta-ferreira'],['Adriana Ferreira','adriana-ferreira'],['Michele Froiz','michele-froiz'],['Coluna OVC','coluna-ovc'],['Prof. Pizzolatto','prof-marcos-pizzolatto']],
+      vc:            [['Quem Somos','quem-somos'],['Princípios Editoriais','principios-editoriais'],['Liberdade Econômica','liberdade-economica'],['Família & Patrimônio','familia-e-patrimonio']]
     };
     var subList = SUB_CATS[catFiltro] || [];
     var subFilter = params.get('s') || '';
