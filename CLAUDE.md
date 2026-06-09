@@ -2391,3 +2391,73 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ⚠️ SHA do GitHub — buscar IMEDIATAMENTE antes de cada PUT via MCP. Nunca reusar SHA cacheado.
 ⚠️ public/_materia/index.html — existe no repo mas é ARQUIVO MORTO (Codex). Nunca referenciar.
 ```
+
+---
+
+### Sessão 09/06/2026 (continuação) — NOVO PADRÃO EDITORIAL NICHOS OVC
+
+#### Contexto
+
+Roberto compartilhou a filosofia editorial Codex para os 3 tipos de nicho (Pílula, Radar OVC, Minuto OVC) e pediu para implementar o novo padrão. Roberto confirmou: "pode implementar".
+
+#### O que foi implementado (PR #120 — mergeado em main, squash commit `daeb4727bf6af90cbdd1ba0bb0634b2063f596eb`)
+
+**Arquivo alterado: `api/run_portal.js`**
+
+**1. Troca de engine de IA:**
+- Antes: OpenAI (`process.env.OPENAI_API_KEY`) — frequentemente ausente/inválida
+- Depois: Gemini 2.0 Flash (primário) + Groq Llama 3.3 70B (fallback), com chaves de `GEMINI_API_KEY`/`GROQ_API_KEY` na tabela `config` do Supabase
+
+**2. Novos helpers adicionados após linha 16:**
+```js
+async function _getNichoKeys()   // lê GEMINI_API_KEY + GROQ_API_KEY do Supabase config
+async function callGeminiNicho() // Gemini 2.0 Flash, temperature 0.85, maxOutputTokens 1200
+async function callGroqNicho()   // llama-3.3-70b-versatile, max_tokens 1200 (fallback)
+```
+
+**3. Novo padrão editorial — 4 parágrafos mínimo, 800 chars mínimo:**
+
+| Função | Estrutura | Filtro |
+|---|---|---|
+| `gerarPilula()` | §1 O Fato §2 Contexto Real §3 Quem Ganha/Perde §4 O Que Ninguém Disse | Nenhum — qualquer categoria |
+| `gerarRadar()` | §1 Fato Urgente §2 O Que Está em Jogo §3 Os Lados §4 O Que Acompanhar | Apenas: Eleições, Copa, STF, Crises pol., Conflitos, Bancos Centrais |
+| `gerarMinuto()` | §1 O Dado/Fato §2 O Que Revela §3 Quem É Afetado §4 O Que Acompanhar | Apenas: economia, negócios, mercado, tributos, regulação, política econômica |
+
+**4. Tom por categoria em `gerarPilula()` — mapa `tomCat`:**
+- economia/negocios/investimentos/tributos: foco em impacto financeiro concreto
+- tecnologia: "curioso, provocativo, desmonta o hype"
+- politica/brasil-on: "analítico, consequências reais, nunca panfletário"
+- saude/familia: "próximo, sem alarmismo, dados acima de opinião"
+
+**5. Lista expandida de expressões proibidas** (incluindo: "Vale destacar", "É importante ressaltar", "Em suma", "Portanto", "Além disso", "Por outro lado", "Diante desse cenário", "Especialistas apontam", "Cabe lembrar", "Ao mesmo tempo", "Dessa forma", "Por fim", "isso mostra", "isso revela")
+
+**6. Radar/Minuto retornam `TITULO: IGNORAR`** quando o conteúdo não qualifica — código detecta e pula sem salvar.
+
+#### Pipeline pausado por Roberto
+
+Roberto pausou o pipeline em 09/06/2026 por qualidade ruim ("lixo"). Motivos prováveis:
+- Conteúdo muito curto (prompts antigos = 2-3 parágrafos, 250-600 chars) — **corrigido**
+- Engine OpenAI ausente/inválida gerando fallback de baixa qualidade — **corrigido**
+- Distribuição de categorias sem pesos definidos — **pendente** (Roberto ainda não definiu percentuais)
+
+**⚠️ NÃO religar o pipeline sem autorização explícita de Roberto.**
+
+#### 🔧 PENDÊNCIAS COMPLETAS (09/06/2026 — atualizado)
+
+**Alta prioridade — aguardando Roberto:**
+1. **Definir percentuais por categoria** — distribuição atual é uniforme (random entre 10 cats). Roberto quer definir foco editorial por categoria.
+2. **Autorizar religar pipeline** — só após percentuais definidos e Roberto confirmar
+
+**Simples (executar com autorização):**
+3. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+4. Rever distribuição de categorias após dry run e confirmar antes de aplicar
+
+**Médias (sessão focada):**
+5. `api/category.js` CAT_SEO — atualizar entradas SEO para novas categorias (brasil-on, carreira, tributos)
+6. Aprovar/rejeitar artigos pendentes no banco via admin
+
+**Roberto faz manualmente:**
+7. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto (`bfsegqdgscudtdgwdyci`). Deletar no projeto `ovalorcapital-xuhw`
+8. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
+9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+10. AdSense aprovação — aguardando Google

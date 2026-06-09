@@ -42,7 +42,13 @@ async function callGroqNicho(prompt, key) {
 }
 
 const CATS = new Set(["brasil-on","politica","economia","investimentos","negocios","tecnologia","internacional","saude","tributos","carreira","imoveis","seguros","industria","familia","esportes","cultura","religiao","colunistas","vc"]);
-const PRIORIDADE = ["politica","economia","brasil-on","internacional","tecnologia","negocios","investimentos","saude","tributos","industria"];
+const PRIORIDADE_PESOS = {
+  "politica":20,"economia":13,"seguros":8,"brasil-on":7,
+  "negocios":7,"investimentos":7,"internacional":6,"tecnologia":6,
+  "familia":5,"esportes":5,"saude":4,"tributos":4,
+  "industria":3,"carreira":2,"imoveis":2,"cultura":1
+};
+const PRIORIDADE = Object.entries(PRIORIDADE_PESOS).flatMap(([cat,n]) => Array(n).fill(cat));
 const SUBCAT = { "brasil-on":"Notícias do Brasil", politica:"Governo Federal", economia:"Política Econômica", investimentos:"Bolsa de Valores", negocios:"Empresas & Corporações", tecnologia:"Inteligência Artificial", internacional:"Relações Exteriores", saude:"Medicina & Tratamentos", tributos:"IRPF", carreira:"Mercado de Trabalho", imoveis:"Mercado Imobiliário", seguros:"Seguro de Vida", industria:"Agronegócio", familia:"Educação dos Filhos", esportes:"Futebol", cultura:"Cinema & Arte", religiao:"Fé & Sociedade", colunistas:"Opinião", vc:"Institucional" };
 const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","trump","putin","haddad","stf","congresso","senado","camara","governo","presidente","ministro","deputado","senador","pcc","policia","federal","dolar","selic","ipca","copom","ibovespa","brasil","eua","china","russia"]);
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
