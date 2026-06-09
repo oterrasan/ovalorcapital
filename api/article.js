@@ -12,7 +12,7 @@ async function writeLog(level, message) {
 
 
 const BASE = "https://www.ovalorcapital.com.br";
-const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
+const OG_DEFAULT = `${BASE}/assets/og-default.jpg`;
 const OLD_SUPABASE_REF = "bfsegqdgscudtdgwdyci";
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,created_at,published_at,updated_at,metrics";
 

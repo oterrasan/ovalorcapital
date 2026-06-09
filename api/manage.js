@@ -30,6 +30,7 @@ export default async function handler(req, res) {
       if (action === "list_colunistas") return handleListColunistas(res);
       if (action === "setup_storage") return handleSetupStorage(res);
       if (action === "limpar_pendentes_antigos") return handleLimparPendentesAntigos(req, res);
+      if (action === "categorizar_rss") return handleCategorizarRss(req, res);
       return handleStatus(res);
     }
 
@@ -267,4 +268,52 @@ function slugify(value) {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 80);
+}
+
+function inferCategoriaRss(name, url) {
+  const t = ((name || "") + " " + (url || "")).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/religi|biblia|gospel|evange|catolic|cristo|jesus|diocese|cnbb|vaticano|papa|episcopal|batist|presbiter|adventist|espirita|candombl|umbanda|terreiro/.test(t)) return "religiao";
+  if (/esport|futebol|basquet|volei|olimp|atletis|corrida|ciclism|tenis|surf|mma|boxe|golfe|formula.?1|motorsport|nba|nfl|fifa|cbf|lance\b|placar|globoesporte/.test(t)) return "esportes";
+  if (/imove|imobili|construtora|incorpor|loteament|vivareal|zapimoveis|imovelweb|habitac|sindicato.?constru/.test(t)) return "imoveis";
+  if (/seguro|resseguro|seguradora|cnseg|susep|apolic|sindseg|fenacor|zurich|mapfre|porto.?seguro|tokio.?marine|allianz|icatu/.test(t)) return "seguros";
+  if (/saude|medic|hospital|clinic|farmace|remedio|vacin|epidemi|doenc|cancer|oncolog|cardiolog|pediatr|cirurgi|diagnostic|ans\b|cfm\b|crm\b|sus\b|unimed|coren|dentist|odontolog|psicolog|enfermagem|nutric|fisioter|covid|amgen|astrazeneca|pfizer|bayer|roche|novartis|sanofi|merck|lilly|abbott|medtronic|johnson/.test(t)) return "saude";
+  if (/tribut|imposto|fiscal|receita.?federal|sefaz|irpf|irpj|csll|pis\b|cofins|icms|iss\b|ipi\b|carf|pgfn|contabilidade|contabil|contador|cfc\b|crc\b/.test(t)) return "tributos";
+  if (/vaga|emprego|carreira|recrutamento|recursos.?humano|conc[uo]rso.?(public|servidor)|catho|infojobs|sine\b|caged|abrh|educac|faculdade|universidade|escola|vestibular|enade|profiss/.test(t)) return "carreira";
+  if (/famil|filho|filho|mae\b|bebe\b|infant|adolescent|maternidade|paternidade|gravidez|gestac|puericultura|pais.?e.?filhos|creche/.test(t)) return "familia";
+  if (/cultur|arte\b|music|cinema|teatro|danc|literatur|livro|museu|galeri|design|fashion|moda|festival|show\b|podcast|entretenimento|celebrid|famoso|novela|serie|streaming|geek|gamer|games|anime|manga/.test(t)) return "cultura";
+  if (/industr|agroneg|agricultur|pecuari|cooperativa|canal.?rural|embrapa|mapa\b|cna\b|soja|milho|cana\b|cafe\b|algodao|trigo|commodit|petroleo|mineracao|siderurgia|metalurgia|automobil|automotiv|montadora|ford\b|gm\b|volkswagen|toyota|honda.*auto|kia\b|bmw|mercedes|stellantis|energia|hidrel|eolica|solar|vale\b|usiminas|gerdau|braskem|embraer|boeing|airbus|defesa|militar|marinha|exercito|forca.?aerea/.test(t)) return "industria";
+  if (/invest|b3\b|bolsa.?(valor|mercado)|fundo.?(imob|invest|renda)|cdb\b|lci\b|lca\b|debenture|fiagro|dividendo|tesouro.?direto|xp\b|btg|genial|empiricus|moneywise|toro\b|clear\b|avenue\b|easynvest|modal\b/.test(t)) return "investimentos";
+  if (/econom|banco|bancari|financ|credit|cambio|dolar|euro|moeda|bacen|bcb\b|bndes|caixa.?econom|bradesco|itau|santander|sicredi|sicoob|nubank|neon\b|inter\b|pagbank|mercado.?pago|cielo|stone\b|mastercard|visa\b|macro|pib\b|deficit|superavit|arrecad|balanca.?comercial|cni\b|fiesp|ibge|abr.?fin/.test(t)) return "economia";
+  if (/negoc|empresa|corporat|executiv|gestao|empreendedor|startup|scaleup|venture.?capital|fintech|insurtec|ecommerce|e.?commerce|varejo|logistic|supply.?chain|consumidor|abracom|abradi|abf\b|abcc\b|abcomm/.test(t)) return "negocios";
+  if (/reuters|bloomberg|wsj|wall.?street|financial.?times|guardian|bbc|cnn\b|cnbc|time\b|economist|foreign.?affairs|geopolit|diplomac|onu\b|imf\b|fmi\b|world.?bank|bis\b|wto\b|nato\b|otan|g20|g7|mercosul|brics|multilateral|international|intl\b/.test(t)) return "internacional";
+  if (/tecnolog|tech\b|digital|software|hardware|inteligencia.?artif|machine.?learning|cyber|cibersegur|nuvem|cloud|blockchain|cripto|nft|metaverso|big.?data|programac|desenvolvim|linux|microsoft|apple\b|google\b|meta\b|amazon|ibm\b|oracle|sap\b|dell\b|nvidia|qualcomm|samsung|motorola|xiaomi|huawei|asus|tiktok/.test(t)) return "tecnologia";
+  if (/politic|governo|president|minister|congresso|senado|camara\b|stf\b|eleic|partido|legislat|judicial|justica|judici|pgr\b|mpu\b|senado\.leg/.test(t)) return "politica";
+  if (/brasil|estadao|folha|globo|g1\b|r7\b|uol\b|terra\b|metropoles|correio|jconline|gazeta|jornal|agencia|policia|seguranca|crime|violencia|operacao\b|denuncia|investigat|report/.test(t)) return "brasil-on";
+  return "geral";
+}
+
+async function handleCategorizarRss(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ error: "Nao autorizado" });
+  const dryRun = req.query.dry === "1";
+  const { data: sources, error } = await supabase.from("rss_sources").select("id,name,url,categoria").eq("active", true);
+  if (error) return res.status(500).json({ error: error.message });
+  const mapa = {};
+  for (const s of (sources || [])) {
+    const cat = inferCategoriaRss(s.name, s.url);
+    if (!mapa[cat]) mapa[cat] = [];
+    mapa[cat].push(s.id);
+  }
+  const resultado = {};
+  if (!dryRun) {
+    for (const [cat, ids] of Object.entries(mapa)) {
+      for (let i = 0; i < ids.length; i += 100) {
+        const chunk = ids.slice(i, i + 100);
+        await supabase.from("rss_sources").update({ categoria: cat }).in("id", chunk);
+      }
+      resultado[cat] = ids.length;
+    }
+  } else {
+    for (const [cat, ids] of Object.entries(mapa)) resultado[cat] = ids.length;
+  }
+  return res.status(200).json({ ok: true, dry_run: dryRun, total: (sources || []).length, distribuicao: resultado });
 }
