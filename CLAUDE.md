@@ -506,29 +506,32 @@ Usada por `core/rss.js` para buscar feeds RSS. Lote 2 (617 fontes) importado via
 
 ## 5. CATEGORIAS
 
-### Válidas no pipeline (27 slugs)
+### Válidas no pipeline — 17 slugs DEFINITIVOS (05/06/2026)
 ```
-politica, economia, negocios, investimentos, seguros, mercados,
-educacao, industria, tecnologia, esportes, saude, familia,
-tributacao, regulacao, parcerias, internacional, variedades,
-investigativo, seguranca, cultura, profissoes, vagas,
-concursos, imoveis, esg, defesa, religiao
+brasil-on, politica, economia, investimentos, negocios, tecnologia,
+internacional, saude, tributos, carreira, imoveis, seguros, industria,
+familia, esportes, cultura, religiao
 ```
+
+> **⚠️ CATEGORIAS ANTIGAS EXTINTAS (não usar mais):**
+> mercados, educacao, variedades, investigativo, seguranca, tributacao, regulacao,
+> parcerias, profissoes, vagas, concursos, esg, defesa
+>
+> **Consolidações:** mercados→investimentos, educacao+vagas+profissoes+concursos→carreira,
+> regulacao+tributacao→tributos, seguranca+investigativo+variedades+defesa→brasil-on,
+> parcerias→negocios/vc, esg→brasil-on/economia
 
 ### Reservadas (NÃO usar no pipeline)
 ```
 vc, colunistas — apenas conteúdo manual
 ```
 
-### Landing pages
-| URL | Categorias |
-|---|---|
-| `/vc/` | institucional (sem artigos) |
-| `/trabalho/` | vagas, concursos, profissoes, parcerias, educacao |
-| `/financas/` | investimentos, seguros, tributacao, regulacao, mercados |
-| `/moradia/` | imoveis |
-| `/seguranca/` | seguranca, defesa, investigativo |
-| `/bem-estar/` | saude, familia, cultura, religiao, esg |
+### Nav (19 itens)
+```
+Brasil On → Política → Economia → Investimentos → Negócios → Tecnologia →
+Internacional → Saúde → Tributos → Carreira → Imóveis → Seguros →
+Indústria → Família → Esportes → Cultura → Religião → Colunistas → VC
+```
 
 ---
 
@@ -2251,4 +2254,140 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 7. **Google Indexing API** — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel.
 8. **NUNCA pedir chave OpenAI** — está na seção 16 e hardcoded no `core/ai_portal.js`.
 
-<!-- redeploy env fix -->
+---
+
+### Sessão 06-08/06/2026 — SISTEMA DE NICHOS OVC (REGRA ZERO-I) + DADOS PESSOAIS
+
+#### Sistema de Nichos OVC implementado e TRAVADO
+
+**Três novos tipos de conteúdo curto criados:**
+
+| Nicho | tipo_conteudo | Tom | Categorias |
+|---|---|---|---|
+| Pílula | `pilula` / `micropilula` | Factual, direto, qualquer tema | Todas as 17 categorias |
+| Radar OVC | `radar` | Urgente, ao vivo, grande repercussão | politica, esportes, internacional, brasil-on |
+| Minuto OVC | `minuto` | Executivo, seco, impacto econômico | economia, negocios, investimentos, tributos, tecnologia, industria, imoveis, seguros, carreira |
+
+**Arquitetura implementada:**
+- `api/portal-posts.js`: endpoint `?curtinhas=true&categoria=SLUG` — retorna SOMENTE pilula/micropilula/radar/minuto. Handler `handleCurtinhas()`. NUNCA mistura com `handleRecentes()`
+- `api/run_portal.js`: funções `gerarPilula()`, `gerarRadar()`, `gerarMinuto()` — salvam com tipo_conteudo correto e status='publicado' diretamente (sem fila de aprovação)
+- `public/js/ovc-nichos.js` — NOVO arquivo independente. Carrega DEPOIS do home.js. Injeta blocos Radar/Minuto/Pílulas entre os cards da home via DOM. SE ovc-nichos.js quebrar, home.js NÃO É AFETADO.
+- `core/ai_portal.js`: prompts editoriais reescritos e TRAVADOS para os 3 nichos — estrutura §1§2§3, filtro de relevância, padrão Reuters/Valor Econômico
+
+**REGRA ZERO-I criada e documentada** — ver seção de regras invioláveis.
+
+**Posicionamento na home (após iterações):**
+- Radar OVC: antes do primeiro bloco de cards (filhos[0])
+- Minuto OVC: após segundo bloco de cards (filhos[2])
+- Pílulas: por categoria nas páginas de categoria
+
+**Fix de performance crítico:**
+- `d136e72`: radar e minuto passaram a usar fontes de máximo 3h de recência (mais urgentes)
+- Minuto OVC restrito a categorias econômicas (economia, negocios, investimentos, tributos, tecnologia, industria, imoveis, seguros, carreira)
+
+#### Dados pessoais removidos das páginas /vc/
+
+**Commits `e1748a3`, `5490f97`, `b8502a8`, `b9d72bd`, `f40b3ad`:**
+- Removidos endereço físico (Rua Juiz de Fora, 367), CEP, email pessoal (betoterrasan@gmail.com) de todas as páginas /vc/ e de `api/institutional.js`
+- Nome Roberto Cesar Terrasan como Fundador MANTIDO — dados de contato pessoal REMOVIDOS
+- Motivo: dados pessoais não devem estar publicamente indexados
+
+#### REVERTs importantes
+
+- `f12f062`: /vc/index.html revertido ao estado estável `adb3b14e20a0` — tentativa de layout 3 colunas quebrou todas as categorias
+- `9d70ac5`: internal-page-v2.js revertido ao estado estável `8df336e303d6` — mesmo motivo
+
+**LIÇÃO CRÍTICA:** `internal-page-v2.js` é EXTREMAMENTE FRÁGIL. Qualquer erro de sintaxe deixa TODAS as páginas de categoria em branco. NUNCA alterar sem teste local completo.
+
+---
+
+### Sessão 09/06/2026 — LIMPEZA RSS + OG + PIPELINE CATEGORIAS
+
+#### og-default.jpg criado
+
+- `public/assets/og-default.jpg` — imagem OG padrão do portal com identidade visual OVC
+- Usada em `api/article.js` como fallback quando artigo não tem imagem (`OG_DEFAULT`)
+- **ATENÇÃO:** commit `810ea9d` pôs OG/Schema.org em `public/_materia/index.html` (arquivo MORTO criado pelo Codex — não é referenciado). O `api/article.js` já tinha OG e Schema.org implementados corretamente desde antes. O commit foi redundante/inócuo.
+- **Fix desta sessão:** `api/article.js` linha 15 corrigida de `/images/og-default.jpg` → `/assets/og-default.jpg` (path correto onde o arquivo está)
+
+#### Pipeline categorias alinhadas (commit `b3635b6`)
+
+- `api/run_portal.js`: constantes CATS, PRIORIDADE, SUBCAT alinhadas com as 19 categorias definitivas do OVC
+- Removidas categorias antigas (mercados, educacao, variedades, etc.)
+
+#### SQL executados no Supabase (Roberto executou manualmente)
+
+```sql
+ALTER TABLE rss_sources ADD COLUMN IF NOT EXISTS categoria text DEFAULT 'geral';
+CREATE TABLE IF NOT EXISTS banners (...);
+CREATE TABLE IF NOT EXISTS colunista_tokens (...);
+```
+
+#### Limpeza das fontes RSS
+
+**Estado antes:** 2.060 entradas no banco (com triplicatas — cada fonte existia 3x com a mesma URL)
+**Após limpeza:** 815 fontes únicas e ativas
+
+**O que foi removido:**
+- 1.245 entradas duplicadas (mesma URL 3x) — deduplicado para 1 entrada por URL
+- ~87 entradas de fontes problemáticas: esquerdistas/ativistas (Brasil de Fato, Alma Preta, AzMina, Catraca Livre, Alma Preta, Esquerda Diário, Agência Pública, Geledés, EcoDebate, Envolverde), hacktivismo sem padrão jornalístico (Cryptome, Distributed Denial), fontes com nome corrompido (A架构, bacci, br/conteudo*, br/economia*, br/noticias*)
+
+**O que foi MANTIDO (decisão de Roberto):**
+- Fontes de ufologia, astronomia, espaço — vão virar categoria futura
+- Fontes de beleza, moda, varejo, lifestyle — alimentam pílulas
+- Fontes internacionais de empresas — geram matérias de Internacional (captar fatos na origem antes dos portais brasileiros)
+
+#### Ação de categorização RSS adicionada ao manage.js
+
+Nova ação: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+- Lê todas as 815 fontes ativas
+- Aplica regras de inferência baseadas em nome e URL
+- Atualiza coluna `categoria` no banco em batch
+- Parâmetro `&dry=1` retorna distribuição sem salvar (simulação)
+
+**Para executar:** `https://www.ovalorcapital.com.br/api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+**Para simular:** `https://www.ovalorcapital.com.br/api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto&dry=1`
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 PENDÊNCIAS COMPLETAS (09/06/2026)
+
+**Simples (executar agora):**
+1. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+2. Rever distribuição de categorias após dry run e confirmar antes de aplicar
+
+**Médias (sessão focada):**
+3. `api/category.js` CAT_SEO — atualizar entradas SEO para novas categorias (brasil-on, carreira, tributos)
+4. Aprovar/rejeitar artigos pendentes no banco via admin
+5. Senha admin hardcoded em admin/index.html linha 139 — trocar por hash SHA-256 (baixa urgência)
+
+**Complexas (sessão dedicada):**
+6. /vc/ layout 3 colunas — HTML estático completo, SEM tocar internal-page-v2.js
+7. Regra de data cards destaque: Card1=24h, Card2=48h — home.js é FRÁGIL, requer teste local
+8. NUNCA filtrar pílulas dos cards com setInterval — usou revert anteriormente
+
+**Futura categoria (anotado por Roberto):**
+9. Nova categoria: Espaço/Astronomia/Ufologia — quando Roberto autorizar
+10. Novas subcategorias dentro de Internacional: Política Internacional e Conflitos & Geopolítica
+
+**Roberto faz manualmente:**
+11. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto (`bfsegqdgscudtdgwdyci`). Deletar ou atualizar no Dashboard do Vercel projeto `ovalorcapital-xuhw`
+12. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
+13. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+14. AdSense aprovação — aguardando Google
+15. Google Publisher Center — aguardando aprovação
+
+#### Alertas críticos ativos
+
+```
+⚠️ internal-page-v2.js — FRÁGIL. Erro de sintaxe = todas as categorias em branco. NUNCA alterar sem teste local.
+⚠️ portal-posts.js — handleRecentes() NUNCA mistura com handleCurtinhas(). São queries separadas e independentes.
+⚠️ home.js — NUNCA tocar para exibir nichos. ovc-nichos.js é independente.
+⚠️ SHA do GitHub — buscar IMEDIATAMENTE antes de cada PUT via MCP. Nunca reusar SHA cacheado.
+⚠️ public/_materia/index.html — existe no repo mas é ARQUIVO MORTO (Codex). Nunca referenciar.
+```
