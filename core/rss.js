@@ -458,12 +458,12 @@ async function fetchFeed(url) {
 }
 
 function isRecente(dateStr) {
-  if (!dateStr) return true;
+  if (!dateStr) return false;
   try {
     const itemDate = new Date(dateStr);
-    if (isNaN(itemDate.getTime())) return true;
-    return (Date.now() - itemDate.getTime()) < 48 * 60 * 60 * 1000;
-  } catch (_) { return true; }
+    if (isNaN(itemDate.getTime())) return false;
+    return (Date.now() - itemDate.getTime()) < 2 * 60 * 60 * 1000;
+  } catch (_) { return false; }
 }
 
 function extrairItem(i, sourceName) {
