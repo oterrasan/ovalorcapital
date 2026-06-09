@@ -2520,4 +2520,51 @@ Roberto reportou dois problemas após religar o pipeline:
 9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
 10. AdSense aprovação — aguardando Google
 11. Google Publisher Center — aguardando aprovação
-10. AdSense aprovação — aguardando Google
+
+---
+
+### Sessão 09/06/2026 (continuação 3) — BUGS #59, #60, #61: TECNOLOGIA CARD + DEDUP TECH + CURTINHAS FORMAT
+
+#### Contexto
+
+Roberto reportou 3 bugs:
+1. Card de Tecnologia na home preso em "Carregando..." — artigos de tecnologia existiam no banco mas o mini-card nunca renderizava
+2. Conteúdo duplicado ("Claude Fable 5" apareceu 2x como artigos de tecnologia) — dedup de Jaccard não funcionava para títulos sem palavras de ação política
+3. Curtinhas (pílulas/radar/minuto) não aparecendo na homepage — `ovc-nichos.js` carregado mas blocos nunca apareciam
+
+#### Bugs corrigidos (PR #127 — mergeado em main, squash commit `fbdf2870`)
+
+| # | Bug | Arquivo | Root Cause | Fix |
+|---|-----|---------|------------|-----|
+| 59 | **Card Tecnologia "Carregando..." permanente** | `public/js/ovc-cards.js` | `CATS.slice(7,10)` (blocoACats2) incluía CATS[9]=tecnologia E `CATS.slice(9,13)` (blocoDCats) começava em CATS[9]=tecnologia. Dois elementos DOM criados com `id="ovc-cat-tecnologia"`. `getElementById` sempre retornava o primeiro (card bA2 `.ovc-cat-card`), o mini-card bD (`.ovc-mini-card`) NUNCA era encontrado → permanecia "Carregando..." | Mudou `blocoACats2 = [CATS[7], CATS[8], CATS[13]]` (remove CATS[9]=Tecnologia do bA2). Adicionou `brasil-on` (idx 28) e `carreira` (idx 29) ao array CATS. Adicionou mapeamento no `buildUrl` `catPath` |
+| 60 | **Conteúdo duplicado tech/cultura não bloqueado** | `api/run_portal.js` | `pautaParecida()` exigia `inter.some(w => EVENTO.has(w))` — palavras de ação política (aprova, vota, condena). Títulos de tecnologia (ex: "Claude Fable 5") nunca contêm essas palavras → Jaccard nunca ativado para tech/cultura | Adicionado segundo caminho: `inter.length >= 4 && jaccard >= 0.75` sem exigir EVENTO. Lógica original com EVENTO preservada como caminho 1 |
+| 61 | **Curtinhas format mismatch no erro** | `api/portal-posts.js` | Se `handleCurtinhas()` lançasse exceção, o catch principal retornava `{posts:[], total:0}`. `ovc-nichos.js` lê `d.curtinhas \|\| []` — `d.curtinhas` = `undefined` → array vazio → nenhum nicho exibido | Adicionado try-catch interno: `catch(curtinhasErr) { return res.status(200).json({ curtinhas: [], total: 0, error: curtinhasErr?.message }) }` |
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 PENDÊNCIAS COMPLETAS (09/06/2026 — atualizado pós-PR #127)
+
+**Alta prioridade:**
+1. **Verificar card Tecnologia** — após deploy confirmar que mini-card tecnologia no bloco D agora renderiza artigos
+2. **Verificar curtinhas na home** — confirmar que blocos Pílulas/Radar OVC/Minuto OVC aparecem no `ovc-nichos.js`
+3. **Confirmar dedup** — próximos artigos de tecnologia não devem ser duplicados
+
+**Simples (executar com autorização):**
+4. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+
+**Médias (sessão focada):**
+5. `api/category.js` CAT_SEO — atualizar entradas SEO para novas categorias (brasil-on, carreira, tributos)
+6. Aprovar/rejeitar artigos pendentes no banco via admin
+7. `ovc-nichos.js` layout compacto (apenas título, sem resumo) — quando Roberto autorizar
+
+**Roberto faz manualmente:**
+8. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto (`bfsegqdgscudtdgwdyci`). Deletar no projeto `ovalorcapital-xuhw`
+9. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
+10. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+11. AdSense aprovação — aguardando Google
+12. Google Publisher Center — aguardando aprovação
