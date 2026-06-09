@@ -2,7 +2,11 @@
  * ovc-nichos.js — Blocos de nichos OVC na home
  * REGRA ZERO-I: este arquivo é 100% independente do home.js e ovc-cards.js
  * Se este arquivo falhar, os cards da home continuam funcionando normalmente.
- * Injeta os 3 nichos ENTRE os blocos existentes — nunca dentro deles.
+ *
+ * Layout:
+ * - Radar OVC  → sidebar direito (.ovc-right-rail), compacto com ponto piscando
+ * - Minuto OVC → 3 mini-cards horizontais entre blocos do miolo
+ * - Pílulas    → 3 mini-cards horizontais antes do último bloco do miolo
  */
 (function () {
   'use strict';
@@ -14,7 +18,7 @@
       tentativas++;
       var miolo = document.querySelector('.ovc-miolo');
       if (miolo) { clearInterval(timer); cb(miolo); return; }
-      if (tentativas > 40) clearInterval(timer); // desiste após 4s
+      if (tentativas > 40) clearInterval(timer);
     }, 100);
   }
 
@@ -35,163 +39,104 @@
       return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
     } catch (_) { return ''; }
   }
-  function stripHtml(s) {
-    return String(s || '').replace(/<[^>]+>/g, '').trim();
-  }
-
-  // Badge por tipo
-  var BADGE = {
-    pilula:      { label: 'Nota',        cor: '#6366f1' },
-    micropilula: { label: 'Nota',        cor: '#6366f1' },
-    radar:       { label: '● Radar OVC', cor: '#dc2626' },
-    minuto:      { label: 'Minuto OVC',  cor: '#0369a1' }
-  };
-
-  // ── Criar bloco PÍLULAS — lista compacta de notas rápidas ───────────────────
-  function criarBlocoPilulas(items) {
-    if (!items.length) return null;
-
-    var bloco = document.createElement('div');
-    bloco.id = 'ovc-nicho-pilulas';
-    bloco.style.cssText = 'margin:32px 0;padding:28px 0 8px;border-top:3px solid #e2e8f0;border-bottom:1px solid #e2e8f0;';
-
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 4px;';
-    header.innerHTML =
-      '<span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
-      'color:#6366f1;background:#ede9fe;padding:3px 10px;border-radius:20px;">Notas do Dia</span>' +
-      '<span style="flex:1;height:1px;background:#e2e8f0;"></span>';
-    bloco.appendChild(header);
-
-    var lista = document.createElement('div');
-    lista.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;';
-
-    items.forEach(function (p) {
-      var resumo = stripHtml(p.resumo || '').slice(0, 120);
-      var item = document.createElement('a');
-      item.href = '/'+p.categoria+'/'+slugify(p.titulo)+'-'+p.id.slice(0,8)+'/';
-      item.style.cssText =
-        'display:block;padding:12px 14px;background:var(--bg-elevated,#fff);' +
-        'border:1px solid #e2e8f0;border-left:3px solid #6366f1;border-radius:6px;' +
-        'text-decoration:none;transition:border-color .15s,box-shadow .15s;';
-      item.onmouseover = function(){ this.style.borderLeftColor='#4f46e5'; this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'; };
-      item.onmouseout  = function(){ this.style.borderLeftColor='#6366f1'; this.style.boxShadow='none'; };
-      item.innerHTML =
-        '<div style="font-size:13px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:5px;">' +
-        esc(p.titulo) + '</div>' +
-        '<div style="font-size:12px;color:var(--text-soft,#475569);line-height:1.5;">' +
-        esc(resumo) + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted,#94a3b8);margin-top:6px;">' +
-        dataBr(p.data) + ' · ' + esc(p.categoria) + '</div>';
-      lista.appendChild(item);
-    });
-
-    bloco.appendChild(lista);
-    return bloco;
-  }
-
-  // ── Criar bloco RADAR OVC — destaque urgente ─────────────────────────────────
-  function criarBlocoRadar(items) {
-    if (!items.length) return null;
-
-    var bloco = document.createElement('div');
-    bloco.id = 'ovc-nicho-radar';
-    bloco.style.cssText = 'margin:32px 0;padding:28px 0 16px;border-top:3px solid #dc2626;background:linear-gradient(180deg,#fff5f5 0%,transparent 100%);border-radius:8px;padding-left:8px;padding-right:8px;';
-
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 4px;';
-    header.innerHTML =
-      '<span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
-      'color:#dc2626;background:#fee2e2;padding:3px 10px;border-radius:20px;">● Radar OVC — Ao Vivo</span>' +
-      '<span style="flex:1;height:1px;background:#fecaca;"></span>';
-    bloco.appendChild(header);
-
-    var lista = document.createElement('div');
-    lista.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
-
-    items.forEach(function (p) {
-      var resumo = stripHtml(p.resumo || '').slice(0, 160);
-      var item = document.createElement('a');
-      item.href = '/'+p.categoria+'/'+slugify(p.titulo)+'-'+p.id.slice(0,8)+'/';
-      item.style.cssText =
-        'display:flex;gap:14px;align-items:flex-start;padding:14px 16px;' +
-        'background:#fff5f5;border:1px solid #fecaca;border-left:4px solid #dc2626;' +
-        'border-radius:6px;text-decoration:none;transition:background .15s;';
-      item.onmouseover = function(){ this.style.background='#fee2e2'; };
-      item.onmouseout  = function(){ this.style.background='#fff5f5'; };
-      item.innerHTML =
-        '<div style="flex:1;">' +
-        '<div style="font-size:14px;font-weight:700;color:#991b1b;line-height:1.4;margin-bottom:4px;">' +
-        esc(p.titulo) + '</div>' +
-        '<div style="font-size:12px;color:#7f1d1d;line-height:1.5;">' + esc(resumo) + '</div>' +
-        '<div style="font-size:11px;color:#b91c1c;margin-top:6px;font-weight:600;">' +
-        dataBr(p.data) + '</div></div>';
-      lista.appendChild(item);
-    });
-
-    bloco.appendChild(lista);
-    return bloco;
-  }
-
-  // ── Criar bloco MINUTO OVC — resumos executivos ──────────────────────────────
-  function criarBlocoMinuto(items) {
-    if (!items.length) return null;
-
-    var bloco = document.createElement('div');
-    bloco.id = 'ovc-nicho-minuto';
-    bloco.style.cssText = 'margin:32px 0;padding:28px 0 16px;border-top:3px solid #0369a1;background:linear-gradient(180deg,#f0f9ff 0%,transparent 100%);border-radius:8px;padding-left:8px;padding-right:8px;';
-
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 4px;';
-    header.innerHTML =
-      '<span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
-      'color:#0369a1;background:#e0f2fe;padding:3px 10px;border-radius:20px;">Minuto OVC</span>' +
-      '<span style="flex:1;height:1px;background:#bae6fd;"></span>' +
-      '<span style="font-size:11px;color:#0369a1;font-style:italic;">Economia & Negócios</span>';
-    bloco.appendChild(header);
-
-    var lista = document.createElement('div');
-    lista.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;';
-
-    items.forEach(function (p) {
-      var resumo = stripHtml(p.resumo || '').slice(0, 140);
-      var item = document.createElement('a');
-      item.href = '/'+p.categoria+'/'+slugify(p.titulo)+'-'+p.id.slice(0,8)+'/';
-      item.style.cssText =
-        'display:block;padding:14px 16px;background:#f0f9ff;' +
-        'border:1px solid #bae6fd;border-left:3px solid #0369a1;border-radius:6px;' +
-        'text-decoration:none;transition:background .15s;';
-      item.onmouseover = function(){ this.style.background='#e0f2fe'; };
-      item.onmouseout  = function(){ this.style.background='#f0f9ff'; };
-      item.innerHTML =
-        '<div style="font-size:13px;font-weight:700;color:#0c4a6e;line-height:1.4;margin-bottom:5px;">' +
-        esc(p.titulo) + '</div>' +
-        '<div style="font-size:12px;color:#075985;line-height:1.5;">' + esc(resumo) + '</div>' +
-        '<div style="font-size:11px;color:#0369a1;margin-top:6px;">' +
-        dataBr(p.data) + ' · ' + esc(p.categoria) + '</div>';
-      lista.appendChild(item);
-    });
-
-    bloco.appendChild(lista);
-    return bloco;
-  }
-
-  // ── Slugify simples ───────────────────────────────────────────────────────────
   function slugify(s) {
     return String(s||'').toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .normalize('NFD').replace(/[̀-ͯ]/g,'')
       .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,55);
   }
+  function buildHref(p) {
+    return '/' + p.categoria + '/' + slugify(p.titulo) + '-' + p.id.slice(0,8) + '/';
+  }
 
-  // ── Inserir bloco após um filho específico do miolo ──────────────────────────
-  function inserirApos(miolo, referencia, bloco) {
-    if (!bloco) return;
-    var ref = miolo.querySelector(referencia);
-    if (ref && ref.nextSibling) {
-      miolo.insertBefore(bloco, ref.nextSibling);
-    } else {
-      miolo.appendChild(bloco);
-    }
+  // ── Injeta CSS global (uma vez) ───────────────────────────────────────────────
+  function injetarCSS() {
+    if (document.getElementById('ovc-nichos-css')) return;
+    var sty = document.createElement('style');
+    sty.id = 'ovc-nichos-css';
+    sty.textContent = [
+      '@keyframes ovc-pulse{0%,100%{opacity:1}50%{opacity:.25}}',
+      '.ovc-minirow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}',
+      '@media(max-width:700px){.ovc-minirow{grid-template-columns:1fr;}}',
+      '@media(max-width:1000px) and (min-width:701px){.ovc-minirow{grid-template-columns:repeat(2,1fr);}}'
+    ].join('');
+    document.head.appendChild(sty);
+  }
+
+  // ── Bloco RADAR no right rail — lista compacta ───────────────────────────────
+  function criarBlocoRadarRail(items) {
+    if (!items.length) return null;
+
+    var bloco = document.createElement('section');
+    bloco.id = 'ovc-nicho-radar-rail';
+    bloco.style.cssText = 'margin-top:22px;padding-top:14px;border-top:2px solid #dc2626;';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:10px;';
+    header.innerHTML =
+      '<span style="display:inline-block;width:7px;height:7px;background:#dc2626;border-radius:50%;' +
+      'animation:ovc-pulse 1.2s ease-in-out infinite;flex-shrink:0;"></span>' +
+      '<span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#dc2626;">RADAR OVC</span>';
+    bloco.appendChild(header);
+
+    items.slice(0, 4).forEach(function (p) {
+      var item = document.createElement('a');
+      item.href = buildHref(p);
+      item.style.cssText =
+        'display:block;padding:8px 0;border-bottom:1px solid #fecaca;text-decoration:none;' +
+        'transition:padding-left .12s;';
+      item.onmouseover = function(){ this.style.paddingLeft='4px'; };
+      item.onmouseout  = function(){ this.style.paddingLeft='0'; };
+      item.innerHTML =
+        '<div style="font-size:12px;font-weight:600;color:#991b1b;line-height:1.4;margin-bottom:3px;">' +
+        esc(p.titulo) + '</div>' +
+        '<div style="font-size:10px;color:#b91c1c;font-weight:500;">' + dataBr(p.data) + '</div>';
+      bloco.appendChild(item);
+    });
+
+    return bloco;
+  }
+
+  // ── Linha de 3 mini-cards horizontais ─────────────────────────────────────────
+  function criarLinhaMiniCards(items, cfg) {
+    if (!items.length) return null;
+
+    var wrap = document.createElement('div');
+    wrap.id = cfg.id;
+    wrap.style.cssText = 'margin:24px 0;';
+
+    var header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;';
+    header.innerHTML =
+      '<span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;' +
+      'color:' + cfg.cor + ';background:' + cfg.bgCor + ';padding:3px 10px;border-radius:20px;">' +
+      esc(cfg.label) + '</span>' +
+      '<span style="flex:1;height:1px;background:#e2e8f0;"></span>';
+    wrap.appendChild(header);
+
+    var grid = document.createElement('div');
+    grid.className = 'ovc-minirow';
+
+    items.slice(0, 3).forEach(function (p) {
+      var card = document.createElement('a');
+      card.href = buildHref(p);
+      card.style.cssText =
+        'display:block;padding:12px;background:var(--bg-elevated,#fff);' +
+        'border:1px solid #e2e8f0;border-top:3px solid ' + cfg.cor + ';border-radius:6px;' +
+        'text-decoration:none;transition:box-shadow .15s;';
+      card.onmouseover = function(){ this.style.boxShadow='0 2px 10px rgba(0,0,0,.07)'; };
+      card.onmouseout  = function(){ this.style.boxShadow='none'; };
+      card.innerHTML =
+        '<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;' +
+        'color:' + cfg.cor + ';margin-bottom:6px;">' + esc(cfg.badge) + '</div>' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;">' +
+        esc(p.titulo) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted,#94a3b8);margin-top:6px;">' +
+        dataBr(p.data) + '</div>';
+      grid.appendChild(card);
+    });
+
+    wrap.appendChild(grid);
+    return wrap;
   }
 
   // ── MAIN ─────────────────────────────────────────────────────────────────────
@@ -199,45 +144,54 @@
     buscarNichos(function (err, nichos) {
       if (err || !nichos.length) return;
 
-      // Separar por tipo
-      var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,8);
-      var radares = nichos.filter(function(n){ return n.tipo==='radar'; }).slice(0,3);
-      var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,6);
+      injetarCSS();
 
-      // Criar blocos (só cria se tiver conteúdo)
-      var blocoRadar  = criarBlocoRadar(radares);
-      var blocoPilulas = criarBlocoPilulas(pilulas);
-      var blocoMinuto  = criarBlocoMinuto(minutos);
+      var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,3);
+      var radares = nichos.filter(function(n){ return n.tipo==='radar'; }).slice(0,4);
+      var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
+
+      // 1. Radar OVC → right rail (sidebar direito)
+      if (radares.length) {
+        var rail = document.querySelector('.ovc-right-rail');
+        if (rail) {
+          var blocoRadar = criarBlocoRadarRail(radares);
+          if (blocoRadar) rail.appendChild(blocoRadar);
+        }
+      }
 
       var filhos = Array.from(miolo.children);
-      var total  = filhos.length;
 
-      // Posicionamento estratégico entre os blocos existentes:
-      // Radar → logo no início (urgente, chama atenção)
-      // Minuto → no meio (após 1/3 dos blocos)
-      // Pílulas → no final (antes do último bloco)
-
-      // Estrutura do miolo (ovc-cards.js):
-      // [0]=bB [1]=sep1 [2]=bA1(1a fileira cards) [3]=bC [4]=bA2 [5]=sep2 [6]=bD [7]=sep3 [8]=bE [9]=bA3 [10]=bA4
-
-      // Radar: antes do índice [0] — acima de tudo
-      if (blocoRadar && filhos.length >= 1) {
-        miolo.insertBefore(blocoRadar, filhos[0]);
+      // 2. Minuto OVC → 3 mini-cards após filhos[3] (depois da 1ª fileira de cards)
+      if (minutos.length) {
+        var blocoMinuto = criarLinhaMiniCards(minutos, {
+          id: 'ovc-nicho-minuto',
+          label: 'Minuto OVC',
+          badge: 'Economia',
+          cor: '#0369a1',
+          bgCor: '#e0f2fe'
+        });
+        if (blocoMinuto) {
+          var ref = filhos[3];
+          if (ref) miolo.insertBefore(blocoMinuto, ref);
+          else miolo.appendChild(blocoMinuto);
+        }
       }
 
-      // Minuto: depois do índice [2] (primeira fileira de cards bA1)
-      // filhos[3] é bC — inserir ANTES dele = depois de bA1
-      if (blocoMinuto && filhos.length >= 4) {
-        miolo.insertBefore(blocoMinuto, filhos[3]);
-      } else if (blocoMinuto) {
-        miolo.appendChild(blocoMinuto);
-      }
-
-      // Pilulas: antes do último bloco original
-      if (blocoPilulas && filhos.length >= 2) {
-        var ultimo = filhos[filhos.length - 1];
-        if (ultimo) miolo.insertBefore(blocoPilulas, ultimo);
-        else miolo.appendChild(blocoPilulas);
+      // 3. Pílulas → 3 mini-cards antes do último bloco original
+      if (pilulas.length) {
+        var blocoPilulas = criarLinhaMiniCards(pilulas, {
+          id: 'ovc-nicho-pilulas',
+          label: 'Notas do Dia',
+          badge: 'Pílula',
+          cor: '#6366f1',
+          bgCor: '#ede9fe'
+        });
+        if (blocoPilulas) {
+          var filhosAtual = Array.from(miolo.children);
+          var ultimo = filhosAtual[filhosAtual.length - 1];
+          if (ultimo) miolo.insertBefore(blocoPilulas, ultimo);
+          else miolo.appendChild(blocoPilulas);
+        }
       }
     });
   });
