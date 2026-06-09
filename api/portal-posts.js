@@ -161,7 +161,13 @@ export default async function handler(req, res) {
   try {
     if (req.query.id) return handleOne(req, res);
     if (req.query.recentes === "true") return handleRecentes(req, res);
-    if (req.query.curtinhas === "true") return handleCurtinhas(req, res);
+    if (req.query.curtinhas === "true") {
+      try {
+        return await handleCurtinhas(req, res);
+      } catch (curtinhasErr) {
+        return res.status(200).json({ curtinhas: [], total: 0, error: curtinhasErr?.message || "curtinhas_failed" });
+      }
+    }
     return handleList(req, res);
   } catch (error) {
     return res.status(500).json({ posts: [], total: 0, error: "portal_posts_failed", detail: error?.message || String(error) });

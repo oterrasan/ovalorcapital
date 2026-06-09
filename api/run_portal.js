@@ -73,7 +73,22 @@ function plain(html = "") { return html.replace(/<[^>]+>/g, " ").replace(/\s+/g,
 function field(raw, name) { const rx = new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\\n[A-Z_]+:|\\nCORPO:|$)`, "mi"); return (raw.match(rx)?.[1] || "").trim(); }
 function parseOVC(raw) { const txt = String(raw || "").replace(/```(?:html|json)?/gi, "").replace(/```/g, "").trim(); return { titulo: field(txt, "TITULO"), meta_title: field(txt, "META_TITLE"), foco_keyword: field(txt, "FOCO_KEYWORD"), slug: field(txt, "SLUG"), meta_descricao: field(txt, "META_DESCRICAO"), categoria: field(txt, "CATEGORIA").toLowerCase(), subcategoria: field(txt, "SUBCATEGORIA"), corpo: (txt.match(/CORPO:\s*([\s\S]*)$/i)?.[1] || "").trim() }; }
 function palavras(titulo = "") { return titulo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !STOP.has(w) && !RECORRENTES.has(w)).slice(0, 10); }
-function pautaParecida(titulo, recentes) { const novo = new Set(palavras(titulo)); if (novo.size < 3) return false; return (recentes || []).some(t => { const antigo = new Set(palavras(t)); if (antigo.size < 3) return false; const inter = [...novo].filter(w => antigo.has(w)); return inter.some(w => EVENTO.has(w)) && inter.length >= 3 && inter.length / Math.min(novo.size, antigo.size) >= 0.62; }); }
+function pautaParecida(titulo, recentes) {
+  const novo = new Set(palavras(titulo));
+  if (novo.size < 3) return false;
+  return (recentes || []).some(t => {
+    const antigo = new Set(palavras(t));
+    if (antigo.size < 3) return false;
+    const inter = [...novo].filter(w => antigo.has(w));
+    if (inter.length < 3) return false;
+    const jaccard = inter.length / Math.min(novo.size, antigo.size);
+    // Dedup com palavra de ação (política/economia): threshold menor
+    if (inter.some(w => EVENTO.has(w)) && jaccard >= 0.62) return true;
+    // Dedup geral (tecnologia, cultura, etc.): threshold maior, sem exigir EVENTO
+    if (inter.length >= 4 && jaccard >= 0.75) return true;
+    return false;
+  });
+}
 function janelaOk() { const br = new Date(Date.now() - 3 * 3600000); const minutos = br.getUTCHours() * 60 + br.getUTCMinutes(); return minutos >= 420 || minutos <= 30; }
 function badSourceImageUrl(url) {
   if (!url || url.length < 12) return true;
