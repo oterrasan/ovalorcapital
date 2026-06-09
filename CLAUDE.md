@@ -2460,4 +2460,64 @@ Roberto pausou o pipeline em 09/06/2026 por qualidade ruim ("lixo"). Motivos pro
 7. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto (`bfsegqdgscudtdgwdyci`). Deletar no projeto `ovalorcapital-xuhw`
 8. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
 9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+
+---
+
+### Sessão 09/06/2026 (continuação 2) — CATEGORIZAÇÃO LIVRE + FALLBACK OPENAI CURTINHAS
+
+#### Contexto
+
+Roberto reportou dois problemas após religar o pipeline:
+1. Artigos com categoria errada (Vale Metals → "seguros", J&J Oncology → "imoveis") — categoria era forçada pelo código, não pela IA
+2. Curtinhas não gerando nada após 30 minutos — Gemini/Groq não configurados no Supabase, OpenAI não era tentada
+
+#### Bug: Categorias forçadas em `autoMaterias()` (PR #123 — mergeado, commit `5cc63b5c`)
+
+**Root cause:** `autoMaterias()` selecionava categoria aleatoriamente do array `PRIORIDADE`, depois:
+1. Passava `cat` para `gerarOVC(sourceText, title, contexto, cat)` com prompt `CATEGORIA: [${categoria}]` — travava a IA na categoria pré-escolhida
+2. Fazia `content.categoria = cat` — sobrescrevia qualquer categoria que a IA retornasse
+
+**Fix:**
+- Prompt mudado de `CATEGORIA: [${categoria}]` para `CATEGORIA: [uma de: brasil-on|politica|economia|investimentos|negocios|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao]` — IA escolhe com base no conteúdo
+- Removidas as duas linhas `content.categoria = cat` e `content.subcategoria = SUBCAT[cat]` de `autoMaterias()`
+- `cat` ainda é usado para `getNewsByCategoria(cat)` para selecionar os feeds RSS, mas NÃO contamina a categorização final
+- `inserir()` já tinha `CATS.has(content.categoria) ? content.categoria : "economia"` como fallback seguro
+
+#### Bug: Curtinhas gerando zero (PR #124 — mergeado, commit `b1238daf`)
+
+**Root cause:** `_getNichoKeys()` lê `GEMINI_API_KEY` e `GROQ_API_KEY` do Supabase `config`. Essas chaves NÃO estavam configuradas. O pairs array era `gemini ? [[callGeminiNicho, gemini],[callGroqNicho, groq]] : [[callGroqNicho, groq]]` — sem gemini nem groq, todo `if (!key) continue;` pulava silenciosamente. Resultado: `generated: 0` sempre.
+
+**Fix:**
+- `OPENAI_KEY` hardcoded como base64 fallback em `run_portal.js` (mesmo padrão de `core/ai_portal.js`)
+- Nova função `callOpenAINicho()` com gpt-4o-mini, temperature 0.75, max_tokens 1400
+- Todos os 3 generators (`gerarPilula`, `gerarRadar`, `gerarMinuto`) agora usam `[[callGeminiNicho, gemini],[callGroqNicho, groq],[callOpenAINicho, OPENAI_KEY]]`
+- OpenAI é fallback garantido — curtinhas geram mesmo sem Gemini/Groq configurados
+
+#### Estado do pipeline após esta sessão
+
+- Pipeline ATIVO (Roberto religou em 09/06/2026)
+- Artigos normais chegando no admin com categorias corretas ✅ (após PR #123)
+- Curtinhas agora geram via OpenAI ✅ (após PR #124 — mergeado 09/06/2026 ~20:30 UTC)
+- `ovc-nichos.js` layout: Roberto disse "melhor nao mexer por enquanto" — NÃO alterar até nova autorização
+
+#### 🔧 PENDÊNCIAS COMPLETAS (09/06/2026 — atualizado pós-sessão)
+
+**Alta prioridade — aguardando Roberto:**
+1. **Confirmar curtinhas chegando** — após deploy de PR #124, verificar admin se pílulas/radar/minuto aparecem
+2. **Definir percentuais por categoria** — distribuição atual é uniforme. Roberto quer definir foco editorial.
+
+**Simples (executar com autorização):**
+3. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+
+**Médias (sessão focada):**
+4. `api/category.js` CAT_SEO — atualizar entradas SEO para novas categorias (brasil-on, carreira, tributos)
+5. Aprovar/rejeitar artigos pendentes no banco via admin
+6. `ovc-nichos.js` layout compacto (apenas título, sem resumo, sem cor vermelha) — quando Roberto autorizar
+
+**Roberto faz manualmente:**
+7. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto (`bfsegqdgscudtdgwdyci`). Deletar no projeto `ovalorcapital-xuhw`
+8. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
+9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+10. AdSense aprovação — aguardando Google
+11. Google Publisher Center — aguardando aprovação
 10. AdSense aprovação — aguardando Google
