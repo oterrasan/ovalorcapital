@@ -15,6 +15,32 @@ async function log(level, message) {
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
+async function _getNichoKeys() {
+  try {
+    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
+    const m = {}; (data||[]).forEach(r => m[r.key]=r.value);
+    return { gemini: m.GEMINI_API_KEY||process.env.GEMINI_API_KEY||"", groq: m.GROQ_API_KEY||process.env.GROQ_API_KEY||"" };
+  } catch(_) { return { gemini: process.env.GEMINI_API_KEY||"", groq: process.env.GROQ_API_KEY||"" }; }
+}
+async function callGeminiNicho(prompt, key) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.85, maxOutputTokens: 1200 } }) });
+  const d = await res.json();
+  if (!res.ok) throw new Error("Gemini nicho: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
+  return d.candidates[0].content.parts[0].text;
+}
+async function callGroqNicho(prompt, key) {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+    body: JSON.stringify({ model: "llama-3.3-70b-versatile",
+      messages: [{ role: "system", content: "Você é jornalista sênior. Responda em português. Siga EXATAMENTE o formato solicitado." },{ role: "user", content: prompt }],
+      max_tokens: 1200, temperature: 0.85 }) });
+  const d = await res.json();
+  if (!res.ok) throw new Error("Groq nicho: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
+  return d.choices[0].message.content;
+}
+
 const CATS = new Set(["brasil-on","politica","economia","investimentos","negocios","tecnologia","internacional","saude","tributos","carreira","imoveis","seguros","industria","familia","esportes","cultura","religiao","colunistas","vc"]);
 const PRIORIDADE = ["politica","economia","brasil-on","internacional","tecnologia","negocios","investimentos","saude","tributos","industria"];
 const SUBCAT = { "brasil-on":"Notícias do Brasil", politica:"Governo Federal", economia:"Política Econômica", investimentos:"Bolsa de Valores", negocios:"Empresas & Corporações", tecnologia:"Inteligência Artificial", internacional:"Relações Exteriores", saude:"Medicina & Tratamentos", tributos:"IRPF", carreira:"Mercado de Trabalho", imoveis:"Mercado Imobiliário", seguros:"Seguro de Vida", industria:"Agronegócio", familia:"Educação dos Filhos", esportes:"Futebol", cultura:"Cinema & Arte", religiao:"Fé & Sociedade", colunistas:"Opinião", vc:"Institucional" };
@@ -251,70 +277,74 @@ async function manual(req, res, rec) {
 }
 
 async function gerarPilula(sourceText, sourceTitle, contexto, categoria) {
-  const prompt = `Você é um jornalista sênior do portal O Valor Capital (OVC), centro-direita liberal, escrevendo para um leitor exigente — empresário, profissional, cidadão informado.
+  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
+  const tomCat = { economia:"pragmático, cifras concretas, impacto em decisão financeira", negocios:"empresas e mercado — dados acima de narrativa", investimentos:"riscos e oportunidades, números e tendências", tributos:"impacto fiscal direto ao contribuinte e empresa", tecnologia:"curioso, provocativo, desmonta o hype", politica:"analítico, consequências reais, nunca panfletário", "brasil-on":"analítico, consequências reais, nunca panfletário", saude:"próximo, sem alarmismo, dados acima de opinião", familia:"próximo, sem alarmismo, dados acima de opinião", esportes:"direto, resultado acima de narrativa, sem jargão", cultura:"direto, resultado acima de narrativa", internacional:"geopolítico, causa e consequência, quem lucra" }[categoria] || "jornalístico, direto, factual";
+  const prompt = `Você é jornalista sênior do portal O Valor Capital (OVC), centro-direita liberal.
 
-MISSÃO: transformar o fato abaixo numa nota jornalística curta, mas completa. Curto não significa raso. Cada pílula deve ter início, meio e fim — como uma notícia de agência de primeira linha.
+TOM DESTA NOTA (categoria: ${categoria}): ${tomCat}
 
-ESTRUTURA OBRIGATÓRIA DOS 3 PARÁGRAFOS:
-§1 — GANCHO: o fato central em 1 frase direta. O que aconteceu, quem, quando. Sem rodeios.
-§2 — CONTEXTO: por que isso importa. Qual o cenário, o histórico relevante em 1 ou 2 frases. Dê ao leitor o que ele precisa para entender o peso do fato.
-§3 — IMPACTO OU CONCLUSÃO: o que muda, o que vem a seguir, ou qual é a consequência direta. Feche a nota com informação útil — não com frase vaga.
+MISSÃO: microinterpretação jornalística. Não é resumo — é leitura de segundo plano. O que o fato REVELA que não está escrito na manchete. Início, meio e fim como notícia de agência de primeira linha.
 
-PADRÃO EDITORIAL OVC:
-- Linguagem direta, precisa, sem adjetivos desnecessários
-- Viés centro-direita: respeito à propriedade, ao livre mercado, à família, à ordem institucional
-- Nunca sensacionalismo. Nunca opinião disfarçada de fato.
-- Tom Reuters Brasil: seco, factual, com peso
+ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
+§1 — O FATO: o que aconteceu. Quem, o quê, onde, quando. Uma frase direta. Dado concreto se houver.
+§2 — O CONTEXTO REAL: o que esse fato significa no cenário atual. NÃO repete §1 — expande. O que estava em jogo antes disso acontecer.
+§3 — QUEM GANHA / QUEM PERDE: consequência direta. Para quem isso importa e por quê. Dinheiro, poder, eleitor, mercado — o que muda de verdade.
+§4 — O QUE NINGUÉM DISSE: o detalhe que passou despercebido, a contradição, o número que muda tudo, ou a pergunta que fica no ar.
 
-FILTRO DE RELEVÂNCIA: se o fato não tiver nenhuma relevância para o leitor brasileiro — empresário, investidor, cidadão — não gere. Podcast de artistas indígenas canadenses, gossip de celebridade sem impacto, produto estrangeiro sem relação com o Brasil — descartar.
+MÍNIMO ABSOLUTO: 800 caracteres no CORPO. Cerca de 1 minuto de leitura.
 
-PROIBIDO: vale destacar | cabe ressaltar | nesse contexto | acende alerta | especialistas apontam | é importante destacar | em um cenário | diante disso.
+FILTRO: se o fato não tiver relevância para o leitor brasileiro — empresário, investidor, cidadão — retorne TITULO: IGNORAR
+
+PROIBIDO (qualquer uso invalida o texto):
+Vale destacar | É importante ressaltar | Nesse contexto | Além disso | Por outro lado | Em suma | Portanto | Diante desse cenário | Especialistas apontam | Cabe lembrar | Ao mesmo tempo | Dessa forma | Por fim | isso mostra | isso revela | isso evidencia | em meio a | no cenário atual | chama atenção | coloca em xeque | acende alerta | gera debate | é preocupante
 
 Formato OBRIGATÓRIO:
-TITULO: [manchete direta e informativa — 50 a 70 caracteres]
+TITULO: [manchete direta — 50 a 70 caracteres]
 FOCO_KEYWORD: [2 a 3 palavras]
 META_DESCRICAO: [resumo preciso 120 a 155 caracteres]
 CATEGORIA: [uma de: politica|economia|negocios|investimentos|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao|brasil-on]
 CORPO:
-<p><strong>Redação OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
-[3 parágrafos em HTML seguindo a estrutura §1 §2 §3 acima — 350 a 600 caracteres total — sem h2 — sem imagem]
+<p><strong>Pílula OVC</strong> — ${hoje}</p>
+[4 parágrafos em HTML seguindo §1 §2 §3 §4 — mínimo 800 caracteres total — sem h2 — sem imagem]
+
 Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 800, temperature: 0.7 })
-  });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI pilula");
-  return parseOVC(d.choices?.[0]?.message?.content || "");
+  const { gemini, groq } = await _getNichoKeys();
+  const pairs = gemini ? [[callGeminiNicho, gemini],[callGroqNicho, groq]] : [[callGroqNicho, groq]];
+  let lastErr;
+  for (const [fn, key] of pairs) {
+    if (!key) continue;
+    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 300) continue; return p; } catch(e) { lastErr = e; }
+  }
+  throw new Error("gerarPilula falhou: " + (lastErr?.message || "sem chave"));
 }
 
 
 async function gerarRadar(sourceText, sourceTitle, categoria) {
+  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
   const prompt = `Você é correspondente de plantão do Radar OVC, seção de cobertura em tempo real do portal O Valor Capital (centro-direita liberal).
 
-MISSÃO: cobrir fatos de ALTO IMPACTO com a precisão de uma agência internacional de notícias. O Radar OVC só existe quando há algo grande acontecendo.
+MISSÃO: boletim ao vivo de alto impacto. O Radar OVC só existe quando algo grande está acontecendo AGORA. Cada Radar deve ter início, meio e fim completos.
 
-REGRA ABSOLUTA DE PUBLICAÇÃO: SOMENTE gere se o fato se enquadrar em pelo menos uma destas categorias:
-— Eleições (brasileiras ou de países estratégicos)
+REGRA ABSOLUTA — SOMENTE gere se o fato se enquadrar em pelo menos um:
+— Eleições brasileiras ou de países estratégicos
 — Copa do Mundo ou grandes competições esportivas internacionais
 — Votações decisivas no Congresso Nacional ou no STF
 — Crises políticas de repercussão nacional
 — Conflitos armados ou catástrofes com impacto geopolítico relevante
 — Decisões de grandes bancos centrais (Fed, BCE, Banco Central do Brasil)
+SE NÃO SE ENQUADRAR: retorne TITULO: IGNORAR
 
-SE O FATO NÃO SE ENQUADRAR: não gere. Prefira o silêncio a gerar Radar raso.
+ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
+§1 — O FATO URGENTE: o que aconteceu agora. Quem, o quê, onde. Frase curta — só o fato com peso máximo.
+§2 — O QUE ESTÁ EM JOGO: contexto imediato. O que essa decisão/evento significa nas próximas horas.
+§3 — OS LADOS: quem avança, quem recua, quem perde. Consequência política ou econômica imediata e direta.
+§4 — O QUE ACOMPANHAR: próximo evento, votação, pronunciamento, dado — o que o leitor monitora agora.
 
-ESTRUTURA OBRIGATÓRIA DOS 2 PARÁGRAFOS:
-§1 — O FATO URGENTE: o que aconteceu agora. Quem, o quê, onde. Uma frase. Sem contexto ainda — só o fato bruto com peso.
-§2 — O QUE ESTÁ EM JOGO: contexto imediato e próximo passo. O que isso significa agora e o que o leitor deve acompanhar nas próximas horas.
+MÍNIMO ABSOLUTO: 800 caracteres no CORPO.
+TOM: urgência controlada — boletim da Reuters em português. Sem alarmismo. Sem especulação. Só fatos verificados.
 
-PADRÃO EDITORIAL:
-- Tom de urgência controlada — como um boletim da Reuters em português
-- Sem alarmismo. Sem especulação. Apenas fatos verificados e contexto direto.
-- Cada palavra tem peso. Sem adjetivos emocionais.
-
-PROIBIDO: vale destacar | cabe ressaltar | nesse contexto | acende alerta | é importante destacar | especialistas apontam.
+PROIBIDO:
+Vale destacar | É importante ressaltar | Nesse contexto | Além disso | Por outro lado | Em suma | Portanto | Diante desse cenário | Especialistas apontam | Cabe lembrar | Ao mesmo tempo | Dessa forma | Por fim | isso mostra | isso revela | acende alerta | gera debate
 
 Formato OBRIGATÓRIO:
 TITULO: [manchete urgente e precisa — 50 a 70 caracteres]
@@ -322,39 +352,41 @@ FOCO_KEYWORD: [2 a 3 palavras]
 META_DESCRICAO: [120 a 155 caracteres]
 CATEGORIA: [uma de: politica|esportes|internacional|brasil-on]
 CORPO:
-<p><strong>Radar OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
-[2 parágrafos em HTML seguindo §1 §2 acima — 250 a 450 caracteres total — sem h2 — sem imagem]
+<p><strong>Radar OVC</strong> — ${hoje}</p>
+[4 parágrafos em HTML seguindo §1 §2 §3 §4 — mínimo 800 caracteres total — sem h2 — sem imagem]
+
 Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 600, temperature: 0.6 })
-  });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI radar");
-  return parseOVC(d.choices?.[0]?.message?.content || "");
+  const { gemini, groq } = await _getNichoKeys();
+  const pairs = gemini ? [[callGeminiNicho, gemini],[callGroqNicho, groq]] : [[callGroqNicho, groq]];
+  let lastErr;
+  for (const [fn, key] of pairs) {
+    if (!key) continue;
+    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 200) continue; return p; } catch(e) { lastErr = e; }
+  }
+  throw new Error("gerarRadar falhou: " + (lastErr?.message || "sem chave"));
 }
 
 async function gerarMinuto(sourceText, sourceTitle, categoria) {
-  const prompt = `Você é analista de conteúdo do Minuto OVC, seção de resumos executivos do portal O Valor Capital (centro-direita liberal).
+  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
+  const prompt = `Você é analista-jornalista do Minuto OVC, seção de resumos executivos do portal O Valor Capital (centro-direita liberal).
 
-MISSÃO: transformar um fato econômico ou de negócios em 1 minuto de leitura de alto valor para o leitor executivo — empresário, investidor, gestor financeiro. Um Minuto OVC bem feito vale mais do que uma análise de 3.000 palavras mal escrita.
+MISSÃO: transformar um fato econômico ou de negócios em 1 minuto de leitura de alto valor. Leitor-alvo: empresário, investidor, gestor financeiro. Um Minuto OVC bem feito vale mais do que uma análise de 3.000 palavras mal escrita.
 
-REGRA EDITORIAL ABSOLUTA: cobre EXCLUSIVAMENTE economia, negócios, mercado financeiro, investimentos, tributos, regulação, política econômica, tecnologia com impacto em negócios. SE o fato não tiver impacto direto em decisões de negócio ou investimento, NÃO gere.
+REGRA ABSOLUTA: cobre EXCLUSIVAMENTE economia, negócios, mercado financeiro, investimentos, tributos, regulação, política econômica, tecnologia com impacto direto em negócios.
+SE O FATO NÃO TIVER IMPACTO DIRETO EM DECISÕES DE NEGÓCIO OU INVESTIMENTO: retorne TITULO: IGNORAR
 
-NÃO COBRE: esportes, política eleitoral sem impacto econômico, cultura, entretenimento, saúde pública geral, variedades.
+ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
+§1 — O DADO OU FATO: o número, a decisão, o movimento. Com dado concreto — IPCA em X%, Selic em Y%, empresa Z registrou lucro de R$ W bilhões. Frase direta.
+§2 — O QUE REVELA: o que esse dado significa no contexto atual. NÃO repete §1 — expande o entendimento. Uma ou duas frases de contexto que elevam a informação.
+§3 — QUEM É AFETADO: setor, empresa, segmento de investimento, faixa de contribuinte. Impacto prático para quem está lendo agora.
+§4 — O QUE ACOMPANHAR: próxima decisão, reunião, dado, prazo — o que o executivo monitora. Termine com informação acionável.
 
-ESTRUTURA OBRIGATÓRIA DOS 3 PARÁGRAFOS:
-§1 — O DADO OU FATO: o número, a decisão, o movimento. Direto. Com o dado concreto se houver — IPCA em X%, Selic em Y%, empresa X registrou lucro de R$ Z bilhões.
-§2 — O QUE REVELA: o que esse dado significa no contexto atual. Uma frase de contexto que eleva a informação — não repete o §1, expande o entendimento.
-§3 — O QUE ACOMPANHAR: qual é o próximo passo relevante, o que o executivo deve monitorar, a decisão que se aproxima. Termine com informação acionável.
+MÍNIMO ABSOLUTO: 800 caracteres no CORPO. Cerca de 1 minuto de leitura.
+TOM: Valor Econômico e Reuters Brasil — preciso, sem rodeios, sem adjetivos emocionais.
+VIÉS: liberal. Livre mercado, eficiência, responsabilidade fiscal.
 
-PADRÃO EDITORIAL:
-- Tom do Valor Econômico e da Reuters Brasil: preciso, sem rodeios, sem adjetivos emocionais
-- Números sempre que disponíveis — datas, percentuais, valores
-- Viés liberal: livre mercado, eficiência, responsabilidade fiscal
-
-PROIBIDO: vale destacar | cabe ressaltar | nesse contexto | acende alerta | mercado preocupado | é importante destacar | analistas apontam | especialistas indicam.
+PROIBIDO:
+Vale destacar | É importante ressaltar | Nesse contexto | Além disso | Por outro lado | Em suma | Portanto | Diante desse cenário | Especialistas apontam | Cabe lembrar | Ao mesmo tempo | Dessa forma | Por fim | mercado preocupado | analistas apontam | fontes indicam | o setor aguarda | isso mostra | isso revela | acende alerta
 
 Formato OBRIGATÓRIO:
 TITULO: [manchete executiva com dado concreto se possível — 50 a 70 caracteres]
@@ -362,17 +394,18 @@ FOCO_KEYWORD: [2 a 3 palavras]
 META_DESCRICAO: [120 a 155 caracteres com dado relevante]
 CATEGORIA: [uma de: economia|negocios|investimentos|tributos|tecnologia|industria|imoveis|seguros|carreira]
 CORPO:
-<p><strong>Minuto OVC</strong> — ${new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"})}</p>
-[3 parágrafos em HTML seguindo §1 §2 §3 acima — 450 a 700 caracteres total — sem h2 — sem imagem]
+<p><strong>Minuto OVC</strong> — ${hoje}</p>
+[4 parágrafos em HTML seguindo §1 §2 §3 §4 — mínimo 800 caracteres total — sem h2 — sem imagem]
+
 Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", messages: [{ role: "user", content: prompt }], max_tokens: 800, temperature: 0.6 })
-  });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI minuto");
-  return parseOVC(d.choices?.[0]?.message?.content || "");
+  const { gemini, groq } = await _getNichoKeys();
+  const pairs = gemini ? [[callGeminiNicho, gemini],[callGroqNicho, groq]] : [[callGroqNicho, groq]];
+  let lastErr;
+  for (const [fn, key] of pairs) {
+    if (!key) continue;
+    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 300) continue; return p; } catch(e) { lastErr = e; }
+  }
+  throw new Error("gerarMinuto falhou: " + (lastErr?.message || "sem chave"));
 }
 
 async function auto(req, res, rec) {
