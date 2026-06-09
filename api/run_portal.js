@@ -42,7 +42,13 @@ async function callGroqNicho(prompt, key) {
 }
 
 const CATS = new Set(["brasil-on","politica","economia","investimentos","negocios","tecnologia","internacional","saude","tributos","carreira","imoveis","seguros","industria","familia","esportes","cultura","religiao","colunistas","vc"]);
-const PRIORIDADE = ["politica","economia","brasil-on","internacional","tecnologia","negocios","investimentos","saude","tributos","industria"];
+const PRIORIDADE_PESOS = {
+  "politica":20,"economia":13,"seguros":8,"brasil-on":7,
+  "negocios":7,"investimentos":7,"internacional":6,"tecnologia":6,
+  "familia":5,"esportes":5,"saude":4,"tributos":4,
+  "industria":3,"carreira":2,"imoveis":2,"cultura":1
+};
+const PRIORIDADE = Object.entries(PRIORIDADE_PESOS).flatMap(([cat,n]) => Array(n).fill(cat));
 const SUBCAT = { "brasil-on":"Notícias do Brasil", politica:"Governo Federal", economia:"Política Econômica", investimentos:"Bolsa de Valores", negocios:"Empresas & Corporações", tecnologia:"Inteligência Artificial", internacional:"Relações Exteriores", saude:"Medicina & Tratamentos", tributos:"IRPF", carreira:"Mercado de Trabalho", imoveis:"Mercado Imobiliário", seguros:"Seguro de Vida", industria:"Agronegócio", familia:"Educação dos Filhos", esportes:"Futebol", cultura:"Cinema & Arte", religiao:"Fé & Sociedade", colunistas:"Opinião", vc:"Institucional" };
 const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","trump","putin","haddad","stf","congresso","senado","camara","governo","presidente","ministro","deputado","senador","pcc","policia","federal","dolar","selic","ipca","copom","ibovespa","brasil","eua","china","russia"]);
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
@@ -169,9 +175,10 @@ async function recentes() {
   try {
     const { data } = await supabase.from("posts").select("titulo,metrics,user_tags").gte("created_at", new Date(Date.now() - 4 * 3600000).toISOString()).order("created_at", { ascending: false }).limit(250);
     const titulos = (data || []).map(p => p.titulo).filter(Boolean);
+    const sourceTitulos = (data || []).map(p => p.metrics?.source_title).filter(Boolean);
     const kws = (data || []).map(p => p.metrics?.foco_keyword).filter(Boolean).slice(0, 20);
-    return { titulos, contexto: `Títulos recentes a evitar: ${titulos.slice(0, 25).join(" | ")}\nKeywords recentes: ${kws.join(", ")}` };
-  } catch (_) { return { titulos: [], contexto: "" }; }
+    return { titulos, sourceTitulos, contexto: `Títulos recentes a evitar: ${titulos.slice(0, 25).join(" | ")}\nKeywords recentes: ${kws.join(", ")}` };
+  } catch (_) { return { titulos: [], sourceTitulos: [], contexto: "" }; }
 }
 
 async function gerarOVC(sourceText, sourceTitle, contexto, categoria) {
@@ -232,6 +239,20 @@ async function cleanupTitles(res, body) {
   let fixedTitles = 0;
   for (const p of data || []) { const clean = stripTitle(p.titulo); if (clean !== p.titulo) { await supabase.from("posts").update({ titulo: clean }).eq("id", p.id); fixedTitles++; } }
   return res.status(200).json({ status: "ok", fixedTitles, fixedContent: 0 });
+}
+
+async function saveCurtinha(content, hash, cat, tipo) {
+  const catFinal = CATS.has(content.categoria) ? content.categoria : (CATS.has(cat) ? cat : "politica");
+  await supabase.from("posts").insert({
+    titulo: stripTitle(content.titulo), conteudo: content.corpo,
+    comentario_fixado: (content.meta_descricao||"").trim(), imagem: null, hash,
+    status: "publicado", approved: true, publish_method: "portal",
+    published_at: new Date().toISOString(),
+    user_tags: JSON.stringify([catFinal]), subcategoria: SUBCAT[catFinal]||"Geral",
+    subcategoria_slug: slugify(SUBCAT[catFinal]||"geral"), collaborators: "[]",
+    tipo_conteudo: tipo, metrics: { foco_keyword: content.foco_keyword||"", tipo },
+    priority: 0, retry_count: 0, max_retries: 3
+  });
 }
 
 async function inserir(content, hash, img, tipo = "padrao", extraMetrics = {}) {
@@ -408,7 +429,7 @@ Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
   throw new Error("gerarMinuto falhou: " + (lastErr?.message || "sem chave"));
 }
 
-async function auto(req, res, rec) {
+async function autoMaterias(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const cat = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
@@ -422,6 +443,8 @@ async function auto(req, res, rec) {
     const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
     if (dup) { debug.duplicado++; continue; }
+    // Dedup de fonte: bloqueia mesmo evento de fontes diferentes antes de scrape+IA
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) { debug.duplicado++; continue; }
     try {
       const a = await scrape(item.link);
       const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
@@ -442,78 +465,71 @@ async function auto(req, res, rec) {
         image_strategy: img ? resolvedImage.source : "none",
         image_original_url: resolvedImage.original || ""
       });
-      await log("info", `[pipeline] gerado: ${content.titulo?.slice(0,60)} | cat:${content.categoria} | img:${!!img}`);
-      // Gerar pílula paralela — publica direto, sem imagem
-      try {
-        const hashP = crypto.createHash("md5").update(item.link + "_pilula").digest("hex");
-        const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
-        if (!dupP) {
-          const pilula = await gerarPilula(sourceText, item.title || a.title || "", rec.contexto, cat);
-          if (pilula && pilula.titulo && pilula.corpo && pilula.corpo.length >= 300) {
-            const catP = CATS.has(pilula.categoria) ? pilula.categoria : cat;
-            await supabase.from("posts").insert({
-              titulo: stripTitle(pilula.titulo), conteudo: pilula.corpo,
-              comentario_fixado: (pilula.meta_descricao||"").trim(), imagem: null, hash: hashP,
-              status: "publicado", approved: true, publish_method: "portal",
-              published_at: new Date().toISOString(),
-              user_tags: JSON.stringify([catP]), subcategoria: SUBCAT[catP]||"Geral",
-              subcategoria_slug: slugify(SUBCAT[catP]||"geral"), collaborators: "[]",
-              tipo_conteudo: "pilula", metrics: { foco_keyword: pilula.foco_keyword||"", tipo:"pilula" },
-              priority: 0, retry_count: 0, max_retries: 3
-            });
-            await log("info", `[pipeline] pilula: ${pilula.titulo?.slice(0,50)} | cat:${catP}`);
-          }
-        }
-      } catch(eP) { await log("warn", `[pipeline] falha pilula: ${eP.message?.slice(0,80)}`); }
-
-        // Gerar Radar OVC — só grandes eventos, só fontes das últimas 3h
-        const CATS_RADAR = ["politica", "esportes", "internacional", "brasil-on"];
-        const itemAge = item.pubDate ? (Date.now() - new Date(item.pubDate).getTime()) : 9999999999;
-        if (CATS_RADAR.includes(cat) && itemAge < 3 * 60 * 60 * 1000) {
-          try {
-            const hashR = crypto.createHash("md5").update(item.link + "_radar").digest("hex");
-            const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
-            if (!dupR) {
-              const radar = await gerarRadar(sourceText, item.title || a.title || "", cat);
-              if (radar && radar.titulo && radar.corpo && radar.corpo.length >= 150) {
-                const catR = CATS.has(radar.categoria) ? radar.categoria : cat;
-                await supabase.from("posts").insert({
-                  titulo: stripTitle(radar.titulo), conteudo: radar.corpo,
-                  comentario_fixado: (radar.meta_descricao||"").trim(), imagem: null, hash: hashR,
-                  status: "publicado", approved: true, publish_method: "portal",
-                  user_tags: JSON.stringify([catR]), published_at: new Date().toISOString(),
-                  tipo_conteudo: "radar", metrics: { foco_keyword: radar.foco_keyword||"", tipo:"radar" }
-                });
-                await log("info", `[pipeline] radar: ${radar.titulo?.slice(0,50)} | cat:${catR}`);
-              }
-            }
-          } catch(eR) { await log("warn", `[pipeline] falha radar: ${eR.message?.slice(0,80)}`); }
-        }
-
-        // Gerar Minuto OVC — só categorias econômicas, só fontes das últimas 3h
-        const CATS_MINUTO = ["economia", "negocios", "investimentos", "tributos", "tecnologia", "industria", "imoveis", "seguros", "carreira"];
-        if (CATS_MINUTO.includes(cat) && itemAge < 3 * 60 * 60 * 1000) { try {
-          const hashM = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
-          const { data: dupM } = await supabase.from("posts").select("id").eq("hash", hashM).maybeSingle();
-          if (!dupM) {
-            const minuto = await gerarMinuto(sourceText, item.title || a.title || "", cat);
-            if (minuto && minuto.titulo && minuto.corpo && minuto.corpo.length >= 300) {
-              const catM = CATS.has(minuto.categoria) ? minuto.categoria : cat;
-              await supabase.from("posts").insert({
-                titulo: stripTitle(minuto.titulo), conteudo: minuto.corpo,
-                comentario_fixado: (minuto.meta_descricao||"").trim(), imagem: null, hash: hashM,
-                status: "publicado", approved: true, publish_method: "portal",
-                user_tags: JSON.stringify([catM]), published_at: new Date().toISOString(),
-                tipo_conteudo: "minuto", metrics: { foco_keyword: minuto.foco_keyword||"", tipo:"minuto" }
-              });
-              await log("info", `[pipeline] minuto: ${minuto.titulo?.slice(0,50)} | cat:${catM}`);
-            }
-          }
-        } catch(eM) { await log("warn", `[pipeline] falha minuto: ${eM.message?.slice(0,80)}`); } } // fim if CATS_MINUTO
+      await log("info", `[materias] gerado: ${content.titulo?.slice(0,60)} | cat:${content.categoria} | img:${!!img}`);
       return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, categoria: content.categoria, subcategoria: content.subcategoria, imagem: !!img });
     } catch (e) { debug.erro++; if (debug.erros.length < 5) debug.erros.push(e.message); }
   }
   return res.status(200).json({ status: "no_valid_news", generated: 0, categoria: cat, debug });
+}
+
+async function autoCurtinhas(req, res, rec) {
+  const start = Date.now();
+  const news = await getNews();
+  const seen = new Set();
+  const items = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
+  let generated = 0;
+  for (const item of items) {
+    if (Date.now() - start > 50000 || generated >= 4) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    try {
+      const a = await scrape(item.link);
+      const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+      const cat = PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
+      const itemAge = item.pubDate ? (Date.now() - new Date(item.pubDate).getTime()) : 9999999999;
+
+      // Pílula — qualquer categoria, qualquer horário
+      const hashP = crypto.createHash("md5").update(item.link + "_pilula").digest("hex");
+      const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
+      if (!dupP) {
+        const pilula = await gerarPilula(sourceText, item.title || a.title || "", rec.contexto, cat);
+        if (pilula?.titulo && pilula?.corpo && pilula.corpo.length >= 300) {
+          await saveCurtinha(pilula, hashP, cat, "pilula");
+          await log("info", `[curtinhas] pilula: ${pilula.titulo?.slice(0,50)}`);
+          generated++;
+        }
+      }
+
+      // Radar OVC — só grandes eventos, só últimas 3h
+      if (["politica","esportes","internacional","brasil-on"].includes(cat) && itemAge < 3*60*60*1000) {
+        const hashR = crypto.createHash("md5").update(item.link + "_radar").digest("hex");
+        const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
+        if (!dupR) {
+          const radar = await gerarRadar(sourceText, item.title || a.title || "", cat);
+          if (radar?.titulo && radar.titulo !== "IGNORAR" && radar?.corpo && radar.corpo.length >= 150) {
+            await saveCurtinha(radar, hashR, cat, "radar");
+            await log("info", `[curtinhas] radar: ${radar.titulo?.slice(0,50)}`);
+            generated++;
+          }
+        }
+      }
+
+      // Minuto OVC — só economia/negócios, só últimas 3h
+      if (["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat) && itemAge < 3*60*60*1000) {
+        const hashM = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
+        const { data: dupM } = await supabase.from("posts").select("id").eq("hash", hashM).maybeSingle();
+        if (!dupM) {
+          const minuto = await gerarMinuto(sourceText, item.title || a.title || "", cat);
+          if (minuto?.titulo && minuto.titulo !== "IGNORAR" && minuto?.corpo && minuto.corpo.length >= 300) {
+            await saveCurtinha(minuto, hashM, cat, "minuto");
+            await log("info", `[curtinhas] minuto: ${minuto.titulo?.slice(0,50)}`);
+            generated++;
+          }
+        }
+      }
+    } catch(e) { continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "curtinhas" });
 }
 
 export default async function handler(req, res) {
@@ -533,7 +549,11 @@ export default async function handler(req, res) {
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });
   if (!body.force && !janelaOk()) return res.status(200).json({ status: "fora_horario", janela: "07:00-00:30 BRT", generated: 0 });
   const rec = await recentes();
-  try { if (body.url || body.texto) return manual(req, res, rec); return auto(req, res, rec); }
+  try {
+    if (body.url || body.texto) return manual(req, res, rec);
+    if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
+    return autoMaterias(req, res, rec);
+  }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
   return res.status(500).json({ status: "error", error: e.message, generated: 0 }); }
 }
