@@ -2,34 +2,36 @@
   'use strict';
 
   var CATS = [
-    { id:'politica',     label:'Política',       path:'/politica/',     cats:['politica'] },
-    { id:'economia',     label:'Economia',       path:'/economia/',     cats:['economia'] },
-    { id:'internacional',label:'Internacional',  path:'/internacional/',cats:['internacional'] },
-    { id:'investigativo',label:'Investigativo',  path:'/investigativo/',cats:['investigativo'] },
-    { id:'negocios',     label:'Negócios',      path:'/negocios/',     cats:['negocios'] },
-    { id:'investimentos',label:'Investimentos',  path:'/investimentos/',cats:['investimentos'] },
-    { id:'mercados',     label:'Mercados',       path:'/mercados/',     cats:['mercados'] },
-    { id:'seguros',      label:'Seguros',        path:'/seguros/',      cats:['seguros'] },
-    { id:'tributacao',   label:'Tributos',       path:'/tributos/',     cats:['tributacao'] },
-    { id:'tecnologia',   label:'Tecnologia',     path:'/tecnologia/',   cats:['tecnologia'] },
-    { id:'industria',    label:'Indústria',      path:'/industria/',    cats:['industria'] },
-    { id:'regulacao',    label:'Regulação',      path:'/regulacao/',    cats:['regulacao'] },
-    { id:'saude',        label:'Saúde',          path:'/saude/',        cats:['saude'] },
-    { id:'educacao',     label:'Educação',       path:'/educacao/',     cats:['educacao'] },
-    { id:'esportes',     label:'Esportes',       path:'/esportes/',     cats:['esportes'] },
-    { id:'seguranca',    label:'Seg. Pública',   path:'/seguranca/',    cats:['seguranca'] },
-    { id:'familia',      label:'Família',        path:'/familia/',      cats:['familia'] },
-    { id:'cultura',      label:'Cultura',        path:'/cultura/',      cats:['cultura'] },
-    { id:'variedades',   label:'Variedades',     path:'/variedades/',   cats:['variedades'] },
-    { id:'profissoes',   label:'Profissões',     path:'/profissoes/',   cats:['profissoes'] },
-    { id:'vagas',        label:'Vagas',          path:'/vagas/',        cats:['vagas'] },
-    { id:'concursos',    label:'Concursos',      path:'/concursos/',    cats:['concursos'] },
-    { id:'imoveis',      label:'Imóveis',        path:'/imoveis/',      cats:['imoveis'] },
-    { id:'esg',          label:'ESG',            path:'/esg/',          cats:['esg'] },
-    { id:'defesa',       label:'Defesa',         path:'/defesa/',       cats:['defesa'] },
-    { id:'religiao',     label:'Fé & Espiritualidade', path:'/religiao/', cats:['religiao'] },
-    { id:'parcerias',    label:'Parcerias',      path:'/parcerias/',    cats:['parcerias'] },
-    { id:'vc',           label:'Colunistas OVC',  path:'/colunistas/',  cats:['vc','colunistas'] }
+    { id:'politica',     label:'Política',       path:'/politica/',     cats:['politica'] },       // 0
+    { id:'economia',     label:'Economia',       path:'/economia/',     cats:['economia'] },       // 1
+    { id:'internacional',label:'Internacional',  path:'/internacional/',cats:['internacional'] },  // 2
+    { id:'investigativo',label:'Investigativo',  path:'/investigativo/',cats:['investigativo'] },  // 3
+    { id:'negocios',     label:'Negócios',      path:'/negocios/',     cats:['negocios'] },        // 4
+    { id:'investimentos',label:'Investimentos',  path:'/investimentos/',cats:['investimentos'] },  // 5
+    { id:'mercados',     label:'Mercados',       path:'/mercados/',     cats:['mercados'] },       // 6
+    { id:'seguros',      label:'Seguros',        path:'/seguros/',      cats:['seguros'] },        // 7
+    { id:'tributacao',   label:'Tributos',       path:'/tributos/',     cats:['tributacao','tributos'] }, // 8
+    { id:'tecnologia',   label:'Tecnologia',     path:'/tecnologia/',   cats:['tecnologia'] },     // 9
+    { id:'industria',    label:'Indústria',      path:'/industria/',    cats:['industria'] },      // 10
+    { id:'regulacao',    label:'Regulação',      path:'/regulacao/',    cats:['regulacao'] },      // 11
+    { id:'saude',        label:'Saúde',          path:'/saude/',        cats:['saude'] },          // 12
+    { id:'educacao',     label:'Educação',       path:'/educacao/',     cats:['educacao'] },       // 13
+    { id:'esportes',     label:'Esportes',       path:'/esportes/',     cats:['esportes'] },       // 14
+    { id:'seguranca',    label:'Seg. Pública',   path:'/seguranca/',    cats:['seguranca'] },      // 15
+    { id:'familia',      label:'Família',        path:'/familia/',      cats:['familia'] },        // 16
+    { id:'cultura',      label:'Cultura',        path:'/cultura/',      cats:['cultura'] },        // 17
+    { id:'variedades',   label:'Variedades',     path:'/variedades/',   cats:['variedades'] },     // 18
+    { id:'profissoes',   label:'Profissões',     path:'/profissoes/',   cats:['profissoes'] },     // 19
+    { id:'vagas',        label:'Vagas',          path:'/vagas/',        cats:['vagas','carreira'] }, // 20
+    { id:'concursos',    label:'Concursos',      path:'/concursos/',    cats:['concursos'] },      // 21
+    { id:'imoveis',      label:'Imóveis',        path:'/imoveis/',      cats:['imoveis'] },        // 22
+    { id:'esg',          label:'ESG',            path:'/esg/',          cats:['esg'] },            // 23
+    { id:'defesa',       label:'Defesa',         path:'/defesa/',       cats:['defesa'] },         // 24
+    { id:'religiao',     label:'Fé & Espiritualidade', path:'/religiao/', cats:['religiao'] },    // 25
+    { id:'parcerias',    label:'Parcerias',      path:'/parcerias/',    cats:['parcerias'] },      // 26
+    { id:'vc',           label:'Colunistas OVC',  path:'/colunistas/',  cats:['vc','colunistas'] }, // 27
+    { id:'brasil-on',    label:'Brasil On',       path:'/brasil-on/',   cats:['brasil-on'] },      // 28
+    { id:'carreira',     label:'Carreira',        path:'/carreira/',    cats:['carreira'] }        // 29
   ];
 
   var CATS_DESTAQUE = ['politica','economia','internacional','investigativo','negocios','seguros'];
@@ -68,10 +70,11 @@
       investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
-      tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
+      tributacao:'tributos', tributos:'tributos', regulacao:'regulacao', parcerias:'parcerias',
       vc:'colunistas', colunistas:'colunistas', internacional:'internacional', variedades:'variedades', geral:'politica',
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura', profissoes:'profissoes', vagas:'vagas',
-      concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+      concursos:'concursos', imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
+      'brasil-on':'brasil-on', carreira:'carreira'
     };
     var cp = catPath[p.categoria] || 'politica';
     var sl = p.slug ? p.slug.slice(0,55) : _slugify(p.titulo||'');
@@ -490,15 +493,15 @@ function buildSection(container){
   // Distribuição das categorias nos blocos
   // CATS array tem 32 categorias — distribuímos estrategicamente
 
-  var blocoACats1 = CATS.slice(0,3);   // Política, Economia, Internacional
-  var blocoBPosts = [];                 // Pílulas — preenchido após fetch
-  var bloCACatGrande = CATS[3];        // Investigativo (grande)
-  var blocoCCatsPilha = [CATS[4], CATS[5], CATS[6]]; // Negócios, Investimentos, Mercados
-  var blocoACats2 = CATS.slice(7,10);   // Seguros, Tributos, Tecnologia
-  var blocoDCats = CATS.slice(9,13);   // Tecnologia, Indústria, Regulação, Saúde
-  var blocoECat = CATS[13];            // Educação (editorial)
-  var blocoACats3 = CATS.slice(14,17); // Esportes, Seg Pública, Família
-  var blocoACats4 = CATS.slice(17,20); // Cultura, Variedades, Profissões
+  var blocoACats1 = CATS.slice(0,3);                    // Política, Economia, Internacional
+  var blocoBPosts = [];                                  // Pílulas — preenchido após fetch
+  var bloCACatGrande = CATS[3];                          // Investigativo (grande)
+  var blocoCCatsPilha = [CATS[4], CATS[5], CATS[6]];    // Negócios, Investimentos, Mercados
+  var blocoACats2 = [CATS[7], CATS[8], CATS[13]];        // Seguros, Tributos, Educação (CATS[9]=Tecnologia removido — vai em bD)
+  var blocoDCats = CATS.slice(9,13);                     // Tecnologia, Indústria, Regulação, Saúde
+  var blocoECat = CATS[14];                              // Esportes (editorial)
+  var blocoACats3 = [CATS[15], CATS[16], CATS[17]];      // Seg. Pública, Família, Cultura
+  var blocoACats4 = [CATS[18], CATS[19], CATS[25]];      // Variedades, Profissões, Religião
 
   // Montar sequência: A → B → A → C → sep → A → D → sep → E → A → A
   var bA1 = renderBlocoA([], blocoACats1);
