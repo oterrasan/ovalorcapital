@@ -334,9 +334,9 @@ ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
 §1 — O FATO: o que aconteceu. Quem, o quê, onde, quando. Uma frase direta. Dado concreto se houver.
 §2 — O CONTEXTO REAL: o que esse fato significa no cenário atual. NÃO repete §1 — expande. O que estava em jogo antes disso acontecer.
 §3 — QUEM GANHA / QUEM PERDE: consequência direta. Para quem isso importa e por quê. Dinheiro, poder, eleitor, mercado — o que muda de verdade.
-§4 — O QUE NINGUÉM DISSE: o detalhe que passou despercebido, a contradição, o número que muda tudo, ou a pergunta que fica no ar.
+§4 — O QUE OBSERVAR: o que o leitor deve acompanhar. Próximo evento, prazo, votação, decisão. Informação acionável para os próximos dias.
 
-MÍNIMO ABSOLUTO: 800 caracteres no CORPO. Cerca de 1 minuto de leitura.
+MÍNIMO ABSOLUTO: 1.000 caracteres no CORPO. Faixa ideal: 1.000 a 1.800 caracteres.
 
 FILTRO: se o fato não tiver relevância para o leitor brasileiro — empresário, investidor, cidadão — retorne TITULO: IGNORAR
 
@@ -358,7 +358,7 @@ Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
   let lastErr;
   for (const [fn, key] of pairs) {
     if (!key) continue;
-    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 300) continue; return p; } catch(e) { lastErr = e; }
+    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 600) continue; return p; } catch(e) { lastErr = e; }
   }
   throw new Error("gerarPilula falhou: " + (lastErr?.message || "sem chave"));
 }
