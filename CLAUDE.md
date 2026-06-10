@@ -2686,3 +2686,87 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
 10. AdSense aprovação — aguardando Google
 11. Google Publisher Center — aguardando aprovação
+
+---
+
+### Sessão 10/06/2026 (continuação) — VIEWS OCULTAS + PESQUISAS AUTOMÁTICAS + COLUNA-GAP
+
+#### Contexto
+
+Continuação da sessão anterior (Mais Lidos + Radar da Copa + Radar Eleitoral já implementados).
+
+#### O que foi feito
+
+**PR #133 — Ocultar contagem de views no "Mais Lidos" (mergeado em main):**
+- Roberto não queria mostrar contagens baixas (55, 50, 40...) para visitantes novos — "pega mal"
+- Decisão: manter ranking por views reais, mas não exibir o número
+- `public/js/home.js`: removida a `<span class="ovc-ml-views">👁 N leituras</span>` do HTML do card
+- Ranking continua baseado em dados reais do banco (`metrics->>'views'` DESC)
+
+**Pesquisas eleitorais automáticas — sistema completo (PR #133):**
+- Roberto queria pesquisas atualizando automaticamente a cada 2-3 dias sem depender dele
+- Solução: GitHub Actions (Mon/Wed/Fri 08h BRT) busca artigos do portal com keywords de pesquisa, extrai percentuais via OpenAI, salva em Supabase `config`
+- `api/manage.js` — 2 novas actions:
+  - `GET ?action=get_pesquisa_eleitoral` — lê `PESQUISA_ELEITORAL` do config, retorna `{pesquisa:{candidatos:[],fonte:''}}`. Cache `s-maxage=3600`. Fallback hardcoded se não encontrar.
+  - `GET ?action=update_pesquisa_eleitoral&pass=ovc-admin-2026-secreto` — busca artigos recentes com keywords de pesquisa no Supabase, extrai via OpenAI gpt-4o-mini, salva JSON no config
+- `public/js/ovc-eleitoral.js` — alterado para buscar dinamicamente:
+  - `construirBloco(artigos)` → `construirBloco(artigos, pesquisaData)` — aceita dados dinâmicos
+  - `init()` usa `Promise.all([fetch('/api/manage?action=get_pesquisa_eleitoral'), fetch('/api/portal-posts?recentes=true&limit=300')])`
+  - Fallback hardcoded: `PESQUISAS_DEFAULT = [{nome:'Lula',pct:37,...}, {nome:'Bolsonaro',pct:29,...}, {nome:'Outros',pct:34,...}]`
+- `.github/workflows/update-polls.yml` — NOVO workflow:
+  - Cron: `0 11 * * 1,3,5` (seg/qua/sex às 08h BRT)
+  - Faz GET no endpoint `update_pesquisa_eleitoral`
+  - Verifica HTTP 200 + `ok:true` na resposta
+
+**CSS column-gap iterações — PRs #134, #135, #136:**
+- Roberto queria mais espaço visual entre as 3 colunas centrais e os rails laterais
+- PR #134: `column-gap: 18px → 28px` (desktop), `14px → 22px` (tablet ≤1200px) — "não foi o bastante"
+- PR #135: `28px → 44px` (desktop), `22px → 34px` (tablet) — "ainda não foi o bastante"
+- PR #136 (final): `44px → 56px` (desktop), `34px → 42px` (tablet) — mergeado ✅
+
+**CSS atual em `.main-grid` (desktop ≥1280px):**
+```css
+.main-grid {
+  grid-template-columns: 270px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 270px;
+  column-gap: 56px;
+}
+/* tablet ≤1200px: */
+.main-grid {
+  grid-template-columns: 220px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 220px;
+  column-gap: 42px;
+}
+```
+
+---
+
+#### PRs desta sessão (10/06/2026 continuação)
+
+| PR | Descrição | Status |
+|---|---|---|
+| #132 | Atualização CLAUDE.md sessão 10/06 (PRs #130 e #131) | ✅ MERGEADO |
+| #133 | Views ocultas no Mais Lidos + pesquisas eleitorais automáticas + update-polls.yml | ✅ MERGEADO |
+| #134 | column-gap 18px→28px | ✅ MERGEADO |
+| #135 | column-gap 28px→44px | ✅ MERGEADO |
+| #136 | column-gap 44px→56px (final) | ✅ MERGEADO |
+
+---
+
+#### 🔧 PENDÊNCIAS COMPLETAS (10/06/2026 — atualizado pós-sessão)
+
+**Alta prioridade:**
+1. **Confirmar espaçamento visual** — após deploy do PR #136, Roberto confirma se 56px é suficiente ou quer mais
+2. **Verificar Mais Lidos sem views** — confirmar que cards não mostram mais o contador
+3. **Artigos Copa chegando** — pipeline gerará artigos com keywords Copa → ativarão o widget naturalmente
+4. **Artigos eleitorais chegando** — idem para Radar Eleitoral; pesquisas serão extraídas automaticamente
+
+**Médias (sessão focada):**
+5. `api/category.js` CAT_SEO — atualizar entradas SEO para novas categorias (brasil-on, carreira, tributos)
+6. Aprovar/rejeitar artigos pendentes no banco via admin
+7. `ovc-nichos.js` layout compacto — quando Roberto autorizar
+
+**Roberto faz manualmente:**
+8. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto. Deletar no projeto `ovalorcapital-xuhw`
+9. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
+10. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+11. AdSense aprovação — aguardando Google
+12. Google Publisher Center — aguardando aprovação
