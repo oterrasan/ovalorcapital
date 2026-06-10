@@ -322,6 +322,90 @@
     renderSecao('secao-regulacao',     ['regulacao','tributacao','tributos'],  cache, 4);
     renderSecao('secao-seguranca',     ['seguranca','defesa','investigativo'], cache, 4);
     renderSecao('secao-imoveis',       ['imoveis','esg'],                      cache, 4);
+
+    // ── MAIS LIDOS — dados reais do banco (views), sem repetir conteúdo recente ──
+    (async function carregarMaisLidos() {
+      try {
+        const secao = document.getElementById('ovc-mais-lidas-home');
+        if (!secao) return;
+        const d = await fetch('/api/portal-posts?maisLidos=true&limit=10').then(r => r.json());
+        const lista = d.posts || [];
+        if (!lista.length) return;
+
+        secao.style.display = '';
+        const ids = new Set(lista.map(p => p.id));
+        // Injeta CSS uma vez
+        if (!document.getElementById('ovc-mais-lidos-css')) {
+          const sty = document.createElement('style');
+          sty.id = 'ovc-mais-lidos-css';
+          sty.textContent = [
+            '.ovc-mais-lidos-wrap{max-width:1200px;margin:0 auto;padding:0 16px;}',
+            '.ovc-mais-lidos-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;',
+            '  padding-bottom:10px;border-bottom:2px solid var(--accent,#b91c1c);}',
+            '.ovc-mais-lidos-titulo{font-size:18px;font-weight:800;color:var(--text-main,#0f172a);',
+            '  letter-spacing:-.02em;text-transform:uppercase;}',
+            '.ovc-mais-lidos-badge{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;',
+            '  color:#fff;background:var(--accent,#b91c1c);padding:3px 10px;border-radius:20px;}',
+            '.ovc-mais-lidos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}',
+            '.ovc-mais-lidos-card{display:flex;gap:12px;padding:14px;background:var(--bg-elevated,#fff);',
+            '  border:1px solid var(--border-subtle,#e2e8f0);border-radius:8px;text-decoration:none;',
+            '  transition:box-shadow .15s,transform .15s;align-items:flex-start;}',
+            '.ovc-mais-lidos-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-2px);}',
+            '.ovc-ml-rank{font-size:28px;font-weight:900;color:var(--border-subtle,#e2e8f0);',
+            '  line-height:1;flex-shrink:0;font-variant-numeric:tabular-nums;min-width:36px;text-align:center;}',
+            '.ovc-ml-rank.top3{color:var(--accent,#b91c1c);}',
+            '.ovc-ml-content{flex:1;min-width:0;}',
+            '.ovc-ml-thumb{width:60px;height:45px;object-fit:cover;border-radius:4px;flex-shrink:0;}',
+            '.ovc-ml-titulo{font-size:13px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;',
+            '  margin-bottom:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
+            '.ovc-ml-meta{font-size:10px;color:var(--text-muted,#94a3b8);display:flex;gap:8px;align-items:center;}',
+            '.ovc-ml-views{font-weight:600;color:var(--accent,#b91c1c);}',
+            '@media(max-width:600px){.ovc-mais-lidos-grid{grid-template-columns:1fr;}}'
+          ].join('');
+          document.head.appendChild(sty);
+        }
+
+        secao.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'ovc-mais-lidos-wrap';
+
+        const header = document.createElement('div');
+        header.className = 'ovc-mais-lidos-header';
+        header.innerHTML =
+          '<span class="ovc-mais-lidos-badge">📊 Real</span>' +
+          '<span class="ovc-mais-lidos-titulo">Mais lidos do portal</span>';
+        wrap.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'ovc-mais-lidos-grid';
+
+        lista.forEach(function (p, i) {
+          const a = document.createElement('a');
+          a.className = 'ovc-mais-lidos-card';
+          a.href = p.url || buildUrl(p);
+          const rankClass = i < 3 ? 'ovc-ml-rank top3' : 'ovc-ml-rank';
+          const viewsFmt = p.views >= 1000
+            ? Math.round(p.views / 1000) + 'k'
+            : String(p.views);
+          const imgHtml = p.imagem
+            ? '<img class="ovc-ml-thumb" src="' + p.imagem + '" alt="" loading="lazy">'
+            : '';
+          a.innerHTML =
+            '<div class="' + rankClass + '">' + (i + 1) + '</div>' +
+            (imgHtml ? imgHtml : '') +
+            '<div class="ovc-ml-content">' +
+              '<div class="ovc-ml-titulo">' + (p.titulo || '') + '</div>' +
+              '<div class="ovc-ml-meta"><span class="ovc-ml-views">👁 ' + viewsFmt + ' leituras</span></div>' +
+            '</div>';
+          grid.appendChild(a);
+        });
+
+        wrap.appendChild(grid);
+        secao.appendChild(wrap);
+      } catch (e) {
+        console.error('[Mais Lidos]', e);
+      }
+    })();
   });
 
 })();
