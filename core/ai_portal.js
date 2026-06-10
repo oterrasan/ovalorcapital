@@ -656,21 +656,22 @@ async function callOpenAI(systemKernel, userContent, maxTokens = 8192) {
   throw new Error("OpenAI retornou resposta vazia");
 }
 
-let _geminiKeyCache = null;
-let _geminiKeyCacheTs = 0;
-async function _getGeminiKey() {
+let _geminiKeysCache = null;
+let _geminiKeysCacheTs = 0;
+async function _getGeminiKeys() {
   const now = Date.now();
-  if (_geminiKeyCache && now - _geminiKeyCacheTs < 300000) return _geminiKeyCache;
+  if (_geminiKeysCache && now - _geminiKeysCacheTs < 300000) return _geminiKeysCache;
   try {
-    const { data } = await supabase.from("config").select("value").eq("key", "GEMINI_API_KEY").single();
-    if (data?.value) { _geminiKeyCache = data.value; _geminiKeyCacheTs = now; return _geminiKeyCache; }
+    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY", "GEMINI_API_KEY_2"]);
+    const keys = {};
+    (data || []).forEach(r => { keys[r.key] = r.value; });
+    const list = [keys["GEMINI_API_KEY"], keys["GEMINI_API_KEY_2"]].filter(Boolean);
+    if (list.length) { _geminiKeysCache = list; _geminiKeysCacheTs = now; return list; }
   } catch (_) {}
-  return null;
+  return [];
 }
 
-async function callGemini(systemKernel, userContent, maxTokens = 8192) {
-  const key = await _getGeminiKey();
-  if (!key) throw new Error("GEMINI_API_KEY não configurada no Supabase config");
+async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
@@ -682,10 +683,31 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
     })
   });
   const d = await res.json();
-  if (!res.ok) throw new Error(`Gemini ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
+  if (!res.ok) {
+    const err = new Error(`Gemini ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
+    err.status = res.status;
+    throw err;
+  }
   const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
   if (text && text.length > 100) return text;
   throw new Error("Gemini retornou resposta vazia");
+}
+
+async function callGemini(systemKernel, userContent, maxTokens = 8192) {
+  const keys = await _getGeminiKeys();
+  if (!keys.length) throw new Error("GEMINI_API_KEY não configurada no Supabase config");
+  let lastErr;
+  for (const key of keys) {
+    try {
+      return await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
+    } catch (err) {
+      lastErr = err;
+      // 429 = quota atingida — tenta próxima chave
+      if (err.status === 429) { console.warn("Gemini quota atingida, tentando próxima chave..."); continue; }
+      throw err;
+    }
+  }
+  throw lastErr;
 }
 
 async function callIA(systemKernel, userContent, maxTokens = 8192) {
