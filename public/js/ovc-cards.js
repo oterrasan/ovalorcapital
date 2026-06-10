@@ -790,7 +790,11 @@ function load(){
     var right = document.querySelector('.rail-right');
     var left = document.querySelector('.rail-left');
     var tv = document.querySelector('.rail-block-tv');
-    if(right && tv && right.firstElementChild !== tv) right.insertBefore(tv, right.firstElementChild);
+    // TV OVC vai para rail-left (antes do ad-slot), não para rail-right
+    if(left && tv && tv.parentNode !== left) {
+      var adSlot = left.querySelector('.ad-slot');
+      if(adSlot) left.insertBefore(tv, adSlot); else left.appendChild(tv);
+    }
 
     if(!left) return;
     var investigativo = null;
