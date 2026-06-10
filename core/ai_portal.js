@@ -636,6 +636,47 @@ async function callOpenAI(systemKernel, userContent, maxTokens = 8192) {
   throw new Error("OpenAI retornou resposta vazia");
 }
 
+let _geminiKeyCache = null;
+let _geminiKeyCacheTs = 0;
+async function _getGeminiKey() {
+  const now = Date.now();
+  if (_geminiKeyCache && now - _geminiKeyCacheTs < 300000) return _geminiKeyCache;
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "GEMINI_API_KEY").single();
+    if (data?.value) { _geminiKeyCache = data.value; _geminiKeyCacheTs = now; return _geminiKeyCache; }
+  } catch (_) {}
+  return null;
+}
+
+async function callGemini(systemKernel, userContent, maxTokens = 8192) {
+  const key = await _getGeminiKey();
+  if (!key) throw new Error("GEMINI_API_KEY não configurada no Supabase config");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: systemKernel }] },
+      contents: [{ role: "user", parts: [{ text: userContent }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens }
+    })
+  });
+  const d = await res.json();
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
+  const text = d.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (text && text.length > 100) return text;
+  throw new Error("Gemini retornou resposta vazia");
+}
+
+async function callIA(systemKernel, userContent, maxTokens = 8192) {
+  try {
+    return await callGemini(systemKernel, userContent, maxTokens);
+  } catch (geminiErr) {
+    console.error("Gemini falhou, fallback OpenAI:", geminiErr.message);
+    return await callOpenAI(systemKernel, userContent, maxTokens);
+  }
+}
+
 const SUBCATS_POR_CAT = {
   politica:      ["Governo Federal","Congresso Nacional","Eleições","Partidos Políticos","STF & Judiciário","Política Estadual","Câmara dos Deputados","Senado Federal","Poder Executivo"],
   economia:      ["Política Econômica","Inflação & Preços","Taxa Selic","PIB & Crescimento","Câmbio & Dólar","Fiscal & Orçamento","Emprego & Renda","Banco Central"],
@@ -889,11 +930,11 @@ async function gerarComRevisao(kernel, userContent, {
   tipoConteudo = "padrao"
 } = {}) {
   const repairRules = tipoConteudo === "coluna" ? COLUNA_REPAIR_RULES : OVC_REPAIR_RULES;
-  let raw = await callOpenAI(kernel + "\n\n" + repairRules, userContent, maxTokens);
+  let raw = await callIA(kernel + "\n\n" + repairRules, userContent, maxTokens);
   let result = parse(raw);
   let issues = auditarConteudoOVC(result, auditOptions);
   if (issues.length > 0) {
-    raw = await callOpenAI(kernel + "\n\n" + repairRules, buildRepairContent(userContent, issues), maxTokens);
+    raw = await callIA(kernel + "\n\n" + repairRules, buildRepairContent(userContent, issues), maxTokens);
     result = parse(raw);
     issues = auditarConteudoOVC(result, auditOptions);
   }
