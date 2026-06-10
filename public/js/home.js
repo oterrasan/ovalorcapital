@@ -27,6 +27,12 @@
 
   function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 
+  function dentroJanela(p, horas) {
+    const ts = p.published_at || p.created_at;
+    if (!ts) return false;
+    return (Date.now() - new Date(ts).getTime()) <= horas * 3600000;
+  }
+
   function wireFeaturedCard(cardId, url) {
     const card = document.getElementById(cardId);
     if (!card || !url) return;
@@ -93,6 +99,10 @@
       for (const cat of ['politica','economia']) {
         (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
+      // Hierarquia: preferir últimas 24h; se vazio, ampliar para 48h
+      let poolFiltrado = pool.filter(p => dentroJanela(p, 24));
+      if (!poolFiltrado.length) poolFiltrado = pool.filter(p => dentroJanela(p, 48));
+      pool = poolFiltrado;
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -113,7 +123,7 @@
 
   function carregarCardNegocios(cache, offset) {
     try {
-      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
+      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios' && dentroJanela(p, 48));
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -142,7 +152,7 @@
     try {
       let pool = [];
       for (const cat of ['investimentos','seguros','mercados','economia']) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
+        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p, 48)).forEach(p => pool.push(p));
       }
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
@@ -212,7 +222,7 @@
       const posts = [];
       for (const cat of cats) {
         for (const p of (cache[cat]||[])) {
-          if (!idsDestaque.has(p.id) && posts.length < max) posts.push(p);
+          if (!idsDestaque.has(p.id) && dentroJanela(p, 48) && posts.length < max) posts.push(p);
         }
       }
       if (!posts.length) return;
@@ -238,7 +248,7 @@
       for (const cat of secao.cats) {
         const filtrados = (cache[cat]||[]).filter(p => {
           const tags = Array.isArray(p.tags) ? p.tags : [];
-          return secao.cats.includes(p.categoria) || tags.some(t => secao.cats.includes(t));
+          return (secao.cats.includes(p.categoria) || tags.some(t => secao.cats.includes(t))) && dentroJanela(p, 48);
         });
         posts = posts.concat(filtrados);
       }
