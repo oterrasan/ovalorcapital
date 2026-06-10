@@ -174,7 +174,7 @@
   }
 
   function injetar(artigos, pesquisaData) {
-    var rail = document.querySelector('.rail-left');
+    var rail = document.querySelector('.rail-right');
     if (!rail) return;
     var bloco = construirBloco(artigos, pesquisaData);
     // Inserir após o último .rail-block existente
