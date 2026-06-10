@@ -395,7 +395,6 @@
             (imgHtml ? imgHtml : '') +
             '<div class="ovc-ml-content">' +
               '<div class="ovc-ml-titulo">' + (p.titulo || '') + '</div>' +
-              '<div class="ovc-ml-meta"><span class="ovc-ml-views">👁 ' + viewsFmt + ' leituras</span></div>' +
             '</div>';
           grid.appendChild(a);
         });
