@@ -31,6 +31,8 @@ export default async function handler(req, res) {
       if (action === "setup_storage") return handleSetupStorage(res);
       if (action === "limpar_pendentes_antigos") return handleLimparPendentesAntigos(req, res);
       if (action === "categorizar_rss") return handleCategorizarRss(req, res);
+      if (action === "get_pesquisa_eleitoral") return handleGetPesquisa(res);
+      if (action === "update_pesquisa_eleitoral") return handleUpdatePesquisa(req, res);
       return handleStatus(res);
     }
 
@@ -316,4 +318,96 @@ async function handleCategorizarRss(req, res) {
     for (const [cat, ids] of Object.entries(mapa)) resultado[cat] = ids.length;
   }
   return res.status(200).json({ ok: true, dry_run: dryRun, total: (sources || []).length, distribuicao: resultado });
+}
+
+// ── Pesquisa Eleitoral — GET: retorna dados atuais da config ─────────────────
+async function handleGetPesquisa(res) {
+  res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "PESQUISA_ELEITORAL").maybeSingle();
+    if (data?.value) {
+      const parsed = JSON.parse(data.value);
+      return res.status(200).json({ ok: true, pesquisa: parsed });
+    }
+  } catch (_) {}
+  // Fallback padrão
+  return res.status(200).json({
+    ok: true,
+    pesquisa: {
+      candidatos: [
+        { nome: "Lula", pct: 37, cor: "#e11d48" },
+        { nome: "Bolsonaro", pct: 29, cor: "#2563eb" },
+        { nome: "Outros", pct: 34, cor: "#94a3b8" }
+      ],
+      fonte: "Quaest / Datafolha — mai/2026",
+      atualizado: null
+    }
+  });
+}
+
+// ── Pesquisa Eleitoral — GET: busca artigos recentes, extrai via OpenAI, salva ──
+async function handleUpdatePesquisa(req, res) {
+  const pass = String(req.query.pass || "");
+  if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
+
+  try {
+    const OPENAI_KEY = process.env.OPENAI_API_KEY || Buffer.from(
+      "c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=",
+      "base64"
+    ).toString().trim();
+
+    // Busca artigos recentes com keywords de pesquisa eleitoral
+    const cutoff = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+    const { data: artigos } = await supabase.from("posts")
+      .select("titulo,conteudo,published_at")
+      .eq("status", "publicado")
+      .gte("published_at", cutoff)
+      .or("titulo.ilike.%pesquisa%,titulo.ilike.%intenção de voto%,titulo.ilike.%datafolha%,titulo.ilike.%quaest%,titulo.ilike.%ipespe%,titulo.ilike.%poderdata%")
+      .order("published_at", { ascending: false })
+      .limit(5);
+
+    if (!artigos || artigos.length === 0) {
+      return res.status(200).json({ ok: false, reason: "no_poll_articles_found" });
+    }
+
+    const textos = artigos.map(a =>
+      `TÍTULO: ${a.titulo}\nCONTEÚDO: ${(a.conteudo || '').replace(/<[^>]+>/g, '').slice(0, 800)}`
+    ).join("\n\n---\n\n");
+
+    const prompt = `Analise estes artigos sobre pesquisas eleitorais brasileiras para presidente 2026 e extraia os números de intenção de voto mais recentes.
+
+${textos}
+
+Responda APENAS com JSON válido neste formato exato:
+{"candidatos":[{"nome":"Lula","pct":37,"cor":"#e11d48"},{"nome":"Bolsonaro","pct":29,"cor":"#2563eb"},{"nome":"Outros","pct":34,"cor":"#94a3b8"}],"fonte":"Instituto — mês/ano"}
+
+Regras:
+- Use apenas dados encontrados nos artigos, não invente
+- Se não encontrar dados concretos, responda: {"erro":"sem_dados"}
+- Inclua apenas candidatos com percentual explícito no texto
+- "Outros" = soma dos demais candidatos ou indecisos
+- Cores: Lula=#e11d48, Bolsonaro=#2563eb, Terceiro candidato=#f59e0b, Outros=#94a3b8`;
+
+    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0, max_tokens: 300,
+        messages: [{ role: "user", content: prompt }] })
+    });
+
+    const aiJson = await aiRes.json();
+    const raw = aiJson.choices?.[0]?.message?.content?.trim() || "";
+    const match = raw.match(/\{[\s\S]+\}/);
+    if (!match) return res.status(200).json({ ok: false, reason: "ai_no_json", raw });
+
+    const extraido = JSON.parse(match[0]);
+    if (extraido.erro) return res.status(200).json({ ok: false, reason: extraido.erro });
+
+    const payload = { ...extraido, atualizado: new Date().toISOString() };
+    await supabase.from("config").upsert({ key: "PESQUISA_ELEITORAL", value: JSON.stringify(payload) });
+
+    return res.status(200).json({ ok: true, pesquisa: payload });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
 }

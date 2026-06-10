@@ -1,0 +1,32 @@
+name: Atualizar Pesquisas Eleitorais
+
+on:
+  schedule:
+    # Roda às 08:00 BRT (11:00 UTC) a cada 2 dias (seg, qua, sex)
+    - cron: '0 11 * * 1,3,5'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Atualizar pesquisas via portal
+        run: |
+          echo "Buscando artigos recentes e extraindo dados de pesquisa..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            "https://www.ovalorcapital.com.br/api/manage?action=update_pesquisa_eleitoral&pass=ovc-admin-2026-secreto")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "Status: $HTTP_CODE"
+          echo "Resposta: $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Falha na atualização (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          OK=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('ok','false'))" 2>/dev/null || echo "false")
+          if [ "$OK" = "True" ] || [ "$OK" = "true" ]; then
+            echo "Pesquisas atualizadas com sucesso!"
+          else
+            REASON=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('reason','unknown'))" 2>/dev/null || echo "unknown")
+            echo "Sem atualização disponível: $REASON (normal se não há artigos de pesquisa recentes)"
+          fi

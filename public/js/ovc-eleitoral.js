@@ -83,15 +83,14 @@
     document.head.appendChild(sty);
   }
 
-  // Pesquisas hardcoded (atualizar conforme novas pesquisas forem publicadas)
-  // Formato: [{ nome, pct, cor }, ...]
-  var PESQUISAS = [
+  var PESQUISAS_DEFAULT = [
     { nome: 'Lula', pct: 37, cor: '#e11d48' },
     { nome: 'Bolsonaro', pct: 29, cor: '#2563eb' },
     { nome: 'Outros', pct: 34, cor: '#94a3b8' }
   ];
+  var FONTE_DEFAULT = 'Quaest / Datafolha — mai/2026';
 
-  function construirBloco(artigos) {
+  function construirBloco(artigos, pesquisaData) {
     injetarCSS();
 
     var bloco = document.createElement('div');
@@ -126,10 +125,13 @@
     bloco.appendChild(cd);
 
     // Pesquisas eleitorais
+    var candidatos = (pesquisaData && pesquisaData.candidatos) || PESQUISAS_DEFAULT;
+    var fonte = (pesquisaData && pesquisaData.fonte) || FONTE_DEFAULT;
+
     var pesqDiv = document.createElement('div');
     pesqDiv.className = 'ovc-el-pesquisas';
     pesqDiv.innerHTML = '<div class="ovc-el-pesq-title">Intenção de voto — Presidencial</div>';
-    PESQUISAS.forEach(function (item) {
+    candidatos.forEach(function (item) {
       var row = document.createElement('div');
       row.className = 'ovc-el-barra-row';
       row.innerHTML =
@@ -137,7 +139,7 @@
         '<div class="ovc-el-barra"><div class="ovc-el-fill" style="width:' + item.pct + '%;background:' + item.cor + ';"></div></div>';
       pesqDiv.appendChild(row);
     });
-    pesqDiv.innerHTML += '<div class="ovc-el-pesq-fonte">Fonte: Quaest / Datafolha — mai/2026</div>';
+    pesqDiv.innerHTML += '<div class="ovc-el-pesq-fonte">Fonte: ' + esc(fonte) + '</div>';
     bloco.appendChild(pesqDiv);
 
     // Artigos políticos
@@ -171,10 +173,10 @@
     return bloco;
   }
 
-  function injetar(artigos) {
+  function injetar(artigos, pesquisaData) {
     var rail = document.querySelector('.rail-left');
     if (!rail) return;
-    var bloco = construirBloco(artigos);
+    var bloco = construirBloco(artigos, pesquisaData);
     // Inserir após o último .rail-block existente
     var blocos = rail.querySelectorAll('.rail-block');
     if (blocos.length) {
@@ -186,22 +188,21 @@
   }
 
   function init() {
-    // Somente artigos eleitorais — sem fallback para conteúdo geral de política
     var EL_KEYWORDS = ['eleição','eleições','candidat','presidencial','eleitoral','voto','urna','tse','pleito','campanha eleitoral','pesquisa eleitoral','datafolha','quaest','ipespe','intenção de voto','debate presidencial','chapa','coligação','programa de governo','registro de candidatura','primeiro turno','segundo turno','governador','senado federal','câmara dos deputados','vereador','prefeito'];
 
-    fetch('/api/portal-posts?recentes=true&limit=300')
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        var todos = d.posts || [];
-        var artigos = todos.filter(function (p) {
-          var titulo = (p.titulo || '').toLowerCase();
-          return EL_KEYWORDS.some(function (kw) { return titulo.indexOf(kw) >= 0; });
-        });
-        injetar(artigos);
-      })
-      .catch(function () {
-        injetar([]);
+    // Busca pesquisa e artigos em paralelo
+    Promise.all([
+      fetch('/api/manage?action=get_pesquisa_eleitoral').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).catch(function(){ return { posts: [] }; })
+    ]).then(function(results) {
+      var pesquisaData = (results[0] && results[0].pesquisa) || null;
+      var todos = (results[1] && results[1].posts) || [];
+      var artigos = todos.filter(function (p) {
+        var titulo = (p.titulo || '').toLowerCase();
+        return EL_KEYWORDS.some(function (kw) { return titulo.indexOf(kw) >= 0; });
       });
+      injetar(artigos, pesquisaData);
+    });
   }
 
   if (document.readyState === 'loading') {
