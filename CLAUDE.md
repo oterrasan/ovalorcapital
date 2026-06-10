@@ -51,15 +51,17 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 // PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
 ```
 
-**Prompt atual (aprovado pelo dono em 17/05/2026):**
-- Estilo: Reuters/Bloomberg, jornalístico sênior
+**Prompt atual — MASTER_PROMPT OVC V4 (aprovado pelo dono em 10/06/2026):**
+- Estilo: Reuters/Bloomberg/Valor Econômico, jornalístico sênior
 - SEO: Google News + Google Discover
 - Formato de saída: HTML puro (nunca markdown)
 - META_DESCRICAO: 141–155 chars
 - Parágrafos: máx 3 frases (MobileUX)
-- Jargão proibido: 21 termos listados
+- Jargão proibido: lista expandida
 - Gancho final proibido (ex: "Acompanhe o portal...")
-- gpt-4o-mini, temperature 0.3, max_tokens 8192
+- **Blindagem jurídica ativa:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, nunca publicar menores de idade, sempre atribuir com "segundo", "de acordo com", "conforme"
+- **Hierarquia de IAs:** Gemini 2.0 Flash (primário) → Gemini key 2 (fallback 429) → OpenAI gpt-4o-mini (fallback final)
+- Linha final: `O TEMA e o CONTEXTO É: _____` — placeholder; tema real chega como `userContent` separado (não quebra o prompt)
 
 ---
 
@@ -2790,3 +2792,202 @@ Roberto confirmou que as posições dos radares de Copa e Eleições foram para 
 10. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
 11. AdSense aprovação — aguardando Google
 12. Google Publisher Center — aguardando aprovação
+
+---
+
+### Sessão 10/06/2026 (continuação 3) — MASTER_PROMPT V4 + GEMINI DUAL-KEY + BLINDAGEM JURÍDICA
+
+#### Contexto
+
+Continuação da mesma sessão do dia 10/06/2026. Roberto pediu revisão e validação do MASTER_PROMPT V4, configuração das chaves Gemini no Supabase, e implementação de fallback automático com duas chaves Gemini.
+
+---
+
+#### O que foi feito
+
+**PR #144 — MASTER_PROMPT OVC V4 com Blindagem Jurídica (mergeado, commit `0f560bd45d9a6ca664d07c6d96430bdb469a39fa`):**
+- `core/ai_portal.js`: MASTER_PROMPT atualizado para versão V4 aprovada por Roberto
+- **Blindagem jurídica incluída no prompt:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, nunca publicar menores de idade, sempre atribuir com "segundo", "de acordo com", "conforme"
+- **Padrão Valor Econômico** adicionado ao estilo editorial (além de Reuters/Bloomberg)
+- Lista de expressões proibidas expandida
+- Linha final do prompt: `O TEMA e o CONTEXTO É: _________________________________________` — placeholder visual para o modelo (NÃO quebra o prompt — ver abaixo)
+
+**Resolução da GEMINI_API_KEY:**
+- Key estava ausente tanto do Supabase quanto do Vercel Dashboard
+- Roberto inseriu via SQL Editor do Supabase:
+  ```sql
+  INSERT INTO config (key, value) VALUES ('GEMINI_API_KEY', 'chave_real_aqui');
+  ```
+- Problema: primeira execução inseriu valor literal `'SUA_CHAVE_AQUI'` (placeholder). Fix:
+  ```sql
+  UPDATE config SET value = 'chave_real' WHERE key = 'GEMINI_API_KEY';
+  -- Limpeza de linha duplicada:
+  DELETE FROM config WHERE key = 'GEMINI_API_KEY' AND ctid NOT IN (SELECT min(ctid) FROM config WHERE key = 'GEMINI_API_KEY');
+  ```
+- Confirmado: key com prefixo `AQ.Ab8RN6J` presente e única na tabela config ✅
+
+**PR #145 — Gemini dual-key fallback automático (mergeado, commit `164115ccf12ec9d5585dbb67284829d417d91847`):**
+- `core/ai_portal.js`: sistema de duas chaves Gemini com failover automático em caso de quota (HTTP 429)
+- Roberto adicionou `GEMINI_API_KEY_2` no Supabase config via SQL Editor
+
+**Arquitetura do dual-key:**
+```js
+async function _getGeminiKeys() {
+  // Cache 5min — busca GEMINI_API_KEY e GEMINI_API_KEY_2 em batch único do Supabase
+  const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY", "GEMINI_API_KEY_2"]);
+  // Retorna array [key1, key2] (filtra vazios)
+}
+
+async function callGemini(systemKernel, userContent, maxTokens = 8192) {
+  const keys = await _getGeminiKeys();
+  for (const key of keys) {
+    try { return await _callGeminiWithKey(key, ...); }
+    catch (err) {
+      if (err.status === 429) { continue; }  // só rotaciona em quota exceeded
+      throw err;  // outros erros propagam imediatamente
+    }
+  }
+  throw lastErr;
+}
+
+async function callIA(systemKernel, userContent, maxTokens = 8192) {
+  try { return await callGemini(...); }
+  catch { return await callOpenAI(...); }  // fallback final
+}
+```
+
+**Hierarquia de IAs atual (após PRs #143, #144, #145):**
+```
+Gemini 2.0 Flash (key 1) → Gemini 2.0 Flash (key 2, se 429) → OpenAI gpt-4o-mini (fallback final)
+```
+Todos os artigos normais, reescritas, pílulas, radar e minuto passam por esta hierarquia.
+
+---
+
+#### Explicação da linha `O TEMA e o CONTEXTO É: _____`
+
+Roberto perguntou se o placeholder em branco ao final do MASTER_PROMPT V4 quebraria o sistema.
+
+**Resposta:** NÃO quebra.
+
+- O MASTER_PROMPT vai como `systemInstruction` para o Gemini (parâmetro separado)
+- O texto do artigo/RSS vai como `userContent` (segundo argumento de `callIA()`) → `contents[0].parts[0].text` na API do Gemini
+- O `_____` fica literalmente em branco no system prompt
+- O modelo vê ambos em contexto: system instruction + user message
+- A linha funciona como marcador visual para o modelo — "o que vier na mensagem do usuário é o tema"
+- **Arquitetura correta:** system prompt = regras e estilo / user message = conteúdo a processar
+
+---
+
+#### Problema: Vercel 100 deploys/day (atingido em 10/06/2026)
+
+- Limite do plano gratuito Vercel: 100 deploys por dia, reseta à meia-noite UTC (21h BRT)
+- PRs #144 e #145 tiveram preview deploy falhando com "Resource is limited"
+- CI check "Verificar arquivos críticos" rodou e passou normalmente (é workflow separado do deploy)
+- Merges foram possíveis porque `mergeable_state: "clean"` no GitHub
+- Deploy de produção (via `deploy.yml` disparado pelo push em main) é independente dos previews
+
+---
+
+#### PRs desta sessão (10/06/2026 — continuação 3)
+
+| PR | Commit | Descrição | Status |
+|---|---|---|---|
+| #144 | `0f560bd4` | MASTER_PROMPT OVC V4 + Blindagem Jurídica | ✅ MERGEADO |
+| #145 | `164115cc` | Gemini dual-key fallback automático (key1 → key2 → OpenAI) | ✅ MERGEADO |
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### Estado das chaves de IA (10/06/2026)
+
+| Chave | Onde está | Status |
+|---|---|---|
+| `GEMINI_API_KEY` | Supabase config (`config` table, key = `GEMINI_API_KEY`) | ✅ Ativa (prefixo AQ.Ab8RN6J) |
+| `GEMINI_API_KEY_2` | Supabase config (`config` table, key = `GEMINI_API_KEY_2`) | ✅ Ativa (inserida por Roberto) |
+| OpenAI (hardcoded base64) | `core/ai_portal.js` linha ~7 + `api/run_portal.js` | ✅ Fallback garantido |
+| `OPENAI_API_KEY` | Vercel Dashboard projeto `ovalorcapital-xuhw` | ✅ (Roberto adicionou em 25/05/2026) |
+
+**NUNCA pedir chaves de IA a Roberto** — todas estão documentadas acima e hardcoded no código.
+
+---
+
+# ══════════════════════════════════════════════════════
+# 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 10/06/2026 13:06 BRT
+# ══════════════════════════════════════════════════════
+
+> Última atualização: 10/06/2026. Roberto pediu lista explícita e completa de TUDO pendente.
+
+## 🔴 PENDÊNCIAS CRÍTICAS — requerem ação imediata
+
+| # | Pendência | Quem | Por quê é crítico |
+|---|---|---|---|
+| P1 | **Confirmar deploy do PR #143** (Gemini como engine primária) | Claude verifica | PR mergeado mas Vercel pode ter falhado no limite de 100 deploys. Sem o deploy, produção ainda usa código pré-Gemini |
+| P2 | **Confirmar deploy dos PRs #144 e #145** | Claude verifica | MASTER_PROMPT V4 + dual-key Gemini. Mesma questão de limite de deploys |
+| P3 | **Deletar SUPABASE_KEY env var no Vercel** (`ovalorcapital-xuhw`) | **Roberto** | Ainda aponta para banco morto `bfsegqdgscudtdgwdyci`. Código usa hardcoded mas se alguém usar `process.env.SUPABASE_KEY` vai falhar |
+
+## 🟡 PENDÊNCIAS MÉDIAS — fazer em próxima sessão focada
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P4 | **`api/category.js` CAT_SEO** — entradas SEO desatualizadas | Claude | Categorias `brasil-on`, `carreira`, `tributos` têm títulos/descrições incorretos ou com encoding errado. Afeta CTR no Google |
+| P5 | **Aprovar artigos pendentes no admin** | **Roberto** | Admin → Postagens → filtro 'pendente'. Sitemap só indexa `status='publicado'` — pendentes ficam invisíveis para o Google |
+| P6 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`. Categorias das 815 fontes desatualizadas. Primeiro rodar com `&dry=1` para ver distribuição |
+| P7 | **Definir percentuais por categoria no pipeline** | **Roberto** | Distribuição atual é uniforme (random). Roberto quer definir foco editorial (ex: 30% economia, 20% política, etc.) |
+| P8 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto". Quando autorizar: apenas título, sem resumo, sem fundo colorido excessivo |
+| P9 | **`/vc/contato/index.html`** — página não existe | Claude | Qualquer link para `/vc/contato/` cai no article handler e mostra página quebrada |
+| P10 | **Verificar "Mais Lidos"** — acumular views reais | Aguardar | Ranking por views reais do banco. Com pipeline rodando, views vão acumular naturalmente |
+
+## 🟢 PENDÊNCIAS BAIXAS — fazer quando possível
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P11 | **`api/category.js` — rotas brasil-on e carreira no vercel.json** | Claude (commit isolado) | `/brasil-on/` e `/carreira/` precisam de rota explícita → `api/category.js`. Commit ISOLADO (REGRA ZERO-F) |
+| P12 | **Verificar artigos Copa chegando** | Aguardar pipeline | Pipeline gerará artigos com keywords Copa → widget `ovc-copa.js` ativará automaticamente |
+| P13 | **Verificar artigos eleitorais chegando** | Aguardar pipeline | Idem para Radar Eleitoral; pesquisas serão extraídas pelo workflow `update-polls.yml` (seg/qua/sex 08h BRT) |
+| P14 | **Senha admin hardcoded** — linha 139 do `admin/index.html` | Claude (baixa urgência) | Trocar por hash SHA-256. Baixo risco pois admin fica atrás de senha |
+| P15 | **Novas subcategorias em Internacional** | Roberto define, Claude implementa | Roberto mencionou: "Política Internacional" e "Conflitos & Geopolítica" |
+| P16 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Roberto anotou como categoria futura quando decidir |
+| P17 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+ artigos) e templo japonês (~10 artigos) ainda publicados |
+
+## 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
+
+| # | Pendência | Urgência | Detalhes |
+|---|---|---|---|
+| R1 | **Deletar SUPABASE_KEY env var morta no Vercel** | Alta | Projeto `ovalorcapital-xuhw` → Settings → Environment Variables → deletar `SUPABASE_KEY` (aponta para banco morto `bfsegqdgscudtdgwdyci`) |
+| R2 | **Instagram SSL** | Média | `ovalorcapital.com.br` (non-www) falha com `ERR_CONNECTION_TIMED_OUT` no IAB do Instagram. Verificar certificado SSL no Vercel Dashboard para o domínio sem www |
+| R3 | **Google Indexing API** | Média | `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Sem ela, artigos novos só são descobertos pelo crawl orgânico (pode levar dias). Adicionar JSON da service account no Vercel Dashboard |
+| R4 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586`. Site verificado ✅. Aguardando aprovação do Google (pode levar dias/semanas) |
+| R5 | **AdSense pagamento** | Quando aprovado | Após aprovação: preencher dados bancários em "Conte sobre você" → "Inserir informações" |
+| R6 | **Google Publisher Center** | Baixa | Portal cadastrado. Aguardando aprovação para Google Discover |
+| R7 | **Aprovar artigos pendentes** | Alta | Admin → Postagens → filtro 'pendente'. Pipeline está ativo, artigos acumulando na fila |
+| R8 | **Vercel projetos duplicados** | Baixa | Existem 3 projetos (`ovalorcapital`, `ovalorcapital-xuhw`, `ovalorcapital-hubx`). Identificar qual serve www + deletar os outros. CUIDADO: só deletar depois de confirmar qual é o ativo |
+| R9 | **SQL tabelas Supabase** | Baixa | Tabelas `image_bank` e `colunistas` precisam ser criadas se ainda não existem (ver seção 4 deste arquivo) |
+
+## ✅ CONFIRMADO FUNCIONANDO
+
+| Sistema | Status | Última verificação |
+|---|---|---|
+| Pipeline automático | ✅ ATIVO | 09/06/2026 |
+| Gemini engine primária | ✅ Code em main | Deploy a confirmar |
+| Gemini dual-key (key1+key2) | ✅ Code em main | PR #145 mergeado |
+| OpenAI fallback hardcoded | ✅ ATIVO | core/ai_portal.js + run_portal.js |
+| MASTER_PROMPT V4 + Blindagem Jurídica | ✅ Code em main | PR #144 mergeado |
+| Sistema de nichos (Pílula/Radar/Minuto) | ✅ ATIVO | 09/06/2026 |
+| Radar da Copa 2026 | ✅ ATIVO | 10/06/2026 |
+| Radar Eleitoral 2026 | ✅ ATIVO | 10/06/2026 |
+| Mais Lidos (ranking por views reais) | ✅ ATIVO | 10/06/2026 |
+| Pesquisas eleitorais automáticas | ✅ ATIVO | workflow update-polls.yml seg/qua/sex |
+| Branch protection em main | ✅ ATIVO | Roberto ativou 05/06/2026 |
+| CI check portal-validate.yml | ✅ ATIVO | bloqueia PRs ruins |
+| Supabase banco novo | ✅ ATIVO | yntwvfcxjardzafdqanj |
+| AdSense ads.txt | ✅ VERIFICADO | public/ads.txt |
+| Sitemap dinâmico | ✅ ATIVO | api/sitemap.js |
