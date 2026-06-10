@@ -186,26 +186,17 @@
   }
 
   function init() {
-    // Palavras-chave para filtrar artigos eleitorais
-    var EL_KEYWORDS = ['eleição','eleições','candidat','presidente','presidencial','voto','urna','tse','lula','bolsonaro','governador','senado','câmara'];
+    // Somente artigos eleitorais — sem fallback para conteúdo geral de política
+    var EL_KEYWORDS = ['eleição','eleições','candidat','presidencial','eleitoral','voto','urna','tse','pleito','campanha eleitoral','pesquisa eleitoral','datafolha','quaest','ipespe','intenção de voto','debate presidencial','chapa','coligação','programa de governo','registro de candidatura','primeiro turno','segundo turno','governador','senado federal','câmara dos deputados','vereador','prefeito'];
 
     fetch('/api/portal-posts?recentes=true&limit=300')
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var todos = d.posts || [];
         var artigos = todos.filter(function (p) {
-          var cat = (p.categoria || '').toLowerCase();
-          if (cat !== 'politica' && cat !== 'brasil-on') return false;
           var titulo = (p.titulo || '').toLowerCase();
           return EL_KEYWORDS.some(function (kw) { return titulo.indexOf(kw) >= 0; });
         });
-        // Fallback: se nenhum artigo eleitoral específico, usar qualquer coisa de política
-        if (!artigos.length) {
-          artigos = todos.filter(function (p) {
-            var cat = (p.categoria || '').toLowerCase();
-            return cat === 'politica' || cat === 'brasil-on';
-          }).slice(0, 5);
-        }
         injetar(artigos);
       })
       .catch(function () {
