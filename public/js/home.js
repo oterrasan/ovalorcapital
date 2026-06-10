@@ -28,7 +28,7 @@
   function stripMd(t){ return (t||'').replace(/\*\*/g,'').replace(/^#+\s*/gm,'').trim(); }
 
   function dentroJanela(p, horas) {
-    const ts = p.published_at || p.created_at;
+    const ts = p.data || p.published_at || p.created_at;
     if (!ts) return false;
     return (Date.now() - new Date(ts).getTime()) <= horas * 3600000;
   }
