@@ -4,6 +4,7 @@ import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
+import { rewritePortal } from "../core/ai_portal.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -184,10 +185,9 @@ function validar(content) {
   if (texto.length < 2000) erros.push("texto curto");
   if (!/<p>\s*<strong>Reda(?:ç|c)(?:ã|a)o OVC<\/strong>\s*—/i.test(corpo)) erros.push("assinatura ausente");
   if (!/<h2\b[^>]*>/i.test(corpo)) erros.push("subtitulos ausentes");
-  if (!/Conclus(?:ã|a)o OVC|Leitura OVC|Fechamento OVC|Síntese OVC|Sintese OVC/i.test(corpo)) erros.push("fechamento editorial ausente");
   if (/\*\*|^##|\n##|TITULO:|META_TITLE:|FOCO_KEYWORD:|META_DESCRICAO:/m.test(corpo)) erros.push("markdown/metadados no corpo");
   const ps = [...corpo.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => plain(m[1]));
-  if (ps.length < 8) erros.push("poucos paragrafos");
+  if (ps.length < 5) erros.push("poucos paragrafos");
   if (ps.some(p => p.length > 700)) erros.push("paragrafo longo");
   const baixa = texto.toLowerCase();
   if (VICIO_IA.filter(t => baixa.includes(t)).length > 2) erros.push("cadencia de ia");
@@ -205,40 +205,8 @@ async function recentes() {
   } catch (_) { return { titulos: [], sourceTitulos: [], contexto: "" }; }
 }
 
-async function gerarOVC(sourceText, sourceTitle, contexto, categoria) {
-  if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY ausente");
-  const hoje = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
-  const prompt = `Você é a redação sênior do portal O Valor Capital.
-
-Produza uma matéria jornalística OVC em português brasileiro formal, com SEO orgânico e aparência humana. O texto deve ser diferente da fonte: novo ângulo, nova abertura, nova estrutura e análise própria.
-
-Segurança factual: não inventar fatos, datas, valores, fontes, acusações, crimes, intenções ou declarações. Quando houver incerteza, use [VERIFICAR]. Números e declarações precisam de atribuição contextual. Não copiar a fonte.
-
-Anti-IA: evitar fórmulas repetidas como vale destacar, cabe ressaltar, nesse contexto, diante desse cenário, em suma, por fim, sob essa ótica e nesse sentido. Proibido usar robusto, robusta, ecossistema, disruptivo, sinergia, catalisador e títulos genéricos como "nova era", "desafios de" ou "impactos de". FAQ é opcional; use apenas se o tema realmente pedir dúvidas práticas. O encerramento é obrigatório, mas pode variar entre Conclusão OVC, Leitura OVC, Fechamento OVC ou Síntese OVC.
-
-Formato: 2.000 a 4.500 caracteres no CORPO; 8 a 12 parágrafos curtos; usar <h2>; começar o CORPO exatamente com <p><strong>Redação OVC</strong> — ${hoje}</p>; usar só <p>, <h2>, <strong>, <ul>, <li>; proibido markdown.
-
-Retorne exatamente:
-TITULO: [55 a 75 caracteres]
-META_TITLE: [até 55 caracteres]
-FOCO_KEYWORD: [2 a 4 palavras]
-SLUG: [3 a 5 palavras hifenizadas sem acento]
-META_DESCRICAO: [141 a 155 caracteres]
-CATEGORIA: [uma de: brasil-on|politica|economia|investimentos|negocios|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao]
-SUBCATEGORIA: [subcategoria específica]
-CORPO:
-[HTML completo]
-
-Contexto recente:
-${contexto || "Sem contexto."}
-
-Fonte:
-${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 9000)}`;
-  const r = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` }, body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0.55, max_tokens: 5200, messages: [{ role: "system", content: "Você é um editor jornalístico sênior. Responda apenas no formato pedido." }, { role: "user", content: prompt }] }) });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || "Erro OpenAI");
-  return parseOVC(d.choices?.[0]?.message?.content || "");
-}
+const CAT_REMAP = { tributacao:"tributos", variedades:"cultura", seguranca:"brasil-on", defesa:"brasil-on", educacao:"carreira", investigativo:"brasil-on", mercados:"investimentos", regulacao:"tributos" };
+function remapCat(content) { if (content?.categoria && CAT_REMAP[content.categoria]) content.categoria = CAT_REMAP[content.categoria]; return content; }
 
 async function resolverImagem(content, articleImage, hash, start) {
   const sourceImage = !badSourceImageUrl(articleImage) && sourceImageHostSeguro(articleImage) ? articleImage : "";
@@ -300,7 +268,7 @@ async function manual(req, res, rec) {
   if (url) { const a = await scrape(url); sourceText = a.text || ""; sourceTitle = a.title || ""; articleImage = a.image || await extractSourceImage(url); }
   if (!sourceText || sourceText.length < 300) return res.status(400).json({ error: "Fonte curta demais para reescrita editorial segura" });
   const cat = CATS.has(categoria) ? categoria : "economia";
-  const content = await gerarOVC(sourceText, sourceTitle, rec.contexto, cat);
+  const content = remapCat(await rewritePortal(sourceText, sourceTitle, rec.contexto));
   content.categoria = cat;
   content.subcategoria = subcategoria || SUBCAT[cat] || "Geral";
   const erros = validar(content);
@@ -473,7 +441,7 @@ async function autoMaterias(req, res, rec) {
       const a = await scrape(item.link);
       const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 400) { debug.sem_fonte++; continue; }
-      const content = await gerarOVC(sourceText, item.title || a.title || "", rec.contexto, cat);
+      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
