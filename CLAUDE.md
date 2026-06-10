@@ -2568,3 +2568,121 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 10. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
 11. AdSense aprovação — aguardando Google
 12. Google Publisher Center — aguardando aprovação
+
+---
+
+### Sessão 10/06/2026 — MAIS LIDOS REAIS + RADAR DA COPA + RADAR ELEITORAL
+
+#### Contexto
+
+Roberto pediu 3 melhorias na homepage:
+1. "Mais Lidas" mostrando conteúdo real (não repetição dos cards) — rankear por views reais do banco
+2. "RADAR DA COPA" no rail direito (antes da TV OVC) — Copa do Mundo 2026 começa 11/jun/2026
+3. "RADAR ELEITORAL" no rail esquerdo — Eleições brasileiras outubro 2026
+
+Roberto confirmou: "QUERO TODAS as opcoes" para ambos os radares. Copa começa dia 11 (amanhã), momento perfeito. Pediu página dedicada `/copa/`.
+
+---
+
+#### O que foi implementado
+
+**PR #130 — Features principais (mergeado em main):**
+
+1. **`api/portal-posts.js` — `handleMaisLidos()`** (nova rota `?maisLidos=true`):
+   - Busca artigos com `status='publicado'` publicados há mais de 48h (evita overlap com cards recentes)
+   - Ordena por `(metrics->>'views')::int DESC NULLS LAST`
+   - Retorna top N (1-20, padrão 10)
+   - Cache: `s-maxage=300, stale-while-revalidate=3600`
+
+2. **`public/js/home.js` — `carregarMaisLidos()`** (IIFE no DOMContentLoaded):
+   - Busca `/api/portal-posts?maisLidos=true&limit=10`
+   - Renderiza grid com números de rank, thumbnails, contagem de views formatada (1200 → "1.2k")
+   - Top 3 ranks em vermelho (cor OVC)
+   - Grid responsivo: `auto-fill minmax(280px,1fr)`
+   - Seção permanece hidden se array vazio
+
+3. **`public/js/ovc-copa.js`** (NOVO — arquivo independente, REGRA ZERO-I):
+   - Widget "RADAR DA COPA" para Copa do Mundo 2026
+   - Injeta ANTES de `.rail-block-tv` no `.rail-right`
+   - Countdown em tempo real (dias/horas/min/seg) até 11/jun/2026 15:00 ET
+   - Design premium: gradiente verde/amarelo/azul (cores do Brasil), ponto pulsante amarelo
+   - Busca artigos via `/api/portal-posts?recentes=true&limit=300`
+   - Filtra por keywords específicas da Copa
+   - CTA para `/copa/`
+
+4. **`public/js/ovc-eleitoral.js`** (NOVO — arquivo independente, REGRA ZERO-I):
+   - Widget "RADAR ELEITORAL" para Eleições 2026
+   - Injeta após último `.rail-block` no `.rail-left`
+   - Countdown duplo: 1T (4/out/2026) e 2T (25/out/2026) em dias
+   - Barras de pesquisa eleitoral hardcoded: Lula 37%, Bolsonaro 29%, Outros 34% (Quaest/Datafolha mai/2026)
+   - Design azul/roxo, animações CSS
+   - CTA para `/politica/eleicoes-2026/`
+
+5. **`public/copa/index.html`** (NOVO — 712 linhas):
+   - Página dedicada Copa do Mundo 2026
+   - Copiada de `public/esportes/index.html` com ajustes de título/meta/hero
+   - Hero section com: countdown JS, SofaScore iframe embed, tabela de grupos (A-H), estatísticas Copa 2026
+   - `data-category="esportes"` + `internal-page-v2.js` para carregamento de artigos
+   - SofaScore embed: `https://www.sofascore.com/tournament/football/world/fifa-world-cup/16/embed`
+   - Sem necessidade de rota no vercel.json — Vercel serve arquivos estáticos de `public/` automaticamente
+
+6. **`public/js/ovc-nichos.js`** — Fix crítico:
+   - Radar OVC no rail direito não aparecia na homepage
+   - Seletor corrigido: `document.querySelector('.rail-right') || document.querySelector('.ovc-right-rail')`
+   - Homepage usa `.rail-right`, páginas internas usam `.ovc-right-rail`
+
+7. **`public/index.html`** (777 linhas — ≥700 OK ✅):
+   - Adicionados script tags: `<script defer src="/js/ovc-copa.js"></script>` e `<script defer src="/js/ovc-eleitoral.js"></script>`
+
+**PR #131 — Fix conteúdo dos radares (mergeado em main):**
+
+Roberto reportou após deploy: Copa mostrava NFL/UFC/basketball, Eleitoral mostrava política geral.
+
+**`public/js/ovc-copa.js`** — filtro EXCLUSIVO Copa do Mundo:
+```js
+var COPA_KEYWORDS = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','copa da rússia','copa do catar','grupo a','grupo b','grupo c','grupo d','grupo e','grupo f','grupo g','grupo h','fase de grupos','oitavas','quartas','semifinal','final da copa','campeão do mundo'];
+// Sem fallback — se vazio, mostra "Cobertura da Copa chegando em breve."
+```
+
+**`public/js/ovc-eleitoral.js`** — filtro EXCLUSIVO eleições:
+```js
+var EL_KEYWORDS = ['eleição','eleições','candidat','presidencial','eleitoral','voto','urna','tse','pleito','campanha eleitoral','pesquisa eleitoral','datafolha','quaest','ipespe','intenção de voto','debate presidencial','chapa','coligação','programa de governo','registro de candidatura','primeiro turno','segundo turno','governador','senado federal','câmara dos deputados','vereador','prefeito'];
+// Sem fallback — se vazio, mostra "Cobertura eleitoral chegando em breve."
+```
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### Novos arquivos JS independentes (REGRA ZERO-I compliant)
+
+| Arquivo | Função |
+|---|---|
+| `public/js/ovc-copa.js` | Radar da Copa 2026 — right rail, countdown + artigos exclusivos Copa |
+| `public/js/ovc-eleitoral.js` | Radar Eleitoral 2026 — left rail, countdown duplo + pesquisas + artigos exclusivos eleições |
+
+---
+
+#### 🔧 PENDÊNCIAS COMPLETAS (10/06/2026)
+
+**Alta prioridade:**
+1. **Verificar Mais Lidos** — após acumular views reais no banco, confirmar se ranking está correto
+2. **Artigos Copa chegando** — pipeline gerará artigos com keywords Copa → ativarão o widget naturalmente
+3. **Artigos eleitorais chegando** — idem para Radar Eleitoral
+
+**Médias (sessão focada):**
+4. `api/category.js` CAT_SEO — atualizar entradas SEO para novas categorias (brasil-on, carreira, tributos)
+5. Aprovar/rejeitar artigos pendentes no banco via admin
+6. `ovc-nichos.js` layout compacto — quando Roberto autorizar
+
+**Roberto faz manualmente:**
+7. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto (`bfsegqdgscudtdgwdyci`). Deletar no projeto `ovalorcapital-xuhw`
+8. Instagram SSL — `ovalorcapital.com.br` non-www falha no IAB
+9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+10. AdSense aprovação — aguardando Google
+11. Google Publisher Center — aguardando aprovação
