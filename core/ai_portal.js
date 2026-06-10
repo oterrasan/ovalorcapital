@@ -802,7 +802,20 @@ function markdownToHtml(texto) {
 
 function parse(raw) {
   if (!raw) return null;
-  const lines = raw.split("\n");
+  // Normaliza output XML do Gemini (<TÍTULO>…</TÍTULO>) para formato colon esperado pelo parser
+  let normalized = String(raw);
+  if (/<T[IÍ]TULO\b/i.test(normalized) || /<CORPO\b/i.test(normalized)) {
+    normalized = normalized
+      .replace(/<T[IÍ]TULO[^>]*>([\s\S]*?)<\/T[IÍ]TULO>/gi, (_, v) => `TITULO: ${v.trim()}`)
+      .replace(/<META[\s_]TITLE[^>]*>([\s\S]*?)<\/META[\s_]TITLE>/gi, (_, v) => `META_TITLE: ${v.trim()}`)
+      .replace(/<FOCO[\s_]KEYWORD[^>]*>([\s\S]*?)<\/FOCO[\s_]KEYWORD>/gi, (_, v) => `FOCO_KEYWORD: ${v.trim()}`)
+      .replace(/<SLUG[^>]*>([\s\S]*?)<\/SLUG>/gi, (_, v) => `SLUG: ${v.trim()}`)
+      .replace(/<META[\s_]DESCRI[CÇ][AÃ]O[^>]*>([\s\S]*?)<\/META[\s_]DESCRI[CÇ][AÃ]O>/gi, (_, v) => `META_DESCRICAO: ${v.trim()}`)
+      .replace(/<CATEGORIA[^>]*>([\s\S]*?)<\/CATEGORIA>/gi, (_, v) => `CATEGORIA: ${v.trim()}`)
+      .replace(/<SUBCATEGORIA[^>]*>([\s\S]*?)<\/SUBCATEGORIA>/gi, (_, v) => `SUBCATEGORIA: ${v.trim()}`)
+      .replace(/<CORPO\b[^>]*>([\s\S]*?)<\/CORPO[^>]*>/gi, (_, v) => `CORPO EM HTML:\n${v.trim()}`);
+  }
+  const lines = normalized.split("\n");
   let titulo = "", metaTitle = "", focoKeyword = "", slug = "", metaDescricao = "", categoriaRaw = "", subcategoriaRaw = "", corpo = "";
   let inCorpo = false;
   for (const line of lines) {
@@ -825,9 +838,9 @@ function parse(raw) {
   titulo = titulo.replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
 
   corpo = corpo.trim();
-  if (!corpo && raw.length > 200) {
-    corpo = raw.trim();
-    const firstLine = raw.split("\n")[0].trim();
+  if (!corpo && normalized.length > 200) {
+    corpo = normalized.trim();
+    const firstLine = normalized.split("\n")[0].trim();
     if (firstLine.length < 120 && firstLine.length > 5) titulo = titulo || firstLine;
   }
 
