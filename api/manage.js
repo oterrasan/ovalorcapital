@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -44,6 +45,7 @@ export default async function handler(req, res) {
     if (action === "update_colunista_photo") return handleUpdateColunistaPhoto(req, res, body);
     if (action === "toggle_colunista") return handleToggleColunista(req, res, body);
     if (action === "delete_colunista") return handleDeleteColunista(req, res, body);
+    if (action === "submit_colunista_post") return handleSubmitColunistaPost(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (body.id && !action) return handleApprovePortal(res, { id: body.id, action: "aprovar" });
 
@@ -245,6 +247,46 @@ async function handleDeleteColunista(req, res, body) {
   const { error } = await supabase.from("colunistas").delete().eq("id", body.id);
   if (error) return res.status(400).json({ ok: false, error: error.message });
   return res.status(200).json({ ok: true });
+}
+
+async function handleSubmitColunistaPost(req, res, body) {
+  const { colunista_id, token, titulo, conteudo, imagem } = body || {};
+  if (!colunista_id || !token) return res.status(401).json({ ok: false, error: "colunista_id e token obrigatorios" });
+  if (!titulo || !conteudo) return res.status(400).json({ ok: false, error: "titulo e conteudo obrigatorios" });
+
+  // Validate token against colunistas table
+  const { data: col, error: colErr } = await supabase
+    .from("colunistas")
+    .select("id,nome,slug,ativo,session_token")
+    .eq("id", colunista_id)
+    .maybeSingle();
+
+  if (colErr || !col) return res.status(401).json({ ok: false, error: "colunista nao encontrado" });
+  if (!col.ativo) return res.status(403).json({ ok: false, error: "colunista inativo" });
+  if (col.session_token !== token) return res.status(401).json({ ok: false, error: "token invalido" });
+
+  const slug = col.slug || slugify(col.nome);
+  const tituloClean = String(titulo).trim();
+  const hash = crypto.createHash("md5").update(tituloClean + "_colunista_" + colunista_id).digest("hex");
+
+  const post = {
+    titulo: tituloClean,
+    conteudo: String(conteudo).trim(),
+    imagem: imagem || null,
+    hash,
+    status: "pendente",
+    approved: false,
+    publish_method: "colunista",
+    user_tags: JSON.stringify(["colunistas"]),
+    subcategoria: col.nome,
+    subcategoria_slug: slug,
+    published_at: null,
+    metrics: JSON.stringify({ meta_title: tituloClean.slice(0, 55) })
+  };
+
+  const { data: saved, error: saveErr } = await supabase.from("posts").insert(post).select("id").maybeSingle();
+  if (saveErr) return res.status(500).json({ ok: false, error: saveErr.message });
+  return res.status(200).json({ ok: true, id: saved?.id });
 }
 
 async function handleLimparPendentesAntigos(req, res) {
