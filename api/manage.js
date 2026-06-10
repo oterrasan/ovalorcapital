@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     if (action === "toggle_colunista") return handleToggleColunista(req, res, body);
     if (action === "delete_colunista") return handleDeleteColunista(req, res, body);
     if (action === "submit_colunista_post") return handleSubmitColunistaPost(req, res, body);
+    if (action === "admin_colunista_post") return handleAdminColunistaPost(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (body.id && !action) return handleApprovePortal(res, { id: body.id, action: "aprovar" });
 
@@ -281,6 +282,35 @@ async function handleSubmitColunistaPost(req, res, body) {
     subcategoria: col.nome,
     subcategoria_slug: slug,
     published_at: null,
+    metrics: JSON.stringify({ meta_title: tituloClean.slice(0, 55) })
+  };
+
+  const { data: saved, error: saveErr } = await supabase.from("posts").insert(post).select("id").maybeSingle();
+  if (saveErr) return res.status(500).json({ ok: false, error: saveErr.message });
+  return res.status(200).json({ ok: true, id: saved?.id });
+}
+
+async function handleAdminColunistaPost(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const { nome_colunista, titulo, conteudo, imagem } = body || {};
+  if (!nome_colunista || !titulo || !conteudo) return res.status(400).json({ ok: false, error: "nome_colunista, titulo e conteudo obrigatorios" });
+
+  const tituloClean = String(titulo).trim();
+  const subcSlug = String(nome_colunista).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  const hash = crypto.createHash("md5").update(tituloClean + "_admin_col_" + nome_colunista).digest("hex");
+
+  const post = {
+    titulo: tituloClean,
+    conteudo: String(conteudo).trim(),
+    imagem: imagem || null,
+    hash,
+    status: "publicado",
+    approved: true,
+    publish_method: "colunista",
+    user_tags: JSON.stringify(["colunistas"]),
+    subcategoria: String(nome_colunista).trim(),
+    subcategoria_slug: subcSlug,
+    published_at: new Date().toISOString(),
     metrics: JSON.stringify({ meta_title: tituloClean.slice(0, 55) })
   };
 
