@@ -2751,11 +2751,31 @@ Continuação da sessão anterior (Mais Lidos + Radar da Copa + Radar Eleitoral 
 
 ---
 
+---
+
+### Sessão 10/06/2026 (continuação 2) — GEMINI ENGINE + RAILS POSIÇÕES
+
+#### Gemini 2.0 Flash como engine primária (PR #143 — mergeado)
+
+- `core/ai_portal.js`: adicionado `callGemini()` que lê `GEMINI_API_KEY` do Supabase `config` (cache 5min)
+- `callIA()` tenta Gemini primeiro, fallback automático para OpenAI se Gemini falhar
+- `gerarComRevisao()` e todas as exportações agora usam `callIA()` — afeta todos os artigos normais, reescritas, pílulas
+- `GEMINI_API_KEY` já estava configurada no Supabase config por Roberto
+- **Deploy falhou** — Vercel atingiu limite de 100 deploys/dia do plano gratuito (muitos PRs feitos em 10/06)
+- **O código está correto em main** — produção ainda rodando código antigo até o deploy ser re-triggerado
+- **Para deploy:** após 21h BRT de 10/06 (reset do limite Vercel), acessar GitHub Actions → Deploy Production → Re-run failed jobs
+
+#### Radares Copa e Eleitoral — posições nos rails corrigidas ✅
+
+Roberto confirmou que as posições dos radares de Copa e Eleições foram para o local certo nos rails. Confirmado por Roberto em 10/06/2026.
+
+---
+
 #### 🔧 PENDÊNCIAS COMPLETAS (10/06/2026 — atualizado pós-sessão)
 
 **Alta prioridade:**
-1. **Confirmar espaçamento visual** — após deploy do PR #136, Roberto confirma se 56px é suficiente ou quer mais
-2. **Verificar Mais Lidos sem views** — confirmar que cards não mostram mais o contador
+1. **Re-trigar deploy do PR #143** — após 21h BRT, GitHub Actions → Deploy Production → Re-run failed jobs. Sem isso, produção usa OpenAI ainda.
+2. **Confirmar Gemini funcionando** — após deploy, verificar admin → Postagens → pendentes. Artigos novos devem usar Gemini 2.0 Flash.
 3. **Artigos Copa chegando** — pipeline gerará artigos com keywords Copa → ativarão o widget naturalmente
 4. **Artigos eleitorais chegando** — idem para Radar Eleitoral; pesquisas serão extraídas automaticamente
 
