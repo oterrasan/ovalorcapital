@@ -2383,9 +2383,9 @@ function ColunistasAdmin({ setPage }){
     setLoadingPosts(true);
     try{
       const { data } = await sb.from('posts')
-        .select('id,titulo,status,created_at,published_at,imagem,comentario_fixado')
+        .select('id,titulo,status,created_at,published_at,imagem,comentario_fixado,publish_method,subcategoria_slug')
         .eq('subcategoria', c.nome)
-        .in('publish_method', ['coluna','colunista'])
+        .like('user_tags', '%colunistas%')
         .order('created_at', { ascending: false })
         .limit(30);
       setCardPosts(data||[]);
