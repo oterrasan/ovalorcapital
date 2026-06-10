@@ -99,9 +99,10 @@
       for (const cat of ['politica','economia']) {
         (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
-      // Hierarquia: preferir últimas 24h; se vazio, ampliar para 48h
+      // Hierarquia: preferir últimas 24h; se vazio, ampliar para 48h; último fallback: qualquer artigo
       let poolFiltrado = pool.filter(p => dentroJanela(p, 24));
       if (!poolFiltrado.length) poolFiltrado = pool.filter(p => dentroJanela(p, 48));
+      if (!poolFiltrado.length) poolFiltrado = pool; // fallback: mostra o mais recente disponível
       pool = poolFiltrado;
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
@@ -123,7 +124,8 @@
 
   function carregarCardNegocios(cache, offset) {
     try {
-      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios' && dentroJanela(p, 48));
+      let pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios' && dentroJanela(p, 48));
+      if (!pool.length) pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -153,6 +155,11 @@
       let pool = [];
       for (const cat of ['investimentos','seguros','mercados','economia']) {
         (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p, 48)).forEach(p => pool.push(p));
+      }
+      if (!pool.length) {
+        for (const cat of ['investimentos','seguros','mercados','economia']) {
+          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
+        }
       }
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
