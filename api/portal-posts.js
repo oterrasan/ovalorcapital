@@ -149,6 +149,56 @@ async function handleCurtinhas(req, res) {
   return res.status(200).json({ curtinhas: posts, total: posts.length });
 }
 
+// ─── MAIS LIDOS — artigos mais acessados, excluindo os últimos 48h ──────────
+async function handleMaisLidos(req, res) {
+  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+  const limit = clampInt(req.query.limit, 10, 1, 20);
+
+  // Exclui artigos recentes (< 48h) para não repetir com os cards principais
+  const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id,titulo,imagem,user_tags,published_at,metrics")
+    .eq("status", "publicado")
+    .lt("published_at", cutoff)
+    .not("metrics", "is", null)
+    .order("published_at", { ascending: false })
+    .limit(200);
+
+  if (error) return res.status(200).json({ posts: [], total: 0 });
+
+  // Ordenar por views DESC (metrics->views)
+  const sorted = (data || [])
+    .map(row => {
+      const m = typeof row.metrics === "string" ? JSON.parse(row.metrics || "{}") : (row.metrics || {});
+      const views = parseInt(m.views || 0, 10);
+      return { row, views };
+    })
+    .filter(x => x.views > 0)
+    .sort((a, b) => b.views - a.views)
+    .slice(0, limit);
+
+  const posts = sorted.map(({ row, views }) => {
+    const tags = parseTags(row.user_tags);
+    const cat = normalizeCat(tags[0] || "politica") || "politica";
+    const catPath = CAT_PATH[cat] || cat;
+    const sl = slugify(row.titulo || "").slice(0, 55);
+    const id8 = String(row.id || "").slice(0, 8);
+    return {
+      id: row.id,
+      titulo: clean(row.titulo || ""),
+      imagem: row.imagem || null,
+      categoria: cat,
+      url: `/${catPath}/${sl}-${id8}/`,
+      views,
+      data: row.published_at
+    };
+  });
+
+  return res.status(200).json({ posts, total: posts.length });
+}
+
 export default async function handler(req, res) {
   if (req.query.format === "home") return handleHome(req, res);
 
@@ -168,6 +218,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ curtinhas: [], total: 0, error: curtinhasErr?.message || "curtinhas_failed" });
       }
     }
+    if (req.query.maisLidos === "true") return handleMaisLidos(req, res);
     return handleList(req, res);
   } catch (error) {
     return res.status(500).json({ posts: [], total: 0, error: "portal_posts_failed", detail: error?.message || String(error) });

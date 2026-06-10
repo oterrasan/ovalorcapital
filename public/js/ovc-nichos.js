@@ -151,8 +151,9 @@
       var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
 
       // 1. Radar OVC → right rail (sidebar direito)
+      // Homepage usa .rail-right; páginas internas usam .ovc-right-rail
       if (radares.length) {
-        var rail = document.querySelector('.ovc-right-rail');
+        var rail = document.querySelector('.rail-right') || document.querySelector('.ovc-right-rail');
         if (rail) {
           var blocoRadar = criarBlocoRadarRail(radares);
           if (blocoRadar) rail.appendChild(blocoRadar);
