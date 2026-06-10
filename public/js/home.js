@@ -124,13 +124,12 @@
 
   function carregarCardNegocios(cache, offset) {
     try {
-      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios' && dentroJanela(p, 48));
       const cardEl = document.getElementById('card-feature-negocios');
-      if (!pool.length) {
-        if (cardEl) cardEl.style.display = 'none';
-        return;
-      }
       if (cardEl) cardEl.style.display = '';
+      const todos = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
+      if (!todos.length) return;
+      let pool = todos.filter(p => dentroJanela(p, 24));
+      if (!pool.length) pool = todos;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -156,16 +155,15 @@
 
   function carregarCardLions(cache, offset) {
     try {
-      let pool = [];
-      for (const cat of ['investimentos','seguros','mercados','economia']) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p, 48)).forEach(p => pool.push(p));
-      }
       const cardEl = document.getElementById('card-lions-seguros');
-      if (!pool.length) {
-        if (cardEl) cardEl.style.display = 'none';
-        return;
-      }
       if (cardEl) cardEl.style.display = '';
+      let todos = [];
+      for (const cat of ['investimentos','seguros','mercados','economia']) {
+        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => todos.push(p));
+      }
+      if (!todos.length) return;
+      let pool = todos.filter(p => dentroJanela(p, 24));
+      if (!pool.length) pool = todos;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
