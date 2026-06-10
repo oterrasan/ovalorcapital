@@ -180,15 +180,16 @@ function Dashboard() {
     try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
     const { data: p } = await sb.from('posts').select('id,titulo,status,approved,imagem,user_tags,created_at,published_at').order('created_at',{ascending:false}).limit(15);
     setPosts(p||[]);
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const { data: hp } = await sb.from('posts').select('user_tags').gte('created_at', hoje.toISOString());
+    const brtDate = d => new Date(d).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
+    const hojeStr = brtDate(new Date()); const hojeUTC = new Date(hojeStr+'T03:00:00Z');
+    const { data: hp } = await sb.from('posts').select('user_tags').gte('created_at', hojeUTC.toISOString());
     const cc = {}; (hp||[]).forEach(x=>{ try{JSON.parse(x.user_tags||'[]').forEach(t=>cc[t]=(cc[t]||0)+1);}catch(_){} });
     setCats(Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,8));
-    // Gráfico 7 dias
-    const d7 = new Date(); d7.setDate(d7.getDate()-6); d7.setHours(0,0,0,0);
-    const { data: p7 } = await sb.from('posts').select('created_at,status').gte('created_at',d7.toISOString()).eq('status','publicado');
-    const dias = {}; for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()-i);const k=d.toISOString().slice(0,10);dias[k]=0;}
-    (p7||[]).forEach(x=>{const k=x.created_at.slice(0,10);if(k in dias)dias[k]++;});
+    // Gráfico 7 dias — datas em BRT
+    const d7UTC = new Date(hojeUTC.getTime() - 6*86400000);
+    const { data: p7 } = await sb.from('posts').select('created_at,status').gte('created_at',d7UTC.toISOString()).eq('status','publicado');
+    const dias = {}; for(let i=0;i<7;i++){const d=new Date(hojeUTC.getTime()-i*86400000);const k=brtDate(d);dias[k]=0;}
+    (p7||[]).forEach(x=>{const k=brtDate(x.created_at);if(k in dias)dias[k]++;});
     setChart7dias(Object.entries(dias).sort((a,b)=>a[0]>b[0]?1:-1).map(([d,v])=>({d:d.slice(5),v})));
     setLoadingPosts(false);
   }, []);
@@ -773,8 +774,8 @@ function Postagens() {
     if (filterMethod) q=q.eq('publish_method',filterMethod);
     if (filterTipo==='sem_tipo') q=q.is('tipo_conteudo',null);
     else if (filterTipo) q=q.eq('tipo_conteudo',filterTipo);
-    if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00');
-    if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59');
+    if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00-03:00');
+    if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59-03:00');
     const { data, count } = await q;
     // Normaliza: extrai categoria de user_tags (JSON array) pois não há coluna 'categoria' no Supabase
     var norm = (data||[]).map(function(p){
@@ -1683,10 +1684,11 @@ function Relatorios() {
     const pendentes = posts.filter(p => p.status === 'pendente').length;
     const erros_count = (logs||[]).filter(l => l.level === 'error').length;
 
-    // Posts por dia
+    // Posts por dia — datas em BRT
+    const brtDay = d => new Date(d).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
     const porDia = {};
     posts.forEach(p => {
-      const dia = p.created_at.slice(0,10);
+      const dia = brtDay(p.created_at);
       porDia[dia] = (porDia[dia] || 0) + 1;
     });
 
@@ -2571,7 +2573,7 @@ function ColunistasAdmin({ setPage }){
                       <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:12,alignItems:'center',padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,.04)'}}>
                         <div style={{fontSize:13,color:'var(--t1)',lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.titulo}</div>
                         <span className={`badge badge-${p.status==='publicado'?'green':p.status==='pendente'?'yellow':'red'}`}>{p.status}</span>
-                        <span style={{fontSize:11,color:'var(--t3)',whiteSpace:'nowrap'}}>{p.created_at?new Date(p.created_at).toLocaleDateString('pt-BR'):'-'}</span>
+                        <span style={{fontSize:11,color:'var(--t3)',whiteSpace:'nowrap'}}>{p.created_at?new Date(p.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'-'}</span>
                         <div style={{display:'flex',gap:6}}>
                           {p.status==='pendente' && <>
                             <button className="btn btn-green btn-sm" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>aprovarPost(p.id)}>✓ Pub.</button>
