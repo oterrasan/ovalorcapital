@@ -185,11 +185,9 @@
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var todos = d.posts || [];
-        // Filtrar esportes (inclui copa do mundo por keyword se disponível)
-        var COPA_KEYWORDS = ['copa','copa do mundo','world cup','mundial','fifa','seleção','brasil x','eua x'];
+        // Somente artigos que mencionam Copa do Mundo explicitamente — sem fallback
+        var COPA_KEYWORDS = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','copa da rússia','copa do catar','grupo a','grupo b','grupo c','grupo d','grupo e','grupo f','grupo g','grupo h','fase de grupos','oitavas','quartas','semifinal','final da copa','campeão do mundo'];
         var artigos = todos.filter(function (p) {
-          var cat = (p.categoria || '').toLowerCase();
-          if (cat === 'esportes') return true;
           var titulo = (p.titulo || '').toLowerCase();
           return COPA_KEYWORDS.some(function (kw) { return titulo.indexOf(kw) >= 0; });
         });
