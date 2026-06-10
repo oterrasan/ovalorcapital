@@ -686,7 +686,7 @@
     .main-grid {
       display: grid;
       grid-template-columns: 270px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 270px;
-      column-gap: 18px;
+      column-gap: 28px;
       align-items: start;
     }
 
@@ -2341,7 +2341,7 @@ img, video, iframe, embed, object {
 
   .main-grid {
     grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 220px;
-    column-gap: 14px;
+    column-gap: 22px;
   }
 
   .footer {
