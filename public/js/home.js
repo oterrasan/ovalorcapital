@@ -124,9 +124,13 @@
 
   function carregarCardNegocios(cache, offset) {
     try {
-      let pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios' && dentroJanela(p, 48));
-      if (!pool.length) pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
-      if (!pool.length) return;
+      const pool = (cache['negocios']||[]).filter(p => p.categoria==='negocios' && dentroJanela(p, 48));
+      const cardEl = document.getElementById('card-feature-negocios');
+      if (!pool.length) {
+        if (cardEl) cardEl.style.display = 'none';
+        return;
+      }
+      if (cardEl) cardEl.style.display = '';
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -156,12 +160,12 @@
       for (const cat of ['investimentos','seguros','mercados','economia']) {
         (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p, 48)).forEach(p => pool.push(p));
       }
+      const cardEl = document.getElementById('card-lions-seguros');
       if (!pool.length) {
-        for (const cat of ['investimentos','seguros','mercados','economia']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => pool.push(p));
-        }
+        if (cardEl) cardEl.style.display = 'none';
+        return;
       }
-      if (!pool.length) return;
+      if (cardEl) cardEl.style.display = '';
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
