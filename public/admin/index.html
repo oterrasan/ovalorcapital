@@ -2343,6 +2343,9 @@ function ColunistasAdmin({ setPage }){
   const [selectedCard, setSelectedCard] = React.useState(null);
   const [cardPosts, setCardPosts] = React.useState([]);
   const [loadingPosts, setLoadingPosts] = React.useState(false);
+  const [showNovoArtigoModal, setShowNovoArtigoModal] = React.useState(null);
+  const [novoArtigo, setNovoArtigo] = React.useState({titulo:'',conteudo:'',imagem:''});
+  const [submetendo, setSubmetendo] = React.useState(false);
 
   React.useEffect(()=>{
     fetch('/api/manage?action=list_colunistas')
@@ -2404,6 +2407,25 @@ function ColunistasAdmin({ setPage }){
     setCardPosts(p=>p.filter(x=>x.id!==id));
   }
 
+  async function submitNovoArtigo(e){
+    e.preventDefault();
+    if(!showNovoArtigoModal) return;
+    setSubmetendo(true); setMsg('');
+    try{
+      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS},
+        body:JSON.stringify({action:'admin_colunista_post',nome_colunista:showNovoArtigoModal.nome,titulo:novoArtigo.titulo,conteudo:novoArtigo.conteudo,imagem:novoArtigo.imagem||null})});
+      const d = await r.json();
+      if(d.ok){
+        setMsg('✅ Artigo publicado!');
+        const card = showNovoArtigoModal;
+        setShowNovoArtigoModal(null);
+        setNovoArtigo({titulo:'',conteudo:'',imagem:''});
+        if(selectedCard?.nome===card.nome) await openCard(card);
+      } else { setMsg('❌ '+(d.error||'erro')); }
+    }catch(err){ setMsg('❌ '+err.message); }
+    setSubmetendo(false);
+  }
+
   function salvarFoto(nome){
     try{
       const saved = JSON.parse(sessionStorage.getItem('ovc_fotos_colunistas')||'{}');
@@ -2463,8 +2485,7 @@ function ColunistasAdmin({ setPage }){
                   </span>}
                   {/* Hover overlay */}
                   {isHov && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.55)',display:'flex',flexDirection:'column',
-                    alignItems:'center',justifyContent:'center',gap:8,padding:12}}
-                    onClick={e=>e.stopPropagation()}>
+                    alignItems:'center',justifyContent:'center',gap:8,padding:12}}>
                     {COLUNISTAS_COM_IA.has(c.nome)
                       ? <button onClick={e=>{e.stopPropagation();handleGerarColuna(c.nome);}} style={{width:'100%',padding:'8px 0',borderRadius:6,border:'none',cursor:'pointer',
                           background:'var(--red)',color:'#fff',fontWeight:700,fontSize:12}}>Gerar Coluna IA</button>
@@ -2532,6 +2553,26 @@ function ColunistasAdmin({ setPage }){
           </div>
         )}
 
+        {/* Modal novo artigo manual */}
+        {showNovoArtigoModal && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.78)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowNovoArtigoModal(null)}>
+            <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:28,width:580,maxWidth:'93vw',maxHeight:'88vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>✍️ Novo artigo — {showNovoArtigoModal.nome}</div>
+              <div style={{fontSize:12,color:'var(--t2)',marginBottom:20}}>Artigo será publicado imediatamente na seção Colunistas</div>
+              <form onSubmit={submitNovoArtigo} style={{display:'flex',flexDirection:'column',gap:14}}>
+                <input className="form-input" required placeholder="Título do artigo" value={novoArtigo.titulo} onChange={e=>setNovoArtigo(a=>({...a,titulo:e.target.value}))}/>
+                <input className="form-input" placeholder="URL da imagem de capa (opcional)" value={novoArtigo.imagem} onChange={e=>setNovoArtigo(a=>({...a,imagem:e.target.value}))}/>
+                <textarea className="form-textarea" style={{minHeight:220}} required placeholder="Conteúdo do artigo (HTML ou texto livre)" value={novoArtigo.conteudo} onChange={e=>setNovoArtigo(a=>({...a,conteudo:e.target.value}))}/>
+                {msg && <div style={{fontSize:12,color:msg.startsWith('❌')?'#f87171':'#4ade80'}}>{msg}</div>}
+                <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setShowNovoArtigoModal(null);setMsg('');}}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={submetendo}>{submetendo?'Publicando...':'Publicar agora'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Painel de conteúdo do colunista selecionado */}
         {selectedCard && (
           <div className="panel" style={{marginTop:8}}>
@@ -2550,7 +2591,7 @@ function ColunistasAdmin({ setPage }){
               </div>
               {COLUNISTAS_COM_IA.has(selectedCard.nome)
                 ? <button className="btn btn-primary btn-sm" onClick={()=>handleGerarColuna(selectedCard.nome)}>Gerar Coluna IA</button>
-                : <button className="btn btn-secondary btn-sm" disabled>Envio manual pelo Portal do Colunista</button>
+                : <button className="btn btn-primary btn-sm" onClick={()=>setShowNovoArtigoModal(selectedCard)}>+ Novo artigo manual</button>
               }
               <button className="btn btn-secondary btn-sm" onClick={()=>setSelectedCard(null)}>✕ Fechar</button>
             </div>
