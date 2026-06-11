@@ -180,22 +180,38 @@
     }
   }
 
+  var COPA_KEYWORDS = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','fase de grupos','oitavas','quartas','semifinal','final da copa','campeão do mundo','grupo a','grupo b','grupo c','grupo d','grupo e','grupo f','grupo g','grupo h','eliminado da copa','classificado para'];
+
   function init() {
-    fetch('/api/portal-posts?recentes=true&limit=300')
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        var todos = d.posts || [];
-        // Somente artigos que mencionam Copa do Mundo explicitamente — sem fallback
-        var COPA_KEYWORDS = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','copa da rússia','copa do catar','grupo a','grupo b','grupo c','grupo d','grupo e','grupo f','grupo g','grupo h','fase de grupos','oitavas','quartas','semifinal','final da copa','campeão do mundo'];
-        var artigos = todos.filter(function (p) {
-          var titulo = (p.titulo || '').toLowerCase();
-          return COPA_KEYWORDS.some(function (kw) { return titulo.indexOf(kw) >= 0; });
-        });
-        injetar(artigos);
-      })
-      .catch(function () {
-        injetar([]);
+    Promise.all([
+      fetch('/api/portal-posts?curtinhas=true&limit=30').then(function(r){ return r.json(); }).catch(function(){ return {curtinhas:[]}; }),
+      fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).catch(function(){ return {posts:[]}; })
+    ]).then(function(results) {
+      var todosCurtinhas = results[0].curtinhas || [];
+      var todosArtigos   = results[1].posts    || [];
+
+      // Curtinhas Copa: radar ou pílula com Copa no título
+      var copaCurtinhas = todosCurtinhas.filter(function(n) {
+        if (n.tipo !== 'radar' && n.tipo !== 'pilula' && n.tipo !== 'micropilula') return false;
+        var t = (n.titulo || '').toLowerCase();
+        return COPA_KEYWORDS.some(function(kw) { return t.indexOf(kw) >= 0; });
       });
+
+      // Artigos normais Copa (sem repetir o que já é curtinha)
+      var idsCurtinhas = {};
+      copaCurtinhas.forEach(function(n){ idsCurtinhas[n.id] = true; });
+      var artigosNormais = todosArtigos.filter(function(p) {
+        if (idsCurtinhas[p.id]) return false;
+        var titulo = (p.titulo || '').toLowerCase();
+        return COPA_KEYWORDS.some(function(kw) { return titulo.indexOf(kw) >= 0; });
+      });
+
+      // Curtinhas primeiro (mais recentes e específicas), depois artigos normais
+      var artigos = copaCurtinhas.concat(artigosNormais).slice(0, 5);
+      injetar(artigos);
+    }).catch(function() {
+      injetar([]);
+    });
   }
 
   if (document.readyState === 'loading') {
