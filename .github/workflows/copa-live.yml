@@ -1,0 +1,27 @@
+name: Copa do Mundo — Cobertura ao Vivo
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  copa-radar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rodada 1 — Gerar curtinhas Copa
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
+            -H "Content-Type: application/json" \
+            -d '{"force":true,"tipo":"copa","count":2}' | head -c 300
+        continue-on-error: true
+
+      - name: Aguardar 5s
+        run: sleep 5
+
+      - name: Rodada 2 — Gerar curtinhas Copa
+        run: |
+          curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
+            -H "Content-Type: application/json" \
+            -d '{"force":true,"tipo":"copa","count":2}' | head -c 300
+        continue-on-error: true
