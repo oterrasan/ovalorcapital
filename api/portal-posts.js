@@ -105,35 +105,22 @@ async function handleHome(req, res) {
 // ─── CURTINHAS (pilula/micropilula/radar/minuto) por categoria ───────────────
 // REGRA 0: esses conteúdos NUNCA aparecem nos cards normais da home.
 // Este endpoint é exclusivo: ?curtinhas=true&categoria=SLUG&limit=N
+// Retorna mix balanceado: top 4 radar + top 3 pilula + top 3 minuto (evita Copa dominar pool)
 async function handleCurtinhas(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
 
-  const TIPOS_CURTINHAS = ["pilula", "micropilula", "radar", "minuto"];
   const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
-  const limit = clampInt(req.query.limit, 10, 1, 50);
+  const SEL = "id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at";
 
-  // query base: apenas tipos curtos, apenas publicados
-  let q = supabase.from("posts")
-    .select("id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at")
-    .eq("status", "publicado")
-    .in("tipo_conteudo", TIPOS_CURTINHAS)
-    .order("published_at", { ascending: false })
-    .limit(limit);
-
-  // filtrar por categoria se informada
-  if (cat && cat !== "all") {
+  function addCatFilter(q) {
+    if (!cat || cat === "all") return q;
     const aliases = CATEGORY_ALIASES[cat];
-    if (aliases) {
-      q = q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","));
-    } else {
-      q = q.like("user_tags", `%"${cat}"%`);
-    }
+    return aliases
+      ? q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","))
+      : q.like("user_tags", `%"${cat}"%`);
   }
 
-  const { data, error } = await q;
-  if (error) throw error;
-
-  const posts = (data || []).map(row => {
+  function mapRow(row) {
     const tags = parseTags(row.user_tags);
     const categoria = normalizeCat(tags[0] || "politica") || "politica";
     return {
@@ -144,7 +131,23 @@ async function handleCurtinhas(req, res) {
       tipo: row.tipo_conteudo || "pilula",
       data: row.published_at || row.created_at || new Date().toISOString()
     };
-  });
+  }
+
+  // Busca balanceada: 3 queries paralelas por tipo para evitar que radares Copa dominem
+  const [rRadar, rPilula, rMinuto] = await Promise.all([
+    addCatFilter(supabase.from("posts").select(SEL).eq("status","publicado")
+      .in("tipo_conteudo",["radar"]).order("published_at",{ascending:false}).limit(4)),
+    addCatFilter(supabase.from("posts").select(SEL).eq("status","publicado")
+      .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(3)),
+    addCatFilter(supabase.from("posts").select(SEL).eq("status","publicado")
+      .in("tipo_conteudo",["minuto"]).order("published_at",{ascending:false}).limit(3))
+  ]);
+
+  const posts = [
+    ...(rRadar.data || []).map(mapRow),
+    ...(rPilula.data || []).map(mapRow),
+    ...(rMinuto.data || []).map(mapRow)
+  ];
 
   return res.status(200).json({ curtinhas: posts, total: posts.length });
 }
