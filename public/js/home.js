@@ -375,7 +375,7 @@
       try {
         const secao = document.getElementById('ovc-mais-lidas-home');
         if (!secao) return;
-        const d = await fetch('/api/portal-posts?maisLidos=true&limit=10').then(r => r.json());
+        const d = await fetch('/api/portal-posts?maisLidos=true&limit=20').then(r => r.json());
         const lista = d.posts || [];
         if (!lista.length) return;
 
