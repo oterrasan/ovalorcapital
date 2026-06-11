@@ -533,6 +533,49 @@ async function autoCurtinhas(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "curtinhas" });
 }
 
+async function autoCopaCurtinhas(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 2, 4);
+  const COPA_KW = [
+    'copa do mundo','world cup','mundial 2026','fifa','seleção brasileira','copa 2026',
+    'fase de grupos','oitavas de final','quartas de final','semifinal','final da copa',
+    'tabela de grupos','artilheiro','gol contra','pênalt','grupo a','grupo b','grupo c',
+    'grupo d','grupo e','grupo f','grupo g','grupo h','escalação','titular da seleção',
+    'eliminado da copa','classificado para','vence por','empate no','derrota para'
+  ];
+  const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
+  const seen = new Set();
+  const allNews = [...esportes, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link));
+  const copaItems = allNews.filter(i => {
+    const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
+    return COPA_KW.some(kw => t.includes(kw));
+  }).slice(0, 20);
+  const items = copaItems.length > 0 ? copaItems : allNews.filter(i => {
+    const t = (i.title || "").toLowerCase();
+    return /futebol|jogo|partida|gol|placar|seleção|brasil|copa/.test(t);
+  }).slice(0, 10);
+  let generated = 0;
+  for (const item of items) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    try {
+      const hashR = crypto.createHash("md5").update(item.link + "_copa_live").digest("hex");
+      const { data: dup } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
+      if (dup) continue;
+      const a = await scrape(item.link);
+      const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+      const radar = await gerarRadar(sourceText, item.title || a.title || "", "esportes");
+      if (!radar?.titulo || radar.titulo === "IGNORAR" || !radar?.corpo || radar.corpo.length < 200) continue;
+      await saveCurtinha(radar, hashR, "esportes", "radar");
+      await log("info", `[copa-live] radar: ${radar.titulo?.slice(0,50)}`);
+      generated++;
+    } catch(_) { continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "copa_radar", candidates: items.length });
+}
+
 export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
@@ -553,6 +596,7 @@ export default async function handler(req, res) {
   try {
     if (body.url || body.texto) return manual(req, res, rec);
     if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
+    if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
