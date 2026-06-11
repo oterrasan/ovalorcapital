@@ -83,6 +83,8 @@ export default async function handler(req, res) {
     const catPath = CAT_PATH[articleCat] || CAT_PATH[catKey] || "politica";
     const title = clean(row.titulo || "O Valor Capital");
     const image = safeImage(row.imagem);
+    const rawImg = String(row.imagem || "").trim();
+    const displayImage = rawImg && !rawImg.includes(OLD_SUPABASE_REF) ? rawImg : "";
     const description = clean(row.comentario_fixado || stripHtml(row.conteudo || "").slice(0, 220));
     const slugClean = slugify(title);
     const canonical = `${BASE}/${catPath}/${slugClean}-${id8}/`;
@@ -101,7 +103,7 @@ export default async function handler(req, res) {
       resumo: description,
       corpo: row.conteudo || "",
       conteudo: row.conteudo || "",
-      imagem: image,
+      imagem: displayImage,
       categoria: articleCat,
       subcategoria: row.subcategoria || "",
       tags,
