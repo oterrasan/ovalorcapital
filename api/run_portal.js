@@ -53,10 +53,10 @@ async function callOpenAINicho(prompt, key) {
 
 const CATS = new Set(["brasil-on","politica","economia","investimentos","negocios","tecnologia","internacional","saude","tributos","carreira","imoveis","seguros","industria","familia","esportes","cultura","religiao","colunistas","vc"]);
 const PRIORIDADE_PESOS = {
-  "politica":20,"economia":13,"seguros":8,"brasil-on":7,
+  "politica":15,"economia":12,"brasil-on":8,
   "negocios":7,"investimentos":7,"internacional":6,"tecnologia":6,
-  "familia":5,"esportes":5,"saude":4,"tributos":4,
-  "industria":3,"carreira":2,"imoveis":2,"cultura":1
+  "seguros":5,"familia":5,"esportes":5,"saude":5,
+  "tributos":4,"industria":4,"carreira":4,"imoveis":4,"cultura":4,"religiao":4
 };
 const PRIORIDADE = Object.entries(PRIORIDADE_PESOS).flatMap(([cat,n]) => Array(n).fill(cat));
 const SUBCAT = { "brasil-on":"Notícias do Brasil", politica:"Governo Federal", economia:"Política Econômica", investimentos:"Bolsa de Valores", negocios:"Empresas & Corporações", tecnologia:"Inteligência Artificial", internacional:"Relações Exteriores", saude:"Medicina & Tratamentos", tributos:"IRPF", carreira:"Mercado de Trabalho", imoveis:"Mercado Imobiliário", seguros:"Seguro de Vida", industria:"Agronegócio", familia:"Educação dos Filhos", esportes:"Futebol", cultura:"Cinema & Arte", religiao:"Fé & Sociedade", colunistas:"Opinião", vc:"Institucional" };
