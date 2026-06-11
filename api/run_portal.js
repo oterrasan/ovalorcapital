@@ -538,42 +538,64 @@ async function autoCopaCurtinhas(req, res, rec) {
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
   const COPA_KW = [
-    'copa do mundo','world cup','mundial 2026','fifa','seleção brasileira','copa 2026',
+    'copa do mundo','world cup','mundial 2026','fifa 2026','seleção brasileira','copa 2026',
     'fase de grupos','oitavas de final','quartas de final','semifinal','final da copa',
-    'tabela de grupos','artilheiro','gol contra','pênalt','grupo a','grupo b','grupo c',
-    'grupo d','grupo e','grupo f','grupo g','grupo h','escalação','titular da seleção',
-    'eliminado da copa','classificado para','vence por','empate no','derrota para'
+    'tabela de grupos','artilheiro','grupo a','grupo b','grupo c','grupo d','grupo e',
+    'grupo f','grupo g','grupo h','escalação','titular da seleção','eliminado da copa',
+    'classificado para','fifa world cup','world cup 2026','copa do mundo 2026',
+    'marrocos copa','portugal copa','argentina copa','france world cup','germany world cup',
+    'spain world cup','england world cup','usmnt','concacaf 2026','canada soccer','mexico soccer'
   ];
   const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
   const seen = new Set();
   const allNews = [...esportes, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link));
+  // Filtra APENAS conteúdo Copa — sem fallback genérico (esportes não-Copa vai para autoCurtinhas)
   const copaItems = allNews.filter(i => {
     const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
     return COPA_KW.some(kw => t.includes(kw));
   }).slice(0, 20);
-  const items = copaItems.length > 0 ? copaItems : allNews.filter(i => {
-    const t = (i.title || "").toLowerCase();
-    return /futebol|jogo|partida|gol|placar|seleção|brasil|copa/.test(t);
-  }).slice(0, 10);
+  if (!copaItems.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_radar", candidates: 0, info: "no_copa_news" });
+  }
   let generated = 0;
-  for (const item of items) {
+  for (const item of copaItems) {
     if (Date.now() - start > 50000 || generated >= count) break;
     if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    let a, sourceText;
+    try {
+      a = await scrape(item.link);
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+    } catch(_) { continue; }
+    // Tenta Radar primeiro
     try {
       const hashR = crypto.createHash("md5").update(item.link + "_copa_live").digest("hex");
-      const { data: dup } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
-      if (dup) continue;
-      const a = await scrape(item.link);
-      const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
-      const radar = await gerarRadar(sourceText, item.title || a.title || "", "esportes");
-      if (!radar?.titulo || radar.titulo === "IGNORAR" || !radar?.corpo || radar.corpo.length < 200) continue;
-      await saveCurtinha(radar, hashR, "esportes", "radar");
-      await log("info", `[copa-live] radar: ${radar.titulo?.slice(0,50)}`);
-      generated++;
+      const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
+      if (!dupR) {
+        const radar = await gerarRadar(sourceText, item.title || a.title || "", "esportes");
+        if (radar?.titulo && radar.titulo !== "IGNORAR" && radar?.corpo && radar.corpo.length >= 200) {
+          await saveCurtinha(radar, hashR, "esportes", "radar");
+          await log("info", `[copa-live] radar: ${radar.titulo?.slice(0,50)}`);
+          generated++;
+          continue;
+        }
+      } else { continue; }
+    } catch(_) { /* radar ignorado — tenta pílula */ }
+    // Fallback: Pílula Copa se radar foi IGNORAR ou falhou
+    try {
+      const hashP = crypto.createHash("md5").update(item.link + "_copa_pilula").digest("hex");
+      const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
+      if (!dupP) {
+        const pilula = await gerarPilula(sourceText, item.title || a.title || "", rec.contexto, "esportes");
+        if (pilula?.titulo && pilula?.corpo && pilula.corpo.length >= 300) {
+          await saveCurtinha(pilula, hashP, "esportes", "pilula");
+          await log("info", `[copa-live] pilula: ${pilula.titulo?.slice(0,50)}`);
+          generated++;
+        }
+      }
     } catch(_) { continue; }
   }
-  return res.status(200).json({ status: "ok", generated, tipo: "copa_radar", candidates: items.length });
+  return res.status(200).json({ status: "ok", generated, tipo: "copa_radar", candidates: copaItems.length });
 }
 
 export default async function handler(req, res) {
