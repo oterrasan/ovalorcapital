@@ -16,7 +16,8 @@
       variedades:'variedades', geral:'politica',
       investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura',
       profissoes:'profissoes', vagas:'vagas', concursos:'concursos',
-      imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao'
+      imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
+      'brasil-on':'brasil-on', carreira:'carreira', tributos:'tributos'
     };
     const cat = catPath[p.categoria] || 'politica';
     const rawSlug = p.slug || stripMd(p.titulo || '').toLowerCase().normalize('NFD')
