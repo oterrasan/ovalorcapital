@@ -2,7 +2,7 @@ name: Pipeline OVC — Matérias e Curtinhas
 
 on:
   schedule:
-    - cron: '*/7 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       tipo:
