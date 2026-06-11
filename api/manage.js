@@ -360,9 +360,10 @@ function inferCategoriaRss(name, url) {
   if (/econom|banco|bancari|financ|credit|cambio|dolar|euro|moeda|bacen|bcb\b|bndes|caixa.?econom|bradesco|itau|santander|sicredi|sicoob|nubank|neon\b|inter\b|pagbank|mercado.?pago|cielo|stone\b|mastercard|visa\b|macro|pib\b|deficit|superavit|arrecad|balanca.?comercial|cni\b|fiesp|ibge|abr.?fin/.test(t)) return "economia";
   if (/negoc|empresa|corporat|executiv|gestao|empreendedor|startup|scaleup|venture.?capital|fintech|insurtec|ecommerce|e.?commerce|varejo|logistic|supply.?chain|consumidor|abracom|abradi|abf\b|abcc\b|abcomm/.test(t)) return "negocios";
   if (/reuters|bloomberg|wsj|wall.?street|financial.?times|guardian|bbc|cnn\b|cnbc|time\b|economist|foreign.?affairs|geopolit|diplomac|onu\b|imf\b|fmi\b|world.?bank|bis\b|wto\b|nato\b|otan|g20|g7|mercosul|brics|multilateral|international|intl\b/.test(t)) return "internacional";
-  if (/tecnolog|tech\b|digital|software|hardware|inteligencia.?artif|machine.?learning|cyber|cibersegur|nuvem|cloud|blockchain|cripto|nft|metaverso|big.?data|programac|desenvolvim|linux|microsoft|apple\b|google\b|meta\b|amazon|ibm\b|oracle|sap\b|dell\b|nvidia|qualcomm|samsung|motorola|xiaomi|huawei|asus|tiktok/.test(t)) return "tecnologia";
   if (/politic|governo|president|minister|congresso|senado|camara\b|stf\b|eleic|partido|legislat|judicial|justica|judici|pgr\b|mpu\b|senado\.leg/.test(t)) return "politica";
   if (/brasil|estadao|folha|globo|g1\b|r7\b|uol\b|terra\b|metropoles|correio|jconline|gazeta|jornal|agencia|policia|seguranca|crime|violencia|operacao\b|denuncia|investigat|report/.test(t)) return "brasil-on";
+  // tecnologia: padrões específicos apenas — removidos "digital","google","meta","amazon","dell","ibm","oracle","apple","microsoft" (muitos falsos positivos)
+  if (/tecnolog|\btech\b|software|hardware|inteligencia.?artif|machine.?learning|cyber|cibersegur|nuvem\b|cloud|blockchain|cripto|\bnft\b|metaverso|big.?data|programac|desenvolvim|linux|nvidia|qualcomm|samsung|motorola|xiaomi|huawei|asus|tiktok|canaltech|tecmundo|olhardigital|gizmodo|techcrunch|wired\.|arstechnica|theverge/.test(t)) return "tecnologia";
   return "geral";
 }
 
