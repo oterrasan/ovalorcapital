@@ -127,9 +127,25 @@
       const cardEl = document.getElementById('card-feature-negocios');
       if (cardEl) cardEl.style.display = '';
       const todos = (cache['negocios']||[]).filter(p => p.categoria==='negocios');
-      if (!todos.length) return;
+      // Priority 1: fresh negocios (24h)
       let pool = todos.filter(p => dentroJanela(p, 24));
-      if (!pool.length) pool = todos;
+      // Priority 2: fresh from broader business pool (24h), excluding already shown
+      if (!pool.length) {
+        const broad = [];
+        for (const cat of ['negocios','economia','tecnologia','industria','tributos']) {
+          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,24)).forEach(p => broad.push(p));
+        }
+        if (broad.length) pool = broad;
+      }
+      // Priority 3: any negocios (most recent)
+      if (!pool.length) pool = todos.length ? todos : (() => {
+        const any = [];
+        for (const cat of ['negocios','economia','tecnologia']) {
+          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => any.push(p));
+        }
+        return any;
+      })();
+      if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -157,13 +173,25 @@
     try {
       const cardEl = document.getElementById('card-lions-seguros');
       if (cardEl) cardEl.style.display = '';
-      let todos = [];
-      for (const cat of ['investimentos','seguros','mercados','economia']) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => todos.push(p));
+      const PRIMARY_CATS = ['investimentos','seguros','imoveis'];
+      const BROAD_CATS = ['investimentos','seguros','imoveis','economia','tributos','carreira','industria'];
+      const primary = [];
+      for (const cat of PRIMARY_CATS) {
+        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => primary.push(p));
       }
-      if (!todos.length) return;
-      let pool = todos.filter(p => dentroJanela(p, 24));
-      if (!pool.length) pool = todos;
+      // Priority 1: fresh from primary (24h)
+      let pool = primary.filter(p => dentroJanela(p, 24));
+      // Priority 2: fresh from broader pool (24h)
+      if (!pool.length) {
+        const broad = [];
+        for (const cat of BROAD_CATS) {
+          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,24)).forEach(p => broad.push(p));
+        }
+        if (broad.length) pool = broad;
+      }
+      // Priority 3: any from primary pool (most recent)
+      if (!pool.length) pool = primary;
+      if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
