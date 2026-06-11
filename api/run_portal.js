@@ -488,6 +488,8 @@ async function autoCurtinhas(req, res, rec) {
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) continue;
     } catch(e) { continue; }
+    // Rejeitar fonte que referencia 2023 sem mencionar ano atual (artigo antigo re-publicado com data nova)
+    if (/\b2023\b/.test(sourceText) && !/\b2026\b/.test(sourceText)) continue;
     const cat = PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
 
     // Pílula — qualquer categoria, qualquer horário (erro não bloqueia radar/minuto)

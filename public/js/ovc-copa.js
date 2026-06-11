@@ -97,7 +97,7 @@
       '<span class="ovc-copa-live-txt">🏆 Copa do Mundo 2026</span>' +
       '</div>' +
       '<div class="ovc-copa-title">RADAR DA COPA</div>' +
-      '<div class="ovc-copa-sub">USA · Canadá · México · 11 jun – 19 jul</div>';
+      '<div class="ovc-copa-sub">USA · Canadá · México · 11 jun – 19 jul · ⏰ Horários em Brasília (BRT)</div>';
     bloco.appendChild(header);
 
     // Countdown ou placar ao vivo
@@ -134,7 +134,7 @@
       // Copa em andamento: mensagem ao vivo
       var vivo = document.createElement('div');
       vivo.style.cssText = 'background:#009c3b;padding:10px 12px;text-align:center;color:#ffdf00;font-weight:700;font-size:12px;letter-spacing:.05em;';
-      vivo.textContent = '⚽ COPA AO VIVO — Acompanhe tudo aqui';
+      vivo.textContent = '⚽ COPA AO VIVO — Acompanhe tudo aqui (horários em BRT)';
       bloco.appendChild(vivo);
     }
 
