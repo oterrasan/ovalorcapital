@@ -482,14 +482,16 @@ async function autoCurtinhas(req, res, rec) {
   for (const item of items) {
     if (Date.now() - start > 50000 || generated >= 4) break;
     if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    let a, sourceText;
     try {
-      const a = await scrape(item.link);
-      const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      a = await scrape(item.link);
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) continue;
-      const cat = PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
-      const itemAge = item.pubDate ? (Date.now() - new Date(item.pubDate).getTime()) : 9999999999;
+    } catch(e) { continue; }
+    const cat = PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
 
-      // Pílula — qualquer categoria, qualquer horário
+    // Pílula — qualquer categoria, qualquer horário (erro não bloqueia radar/minuto)
+    try {
       const hashP = crypto.createHash("md5").update(item.link + "_pilula").digest("hex");
       const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
       if (!dupP) {
@@ -500,9 +502,11 @@ async function autoCurtinhas(req, res, rec) {
           generated++;
         }
       }
+    } catch(ePilula) { /* pílula ignorada — tenta radar/minuto */ }
 
-      // Radar OVC — só grandes eventos, só últimas 3h
-      if (["politica","esportes","internacional","brasil-on"].includes(cat) && itemAge < 3*60*60*1000) {
+    // Radar OVC — só grandes eventos (removido gate de 3h: pubDate ausente bloqueava silenciosamente)
+    if (["politica","esportes","internacional","brasil-on"].includes(cat)) {
+      try {
         const hashR = crypto.createHash("md5").update(item.link + "_radar").digest("hex");
         const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
         if (!dupR) {
@@ -513,10 +517,12 @@ async function autoCurtinhas(req, res, rec) {
             generated++;
           }
         }
-      }
+      } catch(eRadar) { /* radar ignorado */ }
+    }
 
-      // Minuto OVC — só economia/negócios, só últimas 3h
-      if (["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat) && itemAge < 3*60*60*1000) {
+    // Minuto OVC — só economia/negócios
+    if (["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat)) {
+      try {
         const hashM = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
         const { data: dupM } = await supabase.from("posts").select("id").eq("hash", hashM).maybeSingle();
         if (!dupM) {
@@ -527,8 +533,8 @@ async function autoCurtinhas(req, res, rec) {
             generated++;
           }
         }
-      }
-    } catch(e) { continue; }
+      } catch(eMinuto) { /* minuto ignorado */ }
+    }
   }
   return res.status(200).json({ status: "ok", generated, tipo: "curtinhas" });
 }
