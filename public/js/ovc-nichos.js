@@ -147,7 +147,13 @@
       injetarCSS();
 
       var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,3);
-      var radares = nichos.filter(function(n){ return n.tipo==='radar'; }).slice(0,4);
+      // Copa radares ficam no widget ovc-copa.js — excluir do Radar OVC genérico
+      var COPA_KW_NICHO = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','fase de grupos','oitavas','quartas','semifinal','final da copa'];
+      var radares = nichos.filter(function(n){
+        if (n.tipo !== 'radar') return false;
+        var t = (n.titulo||'').toLowerCase();
+        return !COPA_KW_NICHO.some(function(kw){ return t.indexOf(kw) >= 0; });
+      }).slice(0,4);
       var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
 
       // 1. Radar OVC → right rail (sidebar direito)
