@@ -31,11 +31,13 @@ const CATEGORY_ALIASES = {
 
 const VALID_CATS = new Set(Object.keys(CAT_PATH));
 const HOME_CATS = [
-  "politica", "economia", "negocios", "investimentos", "seguros", "mercados",
-  "educacao", "industria", "tecnologia", "esportes", "saude", "familia",
-  "tributacao", "regulacao", "parcerias", "internacional", "colunistas",
-  "variedades", "investigativo", "seguranca", "cultura", "profissoes", "vagas",
-  "concursos", "imoveis", "esg", "defesa", "religiao"
+  "politica", "economia", "negocios", "investimentos", "seguros", "industria",
+  "tecnologia", "esportes", "saude", "familia", "internacional", "colunistas",
+  "cultura", "imoveis", "religiao", "brasil-on", "carreira", "tributos",
+  // aliases legados (artigos antigos no banco)
+  "mercados", "educacao", "tributacao", "regulacao", "parcerias",
+  "variedades", "investigativo", "seguranca", "profissoes", "vagas",
+  "concursos", "esg", "defesa"
 ];
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,updated_at,metrics";
 
