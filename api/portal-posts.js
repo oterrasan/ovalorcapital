@@ -149,35 +149,50 @@ async function handleCurtinhas(req, res) {
   return res.status(200).json({ curtinhas: posts, total: posts.length });
 }
 
-// ─── MAIS LIDOS — artigos mais acessados, excluindo os últimos 48h ──────────
+// ─── MAIS LIDOS — artigos mais acessados, sempre pelo menos 20 ───────────────
 async function handleMaisLidos(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
-  const limit = clampInt(req.query.limit, 10, 1, 20);
+  const limit = clampInt(req.query.limit, 20, 1, 50);
 
-  // Exclui artigos recentes (< 48h) para não repetir com os cards principais
   const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
 
-  const { data, error } = await supabase
+  // Busca artigos com mais de 48h para não repetir com os cards principais
+  const { data: dataOld, error } = await supabase
     .from("posts")
     .select("id,titulo,imagem,user_tags,published_at,metrics")
     .eq("status", "publicado")
     .lt("published_at", cutoff)
-    .not("metrics", "is", null)
     .order("published_at", { ascending: false })
-    .limit(200);
+    .limit(500);
 
   if (error) return res.status(200).json({ posts: [], total: 0 });
 
-  // Ordenar por views DESC (metrics->views)
-  const sorted = (data || [])
-    .map(row => {
-      const m = typeof row.metrics === "string" ? JSON.parse(row.metrics || "{}") : (row.metrics || {});
-      const views = parseInt(m.views || 0, 10);
-      return { row, views };
-    })
-    .filter(x => x.views > 0)
+  const toEntry = row => {
+    const m = typeof row.metrics === "string" ? JSON.parse(row.metrics || "{}") : (row.metrics || {});
+    return { row, views: parseInt(m.views || 0, 10) };
+  };
+
+  // Ordena por views DESC; inclui artigos com 0 views para garantir volume
+  let sorted = (dataOld || [])
+    .map(toEntry)
     .sort((a, b) => b.views - a.views)
     .slice(0, limit);
+
+  // Se ainda não chegamos a `limit`, complementa com artigos recentes (sem restrição de data)
+  if (sorted.length < limit) {
+    const seenIds = new Set(sorted.map(x => x.row.id));
+    const { data: dataRecent } = await supabase
+      .from("posts")
+      .select("id,titulo,imagem,user_tags,published_at,metrics")
+      .eq("status", "publicado")
+      .order("published_at", { ascending: false })
+      .limit(500);
+    const extras = (dataRecent || [])
+      .filter(r => !seenIds.has(r.id))
+      .map(toEntry)
+      .sort((a, b) => b.views - a.views);
+    sorted = sorted.concat(extras).slice(0, limit);
+  }
 
   const posts = sorted.map(({ row, views }) => {
     const tags = parseTags(row.user_tags);
