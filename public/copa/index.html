@@ -664,56 +664,13 @@ function renderStd(grupos){
 
 var _data=null;
 
-function renderGruposFull(){
-  var grid=document.getElementById('copa-grupos-grid');
-  if(!grid)return;
-  if(!_data||!_data.grupos||!_data.grupos.length){
-    grid.innerHTML='<div class="copa-grupos-loading">Tabela de grupos chegando em breve</div>';
-    return;
-  }
-  grid.innerHTML=_data.grupos.map(function(g){
-    if(!g.times||!g.times.length)return'';
-    var rows=g.times.map(function(t,i){
-      var sg=(t.sg>0?'+':'')+t.sg;
-      var cls=i===0?'q1':i===1?'q2':'';
-      return '<tr class="'+cls+'">'+
-        '<td class="rk">'+(i+1)+'</td>'+
-        '<td class="nm"><div class="copa-grupo-team">'+flag(t.sigla,22,16)+'<span class="tm-nm">'+t.nome+'</span></div></td>'+
-        '<td>'+t.pj+'</td>'+
-        '<td class="vit">'+t.v+'</td>'+
-        '<td>'+t.e+'</td>'+
-        '<td>'+t.d+'</td>'+
-        '<td>'+sg+'</td>'+
-        '<td class="pts">'+t.pts+'</td>'+
-        '</tr>';
-    }).join('');
-    return '<div class="copa-grupo-card">'+
-      '<div class="copa-grupo-gtitle">'+g.nome+'</div>'+
-      '<table class="copa-grupo-tbl">'+
-        '<thead><tr>'+
-          '<th class="rk">#</th>'+
-          '<th class="nm">Seleção</th>'+
-          '<th title="Jogos">P</th>'+
-          '<th class="vit" title="Vitórias">V</th>'+
-          '<th title="Empates">E</th>'+
-          '<th title="Derrotas">D</th>'+
-          '<th title="Saldo">SG</th>'+
-          '<th class="pts" title="Pontos">Pts</th>'+
-        '</tr></thead>'+
-        '<tbody>'+rows+'</tbody>'+
-      '</table>'+
-    '</div>';
-  }).join('');
-  var upd=document.getElementById('copa-grupos-upd');
-  if(upd)upd.textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' BRT';
-}
 
 function renderAll(){
   var bH=document.getElementById('copa-wb-hoje');
   var bP=document.getElementById('copa-wb-prox');
   var bG=document.getElementById('copa-wb-grupos');
   if(!bH)return;
-  if(!_data){bH.innerHTML='<div class="copa-wempty">⏳ Carregando...</div>';renderGruposFull();return;}
+  if(!_data){bH.innerHTML='<div class="copa-wempty">⏳ Carregando...</div>';return;}
   var now=new Date();
   var live=_data.partidas.filter(function(p){return p.status==='ao_vivo';});
   var hoje=_data.partidas.filter(function(p){
@@ -730,7 +687,6 @@ function renderAll(){
   bH.innerHTML=hojeHtml||'<div class="copa-wempty">Nenhum jogo hoje<br><span style="font-size:10px;opacity:.7">Veja os próximos na aba ao lado</span></div>';
   bP.innerHTML=prox.length?prox.slice(0,8).map(renderRow).join(''):'<div class="copa-wempty">Nenhum jogo agendado</div>';
   bG.innerHTML=renderStd(_data.grupos);
-  renderGruposFull();
 }
 
 function brtIso(utcStr){
@@ -868,43 +824,6 @@ function fetchCopaCurtinhas(){
 }
 })();
 </script>
-<style>
-.copa-grupos-wrap{padding:0 20px 40px;margin-top:0;}
-.copa-grupos-inner{max-width:1240px;margin:0 auto;}
-.copa-grupos-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;padding:14px 0 12px;border-top:1px solid rgba(255,255,255,.1);}
-.copa-grupos-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin:0;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
-.copa-grupos-sub{font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.04em;}
-.copa-grupos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
-@media(max-width:1100px){.copa-grupos-grid{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:780px){.copa-grupos-grid{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:480px){.copa-grupos-grid{grid-template-columns:1fr;}}
-.copa-grupo-card{background:rgba(0,0,0,.35);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(4px);}
-.copa-grupo-gtitle{background:rgba(255,223,0,.12);border-bottom:1px solid rgba(255,223,0,.18);padding:7px 10px;font-size:9px;font-weight:900;color:#ffdf00;text-transform:uppercase;letter-spacing:.14em;}
-.copa-grupo-tbl{width:100%;border-collapse:collapse;}
-.copa-grupo-tbl th{font-size:8px;color:rgba(255,255,255,.3);text-transform:uppercase;padding:4px 5px;text-align:center;font-weight:700;border-bottom:1px solid rgba(255,255,255,.07);}
-.copa-grupo-tbl th.nm{text-align:left;padding-left:8px;}
-.copa-grupo-tbl td{padding:5px 5px;text-align:center;border-bottom:1px solid rgba(255,255,255,.05);font-size:10px;color:rgba(255,255,255,.82);font-variant-numeric:tabular-nums;}
-.copa-grupo-tbl td.nm{text-align:left;padding-left:8px;}
-.copa-grupo-tbl tr:last-child td{border-bottom:none;}
-.copa-grupo-tbl tr.q1{background:rgba(0,180,70,.1);}
-.copa-grupo-tbl tr.q1 td.rk{color:#2ecc71;font-weight:900;}
-.copa-grupo-tbl tr.q2 td.rk{color:rgba(255,255,255,.4);}
-.copa-grupo-tbl td.vit{color:#2ecc71;font-weight:700;}
-.copa-grupo-tbl td.pts,.copa-grupo-tbl th.pts{color:#ffdf00;font-weight:900;}
-.copa-grupo-team{display:flex;align-items:center;gap:6px;}
-.copa-gflag{width:20px;height:14px;object-fit:cover;border-radius:2px;flex-shrink:0;vertical-align:middle;}
-.tm-nm{font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:85px;}
-.copa-grupos-loading{grid-column:1/-1;text-align:center;color:rgba(255,255,255,.3);padding:28px;font-size:12px;}
-</style>
-<div class="copa-grupos-wrap">
-<div class="copa-grupos-inner">
-<div class="copa-grupos-head">
-<span class="copa-grupos-h2">📊 Grupos · Copa 2026</span>
-<span class="copa-grupos-sub" id="copa-grupos-upd">atualizando...</span>
-</div>
-<div class="copa-grupos-grid" id="copa-grupos-grid"><div class="copa-grupos-loading">⏳ Carregando grupos...</div></div>
-</div>
-</div>
 </section>
 <main class="ovc-main"><section id="copa-artigos"><section class="ovc-grid"><div class="ovc-story-stack"><div class="ovc-panel" data-hero-card></div><div class="ovc-panel ovc-story-list"><h3>Principais notícias</h3><div class="ovc-mini-list" data-main-list></div></div><div class="ovc-panel ovc-story-list"><h3>Mais da seção</h3><div class="ovc-mini-list" data-local-list></div></div></div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main><footer class="footer">
 <div class="footer-inner">
