@@ -184,7 +184,7 @@
 
   function init() {
     Promise.all([
-      fetch('/api/portal-posts?curtinhas=true&limit=30').then(function(r){ return r.json(); }).catch(function(){ return {curtinhas:[]}; }),
+      fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=30').then(function(r){ return r.json(); }).catch(function(){ return {curtinhas:[]}; }),
       fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).catch(function(){ return {posts:[]}; })
     ]).then(function(results) {
       var todosCurtinhas = results[0].curtinhas || [];
@@ -192,7 +192,8 @@
 
       // Curtinhas Copa: radar ou pílula com Copa no título
       var copaCurtinhas = todosCurtinhas.filter(function(n) {
-        if (n.tipo !== 'radar' && n.tipo !== 'pilula' && n.tipo !== 'micropilula') return false;
+        var tipo = n.tipo_conteudo || n.tipo || '';
+        if (tipo !== 'radar' && tipo !== 'pilula' && tipo !== 'micropilula') return false;
         var t = (n.titulo || '').toLowerCase();
         return COPA_KEYWORDS.some(function(kw) { return t.indexOf(kw) >= 0; });
       });
