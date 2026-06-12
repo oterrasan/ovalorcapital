@@ -39,7 +39,76 @@ function ensurePortalRails(html, page) {
   return html.replace(/<main class="ovc-main">([\s\S]*?)<\/main>/i, '<main class="ovc-main"><section class="ovc-grid"><div class="ovc-story-stack">$1</div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main>');
 }
 
+async function handleCopa(_req, res) {
+  try {
+    const [sR, stR] = await Promise.all([
+      fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' },
+        signal: AbortSignal.timeout(7000)
+      }),
+      fetch('https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' },
+        signal: AbortSignal.timeout(7000)
+      })
+    ]);
+    const [sD, stD] = await Promise.all([sR.ok ? sR.json() : null, stR.ok ? stR.json() : null]);
+
+    const getStat = (stats, ...names) => {
+      for (const n of names) {
+        const s = (stats || []).find(x => x.name === n || x.abbreviation === n || x.shortDisplayName === n);
+        if (s != null) return Number(s.value) || 0;
+      }
+      return 0;
+    };
+
+    const partidas = (sD?.events || []).map(ev => {
+      const comp = ev.competitions?.[0];
+      const home = comp?.competitors?.find(c => c.homeAway === 'home');
+      const away = comp?.competitors?.find(c => c.homeAway === 'away');
+      if (!home || !away) return null;
+      const st = ev.status?.type?.name || '';
+      const isLive = st.includes('IN_PROGRESS');
+      const isDone = st.includes('FINAL') || ev.status?.type?.completed === true;
+      const dateUTC = new Date(ev.date || comp?.date || '');
+      const dateBRT = new Date(dateUTC.getTime() - 3 * 60 * 60 * 1000);
+      return {
+        id: ev.id,
+        home: { nome: home.team?.displayName || '', sigla: home.team?.abbreviation || '', placar: (isLive || isDone) ? (home.score || '0') : null },
+        away: { nome: away.team?.displayName || '', sigla: away.team?.abbreviation || '', placar: (isLive || isDone) ? (away.score || '0') : null },
+        status: isLive ? 'ao_vivo' : isDone ? 'encerrado' : 'agendado',
+        relogio: ev.status?.displayClock || '',
+        grupo: comp?.notes?.find(n => n.type === 'event')?.headline || '',
+        estadio: comp?.venue?.fullName || '',
+        dataBRT: dateBRT.toISOString()
+      };
+    }).filter(Boolean);
+
+    const grupos = (stD?.standings || []).map(g => ({
+      nome: g.name || g.abbreviation || g.title || '',
+      times: (g.entries || []).map(e => ({
+        nome: e.team?.displayName || e.team?.name || '',
+        sigla: e.team?.abbreviation || '',
+        pj: getStat(e.stats, 'gamesPlayed', 'GP'),
+        v: getStat(e.stats, 'wins', 'W'),
+        e: getStat(e.stats, 'ties', 'D', 'draws'),
+        d: getStat(e.stats, 'losses', 'L'),
+        gp: getStat(e.stats, 'pointsFor', 'GF', 'goalsFor'),
+        gc: getStat(e.stats, 'pointsAgainst', 'GA', 'goalsAgainst'),
+        sg: getStat(e.stats, 'pointDifferential', 'GD', 'goalDifference'),
+        pts: getStat(e.stats, 'points', 'Pts', 'PTS')
+      }))
+    }));
+
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.json({ partidas, grupos, updated_at: new Date().toISOString(), ok: true });
+  } catch (err) {
+    return res.json({ partidas: [], grupos: [], error: err.message, ok: false });
+  }
+}
+
 export default async function handler(req, res) {
+  if (req.query.action === 'copa') return handleCopa(req, res);
   const page = (req.query.page || "").toLowerCase();
   const cfg = PAGES[page];
   if (!cfg) return res.status(404).send("Not found");
