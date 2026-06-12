@@ -454,7 +454,7 @@
 </div>
 </header><section class="copa2026-hero" id="copa-hero-section">
 <style>
-.copa2026-hero{background:linear-gradient(135deg,#006233 0%,#009c3b 30%,#002776 100%);color:#fff;padding:0;overflow:hidden;margin-bottom:0;}
+.copa2026-hero{background:linear-gradient(180deg,#006233 0%,#009c3b 18%,#003a8a 50%,#002776 70%,#001850 100%);color:#fff;padding:0;overflow:hidden;margin-bottom:0;}
 .copa2026-hero-inner{max-width:1200px;margin:0 auto;padding:32px 20px 0;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;}
 @media(max-width:800px){.copa2026-hero-inner{grid-template-columns:1fr;gap:20px;padding:20px 16px 0;}}
 .copa-left{}
@@ -868,16 +868,12 @@ function fetchCopaCurtinhas(){
 }
 })();
 </script>
-</section>
-<section class="copa-grupos-section">
 <style>
-/* Grupos — fundo contínuo com hero (mesmo azul escuro do gradiente) */
-.copa-grupos-section{background:linear-gradient(180deg,#002776 0%,#001850 100%);padding:20px 20px 40px;margin-top:0;}
+.copa-grupos-wrap{padding:0 20px 40px;margin-top:0;}
 .copa-grupos-inner{max-width:1240px;margin:0 auto;}
-.copa-grupos-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;padding-bottom:12px;border-bottom:1px solid rgba(255,223,0,.15);}
-.copa-grupos-h2{font-size:15px;font-weight:800;color:#fff;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
-.copa-grupos-h2 em{color:#ffdf00;font-style:normal;}
-.copa-grupos-sub{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.04em;}
+.copa-grupos-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;padding:14px 0 12px;border-top:1px solid rgba(255,255,255,.1);}
+.copa-grupos-h2{font-size:13px;font-weight:700;color:rgba(255,255,255,.7);margin:0;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.copa-grupos-sub{font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.04em;}
 .copa-grupos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
 @media(max-width:1100px){.copa-grupos-grid{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:780px){.copa-grupos-grid{grid-template-columns:repeat(2,1fr);}}
@@ -900,12 +896,14 @@ function fetchCopaCurtinhas(){
 .tm-nm{font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:85px;}
 .copa-grupos-loading{grid-column:1/-1;text-align:center;color:rgba(255,255,255,.3);padding:28px;font-size:12px;}
 </style>
+<div class="copa-grupos-wrap">
 <div class="copa-grupos-inner">
 <div class="copa-grupos-head">
-<h2 class="copa-grupos-h2">📊 Tabela de <em>Grupos</em> · Copa 2026</h2>
+<span class="copa-grupos-h2">📊 Grupos · Copa 2026</span>
 <span class="copa-grupos-sub" id="copa-grupos-upd">atualizando...</span>
 </div>
 <div class="copa-grupos-grid" id="copa-grupos-grid"><div class="copa-grupos-loading">⏳ Carregando grupos...</div></div>
+</div>
 </div>
 </section>
 <main class="ovc-main"><section id="copa-artigos"><section class="ovc-grid"><div class="ovc-story-stack"><div class="ovc-panel" data-hero-card></div><div class="ovc-panel ovc-story-list"><h3>Principais notícias</h3><div class="ovc-mini-list" data-main-list></div></div><div class="ovc-panel ovc-story-list"><h3>Mais da seção</h3><div class="ovc-mini-list" data-local-list></div></div></div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main><footer class="footer">
