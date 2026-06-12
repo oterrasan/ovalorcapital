@@ -83,9 +83,14 @@ async function handleCopa(_req, res) {
       };
     }).filter(Boolean);
 
-    const grupos = (stD?.standings || []).map(g => ({
+    const standingsSrc = Array.isArray(stD?.standings) ? stD.standings
+      : stD?.standings?.children?.length ? stD.standings.children
+      : stD?.children?.length ? stD.children
+      : stD?.groups?.length ? stD.groups
+      : [];
+    const grupos = standingsSrc.map(g => ({
       nome: g.name || g.abbreviation || g.title || '',
-      times: (g.entries || []).map(e => ({
+      times: (g.standings?.entries || g.entries || []).map(e => ({
         nome: e.team?.displayName || e.team?.name || '',
         sigla: e.team?.abbreviation || '',
         pj: getStat(e.stats, 'gamesPlayed', 'GP'),
