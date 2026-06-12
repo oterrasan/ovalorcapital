@@ -621,9 +621,9 @@ var FL={
 };
 
 function flag(s,w,h){
-  var code=FL[s]||FL[(s||'').toUpperCase()];
-  if(!code)return '<span style="display:inline-block;width:'+w+'px;height:'+h+'px;background:rgba(255,255,255,.12);border-radius:2px;vertical-align:middle;"></span>';
-  return '<img src="https://flagcdn.com/'+w+'x'+h+'/'+code+'.png" width="'+w+'" height="'+h+'" loading="lazy" style="object-fit:cover;border-radius:2px;flex-shrink:0;vertical-align:middle;" onerror="this.style.display=\'none\'" alt="'+s+'">';
+  var code=FL[s]||FL[(s||'').toUpperCase()]||FL[(s||'').replace(/[^A-Za-z]/g,'').toUpperCase()];
+  if(!code)return '<span style="display:inline-block;width:'+w+'px;height:'+h+'px;background:rgba(255,255,255,.12);border-radius:2px;vertical-align:middle;flex-shrink:0;"></span>';
+  return '<img src="https://flagcdn.com/w40/'+code+'.png" width="'+w+'" height="'+h+'" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" class="copa-gflag" onerror="this.outerHTML=\'<span style=&quot;display:inline-block;width:'+w+'px;height:'+h+'px;background:rgba(255,255,255,.1);border-radius:2px;flex-shrink:0;&quot;></span>\'" alt="'+s+'">';
 }
 function hhmm(iso){try{return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});}catch(e){return '--:--';}}
 function ddmm(iso){try{return new Date(iso).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'});}catch(e){return '--/--';}}
@@ -705,7 +705,7 @@ function renderGruposFull(){
     '</div>';
   }).join('');
   var upd=document.getElementById('copa-grupos-upd');
-  if(upd)upd.textContent='atualizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' BRT';
+  if(upd)upd.textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' BRT';
 }
 
 function renderAll(){
@@ -871,39 +871,41 @@ function fetchCopaCurtinhas(){
 </section>
 <section class="copa-grupos-section">
 <style>
-.copa-grupos-section{background:#0c1422;padding:28px 20px 44px;border-top:1px solid rgba(255,223,0,.12);}
+/* Grupos — fundo contínuo com hero (mesmo azul escuro do gradiente) */
+.copa-grupos-section{background:linear-gradient(180deg,#002776 0%,#001850 100%);padding:20px 20px 40px;margin-top:0;}
 .copa-grupos-inner{max-width:1240px;margin:0 auto;}
-.copa-grupos-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
-.copa-grupos-h2{font-size:18px;font-weight:900;color:#fff;margin:0;letter-spacing:-.02em;}
+.copa-grupos-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;padding-bottom:12px;border-bottom:1px solid rgba(255,223,0,.15);}
+.copa-grupos-h2{font-size:15px;font-weight:800;color:#fff;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;}
 .copa-grupos-h2 em{color:#ffdf00;font-style:normal;}
-.copa-grupos-sub{font-size:10px;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.08em;}
-.copa-grupos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.copa-grupos-sub{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.04em;}
+.copa-grupos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
 @media(max-width:1100px){.copa-grupos-grid{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:780px){.copa-grupos-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:480px){.copa-grupos-grid{grid-template-columns:1fr;}}
-.copa-grupo-card{background:#162030;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.07);}
-.copa-grupo-gtitle{background:rgba(255,223,0,.09);border-bottom:1px solid rgba(255,223,0,.18);padding:9px 12px;font-size:10px;font-weight:900;color:#ffdf00;text-transform:uppercase;letter-spacing:.12em;}
+.copa-grupo-card{background:rgba(0,0,0,.35);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(4px);}
+.copa-grupo-gtitle{background:rgba(255,223,0,.12);border-bottom:1px solid rgba(255,223,0,.18);padding:7px 10px;font-size:9px;font-weight:900;color:#ffdf00;text-transform:uppercase;letter-spacing:.14em;}
 .copa-grupo-tbl{width:100%;border-collapse:collapse;}
-.copa-grupo-tbl th{font-size:9px;color:rgba(255,255,255,.28);text-transform:uppercase;padding:5px 6px;text-align:center;font-weight:700;border-bottom:1px solid rgba(255,255,255,.06);}
-.copa-grupo-tbl th.nm{text-align:left;padding-left:10px;}
-.copa-grupo-tbl td{padding:7px 6px;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px;color:rgba(255,255,255,.8);font-variant-numeric:tabular-nums;}
-.copa-grupo-tbl td.nm{text-align:left;padding-left:10px;}
+.copa-grupo-tbl th{font-size:8px;color:rgba(255,255,255,.3);text-transform:uppercase;padding:4px 5px;text-align:center;font-weight:700;border-bottom:1px solid rgba(255,255,255,.07);}
+.copa-grupo-tbl th.nm{text-align:left;padding-left:8px;}
+.copa-grupo-tbl td{padding:5px 5px;text-align:center;border-bottom:1px solid rgba(255,255,255,.05);font-size:10px;color:rgba(255,255,255,.82);font-variant-numeric:tabular-nums;}
+.copa-grupo-tbl td.nm{text-align:left;padding-left:8px;}
 .copa-grupo-tbl tr:last-child td{border-bottom:none;}
-.copa-grupo-tbl tr.q1{background:rgba(0,156,59,.08);}
+.copa-grupo-tbl tr.q1{background:rgba(0,180,70,.1);}
 .copa-grupo-tbl tr.q1 td.rk{color:#2ecc71;font-weight:900;}
-.copa-grupo-tbl tr.q2 td.rk{color:rgba(255,255,255,.45);}
+.copa-grupo-tbl tr.q2 td.rk{color:rgba(255,255,255,.4);}
 .copa-grupo-tbl td.vit{color:#2ecc71;font-weight:700;}
 .copa-grupo-tbl td.pts,.copa-grupo-tbl th.pts{color:#ffdf00;font-weight:900;}
-.copa-grupo-team{display:flex;align-items:center;gap:7px;}
-.tm-nm{font-size:11px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:95px;}
-.copa-grupos-loading{grid-column:1/-1;text-align:center;color:rgba(255,255,255,.3);padding:32px;font-size:13px;}
+.copa-grupo-team{display:flex;align-items:center;gap:6px;}
+.copa-gflag{width:20px;height:14px;object-fit:cover;border-radius:2px;flex-shrink:0;vertical-align:middle;}
+.tm-nm{font-size:10px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:85px;}
+.copa-grupos-loading{grid-column:1/-1;text-align:center;color:rgba(255,255,255,.3);padding:28px;font-size:12px;}
 </style>
 <div class="copa-grupos-inner">
 <div class="copa-grupos-head">
-<h2 class="copa-grupos-h2">📊 Tabela de <em>Grupos</em></h2>
-<span class="copa-grupos-sub" id="copa-grupos-upd">Copa do Mundo 2026</span>
+<h2 class="copa-grupos-h2">📊 Tabela de <em>Grupos</em> · Copa 2026</h2>
+<span class="copa-grupos-sub" id="copa-grupos-upd">atualizando...</span>
 </div>
-<div class="copa-grupos-grid" id="copa-grupos-grid"><div class="copa-grupos-loading">⏳ Carregando tabela de grupos...</div></div>
+<div class="copa-grupos-grid" id="copa-grupos-grid"><div class="copa-grupos-loading">⏳ Carregando grupos...</div></div>
 </div>
 </section>
 <main class="ovc-main"><section id="copa-artigos"><section class="ovc-grid"><div class="ovc-story-stack"><div class="ovc-panel" data-hero-card></div><div class="ovc-panel ovc-story-list"><h3>Principais notícias</h3><div class="ovc-mini-list" data-main-list></div></div><div class="ovc-panel ovc-story-list"><h3>Mais da seção</h3><div class="ovc-mini-list" data-local-list></div></div></div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main><footer class="footer">
