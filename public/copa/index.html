@@ -484,7 +484,10 @@
 .copa-sofascore-header{padding:10px 14px;background:rgba(0,0,0,.2);display:flex;align-items:center;justify-content:space-between;}
 .copa-sofascore-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.7);}
 .copa-sofascore-badge{font-size:10px;background:#ffdf00;color:#006233;padding:2px 8px;border-radius:10px;font-weight:700;}
-.copa-sofascore iframe{width:100%;display:block;border:none;}
+.copa-sofascore-links{padding:16px 14px;display:flex;flex-direction:column;gap:10px;}
+.copa-sofascore-btn{display:block;background:linear-gradient(135deg,#006233,#00843d);color:#fff;text-decoration:none;padding:12px 16px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;border:1px solid rgba(255,255,255,.2);transition:opacity .2s;}
+.copa-sofascore-btn:hover{opacity:.85;}
+.copa-sofascore-btn-alt{background:linear-gradient(135deg,#c0392b,#e74c3c);}
 .copa-groups{background:rgba(0,0,0,.25);border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,.1);}
 .copa-groups-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#ffdf00;margin-bottom:10px;}
 .copa-groups-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
@@ -528,7 +531,10 @@
 <div class="copa-right">
 <div class="copa-sofascore">
 <div class="copa-sofascore-header"><span class="copa-sofascore-title">Próximos jogos / Ao vivo</span><span class="copa-sofascore-badge">SofaScore</span></div>
-<iframe src="https://www.sofascore.com/tournament/football/world/fifa-world-cup/16/embed" width="100%" height="280" title="Copa do Mundo 2026 - Ao vivo" loading="lazy" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>
+<div class="copa-sofascore-links">
+<a href="https://www.sofascore.com/tournament/football/world/fifa-world-cup/16" target="_blank" rel="noopener noreferrer" class="copa-sofascore-btn">⚽ Ver tabela ao vivo no SofaScore →</a>
+<a href="https://www.google.com/search?q=copa+do+mundo+2026+jogos+ao+vivo" target="_blank" rel="noopener noreferrer" class="copa-sofascore-btn copa-sofascore-btn-alt">🔴 Ao vivo no Google →</a>
+</div>
 </div>
 <div class="copa-groups">
 <div class="copa-groups-title">⚽ Grupos — fase de grupos</div>
