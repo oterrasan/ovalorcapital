@@ -51,7 +51,7 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 // PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
 ```
 
-**Prompt atual — MASTER_PROMPT OVC V4.5 (aprovado pelo dono em 13/06/2026 — VERSÃO CONGELADA):**
+**Prompt atual — MASTER_PROMPT OVC V4.6 (aprovado pelo dono em 13/06/2026 — VERSÃO CONGELADA):**
 - Estilo: Reuters/Bloomberg/Valor Econômico, jornalístico sênior
 - SEO: Google News + Google Discover
 - Formato de saída: HTML puro (nunca markdown)
@@ -2982,8 +2982,8 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Gemini engine primária | ✅ Code em main | Deploy a confirmar |
 | Gemini dual-key (key1+key2) | ✅ Code em main | PR #145 mergeado |
 | OpenAI fallback hardcoded | ✅ ATIVO | core/ai_portal.js + run_portal.js |
-| MASTER_PROMPT V4.5 + Blindagem Jurídica + Trava [VERIFICAR] + REGRA DOS NOMES | ✅ ATIVO EM PRODUÇÃO | PR #189 mergeado 13/06/2026 |
-| Sistema de nichos (Pílula/Radar/Minuto) | ⛔ DESATIVADO | Curtinhas desligadas 13/06/2026 por Roberto |
+| MASTER_PROMPT V4.6 + Trava Anti-Blog + Contextualização Analítica | ✅ ATIVO EM PRODUÇÃO | PR #192 mergeado 13/06/2026 |
+| Sistema de nichos (Pílula/Radar/Minuto) | ✅ REATIVADO | Curtinhas reativadas PR #191 — usam V4.6 via rewritePortal() |
 | Radar da Copa 2026 | ✅ ATIVO | 10/06/2026 |
 | Radar Eleitoral 2026 | ✅ ATIVO | 10/06/2026 |
 | Mais Lidos (ranking por views reais) | ✅ ATIVO | 10/06/2026 |
@@ -2993,6 +2993,65 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Supabase banco novo | ✅ ATIVO | yntwvfcxjardzafdqanj |
 | AdSense ads.txt | ✅ VERIFICADO | public/ads.txt |
 | Sitemap dinâmico | ✅ ATIVO | api/sitemap.js |
+
+---
+
+### Sessão 13/06/2026 — MASTER_PROMPT V4.6 (continuação — V4.5 → V4.6 + curtinhas reativadas)
+
+#### Contexto
+
+Continuação direta da sessão V4.5. Roberto compartilhou avaliação do Gemini sobre o primeiro artigo gerado com V4.5 ("Observações sobre a Copa do Mundo nos EUA: Dicas para Torcedores") identificando 4 falhas: tom de lista de dicas, dados não contextualizados analiticamente, vícios de IA ("Uma das primeiras recomendações é..."), tom pedagógico.
+
+Roberto autorizou: *"imediatamente"*.
+
+#### O que foi feito (PR #191 + PR #192)
+
+**PR #191 — Curtinhas reativadas (commit `2cec9fd`):**
+- `api/run_portal.js`: linhas de curtinhas descomentadas — `autoCurtinhas()` e `autoCopaCurtinhas()` voltaram a funcionar
+- Roberto havia pedido "NADA DEVE GERAR CONTEUDO SE NAO FOR SEGUINDO EXATAMENTE NOSSO PROMPT MASTER UNICO" — descoberto que curtinhas já usavam `rewritePortal()` (V4.5), estavam só comentadas
+- Taxonomy de conteúdos definida por Roberto: **CARDS** (completos com imagem) / **Minuto OVC** / **Leitura Dinâmica** (a implementar) / **Radar COPA** / **Radar Eleitoral**
+
+**PR #192 — MASTER_PROMPT OVC V4.6 (squash commit `cde60b04`):**
+- `core/ai_portal.js`: versão atualizada V4.5 → **V4.6**
+- Nova seção **TRAVA ANTI-BLOG DE DICAS E TURISMO** (após NATURALIDADE NARRATIVA):
+  - Proíbe guia de viagem, lista de recomendações, dicas de turismo ou manual de instruções
+  - Exemplos proibidos: "fique atento", "recomenda-se", "aqui estão algumas dicas", "é aconselhável que", "não hesite em"
+  - Em vez de dica → reportar o mecanismo/fato analiticamente
+- Nova seção **CONTEXTUALIZAÇÃO ANALÍTICA OBRIGATÓRIA** (após TRAVA ANTI-BLOG):
+  - Dados cotidianos (preços, trânsito, apps, logística) devem ser decodificados: correlacionar com macro/geopolítica
+  - "Utilidade pública" = contexto macroeconômico — não folheto instrutivo
+- **AUDITORIA INTERNA**: novo item — "O artigo adota tom de lista de dicas, guia de viagem ou manual de instruções?"
+
+#### Status MASTER_PROMPT V4.6
+
+**Comentário no código:** `// PROMPT OFICIAL OVC — MASTER EDITORIAL DEFINITIVO — APROVADO PELO DONO EM 13/06/2026 — VERSÃO OVC V4.6 — NÃO ALTERAR SEM AUTORIZAÇÃO`
+
+**Hierarquia de IA (inalterada):**
+```
+Gemini 2.0 Flash (key1) → Gemini 2.0 Flash (key2, se 429) → OpenAI gpt-4o-mini (fallback)
+```
+
+**Curtinhas:** REATIVADAS — `autoCurtinhas()` e `autoCopaCurtinhas()` ativas, usam V4.6 via `rewritePortal()`
+
+**Estado de api/ — 10 ARQUIVOS ✅**
+
+#### 🔧 PENDÊNCIAS COMPLETAS (13/06/2026 — pós V4.6)
+
+**Alta prioridade — aguardando Roberto:**
+1. **Aprovar artigos pendentes** — admin → Postagens → filtro 'pendente'. Pipeline ATIVO.
+2. **Confirmar qualidade dos artigos** com V4.6 — verificar se tom de dicas sumiu
+
+**Médias (sessão focada):**
+3. `api/category.js` CAT_SEO — entradas SEO para brasil-on, carreira, tributos ainda desatualizadas
+4. `/vc/contato/index.html` — página não existe (cai no article handler)
+5. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+6. **Leitura Dinâmica** — Roberto disse "iremos implementar em breve", aguardando autorização
+
+**Roberto faz manualmente:**
+7. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto. Deletar no projeto `ovalorcapital-xuhw`
+8. Instagram SSL — non-www falha no IAB
+9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+10. AdSense aprovação — aguardando Google
 
 ---
 
