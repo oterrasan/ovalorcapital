@@ -409,8 +409,9 @@ export default async function handler(req, res) {
   const rec = await recentes();
   try {
     if (body.url || body.texto) return manual(req, res, rec);
-    if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
-    if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
+    // CURTINHAS DESATIVADAS — 13/06/2026 — Roberto: "NAO TEREMOS MAIS CURTINHAS POR ENQUANTO, TUDO SEGUIRA ESTE PADRAO"
+    // if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
+    // if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
