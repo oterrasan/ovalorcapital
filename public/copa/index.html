@@ -525,6 +525,7 @@
 .copa-art-stat.rcard .copa-art-stat-n{color:#dc2626;}
 .copa-art-stat.ast .copa-art-stat-n{color:#2563eb;}
 .copa-art-empty{padding:16px 14px;text-align:center;color:#9ca3af;font-size:11px;}
+.copa-art-photo{width:38px;height:28px;object-fit:cover;object-position:top;border-radius:4px;background:#f3f4f6;flex-shrink:0;border:1px solid #e5e7eb;}
 /* Grupos abertos */
 .copa-grupos-open{padding:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
 @media(max-width:1100px){.copa-grupos-open{grid-template-columns:repeat(2,1fr);}}
@@ -1144,31 +1145,49 @@ var URL='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/leaders
 fetch(URL,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
 var list=document.getElementById('copa-art-list');
 if(!list)return;
-if(!d){list.innerHTML='<div class="copa-art-empty">Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
-/* Extrai gols (primária) + assistências + cartões amarelos + vermelhos */
-var map={};/* athleteId -> {nome,time,sigla,gols,ast,yc,rc} */
+if(!d||(d.categories||[]).length===0){list.innerHTML='<div class="copa-art-empty">&#x23F3; Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
+/* Mapa athleteId -> estatísticas */
+var map={};
 function mergeLeaders(leaders,field){
 (leaders||[]).forEach(function(l){
 var a=l.athlete||{};var tm=l.team||{};
-var id=a.id||a.displayName||a.fullName||'?';
-if(!map[id])map[id]={nome:a.displayName||a.fullName||'',time:tm.displayName||tm.name||'',sigla:tm.abbreviation||'',gols:0,ast:0,yc:0,rc:0};
+var id=a.id?String(a.id):(a.displayName||a.fullName||'x'+Math.random());
+if(!map[id])map[id]={
+  nome:a.displayName||a.fullName||'—',
+  time:tm.displayName||tm.name||tm.abbreviation||'—',
+  sigla:(tm.abbreviation||tm.location||'').toUpperCase(),
+  photo:(a.headshot&&a.headshot.href)?a.headshot.href:(a.id?'https://a.espncdn.com/i/headshots/soccer/players/full/'+a.id+'.png':''),
+  gols:0,ast:0,yc:0,rc:0
+};
 map[id][field]=Number(l.value)||0;
 });
 }
 var cats=d.categories||[];
 cats.forEach(function(cat){
 var n=(cat.name||'').toLowerCase();
-if(n.indexOf('goal')>=0||n.indexOf('gol')>=0)mergeLeaders(cat.leaders,'gols');
-else if(n.indexOf('assist')>=0)mergeLeaders(cat.leaders,'ast');
-else if(n.indexOf('yellow')>=0)mergeLeaders(cat.leaders,'yc');
-else if(n.indexOf('red')>=0)mergeLeaders(cat.leaders,'rc');
+var abbr=(cat.abbreviation||'').toLowerCase();
+var dn=(cat.displayName||cat.shortDisplayName||'').toLowerCase();
+var all=n+' '+abbr+' '+dn;
+if(all.indexOf('goal')>=0||all.indexOf('gol')>=0||abbr==='g'||abbr==='gls')mergeLeaders(cat.leaders,'gols');
+else if(all.indexOf('assist')>=0||abbr==='a'||abbr==='ast')mergeLeaders(cat.leaders,'ast');
+else if(all.indexOf('yellow')>=0||all.indexOf('amarelo')>=0||abbr==='yc'||abbr==='ca')mergeLeaders(cat.leaders,'yc');
+else if(all.indexOf('red')>=0||all.indexOf('verm')>=0||abbr==='rc'||abbr==='cv')mergeLeaders(cat.leaders,'rc');
 });
+/* Fallback: se nenhuma categoria foi reconhecida, usa posição */
 var scorers=Object.values(map);
-if(!scorers.length){list.innerHTML='<div class="copa-art-empty">Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
+if(!scorers.length&&cats.length){
+mergeLeaders(cats[0]&&cats[0].leaders,'gols');
+if(cats[1])mergeLeaders(cats[1].leaders,'ast');
+if(cats[2])mergeLeaders(cats[2].leaders,'yc');
+if(cats[3])mergeLeaders(cats[3].leaders,'rc');
+scorers=Object.values(map);
+}
+if(!scorers.length){list.innerHTML='<div class="copa-art-empty">&#x23F3; Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
 scorers.sort(function(a,b){return b.gols-a.gols||b.ast-a.ast;});
-list.innerHTML=scorers.slice(0,10).map(function(s,i){
+list.innerHTML=scorers.slice(0,12).map(function(s,i){
 var fc=FL[s.sigla]||FL[(s.sigla||'').toUpperCase()]||'';
 var fimg=fc?'<img src="https://flagcdn.com/w40/'+fc+'.png" width="16" height="11" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+s.sigla+'">':'';
+var pimg=s.photo?'<img src="'+s.photo+'" class="copa-art-photo" loading="lazy" onerror="this.style.display=\'none\'" alt="'+s.nome+'">':'';
 var statsHtml=
 '<div class="copa-art-stat"><span class="copa-art-stat-n">'+s.gols+'</span><span class="copa-art-stat-l">&#x26BD; Gols</span></div>'+
 (s.ast>0?'<div class="copa-art-stat ast"><span class="copa-art-stat-n">'+s.ast+'</span><span class="copa-art-stat-l">&#x1F44A; Ast</span></div>':'')+
@@ -1176,6 +1195,7 @@ var statsHtml=
 (s.rc>0?'<div class="copa-art-stat rcard"><span class="copa-art-stat-n">'+s.rc+'</span><span class="copa-art-stat-l">&#x1F7E5; CV</span></div>':'');
 return '<div class="copa-art-item">'+
 '<span class="copa-art-rank'+(i<3?' top':'')+'">'+( i<3?['&#x1F947;','&#x1F948;','&#x1F949;'][i]:(i+1)+'&ordm;')+'</span>'+
+pimg+
 '<div class="copa-art-info"><div class="copa-art-name">'+s.nome+'</div><div class="copa-art-team">'+fimg+' '+s.time+'</div></div>'+
 '<div class="copa-art-stats">'+statsHtml+'</div>'+
 '</div>';
