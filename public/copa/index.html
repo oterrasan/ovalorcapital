@@ -955,10 +955,8 @@ var el=document.getElementById('copa-rail-esportes');
 if(!el)return;
 if(!list.length){el.innerHTML='<div class="copa-rail-empty">Em breve &mdash; cobertura Copa 2026</div>';return;}
 el.innerHTML=list.map(function(p){
-var slug=p.seo_slug||p.slug||p.id;
-var tags=p.user_tags||'["esportes"]';try{tags=JSON.parse(tags);}catch(e){tags=['esportes'];}
-var cat=tags[0]||'esportes';
-return '<a href="/'+cat+'/'+slug+'/" class="copa-rail-item">'+
+var href=p.url||(function(){var id8=(p.id||'').slice(0,8);var sl=(p.slug||p.titulo||'').replace(/[^a-z0-9]+/gi,'-').toLowerCase().slice(0,55);return '/esportes/'+sl+'-'+id8+'/';}());
+return '<a href="'+href+'" class="copa-rail-item">'+
 '<div class="copa-rail-item-cat">Copa 2026</div>'+
 '<div class="copa-rail-item-title">'+p.titulo+'</div>'+
 '</a>';
