@@ -51,7 +51,7 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 // PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
 ```
 
-**Prompt atual — MASTER_PROMPT OVC V4 (aprovado pelo dono em 10/06/2026):**
+**Prompt atual — MASTER_PROMPT OVC V4.5 (aprovado pelo dono em 13/06/2026 — VERSÃO CONGELADA):**
 - Estilo: Reuters/Bloomberg/Valor Econômico, jornalístico sênior
 - SEO: Google News + Google Discover
 - Formato de saída: HTML puro (nunca markdown)
@@ -62,6 +62,8 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 - **Blindagem jurídica ativa:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, nunca publicar menores de idade, sempre atribuir com "segundo", "de acordo com", "conforme"
 - **Hierarquia de IAs:** Gemini 2.0 Flash (primário) → Gemini key 2 (fallback 429) → OpenAI gpt-4o-mini (fallback final)
 - Linha final: `O TEMA e o CONTEXTO É: _____` — placeholder; tema real chega como `userContent` separado (não quebra o prompt)
+- **V4.5 adições:** Trava `[VERIFICAR]` (jamais na saída final); REGRA DOS NOMES E IDENTIFICAÇÕES (nunca inferir nomes/cargos/valores/datas ausentes do input); clarificação `{DATA_ATUAL}` = data de geração ≠ data do evento; checklist extra na auditoria interna
+- **Curtinhas DESATIVADAS** (13/06/2026) — `autoCurtinhas` e `autoCopaCurtinhas` comentadas em `run_portal.js`
 
 ---
 
@@ -2980,8 +2982,8 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Gemini engine primária | ✅ Code em main | Deploy a confirmar |
 | Gemini dual-key (key1+key2) | ✅ Code em main | PR #145 mergeado |
 | OpenAI fallback hardcoded | ✅ ATIVO | core/ai_portal.js + run_portal.js |
-| MASTER_PROMPT V4 + Blindagem Jurídica | ✅ Code em main | PR #144 mergeado |
-| Sistema de nichos (Pílula/Radar/Minuto) | ✅ ATIVO | 09/06/2026 |
+| MASTER_PROMPT V4.5 + Blindagem Jurídica + Trava [VERIFICAR] + REGRA DOS NOMES | ✅ ATIVO EM PRODUÇÃO | PR #189 mergeado 13/06/2026 |
+| Sistema de nichos (Pílula/Radar/Minuto) | ⛔ DESATIVADO | Curtinhas desligadas 13/06/2026 por Roberto |
 | Radar da Copa 2026 | ✅ ATIVO | 10/06/2026 |
 | Radar Eleitoral 2026 | ✅ ATIVO | 10/06/2026 |
 | Mais Lidos (ranking por views reais) | ✅ ATIVO | 10/06/2026 |
@@ -2991,3 +2993,90 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Supabase banco novo | ✅ ATIVO | yntwvfcxjardzafdqanj |
 | AdSense ads.txt | ✅ VERIFICADO | public/ads.txt |
 | Sitemap dinâmico | ✅ ATIVO | api/sitemap.js |
+
+---
+
+### Sessão 13/06/2026 — MASTER_PROMPT V4.5 + CURTINHAS DESATIVADAS
+
+#### Contexto
+
+Continuação da sessão anterior. Roberto autorizou a implementação do MASTER_PROMPT OVC V4.4 (homologado por duas IAs independentes) e também pediu desativar curtinhas: *"NAO TEREMOS MAIS CURTINHAS POR ENQUANTO, TUDO SEGUIRA ESTE PADRAO"*.
+
+Depois Roberto compartilhou avaliação adicional das IAs (ChatGPT + Gemini) sobre o V4.4, e autorizou implementação do V4.5 com 3 refinamentos: *"sim, imediatamente e me envie aqui o prompt com estes ajustes"*.
+
+Ambas as IAs deram V4.5 nota 9.9/10 e declararam "versão homologada para produção" / "Constituição Editorial Oficial".
+
+---
+
+#### O que foi feito (PR #189 — mergeado em main, squash commit `7d1a86a`)
+
+**`core/ai_portal.js` — MASTER_PROMPT V4.5 (sobre V4.4):**
+
+3 refinamentos implementados:
+
+1. **Trava `[VERIFICAR]`** (adicionado em PRECISÃO FACTUAL):
+   - Marcador interno para dúvidas factuais durante redação
+   - Jamais pode aparecer na saída final
+   - Se afirmação ainda depender do marcador após auditoria: remover ou suspender para revisão humana
+
+2. **REGRA DOS NOMES E IDENTIFICAÇÕES** (nova seção antes de REGRA DO CLAIM EXTRAORDINÁRIO):
+   - Proíbe completar automaticamente: nomes completos, cargos, idades, empresas, localidades, números de processos, valores monetários, datas específicas
+   - Só usar se explicitamente presente no input
+
+3. **Clarificação `{DATA_ATUAL}`** (em CONDUTA OBRIGATÓRIA):
+   - `IMPORTANTE: {DATA_ATUAL} é a data de geração deste conteúdo — NÃO é a data do acontecimento narrado.`
+
+4. **Item extra em AUDITORIA INTERNA**:
+   - `Algum nome, cargo, valor, data ou processo foi inferido sem constar no input?`
+
+**`api/run_portal.js` — Curtinhas desativadas:**
+```js
+// CURTINHAS DESATIVADAS — 13/06/2026 — Roberto: "NAO TEREMOS MAIS CURTINHAS POR ENQUANTO, TUDO SEGUIRA ESTE PADRAO"
+// if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
+// if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
+```
+- Funções `autoCurtinhas()` e `autoCopaCurtinhas()` ainda existem no arquivo mas são inalcançáveis
+- Toda geração de conteúdo (artigos normais + curtinhas quando religar) usa exclusivamente MASTER_PROMPT V4.5
+
+---
+
+#### Prompt V4.5 — versão congelada como Constituição Editorial OVC
+
+**Comentário no código:** `// PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO`
+
+**Versão:** `MASTER_PROMPT OVC V4.5`
+
+**Hierarquia de IA (inalterada):**
+```
+Gemini 2.0 Flash (key1) → Gemini 2.0 Flash (key2, se 429) → OpenAI gpt-4o-mini (fallback)
+```
+
+**Avaliações finais (13/06/2026):**
+- IA 1 (ChatGPT): 9.9/10 — "Congele o prompt como OVC V4.5 — Constituição Editorial Oficial"
+- IA 2 (Gemini): "pronto para produção" — "versão homologada para produção, constitui a Carta Magna editorial da OVC"
+
+---
+
+#### REGRA ZERO-B reforçada
+
+O MASTER_PROMPT V4.5 é a versão definitiva. **NUNCA alterar** `core/ai_portal.js` sem nova autorização explícita de Roberto. Qualquer "melhoria" por iniciativa própria é PROIBIDA.
+
+---
+
+#### 🔧 PENDÊNCIAS COMPLETAS (13/06/2026)
+
+**Alta prioridade — aguardando Roberto:**
+1. **Aprovar artigos pendentes** — admin → Postagens → filtro 'pendente'. Pipeline ATIVO.
+2. **Confirmar qualidade dos artigos** com V4.5 em produção — Roberto pediu "testes práticos de pauta"
+
+**Médias (sessão focada):**
+3. `api/category.js` CAT_SEO — entradas SEO para brasil-on, carreira, tributos ainda desatualizadas
+4. `/vc/contato/index.html` — página não existe (cai no article handler)
+5. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+
+**Roberto faz manualmente:**
+6. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto. Deletar no projeto `ovalorcapital-xuhw`
+7. Instagram SSL — non-www falha no IAB
+8. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+9. AdSense aprovação — aguardando Google
+10. **Quando religar curtinhas:** basta descomentar as 2 linhas em `api/run_portal.js` (linhas ~412-413)
