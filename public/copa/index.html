@@ -514,10 +514,16 @@
 .copa-art-item:last-child{border-bottom:none;}
 .copa-art-rank{font-size:11px;font-weight:900;color:#9ca3af;min-width:16px;text-align:center;}
 .copa-art-rank.top{color:#006233;}
-.copa-art-info{flex:1;}
-.copa-art-name{font-size:12px;font-weight:700;color:#111827;}
-.copa-art-team{font-size:10px;color:#6b7280;margin-top:1px;}
-.copa-art-gols{font-size:18px;font-weight:900;color:#006233;min-width:24px;text-align:right;}
+.copa-art-info{flex:1;min-width:0;}
+.copa-art-name{font-size:12px;font-weight:700;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.copa-art-team{font-size:10px;color:#6b7280;margin-top:1px;display:flex;align-items:center;gap:4px;}
+.copa-art-stats{display:flex;gap:5px;align-items:center;flex-shrink:0;}
+.copa-art-stat{display:flex;flex-direction:column;align-items:center;background:#f9fafb;border:1px solid #e5e7eb;border-radius:5px;padding:3px 7px;min-width:30px;}
+.copa-art-stat-n{font-size:13px;font-weight:900;line-height:1;color:#006233;}
+.copa-art-stat-l{font-size:7px;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;margin-top:1px;}
+.copa-art-stat.ycard .copa-art-stat-n{color:#ca8a04;}
+.copa-art-stat.rcard .copa-art-stat-n{color:#dc2626;}
+.copa-art-stat.ast .copa-art-stat-n{color:#2563eb;}
 .copa-art-empty{padding:16px 14px;text-align:center;color:#9ca3af;font-size:11px;}
 /* Grupos abertos */
 .copa-grupos-open{padding:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
@@ -537,17 +543,24 @@
 .copa-grupo-loading{padding:24px;text-align:center;color:#9ca3af;font-size:12px;}
 .copa-elim-badge{display:inline-block;font-size:7px;font-weight:700;color:#dc2626;border:1px solid #fca5a5;border-radius:2px;padding:1px 3px;margin-left:3px;vertical-align:middle;text-transform:uppercase;}
 /* Estádios */
-.copa-est-grid{padding:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-@media(max-width:1100px){.copa-est-grid{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:580px){.copa-est-grid{grid-template-columns:repeat(2,1fr);}}
-.copa-est-card{border:1px solid #e5e7eb;border-radius:7px;overflow:hidden;}
-.copa-est-flag{display:flex;align-items:center;gap:5px;background:#f9fafb;padding:6px 8px;border-bottom:1px solid #f3f4f6;}
-.copa-est-flag-img{width:20px;height:14px;object-fit:cover;border-radius:1px;}
+.copa-est-grid{padding:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(max-width:680px){.copa-est-grid{grid-template-columns:1fr;}}
+.copa-est-card{border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
+.copa-est-flag{display:flex;align-items:center;gap:6px;background:#f9fafb;padding:7px 10px;border-bottom:1px solid #f3f4f6;}
+.copa-est-flag-img{width:22px;height:15px;object-fit:cover;border-radius:2px;}
 .copa-est-country{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;}
-.copa-est-info{padding:6px 8px;}
-.copa-est-name{font-size:10px;font-weight:700;color:#111827;line-height:1.3;}
-.copa-est-city{font-size:9px;color:#6b7280;margin-top:2px;}
-.copa-est-cap{font-size:8px;color:#9ca3af;margin-top:1px;}
+.copa-est-info{padding:8px 10px;}
+.copa-est-name{font-size:12px;font-weight:800;color:#111827;line-height:1.3;}
+.copa-est-city{font-size:10px;color:#6b7280;margin-top:1px;}
+.copa-est-cap{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;color:#fff;background:#006233;border-radius:3px;padding:2px 6px;margin-top:4px;}
+.copa-est-meta{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
+.copa-est-badge{font-size:8px;font-weight:700;color:#374151;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:3px;padding:2px 6px;white-space:nowrap;}
+.copa-est-badge.invest{color:#059669;background:#ecfdf5;border-color:#a7f3d0;}
+.copa-est-badge.ano{color:#7c3aed;background:#f5f3ff;border-color:#c4b5fd;}
+.copa-est-desc{font-size:10px;color:#4b5563;line-height:1.6;margin-top:7px;border-top:1px solid #f3f4f6;padding-top:7px;}
+.copa-est-toggle{font-size:9px;font-weight:700;color:#006233;cursor:pointer;border:none;background:none;padding:4px 0;margin-top:4px;text-decoration:underline;text-underline-offset:2px;}
+.copa-est-detail{display:none;font-size:10px;color:#374151;line-height:1.65;margin-top:6px;border-top:1px solid #f3f4f6;padding-top:7px;}
+.copa-est-detail.open{display:block;}
 /* Rail */
 .copa-rail-section{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px;}
 .copa-rail-hd{background:#1f2937;color:#fff;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;}
@@ -634,7 +647,7 @@ upd();setInterval(upd,1000);
 <div class="copa-painel" id="copa-art-painel">
 <div class="copa-painel-hd">
 <span class="copa-painel-hd-title">&#x26BD; Artilharia &middot; Copa 2026</span>
-<span class="copa-painel-hd-note">Gols marcados</span>
+<span class="copa-painel-hd-note">Gols &middot; Assist&ecirc;ncias &middot; Cart&otilde;es</span>
 </div>
 <div id="copa-art-list"><div class="copa-art-empty">&#x23F3; Carregando artilharia...</div></div>
 </div>
@@ -663,23 +676,267 @@ upd();setInterval(upd,1000);
 <span class="copa-painel-hd-title">&#x1F3DF; Est&aacute;dios &middot; Copa 2026</span>
 <span class="copa-painel-hd-note">16 sedes</span>
 </div>
+<script>
+function copaEstToggle(btn){var d=btn.nextElementSibling;if(d.classList.toggle('open')){btn.textContent='▲ Fechar';}else{btn.textContent='▼ Ver história e dados';}}
+</script>
 <div class="copa-est-grid">
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div><div class="copa-est-info"><div class="copa-est-name">Est&aacute;dio Azteca</div><div class="copa-est-city">Cidade do M&eacute;xico</div><div class="copa-est-cap">87.523 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div><div class="copa-est-info"><div class="copa-est-name">Est&aacute;dio BBVA</div><div class="copa-est-city">Monterrey</div><div class="copa-est-cap">51.349 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div><div class="copa-est-info"><div class="copa-est-name">Est&aacute;dio Akron</div><div class="copa-est-city">Guadalajara</div><div class="copa-est-cap">49.850 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/ca.png" class="copa-est-flag-img" alt="Canada"><span class="copa-est-country">Canad&aacute;</span></div><div class="copa-est-info"><div class="copa-est-name">BC Place</div><div class="copa-est-city">Vancouver</div><div class="copa-est-cap">54.500 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/ca.png" class="copa-est-flag-img" alt="Canada"><span class="copa-est-country">Canad&aacute;</span></div><div class="copa-est-info"><div class="copa-est-name">BMO Field</div><div class="copa-est-city">Toronto</div><div class="copa-est-cap">45.736 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">MetLife Stadium</div><div class="copa-est-city">Nova York / NJ</div><div class="copa-est-cap">82.500 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">AT&amp;T Stadium</div><div class="copa-est-city">Dallas</div><div class="copa-est-cap">80.000 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">SoFi Stadium</div><div class="copa-est-city">Los Angeles</div><div class="copa-est-cap">70.240 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Rose Bowl</div><div class="copa-est-city">Pasadena (LA)</div><div class="copa-est-cap">92.542 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Levi's Stadium</div><div class="copa-est-city">San Francisco</div><div class="copa-est-cap">68.500 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Lumen Field</div><div class="copa-est-city">Seattle</div><div class="copa-est-cap">69.000 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Empower Field</div><div class="copa-est-city">Denver</div><div class="copa-est-cap">76.125 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Arrowhead Stadium</div><div class="copa-est-city">Kansas City</div><div class="copa-est-cap">76.416 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Lincoln Financial</div><div class="copa-est-city">Filadélfia</div><div class="copa-est-cap">69.176 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Gillette Stadium</div><div class="copa-est-city">Boston</div><div class="copa-est-cap">65.878 lugares</div></div></div>
-<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Hard Rock Stadium</div><div class="copa-est-city">Miami</div><div class="copa-est-cap">65.326 lugares</div></div></div>
+
+<!-- Estádio Azteca -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Est&aacute;dio Azteca</div><div class="copa-est-city">Cidade do M&eacute;xico</div>
+<div class="copa-est-cap">&#x1F3DF; 87.523 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 1966</span><span class="copa-est-badge invest">&#x1F4B0; Investimento US$ 80 mi reforma 2024</span></div>
+<div class="copa-est-desc">Maior est&aacute;dio do mundo em copa, o Azteca &eacute; o &uacute;nico a receber tr&ecirc;s Copas do Mundo (1970, 1986, 2026). Aqui Pel&eacute; conquistou seu &uacute;ltimo t&iacute;tulo e Maradona marcou o &ldquo;gol do s&eacute;culo&rdquo; contra a Inglaterra em 1986.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Concreto armado com cobertura parcial. Campo de grama natural 105×68 m. Capacidade ampliada de 105 mil (1970) para 87,5 mil (normas FIFA modernas de assentos).
+<br><br><strong>Hist&oacute;ria:</strong> Projetado pelo arquiteto Pedro Ram&iacute;rez V&aacute;zquez, o Azteca levou 4 anos para ser constru&iacute;do e custou US$ 28 milh&otilde;es &agrave; &eacute;poca. O estranho &eacute; que n&atilde;o tem time fixo: compartilhado entre Club Am&eacute;rica e Cruz Azul, al&eacute;m da sele&ccedil;&atilde;o mexicana.
+<br><br><strong>Copa 2026:</strong> Sedia a partida de abertura da Copa (11/jun/2026). Reforma de US$ 80 milh&otilde;es incluiu moderniza&ccedil;&atilde;o de banheiros, assentos, ilumina&ccedil;&atilde;o LED e vest&iacute;arios.
+</div>
+</div></div>
+
+<!-- Estádio BBVA -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Est&aacute;dio BBVA</div><div class="copa-est-city">Monterrey</div>
+<div class="copa-est-cap">&#x1F3DF; 51.349 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2015</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 200 milh&otilde;es</span></div>
+<div class="copa-est-desc">Considerado um dos est&aacute;dios mais modernos da Am&eacute;rica Latina, o BBVA &eacute; a casa do Club Monterrey. Situa-se a 12 km do centro da cidade e tem vista para a Sierra Madre Oriental.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Constru&iacute;do com a&ccedil;o e concreto, teto retrat&aacute;til parcial. Tecnologia LED em todo o per&iacute;metro. Campo de grama natural com sistema de aquecimento e drenagem.
+<br><br><strong>Hist&oacute;ria:</strong> Substitu&iacute;u o antigo Est&aacute;dio Tecnol&oacute;gico do Monterrey, que tinha 38 mil lugares. Projeto do escrit&oacute;rio Populous levou 4 anos e foi financiado pelo banco BBVA como parte de acordo de naming rights de 20 anos.
+<br><br><strong>Copa 2026:</strong> Sediou jogos na Copa 1986 (no estadio anterior). Na 2026, acolhe jogos da fase de grupos e oitavas. Reforma de moderniza&ccedil;&atilde;o de US$ 45 mi foi conclu&iacute;da em 2024.
+</div>
+</div></div>
+
+<!-- Estádio Akron -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Est&aacute;dio Akron</div><div class="copa-est-city">Guadalajara</div>
+<div class="copa-est-cap">&#x1F3DF; 49.850 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2010</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 140 milh&otilde;es</span></div>
+<div class="copa-est-desc">Casa do Chivas de Guadalajara, o Akron &eacute; o &uacute;nico est&aacute;dio mexicano constru&iacute;do sem recursos p&uacute;blicos &mdash; financiado integralmente pelo clube. Arquitetura em formato de &ldquo;Bola de Fogo&rdquo;.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Teto de membrana PTFE (teflon) cobrindo 90% das arquibancadas. Campo de grama h&iacute;brida. Sistema de drenagem capaz de escoar 100 mm de chuva/hora.
+<br><br><strong>Hist&oacute;ria:</strong> Guadalajara sediou 4 jogos na Copa 1970 e 6 na Copa 1986, mas no antigo est&aacute;dio Jalisco. O Akron foi erguido especificamente pelo Chivas como s&iacute;mbolo de autonomia financeira do clube.
+<br><br><strong>Copa 2026:</strong> Recebe jogos da fase de grupos dos Grupos A e B. Investimento de US$ 30 mi em moderniza&ccedil;&atilde;o foi conclu&iacute;do em 2025.
+</div>
+</div></div>
+
+<!-- BC Place -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/ca.png" class="copa-est-flag-img" alt="Canada"><span class="copa-est-country">Canad&aacute;</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">BC Place</div><div class="copa-est-city">Vancouver</div>
+<div class="copa-est-cap">&#x1F3DF; 54.500 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 1983</span><span class="copa-est-badge invest">&#x1F4B0; Reforma C$ 514 milh&otilde;es (2011)</span></div>
+<div class="copa-est-desc">O maior est&aacute;dio coberto do Canad&aacute;, o BC Place recebeu as ceri&m&ocirc;nias de abertura e encerramento dos Jogos Ol&iacute;mpicos de Inverno de Vancouver 2010. Teto pneum&aacute;tico retrat&aacute;til &uacute;nico no mundo.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Teto retrat&aacute;til de 27.000 m&sup2; em membrana ETFE. &Eacute; o maior teto retrat&aacute;til do mundo. Campo de grama sint&eacute;tica substituiu grama natural para a Copa (norma FIFA exige grama natural &mdash; foi reimplantada para 2026).
+<br><br><strong>Hist&oacute;ria:</strong> Constru&iacute;do originalmente para as Jogos Commonwealthl 1994. A reforma de C$ 514 milh&otilde;es em 2011 instalou o teto retrat&aacute;til, que cobre ou abre em 20 minutos.
+<br><br><strong>Copa 2026:</strong> Primera Copa no Canad&aacute;. Sedia fase de grupos e oitavas. Obra de adequa&ccedil;&atilde;o de campo custou C$ 50 milh&otilde;es para instalar sistema de grama natural sobre a base sint&eacute;tica.
+</div>
+</div></div>
+
+<!-- BMO Field -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/ca.png" class="copa-est-flag-img" alt="Canada"><span class="copa-est-country">Canad&aacute;</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">BMO Field</div><div class="copa-est-city">Toronto</div>
+<div class="copa-est-cap">&#x1F3DF; 45.736 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2007</span><span class="copa-est-badge invest">&#x1F4B0; Reforma C$ 130 milh&otilde;es (2016)</span></div>
+<div class="copa-est-desc">Primeiro est&aacute;dio dedicado ao futebol constru&iacute;do no Canad&aacute;. Lar do Toronto FC (MLS) e da sele&ccedil;&atilde;o canadense. Situado na regi&atilde;o central de Toronto, &agrave;s margens do Lago Ontario.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Estrutura metalocons&oacute;rcia com ilumina&ccedil;&atilde;o natural nas lat&oacute;rias superiores. Campo de grama natural sobre substrato especial para o clima torontino. Expandido de 20 mil para 30 mil (2007) e depois para 45 mil (2016).
+<br><br><strong>Hist&oacute;ria:</strong> O BMO Field foi pioneiro na aposta do futebol de elite no Canad&aacute;. A chegada do Toronto FC &agrave; MLS em 2007 e o bom desempenho da equipe ajudaram a consolidar o futebol como esporte de massa no pa&iacute;s.
+<br><br><strong>Copa 2026:</strong> Amplia&ccedil;&atilde;o tempor&aacute;ria para 45.736 espectadores com tribunas prov&oacute;rias. Canadenses esperam que a Copa catapulte o interesse no esporte &mdash; a sele&ccedil;&atilde;o do pa&iacute;s est&aacute; na fase de grupos.
+</div>
+</div></div>
+
+<!-- MetLife Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">MetLife Stadium</div><div class="copa-est-city">Nova York / New Jersey</div>
+<div class="copa-est-cap">&#x1F3DF; 82.500 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2010</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 1,6 bilh&atilde;o</span></div>
+<div class="copa-est-desc">O est&aacute;dio mais caro constru&iacute;do nos EUA at&eacute; 2010, o MetLife sedia a <strong>Final da Copa 2026</strong> (19 de julho). Compartilhado por NY Giants e NY Jets da NFL, &eacute; o &uacute;nico est&aacute;dio duplo de grande porte nos EUA.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> A&ccedil;o e concreto pr&eacute;-moldado. Campo de grama sint&eacute;tica (NFL) substituido por grama natural para a Copa. Sem teto. Seis andares, 2.000 pa&iacute;tes corporativos, 218 restaurantes e 1.200 pontos de venda.
+<br><br><strong>Hist&oacute;ria:</strong> Constru&iacute;do em uma &aacute;rea de charcos drenados em East Rutherford, NJ. Os Giants e Jets dividiram o custo de US$ 1,6 bilh&atilde;o igualmente. Super Bowls XLVIII (2014) e LVII (2026) foram realizados aqui.
+<br><br><strong>Copa 2026:</strong> Recebe 6 jogos incluindo a final. Obras de adequa&ccedil;&atilde;o de US$ 100 milh&otilde;es inclu&iacute;ram implanta&ccedil;&atilde;o de grama natural, adequa&ccedil;&atilde;o de vest&iacute;arios e upgrade tecnol&oacute;gico.
+</div>
+</div></div>
+
+<!-- AT&T Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">AT&amp;T Stadium</div><div class="copa-est-city">Arlington, Texas (Dallas)</div>
+<div class="copa-est-cap">&#x1F3DF; 80.000 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2009</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 1,3 bilh&atilde;o</span></div>
+<div class="copa-est-desc">Lar do Dallas Cowboys (NFL), o AT&T abriga o <strong>maior telão em HD do mundo</strong>: 72 metros de largura por 17 de altura. Teto retrat&aacute;til e paredes de vidro laterais criam uma experi&ecirc;ncia visual &uacute;nica.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Teto retrat&aacute;til de 3 pe&ccedil;as. Duas paredes de vidro nas laterais (leste e oeste) com 20 metros de altura deixam entrar luz natural. O pain&eacute;l LED central pesa 600 toneladas.
+<br><br><strong>Hist&oacute;ria:</strong> Inaugurado em 2009 para substituir o lend&aacute;rio Texas Stadium. O propriet&aacute;rio dos Cowboys, Jerry Jones, supervisionou pessoalmente cada detalhe da constru&ccedil;&atilde;o. Sediou o Super Bowl XLV (2011) e o NBA All-Star Game (2010).
+<br><br><strong>Copa 2026:</strong> Sedia fase de grupos e oitavas. Substitui&ccedil;&atilde;o da grama sint&eacute;tica (NFL) por grama natural custou US$ 15 milh&otilde;es e exigiu sistema especial de raiz artificial.
+</div>
+</div></div>
+
+<!-- SoFi Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">SoFi Stadium</div><div class="copa-est-city">Inglewood (Los Angeles)</div>
+<div class="copa-est-cap">&#x1F3DF; 70.240 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2020</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 5,5 bilh&otilde;es</span></div>
+<div class="copa-est-desc">O est&aacute;dio mais caro da hist&oacute;ria do esporte, o SoFi custou US$ 5,5 bilh&otilde;es. Lar dos Rams e Chargers (NFL), tem cobertura translucida que bloqueia sol e chuva sem fechar totalmente.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Projeto do arquiteto HKS Inc. com cobertura em membrana ETFE de 290.000 m&sup2;. O &ldquo;Infinity Screen&rdquo; &eacute; um pain&eacute;l LED de dupla face de 120 m × 8 m suspenso sobre o campo. Sistema de resfriamento evaporativo substitui ar-condicionado.
+<br><br><strong>Hist&oacute;ria:</strong> Constru&iacute;do no local do antigo Hollywood Park Racetrack. O projeto levou 5 anos. Sediou o Super Bowl LVI (2022) e o WrestleMania 39 (2023). &Eacute; pr&eacute;-selecionado para as Olimp&iacute;adas LA 2028.
+<br><br><strong>Copa 2026:</strong> Sedia semifinal e demais fases avançadas. Considerado o est&aacute;dio mais tecnol&oacute;gico da Copa 2026.
+</div>
+</div></div>
+
+<!-- Rose Bowl -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Rose Bowl</div><div class="copa-est-city">Pasadena, California</div>
+<div class="copa-est-cap">&#x1F3DF; 92.542 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 1922</span><span class="copa-est-badge invest">&#x1F4B0; Reforma US$ 152 mi (2019&ndash;2022)</span></div>
+<div class="copa-est-desc">O est&aacute;dio mais antigo e hist&oacute;rico da Copa 2026, o Rose Bowl sediou a <strong>Final da Copa 1994</strong> (Brasil 0×0 It&aacute;lia, Brasil campea&atilde;o nos p&ecirc;naltis). &Eacute; Monumento Hist&oacute;rico Nacional dos EUA.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Concreto armado em formato de ferradura aberta. 100 anos de hist&oacute;ria. A reforma 2019&ndash;2022 modernizou banheiros, rede el&eacute;trica e sistemas de conectividade, sem alterar a estrutura hist&oacute;rica.
+<br><br><strong>Hist&oacute;ria:</strong> Sede do Rose Bowl Game desde 1923, a partida de futebol americano universit&aacute;rio mais antiga dos EUA. Sediou os Jogos Ol&iacute;mpicos de Los Angeles 1932 e 1984, e as Copas 1984 e 1994. O jogo final de 1994 foi assistido por 94.194 f&atilde;s.
+<br><br><strong>Copa 2026:</strong> A terceira Copa no Rose Bowl, mas a primeira com capacidade reduzida por exig&ecirc;ncias de seguran&ccedil;a FIFA modernas. Sediou tamb&eacute;m a final feminina de 1999 (EUA × China, Brandi Chastain).
+</div>
+</div></div>
+
+<!-- Levi's Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Levi's Stadium</div><div class="copa-est-city">Santa Clara (San Francisco)</div>
+<div class="copa-est-cap">&#x1F3DF; 68.500 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2014</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 1,3 bilh&atilde;o</span></div>
+<div class="copa-est-desc">Lar do San Francisco 49ers (NFL), o Levi's &eacute; referência em sustentabilidade: painéis solares no teto produzem toda a energia consumida nas áreas comuns. &Eacute; o est&aacute;dio mais sustent&aacute;vel da Copa.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> 1.186 painéis solares geram 375 kWh/dia. Sistema de reaproveitamento de &aacute;gua pluvial. Grama natural com aquecimento subsolo. Primeira constru&ccedil;&atilde;o esportiva a ter cobertura verde (jardim na cobertura) em grande escala nos EUA.
+<br><br><strong>Hist&oacute;ria:</strong> Sediou o Super Bowl 50 (2016) &mdash; Denver Broncos 24×10 Carolina Panthers. Foi palco do WWE WrestleMania 31 (2015) e da Copa Ouro da CONCACAF 2019.
+<br><br><strong>Copa 2026:</strong> Recebe fase de grupos. A Copa aumenta a press&atilde;o sobre o campo, que em 2025 passou por completa restitui&ccedil;&atilde;o de grama natural com sistema de hidroponia.
+</div>
+</div></div>
+
+<!-- Lumen Field -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Lumen Field</div><div class="copa-est-city">Seattle, Washington</div>
+<div class="copa-est-cap">&#x1F3DF; 69.000 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2002</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 430 milh&otilde;es</span></div>
+<div class="copa-est-desc">Lar do Seattle Seahawks (NFL) e do Sounders FC (MLS), o Lumen &eacute; famoso pela torcida mais barulhenta da NFL: os f&atilde;s j&aacute; registraram 137 decib&eacute;is, causando microterremoto detectado em sismografo pr&oacute;ximo.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Teto parcial cobrindo 70% dos assentos &mdash; proteção fundamental para o clima chuvoso de Seattle. Campo de grama natural com aquecimento de piso. 148 camarotes, 7.000 assentos premium.
+<br><br><strong>Hist&oacute;ria:</strong> Constru&iacute;do pelo Condado de King com financiamento p&uacute;blico (US$ 127 mi) e privado (US$ 303 mi dos Seahawks). J&aacute; teve os nomes Seahawks Stadium, Qwest Field e CenturyLink Field antes do atual naming rights com a Lumen Technologies.
+<br><br><strong>Copa 2026:</strong> Sedia jogos da fase de grupos. Em 2025, o clube Sounders se tornou o primeiro time americano a ser campe&atilde;o do mundo em clubes (Recopa Mundial), o que aumentou a popularidade do futebol em Seattle.
+</div>
+</div></div>
+
+<!-- Empower Field -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Empower Field at Mile High</div><div class="copa-est-city">Denver, Colorado</div>
+<div class="copa-est-cap">&#x1F3DF; 76.125 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2001</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 400 milh&otilde;es</span></div>
+<div class="copa-est-desc">Situado a 1.610 metros de altitude &mdash; a maior entre todas as sedes da Copa 2026 &mdash;, o Empower Field desafia atletas com ar rarefeito. Times acostumados ao n&iacute;vel do mar perdem at&eacute; 10% de capacidade respirat&oacute;ria.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Um dos maiores est&aacute;dios a c&eacute;u aberto dos EUA. Vista para as Montanhas Rochosas a oeste. Grama natural resistente a climas extremos (neve em outubro, sol intenso em junho). Dois pain&eacute;is HD de 60 m cada.
+<br><br><strong>Hist&oacute;ria:</strong> Constru&iacute;do ao lado do lend&aacute;rio Mile High Stadium (demolido em 2002). Os Broncos ganharam 3 Super Bowls (1998, 1999, 2016). A altitude de Denver afeta fortemente o desempenho de times visitantes.
+<br><br><strong>Copa 2026:</strong> A altitude ser&aacute; fator decisivo nos jogos &mdash; a FIFA exigiu que selec&ccedil;&otilde;es cheguem pelo menos 72h antes para aclimata&ccedil;&atilde;o. Jogos previstas para a tarde, quando o calor &eacute; menor.
+</div>
+</div></div>
+
+<!-- Arrowhead Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Arrowhead Stadium</div><div class="copa-est-city">Kansas City, Missouri</div>
+<div class="copa-est-cap">&#x1F3DF; 76.416 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 1972</span><span class="copa-est-badge invest">&#x1F4B0; Reforma US$ 375 mi (2010)</span></div>
+<div class="copa-est-desc">Lar do Kansas City Chiefs (NFL), atual campe&atilde;o do Super Bowl, o Arrowhead &eacute; um dos est&aacute;dios mais tradicionais dos EUA. Famoso pela atmosfera eletrizante, j&aacute; registrou 142,2 decib&eacute;is durante playoff de 2014.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Concreto armado em formato oval cl&aacute;ssico dos anos 1970. Reforma de 2010 adicionou sistemas de TV de alta defini&ccedil;&atilde;o, novos assentos, banheiros e restaurantes. Grama natural com aquecimento de piso.
+<br><br><strong>Hist&oacute;ria:</strong> Inclu&iacute;do no Registro Nacional de Lugares Hist&oacute;ricos dos EUA em 2021. Os Chiefs foram tr&ecirc;s vezes campe&otilde;es do Super Bowl nesta d&eacute;cada (2020, 2023, 2024). Patrick Mahomes &eacute; o maior &iacute;cone do est&aacute;dio.
+<br><br><strong>Copa 2026:</strong> Participa com jogos da fase de grupos. Kansas City &eacute; cidade com crescente comunidade latina &mdash; os ingressos foram os mais disputados entre f&atilde;s de sele&ccedil;&otilde;es sul-americanas.
+</div>
+</div></div>
+
+<!-- Lincoln Financial Field -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Lincoln Financial Field</div><div class="copa-est-city">Filadélfia, Pensilvânia</div>
+<div class="copa-est-cap">&#x1F3DF; 69.176 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2003</span><span class="copa-est-badge invest">&#x1F4B0; Reforma US$ 125 mi (2014)</span></div>
+<div class="copa-est-desc">Lar do Philadelphia Eagles (NFL), o Linc &eacute; o primeiro est&aacute;dio da NFL a utilizar 100% de energia renovável. Painéis solares e turbinas e&oacute;licas geram mais energia do que o est&aacute;dio consome anualmente.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> 11.000 painéis solares e 14 turbinas e&oacute;licas produzem 3,1 GWh/ano &mdash; 112% do consumo anual do est&aacute;dio. Excedente &eacute; revendido &agrave; rede el&eacute;trica. Grama natural com aquecimento de piso e sistema de drenagem r&aacute;pida.
+<br><br><strong>Hist&oacute;ria:</strong> Os Eagles ganharam o Super Bowl LII (2018), o primeiro da franquia em 58 anos, gerando a maior festa na hist&oacute;ria de Filadélfia. O est&aacute;dio teve seu primeiro Super Bowl (LVII) disputado em 2023.
+<br><br><strong>Copa 2026:</strong> Sede de jogos da fase de grupos. A Filadélfia tem a segunda maior comunidade de imigrantes latinos da Costa Leste, o que deve gerar torcidas intensas.
+</div>
+</div></div>
+
+<!-- Gillette Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Gillette Stadium</div><div class="copa-est-city">Foxborough (Boston)</div>
+<div class="copa-est-cap">&#x1F3DF; 65.878 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 2002</span><span class="copa-est-badge invest">&#x1F4B0; Custo US$ 325 milh&otilde;es</span></div>
+<div class="copa-est-desc">Lar do New England Patriots (NFL) e do New England Revolution (MLS), o Gillette &eacute; financiado 100% com capital privado &mdash; nenhum centavo p&uacute;blico. Os Patriots s&atilde;o o time de maior valor na NFL: US$ 7,8 bilh&otilde;es.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> Torres de a&ccedil;o nas extremidades em estilo industrial inspirado na est&eacute;tica de Boston. Campo de grama natural. Amplia&ccedil;&atilde;o de 2008 adicionou 10 mil assentos e nova torre sul. Localizado 45 km ao sul de Boston.
+<br><br><strong>Hist&oacute;ria:</strong> Financiado pelo propriet&aacute;rio dos Patriots, Robert Kraft, que recusou financiamento p&uacute;blico. Os Patriots ganharam 6 Super Bowls desde 2001, com Tom Brady como quarterback. O Gillette sediou 3 finais da MLS Cup.
+<br><br><strong>Copa 2026:</strong> Boston &eacute; a segunda cidade mais cara da Copa para hospedagem, com di&aacute;rias m&eacute;dias superando US$ 500 durante os jogos. Sedia fase de grupos.
+</div>
+</div></div>
+
+<!-- Hard Rock Stadium -->
+<div class="copa-est-card">
+<div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div>
+<div class="copa-est-info">
+<div class="copa-est-name">Hard Rock Stadium</div><div class="copa-est-city">Miami Gardens, Florida</div>
+<div class="copa-est-cap">&#x1F3DF; 65.326 lugares</div>
+<div class="copa-est-meta"><span class="copa-est-badge ano">&#x1F4C5; Inaugurado 1987</span><span class="copa-est-badge invest">&#x1F4B0; Reforma US$ 550 mi (2016)</span></div>
+<div class="copa-est-desc">Lar do Miami Dolphins (NFL) e Inter Miami (MLS), o Hard Rock passou por reforma total em 2016 que instalou uma <strong>cobertura suspensa inovadora</strong> sem apoios no campo, permitindo sombra natural e redu&ccedil;&atilde;o de at&eacute; 12&ordm;C.</div>
+<button class="copa-est-toggle" onclick="copaEstToggle(this)">&#x25BC; Ver hist&oacute;ria e dados</button>
+<div class="copa-est-detail">
+<strong>Estrutura:</strong> A cobertura de US$ 135 milh&otilde;es &eacute; suspensa por 12 cabos de a&ccedil;o de alta resist&ecirc;ncia a partir de mastros perif&eacute;ricos &mdash; sem colunas bloqueando a vis&atilde;o. Reduz a temperatura interna em at&eacute; 12&ordm;C em rela&ccedil;&atilde;o ao ar externo de Miami (fundamental: Miami em junho atinge 33&ordm;C com 80% de umidade).
+<br><br><strong>Hist&oacute;ria:</strong> Inaugurado originalmente como Joe Robbie Stadium. J&aacute; sediou 5 Super Bowls (1989, 1995, 1999, 2007, 2020) e a Copa do Mundo 1994 (incluindo jogos do Brasil). Desde 2020, o Inter Miami de Messi e Beckham jogas aqui.
+<br><br><strong>Copa 2026:</strong> A chegada de Lionel Messi ao Inter Miami em 2023 transformou o Hard Rock em destino internacional. O Messi n&atilde;o joga pela Argentina na Copa, mas seu nome aumentou o interesse pelos jogos em Miami em 40%.
+</div>
+</div></div>
+
 </div>
 </div>
 
@@ -878,7 +1135,7 @@ return{nome:t.displayName||t.name||'',sigla:t.abbreviation||'',
 pj:pj,v:getStat(stats,['wins','W']),
 e:getStat(stats,['ties','D','draws']),d:getStat(stats,['losses','L']),
 sg:getStat(stats,['pointDifferential','GD']),pts:pts,eliminado:eliminado};
-})
+}).sort(function(a,b){return b.pts-a.pts||b.v-a.v||b.sg-a.sg;})
 };
 }).filter(function(g){return g.times.length>0;});
 }
@@ -888,28 +1145,39 @@ fetch(URL,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catc
 var list=document.getElementById('copa-art-list');
 if(!list)return;
 if(!d){list.innerHTML='<div class="copa-art-empty">Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
-var scorers=[];
-var cats=d.categories||[];
-for(var i=0;i<cats.length;i++){
-var cat=cats[i];
-if(cat.name&&cat.name.toLowerCase().indexOf('goal')>=0){
-(cat.leaders||[]).forEach(function(l){
-var a=l.athlete||{};
-var tm=l.team||{};
-scorers.push({nome:a.displayName||a.fullName||'',time:tm.displayName||tm.name||'',sigla:tm.abbreviation||'',gols:Number(l.value)||0});
+/* Extrai gols (primária) + assistências + cartões amarelos + vermelhos */
+var map={};/* athleteId -> {nome,time,sigla,gols,ast,yc,rc} */
+function mergeLeaders(leaders,field){
+(leaders||[]).forEach(function(l){
+var a=l.athlete||{};var tm=l.team||{};
+var id=a.id||a.displayName||a.fullName||'?';
+if(!map[id])map[id]={nome:a.displayName||a.fullName||'',time:tm.displayName||tm.name||'',sigla:tm.abbreviation||'',gols:0,ast:0,yc:0,rc:0};
+map[id][field]=Number(l.value)||0;
 });
-break;
 }
-}
+var cats=d.categories||[];
+cats.forEach(function(cat){
+var n=(cat.name||'').toLowerCase();
+if(n.indexOf('goal')>=0||n.indexOf('gol')>=0)mergeLeaders(cat.leaders,'gols');
+else if(n.indexOf('assist')>=0)mergeLeaders(cat.leaders,'ast');
+else if(n.indexOf('yellow')>=0)mergeLeaders(cat.leaders,'yc');
+else if(n.indexOf('red')>=0)mergeLeaders(cat.leaders,'rc');
+});
+var scorers=Object.values(map);
 if(!scorers.length){list.innerHTML='<div class="copa-art-empty">Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
-scorers.sort(function(a,b){return b.gols-a.gols;});
+scorers.sort(function(a,b){return b.gols-a.gols||b.ast-a.ast;});
 list.innerHTML=scorers.slice(0,10).map(function(s,i){
 var fc=FL[s.sigla]||FL[(s.sigla||'').toUpperCase()]||'';
-var fimg=fc?'<img src="https://flagcdn.com/w40/'+fc+'.png" width="18" height="13" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+s.sigla+'">':'';
+var fimg=fc?'<img src="https://flagcdn.com/w40/'+fc+'.png" width="16" height="11" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+s.sigla+'">':'';
+var statsHtml=
+'<div class="copa-art-stat"><span class="copa-art-stat-n">'+s.gols+'</span><span class="copa-art-stat-l">&#x26BD; Gols</span></div>'+
+(s.ast>0?'<div class="copa-art-stat ast"><span class="copa-art-stat-n">'+s.ast+'</span><span class="copa-art-stat-l">&#x1F44A; Ast</span></div>':'')+
+(s.yc>0?'<div class="copa-art-stat ycard"><span class="copa-art-stat-n">'+s.yc+'</span><span class="copa-art-stat-l">&#x1F7E8; CA</span></div>':'')+
+(s.rc>0?'<div class="copa-art-stat rcard"><span class="copa-art-stat-n">'+s.rc+'</span><span class="copa-art-stat-l">&#x1F7E5; CV</span></div>':'');
 return '<div class="copa-art-item">'+
 '<span class="copa-art-rank'+(i<3?' top':'')+'">'+( i<3?['&#x1F947;','&#x1F948;','&#x1F949;'][i]:(i+1)+'&ordm;')+'</span>'+
 '<div class="copa-art-info"><div class="copa-art-name">'+s.nome+'</div><div class="copa-art-team">'+fimg+' '+s.time+'</div></div>'+
-'<span class="copa-art-gols">'+s.gols+'</span>'+
+'<div class="copa-art-stats">'+statsHtml+'</div>'+
 '</div>';
 }).join('');
 });
