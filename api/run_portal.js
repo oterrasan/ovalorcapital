@@ -151,6 +151,7 @@ async function extractSourceImage(url) {
 function validar(content) {
   const erros = [];
   if (!content?.titulo || !content?.corpo) return ["estrutura ausente"];
+  if (content?.auditoria_ovc?.startsWith('INCONSISTENCIA')) return ['auditoria reprovada: ' + content.auditoria_ovc];
   content.titulo = stripTitle(content.titulo);
   const corpo = String(content.corpo || "").trim();
   const texto = plain(corpo);
