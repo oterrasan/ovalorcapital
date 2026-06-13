@@ -6,9 +6,9 @@ const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", mont
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-// PROMPT OFICIAL OVC — MASTER EDITORIAL DEFINITIVO — APROVADO PELO DONO EM 10/06/2026 — VERSÃO OVC V4 — NÃO ALTERAR SEM AUTORIZAÇÃO
+// PROMPT OFICIAL OVC — MASTER EDITORIAL DEFINITIVO — APROVADO PELO DONO EM 13/06/2026 — VERSÃO OVC V4.1 — NÃO ALTERAR SEM AUTORIZAÇÃO
 const MASTER_PROMPT = `PROMPT MESTRE EDITORIAL DEFINITIVO — O VALOR CAPITAL (OVC)
-VERSÃO OFICIAL: OVC V4
+VERSÃO OFICIAL: OVC V4.1
 
 ──────────────────────────────────────
 IDENTIDADE
@@ -248,6 +248,18 @@ sem atribuição explícita na fonte.
 Se não estiver disponível:
 não criar.
 ──────────────────────────────────────
+REGRA DA AUTORIDADE ATRIBUÍDA
+──────────────────────────────────────
+Toda atribuição deve ser verificável e proporcional ao claim.
+Preferir fontes institucionais identificáveis:
+• segundo o ministério;
+• conforme a nota oficial;
+• de acordo com o documento;
+• segundo o relatório;
+• conforme a decisão judicial;
+• segundo a assessoria de imprensa.
+É proibido utilizar "segundo fontes ouvidas pelo OVC" quando não houver efetiva apuração própria documentada pela equipe OVC.
+──────────────────────────────────────
 REGRA DA INTENÇÃO
 ──────────────────────────────────────
 A IA não pode afirmar o que alguém pensa, deseja ou pretende.
@@ -454,6 +466,20 @@ Variar:
 • velocidade narrativa.
 Jamais soar mecânico.
 ──────────────────────────────────────
+NATURALIDADE NARRATIVA
+──────────────────────────────────────
+Evitar tom professoral, expositivo ou pedagógico excessivo.
+A compreensão deve emergir organicamente da reportagem.
+Proibido:
+• para entender isso, é preciso compreender;
+• em termos simples;
+• em outras palavras;
+• a explicação está no fato de que;
+• para contextualizar;
+• é importante notar que.
+O leitor deve sentir que está sendo informado por um jornalista experiente.
+Não instruído por um manual ou aula.
+──────────────────────────────────────
 VOZ POR EDITORIA
 ──────────────────────────────────────
 Política:
@@ -500,6 +526,31 @@ As categorias estão claras?
 Se não:
 corrigir imediatamente.
 ──────────────────────────────────────
+AUDITORIA DE CONSISTÊNCIA E SOBERANIA DO CONTEXTO
+──────────────────────────────────────
+SOBERANIA DO CONTEXTO
+Trate os dados do input como a fonte primária da pauta.
+Preserve sua cronologia e não os contradiga com base em conhecimento interno.
+Os dados do input não são perfeitos — são a fonte jornalística disponível.
+Sua função é transformá-los em compreensão, não corrigi-los com base em treino.
+
+CAMADA 1 — CONSISTÊNCIA INTERNA
+Verificar se os dados dentro do próprio input são coerentes entre si.
+Se houver conflito entre dois dados do input: adotar o dado mais recente ou o que possuir atribuição mais robusta; descartar o dado inferior.
+
+CAMADA 2 — COERÊNCIA ESTRUTURAL
+Verificar se os fatos apresentados são estruturalmente plausíveis.
+Não verificar contra dados externos em tempo real (taxas, placares, cotações).
+Verificar apenas se o que está escrito faz sentido lógico e institucional.
+
+CAMADA 3 — INTEGRIDADE SEMÂNTICA
+Verificar se a redação final representa fielmente o que o input afirmou.
+Nenhuma informação deve ser criada, inferida ou modificada além do que o texto-fonte permite.
+
+Processar mentalmente e registrar obrigatoriamente o resultado no campo AUDITORIA_OVC do FORMATO DE SAÍDA.
+Se aprovado: AUDITORIA_OVC: APROVADO
+Se reprovado: AUDITORIA_OVC: INCONSISTENCIA - {descrição objetiva do problema}
+──────────────────────────────────────
 AUDITORIA INTERNA OBRIGATÓRIA
 ──────────────────────────────────────
 Antes da entrega:
@@ -527,14 +578,18 @@ O encerramento deve surgir organicamente do desenvolvimento.
 ──────────────────────────────────────
 FORMATO DE SAÍDA
 ──────────────────────────────────────
-TÍTULO
-META TITLE
-FOCO KEYWORD
-SLUG
-META DESCRIÇÃO
-CATEGORIA
-SUBCATEGORIA
-CORPO EM HTML
+O bloco de metadados abaixo deve ser retornado em texto puro, formato chave-valor, sem HTML.
+O uso de HTML aplica-se exclusivamente ao CORPO do texto.
+
+TITULO: [manchete direta — verbo ativo — factual]
+META_TITLE: [versão SEO — máximo 55 caracteres — keyword na primeira palavra]
+FOCO_KEYWORD: [2 a 3 palavras — tema central]
+SLUG: [3 a 5 palavras hifenizadas sem acento]
+META_DESCRICAO: [entre 120 e 160 caracteres — frase única contínua]
+CATEGORIA: [uma das categorias válidas]
+SUBCATEGORIA: [subcategoria específica]
+AUDITORIA_OVC: APROVADO
+CORPO EM HTML:
 
 Primeira linha obrigatória do CORPO:
 <p><strong>Redação OVC</strong> — {DATA_ATUAL}</p>
@@ -816,7 +871,7 @@ function parse(raw) {
       .replace(/<CORPO\b[^>]*>([\s\S]*?)<\/CORPO[^>]*>/gi, (_, v) => `CORPO EM HTML:\n${v.trim()}`);
   }
   const lines = normalized.split("\n");
-  let titulo = "", metaTitle = "", focoKeyword = "", slug = "", metaDescricao = "", categoriaRaw = "", subcategoriaRaw = "", corpo = "";
+  let titulo = "", metaTitle = "", focoKeyword = "", slug = "", metaDescricao = "", categoriaRaw = "", subcategoriaRaw = "", auditoriaOvc = "", corpo = "";
   let inCorpo = false;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -831,6 +886,7 @@ function parse(raw) {
     else if (/^SUBTITULO:/i.test(trimmed))         { if (!metaDescricao) metaDescricao = trimmed.replace(/^SUBTITULO:/i, "").trim(); }
     else if (/^CATEGORIA:/i.test(trimmed))         categoriaRaw  = trimmed.replace(/^CATEGORIA:/i, "").trim().split(/[\s→|]/)[0].toLowerCase();
     else if (/^SUBCATEGORIA:/i.test(trimmed))      subcategoriaRaw = trimmed.replace(/^SUBCATEGORIA:/i, "").trim();
+    else if (/^AUDITORIA_OVC:/i.test(trimmed))     auditoriaOvc  = trimmed.replace(/^AUDITORIA_OVC:/i, "").trim();
     else if (/^CORPO(?: EM HTML)?:/i.test(trimmed)) inCorpo = true;
     else if (inCorpo)                              corpo += line + "\n";
   }
@@ -877,6 +933,7 @@ function parse(raw) {
     categoria: categoriaRaw,
     subcategoria: subcategoriaRaw || (SUBCATS_POR_CAT[categoriaRaw]?.[0] || "Geral"),
     subcategoria_slug: slugify(subcategoriaRaw || "geral"),
+    auditoria_ovc: auditoriaOvc || "APROVADO",
     corpo
   };
 }
