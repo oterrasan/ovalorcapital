@@ -6,8 +6,8 @@
 (function () {
   'use strict';
 
-  var ELEICAO_URL  = '/politica/eleicoes-2026/';
-  var PESQUISAS_URL = '/politica/pesquisas-eleitorais/';
+  var ELEICAO_URL  = '/politica/';
+  var PESQUISAS_URL = '/politica/';
 
   // 1º turno: 4 out 2026
   var DATA_1T = new Date('2026-10-04T00:00:00-03:00');

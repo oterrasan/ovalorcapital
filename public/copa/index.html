@@ -452,380 +452,558 @@
 <span class="chip-pill"><span class="chip-dot"></span>Empregos</span>
 </div>
 </div>
-</header><section class="copa2026-hero" id="copa-hero-section">
+</header>
+<section class="copa-compact-band">
 <style>
-.copa2026-hero{background:linear-gradient(180deg,#006233 0%,#009c3b 18%,#003a8a 50%,#002776 70%,#001850 100%);color:#fff;padding:0;overflow:hidden;margin-bottom:0;}
-.copa2026-hero-inner{max-width:1200px;margin:0 auto;padding:32px 20px 0;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;}
-@media(max-width:800px){.copa2026-hero-inner{grid-template-columns:1fr;gap:20px;padding:20px 16px 0;}}
-.copa-left{}
-.copa-live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,223,0,.15);border:1px solid rgba(255,223,0,.4);padding:4px 12px;border-radius:20px;margin-bottom:14px;}
-.copa-pulse-dot{width:8px;height:8px;background:#ffdf00;border-radius:50%;animation:copa-hero-pulse 1s ease-in-out infinite;flex-shrink:0;}
-@keyframes copa-hero-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
-.copa-live-txt{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ffdf00;}
-.copa-h1{font-size:clamp(28px,5vw,48px);font-weight:900;line-height:1.1;margin:0 0 8px;letter-spacing:-.03em;}
-.copa-h1 span{color:#ffdf00;}
-.copa-sub{font-size:15px;color:rgba(255,255,255,.8);margin:0 0 20px;line-height:1.5;}
-.copa-badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px;}
-.copa-badge{display:inline-block;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
-.copa-badge-green{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);}
-.copa-badge-yellow{background:#ffdf00;color:#006233;}
-.copa-cd-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;}
-.copa-cd-box{background:rgba(0,0,0,.3);border-radius:8px;padding:12px 16px;text-align:center;min-width:64px;}
-.copa-cd-num{display:block;font-size:32px;font-weight:900;color:#ffdf00;line-height:1;font-variant-numeric:tabular-nums;}
-.copa-cd-label{display:block;font-size:9px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.08em;margin-top:4px;}
-.copa-cta-row{display:flex;gap:10px;flex-wrap:wrap;}
-.copa-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:700;text-decoration:none;transition:all .15s;}
-.copa-btn-primary{background:#ffdf00;color:#006233;}
-.copa-btn-primary:hover{background:#ffe83a;transform:translateY(-1px);}
-.copa-btn-secondary{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.3);}
-.copa-btn-secondary:hover{background:rgba(255,255,255,.2);}
-.copa-right{display:flex;flex-direction:column;gap:16px;}
-.copa-live-widget{background:rgba(0,0,0,.4);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.15);}
-.copa-live-wh{padding:11px 16px;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:space-between;}
-.copa-live-wt{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.6);}
-.copa-live-wdot{width:7px;height:7px;background:#e74c3c;border-radius:50%;animation:copa-hero-pulse 1.2s ease-in-out infinite;}
-.copa-wtabs{display:flex;background:rgba(0,0,0,.2);border-bottom:1px solid rgba(255,255,255,.08);}
-.copa-wtab{flex:1;padding:9px 4px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.45);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .18s;}
-.copa-wtab.active{color:#ffdf00;border-bottom-color:#ffdf00;}
-.copa-wbody{display:none;max-height:260px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;}
-.copa-wbody.active{display:block;}
-.copa-wbody::-webkit-scrollbar{width:4px;}
-.copa-wbody::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px;}
-.copa-match-row{padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.06);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
-.copa-match-row:last-child{border-bottom:none;}
-.copa-match-side{display:flex;align-items:center;gap:7px;}
-.copa-match-side.away{flex-direction:row-reverse;}
-.copa-mflag{width:22px;height:16px;object-fit:cover;border-radius:2px;flex-shrink:0;}
-.copa-mname{font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;}
-.copa-match-mid{display:flex;flex-direction:column;align-items:center;gap:3px;}
-.copa-mscore{display:flex;align-items:center;gap:5px;}
-.copa-mscore-num{font-size:20px;font-weight:900;color:#ffdf00;min-width:18px;text-align:center;line-height:1;}
-.copa-mscore-sep{font-size:14px;color:rgba(255,255,255,.35);font-weight:300;}
-.copa-mtime{font-size:11px;color:rgba(255,255,255,.5);text-align:center;line-height:1.3;}
-.copa-mlive{display:inline-flex;align-items:center;gap:3px;background:rgba(231,76,60,.18);border:1px solid rgba(231,76,60,.35);border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#e74c3c;text-transform:uppercase;}
-.copa-mgroup{font-size:9px;color:rgba(255,255,255,.35);text-align:center;}
-.copa-wempty{padding:22px 16px;text-align:center;color:rgba(255,255,255,.4);font-size:12px;line-height:1.6;}
-.copa-std-wrap{padding:2px 0 8px;}
-.copa-std-gtitle{padding:10px 16px 5px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#ffdf00;border-bottom:1px solid rgba(255,255,255,.07);}
-.copa-std-table{width:100%;border-collapse:collapse;font-size:10px;}
-.copa-std-table th{color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.05em;padding:5px 8px;text-align:center;font-weight:600;font-size:9px;}
-.copa-std-table th:nth-child(2){text-align:left;}
-.copa-std-table td{color:#fff;padding:6px 8px;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);}
-.copa-std-table td:nth-child(2){text-align:left;}
-.copa-std-table tr:last-child td{border-bottom:none;}
-.copa-std-table tr.q1 td:first-child{color:#ffdf00;font-weight:900;}
-.copa-std-table tr.q2 td:first-child{color:rgba(255,255,255,.7);font-weight:700;}
-.copa-std-team{display:flex;align-items:center;gap:5px;}
-.copa-std-flag{width:18px;height:13px;object-fit:cover;border-radius:1px;flex-shrink:0;}
-.copa-std-pts{font-weight:900;color:#ffdf00 !important;}
-.copa-schedule{background:rgba(0,0,0,.25);border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,.1);}
-.copa-schedule-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#ffdf00;margin-bottom:10px;}
-.copa-match{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08);}
-.copa-match:last-child{border-bottom:none;}
-.copa-match-teams{font-size:12px;font-weight:600;color:#fff;}
-.copa-match-date{font-size:10px;color:rgba(255,255,255,.5);}
-.copa-hero-bottom{background:rgba(0,0,0,.3);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;}
-.copa-stat{display:flex;align-items:center;gap:6px;}
-.copa-stat-num{font-size:20px;font-weight:900;color:#ffdf00;}
-.copa-stat-txt{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em;line-height:1.3;}
+.copa-compact-band{background:linear-gradient(90deg,#006233 0%,#009c3b 35%,#003a8a 65%,#001850 100%);color:#fff;border-bottom:3px solid #ffdf00;}
+.copa-cb-inner{max-width:1240px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.copa-cb-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.copa-cb-emoji{font-size:26px;}
+.copa-cb-title{font-size:17px;font-weight:900;letter-spacing:-.02em;line-height:1.1;}
+.copa-cb-title span{color:#ffdf00;display:block;font-size:10px;letter-spacing:.06em;font-weight:600;text-transform:uppercase;}
+.copa-cb-sep{width:1px;height:36px;background:rgba(255,255,255,.2);flex-shrink:0;}
+.copa-cb-info{font-size:12px;color:rgba(255,255,255,.7);line-height:1.5;}
+.copa-cb-info strong{color:#fff;}
+.copa-cb-cd{display:flex;gap:8px;margin-left:auto;}
+.copa-cb-cd-box{background:rgba(0,0,0,.3);border-radius:6px;padding:8px 12px;text-align:center;min-width:52px;}
+.copa-cb-cd-n{display:block;font-size:22px;font-weight:900;color:#ffdf00;line-height:1;font-variant-numeric:tabular-nums;}
+.copa-cb-cd-l{display:block;font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+.copa-cb-stats{display:flex;gap:16px;flex-shrink:0;}
+.copa-cb-stat{text-align:center;}
+.copa-cb-stat-n{display:block;font-size:20px;font-weight:900;color:#ffdf00;line-height:1;}
+.copa-cb-stat-l{display:block;font-size:9px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.05em;}
+@media(max-width:900px){.copa-cb-sep,.copa-cb-stats{display:none;}.copa-cb-cd{margin-left:0;}.copa-cb-cd-box{min-width:44px;padding:6px 8px;}.copa-cb-cd-n{font-size:18px;}}
+@keyframes copa-blink{0%,100%{opacity:1}50%{opacity:.2}}
+/* Painéis */
+.copa-painel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:16px;}
+.copa-painel-hd{background:#006233;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;}
+.copa-painel-hd-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;}
+.copa-painel-hd-note{font-size:9px;color:rgba(255,255,255,.5);}
+.copa-painel-hd-dot{width:7px;height:7px;background:#ffdf00;border-radius:50%;animation:copa-blink 1.2s ease-in-out infinite;}
+/* Destaque próximo jogo */
+.copa-prox-inner{padding:14px 16px;display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#f0fdf4 0%,#eff6ff 100%);}
+.copa-prox-badge{background:#006233;color:#fff;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:3px;white-space:nowrap;}
+.copa-prox-teams{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;}
+.copa-prox-team{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:60px;}
+.copa-prox-team-name{font-size:12px;font-weight:700;color:#111827;text-align:center;}
+.copa-prox-vs{font-size:18px;font-weight:900;color:#003a8a;padding:0 4px;}
+.copa-prox-time{text-align:center;min-width:80px;}
+.copa-prox-time-h{font-size:20px;font-weight:900;color:#003a8a;line-height:1;}
+.copa-prox-time-d{font-size:10px;color:#6b7280;margin-top:2px;}
+.copa-prox-grupo{font-size:9px;color:#6b7280;margin-top:2px;font-weight:600;}
+/* Tabs de jogos */
+.copa-dash-tabs{display:flex;background:#f3f4f6;border-bottom:1px solid #e5e7eb;}
+.copa-dash-tab{flex:1;padding:9px 4px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .15s;}
+.copa-dash-tab.active{color:#006233;border-bottom-color:#006233;background:#fff;}
+.copa-dash-body{display:none;max-height:340px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#e5e7eb transparent;}
+.copa-dash-body.active{display:block;}
+.copa-dash-match{padding:10px 14px;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
+.copa-dash-match:last-child{border-bottom:none;}
+.copa-dm-side{display:flex;align-items:center;gap:7px;}
+.copa-dm-side.away{flex-direction:row-reverse;}
+.copa-dm-name{font-size:12px;font-weight:600;color:#1f2937;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.copa-dm-mid{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.copa-dm-score{display:flex;align-items:center;gap:5px;}
+.copa-dm-num{font-size:20px;font-weight:900;color:#006233;min-width:18px;text-align:center;line-height:1;}
+.copa-dm-sep{font-size:14px;color:#d1d5db;}
+.copa-dm-time{font-size:11px;color:#6b7280;text-align:center;line-height:1.3;}
+.copa-dm-live{display:inline-flex;align-items:center;gap:3px;background:#fee2e2;border:1px solid #fca5a5;border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;color:#dc2626;text-transform:uppercase;}
+.copa-dm-group{font-size:9px;color:#9ca3af;text-align:center;}
+.copa-dm-empty{padding:20px 16px;text-align:center;color:#9ca3af;font-size:12px;line-height:1.6;}
+/* Artilharia */
+.copa-art-item{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f3f4f6;}
+.copa-art-item:last-child{border-bottom:none;}
+.copa-art-rank{font-size:11px;font-weight:900;color:#9ca3af;min-width:16px;text-align:center;}
+.copa-art-rank.top{color:#006233;}
+.copa-art-info{flex:1;}
+.copa-art-name{font-size:12px;font-weight:700;color:#111827;}
+.copa-art-team{font-size:10px;color:#6b7280;margin-top:1px;}
+.copa-art-gols{font-size:18px;font-weight:900;color:#006233;min-width:24px;text-align:right;}
+.copa-art-empty{padding:16px 14px;text-align:center;color:#9ca3af;font-size:11px;}
+/* Grupos abertos */
+.copa-grupos-open{padding:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+@media(max-width:1100px){.copa-grupos-open{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:580px){.copa-grupos-open{grid-template-columns:1fr;}}
+.copa-grupo-card{border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}
+.copa-grupo-card-hd{background:#003a8a;color:#fff;padding:7px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+.copa-grupo-table{width:100%;border-collapse:collapse;font-size:10px;}
+.copa-grupo-table th{background:#f9fafb;color:#6b7280;text-transform:uppercase;font-size:8px;font-weight:700;letter-spacing:.04em;padding:5px 5px;text-align:center;border-bottom:1px solid #e5e7eb;}
+.copa-grupo-table th:nth-child(2){text-align:left;}
+.copa-grupo-table td{padding:6px 5px;text-align:center;border-bottom:1px solid #f3f4f6;color:#374151;font-size:10px;}
+.copa-grupo-table td:nth-child(2){text-align:left;}
+.copa-grupo-table tr:last-child td{border-bottom:none;}
+.copa-grupo-table tr:nth-child(1) td:first-child,.copa-grupo-table tr:nth-child(2) td:first-child{color:#006233;font-weight:700;}
+.copa-grupo-td-pts{font-weight:900;color:#006233 !important;}
+.copa-grupo-team{display:flex;align-items:center;gap:5px;}
+.copa-grupo-loading{padding:24px;text-align:center;color:#9ca3af;font-size:12px;}
+.copa-elim-badge{display:inline-block;font-size:7px;font-weight:700;color:#dc2626;border:1px solid #fca5a5;border-radius:2px;padding:1px 3px;margin-left:3px;vertical-align:middle;text-transform:uppercase;}
+/* Estádios */
+.copa-est-grid{padding:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+@media(max-width:1100px){.copa-est-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:580px){.copa-est-grid{grid-template-columns:repeat(2,1fr);}}
+.copa-est-card{border:1px solid #e5e7eb;border-radius:7px;overflow:hidden;}
+.copa-est-flag{display:flex;align-items:center;gap:5px;background:#f9fafb;padding:6px 8px;border-bottom:1px solid #f3f4f6;}
+.copa-est-flag-img{width:20px;height:14px;object-fit:cover;border-radius:1px;}
+.copa-est-country{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;}
+.copa-est-info{padding:6px 8px;}
+.copa-est-name{font-size:10px;font-weight:700;color:#111827;line-height:1.3;}
+.copa-est-city{font-size:9px;color:#6b7280;margin-top:2px;}
+.copa-est-cap{font-size:8px;color:#9ca3af;margin-top:1px;}
+/* Rail */
+.copa-rail-section{background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:14px;}
+.copa-rail-hd{background:#1f2937;color:#fff;padding:9px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;}
+.copa-rail-item{display:block;padding:10px 14px;border-bottom:1px solid #f3f4f6;text-decoration:none;transition:background .12s;}
+.copa-rail-item:hover{background:#f9fafb;}
+.copa-rail-item:last-child{border-bottom:none;}
+.copa-rail-item-cat{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#006233;margin-bottom:3px;}
+.copa-rail-item-title{font-size:12px;font-weight:600;color:#1f2937;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.copa-rail-empty{padding:16px 14px;text-align:center;color:#9ca3af;font-size:11px;}
+.copa-pilula-item{display:block;padding:9px 14px;border-bottom:1px solid #f3f4f6;text-decoration:none;transition:background .12s;}
+.copa-pilula-item:hover{background:#f9fafb;}
+.copa-pilula-item:last-child{border-bottom:none;}
+.copa-pilula-badge{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;}
+.copa-pilula-title{font-size:11px;font-weight:600;color:#1f2937;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 </style>
-<div class="copa2026-hero-inner">
-<div class="copa-left">
-<div class="copa-live-pill"><span class="copa-pulse-dot"></span><span class="copa-live-txt">🏆 Copa do Mundo 2026</span></div>
-<h1 class="copa-h1">RADAR DA<br><span>COPA 2026</span></h1>
-<p class="copa-sub">Cobertura completa • USA · Canadá · México • 11 jun – 19 jul 2026</p>
-<div class="copa-badges">
-<span class="copa-badge copa-badge-yellow">⚽ 48 seleções</span>
-<span class="copa-badge copa-badge-green">🏟 16 estádios</span>
-<span class="copa-badge copa-badge-green">3 países-sede</span>
+<div class="copa-cb-inner">
+<div class="copa-cb-brand">
+<span class="copa-cb-emoji">&#x1F3C6;</span>
+<div class="copa-cb-title">COPA 2026<span>FIFA World Cup</span></div>
 </div>
-<div class="copa-cd-row" id="copa-hero-cd">
-<div class="copa-cd-box"><span class="copa-cd-num" id="copa-hero-d">--</span><span class="copa-cd-label">dias</span></div>
-<div class="copa-cd-box"><span class="copa-cd-num" id="copa-hero-h">--</span><span class="copa-cd-label">horas</span></div>
-<div class="copa-cd-box"><span class="copa-cd-num" id="copa-hero-m">--</span><span class="copa-cd-label">min</span></div>
-<div class="copa-cd-box"><span class="copa-cd-num" id="copa-hero-s">--</span><span class="copa-cd-label">seg</span></div>
+<div class="copa-cb-sep"></div>
+<div class="copa-cb-info"><strong>USA &middot; Canad&aacute; &middot; M&eacute;xico</strong><br>11 jun &ndash; 19 jul 2026 &middot; 48 sele&ccedil;&otilde;es &middot; 104 jogos</div>
+<div class="copa-cb-sep"></div>
+<div class="copa-cb-stats">
+<div class="copa-cb-stat"><span class="copa-cb-stat-n">48</span><span class="copa-cb-stat-l">Sele&ccedil;&otilde;es</span></div>
+<div class="copa-cb-stat"><span class="copa-cb-stat-n">104</span><span class="copa-cb-stat-l">Jogos</span></div>
+<div class="copa-cb-stat"><span class="copa-cb-stat-n">16</span><span class="copa-cb-stat-l">Est&aacute;dios</span></div>
+<div class="copa-cb-stat"><span class="copa-cb-stat-n">3</span><span class="copa-cb-stat-l">Pa&iacute;ses</span></div>
 </div>
-<div class="copa-cta-row">
-<a href="#copa-artigos" class="copa-btn copa-btn-primary">📰 Cobertura OVC →</a>
-<a href="https://www.fifacopamundial2026.com" rel="noopener noreferrer" target="_blank" class="copa-btn copa-btn-secondary">🌐 Site oficial FIFA</a>
+<div class="copa-cb-cd" id="copa-cb-cd">
+<div class="copa-cb-cd-box"><span class="copa-cb-cd-n" id="copa-cb-d">--</span><span class="copa-cb-cd-l">dias</span></div>
+<div class="copa-cb-cd-box"><span class="copa-cb-cd-n" id="copa-cb-h">--</span><span class="copa-cb-cd-l">hrs</span></div>
+<div class="copa-cb-cd-box"><span class="copa-cb-cd-n" id="copa-cb-m">--</span><span class="copa-cb-cd-l">min</span></div>
+<div class="copa-cb-cd-box"><span class="copa-cb-cd-n" id="copa-cb-s">--</span><span class="copa-cb-cd-l">seg</span></div>
 </div>
-</div>
-<div class="copa-right">
-<div id="copa-curtinhas-block" style="display:none;background:rgba(0,0,0,.35);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.13);margin-bottom:0;">
-<div style="padding:9px 14px;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:space-between;">
-<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.55);">⚡ Pílulas da Copa</span>
-<span style="width:6px;height:6px;background:#ffdf00;border-radius:50%;animation:copa-hero-pulse 1.4s ease-in-out infinite;display:inline-block;"></span>
-</div>
-<div id="copa-curtinhas-list" style="max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.12) transparent;"></div>
-</div>
-<div class="copa-live-widget">
-<div class="copa-live-wh"><span class="copa-live-wt">⚽ Jogos ao vivo</span><span class="copa-live-wdot"></span></div>
-<div class="copa-wtabs">
-<button class="copa-wtab active" id="copa-tb-hoje" onclick="copaTab('hoje')">🔴 Hoje</button>
-<button class="copa-wtab" id="copa-tb-prox" onclick="copaTab('prox')">📅 Próximos</button>
-<button class="copa-wtab" id="copa-tb-grupos" onclick="copaTab('grupos')">📊 Grupos</button>
-</div>
-<div class="copa-wbody active" id="copa-wb-hoje"><div class="copa-wempty">⏳ Carregando dados ao vivo...</div></div>
-<div class="copa-wbody" id="copa-wb-prox"></div>
-<div class="copa-wbody" id="copa-wb-grupos"></div>
-</div>
-</div>
-</div>
-<div class="copa-hero-bottom">
-<div class="copa-stat"><span class="copa-stat-num">48</span><span class="copa-stat-txt">Seleções<br>participantes</span></div>
-<div class="copa-stat"><span class="copa-stat-num">104</span><span class="copa-stat-txt">Jogos no<br>torneio</span></div>
-<div class="copa-stat"><span class="copa-stat-num">16</span><span class="copa-stat-txt">Estádios<br>host</span></div>
-<div class="copa-stat"><span class="copa-stat-num">39</span><span class="copa-stat-txt">Dias de<br>competição</span></div>
-<div class="copa-stat"><span class="copa-stat-num">5B+</span><span class="copa-stat-txt">Espectadores<br>esperados</span></div>
 </div>
 <script>
 (function(){
 var d0=new Date('2026-06-11T15:00:00-04:00');
 function upd(){
 var diff=d0-Date.now();
-if(diff<=0){
-var cd=document.getElementById('copa-hero-cd');
-if(cd)cd.innerHTML='<div style="font-size:14px;font-weight:700;color:#ffdf00;padding:10px;text-align:center;">⚽ A Copa já começou! Acompanhe ao vivo.</div>';
-return;
-}
+if(diff<=0){var cd=document.getElementById('copa-cb-cd');if(cd)cd.innerHTML='<div style="font-size:13px;font-weight:700;color:#ffdf00;padding:8px 12px;">&#x26BD; A Copa j&aacute; come&ccedil;ou!</div>';return;}
 var days=Math.floor(diff/86400000),hrs=Math.floor(diff%86400000/3600000),mins=Math.floor(diff%3600000/60000),secs=Math.floor(diff%60000/1000);
 var el=function(id){return document.getElementById(id);};
-if(el('copa-hero-d'))el('copa-hero-d').textContent=String(days).padStart(2,'0');
-if(el('copa-hero-h'))el('copa-hero-h').textContent=String(hrs).padStart(2,'0');
-if(el('copa-hero-m'))el('copa-hero-m').textContent=String(mins).padStart(2,'0');
-if(el('copa-hero-s'))el('copa-hero-s').textContent=String(secs).padStart(2,'0');
+if(el('copa-cb-d'))el('copa-cb-d').textContent=String(days).padStart(2,'0');
+if(el('copa-cb-h'))el('copa-cb-h').textContent=String(hrs).padStart(2,'0');
+if(el('copa-cb-m'))el('copa-cb-m').textContent=String(mins).padStart(2,'0');
+if(el('copa-cb-s'))el('copa-cb-s').textContent=String(secs).padStart(2,'0');
 }
 upd();setInterval(upd,1000);
 })();
 </script>
+</section>
+<main class="ovc-main" id="copa-artigos">
+<section class="ovc-grid">
+<div class="ovc-story-stack">
+
+<!-- PAINEL 0: PRÓXIMO JOGO EM DESTAQUE -->
+<div class="copa-painel" id="copa-prox-painel" style="display:none">
+<div class="copa-painel-hd">
+<span class="copa-painel-hd-title">&#x23F0; Pr&oacute;ximo Jogo em Destaque</span>
+<span class="copa-painel-hd-dot"></span>
+</div>
+<div id="copa-prox-content"></div>
+</div>
+
+<!-- PAINEL 1: JOGOS AO VIVO -->
+<div class="copa-painel">
+<div class="copa-painel-hd">
+<span class="copa-painel-hd-title">&#x26BD; Jogos ao Vivo &middot; Copa 2026</span>
+<span class="copa-painel-hd-dot"></span>
+</div>
+<div class="copa-dash-tabs">
+<button class="copa-dash-tab active" id="copa-dt-hoje" onclick="copaDashTab('hoje')">&#128308; Hoje / Ao Vivo</button>
+<button class="copa-dash-tab" id="copa-dt-prox" onclick="copaDashTab('prox')">&#128197; Pr&oacute;ximos Jogos</button>
+<button class="copa-dash-tab" id="copa-dt-enc" onclick="copaDashTab('enc')">&#9989; Encerrados</button>
+</div>
+<div class="copa-dash-body active" id="copa-dw-hoje"><div class="copa-dm-empty">&#x23F3; Carregando jogos...</div></div>
+<div class="copa-dash-body" id="copa-dw-prox"></div>
+<div class="copa-dash-body" id="copa-dw-enc"></div>
+</div>
+
+<!-- PAINEL 2: ARTILHARIA -->
+<div class="copa-painel" id="copa-art-painel">
+<div class="copa-painel-hd">
+<span class="copa-painel-hd-title">&#x26BD; Artilharia &middot; Copa 2026</span>
+<span class="copa-painel-hd-note">Gols marcados</span>
+</div>
+<div id="copa-art-list"><div class="copa-art-empty">&#x23F3; Carregando artilharia...</div></div>
+</div>
+
+<!-- PAINEL 3: CLASSIFICAÇÃO DOS GRUPOS (TODOS ABERTOS) -->
+<div class="copa-painel">
+<div class="copa-painel-hd">
+<span class="copa-painel-hd-title">&#128202; Classifica&ccedil;&atilde;o por Grupo &middot; Copa 2026</span>
+<span class="copa-painel-hd-note">1&ordm;&ndash;2&ordm; avan&ccedil;am &middot; Tempo real</span>
+</div>
+<div id="copa-grupos-open"><div class="copa-grupo-loading">&#x23F3; Carregando classifica&ccedil;&atilde;o dos grupos...</div></div>
+</div>
+
+<!-- PAINEL 4: PAÍSES ELIMINADOS -->
+<div class="copa-painel" id="copa-elim-painel" style="display:none">
+<div class="copa-painel-hd" style="background:#7f1d1d;">
+<span class="copa-painel-hd-title">&#x274C; Pa&iacute;ses Eliminados &middot; Copa 2026</span>
+<span class="copa-painel-hd-note">3 rodadas completas</span>
+</div>
+<div id="copa-elim-list"></div>
+</div>
+
+<!-- PAINEL 5: ESTÁDIOS -->
+<div class="copa-painel">
+<div class="copa-painel-hd">
+<span class="copa-painel-hd-title">&#x1F3DF; Est&aacute;dios &middot; Copa 2026</span>
+<span class="copa-painel-hd-note">16 sedes</span>
+</div>
+<div class="copa-est-grid">
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div><div class="copa-est-info"><div class="copa-est-name">Est&aacute;dio Azteca</div><div class="copa-est-city">Cidade do M&eacute;xico</div><div class="copa-est-cap">87.523 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div><div class="copa-est-info"><div class="copa-est-name">Est&aacute;dio BBVA</div><div class="copa-est-city">Monterrey</div><div class="copa-est-cap">51.349 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/mx.png" class="copa-est-flag-img" alt="Mexico"><span class="copa-est-country">M&eacute;xico</span></div><div class="copa-est-info"><div class="copa-est-name">Est&aacute;dio Akron</div><div class="copa-est-city">Guadalajara</div><div class="copa-est-cap">49.850 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/ca.png" class="copa-est-flag-img" alt="Canada"><span class="copa-est-country">Canad&aacute;</span></div><div class="copa-est-info"><div class="copa-est-name">BC Place</div><div class="copa-est-city">Vancouver</div><div class="copa-est-cap">54.500 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/ca.png" class="copa-est-flag-img" alt="Canada"><span class="copa-est-country">Canad&aacute;</span></div><div class="copa-est-info"><div class="copa-est-name">BMO Field</div><div class="copa-est-city">Toronto</div><div class="copa-est-cap">45.736 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">MetLife Stadium</div><div class="copa-est-city">Nova York / NJ</div><div class="copa-est-cap">82.500 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">AT&amp;T Stadium</div><div class="copa-est-city">Dallas</div><div class="copa-est-cap">80.000 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">SoFi Stadium</div><div class="copa-est-city">Los Angeles</div><div class="copa-est-cap">70.240 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Rose Bowl</div><div class="copa-est-city">Pasadena (LA)</div><div class="copa-est-cap">92.542 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Levi's Stadium</div><div class="copa-est-city">San Francisco</div><div class="copa-est-cap">68.500 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Lumen Field</div><div class="copa-est-city">Seattle</div><div class="copa-est-cap">69.000 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Empower Field</div><div class="copa-est-city">Denver</div><div class="copa-est-cap">76.125 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Arrowhead Stadium</div><div class="copa-est-city">Kansas City</div><div class="copa-est-cap">76.416 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Lincoln Financial</div><div class="copa-est-city">Filadélfia</div><div class="copa-est-cap">69.176 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Gillette Stadium</div><div class="copa-est-city">Boston</div><div class="copa-est-cap">65.878 lugares</div></div></div>
+<div class="copa-est-card"><div class="copa-est-flag"><img src="https://flagcdn.com/w40/us.png" class="copa-est-flag-img" alt="USA"><span class="copa-est-country">EUA</span></div><div class="copa-est-info"><div class="copa-est-name">Hard Rock Stadium</div><div class="copa-est-city">Miami</div><div class="copa-est-cap">65.326 lugares</div></div></div>
+</div>
+</div>
+
+<!-- PAINEL 6: PÍLULAS COPA -->
+<div class="copa-painel" id="copa-pilulas-painel" style="display:none">
+<div class="copa-painel-hd">
+<span class="copa-painel-hd-title">&#x26A1; P&iacute;lulas OVC &middot; Copa 2026</span>
+</div>
+<div id="copa-pilulas-list"></div>
+</div>
+
+</div><!-- /ovc-story-stack -->
+<aside class="ovc-right-rail">
+<section data-banner-sidebar></section>
+<div class="copa-rail-section">
+<div class="copa-rail-hd">&#128240; &Uacute;ltimas da Copa</div>
+<div id="copa-rail-esportes"><div class="copa-rail-empty">Carregando...</div></div>
+</div>
+<div style="text-align:center;margin:8px 0 14px;">
+<a href="/esportes/" style="display:inline-block;padding:9px 20px;background:#006233;color:#fff;font-size:12px;font-weight:700;text-decoration:none;border-radius:6px;letter-spacing:.04em;">Ver toda a cobertura &rarr;</a>
+</div>
+</aside>
+</section>
 <script>
 (function(){
 var FL={
-  USA:'us',CAN:'ca',MEX:'mx',BRA:'br',ARG:'ar',CHI:'cl',CHL:'cl',PER:'pe',URU:'uy',URG:'uy',COL:'co',ECU:'ec',VEN:'ve',PAR:'py',BOL:'bo',
-  FRA:'fr',GER:'de',GBR:'gb',ENG:'gb-eng',ESP:'es',POR:'pt',PRT:'pt',ITA:'it',NED:'nl',NLD:'nl',BEL:'be',CRO:'hr',HRV:'hr',POL:'pl',SUI:'ch',CHE:'ch',DEN:'dk',DNK:'dk',SRB:'rs',
-  AUT:'at',SWE:'se',SWZ:'se',NOR:'no',NOR2:'no',TUR:'tr',TUR2:'tr',ISL:'is',IRL:'ie',SCO:'gb-sct',WAL:'gb-wls',NIR:'gb-nir',FIN:'fi',GRE:'gr',ROU:'ro',UKR:'ua',
-  MAR:'ma',SEN:'sn',NGA:'ng',NGR:'ng',GHA:'gh',CMR:'cm',TUN:'tn',EGY:'eg',ALG:'dz',CIV:'ci',MLI:'ml',CPV:'cv',MDG:'mg',
-  JPN:'jp',KOR:'kr',SKO:'kr',SKR:'kr',AUS:'au',IRN:'ir',IRI:'ir',SAU:'sa',KSA:'sa',QAT:'qa',CHN:'cn',UZB:'uz',JOR:'jo',NZL:'nz',PAK:'pk',
-  HRV2:'hr',ALB:'al',SVK:'sk',SVN:'si',SLO:'si',CZE:'cz',CZR:'cz',HUN:'hu',BIH:'ba',BOS:'ba',MKD:'mk',MNT:'me',MNE:'me',
-  RSA:'za',SAF:'za',ZAF:'za',
-  CRC:'cr',HON:'hn',HND:'hn',GUA:'gt',GTM:'gt',SLV:'sv',PAN:'pa',
-  TRI:'tt',JAM:'jm',HAI:'ht',CUB:'cu',
-  GEO:'ge',ARM:'am',AZE:'az',KAZ:'kz',KGZ:'kg',TJK:'tj',BLR:'by',MDA:'md',
-  LTU:'lt',LVA:'lv',EST:'ee',LUX:'lu',MLT:'mt',CYP:'cy',AND:'ad',
-  IRQ:'iq',SYR:'sy',LBN:'lb',ISR:'il',OMA:'om',YEM:'ye',BAH:'bh',KUW:'kw',UAE:'ae',
-  THA:'th',VIE:'vn',VNM:'vn',IDN:'id',INA:'id',MYS:'my',MAS:'my',PHI:'ph',SIN:'sg',SGP:'sg',
-  IND:'in',BAN:'bd',SRI:'lk',NEP:'np',
-  GAB:'ga',COD:'cd',ZIM:'zw',ZAM:'zm',MOZ:'mz',TAN:'tz',KEN:'ke',ETH:'et',
-  LIB:'lr',GUI:'gn',BFA:'bf',NIG:'ne',TGO:'tg',BEN:'bj',ANG:'ao',BOT:'bw',NAM:'na',
-  ISL2:'is',GIB:'gi',FRO:'fo',LIE:'li'
+USA:'us',CAN:'ca',MEX:'mx',BRA:'br',ARG:'ar',CHI:'cl',CHL:'cl',PER:'pe',URU:'uy',URG:'uy',COL:'co',ECU:'ec',VEN:'ve',PAR:'py',BOL:'bo',
+FRA:'fr',GER:'de',GBR:'gb',ENG:'gb-eng',ESP:'es',POR:'pt',PRT:'pt',ITA:'it',NED:'nl',NLD:'nl',BEL:'be',CRO:'hr',HRV:'hr',POL:'pl',SUI:'ch',CHE:'ch',DEN:'dk',DNK:'dk',SRB:'rs',
+AUT:'at',SWE:'se',NOR:'no',TUR:'tr',ISL:'is',IRL:'ie',SCO:'gb-sct',WAL:'gb-wls',FIN:'fi',GRE:'gr',ROU:'ro',UKR:'ua',
+MAR:'ma',SEN:'sn',NGA:'ng',NGR:'ng',GHA:'gh',CMR:'cm',TUN:'tn',EGY:'eg',ALG:'dz',CIV:'ci',MLI:'ml',CPV:'cv',
+JPN:'jp',KOR:'kr',SKO:'kr',SKR:'kr',AUS:'au',IRN:'ir',IRI:'ir',SAU:'sa',KSA:'sa',QAT:'qa',CHN:'cn',UZB:'uz',NZL:'nz',
+HRV2:'hr',ALB:'al',SVK:'sk',SVN:'si',SLO:'si',CZE:'cz',HUN:'hu',BIH:'ba',BOS:'ba',MKD:'mk',MNE:'me',
+RSA:'za',SAF:'za',ZAF:'za',
+CRC:'cr',HON:'hn',HND:'hn',GUA:'gt',GTM:'gt',SLV:'sv',PAN:'pa',
+TRI:'tt',JAM:'jm',HAI:'ht',
+GEO:'ge',ARM:'am',AZE:'az',KAZ:'kz',
+IRQ:'iq',ISR:'il',UAE:'ae',
+THA:'th',VIE:'vn',VNM:'vn',IDN:'id',INA:'id',MYS:'my',MAS:'my',PHI:'ph',SIN:'sg',SGP:'sg',IND:'in'
 };
-
 function flag(s,w,h){
-  var code=FL[s]||FL[(s||'').toUpperCase()]||FL[(s||'').replace(/[^A-Za-z]/g,'').toUpperCase()];
-  if(!code)return '<span style="display:inline-block;width:'+w+'px;height:'+h+'px;background:rgba(255,255,255,.12);border-radius:2px;vertical-align:middle;flex-shrink:0;"></span>';
-  return '<img src="https://flagcdn.com/w40/'+code+'.png" width="'+w+'" height="'+h+'" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" class="copa-gflag" onerror="this.outerHTML=\'<span style=&quot;display:inline-block;width:'+w+'px;height:'+h+'px;background:rgba(255,255,255,.1);border-radius:2px;flex-shrink:0;&quot;></span>\'" alt="'+s+'">';
+var code=FL[s]||FL[(s||'').toUpperCase()];
+var fb='<span style="display:inline-block;width:'+w+'px;height:'+h+'px;background:#e5e7eb;border-radius:2px;flex-shrink:0;"></span>';
+if(!code)return fb;
+return '<img src="https://flagcdn.com/w40/'+code+'.png" width="'+w+'" height="'+h+'" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+s+'">';
 }
-function hhmm(iso){try{return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'UTC'});}catch(e){return '--:--';}}
-function ddmm(iso){try{return new Date(iso).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'});}catch(e){return '--/--';}}
-
-function renderRow(p){
-  var isLive=p.status==='ao_vivo',isDone=p.status==='encerrado';
-  var mid='';
-  if(isLive||isDone){
-    mid='<div class="copa-mscore"><span class="copa-mscore-num">'+(p.home.placar||0)+'</span><span class="copa-mscore-sep">×</span><span class="copa-mscore-num">'+(p.away.placar||0)+'</span></div>';
-    if(isLive)mid+='<div class="copa-mlive"><span style="width:5px;height:5px;background:#e74c3c;border-radius:50%;display:inline-block;animation:copa-hero-pulse 1s infinite;"></span>&nbsp;'+(p.relogio||'AO VIVO')+'</div>';
-    else mid+='<div class="copa-mgroup" style="color:rgba(255,255,255,.3)">Encerrado</div>';
-  }else{
-    mid='<div class="copa-mtime">'+hhmm(p.dataBRT)+'<br><span style="font-size:9px">'+ddmm(p.dataBRT)+' BRT</span></div>';
-    if(p.grupo)mid+='<div class="copa-mgroup">'+p.grupo+'</div>';
-  }
-  return '<div class="copa-match-row">'+
-    '<div class="copa-match-side">'+flag(p.home.sigla,22,16)+'<span class="copa-mname">'+p.home.nome+'</span></div>'+
-    '<div class="copa-match-mid">'+mid+'</div>'+
-    '<div class="copa-match-side away"><span class="copa-mname">'+p.away.nome+'</span>'+flag(p.away.sigla,22,16)+'</div>'+
-    '</div>';
+function hhmm(iso){try{return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});}catch(e){return '--:--';}}
+function ddmm(iso){try{return new Date(iso).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});}catch(e){return '--/--';}}
+function brtIso(utcStr){try{return new Date(utcStr).toISOString();}catch(e){return utcStr;}}
+function renderDashMatch(p){
+var isLive=p.status==='ao_vivo',isDone=p.status==='encerrado';
+var mid='';
+if(isLive||isDone){
+mid='<div class="copa-dm-score"><span class="copa-dm-num">'+(p.home.placar||0)+'</span><span class="copa-dm-sep">&times;</span><span class="copa-dm-num">'+(p.away.placar||0)+'</span></div>';
+if(isLive)mid+='<div class="copa-dm-live"><span style="width:5px;height:5px;background:#dc2626;border-radius:50%;display:inline-block;animation:copa-blink 1s infinite;"></span>&nbsp;'+(p.relogio||'AO VIVO')+'</div>';
+else mid+='<div class="copa-dm-group" style="color:#9ca3af;">Encerrado</div>';
+}else{
+mid='<div class="copa-dm-time">'+hhmm(p.data)+'<br><span style="font-size:9px;">'+ddmm(p.data)+' BRT</span></div>';
+if(p.grupo)mid+='<div class="copa-dm-group">'+p.grupo+'</div>';
 }
-
-function renderStd(grupos){
-  if(!grupos||!grupos.length)return '<div class="copa-wempty">Tabela de grupos chegando em breve</div>';
-  return '<div class="copa-std-wrap">'+grupos.map(function(g){
-    return '<div class="copa-std-gtitle">'+g.nome+'</div>'+
-    '<table class="copa-std-table"><thead><tr><th>#</th><th>Seleção</th><th>P</th><th>V</th><th>E</th><th>D</th><th>SG</th><th class="copa-std-pts">Pts</th></tr></thead><tbody>'+
-    g.times.map(function(t,i){
-      var cls=i===0?'q1':i===1?'q2':'';
-      var sg=(t.sg>0?'+':'')+t.sg;
-      return '<tr class="'+cls+'"><td>'+(i+1)+'</td>'+
-        '<td><div class="copa-std-team">'+flag(t.sigla,18,13)+'<span>'+t.nome+'</span></div></td>'+
-        '<td>'+t.pj+'</td><td>'+t.v+'</td><td>'+t.e+'</td><td>'+t.d+'</td>'+
-        '<td>'+sg+'</td><td class="copa-std-pts">'+t.pts+'</td></tr>';
-    }).join('')+'</tbody></table>';
-  }).join('')+'</div>';
+return '<div class="copa-dash-match">'+
+'<div class="copa-dm-side">'+flag(p.home.sigla,22,16)+'<span class="copa-dm-name">'+p.home.nome+'</span></div>'+
+'<div class="copa-dm-mid">'+mid+'</div>'+
+'<div class="copa-dm-side away"><span class="copa-dm-name">'+p.away.nome+'</span>'+flag(p.away.sigla,22,16)+'</div>'+
+'</div>';
 }
-
-var _data=null;
-
-
-function renderAll(){
-  var bH=document.getElementById('copa-wb-hoje');
-  var bP=document.getElementById('copa-wb-prox');
-  var bG=document.getElementById('copa-wb-grupos');
-  if(!bH)return;
-  if(!_data){bH.innerHTML='<div class="copa-wempty">⏳ Carregando...</div>';return;}
-  var now=new Date();
-  var live=_data.partidas.filter(function(p){return p.status==='ao_vivo';});
-  var hoje=_data.partidas.filter(function(p){
-    if(p.status==='ao_vivo')return false;
-    var d=new Date(p.dataBRT);
-    return d.getUTCDate()===now.getUTCDate()&&d.getUTCMonth()===now.getUTCMonth()&&d.getUTCFullYear()===now.getUTCFullYear();
-  });
-  var enc=_data.partidas.filter(function(p){return p.status==='encerrado';}).slice(-3);
-  var prox=_data.partidas.filter(function(p){return p.status==='agendado';});
-  var hojeHtml='';
-  if(live.length){hojeHtml+='<div style="padding:7px 16px 2px;font-size:9px;font-weight:700;color:#e74c3c;text-transform:uppercase;letter-spacing:.1em;">🔴 Ao vivo agora</div>';hojeHtml+=live.map(renderRow).join('');}
-  if(hoje.length){if(live.length)hojeHtml+='<div style="padding:7px 16px 2px;font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;">Hoje</div>';hojeHtml+=hoje.map(renderRow).join('');}
-  if(!live.length&&!hoje.length&&enc.length){hojeHtml+='<div style="padding:7px 16px 2px;font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;">Encerrados recentemente</div>';hojeHtml+=enc.map(renderRow).join('');}
-  bH.innerHTML=hojeHtml||'<div class="copa-wempty">Nenhum jogo hoje<br><span style="font-size:10px;opacity:.7">Veja os próximos na aba ao lado</span></div>';
-  bP.innerHTML=prox.length?prox.slice(0,8).map(renderRow).join(''):'<div class="copa-wempty">Nenhum jogo agendado</div>';
-  bG.innerHTML=renderStd(_data.grupos);
+function renderGruposOpen(grupos){
+if(!grupos||!grupos.length)return '<div class="copa-grupo-loading">A classifica&ccedil;&atilde;o estar&aacute; dispon&iacute;vel com o in&iacute;cio dos jogos</div>';
+return '<div class="copa-grupos-open">'+grupos.map(function(g){
+return '<div class="copa-grupo-card">'+
+'<div class="copa-grupo-card-hd">'+g.nome+'</div>'+
+'<table class="copa-grupo-table"><thead><tr><th>#</th><th>Sele&ccedil;&atilde;o</th><th>Pts</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th></tr></thead>'+
+'<tbody>'+g.times.map(function(t,i){
+var sg=(t.sg>0?'+':'')+t.sg;
+var fc=FL[t.sigla]||FL[(t.sigla||'').toUpperCase()]||'';
+var fimg=fc?'<img src="https://flagcdn.com/w40/'+fc+'.png" width="16" height="11" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+t.sigla+'">':'<span style="display:inline-block;width:16px;height:11px;background:#e5e7eb;border-radius:1px;"></span>';
+var elimTag=t.eliminado?'<span class="copa-elim-badge">Elim.</span>':'';
+return '<tr><td>'+(i+1)+'</td>'+
+'<td><div class="copa-grupo-team">'+fimg+'<span>'+t.nome+elimTag+'</span></div></td>'+
+'<td class="copa-grupo-td-pts">'+t.pts+'</td>'+
+'<td>'+t.pj+'</td><td>'+t.v+'</td><td>'+t.e+'</td><td>'+t.d+'</td><td>'+sg+'</td></tr>';
+}).join('')+'</tbody></table>'+
+'</div>';
+}).join('')+'</div>';
 }
-
-function brtIso(utcStr){
-  // ESPN times are UTC — convert to BRT (UTC-3) as ISO for hhmm/ddmm
-  try{var t=new Date(utcStr).getTime()-3*60*60*1000;return new Date(t).toISOString();}catch(e){return utcStr;}
+function renderProximoJogo(partidas){
+var prox=partidas.filter(function(p){return p.status==='agendado';});
+if(!prox.length)return;
+var jogo=prox[0];
+var el=document.getElementById('copa-prox-content');
+var pai=document.getElementById('copa-prox-painel');
+if(!el||!pai)return;
+el.innerHTML='<div class="copa-prox-inner">'+
+'<span class="copa-prox-badge">'+(jogo.grupo||'Copa 2026')+'</span>'+
+'<div class="copa-prox-teams">'+
+'<div class="copa-prox-team">'+flag(jogo.home.sigla,32,22)+'<div class="copa-prox-team-name">'+jogo.home.nome+'</div></div>'+
+'<span class="copa-prox-vs">vs</span>'+
+'<div class="copa-prox-team">'+flag(jogo.away.sigla,32,22)+'<div class="copa-prox-team-name">'+jogo.away.nome+'</div></div>'+
+'</div>'+
+'<div class="copa-prox-time"><div class="copa-prox-time-h">'+hhmm(jogo.data)+' BRT</div><div class="copa-prox-time-d">'+ddmm(jogo.data)+'</div></div>'+
+'</div>';
+pai.style.display='block';
 }
-
-function getStat(stats,names){
-  if(!stats||!stats.length)return 0;
-  for(var i=0;i<names.length;i++){
-    var n=names[i];
-    for(var j=0;j<stats.length;j++){
-      var s=stats[j];
-      if(s.name===n||s.abbreviation===n||s.shortDisplayName===n)return Number(s.value)||0;
-    }
-  }
-  return 0;
-}
-
-function parseMatchesESPN(sD){
-  if(!sD||!sD.events)return[];
-  return sD.events.map(function(ev){
-    var comp=ev.competitions&&ev.competitions[0];
-    var comps=comp&&comp.competitors||[];
-    var home=comps.find(function(c){return c.homeAway==='home';});
-    var away=comps.find(function(c){return c.homeAway==='away';});
-    if(!home||!away)return null;
-    var st=(ev.status&&ev.status.type&&ev.status.type.name)||'';
-    var isLive=st.indexOf('IN_PROGRESS')>=0;
-    var isDone=st.indexOf('FINAL')>=0||(ev.status&&ev.status.type&&ev.status.type.completed);
-    return{
-      id:ev.id,
-      home:{nome:(home.team&&home.team.displayName)||'',sigla:(home.team&&home.team.abbreviation)||'',placar:(isLive||isDone)?(home.score||'0'):null},
-      away:{nome:(away.team&&away.team.displayName)||'',sigla:(away.team&&away.team.abbreviation)||'',placar:(isLive||isDone)?(away.score||'0'):null},
-      status:isLive?'ao_vivo':isDone?'encerrado':'agendado',
-      relogio:(ev.status&&ev.status.displayClock)||'',
-      grupo:(comp&&comp.notes&&comp.notes.find(function(n){return n.type==='event';})&&comp.notes.find(function(n){return n.type==='event';}).headline)||'',
-      dataBRT:brtIso(ev.date||comp&&comp.date||'')
-    };
-  }).filter(Boolean);
-}
-
-function parseStandingsESPN(stD){
-  if(!stD)return[];
-  // handle multiple ESPN response formats
-  var src=[];
-  if(stD.standings&&stD.standings.children&&stD.standings.children.length)src=stD.standings.children;
-  else if(stD.standings&&Array.isArray(stD.standings))src=stD.standings;
-  else if(stD.children&&stD.children.length)src=stD.children;
-  else if(stD.groups&&stD.groups.length)src=stD.groups;
-  else if(stD.standings&&stD.standings.entries)src=[stD.standings];
-  if(!src.length)return[];
-  return src.map(function(g){
-    var entries=(g.standings&&g.standings.entries)||(g.entries)||[];
-    return{
-      nome:g.name||g.abbreviation||g.title||'',
-      times:entries.map(function(e){
-        var stats=e.stats||[];
-        var t=e.team||{};
-        return{
-          nome:t.displayName||t.name||'',sigla:t.abbreviation||'',
-          pj:getStat(stats,['gamesPlayed','GP']),v:getStat(stats,['wins','W']),
-          e:getStat(stats,['ties','D','draws']),d:getStat(stats,['losses','L']),
-          gp:getStat(stats,['pointsFor','GF','goalsFor']),gc:getStat(stats,['pointsAgainst','GA','goalsAgainst']),
-          sg:getStat(stats,['pointDifferential','GD','goalDifference']),pts:getStat(stats,['points','Pts','PTS'])
-        };
-      })
-    };
-  }).filter(function(g){return g.times.length>0;});
-}
-
-function fetchCopa(){
-  var ESPN_SCORE='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
-  var ESPN_STD='https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
-  Promise.all([
-    fetch(ESPN_SCORE,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
-    fetch(ESPN_STD,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
-  ]).then(function(arr){
-    var partidas=parseMatchesESPN(arr[0]);
-    var grupos=parseStandingsESPN(arr[1]);
-    // if ESPN returned nothing useful, try server-side endpoint
-    if(!partidas.length&&!grupos.length){
-      fetch('/api/live?action=copa').then(function(r){return r.json();}).then(function(d){_data=d;renderAll();}).catch(function(){});
-    }else{
-      _data={partidas:partidas,grupos:grupos};
-      renderAll();
-    }
-  }).catch(function(){
-    fetch('/api/live?action=copa').then(function(r){return r.json();}).then(function(d){_data=d;renderAll();}).catch(function(){});
-  });
-}
-
-window.copaTab=function(tab){
-  document.querySelectorAll('.copa-wtab').forEach(function(el){el.classList.remove('active');});
-  document.querySelectorAll('.copa-wbody').forEach(function(el){el.classList.remove('active');});
-  var btn=document.getElementById('copa-tb-'+tab);
-  var body=document.getElementById('copa-wb-'+tab);
-  if(btn)btn.classList.add('active');
-  if(body){body.classList.add('active');renderAll();}
-};
-
-document.addEventListener('DOMContentLoaded',function(){
-  fetchCopa();
-  setInterval(fetchCopa,60000);
-  fetchCopaCurtinhas();
+function renderEliminados(grupos){
+var elim=[];
+grupos.forEach(function(g){
+g.times.forEach(function(t){
+if(t.eliminado)elim.push({nome:t.nome,sigla:t.sigla,grupo:g.nome,pts:t.pts,pj:t.pj});
 });
-
-var COPA_KW=['copa do mundo','world cup','mundial','fifa','seleção','seleções','copa 2026','grupo a','grupo b','grupo c','grupo d','grupo e','grupo f','grupo g','grupo h','fase de grupos','oitavas','quartas','semifinal','final da copa','campeão do mundo','jogos de hoje','partida de hoje','gol','escalação','eliminado'];
-function fetchCopaCurtinhas(){
-  fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=20').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
-    if(!d)return;
-    var list=d.curtinhas||d.posts||[];
-    var filtered=list.filter(function(p){
-      var txt=((p.titulo||'')+(p.comentario_fixado||'')).toLowerCase();
-      return COPA_KW.some(function(k){return txt.indexOf(k)>=0;});
-    });
-    if(!filtered.length)return;
-    var block=document.getElementById('copa-curtinhas-block');
-    var cont=document.getElementById('copa-curtinhas-list');
-    if(!block||!cont)return;
-    cont.innerHTML=filtered.slice(0,6).map(function(p){
-      var tipo=(p.tipo_conteudo||'pilula').replace('micropilula','pílula').replace('pilula','pílula').replace('radar','radar ovc').replace('minuto','minuto ovc');
-      var cor={radar:'#e74c3c',minuto:'#3498db',pilula:'#2ecc71'}[p.tipo_conteudo]||'#2ecc71';
-      var slug=p.slug||p.id;
-      var href='/esportes/'+slug+'/';
-      return '<a href="'+href+'" style="display:block;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);text-decoration:none;transition:background .15s;" onmouseover="this.style.background=\'rgba(255,255,255,.04)\'" onmouseout="this.style.background=\'none\'">'+
-        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'+
-        '<span style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:'+cor+';padding:2px 6px;border:1px solid '+cor+'33;border-radius:3px;">'+tipo+'</span>'+
-        '</div>'+
-        '<div style="font-size:12px;font-weight:600;color:#fff;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+p.titulo+'</div>'+
-        '</a>';
-    }).join('');
-    block.style.display='block';
-  });
+});
+if(!elim.length)return;
+var pai=document.getElementById('copa-elim-painel');
+var list=document.getElementById('copa-elim-list');
+if(!pai||!list)return;
+list.innerHTML='<div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;">'+elim.map(function(t){
+var fc=FL[t.sigla]||FL[(t.sigla||'').toUpperCase()]||'';
+var fimg=fc?'<img src="https://flagcdn.com/w40/'+fc+'.png" width="20" height="14" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+t.sigla+'">':'';
+return '<div style="display:flex;align-items:center;gap:5px;background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:4px 8px;">'+fimg+'<span style="font-size:11px;font-weight:600;color:#7f1d1d;">'+t.nome+'</span><span style="font-size:9px;color:#9ca3af;">'+t.grupo+'</span></div>';
+}).join('')+'</div>';
+pai.style.display='block';
 }
+var _data=null;
+function renderDash(){
+var dH=document.getElementById('copa-dw-hoje');
+var dP=document.getElementById('copa-dw-prox');
+var dE=document.getElementById('copa-dw-enc');
+var dG=document.getElementById('copa-grupos-open');
+if(!dH||!dG)return;
+if(!_data){dH.innerHTML='<div class="copa-dm-empty">&#x23F3; Carregando dados ao vivo...</div>';return;}
+var now=new Date();
+var nowBRT=new Date(now.getTime()-3*60*60*1000);
+var live=_data.partidas.filter(function(p){return p.status==='ao_vivo';});
+var hoje=_data.partidas.filter(function(p){
+if(p.status!=='agendado')return false;
+var d=new Date(p.data);
+var dBRT=new Date(d.getTime()-3*60*60*1000);
+return dBRT.getDate()===nowBRT.getDate()&&dBRT.getMonth()===nowBRT.getMonth()&&dBRT.getFullYear()===nowBRT.getFullYear();
+});
+var enc=_data.partidas.filter(function(p){return p.status==='encerrado';});
+var prox=_data.partidas.filter(function(p){return p.status==='agendado';});
+var hojeHtml='';
+if(live.length){hojeHtml+='<div style="padding:7px 14px 2px;font-size:9px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.1em;">&#128308; Ao vivo agora</div>';hojeHtml+=live.map(renderDashMatch).join('');}
+if(hoje.length){if(live.length)hojeHtml+='<div style="padding:7px 14px 2px;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;">Hoje</div>';hojeHtml+=hoje.map(renderDashMatch).join('');}
+if(!live.length&&!hoje.length&&enc.length){hojeHtml+='<div style="padding:7px 14px 2px;font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.1em;">Encerrados recentemente</div>';hojeHtml+=enc.slice(-3).map(renderDashMatch).join('');}
+dH.innerHTML=hojeHtml||'<div class="copa-dm-empty">Nenhum jogo hoje<br><span style="font-size:10px;">Veja os pr&oacute;ximos na aba ao lado</span></div>';
+if(dP)dP.innerHTML=prox.length?prox.slice(0,15).map(renderDashMatch).join(''):'<div class="copa-dm-empty">Nenhum jogo agendado</div>';
+if(dE)dE.innerHTML=enc.length?enc.slice().reverse().slice(0,15).map(renderDashMatch).join(''):'<div class="copa-dm-empty">Nenhum jogo encerrado ainda</div>';
+dG.innerHTML=renderGruposOpen(_data.grupos);
+renderProximoJogo(_data.partidas);
+renderEliminados(_data.grupos);
+}
+function getStat(stats,names){
+if(!stats||!stats.length)return 0;
+for(var i=0;i<names.length;i++){for(var j=0;j<stats.length;j++){var s=stats[j];if(s.name===names[i]||s.abbreviation===names[i])return Number(s.value)||0;}}
+return 0;
+}
+function parseMatchesESPN(sD){
+if(!sD||!sD.events)return[];
+return sD.events.map(function(ev){
+var comp=ev.competitions&&ev.competitions[0];
+var comps=comp&&comp.competitors||[];
+var home=comps.find(function(c){return c.homeAway==='home';});
+var away=comps.find(function(c){return c.homeAway==='away';});
+if(!home||!away)return null;
+var st=(ev.status&&ev.status.type&&ev.status.type.name)||'';
+var isLive=st.indexOf('IN_PROGRESS')>=0;
+var isDone=st.indexOf('FINAL')>=0||(ev.status&&ev.status.type&&ev.status.type.completed);
+return{
+id:ev.id,
+home:{nome:(home.team&&home.team.displayName)||'',sigla:(home.team&&home.team.abbreviation)||'',placar:(isLive||isDone)?(home.score||'0'):null},
+away:{nome:(away.team&&away.team.displayName)||'',sigla:(away.team&&away.team.abbreviation)||'',placar:(isLive||isDone)?(away.score||'0'):null},
+status:isLive?'ao_vivo':isDone?'encerrado':'agendado',
+relogio:(ev.status&&ev.status.displayClock)||'',
+grupo:(comp&&comp.notes&&comp.notes.find(function(n){return n.type==='event';})&&comp.notes.find(function(n){return n.type==='event';}).headline)||'',
+data:ev.date||''
+};
+}).filter(Boolean);
+}
+function parseStandingsESPN(stD){
+if(!stD)return[];
+var src=[];
+if(stD.standings&&stD.standings.children&&stD.standings.children.length)src=stD.standings.children;
+else if(stD.children&&stD.children.length)src=stD.children;
+else if(stD.groups&&stD.groups.length)src=stD.groups;
+else if(stD.standings&&stD.standings.entries)src=[stD.standings];
+if(!src.length)return[];
+return src.map(function(g){
+var entries=(g.standings&&g.standings.entries)||(g.entries)||[];
+return{
+nome:g.name||g.abbreviation||'',
+times:entries.map(function(e){
+var stats=e.stats||[];var t=e.team||{};
+var pj=getStat(stats,['gamesPlayed','GP']);
+var pts=getStat(stats,['points','Pts','PTS']);
+var eliminado=pj>=3&&pts<3;
+return{nome:t.displayName||t.name||'',sigla:t.abbreviation||'',
+pj:pj,v:getStat(stats,['wins','W']),
+e:getStat(stats,['ties','D','draws']),d:getStat(stats,['losses','L']),
+sg:getStat(stats,['pointDifferential','GD']),pts:pts,eliminado:eliminado};
+})
+};
+}).filter(function(g){return g.times.length>0;});
+}
+function fetchArtilharia(){
+var URL='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/leaders';
+fetch(URL,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
+var list=document.getElementById('copa-art-list');
+if(!list)return;
+if(!d){list.innerHTML='<div class="copa-art-empty">Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
+var scorers=[];
+var cats=d.categories||[];
+for(var i=0;i<cats.length;i++){
+var cat=cats[i];
+if(cat.name&&cat.name.toLowerCase().indexOf('goal')>=0){
+(cat.leaders||[]).forEach(function(l){
+var a=l.athlete||{};
+var tm=l.team||{};
+scorers.push({nome:a.displayName||a.fullName||'',time:tm.displayName||tm.name||'',sigla:tm.abbreviation||'',gols:Number(l.value)||0});
+});
+break;
+}
+}
+if(!scorers.length){list.innerHTML='<div class="copa-art-empty">Artilharia dispon&iacute;vel ap&oacute;s o in&iacute;cio dos jogos</div>';return;}
+scorers.sort(function(a,b){return b.gols-a.gols;});
+list.innerHTML=scorers.slice(0,10).map(function(s,i){
+var fc=FL[s.sigla]||FL[(s.sigla||'').toUpperCase()]||'';
+var fimg=fc?'<img src="https://flagcdn.com/w40/'+fc+'.png" width="18" height="13" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.display=\'none\'" alt="'+s.sigla+'">':'';
+return '<div class="copa-art-item">'+
+'<span class="copa-art-rank'+(i<3?' top':'')+'">'+( i<3?['&#x1F947;','&#x1F948;','&#x1F949;'][i]:(i+1)+'&ordm;')+'</span>'+
+'<div class="copa-art-info"><div class="copa-art-name">'+s.nome+'</div><div class="copa-art-team">'+fimg+' '+s.time+'</div></div>'+
+'<span class="copa-art-gols">'+s.gols+'</span>'+
+'</div>';
+}).join('');
+});
+}
+function fetchCopa(){
+var ESCORE='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+var ESTD='https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
+Promise.all([
+fetch(ESCORE,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+fetch(ESTD,{cache:'no-cache'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+]).then(function(arr){
+var partidas=parseMatchesESPN(arr[0]);
+var grupos=parseStandingsESPN(arr[1]);
+_data={partidas:partidas,grupos:grupos};
+renderDash();
+}).catch(function(){renderDash();});
+}
+window.copaDashTab=function(tab){
+document.querySelectorAll('.copa-dash-tab').forEach(function(el){el.classList.remove('active');});
+document.querySelectorAll('.copa-dash-body').forEach(function(el){el.classList.remove('active');});
+var btn=document.getElementById('copa-dt-'+tab);
+var body=document.getElementById('copa-dw-'+tab);
+if(btn)btn.classList.add('active');
+if(body){body.classList.add('active');renderDash();}
+};
+/* RAIL: apenas artigos Copa (não todo futebol) */
+var COPA_KW=['copa do mundo','world cup','mundial','fifa','copa 2026','seleção brasileira','grupo a ','grupo b ','grupo c ','grupo d ','grupo e ','grupo f ','grupo g ','grupo h ','oitavas de final','quartas de final','semifinal da copa','final da copa','campeão do mundo','artilheiro da copa','fase de grupos','eliminado da copa','classificado para'];
+function fetchRailArticles(){
+fetch('/api/portal-posts?recentes=true&limit=100').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
+if(!d)return;
+var posts=d.posts||d||[];
+/* Filtra por keywords Copa no título */
+var copaArticles=posts.filter(function(p){
+var txt=((p.titulo||'')+(p.comentario_fixado||'')).toLowerCase();
+return COPA_KW.some(function(k){return txt.indexOf(k)>=0;});
+});
+/* Se não tiver Copa, mostrar esportes genérico */
+var list=copaArticles.length?copaArticles.slice(0,12):posts.filter(function(p){
+var tags=p.user_tags||'[]';try{tags=JSON.parse(tags);}catch(e){}
+return Array.isArray(tags)&&tags.indexOf('esportes')>=0;
+}).slice(0,8);
+var el=document.getElementById('copa-rail-esportes');
+if(!el)return;
+if(!list.length){el.innerHTML='<div class="copa-rail-empty">Em breve &mdash; cobertura Copa 2026</div>';return;}
+el.innerHTML=list.map(function(p){
+var slug=p.seo_slug||p.slug||p.id;
+var tags=p.user_tags||'["esportes"]';try{tags=JSON.parse(tags);}catch(e){tags=['esportes'];}
+var cat=tags[0]||'esportes';
+return '<a href="/'+cat+'/'+slug+'/" class="copa-rail-item">'+
+'<div class="copa-rail-item-cat">Copa 2026</div>'+
+'<div class="copa-rail-item-title">'+p.titulo+'</div>'+
+'</a>';
+}).join('');
+});
+}
+function fetchCopaCurtinhas(){
+fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=20').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}).then(function(d){
+if(!d)return;
+var list=(d.curtinhas||d.posts||[]).filter(function(p){
+var txt=((p.titulo||'')+(p.comentario_fixado||'')).toLowerCase();
+return COPA_KW.some(function(k){return txt.indexOf(k)>=0;});
+});
+if(!list.length)return;
+var painel=document.getElementById('copa-pilulas-painel');
+var cont=document.getElementById('copa-pilulas-list');
+if(!painel||!cont)return;
+var corMap={radar:'#dc2626',minuto:'#2563eb',pilula:'#16a34a',micropilula:'#16a34a'};
+cont.innerHTML=list.slice(0,6).map(function(p){
+var tipo=p.tipo_conteudo||'pilula';
+var cor=corMap[tipo]||'#16a34a';
+var label=tipo.replace('micropilula','Pílula').replace('pilula','Pílula').replace('radar','Radar OVC').replace('minuto','Minuto OVC');
+var slug=p.seo_slug||p.slug||p.id;
+return '<a href="/esportes/'+slug+'/" class="copa-pilula-item">'+
+'<div class="copa-pilula-badge" style="color:'+cor+';">'+label+'</div>'+
+'<div class="copa-pilula-title">'+p.titulo+'</div>'+
+'</a>';
+}).join('');
+painel.style.display='block';
+});
+}
+document.addEventListener('DOMContentLoaded',function(){
+fetchCopa();
+setInterval(fetchCopa,60000);
+fetchArtilharia();
+setInterval(fetchArtilharia,300000);
+fetchRailArticles();
+fetchCopaCurtinhas();
+});
 })();
 </script>
-</section>
-<main class="ovc-main"><section id="copa-artigos"><section class="ovc-grid"><div class="ovc-story-stack"><div class="ovc-panel" data-hero-card></div><div class="ovc-panel ovc-story-list"><h3>Principais notícias</h3><div class="ovc-mini-list" data-main-list></div></div><div class="ovc-panel ovc-story-list"><h3>Mais da seção</h3><div class="ovc-mini-list" data-local-list></div></div></div><aside class="ovc-right-rail"><section data-banner-sidebar></section></aside></section></main><footer class="footer">
+</main>
+
+<footer class="footer">
 <div class="footer-inner">
 <div class="footer-top">
 <div class="footer-brand">
