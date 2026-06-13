@@ -14,42 +14,6 @@ async function log(level, message) {
   } catch (_) {}
 }
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY || Buffer.from("c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=","base64").toString().trim();
-
-async function _getNichoKeys() {
-  try {
-    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY","GROQ_API_KEY"]);
-    const m = {}; (data||[]).forEach(r => m[r.key]=r.value);
-    return { gemini: m.GEMINI_API_KEY||process.env.GEMINI_API_KEY||"", groq: m.GROQ_API_KEY||process.env.GROQ_API_KEY||"" };
-  } catch(_) { return { gemini: process.env.GEMINI_API_KEY||"", groq: process.env.GROQ_API_KEY||"" }; }
-}
-async function callGeminiNicho(prompt, key) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.85, maxOutputTokens: 1200 } }) });
-  const d = await res.json();
-  if (!res.ok) throw new Error("Gemini nicho: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
-  return d.candidates[0].content.parts[0].text;
-}
-async function callGroqNicho(prompt, key) {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-    body: JSON.stringify({ model: "llama-3.3-70b-versatile",
-      messages: [{ role: "system", content: "Você é jornalista sênior. Responda em português. Siga EXATAMENTE o formato solicitado." },{ role: "user", content: prompt }],
-      max_tokens: 1200, temperature: 0.85 }) });
-  const d = await res.json();
-  if (!res.ok) throw new Error("Groq nicho: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
-  return d.choices[0].message.content;
-}
-async function callOpenAINicho(prompt, key) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0.75, max_tokens: 1400,
-      messages: [{ role: "system", content: "Você é jornalista sênior. Responda apenas no formato pedido." },{ role: "user", content: prompt }] }) });
-  const d = await res.json();
-  if (!res.ok) throw new Error("OpenAI nicho: " + (d.error?.message || JSON.stringify(d).slice(0,100)));
-  return d.choices[0].message.content;
-}
 
 const CATS = new Set(["brasil-on","politica","economia","investimentos","negocios","tecnologia","internacional","saude","tributos","carreira","imoveis","seguros","industria","familia","esportes","cultura","religiao","colunistas","vc"]);
 const PRIORIDADE_PESOS = {
@@ -300,138 +264,6 @@ async function manual(req, res, rec) {
   return res.status(200).json({ status: "ok", generated: 1, id: post.id, titulo: post.titulo, modo: "manual_pendente" });
 }
 
-async function gerarPilula(sourceText, sourceTitle, contexto, categoria) {
-  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
-  const tomCat = { economia:"pragmático, cifras concretas, impacto em decisão financeira", negocios:"empresas e mercado — dados acima de narrativa", investimentos:"riscos e oportunidades, números e tendências", tributos:"impacto fiscal direto ao contribuinte e empresa", tecnologia:"curioso, provocativo, desmonta o hype", politica:"analítico, consequências reais, nunca panfletário", "brasil-on":"analítico, consequências reais, nunca panfletário", saude:"próximo, sem alarmismo, dados acima de opinião", familia:"próximo, sem alarmismo, dados acima de opinião", esportes:"direto, resultado acima de narrativa, sem jargão", cultura:"direto, resultado acima de narrativa", internacional:"geopolítico, causa e consequência, quem lucra" }[categoria] || "jornalístico, direto, factual";
-  const prompt = `Você é jornalista sênior do portal O Valor Capital (OVC), centro-direita liberal.
-
-TOM DESTA NOTA (categoria: ${categoria}): ${tomCat}
-
-MISSÃO: microinterpretação jornalística. Não é resumo — é leitura de segundo plano. O que o fato REVELA que não está escrito na manchete. Início, meio e fim como notícia de agência de primeira linha.
-
-ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
-§1 — O FATO: o que aconteceu. Quem, o quê, onde, quando. Uma frase direta. Dado concreto se houver.
-§2 — O CONTEXTO REAL: o que esse fato significa no cenário atual. NÃO repete §1 — expande. O que estava em jogo antes disso acontecer.
-§3 — QUEM GANHA / QUEM PERDE: consequência direta. Para quem isso importa e por quê. Dinheiro, poder, eleitor, mercado — o que muda de verdade.
-§4 — O QUE OBSERVAR: o que o leitor deve acompanhar. Próximo evento, prazo, votação, decisão. Informação acionável para os próximos dias.
-
-MÍNIMO ABSOLUTO: 1.000 caracteres no CORPO. Faixa ideal: 1.000 a 1.800 caracteres.
-
-FILTRO: se o fato não tiver relevância para o leitor brasileiro — empresário, investidor, cidadão — retorne TITULO: IGNORAR
-
-PROIBIDO (qualquer uso invalida o texto):
-Vale destacar | É importante ressaltar | Nesse contexto | Além disso | Por outro lado | Em suma | Portanto | Diante desse cenário | Especialistas apontam | Cabe lembrar | Ao mesmo tempo | Dessa forma | Por fim | isso mostra | isso revela | isso evidencia | em meio a | no cenário atual | chama atenção | coloca em xeque | acende alerta | gera debate | é preocupante
-
-Formato OBRIGATÓRIO:
-TITULO: [manchete direta — 50 a 70 caracteres]
-FOCO_KEYWORD: [2 a 3 palavras]
-META_DESCRICAO: [resumo preciso 120 a 155 caracteres]
-CATEGORIA: [uma de: politica|economia|negocios|investimentos|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao|brasil-on]
-CORPO:
-<p><strong>Pílula OVC</strong> — ${hoje}</p>
-[4 parágrafos em HTML seguindo §1 §2 §3 §4 — mínimo 800 caracteres total — sem h2 — sem imagem]
-
-Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 3000)}`;
-  const { gemini, groq } = await _getNichoKeys();
-  const pairs = [[callGeminiNicho, gemini],[callGroqNicho, groq],[callOpenAINicho, OPENAI_KEY]];
-  let lastErr;
-  for (const [fn, key] of pairs) {
-    if (!key) continue;
-    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 600) continue; return p; } catch(e) { lastErr = e; }
-  }
-  throw new Error("gerarPilula falhou: " + (lastErr?.message || "sem chave"));
-}
-
-
-async function gerarRadar(sourceText, sourceTitle, categoria) {
-  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
-  const prompt = `Você é correspondente de plantão do Radar OVC, seção de cobertura em tempo real do portal O Valor Capital (centro-direita liberal).
-
-MISSÃO: boletim ao vivo de alto impacto. O Radar OVC só existe quando algo grande está acontecendo AGORA. Cada Radar deve ter início, meio e fim completos.
-
-REGRA ABSOLUTA — SOMENTE gere se o fato se enquadrar em pelo menos um:
-— Eleições brasileiras ou de países estratégicos
-— Copa do Mundo ou grandes competições esportivas internacionais
-— Votações decisivas no Congresso Nacional ou no STF
-— Crises políticas de repercussão nacional
-— Conflitos armados ou catástrofes com impacto geopolítico relevante
-— Decisões de grandes bancos centrais (Fed, BCE, Banco Central do Brasil)
-SE NÃO SE ENQUADRAR: retorne TITULO: IGNORAR
-
-ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
-§1 — O FATO URGENTE: o que aconteceu agora. Quem, o quê, onde. Frase curta — só o fato com peso máximo.
-§2 — O QUE ESTÁ EM JOGO: contexto imediato. O que essa decisão/evento significa nas próximas horas.
-§3 — OS LADOS: quem avança, quem recua, quem perde. Consequência política ou econômica imediata e direta.
-§4 — O QUE ACOMPANHAR: próximo evento, votação, pronunciamento, dado — o que o leitor monitora agora.
-
-MÍNIMO ABSOLUTO: 800 caracteres no CORPO.
-TOM: urgência controlada — boletim da Reuters em português. Sem alarmismo. Sem especulação. Só fatos verificados.
-
-PROIBIDO:
-Vale destacar | É importante ressaltar | Nesse contexto | Além disso | Por outro lado | Em suma | Portanto | Diante desse cenário | Especialistas apontam | Cabe lembrar | Ao mesmo tempo | Dessa forma | Por fim | isso mostra | isso revela | acende alerta | gera debate
-
-Formato OBRIGATÓRIO:
-TITULO: [manchete urgente e precisa — 50 a 70 caracteres]
-FOCO_KEYWORD: [2 a 3 palavras]
-META_DESCRICAO: [120 a 155 caracteres]
-CATEGORIA: [uma de: politica|esportes|internacional|brasil-on]
-CORPO:
-<p><strong>Radar OVC</strong> — ${hoje}</p>
-[4 parágrafos em HTML seguindo §1 §2 §3 §4 — mínimo 800 caracteres total — sem h2 — sem imagem]
-
-Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
-  const { gemini, groq } = await _getNichoKeys();
-  const pairs = [[callGeminiNicho, gemini],[callGroqNicho, groq],[callOpenAINicho, OPENAI_KEY]];
-  let lastErr;
-  for (const [fn, key] of pairs) {
-    if (!key) continue;
-    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 200) continue; return p; } catch(e) { lastErr = e; }
-  }
-  throw new Error("gerarRadar falhou: " + (lastErr?.message || "sem chave"));
-}
-
-async function gerarMinuto(sourceText, sourceTitle, categoria) {
-  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
-  const prompt = `Você é analista-jornalista do Minuto OVC, seção de resumos executivos do portal O Valor Capital (centro-direita liberal).
-
-MISSÃO: transformar um fato econômico ou de negócios em 1 minuto de leitura de alto valor. Leitor-alvo: empresário, investidor, gestor financeiro. Um Minuto OVC bem feito vale mais do que uma análise de 3.000 palavras mal escrita.
-
-REGRA ABSOLUTA: cobre EXCLUSIVAMENTE economia, negócios, mercado financeiro, investimentos, tributos, regulação, política econômica, tecnologia com impacto direto em negócios.
-SE O FATO NÃO TIVER IMPACTO DIRETO EM DECISÕES DE NEGÓCIO OU INVESTIMENTO: retorne TITULO: IGNORAR
-
-ESTRUTURA OBRIGATÓRIA — 4 PARÁGRAFOS:
-§1 — O DADO OU FATO: o número, a decisão, o movimento. Com dado concreto — IPCA em X%, Selic em Y%, empresa Z registrou lucro de R$ W bilhões. Frase direta.
-§2 — O QUE REVELA: o que esse dado significa no contexto atual. NÃO repete §1 — expande o entendimento. Uma ou duas frases de contexto que elevam a informação.
-§3 — QUEM É AFETADO: setor, empresa, segmento de investimento, faixa de contribuinte. Impacto prático para quem está lendo agora.
-§4 — O QUE ACOMPANHAR: próxima decisão, reunião, dado, prazo — o que o executivo monitora. Termine com informação acionável.
-
-MÍNIMO ABSOLUTO: 800 caracteres no CORPO. Cerca de 1 minuto de leitura.
-TOM: Valor Econômico e Reuters Brasil — preciso, sem rodeios, sem adjetivos emocionais.
-VIÉS: liberal. Livre mercado, eficiência, responsabilidade fiscal.
-
-PROIBIDO:
-Vale destacar | É importante ressaltar | Nesse contexto | Além disso | Por outro lado | Em suma | Portanto | Diante desse cenário | Especialistas apontam | Cabe lembrar | Ao mesmo tempo | Dessa forma | Por fim | mercado preocupado | analistas apontam | fontes indicam | o setor aguarda | isso mostra | isso revela | acende alerta
-
-Formato OBRIGATÓRIO:
-TITULO: [manchete executiva com dado concreto se possível — 50 a 70 caracteres]
-FOCO_KEYWORD: [2 a 3 palavras]
-META_DESCRICAO: [120 a 155 caracteres com dado relevante]
-CATEGORIA: [uma de: economia|negocios|investimentos|tributos|tecnologia|industria|imoveis|seguros|carreira]
-CORPO:
-<p><strong>Minuto OVC</strong> — ${hoje}</p>
-[4 parágrafos em HTML seguindo §1 §2 §3 §4 — mínimo 800 caracteres total — sem h2 — sem imagem]
-
-Fonte: ${sourceTitle ? sourceTitle + "\n\n" : ""}${sourceText.slice(0, 2500)}`;
-  const { gemini, groq } = await _getNichoKeys();
-  const pairs = [[callGeminiNicho, gemini],[callGroqNicho, groq],[callOpenAINicho, OPENAI_KEY]];
-  let lastErr;
-  for (const [fn, key] of pairs) {
-    if (!key) continue;
-    try { const raw = await fn(prompt, key); const p = parseOVC(raw); if (p.titulo === "IGNORAR" || !p.titulo || !p.corpo || p.corpo.length < 300) continue; return p; } catch(e) { lastErr = e; }
-  }
-  throw new Error("gerarMinuto falhou: " + (lastErr?.message || "sem chave"));
-}
-
 async function autoMaterias(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
@@ -488,57 +320,25 @@ async function autoCurtinhas(req, res, rec) {
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) continue;
     } catch(e) { continue; }
-    // Rejeitar fonte que referencia 2023 sem mencionar ano atual (artigo antigo re-publicado com data nova)
     if (/\b2023\b/.test(sourceText) && !/\b2026\b/.test(sourceText)) continue;
-    const cat = PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
-
-    // Pílula — qualquer categoria, qualquer horário (erro não bloqueia radar/minuto)
+    const hash = crypto.createHash("md5").update(item.link + "_jornal").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) continue;
     try {
-      const hashP = crypto.createHash("md5").update(item.link + "_pilula").digest("hex");
-      const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
-      if (!dupP) {
-        const pilula = await gerarPilula(sourceText, item.title || a.title || "", rec.contexto, cat);
-        if (pilula?.titulo && pilula?.corpo && pilula.corpo.length >= 300) {
-          await saveCurtinha(pilula, hashP, cat, "pilula");
-          await log("info", `[curtinhas] pilula: ${pilula.titulo?.slice(0,50)}`);
-          generated++;
-        }
-      }
-    } catch(ePilula) { /* pílula ignorada — tenta radar/minuto */ }
-
-    // Radar OVC — só grandes eventos (removido gate de 3h: pubDate ausente bloqueava silenciosamente)
-    if (["politica","esportes","internacional","brasil-on"].includes(cat)) {
-      try {
-        const hashR = crypto.createHash("md5").update(item.link + "_radar").digest("hex");
-        const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
-        if (!dupR) {
-          const radar = await gerarRadar(sourceText, item.title || a.title || "", cat);
-          if (radar?.titulo && radar.titulo !== "IGNORAR" && radar?.corpo && radar.corpo.length >= 150) {
-            await saveCurtinha(radar, hashR, cat, "radar");
-            await log("info", `[curtinhas] radar: ${radar.titulo?.slice(0,50)}`);
-            generated++;
-          }
-        }
-      } catch(eRadar) { /* radar ignorado */ }
-    }
-
-    // Minuto OVC — só economia/negócios
-    if (["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat)) {
-      try {
-        const hashM = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
-        const { data: dupM } = await supabase.from("posts").select("id").eq("hash", hashM).maybeSingle();
-        if (!dupM) {
-          const minuto = await gerarMinuto(sourceText, item.title || a.title || "", cat);
-          if (minuto?.titulo && minuto.titulo !== "IGNORAR" && minuto?.corpo && minuto.corpo.length >= 300) {
-            await saveCurtinha(minuto, hashM, cat, "minuto");
-            await log("info", `[curtinhas] minuto: ${minuto.titulo?.slice(0,50)}`);
-            generated++;
-          }
-        }
-      } catch(eMinuto) { /* minuto ignorado */ }
-    }
+      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
+      const erros = validar(content);
+      if (erros.length) continue;
+      if (pautaParecida(content.titulo, rec.titulos)) continue;
+      const cat = CATS.has(content.categoria) ? content.categoria : "politica";
+      const tipo = ["politica","esportes","internacional","brasil-on"].includes(cat) ? "radar"
+                 : ["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat) ? "minuto"
+                 : "pilula";
+      await saveCurtinha(content, hash, cat, tipo);
+      await log("info", `[jornal] ${tipo}: ${content.titulo?.slice(0,50)}`);
+      generated++;
+    } catch(e) { /* ignorado */ }
   }
-  return res.status(200).json({ status: "ok", generated, tipo: "curtinhas" });
+  return res.status(200).json({ status: "ok", generated, tipo: "jornal" });
 }
 
 async function autoCopaCurtinhas(req, res, rec) {
@@ -557,13 +357,12 @@ async function autoCopaCurtinhas(req, res, rec) {
   const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
   const seen = new Set();
   const allNews = [...esportes, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link));
-  // Filtra APENAS conteúdo Copa — sem fallback genérico (esportes não-Copa vai para autoCurtinhas)
   const copaItems = allNews.filter(i => {
     const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
     return COPA_KW.some(kw => t.includes(kw));
   }).slice(0, 20);
   if (!copaItems.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_radar", candidates: 0, info: "no_copa_news" });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_jornal", candidates: 0, info: "no_copa_news" });
   }
   let generated = 0;
   for (const item of copaItems) {
@@ -575,35 +374,19 @@ async function autoCopaCurtinhas(req, res, rec) {
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) continue;
     } catch(_) { continue; }
-    // Tenta Radar primeiro
+    const hash = crypto.createHash("md5").update(item.link + "_copa_jornal").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) continue;
     try {
-      const hashR = crypto.createHash("md5").update(item.link + "_copa_live").digest("hex");
-      const { data: dupR } = await supabase.from("posts").select("id").eq("hash", hashR).maybeSingle();
-      if (!dupR) {
-        const radar = await gerarRadar(sourceText, item.title || a.title || "", "esportes");
-        if (radar?.titulo && radar.titulo !== "IGNORAR" && radar?.corpo && radar.corpo.length >= 200) {
-          await saveCurtinha(radar, hashR, "esportes", "radar");
-          await log("info", `[copa-live] radar: ${radar.titulo?.slice(0,50)}`);
-          generated++;
-          continue;
-        }
-      } else { continue; }
-    } catch(_) { /* radar ignorado — tenta pílula */ }
-    // Fallback: Pílula Copa se radar foi IGNORAR ou falhou
-    try {
-      const hashP = crypto.createHash("md5").update(item.link + "_copa_pilula").digest("hex");
-      const { data: dupP } = await supabase.from("posts").select("id").eq("hash", hashP).maybeSingle();
-      if (!dupP) {
-        const pilula = await gerarPilula(sourceText, item.title || a.title || "", rec.contexto, "esportes");
-        if (pilula?.titulo && pilula?.corpo && pilula.corpo.length >= 300) {
-          await saveCurtinha(pilula, hashP, "esportes", "pilula");
-          await log("info", `[copa-live] pilula: ${pilula.titulo?.slice(0,50)}`);
-          generated++;
-        }
-      }
+      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
+      const erros = validar(content);
+      if (erros.length) continue;
+      await saveCurtinha(content, hash, "esportes", "radar");
+      await log("info", `[copa-jornal] ${content.titulo?.slice(0,50)}`);
+      generated++;
     } catch(_) { continue; }
   }
-  return res.status(200).json({ status: "ok", generated, tipo: "copa_radar", candidates: copaItems.length });
+  return res.status(200).json({ status: "ok", generated, tipo: "copa_jornal", candidates: copaItems.length });
 }
 
 export default async function handler(req, res) {
