@@ -382,7 +382,7 @@ async function autoCopaCurtinhas(req, res, rec) {
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
     if (dup) continue;
     try {
-      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
+      const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) continue;
       await saveCurtinha(content, hash, "esportes", "radar");
@@ -415,8 +415,7 @@ export default async function handler(req, res) {
     // AUTOGERAÇÃO PAUSADA — 14/06/2026 — aguardando implementação dois passes + prompt esportes
     // if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
     if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
-    // return autoMaterias(req, res, rec);
-    return res.status(200).json({ status: "pipeline_pausado", message: "Autogeração pausada. Apenas Radar da Copa ativo.", generated: 0 });
+    return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
   return res.status(500).json({ status: "error", error: e.message, generated: 0 }); }
