@@ -51,19 +51,22 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 // PROMPT OFICIAL OVC — TRAVADO EM PRODUÇÃO — NÃO ALTERAR SEM AUTORIZAÇÃO
 ```
 
-**Prompt atual — MASTER_PROMPT OVC V4.6 (aprovado pelo dono em 13/06/2026 — VERSÃO CONGELADA):**
+**Prompt atual — MASTER_PROMPT OVC V5.7.2 (aprovado pelo dono em 14/06/2026 — VERSÃO CONGELADA):**
+- **ÚNICO PROMPT DO SISTEMA** — substitui MASTER_PROMPT V4.x, PILULA_PROMPT e PROMPT_ESPORTES
+- Todas as funções (`rewritePortal`, `rewriteEsportes`, `rewritePilula`, `rewriteMicroPilula`) usam este único prompt
 - Estilo: Reuters/Bloomberg/Valor Econômico, jornalístico sênior
 - SEO: Google News + Google Discover
 - Formato de saída: HTML puro (nunca markdown)
-- META_DESCRICAO: 141–155 chars
-- Parágrafos: máx 3 frases (MobileUX)
-- Jargão proibido: lista expandida
-- Gancho final proibido (ex: "Acompanhe o portal...")
-- **Blindagem jurídica ativa:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, nunca publicar menores de idade, sempre atribuir com "segundo", "de acordo com", "conforme"
-- **Hierarquia de IAs:** Gemini 2.0 Flash (primário) → Gemini key 2 (fallback 429) → OpenAI gpt-4o-mini (fallback final)
-- Linha final: `O TEMA e o CONTEXTO É: _____` — placeholder; tema real chega como `userContent` separado (não quebra o prompt)
-- **V4.5 adições:** Trava `[VERIFICAR]` (jamais na saída final); REGRA DOS NOMES E IDENTIFICAÇÕES (nunca inferir nomes/cargos/valores/datas ausentes do input); clarificação `{DATA_ATUAL}` = data de geração ≠ data do evento; checklist extra na auditoria interna
-- **Curtinhas DESATIVADAS** (13/06/2026) — `autoCurtinhas` e `autoCopaCurtinhas` comentadas em `run_portal.js`
+- META_DESCRICAO: 120–160 chars
+- 8 parágrafos obrigatórios, mínimo 4.000 chars
+- Estrutura A (politica, economia, negocios, investimentos, seguros, industria, imoveis, tributos, brasil-on) / Estrutura B (esportes, cultura, tecnologia, saude, familia, carreira, internacional, religiao)
+- 27 conectivos proibidos (lista expandida)
+- **Blindagem jurídica ativa:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, sempre atribuir com "segundo", "de acordo com", "conforme"
+- **Ponto abrupto obrigatório** — proibido parágrafo moral, conclusão, "não apenas X mas também Y"
+- **AUDITORIA_OVC em JSON** — 5 campos: conflitos_factuais_encontrados, manifestacao_oficial_incluida, termos_banidos_detectados, extensao_minima_atingida, texto_termina_em_fato_cru
+- **Hierarquia de IAs:** Gemini 2.0 Flash (key1) → Gemini 2.0 Flash (key2, 429) → OpenAI gpt-4o-mini (fallback)
+- Linha final: `O TEMA e o CONTEXTO É: _____` — placeholder visual para o modelo
+- **Curtinhas REATIVADAS** (14/06/2026) — `autoCurtinhas` e `autoCopaCurtinhas` ativas em `run_portal.js`
 
 ---
 
@@ -2982,8 +2985,8 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Gemini engine primária | ✅ Code em main | Deploy a confirmar |
 | Gemini dual-key (key1+key2) | ✅ Code em main | PR #145 mergeado |
 | OpenAI fallback hardcoded | ✅ ATIVO | core/ai_portal.js + run_portal.js |
-| MASTER_PROMPT V4.6 + Trava Anti-Blog + Contextualização Analítica | ✅ ATIVO EM PRODUÇÃO | PR #192 mergeado 13/06/2026 |
-| Sistema de nichos (Pílula/Radar/Minuto) | ✅ REATIVADO | Curtinhas reativadas PR #191 — usam V4.6 via rewritePortal() |
+| **MASTER_PROMPT V5.7.2 — ÚNICO PROMPT DO SISTEMA** | ✅ ATIVO EM PRODUÇÃO | PR #198 mergeado 14/06/2026 — substitui V4.x, PILULA_PROMPT e PROMPT_ESPORTES |
+| Sistema de nichos (Pílula/Radar/Minuto) | ✅ REATIVADO | Curtinhas reativadas PR #191 — usam V5.7.2 via rewritePortal() |
 | Radar da Copa 2026 | ✅ ATIVO | 10/06/2026 |
 | Radar Eleitoral 2026 | ✅ ATIVO | 10/06/2026 |
 | Mais Lidos (ranking por views reais) | ✅ ATIVO | 10/06/2026 |
@@ -3139,3 +3142,108 @@ O MASTER_PROMPT V4.5 é a versão definitiva. **NUNCA alterar** `core/ai_portal.
 8. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
 9. AdSense aprovação — aguardando Google
 10. **Quando religar curtinhas:** basta descomentar as 2 linhas em `api/run_portal.js` (linhas ~412-413)
+
+---
+
+### Sessão 14/06/2026 — MASTER_PROMPT V5.7.2 — PROMPT ÚNICO UNIFICADO
+
+#### Contexto
+
+Roberto enviou o arquivo `17401ac9-Texto_colado42.txt` contendo o MASTER_PROMPT OVC V5.7.2 — a "Constituição Editorial e Contrato de Integração Técnica" do OVC. Instrução explícita: *"ABRA, LEIA, RELEIA. ESTE DEVE SER O UNICO PROMPT EM TODO O SISTEMA. SUBSTITUA TUDO O QUE EXISTIR DE PROMPTS EM TODA A AUTOMACAO DO OVC, EM TODO O PIPE POR ISTO QUE ENVIEI AGORA."*
+
+Após identificar 4 problemas no V5.7.2 original e Roberto aprovar as correções (*"AJUSTE TUDO E IMPLEMENTE"*), o prompt foi implementado como PR #198, mergeado em main.
+
+---
+
+#### Problemas identificados no V5.7.2 original (antes de implementar)
+
+1. **LaTeX `$\rightarrow$`** nas Estruturas A e B — apareceria como texto literal para o Gemini. Corrigido para `→` (Unicode)
+2. **CATEGORIA list errada** — Roberto incluiu categorias inexistentes no OVC (Financas, Sociedade, Justica, Empresas, Agro, Automotivo) e omitiu as reais. Corrigido para os 17 slugs válidos do OVC
+3. **"attribution" typo** — palavra inglesa no meio de texto em português. Corrigido para `atribuição`
+4. **AUDITORIA_OVC multi-linha** — `parse()` lia apenas a primeira linha; V5.7.2 usa bloco JSON `{ ... }`. Corrigido: acumulação de linhas com flag `inAuditoria`
+
+---
+
+#### O que foi implementado (PR #198 — mergeado em main, squash commit `4255e863`)
+
+**Arquivo alterado: `core/ai_portal.js`**
+
+**1. MASTER_PROMPT V5.7.2 — conteúdo:**
+- Seção 1: Princípio da Contenção + Claim Extraordinário + Soberania do Contexto
+- Seção 2: Diretriz Analítica Institucional + "Princípio da Pertinência" (3 tiers de pauta)
+- Seção 3: Voz do Editor — Ataque Direto, Métrica 4.000 chars, 8 parágrafos, Estruturas A e B, 27 conectivos proibidos
+- Seção 4: Blindagem Jurídica Absoluta + Ponto Abrupto
+- Seção 5: Formato Mandatório — TITULO/META_TITLE/FOCO_KEYWORD/SLUG/META_DESCRICAO/CATEGORIA/SUBCATEGORIA/AUDITORIA_OVC (JSON)/CORPO EM HTML
+
+**2. `parse()` — suporte a AUDITORIA_OVC multi-linha JSON:**
+```js
+// Antes: capturava só 1 linha
+else if (/^AUDITORIA_OVC:/i.test(trimmed)) auditoriaOvc = trimmed.replace(...).trim();
+
+// Depois: acumula linhas até fechar o }
+let inAuditoria = false;
+const auditLines = [];
+// ... if (inAuditoria) { auditLines.push(line); if (trimmed.endsWith('}')) { inAuditoria=false; auditoriaOvc=auditLines.join('\n'); } }
+```
+
+**3. `catsValidas` — atualizado:**
+- Adicionado `tributos` (slug correto, substituindo `tributacao`)
+- Legado mantido como comentário para retrocompatibilidade
+
+**4. `rewriteEsportes()` — corrigido:**
+- `PROMPT_ESPORTES` (deletado) → `MASTER_PROMPT`
+
+**5. `rewritePilula()` + `rewriteMicroPilula()` — corrigidos:**
+- `PILULA_PROMPT` (deletado) → `MASTER_PROMPT`
+- `signaturePattern: /<p>\s*<strong>P[íi]lula OVC<\/strong>/i` → `/<p>\s*<strong>Reda/i` (V5.7.2 usa "Redação OVC")
+
+---
+
+#### Arquitetura do prompt único (V5.7.2)
+
+**Todas as funções exportadas em `core/ai_portal.js` agora usam MASTER_PROMPT:**
+
+| Função | Antes | Depois |
+|---|---|---|
+| `rewritePortal()` | MASTER_PROMPT V4.7 | MASTER_PROMPT V5.7.2 ✅ |
+| `rewriteEsportes()` | PROMPT_ESPORTES (deletado) | MASTER_PROMPT V5.7.2 ✅ |
+| `rewritePilula()` | PILULA_PROMPT (deletado) | MASTER_PROMPT V5.7.2 ✅ |
+| `rewriteMicroPilula()` | PILULA_PROMPT (deletado) | MASTER_PROMPT V5.7.2 ✅ |
+| Geração no pipeline | via `rewritePortal()` | MASTER_PROMPT V5.7.2 ✅ |
+| Curtinhas (pílula/radar/minuto) | via `autoCurtinhas()` | MASTER_PROMPT V5.7.2 ✅ |
+
+---
+
+#### Estado final desta sessão
+
+- Pipeline ATIVO — Roberto ligou após o merge
+- Banco limpo — Roberto deletou todos os artigos pendentes antes de religar
+- V5.7.2 ativo em produção — deploy Vercel em andamento pós-merge
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+#### 🔧 PENDÊNCIAS COMPLETAS (14/06/2026)
+
+**Alta prioridade:**
+1. **Avaliar qualidade dos artigos com V5.7.2** — Roberto vai verificar os primeiros pendentes e reportar
+
+**Médias (sessão focada):**
+2. `api/category.js` CAT_SEO — entradas SEO para brasil-on, carreira, tributos ainda desatualizadas
+3. `/vc/contato/index.html` — página não existe (cai no article handler)
+4. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+5. **Leitura Dinâmica** — Roberto mencionou, aguardando autorização
+
+**Roberto faz manualmente:**
+6. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto. Deletar no projeto `ovalorcapital-xuhw`
+7. Instagram SSL — non-www falha no IAB
+8. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+9. AdSense aprovação — aguardando Google
