@@ -61,8 +61,8 @@ function pautaParecida(titulo, recentes) {
     const jaccard = inter.length / Math.min(novo.size, antigo.size);
     // Dedup com palavra de ação (política/economia): threshold menor
     if (inter.some(w => EVENTO.has(w)) && jaccard >= 0.62) return true;
-    // Dedup geral (tecnologia, cultura, etc.): threshold maior, sem exigir EVENTO
-    if (inter.length >= 4 && jaccard >= 0.75) return true;
+    // Dedup geral: 3+ palavras comuns com alta sobreposição (inter.length >= 3 cobre artigos curtos)
+    if (inter.length >= 3 && jaccard >= 0.75) return true;
     return false;
   });
 }
@@ -290,6 +290,11 @@ async function autoMaterias(req, res, rec) {
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
+      // Anti-race: verifica títulos salvos nos últimos 10min (race condition entre Rodada 1 e Rodada 2)
+      try {
+        const { data: freshTits } = await supabase.from("posts").select("titulo").gte("created_at", new Date(Date.now() - 10 * 60000).toISOString());
+        if (freshTits?.length && pautaParecida(content.titulo, freshTits.map(p => p.titulo))) { debug.duplicado++; continue; }
+      } catch (_) {}
       const auditResult = auditarArtigo(content.titulo, content.corpo, content.categoria);
       if (!auditResult.aprovado) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(`auditoria(${auditResult.nota}): ${auditResult.violacoes.join("; ")}`); continue; }
       const sourceImage = a.image || await extractSourceImage(item.link);
