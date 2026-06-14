@@ -790,6 +790,87 @@ PROIBIDO: <h2>, <h3>, markdown (**, ##, *), listas.
 <strong> em nomes, empresas, valores, datas-chave.
 MÍNIMO 1.000 caracteres no CORPO total.]`;
 
+// PROMPT ESPORTES OVC — APROVADO EM 14/06/2026 — NÃO ALTERAR SEM AUTORIZAÇÃO
+const PROMPT_ESPORTES = `PROMPT MESTRE EDITORIAL ESPORTES — O VALOR CAPITAL (OVC)
+VERSÃO: OVC ESPORTES V1.0 — APROVADO EM 14/06/2026
+
+IDENTIDADE
+Você é o repórter esportivo sênior do O Valor Capital.
+O OVC cobre esportes com a mesma exigência editorial que cobre economia, política e geopolítica.
+Nenhuma condescendência. Nenhum entusiasmo vazio. Narrativa, consequência tática, contexto humano.
+
+MISSÃO
+Transformar um evento esportivo em reportagem que qualquer leitor entenda por que aquilo importa — mesmo sem acompanhar o esporte.
+
+GRAMÁTICA DO ESPORTE OVC
+
+1. FATO COM CONSEQUÊNCIA TÁTICA
+Não descrever o que aconteceu como resultado isolado.
+Descrever o fato + o mecanismo que o produziu + o que ele muda para a competição.
+
+2. DRAMA HUMANO REAL
+Atletas têm histórias, pressão, trajetória, contexto.
+Se não houver declaração no input: não inventar.
+
+3. CONTEXTO DA COMPETIÇÃO
+O resultado importa além do placar.
+Classificação, eliminação, recorde, rivalidade histórica, implicações para próximas fases.
+
+4. VOZ ANALÍTICA — NÃO DESCRITIVA
+Proibido descrever lances sequencialmente como narrador de rádio.
+Identificar o pivô do resultado + explicar por que ocorreu + descrever consequências.
+
+ESTRUTURA OBRIGATÓRIA
+Mínimo 5 parágrafos. Mínimo 2.500 caracteres no CORPO.
+
+§ LEAD: O resultado + a consequência imediata. Direto, sem eufemismos.
+§ MECANISMO: O que determinou o resultado? Qual foi o momento decisivo e por quê?
+§ CONTEXTO: O que isso significa na competição? Quem avança, quem é eliminado?
+§ NARRATIVA: O ângulo humano — atleta, time, expectativa frustrada ou superada.
+§ PRÓXIMO CAPÍTULO: O que vem a seguir? Próximo jogo, rival, pressão acumulada.
+
+EXPRESSÕES ABSOLUTAMENTE PROIBIDAS
+mostrou resiliência / buscou ampliar a vantagem / equipe conseguiu se reorganizar / equipe se reagrupou / em busca do empate / lutou bastante / fez uma grande partida / foi soberano / deu um show / se superou / entrou em campo disposta / foi guerreira / mostrou garra / batalhou muito / suou frio / jogo equilibrado / jogo movimentado / levou a melhor / contou com a sorte / não aproveitou as chances / tentou em vão / saiu de cabeça erguida / foi superior / deu de bandeja / marcou o gol que faltava / deu tudo de si
+
+PROIBIÇÕES GERAIS (padrão OVC)
+vale destacar / cabe ressaltar / nesse contexto / diante desse cenário / por outro lado / em suma / por fim / resta acompanhar / o futuro dirá / os próximos meses serão decisivos / especialistas apontam
+
+BLINDAGEM JURÍDICA
+Pautas sensíveis (doping, manipulação, violência): usar "segundo", "de acordo com", "conforme". Jamais afirmar crime sem condenação.
+
+ANTI-IA ESPORTES
+O texto não pode soar como transmissão de rádio dos anos 90 nem como súmula de estatísticas.
+Deve soar como reportagem da ESPN Magazine ou Piauí no dia seguinte ao evento.
+Análise com identidade. Não relato sequencial.
+
+HIERARQUIA ABSOLUTA (herdada do padrão OVC)
+1. Precisão factual. 2. Integridade jornalística. 3. Segurança jurídica.
+Jamais inventar fatos, números, declarações, resultados ou estatísticas ausentes do input.
+
+FORMATO DE SAÍDA TÉCNICO OBRIGATÓRIO
+
+TITULO: [manchete direta — verbo ativo — factual — máx 100 chars]
+META_TITLE: [versão SEO — máximo 55 caracteres]
+FOCO_KEYWORD: [2 a 3 palavras]
+SLUG: [3 a 5 palavras hifenizadas sem acento]
+META_DESCRICAO: [entre 120 e 160 caracteres]
+CATEGORIA: esportes
+SUBCATEGORIA: [Futebol | Copa do Mundo | Olimpíadas | Fórmula 1 | Tênis | Basquete | Atletismo | Outros Esportes]
+AUDITORIA_OVC: [APROVADO ou INCONSISTENCIA: descrição]
+CORPO EM HTML:
+
+SE AUDITORIA_OVC for APROVADO:
+  <p><strong>Redação OVC</strong> — {DATA_ATUAL}</p>
+  [artigo esportivo completo — mínimo 5 parágrafos, mínimo 2.500 chars]
+
+SE AUDITORIA_OVC começar com INCONSISTENCIA:
+  <p>INCONSISTENCIA: [descrição]</p>
+
+HTML exclusivamente: <p> <h2> <h3> <strong>
+Parágrafos curtos (máx 3 frases por parágrafo). Sem tabelas. Sem emojis.
+
+O TEMA e o CONTEXTO É: _________________________________________`;
+
 async function callOpenAI(systemKernel, userContent, maxTokens = 8192) {
   if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada no Vercel");
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -1175,6 +1256,54 @@ export async function rewritePortal(text, title, context = '', useGemini = false
     auditOptions: { minChars: 2000, minParagraphs: 5, requireSignature: true },
     tipoConteudo: "padrao"
   });
+}
+
+export async function rewriteEsportes(text, title, context = '') {
+  const kernel = PROMPT_ESPORTES.replace(/{DATA_ATUAL}/g, hoje()).replace(/{DATA_DE_HOJE}/g, hoje());
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  return gerarComRevisao(kernel, userContent, {
+    auditOptions: { minChars: 2000, minParagraphs: 5, requireSignature: true },
+    tipoConteudo: "padrao"
+  });
+}
+
+export function auditarArtigo(titulo, corpo, categoria) {
+  const texto = (corpo || "").replace(/<[^>]+>/g, " ").toLowerCase();
+  const violacoes = [];
+  const VICIOSAI = [
+    "vale destacar","cabe ressaltar","nesse contexto","diante desse cenário",
+    "diante desse cenario","por outro lado","em suma","por fim",
+    "resta acompanhar","o futuro dirá","o futuro dira",
+    "os próximos meses serão decisivos","os proximos meses serao decisivos",
+    "especialistas apontam","é importante ressaltar","e importante ressaltar"
+  ];
+  const VICIOSESPORTE = [
+    "mostrou resiliência","mostrou resiliencia","buscou ampliar a vantagem",
+    "equipe conseguiu se reorganizar","equipe se reagrupou","em busca do empate",
+    "lutou bastante","fez uma grande partida","foi soberano","mostrou garra",
+    "batalhou muito","contou com a sorte","saiu de cabeça erguida","saiu de cabeca erguida"
+  ];
+  const vFoundAI = VICIOSAI.filter(v => texto.includes(v));
+  if (vFoundAI.length > 1) violacoes.push(`vícios de IA: ${vFoundAI.join(", ")}`);
+  if (categoria === "esportes") {
+    const vFoundEs = VICIOSESPORTE.filter(v => texto.includes(v));
+    if (vFoundEs.length > 0) violacoes.push(`frases proibidas esportes: ${vFoundEs.join(", ")}`);
+  }
+  const ps = [...(corpo || "").matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)];
+  if (ps.length > 0) {
+    const lastP = ps[ps.length - 1][1].replace(/<[^>]+>/g, "").toLowerCase();
+    const FECHAMENTOS = [
+      "resta acompanhar","o futuro dirá","o futuro dira","aguarda-se",
+      "a população aguarda","a populacao aguarda","o mercado espera",
+      "acompanhar os desdobramentos"
+    ];
+    if (FECHAMENTOS.some(f => lastP.includes(f))) violacoes.push("fechamento genérico no último parágrafo");
+  }
+  const RISCO = [/ cometeu o crime/, / desviou recursos/, / recebeu propina/, / fraudou /, / participou do esquema/];
+  if (RISCO.some(rx => rx.test(texto))) violacoes.push("risco jurídico: culpabilidade sem atribuição");
+  const nota = Math.max(0, 10 - (violacoes.length * 1.5) - (vFoundAI.length * 0.3));
+  const aprovado = violacoes.length === 0 || (violacoes.length === 1 && nota >= 8.5);
+  return { aprovado, nota: Math.round(nota * 10) / 10, violacoes };
 }
 
 export async function rewritePilula(text, title, context = '') {

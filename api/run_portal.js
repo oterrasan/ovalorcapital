@@ -4,7 +4,7 @@ import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
-import { rewritePortal } from "../core/ai_portal.js";
+import { rewritePortal, rewriteEsportes, auditarArtigo } from "../core/ai_portal.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -285,10 +285,13 @@ async function autoMaterias(req, res, rec) {
       const a = await scrape(item.link);
       const sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 400) { debug.sem_fonte++; continue; }
-      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
+      const gerador = cat === "esportes" ? rewriteEsportes : rewritePortal;
+      const content = remapCat(await gerador(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
+      const auditResult = auditarArtigo(content.titulo, content.corpo, content.categoria);
+      if (!auditResult.aprovado) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(`auditoria(${auditResult.nota}): ${auditResult.violacoes.join("; ")}`); continue; }
       const sourceImage = a.image || await extractSourceImage(item.link);
       const resolvedImage = await resolverImagem(content, sourceImage, hash, start);
       const img = resolvedImage.url;
@@ -412,8 +415,7 @@ export default async function handler(req, res) {
     // AUTOGERAÇÃO PAUSADA — 14/06/2026 — aguardando implementação dois passes + prompt esportes
     // if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
     if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
-    // return autoMaterias(req, res, rec);
-    return res.status(200).json({ status: "pipeline_pausado", message: "Autogeração pausada. Apenas Radar da Copa ativo.", generated: 0 });
+    return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
   return res.status(500).json({ status: "error", error: e.message, generated: 0 }); }
