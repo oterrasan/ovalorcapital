@@ -6,9 +6,9 @@ const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", mont
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-// PROMPT OFICIAL OVC — MASTER EDITORIAL DEFINITIVO — APROVADO PELO DONO EM 13/06/2026 — VERSÃO OVC V4.6 — NÃO ALTERAR SEM AUTORIZAÇÃO
+// PROMPT OFICIAL OVC — MASTER EDITORIAL DEFINITIVO — APROVADO PELO DONO EM 14/06/2026 — VERSÃO OVC V4.7 — NÃO ALTERAR SEM AUTORIZAÇÃO
 const MASTER_PROMPT = `PROMPT MESTRE EDITORIAL DEFINITIVO — O VALOR CAPITAL (OVC)
-VERSÃO OFICIAL: OVC V4.6
+VERSÃO OFICIAL: OVC V4.7
 
 ──────────────────────────────────────
 IDENTIDADE
@@ -469,17 +469,25 @@ Proibido:
 ──────────────────────────────────────
 ANTI-IA DEFINITIVO
 ──────────────────────────────────────
-Eliminar imediatamente:
+Eliminar imediatamente qualquer uma dessas expressões — presença de qualquer item invalida o texto:
 • vale destacar;
 • cabe ressaltar;
 • nesse contexto;
 • diante desse cenário;
 • por outro lado;
+• no entanto;
+• além disso;
+• por sua vez;
+• sendo assim;
 • em suma;
 • por fim;
 • sob essa ótica;
 • nesse sentido;
 • especialistas apontam;
+• é importante destacar;
+• é importante ressaltar;
+• é importante notar;
+• é importante lembrar;
 • desafios e oportunidades;
 • futuro promissor;
 • acende alerta;
@@ -496,7 +504,29 @@ Eliminar imediatamente:
 • isso demonstra a importância;
 • diálogo crucial;
 • medida essencial;
-• tempos de incerteza.
+• tempos de incerteza;
+• a seguir, apresentamos;
+• a seguir confira;
+• veja a seguir;
+• confira a seguir;
+• muito além de;
+• vai muito além;
+• não se trata apenas de.
+──────────────────────────────────────
+PARÁGRAFO MORAL DE ENCERRAMENTO — PROIBIDO
+──────────────────────────────────────
+É terminantemente proibido encerrar o artigo com parágrafo que:
+• tire conclusão filosófica, moral ou sociológica sobre o evento;
+• use a estrutura "não apenas X, mas também Y" (independente das palavras);
+• declare que o episódio "levanta discussões", "expõe problemas", "reflete uma realidade";
+• generalize o fato para "um problema estrutural mais amplo";
+• conclua com análise sobre "o que o evento representa para a sociedade".
+Exemplos PROIBIDOS (literais ou similares):
+"Este trágico evento não apenas tirou a vida de uma jovem, mas também levantou importantes discussões..."
+"Esses jogos não apenas divertem, mas também desafiam o jogador a..."
+"O caso não apenas expõe falhas regulatórias, mas também revela..."
+"O episódio reflete um problema estrutural que vai além de..."
+O artigo termina no último fato apurado. Ponto. Sem lição de moral.
 ──────────────────────────────────────
 BLOQUEIOS ABSOLUTOS
 ──────────────────────────────────────
@@ -1272,10 +1302,14 @@ export function auditarArtigo(titulo, corpo, categoria) {
   const violacoes = [];
   const VICIOSAI = [
     "vale destacar","cabe ressaltar","nesse contexto","diante desse cenário",
-    "diante desse cenario","por outro lado","em suma","por fim",
+    "diante desse cenario","por outro lado","no entanto","além disso","alem disso",
+    "por sua vez","sendo assim","em suma","por fim",
     "resta acompanhar","o futuro dirá","o futuro dira",
     "os próximos meses serão decisivos","os proximos meses serao decisivos",
-    "especialistas apontam","é importante ressaltar","e importante ressaltar"
+    "especialistas apontam","é importante ressaltar","e importante ressaltar",
+    "é importante destacar","e importante destacar",
+    "não apenas","nao apenas","vai muito além","vai muito alem",
+    "a seguir, apresentamos","a seguir confira","veja a seguir"
   ];
   const VICIOSESPORTE = [
     "mostrou resiliência","mostrou resiliencia","buscou ampliar a vantagem",
