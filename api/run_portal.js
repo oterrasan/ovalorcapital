@@ -32,6 +32,18 @@ const STOCK_IMAGE_CATS = new Set(["economia","negocios","investimentos","seguros
 const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
+async function contarHoje() {
+  try {
+    // Meia-noite BRT = 03:00 UTC
+    const agora = new Date();
+    const inicioHoje = new Date(agora);
+    inicioHoje.setUTCHours(3, 0, 0, 0);
+    if (agora.getUTCHours() < 3) inicioHoje.setUTCDate(inicioHoje.getUTCDate() - 1);
+    const { count } = await supabase.from("posts").select("id", { count: "exact", head: true })
+      .eq("publish_method", "portal").gte("created_at", inicioHoje.toISOString());
+    return count || 0;
+  } catch (_) { return 0; }
+}
 function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
 function stripTitle(t) { return (t || "").replace(/<[^>]+>/g, "").replace(/\*\*/g, "").replace(/^#+\s*/, "").trim(); }
 function plain(html = "") { return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(); }
@@ -268,6 +280,10 @@ async function manual(req, res, rec) {
 async function autoMaterias(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
+  // Limite diário de 80 conteúdos (excluindo curtinhas/copa que têm fluxo próprio)
+  const MAX_DIA = 80;
+  const hoje = await contarHoje();
+  if (hoje >= MAX_DIA) return res.status(200).json({ status: "limite_diario_atingido", limite: MAX_DIA, hoje, generated: 0 });
   const cat = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
   const [prio, geral] = await Promise.all([getNewsByCategoria(cat), getNews()]);
   const seen = new Set();
