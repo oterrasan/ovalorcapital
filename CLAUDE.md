@@ -3247,3 +3247,58 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 7. Instagram SSL — non-www falha no IAB
 8. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
 9. AdSense aprovação — aguardando Google
+---
+
+### Sessão 15/06/2026 — MAIS LIDOS + TRACK_VIEW + LIMITE 80 ARTIGOS/DIA
+
+#### O que foi feito
+
+**PR #204 — Fix "Mais Lidos" (mergeado em main):**
+
+- **Root cause 1:** `track_view` era chamado em `internal-page-v2.js` linha 391 mas o handler nunca existiu em `api/manage.js` → views permaneciam 0 para todos os artigos
+- **Root cause 2:** `handleMaisLidos` em `api/portal-posts.js` ordenava por `published_at DESC` → com todas as views=0, mostrava os artigos mais recentes (igual ao feed principal)
+- **Fix 1 — `api/manage.js`:** adicionado `handleTrackView()` — POST `{action: 'track_view', post_id: UUID}` incrementa `metrics.views` no Supabase
+- **Fix 2 — `api/portal-posts.js`:** `handleMaisLidos()` reescrito — busca 1000 artigos com `created_at ASC`, ordena em JS por `views DESC` com tie-breaker `published_at ASC` (artigos mais antigos em empates — evita overlap com feed recente)
+- Views agora acumulam com cada leitura. Ranking vai refletir leituras reais a partir de agora.
+
+**PR #205 — Limite diário 80 artigos (mergeado em main, commit `696676e`):**
+
+- Nova função `contarHoje()` — conta posts com `publish_method='portal'` criados desde meia-noite BRT (03:00 UTC)
+- `autoMaterias()` verifica o limite ao início de cada chamada → retorna `{ status: "limite_diario_atingido", limite: 80, hoje: N }` quando atingido
+- Radar da Copa (`autoCopaCurtinhas`) NÃO entra na contagem — fluxo independente
+- Distribuição por categoria via `PRIORIDADE_PESOS` (total 105 pontos → 80 artigos/dia):
+  - Política ~11/dia, Economia ~9/dia, Brasil On ~6/dia, Negócios/Investimentos ~5/dia each
+  - Internacional/Tecnologia ~5/dia each, Saúde/Família/Esportes/Seguros ~4/dia each, demais ~3/dia each
+
+#### Situação do prompt (15/06/2026)
+
+- Roberto avaliou os artigos chegando com V5.7.2 como ruins ("uma porcaria")
+- Roberto criou um novo prompt **próprio** que usa **manualmente direto no Gemini** para corrigir artigos individualmente
+- **O prompt de Roberto NÃO foi implementado no sistema** — ele disse "o prompt não é pra você colocar em lugar algum, é só pra você saber"
+- `core/ai_portal.js` permanece com MASTER_PROMPT V5.7.2 (REGRA ZERO-B respeitada)
+- **Pendência crítica:** Roberto pode pedir nova iteração do prompt do sistema em sessão futura. Aguardar autorização explícita antes de qualquer alteração em `core/ai_portal.js`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 PENDÊNCIAS COMPLETAS (15/06/2026)
+
+**Alta prioridade — aguardando Roberto:**
+1. **Qualidade do prompt** — Roberto está corrigindo artigos manualmente via Gemini com prompt próprio. Quando pedir nova iteração, aguardar autorização explícita antes de tocar em `core/ai_portal.js`
+2. **Aprovar artigos pendentes** — admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia.
+
+**Médias (sessão focada):**
+3. `api/category.js` CAT_SEO — entradas SEO para brasil-on, carreira, tributos ainda desatualizadas
+4. `/vc/contato/index.html` — página não existe (cai no article handler)
+5. Executar categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+6. **Leitura Dinâmica** — Roberto mencionou, aguardando autorização
+
+**Roberto faz manualmente:**
+7. Env var SUPABASE_KEY no Vercel — ainda aponta para banco morto. Deletar no projeto `ovalorcapital-xuhw`
+8. Instagram SSL — non-www falha no IAB
+9. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+10. AdSense aprovação — aguardando Google
