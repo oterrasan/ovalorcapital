@@ -48,6 +48,7 @@ export default async function handler(req, res) {
     if (action === "submit_colunista_post") return handleSubmitColunistaPost(req, res, body);
     if (action === "admin_colunista_post") return handleAdminColunistaPost(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
+    if (action === "track_view") return handleTrackView(res, body);
     if (body.id && !action) return handleApprovePortal(res, { id: body.id, action: "aprovar" });
 
     return res.status(200).json({ ok: false, degraded: true, error: "acao_indisponivel_no_modo_emergencia" });
@@ -141,6 +142,26 @@ async function handleApprovePortal(res, body) {
   }
 
   return res.status(400).json({ ok: false, error: "missing_params" });
+}
+
+async function handleTrackView(res, body) {
+  const postId = String(body.post_id || "");
+  if (!postId || postId.length < 8) return res.status(200).json({ ok: false });
+  try {
+    const { data } = await supabase
+      .from("posts")
+      .select("id,metrics")
+      .eq("id", postId)
+      .eq("status", "publicado")
+      .single();
+    if (!data) return res.status(200).json({ ok: false });
+    const m = typeof data.metrics === "string" ? JSON.parse(data.metrics || "{}") : (data.metrics || {});
+    m.views = (parseInt(m.views || 0, 10) + 1);
+    await supabase.from("posts").update({ metrics: m }).eq("id", postId);
+    return res.status(200).json({ ok: true, views: m.views });
+  } catch (_) {
+    return res.status(200).json({ ok: false });
+  }
 }
 
 async function handleListColunistas(res) {
