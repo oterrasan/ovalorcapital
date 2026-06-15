@@ -32,7 +32,7 @@ const STOCK_IMAGE_CATS = new Set(["economia","negocios","investimentos","seguros
 const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
-function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
+function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
 function stripTitle(t) { return (t || "").replace(/<[^>]+>/g, "").replace(/\*\*/g, "").replace(/^#+\s*/, "").trim(); }
 function plain(html = "") { return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(); }
 function field(raw, name) { const rx = new RegExp(`^${name}:\\s*([\\s\\S]*?)(?=\\n[A-Z_]+:|\\nCORPO:|$)`, "mi"); return (raw.match(rx)?.[1] || "").trim(); }
@@ -49,7 +49,7 @@ function normalizeGeminiXml(s) {
     .replace(/<CORPO\b[^>]*>([\s\S]*?)<\/CORPO[^>]*>/gi, (_, v) => `CORPO:\n${v.trim()}`);
 }
 function parseOVC(raw) { const txt = normalizeGeminiXml(String(raw || "").replace(/```(?:html|json)?/gi, "").replace(/```/g, "").trim()); return { titulo: field(txt, "TITULO"), meta_title: field(txt, "META_TITLE"), foco_keyword: field(txt, "FOCO_KEYWORD"), slug: field(txt, "SLUG"), meta_descricao: field(txt, "META_DESCRICAO"), categoria: field(txt, "CATEGORIA").toLowerCase(), subcategoria: field(txt, "SUBCATEGORIA"), corpo: (txt.match(/CORPO:\s*([\s\S]*)$/i)?.[1] || "").trim() }; }
-function palavras(titulo = "") { return titulo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !STOP.has(w) && !RECORRENTES.has(w)).slice(0, 10); }
+function palavras(titulo = "") { return titulo.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length >= 5 && !STOP.has(w) && !RECORRENTES.has(w)).slice(0, 10); }
 function pautaParecida(titulo, recentes) {
   const novo = new Set(palavras(titulo));
   if (novo.size < 3) return false;
@@ -354,14 +354,18 @@ async function autoCopaCurtinhas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
+  // Filtro estrito: apenas termos que inequivocamente se referem à Copa do Mundo FIFA 2026
   const COPA_KW = [
-    'copa do mundo','world cup','mundial 2026','fifa 2026','seleção brasileira','copa 2026',
-    'fase de grupos','oitavas de final','quartas de final','semifinal','final da copa',
-    'tabela de grupos','artilheiro','grupo a','grupo b','grupo c','grupo d','grupo e',
-    'grupo f','grupo g','grupo h','escalação','titular da seleção','eliminado da copa',
-    'classificado para','fifa world cup','world cup 2026','copa do mundo 2026',
-    'marrocos copa','portugal copa','argentina copa','france world cup','germany world cup',
-    'spain world cup','england world cup','usmnt','concacaf 2026','canada soccer','mexico soccer'
+    'copa do mundo', 'copa do mundo 2026', 'world cup', 'world cup 2026',
+    'mundial 2026', 'fifa 2026', 'fifa world cup', 'copa 2026',
+    'oitavas da copa', 'quartas da copa', 'semifinal da copa', 'final da copa',
+    'fase de grupos da copa', 'tabela da copa', 'grupo da copa',
+    'artilheiro da copa', 'escalação da copa', 'jogo da copa',
+    'seleção na copa', 'brasil na copa', 'seleção brasileira na copa',
+    'eliminado da copa', 'classificado para a copa',
+    'concacaf 2026', 'usmnt', 'canada soccer 2026', 'mexico soccer 2026',
+    'marrocos copa', 'portugal copa', 'argentina copa',
+    'france world cup', 'germany world cup', 'spain world cup', 'england world cup'
   ];
   const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
   const seen = new Set();
