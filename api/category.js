@@ -196,38 +196,80 @@ const CAT_SEO = {
 };
 
 const SECTION_LABELS = {
-  investigativo: {
-    denuncias: "Denuncias e Exposicao",
-    "contas-publicas": "Contas Publicas"
+  politica: {
+    executivo: "Executivo", legislativo: "Legislativo", judiciario: "Judiciário",
+    eleicoes: "Eleições", partidos: "Partidos", defesa: "Defesa Nacional"
+  },
+  economia: {
+    pib: "PIB & Crescimento", inflacao: "Inflação & IPCA", cambio: "Câmbio",
+    selic: "Selic & COPOM", fiscal: "Política Fiscal", previdencia: "Previdência"
+  },
+  negocios: {
+    empreendedorismo: "Empreendedorismo", gestao: "Gestão", startups: "Startups",
+    mei: "MEI & Pequenas", credito: "Crédito & Captação", franquias: "Franquias"
+  },
+  investimentos: {
+    "renda-fixa": "Renda Fixa", "renda-variavel": "Renda Variável", fundos: "Fundos",
+    previdencia: "Previdência Privada", cripto: "Criptomoedas", internacional: "Internacional"
+  },
+  tecnologia: {
+    ia: "Inteligência Artificial", fintechs: "Fintechs", ciberseguranca: "Cibersegurança",
+    "5g": "5G & Telecom", "e-commerce": "E-commerce", inovacao: "Inovação"
+  },
+  saude: {
+    "saude-publica": "Saúde Pública", planos: "Planos de Saúde", sus: "SUS",
+    "saude-mental": "Saúde Mental", medicamentos: "Medicamentos", anvisa: "Vigilância Sanitária"
+  },
+  esportes: {
+    futebol: "Futebol", basquete: "Basquete", tenis: "Tênis",
+    automobilismo: "Automobilismo", mma: "MMA & Lutas", "e-sports": "E-sports"
+  },
+  cultura: {
+    cinema: "Cinema & Streaming", musica: "Música", literatura: "Literatura",
+    artes: "Artes", gastronomia: "Gastronomia", turismo: "Turismo"
+  },
+  internacional: {
+    "america-latina": "América Latina", eua: "Estados Unidos", europa: "Europa",
+    asia: "Ásia", "oriente-medio": "Oriente Médio", geopolitica: "Geopolítica"
+  },
+  "brasil-on": {
+    seguranca: "Segurança Pública", investigativo: "Investigativo", denuncias: "Denúncias",
+    defesa: "Defesa Civil", "brasil-real": "Brasil Real", variedades: "Variedades"
+  },
+  carreira: {
+    vagas: "Vagas & Empregos", concursos: "Concursos", profissoes: "Profissões",
+    educacao: "Educação", parcerias: "Parcerias", mercado: "Mercado de Trabalho"
+  },
+  familia: {
+    orcamento: "Orçamento Familiar", filhos: "Filhos & Educação", habitacao: "Habitação",
+    sucessao: "Sucessão", seguros: "Seguros da Família", "bem-estar": "Bem-estar"
+  },
+  seguros: {
+    vida: "Seguro de Vida", saude: "Saúde", auto: "Auto",
+    residencial: "Residencial", empresarial: "Empresarial", previdencia: "Previdência"
+  },
+  tributos: {
+    irpf: "IRPF", irpj: "IRPJ & Empresas", planejamento: "Planejamento Tributário",
+    obrigacoes: "Obrigações Acessórias", reforma: "Reforma Tributária", simples: "Simples Nacional"
+  },
+  industria: {
+    agronegocio: "Agronegócio", energia: "Energia", construcao: "Construção Civil",
+    mineracao: "Mineração", automotivo: "Setor Automotivo", logistica: "Logística"
+  },
+  religiao: {
+    evangelicos: "Evangélicos", catolicos: "Católicos", outras: "Outras Religiões",
+    "fe-sociedade": "Fé & Sociedade", missoes: "Missões", familia: "Família & Valores"
+  },
+  imoveis: {
+    "compra-venda": "Compra & Venda", aluguel: "Aluguel", financiamento: "Financiamento",
+    mcmv: "Minha Casa Minha Vida", fiis: "Fundos Imobiliários", mercado: "Mercado Imobiliário"
   },
   profissoes: {
-    medicina: "Medicina",
-    enfermagem: "Enfermagem",
-    odontologia: "Odontologia",
-    farmacia: "Farmacia",
-    psicologia: "Psicologia",
-    fisioterapia: "Fisioterapia",
-    nutricao: "Nutricao",
-    veterinaria: "Medicina Veterinaria",
-    biomedicina: "Biomedicina",
-    fonoaudiologia: "Fonoaudiologia",
-    direito: "Direito e Advocacia",
-    contabilidade: "Contabilidade",
-    administracao: "Administracao",
-    economia: "Economia",
-    auditoria: "Auditoria e Compliance",
-    "engenharia-civil": "Engenharia Civil e Construcao",
-    arquitetura: "Arquitetura e Urbanismo",
-    "engenharia-eletrica": "Engenharia Eletrica e Eletronica",
-    "engenharia-quimica": "Engenharia Quimica e Materiais",
-    ti: "TI e Programacao",
-    agronomia: "Agronomia e Agro",
-    jornalismo: "Jornalismo",
-    publicidade: "Publicidade e Propaganda",
-    "relacoes-publicas": "Relacoes Publicas",
-    pedagogia: "Pedagogia e Docencia",
-    rh: "Recursos Humanos",
-    "servico-social": "Servico Social"
+    saude: "Saúde & Medicina", juridico: "Jurídico & Finanças", engenharia: "Engenharia & TI",
+    comunicacao: "Comunicação & Mídia", gestao: "Gestão & Negócios", vagas: "Empregos & Vagas"
+  },
+  investigativo: {
+    denuncias: "Denúncias e Exposição", "contas-publicas": "Contas Públicas"
   },
   colunistas: {
     "roberto-terrasan": "Roberto Terrasan",
@@ -323,7 +365,7 @@ export default async function handler(req, res) {
   const seo = CAT_SEO[cat];
   if (!seo) return res.status(404).send("Not found");
 
-  const rawSection = (req.query.section || "").toLowerCase().replace(/\/+$/g, "").trim();
+  const rawSection = (req.query.s || req.query.section || "").toLowerCase().replace(/\/+$/g, "").trim();
   if (cat === "colunistas" && rawSection && !SECTION_LABELS.colunistas[rawSection] && /-[a-f0-9]{8}$/i.test(rawSection)) {
     req.query = { ...req.query, cat: "colunistas", slug: rawSection };
     return articleHandler(req, res);
