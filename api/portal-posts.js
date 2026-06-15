@@ -159,16 +159,13 @@ async function handleMaisLidos(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
   const limit = clampInt(req.query.limit, 20, 1, 50);
 
-  const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-
-  // Busca artigos com mais de 48h para não repetir com os cards principais
-  const { data: dataOld, error } = await supabase
+  // Busca ampla: 1000 artigos para ter volume suficiente para ranquear por views
+  const { data, error } = await supabase
     .from("posts")
     .select("id,titulo,imagem,user_tags,published_at,metrics")
     .eq("status", "publicado")
-    .lt("published_at", cutoff)
-    .order("published_at", { ascending: false })
-    .limit(500);
+    .order("created_at", { ascending: true })
+    .limit(1000);
 
   if (error) return res.status(200).json({ posts: [], total: 0 });
 
@@ -177,27 +174,14 @@ async function handleMaisLidos(req, res) {
     return { row, views: parseInt(m.views || 0, 10) };
   };
 
-  // Ordena por views DESC; inclui artigos com 0 views para garantir volume
-  let sorted = (dataOld || [])
+  // Ordena por views DESC; empate: artigos mais antigos primeiro (diferentes dos cards recentes da home)
+  const sorted = (data || [])
     .map(toEntry)
-    .sort((a, b) => b.views - a.views)
+    .sort((a, b) => {
+      if (b.views !== a.views) return b.views - a.views;
+      return new Date(a.row.published_at) - new Date(b.row.published_at);
+    })
     .slice(0, limit);
-
-  // Se ainda não chegamos a `limit`, complementa com artigos recentes (sem restrição de data)
-  if (sorted.length < limit) {
-    const seenIds = new Set(sorted.map(x => x.row.id));
-    const { data: dataRecent } = await supabase
-      .from("posts")
-      .select("id,titulo,imagem,user_tags,published_at,metrics")
-      .eq("status", "publicado")
-      .order("published_at", { ascending: false })
-      .limit(500);
-    const extras = (dataRecent || [])
-      .filter(r => !seenIds.has(r.id))
-      .map(toEntry)
-      .sort((a, b) => b.views - a.views);
-    sorted = sorted.concat(extras).slice(0, limit);
-  }
 
   const posts = sorted.map(({ row, views }) => {
     const tags = parseTags(row.user_tags);
