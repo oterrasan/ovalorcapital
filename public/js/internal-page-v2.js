@@ -16,8 +16,8 @@
     'brasil-on':'brasil-on', carreira:'carreira'
   };
   var CATEGORY_ALIASES = {
-    'brasil-on': ['seguranca','investigativo','variedades'],
-    'carreira': ['vagas','concursos','profissoes','parcerias','educacao']
+    'brasil-on': ['brasil-on','seguranca','investigativo','variedades','defesa','esg'],
+    'carreira': ['carreira','vagas','concursos','profissoes','parcerias','educacao']
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
@@ -570,12 +570,12 @@
       var nav = document.querySelector('nav.supermenu');
       if(!nav || !nav.querySelector('.supermenu-item')) return;
       var path = window.location.pathname;
-      var items = [['Colunistas','/colunistas/'],['Política','/politica/'],['Economia','/economia/'],
-        ['Brasil On','/brasil-on/'],['Negócios','/negocios/'],['Investimentos','/investimentos/'],
-        ['Tecnologia','/tecnologia/'],['Internacional','/internacional/'],['Saúde','/saude/'],
-        ['Esportes','/esportes/'],['Família','/familia/'],['Indústria','/industria/'],
-        ['Seguros','/seguros/'],['Tributos','/tributos/'],['Cultura','/cultura/'],
-        ['Religião','/religiao/'],['Carreira','/carreira/'],['Imóveis','/imoveis/'],['VC','/vc/']];
+      var items = [['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],
+        ['Investimentos','/investimentos/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],
+        ['Internacional','/internacional/'],['Saúde','/saude/'],['Tributos','/tributos/'],
+        ['Carreira','/carreira/'],['Imóveis','/imoveis/'],['Seguros','/seguros/'],
+        ['Indústria','/industria/'],['Família','/familia/'],['Esportes','/esportes/'],
+        ['Cultura','/cultura/'],['Religião','/religiao/'],['Colunistas','/colunistas/'],['VC','/vc/']];
       nav.innerHTML = items.map(function(it){
         var active = path === it[1] || path.startsWith(it[1].slice(0,-1)+'/');
         return '<a class="supermenu-link'+(active?' ativo':'')+'" href="'+it[1]+'">'+it[0]+'</a>';

@@ -25,8 +25,8 @@ const CAT_PATH = {
 };
 
 const CATEGORY_ALIASES = {
-  "brasil-on": ["seguranca", "investigativo", "variedades"],
-  "carreira": ["vagas", "concursos", "profissoes", "parcerias", "educacao"]
+  "brasil-on": ["brasil-on", "seguranca", "investigativo", "variedades", "defesa", "esg"],
+  "carreira": ["carreira", "vagas", "concursos", "profissoes", "parcerias", "educacao"]
 };
 
 const VALID_CATS = new Set(Object.keys(CAT_PATH));
