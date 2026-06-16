@@ -412,144 +412,221 @@
 </div>
 </header>
 <!-- colunistas standard layout --><main class="ovc-main">
-<section class="ovc-section-hero">
-  <div class="ovc-panel ovc-hero">
-    <span class="ovc-badge" id="col-badge">Colunistas</span>
-    <h1 id="col-titulo">Colunistas &amp; Articulistas</h1>
-    <p id="col-desc">Análises, opiniões e colunas exclusivas dos especialistas de O Valor Capital.</p>
+<div style="background:linear-gradient(to bottom,#f1f5f9,var(--bg-page,#f3f4f8));padding:16px 16px 0;border-bottom:2px solid #7c3aed;">
+  <div style="max-width:100%;display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;padding-left:8px;padding-right:8px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="background:#7c3aed;color:#fff;font-size:11px;font-weight:800;padding:4px 14px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">Colunistas</span>
+      <nav id="col-breadcrumb" style="font-size:12px;color:#94a3b8;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a> <span>&rsaquo;</span> <a href="/colunistas/" style="color:#64748b;font-weight:600;text-decoration:none;">Colunistas</a><span id="col-breadcrumb-sub"></span></nav>
+    </div>
+    <a href="/colunistas/" style="font-size:12px;color:#7c3aed;text-decoration:none;font-weight:700;">Ver todos &rsaquo;</a>
   </div>
-</section>
-<section class="ovc-grid">
-<div class="ovc-story-stack" id="col-content">
-  <p style="color:#94a3b8;font-size:14px;padding:24px 0;">Carregando...</p>
 </div>
-<aside class="ovc-right-rail">
-  <div id="col-right-subcats" style="margin-bottom:16px;border-radius:12px;overflow:hidden;"></div>
-  <section data-banner-sidebar></section>
-</aside>
-</section>
+<div class="cat-corpo">
+  <aside class="cat-rail-esq">
+    <div class="cat-bloco" style="overflow:visible;">
+      <div style="background:#7c3aed;padding:12px 16px;display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-block;width:3px;height:18px;background:#fff;border-radius:2px;flex-shrink:0;"></span>
+        <span style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fff;">Seções de Colunistas</span>
+      </div>
+      <div id="col-nav-links" style="padding:10px 8px;"></div>
+    </div>
+    <div class="cat-bloco" style="margin-top:12px;background:#7c3aed0D;border:1px solid #7c3aed33;">
+      <div style="padding:14px 16px;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#7c3aed;margin-bottom:8px;">Redação OVC</div>
+        <p style="font-size:12px;color:#475569;margin:0 0 10px;line-height:1.5;">Quer ser colunista OVC?</p>
+        <a href="/contato/" style="display:block;background:#7c3aed;color:#fff;padding:8px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;text-align:center;">Falar com a redação</a>
+      </div>
+    </div>
+  </aside>
+  <div class="cat-centro" id="cat-centro-area">
+    <div id="cat-hero-slot" style="margin-bottom:20px;"></div>
+    <div id="cat-main-grid"></div>
+    <div id="cat-more-list" style="margin-top:20px;"></div>
+  </div>
+  <aside class="cat-rail-dir">
+    <div class="cat-bloco" id="cat-ultimas">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;">Últimas Colunas</span>
+      </div>
+      <div id="cat-ultimas-body" style="padding:0 12px;background:#fff;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>
+    </div>
+    <div class="cat-bloco" id="cat-mais-lidas" style="margin-top:12px;">
+      <div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:10px 14px;">
+        <span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fbbf24;">Mais Lidas</span>
+      </div>
+      <div id="cat-mais-lidas-body" style="padding:0 12px;background:#fff;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>
+    </div>
+    <div class="cat-bloco" id="cat-tv" style="margin-top:12px;">
+      <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:10px 14px;">
+        <span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;">OVC TV ao Vivo</span>
+      </div>
+      <div id="cat-tv-body" style="padding:8px;background:#fff;"><p style="font-size:12px;color:#94a3b8;">Aguardando stream.</p></div>
+    </div>
+  </aside>
+</div>
 </main>
 <script>
 (function(){
+  var ACCENT='#7c3aed';
   var COLS=[
-    {nome:'Roberto Terrasan',slug:'roberto-terrasan',acc:'#c81e1e'},
-    {nome:'Beta Ferreira',slug:'beta-ferreira',acc:'#7b1fa2'},
-    {nome:'Adriana Ferreira',slug:'adriana-ferreira',acc:'#1565c0'},
-    {nome:'Michele Froiz',slug:'michele-froiz',acc:'#00695c'},
-    {nome:'Coluna OVC',slug:'coluna-ovc',acc:'#455a64'},
-    {nome:'Prof. Marcos Pizzolatto',slug:'prof-marcos-pizzolatto',acc:'#283593'},
-    {nome:'Gabriel Thiede',slug:'gabriel-thiede',acc:'#2e7d32'},
-    {nome:'Fabiana Campos',slug:'fabiana-campos',acc:'#ef6c00'},
-    {nome:'Larissa Corvetto',slug:'larissa-corvetto',acc:'#ad1457'},
-    {nome:'Taísa da Fonseca',slug:'taisa-da-fonseca',acc:'#8e24aa'},
-    {nome:'André Oliveira',slug:'andre-oliveira',acc:'#546e7a'}
+    {nome:'Roberto Terrasan',slug:'roberto-terrasan'},
+    {nome:'Beta Ferreira',slug:'beta-ferreira'},
+    {nome:'Adriana Ferreira',slug:'adriana-ferreira'},
+    {nome:'Michele Froiz',slug:'michele-froiz'},
+    {nome:'Coluna OVC',slug:'coluna-ovc'},
+    {nome:'Prof. Marcos Pizzolatto',slug:'prof-marcos-pizzolatto'},
+    {nome:'Gabriel Thiede',slug:'gabriel-thiede'},
+    {nome:'Fabiana Campos',slug:'fabiana-campos'},
+    {nome:'Larissa Corvetto',slug:'larissa-corvetto'},
+    {nome:'Taísa da Fonseca',slug:'taisa-da-fonseca'},
+    {nome:'André Oliveira',slug:'andre-oliveira'}
   ];
 
   function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-  function dataCurta(d){try{return new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return '';}}
+  function stripMd(s){return(s||'').replace(/\*\*([^*\n]*)\*\*/g,'$1').replace(/^#+\s*/,'').trim();}
+  function dataCurta(d){try{return new Date(d||'').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});}catch(_){return '';}}
 
   function getActiveSlug(){
     var parts=location.pathname.replace(/\/$/,'').split('/').filter(Boolean);
-    if(parts.length>=2){var s=parts[1];if(!/-[a-f0-9]{8}$/i.test(s))return s;}
+    if(parts.length>=2&&!/-[a-f0-9]{8}$/i.test(parts[1]))return parts[1];
     return '';
   }
 
-  var activeSlug=getActiveSlug();
-  var activeCol=activeSlug?COLS.find(function(c){return c.slug===activeSlug;}):null;
-
-  if(activeCol){
-    var ti=document.getElementById('col-titulo');
-    if(ti)ti.textContent=activeCol.nome;
-    var de=document.getElementById('col-desc');
-    if(de)de.textContent='Artigos e colunas de '+activeCol.nome+' em O Valor Capital.';
+  function buildUrl(p){
+    var sl=(p.slug||'').slice(0,55)||(p.titulo||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,55);
+    return '/colunistas/'+sl+'-'+(p.id||'').slice(0,8)+'/';
   }
 
-  var subcatEl=document.getElementById('col-right-subcats');
-  if(subcatEl){
-    subcatEl.innerHTML='<div style="background:linear-gradient(135deg,#ffc800,#f59e0b);padding:10px 14px;">'
-      +'<span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#1e293b;">Colunistas</span>'
+  function renderHeroCard(p){
+    var url=buildUrl(p);
+    var bg=p.imagem?'background:url(\''+esc(p.imagem)+'\') center/cover no-repeat;':'background:'+ACCENT+';';
+    return '<a href="'+url+'" style="display:block;text-decoration:none;border-radius:16px;overflow:hidden;position:relative;min-height:340px;'+bg+'">'
+      +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.35) 55%,rgba(0,0,0,.05) 100%);"></div>'
+      +'<div style="position:absolute;bottom:0;left:0;right:0;padding:24px 28px;">'
+        +'<span style="display:inline-block;background:'+ACCENT+';color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:4px;margin-bottom:10px;">Colunistas'+(p.subcategoria?'&nbsp;&middot;&nbsp;'+esc(p.subcategoria):'')+'</span>'
+        +'<h2 style="font-size:24px;font-weight:900;line-height:1.2;color:#fff;margin:0 0 8px;text-shadow:0 2px 8px rgba(0,0,0,.5);">'+esc(stripMd(p.titulo||''))+'</h2>'
+        +'<span style="font-size:12px;color:rgba(255,255,255,.6);">'+(p.subcategoria?esc(p.subcategoria)+' &middot; ':'')+dataCurta(p.data||p.published_at)+'</span>'
       +'</div>'
-      +'<div style="background:#fff;padding:4px 0;">'
-      +COLS.map(function(c){
-        var isActive=c.slug===activeSlug;
-        return '<a href="/colunistas/'+c.slug+'/" style="display:block;padding:7px 12px;font-size:13px;font-weight:'+(isActive?'700':'400')+';color:'+(isActive?c.acc:'#475569')+';text-decoration:none;border-left:3px solid '+(isActive?c.acc:'transparent')+';">'+esc(c.nome)+'</a>';
-      }).join('')
-      +'</div>';
+    +'</a>';
   }
 
-  function renderHero(post){
-    var imgStyle=post.imagem?';background-image:url('+post.imagem+')':'';
-    return '<a href="'+esc(post.url)+'" style="display:block;text-decoration:none;margin-bottom:20px;">'
-      +'<div style="background:#0f172a'+imgStyle+';background-size:cover;background-position:center;height:240px;border-radius:12px;position:relative;overflow:hidden;">'
-      +'<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,transparent 55%);"></div>'
-      +'<div style="position:absolute;bottom:0;left:0;right:0;padding:18px;">'
-      +(post.subcategoria?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#ffc800;margin-bottom:5px;">'+esc(post.subcategoria)+'</div>':'')
-      +'<h2 style="margin:0;font-size:18px;font-weight:800;color:#fff;line-height:1.35;">'+esc(post.titulo||post.title||'')+'</h2>'
-      +'<div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:5px;">'+dataCurta(post.data||post.published_at)+'</div>'
-      +'</div></div></a>';
+  function renderCardMedio(p){
+    var url=buildUrl(p);
+    return '<a href="'+url+'" style="display:block;text-decoration:none;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;background:#fff;">'
+      +(p.imagem?'<div style="height:160px;overflow:hidden;"><img src="'+esc(p.imagem)+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>':'<div style="height:100px;background:'+ACCENT+'18;display:flex;align-items:center;justify-content:center;"><span style="color:'+ACCENT+';font-weight:900;font-size:13px;">OVC</span></div>')
+      +'<div style="padding:14px;">'
+        +(p.subcategoria?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:'+ACCENT+';margin-bottom:6px;">'+esc(p.subcategoria)+'</div>':'')
+        +'<h3 style="font-size:15px;font-weight:800;line-height:1.3;margin:0 0 8px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(stripMd(p.titulo||''))+'</h3>'
+        +'<span style="font-size:11px;color:#94a3b8;">'+(p.subcategoria?esc(p.subcategoria)+' &middot; ':'')+dataCurta(p.data||p.published_at)+'</span>'
+      +'</div>'
+    +'</a>';
   }
 
-  function renderCard(post){
-    return '<a href="'+esc(post.url)+'" style="display:flex;gap:12px;text-decoration:none;padding:12px 0;border-bottom:1px solid #f1f5f9;">'
-      +(post.imagem?'<img src="'+esc(post.imagem)+'" loading="lazy" onerror="this.style.display=\'none\'" style="width:72px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;">':'<div style="width:72px;height:56px;background:#f1f5f9;border-radius:8px;flex-shrink:0;"></div>')
-      +'<div style="min-width:0;">'
-      +(post.subcategoria?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#ffc800;margin-bottom:3px;">'+esc(post.subcategoria)+'</div>':'')
-      +'<div style="font-size:14px;font-weight:700;color:#0f172a;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(post.titulo||post.title||'')+'</div>'
-      +'<div style="font-size:11px;color:#94a3b8;margin-top:4px;">'+dataCurta(post.data||post.published_at)+'</div>'
-      +'</div></a>';
+  function renderCardCompacto(p){
+    var url=buildUrl(p);
+    var img=p.imagem
+      ?'<div style="width:88px;min-width:88px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0;"><img src="'+esc(p.imagem)+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>'
+      :'<div style="width:88px;min-width:88px;height:72px;border-radius:8px;background:'+ACCENT+'18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:'+ACCENT+';font-size:10px;font-weight:900;">OVC</span></div>';
+    return '<a href="'+url+'" style="display:flex;gap:14px;align-items:flex-start;text-decoration:none;color:inherit;padding:14px 0;border-top:1px solid #f1f5f9;">'
+      +img
+      +'<div style="flex:1;min-width:0;">'
+        +(p.subcategoria?'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:'+ACCENT+';margin-bottom:5px;">'+esc(p.subcategoria)+'</div>':'')
+        +'<h4 style="font-size:14px;font-weight:700;line-height:1.35;margin:0 0 5px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+esc(stripMd(p.titulo||''))+'</h4>'
+        +'<span style="font-size:11px;color:#94a3b8;">'+(p.subcategoria?esc(p.subcategoria)+' &middot; ':'')+dataCurta(p.data||p.published_at)+'</span>'
+      +'</div>'
+    +'</a>';
   }
 
-  function renderListing(posts){
-    var el=document.getElementById('col-content');
-    if(!el)return;
-    var ini=function(nome){return nome.split(' ').filter(function(_,i){return i<2;}).map(function(w){return(w[0]||'').toUpperCase();}).join('');};
-    var html='<h3 style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin:0 0 14px;">Nossos Colunistas</h3>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;">'
-      +COLS.map(function(c){
-        return '<a href="/colunistas/'+c.slug+'/" style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;background:'+c.acc+'1a;border:1.5px solid '+c.acc+'33;color:'+c.acc+';font-size:13px;font-weight:700;text-decoration:none;">'
-          +'<span style="width:22px;height:22px;border-radius:50%;background:'+c.acc+';display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:#fff;">'+ini(c.nome)+'</span>'
-          +esc(c.nome)+'</a>';
-      }).join('')
-      +'</div>';
-    if(posts.length){
-      html+='<h3 style="font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin:0 0 14px;padding-top:12px;border-top:2px solid #e2e8f0;">Últimas Colunas</h3>';
-      html+=renderHero(posts[0]);
-      if(posts.length>1)html+='<div>'+posts.slice(1,10).map(renderCard).join('')+'</div>';
-    } else {
-      html+='<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;">Aguardando conteúdo dos colunistas.</div>';
+  function renderCardRail(p){
+    var url=buildUrl(p);
+    return '<a href="'+url+'" style="display:flex;gap:10px;align-items:flex-start;text-decoration:none;padding:12px 0;border-bottom:1px solid #f1f5f9;">'
+      +(p.imagem?'<div style="width:58px;min-width:58px;height:58px;border-radius:6px;overflow:hidden;flex-shrink:0;"><img src="'+esc(p.imagem)+'" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display=\'none\'"></div>':'<div style="width:58px;min-width:58px;height:58px;border-radius:6px;background:'+ACCENT+'18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:'+ACCENT+';font-size:9px;font-weight:900;">OVC</span></div>')
+      +'<div style="flex:1;min-width:0;">'
+        +'<h4 style="font-size:13px;font-weight:600;line-height:1.35;margin:0 0 5px;color:#1e293b;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">'+esc(stripMd(p.titulo||''))+'</h4>'
+        +'<span style="font-size:10px;font-weight:500;color:#64748b;">'+dataCurta(p.data||p.published_at)+'</span>'
+      +'</div>'
+    +'</a>';
+  }
+
+  var activeSlug=getActiveSlug();
+
+  // Breadcrumb active colunist
+  if(activeSlug){
+    var activeCol=COLS.find(function(c){return c.slug===activeSlug;});
+    if(activeCol){
+      var bcSub=document.getElementById('col-breadcrumb-sub');
+      if(bcSub)bcSub.innerHTML=' <span>&rsaquo;</span> <span style="color:'+ACCENT+';font-weight:700;">'+esc(activeCol.nome)+'</span>';
     }
-    el.innerHTML=html;
   }
 
-  function renderProfile(posts){
-    var el=document.getElementById('col-content');
-    if(!el)return;
-    var html='<div style="margin-bottom:18px;">'
-      +'<a href="/colunistas/" style="font-size:13px;color:#94a3b8;text-decoration:none;font-weight:600;">← Todos os colunistas</a>'
-      +'</div>';
-    if(posts.length){
-      html+=renderHero(posts[0]);
-      if(posts.length>1)html+='<div>'+posts.slice(1,20).map(renderCard).join('')+'</div>';
-    } else {
-      html+='<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;">Nenhuma coluna publicada ainda por este colunista.</div>';
-    }
-    el.innerHTML=html;
+  // Left rail: colunist nav (matching internal-page-v2.js subcategory nav style)
+  var navEl=document.getElementById('col-nav-links');
+  if(navEl){
+    navEl.innerHTML=COLS.map(function(c){
+      var isActive=c.slug===activeSlug;
+      return '<a href="/colunistas/'+c.slug+'/" style="display:flex;align-items:center;gap:10px;padding:11px 14px;font-size:13px;font-weight:'+(isActive?'700':'500')+';text-decoration:none;border-radius:8px;margin-bottom:3px;color:'+(isActive?'#fff':'#334155')+';background:'+(isActive?ACCENT:'transparent')+';transition:background .15s,color .15s;" data-active="'+(isActive?'1':'0')+'">'
+        +'<span style="width:6px;height:6px;border-radius:50%;background:'+(isActive?'#fff':ACCENT)+';flex-shrink:0;margin-left:2px;"></span>'
+        +'<span style="flex:1;">'+esc(c.nome)+'</span>'
+        +(isActive?'<span style="font-size:10px;font-weight:800;opacity:.8;">&#10003;</span>':'<span style="font-size:12px;opacity:.35;">&rsaquo;</span>')
+        +'</a>';
+    }).join('');
   }
 
-  fetch('/api/portal-posts?categoria=colunistas&limit=100')
+  // Fetch — category-section-guard.js interceptor filters by subcategoria_slug when activeSlug is set
+  fetch('/api/portal-posts?categoria=colunistas&limit=60')
     .then(function(r){return r.json();})
     .then(function(d){
-      var posts=d.posts||[];
-      if(activeSlug){
-        renderProfile(posts);
-      } else {
-        renderListing(posts);
+      var posts=(d.posts||[]).filter(function(p){return !!(p.titulo);});
+
+      var ultEl=document.getElementById('cat-ultimas-body');
+      if(ultEl){
+        ultEl.innerHTML=posts.slice(0,7).length
+          ?posts.slice(0,7).map(renderCardRail).join('')
+          :'<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
       }
+
+      var mlEl=document.getElementById('cat-mais-lidas-body');
+      if(mlEl){
+        mlEl.innerHTML=posts.slice(0,5).length
+          ?posts.slice(0,5).map(renderCardRail).join('')
+          :'<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
+      }
+
+      if(!posts.length){
+        var heroEl=document.getElementById('cat-hero-slot');
+        if(heroEl)heroEl.innerHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:220px;padding:24px;border-radius:16px;border:2px dashed #e2e8f0;">'
+          +'<p style="text-align:center;color:#64748b;font-size:15px;line-height:1.6;margin:0;">Aguardando conteúdo dos <strong style="color:'+ACCENT+';">Colunistas</strong>.<br>Em breve, colunas exclusivas dos especialistas.</p></div>';
+        return;
+      }
+
+      var heroSlot=document.getElementById('cat-hero-slot');
+      if(heroSlot)heroSlot.innerHTML=renderHeroCard(posts[0]);
+
+      var gridEl=document.getElementById('cat-main-grid');
+      if(gridEl&&posts.length>1){
+        var g='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">'
+          +posts.slice(1,Math.min(3,posts.length)).map(renderCardMedio).join('')+'</div>';
+        if(posts.length>3)g+=posts.slice(3,11).map(renderCardCompacto).join('');
+        gridEl.innerHTML=g;
+      }
+
+      var moreEl=document.getElementById('cat-more-list');
+      if(moreEl&&posts.length>11)moreEl.innerHTML=posts.slice(11,22).map(renderCardCompacto).join('');
     })
     .catch(function(){
-      var el=document.getElementById('col-content');
-      if(el)el.innerHTML='<div style="padding:40px;text-align:center;color:#94a3b8;font-size:14px;">Não foi possível carregar o conteúdo agora.</div>';
+      var heroEl=document.getElementById('cat-hero-slot');
+      if(heroEl)heroEl.innerHTML='<p style="padding:40px;text-align:center;color:#94a3b8;">Não foi possível carregar o conteúdo.</p>';
     });
+
+  // TV
+  fetch('/api/portal-posts?format=live-data')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      var tvEl=document.getElementById('cat-tv-body');
+      if(!tvEl)return;
+      var yt=d&&d.youtube_live_url;
+      if(yt)tvEl.innerHTML='<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:0 0 8px 8px;"><iframe src="'+esc(yt)+'" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen loading="lazy"></iframe></div>';
+    }).catch(function(){});
 })();
 </script>
 <!-- end colunistas -->
