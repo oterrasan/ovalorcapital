@@ -425,6 +425,6 @@ export default async function handler(req, res) {
   html = html.replace("</head>", seoTags + "\n</head>");
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
   return res.status(200).send(html);
 }
