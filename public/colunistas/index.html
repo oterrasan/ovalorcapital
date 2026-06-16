@@ -450,12 +450,6 @@
       </div>
       <div id="cat-ultimas-body" style="padding:0 12px;background:#fff;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>
     </div>
-    <div class="cat-bloco" id="cat-mais-lidas" style="margin-top:12px;">
-      <div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:10px 14px;">
-        <span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fbbf24;">Mais Lidas</span>
-      </div>
-      <div id="cat-mais-lidas-body" style="padding:0 12px;background:#fff;"><p style="font-size:12px;color:#94a3b8;padding:12px 0;">Carregando...</p></div>
-    </div>
     <div class="cat-bloco" id="cat-tv" style="margin-top:12px;">
       <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:10px 14px;">
         <span style="font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fff;">OVC TV ao Vivo</span>
@@ -582,13 +576,6 @@
       if(ultEl){
         ultEl.innerHTML=posts.slice(0,7).length
           ?posts.slice(0,7).map(renderCardRail).join('')
-          :'<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
-      }
-
-      var mlEl=document.getElementById('cat-mais-lidas-body');
-      if(mlEl){
-        mlEl.innerHTML=posts.slice(0,5).length
-          ?posts.slice(0,5).map(renderCardRail).join('')
           :'<p style="font-size:12px;color:#94a3b8;padding:8px 0;">Aguardando conteúdo.</p>';
       }
 
