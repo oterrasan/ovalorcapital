@@ -15,7 +15,7 @@ async function writeLog(level, message) {
 const VENDOR_JS = {
   react: "https://unpkg.com/react@18/umd/react.production.min.js",
   "react-dom": "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js",
-  babel: "https://unpkg.com/@babel/standalone/babel.min.js",
+  babel: "https://unpkg.com/@babel/standalone@7/babel.min.js",
   supabase: "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
   html2canvas: "https://html2canvas.hertzen.com/dist/html2canvas.min.js"
 };
