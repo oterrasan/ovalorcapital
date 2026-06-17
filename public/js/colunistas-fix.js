@@ -102,8 +102,8 @@
       var href = a.getAttribute('href') || '';
       var text = plain(a.textContent);
       if (blockedSlugs.some(function(s){ return href.indexOf(s) !== -1; }) || blockedNames.some(function(n){ return text.indexOf(n) !== -1; })) {
-        var li = a.closest('li') || a.parentElement;
-        if (li && li !== document.body) li.remove(); else a.remove();
+        var li = a.closest('li');
+        if (li) li.remove(); else a.remove();
       }
     });
 
