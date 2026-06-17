@@ -51,6 +51,8 @@
   }
 
   function ensureRails(){
+    // Pagina de listagem ja tem .cat-corpo com layout nativo — nao envolver
+    if (document.querySelector('.cat-corpo')) return;
     var main = document.querySelector('main.ovc-main') || document.querySelector('main');
     if (!main) return;
     if (!main.classList.contains('ovc-main')) main.classList.add('ovc-main');
@@ -97,7 +99,6 @@
       if (tag) { tag.style.background = columnists[slug].color; tag.style.color = '#fff'; }
     });
 
-    // Remove blocked columnists from sidebar
     document.querySelectorAll('a[href]').forEach(function(a){
       var href = a.getAttribute('href') || '';
       var text = plain(a.textContent);
