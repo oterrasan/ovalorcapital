@@ -6,7 +6,7 @@
     if (document.getElementById('ovc-colunistas-fix-loader')) return;
     var script = document.createElement('script');
     script.id = 'ovc-colunistas-fix-loader';
-    script.src = '/js/colunistas-fix.js?v=20260617-6';
+    script.src = '/js/colunistas-fix.js?v=20260617-7';
     script.defer = true;
     document.head.appendChild(script);
   }

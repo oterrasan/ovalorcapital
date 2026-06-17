@@ -33,8 +33,6 @@
       'body[data-category="colunistas"] main > .ovc-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:24px!important;align-items:start!important;max-width:1400px!important;margin:0 auto!important;padding:22px 24px 36px!important;box-sizing:border-box!important}',
       'body[data-category="colunistas"] .ovc-story-stack{min-width:0!important;display:flex!important;flex-direction:column!important;gap:18px!important}',
       'body[data-category="colunistas"] .ovc-right-rail{display:none!important}',
-      'body[data-category="colunistas"] .cat-rail-dir{display:none!important}',
-      'body[data-category="colunistas"] .cat-corpo{grid-template-columns:220px 1fr!important}',
       '.col-hero{background:#07111e!important;padding:26px 30px!important;margin:0!important;position:relative!important;overflow:hidden!important;border-bottom:1px solid rgba(15,23,42,.08)!important;text-align:left!important;box-sizing:border-box!important;border-radius:8px!important;min-height:0!important}',
       '.col-hero:before{content:""!important;position:absolute!important;inset:0!important;background:linear-gradient(90deg,rgba(255,200,0,.10),transparent 34%,rgba(200,30,30,.14))!important;pointer-events:none!important}',
       '.col-hero:after{content:""!important;position:absolute!important;inset:0!important;background-image:linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px)!important;background-size:28px 28px!important;opacity:.18!important;pointer-events:none!important}',
