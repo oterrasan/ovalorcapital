@@ -72,7 +72,6 @@
     if (!right || right.dataset.colunistasRailReady === '1') return;
     right.dataset.colunistasRailReady = '1';
     right.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>\u00daltimas colunas</h3><div data-colunistas-latest><p style="font-size:13px;color:#64748b;margin:0">Carregando...</p></div></section>'
-      + '<section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>Mais lidas</h3><div data-colunistas-popular><p style="font-size:13px;color:#64748b;margin:0">Carregando...</p></div></section>'
       + '<section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>OVC TV</h3><p style="font-size:13px;color:#64748b;line-height:1.55;margin:0 0 12px">An\u00e1lises, entrevistas e especiais do portal.</p><a class="ovc-btn" href="/tv-ovc/" style="display:flex;justify-content:center">Assistir</a></section>';
 
     function mini(posts){
@@ -87,11 +86,6 @@
       var slot = right.querySelector('[data-colunistas-latest]');
       var posts = ((d && d.posts) || []).filter(function(post){ return blockedSlugs.indexOf(post.subcategoria_slug) === -1; }).slice(0, 5);
       if (slot) slot.innerHTML = mini(posts);
-    }).catch(function(){});
-
-    fetch('/api/portal-posts?sort=popular&limit=5').then(function(r){ return r.json(); }).then(function(d){
-      var slot = right.querySelector('[data-colunistas-popular]');
-      if (slot) slot.innerHTML = mini(((d && d.posts) || []).slice(0, 5));
     }).catch(function(){});
   }
 
