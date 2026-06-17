@@ -30,9 +30,9 @@
     var style = document.createElement('style');
     style.id = 'ovc-colunistas-premium-fix';
     style.textContent = [
-      'body[data-category="colunistas"] main > .ovc-grid{display:grid!important;grid-template-columns:minmax(0,1fr) 320px!important;gap:24px!important;align-items:start!important;max-width:1400px!important;margin:0 auto!important;padding:22px 24px 36px!important;box-sizing:border-box!important}',
+      'body[data-category="colunistas"] main > .ovc-grid{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:24px!important;align-items:start!important;max-width:1400px!important;margin:0 auto!important;padding:22px 24px 36px!important;box-sizing:border-box!important}',
       'body[data-category="colunistas"] .ovc-story-stack{min-width:0!important;display:flex!important;flex-direction:column!important;gap:18px!important}',
-      'body[data-category="colunistas"] .ovc-right-rail{display:flex!important;flex-direction:column!important;gap:18px!important;min-width:0!important;position:sticky!important;top:16px!important}',
+      'body[data-category="colunistas"] .ovc-right-rail{display:none!important}',
       '.col-hero{background:#07111e!important;padding:26px 30px!important;margin:0!important;position:relative!important;overflow:hidden!important;border-bottom:1px solid rgba(15,23,42,.08)!important;text-align:left!important;box-sizing:border-box!important;border-radius:8px!important;min-height:0!important}',
       '.col-hero:before{content:""!important;position:absolute!important;inset:0!important;background:linear-gradient(90deg,rgba(255,200,0,.10),transparent 34%,rgba(200,30,30,.14))!important;pointer-events:none!important}',
       '.col-hero:after{content:""!important;position:absolute!important;inset:0!important;background-image:linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px)!important;background-size:28px 28px!important;opacity:.18!important;pointer-events:none!important}',
@@ -71,22 +71,7 @@
     var right = grid.querySelector('.ovc-right-rail');
     if (!right || right.dataset.colunistasRailReady === '1') return;
     right.dataset.colunistasRailReady = '1';
-    right.innerHTML = '<section class="ovc-panel ovc-story-list"><h3>\u00daltimas colunas</h3><div data-colunistas-latest><p style="font-size:13px;color:#64748b;margin:0">Carregando...</p></div></section>'
-      + '<section class="ovc-panel ovc-story-list" style="margin-top:18px"><h3>OVC TV</h3><p style="font-size:13px;color:#64748b;line-height:1.55;margin:0 0 12px">An\u00e1lises, entrevistas e especiais do portal.</p><a class="ovc-btn" href="/tv-ovc/" style="display:flex;justify-content:center">Assistir</a></section>';
-
-    function mini(posts){
-      if (!posts.length) return '<p style="font-size:13px;color:#64748b;line-height:1.55;margin:0">Conte\u00fado em organiza\u00e7\u00e3o editorial.</p>';
-      return '<div class="ovc-mini-list">' + posts.map(function(post){
-        var href = post.url || '#';
-        return '<article class="ovc-mini-item"><div><h4><a href="' + href + '">' + (post.titulo || 'Coluna OVC') + '</a></h4><p>' + (post.subcategoria || 'Colunistas') + '</p></div><div></div></article>';
-      }).join('') + '</div>';
-    }
-
-    fetch('/api/portal-posts?categoria=colunistas&limit=5').then(function(r){ return r.json(); }).then(function(d){
-      var slot = right.querySelector('[data-colunistas-latest]');
-      var posts = ((d && d.posts) || []).filter(function(post){ return blockedSlugs.indexOf(post.subcategoria_slug) === -1; }).slice(0, 5);
-      if (slot) slot.innerHTML = mini(posts);
-    }).catch(function(){});
+    right.innerHTML = '';
   }
 
   function normalizeCards(){
@@ -110,6 +95,16 @@
       if (av && !av.querySelector('img')) av.innerHTML = '<img src="/assets/colunistas/' + slug + '.jpg" alt="' + columnists[slug].name + '" loading="lazy" onerror="this.remove()">';
       var tag = card.querySelector('.col-card-tag');
       if (tag) { tag.style.background = columnists[slug].color; tag.style.color = '#fff'; }
+    });
+
+    // Remove blocked columnists from sidebar
+    document.querySelectorAll('a[href]').forEach(function(a){
+      var href = a.getAttribute('href') || '';
+      var text = plain(a.textContent);
+      if (blockedSlugs.some(function(s){ return href.indexOf(s) !== -1; }) || blockedNames.some(function(n){ return text.indexOf(n) !== -1; })) {
+        var li = a.closest('li') || a.parentElement;
+        if (li && li !== document.body) li.remove(); else a.remove();
+      }
     });
 
     document.querySelectorAll('.col-stat-n').forEach(function(stat){ if ((stat.textContent || '').trim() === '11') stat.textContent = '9'; });
