@@ -112,6 +112,16 @@
       if (tag) { tag.style.background = columnists[slug].color; tag.style.color = '#fff'; }
     });
 
+    // Remove blocked columnists from sidebar
+    document.querySelectorAll('a[href]').forEach(function(a){
+      var href = a.getAttribute('href') || '';
+      var text = plain(a.textContent);
+      if (blockedSlugs.some(function(s){ return href.indexOf(s) !== -1; }) || blockedNames.some(function(n){ return text.indexOf(n) !== -1; })) {
+        var li = a.closest('li') || a.parentElement;
+        if (li && li !== document.body) li.remove(); else a.remove();
+      }
+    });
+
     document.querySelectorAll('.col-stat-n').forEach(function(stat){ if ((stat.textContent || '').trim() === '11') stat.textContent = '9'; });
     var heroTitle = document.querySelector('.col-hero h1');
     if (heroTitle) heroTitle.textContent = 'As vozes que formam opini\u00e3o.';
