@@ -3479,6 +3479,19 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 ---
 
+### Sessão 18/06/2026 (continuação 3) — /vc/contato/ CRIADA
+
+#### O que foi feito (PR #224 — mergeado em main, commit `3740ad5`)
+
+- `public/vc/contato/index.html` criada com mesmo padrão das outras páginas `/vc/`
+- Seções: Redação, Comercial e Parcerias, Colunistas e Colaboradores, Correções Editoriais
+- Email `contato@ovalorcapital.com.br` em todos os pontos de contato
+- Link para `/colunista/` (portal do colaborador)
+- Meta description 120–160 chars, `data-section="contato"`, layout `ovc-right-rail` preservado
+- **Confirmado:** rotas `brasil-on` e `carreira` já existem no `vercel.json` (P10 estava resolvido)
+
+---
+
 ### Sessão 18/06/2026 (continuação 2) — SEO CAT_SEO COMPLETO
 
 #### O que foi feito (PR #222 — mergeado em main, commit `7e2e64c`)
@@ -3508,23 +3521,21 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 | # | Pendência | Quem | Detalhes |
 |---|---|---|---|
-| P2 | **`/vc/contato/index.html`** — página não existe | Claude | Cai no article handler e mostra página quebrada |
-| P3 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro |
-| P4 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto" |
-| P5 | **Verificar "Mais Lidos"** | Aguardar | Views acumulando desde PR #204 (15/06) |
-| P6 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+| P2 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro |
+| P3 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto" |
+| P4 | **Verificar "Mais Lidos"** | Aguardar | Views acumulando desde PR #204 (15/06) |
+| P5 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
 
 ### 🟢 PENDÊNCIAS BAIXAS
 
 | # | Pendência | Quem | Detalhes |
 |---|---|---|---|
-| P7 | **vercel.json rotas brasil-on e carreira** | Claude (commit isolado — REGRA ZERO-F) | `/brasil-on/` e `/carreira/` podem precisar de rota explícita → `api/category.js` |
-| P8 | **Verificar artigos Copa chegando** | Aguardar pipeline | Widget `ovc-copa.js` ativa automaticamente com keywords Copa |
-| P9 | **Verificar artigos eleitorais chegando** | Aguardar pipeline | Idem para Radar Eleitoral; pesquisas via `update-polls.yml` |
-| P10 | **Senha admin hardcoded** | Claude (baixa urgência) | `admin/index.html` linha 139 — trocar por hash SHA-256 |
-| P11 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
-| P12 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
-| P13 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
+| P6 | **Verificar artigos Copa chegando** | Aguardar pipeline | Widget `ovc-copa.js` ativa automaticamente com keywords Copa |
+| P7 | **Verificar artigos eleitorais chegando** | Aguardar pipeline | Idem para Radar Eleitoral; pesquisas via `update-polls.yml` |
+| P8 | **Senha admin hardcoded** | Claude (baixa urgência) | `admin/index.html` linha 139 — trocar por hash SHA-256 |
+| P9 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
+| P10 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
+| P11 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
 
 ### 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
 
@@ -3559,4 +3570,7 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | `track_view` acumulando views reais | ✅ ATIVO desde PR #204 |
 | **70 fontes RSS aprovadas + isRecente 48h** | ✅ EM PRODUÇÃO (PR #220, 18/06/2026) |
 | **archive_old_rss executado** — 815 fontes antigas arquivadas | ✅ FEITO (18/06/2026) |
+| **`api/category.js` CAT_SEO** — 19 categorias, descrições 120–160 chars | ✅ CORRIGIDO (PR #222, 18/06/2026) |
+| **`/vc/contato/` funcionando** — página de contato com layout padrão OVC | ✅ CRIADO (PR #224, 18/06/2026) |
+| **vercel.json rotas brasil-on e carreira** | ✅ JÁ EXISTIAM (confirmado 18/06/2026) |
 | **CAT_SEO 19 categorias válidas, descrições 120-160 chars** | ✅ EM PRODUÇÃO (PR #222, 18/06/2026) |
