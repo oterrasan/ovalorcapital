@@ -396,7 +396,10 @@ function auditarConteudoOVC(result, opts = {}) {
   if (!result || !result.titulo || !corpo) issues.push("estrutura incompleta");
   if (titulo.length < 15 || titulo.length > 120) issues.push("titulo fora do tamanho seguro");
   if (PROIBIDOS_ABERTURA.some(p => titulo.startsWith(p) || corpo.slice(0, 160).toLowerCase().includes(p))) issues.push("abertura invalida");
-  if (opts.minChars && corpo.trim().length < opts.minChars) issues.push(`corpo curto: ${corpo.trim().length}/${opts.minChars}`);
+  if (opts.minChars) {
+    const textoLimpo = corpo.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (textoLimpo.length < opts.minChars) issues.push(`corpo curto: ${textoLimpo.length}/${opts.minChars} chars puro`);
+  }
   if (opts.minParagraphs && (corpo.match(/<p>/gi) || []).length < opts.minParagraphs) issues.push("poucos paragrafos");
   if (opts.requireSignature) {
     const sigPat = opts.signaturePattern || /<p>\s*<strong>Reda/i;
@@ -473,7 +476,7 @@ export async function rewritePortalManual(text, title, context = '', useGemini =
   const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2500, minParagraphs: 8 },
+    auditOptions: { minChars: 1800, minParagraphs: 8 },
     tipoConteudo: "padrao"
   });
 }
@@ -482,7 +485,7 @@ export async function rewritePortal(text, title, context = '', useGemini = false
   const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2500, minParagraphs: 8 },
+    auditOptions: { minChars: 1800, minParagraphs: 8 },
     tipoConteudo: "padrao"
   });
 }
@@ -491,7 +494,7 @@ export async function rewriteEsportes(text, title, context = '') {
   const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2500, minParagraphs: 8 },
+    auditOptions: { minChars: 1800, minParagraphs: 8 },
     tipoConteudo: "padrao"
   });
 }
@@ -555,7 +558,7 @@ export async function rewritePilula(text, title, context = '') {
   const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2500, minParagraphs: 4 },
+    auditOptions: { minChars: 1200, minParagraphs: 4 },
     tipoConteudo: "pilula"
   });
 }
