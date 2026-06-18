@@ -3479,52 +3479,64 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 ---
 
-## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 18/06/2026
+### Sessão 18/06/2026 (continuação 2) — SEO CAT_SEO COMPLETO
+
+#### O que foi feito (PR #222 — mergeado em main, commit `7e2e64c`)
+
+**`api/category.js` — CAT_SEO reescrito completamente:**
+
+- Removidas 13 categorias obsoletas: `mercados`, `educacao`, `variedades`, `investigativo`, `seguranca`, `tributacao` (duplicata), `regulacao`, `parcerias`, `profissoes`, `vagas`, `concursos`, `esg`, `defesa`
+- Mantidas exatamente as 19 categorias ativas do OVC: 17 do pipeline + `colunistas` + `vc`
+- Adicionada entrada `vc` (ausente — causaria 404/SEO zero se handler fosse acionado)
+- Corrigido título de `tributos`: "Tributação" → "Tributos" (alinhado ao slug e à nav)
+- Todas as 16 descrições curtas (< 120 chars) expandidas para 120–160 chars
+- Removidos `SECTION_LABELS` obsoletos: `profissoes` e `investigativo`
+
+**Resultado:** Googlebot agora recebe meta descriptions corretas (120–160 chars) em todas as 19 páginas de categoria. Zero entradas mortas no CAT_SEO.
+
+---
+
+## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 18/06/2026 (atualizado)
 
 ### 🔴 PENDÊNCIAS CRÍTICAS — requerem ação imediata
 
 | # | Pendência | Quem | Por quê é crítico |
 |---|---|---|---|
-| P1 | **Merge PR #220** — MASTER_PROMPT V8.0 + 70 fontes RSS + isRecente 48h | **Roberto** | PR aberto na branch `claude/youthful-goodall-il7w48`. 3 previews Ready. Mergear em main para produção |
-| P2 | **Executar archive_old_rss** após deploy | **Roberto** | `GET /api/manage?action=archive_old_rss&pass=ovc-admin-2026-secreto` — limpa as 815 fontes antigas do Supabase |
-| P3 | **Aprovar artigos pendentes** | **Roberto** | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
+| P1 | **Aprovar artigos pendentes** | **Roberto** | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia. Sitemap só indexa 'publicado' |
 
 ### 🟡 PENDÊNCIAS MÉDIAS
 
 | # | Pendência | Quem | Detalhes |
 |---|---|---|---|
-| P4 | **`api/category.js` CAT_SEO** — entradas SEO desatualizadas | Claude | Categorias `brasil-on`, `carreira`, `tributos` têm títulos/descrições com encoding errado |
-| P5 | **`/vc/contato/index.html`** — página não existe | Claude | Cai no article handler e mostra página quebrada |
-| P6 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro |
-| P7 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto" |
-| P8 | **Verificar "Mais Lidos"** | Aguardar | Views acumulando desde PR #204 (15/06) |
-| P9 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+| P2 | **`/vc/contato/index.html`** — página não existe | Claude | Cai no article handler e mostra página quebrada |
+| P3 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro |
+| P4 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto" |
+| P5 | **Verificar "Mais Lidos"** | Aguardar | Views acumulando desde PR #204 (15/06) |
+| P6 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
 
 ### 🟢 PENDÊNCIAS BAIXAS
 
 | # | Pendência | Quem | Detalhes |
 |---|---|---|---|
-| P10 | **vercel.json rotas brasil-on e carreira** | Claude (commit isolado) | `/brasil-on/` e `/carreira/` podem precisar de rota explícita |
-| P11 | **Verificar artigos Copa chegando** | Aguardar pipeline | Widget `ovc-copa.js` ativa automaticamente |
-| P12 | **Verificar artigos eleitorais chegando** | Aguardar pipeline | Idem para Radar Eleitoral |
-| P13 | **Senha admin hardcoded** | Claude (baixa urgência) | `admin/index.html` linha 139 — trocar por hash SHA-256 |
-| P14 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
-| P15 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
-| P16 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
+| P7 | **vercel.json rotas brasil-on e carreira** | Claude (commit isolado — REGRA ZERO-F) | `/brasil-on/` e `/carreira/` podem precisar de rota explícita → `api/category.js` |
+| P8 | **Verificar artigos Copa chegando** | Aguardar pipeline | Widget `ovc-copa.js` ativa automaticamente com keywords Copa |
+| P9 | **Verificar artigos eleitorais chegando** | Aguardar pipeline | Idem para Radar Eleitoral; pesquisas via `update-polls.yml` |
+| P10 | **Senha admin hardcoded** | Claude (baixa urgência) | `admin/index.html` linha 139 — trocar por hash SHA-256 |
+| P11 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
+| P12 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
+| P13 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
 
 ### 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
 
 | # | Pendência | Urgência | Detalhes |
 |---|---|---|---|
-| R1 | **Merge PR #220** | Alta | branch `claude/youthful-goodall-il7w48` → main |
-| R2 | **Executar archive_old_rss** após deploy | Alta | `GET /api/manage?action=archive_old_rss&pass=ovc-admin-2026-secreto` |
-| R3 | **Deletar SUPABASE_KEY env var morta no Vercel** | Média | Projeto `ovalorcapital-xuhw` → Settings → Environment Variables → deletar `SUPABASE_KEY` |
-| R4 | **Instagram SSL** | Média | `ovalorcapital.com.br` non-www falha no IAB do Instagram |
-| R5 | **Google Indexing API** | Média | `GOOGLE_INDEXING_SA_JSON` ausente no Vercel |
-| R6 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586` |
-| R7 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
-| R8 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), `ovalorcapital` e `ovalorcapital-hubx` (deletar) |
-| R9 | **SQL tabelas Supabase** | Baixa | `image_bank` e `colunistas` — criar se ainda não existem |
+| R1 | **Deletar SUPABASE_KEY env var morta no Vercel** | Média | Projeto `ovalorcapital-xuhw` → Settings → Environment Variables → deletar `SUPABASE_KEY` (aponta para banco morto `bfsegqdgscudtdgwdyci`) |
+| R2 | **Instagram SSL** | Média | `ovalorcapital.com.br` non-www falha com `ERR_CONNECTION_TIMED_OUT` no IAB do Instagram |
+| R3 | **Google Indexing API** | Média | `GOOGLE_INDEXING_SA_JSON` ausente no Vercel. Sem ela, artigos novos só descobertos pelo crawl orgânico |
+| R4 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586` |
+| R5 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
+| R6 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), `ovalorcapital` e `ovalorcapital-hubx` (deletar com cuidado) |
+| R7 | **SQL tabelas Supabase** | Baixa | `image_bank` e `colunistas` — criar se ainda não existem (ver seção 4) |
 
 ### ✅ CONFIRMADO FUNCIONANDO (18/06/2026)
 
@@ -3532,8 +3544,8 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 |---|---|
 | Pipeline automático | ✅ ATIVO — até 80 artigos/dia |
 | Gemini dual-key (key1+key2) + OpenAI fallback | ✅ ATIVO |
-| **MASTER_PROMPT V8.0** — único prompt do sistema | ✅ EM PRODUÇÃO (após merge PR #220) |
-| Sistema de nichos (Pílula/Radar/Minuto) — curtinhas reativas | ✅ ATIVO |
+| **MASTER_PROMPT V8.0** — único prompt do sistema | ✅ EM PRODUÇÃO |
+| Sistema de nichos (Pílula/Radar/Minuto) — curtinhas reativadas | ✅ ATIVO |
 | Radar da Copa 2026 | ✅ ATIVO |
 | Radar Eleitoral 2026 | ✅ ATIVO |
 | Mais Lidos (ranking por views reais) | ✅ ATIVO |
@@ -3545,4 +3557,6 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Sitemap dinâmico | ✅ ATIVO |
 | `/colunistas/` layout 3 colunas | ✅ CORRIGIDO (17/06/2026) |
 | `track_view` acumulando views reais | ✅ ATIVO desde PR #204 |
-| **70 fontes RSS aprovadas + isRecente 48h** | ✅ EM PRODUÇÃO (após merge PR #220) |
+| **70 fontes RSS aprovadas + isRecente 48h** | ✅ EM PRODUÇÃO (PR #220, 18/06/2026) |
+| **archive_old_rss executado** — 815 fontes antigas arquivadas | ✅ FEITO (18/06/2026) |
+| **CAT_SEO 19 categorias válidas, descrições 120-160 chars** | ✅ EM PRODUÇÃO (PR #222, 18/06/2026) |
