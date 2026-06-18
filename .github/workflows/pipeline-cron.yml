@@ -2,7 +2,7 @@ name: Pipeline OVC — Matérias e Curtinhas
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '2,17,32,47 * * * *'
   workflow_dispatch:
     inputs:
       tipo:
@@ -45,5 +45,5 @@ jobs:
         run: |
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"materias","force":true}')
+            -d '{"tipo":"materias","force":true,"count":8}')
           echo "MATERIA: $RESP" | head -c 300

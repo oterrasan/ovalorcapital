@@ -23,3 +23,11 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b
+
+      - name: Disparar pipeline após deploy
+        run: |
+          sleep 15
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true}')
+          echo "PIPELINE: $RESP" | head -c 300
