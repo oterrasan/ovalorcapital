@@ -591,24 +591,40 @@ async function handleArchiveOldRss(req, res) {
 
     if (archiveErr) return res.status(500).json({ ok: false, step: "archive", error: archiveErr.message });
 
-    // 2. Upsert as 70 fontes aprovadas como ativas
-    const upsertPayload = FONTES_APROVADAS_70.map(f => ({
-      url: f.url,
-      name: f.name,
-      categoria: f.categoria,
-      active: true,
-    }));
-
-    const { error: upsertErr } = await supabase
+    // 2. Verificar quais das 70 URLs já existem no banco
+    const urls70 = FONTES_APROVADAS_70.map(f => f.url);
+    const { data: existingRows } = await supabase
       .from("rss_sources")
-      .upsert(upsertPayload, { onConflict: "url" });
+      .select("url")
+      .in("url", urls70);
 
-    if (upsertErr) return res.status(500).json({ ok: false, step: "upsert", error: upsertErr.message });
+    const existingUrls = new Set((existingRows || []).map(r => r.url));
+
+    // 3. Reativar as que já existem
+    if (existingUrls.size > 0) {
+      const { error: updateErr } = await supabase
+        .from("rss_sources")
+        .update({ active: true })
+        .in("url", [...existingUrls]);
+      if (updateErr) return res.status(500).json({ ok: false, step: "update_existing", error: updateErr.message });
+    }
+
+    // 4. Inserir as que não existem ainda
+    const toInsert = FONTES_APROVADAS_70
+      .filter(f => !existingUrls.has(f.url))
+      .map(f => ({ url: f.url, name: f.name, categoria: f.categoria, active: true }));
+
+    if (toInsert.length > 0) {
+      const { error: insertErr } = await supabase.from("rss_sources").insert(toInsert);
+      if (insertErr) return res.status(500).json({ ok: false, step: "insert_new", error: insertErr.message });
+    }
 
     return res.status(200).json({
       ok: true,
       arquivadas: "todas as fontes antigas marcadas como active=false",
-      inseridas: FONTES_APROVADAS_70.length,
+      reativadas: existingUrls.size,
+      inseridas: toInsert.length,
+      total_aprovadas: FONTES_APROVADAS_70.length,
       fontes: FONTES_APROVADAS_70.map(f => f.name),
     });
   } catch (e) {
