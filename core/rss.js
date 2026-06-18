@@ -16,402 +16,99 @@ const GN = (q, lang="pt-BR", gl="BR", ceid="BR:pt-BR") =>
 
 const GN_EN = (q) => GN(q, "en", "US", "US:en");
 
-const FEEDS_POR_GRUPO = {
-  politica: [
-    { url: "https://agenciabrasil.ebc.com.br/politica/feed.xml",      name: "Agência Brasil Política" },
-    { url: "https://www.metropoles.com/feed",                          name: "Metrópoles" },
-    { url: GN("politica governo lula congresso brasil"),               name: "GN Política Brasil" },
-    { url: GN("senado camara votacao aprovacao lei"),                  name: "GN Congresso" },
-    { url: GN("stf supremo tribunal federal decisao"),                 name: "GN STF" },
-    { url: GN("eleicoes 2026 candidatos pesquisa eleitoral"),          name: "GN Eleições 2026" },
-    { url: GN("ministerio governo federal anuncia programa"),          name: "GN Governo Federal" },
-    { url: GN("lula bolsonaro oposicao politica brasileira"),          name: "GN Político" },
-    { url: GN("partidos politicos filiacao candidatura"),              name: "GN Partidos" },
-    { url: GN("governadores prefeitos politica estadual municipal"),   name: "GN Política Local" },
-    { url: GN("corrupcao desvio denuncia operacao policia federal"),   name: "GN Anticorrupção" },
-    { url: GN("reforma administrativa tributaria proposta"),           name: "GN Reformas" },
-    { url: GN_EN("brazil politics government lula"),                   name: "GN Brazil Politics EN" },
-    { url: GN_EN("brazil congress senate election 2026"),              name: "GN Brazil Election EN" },
-    { url: "https://apublica.org/feed/",                               name: "Agência Pública" },
-    { url: GN("autonomia banco central politica monetaria brasil"),    name: "GN BCB Política" },
-    { url: GN("orçamento federal PPA LOA LDO aprovacao"),              name: "GN Orçamento" },
-    { url: GN("relacoes exteriores diplomacia itamaraty brasil"),      name: "GN Diplomacia" },
-  ],
-  economia: [
-    { url: "https://www.valor.com.br/rss",                             name: "Valor Econômico" },
-    { url: "https://www.infomoney.com.br/feed/",                       name: "InfoMoney" },
-    { url: "https://www.moneytimes.com.br/feed/",                      name: "Money Times" },
-    { url: GN("economia brasil pib inflacao juros crescimento"),       name: "GN Economia Brasil" },
-    { url: GN("taxa selic banco central copom decisao"),               name: "GN Selic COPOM" },
-    { url: GN("ipca inflacao precos alta queda"),                      name: "GN Inflação" },
-    { url: GN("pib crescimento economia trimestre resultado"),         name: "GN PIB" },
-    { url: GN("cambio dolar real moeda apreciacao depreciacao"),       name: "GN Câmbio" },
-    { url: GN("desemprego emprego caged mercado trabalho formal"),     name: "GN Emprego" },
-    { url: GN("exportacao importacao comercio exterior balanca"),      name: "GN Comércio Ext." },
-    { url: GN("superavit deficit fiscal resultado primario governo"),  name: "GN Fiscal" },
-    { url: GN("industria producao pim ibge resultado"),                name: "GN Produção Industrial" },
-    { url: GN("varejo vendas pmc servicos pms ibge"),                  name: "GN Varejo" },
-    { url: GN_EN("brazil economy gdp inflation interest rate"),        name: "GN Brazil Economy EN" },
-    { url: GN_EN("emerging markets latin america economy"),            name: "GN EM Economy EN" },
-    { url: "https://br.investing.com/rss/news.rss",                   name: "Investing.com BR" },
-    { url: GN("agenda economica focus relatorio banco central"),       name: "GN Focus BCB" },
-    { url: GN("credito financiamento emprestimo banco pessoa fisica"), name: "GN Crédito" },
-    { url: GN("receita federal arrecadacao imposto record"),           name: "GN Receita Federal" },
-  ],
-  negocios_mercados: [
-    { url: "https://exame.com/feed/",                                  name: "Exame" },
-    { url: "https://www.sunoresearch.com.br/feed/",                    name: "Suno Research" },
-    { url: GN("empresas negocios fusao aquisicao brasil"),             name: "GN Negócios" },
-    { url: GN("bolsa ibovespa acoes alta baixa fechamento"),           name: "GN Bolsa" },
-    { url: GN("resultados lucro receita empresa trimestre"),           name: "GN Resultados Empresas" },
-    { url: GN("petrobras vale itau bradesco magazineluiza"),           name: "GN Blue Chips" },
-    { url: GN("startup unicornio valuation rodada aporte"),            name: "GN Startups Brasil" },
-    { url: GN("ipo oferta publica acoes listagem b3"),                 name: "GN IPO B3" },
-    { url: GN("juros bonds credito corporativo debentures"),           name: "GN Crédito Corp." },
-    { url: GN("commodities agronegocio soja milho minerio"),           name: "GN Commodities" },
-    { url: GN("criptomoeda bitcoin ethereum blockchain web3"),         name: "GN Cripto" },
-    { url: GN_EN("mergers acquisitions m&a deal billion"),            name: "GN M&A EN" },
-    { url: GN_EN("stock market wall street nasdaq s&p500"),            name: "GN Wall Street EN" },
-    { url: GN_EN("fed federal reserve interest rate economy"),        name: "GN Fed EN" },
-    { url: "https://feeds.bbci.co.uk/news/business/rss.xml",          name: "BBC Business" },
-    { url: "https://www.theguardian.com/business/rss",                 name: "Guardian Business" },
-    { url: GN("gestao lideranca ceo diretor executivo empresa"),       name: "GN Liderança" },
-    { url: GN("ecommerce marketplace varejo digital amazon mercadolivre"), name: "GN E-commerce" },
-  ],
-  seguros_investimentos: [
-    { url: "https://www.seudinheiro.com/feed/",                        name: "Seu Dinheiro" },
-    { url: GN("investimentos renda fixa acoes fundos tesouro"),        name: "GN Investimentos" },
-    { url: GN("seguro vida saude auto patrimonial corretora"),         name: "GN Seguros" },
-    { url: GN("previdencia privada pgbl vgbl aposentadoria"),          name: "GN Previdência" },
-    { url: GN("fiis fundos imobiliarios dividendos rendimento"),       name: "GN FIIs" },
-    { url: GN("tesouro direto lci lca cdb rentabilidade"),             name: "GN Renda Fixa" },
-    { url: GN("acoes small caps midcaps analise recomendacao"),        name: "GN Ações" },
-    { url: GN("susep ans regulacao seguro saude plano"),               name: "GN SUSEP ANS" },
-    { url: GN("bitcoin ethereum cripto carteira rendimento"),          name: "GN Crypto BR" },
-    { url: GN("imposto renda declaracao restituicao isencao"),         name: "GN IRPF" },
-    { url: GN("planejamento financeiro pessoal orcamento divida"),     name: "GN Finanças Pessoais" },
-    { url: GN("educacao financeira investidor iniciante juros compostos"), name: "GN Educação Financeira" },
-    { url: GN_EN("personal finance investing etf bond yield"),        name: "GN Personal Finance EN" },
-    { url: GN_EN("cryptocurrency bitcoin ethereum price analysis"),   name: "GN Crypto EN" },
-    { url: GN("hedge fund gestora anbima cvm regulacao"),              name: "GN Gestoras" },
-    { url: GN("dividendos yield proventos pagamento empresa"),         name: "GN Dividendos" },
-    { url: GN("cambio dolar hedge protecao carteira"),                 name: "GN Hedge Câmbio" },
-    { url: GN("ibovespa analise tecnica suporte resistencia"),         name: "GN Análise Técnica" },
-  ],
-  tributacao_regulacao: [
-    { url: GN("reforma tributaria regulamentacao impacto empresa"),    name: "GN Reforma Tributária" },
-    { url: GN("receita federal fisco autuacao notificacao"),           name: "GN Receita Federal" },
-    { url: GN("imposto renda irpf declaracao prazo malha"),            name: "GN IRPF" },
-    { url: GN("simples nacional mei microempresa tributacao"),         name: "GN Simples Nacional" },
-    { url: GN("bacen banco central regulacao norma circular"),         name: "GN BCB Regulação" },
-    { url: GN("cvm comissao valores mobiliarios regulacao"),           name: "GN CVM" },
-    { url: GN("anatel aneel ana anvisa agencia reguladora"),           name: "GN Agências Reg." },
-    { url: GN("lei complementar emenda constitucional aprovada"),      name: "GN Legislação" },
-    { url: GN("planejamento tributario elisao fiscal legal"),          name: "GN Planejamento Trib." },
-    { url: GN("nota fiscal nfe difal icms iss pis cofins"),            name: "GN Obrigações Fiscais" },
-    { url: GN("desoneracao folha beneficio fiscal incentivo"),         name: "GN Desoner." },
-    { url: GN_EN("tax reform compliance regulation corporate tax"),   name: "GN Tax EN" },
-    { url: GN("open finance open banking pix resolucao"),              name: "GN Open Finance" },
-    { url: GN("lgpd dados pessoais privacidade anpd"),                 name: "GN LGPD" },
-  ],
-  tecnologia_industria: [
-    { url: "https://canaltech.com.br/rss/",                           name: "Canaltech" },
-    { url: "https://techcrunch.com/feed/",                             name: "TechCrunch" },
-    { url: "https://www.theverge.com/rss/index.xml",                  name: "The Verge" },
-    { url: "http://feeds.arstechnica.com/arstechnica/index/",         name: "Ars Technica" },
-    { url: "https://www.wired.com/feed/rss",                          name: "Wired" },
-    { url: "https://venturebeat.com/feed/",                           name: "VentureBeat" },
-    { url: "https://www.technologyreview.com/feed/",                  name: "MIT Tech Review" },
-    { url: "https://rss.tecmundo.com.br/feed",                        name: "TecMundo" },
-    { url: GN("inteligencia artificial ia generativa llm brasil"),     name: "GN IA Brasil" },
-    { url: GN("chatgpt openai gemini google anthropic ia"),            name: "GN LLMs" },
-    { url: GN("ciberseguranca hack ataque ransomware vunerabilidade"), name: "GN Cibersegurança" },
-    { url: GN("startup brasil ecossistema inovacao fintechs"),         name: "GN Startups BR" },
-    { url: GN("5g fibra optica telecomunicacoes banda larga"),         name: "GN Telecom" },
-    { url: GN("industria 4.0 automacao robotica manufatura"),          name: "GN Indústria 4.0" },
-    { url: GN("chip semicondutor semicondutores nvidia amd intel"),    name: "GN Semicondutores" },
-    { url: GN("nuvem cloud computing aws azure google cloud"),         name: "GN Cloud" },
-    { url: GN_EN("artificial intelligence machine learning tech"),    name: "GN AI EN" },
-    { url: GN_EN("silicon valley big tech microsoft google meta"),    name: "GN Big Tech EN" },
-    { url: "https://feeds.bbci.co.uk/news/technology/rss.xml",        name: "BBC Technology" },
-    { url: GN("blockchain web3 nft metaverso realidade virtual"),      name: "GN Web3" },
-    { url: GN("agritech biotech medtech deeptech inovacao"),           name: "GN DeepTech" },
-  ],
-  saude_familia: [
-    { url: "https://agenciabrasil.ebc.com.br/saude/feed.xml",         name: "Agência Brasil Saúde" },
-    { url: GN("saude medicina tratamento doenca sus ministerio"),      name: "GN Saúde" },
-    { url: GN("vacina vacinacao campanha imunizacao ministerio"),      name: "GN Vacinação" },
-    { url: GN("cancer diabetes hipertensao doenca cronica tratamento"),name: "GN Doenças Crônicas" },
-    { url: GN("plano saude convenio unimed bradesco sulamerica"),      name: "GN Planos de Saúde" },
-    { url: GN("anvisa medicamento aprovacao registro"),                name: "GN ANVISA" },
-    { url: GN("saude mental depressao ansiedade burnout bem estar"),   name: "GN Saúde Mental" },
-    { url: GN("familia crianca adolescente educacao filhos"),          name: "GN Família" },
-    { url: GN("nutricao alimentacao dieta emagrecimento saude"),       name: "GN Nutrição" },
-    { url: GN("hospital sus sus atendimento ubs upa"),                 name: "GN SUS" },
-    { url: GN("pesquisa medica ciencia descoberta cura"),              name: "GN Pesquisa Médica" },
-    { url: GN_EN("health medicine vaccine disease treatment"),        name: "GN Health EN" },
-    { url: "https://feeds.bbci.co.uk/news/health/rss.xml",            name: "BBC Health" },
-    { url: GN("envelhecimento longevidade terceira idade idosos"),     name: "GN Longevidade" },
-    { url: GN("maternidade gravidez gestacao bebe recemnascido"),      name: "GN Maternidade" },
-    { url: GN("direitos crianca estatuto eca violencia bullying"),     name: "GN Direitos Criança" },
-  ],
-  educacao_profissoes: [
-    { url: "https://agenciabrasil.ebc.com.br/educacao/feed.xml",      name: "Agência Brasil Educação" },
-    { url: GN("educacao escola universidade enem vestibular"),         name: "GN Educação" },
-    { url: GN("enem resultado inscricao gabarito nota corte"),         name: "GN ENEM" },
-    { url: GN("fies prouni bolsa faculdade ensino superior"),          name: "GN FIES PROUNI" },
-    { url: GN("mec ministerio educacao base curricular reforma"),      name: "GN MEC" },
-    { url: GN("profissoes carreira mercado trabalho salario"),         name: "GN Profissões" },
-    { url: GN("tecnologia profissao futuro automatizacao emprego"),    name: "GN Futuro do Trabalho" },
-    { url: GN("pos graduacao mba especializacao certificacao"),        name: "GN Pós-Graduação" },
-    { url: GN("cursinho preparatorio tecnico clt pj regime"),          name: "GN Formação" },
-    { url: GN("pedagogia educacao basica fundamental medio"),          name: "GN Educação Básica" },
-    { url: GN("home office trabalho remoto hibrido modelo"),           name: "GN Trabalho Remoto" },
-    { url: GN_EN("education university degree career skills"),        name: "GN Education EN" },
-    { url: GN("salario minimo reajuste piso salarial categoria"),      name: "GN Salário Mínimo" },
-    { url: GN("concurso vestibular selecao publica educacao"),         name: "GN Seleção Educação" },
-  ],
-  vagas_concursos: [
-    { url: GN("vagas emprego contratacao recrutamento selecao"),       name: "GN Vagas Emprego" },
-    { url: GN("concurso publico edital inscricao gabarito prova"),     name: "GN Concursos" },
-    { url: GN("concurso federal inss receita policia pf pcf"),         name: "GN Concursos Federais" },
-    { url: GN("concurso estadual municipal prefeitura governo"),       name: "GN Concursos Estaduais" },
-    { url: GN("trainee estagio jovem aprendiz programa empresa"),      name: "GN Trainee Estágio" },
-    { url: GN("home office remoto vaga contratacao emprego"),          name: "GN Vagas Remoto" },
-    { url: GN("recolocacao demissao desemprego seguro desemprego"),    name: "GN Recolocação" },
-    { url: GN("linkedin selecao curriculo entrevista contratacao"),    name: "GN Recrutamento" },
-    { url: GN("clt pj mei freelance autonomo regime contrato"),        name: "GN CLT vs PJ" },
-    { url: GN("salario beneficio plano carreira promoção"),            name: "GN Salário Benefícios" },
-    { url: GN("setor publico carreira servidor efetivo cargo"),        name: "GN Servidor Público" },
-    { url: GN("tecnologia ti desenvolvedor programador vagas"),        name: "GN Vagas TI" },
-    { url: GN("saude enfermagem medico fisioterapeuta vaga"),          name: "GN Vagas Saúde" },
-    { url: GN("engenharia arquitetura construcao vaga oportunidade"),  name: "GN Vagas Eng." },
-    { url: GN_EN("jobs remote work hiring recruitment"),              name: "GN Jobs EN" },
-    { url: GN("sindicato greve paralisacao categoria trabalhador"),    name: "GN Sindicatos" },
-  ],
-  imoveis_parcerias: [
-    { url: GN("imoveis mercado imobiliario lancamento construtora"),   name: "GN Imóveis" },
-    { url: GN("minha casa minha vida mcmv financiamento habitacao"),   name: "GN MCMV" },
-    { url: GN("aluguel preco reajuste igpm locacao contrato"),         name: "GN Aluguel" },
-    { url: GN("incorporadora construtora lançamento vendas imovel"),   name: "GN Construtoras" },
-    { url: GN("fii fundos imobiliarios logistica shoppings lajes"),    name: "GN FIIs Imóveis" },
-    { url: GN("financiamento habitacional caixa bb banco fgts"),       name: "GN Financiamento Hab." },
-    { url: GN("construcao civil materiais obra reforma custo"),        name: "GN Construção Civil" },
-    { url: GN("metro quadrado indice fipe zap preco imovel"),          name: "GN Preço m²" },
-    { url: GN("interior sao paulo rj mg df imovel valorizacao"),       name: "GN Imóveis Regionais" },
-    { url: GN("parceria acordo joint venture alianca empresa"),        name: "GN Parcerias" },
-    { url: GN("arquitetura design interiores decoracao projeto"),      name: "GN Arquitetura" },
-    { url: GN_EN("real estate property market housing mortgage"),     name: "GN Real Estate EN" },
-    { url: GN("retrofit sustentavel construcao verde certificacao"),   name: "GN Construção Verde" },
-  ],
-  esg_internacional: [
-    { url: "https://www.aljazeera.com/xml/rss/all.xml",               name: "Al Jazeera" },
-    { url: "https://feeds.bbci.co.uk/news/world/rss.xml",             name: "BBC World" },
-    { url: "https://www.theguardian.com/world/rss",                   name: "Guardian World" },
-    { url: GN("esg sustentabilidade ambiental social governanca"),     name: "GN ESG Brasil" },
-    { url: GN("mudancas climaticas emissoes carbono cop acordo"),      name: "GN Clima" },
-    { url: GN("energia renovavel solar eolica hidrôgênio verde"),      name: "GN Energia Limpa" },
-    { url: GN("geopolitica guerra conflito diplomatico internacional"), name: "GN Geopolítica" },
-    { url: GN("eua estados unidos trump biden washington"),            name: "GN EUA" },
-    { url: GN("china asia economia crescimento exportacao"),           name: "GN China" },
-    { url: GN("europa uniao europeia bce mario draghi"),               name: "GN Europa" },
-    { url: GN("mercosul america latina brasil argentina chile"),       name: "GN América Latina" },
-    { url: GN("russia ucrania guerra sancoes energia"),                name: "GN Rússia/Ucrânia" },
-    { url: GN("opep petroleo producao preco barril"),                  name: "GN OPEP" },
-    { url: GN_EN("geopolitics war conflict diplomacy international"), name: "GN Geopolitics EN" },
-    { url: GN_EN("climate change environment sustainability cop"),    name: "GN Climate EN" },
-    { url: GN_EN("united nations g20 g7 summit multilateral"),       name: "GN UN G20 EN" },
-    { url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada", name: "El País" },
-    { url: GN("fmi banco mundial ocde dados economia global"),         name: "GN FMI/BM" },
-    { url: GN("israel palestina oriente medio geopolitica"),           name: "GN Oriente Médio" },
-    { url: GN("india africa emergente economia crescimento"),          name: "GN Mercados Emerg." },
-  ],
-  defesa_seguranca: [
-    { url: GN("exercito marinha aeronautica forcas armadas defesa"),   name: "GN Defesa" },
-    { url: GN("policia federal pf operacao investigacao flagrante"),   name: "GN Polícia Federal" },
-    { url: GN("seguranca publica violencia crime assassinato"),        name: "GN Segurança Pública" },
-    { url: GN("trafico drogas pcc cv bope crime organizado"),          name: "GN Crime Organizado" },
-    { url: GN("ministerio defesa equipamento militar compra"),         name: "GN Ministério Defesa" },
-    { url: GN("lavagem dinheiro coaf rastreamento financeiro"),        name: "GN COAF" },
-    { url: GN("cybercrime hackers ataque digital infraestrutura"),     name: "GN Cybercrime" },
-    { url: GN("fronteira fronteiras tráfico contrabando migracao"),    name: "GN Fronteiras" },
-    { url: GN_EN("military defense nato army security"),              name: "GN Defense EN" },
-    { url: GN("sistema prisional carcerario preso regaio"),            name: "GN Sistema Prisional" },
-    { url: GN("terrorismo extremismo seguranca internacional"),        name: "GN Terrorismo" },
-  ],
-  esportes: [
-    { url: "https://ge.globo.com/rss/ge.xml",                         name: "GE Esportes" },
-    { url: GN("brasileirao campeonato flamengo corinthians palmeiras"), name: "GN Brasileirão" },
-    { url: GN("copa mundo eurocopa selecao brasileira futebol"),       name: "GN Copa" },
-    { url: GN("formula 1 gp corrida lewis hamilton verstappen"),       name: "GN F1" },
-    { url: GN("olimpiadas jogos paris atleta medalhista"),             name: "GN Olimpíadas" },
-    { url: GN("nba nfl mlb beisebol basquete americana esporte"),      name: "GN Esportes USA" },
-    { url: GN_EN("sports soccer champions league premier league"),    name: "GN Sports EN" },
-    { url: "https://feeds.bbci.co.uk/news/sport/rss.xml",             name: "BBC Sport" },
-  ],
-  cultura: [
-    { url: GN("cultura arte cinema festival premio oscar"),            name: "GN Cultura" },
-    { url: GN("musica show lancamento album festival"),                name: "GN Música" },
-    { url: GN("serie filme streaming netflix amazon disney"),          name: "GN Streaming" },
-    { url: GN_EN("entertainment culture cinema oscar award"),         name: "GN Culture EN" },
-  ],
-  variedades: [
-    { url: GN("gastronomia restaurante chef culinaria receita"),       name: "GN Gastronomia" },
-    { url: GN("turismo viagem destino internacional nacional"),        name: "GN Turismo" },
-    { url: GN("moda estilo roupa tendência marca luxo"),               name: "GN Moda" },
-    { url: GN("entretenimento celebridade fama comportamento viral"),  name: "GN Entretenimento" },
-  ],
-  espiritualidade: [
-    { url: GN("religiao fe evangelico catolicismo espirita"),          name: "GN Religião" },
-    { url: GN("espiritualidade bem estar meditacao mindfulness"),      name: "GN Espiritualidade" },
-    { url: GN("papa vaticano igreja catolica brasil"),                 name: "GN Igreja Católica" },
-    { url: GN("igrejas evangelicas protestantes denominacoes"),        name: "GN Igrejas" },
-    { url: GN("semana santa pascoa natal celebracao religiosa"),       name: "GN Celebrações" },
-    { url: GN("missao evangelismo christianismo fé"),                  name: "GN Missão" },
-    { url: GN("diversidade religiosa umbanda candomble espiritismo"),  name: "GN Pluralidade" },
-    { url: GN("ética moral valores familia tradicional"),              name: "GN Valores" },
-    { url: GN_EN("religion faith church christianity spiritual"),     name: "GN Religion EN" },
-  ],
-  investigativo: [
-    { url: "https://apublica.org/feed/",                               name: "Agência Pública" },
-    { url: GN("investigacao corrupcao denuncia operacao pf"),          name: "GN Investigativo" },
-    { url: GN("jornalismo investigativo reportagem especial"),         name: "GN Jornalismo Inv." },
-    { url: GN("lavagem dinheiro desvio recurso publico corrupto"),     name: "GN Corrupção" },
-    { url: GN("delacao premiada acordo leniência cpi comissao"),       name: "GN Delação" },
-    { url: GN("fake news desinformacao checagem fact-checking"),       name: "GN Checagem" },
-    { url: GN("whistleblower vazamento documento secreto"),            name: "GN Vazamentos" },
-    { url: GN_EN("corruption investigation fraud scandal expose"),    name: "GN Investigation EN" },
-    { url: GN("stj stf ação penal processo condenacao"),               name: "GN Judiciário" },
-    { url: GN("orgaos controle cgu tcu ministerio publico mp"),        name: "GN Controle Público" },
-  ],
-  agronegocio: [
-    { url: GN("agronegocio soja milho boi cafe algodao laranja"),      name: "GN Agronegócio" },
-    { url: GN("exportacao grao carne frango suino abiec"),             name: "GN Exportação Agro" },
-    { url: GN("safra colheita producao estimativa conab"),             name: "GN Safra" },
-    { url: GN("fazenda produtor rural financiamento credito rural"),   name: "GN Crédito Rural" },
-    { url: GN("fertilizante defensivo insumo agro custo"),             name: "GN Insumos Agro" },
-    { url: GN("rastreabilidade carne boi sustentavel desmatamento"),   name: "GN Agro Sustentável" },
-    { url: GN_EN("agriculture soybean corn commodity price harvest"), name: "GN Agriculture EN" },
-    { url: GN("mapa ministerio agricultura pec portaria"),             name: "GN MAPA" },
-  ],
-  radar: [
-    { url: "https://feeds.bbci.co.uk/sport/football/rss.xml",         name: "BBC Football" },
-    { url: GN_EN("world cup 2026 fifa qualification goal result"),     name: "GN World Cup EN" },
-    { url: GN_EN("champions league premier league la liga goal result"), name: "GN Europe Football EN" },
-    { url: GN("copa do mundo 2026 gol resultado classificacao fifa"),  name: "GN Copa do Mundo" },
-    { url: "https://ge.globo.com/rss/ge.xml",                         name: "GE Esportes" },
-    { url: GN("brasileirao serie a gol resultado rodada lider"),       name: "GN Brasileirão Série A" },
-    { url: GN("brasileirao serie b acesso rebaixamento resultado"),    name: "GN Brasileirão Série B" },
-    { url: GN("libertadores sulamericana gol resultado brasileiro"),   name: "GN Libertadores" },
-    { url: "https://www.autosport.com/rss/feed/f1",                   name: "Autosport F1" },
-    { url: "https://www.motorsport.com/rss/f1/news/",                 name: "Motorsport F1" },
-    { url: GN_EN("formula 1 f1 grand prix race result pole fastest lap"), name: "GN F1 EN" },
-    { url: GN("formula 1 gp corrida hamilton verstappen pole resultado"), name: "GN F1 BR" },
-    { url: "https://www.motor1.com/rss/news/all/",                    name: "Motor1" },
-    { url: GN_EN("car launch electric vehicle ev reveal debut auto show"), name: "GN Auto EN" },
-    { url: GN("carro lancamento novo modelo eletrico hibrido preco"),  name: "GN Automóveis BR" },
-    { url: "https://www.rollingstone.com/music/feed/",                name: "Rolling Stone Music" },
-    { url: "https://pitchfork.com/rss/news",                          name: "Pitchfork" },
-    { url: GN_EN("music album release concert tour rock jazz pop"),    name: "GN Music EN" },
-    { url: GN("musica lancamento album show rock mpb jazz festival"),  name: "GN Música BR" },
-    { url: "https://variety.com/feed/",                               name: "Variety" },
-    { url: "https://deadline.com/feed/",                              name: "Deadline Hollywood" },
-    { url: GN_EN("movie film release streaming netflix box office oscar"), name: "GN Cinema EN" },
-    { url: GN("cinema filme estreia streaming netflix amazon disney"), name: "GN Cinema BR" },
-    { url: "https://www.occrp.org/en/rss",                            name: "OCCRP Corrupção" },
-    { url: "https://apublica.org/feed/",                              name: "Agência Pública" },
-    { url: GN_EN("corruption investigation bribery fraud government"), name: "GN Corruption EN" },
-    { url: GN("corrupcao operacao policia federal desvio delacao"),    name: "GN Corrupção BR" },
-    { url: GN("tcu cgu fiscalizacao controle auditoria governo federal"), name: "GN Fiscalização" },
-    { url: GN("impostometro carga tributaria imposto recorde arrecadacao"), name: "GN Impostômetro" },
-    { url: GN("eleicoes 2026 candidatos pesquisa eleitoral presidente"), name: "GN Eleições 2026" },
-    { url: GN_EN("brazil election 2026 candidates polls campaign"),    name: "GN Brazil Elections EN" },
-    { url: "https://br.investing.com/rss/news_301.rss",               name: "Investing Câmbio BR" },
-    { url: GN("dolar cambio real alta baixa cotacao banco central"),   name: "GN Dólar/Câmbio" },
-    { url: GN_EN("dollar real brazil exchange rate currency brl"),     name: "GN Dollar EN" },
-    { url: GN_EN("olympics athletics swimming track field world record"), name: "GN Olympics EN" },
-    { url: GN("olimpiadas atletismo natacao brasil medalhista esporte"), name: "GN Olimpíadas BR" },
-    { url: GN_EN("tennis grand slam wimbledon us open roland garros atp"), name: "GN Tennis EN" },
-    { url: GN("tenis atp wta grand slam wimbledon rio open"),          name: "GN Tênis BR" },
-    { url: GN_EN("nba basketball playoffs championship finals mvp"),   name: "GN NBA EN" },
-    { url: GN_EN("ufc mma fight result knockout championship belt"),   name: "GN UFC EN" },
-    { url: "https://feeds.ign.com/ign/all",                           name: "IGN" },
-    { url: GN_EN("video games release esports gaming tournament streamer"), name: "GN Games EN" },
-    { url: GN("games jogos lancamento playstation xbox nintendo pc"),  name: "GN Games BR" },
-    { url: GN_EN("travel tourism destination flight deal hotel"),      name: "GN Travel EN" },
-    { url: GN("turismo viagem destino passagem barata hotel brasil"),  name: "GN Turismo BR" },
-    { url: GN("imoveis casa apartamento lancamento construtora preco"), name: "GN Imóvel Radar" },
-    { url: GN_EN("real estate property home price housing market"),    name: "GN Real Estate Radar EN" },
-  ],
-};
-
-const CATEGORIA_PARA_GRUPO = {
-  politica:      ["politica"],
-  economia:      ["economia"],
-  negocios:      ["negocios_mercados"],
-  mercados:      ["negocios_mercados"],
-  investimentos: ["seguros_investimentos"],
-  seguros:       ["seguros_investimentos"],
-  tributacao:    ["tributacao_regulacao"],
-  regulacao:     ["tributacao_regulacao"],
-  tecnologia:    ["tecnologia_industria"],
-  industria:     ["tecnologia_industria"],
-  saude:         ["saude_familia"],
-  familia:       ["saude_familia"],
-  educacao:      ["educacao_profissoes"],
-  profissoes:    ["educacao_profissoes"],
-  vagas:         ["vagas_concursos"],
-  concursos:     ["vagas_concursos"],
-  imoveis:       ["imoveis_parcerias"],
-  parcerias:     ["imoveis_parcerias"],
-  esg:           ["esg_internacional"],
-  internacional: ["esg_internacional"],
-  defesa:        ["defesa_seguranca"],
-  seguranca:     ["defesa_seguranca"],
-  esportes:      ["esportes"],
-  cultura:       ["cultura"],
-  variedades:    ["variedades"],
-  religiao:      ["espiritualidade"],
-  investigativo: ["investigativo"],
-  agronegocio:   ["agronegocio"],
-  radar:         ["radar"],
-};
+// ═══════════════════════════════════════════════════════════════════════════
+// FONTES APROVADAS OVC — 70 FONTES OFICIAIS
+// Aprovadas por Roberto Terrasan em 18/06/2026
+// NUNCA adicionar fontes sem aprovação explícita de Roberto
+// ═══════════════════════════════════════════════════════════════════════════
+const FEEDS_DIRETOS_GARANTIDOS = [
+  // ━━━ BRASILEIRAS (50) ━━━
+  { url: "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml",              name: "Folha de S.Paulo",          cats: ["brasil-on","politica","economia"] },
+  { url: "https://www.estadao.com.br/arc/outbound/feed/rss/?outputType=xml",    name: "O Estado de S. Paulo",      cats: ["politica","brasil-on","economia"] },
+  { url: "https://oglobo.globo.com/rss.xml",                                    name: "O Globo",                   cats: ["brasil-on","politica","economia"] },
+  { url: "https://g1.globo.com/rss/g1/",                                        name: "G1",                        cats: ["brasil-on","politica","saude","economia"] },
+  { url: "https://noticias.uol.com.br/ultnot/rss/home.xml",                    name: "UOL Notícias",              cats: ["brasil-on","politica"] },
+  { url: "https://www.cnnbrasil.com.br/feed/",                                  name: "CNN Brasil",                cats: ["brasil-on","politica","economia"] },
+  { url: "https://veja.abril.com.br/feed/",                                     name: "Veja",                      cats: ["politica","brasil-on"] },
+  { url: "https://istoe.com.br/feed/",                                          name: "IstoÉ",                     cats: ["brasil-on","politica"] },
+  { url: "https://www.metropoles.com/feed",                                     name: "Metrópoles",                cats: ["brasil-on","cultura","politica"] },
+  { url: "https://www.correiobraziliense.com.br/rss_feed/?tipo=1",              name: "Correio Braziliense",       cats: ["brasil-on","politica"] },
+  { url: "https://agenciabrasil.ebc.com.br/feed.xml",                          name: "Agência Brasil",            cats: ["brasil-on","politica","saude","economia"] },
+  { url: "https://noticias.r7.com/feed.xml",                                    name: "R7",                        cats: ["brasil-on"] },
+  { url: "https://www.valor.com.br/rss",                                        name: "Valor Econômico",           cats: ["economia","negocios","investimentos","tributos","industria","seguros","imoveis"] },
+  { url: "https://exame.com/feed/",                                             name: "Exame",                     cats: ["negocios","economia","tecnologia","carreira"] },
+  { url: "https://www.infomoney.com.br/feed/",                                  name: "InfoMoney",                 cats: ["investimentos","economia","seguros"] },
+  { url: "https://epocanegocios.globo.com/rss/",                                name: "Época Negócios",            cats: ["negocios","economia"] },
+  { url: "https://forbes.com.br/feed/",                                         name: "Forbes Brasil",             cats: ["negocios","carreira","investimentos"] },
+  { url: "https://istoedinheiro.com.br/feed/",                                  name: "IstoÉ Dinheiro",            cats: ["economia","investimentos","negocios"] },
+  { url: "https://braziljournal.com/feed/",                                     name: "Brazil Journal",            cats: ["negocios","economia","investimentos"] },
+  { url: "https://neofeed.com.br/feed/",                                        name: "NeoFeed",                   cats: ["negocios","tecnologia","investimentos"] },
+  { url: "https://www.moneytimes.com.br/feed/",                                 name: "Money Times",               cats: ["investimentos","economia","negocios"] },
+  { url: "https://www.bloomberglinea.com/rss/",                                 name: "Bloomberg Línea",           cats: ["economia","negocios","investimentos","internacional"] },
+  { url: "https://www.bbc.com/portuguese/index.xml",                            name: "BBC Brasil",                cats: ["internacional","brasil-on","saude","tecnologia"] },
+  { url: "https://www.poder360.com.br/feed/",                                   name: "Poder360",                  cats: ["politica","brasil-on"] },
+  { url: "https://congressoemfoco.uol.com.br/feed/",                            name: "Congresso em Foco",         cats: ["politica","brasil-on","tributos"] },
+  { url: "https://www.jota.info/feed",                                          name: "JOTA",                      cats: ["tributos","politica","negocios"] },
+  { url: "https://www.conjur.com.br/rss.xml",                                   name: "Conjur",                    cats: ["tributos","brasil-on"] },
+  { url: "https://www.migalhas.com.br/rss.aspx",                               name: "Migalhas",                  cats: ["tributos","brasil-on"] },
+  { url: "https://canaltech.com.br/rss/",                                       name: "Canaltech",                 cats: ["tecnologia","industria"] },
+  { url: "https://www.techtudo.com.br/rss.xml",                                 name: "TechTudo",                  cats: ["tecnologia"] },
+  { url: "https://olhardigital.com.br/feed/",                                   name: "Olhar Digital",             cats: ["tecnologia"] },
+  { url: "https://tiinside.com.br/feed/",                                       name: "TI Inside",                 cats: ["tecnologia","industria"] },
+  { url: "https://ge.globo.com/rss/ge.xml",                                     name: "GE Globo",                  cats: ["esportes"] },
+  { url: "https://www.espn.com.br/rss/",                                        name: "ESPN Brasil",               cats: ["esportes"] },
+  { url: "https://www.lance.com.br/rss.xml",                                    name: "Lance!",                    cats: ["esportes"] },
+  { url: "https://saude.abril.com.br/feed/",                                    name: "Saúde (Abril)",             cats: ["saude","familia"] },
+  { url: "https://vocesa.abril.com.br/feed/",                                   name: "Você S/A",                  cats: ["carreira","negocios"] },
+  { url: "https://crescer.globo.com/rss.xml",                                   name: "Crescer",                   cats: ["familia","saude"] },
+  { url: "https://claudia.abril.com.br/feed/",                                  name: "Claudia",                   cats: ["familia","cultura"] },
+  { url: "https://www.zapimoveis.com.br/blog/feed/",                            name: "ZAP Imóveis",               cats: ["imoveis"] },
+  { url: "https://www.automotivebusiness.com.br/feed/",                         name: "Automotive Business",       cats: ["industria","negocios"] },
+  { url: "https://www.vaticannews.va/pt/rss.xml",                               name: "Vatican News Brasil",       cats: ["religiao"] },
+  { url: "https://www.gazetadopovo.com.br/feed/",                               name: "Gazeta do Povo",            cats: ["brasil-on","politica","religiao"] },
+  { url: "https://gauchazh.clicrbs.com.br/rss.xml",                            name: "GaúchaZH",                  cats: ["brasil-on","esportes"] },
+  { url: "https://www.otempo.com.br/rss.xml",                                   name: "O Tempo",                   cats: ["brasil-on"] },
+  { url: "https://odia.ig.com.br/rss.xml",                                      name: "O Dia",                     cats: ["brasil-on"] },
+  { url: "https://diariodonordeste.verdesmares.com.br/rss.xml",                 name: "Diário do Nordeste",        cats: ["brasil-on"] },
+  { url: "https://atarde.com.br/feed/",                                         name: "A Tarde",                   cats: ["brasil-on"] },
+  { url: "https://jc.ne10.uol.com.br/feed/",                                   name: "Jornal do Commercio",       cats: ["brasil-on","economia"] },
+  // ━━━ INTERNACIONAIS (20) ━━━
+  { url: "https://feeds.reuters.com/reuters/topNews",                           name: "Reuters",                   cats: ["internacional","economia","politica"] },
+  { url: GN_EN("AP associated press top news world breaking"),                  name: "Associated Press",          cats: ["internacional"] },
+  { url: GN_EN("AFP agence france presse breaking news world"),                 name: "AFP",                       cats: ["internacional"] },
+  { url: "https://feeds.bloomberg.com/markets/news.rss",                        name: "Bloomberg",                 cats: ["economia","investimentos","internacional"] },
+  { url: "https://www.ft.com/rss/home",                                         name: "Financial Times",           cats: ["economia","negocios","investimentos"] },
+  { url: "https://feeds.wsj.com/xml/rss/3_7085.xml",                           name: "The Wall Street Journal",   cats: ["economia","negocios","internacional"] },
+  { url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",             name: "The New York Times",        cats: ["internacional","politica"] },
+  { url: "https://feeds.washingtonpost.com/rss/world",                          name: "The Washington Post",       cats: ["internacional","politica"] },
+  { url: "https://www.theguardian.com/world/rss",                               name: "The Guardian",              cats: ["internacional","economia","saude"] },
+  { url: "https://feeds.bbci.co.uk/news/rss.xml",                              name: "BBC News",                  cats: ["internacional","saude","tecnologia","economia"] },
+  { url: "http://rss.cnn.com/rss/edition.rss",                                 name: "CNN International",         cats: ["internacional","politica"] },
+  { url: "https://www.aljazeera.com/xml/rss/all.xml",                          name: "Al Jazeera",                cats: ["internacional","politica"] },
+  { url: "https://www.scmp.com/rss/91/feed",                                   name: "South China Morning Post",  cats: ["internacional","economia"] },
+  { url: "https://asia.nikkei.com/rss/feed/nar",                               name: "Nikkei Asia",               cats: ["economia","negocios","internacional"] },
+  { url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada",   name: "El País",                   cats: ["internacional","cultura","politica"] },
+  { url: "https://www.economist.com/rss.xml",                                   name: "The Economist",             cats: ["economia","internacional","politica"] },
+  { url: "https://www.politico.com/rss/politicopicks.xml",                      name: "Politico",                  cats: ["internacional","politica"] },
+  { url: "https://foreignpolicy.com/feed/",                                     name: "Foreign Policy",            cats: ["internacional","politica"] },
+  { url: "https://api.axios.com/feed/",                                         name: "Axios",                     cats: ["internacional","tecnologia","economia"] },
+  { url: "https://www.lemonde.fr/rss/une.xml",                                  name: "Le Monde",                  cats: ["internacional","cultura","politica"] },
+];
 
 const FAMILIA_CAT = {
   seguros:'financas', investimentos:'financas', economia:'financas',
-  mercados:'financas', tributacao:'financas', regulacao:'financas',
-  negocios:'financas', imoveis:'financas', parcerias:'financas', esg:'financas',
-  politica:'poder', seguranca:'poder', defesa:'poder', investigativo:'poder', internacional:'poder',
-  esportes:'entretenimento', cultura:'entretenimento', variedades:'entretenimento', religiao:'entretenimento',
-  radar:'entretenimento',
-  tecnologia:'conhecimento', educacao:'conhecimento', saude:'conhecimento',
-  familia:'conhecimento', profissoes:'conhecimento', industria:'conhecimento',
-  vagas:'trabalho', concursos:'trabalho',
+  negocios:'financas', imoveis:'financas', tributos:'financas', industria:'financas',
+  politica:'poder', internacional:'poder', 'brasil-on':'poder',
+  esportes:'entretenimento', cultura:'entretenimento', religiao:'entretenimento',
+  tecnologia:'conhecimento', saude:'conhecimento', familia:'conhecimento', carreira:'trabalho',
 };
+
+const CATEGORIA_PARA_GRUPO = {};
+
 export { FAMILIA_CAT, CATEGORIA_PARA_GRUPO };
 
-const FEEDS_DIRETOS_GARANTIDOS = [
-  { url: "https://agenciabrasil.ebc.com.br/politica/feed.xml",  name: "Agência Brasil Política" },
-  { url: "https://agenciabrasil.ebc.com.br/saude/feed.xml",     name: "Agência Brasil Saúde" },
-  { url: "https://agenciabrasil.ebc.com.br/educacao/feed.xml",  name: "Agência Brasil Educação" },
-  { url: "https://www.metropoles.com/feed",                      name: "Metrópoles" },
-  { url: "https://apublica.org/feed/",                           name: "Agência Pública" },
-  { url: "https://www.infomoney.com.br/feed/",                   name: "InfoMoney" },
-  { url: "https://exame.com/feed/",                              name: "Exame" },
-  { url: "https://www.seudinheiro.com/feed/",                    name: "Seu Dinheiro" },
-  { url: "https://www.moneytimes.com.br/feed/",                  name: "Money Times" },
-  { url: "https://canaltech.com.br/rss/",                        name: "Canaltech" },
-  { url: "https://rss.tecmundo.com.br/feed",                     name: "TecMundo" },
-  { url: "https://techcrunch.com/feed/",                         name: "TechCrunch" },
-  { url: "https://www.theverge.com/rss/index.xml",               name: "The Verge" },
-  { url: "https://feeds.bbci.co.uk/news/world/rss.xml",          name: "BBC World" },
-  { url: "https://feeds.bbci.co.uk/news/technology/rss.xml",     name: "BBC Technology" },
-  { url: "https://feeds.bbci.co.uk/news/business/rss.xml",       name: "BBC Business" },
-  { url: "https://feeds.bbci.co.uk/news/health/rss.xml",         name: "BBC Health" },
-  { url: "https://feeds.bbci.co.uk/news/sport/rss.xml",          name: "BBC Sport" },
-  { url: "https://www.theguardian.com/world/rss",                name: "Guardian World" },
-  { url: "https://www.aljazeera.com/xml/rss/all.xml",            name: "Al Jazeera" },
-];
+// Exported list for manage.js archive action
+export const FONTES_APROVADAS_URLS = FEEDS_DIRETOS_GARANTIDOS.map(f => ({ url: f.url, name: f.name, cat: f.cats[0] }));
 
 function parseXmlFallback(xml) {
   const items = [];
@@ -457,12 +154,13 @@ async function fetchFeed(url) {
   }
 }
 
+// REGRA #34: isRecente MÍNIMO 48h — NUNCA reduzir abaixo de 48h
 function isRecente(dateStr) {
   if (!dateStr) return false;
   try {
     const itemDate = new Date(dateStr);
     if (isNaN(itemDate.getTime())) return false;
-    return (Date.now() - itemDate.getTime()) < 2 * 60 * 60 * 1000;
+    return (Date.now() - itemDate.getTime()) < 48 * 60 * 60 * 1000;
   } catch (_) { return false; }
 }
 
@@ -480,7 +178,6 @@ function extrairItem(i, sourceName) {
   };
 }
 
-// Busca todos os feeds em paralelo sem limite artificial de slice
 async function buscarFeedsEmParalelo(feeds) {
   const results = await Promise.allSettled(
     feeds.map(source =>
@@ -495,86 +192,8 @@ async function buscarFeedsEmParalelo(feeds) {
   return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
 }
 
-// alias mantido para compatibilidade
 const buscarFeedsEspecificos = buscarFeedsEmParalelo;
-
-// Rotação por janela de 5 min — garante que todos os feeds sejam visitados ao longo do dia
-function loteOffset(pool, loteSize) {
-  if (pool.length === 0) return [];
-  const slot = Math.floor(Date.now() / (5 * 60 * 1000));
-  const total = Math.ceil(pool.length / loteSize);
-  const start = (slot % total) * loteSize;
-  return pool.slice(start, start + loteSize);
-}
-
-async function carregarFontesSupabase() {
-  try {
-    const { data } = await supabase
-      .from('rss_sources')
-      .select('url,name,active,categoria')
-      .limit(2000);
-    return (data || []).filter(s => s.active !== false);
-  } catch (_) { return []; }
-}
-
-// Mapeamento portal categoria → nomes de categoria Lote 2 (rss_sources.categoria)
-const LOTE2_POR_CATEGORIA = {
-  politica:      ['Polêmicas Brasil','Transparência e Espionagem'],
-  economia:      ['Portais Financeiros','Bancos Brasil','Combustíveis Brasil','Varejo Brasil'],
-  negocios:      ['Varejo Brasil','Varejo e Consumo','Marketing','Bens de Consumo Global','Feiras e Exposições'],
-  investimentos: ['Fundos Brasil','DeFi e Cripto','Portais Financeiros','Bancos Brasil'],
-  seguros:       ['Nichos Regulados','Farmacêutica Brasil'],
-  mercados:      ['Petróleo Global','Mineração Brasil','Bancos Globais','DeFi e Cripto','Combustíveis Brasil','Fundos Brasil'],
-  tributacao:    ['Nichos Regulados','Portais Financeiros'],
-  regulacao:     ['Nichos Regulados','Bancos Brasil','Telecom Brasil','Direito'],
-  tecnologia:    ['Tech Brasil','AGI e Neurotecnologia','Big Techs Global','Pagamentos Global','Games','Telecom Brasil','Telecom Global','Biologia Sintética'],
-  industria:     ['Manufatura Brasil','Logística Brasil','Indústria de Base','Infraestrutura','Agronegócio','Alimentos Brasil','Montadoras Global'],
-  saude:         ['Farmacêutica Brasil','Farmacêutica Global','Psicologia','Biologia Sintética'],
-  familia:       ['Psicologia'],
-  educacao:      ['Empregos','Direito'],
-  profissoes:    ['Direito','Psicologia','Empregos'],
-  vagas:         ['Empregos'],
-  concursos:     ['Empregos'],
-  imoveis:       ['Imobiliário'],
-  esg:           ['Climatologia','Biologia Sintética','Energia Elétrica Brasil'],
-  defesa:        ['Aeroespacial e Defesa','Transparência e Espionagem'],
-  seguranca:     ['Polêmicas Brasil','Transparência e Espionagem'],
-  internacional: ['Geopolítica','Bancos Globais','Alimentos Global','Varejo Global','Montadoras Global','Big Techs Global','Bens de Consumo Global','Aeroespacial e Defesa'],
-  investigativo: ['Polêmicas Brasil','Transparência e Espionagem'],
-  cultura:       ['Música','Fotografia','Feiras e Exposições','Moda'],
-  esportes:      ['Esportes','Federações Esportivas'],
-  variedades:    ['Moda','Cosméticos Brasil','Fotografia','Feiras e Exposições'],
-  religiao:      [],
-  parcerias:     ['Feiras e Exposições'],
-  radar:         ['Esportes','Federações Esportivas','Música'],
-};
-
-export async function getNewsByCategoria(categoria) {
-  try {
-    const gruposAlvo = CATEGORIA_PARA_GRUPO[categoria] || [];
-    const feedsHardcoded = gruposAlvo.flatMap(g => FEEDS_POR_GRUPO[g] || []);
-
-    const categoriasLote2 = LOTE2_POR_CATEGORIA[categoria] || [];
-    const fontesSupabase = await carregarFontesSupabase();
-    const urlsHardcoded = new Set(feedsHardcoded.map(f => f.url));
-
-    let fontesFiltradas = categoriasLote2.length > 0
-      ? fontesSupabase.filter(f => !urlsHardcoded.has(f.url) && categoriasLote2.includes(f.categoria))
-      : fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
-
-    if (fontesFiltradas.length < 20) {
-      const extrasSupabase = fontesSupabase.filter(f => !urlsHardcoded.has(f.url));
-      const poolFallback = extrasSupabase.length >= 20
-        ? extrasSupabase
-        : TODOS_FEEDS_EXTRAS.filter(f => !urlsHardcoded.has(f.url));
-      fontesFiltradas = [...fontesFiltradas, ...loteOffset(poolFallback, 60)];
-    }
-
-    const feedsParaUsar = [...feedsHardcoded, ...fontesFiltradas].slice(0, 120);
-    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes`);
-    return await buscarFeedsEmParalelo(feedsParaUsar);
-  } catch (_) { return []; }
-}
+export { buscarFeedsEspecificos };
 
 function titulosSimilares(a, b) {
   const norm = t => (t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(w => w.length > 3);
@@ -594,43 +213,27 @@ function dedupPorTitulo(items) {
   return unicos;
 }
 
-// alias mantido para compatibilidade interna
-const buscarFeedsDiretos = buscarFeedsEmParalelo;
-
-// Todos os feeds hardcoded de todos os grupos, excluindo os garantidos (sem duplicatas)
-// Usado como pool de rotação quando Supabase tem poucas fontes ativas
-const _urlsGarantidas = new Set(FEEDS_DIRETOS_GARANTIDOS.map(f => f.url));
-const TODOS_FEEDS_EXTRAS = (() => {
-  const vistos = new Set(_urlsGarantidas);
-  const lista = [];
-  for (const feeds of Object.values(FEEDS_POR_GRUPO)) {
-    for (const f of feeds) {
-      if (!vistos.has(f.url)) { vistos.add(f.url); lista.push(f); }
-    }
-  }
-  return lista;
-})();
+export async function getNewsByCategoria(categoria) {
+  try {
+    const fontesCat = FEEDS_DIRETOS_GARANTIDOS.filter(f => Array.isArray(f.cats) && f.cats.includes(categoria));
+    // Se menos de 5 fontes para a categoria, usa todas as 70 (conteúdo geral)
+    const feedsParaUsar = fontesCat.length >= 5 ? fontesCat : FEEDS_DIRETOS_GARANTIDOS;
+    console.log(`[rss] getNewsByCategoria(${categoria}): ${feedsParaUsar.length} fontes`);
+    return await buscarFeedsEmParalelo(feedsParaUsar);
+  } catch (_) { return []; }
+}
 
 export async function getNews() {
   try {
-    const fontesSupabase = await carregarFontesSupabase();
-
-    // Pool para rotação: Supabase quando tem volume, senão todos os feeds hardcoded
-    const feedsSupabaseExtras = fontesSupabase.filter(f => !_urlsGarantidas.has(f.url));
-    const poolExtra = feedsSupabaseExtras.length >= 30 ? feedsSupabaseExtras : TODOS_FEEDS_EXTRAS;
-    const lote = loteOffset(poolExtra, 100);
-
-    const feedsParaUsar = [...FEEDS_DIRETOS_GARANTIDOS, ...lote];
-    console.log(`[rss] getNews: ${feedsParaUsar.length} fontes (20 garantidos + ${lote.length} de pool=${poolExtra.length})`);
-
-    let allItems = await buscarFeedsEmParalelo(feedsParaUsar);
-    console.log('[rss] total itens:', allItems.length);
-
-    if (allItems.length === 0) {
-      allItems = await buscarFeedsEmParalelo(FEEDS_DIRETOS_GARANTIDOS);
+    console.log(`[rss] getNews: ${FEEDS_DIRETOS_GARANTIDOS.length} fontes aprovadas`);
+    const items = await buscarFeedsEmParalelo(FEEDS_DIRETOS_GARANTIDOS);
+    console.log('[rss] total itens:', items.length);
+    if (items.length === 0) {
+      // fallback: tentar novamente só com fontes confiáveis BR
+      const br = FEEDS_DIRETOS_GARANTIDOS.filter(f => f.cats.includes('brasil-on') || f.cats.includes('economia'));
+      return await buscarFeedsEmParalelo(br);
     }
-
-    return dedupPorTitulo(allItems.sort(() => Math.random() - 0.5));
+    return dedupPorTitulo(items.sort(() => Math.random() - 0.5));
   } catch (e) {
     console.error('[rss] erro em getNews:', e.message);
     return [];
