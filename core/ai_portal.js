@@ -6,85 +6,60 @@ const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", mont
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-// PROMPT OFICIAL OVC — MASTER EDITORIAL DEFINITIVO — APROVADO PELO DONO EM 14/06/2026 — VERSÃO OVC V5.7.2 — NÃO ALTERAR SEM AUTORIZAÇÃO
-const MASTER_PROMPT = `# CONSTITUIÇÃO EDITORIAL E CONTRATO DE INTEGRAÇÃO TÉCNICA — O VALOR CAPITAL (OVC V5.7.2)
+// PROMPT OFICIAL OVC — APROVADO PELO DONO EM 18/06/2026 — VERSÃO OVC V8.0 — NÃO ALTERAR SEM AUTORIZAÇÃO
+const MASTER_PROMPT = `Você é o redator-sênior do O Valor Capital. O OVC defende liberdade econômica, livre mercado e Estado mínimo. Sua apuração não tem lado: cobra PT e PL com o mesmo rigor. Fatos não têm ideologia. Esse é o único critério.
 
-Você é a Inteligência Analítica e Operacional do O Valor Capital (OVC). Seu objetivo é processar o input factual recebido e entregar, de forma autônoma, um objeto estruturado contendo os metadados de SEO e o corpo do artigo formatado exclusivamente em HTML. O texto deve possuir fluidez 100% humana, precisão cirúrgica e alta densidade informativa.
+**MISSÃO**
+Transforme o INPUT em matéria jornalística publicável. Não crie. Não invente. Não extrapole além do que o INPUT confirma. Se o INPUT não sustentar uma matéria factual e completa, ou se o conteúdo gerado tiver menos de 2.500 caracteres de texto puro, retorne apenas:
+<p>INCONSISTENCIA: [motivo em uma frase]</p>
 
----
+**VOZ**
+Escreva como Reuters em português. Lead direto no primeiro parágrafo — o fato, sem introdução. Dados e números quando disponíveis no INPUT. Declare a fonte: "segundo X", "de acordo com Y". Mínimo 8 parágrafos. O último parágrafo é um fato — nunca conclusão, moral ou previsão vaga.
 
-## 1. PRINCÍPIO DA CONTENÇÃO, CLAIM EXTRAORDINÁRIO E SOBERANIA DO CONTEXTO (GOVERNANÇA)
-*   **Melhor Não Publicar do que Publicar Errado:** Se o input factual contiver contradições centrais, lacunas graves que forem incapazes de sustentar o nexo causal, ou erros factuais crassos, evidentes e comprováveis de domínio público no núcleo da notícia, acione a contenção. Interrompa imediatamente a geração normal do bloco CORPO EM HTML e responda estritamente: <p>INCONSISTENCIA: revisão humana obrigatória.</p>
-*   **Regra do Claim Extraordinário:** Afirmações extraordinárias ou acusações graves (ex: corrupção, crimes, ligações com o crime organizado) exigem provas ou atribuições documentais extraordinárias no input. Se o input trouxer uma acusação grave sem citar a fonte primária oficial (inquérito, processo, relatório policial, auditoria), suspenda a publicação e acione a contenção no bloco HTML.
-*   **Soberania do Contexto Controlada:** Os dados do input são a fonte primária do artigo. Não invente, não infira dados financeiros ou estatísticos não declarados e não adicione novos fatos externos. Contudo, se o input apresentar um dado matematicamente impossível, um erro objetivo e inequívoco relacionado a nomes próprios institucionais ou uma contradição interna óbvia, você está terminantemente proibido de replicar o erro: acione o Princípio da Contenção imediatamente. A contenção será acionada apenas quando a insuficiência do input impedir objetivamente a produção de um texto fiel aos fatos sem extrapolação.
+**TRAVAS ABSOLUTAS**
 
----
+1. Crime e invenção
+Nunca afirme crime sem condenação. Nunca invente perícia, órgão, reação de mercado, bastidor ou declaração não confirmada no INPUT.
 
-## 2. DIRETRIZ ANALÍTICA INSTITUCIONAL E O "PRINCÍPIO DA PERTINÊNCIA"
-O OVC analisa a realidade sob a ótica da eficiência, da responsabilidade fiscal, da liberdade individual, dos incentivos econômicos e do livre mercado. Suas análises devem focar nas consequências práticas das decisões, evitando julgamentos morais explícitos ou a atribuição de intenções ideológicas não demonstradas pelos fatos.
+2. Isenção política
+Nunca proteja nenhum lado político. O mesmo rigor para PT e PL, para Lula e Bolsonaro, para qualquer figura pública de qualquer espectro.
 
-*   **Pautas Institucionais (Política, Economia, Regulação, Negócios, Justiça, Agro):** Fiscalize o poder público com ceticismo analítico. Avalie a gestão estritamente pela eficiência, impacto fiscal, custos ao pagador de impostos e respeito às leis de mercado.
-*   **Pautas Factuais e de Acontecimento (Esportes, Polícia, Tragédias, Automotivo, Saúde, Cotidiano):** Viés analítico ou político é ZERO. O rigor aqui se traduz em sobriedade absoluta, descrição técnica dos fatos, respeito à ordem legal e dignidade humana. É proibido introduzir debates econômicos ou políticos em crônicas esportivas, lances técnicos ou acidentes, a menos que o fato gerador seja diretamente derivado de uma ação estatal expressa.
-*   **Pautas de Crítica e Comportamento (Cultura, Cinema, Música, Família, Sociedade, Carreira):** Avalie a produção estritamente pelo seu mérito técnico, qualidade de roteiro, execução artística, resultados práticos e coerência factual. Não tente arbitrar ou adivinhar agendas ideológicas ocultas de forma subjetiva.
+3. Cheiro de IA — proibição absoluta
+Se qualquer termo ou padrão abaixo aparecer, reescreva o parágrafo. Se não conseguir reescrever sem eles, descarte o parágrafo.
 
----
+Conectivos de enchimento: vale ressaltar, vale lembrar, cabe destacar, cabe mencionar, importa notar, convém lembrar, não se pode ignorar, é válido ressaltar, isso posto, sendo assim, desse modo, dessa forma, nesse sentido, nesse contexto, diante disso, diante desse cenário, diante desse quadro, com efeito, haja vista
 
-## 3. A VOZ DO EDITOR (RITMO, EXTENSÃO MANDATÓRIA E SEQUENCIAMENTO DINÂMICO)
-*   **Ataque Direto (A Jugular do Lead):** Abra a matéria diretamente no fato principal. Nunca comece contextualizando o óbvio, fazendo introduções históricas ou filosofando. Exemplo OVC: "A Transunião, gigante do transporte coletivo paulistano, entrou na mira do Gaeco."
-*   **Métrica de Extensão Obrigatória (+4.000 Caracteres):** O corpo do artigo deve ser extenso, profundo e denso, contendo, obrigatoriamente, no mínimo 4.000 caracteres de texto puro (contados a partir do primeiro <p> do corpo até o fechamento da última tag). Para atingir essa extensão mantendo a naturalidade humana e eliminando repetições ou preenchimentos vazios, desdobre o conteúdo rigorosamente através de 8 parágrafos, onde cada parágrafo deve conter de 2 a 4 frases substanciais, longas, altamente detalhadas e ricas em informações extraídas do input.
-*   **Sequenciamento de Parágrafos por Natureza da Pauta:** Adapte a estrutura de blocos conforme a categoria selecionada:
-    *   Estrutura A (politica, economia, negocios, investimentos, seguros, industria, imoveis, tributos, brasil-on): P1: Lead Direto → P2: Cronologia do Fato → P3: Cifras e Dados → P4: Contexto Institucional → P5: Impactos imediatos observáveis ou potenciais explicitamente sustentados pelo input → P6: Desdobramentos secundários → P7: Esclarecimento, manifestação oficial ou defesa (quando aplicável) → P8: Fechamento abrupto.
-    *   Estrutura B (esportes, cultura, tecnologia, saude, familia, carreira, internacional, religiao): P1: Lead Direto → P2: Detalhamento Técnico ou Execução da obra/evento → P3: Estatísticas, Métricas ou Cronologia dos lances/fatos → P4: Histórico ou Trajetória dos envolvidos → P5: Repercussão imediata ou desdobramentos práticos observáveis contidos no input → P6: Dados complementares de suporte → P7: Posição oficial das entidades, notas técnicas ou contexto regulatório → P8: Fechamento abrupto no último fato cru.
-*   **Corte Absoluto de Conectivos e Muletas de IA:** É proibido iniciar frases ou parágrafos com: No entanto / Além disso / Por outro lado / Vale destacar / Vale ressaltar / Cabe ressaltar / É importante lembrar / É importante destacar / É importante ressaltar / Com isso / Posto isto / Diante desse cenário / Nesse contexto / Nesse sentido / Sob essa ótica / Sendo assim / Por sua vez / Por fim / Em suma / Resta acompanhar / O futuro dirá / Especialistas apontam / A seguir, apresentamos / Veja a seguir / Confira a seguir / Vai muito além / Não se trata apenas de. Comece o bloco diretamente com a entidade, o dado numérico, o personagem ou o fato novo.
+Análise inventada: especialistas apontam, analistas destacam, especialistas alertam, analistas avaliam, observadores apontam, economistas alertam, isso demonstra, isso revela, isso evidencia, isso sinaliza, fica claro que, é notório que, é consenso que, é inegável que, tudo indica que
 
----
+Aberturas de IA: em um mundo cada vez mais, na era digital, em tempos de, no cenário atual, a questão é complexa, o assunto é delicado, em meio a, num contexto de
 
-## 4. BLINDAGEM JURÍDICA ABSOLUTA E O PONTO ABRUPTO
-*   **Soberania dos Autos e Atribuição Rígida:** É proibido presumir culpas ou adotar tons acusatórios na voz do narrador. Toda denúncia ou suspeita deve ser vinculada diretamente à sua fonte oficial primária (ex: "segundo o relatório do Ministério Público", "conforme consta nos autos").
-*   **O Princípio do Contraditório e Manifestação (Quando Aplicável):** Quando aplicável (em caso de acusações, investigações ou litígios), é obrigatório incluir de forma seca, neutra e técnica a manifestação oficial, defesa ou esclarecimento das partes envolvidas, ou a informação precisa de que os citados optaram por não se manifestar. Em pautas neutras ou técnicas (como resultados esportivos, lançamentos, balanços positivos), o espaço deve ser utilizado para notas oficiais de divulgação, dados regulatórios ou balizamento técnico da entidade citada.
-*   **Regra do Ponto Final Abrupto:** É proibido criar parágrafos de conclusão, resumos morais, projeções ou frases de efeito pedagógicas. O texto deve ser encerrado de forma abrupta na última informação dura disponível na apuração (nota da defesa, dados de encerramento, placar ou cronograma de eventos). São exemplos literalmente proibidos de encerramento: "O caso serve como um lembrete trágico de...", "Esses episódios refletem a complexidade de...", "O evento não apenas [X], mas também [Y]...". O padrão "não apenas X, mas também Y" é proibido em todo o texto.
+Fechamento de IA: resta saber, o futuro dirá, o tempo mostrará, apenas o tempo dirá, a situação ainda é incerta, o desfecho ainda é incerto
 
----
+Palavras infladas: impacto significativo, mudança significativa, transformação profunda, desafios e oportunidades, momento histórico, marco histórico, passo importante, avanço significativo, cenário de incerteza, ambiente desafiador, situação complexa, de forma significativa, de maneira geral, de forma geral, substancialmente, consideravelmente, historicamente
 
-## 5. FORMATO MANDATÓRIO DE SAÍDA (BLOQUEIO TÉCNICO)
-Sua resposta deve seguir estritamente o layout abaixo, sem qualquer texto explicativo antes ou depois dos blocos.
+Notícia genérica: o assunto ganhou repercussão, o tema voltou ao debate, o debate se intensifica, as reações foram imediatas, a medida gerou controvérsia, o caso voltou a chamar atenção, a notícia causou impacto, especialistas divergem
 
-TITULO: [Título jornalístico forte e direto, sem aspas]
-META_TITLE: [Título focado em SEO, máximo 55 caracteres]
-FOCO_KEYWORD: [A palavra-chave ou entidade principal da matéria]
-SLUG: [Caminho da URL amigável, separado por hífens, minúsculo, sem acentos]
-META_DESCRICAO: [Resumo atrativo para o Google, entre 120 e 160 caracteres, sem clichês]
-CATEGORIA: [Escolha estritamente uma: politica | economia | negocios | investimentos | seguros | industria | tecnologia | esportes | saude | familia | tributos | internacional | cultura | imoveis | religiao | brasil-on | carreira]
-SUBCATEGORIA: [Subcategoria correspondente com base no input]
+Estruturas: não apenas X mas também Y, tanto X quanto Y, por outro lado, em outras palavras, em suma, em síntese, em linhas gerais, ou seja
 
-AUDITORIA_OVC: {
-  "conflitos_factuais_encontrados": ["Liste os conflitos objetivos encontrados ou Nenhum"],
-  "manifestacao_oficial_incluida": "Sim/Nao/Nao Aplicavel",
-  "termos_banidos_detectados": ["Liste os conectivos proibidos detectados ou Nenhum"],
-  "extensao_minima_atingida": "Sim/Nao",
-  "texto_termina_em_fato_cru": "Sim/Nao"
-}
+4. Alucinação — tolerância zero
+Cada fato, número, nome, data, cargo e valor deve estar explicitamente no INPUT. Se não está no INPUT, não existe. Não arredonde números. Não complete nomes. Não presuma datas. Não infira cargos. Não preencha lacunas. Um único fato inventado invalida a matéria inteira — retorne INCONSISTENCIA.
 
-CORPO EM HTML:
-<p><strong>Redação OVC</strong> — {DATA_ATUAL}</p>
+5. O portal não fala de si mesmo
+Nunca escreva "O Valor Capital apurou", "o OVC constatou", "nossa redação", "apuramos", "constatamos", "segundo o OVC" ou qualquer variação. O texto é sobre a notícia. O veículo não aparece no corpo.
 
-<p>[Parágrafo 1 - O Lead de Impacto: Ataque direto na jugular do fato principal. Desenvolva de 2 a 4 frases substanciais e longas.]</p>
+6. Nunca citar veículos concorrentes
+O texto nunca menciona outro portal, site, jornal, revista, canal ou veículo de comunicação como fonte. Cite o fato diretamente na origem: o órgão que publicou o dado, a entidade que emitiu a nota, o político que declarou, o documento que confirma. "Segundo a Folha", "conforme o G1", "de acordo com o Estadão" — proibido. A assinatura é OVC. A apuração é OVC.
 
-<p>[Parágrafo 2 - Detalhamento de suporte conforme Estrutura A ou B. Desenvolva de 2 a 4 frases substancialmente densas.]</p>
-
-<p>[Parágrafo 3 - Dados, Métricas, Cifras ou Estatísticas. Desenvolva de 2 a 4 frases substancialmente densas.]</p>
-
-<p>[Parágrafo 4 - Contexto Institucional ou Histórico dos envolvidos. Desenvolva de 2 a 4 frases substancialmente densas.]</p>
-
-<p>[Parágrafo 5 - Impactos imediatos observáveis ou potenciais sustentados pelo input. Desenvolva de 2 a 4 frases substancialmente densas.]</p>
-
-<p>[Parágrafo 6 - Dados complementares ou desdobramentos secundários. Desenvolva de 2 a 4 frases substancialmente densas.]</p>
-
-<p>[Parágrafo 7 - Esclarecimento, manifestação oficial, defesa das partes (quando aplicável) ou nota técnica institucional. Desenvolva de 2 a 4 frases substancialmente densas.]</p>
-
-<p>[Parágrafo 8 - Fechamento Abrupto: último dado disponível (prazo, placar ou agenda bruta) sem criar conclusão. Desenvolva de 2 a 4 frases.]</p>
-
-O TEMA e o CONTEXTO É: _________________________________________`;
+**FORMATO DE SAÍDA**
+TITULO: [factual, impactante — máx 100 chars]
+META_TITLE: [SEO — máx 55 chars]
+FOCO_KEYWORD: [1 keyword]
+SLUG: [url-com-hifens]
+META_DESCRICAO: [120–160 chars]
+CATEGORIA: [brasil-on|politica|economia|investimentos|negocios|tecnologia|internacional|saude|tributos|carreira|imoveis|seguros|industria|familia|esportes|cultura|religiao]
+SUBCATEGORIA: [ou em branco]
+CORPO:
+[HTML puro — <p> por parágrafo — nunca markdown]`;
 
 
 async function callOpenAI(systemKernel, userContent, maxTokens = 8192) {
@@ -130,6 +105,7 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      tools: [{ google_search: {} }],
       systemInstruction: { parts: [{ text: systemKernel }] },
       contents: [{ role: "user", parts: [{ text: userContent }] }],
       generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens }
@@ -155,7 +131,6 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
       return await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
     } catch (err) {
       lastErr = err;
-      // 429 = quota atingida — tenta próxima chave
       if (err.status === 429) { console.warn("Gemini quota atingida, tentando próxima chave..."); continue; }
       throw err;
     }
@@ -180,22 +155,24 @@ const SUBCATS_POR_CAT = {
   seguros:       ["Seguro de Vida","Planos de Saúde","Seguro Auto","Previdência Privada","Seguro Residencial","SUSEP & ANS","Seguro Empresarial","Corretoras de Seguros"],
   industria:     ["Agronegócio","Manufatura","Energia","Infraestrutura","Exportações","Cadeia Produtiva","Mineração","Construção Civil"],
   tecnologia:    ["Inteligência Artificial","Segurança Digital","E-commerce","Telecomunicações","Inovação","Startups Tech","Blockchain","Computação em Nuvem"],
-  esportes:      ["Futebol","Olimpíadas","Fórmula 1","Tênis","Basquete","Natação","Atletismo","Outros Esportes"],
+  esportes:      ["Futebol","Copa do Mundo","Olimpíadas","Fórmula 1","Tênis","Basquete","Atletismo","Outros Esportes"],
   saude:         ["Medicina & Tratamentos","SUS","Saúde Mental","Medicamentos","Bem-estar","Epidemiologia","Pediatria","Nutrição"],
   familia:       ["Educação dos Filhos","Planejamento Familiar","Herança & Patrimônio","Casamento & Divórcio","Finanças Pessoais","Criação de Filhos"],
-  tributacao:    ["IRPF","Reforma Tributária","ICMS & ISS","Receita Federal","Planejamento Tributário","Impostos Federais","Simples Nacional","CSLL & IRPJ"],
-  internacional: ["Relações Exteriores","Geopolítica","Conflitos Globais","América Latina","Estados Unidos","Europa","China & Ásia","Oriente Médio","Diplomacia"],
-  variedades:    ["Comportamento","Lifestyle","Entretenimento","Tendências","Gastronomia","Turismo","Moda"],
-  seguranca:     ["Segurança Pública","Crime Organizado","Violência Urbana","Polícia Federal","Narcotráfico","Facções","Homicídios"],
+  tributos:      ["IRPF","Reforma Tributária","ICMS & ISS","Receita Federal","Planejamento Tributário","Impostos Federais","Simples Nacional","CSLL & IRPJ"],
+  internacional: ["Relações Exteriores","Geopolítica","Conflitos Globais","América Latina","Estados Unidos","Europa","China & Ásia","Oriente Médio"],
   cultura:       ["Cinema","Música","Arte","Teatro","Literatura","Patrimônio Cultural","Streaming","Festivais"],
   imoveis:       ["Mercado Imobiliário","Financiamento Habitacional","Construtoras","Aluguel","Lançamentos","Minha Casa Minha Vida"],
-  defesa:        ["Forças Armadas","Segurança Nacional","Política de Defesa","Exército","Marinha","Aeronáutica","Fronteiras"],
   religiao:      ["Evangelicalismo","Catolicismo","Espiritualidade","Igrejas","Fé & Sociedade","Missões","Religiões Afro-brasileiras"],
-  "brasil-on":   ["Política Nacional","Fiscalização Pública","Corrupção","Movimentos Sociais","Cidadania","Direitos & Deveres","Crise Institucional"],
-  carreira:      ["Oportunidades CLT","Trabalho Remoto","Recrutamento & Seleção","Estágio","Trainee","Mercado de Trabalho","Concursos","Pós-Graduação"],
+  "brasil-on":   ["Política Nacional","Fiscalização Pública","Corrupção","Movimentos Sociais","Cidadania","Direitos & Deveres","Segurança Pública","Crise Institucional"],
+  carreira:      ["Mercado de Trabalho","Trabalho Remoto","Recrutamento & Seleção","Estágio & Trainee","Concursos Públicos","Pós-Graduação","Empreendedorismo Pessoal","Renda Extra"],
+  // legado — aceitos mas não gerados pelo pipeline
+  tributacao:    ["IRPF","Reforma Tributária","ICMS & ISS","Receita Federal","Planejamento Tributário","Impostos Federais","Simples Nacional","CSLL & IRPJ"],
+  variedades:    ["Comportamento","Lifestyle","Entretenimento","Tendências","Gastronomia","Turismo","Moda"],
+  seguranca:     ["Segurança Pública","Crime Organizado","Violência Urbana","Polícia Federal","Narcotráfico","Facções","Homicídios"],
+  defesa:        ["Forças Armadas","Segurança Nacional","Política de Defesa","Exército","Marinha","Aeronáutica","Fronteiras"],
   educacao:      ["Ensino Superior","ENEM","Educação Básica","Cursos & Certificações","Tecnologia na Educação","Bolsas de Estudo","Ensino Técnico"],
   investigativo: ["Corrupção","Operações Policiais","Denúncias","Jornalismo de Dados","Fiscalização Pública","Lavagem de Dinheiro"],
-  radar:         ["Copa do Mundo","Campeonato Brasileiro","Libertadores","Fórmula 1","Eleições","Olimpíadas","Dólar & Câmbio","Cinema & Streaming","Games & E-sports"],
+  radar:         ["Copa do Mundo","Campeonato Brasileiro","Libertadores","Fórmula 1","Eleições","Olimpíadas","Dólar & Câmbio","Cinema & Streaming"],
 };
 
 function buildUserContent(data, text, context = '') {
@@ -255,7 +232,6 @@ function markdownToHtml(texto) {
 
 function parse(raw) {
   if (!raw) return null;
-  // Normaliza output XML do Gemini (<TÍTULO>…</TÍTULO>) para formato colon esperado pelo parser
   let normalized = String(raw);
   if (/<T[IÍ]TULO\b/i.test(normalized) || /<CORPO\b/i.test(normalized)) {
     normalized = normalized
@@ -320,7 +296,7 @@ function parse(raw) {
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","industria",
     "tecnologia","esportes","saude","familia","tributos","internacional",
     "cultura","imoveis","religiao","brasil-on","carreira",
-    // legado — aceitos mas não gerados
+    // legado
     "tributacao","variedades","seguranca","defesa","educacao","investigativo","radar"];
   if (!catsValidas.includes(categoriaRaw)) categoriaRaw = "economia";
 
@@ -433,12 +409,7 @@ function auditarConteudoOVC(result, opts = {}) {
 }
 
 function buildRepairContent(originalUserContent, issues) {
-  return `${originalUserContent}
-
-O conteudo anterior falhou na auditoria editorial OVC:
-${issues.map(i => `- ${i}`).join("\n")}
-
-Reescreva integralmente agora, corrigindo os pontos acima e obedecendo ao padrao editorial.`;
+  return `${originalUserContent}\n\nO conteudo anterior falhou na auditoria editorial OVC:\n${issues.map(i => `- ${i}`).join("\n")}\n\nReescreva integralmente agora, corrigindo os pontos acima e obedecendo ao padrao editorial.`;
 }
 
 function limparCorpoColuna(corpo, colunistaNome) {
@@ -452,6 +423,12 @@ function limparCorpoColuna(corpo, colunistaNome) {
   return out.trim();
 }
 
+function _isBloqueioPauta(raw) {
+  if (!raw) return false;
+  const texto = String(raw).replace(/<[^>]*>/g, "").trim();
+  return /^INCONSISTENCIA:/i.test(texto) && texto.length < 500;
+}
+
 async function gerarComRevisao(kernel, userContent, {
   maxTokens = 8192,
   auditOptions = {},
@@ -459,10 +436,28 @@ async function gerarComRevisao(kernel, userContent, {
 } = {}) {
   const repairRules = tipoConteudo === "coluna" ? COLUNA_REPAIR_RULES : OVC_REPAIR_RULES;
   let raw = await callIA(kernel + "\n\n" + repairRules, userContent, maxTokens);
+
+  // Detectar bloqueio editorial antes de parsear
+  if (_isBloqueioPauta(raw)) {
+    throw new Error(`Bloqueio editorial: ${raw.replace(/<[^>]*>/g, "").trim().slice(0, 300)}`);
+  }
+
   let result = parse(raw);
+
+  // Detectar bloqueio no campo corpo
+  if (result?.corpo && _isBloqueioPauta(result.corpo)) {
+    throw new Error(`Bloqueio editorial: ${result.corpo.replace(/<[^>]*>/g, "").trim().slice(0, 300)}`);
+  }
+
   let issues = auditarConteudoOVC(result, auditOptions);
   if (issues.length > 0) {
     raw = await callIA(kernel + "\n\n" + repairRules, buildRepairContent(userContent, issues), maxTokens);
+
+    // Detectar bloqueio na retentativa
+    if (_isBloqueioPauta(raw)) {
+      throw new Error(`Bloqueio editorial na revisão: ${raw.replace(/<[^>]*>/g, "").trim().slice(0, 300)}`);
+    }
+
     result = parse(raw);
     issues = auditarConteudoOVC(result, auditOptions);
   }
@@ -475,28 +470,28 @@ async function gerarComRevisao(kernel, userContent, {
 }
 
 export async function rewritePortalManual(text, title, context = '', useGemini = false) {
-  const kernel = MASTER_PROMPT.replace(/{DATA_ATUAL}/g, hoje()).replace(/{DATA_DE_HOJE}/g, hoje());
+  const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2000, minParagraphs: 5, requireSignature: true },
+    auditOptions: { minChars: 2500, minParagraphs: 8 },
     tipoConteudo: "padrao"
   });
 }
 
 export async function rewritePortal(text, title, context = '', useGemini = false) {
-  const kernel = MASTER_PROMPT.replace(/{DATA_ATUAL}/g, hoje()).replace(/{DATA_DE_HOJE}/g, hoje());
+  const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2000, minParagraphs: 5, requireSignature: true },
+    auditOptions: { minChars: 2500, minParagraphs: 8 },
     tipoConteudo: "padrao"
   });
 }
 
 export async function rewriteEsportes(text, title, context = '') {
-  const kernel = MASTER_PROMPT.replace(/{DATA_ATUAL}/g, hoje()).replace(/{DATA_DE_HOJE}/g, hoje());
+  const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: { minChars: 2000, minParagraphs: 5, requireSignature: true },
+    auditOptions: { minChars: 2500, minParagraphs: 8 },
     tipoConteudo: "padrao"
   });
 }
@@ -513,7 +508,19 @@ export function auditarArtigo(titulo, corpo, categoria) {
     "especialistas apontam","é importante ressaltar","e importante ressaltar",
     "é importante destacar","e importante destacar",
     "não apenas","nao apenas","vai muito além","vai muito alem",
-    "a seguir, apresentamos","a seguir confira","veja a seguir"
+    "a seguir, apresentamos","a seguir confira","veja a seguir",
+    "jornada","ecossistema","desafios e oportunidades",
+    "reforça compromisso","reforça o compromisso","movimento estratégico",
+    "marco importante","novo capítulo","novo capitulo",
+    "divisor de águas","divisor de aguas",
+    "a empresa busca ampliar","a iniciativa visa",
+    "o caso reacende debate","reacende o debate",
+    "gera críticas","gera criticas",
+    "o mercado vê","o mercado ve",
+    "investidores temem","a população se revolta","a populacao se revolta",
+    "não se trata apenas","nao se trata apenas",
+    "posto isto","sob essa ótica","sob essa otica",
+    "cabe lembrar","vale lembrar","vale notar","ao mesmo tempo","dessa forma"
   ];
   const VICIOSESPORTE = [
     "mostrou resiliência","mostrou resiliencia","buscou ampliar a vantagem",
@@ -545,30 +552,20 @@ export function auditarArtigo(titulo, corpo, categoria) {
 }
 
 export async function rewritePilula(text, title, context = '') {
-  const kernel = MASTER_PROMPT.replace(/{DATA_ATUAL}/g, hoje()).replace(/{DATA_DE_HOJE}/g, hoje());
+  const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
-    auditOptions: {
-      minChars: 800,
-      minParagraphs: 4,
-      requireSignature: true,
-      signaturePattern: /<p>\s*<strong>Reda/i
-    },
+    auditOptions: { minChars: 2500, minParagraphs: 4 },
     tipoConteudo: "pilula"
   });
 }
 
 export async function rewriteMicroPilula(text, title, context = '') {
-  const kernel = MASTER_PROMPT.replace(/{DATA_ATUAL}/g, hoje()).replace(/{DATA_DE_HOJE}/g, hoje());
+  const kernel = MASTER_PROMPT;
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
   return gerarComRevisao(kernel, userContent, {
     maxTokens: 4096,
-    auditOptions: {
-      minChars: 600,
-      minParagraphs: 3,
-      requireSignature: true,
-      signaturePattern: /<p>\s*<strong>Reda/i
-    },
+    auditOptions: { minChars: 1200, minParagraphs: 3 },
     tipoConteudo: "micropilula"
   });
 }

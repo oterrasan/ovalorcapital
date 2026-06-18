@@ -32,6 +32,7 @@ export default async function handler(req, res) {
       if (action === "setup_storage") return handleSetupStorage(res);
       if (action === "limpar_pendentes_antigos") return handleLimparPendentesAntigos(req, res);
       if (action === "categorizar_rss") return handleCategorizarRss(req, res);
+      if (action === "archive_old_rss") return handleArchiveOldRss(req, res);
       if (action === "get_pesquisa_eleitoral") return handleGetPesquisa(res);
       if (action === "update_pesquisa_eleitoral") return handleUpdatePesquisa(req, res);
       return handleStatus(res);
@@ -501,6 +502,115 @@ Regras:
     await supabase.from("config").upsert({ key: "PESQUISA_ELEITORAL", value: JSON.stringify(payload) });
 
     return res.status(200).json({ ok: true, pesquisa: payload });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
+
+// 70 fontes aprovadas por Roberto Terrasan em 18/06/2026
+const FONTES_APROVADAS_70 = [
+  { url: "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml",             name: "Folha de S.Paulo",         categoria: "brasil-on" },
+  { url: "https://www.estadao.com.br/arc/outbound/feed/rss/?outputType=xml",   name: "O Estado de S. Paulo",     categoria: "politica" },
+  { url: "https://oglobo.globo.com/rss.xml",                                   name: "O Globo",                  categoria: "brasil-on" },
+  { url: "https://g1.globo.com/rss/g1/",                                       name: "G1",                       categoria: "brasil-on" },
+  { url: "https://noticias.uol.com.br/ultnot/rss/home.xml",                   name: "UOL Notícias",             categoria: "brasil-on" },
+  { url: "https://www.cnnbrasil.com.br/feed/",                                 name: "CNN Brasil",               categoria: "brasil-on" },
+  { url: "https://veja.abril.com.br/feed/",                                    name: "Veja",                     categoria: "politica" },
+  { url: "https://istoe.com.br/feed/",                                         name: "IstoÉ",                    categoria: "brasil-on" },
+  { url: "https://www.metropoles.com/feed",                                    name: "Metrópoles",               categoria: "brasil-on" },
+  { url: "https://www.correiobraziliense.com.br/rss_feed/?tipo=1",             name: "Correio Braziliense",      categoria: "brasil-on" },
+  { url: "https://agenciabrasil.ebc.com.br/feed.xml",                         name: "Agência Brasil",           categoria: "brasil-on" },
+  { url: "https://noticias.r7.com/feed.xml",                                   name: "R7",                       categoria: "brasil-on" },
+  { url: "https://www.valor.com.br/rss",                                       name: "Valor Econômico",          categoria: "economia" },
+  { url: "https://exame.com/feed/",                                            name: "Exame",                    categoria: "negocios" },
+  { url: "https://www.infomoney.com.br/feed/",                                 name: "InfoMoney",                categoria: "investimentos" },
+  { url: "https://epocanegocios.globo.com/rss/",                               name: "Época Negócios",           categoria: "negocios" },
+  { url: "https://forbes.com.br/feed/",                                        name: "Forbes Brasil",            categoria: "negocios" },
+  { url: "https://istoedinheiro.com.br/feed/",                                 name: "IstoÉ Dinheiro",           categoria: "economia" },
+  { url: "https://braziljournal.com/feed/",                                    name: "Brazil Journal",           categoria: "negocios" },
+  { url: "https://neofeed.com.br/feed/",                                       name: "NeoFeed",                  categoria: "negocios" },
+  { url: "https://www.moneytimes.com.br/feed/",                                name: "Money Times",              categoria: "investimentos" },
+  { url: "https://www.bloomberglinea.com/rss/",                                name: "Bloomberg Línea",          categoria: "economia" },
+  { url: "https://www.bbc.com/portuguese/index.xml",                           name: "BBC Brasil",               categoria: "internacional" },
+  { url: "https://www.poder360.com.br/feed/",                                  name: "Poder360",                 categoria: "politica" },
+  { url: "https://congressoemfoco.uol.com.br/feed/",                           name: "Congresso em Foco",        categoria: "politica" },
+  { url: "https://www.jota.info/feed",                                         name: "JOTA",                     categoria: "tributos" },
+  { url: "https://www.conjur.com.br/rss.xml",                                  name: "Conjur",                   categoria: "tributos" },
+  { url: "https://www.migalhas.com.br/rss.aspx",                              name: "Migalhas",                 categoria: "tributos" },
+  { url: "https://canaltech.com.br/rss/",                                      name: "Canaltech",                categoria: "tecnologia" },
+  { url: "https://www.techtudo.com.br/rss.xml",                                name: "TechTudo",                 categoria: "tecnologia" },
+  { url: "https://olhardigital.com.br/feed/",                                  name: "Olhar Digital",            categoria: "tecnologia" },
+  { url: "https://tiinside.com.br/feed/",                                      name: "TI Inside",                categoria: "tecnologia" },
+  { url: "https://ge.globo.com/rss/ge.xml",                                    name: "GE Globo",                 categoria: "esportes" },
+  { url: "https://www.espn.com.br/rss/",                                       name: "ESPN Brasil",              categoria: "esportes" },
+  { url: "https://www.lance.com.br/rss.xml",                                   name: "Lance!",                   categoria: "esportes" },
+  { url: "https://saude.abril.com.br/feed/",                                   name: "Saúde (Abril)",            categoria: "saude" },
+  { url: "https://vocesa.abril.com.br/feed/",                                  name: "Você S/A",                 categoria: "carreira" },
+  { url: "https://crescer.globo.com/rss.xml",                                  name: "Crescer",                  categoria: "familia" },
+  { url: "https://claudia.abril.com.br/feed/",                                 name: "Claudia",                  categoria: "familia" },
+  { url: "https://www.zapimoveis.com.br/blog/feed/",                           name: "ZAP Imóveis",              categoria: "imoveis" },
+  { url: "https://www.automotivebusiness.com.br/feed/",                        name: "Automotive Business",      categoria: "industria" },
+  { url: "https://www.vaticannews.va/pt/rss.xml",                              name: "Vatican News Brasil",      categoria: "religiao" },
+  { url: "https://www.gazetadopovo.com.br/feed/",                              name: "Gazeta do Povo",           categoria: "brasil-on" },
+  { url: "https://gauchazh.clicrbs.com.br/rss.xml",                           name: "GaúchaZH",                 categoria: "brasil-on" },
+  { url: "https://www.otempo.com.br/rss.xml",                                  name: "O Tempo",                  categoria: "brasil-on" },
+  { url: "https://odia.ig.com.br/rss.xml",                                     name: "O Dia",                    categoria: "brasil-on" },
+  { url: "https://diariodonordeste.verdesmares.com.br/rss.xml",                name: "Diário do Nordeste",       categoria: "brasil-on" },
+  { url: "https://atarde.com.br/feed/",                                        name: "A Tarde",                  categoria: "brasil-on" },
+  { url: "https://jc.ne10.uol.com.br/feed/",                                  name: "Jornal do Commercio",      categoria: "brasil-on" },
+  { url: "https://feeds.reuters.com/reuters/topNews",                          name: "Reuters",                  categoria: "internacional" },
+  { url: "https://feeds.bloomberg.com/markets/news.rss",                       name: "Bloomberg",                categoria: "economia" },
+  { url: "https://www.ft.com/rss/home",                                        name: "Financial Times",          categoria: "economia" },
+  { url: "https://feeds.wsj.com/xml/rss/3_7085.xml",                          name: "The Wall Street Journal",  categoria: "economia" },
+  { url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",            name: "The New York Times",       categoria: "internacional" },
+  { url: "https://feeds.washingtonpost.com/rss/world",                         name: "The Washington Post",      categoria: "internacional" },
+  { url: "https://www.theguardian.com/world/rss",                              name: "The Guardian",             categoria: "internacional" },
+  { url: "https://feeds.bbci.co.uk/news/rss.xml",                             name: "BBC News",                 categoria: "internacional" },
+  { url: "http://rss.cnn.com/rss/edition.rss",                                name: "CNN International",        categoria: "internacional" },
+  { url: "https://www.aljazeera.com/xml/rss/all.xml",                         name: "Al Jazeera",               categoria: "internacional" },
+  { url: "https://www.scmp.com/rss/91/feed",                                  name: "South China Morning Post", categoria: "internacional" },
+  { url: "https://asia.nikkei.com/rss/feed/nar",                              name: "Nikkei Asia",              categoria: "economia" },
+  { url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada",  name: "El País",                  categoria: "internacional" },
+  { url: "https://www.economist.com/rss.xml",                                  name: "The Economist",            categoria: "economia" },
+  { url: "https://www.politico.com/rss/politicopicks.xml",                     name: "Politico",                 categoria: "internacional" },
+  { url: "https://foreignpolicy.com/feed/",                                    name: "Foreign Policy",           categoria: "internacional" },
+  { url: "https://api.axios.com/feed/",                                        name: "Axios",                    categoria: "internacional" },
+  { url: "https://www.lemonde.fr/rss/une.xml",                                 name: "Le Monde",                 categoria: "internacional" },
+];
+
+async function handleArchiveOldRss(req, res) {
+  const pass = String(req.query.pass || "");
+  if (pass !== ADMIN_PASS) return res.status(401).json({ error: "unauthorized" });
+
+  try {
+    // 1. Arquivo todas as fontes existentes (active=false)
+    const { error: archiveErr } = await supabase
+      .from("rss_sources")
+      .update({ active: false })
+      .neq("active", false);
+
+    if (archiveErr) return res.status(500).json({ ok: false, step: "archive", error: archiveErr.message });
+
+    // 2. Upsert as 70 fontes aprovadas como ativas
+    const upsertPayload = FONTES_APROVADAS_70.map(f => ({
+      url: f.url,
+      name: f.name,
+      categoria: f.categoria,
+      active: true,
+    }));
+
+    const { error: upsertErr } = await supabase
+      .from("rss_sources")
+      .upsert(upsertPayload, { onConflict: "url" });
+
+    if (upsertErr) return res.status(500).json({ ok: false, step: "upsert", error: upsertErr.message });
+
+    return res.status(200).json({
+      ok: true,
+      arquivadas: "todas as fontes antigas marcadas como active=false",
+      inseridas: FONTES_APROVADAS_70.length,
+      fontes: FONTES_APROVADAS_70.map(f => f.name),
+    });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
