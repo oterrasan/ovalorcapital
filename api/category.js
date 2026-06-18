@@ -7,6 +7,12 @@ const LOGO = "https://www.ovalorcapital.com.br/images/logo-ovc.png";
 const SITE = "O Valor Capital";
 
 const CAT_SEO = {
+  "brasil-on": {
+    title: "Brasil On | O Valor Capital",
+    desc: "Segurança pública, jornalismo investigativo, denúncias, defesa civil e as histórias do Brasil real sem filtro editorial. O país como ele é.",
+    canonical: "https://www.ovalorcapital.com.br/brasil-on/",
+    tplPath: "brasil-on",
+  },
   politica: {
     title: "Política | O Valor Capital",
     desc: "Cobertura completa da política brasileira: Presidência, Congresso Nacional, STF, eleições e projetos de lei. Notícias e análises em tempo real.",
@@ -19,179 +25,101 @@ const CAT_SEO = {
     canonical: "https://www.ovalorcapital.com.br/economia/",
     tplPath: "economia",
   },
-  negocios: {
-    title: "Negócios | O Valor Capital",
-    desc: "Empreendedorismo, gestão financeira, startups, MEI, crédito e tributação para PJ. Tudo o que sua empresa precisa saber.",
-    canonical: "https://www.ovalorcapital.com.br/negocios/",
-    tplPath: "negocios",
-  },
   investimentos: {
     title: "Investimentos | O Valor Capital",
-    desc: "Renda fixa, renda variável, fundos, previdência e educação do investidor. Análises e estratégias para seu patrimônio crescer.",
+    desc: "Renda fixa, renda variável, fundos, previdência privada e estratégias do investidor brasileiro. Análises para seu patrimônio crescer com segurança.",
     canonical: "https://www.ovalorcapital.com.br/investimentos/",
     tplPath: "investimentos",
   },
-  seguros: {
-    title: "Seguros | O Valor Capital",
-    desc: "Seguros de vida, saúde, auto, residencial e empresarial. Tudo sobre proteção patrimonial e familiar no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/seguros/",
-    tplPath: "seguros",
-  },
-  mercados: {
-    title: "Mercados Financeiros | O Valor Capital",
-    desc: "Bolsa de valores, câmbio, juros, commodities, criptomoedas e cotações em tempo real. O melhor dos mercados financeiros do Brasil e do mundo.",
-    canonical: "https://www.ovalorcapital.com.br/mercados/",
-    tplPath: "mercados",
-  },
-  educacao: {
-    title: "Educação | O Valor Capital",
-    desc: "Educação financeira, ENEM, carreira, cursos e certificações. Conteúdo para quem quer crescer profissional e financeiramente.",
-    canonical: "https://www.ovalorcapital.com.br/educacao/",
-    tplPath: "educacao",
-  },
-  industria: {
-    title: "Indústria | O Valor Capital",
-    desc: "Notícias da indústria brasileira: agronegócio, energia, construção, mineração, automotivo, logística e indústria 4.0.",
-    canonical: "https://www.ovalorcapital.com.br/industria/",
-    tplPath: "industria",
+  negocios: {
+    title: "Negócios | O Valor Capital",
+    desc: "Empreendedorismo, gestão financeira, startups, MEI, crédito empresarial e tributação para PJ. O que as empresas brasileiras precisam saber.",
+    canonical: "https://www.ovalorcapital.com.br/negocios/",
+    tplPath: "negocios",
   },
   tecnologia: {
     title: "Tecnologia | O Valor Capital",
-    desc: "Inteligência artificial, fintechs, e-commerce, cibersegurança, 5G e transformação digital no Brasil e no mundo.",
+    desc: "Inteligência artificial, fintechs, cibersegurança, 5G, e-commerce e transformação digital. O impacto das tendências tecnológicas no Brasil e no mundo.",
     canonical: "https://www.ovalorcapital.com.br/tecnologia/",
     tplPath: "tecnologia",
   },
-  esportes: {
-    title: "Esportes | O Valor Capital",
-    desc: "Futebol, basquete, tênis, automobilismo, NFL, MMA e eSports. Notícias esportivas com análise de negócios e impacto econômico.",
-    canonical: "https://www.ovalorcapital.com.br/esportes/",
-    tplPath: "esportes",
-  },
-  saude: {
-    title: "Saúde | O Valor Capital",
-    desc: "Saúde pública, SUS, saúde mental, planos de saúde e políticas de saúde no Brasil. Informação para decisões mais saudáveis.",
-    canonical: "https://www.ovalorcapital.com.br/saude/",
-    tplPath: "saude",
-  },
-  familia: {
-    title: "Família | O Valor Capital",
-    desc: "Orçamento familiar, educação dos filhos, habitação, seguros da família, planejamento patrimonial e sucessão.",
-    canonical: "https://www.ovalorcapital.com.br/familia/",
-    tplPath: "familia",
-  },
-  tributos: {
-    title: "Tributação | O Valor Capital",
-    desc: "IRPF, reforma tributária, planejamento tributário, obrigações fiscais e simuladores. Tudo sobre impostos e tributos no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/tributos/",
-    tplPath: "tributos",
-  },
-  tributacao: {
-    title: "Tributação | O Valor Capital",
-    desc: "IRPF, reforma tributária, planejamento tributário, obrigações fiscais e simuladores. Tudo sobre impostos e tributos no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/tributos/",
-    tplPath: "tributos",
-  },
-  regulacao: {
-    title: "Regulação | O Valor Capital",
-    desc: "Regulação financeira, fiscal, de infraestrutura, telecom, saúde e concorrência no Brasil. Notícias sobre BACEN, CVM e agências reguladoras.",
-    canonical: "https://www.ovalorcapital.com.br/regulacao/",
-    tplPath: "regulacao",
-  },
-  parcerias: {
-    title: "Parcerias | O Valor Capital",
-    desc: "Parcerias empresariais, acadêmicas, institucionais e oportunidades de crescimento com O Valor Capital.",
-    canonical: "https://www.ovalorcapital.com.br/parcerias/",
-    tplPath: "parcerias",
-  },
   internacional: {
     title: "Internacional | O Valor Capital",
-    desc: "Notícias internacionais: geopolítica, economia global, EUA, Europa, China e mercados que impactam o Brasil.",
+    desc: "Geopolítica, economia global, EUA, Europa, China e Oriente Médio. Notícias e análises sobre o cenário internacional e seu impacto direto no Brasil.",
     canonical: "https://www.ovalorcapital.com.br/internacional/",
     tplPath: "internacional",
   },
-  variedades: {
-    title: "Variedades | O Valor Capital",
-    desc: "Notícias de variedades, comportamento, lifestyle e curiosidades do Brasil e do mundo.",
-    canonical: "https://www.ovalorcapital.com.br/variedades/",
-    tplPath: "variedades",
+  saude: {
+    title: "Saúde | O Valor Capital",
+    desc: "Saúde pública, SUS, saúde mental, planos de saúde, medicamentos e políticas de saúde no Brasil. Informação confiável para decisões mais saudáveis.",
+    canonical: "https://www.ovalorcapital.com.br/saude/",
+    tplPath: "saude",
   },
-  investigativo: {
-    title: "Investigativo | O Valor Capital",
-    desc: "Jornalismo investigativo, reportagens especiais e apurações exclusivas sobre política, economia e poder no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/investigativo/",
-    tplPath: "investigativo",
+  tributos: {
+    title: "Tributos | O Valor Capital",
+    desc: "IRPF, reforma tributária, planejamento tributário, obrigações fiscais e Simples Nacional. Tudo sobre impostos e tributos no Brasil com análise editorial.",
+    canonical: "https://www.ovalorcapital.com.br/tributos/",
+    tplPath: "tributos",
   },
-  seguranca: {
-    title: "Segurança Pública | O Valor Capital",
-    desc: "Segurança pública, polícia, criminalidade, defesa nacional e forças armadas. Notícias e análises sobre segurança no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/seguranca/",
-    tplPath: "seguranca",
-  },
-  cultura: {
-    title: "Cultura | O Valor Capital",
-    desc: "Arte, entretenimento, cinema, literatura, música e cultura brasileira. O melhor da produção cultural nacional.",
-    canonical: "https://www.ovalorcapital.com.br/cultura/",
-    tplPath: "cultura",
-  },
-  profissoes: {
-    title: "Profissões | O Valor Capital",
-    desc: "Tendências de mercado, perspectivas e análises das principais profissões e carreiras em alta no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/profissoes/",
-    tplPath: "profissoes",
-  },
-  vagas: {
-    title: "Vagas de Emprego | O Valor Capital",
-    desc: "Vagas de emprego abertas no Brasil, oportunidades no mercado de trabalho, CLT, home office e as melhores empresas para trabalhar.",
-    canonical: "https://www.ovalorcapital.com.br/vagas/",
-    tplPath: "vagas",
-  },
-  concursos: {
-    title: "Concursos Públicos | O Valor Capital",
-    desc: "Concursos públicos abertos, novos editais, inscrições, gabaritos e resultados. Oportunidades no setor público brasileiro.",
-    canonical: "https://www.ovalorcapital.com.br/concursos/",
-    tplPath: "concursos",
+  carreira: {
+    title: "Carreira | O Valor Capital",
+    desc: "Vagas de emprego, concursos públicos, profissões em alta, educação profissional e mercado de trabalho. Tudo para crescer na carreira no Brasil.",
+    canonical: "https://www.ovalorcapital.com.br/carreira/",
+    tplPath: "carreira",
   },
   imoveis: {
     title: "Imóveis | O Valor Capital",
-    desc: "Mercado imobiliário, lançamentos, financiamento habitacional, Minha Casa Minha Vida, FGTS, aluguel e compra de imóveis.",
+    desc: "Mercado imobiliário brasileiro: lançamentos, financiamento habitacional, Minha Casa Minha Vida, FGTS, aluguel, compra de imóveis e fundos imobiliários.",
     canonical: "https://www.ovalorcapital.com.br/imoveis/",
     tplPath: "imoveis",
   },
-  esg: {
-    title: "ESG | O Valor Capital",
-    desc: "ESG, sustentabilidade empresarial, impacto social e ambiental, finanças verdes e agenda ESG no Brasil e no mundo.",
-    canonical: "https://www.ovalorcapital.com.br/esg/",
-    tplPath: "esg",
+  seguros: {
+    title: "Seguros | O Valor Capital",
+    desc: "Seguros de vida, saúde, automóvel, residencial e empresarial. Mercado segurador, proteção patrimonial e planejamento financeiro familiar no Brasil.",
+    canonical: "https://www.ovalorcapital.com.br/seguros/",
+    tplPath: "seguros",
   },
-  defesa: {
-    title: "Defesa Nacional | O Valor Capital",
-    desc: "Forças armadas, defesa nacional, Exército, Marinha, Aeronáutica, política de defesa e segurança do Estado brasileiro.",
-    canonical: "https://www.ovalorcapital.com.br/defesa/",
-    tplPath: "defesa",
+  industria: {
+    title: "Indústria | O Valor Capital",
+    desc: "Agronegócio, energia, construção civil, mineração, setor automotivo, logística e indústria 4.0. A produção brasileira em análise e contexto econômico.",
+    canonical: "https://www.ovalorcapital.com.br/industria/",
+    tplPath: "industria",
+  },
+  familia: {
+    title: "Família | O Valor Capital",
+    desc: "Orçamento familiar, educação dos filhos, habitação, planejamento patrimonial, sucessão e bem-estar. Decisões práticas para a família brasileira.",
+    canonical: "https://www.ovalorcapital.com.br/familia/",
+    tplPath: "familia",
+  },
+  esportes: {
+    title: "Esportes | O Valor Capital",
+    desc: "Futebol, basquete, tênis, automobilismo, NFL, MMA e eSports. Notícias esportivas com análise de negócios, patrocínios e impacto econômico no Brasil.",
+    canonical: "https://www.ovalorcapital.com.br/esportes/",
+    tplPath: "esportes",
+  },
+  cultura: {
+    title: "Cultura | O Valor Capital",
+    desc: "Cinema, música, literatura, teatro, gastronomia e a produção cultural brasileira. Entretenimento com análise editorial e impacto na sociedade e na economia.",
+    canonical: "https://www.ovalorcapital.com.br/cultura/",
+    tplPath: "cultura",
   },
   religiao: {
     title: "Fé & Espiritualidade | O Valor Capital",
-    desc: "Notícias religiosas, espiritualidade, tradições de fé, valores familiares e o papel da religião na sociedade brasileira.",
+    desc: "Evangelismo, catolicismo, espiritualidade, missões e valores de fé no contexto da sociedade brasileira. A religião como força política, cultural e familiar.",
     canonical: "https://www.ovalorcapital.com.br/religiao/",
     tplPath: "religiao",
   },
   colunistas: {
     title: "Colunistas & Opinião | O Valor Capital",
-    desc: "Análise, opinião e contexto dos principais pensadores sobre política, economia e sociedade brasileira.",
+    desc: "Artigos de opinião e análises dos colunistas de O Valor Capital sobre política, economia, sociedade, família e fé na perspectiva brasileira.",
     canonical: "https://www.ovalorcapital.com.br/colunistas/",
     tplPath: "colunistas",
   },
-  "brasil-on": {
-    title: "Brasil On | O Valor Capital",
-    desc: "Segurança pública, investigação jornalística, denúncias, defesa civil e variedades do Brasil real. O país sem filtro.",
-    canonical: "https://www.ovalorcapital.com.br/brasil-on/",
-    tplPath: "brasil-on",
-  },
-  carreira: {
-    title: "Carreira | O Valor Capital",
-    desc: "Vagas de emprego, concursos públicos, profissões em alta, educação e parcerias. Tudo para crescer na carreira e no mercado de trabalho.",
-    canonical: "https://www.ovalorcapital.com.br/carreira/",
-    tplPath: "carreira",
+  vc: {
+    title: "VC — Sobre o Portal | O Valor Capital",
+    desc: "Conheça O Valor Capital: missão editorial, princípios jornalísticos, liberdade econômica e os fundamentos do portal premium de notícias do Brasil.",
+    canonical: "https://www.ovalorcapital.com.br/vc/",
+    tplPath: "vc",
   },
 };
 
@@ -263,13 +191,6 @@ const SECTION_LABELS = {
   imoveis: {
     "compra-venda": "Compra & Venda", aluguel: "Aluguel", financiamento: "Financiamento",
     mcmv: "Minha Casa Minha Vida", fiis: "Fundos Imobiliários", mercado: "Mercado Imobiliário"
-  },
-  profissoes: {
-    saude: "Saúde & Medicina", juridico: "Jurídico & Finanças", engenharia: "Engenharia & TI",
-    comunicacao: "Comunicação & Mídia", gestao: "Gestão & Negócios", vagas: "Empregos & Vagas"
-  },
-  investigativo: {
-    denuncias: "Denúncias e Exposição", "contas-publicas": "Contas Públicas"
   },
   colunistas: {
     "roberto-terrasan": "Roberto Terrasan",
