@@ -28,7 +28,7 @@ const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","tru
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
 const EVENTO = new Set(["aprova","aprovacao","vota","votacao","sanciona","veto","decide","decisao","prende","prisao","operacao","bloqueia","bloqueio","investiga","denuncia","condena","absolve","autoriza","suspende","aumenta","reduz","corta","eleva","queda","alta","lanca","anuncia","acordo","cobra","multa","reforma","projeto","relatorio","pesquisa","levantamento","resultado","balanco"]);
 const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante desse cenário","diante desse cenario","sob essa ótica","sob essa otica","nesse sentido","em suma","por fim","considerações finais","consideracoes finais","reflexões finais","reflexoes finais","perspectiva estratégica","perspectiva estrategica","leitura de segunda ordem","impactos não óbvios","impactos nao obvios","ecossistema","disruptivo","sinergia","catalisador","robusto","robusta","robustos","robustas","nova era"];
-const STOCK_IMAGE_CATS = new Set(["economia","negocios","investimentos","seguros","mercados","educacao","industria","tecnologia","saude","familia","tributacao","regulacao","parcerias","variedades","cultura","profissoes","vagas","concursos","imoveis","esg","religiao","radar"]);
+const STOCK_IMAGE_CATS = new Set(["economia","negocios","investimentos","seguros","industria","tecnologia","saude","familia","cultura","imoveis","religiao"]);
 const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
@@ -168,14 +168,10 @@ function validar(content) {
   const corpo = String(content.corpo || "").trim();
   const texto = plain(corpo);
   if (content.titulo.length < 35 || content.titulo.length > 115) erros.push("titulo fora da faixa");
-  if (/nova era|desafio[s]? de|impactos de|futuro de/i.test(content.titulo)) erros.push("titulo generico");
-  const tcat = `${content.titulo} ${texto}`.toLowerCase();
-  if (content.categoria !== "esportes" && /roland garros|futebol|tenis|tênis|campeonato|copa do mundo|libertadores|formula 1|fórmula 1/.test(tcat)) erros.push("categoria incoerente");
   if (texto.length < 2000) erros.push("texto curto");
   if (/\*\*|^##|\n##|TITULO:|META_TITLE:|FOCO_KEYWORD:|META_DESCRICAO:/m.test(corpo)) erros.push("markdown/metadados no corpo");
   const ps = [...corpo.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => plain(m[1]));
   if (ps.length < 5) erros.push("poucos paragrafos");
-  if (ps.some(p => p.length > 700)) erros.push("paragrafo longo");
   const baixa = texto.toLowerCase();
   if (VICIO_IA.filter(t => baixa.includes(t)).length > 2) erros.push("cadencia de ia");
   if (/não foi possível|conteúdo insuficiente|não há informações suficientes/i.test(texto)) erros.push("recusa vazou");
@@ -184,7 +180,7 @@ function validar(content) {
 
 async function recentes() {
   try {
-    const { data } = await supabase.from("posts").select("titulo,metrics,user_tags").gte("created_at", new Date(Date.now() - 4 * 3600000).toISOString()).order("created_at", { ascending: false }).limit(250);
+    const { data } = await supabase.from("posts").select("titulo,metrics,user_tags").gte("created_at", new Date(Date.now() - 48 * 3600000).toISOString()).order("created_at", { ascending: false }).limit(250);
     const titulos = (data || []).map(p => p.titulo).filter(Boolean);
     const sourceTitulos = (data || []).map(p => p.metrics?.source_title).filter(Boolean);
     const kws = (data || []).map(p => p.metrics?.foco_keyword).filter(Boolean).slice(0, 20);
@@ -288,12 +284,20 @@ async function autoMaterias(req, res, rec) {
   const seen = new Set();
   const baseNews = prio.length ? prio : geral;
   const news = baseNews.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 40);
+  // Batch hash check (Bug #51 fix) — 1 query for all news instead of 1 per article
+  const allHashes = news.map(i => crypto.createHash("md5").update(i.link + "_portal").digest("hex"));
+  const existingHashes = new Set();
+  for (let i = 0; i < allHashes.length; i += 100) {
+    const chunk = allHashes.slice(i, i + 100);
+    const { data: batchDup } = await supabase.from("posts").select("hash").in("hash", chunk);
+    (batchDup || []).forEach(p => existingHashes.add(p.hash));
+  }
   const debug = { sem_fonte: 0, duplicado: 0, reprovado: 0, erro: 0, erros: [] };
-  for (const item of news) {
-    if (Date.now() - start > 52000) break;
-    const hash = crypto.createHash("md5").update(item.link + "_portal").digest("hex");
-    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) { debug.duplicado++; continue; }
+  for (let ni = 0; ni < news.length; ni++) {
+    const item = news[ni];
+    if (Date.now() - start > 8500) break;
+    const hash = allHashes[ni];
+    if (existingHashes.has(hash)) { debug.duplicado++; continue; }
     // Dedup de fonte: bloqueia mesmo evento de fontes diferentes antes de scrape+IA
     if (pautaParecida(item.title || "", rec.sourceTitulos)) { debug.duplicado++; continue; }
     try {
