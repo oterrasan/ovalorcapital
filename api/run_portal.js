@@ -168,10 +168,14 @@ function validar(content) {
   const corpo = String(content.corpo || "").trim();
   const texto = plain(corpo);
   if (content.titulo.length < 35 || content.titulo.length > 115) erros.push("titulo fora da faixa");
+  if (/nova era|desafio[s]? de|impactos de|futuro de/i.test(content.titulo)) erros.push("titulo generico");
+  const tcat = `${content.titulo} ${texto}`.toLowerCase();
+  if (content.categoria !== "esportes" && /roland garros|futebol|tenis|tênis|campeonato|copa do mundo|libertadores|formula 1|fórmula 1/.test(tcat)) erros.push("categoria incoerente");
   if (texto.length < 2000) erros.push("texto curto");
   if (/\*\*|^##|\n##|TITULO:|META_TITLE:|FOCO_KEYWORD:|META_DESCRICAO:/m.test(corpo)) erros.push("markdown/metadados no corpo");
   const ps = [...corpo.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => plain(m[1]));
   if (ps.length < 5) erros.push("poucos paragrafos");
+  if (ps.some(p => p.length > 700)) erros.push("paragrafo longo");
   const baixa = texto.toLowerCase();
   if (VICIO_IA.filter(t => baixa.includes(t)).length > 2) erros.push("cadencia de ia");
   if (/não foi possível|conteúdo insuficiente|não há informações suficientes/i.test(texto)) erros.push("recusa vazou");
