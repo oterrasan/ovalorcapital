@@ -381,13 +381,6 @@ const OVC_REPAIR_RULES = `${OVC_REPAIR_BASE}
 - Retornar exatamente os mesmos campos tecnicos do formato OVC, sem texto antes ou depois.
 `;
 
-const COLUNA_REPAIR_RULES = `${OVC_REPAIR_BASE}
-- Isto e uma COLUNA ASSINADA, nao uma materia da redacao.
-- Proibido usar "Redacao OVC", "Redação OVC" ou assinatura institucional no CORPO.
-- A assinatura obrigatoria deve ser do proprio colunista informado no kernel.
-- O fechamento deve soar autoral, sem formula fixa.
-- Retornar exatamente os mesmos campos tecnicos do formato da coluna, sem texto antes ou depois.
-`;
 
 function auditarConteudoOVC(result, opts = {}) {
   const corpo = result?.corpo || "";
@@ -415,16 +408,6 @@ function buildRepairContent(originalUserContent, issues) {
   return `${originalUserContent}\n\nO conteudo anterior falhou na auditoria editorial OVC:\n${issues.map(i => `- ${i}`).join("\n")}\n\nReescreva integralmente agora, corrigindo os pontos acima e obedecendo ao padrao editorial.`;
 }
 
-function limparCorpoColuna(corpo, colunistaNome) {
-  let out = String(corpo || "");
-  out = out
-    .replace(/<p>\s*<strong>\s*Reda(?:ç|c|&ccedil;)[aã]o OVC\s*<\/strong>\s*(?:—|&mdash;|-)\s*[^<]*<\/p>\s*/gi, "")
-    .replace(/<h2[^>]*>\s*Conclus(?:a|ã|&atilde;)o OVC\s*<\/h2>\s*/gi, "");
-  if (colunistaNome && !new RegExp(`<p>\\s*<strong>\\s*${colunistaNome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(out)) {
-    out = `<p><strong>${colunistaNome}</strong> &mdash; ${hoje()}</p>\n${out.trim()}`;
-  }
-  return out.trim();
-}
 
 function _isBloqueioPauta(raw) {
   if (!raw) return false;
@@ -437,7 +420,7 @@ async function gerarComRevisao(kernel, userContent, {
   auditOptions = {},
   tipoConteudo = "padrao"
 } = {}) {
-  const repairRules = tipoConteudo === "coluna" ? COLUNA_REPAIR_RULES : OVC_REPAIR_RULES;
+  const repairRules = OVC_REPAIR_RULES;
   let raw = await callIA(kernel + "\n\n" + repairRules, userContent, maxTokens);
 
   // Detectar bloqueio editorial antes de parsear
@@ -573,107 +556,3 @@ export async function rewriteMicroPilula(text, title, context = '') {
   });
 }
 
-// ── MAPA DE COLUNISTAS OVC ──
-export const COLUNISTAS_OVC = {
-  'Roberto Terrasan': {
-    nome: 'Roberto Terrasan',
-    tom: 'Visceral, feroz, incansável na busca pela verdade. Patriota convicto, defensor da família e dos valores conservadores. Posicionado à direita. Linguagem direta, sem meias palavras. Critica com dados e argumentos, nunca com eufemismos. Incorruptível e implacável com o poder quando age contra o povo.'
-  },
-  'Beta Ferreira': {
-    nome: 'Beta Ferreira',
-    tom: 'Intelectual, elegante, provocativa e investigativa. Conservadora de alto nível. Escreve com a sofisticação dos maiores jornais globais — The Economist, Le Monde, El País. Argumentos precisos, ironia refinada, profundidade analítica sem pedantismo.'
-  },
-  'Adriana Ferreira': {
-    nome: 'Adriana Ferreira',
-    tom: 'Intelectual, elegante, provocativa e investigativa. Conservadora de alto nível. Escreve com a sofisticação dos maiores jornais globais — The Economist, Le Monde, El País. Argumentos precisos, ironia refinada, profundidade analítica sem pedantismo.'
-  },
-  'Michele Froiz': {
-    nome: 'Michele Froiz',
-    tom: 'Leve, sutil, comunicativa. Fala a língua da galera sem perder substância. Tom próximo, acessível, com leveza que não trivializa — conservadora sem ser sisuda. Conecta política e cotidiano com naturalidade.'
-  },
-  'Coluna OVC': {
-    nome: 'Coluna OVC',
-    tom: 'Padrão editorial OVC em formato coluna. Conservador, posicionado à direita. Analítico, factual, sem sensacionalismo. Voz institucional do portal: segura, autoritativa, comprometida com a verdade.'
-  },
-  'Prof. Marcos Pizzolatto': {
-    nome: 'Prof. Marcos Pizzolatto',
-    tom: 'Filosófico, profundo, socrático. Professor e crítico político que desmonta argumentos progressistas com rigor intelectual e método filosófico. Usa Aristóteles, Hayek, Burke e Tocqueville com naturalidade. Cada coluna é uma aula.'
-  },
-  'Gabriel Thiede': {
-    nome: 'Gabriel Thiede',
-    tom: 'Didático, acessível, prático. Professor de finanças pessoais que ensina o leitor a tomar decisões financeiras melhores. Linguagem simples, exemplos concretos, sem jargão desnecessário. Conservador no sentido de preservar patrimônio e construir independência.'
-  },
-  'Fabiana Campos': {
-    nome: 'Fabiana Campos',
-    tom: 'Jornalística clássica: factual, objetiva, rigorosa. Conservadora com compromisso apuratório. Escreve como se cada linha pudesse ser questionada — e estaria certa. Sem opinião gratuita, apenas fatos e análise fundamentada.'
-  },
-  'Larissa Corvetto': {
-    nome: 'Larissa Corvetto',
-    tom: 'Incisiva, analítica, cirúrgica na crítica política. Desmonta narrativas progressistas com dados e lógica. Linguagem direta, argumentos afiados, tolerância zero com falsidades do poder. Conservadora declarada e sem desculpas.'
-  },
-  'Taísa da Fonseca': {
-    nome: 'Taísa da Fonseca',
-    tom: 'Inspiradora, feminina, empreendedora. Fala de negócios, moda, independência financeira e empoderamento feminino com elegância e pragmatismo. Conservadora que acredita que a mulher se emancipa pelo mérito e pela família, não pela ideologia.'
-  },
-  'André Oliveira': {
-    nome: 'André Oliveira',
-    tom: 'Experiente, equilibrado, jornalista de carreira. Temas amplos, abordagem clássica. Escreve com a maturidade de décadas de redação — preciso, sem sensacionalismo, respeitado mesmo por quem discorda. Conservador moderado.'
-  },
-};
-
-function buildColunaKernel(colunistaNome) {
-  const c = COLUNISTAS_OVC[colunistaNome];
-  if (!c) throw new Error(`Colunista não encontrado: ${colunistaNome}`);
-  return `# COLUNA OVC — ${c.nome.toUpperCase()}
-
-Você está escrevendo uma COLUNA ASSINADA por ${c.nome} para o portal O Valor Capital.
-
-IDENTIDADE DO COLUNISTA:
-Nome: ${c.nome}
-Tom e estilo: ${c.tom}
-
-FUNÇÃO: Produzir uma coluna de opinião analítica com a voz autêntica e inconfundível de ${c.nome}. O texto deve soar como escrito pela própria pessoa — não como gerado por IA.
-
-IDIOMA: Português brasileiro.
-
-PROTOCOLO ANTI-PADRÃO IA:
-Evitar: vale destacar | cabe ressaltar | nesse contexto | diante disso | acende alerta | especialistas apontam | em um mundo cada vez mais | no cenário atual | análise estratégica | reflexões finais | considerações finais | palavras finais
-
-ESTRUTURA DA COLUNA:
-— Abertura impactante sem <h2> — gancho pessoal ou factual que define o ponto de vista
-— 3 a 6 seções com <h2> desenvolvendo o argumento central
-— Fechamento contundente sem fórmula — a última linha deve ter peso
-
-FORMATO DE SAÍDA OBRIGATÓRIO — retornar EXATAMENTE estes campos:
-TITULO: [título da coluna — 50 a 70 caracteres — com voz do colunista]
-META_TITLE: [máximo 55 caracteres]
-FOCO_KEYWORD: [2 a 4 palavras — tema central]
-SLUG: [4 a 5 palavras hifenizadas sem acento]
-META_DESCRICAO: [entre 141 e 155 caracteres — frase única contínua]
-CATEGORIA: [UMA: politica | economia | negocios | investimentos | tributacao | internacional | variedades | cultura | familia | defesa | religiao]
-SUBCATEGORIA: [subcategoria específica]
-CORPO:
-<p><strong>${c.nome}</strong> — {DATA_DE_HOJE}</p>
-
-[HTML completo com: <p>, <h2>, <strong>.
-PROIBIDO: markdown, <ul>, perguntas retóricas ao leitor, ganchos de engajamento.
-Cada <p> MÁXIMO 3 frases e MÁXIMO 350 caracteres.
-<strong> em nomes, datas e dados-chave.
-MÍNIMO 8.000 caracteres no CORPO total.]`;
-}
-
-export async function rewriteColuna(colunistaNome, tema, referencias = '', contexto = '') {
-  const kernel = buildColunaKernel(colunistaNome).replace(/{DATA_DE_HOJE}/g, hoje());
-  const parts = [`TEMA DA COLUNA: ${tema}`];
-  if (referencias) parts.push(`REFERÊNCIAS E LINKS: ${referencias}`);
-  if (contexto) parts.push(`CONTEXTO ADICIONAL: ${contexto}`);
-  const userContent = parts.join('\n\n');
-  const result = await gerarComRevisao(kernel, userContent, {
-    maxTokens: 16000,
-    auditOptions: { minChars: 4000, minParagraphs: 9, forbidOvcSignature: true, forbidOvcConclusion: true },
-    tipoConteudo: "coluna"
-  });
-  result.colunista = colunistaNome;
-  result.corpo = limparCorpoColuna(result.corpo, colunistaNome);
-  return result;
-}

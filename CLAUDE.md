@@ -3574,3 +3574,167 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **`/vc/contato/` funcionando** — página de contato com layout padrão OVC | ✅ CRIADO (PR #224, 18/06/2026) |
 | **vercel.json rotas brasil-on e carreira** | ✅ JÁ EXISTIAM (confirmado 18/06/2026) |
 | **CAT_SEO 19 categorias válidas, descrições 120-160 chars** | ✅ EM PRODUÇÃO (PR #222, 18/06/2026) |
+| **RSS timeout 10s→5s + FOUC 1800ms→1000ms + site.css?v=1** | ✅ PR #231 pronto para merge (20/06/2026) |
+
+---
+
+### Sessão 20/06/2026 — AUDITORIA COMPLETA + FIXES DE PERFORMANCE
+
+#### Contexto
+
+Roberto pediu auditoria completa de todo o código ("eu quero que voce olhe tudo... nao adianta pintar o carro se a lataria estiver toda torta") e depois: "voce é o técnico aqui, voce é quem deve me informar o que devemos fazer primeiro e o porque".
+
+---
+
+#### PR #230 — Restauração de 3 checks em `validar()` (mergeado)
+
+A sessão anterior (faxina do pipeline, PR #229) removeu 3 validações sem autorização de Roberto:
+- `titulo generico` — detecta títulos-IA como "nova era de", "impactos de", "futuro de"
+- `paragrafo longo` — bloqueia parágrafos com >700 chars de texto puro
+- `categoria incoerente` — bloqueia artigos esportivos em categorias não-esportes
+
+Roberto ficou furioso: "voce mexeu e nem pediu minha autorizacao!". PR #230 restaurou os 3 checks.
+**Commit mergeado:** `1a478bedf21189e5c80af95c8b7082bb23a9bf02`
+
+**Estado FINAL e CORRETO de `validar()` em `api/run_portal.js`:**
+```js
+function validar(content) {
+  const erros = [];
+  if (!content?.titulo || !content?.corpo) return ["estrutura ausente"];
+  if (content?.auditoria_ovc?.startsWith('INCONSISTENCIA')) return ['auditoria reprovada: ' + content.auditoria_ovc];
+  content.titulo = stripTitle(content.titulo);
+  const corpo = String(content.corpo || "").trim();
+  const texto = plain(corpo);
+  if (content.titulo.length < 35 || content.titulo.length > 115) erros.push("titulo fora da faixa");
+  if (/nova era|desafio[s]? de|impactos de|futuro de/i.test(content.titulo)) erros.push("titulo generico");
+  const tcat = `${content.titulo} ${texto}`.toLowerCase();
+  if (content.categoria !== "esportes" && /roland garros|futebol|tenis|tênis|campeonato|copa do mundo|libertadores|formula 1|fórmula 1/.test(tcat)) erros.push("categoria incoerente");
+  if (texto.length < 2000) erros.push("texto curto");
+  if (/\*\*|^##|\n##|TITULO:|META_TITLE:|FOCO_KEYWORD:|META_DESCRICAO:/m.test(corpo)) erros.push("markdown/metadados no corpo");
+  const ps = [...corpo.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => plain(m[1]));
+  if (ps.length < 5) erros.push("poucos paragrafos");
+  if (ps.some(p => p.length > 700)) erros.push("paragrafo longo");
+  const baixa = texto.toLowerCase();
+  if (VICIO_IA.filter(t => baixa.includes(t)).length > 2) erros.push("cadencia de ia");
+  if (/não foi possível|conteúdo insuficiente|não há informações suficientes/i.test(texto)) erros.push("recusa vazou");
+  return erros;
+}
+```
+
+---
+
+#### Auditoria completa do codebase (20/06/2026)
+
+**Achados da auditoria:**
+
+| Arquivo | Problema identificado | Status |
+|---|---|---|
+| `core/rss.js` | timeout 10000ms por feed — bottleneck real em `Promise.allSettled` | ✅ CORRIGIDO em PR #231 |
+| `public/index.html` | FOUC guard `setTimeout(r, 1800)` — 1,8s de opacidade:0 mesmo em conexões rápidas | ✅ CORRIGIDO em PR #231 |
+| `public/index.html` | `site.css` sem `?v=N` — pode ser cacheado indefinidamente pelo CDN | ✅ CORRIGIDO em PR #231 |
+| `core/ai_portal.js` | `rewriteColuna()` + `buildColunaKernel()` + `limparCorpoColuna()` — funções exportadas que NUNCA são importadas em nenhum outro arquivo | ⚠️ IDENTIFICADO — não removido (REGRA ZERO-B, aguardando autorização de Roberto) |
+| `api/manage.js` | `VENDOR_JS` + `handleVendorJs()` — ainda ATIVO (usado por admin/index.html para carregar React, Babel, Supabase via proxy) | ✅ MANTIDO — NÃO é dead code |
+| `api/manage.js` | `handleSetupStorage()` — ainda ATIVO (botão no admin chama `action=setup_storage`) | ✅ MANTIDO — NÃO é dead code |
+| `api/manage.js` | `handleLimparPendentesAntigos()` — ainda ATIVO (usado em `public/admin-tools.js`) | ✅ MANTIDO — NÃO é dead code |
+| `core/rss.js` | Jaccard dedup threshold 0.45 (vs 0.62/0.75 em run_portal.js) — menor que o ideal | ⚠️ IDENTIFICADO — não é bottleneck de performance, impacta qualidade marginalmente |
+
+**Achados que o audit agent errou:**
+- `VENDOR_JS`, `handleSetupStorage`, `handleLimparPendentesAntigos` foram erroneamente identificados como "dead code" — verificação manual confirmou que todos ainda são usados.
+- `core/rss.js` já usa `Promise.allSettled` (não `Promise.all`) — o audit agent estava errado nesse ponto. O bottleneck real é o timeout individual de 10000ms por feed.
+
+---
+
+#### PR #231 — Fixes de performance (aguardando merge)
+
+**Branch:** `claude/youthful-goodall-il7w48`
+**CI:** ✅ Verde — "Verificar arquivos críticos" passou
+**Previews:** ✅ Todos 3 prontos (ovalorcapital, ovalorcapital-hubx, ovalorcapital-xuhw)
+
+**O que foi corrigido:**
+
+1. **`core/rss.js` — RSS timeout 10000ms → 5000ms:**
+   - `RSSParser` constructor: `timeout: 10000` → `timeout: 5000`
+   - `fetchFeed()` axios: `timeout: 10000` → `timeout: 5000`
+   - Com 70 feeds em `Promise.allSettled`, um feed lento podia travar toda a rodada por 10s inteiros. Agora o máximo é 5s por feed — metade do budget original.
+
+2. **`public/index.html` — FOUC guard 1800ms → 1000ms:**
+   - `setTimeout(r, 1800)` → `setTimeout(r, 1000)`
+   - Reduz o tempo máximo de `opacity:0` em 800ms para visitantes em conexões lentas.
+
+3. **`public/index.html` — site.css?v=1:**
+   - `href="/css/site.css"` → `href="/css/site.css?v=1"`
+   - Invalida cache CDN do CSS global do portal.
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+### Sessão 20/06/2026 (continuação) — DEAD CODE REMOVAL `core/ai_portal.js`
+
+#### Contexto
+
+Roberto retornou após descanso ("claude, voltei") e autorizou com "pode executar" a remoção do dead code em `core/ai_portal.js` que havia sido identificado na auditoria.
+
+#### O que foi feito (commit `f2a06fe` — branch `claude/youthful-goodall-il7w48`, parte do PR #231)
+
+**`core/ai_portal.js` — 122 linhas removidas:**
+
+| Bloco removido | Linhas (aprox.) | Motivo |
+|---|---|---|
+| `COLUNA_REPAIR_RULES` | ~7 | Só usado no caminho `tipoConteudo === "coluna"`, que só era setado por `rewriteColuna()` (dead code) |
+| `tipoConteudo === "coluna"` ternário | 1 | Simplificado para `const repairRules = OVC_REPAIR_RULES;` |
+| `limparCorpoColuna()` | ~10 | Nunca importada externamente; removida junto com seu único caller |
+| `COLUNISTAS_OVC` export | ~46 | Mapa de 11 perfis de colunistas — nunca importado externamente |
+| `buildColunaKernel()` | ~40 | Builder de prompt para colunas — nunca chamada externamente |
+| `rewriteColuna()` export | ~15 | Nunca importada em nenhum arquivo do repo |
+
+**Resultado:** arquivo passou de ~680 para 558 linhas. Todas as 8 exports ativas preservadas integralmente. MASTER_PROMPT V8.0 intocado (REGRA ZERO-B respeitada).
+
+**Todos os 3 previews Vercel do PR #231 estão ✅ Ready** após o commit.
+
+---
+
+## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 20/06/2026
+
+### 🔴 PENDÊNCIAS CRÍTICAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P1 | **Mergear PR #231** | **Roberto** | CI verde, todos os 3 previews Vercel ✅ Ready. Fixes: RSS timeout 5s, FOUC 1s, site.css?v=1 + dead code removal (122 linhas) |
+| P2 | **Aprovar artigos pendentes** | **Roberto** | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
+
+### 🟡 PENDÊNCIAS MÉDIAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P3 | ~~Remover dead code em `core/ai_portal.js`~~ | ✅ FEITO (20/06/2026 — commit `f2a06fe`) | `rewriteColuna()` + `buildColunaKernel()` + `limparCorpoColuna()` + `COLUNISTAS_OVC` + `COLUNA_REPAIR_RULES` — 122 linhas removidas. Parte do PR #231. |
+| P4 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro |
+| P5 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Quando autorizar: apenas título, sem resumo |
+| P6 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+
+### 🟢 PENDÊNCIAS BAIXAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P7 | **Unificar threshold Jaccard** | Claude | rss.js usa 0.45, run_portal.js usa 0.62/0.75 — centralizar em 0.65 melhora qualidade do dedup na etapa RSS |
+| P8 | **Verificar artigos Copa/eleitorais** | Aguardar pipeline | Widgets ativam automaticamente com keywords |
+| P9 | **Senha admin hardcoded** | Claude (baixa urgência) | `admin/index.html` linha 139 |
+
+### 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
+
+| # | Pendência | Urgência | Detalhes |
+|---|---|---|---|
+| R1 | **Deletar SUPABASE_KEY env var morta no Vercel** | Média | Projeto `ovalorcapital-xuhw` → Settings → Environment Variables → deletar `SUPABASE_KEY` (banco morto `bfsegqdgscudtdgwdyci`) |
+| R2 | **Instagram SSL** | Média | `ovalorcapital.com.br` non-www falha no IAB |
+| R3 | **Google Indexing API** | Média | `GOOGLE_INDEXING_SA_JSON` ausente no Vercel |
+| R4 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586` |
+| R5 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
+| R6 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), deletar `ovalorcapital` e `ovalorcapital-hubx` com cuidado |
+

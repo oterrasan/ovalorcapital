@@ -5,7 +5,7 @@ import RSSParser from 'rss-parser';
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
 const parser = new RSSParser({
-  timeout: 10000,
+  timeout: 5000,
   customFields: {
     item: [['pubDate','pubDate'],['published','published'],['updated','updated']],
   }
@@ -130,7 +130,7 @@ function parseXmlFallback(xml) {
 async function fetchFeed(url) {
   try {
     const res = await axios.get(url, {
-      timeout: 10000,
+      timeout: 5000,
       responseType: 'text',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
