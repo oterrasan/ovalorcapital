@@ -202,7 +202,7 @@ function titulosSimilares(a, b) {
   if (wa.size === 0 || wb.size === 0) return false;
   const intersect = [...wa].filter(w => wb.has(w)).length;
   const union = new Set([...wa, ...wb]).size;
-  return (intersect / union) >= 0.45;
+  return (intersect / union) >= 0.65;
 }
 
 function dedupPorTitulo(items) {
