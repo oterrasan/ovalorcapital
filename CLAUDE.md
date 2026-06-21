@@ -3574,7 +3574,10 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **`/vc/contato/` funcionando** — página de contato com layout padrão OVC | ✅ CRIADO (PR #224, 18/06/2026) |
 | **vercel.json rotas brasil-on e carreira** | ✅ JÁ EXISTIAM (confirmado 18/06/2026) |
 | **CAT_SEO 19 categorias válidas, descrições 120-160 chars** | ✅ EM PRODUÇÃO (PR #222, 18/06/2026) |
-| **RSS timeout 10s→5s + FOUC 1800ms→1000ms + site.css?v=1** | ✅ PR #231 pronto para merge (20/06/2026) |
+| **RSS timeout 10s→5s + FOUC 1800ms→1000ms + site.css?v=1** | ✅ EM PRODUÇÃO (PR #231, 21/06/2026) |
+| **Dead code removal `core/ai_portal.js`** (122 linhas — rewriteColuna/buildColunaKernel/etc.) | ✅ EM PRODUÇÃO (PR #231, 21/06/2026) |
+| **Jaccard threshold 0.45→0.65 em `core/rss.js`** — unificado com run_portal.js | ✅ EM PRODUÇÃO (PR #232, 21/06/2026) |
+| **Admin password SHA-256** — `const ADMIN_PASS` substituído por hash + crypto.subtle | ✅ EM PRODUÇÃO (PR #232, 21/06/2026) |
 
 ---
 
@@ -3701,31 +3704,46 @@ Roberto retornou após descanso ("claude, voltei") e autorizou com "pode executa
 
 ---
 
-## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 20/06/2026
+---
 
-### 🔴 PENDÊNCIAS CRÍTICAS
+### Sessão 21/06/2026 — DEAD CODE REMOVAL + JACCARD + ADMIN PASSWORD
 
-| # | Pendência | Quem | Detalhes |
-|---|---|---|---|
-| P1 | **Mergear PR #231** | **Roberto** | CI verde, todos os 3 previews Vercel ✅ Ready. Fixes: RSS timeout 5s, FOUC 1s, site.css?v=1 + dead code removal (122 linhas) |
-| P2 | **Aprovar artigos pendentes** | **Roberto** | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
+#### Continuação direta da sessão 20/06 (Roberto dormiu e retomou com "claude, voltei")
+
+**Contexto:** Roberto autorizou todos os itens solo pendentes: "Quero que voce pegue TODOS os itens pendentes que voce resolve sozinho e resolva agora todos." Também clarificou que Claude deve executar os merges, não pedir.
+
+#### O que foi feito
+
+**PR #231 — já mergeado (sessão 20/06, continuação desta):**
+- RSS timeout 5000ms, FOUC guard 1000ms, site.css?v=1
+- Dead code removal em `core/ai_portal.js`: 122 linhas (`rewriteColuna`, `buildColunaKernel`, `limparCorpoColuna`, `COLUNISTAS_OVC`, `COLUNA_REPAIR_RULES`)
+- Commit squash: `3327733ee86a641b20471b485d80b77ae8c0160b`
+
+**PR #232 — mergeado (21/06/2026, commit `72f45840648ba1846b58410b0fae87d10c7910e0`):**
+- `core/rss.js`: threshold Jaccard 0.45 → 0.65 (linha 205) — unificado com `run_portal.js` (0.62/0.75). Reduz duplicatas na etapa RSS.
+- `public/admin/index.html`: `const ADMIN_PASS = 'ovc-admin-2026-secreto'` substituído por SHA-256 hash. Hash: `f0a2470ce55e8c7a2774e60fde538043d626e0f32f02577ca9f1ce4331f8032b` (sha256("ovc-admin-2026-secreto" + "ovc_salt_2026")). Login usa `crypto.subtle.digest` do browser.
+- CI verde, todos os 3 previews Vercel ✅
+
+---
+
+## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 21/06/2026
 
 ### 🟡 PENDÊNCIAS MÉDIAS
 
 | # | Pendência | Quem | Detalhes |
 |---|---|---|---|
-| P3 | ~~Remover dead code em `core/ai_portal.js`~~ | ✅ FEITO (20/06/2026 — commit `f2a06fe`) | `rewriteColuna()` + `buildColunaKernel()` + `limparCorpoColuna()` + `COLUNISTAS_OVC` + `COLUNA_REPAIR_RULES` — 122 linhas removidas. Parte do PR #231. |
-| P4 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro |
-| P5 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Quando autorizar: apenas título, sem resumo |
-| P6 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+| P1 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto". Quando autorizar: apenas título, sem resumo |
+| P2 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+| P3 | **Executar categorização RSS** | Claude (com autorização) | `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto` — rodar com `&dry=1` primeiro. Pode não ser mais necessário com as 70 fontes curadas. |
 
 ### 🟢 PENDÊNCIAS BAIXAS
 
 | # | Pendência | Quem | Detalhes |
 |---|---|---|---|
-| P7 | **Unificar threshold Jaccard** | Claude | rss.js usa 0.45, run_portal.js usa 0.62/0.75 — centralizar em 0.65 melhora qualidade do dedup na etapa RSS |
-| P8 | **Verificar artigos Copa/eleitorais** | Aguardar pipeline | Widgets ativam automaticamente com keywords |
-| P9 | **Senha admin hardcoded** | Claude (baixa urgência) | `admin/index.html` linha 139 |
+| P4 | **Verificar artigos Copa/eleitorais** | Aguardar pipeline | Widgets ativam automaticamente com keywords |
+| P5 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
+| P6 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
+| P7 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
 
 ### 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
 
