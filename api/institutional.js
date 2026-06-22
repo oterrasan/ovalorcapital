@@ -6,41 +6,52 @@ const NAVY = "#0f172a";
 
 const EMAIL_DISPLAY = "redacao@ovalorcapital.com.br";
 
-const NAV_LINKS = [
-  ["Política","/politica/"],["Economia","/economia/"],["Investimentos","/investimentos/"],
-  ["Negócios","/negocios/"],["Seguros","/seguros/"],["Família","/familia/"],
-];
-
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 function buildHeader(){
-  const navHtml = NAV_LINKS.map(([label,href])=>
-    `<a href="${href}" style="color:rgba(255,255,255,.85);text-decoration:none;font-size:14px;font-weight:600;padding:6px 10px;border-radius:6px;transition:color .15s" onmouseover="this.style.color='${GOLD}'" onmouseout="this.style.color='rgba(255,255,255,.85)'">${label}</a>`
-  ).join("");
-  return `<header style="background:${NAVY};border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:999">
-<div style="max-width:1400px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;gap:24px">
-  <a href="/" style="text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-.5px;color:${GOLD};white-space:nowrap">O VALOR CAPITAL</a>
-  <nav style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${navHtml}</nav>
+  return `<div class="ovc-shell"><header class="header">
+<div class="header-topbar">
+<div class="ticker-wrapper"><div class="ticker-track" id="ticker-track">
+<div class="ticker-item"><span class="ticker-label">dólar</span><span class="ticker-value" data-ticker="usd">—</span></div>
+<div class="ticker-item"><span class="ticker-label">euro</span><span class="ticker-value" data-ticker="eur">—</span></div>
+<div class="ticker-item"><span class="ticker-label">bitcoin</span><span class="ticker-value" data-ticker="btc">—</span></div>
+<div class="ticker-item"><span class="ticker-label">ibov</span><span class="ticker-value" data-ticker="ibov">—</span></div>
+<div class="ticker-item"><span class="ticker-label">s&amp;p 500</span><span class="ticker-value" data-ticker="sp500">—</span></div>
+<div class="ticker-item"><span class="ticker-label">dólar</span><span class="ticker-value" data-ticker="usd">—</span></div>
+<div class="ticker-item"><span class="ticker-label">euro</span><span class="ticker-value" data-ticker="eur">—</span></div>
+</div></div>
+<div class="impostometro"><div class="impostometro-value"><span>impostômetro</span><span id="impostometro">R$ 0,00</span></div></div>
+</div>
+<div class="header-identity">
+<div class="logo-block"><a class="logo-link" href="/"><span style="font-size:20px;font-weight:900;letter-spacing:-.5px;color:#d4af37;font-family:system-ui,sans-serif">O VALOR CAPITAL</span></a></div>
+<div class="header-actions">
+<a class="btn-acesso" href="/admin/">Acesso</a>
+</div>
+</div>
+<div class="header-menu-bar">
+<nav class="supermenu">
+<div class="supermenu-item"><a class="label" href="/brasil-on/">Brasil On</a><div class="submenu"><div class="submenu-title">Brasil On</div><a href="/brasil-on/seguranca-publica/">Segurança Pública</a><a href="/brasil-on/defesa-nacional/">Defesa Nacional</a><a href="/brasil-on/justica-e-investigacao/">Justiça &amp; Investigação</a><a href="/brasil-on/corrupcao-e-transparencia/">Corrupção &amp; Transparência</a><a href="/brasil-on/consumidor/">Consumidor</a><a href="/brasil-on/infraestrutura-nacional/">Infraestrutura Nacional</a><a href="/brasil-on/meio-ambiente/">Meio Ambiente</a><a href="/brasil-on/ciencia-e-inovacao/">Ciência &amp; Inovação</a><a href="/brasil-on/sociedade/">Sociedade</a><a href="/brasil-on/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/politica/">Política</a><div class="submenu"><div class="submenu-title">Política</div><a href="/politica/executivo/">Executivo</a><a href="/politica/legislativo-congresso-ao-vivo/">Legislativo (Congresso ao vivo)</a><a href="/politica/judiciario/">Judiciário</a><a href="/politica/projetos-de-lei/">Projetos de Lei</a><a href="/politica/eleicoes/">Eleições</a><a href="/politica/agenda-regulatoria/">Agenda Regulatória</a><a href="/politica/bastidores-de-brasilia/">Bastidores de Brasília</a><a href="/politica/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/economia/">Economia</a><div class="submenu"><div class="submenu-title">Economia</div><a href="/economia/politica-monetaria/">Política Monetária</a><a href="/economia/politica-fiscal/">Política Fiscal</a><a href="/economia/indicadores-economicos/">Indicadores Econômicos</a><a href="/economia/mercado-de-trabalho/">Mercado de Trabalho</a><a href="/economia/consumo-e-varejo/">Consumo &amp; Varejo</a><a href="/economia/commodities/">Commodities</a><a href="/economia/cambio-e-moedas/">Câmbio &amp; Moedas</a><a href="/economia/economia-internacional/">Economia Internacional</a><a href="/economia/minuto-fiscal/">Minuto Fiscal</a><a href="/economia/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/investimentos/">Investimentos</a><div class="submenu"><div class="submenu-title">Investimentos</div><a href="/investimentos/renda-fixa/">Renda Fixa</a><a href="/investimentos/bolsa-e-acoes/">Bolsa &amp; Ações</a><a href="/investimentos/dividendos/">Dividendos</a><a href="/investimentos/fiis/">FIIs</a><a href="/investimentos/fundos/">Fundos</a><a href="/investimentos/previdencia/">Previdência</a><a href="/investimentos/investimentos-internacionais/">Investimentos Internacionais</a><a href="/investimentos/alternativos/">Alternativos</a><a href="/investimentos/criptomoedas/">Criptomoedas</a><a href="/investimentos/estrategias/">Estratégias</a><a href="/investimentos/educacao-do-investidor/">Educação do Investidor</a><a href="/investimentos/calendario-e-dividendos/">Calendário Econômico &amp; Dividendos</a><a href="/investimentos/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/negocios/">Negócios</a><div class="submenu"><div class="submenu-title">Negócios</div><a href="/negocios/empreendedorismo/">Empreendedorismo</a><a href="/negocios/gestao-financeira/">Gestão Financeira</a><a href="/negocios/credito-empresarial/">Crédito Empresarial</a><a href="/negocios/tributacao-empresarial/">Tributação Empresarial</a><a href="/negocios/vendas-e-precificacao/">Vendas &amp; Precificação</a><a href="/negocios/contratos-e-societario/">Contratos &amp; Societário</a><a href="/negocios/lgpd-e-compliance/">LGPD &amp; Compliance</a><a href="/negocios/franquias/">Franquias</a><a href="/negocios/startups/">Startups</a><a href="/negocios/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/tecnologia/">Tecnologia</a><div class="submenu"><div class="submenu-title">Tecnologia</div><a href="/tecnologia/inteligencia-artificial/">Inteligência Artificial</a><a href="/tecnologia/dados-e-analytics/">Dados &amp; Analytics</a><a href="/tecnologia/fintechs/">Fintechs</a><a href="/tecnologia/e-commerce/">E-commerce</a><a href="/tecnologia/telecom-e-5g/">Telecom &amp; 5G</a><a href="/tecnologia/ciberseguranca/">Cibersegurança</a><a href="/tecnologia/govtech/">GovTech</a><a href="/tecnologia/healthtech/">HealthTech</a><a href="/tecnologia/transformacao-digital/">Transformação Digital</a><a href="/tecnologia/startups-tech/">Startups Tech</a><a href="/tecnologia/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/internacional/">Internacional</a><div class="submenu"><div class="submenu-title">Internacional</div><a href="/internacional/estados-unidos/">Estados Unidos</a><a href="/internacional/china/">China</a><a href="/internacional/europa/">Europa</a><a href="/internacional/america-latina/">América Latina</a><a href="/internacional/oriente-medio/">Oriente Médio</a><a href="/internacional/russia-e-leste-europeu/">Rússia &amp; Leste Europeu</a><a href="/internacional/geopolitica/">Geopolítica</a><a href="/internacional/organismos-internacionais/">Organismos Internacionais</a><a href="/internacional/comercio-global/">Comércio Global</a><a href="/internacional/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/saude/">Saúde</a><div class="submenu"><div class="submenu-title">Saúde</div><a href="/saude/saude-preventiva/">Saúde Preventiva</a><a href="/saude/saude-mental/">Saúde Mental</a><a href="/saude/saude-publica/">Saúde Pública</a><a href="/saude/planos-de-saude/">Planos de Saúde</a><a href="/saude/saude-digital/">Saúde Digital</a><a href="/saude/custos-e-indicadores/">Custos &amp; Indicadores</a><a href="/saude/longevidade/">Longevidade</a><a href="/saude/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/tributos/">Tributos</a><div class="submenu"><div class="submenu-title">Tributos</div><a href="/tributos/irpf/">IRPF</a><a href="/tributos/irpj-e-empresas/">IRPJ &amp; Empresas</a><a href="/tributos/investimentos/">Investimentos</a><a href="/tributos/mei/">MEI</a><a href="/tributos/obrigacoes-fiscais/">Obrigações Fiscais</a><a href="/tributos/planejamento-tributario/">Planejamento Tributário</a><a href="/tributos/reforma-tributaria/">Reforma Tributária</a><a href="/tributos/simuladores/">Simuladores</a><a href="/tributos/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/carreira/">Carreira</a><div class="submenu"><div class="submenu-title">Carreira</div><a href="/carreira/vagas-de-emprego/">Vagas de Emprego</a><a href="/carreira/concursos-publicos/">Concursos Públicos</a><a href="/carreira/educacao-e-cursos/">Educação &amp; Cursos</a><a href="/carreira/mercado-de-trabalho/">Mercado de Trabalho</a><a href="/carreira/clt/">CLT</a><a href="/carreira/pj/">PJ</a><a href="/carreira/trabalho-remoto/">Trabalho Remoto</a><a href="/carreira/renda-extra/">Renda Extra</a><a href="/carreira/carreira-internacional/">Carreira Internacional</a><a href="/carreira/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/imoveis/">Imóveis</a><div class="submenu"><div class="submenu-title">Imóveis</div><a href="/imoveis/compra-e-venda/">Compra &amp; Venda</a><a href="/imoveis/aluguel/">Aluguel</a><a href="/imoveis/financiamento/">Financiamento</a><a href="/imoveis/mercado-imobiliario/">Mercado Imobiliário</a><a href="/imoveis/valorizacao-de-mercado/">Valorização de Mercado</a><a href="/imoveis/leiloes/">Leilões</a><a href="/imoveis/construcao-e-reforma/">Construção &amp; Reforma</a><a href="/imoveis/fiis/">FIIs</a><a href="/imoveis/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/seguros/">Seguros</a><div class="submenu"><div class="submenu-title">Seguros</div><a href="/seguros/saude-e-odonto/">Saúde &amp; Odonto</a><a href="/seguros/vida/">Vida</a><a href="/seguros/auto/">Auto</a><a href="/seguros/residencial/">Residencial</a><a href="/seguros/empresarial/">Empresarial</a><a href="/seguros/responsabilidade-civil/">Responsabilidade Civil</a><a href="/seguros/viagem/">Viagem</a><a href="/seguros/indicadores-do-setor/">Indicadores do Setor</a><a href="/seguros/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/industria/">Indústria</a><div class="submenu"><div class="submenu-title">Indústria</div><a href="/industria/energia/">Energia</a><a href="/industria/infraestrutura/">Infraestrutura</a><a href="/industria/agroindustria/">Agroindústria</a><a href="/industria/mineracao/">Mineração</a><a href="/industria/siderurgia/">Siderurgia</a><a href="/industria/quimica/">Química</a><a href="/industria/automotivo/">Automotivo</a><a href="/industria/logistica/">Logística</a><a href="/industria/portos/">Portos</a><a href="/industria/ferrovias/">Ferrovias</a><a href="/industria/industria-4-0/">Indústria 4.0</a><a href="/industria/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/familia/">Família</a><div class="submenu"><div class="submenu-title">Família</div><a href="/familia/orcamento-familiar/">Orçamento Familiar</a><a href="/familia/educacao-dos-filhos/">Educação dos Filhos</a><a href="/familia/habitacao/">Habitação</a><a href="/familia/seguros-familiares/">Seguros Familiares</a><a href="/familia/sucessao-e-patrimonio/">Sucessão &amp; Patrimônio</a><a href="/familia/seguranca-familiar/">Segurança Familiar</a><a href="/familia/lazer/">Lazer</a><a href="/familia/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/esportes/">Esportes</a><div class="submenu"><div class="submenu-title">Esportes</div><a href="/esportes/futebol/">Futebol</a><a href="/esportes/basquete/">Basquete</a><a href="/esportes/nfl/">NFL</a><a href="/esportes/mlb/">MLB</a><a href="/esportes/mma/">MMA</a><a href="/esportes/automobilismo/">Automobilismo</a><a href="/esportes/tenis/">Tênis</a><a href="/esportes/esports/">eSports</a><a href="/esportes/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/cultura/">Cultura</a><div class="submenu"><div class="submenu-title">Cultura</div><a href="/cultura/cinema/">Cinema</a><a href="/cultura/musica/">Música</a><a href="/cultura/literatura/">Literatura</a><a href="/cultura/arte-e-exposicoes/">Arte &amp; Exposições</a><a href="/cultura/teatro-e-danca/">Teatro &amp; Dança</a><a href="/cultura/gastronomia/">Gastronomia</a><a href="/cultura/streaming-e-tv/">Streaming &amp; TV</a><a href="/cultura/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/religiao/">Religião</a><div class="submenu"><div class="submenu-title">Religião</div><a href="/religiao/fe-e-sociedade/">Fé &amp; Sociedade</a><a href="/religiao/missoes/">Missões</a><a href="/religiao/familia-e-valores/">Família &amp; Valores</a><a href="/religiao/datas-e-celebracoes/">Datas &amp; Celebrações</a><a href="/religiao/espiritualidade/">Espiritualidade</a><a href="/religiao/comunidades-e-eventos/">Comunidades &amp; Eventos</a><a href="/religiao/geral/">Geral</a></div></div>
+<div class="supermenu-item"><a class="label" href="/colunistas/">Colunistas</a><div class="submenu"><div class="submenu-title">Opinião OVC</div><a href="/colunistas/">Todos os colunistas</a><a href="/colunistas/">Artigos e colunas</a></div></div>
+<div class="supermenu-item"><a class="label" href="/vc/">VC</a></div>
+</nav>
 </div>
 </header>`;
-}
-
-function buildFooter(){
-  return `<footer style="background:${NAVY};border-top:1px solid rgba(255,255,255,.08);padding:40px 24px 32px;text-align:center;margin-top:auto">
-<div style="max-width:960px;margin:0 auto;color:rgba(255,255,255,.6);font-size:13px;line-height:1.9">
-  <strong style="color:${GOLD};font-size:16px;font-weight:900;display:block;margin-bottom:8px">O VALOR CAPITAL</strong>
-  © 2026 O Valor Capital — Redação OVC. Todos os direitos reservados.&nbsp;&nbsp;<span style="font-size:.82em;opacity:.7">🔒 Conexão segura HTTPS</span>
-  <br>
-  <span style="display:inline-flex;flex-wrap:wrap;gap:4px 16px;justify-content:center;margin-top:10px">
-    <a href="/quem-somos/" style="color:rgba(255,255,255,.45);text-decoration:none">Quem Somos</a>
-    <a href="/politica-editorial/" style="color:rgba(255,255,255,.45);text-decoration:none">Política Editorial</a>
-    <a href="/termos/" style="color:rgba(255,255,255,.45);text-decoration:none">Termos de Uso</a>
-    <a href="/privacidade/" style="color:rgba(255,255,255,.45);text-decoration:none">Privacidade</a>
-    <a href="/cookies/" style="color:rgba(255,255,255,.45);text-decoration:none">Cookies</a>
-  </span>
-  <span style="display:block;font-size:.76em;opacity:.45;margin-top:12px;line-height:1.6">O conteúdo tem caráter informativo e jornalístico. Não constitui recomendação de investimento. Responsável editorial: <strong style="opacity:.8">Redação OVC</strong>.</span>
-</div>
-</footer>`;
 }
 
 function buildQuemsomosPage(){
@@ -305,23 +316,24 @@ function buildPage(pageKey){
 <script type="application/ld+json">${jsonLd}</script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="/css/home.css">
+<link rel="stylesheet" href="/css/site.css">
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:#f5f5f5;color:#1a1a1a}
-@media(max-width:768px){nav a{display:none}nav a:first-child,nav a:nth-child(2){display:inline}}
 @media(max-width:640px){
   [data-col2]{grid-template-columns:1fr!important}
   [data-flex-row]{flex-direction:column!important}
 }
 </style>
 </head>
-<body>
+<body class="ovc-inner-page" data-theme="light">
 ${buildHeader()}
 <div style="min-height:80vh">
 ${bodyContent}
 </div>
-${buildFooter()}
+</div>
+<script src="/js/site.js" defer></script>
+<script src="/js/newsletter-bar.js" defer></script>
 </body>
 </html>`;
 }
