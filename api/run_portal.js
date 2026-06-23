@@ -15,20 +15,19 @@ async function log(level, message) {
 }
 
 
-const CATS = new Set(["brasil-on","politica","economia","investimentos","negocios","tecnologia","internacional","saude","tributos","carreira","imoveis","seguros","industria","familia","esportes","cultura","religiao","colunistas","vc"]);
+const CATS = new Set(["brasil-on","politica","economia","financas","negocios","tecnologia","internacional","industria","familia","esportes","colunistas","vc"]);
 const PRIORIDADE_PESOS = {
-  "politica":15,"economia":12,"brasil-on":8,
-  "negocios":7,"investimentos":7,"internacional":6,"tecnologia":6,
-  "seguros":5,"familia":5,"esportes":5,"saude":5,
-  "tributos":4,"industria":4,"carreira":4,"imoveis":4,"cultura":4,"religiao":4
+  "politica":15,"economia":12,"brasil-on":10,
+  "financas":10,"negocios":8,"internacional":7,"tecnologia":7,
+  "esportes":6,"industria":5,"familia":5
 };
 const PRIORIDADE = Object.entries(PRIORIDADE_PESOS).flatMap(([cat,n]) => Array(n).fill(cat));
-const SUBCAT = { "brasil-on":"Notícias do Brasil", politica:"Governo Federal", economia:"Política Econômica", investimentos:"Bolsa de Valores", negocios:"Empresas & Corporações", tecnologia:"Inteligência Artificial", internacional:"Relações Exteriores", saude:"Medicina & Tratamentos", tributos:"IRPF", carreira:"Mercado de Trabalho", imoveis:"Mercado Imobiliário", seguros:"Seguro de Vida", industria:"Agronegócio", familia:"Educação dos Filhos", esportes:"Futebol", cultura:"Cinema & Arte", religiao:"Fé & Sociedade", colunistas:"Opinião", vc:"Institucional" };
+const SUBCAT = { "brasil-on":"Notícias do Brasil", politica:"Governo Federal", economia:"Política Econômica", financas:"Renda Fixa", negocios:"Empresas & Corporações", tecnologia:"Inteligência Artificial", internacional:"Relações Exteriores", industria:"Agronegócio", familia:"Educação dos Filhos", esportes:"Futebol", colunistas:"Opinião", vc:"Institucional" };
 const RECORRENTES = new Set(["lula","bolsonaro","moraes","alexandre","dino","trump","putin","haddad","stf","congresso","senado","camara","governo","presidente","ministro","deputado","senador","pcc","policia","federal","dolar","selic","ipca","copom","ibovespa","brasil","eua","china","russia"]);
 const STOP = new Set(["para","pelo","pela","pelos","pelas","como","mais","sobre","apos","entre","nova","novo","novas","novos","com","sem","que","uma","uns","umas","dos","das","nos","nas","aos","seu","sua","seus","suas","sera","antes","nao","nem","mas","ate","alem","desde","isso","esta","este","esse","essa","onde","quando","qual","quais","fica","faz","fez","foi","sao","tem","ter","pode","deve","diz","disse","afirma","anuncia","revela","aponta","destaca","alerta"]);
 const EVENTO = new Set(["aprova","aprovacao","vota","votacao","sanciona","veto","decide","decisao","prende","prisao","operacao","bloqueia","bloqueio","investiga","denuncia","condena","absolve","autoriza","suspende","aumenta","reduz","corta","eleva","queda","alta","lanca","anuncia","acordo","cobra","multa","reforma","projeto","relatorio","pesquisa","levantamento","resultado","balanco"]);
 const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante desse cenário","diante desse cenario","sob essa ótica","sob essa otica","nesse sentido","em suma","por fim","considerações finais","consideracoes finais","reflexões finais","reflexoes finais","perspectiva estratégica","perspectiva estrategica","leitura de segunda ordem","impactos não óbvios","impactos nao obvios","ecossistema","disruptivo","sinergia","catalisador","robusto","robusta","robustos","robustas","nova era"];
-const STOCK_IMAGE_CATS = new Set(["economia","negocios","investimentos","seguros","industria","tecnologia","saude","familia","cultura","imoveis","religiao"]);
+const STOCK_IMAGE_CATS = new Set(["economia","negocios","financas","industria","tecnologia","familia"]);
 const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
@@ -192,7 +191,15 @@ async function recentes() {
   } catch (_) { return { titulos: [], sourceTitulos: [], contexto: "" }; }
 }
 
-const CAT_REMAP = { tributacao:"tributos", variedades:"cultura", seguranca:"brasil-on", defesa:"brasil-on", educacao:"carreira", investigativo:"brasil-on", mercados:"investimentos", regulacao:"tributos" };
+const CAT_REMAP = {
+  tributacao:"economia", tributos:"economia", regulacao:"economia",
+  variedades:"brasil-on", seguranca:"brasil-on", defesa:"brasil-on",
+  educacao:"brasil-on", investigativo:"brasil-on",
+  mercados:"financas", investimentos:"financas", seguros:"financas",
+  saude:"brasil-on", carreira:"brasil-on", imoveis:"brasil-on",
+  cultura:"brasil-on", religiao:"brasil-on",
+  parcerias:"negocios"
+};
 function remapCat(content) { if (content?.categoria && CAT_REMAP[content.categoria]) content.categoria = CAT_REMAP[content.categoria]; return content; }
 
 async function resolverImagem(content, articleImage, hash, start) {
