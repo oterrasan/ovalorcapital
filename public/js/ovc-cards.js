@@ -2,41 +2,35 @@
   'use strict';
 
   var CATS = [
-    { id:'brasil-on',    label:'Brasil On',            path:'/brasil-on/',     cats:['brasil-on','investigativo','seguranca','variedades','defesa','esg'] }, // 0
-    { id:'politica',     label:'Política',             path:'/politica/',      cats:['politica'] },          // 1
-    { id:'economia',     label:'Economia',             path:'/economia/',      cats:['economia'] },          // 2
-    { id:'investimentos',label:'Investimentos',        path:'/investimentos/', cats:['investimentos','mercados'] }, // 3
-    { id:'negocios',     label:'Negócios',            path:'/negocios/',      cats:['negocios','parcerias'] }, // 4
-    { id:'tecnologia',   label:'Tecnologia',           path:'/tecnologia/',    cats:['tecnologia'] },        // 5
-    { id:'internacional',label:'Internacional',        path:'/internacional/', cats:['internacional'] },     // 6
-    { id:'saude',        label:'Saúde',               path:'/saude/',         cats:['saude'] },             // 7
-    { id:'tributos',     label:'Tributos',             path:'/tributos/',      cats:['tributos','tributacao','regulacao'] }, // 8
-    { id:'carreira',     label:'Carreira',             path:'/carreira/',      cats:['carreira','educacao','profissoes','vagas','concursos'] }, // 9
-    { id:'imoveis',      label:'Imóveis',             path:'/imoveis/',       cats:['imoveis'] },           // 10
-    { id:'seguros',      label:'Seguros',              path:'/seguros/',       cats:['seguros'] },           // 11
-    { id:'industria',    label:'Indústria',           path:'/industria/',     cats:['industria'] },         // 12
-    { id:'familia',      label:'Família',             path:'/familia/',       cats:['familia'] },           // 13
-    { id:'esportes',     label:'Esportes',             path:'/esportes/',      cats:['esportes'] },          // 14
-    { id:'cultura',      label:'Cultura',              path:'/cultura/',       cats:['cultura'] },           // 15
-    { id:'religiao',     label:'Fé & Espiritualidade', path:'/religiao/',     cats:['religiao'] },          // 16
-    { id:'vc',           label:'Colunistas OVC',       path:'/colunistas/',    cats:['vc','colunistas'] }    // 17
+    { id:'brasil-on',    label:'Brasil On',    path:'/brasil-on/',     cats:['brasil-on','investigativo','seguranca','variedades','defesa','esg','saude','carreira','imoveis','cultura','religiao','educacao','profissoes','vagas','concursos'] }, // 0
+    { id:'politica',     label:'Política',     path:'/politica/',      cats:['politica'] },          // 1
+    { id:'economia',     label:'Economia',     path:'/economia/',      cats:['economia','tributos','tributacao','regulacao'] },   // 2
+    { id:'financas',     label:'Finanças',     path:'/financas/',      cats:['financas','investimentos','mercados','seguros'] },  // 3
+    { id:'negocios',     label:'Negócios',     path:'/negocios/',      cats:['negocios','parcerias'] }, // 4
+    { id:'tecnologia',   label:'Tecnologia',   path:'/tecnologia/',    cats:['tecnologia'] },        // 5
+    { id:'internacional',label:'Internacional',path:'/internacional/', cats:['internacional'] },     // 6
+    { id:'industria',    label:'Indústria',    path:'/industria/',     cats:['industria'] },         // 7
+    { id:'familia',      label:'Família',      path:'/familia/',       cats:['familia'] },           // 8
+    { id:'esportes',     label:'Esportes',     path:'/esportes/',      cats:['esportes'] },          // 9
+    { id:'vc',           label:'Colunistas',   path:'/colunistas/',    cats:['vc','colunistas'] }    // 10
   ];
 
-  var CATS_DESTAQUE = ['politica','economia','internacional','brasil-on','negocios','seguros'];
+  var CATS_DESTAQUE = ['politica','economia','financas','brasil-on','negocios','internacional'];
 
   var CORES_CAT = {
     'brasil-on':'#0f172a',politica:'#dc2626',economia:'#2563eb',
-    investimentos:'#059669',negocios:'#7c3aed',tecnologia:'#6366f1',
-    internacional:'#dc2626',saude:'#16a34a',tributos:'#b45309',
-    carreira:'#0369a1',imoveis:'#b45309',seguros:'#0284c7',
-    industria:'#ea580c',familia:'#db2777',esportes:'#16a34a',
-    cultura:'#7e22ce',religiao:'#6d28d9',vc:'#b8860b',
-    // aliases para categorias extintas (fallback de cor)
-    mercados:'#0891b2',tributacao:'#b45309',regulacao:'#9333ea',
+    financas:'#059669',negocios:'#7c3aed',tecnologia:'#6366f1',
+    internacional:'#dc2626',industria:'#ea580c',familia:'#db2777',
+    esportes:'#16a34a',vc:'#b8860b',colunistas:'#b8860b',
+    // aliases para categorias absorvidas (fallback de cor)
+    investimentos:'#059669',mercados:'#0891b2',seguros:'#0284c7',
+    tributos:'#b45309',tributacao:'#b45309',regulacao:'#9333ea',
+    saude:'#16a34a',carreira:'#0369a1',imoveis:'#b45309',
+    cultura:'#7e22ce',religiao:'#6d28d9',
     educacao:'#8b5cf6',profissoes:'#0369a1',vagas:'#065f46',
     concursos:'#1e40af',parcerias:'#14b8a6',
     investigativo:'#1a1a2e',seguranca:'#7f1d1d',variedades:'#ec4899',
-    esg:'#166534',defesa:'#1e3a5f',colunistas:'#b8860b'
+    esg:'#166534',defesa:'#1e3a5f'
   };
 
   var ROTATION_INTERVAL = 7000;
@@ -57,16 +51,18 @@
 
   function buildUrl(p){
     var catPath = {
-      politica:'politica', economia:'economia', negocios:'negocios',
-      investimentos:'investimentos', mercados:'investimentos',
-      seguros:'seguros', tributos:'tributos', tributacao:'tributos', regulacao:'tributos',
-      tecnologia:'tecnologia', industria:'industria', saude:'saude',
-      educacao:'carreira', profissoes:'carreira', vagas:'carreira', concursos:'carreira', carreira:'carreira',
-      esportes:'esportes', familia:'familia', internacional:'internacional',
-      variedades:'brasil-on', investigativo:'brasil-on', seguranca:'brasil-on', esg:'brasil-on', defesa:'brasil-on',
-      'brasil-on':'brasil-on', imoveis:'imoveis', religiao:'religiao',
-      parcerias:'negocios', vc:'colunistas', colunistas:'colunistas',
-      cultura:'cultura', geral:'politica'
+      'brasil-on':'brasil-on',politica:'politica',economia:'economia',
+      financas:'financas',negocios:'negocios',tecnologia:'tecnologia',
+      internacional:'internacional',industria:'industria',familia:'familia',esportes:'esportes',
+      vc:'colunistas',colunistas:'colunistas',
+      // absorvidas — redireciona para nova categoria
+      investimentos:'financas',mercados:'financas',seguros:'financas',
+      tributos:'economia',tributacao:'economia',regulacao:'economia',
+      saude:'brasil-on',carreira:'brasil-on',imoveis:'brasil-on',
+      cultura:'brasil-on',religiao:'brasil-on',
+      educacao:'brasil-on',profissoes:'brasil-on',vagas:'brasil-on',concursos:'brasil-on',
+      variedades:'brasil-on',investigativo:'brasil-on',seguranca:'brasil-on',esg:'brasil-on',defesa:'brasil-on',
+      parcerias:'negocios',geral:'brasil-on'
     };
     var cp = catPath[p.categoria] || 'politica';
     var sl = p.slug ? p.slug.slice(0,55) : _slugify(p.titulo||'');

@@ -121,76 +121,91 @@ const CAT_SEO = {
     canonical: "https://www.ovalorcapital.com.br/vc/",
     tplPath: "vc",
   },
+  financas: {
+    title: "Finanças | O Valor Capital",
+    desc: "Renda fixa, bolsa de valores, seguros, previdência, fundos imobiliários, planejamento patrimonial e criptomoedas. Decisões financeiras com análise editorial de alto nível.",
+    canonical: "https://www.ovalorcapital.com.br/financas/",
+    tplPath: "financas",
+  },
 };
 
 const SECTION_LABELS = {
   politica: {
+    "bastidores-de-brasilia": "Bastidores de Brasília",
+    "eleicoes-2026": "Eleições 2026",
+    "noticias-24hrs": "Notícias 24hrs",
+    "corrupcao-e-investigacao": "Corrupção & Investigação",
+    "politica-internacional": "Política Internacional",
+    geral: "Geral",
+    // legado
     executivo: "Executivo", legislativo: "Legislativo", judiciario: "Judiciário",
     eleicoes: "Eleições", partidos: "Partidos", defesa: "Defesa Nacional"
   },
   economia: {
+    "politica-economica": "Política Econômica",
+    "cambio-e-mercados": "Câmbio & Mercados",
+    "pib-e-indicadores": "PIB & Indicadores",
+    tributos: "Tributos",
+    geral: "Geral",
+    // legado
     pib: "PIB & Crescimento", inflacao: "Inflação & IPCA", cambio: "Câmbio",
     selic: "Selic & COPOM", fiscal: "Política Fiscal", previdencia: "Previdência"
   },
+  financas: {
+    "renda-fixa": "Renda Fixa",
+    "bolsa-e-acoes": "Bolsa & Ações",
+    "seguros-e-protecao": "Seguros & Proteção",
+    previdencia: "Previdência",
+    "fundos-e-fiis": "Fundos & FIIs",
+    "planejamento-patrimonial": "Planejamento Patrimonial",
+    criptomoedas: "Criptomoedas",
+    geral: "Geral"
+  },
   negocios: {
-    empreendedorismo: "Empreendedorismo", gestao: "Gestão", startups: "Startups",
+    empreendedorismo: "Empreendedorismo", startups: "Startups",
+    gestao: "Gestão", "credito-empresarial": "Crédito Empresarial", geral: "Geral",
+    // legado
     mei: "MEI & Pequenas", credito: "Crédito & Captação", franquias: "Franquias"
   },
-  investimentos: {
-    "renda-fixa": "Renda Fixa", "renda-variavel": "Renda Variável", fundos: "Fundos",
-    previdencia: "Previdência Privada", cripto: "Criptomoedas", internacional: "Internacional"
-  },
   tecnologia: {
-    ia: "Inteligência Artificial", fintechs: "Fintechs", ciberseguranca: "Cibersegurança",
-    "5g": "5G & Telecom", "e-commerce": "E-commerce", inovacao: "Inovação"
-  },
-  saude: {
-    "saude-publica": "Saúde Pública", planos: "Planos de Saúde", sus: "SUS",
-    "saude-mental": "Saúde Mental", medicamentos: "Medicamentos", anvisa: "Vigilância Sanitária"
-  },
-  esportes: {
-    futebol: "Futebol", basquete: "Basquete", tenis: "Tênis",
-    automobilismo: "Automobilismo", mma: "MMA & Lutas", "e-sports": "E-sports"
-  },
-  cultura: {
-    cinema: "Cinema & Streaming", musica: "Música", literatura: "Literatura",
-    artes: "Artes", gastronomia: "Gastronomia", turismo: "Turismo"
+    "inteligencia-artificial": "Inteligência Artificial", fintechs: "Fintechs",
+    ciberseguranca: "Cibersegurança", inovacao: "Inovação", geral: "Geral",
+    // legado
+    ia: "Inteligência Artificial", "5g": "5G & Telecom", "e-commerce": "E-commerce"
   },
   internacional: {
-    "america-latina": "América Latina", eua: "Estados Unidos", europa: "Europa",
-    asia: "Ásia", "oriente-medio": "Oriente Médio", geopolitica: "Geopolítica"
-  },
-  "brasil-on": {
-    seguranca: "Segurança Pública", investigativo: "Investigativo", denuncias: "Denúncias",
-    defesa: "Defesa Civil", "brasil-real": "Brasil Real", variedades: "Variedades"
-  },
-  carreira: {
-    vagas: "Vagas & Empregos", concursos: "Concursos", profissoes: "Profissões",
-    educacao: "Educação", parcerias: "Parcerias", mercado: "Mercado de Trabalho"
-  },
-  familia: {
-    orcamento: "Orçamento Familiar", filhos: "Filhos & Educação", habitacao: "Habitação",
-    sucessao: "Sucessão", seguros: "Seguros da Família", "bem-estar": "Bem-estar"
-  },
-  seguros: {
-    vida: "Seguro de Vida", saude: "Saúde", auto: "Auto",
-    residencial: "Residencial", empresarial: "Empresarial", previdencia: "Previdência"
-  },
-  tributos: {
-    irpf: "IRPF", irpj: "IRPJ & Empresas", planejamento: "Planejamento Tributário",
-    obrigacoes: "Obrigações Acessórias", reforma: "Reforma Tributária", simples: "Simples Nacional"
+    eua: "Estados Unidos", europa: "Europa", china: "China",
+    geopolitica: "Geopolítica", geral: "Geral",
+    // legado
+    "america-latina": "América Latina", asia: "Ásia", "oriente-medio": "Oriente Médio"
   },
   industria: {
     agronegocio: "Agronegócio", energia: "Energia", construcao: "Construção Civil",
-    mineracao: "Mineração", automotivo: "Setor Automotivo", logistica: "Logística"
+    logistica: "Logística", geral: "Geral",
+    // legado
+    mineracao: "Mineração", automotivo: "Setor Automotivo"
   },
-  religiao: {
-    evangelicos: "Evangélicos", catolicos: "Católicos", outras: "Outras Religiões",
-    "fe-sociedade": "Fé & Sociedade", missoes: "Missões", familia: "Família & Valores"
+  esportes: {
+    futebol: "Futebol", basquete: "Basquete", motor: "Motor",
+    tenis: "Tênis", mma: "MMA", volei: "Vôlei", nfl: "NFL", geral: "Geral",
+    // legado
+    automobilismo: "Automobilismo", "e-sports": "E-sports"
   },
-  imoveis: {
-    "compra-venda": "Compra & Venda", aluguel: "Aluguel", financiamento: "Financiamento",
-    mcmv: "Minha Casa Minha Vida", fiis: "Fundos Imobiliários", mercado: "Mercado Imobiliário"
+  familia: {
+    "orcamento-familiar": "Orçamento Familiar",
+    "educacao-dos-filhos": "Educação dos Filhos",
+    habitacao: "Habitação", sucessao: "Sucessão", geral: "Geral",
+    // legado
+    orcamento: "Orçamento Familiar", filhos: "Filhos & Educação",
+    seguros: "Seguros da Família", "bem-estar": "Bem-estar"
+  },
+  "brasil-on": {
+    cotidiano: "Cotidiano", consumidor: "Consumidor",
+    "bem-estar": "Bem-estar", "meio-ambiente": "Meio Ambiente",
+    "ciencia-e-inovacao": "Ciência & Inovação", geral: "Geral",
+    // legado
+    seguranca: "Segurança Pública", investigativo: "Investigativo", denuncias: "Denúncias",
+    defesa: "Defesa Civil", "brasil-real": "Brasil Real", variedades: "Variedades"
   },
   colunistas: {
     "roberto-terrasan": "Roberto Terrasan",
@@ -204,7 +219,16 @@ const SECTION_LABELS = {
     "andre-oliveira": "Andre Oliveira",
     "gabriel-thiede": "Gabriel Thiede",
     "fabiana-campos": "Fabiana Campos"
-  }
+  },
+  // legado — mantidos para URLs antigas de artigos
+  saude: { "saude-publica": "Saúde Pública", planos: "Planos de Saúde", sus: "SUS" },
+  carreira: { vagas: "Vagas & Empregos", concursos: "Concursos", profissoes: "Profissões" },
+  investimentos: { "renda-fixa": "Renda Fixa", "renda-variavel": "Renda Variável" },
+  seguros: { vida: "Seguro de Vida", auto: "Auto", residencial: "Residencial" },
+  tributos: { irpf: "IRPF", reforma: "Reforma Tributária" },
+  imoveis: { "compra-venda": "Compra & Venda", aluguel: "Aluguel" },
+  cultura: { cinema: "Cinema & Streaming", musica: "Música" },
+  religiao: { evangelicos: "Evangélicos", catolicos: "Católicos" }
 };
 
 const _tpl = {};
