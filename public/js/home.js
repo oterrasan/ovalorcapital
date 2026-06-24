@@ -345,9 +345,11 @@
     carregarCardNegocios(cache, 0);
     carregarCardLions(cache, 0);
 
-    // Rotação dos cards de destaque a cada 8 segundos
-    setInterval(() => {
-      if (!__cache) return;
+    // Rotação dos cards de destaque a cada 8 segundos — máximo 5 conteúdos (carga inicial + 4 trocas)
+    let _rotCount = 0;
+    const _rotTimer = setInterval(() => {
+      if (!__cache || _rotCount >= 4) { clearInterval(_rotTimer); return; }
+      _rotCount++;
       heroOffset++;
       negociosOffset++;
       lionsOffset++;
