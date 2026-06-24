@@ -7,17 +7,21 @@
   function buildUrl(p) {
     if (p && p.url && /^\/[a-z0-9-]+\/.+-[a-f0-9]{8}\/?$/i.test(p.url)) return p.url;
     const catPath = {
-      politica:'politica', economia:'economia', negocios:'negocios',
-      investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
-      educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
-      esportes:'esportes', saude:'saude', familia:'familia',
-      tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
-      vc:'colunistas', colunistas:'colunistas', internacional:'internacional',
-      variedades:'variedades', geral:'politica',
-      investigativo:'investigativo', seguranca:'seguranca', cultura:'cultura',
-      profissoes:'profissoes', vagas:'vagas', concursos:'concursos',
-      imoveis:'imoveis', esg:'esg', defesa:'defesa', religiao:'religiao',
-      'brasil-on':'brasil-on', carreira:'carreira', tributos:'tributos'
+      // Categorias ativas
+      'brasil-on':'brasil-on', politica:'politica', economia:'economia',
+      financas:'financas', negocios:'negocios', tecnologia:'tecnologia',
+      internacional:'internacional', industria:'industria', familia:'familia',
+      esportes:'esportes', vc:'colunistas', colunistas:'colunistas',
+      // Legado → novas categorias (artigos antigos no banco)
+      investimentos:'financas', seguros:'financas',
+      saude:'brasil-on', carreira:'brasil-on', imoveis:'brasil-on',
+      cultura:'brasil-on', religiao:'brasil-on',
+      tributos:'economia', tributacao:'economia', regulacao:'economia',
+      mercados:'financas', educacao:'brasil-on', variedades:'brasil-on',
+      investigativo:'brasil-on', seguranca:'brasil-on',
+      profissoes:'brasil-on', vagas:'brasil-on', concursos:'brasil-on',
+      esg:'brasil-on', defesa:'brasil-on', parcerias:'negocios',
+      geral:'politica'
     };
     const cat = catPath[p.categoria] || 'politica';
     const rawSlug = p.slug || stripMd(p.titulo || '').toLowerCase().normalize('NFD')
@@ -174,8 +178,8 @@
     try {
       const cardEl = document.getElementById('card-lions-seguros');
       if (cardEl) cardEl.style.display = '';
-      const PRIMARY_CATS = ['investimentos','seguros','imoveis'];
-      const BROAD_CATS = ['investimentos','seguros','imoveis','economia','tributos','carreira','industria'];
+      const PRIMARY_CATS = ['financas','investimentos','seguros','imoveis'];
+      const BROAD_CATS = ['financas','investimentos','seguros','imoveis','economia','industria','negocios'];
       const primary = [];
       for (const cat of PRIMARY_CATS) {
         (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => primary.push(p));

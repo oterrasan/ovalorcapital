@@ -478,29 +478,24 @@ function buildSection(container){
   var miolo = document.createElement('div');
   miolo.className = 'ovc-miolo';
 
-  // Distribuição das 18 categorias nos blocos
-  // CATS[0]=brasil-on [1]=politica [2]=economia [3]=investimentos [4]=negocios
-  // [5]=tecnologia [6]=internacional [7]=saude [8]=tributos [9]=carreira
-  // [10]=imoveis [11]=seguros [12]=industria [13]=familia [14]=esportes
-  // [15]=cultura [16]=religiao [17]=vc/colunistas
+  // Distribuição das 11 categorias nos blocos (nova estrutura pós-PR #235)
+  // CATS[0]=brasil-on [1]=politica [2]=economia [3]=financas [4]=negocios
+  // [5]=tecnologia [6]=internacional [7]=industria [8]=familia [9]=esportes [10]=vc/colunistas
 
-  var blocoACats1 = [CATS[1], CATS[2], CATS[6]];           // Política, Economia, Internacional
+  var blocoACats1 = [CATS[1], CATS[2], CATS[3]];            // Política, Economia, Finanças
   var bloCACatGrande = CATS[0];                              // Brasil On (grande destaque)
-  var blocoCCatsPilha = [CATS[4], CATS[3], CATS[5]];        // Negócios, Investimentos, Tecnologia
-  var blocoACats2 = [CATS[11], CATS[8], CATS[9]];           // Seguros, Tributos, Carreira
-  var blocoDCats = [CATS[7], CATS[12], CATS[10], CATS[13]]; // Saúde, Indústria, Imóveis, Família
-  var blocoECat = CATS[14];                                  // Esportes (editorial full-width)
-  var blocoACats3 = [CATS[15], CATS[16], CATS[17]];         // Cultura, Religião, Colunistas
+  var blocoCCatsPilha = [CATS[4], CATS[5]];                  // Negócios, Tecnologia
+  var blocoACats2 = [CATS[6], CATS[7], CATS[8]];            // Internacional, Indústria, Família
+  var blocoECat = CATS[9];                                   // Esportes (editorial full-width)
+  var blocoACats3 = [CATS[10]];                              // Colunistas
 
-  // Montar sequência: B → sep → A1 → C → A2 → sep → D → sep → E → A3
+  // Montar sequência: B → sep → A1 → C → A2 → sep → E → A3
   var bA1 = renderBlocoA([], blocoACats1);
   var bB  = renderBlocoB([]);
   var sep1 = document.createElement('div'); sep1.className='ovc-sep';
   var bA2 = renderBlocoA([], blocoACats2);
   var bC  = renderBlocoC(bloCACatGrande, blocoCCatsPilha);
   var sep2 = document.createElement('div'); sep2.className='ovc-sep';
-  var bD  = renderBlocoD(blocoDCats);
-  var sep3 = document.createElement('div'); sep3.className='ovc-sep';
   var bE  = renderBlocoE(blocoECat);
   var bA3 = renderBlocoA([], blocoACats3);
 
@@ -510,8 +505,6 @@ function buildSection(container){
   miolo.appendChild(bC);
   miolo.appendChild(bA2);
   miolo.appendChild(sep2);
-  miolo.appendChild(bD);
-  miolo.appendChild(sep3);
   miolo.appendChild(bE);
   miolo.appendChild(bA3);
 
