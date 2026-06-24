@@ -104,11 +104,8 @@
       for (const cat of ['politica','economia']) {
         (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
-      // Hierarquia: preferir últimas 24h; se vazio, ampliar para 48h; último fallback: qualquer artigo
-      let poolFiltrado = pool.filter(p => dentroJanela(p, 24));
-      if (!poolFiltrado.length) poolFiltrado = pool.filter(p => dentroJanela(p, 48));
-      if (!poolFiltrado.length) poolFiltrado = pool; // fallback: mostra o mais recente disponível
-      pool = poolFiltrado;
+      // Cards de destaque rotacionam SOMENTE com conteúdo das últimas 24h — sem fallback para conteúdo mais antigo
+      pool = pool.filter(p => dentroJanela(p, 24));
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -142,14 +139,15 @@
         }
         if (broad.length) pool = broad;
       }
-      // Priority 3: any negocios (most recent)
-      if (!pool.length) pool = todos.length ? todos : (() => {
+      // Priority 3: negocios/broad máx 48h — sem fallback para conteúdo mais antigo
+      if (!pool.length) pool = todos.filter(p => dentroJanela(p, 48));
+      if (!pool.length) {
         const any = [];
         for (const cat of ['negocios','economia','tecnologia']) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => any.push(p));
+          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,48)).forEach(p => any.push(p));
         }
-        return any;
-      })();
+        pool = any;
+      }
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
@@ -194,8 +192,8 @@
         }
         if (broad.length) pool = broad;
       }
-      // Priority 3: any from primary pool (most recent)
-      if (!pool.length) pool = primary;
+      // Priority 3: primary pool máx 48h — sem fallback para conteúdo mais antigo
+      if (!pool.length) pool = primary.filter(p => dentroJanela(p, 48));
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
