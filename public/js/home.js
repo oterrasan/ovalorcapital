@@ -107,6 +107,7 @@
       // Preferência: conteúdo das últimas 24h. Fallback: o mais recente publicado (nunca vazio)
       const pool24 = pool.filter(p => dentroJanela(p, 24));
       pool = pool24.length ? pool24 : pool;
+      pool = pool.slice(0, 5);
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -157,6 +158,7 @@
         pool = any2;
       }
       if (!pool.length) return;
+      pool = pool.slice(0, 5);
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -218,6 +220,7 @@
         pool = any3;
       }
       if (!pool.length) return;
+      pool = pool.slice(0, 5);
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -368,11 +371,9 @@
     carregarCardNegocios(cache, 0);
     carregarCardLions(cache, 0);
 
-    // Rotação dos cards de destaque a cada 8 segundos — máximo 5 conteúdos (carga inicial + 4 trocas)
-    let _rotCount = 0;
-    const _rotTimer = setInterval(() => {
-      if (!__cache || _rotCount >= 4) { clearInterval(_rotTimer); return; }
-      _rotCount++;
+    // Rotação dos cards de destaque a cada 8 segundos — cicla eternamente entre os 5 mais recentes de cada card
+    setInterval(() => {
+      if (!__cache) return;
       heroOffset++;
       negociosOffset++;
       lionsOffset++;
