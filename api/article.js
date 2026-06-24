@@ -16,42 +16,51 @@ const OG_DEFAULT = `${BASE}/assets/og-default.jpg`;
 const OLD_SUPABASE_REF = "bfsegqdgscudtdgwdyci";
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,created_at,published_at,updated_at,metrics";
 
+// Categorias ativas → path de template. Legado → nova categoria.
 const CAT_PATH = {
-  politica: "politica", economia: "economia", negocios: "negocios",
-  investimentos: "investimentos", seguros: "seguros", mercados: "mercados",
-  educacao: "educacao", industria: "industria", tecnologia: "tecnologia",
-  esportes: "esportes", saude: "saude", familia: "familia",
-  tributacao: "tributos", tributos: "tributos", regulacao: "regulacao",
-  parcerias: "parcerias", internacional: "internacional", variedades: "variedades",
-  investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
-  profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
-  imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
-  vc: "colunistas", colunistas: "colunistas", geral: "politica"
+  // Categorias ativas (11 + colunistas)
+  "brasil-on": "brasil-on", politica: "politica", economia: "economia",
+  financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
+  internacional: "internacional", industria: "industria", familia: "familia",
+  esportes: "esportes", vc: "colunistas", colunistas: "colunistas",
+  // Legado → novas categorias (artigos antigos no banco)
+  investimentos: "financas", seguros: "financas", mercados: "financas",
+  saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+  cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+  variedades: "brasil-on", investigativo: "brasil-on", seguranca: "brasil-on",
+  esg: "brasil-on", defesa: "brasil-on", profissoes: "brasil-on",
+  vagas: "brasil-on", concursos: "brasil-on", parcerias: "negocios",
+  tributos: "economia", tributacao: "economia", regulacao: "economia",
+  geral: "politica"
 };
 
+// Slug da URL → categoria canônica interna
 const SLUG_TO_CAT = {
-  politica: "politica", economia: "economia", negocios: "negocios",
-  investimentos: "investimentos", seguros: "seguros", mercados: "mercados",
-  educacao: "educacao", industria: "industria", tecnologia: "tecnologia",
-  esportes: "esportes", saude: "saude", familia: "familia",
-  tributacao: "tributacao", tributos: "tributacao", regulacao: "regulacao",
-  parcerias: "parcerias", internacional: "internacional", variedades: "variedades",
-  investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
-  profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
-  imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
-  vc: "colunistas", colunistas: "colunistas"
+  // Categorias ativas
+  "brasil-on": "brasil-on", politica: "politica", economia: "economia",
+  financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
+  internacional: "internacional", industria: "industria", familia: "familia",
+  esportes: "esportes", vc: "colunistas", colunistas: "colunistas",
+  // Legado → novas categorias
+  investimentos: "financas", seguros: "financas", mercados: "financas",
+  saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+  cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+  variedades: "brasil-on", investigativo: "brasil-on", seguranca: "brasil-on",
+  esg: "brasil-on", defesa: "brasil-on", profissoes: "brasil-on",
+  vagas: "brasil-on", concursos: "brasil-on", parcerias: "negocios",
+  tributos: "economia", tributacao: "economia", regulacao: "economia"
 };
 
 const CAT_LABEL = {
-  politica: "Política", economia: "Economia", negocios: "Negócios",
-  investimentos: "Investimentos", seguros: "Seguros", mercados: "Mercados",
-  educacao: "Educação", industria: "Indústria", tecnologia: "Tecnologia",
-  esportes: "Esportes", saude: "Saúde", familia: "Família",
-  tributacao: "Tributação", regulacao: "Regulação", parcerias: "Parcerias",
-  internacional: "Internacional", variedades: "Variedades", investigativo: "Investigativo",
-  seguranca: "Segurança Pública", cultura: "Cultura", profissoes: "Profissões",
-  vagas: "Vagas", concursos: "Concursos", imoveis: "Imóveis", esg: "ESG",
-  defesa: "Defesa", religiao: "Fé & Espiritualidade", colunistas: "Colunistas"
+  "brasil-on": "Brasil On", politica: "Política", economia: "Economia",
+  financas: "Finanças", negocios: "Negócios", tecnologia: "Tecnologia",
+  internacional: "Internacional", industria: "Indústria", familia: "Família",
+  esportes: "Esportes", colunistas: "Colunistas",
+  // Legado (para artigos antigos com user_tags antigas)
+  investimentos: "Finanças", seguros: "Finanças", mercados: "Finanças",
+  saude: "Brasil On", carreira: "Brasil On", imoveis: "Brasil On",
+  cultura: "Brasil On", religiao: "Brasil On", tributos: "Economia",
+  tributacao: "Economia", regulacao: "Economia"
 };
 
 const STATIC_DIRS = new Set(["js", "css", "assets", "images", "img", "fonts"]);
@@ -236,7 +245,23 @@ function parseTags(value) {
 
 function normalizeCat(value) {
   const s = slugify(String(value || "")).replace(/-/g, "");
-  const map = { tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", colunista: "colunistas", colunistas: "colunistas", segurancapublica: "seguranca", fe: "religiao" };
+  const map = {
+    // Categorias ativas
+    brasileon: "brasil-on", brasilon: "brasil-on",
+    financas: "financas", financ: "financas",
+    // Legado → novas categorias
+    investimentos: "financas", seguros: "financas", mercados: "financas",
+    saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+    cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+    variedades: "brasil-on", investigativo: "brasil-on", seguranca: "brasil-on",
+    segurancapublica: "brasil-on", esg: "brasil-on", defesa: "brasil-on",
+    profissoes: "brasil-on", vagas: "brasil-on", concursos: "brasil-on",
+    parcerias: "negocios",
+    tributos: "economia", tributacao: "economia", regulacao: "economia",
+    // Colunistas
+    vc: "colunistas", colunista: "colunistas", colunistas: "colunistas",
+    fe: "brasil-on"
+  };
   return map[s] || s || "";
 }
 
