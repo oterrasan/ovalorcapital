@@ -104,9 +104,9 @@
       for (const cat of ['politica','economia']) {
         (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
-      // Cards de destaque rotacionam SOMENTE com conteúdo das últimas 24h — sem fallback para conteúdo mais antigo
-      pool = pool.filter(p => dentroJanela(p, 24));
-      if (!pool.length) return;
+      // Preferência: conteúdo das últimas 24h. Fallback: o mais recente publicado (nunca vazio)
+      const pool24 = pool.filter(p => dentroJanela(p, 24));
+      pool = pool24.length ? pool24 : pool;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
       if (post.id) idsDestaque.add(post.id);
@@ -139,7 +139,7 @@
         }
         if (broad.length) pool = broad;
       }
-      // Priority 3: negocios/broad máx 48h — sem fallback para conteúdo mais antigo
+      // Priority 3: máx 48h; Priority 4 (fallback): mais recente publicado — nunca vazio
       if (!pool.length) pool = todos.filter(p => dentroJanela(p, 48));
       if (!pool.length) {
         const any = [];
@@ -147,6 +147,14 @@
           (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,48)).forEach(p => any.push(p));
         }
         pool = any;
+      }
+      if (!pool.length) pool = todos;
+      if (!pool.length) {
+        const any2 = [];
+        for (const cat of ['negocios','economia','tecnologia']) {
+          (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => any2.push(p));
+        }
+        pool = any2;
       }
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
@@ -192,8 +200,23 @@
         }
         if (broad.length) pool = broad;
       }
-      // Priority 3: primary pool máx 48h — sem fallback para conteúdo mais antigo
+      // Priority 3: máx 48h; Priority 4 (fallback): mais recente publicado — nunca vazio
       if (!pool.length) pool = primary.filter(p => dentroJanela(p, 48));
+      if (!pool.length) {
+        const broad2 = [];
+        for (const cat of BROAD_CATS) {
+          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,48)).forEach(p => broad2.push(p));
+        }
+        pool = broad2;
+      }
+      if (!pool.length) pool = primary;
+      if (!pool.length) {
+        const any3 = [];
+        for (const cat of BROAD_CATS) {
+          (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => any3.push(p));
+        }
+        pool = any3;
+      }
       if (!pool.length) return;
       const post = pool[(offset||0) % pool.length];
       if (!post) return;
