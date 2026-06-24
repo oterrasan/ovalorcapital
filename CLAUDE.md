@@ -3726,7 +3726,41 @@ Roberto retornou após descanso ("claude, voltei") e autorizou com "pode executa
 
 ---
 
-## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 21/06/2026
+### Sessão 24/06/2026 — REESTRUTURAÇÃO DE CATEGORIAS + REDIRECTS 301
+
+#### Contexto
+
+Roberto perguntou "EU POSSO CONFIAR QUE VOCE ARRUNOU TUDO?" após a reestruturação de categorias. Ao descobrir que URLs de artigos em categorias antigas serviam 200 com canonical correto mas sem HTTP 301, pediu redirecionamentos reais.
+
+#### O que foi feito
+
+**PR #236 (mergeado) — Cards homepage ajustados para 11 categorias:**
+- `public/js/home.js` / `public/js/ovc-cards.js` e homepage corrigidos para a nova estrutura de categorias
+
+**PR #237 (mergeado) — `api/article.js` canônicas e templates:**
+- `CAT_PATH`, `SLUG_TO_CAT`, `normalizeCat()`, `CAT_LABEL` atualizados para mapear todas as categorias legadas às novas
+- Artigos de `/saude/`, `/investimentos/`, `/tributacao/` etc. agora geram canonical correto (ex: `/brasil-on/...`, `/financas/...`, `/economia/...`) e usam o template correto
+- Mapeamentos legado: `investimentos/seguros/mercados → financas`, `saude/carreira/imoveis/cultura/religiao/educacao/variedades/investigativo/seguranca/esg/defesa/profissoes/vagas/concursos → brasil-on`, `tributos/tributacao/regulacao → economia`, `parcerias → negocios`
+
+**PR #238 (mergeado, commit `0d3f3a9a`) — `vercel.json` HTTP 301 redirects (ISOLADO — REGRA ZERO-F):**
+- Adicionados redirects 301 de raiz E de artigos para TODAS as categorias legadas:
+  - `/investimentos/(.+)` → `/financas/$1`
+  - `/seguros/(.+)` → `/financas/$1`
+  - `/mercados/(.+)` → `/financas/$1`
+  - `/saude/(.+)`, `/carreira/(.+)`, `/imoveis/(.+)`, `/cultura/(.+)`, `/religiao/(.+)`, `/educacao/(.+)`, `/variedades/(.+)`, `/investigativo/(.+)`, `/seguranca/(.+)`, `/esg/(.+)`, `/defesa/(.+)`, `/profissoes/(.+)`, `/vagas/(.+)`, `/empregos/(.+)`, `/concursos/(.+)` → `/brasil-on/$1`
+  - `/parcerias/(.+)` → `/negocios/$1`
+  - `/tributos/(.+)`, `/tributacao/(.+)`, `/regulacao/(.+)` → `/economia/$1`
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 24/06/2026
 
 ### 🟡 PENDÊNCIAS MÉDIAS
 
@@ -3755,4 +3789,12 @@ Roberto retornou após descanso ("claude, voltei") e autorizou com "pode executa
 | R4 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586` |
 | R5 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
 | R6 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), deletar `ovalorcapital` e `ovalorcapital-hubx` com cuidado |
+| R7 | **Aprovar artigos pendentes** | Alta | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
+
+### ✅ ADICIONADO NESTA SESSÃO (24/06/2026)
+
+| Sistema | Status |
+|---|---|
+| **HTTP 301 redirects para URLs de artigos em categorias legadas** | ✅ EM PRODUÇÃO (PR #238, commit `0d3f3a9a`) |
+| **`api/article.js` CAT_PATH/SLUG_TO_CAT/normalizeCat atualizados** | ✅ EM PRODUÇÃO (PR #237) |
 
