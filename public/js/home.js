@@ -184,7 +184,7 @@
 
   function carregarCardLions(cache, offset) {
     try {
-      const cardEl = document.getElementById('card-lions-seguros');
+      const cardEl = document.getElementById('card-lions-financas');
       if (cardEl) cardEl.style.display = '';
       const PRIMARY_CATS = ['financas','investimentos','seguros','imoveis'];
       const BROAD_CATS = ['financas','investimentos','seguros','imoveis','economia','industria','negocios'];
@@ -230,9 +230,9 @@
       if (el('card-lions-resumo')) el('card-lions-resumo').textContent = stripMd(post.resumo || post.subtitulo || '');
       const url = buildUrl(post);
       if (el('card-lions-link'))   el('card-lions-link').href          = url;
-      wireFeaturedCard('card-lions-seguros', url);
+      wireFeaturedCard('card-lions-financas', url);
       if (post.imagem) {
-        const lionsEl = document.getElementById('card-lions-seguros');
+        const lionsEl = document.getElementById('card-lions-financas');
         if (lionsEl) { lionsEl.style.backgroundImage = `url('${post.imagem}')`; lionsEl.style.backgroundSize = 'cover'; lionsEl.style.backgroundPosition = 'center'; }
         const imgEl = document.getElementById('card-lions-img');
         if (imgEl) { imgEl.src = post.imagem; imgEl.style.display='block'; }
