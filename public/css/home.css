@@ -38,6 +38,7 @@
       --cat-economia:     #b45309;
       --cat-negocios:     #059669;
       --cat-investimentos:#2563eb;
+      --cat-financas:     #059669;
       --cat-seguros:      #d4af37;
       --cat-mercados:     #7c3aed;
       --cat-familia:      #16a34a;
@@ -931,6 +932,7 @@
     .tag-economia { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-economia); }
     .tag-negocios { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-negocios); }
     .tag-investimentos { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-investimentos); }
+    .tag-financas { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-financas); }
     .tag-seguros { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-seguros); }
     .tag-mercados { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-mercados); }
     .tag-familia { background: rgba(255,255,255,0.18); color: #ffffff; backdrop-filter: blur(4px); border-color: var(--cat-familia); }

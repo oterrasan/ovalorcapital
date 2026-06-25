@@ -363,6 +363,14 @@ function renderBlocoB(posts){
   return bloco;
 }
 
+function labelCat(slug) {
+  if (!slug) return '';
+  for (var i = 0; i < CATS.length; i++) {
+    if (CATS[i].cats.indexOf(slug) !== -1) return CATS[i].label;
+  }
+  return slug;
+}
+
 function preencherBlocoB(bloco, posts){
   var grid = bloco.querySelector('#ovc-pilulas-grid');
   if(!grid) return;
@@ -395,7 +403,7 @@ function preencherBlocoB(bloco, posts){
     item.className = 'ovc-pilula-link';
     item.href = url;
     item.innerHTML =
-      '<div class="ovc-pilula-cat" style="color:'+cor+'">'+escHtml(p.categoria||'')+'</div>'
+      '<div class="ovc-pilula-cat" style="color:'+cor+'">'+escHtml(labelCat(p.categoria))+'</div>'
       +'<div class="ovc-pilula-texto">'+escHtml(p.titulo||'')+'</div>'
       +(hora?'<div class="ovc-pilula-hora">'+hora+'</div>':'');
     var wrapper = document.createElement('div');
@@ -1049,10 +1057,8 @@ function load(){
           return p.tipo_conteudo!=='pilula' && p.tipo_conteudo!=='micropilula';
         }).slice(0,8);
         if(!posts.length){ sec.style.display='none'; return; }
-        var CORES={politica:'#dc2626',economia:'#2563eb',negocios:'#7c3aed',investimentos:'#059669',mercados:'#0891b2',tributacao:'#b45309',regulacao:'#9333ea',seguros:'#0284c7',saude:'#16a34a',familia:'#db2777',tecnologia:'#6366f1',industria:'#ea580c',educacao:'#8b5cf6',esportes:'#16a34a',internacional:'#dc2626',variedades:'#ec4899',parcerias:'#14b8a6',vc:'#ffc800',investigativo:'#7f1d1d',seguranca:'#7f1d1d',cultura:'#7e22ce',profissoes:'#0369a1',vagas:'#065f46',concursos:'#1e40af',imoveis:'#b45309',esg:'#166534',defesa:'#1e3a5f',religiao:'#6d28d9'};
-        var LABELS={politica:'Política',economia:'Economia',negocios:'Negócios',investimentos:'Investimentos',mercados:'Mercados',tributacao:'Tributação',regulacao:'Regulação',seguros:'Seguros',saude:'Saúde',familia:'Família',tecnologia:'Tecnologia',industria:'Indústria',educacao:'Educação',esportes:'Esportes',internacional:'Internacional',variedades:'Variedades',parcerias:'Parcerias',vc:'OVC',investigativo:'Investigativo',seguranca:'Seg. Pública',cultura:'Cultura',profissoes:'Profissões',vagas:'Vagas',concursos:'Concursos',imoveis:'Imóveis',esg:'ESG',defesa:'Defesa',religiao:'Fé & Espiritualidade'};
-        function c(cat){ return CORES[cat]||'#64748b'; }
-        function lbl(cat){ return LABELS[cat]||cat; }
+        function c(cat){ return CORES_CAT[cat]||'#64748b'; }
+        function lbl(cat){ return labelCat(cat)||cat; }
         function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
         var html='<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
           +'<span style="background:#e11d48;color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;padding:5px 14px;border-radius:4px;">Mais Lidas</span>'
