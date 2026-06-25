@@ -182,6 +182,15 @@
     return card;
   }
 
+  function mostrarVazio(el, catId){
+    if(!el) return;
+    var t = el.querySelector('.ovc-card-title,.ovc-card-title-g');
+    if(t) t.textContent = 'Em breve';
+    var cor = CORES_CAT[catId] || '#1e293b';
+    el.style.backgroundImage = 'none';
+    el.style.background = 'linear-gradient(135deg,'+cor+' 0%,'+cor+'aa 100%)';
+  }
+
 
 // ── NOVO MIOLO OVC — LAYOUT COM GRANDEZA ─────────────────────────────────────
 // Substitui buildSection() e load() do ovc-cards.js
@@ -285,6 +294,37 @@ function injetarEstilosMiolo(){
     '.ovc-editorial-leia{font-size:11px;letter-spacing:.1em;text-transform:uppercase;',
     'font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}',
     '.ovc-editorial-leia:hover{text-decoration:underline;}',
+
+    /* Zone headers */
+    '.ovc-zona{margin-bottom:40px;}',
+    '.ovc-zona-header{display:flex;align-items:center;gap:14px;margin-bottom:22px;}',
+    '.ovc-zona-acento{width:4px;height:26px;background:#c81e1e;border-radius:2px;flex-shrink:0;}',
+    '.ovc-zona-titulo{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#0f172a;flex-shrink:0;}',
+    '.ovc-zona-linha{flex:1;height:1px;background:#e8eaed;}',
+    '.ovc-zona-ver-mais{font-size:10px;color:#c81e1e;font-weight:700;text-decoration:none;letter-spacing:.05em;flex-shrink:0;}',
+    '.ovc-zona-ver-mais:hover{text-decoration:underline;}',
+
+    /* Zone 1 — manchetes newspaper style */
+    '.ovc-zona-brasil-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:stretch;}',
+    '.ovc-manchetes-bloco{background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:16px 20px;display:flex;flex-direction:column;gap:0;}',
+    '.ovc-manchetes-secao{padding:10px 0 6px;border-bottom:1px solid #f0f2f5;}',
+    '.ovc-manchetes-secao:last-child{border-bottom:none;padding-bottom:0;}',
+    '.ovc-manchetes-cat-label{font-size:8px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#c81e1e;margin-bottom:7px;display:block;}',
+    '.ovc-manchete-item{display:flex;align-items:flex-start;gap:8px;padding:4px 0;text-decoration:none;cursor:pointer;}',
+    '.ovc-manchete-item:hover .ovc-manchete-titulo{color:#c81e1e;}',
+    '.ovc-manchete-titulo{font-size:12px;font-weight:700;color:#0f172a;line-height:1.4;flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-manchete-bala{width:4px;height:4px;border-radius:50%;background:#c81e1e;flex-shrink:0;margin-top:6px;}',
+    '.ovc-manchete-hora{font-size:9px;color:#9aa0ab;flex-shrink:0;padding-top:2px;white-space:nowrap;}',
+
+    /* Zone 3 — Vida & Tribuna */
+    '.ovc-zona-vida-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:24px;align-items:stretch;}',
+    '.ovc-card-vc-editorial{border-radius:14px;overflow:hidden;position:relative;min-height:300px;',
+    'display:flex;flex-direction:column;justify-content:flex-end;padding:28px;',
+    'background:#1a1a2e;background-size:cover;background-position:center;',
+    'box-shadow:0 2px 12px rgba(0,0,0,0.10);transition:transform 0.22s,box-shadow 0.22s;cursor:pointer;text-decoration:none;color:inherit;}',
+    '.ovc-card-vc-editorial:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(0,0,0,0.18);}',
+
+    '@media(max-width:900px){.ovc-zona-brasil-grid{grid-template-columns:1fr;}.ovc-zona-vida-grid{grid-template-columns:1fr;}}',
   ].join('');
   document.head.appendChild(st);
 }
@@ -472,41 +512,138 @@ function renderBlocoE(cat){
   return bloco;
 }
 
-// ── NOVA buildSection ────────────────────────────────────────────────────────
+// ── HELPERS DE ZONA ──────────────────────────────────────────────────────────
+
+function renderZonaHeader(titulo, verMaisHref){
+  var el = document.createElement('div');
+  el.className = 'ovc-zona-header';
+  el.innerHTML =
+    '<div class="ovc-zona-acento"></div>'
+    +'<span class="ovc-zona-titulo">'+escHtml(titulo)+'</span>'
+    +'<div class="ovc-zona-linha"></div>'
+    +(verMaisHref?'<a class="ovc-zona-ver-mais" href="'+verMaisHref+'">Ver mais →</a>':'');
+  return el;
+}
+
+function renderManchetesBloco(secoes){
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-manchetes-bloco';
+  secoes.forEach(function(s){
+    var sec = document.createElement('div');
+    sec.className = 'ovc-manchetes-secao';
+    var catLabel = document.createElement('span');
+    catLabel.className = 'ovc-manchetes-cat-label';
+    catLabel.textContent = s.label;
+    sec.appendChild(catLabel);
+    var lista = document.createElement('div');
+    lista.id = 'ovc-manchetes-'+s.id;
+    lista.className = 'ovc-manchetes-lista';
+    for(var i=0; i<s.count; i++){
+      var item = document.createElement('div');
+      item.className = 'ovc-manchete-item';
+      item.innerHTML = '<span class="ovc-manchete-bala"></span>'
+        +'<span class="ovc-manchete-titulo" style="color:#d1d5db;">Carregando...</span>';
+      lista.appendChild(item);
+    }
+    sec.appendChild(lista);
+    bloco.appendChild(sec);
+  });
+  return bloco;
+}
+
+// ── buildSection — layout editorial em zonas ─────────────────────────────────
 function buildSection(container){
   injetarEstilosMiolo();
   var miolo = document.createElement('div');
   miolo.className = 'ovc-miolo';
 
-  // Distribuição das 11 categorias nos blocos (nova estrutura pós-PR #235)
-  // CATS[0]=brasil-on [1]=politica [2]=economia [3]=financas [4]=negocios
-  // [5]=tecnologia [6]=internacional [7]=industria [8]=familia [9]=esportes [10]=vc/colunistas
+  function sep(){ var d=document.createElement('div'); d.className='ovc-sep'; return d; }
 
-  var blocoACats1 = [CATS[1], CATS[2], CATS[3]];            // Política, Economia, Finanças
-  var bloCACatGrande = CATS[0];                              // Brasil On (grande destaque)
-  var blocoCCatsPilha = [CATS[4], CATS[5]];                  // Negócios, Tecnologia
-  var blocoACats2 = [CATS[6], CATS[7], CATS[8]];            // Internacional, Indústria, Família
-  var blocoECat = CATS[9];                                   // Esportes (editorial full-width)
-  var blocoACats3 = [CATS[10]];                              // Colunistas
-
-  // Montar sequência: B → sep → A1 → C → A2 → sep → E → A3
-  var bA1 = renderBlocoA([], blocoACats1);
-  var bB  = renderBlocoB([]);
-  var sep1 = document.createElement('div'); sep1.className='ovc-sep';
-  var bA2 = renderBlocoA([], blocoACats2);
-  var bC  = renderBlocoC(bloCACatGrande, blocoCCatsPilha);
-  var sep2 = document.createElement('div'); sep2.className='ovc-sep';
-  var bE  = renderBlocoE(blocoECat);
-  var bA3 = renderBlocoA([], blocoACats3);
-
+  // ── Notas do dia (Pílulas) ────────────────────────────────────────────
+  var bB = renderBlocoB([]);
   miolo.appendChild(bB);
-  miolo.appendChild(sep1);
-  miolo.appendChild(bA1);
-  miolo.appendChild(bC);
-  miolo.appendChild(bA2);
-  miolo.appendChild(sep2);
-  miolo.appendChild(bE);
-  miolo.appendChild(bA3);
+  miolo.appendChild(sep());
+
+  // ── Zona 1: Brasil em Foco ───────────────────────────────────────────
+  var z1 = document.createElement('div');
+  z1.className = 'ovc-zona';
+  z1.appendChild(renderZonaHeader('Brasil em Foco', '/brasil-on/'));
+  var z1grid = document.createElement('div');
+  z1grid.className = 'ovc-zona-brasil-grid';
+  // Big card — Brasil On
+  var cardBrasil = buildCard(CATS[0]);
+  cardBrasil.style.minHeight = '320px';
+  z1grid.appendChild(cardBrasil);
+  // Manchetes — Política, Economia, Internacional
+  z1grid.appendChild(renderManchetesBloco([
+    {id:'politica',      label:'Política',      count:3},
+    {id:'economia',      label:'Economia',      count:3},
+    {id:'internacional', label:'Internacional', count:2}
+  ]));
+  z1.appendChild(z1grid);
+  miolo.appendChild(z1);
+  miolo.appendChild(sep());
+
+  // ── Zona 2: Poder & Dinheiro (4 mini-cards) ──────────────────────────
+  var z2 = document.createElement('div');
+  z2.className = 'ovc-zona';
+  z2.appendChild(renderZonaHeader('Poder & Dinheiro', '/financas/'));
+  z2.appendChild(renderBlocoD([CATS[3], CATS[4], CATS[5], CATS[7]]));
+  miolo.appendChild(z2);
+  miolo.appendChild(sep());
+
+  // ── Esportes (editorial full-width) ──────────────────────────────────
+  miolo.appendChild(renderBlocoE(CATS[9]));
+  miolo.appendChild(sep());
+
+  // ── Zona 3: Vida & Tribuna ───────────────────────────────────────────
+  var z3 = document.createElement('div');
+  z3.className = 'ovc-zona';
+  z3.appendChild(renderZonaHeader('Vida & Tribuna', '/familia/'));
+  var z3grid = document.createElement('div');
+  z3grid.className = 'ovc-zona-vida-grid';
+
+  // Família — card padrão com altura reforçada
+  var cardFam = buildCard(CATS[8]);
+  cardFam.style.minHeight = '300px';
+  z3grid.appendChild(cardFam);
+
+  // Colunistas — large editorial card
+  var catVc = CATS[10];
+  var corVc = CORES_CAT[catVc.id] || '#b8860b';
+  var cardVc = document.createElement('a');
+  cardVc.className = 'ovc-card-vc-editorial';
+  cardVc.id = 'ovc-cat-' + catVc.id;
+  cardVc.href = catVc.path;
+  var overlayVc = document.createElement('div');
+  overlayVc.style.cssText = 'position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.88) 0%,rgba(0,0,0,0.30) 55%,rgba(0,0,0,0.04) 100%);border-radius:inherit;pointer-events:none;z-index:0;';
+  var innerVc = document.createElement('div');
+  innerVc.style.cssText = 'position:relative;z-index:1;display:flex;flex-direction:column;gap:9px;';
+  var tagVc = document.createElement('span');
+  tagVc.className = 'ovc-card-tag';
+  tagVc.style.cssText = STYLE.tag;
+  tagVc.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:'+corVc+';display:inline-block;flex-shrink:0;"></span>'+escHtml(catVc.label);
+  var titleVc = document.createElement('h2');
+  titleVc.className = 'ovc-card-title';
+  titleVc.style.cssText = 'font-size:20px;font-weight:800;color:#fff;line-height:1.32;text-shadow:0 2px 10px rgba(0,0,0,0.8);margin:0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;';
+  titleVc.textContent = '';
+  var metaVc = document.createElement('div');
+  metaVc.className = 'ovc-card-meta';
+  metaVc.style.cssText = STYLE.meta;
+  metaVc.textContent = 'Colunistas OVC';
+  var ctaVc = document.createElement('a');
+  ctaVc.className = 'ovc-card-cta';
+  ctaVc.href = catVc.path;
+  ctaVc.style.cssText = STYLE.cta;
+  ctaVc.textContent = 'LER COLUNA →';
+  innerVc.appendChild(tagVc); innerVc.appendChild(titleVc); innerVc.appendChild(metaVc); innerVc.appendChild(ctaVc);
+  cardVc.appendChild(overlayVc); cardVc.appendChild(innerVc);
+  cardVc.addEventListener('mouseenter', function(){ this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 36px rgba(0,0,0,0.30)'; });
+  cardVc.addEventListener('mouseleave', function(){ this.style.transform=''; this.style.boxShadow='0 2px 14px rgba(0,0,0,0.18)'; });
+  z3grid.appendChild(cardVc);
+
+  z3.appendChild(z3grid);
+  miolo.appendChild(z3);
 
   container.appendChild(miolo);
   container._blocoB = bB;
@@ -624,6 +761,37 @@ function load(){
       if(!posts5.length){ mostrarVazio(el, item.id); return; }
       var overlap5 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
       startRotation(el, posts5, item.id, overlap5&&posts5.length>1?1:0);
+    });
+
+    // Preencher manchetes (Zona 1 — Brasil em Foco)
+    var manchetesDefs = [
+      {id:'politica',      cats:['politica'],                                    count:3},
+      {id:'economia',      cats:['economia','tributos','tributacao','regulacao'], count:3},
+      {id:'internacional', cats:['internacional'],                                count:2}
+    ];
+    manchetesDefs.forEach(function(def){
+      var lista = document.getElementById('ovc-manchetes-'+def.id);
+      if(!lista) return;
+      var mp = [];
+      def.cats.forEach(function(c){ mp=mp.concat(cache[c]||[]); });
+      mp.sort(function(a,b){ return new Date(b.data)-new Date(a.data); });
+      var sel = mp.slice(0, def.count);
+      lista.innerHTML = '';
+      if(!sel.length){
+        lista.innerHTML = '<span style="font-size:11px;color:#9aa0ab;">Em breve</span>';
+        return;
+      }
+      sel.forEach(function(p){
+        var url = buildUrl(p);
+        var hora = p.data ? new Date(p.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+        var a = document.createElement('a');
+        a.className = 'ovc-manchete-item';
+        a.href = url;
+        a.innerHTML = '<span class="ovc-manchete-bala"></span>'
+          +'<span class="ovc-manchete-titulo">'+escHtml(p.titulo||'')+'</span>'
+          +(hora?'<span class="ovc-manchete-hora">'+hora+'</span>':'');
+        lista.appendChild(a);
+      });
     });
 
     // Preencher Bloco B — busca APENAS posts tipo pilula ou micropilula
