@@ -453,8 +453,23 @@ function normalizeCat(value) {
   if (!raw) return "";
   const s = slugify(raw).replace(/-/g, "");
   if (!s) return "";
-  const map = { politica: "politica", economica: "economia", negocio: "negocios", negocios: "negocios", tributos: "tributacao", tributacao: "tributacao", vc: "colunistas", coluna: "colunistas", colunista: "colunistas", colunistas: "colunistas", saude: "saude", familia: "familia", fe: "religiao", religiao: "religiao", seguranca: "seguranca", segurancapublica: "seguranca", profissoes: "profissoes", vagas: "vagas", brasillon: "brasil-on", brasilon: "brasil-on", brasilieon: "brasil-on", brasilnews: "brasil-on" };
+  const map = {
+    politica: "politica", economica: "economia", economia: "economia",
+    negocio: "negocios", negocios: "negocios",
+    tributos: "economia", tributacao: "economia", regulacao: "economia",
+    investimentos: "financas", seguros: "financas", mercados: "financas",
+    saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+    cultura: "brasil-on", religiao: "brasil-on", fe: "brasil-on",
+    educacao: "brasil-on", profissoes: "brasil-on", vagas: "brasil-on",
+    concursos: "brasil-on", investigativo: "brasil-on", seguranca: "brasil-on",
+    segurancapublica: "brasil-on", variedades: "brasil-on", defesa: "brasil-on",
+    esg: "brasil-on", familia: "familia",
+    parcerias: "negocios",
+    vc: "colunistas", coluna: "colunistas", colunista: "colunistas", colunistas: "colunistas",
+    brasillon: "brasil-on", brasilon: "brasil-on", brasilieon: "brasil-on", brasilnews: "brasil-on",
+  };
   if (raw === "brasil-on") return "brasil-on";
+  if (raw === "financas") return "financas";
   return map[s] || s;
 }
 
