@@ -11,33 +11,43 @@ const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
 const OLD_SUPABASE_REF = "bfsegqdgscudtdgwdyci";
 
 const CAT_PATH = {
+  // Categorias unificadas (display final)
+  financas: "financas",
+  "brasil-on": "brasil-on",
+  // Categorias ativas do pipeline
   politica: "politica", economia: "economia", negocios: "negocios",
-  investimentos: "investimentos", seguros: "seguros", mercados: "mercados",
-  educacao: "educacao", industria: "industria", tecnologia: "tecnologia",
-  esportes: "esportes", saude: "saude", familia: "familia",
-  tributacao: "tributos", tributos: "tributos", regulacao: "regulacao",
-  parcerias: "parcerias", internacional: "internacional", variedades: "variedades",
-  investigativo: "investigativo", seguranca: "seguranca", cultura: "cultura",
-  profissoes: "profissoes", vagas: "vagas", concursos: "concursos",
-  imoveis: "imoveis", esg: "esg", defesa: "defesa", religiao: "religiao",
-  radar: "radar", vc: "colunistas", colunistas: "colunistas", geral: "politica",
-  "brasil-on": "brasil-on", carreira: "carreira"
+  industria: "industria", tecnologia: "tecnologia", esportes: "esportes",
+  familia: "familia", internacional: "internacional",
+  // Legado → novo (artigos antigos no banco com slugs antigos)
+  investimentos: "financas", seguros: "financas", mercados: "financas",
+  saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+  cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+  profissoes: "brasil-on", vagas: "brasil-on", concursos: "brasil-on",
+  investigativo: "brasil-on", seguranca: "brasil-on", variedades: "brasil-on",
+  defesa: "brasil-on", esg: "brasil-on",
+  tributacao: "economia", tributos: "economia", regulacao: "economia",
+  parcerias: "negocios",
+  // Sistema
+  radar: "radar", vc: "colunistas", colunistas: "colunistas", geral: "politica"
 };
 
 const CATEGORY_ALIASES = {
-  "brasil-on": ["brasil-on", "seguranca", "investigativo", "variedades", "defesa", "esg"],
-  "carreira": ["carreira", "vagas", "concursos", "profissoes", "parcerias", "educacao"]
+  "brasil-on": ["brasil-on","seguranca","investigativo","variedades","defesa","esg","saude","carreira","imoveis","cultura","religiao","educacao","profissoes","vagas","concursos"],
+  "financas":  ["financas","investimentos","mercados","seguros"],
+  "economia":  ["economia","tributos","tributacao","regulacao"],
+  "negocios":  ["negocios","parcerias"],
 };
 
 const VALID_CATS = new Set(Object.keys(CAT_PATH));
 const HOME_CATS = [
-  "politica", "economia", "negocios", "investimentos", "seguros", "industria",
-  "tecnologia", "esportes", "saude", "familia", "internacional", "colunistas",
-  "cultura", "imoveis", "religiao", "brasil-on", "carreira", "tributos",
-  // aliases legados (artigos antigos no banco)
-  "mercados", "educacao", "tributacao", "regulacao", "parcerias",
+  "politica", "economia", "financas", "negocios", "industria",
+  "tecnologia", "esportes", "familia", "internacional", "colunistas",
+  "brasil-on",
+  // aliases legados (artigos antigos no banco com slugs antigos)
+  "investimentos", "seguros", "mercados", "saude", "carreira", "imoveis",
+  "cultura", "religiao", "educacao", "tributacao", "regulacao", "parcerias",
   "variedades", "investigativo", "seguranca", "profissoes", "vagas",
-  "concursos", "esg", "defesa"
+  "concursos", "esg", "defesa", "tributos"
 ];
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,user_tags,subcategoria,subcategoria_slug,created_at,published_at,updated_at,metrics";
 
