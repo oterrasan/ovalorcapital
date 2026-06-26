@@ -757,8 +757,7 @@ function load(){
         item.cats.forEach(function(c){ posts4=posts4.concat(cache[c]||[]); });
         posts4.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
         if(!posts4.length){ mostrarVazio(el, item.id); return; }
-        var overlap4 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
-        startRotation(el, posts4, item.id, overlap4&&posts4.length>1?1:0);
+        startRotation(el, posts4, item.id, 0);
         return;
       }
 
@@ -767,8 +766,38 @@ function load(){
       item.cats.forEach(function(c){ posts5=posts5.concat(cache[c]||[]); });
       posts5.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
       if(!posts5.length){ mostrarVazio(el, item.id); return; }
-      var overlap5 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
-      startRotation(el, posts5, item.id, overlap5&&posts5.length>1?1:0);
+      startRotation(el, posts5, item.id, 0);
+    });
+
+    // Preencher manchetes (Zona 1 — Brasil em Foco)
+    var manchetesDefs = [
+      {id:'politica',      cats:['politica'],                                    count:3},
+      {id:'economia',      cats:['economia'],                                    count:3},
+      {id:'internacional', cats:['internacional'],                                count:2}
+    ];
+    manchetesDefs.forEach(function(def){
+      var lista = document.getElementById('ovc-manchetes-'+def.id);
+      if(!lista) return;
+      var mp = [];
+      def.cats.forEach(function(c){ mp=mp.concat(cache[c]||[]); });
+      mp.sort(function(a,b){ return new Date(b.data)-new Date(a.data); });
+      var sel = mp.slice(0, def.count);
+      lista.innerHTML = '';
+      if(!sel.length){
+        lista.innerHTML = '<span style="font-size:11px;color:#9aa0ab;">Em breve</span>';
+        return;
+      }
+      sel.forEach(function(p){
+        var url = buildUrl(p);
+        var hora = p.data ? new Date(p.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+        var a = document.createElement('a');
+        a.className = 'ovc-manchete-item';
+        a.href = url;
+        a.innerHTML = '<span class="ovc-manchete-bala"></span>'
+          +'<span class="ovc-manchete-titulo">'+escHtml(p.titulo||'')+'</span>'
+          +(hora?'<span class="ovc-manchete-hora">'+hora+'</span>':'');
+        lista.appendChild(a);
+      });
     });
 
     // Preencher manchetes (Zona 1 — Brasil em Foco)
