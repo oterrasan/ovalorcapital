@@ -417,7 +417,7 @@ async function handleCategorizarRss(req, res) {
 
 // ── Pesquisa Eleitoral — GET: retorna dados atuais da config ─────────────────
 async function handleGetPesquisa(res) {
-  res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
   try {
     const { data } = await supabase.from("config").select("value").eq("key", "PESQUISA_ELEITORAL").maybeSingle();
     if (data?.value) {

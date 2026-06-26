@@ -139,7 +139,10 @@
         '<div class="ovc-el-barra"><div class="ovc-el-fill" style="width:' + item.pct + '%;background:' + item.cor + ';"></div></div>';
       pesqDiv.appendChild(row);
     });
-    pesqDiv.innerHTML += '<div class="ovc-el-pesq-fonte">Fonte: ' + esc(fonte) + '</div>';
+    var fonteDiv = document.createElement('div');
+    fonteDiv.className = 'ovc-el-pesq-fonte';
+    fonteDiv.textContent = 'Fonte: ' + (fonte || '');
+    pesqDiv.appendChild(fonteDiv);
     bloco.appendChild(pesqDiv);
 
     // Artigos políticos
