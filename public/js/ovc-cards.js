@@ -757,8 +757,7 @@ function load(){
         item.cats.forEach(function(c){ posts4=posts4.concat(cache[c]||[]); });
         posts4.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
         if(!posts4.length){ mostrarVazio(el, item.id); return; }
-        var overlap4 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
-        startRotation(el, posts4, item.id, overlap4&&posts4.length>1?1:0);
+        startRotation(el, posts4, item.id, 0);
         return;
       }
 
@@ -767,14 +766,13 @@ function load(){
       item.cats.forEach(function(c){ posts5=posts5.concat(cache[c]||[]); });
       posts5.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
       if(!posts5.length){ mostrarVazio(el, item.id); return; }
-      var overlap5 = item.cats.some(function(c){ return CATS_DESTAQUE.indexOf(c)!==-1; });
-      startRotation(el, posts5, item.id, overlap5&&posts5.length>1?1:0);
+      startRotation(el, posts5, item.id, 0);
     });
 
     // Preencher manchetes (Zona 1 — Brasil em Foco)
     var manchetesDefs = [
       {id:'politica',      cats:['politica'],                                    count:3},
-      {id:'economia',      cats:['economia','tributos','tributacao','regulacao'], count:3},
+      {id:'economia',      cats:['economia'],                                    count:3},
       {id:'internacional', cats:['internacional'],                                count:2}
     ];
     manchetesDefs.forEach(function(def){
