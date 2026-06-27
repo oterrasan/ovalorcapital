@@ -451,17 +451,28 @@ async function handleUpdatePesquisa(req, res) {
       "base64"
     ).toString().trim();
 
-    // Busca artigos recentes com keywords de pesquisa eleitoral
-    const cutoff = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+    // Busca artigos dos últimos 30 dias com keywords de pesquisa eleitoral (título OU corpo)
+    const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const { data: artigos } = await supabase.from("posts")
       .select("titulo,conteudo,published_at")
       .eq("status", "publicado")
       .gte("published_at", cutoff)
-      .or("titulo.ilike.%pesquisa%,titulo.ilike.%intenção de voto%,titulo.ilike.%datafolha%,titulo.ilike.%quaest%,titulo.ilike.%ipespe%,titulo.ilike.%poderdata%")
+      .or("titulo.ilike.%pesquisa%,titulo.ilike.%datafolha%,titulo.ilike.%quaest%,titulo.ilike.%ipespe%,titulo.ilike.%poderdata%,titulo.ilike.%eleit%,titulo.ilike.%inten%25o de voto%,conteudo.ilike.%pesquisa eleitoral%,conteudo.ilike.%inten%25o de voto%,conteudo.ilike.%datafolha%,conteudo.ilike.%quaest%,conteudo.ilike.%ipespe%,conteudo.ilike.%poderdata%,conteudo.ilike.%sondagem%")
       .order("published_at", { ascending: false })
-      .limit(5);
+      .limit(10);
 
     if (!artigos || artigos.length === 0) {
+      // Sem artigos sobre pesquisas — forçar scrape direto de fonte confiável
+      const fonteUrl = "https://news.google.com/rss/search?q=pesquisa+eleitoral+2026+presidente+Datafolha+Quaest&hl=pt-BR&gl=BR&ceid=BR:pt-419";
+      try {
+        const feedRes = await fetch(fonteUrl, { signal: AbortSignal.timeout(5000) });
+        const feedText = await feedRes.text();
+        const items = [...feedText.matchAll(/<item>[\s\S]*?<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>[\s\S]*?<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/g)];
+        if (items.length > 0) {
+          const textoFeed = items.slice(0, 5).map(m => `TÍTULO: ${m[1]}\nRESUMO: ${m[2].replace(/<[^>]+>/g,'').slice(0,400)}`).join("\n\n---\n\n");
+          return await _extrairEsalvar(textoFeed, OPENAI_KEY, res);
+        }
+      } catch(_) {}
       return res.status(200).json({ ok: false, reason: "no_poll_articles_found" });
     }
 
@@ -469,7 +480,14 @@ async function handleUpdatePesquisa(req, res) {
       `TÍTULO: ${a.titulo}\nCONTEÚDO: ${(a.conteudo || '').replace(/<[^>]+>/g, '').slice(0, 800)}`
     ).join("\n\n---\n\n");
 
-    const prompt = `Analise estes artigos sobre pesquisas eleitorais brasileiras para presidente 2026 e extraia os números de intenção de voto mais recentes.
+    return await _extrairEsalvar(textos, OPENAI_KEY, res);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
+
+async function _extrairEsalvar(textos, OPENAI_KEY, res) {
+  const prompt = `Analise estes artigos sobre pesquisas eleitorais brasileiras para presidente 2026 e extraia os números de intenção de voto mais recentes.
 
 ${textos}
 
@@ -483,28 +501,25 @@ Regras:
 - "Outros" = soma dos demais candidatos ou indecisos
 - Cores: Lula=#e11d48, Bolsonaro=#2563eb, Terceiro candidato=#f59e0b, Outros=#94a3b8`;
 
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-      body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0, max_tokens: 300,
-        messages: [{ role: "user", content: prompt }] })
-    });
+  const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0, max_tokens: 300,
+      messages: [{ role: "user", content: prompt }] })
+  });
 
-    const aiJson = await aiRes.json();
-    const raw = aiJson.choices?.[0]?.message?.content?.trim() || "";
-    const match = raw.match(/\{[\s\S]+\}/);
-    if (!match) return res.status(200).json({ ok: false, reason: "ai_no_json", raw });
+  const aiJson = await aiRes.json();
+  const raw = aiJson.choices?.[0]?.message?.content?.trim() || "";
+  const match = raw.match(/\{[\s\S]+\}/);
+  if (!match) return res.status(200).json({ ok: false, reason: "ai_no_json", raw });
 
-    const extraido = JSON.parse(match[0]);
-    if (extraido.erro) return res.status(200).json({ ok: false, reason: extraido.erro });
+  const extraido = JSON.parse(match[0]);
+  if (extraido.erro) return res.status(200).json({ ok: false, reason: extraido.erro });
 
-    const payload = { ...extraido, atualizado: new Date().toISOString() };
-    await supabase.from("config").upsert({ key: "PESQUISA_ELEITORAL", value: JSON.stringify(payload) });
+  const payload = { ...extraido, atualizado: new Date().toISOString() };
+  await supabase.from("config").upsert({ key: "PESQUISA_ELEITORAL", value: JSON.stringify(payload) });
 
-    return res.status(200).json({ ok: true, pesquisa: payload });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message });
-  }
+  return res.status(200).json({ ok: true, pesquisa: payload });
 }
 
 // 70 fontes aprovadas por Roberto Terrasan em 18/06/2026
