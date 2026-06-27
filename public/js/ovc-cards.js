@@ -43,6 +43,18 @@
     return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
   }
 
+  // Posts com imagem têm prioridade; entre eles, ordena do mais recente ao mais antigo
+  function recentSort(posts) {
+    return posts.slice().sort(function(a, b) {
+      var imgA = imgOk(a.imagem) ? 1 : 0;
+      var imgB = imgOk(b.imagem) ? 1 : 0;
+      if (imgA !== imgB) return imgB - imgA;
+      var tsA = new Date(a.data || a.published_at || a.created_at || 0).getTime();
+      var tsB = new Date(b.data || b.published_at || b.created_at || 0).getTime();
+      return tsB - tsA;
+    });
+  }
+
   function _slugify(s){
     return (s||'').toLowerCase().normalize('NFD')
       .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'')
@@ -685,7 +697,7 @@ function load(){
       if(el.classList.contains('ovc-card-horizontal')){
         var posts = [];
         item.cats.forEach(function(c){ posts=posts.concat(cache[c]||[]); });
-        posts.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        posts = recentSort(posts);
         if(!posts.length){
           var tH = document.getElementById('ovc-h-titulo-'+item.id);
           if(tH) tH.textContent = 'Em breve';
@@ -709,7 +721,7 @@ function load(){
       if(el.classList.contains('ovc-mini-card')){
         var posts2 = [];
         item.cats.forEach(function(c){ posts2=posts2.concat(cache[c]||[]); });
-        posts2.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        posts2 = recentSort(posts2);
         if(!posts2.length){
           var tE = document.getElementById('ovc-mini-titulo-'+item.id);
           if(tE) tE.textContent = 'Em breve';
@@ -731,7 +743,7 @@ function load(){
       if(el.classList.contains('ovc-card-editorial')){
         var posts3 = [];
         item.cats.forEach(function(c){ posts3=posts3.concat(cache[c]||[]); });
-        posts3.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        posts3 = recentSort(posts3);
         if(!posts3.length){
           var tE3 = document.getElementById('ovc-e-titulo-'+item.id);
           if(tE3) tE3.textContent = 'Em breve';
@@ -755,7 +767,7 @@ function load(){
       if(el.classList.contains('ovc-card-grande')){
         var posts4 = [];
         item.cats.forEach(function(c){ posts4=posts4.concat(cache[c]||[]); });
-        posts4.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+        posts4 = recentSort(posts4);
         if(!posts4.length){ mostrarVazio(el, item.id); return; }
         startRotation(el, posts4, item.id, 0);
         return;
@@ -764,7 +776,7 @@ function load(){
       // Card padrão Bloco A — rotação existente
       var posts5 = [];
       item.cats.forEach(function(c){ posts5=posts5.concat(cache[c]||[]); });
-      posts5.sort(function(a,b){ return (imgOk(a.imagem)?0:1)-(imgOk(b.imagem)?0:1); });
+      posts5 = recentSort(posts5);
       if(!posts5.length){ mostrarVazio(el, item.id); return; }
       startRotation(el, posts5, item.id, 0);
     });

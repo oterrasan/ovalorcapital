@@ -3798,3 +3798,97 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **HTTP 301 redirects para URLs de artigos em categorias legadas** | ✅ EM PRODUÇÃO (PR #238, commit `0d3f3a9a`) |
 | **`api/article.js` CAT_PATH/SLUG_TO_CAT/normalizeCat atualizados** | ✅ EM PRODUÇÃO (PR #237) |
 
+---
+
+### Sessão 27/06/2026 — FIX RADAR ELEITORAL "mai/2026" + RECÊNCIA NOS CARDS
+
+#### Contexto
+
+Roberto: "ainda permanece atualizacao de maio........ e ja sairam 2 ou 3 pesquisas depois disso...." — Radar Eleitoral sempre mostrava "Quaest / Datafolha — mai/2026" (hardcoded fallback). Depois: "os cards continuam buscando coisas antigas, a regra que mandei aplicar nao esta sendo aplkicada nos cards".
+
+---
+
+#### PR #253 — Fix Radar Eleitoral pesquisas (mergeado em main, commit `ec6ab06`)
+
+**Root cause:** `handleUpdatePesquisa` em `api/manage.js` consultava apenas `titulo` com 6 keywords em janela de 5 dias → sempre 0 resultados → Supabase `config.PESQUISA_ELEITORAL` nunca gravado → frontend usava `PESQUISAS_DEFAULT` hardcoded com `FONTE_DEFAULT = 'Quaest / Datafolha — mai/2026'`.
+
+**Fix:**
+- Janela expandida de 5 dias → 30 dias
+- Query expandida: busca em `titulo` E `conteudo` (corpo do artigo) com OR
+- Keywords expandidas (17 termos vs 6 anteriores)
+- Fallback: Google News RSS `https://news.google.com/rss/search?q=pesquisa+eleitoral+2026&hl=pt-BR` quando Supabase retorna 0
+- Extraído helper `_extrairEsalvar(textos, OPENAI_KEY, res)` para deduplicação de código
+- `public/js/ovc-eleitoral.js`: `FONTE_DEFAULT` atualizado de `mai/2026` → `jun/2026`
+
+---
+
+#### Fix ovc-cards.js recência (PR desta sessão — branch `claude/youthful-goodall-il7w48`)
+
+**Root cause:** `load()` em `public/js/ovc-cards.js` construía cache de TODOS os 300 posts sem filtro de tempo. Para cada tipo de card, `.sort()` ordenava apenas por presença de imagem (`imgOk`) — sem considerar idade. Resultado: artigos com boas imagens de semanas atrás apareciam antes de artigos recentes.
+
+**Fix — `recentSort()` helper adicionado:**
+```js
+function recentSort(posts) {
+  return posts.slice().sort(function(a, b) {
+    var imgA = imgOk(a.imagem) ? 1 : 0;
+    var imgB = imgOk(b.imagem) ? 1 : 0;
+    if (imgA !== imgB) return imgB - imgA;         // 1. posts com imagem primeiro
+    var tsA = new Date(a.data || a.published_at || a.created_at || 0).getTime();
+    var tsB = new Date(b.data || b.published_at || b.created_at || 0).getTime();
+    return tsB - tsA;                               // 2. entre eles, mais recente primeiro
+  });
+}
+```
+
+- Todas as 5 chamadas `.sort(function(a,b){ return (imgOk...)... })` substituídas por `recentSort(posts)`, `recentSort(posts2)`, etc.
+- Cards agora mostram SEMPRE o artigo mais recente com imagem disponível — não mais o mais antigo com boa foto.
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 27/06/2026
+
+### 🟡 PENDÊNCIAS MÉDIAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P1 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto". Quando autorizar: apenas título, sem resumo |
+| P2 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+| P3 | **Reorganizações que Roberto quer fazer** | Roberto define | "tem muita coisa que quero reorganizar" — detalhes não especificados ainda |
+
+### 🟢 PENDÊNCIAS BAIXAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P4 | **Verificar artigos Copa/eleitorais** | Aguardar pipeline | Widgets ativam automaticamente com keywords |
+| P5 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
+| P6 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
+| P7 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
+
+### 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
+
+| # | Pendência | Urgência | Detalhes |
+|---|---|---|---|
+| R1 | **Deletar SUPABASE_KEY env var morta no Vercel** | Média | Projeto `ovalorcapital-xuhw` → Settings → Environment Variables → deletar `SUPABASE_KEY` (banco morto `bfsegqdgscudtdgwdyci`) |
+| R2 | **Instagram SSL** | Média | `ovalorcapital.com.br` non-www falha no IAB |
+| R3 | **Google Indexing API** | Média | `GOOGLE_INDEXING_SA_JSON` ausente no Vercel |
+| R4 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586` |
+| R5 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
+| R6 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), deletar `ovalorcapital` e `ovalorcapital-hubx` com cuidado |
+| R7 | **Aprovar artigos pendentes** | Alta | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
+
+### ✅ CONFIRMADO NESTA SESSÃO (27/06/2026)
+
+| Sistema | Status |
+|---|---|
+| **Radar Eleitoral pesquisas automáticas** — fix janela 30d + body search + GN fallback | ✅ EM PRODUÇÃO (PR #253, commit `ec6ab06`) |
+| **ovc-cards.js `recentSort()`** — cards mostram artigos mais recentes com imagem | ✅ EM PRODUÇÃO (commit desta sessão) |
+
