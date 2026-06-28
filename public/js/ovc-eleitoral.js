@@ -88,7 +88,9 @@
     { nome: 'Bolsonaro', pct: 29, cor: '#2563eb' },
     { nome: 'Outros', pct: 34, cor: '#94a3b8' }
   ];
-  var FONTE_DEFAULT = 'Quaest / Datafolha — jun/2026';
+  var _MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  var _agora = new Date();
+  var FONTE_DEFAULT = 'Quaest / Datafolha — ' + _MESES[_agora.getMonth()] + '/' + _agora.getFullYear();
 
   function construirBloco(artigos, pesquisaData) {
     injetarCSS();

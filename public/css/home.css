@@ -2616,10 +2616,6 @@ img, video, iframe, embed, object {
     gap: 12px;
   }
 
-  .impostometro {
-    display: none;
-  }
-
   .ticker-item {
     gap: 3px;
   }
