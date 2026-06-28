@@ -3892,3 +3892,101 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Radar Eleitoral pesquisas automáticas** — fix janela 30d + body search + GN fallback | ✅ EM PRODUÇÃO (PR #253, commit `ec6ab06`) |
 | **ovc-cards.js `recentSort()`** — cards mostram artigos mais recentes com imagem | ✅ EM PRODUÇÃO (commit desta sessão) |
 
+---
+
+### Sessão 28/06/2026 — AUDITORIA LAYOUT + FIXES CRÍTICOS E SÉRIOS (PR #255)
+
+#### Contexto
+
+Roberto pediu auditoria clínica de layout, marketing e tecnologia com olhar de "consultor de nível internacional" — foco em impacto para anunciantes e novos usuários. Após a auditoria, Roberto autorizou: "repare, conserte, arrume, ajuste, deixe tudo PERFEITO em TODOS OS ITENS CRITICOS E SÉRIOS QUE voce pontuou".
+
+---
+
+#### Auditoria realizada — achados por criticidade
+
+**Críticos (impacto direto em conversão e percepção de valor):**
+1. Sem web font editorial — manchetes em sans-serif genérico, sem autoridade jornalística
+2. Excerpts dos cards invisíveis (`display: none !important`) — usuário não sabe do que trata o artigo
+3. Imagens opacas demais (hero: 0.6, feature: 0.55, monetizado: 0.35) — portal parecendo apagado
+4. Nav com font-size 9px — ilegível, parecer amador
+5. Botão "Anuncie" era texto dashed cinza — invisível para anunciantes potenciais
+
+**Sérios (degradam experiência mas não bloqueiam conversão):**
+6. chips-bar (4ª camada do header) — poluição visual, redundância de navegação
+7. Tags de categoria todas iguais (branco genérico) — sem identidade visual por categoria
+8. Sem social proof antes do rodapé — espaço desperdiçado antes de quem vai embora
+
+**Oportunidades (documentadas, não implementadas nesta sessão):**
+- Sidebar de destaques recentes sticky no desktop
+- Progress bar de leitura nos artigos
+- Cards "mais lidos" com spark lines de tendência
+- Seção de editorias em grade visual antes do footer
+
+---
+
+#### O que foi implementado (PR #255 — mergeado em main, squash commit `29832e94`)
+
+**`public/css/home.css`:**
+
+1. **CSS var `--font-editorial`** adicionada: `'Playfair Display', Georgia, 'Times New Roman', serif`
+2. **`.link-anuncie`** transformado em botão CTA dourado real: `background: rgba(212,175,55,0.12)`, `border: 1px solid rgba(212,175,55,0.55)`, `border-radius: 999px`, `padding: 5px 13px`, `font-weight: 700` — totalmente visível e diferenciado
+3. **Nav font-size** `.supermenu-link` e `.supermenu-item`: `9px` → `11px`
+4. **`.chips-bar`** oculta: `display: none;`
+5. **Hero image opacity**: `.card-hero-main .card-bg-img` `0.6` → `1.0` + adicionado `::after` pseudo-element com `linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 42%, rgba(0,0,0,0.1) 72%, transparent 100%)` — z-index 1 (entre imagem no z-0 e conteúdo no z-2)
+6. **Feature image opacity**: `.card-feature .card-bg-img` `0.55` → `1.0` + adicionado `.card-feature.has-image::after` e `.card-feature[style*="background-image"]::after` com gradiente idêntico ao hero
+7. **Monetizado image opacity**: `.card-monetizado .card-bg-img` `0.35` → `0.85`
+8. **Font editorial nas manchetes**: `.card-title` e `.card-feature-title` receberam `font-family: var(--font-editorial)` e `line-height: 1.32`
+9. **Card excerpts visíveis**: duas ocorrências de `display: none !important` removidas — substituídas por `-webkit-line-clamp: 2`, `overflow: hidden`, `display: -webkit-box`, `-webkit-box-orient: vertical` (2 linhas clamp)
+10. **Tags por categoria**: classes `.tag-politica`, `.tag-economia`, `.tag-negocios`, `.tag-investimentos`, `.tag-tecnologia`, `.tag-internacional`, `.tag-brasil-on`, `.tag-esportes`, `.tag-saude`, `.tag-familia`, `.tag-cultura`, `.tag-industria`, `.tag-religiao`, `.tag-carreira`, `.tag-tributos`, `.tag-imoveis`, `.tag-seguros` — cada uma com `background: var(--cat-XXX)` e `color: #ffffff`
+11. **Social proof strip** `.ovc-social-proof`: seção antes do footer com gradiente dark `linear-gradient(135deg, #050816, #0d1526)`, borda ouro, 4 stats (2.6M+ views/mês, 80 artigos/dia, ✓ Google News indexado, 17 editorias), botão "Anuncie no OVC →"
+
+**`public/index.html`** (712 linhas — ≥700 ✅):
+- Adicionado Google Fonts preconnect + stylesheet: `Playfair Display:wght@700;800&display=swap`
+- Adicionado `--font-editorial` na inline critical CSS
+- Adicionado HTML do `.ovc-social-proof` antes de `<footer class="footer">`
+
+---
+
+#### Verificações antes do merge
+
+- `wc -l public/index.html` → 712 (≥700 ✅)
+- `ls api/ | wc -l` → 10 (≤10 ✅)
+- `vercel.json` NÃO tocado ✅
+- `core/ai_portal.js` NÃO tocado ✅
+- CI "Verificar arquivos críticos" → ✅ verde
+- Todos 3 Vercel previews → ✅ Ready
+
+---
+
+#### 🔧 PENDÊNCIAS COMPLETAS (28/06/2026)
+
+**Alta prioridade — aguardando Roberto:**
+1. **Aprovar artigos pendentes** — admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia.
+2. **Oportunidades de layout** — Roberto autorizou discutir itens após os fixes críticos/sérios. Itens pendentes: sidebar sticky de destaques, progress bar de leitura nos artigos, cards "mais lidos" com tendência, grade de editorias antes do footer.
+
+**Médias (sessão focada):**
+3. `ovc-nichos.js` layout compacto — aguardando Roberto
+4. Leitura Dinâmica — aguardando Roberto
+5. Categorização RSS: `GET /api/manage?action=categorizar_rss&pass=ovc-admin-2026-secreto`
+
+**Roberto faz manualmente:**
+6. Deletar `SUPABASE_KEY` env var morta no Vercel (`ovalorcapital-xuhw`)
+7. Instagram SSL — non-www falha no IAB
+8. Google Indexing API — `GOOGLE_INDEXING_SA_JSON` ausente no Vercel
+9. AdSense aprovação — aguardando Google
+10. Google Publisher Center — aguardando aprovação
+11. Limpar artigos com imagem ruim (logo Google 60+, templo japonês ~10)
+
+#### ✅ ADICIONADO NESTA SESSÃO (28/06/2026)
+
+| Sistema | Status |
+|---|---|
+| **Google Fonts Playfair Display** — font editorial nas manchetes | ✅ EM PRODUÇÃO (PR #255, commit `29832e94`) |
+| **Card excerpts visíveis** — 2-line clamp (eram `display:none !important`) | ✅ EM PRODUÇÃO |
+| **Imagens full opacity** + gradiente overlay via `::after` | ✅ EM PRODUÇÃO |
+| **Nav font-size 11px** (era 9px — ilegível) | ✅ EM PRODUÇÃO |
+| **Botão "Anuncie" dourado** — CTA real visível | ✅ EM PRODUÇÃO |
+| **chips-bar oculta** — header simplificado | ✅ EM PRODUÇÃO |
+| **Tags por categoria coloridas** — 17 classes `.tag-XXX` | ✅ EM PRODUÇÃO |
+| **Social proof strip** antes do footer | ✅ EM PRODUÇÃO |
+
