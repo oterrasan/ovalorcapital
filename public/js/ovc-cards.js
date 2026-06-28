@@ -55,6 +55,17 @@
     });
   }
 
+  // Filtra posts com até 48h — fallback para o post mais recente se não houver nenhum
+  var _48H = 48 * 3600 * 1000;
+  function filterRecent(posts) {
+    var cutoff = Date.now() - _48H;
+    var fresh = posts.filter(function(p) {
+      var ts = new Date(p.published_at || p.data || p.created_at || 0).getTime();
+      return ts >= cutoff;
+    });
+    return fresh.length > 0 ? fresh : posts.slice(0, 1);
+  }
+
   function _slugify(s){
     return (s||'').toLowerCase().normalize('NFD')
       .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s-]/g,'')
@@ -697,7 +708,7 @@ function load(){
       if(el.classList.contains('ovc-card-horizontal')){
         var posts = [];
         item.cats.forEach(function(c){ posts=posts.concat(cache[c]||[]); });
-        posts = recentSort(posts);
+        posts = recentSort(filterRecent(posts));
         if(!posts.length){
           var tH = document.getElementById('ovc-h-titulo-'+item.id);
           if(tH) tH.textContent = 'Em breve';
@@ -721,7 +732,7 @@ function load(){
       if(el.classList.contains('ovc-mini-card')){
         var posts2 = [];
         item.cats.forEach(function(c){ posts2=posts2.concat(cache[c]||[]); });
-        posts2 = recentSort(posts2);
+        posts2 = recentSort(filterRecent(posts2));
         if(!posts2.length){
           var tE = document.getElementById('ovc-mini-titulo-'+item.id);
           if(tE) tE.textContent = 'Em breve';
@@ -743,7 +754,7 @@ function load(){
       if(el.classList.contains('ovc-card-editorial')){
         var posts3 = [];
         item.cats.forEach(function(c){ posts3=posts3.concat(cache[c]||[]); });
-        posts3 = recentSort(posts3);
+        posts3 = recentSort(filterRecent(posts3));
         if(!posts3.length){
           var tE3 = document.getElementById('ovc-e-titulo-'+item.id);
           if(tE3) tE3.textContent = 'Em breve';
@@ -767,7 +778,7 @@ function load(){
       if(el.classList.contains('ovc-card-grande')){
         var posts4 = [];
         item.cats.forEach(function(c){ posts4=posts4.concat(cache[c]||[]); });
-        posts4 = recentSort(posts4);
+        posts4 = recentSort(filterRecent(posts4));
         if(!posts4.length){ mostrarVazio(el, item.id); return; }
         startRotation(el, posts4, item.id, 0);
         return;
@@ -776,7 +787,7 @@ function load(){
       // Card padrão Bloco A — rotação existente
       var posts5 = [];
       item.cats.forEach(function(c){ posts5=posts5.concat(cache[c]||[]); });
-      posts5 = recentSort(posts5);
+      posts5 = recentSort(filterRecent(posts5));
       if(!posts5.length){ mostrarVazio(el, item.id); return; }
       startRotation(el, posts5, item.id, 0);
     });

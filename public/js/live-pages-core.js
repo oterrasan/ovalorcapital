@@ -40,13 +40,13 @@
       <section class="ovc-live-grid">
         <div class="ovc-panel ovc-live-hero">
           <div class="ovc-kicker">TV OVC</div>
-          <h1>${safe(hero.label,'TV OVC')}</h1>
+          <h1 id="ovc-tv-title">${safe(hero.label,'TV OVC')}</h1>
           <p>Central de transmissões públicas, institucionais e econômicas selecionadas pelo OVC.</p>
-          <div class="ovc-live-frame">${hero.url ? `<iframe src="${hero.url}" title="${hero.label}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>` : '<div class="ovc-live-fallback">Canal em preparação.</div>'}</div>
+          <div class="ovc-live-frame">${hero.url ? `<iframe id="ovc-tv-hero" src="${hero.url}" title="${hero.label}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>` : '<div class="ovc-live-fallback">Canal em preparação.</div>'}</div>
         </div>
         <aside class="ovc-panel ovc-live-side">
           <h3>Canais disponíveis</h3>
-          <div class="ovc-live-list">${channels.map(item => `<a class="ovc-live-link" href="${item.url}" target="_blank" rel="noopener"><strong>${item.label}</strong><span>${safe(item.group,'ao vivo')}</span></a>`).join('')}</div>
+          <div class="ovc-live-list">${channels.map(item => `<a class="ovc-live-link" href="#" data-url="${item.url}" data-label="${item.label.replace(/"/g,'&quot;')}" onclick="(function(el){var f=document.getElementById('ovc-tv-hero');if(f){f.src=el.dataset.url;}var t=document.getElementById('ovc-tv-title');if(t){t.textContent=el.dataset.label;}document.querySelectorAll('.ovc-live-link').forEach(function(a){a.classList.remove('active');});el.classList.add('active');})(this);return false;"><strong>${item.label}</strong><span>${safe(item.group,'ao vivo')}</span></a>`).join('')}</div>
           <div class="ovc-banner-slot"><div><strong>Slot premium discreto</strong><span>Patrocínio para plataformas financeiras, dados e parceiros institucionais.</span></div></div>
         </aside>
       </section>`;

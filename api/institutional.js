@@ -1,6 +1,6 @@
 const BASE = "https://www.ovalorcapital.com.br";
 const LOGO = `${BASE}/images/logo-ovc.png`;
-const OG_DEFAULT = `${BASE}/images/og-default.jpg`;
+const OG_DEFAULT = `${BASE}/assets/og-default.jpg`;
 const GOLD = "#d4af37";
 const NAVY = "#0f172a";
 
@@ -54,223 +54,178 @@ function buildHeader(){
 </header>`;
 }
 
-function buildQuemsomosPage(){
+function instRailLeft(activeKey){
+  const links = [
+    {key:'quem-somos', href:'/quem-somos/', label:'Quem Somos', icon:'🏛️'},
+    {key:'politica-editorial', href:'/politica-editorial/', label:'Política Editorial', icon:'📋'},
+    {key:'contato', href:'/vc/contato/', label:'Contato', icon:'✉️'},
+    {key:'colunistas', href:'/colunistas/', label:'Colunistas OVC', icon:'✍️'},
+  ];
+  const navItems = links.map(l => {
+    const active = l.key === activeKey;
+    return `<a href="${l.href}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:${active?'800':'600'};color:${active?'#1d4ed8':'#374151'};background:${active?'#eff6ff':'transparent'};border-left:3px solid ${active?'#1d4ed8':'transparent'};transition:background .15s,color .15s;margin-bottom:2px">${l.icon} ${l.label}</a>`;
+  }).join('');
   return `
-<!-- HERO -->
-<section style="background:linear-gradient(135deg,${NAVY} 0%,#0a0f1e 50%,#111827 100%);padding:96px 24px 80px;text-align:center;position:relative;overflow:hidden">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(212,175,55,.12) 0%,transparent 65%);pointer-events:none"></div>
-  <div style="position:relative;max-width:820px;margin:0 auto">
-    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(212,175,55,.15);border:1px solid rgba(212,175,55,.35);color:${GOLD};font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;padding:5px 18px;border-radius:3px;margin-bottom:28px">
-      ◆ INSTITUCIONAL
+<aside class="rail-left" style="padding-top:8px">
+  <div style="background:var(--bg-elevated,#fff);border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:18px">
+    <div style="background:${NAVY};padding:12px 14px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6)">ÁREA INSTITUCIONAL</div>
+      <div style="font-size:14px;font-weight:900;color:#fff;margin-top:4px">O Valor Capital</div>
     </div>
-    <h1 style="color:#fff;font-size:clamp(2.4rem,6vw,4rem);font-weight:900;line-height:1.05;margin:0 0 20px;letter-spacing:-1.5px">Quem Somos —<br><span style="color:${GOLD}">O Valor Capital</span></h1>
-    <p style="color:rgba(255,255,255,.75);font-size:1.15rem;line-height:1.7;max-width:640px;margin:0 auto 32px">Portal independente de jornalismo econômico, político e financeiro fundado em 2026, com compromisso inabalável com a verdade e a democratização da informação.</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-      <a href="/politica-editorial/" style="background:${GOLD};color:#111;font-size:14px;font-weight:800;padding:12px 28px;border-radius:6px;text-decoration:none;letter-spacing:.3px">Princípios Editoriais →</a>
-      <a href="/colunistas/" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:6px;text-decoration:none">Nossos Colunistas</a>
+    <div style="padding:10px 8px">${navItems}</div>
+  </div>
+  <div style="background:var(--bg-elevated,#fff);border-radius:10px;border:1px solid #e2e8f0;padding:14px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:10px">Editorias</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <a href="/politica/" style="font-size:12px;color:#374151;text-decoration:none;padding:4px 0;border-bottom:1px solid #f1f5f9">→ Política</a>
+      <a href="/economia/" style="font-size:12px;color:#374151;text-decoration:none;padding:4px 0;border-bottom:1px solid #f1f5f9">→ Economia</a>
+      <a href="/brasil-on/" style="font-size:12px;color:#374151;text-decoration:none;padding:4px 0;border-bottom:1px solid #f1f5f9">→ Brasil On</a>
+      <a href="/investimentos/" style="font-size:12px;color:#374151;text-decoration:none;padding:4px 0;border-bottom:1px solid #f1f5f9">→ Investimentos</a>
+      <a href="/negocios/" style="font-size:12px;color:#374151;text-decoration:none;padding:4px 0">→ Negócios</a>
     </div>
   </div>
-</section>
+</aside>`;
+}
 
-<!-- MISSÃO -->
-<section style="background:#fff;padding:72px 24px">
-  <div style="max-width:900px;margin:0 auto">
-    <div style="border-left:5px solid ${GOLD};padding-left:32px;margin-bottom:56px">
-      <p style="font-size:1.6rem;font-weight:700;color:#111;line-height:1.45;margin:0 0 12px">"Informação de qualidade é direito, não privilégio."</p>
-      <span style="color:#64748b;font-size:.9rem;font-weight:600">— Princípio fundador do O Valor Capital</span>
+function instRailRight(){
+  return `
+<aside class="rail-right" style="padding-top:8px">
+  <div style="background:var(--bg-elevated,#fff);border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:18px">
+    <div style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);padding:12px 14px">
+      <div style="font-size:11px;font-weight:800;color:#fbbf24;text-transform:uppercase;letter-spacing:.1em">Fale com a Redação</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px">
+    <div style="padding:14px">
+      <p style="font-size:12px;color:#374151;line-height:1.6;margin:0 0 12px">Tem uma pauta, denúncia ou sugestão editorial? Nossa equipe responde em até 48h úteis.</p>
+      <a href="mailto:${EMAIL_DISPLAY}" style="display:block;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;padding:9px 14px;border-radius:6px;text-decoration:none;text-align:center">✉️ Enviar mensagem</a>
+      <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:8px">${EMAIL_DISPLAY}</div>
+    </div>
+  </div>
+  <div style="background:var(--bg-elevated,#fff);border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:18px">
+    <div style="background:#0f172a;padding:12px 14px">
+      <div style="font-size:11px;font-weight:800;color:#d4af37;text-transform:uppercase;letter-spacing:.1em">Newsletter OVC</div>
+    </div>
+    <div style="padding:14px">
+      <p style="font-size:12px;color:#374151;line-height:1.6;margin:0 0 12px">Receba o resumo diário do que importa na economia e política brasileira.</p>
+      <a href="/newsletter/" style="display:block;background:#d4af37;color:#111;font-size:12px;font-weight:800;padding:9px 14px;border-radius:6px;text-decoration:none;text-align:center">📩 Assinar grátis</a>
+    </div>
+  </div>
+  <div style="background:var(--bg-elevated,#fff);border-radius:10px;border:1px solid #e2e8f0;padding:14px">
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:10px">Seja Colunista</div>
+    <p style="font-size:12px;color:#374151;line-height:1.6;margin:0 0 10px">Especialistas em economia, direito, política e mercado financeiro podem enviar artigos para análise.</p>
+    <a href="/colunista/" style="font-size:12px;font-weight:700;color:#1d4ed8;text-decoration:none">Saiba mais →</a>
+  </div>
+</aside>`;
+}
+
+function buildQuemsomosContent(){
+  return `
+<article style="background:var(--bg-elevated,#fff);border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px">
+  <div style="background:linear-gradient(135deg,${NAVY} 0%,#1e293b 100%);padding:36px 32px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.07">🏛️</div>
+    <div style="position:relative">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(212,175,55,.2);border:1px solid rgba(212,175,55,.4);color:${GOLD};font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:4px 14px;border-radius:3px;margin-bottom:16px">◆ INSTITUCIONAL</div>
+      <h1 style="color:#fff;font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;margin:0 0 12px;line-height:1.1;letter-spacing:-.5px">Quem Somos —<br><span style="color:${GOLD}">O Valor Capital</span></h1>
+      <p style="color:rgba(255,255,255,.7);font-size:.97rem;line-height:1.65;margin:0;max-width:560px">Portal independente de jornalismo econômico, político e financeiro fundado em 2026, com compromisso inabalável com a verdade e a democratização da informação.</p>
+    </div>
+  </div>
+  <div style="padding:28px 32px">
+    <div style="border-left:4px solid ${GOLD};padding-left:20px;margin-bottom:28px">
+      <p style="font-size:1.15rem;font-weight:700;color:#111;line-height:1.45;margin:0 0 8px">"Informação de qualidade é direito, não privilégio."</p>
+      <span style="color:#64748b;font-size:.85rem;font-weight:600">— Princípio fundador do O Valor Capital</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px">
       <div>
-        <h2 style="font-size:1.1rem;font-weight:800;color:#111;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:4px;height:20px;background:${GOLD};border-radius:2px"></span>Nossa Missão</h2>
-        <p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0">O <strong>O Valor Capital</strong> nasceu com a missão de democratizar o acesso à informação econômica e política de qualidade no Brasil. Acreditamos que um cidadão bem informado faz escolhas melhores — para si, para sua família e para o país.</p>
+        <h2 style="font-size:.95rem;font-weight:800;color:#111;margin:0 0 10px;text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:16px;background:${GOLD};border-radius:2px"></span>Nossa Missão</h2>
+        <p style="color:#374151;line-height:1.75;font-size:.9rem;margin:0">O <strong>O Valor Capital</strong> nasceu com a missão de democratizar o acesso à informação econômica e política de qualidade no Brasil. Acreditamos que um cidadão bem informado faz escolhas melhores — para si, para sua família e para o país.</p>
       </div>
       <div>
-        <h2 style="font-size:1.1rem;font-weight:800;color:#111;margin:0 0 14px;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:10px"><span style="display:inline-block;width:4px;height:20px;background:${GOLD};border-radius:2px"></span>Nossa Visão</h2>
-        <p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0">Ser o portal de referência em economia, política e mercado financeiro para o cidadão brasileiro, combinando o rigor do jornalismo tradicional com a agilidade e escala das melhores tecnologias editoriais disponíveis.</p>
+        <h2 style="font-size:.95rem;font-weight:800;color:#111;margin:0 0 10px;text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:16px;background:${GOLD};border-radius:2px"></span>Nossa Visão</h2>
+        <p style="color:#374151;line-height:1.75;font-size:.9rem;margin:0">Ser o portal de referência em economia, política e mercado financeiro para o cidadão brasileiro, combinando o rigor do jornalismo tradicional com a agilidade e escala das melhores tecnologias editoriais disponíveis.</p>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- EXPEDIENTE -->
-<section style="background:#f8fafc;padding:72px 24px;border-top:1px solid #e2e8f0">
-  <div style="max-width:900px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:48px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${GOLD}">EXPEDIENTE</span>
-      <h2 style="font-size:2rem;font-weight:900;color:#111;margin:8px 0 0;letter-spacing:-.5px">Corpo Editorial</h2>
-    </div>
-    <div style="background:#fff;border-radius:16px;box-shadow:0 4px 40px rgba(0,0,0,.09);overflow:hidden;display:flex;flex-wrap:wrap">
-      <div style="background:linear-gradient(135deg,${NAVY} 0%,#1e3a5f 100%);padding:48px 36px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:220px;flex:0 0 220px">
-        <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,${GOLD} 0%,#b8860b 100%);display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:900;color:${NAVY};margin-bottom:16px;box-shadow:0 4px 20px rgba(212,175,55,.4)">OVC</div>
-        <div style="text-align:center">
-          <div style="color:rgba(255,255,255,.5);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">Portal</div>
-          <div style="color:${GOLD};font-size:12px;font-weight:800;letter-spacing:.5px">Direção Editorial</div>
-        </div>
-      </div>
-      <div style="padding:40px 40px 40px 36px;flex:1;min-width:260px">
-        <h3 style="font-size:1.8rem;font-weight:900;color:#111;margin:0 0 6px;letter-spacing:-.5px">Redação OVC</h3>
-        <p style="color:${GOLD};font-size:.95rem;font-weight:700;margin:0 0 20px">Equipe Editorial — O Valor Capital</p>
-        <p style="color:#374151;line-height:1.8;font-size:.95rem;margin:0 0 20px">O <strong>O Valor Capital</strong> é um portal jornalístico independente fundado em 2026. Nossa equipe editorial é responsável pela curadoria, produção e governança de todo o conteúdo publicado, com compromisso integral com a qualidade informativa e os princípios do jornalismo ético.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px">
-          <span style="background:#f1f5f9;color:#374151;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">#Economia</span>
-          <span style="background:#f1f5f9;color:#374151;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">#Política</span>
-          <span style="background:#f1f5f9;color:#374151;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">#Mercado Financeiro</span>
-          <span style="background:#f1f5f9;color:#374151;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px">#Jornalismo Digital</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="${GOLD}" stroke-width="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-          <a href="mailto:${EMAIL_DISPLAY}" style="color:#1a56db;font-size:.9rem;font-weight:600;text-decoration:none">${EMAIL_DISPLAY}</a>
-        </div>
+    <h2 style="font-size:1.1rem;font-weight:900;color:#111;margin:0 0 16px;border-bottom:2px solid #e2e8f0;padding-bottom:10px">Corpo Editorial</h2>
+    <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;padding:20px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:24px">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,${GOLD} 0%,#b8860b 100%);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:${NAVY};flex-shrink:0;box-shadow:0 4px 16px rgba(212,175,55,.35)">OVC</div>
+      <div style="flex:1;min-width:180px">
+        <div style="font-size:1.1rem;font-weight:900;color:#111;margin-bottom:4px">Redação OVC</div>
+        <div style="color:${GOLD};font-size:.85rem;font-weight:700;margin-bottom:8px">Equipe Editorial — O Valor Capital</div>
+        <p style="color:#374151;line-height:1.7;font-size:.87rem;margin:0 0 10px">Portal jornalístico independente fundado em 2026. Equipe editorial responsável pela curadoria, produção e governança de todo o conteúdo publicado.</p>
+        <a href="mailto:${EMAIL_DISPLAY}" style="color:#1a56db;font-size:.85rem;font-weight:600;text-decoration:none">✉️ ${EMAIL_DISPLAY}</a>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- VALORES -->
-<section style="background:#fff;padding:72px 24px;border-top:1px solid #e2e8f0">
-  <div style="max-width:960px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:48px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${GOLD}">NOSSOS PILARES</span>
-      <h2 style="font-size:2rem;font-weight:900;color:#111;margin:8px 0 0;letter-spacing:-.5px">O que nos guia</h2>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px">
+    <h2 style="font-size:1.1rem;font-weight:900;color:#111;margin:0 0 16px;border-bottom:2px solid #e2e8f0;padding-bottom:10px">Nossos Pilares</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
       ${[
         ["🎯","Precisão","Verificação rigorosa de fatos em fontes primárias, documentos públicos e agências de credibilidade reconhecida."],
         ["🔓","Independência","Sem afiliações partidárias ou corporativas. Liberdade editorial total para cobrir os fatos como eles são."],
-        ["🏆","Qualidade","Padrão editorial de excelência em cada publicação, com revisão humana de todo o conteúdo antes da publicação."],
-        ["⚖️","Equilíbrio","Cobertura plural que apresenta múltiplos ângulos, dando voz a diferentes perspectivas e setores da sociedade."],
-      ].map(([icon,title,desc])=>`
-      <div style="background:#f8fafc;border-radius:12px;padding:28px 24px;border:1px solid #e2e8f0;transition:transform .2s">
-        <div style="font-size:2rem;margin-bottom:14px">${icon}</div>
-        <h3 style="font-size:1rem;font-weight:800;color:#111;margin:0 0 10px">${title}</h3>
-        <p style="color:#64748b;font-size:.87rem;line-height:1.65;margin:0">${desc}</p>
-      </div>`).join("")}
+        ["🏆","Qualidade","Padrão editorial de excelência em cada publicação, com revisão humana antes da publicação."],
+        ["⚖️","Equilíbrio","Cobertura plural que apresenta múltiplos ângulos e dá voz a diferentes perspectivas."],
+      ].map(([icon,title,desc])=>`<div style="background:#f8fafc;border-radius:8px;padding:16px;border:1px solid #e2e8f0"><div style="font-size:1.4rem;margin-bottom:8px">${icon}</div><div style="font-size:.87rem;font-weight:800;color:#111;margin-bottom:6px">${title}</div><p style="color:#64748b;font-size:.8rem;line-height:1.6;margin:0">${desc}</p></div>`).join("")}
+    </div>
+    <div style="background:linear-gradient(135deg,${NAVY},#1e293b);border-radius:10px;padding:20px;text-align:center">
+      <div style="font-size:1.1rem;font-weight:900;color:#fff;margin-bottom:8px">Canais de Contato</div>
+      <p style="color:rgba(255,255,255,.65);font-size:.87rem;margin:0 0 14px">Redação, parceiros e imprensa</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <a href="mailto:${EMAIL_DISPLAY}" style="background:${GOLD};color:#111;font-size:12px;font-weight:800;padding:9px 20px;border-radius:6px;text-decoration:none">✉️ Redação</a>
+        <a href="/politica-editorial/" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:12px;font-weight:700;padding:9px 20px;border-radius:6px;text-decoration:none">Política Editorial →</a>
+      </div>
     </div>
   </div>
-</section>
-
-<!-- CANAIS DE CONTATO -->
-<section style="background:linear-gradient(135deg,${NAVY} 0%,#0a0f1e 100%);padding:72px 24px">
-  <div style="max-width:900px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:48px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${GOLD}">FALE CONOSCO</span>
-      <h2 style="font-size:2rem;font-weight:900;color:#fff;margin:8px 0 12px;letter-spacing:-.5px">Canais de Atendimento</h2>
-      <p style="color:rgba(255,255,255,.6);font-size:.97rem;margin:0">Nossa equipe editorial está disponível para atender imprensa, leitores e parceiros.</p>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px">
-      ${[
-        ["📧","E-mail de Contato Geral",EMAIL_DISPLAY,`mailto:${EMAIL_DISPLAY}`],
-        ["📝","Redação e Pauta",EMAIL_DISPLAY,`mailto:${EMAIL_DISPLAY}`],
-        ["🔔","Ouvidoria e Retificações",EMAIL_DISPLAY,`mailto:${EMAIL_DISPLAY}`],
-      ].map(([icon,label,val,href])=>`
-      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:24px">
-        <div style="font-size:1.5rem;margin-bottom:10px">${icon}</div>
-        <div style="color:rgba(255,255,255,.55);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">${label}</div>
-        <a href="${href}" style="color:${GOLD};font-size:.93rem;font-weight:700;text-decoration:none">${val}</a>
-      </div>`).join("")}
-    </div>
-  </div>
-</section>`;
+</article>`;
 }
 
-function buildPoliticaPage(){
+function buildPoliticaContent(){
   const principles = [
-    {
-      n:"01", title:"Precisão e Verificação de Fatos",
-      icon:"🎯",
-      body:`Todo o conteúdo reproduzido ou produzido pelo portal O Valor Capital passa por processo rigoroso de triagem baseado em <strong>fontes oficiais</strong>, agências de notícias de credibilidade reconhecida (Reuters, AFP, AP, Agência Brasil) e documentos públicos verificáveis. Informações sem comprovação documental não são publicadas como fato.`
-    },
-    {
-      n:"02", title:"Independência Editorial",
-      icon:"🔓",
-      body:`O Valor Capital não possui afiliações políticas, partidárias ou corporativas. A linha editorial é determinada exclusivamente pelo valor jornalístico dos fatos, sem influência de anunciantes, governos ou grupos de pressão. A autonomia editorial é condição inegociável para a credibilidade do portal.`
-    },
-    {
-      n:"03", title:"Padrão de Produção Editorial",
-      icon:"🏆",
-      body:`Todo o conteúdo publicado é produzido com rigor editorial e supervisionado pela equipe de redação antes da publicação. O portal assume <strong>total responsabilidade editorial</strong> por todo o conteúdo final publicado, independentemente do método de produção utilizado.`
-    },
-    {
-      n:"04", title:"Política de Correções e Retificações",
-      icon:"✏️",
-      body:`Erros factuais, imprecisões ou informações desatualizadas serão corrigidos de forma transparente, com nota de retificação visível ao leitor. Solicitações de correção são analisadas em até 48 horas úteis. Não há correção retroativa de opiniões ou análises, desde que claramente identificadas como tal.`
-    },
-    {
-      n:"05", title:"Direitos Autorais e Reprodução",
-      icon:"©️",
-      body:`O conteúdo editorial do portal é protegido por direitos autorais. A reprodução parcial (até 50 palavras) é permitida com citação de fonte e link para o original. Reprodução integral requer autorização expressa da redação. Imagens de terceiros são utilizadas sob licenças Creative Commons, fair use jornalístico ou com autorização.`
-    },
-    {
-      n:"06", title:"Canal de Contato Editorial",
-      icon:"📧",
-      body:`Para solicitações de pauta, retificações, parcerias editoriais ou qualquer questão relacionada ao conteúdo publicado, entre em contato exclusivamente por meio do canal oficial: <a href="mailto:${EMAIL_DISPLAY}" style="color:#1a56db">${EMAIL_DISPLAY}</a>. Nossa equipe responde em até 48 horas úteis.`
-    },
+    {n:"01", icon:"🎯", title:"Precisão e Verificação de Fatos",
+     body:`Todo o conteúdo reproduzido ou produzido pelo O Valor Capital passa por processo rigoroso de triagem baseado em <strong>fontes oficiais</strong>, agências de notícias de credibilidade reconhecida (Reuters, AFP, AP, Agência Brasil) e documentos públicos verificáveis. Informações sem comprovação documental não são publicadas como fato.`},
+    {n:"02", icon:"🔓", title:"Independência Editorial",
+     body:`O Valor Capital não possui afiliações políticas, partidárias ou corporativas. A linha editorial é determinada exclusivamente pelo valor jornalístico dos fatos, sem influência de anunciantes, governos ou grupos de pressão. A autonomia editorial é condição inegociável para a credibilidade do portal.`},
+    {n:"03", icon:"🏆", title:"Padrão de Produção Editorial",
+     body:`Todo o conteúdo publicado é produzido com rigor editorial e supervisionado pela equipe de redação antes da publicação. O portal assume <strong>total responsabilidade editorial</strong> por todo o conteúdo final publicado, independentemente do método de produção utilizado.`},
+    {n:"04", icon:"✏️", title:"Política de Correções e Retificações",
+     body:`Erros factuais, imprecisões ou informações desatualizadas serão corrigidos de forma transparente, com nota de retificação visível ao leitor. Solicitações de correção são analisadas em até 48 horas úteis. Não há correção retroativa de opiniões ou análises, desde que claramente identificadas como tal.`},
+    {n:"05", icon:"©️", title:"Direitos Autorais e Reprodução",
+     body:`O conteúdo editorial do portal é protegido por direitos autorais. A reprodução parcial (até 50 palavras) é permitida com citação de fonte e link para o original. Reprodução integral requer autorização expressa da redação. Imagens de terceiros são utilizadas sob licenças Creative Commons, fair use jornalístico ou com autorização.`},
+    {n:"06", icon:"📧", title:"Canal de Contato Editorial",
+     body:`Para solicitações de pauta, retificações, parcerias editoriais ou qualquer questão relacionada ao conteúdo publicado, entre em contato exclusivamente por meio do canal oficial: <a href="mailto:${EMAIL_DISPLAY}" style="color:#1a56db">${EMAIL_DISPLAY}</a>. Nossa equipe responde em até 48 horas úteis.`},
   ];
 
-  const principlesHtml = principles.map(p=>`
-  <div style="background:#fff;border-radius:14px;box-shadow:0 2px 20px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-wrap:wrap">
-    <div style="background:linear-gradient(135deg,${NAVY} 0%,#1e293b 100%);padding:32px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:100px;flex:0 0 100px;text-align:center">
-      <div style="font-size:1.8rem;margin-bottom:10px">${p.icon}</div>
-      <div style="color:${GOLD};font-size:1.4rem;font-weight:900;line-height:1">${p.n}</div>
-    </div>
-    <div style="padding:28px 32px;flex:1;min-width:240px">
-      <h3 style="font-size:1.1rem;font-weight:800;color:#111;margin:0 0 12px">${p.title}</h3>
-      <p style="color:#374151;line-height:1.8;font-size:.93rem;margin:0">${p.body}</p>
-    </div>
-  </div>`).join("\n");
-
   return `
-<!-- HERO -->
-<section style="background:linear-gradient(135deg,${NAVY} 0%,#0a0f1e 50%,#111827 100%);padding:96px 24px 80px;text-align:center;position:relative;overflow:hidden">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(212,175,55,.12) 0%,transparent 65%);pointer-events:none"></div>
-  <div style="position:relative;max-width:820px;margin:0 auto">
-    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(212,175,55,.15);border:1px solid rgba(212,175,55,.35);color:${GOLD};font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;padding:5px 18px;border-radius:3px;margin-bottom:28px">
-      ◆ INSTITUCIONAL
-    </div>
-    <h1 style="color:#fff;font-size:clamp(2.2rem,5vw,3.6rem);font-weight:900;line-height:1.07;margin:0 0 20px;letter-spacing:-1px">Princípios Editoriais —<br><span style="color:${GOLD}">O Valor Capital</span></h1>
-    <p style="color:rgba(255,255,255,.75);font-size:1.1rem;line-height:1.7;max-width:600px;margin:0 auto 32px">A carta de valores que norteia cada publicação do portal: independência, rigor factual e responsabilidade editorial integral.</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-      <a href="/quem-somos/" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:6px;text-decoration:none">Quem Somos →</a>
-      <a href="mailto:${EMAIL_DISPLAY}" style="background:${GOLD};color:#111;font-size:14px;font-weight:800;padding:12px 28px;border-radius:6px;text-decoration:none;letter-spacing:.3px">Enviar Retificação</a>
+<article style="background:var(--bg-elevated,#fff);border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px">
+  <div style="background:linear-gradient(135deg,${NAVY} 0%,#1e293b 100%);padding:36px 32px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:-10px;top:-10px;font-size:80px;opacity:.07">📋</div>
+    <div style="position:relative">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(212,175,55,.2);border:1px solid rgba(212,175,55,.4);color:${GOLD};font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;padding:4px 14px;border-radius:3px;margin-bottom:16px">◆ INSTITUCIONAL</div>
+      <h1 style="color:#fff;font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;margin:0 0 12px;line-height:1.1;letter-spacing:-.5px">Princípios Editoriais —<br><span style="color:${GOLD}">O Valor Capital</span></h1>
+      <p style="color:rgba(255,255,255,.7);font-size:.97rem;line-height:1.65;margin:0;max-width:560px">A carta de valores que norteia cada publicação: independência, rigor factual e responsabilidade editorial integral.</p>
     </div>
   </div>
-</section>
-
-<!-- INTRO QUOTE -->
-<section style="background:#fff;padding:56px 24px;text-align:center;border-bottom:1px solid #e2e8f0">
-  <div style="max-width:700px;margin:0 auto">
-    <p style="font-size:1.4rem;font-weight:300;color:#374151;line-height:1.6;margin:0;font-style:italic">"A imparcialidade não é silêncio — é a coragem de apresentar todos os lados com a mesma seriedade e o mesmo rigor."</p>
-    <div style="display:inline-flex;align-items:center;gap:8px;margin-top:16px">
-      <div style="width:32px;height:2px;background:${GOLD}"></div>
-      <span style="color:#64748b;font-size:.85rem;font-weight:600">Política Editorial — O Valor Capital</span>
-      <div style="width:32px;height:2px;background:${GOLD}"></div>
+  <div style="padding:28px 32px">
+    <div style="background:#f8fafc;border-radius:8px;padding:16px 20px;border-left:4px solid ${GOLD};margin-bottom:24px">
+      <p style="font-size:1rem;font-weight:300;color:#374151;line-height:1.6;margin:0;font-style:italic">"A imparcialidade não é silêncio — é a coragem de apresentar todos os lados com a mesma seriedade e o mesmo rigor."</p>
+      <div style="color:#64748b;font-size:.82rem;font-weight:600;margin-top:8px">— Política Editorial OVC</div>
+    </div>
+    <h2 style="font-size:1.1rem;font-weight:900;color:#111;margin:0 0 16px;border-bottom:2px solid #e2e8f0;padding-bottom:10px">Nossos 6 Princípios</h2>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
+      ${principles.map(p=>`
+      <div style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;display:flex;gap:0;align-items:stretch">
+        <div style="background:linear-gradient(135deg,${NAVY} 0%,#1e293b 100%);padding:16px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:72px;text-align:center;flex-shrink:0">
+          <div style="font-size:1.3rem;margin-bottom:6px">${p.icon}</div>
+          <div style="color:${GOLD};font-size:1rem;font-weight:900;line-height:1">${p.n}</div>
+        </div>
+        <div style="padding:16px 20px;flex:1">
+          <h3 style="font-size:.93rem;font-weight:800;color:#111;margin:0 0 8px">${p.title}</h3>
+          <p style="color:#374151;line-height:1.75;font-size:.87rem;margin:0">${p.body}</p>
+        </div>
+      </div>`).join("")}
+    </div>
+    <div style="background:linear-gradient(135deg,${NAVY},#1e293b);border-radius:10px;padding:20px;text-align:center">
+      <div style="font-size:1rem;font-weight:900;color:#fff;margin-bottom:6px">Encontrou um erro?</div>
+      <p style="color:rgba(255,255,255,.65);font-size:.87rem;margin:0 0 14px">Nossa equipe analisa pedidos de retificação em até <strong style="color:${GOLD}">48 horas úteis</strong>.</p>
+      <a href="mailto:${EMAIL_DISPLAY}?subject=Retificação%20-%20O%20Valor%20Capital" style="background:${GOLD};color:#111;font-size:12px;font-weight:800;padding:9px 20px;border-radius:6px;text-decoration:none">Solicitar Retificação</a>
     </div>
   </div>
-</section>
-
-<!-- PRINCIPLES -->
-<section style="background:#f8fafc;padding:64px 24px">
-  <div style="max-width:900px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:48px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${GOLD}">DIRETRIZES</span>
-      <h2 style="font-size:2rem;font-weight:900;color:#111;margin:8px 0 0;letter-spacing:-.5px">Nossos 6 Princípios</h2>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:20px">
-      ${principlesHtml}
-    </div>
-  </div>
-</section>
-
-<!-- CORRECTION CTA -->
-<section style="background:linear-gradient(135deg,${NAVY} 0%,#0a0f1e 100%);padding:64px 24px;text-align:center">
-  <div style="max-width:600px;margin:0 auto">
-    <div style="font-size:2.5rem;margin-bottom:16px">✉️</div>
-    <h2 style="color:#fff;font-size:1.8rem;font-weight:900;margin:0 0 12px;letter-spacing:-.5px">Encontrou um erro?</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:1rem;line-height:1.7;margin:0 0 28px">Nossa equipe analisa pedidos de retificação em até <strong style="color:${GOLD}">48 horas úteis</strong>. Envie o link do artigo, o trecho incorreto e a correção sugerida.</p>
-    <a href="mailto:${EMAIL_DISPLAY}?subject=Retificação%20-%20O%20Valor%20Capital" style="display:inline-block;background:${GOLD};color:#111;font-size:15px;font-weight:800;padding:14px 36px;border-radius:8px;text-decoration:none;letter-spacing:.3px">Solicitar Retificação</a>
-    <div style="margin-top:16px;color:rgba(255,255,255,.4);font-size:.85rem">${EMAIL_DISPLAY}</div>
-  </div>
-</section>`;
+</article>`;
 }
 
 function buildPage(pageKey){
@@ -278,10 +233,10 @@ function buildPage(pageKey){
   const title    = isQuemSomos ? "Quem Somos e Expediente | O Valor Capital"          : "Política Editorial | O Valor Capital";
   const metaT    = isQuemSomos ? "Quem Somos | O Valor Capital"                        : "Política Editorial | O Valor Capital";
   const desc     = isQuemSomos
-    ? "Conheça o portal O Valor Capital: jornalismo independente de economia, política e mercado financeiro."
+    ? "Conheça o portal O Valor Capital: jornalismo independente de economia, política e mercado financeiro fundado em 2026."
     : "Conheça os princípios editoriais do portal O Valor Capital: verificação de fatos, política de correções e responsabilidade editorial integral.";
   const canonical = isQuemSomos ? `${BASE}/quem-somos/` : `${BASE}/politica-editorial/`;
-  const bodyContent = isQuemSomos ? buildQuemsomosPage() : buildPoliticaPage();
+  const bodyContent = isQuemSomos ? buildQuemsomosContent() : buildPoliticaContent();
 
   const jsonLd = JSON.stringify({
     "@context":"https://schema.org",
@@ -317,20 +272,18 @@ function buildPage(pageKey){
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="/css/home.css">
 <link rel="stylesheet" href="/css/site.css">
-<style>
-*,*::before,*::after{box-sizing:border-box}
-html,body{margin:0;padding:0}
-@media(max-width:640px){
-  [data-col2]{grid-template-columns:1fr!important}
-  [data-flex-row]{flex-direction:column!important}
-}
-</style>
 </head>
 <body class="ovc-inner-page" data-theme="light">
 ${buildHeader()}
-<div style="min-height:80vh">
-${bodyContent}
-</div>
+<main class="page-main">
+  <div class="main-grid" style="align-items:start">
+    ${instRailLeft(pageKey)}
+    <div style="grid-column:span 3;padding:20px 0">
+      ${bodyContent}
+    </div>
+    ${instRailRight()}
+  </div>
+</main>
 </div>
 <script src="/js/site.js" defer></script>
 <script src="/js/newsletter-bar.js" defer></script>
