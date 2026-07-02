@@ -13,6 +13,7 @@
     }
   },
   "routes": [
+    { "src": "^/$",            "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/js/(.+)$",    "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/admin(.*)",   "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/inteligencia$","headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
@@ -89,7 +90,7 @@
     { "src": "^/industria/?$",              "dest": "/api/category?cat=industria" },
     { "src": "^/tecnologia/?$",             "dest": "/api/category?cat=tecnologia" },
     { "src": "^/esportes/?$",               "dest": "/api/category?cat=esportes" },
-    { "src": "^/familia/?$",                "dest": "/api/category?cat=familia" },
+    { "src": "^/familia/?$",               "dest": "/api/category?cat=familia" },
     { "src": "^/internacional/?$",          "dest": "/api/category?cat=internacional" },
     { "src": "^/brasil-on/?$",              "dest": "/api/category?cat=brasil-on" },
     { "src": "^/colunistas/?$",             "dest": "/api/category?cat=colunistas" },
