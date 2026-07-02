@@ -3892,3 +3892,105 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Radar Eleitoral pesquisas automáticas** — fix janela 30d + body search + GN fallback | ✅ EM PRODUÇÃO (PR #253, commit `ec6ab06`) |
 | **ovc-cards.js `recentSort()`** — cards mostram artigos mais recentes com imagem | ✅ EM PRODUÇÃO (commit desta sessão) |
 
+---
+
+### Sessão 02/07/2026 — PR #258: BUMP VERSÕES JS + DIAGNÓSTICO DEPLOY
+
+#### Contexto
+
+Roberto reportou que os 5 fixes do PR #256 (mergeado 28/06/2026, commit `bfe81d54`) não estavam aparecendo após **DIAS** ("JA PASSOU MAIS DE 24 HORAS"). Confirmado que NÃO era cache do browser.
+
+#### Root cause identificada
+
+**3 dos 5 fixes nunca chegavam ao browser por versões JS desatualizadas:**
+
+1. `live-pages.js` carregava dinamicamente `live-pages-core.js?v=2` (hardcoded na linha 20) — o fix da TV OVC estava no `v=3` do arquivo, mas browsers sempre recebiam o arquivo antigo `v=2` via cache CDN.
+2. `public/index.html` referenciava `ovc-cards.js?v=2` — fix dos cards com filtro 48h nunca entregue.
+3. `public/index.html` sem `?v=1` em `ovc-eleitoral.js` — fix da data dinâmica (não mais "mai/2026") nunca entregue.
+
+#### O que foi feito (PR #258 — mergeado em main, commit `0379dd12`)
+
+- `public/js/live-pages.js` linha 20: `?v=2` → `?v=3`
+- `public/index.html`: `ovc-cards.js?v=2` → `ovc-cards.js?v=3`
+- `public/index.html`: adicionado `ovc-eleitoral.js?v=1`
+- `public/index.html`: adicionado `<!-- build:20260701 -->` para diagnóstico via View Source
+
+**CI:** ✅ Verde ("Verificar arquivos críticos" passou). **PR #258 mergeado** via squash.
+
+#### 🚨 PROBLEMA PERSISTENTE — DEPLOY NÃO ESTÁ CHEGANDO A PRODUÇÃO
+
+Roberto confirmou que **após o merge do PR #258, NADA MUDOU** (mais de 24h depois).
+
+**Diagnóstico:** O `deploy.yml` (que faz o deploy real para `ovalorcapital-xuhw`) pode estar falhando silenciosamente. O Vercel mostra "preview Ready" para os 3 projetos no PR, mas o deploy de **produção** depende exclusivamente do `deploy.yml` rodando com sucesso via GitHub Actions.
+
+**Causas prováveis:**
+1. **`VERCEL_TOKEN` expirado** — o secret mais provável. Se o token expirou, todos os deploys de main falham silenciosamente.
+2. **Limite de 100 deploys/dia do Vercel Hobby** — se muitos PRs foram mergeados, o limite pode ter sido atingido.
+
+#### 🔴🔴🔴 AÇÃO CRÍTICA DE ROBERTO — FAZER IMEDIATAMENTE
+
+**Passo 1 — Verificar se o deploy de produção está rodando:**
+- GitHub → oterrasan/ovalorcapital → Actions → "Deploy Production" → ver os últimos runs
+- Se os últimos runs estão com ❌ "failure" → `VERCEL_TOKEN` expirou
+
+**Passo 2 — Se `VERCEL_TOKEN` expirou:**
+1. Acesse `vercel.com/account/tokens`
+2. Gere um novo token (escopo: Full Account)
+3. Copie o token
+4. GitHub → oterrasan/ovalorcapital → Settings → Secrets and variables → Actions → `VERCEL_TOKEN` → Update
+5. GitHub → Actions → Deploy Production → Re-run failed jobs
+
+**Passo 3 — Confirmar que funcionou:**
+- Abrir `https://www.ovalorcapital.com.br/` em aba anônima
+- `Ctrl+U` (View Source) → procurar `build:20260701`
+- Se aparecer → deploy funcionando ✅, todos os 5 fixes ativos
+- Se não aparecer → investigar outros erros no deploy.yml
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+---
+
+## 🔴🔴🔴 LISTA COMPLETA DE PENDÊNCIAS — 02/07/2026
+
+### 🔴 PENDÊNCIAS CRÍTICAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| C1 | **VERCEL_TOKEN provavelmente expirado** — deploy de produção não está chegando | **Roberto** | Ver instruções acima. GitHub Actions → Deploy Production → verificar se está falhando. Se sim → regenerar token no Vercel e atualizar no GitHub Secrets |
+| C2 | **Confirmar que os 5 fixes chegaram** | **Roberto** | Após fix do deploy: View Source em aba anônima → procurar `build:20260701` |
+
+### 🟡 PENDÊNCIAS MÉDIAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P1 | **`ovc-nichos.js` layout compacto** | Claude (aguardando Roberto) | Roberto disse "melhor nao mexer por enquanto". Quando autorizar: apenas título, sem resumo |
+| P2 | **Leitura Dinâmica** | Roberto autoriza | Roberto mencionou implementar em breve |
+| P3 | **Reorganizações que Roberto quer fazer** | Roberto define | "tem muita coisa que quero reorganizar" — detalhes não especificados ainda |
+
+### 🟢 PENDÊNCIAS BAIXAS
+
+| # | Pendência | Quem | Detalhes |
+|---|---|---|---|
+| P4 | **Verificar artigos Copa/eleitorais** | Aguardar pipeline | Widgets ativam automaticamente com keywords |
+| P5 | **Novas subcategorias em Internacional** | Roberto define | "Política Internacional" e "Conflitos & Geopolítica" |
+| P6 | **Nova categoria Espaço/Astronomia/Ufologia** | Roberto autoriza | Anotado como categoria futura |
+| P7 | **Limpar artigos com imagem ruim** | **Roberto** | Logo Google (60+) e templo japonês (~10) ainda publicados |
+
+### 🔵 PENDÊNCIAS ROBERTO — só ele pode fazer
+
+| # | Pendência | Urgência | Detalhes |
+|---|---|---|---|
+| R1 | **VERCEL_TOKEN expirado — regenerar** | 🔴 CRÍTICA | Vercel Dashboard → Account → Tokens → novo token → GitHub Secrets → VERCEL_TOKEN → Update |
+| R2 | **Deletar SUPABASE_KEY env var morta no Vercel** | Média | Projeto `ovalorcapital-xuhw` → Settings → Environment Variables → deletar `SUPABASE_KEY` (banco morto `bfsegqdgscudtdgwdyci`) |
+| R3 | **Instagram SSL** | Média | `ovalorcapital.com.br` non-www falha no IAB |
+| R4 | **Google Indexing API** | Média | `GOOGLE_INDEXING_SA_JSON` ausente no Vercel |
+| R5 | **AdSense aprovação** | Aguardar | Pub ID `ca-pub-3652391568977586` |
+| R6 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
+| R7 | **Aprovar artigos pendentes** | Alta | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
+| R8 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), deletar `ovalorcapital` e `ovalorcapital-hubx` com cuidado |
+
