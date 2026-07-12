@@ -1102,7 +1102,7 @@ function load(){
   function carregarMaisLidas(){
     var sec = document.getElementById('ovc-mais-lidas-home');
     if(!sec) return;
-    fetch('/api/portal-posts?sort=popular&limit=20')
+    fetch('/api/portal-posts?maisLidos=true&limit=10')
       .then(function(r){ return r.json(); })
       .then(function(d){
         var posts = (d.posts||[]).filter(function(p){

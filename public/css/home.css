@@ -560,12 +560,20 @@
       gap: 0;
       width: 100%;
       max-width: 100%;
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
       flex-wrap: nowrap;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .supermenu::-webkit-scrollbar {
+      display: none;
     }
 
     .supermenu-link {
-      flex: 1;
+      flex: 0 0 auto;
+      min-width: max-content;
       display: block;
       text-align: center;
       color: #e5e7eb;
@@ -573,10 +581,8 @@
       font-weight: 700;
       letter-spacing: 0;
       text-transform: uppercase;
-      padding: 9px 2px;
+      padding: 9px 6px;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       transition: color .12s;
       text-decoration: none;
       border-bottom: 2px solid transparent;
