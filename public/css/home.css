@@ -604,7 +604,8 @@
       padding: 9px 2px;
       cursor: pointer;
       white-space: nowrap;
-      flex: 1;
+      flex: 0 0 auto;
+      min-width: max-content;
       text-align: center;
     }
 
