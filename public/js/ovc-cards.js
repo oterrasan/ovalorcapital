@@ -497,11 +497,11 @@ function renderBlocoC(catGrande, catsPilha){
 }
 
 function renderBlocoD(cats4){
-  // 3 or 4 mini cards
+  // 4 mini cards
   var bloco = document.createElement('div');
   bloco.className = 'ovc-bloco';
   var grade = document.createElement('div');
-  grade.className = cats4.length <= 3 ? 'ovc-grade-3' : 'ovc-grade-4';
+  grade.className = 'ovc-grade-4';
   cats4.forEach(function(cat){
     var cor = CORES_CAT[cat.id] || '#64748b';
     var card = document.createElement('a');
@@ -613,14 +613,6 @@ function buildSection(container){
   ]));
   z1.appendChild(z1grid);
   miolo.appendChild(z1);
-  miolo.appendChild(sep());
-
-  // ── Zona 1b: Política & Mundo (mini-cards) ───────────────────────────
-  var z1b = document.createElement('div');
-  z1b.className = 'ovc-zona';
-  z1b.appendChild(renderZonaHeader('Política & Mundo', '/politica/'));
-  z1b.appendChild(renderBlocoD([CATS[1], CATS[2], CATS[6]]));
-  miolo.appendChild(z1b);
   miolo.appendChild(sep());
 
   // ── Zona 2: Poder & Dinheiro (4 mini-cards) ──────────────────────────
@@ -798,6 +790,37 @@ function load(){
       posts5 = recentSort(filterRecent(posts5));
       if(!posts5.length){ mostrarVazio(el, item.id); return; }
       startRotation(el, posts5, item.id, 0);
+    });
+
+    // Preencher manchetes (Zona 1 — Brasil em Foco)
+    var manchetesDefs = [
+      {id:'politica',      cats:['politica'],                                    count:3},
+      {id:'economia',      cats:['economia'],                                    count:3},
+      {id:'internacional', cats:['internacional'],                                count:2}
+    ];
+    manchetesDefs.forEach(function(def){
+      var lista = document.getElementById('ovc-manchetes-'+def.id);
+      if(!lista) return;
+      var mp = [];
+      def.cats.forEach(function(c){ mp=mp.concat(cache[c]||[]); });
+      mp.sort(function(a,b){ return new Date(b.data)-new Date(a.data); });
+      var sel = mp.slice(0, def.count);
+      lista.innerHTML = '';
+      if(!sel.length){
+        lista.innerHTML = '<span style="font-size:11px;color:#9aa0ab;">Em breve</span>';
+        return;
+      }
+      sel.forEach(function(p){
+        var url = buildUrl(p);
+        var hora = p.data ? new Date(p.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+        var a = document.createElement('a');
+        a.className = 'ovc-manchete-item';
+        a.href = url;
+        a.innerHTML = '<span class="ovc-manchete-bala"></span>'
+          +'<span class="ovc-manchete-titulo">'+escHtml(p.titulo||'')+'</span>'
+          +(hora?'<span class="ovc-manchete-hora">'+hora+'</span>':'');
+        lista.appendChild(a);
+      });
     });
 
     // Preencher manchetes (Zona 1 — Brasil em Foco)
