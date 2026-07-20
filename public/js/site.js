@@ -340,12 +340,10 @@ OVC.updateInnerNav = function(){
   if(!nav.querySelector('.supermenu-item')) return; // already new style
   var currentPath = window.location.pathname;
   var navItems = [
-    ['Colunistas','/colunistas/'],['Política','/politica/'],['Economia','/economia/'],
-    ['Brasil On','/brasil-on/'],['Negócios','/negocios/'],['Investimentos','/investimentos/'],
-    ['Tecnologia','/tecnologia/'],['Internacional','/internacional/'],['Saúde','/saude/'],
-    ['Esportes','/esportes/'],['Família','/familia/'],['Indústria','/industria/'],
-    ['Seguros','/seguros/'],['Tributos','/tributos/'],['Cultura','/cultura/'],
-    ['Religião','/religiao/'],['Carreira','/carreira/'],['Imóveis','/imoveis/'],['VC','/vc/']
+    ['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],
+    ['Finanças','/financas/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],
+    ['Internacional','/internacional/'],['Indústria','/industria/'],['Família','/familia/'],
+    ['Esportes','/esportes/'],['Colunistas','/colunistas/'],['VC','/vc/']
   ];
   nav.innerHTML = navItems.map(function(item){
     var isActive = currentPath === item[1] || currentPath.startsWith(item[1].slice(0,-1));

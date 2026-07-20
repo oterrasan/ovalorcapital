@@ -571,11 +571,9 @@
       if(!nav || !nav.querySelector('.supermenu-item')) return;
       var path = window.location.pathname;
       var items = [['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],
-        ['Investimentos','/investimentos/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],
-        ['Internacional','/internacional/'],['Saúde','/saude/'],['Tributos','/tributos/'],
-        ['Carreira','/carreira/'],['Imóveis','/imoveis/'],['Seguros','/seguros/'],
-        ['Indústria','/industria/'],['Família','/familia/'],['Esportes','/esportes/'],
-        ['Cultura','/cultura/'],['Religião','/religiao/'],['Colunistas','/colunistas/'],['VC','/vc/']];
+        ['Finanças','/financas/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],
+        ['Internacional','/internacional/'],['Indústria','/industria/'],['Família','/familia/'],
+        ['Esportes','/esportes/'],['Colunistas','/colunistas/'],['VC','/vc/']];
       nav.innerHTML = items.map(function(it){
         var active = path === it[1] || path.startsWith(it[1].slice(0,-1)+'/');
         return '<a class="supermenu-link'+(active?' ativo':'')+'" href="'+it[1]+'">'+it[0]+'</a>';
