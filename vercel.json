@@ -17,6 +17,7 @@
     { "src": "^/js/(.+)$",    "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/admin(.*)",   "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
     { "src": "^/inteligencia$","headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
+    { "src": "^/(politica|economia|negocios|financas|industria|tecnologia|esportes|familia|internacional|brasil-on|colunistas)(/.*)?$", "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
 
     { "src": "^/investimentos/?$",  "headers": { "Location": "/financas/" },   "status": 301 },
     { "src": "^/seguros/?$",        "headers": { "Location": "/financas/" },   "status": 301 },
