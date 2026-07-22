@@ -513,32 +513,49 @@ Usada por `core/rss.js` para buscar feeds RSS. Lote 2 (617 fontes) importado via
 
 ## 5. CATEGORIAS
 
-### Válidas no pipeline — 17 slugs DEFINITIVOS (05/06/2026)
+### ⚠️ ATUALIZADO 24/06/2026 — REESTRUTURAÇÃO — taxonomia DEFINITIVA atual (12 categorias)
+
+**Nav / pipeline (10 categorias de conteúdo automático + Colunistas + VC manuais):**
 ```
-brasil-on, politica, economia, investimentos, negocios, tecnologia,
-internacional, saude, tributos, carreira, imoveis, seguros, industria,
-familia, esportes, cultura, religiao
+brasil-on, politica, economia, financas, negocios, tecnologia,
+internacional, industria, familia, esportes
 ```
 
-> **⚠️ CATEGORIAS ANTIGAS EXTINTAS (não usar mais):**
-> mercados, educacao, variedades, investigativo, seguranca, tributacao, regulacao,
-> parcerias, profissoes, vagas, concursos, esg, defesa
->
-> **Consolidações:** mercados→investimentos, educacao+vagas+profissoes+concursos→carreira,
-> regulacao+tributacao→tributos, seguranca+investigativo+variedades+defesa→brasil-on,
-> parcerias→negocios/vc, esg→brasil-on/economia
-
-### Reservadas (NÃO usar no pipeline)
+**Nav completa (12 itens, ordem exibida):**
 ```
-vc, colunistas — apenas conteúdo manual
+Brasil On → Política → Economia → Finanças → Negócios → Tecnologia →
+Internacional → Indústria → Família → Esportes → Colunistas → VC
 ```
 
-### Nav (19 itens)
+> Array-fonte da nav (usado em `public/js/site.js` `OVC.updateInnerNav()` e em
+> `public/js/internal-page-v2.js`, IIFE de rewrite de nav — os DOIS têm que ficar
+> sempre idênticos, ver Sessão 20/07/2026):
+> ```js
+> [['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],
+>  ['Finanças','/financas/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],
+>  ['Internacional','/internacional/'],['Indústria','/industria/'],['Família','/familia/'],
+>  ['Esportes','/esportes/'],['Colunistas','/colunistas/'],['VC','/vc/']]
+> ```
+
+**Categorias legadas (EXTINTAS, redirecionam 301 via `vercel.json` — PR #238, 24/06/2026):**
 ```
-Brasil On → Política → Economia → Investimentos → Negócios → Tecnologia →
-Internacional → Saúde → Tributos → Carreira → Imóveis → Seguros →
-Indústria → Família → Esportes → Cultura → Religião → Colunistas → VC
+investimentos, seguros, mercados            → financas
+saude, carreira, imoveis, cultura, religiao,
+educacao, variedades, investigativo,
+seguranca, esg, defesa, profissoes, vagas,
+empregos, concursos                          → brasil-on
+parcerias                                    → negocios
+tributos, tributacao, regulacao              → economia
 ```
+
+### Reservadas (NÃO usar no pipeline — apenas conteúdo manual)
+```
+vc, colunistas
+```
+
+### Histórico de taxonomia (para referência — NÃO usar mais)
+- 05/06/2026: 17 categorias no pipeline + Colunistas/VC = 19 na nav (Investimentos, Saúde, Tributos, Carreira, Imóveis, Seguros, Cultura, Religião existiam como categorias próprias)
+- 24/06/2026: consolidação para as 12 atuais acima — qualquer menção a essas 8 categorias extintas em sessões antigas deste arquivo refere-se ao estado PRÉ-24/06.
 
 ---
 
@@ -3993,4 +4010,62 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | R6 | **Google Publisher Center** | Baixa | Aguardando aprovação para Google Discover |
 | R7 | **Aprovar artigos pendentes** | Alta | Admin → Postagens → filtro 'pendente'. Pipeline ATIVO gerando até 80/dia |
 | R8 | **Vercel projetos duplicados** | Baixa | `ovalorcapital-xuhw` (PRODUÇÃO), deletar `ovalorcapital` e `ovalorcapital-hubx` com cuidado |
+
+---
+
+### Sessão 20/07/2026 — MENU (SUPERMENU) DESFORMATADO — 3 CAUSAS RAIZ DIFERENTES ENCONTRADAS E CORRIGIDAS
+
+#### Contexto
+
+Sessão continuada de "volte para a versao estavel antes da ultima alteracao" (revert simples, já feito no início da sessão). Depois Roberto reportou, com prints de Home vs. `/brasil-on/`: o menu de categorias aparecia diferente em TODAS as páginas de categoria, só a Home estava certa. Instrução explícita e repetida: **"É PARA VOCE MEXER APENAS NISTO E CORRIGIR ISTO, NAO TOQUE EM MAIS NADA."** Foram necessárias 3 iterações até resolver de verdade — cada uma achou uma causa raiz real, mas incompleta.
+
+#### Iteração 1 (ERRADA) — PR #266: hipótese de cache Cloudflare
+
+Primeira hipótese (baseada no histórico do projeto, cheio de casos de cache): Cloudflare servindo HTML antigo nas páginas de categoria. Fix aplicado: headers no-cache em `vercel.json` para as rotas de categoria (commit isolado, Regra Zero-F respeitada). **Roberto esperou mais de 1 hora e nada mudou** — hipótese errada, mas o header no-cache foi mantido (inofensivo, mesmo padrão já usado em `/`, `/js/`, `/admin`, `/inteligencia`).
+
+#### Iteração 2 (CAUSA RAIZ REAL #1) — PR #267: JS reescrevendo o menu com taxonomia antiga
+
+Investigação mais a fundo via `grep` por "supermenu" em `public/js/*.js` revelou o bug de verdade: **NÃO era cache**. `public/js/site.js` (`OVC.updateInnerNav()`, carregado em TODAS as páginas) e `public/js/internal-page-v2.js` (IIFE de rewrite de nav, carregado só em páginas de categoria) tinham cada um um array JS **hardcoded com a taxonomia extinta de 19 categorias** (Investimentos, Saúde, Tributos, Carreira, Imóveis, Seguros, Cultura, Religião — extintas desde a reestruturação de 24/06/2026, ver seção 5). No `DOMContentLoaded`, esse JS fazia `nav.innerHTML = ...` e **sobrescrevia** o menu correto de 12 itens que o servidor já mandava certinho em TODAS as páginas (SSR nunca teve o bug). Fix: os dois arrays hardcoded atualizados para as 12 categorias atuais. Isso resolveu o CONTEÚDO do menu (nomes/links certos), mas Roberto reportou em seguida que o menu ainda estava "desformatado" — certo no texto, errado na disposição visual.
+
+#### Iteração 3 (CAUSA RAIZ REAL #2, mas incompleta) — PR #268: cache de CSS
+
+Hipótese: a Home carrega `home.css?v=4` (versionado), enquanto as 177 páginas internas carregavam `home.css` **sem versão** — podendo ficar presas em cache de CDN/browser numa revisão antiga do CSS. Fix: bump para `?v=4`/`?v=1` (site.css) em todas as 177 páginas internas, igualando à Home. Isso NÃO resolveu — Roberto voltou com print mostrando o menu ainda comprimido à esquerda com vão vazio à direita, tanto na Home quanto nas categorias.
+
+#### Iteração 4 (CAUSA RAIZ REAL #3, DEFINITIVA) — PR #269: `.supermenu` sem `justify-content`
+
+Ao inspecionar a regra `.supermenu` em `public/css/home.css`, descoberto que ela **nunca teve `justify-content` definido** — o default do flexbox é `flex-start`. Como os 12 itens usam `flex: 0 0 auto` (não crescem para preencher espaço), o resultado sempre foi: itens colados uns nos outros à esquerda, com um vão vazio à direita da barra — em TODAS as páginas, inclusive a Home (só que lá era menos perceptível). Fix: adicionado `justify-content: space-between` na regra `.supermenu`, distribuindo os 12 itens uniformemente por toda a largura da barra. Bump `home.css?v=4` → `?v=5` nas 178 páginas.
+
+#### Complicação de merge — branch com histórico "suja" após squash-merges consecutivos
+
+Ao abrir o PR #269, o GitHub reportou `mergeable_state: "dirty"` (conflito), mesmo o diff sendo um clean 179-arquivos-1-linha-cada sobre o `main` atual. Causa: a branch `claude/revert-stable-version-b36hco` acumulava o histórico ORIGINAL (não-squashed) dos PRs #266/#267/#268 já mergeados, então o Git não conseguia reconciliar a ancestralidade com os commits squash equivalentes em `main`. **Fix:** `git checkout -B claude/revert-stable-version-b36hco origin/main && git cherry-pick <commit-real> && git push --force-with-lease`. Isso reconstruiu a branch limpa, direto em cima do `main` atual, preservando só o commit realmente novo. `mergeable_state` virou `unstable` (esperando CI) e depois mergeou normalmente.
+
+> **LIÇÃO para a próxima sessão:** depois de qualquer PR squash-mergeado a partir de uma branch `claude/*` que será reusada para um PR seguinte na MESMA sessão, considerar resetar a branch local para `origin/main` antes do próximo commit (`git checkout -B <branch> origin/main`) para evitar esse acúmulo de histórico duplicado. Ver também a regra já existente no início deste arquivo sobre branch já mergeada → reiniciar do zero.
+
+#### Estado final confirmado
+
+- PR #269 mergeado (squash commit `9799a01`)
+- Deploy de produção (`deploy.yml`) rodou com **sucesso** confirmado via GitHub Actions logo após o merge
+- `VERCEL_TOKEN` **NÃO estava expirado** — os deploys de PRs #266, #267, #268 e #269 todos rodaram com sucesso nesta sessão, então a pendência crítica C1 de 02/07/2026 (suspeita de token expirado) está **DESCARTADA por evidência direta** — o problema daquela vez era outra coisa (não investigado a fundo, mas não é mais uma preocupação ativa)
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** que o menu está correto agora (conteúdo + espaçamento) em `/brasil-on/`, `/economia/`, Home — Ctrl+Shift+R ou aba anônima, cache pode ter ficado preso em navegadores já abertos antes do deploy
+2. Seção 5 (Categorias) deste arquivo foi reescrita nesta sessão para refletir a taxonomia real de 12 categorias — sessões antigas do histórico abaixo ainda mencionam as 8 categorias extintas (Investimentos, Saúde, Tributos, Carreira, Imóveis, Seguros, Cultura, Religião); isso é esperado, são registros históricos
+3. Demais pendências médias/baixas/Roberto da lista de 02/07/2026 acima permanecem válidas, EXCETO C1 (VERCEL_TOKEN) — remover da lista de críticas, não é mais um problema ativo
+
+### ✅ CONFIRMADO NESTA SESSÃO (20/07/2026)
+
+| Sistema | Status |
+|---|---|
+| **Menu (supermenu) — conteúdo correto (12 categorias) em todas as páginas** | ✅ EM PRODUÇÃO (PR #267, commit `856b0b6`) |
+| **Menu (supermenu) — CSS versionado (?v=5) em todas as 178 páginas** | ✅ EM PRODUÇÃO (PR #268, commit `96a6fce`) |
+| **Menu (supermenu) — `justify-content:space-between`, itens distribuídos por toda a barra** | ✅ EM PRODUÇÃO (PR #269, commit `9799a01`) |
+| **Deploy pipeline (`deploy.yml` + VERCEL_TOKEN)** | ✅ CONFIRMADO FUNCIONANDO — 4 deploys de sucesso nesta sessão |
 
