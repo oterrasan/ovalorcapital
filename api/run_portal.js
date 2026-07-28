@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { getNews, getNewsByCategoria } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { findImage } from "../core/image_finder.js";
+import { findImage, findImageFutebol } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, auditarArtigo } from "../core/ai_portal.js";
 
@@ -227,11 +227,11 @@ async function cleanupTitles(res, body) {
   return res.status(200).json({ status: "ok", fixedTitles, fixedContent: 0 });
 }
 
-async function saveCurtinha(content, hash, cat, tipo) {
+async function saveCurtinha(content, hash, cat, tipo, img = null) {
   const catFinal = CATS.has(content.categoria) ? content.categoria : (CATS.has(cat) ? cat : "politica");
   await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
-    comentario_fixado: (content.meta_descricao||"").trim(), imagem: null, hash,
+    comentario_fixado: (content.meta_descricao||"").trim(), imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "portal",
     published_at: new Date().toISOString(),
     user_tags: JSON.stringify([catFinal]), subcategoria: SUBCAT[catFinal]||"Geral",
@@ -473,8 +473,9 @@ async function autoFutebolCurtinhas(req, res, rec) {
       const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) continue;
-      await saveCurtinha(content, hash, "esportes", "radar");
-      await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)}`);
+      const img = Date.now() - start < 40000 ? await findImageFutebol(content.titulo, content.corpo) : null;
+      await saveCurtinha(content, hash, "esportes", "radar", img);
+      await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)} | img:${!!img}`);
       generated++;
     } catch(_) { continue; }
   }
