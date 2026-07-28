@@ -3,15 +3,14 @@
  * REGRA ZERO-I: 100% independente — não toca internal-page-v2.js nem home.js
  * Compartilhado por: Brasileirão Série A, Série B, Libertadores, Sul-Americana
  * Config por página via window.OVC_TORNEIO = {liga, nome, keywords[]}
- * Fonte de dados: site.api.espn.com (scoreboard, standings, leaders) — mesma API usada no /copa/
+ * Fonte de dados: ESPN (scoreboard, standings, leaders) via proxy server-side
+ * em api/live.js?action=espn — evita bloqueio de CORS do fetch direto no navegador
  */
 (function () {
   'use strict';
 
   var CFG = window.OVC_TORNEIO;
   if (!CFG || !CFG.liga) return;
-
-  var FL = { BRA:'br', ARG:'ar', URU:'uy', PAR:'py', CHI:'cl', COL:'co', ECU:'ec', BOL:'bo', PER:'pe', VEN:'ve' };
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -82,66 +81,6 @@
     document.head.appendChild(sty);
   }
 
-  function getStat(stats, names) {
-    if (!stats || !stats.length) return 0;
-    for (var i = 0; i < names.length; i++) {
-      for (var j = 0; j < stats.length; j++) {
-        var s = stats[j];
-        if (s.name === names[i] || s.abbreviation === names[i]) return Number(s.value) || 0;
-      }
-    }
-    return 0;
-  }
-
-  function parseMatchesESPN(sD) {
-    if (!sD || !sD.events) return [];
-    return sD.events.map(function (ev) {
-      var comp = ev.competitions && ev.competitions[0];
-      var comps = (comp && comp.competitors) || [];
-      var home = comps.find(function (c) { return c.homeAway === 'home'; });
-      var away = comps.find(function (c) { return c.homeAway === 'away'; });
-      if (!home || !away) return null;
-      var st = (ev.status && ev.status.type && ev.status.type.name) || '';
-      var isLive = st.indexOf('IN_PROGRESS') >= 0;
-      var isDone = st.indexOf('FINAL') >= 0 || (ev.status && ev.status.type && ev.status.type.completed);
-      return {
-        home: { nome: (home.team && home.team.displayName) || '', placar: (isLive || isDone) ? (home.score || '0') : null },
-        away: { nome: (away.team && away.team.displayName) || '', placar: (isLive || isDone) ? (away.score || '0') : null },
-        status: isLive ? 'ao_vivo' : isDone ? 'encerrado' : 'agendado',
-        data: ev.date || ''
-      };
-    }).filter(Boolean);
-  }
-
-  function parseStandingsESPN(stD) {
-    if (!stD) return [];
-    var src = [];
-    if (stD.standings && stD.standings.children && stD.standings.children.length) src = stD.standings.children;
-    else if (stD.children && stD.children.length) src = stD.children;
-    else if (stD.groups && stD.groups.length) src = stD.groups;
-    else if (stD.standings && stD.standings.entries) src = [stD.standings];
-    if (!src.length) return [];
-    return src.map(function (g) {
-      var entries = (g.standings && g.standings.entries) || g.entries || [];
-      return {
-        nome: g.name || g.abbreviation || '',
-        times: entries.map(function (e) {
-          var stats = e.stats || [];
-          var t = e.team || {};
-          return {
-            nome: t.displayName || t.name || '',
-            pj: getStat(stats, ['gamesPlayed', 'GP']),
-            v: getStat(stats, ['wins', 'W']),
-            e: getStat(stats, ['ties', 'D', 'draws']),
-            d: getStat(stats, ['losses', 'L']),
-            sg: getStat(stats, ['pointDifferential', 'GD']),
-            pts: getStat(stats, ['points', 'Pts', 'PTS'])
-          };
-        }).sort(function (a, b) { return b.pts - a.pts || b.v - a.v || b.sg - a.sg; })
-      };
-    }).filter(function (g) { return g.times.length > 0; });
-  }
-
   function renderMatches(partidas) {
     if (!partidas.length) return '<div class="ovc-trn-empty">Nenhum jogo agendado no momento</div>';
     return partidas.slice(0, 15).map(function (p) {
@@ -182,43 +121,15 @@
     }).join('');
   }
 
-  function fetchArtilheiros(liga) {
-    var URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/' + liga + '/leaders';
-    return fetch(URL, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (d) {
-      if (!d || !(d.categories || []).length) return [];
-      var map = {};
-      function merge(leaders) {
-        (leaders || []).forEach(function (l) {
-          var a = l.athlete || {};
-          var tm = l.team || {};
-          var id = a.id ? String(a.id) : (a.displayName || 'x' + Math.random());
-          if (!map[id]) map[id] = { nome: a.displayName || a.fullName || '—', time: tm.displayName || tm.name || '—', gols: 0 };
-          map[id].gols = Number(l.value) || 0;
-        });
-      }
-      var cats = d.categories || [];
-      var golCat = cats.find(function (c) {
-        var all = ((c.name || '') + ' ' + (c.abbreviation || '') + ' ' + (c.displayName || '')).toLowerCase();
-        return all.indexOf('goal') >= 0 || all.indexOf('gol') >= 0;
-      }) || cats[0];
-      merge(golCat && golCat.leaders);
-      var scorers = Object.values(map);
-      scorers.sort(function (a, b) { return b.gols - a.gols; });
-      return scorers;
-    });
-  }
-
+  // Busca via proxy server-side (api/live.js?action=espn) — evita CORS do fetch direto no navegador para site.api.espn.com
   function fetchDados() {
-    var liga = CFG.liga;
-    var ESCORE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/' + liga + '/scoreboard';
-    var ESTD = 'https://site.api.espn.com/apis/v2/sports/soccer/' + liga + '/standings';
-    return Promise.all([
-      fetch(ESCORE, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch(ESTD, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetchArtilheiros(liga)
-    ]).then(function (arr) {
-      return { partidas: parseMatchesESPN(arr[0]), grupos: parseStandingsESPN(arr[1]), artilheiros: arr[2] || [] };
-    });
+    return fetch('/api/live?action=espn&liga=' + encodeURIComponent(CFG.liga), { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) return { partidas: [], grupos: [], artilheiros: [] };
+        return { partidas: d.partidas || [], grupos: d.grupos || [], artilheiros: d.artilheiros || [] };
+      })
+      .catch(function () { return { partidas: [], grupos: [], artilheiros: [] }; });
   }
 
   function switchTab(tab, root) {
