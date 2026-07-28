@@ -218,6 +218,7 @@
       var vistos = {};
       var filtrados = todos.filter(function (p) {
         if (vistos[p.id]) return false;
+        if (p.categoria && p.categoria !== 'esportes') return false;
         var t = (p.titulo || '').toLowerCase();
         var ok = kw.some(function (k) { return t.indexOf(k) >= 0; });
         if (ok) vistos[p.id] = true;
