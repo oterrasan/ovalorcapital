@@ -6,16 +6,21 @@
 (function () {
   'use strict';
 
+  // Keywords específicas de mercado de transferências — evita falsos positivos
+  // com termos genéricos de negócios (ex: "acordo", "compra", "agente" sozinhos
+  // batiam em notícias de economia/internacional sem nenhuma relação com futebol)
   var KEYWORDS = [
-    'transferência', 'transferencia', 'contratação', 'contratacao', 'contrata',
-    'negociação', 'negociacao', 'venda', 'vendido', 'compra', 'comprado',
-    'empréstimo', 'emprestimo', 'emprestado', 'acerta', 'acertou', 'acordo',
-    'assina', 'assinou', 'assinatura', 'reforço', 'reforco', 'multa rescisória',
-    'multa rescisoria', 'agente', 'empresário', 'empresario', 'procurador',
-    'janela de transferências', 'janela de transferencias', 'pré-contrato',
-    'pre-contrato', 'proposta', 'sondagem', 'sondando', 'interesse no jogador',
-    'mercado da bola', 'passe livre', 'rescisão', 'rescisao', 'renovação',
-    'renovacao', 'permuta', 'troca de jogador'
+    'transferência', 'transferencia', 'contratação', 'contratacao',
+    'negociação pelo jogador', 'negociacao pelo jogador', 'venda do jogador', 'venda de jogador',
+    'compra do jogador', 'compra de jogador', 'empréstimo', 'emprestimo', 'emprestado ao',
+    'multa rescisória', 'multa rescisoria', 'reforço do', 'reforco do', 'reforço para', 'reforco para',
+    'novo reforço', 'novo reforco', 'agente do jogador', 'empresário do jogador', 'empresario do jogador',
+    'procurador do jogador', 'janela de transferências', 'janela de transferencias',
+    'pré-contrato', 'pre-contrato', 'proposta de transferência', 'proposta de transferencia',
+    'sondagem por', 'sondando o', 'interesse no jogador', 'mercado da bola', 'passe livre',
+    'rescisão de contrato', 'rescisao de contrato', 'renovação de contrato', 'renovacao de contrato',
+    'permuta de jogador', 'troca de jogador', 'acerto com o clube', 'acertou com o clube',
+    'assinou contrato com', 'assina contrato com', 'acerta a contratação', 'acerta a contratacao'
   ];
 
   function esc(s) {
@@ -61,6 +66,7 @@
     var vistos = {};
     return lista.filter(function (p) {
       if (vistos[p.id]) return false;
+      if (p.categoria && p.categoria !== 'esportes') return false;
       var t = ((p.titulo || '') + ' ' + (p.comentario_fixado || '')).toLowerCase();
       var ok = KEYWORDS.some(function (k) { return t.indexOf(k) >= 0; });
       if (ok) vistos[p.id] = true;
