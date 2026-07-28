@@ -1,0 +1,24 @@
+name: Diagnóstico único — páginas Radar da Bola
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Testar URLs em produção
+        run: |
+          for path in "/brasileirao-serie-a/" "/brasileirao-serie-b/" "/libertadores/" "/sul-americana/" "/radar-da-bola/" "/esportes/"; do
+            echo "=== $path ==="
+            HTTP_CODE=$(curl -s -o /tmp/body.html -w "%{http_code}" --max-time 20 \
+              -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" \
+              "https://www.ovalorcapital.com.br${path}")
+            echo "HTTP: $HTTP_CODE"
+            echo "Title: $(grep -o '<title>[^<]*</title>' /tmp/body.html | head -1)"
+            echo "H1: $(grep -o '<h1>[^<]*</h1>' /tmp/body.html | head -1)"
+            echo "data-category attr: $(grep -o 'data-category="[^"]*"' /tmp/body.html | head -1)"
+            echo "canonical: $(grep -o '<link rel="canonical"[^>]*>' /tmp/body.html | head -1)"
+            echo "bytes: $(wc -c < /tmp/body.html)"
+            echo ""
+          done
