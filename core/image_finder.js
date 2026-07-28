@@ -327,3 +327,92 @@ export async function findImage(titulo, categoria, _urlProibida = "", _urlOrigin
     return null;
   }
 }
+
+// Clubes de futebol (Brasileirão Série A/B, Libertadores, Sul-Americana) — nome canônico de busca (pt.wikipedia)
+const FUTEBOL_CLUBES = {
+  "flamengo": "Flamengo", "palmeiras": "Palmeiras", "corinthians": "Corinthians",
+  "sao paulo": "São Paulo Futebol Clube", "santos": "Santos Futebol Clube",
+  "gremio": "Grêmio", "internacional": "Sport Club Internacional",
+  "cruzeiro": "Cruzeiro Esporte Clube", "atletico mineiro": "Clube Atlético Mineiro",
+  "atletico-mg": "Clube Atlético Mineiro", "galo": "Clube Atlético Mineiro",
+  "fluminense": "Fluminense Football Club", "botafogo": "Botafogo de Futebol e Regatas",
+  "vasco": "Club de Regatas Vasco da Gama", "vasco da gama": "Club de Regatas Vasco da Gama",
+  "bahia": "Esporte Clube Bahia", "fortaleza": "Fortaleza Esporte Clube",
+  "athletico paranaense": "Club Athletico Paranaense", "athletico-pr": "Club Athletico Paranaense",
+  "bragantino": "Red Bull Bragantino", "red bull bragantino": "Red Bull Bragantino",
+  "ceara": "Ceará Sporting Club", "vitoria": "Esporte Clube Vitória",
+  "sport recife": "Sport Club do Recife", "sport": "Sport Club do Recife",
+  "juventude": "Esporte Clube Juventude", "mirassol": "Mirassol Futebol Clube",
+  "cuiaba": "Cuiabá Esporte Clube", "goias": "Goiás Esporte Clube",
+  "coritiba": "Coritiba Foot Ball Club", "criciuma": "Criciúma Esporte Clube",
+  "atletico goianiense": "Atlético Clube Goianiense", "novorizontino": "Grêmio Novorizontino",
+  "chapecoense": "Associação Chapecoense de Futebol", "ponte preta": "Associação Atlética Ponte Preta",
+  "guarani": "Guarani Futebol Clube", "avai": "Avaí Futebol Clube",
+  "vila nova": "Vila Nova Futebol Clube", "operario": "Operário Ferroviário Esporte Clube",
+  "amazonas": "Amazonas Futebol Clube", "crb": "Clube de Regatas Brasil",
+  "botafogo-sp": "Botafogo Futebol Clube (Ribeirão Preto)", "paysandu": "Paysandu Sport Club",
+  "remo": "Clube do Remo", "america mineiro": "América Futebol Clube (Belo Horizonte)",
+  "ferroviaria": "Associação Ferroviária de Esportes",
+  "river plate": "River Plate", "boca juniors": "Boca Juniors", "boca": "Boca Juniors",
+  "racing club": "Racing Club", "independiente": "Club Atlético Independiente",
+  "san lorenzo": "San Lorenzo de Almagro", "talleres": "Talleres de Córdoba",
+  "velez sarsfield": "Vélez Sarsfield", "estudiantes": "Estudiantes de La Plata",
+  "penarol": "Peñarol", "nacional": "Club Nacional de Football",
+  "colo-colo": "Colo-Colo", "universidad de chile": "Club Universidad de Chile",
+  "universidad catolica": "Club Deportivo Universidad Católica",
+  "independiente del valle": "Independiente del Valle", "ldu quito": "LDU Quito",
+  "barcelona sc": "Barcelona Sporting Club", "emelec": "Club Sport Emelec",
+  "cerro porteno": "Cerro Porteño", "olimpia": "Club Olimpia",
+  "libertad": "Club Libertad", "bolivar": "Club Bolívar",
+  "the strongest": "The Strongest", "sporting cristal": "Sporting Cristal",
+  "alianza lima": "Alianza Lima", "universitario": "Club Universitario de Deportes",
+  "deportivo tachira": "Deportivo Táchira", "millonarios": "Millonarios Fútbol Club",
+  "atletico nacional": "Atlético Nacional", "junior barranquilla": "Junior FC",
+  "deportivo cali": "Deportivo Cali", "america de cali": "América de Cali"
+};
+
+function extrairEntidadesFutebol(texto) {
+  const tLower = normalizeText(texto);
+  const clubes = [];
+  for (const [chave, nome] of Object.entries(FUTEBOL_CLUBES)) {
+    if (tLower.includes(normalizeText(chave))) clubes.push(nome);
+    if (clubes.length >= 2) break;
+  }
+  const pessoas = String(texto || "").match(/[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+){1,3}/g) || [];
+  const pessoasUnicas = [...new Set(pessoas)].slice(0, 3);
+  return { clubes, pessoas: pessoasUnicas };
+}
+
+// Busca dedicada para conteúdo de futebol (Radar da Bola) — imagens de clubes, jogadores, técnicos e dirigentes
+export async function findImageFutebol(titulo, corpo) {
+  try {
+    return await Promise.race([
+      (async () => {
+        const texto = `${titulo || ""} ${String(corpo || "").replace(/<[^>]+>/g, " ")}`.slice(0, 600);
+        const { clubes, pessoas } = extrairEntidadesFutebol(texto);
+        const imagensUsadas = await getImagensUsadas();
+
+        for (const clube of clubes) {
+          const img = await buscarWikipedia(clube, imagensUsadas);
+          if (img) return img;
+        }
+        for (const clube of clubes) {
+          const img = await buscarWikimedia(clube, imagensUsadas);
+          if (img) return img;
+        }
+        for (const pessoa of pessoas) {
+          const img = await buscarWikipedia(pessoa, imagensUsadas);
+          if (img) return img;
+        }
+        for (const pessoa of pessoas) {
+          const img = await buscarWikimedia(pessoa, imagensUsadas);
+          if (img) return img;
+        }
+        return null;
+      })(),
+      new Promise(resolve => setTimeout(() => resolve(null), 9000))
+    ]) || null;
+  } catch (_) {
+    return null;
+  }
+}
