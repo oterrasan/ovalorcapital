@@ -17,8 +17,8 @@ const GN = (q, lang="pt-BR", gl="BR", ceid="BR:pt-BR") =>
 const GN_EN = (q) => GN(q, "en", "US", "US:en");
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FONTES APROVADAS OVC — 70 FONTES OFICIAIS
-// Aprovadas por Roberto Terrasan em 18/06/2026
+// FONTES APROVADAS OVC — 70 FONTES OFICIAIS + 7 GOVERNO
+// Aprovadas por Roberto Terrasan em 18/06/2026 e 28/07/2026 (governo)
 // NUNCA adicionar fontes sem aprovação explícita de Roberto
 // ═══════════════════════════════════════════════════════════════════════════
 const FEEDS_DIRETOS_GARANTIDOS = [
@@ -93,6 +93,14 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://foreignpolicy.com/feed/",                                     name: "Foreign Policy",            cats: ["internacional","politica"] },
   { url: "https://api.axios.com/feed/",                                         name: "Axios",                     cats: ["internacional","tecnologia","economia"] },
   { url: "https://www.lemonde.fr/rss/une.xml",                                  name: "Le Monde",                  cats: ["internacional","politica"] },
+  // ━━━ GOVERNO (7) — adicionadas a pedido de Roberto Terrasan, sem verificação de rede (ambiente bloqueia .gov.br) ━━━
+  { url: "https://www12.senado.leg.br/noticias/feed/todasnoticias",             name: "Senado Federal",            cats: ["politica","brasil-on"] },
+  { url: "https://www.gov.br/planalto/pt-br/acompanhe-o-planalto/noticias/ultimas-noticias/RSS", name: "Planalto",  cats: ["politica","brasil-on"] },
+  { url: "https://www.gov.br/receitafederal/pt-br/assuntos/noticias/ultimas-noticias/RSS", name: "Receita Federal", cats: ["economia","financas"] },
+  { url: "https://www.gov.br/mj/RSS",                                           name: "Ministério da Justiça",     cats: ["politica","brasil-on"] },
+  { url: "https://res.stj.jus.br/hrestp-c-portalp/RSS.xml",                     name: "STJ",                       cats: ["politica","brasil-on"] },
+  { url: "https://www.ceara.gov.br/categorias/investimentos/feed/",             name: "Governo do Ceará",          cats: ["economia","negocios"] },
+  { url: "http://www.saopaulo.sp.gov.br/spnoticias/noticias.php?rss=1&c=553",   name: "Governo de São Paulo",      cats: ["economia","financas"] },
 ];
 
 const FAMILIA_CAT = {
