@@ -585,7 +585,7 @@
     if(slug === 'vc') return;
     if(slug === 'colunistas') return;
     var _section = document.body.dataset.section;
-    if(['radar-da-bola','brasileirao-serie-a','brasileirao-serie-b','libertadores','sul-americana'].indexOf(_section) !== -1) return;
+    if(['radar-da-bola','brasileirao-serie-a','brasileirao-serie-b','libertadores','sul-americana','futebol-europeu','mercado-da-bola'].indexOf(_section) !== -1) return;
 
     var catFiltro = SLUG_TO_CAT[slug] || slug;
     var aliases = CATEGORY_ALIASES[catFiltro] || null;
@@ -620,7 +620,7 @@
     };
     var radarBolaHTML = '';
     if(catFiltro === 'esportes'){
-      var rbLinks = [['Radar da Bola','/radar-da-bola/'],['Brasileirão Série A','/brasileirao-serie-a/'],['Brasileirão Série B','/brasileirao-serie-b/'],['Libertadores','/libertadores/'],['Sul-Americana','/sul-americana/']];
+      var rbLinks = [['Radar da Bola','/radar-da-bola/'],['Brasileirão Série A','/brasileirao-serie-a/'],['Brasileirão Série B','/brasileirao-serie-b/'],['Libertadores','/libertadores/'],['Sul-Americana','/sul-americana/'],['Futebol Europeu','/futebol-europeu/'],['Mercado da Bola','/mercado-da-bola/']];
       radarBolaHTML = '<div class="cat-bloco" style="margin-top:12px;overflow:visible;">'
         +'<div style="background:'+acento+';padding:12px 16px;display:flex;align-items:center;gap:8px;">'
           +'<span style="display:inline-block;width:3px;height:18px;background:#fff;border-radius:2px;flex-shrink:0;"></span>'

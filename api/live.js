@@ -114,7 +114,7 @@ async function handleCopa(_req, res) {
 
 async function handleEspn(req, res) {
   const liga = String(req.query.liga || '').trim();
-  const LIGAS_OK = new Set(['bra.1', 'bra.2', 'conmebol.libertadores', 'conmebol.sudamericana']);
+  const LIGAS_OK = new Set(['bra.1', 'bra.2', 'conmebol.libertadores', 'conmebol.sudamericana', 'uefa.champions', 'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1']);
   if (!LIGAS_OK.has(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
   try {
     const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(7000) };
