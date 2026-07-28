@@ -584,6 +584,8 @@
     if(!slug) return;
     if(slug === 'vc') return;
     if(slug === 'colunistas') return;
+    var _section = document.body.dataset.section;
+    if(['radar-da-bola','brasileirao-serie-a','brasileirao-serie-b','libertadores','sul-americana'].indexOf(_section) !== -1) return;
 
     var catFiltro = SLUG_TO_CAT[slug] || slug;
     var aliases = CATEGORY_ALIASES[catFiltro] || null;
