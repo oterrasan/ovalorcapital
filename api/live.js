@@ -112,8 +112,82 @@ async function handleCopa(_req, res) {
   }
 }
 
+async function handleEspn(req, res) {
+  const liga = String(req.query.liga || '').trim();
+  const LIGAS_OK = new Set(['bra.1', 'bra.2', 'conmebol.libertadores', 'conmebol.sudamericana']);
+  if (!LIGAS_OK.has(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
+  try {
+    const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(7000) };
+    const [sR, stR, lR] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${liga}/scoreboard`, opts),
+      fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${liga}/standings`, opts),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${liga}/leaders`, opts)
+    ]);
+    const [sD, stD, lD] = await Promise.all([sR.ok ? sR.json() : null, stR.ok ? stR.json() : null, lR.ok ? lR.json() : null]);
+
+    const getStat = (stats, ...names) => {
+      for (const n of names) {
+        const s = (stats || []).find(x => x.name === n || x.abbreviation === n || x.shortDisplayName === n);
+        if (s != null) return Number(s.value) || 0;
+      }
+      return 0;
+    };
+
+    const partidas = (sD?.events || []).map(ev => {
+      const comp = ev.competitions?.[0];
+      const home = comp?.competitors?.find(c => c.homeAway === 'home');
+      const away = comp?.competitors?.find(c => c.homeAway === 'away');
+      if (!home || !away) return null;
+      const st = ev.status?.type?.name || '';
+      const isLive = st.includes('IN_PROGRESS');
+      const isDone = st.includes('FINAL') || ev.status?.type?.completed === true;
+      return {
+        home: { nome: home.team?.displayName || '', placar: (isLive || isDone) ? (home.score || '0') : null },
+        away: { nome: away.team?.displayName || '', placar: (isLive || isDone) ? (away.score || '0') : null },
+        status: isLive ? 'ao_vivo' : isDone ? 'encerrado' : 'agendado',
+        data: ev.date || ''
+      };
+    }).filter(Boolean);
+
+    const standingsSrc = Array.isArray(stD?.standings) ? stD.standings
+      : stD?.standings?.children?.length ? stD.standings.children
+      : stD?.children?.length ? stD.children
+      : stD?.groups?.length ? stD.groups
+      : [];
+    const grupos = standingsSrc.map(g => ({
+      nome: g.name || g.abbreviation || g.title || '',
+      times: (g.standings?.entries || g.entries || []).map(e => ({
+        nome: e.team?.displayName || e.team?.name || '',
+        pj: getStat(e.stats, 'gamesPlayed', 'GP'),
+        v: getStat(e.stats, 'wins', 'W'),
+        e: getStat(e.stats, 'ties', 'D', 'draws'),
+        d: getStat(e.stats, 'losses', 'L'),
+        sg: getStat(e.stats, 'pointDifferential', 'GD', 'goalDifference'),
+        pts: getStat(e.stats, 'points', 'Pts', 'PTS')
+      })).sort((a, b) => b.pts - a.pts || b.v - a.v || b.sg - a.sg)
+    })).filter(g => g.times.length > 0);
+
+    const artilheiros = [];
+    const cats = lD?.categories || [];
+    const golCat = cats.find(c => /goal|gol/i.test(`${c.name || ''} ${c.abbreviation || ''} ${c.displayName || ''}`)) || cats[0];
+    (golCat?.leaders || []).forEach(l => {
+      const a = l.athlete || {};
+      const tm = l.team || {};
+      artilheiros.push({ nome: a.displayName || a.fullName || '—', time: tm.displayName || tm.name || '—', gols: Number(l.value) || 0 });
+    });
+    artilheiros.sort((a, b) => b.gols - a.gols);
+
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.json({ partidas, grupos, artilheiros, updated_at: new Date().toISOString(), ok: true });
+  } catch (err) {
+    return res.json({ partidas: [], grupos: [], artilheiros: [], error: err.message, ok: false });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.query.action === 'copa') return handleCopa(req, res);
+  if (req.query.action === 'espn') return handleEspn(req, res);
   const page = (req.query.page || "").toLowerCase();
   const cfg = PAGES[page];
   if (!cfg) return res.status(404).send("Not found");
