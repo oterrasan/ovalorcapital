@@ -616,6 +616,25 @@
       profissoes:    [['Saúde & Medicina','saude'],['Jurídico & Finanças','juridico'],['Engenharia & TI','engenharia'],['Comunicação & Mídia','comunicacao'],['Gestão & Negócios','gestao'],['Empregos & Vagas','vagas']],
       colunistas:    [['Roberto Terrasan','roberto-terrasan'],['Beta Ferreira','beta-ferreira'],['Adriana Ferreira','adriana-ferreira'],['Michele Froiz','michele-froiz'],['Coluna OVC','coluna-ovc'],['Prof. Pizzolatto','prof-marcos-pizzolatto']]
     };
+    var radarBolaHTML = '';
+    if(catFiltro === 'esportes'){
+      var rbLinks = [['Radar da Bola','/radar-da-bola/'],['Brasileirão Série A','/brasileirao-serie-a/'],['Brasileirão Série B','/brasileirao-serie-b/'],['Libertadores','/libertadores/'],['Sul-Americana','/sul-americana/']];
+      radarBolaHTML = '<div class="cat-bloco" style="margin-top:12px;overflow:visible;">'
+        +'<div style="background:'+acento+';padding:12px 16px;display:flex;align-items:center;gap:8px;">'
+          +'<span style="display:inline-block;width:3px;height:18px;background:#fff;border-radius:2px;flex-shrink:0;"></span>'
+          +'<span style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#fff;">Radar da Bola</span>'
+        +'</div>'
+        +'<div style="padding:10px 8px;">'
+          +rbLinks.map(function(l){
+            return '<a href="'+l[1]+'" style="display:flex;align-items:center;gap:10px;padding:11px 14px;font-size:13px;font-weight:500;text-decoration:none;border-radius:8px;margin-bottom:3px;color:#334155;background:transparent;" onmouseover="this.style.background=\''+acento+'18\';this.style.color=\'#1e293b\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'#334155\';">'
+              +'<span style="width:6px;height:6px;border-radius:50%;background:'+acento+';flex-shrink:0;margin-left:2px;"></span>'
+              +'<span style="flex:1;">'+l[0]+'</span>'
+              +'<span style="font-size:12px;opacity:.35;">›</span>'
+            +'</a>';
+          }).join('')
+        +'</div>'
+      +'</div>';
+    }
     var subList = SUB_CATS[catFiltro] || [];
     var subFilter = params.get('s') || '';
     var subLabel = '';
@@ -651,6 +670,7 @@
             +'</div>'
             +'<div id="cat-nav-links" style="padding:10px 8px;">'+navLinks+'</div>'
           +'</div>'
+          +radarBolaHTML
           +'<div class="cat-bloco" id="cat-rail-esq-tags" style="margin-top:12px;">'
             +'<div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:10px 14px;"><span style="font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;">Temas em alta</span></div>'
             +'<div style="padding:10px;"><p style="font-size:12px;color:#94a3b8;margin:0;">Carregando...</p></div>'
