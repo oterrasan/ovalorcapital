@@ -1,13 +1,13 @@
 /**
- * ovc-futebol.js — Radar do Futebol • Widget independente
+ * ovc-futebol.js — Radar da Bola • Widget independente
  * REGRA ZERO-I: 100% independente — não afeta home.js nem ovc-cards.js
  * Cobre: Brasileirão Série A, Série B, Libertadores, Sul-Americana
- * Injeta bloco Radar do Futebol ANTES da .rail-block-tv no rail direito
+ * Injeta bloco Radar da Bola ANTES da .rail-block-tv no rail direito
  */
 (function () {
   'use strict';
 
-  var CAT_URL = '/esportes/';
+  var CAT_URL = '/radar-da-bola/';
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -75,7 +75,7 @@
       '<span class="ovc-futebol-dot"></span>' +
       '<span class="ovc-futebol-live-txt">⚽ Futebol Nacional e Continental</span>' +
       '</div>' +
-      '<div class="ovc-futebol-title">RADAR DO FUTEBOL</div>' +
+      '<div class="ovc-futebol-title">RADAR DA BOLA</div>' +
       '<div class="ovc-futebol-sub">Brasileirão Série A · Série B · Libertadores · Sul-Americana</div>';
     bloco.appendChild(header);
 
@@ -101,7 +101,7 @@
     var cta = document.createElement('a');
     cta.href = CAT_URL;
     cta.className = 'ovc-futebol-cta';
-    cta.innerHTML = '⚽ Toda a cobertura de futebol <span>→</span>';
+    cta.innerHTML = '⚽ Radar da Bola: tabelas e jogos ao vivo <span>→</span>';
     bloco.appendChild(cta);
 
     return bloco;
