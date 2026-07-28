@@ -6,22 +6,22 @@ on:
   workflow_dispatch:
     inputs:
       tipo:
-        description: 'materias | copa | ambos'
+        description: 'materias | futebol | ambos'
         default: 'ambos'
         required: false
 
 jobs:
-  copa:
-    name: Radar da Copa 24h
+  futebol:
+    name: Radar do Futebol 24h
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Gerar radar da copa
+      - name: Gerar radar do futebol
         run: |
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"copa","force":true}')
-          echo "COPA: $RESP" | head -c 300
+            -d '{"tipo":"futebol","force":true}')
+          echo "FUTEBOL: $RESP" | head -c 300
 
   materias:
     name: Matéria 14h–00h BRT
