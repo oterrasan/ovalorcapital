@@ -1,0 +1,300 @@
+/**
+ * ovc-torneio-espn.js — Dashboard de torneio ao vivo (dados ESPN, tempo real)
+ * REGRA ZERO-I: 100% independente — não toca internal-page-v2.js nem home.js
+ * Compartilhado por: Brasileirão Série A, Série B, Libertadores, Sul-Americana
+ * Config por página via window.OVC_TORNEIO = {liga, nome, keywords[]}
+ * Fonte de dados: site.api.espn.com (scoreboard, standings, leaders) — mesma API usada no /copa/
+ */
+(function () {
+  'use strict';
+
+  var CFG = window.OVC_TORNEIO;
+  if (!CFG || !CFG.liga) return;
+
+  var FL = { BRA:'br', ARG:'ar', URU:'uy', PAR:'py', CHI:'cl', COL:'co', ECU:'ec', BOL:'bo', PER:'pe', VEN:'ve' };
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function slugify(s) {
+    return String(s||'').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,55);
+  }
+  function buildHref(p) {
+    var cat = p.categoria || 'esportes';
+    return '/' + cat + '/' + slugify(p.titulo) + '-' + String(p.id||'').slice(0,8) + '/';
+  }
+  function dataBr(iso) {
+    try { return new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }); }
+    catch (_) { return ''; }
+  }
+
+  function injetarCSS() {
+    if (document.getElementById('ovc-trn-css')) return;
+    var sty = document.createElement('style');
+    sty.id = 'ovc-trn-css';
+    sty.textContent = [
+      '.ovc-trn-wrap{margin:18px 0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:var(--bg-elevated,#fff);}',
+      '.ovc-trn-hd{background:linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#dc2626 140%);padding:16px 18px;}',
+      '.ovc-trn-hd-live{display:flex;align-items:center;gap:6px;margin-bottom:4px;}',
+      '.ovc-trn-dot{width:8px;height:8px;background:#fbbf24;border-radius:50%;animation:trn-pulse 1s ease-in-out infinite;flex-shrink:0;}',
+      '@keyframes trn-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}',
+      '.ovc-trn-hd-txt{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;}',
+      '.ovc-trn-hd-title{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.01em;}',
+      '.ovc-trn-tabs{display:flex;border-bottom:1px solid #e5e7eb;background:#f8fafc;}',
+      '.ovc-trn-tab{flex:1;padding:10px 8px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;}',
+      '.ovc-trn-tab.active{color:#dc2626;border-bottom-color:#dc2626;background:#fff;}',
+      '.ovc-trn-body{display:none;padding:14px 16px;}',
+      '.ovc-trn-body.active{display:block;}',
+      '.ovc-trn-match{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #f1f5f9;font-size:12px;}',
+      '.ovc-trn-match:last-child{border-bottom:none;}',
+      '.ovc-trn-match-side{display:flex;align-items:center;gap:6px;flex:1;min-width:0;}',
+      '.ovc-trn-match-side.away{justify-content:flex-end;text-align:right;}',
+      '.ovc-trn-team{font-weight:600;color:var(--text-main,#0f172a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '.ovc-trn-score{font-weight:800;font-size:13px;padding:0 10px;color:#dc2626;white-space:nowrap;}',
+      '.ovc-trn-meta{font-size:9px;color:#94a3b8;text-align:center;min-width:52px;}',
+      '.ovc-trn-empty{padding:18px 4px;text-align:center;color:#94a3b8;font-size:12px;}',
+      '.ovc-trn-groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}',
+      '.ovc-trn-gcard{border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;}',
+      '.ovc-trn-gcard-hd{background:#0f172a;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}',
+      '.ovc-trn-table{width:100%;border-collapse:collapse;font-size:11px;}',
+      '.ovc-trn-table th{background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:8px;font-weight:700;padding:5px 4px;text-align:center;border-bottom:1px solid #e5e7eb;}',
+      '.ovc-trn-table th:nth-child(2){text-align:left;}',
+      '.ovc-trn-table td{padding:5px 4px;text-align:center;border-bottom:1px solid #f3f4f6;color:#374151;}',
+      '.ovc-trn-table td:nth-child(2){text-align:left;font-weight:600;}',
+      '.ovc-trn-table tr:last-child td{border-bottom:none;}',
+      '.ovc-trn-table tr:nth-child(-n+4) td:first-child{color:#059669;font-weight:800;}',
+      '.ovc-trn-pts{font-weight:900;color:#0f172a !important;}',
+      '.ovc-trn-art{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid #f1f5f9;font-size:12px;}',
+      '.ovc-trn-art:last-child{border-bottom:none;}',
+      '.ovc-trn-art-rank{width:22px;font-weight:800;color:#94a3b8;font-size:11px;text-align:center;flex-shrink:0;}',
+      '.ovc-trn-art-rank.top{color:#dc2626;}',
+      '.ovc-trn-art-name{flex:1;font-weight:600;color:var(--text-main,#0f172a);}',
+      '.ovc-trn-art-team{font-size:10px;color:#94a3b8;}',
+      '.ovc-trn-art-gols{font-weight:800;color:#dc2626;font-size:13px;}',
+      '.ovc-trn-news{border-top:1px solid #e5e7eb;padding:12px 16px;}',
+      '.ovc-trn-news h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:0 0 8px;}',
+      '.ovc-trn-news a{display:block;padding:7px 0;border-bottom:1px solid #f1f5f9;text-decoration:none;font-size:13px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;}',
+      '.ovc-trn-news a:last-child{border-bottom:none;}',
+      '.ovc-trn-news a:hover{color:#dc2626;}',
+    ].join('');
+    document.head.appendChild(sty);
+  }
+
+  function getStat(stats, names) {
+    if (!stats || !stats.length) return 0;
+    for (var i = 0; i < names.length; i++) {
+      for (var j = 0; j < stats.length; j++) {
+        var s = stats[j];
+        if (s.name === names[i] || s.abbreviation === names[i]) return Number(s.value) || 0;
+      }
+    }
+    return 0;
+  }
+
+  function parseMatchesESPN(sD) {
+    if (!sD || !sD.events) return [];
+    return sD.events.map(function (ev) {
+      var comp = ev.competitions && ev.competitions[0];
+      var comps = (comp && comp.competitors) || [];
+      var home = comps.find(function (c) { return c.homeAway === 'home'; });
+      var away = comps.find(function (c) { return c.homeAway === 'away'; });
+      if (!home || !away) return null;
+      var st = (ev.status && ev.status.type && ev.status.type.name) || '';
+      var isLive = st.indexOf('IN_PROGRESS') >= 0;
+      var isDone = st.indexOf('FINAL') >= 0 || (ev.status && ev.status.type && ev.status.type.completed);
+      return {
+        home: { nome: (home.team && home.team.displayName) || '', placar: (isLive || isDone) ? (home.score || '0') : null },
+        away: { nome: (away.team && away.team.displayName) || '', placar: (isLive || isDone) ? (away.score || '0') : null },
+        status: isLive ? 'ao_vivo' : isDone ? 'encerrado' : 'agendado',
+        data: ev.date || ''
+      };
+    }).filter(Boolean);
+  }
+
+  function parseStandingsESPN(stD) {
+    if (!stD) return [];
+    var src = [];
+    if (stD.standings && stD.standings.children && stD.standings.children.length) src = stD.standings.children;
+    else if (stD.children && stD.children.length) src = stD.children;
+    else if (stD.groups && stD.groups.length) src = stD.groups;
+    else if (stD.standings && stD.standings.entries) src = [stD.standings];
+    if (!src.length) return [];
+    return src.map(function (g) {
+      var entries = (g.standings && g.standings.entries) || g.entries || [];
+      return {
+        nome: g.name || g.abbreviation || '',
+        times: entries.map(function (e) {
+          var stats = e.stats || [];
+          var t = e.team || {};
+          return {
+            nome: t.displayName || t.name || '',
+            pj: getStat(stats, ['gamesPlayed', 'GP']),
+            v: getStat(stats, ['wins', 'W']),
+            e: getStat(stats, ['ties', 'D', 'draws']),
+            d: getStat(stats, ['losses', 'L']),
+            sg: getStat(stats, ['pointDifferential', 'GD']),
+            pts: getStat(stats, ['points', 'Pts', 'PTS'])
+          };
+        }).sort(function (a, b) { return b.pts - a.pts || b.v - a.v || b.sg - a.sg; })
+      };
+    }).filter(function (g) { return g.times.length > 0; });
+  }
+
+  function renderMatches(partidas) {
+    if (!partidas.length) return '<div class="ovc-trn-empty">Nenhum jogo agendado no momento</div>';
+    return partidas.slice(0, 15).map(function (p) {
+      var scoreHtml = p.status === 'agendado'
+        ? '<span class="ovc-trn-meta">' + dataBr(p.data) + '</span>'
+        : '<span class="ovc-trn-score">' + p.home.placar + ' - ' + p.away.placar + '</span>';
+      return '<div class="ovc-trn-match">' +
+        '<div class="ovc-trn-match-side"><span class="ovc-trn-team">' + esc(p.home.nome) + '</span></div>' +
+        scoreHtml +
+        '<div class="ovc-trn-match-side away"><span class="ovc-trn-team">' + esc(p.away.nome) + '</span></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderStandings(grupos) {
+    if (!grupos.length) return '<div class="ovc-trn-empty">Classificação disponível após o início da temporada</div>';
+    if (grupos.length === 1) return renderTable(grupos[0].times);
+    return '<div class="ovc-trn-groups">' + grupos.map(function (g) {
+      return '<div class="ovc-trn-gcard"><div class="ovc-trn-gcard-hd">' + esc(g.nome) + '</div>' + renderTable(g.times) + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function renderTable(times) {
+    return '<table class="ovc-trn-table"><thead><tr><th>#</th><th>Time</th><th>Pts</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th></tr></thead><tbody>' +
+      times.map(function (t, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + esc(t.nome) + '</td><td class="ovc-trn-pts">' + t.pts + '</td><td>' + t.pj + '</td><td>' + t.v + '</td><td>' + t.e + '</td><td>' + t.d + '</td><td>' + t.sg + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  function renderArtilheiros(scorers) {
+    if (!scorers.length) return '<div class="ovc-trn-empty">Artilharia disponível após o início dos jogos</div>';
+    return scorers.slice(0, 12).map(function (s, i) {
+      return '<div class="ovc-trn-art">' +
+        '<span class="ovc-trn-art-rank' + (i < 3 ? ' top' : '') + '">' + (i + 1) + 'º</span>' +
+        '<div style="flex:1;min-width:0;"><div class="ovc-trn-art-name">' + esc(s.nome) + '</div><div class="ovc-trn-art-team">' + esc(s.time) + '</div></div>' +
+        '<span class="ovc-trn-art-gols">' + s.gols + ' ⚽</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function fetchArtilheiros(liga) {
+    var URL = 'https://site.api.espn.com/apis/site/v2/sports/soccer/' + liga + '/leaders';
+    return fetch(URL, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (d) {
+      if (!d || !(d.categories || []).length) return [];
+      var map = {};
+      function merge(leaders) {
+        (leaders || []).forEach(function (l) {
+          var a = l.athlete || {};
+          var tm = l.team || {};
+          var id = a.id ? String(a.id) : (a.displayName || 'x' + Math.random());
+          if (!map[id]) map[id] = { nome: a.displayName || a.fullName || '—', time: tm.displayName || tm.name || '—', gols: 0 };
+          map[id].gols = Number(l.value) || 0;
+        });
+      }
+      var cats = d.categories || [];
+      var golCat = cats.find(function (c) {
+        var all = ((c.name || '') + ' ' + (c.abbreviation || '') + ' ' + (c.displayName || '')).toLowerCase();
+        return all.indexOf('goal') >= 0 || all.indexOf('gol') >= 0;
+      }) || cats[0];
+      merge(golCat && golCat.leaders);
+      var scorers = Object.values(map);
+      scorers.sort(function (a, b) { return b.gols - a.gols; });
+      return scorers;
+    });
+  }
+
+  function fetchDados() {
+    var liga = CFG.liga;
+    var ESCORE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/' + liga + '/scoreboard';
+    var ESTD = 'https://site.api.espn.com/apis/v2/sports/soccer/' + liga + '/standings';
+    return Promise.all([
+      fetch(ESCORE, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetch(ESTD, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      fetchArtilheiros(liga)
+    ]).then(function (arr) {
+      return { partidas: parseMatchesESPN(arr[0]), grupos: parseStandingsESPN(arr[1]), artilheiros: arr[2] || [] };
+    });
+  }
+
+  function switchTab(tab, root) {
+    root.querySelectorAll('.ovc-trn-tab').forEach(function (el) { el.classList.toggle('active', el.dataset.tab === tab); });
+    root.querySelectorAll('.ovc-trn-body').forEach(function (el) { el.classList.toggle('active', el.dataset.body === tab); });
+  }
+
+  function montarDashboard(dados) {
+    injetarCSS();
+    var wrap = document.createElement('div');
+    wrap.className = 'ovc-trn-wrap';
+    wrap.innerHTML =
+      '<div class="ovc-trn-hd">' +
+      '<div class="ovc-trn-hd-live"><span class="ovc-trn-dot"></span><span class="ovc-trn-hd-txt">Dados ao vivo · ESPN</span></div>' +
+      '<div class="ovc-trn-hd-title">' + esc(CFG.nome) + '</div>' +
+      '</div>' +
+      '<div class="ovc-trn-tabs">' +
+      '<button class="ovc-trn-tab active" data-tab="jogos">Jogos</button>' +
+      '<button class="ovc-trn-tab" data-tab="tabela">Classificação</button>' +
+      '<button class="ovc-trn-tab" data-tab="artilheiros">Artilheiros</button>' +
+      '</div>' +
+      '<div class="ovc-trn-body active" data-body="jogos">' + renderMatches(dados.partidas) + '</div>' +
+      '<div class="ovc-trn-body" data-body="tabela">' + renderStandings(dados.grupos) + '</div>' +
+      '<div class="ovc-trn-body" data-body="artilheiros">' + renderArtilheiros(dados.artilheiros) + '</div>' +
+      '<div class="ovc-trn-news" id="ovc-trn-news"><h4>Notícias do torneio</h4><div id="ovc-trn-news-list"><div class="ovc-trn-empty">Carregando…</div></div></div>';
+
+    wrap.querySelectorAll('.ovc-trn-tab').forEach(function (btn) {
+      btn.addEventListener('click', function () { switchTab(btn.dataset.tab, wrap); });
+    });
+    return wrap;
+  }
+
+  function montarNoticias(artigos) {
+    var list = document.getElementById('ovc-trn-news-list');
+    if (!list) return;
+    if (!artigos.length) { list.innerHTML = '<div class="ovc-trn-empty">Cobertura chegando em breve.</div>'; return; }
+    list.innerHTML = artigos.slice(0, 8).map(function (p) {
+      return '<a href="' + buildHref(p) + '">' + esc(p.titulo) + '</a>';
+    }).join('');
+  }
+
+  function fetchNoticias() {
+    var kw = CFG.keywords || [];
+    Promise.all([
+      fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=30').then(function (r) { return r.json(); }).catch(function () { return { curtinhas: [] }; }),
+      fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).catch(function () { return { posts: [] }; })
+    ]).then(function (results) {
+      var todos = (results[0].curtinhas || []).concat(results[1].posts || []);
+      var vistos = {};
+      var filtrados = todos.filter(function (p) {
+        if (vistos[p.id]) return false;
+        var t = (p.titulo || '').toLowerCase();
+        var ok = kw.some(function (k) { return t.indexOf(k) >= 0; });
+        if (ok) vistos[p.id] = true;
+        return ok;
+      });
+      montarNoticias(filtrados);
+    }).catch(function () { montarNoticias([]); });
+  }
+
+  function init() {
+    var alvo = document.getElementById('ovc-torneio-dash');
+    if (!alvo) return;
+    alvo.innerHTML = '<div class="ovc-trn-wrap"><div class="ovc-trn-body active" style="display:block;"><div class="ovc-trn-empty">Carregando dados ao vivo…</div></div></div>';
+    fetchDados().then(function (dados) {
+      alvo.innerHTML = '';
+      alvo.appendChild(montarDashboard(dados));
+      fetchNoticias();
+    }).catch(function () {
+      alvo.innerHTML = '<div class="ovc-trn-wrap"><div class="ovc-trn-body active" style="display:block;"><div class="ovc-trn-empty">Não foi possível carregar os dados agora.</div></div></div>';
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
