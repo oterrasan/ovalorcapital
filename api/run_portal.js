@@ -380,6 +380,8 @@ async function autoCurtinhas(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "jornal" });
 }
 
+// DESATIVADO — 28/07/2026 — Roberto: Copa do Mundo 2026 encerrada, radar desligado.
+// Função mantida como histórico/referência, mas nunca mais é chamada pelo dispatcher.
 async function autoCopaCurtinhas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
@@ -432,6 +434,53 @@ async function autoCopaCurtinhas(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "copa_jornal", candidates: copaItems.length });
 }
 
+// ATIVADO — 28/07/2026 — Roberto: Radar do Futebol (Brasileirão A/B, Libertadores, Sul-Americana)
+// Substitui o Radar da Copa, mesmo padrão automático de geração.
+async function autoFutebolCurtinhas(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 2, 4);
+  const FUTEBOL_KW = [
+    'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
+    'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
+    'copa sul-americana', 'copa libertadores', 'rodada do brasileirão',
+    'tabela do brasileirão', 'artilheiro do brasileirão', 'copa libertadores da américa'
+  ];
+  const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
+  const seen = new Set();
+  const allNews = [...esportes, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link));
+  const futebolItems = allNews.filter(i => {
+    const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
+    return FUTEBOL_KW.some(kw => t.includes(kw));
+  }).slice(0, 20);
+  if (!futebolItems.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "futebol_jornal", candidates: 0, info: "no_futebol_news" });
+  }
+  let generated = 0;
+  for (const item of futebolItems) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    let a, sourceText;
+    try {
+      a = await scrape(item.link);
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+    } catch(_) { continue; }
+    const hash = crypto.createHash("md5").update(item.link + "_futebol_jornal").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) continue;
+    try {
+      const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
+      const erros = validar(content);
+      if (erros.length) continue;
+      await saveCurtinha(content, hash, "esportes", "radar");
+      await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)}`);
+      generated++;
+    } catch(_) { continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "futebol_jornal", candidates: futebolItems.length });
+}
+
 export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
@@ -453,7 +502,9 @@ export default async function handler(req, res) {
     if (body.url || body.texto) return manual(req, res, rec);
     // AUTOGERAÇÃO PAUSADA — 14/06/2026 — aguardando implementação dois passes + prompt esportes
     // if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
-    if (body.tipo === "copa") return autoCopaCurtinhas(req, res, rec);
+    // COPA DESATIVADA — 28/07/2026 — torneio encerrado, substituída pelo Radar do Futebol
+    if (body.tipo === "copa") return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_desativado", info: "Radar da Copa desativado — torneio encerrado" });
+    if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
