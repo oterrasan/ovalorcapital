@@ -142,9 +142,18 @@
 
   function renderTable(times) {
     var n = times.length;
+    var simples = !!CFG.tabelaSimples;
+    if (simples) {
+      return '<table class="ovc-trn-table"><thead><tr><th>#</th><th>Time</th><th>V</th><th>D</th><th>%</th></tr></thead><tbody>' +
+        times.map(function (t, i) {
+          return '<tr><td>' + (i + 1) + '</td>' +
+            '<td><div class="ovc-trn-team-cell">' + escudoImg(t.escudo) + '<span>' + esc(t.nome) + '</span></div></td>' +
+            '<td>' + t.v + '</td><td>' + t.d + '</td><td>' + (t.pct ? (t.pct * 100).toFixed(1).replace('.', ',') + '%' : '—') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
     return '<table class="ovc-trn-table"><thead><tr><th>#</th><th>Time</th><th>Pts</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th></tr></thead><tbody>' +
       times.map(function (t, i) {
-        var rebaixa = n >= 10 && i >= n - 4;
+        var rebaixa = !CFG.semRebaixamento && n >= 10 && i >= n - 4;
         return '<tr' + (rebaixa ? ' class="rebaixa"' : '') + '><td>' + (i + 1) + '</td>' +
           '<td><div class="ovc-trn-team-cell">' + escudoImg(t.escudo) + '<span>' + esc(t.nome) + '</span></div></td>' +
           '<td class="ovc-trn-pts">' + t.pts + '</td><td>' + t.pj + '</td><td>' + t.v + '</td><td>' + t.e + '</td><td>' + t.d + '</td><td>' + t.sg + '</td></tr>';
@@ -152,19 +161,21 @@
   }
 
   function renderArtilheiros(scorers) {
-    if (!scorers.length) return '<div class="ovc-trn-empty">Artilharia disponível após o início dos jogos</div>';
+    var unidade = CFG.statUnit || 'gols';
+    var emoji = CFG.statEmoji || '⚽';
+    if (!scorers.length) return '<div class="ovc-trn-empty">' + (CFG.statTabLabel || 'Artilharia') + ' disponível após o início dos jogos</div>';
     return scorers.slice(0, 12).map(function (s, i) {
       return '<div class="ovc-trn-art">' +
         '<span class="ovc-trn-art-rank' + (i < 3 ? ' top' : '') + '">' + (i + 1) + 'º</span>' +
         '<div style="flex:1;min-width:0;"><div class="ovc-trn-art-name">' + esc(s.nome) + '</div><div class="ovc-trn-art-team">' + escudoImg(s.escudo) + '<span>' + esc(s.time) + '</span></div></div>' +
-        '<span class="ovc-trn-art-gols">' + s.gols + ' ⚽</span>' +
+        '<span class="ovc-trn-art-gols">' + s.gols + ' ' + unidade + ' ' + emoji + '</span>' +
         '</div>';
     }).join('');
   }
 
   // Busca via proxy server-side (api/live.js?action=espn) — evita CORS do fetch direto no navegador para site.api.espn.com
   function fetchDados() {
-    return fetch('/api/live?action=espn&liga=' + encodeURIComponent(CFG.liga), { cache: 'no-cache' })
+    return fetch('/api/live?action=espn&sport=' + encodeURIComponent(CFG.sport || 'soccer') + '&liga=' + encodeURIComponent(CFG.liga), { cache: 'no-cache' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.ok) return { partidas: [], grupos: [], artilheiros: [] };
@@ -192,7 +203,7 @@
       '<div class="ovc-trn-tabs">' +
       '<button class="ovc-trn-tab active" data-tab="jogos">Jogos</button>' +
       '<button class="ovc-trn-tab" data-tab="tabela">Classificação</button>' +
-      '<button class="ovc-trn-tab" data-tab="artilheiros">Artilheiros</button>' +
+      '<button class="ovc-trn-tab" data-tab="artilheiros">' + esc(CFG.statTabLabel || 'Artilheiros') + '</button>' +
       '</div>' +
       '<div class="ovc-trn-body active" data-body="jogos">' + renderMatches(dados.partidas) + '</div>' +
       '<div class="ovc-trn-body" data-body="tabela">' + renderStandings(dados.grupos) + '</div>' +

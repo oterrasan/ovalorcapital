@@ -112,16 +112,24 @@ async function handleCopa(_req, res) {
   }
 }
 
+const SPORT_LIGAS = {
+  soccer: new Set(['bra.1', 'bra.2', 'conmebol.libertadores', 'conmebol.sudamericana', 'uefa.champions', 'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1']),
+  basketball: new Set(['nba']),
+  football: new Set(['nfl'])
+};
+const LEADER_CAT_REGEX = { basketball: /points|pts/i, football: /passing|touchdown|yard/i, soccer: /goal|gol/i };
+
 async function handleEspn(req, res) {
+  const sport = String(req.query.sport || 'soccer').trim();
   const liga = String(req.query.liga || '').trim();
-  const LIGAS_OK = new Set(['bra.1', 'bra.2', 'conmebol.libertadores', 'conmebol.sudamericana', 'uefa.champions', 'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1']);
-  if (!LIGAS_OK.has(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
+  const ligasOk = SPORT_LIGAS[sport];
+  if (!ligasOk || !ligasOk.has(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
   try {
     const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(7000) };
     const [sR, stR, lR] = await Promise.all([
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${liga}/scoreboard`, opts),
-      fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${liga}/standings`, opts),
-      fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${liga}/leaders`, opts)
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${liga}/scoreboard`, opts),
+      fetch(`https://site.api.espn.com/apis/v2/sports/${sport}/${liga}/standings`, opts),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/${sport}/${liga}/leaders`, opts)
     ]);
     const [sD, stD, lD] = await Promise.all([sR.ok ? sR.json() : null, stR.ok ? stR.json() : null, lR.ok ? lR.json() : null]);
 
@@ -152,12 +160,19 @@ async function handleEspn(req, res) {
       };
     }).filter(Boolean);
 
-    const standingsSrc = Array.isArray(stD?.standings) ? stD.standings
+    // Grupos podem vir aninhados 2 níveis em ligas por conferência/divisão (NBA/NFL) — achata se necessário
+    const rawGroups = Array.isArray(stD?.standings) ? stD.standings
       : stD?.standings?.children?.length ? stD.standings.children
       : stD?.children?.length ? stD.children
       : stD?.groups?.length ? stD.groups
       : [];
-    const grupos = standingsSrc.map(g => ({
+    const flatGroups = [];
+    rawGroups.forEach(g => {
+      const entries = g.standings?.entries || g.entries || [];
+      if (entries.length) { flatGroups.push(g); return; }
+      (g.children || g.standings?.children || []).forEach(sub => flatGroups.push(sub));
+    });
+    const grupos = flatGroups.map(g => ({
       nome: g.name || g.abbreviation || g.title || '',
       times: (g.standings?.entries || g.entries || []).map(e => ({
         nome: e.team?.displayName || e.team?.name || '',
@@ -167,13 +182,15 @@ async function handleEspn(req, res) {
         e: getStat(e.stats, 'ties', 'D', 'draws'),
         d: getStat(e.stats, 'losses', 'L'),
         sg: getStat(e.stats, 'pointDifferential', 'GD', 'goalDifference'),
-        pts: getStat(e.stats, 'points', 'Pts', 'PTS')
-      })).sort((a, b) => b.pts - a.pts || b.v - a.v || b.sg - a.sg)
+        pts: getStat(e.stats, 'points', 'Pts', 'PTS'),
+        pct: getStat(e.stats, 'winPercent', 'PCT')
+      })).sort((a, b) => b.pts - a.pts || b.pct - a.pct || b.v - a.v || b.sg - a.sg)
     })).filter(g => g.times.length > 0);
 
     const artilheiros = [];
     const cats = lD?.categories || [];
-    const golCat = cats.find(c => /goal|gol/i.test(`${c.name || ''} ${c.abbreviation || ''} ${c.displayName || ''}`)) || cats[0];
+    const catRegex = LEADER_CAT_REGEX[sport] || LEADER_CAT_REGEX.soccer;
+    const golCat = cats.find(c => catRegex.test(`${c.name || ''} ${c.abbreviation || ''} ${c.displayName || ''}`)) || cats[0];
     (golCat?.leaders || []).forEach(l => {
       const a = l.athlete || {};
       const tm = l.team || {};
