@@ -189,9 +189,74 @@ async function handleEspn(req, res) {
   }
 }
 
+function normNome(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9\s]/g, '').trim();
+}
+
+// Busca dados biográficos reais de um jogador (idade, altura, peso, clube) via ESPN.
+// NUNCA inventa dados — se não houver correspondência confiável, retorna ok:false
+// e o card simplesmente não exibe nenhum selo (comportamento idêntico ao anterior).
+async function handleJogador(req, res) {
+  const nome = String(req.query.nome || '').trim();
+  if (!nome || nome.length < 4) return res.status(200).json({ ok: false });
+  try {
+    const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(6000) };
+    const sR = await fetch(`https://site.api.espn.com/apis/search/v2?query=${encodeURIComponent(nome)}&limit=10`, opts);
+    if (!sR.ok) return res.status(200).json({ ok: false });
+    const sD = await sR.json();
+    const grupos = Array.isArray(sD?.results) ? sD.results : [];
+    const candidatos = [];
+    grupos.forEach(g => (g.contents || []).forEach(c => {
+      const href = c?.link?.web?.href || '';
+      if (/\/soccer\/player\//i.test(href) || /athlete/i.test(c?.type || '')) candidatos.push(c);
+    }));
+    const alvo = normNome(nome);
+    const alvoTokens = alvo.split(/\s+/).filter(Boolean);
+    const match = candidatos.find(c => {
+      const cand = normNome(c.displayName || '');
+      return alvoTokens.length > 0 && alvoTokens.every(t => cand.indexOf(t) >= 0);
+    });
+    if (!match) return res.status(200).json({ ok: false });
+
+    const idMatch = String(match.id || match?.link?.web?.href || '').match(/\/id\/(\d+)/) || [null, match.id];
+    const id = idMatch[1] || match.id;
+    const base = {
+      ok: true,
+      nome: match.displayName || nome,
+      clube: match.subtitle || '',
+      foto: match?.image?.default || '',
+      idade: null, altura: '', peso: '', nascimento: ''
+    };
+    if (!id) return res.status(200).json(base);
+
+    try {
+      const oR = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/soccer/athletes/${id}`, opts);
+      if (oR.ok) {
+        const oD = await oR.json();
+        const ath = oD?.athlete || oD;
+        if (ath && typeof ath === 'object') {
+          if (ath.age) base.idade = Number(ath.age) || null;
+          if (ath.displayHeight) base.altura = ath.displayHeight;
+          if (ath.displayWeight) base.peso = ath.displayWeight;
+          if (ath.birthPlace) base.nascimento = [ath.birthPlace.city, ath.birthPlace.country].filter(Boolean).join(', ');
+          if (ath.team?.displayName) base.clube = ath.team.displayName;
+          if (ath.headshot?.href) base.foto = ath.headshot.href;
+        }
+      }
+    } catch (_) { /* mantém dados básicos da busca — sem inventar bio */ }
+
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.status(200).json(base);
+  } catch (err) {
+    return res.status(200).json({ ok: false, error: err.message });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.query.action === 'copa') return handleCopa(req, res);
   if (req.query.action === 'espn') return handleEspn(req, res);
+  if (req.query.action === 'jogador') return handleJogador(req, res);
   const page = (req.query.page || "").toLowerCase();
   const cfg = PAGES[page];
   if (!cfg) return res.status(404).send("Not found");
