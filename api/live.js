@@ -133,6 +133,8 @@ async function handleEspn(req, res) {
       return 0;
     };
 
+    const escudo = t => t?.logos?.[0]?.href || t?.logo || '';
+
     const partidas = (sD?.events || []).map(ev => {
       const comp = ev.competitions?.[0];
       const home = comp?.competitors?.find(c => c.homeAway === 'home');
@@ -142,9 +144,10 @@ async function handleEspn(req, res) {
       const isLive = st.includes('IN_PROGRESS');
       const isDone = st.includes('FINAL') || ev.status?.type?.completed === true;
       return {
-        home: { nome: home.team?.displayName || '', placar: (isLive || isDone) ? (home.score || '0') : null },
-        away: { nome: away.team?.displayName || '', placar: (isLive || isDone) ? (away.score || '0') : null },
+        home: { nome: home.team?.displayName || '', escudo: escudo(home.team), placar: (isLive || isDone) ? (home.score || '0') : null },
+        away: { nome: away.team?.displayName || '', escudo: escudo(away.team), placar: (isLive || isDone) ? (away.score || '0') : null },
         status: isLive ? 'ao_vivo' : isDone ? 'encerrado' : 'agendado',
+        estadio: comp?.venue?.fullName || '',
         data: ev.date || ''
       };
     }).filter(Boolean);
@@ -158,6 +161,7 @@ async function handleEspn(req, res) {
       nome: g.name || g.abbreviation || g.title || '',
       times: (g.standings?.entries || g.entries || []).map(e => ({
         nome: e.team?.displayName || e.team?.name || '',
+        escudo: escudo(e.team),
         pj: getStat(e.stats, 'gamesPlayed', 'GP'),
         v: getStat(e.stats, 'wins', 'W'),
         e: getStat(e.stats, 'ties', 'D', 'draws'),
@@ -173,7 +177,7 @@ async function handleEspn(req, res) {
     (golCat?.leaders || []).forEach(l => {
       const a = l.athlete || {};
       const tm = l.team || {};
-      artilheiros.push({ nome: a.displayName || a.fullName || '—', time: tm.displayName || tm.name || '—', gols: Number(l.value) || 0 });
+      artilheiros.push({ nome: a.displayName || a.fullName || '—', time: tm.displayName || tm.name || '—', escudo: escudo(tm), foto: a.headshot?.href || '', gols: Number(l.value) || 0 });
     });
     artilheiros.sort((a, b) => b.gols - a.gols);
 
