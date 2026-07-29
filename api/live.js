@@ -179,12 +179,105 @@ async function handleEspnRacing(liga, res) {
   }
 }
 
+// Tênis (ATP/WTA) — sem tabela de liga: próximos jogos, últimos resultados, ranking top 10
+async function handleEspnTennis(liga, res) {
+  try {
+    const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(7000) };
+    const [sR, rR] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/tennis/${liga}/scoreboard`, opts),
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/tennis/${liga}/rankings`, opts)
+    ]);
+    const [sD, rD] = await Promise.all([sR.ok ? sR.json() : null, rR.ok ? rR.json() : null]);
+
+    const events = sD?.events || [];
+    const jogos = events.map(ev => {
+      const comp = ev.competitions?.[0];
+      const competidores = comp?.competitors || [];
+      const j1 = competidores[0], j2 = competidores[1];
+      const completo = ev.status?.type?.completed === true;
+      const nome = a => a?.athlete?.displayName || a?.athlete?.shortName || '';
+      return {
+        torneio: sD?.leagues?.[0]?.name || ev.shortName || '',
+        fase: comp?.notes?.[0]?.headline || '',
+        jogador1: { nome: nome(j1), placar: completo ? (j1?.score || j1?.linescores?.map(l => l.value).join('-') || '') : '' },
+        jogador2: { nome: nome(j2), placar: completo ? (j2?.score || j2?.linescores?.map(l => l.value).join('-') || '') : '' },
+        data: ev.date || '',
+        completo
+      };
+    }).filter(j => j.jogador1.nome && j.jogador2.nome);
+
+    const proximosJogos = jogos.filter(j => !j.completo).slice(0, 10);
+    const ultimosResultados = jogos.filter(j => j.completo).slice(-10);
+
+    const rankSrc = rD?.rankings?.[0]?.ranks || rD?.athletes || (Array.isArray(rD?.rankings) ? rD.rankings : []) || [];
+    const ranking = (Array.isArray(rankSrc) ? rankSrc : []).slice(0, 10).map((r, i) => ({
+      pos: Number(r.current || r.rank || i + 1),
+      nome: r.athlete?.displayName || r.displayName || '—',
+      pts: Number(r.points || r.recordSummary || 0) || 0
+    })).filter(r => r.nome !== '—');
+
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.json({ proximosJogos, ultimosResultados, ranking, updated_at: new Date().toISOString(), ok: true });
+  } catch (err) {
+    return res.json({ proximosJogos: [], ultimosResultados: [], ranking: [], error: err.message, ok: false });
+  }
+}
+
+// MMA (UFC) — evento é um card de lutas, não time-vs-time: próximo card + resultado do último card
+async function handleEspnMma(liga, res) {
+  try {
+    const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(7000) };
+    const sR = await fetch(`https://site.api.espn.com/apis/site/v2/sports/mma/${liga}/scoreboard`, opts);
+    const sD = sR.ok ? await sR.json() : null;
+
+    const events = sD?.events || [];
+    const proximoEvento = events.find(ev => ev.status?.type?.completed !== true) || null;
+    const ultimoEvento = events.filter(ev => ev.status?.type?.completed === true).slice(-1)[0] || null;
+
+    const mapCard = ev => {
+      if (!ev) return null;
+      const lutas = (ev.competitions || []).map(c => {
+        const f1 = c.competitors?.[0], f2 = c.competitors?.[1];
+        const completo = c.status?.type?.completed === true;
+        const vencedor = completo ? (f1?.winner ? (f1?.athlete?.displayName || '') : f2?.winner ? (f2?.athlete?.displayName || '') : '') : '';
+        return {
+          lutador1: f1?.athlete?.displayName || '—',
+          lutador2: f2?.athlete?.displayName || '—',
+          categoria: c.type?.text || c.notes?.[0]?.headline || '',
+          vencedor,
+          metodo: completo ? (c.status?.type?.description || '') : '',
+          completo
+        };
+      }).filter(l => l.lutador1 !== '—' || l.lutador2 !== '—');
+      return { nome: ev.name || ev.shortName || '', local: ev.competitions?.[0]?.venue?.fullName || '', data: ev.date || '', lutas };
+    };
+
+    const proxima = mapCard(proximoEvento);
+    const ultima = mapCard(ultimoEvento);
+
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.json({ proxima, ultima, updated_at: new Date().toISOString(), ok: true });
+  } catch (err) {
+    return res.json({ proxima: null, ultima: null, error: err.message, ok: false });
+  }
+}
+
 async function handleEspn(req, res) {
   const sport = String(req.query.sport || 'soccer').trim();
   const liga = String(req.query.liga || '').trim();
   if (sport === 'racing') {
     if (liga !== 'f1') return res.status(400).json({ error: 'liga invalida', ok: false });
     return handleEspnRacing(liga, res);
+  }
+  if (sport === 'tennis') {
+    if (!['atp', 'wta'].includes(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
+    return handleEspnTennis(liga, res);
+  }
+  if (sport === 'mma') {
+    if (liga !== 'ufc') return res.status(400).json({ error: 'liga invalida', ok: false });
+    return handleEspnMma(liga, res);
   }
   const ligasOk = SPORT_LIGAS[sport];
   if (!ligasOk || !ligasOk.has(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
