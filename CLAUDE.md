@@ -4069,3 +4069,148 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Menu (supermenu) — `justify-content:space-between`, itens distribuídos por toda a barra** | ✅ EM PRODUÇÃO (PR #269, commit `9799a01`) |
 | **Deploy pipeline (`deploy.yml` + VERCEL_TOKEN)** | ✅ CONFIRMADO FUNCIONANDO — 4 deploys de sucesso nesta sessão |
 
+---
+
+### Sessão 29/07/2026 — RADARES ESPORTIVOS INDIVIDUAIS (Basquete, NFL, Motor/F1, Tênis, MMA, Vôlei)
+
+#### Contexto
+
+Roberto pediu explicitamente: *"claude, agora voce vai preparar um radar individual para todos os esportes que cobrimos. segue o mesmo modelo e só adapta, cada esporte com seu radar. paginas dedicadas, tabelas, resultados, etc... o mesmo padrao das que fizemos ate agora."*
+
+Ponto de partida: o portal já tinha 6 radares de futebol (Copa, Brasileirão A/B, Libertadores, Sul-Americana, Futebol Europeu, Mercado da Bola), todos usando o componente `public/js/ovc-torneio-espn.js` + backend `api/live.js?action=espn`. Faltavam os outros esportes cobertos pela subcategoria `esportes`: Basquete, Motor, Tênis, MMA, Vôlei, NFL.
+
+A subcategoria `Geral` de esportes não gerou radar próprio (é o catch-all editorial, não um esporte específico).
+
+---
+
+#### Estratégia adotada (decidida sem perguntar, por instrução prévia de Roberto de preferir ação a perguntas)
+
+1. **Basquete (NBA) + NFL** — mais próximos do padrão de futebol (times com tabela de liga, artilheiros/líderes de estatística) → generalização do componente existente `ovc-torneio-espn.js` + `api/live.js`.
+2. **Motor (F1)** — arquiteturalmente diferente: pilotos/equipes individuais, sem tabela de liga → novo componente do zero.
+3. **Tênis (ATP/WTA) + MMA (UFC)** — mesma categoria de "sem tabela de liga tradicional", mas com forma própria (jogos/ranking para tênis; card de lutas para MMA) → dois componentes novos.
+4. **Vôlei** — investigado por último: a API pública da ESPN **não cobre** Superliga Brasileira nem FIVB Volleyball Nations League (só vôlei universitário americano/NCAA). Decisão: em vez de fabricar placar/tabela com fonte que não cobre o esporte relevante aqui, construir página editorial (mesmo padrão do Mercado da Bola) — sem dados ao vivo.
+
+---
+
+#### PR #287 — Basquete NBA + NFL (mergeado, commit de squash confirmado, deploy `29fd9f08`... na verdade deploy próprio anterior ao Motor — ver histórico de commits do PR)
+
+**`api/live.js` — generalização do handler `handleEspn()`:**
+- Adicionado parâmetro `sport` (default `'soccer'`, retrocompatível com os 6 radares de futebol existentes)
+- `SPORT_LIGAS`: mapa `sport → Set(ligas permitidas)` — `basketball: ['nba']`, `football: ['nfl']`, mantendo as 10 ligas de `soccer` já existentes
+- `LEADER_CAT_REGEX`: mapa `sport → regex` para selecionar a categoria correta de "leaders" no JSON da ESPN (`basketball: /points|pts/i`, `football: /passing|touchdown|yard/i`, `soccer: /goal|gol/i`)
+- Achatamento de 1 nível extra nos grupos de standings (conferência→divisão), comum em NBA/NFL mas ausente no futebol
+- Novo campo `pct` (win percent) computado e usado como critério de ordenação de desempate
+
+**`public/js/ovc-torneio-espn.js` — novos campos de config:**
+- `CFG.sport` — passado para a URL da API
+- `CFG.tabelaSimples` — renderiza tabela simplificada `# / Time / V / D / %` em vez de `# / Time / Pts / J / V / E / D / SG` (NBA/NFL não têm "pontos de liga" nem empates relevantes)
+- `CFG.semRebaixamento` — desliga o destaque vermelho das últimas 4 posições (ligas de playoff não têm rebaixamento)
+- `CFG.statUnit` / `CFG.statEmoji` / `CFG.statTabLabel` — rótulo da aba de estatísticas adaptado por esporte (ex: "Pontuadores"/🏀 para NBA, "Líderes de jardas"/🏈 para NFL), mantendo o campo JSON `gols` por retrocompatibilidade
+
+**Páginas novas:** `public/basquete/index.html` e `public/nfl/index.html` — clonadas do template de `public/libertadores/index.html`, back link para `/esportes/` (não `/radar-da-bola/`, que é específico de futebol).
+
+---
+
+#### PR #288 — Motor/F1 (mergeado, squash commit `29fd9f08`, deploy run `30430815326` confirmado sucesso)
+
+**`api/live.js` — novo handler `handleEspnRacing(liga, res)`:**
+- Roteado via `sport=racing&liga=f1` (branch separado dentro de `handleEspn()`, antes da checagem `SPORT_LIGAS`)
+- Busca `scoreboard` (corridas) + `standings` (classificação) em paralelo na API pública da ESPN
+- Monta `proxima` (próxima corrida não completada), `ultimaCompleta` (com pódio top-3: nome, equipe, escudo) e `classificacoes` (grupos — ex: Pilotos / Construtores — ordenados por pontos)
+
+**`public/js/ovc-radar-motor.js` — componente novo do zero (não reutiliza `ovc-torneio-espn.js`):**
+- Duas abas: "Corridas" (próxima corrida + último pódio) e "Classificação" (grupos de pilotos/equipes)
+- Mesmo padrão de feed editorial (notícias filtradas por keywords F1) usado em todos os outros radares
+- CSS com prefixo `ovc-mtr-` (convenção de nomenclatura seguida nos componentes seguintes)
+
+**Página nova:** `public/motor/index.html` — banda hero navy→vermelho, ícone 🏎️, stats (Equipes/GPs/Fundação/Organização).
+
+---
+
+#### PR #289 — Tênis (ATP/WTA) + MMA (UFC) (mergeado, squash commit `a540b770`, deploy run `30431471775` confirmado sucesso)
+
+**`api/live.js` — dois novos handlers:**
+- `handleEspnTennis(liga, res)` (`sport=tennis&liga=atp|wta`): busca `scoreboard` + `rankings` da ESPN, retorna `proximosJogos`, `ultimosResultados` e `ranking` top 10
+- `handleEspnMma(liga, res)` (`sport=mma&liga=ufc`): busca só `scoreboard` (eventos = cards de lutas), retorna `proxima` (próximo card) e `ultima` (resultado do último evento com vencedores) — **sem ranking**, porque MMA não tem pontuação corrida por temporada
+
+**`public/js/ovc-radar-tenis.js`:** busca ATP e WTA em paralelo (`Promise.all`), exibe os dois circuitos lado a lado dentro de cada aba ("Jogos" e "Ranking"). CSS prefixo `ovc-tns-`.
+
+**`public/js/ovc-radar-mma.js`:** abas "Próximo card" / "Último card", lista de lutas com categoria de peso, vencedor destacado em vermelho, método de vitória. CSS prefixo `ovc-mma-`.
+
+**Páginas novas:** `public/tenis/index.html` (banda teal, ícone 🎾) e `public/mma/index.html` (banda vermelho/preto, ícone 🥊).
+
+---
+
+#### PR #290 — Vôlei — cobertura editorial, sem placar ao vivo (mergeado, squash commit `e2867c72`)
+
+**Decisão de arquitetura (não perguntada — decidida com base no princípio de nunca fabricar dados):**
+A API pública da ESPN não tem `scoreboard`/`standings` estruturados para Superliga Brasileira nem FIVB Volleyball Nations League — só vôlei universitário americano (NCAA), irrelevante para o público do OVC. Em vez de simular dados ao vivo com uma fonte que não cobre o esporte certo, a página segue o mesmo padrão já usado para o **Mercado da Bola**: feed editorial filtrado por keywords do próprio banco de artigos do portal, sem placar/tabela.
+
+**`public/js/ovc-radar-volei.js`:** grid de notícias filtradas por keywords (`vôlei`, `superliga`, `seleção brasileira de vôlei`, `cbv`, `fivb`, `liga das nações`, `vôlei de praia`). Sem handler novo em `api/live.js` — não há fonte externa de dados ao vivo a consumir.
+
+**Página nova:** `public/volei/index.html` — banda laranja/navy, ícone 🏐.
+
+---
+
+#### Estado final da série de radares esportivos (29/07/2026)
+
+| Esporte | Página | Dados ao vivo | Componente |
+|---|---|---|---|
+| Futebol (Copa, Brasileirão A/B, Libertadores, Sul-Americana, Europeu) | `/copa/`, `/brasileirao-a/`, `/brasileirao-b/`, `/libertadores/`, `/sul-americana/`, `/futebol-europeu/` | ✅ ESPN (tabela de liga) | `ovc-torneio-espn.js` |
+| Mercado da Bola | `/mercado-da-bola/` | ❌ editorial | `ovc-mercado-da-bola.js` |
+| Basquete NBA | `/basquete/` | ✅ ESPN (tabela simplificada) | `ovc-torneio-espn.js` (generalizado) |
+| NFL | `/nfl/` | ✅ ESPN (tabela simplificada) | `ovc-torneio-espn.js` (generalizado) |
+| Motor/F1 | `/motor/` | ✅ ESPN (corridas + classificação) | `ovc-radar-motor.js` |
+| Tênis ATP/WTA | `/tenis/` | ✅ ESPN (jogos + ranking) | `ovc-radar-tenis.js` |
+| MMA/UFC | `/mma/` | ✅ ESPN (cards de lutas) | `ovc-radar-mma.js` |
+| Vôlei | `/volei/` | ❌ editorial (ESPN não cobre Superliga/FIVB) | `ovc-radar-volei.js` |
+
+---
+
+#### ⚠️ Caveat importante — endpoints ESPN não testados ao vivo
+
+Este ambiente de execução remota bloqueia conexões de saída para `site.api.espn.com` (mesma limitação já documentada para Supabase). Os handlers `handleEspnRacing`, `handleEspnTennis` e `handleEspnMma` foram escritos com base no formato conhecido/documentado publicamente da API da ESPN, com tratamento defensivo (try/catch por handler, estado vazio em vez de erro fatal, nunca dado inventado). **Recomenda-se que a próxima sessão (ou Roberto) confirme visualmente `/motor/`, `/tenis/` e `/mma/` em produção** para garantir que os campos da resposta da ESPN batem exatamente com o que o código espera. Se algum campo vier com nome diferente do esperado, o sintoma será uma seção "vazia" (ex: "Nenhum evento agendado") em vez de erro — o parsing é defensivo o suficiente para nunca quebrar a página, mas pode não mostrar dados reais até ajuste fino.
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — REGRA ZERO-A respeitada em todos os 4 PRs)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### Novos arquivos JS independentes (REGRA ZERO-I compliant — nenhum toca em home.js/internal-page-v2.js)
+
+| Arquivo | Função |
+|---|---|
+| `public/js/ovc-radar-motor.js` | Radar F1 — corridas + classificação pilotos/equipes |
+| `public/js/ovc-radar-tenis.js` | Radar Tênis — jogos + ranking ATP/WTA |
+| `public/js/ovc-radar-mma.js` | Radar MMA — próximo/último card de lutas |
+| `public/js/ovc-radar-volei.js` | Cobertura editorial Vôlei — sem dados ao vivo |
+
+#### Novas páginas
+
+```
+public/basquete/index.html   public/nfl/index.html   public/motor/index.html
+public/tenis/index.html      public/mma/index.html   public/volei/index.html
+```
+
+#### ✅ CONFIRMADO NESTA SESSÃO (29/07/2026)
+
+| Sistema | Status |
+|---|---|
+| **Radar Basquete NBA + NFL** — `ovc-torneio-espn.js` generalizado por `sport` | ✅ EM PRODUÇÃO (PR #287) |
+| **Radar Motor/F1** — `handleEspnRacing()` + `ovc-radar-motor.js` | ✅ EM PRODUÇÃO (PR #288, commit `29fd9f08`) |
+| **Radar Tênis ATP/WTA** — `handleEspnTennis()` + `ovc-radar-tenis.js` | ✅ EM PRODUÇÃO (PR #289, commit `a540b770`) |
+| **Radar MMA/UFC** — `handleEspnMma()` + `ovc-radar-mma.js` | ✅ EM PRODUÇÃO (PR #289, commit `a540b770`) |
+| **Página Vôlei editorial** — `ovc-radar-volei.js` (sem dados ao vivo) | ✅ EM PRODUÇÃO (PR #290, commit `e2867c72`) |
+| **Deploy pipeline (`deploy.yml`)** | ✅ CONFIRMADO FUNCIONANDO — 3 deploys de sucesso consecutivos nesta sessão |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente `/motor/`, `/tenis/` e `/mma/` em produção** — os endpoints ESPN de racing/tennis/mma não puderam ser testados neste sandbox (rede bloqueada). Se alguma seção aparecer sempre vazia, comparar o JSON real retornado pela ESPN com o parsing em `api/live.js` e ajustar os nomes de campo
+2. **Verificar `/basquete/` e `/nfl/`** — confirmar que a tabela simplificada (`tabelaSimples`) e os líderes de estatística (`statTabLabel`) aparecem corretos após generalização do componente compartilhado
+3. **Adicionar links de navegação** para as 6 novas páginas (`/basquete/`, `/nfl/`, `/motor/`, `/tenis/`, `/mma/`, `/volei/`) em algum ponto de descoberta do portal (ex: página `/esportes/` ou nav interna), se Roberto quiser — não foi pedido explicitamente nesta sessão, então não foi feito por iniciativa própria
+4. Demais pendências das sessões anteriores (SUPABASE_KEY env var, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão
+
