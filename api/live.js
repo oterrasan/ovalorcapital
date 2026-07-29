@@ -119,9 +119,73 @@ const SPORT_LIGAS = {
 };
 const LEADER_CAT_REGEX = { basketball: /points|pts/i, football: /passing|touchdown|yard/i, soccer: /goal|gol/i };
 
+// Esportes individuais (piloto/equipe, não time-vs-time) — F1: próxima corrida, último resultado, classificação de pilotos/equipes
+async function handleEspnRacing(liga, res) {
+  try {
+    const opts = { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OVC/1.0)' }, signal: AbortSignal.timeout(7000) };
+    const [sR, stR] = await Promise.all([
+      fetch(`https://site.api.espn.com/apis/site/v2/sports/racing/${liga}/scoreboard`, opts),
+      fetch(`https://site.api.espn.com/apis/v2/sports/racing/${liga}/standings`, opts)
+    ]);
+    const [sD, stD] = await Promise.all([sR.ok ? sR.json() : null, stR.ok ? stR.json() : null]);
+
+    const escudo = t => t?.logos?.[0]?.href || t?.logo || '';
+    const events = sD?.events || [];
+    const agora = Date.now();
+
+    const corridas = events.map(ev => {
+      const comp = ev.competitions?.[0];
+      const completa = ev.status?.type?.completed === true;
+      const competidores = (comp?.competitors || []).slice().sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
+      const pódio = competidores.slice(0, 3).map(c => ({
+        nome: c.athlete?.displayName || c.vehicle?.displayName || '—',
+        equipe: c.team?.displayName || c.vehicle?.manufacturer || '',
+        escudo: escudo(c.team || c.vehicle)
+      }));
+      return {
+        nome: ev.name || ev.shortName || '',
+        circuito: comp?.venue?.fullName || comp?.venue?.address?.city || '',
+        data: ev.date || '',
+        completa,
+        podio: pódio
+      };
+    });
+
+    const proxima = corridas.find(c => !c.completa) || null;
+    const ultimaCompleta = corridas.filter(c => c.completa).slice(-1)[0] || null;
+
+    const getPts = stats => {
+      const s = (stats || []).find(x => /points|pts/i.test(x.name || x.abbreviation || ''));
+      return s ? Number(s.value) || 0 : 0;
+    };
+    const standingsSrc = Array.isArray(stD?.standings) ? stD.standings
+      : stD?.standings?.children?.length ? stD.standings.children
+      : stD?.children?.length ? stD.children
+      : [];
+    const classificacoes = standingsSrc.map(g => ({
+      nome: g.name || g.abbreviation || g.title || '',
+      itens: (g.standings?.entries || g.entries || []).map(e => ({
+        nome: e.athlete?.displayName || e.team?.displayName || '—',
+        escudo: escudo(e.team),
+        pts: getPts(e.stats)
+      })).sort((a, b) => b.pts - a.pts)
+    })).filter(g => g.itens.length > 0);
+
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.json({ proxima, ultimaCompleta, classificacoes, updated_at: new Date().toISOString(), ok: true });
+  } catch (err) {
+    return res.json({ proxima: null, ultimaCompleta: null, classificacoes: [], error: err.message, ok: false });
+  }
+}
+
 async function handleEspn(req, res) {
   const sport = String(req.query.sport || 'soccer').trim();
   const liga = String(req.query.liga || '').trim();
+  if (sport === 'racing') {
+    if (liga !== 'f1') return res.status(400).json({ error: 'liga invalida', ok: false });
+    return handleEspnRacing(liga, res);
+  }
   const ligasOk = SPORT_LIGAS[sport];
   if (!ligasOk || !ligasOk.has(liga)) return res.status(400).json({ error: 'liga invalida', ok: false });
   try {
