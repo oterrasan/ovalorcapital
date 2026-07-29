@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -35,6 +37,7 @@ export default async function handler(req, res) {
       if (action === "archive_old_rss") return handleArchiveOldRss(req, res);
       if (action === "get_pesquisa_eleitoral") return handleGetPesquisa(res);
       if (action === "update_pesquisa_eleitoral") return handleUpdatePesquisa(req, res);
+      if (action === "banners") return handleBanners(req, res);
       return handleStatus(res);
     }
 
@@ -438,6 +441,29 @@ async function handleGetPesquisa(res) {
       atualizado: null
     }
   });
+}
+
+// ── Banners Lions Corretora — GET: retorna banners ativos filtrados por categoria ──
+// data/banners.json era lido por ninguém (public/js/banners.js chamava esta action,
+// que não existia — banners nunca apareciam em produção). Ver CLAUDE.md, sessão 29/07/2026.
+let _bannersCache = null;
+function loadBannersFile() {
+  if (_bannersCache) return _bannersCache;
+  try {
+    _bannersCache = JSON.parse(readFileSync(join(process.cwd(), "data", "banners.json"), "utf8"));
+  } catch (_) {
+    _bannersCache = [];
+  }
+  return _bannersCache;
+}
+async function handleBanners(req, res) {
+  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+  const cat = String(req.query.cat || "geral");
+  const todos = loadBannersFile().filter(b => b.active !== false);
+  let candidatos = todos.filter(b => Array.isArray(b.categories) && b.categories.includes(cat));
+  if (!candidatos.length) candidatos = todos.filter(b => Array.isArray(b.categories) && b.categories.includes("geral"));
+  candidatos.sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0));
+  return res.status(200).json({ banners: candidatos });
 }
 
 // ── Pesquisa Eleitoral — GET: busca artigos recentes, extrai via OpenAI, salva ──

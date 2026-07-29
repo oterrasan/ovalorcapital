@@ -387,11 +387,15 @@ async function handleLiveData(res) {
   for (const item of br?.results || []) brapiMap[item.symbol] = item;
 
   const youtubeUrl = process.env.YOUTUBE_LIVE_URL || "";
+  const liveConfig = loadLiveConfig();
+  const configTv = (liveConfig?.tv || []).filter(item => item.active !== false);
   const tvChannels = [
     ...(youtubeUrl ? [{ label: "TV OVC", url: youtubeUrl, group: "ao vivo", kind: "embed" }] : []),
-    { label: "TV Câmara", url: "https://www.youtube.com/embed/live_stream?channel=UCcr3e8PiJTJDlLkwE_9vlqg", group: "institucional", kind: "embed" },
-    { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCccCfUCGP-6s8X6-_VQ8RFA", group: "institucional", kind: "embed" },
-    { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCcLvHFM2XLj2JqLwFAjpHUw", group: "pública", kind: "embed" },
+    ...(configTv.length ? configTv : [
+      { label: "TV Câmara", url: "https://www.youtube.com/embed/live_stream?channel=UCcr3e8PiJTJDlLkwE_9vlqg", group: "institucional", kind: "embed" },
+      { label: "TV Senado", url: "https://www.youtube.com/embed/live_stream?channel=UCccCfUCGP-6s8X6-_VQ8RFA", group: "institucional", kind: "embed" },
+      { label: "TV Brasil", url: "https://www.youtube.com/embed/live_stream?channel=UCcLvHFM2XLj2JqLwFAjpHUw", group: "pública", kind: "embed" },
+    ])
   ];
 
   return res.status(200).json({
@@ -405,8 +409,20 @@ async function handleLiveData(res) {
     impostometro: impostometro(),
     ratePerSec: 114155,
     tv: tvChannels,
+    radio: liveConfig?.radio || null,
     ts: Date.now()
   });
+}
+
+let _liveConfigCache = null;
+function loadLiveConfig() {
+  if (_liveConfigCache) return _liveConfigCache;
+  try {
+    _liveConfigCache = JSON.parse(readFileSync(join(process.cwd(), "data", "live-config.json"), "utf8"));
+  } catch (_) {
+    _liveConfigCache = {};
+  }
+  return _liveConfigCache;
 }
 
 function formatPost(row, full) {
