@@ -88,6 +88,72 @@
     return 'outro';
   }
 
+  // Extrai um possível nome de jogador do título (sequência de 2-3 palavras capitalizadas)
+  // Usado só para consultar dados biográficos REAIS na ESPN — nunca inventa nome nem bio.
+  var TERMOS_NAO_JOGADOR = CLUBES_BR.concat(TERMOS_INTL).concat([
+    'mercado da bola', 'janela de transferências', 'copa do brasil', 'seleção brasileira'
+  ]);
+  function extrairNomeJogador(titulo) {
+    var candidatos = String(titulo || '').match(/(?:[A-ZÀ-Ý][a-zà-ÿ'’-]+\s+){1,2}[A-ZÀ-Ý][a-zà-ÿ'’-]+/g) || [];
+    for (var i = 0; i < candidatos.length; i++) {
+      var cand = candidatos[i].trim();
+      var candNorm = cand.toLowerCase();
+      var ehTermo = TERMOS_NAO_JOGADOR.some(function (t) { return candNorm.indexOf(t) >= 0 || t.indexOf(candNorm) >= 0; });
+      if (!ehTermo && cand.split(/\s+/).length >= 2) return cand;
+    }
+    return null;
+  }
+
+  var _idades = { nacional: [], internacional: [] };
+  function atualizarIdadeMedia() {
+    var el = document.getElementById('ovc-mdb-idade-avg');
+    if (!el) return;
+    var partes = [];
+    if (_idades.nacional.length) {
+      var mN = Math.round(_idades.nacional.reduce(function (a, b) { return a + b; }, 0) / _idades.nacional.length);
+      partes.push('🇧🇷 ' + mN + ' anos (' + _idades.nacional.length + ' identificados)');
+    }
+    if (_idades.internacional.length) {
+      var mI = Math.round(_idades.internacional.reduce(function (a, b) { return a + b; }, 0) / _idades.internacional.length);
+      partes.push('🌍 ' + mI + ' anos (' + _idades.internacional.length + ' identificados)');
+    }
+    if (!partes.length) return;
+    el.textContent = 'Idade média dos jogadores identificados via ESPN: ' + partes.join(' · ');
+    el.style.display = 'block';
+  }
+
+  function enriquecerJogadores(lista) {
+    lista.slice(0, 24).forEach(function (p) {
+      if (p._bioTentado) return;
+      p._bioTentado = true;
+      var nomeJogador = extrairNomeJogador(p.titulo);
+      if (!nomeJogador) return;
+      fetch('/api/live?action=jogador&nome=' + encodeURIComponent(nomeJogador))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.ok) return;
+          p._bio = d;
+          if (d.idade) {
+            _idades[p._classe === 'internacional' ? 'internacional' : 'nacional'].push(d.idade);
+            atualizarIdadeMedia();
+          }
+          var slot = document.querySelector('[data-mdb-pid="' + p.id + '"] [data-bio-slot]');
+          if (slot) slot.innerHTML = renderBioChip(d);
+        })
+        .catch(function () {});
+    });
+  }
+
+  function renderBioChip(bio) {
+    if (!bio || !bio.ok) return '';
+    var partes = [];
+    if (bio.idade) partes.push(bio.idade + ' anos');
+    if (bio.altura) partes.push(bio.altura);
+    if (bio.clube) partes.push(bio.clube);
+    if (!partes.length) return '';
+    return '<span class="ovc-mdb-card-bio">⚽ ' + esc(partes.join(' · ')) + '</span>';
+  }
+
   function injetarCSS() {
     if (document.getElementById('ovc-mdb-css')) return;
     var sty = document.createElement('style');
@@ -126,6 +192,8 @@
       '.ovc-mdb-card-badge{font-size:9px;font-weight:800;color:#b45309;text-transform:uppercase;letter-spacing:.07em;display:flex;gap:6px;align-items:center;}',
       '.ovc-mdb-card-flag{font-size:11px;}',
       '.ovc-mdb-card-title{font-size:13.5px;font-weight:700;color:var(--text-main,#0f172a);line-height:1.4;}',
+      '.ovc-mdb-card-bio{font-size:10.5px;color:#059669;font-weight:600;}',
+      '.ovc-mdb-chart-idade{display:none;font-size:10.5px;color:#64748b;margin-top:8px;padding-top:8px;border-top:1px solid #e5e7eb;}',
       '.ovc-mdb-card-date{font-size:10.5px;color:#94a3b8;margin-top:auto;}',
       '.ovc-mdb-empty{padding:26px 14px;text-align:center;color:#94a3b8;font-size:13px;border:1px dashed #e5e7eb;border-radius:10px;}',
     ].join('');
@@ -164,11 +232,12 @@
       ? '<img class="ovc-mdb-card-img" src="' + esc(p.imagem) + '" alt="" loading="lazy">'
       : '';
     var bandeira = p._classe === 'internacional' ? '🌍' : '🇧🇷';
-    return '<a class="ovc-mdb-card" href="' + buildHref(p) + '">' +
+    return '<a class="ovc-mdb-card" href="' + buildHref(p) + '" data-mdb-pid="' + esc(p.id) + '">' +
       img +
       '<div class="ovc-mdb-card-body">' +
       '<span class="ovc-mdb-card-badge"><span class="ovc-mdb-card-flag">' + bandeira + '</span>Mercado da Bola</span>' +
       '<span class="ovc-mdb-card-title">' + esc(p.titulo) + '</span>' +
+      '<span data-bio-slot>' + renderBioChip(p._bio) + '</span>' +
       '<span class="ovc-mdb-card-date">' + dataCurta(p.data || p.published_at || p.created_at) + '</span>' +
       '</div></a>';
   }
@@ -220,6 +289,7 @@
         '<span><span class="ovc-mdb-chart-dot nac"></span>Nacional</span>' +
         '<span><span class="ovc-mdb-chart-dot intl"></span>Internacional</span>' +
       '</div>' +
+      '<div class="ovc-mdb-chart-idade" id="ovc-mdb-idade-avg"></div>' +
       '</div>';
   }
 
@@ -255,6 +325,8 @@
         mount.innerHTML = renderGrid(lista);
       });
     });
+
+    enriquecerJogadores(enriched);
   }
 
   function init() {
