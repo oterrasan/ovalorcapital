@@ -73,15 +73,9 @@
       if (eurEl)  eurEl.textContent  = fmtBrl(eurVal);
       if (ibovEl) ibovEl.textContent = `${Number(ibovVal).toLocaleString('pt-BR')} pts`;
 
-      const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
-      let impostVal = Number(data.impostometro || 0);
-      const ratePerSec = Number(data.ratePerSec || 114155);
-      if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
-      document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
-      window.__ovcImpostTicker = setInterval(() => {
-        impostVal += ratePerSec;
-        document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(impostVal); });
-      }, 1000);
+      // Impostômetro: NÃO usa data.impostometro da API — ovcImpostometroTick() (site.js) já
+      // cuida disso de forma independente e idempotente. Reescrever aqui causava zeragens
+      // toda vez que updateLiveWidgets() rodava (a cada 2min) se a API estivesse lenta/fora.
 
       document.querySelectorAll('.market-chip').forEach(chip => {
         const sym = (chip.querySelector('.market-symbol')?.textContent || '').trim().toUpperCase();
@@ -334,18 +328,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
-    // Impostômetro independente — não depende de API, sempre funciona
-    (function() {
-      const fmtI = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v);
-      const start = new Date(`${new Date().getFullYear()}-01-01T03:00:00Z`).getTime();
-      let val = Math.max(0, Math.floor((Date.now()-start)/1000)) * 114155;
-      document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtI(val); });
-      if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
-      window.__ovcImpostTicker = setInterval(() => {
-        val += 114155;
-        document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtI(val); });
-      }, 1000);
-    })();
+    // Impostômetro: função compartilhada de site.js (carrega antes de home.js no <head>)
+    if (typeof ovcImpostometroTick === 'function') ovcImpostometroTick();
 
     updateLiveWidgets();
     setInterval(updateLiveWidgets, 120000);

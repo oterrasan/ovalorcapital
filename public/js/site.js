@@ -142,7 +142,9 @@ window.OVC = {
       const ibov  = live.ibov?.valor  || live.indices?.ibov  || 0;
       const nasdaq= live.nasdaq?.valor|| live.indices?.nasdaq || 0;
       const dow   = live.dow?.valor   || 0;
-      const impost= live.impostometro || 0;
+      // Impostômetro NÃO usa dado da API — é 100% calculado localmente por ovcImpostometroTick()
+      // (ver IIFE no final do arquivo). Escrever aqui causava zeragem intermitente quando a
+      // API falhava ou demorava a responder (ver CLAUDE.md, sessão 29/07/2026).
 
       const fmtBrl = v => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
       const fmtPts = v => `${Number(v).toLocaleString('pt-BR', {maximumFractionDigits:0})} pts`;
@@ -154,16 +156,6 @@ window.OVC = {
       write('#cotacao-ibov',   fmtPts(ibov));
       write('#cotacao-nasdaq', fmtPts(nasdaq));
       write('#cotacao-dow',    fmtPts(dow));
-      const fmtImposto = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
-      write('#impostometro', fmtImposto(Number(impost)));
-      if (!window.__ovcImpostTicker) {
-        let _impostVal = Number(impost);
-        const _rate = Number(live.ratePerSec || 114155);
-        window.__ovcImpostTicker = setInterval(() => {
-          _impostVal += _rate;
-          document.querySelectorAll('#impostometro').forEach(el => { el.textContent = fmtImposto(_impostVal); });
-        }, 1000);
-      }
 
       const tickerMap = {
         'dolar': fmtBrl(usd), 'usd': fmtBrl(usd),
@@ -246,19 +238,7 @@ window.OVC = {
 
 (function(){
   document.addEventListener('DOMContentLoaded', () => {
-    // Impostômetro independente — funciona em todas as páginas sem esperar API
-    (function(){
-      var fmtI = function(v){ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v); };
-      var start = new Date(new Date().getFullYear()+'-01-01T03:00:00Z').getTime();
-      var val = Math.max(0, Math.floor((Date.now()-start)/1000)) * 114155;
-      document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmtI(val); });
-      if (!window.__ovcImpostTicker) {
-        window.__ovcImpostTicker = setInterval(function(){
-          val += 114155;
-          document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmtI(val); });
-        }, 1000);
-      }
-    })();
+    ovcImpostometroTick();
     OVC.initThemePicker();
     OVC.bindGlobalSearch();
     OVC.bindSearchChips();
@@ -381,14 +361,18 @@ OVC.normalizeInnerLayout = function(){
   document.head.appendChild(s);
 })();
 
-// Impostômetro independente — não depende de API
-(function(){
-  var start = new Date(new Date().getFullYear(), 0, 1).getTime();
-  var rate = 114155;
+// Impostômetro — ÚNICA fonte de verdade do site (não depende de API — sempre calculado
+// localmente a partir de 1º de janeiro 00:00 BRT). Idempotente: sempre reseta o timer com
+// clearInterval antes de recriar, então é seguro chamar de mais de um lugar (site.js e
+// home.js) sem duplicar intervalos nem correr risco de outro script zerar o valor.
+function ovcImpostometroTick(){
   var fmt = function(v){ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(v); };
-  function tick(){ var val = Math.max(0,Math.floor((Date.now()-start)/1000))*rate; document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmt(val); }); }
-  document.addEventListener('DOMContentLoaded', function(){
-    tick();
-    if(!window.__ovcImpostTicker){ window.__ovcImpostTicker = setInterval(tick, 1000); }
-  });
-})();
+  var start = new Date(new Date().getFullYear()+'-01-01T03:00:00Z').getTime();
+  var rate = 114155;
+  function calc(){ return Math.max(0, Math.floor((Date.now()-start)/1000)) * rate; }
+  document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmt(calc()); });
+  if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
+  window.__ovcImpostTicker = setInterval(function(){
+    document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmt(calc()); });
+  }, 1000);
+}
