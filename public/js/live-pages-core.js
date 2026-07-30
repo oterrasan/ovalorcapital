@@ -92,12 +92,13 @@
       ['Dólar', CURRENCY.format(Number(live?.rates?.usd||5.2)), '/dados/cotacoes/?ticker=dolar'],
       ['Euro', CURRENCY.format(Number(live?.rates?.eur||5.7)), '/dados/cotacoes/?ticker=euro'],
       ['Bitcoin', BIG_CURRENCY.format(Number(live?.rates?.btc||380000)), '/dados/cotacoes/?ticker=bitcoin'],
-      ['Impostômetro', BIG_CURRENCY.format(Number(live?.impostometro||0)), '/ferramentas/impostometro/']
+      ['Impostômetro', '', '/ferramentas/impostometro/']
     ];
     mount.innerHTML = `
       <section class="ovc-panel ovc-hero"><span class="ovc-badge">Radar OVC</span><h1>Radar OVC</h1><p>Painel de indicadores, notícias e atalhos editoriais do portal.</p></section>
-      <section class="ovc-live-card-grid">${cards.map(([label,val,href]) => `<a class="ovc-data-card ovc-stat" href="${href}"><div class="ovc-kicker">Indicador</div><strong>${label}</strong><p>${val}</p></a>`).join('')}</section>
+      <section class="ovc-live-card-grid">${cards.map(([label,val,href]) => `<a class="ovc-data-card ovc-stat" href="${href}"><div class="ovc-kicker">Indicador</div><strong>${label}</strong><p${label==='Impostômetro'?' class="ovc-impostometro-live"':''}>${val}</p></a>`).join('')}</section>
       <div id="radar-news-panels" style="margin-top:28px"><p style="color:#888;text-align:center;padding:32px 0">Carregando notícias…</p></div>`;
+    if (typeof ovcImpostometroTick === 'function') ovcImpostometroTick();
     let posts = [];
     try {
       const data = await OVC.fetchJSON('/api/portal-posts?categoria=radar&limit=60');
@@ -165,10 +166,11 @@
     mount.innerHTML = `
       <section class="ovc-panel ovc-hero"><span class="ovc-badge">Fiscal</span><h1>Impostômetro</h1><p>Leitura fiscal em atualização contínua para compor a experiência editorial do portal.</p></section>
       <section class="ovc-live-card-grid" style="margin-top:18px">
-        <article class="ovc-data-card ovc-stat"><div class="ovc-kicker">Acumulado</div><strong>${BIG_CURRENCY.format(Number(live?.impostometro||0))}</strong><p>Estimativa exibida no portal em tempo real.</p></article>
+        <article class="ovc-data-card ovc-stat"><div class="ovc-kicker">Acumulado</div><strong class="ovc-impostometro-live"></strong><p>Estimativa exibida no portal em tempo real.</p></article>
         <a class="ovc-data-card ovc-stat" href="/economia/minuto-fiscal/"><div class="ovc-kicker">Editorial</div><strong>Minuto Fiscal</strong><p>Contexto e interpretação para o usuário final.</p></a>
         <a class="ovc-data-card ovc-stat" href="/dados/agenda-economica/"><div class="ovc-kicker">Agenda</div><strong>Próximos eventos</strong><p>Gatilhos econômicos, fiscais e monetários.</p></a>
       </section>`;
+    if (typeof ovcImpostometroTick === 'function') ovcImpostometroTick();
   }
   async function init(){
     const live = await loadLive();

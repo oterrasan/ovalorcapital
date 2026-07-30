@@ -370,9 +370,10 @@ function ovcImpostometroTick(){
   var start = new Date(new Date().getFullYear()+'-01-01T03:00:00Z').getTime();
   var rate = 114155;
   function calc(){ return Math.max(0, Math.floor((Date.now()-start)/1000)) * rate; }
-  document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmt(calc()); });
+  var SEL = '#impostometro, .ovc-impostometro-live';
+  document.querySelectorAll(SEL).forEach(function(el){ el.textContent = fmt(calc()); });
   if (window.__ovcImpostTicker) clearInterval(window.__ovcImpostTicker);
   window.__ovcImpostTicker = setInterval(function(){
-    document.querySelectorAll('#impostometro').forEach(function(el){ el.textContent = fmt(calc()); });
+    document.querySelectorAll(SEL).forEach(function(el){ el.textContent = fmt(calc()); });
   }, 1000);
 }
