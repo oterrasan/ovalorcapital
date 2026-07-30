@@ -129,7 +129,7 @@
       // Priority 2: fresh from broader business pool (24h), excluding already shown
       if (!pool.length) {
         const broad = [];
-        for (const cat of ['negocios','economia','tecnologia','industria','tributos']) {
+        for (const cat of ['negocios','economia','tecnologia','industria']) {
           (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,24)).forEach(p => broad.push(p));
         }
         if (broad.length) pool = broad;
@@ -180,8 +180,8 @@
     try {
       const cardEl = document.getElementById('card-lions-financas');
       if (cardEl) cardEl.style.display = '';
-      const PRIMARY_CATS = ['financas','investimentos','seguros','imoveis'];
-      const BROAD_CATS = ['financas','investimentos','seguros','imoveis','economia','industria','negocios'];
+      const PRIMARY_CATS = ['financas'];
+      const BROAD_CATS = ['financas','economia'];
       const primary = [];
       for (const cat of PRIMARY_CATS) {
         (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => primary.push(p));
