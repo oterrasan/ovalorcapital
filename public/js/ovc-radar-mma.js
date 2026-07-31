@@ -8,6 +8,11 @@
 (function () {
   'use strict';
 
+  function kwMatch(text, kw) {
+    var esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
+
   var CFG = window.OVC_MMA;
   if (!CFG || !CFG.liga) return;
 
@@ -148,7 +153,7 @@
         if (vistos[p.id]) return false;
         if (p.categoria && p.categoria !== 'esportes') return false;
         var t = (p.titulo || '').toLowerCase();
-        var ok = kw.some(function (k) { return t.indexOf(k) >= 0; });
+        var ok = kw.some(function (k) { return kwMatch(t, k); });
         if (ok) vistos[p.id] = true;
         return ok;
       });

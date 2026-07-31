@@ -7,6 +7,11 @@
 (function () {
   'use strict';
 
+  function kwMatch(text, kw) {
+    var esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
+
   var CAT_URL = '/radar-da-bola/';
 
   function esc(s) {
@@ -137,7 +142,7 @@
         var tipo = n.tipo_conteudo || n.tipo || '';
         if (tipo !== 'radar' && tipo !== 'pilula' && tipo !== 'micropilula') return false;
         var t = (n.titulo || '').toLowerCase();
-        return FUTEBOL_KEYWORDS.some(function(kw) { return t.indexOf(kw) >= 0; });
+        return FUTEBOL_KEYWORDS.some(function(kw) { return kwMatch(t, kw); });
       });
 
       var idsCurtinhas = {};
@@ -145,7 +150,7 @@
       var artigosNormais = todosArtigos.filter(function(p) {
         if (idsCurtinhas[p.id]) return false;
         var titulo = (p.titulo || '').toLowerCase();
-        return FUTEBOL_KEYWORDS.some(function(kw) { return titulo.indexOf(kw) >= 0; });
+        return FUTEBOL_KEYWORDS.some(function(kw) { return kwMatch(titulo, kw); });
       });
 
       var artigos = futebolCurtinhas.concat(artigosNormais).slice(0, 5);
