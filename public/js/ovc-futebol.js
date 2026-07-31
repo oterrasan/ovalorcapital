@@ -149,6 +149,7 @@
       futebolCurtinhas.forEach(function(n){ idsCurtinhas[n.id] = true; });
       var artigosNormais = todosArtigos.filter(function(p) {
         if (idsCurtinhas[p.id]) return false;
+        if (p.categoria !== 'esportes') return false;
         var titulo = (p.titulo || '').toLowerCase();
         return FUTEBOL_KEYWORDS.some(function(kw) { return kwMatch(titulo, kw); });
       });

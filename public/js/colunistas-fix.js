@@ -3,18 +3,15 @@
   if (window.__OVC_COLUNISTAS_FIX__) return;
   window.__OVC_COLUNISTAS_FIX__ = true;
 
-  var blockedSlugs = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos'];
-  var blockedNames = ['gabriel thiede', 'gabriel tiede', 'fabiana campos', 'fabiane campos'];
+  var blockedSlugs = ['gabriel-thiede', 'gabriel-tiede', 'fabiana-campos', 'fabiane-campos', 'coluna-ovc', 'larissa-corvetto', 'andre-oliveira'];
+  var blockedNames = ['gabriel thiede', 'gabriel tiede', 'fabiana campos', 'fabiane campos', 'coluna ovc', 'larissa corvetto', 'andre oliveira'];
   var columnists = {
     'roberto-terrasan': {name:'Roberto Terrasan', color:'#c81e1e'},
     'beta-ferreira': {name:'Beta Ferreira', color:'#7b1fa2'},
     'adriana-ferreira': {name:'Adriana Ferreira', color:'#1565c0'},
     'michele-froiz': {name:'Michele Froiz', color:'#00695c'},
-    'coluna-ovc': {name:'Coluna OVC', color:'#455a64'},
     'prof-marcos-pizzolatto': {name:'Prof. Marcos Pizzolatto', color:'#283593'},
-    'larissa-corvetto': {name:'Larissa Corvetto', color:'#ad1457'},
-    'taisa-da-fonseca': {name:'Taísa da Fonseca', color:'#8e24aa'},
-    'andre-oliveira': {name:'André Oliveira', color:'#546e7a'}
+    'taisa-da-fonseca': {name:'Taísa da Fonseca', color:'#8e24aa'}
   };
 
   function plain(value){
@@ -108,13 +105,13 @@
       }
     });
 
-    document.querySelectorAll('.col-stat-n').forEach(function(stat){ if ((stat.textContent || '').trim() === '11') stat.textContent = '9'; });
+    document.querySelectorAll('.col-stat-n').forEach(function(stat){ if (['11','9'].indexOf((stat.textContent || '').trim()) !== -1) stat.textContent = '6'; });
     var heroTitle = document.querySelector('.col-hero h1');
     if (heroTitle) heroTitle.textContent = 'As vozes que formam opinião.';
     var heroSub = document.querySelector('.col-hero-sub');
     if (heroSub) heroSub.textContent = 'Análise assinada, leitura de conjuntura e opinião com responsabilidade editorial dentro do ecossistema O Valor Capital.';
     var firstStat = document.querySelector('.col-stat:first-child .col-stat-n');
-    if (firstStat) firstStat.textContent = '9';
+    if (firstStat) firstStat.textContent = '6';
     var firstStatLabel = document.querySelector('.col-stat:first-child .col-stat-l');
     if (firstStatLabel) firstStatLabel.textContent = 'Colunistas ativos';
     var secLabel = document.querySelector('.col-sec-lbl');
