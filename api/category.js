@@ -212,13 +212,8 @@ const SECTION_LABELS = {
     "beta-ferreira": "Beta Ferreira",
     "adriana-ferreira": "Adriana Ferreira",
     "michele-froiz": "Michele Froiz",
-    "coluna-ovc": "Coluna OVC",
     "prof-marcos-pizzolatto": "Prof. Marcos Pizzolatto",
-    "larissa-corvetto": "Larissa Corvetto",
-    "taisa-da-fonseca": "Taisa da Fonseca",
-    "andre-oliveira": "Andre Oliveira",
-    "gabriel-thiede": "Gabriel Thiede",
-    "fabiana-campos": "Fabiana Campos"
+    "taisa-da-fonseca": "Taisa da Fonseca"
   },
   // legado — mantidos para URLs antigas de artigos
   saude: { "saude-publica": "Saúde Pública", planos: "Planos de Saúde", sus: "SUS" },
