@@ -34,7 +34,7 @@ window.OVC = {
     const query = encodeURIComponent(resources.join(','));
     return this.fetchJSON(`/api/public/content?resources=${query}`);
   },
-  slugify(text){ return String(text||'').toLowerCase().normalize('NFD').replace(/[Ì€-Í¯]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); },
+  slugify(text){ return String(text||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); },
   getCategoryConfig(slug){ return window.OVC_CONFIG.categories[slug] || {title:slug,color:'#1d4ed8'}; },
   articleUrl(item){ return item?.url || `/materia/?slug=${encodeURIComponent(item?.slug || '')}`; },
   formatDate(value){ try { return new Date(value).toLocaleString('pt-BR'); } catch { return value || ''; } },
@@ -97,7 +97,7 @@ window.OVC = {
     document.querySelectorAll('.search-chip').forEach(chip => {
       if (chip.tagName === 'A') return;
       const key = (chip.textContent || '').trim().toLowerCase()
-        .normalize('NFD').replace(/[Ì€-Í¯]/g, '');
+        .normalize('NFD').replace(/[̀-ͯ]/g, '');
       const href = chipMap[key] || ('/busca/?q=' + encodeURIComponent((chip.textContent || '').trim()));
       const a = document.createElement('a');
       a.className = chip.className;
@@ -172,7 +172,7 @@ window.OVC = {
 
       document.querySelectorAll('.ticker-item').forEach(item => {
         const rawLabel = item.querySelector('.ticker-label')?.textContent?.trim().toLowerCase() || '';
-        const label = rawLabel.normalize("NFD").replace(/[Ì€-Í¯]/g, "").replace(/&/g, "and");
+        const label = rawLabel.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, "and");
         const valueEl = item.querySelector('.ticker-value');
         const changeEl = item.querySelector('.ticker-change');
         if (!label || !valueEl) return;
