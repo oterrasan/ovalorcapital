@@ -4,17 +4,16 @@
  * Se este arquivo falhar, os cards da home continuam funcionando normalmente.
  *
  * Layout:
- * - Radar OVC  → sidebar direito (.ovc-right-rail), compacto com ponto piscando
  * - Minuto OVC → 3 mini-cards horizontais entre blocos do miolo
  * - Pílulas    → 3 mini-cards horizontais antes do último bloco do miolo
+ *
+ * Radar OVC REMOVIDO — 31/07/2026 (Roberto): consumia o mesmo tipo_conteudo="radar"
+ * usado pelo Radar do Futebol (ovc-futebol.js) sem filtrar por categoria, duplicando
+ * conteúdo esportivo fora do lugar certo. Conteúdo de futebol vive exclusivamente
+ * no Radar do Futebol/Radar da Bola.
  */
 (function () {
   'use strict';
-
-  function kwMatch(text, kw) {
-    var esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
-  }
 
   // ── Aguarda o miolo estar pronto (ovc-cards.js termina primeiro) ─────────────
   function esperarMiolo(cb) {
@@ -65,40 +64,6 @@
       '@media(max-width:1000px) and (min-width:701px){.ovc-minirow{grid-template-columns:repeat(2,1fr);}}'
     ].join('');
     document.head.appendChild(sty);
-  }
-
-  // ── Bloco RADAR no right rail — lista compacta ───────────────────────────────
-  function criarBlocoRadarRail(items) {
-    if (!items.length) return null;
-
-    var bloco = document.createElement('section');
-    bloco.id = 'ovc-nicho-radar-rail';
-    bloco.style.cssText = 'margin-top:22px;padding-top:14px;border-top:2px solid #dc2626;';
-
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:10px;';
-    header.innerHTML =
-      '<span style="display:inline-block;width:7px;height:7px;background:#dc2626;border-radius:50%;' +
-      'animation:ovc-pulse 1.2s ease-in-out infinite;flex-shrink:0;"></span>' +
-      '<span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#dc2626;">RADAR OVC</span>';
-    bloco.appendChild(header);
-
-    items.slice(0, 4).forEach(function (p) {
-      var item = document.createElement('a');
-      item.href = buildHref(p);
-      item.style.cssText =
-        'display:block;padding:8px 0;border-bottom:1px solid #fecaca;text-decoration:none;' +
-        'transition:padding-left .12s;';
-      item.onmouseover = function(){ this.style.paddingLeft='4px'; };
-      item.onmouseout  = function(){ this.style.paddingLeft='0'; };
-      item.innerHTML =
-        '<div style="font-size:12px;font-weight:600;color:#991b1b;line-height:1.4;margin-bottom:3px;">' +
-        esc(p.titulo) + '</div>' +
-        '<div style="font-size:10px;color:#b91c1c;font-weight:500;">' + dataBr(p.data) + '</div>';
-      bloco.appendChild(item);
-    });
-
-    return bloco;
   }
 
   // ── Linha de 3 mini-cards horizontais ─────────────────────────────────────────
@@ -152,24 +117,7 @@
       injetarCSS();
 
       var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,3);
-      // Copa radares ficam no widget ovc-copa.js — excluir do Radar OVC genérico
-      var COPA_KW_NICHO = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','fase de grupos','oitavas','quartas','semifinal','final da copa'];
-      var radares = nichos.filter(function(n){
-        if (n.tipo !== 'radar') return false;
-        var t = (n.titulo||'').toLowerCase();
-        return !COPA_KW_NICHO.some(function(kw){ return kwMatch(t, kw); });
-      }).slice(0,4);
       var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
-
-      // 1. Radar OVC → right rail (sidebar direito)
-      // Homepage usa .rail-right; páginas internas usam .ovc-right-rail
-      if (radares.length) {
-        var rail = document.querySelector('.rail-right') || document.querySelector('.ovc-right-rail');
-        if (rail) {
-          var blocoRadar = criarBlocoRadarRail(radares);
-          if (blocoRadar) rail.appendChild(blocoRadar);
-        }
-      }
 
       var filhos = Array.from(miolo.children);
 
