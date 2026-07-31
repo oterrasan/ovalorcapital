@@ -168,6 +168,9 @@ async function handleTrackView(res, body) {
   }
 }
 
+// Roberto (31/07/2026): apenas estes 6 colunistas devem aparecer em qualquer lugar do portal.
+const ALLOWED_COLUNISTAS_SLUGS = ["roberto-terrasan", "beta-ferreira", "adriana-ferreira", "michele-froiz", "prof-marcos-pizzolatto", "taisa-da-fonseca"];
+
 async function handleListColunistas(res) {
   let { data, error } = await supabase
     .from("colunistas")
@@ -179,8 +182,9 @@ async function handleListColunistas(res) {
     return res.status(200).json({ ok: true, fallback_config: true, colunistas: fallback });
   }
 
+  const filtered = (data || []).filter(c => ALLOWED_COLUNISTAS_SLUGS.includes((c.slug || slugify(c.nome)).toLowerCase()));
   const photoMap = await getColunistaPhotoMap();
-  const colunistas = (data || []).map(c => attachFotoColunista(c, photoMap));
+  const colunistas = filtered.map(c => attachFotoColunista(c, photoMap));
   return res.status(200).json({ ok: true, colunistas });
 }
 

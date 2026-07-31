@@ -1056,7 +1056,7 @@ function load(){
         var list = Array.isArray(data) ? data : (data.colunistas || data.data || data.items || []);
         list = list.filter(function(c){ return c && c.ativo !== false && (c.nome || c.name); });
         if(!list.length) throw new Error('sem colunistas');
-        var ordem = ['Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Coluna OVC','Prof. Marcos Pizzolatto','Larissa Corvetto','Taísa da Fonseca','André Oliveira'];
+        var ordem = ['Roberto Terrasan','Beta Ferreira','Adriana Ferreira','Michele Froiz','Prof. Marcos Pizzolatto','Taísa da Fonseca'];
         list.sort(function(a,b){
           var an = a.nome || a.name || '';
           var bn = b.nome || b.name || '';

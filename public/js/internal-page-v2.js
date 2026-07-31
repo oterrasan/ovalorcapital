@@ -616,7 +616,7 @@
       religiao:      [['Evangélicos','evangelicos'],['Católicos','catolicos'],['Outras Religiões','outras'],['Fé & Sociedade','fe-sociedade'],['Missões','missoes'],['Família & Valores','familia']],
       imoveis:       [['Compra & Venda','compra-venda'],['Aluguel','aluguel'],['Financiamento','financiamento'],['Minha Casa Minha Vida','mcmv'],['Fundos Imobiliários','fiis'],['Mercado Imobiliário','mercado']],
       profissoes:    [['Saúde & Medicina','saude'],['Jurídico & Finanças','juridico'],['Engenharia & TI','engenharia'],['Comunicação & Mídia','comunicacao'],['Gestão & Negócios','gestao'],['Empregos & Vagas','vagas']],
-      colunistas:    [['Roberto Terrasan','roberto-terrasan'],['Beta Ferreira','beta-ferreira'],['Adriana Ferreira','adriana-ferreira'],['Michele Froiz','michele-froiz'],['Coluna OVC','coluna-ovc'],['Prof. Pizzolatto','prof-marcos-pizzolatto']]
+      colunistas:    [['Roberto Terrasan','roberto-terrasan'],['Beta Ferreira','beta-ferreira'],['Adriana Ferreira','adriana-ferreira'],['Michele Froiz','michele-froiz'],['Prof. Pizzolatto','prof-marcos-pizzolatto'],['Taísa da Fonseca','taisa-da-fonseca']]
     };
     var radarBolaHTML = '';
     if(catFiltro === 'esportes'){
