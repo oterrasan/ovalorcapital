@@ -4214,3 +4214,117 @@ public/tenis/index.html      public/mma/index.html   public/volei/index.html
 3. **Adicionar links de navegação** para as 6 novas páginas (`/basquete/`, `/nfl/`, `/motor/`, `/tenis/`, `/mma/`, `/volei/`) em algum ponto de descoberta do portal (ex: página `/esportes/` ou nav interna), se Roberto quiser — não foi pedido explicitamente nesta sessão, então não foi feito por iniciativa própria
 4. Demais pendências das sessões anteriores (SUPABASE_KEY env var, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão
 
+---
+
+### Sessão 30-31/07/2026 — 🚨 CAUSA RAIZ CRÍTICA: `site.js` TRAVADO POR SYNTAXERROR HÁ MAIS DE 1 MÊS + BUG DE RAIL DUPLICADO
+
+#### Contexto
+
+Roberto reportou repetidamente, com frustração crescente: **"nao funciona iMPOSTOMETRO E AS PAGINAS SEGUEM SEM RESPEITAR A HIERARQUIA CORRETA"**. Duas rodadas de correções (PR #293 e #294) foram deployadas com sucesso mas **não mudaram nada visivelmente** — sinal de que o problema era mais fundamental do que lógica ou cache. Roberto também recusou responder a uma pergunta de esclarecimento ("eu nao vou nem responder essa pergunta estupida qe voce fez") — instrução implícita para parar de perguntar e agir diretamente, seguida pelo resto da sessão.
+
+---
+
+#### PR #293 — home.js cards + cache-busting (mergeado)
+
+- `public/js/home.js`: `carregarCardNegocios()` e `carregarCardLions()` usavam categorias extintas desde a reestruturação de 24/06/2026 (`tributos`, `investimentos`, `seguros`, `imoveis`) nos arrays de fallback — o card patrocinado "Lions/Finanças" podia cair em conteúdo fora do tema. Corrigido: arrays `PRIMARY_CATS`/`BROAD_CATS` limpos para as categorias atuais.
+- Descoberto que `site.js` (189 páginas) e `home.js` (em `public/index.html`) **nunca tinham recebido `?v=N`** — qualquer alteração de conteúdo ficava presa em cache de CDN indefinidamente. Cache-busting aplicado pela primeira vez.
+
+#### PR #294 — 3ª instância do impostômetro (mergeado)
+
+Descoberta de uma **terceira implementação independente e estática** do impostômetro em `public/js/live-pages-core.js` (usado em `/tv-ovc/`, `/radio-ovc/`, `/radar/`, `/dados/cotacoes/`, `/ferramentas/impostometro/`) — `mountImpostometro()`/`mountRadar()` renderizavam o valor UMA VEZ (`BIG_CURRENCY.format(...)`) em vez de usar o ticker ao vivo.
+- Fix: essas funções passaram a usar a classe `.ovc-impostometro-live` e chamar `ovcImpostometroTick()` após montar.
+- `site.js`: seletor do ticker ampliado de `'#impostometro'` para `'#impostometro, .ovc-impostometro-live'`.
+- `public/js/live-pages.js`: descoberto que a versão de `live-pages-core.js` estava **hardcoded dentro do próprio `live-pages.js`** (`script.src = '/js/live-pages-core.js?v=2'`), não no HTML — bump para `?v=3`. `live-pages.js` em si nunca tinha `?v=N` nas 5 páginas que o carregam — adicionado `?v=1`.
+
+---
+
+#### 🔴🔴🔴 PR #295 — CAUSA RAIZ CRÍTICA — SyntaxError em `site.js` travava o arquivo INTEIRO há mais de 1 mês
+
+Depois de DUAS correções corretas (PR #293, #294) não mudarem NADA visível em produção mesmo com deploy confirmado, a hipótese mudou de "lógica errada" ou "cache" para "o arquivo nunca roda". Rodando `node --check public/js/site.js` **confirmou um `SyntaxError` real**, não um bug de lógica.
+
+**A causa exata:** em 3 pontos do arquivo, a regex de remoção de acentos `/[̀-ͯ]/g` (a faixa Unicode padrão usada em todo o resto do projeto para strip de diacríticos) estava corrompida — os caracteres literais viraram uma sequência de UTF-8 double-encoded/mojibake: `Ì€-Í¯`. Isso forma uma **classe de caracteres regex com intervalo invertido** (start > end), que é um erro de **parse-time** em JavaScript — não um erro de execução. Um erro de parse-time em QUALQUER LUGAR de um arquivo impede o arquivo INTEIRO de ser interpretado por qualquer motor JS (V8/Chrome, SpiderMonkey/Firefox, JavaScriptCore/Safari).
+
+**Confirmado via `git log -p` que isso é um bug PRÉ-EXISTENTE, não introduzido nesta sessão** — rastreado até o commit `5bfa0a8` (18/06/2026), **mais de um mês antes desta sessão**. Ou seja: **`site.js` nunca executou em nenhum navegador, para nenhum visitante do portal, desde 18/06/2026 até o fix desta sessão.**
+
+**Isso explica uma cadeia inteira de bugs "misteriosos" documentados em sessões anteriores** que pareciam corrigidos no código mas nunca funcionavam visivelmente — porque o arquivo que continha a correção nunca rodava.
+
+**As 3 correções (`public/js/site.js`):**
+```js
+// slugify() — linha 37
+// Antes: .replace(/[Ì€-Í¯]/g,'')
+// Depois: .replace(/[̀-ͯ]/g,'')
+
+// normalizador de chip de busca — ~linha 100
+// Antes: .normalize('NFD').replace(/[Ì€-Í¯]/g, '')
+// Depois: .normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+// normalizador de label do ticker — ~linha 175
+// Antes: .normalize("NFD").replace(/[Ì€-Í¯]/g, "").replace(/&/g, "and")
+// Depois: .normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/&/g, "and")
+```
+Verificado: `grep -c "Ì€-Í¯" public/js/site.js` → 0 restantes. `node --check public/js/site.js` → passa limpo.
+
+Bump `site.js?v=1 → v=2` em todas as 189 páginas. PR #295 mergeado, deploy confirmado com sucesso.
+
+**⚠️ IMPLICAÇÃO IMPORTANTE PARA A PRÓXIMA SESSÃO:** como TODO o listener `DOMContentLoaded` de `site.js` nunca rodou por mais de um mês, isso inclui não só o ticker/impostômetro, mas também: `OVC.initThemePicker()`, `OVC.bindGlobalSearch()`, `OVC.bindSearchChips()`, `OVC.bindNewsletterForms()`, `OVC.hydrateHeaderFooter()`, `OVC.enhanceTickerLinks()`, `OVC.bindHomeCriticalLinks()`, `OVC.fillInstitutionalGaps()`, `OVC.normalizeInnerLayout()`, `OVC.moveSearchToActions()`, `OVC.updateInnerNav()`, `OVC.initMobileMenu()`. Todas essas funções agora rodam pela primeira vez em produção. Uma delas (`normalizeInnerLayout`) já revelou um bug (ver PR #296 abaixo). **Se Roberto reportar outro comportamento "novo e estranho" que nunca existia antes, a primeira suspeita deve ser: mais uma função dormente de `site.js` executando pela primeira vez** — não um bug introduzido por uma sessão recente.
+
+---
+
+#### 🔴 PR #296 — `normalizeInnerLayout()` duplicava rail lateral em páginas de categoria
+
+Consequência direta do PR #295: assim que `site.js` passou a rodar, Roberto reportou (com print de `/brasil-on/`): **"me explique o que significa essa merda que agora voce colocou em todas as categorias... esse menu com mais coisas do lado direito em todas as paginas??????"** — uma caixa extra "Atalhos OVC" (Radar OVC / Dados OVC / Newsletter) + "Redação OVC" aparecendo do lado direito, duplicada, em toda página de categoria.
+
+**Investigação confirmou que este NÃO era código novo adicionado por engano** — é a função `OVC.normalizeInnerLayout()`, já existente em `site.js` havia tempo, agora executando pela primeira vez (efeito colateral direto do PR #295).
+
+**Causa raiz exata:**
+1. `internal-page-v2.js` é carregado com `defer` no `<head>` (linha 11 do HTML) — roda ANTES de `site.js` (carregado com `defer` no fim do `<body>`), porque scripts `defer` executam em ordem de documento, todos antes do evento `DOMContentLoaded`.
+2. Em toda página de categoria, `internal-page-v2.js` **substitui `main.innerHTML` inteiro** por um layout `.cat-corpo` de 3 colunas — com seu PRÓPRIO rail direito real e completo (nav de subcategorias, "Últimas em X", "Mais Lidas", "OVC TV ao Vivo", caixa própria de "Redação OVC").
+3. Quando o `DOMContentLoaded` finalmente dispara, `site.js`'s `normalizeInnerLayout()` roda e verifica se `main` já tem rail — mas a guarda só checava `main.querySelector('.ovc-grid')`. Como `internal-page-v2.js` já tinha trocado `.ovc-grid` por `.cat-corpo`, a guarda falhava, e a função embrulhava o `.cat-corpo` INTEIRO (já completo) dentro de um NOVO `.ovc-grid`, anexando um SEGUNDO rail genérico do lado.
+
+**Fix — uma linha, mesmo padrão já usado em `colunistas-fix.js` (sessão 17/06/2026) para exatamente este tipo de conflito:**
+```js
+// public/js/site.js — normalizeInnerLayout()
+// Antes:
+if (main.querySelector('.ovc-grid') || main.dataset.layoutNormalized === '1') return;
+// Depois:
+if (main.querySelector('.ovc-grid') || main.querySelector('.cat-corpo') || main.dataset.layoutNormalized === '1') return;
+```
+Bump `site.js?v=2 → v=3` em todas as 189 páginas. PR #296 mergeado (squash `df08597`), deploy `deploy.yml` confirmado com sucesso (run `30593216717`).
+
+---
+
+#### 🚨 Lição reforçada — branch "suja" após squash-merge consecutivo na mesma sessão
+
+Ao tentar dar push do commit do PR #296, `git push` foi rejeitado (non-fast-forward) porque a branch local `claude/valor-capital-docs-e52m7b` ainda carregava o histórico NÃO-squashed do PR #295 já mergeado (mesmo padrão documentado na sessão 20/07/2026). **Fix aplicado novamente:** `git checkout -B claude/valor-capital-docs-e52m7b origin/main -q && git cherry-pick <commit> && git push --force-with-lease`. Confirma que esta é a rotina correta sempre que uma sessão faz múltiplos PRs sequenciais na mesma branch `claude/*`.
+
+---
+
+#### Ambiente sandbox — confirmado bloqueio total de rede de saída (não é bug, é limitação do ambiente)
+
+Testado nesta sessão: `curl`/`WebFetch` para `www.ovalorcapital.com.br` e para subdomínios de preview da Vercel retornam `403`/`connect_rejected` — confirmado via `$HTTPS_PROXY/__agentproxy/status`. Esta sandbox de execução remota **não consegue acessar o site em produção nem previews por nenhum método** (mesma classe de limitação já documentada para Supabase e ESPN). Diagnósticos visuais (screenshots, "veja se aparece X") sempre exigem que Roberto confirme — nunca simular ou inferir resultado.
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### ✅ CONFIRMADO NESTA SESSÃO (30-31/07/2026)
+
+| Sistema | Status |
+|---|---|
+| **Impostômetro — 3 instâncias corrigidas** (home.js, live-pages-core.js) + causa raiz real (SyntaxError) | ✅ EM PRODUÇÃO (PRs #293, #294, #295) |
+| **`site.js` SyntaxError corrigido** — arquivo roda pela primeira vez em produção desde 18/06/2026 | ✅ EM PRODUÇÃO (PR #295, `node --check` limpo) |
+| **`normalizeInnerLayout()` — guarda para `.cat-corpo`** — elimina rail duplicado em páginas de categoria | ✅ EM PRODUÇÃO (PR #296, deploy confirmado) |
+| **Cache-busting aplicado pela 1ª vez em `site.js` (189 páginas), `home.js`, `live-pages.js`/`live-pages-core.js`** | ✅ EM PRODUÇÃO |
+| **Deploy pipeline (`deploy.yml`)** | ✅ CONFIRMADO FUNCIONANDO — 3 deploys de sucesso consecutivos nesta sessão (#293, #295, #296) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** que o impostômetro está tickando em todas as páginas e que o rail duplicado sumiu de `/brasil-on/` e demais categorias
+2. **⚠️ Ficar atento a novos comportamentos "estranhos" reportados por Roberto** — muito provavelmente são outras funções de `site.js` (tema, busca, newsletter, ticker links, menu mobile) executando pela primeira vez em produção após 1+ mês travadas. Investigar essa hipótese PRIMEIRO antes de suspeitar de regressão nova.
+3. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`) seguem válidas e não foram tocadas nesta sessão
+
