@@ -332,7 +332,7 @@ OVC.updateInnerNav = function(){
 };
 OVC.normalizeInnerLayout = function(){
   document.querySelectorAll('main.ovc-main').forEach(main => {
-    if (main.querySelector('.ovc-grid') || main.dataset.layoutNormalized === '1') return;
+    if (main.querySelector('.ovc-grid') || main.querySelector('.cat-corpo') || main.dataset.layoutNormalized === '1') return;
     const children = Array.from(main.children);
     if (!children.length) return;
     const grid = document.createElement('section');
