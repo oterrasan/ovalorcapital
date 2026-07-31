@@ -6,6 +6,11 @@
 (function () {
   'use strict';
 
+  function kwMatch(text, kw) {
+    var esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
+
   var COPA_URL = '/copa/';
   var CAT_URL  = '/esportes/';
 
@@ -195,7 +200,7 @@
         var tipo = n.tipo_conteudo || n.tipo || '';
         if (tipo !== 'radar' && tipo !== 'pilula' && tipo !== 'micropilula') return false;
         var t = (n.titulo || '').toLowerCase();
-        return COPA_KEYWORDS.some(function(kw) { return t.indexOf(kw) >= 0; });
+        return COPA_KEYWORDS.some(function(kw) { return kwMatch(t, kw); });
       });
 
       // Artigos normais Copa (sem repetir o que já é curtinha)
@@ -204,7 +209,7 @@
       var artigosNormais = todosArtigos.filter(function(p) {
         if (idsCurtinhas[p.id]) return false;
         var titulo = (p.titulo || '').toLowerCase();
-        return COPA_KEYWORDS.some(function(kw) { return titulo.indexOf(kw) >= 0; });
+        return COPA_KEYWORDS.some(function(kw) { return kwMatch(titulo, kw); });
       });
 
       // Curtinhas primeiro (mais recentes e específicas), depois artigos normais

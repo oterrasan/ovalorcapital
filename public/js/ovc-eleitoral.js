@@ -6,6 +6,11 @@
 (function () {
   'use strict';
 
+  function kwMatch(text, kw) {
+    var esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
+
   var ELEICAO_URL  = '/politica/';
   var PESQUISAS_URL = '/politica/';
 
@@ -203,7 +208,7 @@
       var todos = (results[1] && results[1].posts) || [];
       var artigos = todos.filter(function (p) {
         var titulo = (p.titulo || '').toLowerCase();
-        return EL_KEYWORDS.some(function (kw) { return titulo.indexOf(kw) >= 0; });
+        return EL_KEYWORDS.some(function (kw) { return kwMatch(titulo, kw); });
       });
       injetar(artigos, pesquisaData);
     });
