@@ -11,6 +11,18 @@ on:
         required: false
 
 jobs:
+  minuto:
+    name: Minuto OVC — finanças/economia (fontes confiáveis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Gerar Minuto OVC
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"minuto","force":true,"count":2}')
+          echo "MINUTO: $RESP" | head -c 300
+
   futebol:
     name: Radar do Futebol 24h
     runs-on: ubuntu-latest

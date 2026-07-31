@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { getNews, getNewsByCategoria } from "../core/rss.js";
+import { getNews, getNewsByCategoria, buscarFeedsEspecificos, FONTES_APROVADAS_URLS } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
 import { findImage, findImageFutebol } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
@@ -380,6 +380,52 @@ async function autoCurtinhas(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "jornal" });
 }
 
+// MINUTO OVC — reativado 31/07/2026 a pedido de Roberto: SOMENTE fontes de finanças/economia
+// extremamente confiáveis (subconjunto curado das 70 fontes aprovadas), sem mistura com o pool geral.
+const MINUTO_FONTES_CONFIAVEIS = new Set([
+  "Valor Econômico", "InfoMoney", "Money Times", "Bloomberg Línea",
+  "Brazil Journal", "IstoÉ Dinheiro", "Bloomberg", "Financial Times",
+  "The Wall Street Journal", "The Economist", "Reuters", "Exame"
+]);
+
+async function autoMinutoOVC(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 2, 4);
+  const fontes = FONTES_APROVADAS_URLS.filter(f => MINUTO_FONTES_CONFIAVEIS.has(f.name)).map(f => ({ url: f.url, name: f.name }));
+  const news = await buscarFeedsEspecificos(fontes);
+  const seen = new Set();
+  const items = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
+  if (!items.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "minuto", candidates: 0, info: "no_minuto_news" });
+  }
+  let generated = 0;
+  for (const item of items) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    let a, sourceText;
+    try {
+      a = await scrape(item.link);
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+    } catch (_) { continue; }
+    const hash = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) continue;
+    try {
+      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
+      const erros = validar(content);
+      if (erros.length) continue;
+      if (pautaParecida(content.titulo, rec.titulos)) continue;
+      const catFinal = ["economia", "financas", "negocios"].includes(content.categoria) ? content.categoria : "economia";
+      await saveCurtinha(content, hash, catFinal, "minuto");
+      await log("info", `[minuto] ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
+      generated++;
+    } catch (_) { continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "minuto", candidates: items.length });
+}
+
 // DESATIVADO — 28/07/2026 — Roberto: Copa do Mundo 2026 encerrada, radar desligado.
 // Função mantida como histórico/referência, mas nunca mais é chamada pelo dispatcher.
 async function autoCopaCurtinhas(req, res, rec) {
@@ -506,6 +552,7 @@ export default async function handler(req, res) {
     // COPA DESATIVADA — 28/07/2026 — torneio encerrado, substituída pelo Radar do Futebol
     if (body.tipo === "copa") return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_desativado", info: "Radar da Copa desativado — torneio encerrado" });
     if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
+    if (body.tipo === "minuto") return autoMinutoOVC(req, res, rec);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
