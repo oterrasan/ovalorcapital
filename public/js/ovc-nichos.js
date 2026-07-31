@@ -11,6 +11,11 @@
 (function () {
   'use strict';
 
+  function kwMatch(text, kw) {
+    var esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
+
   // ── Aguarda o miolo estar pronto (ovc-cards.js termina primeiro) ─────────────
   function esperarMiolo(cb) {
     var tentativas = 0;
@@ -152,7 +157,7 @@
       var radares = nichos.filter(function(n){
         if (n.tipo !== 'radar') return false;
         var t = (n.titulo||'').toLowerCase();
-        return !COPA_KW_NICHO.some(function(kw){ return t.indexOf(kw) >= 0; });
+        return !COPA_KW_NICHO.some(function(kw){ return kwMatch(t, kw); });
       }).slice(0,4);
       var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
 
