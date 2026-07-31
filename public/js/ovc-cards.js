@@ -605,14 +605,17 @@ function buildSection(container){
   var cardBrasil = buildCard(CATS[0]);
   cardBrasil.style.minHeight = '320px';
   z1grid.appendChild(cardBrasil);
-  // Manchetes — Política, Economia, Internacional
+  // Manchetes — Política, Economia (Internacional saiu daqui — ganhou card editorial próprio abaixo)
   z1grid.appendChild(renderManchetesBloco([
     {id:'politica',      label:'Política',      count:3},
-    {id:'economia',      label:'Economia',      count:3},
-    {id:'internacional', label:'Internacional', count:2}
+    {id:'economia',      label:'Economia',      count:3}
   ]));
   z1.appendChild(z1grid);
   miolo.appendChild(z1);
+  miolo.appendChild(sep());
+
+  // ── Internacional (editorial full-width, mesmo padrão do bloco de Esportes) ──
+  miolo.appendChild(renderBlocoE(CATS[6]));
   miolo.appendChild(sep());
 
   // ── Zona 2: Poder & Dinheiro (4 mini-cards) ──────────────────────────
@@ -795,8 +798,7 @@ function load(){
     // Preencher manchetes (Zona 1 — Brasil em Foco)
     var manchetesDefs = [
       {id:'politica',      cats:['politica'],                                    count:3},
-      {id:'economia',      cats:['economia'],                                    count:3},
-      {id:'internacional', cats:['internacional'],                                count:2}
+      {id:'economia',      cats:['economia'],                                    count:3}
     ];
     manchetesDefs.forEach(function(def){
       var lista = document.getElementById('ovc-manchetes-'+def.id);
@@ -826,8 +828,7 @@ function load(){
     // Preencher manchetes (Zona 1 — Brasil em Foco)
     var manchetesDefs = [
       {id:'politica',      cats:['politica'],                                    count:3},
-      {id:'economia',      cats:['economia','tributos','tributacao','regulacao'], count:3},
-      {id:'internacional', cats:['internacional'],                                count:2}
+      {id:'economia',      cats:['economia','tributos','tributacao','regulacao'], count:3}
     ];
     manchetesDefs.forEach(function(def){
       var lista = document.getElementById('ovc-manchetes-'+def.id);

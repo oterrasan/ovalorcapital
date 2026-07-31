@@ -131,7 +131,8 @@
           bgCor: '#e0f2fe'
         });
         if (blocoMinuto) {
-          var ref = filhos[3];
+          // filhos[5] = após bB(0)+sep(1)+z1(2)+sep(3)+blocoInternacional(4)+sep(5) — ver ovc-cards.js buildSection()
+          var ref = filhos[6] || filhos[filhos.length - 1];
           if (ref) miolo.insertBefore(blocoMinuto, ref);
           else miolo.appendChild(blocoMinuto);
         }
