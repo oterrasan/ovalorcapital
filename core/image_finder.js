@@ -371,6 +371,22 @@ const FUTEBOL_CLUBES = {
   "deportivo cali": "Deportivo Cali", "america de cali": "América de Cali"
 };
 
+// Organizações/competições de futebol — nome canônico de busca (ESPN)
+const FUTEBOL_ORGS = {
+  "cbf": "CBF", "confederacao brasileira de futebol": "CBF",
+  "fifa": "FIFA", "uefa": "UEFA",
+  "premier league": "Premier League",
+  "liga dos campeoes": "UEFA Champions League", "champions league": "UEFA Champions League",
+  "conmebol": "CONMEBOL",
+  "libertadores": "CONMEBOL Libertadores", "copa libertadores": "CONMEBOL Libertadores",
+  "sul-americana": "CONMEBOL Sudamericana", "sulamericana": "CONMEBOL Sudamericana",
+  "copa sul-americana": "CONMEBOL Sudamericana",
+  "selecao brasileira": "Brazil", "selecao masculina": "Brazil",
+  "brasileirao": "Campeonato Brasileiro Serie A", "campeonato brasileiro": "Campeonato Brasileiro Serie A",
+  "copa do mundo": "FIFA World Cup", "mundial de clubes": "FIFA Club World Cup",
+  "la liga": "LaLiga", "bundesliga": "Bundesliga", "ligue 1": "Ligue 1"
+};
+
 function extrairEntidadesFutebol(texto) {
   const tLower = normalizeText(texto);
   const clubes = [];
@@ -378,28 +394,59 @@ function extrairEntidadesFutebol(texto) {
     if (tLower.includes(normalizeText(chave))) clubes.push(nome);
     if (clubes.length >= 2) break;
   }
+  const orgs = [];
+  for (const [chave, nome] of Object.entries(FUTEBOL_ORGS)) {
+    if (tLower.includes(normalizeText(chave))) orgs.push(nome);
+    if (orgs.length >= 2) break;
+  }
   const pessoas = String(texto || "").match(/[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+){1,3}/g) || [];
   const pessoasUnicas = [...new Set(pessoas)].slice(0, 3);
-  return { clubes, pessoas: pessoasUnicas };
+  return { clubes, orgs, pessoas: pessoasUnicas };
+}
+
+// Busca o escudo/logo OFICIAL de um time ou organização via ESPN (mesma fonte já usada
+// nas tabelas de Brasileirão/Libertadores em api/live.js). NUNCA inventa: exige que TODOS
+// os tokens do nome batam no resultado, senão retorna null — sem imagem é melhor que errada.
+async function buscarEscudoEspn(nome) {
+  const data = await fetchJson(
+    `https://site.api.espn.com/apis/search/v2?query=${encodeURIComponent(nome)}&limit=10`,
+    { headers: { "User-Agent": "Mozilla/5.0 (compatible; OVC/1.0)" } },
+    5000
+  );
+  const grupos = Array.isArray(data?.results) ? data.results : [];
+  const candidatos = [];
+  grupos.forEach(g => (g.contents || []).forEach(c => {
+    const href = c?.link?.web?.href || "";
+    if (/\/soccer\//i.test(href) && !/\/soccer\/player\//i.test(href)) candidatos.push(c);
+  }));
+  const alvoTokens = normalizeText(nome).replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+  const match = candidatos.find(c => {
+    const cand = normalizeText(c.displayName || "").replace(/[^a-z0-9\s]/g, "");
+    return alvoTokens.length > 0 && alvoTokens.every(t => cand.includes(t));
+  });
+  const escudo = match?.logos?.[0]?.href || match?.logo || match?.image?.default || match?.image?.href || "";
+  return /^https?:\/\//i.test(escudo) ? escudo : null;
 }
 
 // Busca dedicada para conteúdo de futebol (Radar da Bola) — imagens de clubes, jogadores, técnicos e dirigentes
+// REGRA (Roberto, 31/07/2026): se a matéria envolve um time/organização, usar SEMPRE o
+// escudo/logo oficial — nunca foto de banco de imagens ou lead-photo aleatória da Wikipedia
+// (causava casos como foto de 1960 do Vasco em matéria atual). Sem fallback: se o escudo não
+// for encontrado com confiança, a matéria fica sem imagem — nunca uma foto genérica errada.
 export async function findImageFutebol(titulo, corpo) {
   try {
     return await Promise.race([
       (async () => {
         const texto = `${titulo || ""} ${String(corpo || "").replace(/<[^>]+>/g, " ")}`.slice(0, 600);
-        const { clubes, pessoas } = extrairEntidadesFutebol(texto);
-        const imagensUsadas = await getImagensUsadas();
+        const { clubes, orgs, pessoas } = extrairEntidadesFutebol(texto);
 
-        for (const clube of clubes) {
-          const img = await buscarWikipedia(clube, imagensUsadas);
-          if (img) return img;
+        for (const entidade of [...clubes, ...orgs]) {
+          const escudo = await buscarEscudoEspn(entidade);
+          if (escudo) return escudo;
         }
-        for (const clube of clubes) {
-          const img = await buscarWikimedia(clube, imagensUsadas);
-          if (img) return img;
-        }
+        if (clubes.length || orgs.length) return null;
+
+        const imagensUsadas = await getImagensUsadas();
         for (const pessoa of pessoas) {
           const img = await buscarWikipedia(pessoa, imagensUsadas);
           if (img) return img;
