@@ -18,6 +18,10 @@
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+  function kwMatch(text, kw) {
+    var escKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + escKw + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
   function slugify(s) {
     return String(s||'').toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g,'')
@@ -225,6 +229,53 @@
     }).join('');
   }
 
+  function renderHeroFutebol(p) {
+    var url = buildHref(p);
+    var bg = p.imagem ? "background:url('" + p.imagem + "') center/cover no-repeat;" : 'background:' + ACC + ';';
+    return '<a href="' + url + '" style="display:block;text-decoration:none;border-radius:12px;overflow:hidden;position:relative;min-height:260px;' + bg + '">'
+      + '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.35) 55%,rgba(0,0,0,.05) 100%);"></div>'
+      + '<div style="position:absolute;bottom:0;left:0;right:0;padding:20px 22px;">'
+      + '<span style="display:inline-block;background:' + ACC + ';color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:4px;margin-bottom:10px;">' + esc(CFG.nome) + '</span>'
+      + '<h2 style="font-size:20px;font-weight:900;line-height:1.22;color:#fff;margin:0;text-shadow:0 2px 8px rgba(0,0,0,.5);">' + esc(p.titulo) + '</h2>'
+      + '</div></a>';
+  }
+
+  function renderCardFutebol(p) {
+    var url = buildHref(p);
+    var img = p.imagem
+      ? '<div style="width:84px;min-width:84px;height:68px;border-radius:8px;overflow:hidden;flex-shrink:0;"><img src="' + esc(p.imagem) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.style.display=\'none\'"></div>'
+      : '<div style="width:84px;min-width:84px;height:68px;border-radius:8px;background:' + ACC + '18;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="color:' + ACC + ';font-size:10px;font-weight:900;">OVC</span></div>';
+    return '<a href="' + url + '" style="display:flex;gap:12px;align-items:flex-start;text-decoration:none;color:inherit;padding:12px 0;border-top:1px solid #f1f5f9;">'
+      + img
+      + '<div style="flex:1;min-width:0;"><h4 style="font-size:13px;font-weight:700;line-height:1.35;margin:0 0 4px;color:#0f172a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">' + esc(p.titulo) + '</h4><span style="font-size:11px;color:#94a3b8;">Redação OVC</span></div>'
+      + '</a>';
+  }
+
+  // Popula o esqueleto padrão de categoria (data-hero-card/data-main-list/data-local-list)
+  // herdado do template — cada painel some quando não há conteúdo, nunca fica em branco.
+  function montarListas(artigos) {
+    var heroEl = document.querySelector('[data-hero-card]');
+    if (heroEl) {
+      if (artigos[0]) { heroEl.innerHTML = renderHeroFutebol(artigos[0]); heroEl.style.display = ''; }
+      else heroEl.style.display = 'none';
+    }
+    var resto = artigos.slice(1);
+    var mainEl = document.querySelector('[data-main-list]');
+    if (mainEl) {
+      var mainWrap = mainEl.closest('.ovc-story-list');
+      var principais = resto.slice(0, 5);
+      if (principais.length) { mainEl.innerHTML = principais.map(renderCardFutebol).join(''); if (mainWrap) mainWrap.style.display = ''; }
+      else if (mainWrap) mainWrap.style.display = 'none';
+    }
+    var localEl = document.querySelector('[data-local-list]');
+    if (localEl) {
+      var localWrap = localEl.closest('.ovc-story-list');
+      var mais = resto.slice(5, 10);
+      if (mais.length) { localEl.innerHTML = mais.map(renderCardFutebol).join(''); if (localWrap) localWrap.style.display = ''; }
+      else if (localWrap) localWrap.style.display = 'none';
+    }
+  }
+
   function fetchNoticias() {
     var kw = CFG.keywords || [];
     Promise.all([
@@ -237,12 +288,13 @@
         if (vistos[p.id]) return false;
         if (p.categoria && p.categoria !== 'esportes') return false;
         var t = (p.titulo || '').toLowerCase();
-        var ok = kw.some(function (k) { return t.indexOf(k) >= 0; });
+        var ok = kw.some(function (k) { return kwMatch(t, k); });
         if (ok) vistos[p.id] = true;
         return ok;
       });
       montarNoticias(filtrados);
-    }).catch(function () { montarNoticias([]); });
+      montarListas(filtrados);
+    }).catch(function () { montarNoticias([]); montarListas([]); });
   }
 
   function init() {
