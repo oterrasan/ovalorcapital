@@ -407,6 +407,19 @@ function assuntoFinanceiro(item) {
   return MINUTO_ASSUNTO_KW.some(kw => t.includes(kw));
 }
 
+// Filtro de idade PRÓPRIO do Minuto OVC — NUNCA usar isRecente() (48h) aqui.
+// Minuto publica direto, sem revisão humana (Regra Zero-I) — precisa de janela
+// muito mais estrita que as matérias normais, que ficam pendentes de aprovação.
+// Roberto, 01/08/2026: "passou de 59 minutos que a noticia foi publicada, descarta".
+const MINUTO_MAX_IDADE_MS = 59 * 60 * 1000;
+function isUltimaHora(item) {
+  const dateStr = item?.pubDate;
+  if (!dateStr) return false;
+  const t = new Date(dateStr).getTime();
+  if (isNaN(t)) return false;
+  return (Date.now() - t) < MINUTO_MAX_IDADE_MS;
+}
+
 async function autoMinutoOVC(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
@@ -414,9 +427,14 @@ async function autoMinutoOVC(req, res, rec) {
   const fontes = FONTES_APROVADAS_URLS.filter(f => MINUTO_FONTES_CONFIAVEIS.has(f.name)).map(f => ({ url: f.url, name: f.name }));
   const news = await buscarFeedsEspecificos(fontes);
   const seen = new Set();
-  const items = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link) && assuntoFinanceiro(i)).slice(0, 25);
+  const financeiros = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link) && assuntoFinanceiro(i));
+  const items = financeiros.filter(isUltimaHora).slice(0, 25);
   if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "minuto", candidates: 0, info: "no_minuto_news" });
+    return res.status(200).json({
+      status: "ok", generated: 0, tipo: "minuto", candidates: 0,
+      info: "no_minuto_news",
+      stats: { totalFeed: news.length, financeiros: financeiros.length, descartadosPorIdade: financeiros.length - items.length }
+    });
   }
   let generated = 0;
   for (const item of items) {
