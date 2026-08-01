@@ -4,7 +4,7 @@
   var SLUG_TO_CAT = {
     tributos:'tributacao', tributacao:'tributacao',
     politica:'politica', economia:'economia', negocios:'negocios',
-    investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+    financas:'financas', investimentos:'financas', seguros:'financas', mercados:'financas',
     educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
     esportes:'esportes', saude:'saude', familia:'familia',
     internacional:'internacional', variedades:'variedades',
@@ -17,11 +17,12 @@
   };
   var CATEGORY_ALIASES = {
     'brasil-on': ['brasil-on','seguranca','investigativo','variedades','defesa','esg'],
-    'carreira': ['carreira','vagas','concursos','profissoes','parcerias','educacao']
+    'carreira': ['carreira','vagas','concursos','profissoes','parcerias','educacao'],
+    'financas': ['financas','investimentos','seguros','mercados']
   };
   var LABEL = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
-    investimentos:'Investimentos', mercados:'Mercados', tributacao:'Tributação',
+    financas:'Finanças', investimentos:'Investimentos', mercados:'Mercados', tributacao:'Tributação',
     regulacao:'Regulação', seguros:'Seguros', saude:'Saúde', familia:'Família',
     tecnologia:'Tecnologia', industria:'Indústria', educacao:'Educação',
     esportes:'Esportes', internacional:'Internacional', variedades:'Variedades',
@@ -34,7 +35,7 @@
   };
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
-    investimentos:'#059669', mercados:'#0891b2', tributacao:'#b45309',
+    financas:'#059669', investimentos:'#059669', mercados:'#0891b2', tributacao:'#b45309',
     regulacao:'#9333ea', seguros:'#0284c7', saude:'#16a34a',
     familia:'#db2777', tecnologia:'#6366f1', industria:'#ea580c',
     educacao:'#8b5cf6', esportes:'#16a34a', internacional:'#dc2626',
@@ -47,7 +48,7 @@
   };
   var CAT_PATH = {
     politica:'politica', economia:'economia', negocios:'negocios',
-    investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+    financas:'financas', investimentos:'financas', seguros:'financas', mercados:'financas',
     educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
     esportes:'esportes', saude:'saude', familia:'familia',
     tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
@@ -532,9 +533,9 @@
 
               var outrasEl = document.getElementById('ovc-outras-cats');
               if(outrasEl){
-                var CATS_MAIN = ['politica','economia','negocios','investimentos','mercados','tributacao',
+                var CATS_MAIN = ['politica','economia','negocios','financas','tributacao',
                   'saude','familia','tecnologia','industria','educacao','esportes','internacional',
-                  'variedades','seguros','regulacao','cultura','profissoes','vagas','imoveis','esg','radar'];
+                  'variedades','regulacao','cultura','profissoes','vagas','imoveis','esg','radar'];
                 var catCards = CATS_MAIN.filter(function(k){ return k !== p.categoria && LABEL[k]; })
                   .map(function(k){
                     return '<a href="/'+CAT_PATH[k]+'/" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid #e2e8f0;text-decoration:none;">'
@@ -600,6 +601,7 @@
       politica:      [['Executivo','executivo'],['Legislativo','legislativo'],['Judiciário','judiciario'],['Eleições','eleicoes'],['Partidos','partidos'],['Defesa Nacional','defesa']],
       economia:      [['PIB & Crescimento','pib'],['Inflação & IPCA','inflacao'],['Câmbio','cambio'],['Selic & COPOM','selic'],['Política Fiscal','fiscal'],['Previdência','previdencia']],
       negocios:      [['Empreendedorismo','empreendedorismo'],['Gestão','gestao'],['Startups','startups'],['MEI & Pequenas','mei'],['Crédito & Captação','credito'],['Franquias','franquias']],
+      financas:      [['Renda Fixa','renda-fixa'],['Bolsa & Ações','bolsa-e-acoes'],['Seguros & Proteção','seguros-e-protecao'],['Previdência','previdencia'],['Fundos & FIIs','fundos-e-fiis'],['Planejamento Patrimonial','planejamento-patrimonial'],['Criptomoedas','criptomoedas']],
       investimentos:  [['Renda Fixa','renda-fixa'],['Renda Variável','renda-variavel'],['Fundos','fundos'],['Previdência Privada','previdencia'],['Cripto','cripto'],['Internacional','internacional']],
       tecnologia:    [['Inteligência Artificial','ia'],['Fintechs','fintechs'],['Cibersegurança','ciberseguranca'],['5G & Telecom','5g'],['E-commerce','e-commerce'],['Inovação','inovacao']],
       saude:         [['Saúde Pública','saude-publica'],['Planos de Saúde','planos'],['SUS','sus'],['Saúde Mental','saude-mental'],['Medicamentos','medicamentos'],['Vigilância Sanitária','anvisa']],
