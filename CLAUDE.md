@@ -4328,3 +4328,43 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **⚠️ Ficar atento a novos comportamentos "estranhos" reportados por Roberto** — muito provavelmente são outras funções de `site.js` (tema, busca, newsletter, ticker links, menu mobile) executando pela primeira vez em produção após 1+ mês travadas. Investigar essa hipótese PRIMEIRO antes de suspeitar de regressão nova.
 3. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`) seguem válidas e não foram tocadas nesta sessão
 
+---
+
+### Sessão 01/08/2026 — PRÓXIMA TAREFA ANOTADA — NARRAÇÃO EM ÁUDIO DE TODO O CONTEÚDO DO PORTAL
+
+#### Pedido de Roberto (01/08/2026, antes de se ausentar para descansar)
+
+> "construir mecanismo para que o usuario consiga ouvir em audio TODOS OS CONTEUDOS DO PORTAL. Com opcao de voz masculina e/ou feminina. utilize a melhor solucao free que existe pra isso"
+
+**Status: NÃO INICIADO.** Roberto pediu apenas para anotar — não autorizou implementação ainda. Aguardar ele voltar e dar OK explícito antes de escrever qualquer código (Regra de ouro da seção 14: "NUNCA mexer em nada enquanto conversa com o dono — esperar OK explícito antes de cada ação").
+
+#### Escopo do pedido
+
+- Botão "ouvir em áudio" em TODO conteúdo do portal (artigos completos, e possivelmente Pílula/Radar/Minuto também — confirmar com Roberto se curtinhas entram no escopo)
+- Alternância de voz masculina / feminina
+- Usar a melhor solução **gratuita** disponível — Roberto foi explícito sobre isso
+
+#### Análise técnica preliminar (para decidir com Roberto na próxima sessão — NADA disto foi implementado)
+
+Duas rotas possíveis, com trade-offs opostos:
+
+**Opção A — Web Speech API (`SpeechSynthesis`), 100% client-side**
+- Nativa do browser, zero custo para sempre, zero chave de API, zero infraestrutura nova
+- Não usa nenhum dos 10 slots de `api/` (Regra Zero-A intacta) — só JS novo em `public/js/`, seguindo o mesmo padrão independente dos radares (REGRA ZERO-I: script isolado, nunca mistura com `internal-page-v2.js`)
+- Já suporta vozes PT-BR masculina/feminina na maioria dos browsers/SO (varia por dispositivo — Android/Chrome tem vozes boas, iOS/Safari é mais limitado)
+- Funciona instantaneamente pra qualquer artigo, sem precisar gerar/armazenar áudio
+- Contra: qualidade de voz não é 100% controlável pelo OVC (depende do dispositivo do visitante), inconsistência entre plataformas
+
+**Opção B — API de TTS na nuvem com tier gratuito (ex: Google Cloud TTS — 1M caracteres/mês grátis, vozes WaveNet PT-BR)**
+- Qualidade de voz muito superior e consistente para todo mundo
+- Exige: nova rota (encaixar em `api/manage.js` para não violar Regra Zero-A), chave de API nova, e uma estratégia de cache (gerar o áudio 1x por artigo e salvar no Supabase Storage, não regenerar a cada play) — senão o volume de 80 artigos/dia x 4.000+ caracteres cada estoura a cota gratuita rápido
+- Mais complexo de implementar e manter
+
+**Recomendação inicial (a confirmar com Roberto):** começar pela Opção A (Web Speech API) por ser genuinamente grátis para sempre e não tocar em nenhum arquivo `api/`, entregar rápido, e avaliar depois se vale investir na Opção B para melhorar qualidade em conteúdo específico (ex: só matérias em destaque).
+
+#### 🔧 Próxima ação obrigatória ao retomar
+
+1. Perguntar a Roberto: confirma Opção A (Web Speech API) como ponto de partida, ou prefere já investir em TTS de nuvem (Opção B) pela qualidade?
+2. Confirmar escopo: só artigos completos, ou também Pílula/Radar/Minuto?
+3. Só então implementar — seguindo o padrão de arquivo JS independente (REGRA ZERO-I) + nenhum novo arquivo em `api/` sem deletar outro (REGRA ZERO-A)
+
