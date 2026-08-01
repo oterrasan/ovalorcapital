@@ -387,6 +387,25 @@ const MINUTO_FONTES_CONFIAVEIS = new Set([
   "Brazil Journal", "IstoÉ Dinheiro", "Bloomberg", "Financial Times",
   "The Wall Street Journal", "The Economist", "Reuters", "Exame"
 ]);
+// Reuters/FT/The Economist usam feed geral (capa do site), não exclusivo de economia — por isso
+// é obrigatório filtrar por assunto também, não só por fonte confiável.
+const MINUTO_ASSUNTO_KW = [
+  "juros","selic","copom","inflação","inflacao","ipca","igp-m","pib","câmbio","cambio","dólar","dolar",
+  "bolsa","ibovespa","b3","ações","acoes","mercado financeiro","banco central","bacen","fed","federal reserve",
+  "fiscal","déficit","deficit","superávit","superavit","dívida pública","divida publica","orçamento","orcamento",
+  "investimento","investidor","renda fixa","renda variável","renda variavel","fundo imobiliário","fundo imobiliario",
+  "tesouro direto","commodities","recessão","recessao","crescimento econômico","crescimento economico",
+  "balanço","balanco","lucro líquido","lucro liquido","receita líquida","receita liquida","faturamento",
+  "ipo","fusão","fusao","aquisição","aquisicao","m&a","startup","unicórnio","unicornio",
+  "tarifa","tarifaço","tarifaco","importação","importacao","exportação","exportacao","balança comercial","balanca comercial",
+  "crédito","credito","dívida","divida","tributário","tributario","imposto","reforma tributária","reforma tributaria",
+  "wall street","nasdaq","s&p 500","dow jones","commodity","varejo","agronegócio","agronegocio","emprego","desemprego",
+  "salário mínimo","salario minimo","caged","pmi","gdp","inflation","interest rate","stock market","earnings"
+];
+function assuntoFinanceiro(item) {
+  const t = ((item.title || "") + " " + (item.description || "")).toLowerCase();
+  return MINUTO_ASSUNTO_KW.some(kw => t.includes(kw));
+}
 
 async function autoMinutoOVC(req, res, rec) {
   const start = Date.now();
@@ -395,7 +414,7 @@ async function autoMinutoOVC(req, res, rec) {
   const fontes = FONTES_APROVADAS_URLS.filter(f => MINUTO_FONTES_CONFIAVEIS.has(f.name)).map(f => ({ url: f.url, name: f.name }));
   const news = await buscarFeedsEspecificos(fontes);
   const seen = new Set();
-  const items = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
+  const items = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link) && assuntoFinanceiro(i)).slice(0, 25);
   if (!items.length) {
     return res.status(200).json({ status: "ok", generated: 0, tipo: "minuto", candidates: 0, info: "no_minuto_news" });
   }
@@ -417,8 +436,9 @@ async function autoMinutoOVC(req, res, rec) {
       const erros = validar(content);
       if (erros.length) continue;
       if (pautaParecida(content.titulo, rec.titulos)) continue;
-      const catFinal = ["economia", "financas", "negocios"].includes(content.categoria) ? content.categoria : "economia";
-      await saveCurtinha(content, hash, catFinal, "minuto");
+      // Nunca forçar categoria — se a própria IA não classificou como finanças/economia, descarta.
+      if (!["economia", "financas", "negocios"].includes(content.categoria)) continue;
+      await saveCurtinha(content, hash, content.categoria, "minuto");
       await log("info", `[minuto] ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
       generated++;
     } catch (_) { continue; }
