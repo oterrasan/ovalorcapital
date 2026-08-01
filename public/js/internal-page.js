@@ -61,7 +61,7 @@
 
     var CAT_PATH = {
       politica:'politica',economia:'economia',negocios:'negocios',
-      investimentos:'investimentos',seguros:'seguros',mercados:'mercados',
+      financas:'financas',investimentos:'financas',seguros:'financas',mercados:'financas',
       educacao:'educacao',industria:'industria',tecnologia:'tecnologia',
       esportes:'esportes',saude:'saude',familia:'familia',
       tributacao:'tributos',regulacao:'regulacao',internacional:'internacional',
@@ -74,7 +74,7 @@
 
     var LABEL = {
       politica:'Política',economia:'Economia',negocios:'Negócios',
-      investimentos:'Investimentos',mercados:'Mercados',tributacao:'Tributação',
+      financas:'Finanças',investimentos:'Investimentos',mercados:'Mercados',tributacao:'Tributação',
       regulacao:'Regulação',seguros:'Seguros',saude:'Saúde',familia:'Família',
       tecnologia:'Tecnologia',industria:'Indústria',educacao:'Educação',
       esportes:'Esportes',cultura:'Cultura',patrimonio:'Patrimônio',

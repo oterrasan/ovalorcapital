@@ -3,7 +3,7 @@
 
   var CORES = {
     politica:'#dc2626', economia:'#2563eb', negocios:'#7c3aed',
-    investimentos:'#059669', mercados:'#0891b2', tributacao:'#b45309',
+    financas:'#059669', investimentos:'#059669', mercados:'#0891b2', tributacao:'#b45309',
     regulacao:'#9333ea', seguros:'#0284c7', saude:'#16a34a',
     familia:'#db2777', tecnologia:'#6366f1', industria:'#ea580c',
     educacao:'#8b5cf6', esportes:'#16a34a', internacional:'#dc2626',
@@ -14,7 +14,7 @@
   };
   var LABELS = {
     politica:'Política', economia:'Economia', negocios:'Negócios',
-    investimentos:'Investimentos', mercados:'Mercados', tributacao:'Tributação',
+    financas:'Finanças', investimentos:'Investimentos', mercados:'Mercados', tributacao:'Tributação',
     regulacao:'Regulação', seguros:'Seguros', saude:'Saúde', familia:'Família',
     tecnologia:'Tecnologia', industria:'Indústria', educacao:'Educação',
     esportes:'Esportes', internacional:'Internacional', variedades:'Variedades',
@@ -29,7 +29,7 @@
   function buildUrl(p) {
     var catPath = {
       politica:'politica', economia:'economia', negocios:'negocios',
-      investimentos:'investimentos', seguros:'seguros', mercados:'mercados',
+      financas:'financas', investimentos:'financas', seguros:'financas', mercados:'financas',
       educacao:'educacao', industria:'industria', tecnologia:'tecnologia',
       esportes:'esportes', saude:'saude', familia:'familia',
       tributacao:'tributos', regulacao:'regulacao', parcerias:'parcerias',
