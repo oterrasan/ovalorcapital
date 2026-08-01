@@ -229,7 +229,7 @@ async function cleanupTitles(res, body) {
 
 async function saveCurtinha(content, hash, cat, tipo, img = null) {
   const catFinal = CATS.has(content.categoria) ? content.categoria : (CATS.has(cat) ? cat : "politica");
-  await supabase.from("posts").insert({
+  const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
     comentario_fixado: (content.meta_descricao||"").trim(), imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "portal",
@@ -238,7 +238,64 @@ async function saveCurtinha(content, hash, cat, tipo, img = null) {
     subcategoria_slug: slugify(SUBCAT[catFinal]||"geral"), collaborators: "[]",
     tipo_conteudo: tipo, metrics: { foco_keyword: content.foco_keyword||"", tipo },
     priority: 0, retry_count: 0, max_retries: 3
+  }).select("id").single();
+  if (error) return null;
+  return { id: data.id, categoria: catFinal, titulo: stripTitle(content.titulo) };
+}
+
+// URL canônica de um post recém-salvo — mesmo esquema de api/article.js (categoria/slug-id8/)
+function buildCurtinhaUrl(post) {
+  if (!post?.id) return null;
+  const id8 = String(post.id).slice(0, 8);
+  const slug = slugify(post.titulo || "").slice(0, 55);
+  return `https://www.ovalorcapital.com.br/${post.categoria}/${slug}-${id8}/`;
+}
+
+// ─── GOOGLE INDEXING API — best-effort, silencioso se GOOGLE_INDEXING_SA_JSON ausente ───
+// Nunca lança exceção, nunca bloqueia o pipeline. Roberto precisa adicionar a env var
+// GOOGLE_INDEXING_SA_JSON no Vercel (JSON da service account) para isto ativar de fato.
+function base64url(buf) {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function _getIndexingToken() {
+  const raw = process.env.GOOGLE_INDEXING_SA_JSON;
+  if (!raw) return null;
+  let sa;
+  try { sa = JSON.parse(raw); } catch (_) { return null; }
+  if (!sa.client_email || !sa.private_key) return null;
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claims = base64url(Buffer.from(JSON.stringify({
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/indexing",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now, exp: now + 3600
+  })));
+  const signingInput = `${header}.${claims}`;
+  const signature = base64url(crypto.createSign("RSA-SHA256").update(signingInput).sign(sa.private_key));
+  const jwt = `${signingInput}.${signature}`;
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=${encodeURIComponent("urn:ietf:params:oauth:grant-type:jwt-bearer")}&assertion=${jwt}`,
+    signal: AbortSignal.timeout(4000)
   });
+  if (!tokenRes.ok) return null;
+  const tokenData = await tokenRes.json();
+  return tokenData.access_token || null;
+}
+async function pingGoogleIndexing(url) {
+  if (!url) return;
+  try {
+    const token = await _getIndexingToken();
+    if (!token) return;
+    await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ url, type: "URL_UPDATED" }),
+      signal: AbortSignal.timeout(4000)
+    });
+  } catch (_) { /* best-effort — nunca quebra o pipeline */ }
 }
 
 async function inserir(content, hash, img, tipo = "padrao", extraMetrics = {}) {
@@ -456,8 +513,9 @@ async function autoMinutoOVC(req, res, rec) {
       if (pautaParecida(content.titulo, rec.titulos)) continue;
       // Nunca forçar categoria — se a própria IA não classificou como finanças/economia, descarta.
       if (!["economia", "financas", "negocios"].includes(content.categoria)) continue;
-      await saveCurtinha(content, hash, content.categoria, "minuto");
+      const post = await saveCurtinha(content, hash, content.categoria, "minuto");
       await log("info", `[minuto] ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
+      if (post) await pingGoogleIndexing(buildCurtinhaUrl(post));
       generated++;
     } catch (_) { continue; }
   }

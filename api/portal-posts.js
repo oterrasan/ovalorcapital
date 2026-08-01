@@ -118,11 +118,58 @@ async function handleHome(req, res) {
 // REGRA 0: esses conteúdos NUNCA aparecem nos cards normais da home.
 // Este endpoint é exclusivo: ?curtinhas=true&categoria=SLUG&limit=N
 // Retorna mix balanceado: top 4 radar + top 3 pilula + top 3 minuto (evita Copa dominar pool)
+const SEL_CURTINHAS = "id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at";
+
+function mapCurtinhaRow(row) {
+  const tags = parseTags(row.user_tags);
+  const categoria = normalizeCat(tags[0] || "politica") || "politica";
+  const catPath = CAT_PATH[categoria] || categoria;
+  const id8 = String(row.id || "").slice(0, 8);
+  const slug = slugify(row.titulo || "").slice(0, 55);
+  return {
+    id: row.id,
+    titulo: clean(row.titulo || ""),
+    resumo: clean(row.comentario_fixado || stripHtml(row.conteudo || "").slice(0, 200)),
+    categoria,
+    tipo: row.tipo_conteudo || "pilula",
+    data: row.published_at || row.created_at || new Date().toISOString(),
+    url: `/${catPath}/${slug}-${id8}/`
+  };
+}
+
+// Keywords por tópico — usadas SOMENTE pelo modo ?tipo=minuto (páginas "X Hoje" + hub /minuto/).
+// Server-side e fixo por decisão de design: evita que o cliente injete termos de busca livres.
+const MINUTO_TOPICOS = {
+  dolar: ["dólar", "dolar", "câmbio", "cambio", "usd/brl", "taxa de câmbio", "taxa de cambio"],
+  selic: ["selic", "copom", "taxa básica de juros", "taxa basica de juros", "juros básicos", "juros basicos"],
+  ibovespa: ["ibovespa", "ibov", "bolsa de valores", "b3 ", " b3,", "bolsa brasileira"]
+};
+
+// Modo dedicado ?curtinhas=true&tipo=minuto[&topico=SLUG][&limit=N]
+// Usado pelas páginas /dolar-hoje/, /selic-hoje/, /ibovespa-hoje/ e pelo hub /minuto/.
+// Isolado da query balanceada acima — NUNCA usado por ovc-nichos.js (Regra Zero-I preservada).
+async function handleCurtinhasMinuto(req, res) {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
+  const topico = String(req.query.topico || "").toLowerCase();
+  let q = supabase.from("posts").select(SEL_CURTINHAS).eq("status", "publicado")
+    .eq("tipo_conteudo", "minuto").order("published_at", { ascending: false }).limit(limit);
+  const kws = MINUTO_TOPICOS[topico];
+  if (kws) {
+    q = q.or(kws.map(k => `titulo.ilike.%${k}%,conteudo.ilike.%${k}%`).join(","));
+  }
+  const { data } = await q;
+  const posts = (data || []).map(mapCurtinhaRow);
+  return res.status(200).json({ curtinhas: posts, total: posts.length, topico: topico || null });
+}
+
 async function handleCurtinhas(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
 
+  if (String(req.query.tipo || "").toLowerCase() === "minuto") {
+    return handleCurtinhasMinuto(req, res);
+  }
+
   const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
-  const SEL = "id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at";
 
   function addCatFilter(q) {
     if (!cat || cat === "all") return q;
@@ -132,33 +179,20 @@ async function handleCurtinhas(req, res) {
       : q.like("user_tags", `%"${cat}"%`);
   }
 
-  function mapRow(row) {
-    const tags = parseTags(row.user_tags);
-    const categoria = normalizeCat(tags[0] || "politica") || "politica";
-    return {
-      id: row.id,
-      titulo: clean(row.titulo || ""),
-      resumo: clean(row.comentario_fixado || stripHtml(row.conteudo || "").slice(0, 200)),
-      categoria,
-      tipo: row.tipo_conteudo || "pilula",
-      data: row.published_at || row.created_at || new Date().toISOString()
-    };
-  }
-
   // Busca balanceada: 3 queries paralelas por tipo para evitar que radares Copa dominem
   const [rRadar, rPilula, rMinuto] = await Promise.all([
-    addCatFilter(supabase.from("posts").select(SEL).eq("status","publicado")
+    addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
       .in("tipo_conteudo",["radar"]).order("published_at",{ascending:false}).limit(4)),
-    addCatFilter(supabase.from("posts").select(SEL).eq("status","publicado")
+    addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
       .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(3)),
-    addCatFilter(supabase.from("posts").select(SEL).eq("status","publicado")
+    addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
       .in("tipo_conteudo",["minuto"]).order("published_at",{ascending:false}).limit(3))
   ]);
 
   const posts = [
-    ...(rRadar.data || []).map(mapRow),
-    ...(rPilula.data || []).map(mapRow),
-    ...(rMinuto.data || []).map(mapRow)
+    ...(rRadar.data || []).map(mapCurtinhaRow),
+    ...(rPilula.data || []).map(mapCurtinhaRow),
+    ...(rMinuto.data || []).map(mapCurtinhaRow)
   ];
 
   return res.status(200).json({ curtinhas: posts, total: posts.length });
