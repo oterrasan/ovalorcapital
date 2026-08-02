@@ -287,7 +287,7 @@ ${buildHeader()}
 </div>
 <script src="/js/site.js" defer></script>
 <script src="/js/newsletter-bar.js" defer></script>
-<script defer src="/js/ovc-audio.js?v=2"></script>
+<script defer src="/js/ovc-audio.js?v=3"></script>
 </body>
 </html>`;
 }
