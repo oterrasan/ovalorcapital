@@ -265,7 +265,9 @@
       var filtrados = todos.filter(function (p) {
         if (vistos[p.id]) return false;
         if (p.categoria && p.categoria !== 'esportes') return false;
-        var t = (p.titulo || '').toLowerCase();
+        // busca no título E no resumo — manchete reescrita pela IA nem sempre
+        // preserva a palavra-chave literal (ex: nome do campeonato)
+        var t = ((p.titulo || '') + ' ' + (p.resumo || p.comentario_fixado || '')).toLowerCase();
         var ok = kw.some(function (k) { return kwMatch(t, k); });
         if (ok) vistos[p.id] = true;
         return ok;
