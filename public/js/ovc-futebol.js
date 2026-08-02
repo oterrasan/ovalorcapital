@@ -141,7 +141,10 @@
       var futebolCurtinhas = todosCurtinhas.filter(function(n) {
         var tipo = n.tipo_conteudo || n.tipo || '';
         if (tipo !== 'radar' && tipo !== 'pilula' && tipo !== 'micropilula') return false;
-        var t = (n.titulo || '').toLowerCase();
+        // busca no título E no resumo — a IA reescreve a manchete e frequentemente
+        // remove a palavra-chave literal (ex: "Fluminense avança às quartas" em vez
+        // de citar "Libertadores"), mas o resumo/meta-descrição costuma preservá-la
+        var t = ((n.titulo || '') + ' ' + (n.resumo || '')).toLowerCase();
         return FUTEBOL_KEYWORDS.some(function(kw) { return kwMatch(t, kw); });
       });
 
@@ -150,7 +153,7 @@
       var artigosNormais = todosArtigos.filter(function(p) {
         if (idsCurtinhas[p.id]) return false;
         if (p.categoria !== 'esportes') return false;
-        var titulo = (p.titulo || '').toLowerCase();
+        var titulo = ((p.titulo || '') + ' ' + (p.comentario_fixado || '')).toLowerCase();
         return FUTEBOL_KEYWORDS.some(function(kw) { return kwMatch(titulo, kw); });
       });
 

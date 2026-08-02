@@ -76,7 +76,8 @@
     return lista.filter(function (p) {
       if (vistos[p.id]) return false;
       if (p.categoria && p.categoria !== 'esportes') return false;
-      var t = ((p.titulo || '') + ' ' + (p.comentario_fixado || '')).toLowerCase();
+      // resumo = campo das curtinhas, comentario_fixado = campo das matérias normais
+      var t = ((p.titulo || '') + ' ' + (p.resumo || p.comentario_fixado || '')).toLowerCase();
       var ok = KEYWORDS.some(function (k) { return kwMatch(t, k); });
       if (ok) vistos[p.id] = true;
       return ok;
