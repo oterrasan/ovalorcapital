@@ -468,7 +468,14 @@ function assuntoFinanceiro(item) {
 // Minuto publica direto, sem revisão humana (Regra Zero-I) — precisa de janela
 // muito mais estrita que as matérias normais, que ficam pendentes de aprovação.
 // Roberto, 01/08/2026: "passou de 59 minutos que a noticia foi publicada, descarta".
-const MINUTO_MAX_IDADE_MS = 59 * 60 * 1000;
+// AJUSTADO 02/08/2026: 59min zerava o Minuto quase sempre — logs do pipeline
+// confirmaram (descartadosPorIdade:20 de 20 candidatos) que o cron real do
+// GitHub Actions dispara a cada ~60min (não a cada 15min como configurado no
+// YAML — throttling de plataforma para schedules frequentes), então um item
+// com <59min no fetch já nasce velho demais até a próxima rodada rodar. Subiu
+// para 3h para sobreviver ao intervalo real entre execuções, mantendo o
+// espírito de "só notícia fresca" sem zerar o recurso inteiro.
+const MINUTO_MAX_IDADE_MS = 180 * 60 * 1000;
 function isUltimaHora(item) {
   const dateStr = item?.pubDate;
   if (!dateStr) return false;

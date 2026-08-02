@@ -36,17 +36,21 @@ jobs:
           echo "FUTEBOL: $RESP" | head -c 300
 
   materias:
-    name: Matéria 14h–00h BRT
+    name: Matéria 07h–00h30 BRT
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
       - name: Verificar janela BRT
         id: janela
+        # AJUSTADO 02/08/2026: janela estava em 14:00-00:00 BRT (10h/dia), deixando
+        # um buraco de 14h/dia (00:00-14:00 BRT) sem nenhuma matéria automática
+        # gerada — root cause confirmado no log do job ("matérias automáticas não
+        # estão aparecendo"). Ampliada de volta para 07:00-00:30 BRT (17,5h/dia).
         run: |
           M=$(( $(date -u +%H) * 60 + $(date -u +%M) ))
-          # 14:00 BRT = 17:00 UTC = 1020 min | 00:00 BRT = 03:00 UTC = 180 min
-          # Janela: 1020–1439 (17:00–23:59 UTC) OU 0–179 (00:00–02:59 UTC)
-          if [ $M -ge 1020 ] || [ $M -lt 180 ]; then
+          # 07:00 BRT = 10:00 UTC = 600 min | 00:30 BRT = 03:30 UTC = 210 min
+          # Janela: 600–1439 (10:00–23:59 UTC) OU 0–209 (00:00–03:29 UTC)
+          if [ $M -ge 600 ] || [ $M -lt 210 ]; then
             echo "ok=true" >> $GITHUB_OUTPUT
           else
             echo "ok=false" >> $GITHUB_OUTPUT
