@@ -4368,3 +4368,54 @@ Duas rotas possíveis, com trade-offs opostos:
 2. Confirmar escopo: só artigos completos, ou também Pílula/Radar/Minuto?
 3. Só então implementar — seguindo o padrão de arquivo JS independente (REGRA ZERO-I) + nenhum novo arquivo em `api/` sem deletar outro (REGRA ZERO-A)
 
+---
+
+### Sessão 02/08/2026 — NARRAÇÃO EM ÁUDIO IMPLEMENTADA — TODO O CONTEÚDO DO PORTAL ✅
+
+#### Contexto
+
+Roberto voltou do descanso e autorizou de forma explícita e urgente: *"EXECUTE A ESCUTA DE MATERIAS, IMPLEMENTE ISSO EM TODOS OS CONTEUDOS DO OVC, PILULAS, MINUTO OVC, RADARES, MATERIAS NORMAIS, MICRO E CARDS PRINCIPAIS, OU SEJA, NADA FICA FORA E TUDO DEVE TER OPCAO DE AUDIO"*. Escopo confirmado por ele mesmo: absolutamente tudo.
+
+#### O que foi implementado (PR #313 — mergeado em main, squash commit `1c0cb60`)
+
+**`public/js/ovc-audio.js`** (NOVO — arquivo independente, REGRA ZERO-I 100% respeitada):
+
+- **Motor:** Web Speech API (`window.speechSynthesis`) — 100% grátis para sempre, roda inteiramente no navegador do visitante, zero chave de API, zero infraestrutura nova, não usa nenhum dos 10 slots de `api/` (REGRA ZERO-A intacta)
+- **Cobertura universal sem integrar arquivo por arquivo:** em vez de editar `home.js`, `internal-page-v2.js`, `ovc-cards.js`, `ovc-nichos.js` e todos os widgets de radar (alto risco, cada um é frágil), o script escaneia o DOM inteiro (com `MutationObserver`) procurando qualquer `<a href>` que aponte para o padrão de URL de conteúdo do OVC (`/{categoria}/{slug}-{id8}/`, usado por TODOS os tipos: matérias, pílulas, micro-pílulas, radar, minuto, radares esportivos). Em cada link encontrado, injeta um botão 🔊 que lê o título + resumo daquele card
+- **Matéria completa:** quando a página tem `window.__OVC_ARTICLE__` (setado pelo SSR de `api/article.js`), injeta um botão fixo "🔊 Ouvir esta matéria" que lê título + corpo inteiro do artigo (HTML convertido para texto puro)
+- **Barra flutuante global:** aparece na parte inferior da tela quando qualquer áudio começa a tocar — play/pause, stop, e botão de alternância de voz masculina/feminina (👨/👩)
+- **Voz masculina/feminina:** tenta encontrar vozes PT-BR reais do navegador por heurística de nome; se o navegador só tiver 1 voz em português (comum em alguns browsers/SO), aplica fallback de pitch (mais grave para "masculina", mais agudo para "feminina") para garantir que a alternância sempre produza um resultado audivelmente diferente. Preferência persistida em `localStorage`
+- **Zero dependência de outros scripts** — não lê nem escreve em nenhuma variável de `home.js`/`ovc-nichos.js`/etc, só o DOM e `window.__OVC_ARTICLE__`
+
+**Distribuição do script — cobertura total:**
+- Incluído nas 193 páginas estáticas de `public/**/index.html` (essas mesmas páginas servem de TEMPLATE para as rotas SSR via `readFileSync` em `api/article.js`, `api/category.js`, `api/live.js` e `api/portal-posts.js` — ou seja, artigos, categorias, homepage e páginas ao vivo herdam o script automaticamente sem precisar tocar nesses arquivos `api/`)
+- Adicionado manualmente (uma linha cada, isolado) em `api/institutional.js` e `api/landing.js`, que geram HTML inline em vez de ler de template
+- **NÃO adicionado** em: `public/admin/*` (painel administrativo, não é conteúdo do portal), `public/_materia/index.html` e `public/_components/*` (arquivos mortos/parciais), `public/404.html`, `public/inteligencia*`, `public/estudio/`, `public/ovc-engine/`, `public/tv/index.html`, arquivo de verificação do Google — nenhum desses é conteúdo de leitura do portal
+
+**Verificações de segurança feitas antes do push:**
+- `node --check` em `ovc-audio.js` e em todos os 10 arquivos de `api/` tocados/existentes — todos OK
+- `public/index.html`: 721 linhas (≥700, REGRA ZERO-E intacta), `<!DOCTYPE html>` preservado no início, diff de apenas 1 linha inserida
+- `public/admin/index.html`: diff vazio — não foi tocado
+- Revisão de TODAS as linhas removidas no diff (193 arquivos): 100% eram apenas reformatação da tag `</body>` (que antes estava colada no fim de uma linha longa) para sua própria linha, com o novo `<script>` inserido antes — nenhuma perda de conteúdo
+- `api/` permanece com exatamente 10 arquivos — REGRA ZERO-A intacta
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — clicar no ícone 🔊 em um card da home, em uma pílula/Minuto OVC, e no botão "Ouvir esta matéria" de um artigo completo; testar a alternância de voz masculina/feminina
+2. Se a qualidade de voz do navegador de Roberto for ruim/só tiver 1 voz PT (limitação conhecida da Web Speech API, documentada na análise técnica da sessão 01/08/2026 acima), avaliar se vale migrar para TTS de nuvem (Google Cloud TTS, tier grátis 1M chars/mês) com cache de áudio no Supabase Storage — mas SÓ com autorização explícita de Roberto, é uma mudança bem maior (novo endpoint, novo custo de manutenção)
+3. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`) seguem válidas e não foram tocadas nesta sessão
+
+### ✅ CONFIRMADO NESTA SESSÃO (02/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Narração em áudio (TTS) — TODO o conteúdo do portal** — matérias, pílulas, micro-pílulas, Radar OVC, Minuto OVC, radares esportivos, cards principais | ✅ EM PRODUÇÃO (PR #313, commit `1c0cb60`) |
+| **Deploy pipeline (`deploy.yml`)** | ✅ CONFIRMADO FUNCIONANDO — deploy de sucesso para o commit da feature |
+
