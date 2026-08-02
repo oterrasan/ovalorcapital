@@ -162,11 +162,35 @@ async function handleCurtinhasMinuto(req, res) {
   return res.status(200).json({ curtinhas: posts, total: posts.length, topico: topico || null });
 }
 
+// Modo dedicado ?curtinhas=true&tipo=radar[&categoria=SLUG][&limit=N]
+// Usado pela página dedicada /radar-da-bola/ (e futuras páginas de Radar OVC por categoria).
+// Sem cap artificial (até 50) — diferente da query balanceada de handleCurtinhas(), que limita a 4
+// para não deixar o Radar dominar a home. Aqui é a listagem completa do nicho Radar OVC.
+async function handleCurtinhasRadar(req, res) {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 30, 1), 50);
+  const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
+  let q = supabase.from("posts").select(SEL_CURTINHAS).eq("status", "publicado")
+    .eq("tipo_conteudo", "radar").order("published_at", { ascending: false }).limit(limit);
+  if (cat && cat !== "all") {
+    const aliases = CATEGORY_ALIASES[cat];
+    q = aliases
+      ? q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","))
+      : q.like("user_tags", `%"${cat}"%`);
+  }
+  const { data } = await q;
+  const posts = (data || []).map(mapCurtinhaRow);
+  return res.status(200).json({ curtinhas: posts, total: posts.length, categoria: cat || null });
+}
+
 async function handleCurtinhas(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
 
-  if (String(req.query.tipo || "").toLowerCase() === "minuto") {
+  const tipoQ = String(req.query.tipo || "").toLowerCase();
+  if (tipoQ === "minuto") {
     return handleCurtinhasMinuto(req, res);
+  }
+  if (tipoQ === "radar") {
+    return handleCurtinhasRadar(req, res);
   }
 
   const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
