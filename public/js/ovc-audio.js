@@ -1,16 +1,14 @@
 /**
- * ovc-audio.js — Ouvir em áudio a MANCHETE e o CORPO das matérias (matérias completas,
- * pílulas, radar, minuto, micro-pílulas, cards principais). REGRA ZERO-I: 100%
+ * ovc-audio.js — Ouvir em áudio a MANCHETE e o CORPO das matérias. REGRA ZERO-I: 100%
  * independente, não toca em home.js / internal-page-v2.js / ovc-cards.js / ovc-nichos.js
  * — puramente aditivo (só lê o DOM já renderizado por eles).
  *
- * Estratégia: escaneia o DOM em busca de links que apontem para uma matéria/curtinha
- * (padrão de URL /{categoria}/{slug}-{id8}/) e injeta UM botão de áudio por card,
- * lendo APENAS manchete (heading) + texto de resumo/corpo — nunca texto de botão/CTA
- * ("leia mais", "avançar", "compartilhar" etc). Página de matéria completa usa
- * window.__OVC_ARTICLE__ (já setado pelo SSR) para ler o corpo inteiro, e o botão é
- * inserido na própria barra de "Compartilhar esta matéria" (identificada pelo link do
- * WhatsApp, que é estável em todas as páginas), sem editar internal-page-v2.js.
+ * Escopo (definido por Roberto, 02/08/2026): o botão de áudio existe SOMENTE dentro da
+ * página da matéria completa — nunca em cards/prévias na home, categorias ou widgets de
+ * curtinhas. Usa window.__OVC_ARTICLE__ (já setado pelo SSR de api/article.js) para ler
+ * título + corpo inteiro, e o botão é inserido na própria barra de "Compartilhar esta
+ * matéria" (identificada pelo link do WhatsApp, estável em todas as páginas), sem editar
+ * internal-page-v2.js.
  *
  * Motor: Web Speech API (100% grátis, client-side, sem chave, sem custo, sem
  * infraestrutura nova — não usa nenhum dos 10 slots de api/).
@@ -20,21 +18,13 @@
   if (window.__OVC_AUDIO_INIT__) return;
   window.__OVC_AUDIO_INIT__ = true;
 
+  var art = window.__OVC_ARTICLE__;
+  if (!art || !art.titulo) return; // fora de uma página de matéria, este script não faz nada
+
   var HAS_TTS = typeof window.speechSynthesis !== 'undefined';
   if (!HAS_TTS) return;
 
   var STORAGE_KEY = 'ovc_audio_gender';
-  var LINK_RE = /^\/[a-z0-9-]+\/[a-z0-9-]+-[a-f0-9]{8}\/?$/i;
-  var SKIP_TAGS = { NAV: 1, FOOTER: 1, HEADER: 1, BUTTON: 1 };
-  var HEADING_SEL = 'h1,h2,h3,h4,h5,h6';
-  var HIDDEN_SEL = '.sr-only,.visually-hidden,.visuallyhidden,[aria-hidden="true"]';
-  var CARD_SEL = 'article, li, .ovc-cat-card, .ovc-mini-card, .ovc-mnt-item, .ovc-mnt-featured, .ovc-cat-hero, .ovc-ml-item, .ovc-cat-card-lg';
-  // texto de UI (botão/CTA/navegação) — nunca é manchete nem corpo
-  var CTA_RE = /^(leia|ler|veja|ver|saiba|continue|continuar|avan[çc]|pr[óo]xim|anterior|voltar|seta|compartilh|coment|assinar|inscrev|buscar|pesquisar|menu|fechar|abrir|expandir|carregar|topo|clique|toque|ouvir|copiar|copiado)/i;
-
-  var cardIdMap = new WeakMap();
-  var cardIdCounter = 0;
-  var processedCards = {};
   var articleBtnPlaced = false;
   var state = {
     gender: localStorage.getItem(STORAGE_KEY) || 'female',
@@ -65,8 +55,6 @@
     d.innerHTML = html || '';
     return (d.textContent || d.innerText || '').replace(/\s+/g, ' ').trim();
   }
-  function cleanText(t) { return (t || '').replace(/\s+/g, ' ').trim(); }
-  function isBoilerplate(t) { return !t || CTA_RE.test(t) || t.length < 6; }
 
   // ---------- motor de fala ----------
   function speak(text, label) {
@@ -107,9 +95,6 @@
       '#ovc-audio-bar button{background:rgba(255,255,255,.14);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}',
       '#ovc-audio-bar button:hover{background:rgba(255,255,255,.26);}',
       '#ovc-audio-label{max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9;}',
-      '.ovc-audio-btn{position:absolute;top:6px;right:6px;z-index:6;display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:50%;background:rgba(15,23,42,.75);color:#ffc800;border:none;cursor:pointer;font-size:12px;line-height:1;}',
-      '.ovc-audio-btn:hover{background:#0f172a;}',
-      '.ovc-audio-card-wrap{position:relative;}',
       '.ovc-audio-share-btn{display:inline-flex;align-items:center;gap:5px;background:#dc2626;color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;border:none;cursor:pointer;}',
       '.ovc-audio-share-btn:hover{background:#b91c1c;}',
       '.ovc-audio-sep{width:1px;align-self:stretch;background:#e2e8f0;margin:2px 4px;}',
@@ -151,7 +136,7 @@
   }
 
   // ---------- botão de matéria completa — inserido na linha de "Compartilhar esta matéria" ----------
-  function buildArticleBtn(art) {
+  function buildArticleBtn() {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ovc-audio-share-btn';
@@ -164,7 +149,7 @@
     return btn;
   }
 
-  function placeArticleButtonInShareRow(art) {
+  function placeArticleButtonInShareRow() {
     if (articleBtnPlaced) return true;
     var waLink = document.querySelector('a[href^="https://api.whatsapp.com/send"]');
     var row = waLink && waLink.parentElement;
@@ -172,123 +157,29 @@
     var sep = document.createElement('span');
     sep.className = 'ovc-audio-sep';
     row.appendChild(sep);
-    row.appendChild(buildArticleBtn(art));
+    row.appendChild(buildArticleBtn());
     articleBtnPlaced = true;
     return true;
   }
 
-  function initArticleButton() {
-    var art = window.__OVC_ARTICLE__;
-    if (!art || !art.titulo) return;
+  function boot() {
     buildBar();
-    if (placeArticleButtonInShareRow(art)) return;
+    if (placeArticleButtonInShareRow()) return;
     // barra de compartilhamento ainda não renderizou (internal-page-v2.js é assíncrono) —
-    // o scan periódico tenta de novo; após 6s sem sucesso, usa botão flutuante de segurança
+    // observa o DOM e tenta de novo; após 6s sem sucesso, usa botão flutuante de segurança
+    var mo = new MutationObserver(function () {
+      if (placeArticleButtonInShareRow()) mo.disconnect();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
     setTimeout(function () {
-      if (!placeArticleButtonInShareRow(art) && !articleBtnPlaced) {
-        var btn = buildArticleBtn(art);
+      mo.disconnect();
+      if (!articleBtnPlaced) {
+        var btn = buildArticleBtn();
         btn.classList.add('ovc-audio-article-fallback');
         document.body.appendChild(btn);
         articleBtnPlaced = true;
       }
     }, 6000);
-  }
-
-  // ---------- injeção universal em cards/links (pílulas, radar, minuto, micro, cards) ----------
-  function getCardRoot(a) {
-    var el = a.closest(CARD_SEL);
-    if (!el) el = a.parentElement || a;
-    return el;
-  }
-  function cardKey(root) {
-    if (!cardIdMap.has(root)) cardIdMap.set(root, ++cardIdCounter);
-    return cardIdMap.get(root);
-  }
-
-  // extrai manchete (heading) + resumo/corpo do card — nunca texto de botão/CTA
-  function extractCardText(root, fallbackAnchor) {
-    var headingEl = null;
-    var headings = root.querySelectorAll(HEADING_SEL);
-    for (var i = 0; i < headings.length; i++) {
-      if (headings[i].closest(HIDDEN_SEL)) continue;
-      var ht = cleanText(headings[i].textContent);
-      if (!isBoilerplate(ht)) { headingEl = headings[i]; break; }
-    }
-    var title = headingEl ? cleanText(headingEl.textContent) : '';
-    if (!title) {
-      // sem heading no card — usa o texto do próprio link, se não for boilerplate
-      var at = cleanText(fallbackAnchor.textContent);
-      if (!isBoilerplate(at)) title = at;
-    }
-    if (!title) return null;
-
-    var summary = '';
-    var paras = root.querySelectorAll('p');
-    for (var j = 0; j < paras.length; j++) {
-      if (paras[j].closest(HIDDEN_SEL)) continue;
-      var pt = cleanText(paras[j].textContent);
-      if (pt && pt !== title && !isBoilerplate(pt)) { summary = pt; break; }
-    }
-    return (title + (summary ? ('. ' + summary) : '')).trim();
-  }
-
-  function injectCardButton(root, anchorForClickTarget) {
-    var key = cardKey(root);
-    if (processedCards[key]) return;
-    processedCards[key] = true;
-    var text = extractCardText(root, anchorForClickTarget);
-    if (!text || text.length < 8) return;
-    buildBar();
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ovc-audio-btn';
-    btn.title = 'Ouvir';
-    btn.textContent = '🔊';
-    btn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      speak(text, text.split('.')[0].slice(0, 60));
-    });
-    if (getComputedStyle(root).position === 'static') root.classList.add('ovc-audio-card-wrap');
-    root.appendChild(btn);
-  }
-
-  function scan(root) {
-    var links = (root || document).querySelectorAll('a[href]');
-    for (var i = 0; i < links.length; i++) {
-      var a = links[i];
-      var href = a.getAttribute('href') || '';
-      // ignora âncoras internas/handlers de UI (carrosséis, "avançar", modais) — nunca
-      // são conteúdo, e "#" resolve para a própria página atual (pode colidir com o
-      // padrão de URL de matéria se você estiver dentro de uma)
-      if (!href || href.charAt(0) === '#' || /^javascript:/i.test(href)) continue;
-      var path = href;
-      try { path = new URL(href, location.origin).pathname; } catch (_) {}
-      if (!LINK_RE.test(path)) continue;
-      var p = a.parentElement, skip = false, depth = 0;
-      while (p && depth < 6) {
-        if (SKIP_TAGS[p.tagName]) { skip = true; break; }
-        p = p.parentElement; depth++;
-      }
-      if (skip) continue;
-      injectCardButton(getCardRoot(a), a);
-    }
-  }
-
-  var scanTimer = null;
-  function scheduleScan() {
-    clearTimeout(scanTimer);
-    scanTimer = setTimeout(function () {
-      scan(document);
-      if (window.__OVC_ARTICLE__ && !articleBtnPlaced) placeArticleButtonInShareRow(window.__OVC_ARTICLE__);
-    }, 400);
-  }
-
-  function boot() {
-    initArticleButton();
-    scan(document);
-    var mo = new MutationObserver(scheduleScan);
-    mo.observe(document.body, { childList: true, subtree: true });
   }
 
   if (document.readyState === 'loading') {

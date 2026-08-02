@@ -378,7 +378,7 @@ ${buildHeader()}
 ${bodyHtml}
 </div>
 ${buildFooter()}
-<script defer src="/js/ovc-audio.js?v=2"></script>
+<script defer src="/js/ovc-audio.js?v=3"></script>
 </body>
 </html>`;
 
