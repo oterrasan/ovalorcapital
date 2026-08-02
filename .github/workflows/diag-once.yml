@@ -10,18 +10,40 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar URLs em produção
+      - name: Testar páginas em produção (HTML bruto)
         run: |
-          for path in "/brasileirao-serie-a/" "/brasileirao-serie-b/" "/libertadores/" "/sul-americana/" "/radar-da-bola/" "/esportes/"; do
+          for path in "/" "/radar-da-bola/" "/minuto/" "/esportes/"; do
             echo "=== $path ==="
             HTTP_CODE=$(curl -s -o /tmp/body.html -w "%{http_code}" --max-time 20 \
               -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" \
+              -H "Cache-Control: no-cache" \
               "https://www.ovalorcapital.com.br${path}")
             echo "HTTP: $HTTP_CODE"
-            echo "Title: $(grep -o '<title>[^<]*</title>' /tmp/body.html | head -1)"
-            echo "H1: $(grep -o '<h1>[^<]*</h1>' /tmp/body.html | head -1)"
-            echo "data-category attr: $(grep -o 'data-category="[^"]*"' /tmp/body.html | head -1)"
-            echo "canonical: $(grep -o '<link rel="canonical"[^>]*>' /tmp/body.html | head -1)"
             echo "bytes: $(wc -c < /tmp/body.html)"
+            echo "build marker: $(grep -o 'build:[0-9-]*' /tmp/body.html | head -1)"
+            echo "ovc-radar-dash div: $(grep -o 'id=\"ovc-radar-dash\"[^>]*' /tmp/body.html | head -1)"
+            echo "ovc-minuto-dash div: $(grep -o 'id=\"ovc-minuto-dash\"[^>]*' /tmp/body.html | head -1)"
+            echo "ovc-radar-widget.js tag: $(grep -o 'ovc-radar-widget.js?v=[0-9]*' /tmp/body.html | head -1)"
+            echo "ovc-minuto-widget.js tag: $(grep -o 'ovc-minuto-widget.js?v=[0-9]*' /tmp/body.html | head -1)"
+            echo "ovc-audio.js tag: $(grep -o 'ovc-audio.js?v=[0-9]*' /tmp/body.html | head -1)"
+            echo "site.js tag: $(grep -o 'site.js?v=[0-9]*' /tmp/body.html | head -1)"
             echo ""
           done
+
+      - name: Testar API — conteúdo real de radar/minuto no banco
+        run: |
+          echo "=== ?curtinhas=true&tipo=radar&limit=5 ==="
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&tipo=radar&limit=5" | head -c 2000
+          echo ""
+          echo ""
+          echo "=== ?curtinhas=true&tipo=minuto&limit=5 ==="
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&tipo=minuto&limit=5" | head -c 2000
+          echo ""
+          echo ""
+          echo "=== ?curtinhas=true&categoria=esportes&limit=5 (o que ovc-nichos/widgets de radar esportivo consomem) ==="
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&categoria=esportes&limit=5" | head -c 2000
+          echo ""
+          echo ""
+          echo "=== ?recentes=true&limit=5 (feed principal — confirma se o site serve QUALQUER conteúdo) ==="
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=5" | head -c 2000
+          echo ""
