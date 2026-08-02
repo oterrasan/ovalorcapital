@@ -4419,3 +4419,36 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Narração em áudio (TTS) — TODO o conteúdo do portal** — matérias, pílulas, micro-pílulas, Radar OVC, Minuto OVC, radares esportivos, cards principais | ✅ EM PRODUÇÃO (PR #313, commit `1c0cb60`) |
 | **Deploy pipeline (`deploy.yml`)** | ✅ CONFIRMADO FUNCIONANDO — deploy de sucesso para o commit da feature |
 
+---
+
+### Sessão 02/08/2026 (continuação) — PÁGINA DEDICADA COMPLETA PARA RADAR OVC (/radar-da-bola/)
+
+#### Contexto
+
+Roberto: *"TUDO DEVE TER PAGINAS INTERNAS COMPLETAS, e ainda te disse claramente que deveria ser IGUAL AO RADAR DA COPA E A PAGINA INTERNA DEDICADA QUE CONSTRUI"*. `tipo_conteudo="radar"` (Radar OVC) é exclusivamente conteúdo de futebol de grande repercussão desde 31/07/2026 (ver `ovc-nichos.js`, que removeu o Radar OVC genérico da home por esse motivo). `/radar-da-bola/` já existia como hub com cards de navegação para os 6 sub-radares de futebol, mas a seção de notícias dependia de `internal-page-v2.js` (via `data-section="radar-da-bola"`), que nunca casava — curtinhas radar têm `subcategoria_slug="futebol"`, não `"radar-da-bola"`.
+
+#### O que foi feito (PR #320 — mergeado em main, squash commit `e0b9decd`)
+
+- **`api/portal-posts.js`** — nova função `handleCurtinhasRadar()`, espelhando `handleCurtinhasMinuto()`: modo dedicado `?curtinhas=true&tipo=radar[&categoria=SLUG][&limit=N]`, sem cap artificial (até 50) — diferente da query balanceada de `handleCurtinhas()` (limitada a 4, usada só por `ovc-nichos.js` na home). Wired no dispatch de `handleCurtinhas()`.
+- **`public/js/ovc-radar-widget.js`** (NOVO — REGRA ZERO-I) — lista cronológica completa do Radar OVC, mesmo padrão visual/estrutural de `ovc-minuto-widget.js` (destaque + lista, refresh 2min).
+- **`public/radar-da-bola/index.html`** — adicionado `<div id="ovc-radar-dash" data-categoria="esportes"></div>` logo após os cards de navegação e antes do `.ovc-grid` legado (preservado por causa do `ovc-right-rail`/banner sidebar).
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### ✅ CONFIRMADO NESTA SESSÃO (02/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **`/radar-da-bola/` — listagem completa e cronológica do Radar OVC** | ✅ EM PRODUÇÃO (PR #320, commit `e0b9decd`) |
+| **Deploy pipeline (`deploy.yml`)** | ✅ CONFIRMADO FUNCIONANDO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** que `/radar-da-bola/` mostra a nova listagem abaixo dos cards de navegação, e que o item em destaque atualiza corretamente
+2. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`) seguem válidas
+
