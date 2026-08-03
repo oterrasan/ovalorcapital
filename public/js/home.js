@@ -62,8 +62,6 @@
       let usdVal  = data.usd?.valor  || 0;
       let eurVal  = data.eur?.valor  || 0;
       let ibovVal = data.ibov?.valor || 0;
-      let usdVar  = data.usd?.variacao || 0;
-      let btcVar  = data.btc?.variacao || 0;
       const fmtBrl  = v => `R$ ${Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 
       const usdEl  = document.getElementById('cotacao-usd');
@@ -76,19 +74,6 @@
       // Impostômetro: NÃO usa data.impostometro da API — ovcImpostometroTick() (site.js) já
       // cuida disso de forma independente e idempotente. Reescrever aqui causava zeragens
       // toda vez que updateLiveWidgets() rodava (a cada 2min) se a API estivesse lenta/fora.
-
-      document.querySelectorAll('.market-chip').forEach(chip => {
-        const sym = (chip.querySelector('.market-symbol')?.textContent || '').trim().toUpperCase();
-        const changeEl = chip.querySelector('.market-change');
-        if (!changeEl) return;
-        const chgMap = { 'USD/BRL': usdVar, 'BTC': btcVar };
-        const chg = chgMap[sym];
-        if (chg !== undefined && chg !== null) {
-          const v = Number(chg);
-          changeEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%';
-          changeEl.className = 'market-change ' + (v >= 0 ? 'up' : 'down');
-        }
-      });
     } catch(e) { console.error(e); }
   }
 
