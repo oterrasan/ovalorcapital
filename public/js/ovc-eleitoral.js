@@ -187,13 +187,7 @@
     var rail = document.querySelector('.rail-right');
     if (!rail) return;
     var bloco = construirBloco(artigos, pesquisaData);
-    // Inserir antes do bloco Radar Mercados (exatamente onde ficava a TV OVC)
-    var radarMercados = rail.querySelector('[data-home-radar-link]');
-    if (radarMercados) {
-      rail.insertBefore(bloco, radarMercados);
-    } else {
-      rail.appendChild(bloco);
-    }
+    rail.insertBefore(bloco, rail.firstChild);
   }
 
   function init() {

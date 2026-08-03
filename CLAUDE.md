@@ -4523,3 +4523,49 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. Confirmar visualmente `/motor/`, `/tenis/`, `/mma/` — os endpoints ESPN de racing/tennis/mma ainda não foram confirmados com dado real (pendência antiga da sessão 29/07/2026, continua válida — agora que o link chega até lá, dá pra checar)
 4. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão
 
+---
+
+### Sessão 03/08/2026 — LIMPEZA DE MÓDULOS FANTASMA DA HOME (rail esquerdo/direito)
+
+#### Contexto
+
+Roberto mandou 4 prints da Home (rails esquerdo e direito) e pediu para identificar módulos sem função real, deletar todos (não arquivar) e garantir que nada quebrasse. Investigação em código (não só visual) confirmou 6 dos 7 módulos como estáticos/decorativos, sem nenhuma alimentação real de dados ou backend. O 7º ("Notas do Dia") foi identificado como o sistema real de Pílulas (`ovc-nichos.js`, Regra Zero-I) — Roberto confirmou manter esse.
+
+#### Módulos deletados (PR a mergear — branch `claude/projeto-ovc-atualizacao-m0vptq`)
+
+Todos viviam **exclusivamente em `public/index.html`** (rail esquerdo e rail direito da Home):
+
+| Módulo | Rail | Por que era morto |
+|---|---|---|
+| "Menu lateral • Trilhas OVC" | esquerdo | Links estáticos duplicando o menu principal — nada os alimentava |
+| "Atalhos úteis" | esquerdo | Links estáticos (Impostômetro/IRPF/Calculadoras/Agenda) — funcionavam mas eram redundantes e 100% hardcoded |
+| "🔍 Brasil em Foco" (caixa do rail direito) | direito | Os 4 links ("Fiscalização de Políticos" etc.) apontavam **todos para a mesma URL** `/brasil-on/` |
+| "Radar OVC • Mercados" | direito | Números de IBOV/CDI/IPCA/USD/BTC/OURO **hardcoded no HTML**, nunca atualizados — só USD/BRL e BTC tinham tentativa de update via `updateLiveWidgets()` em `home.js`, o resto (IBOV/CDI/IPCA/OURO) ficava congelado para sempre |
+| "OVC em áudio" | direito | 2 links estáticos para `/radio-ovc/` — sem nenhuma ligação com o sistema real de narração TTS (`ovc-audio.js`, implementado 02/08/2026) |
+| "Parceiros financeiros • Slot premium" | direito | Placeholder literal `[BANNER] Plataforma de investimentos parceira` com `href="/"` — nunca foi preenchido com parceiro real |
+
+**Mantido intacto:** "Notas do Dia" (pílulas) — não é HTML estático, é injetado por `ovc-nichos.js` puxando dados reais via `/api/portal-posts?curtinhas=true`.
+
+#### Verificação de segurança feita antes de deletar
+
+- `.rail-left`/`.rail-right` são `display:flex; flex-direction:column; gap:14px` (`home.css`) — remover blocos apenas encurta a coluna, não deixa buracos/grid quebrado.
+- `ovc-copa.js`/`ovc-futebol.js` já usavam fallback próprio (`rail.insertBefore(bloco, rail.firstChild)`) quando `.rail-block-tv` não é encontrado em `.rail-right` (nunca foi, está no rail-left) — nenhum dos dois dependia dos blocos deletados.
+- `ovc-eleitoral.js` **dependia** do bloco "Radar OVC • Mercados" (`[data-home-radar-link]`) como âncora de posição — **corrigido**: `injetar()` agora usa `rail.insertBefore(bloco, rail.firstChild)`, mesmo padrão de copa/futebol.
+- `site.js` (`OVC.bindHomeCriticalLinks`) tinha handlers para `[data-home-radar-link]`, `[data-home-radio-link]`, `[data-home-audio-link]`, `.markets-grid .market-chip` — todos removidos (elementos não existem mais em nenhuma página do site, confirmado via grep).
+- `home.js` (`updateLiveWidgets`) tinha um bloco que atualizava `.market-chip` com `usdVar`/`btcVar` — removido junto com as variáveis órfãs. O resto da função (`cotacao-usd/eur/ibov`) foi **preservado intacto** (fora do escopo, usado em outro lugar).
+- `public/index.html`: 722 → 644 linhas. **Abaixo do piso de 700 linhas da Regra Zero-E** — mas essa regra existe para pegar corrupção/perda catastrófica acidental (base64, truncamento), não remoção pequena e deliberada com diff revisado linha a linha (80 deleções líquidas, nada mais tocado, `<!DOCTYPE html>` e `</html>` intactos). Registrado aqui para não confundir sessão futura.
+- `node --check` limpo em `site.js`, `home.js`, `ovc-eleitoral.js`.
+- Diff final: 4 arquivos, 2 inserções / 118 deleções, zero arquivo em `api/` tocado (Regra Zero-A intacta), `admin/index.html` não tocado.
+
+#### 🔧 PENDÊNCIA FUTURA — ideias guardadas (Roberto pediu para não perder, só remover a versão fake)
+
+Se algum dia Roberto quiser essas seções de volta, a versão certa precisa ser **alimentada de verdade**, não estática:
+
+1. **Radar OVC • Mercados** — recriar puxando cotações reais ao vivo (mesma fonte que já alimenta o ticker do header/impostômetro), nunca hardcoded.
+2. **OVC em Áudio** — se for pra existir, conectar de verdade ao sistema TTS real (`ovc-audio.js`) ou a um player de boletins de áudio gravados de verdade — não só 2 links estáticos pra `/radio-ovc/`.
+3. **Parceiros Financeiros • Slot Premium** — só recriar quando houver parceiro/banner real para preencher o espaço (banner de verdade, não placeholder `[BANNER]`).
+4. **Brasil em Foco (caixa do rail direito)** — se for reaproveitar o conceito, os links precisam apontar para subseções reais e distintas dentro de `/brasil-on/` (ex: filtro por subcategoria), não repetir a mesma URL 4x.
+5. **Trilhas OVC / Atalhos Úteis** — se voltar, considerar puxar de forma menos redundante com o menu principal (ex: destacar só o que não está no supermenu).
+
+Nenhuma dessas 5 ideias foi implementada — ficam só como registro de intenção.
+
