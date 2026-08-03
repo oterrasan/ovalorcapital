@@ -2,7 +2,8 @@
  * ovc-futebol.js — Radar da Bola • Widget independente
  * REGRA ZERO-I: 100% independente — não afeta home.js nem ovc-cards.js
  * Cobre: Brasileirão Série A, Série B, Libertadores, Sul-Americana
- * Injeta bloco Radar da Bola ANTES da .rail-block-tv no rail direito
+ * Injeta bloco Radar da Bola no TOPO do rail direito (.rail-right) —
+ * tem prioridade sobre o Radar da Copa (ovc-copa.js).
  */
 (function () {
   'use strict';
@@ -115,13 +116,8 @@
   function injetar(artigos) {
     var rail = document.querySelector('.rail-right');
     if (!rail) return;
-    var tvBlock = rail.querySelector('.rail-block-tv');
     var bloco = construirBloco(artigos);
-    if (tvBlock) {
-      rail.insertBefore(bloco, tvBlock);
-    } else {
-      rail.insertBefore(bloco, rail.firstChild);
-    }
+    rail.insertBefore(bloco, rail.firstChild);
   }
 
   var FUTEBOL_KEYWORDS = [

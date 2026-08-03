@@ -410,6 +410,7 @@
 <main class="page-main">
 <div class="main-grid">
 <!-- Rail esquerdo -->
+<!-- Radar Eleitoral (ovc-eleitoral.js) é injetado no topo, antes de tudo abaixo -->
 <aside class="rail-left">
 
 <div class="rail-block rail-block-tv">
@@ -426,6 +427,7 @@
 <div class="ad-slot ad-rail-vertical">
 <span><span class="ad-dot"></span> Espaço publicitário OVC – rail esquerdo</span>
 </div>
+<!-- Colunistas OVC injetado dinamicamente por ovc-cards.js logo após o bloco TV -->
 </aside>
 <!-- Hero + destaques -->
 <section class="hero-region">
@@ -471,8 +473,9 @@
 </div>
 </section>
 <!-- Rail direito -->
+<!-- ovc-futebol.js sempre no topo; ovc-copa.js entra logo depois dele -->
 <aside class="rail-right">
-<!-- Conteúdo injetado dinamicamente por ovc-copa.js / ovc-futebol.js / ovc-eleitoral.js / ovc-nichos.js -->
+<!-- Conteúdo injetado dinamicamente por ovc-futebol.js / ovc-copa.js -->
 </aside>
 <!-- Pre-allocated banner slot: avoids insertBefore CLS from banners.js -->
 <aside id="ovc-banner-home" aria-label="Conteúdo patrocinado" style="min-height:0;"></aside>
