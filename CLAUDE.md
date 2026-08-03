@@ -4452,3 +4452,74 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar visualmente com Roberto** que `/radar-da-bola/` mostra a nova listagem abaixo dos cards de navegação, e que o item em destaque atualiza corretamente
 2. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`) seguem válidas
 
+---
+
+### Sessão 02/08/2026 (continuação 3) — 🔴 CAUSA RAIZ CRÍTICA — "PÁGINAS NOVAS NÃO APARECEM": LINKS DO MENU ESPORTES APONTAVAM PARA O CAMINHO ERRADO
+
+#### Contexto
+
+Roberto reportou, sem detalhar sintoma inicialmente: as páginas dedicadas de radar esportivo (Basquete, Motor, Tênis, MMA, Vôlei, NFL — criadas na sessão 29/07/2026, PRs #287-290) não estavam aparecendo. Pediu para parar de "supor coisas sem sentido" e resolver.
+
+**Investigação errada primeiro (descartada, mas documentada para não repetir o caminho):**
+- Hipótese inicial: conteúdo/dado ausente ou HTML/JS quebrado em `/radar-da-bola/` e `/minuto/`. Expandido o workflow `.github/workflows/diag-once.yml` (que já existia, criado em sessão anterior para testar páginas de futebol) para checar via GitHub Actions — que tem rede real, ao contrário deste ambiente de sessão que bloqueia acesso a `www.ovalorcapital.com.br` — o HTML bruto de `/`, `/radar-da-bola/`, `/minuto/`, `/esportes/` (divs de mount, tags de script versionadas, marcador de build) e as respostas reais da API `?curtinhas=true&tipo=radar` / `tipo=minuto` / `categoria=esportes`. **PR #322 mergeado** — resultado: tudo correto, HTML com os pontos de montagem certos, scripts carregando sem erro, API retornando dado real e fresco (artigos de minutos atrás). Ou seja: `/radar-da-bola/` e `/minuto/` NUNCA foram o problema — essa investigação foi descartada como hipótese errada, mas o workflow de diagnóstico expandido permanece útil e ficou em produção.
+
+**Roberto corrigiu o rumo da investigação:** "não é uma questao de aparecer errado, NAO APARECEM ESTAS PAGINAS INTERNAS NOVAS" — ou seja, o problema não era conteúdo/renderização, era que as páginas **nunca eram alcançadas**.
+
+#### 🔴 Causa raiz real encontrada
+
+`public/esportes/index.html` tem um submenu "Esportes" com 6 links para os esportes individuais. Esses links apontavam para `/esportes/basquete/`, `/esportes/motor/`, `/esportes/tenis/`, `/esportes/mma/`, `/esportes/volei/`, `/esportes/nfl/` — mas as páginas novas (PRs #287-290) foram criadas na **raiz** do site: `public/basquete/index.html`, `public/motor/index.html`, etc. (não em `public/esportes/basquete/`).
+
+Investigação revelou duas variantes do bug:
+1. **Basquete, NFL, Tênis, MMA:** já existiam páginas antigas e genéricas exatamente no caminho `/esportes/{esporte}/` — herdadas de um sistema anterior de subcategorias dentro da categoria Esportes (título tipo `"Nfl | O Valor Capital"`, meta description genérica `"Nfl no O Valor Capital."`, usando o JS legado `internal-page.js` em vez de `internal-page-v2.js`). Quem clicava no menu caía nessas páginas velhas e vazias, nunca nas novas páginas ricas com dados ao vivo da ESPN.
+2. **Motor e Vôlei:** não existia nem essa versão antiga em `/esportes/motor/` ou `/esportes/volei/` — o link simplesmente não levava a lugar nenhum.
+
+O mesmo submenu "Esportes" é replicado dentro de **todas as 194 páginas HTML do portal** (cada página carrega o menu completo inline, não via include), então o link errado existia em todas elas — mais um partial órfão em `public/_components/header.html` (não referenciado por nenhum handler, mas corrigido por consistência).
+
+#### O que foi corrigido (PR #323 — mergeado em main, commit `0da2cf8`)
+
+- Os 6 hrefs do submenu Esportes corrigidos de `/esportes/{esporte}/` → `/{esporte}/` (raiz) em **194 arquivos** (todas as páginas estáticas + o partial órfão).
+- Diff simétrico confirmado antes do push: **1164 inserções / 1164 deleções** — exatamente 6 linhas por arquivo, nenhum outro conteúdo tocado.
+- Verificações de segurança feitas: `public/index.html` continua com 722 linhas e `<!DOCTYPE html>` no início (Regra Zero-E); `api/` continua com exatamente 10 arquivos (Regra Zero-A); diff de amostra revisado manualmente confirmando que só os `href` mudaram.
+- **Deploy confirmado com sucesso** via GitHub Actions (`deploy.yml` run `30765673706`, step "Deploy to Vercel Production" `completed`/`success` às 20:29 UTC).
+
+#### 🚨 Lição — próxima sessão deve ler isto antes de investigar qualquer "página não aparece"
+
+```
+❌ NUNCA assumir que "página não aparece" é bug de deploy, cache ou dado ausente sem antes
+   conferir se o LINK que leva até ela aponta para o caminho certo — esse bug não deixa
+   rastro nenhum em logs de deploy, API, ou HTML da própria página (que está 100% correta);
+   só aparece ao seguir o clique real do menu.
+❌ Quando uma página nova é criada fora da estrutura de pastas existente de uma categoria
+   (ex: página dedicada em /{esporte}/ para conteúdo que "pertence" à categoria /esportes/),
+   SEMPRE verificar imediatamente se algum menu/submenu já teria um link "óbvio" apontando
+   para um caminho aninhado diferente (/esportes/{esporte}/) — e se sim, corrigir todos os
+   194 arquivos que replicam o menu, não só a página nova.
+❌ "Diagnóstico não encontrou nada de errado" não significa "está tudo bem" — pode significar
+   que a pergunta certa ainda não foi feita. Neste caso o diagnóstico de HTML/API (PR #322)
+   estava 100% correto e ainda assim o problema real (link do menu) não aparecia nele, porque
+   ele testava as páginas de destino diretamente por URL, nunca o caminho que o usuário
+   realmente clica.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### ✅ CONFIRMADO NESTA SESSÃO (02/08/2026 continuação 3)
+
+| Sistema | Status |
+|---|---|
+| **Diagnóstico de produção real via GitHub Actions** (`diag-once.yml` expandido) — testa HTML bruto + API de `/radar-da-bola/`, `/minuto/` direto em produção, sem depender de acesso de rede deste ambiente de sessão | ✅ EM PRODUÇÃO (PR #322, commit `a09635c`) |
+| **Links do submenu Esportes corrigidos** (`/esportes/{esporte}/` → `/{esporte}/`) em todas as 194 páginas + partial órfão — causa raiz real de "páginas novas não aparecem" | ✅ EM PRODUÇÃO (PR #323, commit `0da2cf8`) |
+| **Deploy pipeline (`deploy.yml`)** | ✅ CONFIRMADO FUNCIONANDO — run `30765673706` completo com sucesso |
+
+#### 🔧 Pendências para a próxima sessão (atualizado 02/08/2026 continuação 3)
+
+1. **Confirmar visualmente com Roberto** — clicar em Esportes → Basquete/Motor/Tênis/MMA/Vôlei/NFL no menu do site em produção e confirmar que agora leva às páginas novas com dados ao vivo (não mais às antigas genéricas ou a lugar nenhum)
+2. As páginas antigas genéricas em `public/esportes/{basquete,nfl,tenis,mma}/index.html` ficaram órfãs (nada mais linka pra elas) — inofensivas mas podem ser limpas em sessão futura se Roberto quiser (mesmo padrão de `public/_materia/index.html`, documentado como dead file histórico)
+3. Confirmar visualmente `/motor/`, `/tenis/`, `/mma/` — os endpoints ESPN de racing/tennis/mma ainda não foram confirmados com dado real (pendência antiga da sessão 29/07/2026, continua válida — agora que o link chega até lá, dá pra checar)
+4. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão
+
