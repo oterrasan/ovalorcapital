@@ -1,7 +1,7 @@
 /**
  * ovc-eleitoral.js — Radar Eleitoral 2026 • Widget independente
  * REGRA ZERO-I: 100% independente — não afeta home.js nem ovc-cards.js
- * Injeta bloco Radar Eleitoral no rail esquerdo (.rail-left)
+ * Injeta bloco Radar Eleitoral no TOPO do rail esquerdo (.rail-left)
  */
 (function () {
   'use strict';
@@ -184,7 +184,7 @@
   }
 
   function injetar(artigos, pesquisaData) {
-    var rail = document.querySelector('.rail-right');
+    var rail = document.querySelector('.rail-left');
     if (!rail) return;
     var bloco = construirBloco(artigos, pesquisaData);
     rail.insertBefore(bloco, rail.firstChild);

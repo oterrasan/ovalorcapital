@@ -1,7 +1,8 @@
 /**
  * ovc-copa.js — Radar da Copa 2026 • Widget independente
  * REGRA ZERO-I: 100% independente — não afeta home.js nem ovc-cards.js
- * Injeta bloco Radar da Copa ANTES da .rail-block-tv no rail direito
+ * Injeta bloco Radar da Copa no rail direito (.rail-right), logo após
+ * o Radar da Bola (ovc-futebol.js) — que tem prioridade de topo.
  */
 (function () {
   'use strict';
@@ -176,10 +177,12 @@
   function injetar(artigos) {
     var rail = document.querySelector('.rail-right');
     if (!rail) return;
-    var tvBlock = rail.querySelector('.rail-block-tv');
     var bloco = construirBloco(artigos);
-    if (tvBlock) {
-      rail.insertBefore(bloco, tvBlock);
+    // Radar da Bola (ovc-futebol.js) tem prioridade de topo — se já estiver
+    // no ar, a Copa entra logo depois dele, nunca na frente.
+    var futebolBlock = rail.querySelector('#ovc-radar-futebol');
+    if (futebolBlock) {
+      rail.insertBefore(bloco, futebolBlock.nextSibling);
     } else {
       rail.insertBefore(bloco, rail.firstChild);
     }
