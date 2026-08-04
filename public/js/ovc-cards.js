@@ -348,6 +348,21 @@ function injetarEstilosMiolo(){
     '.ovc-card-vc-editorial:hover{transform:translateY(-4px);box-shadow:0 12px 36px rgba(0,0,0,0.18);}',
 
     '@media(max-width:900px){.ovc-zona-brasil-grid{grid-template-columns:1fr;}.ovc-zona-vida-grid{grid-template-columns:1fr;}}',
+
+    /* Colunistas OVC — fileira única, lado a lado, entre Brasil em Foco e Internacional */
+    '.ovc-colunistas-fileira{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;',
+    'background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:20px 22px;}',
+    '.ovc-colunista-item{display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;',
+    'color:#0f172a;flex:1;min-width:0;}',
+    '.ovc-colunista-avatar,.ovc-colunista-avatar-ph{width:56px;height:56px;border-radius:12px;flex-shrink:0;}',
+    '.ovc-colunista-avatar{object-fit:cover;object-position:center top;border:1px solid #e5e7eb;background:#111827;display:block;}',
+    '.ovc-colunista-avatar-ph{background:#101827;color:#d4af37;display:flex;align-items:center;justify-content:center;',
+    'font-size:13px;font-weight:800;}',
+    '.ovc-colunista-nome{font-size:10.5px;font-weight:700;line-height:1.25;text-align:center;',
+    'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-colunista-item:hover .ovc-colunista-nome{color:#b8860b;}',
+    '@media(max-width:640px){.ovc-colunistas-fileira{flex-wrap:wrap;justify-content:center;}',
+    '.ovc-colunista-item{flex:0 0 auto;width:72px;}}',
   ].join('');
   document.head.appendChild(st);
 }
@@ -556,6 +571,20 @@ function renderZonaHeader(titulo, verMaisHref){
   return el;
 }
 
+function renderColunistasFileira(){
+  // Fileira única, lado a lado — populada por carregarColunistasFileira() via
+  // fetch assíncrono depois que buildSection() insere este placeholder no DOM.
+  var bloco = document.createElement('div');
+  bloco.className = 'ovc-zona';
+  bloco.appendChild(renderZonaHeader('Colunistas OVC', '/colunistas/'));
+  var row = document.createElement('div');
+  row.className = 'ovc-colunistas-fileira';
+  row.id = 'ovc-colunistas-fileira-body';
+  row.innerHTML = '<span style="font-size:11px;color:#94a3b8;">Carregando colunistas...</span>';
+  bloco.appendChild(row);
+  return bloco;
+}
+
 function renderManchetesBloco(secoes){
   var bloco = document.createElement('div');
   bloco.className = 'ovc-manchetes-bloco';
@@ -612,6 +641,10 @@ function buildSection(container){
   ]));
   z1.appendChild(z1grid);
   miolo.appendChild(z1);
+  miolo.appendChild(sep());
+
+  // ── Colunistas OVC (fileira única, lado a lado) — entre Brasil em Foco e Internacional ──
+  miolo.appendChild(renderColunistasFileira());
   miolo.appendChild(sep());
 
   // ── Internacional (editorial full-width, mesmo padrão do bloco de Esportes) ──
@@ -1028,28 +1061,17 @@ function load(){
     }
   }
 
-  function garantirRailColunistas(){
-    var tv = document.querySelector('.rail-block-tv');
-    if(!tv || !tv.parentNode) return null;
-    var block = document.querySelector('[data-home-colunistas-rail]');
-    if(!block){
-      block = document.createElement('div');
-      block.className = 'rail-block rail-block-colunistas';
-      block.setAttribute('data-home-colunistas-rail','1');
-      block.innerHTML = '<div class="rail-title">Colunistas OVC</div>'
-        +'<div class="home-colunistas-rail-body" style="font-size:11px;color:#6b7280;">Carregando colunistas...</div>';
-    }
-    if(tv.nextElementSibling !== block) tv.parentNode.insertBefore(block, tv.nextSibling);
-    return block.querySelector('.home-colunistas-rail-body');
-  }
-
+  // Colunistas OVC — antes ficava empilhado (3x2) num rail-block na sidebar,
+  // atrás do bloco TV. Roberto pediu fileira única, lado a lado, dentro do
+  // miolo principal, entre Brasil em Foco e Internacional (renderColunistasFileira
+  // + inserção em buildSection()). Função mantida no mesmo lugar do arquivo.
   function iniciais(nome){
     return String(nome||'OVC').trim().split(/\s+/).slice(0,2).map(function(p){ return p.charAt(0).toUpperCase(); }).join('');
   }
 
-  function carregarRailColunistas(){
-    var body = garantirRailColunistas();
-    if(!body) return;
+  function carregarColunistasFileira(){
+    var row = document.getElementById('ovc-colunistas-fileira-body');
+    if(!row) return;
     fetch('/api/manage?action=list_colunistas')
       .then(function(r){ return r.json(); })
       .then(function(data){
@@ -1064,31 +1086,30 @@ function load(){
           var bi = ordem.indexOf(bn); if(bi === -1) bi = 99;
           return ai - bi || an.localeCompare(bn);
         });
-        var html = '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">';
-        list.slice(0,9).forEach(function(c){
+        var html = '';
+        list.slice(0,8).forEach(function(c){
           var nome = c.nome || c.name || 'Colunista OVC';
           var foto = c.foto_url || c.photo_url || c.avatar_url || c.imagem || '';
-          html += '<a href="/colunistas/" title="'+escHtml(nome)+'" style="display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;color:#0f172a;min-width:0;">';
+          html += '<a class="ovc-colunista-item" href="/colunistas/" title="'+escHtml(nome)+'">';
           if(foto){
-            html += '<img src="'+foto+'" alt="'+escHtml(nome)+'" loading="lazy" style="width:42px;height:42px;border-radius:8px;object-fit:cover;object-position:center top;display:block;border:1px solid #e5e7eb;background:#111827;" onerror="this.outerHTML=\'<span style=&quot;width:42px;height:42px;border-radius:8px;background:#101827;color:#d4af37;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;&quot;>'+iniciais(nome)+'</span>\';">';
+            html += '<img class="ovc-colunista-avatar" src="'+foto+'" alt="'+escHtml(nome)+'" loading="lazy" onerror="this.outerHTML=\'<span class=&quot;ovc-colunista-avatar-ph&quot;>'+iniciais(nome)+'</span>\';">';
           } else {
-            html += '<span style="width:42px;height:42px;border-radius:8px;background:#101827;color:#d4af37;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">'+iniciais(nome)+'</span>';
+            html += '<span class="ovc-colunista-avatar-ph">'+iniciais(nome)+'</span>';
           }
-          html += '<span style="font-size:9px;font-weight:700;line-height:1.15;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">'+escHtml(nome)+'</span></a>';
+          html += '<span class="ovc-colunista-nome">'+escHtml(nome)+'</span></a>';
         });
-        html += '</div><a href="/colunistas/" style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px solid #edf0f5;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#b8860b;text-decoration:none;">Ver colunas <span>→</span></a>';
-        body.innerHTML = html;
+        row.innerHTML = html;
       })
       .catch(function(){
-        body.innerHTML = '<a href="/colunistas/" style="display:block;text-decoration:none;color:#0f172a;font-size:12px;font-weight:700;line-height:1.35;">Acesse os artigos e colunas do O Valor Capital</a>';
+        row.innerHTML = '<a href="/colunistas/" style="display:block;text-decoration:none;color:#0f172a;font-size:12px;font-weight:700;line-height:1.35;">Acesse os artigos e colunas do O Valor Capital</a>';
       });
   }
 
   document.addEventListener('DOMContentLoaded', function(){
     injetarMenuColunistas();
     organizarRailsHome();
-    carregarRailColunistas();
     load();
+    carregarColunistasFileira(); // depois de load() — o placeholder só existe após buildSection()
     carregarMaisLidas();
     carregarOvcTv();
     carregarColunistas();
