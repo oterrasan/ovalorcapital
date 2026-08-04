@@ -401,6 +401,25 @@ async function autoMaterias(req, res, rec) {
   return res.status(200).json({ status: "no_valid_news", generated: 0, categoria: cat, debug });
 }
 
+// tipo_conteudo="radar" na categoria esportes é EXCLUSIVAMENTE futebol (Regra Zero-I,
+// documentado desde 31/07/2026 — ver public/js/ovc-radar-widget.js). autoFutebolCurtinhas()
+// e autoCopaCurtinhas() sempre respeitaram isso (geram só a partir de itens já filtrados por
+// palavra-chave de futebol). autoCurtinhas() NÃO respeitava — decidia o tipo só pela categoria,
+// então qualquer esporte (automobilismo, basquete, tênis...) virava "radar" e contaminava
+// /radar-da-bola/, que exibe tudo com esse tipo sem filtro próprio. Fix 03/08/2026.
+const RADAR_ESPORTES_FUTEBOL_KW = [
+  'futebol', 'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
+  'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
+  'copa sul-americana', 'copa libertadores', 'copa do mundo', 'world cup', 'mundial 2026',
+  'fifa', 'seleção brasileira', 'selecao brasileira', 'champions league', 'liga dos campeões',
+  'liga dos campeoes', 'premier league', 'la liga', 'bundesliga', 'calcio', 'ligue 1',
+  'mercado da bola', 'janela de transferências', 'janela de transferencias'
+];
+function pareceFutebol(texto) {
+  const t = String(texto || "").toLowerCase();
+  return RADAR_ESPORTES_FUTEBOL_KW.some(kw => t.includes(kw));
+}
+
 async function autoCurtinhas(req, res, rec) {
   const start = Date.now();
   const news = await getNews();
@@ -426,9 +445,14 @@ async function autoCurtinhas(req, res, rec) {
       if (erros.length) continue;
       if (pautaParecida(content.titulo, rec.titulos)) continue;
       const cat = CATS.has(content.categoria) ? content.categoria : "politica";
-      const tipo = ["politica","esportes","internacional","brasil-on"].includes(cat) ? "radar"
-                 : ["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat) ? "minuto"
-                 : "pilula";
+      let tipo = ["politica","esportes","internacional","brasil-on"].includes(cat) ? "radar"
+               : ["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat) ? "minuto"
+               : "pilula";
+      // esportes só vira "radar" se for de fato futebol — outro esporte (automobilismo,
+      // basquete, tênis, mma, vôlei, nfl) cai pra "pilula" (nicho genérico, sem essa exigência).
+      if (cat === "esportes" && tipo === "radar" && !pareceFutebol(content.titulo + " " + (content.meta_descricao || ""))) {
+        tipo = "pilula";
+      }
       await saveCurtinha(content, hash, cat, tipo);
       await log("info", `[jornal] ${tipo}: ${content.titulo?.slice(0,50)}`);
       generated++;
