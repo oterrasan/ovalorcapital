@@ -39,23 +39,25 @@
   // Rótulos batem exatamente com admin/index.html SUBCATS.esportes (sem "Geral").
   // "accent" = cor de identidade daquele esporte, usada na aba ativa e no detalhe
   // das matérias — cada esporte com uma personalidade própria, mesmo dentro do widget.
+  // "page" = página de luxo dedicada daquele esporte — o CTA do widget deve
+  // sempre apontar pra lá, nunca pra categoria genérica /esportes/.
   var SPORTS = [
-    { key:'futebol',  label:'Futebol',  emoji:'⚽', accent:'#16a34a',
+    { key:'futebol',  label:'Futebol',  emoji:'⚽', accent:'#16a34a', page:'/radar-da-bola/',
       keywords:['campeonato brasileiro','brasileirão','brasileirao','série a','serie a','série b','serie b',
         'libertadores','sul-americana','sulamericana','copa sul-americana','copa libertadores',
         'copa do mundo','seleção brasileira','fifa','mundial','champions league','liga dos campeões',
         'premier league','la liga','bundesliga','calcio','ligue 1'] },
-    { key:'basquete',  label:'Basquete', emoji:'🏀', accent:'#f97316',
+    { key:'basquete',  label:'Basquete', emoji:'🏀', accent:'#f97316', page:'/basquete/',
       keywords:['nba','nbb','basquete','basketball'] },
-    { key:'motor',     label:'Motor',    emoji:'🏎️', accent:'#e11d48',
+    { key:'motor',     label:'Motor',    emoji:'🏎️', accent:'#e11d48', page:'/motor/',
       keywords:['fórmula 1','formula 1','f1','grande prêmio','grande premio','gp de','stock car','motogp','indycar','automobilismo'] },
-    { key:'tenis',     label:'Tênis',    emoji:'🎾', accent:'#84cc16',
+    { key:'tenis',     label:'Tênis',    emoji:'🎾', accent:'#84cc16', page:'/tenis/',
       keywords:['tênis','tenis','atp','wta','wimbledon','roland garros','australian open','us open de tênis','grand slam'] },
-    { key:'mma',       label:'MMA',      emoji:'🥊', accent:'#b91c1c',
+    { key:'mma',       label:'MMA',      emoji:'🥊', accent:'#b91c1c', page:'/mma/',
       keywords:['mma','ufc','octógono','octogono','artes marciais mistas'] },
-    { key:'volei',     label:'Vôlei',    emoji:'🏐', accent:'#0ea5e9',
+    { key:'volei',     label:'Vôlei',    emoji:'🏐', accent:'#0ea5e9', page:'/volei/',
       keywords:['vôlei','volei','superliga','fivb','vôlei de praia','volei de praia'] },
-    { key:'nfl',       label:'NFL',      emoji:'🏈', accent:'#92400e',
+    { key:'nfl',       label:'NFL',      emoji:'🏈', accent:'#92400e', page:'/nfl/',
       keywords:['nfl','super bowl','futebol americano'] }
   ];
   var LABEL_TO_KEY = {};
@@ -188,6 +190,14 @@
       body.className = 'ovc-esporte-body';
       bloco.style.setProperty('--sport-accent', disponiveis[0].accent);
 
+      var cta = document.createElement('a');
+      cta.className = 'ovc-esporte-cta';
+
+      function setCta(s) {
+        cta.href = s.page || CAT_URL;
+        cta.innerHTML = s.emoji + ' Ver radar completo de ' + esc(s.label) + ' <span>→</span>';
+      }
+
       disponiveis.forEach(function (s, idx) {
         var tab = document.createElement('button');
         tab.type = 'button';
@@ -198,6 +208,7 @@
           tab.classList.add('active');
           bloco.style.setProperty('--sport-accent', s.accent);
           renderBody(body, porEsporte[s.key] || [], s);
+          setCta(s);
         });
         tabs.appendChild(tab);
       });
@@ -205,13 +216,16 @@
       bloco.appendChild(tabs);
       renderBody(body, porEsporte[disponiveis[0].key] || [], disponiveis[0]);
       bloco.appendChild(body);
+      setCta(disponiveis[0]);
+      bloco.appendChild(cta);
+      return bloco;
     }
 
-    var cta = document.createElement('a');
-    cta.href = CAT_URL;
-    cta.className = 'ovc-esporte-cta';
-    cta.innerHTML = '🏆 Ver todos os esportes <span>→</span>';
-    bloco.appendChild(cta);
+    var ctaFallback = document.createElement('a');
+    ctaFallback.href = CAT_URL;
+    ctaFallback.className = 'ovc-esporte-cta';
+    ctaFallback.innerHTML = '🏆 Ver todos os esportes <span>→</span>';
+    bloco.appendChild(ctaFallback);
 
     return bloco;
   }
