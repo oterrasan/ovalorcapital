@@ -37,20 +37,26 @@
 
   // Ordem = prioridade de classificação quando um artigo bate em mais de um esporte.
   // Rótulos batem exatamente com admin/index.html SUBCATS.esportes (sem "Geral").
+  // "accent" = cor de identidade daquele esporte, usada na aba ativa e no detalhe
+  // das matérias — cada esporte com uma personalidade própria, mesmo dentro do widget.
   var SPORTS = [
-    { key:'futebol',  label:'Futebol',  emoji:'⚽',
+    { key:'futebol',  label:'Futebol',  emoji:'⚽', accent:'#16a34a',
       keywords:['campeonato brasileiro','brasileirão','brasileirao','série a','serie a','série b','serie b',
         'libertadores','sul-americana','sulamericana','copa sul-americana','copa libertadores',
         'copa do mundo','seleção brasileira','fifa','mundial','champions league','liga dos campeões',
         'premier league','la liga','bundesliga','calcio','ligue 1'] },
-    { key:'basquete',  label:'Basquete', emoji:'🏀', keywords:['nba','nbb','basquete','basketball'] },
-    { key:'motor',     label:'Motor',    emoji:'🏎️',
+    { key:'basquete',  label:'Basquete', emoji:'🏀', accent:'#f97316',
+      keywords:['nba','nbb','basquete','basketball'] },
+    { key:'motor',     label:'Motor',    emoji:'🏎️', accent:'#e11d48',
       keywords:['fórmula 1','formula 1','f1','grande prêmio','grande premio','gp de','stock car','motogp','indycar','automobilismo'] },
-    { key:'tenis',     label:'Tênis',    emoji:'🎾',
+    { key:'tenis',     label:'Tênis',    emoji:'🎾', accent:'#84cc16',
       keywords:['tênis','tenis','atp','wta','wimbledon','roland garros','australian open','us open de tênis','grand slam'] },
-    { key:'mma',       label:'MMA',      emoji:'🥊', keywords:['mma','ufc','octógono','octogono','artes marciais mistas'] },
-    { key:'volei',     label:'Vôlei',    emoji:'🏐', keywords:['vôlei','volei','superliga','fivb','vôlei de praia','volei de praia'] },
-    { key:'nfl',       label:'NFL',      emoji:'🏈', keywords:['nfl','super bowl','futebol americano'] }
+    { key:'mma',       label:'MMA',      emoji:'🥊', accent:'#b91c1c',
+      keywords:['mma','ufc','octógono','octogono','artes marciais mistas'] },
+    { key:'volei',     label:'Vôlei',    emoji:'🏐', accent:'#0ea5e9',
+      keywords:['vôlei','volei','superliga','fivb','vôlei de praia','volei de praia'] },
+    { key:'nfl',       label:'NFL',      emoji:'🏈', accent:'#92400e',
+      keywords:['nfl','super bowl','futebol americano'] }
   ];
   var LABEL_TO_KEY = {};
   SPORTS.forEach(function(s){ LABEL_TO_KEY[s.label.toLowerCase()] = s.key; });
@@ -69,46 +75,58 @@
     var sty = document.createElement('style');
     sty.id = 'ovc-esporte-css';
     sty.textContent = [
-      '@keyframes esporte-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}',
-      '.ovc-esporte-rail{margin-bottom:18px;border-radius:8px;overflow:hidden;',
-      '  border:1.5px solid #dc2626;}',
-      '.ovc-esporte-header{background:linear-gradient(135deg,#dc2626 0%,#991b1b 60%,#1e293b 100%);',
-      '  padding:12px 14px;position:relative;overflow:hidden;}',
-      '.ovc-esporte-header::before{content:"🏆";position:absolute;right:-8px;top:-8px;font-size:52px;opacity:.15;',
-      '  transform:rotate(-20deg);}',
-      '.ovc-esporte-live-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}',
-      '.ovc-esporte-dot{display:inline-block;width:8px;height:8px;background:#fbbf24;border-radius:50%;',
-      '  animation:esporte-pulse 1s ease-in-out infinite;flex-shrink:0;}',
-      '.ovc-esporte-live-txt{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;}',
-      '.ovc-esporte-title{font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em;line-height:1.2;}',
-      '.ovc-esporte-sub{font-size:10px;color:rgba(255,255,255,.75);margin-top:2px;}',
-      '.ovc-esporte-tabs{display:flex;flex-wrap:wrap;gap:4px;padding:8px 10px;background:var(--bg-elevated,#fff);',
+      '@keyframes esporte-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}',
+      '@keyframes esporte-shine{0%{transform:translateX(-120%) skewX(-15deg)}100%{transform:translateX(220%) skewX(-15deg)}}',
+      '.ovc-esporte-rail{margin-bottom:18px;border-radius:12px;overflow:hidden;',
+      '  border:1px solid #064e3b;box-shadow:0 10px 30px -12px rgba(6,78,59,.45);}',
+      '.ovc-esporte-header{background:linear-gradient(150deg,#059669 0%,#065f46 55%,#0f172a 115%);',
+      '  padding:14px 16px 16px;position:relative;overflow:hidden;}',
+      '.ovc-esporte-header::before{content:"🏆";position:absolute;right:-10px;top:-12px;font-size:64px;opacity:.12;',
+      '  transform:rotate(-18deg);}',
+      '.ovc-esporte-shine{position:absolute;top:0;left:0;width:35%;height:100%;',
+      '  background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);',
+      '  animation:esporte-shine 4.5s ease-in-out infinite;pointer-events:none;}',
+      '.ovc-esporte-live-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;position:relative;}',
+      '.ovc-esporte-dot{display:inline-block;width:8px;height:8px;background:#facc15;border-radius:50%;',
+      '  animation:esporte-pulse 1s ease-in-out infinite;flex-shrink:0;',
+      '  box-shadow:0 0 8px 1px rgba(250,204,21,.7);}',
+      '.ovc-esporte-live-txt{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#facc15;}',
+      '.ovc-esporte-title{font-size:16px;font-weight:900;color:#fff;letter-spacing:-.01em;line-height:1.15;',
+      '  position:relative;text-shadow:0 2px 10px rgba(0,0,0,.25);}',
+      '.ovc-esporte-sub{font-size:10.5px;color:rgba(255,255,255,.8);margin-top:4px;position:relative;',
+      '  letter-spacing:.01em;}',
+      '.ovc-esporte-tabs{display:flex;flex-wrap:wrap;gap:5px;padding:10px;background:var(--bg-elevated,#fff);',
       '  border-bottom:1px solid var(--border-subtle,#e2e8f0);}',
-      '.ovc-esporte-tab{border:1px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:999px;',
-      '  padding:4px 9px;font-size:10px;font-weight:700;color:var(--text-soft,#475569);cursor:pointer;',
-      '  display:inline-flex;align-items:center;gap:4px;transition:all .12s;}',
-      '.ovc-esporte-tab:hover{border-color:#dc2626;color:#dc2626;}',
-      '.ovc-esporte-tab.active{background:#dc2626;border-color:#dc2626;color:#fff;}',
+      '.ovc-esporte-tab{border:1.5px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:999px;',
+      '  padding:5px 10px;font-size:10.5px;font-weight:700;color:var(--text-soft,#475569);cursor:pointer;',
+      '  display:inline-flex;align-items:center;gap:5px;transition:all .15s;}',
+      '.ovc-esporte-tab:hover{border-color:#059669;color:#059669;transform:translateY(-1px);}',
+      '.ovc-esporte-tab.active{border-color:var(--sport-accent,#059669);color:#fff;',
+      '  background:var(--sport-accent,#059669);box-shadow:0 3px 10px -3px var(--sport-accent,#059669);}',
       '.ovc-esporte-body{background:var(--bg-elevated,#fff);padding:10px 12px;}',
-      '.ovc-esporte-article{display:block;padding:9px 0;border-bottom:1px solid var(--border-subtle,#e2e8f0);',
-      '  text-decoration:none;transition:padding-left .12s;}',
+      '.ovc-esporte-article{display:block;padding:10px 4px;border-bottom:1px solid var(--border-subtle,#e2e8f0);',
+      '  text-decoration:none;transition:all .14s;border-left:3px solid transparent;margin-left:-4px;',
+      '  padding-left:8px;border-radius:4px;}',
       '.ovc-esporte-article:last-child{border-bottom:none;}',
-      '.ovc-esporte-article:hover{padding-left:4px;}',
-      '.ovc-esporte-artitle{font-size:12px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:2px;}',
-      '.ovc-esporte-artmeta{font-size:10px;color:#dc2626;font-weight:500;}',
+      '.ovc-esporte-article:hover{padding-left:12px;border-left-color:var(--sport-accent,#059669);',
+      '  background:rgba(5,150,105,.05);}',
+      '.ovc-esporte-artitle{font-size:12.5px;font-weight:650;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:3px;}',
+      '.ovc-esporte-artmeta{font-size:10px;color:var(--sport-accent,#059669);font-weight:700;',
+      '  text-transform:uppercase;letter-spacing:.02em;}',
+      '.ovc-esporte-empty{font-size:12px;color:#64748b;margin:0;padding:14px 4px;text-align:center;}',
       '.ovc-esporte-cta{display:flex;align-items:center;justify-content:space-between;',
-      '  padding:9px 12px;background:#fef2f2;border-top:1px solid #fecaca;',
-      '  text-decoration:none;font-size:11px;font-weight:700;color:#991b1b;',
+      '  padding:11px 14px;background:linear-gradient(90deg,#ecfdf5,#f0fdfa);border-top:1px solid #a7f3d0;',
+      '  text-decoration:none;font-size:11.5px;font-weight:800;color:#065f46;',
       '  transition:background .15s;}',
-      '.ovc-esporte-cta:hover{background:#fee2e2;}',
+      '.ovc-esporte-cta:hover{background:linear-gradient(90deg,#d1fae5,#ccfbf1);}',
     ].join('');
     document.head.appendChild(sty);
   }
 
-  function renderBody(body, artigos) {
+  function renderBody(body, artigos, sport) {
     body.innerHTML = '';
     if (!artigos.length) {
-      body.innerHTML = '<p style="font-size:12px;color:#64748b;margin:0;padding:4px 0;">Cobertura chegando em breve.</p>';
+      body.innerHTML = '<p class="ovc-esporte-empty">Cobertura chegando em breve.</p>';
       return;
     }
     artigos.slice(0, 5).forEach(function (p) {
@@ -117,7 +135,7 @@
       a.href = buildHref(p);
       a.innerHTML =
         '<div class="ovc-esporte-artitle">' + esc(p.titulo) + '</div>' +
-        '<div class="ovc-esporte-artmeta">🏆 Esportes OVC · ' + dataBr(p.published_at || p.data || p.created_at) + '</div>';
+        '<div class="ovc-esporte-artmeta">' + (sport ? sport.emoji : '🏆') + ' ' + dataBr(p.published_at || p.data || p.created_at) + '</div>';
       body.appendChild(a);
     });
   }
@@ -132,9 +150,10 @@
     var header = document.createElement('div');
     header.className = 'ovc-esporte-header';
     header.innerHTML =
+      '<div class="ovc-esporte-shine"></div>' +
       '<div class="ovc-esporte-live-row">' +
       '<span class="ovc-esporte-dot"></span>' +
-      '<span class="ovc-esporte-live-txt">🏆 Todos os Esportes</span>' +
+      '<span class="ovc-esporte-live-txt">Ao vivo · 24h</span>' +
       '</div>' +
       '<div class="ovc-esporte-title">RADAR DO ESPORTE</div>' +
       '<div class="ovc-esporte-sub">Futebol · Basquete · Motor · Tênis · MMA · Vôlei · NFL</div>';
@@ -152,6 +171,7 @@
       tabs.className = 'ovc-esporte-tabs';
       var body = document.createElement('div');
       body.className = 'ovc-esporte-body';
+      bloco.style.setProperty('--sport-accent', disponiveis[0].accent);
 
       disponiveis.forEach(function (s, idx) {
         var tab = document.createElement('button');
@@ -161,13 +181,14 @@
         tab.addEventListener('click', function () {
           Array.prototype.forEach.call(tabs.children, function (t) { t.classList.remove('active'); });
           tab.classList.add('active');
-          renderBody(body, porEsporte[s.key] || []);
+          bloco.style.setProperty('--sport-accent', s.accent);
+          renderBody(body, porEsporte[s.key] || [], s);
         });
         tabs.appendChild(tab);
       });
 
       bloco.appendChild(tabs);
-      renderBody(body, porEsporte[disponiveis[0].key] || []);
+      renderBody(body, porEsporte[disponiveis[0].key] || [], disponiveis[0]);
       bloco.appendChild(body);
     }
 
