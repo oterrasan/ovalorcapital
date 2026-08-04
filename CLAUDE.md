@@ -4690,3 +4690,9 @@ Roberto pediu que os dois widgets do topo dos rails da Home (Eleitoral no rail e
 
 **Ressalva importante:** o valor `740px` foi calculado analiticamente (somando padding/font-size/line-height de cada seção no CSS), não confirmado num navegador real rodando — este ambiente de sessão não tem acesso a renderização visual. **Alta chance de precisar de um ajuste fino** depois que Roberto olhar ao vivo (aumentar/diminuir esse único número em ambos os arquivos, mudança trivial e rápida caso não bata exato).
 
+#### Bug real encontrado após deploy — cache-busting esquecido (`?v=`)
+
+Roberto mandou print mostrando fonte/tamanho/espaçamento diferentes entre os dois widgets, mesmo após o deploy do ajuste de simetria. Causa raiz: `ovc-eleitoral.js` e `ovc-radar-esporte.js` foram editados VÁRIAS vezes ao longo desta sessão (cores, altura, distribuição interna), mas o número de versão na tag `<script>` de `public/index.html` nunca foi atualizado (`?v=1` e `?v=2` desde a primeira vez que os arquivos foram tocados) — mesmo bug de cache já documentado várias vezes no histórico deste projeto (`site.js` ficou travado em cache por mais de 1 mês na sessão 30-31/07/2026 por esse motivo exato). Fix: `ovc-radar-esporte.js?v=1→v=2`, `ovc-eleitoral.js?v=2→v=3`.
+
+**Lição reforçada:** depois de QUALQUER edição num arquivo JS/CSS referenciado com `?v=N` em algum HTML, bumpar o número IMEDIATAMENTE no mesmo commit — não deixar pra depois, é fácil esquecer quando o arquivo é editado várias vezes seguidas na mesma sessão (como aconteceu aqui: 3 edições em `ovc-radar-esporte.js` e 2 em `ovc-eleitoral.js` sem nenhum bump de versão até este fix).
+
