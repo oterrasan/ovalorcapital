@@ -49,8 +49,13 @@
       '@keyframes el-pulse{0%,100%{opacity:1}50%{opacity:.3}}',
       /* Altura fixa compartilhada com .ovc-esporte-rail (ovc-radar-esporte.js) —
          os dois widgets ficam lado a lado no topo dos rails da Home e devem
-         começar e terminar exatamente na mesma posição. Mudar aqui? Mudar lá também. */
-      '.ovc-eleitoral-rail{margin-top:18px;border-radius:8px;overflow:hidden;',
+         começar e terminar exatamente na mesma posição. Mudar aqui? Mudar lá também.
+         box-sizing:border-box trava a altura total em 740px INCLUINDO a borda —
+         sem isso, bordas de espessuras diferentes entre os dois widgets somam
+         2px extras fora do height declarado e desalinham o fim dos dois blocos.
+         margin-top:0 (só margin-bottom) — mesmo padrão do esporte, os dois
+         começam colados no topo do rail. */
+      '.ovc-eleitoral-rail{margin-bottom:18px;border-radius:8px;overflow:hidden;box-sizing:border-box;',
       '  border:1.5px solid #1d4ed8;height:740px;display:flex;flex-direction:column;}',
       '.ovc-el-header{background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#7c3aed 100%);',
       '  padding:12px 14px;position:relative;overflow:hidden;flex-shrink:0;}',
