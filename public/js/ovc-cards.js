@@ -349,48 +349,42 @@ function injetarEstilosMiolo(){
 
     '@media(max-width:900px){.ovc-zona-brasil-grid{grid-template-columns:1fr;}.ovc-zona-vida-grid{grid-template-columns:1fr;}}',
 
-    /* Colunistas OVC — card escuro premium, entre Brasil em Foco e Internacional.
-       Mesma linguagem visual "espetacular" dos radares esportivos (dark carbon +
-       textura + sweep animado), com identidade dourada própria pra Opinião. */
-    '@keyframes col-sweep{0%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(260%) skewX(-18deg)}}',
-    '.ovc-colunistas-card{border-radius:14px;overflow:hidden;background:#0b0e14;',
-    'box-shadow:0 20px 50px -20px rgba(0,0,0,.55);border:1px solid #362809;}',
-    /* Altura reduzida (04/08/2026) — Roberto: "ficou grossierao, diminua a
-       altura de toda essa area" — cabeçalho, avatares e espaçamentos mais
-       enxutos, mantendo a mesma identidade escura/dourada. */
-    '.ovc-colunistas-hd{position:relative;overflow:hidden;padding:12px 20px 10px;',
-    'background:repeating-linear-gradient(120deg,#0b0e14 0 26px,#1a1206 26px 52px);}',
-    '.ovc-colunistas-stripe{position:absolute;top:0;right:-8%;width:55%;height:100%;',
-    'background:linear-gradient(100deg,transparent 0%,#b8860b33 45%,transparent 70%);pointer-events:none;}',
-    '.ovc-colunistas-sweep{position:absolute;top:0;left:0;width:22%;height:100%;',
-    'background:linear-gradient(100deg,transparent,rgba(255,255,255,.09),transparent);',
-    'animation:col-sweep 5.5s ease-in-out infinite;pointer-events:none;}',
-    '.ovc-colunistas-badge{display:flex;align-items:center;gap:6px;margin-bottom:3px;position:relative;',
-    'font-size:9px;font-weight:800;color:#d4af37;text-transform:uppercase;letter-spacing:.12em;}',
-    '.ovc-colunistas-badge .dot{width:6px;height:6px;border-radius:50%;background:#d4af37;flex-shrink:0;',
-    'box-shadow:0 0 8px 1px rgba(212,175,55,.6);}',
-    '.ovc-colunistas-title{font-size:16px;font-weight:900;color:#fff;letter-spacing:-.02em;',
-    'line-height:1.1;font-style:italic;position:relative;}',
-    '.ovc-colunistas-sub{font-size:10.5px;color:rgba(255,255,255,.55);margin-top:3px;position:relative;}',
-    '.ovc-colunistas-body{background:#0b0e14;padding:12px 20px 2px;display:flex;gap:10px;justify-content:space-between;}',
+    /* Colunistas OVC — card CLARO, entre Brasil em Foco e Internacional.
+       04/08/2026: fundo escuro removido a pedido de Roberto ("nao tem a ver
+       com o OVC") — o portal é branco/claro, o dourado (#b8860b) já é a cor
+       oficial da categoria Colunistas (CORES_CAT.colunistas, usada no menu
+       e nos cards de categoria) — é essa identidade que carrega o "chamativo",
+       não mais um tema dark emprestado dos radares esportivos. */
+    '.ovc-colunistas-card{border-radius:14px;overflow:hidden;background:#fff;',
+    'box-shadow:0 2px 14px rgba(0,0,0,.07);border:1px solid #ecdfb8;}',
+    '.ovc-colunistas-hd{position:relative;padding:12px 20px 10px;',
+    'background:linear-gradient(135deg,#fbf3dd 0%,#fff 65%);border-bottom:1px solid #f1e6c2;}',
+    '.ovc-colunistas-badge{display:flex;align-items:center;gap:6px;margin-bottom:3px;',
+    'font-size:9px;font-weight:800;color:#92670a;text-transform:uppercase;letter-spacing:.12em;}',
+    '.ovc-colunistas-badge .dot{width:6px;height:6px;border-radius:50%;background:#b8860b;flex-shrink:0;',
+    'box-shadow:0 0 6px 1px rgba(184,134,11,.4);}',
+    '.ovc-colunistas-title{font-size:16px;font-weight:900;color:#0f172a;letter-spacing:-.02em;',
+    'line-height:1.1;font-style:italic;}',
+    '.ovc-colunistas-sub{font-size:10.5px;color:#64748b;margin-top:3px;}',
+    '.ovc-colunistas-body{background:#fff;padding:12px 20px 2px;display:flex;gap:10px;justify-content:space-between;}',
     '.ovc-colunista-item{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;',
     'flex:1;min-width:0;}',
     '.ovc-colunista-avatar-ring{width:52px;height:52px;border-radius:50%;padding:2px;flex-shrink:0;',
     'background:linear-gradient(140deg,#e8c15c,#8a6d1a);transition:transform .18s;}',
     '.ovc-colunista-item:hover .ovc-colunista-avatar-ring{transform:translateY(-2px);}',
     '.ovc-colunista-avatar,.ovc-colunista-avatar-ph{width:100%;height:100%;border-radius:50%;display:block;',
-    'object-fit:cover;object-position:center top;border:2px solid #0b0e14;}',
-    '.ovc-colunista-avatar-ph{background:#101827;color:#e8c15c;display:flex;align-items:center;',
+    'object-fit:cover;object-position:center top;border:2px solid #fff;}',
+    '.ovc-colunista-avatar-ph{background:#f3ead0;color:#92670a;display:flex;align-items:center;',
     'justify-content:center;font-size:12px;font-weight:800;}',
-    '.ovc-colunista-nome{font-size:10.5px;font-weight:800;color:#fff;line-height:1.2;text-align:center;',
+    '.ovc-colunista-nome{font-size:10.5px;font-weight:800;color:#0f172a;line-height:1.2;text-align:center;',
     'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
     '.ovc-colunista-bio{font-size:8px;font-weight:500;line-height:1.25;text-align:center;',
-    'color:rgba(255,255,255,.4);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}',
-    '.ovc-colunista-item:hover .ovc-colunista-nome{color:#e8c15c;}',
+    'color:#94a3b8;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-colunista-item:hover .ovc-colunista-nome{color:#92670a;}',
     '.ovc-colunistas-cta{display:flex;align-items:center;justify-content:space-between;',
-    'padding:8px 20px;margin-top:4px;border-top:1px solid #241a08;text-decoration:none;',
-    'font-size:10.5px;font-weight:800;color:#d4af37;transition:background .15s;}',
-    '.ovc-colunistas-cta:hover{background:#14100a;}',
+    'padding:8px 20px;margin-top:4px;border-top:1px solid #f1e6c2;text-decoration:none;',
+    'font-size:10.5px;font-weight:800;color:#92670a;transition:background .15s;}',
+    '.ovc-colunistas-cta:hover{background:#fdf8ec;}',
     '@media(max-width:640px){.ovc-colunistas-body{flex-wrap:wrap;justify-content:center;}',
     '.ovc-colunista-item{flex:0 0 auto;width:76px;}}',
 
@@ -606,16 +600,18 @@ function renderZonaHeader(titulo, verMaisHref){
 }
 
 function renderColunistasFileira(){
-  // Card escuro premium, próprio — não usa mais o padrão .ovc-zona/renderZonaHeader
-  // (branco, discreto) das outras seções. Roberto pediu algo "chamativo mas
-  // elegante" (04/08/2026); o contraste dark entre dois blocos brancos (Brasil
-  // em Foco / Internacional) já cumpre boa parte disso sozinho.
+  // Card claro próprio, com identidade dourada (cor oficial de Colunistas,
+  // CORES_CAT.colunistas) — não usa mais o padrão .ovc-zona/renderZonaHeader
+  // (accent vermelho das demais seções) nem o fundo escuro que tinha antes
+  // (removido 04/08/2026 — Roberto: "nao tem a ver com o OVC", o portal é
+  // branco/claro). O dourado + moldura circular nas fotos carrega o
+  // "chamativo mas elegante" pedido, dentro da identidade visual do site.
   // Populado por carregarColunistasFileira() via fetch assíncrono, depois que
   // buildSection() insere este placeholder no DOM.
   var bloco = document.createElement('div');
   bloco.className = 'ovc-colunistas-card';
   bloco.innerHTML =
-    '<div class="ovc-colunistas-hd"><div class="ovc-colunistas-stripe"></div><div class="ovc-colunistas-sweep"></div>' +
+    '<div class="ovc-colunistas-hd">' +
     '<div class="ovc-colunistas-badge"><span class="dot"></span>Opinião &amp; Análise</div>' +
     '<div class="ovc-colunistas-title">COLUNISTAS OVC</div>' +
     '<div class="ovc-colunistas-sub">Vozes autorais do portal — análise, bastidores e opinião</div>' +
@@ -623,7 +619,7 @@ function renderColunistasFileira(){
   var row = document.createElement('div');
   row.className = 'ovc-colunistas-body';
   row.id = 'ovc-colunistas-fileira-body';
-  row.innerHTML = '<span style="font-size:11px;color:rgba(255,255,255,.4);">Carregando colunistas...</span>';
+  row.innerHTML = '<span style="font-size:11px;color:#94a3b8;">Carregando colunistas...</span>';
   bloco.appendChild(row);
   var cta = document.createElement('a');
   cta.className = 'ovc-colunistas-cta';
@@ -1172,7 +1168,7 @@ function load(){
         row.innerHTML = html;
       })
       .catch(function(){
-        row.innerHTML = '<a href="/colunistas/" style="display:block;text-decoration:none;color:rgba(255,255,255,.7);font-size:12px;font-weight:700;line-height:1.35;">Acesse os artigos e colunas do O Valor Capital</a>';
+        row.innerHTML = '<a href="/colunistas/" style="display:block;text-decoration:none;color:#0f172a;font-size:12px;font-weight:700;line-height:1.35;">Acesse os artigos e colunas do O Valor Capital</a>';
       });
   }
 
