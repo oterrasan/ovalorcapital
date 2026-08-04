@@ -8,7 +8,7 @@
  * - Pílulas    → 3 mini-cards horizontais antes do último bloco do miolo
  *
  * Radar OVC REMOVIDO — 31/07/2026 (Roberto): consumia o mesmo tipo_conteudo="radar"
- * usado pelo Radar do Futebol (ovc-futebol.js) sem filtrar por categoria, duplicando
+ * usado pelo Radar do Esporte (ovc-radar-esporte.js) sem filtrar por categoria, duplicando
  * conteúdo esportivo fora do lugar certo. Conteúdo de futebol vive exclusivamente
  * no Radar do Futebol/Radar da Bola.
  */
