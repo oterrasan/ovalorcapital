@@ -4881,3 +4881,63 @@ Todos os 13 PRs desta sessão (#333 a #345) tiveram o CI "Verificar arquivos cr�
 3. O item "Lancaster MotorSport" publicado com `tipo_conteudo="radar"` errado no banco (ver sessão 03/08/2026) segue sem limpeza de dado histórico — baixa urgência.
 4. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/` com dado real da ESPN) seguem válidas e não foram tocadas nesta sessão.
 
+
+---
+
+### Sessão 04/08/2026 (continuação) — RSS: FONTES DEDICADAS POR MODALIDADE ESPORTIVA (PR #347)
+
+#### Contexto
+
+Roberto: *"claude, o radar dos esportes nao funciona como deveria, nada de conteudo é gerado a nao ser sobre futebol.... isso está errado provavelmente nas fontes., verifique. habilite fontes confiaveis e oficiais para cada esportes. pelo menos 2 ou 3 fontes robustas e confiaveis em cada um"*.
+
+#### Diagnóstico confirmado
+
+Em `core/rss.js`, das 70 fontes RSS aprovadas do portal, só **4** tinham `esportes` em `cats[]`: GE Globo, ESPN Brasil, Lance!, GaúchaZH — todas fontes gerais brasileiras dominadas por futebol na prática. **Zero** fontes dedicadas a Basquete, Motor/F1, Tênis, MMA, Vôlei ou NFL — exatamente os 6 esportes individuais que já são subcategorias oficiais de Esportes no portal (radares dedicados criados em 29/07/2026, PRs #287-290).
+
+Causa raiz composta: `getNewsByCategoria(categoria)` só ativa o filtro por categoria quando há **≥5 fontes específicas** casando (`fontesCat.length >= 5 ? fontesCat : FEEDS_DIRETOS_GARANTIDOS`). Com só 4 fontes esportes-tagged, o código SEMPRE caía no fallback de usar as 70 fontes gerais do portal inteiro — o que na prática dilui ainda mais a chance de conteúdo desses 6 esportes aparecer, porque nenhuma das 70 fontes gerais cobre eles.
+
+#### O que foi feito (PR #347 — mergeado em main, squash commit `e324ed0`)
+
+`core/rss.js` — 18 novas fontes adicionadas em `FEEDS_DIRETOS_GARANTIDOS`, 3 por modalidade, todas com `cats: ["esportes"]`:
+
+| Esporte | Fontes adicionadas |
+|---|---|
+| Basquete | NBA.com, ESPN NBA, Basquete Brasil (Google News) |
+| Motor/F1 | Motorsport.com, Autosport, Grande Prêmio (UOL) |
+| Tênis | BBC Sport Tênis, ESPN Tênis, Tennis.com |
+| MMA | Sherdog, MMA Fighting, MMA Junkie (USA Today) |
+| Vôlei | Vôlei Brasil (GN), FIVB Volleyball (GN), Vôlei de Praia (GN) — sem fonte dedicada oficial de Superliga/FIVB com RSS público estável encontrada, então 3 buscas via Google News (mesmo padrão já usado para AP/AFP no arquivo) |
+| NFL | NFL.com, ESPN NFL, Pro Football Talk (NBC Sports) |
+
+Total de fontes esportes-tagged: **4 → 22** — bem acima do limiar de 5, então `getNewsByCategoria("esportes")` passa a usar o pool filtrado de verdade em vez do fallback geral.
+
+Header do array atualizado: "70 FONTES OFICIAIS + 7 GOVERNO + 5 JURÍDICO/MÍDIA" → "+ 18 ESPORTES POR MODALIDADE = 100 no total", com autorização de Roberto (04/08/2026) documentada inline, mesmo padrão das entradas de GOVERNO/JURÍDICO de 28/07/2026.
+
+**⚠️ Nota de transparência (igual às fontes de GOVERNO/JURÍDICO anteriores):** as 18 URLs novas não foram verificadas por rede neste sandbox (ambiente bloqueia domínios de saída). Roberto deve confirmar após o próximo ciclo do pipeline se conteúdo de Basquete/Motor/Tênis/MMA/Vôlei/NFL está realmente sendo gerado.
+
+#### Verificações feitas antes do push
+
+- `node --check core/rss.js` — sintaxe OK
+- `public/index.html`: 646 linhas, não tocado nesta mudança (Regra Zero-E)
+- `api/`: continua com exatamente 10 arquivos (Regra Zero-A) — mudança é só em `core/rss.js`, fora do diretório limitado
+- CI "Verificar arquivos críticos" falhou pela mesma razão pré-existente e pré-autorizada (646 < 700 linhas em `public/index.html`, não causada por este PR) — merge manual feito normalmente, mesmo padrão já estabelecido com Roberto
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (04/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **18 fontes RSS dedicadas por modalidade esportiva (Basquete/Motor/Tênis/MMA/Vôlei/NFL)** | ✅ EM PRODUÇÃO (PR #347, commit `e324ed0`) |
+| **`getNewsByCategoria("esportes")` agora ativa filtro por categoria (22 fontes ≥ limiar de 5)** | ✅ EM PRODUÇÃO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto após o próximo ciclo do pipeline** se conteúdo de Basquete/Motor/Tênis/MMA/Vôlei/NFL está sendo gerado de fato — as URLs não foram verificadas por rede neste sandbox.
+2. Se alguma fonte se mostrar quebrada/inválida na prática, substituir por outra do mesmo esporte (não remover a categoria de cobertura).
+3. Demais pendências de sessões anteriores (visual da Colunistas/radares não verificado em navegador real, `ovc-copa.js` não carregado via `<script>` na home, SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão.
