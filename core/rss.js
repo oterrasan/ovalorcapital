@@ -18,7 +18,9 @@ const GN_EN = (q) => GN(q, "en", "US", "US:en");
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FONTES APROVADAS OVC — 70 FONTES OFICIAIS + 7 GOVERNO + 5 JURÍDICO/MÍDIA
-// Aprovadas por Roberto Terrasan em 18/06/2026 e 28/07/2026 (governo + jurídico/mídia)
+// + 18 ESPORTES POR MODALIDADE (Basquete/Motor/Tênis/MMA/Vôlei/NFL) = 100 no total
+// Aprovadas por Roberto Terrasan em 18/06/2026, 28/07/2026 (governo + jurídico/mídia)
+// e 04/08/2026 (esportes por modalidade)
 // NUNCA adicionar fontes sem aprovação explícita de Roberto
 // ═══════════════════════════════════════════════════════════════════════════
 const FEEDS_DIRETOS_GARANTIDOS = [
@@ -107,6 +109,31 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://nacaojuridica.com.br/feed/",                                 name: "Nação Jurídica",            cats: ["economia","brasil-on"] },
   { url: "https://jovempan.com.br/feed/",                                      name: "Jovem Pan",                 cats: ["brasil-on","politica","economia"] },
   { url: "https://www.cnnbrasil.com.br/politica/feed/",                        name: "CNN Política",              cats: ["politica","brasil-on"] },
+  // ━━━ ESPORTES POR MODALIDADE (18) — adicionadas a pedido de Roberto Terrasan 04/08/2026 ━━━
+  // Antes só havia 4 fontes gerais de esportes (GE, ESPN Brasil, Lance!, GaúchaZH), todas
+  // dominadas por conteúdo de futebol na prática. Isso fazia getNewsByCategoria("esportes")
+  // cair no fallback de usar TODAS as 70 fontes gerais (limiar mínimo de 5 fontes específicas
+  // nunca era atingido), diluindo ainda mais a cobertura de Basquete/Motor/Tênis/MMA/Vôlei/NFL.
+  // URLs não verificadas por rede neste sandbox (mesmo padrão já usado nas fontes de
+  // GOVERNO e JURÍDICO/MÍDIA de 28/07/2026) — Roberto/pipeline deve confirmar após deploy.
+  { url: "https://www.nba.com/rss/nba_rss.xml",                                 name: "NBA.com",                   cats: ["esportes"] },
+  { url: "https://www.espn.com/espn/rss/nba/news",                              name: "ESPN NBA",                  cats: ["esportes"] },
+  { url: GN("NBB Basquete Brasil CBB confederação brasileira de basquete"),     name: "Basquete Brasil (GN)",       cats: ["esportes"] },
+  { url: "https://www.motorsport.com/rss/f1/news/",                             name: "Motorsport.com F1",         cats: ["esportes"] },
+  { url: "https://www.autosport.com/rss/f1/news/",                              name: "Autosport F1",              cats: ["esportes"] },
+  { url: "https://grandepremio.uol.com.br/feed/",                               name: "Grande Prêmio (UOL)",       cats: ["esportes"] },
+  { url: "https://feeds.bbci.co.uk/sport/tennis/rss.xml",                       name: "BBC Sport Tênis",           cats: ["esportes"] },
+  { url: "https://www.espn.com/espn/rss/tennis/news",                           name: "ESPN Tênis",                cats: ["esportes"] },
+  { url: "https://www.tennis.com/feed/",                                        name: "Tennis.com",                cats: ["esportes"] },
+  { url: "https://www.sherdog.com/rss/news.xml",                                name: "Sherdog",                   cats: ["esportes"] },
+  { url: "https://www.mmafighting.com/rss/current",                             name: "MMA Fighting",              cats: ["esportes"] },
+  { url: "https://mmajunkie.usatoday.com/feed",                                 name: "MMA Junkie (USA Today)",    cats: ["esportes"] },
+  { url: GN("vôlei superliga CBV seleção brasileira de vôlei"),                 name: "Vôlei Brasil (GN)",         cats: ["esportes"] },
+  { url: GN_EN("FIVB volleyball nations league"),                               name: "FIVB Volleyball (GN)",      cats: ["esportes"] },
+  { url: GN("vôlei de praia brasil beach volleyball"),                          name: "Vôlei de Praia (GN)",       cats: ["esportes"] },
+  { url: "https://www.nfl.com/rss/rsslanding?searchString=home",                name: "NFL.com",                   cats: ["esportes"] },
+  { url: "https://www.espn.com/espn/rss/nfl/news",                              name: "ESPN NFL",                  cats: ["esportes"] },
+  { url: "https://profootballtalk.nbcsports.com/feed/",                         name: "Pro Football Talk (NBC)",   cats: ["esportes"] },
 ];
 
 const FAMILIA_CAT = {
