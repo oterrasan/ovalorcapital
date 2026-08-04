@@ -4696,3 +4696,50 @@ Roberto mandou print mostrando fonte/tamanho/espaçamento diferentes entre os do
 
 **Lição reforçada:** depois de QUALQUER edição num arquivo JS/CSS referenciado com `?v=N` em algum HTML, bumpar o número IMEDIATAMENTE no mesmo commit — não deixar pra depois, é fácil esquecer quando o arquivo é editado várias vezes seguidas na mesma sessão (como aconteceu aqui: 3 edições em `ovc-radar-esporte.js` e 2 em `ovc-eleitoral.js` sem nenhum bump de versão até este fix).
 
+---
+
+### Bug real — conteúdo de outro esporte vazando pra `/radar-da-bola/` (auditoria completa 03/08/2026)
+
+Roberto mandou print de `/radar-da-bola/` (página só de futebol) mostrando em destaque uma matéria de **automobilismo** ("Lancaster MotorSport... Endurance Brasil... Mil Milhas"). Pediu auditoria completa: cada esporte só pode aparecer no seu próprio lugar — **única exceção é o widget "Radar do Esporte" da Home**, que mistura todos de propósito (com abas).
+
+#### Auditoria — inventário de todo consumidor de conteúdo de esportes
+
+| Componente | Onde vive | Filtra por palavra-chave do esporte? |
+|---|---|---|
+| `ovc-radar-motor.js` | `/motor/` | ✅ Sim (`CFG.keywords`) |
+| `ovc-radar-mma.js` | `/mma/` | ✅ Sim (`CFG.keywords`) |
+| `ovc-radar-tenis.js` | `/tenis/` | ✅ Sim (`CFG.keywords`) |
+| `ovc-radar-volei.js` | `/volei/` | ✅ Sim (`CFG.keywords`) |
+| `ovc-torneio-espn.js` | `/basquete/`, `/nfl/`, `/brasileirao-a/`, `/brasileirao-b/`, `/libertadores/`, `/sul-americana/` | ✅ Sim (`CFG.keywords`) |
+| `ovc-futebol-europeu.js` | `/futebol-europeu/` | ✅ Sim (`CFG.keywords`) |
+| `ovc-copa.js` | Home (rail direito, quando carregado) | ✅ Sim (`COPA_KEYWORDS`) |
+| `ovc-radar-esporte.js` | Home (rail direito) | ✅ Sim — classifica por esporte e mostra em abas (é a exceção intencional, mistura todos de propósito) |
+| **`ovc-radar-widget.js`** | **`/radar-da-bola/`** | ❌ **NÃO filtrava** — confiava cegamente em `tipo_conteudo="radar"` |
+
+Só um consumidor estava quebrado. Todos os outros já filtravam por palavra-chave própria e nunca dependeram só do `tipo_conteudo`.
+
+#### Causa raiz de verdade — `api/run_portal.js`, função `autoCurtinhas()`
+
+```js
+const tipo = ["politica","esportes","internacional","brasil-on"].includes(cat) ? "radar" : ...
+```
+
+Decidia o tipo **só pela categoria** — qualquer notícia de "esportes" (automobilismo, basquete, tênis, o que fosse) virava `tipo_conteudo="radar"` automaticamente. Isso violava a regra documentada desde 31/07/2026 ("radar" em esportes = exclusivamente futebol). As funções vizinhas sempre fizeram certo — `autoFutebolCurtinhas()` e `autoCopaCurtinhas()` (desativada) só geram "radar" depois de filtrar a notícia-fonte por palavra-chave de futebol antes. `autoCurtinhas()` (a única ativa sem esse filtro) era a exceção quebrada.
+
+#### Fix aplicado (2 camadas — origem + defesa)
+
+1. **`api/run_portal.js`** — nova função `pareceFutebol()` + constante `RADAR_ESPORTES_FUTEBOL_KW`. Em `autoCurtinhas()`, esportes só vira `tipo="radar"` se o título/meta_descrição bater com palavra-chave de futebol; senão cai pra `"pilula"` (nicho genérico, sem essa exigência — pílula de basquete/motor/etc. continua normal, só não pode ser rotulada "radar").
+2. **`public/js/ovc-radar-widget.js`** — mesmo padrão de filtro (`FUTEBOL_KW` + `kwMatch()`, idêntico ao usado nos outros widgets de esporte) aplicado client-side em `carregar()`, só quando `categoria === 'esportes'`. Isso é defesa em profundidade: corrige o que já foi publicado errado antes do fix do pipeline (o pipeline sozinho só previne casos futuros, não limpa o passado) e protege contra qualquer nova brecha no futuro.
+3. `public/radar-da-bola/index.html`: `ovc-radar-widget.js?v=1` → `?v=2`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — só edição de arquivo existente)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendência
+
+O item "Lancaster MotorSport" já publicado com `tipo_conteudo="radar"` continua no banco com esse rótulo errado — o filtro client-side do widget agora o esconde de `/radar-da-bola/`, mas o registro em si não foi corrigido no banco (não é um problema de exibição em nenhum outro lugar, já que os outros widgets filtram por palavra-chave própria e o pegariam certo em `/motor/`). Não é urgente corrigir o dado histórico, mas fica registrado caso Roberto queira uma limpeza futura via SQL/admin.
+

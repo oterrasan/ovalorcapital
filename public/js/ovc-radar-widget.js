@@ -8,11 +8,36 @@
  * cronológica desse nicho, no mesmo padrão do hub /minuto/ (ovc-minuto-widget.js).
  * Config via atributos data-* no elemento alvo:
  *   data-categoria — filtra por categoria (opcional, ex: "esportes")
+ *
+ * Filtro de futebol client-side (03/08/2026): o backend já era pra garantir que
+ * "radar" em esportes é só futebol, mas um bug no pipeline (autoCurtinhas, corrigido
+ * em api/run_portal.js) deixava passar outros esportes (ex: automobilismo). Este
+ * widget é o único consumidor de "radar" que confiava cegamente no tipo sem checar
+ * palavra-chave — os outros (ovc-radar-motor.js, ovc-radar-mma.js etc.) sempre
+ * filtraram por keyword própria. Adicionado o mesmo padrão aqui como segunda trava,
+ * inclusive pra esconder conteúdo já publicado errado antes do fix do pipeline.
  */
 (function () {
   'use strict';
 
   var REFRESH_MS = 120000; // reconsulta a cada 2min — mesma proposta "ao vivo" do Minuto OVC
+
+  var FUTEBOL_KW = [
+    'futebol', 'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
+    'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
+    'copa sul-americana', 'copa libertadores', 'copa do mundo', 'world cup', 'mundial 2026',
+    'fifa', 'seleção brasileira', 'selecao brasileira', 'champions league', 'liga dos campeões',
+    'liga dos campeoes', 'premier league', 'la liga', 'bundesliga', 'calcio', 'ligue 1',
+    'mercado da bola', 'janela de transferências', 'janela de transferencias'
+  ];
+  function kwMatch(text, kw) {
+    var esc2 = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc2 + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
+  }
+  function ehFutebol(p) {
+    var t = ((p.titulo || '') + ' ' + (p.resumo || '')).toLowerCase();
+    return FUTEBOL_KW.some(function (kw) { return kwMatch(t, kw); });
+  }
 
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -108,7 +133,11 @@
     if (categoria) qs += '&categoria=' + encodeURIComponent(categoria);
     fetch('/api/portal-posts?' + qs)
       .then(function (r) { return r.json(); })
-      .then(function (d) { montar(alvo, d.curtinhas || []); })
+      .then(function (d) {
+        var lista = d.curtinhas || [];
+        if (categoria === 'esportes') lista = lista.filter(ehFutebol);
+        montar(alvo, lista);
+      })
       .catch(function () { montar(alvo, []); });
   }
 
