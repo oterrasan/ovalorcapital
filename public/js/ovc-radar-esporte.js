@@ -104,19 +104,25 @@
       '  position:relative;text-shadow:0 2px 10px rgba(0,0,0,.25);}',
       '.ovc-esporte-sub{font-size:10.5px;color:rgba(255,255,255,.8);margin-top:4px;position:relative;',
       '  letter-spacing:.01em;}',
-      /* nowrap + overflow-x:auto (não flex-wrap) — mantém sempre 1 linha só,
-         então a altura do widget nunca varia conforme quantos esportes têm
-         conteúdo no dia (essencial pra simetria com o Radar Eleitoral). */
-      '.ovc-esporte-tabs{display:flex;flex-wrap:nowrap;gap:5px;padding:10px;background:var(--bg-elevated,#fff);',
-      '  border-bottom:1px solid var(--border-subtle,#e2e8f0);overflow-x:auto;flex-shrink:0;',
-      '  scrollbar-width:none;-ms-overflow-style:none;}',
-      '.ovc-esporte-tabs::-webkit-scrollbar{display:none;}',
-      '.ovc-esporte-tab{border:1.5px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:999px;',
-      '  padding:5px 10px;font-size:10.5px;font-weight:700;color:var(--text-soft,#475569);cursor:pointer;',
-      '  display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0;white-space:nowrap;}',
-      '.ovc-esporte-tab:hover{border-color:#059669;color:#059669;transform:translateY(-1px);}',
-      '.ovc-esporte-tab.active{border-color:var(--sport-accent,#059669);color:#fff;',
+      /* Grid de 7 colunas fixas — Roberto: "nao da pra ter um menu de esportes
+         que empurra pra os lados... precisam estar fixados e sempre a vista".
+         Antes era flex nowrap + overflow-x:auto (scroll horizontal escondido,
+         sem indicação visual) — usuário não descobria que dava pra rolar e
+         via só 2-3 esportes. Grid força as 7 abas sempre visíveis de uma vez,
+         cada uma ocupando exatamente 1/7 da largura, sem scroll algum. */
+      '.ovc-esporte-tabs{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:9px 8px 7px;',
+      '  background:var(--bg-elevated,#fff);border-bottom:1px solid var(--border-subtle,#e2e8f0);flex-shrink:0;}',
+      '.ovc-esporte-tab{border:1.5px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:9px;',
+      '  padding:6px 2px 5px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;',
+      '  align-items:center;justify-content:center;gap:2px;min-width:0;}',
+      '.ovc-esporte-tab-emoji{font-size:15px;line-height:1;}',
+      '.ovc-esporte-tab-label{font-size:7px;font-weight:800;color:var(--text-soft,#475569);text-transform:uppercase;',
+      '  letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}',
+      '.ovc-esporte-tab:hover{border-color:#059669;transform:translateY(-1px);}',
+      '.ovc-esporte-tab:hover .ovc-esporte-tab-label{color:#059669;}',
+      '.ovc-esporte-tab.active{border-color:var(--sport-accent,#059669);',
       '  background:var(--sport-accent,#059669);box-shadow:0 3px 10px -3px var(--sport-accent,#059669);}',
+      '.ovc-esporte-tab.active .ovc-esporte-tab-label{color:#fff;}',
       '.ovc-esporte-body{background:var(--bg-elevated,#fff);padding:10px 12px;flex:1 1 auto;overflow:hidden;',
       '  display:flex;flex-direction:column;min-height:0;}',
       '.ovc-esporte-article-list{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden;}',
@@ -176,8 +182,9 @@
       '<span class="ovc-esporte-live-txt">Ao vivo · 24h</span>' +
       '</div>' +
       '<div class="ovc-esporte-title">RADAR DO ESPORTE</div>' +
-      '<div class="ovc-esporte-sub">Futebol · Basquete · Motor · Tênis · MMA · Vôlei · NFL</div>';
+      '<div class="ovc-esporte-sub">Agora em: <b class="ovc-esporte-sub-active">Futebol</b></div>';
     bloco.appendChild(header);
+    var subActive = header.querySelector('.ovc-esporte-sub-active');
 
     // Sempre as 7 abas, mesmo sem conteúdo publicado no momento naquele esporte —
     // Roberto quer TODOS os esportes visíveis o tempo todo. renderBody() já mostra
@@ -195,6 +202,7 @@
       var body = document.createElement('div');
       body.className = 'ovc-esporte-body';
       bloco.style.setProperty('--sport-accent', disponiveis[0].accent);
+      if (subActive) subActive.textContent = disponiveis[0].label;
 
       var cta = document.createElement('a');
       cta.className = 'ovc-esporte-cta';
@@ -207,14 +215,17 @@
       disponiveis.forEach(function (s, idx) {
         var tab = document.createElement('button');
         tab.type = 'button';
+        tab.title = s.label;
+        tab.setAttribute('aria-label', s.label);
         tab.className = 'ovc-esporte-tab' + (idx === 0 ? ' active' : '');
-        tab.innerHTML = '<span>' + s.emoji + '</span><span>' + esc(s.label) + '</span>';
+        tab.innerHTML = '<span class="ovc-esporte-tab-emoji">' + s.emoji + '</span><span class="ovc-esporte-tab-label">' + esc(s.label) + '</span>';
         tab.addEventListener('click', function () {
           Array.prototype.forEach.call(tabs.children, function (t) { t.classList.remove('active'); });
           tab.classList.add('active');
           bloco.style.setProperty('--sport-accent', s.accent);
           renderBody(body, porEsporte[s.key] || [], s);
           setCta(s);
+          if (subActive) subActive.textContent = s.label;
         });
         tabs.appendChild(tab);
       });
