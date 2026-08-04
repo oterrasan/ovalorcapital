@@ -6,6 +6,8 @@
  * Desde 31/07/2026 (Roberto), tipo_conteudo="radar" é exclusivamente conteúdo de futebol
  * (grande repercussão nacional/continental) — este widget é a listagem completa e
  * cronológica desse nicho, no mesmo padrão do hub /minuto/ (ovc-minuto-widget.js).
+ * Visual "espetacular" (04/08/2026): dark carbon + destaque em pôster de manchete,
+ * mesma linguagem do piloto do Motor/F1 e do ovc-torneio-espn.js.
  * Config via atributos data-* no elemento alvo:
  *   data-categoria — filtra por categoria (opcional, ex: "esportes")
  *
@@ -21,6 +23,7 @@
   'use strict';
 
   var REFRESH_MS = 120000; // reconsulta a cada 2min — mesma proposta "ao vivo" do Minuto OVC
+  var ACC = '#16a34a';
 
   var FUTEBOL_KW = [
     'futebol', 'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
@@ -63,27 +66,48 @@
     var sty = document.createElement('style');
     sty.id = 'ovc-rdr-css';
     sty.textContent = [
+      '@keyframes rdr-sweep{0%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(260%) skewX(-18deg)}}',
+      '@keyframes rdr-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.8)}}',
       '.ovc-rdr-wrap{margin:18px 0;}',
-      '.ovc-rdr-trust{font-size:11.5px;color:#64748b;margin:0 0 16px;display:flex;align-items:center;gap:6px;font-weight:600;}',
-      '.ovc-rdr-trust b{color:#dc2626;}',
-      '.ovc-rdr-featured{display:block;border:1px solid #e5e7eb;border-radius:14px;padding:22px 24px;margin-bottom:18px;background:#fff;text-decoration:none;transition:box-shadow .15s,transform .15s;}',
-      '.ovc-rdr-featured:hover{box-shadow:0 10px 26px rgba(0,0,0,.1);transform:translateY(-2px);}',
-      '.ovc-rdr-featured-badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;}',
-      '.ovc-rdr-dot{width:7px;height:7px;border-radius:50%;background:#dc2626;display:inline-block;animation:ovc-rdr-pulse 1.6s infinite;}',
-      '@keyframes ovc-rdr-pulse{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}',
-      '.ovc-rdr-featured-title{font-size:21px;font-weight:800;color:var(--text-main,#0f172a);line-height:1.3;margin-bottom:8px;}',
-      '.ovc-rdr-featured-resumo{font-size:14px;color:#475569;line-height:1.6;margin-bottom:10px;}',
-      '.ovc-rdr-featured-time{font-size:11.5px;color:#94a3b8;font-weight:600;}',
-      '.ovc-rdr-list{display:flex;flex-direction:column;gap:0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;}',
-      '.ovc-rdr-item{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;text-decoration:none;border-bottom:1px solid #f1f5f9;transition:background .12s;}',
+      '.ovc-rdr-trust{font-size:11px;color:var(--text-soft,#64748b);margin:0 0 14px;display:flex;align-items:center;gap:6px;font-weight:700;',
+        'text-transform:uppercase;letter-spacing:.06em;}',
+      '.ovc-rdr-trust b{color:' + ACC + ';font-size:14px;}',
+
+      '.ovc-rdr-hero{display:block;position:relative;overflow:hidden;border-radius:14px;margin-bottom:18px;',
+        'background:#0b0e14;box-shadow:0 20px 50px -20px rgba(0,0,0,.55);border:1px solid #1a2e22;text-decoration:none;',
+        'transition:transform .15s,box-shadow .15s;}',
+      '.ovc-rdr-hero:hover{transform:translateY(-2px);box-shadow:0 24px 60px -18px rgba(0,0,0,.65);}',
+      '.ovc-rdr-hero-tex{position:absolute;inset:0;background:repeating-linear-gradient(120deg,#0b0e14 0 26px,#0a140f 26px 52px);pointer-events:none;}',
+      '.ovc-rdr-hero-stripe{position:absolute;top:0;right:-8%;width:55%;height:100%;',
+        'background:linear-gradient(100deg,transparent 0%,' + ACC + '33 45%,transparent 70%);pointer-events:none;}',
+      '.ovc-rdr-hero-sweep{position:absolute;top:0;left:0;width:22%;height:100%;',
+        'background:linear-gradient(100deg,transparent,rgba(255,255,255,.09),transparent);',
+        'animation:rdr-sweep 5.5s ease-in-out infinite;pointer-events:none;}',
+      '.ovc-rdr-hero-inner{position:relative;padding:26px 26px 24px;}',
+      '.ovc-rdr-hero-badge{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;',
+        'color:#fbbf24;text-transform:uppercase;letter-spacing:.14em;margin-bottom:14px;}',
+      '.ovc-rdr-dot{width:9px;height:9px;border-radius:50%;background:#fbbf24;display:inline-block;',
+        'animation:rdr-pulse 1.1s ease-in-out infinite;box-shadow:0 0 10px 2px rgba(251,191,36,.5);flex-shrink:0;}',
+      '.ovc-rdr-hero-title{font-size:23px;font-weight:900;color:#fff;letter-spacing:-.02em;line-height:1.18;',
+        'font-style:italic;margin-bottom:10px;}',
+      '.ovc-rdr-hero-resumo{font-size:13.5px;color:rgba(255,255,255,.68);line-height:1.62;max-width:680px;margin-bottom:12px;}',
+      '.ovc-rdr-hero-time{font-size:11px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}',
+
+      '.ovc-rdr-list{display:flex;flex-direction:column;gap:0;border-radius:12px;overflow:hidden;background:#0b0e14;',
+        'border:1px solid #1f2430;}',
+      '.ovc-rdr-item{display:flex;gap:14px;align-items:flex-start;padding:14px 18px;text-decoration:none;',
+        'border-bottom:1px solid #1a1f2c;transition:background .12s,padding-left .12s;border-left:3px solid transparent;}',
       '.ovc-rdr-item:last-child{border-bottom:none;}',
-      '.ovc-rdr-item:hover{background:#f8fafc;}',
-      '.ovc-rdr-item-time{font-size:10.5px;color:#94a3b8;font-weight:700;white-space:nowrap;padding-top:2px;min-width:80px;}',
+      '.ovc-rdr-item:hover{background:#12161f;padding-left:22px;border-left-color:' + ACC + ';}',
+      '.ovc-rdr-item-time{font-size:10px;color:' + ACC + ';font-weight:800;white-space:nowrap;padding-top:2px;',
+        'min-width:82px;text-transform:uppercase;letter-spacing:.03em;}',
       '.ovc-rdr-item-body{flex:1;min-width:0;}',
-      '.ovc-rdr-item-title{font-size:13.5px;font-weight:700;color:var(--text-main,#0f172a);line-height:1.4;}',
-      '.ovc-rdr-item-resumo{font-size:12px;color:#64748b;line-height:1.5;margin-top:3px;}',
-      '.ovc-rdr-empty{padding:26px 14px;text-align:center;color:#94a3b8;font-size:13px;border:1px dashed #e5e7eb;border-radius:10px;}',
-      '.ovc-rdr-section-title{font-size:12.5px;font-weight:800;color:#0f172a;margin:18px 0 10px;text-transform:uppercase;letter-spacing:.05em;}',
+      '.ovc-rdr-item-title{font-size:13.5px;font-weight:700;color:#e2e8f0;line-height:1.4;}',
+      '.ovc-rdr-item-resumo{font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;margin-top:3px;}',
+      '.ovc-rdr-empty{padding:26px 14px;text-align:center;color:var(--text-soft,#94a3b8);font-size:13px;',
+        'border:1px dashed var(--border-subtle,#e5e7eb);border-radius:10px;}',
+      '.ovc-rdr-section-title{font-size:11px;font-weight:800;color:var(--text-main,#0f172a);margin:20px 0 10px;',
+        'text-transform:uppercase;letter-spacing:.08em;}',
     ].join('');
     document.head.appendChild(sty);
   }
@@ -93,11 +117,14 @@
   }
 
   function renderFeatured(p) {
-    return '<a class="ovc-rdr-featured" href="' + esc(buildHref(p)) + '">' +
-      '<span class="ovc-rdr-featured-badge"><span class="ovc-rdr-dot"></span>Radar OVC · ' + minutosAtras(p.data) + '</span>' +
-      '<div class="ovc-rdr-featured-title">' + esc(p.titulo) + '</div>' +
-      '<div class="ovc-rdr-featured-resumo">' + esc(p.resumo) + '</div>' +
-      '</a>';
+    return '<a class="ovc-rdr-hero" href="' + esc(buildHref(p)) + '">' +
+      '<div class="ovc-rdr-hero-tex"></div><div class="ovc-rdr-hero-stripe"></div><div class="ovc-rdr-hero-sweep"></div>' +
+      '<div class="ovc-rdr-hero-inner">' +
+      '<span class="ovc-rdr-hero-badge"><span class="ovc-rdr-dot"></span>Radar OVC · ' + esc(minutosAtras(p.data)) + '</span>' +
+      '<div class="ovc-rdr-hero-title">' + esc(p.titulo) + '</div>' +
+      '<div class="ovc-rdr-hero-resumo">' + esc(p.resumo) + '</div>' +
+      '<div class="ovc-rdr-hero-time">Grande repercussão · Futebol</div>' +
+      '</div></a>';
   }
 
   function renderItem(p) {
