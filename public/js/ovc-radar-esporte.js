@@ -81,8 +81,11 @@
       '@keyframes esporte-shine{0%{transform:translateX(-120%) skewX(-15deg)}100%{transform:translateX(220%) skewX(-15deg)}}',
       /* Altura fixa compartilhada com .ovc-eleitoral-rail (ovc-eleitoral.js) —
          os dois widgets ficam lado a lado no topo dos rails da Home e devem
-         começar e terminar exatamente na mesma posição. Mudar aqui? Mudar lá também. */
-      '.ovc-esporte-rail{margin-bottom:18px;border-radius:12px;overflow:hidden;',
+         começar e terminar exatamente na mesma posição. Mudar aqui? Mudar lá também.
+         box-sizing:border-box trava a altura total em 740px INCLUINDO a borda —
+         sem isso, bordas de espessuras diferentes entre os dois widgets somam
+         2px extras fora do height declarado e desalinham o fim dos dois blocos. */
+      '.ovc-esporte-rail{margin-bottom:18px;border-radius:12px;overflow:hidden;box-sizing:border-box;',
       '  border:1px solid #064e3b;box-shadow:0 10px 30px -12px rgba(6,78,59,.45);',
       '  height:740px;display:flex;flex-direction:column;}',
       '.ovc-esporte-header{background:linear-gradient(150deg,#059669 0%,#065f46 55%,#0f172a 115%);',
@@ -176,7 +179,10 @@
       '<div class="ovc-esporte-sub">Futebol · Basquete · Motor · Tênis · MMA · Vôlei · NFL</div>';
     bloco.appendChild(header);
 
-    var disponiveis = SPORTS.filter(function (s) { return (porEsporte[s.key] || []).length > 0; });
+    // Sempre as 7 abas, mesmo sem conteúdo publicado no momento naquele esporte —
+    // Roberto quer TODOS os esportes visíveis o tempo todo. renderBody() já mostra
+    // "Cobertura chegando em breve" quando a aba clicada não tem artigos ainda.
+    var disponiveis = SPORTS;
 
     if (!disponiveis.length) {
       var body0 = document.createElement('div');
