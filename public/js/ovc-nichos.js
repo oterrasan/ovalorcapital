@@ -119,9 +119,10 @@
       var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,3);
       var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
 
-      var filhos = Array.from(miolo.children);
-
-      // 2. Minuto OVC → 3 mini-cards após filhos[3] (depois da 1ª fileira de cards)
+      // 2. Minuto OVC → 3 mini-cards logo antes da zona "Poder & Dinheiro"
+      // Âncora por data-zona (não por índice numérico de filho) — um índice fixo
+      // quebra silenciosamente toda vez que outro bloco é inserido antes dele na
+      // home (aconteceu em 04/08/2026 com a fileira de Colunistas OVC).
       if (minutos.length) {
         var blocoMinuto = criarLinhaMiniCards(minutos, {
           id: 'ovc-nicho-minuto',
@@ -131,8 +132,9 @@
           bgCor: '#e0f2fe'
         });
         if (blocoMinuto) {
-          // filhos[5] = após bB(0)+sep(1)+z1(2)+sep(3)+blocoInternacional(4)+sep(5) — ver ovc-cards.js buildSection()
-          var ref = filhos[6] || filhos[filhos.length - 1];
+          var zonaPoderDinheiro = miolo.querySelector('[data-zona="poder-dinheiro"]');
+          var filhosAgora = Array.from(miolo.children);
+          var ref = zonaPoderDinheiro || filhosAgora[filhosAgora.length - 1];
           if (ref) miolo.insertBefore(blocoMinuto, ref);
           else miolo.appendChild(blocoMinuto);
         }
