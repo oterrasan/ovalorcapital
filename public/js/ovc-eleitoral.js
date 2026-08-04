@@ -47,10 +47,13 @@
     sty.id = 'ovc-eleitoral-css';
     sty.textContent = [
       '@keyframes el-pulse{0%,100%{opacity:1}50%{opacity:.3}}',
+      /* Altura fixa compartilhada com .ovc-esporte-rail (ovc-radar-esporte.js) —
+         os dois widgets ficam lado a lado no topo dos rails da Home e devem
+         começar e terminar exatamente na mesma posição. Mudar aqui? Mudar lá também. */
       '.ovc-eleitoral-rail{margin-top:18px;border-radius:8px;overflow:hidden;',
-      '  border:1.5px solid #1d4ed8;}',
+      '  border:1.5px solid #1d4ed8;height:740px;display:flex;flex-direction:column;}',
       '.ovc-el-header{background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 60%,#7c3aed 100%);',
-      '  padding:12px 14px;position:relative;overflow:hidden;}',
+      '  padding:12px 14px;position:relative;overflow:hidden;flex-shrink:0;}',
       '.ovc-el-header::before{content:"🗳️";position:absolute;right:-4px;top:-4px;font-size:46px;opacity:.15;}',
       '.ovc-el-live-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}',
       '.ovc-el-dot{display:inline-block;width:7px;height:7px;background:#fbbf24;border-radius:50%;',
@@ -58,12 +61,12 @@
       '.ovc-el-live-txt{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;}',
       '.ovc-el-title{font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em;line-height:1.2;}',
       '.ovc-el-sub{font-size:10px;color:rgba(255,255,255,.7);margin-top:2px;}',
-      '.ovc-el-countdown{background:#1e3a8a;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}',
+      '.ovc-el-countdown{background:#1e3a8a;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0;}',
       '.ovc-el-cd-bloco{background:rgba(255,255,255,.08);border-radius:6px;padding:8px 10px;text-align:center;}',
       '.ovc-el-cd-label{font-size:9px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:4px;}',
       '.ovc-el-cd-dias{font-size:22px;font-weight:800;color:#fbbf24;display:block;font-variant-numeric:tabular-nums;line-height:1;}',
       '.ovc-el-cd-tipo{font-size:9px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.06em;display:block;margin-top:2px;}',
-      '.ovc-el-pesquisas{background:var(--bg-elevated,#fff);padding:10px 12px;border-bottom:1px solid #e2e8f0;}',
+      '.ovc-el-pesquisas{background:var(--bg-elevated,#fff);padding:10px 12px;border-bottom:1px solid #e2e8f0;flex-shrink:0;}',
       '.ovc-el-pesq-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#1d4ed8;margin-bottom:8px;}',
       '.ovc-el-barra-row{margin-bottom:7px;}',
       '.ovc-el-barra-label{display:flex;justify-content:space-between;margin-bottom:3px;}',
@@ -72,16 +75,19 @@
       '.ovc-el-barra{height:6px;border-radius:3px;background:#e2e8f0;overflow:hidden;}',
       '.ovc-el-fill{height:100%;border-radius:3px;transition:width .6s ease;}',
       '.ovc-el-pesq-fonte{font-size:9px;color:#94a3b8;margin-top:6px;}',
-      '.ovc-el-body{background:var(--bg-elevated,#fff);padding:10px 12px;}',
-      '.ovc-el-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px;}',
+      '.ovc-el-body{background:var(--bg-elevated,#fff);padding:10px 12px;flex:1 1 auto;overflow:hidden;',
+      '  display:flex;flex-direction:column;min-height:0;}',
+      '.ovc-el-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px;flex-shrink:0;}',
+      '.ovc-el-article-list{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden;}',
       '.ovc-el-article{display:block;padding:8px 0;border-bottom:1px solid var(--border-subtle,#e2e8f0);',
       '  text-decoration:none;transition:padding-left .12s;}',
       '.ovc-el-article:last-child{border-bottom:none;}',
       '.ovc-el-article:hover{padding-left:4px;}',
-      '.ovc-el-artitle{font-size:12px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:2px;}',
+      '.ovc-el-artitle{font-size:12px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:2px;',
+      '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}',
       '.ovc-el-artmeta{font-size:10px;color:#64748b;}',
       '.ovc-el-cta{display:flex;align-items:center;justify-content:space-between;',
-      '  padding:9px 12px;background:#eff6ff;border-top:1px solid #bfdbfe;',
+      '  padding:9px 12px;background:#eff6ff;border-top:1px solid #bfdbfe;flex-shrink:0;',
       '  text-decoration:none;font-size:11px;font-weight:700;color:#1e3a8a;transition:background .15s;}',
       '.ovc-el-cta:hover{background:#dbeafe;}',
     ].join('');
@@ -157,6 +163,8 @@
     body.className = 'ovc-el-body';
     body.innerHTML = '<div class="ovc-el-sec-title">Cobertura eleitoral OVC</div>';
 
+    var list = document.createElement('div');
+    list.className = 'ovc-el-article-list';
     if (artigos.length) {
       artigos.slice(0, 5).forEach(function (p) {
         var a = document.createElement('a');
@@ -165,11 +173,12 @@
         a.innerHTML =
           '<div class="ovc-el-artitle">' + esc(p.titulo) + '</div>' +
           '<div class="ovc-el-artmeta">🗳️ Política OVC · ' + dataBr(p.published_at || p.data || p.created_at) + '</div>';
-        body.appendChild(a);
+        list.appendChild(a);
       });
     } else {
-      body.innerHTML += '<p style="font-size:12px;color:#64748b;margin:0;padding:4px 0;">Cobertura eleitoral chegando em breve.</p>';
+      list.innerHTML = '<p style="font-size:12px;color:#64748b;margin:0;padding:4px 0;">Cobertura eleitoral chegando em breve.</p>';
     }
+    body.appendChild(list);
 
     bloco.appendChild(body);
 
