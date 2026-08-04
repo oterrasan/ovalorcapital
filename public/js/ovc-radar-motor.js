@@ -1,8 +1,8 @@
 /**
- * ovc-radar-motor.js — Dashboard premium Fórmula 1 (dados ESPN, tempo real)
+ * ovc-radar-motor.js — Painel espetacular Fórmula 1 (dados ESPN, tempo real)
  * REGRA ZERO-I: 100% independente — não toca internal-page-v2.js nem home.js
- * Layout adaptado: sem tabela de liga (F1 não tem times jogando entre si) —
- * próxima corrida, último pódio, classificação de pilotos e de equipes.
+ * Identidade visual própria: fibra de carbono, vermelho de corrida, contador
+ * regressivo ao vivo, pódio visual, ranking estilo telemetria de box.
  * Fonte de dados: ESPN via proxy server-side em api/live.js?action=espn&sport=racing
  */
 (function () {
@@ -16,8 +16,7 @@
   var CFG = window.OVC_MOTOR;
   if (!CFG || !CFG.liga) return;
 
-  var ACC = CFG.cor || '#d50a0a';
-  var ACC_DARK = CFG.corDark || '#0f172a';
+  var ACC = CFG.cor || '#e10600';
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -35,9 +34,9 @@
     try { return new Date(iso).toLocaleDateString('pt-BR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }); }
     catch (_) { return ''; }
   }
-  function escudoImg(url) {
-    if (!url) return '<span class="ovc-mtr-badge-ph"></span>';
-    return '<img class="ovc-mtr-badge" src="' + esc(url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<span class=&quot;ovc-mtr-badge-ph&quot;></span>\'">';
+  function escudoImg(url, cls) {
+    if (!url) return '<span class="' + cls + '-ph"></span>';
+    return '<img class="' + cls + '" src="' + esc(url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=\'<span class=&quot;' + cls + '-ph&quot;></span>\'">';
   }
 
   function injetarCSS() {
@@ -45,51 +44,105 @@
     var sty = document.createElement('style');
     sty.id = 'ovc-mtr-css';
     sty.textContent = [
-      '.ovc-mtr-wrap{margin:18px 0;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:var(--bg-elevated,#fff);}',
-      '.ovc-mtr-hd{background:linear-gradient(135deg,' + ACC_DARK + ' 0%,#1e293b 60%,' + ACC + ' 140%);padding:16px 18px;}',
-      '.ovc-mtr-hd-live{display:flex;align-items:center;gap:6px;margin-bottom:4px;}',
-      '.ovc-mtr-dot{width:8px;height:8px;background:#fbbf24;border-radius:50%;animation:mtr-pulse 1s ease-in-out infinite;flex-shrink:0;}',
-      '@keyframes mtr-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}',
-      '.ovc-mtr-hd-txt{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;}',
-      '.ovc-mtr-hd-title{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.01em;}',
-      '.ovc-mtr-hd-sobre{font-size:11.5px;color:rgba(255,255,255,.72);margin-top:5px;line-height:1.5;max-width:640px;}',
-      '.ovc-mtr-stats{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:#0f172a;}',
-      '.ovc-mtr-stat{text-align:center;padding:9px 4px;border-right:1px solid rgba(255,255,255,.08);}',
+      '@keyframes mtr-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}',
+      '@keyframes mtr-sweep{0%{transform:translateX(-140%) skewX(-18deg)}100%{transform:translateX(260%) skewX(-18deg)}}',
+      '@keyframes mtr-rise{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}',
+
+      '.ovc-mtr-wrap{margin:18px 0;border-radius:14px;overflow:hidden;background:#0b0e14;',
+      '  box-shadow:0 20px 50px -20px rgba(0,0,0,.55);border:1px solid #1f2430;}',
+
+      /* Header: carbono + faixa vermelha diagonal */
+      '.ovc-mtr-hd{position:relative;padding:22px 22px 18px;overflow:hidden;',
+      '  background:#0b0e14 repeating-linear-gradient(45deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 1px,transparent 7px);}',
+      '.ovc-mtr-hd::before{content:"";position:absolute;top:0;right:-10%;width:60%;height:100%;',
+      '  background:linear-gradient(100deg,transparent 30%,' + ACC + ' 30%,' + ACC + ' 38%,transparent 38%,transparent 46%,' + ACC + ' 46%,' + ACC + ' 50%,transparent 50%);opacity:.85;}',
+      '.ovc-mtr-sweep{position:absolute;top:0;left:0;width:22%;height:100%;',
+      '  background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);',
+      '  animation:mtr-sweep 5s ease-in-out infinite;pointer-events:none;}',
+      '.ovc-mtr-hd-live{display:flex;align-items:center;gap:7px;margin-bottom:8px;position:relative;}',
+      '.ovc-mtr-dot{width:9px;height:9px;background:#22c55e;border-radius:50%;animation:mtr-pulse 1.1s ease-in-out infinite;flex-shrink:0;',
+      '  box-shadow:0 0 10px 2px rgba(34,197,94,.7);}',
+      '.ovc-mtr-hd-txt{font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#22c55e;}',
+      '.ovc-mtr-hd-title{font-size:26px;font-weight:900;color:#fff;letter-spacing:-.02em;font-style:italic;',
+      '  position:relative;text-shadow:0 3px 14px rgba(0,0,0,.5);line-height:1.05;}',
+      '.ovc-mtr-hd-sobre{font-size:12px;color:rgba(255,255,255,.62);margin-top:8px;line-height:1.55;max-width:640px;position:relative;}',
+
+      /* Stats HUD */
+      '.ovc-mtr-stats{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:#131722;',
+      '  border-top:1px solid #232838;border-bottom:1px solid #232838;}',
+      '.ovc-mtr-stat{text-align:center;padding:11px 4px;border-right:1px solid #1f2430;}',
       '.ovc-mtr-stat:last-child{border-right:none;}',
-      '.ovc-mtr-stat-n{display:block;font-size:16px;font-weight:900;color:#fbbf24;line-height:1;}',
-      '.ovc-mtr-stat-l{display:block;font-size:8px;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}',
-      '.ovc-mtr-tabs{display:flex;border-bottom:1px solid #e5e7eb;background:#f8fafc;}',
-      '.ovc-mtr-tab{flex:1;padding:10px 8px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;}',
-      '.ovc-mtr-tab.active{color:' + ACC + ';border-bottom-color:' + ACC + ';background:#fff;}',
-      '.ovc-mtr-body{display:none;padding:14px 16px;}',
+      '.ovc-mtr-stat-n{display:block;font-size:17px;font-weight:900;color:#fff;line-height:1;font-variant-numeric:tabular-nums;}',
+      '.ovc-mtr-stat-l{display:block;font-size:8px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;}',
+
+      /* Contador regressivo — peça central do "espetacular" */
+      '.ovc-mtr-cd{padding:20px 22px 18px;text-align:center;background:radial-gradient(ellipse at top,#1a1f2e 0%,#0b0e14 75%);}',
+      '.ovc-mtr-cd-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:4px;}',
+      '.ovc-mtr-cd-race{font-size:15px;font-weight:800;color:#fff;margin-bottom:2px;}',
+      '.ovc-mtr-cd-circ{font-size:11px;color:rgba(255,255,255,.5);margin-bottom:14px;}',
+      '.ovc-mtr-cd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:380px;margin:0 auto;}',
+      '.ovc-mtr-cd-unit{background:#151a26;border:1px solid #262c3d;border-radius:10px;padding:10px 4px;}',
+      '.ovc-mtr-cd-num{display:block;font-size:26px;font-weight:900;color:' + ACC + ';font-variant-numeric:tabular-nums;',
+      '  line-height:1;text-shadow:0 0 18px rgba(225,6,0,.45);}',
+      '.ovc-mtr-cd-unl{display:block;font-size:8px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em;margin-top:5px;}',
+      '.ovc-mtr-cd-live{font-size:15px;font-weight:900;color:#22c55e;letter-spacing:.04em;padding:14px 0;}',
+
+      /* Tabs */
+      '.ovc-mtr-tabs{display:flex;background:#0b0e14;border-bottom:1px solid #1f2430;}',
+      '.ovc-mtr-tab{flex:1;padding:12px 8px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;',
+      '  letter-spacing:.06em;color:rgba(255,255,255,.4);cursor:pointer;border:none;background:none;',
+      '  border-bottom:2.5px solid transparent;transition:all .15s;}',
+      '.ovc-mtr-tab:hover{color:rgba(255,255,255,.7);}',
+      '.ovc-mtr-tab.active{color:#fff;border-bottom-color:' + ACC + ';}',
+      '.ovc-mtr-body{display:none;padding:18px;background:var(--bg-elevated,#fff);}',
       '.ovc-mtr-body.active{display:block;}',
-      '.ovc-mtr-subhd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin:0 0 8px;padding-top:4px;}',
+      '.ovc-mtr-subhd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#94a3b8;margin:0 0 10px;padding-top:4px;}',
       '.ovc-mtr-subhd:first-child{padding-top:0;}',
-      '.ovc-mtr-badge{width:20px;height:20px;object-fit:contain;flex-shrink:0;border-radius:3px;}',
-      '.ovc-mtr-badge-ph{width:20px;height:20px;border-radius:3px;background:#e5e7eb;flex-shrink:0;display:inline-block;}',
-      '.ovc-mtr-race-card{border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:10px;}',
-      '.ovc-mtr-race-name{font-size:14px;font-weight:800;color:var(--text-main,#0f172a);}',
+
+      /* Pódio visual — a peça mais "espetacular" da última corrida */
+      '.ovc-mtr-podio{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:6px 0 18px;padding:0 4px;}',
+      '.ovc-mtr-pod-col{flex:1;max-width:120px;text-align:center;transform-origin:bottom;animation:mtr-rise .5s ease-out;}',
+      '.ovc-mtr-pod-badge{width:34px;height:34px;border-radius:50%;object-fit:contain;background:#f1f5f9;',
+      '  margin:0 auto 8px;display:block;}',
+      '.ovc-mtr-pod-badge-ph{width:34px;height:34px;border-radius:50%;background:#e2e8f0;margin:0 auto 8px;display:block;}',
+      '.ovc-mtr-pod-nome{font-size:11.5px;font-weight:800;color:var(--text-main,#0f172a);line-height:1.25;',
+      '  margin-bottom:2px;min-height:28px;display:flex;align-items:center;justify-content:center;}',
+      '.ovc-mtr-pod-eq{font-size:9.5px;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.03em;}',
+      '.ovc-mtr-pod-bar{border-radius:8px 8px 0 0;display:flex;align-items:flex-start;justify-content:center;',
+      '  padding-top:8px;font-weight:900;color:#fff;}',
+      '.ovc-mtr-pod-bar .n{font-size:22px;text-shadow:0 2px 6px rgba(0,0,0,.3);}',
+      '.ovc-mtr-pod-col.p1 .ovc-mtr-pod-bar{height:74px;background:linear-gradient(160deg,#fbbf24,#d97706);}',
+      '.ovc-mtr-pod-col.p2 .ovc-mtr-pod-bar{height:54px;background:linear-gradient(160deg,#cbd5e1,#94a3b8);}',
+      '.ovc-mtr-pod-col.p3 .ovc-mtr-pod-bar{height:40px;background:linear-gradient(160deg,#d97757,#b45309);}',
+
+      '.ovc-mtr-race-card{border:1px solid var(--border-subtle,#e2e8f0);border-radius:10px;padding:14px;margin-bottom:12px;',
+      '  background:linear-gradient(180deg,rgba(225,6,0,.03),transparent);}',
+      '.ovc-mtr-race-name{font-size:14.5px;font-weight:800;color:var(--text-main,#0f172a);}',
       '.ovc-mtr-race-circ{font-size:11.5px;color:#64748b;margin-top:2px;}',
-      '.ovc-mtr-race-data{font-size:11px;color:' + ACC + ';font-weight:700;margin-top:6px;}',
-      '.ovc-mtr-podio{display:flex;flex-direction:column;gap:6px;margin-top:10px;}',
-      '.ovc-mtr-podio-item{display:flex;align-items:center;gap:8px;font-size:12.5px;}',
-      '.ovc-mtr-podio-pos{width:20px;font-weight:900;color:' + ACC + ';text-align:center;flex-shrink:0;}',
-      '.ovc-mtr-podio-nome{font-weight:700;color:var(--text-main,#0f172a);}',
-      '.ovc-mtr-podio-eq{font-size:10.5px;color:#94a3b8;}',
-      '.ovc-mtr-empty{padding:18px 4px;text-align:center;color:#94a3b8;font-size:12px;}',
-      '.ovc-mtr-rank{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid #f1f5f9;font-size:12.5px;}',
+      '.ovc-mtr-race-data{font-size:11px;color:' + ACC + ';font-weight:800;margin-top:7px;text-transform:uppercase;letter-spacing:.03em;}',
+      '.ovc-mtr-empty{padding:22px 4px;text-align:center;color:#94a3b8;font-size:12px;}',
+
+      /* Ranking estilo telemetria */
+      '.ovc-mtr-rank{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--border-subtle,#f1f5f9);',
+      '  font-size:12.5px;position:relative;}',
       '.ovc-mtr-rank:last-child{border-bottom:none;}',
-      '.ovc-mtr-rank-pos{width:22px;font-weight:800;color:#94a3b8;font-size:11px;text-align:center;flex-shrink:0;}',
+      '.ovc-mtr-rank-pos{width:24px;font-weight:900;color:#94a3b8;font-size:11.5px;text-align:center;flex-shrink:0;',
+      '  font-variant-numeric:tabular-nums;}',
       '.ovc-mtr-rank-pos.top{color:' + ACC + ';}',
+      '.ovc-mtr-badge{width:22px;height:22px;object-fit:contain;flex-shrink:0;border-radius:4px;}',
+      '.ovc-mtr-badge-ph{width:22px;height:22px;border-radius:4px;background:#e2e8f0;flex-shrink:0;display:inline-block;}',
       '.ovc-mtr-rank-nome{flex:1;min-width:0;font-weight:700;color:var(--text-main,#0f172a);}',
-      '.ovc-mtr-rank-pts{font-weight:900;color:' + ACC + ';font-size:13px;flex-shrink:0;}',
-      '.ovc-mtr-gcard{margin-bottom:14px;}',
+      '.ovc-mtr-rank-bar{position:absolute;left:34px;right:64px;bottom:0;height:2px;background:' + ACC + ';border-radius:2px;opacity:.35;}',
+      '.ovc-mtr-rank-pts{font-weight:900;color:' + ACC + ';font-size:13px;flex-shrink:0;font-variant-numeric:tabular-nums;}',
+      '.ovc-mtr-gcard{margin-bottom:16px;}',
       '.ovc-mtr-gcard-hd{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;}',
-      '.ovc-mtr-news{border-top:1px solid #e5e7eb;padding:12px 16px;}',
-      '.ovc-mtr-news h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:0 0 8px;}',
-      '.ovc-mtr-news a{display:block;padding:7px 0;border-bottom:1px solid #f1f5f9;text-decoration:none;font-size:13px;font-weight:600;color:var(--text-main,#0f172a);line-height:1.4;}',
+
+      '.ovc-mtr-news{border-top:1px solid #1f2430;padding:16px 18px;background:#0b0e14;}',
+      '.ovc-mtr-news h4{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.45);margin:0 0 10px;}',
+      '.ovc-mtr-news a{display:block;padding:9px 0;border-bottom:1px solid #1a1f2c;text-decoration:none;font-size:13px;',
+      '  font-weight:650;color:#fff;line-height:1.45;transition:padding-left .12s;}',
       '.ovc-mtr-news a:last-child{border-bottom:none;}',
-      '.ovc-mtr-news a:hover{color:' + ACC + ';}',
+      '.ovc-mtr-news a:hover{color:' + ACC + ';padding-left:5px;}',
     ].join('');
     document.head.appendChild(sty);
   }
@@ -102,35 +155,77 @@
     }).join('') + '</div>';
   }
 
+  var countdownTimer = null;
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function renderCountdown(proxima) {
+    if (!proxima || !proxima.data) return '';
+    return '<div class="ovc-mtr-cd" id="ovc-mtr-cd-wrap">' +
+      '<div class="ovc-mtr-cd-label">Contagem para a próxima corrida</div>' +
+      '<div class="ovc-mtr-cd-race">' + esc(proxima.nome) + '</div>' +
+      (proxima.circuito ? '<div class="ovc-mtr-cd-circ">' + esc(proxima.circuito) + '</div>' : '') +
+      '<div id="ovc-mtr-cd-body"></div>' +
+      '</div>';
+  }
+
+  function tickCountdown(dataIso) {
+    var body = document.getElementById('ovc-mtr-cd-body');
+    if (!body) { if (countdownTimer) clearInterval(countdownTimer); return; }
+    var diff = new Date(dataIso).getTime() - Date.now();
+    if (diff <= 0) {
+      body.innerHTML = '<div class="ovc-mtr-cd-live">🏁 CORRIDA EM ANDAMENTO</div>';
+      if (countdownTimer) clearInterval(countdownTimer);
+      return;
+    }
+    var d = Math.floor(diff / 86400000);
+    var h = Math.floor((diff % 86400000) / 3600000);
+    var m = Math.floor((diff % 3600000) / 60000);
+    var s = Math.floor((diff % 60000) / 1000);
+    body.innerHTML = '<div class="ovc-mtr-cd-grid">' +
+      '<div class="ovc-mtr-cd-unit"><span class="ovc-mtr-cd-num">' + pad2(d) + '</span><span class="ovc-mtr-cd-unl">dias</span></div>' +
+      '<div class="ovc-mtr-cd-unit"><span class="ovc-mtr-cd-num">' + pad2(h) + '</span><span class="ovc-mtr-cd-unl">horas</span></div>' +
+      '<div class="ovc-mtr-cd-unit"><span class="ovc-mtr-cd-num">' + pad2(m) + '</span><span class="ovc-mtr-cd-unl">min</span></div>' +
+      '<div class="ovc-mtr-cd-unit"><span class="ovc-mtr-cd-num">' + pad2(s) + '</span><span class="ovc-mtr-cd-unl">seg</span></div>' +
+      '</div>';
+  }
+
   function renderCorridas(proxima, ultima) {
     var html = '';
-    if (proxima) {
-      html += '<div class="ovc-mtr-subhd">Próxima corrida</div>' +
-        '<div class="ovc-mtr-race-card"><div class="ovc-mtr-race-name">' + esc(proxima.nome) + '</div>' +
-        (proxima.circuito ? '<div class="ovc-mtr-race-circ">' + esc(proxima.circuito) + '</div>' : '') +
-        (proxima.data ? '<div class="ovc-mtr-race-data">' + dataBr(proxima.data) + '</div>' : '') +
-        '</div>';
-    }
+    if (!proxima && !ultima) return '<div class="ovc-mtr-empty">Calendário da temporada disponível em breve</div>';
     if (ultima) {
-      html += '<div class="ovc-mtr-subhd">Resultado da última corrida</div>' +
-        '<div class="ovc-mtr-race-card"><div class="ovc-mtr-race-name">' + esc(ultima.nome) + '</div>' +
-        (ultima.circuito ? '<div class="ovc-mtr-race-circ">' + esc(ultima.circuito) + '</div>' : '') +
-        (ultima.podio && ultima.podio.length ? '<div class="ovc-mtr-podio">' + ultima.podio.map(function (p, i) {
-          return '<div class="ovc-mtr-podio-item"><span class="ovc-mtr-podio-pos">' + (i + 1) + 'º</span>' + escudoImg(p.escudo) +
-            '<span><span class="ovc-mtr-podio-nome">' + esc(p.nome) + '</span> <span class="ovc-mtr-podio-eq">' + esc(p.equipe) + '</span></span></div>';
-        }).join('') + '</div>' : '') +
-        '</div>';
+      html += '<div class="ovc-mtr-subhd">Pódio da última corrida</div>';
+      html += '<div class="ovc-mtr-race-card"><div class="ovc-mtr-race-name">' + esc(ultima.nome) + '</div>' +
+        (ultima.circuito ? '<div class="ovc-mtr-race-circ">' + esc(ultima.circuito) + '</div>' : '') + '</div>';
+      if (ultima.podio && ultima.podio.length) {
+        var ord = [1, 0, 2]; // P2, P1(maior), P3 — visual de pódio
+        html += '<div class="ovc-mtr-podio">' + ord.map(function (i) {
+          var p = ultima.podio[i];
+          if (!p) return '';
+          var cls = ['p2', 'p1', 'p3'][ord.indexOf(i)];
+          return '<div class="ovc-mtr-pod-col ' + cls + '">' +
+            escudoImg(p.escudo, 'ovc-mtr-pod-badge') +
+            '<div class="ovc-mtr-pod-nome">' + esc(p.nome) + '</div>' +
+            '<div class="ovc-mtr-pod-eq">' + esc(p.equipe || '') + '</div>' +
+            '<div class="ovc-mtr-pod-bar"><span class="n">' + (i + 1) + 'º</span></div>' +
+            '</div>';
+        }).join('') + '</div>';
+      }
     }
-    return html || '<div class="ovc-mtr-empty">Calendário da temporada disponível em breve</div>';
+    return html;
   }
 
   function renderClassificacoes(grupos) {
     if (!grupos.length) return '<div class="ovc-mtr-empty">Classificação disponível após o início da temporada</div>';
+    var maxPts = 0;
+    grupos.forEach(function (g) { (g.itens || []).forEach(function (it) { if (it.pts > maxPts) maxPts = it.pts; }); });
     return grupos.map(function (g) {
       return '<div class="ovc-mtr-gcard"><div class="ovc-mtr-gcard-hd">' + esc(g.nome) + '</div>' +
         g.itens.slice(0, 12).map(function (it, i) {
+          var pct = maxPts ? Math.max(4, Math.round((it.pts / maxPts) * 100)) : 0;
           return '<div class="ovc-mtr-rank"><span class="ovc-mtr-rank-pos' + (i < 3 ? ' top' : '') + '">' + (i + 1) + 'º</span>' +
-            escudoImg(it.escudo) + '<span class="ovc-mtr-rank-nome">' + esc(it.nome) + '</span><span class="ovc-mtr-rank-pts">' + it.pts + ' pts</span></div>';
+            escudoImg(it.escudo, 'ovc-mtr-badge') + '<span class="ovc-mtr-rank-nome">' + esc(it.nome) + '</span>' +
+            '<span class="ovc-mtr-rank-bar" style="width:' + pct + '%;"></span>' +
+            '<span class="ovc-mtr-rank-pts">' + it.pts + ' pts</span></div>';
         }).join('') + '</div>';
     }).join('');
   }
@@ -155,12 +250,13 @@
     var wrap = document.createElement('div');
     wrap.className = 'ovc-mtr-wrap';
     wrap.innerHTML =
-      '<div class="ovc-mtr-hd">' +
-      '<div class="ovc-mtr-hd-live"><span class="ovc-mtr-dot"></span><span class="ovc-mtr-hd-txt">Dados ao vivo · ESPN</span></div>' +
+      '<div class="ovc-mtr-hd"><div class="ovc-mtr-sweep"></div>' +
+      '<div class="ovc-mtr-hd-live"><span class="ovc-mtr-dot"></span><span class="ovc-mtr-hd-txt">Ao vivo · ESPN · 24h</span></div>' +
       '<div class="ovc-mtr-hd-title">' + esc(CFG.nome) + '</div>' +
       (CFG.sobre ? '<div class="ovc-mtr-hd-sobre">' + esc(CFG.sobre) + '</div>' : '') +
       '</div>' +
       renderStatsStrip() +
+      renderCountdown(dados.proxima) +
       '<div class="ovc-mtr-tabs">' +
       '<button class="ovc-mtr-tab active" data-tab="corridas">Corridas</button>' +
       '<button class="ovc-mtr-tab" data-tab="classificacao">Classificação</button>' +
@@ -172,6 +268,12 @@
     wrap.querySelectorAll('.ovc-mtr-tab').forEach(function (btn) {
       btn.addEventListener('click', function () { switchTab(btn.dataset.tab, wrap); });
     });
+
+    if (dados.proxima && dados.proxima.data) {
+      tickCountdown(dados.proxima.data);
+      countdownTimer = setInterval(function () { tickCountdown(dados.proxima.data); }, 1000);
+    }
+
     return wrap;
   }
 

@@ -4633,3 +4633,47 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Considerar (se Roberto quiser) recolocar `ovc-copa.js` no `<script>` tags de `public/index.html` — hoje não carrega na Home
 3. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`) seguem válidas
 
+---
+
+### Sessão 03/08/2026 (continuação 3) — "MENINA DOS OLHOS" DO OVC — REDESIGN ESPETACULAR DOS RADARES ESPORTIVOS (INICIADO)
+
+#### Contexto e pedido de Roberto
+
+Depois de renomear "Radar do Futebol" para "Radar do Esporte" (ver sessão anterior), Roberto pediu foco total num redesign muito mais ambicioso: cada radar/página de esporte deve ter **identidade visual 100% customizada para aquele esporte** (cores, tipografia, imagens que remetam a ele) e um **painel gigantesco de informações ao vivo, 24 horas por dia**. Objetivo declarado: "quero que isso seja a menina dos olhos do OVC" — o showcase visual do portal.
+
+Também pediu, separadamente, uma correção imediata no **widget da Home** (rail direito): tirar o vermelho (não gosta) e usar tons de verde.
+
+#### Etapa 1 — Widget da Home: vermelho → verde (PR #328, commit `40f8f94`)
+
+`public/js/ovc-radar-esporte.js`: header trocou de gradiente vermelho para verde esmeralda/floresta. Cada esporte ganhou uma cor de identidade própria (`accent`) aplicada dinamicamente na aba ativa e no detalhe das matérias: Futebol verde, Basquete laranja, Motor vermelho-corrida, Tênis lima, MMA vermelho-agressivo, Vôlei azul, NFL marrom-couro — zero vermelho fixo no tema base do widget (confirmado via grep). CTA de rodapé também migrado pra gradiente verde-menta.
+
+#### Etapa 2 — Piloto: painel espetacular da Fórmula 1 (PR aguardando merge nesta sessão)
+
+Antes de replicar pros outros 6 esportes, foi construído um **piloto completo em `/motor/`** pra validar a direção com Roberto. Escolhido Motor/F1 por ter identidade visual muito forte e já ter dados reais via ESPN (`api/live.js?action=espn&sport=racing`).
+
+**`public/js/ovc-radar-motor.js` — reescrito do zero** (era um card branco genérico estilo "painel de admin corporativo"; virou um painel escuro estilo telemetria de F1):
+- Fundo carbono (`#0b0e14`) com textura diagonal sutil (repeating-linear-gradient, sem imagem — leve pra performance)
+- Faixa vermelha de corrida diagonal cortando o header + efeito de brilho animado (sweep)
+- **Contador regressivo ao vivo pra próxima corrida** — dias/horas/min/seg atualizando a cada segundo, dígitos grandes com glow vermelho — é a peça central do "espetacular"
+- **Pódio visual da última corrida** — 3 colunas com alturas diferentes (P1 no centro mais alto, dourado/prata/bronze), não mais uma lista simples
+- Ranking de pilotos/equipes estilo telemetria de box: barra de progresso proporcional aos pontos por trás do nome
+- Notícias do Mundial com fundo escuro combinando com o resto do painel
+
+**`public/motor/index.html` — hero band reconstruída** (era um gradiente navy+vermelho genérico reaproveitado de outras páginas "trn-band"):
+- Faixa de bandeira quadriculada (preto/branco) no topo — motivo clássico de corrida, puro CSS, sem imagem
+- Fundo carbono + textura diagonal + faixa vermelha diagonal, mesma linguagem visual do painel abaixo
+- Título "Fórmula 1" maior, itálico, bold, com text-shadow
+- `window.OVC_MOTOR.cor` sincronizado para `#e10600` (vermelho F1 real) e `corDark` para `#0b0e14` (mesmo carbono do painel)
+- `?v=3` → `?v=4` no script tag (lição já documentada no histórico — sem bump de versão o CDN pode servir JS antigo em cache)
+
+**Decisão de performance:** nenhum asset novo (imagem/GIF/fonte externa) foi adicionado — tudo é CSS puro (gradientes, `repeating-linear-gradient` pra textura/bandeira, `box-shadow`/`text-shadow` pra profundidade) + emoji para ícones, seguindo o mesmo padrão leve já usado em todos os outros widgets do site. Isso respeita o histórico de incidentes de PageSpeed documentado neste arquivo (sessão 28/05/2026) — nunca mais adicionar peso à página sem necessidade.
+
+**Escopo do piloto:** só `/motor/` (hero band + painel). As demais páginas de esporte (`/basquete/`, `/tenis/`, `/mma/`, `/volei/`, `/nfl/`) e o ecossistema de futebol (`/radar-da-bola/`, `/brasileirao-a/`, `/brasileirao-b/`, `/libertadores/`, `/sul-americana/`, `/futebol-europeu/`, `/copa/`) **ainda não foram tocados** — aguardando validação visual de Roberto no piloto antes de replicar o mesmo nível de investimento (identidade de cor/textura própria + painel gigante) pros outros 6+ esportes.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Validar visualmente `/motor/` com Roberto** — hero + painel com contador ao vivo, pódio visual, ranking estilo telemetria
+2. **Se aprovado**: replicar o mesmo padrão de investimento visual (identidade única por esporte: cores/texturas/tipografia que remetam àquele esporte + painel 24h) para Basquete, Tênis, MMA, Vôlei, NFL — cada um com sua própria linguagem visual, não um template reaproveitado
+3. **Depois**: avaliar se o ecossistema de futebol (múltiplas páginas: radar-da-bola, brasileirão A/B, libertadores, sul-americana, futebol-europeu, copa) recebe tratamento similar — escopo maior, tratar como fase separada
+4. Demais pendências de sessões anteriores seguem válidas (não repetidas aqui — ver lista da sessão anterior)
+
