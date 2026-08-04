@@ -4743,3 +4743,141 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 O item "Lancaster MotorSport" já publicado com `tipo_conteudo="radar"` continua no banco com esse rótulo errado — o filtro client-side do widget agora o esconde de `/radar-da-bola/`, mas o registro em si não foi corrigido no banco (não é um problema de exibição em nenhum outro lugar, já que os outros widgets filtram por palavra-chave própria e o pegariam certo em `/motor/`). Não é urgente corrigir o dado histórico, mas fica registrado caso Roberto queira uma limpeza futura via SQL/admin.
 
+---
+
+### Sessão 04/08/2026 — CONCLUSÃO DA SÉRIE "MENINA DOS OLHOS" (PRs #333-338) + FIX MENU DE ESPORTES (PR #339) + RELOCAÇÃO E REDESIGN COMPLETO DE COLUNISTAS OVC (PRs #340-345)
+
+#### Contexto
+
+Continuação direta da sessão 03/08/2026 (piloto do Motor/F1 + auditoria do vazamento de esportes). Esta sessão fecha a série de redesign "espetacular" em todos os radares esportivos restantes, corrige um problema de usabilidade grave no menu de esportes da Home, e depois passa a atender uma sequência de 6 pedidos sucessivos de Roberto sobre a posição e o visual do bloco Colunistas OVC.
+
+---
+
+#### PARTE 1 — Conclusão da série de luxo dos radares esportivos
+
+Com o piloto do Motor/F1 aprovado como referência visual (dark carbon `#0b0e14` + textura diagonal + sweep animado + mini-pódio ouro/prata/bronze), o mesmo padrão foi replicado em todos os radares restantes.
+
+**PR #333 (commit `6699a707`) — Basquete, NFL, Brasileirão A/B, Libertadores, Sul-Americana:**
+- `public/js/ovc-torneio-espn.js` reescrito — wrap dark carbon, header com textura + sweep, indicador "ao vivo" que muda de cor quando há partida real em andamento, **novo** `renderLeaders()` — mini-pódio dos 3 primeiros colocados da classificação (mesma linguagem visual do pódio de corrida do Motor), tabela com faixa lateral colorida (verde = classificação/acesso, vermelho = rebaixamento) substituindo o texto colorido simples, artilheiros com barra de progresso proporcional atrás de cada linha.
+- Cache-bust `ovc-torneio-espn.js` v6→v7 nas 6 páginas que o consomem.
+
+**PR #334 (commit `9cfd5ef5`) — CTA dinâmico do Radar do Esporte + fix nav:**
+- `ovc-radar-esporte.js`: o botão de rodapé do widget da Home apontava sempre pra `/esportes/` (categoria genérica), independente da aba ativa. Corrigido pra ser dinâmico — cada esporte tem sua página dedicada (`page` no objeto `SPORTS`), o CTA muda de texto e destino junto com a aba selecionada.
+- 194 páginas do portal: link "Futebol" do submenu de navegação corrigido de `/esportes/futebol/` (categoria genérica) pra `/radar-da-bola/` (hub dedicado) — mesmo padrão que os outros 6 esportes já usavam.
+
+**PR #335 (commit `91509094`) — MMA e Tênis:**
+- `ovc-radar-mma.js`: luta principal do card em destaque estilo pôster de evento (badge "Luta principal", vencedor e método em realce), demais lutas em lista compacta.
+- `ovc-radar-tenis.js`: mini-pódio ouro/prata/bronze no topo do ranking ATP e WTA, jogos/resultados restilizados em dark.
+- Cache-bust `ovc-radar-mma.js`/`ovc-radar-tenis.js` v3→v4.
+
+**PR #336 (commit `b0f66676`) — Fix simetria de altura + 7 abas sempre visíveis:**
+- Bug real: os dois widgets do topo dos rails da Home (Radar Eleitoral / Radar do Esporte) declaravam `height:740px` mas com bordas de espessura diferente (1.5px vs 1px) em `box-sizing:content-box` (padrão do navegador) — a borda soma FORA do height declarado, então o total renderizado divergia por alguns pixels. Fix: `box-sizing:border-box` nos dois, trava a altura total real em exatamente 740px incluindo a borda. Também `margin-top:18px` do eleitoral (sem função — é sempre o primeiro filho do rail) virou `margin-bottom:18px`, igual ao esporte.
+- Segundo bug: `ovc-radar-esporte.js` só mostrava as abas dos esportes que tinham conteúdo publicado nas últimas horas (`disponiveis = SPORTS.filter(...)`) — no dia do print só apareciam 3 de 7. Fix: `disponiveis = SPORTS` sempre — as 7 abas ficam visíveis o tempo todo, `renderBody()` já mostra "Cobertura chegando em breve" quando a aba clicada ainda não tem artigo.
+- Cache-bust `ovc-radar-esporte.js` v2→v3, `ovc-eleitoral.js` v3→v4.
+
+**PR #337 (commit `68852051`) — `/radar-da-bola/` (o componente do print "lixo"):**
+- `ovc-radar-widget.js` — o mesmo componente que Roberto havia marcado como "lixo" num print anterior ainda estava no tema claro genérico original. Manchete em destaque virou card dark full-width estilo pôster de capa (textura + sweep, badge pulsante "Radar OVC · há X minutos"); lista de últimos registros migrada pro tema dark com barra lateral verde no hover.
+- Cache-bust `ovc-radar-widget.js` v2→v3.
+
+**PR #338 (commit `ae5e6d31`) — Vôlei e Futebol Europeu (fecha a série):**
+- `ovc-radar-volei.js`: header dark com identidade laranja/quadra, grid de cards editoriais migrado pro tema dark (mantido 100% editorial — ESPN não cobre Superliga/FIVB, nenhum dado inventado).
+- `ovc-futebol-europeu.js`: mini-pódio de líderes no topo da classificação de cada liga, tabela com faixa lateral colorida, artilheiros com barra de progresso, seletor de ligas e abas restilizados em dark.
+- Cache-bust `ovc-radar-volei.js` v3→v4, `ovc-futebol-europeu.js` v4→v5.
+
+**Resultado:** os 9 radares esportivos (Futebol×6, Basquete, NFL, Motor, Tênis, MMA, Vôlei, Futebol Europeu) + o widget "Radar do Esporte" da Home compartilham a mesma identidade visual de luxo — a série "menina dos olhos" iniciada em 03/08/2026 foi concluída nesta sessão.
+
+---
+
+#### PARTE 2 — Fix crítico de usabilidade: menu de esportes com scroll escondido (PR #339, commit `46225db2`)
+
+Roberto: *"a maneira que voce colocou os esportes fica impossivel de ver... nao da pra ter um menu de esportes que empurra para os lados pra ficarem visiveis. precisam estar fixados e sempre a vista"*.
+
+**Causa:** `.ovc-esporte-tabs` usava `flex nowrap + overflow-x:auto` com a scrollbar propositalmente escondida (`scrollbar-width:none`) — as 7 abas exigiam scroll horizontal pra aparecer, mas sem nenhuma pista visual de que dava pra rolar. O visitante via só 2-3 abas e achava que era só isso.
+
+**Fix:** `.ovc-esporte-tabs` virou `display:grid` com `grid-template-columns:repeat(7,1fr)` — cada aba ocupa exatamente 1/7 da largura do widget, as 7 sempre visíveis simultaneamente, zero scroll. Cada aba virou um ícone (emoji) grande + rótulo minúsculo abaixo — formato compacto que cabe as 7 lado a lado no rail estreito da Home. Adicionado "Agora em: [Esporte]" dinâmico no cabeçalho do widget (atualiza ao trocar de aba) pra manter clareza de qual esporte está selecionado, já que os rótulos das abas agora são bem pequenos. Cache-bust `ovc-radar-esporte.js` v3→v4.
+
+---
+
+#### PARTE 3 — Colunistas OVC: relocação e 5 rodadas de refinamento visual (PRs #340-345)
+
+Roberto mandou 2 prints da Home marcando exatamente onde queria o bloco reposicionado: *"quero que voce remova os colunistas de onde estáo. quero que eles fiquem em ua fileira, lado a lado... entre os cards do brasil on e do internacional na home."*
+
+**PR #340 (commit `db7f93b9`) — Relocação + fileira única:**
+- Removido o bloco "Colunistas OVC" da sidebar (`rail-left`, logo após o bloco TV) — era `garantirRailColunistas()`/`carregarRailColunistas()`, um grid 3×2 empilhado, pouco visível.
+- Novo `renderColunistasFileira()` inserido no miolo principal de `buildSection()` (`ovc-cards.js`), logo depois da Zona 1 "Brasil em Foco" e antes do card editorial "Internacional" — exatamente a posição pedida.
+- Fileira única: os 6 colunistas lado a lado (flex row), sem empilhar em linhas.
+- `carregarColunistasFileira()` (renomeada de `carregarRailColunistas`) populada via fetch assíncrono depois de `load()` — o placeholder só existe no DOM depois de `buildSection()` rodar.
+- Cache-bust `ovc-cards.js` v6→v7.
+
+**PR #341 (commit `c30a0acc`) — Fix: Minuto OVC deslocado (bug real causado pelo próprio PR #340):**
+Roberto confirmou por print que Colunistas ficou na posição certa, mas identificou o bloco "Minuto OVC" aparecendo entre Colunistas e Internacional — posição nunca pedida.
+
+*Causa raiz:* `ovc-nichos.js` usava um **índice numérico fixo** (`filhos[6]`) pra decidir onde inserir o Minuto OVC dentro do miolo da Home — contava "o 6º filho da lista de blocos" sem saber o nome de nenhum bloco. Antes do PR #340, o 6º filho era a zona "Poder & Dinheiro" — Minuto ficava certo, entre Internacional e Poder & Dinheiro. Ao inserir a fileira de Colunistas + sua linha divisória ANTES do bloco Internacional, a contagem deslocou 2 posições — o 6º filho passou a ser o próprio bloco Internacional, e o Minuto OVC se inseriu ali, no lugar errado, sem ninguém ter pedido ou percebido.
+
+*Fix (âncora estável em vez de índice numérico):* a zona "Poder & Dinheiro" ganhou `data-zona="poder-dinheiro"` em `ovc-cards.js`; `ovc-nichos.js` agora localiza esse elemento via `querySelector` e insere o Minuto OVC logo antes dele, **independente de quantos blocos existirem antes na Home** — imuniza contra esse tipo de quebra silenciosa em qualquer edição futura do layout. Cache-bust `ovc-cards.js` v7→v8, `ovc-nichos.js` v3→v4.
+
+> **Lição registrada:** ao inserir/remover blocos no miolo da Home (`buildSection()` em `ovc-cards.js`), sempre verificar se algum script independente (REGRA ZERO-I) usa contagem numérica de filhos (`grep "filhos\["`) pra se posicionar — índice fixo quebra silenciosamente a cada novo bloco inserido antes dele.
+
+**PR #342 (commit `040d7ac0`) — Espaçamento, fotos maiores, bio visível:**
+Roberto: *"está muito espaçado... quero que fique mais agrupado esta parte. e as nossas imagens podem ficar maiores, sutilmente - e pensei que pudessemos ter um breve resumo... apenas nome, profissao, tipo de colunista, etc."*
+- Espaçamento reduzido especificamente entre Brasil em Foco → Colunistas → Internacional (40px → 16px) via novas classes `.ovc-zona-compact`/`.ovc-sep-tight` — resto da Home manteve 40px, intocado.
+- Avatares 56px → 68px.
+- Campo `bio` (já existente no cadastro do admin — "Bio curta do colunista", já retornado por `/api/manage?action=list_colunistas`, coluna `bio` na tabela `colunistas`) passou a aparecer embaixo do nome de cada colunista, truncado em 2 linhas.
+- Cache-bust `ovc-cards.js` v8→v9.
+
+**PR #343 (commit `9d0d5a32`) — Redesign premium dark + reordenação:**
+Roberto: *"vi que mudou aqui, mas foi pouco ainda, melhore esse layout claude, essa area do portal precisa ser chamativa, mas ao mesmo tempo ser elegante. e a ordem deve ser EU, PIZZOLATTO, Taisa, depois as outras pessoas."*
+- Card branco simples substituído por card escuro premium (mesma linguagem "espetacular" dos radares esportivos: dark carbon, textura + sweep, badge "Opinião & Análise").
+- Fotos com moldura circular em anel dourado (gradiente), leve elevação no hover.
+- CTA "Ver todas as colunas" movido pro rodapé do card.
+- Ordem: Roberto Terrasan → Prof. Marcos Pizzolatto → Taísa da Fonseca → Beta Ferreira → Adriana Ferreira → Michele Froiz.
+- Cache-bust `ovc-cards.js` v9→v10.
+
+**PR #344 (commit `73818d1c`) — Reduz altura ("ficou grosseirao"):**
+Roberto: *"vi que mudou aqui, mas fcou grosseirao ne? diminua a altura de toda essa area..."*
+- Header: padding 20/16 → 12/10, título 22px → 16px, badge/subtítulo reduzidos.
+- Avatares: anel dourado 76px → 52px.
+- Nome mantido em 2 linhas (nomes longos como "Prof. Marcos Pizzolatto" continuam legíveis, sem cortar); bio de 2 linhas → 1 linha.
+- Rodapé "Ver todas as colunas": padding reduzido.
+- Resultado: card ~35% mais baixo, mesma identidade escura/dourada. Cache-bust `ovc-cards.js` v10→v11.
+
+**PR #345 (commit `34dcc43f`) — Remove fundo escuro (identidade real do OVC):**
+Roberto: *"esse fundo escuro nao tem a ver com o OVC"*.
+- O card dark carbon havia sido emprestado do visual dos radares esportivos — mas o portal é branco/claro (`--bg-elevated:#fff`, ver `:root` em `public/index.html`), esse tema não condiz com a identidade do site.
+- Trocado por card branco com o dourado (`#b8860b`) — que já é a cor oficial da categoria Colunistas no código (`CORES_CAT.colunistas`, mesma usada no menu de navegação e nos cards de categoria) — em vez de um tema emprestado.
+- Fundo `#0b0e14`→`#fff`; textura diagonal + sweep animado removidos (efeitos de tema escuro sem sentido em fundo claro); textos brancos→escuros (`#0f172a` título/nome, `#64748b` subtítulo, `#94a3b8` bio); anel dourado nas fotos mantido — continua sendo o elemento de destaque; CTA dourado sobre fundo claro.
+- Cache-bust `ovc-cards.js` v11→v12.
+
+> **Lição registrada:** ao redesenhar qualquer seção do portal, a linguagem visual "espetacular" (dark carbon, textura, sweep) é a identidade oficial e aprovada **especificamente dos radares esportivos** — não é o padrão geral do OVC pra qualquer conteúdo. O resto do portal é branco/claro (`--bg-page:#f3f4f8`, `--bg-elevated:#fff`) com acentos coloridos por categoria (vermelho geral, dourado para Colunistas/vc). Antes de aplicar o tema dark em uma seção nova, confirmar se aquela seção tem justificativa própria (como os radares, que reforçam uma identidade de "painel ao vivo/telemetria") ou se deveria seguir o padrão claro do restante do site.
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### Deploy pipeline
+
+Todos os 13 PRs desta sessão (#333 a #345) tiveram o CI "Verificar arquivos críticos" com a falha conhecida e pré-autorizada de `public/index.html` < 700 linhas (consequência aceita da faxina de módulos mortos da sessão de 03/08/2026 — ver Regra Zero-E, bypass padrão já estabelecido com Roberto). Todos os merges foram feitos manualmente com essa falha esperada, e o `deploy.yml` (Deploy Production) rodou com sucesso confirmado via GitHub Actions para cada um.
+
+### ✅ CONFIRMADO NESTA SESSÃO (04/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Todos os 9 radares esportivos + widget Radar do Esporte com visual "espetacular" unificado** | ✅ EM PRODUÇÃO (PRs #333-338) |
+| **Menu de esportes — 7 abas sempre visíveis, sem scroll escondido** | ✅ EM PRODUÇÃO (PR #339) |
+| **Simetria de altura exata entre Radar Eleitoral e Radar do Esporte (740px, box-sizing:border-box)** | ✅ EM PRODUÇÃO (PR #336) |
+| **Colunistas OVC — fileira única, entre Brasil em Foco e Internacional** | ✅ EM PRODUÇÃO (PR #340) |
+| **Fix Minuto OVC — âncora por data-zona em vez de índice numérico frágil** | ✅ EM PRODUÇÃO (PR #341) |
+| **Colunistas OVC — visual final: card branco, dourado, compacto, com bio, ordem EU/Pizzolatto/Taísa primeiro** | ✅ EM PRODUÇÃO (PR #345, última iteração após #342/#343/#344) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** o resultado final do bloco Colunistas OVC (branco/dourado/compacto) e a série completa de radares esportivos — nenhuma etapa desta sessão foi visualmente verificada em navegador real por este agente (ambiente de sessão sem acesso de rede ao site em produção).
+2. `ovc-copa.js` continua não carregado via `<script>` em `public/index.html` (pendência antiga, não tocada nesta sessão).
+3. O item "Lancaster MotorSport" publicado com `tipo_conteudo="radar"` errado no banco (ver sessão 03/08/2026) segue sem limpeza de dado histórico — baixa urgência.
+4. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/` com dado real da ESPN) seguem válidas e não foram tocadas nesta sessão.
+
