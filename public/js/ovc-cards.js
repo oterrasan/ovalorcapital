@@ -351,18 +351,24 @@ function injetarEstilosMiolo(){
 
     /* Colunistas OVC — fileira única, lado a lado, entre Brasil em Foco e Internacional */
     '.ovc-colunistas-fileira{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;',
-    'background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:20px 22px;}',
+    'background:#fff;border:1px solid #e8eaed;border-radius:14px;padding:18px 20px;}',
     '.ovc-colunista-item{display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;',
     'color:#0f172a;flex:1;min-width:0;}',
-    '.ovc-colunista-avatar,.ovc-colunista-avatar-ph{width:56px;height:56px;border-radius:12px;flex-shrink:0;}',
+    '.ovc-colunista-avatar,.ovc-colunista-avatar-ph{width:68px;height:68px;border-radius:14px;flex-shrink:0;}',
     '.ovc-colunista-avatar{object-fit:cover;object-position:center top;border:1px solid #e5e7eb;background:#111827;display:block;}',
     '.ovc-colunista-avatar-ph{background:#101827;color:#d4af37;display:flex;align-items:center;justify-content:center;',
-    'font-size:13px;font-weight:800;}',
-    '.ovc-colunista-nome{font-size:10.5px;font-weight:700;line-height:1.25;text-align:center;',
+    'font-size:15px;font-weight:800;}',
+    '.ovc-colunista-nome{font-size:11px;font-weight:700;line-height:1.25;text-align:center;',
+    'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
+    '.ovc-colunista-bio{font-size:9px;font-weight:500;line-height:1.3;text-align:center;color:#94a3b8;',
     'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}',
     '.ovc-colunista-item:hover .ovc-colunista-nome{color:#b8860b;}',
     '@media(max-width:640px){.ovc-colunistas-fileira{flex-wrap:wrap;justify-content:center;}',
-    '.ovc-colunista-item{flex:0 0 auto;width:72px;}}',
+    '.ovc-colunista-item{flex:0 0 auto;width:84px;}}',
+
+    /* Espaçamento compacto — apenas no trecho Brasil em Foco → Colunistas → Internacional */
+    '.ovc-sep-tight{height:1px;background:#e8eaed;margin:0 0 16px;}',
+    '.ovc-zona-compact{margin-bottom:16px;}',
   ].join('');
   document.head.appendChild(st);
 }
@@ -618,6 +624,9 @@ function buildSection(container){
   miolo.className = 'ovc-miolo';
 
   function sep(){ var d=document.createElement('div'); d.className='ovc-sep'; return d; }
+  // Espaçamento reduzido — só usado entre Brasil em Foco, Colunistas e Internacional
+  // (Roberto pediu esse trecho especificamente mais agrupado, 04/08/2026).
+  function sepTight(){ var d=document.createElement('div'); d.className='ovc-sep-tight'; return d; }
 
   // ── Notas do dia (Pílulas) ────────────────────────────────────────────
   var bB = renderBlocoB([]);
@@ -625,8 +634,11 @@ function buildSection(container){
   miolo.appendChild(sep());
 
   // ── Zona 1: Brasil em Foco ───────────────────────────────────────────
+  // ovc-zona-compact: trecho Brasil em Foco → Colunistas → Internacional pedido
+  // mais agrupado por Roberto (04/08/2026) — só essas 3 seções ficam mais juntas,
+  // o resto da home mantém o espaçamento padrão de 40px.
   var z1 = document.createElement('div');
-  z1.className = 'ovc-zona';
+  z1.className = 'ovc-zona ovc-zona-compact';
   z1.appendChild(renderZonaHeader('Brasil em Foco', '/brasil-on/'));
   var z1grid = document.createElement('div');
   z1grid.className = 'ovc-zona-brasil-grid';
@@ -641,11 +653,13 @@ function buildSection(container){
   ]));
   z1.appendChild(z1grid);
   miolo.appendChild(z1);
-  miolo.appendChild(sep());
+  miolo.appendChild(sepTight());
 
   // ── Colunistas OVC (fileira única, lado a lado) — entre Brasil em Foco e Internacional ──
-  miolo.appendChild(renderColunistasFileira());
-  miolo.appendChild(sep());
+  var colunistasBloco = renderColunistasFileira();
+  colunistasBloco.classList.add('ovc-zona-compact');
+  miolo.appendChild(colunistasBloco);
+  miolo.appendChild(sepTight());
 
   // ── Internacional (editorial full-width, mesmo padrão do bloco de Esportes) ──
   miolo.appendChild(renderBlocoE(CATS[6]));
@@ -1096,13 +1110,18 @@ function load(){
         list.slice(0,8).forEach(function(c){
           var nome = c.nome || c.name || 'Colunista OVC';
           var foto = c.foto_url || c.photo_url || c.avatar_url || c.imagem || '';
-          html += '<a class="ovc-colunista-item" href="/colunistas/" title="'+escHtml(nome)+'">';
+          // bio curta cadastrada no admin (profissão/tipo de colunista) — Roberto
+          // pediu esse resumo visível direto na fileira, 04/08/2026
+          var bio = (c.bio || c.cargo || c.profissao || '').trim();
+          html += '<a class="ovc-colunista-item" href="/colunistas/" title="'+escHtml(nome + (bio ? ' — '+bio : ''))+'">';
           if(foto){
             html += '<img class="ovc-colunista-avatar" src="'+foto+'" alt="'+escHtml(nome)+'" loading="lazy" onerror="this.outerHTML=\'<span class=&quot;ovc-colunista-avatar-ph&quot;>'+iniciais(nome)+'</span>\';">';
           } else {
             html += '<span class="ovc-colunista-avatar-ph">'+iniciais(nome)+'</span>';
           }
-          html += '<span class="ovc-colunista-nome">'+escHtml(nome)+'</span></a>';
+          html += '<span class="ovc-colunista-nome">'+escHtml(nome)+'</span>';
+          if(bio) html += '<span class="ovc-colunista-bio">'+escHtml(bio)+'</span>';
+          html += '</a>';
         });
         row.innerHTML = html;
       })
