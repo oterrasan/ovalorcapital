@@ -4677,3 +4677,16 @@ Antes de replicar pros outros 6 esportes, foi construído um **piloto completo e
 3. **Depois**: avaliar se o ecossistema de futebol (múltiplas páginas: radar-da-bola, brasileirão A/B, libertadores, sul-americana, futebol-europeu, copa) recebe tratamento similar — escopo maior, tratar como fase separada
 4. Demais pendências de sessões anteriores seguem válidas (não repetidas aqui — ver lista da sessão anterior)
 
+#### Simetria exata entre Radar Eleitoral e Radar do Esporte (Home)
+
+Roberto pediu que os dois widgets do topo dos rails da Home (Eleitoral no rail esquerdo, Esporte no rail direito, lado a lado) comecem e terminem **exatamente na mesma posição de altura**. Largura já era garantida pela grade (ambos os rails têm 270px, nenhum dos dois widgets tinha `width` fixo, ambos esticam 100% via flexbox). Faltava a altura.
+
+**Solução aplicada — altura fixa compartilhada (740px) + distribuição interna flexível:**
+- `ovc-eleitoral.js` e `ovc-radar-esporte.js` (arquivos **independentes**, Regra Zero-I — nenhum lê o DOM/JS do outro) ganharam `height:740px;display:flex;flex-direction:column;` no elemento raiz. É um valor hardcoded idêntico nos dois arquivos, não uma variável compartilhada em runtime — mantém a independência declarada.
+- Header/countdown/pesquisas/abas/CTA de ambos ganharam `flex-shrink:0` (não encolhem).
+- A lista de artigos de ambos passou a viver num wrapper `flex:1 1 auto;justify-content:space-evenly` — absorve toda a diferença de altura entre os dois (Eleitoral tem menos "sobra" porque tem countdown+pesquisas ocupando espaço acima; Esporte tem mais "sobra" porque só tem as abas) sem deixar buraco feio: os artigos se distribuem uniformemente no espaço disponível.
+- Títulos de matéria em ambos ganharam `-webkit-line-clamp:2` — trava em no máximo 2 linhas, elimina a variação de altura por causa de manchetes muito longas.
+- `ovc-esporte-tabs`: trocado `flex-wrap:wrap` por `flex-wrap:nowrap;overflow-x:auto` (scroll horizontal, sem rolar a barra visualmente — `scrollbar-width:none`) — antes podia quebrar em 1, 2 ou 3 linhas dependendo de quantos dos 7 esportes tinham conteúdo naquele dia, o que fazia a altura do widget variar dia a dia. Agora é sempre 1 linha só, altura 100% previsível.
+
+**Ressalva importante:** o valor `740px` foi calculado analiticamente (somando padding/font-size/line-height de cada seção no CSS), não confirmado num navegador real rodando — este ambiente de sessão não tem acesso a renderização visual. **Alta chance de precisar de um ajuste fino** depois que Roberto olhar ao vivo (aumentar/diminuir esse único número em ambos os arquivos, mudança trivial e rápida caso não bata exato).
+
