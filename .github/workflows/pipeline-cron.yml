@@ -35,6 +35,18 @@ jobs:
             -d '{"tipo":"futebol","force":true}')
           echo "FUTEBOL: $RESP" | head -c 300
 
+  outros_esportes:
+    name: Radar do Esporte 24h — Basquete/Motor/Tênis/MMA/Vôlei/NFL
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Gerar pílulas dos outros esportes
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"outros_esportes","force":true,"count":3}')
+          echo "OUTROS_ESPORTES: $RESP" | head -c 300
+
   materias:
     name: Matéria 07h–00h30 BRT
     runs-on: ubuntu-latest

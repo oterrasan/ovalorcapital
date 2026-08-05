@@ -18,9 +18,10 @@ const GN_EN = (q) => GN(q, "en", "US", "US:en");
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FONTES APROVADAS OVC — 70 FONTES OFICIAIS + 7 GOVERNO + 5 JURÍDICO/MÍDIA
-// + 18 ESPORTES POR MODALIDADE (Basquete/Motor/Tênis/MMA/Vôlei/NFL) = 100 no total
+// + 18 ESPORTES POR MODALIDADE + 12 ESPORTES EXPANSÃO INTERNACIONAL
+// (Basquete/Motor/Tênis/MMA/Vôlei/NFL) = 112 no total
 // Aprovadas por Roberto Terrasan em 18/06/2026, 28/07/2026 (governo + jurídico/mídia)
-// e 04/08/2026 (esportes por modalidade)
+// e 04/08/2026 (esportes por modalidade + expansão internacional)
 // NUNCA adicionar fontes sem aprovação explícita de Roberto
 // ═══════════════════════════════════════════════════════════════════════════
 const FEEDS_DIRETOS_GARANTIDOS = [
@@ -134,6 +135,25 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.nfl.com/rss/rsslanding?searchString=home",                name: "NFL.com",                   cats: ["esportes"] },
   { url: "https://www.espn.com/espn/rss/nfl/news",                              name: "ESPN NFL",                  cats: ["esportes"] },
   { url: "https://profootballtalk.nbcsports.com/feed/",                         name: "Pro Football Talk (NBC)",   cats: ["esportes"] },
+  // ━━━ ESPORTES — EXPANSÃO INTERNACIONAL (12) — Roberto Terrasan 04/08/2026: "va alem,
+  // pesquise em fontes internacionais... cadastre as maiores e mais confiaveis". Pesquisa via
+  // WebSearch (não simples suposição) confirmou estas fontes como referências estabelecidas em
+  // cada modalidade. URLs não verificadas por rede neste sandbox (mesmo bloqueio documentado
+  // para Supabase/ESPN/.gov.br em sessões anteriores) — fetchFeed() falha graciosamente
+  // (retorna [] via Promise.allSettled) se alguma URL estiver errada, então o pior caso é a
+  // fonte simplesmente não contribuir itens, sem quebrar o pipeline.
+  { url: "https://hoopshype.com/feed/",                                         name: "HoopsHype",                 cats: ["esportes"] },
+  { url: "https://www.eurohoops.net/en/feed/",                                  name: "Eurohoops",                 cats: ["esportes"] },
+  { url: "https://www.formula1.com/en/latest/all.xml",                          name: "Formula1.com",              cats: ["esportes"] },
+  { url: "https://www.racefans.net/feed/",                                      name: "RaceFans.net",              cats: ["esportes"] },
+  { url: "https://www.tennismajors.com/feed/",                                  name: "Tennis Majors",             cats: ["esportes"] },
+  { url: "https://www.ubitennis.net/feed/",                                     name: "UBITENNIS",                 cats: ["esportes"] },
+  { url: "https://www.mmamania.com/rss/current",                                name: "MMA Mania",                 cats: ["esportes"] },
+  { url: "https://www.bloodyelbow.com/rss/current",                             name: "Bloody Elbow",              cats: ["esportes"] },
+  { url: "https://volleymob.com/feed/",                                         name: "VolleyMob",                 cats: ["esportes"] },
+  { url: "https://volleyballmag.com/feed/",                                     name: "Volleyballmag",             cats: ["esportes"] },
+  { url: "https://www.cbssports.com/rss/headlines/nfl/",                        name: "CBS Sports NFL",            cats: ["esportes"] },
+  { url: "https://sports.yahoo.com/nfl/rss.xml",                                name: "Yahoo Sports NFL",          cats: ["esportes"] },
 ];
 
 const FAMILIA_CAT = {
