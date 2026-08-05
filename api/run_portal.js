@@ -227,15 +227,16 @@ async function cleanupTitles(res, body) {
   return res.status(200).json({ status: "ok", fixedTitles, fixedContent: 0 });
 }
 
-async function saveCurtinha(content, hash, cat, tipo, img = null) {
+async function saveCurtinha(content, hash, cat, tipo, img = null, subcategoriaOverride = null) {
   const catFinal = CATS.has(content.categoria) ? content.categoria : (CATS.has(cat) ? cat : "politica");
+  const subcat = subcategoriaOverride || SUBCAT[catFinal] || "Geral";
   const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
     comentario_fixado: (content.meta_descricao||"").trim(), imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "portal",
     published_at: new Date().toISOString(),
-    user_tags: JSON.stringify([catFinal]), subcategoria: SUBCAT[catFinal]||"Geral",
-    subcategoria_slug: slugify(SUBCAT[catFinal]||"geral"), collaborators: "[]",
+    user_tags: JSON.stringify([catFinal]), subcategoria: subcat,
+    subcategoria_slug: slugify(subcat), collaborators: "[]",
     tipo_conteudo: tipo, metrics: { foco_keyword: content.foco_keyword||"", tipo },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
@@ -655,6 +656,75 @@ async function autoFutebolCurtinhas(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "futebol_jornal", candidates: futebolItems.length });
 }
 
+// ATIVADO — 04/08/2026 — Roberto: "quero o radar do esporte 24horas operando e com conteudo
+// em todos os esportes". autoFutebolCurtinhas() só cobre futebol; autoCurtinhas() genérica está
+// pausada desde 14/06/2026. Sem nenhum job 24h dedicado, Basquete/Motor/Tênis/MMA/Vôlei/NFL só
+// podiam nascer via autoMaterias() (janela 07:00-00:30 BRT, categoria "esportes" sorteada por
+// peso entre outras 9 categorias — frequência baixíssima). Mesmo padrão de autoFutebolCurtinhas,
+// mas para os OUTROS 6 esportes oficiais (SUBCATS.esportes no admin / SPORTS em
+// ovc-radar-esporte.js — precisam ficar em sincronia com esse arquivo).
+// tipo_conteudo="pilula" (nunca "radar" — Radar OVC é exclusividade de futebol, ver comentário
+// acima de autoCurtinhas). subcategoria gravada explicitamente por esporte (em vez do default
+// "Futebol" de SUBCAT.esportes) para que ovc-radar-esporte.js classifique certo de cara.
+const OUTROS_ESPORTES = [
+  { key: "basquete", label: "Basquete", keywords: ["nba","nbb","basquete","basketball"] },
+  { key: "motor",    label: "Motor",    keywords: ["fórmula 1","formula 1","f1","grande prêmio","grande premio","gp de","stock car","motogp","indycar","automobilismo"] },
+  { key: "tenis",    label: "Tênis",    keywords: ["tênis","tenis","atp","wta","wimbledon","roland garros","australian open","us open de tênis","grand slam"] },
+  { key: "mma",      label: "MMA",      keywords: ["mma","ufc","octógono","octogono","artes marciais mistas"] },
+  { key: "volei",    label: "Vôlei",    keywords: ["vôlei","volei","superliga","fivb","vôlei de praia","volei de praia"] },
+  { key: "nfl",      label: "NFL",      keywords: ["nfl","super bowl","futebol americano"] }
+];
+function classificarOutroEsporte(texto) {
+  const t = String(texto || "").toLowerCase();
+  for (const s of OUTROS_ESPORTES) { if (s.keywords.some(kw => t.includes(kw))) return s; }
+  return null;
+}
+
+async function autoOutrosEsportesCurtinhas(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 3, 6);
+  const esportes = await getNewsByCategoria("esportes");
+  const seen = new Set();
+  const candidatos = [];
+  for (const item of esportes) {
+    if (!item?.link || seen.has(item.link)) continue;
+    seen.add(item.link);
+    const texto = (item.title || "") + " " + (item.description || "");
+    const sport = classificarOutroEsporte(texto);
+    if (sport) candidatos.push({ item, sport });
+  }
+  if (!candidatos.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "outros_esportes_jornal", candidates: 0, info: "no_outros_esportes_news" });
+  }
+  let generated = 0;
+  const porEsporte = {};
+  for (const { item, sport } of candidatos.slice(0, 25)) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    let a, sourceText;
+    try {
+      a = await scrape(item.link);
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+    } catch (_) { continue; }
+    const hash = crypto.createHash("md5").update(item.link + "_outros_esportes_jornal").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) continue;
+    try {
+      const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
+      const erros = validar(content);
+      if (erros.length) continue;
+      const img = Date.now() - start < 40000 ? await findImage(content.titulo, "esportes") : null;
+      await saveCurtinha(content, hash, "esportes", "pilula", img, sport.label);
+      await log("info", `[outros-esportes-jornal] ${sport.label}: ${content.titulo?.slice(0,50)}`);
+      porEsporte[sport.key] = (porEsporte[sport.key] || 0) + 1;
+      generated++;
+    } catch (_) { continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "outros_esportes_jornal", candidates: candidatos.length, porEsporte });
+}
+
 export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
@@ -679,6 +749,7 @@ export default async function handler(req, res) {
     // COPA DESATIVADA — 28/07/2026 — torneio encerrado, substituída pelo Radar do Futebol
     if (body.tipo === "copa") return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_desativado", info: "Radar da Copa desativado — torneio encerrado" });
     if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
+    if (body.tipo === "outros_esportes") return autoOutrosEsportesCurtinhas(req, res, rec);
     if (body.tipo === "minuto") return autoMinutoOVC(req, res, rec);
     return autoMaterias(req, res, rec);
   }
