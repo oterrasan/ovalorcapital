@@ -4941,3 +4941,82 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto após o próximo ciclo do pipeline** se conteúdo de Basquete/Motor/Tênis/MMA/Vôlei/NFL está sendo gerado de fato — as URLs não foram verificadas por rede neste sandbox.
 2. Se alguma fonte se mostrar quebrada/inválida na prática, substituir por outra do mesmo esporte (não remover a categoria de cobertura).
 3. Demais pendências de sessões anteriores (visual da Colunistas/radares não verificado em navegador real, `ovc-copa.js` não carregado via `<script>` na home, SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão.
+
+---
+
+### Sessão 04/08/2026 (continuação 2) — RADAR DO ESPORTE 24H: EXPANSÃO INTERNACIONAL + JOB DEDICADO (PR #349)
+
+#### Contexto
+
+Roberto, após o fix inicial das fontes RSS (PR #347): *"vá alem, pesquise em fontes internacionais especialmente para ests outros esportes e cadastre as maiores e mais confiaveis quero o radar do esporte 24horas operando e com conteudo em todos os esportes"*.
+
+#### Parte 1 — 12 fontes internacionais adicionais (`core/rss.js`)
+
+Pesquisa feita via WebSearch (não suposição) para identificar referências realmente estabelecidas em cada modalidade:
+
+| Esporte | Fontes internacionais adicionadas |
+|---|---|
+| Basquete | HoopsHype, Eurohoops |
+| Motor/F1 | Formula1.com (oficial), RaceFans.net |
+| Tênis | Tennis Majors, UBITENNIS |
+| MMA | MMA Mania, Bloody Elbow |
+| Vôlei | VolleyMob, Volleyballmag |
+| NFL | CBS Sports NFL, Yahoo Sports NFL |
+
+Total de fontes esportes-tagged: **22 → 34** (70 gerais + 7 governo + 5 jurídico/mídia + 18 por modalidade de 04/08 cedo + 12 internacionais desta continuação = **112 fontes no total** no arquivo).
+
+#### Parte 2 — causa raiz REAL do "só sai futebol" (`api/run_portal.js`)
+
+Investigação mais profunda revelou que ter as fontes certas não bastava: **nada no pipeline as usava para os outros esportes**. Mapeamento do dispatch em `handler()`:
+
+```js
+if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);   // 24h, só futebol
+if (body.tipo === "minuto") return autoMinutoOVC(req, res, rec);           // 24h, só economia
+// autoCurtinhas() — PAUSADA desde 14/06/2026 (geraria pílula de QUALQUER esporte)
+return autoMaterias(req, res, rec);  // default — janela 07:00-00:30 BRT, categoria sorteada por peso entre 10
+```
+
+Sem nenhum job 24h dedicado aos 6 outros esportes, o único caminho possível era `autoMaterias()` — matéria completa, categoria "esportes" sorteada por peso entre outras 9 categorias (frequência baixíssima), e **nada rodando de madrugada** (00:30–07:00 BRT sem geração alguma).
+
+**Fix:** nova função `autoOutrosEsportesCurtinhas()`, espelhando exatamente o padrão já aprovado de `autoFutebolCurtinhas()`, mas para Basquete/Motor/Tênis/MMA/Vôlei/NFL:
+- Classifica candidatos por palavra-chave via `OUTROS_ESPORTES` — array `{key,label,keywords}` que é **cópia exata** de `SPORTS` em `public/js/ovc-radar-esporte.js` (precisam ficar sempre em sincronia se algum dos dois for alterado no futuro).
+- Gera `tipo_conteudo:"pilula"` — **nunca `"radar"`**, que é exclusividade de futebol por regra já estabelecida (comentário original em `autoCurtinhas()`, 03/08/2026).
+- Bug lateral encontrado e corrigido: `saveCurtinha()` sempre gravava `subcategoria: SUBCAT["esportes"]` = **"Futebol"** fixo, para QUALQUER curtinha de esportes — isso faria `ovc-radar-esporte.js`'s `classificar()` classificar TUDO como Futebol de cara (o primeiro branch do classificador testa a subcategoria antes de cair no fallback por palavra-chave no texto). Corrigido estendendo `saveCurtinha(content, hash, cat, tipo, img, subcategoriaOverride)` com um 6º parâmetro opcional — a nova função passa o label correto do esporte (`"Basquete"`, `"Motor"`, etc.), sem quebrar nenhuma chamada existente (parâmetro opcional, default `null` → comportamento antigo preservado).
+
+#### Parte 3 — cron 24h (`.github/workflows/pipeline-cron.yml`)
+
+Novo job `outros_esportes`, mesmo padrão 24h dos jobs `futebol` e `minuto` já existentes — roda a cada 15 min o dia inteiro (sem janela BRT), `POST /api/run_portal {"tipo":"outros_esportes","force":true,"count":3}`.
+
+#### Verificações feitas
+
+- `node --check` em `run_portal.js` e `rss.js` — sintaxe OK
+- YAML do workflow validado via `python3 -c "import yaml..."`
+- `public/index.html`: 646 linhas, não tocado (Regra Zero-E)
+- `api/`: continua com exatamente 10 arquivos (Regra Zero-A) — mudanças em `core/rss.js`, `api/run_portal.js` e `.github/workflows/`, nada em `api/`
+- CI "Verificar arquivos críticos" falhou pela mesma razão pré-existente e pré-autorizada (646 < 700 em `public/index.html`, confirmado via job log, não causada por este PR) — merge manual feito normalmente
+
+#### ⚠️ Nota de transparência
+
+As 12 URLs internacionais novas não foram verificadas por rede neste sandbox (mesmo bloqueio documentado para Supabase/ESPN/.gov.br em sessões anteriores — WebFetch retornou 403 em TODOS os domínios testados, incluindo feedspot.com, confirmando bloqueio geral do ambiente, não específico de um site). `fetchFeed()` em `core/rss.js` falha graciosamente via `Promise.allSettled` — uma URL errada apenas não contribui itens, sem quebrar o pipeline. Roberto deve confirmar após os próximos ciclos do cron (a cada 15 min) se o Radar do Esporte está de fato recebendo conteúdo dos 6 esportes.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (04/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **34 fontes RSS esportes-tagged (22 + 12 internacionais pesquisadas)** | ✅ EM PRODUÇÃO (PR #349, commit `e1bd6e1`) |
+| **Job cron 24h dedicado a Basquete/Motor/Tênis/MMA/Vôlei/NFL** (`autoOutrosEsportesCurtinhas`, roda a cada 15min sem janela BRT) | ✅ EM PRODUÇÃO |
+| **Fix bug de subcategoria "Futebol" fixa contaminando classificação de outros esportes** | ✅ EM PRODUÇÃO (`saveCurtinha()` com override opcional) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto após alguns ciclos do cron** (a cada 15 min) se o widget Radar do Esporte na home está de fato mostrando conteúdo novo em todas as 7 abas (Futebol já funcionava; Basquete/Motor/Tênis/MMA/Vôlei/NFL são o teste real desta sessão).
+2. Se alguma fonte RSS se mostrar quebrada/inválida na prática, substituir por outra do mesmo esporte — não remover a cobertura daquele esporte.
+3. Se `OUTROS_ESPORTES` em `api/run_portal.js` e `SPORTS` em `public/js/ovc-radar-esporte.js` divergirem no futuro (novo esporte, keyword nova), lembrar de atualizar os dois arquivos juntos — são cópias paralelas por design (server-side classifica pra salvar `subcategoria` certa, client-side classifica pra exibir no widget).
+4. Demais pendências de sessões anteriores (visual da Colunistas/radares não verificado em navegador real, `ovc-copa.js` não carregado via `<script>` na home, SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão.
