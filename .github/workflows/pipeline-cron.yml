@@ -41,11 +41,14 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Gerar pílulas dos outros esportes
+        # head -c 300 cortava a resposta antes dos campos de diagnóstico
+        # (distribuicaoBruta/falhas, adicionados 08/08/2026) — aumentado pra 2000
+        # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
         run: |
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"outros_esportes","force":true,"count":3}')
-          echo "OUTROS_ESPORTES: $RESP" | head -c 300
+          echo "OUTROS_ESPORTES: $RESP" | head -c 2000
 
   materias:
     name: Matéria 07h–00h30 BRT

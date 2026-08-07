@@ -691,55 +691,88 @@ function classificarOutroEsporte(texto) {
   return null;
 }
 
+// Distribui os candidatos em round-robin por esporte antes de cortar em N —
+// sem isso, um esporte com fontes mais prolíficas (ex: NBA) preenchia sozinho
+// os primeiros 25 candidatos e os outros nunca chegavam a ser tentados na
+// rodada. Fix 08/08/2026 — Roberto: "tem esportes la que nunca tiveram
+// nenhum conteudo e os radares estao construidos ha mais de uma semana".
+function distribuirRoundRobin(candidatos) {
+  const porEsporte = {};
+  for (const c of candidatos) {
+    (porEsporte[c.sport.key] = porEsporte[c.sport.key] || []).push(c);
+  }
+  const filas = Object.values(porEsporte);
+  const resultado = [];
+  let i = 0;
+  while (resultado.length < candidatos.length) {
+    let algumaFilaTemItem = false;
+    for (const fila of filas) {
+      if (fila[i]) { resultado.push(fila[i]); algumaFilaTemItem = true; }
+    }
+    if (!algumaFilaTemItem) break;
+    i++;
+  }
+  return resultado;
+}
+
 async function autoOutrosEsportesCurtinhas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 3, 6);
   const esportes = await getNewsByCategoria("esportes");
   const seen = new Set();
-  const candidatos = [];
+  const candidatosBrutos = [];
   for (const item of esportes) {
     if (!item?.link || seen.has(item.link)) continue;
     seen.add(item.link);
     const texto = (item.title || "") + " " + (item.description || "");
     const sport = classificarOutroEsporte(texto);
-    if (sport) candidatos.push({ item, sport });
+    if (sport) candidatosBrutos.push({ item, sport });
   }
-  if (!candidatos.length) {
+  if (!candidatosBrutos.length) {
+    await log("warn", "[outros-esportes-jornal] 0 candidatos após classificação — RSS não retornou nada reconhecido pelas keywords de nenhum dos 6 esportes");
     return res.status(200).json({ status: "ok", generated: 0, tipo: "outros_esportes_jornal", candidates: 0, info: "no_outros_esportes_news" });
   }
+  const candidatos = distribuirRoundRobin(candidatosBrutos);
+  const distribuicaoBruta = {};
+  candidatosBrutos.forEach(c => { distribuicaoBruta[c.sport.key] = (distribuicaoBruta[c.sport.key] || 0) + 1; });
   let generated = 0;
   const porEsporte = {};
+  const falhas = {}; // motivo -> contagem, para diagnóstico no log final
+  const registrarFalha = (motivo) => { falhas[motivo] = (falhas[motivo] || 0) + 1; };
   // Mesmo fix do Bug de duplicidade encontrado em autoFutebolCurtinhas (08/08/2026) —
   // dedup também precisa comparar o título FINAL gerado pela IA, não só o título bruto
   // da fonte antes da reescrita.
   const geradosAgora = [];
   for (const { item, sport } of candidatos.slice(0, 25)) {
     if (Date.now() - start > 50000 || generated >= count) break;
-    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) { registrarFalha("dedup_titulo_fonte"); continue; }
     let a, sourceText;
     try {
       a = await scrape(item.link);
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
-    } catch (_) { continue; }
+      if (sourceText.length < 300) { registrarFalha("scrape_curto"); continue; }
+    } catch (_) { registrarFalha("scrape_erro"); continue; }
     const hash = crypto.createHash("md5").update(item.link + "_outros_esportes_jornal").digest("hex");
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) continue;
+    if (dup) { registrarFalha("hash_duplicado"); continue; }
     try {
       const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
-      if (erros.length) continue;
-      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
+      if (erros.length) { registrarFalha("validar:" + erros[0]); continue; }
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { registrarFalha("dedup_titulo_final"); continue; }
       const img = Date.now() - start < 40000 ? await findImage(content.titulo, "esportes") : null;
       await saveCurtinha(content, hash, "esportes", "pilula", img, sport.label);
       await log("info", `[outros-esportes-jornal] ${sport.label}: ${content.titulo?.slice(0,50)}`);
       porEsporte[sport.key] = (porEsporte[sport.key] || 0) + 1;
       geradosAgora.push(content.titulo);
       generated++;
-    } catch (_) { continue; }
+    } catch (e) { registrarFalha("excecao:" + String(e?.message || e).slice(0, 60)); continue; }
   }
-  return res.status(200).json({ status: "ok", generated, tipo: "outros_esportes_jornal", candidates: candidatos.length, porEsporte });
+  if (Object.keys(falhas).length) {
+    await log("info", `[outros-esportes-jornal] resumo da rodada — gerados:${generated} distribuicao_bruta:${JSON.stringify(distribuicaoBruta)} falhas:${JSON.stringify(falhas)}`);
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "outros_esportes_jornal", candidates: candidatos.length, porEsporte, distribuicaoBruta, falhas });
 }
 
 export default async function handler(req, res) {
