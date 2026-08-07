@@ -1853,16 +1853,27 @@ function Configuracoes() {
     </div>
   );
 
-  // Painel genérico p/ cada slot da família "Interruptores do Portal" (api/manage.js
-  // — action=interruptor_status/toggle&slot=X). Um painel por slot, cada um controla
-  // seu próprio card independente em produção (rail lateral, rodapé, fim de matéria...).
-  const InterruptorPanel = ({slot, titulo, desc, imgSuggestions}) => {
-    const P = 'INTERRUPTOR_' + slot.toUpperCase() + '_';
+  // Painel genérico p/ cada tipo da família "Interruptores do Portal" (api/manage.js
+  // — action=interruptor_status/toggle&slot={tipo}__{categoria}). Cada categoria tem
+  // seu PRÓPRIO card independente em produção (ligar em Política nunca aparece em
+  // Economia) — por isso o painel tem seletor de categoria embutido; o admin edita
+  // uma categoria de cada vez, mas cada uma guarda seu próprio estado isolado.
+  const INTERRUPTOR_CATS = CATS_LIST.filter(c=>c);
+  const InterruptorPanel = ({tipo, titulo, desc, imgSuggestions}) => {
+    const [cat, setCat] = useState(INTERRUPTOR_CATS[0]);
+    const P = 'INTERRUPTOR_' + tipo.toUpperCase() + '_' + cat.toUpperCase().replace(/-/g,'_') + '_';
     return (
       <div className="panel">
         <div className="panel-header"><span className="panel-title">{titulo}</span></div>
         <div style={{padding:20}}>
           <div style={{color:'var(--t2)',fontSize:13,marginBottom:14}}>{desc}</div>
+          <div className="form-group">
+            <label className="form-label">Categoria</label>
+            <select className="form-select" value={cat} onChange={e=>setCat(e.target.value)}>
+              {INTERRUPTOR_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+            <div style={{fontSize:11,color:'var(--t2)',marginTop:4}}>Cada categoria tem seu próprio card — ligar aqui não afeta as outras.</div>
+          </div>
           <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:14}}>
             <input type="checkbox" checked={cfgs[P+'ATIVA']==='on'} onChange={e=>{const v=e.target.checked?'on':'off';setCfgs({...cfgs,[P+'ATIVA']:v});save(P+'ATIVA',v);}}/>
             <span style={{fontSize:13,fontWeight:600}}>Exibir card</span>
@@ -1968,12 +1979,12 @@ function Configuracoes() {
             <button className="btn btn-primary btn-sm" onClick={()=>{save('NOTA_LUTO_TITULO',cfgs.NOTA_LUTO_TITULO||'');save('NOTA_LUTO_TEXTO',cfgs.NOTA_LUTO_TEXTO||'');save('NOTA_LUTO_IMAGEM',cfgs.NOTA_LUTO_IMAGEM||'');save('NOTA_LUTO_LINK',cfgs.NOTA_LUTO_LINK||'');}}>Salvar</button>
           </div>
         </div>
-        <InterruptorPanel slot="rail_lateral" titulo="Interruptor Rail Lateral"
-          desc='Card compacto no rail direito das páginas de categoria/artigo (178 páginas internas). Entra como último item do rail, sem empurrar o conteúdo já existente.'/>
-        <InterruptorPanel slot="rodape" titulo="Interruptor Rodapé"
-          desc="Faixa horizontal de largura total, logo acima do rodapé, em todas as páginas do portal (home + internas)."/>
-        <InterruptorPanel slot="fim_artigo" titulo="Interruptor Fim de Matéria"
-          desc="Card editorial exibido só em páginas de artigo, logo após o fim do corpo do texto — antes de 'Leia também'."/>
+        <InterruptorPanel tipo="rail_lateral" titulo="Interruptor Rail Lateral (por categoria)"
+          desc='Card compacto no rail direito das páginas daquela categoria. Entra como último item do rail, sem empurrar o conteúdo já existente. Independente por categoria — ligar em Política não afeta Economia, Esportes etc.'/>
+        <InterruptorPanel tipo="rodape" titulo="Interruptor Rodapé (por categoria)"
+          desc="Faixa horizontal de largura total, logo acima do rodapé, só nas páginas daquela categoria. Independente por categoria."/>
+        <InterruptorPanel tipo="fim_artigo" titulo="Interruptor Fim de Matéria (por categoria)"
+          desc="Card editorial exibido só em páginas de artigo daquela categoria, logo após o fim do corpo do texto. Independente por categoria."/>
         <div className="panel">
           <div className="panel-header"><span className="panel-title">Automação</span></div>
           <div style={{padding:20}}>
