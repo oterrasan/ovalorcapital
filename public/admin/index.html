@@ -1905,7 +1905,23 @@ function Configuracoes() {
               <label className="form-label">Texto</label>
               <textarea className="form-input" rows={4} value={cfgs.NOTA_LUTO_TEXTO||''} onChange={e=>setCfgs({...cfgs,NOTA_LUTO_TEXTO:e.target.value})}/>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={()=>{save('NOTA_LUTO_TITULO',cfgs.NOTA_LUTO_TITULO||'');save('NOTA_LUTO_TEXTO',cfgs.NOTA_LUTO_TEXTO||'');}}>Salvar texto</button>
+            <div className="form-group">
+              <label className="form-label">Imagem</label>
+              <input className="form-input" value={cfgs.NOTA_LUTO_IMAGEM||''} onChange={e=>setCfgs({...cfgs,NOTA_LUTO_IMAGEM:e.target.value})} placeholder="Cole a URL da imagem..."/>
+              <input className="form-input" style={{marginTop:6,fontSize:12}} placeholder='🔍 Ou descreva aqui: "vela acesa", "criança", "manifestação"... e aperte Enter' onKeyDown={async e=>{
+                if(e.key==='Enter'&&e.target.value.trim()){
+                  const r=await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(e.target.value.trim())}`);
+                  const d=await r.json();
+                  if(d.url){setCfgs(c=>({...c,NOTA_LUTO_IMAGEM:d.url}));e.target.value='';}
+                }
+              }}/>
+              {cfgs.NOTA_LUTO_IMAGEM && <img src={cfgs.NOTA_LUTO_IMAGEM} style={{marginTop:8,width:'100%',maxHeight:200,objectFit:'cover',borderRadius:6}} onError={e=>e.target.style.display='none'} alt="preview"/>}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Link (opcional — botão "Saiba mais")</label>
+              <input className="form-input" value={cfgs.NOTA_LUTO_LINK||''} onChange={e=>setCfgs({...cfgs,NOTA_LUTO_LINK:e.target.value})} placeholder="https://..."/>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={()=>{save('NOTA_LUTO_TITULO',cfgs.NOTA_LUTO_TITULO||'');save('NOTA_LUTO_TEXTO',cfgs.NOTA_LUTO_TEXTO||'');save('NOTA_LUTO_IMAGEM',cfgs.NOTA_LUTO_IMAGEM||'');save('NOTA_LUTO_LINK',cfgs.NOTA_LUTO_LINK||'');}}>Salvar</button>
           </div>
         </div>
         <div className="panel">
