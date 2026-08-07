@@ -39,6 +39,8 @@ export default async function handler(req, res) {
       if (action === "update_pesquisa_eleitoral") return handleUpdatePesquisa(req, res);
       if (action === "nota_luto_status") return handleNotaLutoStatus(res);
       if (action === "nota_luto_toggle") return handleNotaLutoToggle(req, res);
+      if (action === "interruptor_status") return handleInterruptorStatus(req, res);
+      if (action === "interruptor_toggle") return handleInterruptorToggle(req, res);
       if (action === "banners") return handleBanners(req, res);
       return handleStatus(res);
     }
@@ -496,6 +498,73 @@ async function handleNotaLutoToggle(req, res) {
     if (link) rows.push({ key: "NOTA_LUTO_LINK", value: link, updated_at: new Date().toISOString() });
     await supabase.from("config").upsert(rows, { onConflict: "key" });
     return res.status(200).json({ ok: true, ativa: on });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+}
+
+// ── Interruptores do Portal — família de cards liga/desliga, um por área do site ──
+// Pedido por Roberto Terrasan em 07/08/2026: "diversos outros cards interruptores
+// pelo portal em todas as paginas internas, nas laterais nos rails, embaixo, antes
+// do rodape... mas TODOS independentes, nenhum igual". Generaliza o mecanismo do
+// Interruptor Home Principal (nota_luto_status/toggle, mantido intocado para não
+// quebrar o que já está em produção) para N "slots" nomeados — cada slot tem seu
+// próprio estado em config (INTERRUPTOR_{SLOT}_*), sem nenhum dado compartilhado
+// entre eles. Os widgets client-side de cada slot são arquivos totalmente
+// independentes (REGRA ZERO-I) — só o transporte HTTP genérico é reaproveitado aqui.
+const INTERRUPTOR_SLOTS = {
+  rail_lateral: { titulo: "", texto: "", imagem: "", link: "" },
+  rodape:       { titulo: "", texto: "", imagem: "", link: "" },
+  fim_artigo:   { titulo: "", texto: "", imagem: "", link: "" }
+};
+async function handleInterruptorStatus(req, res) {
+  const slot = String(req.query.slot || "");
+  if (!Object.prototype.hasOwnProperty.call(INTERRUPTOR_SLOTS, slot)) {
+    return res.status(400).json({ ok: false, error: "slot_invalido" });
+  }
+  res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+  const def = INTERRUPTOR_SLOTS[slot];
+  const prefix = "INTERRUPTOR_" + slot.toUpperCase() + "_";
+  try {
+    const { data } = await supabase.from("config")
+      .select("key,value")
+      .in("key", [prefix + "ATIVA", prefix + "TITULO", prefix + "TEXTO", prefix + "IMAGEM", prefix + "LINK"]);
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = r.value; });
+    return res.status(200).json({
+      ok: true,
+      slot,
+      ativa: map[prefix + "ATIVA"] === "on",
+      titulo: map[prefix + "TITULO"] || def.titulo,
+      texto: map[prefix + "TEXTO"] || def.texto,
+      imagem: map[prefix + "IMAGEM"] || def.imagem,
+      link: map[prefix + "LINK"] || def.link
+    });
+  } catch (_) {
+    return res.status(200).json({ ok: true, slot, ativa: false, ...def });
+  }
+}
+async function handleInterruptorToggle(req, res) {
+  const slot = String(req.query.slot || "");
+  if (!Object.prototype.hasOwnProperty.call(INTERRUPTOR_SLOTS, slot)) {
+    return res.status(400).json({ ok: false, error: "slot_invalido" });
+  }
+  const pass = String(req.query.pass || "");
+  if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
+  const prefix = "INTERRUPTOR_" + slot.toUpperCase() + "_";
+  const on = String(req.query.on || "") === "1";
+  const titulo = req.query.titulo != null ? String(req.query.titulo) : null;
+  const texto = req.query.texto != null ? String(req.query.texto) : null;
+  const imagem = req.query.imagem != null ? String(req.query.imagem) : null;
+  const link = req.query.link != null ? String(req.query.link) : null;
+  try {
+    const rows = [{ key: prefix + "ATIVA", value: on ? "on" : "off", updated_at: new Date().toISOString() }];
+    if (titulo) rows.push({ key: prefix + "TITULO", value: titulo, updated_at: new Date().toISOString() });
+    if (texto) rows.push({ key: prefix + "TEXTO", value: texto, updated_at: new Date().toISOString() });
+    if (imagem) rows.push({ key: prefix + "IMAGEM", value: imagem, updated_at: new Date().toISOString() });
+    if (link) rows.push({ key: prefix + "LINK", value: link, updated_at: new Date().toISOString() });
+    await supabase.from("config").upsert(rows, { onConflict: "key" });
+    return res.status(200).json({ ok: true, slot, ativa: on });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
   }

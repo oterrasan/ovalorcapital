@@ -1853,6 +1853,50 @@ function Configuracoes() {
     </div>
   );
 
+  // Painel genérico p/ cada slot da família "Interruptores do Portal" (api/manage.js
+  // — action=interruptor_status/toggle&slot=X). Um painel por slot, cada um controla
+  // seu próprio card independente em produção (rail lateral, rodapé, fim de matéria...).
+  const InterruptorPanel = ({slot, titulo, desc, imgSuggestions}) => {
+    const P = 'INTERRUPTOR_' + slot.toUpperCase() + '_';
+    return (
+      <div className="panel">
+        <div className="panel-header"><span className="panel-title">{titulo}</span></div>
+        <div style={{padding:20}}>
+          <div style={{color:'var(--t2)',fontSize:13,marginBottom:14}}>{desc}</div>
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:14}}>
+            <input type="checkbox" checked={cfgs[P+'ATIVA']==='on'} onChange={e=>{const v=e.target.checked?'on':'off';setCfgs({...cfgs,[P+'ATIVA']:v});save(P+'ATIVA',v);}}/>
+            <span style={{fontSize:13,fontWeight:600}}>Exibir card</span>
+          </label>
+          <div className="form-group">
+            <label className="form-label">Título</label>
+            <input className="form-input" type="text" value={cfgs[P+'TITULO']||''} onChange={e=>setCfgs({...cfgs,[P+'TITULO']:e.target.value})}/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Texto</label>
+            <textarea className="form-input" rows={3} value={cfgs[P+'TEXTO']||''} onChange={e=>setCfgs({...cfgs,[P+'TEXTO']:e.target.value})}/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Imagem {imgSuggestions ? '(opcional)' : ''}</label>
+            <input className="form-input" value={cfgs[P+'IMAGEM']||''} onChange={e=>setCfgs({...cfgs,[P+'IMAGEM']:e.target.value})} placeholder="Cole a URL da imagem..."/>
+            <input className="form-input" style={{marginTop:6,fontSize:12}} placeholder='🔍 Descreva aqui e aperte Enter para buscar...' onKeyDown={async e=>{
+              if(e.key==='Enter'&&e.target.value.trim()){
+                const r=await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(e.target.value.trim())}`);
+                const d=await r.json();
+                if(d.url){setCfgs(c=>({...c,[P+'IMAGEM']:d.url}));e.target.value='';}
+              }
+            }}/>
+            {cfgs[P+'IMAGEM'] && <img src={cfgs[P+'IMAGEM']} style={{marginTop:8,width:'100%',maxHeight:160,objectFit:'cover',borderRadius:6}} onError={e=>e.target.style.display='none'} alt="preview"/>}
+          </div>
+          <div className="form-group">
+            <label className="form-label">Link (opcional — botão "Saiba mais")</label>
+            <input className="form-input" value={cfgs[P+'LINK']||''} onChange={e=>setCfgs({...cfgs,[P+'LINK']:e.target.value})} placeholder="https://..."/>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={()=>{save(P+'TITULO',cfgs[P+'TITULO']||'');save(P+'TEXTO',cfgs[P+'TEXTO']||'');save(P+'IMAGEM',cfgs[P+'IMAGEM']||'');save(P+'LINK',cfgs[P+'LINK']||'');}}>Salvar</button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <div className="page-header"><div className="page-title">Configurações</div><div className="page-sub">Parâmetros gerais do sistema</div></div>
@@ -1924,6 +1968,12 @@ function Configuracoes() {
             <button className="btn btn-primary btn-sm" onClick={()=>{save('NOTA_LUTO_TITULO',cfgs.NOTA_LUTO_TITULO||'');save('NOTA_LUTO_TEXTO',cfgs.NOTA_LUTO_TEXTO||'');save('NOTA_LUTO_IMAGEM',cfgs.NOTA_LUTO_IMAGEM||'');save('NOTA_LUTO_LINK',cfgs.NOTA_LUTO_LINK||'');}}>Salvar</button>
           </div>
         </div>
+        <InterruptorPanel slot="rail_lateral" titulo="Interruptor Rail Lateral"
+          desc='Card compacto no rail direito das páginas de categoria/artigo (178 páginas internas). Entra como último item do rail, sem empurrar o conteúdo já existente.'/>
+        <InterruptorPanel slot="rodape" titulo="Interruptor Rodapé"
+          desc="Faixa horizontal de largura total, logo acima do rodapé, em todas as páginas do portal (home + internas)."/>
+        <InterruptorPanel slot="fim_artigo" titulo="Interruptor Fim de Matéria"
+          desc="Card editorial exibido só em páginas de artigo, logo após o fim do corpo do texto — antes de 'Leia também'."/>
         <div className="panel">
           <div className="panel-header"><span className="panel-title">Automação</span></div>
           <div style={{padding:20}}>
