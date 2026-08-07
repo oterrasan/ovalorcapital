@@ -12,12 +12,19 @@
  * conteúdo existente (nav de subcategoria, últimas notícias etc.).
  *
  * Controlado via api/manage.js — action=interruptor_status/interruptor_toggle,
- * slot=rail_lateral. Editável pelo admin (aba Configurações).
+ * slot=rail_lateral__{categoria}. Editável pelo admin (aba Configurações).
+ *
+ * ATUALIZADO 08/08/2026 — Roberto: "cada categoria deve ter estes cards
+ * interruptores independentes e eles nao devem aparecer em outras paginas".
+ * A categoria vem de document.body.dataset.category (já presente em toda
+ * página de categoria/artigo do portal) — ligar o card em Política nunca
+ * faz ele aparecer em Economia, Esportes etc., porque cada categoria tem
+ * seu próprio slot/estado isolado no backend.
  */
 (function () {
   'use strict';
 
-  var SLOT = 'rail_lateral';
+  var TIPO = 'rail_lateral';
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -61,7 +68,11 @@
   }
 
   function init() {
-    fetch('/api/manage?action=interruptor_status&slot=' + SLOT)
+    var categoria = (document.body && document.body.dataset && document.body.dataset.category) || '';
+    if (!categoria) return; // página sem categoria própria (home, busca, etc.) — não aplicável
+
+    var slot = TIPO + '__' + categoria;
+    fetch('/api/manage?action=interruptor_status&slot=' + encodeURIComponent(slot))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.ativa) injetar(d);

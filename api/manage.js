@@ -503,28 +503,28 @@ async function handleNotaLutoToggle(req, res) {
   }
 }
 
-// ── Interruptores do Portal — família de cards liga/desliga, um por área do site ──
-// Pedido por Roberto Terrasan em 07/08/2026: "diversos outros cards interruptores
-// pelo portal em todas as paginas internas, nas laterais nos rails, embaixo, antes
-// do rodape... mas TODOS independentes, nenhum igual". Generaliza o mecanismo do
-// Interruptor Home Principal (nota_luto_status/toggle, mantido intocado para não
-// quebrar o que já está em produção) para N "slots" nomeados — cada slot tem seu
-// próprio estado em config (INTERRUPTOR_{SLOT}_*), sem nenhum dado compartilhado
-// entre eles. Os widgets client-side de cada slot são arquivos totalmente
-// independentes (REGRA ZERO-I) — só o transporte HTTP genérico é reaproveitado aqui.
-const INTERRUPTOR_SLOTS = {
-  rail_lateral: { titulo: "", texto: "", imagem: "", link: "" },
-  rodape:       { titulo: "", texto: "", imagem: "", link: "" },
-  fim_artigo:   { titulo: "", texto: "", imagem: "", link: "" }
-};
+// ── Interruptores do Portal — família de cards liga/desliga, um POR CATEGORIA ──
+// Pedido por Roberto Terrasan em 07/08/2026, refinado em 08/08/2026: "cada
+// categoria deve ter estes cards interruptores independentes e eles nao devem
+// aparecer em outras paginas" — ligar o card de Rail Lateral em Política NUNCA
+// pode fazer esse mesmo card aparecer em Economia, Esportes etc. Por isso o
+// slot é sempre {tipo}__{categoria} (ex: "rail_lateral__politica"), nunca só o
+// tipo sozinho — cada combinação tipo×categoria tem seu próprio estado isolado
+// em config (INTERRUPTOR_{TIPO}_{CATEGORIA}_*). Os widgets client-side leem a
+// categoria da própria página (document.body.dataset.category ou
+// window.__OVC_ARTICLE__.categoria) e montam o slot sozinhos — nenhum widget
+// depende de outro (REGRA ZERO-I), só o transporte HTTP genérico é
+// reaproveitado aqui.
+function parseInterruptorSlot(slot) {
+  const m = /^(rail_lateral|rodape|fim_artigo)__([a-z0-9-]{1,40})$/.exec(String(slot || ""));
+  if (!m) return null;
+  return { tipo: m[1], categoria: m[2] };
+}
 async function handleInterruptorStatus(req, res) {
-  const slot = String(req.query.slot || "");
-  if (!Object.prototype.hasOwnProperty.call(INTERRUPTOR_SLOTS, slot)) {
-    return res.status(400).json({ ok: false, error: "slot_invalido" });
-  }
+  const parsed = parseInterruptorSlot(req.query.slot);
+  if (!parsed) return res.status(400).json({ ok: false, error: "slot_invalido" });
   res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
-  const def = INTERRUPTOR_SLOTS[slot];
-  const prefix = "INTERRUPTOR_" + slot.toUpperCase() + "_";
+  const prefix = "INTERRUPTOR_" + parsed.tipo.toUpperCase() + "_" + parsed.categoria.toUpperCase().replace(/-/g, "_") + "_";
   try {
     const { data } = await supabase.from("config")
       .select("key,value")
@@ -533,25 +533,23 @@ async function handleInterruptorStatus(req, res) {
     (data || []).forEach(r => { map[r.key] = r.value; });
     return res.status(200).json({
       ok: true,
-      slot,
+      slot: parsed.tipo + "__" + parsed.categoria,
       ativa: map[prefix + "ATIVA"] === "on",
-      titulo: map[prefix + "TITULO"] || def.titulo,
-      texto: map[prefix + "TEXTO"] || def.texto,
-      imagem: map[prefix + "IMAGEM"] || def.imagem,
-      link: map[prefix + "LINK"] || def.link
+      titulo: map[prefix + "TITULO"] || "",
+      texto: map[prefix + "TEXTO"] || "",
+      imagem: map[prefix + "IMAGEM"] || "",
+      link: map[prefix + "LINK"] || ""
     });
   } catch (_) {
-    return res.status(200).json({ ok: true, slot, ativa: false, ...def });
+    return res.status(200).json({ ok: true, slot: parsed.tipo + "__" + parsed.categoria, ativa: false, titulo: "", texto: "", imagem: "", link: "" });
   }
 }
 async function handleInterruptorToggle(req, res) {
-  const slot = String(req.query.slot || "");
-  if (!Object.prototype.hasOwnProperty.call(INTERRUPTOR_SLOTS, slot)) {
-    return res.status(400).json({ ok: false, error: "slot_invalido" });
-  }
+  const parsed = parseInterruptorSlot(req.query.slot);
+  if (!parsed) return res.status(400).json({ ok: false, error: "slot_invalido" });
   const pass = String(req.query.pass || "");
   if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
-  const prefix = "INTERRUPTOR_" + slot.toUpperCase() + "_";
+  const prefix = "INTERRUPTOR_" + parsed.tipo.toUpperCase() + "_" + parsed.categoria.toUpperCase().replace(/-/g, "_") + "_";
   const on = String(req.query.on || "") === "1";
   const titulo = req.query.titulo != null ? String(req.query.titulo) : null;
   const texto = req.query.texto != null ? String(req.query.texto) : null;
@@ -564,7 +562,7 @@ async function handleInterruptorToggle(req, res) {
     if (imagem) rows.push({ key: prefix + "IMAGEM", value: imagem, updated_at: new Date().toISOString() });
     if (link) rows.push({ key: prefix + "LINK", value: link, updated_at: new Date().toISOString() });
     await supabase.from("config").upsert(rows, { onConflict: "key" });
-    return res.status(200).json({ ok: true, slot, ativa: on });
+    return res.status(200).json({ ok: true, slot: parsed.tipo + "__" + parsed.categoria, ativa: on });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
   }

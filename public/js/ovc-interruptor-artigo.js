@@ -15,12 +15,18 @@
  * internal-page-v2.js termina de renderizar o corpo (.ovc-art-body).
  *
  * Controlado via api/manage.js — action=interruptor_status/interruptor_toggle,
- * slot=fim_artigo. Editável pelo admin (aba Configurações).
+ * slot=fim_artigo__{categoria}. Editável pelo admin (aba Configurações).
+ *
+ * ATUALIZADO 08/08/2026 — Roberto: "cada categoria deve ter estes cards
+ * interruptores independentes e eles nao devem aparecer em outras paginas".
+ * A categoria vem de window.__OVC_ARTICLE__.categoria — ligar o card em uma
+ * matéria de Política nunca faz ele aparecer em matérias de Economia,
+ * Esportes etc.
  */
 (function () {
   'use strict';
 
-  var SLOT = 'fim_artigo';
+  var TIPO = 'fim_artigo';
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -74,9 +80,13 @@
   }
 
   function init() {
-    if (!window.__OVC_ARTICLE__) return; // não é página de artigo
+    var artigo = window.__OVC_ARTICLE__;
+    if (!artigo) return; // não é página de artigo
+    var categoria = artigo.categoria || '';
+    if (!categoria) return;
 
-    fetch('/api/manage?action=interruptor_status&slot=' + SLOT)
+    var slot = TIPO + '__' + categoria;
+    fetch('/api/manage?action=interruptor_status&slot=' + encodeURIComponent(slot))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.ativa) esperarCorpoEInjetar(d);

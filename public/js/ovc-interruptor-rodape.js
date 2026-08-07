@@ -7,16 +7,23 @@
  *
  * Pedido por Roberto Terrasan em 07/08/2026: card interruptor "embaixo,
  * antes do rodape". Faixa horizontal, largura total, inserida imediatamente
- * antes de <footer class="footer"> — presente em toda página do portal
- * (home + todas as internas), então um único widget cobre o site inteiro.
+ * antes de <footer class="footer"> — presente em toda página de categoria
+ * do portal.
  *
  * Controlado via api/manage.js — action=interruptor_status/interruptor_toggle,
- * slot=rodape. Editável pelo admin (aba Configurações).
+ * slot=rodape__{categoria}. Editável pelo admin (aba Configurações).
+ *
+ * ATUALIZADO 08/08/2026 — Roberto: "cada categoria deve ter estes cards
+ * interruptores independentes e eles nao devem aparecer em outras paginas".
+ * A categoria vem de document.body.dataset.category — ligar o rodapé em
+ * Política nunca faz ele aparecer em Economia, Esportes etc. Páginas sem
+ * categoria própria (home, busca, contato...) não mostram este widget — a
+ * home já tem seu próprio card dedicado (Interruptor Home Principal).
  */
 (function () {
   'use strict';
 
-  var SLOT = 'rodape';
+  var TIPO = 'rodape';
 
   function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -64,7 +71,11 @@
   }
 
   function init() {
-    fetch('/api/manage?action=interruptor_status&slot=' + SLOT)
+    var categoria = (document.body && document.body.dataset && document.body.dataset.category) || '';
+    if (!categoria) return; // página sem categoria própria — não aplicável
+
+    var slot = TIPO + '__' + categoria;
+    fetch('/api/manage?action=interruptor_status&slot=' + encodeURIComponent(slot))
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.ativa) injetar(d);
