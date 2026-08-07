@@ -1888,6 +1888,27 @@ function Configuracoes() {
           </div>
         </div>
         <div className="panel">
+          <div className="panel-header"><span className="panel-title">Card de Nota (Luto/Campanha) — Home</span></div>
+          <div style={{padding:20}}>
+            <div style={{color:'var(--t2)',fontSize:13,marginBottom:14}}>
+              Card grande exibido na home, logo abaixo dos 3 cards de destaque. Reutilizável para notas de luto, campanhas estratégicas etc. — edite o texto e ligue/desligue quando quiser, sem precisar de deploy.
+            </div>
+            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:14}}>
+              <input type="checkbox" checked={cfgs.NOTA_LUTO_ATIVA==='on'} onChange={e=>{const v=e.target.checked?'on':'off';setCfgs({...cfgs,NOTA_LUTO_ATIVA:v});save('NOTA_LUTO_ATIVA',v);}}/>
+              <span style={{fontSize:13,fontWeight:600}}>Exibir card na home</span>
+            </label>
+            <div className="form-group">
+              <label className="form-label">Título</label>
+              <input className="form-input" type="text" value={cfgs.NOTA_LUTO_TITULO||''} onChange={e=>setCfgs({...cfgs,NOTA_LUTO_TITULO:e.target.value})}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Texto</label>
+              <textarea className="form-input" rows={4} value={cfgs.NOTA_LUTO_TEXTO||''} onChange={e=>setCfgs({...cfgs,NOTA_LUTO_TEXTO:e.target.value})}/>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={()=>{save('NOTA_LUTO_TITULO',cfgs.NOTA_LUTO_TITULO||'');save('NOTA_LUTO_TEXTO',cfgs.NOTA_LUTO_TEXTO||'');}}>Salvar texto</button>
+          </div>
+        </div>
+        <div className="panel">
           <div className="panel-header"><span className="panel-title">Automação</span></div>
           <div style={{padding:20}}>
             <div style={{color:'var(--t2)',fontSize:13}}>⚙️ O controle de automação está no módulo <strong>Pipeline</strong>. Use o toggle de lá para ligar ou desligar.</div>

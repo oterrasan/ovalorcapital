@@ -37,6 +37,8 @@ export default async function handler(req, res) {
       if (action === "archive_old_rss") return handleArchiveOldRss(req, res);
       if (action === "get_pesquisa_eleitoral") return handleGetPesquisa(res);
       if (action === "update_pesquisa_eleitoral") return handleUpdatePesquisa(req, res);
+      if (action === "nota_luto_status") return handleNotaLutoStatus(res);
+      if (action === "nota_luto_toggle") return handleNotaLutoToggle(req, res);
       if (action === "banners") return handleBanners(req, res);
       return handleStatus(res);
     }
@@ -445,6 +447,50 @@ async function handleGetPesquisa(res) {
       atualizado: null
     }
   });
+}
+
+// ── Nota de Luto/Pesar — card grande na home, controlado por interruptor em config ──
+// Pedido por Roberto Terrasan em 07/08/2026: card reutilizável, ligado/desligado a
+// qualquer momento via URL (sem precisar de deploy). GET público (nota_luto_status)
+// é lido por public/js/ovc-nota-luto.js. Toggle (nota_luto_toggle) exige &pass=.
+const NOTA_LUTO_DEFAULT = {
+  titulo: "Nota de pesar",
+  texto: "O Valor Capital lamenta profundamente a morte do menino Gustavo Veloso Feitosa, de 3 anos, vítima de violência em Palmas (TO). Nossa solidariedade à família e a todos que lutam por justiça para as crianças vítimas de violência no Brasil."
+};
+async function handleNotaLutoStatus(res) {
+  res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+  try {
+    const { data } = await supabase.from("config")
+      .select("key,value")
+      .in("key", ["NOTA_LUTO_ATIVA", "NOTA_LUTO_TITULO", "NOTA_LUTO_TEXTO"]);
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = r.value; });
+    const ativa = map.NOTA_LUTO_ATIVA === "on";
+    return res.status(200).json({
+      ok: true,
+      ativa,
+      titulo: map.NOTA_LUTO_TITULO || NOTA_LUTO_DEFAULT.titulo,
+      texto: map.NOTA_LUTO_TEXTO || NOTA_LUTO_DEFAULT.texto
+    });
+  } catch (_) {
+    return res.status(200).json({ ok: true, ativa: false, titulo: NOTA_LUTO_DEFAULT.titulo, texto: NOTA_LUTO_DEFAULT.texto });
+  }
+}
+async function handleNotaLutoToggle(req, res) {
+  const pass = String(req.query.pass || "");
+  if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
+  const on = String(req.query.on || "") === "1";
+  const titulo = req.query.titulo != null ? String(req.query.titulo) : null;
+  const texto = req.query.texto != null ? String(req.query.texto) : null;
+  try {
+    const rows = [{ key: "NOTA_LUTO_ATIVA", value: on ? "on" : "off", updated_at: new Date().toISOString() }];
+    if (titulo) rows.push({ key: "NOTA_LUTO_TITULO", value: titulo, updated_at: new Date().toISOString() });
+    if (texto) rows.push({ key: "NOTA_LUTO_TEXTO", value: texto, updated_at: new Date().toISOString() });
+    await supabase.from("config").upsert(rows, { onConflict: "key" });
+    return res.status(200).json({ ok: true, ativa: on });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
 }
 
 // ── Banners Lions Corretora — GET: retorna banners ativos filtrados por categoria ──
