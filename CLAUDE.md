@@ -5086,11 +5086,22 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Fix dedup: título final da IA agora comparado, não só o título-fonte** | ✅ EM PRODUÇÃO (PR #356) |
 | **Fix round-robin: nenhum esporte mais sufoca os outros no cap de 25** | ✅ EM PRODUÇÃO (PR #357) |
 | **Fix classificação por FONTE (30 fontes mapeadas exatamente) além de keyword** | ✅ EM PRODUÇÃO (PR #358) |
+| **Fix: eliminada mistura de fontes entre os 7 radares de esporte** (fallback por keyword removido; futebol restrito às suas 4 fontes dedicadas, sem mais `getNews()` do portal inteiro) | ✅ EM PRODUÇÃO (PR #360) |
+
+#### Parte 4 — eliminação total de mistura de fontes entre radares (PR #360, mesma sessão)
+
+Depois do PR #358, Roberto reforçou o ponto com mais firmeza: **"EU NAO QUERO FONTES MISTURADAS, PARA NAO HAVER DUIPLICACOES. QUIERO FONTE ESPECIFICA DAQUELE ESPORTE PLUIGADA EM CADA UM."** — indicando que o fallback por keyword que ainda restava em `classificarOutroEsporte()` (linha 725-726 antes do fix) continuava sendo um vetor de mistura: qualquer item das 4 fontes GERAIS de esportes (GE Globo, ESPN Brasil, Lance!, GaúchaZH) que batesse uma keyword de outro esporte por acidente entrava no pool daquele esporte. E `autoFutebolCurtinhas()` usava um pool ainda mais largo: `getNews()` — literalmente TODO o portal (Folha, G1, Estadão, sites de tecnologia etc.) filtrado só por keyword de futebol.
+
+**Fix:**
+- `classificarOutroEsporte()`: fallback por keyword **removido por completo** — classifica exclusivamente por `FONTE_PARA_ESPORTE` (match exato de nome de fonte). Sem exceção, sem fallback.
+- `autoFutebolCurtinhas()`: pool `geral = getNews()` **removido**; novo `FONTE_FUTEBOL = new Set(["GE Globo","ESPN Brasil","Lance!","GaúchaZH"])` restringe o pool de futebol só a essas 4 fontes (as mesmas que antes eram fallback pros outros esportes) — nenhuma fonte de fora do portal de esportes entra mais no radar de futebol.
+- Resultado: cada um dos 7 radares (Futebol + Basquete + Motor + Tênis + MMA + Vôlei + NFL) consome **exclusivamente** sua própria fonte dedicada — zero overlap entre radares, zero overlap com o resto do portal.
 
 #### 🔧 Pendências para a próxima sessão
 
-1. **Confirmar com Roberto, após alguns ciclos do cron**, se os 6 esportes (Basquete/Motor/Tênis/MMA/Vôlei/NFL) estão gerando conteúdo sem duplicar — os 3 bugs foram corrigidos por leitura de código, não observados rodando.
+1. **Confirmar com Roberto, após alguns ciclos do cron**, se os 6 esportes (Basquete/Motor/Tênis/MMA/Vôlei/NFL) e o Futebol estão gerando conteúdo sem duplicar e sem fontes cruzadas — os 4 bugs (dedup, round-robin, classificação por fonte, mistura de fontes) foram corrigidos por leitura de código, não observados rodando.
 2. **Remover manualmente do banco** os 3 posts duplicados "Flamengo Conquista Hexacampeonato" ainda publicados (não pude deletar — sem acesso de rede ao Supabase neste sandbox) — admin → Postagens.
 3. **Confirmar visualmente os novos Interruptores** — testar ligar/desligar em pelo menos 1 categoria de cada tipo (rail/rodapé/fim de artigo) e confirmar que não vaza para outras categorias.
 4. Se os diagnósticos (`falhas`/`distribuicaoBruta`) do PR #357 mostrarem `validar:texto curto` dominando para algum esporte, considerar (só com autorização explícita de Roberto) se os limiares de `validar()`/`gerarComRevisao` em `api/run_portal.js`/`core/ai_portal.js` estão rígidos demais para notícia de nicho — NÃO alterado nesta sessão, é só uma hipótese registrada.
-5. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas.
+5. Se Roberto quiser, no futuro, fontes verdadeiramente exclusivas de futebol (hoje o radar depende de 4 fontes generalistas de esportes, não de fontes 100% dedicadas a futebol como as outras 30 são para os demais esportes) — pesquisar e adicionar RSS feeds dedicados (ex: Goal.com Brasil, Placar, Footure), com a mesma ressalva de que URLs não são verificáveis por rede neste sandbox.
+6. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas.
