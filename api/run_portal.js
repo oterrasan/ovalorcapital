@@ -610,6 +610,16 @@ async function autoCopaCurtinhas(req, res, rec) {
 
 // ATIVADO — 28/07/2026 — Roberto: Radar do Futebol (Brasileirão A/B, Libertadores, Sul-Americana)
 // Substitui o Radar da Copa, mesmo padrão automático de geração.
+// FONTE_FUTEBOL — 08/08/2026 — Roberto: "EU NAO QUERO FONTES MISTURADAS, PARA NAO HAVER
+// DUPLICACOES. QUIERO FONTE ESPECIFICA DAQUELE ESPORTE PLUIGADA EM CADA UM". Antes deste fix
+// o pool de candidatos era [esportes (34 fontes, incluindo as 30 dedicadas aos OUTROS 6
+// esportes) + geral (getNews(), TODO o portal — Folha, G1, Estadão, sites de tecnologia etc.)]
+// filtrado só por keyword. Ou seja: qualquer fonte do portal inteiro podia virar "notícia de
+// futebol" bastasse mencionar "Brasileirão" de passagem, e as fontes dedicadas de outros
+// esportes (NBA.com, Motorsport.com F1...) entravam no mesmo pool. Fix: restringe o pool de
+// futebol às 4 fontes historicamente dominadas por futebol na prática (ver comentário em
+// core/rss.js linha ~115) — nenhuma fonte de fora dessa lista específica de futebol entra.
+const FONTE_FUTEBOL = new Set(["GE Globo", "ESPN Brasil", "Lance!", "GaúchaZH"]);
 async function autoFutebolCurtinhas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
@@ -620,9 +630,9 @@ async function autoFutebolCurtinhas(req, res, rec) {
     'copa sul-americana', 'copa libertadores', 'rodada do brasileirão',
     'tabela do brasileirão', 'artilheiro do brasileirão', 'copa libertadores da américa'
   ];
-  const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
+  const esportes = await getNewsByCategoria("esportes");
   const seen = new Set();
-  const allNews = [...esportes, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link));
+  const allNews = esportes.filter(i => i?.link && FONTE_FUTEBOL.has(i.source) && !seen.has(i.link) && seen.add(i.link));
   const futebolItems = allNews.filter(i => {
     const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
     return FUTEBOL_KW.some(kw => t.includes(kw));
@@ -709,12 +719,18 @@ const FONTE_PARA_ESPORTE = {
   "CBS Sports NFL": "nfl", "Yahoo Sports NFL": "nfl"
 };
 const OUTROS_ESPORTES_POR_KEY = Object.fromEntries(OUTROS_ESPORTES.map(s => [s.key, s]));
-function classificarOutroEsporte(texto, fonte) {
+// Fallback por keyword REMOVIDO — 08/08/2026, Roberto: "EU NAO QUERO FONTES MISTURADAS,
+// PARA NAO HAVER DUPLICACOES. QUIERO FONTE ESPECIFICA DAQUELE ESPORTE PLUIGADA EM CADA UM".
+// O fallback por keyword no título/descrição (removido abaixo) podia classificar itens das
+// 4 fontes GERAIS de esportes (GE Globo/ESPN Brasil/Lance!/GaúchaZH — cobrem todo tipo de
+// esporte misturado) para dentro de um esporte específico só por bater uma palavra-chave —
+// exatamente a "mistura de fontes" que Roberto vetou. Agora classificarOutroEsporte() só
+// aceita item cuja FONTE está exatamente mapeada em FONTE_PARA_ESPORTE (as 30 fontes
+// dedicadas). Qualquer outra fonte (inclusive as 4 gerais) é ignorada para estes 6 esportes —
+// elas continuam alimentando exclusivamente o Radar do Futebol (ver FONTE_FUTEBOL acima).
+function classificarOutroEsporte(fonte) {
   const porFonte = FONTE_PARA_ESPORTE[fonte];
-  if (porFonte) return OUTROS_ESPORTES_POR_KEY[porFonte];
-  const t = String(texto || "").toLowerCase();
-  for (const s of OUTROS_ESPORTES) { if (s.keywords.some(kw => t.includes(kw))) return s; }
-  return null;
+  return porFonte ? OUTROS_ESPORTES_POR_KEY[porFonte] : null;
 }
 
 // Distribui os candidatos em round-robin por esporte antes de cortar em N —
@@ -751,12 +767,11 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
   for (const item of esportes) {
     if (!item?.link || seen.has(item.link)) continue;
     seen.add(item.link);
-    const texto = (item.title || "") + " " + (item.description || "");
-    const sport = classificarOutroEsporte(texto, item.source);
+    const sport = classificarOutroEsporte(item.source);
     if (sport) candidatosBrutos.push({ item, sport });
   }
   if (!candidatosBrutos.length) {
-    await log("warn", "[outros-esportes-jornal] 0 candidatos após classificação — RSS não retornou nada reconhecido pelas keywords de nenhum dos 6 esportes");
+    await log("warn", "[outros-esportes-jornal] 0 candidatos após classificação — nenhuma das 30 fontes dedicadas (FONTE_PARA_ESPORTE) retornou item novo nesta rodada");
     return res.status(200).json({ status: "ok", generated: 0, tipo: "outros_esportes_jornal", candidates: 0, info: "no_outros_esportes_news" });
   }
   const candidatos = distribuirRoundRobin(candidatosBrutos);
