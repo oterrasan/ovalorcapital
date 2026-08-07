@@ -5020,3 +5020,77 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Se alguma fonte RSS se mostrar quebrada/inválida na prática, substituir por outra do mesmo esporte — não remover a cobertura daquele esporte.
 3. Se `OUTROS_ESPORTES` em `api/run_portal.js` e `SPORTS` em `public/js/ovc-radar-esporte.js` divergirem no futuro (novo esporte, keyword nova), lembrar de atualizar os dois arquivos juntos — são cópias paralelas por design (server-side classifica pra salvar `subcategoria` certa, client-side classifica pra exibir no widget).
 4. Demais pendências de sessões anteriores (visual da Colunistas/radares não verificado em navegador real, `ovc-copa.js` não carregado via `<script>` na home, SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas e não foram tocadas nesta sessão.
+
+---
+
+### Sessão 07/08/2026 — FAMÍLIA DE "INTERRUPTORES" INDEPENDENTES + 3 BUGS REAIS NOS RADARES DE ESPORTE
+
+#### Contexto
+
+Roberto pediu inicialmente uma nota de luto para a home (depois compartilhou o link de uma matéria do G1 sobre um menino de 3 anos morto por violência doméstica em Palmas/TO). Durante a implementação, corrigiu a arquitetura por 3 vezes seguidas, cada correção mudando o desenho fundamentalmente:
+
+1. **"nao precisa mudar nada na home, adicione um card que podemos usar como interruptor sempre que quisermos"** — rejeitou o banner com expiração automática de 48h; exigiu um toggle persistente controlado pelo admin, reaproveitável no futuro para qualquer finalidade (nota de luto, anúncio, matéria em destaque).
+2. **"Eu fui CLARISSIMO COM VOCE... TRABALHO PORCO CLAUDE"** — a primeira versão não tinha campo de imagem nem link; exigiu que funcionasse como um post de verdade, com imagem de capa.
+3. **"renomeie como interruptor home principal"** — nome "card de luto" removido de toda a interface.
+
+Depois, pediu explicitamente a expansão do conceito para o portal inteiro: **"quero que voce crie diversos outros cards interruptores pelo portal em todas as paginas internas, nas laterais nos rails, embaixo, antes do rodape... mas TODOS independentes. nenhum igual"** — e corrigiu de novo quando a primeira implementação criou um toggle único global por tipo de widget (visível em todas as páginas simultaneamente): **"cada categoria deve ter estes cards interruptores independentes e ele nao devem aparecer em outras paginas. isso é que significa independente."**
+
+Por fim, reportou (com print) conteúdo duplicado no Radar do Esporte (mesma manchete "Flamengo Conquista Hexacampeonato..." 3x em 1 minuto) e esportes que nunca geravam conteúdo havia mais de uma semana — exigindo, com firmeza, uma garantia verificada: **"quero que voce GARANTA QUE AGORA ESTÁ TUDO FUNCIONANDO E ARRUMADO, REVEJA AS FONTES. CADA ESPORTE PRECISA TER O MINIMO DE FONTES COMO DETERMINEI ANTERIORMENTE."**
+
+---
+
+#### Parte 1 — Interruptor Home Principal (PR #351 → #352 → #353)
+
+- `api/manage.js`: `handleNotaLutoStatus()` (GET público, `s-maxage=30`) + `handleNotaLutoToggle()` (admin, `&pass=`) — chaves Supabase `config`: `NOTA_LUTO_ATIVA/TITULO/TEXTO/IMAGEM/LINK`
+- `public/js/ovc-nota-luto.js` (novo, REGRA ZERO-I) — injeta como irmão seguinte de `.hero-region`, mesma largura dos 3 cards de destaque (`grid-column:2/5`); renderiza card com imagem de fundo + overlay quando `imagem` setada, fallback sóbrio (🕯️) quando não
+- `public/admin/index.html`: painel "Interruptor Home Principal" em `Configuracoes()` — checkbox, título, texto, campo de imagem com busca rápida por palavra-chave (reaproveitando o padrão de `NovoPost()`), link, botão salvar
+- Confirmado: quando desligado, zero buraco no layout — a injeção só acontece se `ativa===true`
+
+#### Parte 2 — Família de Interruptores por categoria (PR #354 corrigido por #355)
+
+**Arquitetura errada inicial (PR #354):** um único toggle global por tipo (`rail_lateral`, `rodape`, `fim_artigo`) afetando TODAS as páginas daquele tipo ao mesmo tempo — contradizia "independente" e "não devem aparecer em outras páginas".
+
+**Fix real (PR #355):** formato de slot mudado para `{tipo}__{categoria}` (ex: `rail_lateral__esportes`, `rodape__economia`, `fim_artigo__politica`) — cada categoria tem seu próprio toggle isolado:
+- `api/manage.js`: `parseInterruptorSlot()` valida `^(rail_lateral|rodape|fim_artigo)__([a-z0-9-]{1,40})$`; `handleInterruptorStatus()`/`handleInterruptorToggle()` leem/gravam `INTERRUPTOR_{TIPO}_{CATEGORIA}_ATIVA/TITULO/TEXTO/IMAGEM/LINK`
+- `public/js/ovc-interruptor-rail.js` — lê `document.body.dataset.category`, injeta card compacto no fim de `.ovc-right-rail` (178 páginas)
+- `public/js/ovc-interruptor-rodape.js` — mesma derivação de categoria, injeta card horizontal antes de `<footer class="footer">` (193 páginas)
+- `public/js/ovc-interruptor-artigo.js` — deriva categoria de `window.__OVC_ARTICLE__.categoria`, espera `.ovc-art-body` existir (polling defensivo, mesmo padrão de `esperarMiolo()` em `ovc-nichos.js`) antes de inserir card editorial logo após o corpo do artigo
+- `public/admin/index.html`: componente reutilizável `InterruptorPanel({tipo,titulo,desc,imgSuggestions})` com seletor de categoria (`CATS_LIST`), usado 3x (rail_lateral/rodape/fim_artigo)
+- Rollout: 193 páginas via script Python (âncora exata `<script defer src="/js/ovc-audio.js?v=3"></script>`) — 564 inserções verificadas (178×3 rail+rodape+artigo + 15×2 rodape+artigo nas páginas sem rail), 0 deleções, `<!DOCTYPE html>`/`</html>` intactos em todos
+
+#### Parte 3 — 3 bugs reais nos Radares de Esporte (PRs #356, #357, #358)
+
+**Bug 1 — duplicidade (PR #356):** `autoFutebolCurtinhas()`/`autoOutrosEsportesCurtinhas()` só comparavam o título ORIGINAL da fonte contra `rec.sourceTitulos` antes da reescrita pela IA — nunca comparavam o título FINAL gerado pela IA contra `rec.titulos`. Para um evento grande (hexacampeonato do Flamengo), fontes com textos diferentes convergiam para manchetes de IA quase idênticas, e nada barrava. Fix: adicionado `pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))` após a reescrita, mais acumulador `geradosAgora` para pegar duplicatas geradas na mesma rodada (já que `rec` é uma foto tirada 1x por chamada).
+
+**Bug 2 — esportes famintos por causa do cap de 25 (PR #357):** `.slice(0,25)` aplicado a uma lista não balanceada — um esporte prolífico podia ocupar as 25 vagas sozinho, sufocando os outros 5 em toda rodada. Fix: `distribuirRoundRobin(candidatos)` agrupa por esporte e intercala em round-robin antes do corte. Também adicionado logging de diagnóstico (`falhas`, `distribuicaoBruta`) e o cron (`pipeline-cron.yml`) teve o `head -c 300` do log ampliado para `head -c 2000` para esses campos aparecerem no Actions.
+
+**Bug 3 — classificação por palavra-chave falhava para fontes dedicadas (PR #358):** `classificarOutroEsporte()` só casava por keyword no título/descrição. Fontes RSS dedicadas a um único esporte (ex: NBA.com) frequentemente não repetem o nome do esporte na manchete ("Doncic marca 40 pontos" não contém "nba") — itens eram descartados silenciosamente antes de virarem candidatos, mesmo vindo de fonte 100% correta. Fix: novo mapa `FONTE_PARA_ESPORTE` (30 nomes exatos de fonte → esporte, verificado 30/30 contra `core/rss.js` via script Python) priorizado sobre o fallback por keyword.
+
+#### ⚠️ Nota de transparência (repetida a cada verificação desta sessão)
+
+Nenhuma das correções da Parte 3 pôde ser observada rodando de verdade — este sandbox não tem acesso de rede para chamar `www.ovalorcapital.com.br` nem o pipeline. Toda verificação foi estática: `node --check`, contagem exata de inserções/deleções em diffs, script de correspondência exata fonte↔esporte, leitura cuidadosa da lógica. Roberto precisa confirmar após alguns ciclos do cron (a cada 15 min) se os 6 esportes (Basquete/Motor/Tênis/MMA/Vôlei/NFL) estão de fato gerando conteúdo sem duplicar.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (07/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Interruptor Home Principal** (toggle persistente, imagem+link, admin UI) | ✅ EM PRODUÇÃO (PRs #351-353) |
+| **Família de Interruptores por categoria** (rail lateral / rodapé / fim de artigo — 3 tipos × N categorias, 100% independentes) | ✅ EM PRODUÇÃO (PRs #354-355) |
+| **Fix dedup: título final da IA agora comparado, não só o título-fonte** | ✅ EM PRODUÇÃO (PR #356) |
+| **Fix round-robin: nenhum esporte mais sufoca os outros no cap de 25** | ✅ EM PRODUÇÃO (PR #357) |
+| **Fix classificação por FONTE (30 fontes mapeadas exatamente) além de keyword** | ✅ EM PRODUÇÃO (PR #358) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto, após alguns ciclos do cron**, se os 6 esportes (Basquete/Motor/Tênis/MMA/Vôlei/NFL) estão gerando conteúdo sem duplicar — os 3 bugs foram corrigidos por leitura de código, não observados rodando.
+2. **Remover manualmente do banco** os 3 posts duplicados "Flamengo Conquista Hexacampeonato" ainda publicados (não pude deletar — sem acesso de rede ao Supabase neste sandbox) — admin → Postagens.
+3. **Confirmar visualmente os novos Interruptores** — testar ligar/desligar em pelo menos 1 categoria de cada tipo (rail/rodapé/fim de artigo) e confirmar que não vaza para outras categorias.
+4. Se os diagnósticos (`falhas`/`distribuicaoBruta`) do PR #357 mostrarem `validar:texto curto` dominando para algum esporte, considerar (só com autorização explícita de Roberto) se os limiares de `validar()`/`gerarComRevisao` em `api/run_portal.js`/`core/ai_portal.js` estão rígidos demais para notícia de nicho — NÃO alterado nesta sessão, é só uma hipótese registrada.
+5. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica) seguem válidas.
