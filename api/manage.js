@@ -455,14 +455,16 @@ async function handleGetPesquisa(res) {
 // é lido por public/js/ovc-nota-luto.js. Toggle (nota_luto_toggle) exige &pass=.
 const NOTA_LUTO_DEFAULT = {
   titulo: "Nota de pesar",
-  texto: "O Valor Capital lamenta profundamente a morte do menino Gustavo Veloso Feitosa, de 3 anos, vítima de violência em Palmas (TO). Nossa solidariedade à família e a todos que lutam por justiça para as crianças vítimas de violência no Brasil."
+  texto: "O Valor Capital lamenta profundamente a morte do menino Gustavo Veloso Feitosa, de 3 anos, vítima de violência em Palmas (TO). Nossa solidariedade à família e a todos que lutam por justiça para as crianças vítimas de violência no Brasil.",
+  imagem: "",
+  link: ""
 };
 async function handleNotaLutoStatus(res) {
   res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
   try {
     const { data } = await supabase.from("config")
       .select("key,value")
-      .in("key", ["NOTA_LUTO_ATIVA", "NOTA_LUTO_TITULO", "NOTA_LUTO_TEXTO"]);
+      .in("key", ["NOTA_LUTO_ATIVA", "NOTA_LUTO_TITULO", "NOTA_LUTO_TEXTO", "NOTA_LUTO_IMAGEM", "NOTA_LUTO_LINK"]);
     const map = {};
     (data || []).forEach(r => { map[r.key] = r.value; });
     const ativa = map.NOTA_LUTO_ATIVA === "on";
@@ -470,10 +472,12 @@ async function handleNotaLutoStatus(res) {
       ok: true,
       ativa,
       titulo: map.NOTA_LUTO_TITULO || NOTA_LUTO_DEFAULT.titulo,
-      texto: map.NOTA_LUTO_TEXTO || NOTA_LUTO_DEFAULT.texto
+      texto: map.NOTA_LUTO_TEXTO || NOTA_LUTO_DEFAULT.texto,
+      imagem: map.NOTA_LUTO_IMAGEM || NOTA_LUTO_DEFAULT.imagem,
+      link: map.NOTA_LUTO_LINK || NOTA_LUTO_DEFAULT.link
     });
   } catch (_) {
-    return res.status(200).json({ ok: true, ativa: false, titulo: NOTA_LUTO_DEFAULT.titulo, texto: NOTA_LUTO_DEFAULT.texto });
+    return res.status(200).json({ ok: true, ativa: false, ...NOTA_LUTO_DEFAULT });
   }
 }
 async function handleNotaLutoToggle(req, res) {
@@ -482,10 +486,14 @@ async function handleNotaLutoToggle(req, res) {
   const on = String(req.query.on || "") === "1";
   const titulo = req.query.titulo != null ? String(req.query.titulo) : null;
   const texto = req.query.texto != null ? String(req.query.texto) : null;
+  const imagem = req.query.imagem != null ? String(req.query.imagem) : null;
+  const link = req.query.link != null ? String(req.query.link) : null;
   try {
     const rows = [{ key: "NOTA_LUTO_ATIVA", value: on ? "on" : "off", updated_at: new Date().toISOString() }];
     if (titulo) rows.push({ key: "NOTA_LUTO_TITULO", value: titulo, updated_at: new Date().toISOString() });
     if (texto) rows.push({ key: "NOTA_LUTO_TEXTO", value: texto, updated_at: new Date().toISOString() });
+    if (imagem) rows.push({ key: "NOTA_LUTO_IMAGEM", value: imagem, updated_at: new Date().toISOString() });
+    if (link) rows.push({ key: "NOTA_LUTO_LINK", value: link, updated_at: new Date().toISOString() });
     await supabase.from("config").upsert(rows, { onConflict: "key" });
     return res.status(200).json({ ok: true, ativa: on });
   } catch (e) {
