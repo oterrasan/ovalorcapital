@@ -631,6 +631,15 @@ async function autoFutebolCurtinhas(req, res, rec) {
     return res.status(200).json({ status: "ok", generated: 0, tipo: "futebol_jornal", candidates: 0, info: "no_futebol_news" });
   }
   let generated = 0;
+  // Bug #confirmado 08/08/2026 (Roberto flagrou 3 posts idênticos "Flamengo Conquista
+  // Hexacampeonato..." seguidos no Radar do Esporte): o dedup abaixo só comparava o
+  // título BRUTO da fonte (item.title) contra sourceTitulos — nunca o título FINAL
+  // gerado pela IA contra os títulos já publicados. Para um evento grande e óbvio,
+  // fontes diferentes com títulos brutos diferentes o bastante para passar no primeiro
+  // filtro convergiam pra manchetes finais quase idênticas depois da reescrita, e nada
+  // barrava isso. geradosAgora cobre ainda o caso de duas fontes do MESMO evento serem
+  // processadas na MESMA chamada (rec.titulos só reflete o banco no início da chamada).
+  const geradosAgora = [];
   for (const item of futebolItems) {
     if (Date.now() - start > 50000 || generated >= count) break;
     if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
@@ -647,9 +656,11 @@ async function autoFutebolCurtinhas(req, res, rec) {
       const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) continue;
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
       const img = Date.now() - start < 40000 ? await findImageFutebol(content.titulo, content.corpo) : null;
       await saveCurtinha(content, hash, "esportes", "radar", img);
       await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)} | img:${!!img}`);
+      geradosAgora.push(content.titulo);
       generated++;
     } catch(_) { continue; }
   }
@@ -699,6 +710,10 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
   }
   let generated = 0;
   const porEsporte = {};
+  // Mesmo fix do Bug de duplicidade encontrado em autoFutebolCurtinhas (08/08/2026) —
+  // dedup também precisa comparar o título FINAL gerado pela IA, não só o título bruto
+  // da fonte antes da reescrita.
+  const geradosAgora = [];
   for (const { item, sport } of candidatos.slice(0, 25)) {
     if (Date.now() - start > 50000 || generated >= count) break;
     if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
@@ -715,10 +730,12 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
       const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) continue;
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
       const img = Date.now() - start < 40000 ? await findImage(content.titulo, "esportes") : null;
       await saveCurtinha(content, hash, "esportes", "pilula", img, sport.label);
       await log("info", `[outros-esportes-jornal] ${sport.label}: ${content.titulo?.slice(0,50)}`);
       porEsporte[sport.key] = (porEsporte[sport.key] || 0) + 1;
+      geradosAgora.push(content.titulo);
       generated++;
     } catch (_) { continue; }
   }
