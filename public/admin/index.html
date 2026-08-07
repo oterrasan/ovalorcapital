@@ -1888,10 +1888,10 @@ function Configuracoes() {
           </div>
         </div>
         <div className="panel">
-          <div className="panel-header"><span className="panel-title">Card de Nota (Luto/Campanha) — Home</span></div>
+          <div className="panel-header"><span className="panel-title">Interruptor Home Principal</span></div>
           <div style={{padding:20}}>
             <div style={{color:'var(--t2)',fontSize:13,marginBottom:14}}>
-              Card grande exibido na home, logo abaixo dos 3 cards de destaque. Reutilizável para notas de luto, campanhas estratégicas etc. — edite o texto e ligue/desligue quando quiser, sem precisar de deploy.
+              Card grande exibido na home, logo abaixo dos 3 cards de destaque. Fica invisível (sem ocupar espaço) enquanto desligado. Reutilizável para notas de luto, campanhas estratégicas, espaço publicitário, matéria em destaque etc. — edite o conteúdo e ligue/desligue quando quiser, sem precisar de deploy.
             </div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:14}}>
               <input type="checkbox" checked={cfgs.NOTA_LUTO_ATIVA==='on'} onChange={e=>{const v=e.target.checked?'on':'off';setCfgs({...cfgs,NOTA_LUTO_ATIVA:v});save('NOTA_LUTO_ATIVA',v);}}/>

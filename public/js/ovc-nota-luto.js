@@ -1,5 +1,5 @@
 /**
- * ovc-nota-luto.js — Card de Nota (Luto/Campanha) na home
+ * ovc-nota-luto.js — Interruptor Home Principal (card grande, liga/desliga)
  * REGRA ZERO-I: arquivo 100% independente — não toca em home.js, ovc-cards.js
  * nem em nenhum outro widget. Se este arquivo falhar, o resto da home
  * continua funcionando normalmente.
