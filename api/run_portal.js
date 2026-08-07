@@ -685,7 +685,33 @@ const OUTROS_ESPORTES = [
   { key: "volei",    label: "Vôlei",    keywords: ["vôlei","volei","superliga","fivb","vôlei de praia","volei de praia"] },
   { key: "nfl",      label: "NFL",      keywords: ["nfl","super bowl","futebol americano"] }
 ];
-function classificarOutroEsporte(texto) {
+// Bug real encontrado 08/08/2026, revisão pedida por Roberto após o fix de round-robin:
+// classificarOutroEsporte() só olhava palavra-chave no TÍTULO/descrição — mas fontes
+// dedicadas de um único esporte (ex: NBA.com) raramente repetem "NBA" em toda manchete
+// ("Doncic marca 40 pontos" não tem nenhuma keyword da lista acima). Resultado: itens de
+// fontes 100% corretas para aquele esporte eram descartados silenciosamente por não
+// baterem keyword nenhuma. Fix: mapear a FONTE (item.source, já vem de core/rss.js) direto
+// pro esporte — é um sinal muito mais confiável que keyword-no-título pra essas fontes
+// dedicadas. Precisa ficar em sincronia com core/rss.js sempre que uma fonte for
+// adicionada/removida/renomeada.
+const FONTE_PARA_ESPORTE = {
+  "NBA.com": "basquete", "ESPN NBA": "basquete", "Basquete Brasil (GN)": "basquete",
+  "HoopsHype": "basquete", "Eurohoops": "basquete",
+  "Motorsport.com F1": "motor", "Autosport F1": "motor", "Grande Prêmio (UOL)": "motor",
+  "Formula1.com": "motor", "RaceFans.net": "motor",
+  "BBC Sport Tênis": "tenis", "ESPN Tênis": "tenis", "Tennis.com": "tenis",
+  "Tennis Majors": "tenis", "UBITENNIS": "tenis",
+  "Sherdog": "mma", "MMA Fighting": "mma", "MMA Junkie (USA Today)": "mma",
+  "MMA Mania": "mma", "Bloody Elbow": "mma",
+  "Vôlei Brasil (GN)": "volei", "FIVB Volleyball (GN)": "volei", "Vôlei de Praia (GN)": "volei",
+  "VolleyMob": "volei", "Volleyballmag": "volei",
+  "NFL.com": "nfl", "ESPN NFL": "nfl", "Pro Football Talk (NBC)": "nfl",
+  "CBS Sports NFL": "nfl", "Yahoo Sports NFL": "nfl"
+};
+const OUTROS_ESPORTES_POR_KEY = Object.fromEntries(OUTROS_ESPORTES.map(s => [s.key, s]));
+function classificarOutroEsporte(texto, fonte) {
+  const porFonte = FONTE_PARA_ESPORTE[fonte];
+  if (porFonte) return OUTROS_ESPORTES_POR_KEY[porFonte];
   const t = String(texto || "").toLowerCase();
   for (const s of OUTROS_ESPORTES) { if (s.keywords.some(kw => t.includes(kw))) return s; }
   return null;
@@ -726,7 +752,7 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
     if (!item?.link || seen.has(item.link)) continue;
     seen.add(item.link);
     const texto = (item.title || "") + " " + (item.description || "");
-    const sport = classificarOutroEsporte(texto);
+    const sport = classificarOutroEsporte(texto, item.source);
     if (sport) candidatosBrutos.push({ item, sport });
   }
   if (!candidatosBrutos.length) {
