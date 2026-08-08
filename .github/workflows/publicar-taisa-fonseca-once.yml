@@ -2,11 +2,20 @@ name: Publicar coluna Taísa da Fonseca (one-off)
 
 # Uso único, a pedido de Roberto (08/08/2026) — sobe a coluna "O empreendedorismo
 # começa pela identidade" no perfil da colunista já cadastrada (taisa-da-fonseca).
-# Roda só via workflow_dispatch manual. Este arquivo e os assets em scripts/one-off/
-# são removidos assim que a publicação for confirmada.
+# Este arquivo e os assets em scripts/one-off/ são removidos assim que a
+# publicação for confirmada.
+#
+# Trigger via push+paths (mesmo padrão de diag-once.yml) em vez de só
+# workflow_dispatch: a integração usada nesta sessão não tem permissão
+# "workflows: write" pra disparar workflow_dispatch pela API — 403 "Resource
+# not accessible by integration". Qualquer push em main que toque este
+# arquivo dispara a run automaticamente.
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/publicar-taisa-fonseca-once.yml"]
 
 jobs:
   publicar:
