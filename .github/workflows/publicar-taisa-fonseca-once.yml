@@ -16,12 +16,20 @@ name: Publicar coluna Taísa da Fonseca (one-off)
 # matéria: uma como capa (campo imagem do post) e a outra embutida no corpo
 # do texto (ver scripts/one-off/*.html).
 #
-# Fix 08/08/2026: a primeira tentativa passava a ação via "?action=..." na
-# URL, mas o endpoint POST só lê a ação de dentro do corpo JSON
+# Fix 08/08/2026 (1/2): a primeira tentativa passava a ação via "?action=..."
+# na URL, mas o endpoint POST só lê a ação de dentro do corpo JSON
 # (const action = String(body.action || "") em api/manage.js) — sem o
 # campo "action" no JSON, tudo caía no fallback genérico
 # "acao_indisponivel_no_modo_emergencia". Corrigido: action agora vai no
 # corpo, montado por build_payload_taisa.py.
+#
+# Fix 08/08/2026 (2/2): segunda tentativa avançou até checkAdmin(), mas usava
+# a chave "pass" no corpo — checkAdmin() só lê body.token/body.admin_token/
+# req.query.pass, nunca body.pass. Corrigido para "token".
+#
+# Fix 08/08/2026 (3/3): este toque é só pra disparar o push+paths de novo —
+# o commit anterior só mudou scripts/one-off/build_payload_taisa.py, não
+# este arquivo, então o trigger não disparou sozinho.
 
 on:
   workflow_dispatch:
