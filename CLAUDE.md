@@ -5223,3 +5223,49 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 #### ⚠️ Nota de transparência
 
 Nem a publicação da coluna nem as duas instâncias da ferramenta de múltiplas imagens puderam ser conferidas visualmente num navegador — este sandbox não tem acesso de rede a `www.ovalorcapital.com.br`. Toda verificação foi por leitura de código, resposta JSON das APIs (via workflow one-off no GitHub Actions) e checagem estática de sintaxe/balanceamento de chaves no `admin/index.html`. Roberto precisa confirmar visualmente antes de considerar 100% fechado.
+
+---
+
+### Sessão 08/08/2026 (continuação) — 🔴 CAUSA RAIZ REAL: "NENHUM RADAR DE ESPORTE FUNCIONA"
+
+#### Contexto
+
+Roberto reportou com print da home: o Radar do Esporte mostrava 3 posts idênticos ("Flamengo Conquista Hexacampeonato...") repetidos, todos de 07/08 22:07-22:08 — mais de 21h sem nada novo. Reforçou: **"NENHUM RADAR DE ESPORTE ESTÁ FUNCIONANDO!"** — não só futebol, todas as abas (Basquete/Motor/Tênis/MMA/Vôlei/NFL).
+
+#### 🔴 Causa raiz real — cap fixo 4/3/3 em `handleCurtinhas()` starvava TODOS os widgets de esporte (PR #372, commit `5e65bbb3`)
+
+Investigação nos logs do cron (`pipeline-cron.yml`) confirmou que o **pipeline estava gerando conteúdo normalmente** (`motor:1 gerado`, `distribuicaoBruta` com 10-24 candidatos por esporte a cada rodada de 15 min) — o problema não era geração, era **leitura**.
+
+`handleCurtinhas()` em `api/portal-posts.js` faz 3 queries paralelas (radar/pílula/minuto) com limites **fixos e hardcoded 4/3/3 = 10 itens no total**. Esses limites foram criados só para a home (`ovc-nichos.js`, que pede amostra pequena balanceada entre TODAS as categorias). O problema: **todo** widget de radar esportivo dedicado — `ovc-radar-esporte.js` (home), `ovc-copa.js`, `ovc-radar-motor.js`, `ovc-radar-tenis.js`, `ovc-radar-mma.js`, `ovc-radar-volei.js`, `ovc-futebol-europeu.js`, `ovc-mercado-da-bola.js`, `ovc-torneio-espn.js` — chama esse **mesmo** endpoint genérico com `?curtinhas=true&categoria=esportes&limit=30` (ou 60), mas o `limit` era **completamente ignorado**. Com 7 esportes brigando por só 4 vagas "radar" + 3 "pílula" no total, quase nenhum esporte além do mais recente aparecia — mesmo com o pipeline gerando normalmente.
+
+**Fix:** quando `categoria` é passada explicitamente (todos os widgets dedicados passam), os caps agora escalam com o `limit` pedido pelo widget (~50% radar, ~40% pílula, ~15% minuto) em vez do fixo 4/3/3. O caminho sem `categoria` (só `ovc-nichos.js` na home) mantém o comportamento original — zero risco de regressão ali.
+
+#### Limpeza das 3 duplicatas "Flamengo Hexacampeonato" (PRs #373, #374, #375 — workflow one-off, já deletado)
+
+Via workflow one-off no GitHub Actions (mesmo padrão de `diag-once.yml` — necessário porque este sandbox não tem rede pra Supabase/produção): identificados os 3 posts duplicados, mantida a mais recente (`a97af26f`, 07/08 22:08:13), rejeitadas as outras 2 (`c8963bb7`, `329ecd22`) via `action=rejeitar_lote`.
+
+**Nota — 2 tentativas falharam antes de funcionar:** as 2 primeiras execuções do workflow falharam com **0 jobs criados**, não por limite de concorrência (hipótese inicial errada) mas por **erro real de sintaxe YAML** — um bloco `python3 -c "..."` dentro do `run: |` tinha linhas sem a indentação mínima exigida por um literal block YAML, quebrando o parse do workflow inteiro antes de qualquer job ser agendado. Corrigido reescrevendo como heredoc bash (`python3 << 'PYEOF'`) com indentação consistente, validado localmente com `pyyaml` antes do push.
+
+#### ⚠️ Achado secundário, NÃO corrigido — possível misclassificação de conteúdo
+
+Os 3 posts duplicados eram na verdade sobre **ginástica artística** ("Flamengo Conquista Hexacampeonato no Brasileiro de Ginástica Artística Feminina"), não futebol — mas foram salvos com `tipo_conteudo="radar"`, que por design (ver comentário em `api/run_portal.js` linha ~405) deveria ser **exclusivo de futebol**. Suspeita: `FUTEBOL_KW` em `autoFutebolCurtinhas()` inclui termos genéricos como `'campeonato brasileiro'`/`'brasileirão'` que aparecem no texto-fonte de qualquer "Campeonato Brasileiro" (é o nome oficial de competições de vários esportes, não só futebol) — não necessariamente indicam futebol. **Não corrigido nesta sessão** — precisa de mais investigação (ex: exigir termos exclusivos de futebol como "gol", "escanteio", nomes de clubes conhecidos, ou checar a fonte RSS de origem) antes de mudar o filtro. Registrado como pendência.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### ✅ CONFIRMADO NESTA SESSÃO (08/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Fix cap 4/3/3 → escalável com `limit`** — todos os widgets de radar esportivo (home + 8 páginas dedicadas) | ✅ EM PRODUÇÃO (PR #372, commit `5e65bbb3`) |
+| **3 duplicatas "Flamengo Hexa" limpas** (2 rejeitadas, 1 mantida) | ✅ FEITO (workflow one-off, confirmado via log: `{"ok":true,"total":2}`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — Radar do Esporte na home e nas páginas dedicadas (`/radar-da-bola/`, `/motor/`, `/tenis/`, `/mma/`, `/volei/`, `/basquete/`, `/nfl/`) devem mostrar conteúdo variado agora, não mais travado/duplicado
+2. **Investigar misclassificação futebol vs. outros "Campeonato Brasileiro"** — `FUTEBOL_KW` em `api/run_portal.js` pode estar capturando conteúdo de ginástica/outros esportes que usam "Campeonato Brasileiro" no nome oficial da competição. NÃO alterar sem confirmar o padrão exato antes.
+3. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, verificação visual de `/motor/`/`/tenis/`/`/mma/`, discussão de vídeo) seguem válidas e não foram tocadas nesta sessão
