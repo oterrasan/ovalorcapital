@@ -720,6 +720,38 @@ function Postagens() {
   const [showMetrics, setShowMetrics] = useState(false);
   const PER = 50;
 
+  // Múltiplas imagens no corpo — 08/08/2026, a pedido de Roberto: precisa valer
+  // pra QUALQUER conteúdo do pipeline (não só colunistas — ver mesma ferramenta
+  // em ColunistasAdmin). Injeta <figure> na posição do cursor do textarea de
+  // conteúdo do modal "Editar Post" abaixo.
+  const [imgInsert, setImgInsert] = useState({query:'',caption:'',buscando:false});
+  const conteudoEditRef = useRef(null);
+  function escAttrImg(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  const inserirImagemNoTextoEdit = async () => {
+    const q = imgInsert.query.trim();
+    if (!q || !editPost) return;
+    setImgInsert(s=>({...s,buscando:true}));
+    let url = q;
+    if (!/^https?:\/\//i.test(q)) {
+      try {
+        const r = await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if (d.url) url = d.url;
+        else { alert('Nenhuma imagem encontrada para "'+q+'"'); setImgInsert(s=>({...s,buscando:false})); return; }
+      } catch(e) { alert('Erro ao buscar imagem: '+e.message); setImgInsert(s=>({...s,buscando:false})); return; }
+    }
+    const cap = imgInsert.caption.trim();
+    const snippet = `\n<figure style="margin:32px 0;">\n<img src="${escAttrImg(url)}" alt="${escAttrImg(cap||'Imagem')}" style="width:100%;max-width:100%;border-radius:12px;display:block;">\n`
+      + (cap ? `<figcaption style="margin-top:10px;font-size:13px;color:#64748b;text-align:center;">${escAttrImg(cap)}</figcaption>\n` : '')
+      + `</figure>\n`;
+    const ta = conteudoEditRef.current;
+    const atual = editPost.conteudo || '';
+    const pos = ta && typeof ta.selectionStart === 'number' ? ta.selectionStart : atual.length;
+    const novoTexto = atual.slice(0,pos) + snippet + atual.slice(pos);
+    setEditPost(p=>({...p, conteudo: novoTexto}));
+    setImgInsert({query:'',caption:'',buscando:false});
+  };
+
   const BLOCKED_IMG_RE = [/perfil/i,/author/i,/avatar/i,/reporter/i,/profile/i,/headshot/i,/icon/i,/logo/i,/favicon/i,/sprite/i,/watermark/i,/\.svg$/i,/\.gif$/i,/\.ico$/i,/placeholder/i,/picsum/i,/lorempixel/i,/dummyimage/i,/placehold\.it/i,/fakeimg/i,/loremflickr/i,/fillmurray/i,/placekitten/i];
   function chkSemImg(p)  { return !p.imagem || p.imagem.trim() === ''; }
   function chkImgSusp(p) { return !!p.imagem && BLOCKED_IMG_RE.some(function(r){ return r.test(p.imagem); }); }
@@ -1064,7 +1096,16 @@ function Postagens() {
               <div className="modal-body">
                 {editPost._revisado && <div style={{padding:'8px 12px',background:'rgba(139,92,246,0.1)',border:'1px solid rgba(139,92,246,0.3)',borderRadius:6,marginBottom:12,fontSize:12,color:'#a78bfa'}}>🤖 Conteúdo revisado pela IA — revise e salve se aprovar</div>}
                 <div className="form-group"><label className="form-label">Título</label><input className="form-input" value={editPost.titulo||''} onChange={e=>setEditPost({...editPost,titulo:e.target.value})}/></div>
-                <div className="form-group"><label className="form-label">Conteúdo</label><textarea className="form-textarea" style={{minHeight:220}} value={editPost.conteudo||''} onChange={e=>setEditPost({...editPost,conteudo:e.target.value})}/></div>
+                <div className="form-group"><label className="form-label">Conteúdo</label><textarea ref={conteudoEditRef} className="form-textarea" style={{minHeight:220}} value={editPost.conteudo||''} onChange={e=>setEditPost({...editPost,conteudo:e.target.value})}/></div>
+                <div style={{background:'var(--surface-2,rgba(255,255,255,.03))',border:'1px solid var(--border)',borderRadius:8,padding:12,marginBottom:14}}>
+                  <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>+ Inserir imagem no meio do texto</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <input className="form-input" style={{flex:'2 1 200px'}} placeholder='Cole a URL ou descreva (ex: "congresso nacional")' value={imgInsert.query} onChange={e=>setImgInsert(s=>({...s,query:e.target.value}))}/>
+                    <input className="form-input" style={{flex:'2 1 160px'}} placeholder="Legenda (opcional)" value={imgInsert.caption} onChange={e=>setImgInsert(s=>({...s,caption:e.target.value}))}/>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!imgInsert.query.trim()||imgInsert.buscando} onClick={inserirImagemNoTextoEdit}>{imgInsert.buscando?'Buscando...':'+ Inserir'}</button>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Insere no ponto onde o cursor estiver no texto acima. A imagem de capa (campo abaixo) continua separada — pode usar as duas. Funciona pra qualquer categoria/tipo de conteúdo.</div>
+                </div>
                 <div className="form-group"><label className="form-label">Comentário Fixado</label><textarea className="form-textarea" style={{minHeight:60}} value={editPost.comentario_fixado||''} onChange={e=>setEditPost({...editPost,comentario_fixado:e.target.value})}/></div>
                 <div className="form-group">
                   <label className="form-label">URL da Imagem</label>
