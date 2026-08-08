@@ -194,9 +194,10 @@ async function handleCurtinhas(req, res) {
   }
 
   const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
+  const hasCat = !!(cat && cat !== "all");
 
   function addCatFilter(q) {
-    if (!cat || cat === "all") return q;
+    if (!hasCat) return q;
     const aliases = CATEGORY_ALIASES[cat];
     return aliases
       ? q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","))
@@ -204,13 +205,28 @@ async function handleCurtinhas(req, res) {
   }
 
   // Busca balanceada: 3 queries paralelas por tipo para evitar que radares Copa dominem
+  // NA HOME (sem categoria) — caps fixos 4/3/3, pequenos de propósito.
+  //
+  // Widgets de PÁGINA DEDICADA (ovc-radar-esporte.js, ovc-copa.js, ovc-radar-motor.js,
+  // ovc-torneio-espn.js, etc — todos chamam ?curtinhas=true&categoria=X&limit=30/60) caíam
+  // no MESMO cap fixo 4/3/3 = 10 itens no total, ignorando o `limit` pedido. Com esportes
+  // dividido em 7 abas (futebol/basquete/motor/tênis/mma/vôlei/nfl) competindo por só 4
+  // vagas de "radar" + 3 de "pílula", quase nenhum esporte além do mais recente aparecia —
+  // era isso que fazia o Radar do Esporte da home (e as páginas dedicadas) parecerem
+  // travados/vazios mesmo com o pipeline gerando conteúdo novo normalmente. Bug real,
+  // achado e corrigido 08/08/2026 a partir do relato do Roberto ("nenhum radar funciona").
+  const limitParam = hasCat ? clampInt(req.query.limit, 30, 10, 60) : 10;
+  const capRadar = hasCat ? Math.max(6, Math.round(limitParam * 0.5)) : 4;
+  const capPilula = hasCat ? Math.max(6, Math.round(limitParam * 0.4)) : 3;
+  const capMinuto = hasCat ? Math.max(3, Math.round(limitParam * 0.15)) : 3;
+
   const [rRadar, rPilula, rMinuto] = await Promise.all([
     addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["radar"]).order("published_at",{ascending:false}).limit(4)),
+      .in("tipo_conteudo",["radar"]).order("published_at",{ascending:false}).limit(capRadar)),
     addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(3)),
+      .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(capPilula)),
     addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["minuto"]).order("published_at",{ascending:false}).limit(3))
+      .in("tipo_conteudo",["minuto"]).order("published_at",{ascending:false}).limit(capMinuto))
   ]);
 
   const posts = [
