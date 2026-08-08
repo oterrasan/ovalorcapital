@@ -2425,6 +2425,37 @@ function ColunistasAdmin({ setPage }){
   const [showNovoArtigoModal, setShowNovoArtigoModal] = React.useState(null);
   const [novoArtigo, setNovoArtigo] = React.useState({titulo:'',conteudo:'',imagem:''});
   const [submetendo, setSubmetendo] = React.useState(false);
+  // Múltiplas imagens no corpo — 08/08/2026, a pedido de Roberto: antes só dava
+  // pra usar a imagem de capa (campo `imagem`, 1 por post). Isso injeta um
+  // <figure> no meio do texto (na posição do cursor do textarea de conteúdo),
+  // reaproveitando a mesma busca de imagem já usada em outros lugares do admin.
+  const [imgInsert, setImgInsert] = React.useState({query:'',caption:'',buscando:false});
+  const conteudoRef = React.useRef(null);
+  function escAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  async function inserirImagemNoTexto(){
+    const q = imgInsert.query.trim();
+    if(!q) return;
+    setImgInsert(s=>({...s,buscando:true}));
+    let url = q;
+    if(!/^https?:\/\//i.test(q)){
+      try{
+        const r = await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if(d.url) url = d.url;
+        else { setMsg('❌ Nenhuma imagem encontrada para "'+q+'"'); setImgInsert(s=>({...s,buscando:false})); return; }
+      }catch(e){ setMsg('❌ Erro ao buscar imagem: '+e.message); setImgInsert(s=>({...s,buscando:false})); return; }
+    }
+    const cap = imgInsert.caption.trim();
+    const snippet = `\n<figure style="margin:32px 0;">\n<img src="${escAttr(url)}" alt="${escAttr(cap||'Imagem')}" style="width:100%;max-width:100%;border-radius:12px;display:block;">\n`
+      + (cap ? `<figcaption style="margin-top:10px;font-size:13px;color:#64748b;text-align:center;">${escAttr(cap)}</figcaption>\n` : '')
+      + `</figure>\n`;
+    const ta = conteudoRef.current;
+    const pos = ta && typeof ta.selectionStart === 'number' ? ta.selectionStart : novoArtigo.conteudo.length;
+    const novoTexto = novoArtigo.conteudo.slice(0,pos) + snippet + novoArtigo.conteudo.slice(pos);
+    setNovoArtigo(a=>({...a, conteudo: novoTexto}));
+    setImgInsert({query:'',caption:'',buscando:false});
+    setMsg('✅ Imagem inserida no texto (na posição do cursor).');
+  }
 
   React.useEffect(()=>{
     fetch('/api/manage?action=list_colunistas')
@@ -2641,7 +2672,16 @@ function ColunistasAdmin({ setPage }){
               <form onSubmit={submitNovoArtigo} style={{display:'flex',flexDirection:'column',gap:14}}>
                 <input className="form-input" required placeholder="Título do artigo" value={novoArtigo.titulo} onChange={e=>setNovoArtigo(a=>({...a,titulo:e.target.value}))}/>
                 <input className="form-input" placeholder="URL da imagem de capa (opcional)" value={novoArtigo.imagem} onChange={e=>setNovoArtigo(a=>({...a,imagem:e.target.value}))}/>
-                <textarea className="form-textarea" style={{minHeight:220}} required placeholder="Conteúdo do artigo (HTML ou texto livre)" value={novoArtigo.conteudo} onChange={e=>setNovoArtigo(a=>({...a,conteudo:e.target.value}))}/>
+                <textarea ref={conteudoRef} className="form-textarea" style={{minHeight:220}} required placeholder="Conteúdo do artigo (HTML ou texto livre)" value={novoArtigo.conteudo} onChange={e=>setNovoArtigo(a=>({...a,conteudo:e.target.value}))}/>
+                <div style={{background:'var(--surface-2,rgba(255,255,255,.03))',border:'1px solid var(--border)',borderRadius:8,padding:12}}>
+                  <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>+ Inserir imagem no meio do texto</div>
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <input className="form-input" style={{flex:'2 1 200px'}} placeholder='Cole a URL ou descreva (ex: "livro sobre mesa")' value={imgInsert.query} onChange={e=>setImgInsert(s=>({...s,query:e.target.value}))}/>
+                    <input className="form-input" style={{flex:'2 1 160px'}} placeholder="Legenda (opcional)" value={imgInsert.caption} onChange={e=>setImgInsert(s=>({...s,caption:e.target.value}))}/>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!imgInsert.query.trim()||imgInsert.buscando} onClick={inserirImagemNoTexto}>{imgInsert.buscando?'Buscando...':'+ Inserir'}</button>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Insere no ponto onde o cursor estiver no texto acima. A imagem de capa (campo acima) continua separada — pode usar as duas.</div>
+                </div>
                 {msg && <div style={{fontSize:12,color:msg.startsWith('❌')?'#f87171':'#4ade80'}}>{msg}</div>}
                 <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setShowNovoArtigoModal(null);setMsg('');}}>Cancelar</button>

@@ -5156,8 +5156,43 @@ article.js  category.js  ig-handler.js  institutional.js  landing.js
 live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ```
 
+#### Correção pós-publicação (mesma sessão)
+
+Roberto apontou 2 problemas na matéria já publicada:
+1. **Posicionamento ruim** — a 2ª imagem estava com `float:right` no topo do corpo, desformatando o padrão visual. Corrigido: movida pro meio do texto (entre o 4º e o 5º de 8 parágrafos), como `<figure>` full-width com `<figcaption>`, sem float.
+2. **Legenda errada** — eu tinha rotulado a foto como "Taísa da Fonseca" (e cheguei a chamar de "foto sua" pro Roberto, que é homem — erro de comunicação, não só de dado). Roberto esclareceu: **as duas imagens são do conteúdo da matéria** — o livro e **a autora do livro** (Flávia Abeche, a entrevistada), nada a ver com a Taísa fisicamente nem com Roberto. Corrigido `alt`/`figcaption` para "Flávia Abeche, autora de Provérbios para Mulheres".
+
+Fix aplicado via `action=editar_aprovar` (mesmo endpoint `handleApprovePortal` em `api/manage.js`) — atualiza só o campo `conteudo`, preservando título/imagem de capa/meta description. Confirmado: `{"ok":true,"action":"editado_aprovado","id":"c8d23fad-c8cd-4f3e-8136-3563040054c6"}`.
+
+**Nota — arquivo de imagem com nome desatualizado:** `public/img/colunistas/taisa-da-fonseca.jpg` na verdade contém a foto da Flávia Abeche (autora do livro), não da Taísa — o nome do arquivo ficou errado desde a primeira publicação. Funcional (é só uma URL, não afeta exibição), mas confunde quem for mexer depois. Renomear é baixa prioridade — avaliar numa sessão futura se vale o redeploy.
+
+#### Nova ferramenta no admin — múltiplas imagens por conteúdo (a pedido de Roberto)
+
+Roberto pediu, para o futuro: "preciso que a gente já desenvolva uma ferramenta pra usar mais de uma imagem, construa essa mudança dentro do admin". Implementado no modal "Novo artigo manual" de `ColunistasAdmin` (`public/admin/index.html`, aba Colunistas):
+
+- Novo bloco "+ Inserir imagem no meio do texto" abaixo do textarea de conteúdo — campo de URL/descrição + legenda opcional + botão "+ Inserir".
+- Se o campo não começar com `http`, trata como busca (reaproveita `/api/run_portal?action=buscar_imagem`, o mesmo mecanismo já usado para a imagem de capa).
+- Insere um bloco `<figure>` (com `<figcaption>` se houver legenda) **na posição exata do cursor** dentro do textarea (via `ref` + `selectionStart`), não só no fim do texto.
+- **A imagem de capa (`imagem`, 1 por post) continua existindo separada** — a ferramenta não mexe no schema do banco, não adiciona coluna nova. "Múltiplas imagens" = quantas o Roberto quiser inserir manualmente dentro do HTML do corpo, sem limite — mesmo princípio usado para corrigir a matéria da Taísa nesta sessão, só que agora com botão no admin em vez de workflow one-off.
+- Zero mudança de schema, zero novo arquivo em `api/` (Regra Zero-A intacta) — só JSX novo dentro do componente `ColunistasAdmin` já existente.
+
+**Ainda não coberto** (pendência se Roberto quiser expandir depois): esta ferramenta está só no modal "Novo artigo manual" de colunistas. Se ele quiser o mesmo recurso ao **editar** um artigo já publicado (sem passar por workflow manual), ou nas matérias do pipeline principal (`Postagens`), precisa de UI equivalente nesses outros editores — não implementado ainda.
+
+#### Vídeo no portal — só registrado, NÃO implementado
+
+Roberto pediu para "começar a pensar e discutir como usar e publicar vídeos no portal". Isso é uma conversa de planejamento, não uma tarefa de código executada nesta sessão — nenhuma linha de código de vídeo foi escrita. Ver pendência abaixo.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
 #### 🔧 Pendências para a próxima sessão
 
-1. **Confirmar visualmente com Roberto** a matéria publicada na URL acima — layout, as duas imagens, meta description.
-2. Se Roberto pedir para subir outra coluna de colunista manualmente no futuro: usar `action=admin_colunista_post` + `token` (não `pass`) direto — não repetir o ciclo de tentativa-e-erro desta sessão. Publica direto (`status:publicado`, sem fila de aprovação) — diferente do pipeline automático.
-3. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 07/08/2026 acima).
+1. **Confirmar visualmente com Roberto** a matéria publicada — layout, posição das duas imagens, legendas corretas.
+2. **Testar a nova ferramenta de múltiplas imagens** no admin (aba Colunistas → selecionar colunista → Novo artigo manual → bloco "Inserir imagem no meio do texto").
+3. **Discutir vídeo no portal** — Roberto pediu para começar essa conversa. Pontos que precisam de decisão dele antes de qualquer código: hospedagem (upload direto pro Supabase Storage? YouTube/Vimeo embed? serviço externo tipo Mux/Cloudflare Stream?), se cada matéria pode ter vídeo de capa (mudaria o schema — hoje `imagem` é a única mídia principal), se vídeo é conteúdo próprio (colunistas gravando) ou embed de fontes externas, e limite de tamanho/formato dado que Vercel Hobby tem timeout de 10s nas functions (upload direto por function não é viável para arquivos grandes — precisaria de upload direto do browser pro storage, function só grava a URL).
+4. Se Roberto pedir para subir outra coluna de colunista manualmente no futuro: usar `action=admin_colunista_post` + `token` (não `pass`) direto — não repetir o ciclo de tentativa-e-erro desta sessão. Publica direto (`status:publicado`, sem fila de aprovação) — diferente do pipeline automático.
+5. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 07/08/2026 acima).
