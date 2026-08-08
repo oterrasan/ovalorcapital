@@ -630,11 +630,25 @@ async function autoFutebolCurtinhas(req, res, rec) {
     'copa sul-americana', 'copa libertadores', 'rodada do brasileirão',
     'tabela do brasileirão', 'artilheiro do brasileirão', 'copa libertadores da américa'
   ];
+  // Bug real confirmado 08/08/2026 (Roberto flagrou 3 posts "Flamengo Conquista Hexacampeonato..."):
+  // o post nem era de futebol, era de GINÁSTICA ARTÍSTICA ("...no Brasileiro de Ginástica
+  // Artística Feminina") — mas "campeonato brasileiro"/"brasileiro" são termos genéricos que
+  // QUALQUER modalidade usa para nomear seu campeonato nacional, não são exclusivos de futebol.
+  // Fix: exclui explicitamente qualquer item que mencione outra modalidade, mesmo que também
+  // bata uma keyword de futebol — sem isso, "Campeonato Brasileiro de X" pra qualquer X vazava
+  // pro Radar do Futebol (que por design — Regra Zero-I — é EXCLUSIVO de futebol).
+  const NAO_FUTEBOL_KW = [
+    'ginástica', 'ginastica', 'atletismo', 'natação', 'natacao', 'judô', 'judo',
+    'basquete', 'basketball', 'nba', 'vôlei', 'volei', 'tênis', 'tenis', 'mma', 'ufc',
+    'nfl', 'fórmula 1', 'formula 1', 'automobilismo', 'handebol', 'ciclismo',
+    'boxe', 'xadrez', 'surfe', 'skate', 'ginastas'
+  ];
   const esportes = await getNewsByCategoria("esportes");
   const seen = new Set();
   const allNews = esportes.filter(i => i?.link && FONTE_FUTEBOL.has(i.source) && !seen.has(i.link) && seen.add(i.link));
   const futebolItems = allNews.filter(i => {
     const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
+    if (NAO_FUTEBOL_KW.some(kw => t.includes(kw))) return false;
     return FUTEBOL_KW.some(kw => t.includes(kw));
   }).slice(0, 20);
   if (!futebolItems.length) {

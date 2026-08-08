@@ -133,7 +133,7 @@
     if (!mount) return;
     const ticker = (new URLSearchParams(location.search).get('ticker') || 'ibov').toLowerCase();
     const meta = {
-      ibov: ['Ibovespa', `${INT.format(Number(live?.indices?.ibov||128450))} pts`, 'Ãndice de referência do mercado acionário brasileiro.'],
+      ibov: ['Ibovespa', `${INT.format(Number(live?.indices?.ibov||128450))} pts`, 'Índice de referência do mercado acionário brasileiro.'],
       selic: ['Selic', `${safe(live?.indices?.selic,10.5)}%`, 'Taxa básica de juros.'],
       cdi: ['CDI', `${safe(live?.indices?.cdi,10.4)}%`, 'Referência para renda fixa e crédito.'],
       ipca: ['IPCA', `${safe(live?.indices?.ipca,4.2)}%`, 'Inflação oficial acompanhada pelo mercado.'],
