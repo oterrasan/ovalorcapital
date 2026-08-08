@@ -468,7 +468,7 @@
                   + '<div id="ovc-mais-lidas-rail" style="margin-top:24px;"></div>'
                   + '<div id="ovc-tv-rail" style="margin-top:24px;"></div>';
 
-                fetch('/api/portal-posts?sort=popular&limit=6')
+                fetch('/api/portal-posts?maisLidos=true&limit=6')
                   .then(function(r){ return r.json(); })
                   .then(function(d){
                     var lidas = (d.posts || []).filter(function(x){ return x.id !== p.id; }).slice(0, 5);
@@ -515,7 +515,7 @@
                   +'</div></div>';
               }
 
-              fetch('/api/portal-posts?sort=popular&limit=20')
+              fetch('/api/portal-posts?maisLidos=true&limit=20')
                 .then(function(r){ return r.json(); })
                 .then(function(d){
                   var outros = (d.posts||[]).filter(function(x){
@@ -780,7 +780,7 @@
 
       }).catch(function(e){ console.warn('OVC categoria:', e.message); });
 
-    fetch('/api/portal-posts?sort=popular&limit=6')
+    fetch('/api/portal-posts?maisLidos=true&limit=6')
       .then(function(r){ return r.json(); })
       .then(function(d){
         var mlEl = document.getElementById('cat-mais-lidas-body');

@@ -614,7 +614,7 @@ async function handleUpdatePesquisa(req, res) {
       .select("titulo,conteudo,published_at")
       .eq("status", "publicado")
       .gte("published_at", cutoff)
-      .or("titulo.ilike.%pesquisa%,titulo.ilike.%datafolha%,titulo.ilike.%quaest%,titulo.ilike.%ipespe%,titulo.ilike.%poderdata%,titulo.ilike.%eleit%,titulo.ilike.%inten%25o de voto%,conteudo.ilike.%pesquisa eleitoral%,conteudo.ilike.%inten%25o de voto%,conteudo.ilike.%datafolha%,conteudo.ilike.%quaest%,conteudo.ilike.%ipespe%,conteudo.ilike.%poderdata%,conteudo.ilike.%sondagem%")
+      .or("titulo.ilike.%pesquisa%,titulo.ilike.%datafolha%,titulo.ilike.%quaest%,titulo.ilike.%ipespe%,titulo.ilike.%poderdata%,titulo.ilike.%eleit%,titulo.ilike.%intenção de voto%,conteudo.ilike.%pesquisa eleitoral%,conteudo.ilike.%intenção de voto%,conteudo.ilike.%datafolha%,conteudo.ilike.%quaest%,conteudo.ilike.%ipespe%,conteudo.ilike.%poderdata%,conteudo.ilike.%sondagem%")
       .order("published_at", { ascending: false })
       .limit(10);
 
