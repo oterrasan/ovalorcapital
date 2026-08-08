@@ -1,0 +1,56 @@
+name: One-off — encontrar e rejeitar duplicatas Flamengo Hexa
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/fix-flamengo-dup-once.yml"]
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Listar posts do Radar (tipo=radar, categoria=esportes) e achar duplicatas
+        run: |
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&tipo=radar&categoria=esportes&limit=50" \
+            | python3 -m json.tool > /tmp/radar.json
+          echo "=== todos os posts do radar (id/titulo/data) ==="
+          python3 -c "
+import json
+d = json.load(open('/tmp/radar.json'))
+for p in d.get('curtinhas', []):
+    print(p.get('id'), '|', p.get('data') or p.get('published_at'), '|', p.get('titulo'))
+"
+          echo ""
+          echo "=== duplicatas Flamengo/Hexa (ids a rejeitar, mantendo a mais recente) ==="
+          python3 -c "
+import json
+d = json.load(open('/tmp/radar.json'))
+dupes = [p for p in d.get('curtinhas', []) if 'flamengo' in (p.get('titulo') or '').lower() and 'hexa' in (p.get('titulo') or '').lower()]
+dupes.sort(key=lambda p: p.get('data') or p.get('published_at') or '', reverse=True)
+print('total encontrado:', len(dupes))
+for p in dupes:
+    print(p.get('id'))
+with open('/tmp/dupe_ids.txt','w') as f:
+    # mantém a primeira (mais recente), rejeita o resto
+    for p in dupes[1:]:
+        f.write(p['id'] + chr(10))
+"
+          echo "--- ids a rejeitar ---"
+          cat /tmp/dupe_ids.txt || echo "(nenhum)"
+
+      - name: Rejeitar duplicatas (mantém a mais recente)
+        run: |
+          if [ ! -s /tmp/dupe_ids.txt ]; then
+            echo "Nada pra rejeitar."
+            exit 0
+          fi
+          IDS=$(python3 -c "
+import json
+ids = [l.strip() for l in open('/tmp/dupe_ids.txt') if l.strip()]
+print(json.dumps(ids))
+")
+          echo "Rejeitando: $IDS"
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -d "{\"action\":\"rejeitar_lote\",\"token\":\"ovc-admin-2026-secreto\",\"ids\":$IDS}"
