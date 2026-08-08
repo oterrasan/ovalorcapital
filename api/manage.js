@@ -325,7 +325,12 @@ async function handleSubmitColunistaPost(req, res, body) {
 
 async function handleAdminColunistaPost(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
-  const { nome_colunista, titulo, conteudo, imagem } = body || {};
+  // comentario_fixado — 08/08/2026: opcional. Colunas costumam vir com uma "frase fixada"
+  // (pull-quote/resumo editorial) que corresponde exatamente à coluna comentario_fixado
+  // (= meta_descricao, ver seção 4 do CLAUDE.md). Antes este handler simplesmente ignorava
+  // qualquer coisa nesse sentido — toda coluna saía sem meta description própria, violando
+  // a Regra #1 (SEO 100% completo em toda página). Aceita agora e grava só se vier.
+  const { nome_colunista, titulo, conteudo, imagem, comentario_fixado } = body || {};
   if (!nome_colunista || !titulo || !conteudo) return res.status(400).json({ ok: false, error: "nome_colunista, titulo e conteudo obrigatorios" });
 
   const tituloClean = String(titulo).trim();
@@ -344,8 +349,9 @@ async function handleAdminColunistaPost(req, res, body) {
     subcategoria: String(nome_colunista).trim(),
     subcategoria_slug: subcSlug,
     published_at: new Date().toISOString(),
-    metrics: JSON.stringify({ meta_title: tituloClean.slice(0, 55) })
+    metrics: JSON.stringify({ meta_title: tituloClean.slice(0, 55), meta_descricao: comentario_fixado || undefined })
   };
+  if (comentario_fixado) post.comentario_fixado = String(comentario_fixado).trim();
 
   const { data: saved, error: saveErr } = await supabase.from("posts").insert(post).select("id").maybeSingle();
   if (saveErr) return res.status(500).json({ ok: false, error: saveErr.message });
