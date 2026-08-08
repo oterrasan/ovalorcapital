@@ -1,0 +1,33 @@
+name: Publicar coluna Taísa da Fonseca (one-off)
+
+# Uso único, a pedido de Roberto (08/08/2026) — sobe a coluna "O empreendedorismo
+# começa pela identidade" no perfil da colunista já cadastrada (taisa-da-fonseca).
+# Roda só via workflow_dispatch manual. Este arquivo e os assets em scripts/one-off/
+# são removidos assim que a publicação for confirmada.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Atualizar foto da colunista
+        run: |
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage?action=update_colunista_photo" \
+            -H "Content-Type: application/json" \
+            -d '{"pass":"ovc-admin-2026-secreto","slug":"taisa-da-fonseca","foto_url":"https://www.ovalorcapital.com.br/img/colunistas/taisa-da-fonseca.jpg"}'
+          echo ""
+
+      - name: Montar payload da matéria
+        run: python3 scripts/one-off/build_payload_taisa.py
+
+      - name: Publicar matéria
+        run: |
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage?action=admin_colunista_post" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/payload.json
+          echo ""
