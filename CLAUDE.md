@@ -5198,3 +5198,28 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Discutir vídeo no portal** — Roberto pediu para começar essa conversa. Pontos que precisam de decisão dele antes de qualquer código: hospedagem (upload direto pro Supabase Storage? YouTube/Vimeo embed? serviço externo tipo Mux/Cloudflare Stream?), se cada matéria pode ter vídeo de capa (mudaria o schema — hoje `imagem` é a única mídia principal), se vídeo é conteúdo próprio (colunistas gravando) ou embed de fontes externas, e limite de tamanho/formato dado que Vercel Hobby tem timeout de 10s nas functions (upload direto por function não é viável para arquivos grandes — precisaria de upload direto do browser pro storage, function só grava a URL).
 4. Se Roberto pedir para subir outra coluna de colunista manualmente no futuro: usar `action=admin_colunista_post` + `token` (não `pass`) direto — não repetir o ciclo de tentativa-e-erro desta sessão. Publica direto (`status:publicado`, sem fila de aprovação) — diferente do pipeline automático.
 5. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 07/08/2026 acima).
+
+#### Fechamento da sessão — PRs mergeados e commits finais
+
+| PR | Commit (squash) | Descrição |
+|---|---|---|
+| #366-#367 | `4640502`, `f0209d7` | Publicação da coluna da Taísa + limpeza do workflow one-off |
+| #368 | `d713c11` | Corrige posição da imagem (remove float, insere no meio do texto) |
+| #369 | `61e907a` | Ferramenta de múltiplas imagens no admin — Colunistas (Novo artigo manual) |
+| #370 | `611bbc0` | Estende a ferramenta de múltiplas imagens para `Postagens()` (Editar Post — qualquer categoria/tipo de conteúdo) |
+
+**PR #370 teve conflito de merge** (branch local ainda carregava histórico não-squashed do PR #369) — resolvido pelo procedimento já documentado em sessões anteriores (20/07, 30-31/07): `git checkout -B <branch> origin/main && git cherry-pick <commit> && git push --force`. CI "Verificar arquivos críticos" falhou pelo motivo pré-existente de sempre (`public/index.html` 648 linhas, não tocado nesta sessão) — mergeado normalmente.
+
+#### ✅ CONFIRMADO NESTA SESSÃO (08/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Coluna da Taísa da Fonseca publicada e corrigida** (posição de imagem, legenda) | ✅ EM PRODUÇÃO — `https://www.ovalorcapital.com.br/colunistas/o-empreendedorismo-comeca-pela-identidade-c8d23fad/` |
+| **`handleAdminColunistaPost` aceita `comentario_fixado`** (meta description) | ✅ EM PRODUÇÃO (api/manage.js) |
+| **Ferramenta "Inserir imagem no meio do texto"** — Colunistas → Novo artigo manual | ✅ EM PRODUÇÃO (PR #369) — aguardando teste visual de Roberto |
+| **Mesma ferramenta estendida para Postagens → Editar Post** (qualquer categoria/tipo) | ✅ EM PRODUÇÃO (PR #370) — aguardando teste visual de Roberto |
+| **Vídeo no portal** | ❌ NÃO INICIADO — só conversa registrada, aguardando decisões de Roberto (ver pendência #3 acima) |
+
+#### ⚠️ Nota de transparência
+
+Nem a publicação da coluna nem as duas instâncias da ferramenta de múltiplas imagens puderam ser conferidas visualmente num navegador — este sandbox não tem acesso de rede a `www.ovalorcapital.com.br`. Toda verificação foi por leitura de código, resposta JSON das APIs (via workflow one-off no GitHub Actions) e checagem estática de sintaxe/balanceamento de chaves no `admin/index.html`. Roberto precisa confirmar visualmente antes de considerar 100% fechado.
