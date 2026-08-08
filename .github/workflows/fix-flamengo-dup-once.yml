@@ -1,3 +1,4 @@
+# re-trigger 22:47 UTC — run anterior falhou com 0 jobs (provável limite de concorrência)
 name: One-off — encontrar e rejeitar duplicatas Flamengo Hexa
 
 on:
