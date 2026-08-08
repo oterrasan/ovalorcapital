@@ -5,6 +5,7 @@ conteudo = open(
 ).read()
 
 payload = {
+    "action": "admin_colunista_post",
     "pass": "ovc-admin-2026-secreto",
     "nome_colunista": "Taisa da Fonseca",
     "titulo": "O empreendedorismo começa pela identidade",

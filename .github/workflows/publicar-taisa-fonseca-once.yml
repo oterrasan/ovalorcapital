@@ -10,6 +10,18 @@ name: Publicar coluna Taísa da Fonseca (one-off)
 # "workflows: write" pra disparar workflow_dispatch pela API — 403 "Resource
 # not accessible by integration". Qualquer push em main que toque este
 # arquivo dispara a run automaticamente.
+#
+# NÃO mexe na foto de perfil da colunista — Roberto confirmou que ela já
+# tem foto padrão cadastrada. As duas imagens enviadas por ele são só desta
+# matéria: uma como capa (campo imagem do post) e a outra embutida no corpo
+# do texto (ver scripts/one-off/*.html).
+#
+# Fix 08/08/2026: a primeira tentativa passava a ação via "?action=..." na
+# URL, mas o endpoint POST só lê a ação de dentro do corpo JSON
+# (const action = String(body.action || "") em api/manage.js) — sem o
+# campo "action" no JSON, tudo caía no fallback genérico
+# "acao_indisponivel_no_modo_emergencia". Corrigido: action agora vai no
+# corpo, montado por build_payload_taisa.py.
 
 on:
   workflow_dispatch:
@@ -24,19 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Atualizar foto da colunista
-        run: |
-          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage?action=update_colunista_photo" \
-            -H "Content-Type: application/json" \
-            -d '{"pass":"ovc-admin-2026-secreto","slug":"taisa-da-fonseca","foto_url":"https://www.ovalorcapital.com.br/img/colunistas/taisa-da-fonseca.jpg"}'
-          echo ""
-
       - name: Montar payload da matéria
         run: python3 scripts/one-off/build_payload_taisa.py
 
       - name: Publicar matéria
         run: |
-          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage?action=admin_colunista_post" \
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage" \
             -H "Content-Type: application/json" \
             --data-binary @/tmp/payload.json
           echo ""
