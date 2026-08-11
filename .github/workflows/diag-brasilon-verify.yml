@@ -1,0 +1,36 @@
+name: diag-brasilon-verify
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-brasilon-verify.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install @supabase/supabase-js --no-save
+      - run: |
+          cat > $GITHUB_WORKSPACE/diag-verify.mjs << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+          const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
+          const { data, error } = await supabase.from("posts").select("id,titulo,imagem,metrics").eq("subcategoria_slug", "brasil-on").order("created_at", { ascending: false });
+          if (error) { console.log("ERRO:", error); process.exit(1); }
+          console.log("TOTAL brasil-on:", data.length);
+          const oeste = data.filter(p => (p.metrics && p.metrics.fonte_brasilon) === "Revista Oeste");
+          console.log("Posts da Revista Oeste ainda no banco:", oeste.length);
+          if (oeste.length) {
+            const ids = oeste.map(p => p.id);
+            const { error: delErr, count } = await supabase.from("posts").delete({ count: "exact" }).in("id", ids);
+            if (delErr) { console.log("ERRO DELETE:", delErr); process.exit(1); }
+            console.log("Deletados (Revista Oeste):", count);
+          } else {
+            console.log("Nada da Revista Oeste pra deletar.");
+          }
+          const { data: final } = await supabase.from("posts").select("id,titulo,imagem,metrics").eq("subcategoria_slug", "brasil-on").order("created_at", { ascending: false });
+          console.log("ESTADO FINAL —", final.length, "posts brasil-on:");
+          final.forEach(p => console.log(" ", p.id, "|", p.imagem ? "COM imagem" : "SEM imagem", "|", (p.metrics && p.metrics.fonte_brasilon), "|", p.titulo));
+          EOF
+          node $GITHUB_WORKSPACE/diag-verify.mjs
