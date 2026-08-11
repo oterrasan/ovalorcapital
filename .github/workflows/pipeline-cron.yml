@@ -50,6 +50,18 @@ jobs:
             -d '{"tipo":"outros_esportes","force":true,"count":3}')
           echo "OUTROS_ESPORTES: $RESP" | head -c 2000
 
+  brasilon:
+    name: Brasil ON — Bacci Notícias + Revista Oeste (quase instantâneo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Gerar conteúdo Brasil ON
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":3}')
+          echo "BRASIL_ON: $RESP" | head -c 500
+
   materias:
     name: Matéria 07h–00h30 BRT
     runs-on: ubuntu-latest

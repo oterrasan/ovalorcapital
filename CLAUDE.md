@@ -5333,3 +5333,66 @@ Diferente de sessões anteriores, estes 5 bugs foram confirmados por **leitura d
 1. **Confirmar visualmente todos os 5 fixes acima**
 2. Continuar a varredura de código se Roberto quiser mais — esta rodada cobriu `api/live.js`, `api/manage.js` (parcial), `api/run_portal.js`, `api/portal-posts.js` (via PR #372 anterior), `api/article.js`, `core/rss.js`, `core/ai_portal.js` (lógica, não o prompt), `public/js/internal-page-v2.js` (parcial). Ainda não cobertos em profundidade: `api/category.js`, `api/landing.js`, `api/institutional.js`, `api/sitemap.js`, `api/ig-handler.js`, `core/image_finder.js`/`image_processor.js`/`scraper.js`, e a maioria dos widgets `public/js/ovc-*.js`.
 3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, `ovc-nichos.js` compacto, Leitura Dinâmica, discussão de vídeo).
+
+---
+
+## 🆕 BRASIL ON — NOVO PRODUTO (iniciado 11/08/2026)
+
+> Estabelecido por Roberto Terrasan em 11/08/2026. Leia esta seção inteira antes de tocar em qualquer coisa relacionada a "brasilon"/"Brasil ON".
+
+### O que é
+
+Brasil ON é a **divisão popular de notícias do OVC**. Roberto, nas palavras dele:
+- "Brasil ON é a divisao POPULAR de noticias do OVC. ele irá operar dentro do ovc mandando noticias pra la ja prontas e ele tambem está ativo em um dominio separado, provavelmente brasil.com.br"
+- "nós iremos trabalhar e operar com noticias e informações em reescrita 100% monitorando perfis e sites pontuais... nós iremos capturar as noticias destes perfis e reescrever todas e fazer isso quase que de maneira instantânea"
+- "claude, voce vai fazer a estruturacao dentro do ovc" — **decisão final: mesmo repositório/deploy/banco do OVC**, não um repo separado (tentativa inicial de criar repo novo falhou — a integração GitHub desta sessão não tem permissão `repo:create`, erro 403; Roberto então mandou fazer dentro do OVC mesmo, o que resolveu o bloqueio)
+
+### Fontes monitoradas (fase de teste — só estas 2, aprovadas por Roberto)
+
+| Fonte | URL | RSS? | Observação |
+|---|---|---|---|
+| **Bacci Notícias** | https://baccinoticias.com.br/ | ❌ NÃO — `/feed/` redireciona pra home (confirmado via `curl -L`, 11/08/2026) | Motor principal ("trata de tudo, gera muita visualização" — Roberto). Repost de posts do Instagram sob a URL `/vi-no-instagram/` (excluída do pool — não é matéria de verdade). Imagens PRÓPRIAS deles, SEM marca d'água (confirmado por Roberto: "o site do bacci... nao usam sequer marca dágua nas imagens do site") — dá pra reaproveitar quase direto. Exemplo real verificado: `og:image` 1280x720 JPEG (`wp-content/uploads/.../Design-sem-nome-94.jpg`). |
+| **Revista Oeste** | https://www.revistaoeste.com/ | ✅ SIM — `/feed/` funcional, RSS WordPress padrão | Homepage direta tem proteção Cloudflare (retorna challenge "Just a moment...", 5.4KB) — **nunca raspar a homepage direto**, sempre via RSS. Artigos individuais (via link do RSS) e o próprio `/feed/` funcionam normalmente sem bloqueio. Feed já inclui `<media:content>` com a imagem em múltiplos tamanhos prontos (ex: 619x348, 1920x1080, 1200x628). |
+
+Roberto mencionou VEJA como possível 3ª fonte, depois confirmou explicitamente: **"vamos testar primeiro com apenas 2 sites: bacci noticias e revista oeste"** — VEJA fica para depois, NÃO implementada ainda.
+
+### Arquitetura implementada (PR ainda a mergear nesta sessão)
+
+- **`core/brasilon.js`** (novo arquivo) — `buscarCandidatosBrasilOn()`: busca Bacci via raspagem da homepage (regex de links de artigo, excluindo `vi-no-instagram`/categoria/tag/página/institucional) + Revista Oeste via RSS (`rss-parser`, já usado em `core/rss.js`). Retorna candidatos combinados; dedup acontece no pipeline (mesmo padrão do resto do OVC).
+- **`api/run_portal.js`** — nova função `autoBrasilOn()` + `salvarBrasilOn()`, dispatch via `body.tipo === "brasilon"`. Publica **direto** (`status:"publicado"`, `approved:true`, sem fila — Roberto pediu "quase instantâneo"), com `user_tags:["brasil-on"]`, `subcategoria:"Brasil ON"`, `publish_method:"brasilon"` (tag de rastreabilidade — permite no futuro filtrar só conteúdo Brasil ON quando o domínio próprio existir). Reescrita via `rewritePortal()` (o MASTER_PROMPT do OVC, reaproveitado como placeholder — **NÃO é definitivo**, ver pendência de tom editorial abaixo). Categoria sempre forçada para `"brasil-on"` (não usa o classificador do prompt).
+- **`core/image_processor.js`** — `processAndSaveImage()`/`processImage()`/`buildWatermark()`/`uploadToSupabase()` parametrizados (`outWidth`/`outHeight`/`watermarkLabel`/`bucket`/`prefix`), 100% retrocompatível (default = comportamento OVC original inalterado, único outro caller — `autoMaterias()` — não muda em nada). Brasil ON chama com `watermarkLabel: ""` (sem marca d'água OVC). Proporção de saída ainda é o padrão OVC (1200x675, 16:9) — **placeholder até Roberto mostrar o recorte exato que quer** (ele prometeu mandar comparação "original vs. recorte", ainda não enviada).
+- **`.github/workflows/pipeline-cron.yml`** — novo job `brasilon`, mesma cadência dos outros (a cada 15 min, `force:true,count:3`).
+
+### Integração automática com o OVC — já funciona sem código extra
+
+Como o conteúdo é salvo na MESMA tabela `posts` do OVC com `user_tags:["brasil-on"]` e `tipo_conteudo:"padrao"`, ele **automaticamente** aparece:
+- Na página de categoria `/brasil-on/` do OVC (filtro por `user_tags`, sem filtro de `publish_method`)
+- No feed principal/home (`handleRecentes()` — filtro `tipo_conteudo.is.null OU tipo_conteudo.eq.padrao`, que este conteúdo satisfaz)
+
+Ou seja, "mandar notícias pra lá já prontas" (pro OVC) está resolvido pela própria arquitetura de dados compartilhados — não foi preciso nenhum passo de "envio" separado.
+
+### 🔴 PENDÊNCIAS CRÍTICAS — decisões de Roberto, NÃO assumir
+
+1. **Recorte de imagem** — Roberto disse que ia mostrar original vs. recorte esperado, ainda não mandou. `processAndSaveImage()` já está pronto pra receber `outWidth`/`outHeight` customizados assim que ele definir — é literalmente 1 linha pra mudar quando ele mandar o exemplo. NÃO inventar uma proporção nova sem ver o exemplo dele.
+2. **Tom editorial** — Brasil ON está usando o MASTER_PROMPT do OVC (Reuters/Bloomberg, formal) como placeholder. Roberto descreveu Brasil ON como "popular" — pode ser que ele queira um tom mais direto/viral, diferente do OVC. Perguntar/aguardar antes de trocar (e se trocar: criar prompt PRÓPRIO em `core/ai_portal.js`, fora do MASTER_PROMPT protegido pela Regra Zero-B — nunca misturar os dois).
+3. **Domínio próprio** — "provavelmente brasil.com.br", não confirmado como registrado. Sem domínio, Brasil ON hoje só existe como categoria dentro do próprio ovalorcapital.com.br (`/brasil-on/`) — que já está funcionando via a integração automática acima. A parte de "site próprio com cara própria" (homepage/branding dedicados, servidos por Host header quando o domínio apontar pro Vercel) ainda não foi construída — depende do domínio estar decidido/registrado primeiro.
+4. **Terceira fonte (VEJA)** — mencionada, depois explicitamente adiada por Roberto pro teste inicial de 2 fontes. NÃO adicionar sem ele pedir de novo.
+
+### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — Brasil ON reaproveita `api/run_portal.js` existente, nenhum arquivo novo)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ⚠️ Nota de transparência
+
+O reconhecimento de Bacci/Revista Oeste (RSS, imagens, estrutura de artigo) foi feito via workflow one-off no GitHub Actions (já deletado) porque este sandbox não tem rede pra esses domínios. A geração de conteúdo em si (`autoBrasilOn()`) ainda **não foi observada rodando de verdade** — só verificada por leitura de código + `node --check`. Roberto deve confirmar após o primeiro ciclo do cron (a cada 15 min) se posts brasil-on da Bacci/Revista Oeste estão aparecendo em `/brasil-on/` no portal.
+
+### 🔧 Pendências para a próxima sessão (Brasil ON)
+
+1. Confirmar com Roberto se os primeiros posts do Brasil ON apareceram em `/brasil-on/`
+2. Receber e aplicar a especificação de recorte de imagem (original vs. esperado)
+3. Definir tom editorial — mesmo prompt do OVC ou voz própria "popular"?
+4. Confirmar domínio (brasil.com.br ou outro) — só então construir a homepage/branding dedicados por Host header
+5. Se aprovado, adicionar VEJA como 3ª fonte (mesma estrutura de `core/brasilon.js`)
