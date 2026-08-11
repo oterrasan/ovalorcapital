@@ -1,4 +1,4 @@
-name: One-off — reconhecimento Bacci Notícias e Revista Oeste (Brasil ON)
+name: One-off — reconhecimento Bacci Notícias e Revista Oeste (Brasil ON) — rodada 2
 
 on:
   workflow_dispatch:
@@ -10,60 +10,64 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar feeds RSS candidatos
+      - name: Bacci — seguir redirect do /feed/ e achar artigo real (fora de vi-no-instagram)
         run: |
-          for url in \
-            "https://baccinoticias.com.br/feed/" \
-            "https://baccinoticias.com.br/rss" \
-            "https://www.revistaoeste.com/feed/" \
-            "https://www.revistaoeste.com/rss" \
-            ; do
-            echo "=== $url ==="
-            HTTP_CODE=$(curl -s -o /tmp/body.xml -w "%{http_code}" --max-time 15 \
-              -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" \
-              "$url")
-            echo "HTTP: $HTTP_CODE"
-            echo "bytes: $(wc -c < /tmp/body.xml)"
-            echo "content-type guess (primeiros 200 bytes):"
-            head -c 200 /tmp/body.xml
-            echo ""
-            echo "titulos encontrados (grep <title>):"
-            grep -o '<title>[^<]*</title>' /tmp/body.xml | head -6
-            echo ""
-          done
+          echo "=== segue redirect de https://baccinoticias.com.br/feed/ ==="
+          curl -sL -o /tmp/bacci_feed.xml --max-time 15 -w "HTTP final: %{http_code} | URL final: %{url_effective}\n" \
+            -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" \
+            "https://baccinoticias.com.br/feed/"
+          echo "bytes: $(wc -c < /tmp/bacci_feed.xml)"
+          echo "primeiros 300 bytes:"
+          head -c 300 /tmp/bacci_feed.xml
+          echo ""
+          echo "titulos (se RSS valido):"
+          grep -o '<title>[^<]*</title>' /tmp/bacci_feed.xml | head -8
+          echo ""
+          echo "=== homepage bacci — links de artigo (excluindo vi-no-instagram/categoria/tag) ==="
+          curl -s -o /tmp/bacci_home.html --max-time 15 -H "User-Agent: Mozilla/5.0" "https://baccinoticias.com.br/"
+          grep -oE 'href="https://baccinoticias\.com\.br/[a-z0-9-]{15,}/?"' /tmp/bacci_home.html \
+            | grep -v -E 'vi-no-instagram|categoria|category|/tag/|/page/' \
+            | sort -u | head -5
 
-      - name: Testar homepage bruta (para achar padrão de imagem)
+      - name: Bacci — abrir 1 artigo real e checar og:image + dimensões da imagem
         run: |
-          for url in "https://baccinoticias.com.br/" "https://www.revistaoeste.com/"; do
-            echo "=== $url ==="
-            curl -s -o /tmp/home.html --max-time 15 \
-              -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" \
-              "$url"
-            echo "bytes: $(wc -c < /tmp/home.html)"
-            echo "og:image do primeiro artigo linkado (se achar):"
-            grep -o 'property="og:image"[^>]*content="[^"]*"' /tmp/home.html | head -3
-            echo "primeiras 5 URLs de imagem (wp-content/uploads):"
-            grep -oE 'https://[^"'"'"']*wp-content/uploads/[^"'"'"']*\.(jpg|jpeg|png|webp)' /tmp/home.html | head -5
-            echo ""
-          done
-
-      - name: Pegar 1 artigo de cada site e checar og:image + dimensões
-        run: |
-          for pair in \
-            "baccinoticias.com.br|https://baccinoticias.com.br/" \
-            "revistaoeste.com|https://www.revistaoeste.com/" \
-            ; do
-            domain="${pair%%|*}"
-            home="${pair##*|}"
-            echo "=== $domain ==="
-            curl -s -o /tmp/home2.html --max-time 15 -H "User-Agent: Mozilla/5.0" "$home"
-            # pega o primeiro link de artigo que pareça ser matéria (heurística simples)
-            article=$(grep -oE 'href="https://[^"]*'"$domain"'/[a-z0-9-]{15,}/?"' /tmp/home2.html | head -1 | sed 's/href="//;s/"$//')
-            echo "artigo candidato: $article"
-            if [ -n "$article" ]; then
-              curl -s -o /tmp/art.html --max-time 15 -H "User-Agent: Mozilla/5.0" "$article"
-              echo "og:image do artigo:"
-              grep -o 'property="og:image"[^>]*content="[^"]*"' /tmp/art.html | head -2
+          article=$(grep -oE 'href="https://baccinoticias\.com\.br/[a-z0-9-]{15,}/?"' /tmp/bacci_home.html \
+            | grep -v -E 'vi-no-instagram|categoria|category|/tag/|/page/' \
+            | sed 's/href="//;s/"$//' | sort -u | head -1)
+          echo "artigo escolhido: $article"
+          if [ -n "$article" ]; then
+            curl -s -o /tmp/bacci_art.html --max-time 15 -H "User-Agent: Mozilla/5.0" "$article"
+            echo "og:image:"
+            grep -o 'property="og:image"[^>]*content="[^"]*"' /tmp/bacci_art.html | head -2
+            echo "og:image:width / og:image:height (se existir):"
+            grep -oE 'property="og:image:(width|height)"[^>]*content="[^"]*"' /tmp/bacci_art.html
+            imgurl=$(grep -o 'property="og:image"[^>]*content="[^"]*"' /tmp/bacci_art.html | head -1 | grep -oE 'https://[^"]*')
+            if [ -n "$imgurl" ]; then
+              echo "baixando imagem pra medir dimensao real: $imgurl"
+              curl -s -o /tmp/bacci_img -w "bytes baixados: %{size_download}\n" --max-time 15 "$imgurl"
+              file /tmp/bacci_img || true
             fi
-            echo ""
-          done
+          fi
+
+      - name: Revista Oeste — pegar 1 artigo real do RSS (não a homepage, que tem proteção Cloudflare) e checar og:image + dimensões
+        run: |
+          curl -s -o /tmp/oeste_feed.xml --max-time 15 -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" "https://www.revistaoeste.com/feed/"
+          echo "1o <link> de artigo no feed:"
+          article=$(grep -oE '<link>https://www\.revistaoeste\.com/[^<]+</link>' /tmp/oeste_feed.xml | head -2 | tail -1 | sed 's/<link>//;s/<\/link>//')
+          echo "artigo: $article"
+          echo "checando se o feed tem imagem embutida (media:content / enclosure):"
+          grep -oE '<(media:content|enclosure)[^>]*/?>' /tmp/oeste_feed.xml | head -3
+          if [ -n "$article" ]; then
+            curl -s -o /tmp/oeste_art.html --max-time 15 -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" "$article"
+            echo "bytes do artigo: $(wc -c < /tmp/oeste_art.html)"
+            echo "og:image:"
+            grep -o 'property="og:image"[^>]*content="[^"]*"' /tmp/oeste_art.html | head -2
+            echo "og:image:width / og:image:height (se existir):"
+            grep -oE 'property="og:image:(width|height)"[^>]*content="[^"]*"' /tmp/oeste_art.html
+            imgurl=$(grep -o 'property="og:image"[^>]*content="[^"]*"' /tmp/oeste_art.html | head -1 | grep -oE 'https://[^"]*')
+            if [ -n "$imgurl" ]; then
+              echo "baixando imagem pra medir dimensao real: $imgurl"
+              curl -s -o /tmp/oeste_img -w "bytes baixados: %{size_download}\n" --max-time 15 "$imgurl"
+              file /tmp/oeste_img || true
+            fi
+          fi
