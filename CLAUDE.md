@@ -5396,3 +5396,72 @@ O reconhecimento de Bacci/Revista Oeste (RSS, imagens, estrutura de artigo) foi 
 3. Definir tom editorial — mesmo prompt do OVC ou voz própria "popular"?
 4. Confirmar domínio (brasil.com.br ou outro) — só então construir a homepage/branding dedicados por Host header
 5. Se aprovado, adicionar VEJA como 3ª fonte (mesma estrutura de `core/brasilon.js`)
+
+---
+
+### Sessão 11/08/2026 — BRASIL ON: CICLO COMPLETO DE CORREÇÕES + COLUNA TAISA DA FONSECA + MATÉRIA DE EMERGÊNCIA + DISPOSITIVO DE PUBLICAÇÃO DE EMERGÊNCIA
+
+#### Brasil ON — histórico real desta sessão (múltiplas rodadas de correção)
+
+A seção "🆕 BRASIL ON — NOVO PRODUTO" acima documenta o estado do PRIMEIRO PR desta sessão (#381-384). O que aconteceu DEPOIS, na mesma sessão, em ordem:
+
+1. **PR #385** — Referer no download de imagem (tentativa de fix pra Revista Oeste) — parcialmente eficaz, não resolveu tudo.
+2. **PR #386** — filtro `pareceAnuncioDePrograma()` em `core/brasilon.js`: Bacci publicou um post que era autopromoção de programa de TV própria ("Programa Esporte sem Firula é exibido diariamente ao meio-dia") como se fosse matéria — Roberto reportou, filtro criado.
+3. **PR #387** — Roberto reportou de novo: anúncio ainda passando + imagem ainda faltando, mesmo após #386. Duas causas raiz REAIS encontradas:
+   - **Bug de regex**: `\b` (word boundary) do JavaScript NUNCA casa imediatamente antes de letra acentuada (é, à, í...) porque `\w` no JS é ASCII-only. O sinal "verbo de exibição" do filtro (`\b(é exibido|...)`) estava morto desde a primeira versão — só funcionava por acidente quando outros sinais batiam junto. Corrigido removendo o `\b` antes de acento + adicionado sinal de alta precisão (título começando literalmente com "Programa " exige só 1 sinal, não 2).
+   - **Imagem**: não deu pra confirmar 100% a causa exata em produção (Revista Oeste bloqueia com 403 os testes feitos deste sandbox, diferente do que acontece na Vercel — ambientes tratados diferente pelo Cloudflare deles). Em vez de insistir numa explicação não verificável, **Brasil ON passou a NUNCA publicar sem imagem** — se `processAndSaveImage()` não retornar URL, o candidato é pulado (não publica).
+   - **Revista Oeste REMOVIDA como fonte** — instrução direta de Roberto: "esqueca a oeste. remova e mantenha somente o bacci por enquanto". `core/brasilon.js`: `FONTES_BRASILON` e `buscarCandidatosBrasilOn()` voltaram a ter só Bacci Notícias. Banco varrido por completo (todos os ~1000 posts, não só brasil-on) — zero resquício de Revista Oeste; entrada órfã em `rss_sources` também removida (não era usada por nenhum código ativo, mas removida por completude a pedido de Roberto).
+4. **Posts residuais pós-#387**: 3 posts da Revista Oeste ainda apareceram DEPOIS do merge do #387 — investigação confirmou que foram criados às 18:33-18:34 UTC, ANTES do deploy real do #387 ter ido ao ar (~19:37 UTC) — o cron rodou o código ANTIGO nessa janela de alguns minutos entre o merge e o deploy efetivo. Não era bug do código novo. Deletados.
+
+**Estado FINAL confirmado (fim desta sessão):** `core/brasilon.js` só tem Bacci Notícias como fonte. Banco com 3 posts brasil-on, todos Bacci, todos com imagem. Filtro anti-anúncio testado com 5 casos (incluindo o real que escapou) — todos corretos. Brasil ON nunca mais publica sem imagem.
+
+**🚨 Regra permanente nova:** ao investigar qualquer regex com acento em `core/*.js` ou `api/*.js`, lembrar que `\b` do JS nunca casa antes de é/à/í/ó/ú/ã/õ/ç — testar sempre com `node -e` isolado antes de confiar num "não capturou" ou "capturou à toa".
+
+#### Coluna Taisa da Fonseca — "Quando a moda movimenta uma cidade"
+
+Roberto pediu inserção de uma coluna de opinião de Taisa da Fonseca (colunista já cadastrada, `taisa-da-fonseca` já estava em `ALLOWED_COLUNISTAS_SLUGS` em `api/manage.js`) sobre o retorno do Rio Fashion Week 2026. Publicada via insert direto no Supabase replicando o schema de `handleAdminColunistaPost()` (`api/manage.js`) — `subcategoria_slug:"taisa-da-fonseca"`, `publish_method:"colunista"`, `status:"publicado"`.
+
+**Limitação técnica confirmada e importante para sessões futuras:** imagens coladas por Roberto diretamente no chat (não como upload de arquivo) **não ficam acessíveis como arquivo neste sandbox** — buscas exaustivas em `/root/.claude/uploads`, `/mnt/attach`, `/mnt/user-data`, `/tmp`, toda a árvore do sistema de arquivos, não encontraram os bytes da imagem. O Claude consegue "ver" a imagem (via visão, no `Read` tool) mas não consegue extrair/hospedar os bytes em lugar nenhum. **Solução: sempre pedir a Roberto um LINK direto (upload via admin > Imagens, ou URL de onde já está hospedada) — nunca prometer usar uma imagem só colada no chat.**
+
+A coluna foi publicada SEM imagem por essa razão (Roberto recusou explicitamente usar a foto de perfil dela como substituta — "NAO VAI USAR FOTO DE PERFIL NENHUMA"). Pendente: Roberto mandar link da foto do evento RIOFW pra trocar a capa.
+
+#### Matéria de emergência — ônibus do São Paulo apreendido na Bolívia
+
+Roberto pediu pesquisa e publicação imediata de uma notícia real (ônibus que transportaria a delegação do São Paulo FC apreendido com 86,55 kg de maconha em Cochabamba, Bolívia, antes do jogo de ida das oitavas da Sul-Americana contra o Bolívar). Apurado via WebSearch em CNN Brasil, Band, Metrópoles, Máquina do Esporte. Publicada em `esportes` como **pendente** (sem imagem — CNN Brasil não tinha og:image válida).
+
+**Achado importante durante esta tentativa — dois problemas reais de infraestrutura de IA, reportados a Roberto, NÃO corrigidos (aguardando autorização):**
+1. **Gemini com modelo descontinuado**: `gemini-2.0-flash` (usado em `core/ai_portal.js`) retorna 404 "This model is no longer available" DIRETO da API do Google — não é problema de ambiente, é deprecação real do lado do Google. Se isso ainda procede quando uma sessão futura ler isto, o pipeline automático de produção pode estar 100% dependente do fallback OpenAI sem que ninguém tenha percebido. **Verificar com Roberto antes de trocar o nome do modelo** (mesmo espírito da Regra Zero-B).
+2. **Chave OpenAI hardcoded de fallback documentada na seção 16 deste arquivo** (termina em "wh8A") estava **REVOGADA** (401 Incorrect API key) em 11/08/2026, testada direto contra a API da OpenAI. Não afeta produção diretamente (Vercel tem `OPENAI_API_KEY` própria, configurada por Roberto no dashboard, valor não visível daqui) — mas o fallback hardcoded, se um dia for a única linha de defesa, está morto.
+
+Como as duas tentativas de IA falharam (neste sandbox de teste), o texto da matéria foi **escrito diretamente pelo Claude**, seguindo à risca as regras do MASTER_PROMPT V8.0 (sem alterar nada do prompt em si) — ver dispositivo abaixo pra o procedimento formal disso.
+
+#### 🆕 DISPOSITIVO DE PUBLICAÇÃO DE EMERGÊNCIA — criado a pedido de Roberto
+
+Roberto: "PRECISO QUE VOCE CRIE UM DISPOSITIVO DE PUBLICACOES COMO ESTA DE AGORA, QUANDO EU SOLICITAR A NIVEL DE EMERGENCIA. EU DOU O TEMA, SEMPRE COM UM ASSUNTO QUE JÁ SEI QUE É REAL, VOCE PROCURA E POSTA."
+
+**Regra de publicação definida por ele** (pergunta feita, ele respondeu direto no chat): "SE TIVER COMO PEGAR IMAGEM REAL, SEM ERRO, PUBLICA DIRETO" — ou seja:
+- **COM imagem real da fonte, processada sem erro → publica DIRETO** (`status:"publicado"`, `approved:true`) — não passa pela fila de aprovação.
+- **SEM imagem → cai como PENDENTE**, igual ao resto do pipeline (Regra Zero-D, Staging Protocol respeitado).
+
+**Onde está o dispositivo:** `scripts/emergency_publish_template.mjs` (arquivo novo, permanente no repo — não conta pra Regra Zero-A porque não é rota de `api/`, é só um template de script). Documenta o procedimento completo, os dois caveats de IA acima, e tem o código-template já testado (schema idêntico ao que `inserir()`/`manual()` usam em `api/run_portal.js`) pronto pra copiar dentro de um workflow one-off (mesmo padrão `.github/workflows/diag-*.yml` usado a sessão inteira — criado, rodado, resultado confirmado, deletado).
+
+**Procedimento resumido pra próxima sessão, quando Roberto disser "emergência":**
+1. WebSearch em 2+ fontes confiáveis pra confirmar o tema (mesmo que ele já garanta que é real).
+2. Tentar o pipeline real primeiro (`api/run_portal.js` handler default, `body.url + categoria + force:true`) — só funciona se Gemini/OpenAI estiverem respondendo (ver caveats).
+3. Se a IA falhar, Claude escreve direto seguindo as regras do MASTER_PROMPT (não precisa da chave de IA pra isso).
+4. Scrape da imagem da fonte + `processAndSaveImage()`. Com imagem real sem erro → publica direto. Sem imagem → pendente.
+5. Reportar a Roberto com título, categoria, se foi direto ou pendente, e as fontes usadas (com links).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Foto do RIOFW pra coluna da Taisa** — Roberto precisa mandar link (upload admin/Imagens ou URL), imagem colada no chat não é acessível.
+2. **Gemini com modelo descontinuado** — confirmar com Roberto antes de trocar `gemini-2.0-flash` por um modelo atual.
+3. **Chave OpenAI de fallback revogada** — avaliar com Roberto se vale atualizar a chave hardcoded na seção 16, ou se não é mais necessária (produção já depende só da env var da Vercel).
+4. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
