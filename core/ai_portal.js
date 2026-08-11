@@ -586,8 +586,13 @@ CORPO:
 [HTML puro — <p> por parágrafo]`;
 
 export async function rewriteBrasilOn(text, title, context = '') {
+  // maxTokens 3072 (não 2048) — confirmado 11/08/2026 com exemplo real de Roberto
+  // (matéria da Bacci sobre interferência dos EUA nas eleições, 3.294 chars de
+  // texto-fonte) que fontes do Brasil ON NÃO são sempre curtíssimas — variam de
+  // 2 frases a matérias políticas robustas. Margem extra evita corte no meio da
+  // reescrita pra fonte no teto do que core/scraper.js extrai (cap de 4000 chars).
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(BRASILON_KERNEL, userContent, 2048);
+  const raw = await callIA(BRASILON_KERNEL, userContent, 3072);
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Brasil ON: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
