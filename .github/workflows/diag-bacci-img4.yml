@@ -1,0 +1,49 @@
+name: diag-bacci-img4
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-bacci-img4.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install axios cheerio sharp @supabase/supabase-js rss-parser --no-save
+      - run: |
+          cat > /tmp/test.mjs << 'EOF'
+          import { scrape } from '/home/runner/work/ovalorcapital/ovalorcapital/core/scraper.js';
+          import { processAndSaveImage } from '/home/runner/work/ovalorcapital/ovalorcapital/core/image_processor.js';
+          import { buscarCandidatosBrasilOn } from '/home/runner/work/ovalorcapital/ovalorcapital/core/brasilon.js';
+
+          const urls = [
+            "https://baccinoticias.com.br/baba-e-encontrada-bebada-com-duas-criancas-na-rua-e-acaba-presa/",
+            "https://baccinoticias.com.br/governo-dos-estados-unidos-vai-interferir-nas-eleicoes-brasileiras/",
+          ];
+
+          for (const url of urls) {
+            const a = await scrape(url);
+            console.log("URL:", url);
+            console.log("  a.image (scrape):", a.image || "(VAZIO)");
+            console.log("  a.title:", (a.title||"").slice(0,60));
+            console.log("  a.text.length:", (a.text||"").length);
+            if (a.image) {
+              const start = Date.now();
+              const saved = await processAndSaveImage(a.image, "diagtest-" + Date.now(), start, { watermarkLabel: "", skipVision: true });
+              console.log("  processAndSaveImage ->", saved || "(FALHOU/NULL)");
+            }
+            console.log("---");
+          }
+
+          console.log("=== buscarCandidatosBrasilOn() (fluxo real do pipeline) ===");
+          const candidatos = await buscarCandidatosBrasilOn();
+          const bacci = candidatos.filter(c => c.source === "Bacci Notícias").slice(0, 5);
+          console.log("Total candidatos Bacci:", candidatos.filter(c=>c.source==="Bacci Notícias").length);
+          for (const item of bacci) {
+            const a = await scrape(item.link);
+            console.log(item.link, "-> image:", a.image || "(VAZIO)");
+          }
+          EOF
+          node /tmp/test.mjs
