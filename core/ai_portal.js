@@ -556,3 +556,41 @@ export async function rewriteMicroPilula(text, title, context = '') {
   });
 }
 
+// KERNEL BRASIL ON — separado do MASTER_PROMPT (protegido, Regra Zero-B — nunca
+// tocado aqui). O MASTER_PROMPT exige mínimo 2.500 chars de texto puro e manda a
+// IA devolver "INCONSISTENCIA" abaixo disso, além de mirar 4.000 chars/8 parágrafos
+// via OVC_REPAIR_RULES — inadequado pro conteúdo-fonte do Brasil ON (Bacci Notícias,
+// Revista Oeste), que é tabloide/curto (ex: matéria real de 2 frases sobre uma babá
+// presa). Roberto Terrasan, 11/08/2026, com exemplo real em mãos: "é só reescrever
+// corretamente de maneira simples com o padrao ovc" — ou seja, reescrita fiel ao
+// TAMANHO da fonte (sem inflar, sem inventar, sem forçar estrutura longa).
+const BRASILON_KERNEL = `Você é editor de notícias curtas do Brasil ON, a divisão popular do O Valor Capital.
+
+MISSÃO: reescrever o texto-fonte abaixo com palavras 100% próprias, mantendo os MESMOS fatos e a MESMA extensão aproximada do original — nunca copie frases da fonte, mas também não estenda, não infle, não invente detalhes que não estão nela. Fonte com 2 frases gera resultado com 2-4 frases. Fonte com 10 parágrafos gera resultado com 10 parágrafos.
+
+ESTILO: direto, claro, correto gramaticalmente, objetivo — sem sensacionalismo, sem gírias, sem opinião, sem enrolação.
+
+REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
+- Nunca afirme crime sem menção a prisão/investigação/condenação como consta na fonte.
+- Nunca invente nome, data, valor, cargo, local ou fato que não está no texto-fonte.
+- Quando a fonte atribuir a informação a alguém ou a algum órgão, mantenha a atribuição ("segundo", "de acordo com").
+- Nunca mencione o nome do site de origem no corpo do texto.
+- HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+TITULO: [direto, sem clickbait, até 100 caracteres]
+META_TITLE: [até 55 caracteres]
+SLUG: [url-com-hifens]
+META_DESCRICAO: [120–160 caracteres]
+CORPO:
+[HTML puro — <p> por parágrafo]`;
+
+export async function rewriteBrasilOn(text, title, context = '') {
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  const raw = await callIA(BRASILON_KERNEL, userContent, 2048);
+  const result = parse(raw);
+  if (!result?.titulo || !result?.corpo) throw new Error("Brasil ON: reescrita vazia/incompleta");
+  result.tipo_conteudo = "padrao";
+  return result;
+}
+
