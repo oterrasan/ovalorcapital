@@ -13,7 +13,7 @@ jobs:
           node-version: 22
       - run: npm install axios cheerio rss-parser --no-save
       - run: |
-          cat > /tmp/test.mjs << 'EOF'
+          cat > $GITHUB_WORKSPACE/diag-test.mjs << 'EOF'
           import { scrape } from '/home/runner/work/ovalorcapital/ovalorcapital/core/scraper.js';
           import { buscarCandidatosBrasilOn } from '/home/runner/work/ovalorcapital/ovalorcapital/core/brasilon.js';
           import axios from 'axios';
@@ -59,4 +59,4 @@ jobs:
             }
           }
           EOF
-          node /tmp/test.mjs
+          node $GITHUB_WORKSPACE/diag-test.mjs
