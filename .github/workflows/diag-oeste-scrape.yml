@@ -1,0 +1,62 @@
+name: diag-oeste-scrape
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-oeste-scrape.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install axios cheerio rss-parser --no-save
+      - run: |
+          cat > /tmp/test.mjs << 'EOF'
+          import { scrape } from '/home/runner/work/ovalorcapital/ovalorcapital/core/scraper.js';
+          import { buscarCandidatosBrasilOn } from '/home/runner/work/ovalorcapital/ovalorcapital/core/brasilon.js';
+          import axios from 'axios';
+          import * as cheerioModule from 'cheerio';
+          const cheerio = cheerioModule.default || cheerioModule;
+
+          const candidatos = await buscarCandidatosBrasilOn();
+          const oeste = candidatos.filter(c => c.source === "Revista Oeste");
+          console.log("Total candidatos Revista Oeste:", oeste.length);
+
+          for (const item of oeste.slice(0, 6)) {
+            console.log("=====");
+            console.log("URL:", item.link);
+            console.log("title (RSS):", item.title);
+
+            const a = await scrape(item.link);
+            console.log("scrape() -> image:", a.image || "(VAZIO)", "| text.length:", (a.text||"").length, "| title:", (a.title||"").slice(0,50));
+
+            // Fetch bruto pra comparar - todos os meta tags com "image" no nome
+            try {
+              const res = await axios.get(item.link, {
+                timeout: 10000,
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                },
+              });
+              console.log("fetch bruto status:", res.status, "| tamanho html:", String(res.data).length);
+              const $ = cheerio.load(res.data);
+              $('meta').each((_, el) => {
+                const prop = $(el).attr('property') || $(el).attr('name') || '';
+                if (/image/i.test(prop)) {
+                  console.log("  META:", prop, "=", $(el).attr('content'));
+                }
+              });
+              // Verifica se parece pagina de desafio Cloudflare
+              const html = String(res.data);
+              if (/cloudflare|checking your browser|cf-browser-verification|Just a moment/i.test(html)) {
+                console.log("  !!! PARECE PAGINA DE DESAFIO CLOUDFLARE !!!");
+              }
+            } catch (e) {
+              console.log("fetch bruto ERRO:", e.response ? e.response.status : String(e.message||e));
+            }
+          }
+          EOF
+          node /tmp/test.mjs
