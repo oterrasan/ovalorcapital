@@ -1,0 +1,45 @@
+name: Diagnóstico único — confirmar fix Referer Revista Oeste
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-oeste-img2.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar deps
+        run: npm install axios cheerio rss-parser sharp @supabase/supabase-js --no-save --silent
+
+      - name: Testar scrape + processAndSaveImage com fix de Referer
+        run: |
+          node -e "
+          import('rss-parser').then(async (RSSParserMod) => {
+            const RSSParser = RSSParserMod.default;
+            const scraper = await import('./core/scraper.js');
+            const imgProc = await import('./core/image_processor.js');
+            const parser = new RSSParser({ timeout: 8000 });
+            const feed = await parser.parseURL('https://www.revistaoeste.com/feed/');
+            const items = feed.items.slice(0, 5);
+            for (const item of items) {
+              console.log('---');
+              console.log('LINK:', item.link);
+              try {
+                const a = await scraper.scrape(item.link);
+                console.log('TEXT_LEN:', a.text.length, '| IMAGE:', a.image || '(vazio)');
+                if (a.image) {
+                  const result = await imgProc.processAndSaveImage(a.image, 'diagoeste' + Date.now(), Date.now(), { watermarkLabel: '', skipVision: true });
+                  console.log('PROCESS_RESULT:', result || '(null — falhou mesmo com Referer)');
+                }
+              } catch (e) {
+                console.log('ERRO:', e.message);
+              }
+            }
+          }).catch(e => { console.error('ERRO_FATAL:', e.message); process.exit(1); });
+          "

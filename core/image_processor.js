@@ -95,11 +95,19 @@ async function downloadImage(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
+    // Referer da própria origem da imagem — vários CDNs (ex: Revista Oeste,
+    // atrás de Cloudflare) bloqueiam com 403 downloads sem Referer do mesmo
+    // domínio (proteção anti-hotlink). Investigado 11/08/2026: Bacci não tem
+    // essa proteção (100% sucesso), Revista Oeste tinha ~12% de sucesso antes
+    // deste fix.
+    let referer;
+    try { referer = new URL(url).origin + "/"; } catch (_) {}
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "image/webp,image/jpeg,image/png,image/*"
+        "Accept": "image/webp,image/jpeg,image/png,image/*",
+        ...(referer ? { "Referer": referer } : {})
       }
     });
     clearTimeout(timer);
