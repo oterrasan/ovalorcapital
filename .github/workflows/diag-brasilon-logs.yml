@@ -1,0 +1,41 @@
+name: Diagnóstico único — Brasil ON logs de imagem
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-brasilon-logs.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar deps (supabase-js)
+        run: npm install @supabase/supabase-js --no-save --silent
+
+      - name: Disparar autoBrasilOn na produção
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":4}')
+          echo "TRIGGER: $RESP"
+
+      - name: Aguardar processamento
+        run: sleep 15
+
+      - name: Ler logs recentes do Brasil ON
+        run: |
+          node -e "
+          import('@supabase/supabase-js').then(async ({ createClient }) => {
+            const supabase = createClient('https://yntwvfcxjardzafdqanj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40');
+            const { data, error } = await supabase.from('logs').select('*').ilike('message', '%brasilon%').order('created_at', { ascending: false }).limit(15);
+            if (error) { console.error('ERRO:', error.message); process.exit(1); }
+            for (const row of data) {
+              console.log(row.created_at, '|', row.message);
+            }
+          }).catch(e => { console.error('ERRO_FATAL:', e.message); process.exit(1); });
+          "
