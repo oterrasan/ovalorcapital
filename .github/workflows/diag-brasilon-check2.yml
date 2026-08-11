@@ -10,17 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Disparar autoBrasilOn manualmente
-        run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"brasilon","force":true,"count":3}')
-          echo "TRIGGER: $RESP"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar deps mínimas (axios + cheerio)
+        run: npm install axios cheerio --no-save --silent
 
-      - name: Aguardar processamento
-        run: sleep 15
-
-      - name: Checar posts publicados em categoria brasil-on
+      - name: Testar scrape() na matéria longa da Bacci (exemplo de Roberto)
         run: |
-          RESP=$(curl -s "https://www.ovalorcapital.com.br/api/portal-posts?categoria=brasil-on&limit=8")
-          echo "LISTAGEM: $RESP" | head -c 4000
+          node -e "
+          import('./core/scraper.js').then(async (mod) => {
+            const url = 'https://baccinoticias.com.br/governo-dos-estados-unidos-vai-interferir-nas-eleicoes-brasileiras/';
+            const r = await mod.scrape(url);
+            console.log('TITLE:', r.title);
+            console.log('IMAGE:', r.image);
+            console.log('TEXT_LENGTH:', r.text.length);
+            console.log('TEXT_SAMPLE:', r.text.slice(0, 1500));
+          }).catch(e => { console.error('ERRO:', e.message); process.exit(1); });
+          "
