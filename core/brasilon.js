@@ -73,18 +73,34 @@ export async function buscarCandidatosBrasilOn() {
 // Detecta posts institucionais/autopromoção de programa de TV/rádio do
 // PRÓPRIO site fonte — não são notícia, são propaganda de um programa deles.
 // Caso real, Roberto Terrasan 11/08/2026: post "Programa Esporte sem Firula
-// é exibido diariamente ao meio-dia" publicado no Brasil ON como se fosse
-// matéria — descrevia apresentadores/comentaristas e grade de horário do
-// próprio Bacci Notícias. BACCI_EXCLUIR (acima) já filtra por padrão de URL
-// institucional conhecido; isso aqui filtra por CONTEÚDO, depois do scrape,
-// porque esse tipo de post não tem um padrão de URL previsível. Exige 2+
-// sinais pra evitar falso positivo em notícia real que só menciona um
-// programa de TV de passagem.
-const _ANUNCIO_VERBO_RE = /\bprograma\b[^.]{0,80}\b(é exibido|é transmitido|vai ao ar|estreia\b|chega à\s)/i;
+// é exibido diariamente ao meio-dia" (Bacci) publicado como se fosse matéria.
+//
+// CORRIGIDO 11/08/2026 (2ª iteração): a versão original (2+ sinais em
+// qualquer lugar do texto) NÃO capturou uma segunda variação do MESMO
+// anúncio, vinda via Revista Oeste com wording diferente ("Programa Esporte
+// sem Firula é exibido de segunda a sexta-feira" — sem a grade "das Xh às
+// Yh" explícita, então só batia 1 sinal). Duas causas, ambas corrigidas:
+// (a) BUG DE REGEX — `\b` (word boundary) do JS nunca casa imediatamente
+//     antes de uma letra acentuada (é, à, í...) porque o `\w` do JS é
+//     ASCII-only. `\b(é exibido|...)` NUNCA batia — confirmado isolado:
+//     /\bé exibido\b/i.test("é exibido") === false. O sinal "verbo de
+//     exibição" estava morto silenciosamente desde a 1ª versão do filtro;
+//     só funcionava por acidente quando grade+elenco batiam junto.
+// (b) LIMIAR — quando o TÍTULO começa literalmente com "Programa " (ou
+//     seja, o post é SOBRE o programa em si, não notícia que o menciona de
+//     passagem), basta 1 sinal pra bloquear. Testado contra o caso real
+//     "PF prende suspeito... durante participação no programa Bom Dia
+//     Brasil, que é exibido diariamente..." — título NÃO começa com
+//     "Programa", cai no fallback de 2+ sinais, não bloqueia (correto).
+const _TITULO_COMECA_PROGRAMA_RE = /^programa\s+/i;
+const _ANUNCIO_VERBO_RE = /(é exibido|é transmitido|vai ao ar|estreia\b|chega à\s)/i;
 const _ANUNCIO_GRADE_RE = /de segunda a sexta[^.]{0,30}das\s?\d{1,2}h[^.]{0,20}às\s?\d{1,2}h/i;
 const _ANUNCIO_ELENCO_RE = /\b(sob a apresentação de|com a participação dos comentaristas|apresentado por)\b/i;
 export function pareceAnuncioDePrograma(titulo, texto) {
+  const t = String(titulo || "").trim();
   const alvo = `${titulo || ""} ${texto || ""}`;
+  const temSinal = _ANUNCIO_VERBO_RE.test(alvo) || _ANUNCIO_GRADE_RE.test(alvo) || _ANUNCIO_ELENCO_RE.test(alvo);
+  if (_TITULO_COMECA_PROGRAMA_RE.test(t)) return temSinal;
   let sinais = 0;
   if (_ANUNCIO_VERBO_RE.test(alvo)) sinais++;
   if (_ANUNCIO_GRADE_RE.test(alvo)) sinais++;

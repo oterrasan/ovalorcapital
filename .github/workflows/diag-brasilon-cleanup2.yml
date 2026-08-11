@@ -1,0 +1,48 @@
+name: diag-brasilon-cleanup2
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-brasilon-cleanup2.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install @supabase/supabase-js --no-save
+      - run: |
+          cat > $GITHUB_WORKSPACE/diag-cleanup.mjs << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+          import { pareceAnuncioDePrograma } from "/home/runner/work/ovalorcapital/ovalorcapital/core/brasilon.js";
+
+          const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
+
+          const { data, error } = await supabase.from("posts").select("id,titulo,imagem,comentario_fixado,created_at").eq("subcategoria_slug", "brasil-on");
+          if (error) { console.log("ERRO:", error); process.exit(1); }
+          console.log("TOTAL brasil-on agora:", data.length);
+
+          const paraDeletar = [];
+          for (const p of data) {
+            const semImagem = !p.imagem;
+            const pareceAnuncio = pareceAnuncioDePrograma(p.titulo, p.comentario_fixado || "");
+            if (semImagem || pareceAnuncio) {
+              paraDeletar.push(p.id);
+              console.log("MARCADO:", p.id, "| sem_imagem:", semImagem, "| anuncio:", pareceAnuncio, "|", p.titulo);
+            }
+          }
+
+          if (paraDeletar.length) {
+            const { error: delErr, count } = await supabase.from("posts").delete({ count: "exact" }).in("id", paraDeletar);
+            if (delErr) { console.log("ERRO DELETE:", delErr); process.exit(1); }
+            console.log("Deletados:", count);
+          } else {
+            console.log("Nada para deletar.");
+          }
+
+          const { data: restante } = await supabase.from("posts").select("id,titulo,imagem").eq("subcategoria_slug", "brasil-on").order("created_at", { ascending: false });
+          console.log("RESTAM", restante.length, "posts brasil-on:");
+          restante.forEach(p => console.log(" ", p.id, "|", p.imagem ? "COM imagem" : "SEM imagem", "|", p.titulo));
+          EOF
+          node $GITHUB_WORKSPACE/diag-cleanup.mjs

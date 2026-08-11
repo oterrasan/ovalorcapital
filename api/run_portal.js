@@ -938,13 +938,20 @@ async function autoBrasilOn(req, res, rec) {
       const img = sourceImage
         ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true })
         : null;
+      // NUNCA publicar Brasil ON sem imagem — Roberto, 11/08/2026: "e est é a
+      // imagem que iremos usar. da pripria materia, sempre." A extração de
+      // og:image (scrape()) falha de forma intermitente pra Revista Oeste
+      // (Cloudflare bloqueia parte dos requests) sem dar pra confirmar 100%
+      // a causa exata daqui. Em vez de publicar sem foto, pula o candidato —
+      // ele volta a aparecer em rodadas futuras do RSS/homepage até um
+      // scrape bem-sucedido conseguir a imagem.
+      if (!img) {
+        await log("info", `[brasilon] SKIP sem imagem — ${item.source}: ${content.titulo?.slice(0, 50)} | sourceImage:${sourceImage || "(vazio)"}`);
+        continue;
+      }
       const post = await salvarBrasilOn(content, hash, img, item.source);
       if (!post) continue;
-      // Log diagnóstico TEMPORÁRIO (11/08/2026) — Roberto reportou posts sem
-      // imagem. Inclui sourceImage bruto pra distinguir "og:image não
-      // encontrada na fonte" de "encontrada mas processAndSaveImage falhou".
-      // Remover depois que a causa for confirmada e corrigida.
-      await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | sourceImage:${sourceImage || "(vazio)"} | img:${img || "(falhou)"}`);
+      await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
       geradosAgora.push(content.titulo);
       generated++;
     } catch (_) { continue; }
