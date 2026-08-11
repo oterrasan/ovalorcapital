@@ -935,7 +935,11 @@ async function autoBrasilOn(req, res, rec) {
         : null;
       const post = await salvarBrasilOn(content, hash, img, item.source);
       if (!post) continue;
-      await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | img:${!!img}`);
+      // Log diagnóstico TEMPORÁRIO (11/08/2026) — Roberto reportou posts sem
+      // imagem. Inclui sourceImage bruto pra distinguir "og:image não
+      // encontrada na fonte" de "encontrada mas processAndSaveImage falhou".
+      // Remover depois que a causa for confirmada e corrigida.
+      await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | sourceImage:${sourceImage || "(vazio)"} | img:${img || "(falhou)"}`);
       geradosAgora.push(content.titulo);
       generated++;
     } catch (_) { continue; }
