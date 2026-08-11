@@ -1,0 +1,37 @@
+name: diag-brasilon-cleanup
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-brasilon-cleanup.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install @supabase/supabase-js --no-save
+      - run: |
+          node -e '
+          import("@supabase/supabase-js").then(async ({ createClient }) => {
+            const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
+            // Confere de novo (idempotente) antes de deletar — pega o estado atual
+            const { data, error } = await supabase.from("posts").select("id,titulo,imagem").eq("subcategoria_slug", "brasil-on");
+            if (error) { console.log("ERRO SELECT:", error); return; }
+            // 1) post de autopromocao/anuncio (id conhecido)
+            const idAnuncio = "c82ee525-4c1d-49b2-b980-46cba8b9fc80";
+            // 2) todos os posts brasil-on sem imagem (nao da pra recuperar retroativamente,
+            //    hash e md5(link+"_brasilon") - one-way, sem link original guardado)
+            const idsSemImagem = data.filter(p => !p.imagem && p.id !== idAnuncio).map(p => p.id);
+            const idsParaDeletar = [idAnuncio, ...idsSemImagem];
+            console.log("Deletando", idsParaDeletar.length, "posts:", JSON.stringify(idsParaDeletar));
+            const { error: delErr, count } = await supabase.from("posts").delete({ count: "exact" }).in("id", idsParaDeletar);
+            if (delErr) { console.log("ERRO DELETE:", delErr); return; }
+            console.log("Deletados:", count);
+            // Confirma estado final
+            const { data: restante } = await supabase.from("posts").select("id,titulo,imagem").eq("subcategoria_slug", "brasil-on").order("created_at", { ascending: false });
+            console.log("RESTAM", restante.length, "posts brasil-on:");
+            restante.forEach(p => console.log(" ", p.id, "|", p.imagem ? "COM imagem" : "SEM imagem", "|", p.titulo));
+          });
+          '
