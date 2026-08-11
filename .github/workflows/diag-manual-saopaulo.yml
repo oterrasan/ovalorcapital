@@ -1,0 +1,42 @@
+name: diag-manual-saopaulo
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-manual-saopaulo.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install axios cheerio sharp @supabase/supabase-js rss-parser --no-save
+      - run: |
+          cat > $GITHUB_WORKSPACE/diag-manual.mjs << 'EOF'
+          import handler from '/home/runner/work/ovalorcapital/ovalorcapital/api/run_portal.js';
+
+          function mockRes() {
+            const res = {
+              _status: 200, _body: null,
+              status(code) { this._status = code; return this; },
+              json(data) { this._body = data; return this; }
+            };
+            return res;
+          }
+
+          const req = {
+            method: "POST",
+            query: {},
+            body: {
+              url: "https://www.cnnbrasil.com.br/esportes/futebol/sao-paulo/onibus-que-transportaria-sao-paulo-e-apreendido-com-865-kg-de-maconha/",
+              categoria: "esportes",
+              force: true
+            }
+          };
+          const res = mockRes();
+          await handler(req, res);
+          console.log("STATUS:", res._status);
+          console.log("BODY:", JSON.stringify(res._body, null, 2));
+          EOF
+          node $GITHUB_WORKSPACE/diag-manual.mjs
