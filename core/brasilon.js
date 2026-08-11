@@ -69,3 +69,25 @@ export async function buscarCandidatosBrasilOn() {
   const [bacci, oeste] = await Promise.all([buscarBacci(), buscarRevistaOeste()]);
   return [...bacci, ...oeste];
 }
+
+// Detecta posts institucionais/autopromoção de programa de TV/rádio do
+// PRÓPRIO site fonte — não são notícia, são propaganda de um programa deles.
+// Caso real, Roberto Terrasan 11/08/2026: post "Programa Esporte sem Firula
+// é exibido diariamente ao meio-dia" publicado no Brasil ON como se fosse
+// matéria — descrevia apresentadores/comentaristas e grade de horário do
+// próprio Bacci Notícias. BACCI_EXCLUIR (acima) já filtra por padrão de URL
+// institucional conhecido; isso aqui filtra por CONTEÚDO, depois do scrape,
+// porque esse tipo de post não tem um padrão de URL previsível. Exige 2+
+// sinais pra evitar falso positivo em notícia real que só menciona um
+// programa de TV de passagem.
+const _ANUNCIO_VERBO_RE = /\bprograma\b[^.]{0,80}\b(é exibido|é transmitido|vai ao ar|estreia\b|chega à\s)/i;
+const _ANUNCIO_GRADE_RE = /de segunda a sexta[^.]{0,30}das\s?\d{1,2}h[^.]{0,20}às\s?\d{1,2}h/i;
+const _ANUNCIO_ELENCO_RE = /\b(sob a apresentação de|com a participação dos comentaristas|apresentado por)\b/i;
+export function pareceAnuncioDePrograma(titulo, texto) {
+  const alvo = `${titulo || ""} ${texto || ""}`;
+  let sinais = 0;
+  if (_ANUNCIO_VERBO_RE.test(alvo)) sinais++;
+  if (_ANUNCIO_GRADE_RE.test(alvo)) sinais++;
+  if (_ANUNCIO_ELENCO_RE.test(alvo)) sinais++;
+  return sinais >= 2;
+}
