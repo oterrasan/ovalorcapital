@@ -14,6 +14,10 @@ const CROP_RIGHT_PCT  = 0.03;
 const OUT_WIDTH  = 1200;
 const OUT_HEIGHT = 675;
 
+// Marca d'água padrão OVC — parametrizável (ver buildWatermark) para portais
+// irmãos (ex: Brasil ON) que precisam de marca própria ou nenhuma marca.
+const OVC_WATERMARK_LABEL = "ovalorcapital.com.br";
+
 // URLs de origem que nunca devem ser processadas — ícone GE do Google News, CDN Google, etc.
 const _BAD_SRC_PATTERNS = [
   'googleusercontent.com','encrypted-tbn','ssl.gstatic','gstatic.com',
@@ -71,11 +75,11 @@ async function analyzeImageVision(buffer) {
   }
 }
 
-// Gera overlay SVG com marca d'água OVC (canto inferior direito) — será substituído por logomarca oficial
-function buildWatermark(width, height) {
+// Gera overlay SVG com marca d'água (canto inferior direito) — label parametrizável
+// para portais irmãos (ex: Brasil ON) que precisam de marca própria.
+function buildWatermark(width, height, label) {
   const fontSize = Math.max(13, Math.floor(width * 0.017));
   const padding  = Math.floor(width * 0.014);
-  const label    = "ovalorcapital.com.br";
   const approxW  = label.length * fontSize * 0.58;
   const approxH  = fontSize + 6;
   const x = width  - Math.round(approxW) - padding;
@@ -110,7 +114,12 @@ async function downloadImage(url) {
   }
 }
 
-async function processImage(buffer) {
+// opts: { outWidth, outHeight, watermarkLabel } — watermarkLabel null/'' = sem marca d'água
+// (ex: Brasil ON usa a imagem original da fonte sem marca, ver core/brasilon.js).
+async function processImage(buffer, opts = {}) {
+  const outWidth  = opts.outWidth  || OUT_WIDTH;
+  const outHeight = opts.outHeight || OUT_HEIGHT;
+  const watermarkLabel = opts.watermarkLabel === undefined ? OVC_WATERMARK_LABEL : opts.watermarkLabel;
   try {
     const meta = await sharp(buffer).metadata();
     const { width, height } = meta;
@@ -127,12 +136,13 @@ async function processImage(buffer) {
 
     const processed = await sharp(buffer)
       .extract({ left: cropLeft, top: cropTop, width: extractWidth, height: extractHeight })
-      .resize(OUT_WIDTH, OUT_HEIGHT, { fit: "cover", position: "centre" })
+      .resize(outWidth, outHeight, { fit: "cover", position: "centre" })
       .webp({ quality: 82 })
       .toBuffer();
 
-    // Watermark OVC — será substituído por logomarca oficial quando fornecida
-    const watermark = buildWatermark(OUT_WIDTH, OUT_HEIGHT);
+    if (!watermarkLabel) return processed;
+
+    const watermark = buildWatermark(outWidth, outHeight, watermarkLabel);
     const final = await sharp(processed)
       .composite([{ input: watermark, blend: "over" }])
       .webp({ quality: 82 })
@@ -144,26 +154,31 @@ async function processImage(buffer) {
   }
 }
 
-async function uploadToSupabase(buffer, filename) {
+async function uploadToSupabase(buffer, filename, bucket = "post-images", prefix = "imagens") {
   try {
+    const path = `${prefix}/${filename}`;
     const { data, error } = await supabase.storage
-      .from("post-images")
-      .upload(`imagens/${filename}`, buffer, {
+      .from(bucket)
+      .upload(path, buffer, {
         contentType: "image/webp",
         upsert: true,
         cacheControl: "31536000"
       });
     if (error) return null;
     const { data: urlData } = supabase.storage
-      .from("post-images")
-      .getPublicUrl(`imagens/${filename}`);
+      .from(bucket)
+      .getPublicUrl(path);
     return urlData?.publicUrl || null;
   } catch(_) {
     return null;
   }
 }
 
-export async function processAndSaveImage(sourceUrl, postId, startTime) {
+// opts (todos opcionais, default = comportamento OVC original inalterado):
+//   outWidth/outHeight — dimensão final (default 1200x675, 16:9)
+//   watermarkLabel — texto da marca d'água, '' ou null para nenhuma (default "ovalorcapital.com.br")
+//   bucket/prefix — destino no Supabase Storage (default "post-images"/"imagens")
+export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {}) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
   // Rejeita URLs de origem ruins antes de qualquer download — ícone GE, CDN Google, etc.
   if (_isUrlBloqueada(sourceUrl)) return null;
@@ -185,11 +200,11 @@ export async function processAndSaveImage(sourceUrl, postId, startTime) {
     if (visionMetrics?.is_chart_or_table === true) return null;
     if (visionMetrics?.is_illustration === true) return null;
 
-    const processed = await processImage(buffer);
+    const processed = await processImage(buffer, opts);
     if (!processed) return null;
 
     const filename = `${postId || Date.now()}.webp`;
-    return await uploadToSupabase(processed, filename);
+    return await uploadToSupabase(processed, filename, opts.bucket, opts.prefix);
   } catch(_) {
     return null;
   }

@@ -5,6 +5,7 @@ import { scrape } from "../core/scraper.js";
 import { findImage, findImageFutebol } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, auditarArtigo } from "../core/ai_portal.js";
+import { buscarCandidatosBrasilOn } from "../core/brasilon.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -830,6 +831,86 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "outros_esportes_jornal", candidates: candidatos.length, porEsporte, distribuicaoBruta, falhas });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// BRASIL ON — 11/08/2026, Roberto Terrasan: divisão popular do OVC. Reescrita
+// 100% de um número pequeno de perfis/sites monitorados, quase instantânea.
+// Publica direto (sem fila de aprovação, igual saveCurtinha) sob categoria
+// "brasil-on", tagueado publish_method="brasilon" para rastreabilidade/futuro
+// domínio próprio. Fontes em core/brasilon.js — NUNCA adicionar fonte sem
+// aprovação explícita de Roberto.
+//
+// Reaproveita rewritePortal() (MASTER_PROMPT OVC, ver core/ai_portal.js) como
+// placeholder de tom editorial — Roberto ainda vai definir se Brasil ON precisa
+// de voz própria "popular", diferente do tom Reuters/Bloomberg do OVC. NÃO
+// alterar core/ai_portal.js para isso — se um tom diferente for aprovado, criar
+// função própria em core/ai_portal.js (fora do MASTER_PROMPT protegido).
+//
+// Imagem: usa a própria imagem da fonte (og:image) via processAndSaveImage()
+// SEM marca d'água OVC (watermarkLabel: '') — Roberto confirmou 11/08/2026 que
+// o site da Bacci não usa marca d'água nas imagens, então dá pra reaproveitar
+// quase direto. Proporção de recorte (1200x675, 16:9) é placeholder até Roberto
+// mostrar o recorte exato que quer — ver opts em processAndSaveImage().
+async function salvarBrasilOn(content, hash, img, fonte) {
+  const { data, error } = await supabase.from("posts").insert({
+    titulo: stripTitle(content.titulo), conteudo: content.corpo,
+    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    status: "publicado", approved: true, publish_method: "brasilon",
+    published_at: new Date().toISOString(),
+    user_tags: JSON.stringify(["brasil-on"]), subcategoria: "Brasil ON",
+    subcategoria_slug: "brasil-on", collaborators: "[]",
+    tipo_conteudo: "padrao",
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
+    priority: 0, retry_count: 0, max_retries: 3
+  }).select("id").single();
+  if (error) return null;
+  return { id: data.id, titulo: stripTitle(content.titulo) };
+}
+
+async function autoBrasilOn(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 2, 4);
+  const candidatos = await buscarCandidatosBrasilOn();
+  const seen = new Set();
+  const items = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+  if (!items.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news" });
+  }
+  let generated = 0;
+  const geradosAgora = [];
+  for (const item of items) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    let a, sourceText;
+    try {
+      a = await scrape(item.link);
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 300) continue;
+    } catch (_) { continue; }
+    const hash = crypto.createHash("md5").update(item.link + "_brasilon").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) continue;
+    try {
+      const content = await rewritePortal(sourceText, item.title || a.title || "", rec.contexto);
+      content.categoria = "brasil-on";
+      content.subcategoria = "Brasil ON";
+      const erros = validar(content);
+      if (erros.length) continue;
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
+      const sourceImage = a.image || "";
+      const img = sourceImage
+        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "" })
+        : null;
+      const post = await salvarBrasilOn(content, hash, img, item.source);
+      if (!post) continue;
+      await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | img:${!!img}`);
+      geradosAgora.push(content.titulo);
+      generated++;
+    } catch (_) { continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "brasilon", candidates: items.length });
+}
+
 export default async function handler(req, res) {
   const body = req.body || {};
   const meta = req.query || {};
@@ -856,6 +937,7 @@ export default async function handler(req, res) {
     if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
     if (body.tipo === "outros_esportes") return autoOutrosEsportesCurtinhas(req, res, rec);
     if (body.tipo === "minuto") return autoMinutoOVC(req, res, rec);
+    if (body.tipo === "brasilon") return autoBrasilOn(req, res, rec);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
