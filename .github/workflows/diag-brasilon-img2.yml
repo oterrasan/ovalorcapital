@@ -1,0 +1,33 @@
+name: Diagnóstico único — Brasil ON produção real, imagens
+
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-brasilon-img2.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Disparar autoBrasilOn na produção
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":3}')
+          echo "TRIGGER: $RESP"
+
+      - name: Aguardar processamento
+        run: sleep 20
+
+      - name: Checar imagens dos últimos posts brasil-on
+        run: |
+          RESP=$(curl -s "https://www.ovalorcapital.com.br/api/portal-posts?categoria=brasil-on&limit=10")
+          echo "$RESP" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          for p in d.get('posts', []):
+              img = p.get('imagem') or ''
+              tem_img = 'SIM' if (img and 'og-default' not in img) else 'NAO'
+              print(f\"{tem_img} | {p.get('data')} | {p.get('titulo')[:60]}\")
+          "
