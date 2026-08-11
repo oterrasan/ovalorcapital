@@ -4,7 +4,7 @@ import { getNews, getNewsByCategoria, buscarFeedsEspecificos, FONTES_APROVADAS_U
 import { scrape } from "../core/scraper.js";
 import { findImage, findImageFutebol } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
-import { rewritePortal, rewriteEsportes, auditarArtigo } from "../core/ai_portal.js";
+import { rewritePortal, rewriteEsportes, auditarArtigo, rewriteBrasilOn } from "../core/ai_portal.js";
 import { buscarCandidatosBrasilOn } from "../core/brasilon.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
@@ -833,23 +833,34 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BRASIL ON — 11/08/2026, Roberto Terrasan: divisão popular do OVC. Reescrita
-// 100% de um número pequeno de perfis/sites monitorados, quase instantânea.
-// Publica direto (sem fila de aprovação, igual saveCurtinha) sob categoria
-// "brasil-on", tagueado publish_method="brasilon" para rastreabilidade/futuro
-// domínio próprio. Fontes em core/brasilon.js — NUNCA adicionar fonte sem
-// aprovação explícita de Roberto.
+// 100% de um número pequeno de perfis/sites monitorados, quase instantânea,
+// publicação 24h sem aprovação no admin (mesma lógica de saveCurtinha — sem
+// fila, sem janela de horário). Categoria "brasil-on", publish_method="brasilon"
+// para rastreabilidade/futuro domínio próprio. Fontes em core/brasilon.js —
+// NUNCA adicionar fonte sem aprovação explícita de Roberto.
 //
-// Reaproveita rewritePortal() (MASTER_PROMPT OVC, ver core/ai_portal.js) como
-// placeholder de tom editorial — Roberto ainda vai definir se Brasil ON precisa
-// de voz própria "popular", diferente do tom Reuters/Bloomberg do OVC. NÃO
-// alterar core/ai_portal.js para isso — se um tom diferente for aprovado, criar
-// função própria em core/ai_portal.js (fora do MASTER_PROMPT protegido).
+// Reescrita: rewriteBrasilOn() — kernel PRÓPRIO (não é o MASTER_PROMPT, ver
+// core/ai_portal.js), porque o conteúdo-fonte (Bacci, Revista Oeste) é tabloide/
+// curto (ex real usado por Roberto: matéria de 2 frases sobre uma babá presa) —
+// o MASTER_PROMPT exige mínimo 2.500-4.000 chars e devolveria INCONSISTENCIA ou
+// inflaria o texto. Roberto, 11/08/2026, com exemplo real: "é só reescrever
+// corretamente de maneira simples com o padrao ovc" — reescrita fiel ao TAMANHO
+// da fonte, sem inflar.
 //
-// Imagem: usa a própria imagem da fonte (og:image) via processAndSaveImage()
-// SEM marca d'água OVC (watermarkLabel: '') — Roberto confirmou 11/08/2026 que
-// o site da Bacci não usa marca d'água nas imagens, então dá pra reaproveitar
-// quase direto. Proporção de recorte (1200x675, 16:9) é placeholder até Roberto
-// mostrar o recorte exato que quer — ver opts em processAndSaveImage().
+// Imagem: SEMPRE a da própria matéria (og:image via scrape()), via
+// processAndSaveImage() SEM marca d'água OVC (watermarkLabel: '') e SEM o filtro
+// Vision (skipVision: true) — Roberto confirmou 11/08/2026 que Bacci/Revista
+// Oeste não têm marca d'água nem nada que impeça reaproveitamento direto, então
+// o filtro anti-logo/gráfico/ilustração do OVC (pensado pro pool de 1000+ fontes
+// RSS) é desnecessário aqui. Proporção de recorte (1200x675, 16:9) segue sendo
+// o padrão OVC — ainda não trocado por falta de recorte customizado de Roberto.
+//
+// Dedup: 4 camadas, todas herdadas do resto do pipeline (nada exclusivo daqui) —
+// (1) Set de link único dentro do próprio lote de candidatos, (2) pautaParecida()
+// do título-fonte contra rec.sourceTitulos, (3) hash exato de link+"_brasilon"
+// contra o banco (nunca republica a mesma URL), (4) pautaParecida() do título
+// FINAL (já reescrito) contra rec.titulos (últimas 48h, banco inteiro) + títulos
+// já gerados nesta mesma chamada. rec vem de recentes() — ver essa função acima.
 async function salvarBrasilOn(content, hash, img, fonte) {
   const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
@@ -864,6 +875,25 @@ async function salvarBrasilOn(content, hash, img, fonte) {
   }).select("id").single();
   if (error) return null;
   return { id: data.id, titulo: stripTitle(content.titulo) };
+}
+
+// Validação leve para Brasil ON — NÃO reusa validar() (mínimo 2000 chars, 5
+// parágrafos, etc — pensado pra matéria longa padrão OVC). Conteúdo-fonte aqui
+// é tabloide/curto, frequentemente 2-3 frases (ex real de Roberto, 11/08/2026).
+// Checa só o essencial: estrutura presente, título numa faixa sadia, corpo em
+// HTML de verdade, sem markdown/metadados vazando, sem recusa da IA vazando.
+function validarBrasilOn(content) {
+  const erros = [];
+  if (!content?.titulo || !content?.corpo) return ["estrutura ausente"];
+  content.titulo = stripTitle(content.titulo);
+  const corpo = String(content.corpo || "").trim();
+  const texto = plain(corpo);
+  if (content.titulo.length < 20 || content.titulo.length > 120) erros.push("titulo fora da faixa");
+  if (texto.length < 60) erros.push("texto curto demais");
+  if (/\*\*|^##|\n##|TITULO:|META_TITLE:|META_DESCRICAO:/m.test(corpo)) erros.push("markdown/metadados no corpo");
+  if (!/<p\b/i.test(corpo)) erros.push("sem paragrafo html");
+  if (/não foi possível|conteúdo insuficiente|não há informações suficientes|inconsistencia/i.test(texto)) erros.push("recusa vazou");
+  return erros;
 }
 
 async function autoBrasilOn(req, res, rec) {
@@ -884,22 +914,24 @@ async function autoBrasilOn(req, res, rec) {
     let a, sourceText;
     try {
       a = await scrape(item.link);
+      // Piso baixo (100, não 300) — fonte é tabloide/curta de propósito, uma
+      // matéria real de 2 frases (~180 chars de corpo) não pode ser descartada.
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
+      if (sourceText.length < 100) continue;
     } catch (_) { continue; }
     const hash = crypto.createHash("md5").update(item.link + "_brasilon").digest("hex");
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
     if (dup) continue;
     try {
-      const content = await rewritePortal(sourceText, item.title || a.title || "", rec.contexto);
+      const content = await rewriteBrasilOn(sourceText, item.title || a.title || "", rec.contexto);
       content.categoria = "brasil-on";
       content.subcategoria = "Brasil ON";
-      const erros = validar(content);
+      const erros = validarBrasilOn(content);
       if (erros.length) continue;
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
       const sourceImage = a.image || "";
       const img = sourceImage
-        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "" })
+        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true })
         : null;
       const post = await salvarBrasilOn(content, hash, img, item.source);
       if (!post) continue;

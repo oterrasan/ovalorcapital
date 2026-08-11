@@ -178,6 +178,12 @@ async function uploadToSupabase(buffer, filename, bucket = "post-images", prefix
 //   outWidth/outHeight — dimensão final (default 1200x675, 16:9)
 //   watermarkLabel — texto da marca d'água, '' ou null para nenhuma (default "ovalorcapital.com.br")
 //   bucket/prefix — destino no Supabase Storage (default "post-images"/"imagens")
+//   skipVision — true pula a análise Vision (logo/gráfico/ilustração/ponto turístico/
+//   concorrente) inteira, sem gastar chamada de IA nem tempo. Usado pelo Brasil ON:
+//   Roberto Terrasan confirmou 11/08/2026 que as fontes aprovadas (Bacci Notícias,
+//   Revista Oeste) não têm marca d'água nem nada que impeça reaproveitamento direto
+//   da imagem — o filtro do OVC (pensado pro pool de 1000+ fontes RSS) é desnecessário
+//   ali. Imagem sempre vem da própria matéria (og:image), nunca de outro lugar.
 export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {}) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
   // Rejeita URLs de origem ruins antes de qualquer download — ícone GE, CDN Google, etc.
@@ -186,11 +192,13 @@ export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {
     const buffer = await downloadImage(sourceUrl);
     if (!buffer || buffer.length < 5000) return null;
 
-    // Chama Vision só se há orçamento de tempo (< 5s decorridos desde início da request)
-    const elapsed = startTime ? Date.now() - startTime : 0;
     let visionMetrics = null;
-    if (elapsed < 5000) {
-      visionMetrics = await analyzeImageVision(buffer);
+    if (!opts.skipVision) {
+      // Chama Vision só se há orçamento de tempo (< 5s decorridos desde início da request)
+      const elapsed = startTime ? Date.now() - startTime : 0;
+      if (elapsed < 5000) {
+        visionMetrics = await analyzeImageVision(buffer);
+      }
     }
 
     // Rejeita: logo, ponto turístico genérico, logo concorrente, gráfico/tabela, ilustração
