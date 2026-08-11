@@ -1,0 +1,72 @@
+name: diag-bacci-img3
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-bacci-img3.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: |
+          node -e '
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+          async function extractOg(pageUrl) {
+            const res = await fetch(pageUrl, { headers: { "User-Agent": UA } });
+            console.log("PAGE", pageUrl, "status:", res.status);
+            if (!res.ok) return null;
+            const html = await res.text();
+            const m = html.match(/<meta[^>]+property=["\x27]og:image["\x27][^>]+content=["\x27]([^"\x27]+)["\x27]/i)
+              || html.match(/<meta[^>]+content=["\x27]([^"\x27]+)["\x27][^>]+property=["\x27]og:image["\x27]/i);
+            return m ? m[1] : null;
+          }
+
+          async function tryDownload(label, imgUrl, withReferer) {
+            let referer;
+            try { referer = new URL(imgUrl).origin + "/"; } catch(_) {}
+            const headers = {
+              "User-Agent": UA,
+              "Accept": "image/webp,image/jpeg,image/png,image/*",
+            };
+            if (withReferer && referer) headers["Referer"] = referer;
+            try {
+              const res = await fetch(imgUrl, { headers });
+              const ct = res.headers.get("content-type") || "";
+              const buf = res.ok ? await res.arrayBuffer() : null;
+              console.log(label, "| referer:", withReferer ? (referer||"(n/a)") : "NONE", "| status:", res.status, "| ct:", ct, "| bytes:", buf ? buf.byteLength : 0);
+            } catch (e) {
+              console.log(label, "| referer:", withReferer, "| ERRO:", String(e && e.message || e));
+            }
+          }
+
+          const urls = [
+            "https://baccinoticias.com.br/baba-e-encontrada-bebada-com-duas-criancas-na-rua-e-acaba-presa/",
+            "https://baccinoticias.com.br/governo-dos-estados-unidos-vai-interferir-nas-eleicoes-brasileiras/",
+          ];
+
+          (async () => {
+            // 1) tenta homepage pra pegar links frescos tambem
+            try {
+              const homeRes = await fetch("https://baccinoticias.com.br/", { headers: { "User-Agent": UA } });
+              console.log("HOMEPAGE status:", homeRes.status);
+              const homeHtml = await homeRes.text();
+              const links = [...homeHtml.matchAll(/href="(https:\/\/baccinoticias\.com\.br\/[a-z0-9-]{15,}\/?)"/g)].map(m => m[1]);
+              const unicos = [...new Set(links)].filter(l => !/vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i.test(l)).slice(0, 3);
+              console.log("LINKS FRESCOS:", JSON.stringify(unicos));
+              urls.push(...unicos);
+            } catch (e) { console.log("HOMEPAGE erro:", String(e && e.message || e)); }
+
+            for (const pageUrl of urls) {
+              const img = await extractOg(pageUrl);
+              console.log("  og:image ->", img || "(NENHUMA)");
+              if (!img) { console.log("---"); continue; }
+              await tryDownload("  SEM referer", img, false);
+              await tryDownload("  COM referer", img, true);
+              console.log("---");
+            }
+          })();
+          '
