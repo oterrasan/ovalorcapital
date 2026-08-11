@@ -5,7 +5,7 @@ import { scrape } from "../core/scraper.js";
 import { findImage, findImageFutebol } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, auditarArtigo, rewriteBrasilOn } from "../core/ai_portal.js";
-import { buscarCandidatosBrasilOn } from "../core/brasilon.js";
+import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -918,6 +918,11 @@ async function autoBrasilOn(req, res, rec) {
       // matéria real de 2 frases (~180 chars de corpo) não pode ser descartada.
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 100) continue;
+      // Autopromoção de programa de TV/rádio do próprio site fonte — não é
+      // notícia. Caso real reportado por Roberto 11/08/2026 ("Programa
+      // Esporte sem Firula é exibido diariamente ao meio-dia"). Ver
+      // core/brasilon.js.
+      if (pareceAnuncioDePrograma(item.title || a.title || "", sourceText)) continue;
     } catch (_) { continue; }
     const hash = crypto.createHash("md5").update(item.link + "_brasilon").digest("hex");
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
