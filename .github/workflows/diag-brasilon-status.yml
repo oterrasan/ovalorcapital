@@ -1,0 +1,37 @@
+name: diag-brasilon-status
+on:
+  push:
+    paths:
+      - '.github/workflows/diag-brasilon-status.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install @supabase/supabase-js --no-save
+      - run: |
+          node -e '
+          import("@supabase/supabase-js").then(async ({ createClient }) => {
+            const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
+            const { data, error } = await supabase.from("posts").select("id,titulo,imagem,created_at,comentario_fixado,metrics").eq("subcategoria_slug", "brasil-on").order("created_at", { ascending: false });
+            if (error) { console.log("ERRO:", error); return; }
+            console.log("TOTAL brasil-on:", data.length);
+            console.log("Agora (UTC):", new Date().toISOString());
+            data.forEach(p => {
+              console.log("---");
+              console.log("id:", p.id);
+              console.log("created_at:", p.created_at);
+              console.log("titulo:", p.titulo);
+              console.log("imagem:", p.imagem || "(VAZIO)");
+              console.log("fonte:", p.metrics && p.metrics.fonte_brasilon);
+            });
+
+            // Confere os logs recentes do pipeline brasilon tambem
+            const { data: logs } = await supabase.from("logs").select("level,message,created_at").ilike("message", "%brasilon%").order("created_at", { ascending: false }).limit(30);
+            console.log("=== LOGS recentes brasilon ===");
+            (logs||[]).forEach(l => console.log(l.created_at, "|", l.level, "|", l.message));
+          });
+          '
