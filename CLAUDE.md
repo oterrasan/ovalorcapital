@@ -5607,3 +5607,89 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Radar do Esporte mobile: fix REAL confirmado em produção** — não precisa de mais verificação, a menos que Roberto reporte de novo.
 2. **Considerar se outros widgets do rail direito precisam do mesmo tratamento mobile** (Radar da Copa, Radar Eleitoral, Mais Lidos, banner sidebar) — hoje eles ficam invisíveis em celular (mesma causa: `.rail-right{display:none}` em `responsive.css`). Provavelmente NÃO têm o bug de grid-row (não são injetados em `.main-grid` da mesma forma) mas vale checar posição absoluta se Roberto reclamar de algum deles. NÃO fazer sem Roberto pedir — mudança de UX maior.
 3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12/08/2026 (continuação 2) — PR #398: LABELS DAS ABAS ILEGÍVEIS + PR #399: 🔴 CAUSA RAIZ REAL — RADAR DO ESPORTE (FUTEBOL) TRAVADO DESDE 07/08 — 4 FEEDS RSS MORTOS AO MESMO TEMPO
+
+#### PR #398 — labels das 7 abas truncando pra lixo ilegível (commit `662bf23`)
+
+Roberto mandou print do desktop mostrando as 7 abas do Radar do Esporte com texto cortado/ilegível (emoji + label completo não cabiam no espaço da aba). Fix: `.ovc-esporte-tab-label` virou visualmente oculto (padrão sr-only: `position:absolute;width:1px;height:1px;...;clip:rect(0,0,0,0)`) — mantém acessibilidade (`aria-label` já existia no botão) mas mostra só o emoji, que sozinho já identifica cada esporte sem cortar. `title` no botão mantém tooltip com o nome completo no hover. `ovc-radar-esporte.js?v=6 → ?v=7`.
+
+#### 🔴🔴🔴 PR #399 — Radar do Esporte (aba Futebol) travado desde 07/08 22:08 — CAUSA RAIZ REAL, confirmada com evidência, não suposição
+
+Roberto voltou puto pouco depois: *"DESDE O DIA 7 NAO AONTECE NADA NESTA MERDA... EU QUERO ISSO FUNCIONANDO IMEDIATAMENTE"*. Ele tinha razão de novo — o conteúdo da aba Futebol estava genuinamente parado em 07/08, 5 dias sem nada novo, apesar dos fixes de layout/mobile/labels das sessões anteriores (PRs #394/#396/#398) — esses resolveram **outros** bugs (posição do widget, labels ilegíveis), nenhum deles tocava no **conteúdo** em si.
+
+**Investigação (nesta ordem, tudo com evidência real via `curl` direto — nunca suposição):**
+
+1. Lido `public/js/ovc-radar-esporte.js` → `init()` busca `?curtinhas=true&tipo=radar&categoria=esportes` e `?recentes=true`, sem nenhum sort de data no JS — mas a API já retorna ordenado por `published_at DESC`, então não era esse o bug.
+2. Lido `api/portal-posts.js` `handleCurtinhasRadar()` → confirma `order("published_at",{ascending:false})` correto.
+3. Testado ao vivo via GitHub Actions (`curl` real, não texto explicativo): `/api/portal-posts?curtinhas=true&categoria=esportes&limit=60` → pílulas de HOJE (Kelce, F1, NBA, UFC, tênis) chegando normalmente, mas o item `radar` (futebol) mais recente era `2026-08-07T22:08:13` — **zero itens `radar` depois disso**, confirmado também com `?tipo=radar&categoria=esportes` isolado (mesmo resultado) e sem filtro de categoria (mesmo resultado, mostrando que outras categorias como `tecnologia`/`brasil-on` também usam `tipo_conteudo="radar"` esporadicamente, mas todas paravam no mesmo período).
+4. Isso apontou pro gerador, não pro widget: `api/run_portal.js` → `autoFutebolCurtinhas()` é a ÚNICA função que gera `tipo_conteudo="radar"` pra futebol — restrita (decisão de Roberto, 08/08/2026) a exatamente 4 fontes: `FONTE_FUTEBOL = new Set(["GE Globo", "ESPN Brasil", "Lance!", "GaúchaZH"])`.
+5. Checado o workflow `.github/workflows/futebol-live.yml` (roda a cada ~5min, na prática ~1x/hora por throttling do GitHub) → últimas dezenas de execuções todas `"status":"ok"` mas **`"generated":0,"candidates":0,"info":"no_futebol_news"`** — sucesso técnico, zero conteúdo, sem nenhum log de erro visível.
+6. `curl` direto nas 4 URLs de `FONTE_FUTEBOL` (`core/rss.js`) revelou a causa raiz — **as 4 estavam mortas ao mesmo tempo**:
+
+| Fonte | URL testada | Resultado real |
+|---|---|---|
+| GE Globo | `https://ge.globo.com/rss/ge.xml` | **HTTP 404** |
+| ESPN Brasil | `https://www.espn.com.br/rss/` | **HTTP 202, 0 bytes** |
+| Lance! | `https://www.lance.com.br/rss.xml` | **HTTP 410 Gone** |
+| GaúchaZH | `https://gauchazh.clicrbs.com.br/rss.xml` | **HTTP 404** |
+
+`fetchFeed()` em `core/rss.js` engole silenciosamente qualquer erro/HTML de erro (`try{}catch{return []}`), então nunca aparecia nada nos logs além do resultado final `candidates:0` — o sintoma só era visível olhando o widget no ar.
+
+**Fix (PR #399, commit `2983bf5`):** testadas várias URLs alternativas ao vivo (`curl` real via GitHub Actions, não suposição). Achado substituto funcional pra GE Globo: `https://ge.globo.com/rss/ge/futebol/` → **HTTP 200, 398KB, 92 itens, conteúdo do dia**. Trocado em `core/rss.js` linha 61. ESPN Brasil, Lance! e GaúchaZH continuam sem substituto funcional encontrado (testados vários padrões de URL comuns — `/feed`, `/arc/outboundfeeds/rss/`, `/rss.xml` — todos 404/410/202-vazio; RSS parece genuinamente descontinuado nesses 3 sites). Mantidos no `Set` — se algum dia voltarem, plugam automaticamente sem precisar mexer de novo.
+
+**Verificação em produção — dupla, com timestamps reais:**
+1. Deploy confirmado (`deploy.yml` run bem-sucedido no commit `2983bf5`, 19:38 UTC).
+2. Run automático (não manual) do cron `futebol-live.yml` às 19:46 UTC — já no commit corrigido — gerou sozinho: `{"generated":2,...}` e depois `{"generated":1,...}`.
+3. Query direta em produção confirmou 4 posts novos de HOJE no topo da lista, empurrando o post de 07/08 pra 5ª posição:
+```
+2026-08-12T20:00:06  Boca Juniors Vira Jogo e Derrota Deportivo Recoleta na Sul-Americana
+2026-08-12T19:47:51  São Paulo empata com Bolívar na altitude e leva decisão para o Morumbi
+2026-08-12T19:47:21  Adson se destaca no Vasco e ganha chance em meio a desfalques no ataque
+2026-08-12T19:47:03  Cienciano elimina Lanús e enfrenta Botafogo na Sul-Americana
+2026-08-07T22:08:13  (post antigo, agora em 5º lugar)
+```
+O pipeline retomou sozinho, sem precisar de nenhuma ação manual contínua — a automação do cron já estava rodando, só faltava fonte de dado viva.
+
+**🚨🚨🚨 LIÇÃO CRÍTICA — gravar para toda sessão futura:**
+```
+❌ "generated:0, candidates:0, status:ok" em qualquer gerador de conteúdo do
+   pipeline NÃO significa "sem notícia disponível hoje" — pode significar
+   que TODAS as fontes RSS daquele gerador morreram ao mesmo tempo, silenciosamente.
+   fetchFeed() em core/rss.js engole qualquer erro (404/410/HTML de erro)
+   sem logar nada visível — o único jeito de confirmar é curl DIRETO na URL
+   crua de cada fonte (HTTP status + bytes + <item> count), nunca assumir.
+❌ Quando um gerador de conteúdo é restrito a um Set pequeno e fixo de fontes
+   (decisão editorial de Roberto, ex: FONTE_FUTEBOL com só 4 fontes "pra não
+   misturar"), esse design é mais frágil a sites externos mudando de RSS —
+   qualquer sessão futura que veja "candidates:0" persistente num gerador
+   assim deve suspeitar de fonte morta ANTES de suspeitar de bug no código.
+❌ RSS feeds de portais de notícia brasileiros mudam de URL sem aviso —
+   confirmado nesta sessão: GE Globo, ESPN Brasil, Lance! e GaúchaZH todos
+   com o link antigo morto. Sempre testar candidatos de substituição com
+   curl real (HTTP 200 + bytes + contagem de <item> + título real) antes
+   de trocar no código — nunca assumir que um padrão de URL "parecido"
+   (ex: /feed, /arc/outboundfeeds/rss/) funciona sem testar.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### Bugs corrigidos nesta sessão
+
+| # | Bug | Arquivo | Quando |
+|---|-----|---------|--------|
+| — | Labels das 7 abas do Radar do Esporte ilegíveis/cortadas no desktop | `public/js/ovc-radar-esporte.js` — `.ovc-esporte-tab-label` virou sr-only, só emoji visível | 12/08/2026 (PR #398, commit `662bf23`) |
+| — | **CRÍTICO** — Radar do Esporte (Futebol) travado 5 dias (desde 07/08) — 4 fontes RSS (GE Globo, ESPN Brasil, Lance!, GaúchaZH) mortas ao mesmo tempo (404/410/202-vazio), `fetchFeed()` engolindo erro silenciosamente | `core/rss.js` linha 61 — GE Globo trocada pra `https://ge.globo.com/rss/ge/futebol/` (viva, 92 itens) | 12/08/2026 (PR #399, commit `2983bf5`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Monitorar se ESPN Brasil, Lance! ou GaúchaZH voltam a ter RSS** — nenhum substituto funcional encontrado nesta sessão (testados vários padrões comuns). Se Roberto quiser mais robustez no Radar do Futebol, considerar adicionar mais 1-2 fontes de futebol dedicadas (respeitando a regra de Roberto de "fonte específica, sem misturar").
+2. Radar do Esporte mobile + labels + conteúdo — todos os 3 bugs desta leva de sessões (PR #394/#396, #398, #399) confirmados corrigidos em produção com evidência real. Não repetir verificação a menos que Roberto reporte de novo.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
