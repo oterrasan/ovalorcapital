@@ -1,4 +1,4 @@
-name: DIAG ONE-OFF — Bacci post-sitemap.xml content
+name: DIAG ONE-OFF — Bacci sitemap index full + latest post-sitemap
 
 on:
   push:
@@ -11,28 +11,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Fetch post-sitemap.xml
+      - name: Fetch full sitemap_index and latest post-sitemap
         run: |
           node -e '
           const https = require("https");
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          https.get("https://baccinoticias.com.br/post-sitemap.xml", { headers: { "User-Agent": UA } }, (res) => {
-            console.log("status:", res.statusCode);
-            let data = "";
-            res.on("data", (c) => data += c);
-            res.on("end", () => {
-              console.log("len:", data.length);
-              const locs = [...data.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
-              const lastmods = [...data.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]);
-              console.log("total <loc> entries:", locs.length);
-              console.log("--- last 15 entries (usually most recent at bottom) ---");
-              for (let i = Math.max(0, locs.length-15); i < locs.length; i++) {
-                console.log(lastmods[i], "-", locs[i]);
-              }
-              console.log("--- first 5 entries ---");
-              for (let i = 0; i < Math.min(5, locs.length); i++) {
-                console.log(lastmods[i], "-", locs[i]);
-              }
+          function fetchUrl(url) {
+            return new Promise((resolve) => {
+              https.get(url, { headers: { "User-Agent": UA } }, (res) => {
+                let data = "";
+                res.on("data", (c) => data += c);
+                res.on("end", () => resolve({ status: res.statusCode, len: data.length, body: data }));
+              }).on("error", (e) => resolve({ status: "ERROR", err: e.message }));
             });
-          }).on("error", (e) => console.log("ERROR:", e.message));
+          }
+          (async () => {
+            const idx = await fetchUrl("https://baccinoticias.com.br/sitemap_index.xml");
+            const locs = [...idx.body.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+            const lastmods = [...idx.body.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]);
+            console.log("=== sitemap_index.xml — all sitemap files ===");
+            for (let i = 0; i < locs.length; i++) console.log(lastmods[i], "-", locs[i]);
+            console.log("");
+            // fetch the post-sitemap with the highest lastmod (most recently touched)
+            let best = -1, bestUrl = null, bestDate = null;
+            for (let i = 0; i < locs.length; i++) {
+              if (!/post-sitemap/.test(locs[i])) continue;
+              const t = new Date(lastmods[i]).getTime();
+              if (t > best) { best = t; bestUrl = locs[i]; bestDate = lastmods[i]; }
+            }
+            console.log("Most recently modified post-sitemap:", bestUrl, bestDate);
+            const r = await fetchUrl(bestUrl);
+            const locs2 = [...r.body.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+            const lastmods2 = [...r.body.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]);
+            console.log("total entries in", bestUrl, ":", locs2.length);
+            console.log("--- last 20 (most recent) ---");
+            for (let i = Math.max(0, locs2.length-20); i < locs2.length; i++) console.log(lastmods2[i], "-", locs2[i]);
+          })();
           '
