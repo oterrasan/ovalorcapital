@@ -1,0 +1,18 @@
+name: DIAG ONE-OFF — checar post c8d23fad via Supabase REST
+
+on:
+  push:
+    branches:
+      - claude/diag-checkpost-once
+  workflow_dispatch: {}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checar post
+        run: |
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?id=eq.c8d23fad-c8cd-4f3e-8136-3563040054c6&select=id,titulo,subcategoria,subcategoria_slug,publish_method,user_tags,created_at" \
+            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
+            -H "Authorization: Bearer sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf"
