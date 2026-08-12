@@ -1,4 +1,4 @@
-name: DIAG ONE-OFF — inspecionar HTML bruto do artigo com figure/img
+name: DIAG ONE-OFF — dump corpo completo em base64
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Fetch raw HTML e extrair window.__OVC_ARTICLE__
+      - name: Dump corpo completo (base64, evita problema de encoding no log)
         run: |
           node -e '
           const https = require("https");
@@ -19,19 +19,12 @@ jobs:
             let data = "";
             res.on("data", c => data += c);
             res.on("end", () => {
-              console.log("status:", res.statusCode, "len:", data.length);
               const m = data.match(/window\.__OVC_ARTICLE__=(\{[\s\S]*?\});window\.SUPABASE_ANON_KEY/);
-              if (!m) { console.log("NAO ACHOU window.__OVC_ARTICLE__"); return; }
-              const raw = m[1];
-              console.log("--- raw script content (primeiros 400 chars) ---");
-              console.log(raw.slice(0, 400));
-              try {
-                const obj = JSON.parse(raw);
-                console.log("--- corpo (via JSON.parse), procurando figure ---");
-                const idx = obj.corpo.indexOf("figure");
-                console.log("indexOf figure:", idx);
-                if (idx >= 0) console.log(JSON.stringify(obj.corpo.slice(Math.max(0,idx-60), idx+250)));
-              } catch(e) { console.log("erro parse:", e.message); }
+              if (!m) { console.log("NAO ACHOU"); return; }
+              const obj = JSON.parse(m[1]);
+              console.log("B64_START");
+              console.log(Buffer.from(obj.corpo, "utf8").toString("base64"));
+              console.log("B64_END");
             });
           }).on("error", e => console.log("ERROR:", e.message));
           '
