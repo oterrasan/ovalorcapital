@@ -1,4 +1,4 @@
-name: DIAG ONE-OFF — screenshot pequeno das abas do Radar do Esporte
+name: DIAG ONE-OFF — commitar screenshot das abas do Radar do Esporte
 on:
   push:
     branches:
@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -17,11 +18,10 @@ jobs:
           npm init -y > /dev/null 2>&1
           npm install playwright@latest --no-save --silent
           npx playwright install --with-deps chromium > /dev/null 2>&1
-      - name: Screenshot pequeno so das abas
+      - name: Screenshot das abas + widget completo
         run: |
           node -e '
           const { chromium } = require("playwright");
-          const fs = require("fs");
           (async () => {
             const browser = await chromium.launch();
             const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
@@ -29,20 +29,20 @@ jobs:
             await page.waitForTimeout(2500);
 
             const tabs = await page.$("#ovc-radar-esporte .ovc-esporte-tabs");
-            if (!tabs) { console.log("TABS NAO ENCONTRADO"); await browser.close(); return; }
-            const box = await tabs.boundingBox();
-            console.log("boundingBox tabs:", JSON.stringify(box));
+            if (tabs) { await tabs.screenshot({ path: "diag-tabs.png" }); console.log("tabs OK"); }
+            else { console.log("TABS NAO ENCONTRADO"); }
 
-            await tabs.screenshot({ path: "tabs.png" });
-            const buf = fs.readFileSync("tabs.png");
-            console.log("PNG bytes:", buf.length);
-            const b64 = buf.toString("base64");
-            const CHUNK = 1200;
-            console.log("TOTAL_CHUNKS:" + Math.ceil(b64.length / CHUNK));
-            for (let i = 0; i < b64.length; i += CHUNK) {
-              console.log("C" + String(i / CHUNK).padStart(4, "0") + ":" + b64.slice(i, i + CHUNK));
-            }
+            const widget = await page.$("#ovc-radar-esporte");
+            if (widget) { await widget.screenshot({ path: "diag-widget.png" }); console.log("widget OK"); }
+            else { console.log("WIDGET NAO ENCONTRADO"); }
 
             await browser.close();
           })().catch(e => { console.log("ERRO GERAL:", e.message, e.stack); process.exit(1); });
           '
+      - name: Commitar screenshots no branch de diagnostico
+        run: |
+          git config user.name "diag-bot"
+          git config user.email "diag-bot@users.noreply.github.com"
+          git add -f diag-tabs.png diag-widget.png
+          git commit -m "diag: screenshots do Radar do Esporte pos-fix labels"
+          git push origin HEAD:claude/diag-tablabels-once
