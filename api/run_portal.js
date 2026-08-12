@@ -620,6 +620,21 @@ async function autoCopaCurtinhas(req, res, rec) {
 // esportes (NBA.com, Motorsport.com F1...) entravam no mesmo pool. Fix: restringe o pool de
 // futebol às 4 fontes historicamente dominadas por futebol na prática (ver comentário em
 // core/rss.js linha ~115) — nenhuma fonte de fora dessa lista específica de futebol entra.
+//
+// 🔴 INCIDENTE 12/08/2026 — Radar do Esporte (aba Futebol) travado desde 07/08/2026 22:08.
+// Causa raiz confirmada com evidência real (curl direto nas 4 URLs, não suposição):
+// as 4 URLs de FONTE_FUTEBOL em core/rss.js estavam TODAS mortas ao mesmo tempo —
+// GE Globo (https://ge.globo.com/rss/ge.xml) HTTP 404, ESPN Brasil
+// (https://www.espn.com.br/rss/) HTTP 202 com 0 bytes, Lance!
+// (https://www.lance.com.br/rss.xml) HTTP 410 Gone, GaúchaZH
+// (https://gauchazh.clicrbs.com.br/rss.xml) HTTP 404. `fetchFeed()` engole o erro/HTML de
+// erro silenciosamente (retorna [] sem lançar), então `autoFutebolCurtinhas()` sempre via
+// candidates:0 sem nenhum log de falha visível — só sintoma era o widget parado no ar.
+// Fix: GE Globo tem um endpoint alternativo VIVO e testado (200 OK, 92 itens, conteúdo do
+// dia) — https://ge.globo.com/rss/ge/futebol/ — trocado em core/rss.js. ESPN Brasil, Lance!
+// e GaúchaZH continuam sem substituto funcional encontrado (RSS descontinuado nesses 3
+// sites); mantidos no Set por ora — se algum dia voltarem a existir, plugam automaticamente
+// sem precisar mexer aqui de novo. Com só a GE Globo já viva, o Radar do Futebol volta a gerar.
 const FONTE_FUTEBOL = new Set(["GE Globo", "ESPN Brasil", "Lance!", "GaúchaZH"]);
 async function autoFutebolCurtinhas(req, res, rec) {
   const start = Date.now();
