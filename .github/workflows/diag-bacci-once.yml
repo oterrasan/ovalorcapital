@@ -1,6 +1,9 @@
 name: DIAG ONE-OFF — Bacci homepage scrape check
 
 on:
+  push:
+    branches:
+      - claude/diag-bacci-once
   workflow_dispatch: {}
 
 jobs:
