@@ -1,0 +1,69 @@
+name: DIAG ONE-OFF — Radar do Esporte pos-fix mobile
+on:
+  push:
+    branches:
+      - claude/diag-radaresporte-once
+  workflow_dispatch: {}
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar playwright + chromium
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install playwright@latest --no-save --silent
+          npx playwright install --with-deps chromium > /dev/null 2>&1
+      - name: Confirmar fix mobile em producao real
+        run: |
+          node -e '
+          const { chromium } = require("playwright");
+          (async () => {
+            const browser = await chromium.launch();
+
+            for (const vp of [
+              { name: "mobile-390x844", width: 390, height: 844 },
+              { name: "desktop-1366x800", width: 1366, height: 800 }
+            ]) {
+              const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
+              const consoleMsgs = [];
+              page.on("console", msg => { if (msg.type() === "error") consoleMsgs.push(msg.text()); });
+              page.on("pageerror", err => consoleMsgs.push("[pageerror] " + err.message));
+
+              await page.goto("https://www.ovalorcapital.com.br/", { waitUntil: "networkidle", timeout: 30000 });
+              await page.waitForTimeout(2000);
+
+              const el = await page.$("#ovc-radar-esporte");
+              console.log("=== viewport " + vp.name + " ===");
+              console.log("elemento existe no DOM:", !!el);
+              if (el) {
+                const visible = await el.isVisible();
+                const box = await el.boundingBox();
+                const cls = await el.evaluate(n => n.className);
+                const parentTag = await el.evaluate(n => n.parentElement ? n.parentElement.className : "(sem pai)");
+                console.log("widget visivel (isVisible):", visible);
+                console.log("boundingBox:", JSON.stringify(box));
+                console.log("classList:", cls);
+                console.log("pai (parentElement.className):", parentTag);
+                if (visible) {
+                  const tabs = await page.$$("#ovc-radar-esporte .ovc-esporte-tab");
+                  console.log("abas encontradas:", tabs.length);
+                  if (tabs.length) {
+                    await tabs[1].click();
+                    await page.waitForTimeout(500);
+                    const txt = await el.evaluate(n => n.innerText.slice(0, 150));
+                    console.log("apos clicar na 2a aba:", txt.replace(/\n+/g, " | "));
+                  }
+                }
+              }
+              console.log("erros JS relevantes:", consoleMsgs.filter(function(m){return m.indexOf("esporte")>-1 || m.indexOf("ovc-radar")>-1;}));
+              console.log("");
+              await page.close();
+            }
+
+            await browser.close();
+          })().catch(e => { console.log("ERRO GERAL:", e.message, e.stack); process.exit(1); });
+          '
