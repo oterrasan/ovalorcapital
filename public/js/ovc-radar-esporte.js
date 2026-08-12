@@ -272,18 +272,31 @@
       rail.insertBefore(bloco, rail.firstChild);
       return;
     }
-    // .rail-right oculto (mobile, <=768px — ver CSS acima) ou ausente da
-    // página: injeta no fluxo principal em vez de ficar invisível.
-    var mainGrid = document.querySelector('.main-grid');
+    // .rail-right oculto (mobile, <=768px). TENTATIVA ANTERIOR (12/08/2026,
+    // manhã) inseria em .main-grid — PARECIA visível (isVisible:true no
+    // Playwright) mas na prática ficava invisível pra usuário real: .main-grid
+    // é CSS GRID com grid-row EXPLÍCITO em .hero-region(1)/.cols-region(2)/
+    // .cols-region-2(3) (ver home.css ~734-751) que continua valendo mesmo
+    // no breakpoint mobile. Um filho SEM grid-row (como o bloco inserido)
+    // é auto-posicionado pelo algoritmo de grid nas próximas linhas livres —
+    // ou seja, DEPOIS de todas as linhas explícitas, ficando abaixo de TODO
+    // o feed de cards, ~4675px pra baixo (quase no rodapé), mesmo aparecendo
+    // antes no DOM. Confirmado ao vivo (Playwright, iPhone 13 emulado):
+    // widgetAbsTop:4675 vs cardsAbsTop:320 — por isso Roberto continuou
+    // reportando "não funciona" mesmo com o fix anterior no ar.
+    // FIX REAL: injeta como PRIMEIRO FILHO de #ovc-cards-section
+    // (.cols-region) em vez de em .main-grid. cols-region é
+    // display:flex;flex-direction:column — nesse contexto ordem no DOM
+    // SEMPRE é ordem visual, sem nenhuma dependência de grid-row hardcoded
+    // que quebraria silenciosamente se home.css mudar as linhas do grid.
+    bloco.classList.add('ovc-esporte-mobile');
     var cardsSection = document.getElementById('ovc-cards-section');
-    if (mainGrid) {
-      bloco.classList.add('ovc-esporte-mobile');
-      if (cardsSection && cardsSection.parentNode === mainGrid) {
-        mainGrid.insertBefore(bloco, cardsSection);
-      } else {
-        mainGrid.appendChild(bloco);
-      }
+    if (cardsSection) {
+      cardsSection.insertBefore(bloco, cardsSection.firstChild);
+      return;
     }
+    var mainGrid = document.querySelector('.main-grid');
+    if (mainGrid) mainGrid.appendChild(bloco);
   }
 
   function init() {
