@@ -5540,3 +5540,70 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar visualmente com Roberto pelo próprio celular** que o Radar do Esporte agora aparece na home (evidência automatizada já confirmada via Playwright, mas vale o "ver com os próprios olhos").
 2. **Considerar se outros widgets do rail direito precisam do mesmo tratamento mobile** (Radar da Copa, Radar Eleitoral, Mais Lidos, banner sidebar) — hoje eles ficam igualmente invisíveis em celular. NÃO fazer sem Roberto confirmar que quer isso — é mudança de UX maior, mexe em vários arquivos, e ele não reclamou desses especificamente ainda.
 3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12/08/2026 (continuação) — 🚨 CORREÇÃO DO REGISTRO — O FIX DO RADAR DO ESPORTE ACIMA (PR #394) NÃO RESOLVEU DE VERDADE. CAUSA RAIZ REAL: PR #396
+
+> Roberto voltou furioso poucas horas depois do PR #394 "confirmado": *"esse maldito RADAR DO ESPORTE NAO FUNCIONA"*. Ele estava certo. O registro acima ficou incompleto — documentando aqui a causa raiz REAL e o fix que efetivamente resolveu, verificado em produção.
+
+**O que estava errado no diagnóstico do PR #394:** o teste Playwright daquela sessão media `isVisible: true` e `boundingBox` válido (577px de altura, elemento real) — e por isso a sessão concluiu "fixado". Mas nunca mediu a **posição absoluta na página** (`getBoundingClientRect().top + scrollY`). O widget estava genuinamente visível (não é `display:none`, não tem erro JS) — só que a ~4675px do topo, depois de TODO o feed de cards da home mobile, praticamente no rodapé. Tecnicamente "visível", praticamente inatingível — ninguém rola 5+ telas de celular sem motivo.
+
+**Causa raiz real:** `.main-grid` é **CSS Grid** com `grid-row` explícito em `.hero-region` (linha 1), `.cols-region` (linha 2), `.cols-region-2` (linha 3) — ver `home.css` ~734-751. Isso vale mesmo no breakpoint mobile (nenhuma media query reseta esses `grid-row`). O PR #394 inseria o widget como filho direto de `.main-grid`, sem nenhum `grid-row` — em CSS Grid, um filho SEM posição explícita é auto-posicionado pelo algoritmo do grid **depois de todas as linhas já reservadas por elementos com posição explícita, independente da posição no DOM**. Por isso: existia, não tinha erro, tinha altura real — e mesmo assim ficava fisicamente no fim da página.
+
+**Fix real (PR #396, commit `bbe679e`):** em vez de inserir em `.main-grid` (grid, ordem DOM ≠ ordem visual), o widget se injeta como **primeiro filho de `#ovc-cards-section`** (`.cols-region`, que é `display:flex;flex-direction:column`) — nesse contexto ordem no DOM = ordem visual sempre, sem depender de nenhum `grid-row` hardcoded que quebraria silenciosamente se `home.css` mudar as linhas do grid no futuro.
+
+**Verificação em produção (não em preview — os previews de PR neste projeto têm Vercel Deployment Protection/SSO ativo, retornam 200 com página de autenticação em vez do conteúdo real; testar preview sem bypass de auth dá falso-negativo `widgetExists:false`, não usar essa rota de novo sem token de bypass):**
+```json
+{
+  "heroAbsTop": 94.5,
+  "cardsAbsTop": 320.5,
+  "widgetAbsTop": 320.5,
+  "widgetExists": true,
+  "widgetVisible": true,
+  "widgetIsFirstChildOfCards": true,
+  "widgetParentClass": "cols-region",
+  "scrollsToSeeWidget": 1
+}
+```
+`widgetAbsTop` = `cardsAbsTop` exatamente — o widget é literalmente o primeiro item do feed, visível já na primeira rolagem de tela, logo abaixo do hero. Script tag confirmado como `/js/ovc-radar-esporte.js?v=6` carregado. 7 abas encontradas, clique testado (Tênis) trocou conteúdo corretamente com artigo real.
+
+**🚨🚨🚨 LIÇÃO CRÍTICA — gravar para toda sessão futura:**
+```
+❌ "isVisible: true" e "boundingBox válido" NÃO PROVAM que um elemento é
+   alcançável por um usuário real. Um elemento pode estar tecnicamente
+   visível (display != none, dimensões reais, sem erro JS) e MESMO ASSIM
+   estar posicionado tão longe do fluxo natural da página que ninguém o
+   encontra na prática.
+❌ Ao verificar QUALQUER fix de "elemento não aparece", sempre medir
+   getBoundingClientRect().top + scrollY (posição ABSOLUTA na página) e
+   comparar com a posição de elementos de referência vizinhos (nesse caso,
+   .hero-region e #ovc-cards-section) — não checar só isVisible/boundingBox
+   isolado do elemento.
+❌ Ao injetar QUALQUER elemento via JS dentro de um container que pode ser
+   CSS GRID (não só flex/block), NUNCA assumir que a ordem do DOM
+   corresponde à ordem visual. Grid com grid-row/grid-area explícito em
+   irmãos ignora completamente a posição no DOM para elementos sem
+   posição própria — eles vão parar nas linhas implícitas, tipicamente
+   MUITO depois de todo o conteúdo real. Preferir injetar dentro de um
+   container flex/block já conhecido (ex: #ovc-cards-section) em vez de
+   um grid container (.main-grid) quando a ordem visual importa.
+❌ Previews de PR deste projeto (Vercel) têm proteção de deployment
+   (SSO/senha) — teste automatizado sem bypass token retorna sempre vazio
+   (200 mas com página de auth, não o site real). Verificar sempre em
+   PRODUÇÃO pós-deploy, não em preview, a menos que se tenha o token de
+   bypass do Vercel.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão (atualizado)
+
+1. **Radar do Esporte mobile: fix REAL confirmado em produção** — não precisa de mais verificação, a menos que Roberto reporte de novo.
+2. **Considerar se outros widgets do rail direito precisam do mesmo tratamento mobile** (Radar da Copa, Radar Eleitoral, Mais Lidos, banner sidebar) — hoje eles ficam invisíveis em celular (mesma causa: `.rail-right{display:none}` em `responsive.css`). Provavelmente NÃO têm o bug de grid-row (não são injetados em `.main-grid` da mesma forma) mas vale checar posição absoluta se Roberto reclamar de algum deles. NÃO fazer sem Roberto pedir — mudança de UX maior.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
