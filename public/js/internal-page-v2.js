@@ -135,6 +135,14 @@
         htags = htags.concat(t.match(/#[^\s#,]+/g)||[]);
       } else if(/^Redação OVC/i.test(t)){
         html += '<p style="font-size:13px;font-weight:600;color:#94a3b8;margin:0 0 24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0;">'+esc(t)+'</p>';
+      } else if(/^<\/?[a-z]/i.test(t)){
+        // Linha já é uma tag HTML de verdade (ex: <figure>/<img>/</figure>
+        // inseridos via "+ Inserir imagem no meio do texto" no admin, em
+        // corpo que não começa com <p> e por isso cai neste modo legado
+        // linha-a-linha). Nunca escapar — senão a tag aparece como texto
+        // visível na página em vez de renderizar a imagem. Bug real
+        // reportado por Roberto 12/08/2026.
+        html += t;
       } else {
         html += '<p style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);margin:0 0 22px;">'+esc(t)+'</p>';
       }
