@@ -13,24 +13,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: index.html — mínimo 700 linhas
+      # AJUSTADO 12/08/2026 — o limite de 700 linhas foi calibrado em mai/2026
+      # para o index.html daquela época (741 linhas, 302KB). O arquivo cresceu
+      # em conteúdo real (novos scripts, widgets, interruptores) mas com HTML
+      # mais compacto por linha — hoje tem ~648 linhas para ~297KB, ou seja,
+      # MAIS bytes de conteúdo real por linha, não menos conteúdo. O check
+      # antigo travava TODO PR (mesmo sem tocar em index.html) sem sinal
+      # nenhum de corrupção real. Substituído por 3 sinais independentes,
+      # todos precisam falhar juntos para bloquear por engano — e qualquer
+      # um sozinho pega os incidentes reais já documentados (corte de 734
+      # linhas por merge ruim, corrupção base64 via revert no GitHub Web):
+      #   1. linhas   >= 400  (bem abaixo do real ~648, mas bem acima de um
+      #                        corte/corrupção real, que zerou ou foi p/ 1)
+      #   2. bytes    >= 150000 (bem abaixo do real ~297000, pega qualquer
+      #                        versão vazia/stub/placeholder)
+      #   3. começa com <!DOCTYPE html> literal (pega corrupção base64 — o
+      #                        conteúdo corrompido começa com "PCFET0NUWVBF")
+      #   4. termina com </html> nos últimos bytes (pega truncamento no meio)
+      - name: index.html — tamanho e integridade
         run: |
           LINES=$(wc -l < public/index.html)
-          echo "public/index.html tem $LINES linhas"
-          if [ "$LINES" -lt 700 ]; then
-            echo "❌ BLOQUEADO: public/index.html tem $LINES linhas (mínimo 700)"
-            echo "O portal ficará offline com este arquivo!"
-            exit 1
-          fi
-          echo "✅ OK"
-
-      - name: index.html — não pode ser base64 ou estar corrompido
-        run: |
+          BYTES=$(wc -c < public/index.html)
           FIRST=$(head -c 15 public/index.html)
+          LAST=$(tail -c 300 public/index.html)
+          echo "public/index.html: $LINES linhas, $BYTES bytes"
+          FAIL=0
+
+          if [ "$LINES" -lt 400 ]; then
+            echo "❌ menos de 400 linhas ($LINES)"
+            FAIL=1
+          fi
+          if [ "$BYTES" -lt 150000 ]; then
+            echo "❌ menos de 150000 bytes ($BYTES)"
+            FAIL=1
+          fi
           if [ "$FIRST" != "<!DOCTYPE html>" ]; then
-            echo "❌ BLOQUEADO: public/index.html não começa com <!DOCTYPE html>"
-            echo "Arquivo pode estar corrompido (base64 ou vazio)"
+            echo "❌ não começa com <!DOCTYPE html> — pode estar corrompido (base64 ou vazio)"
             echo "Início detectado: $FIRST"
+            FAIL=1
+          fi
+          case "$LAST" in
+            *"</html>"*) ;;
+            *) echo "❌ não termina com </html> — pode estar truncado"; FAIL=1 ;;
+          esac
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo "BLOQUEADO: O portal ficará offline com este arquivo!"
             exit 1
           fi
           echo "✅ OK"
