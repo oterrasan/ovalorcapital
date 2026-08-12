@@ -58,7 +58,7 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://www.techtudo.com.br/rss.xml",                                 name: "TechTudo",                  cats: ["tecnologia"] },
   { url: "https://olhardigital.com.br/feed/",                                   name: "Olhar Digital",             cats: ["tecnologia"] },
   { url: "https://tiinside.com.br/feed/",                                       name: "TI Inside",                 cats: ["tecnologia","industria"] },
-  { url: "https://ge.globo.com/rss/ge.xml",                                     name: "GE Globo",                  cats: ["esportes"] },
+  { url: "https://ge.globo.com/rss/ge/futebol/",                                name: "GE Globo",                  cats: ["esportes"] },
   { url: "https://www.espn.com.br/rss/",                                        name: "ESPN Brasil",               cats: ["esportes"] },
   { url: "https://www.lance.com.br/rss.xml",                                    name: "Lance!",                    cats: ["esportes"] },
   { url: "https://saude.abril.com.br/feed/",                                    name: "Saúde (Abril)",             cats: ["brasil-on","familia"] },
