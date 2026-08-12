@@ -115,14 +115,24 @@
       '.ovc-esporte-tab{border:1.5px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:9px;',
       '  padding:6px 2px 5px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;',
       '  align-items:center;justify-content:center;gap:2px;min-width:0;}',
-      '.ovc-esporte-tab-emoji{font-size:15px;line-height:1;}',
-      '.ovc-esporte-tab-label{font-size:7px;font-weight:800;color:var(--text-soft,#475569);text-transform:uppercase;',
-      '  letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}',
+      '.ovc-esporte-tab-emoji{font-size:19px;line-height:1;}',
+      /* Rótulo de texto (label) REMOVIDO visualmente — bug real reportado por
+         Roberto 12/08/2026 (screenshot): com 7 abas espremidas em 270px de
+         rail, cada uma tinha só ~28px de largura útil — "Futebol", "Basquete",
+         "Motor", "Tênis", "MMA", "Vôlei" a 7px de fonte truncavam com
+         text-overflow:ellipsis para lixo ilegível tipo "F…", "B…", "M…"
+         (Motor E MMA colidindo no mesmo "M…"), "T…", "V…". Emoji sozinho
+         (19px, glifo único) nunca trunca e já é reconhecível por esporte —
+         o nome completo continua acessível via title/aria-label no <button>
+         (tooltip ao passar o mouse) e via classe sr-only visualmente oculta
+         mas lida por leitor de tela. NÃO reverter para mostrar texto de novo
+         sem alargar a largura do rail (que é compartilhada com
+         .ovc-eleitoral-rail — ver nota acima sobre altura).*/
+      '.ovc-esporte-tab-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;',
+      '  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}',
       '.ovc-esporte-tab:hover{border-color:#059669;transform:translateY(-1px);}',
-      '.ovc-esporte-tab:hover .ovc-esporte-tab-label{color:#059669;}',
       '.ovc-esporte-tab.active{border-color:var(--sport-accent,#059669);',
       '  background:var(--sport-accent,#059669);box-shadow:0 3px 10px -3px var(--sport-accent,#059669);}',
-      '.ovc-esporte-tab.active .ovc-esporte-tab-label{color:#fff;}',
       '.ovc-esporte-body{background:var(--bg-elevated,#fff);padding:10px 12px;flex:1 1 auto;overflow:hidden;',
       '  display:flex;flex-direction:column;min-height:0;}',
       '.ovc-esporte-article-list{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden;}',
