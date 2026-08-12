@@ -142,6 +142,23 @@
       '  text-decoration:none;font-size:11.5px;font-weight:800;color:#065f46;',
       '  transition:background .15s;}',
       '.ovc-esporte-cta:hover{background:linear-gradient(90deg,#d1fae5,#ccfbf1);}',
+      /* Variante mobile — ver injetar(). Em telas <=768px, public/css/
+         responsive.css aplica ".rail-right{display:none}" (todo o rail
+         direito some — Copa, Eleitoral, Mais Lidos, TV, banner: TODOS os
+         widgets desse rail ficam invisíveis no celular, não é bug deste
+         arquivo). Confirmado ao vivo via Playwright em viewport 390x844
+         (12/08/2026): elemento existe no DOM mas isVisible:false,
+         boundingBox:null. Em vez de alterar responsive.css (mudaria o
+         comportamento de TODOS os outros widgets do rail — fora de escopo
+         e arriscado demais pra decidir sozinho), este widget também se
+         injeta no fluxo principal (entre o hero e os cards) quando o rail
+         estiver oculto — self-contained, não toca em home.js nem CSS
+         compartilhado. Bug real reportado por Roberto 12/08/2026.*/
+      '@media(max-width:768px){',
+      '  .ovc-esporte-rail.ovc-esporte-mobile{height:auto;grid-column:1;margin:0 0 18px;}',
+      '  .ovc-esporte-rail.ovc-esporte-mobile .ovc-esporte-body{overflow:visible;}',
+      '  .ovc-esporte-rail.ovc-esporte-mobile .ovc-esporte-article-list{overflow:visible;}',
+      '}',
     ].join('');
     document.head.appendChild(sty);
   }
@@ -249,9 +266,24 @@
 
   function injetar(porEsporte) {
     var rail = document.querySelector('.rail-right');
-    if (!rail) return;
+    var railVisivel = rail && getComputedStyle(rail).display !== 'none';
     var bloco = construirBloco(porEsporte);
-    rail.insertBefore(bloco, rail.firstChild);
+    if (railVisivel) {
+      rail.insertBefore(bloco, rail.firstChild);
+      return;
+    }
+    // .rail-right oculto (mobile, <=768px — ver CSS acima) ou ausente da
+    // página: injeta no fluxo principal em vez de ficar invisível.
+    var mainGrid = document.querySelector('.main-grid');
+    var cardsSection = document.getElementById('ovc-cards-section');
+    if (mainGrid) {
+      bloco.classList.add('ovc-esporte-mobile');
+      if (cardsSection && cardsSection.parentNode === mainGrid) {
+        mainGrid.insertBefore(bloco, cardsSection);
+      } else {
+        mainGrid.appendChild(bloco);
+      }
+    }
   }
 
   function init() {
