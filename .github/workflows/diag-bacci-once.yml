@@ -1,4 +1,4 @@
-name: DIAG ONE-OFF — Bacci sitemap check
+name: DIAG ONE-OFF — Bacci post-sitemap.xml content
 
 on:
   push:
@@ -11,33 +11,28 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Check sitemap options
+      - name: Fetch post-sitemap.xml
         run: |
           node -e '
           const https = require("https");
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          function fetchUrl(url) {
-            return new Promise((resolve) => {
-              https.get(url, { headers: { "User-Agent": UA } }, (res) => {
-                let data = "";
-                res.on("data", (c) => data += c);
-                res.on("end", () => resolve({ status: res.statusCode, len: data.length, body: data }));
-              }).on("error", (e) => resolve({ status: "ERROR", err: e.message }));
+          https.get("https://baccinoticias.com.br/post-sitemap.xml", { headers: { "User-Agent": UA } }, (res) => {
+            console.log("status:", res.statusCode);
+            let data = "";
+            res.on("data", (c) => data += c);
+            res.on("end", () => {
+              console.log("len:", data.length);
+              const locs = [...data.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+              const lastmods = [...data.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]);
+              console.log("total <loc> entries:", locs.length);
+              console.log("--- last 15 entries (usually most recent at bottom) ---");
+              for (let i = Math.max(0, locs.length-15); i < locs.length; i++) {
+                console.log(lastmods[i], "-", locs[i]);
+              }
+              console.log("--- first 5 entries ---");
+              for (let i = 0; i < Math.min(5, locs.length); i++) {
+                console.log(lastmods[i], "-", locs[i]);
+              }
             });
-          }
-          (async () => {
-            const urls = [
-              "https://baccinoticias.com.br/sitemap.xml",
-              "https://baccinoticias.com.br/sitemap_index.xml",
-              "https://baccinoticias.com.br/wp-sitemap.xml",
-              "https://baccinoticias.com.br/feed/",
-              "https://baccinoticias.com.br/wp-json/wp/v2/posts?per_page=10&orderby=date&order=desc"
-            ];
-            for (const u of urls) {
-              const r = await fetchUrl(u);
-              console.log("===", u, "=== status:", r.status, "len:", r.len);
-              if (r.body) console.log(r.body.slice(0, 1200));
-              console.log("");
-            }
-          })();
+          }).on("error", (e) => console.log("ERROR:", e.message));
           '
