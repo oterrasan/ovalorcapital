@@ -1,0 +1,21 @@
+name: DIAG ONE-OFF — limpar_imagens_espurias (dry-run + execução)
+
+on:
+  push:
+    branches:
+      - claude/run-cleanup-once
+  workflow_dispatch: {}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Dry-run
+        run: |
+          RESP=$(curl -s "https://www.ovalorcapital.com.br/api/manage?action=limpar_imagens_espurias&pass=ovc-admin-2026-secreto&dry=1")
+          echo "DRY-RUN: $RESP"
+      - name: Execução real
+        run: |
+          RESP=$(curl -s "https://www.ovalorcapital.com.br/api/manage?action=limpar_imagens_espurias&pass=ovc-admin-2026-secreto")
+          echo "REAL: $RESP"
