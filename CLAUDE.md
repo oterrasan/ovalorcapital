@@ -5492,3 +5492,51 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Gemini com modelo descontinuado** — confirmar com Roberto antes de trocar `gemini-2.0-flash` por um modelo atual.
 3. **Chave OpenAI de fallback revogada** — avaliar com Roberto se vale atualizar a chave hardcoded na seção 16, ou se não é mais necessária (produção já depende só da env var da Vercel).
 4. Demais pendências de sessões anteriores (SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12/08/2026 — CI DESATUALIZADO + RADAR DO ESPORTE INVISÍVEL NO CELULAR
+
+#### CI `portal-validate.yml` desatualizado — bloqueava todo PR (PR #391)
+
+O check `Verificar arquivos críticos` exigia `public/index.html` com ≥700 linhas — valor calibrado em mai/2026 para o arquivo daquela época (741 linhas). O arquivo hoje tem ~648 linhas legítimas (mesmo conteúdo real, HTML mais compacto por linha — mais scripts/widgets, menos espaço em branco). O check antigo bloqueava TODO PR, mesmo sem tocar em `index.html`, sem sinal nenhum de corrupção real.
+
+**Fix:** substituído por 4 sinais independentes (linhas ≥400, bytes ≥150000, começa com `<!DOCTYPE html>`, termina com `</html>`) — qualquer um sozinho já pega os incidentes reais documentados (corte de 734 linhas, corrupção base64). Comentário extenso no próprio workflow explica o porquê. Autorização de Roberto: "ARRUME TUDO E AJUSTE O QUE PRECISAR".
+
+#### Bacci — pipeline preso em 3 candidatos há horas (PR #390)
+
+Roberto perguntou se o pipeline Brasil ON/Bacci travava em algum horário. Investigado via workflow one-off: `buscarBacciHomepage()` (raspagem regex da home) só achava ~3 links, sempre os mesmos, por horas seguidas — a home da Bacci tem só 37KB e 3 links de matéria visíveis pro scraper (causa exata não isolada: bot-detection, cache de borda ou JS parcial).
+
+**Fix:** `core/brasilon.js` ganhou `buscarBacciSitemap()` como método PRIMÁRIO — usa o `sitemap_index.xml` do Yoast SEO (WordPress), pega sempre o ÚLTIMO `post-sitemapN.xml` da lista (Yoast anexa em ordem cronológica, esse é sempre o chunk ativo), filtra por `<lastmod>` das últimas 8h. Confirmado ao vivo: foi de 3 candidatos travados pra 15 candidatos frescos (até 40min de idade) em ~11s. `buscarBacciHomepage()` mantida como fallback.
+
+#### 🚨 BUG REAL — Radar do Esporte invisível no celular (PR #394)
+
+Roberto, muito frustrado: *"O MALDIDO RADAR DO ESPORTE NAO FUNCIONA"*. Investigação seguiu o protocolo de não-chutar estabelecido em sessões anteriores (ver incidente figure/img de 12/08 mais abaixo no histórico): teste real via Chromium/Playwright rodando dentro do GitHub Actions (única forma de acessar `www.ovalorcapital.com.br` de verdade — este sandbox bloqueia a rede de saída pro domínio).
+
+**Teste 1 — desktop (1366×800):** widget 100% funcional. `#ovc-radar-esporte` visível, 7 abas clicáveis, cada uma carregando artigos reais e frescos (Futebol, Basquete, Motor, Tênis, MMA, NFL — todos com conteúdo; Vôlei mostra "Cobertura chegando em breve" por design, ESPN não cobre Superliga/FIVB). Zero erros JS.
+
+**Teste 2 — mobile (390×844, viewport real de celular):** `elemento existe no DOM: true`, mas **`isVisible: false`, `boundingBox: null`**. Causa: `public/css/responsive.css` tem `.rail-left, .rail-right { display: none; }` em `@media (max-width: 768px)` — ou seja, o rail direito INTEIRO desaparece em qualquer celular (isso afeta também Radar da Copa, Radar Eleitoral, Mais Lidos e o banner sidebar, não é bug específico deste widget). O widget se injeta em `.rail-right` normalmente, mas fica preso num container invisível.
+
+**Fix aplicado em `public/js/ovc-radar-esporte.js`** (isolado, não toca em CSS compartilhado nem em `home.js` — REGRA ZERO-I):
+- `injetar()` agora checa `getComputedStyle(rail).display !== 'none'` antes de inserir no rail direito.
+- Quando o rail estiver oculto (mobile), o widget se injeta no fluxo principal da home (`.main-grid`, entre `.hero-region` e `#ovc-cards-section`) em vez de ficar invisível.
+- Nova classe `.ovc-esporte-mobile` com media query própria troca a altura fixa de 740px (pensada pro rail desktop) por altura automática, adequada ao fluxo de conteúdo.
+
+**Verificado em produção real PÓS-deploy** (não só "deveria funcionar" — testado de novo via Playwright depois do merge+deploy):
+- Mobile: `isVisible: true`, `boundingBox: {x:10,y:4675.5,width:370,height:577.9}`, `classList: ovc-esporte-rail ovc-esporte-mobile`, pai = `main-grid`. 7 abas encontradas, clique na 2ª aba (Basquete) trocou o conteúdo corretamente.
+- Desktop: comportamento inalterado, ainda dentro de `.rail-right` como antes.
+
+**Lição confirmada nesta sessão:** quando Roberto reporta "não funciona" com fúria, o padrão que tem se repetido (figure/img, agora este) é: o código gerador/JS está correto, mas o RENDERER/CSS aplica uma regra que invalida a saída pra um contexto específico (modo legado de renderização; viewport mobile). Testar sempre com dado real de produção — nunca assumir que "o componente existe e não tem erro JS" significa "está visível pro usuário".
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto pelo próprio celular** que o Radar do Esporte agora aparece na home (evidência automatizada já confirmada via Playwright, mas vale o "ver com os próprios olhos").
+2. **Considerar se outros widgets do rail direito precisam do mesmo tratamento mobile** (Radar da Copa, Radar Eleitoral, Mais Lidos, banner sidebar) — hoje eles ficam igualmente invisíveis em celular. NÃO fazer sem Roberto confirmar que quer isso — é mudança de UX maior, mexe em vários arquivos, e ele não reclamou desses especificamente ainda.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
