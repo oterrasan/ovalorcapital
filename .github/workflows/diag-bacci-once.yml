@@ -1,4 +1,4 @@
-name: DIAG ONE-OFF — Bacci homepage scrape check
+name: DIAG ONE-OFF — Bacci sitemap check
 
 on:
   push:
@@ -11,31 +11,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Fetch Bacci homepage with same UA as core/brasilon.js
+      - name: Check sitemap options
         run: |
           node -e '
           const https = require("https");
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          https.get("https://baccinoticias.com.br/", { headers: { "User-Agent": UA } }, (res) => {
-            console.log("HTTP status:", res.statusCode);
-            console.log("Headers:", JSON.stringify(res.headers, null, 2));
-            let data = "";
-            res.on("data", (c) => data += c);
-            res.on("end", () => {
-              console.log("Body length (bytes):", data.length);
-              const re = /href="(https:\/\/baccinoticias\.com\.br\/[a-z0-9-]{15,}\/?)"/g;
-              const links = [...data.matchAll(re)].map(m => m[1]);
-              const unicos = [...new Set(links)];
-              console.log("Total raw matches:", links.length);
-              console.log("Unique matches:", unicos.length);
-              console.log("Sample (first 20):");
-              unicos.slice(0,20).forEach(l => console.log(" -", l));
-              const EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
-              const filtrados = unicos.filter(l => !EXCLUIR.test(l));
-              console.log("After BACCI_EXCLUIR filter:", filtrados.length);
-              filtrados.slice(0,20).forEach(l => console.log(" -", l));
-              console.log("--- first 1500 chars of body (raw) ---");
-              console.log(data.slice(0, 1500));
+          function fetchUrl(url) {
+            return new Promise((resolve) => {
+              https.get(url, { headers: { "User-Agent": UA } }, (res) => {
+                let data = "";
+                res.on("data", (c) => data += c);
+                res.on("end", () => resolve({ status: res.statusCode, len: data.length, body: data }));
+              }).on("error", (e) => resolve({ status: "ERROR", err: e.message }));
             });
-          }).on("error", (e) => console.log("ERROR:", e.message));
+          }
+          (async () => {
+            const urls = [
+              "https://baccinoticias.com.br/sitemap.xml",
+              "https://baccinoticias.com.br/sitemap_index.xml",
+              "https://baccinoticias.com.br/wp-sitemap.xml",
+              "https://baccinoticias.com.br/feed/",
+              "https://baccinoticias.com.br/wp-json/wp/v2/posts?per_page=10&orderby=date&order=desc"
+            ];
+            for (const u of urls) {
+              const r = await fetchUrl(u);
+              console.log("===", u, "=== status:", r.status, "len:", r.len);
+              if (r.body) console.log(r.body.slice(0, 1200));
+              console.log("");
+            }
+          })();
           '
