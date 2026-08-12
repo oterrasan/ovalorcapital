@@ -230,6 +230,22 @@ function markdownToHtml(texto) {
   return saida.join('\n');
 }
 
+// Remove tags <figure>/<img> espúrias que a IA às vezes injeta no meio do
+// corpo — artefato de vazamento (ex: grounding/busca de imagem do modelo),
+// nunca intencional: nenhuma parte do pipeline OVC insere imagem inline no
+// corpo, a capa do artigo é sempre um campo separado (imagem, via
+// processAndSaveImage()). Detectado 12/08/2026 (Roberto, print de matéria
+// em /negocios/): tag <figure><img src="https://encrypted-tbn0.gstatic.com/...">
+// </figure> aparecendo como TEXTO VISÍVEL no meio do artigo publicado.
+function limparImagensEspurias(corpo) {
+  if (!corpo || typeof corpo !== 'string') return corpo;
+  return corpo
+    .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, '')
+    .replace(/<img\b[^>]*>/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function parse(raw) {
   if (!raw) return null;
   let normalized = String(raw);
@@ -292,6 +308,7 @@ function parse(raw) {
   }
 
   if (corpo) corpo = markdownToHtml(corpo);
+  if (corpo) corpo = limparImagensEspurias(corpo);
 
   const catsValidas = ["politica","economia","negocios","investimentos","seguros","industria",
     "tecnologia","esportes","saude","familia","tributos","internacional",
