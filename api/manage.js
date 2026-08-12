@@ -35,6 +35,7 @@ export default async function handler(req, res) {
       if (action === "limpar_pendentes_antigos") return handleLimparPendentesAntigos(req, res);
       if (action === "categorizar_rss") return handleCategorizarRss(req, res);
       if (action === "archive_old_rss") return handleArchiveOldRss(req, res);
+      if (action === "limpar_imagens_espurias") return handleLimparImagensEspurias(req, res);
       if (action === "get_pesquisa_eleitoral") return handleGetPesquisa(res);
       if (action === "update_pesquisa_eleitoral") return handleUpdatePesquisa(req, res);
       if (action === "nota_luto_status") return handleNotaLutoStatus(res);
@@ -749,6 +750,60 @@ const FONTES_APROVADAS_70 = [
   { url: "https://api.axios.com/feed/",                                        name: "Axios",                    categoria: "internacional" },
   { url: "https://www.lemonde.fr/rss/une.xml",                                 name: "Le Monde",                 categoria: "internacional" },
 ];
+
+// Limpeza retroativa de posts já publicados com tag <figure>/<img> espúria
+// no meio do corpo — artefato de vazamento da IA (ver core/ai_portal.js,
+// limparImagensEspurias(), criado 12/08/2026 após Roberto reportar print de
+// matéria com <figure><img src="https://encrypted-tbn0.gstatic.com/..."></figure>
+// aparecendo como texto visível no meio do artigo). Este endpoint só limpa
+// o BANCO retroativamente; a correção que impede posts NOVOS de terem esse
+// problema já está em core/ai_portal.js parse().
+// Uso: GET /api/manage?action=limpar_imagens_espurias&pass=SENHA[&dry=1]
+async function handleLimparImagensEspurias(req, res) {
+  const pass = String(req.query.pass || "");
+  if (pass !== ADMIN_PASS) return res.status(401).json({ error: "unauthorized" });
+  const dry = String(req.query.dry || "") === "1";
+
+  const limpar = (corpo) => {
+    if (!corpo || typeof corpo !== "string") return corpo;
+    return corpo
+      .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "")
+      .replace(/<img\b[^>]*>/gi, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from("posts")
+      .select("id,conteudo")
+      .or("conteudo.ilike.%<figure%,conteudo.ilike.%<img%")
+      .limit(500);
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+
+    const afetados = [];
+    for (const post of data || []) {
+      const original = post.conteudo || "";
+      const limpo = limpar(original);
+      if (limpo !== original) {
+        afetados.push({ id: post.id, antes_chars: original.length, depois_chars: limpo.length });
+        if (!dry) {
+          const { error: updErr } = await supabase.from("posts").update({ conteudo: limpo }).eq("id", post.id);
+          if (updErr) await writeLog("error", `[limpar_imagens_espurias] falhou id=${post.id}: ${updErr.message}`);
+        }
+      }
+    }
+    if (!dry && afetados.length) await writeLog("info", `[limpar_imagens_espurias] ${afetados.length} posts corrigidos`);
+    return res.status(200).json({
+      ok: true, dry,
+      total_verificados: (data || []).length,
+      total_corrigidos: afetados.length,
+      afetados: afetados.slice(0, 50)
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+}
 
 async function handleArchiveOldRss(req, res) {
   const pass = String(req.query.pass || "");
