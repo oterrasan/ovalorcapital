@@ -631,6 +631,32 @@ Se `no_news` não tiver campo `ts`: **código novo não deployou** → verificar
 
 ---
 
+## 6B. DISPOSITIVO DE PUBLICAÇÃO DE EMERGÊNCIA — EXISTE, NÃO É BOTÃO NO ADMIN
+
+> Criado 11/08/2026 a pedido explícito de Roberto: *"PRECISO QUE VOCE CRIE UM DISPOSITIVO DE PUBLICACOES COMO ESTA DE AGORA, QUANDO EU SOLICITAR A NIVEL DE EMERGENCIA. EU DOU O TEMA, SEMPRE COM UM ASSUNTO QUE JÁ SEI QUE É REAL, VOCE PROCURA E POSTA. SE TIVER COMO PEGAR IMAGEM REAL, SEM ERRO, PUBLICA DIRETO."*
+
+**⚠️ IMPORTANTE — leia com atenção, é fácil interpretar errado:** isto **NÃO é um botão ou funcionalidade dentro do painel `/admin`**. Roberto não clica em nada para acionar. É um **procedimento que o Claude executa manualmente** quando Roberto pede uma publicação de emergência no chat.
+
+**Onde está o template:** `scripts/emergency_publish_template.mjs` na raiz do repo — arquivo permanente, documentado, com o código-template já pronto (schema idêntico ao que `inserir()`/`manual()` usam em `api/run_portal.js`). **Não é rota de API** — não conta para a Regra Zero-A (máx 10 arquivos em `api/`).
+
+**Gatilho — quando este dispositivo entra em ação:**
+Roberto dá um tema em nível de emergência (ex: "publica algo sobre X agora, é urgente") — normalmente um assunto que ele já confirma ser real e quer no ar rápido, fora do ciclo normal do pipeline automático.
+
+**Procedimento (resumo — o passo a passo completo está dentro do próprio arquivo):**
+1. Ler `scripts/emergency_publish_template.mjs` por completo antes de agir.
+2. **Mesmo Roberto confirmando que é real, apurar com WebSearch em 2+ fontes confiáveis antes de escrever qualquer coisa** — nunca publicar só com base na palavra dele.
+3. Preencher a seção `CONFIG` do template com os fatos apurados.
+4. Colar o conteúdo (com `CONFIG` preenchido) dentro de um workflow one-off do GitHub Actions (mesmo padrão de `.github/workflows/diag-*.yml` usado em sessões anteriores — criado numa branch `claude/*`, rodado, resultado confirmado, **deletado depois** — nunca vira PR permanente).
+5. Rodar o workflow e conferir o resultado nos logs.
+
+**Regra de publicação (exclusiva deste dispositivo — nunca estendida ao pipeline automático normal):**
+- **COM imagem real da fonte, processada sem erro** → publica **DIRETO** (`status: publicado`, `approved: true`, `published_at: agora`). Não passa pela fila de aprovação.
+- **SEM imagem** (fonte sem `og:image` válida, ou falha no processamento) → cai como **PENDENTE** (`status: pendente`, `approved: false`), igual ao resto do pipeline (Regra Zero-D). Avisar Roberto que ficou pendente por falta de imagem.
+
+**Se Roberto pedir um botão de verdade no admin para isto:** ainda não existe. Envolveria nova `action` em `api/manage.js` (sem violar Regra Zero-A) e esbarra no limite de 10s de execução do Vercel Hobby para research + geração + imagem dentro de uma requisição só — precisa de desenho próprio, não é trivial. Não assumir que já foi construído.
+
+---
+
 ## 7. RENDERIZAÇÃO DE ARTIGOS (CRÍTICO)
 
 **Fluxo:** `api/article.js` (SSR) → `window.__OVC_ARTICLE__` JSON → `public/js/internal-page-v2.js` renderiza client-side via `renderCorpo()`
@@ -794,6 +820,7 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 11. **TABELAS SUPABASE:** `image_bank` e `colunistas` precisam ser criadas manualmente — ver seção 4.
 12. **DIAGNÓSTICO `no_valid_news`:** checar o campo `stats` na resposta (Bug #51 fix). Se `skipped` alto → tudo duplicado (normal). Se `aiError` alto → chave OpenAI inválida.
 13. **NUNCA pedir chave OpenAI a Roberto** — está hardcoded no `core/ai_portal.js` E na seção 16 deste arquivo.
+14. **Publicação de emergência por tema:** se Roberto pedir para publicar algo urgente dado só um assunto, existe procedimento pronto — ver seção 6B e `scripts/emergency_publish_template.mjs`. NÃO é botão no admin, é procedimento manual do Claude.
 
 ---
 
