@@ -1,0 +1,37 @@
+name: DIAG ONE-OFF — inspecionar HTML bruto do artigo com figure/img
+
+on:
+  push:
+    branches:
+      - claude/diag-article-once
+  workflow_dispatch: {}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Fetch raw HTML e extrair window.__OVC_ARTICLE__
+        run: |
+          node -e '
+          const https = require("https");
+          https.get("https://www.ovalorcapital.com.br/negocios/justica-autoriza-americanas-a-vender-rede-hortifruti-natural-4bd12bdf/", (res) => {
+            let data = "";
+            res.on("data", c => data += c);
+            res.on("end", () => {
+              console.log("status:", res.statusCode, "len:", data.length);
+              const m = data.match(/window\.__OVC_ARTICLE__=(\{[\s\S]*?\});window\.SUPABASE_ANON_KEY/);
+              if (!m) { console.log("NAO ACHOU window.__OVC_ARTICLE__"); return; }
+              const raw = m[1];
+              console.log("--- raw script content (primeiros 400 chars) ---");
+              console.log(raw.slice(0, 400));
+              try {
+                const obj = JSON.parse(raw);
+                console.log("--- corpo (via JSON.parse), procurando figure ---");
+                const idx = obj.corpo.indexOf("figure");
+                console.log("indexOf figure:", idx);
+                if (idx >= 0) console.log(JSON.stringify(obj.corpo.slice(Math.max(0,idx-60), idx+250)));
+              } catch(e) { console.log("erro parse:", e.message); }
+            });
+          }).on("error", e => console.log("ERROR:", e.message));
+          '
