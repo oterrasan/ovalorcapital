@@ -1,0 +1,35 @@
+name: diag-radar-freshness-once
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/diag-radar-freshness-once]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe more candidate football RSS URLs
+        run: |
+          urls=(
+            "https://www.uol.com.br/esporte/futebol/rss.xml"
+            "https://rss.uol.com.br/feed/esporte.xml"
+            "https://www.terra.com.br/esportes/futebol/rss"
+            "https://www.cbf.com.br/rss/noticias"
+            "https://ge.globo.com/rss/ge/futebol/brasileirao-serie-a/"
+            "https://ge.globo.com/rss/ge/futebol/brasileirao-serie-b/"
+            "https://ge.globo.com/rss/ge/futebol/libertadores/"
+            "https://ogol.com.br/rss"
+            "https://www.gazetaesportiva.com/feed/"
+            "https://placar.abril.com.br/feed/"
+          )
+          for url in "${urls[@]}"; do
+            echo "=== $url ==="
+            code=$(curl -sL -o /tmp/f.xml -w "%{http_code}" -m 8 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" "$url" 2>/dev/null)
+            bytes=$(wc -c < /tmp/f.xml 2>/dev/null || echo 0)
+            echo "HTTP:$code bytes:$bytes"
+            if [ "$bytes" -gt 300 ]; then
+              echo "item-count:$(grep -oc '<item' /tmp/f.xml 2>/dev/null || echo 0)"
+              grep -o '<title>[^<]*</title>' /tmp/f.xml | head -3
+              grep -oE '<pubDate>[^<]*</pubDate>' /tmp/f.xml | head -2
+            fi
+            echo
+          done
