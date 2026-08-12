@@ -1,0 +1,38 @@
+name: DIAG ONE-OFF — Bacci homepage scrape check
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Fetch Bacci homepage with same UA as core/brasilon.js
+        run: |
+          node -e '
+          const https = require("https");
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+          https.get("https://baccinoticias.com.br/", { headers: { "User-Agent": UA } }, (res) => {
+            console.log("HTTP status:", res.statusCode);
+            console.log("Headers:", JSON.stringify(res.headers, null, 2));
+            let data = "";
+            res.on("data", (c) => data += c);
+            res.on("end", () => {
+              console.log("Body length (bytes):", data.length);
+              const re = /href="(https:\/\/baccinoticias\.com\.br\/[a-z0-9-]{15,}\/?)"/g;
+              const links = [...data.matchAll(re)].map(m => m[1]);
+              const unicos = [...new Set(links)];
+              console.log("Total raw matches:", links.length);
+              console.log("Unique matches:", unicos.length);
+              console.log("Sample (first 20):");
+              unicos.slice(0,20).forEach(l => console.log(" -", l));
+              const EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
+              const filtrados = unicos.filter(l => !EXCLUIR.test(l));
+              console.log("After BACCI_EXCLUIR filter:", filtrados.length);
+              filtrados.slice(0,20).forEach(l => console.log(" -", l));
+              console.log("--- first 1500 chars of body (raw) ---");
+              console.log(data.slice(0, 1500));
+            });
+          }).on("error", (e) => console.log("ERROR:", e.message));
+          '
