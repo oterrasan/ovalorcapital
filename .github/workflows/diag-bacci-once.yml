@@ -1,4 +1,4 @@
-name: DIAG ONE-OFF — Bacci post-sitemap32 (chunk mais recente real)
+name: DIAG ONE-OFF — testar buscarCandidatosBrasilOn real
 
 on:
   push:
@@ -11,22 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Fetch post-sitemap32.xml
+      - uses: actions/checkout@v4
+      - name: Install deps (só axios)
+        run: npm install axios --no-save --silent
+      - name: Testar buscarCandidatosBrasilOn real
         run: |
           node -e '
-          const https = require("https");
-          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          https.get("https://baccinoticias.com.br/post-sitemap32.xml", { headers: { "User-Agent": UA } }, (res) => {
-            console.log("status:", res.statusCode);
-            let data = "";
-            res.on("data", (c) => data += c);
-            res.on("end", () => {
-              console.log("len:", data.length);
-              const locs = [...data.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
-              const lastmods = [...data.matchAll(/<lastmod>(.*?)<\/lastmod>/g)].map(m => m[1]);
-              console.log("total entries:", locs.length);
-              console.log("--- last 25 (most recent) ---");
-              for (let i = Math.max(0, locs.length-25); i < locs.length; i++) console.log(lastmods[i], "-", locs[i]);
-            });
-          }).on("error", (e) => console.log("ERROR:", e.message));
+          import("./core/brasilon.js").then(async (mod) => {
+            const t0 = Date.now();
+            const candidatos = await mod.buscarCandidatosBrasilOn();
+            console.log("tempo (ms):", Date.now() - t0);
+            console.log("total candidatos:", candidatos.length);
+            candidatos.forEach(c => console.log(c.pubDate, "-", c.link));
+          }).catch(e => { console.log("ERRO:", e.message); process.exit(1); });
           '

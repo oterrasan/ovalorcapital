@@ -13,8 +13,28 @@
 // (og:image não extraído de forma confiável). Bacci nunca teve esse
 // problema — 100% de sucesso em todos os testes desta sessão.
 //   - Bacci Notícias (https://baccinoticias.com.br/) — SEM RSS funcional
-//     (/feed/ redireciona pra home — confirmado 11/08/2026), captura via
-//     raspagem da homepage + scrape() do artigo (core/scraper.js).
+//     (/feed/ redireciona pra home — confirmado 11/08/2026).
+//
+// CAPTURA — reescrito 12/08/2026 (mesma sessão, poucas horas depois do
+// lançamento). Root cause de "nada novo há horas" reportado por Roberto:
+// a raspagem original (regex na home) só encontrava ~3 links úteis, SEMPRE
+// os mesmos, por horas seguidas — confirmado via workflow one-off que a
+// home da Bacci, como o nosso scraper via, tem só 37KB e 3 links de
+// matéria (contra dezenas de matérias/dia reais do site). A causa exata
+// (bot-detection, home parcialmente renderizada por JS, cache de borda)
+// não foi 100% isolada — mas achamos fonte MUITO melhor: a Bacci roda
+// WordPress com Yoast SEO, que expõe `sitemap_index.xml` → lista de
+// `post-sitemapN.xml`, cada um com até 1000 URLs + <lastmod>. O chunk MAIS
+// RECENTE é sempre o ÚLTIMO da lista (Yoast preenche em ordem cronológica,
+// nunca insere/atualiza chunks antigos). Confirmado ao vivo (12/08/2026,
+// via workflow one-off): esse sitemap tinha o post mais novo com apenas
+// ~40min de idade, e dezenas de posts das últimas 6h — o scraper de home
+// não via NENHUM deles. Sitemap é HTML estático puro (sem depender de JS
+// renderizado) e não exige adivinhar layout de cards.
+//
+// buscarBacciSitemap() é agora o caminho PRIMÁRIO. buscarBacciHomepage()
+// (a raspagem original) fica como FALLBACK só se o sitemap falhar/mudar de
+// estrutura — nunca remover o fallback, WordPress plugins podem sumir.
 //
 // NUNCA adicionar fonte nova aqui sem aprovação explícita de Roberto (mesmo
 // espírito da Regra "NUNCA adicionar fontes sem aprovação" em core/rss.js).
@@ -30,7 +50,47 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 // ("vi-no-instagram"), institucional, etc. Excluídas do pool de candidatos.
 const BACCI_EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
 
-async function buscarBacci() {
+// Janela de recência: só usa candidatos do sitemap publicados nas últimas
+// N horas — mantém o espírito "quase instantâneo" do Brasil ON e evita
+// reprocessar o histórico inteiro (chunk atual tem até 1000 URLs).
+const SITEMAP_JANELA_HORAS = 8;
+
+async function buscarBacciSitemap() {
+  try {
+    const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", {
+      timeout: 8000, headers: { "User-Agent": UA }
+    });
+    const idxXml = String(idxRes.data || "");
+    const locs = [...idxXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+    // Yoast lista os post-sitemapN.xml em ordem crescente — o ÚLTIMO da
+    // lista é sempre o chunk ativo, onde posts novos são anexados.
+    const postSitemaps = locs.filter(l => /\/post-sitemap\d*\.xml$/.test(l));
+    if (!postSitemaps.length) return [];
+    const chunkAtual = postSitemaps[postSitemaps.length - 1];
+    const smRes = await axios.get(chunkAtual, { timeout: 8000, headers: { "User-Agent": UA } });
+    const smXml = String(smRes.data || "");
+    const blocos = [...smXml.matchAll(/<url>([\s\S]*?)<\/url>/g)];
+    const entradas = blocos.map(b => {
+      const loc = (b[1].match(/<loc>(.*?)<\/loc>/) || [])[1] || "";
+      const lastmod = (b[1].match(/<lastmod>(.*?)<\/lastmod>/) || [])[1] || "";
+      return { loc, lastmod };
+    }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
+    entradas.sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
+    const corte = Date.now() - SITEMAP_JANELA_HORAS * 60 * 60 * 1000;
+    const recentes = entradas.filter(e => new Date(e.lastmod).getTime() >= corte);
+    const usados = (recentes.length ? recentes : entradas).slice(0, 15);
+    return usados.map(e => ({
+      link: e.loc, source: "Bacci Notícias", title: "", description: "",
+      pubDate: e.lastmod || new Date().toISOString()
+    }));
+  } catch (_) {
+    return [];
+  }
+}
+
+// FALLBACK — raspagem direta da home (método original). Só é usado se o
+// sitemap falhar ou não retornar nada.
+async function buscarBacciHomepage() {
   try {
     const res = await axios.get("https://baccinoticias.com.br/", {
       timeout: 10000,
@@ -45,6 +105,12 @@ async function buscarBacci() {
   } catch (_) {
     return [];
   }
+}
+
+async function buscarBacci() {
+  const viaSitemap = await buscarBacciSitemap();
+  if (viaSitemap.length) return viaSitemap;
+  return await buscarBacciHomepage();
 }
 
 // Retorna candidatos das fontes ativas (só Bacci por enquanto, ver nota no
