@@ -5862,3 +5862,82 @@ Checagem agendada de acompanhamento da quota do Vercel Hobby (100 deploys/dia, r
 
 Se Roberto perguntar de novo "já liberou?": não basta abrir um PR de teste e ver os previews ficarem "Ready" — isso não prova que `deploy.yml` (produção real) vai passar. É preciso mergear algo real (ou pelo menos deixar essa PR de teste seguir até o merge) e conferir o run do `deploy.yml` em `actions_list` (branch=main, resource_id=deploy.yml) com `conclusion:success` para o commit mais recente.
 
+---
+
+### Sessão 13/08/2026 (continuação 2) — 🔴🔴🔴 CAUSA RAIZ REAL DO CARD INTERNACIONAL TRAVADO — CORRIGIDA E VERIFICADA END-TO-END
+
+#### Contexto
+
+Roberto, direto: *"o card que está na home do INTERNACIONAL segue igual.... nao mudou nada"* — mesmo após o fix de `/brand/i` na BBC (PR #417) já ter sido deployado. Investigação completa, sem aceitar sucesso não verificado, seguindo o protocolo já estabelecido nesta sessão de nunca reportar "corrigido" sem evidência real.
+
+#### Investigação — cronologia real
+
+1. Confirmado via `git log` que `filtrarCandidatosProntos()` — o "grace-period gate" que só publica um link na SEGUNDA vez que aparece entre os candidatos (evita raspar matéria em desenvolvimento antes da fonte terminar de atualizar) — foi introduzido no commit `c80ba125`, ~14:58 BRT do mesmo dia desta sessão, e afeta os 3 canais que o compartilham: **Internacional, Brasil ON e Jovem Pan Política**.
+2. Consultado direto o Supabase via workflow diagnóstico (GitHub Actions, único jeito de checar produção real — este sandbox não tem rede pra `ovalorcapital.com.br` nem Supabase): `SEEN_LINKS_INTERNACIONAL`, `SEEN_LINKS_BRASILON` e `SEEN_LINKS_JOVEMPAN_POLITICA` estavam **completamente ausentes** do banco, mesmo com o `deploy.yml` do commit `c80ba125` confirmado `success` horas antes.
+3. Um upsert manual via `curl` direto na API REST do Supabase, com as MESMAS credenciais hardcoded do `api/run_portal.js`, funcionou perfeitamente (HTTP 201) — inicialmente isso pareceu descartar bug de código, mas na verdade mascarava o problema real (ver #6).
+4. **PR #418** — adicionado `brutosLen`/`prontosLen` na resposta `candidates:0` dos 3 canais (campo puramente diagnóstico). Chamada real em produção revelou `brutosLen:15, prontosLen:0` — ou seja, o scraping (BBC/CNN/Bacci/Jovem Pan) funcionava perfeitamente a partir do IP da Vercel (**descarta** a hipótese de bloqueio de IP/Cloudflare, que era a suspeita inicial mais forte dado o histórico de Revista Oeste/Bacci nesta mesma sessão) — mas o grace-period gate nunca marcava nada como "já visto".
+5. Comparando o valor gravado em `SEEN_LINKS_INTERNACIONAL` antes/depois de uma chamada real com 15 candidatos novos: o valor ficou **bit-a-bit idêntico** ao meu teste manual anterior — ou seja, o `.upsert()` de dentro do código de produção **não persistia nada, silenciosamente**, mesmo rodando sem erro aparente.
+6. **PR #419** — trocado os `catch(_){}` mudos por captura real de `error.message` do Supabase (tanto do `.select()` quanto do `.upsert()`), expostos via campo `debug` na resposta. Uma nova chamada real revelou o erro Postgres exato, nunca visto antes por estar sendo engolido:
+   ```
+   "there is no unique or exclusion constraint matching the ON CONFLICT specification"
+   ```
+   **A causa raiz real**: a coluna `key` da tabela `config` **não tem constraint unique/PK no banco real** — apesar de `.upsert(payload, {onConflict:"key"})` ser usado dessa forma em VÁRIOS lugares do projeto (`api/run_portal.js`, `api/manage.js` — `COLUNISTAS_PHOTOS`, `PESQUISA_ELEITORAL` etc.) assumindo que existe. Meu teste manual do passo 3 "funcionou" só porque o `curl` com `Prefer: resolution=merge-duplicates` **sem** `on_conflict=key` explícito faz o PostgREST cair no default (provavelmente a PK real da tabela, um `id` uuid) — na prática apenas inserindo uma linha NOVA a cada vez, nunca de fato fazendo update na linha existente. Isso mascarou o bug real por horas.
+7. **PR #420 — FIX REAL**: `filtrarCandidatosProntos()` trocou `.upsert(...,{onConflict:"key"})` por um padrão **update-se-existir-a-linha, senão insert** — não depende de nenhuma constraint/`ON CONFLICT`, funciona com o schema real da tabela sem exigir nenhuma migração SQL manual do Roberto.
+8. **Verificação end-to-end, com evidência real, não suposição**: após deploy do PR #420, uma primeira chamada em produção gravou `SEEN_LINKS_INTERNACIONAL` com 15 links reais da BBC (`debug.upsertErr:null` confirmado) — uma segunda chamada logo em seguida (mesmos links, ainda dentro da janela de estabilidade do link do homepage) resultou em `{"generated":2,"candidates":15,...}` — **2 artigos reais publicados**. Confirmado por fim via `GET /api/portal-posts?recentes=true&categoria=internacional` que os 2 artigos ("Advogados de Mangione se Reúnem com Promotores Federais...", "Romênia Fecha Usina Nuclear Devido a Baixos Níveis do Rio Danúbio") estão no ar, com imagem, slug e URL reais.
+
+#### 🚨🚨🚨 Lição crítica — gravar para toda sessão futura
+
+```
+❌ NUNCA confiar em "um upsert manual com essas credenciais funcionou" como prova de que o
+   MESMO upsert funciona da mesma forma dentro do código de produção — a forma exata da
+   chamada importa. supabase-js .upsert(payload, {onConflict:"COLUNA"}) SÓ funciona se essa
+   coluna tiver uma constraint unique/PK real no banco Postgres. Sem ela, o Postgres rejeita
+   com "there is no unique or exclusion constraint matching the ON CONFLICT specification"
+   — um erro REAL, não um erro de rede/RLS/timeout. Um catch(_){} mudo engole esse erro sem
+   deixar rastro nenhum, fazendo o sintoma parecer "trava silenciosa" por horas.
+❌ Um teste manual via curl com Prefer:resolution=merge-duplicates SEM on_conflict= explícito
+   não é equivalente a um .upsert(payload,{onConflict:"coluna_X"}) do supabase-js — o
+   PostgREST usa alvos de conflito DIFERENTES nos dois casos (PK da tabela vs. coluna
+   explicitamente pedida). Um teste manual "bem sucedido" pode estar mascarando o bug real.
+❌ Ao investigar qualquer catch(_){} silencioso que pode estar escondendo um bug real,
+   SEMPRE trocar por captura + exposição do error.message de verdade (mesmo que temporário)
+   antes de continuar chutando hipóteses — foi isso que revelou a causa raiz aqui em 1
+   chamada, depois de várias rodadas de hipóteses descartadas (bloqueio de IP, RLS, etc.).
+❌ candidates:0 num gerador de conteúdo do pipeline pode ter MÚLTIPLAS causas raiz
+   completamente diferentes (fonte sem conteúdo vs. scraping bloqueado por IP vs. grace-period
+   gate quebrado) — sempre instrumentar o suficiente pra distinguir ANTES de aplicar qualquer
+   fix, não aplicar o primeiro fix que "faz sentido" sem confirmar qual causa é a real.
+```
+
+#### ⚠️ Ação pendente para a próxima sessão — mesmo bug pode afetar outros upserts do projeto
+
+`api/manage.js` tem pelo menos 2 outros upserts para a tabela `config` usando o mesmo padrão potencialmente quebrado:
+- `handleUpdatePesquisa()` (linha ~707): `supabase.from("config").upsert({key:"PESQUISA_ELEITORAL",...})` — **sem** `{onConflict:"key"}` explícito (usa o default do PostgREST, que provavelmente não é `key` — mesma classe de problema, mas sem o `onConflict` explícito o Postgres não erroria "no unique constraint", ele simplesmente criaria linhas duplicadas silenciosamente a cada rodada). Isso é uma explicação plausível e ainda não confirmada para o próprio bug documentado na sessão anterior ("Radar Eleitoral travado desde 07/08... 6 dias seguidos retornou sem_dados") — se há múltiplas linhas com `key='PESQUISA_ELEITORAL'`, um `.select().eq("key",...).maybeSingle()` subsequente lançaria erro (maybeSingle exige 0 ou 1 linha).
+- `COLUNISTAS_PHOTOS` (linha ~268): `{onConflict:"key"}` explícito — **mesmo bug exato desta sessão**, deve estar silenciosamente quebrado em produção também.
+
+**NÃO corrigido nesta sessão** — fora do escopo do card Internacional, mas registrado aqui para a próxima sessão investigar com o mesmo protocolo (expor `error.message`, nunca assumir). O fix real e definitivo de fundo seria Roberto rodar `ALTER TABLE config ADD CONSTRAINT config_key_unique UNIQUE (key);` no SQL Editor do Supabase (aplicaria retroativamente a TODOS os upserts do projeto que usam `{onConflict:"key"}`) — mas isso só é seguro depois de garantir que não existem linhas duplicadas já na tabela hoje (`SELECT key, count(*) FROM config GROUP BY key HAVING count(*) > 1;` primeiro). Não executado nesta sessão — decisão de Roberto, e ele precisa rodar a query de verificação de duplicatas antes.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — fix foi só em `api/run_portal.js`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (13/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real do card Internacional travado** — `.upsert(onConflict:"key")` sem constraint unique no banco | ✅ IDENTIFICADA E CORRIGIDA (PRs #418, #419, #420) |
+| **`filtrarCandidatosProntos()` — update-se-existir-senão-insert**, não depende de nenhuma migração SQL | ✅ EM PRODUÇÃO (PR #420, commit `afa0139`) |
+| **Verificado end-to-end**: 2 artigos reais gerados e publicados em `/internacional/` após o fix | ✅ CONFIRMADO via API pública, não suposição |
+| **Brasil ON e Jovem Pan Política** — mesmo fix, mesma função compartilhada, deve estar desbloqueado também | ⚠️ NÃO testado individualmente nesta sessão — mesma causa raiz, alta confiança, mas confirmar no próximo ciclo do cron |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** que o card Internacional na home está rotacionando com conteúdo novo (deve estar, confirmado via API, mas vale o "ver com os próprios olhos").
+2. **Confirmar Brasil ON e Jovem Pan Política** também retomaram geração — mesma causa raiz, mesmo fix, não testados individualmente nesta sessão.
+3. **Investigar `PESQUISA_ELEITORAL` e `COLUNISTAS_PHOTOS`** — suspeita forte (não confirmada) de sofrerem do mesmo problema de upsert. Ver seção "Ação pendente" acima.
+4. **Possível migração SQL futura** (só com autorização de Roberto e só depois de checar duplicatas): `ALTER TABLE config ADD CONSTRAINT config_key_unique UNIQUE (key);` — resolveria a causa raiz de fundo pra qualquer upsert futuro que use `{onConflict:"key"}`, mas o fix de código já aplicado nesta sessão não depende disso.
+5. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, card de Economia — Roberto mesmo) seguem válidas.
+
