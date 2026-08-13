@@ -1,4 +1,4 @@
-name: DIAG once - internacional candidates
+name: DIAG once - internacional round 2
 on:
   push:
     branches:
@@ -8,28 +8,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Test sitemap/reachability of candidate sites
+      - name: Inspect sitemaps and article link patterns
         run: |
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-          echo "=== Al Jazeera ==="
-          curl -s -o /dev/null -w "sitemap_index: %{http_code}\n" -A "$UA" "https://www.aljazeera.com/sitemap.xml"
-          curl -s -A "$UA" "https://www.aljazeera.com/news/" -o /tmp/aj.html -w "homepage: %{http_code} %{size_download} bytes\n"
-          grep -oE 'https://www.aljazeera.com/news/[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}/[a-z0-9-]+' /tmp/aj.html | sort -u | head -5
 
-          echo "=== Reuters ==="
-          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.reuters.com/arc/outboundfeeds/sitemap-index/?outputType=xml"
-          curl -s -A "$UA" "https://www.reuters.com/world/" -o /tmp/reu.html -w "homepage: %{http_code} %{size_download} bytes\n"
+          echo "=== Al Jazeera sitemap.xml content (first 800 chars) ==="
+          curl -s -A "$UA" "https://www.aljazeera.com/sitemap.xml" | head -c 800
+          echo ""
+          echo "=== Al Jazeera news homepage article links (loose pattern) ==="
+          curl -s -A "$UA" "https://www.aljazeera.com/news/" -o /tmp/aj.html
+          grep -oE 'href="/news/[0-9]{4}/[0-9]{1,2}/[0-9]{1,2}/[a-z0-9-]+"' /tmp/aj.html | sort -u | head -8
 
-          echo "=== DW (Deutsche Welle) ==="
-          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.dw.com/en/top-stories/s-9097/sitemap.xml"
-          curl -s -A "$UA" "https://www.dw.com/en/top-stories/world/s-1433" -o /tmp/dw.html -w "homepage: %{http_code} %{size_download} bytes\n"
-          grep -oE 'https://www.dw.com/en/[a-z0-9-]{15,}/a-[0-9]+' /tmp/dw.html | sort -u | head -5
+          echo ""
+          echo "=== Euronews sitemap articles.xml (first 1000 chars) ==="
+          curl -s -A "$UA" "https://www.euronews.com/sitemaps/en/articles.xml" | head -c 1000
+          echo ""
+          echo "=== Euronews homepage article links ==="
+          curl -s -A "$UA" "https://www.euronews.com/my-europe" -o /tmp/eu.html
+          grep -oE 'href="https://www.euronews.com/[a-z0-9/.-]{20,}"' /tmp/eu.html | sort -u | head -8
 
-          echo "=== Euronews ==="
-          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.euronews.com/sitemaps/en/articles.xml"
-          curl -s -A "$UA" "https://www.euronews.com/my-europe" -o /tmp/eu.html -w "homepage: %{http_code} %{size_download} bytes\n"
-
-          echo "=== France24 ==="
-          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.france24.com/en/sitemap.xml"
-          curl -s -A "$UA" "https://www.france24.com/en/" -o /tmp/f24.html -w "homepage: %{http_code} %{size_download} bytes\n"
-          grep -oE 'https://www.france24.com/en/[a-z0-9/-]{20,}' /tmp/f24.html | sort -u | head -5
+          echo ""
+          echo "=== DW retry with corrected URL ==="
+          curl -s -o /dev/null -w "dw.com/en/ homepage: %{http_code}\n" -A "$UA" -L "https://www.dw.com/en/"
+          curl -s -A "$UA" -L "https://www.dw.com/en/" -o /tmp/dw2.html -w "size: %{size_download} bytes\n"
+          grep -oE 'href="/en/[a-z0-9-]{10,}/a-[0-9]+"' /tmp/dw2.html | sort -u | head -8
