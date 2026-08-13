@@ -9,54 +9,33 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Query SEEN_LINKS_INTERNACIONAL from Supabase config
+      - name: Query all 3 SEEN_LINKS_* config rows from Supabase
         run: |
-          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_INTERNACIONAL&select=value,updated_at" \
+          for K in SEEN_LINKS_INTERNACIONAL SEEN_LINKS_BRASILON SEEN_LINKS_JOVEMPAN_POLITICA; do
+            echo "=== $K ==="
+            curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$K&select=key,value,updated_at" \
+              -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+              -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+              -o "seen_$K.json" -w "HTTP:%{http_code} BYTES:%{size_download}\n"
+            wc -c "seen_$K.json"
+            head -c 600 "seen_$K.json"
+            echo ""
+          done
+
+      - name: Try a manual upsert to SEEN_LINKS_INTERNACIONAL (does write actually work here?)
+        run: |
+          curl -s -X POST "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config" \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -o seen1.json -w "\nHTTP:%{http_code}\n"
-          echo "=== seen1.json (size + first 2000 chars) ==="
-          wc -c seen1.json
-          head -c 2000 seen1.json
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates,return=representation" \
+            -d '{"key":"DIAG_TEST_UPSERT","value":"{\"a\":1}","updated_at":"2026-08-13T23:00:00Z"}' \
+            -o upsert_result.json -w "HTTP:%{http_code}\n"
+          echo "=== upsert_result.json ==="
+          cat upsert_result.json
           echo ""
-          python3 << 'PYEOF'
-          import json, time
-          d = json.load(open('seen1.json'))
-          if d:
-              v = json.loads(d[0]['value'])
-              print('COUNT LINKS:', len(v))
-              now = time.time()*1000
-              ages = sorted([(now-ts)/60000 for ts in v.values()])
-              if ages:
-                  print('AGES (min) min/median/max:', ages[0], ages[len(ages)//2], ages[-1])
-          else:
-              print('NO CONFIG ROW FOUND')
-          PYEOF
-
-      - name: Fetch BBC homepage links now (sample)
-        run: |
-          curl -s "https://www.bbc.com/news/world" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" -o bbc1.html -w "HTTP:%{http_code} BYTES:%{size_download}\n"
-          python3 << 'PYEOF'
-          import re
-          html = open('bbc1.html', encoding='utf-8', errors='ignore').read()
-          links = sorted(set(re.findall(r'href="(/news/articles/[a-z0-9]+)"', html)))
-          print('BBC LINKS FOUND:', len(links))
-          for l in links[:10]:
-              print(' ', l)
-          PYEOF
-
-      - name: Wait 3 minutes
-        run: sleep 180
-
-      - name: Fetch BBC homepage links again (compare)
-        run: |
-          curl -s "https://www.bbc.com/news/world" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" -o bbc2.html -w "HTTP:%{http_code} BYTES:%{size_download}\n"
-          python3 << 'PYEOF'
-          import re
-          html1 = open('bbc1.html', encoding='utf-8', errors='ignore').read()
-          html2 = open('bbc2.html', encoding='utf-8', errors='ignore').read()
-          l1 = set(re.findall(r'href="(/news/articles/[a-z0-9]+)"', html1))
-          l2 = set(re.findall(r'href="(/news/articles/[a-z0-9]+)"', html2))
-          print('LINKS T0:', len(l1), 'LINKS T0+3min:', len(l2))
-          print('OVERLAP:', len(l1 & l2), 'NEW AT T0+3min:', len(l2 - l1), 'DROPPED:', len(l1 - l2))
-          PYEOF
+          echo "=== read back DIAG_TEST_UPSERT ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.DIAG_TEST_UPSERT&select=key,value" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          echo ""
