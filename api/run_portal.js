@@ -894,11 +894,23 @@ async function salvarBrasilOn(content, hash, img, fonte) {
   return { id: data.id, titulo: stripTitle(content.titulo) };
 }
 
+// Nomes de veículos/agências que NUNCA podem aparecer no corpo reescrito —
+// Roberto, 13/08/2026: "nao pode entrar materias ou se entrar, nao podemos
+// citar outros jornais ou jornalistas". Detecção por nome (não por domínio,
+// diferente de COMPETITOR_IMG_HOSTS em core/scraper.js, que é sobre imagem)
+// — pega tanto o veículo-fonte quanto agências de notícia que ele mesmo
+// costuma citar dentro da matéria (ex: artigo da BBC citando a Reuters).
+const VEICULO_CITADO_RE = /\bBacci(?:\s+Not[ií]cias)?\b|\bRevista\s+Oeste\b|\bJovem\s+Pan\b|\bBBC(?:\s+News)?\b|\bCNN\b|\bReuters\b|\bAFP\b|\bAssociated\s+Press\b|\bAP\s+News\b|\bAl\s+Jazeera\b|\bBloomberg\b|\bDeutsche\s+Welle\b|\bNew\s+York\s+Post\b|\bFolha\s+de\s+S[ãa]o\s+Paulo\b|\bO\s+Globo\b|\bG1\b|\bUOL\b|\bEstad[ãa]o\b|\bTerra\b|\bR7\b|\bSBT\b|\bBand\s+News\b|\bVeja\b|\bExame\b|\bCartaCapital\b|\bPoder360\b|\bGazeta\s+do\s+Povo\b|\bMetr[óo]poles\b|\bInfoMoney\b/i;
+
 // Validação leve para Brasil ON — NÃO reusa validar() (mínimo 2000 chars, 5
 // parágrafos, etc — pensado pra matéria longa padrão OVC). Conteúdo-fonte aqui
 // é tabloide/curto, frequentemente 2-3 frases (ex real de Roberto, 11/08/2026).
 // Checa só o essencial: estrutura presente, título numa faixa sadia, corpo em
 // HTML de verdade, sem markdown/metadados vazando, sem recusa da IA vazando.
+// 13/08/2026 — Roberto pediu 3 acréscimos, aplicados aos 3 canais que usam
+// esta função (Brasil ON, Jovem Pan Política, Internacional): cabeçalho com
+// assinatura "Redação OVC" + data, 10 hashtags ao final, e proibição total
+// de citar outro veículo/agência de imprensa no corpo (ver VEICULO_CITADO_RE).
 function validarBrasilOn(content) {
   const erros = [];
   if (!content?.titulo || !content?.corpo) return ["estrutura ausente"];
@@ -910,6 +922,9 @@ function validarBrasilOn(content) {
   if (/\*\*|^##|\n##|TITULO:|META_TITLE:|META_DESCRICAO:/m.test(corpo)) erros.push("markdown/metadados no corpo");
   if (!/<p\b/i.test(corpo)) erros.push("sem paragrafo html");
   if (/não foi possível|conteúdo insuficiente|não há informações suficientes|inconsistencia/i.test(texto)) erros.push("recusa vazou");
+  if (!/<p>\s*<strong>\s*Reda[çc][aã]o\s*OVC\s*<\/strong>/i.test(corpo)) erros.push("cabecalho Redacao OVC ausente");
+  if ((corpo.match(/#\p{L}+/gu) || []).length < 8) erros.push("menos de 10 hashtags");
+  if (VEICULO_CITADO_RE.test(texto)) erros.push("cita outro veiculo/jornalista no corpo");
   return erros;
 }
 
