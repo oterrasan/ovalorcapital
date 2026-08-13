@@ -59,18 +59,32 @@ const PRESS_AUTHOR_PATHS = [
   /\/team\//i, /\/staff\//i, /\/about\/people/i
 ];
 
-function isValidImage(url) {
+function isValidImage(url, allowCompetitorImage = false) {
   if (!url || url.length < 12) return false;
   if (BLOCKED_IMG.some(p => p.test(url))) return false;
   if (PRESS_AUTHOR_PATHS.some(p => p.test(url))) return false;
-  if (isCompetitorImage(url)) return false;
+  if (!allowCompetitorImage && isCompetitorImage(url)) return false;
   if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(url)) {
     if (/\.(svg|gif|ico|bmp|tiff)(\?|$)/i.test(url)) return false;
   }
   return true;
 }
 
-export async function scrape(url) {
+// allowCompetitorImage — 13/08/2026: por padrão false em TODA a pipeline
+// geral (RSS/materias/etc), porque ali imagem de domínio concorrente
+// (glbimg.com, jovempan.com.br, etc — ver COMPETITOR_IMG_HOSTS) não deve
+// ser reaproveitada como se fosse do OVC. Mas o fluxo Jovem Pan Política
+// (api/run_portal.js, autoJovempanPolitica) é estruturalmente igual ao
+// Brasil ON/Bacci: a IMAGEM DEVE SER SEMPRE a da própria fonte (Roberto,
+// 12/08/2026: "assim como no bacci"). Sem este parâmetro, isValidImage()
+// rejeitava 100% das imagens da Jovem Pan só por causa do domínio estar
+// na lista de concorrentes — causa raiz real de generated:0 com
+// candidates:15 (falhas.semImagem:7 confirmado ao vivo). Passar true
+// SOMENTE nos fluxos onde a fonte é single-purpose e aprovada por Roberto
+// para reaproveitar sua própria imagem (Jovem Pan Política, e qualquer
+// futuro canal no mesmo padrão) — nunca no caminho geral de matérias.
+export async function scrape(url, opts = {}) {
+  const { allowCompetitorImage = false } = opts;
   try {
     const res = await axios.get(url, {
       timeout: 7000,
@@ -95,7 +109,7 @@ export async function scrape(url) {
       $(".post-thumbnail img, .featured-image img, .entry-thumbnail img").first().attr("src"),
     ].map(s => normalizeUrl(s, url)).filter(Boolean);
 
-    const imageUrl = candidates.find(c => isValidImage(c)) || "";
+    const imageUrl = candidates.find(c => isValidImage(c, allowCompetitorImage)) || "";
 
     $('script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement, .related, .comments, .share, .social, [class*="banner"], [class*="popup"]').remove();
 

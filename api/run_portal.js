@@ -1027,7 +1027,13 @@ async function autoJovempanPolitica(req, res, rec) {
     if (pautaParecida(item.title || "", rec.sourceTitulos)) { falhas.pautaFonte++; continue; }
     let a, sourceText;
     try {
-      a = await scrape(item.link);
+      // allowCompetitorImage:true — 13/08/2026: causa raiz real de
+      // generated:0 com candidates:15 (falhas.semImagem:7 confirmado ao
+      // vivo). core/scraper.js bloqueia jovempan.com.br por padrão como
+      // domínio concorrente (correto na pipeline geral), mas aqui a
+      // imagem DEVE ser sempre a da própria Jovem Pan — mesma estrutura
+      // do Bacci/Brasil ON. Ver comentário completo em core/scraper.js.
+      a = await scrape(item.link, { allowCompetitorImage: true });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 100) { falhas.textoCurto++; continue; }
       // Roberto, 12/08/2026: "ATENCAO PARA PROMOCOES, PROPAGANDAS, ANUNCIOS,
