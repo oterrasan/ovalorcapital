@@ -592,6 +592,7 @@ REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
 - Nunca invente nome, data, valor, cargo, local ou fato que não está no texto-fonte.
 - Quando a fonte atribuir a informação a alguém ou a algum órgão, mantenha a atribuição ("segundo", "de acordo com").
 - Nunca mencione o nome do site de origem no corpo do texto.
+- Nunca mencione nome de jornalista, repórter, apresentador, colunista, âncora ou qualquer outro veículo de imprensa/agência de notícia — mesmo que a fonte cite terceiros (ex: a fonte cita "segundo a Reuters"), reescreva o fato em si, sem repetir esse nome.
 - HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
 
 FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
@@ -600,7 +601,9 @@ META_TITLE: [até 55 caracteres]
 SLUG: [url-com-hifens]
 META_DESCRICAO: [120–160 caracteres]
 CORPO:
-[HTML puro — <p> por parágrafo]`;
+[Primeiro parágrafo OBRIGATÓRIO: <p><strong>Redação OVC</strong> · {data de hoje informada acima}</p>
+Depois, o restante do corpo em HTML puro — <p> por parágrafo.
+Último parágrafo OBRIGATÓRIO: exatamente 10 hashtags relevantes ao tema da matéria, separadas por espaço, dentro de um único <p> (ex: <p>#Brasil #Política #Economia ...</p>)]`;
 
 export async function rewriteBrasilOn(text, title, context = '') {
   // maxTokens 3072 (não 2048) — confirmado 11/08/2026 com exemplo real de Roberto
@@ -632,6 +635,7 @@ REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
 - Nunca invente nome, data, valor, cargo, local ou fato que não está no texto-fonte.
 - Quando a fonte atribuir a informação a alguém ou a algum órgão, mantenha a atribuição ("segundo", "de acordo com").
 - Nunca mencione o nome do site de origem no corpo do texto.
+- Nunca mencione nome de jornalista, repórter, apresentador, colunista, âncora ou qualquer outro veículo de imprensa/agência de notícia — mesmo que a fonte cite terceiros (ex: a fonte cita "segundo a Reuters"), reescreva o fato em si, sem repetir esse nome.
 - HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
 
 FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
@@ -640,7 +644,9 @@ META_TITLE: [até 55 caracteres]
 SLUG: [url-com-hifens]
 META_DESCRICAO: [120–160 caracteres]
 CORPO:
-[HTML puro — <p> por parágrafo]`;
+[Primeiro parágrafo OBRIGATÓRIO: <p><strong>Redação OVC</strong> · {data de hoje informada acima}</p>
+Depois, o restante do corpo em HTML puro — <p> por parágrafo.
+Último parágrafo OBRIGATÓRIO: exatamente 10 hashtags relevantes ao tema da matéria, separadas por espaço, dentro de um único <p> (ex: <p>#Brasil #Política #STF ...</p>)]`;
 
 export async function rewriteJovempanPolitica(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
@@ -675,6 +681,7 @@ REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
 - Nunca invente nome, data, valor, cargo, local ou fato que não está no texto-fonte.
 - Quando a fonte atribuir a informação a alguém ou a algum órgão, mantenha a atribuição ("segundo", "de acordo com").
 - Nunca mencione o nome do veículo de origem (BBC, CNN, etc) no corpo do texto — apenas o fato em si.
+- Nunca mencione nome de jornalista, repórter, apresentador, colunista, âncora ou qualquer outro veículo de imprensa/agência de notícia — inclusive se a fonte citar terceiros (ex: a matéria da BBC cita "segundo a Reuters" ou "segundo a AFP"), reescreva o fato em si, sem repetir esse nome.
 - HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
 
 FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
@@ -683,7 +690,9 @@ META_TITLE: [até 55 caracteres]
 SLUG: [url-com-hifens]
 META_DESCRICAO: [120–160 caracteres]
 CORPO:
-[HTML puro — <p> por parágrafo]`;
+[Primeiro parágrafo OBRIGATÓRIO: <p><strong>Redação OVC</strong> · {data de hoje informada acima}</p>
+Depois, o restante do corpo em HTML puro — <p> por parágrafo.
+Último parágrafo OBRIGATÓRIO: exatamente 10 hashtags relevantes ao tema da matéria, separadas por espaço, dentro de um único <p> (ex: <p>#Mundo #Internacional #EUA ...</p>)]`;
 
 export async function rewriteInternacional(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
