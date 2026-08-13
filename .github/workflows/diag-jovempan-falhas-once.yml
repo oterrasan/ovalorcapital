@@ -1,4 +1,4 @@
-name: DIAG once - jovempan falhas 2
+name: DIAG once - jovempan falhas 3
 on:
   push:
     branches:
@@ -8,9 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Trigger jovempan_politica and print falhas
+      - name: Verify saved posts via public API
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
-          echo "FULL_RESPONSE: $RESP"
+          RESP=$(curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=politica&limit=8")
+          echo "POLITICA_RECENTES: $RESP" | head -c 4000
