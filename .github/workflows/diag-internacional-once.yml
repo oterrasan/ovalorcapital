@@ -1,4 +1,4 @@
-name: DIAG once - internacional images
+name: DIAG once - BBC CNN Bloomberg
 on:
   push:
     branches:
@@ -8,43 +8,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup python
-        run: pip install --quiet Pillow requests
-      - name: Download and sample images from AJ + DW articles
+      - name: Test BBC, CNN, Bloomberg reachability + article links
         run: |
-          python3 << 'PYEOF'
-          import requests, re, base64, io
-          from PIL import Image
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-          headers = {"User-Agent": UA}
+          echo "=== BBC News ==="
+          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.bbc.com/sitemap.xml"
+          curl -s -A "$UA" "https://www.bbc.com/news" -o /tmp/bbc.html -w "homepage: %{http_code} %{size_download} bytes\n"
+          grep -oE 'href="/news/articles/[a-z0-9]+"' /tmp/bbc.html | sort -u | head -6
+          grep -oE 'href="/news/world[a-z0-9/-]*-[0-9]{6,}"' /tmp/bbc.html | sort -u | head -6
 
-          articles = {
-            "ALJAZEERA": "https://www.aljazeera.com/news/2026/8/12/brazil-orders-discord-to-suspend-livestreams-after-teens-death",
-            "DW": "https://www.dw.com/en/brazil-orders-discord-to-halt-livestreaming-after-teen-death/a-78343328",
-          }
+          echo ""
+          echo "=== CNN International ==="
+          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.cnn.com/sitemap.xml"
+          curl -s -A "$UA" "https://www.cnn.com/world" -o /tmp/cnn.html -w "homepage: %{http_code} %{size_download} bytes\n"
+          grep -oE 'href="/2026/[0-9]{2}/[0-9]{2}/[a-z-]+/[a-z0-9.-]+/index.html"' /tmp/cnn.html | sort -u | head -6
 
-          for tag, url in articles.items():
-              try:
-                  r = requests.get(url, headers=headers, timeout=15)
-                  m = re.search(r'<meta[^>]+property="og:image"[^>]+content="([^"]+)"', r.text)
-                  if not m:
-                      m = re.search(r'<meta[^>]+content="([^"]+)"[^>]+property="og:image"', r.text)
-                  if not m:
-                      print(f"{tag}: NO og:image found, html len={len(r.text)}")
-                      continue
-                  img_url = m.group(1)
-                  print(f"{tag}: og:image = {img_url}")
-                  ir = requests.get(img_url, headers=headers, timeout=15)
-                  img = Image.open(io.BytesIO(ir.content)).convert("RGB")
-                  img.thumbnail((460, 460))
-                  buf = io.BytesIO()
-                  img.save(buf, format="JPEG", quality=62)
-                  b64 = base64.b64encode(buf.getvalue()).decode()
-                  print(f"{tag}_B64_LEN: {len(b64)}")
-                  for i in range(0, len(b64), 1200):
-                      print(f"{tag}_C{i//1200:04d}: {b64[i:i+1200]}")
-              except Exception as e:
-                  print(f"{tag}: ERROR {e}")
-          PYEOF
+          echo ""
+          echo "=== Bloomberg ==="
+          curl -s -o /dev/null -w "sitemap: %{http_code}\n" -A "$UA" "https://www.bloomberg.com/feeds/sitemap_news.xml"
+          curl -s -A "$UA" "https://www.bloomberg.com/world" -o /tmp/bb.html -w "homepage: %{http_code} %{size_download} bytes\n"
+          grep -oE 'href="/news/articles/2026-[0-9]{2}-[0-9]{2}/[a-z0-9-]+"' /tmp/bb.html | sort -u | head -6
