@@ -1017,38 +1017,44 @@ async function autoJovempanPolitica(req, res, rec) {
   }
   let generated = 0;
   const geradosAgora = [];
+  // Debug de descarte — 12/08/2026: 1ª rodada real deu candidates:15,
+  // generated:0, sem nenhum log visível de qual barreira derrubou tudo.
+  // Mesmo padrão de diagnóstico já usado em autoOutrosEsportesCurtinhas()
+  // (campo "falhas") — ajuda a próxima sessão a não ter que adivinhar de novo.
+  const falhas = { pautaFonte: 0, scrapeErro: 0, textoCurto: 0, promo: 0, anuncioPrograma: 0, hashDup: 0, rewriteErro: 0, validacao: 0, pautaTitulo: 0, semImagem: 0 };
   for (const item of items) {
     if (Date.now() - start > 50000 || generated >= count) break;
-    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) { falhas.pautaFonte++; continue; }
     let a, sourceText;
     try {
       a = await scrape(item.link);
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 100) continue;
+      if (sourceText.length < 100) { falhas.textoCurto++; continue; }
       // Roberto, 12/08/2026: "ATENCAO PARA PROMOCOES, PROPAGANDAS, ANUNCIOS,
       // ETC" — segunda barreira contra publieditorial disfarçado de matéria
       // (a primeira é o filtro de URL em core/jovempanpolitica.js).
-      if (pareceConteudoPromocional(item.title || a.title || "", sourceText)) continue;
+      if (pareceConteudoPromocional(item.title || a.title || "", sourceText)) { falhas.promo++; continue; }
       // Jovem Pan é emissora de rádio/TV — mesmo risco de autopromoção de
       // programa já achado e corrigido na Bacci (Bug real 08/08/2026, ver
       // core/brasilon.js). Reaproveita o mesmo filtro por segurança.
-      if (pareceAnuncioDePrograma(item.title || a.title || "", sourceText)) continue;
-    } catch (_) { continue; }
+      if (pareceAnuncioDePrograma(item.title || a.title || "", sourceText)) { falhas.anuncioPrograma++; continue; }
+    } catch (_) { falhas.scrapeErro++; continue; }
     const hash = crypto.createHash("md5").update(item.link + "_jovempan_politica").digest("hex");
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) continue;
+    if (dup) { falhas.hashDup++; continue; }
     try {
       const content = await rewriteJovempanPolitica(sourceText, item.title || a.title || "", rec.contexto);
       content.categoria = "politica";
       content.subcategoria = "Política";
       const erros = validarBrasilOn(content);
-      if (erros.length) continue;
-      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
+      if (erros.length) { falhas.validacao++; continue; }
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { falhas.pautaTitulo++; continue; }
       const sourceImage = a.image || "";
       const img = sourceImage
         ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true })
         : null;
       if (!img) {
+        falhas.semImagem++;
         await log("info", `[jovempan_politica] SKIP sem imagem — ${item.source}: ${content.titulo?.slice(0, 50)} | sourceImage:${sourceImage || "(vazio)"}`);
         continue;
       }
@@ -1057,9 +1063,9 @@ async function autoJovempanPolitica(req, res, rec) {
       await log("info", `[jovempan_politica] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
       geradosAgora.push(content.titulo);
       generated++;
-    } catch (_) { continue; }
+    } catch (_) { falhas.rewriteErro++; continue; }
   }
-  return res.status(200).json({ status: "ok", generated, tipo: "jovempan_politica", candidates: items.length });
+  return res.status(200).json({ status: "ok", generated, tipo: "jovempan_politica", candidates: items.length, falhas });
 }
 
 export default async function handler(req, res) {
