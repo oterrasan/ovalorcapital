@@ -5842,3 +5842,23 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Confirmar fix do Radar Eleitoral funcionando** — ver protocolo de verificação acima.
 3. **Ranking gigante de políticos** — projeto futuro, aguardando Roberto retomar explicitamente. NÃO iniciar sozinho.
 4. Demais pendências de sessões anteriores (qualidade editorial Jovem Pan Política, card de Economia — Roberto mesmo, próxima categoria no molde Bacci, foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 13/08/2026 (continuação) — QUOTA VERCEL LIBEROU (parcial) + deploy.yml SEM workflow_dispatch
+
+#### Contexto
+
+Checagem agendada de acompanhamento da quota do Vercel Hobby (100 deploys/dia, rolling 24h). Protocolo: branch de teste a partir de origin/main, PR trivial, observar comentário do Vercel bot.
+
+#### Resultado
+
+- PR de teste (#414): os 3 projetos passaram de "Resource is limited" para **Building → Ready** sem erro de quota — incluindo `ovalorcapital-xuhw` (produção). PR fechado sem merge logo em seguida.
+- **Descoberta importante:** `deploy.yml` (o workflow real que faz `vercel deploy --prod` para `ovalorcapital-xuhw`) só tem trigger `on: push: branches: [main]` — **não tem `workflow_dispatch`**. Não é possível disparar manualmente via Actions UI/API sem um push real.
+- Tentativa de re-executar o último run falho (`31668664024`, commit `ecd7c7de`, falhou 04:57 UTC) via API retornou `403 Resource not accessible by integration` — a integração usada por esta sessão não tem permissão de re-run em Actions.
+- **Conclusão:** a única forma confiável de confirmar que o deploy real de produção passa é um push de verdade em `main` (PR + merge) e checar o `deploy.yml` resultante — não dá pra inferir só pelos previews do Vercel bot em PRs (esses usam a integração GitHub App do Vercel, que aparentemente libera de forma independente/mais cedo que a quota vista pelo `vercel deploy` via CLI no `deploy.yml`).
+
+#### 🔧 Anotação para a próxima sessão
+
+Se Roberto perguntar de novo "já liberou?": não basta abrir um PR de teste e ver os previews ficarem "Ready" — isso não prova que `deploy.yml` (produção real) vai passar. É preciso mergear algo real (ou pelo menos deixar essa PR de teste seguir até o merge) e conferir o run do `deploy.yml` em `actions_list` (branch=main, resource_id=deploy.yml) com `conclusion:success` para o commit mais recente.
+
