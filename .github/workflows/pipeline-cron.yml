@@ -62,6 +62,18 @@ jobs:
             -d '{"tipo":"brasilon","force":true,"count":3}')
           echo "BRASIL_ON: $RESP" | head -c 500
 
+  jovempan_politica:
+    name: Jovem Pan Política (mesma estrutura do Brasil ON/Bacci)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Gerar conteúdo Jovem Pan Política
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"jovempan_politica","force":true,"count":3}')
+          echo "JOVEMPAN_POLITICA: $RESP" | head -c 500
+
   materias:
     name: Matéria 07h–00h30 BRT
     runs-on: ubuntu-latest
