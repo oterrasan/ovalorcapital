@@ -7,54 +7,28 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Test direitabrasilnews.com (site 4, nao testado antes por timeout)
-        continue-on-error: true
+      - name: Probe 6 sites pedidos por Roberto — reachability + sitemap + robots
         run: |
-          base="https://direitabrasilnews.com"
-          code=$(curl -sL -o /tmp/home.html -w "%{http_code}" -m 10 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" "$base/" || echo "TIMEOUT")
-          bytes=$(wc -c < /tmp/home.html 2>/dev/null || echo 0)
-          echo "homepage HTTP:$code bytes:$bytes"
-          grep -qi "cf-browser-verification\|Attention Required\|Cloudflare Ray ID\|Just a moment" /tmp/home.html 2>/dev/null && echo "!!! CLOUDFLARE DETECTED !!!"
-          scode=$(curl -sL -o /tmp/sm.xml -w "%{http_code}" -m 10 -A "Mozilla/5.0" "$base/sitemap_index.xml" || echo "TIMEOUT")
-          sbytes=$(wc -c < /tmp/sm.xml 2>/dev/null || echo 0)
-          echo "sitemap_index.xml HTTP:$scode bytes:$sbytes"
-          [ "$sbytes" -gt 100 ] 2>/dev/null && grep -oE '<loc>[^<]*</loc>' /tmp/sm.xml | head -5
-
-      - name: Conexao Politica — pegar artigo real recente + extrair og:image
+          sites=(
+            "https://www.jota.info"
+            "https://www.poder360.com.br"
+            "https://ranking.org.br"
+            "https://www.cartacapital.com.br"
+            "https://www.brasildefato.com.br"
+            "https://www.camara.leg.br"
+          )
+          for base in "${sites[@]}"; do
+            echo "=========================================="
+            echo "=== $base ==="
+            code=$(curl -sL -o /tmp/home.html -w "%{http_code}" -m 10 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" "$base/" 2>/dev/null || echo "TIMEOUT")
+            bytes=$(wc -c < /tmp/home.html 2>/dev/null || echo 0)
+            echo "homepage HTTP:$code bytes:$bytes"
+            grep -qi "cf-browser-verification\|Attention Required\|Cloudflare Ray ID\|Just a moment" /tmp/home.html 2>/dev/null && echo "!!! CLOUDFLARE DETECTED !!!"
+            grep -oE '<title>[^<]*</title>' /tmp/home.html 2>/dev/null | head -1
+            scode=$(curl -sL -o /tmp/sm.xml -w "%{http_code}" -m 10 -A "Mozilla/5.0" "$base/sitemap_index.xml" 2>/dev/null || echo "TIMEOUT")
+            sbytes=$(wc -c < /tmp/sm.xml 2>/dev/null || echo 0)
+            echo "sitemap_index.xml HTTP:$scode bytes:$sbytes"
+            [ "$sbytes" -gt 100 ] 2>/dev/null && grep -oE '<loc>[^<]*</loc>' /tmp/sm.xml | head -5
+            echo
+          done
         continue-on-error: true
-        run: |
-          curl -sL -m 10 -A "Mozilla/5.0" "https://www.conexaopolitica.com.br/wp-sitemap-posts-post-8.xml" -o /tmp/lastchunk.xml
-          echo "bytes chunk 8: $(wc -c < /tmp/lastchunk.xml)"
-          # pega a ultima URL do chunk (mais recente, assumindo WP anexa no fim)
-          url=$(grep -oE '<loc>[^<]*</loc>' /tmp/lastchunk.xml | tail -1 | sed 's/<[^>]*>//g')
-          echo "ARTIGO_ESCOLHIDO: $url"
-          curl -sL -m 10 -A "Mozilla/5.0" "$url" -o /tmp/art.html
-          echo "bytes artigo: $(wc -c < /tmp/art.html)"
-          echo "--- og:image ---"
-          grep -oE '<meta property="og:image"[^>]*content="[^"]*"' /tmp/art.html | head -3
-          echo "--- title ---"
-          grep -oE '<title>[^<]*</title>' /tmp/art.html | head -1
-
-      - name: Baixar e converter og:image para base64 (chunked)
-        continue-on-error: true
-        run: |
-          imgurl=$(grep -oE '<meta property="og:image"[^>]*content="[^"]*"' /tmp/art.html | head -1 | grep -oE 'content="[^"]*"' | sed 's/content="//;s/"$//')
-          echo "IMG_URL: $imgurl"
-          curl -sL -m 15 -A "Mozilla/5.0" "$imgurl" -o /tmp/img.jpg
-          bytes=$(wc -c < /tmp/img.jpg)
-          echo "img bytes: $bytes"
-          if [ "$bytes" -gt 0 ] && [ "$bytes" -lt 400000 ]; then
-            base64 -w 0 /tmp/img.jpg > /tmp/img.b64
-            total=$(wc -c < /tmp/img.b64)
-            echo "b64 total chars: $total"
-            i=0
-            n=0
-            while [ $i -lt $total ]; do
-              chunk=$(dd if=/tmp/img.b64 bs=1 skip=$i count=1200 2>/dev/null)
-              printf "C%04d:%s\n" "$n" "$chunk"
-              i=$((i+1200))
-              n=$((n+1))
-            done
-          else
-            echo "imagem grande demais ou vazia, pulando b64 (bytes=$bytes)"
-          fi
