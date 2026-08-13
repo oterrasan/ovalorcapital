@@ -987,7 +987,7 @@ async function autoBrasilOn(req, res, rec) {
   const prontos = await filtrarCandidatosProntos("BRASILON", brutos.map(i => i.link));
   const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news" });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news", brutosLen: brutos.length, prontosLen: prontos.size });
   }
   let generated = 0;
   const geradosAgora = [];
@@ -1082,7 +1082,7 @@ async function autoJovempanPolitica(req, res, rec) {
   const prontos = await filtrarCandidatosProntos("JOVEMPAN_POLITICA", brutos.map(i => i.link));
   const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "jovempan_politica", candidates: 0, info: "no_jovempan_politica_news" });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "jovempan_politica", candidates: 0, info: "no_jovempan_politica_news", brutosLen: brutos.length, prontosLen: prontos.size });
   }
   let generated = 0;
   const geradosAgora = [];
@@ -1175,7 +1175,11 @@ async function autoInternacional(req, res, rec) {
   const prontos = await filtrarCandidatosProntos("INTERNACIONAL", brutos.map(i => i.link));
   const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "internacional", candidates: 0, info: "no_internacional_news" });
+    // 13/08/2026 — diagnóstico temporário: brutosLen distingue "scraping BBC/CNN
+    // não achou nada a partir do IP da Vercel" (brutosLen:0) de "grace-period
+    // gate nunca marca nada como pronto" (brutosLen>0, prontosLen:0) — candidates:0
+    // sozinho não permitia diferenciar essas duas causas radicalmente diferentes.
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "internacional", candidates: 0, info: "no_internacional_news", brutosLen: brutos.length, prontosLen: prontos.size });
   }
   let generated = 0;
   const geradosAgora = [];
