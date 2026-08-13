@@ -599,6 +599,30 @@ async function handleBanners(req, res) {
 }
 
 // ── Pesquisa Eleitoral — GET: busca artigos recentes, extrai via OpenAI, salva ──
+// Busca RSS do Google News com dados de pesquisa eleitoral — fonte mais
+// confiável que os artigos próprios do OVC pra números CONCRETOS e recentes.
+async function _buscarGoogleNewsPesquisa() {
+  const fonteUrl = "https://news.google.com/rss/search?q=pesquisa+eleitoral+2026+presidente+Datafolha+Quaest&hl=pt-BR&gl=BR&ceid=BR:pt-419";
+  try {
+    const feedRes = await fetch(fonteUrl, { signal: AbortSignal.timeout(5000) });
+    const feedText = await feedRes.text();
+    const items = [...feedText.matchAll(/<item>[\s\S]*?<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>[\s\S]*?<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/g)];
+    if (!items.length) return "";
+    return items.slice(0, 5).map(m => `TÍTULO: ${m[1]}\nRESUMO: ${m[2].replace(/<[^>]+>/g,'').slice(0,400)}`).join("\n\n---\n\n");
+  } catch(_) { return ""; }
+}
+
+// 13/08/2026 — Roberto: "o grafico com os dados nem se mexe, desde maio".
+// Causa raiz real (confirmada nos logs do workflow update-polls.yml,
+// runs 07-12/08): a query OR usa keywords amplas demais (%eleit% casa com
+// QUALQUER artigo sobre eleição, não só pesquisa) — sempre achava algum
+// artigo do próprio pipeline (que gera até 80/dia) e por isso NUNCA caía
+// no fallback do Google News (só disparava com artigos.length===0). A IA
+// então corretamente dizia "sem_dados" porque os artigos achados não
+// tinham percentual concreto — mas o fallback mais confiável nunca era
+// tentado. Fix: tenta banco próprio primeiro; se vier "sem_dados",
+// tenta o Google News como segunda chance na MESMA chamada, em vez de só
+// pular o fallback quando a busca no banco retorna zero resultados.
 async function handleUpdatePesquisa(req, res) {
   const pass = String(req.query.pass || "");
   if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
@@ -619,32 +643,33 @@ async function handleUpdatePesquisa(req, res) {
       .order("published_at", { ascending: false })
       .limit(10);
 
-    if (!artigos || artigos.length === 0) {
-      // Sem artigos sobre pesquisas — forçar scrape direto de fonte confiável
-      const fonteUrl = "https://news.google.com/rss/search?q=pesquisa+eleitoral+2026+presidente+Datafolha+Quaest&hl=pt-BR&gl=BR&ceid=BR:pt-419";
-      try {
-        const feedRes = await fetch(fonteUrl, { signal: AbortSignal.timeout(5000) });
-        const feedText = await feedRes.text();
-        const items = [...feedText.matchAll(/<item>[\s\S]*?<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>[\s\S]*?<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/g)];
-        if (items.length > 0) {
-          const textoFeed = items.slice(0, 5).map(m => `TÍTULO: ${m[1]}\nRESUMO: ${m[2].replace(/<[^>]+>/g,'').slice(0,400)}`).join("\n\n---\n\n");
-          return await _extrairEsalvar(textoFeed, OPENAI_KEY, res);
-        }
-      } catch(_) {}
-      return res.status(200).json({ ok: false, reason: "no_poll_articles_found" });
+    // Tentativa 1: artigos próprios do OVC (se houver)
+    if (artigos && artigos.length > 0) {
+      const textos = artigos.map(a =>
+        `TÍTULO: ${a.titulo}\nCONTEÚDO: ${(a.conteudo || '').replace(/<[^>]+>/g, '').slice(0, 800)}`
+      ).join("\n\n---\n\n");
+      const r1 = await _extrair(textos, OPENAI_KEY);
+      if (r1.ok) return await _salvarPesquisa(r1.payload, res);
+      // "sem_dados" no banco próprio — NÃO desistir, tenta a fonte externa abaixo
     }
 
-    const textos = artigos.map(a =>
-      `TÍTULO: ${a.titulo}\nCONTEÚDO: ${(a.conteudo || '').replace(/<[^>]+>/g, '').slice(0, 800)}`
-    ).join("\n\n---\n\n");
+    // Tentativa 2 (sempre, se a 1ª não deu resultado concreto): Google News RSS
+    const textoFeed = await _buscarGoogleNewsPesquisa();
+    if (textoFeed) {
+      const r2 = await _extrair(textoFeed, OPENAI_KEY);
+      if (r2.ok) return await _salvarPesquisa(r2.payload, res);
+      return res.status(200).json({ ok: false, reason: r2.reason });
+    }
 
-    return await _extrairEsalvar(textos, OPENAI_KEY, res);
+    return res.status(200).json({ ok: false, reason: artigos?.length ? "sem_dados" : "no_poll_articles_found" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
 }
 
-async function _extrairEsalvar(textos, OPENAI_KEY, res) {
+// Chama a IA e faz só a extração/parse — sem gravar no banco (permite
+// tentar duas fontes na mesma requisição antes de decidir salvar).
+async function _extrair(textos, OPENAI_KEY) {
   const prompt = `Analise estes artigos sobre pesquisas eleitorais brasileiras para presidente 2026 e extraia os números de intenção de voto mais recentes.
 
 ${textos}
@@ -669,14 +694,17 @@ Regras:
   const aiJson = await aiRes.json();
   const raw = aiJson.choices?.[0]?.message?.content?.trim() || "";
   const match = raw.match(/\{[\s\S]+\}/);
-  if (!match) return res.status(200).json({ ok: false, reason: "ai_no_json", raw });
+  if (!match) return { ok: false, reason: "ai_no_json" };
 
-  const extraido = JSON.parse(match[0]);
-  if (extraido.erro) return res.status(200).json({ ok: false, reason: extraido.erro });
+  let extraido;
+  try { extraido = JSON.parse(match[0]); } catch (_) { return { ok: false, reason: "ai_json_invalido" }; }
+  if (extraido.erro) return { ok: false, reason: extraido.erro };
 
-  const payload = { ...extraido, atualizado: new Date().toISOString() };
+  return { ok: true, payload: { ...extraido, atualizado: new Date().toISOString() } };
+}
+
+async function _salvarPesquisa(payload, res) {
   await supabase.from("config").upsert({ key: "PESQUISA_ELEITORAL", value: JSON.stringify(payload) });
-
   return res.status(200).json({ ok: true, pesquisa: payload });
 }
 
