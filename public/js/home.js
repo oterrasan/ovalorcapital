@@ -80,7 +80,13 @@
   function carregarCardHero(cache, offset) {
     try {
       let pool = [];
-      for (const cat of ['politica','economia']) {
+      // Card de destaque (o mais importante do portal) — SOMENTE política.
+      // Antes misturava política+economia; Roberto, 12/08/2026: "o primeiro
+      // card deve receber SÓ POLITICA. Economia vamos alocar em outro card."
+      // id do elemento (card-hero-politica-economia) mantido por ora — é só
+      // um identificador de DOM, renomear exigiria tocar em public/index.html
+      // sem necessidade (Regra Zero-E: cuidado extra nesse arquivo).
+      for (const cat of ['politica']) {
         (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => pool.push(p));
       }
       // Preferência: conteúdo das últimas 24h. Fallback: o mais recente publicado (nunca vazio)
