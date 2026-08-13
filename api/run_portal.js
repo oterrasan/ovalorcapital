@@ -928,13 +928,64 @@ function validarBrasilOn(content) {
   return erros;
 }
 
+// Grace period entre "primeira vez que a matéria aparece na listagem da fonte" e
+// "scrape+publicação" — 13/08/2026, Roberto: "a reescrita deve ser da materia
+// completa, COMPLETA e sempre COMPLETA". Root cause real de matérias raspadas
+// incompletas (ex: Flávio Bolsonaro/Missão em 13/08, Jovem Pan Política): notícia
+// em desenvolvimento é raspada no exato instante em que aparece na seção da fonte,
+// antes dela terminar de atualizar com apuração/declarações/resposta oficial.
+// Como Brasil ON/Jovem Pan Política/Internacional rodam a cada ~15min (ver
+// pipeline-cron.yml), a solução mais simples e robusta é: só publicar um link na
+// SEGUNDA vez que ele aparecer entre os candidatos (ou seja, pelo menos ~15min já
+// se passaram desde a 1ª vez que foi visto) — dá tempo real da fonte terminar a
+// matéria antes da gente raspar. Guarda o "primeiro visto" na tabela config
+// (JSON {link: timestampMs}), uma chave por canal — nunca compartilhada entre eles.
+// Entradas com mais de 24h são podadas a cada chamada (nunca crescem sem limite).
+async function filtrarCandidatosProntos(canalKey, links) {
+  const cfgKey = `SEEN_LINKS_${canalKey}`;
+  let mapa = {};
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", cfgKey).maybeSingle();
+    if (data?.value) mapa = JSON.parse(data.value) || {};
+  } catch (_) { mapa = {}; }
+
+  const agora = Date.now();
+  const UM_DIA = 24 * 60 * 60 * 1000;
+  const prontos = new Set();
+  let mudou = false;
+
+  for (const link of links) {
+    if (!link) continue;
+    if (!mapa[link]) {
+      mapa[link] = agora;
+      mudou = true;
+    } else {
+      prontos.add(link);
+    }
+  }
+
+  for (const link of Object.keys(mapa)) {
+    if (agora - mapa[link] > UM_DIA) { delete mapa[link]; mudou = true; }
+  }
+
+  if (mudou) {
+    try {
+      await supabase.from("config").upsert({ key: cfgKey, value: JSON.stringify(mapa), updated_at: new Date().toISOString() }, { onConflict: "key" });
+    } catch (_) {}
+  }
+
+  return prontos;
+}
+
 async function autoBrasilOn(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
   const candidatos = await buscarCandidatosBrasilOn();
   const seen = new Set();
-  const items = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+  const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+  const prontos = await filtrarCandidatosProntos("BRASILON", brutos.map(i => i.link));
+  const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
     return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news" });
   }
@@ -1027,7 +1078,9 @@ async function autoJovempanPolitica(req, res, rec) {
   const count = Math.min(parseInt(body.count) || 2, 4);
   const candidatos = await buscarCandidatosJovempanPolitica();
   const seen = new Set();
-  const items = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+  const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+  const prontos = await filtrarCandidatosProntos("JOVEMPAN_POLITICA", brutos.map(i => i.link));
+  const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
     return res.status(200).json({ status: "ok", generated: 0, tipo: "jovempan_politica", candidates: 0, info: "no_jovempan_politica_news" });
   }
@@ -1118,7 +1171,9 @@ async function autoInternacional(req, res, rec) {
   const count = Math.min(parseInt(body.count) || 2, 4);
   const candidatos = await buscarCandidatosInternacional();
   const seen = new Set();
-  const items = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
+  const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
+  const prontos = await filtrarCandidatosProntos("INTERNACIONAL", brutos.map(i => i.link));
+  const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
     return res.status(200).json({ status: "ok", generated: 0, tipo: "internacional", candidates: 0, info: "no_internacional_news" });
   }

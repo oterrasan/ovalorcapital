@@ -113,23 +113,31 @@ export async function scrape(url, opts = {}) {
 
     $('script, style, nav, footer, header, aside, .sidebar, .menu, .ad, .advertisement, .related, .comments, .share, .social, [class*="banner"], [class*="popup"]').remove();
 
-    // Tentativa 1: seletores semânticos de artigo
-    let textParts = $('article p, [class*="content"] p, [class*="article"] p, [class*="corpo"] p, [class*="materia"] p, [itemprop="articleBody"] p, .entry-content p, main p, #content p, p')
+    // Tentativa 1: seletores semânticos de artigo — 13/08/2026 (Roberto: "a reescrita
+    // deve ser da materia completa, COMPLETA e sempre COMPLETA"): inclui blockquote
+    // (declarações/citações de fonte em matérias de última hora costumam vir em
+    // <blockquote>, não <p>) e reduz o piso de tamanho por trecho (40→20 chars) —
+    // frases curtas de atualização ao vivo ("O TSE rejeitou a hipótese.") estavam
+    // sendo descartadas e cortando substância real de matérias em desenvolvimento.
+    let textParts = $('article p, article blockquote, [class*="content"] p, [class*="content"] blockquote, [class*="article"] p, [class*="corpo"] p, [class*="materia"] p, [itemprop="articleBody"] p, .entry-content p, main p, #content p, p, blockquote')
       .map((_, el) => $(el).text().trim())
       .get()
-      .filter(t => t.length > 40);
+      .filter(t => t.length > 20);
 
     // Tentativa 2: divs de conteúdo se parágrafos insuficientes
     if (textParts.join('').length < 200) {
       const divParts = $('[class*="content"], [class*="article"], [class*="corpo"], [class*="materia"], [class*="texto"], [itemprop="articleBody"], .entry-content, main, #content, #main')
-        .find('p, div')
+        .find('p, div, blockquote')
         .map((_, el) => $(el).text().trim())
         .get()
-        .filter(t => t.length > 50 && !/<[a-z]/i.test(t));
+        .filter(t => t.length > 30 && !/<[a-z]/i.test(t));
       if (divParts.join('').length > textParts.join('').length) textParts = divParts;
     }
 
-    let text = textParts.join("\n").slice(0, 4000);
+    // Cap 4000→7000 chars — 13/08/2026: matérias em desenvolvimento (ex: apuração +
+    // declaração de fonte + resposta oficial) legitimamente passam de 4000 chars de
+    // texto-fonte; cortar aí perdia o final da matéria antes mesmo de chegar na IA.
+    let text = textParts.join("\n").slice(0, 7000);
 
     // Tentativa 3: og:description + og:title como fallback mínimo
     if (text.length < 100) {
