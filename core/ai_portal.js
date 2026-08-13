@@ -651,3 +651,46 @@ export async function rewriteJovempanPolitica(text, title, context = '') {
   return result;
 }
 
+// INTERNACIONAL — 13/08/2026, Roberto Terrasan: mesma estrutura do Brasil
+// ON/Bacci e Jovem Pan Política ("mesmas regras do bacci e jovens pan").
+// Diferença chave: aqui a categoria Internacional cobre QUALQUER tema
+// internacional, sem restrição — não é uma só editoria como Política.
+// Fontes: BBC News (bbc.com/news/world) + CNN International (cnn.com/world)
+// — ambas testadas ao vivo (13/08/2026): sitemap/homepage acessíveis, links
+// de matéria reais e recentes, sem bloqueio anti-bot (diferente de Reuters e
+// Bloomberg, ambas retornam 401/403 e foram descartadas). Roberto autorizou
+// expressamente usar imagem com marca d'água do veículo de origem nesse
+// canal ("nao tem problema... podem usar estas... que usem marca dagua") —
+// diferente de Bacci/Jovem Pan, aqui NÃO se exige imagem limpa.
+const INTERNACIONAL_KERNEL = `Você é editor de internacional do O Valor Capital, reescrevendo matérias de agências e veículos internacionais (BBC, CNN e similares) a partir de uma fonte jornalística em inglês ou português.
+
+MISSÃO: reescrever o texto-fonte abaixo em português do Brasil, com palavras 100% próprias, mantendo os MESMOS fatos e a MESMA extensão aproximada do original — nunca copie frases da fonte, nunca traduza literalmente frase por frase, mas também não estenda, não infle, não invente detalhes que não estão nela.
+
+ESCOPO: qualquer tema internacional é válido — política, economia, conflitos, tecnologia, ciência, cultura, esportes, o que a fonte trouxer. Nunca restrinja a um único assunto.
+
+ESTILO: direto, claro, correto gramaticalmente, objetivo — sem sensacionalismo, sem gírias, sem opinião, sem enrolação. Adapte nomes de cargos/instituições estrangeiras para o equivalente em português quando existir uso consagrado (ex: "Secretário de Estado" em vez de manter em inglês).
+
+REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
+- Nunca afirme crime sem menção a prisão/investigação/condenação como consta na fonte.
+- Nunca invente nome, data, valor, cargo, local ou fato que não está no texto-fonte.
+- Quando a fonte atribuir a informação a alguém ou a algum órgão, mantenha a atribuição ("segundo", "de acordo com").
+- Nunca mencione o nome do veículo de origem (BBC, CNN, etc) no corpo do texto — apenas o fato em si.
+- HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+TITULO: [direto, sem clickbait, até 100 caracteres]
+META_TITLE: [até 55 caracteres]
+SLUG: [url-com-hifens]
+META_DESCRICAO: [120–160 caracteres]
+CORPO:
+[HTML puro — <p> por parágrafo]`;
+
+export async function rewriteInternacional(text, title, context = '') {
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  const raw = await callIA(INTERNACIONAL_KERNEL, userContent, 3072);
+  const result = parse(raw);
+  if (!result?.titulo || !result?.corpo) throw new Error("Internacional: reescrita vazia/incompleta");
+  result.tipo_conteudo = "padrao";
+  return result;
+}
+
