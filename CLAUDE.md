@@ -5747,4 +5747,53 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto** que os artigos da Jovem Pan Política estão saindo com qualidade editorial adequada (reescrita fiel, sem cara de plágio/refraseado ruim) — só a mecânica (geração + imagem) foi verificada nesta sessão, não a qualidade do texto.
 2. **Card dedicado de Economia na home** — Roberto disse que fará ele mesmo ("vou colocar um card novo de economia"); não iniciar sem ele pedir.
 3. **Próxima categoria no molde Bacci/Jovem Pan** — Roberto sinalizou continuar esse padrão para outras categorias (Economia foi cogitada); aguardar ele indicar a fonte, mesmo padrão desta sessão (preferir fonte já aprovada em `core/rss.js` antes de badalar site novo).
+
+---
+
+### Sessão 13/08/2026 (continuação) — AUTOMAÇÃO INTERNACIONAL (BBC News + CNN)
+
+#### Contexto
+
+Roberto pediu a próxima automação no molde Bacci/Jovem Pan: card Internacional, "monitoramento 24 horas por dia em pelo menos 2 sites internacionais de relevância mundial... internacional cobre tudo o que for internacional, sem restrição de temas". Corrigiu minha primeira leva de candidatos (Al Jazeera + DW) — queria "veiculo grande americano, ingles": CNN, Bloomberg, BBC, New York Post. Também autorizou algo NOVO em relação a Bacci/Jovem Pan: pode usar imagem do veículo de origem MESMO com marca d'água ("nao tem problema... podem usar estas... que usem marca dagua").
+
+#### Fontes testadas ao vivo (7 candidatos, evidência real via GitHub Actions — nunca suposição)
+
+| Site | Resultado |
+|---|---|
+| Reuters | HTTP 401 — bloqueia scraping direto |
+| Bloomberg | HTTP 403 — bloqueia scraping direto |
+| Al Jazeera | funciona (sitemap+homepage OK, imagem limpa confirmada visualmente) — descartada, fora da lista pedida por Roberto |
+| DW (Deutsche Welle) | funciona — descartada, é alemã, Roberto queria americano/inglês |
+| New York Post | funciona, imagem confirmada limpa visualmente — não usada por ora, fica como reserva/3ª opção já validada |
+| **BBC News** | ✅ escolhida — mas imagem SEMPRE vem com marca d'água "BBC News" (CDN `ichef.bbci.co.uk/.../branded_news/...`), confirmado em 4 amostras reais |
+| **CNN International** | ✅ escolhida — reachable, links frescos, imagem via `media.cnn.com` |
+
+#### O que foi implementado (PR #406, commit squash `27bb17c0`)
+
+Estrutura idêntica a Bacci/Jovem Pan Política:
+- `core/internacional.js` (novo) — `buscarCandidatosInternacional()` combina BBC (`bbc.com/news/world`) + CNN (`cnn.com/world`), raspagem direta de homepage (sem sitemap dedicado usado), filtro de promoção/anúncio (`pareceConteudoPromocional`)
+- `core/ai_portal.js` — `INTERNACIONAL_KERNEL` + `rewriteInternacional()`: reescrita fiel ao tamanho da fonte, **sem restrição de tema** (política, economia, tecnologia, esportes — tudo que vier), MASTER_PROMPT intocado (Regra Zero-B)
+- `api/run_portal.js` — `autoInternacional()` + `salvarInternacional()`, dispatch via `body.tipo==="internacional"`. `user_tags:["internacional"]`, `subcategoria_slug:"internacional"`. Zero arquivos novos em `api/` (Regra Zero-A, 10 arquivos)
+- **Diferença técnica chave:** `processAndSaveImage()` chamado com `skipVision:true` (mesmo padrão Bacci/JP) — mas aqui é ainda mais importante, porque SEM isso o filtro de Vision provavelmente rejeitaria a própria marca d'água da BBC que Roberto autorizou manter. Nem `bbc.com` nem `cnn.com` estão em `COMPETITOR_IMG_HOSTS` (`core/scraper.js`), então `allowCompetitorImage` não foi necessário aqui (diferente de Jovem Pan, que precisou desse parâmetro por `jovempan.com.br` estar bloqueado nessa lista)
+- `.github/workflows/pipeline-cron.yml` — novo job `internacional`, roda 24h/dia sem janela de horário (`force:true, count:3`, a cada ~15min)
+
+#### 🔴 Limite diário do Vercel Free atingido — deploy real ainda pendente
+
+PR #406 mesclado, CI ("Verificar arquivos críticos") verde, mas o `deploy.yml` de produção **falhou** com:
+```
+Error: Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")
+```
+Causa: volume alto de pushes/testes ao vivo nesta sessão (múltiplas rodadas de diagnóstico via GitHub Actions para achar e validar as fontes). Roberto perguntou, corretamente cético, se o limite já teria resetado (~00:36 BRT, ele lembrava reset às 22h ou 00h) — este commit de documentação serve também como teste real do reset. Ver resultado do próximo `deploy.yml` run para o commit deste push.
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar que o deploy da automação Internacional chegou em produção** — verificar `deploy.yml` (run mais recente) e, se ok, disparar `{"tipo":"internacional","force":true,"count":2}` para confirmar geração real (mesmo protocolo de verificação usado para Jovem Pan Política: contador de `falhas` já embutido, e checagem cruzada via `/api/portal-posts?categoria=internacional`).
+2. Demais pendências de sessões anteriores (qualidade editorial Jovem Pan Política, card de Economia — Roberto mesmo, próxima categoria no molde Bacci) seguem válidas.
 4. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
