@@ -1,0 +1,26 @@
+name: diag-radar-freshness-once
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/diag-jovempan-verify-once]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger jovempan_politica pipeline
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
+          echo "RESP: $RESP"
+
+      - name: Checar posts publicados via jovempan_politica
+        run: |
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=100" -o /tmp/r.json
+          node -e "
+            const d = JSON.parse(require('fs').readFileSync('/tmp/r.json'));
+            const jp = (d.posts||[]).filter(p => (p.categoria||'')==='politica');
+            console.log('total posts recentes:', (d.posts||[]).length);
+            console.log('posts politica (top 5):');
+            jp.slice(0,5).forEach(p=>console.log(p.published_at||p.data, (p.titulo||'').slice(0,70)));
+          "
