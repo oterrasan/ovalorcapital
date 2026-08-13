@@ -1,0 +1,13 @@
+name: diag-radar-freshness-once
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/diag-jovempan-politica]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup python deps
+        run: pip install --quiet Pillow
+      - name: Jovem Pan politica - sitemap + secao + imagens
+        run: python3 scripts_diag_jovempan.py
