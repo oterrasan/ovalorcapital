@@ -5693,3 +5693,58 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Monitorar se ESPN Brasil, Lance! ou GaúchaZH voltam a ter RSS** — nenhum substituto funcional encontrado nesta sessão (testados vários padrões comuns). Se Roberto quiser mais robustez no Radar do Futebol, considerar adicionar mais 1-2 fontes de futebol dedicadas (respeitando a regra de Roberto de "fonte específica, sem misturar").
 2. Radar do Esporte mobile + labels + conteúdo — todos os 3 bugs desta leva de sessões (PR #394/#396, #398, #399) confirmados corrigidos em produção com evidência real. Não repetir verificação a menos que Roberto reporte de novo.
 3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12-13/08/2026 — CARD DE DESTAQUE SÓ POLÍTICA + AUTOMAÇÃO JOVEM PAN POLÍTICA (mesma estrutura do Bacci/Brasil ON)
+
+#### Contexto
+
+Roberto pediu para construir, categoria por categoria, novas automações de raspagem usando **exatamente a mesma estrutura do Brasil ON/Bacci** (`core/brasilon.js`) — reescrita fiel ao tamanho da fonte (não o MASTER_PROMPT), imagem sempre da própria matéria sem marca d'água, publicação direta sem fila de aprovação. Primeira categoria: **Política** — "o card mais importante do portal". Depois de avaliar e descartar sites novos (Roberto corrigiu com força uma classificação errada minha sobre o Poder360: **não é de esquerda, nunca foi** — CartaCapital e Brasil de Fato sim, Poder360 é centrista/factual, cuidado redobrado com rótulos político-editoriais daqui pra frente), Roberto decidiu reaproveitar uma fonte **já aprovada no pipe geral**: Jovem Pan, especificamente `https://jovempan.com.br/politica/` (a seção, não o feed geral misturado).
+
+#### 1) Fix do card de destaque da home — só Política (PR #401, commit `e2074a22`)
+
+Bug real encontrado a pedido de Roberto: o card de destaque (o mais importante da home) misturava `politica` + `economia`. Corrigido em `public/js/home.js` (`carregarCardHero()`) para usar **somente `politica`**. Economia ganhará um card dedicado próprio — tarefa que o próprio Roberto assumiu ("vou colocar um card novo de economia").
+
+#### 2) Automação Jovem Pan Política — estrutura completa (PR #402)
+
+Réplica fiel da estrutura Bacci/Brasil ON, adaptada:
+
+- **`core/jovempanpolitica.js`** (novo) — sem sitemap (testado ao vivo: `sitemap_index.xml` retorna 404 na Jovem Pan, CMS diferente da Bacci/WordPress+Yoast). Único caminho: raspagem direta de `https://jovempan.com.br/politica/`, regex de `href` para links de matéria, filtro de URL contra tag/página/autor/publieditorial.
+- **`core/ai_portal.js`** — novo kernel dedicado `JOVEMPAN_POLITICA_KERNEL` + `rewriteJovempanPolitica()` (reescrita fiel ao tamanho da fonte, MESMO padrão do `BRASILON_KERNEL` — MASTER_PROMPT intocado, Regra Zero-B respeitada).
+- **`api/run_portal.js`** — `autoJovempanPolitica()` + `salvarJovempanPolitica()`, dispatch via `body.tipo==="jovempan_politica"`. Zero arquivos novos em `api/` (roteado pelo dispatcher existente — Regra Zero-A intacta, 10 arquivos).
+- **Filtro de promoção/anúncio** — Roberto, no meio da construção, mandou aviso explícito: *"ATENCAO PARA PROMOCOES, PROPAGANDAS, ANUNCIOS, ETC"*. Adicionado `pareceConteudoPromocional()` em `core/jovempanpolitica.js` (regex contra "compre agora", "cupom de desconto", "assine e ganhe", "de R$X por R$Y" etc.) como segunda barreira, além do filtro de URL já existente — chamado em `autoJovempanPolitica()` antes da reescrita.
+- **`.github/workflows/pipeline-cron.yml`** — novo job `jovempan_politica`, mesmo padrão dos outros (`force:true,count:3`).
+- **Imagens confirmadas limpas** (verificação real, não suposição): 4 amostras baixadas via GitHub Actions + Pillow, reduzidas/recodificadas em base64, reconstruídas localmente e inspecionadas visualmente com a ferramenta de leitura de imagem — fotos hospedadas em `wp-content/uploads` da própria Jovem Pan, sem logotipo nem marca d'água. Roberto confirmou por print próprio.
+
+#### 3) 🔴 BUG REAL PÓS-DEPLOY — `generated:0` com `candidates:15` — causa raiz encontrada e corrigida (PRs #403 e #404)
+
+Primeiro disparo ao vivo do pipeline (`{"tipo":"jovempan_politica","force":true,"count":2}`) retornou `{"status":"ok","generated":0,"candidates":15}` — 15 candidatos reais encontrados, zero publicados, **sem nenhuma pista visível** no JSON de resposta. Recusei reportar sucesso e investiguei com evidência real, sem adivinhar (regra permanente desta sessão).
+
+**PR #403** — instrumentação: campo `falhas` (mesmo padrão diagnóstico já usado em `autoOutrosEsportesCurtinhas()`) contando em qual etapa exata cada candidato é descartado (`pautaFonte`, `scrapeErro`, `textoCurto`, `promo`, `anuncioPrograma`, `hashDup`, `validacao`, `pautaTitulo`, `semImagem`, `rewriteErro`). Disparo real seguinte revelou: `falhas.semImagem:7` — a esmagadora maioria dos candidatos processados falhava por falta de imagem.
+
+**Causa raiz real** (`core/scraper.js`): `jovempan.com.br` está em `COMPETITOR_IMG_HOSTS` — lista de domínios de concorrentes cuja imagem `isValidImage()` sempre rejeita, **correta** no fluxo geral de matérias via RSS (não reaproveitar foto de concorrente num artigo com MASTER_PROMPT vindo de fonte diferente), mas **errada** para este canal específico, que é estruturalmente igual ao Bacci: a imagem DEVE ser sempre a da própria fonte.
+
+**PR #404 (fix, commit `e78354eb`)** — `scrape(url, opts)` ganha `opts.allowCompetitorImage` (default `false` — **zero mudança** nos outros ~11 pontos de chamada do pipeline geral). Passado `true` somente em `autoJovempanPolitica()`.
+
+**Verificação real pós-deploy (não confiei só na resposta JSON do próprio pipeline):**
+1. Disparo ao vivo via workflow diagnóstico (GitHub Actions — este sandbox bloqueia acesso de rede direto a `ovalorcapital.com.br`) → `{"status":"ok","generated":2,"candidates":15,"falhas":{tudo 0}}`
+2. Consulta independente à API pública (`GET /api/portal-posts?recentes=true&categoria=politica&limit=8`) → confirmou 2 posts reais no topo do feed de Política, timestamps dentro da janela do teste, com imagem própria já salva no Supabase Storage:
+   - "Fux Abre Reunião de Conciliação Sobre Socorro ao BRB para Imprensa"
+   - "PGR Se Opõe a Visitas a Bolsonaro e Defende Restrições do STF"
+
+**Padrão a repetir em qualquer automação futura no molde Bacci/Brasil ON que reaproveite fonte já presente em `core/rss.js`:** sempre checar se o domínio da fonte está em `COMPETITOR_IMG_HOSTS` (`core/scraper.js`) — se estiver, ela vai gerar `semImagem` silencioso em 100% dos candidatos até alguém notar e passar `allowCompetitorImage:true` explicitamente no `scrape()` daquele canal.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** que os artigos da Jovem Pan Política estão saindo com qualidade editorial adequada (reescrita fiel, sem cara de plágio/refraseado ruim) — só a mecânica (geração + imagem) foi verificada nesta sessão, não a qualidade do texto.
+2. **Card dedicado de Economia na home** — Roberto disse que fará ele mesmo ("vou colocar um card novo de economia"); não iniciar sem ele pedir.
+3. **Próxima categoria no molde Bacci/Jovem Pan** — Roberto sinalizou continuar esse padrão para outras categorias (Economia foi cogitada); aguardar ele indicar a fonte, mesmo padrão desta sessão (preferir fonte já aprovada em `core/rss.js` antes de badalar site novo).
+4. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
