@@ -972,15 +972,26 @@ async function filtrarCandidatosProntos(canalKey, links) {
 
   let upsertErr = null;
   if (mudou) {
+    // 13/08/2026 — CAUSA RAIZ REAL confirmada em produção: .upsert(...,{onConflict:"key"})
+    // falhava SEMPRE com "there is no unique or exclusion constraint matching the ON
+    // CONFLICT specification" — a coluna `key` da tabela config NÃO TEM constraint
+    // unique/PK no banco, apesar de todo o resto do código assumir que tem. O catch(_){}
+    // original engolia esse erro silenciosamente, então SEEN_LINKS_* nunca persistia
+    // nada, para sempre, sem nenhuma pista. Fix: update-se-existir, senão insert — não
+    // depende de nenhum ON CONFLICT/constraint, funciona com o schema real da tabela.
     try {
-      const { error } = await supabase.from("config").upsert({ key: cfgKey, value: JSON.stringify(mapa), updated_at: new Date().toISOString() }, { onConflict: "key" });
-      if (error) upsertErr = error.message || String(error);
+      const payload = { value: JSON.stringify(mapa), updated_at: new Date().toISOString() };
+      const { data: updated, error: updErr } = await supabase.from("config").update(payload).eq("key", cfgKey).select("key");
+      if (updErr) { upsertErr = updErr.message || String(updErr); }
+      else if (!updated || !updated.length) {
+        const { error: insErr } = await supabase.from("config").insert({ key: cfgKey, ...payload });
+        if (insErr) upsertErr = insErr.message || String(insErr);
+      }
     } catch (e) { upsertErr = e?.message || String(e); }
   }
 
-  // 13/08/2026 — diagnóstico temporário: os catches originais (_){} engoliam
-  // qualquer erro real do Supabase (RLS, malformado, etc.) sem nunca expor —
-  // SEEN_LINKS_* ficava permanentemente vazio em produção sem nenhuma pista.
+  // 13/08/2026 — diagnóstico temporário: mantido para confirmar em produção que o
+  // fix (update-ou-insert) realmente persiste agora, sem mais upsertErr.
   prontos.__debug = { selectErr, upsertErr, mudou };
   return prontos;
 }
