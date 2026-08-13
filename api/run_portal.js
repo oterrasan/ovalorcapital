@@ -944,10 +944,12 @@ function validarBrasilOn(content) {
 async function filtrarCandidatosProntos(canalKey, links) {
   const cfgKey = `SEEN_LINKS_${canalKey}`;
   let mapa = {};
+  let selectErr = null;
   try {
-    const { data } = await supabase.from("config").select("value").eq("key", cfgKey).maybeSingle();
+    const { data, error } = await supabase.from("config").select("value").eq("key", cfgKey).maybeSingle();
+    if (error) selectErr = error.message || String(error);
     if (data?.value) mapa = JSON.parse(data.value) || {};
-  } catch (_) { mapa = {}; }
+  } catch (e) { mapa = {}; selectErr = e?.message || String(e); }
 
   const agora = Date.now();
   const UM_DIA = 24 * 60 * 60 * 1000;
@@ -968,12 +970,18 @@ async function filtrarCandidatosProntos(canalKey, links) {
     if (agora - mapa[link] > UM_DIA) { delete mapa[link]; mudou = true; }
   }
 
+  let upsertErr = null;
   if (mudou) {
     try {
-      await supabase.from("config").upsert({ key: cfgKey, value: JSON.stringify(mapa), updated_at: new Date().toISOString() }, { onConflict: "key" });
-    } catch (_) {}
+      const { error } = await supabase.from("config").upsert({ key: cfgKey, value: JSON.stringify(mapa), updated_at: new Date().toISOString() }, { onConflict: "key" });
+      if (error) upsertErr = error.message || String(error);
+    } catch (e) { upsertErr = e?.message || String(e); }
   }
 
+  // 13/08/2026 — diagnóstico temporário: os catches originais (_){} engoliam
+  // qualquer erro real do Supabase (RLS, malformado, etc.) sem nunca expor —
+  // SEEN_LINKS_* ficava permanentemente vazio em produção sem nenhuma pista.
+  prontos.__debug = { selectErr, upsertErr, mudou };
   return prontos;
 }
 
@@ -987,7 +995,7 @@ async function autoBrasilOn(req, res, rec) {
   const prontos = await filtrarCandidatosProntos("BRASILON", brutos.map(i => i.link));
   const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news", brutosLen: brutos.length, prontosLen: prontos.size });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
   }
   let generated = 0;
   const geradosAgora = [];
@@ -1082,7 +1090,7 @@ async function autoJovempanPolitica(req, res, rec) {
   const prontos = await filtrarCandidatosProntos("JOVEMPAN_POLITICA", brutos.map(i => i.link));
   const items = brutos.filter(i => prontos.has(i.link));
   if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "jovempan_politica", candidates: 0, info: "no_jovempan_politica_news", brutosLen: brutos.length, prontosLen: prontos.size });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "jovempan_politica", candidates: 0, info: "no_jovempan_politica_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
   }
   let generated = 0;
   const geradosAgora = [];
@@ -1179,7 +1187,7 @@ async function autoInternacional(req, res, rec) {
     // não achou nada a partir do IP da Vercel" (brutosLen:0) de "grace-period
     // gate nunca marca nada como pronto" (brutosLen>0, prontosLen:0) — candidates:0
     // sozinho não permitia diferenciar essas duas causas radicalmente diferentes.
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "internacional", candidates: 0, info: "no_internacional_news", brutosLen: brutos.length, prontosLen: prontos.size });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "internacional", candidates: 0, info: "no_internacional_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
   }
   let generated = 0;
   const geradosAgora = [];
