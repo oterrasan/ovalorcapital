@@ -6,7 +6,7 @@ import { findImage, findImageFutebol } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica } from "../core/ai_portal.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
-import { buscarCandidatosJovempanPolitica } from "../core/jovempanpolitica.js";
+import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -1025,6 +1025,13 @@ async function autoJovempanPolitica(req, res, rec) {
       a = await scrape(item.link);
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 100) continue;
+      // Roberto, 12/08/2026: "ATENCAO PARA PROMOCOES, PROPAGANDAS, ANUNCIOS,
+      // ETC" — segunda barreira contra publieditorial disfarçado de matéria
+      // (a primeira é o filtro de URL em core/jovempanpolitica.js).
+      if (pareceConteudoPromocional(item.title || a.title || "", sourceText)) continue;
+      // Jovem Pan é emissora de rádio/TV — mesmo risco de autopromoção de
+      // programa já achado e corrigido na Bacci (Bug real 08/08/2026, ver
+      // core/brasilon.js). Reaproveita o mesmo filtro por segurança.
       if (pareceAnuncioDePrograma(item.title || a.title || "", sourceText)) continue;
     } catch (_) { continue; }
     const hash = crypto.createHash("md5").update(item.link + "_jovempan_politica").digest("hex");

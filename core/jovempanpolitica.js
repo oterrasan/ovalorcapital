@@ -39,8 +39,24 @@ export const FONTES_JOVEMPAN_POLITICA = [
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-// Páginas da seção que não são matéria de verdade (tags, paginação, etc).
-const JOVEMPAN_EXCLUIR = /\/tag\/|\/page\/|\/autor\/|\/author\/|\/categoria\/|\/videos?\//i;
+// Páginas da seção que não são matéria de verdade (tags, paginação, etc) OU
+// que são publicidade/promoção disfarçada de link de matéria. Roberto,
+// 12/08/2026, logo após autorizar a automação: "ATENCAO PARA PROMOCOES,
+// PROPAGANDAS, ANUNCIOS, ETC" — filtro de URL aplicado na captura (primeira
+// barreira) + filtro de título/texto aplicado em api/run_portal.js antes da
+// reescrita (segunda barreira, ver pareceConteudoPromocional() abaixo).
+const JOVEMPAN_EXCLUIR = /\/tag\/|\/page\/|\/autor\/|\/author\/|\/categoria\/|\/videos?\/|publieditorial|publi-|patrocinad|\/promocao\/|\/promocoes\/|cupom-desconto|\/oferta/i;
+
+// Segunda barreira contra publicidade/promoção — checa TÍTULO e TEXTO da
+// matéria já raspada (não só a URL, que pode não denunciar nada). Sinais
+// típicos de publieditorial/anúncio disfarçado de notícia: "compre agora",
+// "cupom de desconto", "código promocional", "assine e ganhe", "conteúdo
+// patrocinado", "oferta exclusiva", preço riscado tipo "de R$X por R$Y".
+const PROMO_SINAIS_RE = /compre agora|cupom de desconto|c[oó]digo promocional|assine e ganhe|conte[uú]do patrocinado|publieditorial|oferta exclusiva|desconto exclusivo|frete gr[aá]tis|de\s?r\$\s?[\d.,]+\s?por\s?r\$\s?[\d.,]+|clique aqui e garanta|aproveite antes que acabe/i;
+export function pareceConteudoPromocional(titulo, texto) {
+  const alvo = `${titulo || ""} ${texto || ""}`;
+  return PROMO_SINAIS_RE.test(alvo);
+}
 
 async function buscarJovempanPoliticaHomepage() {
   try {
