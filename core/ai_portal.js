@@ -610,9 +610,12 @@ export async function rewriteBrasilOn(text, title, context = '') {
   // (matéria da Bacci sobre interferência dos EUA nas eleições, 3.294 chars de
   // texto-fonte) que fontes do Brasil ON NÃO são sempre curtíssimas — variam de
   // 2 frases a matérias políticas robustas. Margem extra evita corte no meio da
-  // reescrita pra fonte no teto do que core/scraper.js extrai (cap de 4000 chars).
+  // reescrita pra fonte no teto do que core/scraper.js extrai.
+  // 13/08/2026: 3072→4096 — cap do scraper subiu 4000→7000 chars (Roberto: reescrita
+  // sempre COMPLETA), então o teto de saída da IA também precisa de mais margem pra
+  // não cortar o final de uma reescrita fiel a uma fonte mais longa.
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(BRASILON_KERNEL, userContent, 3072);
+  const raw = await callIA(BRASILON_KERNEL, userContent, 4096);
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Brasil ON: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
@@ -650,7 +653,7 @@ Depois, o restante do corpo em HTML puro — <p> por parágrafo.
 
 export async function rewriteJovempanPolitica(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(JOVEMPAN_POLITICA_KERNEL, userContent, 3072);
+  const raw = await callIA(JOVEMPAN_POLITICA_KERNEL, userContent, 4096); // 13/08/2026 — ver comentário em rewriteBrasilOn
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Jovem Pan Política: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
@@ -696,7 +699,7 @@ Depois, o restante do corpo em HTML puro — <p> por parágrafo.
 
 export async function rewriteInternacional(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(INTERNACIONAL_KERNEL, userContent, 3072);
+  const raw = await callIA(INTERNACIONAL_KERNEL, userContent, 4096); // 13/08/2026 — ver comentário em rewriteBrasilOn
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Internacional: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
