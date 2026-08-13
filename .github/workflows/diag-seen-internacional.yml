@@ -9,48 +9,13 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install deps
-        run: npm install --no-audit --no-fund axios
-
-      - name: Chamar buscarCandidatosInternacional() direto do código real
+      - name: Chamar os 3 canais em produção real e olhar brutosLen/prontosLen
         run: |
-          node --input-type=module -e '
-            import("./core/internacional.js").then(async (m) => {
-              const brutos = await m.buscarCandidatosInternacional();
-              console.log("BRUTOS_LEN:" + brutos.length);
-              for (const b of brutos.slice(0, 8)) {
-                console.log("LINK: " + b.link + " | fonte: " + (b.fonte || b.fonteNome || "?"));
-              }
-            }).catch(e => { console.log("ERRO: " + e.message); process.exit(1); });
-          '
-
-      - name: Query SEEN_LINKS_INTERNACIONAL agora
-        run: |
-          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_INTERNACIONAL&select=key,value,updated_at" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -o seen.json -w "HTTP:%{http_code} BYTES:%{size_download}\n"
-          cat seen.json
-
-      - name: Chamar direto o filtrarCandidatosProntos equivalente (upsert manual com a mesma role key)
-        run: |
-          curl -s -X POST "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: resolution=merge-duplicates,return=representation" \
-            -d '{"key":"SEEN_LINKS_INTERNACIONAL","value":"{\"https://diagteste.example/x\":1}","updated_at":"2026-08-13T23:00:00Z"}' \
-            -o upsert2.json -w "HTTP:%{http_code}\n"
-          cat upsert2.json
-          echo ""
-          echo "=== leitura apos upsert direto ==="
-          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_INTERNACIONAL&select=key,value" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo ""
+          for TIPO in internacional brasilon jovempan_politica; do
+            echo "=== $TIPO ==="
+            RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+              -H "Content-Type: application/json" \
+              -d "{\"tipo\":\"$TIPO\",\"force\":true,\"count\":2}")
+            echo "$RESP"
+            echo ""
+          done
