@@ -1,0 +1,16 @@
+name: DIAG once - jovempan falhas 2
+on:
+  push:
+    branches:
+      - claude/diag-jovempan-falhas-once
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger jovempan_politica and print falhas
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
+          echo "FULL_RESPONSE: $RESP"
