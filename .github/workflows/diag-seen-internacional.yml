@@ -9,9 +9,16 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Chamar internacional em produção e ver o campo debug (erro real do Supabase)
+      - name: 1a chamada internacional (deve marcar os links como vistos)
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"internacional","force":true,"count":2}')
-          echo "$RESP"
+            -d '{"tipo":"internacional","force":true,"count":2}'
+          echo ""
+
+      - name: Ver SEEN_LINKS_INTERNACIONAL logo depois
+        run: |
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_INTERNACIONAL&select=key,value,updated_at" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          echo ""
