@@ -5796,4 +5796,49 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar que o deploy da automação Internacional chegou em produção** — verificar `deploy.yml` (run mais recente) e, se ok, disparar `{"tipo":"internacional","force":true,"count":2}` para confirmar geração real (mesmo protocolo de verificação usado para Jovem Pan Política: contador de `falhas` já embutido, e checagem cruzada via `/api/portal-posts?categoria=internacional`).
 2. Demais pendências de sessões anteriores (qualidade editorial Jovem Pan Política, card de Economia — Roberto mesmo, próxima categoria no molde Bacci) seguem válidas.
-4. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 13/08/2026 (continuação 2) — LIMITE VERCEL PERSISTENTE + RANKING GIGANTE (PRIORIDADE FUTURA) + FIX RADAR ELEITORAL TRAVADO
+
+#### 🔴 Limite diário do Vercel — persistiu por >1h, cota é POR PROJETO
+
+Confirmado com múltiplos testes reais ao longo da sessão (03:31–04:54 UTC): o limite `api-deployments-free-per-day` do plano Free **não é uma cota única da conta** — cada um dos 3 projetos Vercel (`ovalorcapital`, `ovalorcapital-xuhw`, `ovalorcapital-hubx`) tem cota própria de 100 deploys/dia. `ovalorcapital-hubx` se recuperou primeiro (~04:13 UTC); `ovalorcapital` e **`ovalorcapital-xuhw` (produção, o que `deploy.yml` usa)** continuaram bloqueados até o fim da sessão. A mensagem do próprio Vercel diz "try again in 24 hours" — é uma janela **rolante** de 24h a partir de quando o 100º deploy daquele projeto específico bateu, não um horário fixo do dia (a suposição de Roberto de reset às 22h/00h não se confirmou nos testes reais).
+
+**Lição para a próxima sessão:** se `deploy.yml` falhar com esse erro, NÃO adianta re-tentar em poucos minutos — checar `ovalorcapital-xuhw` especificamente (não os outros 2 projetos, que podem já estar OK enquanto o de produção ainda não). Evitar rodadas excessivas de diagnóstico via push em sessões futuras quando possível (usar `curl` local sempre que a informação não depender de código já commitado, reservando pushes reais para quando genuinamente necessário).
+
+#### 🟡 GUARDADO NA LISTA DE PRIORIDADES — Ranking gigante de políticos (dados oficiais)
+
+Roberto mandou print de `ranking.org.br` e pediu pra investigar e "adaptar" o Radar Eleitoral pra algo assim, "na verdade melhor que isso". Investigação real (via GitHub Actions, não suposição):
+
+**O que o site é de fato:** projeto de ONG de transparência (Next.js/Turbopack) que avalia deputados/senadores com base em **gastos públicos, processos judiciais e votações no Congresso** — dados estruturados reais, não notícia. Estrutura confirmada: `/ranking/politicos`, `/ranking/estados/todos/acumulado`, `/ranking/partidos/todos/acumulado`, `/perfil/{nome}` (perfil individual por parlamentar), `/nossa-atuacao/radar-politico` (editorial, não widget), `/criterios-e-metodologia`.
+
+**Por que isso é um projeto à parte, não uma automação de raspagem:** diferente de Bacci/Jovem Pan/Internacional (scrape+reescrita de notícia), um ranking de políticos por gastos/processos/votações exige **dados oficiais estruturados** (API de dados abertos da Câmara/Senado, TCU, etc.), banco novo, pipeline de ETL contínuo, e cuidado jurídico redobrado (ranking público de político é tema sensível). Roberto confirmou: **"guarda isso na lista de prioridades. vamos retomar em breve e construir um ranking gigante nosso."** — NÃO iniciar sem ele retomar o assunto explicitamente. Quando retomar: perguntar primeiro qual fonte de dados oficial ele quer usar (Câmara tem API de dados abertos gratuita e pública) antes de estimar escopo.
+
+#### 🔴 CORRIGIDO — Radar Eleitoral travado desde 07/08 (não maio, mas real)
+
+Roberto, no mesmo fio: "por hora, o nosso radar está uma vergonha e ele nem atualiza direito, o grafico com os dados nem se mexe, desde maio". Investigado com evidência real (logs do workflow `update-polls.yml`, não suposição):
+
+- Até **05/08** o job atualizava de verdade: `{"ok":true,"pesquisa":{"candidatos":[{"nome":"Lula","pct":46},{"nome":"Bolsonaro","pct":42},{"nome":"Outros","pct":12}],"fonte":"BBC News Brasil — julho/2026"}}`
+- A partir de **07/08**, toda execução (07, 10, 12/08 confirmados) retornou `{"ok":false,"reason":"sem_dados"}` — **6 dias seguidos travado** nos mesmos números de 05/08. Não "desde maio" literalmente, mas genuinamente quebrado e real.
+
+**Causa raiz (PR #410, mergeado):** `handleUpdatePesquisa()` em `api/manage.js` buscava primeiro nos próprios artigos do OVC com keywords amplas (`%eleit%`, `%pesquisa%` — casam com QUALQUER matéria sobre eleição, não só pesquisa de intenção de voto). Com o pipeline gerando até 80 artigos/dia, sempre existia algum artigo casando com esse filtro frouxo — então `artigos.length` nunca era 0, e o fallback mais confiável (Google News RSS) **nunca era tentado**, porque só disparava quando a busca no banco retornava zero resultados. A IA corretamente respondia "sem_dados" (os artigos achados não tinham percentual concreto), mas a fonte mais provável de ter dado real nunca era consultada.
+
+**Fix:** reestruturado pra sempre tentar as duas fontes na mesma requisição — banco próprio primeiro; se vier `sem_dados`, tenta o Google News RSS como segunda chance, em vez de só pular esse fallback quando a query no banco não acha nenhum artigo. `_extrairEsalvar()` dividido em `_extrair()` (só parse, sem gravar) + `_salvarPesquisa()` (grava só quando uma das duas fontes traz dado concreto).
+
+**⚠️ NÃO verificado ao vivo ainda** — o deploy de produção (`ovalorcapital-xuhw`) estava bloqueado pelo limite do Vercel no fim da sessão. Confirmar assim que o deploy passar: disparar `update-polls.yml` manualmente (ou aguardar próximo agendamento seg/qua/sex 08h BRT) e conferir se o `fonte` no config `PESQUISA_ELEITORAL` mudou de "julho/2026" para algo mais recente.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão (atualizado)
+
+1. **Confirmar deploy de produção (`ovalorcapital-xuhw`)** — verificar se saiu do limite do Vercel e se os commits pendentes desta sessão (automação Internacional PR #406, cabeçalho/hashtags/veículo PR #409, fix Radar Eleitoral PR #410) chegaram ao ar.
+2. **Confirmar fix do Radar Eleitoral funcionando** — ver protocolo de verificação acima.
+3. **Ranking gigante de políticos** — projeto futuro, aguardando Roberto retomar explicitamente. NÃO iniciar sozinho.
+4. Demais pendências de sessões anteriores (qualidade editorial Jovem Pan Política, card de Economia — Roberto mesmo, próxima categoria no molde Bacci, foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
