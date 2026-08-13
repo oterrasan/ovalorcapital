@@ -1,0 +1,41 @@
+name: diag-radar-freshness-once
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/diag-politica-sources-once]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe candidate right/center-right politics sites — reachability + sitemap
+        run: |
+          sites=(
+            "https://pleno.news"
+            "https://www.conexaopolitica.com.br"
+            "https://diariodopoder.com.br"
+            "https://direitabrasilnews.com"
+          )
+          for base in "${sites[@]}"; do
+            echo "=========================================="
+            echo "=== $base ==="
+            echo "--- homepage ---"
+            code=$(curl -sL -o /tmp/home.html -w "%{http_code}" -m 10 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" "$base/")
+            bytes=$(wc -c < /tmp/home.html)
+            echo "HTTP:$code bytes:$bytes"
+            # detect cloudflare challenge / bot block signatures
+            if grep -qi "cf-browser-verification\|Attention Required\|Cloudflare Ray ID\|Just a moment" /tmp/home.html; then
+              echo "!!! CLOUDFLARE/BOT-BLOCK DETECTED !!!"
+            fi
+            echo "--- sitemap_index.xml ---"
+            scode=$(curl -sL -o /tmp/sm.xml -w "%{http_code}" -m 10 -A "Mozilla/5.0" "$base/sitemap_index.xml")
+            sbytes=$(wc -c < /tmp/sm.xml)
+            echo "HTTP:$scode bytes:$sbytes"
+            if [ "$sbytes" -gt 100 ]; then
+              grep -oE '<loc>[^<]*</loc>' /tmp/sm.xml | head -8
+            fi
+            echo "--- wp-sitemap.xml (fallback WP core, sem Yoast) ---"
+            wcode=$(curl -sL -o /tmp/wpsm.xml -w "%{http_code}" -m 10 -A "Mozilla/5.0" "$base/wp-sitemap.xml")
+            wbytes=$(wc -c < /tmp/wpsm.xml)
+            echo "HTTP:$wcode bytes:$wbytes"
+            echo
+          done
