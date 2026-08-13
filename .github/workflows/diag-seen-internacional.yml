@@ -9,33 +9,48 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Query all 3 SEEN_LINKS_* config rows from Supabase
-        run: |
-          for K in SEEN_LINKS_INTERNACIONAL SEEN_LINKS_BRASILON SEEN_LINKS_JOVEMPAN_POLITICA; do
-            echo "=== $K ==="
-            curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$K&select=key,value,updated_at" \
-              -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-              -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-              -o "seen_$K.json" -w "HTTP:%{http_code} BYTES:%{size_download}\n"
-            wc -c "seen_$K.json"
-            head -c 600 "seen_$K.json"
-            echo ""
-          done
+      - uses: actions/checkout@v4
 
-      - name: Try a manual upsert to SEEN_LINKS_INTERNACIONAL (does write actually work here?)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm install --no-audit --no-fund axios
+
+      - name: Chamar buscarCandidatosInternacional() direto do código real
+        run: |
+          node --input-type=module -e '
+            import("./core/internacional.js").then(async (m) => {
+              const brutos = await m.buscarCandidatosInternacional();
+              console.log("BRUTOS_LEN:" + brutos.length);
+              for (const b of brutos.slice(0, 8)) {
+                console.log("LINK: " + b.link + " | fonte: " + (b.fonte || b.fonteNome || "?"));
+              }
+            }).catch(e => { console.log("ERRO: " + e.message); process.exit(1); });
+          '
+
+      - name: Query SEEN_LINKS_INTERNACIONAL agora
+        run: |
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_INTERNACIONAL&select=key,value,updated_at" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -o seen.json -w "HTTP:%{http_code} BYTES:%{size_download}\n"
+          cat seen.json
+
+      - name: Chamar direto o filtrarCandidatosProntos equivalente (upsert manual com a mesma role key)
         run: |
           curl -s -X POST "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config" \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -H "Content-Type: application/json" \
             -H "Prefer: resolution=merge-duplicates,return=representation" \
-            -d '{"key":"DIAG_TEST_UPSERT","value":"{\"a\":1}","updated_at":"2026-08-13T23:00:00Z"}' \
-            -o upsert_result.json -w "HTTP:%{http_code}\n"
-          echo "=== upsert_result.json ==="
-          cat upsert_result.json
+            -d '{"key":"SEEN_LINKS_INTERNACIONAL","value":"{\"https://diagteste.example/x\":1}","updated_at":"2026-08-13T23:00:00Z"}' \
+            -o upsert2.json -w "HTTP:%{http_code}\n"
+          cat upsert2.json
           echo ""
-          echo "=== read back DIAG_TEST_UPSERT ==="
-          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.DIAG_TEST_UPSERT&select=key,value" \
+          echo "=== leitura apos upsert direto ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_INTERNACIONAL&select=key,value" \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           echo ""
