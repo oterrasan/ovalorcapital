@@ -9,9 +9,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: 2a chamada — links já vistos na rodada anterior devem virar candidates
+      - name: Confirmar via API pública que os 2 artigos aparecem em /internacional/
         run: |
-          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"internacional","force":true,"count":2}'
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=internacional&limit=5"
           echo ""
