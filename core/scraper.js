@@ -10,7 +10,14 @@ const BLOCKED_IMG = [
   /foto-de-perfil/i, /profile/i, /headshot/i, /foto_autor/i, /\/time\//i,
   /columnist/i, /byline/i, /contributor/i, /editor/i, /redator/i,
   // Logos / marcas / ícones
-  /icon/i, /logo/i, /favicon/i, /sprite/i, /brand/i, /marca/i,
+  // 13/08/2026: /brand/i (sem word boundary) casava "branded_news" — o
+  // segmento de CDN literal que a BBC usa em TODA imagem editorial
+  // (ichef.bbci.co.uk/.../branded_news/...) — rejeitando 100% das imagens
+  // da automação Internacional (candidates:15, generated:0, semImagem
+  // dominando as falhas de todo run confirmado ao vivo via GitHub Actions).
+  // \bbrand\b não casa "branded" (sem boundary entre "brand" e "ed") mas
+  // continua pegando os casos reais (/brand/, brand-logo.png, etc).
+  /icon/i, /logo/i, /favicon/i, /sprite/i, /\bbrand\b/i, /marca/i,
   /watermark/i, /marca.dagua/i, /\/marca\//i,
   // Formatos inválidos
   /\.svg$/i, /\.gif$/i, /\.ico$/i,
