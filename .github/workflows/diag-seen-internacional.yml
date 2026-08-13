@@ -9,13 +9,9 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Ver SEEN_LINKS_INTERNACIONAL/BRASILON/JOVEMPAN_POLITICA agora (pós-chamada real)
+      - name: Chamar internacional em produção e ver o campo debug (erro real do Supabase)
         run: |
-          for K in SEEN_LINKS_INTERNACIONAL SEEN_LINKS_BRASILON SEEN_LINKS_JOVEMPAN_POLITICA; do
-            echo "=== $K ==="
-            curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$K&select=key,value,updated_at" \
-              -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-              -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-              -w "\nHTTP:%{http_code}\n"
-            echo ""
-          done
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"internacional","force":true,"count":2}')
+          echo "$RESP"
