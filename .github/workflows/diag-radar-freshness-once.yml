@@ -7,6 +7,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Setup python deps
         run: pip install --quiet Pillow
       - name: Jovem Pan politica - sitemap + secao + imagens
