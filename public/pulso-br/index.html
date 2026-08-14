@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulso BR — Economia Nacional em Tempo Real | O Valor Capital</title>
+<meta name="description" content="Pulso BR: o painel ao vivo da economia brasileira — Selic, IPCA, câmbio, Ibovespa, impostômetro e o termômetro setorial da economia nacional, atualizados em tempo real.">
+<link rel="canonical" href="https://www.ovalorcapital.com.br/pulso-br/">
+<link rel="icon" type="image/png" href="/assets/vc-logo.png">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="O Valor Capital">
+<meta property="og:title" content="Pulso BR — Economia Nacional em Tempo Real">
+<meta property="og:description" content="O painel ao vivo da economia brasileira: Selic, IPCA, câmbio, Ibovespa, impostômetro e o termômetro setorial, 24 horas por dia.">
+<meta property="og:image" content="https://www.ovalorcapital.com.br/assets/og-default.jpg">
+<meta property="og:url" content="https://www.ovalorcapital.com.br/pulso-br/">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@ovalorcapital">
+<meta name="twitter:title" content="Pulso BR — Economia Nacional em Tempo Real">
+<meta name="twitter:description" content="O painel ao vivo da economia brasileira: Selic, IPCA, câmbio, Ibovespa, impostômetro e o termômetro setorial, 24 horas por dia.">
+<meta name="twitter:image" content="https://www.ovalorcapital.com.br/assets/og-default.jpg">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"Pulso BR — Economia Nacional em Tempo Real","description":"Painel ao vivo da economia brasileira: Selic, IPCA, câmbio, Ibovespa, impostômetro e termômetro setorial.","url":"https://www.ovalorcapital.com.br/pulso-br/","isPartOf":{"@type":"WebSite","name":"O Valor Capital","url":"https://www.ovalorcapital.com.br/"}}
+</script>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3652391568977586" crossorigin="anonymous"></script>
+<style>
+:root{
+  --pb-bg:#0a0b07;--pb-bg2:#14150f;--pb-panel:#15160f;--pb-panel2:#191a12;
+  --pb-line:#2a2617;--pb-line2:#3a3420;
+  --pb-gold:#d4a017;--pb-gold2:#f5c542;
+  --pb-text:#f2ecd6;--pb-muted:#a89968;--pb-muted2:#7c714a;
+  --pb-green:#4ade80;--pb-red:#f87171;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--pb-bg);color:var(--pb-text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100%}
+a{color:inherit;text-decoration:none}
+.pb-mono{font-family:"SF Mono",ui-monospace,"Courier New",monospace}
+
+/* fundo com textura sutil de grid — puro CSS, zero imagem, leve para performance */
+.pb-root{position:relative;overflow:hidden;
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(212,160,23,.10), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(74,222,128,.06), transparent 55%),
+    linear-gradient(180deg, var(--pb-bg) 0%, #0d0e0a 100%);
+}
+.pb-root::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(212,160,23,.045) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(212,160,23,.045) 1px, transparent 1px);
+  background-size:42px 42px;mask-image:radial-gradient(ellipse 100% 60% at 50% 0%, #000 30%, transparent 80%);}
+
+/* topbar — link discreto de volta ao OVC */
+.pb-topbar{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;border-bottom:1px solid var(--pb-line);}
+.pb-back{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--pb-muted);}
+.pb-back:hover{color:var(--pb-gold2);}
+.pb-back-badge{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--pb-muted2);background:rgba(212,160,23,.08);border:1px solid var(--pb-line2);
+  padding:3px 9px;border-radius:20px;}
+
+/* ticker de topo */
+.pb-ticker{position:relative;z-index:2;overflow:hidden;background:#111209;border-bottom:1px solid var(--pb-line);
+  padding:8px 0;white-space:nowrap;}
+.pb-ticker-track{display:inline-block;padding-left:100%;animation:pbTickerScroll 42s linear infinite;}
+.pb-tick-item{font-size:11.5px;font-weight:700;color:var(--pb-gold2);margin:0 10px;}
+.pb-tick-item b{color:var(--pb-muted);font-weight:800;margin-right:5px;}
+.pb-tick-sep{color:var(--pb-line2);}
+@keyframes pbTickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+
+/* hero */
+.pb-hero{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:44px 20px 8px;text-align:center;}
+.pb-hero-badge{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:800;
+  letter-spacing:.09em;text-transform:uppercase;color:#171407;background:linear-gradient(90deg,var(--pb-gold),var(--pb-gold2));
+  padding:5px 14px;border-radius:20px;margin-bottom:18px;}
+.pb-hero-dot{width:7px;height:7px;border-radius:50%;background:#171407;animation:pbPulse 1.8s infinite;}
+@keyframes pbPulse{0%{opacity:1;}50%{opacity:.35;}100%{opacity:1;}}
+.pb-hero h1{font-size:clamp(30px,5vw,52px);font-weight:900;margin:0 0 12px;letter-spacing:-.02em;line-height:1.08;
+  background:linear-gradient(120deg,#fff 20%,var(--pb-gold2) 70%);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.pb-hero p{max-width:640px;margin:0 auto;font-size:15px;color:var(--pb-muted);line-height:1.6;}
+.pb-hero-updated{margin-top:14px;font-size:11px;color:var(--pb-muted2);}
+
+/* vitals */
+.pb-section{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:34px 20px;}
+.pb-section-title{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--pb-muted2);margin:0 0 16px;display:flex;align-items:center;gap:9px;}
+.pb-section-title::after{content:"";flex:1;height:1px;background:var(--pb-line);}
+.pb-vitals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;}
+.pb-vcard{background:var(--pb-panel);border:1px solid var(--pb-line);border-radius:12px;padding:16px;
+  transition:border-color .2s,transform .2s;}
+.pb-vcard:hover{border-color:var(--pb-gold);transform:translateY(-2px);}
+.pb-vcard-big{grid-column:span 2;background:linear-gradient(120deg,#1a1a10,#141507);}
+.pb-vcard-label{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--pb-muted);margin-bottom:6px;}
+.pb-vcard-val{font-family:"SF Mono",ui-monospace,"Courier New",monospace;font-size:26px;font-weight:800;color:#fef3c7;line-height:1.1;}
+.pb-vcard-big .pb-vcard-val{font-size:30px;}
+.pb-vcard-trend{font-family:ui-monospace,monospace;font-size:12px;font-weight:700;margin-top:6px;}
+.pb-up{color:var(--pb-red);}.pb-down{color:var(--pb-green);}.pb-flat{color:#94a3b8;}
+.pb-vcard-desc{margin-top:10px;font-size:11.5px;color:var(--pb-muted2);line-height:1.5;}
+
+/* setores */
+.pb-setores-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+.pb-setor-card{background:var(--pb-panel2);border:1px solid var(--pb-line);border-radius:12px;padding:14px 16px;}
+.pb-setor-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid var(--pb-line);}
+.pb-setor-icon{font-size:18px;}
+.pb-setor-label{font-size:12.5px;font-weight:800;color:#e5d8ab;}
+.pb-setor-body{display:flex;flex-direction:column;gap:8px;}
+.pb-setor-item{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--pb-muted);line-height:1.4;}
+.pb-setor-item:hover{color:var(--pb-gold2);}
+.pb-setor-item-dot{width:5px;height:5px;border-radius:50%;background:var(--pb-gold);margin-top:6px;flex-shrink:0;}
+.pb-setor-empty{font-size:11.5px;color:var(--pb-muted2);font-style:italic;}
+
+/* feed */
+.pb-feed-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.pb-feed-item{display:flex;gap:12px;background:var(--pb-panel);border:1px solid var(--pb-line);border-radius:12px;
+  padding:10px;transition:border-color .2s,transform .2s;}
+.pb-feed-item:hover{border-color:var(--pb-gold);transform:translateY(-2px);}
+.pb-feed-img{width:76px;height:76px;flex-shrink:0;border-radius:9px;background-size:cover;background-position:center;background-color:#1a1a10;}
+.pb-feed-img-empty{display:flex;align-items:center;justify-content:center;font-size:22px;}
+.pb-feed-body{display:flex;flex-direction:column;justify-content:center;min-width:0;}
+.pb-feed-cat{font-size:9.5px;font-weight:800;letter-spacing:.06em;color:var(--pb-gold2);margin-bottom:3px;}
+.pb-feed-title{font-size:13px;font-weight:700;color:var(--pb-text);line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.pb-feed-time{font-size:10.5px;color:var(--pb-muted2);margin-top:5px;}
+.pb-feed-empty{grid-column:1/-1;font-size:13px;color:var(--pb-muted2);text-align:center;padding:20px;}
+
+/* footer */
+.pb-footer{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:28px 20px 44px;
+  border-top:1px solid var(--pb-line);font-size:12px;color:var(--pb-muted2);line-height:1.7;}
+.pb-footer a{color:var(--pb-gold2);font-weight:700;}
+
+@media(max-width:640px){
+  .pb-vcard-big{grid-column:span 2;}
+  .pb-hero{padding:34px 16px 4px;}
+}
+</style>
+</head>
+<body data-category="economia">
+<div class="pb-root">
+
+  <div class="pb-topbar">
+    <a class="pb-back" href="/">← O Valor Capital</a>
+    <span class="pb-back-badge">Pulso BR</span>
+  </div>
+
+  <div class="pb-ticker">
+    <div class="pb-ticker-track" id="pb-ticker-track"></div>
+  </div>
+
+  <div class="pb-hero">
+    <span class="pb-hero-badge"><span class="pb-hero-dot"></span>AO VIVO · 24 HORAS</span>
+    <h1>Pulso BR</h1>
+    <p>O painel em tempo real da economia brasileira — juros, inflação, câmbio, bolsa, arrecadação e o termômetro de cada setor produtivo do país, plugado em fontes primárias e na cobertura jornalística do O Valor Capital.</p>
+    <div class="pb-hero-updated">Última atualização: <span id="pb-updated-at" class="pb-mono">—</span></div>
+  </div>
+
+  <div class="pb-section">
+    <div class="pb-section-title">Indicadores em tempo real</div>
+    <div class="pb-vitals-grid" id="pb-vitals-grid"></div>
+  </div>
+
+  <div class="pb-section">
+    <div class="pb-section-title">Termômetro setorial</div>
+    <div class="pb-setores-grid" id="pb-setores-grid"></div>
+  </div>
+
+  <div class="pb-section">
+    <div class="pb-section-title">Economia nacional agora</div>
+    <div class="pb-feed-list" id="pb-feed-list"></div>
+  </div>
+
+  <div class="pb-footer">
+    Pulso BR é uma iniciativa editorial do <a href="/">O Valor Capital</a>, dedicada exclusivamente à economia nacional brasileira. Os indicadores desta página são atualizados a partir de fontes primárias — Banco Central do Brasil (Selic e IPCA), câmbio e mercado financeiro — e da cobertura jornalística própria do OVC, sem interrupção, 24 horas por dia. Veja também a cobertura completa de <a href="/economia/">Economia</a> e <a href="/negocios/">Negócios</a>.
+  </div>
+</div>
+
+<script defer src="/js/ovc-pulso-br-page.js?v=1"></script>
+<script defer src="/js/ovc-audio.js?v=3"></script>
+</body>
+</html>

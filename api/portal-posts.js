@@ -450,15 +450,24 @@ async function handleList(req, res) {
 async function handleLiveData(res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
 
-  const [awResult, brapiResult] = await Promise.allSettled([
+  // Selic (meta) e IPCA acumulado 12m — Banco Central do Brasil, API SGS oficial,
+  // pública, gratuita, sem chave. Séries: 432 = Selic meta, 13522 = IPCA acum. 12m.
+  // 14/08/2026 — Roberto: "neste projeto quero tudo plugado. impostometro, indices,
+  // ibovespa, toda economia.... bolsa, etc" — endpoint on-demand existente estendido,
+  // sem novo cron/automação (mantém o congelamento de custo em vigor nesta sessão).
+  const [awResult, brapiResult, selicResult, ipcaResult] = await Promise.allSettled([
     safeFetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL"),
-    safeFetch("https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI")
+    safeFetch("https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI"),
+    safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/2?formato=json"),
+    safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/2?formato=json")
   ]);
 
   const aw = awResult.status === "fulfilled" ? awResult.value : null;
   const br = brapiResult.status === "fulfilled" ? brapiResult.value : null;
   const brapiMap = {};
   for (const item of br?.results || []) brapiMap[item.symbol] = item;
+  const selic = bcbValue(selicResult.status === "fulfilled" ? selicResult.value : null);
+  const ipca = bcbValue(ipcaResult.status === "fulfilled" ? ipcaResult.value : null);
 
   const youtubeUrl = process.env.YOUTUBE_LIVE_URL || "";
   const liveConfig = loadLiveConfig();
@@ -480,6 +489,8 @@ async function handleLiveData(res) {
     ibov: marketValue(brapiMap["^BVSP"]),
     nasdaq: marketValue(brapiMap["^IXIC"]),
     dow: marketValue(brapiMap["^DJI"]),
+    selic,
+    ipca,
     impostometro: impostometro(),
     ratePerSec: 114155,
     tv: tvChannels,
@@ -600,6 +611,24 @@ async function safeFetch(url) {
 
 function marketValue(item) {
   return item ? { valor: item.regularMarketPrice, variacao: item.regularMarketChangePercent } : null;
+}
+
+// bcbValue — parseia resposta da API SGS do Banco Central: array de
+// {data:"dd/mm/aaaa", valor:"13.75"}. Pede os últimos 2 pontos para calcular
+// variação (ponto atual vs. anterior); se só vier 1 ou a API falhar, retorna
+// null (nunca inventa dado — mesma regra de sempre do projeto).
+function bcbValue(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  const last = arr[arr.length - 1];
+  const prev = arr.length > 1 ? arr[arr.length - 2] : null;
+  const valor = Number(String(last?.valor || "").replace(",", "."));
+  if (!Number.isFinite(valor)) return null;
+  const anterior = prev ? Number(String(prev.valor || "").replace(",", ".")) : null;
+  return {
+    valor,
+    variacao: Number.isFinite(anterior) ? Number((valor - anterior).toFixed(2)) : null,
+    data: last?.data || null
+  };
 }
 
 function impostometro() {
