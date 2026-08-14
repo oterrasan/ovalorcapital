@@ -1,4 +1,4 @@
-name: Diagnóstico único — Internacional só 3 artigos
+name: Diagnóstico único — internacional só 3 (contagem + horários)
 
 on:
   workflow_dispatch:
@@ -10,17 +10,21 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparo manual real de internacional (candidates/falhas/brutosLen/prontosLen)
-        run: |
-          RESP=$(curl -s --max-time 40 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"internacional","force":true,"count":2}')
-          echo "INTERNACIONAL: $RESP"
-
-      - name: Todos os posts publish_method=internacional já criados (contagem real)
+      - name: Contagem e horários reais de publish_method=internacional
         run: |
           curl -s --max-time 20 \
             "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?select=titulo,created_at&publish_method=eq.internacional&order=created_at.asc" \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           echo ""
+
+      - name: Runs recentes do workflow pipeline-cron (job internacional) — status HTTP e duração
+        run: |
+          curl -s --max-time 15 -o /dev/null -w "HTTP:%{http_code} TIME:%{time_total}s\n" \
+            "https://www.ovalorcapital.com.br/api/run_portal"
+
+      - name: Disparo manual internacional com timeout curto (10s) — só pra ver se trava ou responde rápido
+        run: |
+          curl -s --max-time 10 -w "\nHTTP:%{http_code} TIME:%{time_total}s\n" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"internacional","force":true,"count":1}' || echo "CURL_EXIT:$?"
