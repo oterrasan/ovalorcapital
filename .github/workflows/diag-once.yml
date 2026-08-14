@@ -1,4 +1,4 @@
-name: Diagnóstico único — card Política parado
+name: Diagnóstico único — gap de 7h na Jovem Pan Política
 
 on:
   workflow_dispatch:
@@ -10,47 +10,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Disparar Jovem Pan Política (canal dedicado direto-publish de Política)
-        run: |
-          RESP=$(curl -s -X POST --max-time 40 "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
-          echo "JOVEMPAN_POLITICA: $RESP"
-
-      - name: Disparar Brasil ON (mesmo grace-period gate, pra comparar)
-        run: |
-          RESP=$(curl -s -X POST --max-time 40 "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"brasilon","force":true,"count":2}')
-          echo "BRASIL_ON: $RESP"
-
-      - name: Checar SEEN_LINKS_JOVEMPAN_POLITICA no Supabase config
+      - name: Todos os posts criados nas ultimas ~10h, por publish_method (identifica se o gap foi geral ou só de jovempan_politica)
         run: |
           curl -s --max-time 20 \
-            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_JOVEMPAN_POLITICA&select=key,value,updated_at" \
+            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?select=publish_method,titulo,created_at&created_at=gte.2026-08-13T15:00:00&order=created_at.asc&limit=200" \
             -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            | head -c 800
-          echo ""
-
-      - name: Posts publicados recentes em categoria=politica (feed público)
-        run: |
-          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=politica&limit=8" | head -c 2500
-          echo ""
-
-      - name: Contagem de posts pendentes vs publicados em politica (Supabase direto)
-        run: |
-          echo "=== pendentes (user_tags LIKE politica) — ultimos criados ==="
-          curl -s --max-time 20 \
-            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?select=id,titulo,status,publish_method,created_at,published_at&user_tags=like.*politica*&order=created_at.desc&limit=10" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            | head -c 3000
-          echo ""
-
-      - name: Ver quantos posts hoje (contarHoje) — limite diario 80 de autoMaterias
-        run: |
-          RESP=$(curl -s -X POST --max-time 40 "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"materias","force":true,"categoria":"politica","count":1}')
-          echo "MATERIAS_POLITICA: $RESP"
+            > /tmp/posts.json
+          python3 -c "import json,collections; data=json.load(open('/tmp/posts.json')); c=collections.Counter((p.get('publish_method') or '(none)') for p in data); print('total:',len(data)); print('por publish_method:',dict(c)); print(); [print(p.get('created_at'),'|',p.get('publish_method'),'|',(p.get('titulo') or '')[:60]) for p in data]"
