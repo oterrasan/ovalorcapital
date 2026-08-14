@@ -1,4 +1,4 @@
-name: Diagnóstico único — páginas Radar da Bola
+name: Diagnóstico único — card Política parado
 
 on:
   workflow_dispatch:
@@ -10,40 +10,47 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar páginas em produção (HTML bruto)
+      - name: Disparar Jovem Pan Política (canal dedicado direto-publish de Política)
         run: |
-          for path in "/" "/radar-da-bola/" "/minuto/" "/esportes/"; do
-            echo "=== $path ==="
-            HTTP_CODE=$(curl -s -o /tmp/body.html -w "%{http_code}" --max-time 20 \
-              -H "User-Agent: Mozilla/5.0 (compatible; OVC-Diag/1.0)" \
-              -H "Cache-Control: no-cache" \
-              "https://www.ovalorcapital.com.br${path}")
-            echo "HTTP: $HTTP_CODE"
-            echo "bytes: $(wc -c < /tmp/body.html)"
-            echo "build marker: $(grep -o 'build:[0-9-]*' /tmp/body.html | head -1)"
-            echo "ovc-radar-dash div: $(grep -o 'id=\"ovc-radar-dash\"[^>]*' /tmp/body.html | head -1)"
-            echo "ovc-minuto-dash div: $(grep -o 'id=\"ovc-minuto-dash\"[^>]*' /tmp/body.html | head -1)"
-            echo "ovc-radar-widget.js tag: $(grep -o 'ovc-radar-widget.js?v=[0-9]*' /tmp/body.html | head -1)"
-            echo "ovc-minuto-widget.js tag: $(grep -o 'ovc-minuto-widget.js?v=[0-9]*' /tmp/body.html | head -1)"
-            echo "ovc-audio.js tag: $(grep -o 'ovc-audio.js?v=[0-9]*' /tmp/body.html | head -1)"
-            echo "site.js tag: $(grep -o 'site.js?v=[0-9]*' /tmp/body.html | head -1)"
-            echo ""
-          done
+          RESP=$(curl -s -X POST --max-time 40 "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
+          echo "JOVEMPAN_POLITICA: $RESP"
 
-      - name: Testar API — conteúdo real de radar/minuto no banco
+      - name: Disparar Brasil ON (mesmo grace-period gate, pra comparar)
         run: |
-          echo "=== ?curtinhas=true&tipo=radar&limit=5 ==="
-          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&tipo=radar&limit=5" | head -c 2000
+          RESP=$(curl -s -X POST --max-time 40 "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":2}')
+          echo "BRASIL_ON: $RESP"
+
+      - name: Checar SEEN_LINKS_JOVEMPAN_POLITICA no Supabase config
+        run: |
+          curl -s --max-time 20 \
+            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.SEEN_LINKS_JOVEMPAN_POLITICA&select=key,value,updated_at" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            | head -c 800
           echo ""
+
+      - name: Posts publicados recentes em categoria=politica (feed público)
+        run: |
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=politica&limit=8" | head -c 2500
           echo ""
-          echo "=== ?curtinhas=true&tipo=minuto&limit=5 ==="
-          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&tipo=minuto&limit=5" | head -c 2000
+
+      - name: Contagem de posts pendentes vs publicados em politica (Supabase direto)
+        run: |
+          echo "=== pendentes (user_tags LIKE politica) — ultimos criados ==="
+          curl -s --max-time 20 \
+            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?select=id,titulo,status,publish_method,created_at,published_at&user_tags=like.*politica*&order=created_at.desc&limit=10" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            | head -c 3000
           echo ""
-          echo ""
-          echo "=== ?curtinhas=true&categoria=esportes&limit=5 (o que ovc-nichos/widgets de radar esportivo consomem) ==="
-          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?curtinhas=true&categoria=esportes&limit=5" | head -c 2000
-          echo ""
-          echo ""
-          echo "=== ?recentes=true&limit=5 (feed principal — confirma se o site serve QUALQUER conteúdo) ==="
-          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=5" | head -c 2000
-          echo ""
+
+      - name: Ver quantos posts hoje (contarHoje) — limite diario 80 de autoMaterias
+        run: |
+          RESP=$(curl -s -X POST --max-time 40 "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true,"categoria":"politica","count":1}')
+          echo "MATERIAS_POLITICA: $RESP"
