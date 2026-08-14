@@ -5941,3 +5941,32 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 4. **Possível migração SQL futura** (só com autorização de Roberto e só depois de checar duplicatas): `ALTER TABLE config ADD CONSTRAINT config_key_unique UNIQUE (key);` — resolveria a causa raiz de fundo pra qualquer upsert futuro que use `{onConflict:"key"}`, mas o fix de código já aplicado nesta sessão não depende disso.
 5. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, card de Economia — Roberto mesmo) seguem válidas.
 
+
+---
+
+### Sessão 14/08/2026 — "TODO O PIPE ESTÁ PARADO?" — RESPOSTA: NÃO, MAS 4 DE 7 JOBS DO CRON FALHAVAM QUASE SEMPRE (PR #430)
+
+#### Contexto
+
+Roberto mandou print do painel admin Postagens e perguntou direto: "todo o pipe está parado?". Investigação real via `mcp__github__get_job_logs` nos últimos runs de `pipeline-cron.yml` (não suposição).
+
+#### Achado
+
+O workflow tem 7 jobs, todos disparando quase simultaneamente a cada tick do cron (`2,17,32,47 * * * *`):
+- **3 sempre funcionavam:** `materias` (skip correto por janela BRT), `futebol`, `minuto`.
+- **4 falhavam em praticamente toda rodada, silenciosamente:** `outros_esportes`, `brasilon`, `jovempan_politica`, `internacional` — todos com `curl --max-time 12` (limite adicionado em edições anteriores do mesmo dia, pensado pra evitar job pendurado + expor `%{http_code}` no log).
+
+**Causa raiz:** com os 7 jobs disparando quase ao mesmo tempo contra a mesma function serverless `/api/run_portal`, a resposta real sob essa concorrência costuma levar 50-60s — confirmado no run `31774394538`: `futebol` completou em 60s, `minuto` em 54s (nenhum dos dois tem `--max-time`), enquanto os outros 4 jobs, limitados a 12s, morriam com `curl` exit code 28 (timeout de conexão, zero resposta HTTP recebida) exatamente aos 12s — sem deixar nenhum rastro de erro visível além do "red X" no Actions.
+
+#### Fix (PR #430, squash commit `0a3a8077`)
+
+`--max-time 12` → `--max-time 55` nos 4 jobs afetados (`outros_esportes`, `brasilon`, `jovempan_politica`, `internacional`) — folga real sobre o pior caso observado (60s), ainda dentro do limite de 180s (`timeout-minutes: 3`) de cada job. `futebol`/`minuto` não tocados (já funcionavam sem limite).
+
+**Deploy confirmado com sucesso** — `deploy.yml` run `31785947192`, `conclusion: success`, 08:57:42 UTC.
+
+Ajuste de infraestrutura existente, sem custo novo, sem automação nova — consistente com a restrição de "sem novos custos" desta sessão.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto, após alguns ciclos do cron**, se os 4 canais (Radar do Esporte, Brasil ON, Jovem Pan Política, Internacional) voltaram a gerar conteúdo com regularidade.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 13/08/2026 acima — Brasil ON/Jovem Pan Política pós-fix do upsert, `PESQUISA_ELEITORAL`/`COLUNISTAS_PHOTOS` mesmo bug suspeito, foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, card de Economia — Roberto mesmo, ranking gigante de políticos — futuro).
