@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { getNews, getNewsByCategoria, buscarFeedsEspecificos, FONTES_APROVADAS_URLS } from "../core/rss.js";
 import { scrape } from "../core/scraper.js";
-import { findImage, findImageFutebol } from "../core/image_finder.js";
+import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional } from "../core/ai_portal.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
@@ -687,7 +687,7 @@ async function autoFutebolCurtinhas(req, res, rec) {
     if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
     let a, sourceText;
     try {
-      a = await scrape(item.link);
+      a = await scrape(item.link, { timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) continue;
     } catch(_) { continue; }
@@ -699,7 +699,15 @@ async function autoFutebolCurtinhas(req, res, rec) {
       const erros = validar(content);
       if (erros.length) continue;
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
-      const img = Date.now() - start < 40000 ? await findImageFutebol(content.titulo, content.corpo) : null;
+      // 14/08/2026 — Roberto: "precisamos raspar imagens, igual fizemos com o
+      // bacci, jovem pan e demais". findImageFutebol() (busca genérica de
+      // escudo/Wikipedia, até 10s) trocado pela imagem da PRÓPRIA matéria
+      // (a.image, já raspada pelo scrape() acima, mesmo padrão dos outros
+      // canais) — mais rápido e muito mais confiável. Sem imagem própria,
+      // não publica (nunca reintroduz a busca genérica lenta).
+      if (!a.image) continue;
+      const img = await processAndSaveImage(a.image, hash.slice(0, 12), start);
+      if (!img) continue;
       await saveCurtinha(content, hash, "esportes", "radar", img);
       await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)} | img:${!!img}`);
       geradosAgora.push(content.titulo);
@@ -834,7 +842,15 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
       const erros = validar(content);
       if (erros.length) { registrarFalha("validar:" + erros[0]); continue; }
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { registrarFalha("dedup_titulo_final"); continue; }
-      const img = Date.now() - start < 40000 ? await findImage(content.titulo, "esportes") : null;
+      // 14/08/2026 — Roberto: "precisamos raspar imagens, igual fizemos com o
+      // bacci, jovem pan e demais". findImage(content.titulo,"esportes") era
+      // busca genérica por palavra-chave (até 10s, baixíssima taxa de acerto
+      // pra nome de atleta específico) — trocado pela imagem da PRÓPRIA
+      // matéria (a.image, já raspada pelo scrape() acima). Sem imagem própria,
+      // não publica — mesma regra do Bacci/Jovem Pan/Internacional.
+      if (!a.image) { registrarFalha("semImagemFonte"); continue; }
+      const img = await processAndSaveImage(a.image, hash.slice(0, 12), start);
+      if (!img) { registrarFalha("imagemFalhouProcessar"); continue; }
       await saveCurtinha(content, hash, "esportes", "pilula", img, sport.label);
       await log("info", `[outros-esportes-jornal] ${sport.label}: ${content.titulo?.slice(0,50)}`);
       porEsporte[sport.key] = (porEsporte[sport.key] || 0) + 1;
