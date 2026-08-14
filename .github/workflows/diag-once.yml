@@ -1,4 +1,4 @@
-name: Diagnóstico único — gap de 7h na Jovem Pan Política
+name: Diagnóstico único — placeholder
 
 on:
   workflow_dispatch:
@@ -10,11 +10,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Todos os posts criados nas ultimas ~10h, por publish_method (identifica se o gap foi geral ou só de jovempan_politica)
+      - name: Placeholder — reescrever conteúdo aqui na próxima investigação one-off
         run: |
-          curl -s --max-time 20 \
-            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?select=publish_method,titulo,created_at&created_at=gte.2026-08-13T15:00:00&order=created_at.asc&limit=200" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            > /tmp/posts.json
-          python3 -c "import json,collections; data=json.load(open('/tmp/posts.json')); c=collections.Counter((p.get('publish_method') or '(none)') for p in data); print('total:',len(data)); print('por publish_method:',dict(c)); print(); [print(p.get('created_at'),'|',p.get('publish_method'),'|',(p.get('titulo') or '')[:60]) for p in data]"
+          echo "Sem diagnóstico ativo no momento. Editar este arquivo com o próximo teste one-off quando necessário."

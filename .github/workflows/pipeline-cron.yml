@@ -44,10 +44,12 @@ jobs:
         # head -c 300 cortava a resposta antes dos campos de diagnóstico
         # (distribuicaoBruta/falhas, adicionados 08/08/2026) — aumentado pra 2000
         # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} explícito no log —
+        # ver comentário em cima do job jovempan_politica, mesmo motivo.
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"outros_esportes","force":true,"count":3}')
+            -d '{"tipo":"outros_esportes","force":true,"count":2}')
           echo "OUTROS_ESPORTES: $RESP" | head -c 2000
 
   brasilon:
@@ -56,10 +58,12 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Gerar conteúdo Brasil ON
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
+        # em cima do job jovempan_politica, mesmo motivo.
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"brasilon","force":true,"count":3}')
+            -d '{"tipo":"brasilon","force":true,"count":2}')
           echo "BRASIL_ON: $RESP" | head -c 500
 
   jovempan_politica:
@@ -68,10 +72,26 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Gerar conteúdo Jovem Pan Política
+        # 14/08/2026 — Roberto reportou "card de política parece parado de
+        # geração". Investigação (PRs #422/#423) confirmou gap real de ~7h20
+        # (13/08 17:40 -> 14/08 01:00 UTC) sem NENHUM post de política, tanto
+        # deste canal quanto do autoMaterias() geral — enquanto esportes/
+        # finanças/brasil-on/internacional seguiram publicando o tempo todo no
+        # mesmo período. Não é limite diário nem AUTOMATION=off (ambos
+        # descartados). Hipótese mais provável, sem maxDuration configurado em
+        # vercel.json nem no arquivo (função roda no default do Vercel Hobby,
+        # ~10s): com count:3 candidatos (scrape+IA+imagem cada), a chamada pode
+        # ocasionalmente estourar o tempo e ser matada pelo Vercel a meio —
+        # e como o workflow nunca validava o HTTP code, essa falha ficava
+        # 100% silenciosa (curl -s não falha em erro HTTP, só em erro de
+        # conexão). Fix: count 3→2 (menos trabalho por chamada) + --max-time 12
+        # (não deixa o job pendurado além do necessário) + %{http_code} exposto
+        # no log — se voltar a falhar, agora aparece OUTRO_QUE_200 no Actions
+        # em vez de sumir sem rastro.
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"jovempan_politica","force":true,"count":3}')
+            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
           echo "JOVEMPAN_POLITICA: $RESP" | head -c 500
 
   internacional:
@@ -80,10 +100,12 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Gerar conteúdo Internacional
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
+        # em cima do job jovempan_politica, mesmo motivo.
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"internacional","force":true,"count":3}')
+            -d '{"tipo":"internacional","force":true,"count":2}')
           echo "INTERNACIONAL: $RESP" | head -c 500
 
   materias:
