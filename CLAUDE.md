@@ -5970,3 +5970,48 @@ Ajuste de infraestrutura existente, sem custo novo, sem automação nova — con
 
 1. **Confirmar com Roberto, após alguns ciclos do cron**, se os 4 canais (Radar do Esporte, Brasil ON, Jovem Pan Política, Internacional) voltaram a gerar conteúdo com regularidade.
 2. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 13/08/2026 acima — Brasil ON/Jovem Pan Política pós-fix do upsert, `PESQUISA_ELEITORAL`/`COLUNISTAS_PHOTOS` mesmo bug suspeito, foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, card de Economia — Roberto mesmo, ranking gigante de políticos — futuro).
+
+---
+
+### Sessão 14/08/2026 (continuação) — HEADER/RODAPÉ PADRÃO EM /pulso-br/ (PR #432) — MERGEADO, DEPLOY BLOQUEADO POR QUOTA VERCEL
+
+#### Contexto
+
+Roberto, após ver `/pulso-br/` renderizando corretamente ("apareceu. agora o pulso, ficou bom"), deu uma instrução firme e explícita: *"mas ainda vamos lapidar, a primeira coisa é que o cabecalho e o rodape, precisam estar presentes. é a unica rfegra do portal, o cabecalho com todo o topo e o rodape devem estar presenrtes em todo o portal. é a maca registrada"*.
+
+`/pulso-br/` (dashboard customizado dark/gold, criado do zero) nunca tinha recebido o header/footer padrão — só um topbar mínimo (link de volta + badge) e um footer de 1 parágrafo.
+
+#### O que foi feito (PR #432, squash commit `8d0b764`)
+
+- Header completo (ticker+impostômetro, logo, busca, supermenu de 12 categorias com submenus, chips-bar) e footer completo (footer-brand, grid de 5 colunas, newsletter, indicadores, social, copyright/legal) extraídos byte a byte do template padrão já usado em `/radar/` e `/vc/` — nunca digitados à mão, sempre copiados de uma página real funcionando (via `sed` sobre `/radar/index.html`, que tem uma linha com o logo em base64 de ~144KB que quebra a ferramenta `Read` mesmo com `offset`/`limit` — contornado extraindo por `sed -n 'INICIO,FIMp'` via Bash).
+- `home.css?v=5` + `site.css?v=1` adicionados no `<head>`; `site.js?v=3` + os 3 scripts de "Interruptores" (`ovc-interruptor-rodape/artigo/rail.js`) adicionados no rodapé — mesmo padrão de `/radar/`.
+- **Decisão técnica importante, verificada por leitura de código antes de agir: `internal-page-v2.js` NÃO foi incluído.** Esse script, quando há `data-category` no `<body>`, reescreve `.ovc-main` inteiro com o layout de listagem de categoria (`.cat-corpo`) — isso destruiria o dashboard customizado do Pulso BR (ticker próprio, vitals grid, termômetro setorial, feed). Confirmado inspecionando `internal-page-v2.js` (`document.body.dataset.category`, early-return só para `slug==='vc'`/`'colunistas'`/uma lista fixa de `_section` de futebol) e confirmando que `/radar/`, `/tv-ovc/`, `/dados/` — as outras páginas "ao vivo" customizadas do portal — seguem exatamente esse mesmo padrão (home.css+site.css+site.js, SEM internal-page-v2.js).
+- Todo o conteúdo único da página (ticker próprio, vitals, termômetro setorial, feed, nota editorial) preservado 100% dentro do novo `<main class="ovc-main">`.
+
+**⚠️ Achado colateral, NÃO investigado a fundo nesta sessão (fora do escopo, registrado para o futuro):** `/motor/`, `/tenis/`, `/mma/`, `/basquete/`, `/nfl/`, `/volei/` (radares esportivos individuais, PRs #287-290 de 29/07/2026) **têm `data-category="esportes"` e INCLUEM `internal-page-v2.js`**, com `data-section` (ex: `"motor"`) que NÃO está na lista de exclusão do script (`['radar-da-bola','brasileirao-serie-a','brasileirao-serie-b','libertadores','sul-americana','futebol-europeu','mercado-da-bola']` — só cobre as páginas de futebol). Por leitura de código, isso sugere que o `.ovc-main` dessas páginas pode estar sendo reescrito por `internal-page-v2.js` DEPOIS que o widget de dados ao vivo (`ovc-radar-motor.js` etc.) monta seu conteúdo em `#ovc-motor-dash` — o que apagaria o widget silenciosamente. **NÃO CONFIRMADO EM PRODUÇÃO** (sandbox sem rede) — é só uma hipótese de leitura de código, mas coerente com o padrão "confirmar visualmente" que aparece pendente desde 29/07/2026 e nunca foi de fato marcado como verificado com evidência real. Próxima sessão: se Roberto reportar que esses radares individuais não mostram dado nenhum (só o hero + rail genérico), investigar exatamente essa hipótese primeiro.
+
+#### 🔴 Deploy de produção FALHOU — quota diária do Vercel, não é bug do código
+
+PR #432 mergeado normalmente (CI "Verificar arquivos críticos" verde, `mergeable_state:clean`), mas o `deploy.yml` (`Deploy Production`, run `31787380111`) falhou:
+```
+Error: Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")
+```
+Mesmo problema já documentado extensivamente na sessão 13/08/2026 (seção "LIMITE VERCEL PERSISTENTE") — a cota de 100 deploys/dia do Vercel Hobby é **por projeto**, e especificamente o projeto `ovalorcapital-xuhw` (o que `deploy.yml` usa via `vercel deploy --prod`) estava no limite no momento do push. As 3 prévias do PR mostraram "Ready" (mecanismo diferente — GitHub App do Vercel, não a CLI usada pelo `deploy.yml`) — **confirma de novo, com evidência direta, a lição já registrada: previews "Ready" não provam que o deploy de produção vai passar.**
+
+**Estado real:** o código do PR #432 está correto e mergeado em `main` (commit `8d0b764`), mas **NÃO está ao vivo em produção** ainda. Só vai ao ar quando: (a) a janela rolante de 24h liberar o projeto `ovalorcapital-xuhw` e outro push em `main` disparar `deploy.yml` de novo, ou (b) Roberto disparar um redeploy manual do commit `8d0b764` direto no Vercel Dashboard (`ovalorcapital-xuhw` → Deployments → esse commit → Redeploy).
+
+**Não foi tentado re-run automático** — a mesma sessão de 13/08/2026 já confirmou que re-executar via API retorna `403 Resource not accessible by integration`, e mesmo que funcionasse, a cota é diária/rolante, não reseta em minutos.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudança só em `public/pulso-br/index.html`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar se o deploy do commit `8d0b764` (PR #432) já chegou em produção** — checar `deploy.yml` no `main` mais recente, e se ainda não, considerar pedir a Roberto para disparar redeploy manual no Vercel Dashboard se for urgente.
+2. **Confirmar visualmente com Roberto** — header e footer completos em `/pulso-br/`, assim que o deploy passar.
+3. **Investigar a hipótese levantada acima** sobre `internal-page-v2.js` possivelmente apagando o conteúdo dos radares esportivos individuais (`/motor/`, `/tenis/`, `/mma/`, `/basquete/`, `/nfl/`, `/volei/`) — só se Roberto reportar problema visual nessas páginas.
+4. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 14/08/2026 anterior e 13/08/2026 — Radar do Esporte/Brasil ON/Jovem Pan Política/Internacional pós-fix `--max-time`, `PESQUISA_ELEITORAL`/`COLUNISTAS_PHOTOS` mesmo bug de upsert suspeito, foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, card de Economia — Roberto mesmo, ranking gigante de políticos — futuro).
