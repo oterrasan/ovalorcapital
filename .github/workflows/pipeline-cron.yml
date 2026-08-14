@@ -46,8 +46,19 @@ jobs:
         # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
         # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} explícito no log —
         # ver comentário em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (mesmo dia, continuação): --max-time 12 era curto DEMAIS —
+        # confirmado via logs reais que /api/run_portal, quando os 7 jobs deste
+        # workflow disparam quase simultaneamente contra a mesma function serverless,
+        # rotineiramente leva 53-60s pra responder (futebol/minuto, sem limite de
+        # tempo, completaram em 60s e 54s na mesma execução em que este job estourou
+        # o timeout aos 12s com exit code 28 = timeout de conexão, zero resposta HTTP
+        # recebida). Resultado: este job (e os outros 3 com o mesmo --max-time 12)
+        # falhavam em praticamente TODA rodada do cron, silenciosamente pro usuário
+        # (só aparecia como "red X" no Actions, sem afetar o "pipeline geral" visível
+        # no admin). Subido pra 55s — folga real sobre o pior caso observado (60s),
+        # ainda dentro do limite de 180s (timeout-minutes: 3) do job inteiro.
         run: |
-          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"outros_esportes","force":true,"count":2}')
           echo "OUTROS_ESPORTES: $RESP" | head -c 2000
@@ -60,8 +71,10 @@ jobs:
       - name: Gerar conteúdo Brasil ON
         # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
         # em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
+        # ver comentário completo no job outros_esportes acima.
         run: |
-          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"brasilon","force":true,"count":2}')
           echo "BRASIL_ON: $RESP" | head -c 500
@@ -88,8 +101,10 @@ jobs:
         # (não deixa o job pendurado além do necessário) + %{http_code} exposto
         # no log — se voltar a falhar, agora aparece OUTRO_QUE_200 no Actions
         # em vez de sumir sem rastro.
+        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
+        # ver comentário completo no job outros_esportes acima.
         run: |
-          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"jovempan_politica","force":true,"count":2}')
           echo "JOVEMPAN_POLITICA: $RESP" | head -c 500
@@ -102,8 +117,10 @@ jobs:
       - name: Gerar conteúdo Internacional
         # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
         # em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
+        # ver comentário completo no job outros_esportes acima.
         run: |
-          RESP=$(curl -s --max-time 12 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"internacional","force":true,"count":2}')
           echo "INTERNACIONAL: $RESP" | head -c 500
