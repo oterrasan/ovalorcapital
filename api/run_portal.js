@@ -822,7 +822,7 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
     if (pautaParecida(item.title || "", rec.sourceTitulos)) { registrarFalha("dedup_titulo_fonte"); continue; }
     let a, sourceText;
     try {
-      a = await scrape(item.link);
+      a = await scrape(item.link, { timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) { registrarFalha("scrape_curto"); continue; }
     } catch (_) { registrarFalha("scrape_erro"); continue; }
@@ -1015,7 +1015,7 @@ async function autoBrasilOn(req, res, rec) {
     if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
     let a, sourceText;
     try {
-      a = await scrape(item.link);
+      a = await scrape(item.link, { timeout: 3500 });
       // Piso baixo (100, não 300) — fonte é tabloide/curta de propósito, uma
       // matéria real de 2 frases (~180 chars de corpo) não pode ser descartada.
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
@@ -1121,7 +1121,7 @@ async function autoJovempanPolitica(req, res, rec) {
       // domínio concorrente (correto na pipeline geral), mas aqui a
       // imagem DEVE ser sempre a da própria Jovem Pan — mesma estrutura
       // do Bacci/Brasil ON. Ver comentário completo em core/scraper.js.
-      a = await scrape(item.link, { allowCompetitorImage: true });
+      a = await scrape(item.link, { allowCompetitorImage: true, timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 100) { falhas.textoCurto++; continue; }
       // Roberto, 12/08/2026: "ATENCAO PARA PROMOCOES, PROPAGANDAS, ANUNCIOS,
@@ -1212,7 +1212,11 @@ async function autoInternacional(req, res, rec) {
     try {
       // Nem bbc.com nem cnn.com estão em COMPETITOR_IMG_HOSTS
       // (core/scraper.js) — não precisa de allowCompetitorImage aqui.
-      a = await scrape(item.link);
+      // timeout:3500 — 14/08/2026: scrape() padrão (7000ms) sozinho já
+      // consumia quase todo o budget ~10s do Vercel Hobby; confirmado ao
+      // vivo que até count:1 estourava sem resposta (curl --max-time 10
+      // → HTTP:000). Ver comentário completo em core/scraper.js.
+      a = await scrape(item.link, { timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 100) { falhas.textoCurto++; continue; }
       if (pareceConteudoPromocionalIntl(item.title || a.title || "", sourceText)) { falhas.promo++; continue; }

@@ -90,11 +90,19 @@ function isValidImage(url, allowCompetitorImage = false) {
 // SOMENTE nos fluxos onde a fonte é single-purpose e aprovada por Roberto
 // para reaproveitar sua própria imagem (Jovem Pan Política, e qualquer
 // futuro canal no mesmo padrão) — nunca no caminho geral de matérias.
+// 14/08/2026 — Radar/Brasil ON/Jovem Pan/Internacional rodam em janela
+// ~10s do Vercel Hobby (sem maxDuration, default da plataforma). Um
+// timeout de 7000ms aqui sozinho já consome quase todo o budget ANTES de
+// qualquer reescrita de IA ou processamento de imagem — confirmado ao
+// vivo: mesmo count:1 (candidato único) estourou o limite (curl
+// --max-time 10 → HTTP:000, CURL_EXIT:28, nenhuma resposta). Canais
+// lean/24h podem passar opts.timeout menor para deixar mais margem pro
+// resto do pipeline dentro da mesma invocação.
 export async function scrape(url, opts = {}) {
-  const { allowCompetitorImage = false } = opts;
+  const { allowCompetitorImage = false, timeout = 7000 } = opts;
   try {
     const res = await axios.get(url, {
-      timeout: 7000,
+      timeout,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
