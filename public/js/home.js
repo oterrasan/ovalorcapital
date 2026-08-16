@@ -167,43 +167,34 @@
     } catch(e) { console.error('[Negocios]',e); }
   }
 
+  // 16/08/2026 — Roberto: "SÓ QUE ISSO NAO ENTRA EM CARD DE DESTAQUE!!!! E ENTROU NO
+  // CARD DE DESTAQUE QUE SÓ DEVERIA RECBER FINANCAS DOS TEMAS DA LIONS, SEGUROS,
+  // CONSORCIOS, INVESTIMETNOS, ETC" — confirmado via query real em produção: o post
+  // mais recente tagueado "financas" era uma matéria de política monetária do Fed
+  // americano (subcategoria "Geral"), e o próprio card já tinha exibido resultado de
+  // Mega-Sena (também "Geral") — nada a ver com o patrocinador Lions Corretora
+  // (seguros/investimentos/consórcio/previdência/planejamento patrimonial). Causa raiz:
+  // o pool filtrava só por categoria==='financas' (ampla demais — inclui "Geral", que é
+  // o catch-all de qualquer notícia financeira genérica) e tinha 'economia' (política
+  // econômica/macro, ainda mais fora do tema) como fallback. Fix: whitelist de
+  // subcategoria batendo exatamente o tema Lions (mesmas subcategorias de
+  // SUBCATS.financas em admin/index.html, exceto "Geral") — 'economia' removida do
+  // pool por completo, nunca mais entra no card Lions.
+  const LIONS_SUBCATS = new Set(['Renda Fixa','Bolsa e Ações','Seguros e Proteção','Previdência','Fundos e FIIs','Planejamento Patrimonial','Criptomoedas']);
+  function ehTemaLions(p) { return LIONS_SUBCATS.has(p.subcategoria || ''); }
   function carregarCardLions(cache, offset) {
     try {
       const cardEl = document.getElementById('card-lions-financas');
       if (cardEl) cardEl.style.display = '';
-      const PRIMARY_CATS = ['financas'];
-      const BROAD_CATS = ['financas','economia'];
-      const primary = [];
-      for (const cat of PRIMARY_CATS) {
-        (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id)).forEach(p => primary.push(p));
-      }
-      // Priority 1: fresh from primary (24h)
-      let pool = primary.filter(p => dentroJanela(p, 24));
-      // Priority 2: fresh from broader pool (24h)
-      if (!pool.length) {
-        const broad = [];
-        for (const cat of BROAD_CATS) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,24)).forEach(p => broad.push(p));
-        }
-        if (broad.length) pool = broad;
-      }
-      // Priority 3: máx 48h; Priority 4 (fallback): mais recente publicado — nunca vazio
-      if (!pool.length) pool = primary.filter(p => dentroJanela(p, 48));
-      if (!pool.length) {
-        const broad2 = [];
-        for (const cat of BROAD_CATS) {
-          (cache[cat]||[]).filter(p => p.categoria===cat && !idsDestaque.has(p.id) && dentroJanela(p,48)).forEach(p => broad2.push(p));
-        }
-        pool = broad2;
-      }
-      if (!pool.length) pool = primary;
-      if (!pool.length) {
-        const any3 = [];
-        for (const cat of BROAD_CATS) {
-          (cache[cat]||[]).filter(p => p.categoria===cat).forEach(p => any3.push(p));
-        }
-        pool = any3;
-      }
+      const primary = (cache['financas']||[]).filter(p => p.categoria==='financas' && !idsDestaque.has(p.id));
+      const primaryTema = primary.filter(ehTemaLions);
+      // Priority 1: no tema Lions, fresco (24h)
+      let pool = primaryTema.filter(p => dentroJanela(p, 24));
+      // Priority 2: no tema Lions, até 48h
+      if (!pool.length) pool = primaryTema.filter(p => dentroJanela(p, 48));
+      // Priority 3 (fallback, nunca vazio): no tema Lions, qualquer idade —
+      // NUNCA cai pra "Geral"/economia só pra preencher o card.
+      if (!pool.length) pool = primaryTema;
       if (!pool.length) return;
       pool = pool.slice(0, 5);
       const post = pool[(offset||0) % pool.length];
