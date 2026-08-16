@@ -60,26 +60,13 @@ jobs:
           echo ""
           echo "=== Listando modelos Gemini disponíveis para KEY1 (confirmar se gemini-2.0-flash existe) ==="
           if [ -n "$KEY1" ]; then
-            curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY1" | python3 -c "
-import json,sys
-try:
-    d = json.load(sys.stdin)
-    names = [m.get('name','') for m in d.get('models',[])]
-    flash = [n for n in names if 'flash' in n.lower()]
-    print('Total modelos:', len(names))
-    print('Modelos com flash no nome:', flash[:20])
-except Exception as e:
-    print('ERRO parse:', e)
-"
+            curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY1" > /tmp/models.json
+            python3 -c "import json; d=json.load(open('/tmp/models.json')); names=[m.get('name','') for m in d.get('models',[])]; flash=[n for n in names if 'flash' in n.lower()]; print('Total modelos:', len(names)); print('Modelos com flash no nome:', flash[:20])" 2>&1 || cat /tmp/models.json
           fi
 
           echo ""
           echo "=== Testando OpenAI (chave hardcoded do core/ai_portal.js) ==="
-          OPENAI_KEY=$(python3 -c "
-import base64
-b64 = 'c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE='
-print(base64.b64decode(b64).decode())
-")
+          OPENAI_KEY=$(python3 -c "import base64; print(base64.b64decode('c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=').decode())")
           echo "OpenAI key len: ${#OPENAI_KEY}, sufixo: ...${OPENAI_KEY: -8}"
           HTTP_CODE=$(curl -s -o /tmp/openai.json -w "%{http_code}" \
             "https://api.openai.com/v1/chat/completions" \
