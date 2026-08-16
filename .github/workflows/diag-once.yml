@@ -10,21 +10,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar chaves Gemini direto contra a API do Google
+      - name: Testar chaves Gemini compartilhadas direto contra a API do Google
         run: |
           SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo "Buscando chaves Gemini no Supabase..."
           CFG=$(curl -s "$SUPA_URL/rest/v1/config?key=in.(GEMINI_API_KEY,GEMINI_API_KEY_2)&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY")
           KEY1=$(echo "$CFG" | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((x['value'] for x in d if x['key']=='GEMINI_API_KEY'),''))")
           KEY2=$(echo "$CFG" | python3 -c "import sys,json; d=json.load(sys.stdin); print(next((x['value'] for x in d if x['key']=='GEMINI_API_KEY_2'),''))")
-          echo "KEY1 presente: $([ -n "$KEY1" ] && echo sim || echo nao) | tamanho: ${#KEY1}"
-          echo "KEY2 presente: $([ -n "$KEY2" ] && echo sim || echo nao) | tamanho: ${#KEY2}"
-          echo "=== Testando KEY1 contra gemini-2.5-flash ==="
+          echo "=== Testando KEY1 ==="
           RESP1=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$KEY1" -H "Content-Type: application/json" -d "{\"contents\":[{\"parts\":[{\"text\":\"responda apenas: ok\"}]}]}")
-          echo "KEY1_RESULT: $RESP1" | head -c 1200
+          echo "KEY1_RESULT: $RESP1" | head -c 1500
           echo ""
-          echo "=== Testando KEY2 contra gemini-2.5-flash ==="
+          echo "=== Testando KEY2 ==="
           RESP2=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$KEY2" -H "Content-Type: application/json" -d "{\"contents\":[{\"parts\":[{\"text\":\"responda apenas: ok\"}]}]}")
-          echo "KEY2_RESULT: $RESP2" | head -c 1200
+          echo "KEY2_RESULT: $RESP2" | head -c 1500
           echo ""
