@@ -1,4 +1,4 @@
-name: Diagnóstico único — Gemini + OpenAI direto
+name: Diagnóstico único — placeholder
 
 on:
   workflow_dispatch:
@@ -10,75 +10,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar Gemini key1, key2 e OpenAI direto
+      - name: Placeholder — reescrever conteúdo aqui na próxima investigação one-off
         run: |
-          set +e
-          SUPABASE_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "=== Buscando GEMINI_API_KEY e GEMINI_API_KEY_2 no Supabase config ==="
-          RESP=$(curl -s "$SUPABASE_URL/rest/v1/config?key=in.(GEMINI_API_KEY,GEMINI_API_KEY_2)&select=key,value" \
-            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY")
-          echo "CONFIG_RESP: $RESP"
-
-          KEY1=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(next((r['value'] for r in d if r['key']=='GEMINI_API_KEY'),''))")
-          KEY2=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(next((r['value'] for r in d if r['key']=='GEMINI_API_KEY_2'),''))")
-
-          echo "KEY1 presente: $([ -n "$KEY1" ] && echo sim || echo NAO) (len=${#KEY1})"
-          echo "KEY2 presente: $([ -n "$KEY2" ] && echo sim || echo NAO) (len=${#KEY2})"
-
-          echo ""
-          echo "=== Testando Gemini 2.0 Flash com KEY1 ==="
-          if [ -n "$KEY1" ]; then
-            HTTP_CODE=$(curl -s -o /tmp/gemini1.json -w "%{http_code}" \
-              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$KEY1" \
-              -H "Content-Type: application/json" \
-              -d '{"contents":[{"parts":[{"text":"responda apenas: ok"}]}]}')
-            echo "HTTP_CODE KEY1: $HTTP_CODE"
-            echo "BODY KEY1:"
-            cat /tmp/gemini1.json
-            echo ""
-          else
-            echo "KEY1 vazia — pulado"
-          fi
-
-          echo ""
-          echo "=== Testando Gemini 2.0 Flash com KEY2 ==="
-          if [ -n "$KEY2" ]; then
-            HTTP_CODE=$(curl -s -o /tmp/gemini2.json -w "%{http_code}" \
-              "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$KEY2" \
-              -H "Content-Type: application/json" \
-              -d '{"contents":[{"parts":[{"text":"responda apenas: ok"}]}]}')
-            echo "HTTP_CODE KEY2: $HTTP_CODE"
-            echo "BODY KEY2:"
-            cat /tmp/gemini2.json
-            echo ""
-          else
-            echo "KEY2 vazia — pulado"
-          fi
-
-          echo ""
-          echo "=== Listando modelos Gemini disponíveis para KEY1 (confirmar se gemini-2.0-flash existe) ==="
-          if [ -n "$KEY1" ]; then
-            curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY1" > /tmp/models.json
-            python3 -c "import json; d=json.load(open('/tmp/models.json')); names=[m.get('name','') for m in d.get('models',[])]; flash=[n for n in names if 'flash' in n.lower()]; print('Total modelos:', len(names)); print('Modelos com flash no nome:', flash[:20])" 2>&1 || cat /tmp/models.json
-          fi
-
-          echo ""
-          echo "=== Testando OpenAI (chave hardcoded do core/ai_portal.js) ==="
-          OPENAI_KEY=$(python3 -c "import base64; print(base64.b64decode('c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=').decode())")
-          echo "OpenAI key len: ${#OPENAI_KEY}, sufixo: ...${OPENAI_KEY: -8}"
-          HTTP_CODE=$(curl -s -o /tmp/openai.json -w "%{http_code}" \
-            "https://api.openai.com/v1/chat/completions" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_KEY" \
-            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"responda apenas: ok"}],"max_tokens":10}')
-          echo "HTTP_CODE OpenAI hardcoded: $HTTP_CODE"
-          cat /tmp/openai.json
-          echo ""
-      - name: Chamar o pipeline real (autoMaterias) para checar erro completo
-        run: |
-          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"force":true,"count":1,"categoria":"politica"}')
-          echo "PIPELINE_RESP: $RESP"
+          echo "Sem diagnóstico ativo no momento. Editar este arquivo com o próximo teste one-off quando necessário."
