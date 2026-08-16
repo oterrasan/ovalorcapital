@@ -11,120 +11,17 @@ on:
         required: false
 
 jobs:
-  minuto:
-    name: Minuto OVC — finanças/economia (fontes confiáveis)
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Gerar Minuto OVC
-        run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"minuto","force":true,"count":2}')
-          echo "MINUTO: $RESP" | head -c 300
-
-  futebol:
-    name: Radar do Futebol 24h
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Gerar radar do futebol
-        run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"futebol","force":true}')
-          echo "FUTEBOL: $RESP" | head -c 300
-
-  outros_esportes:
-    name: Radar do Esporte 24h — Basquete/Motor/Tênis/MMA/Vôlei/NFL
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Gerar pílulas dos outros esportes
-        # head -c 300 cortava a resposta antes dos campos de diagnóstico
-        # (distribuicaoBruta/falhas, adicionados 08/08/2026) — aumentado pra 2000
-        # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
-        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} explícito no log —
-        # ver comentário em cima do job jovempan_politica, mesmo motivo.
-        # 14/08/2026 (mesmo dia, continuação): --max-time 12 era curto DEMAIS —
-        # confirmado via logs reais que /api/run_portal, quando os 7 jobs deste
-        # workflow disparam quase simultaneamente contra a mesma function serverless,
-        # rotineiramente leva 53-60s pra responder (futebol/minuto, sem limite de
-        # tempo, completaram em 60s e 54s na mesma execução em que este job estourou
-        # o timeout aos 12s com exit code 28 = timeout de conexão, zero resposta HTTP
-        # recebida). Resultado: este job (e os outros 3 com o mesmo --max-time 12)
-        # falhavam em praticamente TODA rodada do cron, silenciosamente pro usuário
-        # (só aparecia como "red X" no Actions, sem afetar o "pipeline geral" visível
-        # no admin). Subido pra 55s — folga real sobre o pior caso observado (60s),
-        # ainda dentro do limite de 180s (timeout-minutes: 3) do job inteiro.
-        run: |
-          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"outros_esportes","force":true,"count":2}')
-          echo "OUTROS_ESPORTES: $RESP" | head -c 2000
-
-  brasilon:
-    name: Brasil ON — Bacci Notícias + Revista Oeste (quase instantâneo)
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Gerar conteúdo Brasil ON
-        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
-        # em cima do job jovempan_politica, mesmo motivo.
-        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
-        # ver comentário completo no job outros_esportes acima.
-        run: |
-          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"brasilon","force":true,"count":2}')
-          echo "BRASIL_ON: $RESP" | head -c 500
-
-  jovempan_politica:
-    name: Jovem Pan Política (mesma estrutura do Brasil ON/Bacci)
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Gerar conteúdo Jovem Pan Política
-        # 14/08/2026 — Roberto reportou "card de política parece parado de
-        # geração". Investigação (PRs #422/#423) confirmou gap real de ~7h20
-        # (13/08 17:40 -> 14/08 01:00 UTC) sem NENHUM post de política, tanto
-        # deste canal quanto do autoMaterias() geral — enquanto esportes/
-        # finanças/brasil-on/internacional seguiram publicando o tempo todo no
-        # mesmo período. Não é limite diário nem AUTOMATION=off (ambos
-        # descartados). Hipótese mais provável, sem maxDuration configurado em
-        # vercel.json nem no arquivo (função roda no default do Vercel Hobby,
-        # ~10s): com count:3 candidatos (scrape+IA+imagem cada), a chamada pode
-        # ocasionalmente estourar o tempo e ser matada pelo Vercel a meio —
-        # e como o workflow nunca validava o HTTP code, essa falha ficava
-        # 100% silenciosa (curl -s não falha em erro HTTP, só em erro de
-        # conexão). Fix: count 3→2 (menos trabalho por chamada) + --max-time 12
-        # (não deixa o job pendurado além do necessário) + %{http_code} exposto
-        # no log — se voltar a falhar, agora aparece OUTRO_QUE_200 no Actions
-        # em vez de sumir sem rastro.
-        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
-        # ver comentário completo no job outros_esportes acima.
-        run: |
-          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
-          echo "JOVEMPAN_POLITICA: $RESP" | head -c 500
-
-  internacional:
-    name: Internacional — BBC News + CNN (mesma estrutura do Brasil ON/Bacci)
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Gerar conteúdo Internacional
-        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
-        # em cima do job jovempan_politica, mesmo motivo.
-        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
-        # ver comentário completo no job outros_esportes acima.
-        run: |
-          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"internacional","force":true,"count":2}')
-          echo "INTERNACIONAL: $RESP" | head -c 500
-
+  # 16/08/2026 — Roberto: "O PORTAL NAO TA GERANDO NADA, TA TRAVADO PRA VARIAR".
+  # Causa raiz confirmada ao vivo: os 7 jobs abaixo disparavam TODOS no mesmo
+  # minuto do cron, todos batendo nas MESMAS 2 chaves compartilhadas do Gemini
+  # (GEMINI_API_KEY/GEMINI_API_KEY_2) ao mesmo tempo — estourava o limite de
+  # requisições por minuto do nível grátis (10/min por projeto) em segundos,
+  # confirmado no log real: "Gemini 429: You exceeded your current quota".
+  # Fix: cada job agora espera um número diferente de segundos antes de chamar
+  # a API, espalhando os 7 canais ao longo de ~12 dos 15 minutos do ciclo do
+  # cron — nunca dois jobs disparando a chamada de IA no mesmo minuto.
+  # timeout-minutes de cada job foi ajustado pra caber o tempo de espera +
+  # margem real pra chamada em si completar.
   materias:
     name: Matéria 07h–00h30 BRT
     runs-on: ubuntu-latest
@@ -148,8 +45,137 @@ jobs:
 
       - name: Gerar matéria
         if: steps.janela.outputs.ok == 'true'
+        # 16/08/2026 — sem sleep, é o primeiro a disparar (slot 0min) — ver
+        # comentário de escalonamento no topo do arquivo.
         run: |
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"materias","force":true,"count":8}')
           echo "MATERIA: $RESP" | head -c 300
+
+  minuto:
+    name: Minuto OVC — finanças/economia (fontes confiáveis)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Gerar Minuto OVC
+        # 16/08/2026 — slot 2min — ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 120
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"minuto","force":true,"count":2}')
+          echo "MINUTO: $RESP" | head -c 300
+
+  futebol:
+    name: Radar do Futebol 24h
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Gerar radar do futebol
+        # 16/08/2026 — slot 4min — ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 240
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"futebol","force":true}')
+          echo "FUTEBOL: $RESP" | head -c 300
+
+  outros_esportes:
+    name: Radar do Esporte 24h — Basquete/Motor/Tênis/MMA/Vôlei/NFL
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - name: Gerar pílulas dos outros esportes
+        # head -c 300 cortava a resposta antes dos campos de diagnóstico
+        # (distribuicaoBruta/falhas, adicionados 08/08/2026) — aumentado pra 2000
+        # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} explícito no log —
+        # ver comentário em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (mesmo dia, continuação): --max-time 12 era curto DEMAIS —
+        # confirmado via logs reais que /api/run_portal, quando os 7 jobs deste
+        # workflow disparam quase simultaneamente contra a mesma function serverless,
+        # rotineiramente leva 53-60s pra responder (futebol/minuto, sem limite de
+        # tempo, completaram em 60s e 54s na mesma execução em que este job estourou
+        # o timeout aos 12s com exit code 28 = timeout de conexão, zero resposta HTTP
+        # recebida). Resultado: este job (e os outros 3 com o mesmo --max-time 12)
+        # falhavam em praticamente TODA rodada do cron, silenciosamente pro usuário
+        # (só aparecia como "red X" no Actions, sem afetar o "pipeline geral" visível
+        # no admin). Subido pra 55s — folga real sobre o pior caso observado (60s),
+        # ainda dentro do limite de 180s (timeout-minutes: 3) do job inteiro.
+        # 16/08/2026 — slot 6min — ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 360
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"outros_esportes","force":true,"count":2}')
+          echo "OUTROS_ESPORTES: $RESP" | head -c 2000
+
+  brasilon:
+    name: Brasil ON — Bacci Notícias + Revista Oeste (quase instantâneo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 11
+    steps:
+      - name: Gerar conteúdo Brasil ON
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
+        # em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
+        # ver comentário completo no job outros_esportes acima.
+        # 16/08/2026 — slot 8min — ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 480
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":2}')
+          echo "BRASIL_ON: $RESP" | head -c 500
+
+  jovempan_politica:
+    name: Jovem Pan Política (mesma estrutura do Brasil ON/Bacci)
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - name: Gerar conteúdo Jovem Pan Política
+        # 14/08/2026 — Roberto reportou "card de política parece parado de
+        # geração". Investigação (PRs #422/#423) confirmou gap real de ~7h20
+        # (13/08 17:40 -> 14/08 01:00 UTC) sem NENHUM post de política, tanto
+        # deste canal quanto do autoMaterias() geral — enquanto esportes/
+        # finanças/brasil-on/internacional seguiram publicando o tempo todo no
+        # mesmo período. Não é limite diário nem AUTOMATION=off (ambos
+        # descartados). Hipótese mais provável, sem maxDuration configurado em
+        # vercel.json nem no arquivo (função roda no default do Vercel Hobby,
+        # ~10s): com count:3 candidatos (scrape+IA+imagem cada), a chamada pode
+        # ocasionalmente estourar o tempo e ser matada pelo Vercel a meio —
+        # e como o workflow nunca validava o HTTP code, essa falha ficava
+        # 100% silenciosa (curl -s não falha em erro HTTP, só em erro de
+        # conexão). Fix: count 3→2 (menos trabalho por chamada) + --max-time 12
+        # (não deixa o job pendurado além do necessário) + %{http_code} exposto
+        # no log — se voltar a falhar, agora aparece OUTRO_QUE_200 no Actions
+        # em vez de sumir sem rastro.
+        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
+        # ver comentário completo no job outros_esportes acima.
+        # 16/08/2026 — slot 10min — ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 600
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
+          echo "JOVEMPAN_POLITICA: $RESP" | head -c 500
+
+  internacional:
+    name: Internacional — BBC News + CNN (mesma estrutura do Brasil ON/Bacci)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Gerar conteúdo Internacional
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
+        # em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
+        # ver comentário completo no job outros_esportes acima.
+        # 16/08/2026 — slot 12min (último) — ver comentário de escalonamento no
+        # topo do arquivo.
+        run: |
+          sleep 720
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"internacional","force":true,"count":2}')
+          echo "INTERNACIONAL: $RESP" | head -c 500
