@@ -205,6 +205,17 @@ const CAT_REMAP = {
 };
 function remapCat(content) { if (content?.categoria && CAT_REMAP[content.categoria]) content.categoria = CAT_REMAP[content.categoria]; return content; }
 
+// 16/08/2026 — Roberto: matéria "Casas Bahia adia..." foi ao ar (aprovada no
+// admin) com a imagem ERRADA — gráfico de ação da Pão de Açúcar (GPA3) em vez
+// da foto real da Casas Bahia. Causa raiz: sourceImageHostSeguro() rejeitou a
+// imagem real da fonte (infomoney.com.br não está na allowlist), e o código
+// caía na busca genérica findImage() — que não garante que a imagem encontrada
+// seja da empresa/assunto certo, podendo devolver qualquer coisa remotamente
+// relacionada à categoria. Removido esse fallback arriscado por completo: sem
+// imagem real e seguem da própria fonte, o artigo segue SEM imagem (nunca com
+// imagem possivelmente errada) — mesmo padrão já usado em Brasil ON/Jovem Pan
+// Política/Internacional/Outros Esportes (Regra: nunca publicar imagem errada,
+// melhor nenhuma).
 async function resolverImagem(content, articleImage, hash, start) {
   const sourceImage = !badSourceImageUrl(articleImage) && sourceImageHostSeguro(articleImage) ? articleImage : "";
   if (sourceImage) {
@@ -213,13 +224,7 @@ async function resolverImagem(content, articleImage, hash, start) {
       if (saved) return { url: saved, source: "source_article", original: sourceImage };
     } catch (_) {}
   }
-  try {
-    if (!canUseStockImageSearch(content.titulo, content.categoria || "")) return { url: null, source: "none", original: "" };
-    const found = await findImage(content.titulo, content.categoria || "");
-    return { url: found || null, source: found ? "resolver_fallback" : "none", original: "" };
-  } catch (_) {
-    return { url: null, source: "none", original: "" };
-  }
+  return { url: null, source: "none", original: "" };
 }
 
 async function cleanupTitles(res, body) {
@@ -230,21 +235,30 @@ async function cleanupTitles(res, body) {
   return res.status(200).json({ status: "ok", fixedTitles, fixedContent: 0 });
 }
 
-async function saveCurtinha(content, hash, cat, tipo, img = null, subcategoriaOverride = null) {
+// 16/08/2026 — Roberto: "NADA PUBLICA AUTOMATICAMENTE, SO BRASIL ON,
+// INTERNACIONAIS E POLITICA (...) ALEM DISSO, SO OS RADARES TAMBEM PUBLICAM
+// AUTOMATICAMENTE". Parâmetro `pendente` adicionado — default false preserva
+// o comportamento atual pros Radares (autoFutebolCurtinhas/autoOutrosEsportes-
+// Curtinhas, permitidos por regra explícita). autoMinutoOVC() passa
+// pendente:true agora — Minuto OVC NÃO está na lista de canais autorizados a
+// publicar direto, precisa de aprovação humana como qualquer matéria geral.
+async function saveCurtinha(content, hash, cat, tipo, img = null, subcategoriaOverride = null, pendente = false) {
   const catFinal = CATS.has(content.categoria) ? content.categoria : (CATS.has(cat) ? cat : "politica");
   const subcat = subcategoriaOverride || SUBCAT[catFinal] || "Geral";
   const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
     comentario_fixado: (content.meta_descricao||"").trim(), imagem: img || null, hash,
-    status: "publicado", approved: true, publish_method: "portal",
-    published_at: new Date().toISOString(),
+    status: pendente ? "pendente" : "publicado",
+    approved: !pendente,
+    publish_method: "portal",
+    published_at: pendente ? null : new Date().toISOString(),
     user_tags: JSON.stringify([catFinal]), subcategoria: subcat,
     subcategoria_slug: slugify(subcat), collaborators: "[]",
     tipo_conteudo: tipo, metrics: { foco_keyword: content.foco_keyword||"", tipo },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  return { id: data.id, categoria: catFinal, titulo: stripTitle(content.titulo) };
+  return { id: data.id, categoria: catFinal, titulo: stripTitle(content.titulo), pendente };
 }
 
 // URL canônica de um post recém-salvo — mesmo esquema de api/article.js (categoria/slug-id8/)
@@ -548,9 +562,8 @@ async function autoMinutoOVC(req, res, rec) {
       if (pautaParecida(content.titulo, rec.titulos)) continue;
       // Nunca forçar categoria — se a própria IA não classificou como finanças/economia, descarta.
       if (!["economia", "financas", "negocios"].includes(content.categoria)) continue;
-      const post = await saveCurtinha(content, hash, content.categoria, "minuto");
-      await log("info", `[minuto] ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
-      if (post) await pingGoogleIndexing(buildCurtinhaUrl(post));
+      const post = await saveCurtinha(content, hash, content.categoria, "minuto", null, null, true);
+      await log("info", `[minuto] pendente: ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
       generated++;
     } catch (_) { continue; }
   }
