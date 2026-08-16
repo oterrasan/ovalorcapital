@@ -4,8 +4,6 @@ const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", proces
 
 const hoje = () => new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-
 // PROMPT OFICIAL OVC — APROVADO PELO DONO EM 18/06/2026 — VERSÃO OVC V8.0 — NÃO ALTERAR SEM AUTORIZAÇÃO
 const MASTER_PROMPT = `Você é o redator-sênior do O Valor Capital. O OVC defende liberdade econômica, livre mercado e Estado mínimo. Sua apuração não tem lado: cobra PT e PL com o mesmo rigor. Fatos não têm ideologia. Esse é o único critério.
 
@@ -61,29 +59,6 @@ SUBCATEGORIA: [ou em branco]
 CORPO:
 [HTML puro — <p> por parágrafo — nunca markdown]`;
 
-
-async function callOpenAI(systemKernel, userContent, maxTokens = 8192) {
-  if (!OPENAI_KEY) throw new Error("OPENAI_API_KEY não configurada no Vercel");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemKernel },
-        { role: "user",   content: userContent }
-      ],
-      temperature: 0.3,
-      max_tokens: maxTokens
-    })
-  });
-  const d = await res.json();
-  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${d.error?.message || ""}`);
-  const text = d.choices?.[0]?.message?.content;
-  if (text && text.length > 100) return text;
-  throw new Error("OpenAI retornou resposta vazia");
-}
-
 let _geminiKeysCache = null;
 let _geminiKeysCacheTs = 0;
 async function _getGeminiKeys() {
@@ -138,13 +113,15 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
   throw lastErr;
 }
 
+// 16/08/2026 — Roberto Terrasan: "EU JA MANDEI EXCLUIR A PORRA DA OPEN AI, SÓ
+// DEIXAR AS DO GEMINI". OpenAI removido por completo como fallback — antes,
+// quando o Gemini falhava (ex: cota de free tier estourada por causa do volume
+// de chamadas de 7 automações rodando a cada 15min 24h/dia), callIA() caía
+// silenciosamente pro OpenAI, que estava sem crédito (429) — mascarando o erro
+// real do Gemini atrás de um fallback morto. Agora, se o Gemini falhar, o erro
+// real do Gemini propaga direto (nenhum fallback secreto).
 async function callIA(systemKernel, userContent, maxTokens = 8192) {
-  try {
-    return await callGemini(systemKernel, userContent, maxTokens);
-  } catch (geminiErr) {
-    console.error("Gemini falhou, fallback OpenAI:", geminiErr.message);
-    return await callOpenAI(systemKernel, userContent, maxTokens);
-  }
+  return await callGemini(systemKernel, userContent, maxTokens);
 }
 
 const SUBCATS_POR_CAT = {
@@ -705,4 +682,3 @@ export async function rewriteInternacional(text, title, context = '') {
   result.tipo_conteudo = "padrao";
   return result;
 }
-
