@@ -1,4 +1,4 @@
-name: Diagnóstico único — testar jovempan_politica e internacional pós-fix
+name: Diagnóstico único — placeholder
 
 on:
   workflow_dispatch:
@@ -7,21 +7,9 @@ on:
     paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  jovempan:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar tipo=jovempan_politica direto em produção
+      - name: Placeholder — reescrever conteúdo aqui na próxima investigação one-off
         run: |
-          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"jovempan_politica","force":true,"count":2}')
-          echo "JOVEMPAN_POLITICA: $RESP"
-  internacional:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Testar tipo=internacional direto em produção
-        run: |
-          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"internacional","force":true,"count":2}')
-          echo "INTERNACIONAL: $RESP"
+          echo "Sem diagnóstico ativo no momento. Editar este arquivo com o próximo teste one-off quando necessário."
