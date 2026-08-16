@@ -10,9 +10,5 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Ver posts recentes de financas (card Lions)
-        run: |
-          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -s "$SUPA_URL/rest/v1/posts?user_tags=like.*financas*&status=eq.publicado&select=id,titulo,user_tags,subcategoria,created_at,publish_method&order=created_at.desc&limit=15" \
-            -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -m json.tool
+      - name: Placeholder
+        run: echo "placeholder — sem diagnóstico ativo no momento"
