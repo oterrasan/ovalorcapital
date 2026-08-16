@@ -1,4 +1,4 @@
-name: Diagnóstico único — placeholder
+name: Diagnóstico único — testar brasilon pós-fix Gemini
 
 on:
   workflow_dispatch:
@@ -10,6 +10,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder — reescrever conteúdo aqui na próxima investigação one-off
+      - name: Testar tipo=brasilon direto em produção
         run: |
-          echo "Sem diagnóstico ativo no momento. Editar este arquivo com o próximo teste one-off quando necessário."
+          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":2}')
+          echo "BRASIL_ON: $RESP"
