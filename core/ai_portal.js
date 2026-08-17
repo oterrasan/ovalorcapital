@@ -194,18 +194,38 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
     throw err;
   }
 
+  // 17/08/2026 — 503 "high demand" confirmado como transitório, não cota nem
+  // modelo morto: testado ao vivo, uma chamada simples logo após um 503 real
+  // no pipeline completo teve sucesso imediato nas duas chaves. Google já
+  // documenta esse erro como "usually temporary". Antes, um único 503
+  // derrubava a matéria inteira (sem tentar de novo). Fix: trata 503 igual a
+  // 429 (tenta a outra chave) e, se as duas chaves baterem em erro
+  // retentável, espera 2s e tenta o par de chaves de novo (2 rodadas no
+  // total). 503 NÃO consome o orçamento diário — é sobrecarga do servidor do
+  // Google, não uma rejeição de cota real (diferente do 429, que é sinal
+  // direto de cota e continua contando).
   let lastErr;
-  for (const key of keys) {
-    try {
-      const result = await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
-      await _incrementarOrcamentoDiario(); // consumiu 1 requisição real da cota do dia
-      return result;
-    } catch (err) {
-      lastErr = err;
-      await _incrementarOrcamentoDiario(); // tentativa falha também consome cota real do Google
-      if (err.status === 429) { console.warn("Gemini quota atingida, tentando próxima chave..."); continue; }
-      throw err;
+  for (let rodada = 0; rodada < 2; rodada++) {
+    for (const key of keys) {
+      try {
+        const result = await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
+        await _incrementarOrcamentoDiario(); // consumiu 1 requisição real da cota do dia
+        return result;
+      } catch (err) {
+        lastErr = err;
+        if (err.status === 429) {
+          await _incrementarOrcamentoDiario(); // 429 é sinal real de cota — conta
+          console.warn("Gemini quota atingida, tentando próxima chave...");
+          continue;
+        }
+        if (err.status === 503) {
+          console.warn("Gemini 503 (sobrecarga temporária do Google), tentando próxima chave...");
+          continue;
+        }
+        throw err;
+      }
     }
+    if (rodada === 0) await new Promise(r => setTimeout(r, 2000));
   }
   throw lastErr;
 }
