@@ -6288,3 +6288,29 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Confirmar com Roberto, após alguns ciclos do cron**, que Jovem Pan Política e Internacional voltaram a publicar com regularidade durante o período eleitoral, e que o gate de orçamento não está bloqueando geração legítima cedo demais (ajustar `GEMINI_DAILY_BUDGET` se o teto real de 20 se mostrar diferente na prática).
 3. Se o teto de 18-20/dia continuar insuficiente pros 7 canais, avaliar com Roberto: habilitar billing no Google Cloud (elimina o teto de vez, sem custo se ficar dentro da faixa gratuita generosa do tier pago) ou continuar a estratégia de múltiplos projetos Google Cloud separados.
 4. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7 logo acima, sessão 15-16/08/2026) — nenhuma foi tocada nesta continuação.
+
+---
+
+### Sessão 17/08/2026 (continuação) — 🔴 ROBERTO CONTESTOU E TINHA RAZÃO — CAUSA RAIZ REAL DO "20/DIA": MODELO TROCADO, NÃO "SEMPRE FOI ASSIM" — FIX GRATUITO APLICADO
+
+#### Contexto
+
+Reportei o gate de orçamento (20/dia) pra Roberto como se fosse a explicação completa. Ele contestou com firmeza e razão: *"isso nao pode estar certo... nós chegamos a terr 200, até 300 conteudos por dia com esta mesma configuracao e nunca travou. voce precisa investigar isso mais a fundo"*. E depois, quando expliquei que a saída real seria billing: *"para de sugerir que eu pague qualquer coisa, isso NAO VAI ACONTECER. SOLUCOES FREE SEMPRE E SEMPRE"*.
+
+Ele estava certo em desconfiar — a explicação anterior (repetida de sessão passada, sem re-testar nada nesta sessão) estava incompleta.
+
+#### Investigação real (ao vivo, via workflow one-off, não suposição)
+
+1. **Re-testei a cota do `gemini-2.5-flash` agora, de novo** — mesmo erro 429, `quotaId:"GenerateRequestsPerDayPerProjectPerModel-FreeTier"`, `quotaValue:"20"`. Confirmado, não é boato de sessão antiga.
+2. **Pesquisei (WebSearch) a cota grátis real do `gemini-2.0-flash`** (o modelo usado por meses, quando geravam 200-300/dia sem travar) — **1.500 requisições/dia**, documentado. 75x mais que o `gemini-2.5-flash` (20/dia).
+3. **Achei a causa raiz de verdade:** a troca de `gemini-2.0-flash` → `gemini-2.5-flash` foi FORÇADA pela descontinuação do modelo antigo pelo Google (crise da sessão 15-16/08 — 404 "no longer available"). Não foi "sempre 20/dia" — foi uma consequência direta e não percebida daquela troca de emergência: caímos, sem querer, num modelo com cota grátis drasticamente menor.
+4. **Testei alternativas gratuitas ao vivo:** `gemini-flash-latest` (apelido que o Google sempre aponta pro modelo flash mais atual — hoje resolve pra `gemini-3.7-flash`) respondeu com sucesso 4x seguidas, sem o teto de 20. `gemini-2.5-flash-lite` e `gemini-2.0-flash-lite` — ambos 404, descontinuados também.
+5. **Ressalva encontrada, não 100% resolvida:** ao testar `gemini-flash-latest` com o parâmetro exato que o código usa (`tools:[{google_search:{}}]`, a busca ao vivo do Google que o MASTER_PROMPT depende pra fatos reais), a chamada retornou 429 genérico (sem detalhe de quota, formato diferente do erro específico de `gemini-2.5-flash`) — pode ser cota separada e mais apertada pra grounding, ou pode ter sido só o volume dos meus próprios testes consecutivos. Não cravado, documentado como incerteza real.
+
+#### Fix aplicado (commit — push direto em main, mesmo padrão da sessão)
+
+`core/ai_portal.js` (`_callGeminiWithKey`) e `core/ai.js` (`rewriteGemini`, código hoje não usado por nenhuma rota ativa, mantido em sincronia): nome de modelo fixo `gemini-2.5-flash` trocado pelo apelido `gemini-flash-latest` — **gratuito, sem nenhum custo**, e evita cair de novo nessa armadilha (nome de modelo fixo que o Google pode descontinuar ou reduzir a cota sem aviso).
+
+#### ⚠️ Nota de transparência
+
+Não é garantido que isso elimina 100% o problema (a ressalva do item 5 acima) — mas é estritamente melhor que o estado anterior (que estava 100% morto pro resto do dia) e custa zero. Vou confirmar rodando o pipeline de verdade depois do deploy.
