@@ -284,6 +284,15 @@ async function _getGroqKey() {
 async function _callGroq(systemKernel, userContent, maxTokens) {
   const key = await _getGroqKey();
   if (!key) throw new Error("GROQ_API_KEY não configurada no Supabase config");
+  // 17/08/2026 — testado ao vivo: a chave funciona (200, resposta real), mas
+  // o pipeline real falhou com "413 Request too large... tokens per minute
+  // (TPM): Limit 12000, Requested 13211/12331". Groq soma o max_tokens
+  // PEDIDO (não o realmente usado) ao total contra o teto de TPM — com
+  // maxTokens=8192 (default de callIA/callGemini) + MASTER_PROMPT +
+  // artigo-fonte, estourava os 12.000 quase sempre. Fix: teto próprio pro
+  // Groq, bem abaixo do default do Gemini — ainda dá margem de sobra pro
+  // mínimo de 8 parágrafos/2.500+ chars exigido pelo MASTER_PROMPT.
+  const groqMaxTokens = Math.min(maxTokens, 4000);
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
@@ -293,7 +302,7 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
         { role: "system", content: systemKernel },
         { role: "user", content: userContent }
       ],
-      max_tokens: maxTokens,
+      max_tokens: groqMaxTokens,
       temperature: 0.3
     })
   });
