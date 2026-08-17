@@ -1,4 +1,4 @@
-name: Diagnóstico único — estourar RPD do flash-lite pra achar o numero real
+name: Diagnóstico único — achar RPD diario do flash-lite (espacado p/ nao bater RPM)
 
 on:
   workflow_dispatch:
@@ -9,8 +9,9 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - name: Bater ate 40x no gemini-flash-lite-latest ate achar 429
+      - name: Bater espacado (1 a cada 5s) ate achar 429 diario ou 30 chamadas
         run: |
           SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
@@ -18,7 +19,7 @@ jobs:
           KEY1=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY&select=value" \
             -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['value'])")
 
-          for i in $(seq 1 40); do
+          for i in $(seq 1 30); do
             CODE=$(curl -s -o /tmp/resp.json -w "%{http_code}" -X POST \
               "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$KEY1" \
               -H "Content-Type: application/json" \
@@ -30,4 +31,5 @@ jobs:
               echo ""
               break
             fi
+            sleep 5
           done
