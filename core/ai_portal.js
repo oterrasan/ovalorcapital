@@ -313,8 +313,22 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
     throw err;
   }
   const text = d.choices?.[0]?.message?.content;
-  if (text && text.length > 100) return text;
+  if (text && text.length > 100) return _sanitizarMarkdownGroq(text);
   throw new Error("Groq retornou resposta vazia");
+}
+
+// 17/08/2026 — testado ao vivo: Groq gerou conteúdo válido (erro:0) mas o
+// validador do pipeline rejeitou com "markdown/metadados no corpo" —
+// diferente do Gemini, o Llama 3.3 (motor do Groq) tem o hábito de devolver
+// **negrito** e ##título mesmo quando o MASTER_PROMPT pede HTML puro. Isso
+// NÃO é alteração de prompt (Regra Zero-B intacta — nenhum texto do
+// MASTER_PROMPT foi tocado) — é só limpeza mecânica da saída de UM provedor
+// específico, antes de devolver o texto pro resto do pipeline.
+function _sanitizarMarkdownGroq(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^(TITULO|META_TITLE|FOCO_KEYWORD|META_DESCRICAO):.*$/gim, "");
 }
 
 async function callIA(systemKernel, userContent, maxTokens = 8192) {
