@@ -145,7 +145,22 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
 // exatamente o erro do "300" logo acima) — aqui o teste foi até bater 429
 // de verdade OU passar de 40+ chamadas reais sem nenhum, então a confiança é
 // maior, mas ainda não é uma garantia absoluta de teto infinito.
-const GEMINI_DAILY_BUDGET = 18; // ainda conservador — teto real deste modelo não foi encontrado, só confirmado > 44/dia; manter margem até confirmar mais
+// 17/08/2026 (continuação 2) — Roberto pediu volume mínimo garantido de
+// 110-120 conteúdos/dia. Elevado de 18 pra 200 — não é uma alegação de que
+// o teto REAL do Google é 200 (continua desconhecido, só confirmado >44).
+// Este número é um gate LOCAL/interno, não o limite do Google: serve só pra
+// não desperdiçar tempo de scrape+IA em chamadas fadadas a falhar depois que
+// JÁ SABEMOS que a cota do dia acabou. Subir esse número não cria risco novo —
+// se o teto real do Google for menor que 200, as chamadas simplesmente vão
+// começar a bater 429 de verdade (o código já trata isso: tenta a outra
+// chave, depois cai pro fallback) em vez de serem bloqueadas cedo demais por
+// um teto interno artificialmente baixo. 18 estava ativamente atrapalhando o
+// volume pedido por Roberto sem nenhum benefício real. Cada tentativa (sucesso
+// OU falha) consome 1 do orçamento — o volume de CHAMADAS necessário pra
+// chegar em 110-120 artigos PUBLICADOS é maior que 120 (dedup/validação/etc.
+// também gastam tentativas) — monitorar produção real nos próximos dias e
+// reajustar (pra cima ou pra baixo) com base em evidência, não suposição.
+const GEMINI_DAILY_BUDGET = 200;
 const GEMINI_MODEL = "gemini-flash-lite-latest"; // 17/08/2026 — trocado de gemini-flash-latest (20/dia) pra este (quota separada, > 44/dia confirmado ao vivo). Nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {
