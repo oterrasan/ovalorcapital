@@ -10,7 +10,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar Groq com teto reduzido (2200 tokens + input cortado)
+      - name: Testar pipeline apos fix do titulo vazio do Groq
         run: |
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
