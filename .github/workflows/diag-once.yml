@@ -10,23 +10,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar candidatos free com quota separada (gemini-flash-lite-latest e gemini-flash-latest)
+      - name: Testar gemini-flash-latest com o MESMO formato exato usado pelo codigo (systemInstruction + google_search tool)
         run: |
           SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           KEY1=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else '')")
+          KEY2=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY_2&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else '')")
 
-          echo "############ gemini-flash-lite-latest (candidato — modelos lite historicamente tem RPD bem maior) ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$KEY1" \
+          echo "############ gemini-flash-latest — formato IDENTICO ao _callGeminiWithKey (key1) ############"
+          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY1" \
             -H "Content-Type: application/json" \
-            -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}'
+            -d '{"tools":[{"google_search":{}}],"systemInstruction":{"parts":[{"text":"Voce e um redator de noticias. Responda em portugues, 1 frase curta."}]},"contents":[{"role":"user","parts":[{"text":"Qual a capital do Brasil?"}]}],"generationConfig":{"temperature":0.3,"maxOutputTokens":300}}'
           echo ""
 
-          echo "############ gemini-flash-latest de novo, testando 3x seguidas pra ver se aguenta ############"
-          for i in 1 2 3; do
-            echo "--- tentativa $i ---"
-            curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY1" \
-              -H "Content-Type: application/json" \
-              -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}' | tail -c 400
-            echo ""
-          done
+          echo "############ mesmo teste, key2 (confirma que a chave 2 tambem funciona nesse modelo) ############"
+          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY2" \
+            -H "Content-Type: application/json" \
+            -d '{"tools":[{"google_search":{}}],"systemInstruction":{"parts":[{"text":"Voce e um redator de noticias. Responda em portugues, 1 frase curta."}]},"contents":[{"role":"user","parts":[{"text":"Qual a capital do Brasil?"}]}],"generationConfig":{"temperature":0.3,"maxOutputTokens":300}}'
