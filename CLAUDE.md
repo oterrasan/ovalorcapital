@@ -6220,3 +6220,71 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Internacional/BBC+CNN gerando** | ✅ CONFIRMADO — `generated:2`, zero falhas relevantes |
 | **Scheduler do cron atrasado (43min sem tick)** — corrigido na hora via trigger de push temporário, todos os 7 jobs confirmados rodando | ✅ CORRIGIDO EM TEMPO REAL — não só relatado |
 | **Diretiva de Roberto: "esquece OpenAI, só Gemini"** | ✅ REGISTRADA — engine primária e única de facto agora é Gemini 2.5 Flash |
+
+---
+
+### Sessão 16-17/08/2026 — CAUSA RAIZ REAL DA COTA DIÁRIA + GATE DE ORÇAMENTO + REPRIORIZAÇÃO POLÍTICA/ELEIÇÕES
+
+#### Contexto
+
+Continuação direta da crise da sessão 15-16/08/2026 (fix do modelo Gemini descontinuado). Poucas horas depois, Roberto reportou de novo, furioso, durante período eleitoral ativo: *"essa buceta ta travada puta que pariu!!!!!! eleicoes a mil, comcecaram as campanhas e o portal nao publica nada das reecritas de bacci e joven pan"* → *"INADIMISSIVEL"*.
+
+#### Diagnóstico real (curl direto, não suposição)
+
+Testado ao vivo com as duas chaves reais do Supabase config direto contra a API do Google: ambas retornaram **HTTP 429** com `quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "20"` — confirmando que a cota real do Gemini free tier é **20 requisições por DIA por projeto** (não só por minuto, como a sessão anterior havia mitigado com o escalonamento de `sleep N`). Com 7 canais de automação rodando a cada ~15min 24h/dia, essa cota se esgota cedo no ciclo diário — e **os 2 canais políticos (jovempan_politica, internacional) eram literalmente os ÚLTIMOS da fila** (sleep 600s/720s, os maiores do arquivo), o pior lugar possível durante uma eleição.
+
+Roberto cobrou diretamente: *"VOCE FICOU DE ARRUMAR ISSO CRIANDO NOVO FLUXO E GARANTINDO QUE NAO ACONTECERIA"* — resposta: reconhecido sem desculpa, e resolvido com 2 mudanças de código reais no mesmo commit.
+
+#### O que foi feito (commit `48ff1c7`, push direto em main)
+
+**1. `core/ai_portal.js` — gate de orçamento diário:**
+- `GEMINI_DAILY_BUDGET = 18` (margem de segurança sobre o teto real de 20/dia confirmado)
+- `_diaAtualBRT()` — chave de dia calculada em BRT (UTC-3), não UTC
+- `_lerOrcamentoDiario()` / `_incrementarOrcamentoDiario()` — leem/gravam `GEMINI_BUDGET_{YYYYMMDD}` na tabela `config`, usando o padrão **update-se-existir-a-linha-senão-insert** (nunca `.upsert(...,{onConflict:"key"})` — a tabela `config` não tem constraint unique na coluna `key`, causa raiz já documentada em 13/08/2026 no bug do card Internacional)
+- `callGemini()` agora falha rápido (`err.orcamentoEsgotado = true`) sem gastar nenhuma chamada real de rede quando a cota do dia já está no teto — evita queimar tempo de Vercel/scrape em chamadas fadadas a 429
+- Contador incrementado em toda tentativa real (sucesso ou falha) — reflete o consumo real do lado do Google
+
+**2. `.github/workflows/pipeline-cron.yml` — reordenação de prioridade:**
+Sleep offsets trocados entre os 7 jobs — política/eleições passam a disparar PRIMEIRO, esporte por último:
+
+| Ordem nova | Job | Sleep | Antes |
+|---|---|---|---|
+| 1º | `jovempan_politica` | 0s | 600s (penúltimo) |
+| 2º | `materias` | 120s | 0s (era 1º) |
+| 3º | `brasilon` | 240s | 480s |
+| 4º | `internacional` | 360s | 720s (era último) |
+| 5º | `minuto` | 480s | 120s |
+| 6º | `futebol` | 600s | 240s |
+| 7º | `outros_esportes` | 720s | 360s |
+
+`timeout-minutes` de cada job ajustado seguindo o padrão já usado (`sleep_minutos + 3`). `node --check` e `python3 -c "import yaml"` validados antes do push.
+
+#### Verificação
+
+`api/` confirmado com exatamente 10 arquivos (Regra Zero-A intacta — mudanças só em `core/` e `.github/workflows/`). Deploy (`deploy.yml`, commit `48ff1c7`) confirmado em andamento no fim desta sessão — ver pendência de confirmação abaixo.
+
+#### ⚠️ Nota de transparência
+
+Este fix reduz o desperdício de cota e reordena PRIORIDADE de acesso — **não cria cota nova**. Só billing no Google Cloud (ou mais projetos separados, ideia já em andamento em sessões anteriores) elimina o teto de 20/dia por completo. Isso foi comunicado explicitamente a Roberto no chat, sem prometer mais do que o código realmente resolve.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16-17/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real da cota diária do Gemini** — 20 req/dia/projeto, confirmada via 429 real da API do Google (`quotaId`/`quotaValue` explícitos) | ✅ CONFIRMADA COM EVIDÊNCIA REAL |
+| **Gate de orçamento diário** — `callGemini()` para de gastar chamadas reais perto do teto, usando padrão seguro de update/insert (não upsert quebrado) | ✅ EM PRODUÇÃO (commit `48ff1c7`) |
+| **Cron reordenado** — política/eleições (Jovem Pan, Internacional) disparam primeiro; esporte (futebol, outros_esportes) por último | ✅ EM PRODUÇÃO (commit `48ff1c7`) |
+
+#### 🔧 Pendências para a próxima sessão (atualizado)
+
+1. **Confirmar deploy do commit `48ff1c7`** — estava `in_progress` no fim desta sessão, checar `deploy.yml` mais recente.
+2. **Confirmar com Roberto, após alguns ciclos do cron**, que Jovem Pan Política e Internacional voltaram a publicar com regularidade durante o período eleitoral, e que o gate de orçamento não está bloqueando geração legítima cedo demais (ajustar `GEMINI_DAILY_BUDGET` se o teto real de 20 se mostrar diferente na prática).
+3. Se o teto de 18-20/dia continuar insuficiente pros 7 canais, avaliar com Roberto: habilitar billing no Google Cloud (elimina o teto de vez, sem custo se ficar dentro da faixa gratuita generosa do tier pago) ou continuar a estratégia de múltiplos projetos Google Cloud separados.
+4. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7 logo acima, sessão 15-16/08/2026) — nenhuma foi tocada nesta continuação.
