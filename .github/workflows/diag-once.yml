@@ -10,51 +10,23 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Investigar causa real do limite (Roberto contesta o 20/dia)
+      - name: Testar candidatos free com quota separada (gemini-flash-lite-latest e gemini-flash-latest)
         run: |
           SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           KEY1=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else '')")
-          KEY2=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY_2&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else '')")
 
-          echo "############ 1) QUANTAS CHAMADAS REAIS O CONTADOR NOVO JA REGISTROU HOJE ############"
-          HOJE=$(TZ=America/Sao_Paulo date +%Y%m%d)
-          curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_BUDGET_${HOJE}&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY"
-          echo ""
-
-          echo "############ 2) TODAS AS LINHAS GEMINI_BUDGET_* JA GRAVADAS (historico) ############"
-          curl -s "$SUPA_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY"
-          echo ""
-
-          echo "############ 3) TESTE FRESCO AGORA — gemini-2.5-flash (modelo atual) key1 ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$KEY1" \
+          echo "############ gemini-flash-lite-latest (candidato — modelos lite historicamente tem RPD bem maior) ############"
+          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$KEY1" \
             -H "Content-Type: application/json" \
             -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}'
           echo ""
 
-          echo "############ 4) TESTE FRESCO AGORA — gemini-2.5-flash key2 ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$KEY2" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}'
-          echo ""
-
-          echo "############ 5) gemini-2.5-flash-lite (candidato a quota free mais generosa) key1 ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$KEY1" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}'
-          echo ""
-
-          echo "############ 6) gemini-2.0-flash-lite (lite do modelo antigo, pode nao estar descontinuado) key1 ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=$KEY1" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}'
-          echo ""
-
-          echo "############ 7) gemini-flash-latest (alias — pode apontar pra quota diferente) key1 ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY1" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}'
-          echo ""
-
-          echo "############ 8) Listar todos os modelos disponiveis na conta (confirma o que existe de verdade) ############"
-          curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY1&pageSize=100" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(m.get('name',''),'|',m.get('displayName','')) for m in d.get('models',[]) if 'flash' in m.get('name','') or 'pro' in m.get('name','')]"
+          echo "############ gemini-flash-latest de novo, testando 3x seguidas pra ver se aguenta ############"
+          for i in 1 2 3; do
+            echo "--- tentativa $i ---"
+            curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY1" \
+              -H "Content-Type: application/json" \
+              -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":20}}' | tail -c 400
+            echo ""
+          done
