@@ -10,9 +10,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Pegar erro completo do pipeline real (sem truncar)
+      - name: Testar chave nova GEMINI_API_KEY_2
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          KEY2=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY_2&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else 'AUSENTE')")
+          echo "Chave lida do Supabase (prefixo): ${KEY2:0:15}..."
+          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY2" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"materias","force":true}')
-          echo "$RESP"
+            -d '{"tools":[{"google_search":{}}],"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":30}}'
