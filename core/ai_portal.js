@@ -115,26 +115,28 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
   throw new Error("Gemini retornou resposta vazia");
 }
 
-// 16/08/2026 — gate criado quando o modelo em uso era "gemini-2.5-flash",
-// com teto real e confirmado de 20 requisições/dia/projeto (429 real da API,
-// quotaId "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue
-// "20"). GEMINI_DAILY_BUDGET=18 era a margem de segurança PARA AQUELE MODELO.
+// 17/08/2026 — CORREÇÃO DE UM ERRO MEU NO MESMO DIA: cheguei a elevar este
+// número pra 300 achando que "gemini-flash-latest" tinha escapado do teto de
+// 20/dia — várias chamadas diretas de teste tinham sucesso sem 429. Errado.
+// Confirmado poucos minutos depois com evidência real, em produção: um 429
+// legítimo do Google, mensagem completa "Quota exceeded for metric:
+// generate_content_free_tier_requests, limit: 20, model: gemini-3.7-flash"
+// (gemini-flash-latest resolve pra gemini-3.7-flash hoje). Ou seja: o teto de
+// 20 requisições/dia/projeto do free tier NÃO é exclusivo do modelo antigo —
+// vale pra qualquer modelo flash atual do Google (só o "gemini-2.0-flash",
+// descontinuado, tinha o teto maior de 1.500/dia). As duas chaves
+// (GEMINI_API_KEY e GEMINI_API_KEY_2) parecem compartilhar o mesmo projeto
+// Google Cloud — os 429 batem nas duas juntas, não uma de cada vez.
 //
-// 17/08/2026 — o modelo mudou para "gemini-flash-latest" (ver comentário em
-// _callGeminiWithKey) — e essa troca teve um efeito colateral não percebido:
-// o teto de 18 continuou valendo, mas agora para um modelo sem NENHUMA
-// evidência de ter esse mesmo teto (múltiplos testes diretos na API do
-// Google, incluindo simultâneos com as 2 chaves, nunca retornaram 429 de
-// cota — só 503 de sobrecarga passageira, já tratado com retry). Resultado:
-// o próprio trabalho de diagnóstico desta sessão (chamadas de teste reais)
-// consumiu o "orçamento" de 18 e travou a geração de produção pelo resto do
-// dia — um bug real, não intencional, que Roberto reportou furioso. Fix:
-// teto elevado para um valor que reflete o volume histórico real do OVC
-// ("200, até 300 conteúdos por dia" — Roberto, 17/08/2026) com folga, em vez
-// de um número calibrado pro teto de um modelo que não usamos mais. O gate
-// continua existindo como proteção contra loop/bug de consumo desenfreado —
-// só não bloqueia mais operação normal.
-const GEMINI_DAILY_BUDGET = 300;
+// Isso NÃO é resolvível trocando nome de modelo — só duas saídas realmente
+// grátis: (1) Roberto criar uma chave de um projeto Google Cloud DIFERENTE
+// (conta/projeto novo no AI Studio, não só uma 2ª chave dentro do mesmo
+// projeto) — cada projeto tem sua própria cota de 20/dia; (2) reduzir o
+// volume de chamadas pra caber dentro de 20/dia (inviável com 7 canais
+// automáticos rodando o dia todo). Voltado para 18 (margem de 2 sobre o teto
+// real confirmado de 20) — evita gastar tempo de scrape/RSS em chamadas que
+// sabemos que vão falhar assim que a cota do dia estiver esgotada.
+const GEMINI_DAILY_BUDGET = 18;
 const GEMINI_MODEL = "gemini-flash-latest"; // 17/08/2026 — nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {
