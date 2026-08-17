@@ -97,15 +97,80 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
   throw new Error("Gemini retornou resposta vazia");
 }
 
+// 16/08/2026 — Roberto: "VOCE FICOU DE ARRUMAR ISSO CRIANDO NOVO FLUXO E
+// GARANTINDO QUE NAO ACONTECERIA" — cota diária real do Gemini free tier
+// confirmada em produção: 20 requisições/dia por projeto Google Cloud
+// (429 real da API: quotaId "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+// quotaValue "20"), compartilhada entre as duas chaves (mesmo projeto Google
+// Cloud). Com 7 canais de automação rodando a cada ~15min 24h/dia, essa cota
+// se esgota quase no primeiro ciclo do dia. Isso NÃO cria mais cota — só
+// billing no Google Cloud (ou mais projetos separados) resolve o teto de
+// verdade — mas o gate abaixo evita gastar Vercel/tempo de scrape em
+// chamadas de IA que já sabemos que vão falhar assim que a cota do dia
+// estiver esgotada, e a reordenação de `pipeline-cron.yml` (mesmo commit)
+// garante que conteúdo político/eleitoral tenha acesso à cota ANTES dos
+// canais de esporte, prioridade explícita de Roberto durante a eleição.
+const GEMINI_DAILY_BUDGET = 18; // margem de segurança sobre o teto real de 20/dia observado
+
+function _diaAtualBRT() {
+  const brt = new Date(Date.now() - 3 * 60 * 60 * 1000); // BRT = UTC-3
+  return brt.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+let _orcamentoCache = null; // { dia, count }
+async function _lerOrcamentoDiario() {
+  const dia = _diaAtualBRT();
+  if (_orcamentoCache && _orcamentoCache.dia === dia) return _orcamentoCache.count;
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", `GEMINI_BUDGET_${dia}`).maybeSingle();
+    const count = data ? parseInt(data.value, 10) || 0 : 0;
+    _orcamentoCache = { dia, count };
+    return count;
+  } catch (_) {
+    return 0; // se a leitura falhar, não bloqueia (fail-open — nunca trava o pipeline por causa do próprio gate)
+  }
+}
+
+// Update-se-existir-a-linha, senão insert — NUNCA .upsert(...,{onConflict:"key"}).
+// A tabela config não tem constraint unique/PK na coluna key; upsert com
+// onConflict falha silenciosamente nesse schema (causa raiz real documentada
+// em 13/08/2026 — card Internacional travado por exatamente este motivo).
+async function _incrementarOrcamentoDiario() {
+  const dia = _diaAtualBRT();
+  const key = `GEMINI_BUDGET_${dia}`;
+  try {
+    const atual = await _lerOrcamentoDiario();
+    const novo = atual + 1;
+    const { data: existing } = await supabase.from("config").select("key").eq("key", key).maybeSingle();
+    if (existing) {
+      await supabase.from("config").update({ value: String(novo) }).eq("key", key);
+    } else {
+      await supabase.from("config").insert({ key, value: String(novo) });
+    }
+    _orcamentoCache = { dia, count: novo };
+  } catch (_) {} // falha ao gravar o contador não pode derrubar a chamada de IA em si
+}
+
 async function callGemini(systemKernel, userContent, maxTokens = 8192) {
   const keys = await _getGeminiKeys();
   if (!keys.length) throw new Error("GEMINI_API_KEY não configurada no Supabase config");
+
+  const usoHoje = await _lerOrcamentoDiario();
+  if (usoHoje >= GEMINI_DAILY_BUDGET) {
+    const err = new Error(`Orçamento diário do Gemini esgotado (${usoHoje}/${GEMINI_DAILY_BUDGET}) — aguardando reset 00:00 BRT`);
+    err.orcamentoEsgotado = true;
+    throw err;
+  }
+
   let lastErr;
   for (const key of keys) {
     try {
-      return await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
+      const result = await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
+      await _incrementarOrcamentoDiario(); // consumiu 1 requisição real da cota do dia
+      return result;
     } catch (err) {
       lastErr = err;
+      await _incrementarOrcamentoDiario(); // tentativa falha também consome cota real do Google
       if (err.status === 429) { console.warn("Gemini quota atingida, tentando próxima chave..."); continue; }
       throw err;
     }
