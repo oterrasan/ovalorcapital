@@ -2,10 +2,6 @@ name: Diagnóstico único — placeholder
 
 on:
   workflow_dispatch:
-    inputs:
-      groq_key:
-        description: "Chave temporária (nunca commitada — só via input em runtime)"
-        required: false
   push:
     branches: [main]
     paths: [".github/workflows/diag-once.yml"]
@@ -14,35 +10,25 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Salvar GROQ_API_KEY no Supabase config + testar direto
-        env:
-          GROQ_KEY_NOVA: ${{ github.event.inputs.groq_key }}
+      - name: Ler GROQ_API_KEY do Supabase + testar direto + testar pipeline real
         run: |
-          if [ -z "$GROQ_KEY_NOVA" ]; then
-            echo "Sem input groq_key — nada a fazer (disparo via push, ignorar)."
-            exit 0
-          fi
-          echo "::add-mask::$GROQ_KEY_NOVA"
           SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo "=== Existe alguma linha GROQ_API_KEY? ==="
-          EXISTING=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GROQ_API_KEY&select=key" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY")
-          echo "$EXISTING"
-          if echo "$EXISTING" | grep -q "GROQ_API_KEY"; then
-            echo "=== Ja existe, dando UPDATE ==="
-            curl -s -X PATCH "$SUPA_URL/rest/v1/config?key=eq.GROQ_API_KEY" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" -H "Content-Type: application/json" -d "{\"value\":\"$GROQ_KEY_NOVA\"}"
-          else
-            echo "=== Nao existe, dando INSERT ==="
-            curl -s -X POST "$SUPA_URL/rest/v1/config" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" -H "Content-Type: application/json" -d "{\"key\":\"GROQ_API_KEY\",\"value\":\"$GROQ_KEY_NOVA\"}"
-          fi
+          GROQ_KEY_NOVA=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GROQ_API_KEY&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else '')")
+          if [ -z "$GROQ_KEY_NOVA" ]; then echo "GROQ_API_KEY nao encontrada no banco"; exit 1; fi
+          echo "::add-mask::$GROQ_KEY_NOVA"
+          echo "=== Chave lida do banco, tamanho: ${#GROQ_KEY_NOVA} ==="
           echo ""
-          echo "=== Confirmando o que ficou salvo (so tamanho, nao expor valor) ==="
-          curl -s "$SUPA_URL/rest/v1/config?key=eq.GROQ_API_KEY&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(r['key'], 'len=', len(r['value'] or '')) for r in d]"
-          echo ""
-          echo "=== Testando a chave DIRETO na API do Groq (sem passar pelo pipeline) ==="
+          echo "=== Testando DIRETO na API do Groq ==="
           curl -s -o /tmp/groq.json -w "HTTP_CODE: %{http_code}\n" "https://api.groq.com/openai/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $GROQ_KEY_NOVA" \
             -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"system","content":"Responda em portugues."},{"role":"user","content":"Diga apenas: funcionando"}],"max_tokens":20}'
           cat /tmp/groq.json
+          echo ""
+          echo ""
+          echo "=== Testando o PIPELINE REAL do portal (materias, force) ==="
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true}'
           echo ""
