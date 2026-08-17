@@ -10,5 +10,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "placeholder — sem diagnóstico ativo no momento"
+      - name: Pegar erro completo do pipeline real (sem truncar)
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true}')
+          echo "$RESP"
