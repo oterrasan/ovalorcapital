@@ -6717,3 +6717,54 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar visualmente com Roberto** — Radar Eleitoral sem notícia de outro país/fora de política, e pesquisa atualizando com data real na próxima rodada.
 2. **`COLUNISTAS_PHOTOS`** — mesmo padrão de upsert (`.upsert({key:...},{onConflict:"key"})`) suspeito de estar quebrado, ainda não investigado/corrigido — próxima sessão pode aplicar o mesmo protocolo usado aqui e no card Internacional.
 3. Demais pendências consolidadas da lista de 17/08/2026 acima seguem válidas — nenhuma outra foi tocada nesta continuação.
+
+---
+
+### Sessão 17/08/2026 (continuação 6) — 🔴 SISTEMA DE GERAÇÃO DE MATÉRIAS TRAVADO — 2 CAUSAS RAIZ REAIS ENCONTRADAS E CORRIGIDAS (commit `3dee418b`)
+
+#### Contexto
+
+Roberto, logo após o fix do Radar Eleitoral: *"SO TEM UM DETALHE, PRA VARIAR O SISTEMA DE GERACAO DE MATERIAS ESTÁ TRAVADO"*. Investigação com evidência real (logs do cron + chamadas diretas), sem suposição.
+
+#### Causa raiz 1 — `GEMINI_DAILY_BUDGET` (gate interno) bateu exatamente 200/200
+
+Confirmado consultando o Supabase direto: `GEMINI_BUDGET_20260817_gemini-flash-lite-latest = "200"` — o gate local (elevado de 18→200 mais cedo no mesmo dia, ver continuação 4) estava com o contador exatamente no teto, fazendo `callGemini()` recusar TODA chamada sem sequer contatar o Google (`orcamentoEsgotado`).
+
+**Testado ao vivo, com evidência real:** 4 chamadas diretas ao Gemini feitas DEPOIS do contador interno já estar em 200/200 — as 4 retornaram HTTP 200 (conteúdo real gerado). Ou seja: o teto real do Google hoje **não estava** em 200 — o gate interno é que ficou baixo demais pro volume real de uso deste dia (7 canais, cron a cada 20min, desde cedo). Subido pra **500** — continua sendo só um gate local de eficiência, não uma alegação sobre o teto real do Google.
+
+#### Causa raiz 2 — Groq (fallback) estava 100% morto — modelo removido do catálogo
+
+Quando `callGemini()` falhava (orçamento esgotado), `callIA()` caía pro Groq — que retornava **`Groq 404: The model llama-3.3-70b-versatile does not exist or you do not have access to it`** em TODA tentativa. Confirmado consultando `GET /v1/models` da conta Groq real: a lista de modelos disponíveis **não tem mais nenhum modelo Llama de chat** — Groq trocou a linha para modelos OpenAI open-weight (`gpt-oss-*`) e Qwen. `llama-3.3-70b-versatile` foi descontinuado pelo Groq sem aviso — mesma classe de problema já documentada extensivamente pra Gemini (`gemini-2.0-flash` descontinuado pelo Google, sessão 15-16/08).
+
+Com as DUAS engines mortas ao mesmo tempo (Gemini bloqueado pelo próprio gate interno, Groq morto de verdade), o sistema inteiro — matérias, Brasil ON, Jovem Pan Política, Internacional, radares — ficava sem nenhuma saída de geração até o reset 00:00 BRT.
+
+**Fix:** `_callGroq()` trocado pra `openai/gpt-oss-120b` — testado ao vivo com prompt real (~1600 tokens), respondeu com conteúdo válido. É um modelo de raciocínio (a API separa `message.reasoning` de `message.content` — `_callGroq()` já lia só `.content`, então o raciocínio nunca vaza pro corpo do artigo). Adicionado `reasoning_effort:"low"` pra reduzir o quanto o modelo "pensa" antes de responder, sobrando mais orçamento de tokens pro conteúdo real; `groqMaxTokens` subido de 2200→2600 de margem. `core/ai.js` (`rewriteGroq`, código morto sem caller ativo) atualizado em sincronia, mesma convenção já estabelecida.
+
+#### Verificação end-to-end, com evidência real (não suposição)
+
+Após deploy do commit `3dee418b`: disparo real do pipeline via `POST /api/run_portal {"tipo":"brasilon","force":true,"count":2}` retornou **`{"status":"ok","generated":2,"tipo":"brasilon","candidates":11}`** — 2 artigos reais gerados e publicados, `erro:0`. O canal `materias` no mesmo teste teve uma rejeição, mas por motivo editorial legítimo (auditoria detectou vício de IA no texto gerado) — **zero erro de infraestrutura/IA**, confirmando que o motor voltou a funcionar normalmente; rejeição de qualidade é comportamento esperado do sistema, não um bug.
+
+#### ⚠️ Nota de transparência
+
+O fix do Groq foi testado com um prompt curto/médio (~1600 tokens de entrada) — ainda não confirmado com um artigo completo real via Groq especificamente (o teste end-to-end que passou usou o caminho Gemini, que voltou a funcionar assim que o gate foi elevado). Se o Gemini falhar de novo por algum motivo e o fallback Groq entrar em ação, monitorar se `groqMaxTokens=2600` é suficiente pro mínimo de 8 parágrafos/2.500+ chars exigido pelo validador — se sair truncado, subir de novo com evidência real.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/08/2026 continuação 6)
+
+| Sistema | Status |
+|---|---|
+| **`GEMINI_DAILY_BUDGET` 200→500** — gate interno estava bloqueando geração sem o Google ter rejeitado nada (4/4 chamadas diretas confirmaram HTTP 200 além do teto) | ✅ EM PRODUÇÃO (commit `3dee418b`) |
+| **Groq fallback corrigido** — `llama-3.3-70b-versatile` (descontinuado pelo Groq, 404 confirmado) → `openai/gpt-oss-120b` (testado ao vivo, funcional) | ✅ EM PRODUÇÃO |
+| **Pipeline gerando conteúdo real de novo** — `Brasil ON generated:2, erro:0` confirmado pós-deploy | ✅ CONFIRMADO com evidência real, não suposição |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Monitorar se `GEMINI_DAILY_BUDGET=500` é suficiente** pro resto do dia sem bater 429 real — se bater, é sinal real do teto do Google (ajustar com evidência, nunca suposição).
+2. **Confirmar Groq com artigo completo real** (não só prompt curto) se o fallback for acionado de novo — verificar se `groqMaxTokens=2600` basta.
+3. Demais pendências consolidadas de sessões anteriores seguem válidas — nenhuma outra foi tocada nesta continuação.
