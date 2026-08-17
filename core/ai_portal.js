@@ -337,11 +337,27 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
 // NÃO é alteração de prompt (Regra Zero-B intacta — nenhum texto do
 // MASTER_PROMPT foi tocado) — é só limpeza mecânica da saída de UM provedor
 // específico, antes de devolver o texto pro resto do pipeline.
+//
+// 17/08/2026 (continuação) — BUG REAL encontrado testando ao vivo: a versão
+// anterior removia QUALQUER linha começando com TITULO:/META_TITLE:/
+// FOCO_KEYWORD:/META_DESCRICAO: do texto INTEIRO, antes do parse() rodar —
+// isso apagava as linhas de metadado de VERDADE (que o parser precisa pra
+// extrair o título), não só linhas soltas que vazassem dentro do corpo.
+// Resultado: titulo ficava vazio → parse() caía no fallback "Sem título"
+// (10 chars) → auditoria rejeitava "titulo fora do tamanho seguro" (exige
+// 15-120). Fix: só limpar metadado solto DEPOIS do marcador "CORPO EM
+// HTML:" (onde ele pode vazar por engano) — as linhas de metadado real,
+// antes desse marcador, ficam intocadas.
 function _sanitizarMarkdownGroq(text) {
-  return text
+  const semNegritoEHeaders = text
     .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^(TITULO|META_TITLE|FOCO_KEYWORD|META_DESCRICAO):.*$/gim, "");
+    .replace(/^#{1,6}\s+/gm, "");
+  const marcador = /CORPO(?: EM HTML)?:/i;
+  const idx = semNegritoEHeaders.search(marcador);
+  if (idx === -1) return semNegritoEHeaders;
+  const cabecalho = semNegritoEHeaders.slice(0, idx);
+  const corpo = semNegritoEHeaders.slice(idx).replace(/^(TITULO|META_TITLE|FOCO_KEYWORD|META_DESCRICAO):.*$/gim, "");
+  return cabecalho + corpo;
 }
 
 async function callIA(systemKernel, userContent, maxTokens = 8192) {
