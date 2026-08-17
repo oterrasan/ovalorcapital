@@ -10,13 +10,24 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Retestar pipeline real (503 transiente esperado passar)
+      - name: Testar Gemini direto (isolar 503 do Google) + mercado
         run: |
-          for i in 1 2 3; do
-            echo "Tentativa $i..."
-            RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-              -H "Content-Type: application/json" \
-              -d '{"tipo":"materias","force":true}')
-            echo "$RESP"
-            sleep 5
+          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          KEYS_JSON=$(curl -s "$SUPA_URL/rest/v1/config?key=in.(GEMINI_API_KEY,GEMINI_API_KEY_2)&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY")
+          KEY1=$(echo "$KEYS_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); m={r['key']:r['value'] for r in d}; print(m.get('GEMINI_API_KEY',''))")
+          KEY2=$(echo "$KEYS_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); m={r['key']:r['value'] for r in d}; print(m.get('GEMINI_API_KEY_2',''))")
+          for MODEL in gemini-flash-latest gemini-2.5-flash; do
+            for LABEL_KEY in "KEY1:$KEY1" "KEY2:$KEY2"; do
+              LABEL="${LABEL_KEY%%:*}"
+              K="${LABEL_KEY#*:}"
+              echo "=== $MODEL / $LABEL ==="
+              curl -s -o /tmp/resp.json -w "HTTP_CODE: %{http_code}\n" \
+                "https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$K" \
+                -H "Content-Type: application/json" \
+                -d '{"contents":[{"role":"user","parts":[{"text":"responda apenas: ok"}]}],"generationConfig":{"maxOutputTokens":10}}'
+              cat /tmp/resp.json
+              echo ""
+              sleep 3
+            done
           done
