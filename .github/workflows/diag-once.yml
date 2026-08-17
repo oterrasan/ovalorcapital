@@ -1,4 +1,4 @@
-name: Diagnóstico único — testar Gemini Flash-Lite
+name: Diagnóstico único — página oficial de rate limits
 
 on:
   workflow_dispatch:
@@ -10,28 +10,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Buscar chaves Gemini do Supabase e testar Flash-Lite
+      - name: Buscar rate limits oficiais do Gemini (texto puro)
         run: |
-          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          KEY1=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY&select=value" \
-            -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['value'])")
-
-          echo "=== ListModels: procurando por flash-lite ==="
-          curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$KEY1" > /tmp/models.json
-          python3 -c "import json; d=json.load(open('/tmp/models.json')); [print(m.get('name',''),'|',m.get('displayName')) for m in d.get('models',[]) if 'lite' in m.get('name','').lower()]"
-
-          echo ""
-          echo "=== Testando gemini-2.5-flash-lite ==="
-          curl -s -w "\nHTTP_CODE: %{http_code}\n" -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$KEY1" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"parts":[{"text":"responda apenas: ok"}]}]}'
-
-          echo ""
-          echo "=== Testando gemini-flash-lite-latest ==="
-          curl -s -w "\nHTTP_CODE: %{http_code}\n" -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$KEY1" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"parts":[{"text":"responda apenas: ok"}]}]}'
+          curl -s "https://ai.google.dev/gemini-api/docs/rate-limits.md.txt" -o /tmp/limits.txt
+          echo "=== tamanho do arquivo ==="
+          wc -c /tmp/limits.txt
+          echo "=== trechos com 'lite' ou 'RPD' ou 'Free' proximos ==="
+          grep -n -i "lite\|free tier\|RPD" /tmp/limits.txt | head -100
