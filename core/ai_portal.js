@@ -123,21 +123,30 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
 // generate_content_free_tier_requests, limit: 20, model: gemini-3.7-flash"
 // (gemini-flash-latest resolve pra gemini-3.7-flash hoje). Ou seja: o teto de
 // 20 requisições/dia/projeto do free tier NÃO é exclusivo do modelo antigo —
-// vale pra qualquer modelo flash atual do Google (só o "gemini-2.0-flash",
+// vale pra qualquer modelo flash "padrão" do Google (só o "gemini-2.0-flash",
 // descontinuado, tinha o teto maior de 1.500/dia). As duas chaves
 // (GEMINI_API_KEY e GEMINI_API_KEY_2) parecem compartilhar o mesmo projeto
 // Google Cloud — os 429 batem nas duas juntas, não uma de cada vez.
 //
-// Isso NÃO é resolvível trocando nome de modelo — só duas saídas realmente
-// grátis: (1) Roberto criar uma chave de um projeto Google Cloud DIFERENTE
-// (conta/projeto novo no AI Studio, não só uma 2ª chave dentro do mesmo
-// projeto) — cada projeto tem sua própria cota de 20/dia; (2) reduzir o
-// volume de chamadas pra caber dentro de 20/dia (inviável com 7 canais
-// automáticos rodando o dia todo). Voltado para 18 (margem de 2 sobre o teto
-// real confirmado de 20) — evita gastar tempo de scrape/RSS em chamadas que
-// sabemos que vão falhar assim que a cota do dia estiver esgotada.
-const GEMINI_DAILY_BUDGET = 18;
-const GEMINI_MODEL = "gemini-flash-latest"; // 17/08/2026 — nome único, usado tanto na URL quanto na chave do contador abaixo
+// 17/08/2026 (continuação) — TESTE REAL E EXAUSTIVO confirmou uma saída
+// GRÁTIS de verdade: "gemini-flash-lite-latest" (resolve hoje pra
+// gemini-3.5-flash-lite, um modelo DIFERENTE de gemini-flash-latest/
+// gemini-3.7-flash — quota separada, confirmado por 44 chamadas reais e
+// consecutivas sem bater NENHUM 429 diário). Achado por teste, não por
+// documentação — a página oficial de rate-limits do Google não publica RPD
+// por modelo do free tier (só diz "veja no AI Studio", que este sandbox não
+// acessa; os números grandes tipo 10M/500M ali são de Batch API paga,
+// irrelevantes aqui). O teto real de RPD deste modelo não foi encontrado
+// (44 chamadas não bastaram pra esgotar) — só confirmado que é MAIOR que 44,
+// e que tem RPM=15/min separado (confirmado via 429 real depois de 14
+// chamadas em sequência sem espera — por isso o código já respeita esse
+// limite de rajada através do retry/dual-key normal, sem rajada artificial).
+// LIÇÃO: nunca declarar "escapou do teto" sem esgotar de verdade (foi
+// exatamente o erro do "300" logo acima) — aqui o teste foi até bater 429
+// de verdade OU passar de 40+ chamadas reais sem nenhum, então a confiança é
+// maior, mas ainda não é uma garantia absoluta de teto infinito.
+const GEMINI_DAILY_BUDGET = 18; // ainda conservador — teto real deste modelo não foi encontrado, só confirmado > 44/dia; manter margem até confirmar mais
+const GEMINI_MODEL = "gemini-flash-lite-latest"; // 17/08/2026 — trocado de gemini-flash-latest (20/dia) pra este (quota separada, > 44/dia confirmado ao vivo). Nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {
   const brt = new Date(Date.now() - 3 * 60 * 60 * 1000); // BRT = UTC-3
