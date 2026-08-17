@@ -14,8 +14,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar quantas chaves Gemini existem no config
+      - name: Checar TUDO relacionado a GEMINI no config (sem prefixo fixo)
         run: |
           SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -s "$SUPA_URL/rest/v1/config?key=like.GEMINI_API_KEY*&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(r['key'], '->', (r['value'] or '')[:15]+'...') for r in d]"
+          echo "=== Todas as linhas com GEMINI no nome (ilike, case-insensitive) ==="
+          curl -s "$SUPA_URL/rest/v1/config?key=ilike.*gemini*&select=key,value,id" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(r.get('id'), '|', r['key'], '->', (r['value'] or '')[:20]) for r in d]"
+          echo ""
+          echo "=== Total de linhas na tabela config (pra ver se e essa tabela mesmo) ==="
+          curl -s "$SUPA_URL/rest/v1/config?select=key" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" -H "Prefer: count=exact" -I | grep -i content-range
