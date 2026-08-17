@@ -10,15 +10,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Esperar TPM do Groq esfriar + testar pipeline real 3x espaçado
+      - name: Testar Groq com teto reduzido (2200 tokens + input cortado)
         run: |
-          echo "Esperando 60s pro limite por minuto do Groq resetar..."
-          sleep 60
-          for i in 1 2 3; do
-            echo "=== Tentativa $i ==="
-            curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-              -H "Content-Type: application/json" \
-              -d '{"tipo":"materias","force":true}'
-            echo ""
-            sleep 30
-          done
+          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true}'
+          echo ""

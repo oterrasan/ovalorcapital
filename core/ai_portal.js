@@ -292,7 +292,20 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
   // artigo-fonte, estourava os 12.000 quase sempre. Fix: teto próprio pro
   // Groq, bem abaixo do default do Gemini — ainda dá margem de sobra pro
   // mínimo de 8 parágrafos/2.500+ chars exigido pelo MASTER_PROMPT.
-  const groqMaxTokens = Math.min(maxTokens, 4000);
+  //
+  // 17/08/2026 (continuação) — testado de novo com o teto de 4000: ainda
+  // batia 429 de TPM (12.000/min é do GROQ INTEIRO — compartilhado entre
+  // os 7 canais automáticos + qualquer chamada manual, não por chave/canal;
+  // Groq só tem 1 chave, ao contrário do Gemini que tem 2). Não dá pra
+  // esperar o "try again in Ns" do próprio erro (Vercel Hobby só tem 10s de
+  // execução — REGRA ZERO-A — um sleep de 16-36s estouraria o timeout).
+  // Único ajuste seguro dentro de 1 chamada: pedir MENOS tokens no total
+  // (prompt de entrada + saída) — reduz "Requested" por chamada, dando mais
+  // margem dentro do teto compartilhado. userContent (texto-fonte bruto)
+  // cortado pra até 4000 chars — sobra de sobra pro MASTER_PROMPT reescrever
+  // (mínimo exigido é só 2.500+ chars de SAÍDA, não de entrada).
+  const groqMaxTokens = Math.min(maxTokens, 2200);
+  const groqUserContent = userContent.length > 4000 ? userContent.slice(0, 4000) : userContent;
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
@@ -300,7 +313,7 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
       model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: systemKernel },
-        { role: "user", content: userContent }
+        { role: "user", content: groqUserContent }
       ],
       max_tokens: groqMaxTokens,
       temperature: 0.3
