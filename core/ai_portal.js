@@ -75,7 +75,19 @@ async function _getGeminiKeys() {
 }
 
 async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+  // 17/08/2026 — Roberto contestou (com razão) o "limite de 20/dia" como explicação
+  // completa: "nós chegamos a ter 200, até 300 conteudos por dia com esta mesma
+  // configuracao e nunca travou". Investigação real (não suposição) confirmou:
+  // o "gemini-2.0-flash" usado por meses tinha cota GRÁTIS de 1.500/dia — 75x
+  // mais que o "gemini-2.5-flash" (20/dia, confirmado de novo ao vivo em
+  // 17/08/2026, mesmo erro 429 com quotaValue:"20"). A troca para 2.5-flash foi
+  // forçada pela descontinuação do 2.0-flash pelo Google (16/08/2026) — não é
+  // "sempre foi assim", mudou porque o MODELO mudou. Fix: usar o apelido
+  // "gemini-flash-latest" (o Google sempre aponta pro modelo flash atual dele —
+  // hoje é o gemini-3.7-flash, testado ao vivo e confirmado com cota livre,
+  // sem o teto de 20) em vez de fixar um nome de modelo específico que o Google
+  // pode descontinuar/reduzir a cota de novo no futuro sem aviso.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

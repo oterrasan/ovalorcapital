@@ -76,7 +76,12 @@ function buildResult(p) {
 }
 
 async function rewriteGemini(prompt, key) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+  // 17/08/2026 — mesmo fix de core/ai_portal.js: usa o apelido sempre-atual do
+  // Google em vez de um nome de modelo fixo (que pode ser descontinuado ou ter
+  // cota reduzida sem aviso, como aconteceu com gemini-2.0-flash→2.5-flash).
+  // Este arquivo hoje não é chamado por nenhum outro (código morto), mas mantido
+  // em sincronia para não confundir sessão futura que reative o Instagram.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
