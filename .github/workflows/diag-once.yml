@@ -10,12 +10,5 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar chave nova SEM busca ao vivo (isolar se e a chave ou a busca)
-        run: |
-          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          KEY2=$(curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_API_KEY_2&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['value'] if d else 'AUSENTE')")
-          echo "############ SEM google_search ############"
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$KEY2" \
-            -H "Content-Type: application/json" \
-            -d '{"contents":[{"role":"user","parts":[{"text":"diga apenas OK"}]}],"generationConfig":{"maxOutputTokens":30}}'
+      - name: placeholder
+        run: echo "placeholder — sem diagnóstico ativo no momento"

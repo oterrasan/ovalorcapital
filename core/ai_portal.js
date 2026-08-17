@@ -92,7 +92,13 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      tools: [{ google_search: {} }],
+      // 17/08/2026 — Roberto autorizou desligar a busca ao vivo do Google (tools:
+      // google_search): estava com cota própria, separada da cota do modelo, e
+      // travando o pipeline mesmo com chave nova. Como a reescrita já trabalha
+      // em cima do texto da fonte confiável (não pesquisa aberta) e o prompt já
+      // proíbe inventar fato fora do input, a busca ao vivo era só uma camada
+      // extra — desligar não muda o formato/regras do prompt (Regra Zero-B
+      // respeitada, nada do MASTER_PROMPT foi tocado).
       systemInstruction: { parts: [{ text: systemKernel }] },
       contents: [{ role: "user", parts: [{ text: userContent }] }],
       generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens }
