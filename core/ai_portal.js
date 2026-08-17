@@ -253,10 +253,70 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
 // quando o Gemini falhava (ex: cota de free tier estourada por causa do volume
 // de chamadas de 7 automações rodando a cada 15min 24h/dia), callIA() caía
 // silenciosamente pro OpenAI, que estava sem crédito (429) — mascarando o erro
-// real do Gemini atrás de um fallback morto. Agora, se o Gemini falhar, o erro
-// real do Gemini propaga direto (nenhum fallback secreto).
+// real do Gemini atrás de um fallback morto.
+//
+// 17/08/2026 — Roberto: "ENCONTRE UMA SOLUCAO GRATUITA... O SISTEMA PRECISA
+// SER CAPAZ DE PUBLICAR AO MENOS 200 ARTIGOS DIARIAMENTE". Gemini free tier
+// tem 20 requisições/dia/projeto — catastroficamente pouco pra 7 canais
+// rodando o dia todo. Pesquisado (WebSearch) e confirmado: Groq (grátis, sem
+// cartão de crédito) tem free tier de 14.400 requisições/dia — 720x mais que
+// o Gemini. Groq vira fallback real quando o Gemini falha (cota esgotada,
+// 503 persistente, etc.) — mesma MASTER_PROMPT, mesmo formato de entrada,
+// endpoint compatível com OpenAI (chat/completions). NÃO é o fallback OpenAI
+// morto que Roberto mandou tirar — é um provedor diferente, com chave e
+// cota próprias, genuinamente grátis.
+//
+// ⚠️ Ressalva honesta: o teto de 14.400/dia é por REQUISIÇÃO — Groq também
+// limita por TOKENS/MINUTO (6.000 no free tier). O MASTER_PROMPT é longo
+// (~2-3 mil tokens só de instrução), então o gargalo real na prática pode
+// ser o de tokens, não o de 14.400 pedidos — throughput real só se confirma
+// testando com uma chave de verdade. Ainda assim, é uma capacidade MUITO
+// maior que os 20/dia atuais do Gemini, e continua 100% grátis.
+async function _getGroqKey() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "GROQ_API_KEY").maybeSingle();
+    return data?.value || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+async function _callGroq(systemKernel, userContent, maxTokens) {
+  const key = await _getGroqKey();
+  if (!key) throw new Error("GROQ_API_KEY não configurada no Supabase config");
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemKernel },
+        { role: "user", content: userContent }
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.3
+    })
+  });
+  const d = await res.json();
+  if (!res.ok) {
+    const err = new Error(`Groq ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
+    err.status = res.status;
+    throw err;
+  }
+  const text = d.choices?.[0]?.message?.content;
+  if (text && text.length > 100) return text;
+  throw new Error("Groq retornou resposta vazia");
+}
+
 async function callIA(systemKernel, userContent, maxTokens = 8192) {
-  return await callGemini(systemKernel, userContent, maxTokens);
+  try {
+    return await callGemini(systemKernel, userContent, maxTokens);
+  } catch (err) {
+    // orçamento do Gemini esgotado ou qualquer outra falha real (não mascara
+    // erro — só tenta uma fonte de capacidade genuinamente diferente)
+    console.warn(`Gemini falhou (${(err.message || "").slice(0, 100)}), tentando Groq...`);
+    return await _callGroq(systemKernel, userContent, maxTokens);
+  }
 }
 
 const SUBCATS_POR_CAT = {
