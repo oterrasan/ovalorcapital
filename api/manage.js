@@ -437,13 +437,30 @@ async function handleCategorizarRss(req, res) {
 async function handleGetPesquisa(res) {
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
   try {
-    const { data } = await supabase.from("config").select("value").eq("key", "PESQUISA_ELEITORAL").maybeSingle();
-    if (data?.value) {
-      const parsed = JSON.parse(data.value);
+    // 17/08/2026 — CAUSA RAIZ do "mai/2026" travado nos prints de Roberto: o
+    // upsert antigo de _salvarPesquisa() (ver abaixo) criava LINHA NOVA a cada
+    // atualização em vez de atualizar a existente (mesma classe de bug do
+    // .upsert({onConflict:"key"}) sem constraint unique, já confirmada e
+    // corrigida pro card Internacional em 13/08/2026). Com múltiplas linhas
+    // key='PESQUISA_ELEITORAL' na tabela, .maybeSingle() lança erro ("multiple
+    // rows returned"), o catch(_){} engolia silenciosamente, e a resposta
+    // sempre caía no fallback hardcoded abaixo — que tinha "mai/2026" escrito
+    // no código. Fix: .limit(1) nunca lança em caso de duplicata (não exige 0
+    // ou 1 linha como maybeSingle() exige) — sem coluna de timestamp
+    // confiável na tabela config não dá pra garantir "pegar a mais recente"
+    // entre duplicatas antigas, mas o fix real de fundo é _salvarPesquisa()
+    // nunca mais CRIAR duplicata daqui pra frente (ver abaixo) — o problema
+    // para de piorar, e um UPDATE atualiza TODAS as linhas com essa key de
+    // uma vez, convergindo qualquer duplicata antiga pro mesmo valor novo.
+    const { data } = await supabase.from("config").select("value").eq("key", "PESQUISA_ELEITORAL").limit(1);
+    const row = data && data[0];
+    if (row?.value) {
+      const parsed = JSON.parse(row.value);
       return res.status(200).json({ ok: true, pesquisa: parsed });
     }
   } catch (_) {}
-  // Fallback padrão
+  // Fallback padrão — sem mês/ano fixo no texto (evita parecer dado real
+  // desatualizado quando na verdade é só o placeholder de "nunca atualizou ainda")
   return res.status(200).json({
     ok: true,
     pesquisa: {
@@ -452,7 +469,7 @@ async function handleGetPesquisa(res) {
         { nome: "Bolsonaro", pct: 29, cor: "#2563eb" },
         { nome: "Outros", pct: 34, cor: "#94a3b8" }
       ],
-      fonte: "Quaest / Datafolha — mai/2026",
+      fonte: "Quaest / Datafolha — aguardando 1ª atualização automática",
       atualizado: null
     }
   });
@@ -628,11 +645,6 @@ async function handleUpdatePesquisa(req, res) {
   if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
 
   try {
-    const OPENAI_KEY = process.env.OPENAI_API_KEY || Buffer.from(
-      "c2stcHJvai13Y2ZVQndOYXpXbXJGMGZ6QmlXdlFHZWJOMzNEUTF1bVNrcXNfYVRvcENqaDdCM1JnaC00UkU3SjJxcXpwQmFsNGluMklQNDh1R1QzQmxia0ZKNUF3TmY4V211c09kZTktc3RYTWxvSGJXMXFianlFRFRLdjhXcXgza19WZWYySEp1VGhMUUJOTW93d2dRUHVIZGZnQkFFMXdoOEE=",
-      "base64"
-    ).toString().trim();
-
     // Busca artigos dos últimos 30 dias com keywords de pesquisa eleitoral (título OU corpo)
     const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
     const { data: artigos } = await supabase.from("posts")
@@ -648,7 +660,7 @@ async function handleUpdatePesquisa(req, res) {
       const textos = artigos.map(a =>
         `TÍTULO: ${a.titulo}\nCONTEÚDO: ${(a.conteudo || '').replace(/<[^>]+>/g, '').slice(0, 800)}`
       ).join("\n\n---\n\n");
-      const r1 = await _extrair(textos, OPENAI_KEY);
+      const r1 = await _extrair(textos);
       if (r1.ok) return await _salvarPesquisa(r1.payload, res);
       // "sem_dados" no banco próprio — NÃO desistir, tenta a fonte externa abaixo
     }
@@ -656,7 +668,7 @@ async function handleUpdatePesquisa(req, res) {
     // Tentativa 2 (sempre, se a 1ª não deu resultado concreto): Google News RSS
     const textoFeed = await _buscarGoogleNewsPesquisa();
     if (textoFeed) {
-      const r2 = await _extrair(textoFeed, OPENAI_KEY);
+      const r2 = await _extrair(textoFeed);
       if (r2.ok) return await _salvarPesquisa(r2.payload, res);
       return res.status(200).json({ ok: false, reason: r2.reason });
     }
@@ -667,14 +679,71 @@ async function handleUpdatePesquisa(req, res) {
   }
 }
 
+// 17/08/2026 — trocado de OpenAI (chave hardcoded confirmada REVOGADA — 401 —
+// e a env var do Vercel sem crédito, mesmo estado documentado à exaustão na
+// crise de 15-16/08 pro resto do pipeline) para Gemini, o mesmo motor já
+// usado em core/ai_portal.js. api/manage.js não importa core/ai_portal.js
+// (arquivos separados, Regra Zero-A não permite import cross-arquivo mudar
+// contagem), então este é um helper mínimo e próprio aqui, mesmo padrão de
+// _getGeminiKeys()/_callGeminiWithKey() do outro arquivo — sem gate de
+// orçamento diário próprio porque este endpoint roda só 3x/semana (cron
+// update-polls.yml) + acionamento manual raro, nunca vai perto do teto de
+// 20/dia sozinho.
+let _pesqGeminiKeysCache = null;
+let _pesqGeminiKeysCacheTs = 0;
+async function _getGeminiKeysPesquisa() {
+  const now = Date.now();
+  if (_pesqGeminiKeysCache && now - _pesqGeminiKeysCacheTs < 300000) return _pesqGeminiKeysCache;
+  try {
+    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY", "GEMINI_API_KEY_2"]);
+    const keys = {};
+    (data || []).forEach(r => { keys[r.key] = r.value; });
+    const list = [keys["GEMINI_API_KEY"], keys["GEMINI_API_KEY_2"]].filter(Boolean);
+    if (list.length) { _pesqGeminiKeysCache = list; _pesqGeminiKeysCacheTs = now; return list; }
+  } catch (_) {}
+  return [];
+}
+
+async function _callGeminiPesquisa(prompt) {
+  const keys = await _getGeminiKeysPesquisa();
+  if (!keys.length) throw new Error("GEMINI_API_KEY não configurada no Supabase config");
+  let lastErr;
+  for (const key of keys) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${key}`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 400 }
+        }),
+        signal: AbortSignal.timeout(9000)
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        const err = new Error(data?.error?.message || `Gemini HTTP ${r.status}`);
+        err.status = r.status;
+        throw err;
+      }
+      return (data.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    } catch (err) {
+      lastErr = err;
+      if (err.status === 429 || err.status === 503) continue; // tenta a outra chave
+      throw err;
+    }
+  }
+  throw lastErr || new Error("Gemini falhou");
+}
+
 // Chama a IA e faz só a extração/parse — sem gravar no banco (permite
 // tentar duas fontes na mesma requisição antes de decidir salvar).
-async function _extrair(textos, OPENAI_KEY) {
+async function _extrair(textos) {
   const prompt = `Analise estes artigos sobre pesquisas eleitorais brasileiras para presidente 2026 e extraia os números de intenção de voto mais recentes.
 
 ${textos}
 
-Responda APENAS com JSON válido neste formato exato:
+Responda APENAS com JSON válido neste formato exato, sem markdown, sem texto fora do JSON:
 {"candidatos":[{"nome":"Lula","pct":37,"cor":"#e11d48"},{"nome":"Bolsonaro","pct":29,"cor":"#2563eb"},{"nome":"Outros","pct":34,"cor":"#94a3b8"}],"fonte":"Instituto — mês/ano"}
 
 Regras:
@@ -684,15 +753,12 @@ Regras:
 - "Outros" = soma dos demais candidatos ou indecisos
 - Cores: Lula=#e11d48, Bolsonaro=#2563eb, Terceiro candidato=#f59e0b, Outros=#94a3b8`;
 
-  const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-    body: JSON.stringify({ model: "gpt-4o-mini", temperature: 0, max_tokens: 300,
-      messages: [{ role: "user", content: prompt }] })
-  });
-
-  const aiJson = await aiRes.json();
-  const raw = aiJson.choices?.[0]?.message?.content?.trim() || "";
+  let raw;
+  try {
+    raw = await _callGeminiPesquisa(prompt);
+  } catch (e) {
+    return { ok: false, reason: "ai_erro: " + e.message };
+  }
   const match = raw.match(/\{[\s\S]+\}/);
   if (!match) return { ok: false, reason: "ai_no_json" };
 
@@ -703,8 +769,23 @@ Regras:
   return { ok: true, payload: { ...extraido, atualizado: new Date().toISOString() } };
 }
 
+// 17/08/2026 — causa raiz real do "mai/2026" travado: .upsert({key:...}) SEM
+// {onConflict:"key"} explícito cai no default do PostgREST (a PK real da
+// tabela, um id auto-gerado) — na prática isso INSERE uma linha nova a cada
+// chamada em vez de atualizar a existente (mesma classe de bug já confirmada
+// e corrigida pro card Internacional em 13/08/2026, ver CLAUDE.md). Fix:
+// update-se-existir-a-linha-senão-insert, não depende de nenhuma constraint
+// unique no banco (a tabela config não tem uma na coluna key).
 async function _salvarPesquisa(payload, res) {
-  await supabase.from("config").upsert({ key: "PESQUISA_ELEITORAL", value: JSON.stringify(payload) });
+  const value = JSON.stringify(payload);
+  try {
+    const { data: existing } = await supabase.from("config").select("key").eq("key", "PESQUISA_ELEITORAL").limit(1);
+    if (existing && existing.length) {
+      await supabase.from("config").update({ value }).eq("key", "PESQUISA_ELEITORAL");
+    } else {
+      await supabase.from("config").insert({ key: "PESQUISA_ELEITORAL", value });
+    }
+  } catch (_) {}
   return res.status(200).json({ ok: true, pesquisa: payload });
 }
 

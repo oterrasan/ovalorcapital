@@ -205,7 +205,21 @@
   }
 
   function init() {
-    var EL_KEYWORDS = ['eleição','eleições','candidat','presidencial','eleitoral','voto','urna','tse','pleito','campanha eleitoral','pesquisa eleitoral','datafolha','quaest','ipespe','intenção de voto','debate presidencial','chapa','coligação','programa de governo','registro de candidatura','primeiro turno','segundo turno','governador','senado federal','câmara dos deputados','vereador','prefeito'];
+    // 17/08/2026 — Roberto: print mostrando matéria da ELEIÇÃO DA ZÂMBIA e do
+    // GOVERNADOR DO AMAPÁ (achado de petróleo, nada a ver com eleição) dentro
+    // do "Cobertura eleitoral OVC". Causa raiz dupla, confirmada por leitura
+    // de código:
+    // 1) O filtro nunca exigia p.categoria==='politica' — só keyword no
+    //    título — então QUALQUER post de QUALQUER categoria (internacional,
+    //    brasil-on, etc.) com uma palavra batendo entrava. "Eleição" é termo
+    //    genérico, não exclusivo de eleição BRASILEIRA — a Zâmbia também tem.
+    // 2) 'governador'/'senado federal'/'câmara dos deputados'/'vereador'/
+    //    'prefeito' são termos amplos demais — qualquer notícia MENCIONANDO
+    //    um governador (não necessariamente sobre eleição) batia. Removidos —
+    //    cobertura eleitoral de governador/senado já é pega pelos termos
+    //    genuinamente eleitorais da lista (eleição, candidat, pleito, chapa,
+    //    coligação, primeiro/segundo turno etc.), sem precisar do cargo solto.
+    var EL_KEYWORDS = ['eleição','eleições','candidat','presidencial','eleitoral','voto','urna','tse','pleito','campanha eleitoral','pesquisa eleitoral','datafolha','quaest','ipespe','intenção de voto','debate presidencial','chapa','coligação','programa de governo','registro de candidatura','primeiro turno','segundo turno'];
 
     // Busca pesquisa e artigos em paralelo
     Promise.all([
@@ -215,6 +229,7 @@
       var pesquisaData = (results[0] && results[0].pesquisa) || null;
       var todos = (results[1] && results[1].posts) || [];
       var artigos = todos.filter(function (p) {
+        if (p.categoria !== 'politica') return false;
         var titulo = (p.titulo || '').toLowerCase();
         return EL_KEYWORDS.some(function (kw) { return kwMatch(titulo, kw); });
       });
