@@ -87,7 +87,7 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
   // hoje é o gemini-3.7-flash, testado ao vivo e confirmado com cota livre,
   // sem o teto de 20) em vez de fixar um nome de modelo específico que o Google
   // pode descontinuar/reduzir a cota de novo no futuro sem aviso.
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -123,20 +123,35 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
 // garante que conteúdo político/eleitoral tenha acesso à cota ANTES dos
 // canais de esporte, prioridade explícita de Roberto durante a eleição.
 const GEMINI_DAILY_BUDGET = 18; // margem de segurança sobre o teto real de 20/dia observado
+const GEMINI_MODEL = "gemini-flash-latest"; // 17/08/2026 — nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {
   const brt = new Date(Date.now() - 3 * 60 * 60 * 1000); // BRT = UTC-3
   return brt.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-let _orcamentoCache = null; // { dia, count }
+// 17/08/2026 — a chave do contador inclui o NOME DO MODELO, não só a data.
+// Motivo: ao trocar de modelo (ex: gemini-2.5-flash → gemini-flash-latest,
+// mesmo commit), o contador do modelo antigo ficava "cheio" (a cota real do
+// Google para aquele modelo específico já tinha esgotado) e continuava
+// bloqueando TODAS as chamadas do dia mesmo depois da troca — o modelo novo
+// tem cota própria e separada no Google, então o contador precisa resetar
+// junto com a troca de modelo, não só à meia-noite. Confirmado ao vivo: o
+// primeiro teste pós-deploy do fix de modelo ainda bloqueou com
+// "Orçamento diário esgotado (18/18)" — contador estava contando as
+// chamadas do gemini-2.5-flash antigo contra o teto do modelo novo.
+function _chaveOrcamentoHoje() {
+  return `GEMINI_BUDGET_${_diaAtualBRT()}_${GEMINI_MODEL}`;
+}
+
+let _orcamentoCache = null; // { key, count }
 async function _lerOrcamentoDiario() {
-  const dia = _diaAtualBRT();
-  if (_orcamentoCache && _orcamentoCache.dia === dia) return _orcamentoCache.count;
+  const key = _chaveOrcamentoHoje();
+  if (_orcamentoCache && _orcamentoCache.key === key) return _orcamentoCache.count;
   try {
-    const { data } = await supabase.from("config").select("value").eq("key", `GEMINI_BUDGET_${dia}`).maybeSingle();
+    const { data } = await supabase.from("config").select("value").eq("key", key).maybeSingle();
     const count = data ? parseInt(data.value, 10) || 0 : 0;
-    _orcamentoCache = { dia, count };
+    _orcamentoCache = { key, count };
     return count;
   } catch (_) {
     return 0; // se a leitura falhar, não bloqueia (fail-open — nunca trava o pipeline por causa do próprio gate)
@@ -148,8 +163,7 @@ async function _lerOrcamentoDiario() {
 // onConflict falha silenciosamente nesse schema (causa raiz real documentada
 // em 13/08/2026 — card Internacional travado por exatamente este motivo).
 async function _incrementarOrcamentoDiario() {
-  const dia = _diaAtualBRT();
-  const key = `GEMINI_BUDGET_${dia}`;
+  const key = _chaveOrcamentoHoje();
   try {
     const atual = await _lerOrcamentoDiario();
     const novo = atual + 1;
@@ -159,7 +173,7 @@ async function _incrementarOrcamentoDiario() {
     } else {
       await supabase.from("config").insert({ key, value: String(novo) });
     }
-    _orcamentoCache = { dia, count: novo };
+    _orcamentoCache = { key, count: novo };
   } catch (_) {} // falha ao gravar o contador não pode derrubar a chamada de IA em si
 }
 
