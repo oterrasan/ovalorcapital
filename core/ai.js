@@ -99,11 +99,17 @@ async function rewriteGemini(prompt, key) {
 }
 
 async function rewriteGroq(prompt, key) {
+  // 17/08/2026 — mesmo fix de core/ai_portal.js: "llama-3.3-70b-versatile"
+  // foi removido do catálogo do Groq (404 confirmado ao vivo, lista real de
+  // modelos da conta não tem mais nenhum Llama de chat). Trocado pra
+  // "openai/gpt-oss-120b" (testado ao vivo no outro arquivo). Este arquivo
+  // continua código morto (sem caller ativo), mantido em sincronia por
+  // convenção pra não confundir sessão futura que reative o Instagram.
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: "Você é redator jornalístico. Responda APENAS com JSON válido, sem markdown." },
         { role: "user", content: prompt }

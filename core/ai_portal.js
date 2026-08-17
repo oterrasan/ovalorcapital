@@ -160,7 +160,23 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
 // chegar em 110-120 artigos PUBLICADOS é maior que 120 (dedup/validação/etc.
 // também gastam tentativas) — monitorar produção real nos próximos dias e
 // reajustar (pra cima ou pra baixo) com base em evidência, não suposição.
-const GEMINI_DAILY_BUDGET = 200;
+//
+// 17/08/2026 (continuação) — Roberto: "o sistema de geracao de materias
+// esta travado". Causa raiz real confirmada: o contador diário bateu
+// exatamente 200/200 (consultado direto no Supabase), fazendo TODO canal
+// (materias, Brasil ON, Jovem Pan, Internacional etc.) cair no
+// orcamentoEsgotado sem sequer chamar o Google — e caiam pro Groq, que por
+// sua vez estava morto (modelo llama-3.3-70b-versatile removido pelo Groq,
+// ver _callGroq() abaixo). Testado ao vivo, com evidência real (não
+// suposição): 4 chamadas diretas ao Gemini, feitas DEPOIS do contador
+// interno já estar em 200/200, todas retornaram HTTP 200 — ou seja, o teto
+// real do Google HOJE não está em 200, o gate interno é que ficou
+// artificialmente baixo demais pro volume real de uso. Subido pra 500 —
+// ainda é só um gate de eficiência local, não uma alegação sobre o teto
+// real do Google (que segue desconhecido). Se 500 também se provar baixo
+// ou alto demais, ajustar de novo com base em evidência real (429 de
+// verdade vindo do Google), nunca em suposição.
+const GEMINI_DAILY_BUDGET = 500;
 const GEMINI_MODEL = "gemini-flash-lite-latest"; // 17/08/2026 — trocado de gemini-flash-latest (20/dia) pra este (quota separada, > 44/dia confirmado ao vivo). Nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {
@@ -328,19 +344,37 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
   // margem dentro do teto compartilhado. userContent (texto-fonte bruto)
   // cortado pra até 4000 chars — sobra de sobra pro MASTER_PROMPT reescrever
   // (mínimo exigido é só 2.500+ chars de SAÍDA, não de entrada).
-  const groqMaxTokens = Math.min(maxTokens, 2200);
+  // 17/08/2026 — CONFIRMADO com evidência real: "llama-3.3-70b-versatile" foi
+  // removido do catálogo do Groq (404 "does not exist or you do not have
+  // access to it" — testado ao vivo). A lista real de modelos disponíveis na
+  // conta hoje (GET /v1/models) não tem NENHUM modelo Llama de chat — Groq
+  // trocou a linha para modelos OpenAI open-weight (gpt-oss) + Qwen. Trocado
+  // pra "openai/gpt-oss-120b" — testado ao vivo com prompt real (~1600
+  // tokens de entrada), respondeu HTTP 200 com conteúdo real. É um modelo de
+  // RACIOCÍNIO — a resposta da API vem com dois campos separados,
+  // message.reasoning (o "pensamento" interno) e message.content (a
+  // resposta final) — _callGroq() já lê só .content abaixo, então o
+  // raciocínio nunca vaza pro texto do artigo. reasoning_effort:"low" reduz
+  // o quanto o modelo "pensa" antes de responder, sobrando mais do
+  // orçamento de tokens pro CONTEÚDO real do artigo (groqMaxTokens subido
+  // de 2200→2600 de margem). ⚠️ Testado só com prompt curto até agora — a
+  // próxima geração real de artigo via Groq (fallback do Gemini) confirma
+  // se o teto é suficiente pra um artigo completo; se sair truncado, subir
+  // groqMaxTokens de novo com evidência real.
+  const groqMaxTokens = Math.min(maxTokens, 2600);
   const groqUserContent = userContent.length > 4000 ? userContent.slice(0, 4000) : userContent;
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: systemKernel },
         { role: "user", content: groqUserContent }
       ],
       max_tokens: groqMaxTokens,
-      temperature: 0.3
+      temperature: 0.3,
+      reasoning_effort: "low"
     })
   });
   const d = await res.json();

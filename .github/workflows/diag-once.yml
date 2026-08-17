@@ -1,29 +1,11 @@
 name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/diag-once.yml"
+  workflow_dispatch:
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar mais chamadas Gemini reais + Groq com modelo novo
-        run: |
-          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          CONFIG=$(curl -s "$SUPA_URL/rest/v1/config?key=in.(GEMINI_API_KEY,GROQ_API_KEY)&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY")
-          K1=$(echo "$CONFIG" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((r["value"] for r in d if r["key"]=="GEMINI_API_KEY"),""))')
-          GK=$(echo "$CONFIG" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((r["value"] for r in d if r["key"]=="GROQ_API_KEY"),""))')
-          echo "=== 4 chamadas Gemini reais espacadas ==="
-          for i in 1 2 3 4; do
-            R=$(curl -s -w "|HTTP:%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$K1" -H "Content-Type: application/json" -d "{\"contents\":[{\"role\":\"user\",\"parts\":[{\"text\":\"Diga apenas o numero $i\"}]}]}")
-            echo "chamada $i: $(echo "$R" | tail -c 200)"
-            sleep 5
-          done
-          echo "=== Groq openai/gpt-oss-120b - prompt maior ==="
-          python3 -c "import json; prompt='Resuma em 1 frase: ' + ('teste de token real. '*300); body=json.dumps({'model':'openai/gpt-oss-120b','messages':[{'role':'user','content':prompt}],'max_tokens':500}); open('/tmp/body.json','w').write(body)"
-          curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer $GK" -d @/tmp/body.json | head -c 700
-          echo ""
+      - name: Nada a fazer
+        run: echo "placeholder inerte — preencher quando necessário"
