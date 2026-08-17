@@ -10,9 +10,37 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Chamar pipeline direto — full response, sem truncar
+      - name: Testar Gemini e Groq direto contra as APIs reais
         run: |
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          CONFIG=$(curl -s "$SUPA_URL/rest/v1/config?key=in.(GEMINI_API_KEY,GEMINI_API_KEY_2,GROQ_API_KEY)&select=key,value" \
+            -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY")
+          echo "CONFIG_KEYS_PRESENTE: $(echo "$CONFIG" | python3 -c 'import json,sys; d=json.load(sys.stdin); print([r["key"] for r in d])')"
+
+          K1=$(echo "$CONFIG" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((r["value"] for r in d if r["key"]=="GEMINI_API_KEY"),""))')
+          K2=$(echo "$CONFIG" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((r["value"] for r in d if r["key"]=="GEMINI_API_KEY_2"),""))')
+          GK=$(echo "$CONFIG" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((r["value"] for r in d if r["key"]=="GROQ_API_KEY"),""))')
+
+          echo "--- GEMINI KEY1 (gemini-flash-lite-latest) ---"
+          curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$K1" \
             -H "Content-Type: application/json" \
-            -d '{"tipo":"materias","force":true,"count":1}')
-          echo "MATERIA_FULL: $RESP"
+            -d '{"contents":[{"role":"user","parts":[{"text":"Responda apenas: OK"}]}]}' | head -c 600
+          echo ""
+
+          echo "--- GEMINI KEY2 (gemini-flash-lite-latest) ---"
+          curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$K2" \
+            -H "Content-Type: application/json" \
+            -d '{"contents":[{"role":"user","parts":[{"text":"Responda apenas: OK"}]}]}' | head -c 600
+          echo ""
+
+          echo "--- GROQ (llama-3.3-70b-versatile) ---"
+          curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Content-Type: application/json" -H "Authorization: Bearer $GK" \
+            -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"Responda apenas: OK"}],"max_tokens":10}' | head -c 600
+          echo ""
+
+          echo "--- GROQ modelos disponíveis (lista real da conta) ---"
+          curl -s "https://api.groq.com/openai/v1/models" -H "Authorization: Bearer $GK" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print([m["id"] for m in d.get("data",[])])'
