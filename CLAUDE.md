@@ -64,7 +64,7 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 - **Blindagem jurídica ativa:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, sempre atribuir com "segundo", "de acordo com", "conforme"
 - **Ponto abrupto obrigatório** — proibido parágrafo moral, conclusão, "não apenas X mas também Y"
 - **AUDITORIA_OVC em JSON** — 5 campos: conflitos_factuais_encontrados, manifestacao_oficial_incluida, termos_banidos_detectados, extensao_minima_atingida, texto_termina_em_fato_cru
-- **Hierarquia de IAs (ATUALIZADO 16/08/2026):** Gemini 2.5 Flash (key1) → Gemini 2.5 Flash (key2, 429) → OpenAI gpt-4o-mini (fallback técnico morto — sem crédito, Roberto pediu pra ignorar). `gemini-2.0-flash` foi DESCONTINUADO pelo Google (404) em 15/08/2026 — ver sessão 15-16/08/2026 para o incidente completo. Se algum dia `gemini-2.5-flash` também for descontinuado, o sintoma será o mesmo: pipeline gerando `no_valid_news`/`generated:0` silenciosamente — testar o modelo direto contra a API do Google antes de suspeitar de outra causa.
+- **Hierarquia de IAs (ATUALIZADO 17/08/2026):** `gemini-flash-latest` (apelido do Google pro flash atual — hoje resolve pra `gemini-3.7-flash`, key1) → mesma coisa (key2, se 429/503) → OpenAI gpt-4o-mini (fallback técnico morto — sem crédito, Roberto pediu pra ignorar, "esquece OpenAI"). `gemini-2.0-flash` foi DESCONTINUADO pelo Google (404) em 15/08/2026. `gemini-2.5-flash` também já dá 404 "no longer available to new users" pra chaves novas — usar sempre o apelido `gemini-flash-latest`, nunca fixar nome de modelo específico (Google descontinua sem aviso). **TETO REAL CONFIRMADO 17/08/2026: 20 requisições/dia por projeto Google Cloud, vale pra QUALQUER modelo flash atual do Google — não é exclusivo de nenhum modelo específico, só o `gemini-2.0-flash` (morto) tinha 1.500/dia.** `GEMINI_DAILY_BUDGET=18` em `core/ai_portal.js` é o gate local pra não gastar tempo em chamadas fadadas a falhar. As duas chaves (`GEMINI_API_KEY`/`GEMINI_API_KEY_2`) parecem ser do mesmo projeto — dividem o mesmo pool de 20, não somam. `callGemini()` já tem retry automático em 503 (sobrecarga temporária do Google — não conta pro orçamento). Única saída grátis pra mais capacidade: criar projeto/conta Google NOVA (não só chave nova na mesma conta) e adicionar como `GEMINI_API_KEY_3` etc.
 - Linha final: `O TEMA e o CONTEXTO É: _____` — placeholder visual para o modelo
 - **Curtinhas REATIVADAS** (14/06/2026) — `autoCurtinhas` e `autoCopaCurtinhas` ativas em `run_portal.js`
 
@@ -6314,3 +6314,66 @@ Ele estava certo em desconfiar — a explicação anterior (repetida de sessão 
 #### ⚠️ Nota de transparência
 
 Não é garantido que isso elimina 100% o problema (a ressalva do item 5 acima) — mas é estritamente melhor que o estado anterior (que estava 100% morto pro resto do dia) e custa zero. Vou confirmar rodando o pipeline de verdade depois do deploy.
+
+---
+
+### Sessão 17/08/2026 (continuação 2) — 🔴 CORREÇÃO FINAL: "gemini-flash-latest" NÃO ESCAPA DO TETO DE 20/DIA — CONFIRMADO COM ERRO REAL DO GOOGLE + FIX DE RETRY EM 503 + BUG DE AUTO-BLOQUEIO POR TESTAGEM
+
+#### Contexto
+
+Continuação imediata da sessão anterior (troca pra `gemini-flash-latest`). Testei o pipeline real e apareceu um erro NOVO: `Gemini 503: This model is currently experiencing high demand`. Diferente do 429 de cota e do 404 de modelo morto — um erro de sobrecarga passageira do lado do Google. Enquanto investigava isso, Roberto voltou furioso: **"mas que merda é que voce está fazendo claude???? essa porra nao funciona mais NADA?!!! FOI EU ACIONAR VOCE ONTEM E A PARTIR DAI, TUDO CAIU EM RUINDA"**.
+
+#### Achado 1 — 503 é transitório de verdade, faltava retry (CORRIGIDO, real)
+
+Uma chamada simples e direta na API do Google (sem passar pelo pipeline) teve sucesso imediato logo depois de um 503 real no pipeline completo — confirmando que é sobrecarga passageira do Google, não bug nosso. **Fix real:** `callGemini()` em `core/ai_portal.js` agora trata 503 igual a 429 (tenta a outra chave) e, se as duas chaves baterem em erro retentável, espera 2s e tenta de novo (2 rodadas no total). 503 não consome o orçamento diário (não é sinal real de cota, diferente do 429).
+
+#### Achado 2 — bug real: minha própria testagem esgotou um limite artificial e travou a produção (CORRIGIDO)
+
+Ao retestar depois do fix de retry, o erro virou `Orçamento diário do Gemini esgotado (18/18)`. Causa: o gate de orçamento diário (criado na sessão anterior, calibrado pro modelo antigo com teto de 20/dia) continuou com o número antigo (18) mesmo após a troca de modelo — e as MINHAS PRÓPRIAS chamadas de diagnóstico ao longo do dia (múltiplos testes reais do pipeline) consumiram esse "orçamento" artificial, travando a geração de produção sem nenhum motivo real do Google. Bug self-inflicted, não do usuário.
+
+**Primeira tentativa de fix (ERRADA, corrigida minutos depois):** subi o teto de 18 pra 300, achando — com base em vários testes diretos que tinham dado certo sem 429 — que `gemini-flash-latest` tinha escapado do limite de 20/dia. **Estava errado.**
+
+#### Achado 3 — 🔴 CORREÇÃO REAL, com evidência: `gemini-flash-latest` TEM o mesmo teto de 20/dia
+
+Ao testar de novo o pipeline real (3 tentativas em sequência), veio o erro completo e inequívoco do Google:
+```
+Gemini 429: You exceeded your current quota... Quota exceeded for metric:
+generativelanguage.googleapis.com/generate_content_free_tier_requests,
+limit: 20, model: gemini-3.7-flash
+```
+`gemini-flash-latest` resolve hoje pra `gemini-3.7-flash` — e ESSE modelo tem exatamente o mesmo teto de 20/dia/projeto que o `gemini-2.5-flash` tinha. **Não é um problema de nome de modelo — é o teto real do free tier do Google para QUALQUER modelo flash atual.** Só o `gemini-2.0-flash` (descontinuado) tinha o teto alto de 1.500/dia — e esse modelo não existe mais, não tem como voltar pra ele.
+
+As duas chaves (`GEMINI_API_KEY` e `GEMINI_API_KEY_2`) batem em 429 juntas na mesma rodada — evidência de que estão no MESMO projeto Google Cloud, dividindo o mesmo pool de 20/dia (não são 20+20=40).
+
+**Fix real e final aplicado:** `GEMINI_DAILY_BUDGET` revertido de 300 (errado) pra 18 (correto — margem de 2 sobre o teto real confirmado de 20). Comentário no código atualizado pra deixar registrado, sem ambiguidade, que essa é a segunda vez que esse número é "corrigido" no mesmo dia e por quê.
+
+#### O que foi comunicado a Roberto (curto, direto, sem jargão — respeitando o pedido dele)
+
+1. O limite de 20/dia é REAL e vale pra qualquer modelo Gemini atual — não dá pra escapar trocando nome de modelo.
+2. O fix de retry em 503 é real e está no ar.
+3. O bug do "18/18" self-inflicted foi corrigido.
+4. **Única saída grátis de verdade:** criar conta(s)/projeto(s) NOVOS no Google AI Studio (não só uma 2ª chave dentro da mesma conta) — cada projeto novo dá mais 20/dia grátis, de forma independente. Perguntado a Roberto se quer o passo a passo pra criar mais uma. **Resposta de Roberto ainda pendente no momento deste registro.**
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudanças só em `core/ai_portal.js` e `.github/workflows/diag-once.yml`, sempre resetado ao placeholder após uso)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **Retry automático em Gemini 503** (sobrecarga temporária do Google) — tenta outra chave, depois espera 2s e tenta de novo | ✅ EM PRODUÇÃO — `core/ai_portal.js` `callGemini()` |
+| **Bug do "18/18" self-inflicted por testagem** — identificado e corrigido | ✅ CORRIGIDO |
+| **Causa raiz real e final do teto de 20/dia** — vale pra `gemini-flash-latest`/`gemini-3.7-flash` também, confirmado com erro literal do Google (`limit: 20, model: gemini-3.7-flash`) — NÃO é específico do modelo antigo | ✅ CONFIRMADO COM EVIDÊNCIA REAL — corrige o entendimento errado registrado horas antes no mesmo arquivo |
+| **`GEMINI_DAILY_BUDGET` corrigido de volta pra 18** (300 estava errado, baseado em suposição não confirmada) | ✅ EM PRODUÇÃO |
+| **Duas chaves (`GEMINI_API_KEY`/`GEMINI_API_KEY_2`) parecem compartilhar o mesmo projeto Google Cloud** — 429 bate nas duas juntas | ⚠️ EVIDÊNCIA FORTE, não 100% confirmável sem acesso ao Google Cloud Console |
+
+### 🔧 Pendências para a próxima sessão
+
+1. **Aguardando resposta de Roberto** sobre criar conta(s)/projeto(s) Google novos pra ganhar mais 20/dia grátis por projeto — se ele topar, mandar passo a passo simples (AI Studio → projeto novo → gerar chave → me passar aqui no chat) e adicionar como `GEMINI_API_KEY_3`, `_4` etc. no Supabase `config`, seguindo o padrão já existente de `_getGeminiKeys()`.
+2. **NUNCA mais assumir que trocar o nome do modelo Gemini resolve limite de cota** sem testar até EXAURIR a cota do dia de verdade (não só algumas chamadas isoladas de sucesso) — foi exatamente esse erro que gerou o "300" errado nesta sessão. O teste que realmente prova é rodar até bater 429 com a mensagem completa de erro (ela sempre inclui `limit:` e `model:` explícitos).
+3. Se Roberto não quiser criar mais contas: o teto de 20/dia é definitivo e vai continuar sendo insuficiente pros 7 canais rodando 24h — considerar com ele reduzir a frequência/quantidade de canais automáticos pra caber dentro do limite, já que billing está descartado.
+4. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7, sessão 15-16/08/2026 e 16-17/08/2026) — nenhuma foi tocada nesta continuação.
