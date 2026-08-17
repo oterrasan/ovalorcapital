@@ -205,15 +205,21 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
   // 17/08/2026 — 503 "high demand" confirmado como transitório, não cota nem
   // modelo morto: testado ao vivo, uma chamada simples logo após um 503 real
   // no pipeline completo teve sucesso imediato nas duas chaves. Google já
-  // documenta esse erro como "usually temporary". Antes, um único 503
-  // derrubava a matéria inteira (sem tentar de novo). Fix: trata 503 igual a
-  // 429 (tenta a outra chave) e, se as duas chaves baterem em erro
-  // retentável, espera 2s e tenta o par de chaves de novo (2 rodadas no
-  // total). 503 NÃO consome o orçamento diário — é sobrecarga do servidor do
-  // Google, não uma rejeição de cota real (diferente do 429, que é sinal
-  // direto de cota e continua contando).
+  // documenta esse erro como "usually temporary" — vale a pena tentar de
+  // novo. 429 é o OPOSTO: é a cota real do dia batida, e não volta em 2
+  // segundos — insistir só gasta mais chamadas reais contra o Google à toa
+  // (e infla o contador local sem chance nenhuma de sucesso). Por isso a 2ª
+  // rodada abaixo só acontece se pelo menos uma das duas chaves bateu 503 na
+  // 1ª rodada — se as duas bateram só 429, desiste na hora.
+  //
+  // Achado real 17/08/2026 (madrugada): com a versão anterior deste código,
+  // que retentava 429 igual a 503, os 7 canais automáticos disparando juntos
+  // logo depois da virada do dia inflaram o contador local pra 161 num único
+  // dia — a maioria eram tentativas repetidas contra uma cota de 20/dia já
+  // esgotada, não chamadas novas. Fix abaixo reduz esse desperdício.
   let lastErr;
   for (let rodada = 0; rodada < 2; rodada++) {
+    let teve503 = false;
     for (const key of keys) {
       try {
         const result = await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
@@ -227,13 +233,17 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
           continue;
         }
         if (err.status === 503) {
+          teve503 = true;
           console.warn("Gemini 503 (sobrecarga temporária do Google), tentando próxima chave...");
           continue;
         }
         throw err;
       }
     }
-    if (rodada === 0) await new Promise(r => setTimeout(r, 2000));
+    if (rodada === 0) {
+      if (!teve503) break; // só 429 nas duas chaves — cota real esgotada, não insiste
+      await new Promise(r => setTimeout(r, 2000));
+    }
   }
   throw lastErr;
 }
