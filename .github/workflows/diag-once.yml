@@ -2,17 +2,9 @@ name: Diagnóstico único — placeholder
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  check:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar pipeline apos fix do titulo vazio do Groq
-        run: |
-          curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"materias","force":true}'
-          echo ""
+      - run: echo "placeholder — sem teste ativo"
