@@ -115,20 +115,26 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
   throw new Error("Gemini retornou resposta vazia");
 }
 
-// 16/08/2026 — Roberto: "VOCE FICOU DE ARRUMAR ISSO CRIANDO NOVO FLUXO E
-// GARANTINDO QUE NAO ACONTECERIA" — cota diária real do Gemini free tier
-// confirmada em produção: 20 requisições/dia por projeto Google Cloud
-// (429 real da API: quotaId "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
-// quotaValue "20"), compartilhada entre as duas chaves (mesmo projeto Google
-// Cloud). Com 7 canais de automação rodando a cada ~15min 24h/dia, essa cota
-// se esgota quase no primeiro ciclo do dia. Isso NÃO cria mais cota — só
-// billing no Google Cloud (ou mais projetos separados) resolve o teto de
-// verdade — mas o gate abaixo evita gastar Vercel/tempo de scrape em
-// chamadas de IA que já sabemos que vão falhar assim que a cota do dia
-// estiver esgotada, e a reordenação de `pipeline-cron.yml` (mesmo commit)
-// garante que conteúdo político/eleitoral tenha acesso à cota ANTES dos
-// canais de esporte, prioridade explícita de Roberto durante a eleição.
-const GEMINI_DAILY_BUDGET = 18; // margem de segurança sobre o teto real de 20/dia observado
+// 16/08/2026 — gate criado quando o modelo em uso era "gemini-2.5-flash",
+// com teto real e confirmado de 20 requisições/dia/projeto (429 real da API,
+// quotaId "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue
+// "20"). GEMINI_DAILY_BUDGET=18 era a margem de segurança PARA AQUELE MODELO.
+//
+// 17/08/2026 — o modelo mudou para "gemini-flash-latest" (ver comentário em
+// _callGeminiWithKey) — e essa troca teve um efeito colateral não percebido:
+// o teto de 18 continuou valendo, mas agora para um modelo sem NENHUMA
+// evidência de ter esse mesmo teto (múltiplos testes diretos na API do
+// Google, incluindo simultâneos com as 2 chaves, nunca retornaram 429 de
+// cota — só 503 de sobrecarga passageira, já tratado com retry). Resultado:
+// o próprio trabalho de diagnóstico desta sessão (chamadas de teste reais)
+// consumiu o "orçamento" de 18 e travou a geração de produção pelo resto do
+// dia — um bug real, não intencional, que Roberto reportou furioso. Fix:
+// teto elevado para um valor que reflete o volume histórico real do OVC
+// ("200, até 300 conteúdos por dia" — Roberto, 17/08/2026) com folga, em vez
+// de um número calibrado pro teto de um modelo que não usamos mais. O gate
+// continua existindo como proteção contra loop/bug de consumo desenfreado —
+// só não bloqueia mais operação normal.
+const GEMINI_DAILY_BUDGET = 300;
 const GEMINI_MODEL = "gemini-flash-latest"; // 17/08/2026 — nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {
