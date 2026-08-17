@@ -10,13 +10,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Estado geral AGORA — site no ar, posts recentes, pipeline real
+      - name: Zerar contador do dia + reteste real do pipeline
         run: |
-          echo "=== Site no ar? ==="
-          curl -s -o /dev/null -w "HTTP: %{http_code}\n" "https://www.ovalorcapital.com.br/"
-          echo ""
-          echo "=== Posts mais recentes do portal (recentes=true) ==="
-          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=10" | python3 -c "import json,sys; d=json.load(sys.stdin); posts=d.get('posts', d if isinstance(d,list) else []); [print(p.get('published_at') or p.get('created_at'), '|', p.get('categoria') or p.get('user_tags'), '|', (p.get('titulo') or '')[:70]) for p in posts[:10]]"
+          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          echo "Deletando contador de hoje..."
+          curl -s -X DELETE "$SUPA_URL/rest/v1/config?key=like.GEMINI_BUDGET_*" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY"
           echo ""
           echo "=== Teste real do pipeline agora (materias, force) ==="
           curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
