@@ -1,4 +1,4 @@
-name: Diagnóstico único — página oficial de rate limits
+name: Diagnóstico único — tabela completa de rate limits
 
 on:
   workflow_dispatch:
@@ -10,10 +10,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Buscar rate limits oficiais do Gemini (texto puro)
+      - name: Dump completo das linhas 1-200
         run: |
           curl -s "https://ai.google.dev/gemini-api/docs/rate-limits.md.txt" -o /tmp/limits.txt
-          echo "=== tamanho do arquivo ==="
-          wc -c /tmp/limits.txt
-          echo "=== trechos com 'lite' ou 'RPD' ou 'Free' proximos ==="
-          grep -n -i "lite\|free tier\|RPD" /tmp/limits.txt | head -100
+          sed -n '1,200p' /tmp/limits.txt
