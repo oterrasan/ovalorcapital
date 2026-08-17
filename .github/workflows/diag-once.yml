@@ -1,11 +1,23 @@
 name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/diag-once.yml"
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer
-        run: echo "placeholder inerte — preencher quando necessário"
+      - name: Confirmar geração real pós-fix (count maior pra passar da validação)
+        run: |
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"materias","force":true,"count":4}')
+          echo "MATERIA: $RESP"
+          echo "---"
+          RESP2=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":2}')
+          echo "BRASIL_ON: $RESP2"
