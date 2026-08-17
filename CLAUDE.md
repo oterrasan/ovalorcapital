@@ -64,7 +64,7 @@ O limite do Hobby é 12. Quando chegamos a 12 e o agente criou mais 1, foi para 
 - **Blindagem jurídica ativa:** nunca afirmar crimes sem condenação, nunca revelar fontes sigilosas, sempre atribuir com "segundo", "de acordo com", "conforme"
 - **Ponto abrupto obrigatório** — proibido parágrafo moral, conclusão, "não apenas X mas também Y"
 - **AUDITORIA_OVC em JSON** — 5 campos: conflitos_factuais_encontrados, manifestacao_oficial_incluida, termos_banidos_detectados, extensao_minima_atingida, texto_termina_em_fato_cru
-- **Hierarquia de IAs (ATUALIZADO 17/08/2026):** `gemini-flash-latest` (apelido do Google pro flash atual — hoje resolve pra `gemini-3.7-flash`, key1) → mesma coisa (key2, se 429/503) → OpenAI gpt-4o-mini (fallback técnico morto — sem crédito, Roberto pediu pra ignorar, "esquece OpenAI"). `gemini-2.0-flash` foi DESCONTINUADO pelo Google (404) em 15/08/2026. `gemini-2.5-flash` também já dá 404 "no longer available to new users" pra chaves novas — usar sempre o apelido `gemini-flash-latest`, nunca fixar nome de modelo específico (Google descontinua sem aviso). **TETO REAL CONFIRMADO 17/08/2026: 20 requisições/dia por projeto Google Cloud, vale pra QUALQUER modelo flash atual do Google — não é exclusivo de nenhum modelo específico, só o `gemini-2.0-flash` (morto) tinha 1.500/dia.** `GEMINI_DAILY_BUDGET=18` em `core/ai_portal.js` é o gate local pra não gastar tempo em chamadas fadadas a falhar. As duas chaves (`GEMINI_API_KEY`/`GEMINI_API_KEY_2`) parecem ser do mesmo projeto — dividem o mesmo pool de 20, não somam. `callGemini()` já tem retry automático em 503 (sobrecarga temporária do Google — não conta pro orçamento). Única saída grátis pra mais capacidade: criar projeto/conta Google NOVA (não só chave nova na mesma conta) e adicionar como `GEMINI_API_KEY_3` etc.
+- **Hierarquia de IAs (ATUALIZADO 17/08/2026 — 2ª correção do mesmo dia):** `gemini-flash-lite-latest` (apelido do Google — hoje resolve pra `gemini-3.5-flash-lite`, key1) → mesma coisa (key2, se 429/503) → OpenAI gpt-4o-mini (fallback técnico morto — sem crédito, Roberto pediu pra ignorar, "esquece OpenAI"). `gemini-2.0-flash` foi DESCONTINUADO pelo Google (404) em 15/08/2026. `gemini-2.5-flash`/`gemini-flash-latest` (que resolve pra `gemini-3.7-flash`) têm teto REAL confirmado de 20 req/dia/projeto — 429 real do Google testado ao vivo com `quotaValue:"20"` e depois `limit: 20, model: gemini-3.7-flash`. **Trocado pra `gemini-flash-lite-latest` (`gemini-3.5-flash-lite`) por ter quota SEPARADA e maior — testado ao vivo com 44 chamadas reais consecutivas sem bater nenhum 429 diário (RPM=15/min confirmado à parte). Teto exato de RPD deste modelo NÃO foi encontrado, só confirmado > 44 — não é garantia de teto infinito, é evidência real e a melhor opção grátis encontrada até agora.** `GEMINI_DAILY_BUDGET=18` em `core/ai_portal.js` continua conservador (calibrado pro teto antigo de 20) até uma sessão futura confirmar o teto real do novo modelo em uso contínuo. As duas chaves (`GEMINI_API_KEY`/`GEMINI_API_KEY_2`) parecem ser do mesmo projeto — dividem o mesmo pool, não somam. `callGemini()` tem retry automático em 429/503 (tenta a outra chave, depois espera 2s e tenta de novo — 503 não conta pro orçamento). Única saída grátis pra MAIS capacidade além da atual: criar projeto/conta Google NOVA (não só chave nova na mesma conta) e adicionar como `GEMINI_API_KEY_3` etc. — Roberto ainda não decidiu se quer fazer isso.
 - Linha final: `O TEMA e o CONTEXTO É: _____` — placeholder visual para o modelo
 - **Curtinhas REATIVADAS** (14/06/2026) — `autoCurtinhas` e `autoCopaCurtinhas` ativas em `run_portal.js`
 
@@ -6376,4 +6376,78 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Aguardando resposta de Roberto** sobre criar conta(s)/projeto(s) Google novos pra ganhar mais 20/dia grátis por projeto — se ele topar, mandar passo a passo simples (AI Studio → projeto novo → gerar chave → me passar aqui no chat) e adicionar como `GEMINI_API_KEY_3`, `_4` etc. no Supabase `config`, seguindo o padrão já existente de `_getGeminiKeys()`.
 2. **NUNCA mais assumir que trocar o nome do modelo Gemini resolve limite de cota** sem testar até EXAURIR a cota do dia de verdade (não só algumas chamadas isoladas de sucesso) — foi exatamente esse erro que gerou o "300" errado nesta sessão. O teste que realmente prova é rodar até bater 429 com a mensagem completa de erro (ela sempre inclui `limit:` e `model:` explícitos).
 3. Se Roberto não quiser criar mais contas: o teto de 20/dia é definitivo e vai continuar sendo insuficiente pros 7 canais rodando 24h — considerar com ele reduzir a frequência/quantidade de canais automáticos pra caber dentro do limite, já que billing está descartado.
+4. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7, sessão 15-16/08/2026 e 16-17/08/2026) — nenhuma foi tocada nesta continuação.
+
+---
+
+### Sessão 17/08/2026 (continuação 3) — 🟢 SAÍDA GRÁTIS ENCONTRADA: `gemini-flash-lite-latest` — QUOTA SEPARADA DO MODELO PADRÃO, TESTADA AO VIVO ATÉ 44 CHAMADAS SEM 429 DIÁRIO
+
+#### Contexto
+
+Continuação direta da sessão anterior (causa raiz confirmada: `gemini-flash-latest`/`gemini-3.7-flash` tem o mesmo teto de 20/dia do `gemini-2.5-flash`). Roberto havia pedido explicitamente: **"SOLUCOES FREE SEMPRE E SEMPRE"** — nada de billing. Depois compartilhou uma pesquisa própria (Gemini AI Studio) sugerindo que "Flash-Lite" teria um teto diário muito maior que o Flash padrão (~1.000 RPD vs. ~250-500 RPD) e que Roberto já teria 3 outros projetos Google Cloud prontos (Economia/Negócios/Política) — essa segunda parte NÃO foi confirmada nem usada, é só uma alegação de uma pesquisa de IA externa, não verificada.
+
+#### Investigação real, testada ao vivo (não documentação — a doc oficial do Google não publica RPD por modelo do free tier)
+
+1. `gemini-2.5-flash-lite` — testado direto: **HTTP 404**, "no longer available to new users". Descontinuado, mesma classe do `gemini-2.0-flash-lite` (também 404).
+2. `gemini-flash-lite-latest` — testado direto: **HTTP 200**, sucesso. `modelVersion` na resposta confirma que resolve hoje pra `gemini-3.5-flash-lite` — um modelo DIFERENTE de `gemini-flash-latest`/`gemini-3.7-flash` (o que tem o teto de 20/dia confirmado).
+3. Rajada de 14 chamadas sem espaçamento → **429 real com `quotaId:"GenerateRequestsPerMinutePerProjectPerModel-FreeTier", limit:15"`** — confirma RPM=15/min (limite diferente do RPD, dimensão separada de quota).
+4. Espaçando as chamadas seguintes em 5s (abaixo do teto de 15/min) → **mais 30 chamadas reais e consecutivas, todas HTTP 200, zero 429 diário**. Total: **44 chamadas reais sem bater nenhum teto de RPD** — mais que o dobro do teto confirmado do modelo padrão (20/dia).
+5. **Teto exato de RPD deste modelo NÃO foi encontrado** — 44 chamadas não bastaram pra esgotar. Isso é evidência real de que é MAIOR que 20/dia, mas não é garantia de teto infinito nem confirmação do número exato.
+
+#### Fix aplicado (push direto em `main`, commits `0ff4ef6e` + `dafa0fed`)
+
+- `core/ai_portal.js` (`GEMINI_MODEL`): `gemini-flash-latest` → `gemini-flash-lite-latest`. Comentário atualizado documentando o teste real (RPM=15/min, 44 chamadas sem 429 diário, teto exato desconhecido).
+- `GEMINI_DAILY_BUDGET` mantido em **18** (não elevado sem confirmação plena do teto real do novo modelo — evita repetir o erro do "300" cometido horas antes na mesma sessão).
+- `core/ai.js` (`rewriteGemini`, código morto/não usado por nenhuma rota ativa, mantido em sincronia por convenção já estabelecida) — mesma troca de modelo.
+- `node --check` limpo nos dois arquivos, `api/` confirmado com 10 arquivos (Regra Zero-A intacta), `push` direto em `main` (mesmo padrão de crise já usado nesta sessão inteira, dado o histórico de urgência de Roberto).
+
+#### Verificação end-to-end em produção (não só chamada isolada de teste — o pipeline real)
+
+- `deploy.yml` (commit `0ff4ef6e`) rodou com sucesso — "Deploy to Vercel Production" `completed`/`success`.
+- O próprio step "Disparar pipeline após deploy" do `deploy.yml` (`POST /api/run_portal {"tipo":"materias","force":true}`) chamou a produção real logo após o deploy:
+  ```
+  PIPELINE: {"status":"no_valid_news","generated":0,"categoria":"familia",
+    "debug":{"sem_fonte":0,"duplicado":1,"reprovado":0,"erro":1,
+    "erros":["Bloqueio editorial: INCONSISTENCIA: O texto fornecido não
+    atinge o tamanho mínimo de caracteres exigido para a publicação."]}}
+  ```
+  **Nenhum erro de quota/API do Gemini** — a única falha foi uma rejeição editorial normal (texto curto demais, checagem de `validar()`/AUDITORIA_OVC), não um problema de infraestrutura. Isso confirma que a chamada de IA teve sucesso de verdade com o novo modelo em produção real, não só em teste isolado.
+- `diag-once.yml` resetado ao placeholder inerte de sempre (commit `dafa0fed`) — convenção da sessão inteira.
+
+#### 🚨 Lição registrada — evitar repetir
+
+```
+❌ A alegação de uma pesquisa feita por outra IA (mesmo que pareça
+   plausível e vinda do próprio Roberto) sobre limites de quota de
+   terceiros (Google, neste caso) NUNCA deve ser aceita como fato sem
+   teste real e direto contra a API do provedor. A pesquisa do Gemini
+   trazida por Roberto citava números (250-500 RPD pro Flash padrão,
+   ~1.000 pro Lite) que não batem exatamente com o que foi confirmado
+   ao vivo aqui (20/dia pro Flash padrão, >44 mas desconhecido pro
+   Lite) — a direção (Lite tem mais cota) bateu, os números exatos não.
+   Testar sempre, nunca confiar no número de uma fonte externa não
+   verificável.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudanças só em `core/ai_portal.js`, `core/ai.js`, `.github/workflows/diag-once.yml`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/08/2026 continuação 3)
+
+| Sistema | Status |
+|---|---|
+| **`gemini-flash-lite-latest` em produção** — quota separada e maior que `gemini-flash-latest` (44 chamadas reais sem 429 diário, vs. 20/dia confirmado do outro) | ✅ EM PRODUÇÃO (commits `0ff4ef6e`, `dafa0fed`) |
+| **Deploy confirmado com sucesso** — `deploy.yml` rodou completo, `Deploy to Vercel Production` `success` | ✅ CONFIRMADO |
+| **Chamada real de IA em produção, pós-deploy, sem erro de quota/API** — única falha foi rejeição editorial normal (texto curto), não infraestrutura | ✅ CONFIRMADO — evidência end-to-end, não só teste isolado |
+| **`diag-once.yml` resetado ao placeholder** | ✅ FEITO (commit `dafa0fed`) |
+
+### 🔧 Pendências para a próxima sessão (atualizado — substitui o item 3 da pendência anterior, que dizia "teto de 20/dia é definitivo")
+
+1. **Confirmar em uso contínuo (ao longo de um dia inteiro real do cron, 7 canais)** se `gemini-flash-lite-latest` de fato aguenta o volume de produção sem bater 429 diário — 44 chamadas de teste é uma amostra boa mas não é o mesmo que um dia inteiro de produção real. Se `callGemini()` continuar caindo em erro de quota (429 com `quotaId` diário), subir o `GEMINI_DAILY_BUDGET` gradualmente com base em evidência real, nunca por suposição.
+2. **Aguardando resposta de Roberto** sobre criar conta(s)/projeto(s) Google novos pra somar mais capacidade — ainda não decidiu. Se topar: passo a passo (AI Studio → projeto novo → gerar chave → passar no chat) e adicionar como `GEMINI_API_KEY_3` no Supabase `config`, mesmo padrão de `_getGeminiKeys()`.
+3. **NUNCA mais assumir que trocar o nome do modelo Gemini resolve limite de cota sem testar até EXAURIR de verdade** — lição já repetida 2x nesta sessão, continua valendo pra qualquer modelo futuro.
 4. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7, sessão 15-16/08/2026 e 16-17/08/2026) — nenhuma foi tocada nesta continuação.
