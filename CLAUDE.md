@@ -6660,3 +6660,60 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ## 📌 Pulso BR — anotação para não esquecer
 
 Roberto mencionou querer atenção no Pulso BR mas disse claramente "ainda nem falamos direito" — **NÃO é uma tarefa pra implementar agora**. Quando ele voltar ao assunto, a primeira pergunta a fazer é: Pulso BR vira mais um canal de geração automática de conteúdo (mesmo padrão Bacci/Jovem Pan/BBC-CNN, com fonte(s) própria(s) a definir), ou é sobre garantir que os dados ao vivo do dashboard (`/pulso-br/`, ticker próprio, vitals grid, termômetro setorial) fiquem sempre atualizados? São problemas tecnicamente bem diferentes — o primeiro é scrape+reescrita+publicação, o segundo é atualização de dados de mercado. Não assumir nenhum dos dois sem ele confirmar.
+
+---
+
+### Sessão 17/08/2026 (continuação 5) — RADAR ELEITORAL COM NOTÍCIA DE OUTRO PAÍS + PESQUISA TRAVADA EM "mai/2026" — 2 BUGS REAIS CONFIRMADOS E CORRIGIDOS (PR #445)
+
+#### Contexto
+
+Roberto mandou 2 prints: um artigo publicado sobre a **eleição presidencial da Zâmbia** e um artigo sobre o **governador do Amapá celebrando achado de petróleo** (nada a ver com eleição) aparecendo dentro do widget "Radar Eleitoral" (rótulo "Cobertura eleitoral OVC"), junto com a pesquisa de intenção de voto ainda mostrando "Quaest / Datafolha — mai/2026". Pergunta direta: *"VEJA OS PRINTS, OLHE O ABSURDO .......... O QUE VOCE ESTÁ IDENTIFICANDO?"* — investigação por leitura de código, sem suposição.
+
+#### Bug 1 — `public/js/ovc-eleitoral.js`: filtro sem categoria + keywords genéricas demais
+
+`init()` filtrava os 300 posts mais recentes (`/api/portal-posts?recentes=true&limit=300`) só por bater alguma palavra de `EL_KEYWORDS` no título — **sem checar `p.categoria`**. "Eleição"/"eleições"/"presidencial" não são exclusivos do Brasil — a matéria real da Zâmbia (título literal: "Oposição presa na Zâmbia após eleições presidenciais") batia e entrava. Além disso, a lista tinha 5 termos soltos e amplos demais — `'governador'`, `'senado federal'`, `'câmara dos deputados'`, `'vereador'`, `'prefeito'` — que batem em QUALQUER notícia que só mencione o cargo, mesmo sem ser sobre eleição: foi assim que a matéria do petróleo do Amapá (menciona "governador" no título) entrou.
+
+**Fix:** exige `p.categoria === 'politica'` (campo já retornado por `handleRecentes()` em `api/portal-posts.js`, mesmo campo usado em `buildHref()` do próprio arquivo) + removidos os 5 termos genéricos — a cobertura eleitoral de governador/senado/prefeito continua coberta pelos termos genuinamente eleitorais que sobraram na lista (eleição, candidat, pleito, chapa, coligação, primeiro/segundo turno etc.).
+
+#### Bug 2 — `api/manage.js`: `_extrair()` com OpenAI morta + `_salvarPesquisa()` criando linhas duplicadas + `handleGetPesquisa()` mascarando o erro
+
+Três problemas encadeados, todos na mesma função de atualização de pesquisa (`handleUpdatePesquisa`/`_extrair`/`_salvarPesquisa`/`handleGetPesquisa`):
+
+1. **`_extrair()` chamava a OpenAI direto** com a chave hardcoded já confirmada **revogada** (401, sessão 11/08) + a env var do Vercel **sem crédito** (429, crise 15-16/08) — esse endpoint nunca tinha sido migrado pro Gemini quando o resto do pipeline foi. Toda extração falhava silenciosamente.
+2. **`_salvarPesquisa()` usava `.upsert({key:'PESQUISA_ELEITORAL',...})` sem `{onConflict:'key'}` explícito** — sem constraint unique na coluna `key` da tabela `config`, isso INSERE uma linha nova a cada chamada em vez de atualizar a existente. **Mesma causa raiz exata já confirmada e corrigida pro card Internacional em 13/08/2026** (documentada como pendência M3/suspeita não confirmada nas sessões anteriores — agora confirmada e corrigida também aqui).
+3. **`handleGetPesquisa()` usava `.maybeSingle()`**, que exige 0 ou 1 linha e **lança erro** quando há duplicatas — o `catch(_){}` engolia esse erro silenciosamente e a resposta sempre caía no fallback hardcoded, que tinha `"Quaest / Datafolha — mai/2026"` **escrito literalmente no código**. Essa é a causa raiz real e final da data travada nos prints — não é cache, não é o cron parado, é este fallback sendo servido sempre por engano.
+
+**Fix:**
+- `_extrair()` migrado pra Gemini — novo helper mínimo e próprio em `api/manage.js` (`_getGeminiKeysPesquisa()`/`_callGeminiPesquisa()`, mesmo padrão de `_getGeminiKeys()`/`_callGeminiWithKey()` de `core/ai_portal.js`, mas `api/manage.js` não importa esse arquivo — helper duplicado de propósito, sem gate de orçamento diário próprio porque este endpoint roda só 3x/semana + acionamento manual raro).
+- `_salvarPesquisa()` reescrito para update-se-existir-a-linha-senão-insert — não depende de nenhuma migração SQL manual.
+- `handleGetPesquisa()` trocado de `.maybeSingle()` para `.limit(1)` — nunca lança em caso de duplicata residual.
+- Texto do fallback hardcoded trocado de "mai/2026" pra "aguardando 1ª atualização automática" — não finge mais ser um dado real desatualizado.
+
+#### Verificação feita
+
+`node --check` limpo nos 2 arquivos JS tocados. `api/` continua com exatamente 10 arquivos (Regra Zero-A intacta). Cache-bust `ovc-eleitoral.js?v=4 → ?v=5`. PR #445 — CI "Verificar arquivos críticos" verde, mergeado (squash `a69ae9f9`), deploy `deploy.yml` confirmado iniciado logo após o merge.
+
+**⚠️ Nota de transparência:** não verificado visualmente em produção (sandbox sem acesso de rede) — confirmar depois do deploy: o widget não deve mais mostrar notícia fora de categoria `politica`, e a pesquisa deve atualizar de verdade na próxima rodada do `update-polls.yml` (seg/qua/sex 08h BRT) ou disparo manual de `?action=update_pesquisa_eleitoral&pass=ovc-admin-2026-secreto`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/08/2026 continuação 5)
+
+| Sistema | Status |
+|---|---|
+| **Radar Eleitoral — filtro por categoria `politica` + keywords genéricas removidas** | ✅ EM PRODUÇÃO (PR #445, commit `a69ae9f9`) |
+| **`_extrair()` migrado de OpenAI (morta) pra Gemini** | ✅ EM PRODUÇÃO |
+| **`_salvarPesquisa()` — fix do upsert que criava linhas duplicadas** (mesma causa raiz do card Internacional, 13/08) | ✅ EM PRODUÇÃO |
+| **`handleGetPesquisa()` — `.maybeSingle()` → `.limit(1)`, não lança mais erro engolido silenciosamente em duplicata** | ✅ EM PRODUÇÃO |
+| **Pendência M3 (sessões anteriores) — `PESQUISA_ELEITORAL` confirmada com o bug suspeito, corrigida** | ✅ RESOLVIDA — `COLUNISTAS_PHOTOS` continua com o mesmo padrão de upsert potencialmente quebrado, NÃO tocado nesta sessão |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — Radar Eleitoral sem notícia de outro país/fora de política, e pesquisa atualizando com data real na próxima rodada.
+2. **`COLUNISTAS_PHOTOS`** — mesmo padrão de upsert (`.upsert({key:...},{onConflict:"key"})`) suspeito de estar quebrado, ainda não investigado/corrigido — próxima sessão pode aplicar o mesmo protocolo usado aqui e no card Internacional.
+3. Demais pendências consolidadas da lista de 17/08/2026 acima seguem válidas — nenhuma outra foi tocada nesta continuação.
