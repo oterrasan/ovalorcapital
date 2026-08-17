@@ -6451,3 +6451,50 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Aguardando resposta de Roberto** sobre criar conta(s)/projeto(s) Google novos pra somar mais capacidade — ainda não decidiu. Se topar: passo a passo (AI Studio → projeto novo → gerar chave → passar no chat) e adicionar como `GEMINI_API_KEY_3` no Supabase `config`, mesmo padrão de `_getGeminiKeys()`.
 3. **NUNCA mais assumir que trocar o nome do modelo Gemini resolve limite de cota sem testar até EXAURIR de verdade** — lição já repetida 2x nesta sessão, continua valendo pra qualquer modelo futuro.
 4. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7, sessão 15-16/08/2026 e 16-17/08/2026) — nenhuma foi tocada nesta continuação.
+
+---
+
+### Sessão 17/08/2026 (continuação 4) — REDUÇÃO DE FREQUÊNCIA + PRIORIZAÇÃO POLÍTICA/INTERNACIONAL/BRASIL-ON + TETO INTERNO ELEVADO PARA 200
+
+#### Contexto
+
+Roberto, depois de confirmar que o pipeline voltou a gerar conteúdo: *"reduza um pouco a frequencia, o que preciso é garantir que o portal gere ao menos 110, 120 conteudos por dia, com foco em politica internacional e brasil on, e se possivel no radar dos esportes e no PULSAR que ainda nem falamos direito."*
+
+Interpretação: reduzir frequência do cron (não drasticamente), mas GARANTIR volume mínimo de 110-120 conteúdos/dia, com prioridade explícita pra política/internacional/brasil-on, esportes como secundário ("se possível"), e **Pulso BR** (`/pulso-br/`) mencionado mas explicitamente marcado por ele mesmo como algo "que ainda nem falamos direito" — **não implementado nada nele nesta sessão**, só reconhecido. Vai precisar de conversa própria pra definir o que ele quer ali (virar mais um canal de reescrita tipo Bacci/Jovem Pan? Ou é sobre manter os dados ao vivo do dashboard atualizados?) antes de qualquer código.
+
+#### O que foi feito (commit `c948a9c9`, push direto em main)
+
+**`.github/workflows/pipeline-cron.yml`:**
+- Cron: `2,17,32,47 * * * *` (a cada 15min, 96 disparos/dia) → `2,22,42 * * * *` (a cada 20min, 72 disparos/dia — ~25% menos, "reduz um pouco")
+- `count` elevado de 2→3 nos 3 canais prioritários pedidos por Roberto: `jovempan_politica`, `brasilon`, `internacional` — compensa a frequência menor com mais volume por disparo
+- `materias`, `minuto`, `futebol`, `outros_esportes` — **não alterados** (esportes continua rodando, só não ganhou prioridade extra, conforme "se possível" = secundário)
+
+**`core/ai_portal.js` — `GEMINI_DAILY_BUDGET`: 18 → 200:**
+- Importante: isso NÃO é uma nova alegação sobre o teto real do Google (que segue desconhecido, só confirmado >44/dia pela sessão anterior). É um gate **LOCAL/interno** que só serve pra evitar gastar tempo de scrape+IA em chamadas que JÁ SABEMOS que vão falhar (uma vez que o orçamento local bate no teto). Subir esse número não cria risco novo: se o teto real do Google for menor que 200, as chamadas vão simplesmente começar a bater 429 de verdade (já tratado com retry pra outra chave + fallback) em vez de serem bloqueadas cedo demais por um teto artificial e conservador demais que não servia a nenhum propósito de segurança real — só estava, na prática, sabotando o volume que Roberto pediu.
+- Cada tentativa (sucesso OU falha — dedup/rewriteErro/validação também contam) consome 1 do orçamento, então o volume de CHAMADAS necessário pra chegar em 110-120 artigos publicados é maior que 120 — o número 200 dá margem real pra isso.
+
+#### ⚠️ Nota de transparência
+
+Diferente da matemática exata, não há garantia calculada de que essas mudanças batem o alvo de 110-120/dia — depende de quantos candidatos reais cada fonte tem disponível no dia, taxa de dedup, etc. As mudanças foram desenhadas pra empurrar nessa direção (mais volume por disparo nos canais prioritários + teto interno que não bloqueia mais tão cedo), mas **precisa ser confirmado com evidência real de produção ao longo de um dia inteiro**, não é uma promessa de número exato.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/08/2026 continuação 4)
+
+| Sistema | Status |
+|---|---|
+| **Cron reduzido de 15min→20min (~25% menos disparos/dia)** | ✅ EM PRODUÇÃO (commit `c948a9c9`) |
+| **`count` 2→3 em jovempan_politica/brasilon/internacional** (prioridade explícita de Roberto) | ✅ EM PRODUÇÃO (commit `c948a9c9`) |
+| **`GEMINI_DAILY_BUDGET` 18→200** (gate local, não claim sobre o teto real do Google) | ✅ EM PRODUÇÃO (commit `c948a9c9`) |
+| **Pulso BR** — NÃO tocado, aguardando Roberto explicar o que ele quer ali | ❌ NÃO INICIADO DE PROPÓSITO |
+
+### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com evidência real ao longo de um dia inteiro** se o volume diário está batendo os 110-120 pedidos por Roberto — checar contagem real de posts publicados/dia (`publish_method` distintos: `portal`, `brasilon`, `jovempan_politica`, `internacional`) e ajustar count/frequência/orçamento com base nisso, não em suposição.
+2. **Perguntar/aguardar Roberto sobre Pulso BR** — o que ele quer que aconteça ali em termos de geração de conteúdo/automação, antes de qualquer código.
+3. Demais pendências de sessões anteriores seguem válidas (ver lista P1-P10/R1-R7, sessão 15-16/08/2026 e 16-17/08/2026) — nenhuma foi tocada nesta continuação.
