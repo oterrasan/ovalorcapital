@@ -6768,3 +6768,48 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Monitorar se `GEMINI_DAILY_BUDGET=500` é suficiente** pro resto do dia sem bater 429 real — se bater, é sinal real do teto do Google (ajustar com evidência, nunca suposição).
 2. **Confirmar Groq com artigo completo real** (não só prompt curto) se o fallback for acionado de novo — verificar se `groqMaxTokens=2600` basta.
 3. Demais pendências consolidadas de sessões anteriores seguem válidas — nenhuma outra foi tocada nesta continuação.
+
+---
+
+### Sessão 18/08/2026 — WIDGETS DO RAIL VIRAM EXPANSÍVEIS (Radar do Esporte, Radar Eleitoral, Pulso BR)
+
+#### Contexto
+
+Antes de avançar na "matéria especial" de economia (dossiê escrito pelo próprio Roberto, fact-checking já em andamento — Cap. 1/3 confirmados, Brinquedos Estrela com número errado a corrigir, Hasbro sem confirmação, Cap. 2 sem fonte nomeada — decisão pendente sobre publicar direto ou como pendente, ainda aguardando imagens reais de Roberto), ele pediu um ajuste simples e isolado nos 3 widgets do topo dos rails da Home: **"quero que voce ajuste eles (esportes e eleicoes e o pulso) para virarem expansios... ficam fechados, apenas intuitivos para o clique, a pessoa clicou, expande pra baixo e fica como já é agora"**.
+
+#### O que foi feito (PR #446 — mergeado em main, squash commit `c8670b5a`)
+
+Cada um dos 3 widgets independentes (REGRA ZERO-I — nenhum arquivo compartilhado novo, cada um implementa o próprio toggle):
+
+- **`public/js/ovc-radar-esporte.js`** — `.ovc-esporte-rail` nasce com classe `ovc-esporte-collapsed`; nesse estado `height:auto` (só o header) e tabs/body/cta somem (`display:none`). Header ganha `cursor:pointer`, `role="button"`, `tabindex`, `aria-expanded`, um chevron `▾` (gira -90° quando fechado) e um `click`/`keydown` (Enter/Espaço) que faz `classList.toggle('ovc-esporte-collapsed')`. Clique não interfere no clique das abas internas (elementos irmãos, não filhos do header).
+- **`public/js/ovc-eleitoral.js`** — mesmo padrão: `.ovc-eleitoral-rail.ovc-el-collapsed` esconde countdown+pesquisas+body+cta, `height:auto`. Header ganha o mesmo toggle (`ovc-el-collapsed`/chevron `.ovc-el-toggle`).
+- **`public/js/ovc-pulso-br.js`** — mesmo padrão (esse widget já não tinha height fixo, então fechar só esconde vitals+setores+cta+updated via `.ovc-pb-collapsed`).
+
+Em todos os 3, o **header já tinha `position:relative`** no CSS existente (verificado antes de editar, não assumido) — o chevron absoluto posiciona certo sem precisar adicionar essa regra.
+
+**Estado inicial = fechado em todos os 3**, exatamente como Roberto pediu ("ficam fechados" por padrão). Ao clicar, expande e volta a ser **exatamente** o widget de sempre — mesmo layout, mesma altura (740px sincronizado entre Esporte/Eleitoral quando aberto), mesmos dados, mesmos `setInterval` de atualização (que continuam rodando em background mesmo fechado — istoé barato e não foi motivo de preocupação). Nenhuma persistência de estado entre carregamentos de página — cada load volta a nascer fechado, como pedido.
+
+Cache-bust: `ovc-radar-esporte.js?v=7→8`, `ovc-eleitoral.js?v=5→6`, `ovc-pulso-br.js?v=1→2` em `public/index.html` (único arquivo que carrega os 3 — confirmado via grep antes de editar).
+
+#### Verificação
+
+`node --check` limpo nos 3 arquivos. `public/index.html`: diff de 1 linha (só a tag `<script>`), `<!DOCTYPE html>` intacto. `api/` não tocado (Regra Zero-A intacta, 10 arquivos). CI "Verificar arquivos críticos" verde, 3 previews Vercel Ready, PR mergeado, deploy de produção (`deploy.yml`) disparado no commit `c8670b5a`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Radar do Esporte, Radar Eleitoral e Pulso BR — todos fechados por padrão, expandem ao clicar no header** | ✅ EM PRODUÇÃO (PR #446, commit `c8670b5a`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — os 3 widgets aparecem fechados (só cabeçalho) e clicar expande corretamente, sem quebrar o layout dos rails.
+2. **Matéria especial de economia (dossiê de Roberto)** — ainda em aberto: aplicar as correções já combinadas (Brinquedos Estrela, Hasbro, reformular Cap. 2 como estimativa) e publicar as 4 partes como o primeiro conteúdo dedicado do Pulso BR (categoria `economia` + `subcategoria:"Pulso BR"`, nova seção "Análises Pulso BR" a construir em `ovc-pulso-br-page.js`), como pendente para aprovação de Roberto. Falta: imagens reais (link, não colada no chat) e, quando Roberto decidir, o Interruptor de destaque a usar.
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6).
