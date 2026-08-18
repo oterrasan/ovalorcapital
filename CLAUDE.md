@@ -6813,3 +6813,54 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar visualmente com Roberto** — os 3 widgets aparecem fechados (só cabeçalho) e clicar expande corretamente, sem quebrar o layout dos rails.
 2. **Matéria especial de economia (dossiê de Roberto)** — ainda em aberto: aplicar as correções já combinadas (Brinquedos Estrela, Hasbro, reformular Cap. 2 como estimativa) e publicar as 4 partes como o primeiro conteúdo dedicado do Pulso BR (categoria `economia` + `subcategoria:"Pulso BR"`, nova seção "Análises Pulso BR" a construir em `ovc-pulso-br-page.js`), como pendente para aprovação de Roberto. Falta: imagens reais (link, não colada no chat) e, quando Roberto decidir, o Interruptor de destaque a usar.
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6).
+
+---
+
+### Sessão 18/08/2026 (continuação) — REARRANJO DOS RADARES (PR #449) + BANNER DE PLANOS DE SAÚDE (PR #450)
+
+#### PR #449 — radares empilhados no rail esquerdo, TV OVC pro rail direito
+
+Roberto: *"coloque todos os radares ao lado esquero, um abaixo do outro, deixe o rail lateral direito apenas com a TV OVC, que está do lado esquerdo, inverta a TV OVC e mova para a direita."* Implementado: os 3 widgets (Radar Eleitoral, Pulso BR, Radar do Esporte) empilhados no `.rail-left` via cadeia de âncoras determinística já existente (REGRA ZERO-I); markup estático da TV OVC movido de `.rail-left` para `.rail-right` em `public/index.html`.
+
+**Resultado real reportado por Roberto:** os 3 radares empilharam certo no rail esquerdo (confirmado), mas a TV OVC **não** migrou visualmente pro rail direito em produção, mesmo com o markup movido no HTML — *"isso eu ja epserava, tem algima coisa na estrutura na tv ovc que amarra a miudanca de posicionamento dela"*. Causa raiz **não investigada** — Roberto pediu explicitamente para **deixar como está por enquanto** e investigar depois, quando ele retomar o assunto. **NÃO investigar por iniciativa própria.**
+
+#### PR #450 — banner de Planos de Saúde no topo do rail esquerdo
+
+Roberto: *"o quero colocar um banner grande no rail esquerdo. bonito, elegante e top de linha. PLANOS DE SAUDE, QUERO UM BANNER COM MOVIMENTO, QUE MOSTRE MÉDICOS ATENDENDO PACIENTES... COM LETRAS BRAANCAS CHAMANDO ATENCAO PARA O CLIQUE E PARA SOLICAR UMA COTACAO... ALGO DISCRETO, MAS O BANNER OCIPANDO TODA A PRIMEIRA PARTE DO RAIL"*
+
+**O que foi feito (`public/index.html` + `public/js/ovc-eleitoral.js`, squash commit `7fd4619e`):**
+- Banner estático (HTML/CSS/SVG inline, sem JS de injeção — evita race condition), id de âncora estável `ovc-banner-saude`, literal primeiro filho de `.rail-left`.
+- 100% CSS/SVG inline, **sem imagem externa hotlinkada** — mesma prática já usada nos radares esportivos ("menina dos olhos"), evita repetir a regressão de PageSpeed documentada em 28/05/2026.
+- Ilustração SVG própria (médico com estetoscópio atendendo paciente sentado) — a "cena clássica" pedida, construída como flat-icon geométrico já que hotlink de foto de banco de imagens não é confiável/verificável neste sandbox.
+- Movimento: brilho pulsante de fundo (`ovcBsGlow`), traçado de ECG animado por `stroke-dashoffset` (`ovcBsEcg`), sweep de brilho no botão CTA (`ovcBsSweep`) — tudo CSS puro, leve.
+- Fundo navy/teal escuro, texto branco negrito ("Planos de Saúde para você e sua família"), CTA "Solicitar cotação agora" — paleta discreta, sem vermelho (Roberto não gosta, já documentado).
+- Banner inteiro é um `<a rel="noopener sponsored" target="_blank">` pro WhatsApp da Lions Corretora (`https://wa.me/5511988510361`, mesmo canal já usado em `banners.js`) — Regra #25 respeitada. Mensagem própria, mais genérica que o produto `saude-pme` existente (que é B2B), já que a cena pedida por Roberto é família/individual.
+- `ovc-eleitoral.js` `injetar()`: agora ancora depois de `#ovc-banner-saude` (se presente) em vez de reivindicar `rail.firstChild` às cegas — mesmo padrão de âncora determinística já usado por `ovc-pulso-br.js`/`ovc-radar-esporte.js` — evita que o widget empurre o banner pra baixo.
+- Cache-bust `ovc-eleitoral.js?v=6→v=7`.
+
+**Verificações feitas:** `node --check` limpo, `public/index.html` foi de 644→704 linhas (voltou a passar o piso de 700 da Regra Zero-E "de graça", não precisou de bypass manual desta vez), `<!DOCTYPE html>`/`</html>` intactos, `api/` continua com exatamente 10 arquivos. CI "Verificar arquivos críticos" verde, PR mergeado (squash), `deploy.yml` confirmado com sucesso — step "Deploy to Vercel Production" `completed`/`success`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Radares empilhados no rail esquerdo** | ✅ EM PRODUÇÃO (PR #449) — confirmado funcionando por Roberto |
+| **TV OVC — markup movido pro rail direito, mas NÃO migrou visualmente** | ⚠️ CAUSA RAIZ DESCONHECIDA — Roberto pediu para deixar como está, investigar depois |
+| **Banner de Planos de Saúde no topo do rail esquerdo** | ✅ EM PRODUÇÃO (PR #450, commit `7fd4619e`) — aguardando confirmação visual de Roberto |
+
+#### ⚠️ Nota de transparência
+
+Nem o rearranjo dos radares nem o banner novo foram verificados visualmente por este agente — sandbox sem acesso de rede ao site em produção. Roberto confirmou o primeiro (radares empilhados ✅, TV OVC ⚠️) por print; o banner ainda não foi confirmado visualmente.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** o banner de Planos de Saúde (posição, legibilidade do texto branco sobre o fundo, animação, clique funcionando).
+2. **TV OVC não migrando pro rail direito** — investigar SÓ quando Roberto pedir explicitamente ("depois iremos investigar"). Não mexer por iniciativa própria.
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência #2 da entrada anterior sobre a matéria especial de economia/Pulso BR).
