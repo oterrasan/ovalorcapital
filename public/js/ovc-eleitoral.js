@@ -226,7 +226,18 @@
     var rail = document.querySelector('.rail-left');
     if (!rail) return;
     var bloco = construirBloco(artigos, pesquisaData);
-    rail.insertBefore(bloco, rail.firstChild);
+    // 18/08/2026 — Roberto: banner de Planos de Saúde (id="ovc-banner-saude",
+    // HTML estático) agora ocupa o topo real do rail esquerdo. Ancorar
+    // logo depois dele em vez de reivindicar rail.firstChild às cegas —
+    // mesmo padrão de âncora determinística já usado por ovc-pulso-br.js
+    // e ovc-radar-esporte.js (REGRA ZERO-I).
+    var banner = document.getElementById('ovc-banner-saude');
+    if (banner && banner.parentNode === rail) {
+      if (banner.nextSibling) rail.insertBefore(bloco, banner.nextSibling);
+      else rail.appendChild(bloco);
+    } else {
+      rail.insertBefore(bloco, rail.firstChild);
+    }
   }
 
   function init() {
