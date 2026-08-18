@@ -4,8 +4,9 @@
  * Substitui o antigo "Radar do Futebol" (ovc-futebol.js) — agora cobre
  * TODAS as subcategorias oficiais de esportes (admin/index.html SUBCATS.esportes):
  * Futebol, Basquete, Motor, Tênis, MMA, Vôlei, NFL — divididas em abas.
- * Injeta bloco no TOPO do rail direito (.rail-right) — tem prioridade
- * sobre o Radar da Copa (ovc-copa.js).
+ * 18/08/2026 — Roberto: movido do rail direito para o rail esquerdo
+ * (.rail-left), empilhado abaixo do Radar Eleitoral e do Pulso BR — o rail
+ * direito agora é exclusivo da TV OVC. Ver injetar() para a âncora exata.
  */
 (function () {
   'use strict';
@@ -300,14 +301,33 @@
   }
 
   function injetar(porEsporte) {
-    var rail = document.querySelector('.rail-right');
+    // 18/08/2026 — Roberto: agora empilhado no rail ESQUERDO, abaixo do
+    // Radar Eleitoral e do Pulso BR (nunca disputa o topo do rail — mesmo
+    // padrão de âncora determinística já usado por ovc-pulso-br.js, evita o
+    // bug de corrida de posição já documentado e corrigido em 03/08/2026,
+    // PR #326, quando dois widgets competiam por rail.firstChild).
+    var rail = document.querySelector('.rail-left');
     var railVisivel = rail && getComputedStyle(rail).display !== 'none';
     var bloco = construirBloco(porEsporte);
     if (railVisivel) {
-      rail.insertBefore(bloco, rail.firstChild);
+      var pulsoBr = document.getElementById('ovc-pulso-br');
+      var eleitoral = document.getElementById('ovc-radar-eleitoral');
+      if (pulsoBr && pulsoBr.parentNode === rail) {
+        if (pulsoBr.nextSibling) rail.insertBefore(bloco, pulsoBr.nextSibling);
+        else rail.appendChild(bloco);
+      } else if (eleitoral && eleitoral.parentNode === rail) {
+        if (eleitoral.nextSibling) rail.insertBefore(bloco, eleitoral.nextSibling);
+        else rail.appendChild(bloco);
+      } else {
+        // Nenhum dos dois injetou ainda (corrida de fetch) — entra no topo;
+        // quando Eleitoral/Pulso BR injetarem depois, eles mesmos sempre
+        // reivindicam sua posição certa, empurrando este bloco pra baixo.
+        rail.insertBefore(bloco, rail.firstChild);
+      }
       return;
     }
-    // .rail-right oculto (mobile, <=768px). TENTATIVA ANTERIOR (12/08/2026,
+    // .rail-left oculto (mobile, <=768px) — mesma regra CSS de sempre
+    // (".rail-left, .rail-right{display:none}" em responsive.css). TENTATIVA ANTERIOR (12/08/2026,
     // manhã) inseria em .main-grid — PARECIA visível (isVisible:true no
     // Playwright) mas na prática ficava invisível pra usuário real: .main-grid
     // é CSS GRID com grid-row EXPLÍCITO em .hero-region(1)/.cols-region(2)/
