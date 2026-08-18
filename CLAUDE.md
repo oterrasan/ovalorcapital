@@ -6864,3 +6864,49 @@ Nem o rearranjo dos radares nem o banner novo foram verificados visualmente por 
 1. **Confirmar visualmente com Roberto** o banner de Planos de Saúde (posição, legibilidade do texto branco sobre o fundo, animação, clique funcionando).
 2. **TV OVC não migrando pro rail direito** — investigar SÓ quando Roberto pedir explicitamente ("depois iremos investigar"). Não mexer por iniciativa própria.
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência #2 da entrada anterior sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 18/08/2026 (continuação 2) — BANNER MOVIDO PRO RAIL DIREITO + LINK PRO GRUPO TERRASAN (PR #452)
+
+#### Contexto
+
+Roberto mandou print da home mostrando o banner ainda no rail esquerdo, junto de todos os outros widgets: *"todos estao ao lado esquerdo, o BANNER DEVE ESTAR NO RAIL DIREITO"*. No meio do mesmo turno: *"E O BANNER DEVE SER ENCAMINHADO PARA O SITE DO GRUPO TERRASAN - www.grupoterrasan.com.br"*.
+
+#### 🔴 Causa raiz real de por que nada aparecia no rail direito (encontrada, NÃO corrigida — fora do escopo pedido)
+
+O print de Roberto mostrava a TV OVC também empilhada no rail esquerdo, junto dos radares — não no rail direito, apesar do markup ter sido movido pra lá no PR #449. Investigação (sem mexer, só pra entender o comportamento do próprio banner): `organizarRailsHome()` em `public/js/ovc-cards.js` (linha ~1090) força `.rail-block-tv` de volta pro `.rail-left` em TODO carregamento da home — lógica escrita antes da reorganização de 18/08, nunca atualizada quando a TV OVC passou a viver estaticamente no `.rail-right`. Isso deixa o `.rail-right` sempre vazio na prática, mesmo com CSS grid (`.rail-right{grid-column:5}`) 100% correto. **Não alterada** — é exatamente o item já registrado como "investigar depois, só quando Roberto pedir" (sessão 18/08 continuação anterior). Como o banner é um elemento diferente, não tocado por essa função, movê-lo pro `.rail-right` funciona normalmente sem precisar tocar em `organizarRailsHome()`.
+
+#### O que foi feito (PR #452 — mergeado, squash commit `7fc8911c`, deploy confirmado com sucesso)
+
+- Banner (HTML/CSS/SVG estático, `id="ovc-banner-saude"` preservado) movido de dentro de `<aside class="rail-left">` para o **topo de `<aside class="rail-right">`**, antes do bloco TV OVC — diff simétrico (50 inserções/50 deleções, só relocação de bloco, nada reescrito).
+- CTA trocado do deep-link de WhatsApp da Lions Corretora para `https://www.grupoterrasan.com.br` (`target="_blank"`, `rel="noopener sponsored"`, `aria-label="Visitar o site do Grupo Terrasan"`).
+- Rodapé do card atualizado de "Publicidade · Lions Corretora de Seguros" para "Publicidade · Grupo Terrasan" — consistente com o novo destino do link.
+- `ovc-eleitoral.js` não precisou de nenhuma mudança — já tinha fallback correto (se `#ovc-banner-saude` não estiver mais dentro de `.rail-left`, a função `injetar()` volta pro comportamento padrão de sempre, `rail.firstChild`).
+
+**Verificações feitas:** `public/index.html` 704 linhas, `<!DOCTYPE html>`/`</html>` intactos, `api/` continua com exatamente 10 arquivos. CI "Verificar arquivos críticos" verde. Deploy (`deploy.yml`) confirmado — step "Deploy to Vercel Production" `completed`/`success`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **Banner de Planos de Saúde — agora no topo do rail direito** | ✅ EM PRODUÇÃO (PR #452, commit `7fc8911c`) |
+| **Link do banner — aponta pro site do Grupo Terrasan (www.grupoterrasan.com.br)** | ✅ EM PRODUÇÃO |
+| **Causa raiz de `.rail-right` aparecer vazio** — `organizarRailsHome()` em `ovc-cards.js` puxa `.rail-block-tv` de volta pro rail-left em todo load | ⚠️ IDENTIFICADA, NÃO CORRIGIDA — mesmo item já deferido, aguardando Roberto pedir explicitamente |
+
+#### ⚠️ Nota de transparência
+
+Não verificado visualmente em navegador real (sandbox sem rede pro site em produção) — só confirmado via CI verde + step "Deploy to Vercel Production" `success`. Roberto deve confirmar visualmente.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — banner agora no topo do rail direito, clique levando pro site do Grupo Terrasan.
+2. **TV OVC ainda presa no rail esquerdo por `organizarRailsHome()`** — agora com causa raiz exata documentada acima (linha ~1090 de `ovc-cards.js`). Só corrigir quando Roberto pedir explicitamente — ele já deferiu esse item 2x nesta mesma sessão.
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
