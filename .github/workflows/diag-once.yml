@@ -28,22 +28,16 @@ jobs:
             echo "== $key -> $url =="
             code=$(curl -sL -o "/tmp/photos/${key}.jpg" -w "%{http_code}" -A "Mozilla/5.0 (OVCBot)" "$url" || echo "000")
             echo "HTTP_CODE $key: $code"
-            file "/tmp/photos/${key}.jpg" || true
-            ls -la "/tmp/photos/${key}.jpg" || true
           done
-          echo "--- converting to webp ---"
+          mkdir -p /tmp/out
           for key in "${!FILES[@]}"; do
             if [ -s "/tmp/photos/${key}.jpg" ]; then
-              cwebp -q 82 -resize 900 0 "/tmp/photos/${key}.jpg" -o "/tmp/photos/${key}.webp" 2>&1 | tail -5
-              ls -la "/tmp/photos/${key}.webp" || true
+              cwebp -q 82 -resize 900 0 "/tmp/photos/${key}.jpg" -o "/tmp/out/${key}.webp" 2>&1 | tail -3
+              ls -la "/tmp/out/${key}.webp" || true
             fi
           done
-      - name: Commit candidate webp images for visual review
-        run: |
-          mkdir -p public/img/banners/_review
-          cp /tmp/photos/*.webp public/img/banners/_review/ 2>/dev/null || true
-          git config user.name "diag-bot"
-          git config user.email "diag-bot@users.noreply.github.com"
-          git add public/img/banners/_review
-          git commit -m "diag: candidate real photos for review (temp)" || echo "nothing to commit"
-          git push origin HEAD:claude/banner-real-photos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-photos
+          path: /tmp/out/*.webp
+          retention-days: 1
