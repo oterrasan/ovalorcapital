@@ -169,6 +169,19 @@
       '  .ovc-esporte-rail.ovc-esporte-mobile .ovc-esporte-body{overflow:visible;}',
       '  .ovc-esporte-rail.ovc-esporte-mobile .ovc-esporte-article-list{overflow:visible;}',
       '}',
+      /* 18/08/2026 — Roberto: "quero que os widgets virem expansiveis, fecham
+         por padrão, só o cabeçalho clicável, ao clicar expande e fica como já
+         é agora". Fechado = altura vira automática (só o header), tabs/body/
+         cta somem. Aberto = exatamente o comportamento de sempre (height fixo
+         de 740px no desktop, sincronizado com .ovc-eleitoral-rail). */
+      '.ovc-esporte-rail.ovc-esporte-collapsed{height:auto!important;}',
+      '.ovc-esporte-rail.ovc-esporte-collapsed .ovc-esporte-tabs,',
+      '.ovc-esporte-rail.ovc-esporte-collapsed .ovc-esporte-body,',
+      '.ovc-esporte-rail.ovc-esporte-collapsed .ovc-esporte-cta{display:none;}',
+      '.ovc-esporte-header{cursor:pointer;}',
+      '.ovc-esporte-toggle{position:absolute;right:12px;top:12px;font-size:13px;color:rgba(255,255,255,.85);',
+      '  transition:transform .2s ease;pointer-events:none;}',
+      '.ovc-esporte-collapsed .ovc-esporte-toggle{transform:rotate(-90deg);}',
     ].join('');
     document.head.appendChild(sty);
   }
@@ -197,19 +210,31 @@
     injetarCSS();
 
     var bloco = document.createElement('div');
-    bloco.className = 'ovc-esporte-rail';
+    bloco.className = 'ovc-esporte-rail ovc-esporte-collapsed'; // fechado por padrão — Roberto, 18/08/2026
     bloco.id = 'ovc-radar-esporte'; // ovc-copa.js ancora nele para entrar logo depois
 
     var header = document.createElement('div');
     header.className = 'ovc-esporte-header';
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-expanded', 'false');
     header.innerHTML =
       '<div class="ovc-esporte-shine"></div>' +
+      '<span class="ovc-esporte-toggle">▾</span>' +
       '<div class="ovc-esporte-live-row">' +
       '<span class="ovc-esporte-dot"></span>' +
       '<span class="ovc-esporte-live-txt">Ao vivo · 24h</span>' +
       '</div>' +
       '<div class="ovc-esporte-title">RADAR DO ESPORTE</div>' +
       '<div class="ovc-esporte-sub">Agora em: <b class="ovc-esporte-sub-active">Futebol</b></div>';
+    function toggleColapso() {
+      var fechado = bloco.classList.toggle('ovc-esporte-collapsed');
+      header.setAttribute('aria-expanded', String(!fechado));
+    }
+    header.addEventListener('click', toggleColapso);
+    header.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleColapso(); }
+    });
     bloco.appendChild(header);
     var subActive = header.querySelector('.ovc-esporte-sub-active');
 

@@ -95,6 +95,19 @@
       '  padding:9px 12px;background:#eff6ff;border-top:1px solid #bfdbfe;flex-shrink:0;',
       '  text-decoration:none;font-size:11px;font-weight:700;color:#1e3a8a;transition:background .15s;}',
       '.ovc-el-cta:hover{background:#dbeafe;}',
+      /* 18/08/2026 — Roberto: mesmo padrão de expansível do Radar do Esporte —
+         fechado por padrão (só o header), clique expande e vira exatamente o
+         comportamento de sempre (height fixo 740px, sincronizado com
+         .ovc-esporte-rail). */
+      '.ovc-eleitoral-rail.ovc-el-collapsed{height:auto!important;}',
+      '.ovc-eleitoral-rail.ovc-el-collapsed .ovc-el-countdown,',
+      '.ovc-eleitoral-rail.ovc-el-collapsed .ovc-el-pesquisas,',
+      '.ovc-eleitoral-rail.ovc-el-collapsed .ovc-el-body,',
+      '.ovc-eleitoral-rail.ovc-el-collapsed .ovc-el-cta{display:none;}',
+      '.ovc-el-header{cursor:pointer;}',
+      '.ovc-el-toggle{position:absolute;right:12px;top:12px;font-size:13px;color:rgba(255,255,255,.85);',
+      '  transition:transform .2s ease;pointer-events:none;}',
+      '.ovc-el-collapsed .ovc-el-toggle{transform:rotate(-90deg);}',
     ].join('');
     document.head.appendChild(sty);
   }
@@ -112,16 +125,28 @@
     injetarCSS();
 
     var bloco = document.createElement('div');
-    bloco.className = 'ovc-eleitoral-rail';
+    bloco.className = 'ovc-eleitoral-rail ovc-el-collapsed'; // fechado por padrão — Roberto, 18/08/2026
     bloco.id = 'ovc-radar-eleitoral';
 
     // Header
     var header = document.createElement('div');
     header.className = 'ovc-el-header';
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-expanded', 'false');
     header.innerHTML =
+      '<span class="ovc-el-toggle">▾</span>' +
       '<div class="ovc-el-live-row"><span class="ovc-el-dot"></span><span class="ovc-el-live-txt">🗳️ Eleições 2026</span></div>' +
       '<div class="ovc-el-title">RADAR ELEITORAL</div>' +
       '<div class="ovc-el-sub">Presidencial · Governadores · Senado</div>';
+    function toggleColapso() {
+      var fechado = bloco.classList.toggle('ovc-el-collapsed');
+      header.setAttribute('aria-expanded', String(!fechado));
+    }
+    header.addEventListener('click', toggleColapso);
+    header.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleColapso(); }
+    });
     bloco.appendChild(header);
 
     // Countdown duplo: 1T e 2T
