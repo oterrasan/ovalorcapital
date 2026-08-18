@@ -138,7 +138,19 @@
       '  text-decoration:none;font-size:12.5px;font-weight:800;color:#171407;}',
       '.ovc-pb-cta span{font-size:15px;}',
       '.ovc-pb-cta:hover{background:linear-gradient(90deg,#9c7c26,#caa348);}',
-      '.ovc-pb-updated{padding:0 14px 10px;font-size:9px;color:#5c5638;text-align:right;}'
+      '.ovc-pb-updated{padding:0 14px 10px;font-size:9px;color:#5c5638;text-align:right;}',
+      /* 18/08/2026 — Roberto: mesmo padrão de expansível dos outros 2 widgets
+         do rail — fechado por padrão (só o header), clique expande e vira
+         exatamente o comportamento de sempre. Este widget já tem altura
+         automática (sem height fixo), então "fechar" só esconde o resto. */
+      '.ovc-pulso-br.ovc-pb-collapsed [data-pb-vitals],',
+      '.ovc-pulso-br.ovc-pb-collapsed [data-pb-setores],',
+      '.ovc-pulso-br.ovc-pb-collapsed .ovc-pb-cta,',
+      '.ovc-pulso-br.ovc-pb-collapsed [data-pb-updated]{display:none;}',
+      '.ovc-pb-header{cursor:pointer;}',
+      '.ovc-pb-toggle{position:absolute;right:14px;top:14px;font-size:13px;color:rgba(255,255,255,.85);',
+      '  transition:transform .2s ease;pointer-events:none;}',
+      '.ovc-pb-collapsed .ovc-pb-toggle{transform:rotate(-90deg);}'
     ].join('');
     var tag = document.createElement('style');
     tag.id = 'ovc-pulso-br-css';
@@ -227,16 +239,28 @@
 
   function construirBloco(live, porSetor) {
     var bloco = document.createElement('div');
-    bloco.className = 'ovc-pulso-br';
+    bloco.className = 'ovc-pulso-br ovc-pb-collapsed'; // fechado por padrão — Roberto, 18/08/2026
     bloco.id = 'ovc-pulso-br';
 
     var header = document.createElement('div');
     header.className = 'ovc-pb-header';
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-expanded', 'false');
     header.innerHTML =
       '<div class="ovc-pb-sweep"></div>' +
+      '<span class="ovc-pb-toggle">▾</span>' +
       '<div class="ovc-pb-badge"><span class="ovc-pb-dot"></span>PULSO BR · AO VIVO</div>' +
       '<div class="ovc-pb-title">🇧🇷 Pulso BR</div>' +
       '<div class="ovc-pb-sub">O termômetro da economia nacional, 24 horas por dia</div>';
+    function toggleColapso() {
+      var fechado = bloco.classList.toggle('ovc-pb-collapsed');
+      header.setAttribute('aria-expanded', String(!fechado));
+    }
+    header.addEventListener('click', toggleColapso);
+    header.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleColapso(); }
+    });
     bloco.appendChild(header);
 
     var vitals = document.createElement('div');
