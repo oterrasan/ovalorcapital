@@ -61,14 +61,24 @@ CORPO:
 
 let _geminiKeysCache = null;
 let _geminiKeysCacheTs = 0;
+// 18/08/2026 — Roberto autorizou criar novos projetos Google (contas/AI Studio
+// separados) para somar mais cota grátis de 20/dia cada (ver sessão 17/08/2026 —
+// teto real confirmado por projeto, as chaves de um mesmo projeto dividem o
+// mesmo pool, não somam). Generalizado para buscar GEMINI_API_KEY,
+// GEMINI_API_KEY_2 ... até GEMINI_API_KEY_20 dinamicamente do Supabase config —
+// basta Roberto inserir uma nova linha (GEMINI_API_KEY_3, _4, etc.) que ela
+// entra no rodízio automaticamente, sem precisar de novo deploy.
+const GEMINI_MAX_KEYS = 20;
 async function _getGeminiKeys() {
   const now = Date.now();
   if (_geminiKeysCache && now - _geminiKeysCacheTs < 300000) return _geminiKeysCache;
   try {
-    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY", "GEMINI_API_KEY_2"]);
+    const wantedKeys = ["GEMINI_API_KEY"];
+    for (let i = 2; i <= GEMINI_MAX_KEYS; i++) wantedKeys.push(`GEMINI_API_KEY_${i}`);
+    const { data } = await supabase.from("config").select("key,value").in("key", wantedKeys);
     const keys = {};
     (data || []).forEach(r => { keys[r.key] = r.value; });
-    const list = [keys["GEMINI_API_KEY"], keys["GEMINI_API_KEY_2"]].filter(Boolean);
+    const list = wantedKeys.map(k => keys[k]).filter(Boolean);
     if (list.length) { _geminiKeysCache = list; _geminiKeysCacheTs = now; return list; }
   } catch (_) {}
   return [];
