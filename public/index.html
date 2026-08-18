@@ -418,56 +418,6 @@
      ainda não tiver injetado). -->
 <aside class="rail-left">
 
-<!-- 18/08/2026 — Roberto: banner grande de Planos de Saúde, topo do rail
-     esquerdo, ocupando toda a primeira parte. Estático (sem race de
-     injeção JS), CSS-only (sem imagem externa hotlinkada — mesma prática
-     já usada nos radares esportivos pra não pesar o PageSpeed). Âncora
-     estável id="ovc-banner-saude" — se algum widget precisar se
-     posicionar em relação a ele no futuro, usar esse id, nunca
-     rail.firstChild às cegas. -->
-<style>
-#ovc-banner-saude{display:block;position:relative;overflow:hidden;border-radius:14px;background:linear-gradient(160deg,#0a1f2e 0%,#0d3b4f 55%,#0f5c73 100%);padding:20px 18px 18px;margin-bottom:14px;text-decoration:none;box-shadow:0 8px 24px rgba(10,31,46,.28);border:1px solid rgba(120,220,232,.18)}
-#ovc-banner-saude:hover{box-shadow:0 10px 30px rgba(10,31,46,.4)}
-.ovc-bs-glow{position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(94,224,214,.35) 0%,rgba(94,224,214,0) 70%);animation:ovcBsGlow 4.5s ease-in-out infinite}
-@keyframes ovcBsGlow{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.75;transform:scale(1.12)}}
-.ovc-bs-kicker{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8fe9de;margin-bottom:10px}
-.ovc-bs-kicker i{width:6px;height:6px;border-radius:50%;background:#5ee0d6;box-shadow:0 0 0 0 rgba(94,224,214,.6);animation:ovcBsDot 2s ease-in-out infinite}
-@keyframes ovcBsDot{0%{box-shadow:0 0 0 0 rgba(94,224,214,.55)}70%{box-shadow:0 0 0 7px rgba(94,224,214,0)}100%{box-shadow:0 0 0 0 rgba(94,224,214,0)}}
-.ovc-bs-scene{width:100%;height:auto;display:block;margin-bottom:12px;position:relative;z-index:1}
-.ovc-bs-ecg{stroke-dasharray:340;stroke-dashoffset:340;animation:ovcBsEcg 3.6s linear infinite}
-@keyframes ovcBsEcg{to{stroke-dashoffset:0}}
-#ovc-banner-saude h3{margin:0 0 6px;color:#fff;font-size:19px;line-height:1.25;font-weight:800;letter-spacing:-.01em;text-shadow:0 1px 8px rgba(0,0,0,.25)}
-#ovc-banner-saude p{margin:0 0 14px;color:rgba(226,247,244,.82);font-size:12.5px;line-height:1.5;max-width:94%}
-.ovc-bs-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(120deg,#1fb6a8,#5ee0d6);border-radius:9px;padding:11px 14px;font-weight:800;font-size:13px;color:#06282a;position:relative;overflow:hidden}
-.ovc-bs-cta span{position:relative;z-index:1}
-.ovc-bs-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(120deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 100%);animation:ovcBsSweep 3.2s ease-in-out infinite}
-@keyframes ovcBsSweep{0%{left:-60%}55%,100%{left:130%}}
-.ovc-bs-foot{margin-top:9px;font-size:9.5px;color:rgba(226,247,244,.45);letter-spacing:.03em}
-</style>
-<a id="ovc-banner-saude" href="https://wa.me/5511988510361?text=Ol%C3%A1%21%20Vim%20pelo%20O%20Valor%20Capital%20e%20quero%20uma%20cota%C3%A7%C3%A3o%20de%20Plano%20de%20Sa%C3%BAde.%20%7C%20OVC/banner-saude-rail%20%7C%20ref%3Abanner-saude-rail" target="_blank" rel="noopener sponsored" aria-label="Solicitar cotação de Plano de Saúde via WhatsApp">
-<div class="ovc-bs-glow"></div>
-<span class="ovc-bs-kicker"><i></i> Publicidade · Planos de Saúde</span>
-<svg class="ovc-bs-scene" viewBox="0 0 300 118" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ilustração de médico atendendo paciente">
-<ellipse cx="150" cy="104" rx="128" ry="8" fill="rgba(94,224,214,.08)"/>
-<path d="M40 96 Q40 70 62 66 L82 66 Q104 70 104 96 Z" fill="rgba(255,255,255,.10)"/>
-<circle cx="72" cy="46" r="16" fill="rgba(255,255,255,.9)"/>
-<path d="M52 96 Q52 62 72 60 Q92 62 92 96 Z" fill="rgba(255,255,255,.9)"/>
-<path d="M62 60 Q72 68 82 60" stroke="#0d3b4f" stroke-width="2" fill="none" stroke-linecap="round"/>
-<path d="M170 96 L170 54 Q170 42 184 42 L214 42 Q228 42 228 54 L228 96 Z" fill="#eafffb"/>
-<circle cx="199" cy="30" r="15" fill="#eafffb"/>
-<path d="M188 96 L188 60" stroke="#5ee0d6" stroke-width="2" opacity=".5"/>
-<path d="M184 46 Q184 62 199 62 Q214 62 214 46" stroke="#0f5c73" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-<circle cx="184" cy="46" r="3.2" fill="#0f5c73"/>
-<circle cx="214" cy="46" r="3.2" fill="#0f5c73"/>
-<circle cx="199" cy="70" r="4.4" fill="#0f5c73"/>
-<path d="M108 88 Q118 88 122 78 Q126 88 132 88 Q140 88 146 92 Q152 74 158 92 Q162 88 168 88" class="ovc-bs-ecg" stroke="#5ee0d6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-<h3>Planos de Saúde para você e sua família</h3>
-<p>Rede credenciada ampla, atendimento humano de verdade e cotação sem compromisso — leva poucos minutos.</p>
-<div class="ovc-bs-cta"><span>Solicitar cotação agora</span><span>›</span></div>
-<div class="ovc-bs-foot">Publicidade · Lions Corretora de Seguros</div>
-</a>
-
 <div class="ad-slot ad-rail-vertical">
 <span><span class="ad-dot"></span> Espaço publicitário OVC – rail esquerdo</span>
 </div>
@@ -520,6 +470,56 @@
      esquerdo). Todos os radares (Eleitoral/Pulso BR/Esporte) foram para o
      rail esquerdo — ver comentário lá. -->
 <aside class="rail-right">
+
+<!-- 18/08/2026 — Roberto: banner de Planos de Saúde movido pro TOPO do
+     rail direito (pedido explícito — "o banner deve estar no rail
+     direito"). Continua estático, CSS-only, sem imagem externa
+     hotlinkada (mesma prática dos radares esportivos). Link agora vai
+     direto pro site do Grupo Terrasan, não mais pra um deep-link de
+     WhatsApp. Âncora estável id="ovc-banner-saude" preservada. -->
+<style>
+#ovc-banner-saude{display:block;position:relative;overflow:hidden;border-radius:14px;background:linear-gradient(160deg,#0a1f2e 0%,#0d3b4f 55%,#0f5c73 100%);padding:20px 18px 18px;margin-bottom:14px;text-decoration:none;box-shadow:0 8px 24px rgba(10,31,46,.28);border:1px solid rgba(120,220,232,.18)}
+#ovc-banner-saude:hover{box-shadow:0 10px 30px rgba(10,31,46,.4)}
+.ovc-bs-glow{position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(94,224,214,.35) 0%,rgba(94,224,214,0) 70%);animation:ovcBsGlow 4.5s ease-in-out infinite}
+@keyframes ovcBsGlow{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.75;transform:scale(1.12)}}
+.ovc-bs-kicker{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8fe9de;margin-bottom:10px}
+.ovc-bs-kicker i{width:6px;height:6px;border-radius:50%;background:#5ee0d6;box-shadow:0 0 0 0 rgba(94,224,214,.6);animation:ovcBsDot 2s ease-in-out infinite}
+@keyframes ovcBsDot{0%{box-shadow:0 0 0 0 rgba(94,224,214,.55)}70%{box-shadow:0 0 0 7px rgba(94,224,214,0)}100%{box-shadow:0 0 0 0 rgba(94,224,214,0)}}
+.ovc-bs-scene{width:100%;height:auto;display:block;margin-bottom:12px;position:relative;z-index:1}
+.ovc-bs-ecg{stroke-dasharray:340;stroke-dashoffset:340;animation:ovcBsEcg 3.6s linear infinite}
+@keyframes ovcBsEcg{to{stroke-dashoffset:0}}
+#ovc-banner-saude h3{margin:0 0 6px;color:#fff;font-size:19px;line-height:1.25;font-weight:800;letter-spacing:-.01em;text-shadow:0 1px 8px rgba(0,0,0,.25)}
+#ovc-banner-saude p{margin:0 0 14px;color:rgba(226,247,244,.82);font-size:12.5px;line-height:1.5;max-width:94%}
+.ovc-bs-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(120deg,#1fb6a8,#5ee0d6);border-radius:9px;padding:11px 14px;font-weight:800;font-size:13px;color:#06282a;position:relative;overflow:hidden}
+.ovc-bs-cta span{position:relative;z-index:1}
+.ovc-bs-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(120deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 100%);animation:ovcBsSweep 3.2s ease-in-out infinite}
+@keyframes ovcBsSweep{0%{left:-60%}55%,100%{left:130%}}
+.ovc-bs-foot{margin-top:9px;font-size:9.5px;color:rgba(226,247,244,.45);letter-spacing:.03em}
+</style>
+<a id="ovc-banner-saude" href="https://www.grupoterrasan.com.br" target="_blank" rel="noopener sponsored" aria-label="Visitar o site do Grupo Terrasan">
+<div class="ovc-bs-glow"></div>
+<span class="ovc-bs-kicker"><i></i> Publicidade · Planos de Saúde</span>
+<svg class="ovc-bs-scene" viewBox="0 0 300 118" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ilustração de médico atendendo paciente">
+<ellipse cx="150" cy="104" rx="128" ry="8" fill="rgba(94,224,214,.08)"/>
+<path d="M40 96 Q40 70 62 66 L82 66 Q104 70 104 96 Z" fill="rgba(255,255,255,.10)"/>
+<circle cx="72" cy="46" r="16" fill="rgba(255,255,255,.9)"/>
+<path d="M52 96 Q52 62 72 60 Q92 62 92 96 Z" fill="rgba(255,255,255,.9)"/>
+<path d="M62 60 Q72 68 82 60" stroke="#0d3b4f" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M170 96 L170 54 Q170 42 184 42 L214 42 Q228 42 228 54 L228 96 Z" fill="#eafffb"/>
+<circle cx="199" cy="30" r="15" fill="#eafffb"/>
+<path d="M188 96 L188 60" stroke="#5ee0d6" stroke-width="2" opacity=".5"/>
+<path d="M184 46 Q184 62 199 62 Q214 62 214 46" stroke="#0f5c73" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+<circle cx="184" cy="46" r="3.2" fill="#0f5c73"/>
+<circle cx="214" cy="46" r="3.2" fill="#0f5c73"/>
+<circle cx="199" cy="70" r="4.4" fill="#0f5c73"/>
+<path d="M108 88 Q118 88 122 78 Q126 88 132 88 Q140 88 146 92 Q152 74 158 92 Q162 88 168 88" class="ovc-bs-ecg" stroke="#5ee0d6" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<h3>Planos de Saúde para você e sua família</h3>
+<p>Rede credenciada ampla, atendimento humano de verdade e cotação sem compromisso — leva poucos minutos.</p>
+<div class="ovc-bs-cta"><span>Solicitar cotação agora</span><span>›</span></div>
+<div class="ovc-bs-foot">Publicidade · Grupo Terrasan</div>
+</a>
+
 <div class="rail-block rail-block-tv">
 <div class="rail-title">OVC TV • Ao vivo</div>
 <div class="tv-live-pill">
