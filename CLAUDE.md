@@ -6910,3 +6910,81 @@ Não verificado visualmente em navegador real (sandbox sem rede pro site em prod
 1. **Confirmar visualmente com Roberto** — banner agora no topo do rail direito, clique levando pro site do Grupo Terrasan.
 2. **TV OVC ainda presa no rail esquerdo por `organizarRailsHome()`** — agora com causa raiz exata documentada acima (linha ~1090 de `ovc-cards.js`). Só corrigir quando Roberto pedir explicitamente — ele já deferiu esse item 2x nesta mesma sessão.
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 18/08/2026 (continuação 3) — BANNER DE SAÚDE VIRA CENA ANIMADA (18s, CSS/SVG) + MUITO MAIS ALTO (PR #454)
+
+#### Contexto
+
+Depois de confirmar (via print) que o banner do PR #452 estava corretamente posicionado no rail direito ("claude, agora mudou de lado, quanto a isso, ok"), Roberto rejeitou com força o resultado visual e deu instruções bem mais específicas:
+
+> *"mas vem ca, que BANNER PORCO EM??? MEU DEUS DO CE, QUE PORCARIA DE LAYOUT!!! QUERO UM BANNER EM VIDEO COM MEDICOS ANDANDO, CONVERSANDO COM PACIENTES, PELO MENOS UNS 15 OU 20 SEGUNDOS DE MOVIMENTACAO E MENSAGENS APARECENDO E ALTERNANDO NO BANNER, PORRA, PELO AMOR DE DEUS EM? PESQUISA O QUE O MERCADO FALA SOBRE ISSO E ME ARRUMA ISSO PELO AMOR DE DEUS"*
+
+E, em seguida: *"OUTRA COISA, QUERO UM BANNER MAIOR, BEM MAIOR EM ALTURA"*.
+
+#### Restrição honesta comunicada a Roberto — sem vídeo real
+
+Este sandbox não tem acesso de rede de saída para licenciar, baixar ou hospedar footage de vídeo real (mesma limitação documentada extensivamente em sessões anteriores para Supabase/ESPN/produção). Não é possível montar um `<video>` com filmagem real de médicos sem um arquivo que Roberto forneça já hospedado. Em vez de fingir que resolveu ou entregar algo pior, construída uma **cena 100% CSS+SVG coreografada** como substituto honesto — sem nenhum asset de imagem/vídeo externo (mesma prática já usada nos radares esportivos "menina dos olhos", que evitou repetir a regressão de PageSpeed de 28/05/2026).
+
+**Pesquisa de mercado feita via WebSearch antes de implementar** (pedido explícito de Roberto), fontes citadas:
+- https://www.revenuejack.com/blog/static-animated-html5-banner-ads-format-performance
+- https://www.abyssale.com/blog/how-to-create-ctas-that-convert-for-your-banner-ads-with-5-examples
+- https://help.adroll.com/hc/en-us/articles/360030386192-Animated-HTML5-Web-Ads-Format-Guidelines
+
+Direções confirmadas pela pesquisa e aplicadas: banners animados leves (sem vídeo pesado) convertem bem quando têm movimento sutil e contínuo, texto alternando reforça a mensagem sem parecer picotado, e CTA com algum destaque visual (glow/sweep) aumenta taxa de clique — tudo compatível com a decisão de ir de CSS/SVG em vez de vídeo real.
+
+#### O que foi implementado (PR #454, squash commit `146cb4b1`)
+
+Arquivo único alterado: `public/index.html` (banner `#ovc-banner-saude`, dentro de `.rail-right`).
+
+- **`min-height:700px`** — banner ficou muito mais alto, conforme pedido explícito.
+- **Cena animada de 18 segundos, em loop**, coreografada só com CSS (`@keyframes` sincronizados por janela de percentual, sem JavaScript):
+  - `ovcDocPos` — grupo `<g>` inteiro do médico se move (`translateX`): entra andando pela esquerda → chega e para → segura posição → sai andando pela direita, voltando ao início do loop.
+  - `ovcLegL`/`ovcLegR`/`ovcArmL`/`ovcArmR` — rotação de pernas/braços só ativa nas janelas de "andando" (0–20% e 90–100% do ciclo); zeradas (parado) na janela "em pé" (20–90%), para não parecer andando parado.
+  - Gesto de cumprimento (aceno) e gesto de "conversando" (braço levantado) em janelas isoladas dentro do trecho "em pé".
+  - Paciente: braço acenando de volta (`ovcPatArm`) e cabeça acenando que sim (`ovcPatNod`).
+  - Balão de fala (`ovcBubble`) com 3 pontinhos de "digitando" (`ovcBubbleDot`) simulando a conversa.
+  - Ícone de check (`ovcCheck`) simbolizando consulta concluída, aparecendo perto do fim do ciclo.
+  - Traço de ECG de fundo (`ovcBsEcg`, `stroke-dashoffset` animado) reforçando o tema saúde, decorativo.
+- **5 mensagens alternando em crossfade** (`.ovc-bs-tick`, `@keyframes ovcBsTick`): todas compartilham a mesma `animation-duration` (18s, sincronizada com a cena) e têm `animation-delay` escalonado (`i × 3.6s`) — technique confirmada matematicamente: com `iteration-count:infinite`, um delay positivo só afeta a primeira repetição; depois disso os ciclos se repetem colados, então o espaçamento de fase entre as 5 mensagens permanece perfeito para sempre. `animation-fill-mode:both` evita flash de mensagem sem estilo durante a janela de delay inicial.
+- **`@media (prefers-reduced-motion: reduce)`** — desliga toda a animação e trava a 1ª mensagem visível, para quem tem essa preferência de acessibilidade ativada no sistema.
+- **CTA e link preservados sem alteração** — continua apontando para `https://www.grupoterrasan.com.br`, `target="_blank"`, `rel="noopener sponsored"` (Regra #25 respeitada), rodapé "Publicidade · Grupo Terrasan" mantido.
+
+#### Verificações feitas antes do push
+
+- Contagem de `<style` / `</style>` no arquivo via regex (não string literal — dois dos 3 `<style>` do `<head>` usam atributo `id`, então `s.count('<style>')` dava falso positivo de desbalanceamento; recontado com `re.findall(r'<style\b', ...)` e confirmado 3/3 balanceados).
+- `<svg>`/`</svg>` 1/1; chaves e parênteses do novo bloco CSS 124/124 e 95/95.
+- `public/index.html`: 763 linhas (acima do piso de 700 da Regra Zero-E — voltou a passar "de graça"), `<!DOCTYPE html>`/`</html>` intactos.
+- `api/` continua com exatamente 10 arquivos (Regra Zero-A intacta) — mudança é só em `public/index.html`.
+- CI "Verificar arquivos críticos": ambos os checks (`Vercel Preview Comments`, `Verificar arquivos críticos`) `conclusion:"success"` antes do merge.
+
+#### Deploy confirmado com sucesso em produção
+
+`deploy.yml` run `32176633722` (commit `146cb4b17873708375793a1b7c12a8274b6e223e`) — job `deploy`, step **"Deploy to Vercel Production"**: `status:completed`, `conclusion:success` (19:26:55–19:27:38 UTC). Step seguinte "Disparar pipeline após deploy" também `success`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/08/2026 continuação 3)
+
+| Sistema | Status |
+|---|---|
+| **Banner de Planos de Saúde reescrito — cena CSS/SVG animada de 18s (médico andando/cumprimentando/conversando/consulta concluída) + 5 mensagens em crossfade + min-height:700px** | ✅ EM PRODUÇÃO (PR #454, commit `146cb4b1`) — deploy confirmado com sucesso via `deploy.yml` |
+| **Link/CTA pro Grupo Terrasan preservado** (`https://www.grupoterrasan.com.br`) | ✅ INALTERADO, confirmado no diff |
+| **Vídeo real de médicos** | ❌ NÃO IMPLEMENTADO — sandbox sem rede pra licenciar/hospedar footage; substituto CSS/SVG honesto construído em seu lugar. Trocar por `<video>` real é trivial se Roberto mandar um arquivo já hospedado (mp4/webm) |
+
+#### ⚠️ Nota de transparência
+
+Não verificado visualmente em navegador real (sandbox sem acesso de rede ao site em produção) — só confirmado via CI verde + deploy `success`. A animação (coreografia de 18s, sincronismo do crossfade de mensagens) foi calculada e verificada analiticamente (percentuais de keyframe, matemática do `animation-delay` com `infinite`), não observada rodando de fato num browser. **Roberto precisa confirmar visualmente** se o resultado bate com o que ele pediu (movimento, mensagens alternando, altura) antes de considerar fechado.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** o banner novo — cena animada, mensagens alternando, altura bem maior, CTA pro Grupo Terrasan.
+2. **Se Roberto insistir em vídeo real**: pedir um arquivo mp4/webm já hospedado (Supabase Storage, YouTube/Vimeo embed, ou CDN próprio) — trocar a cena CSS/SVG por `<video>` é mudança pequena e localizada assim que houver uma fonte real.
+3. **TV OVC ainda presa no rail esquerdo por `organizarRailsHome()`** (`public/js/ovc-cards.js` linha ~1090) — causa raiz já documentada, aguardando Roberto pedir explicitamente para corrigir.
+4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
