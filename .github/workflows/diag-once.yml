@@ -1,11 +1,49 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
-
+name: Diag Once
 on:
-  workflow_dispatch:
+  push:
+    branches: [claude/banner-real-photos]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  fetch_photos:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Nada a fazer
-        run: echo "placeholder inerte — preencher quando necessário"
+      - uses: actions/checkout@v3
+      - name: Install cwebp
+        run: sudo apt-get update -y && sudo apt-get install -y webp
+      - name: Download and convert candidate real photos
+        run: |
+          mkdir -p /tmp/photos
+          declare -A FILES=(
+            ["a"]="Doctor_consults_with_patient_(4).jpg"
+            ["b"]="Doctor_consults_with_patient_(7).jpg"
+            ["c"]="Doctor_consults_with_patient_(8).jpg"
+            ["d"]="Doctor_talking_with_a_patient.jpg"
+          )
+          for key in "${!FILES[@]}"; do
+            fname="${FILES[$key]}"
+            url="https://commons.wikimedia.org/wiki/Special:FilePath/${fname// /_}"
+            echo "== $key -> $url =="
+            code=$(curl -sL -o "/tmp/photos/${key}.jpg" -w "%{http_code}" -A "Mozilla/5.0 (OVCBot)" "$url" || echo "000")
+            echo "HTTP_CODE $key: $code"
+            file "/tmp/photos/${key}.jpg" || true
+            ls -la "/tmp/photos/${key}.jpg" || true
+          done
+          echo "--- converting to webp ---"
+          for key in "${!FILES[@]}"; do
+            if [ -s "/tmp/photos/${key}.jpg" ]; then
+              cwebp -q 82 -resize 900 0 "/tmp/photos/${key}.jpg" -o "/tmp/photos/${key}.webp" 2>&1 | tail -5
+              ls -la "/tmp/photos/${key}.webp" || true
+            fi
+          done
+      - name: Commit candidate webp images for visual review
+        run: |
+          mkdir -p public/img/banners/_review
+          cp /tmp/photos/*.webp public/img/banners/_review/ 2>/dev/null || true
+          git config user.name "diag-bot"
+          git config user.email "diag-bot@users.noreply.github.com"
+          git add public/img/banners/_review
+          git commit -m "diag: candidate real photos for review (temp)" || echo "nothing to commit"
+          git push origin HEAD:claude/banner-real-photos
