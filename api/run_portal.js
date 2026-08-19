@@ -4,7 +4,7 @@ import { getNews, getNewsByCategoria, buscarFeedsEspecificos, FONTES_APROVADAS_U
 import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
-import { rewritePortal, rewriteEsportes, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional } from "../core/ai_portal.js";
+import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional } from "../core/ai_portal.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
@@ -708,7 +708,11 @@ async function autoFutebolCurtinhas(req, res, rec) {
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
     if (dup) continue;
     try {
-      const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
+      // 19/08/2026 — rewriteEsportes (MASTER_PROMPT, 2.500+ chars) trocado por
+      // rewriteEsportesCurtinha (kernel próprio, fiel ao tamanho da fonte curta
+      // de RSS) — ver comentário completo em core/ai_portal.js. Causa raiz real
+      // do "Radar do Esporte parado": quase todo candidato virava INCONSISTENCIA.
+      const content = remapCat(await rewriteEsportesCurtinha(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) continue;
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
@@ -851,7 +855,9 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
     if (dup) { registrarFalha("hash_duplicado"); continue; }
     try {
-      const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
+      // 19/08/2026 — mesmo fix de autoFutebolCurtinhas: rewriteEsportesCurtinha
+      // em vez de rewriteEsportes (MASTER_PROMPT) — ver core/ai_portal.js.
+      const content = remapCat(await rewriteEsportesCurtinha(sourceText, item.title || a.title || "", rec.contexto));
       const erros = validar(content);
       if (erros.length) { registrarFalha("validar:" + erros[0]); continue; }
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { registrarFalha("dedup_titulo_final"); continue; }

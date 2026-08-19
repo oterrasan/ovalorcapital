@@ -1037,3 +1037,54 @@ export async function rewriteInternacional(text, title, context = '') {
   result.tipo_conteudo = "padrao";
   return result;
 }
+
+// ESPORTES CURTINHA (Radar do Futebol / Radar do Esporte 24h) — 19/08/2026.
+// Causa raiz real encontrada investigando "Radar do Esporte parado" (Roberto):
+// autoFutebolCurtinhas()/autoOutrosEsportesCurtinhas() chamavam rewriteEsportes()
+// — que usa o MASTER_PROMPT INTEIRO (protegido, Regra Zero-B — nunca tocado
+// aqui), com auditOptions minChars:1800/minParagraphs:8 e exigência própria do
+// MASTER_PROMPT de 2.500+ chars de texto puro, sob pena de "INCONSISTENCIA".
+// Fontes de curtinha esportiva (NBA.com, Motorsport.com, ESPN Tênis, etc.) são
+// itens de RSS curtos — placar, resultado de corrida, resumo de jogo — o
+// oposto de uma matéria Reuters completa. Confirmado ao vivo (workflow
+// diagnóstico, pós-fix do GEMINI_DAILY_BUDGET): 18 de 20 candidatos rejeitados
+// com "Bloqueio editorial: INCONSISTENCIA" — a própria IA recusando por falta
+// de substância pra 2.500+ chars, exatamente como o MASTER_PROMPT manda fazer
+// nesse caso. Não é bug de infraestrutura, é mismatch de prompt vs. formato de
+// conteúdo — mesma classe de problema já resolvida para Brasil ON/Jovem Pan
+// Política/Internacional com um kernel PRÓPRIO (reescrita fiel ao tamanho da
+// fonte, sem exigir extensão mínima). rewriteEsportes() com o MASTER_PROMPT
+// continua INTOCADA e é a correta para a matéria completa de esportes gerada
+// via autoMaterias() (janela 07:00-00:30 BRT) — só os 2 geradores de curtinha
+// (Futebol 24h e Outros Esportes 24h) passam a usar este kernel novo.
+const ESPORTES_CURTINHA_KERNEL = `Você é editor do Radar de Esportes do O Valor Capital, reescrevendo notícias curtas de esporte (placares, resultados, corridas, jogos, transferências) a partir de uma fonte jornalística.
+
+MISSÃO: reescrever o texto-fonte abaixo com palavras 100% próprias, mantendo os MESMOS fatos e a MESMA extensão aproximada do original — nunca copie frases da fonte, mas também não estenda, não infle, não invente detalhes, estatísticas ou declarações que não estão nela. Fonte curta (placar/resultado em 2-4 frases) gera resultado curto — isso é normal e correto pra este canal, NUNCA recuse por falta de extensão.
+
+ESTILO: direto, claro, correto gramaticalmente, objetivo — sem sensacionalismo, sem clichês esportivos genéricos ("mostrou garra", "lutou até o fim", "saiu de cabeça erguida").
+
+REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
+- Nunca invente placar, nome de atleta/equipe, data, local ou estatística que não está no texto-fonte.
+- Quando a fonte atribuir a informação a alguém ou a algum órgão, mantenha a atribuição ("segundo", "de acordo com").
+- Nunca mencione o nome do site/veículo de origem no corpo do texto.
+- Nunca mencione nome de jornalista, repórter, apresentador, colunista, âncora ou qualquer outro veículo de imprensa/agência de notícia.
+- HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+TITULO: [direto, sem clickbait, até 100 caracteres]
+META_TITLE: [até 55 caracteres]
+SLUG: [url-com-hifens]
+META_DESCRICAO: [120–160 caracteres]
+CORPO:
+[Primeiro parágrafo OBRIGATÓRIO: <p><strong>Redação OVC</strong> · {data de hoje informada acima}</p>
+Depois, o restante do corpo em HTML puro — <p> por parágrafo, quantos forem necessários pra cobrir os fatos da fonte, sem inflar.
+Último parágrafo OBRIGATÓRIO: exatamente 10 hashtags relevantes ao tema da matéria, separadas por espaço, dentro de um único <p> (ex: <p>#Esportes #Futebol #Brasileirão ...</p>)]`;
+
+export async function rewriteEsportesCurtinha(text, title, context = '') {
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  const raw = await callIA(ESPORTES_CURTINHA_KERNEL, userContent, 4096);
+  const result = parse(raw);
+  if (!result?.titulo || !result?.corpo) throw new Error("Esportes curtinha: reescrita vazia/incompleta");
+  result.tipo_conteudo = "padrao";
+  return result;
+}
