@@ -60,16 +60,30 @@
   // CONTEUDOS DAS ULTIMAS HORAS". O fallback antigo (`posts.slice(0,1)` quando
   // nenhum post estava dentro das 48h) pegava o item MAIS RECENTE DENTRO DO
   // POOL LIMITADO de 300 posts gerais — que, pra uma categoria rara nesse
-  // pool, podia ser um artigo de semanas atrás. Removido: sem post fresco,
-  // retorna vazio — todo caller já trata array vazio mostrando "Em breve"
-  // (mostrarVazio) em vez de inventar um card com conteúdo velho.
+  // pool, podia ser um artigo de semanas atrás.
+  //
+  // 19/08/2026 (mesmo dia) — REGRESSÃO causada pelo fix acima: remover o
+  // fallback por completo fez vários cards (Finanças/Tecnologia/Indústria/
+  // Esportes) mostrarem "Em breve" vazio o dia inteiro, porque o pipeline
+  // estava gerando pouco conteúdo dentro da janela estrita de 48h (mesma
+  // crise de cota de IA documentada em 15-17/08/2026). Roberto: "voce mexe
+  // em uma coisa e quenbra outras!!! quenrou toda a home e os cards".
+  // Fix: dois estágios — tenta 48h primeiro (nunca mostra conteúdo velho de
+  // fato quando há opção fresca); se vazio, tenta uma janela mais larga de
+  // 7 dias (ainda razoavelmente atual, evita "Em breve" por causa de um dia
+  // ruim de geração); só cai pra vazio de verdade (mostrarVazio) se nem em
+  // 7 dias existir nenhum post daquela categoria.
   var _48H = 48 * 3600 * 1000;
+  var _7D = 7 * 24 * 3600 * 1000;
+  function _postTs(p) {
+    return new Date(p.published_at || p.data || p.created_at || 0).getTime();
+  }
   function filterRecent(posts) {
-    var cutoff = Date.now() - _48H;
-    return posts.filter(function(p) {
-      var ts = new Date(p.published_at || p.data || p.created_at || 0).getTime();
-      return ts >= cutoff;
-    });
+    var now = Date.now();
+    var fresh48h = posts.filter(function(p) { return _postTs(p) >= now - _48H; });
+    if (fresh48h.length > 0) return fresh48h;
+    var fresh7d = posts.filter(function(p) { return _postTs(p) >= now - _7D; });
+    return fresh7d;
   }
 
   function _slugify(s){
