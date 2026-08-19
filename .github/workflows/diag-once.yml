@@ -1,13 +1,24 @@
 name: Diag Once
-# Placeholder inerte — sem função ativa. Reutilizado sob demanda em sessões de
-# trabalho para diagnósticos pontuais via GitHub Actions (que tem rede real,
-# diferente do sandbox de execução), sempre resetado a este estado depois de
-# usado. Nunca deve virar um workflow permanente com lógica real.
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — sem função ativa"
+      - name: Test outros_esportes
+        run: |
+          echo "=== outros_esportes ==="
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"outros_esportes","force":true,"count":2}' \
+            --max-time 55 | head -c 3000
+      - name: Test futebol
+        run: |
+          echo "=== futebol ==="
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"futebol","force":true,"count":2}' \
+            --max-time 55 | head -c 2000
