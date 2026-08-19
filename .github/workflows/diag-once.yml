@@ -1,5 +1,8 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
-
+name: Diag Once
+# Placeholder inerte — sem função ativa. Reutilizado sob demanda em sessões de
+# trabalho para diagnósticos pontuais via GitHub Actions (que tem rede real,
+# diferente do sandbox de execução), sempre resetado a este estado depois de
+# usado. Nunca deve virar um workflow permanente com lógica real.
 on:
   workflow_dispatch:
 
@@ -7,5 +10,4 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer
-        run: echo "placeholder inerte — preencher quando necessário"
+      - run: echo "placeholder — sem função ativa"
