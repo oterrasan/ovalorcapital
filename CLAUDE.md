@@ -7053,3 +7053,56 @@ Não verificado visualmente em navegador real (sandbox sem acesso de rede ao sit
 2. **Se Roberto ainda quiser vídeo de verdade** (não só fotos): pedir arquivo mp4/webm já hospedado — troca simples do bloco `.ovc-bs-photos` por `<video>`.
 3. **TV OVC ainda presa no rail esquerdo por `organizarRailsHome()`** (`public/js/ovc-cards.js` linha ~1090) — causa raiz já documentada, aguardando Roberto pedir explicitamente.
 4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 19/08/2026 (continuação) — 3 CORREÇÕES URGENTES (banner/link, card Finanças, retry Groq) + REGRESSÃO E FIX NO MESMO DIA (filterRecent)
+
+#### Contexto
+
+Roberto, com pressa explícita ("CLAUDE, SEJA ASSERTIVO PORQUE O LIMITE DE USO SEMANAL ESTÁ CHEGANDO AO FIM"), pediu 3 correções pontuais numa mensagem só:
+1. Link do banner de Planos de Saúde deveria apontar para uma área específica do Grupo Terrasan: `https://www.grupoterrasan.com.br/lions-terra.html` (não a home do site).
+2. Cards (Finanças citado explicitamente) mostrando conteúdo extremamente antigo — regra dele, repetida: "SEMPRE NOTICIAS E CONTEUDOS DAS ULTIMAS HORAS... NAO PODE ACONTECER, EM NENHUM CARD".
+3. Radar do Esporte "NAO ATUALIZA NUNCA MAIS" — pediu pra rodar 24h e espaçar geração pra evitar bloqueios de rate limit.
+
+#### O que foi feito (commit `c0290c43`, push direto em main, deploy confirmado sucesso)
+
+1. **`public/index.html`** — link/aria-label do banner `#ovc-banner-saude` trocado para `https://www.grupoterrasan.com.br/lions-terra.html`.
+2. **`public/js/ovc-cards.js`** — `filterRecent()`: removido o fallback antigo (`posts.slice(0,1)` quando nada estava dentro de 48h), que pegava o item mais recente do pool geral de 300 posts — podia ser um artigo de semanas atrás pra categoria rara nesse pool. Sem post fresco em 48h, a função passou a retornar array vazio (todo caller já tratava isso mostrando "Em breve").
+3. **`core/ai_portal.js`** — investigado com evidência real (logs do cron): TODOS os 7 canais tiveram `generated:0` na hora, não só esporte — o orçamento diário do Gemini estava esgotado E o fallback Groq também batia 429 "Rate limit reached" (até 21 de 25 candidatos numa rodada, teto de TPM compartilhado). Fix: retry único de 2s em 429 do Groq, mesma filosofia já usada pro 503 do Gemini.
+
+#### 🔴 Regressão real, mesmo dia — Roberto: "Meu deus do ceu, voce mexe em uma coisa e quenbra outras!!! o que voce fez quenrou toda a home e os cards!!!!"
+
+O fix #2 acima foi longe demais: remover o fallback por completo (em vez de só torná-lo mais criterioso) fez vários cards — Finanças, Tecnologia, Indústria (mini-cards da zona "Poder & Dinheiro") e um card editorial de Esportes — mostrarem "Em breve" vazio simultaneamente, porque o pipeline estava gerando pouco conteúdo dentro da janela estrita de 48h naquele momento (mesma crise de cota de IA documentada em 15-17/08/2026 — nada garantia que toda categoria teria pelo menos 1 post fresco a cada momento).
+
+**Fix real (commit `0930b357`, push direto em main, deploy confirmado sucesso — run `32290074958`):**
+`filterRecent()` reescrito como dois estágios — tenta 48h primeiro (nunca mostra conteúdo de fato velho quando há opção fresca disponível); se vazio, tenta uma janela mais larga de 7 dias antes de desistir; só cai para vazio de verdade (`mostrarVazio`/"Em breve") se nem em 7 dias existir nenhum post daquela categoria. Isso resolve as duas queixas de Roberto ao mesmo tempo: nunca mostra conteúdo de semanas atrás (era o problema original), e nunca fica com card vazio por causa de um momento de baixa geração (era a regressão).
+
+Cache-bust `ovc-cards.js?v=13→v14`.
+
+**Verificações feitas antes do push:** `node --check public/js/ovc-cards.js` OK; `public/index.html` 714 linhas, `<!DOCTYPE html>`/`</html>` intactos, `<style>` 3/3 balanceado; `api/` continua com exatamente 10 arquivos (Regra Zero-A intacta) — mudanças só em `public/js/ovc-cards.js` e `public/index.html`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (19/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Link do banner de Planos de Saúde → `lions-terra.html`** | ✅ EM PRODUÇÃO (commit `c0290c43`) |
+| **Retry de 2s em 429 do Groq** (mesma filosofia do retry de 503 do Gemini) | ✅ EM PRODUÇÃO (commit `c0290c43`) |
+| **`filterRecent()` — fallback de 2 estágios (48h → 7 dias → vazio)** — corrige tanto o card com conteúdo velho quanto a regressão de cards vazios do mesmo dia | ✅ EM PRODUÇÃO (commit `0930b357`, deploy run `32290074958` confirmado `success`) |
+
+#### ⚠️ Nota de transparência
+
+Nenhuma das 4 mudanças foi verificada visualmente em navegador real (sandbox sem acesso de rede à produção) — só confirmadas via `node --check`, integridade de `public/index.html`, e status `success` do `deploy.yml` no GitHub Actions. Roberto precisa confirmar visualmente: o link do banner leva pra `lions-terra.html`, os cards de Finanças/Tecnologia/Indústria/Esportes voltaram a mostrar conteúdo (não mais "Em breve" vazio, nem conteúdo de semanas atrás), e o Radar do Esporte segue atualizando ao longo do dia.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** as 4 correções desta sessão (link do banner, cards com conteúdo, Radar do Esporte atualizando).
+2. **Monitorar se a janela de 7 dias do fallback é suficiente** — se algum card ainda aparecer "Em breve" com frequência, pode ser sinal de que aquela categoria específica está gerando muito pouco conteúdo (investigar geração, não o filtro de novo).
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
