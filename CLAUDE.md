@@ -7106,3 +7106,73 @@ Nenhuma das 4 mudanças foi verificada visualmente em navegador real (sandbox se
 1. **Confirmar visualmente com Roberto** as 4 correções desta sessão (link do banner, cards com conteúdo, Radar do Esporte atualizando).
 2. **Monitorar se a janela de 7 dias do fallback é suficiente** — se algum card ainda aparecer "Em breve" com frequência, pode ser sinal de que aquela categoria específica está gerando muito pouco conteúdo (investigar geração, não o filtro de novo).
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 19/08/2026 (continuação 2) — REVERT: `filterRecent()` VOLTA À VERSÃO ORIGINAL — Roberto pediu explicitamente
+
+#### Contexto
+
+O item #2 acima (7-day fallback) não satisfez Roberto. Resposta dele, direta e final: *"voce continua deixando rastros de merda disso. volte na versao que estava antes de voce mexer. pelo menos todos os cards tinham conteudo! NAO COMETA MAIS ERROS, TENHA A CERTEZA QUE ENTENDEU O QUE QUERO"*.
+
+Interpretação sem ambiguidade: reverter `filterRecent()` para a versão exata de ANTES de qualquer mudança desta sessão (antes até do commit `c0290c43`) — a lógica original com fallback pro post mais recente do pool, que garantia conteúdo sempre, mesmo que ocasionalmente não fosse o mais recente do mundo.
+
+#### O que foi feito (commit `87c9a39b`, push direto em main, deploy confirmado sucesso)
+
+`filterRecent()` restaurada **byte-a-byte idêntica** ao commit `34dcc43f` (último estado do arquivo antes de qualquer edição desta sessão) — confirmado via `diff` entre o conteúdo do commit antigo e o arquivo atual: zero diferença na lógica, só um comentário novo documentando o histórico (pra próxima sessão não repetir o mesmo ciclo de tentativas):
+
+```js
+var _48H = 48 * 3600 * 1000;
+function filterRecent(posts) {
+  var cutoff = Date.now() - _48H;
+  var fresh = posts.filter(function(p) {
+    var ts = new Date(p.published_at || p.data || p.created_at || 0).getTime();
+    return ts >= cutoff;
+  });
+  return fresh.length > 0 ? fresh : posts.slice(0, 1);
+}
+```
+
+Cache-bust `ovc-cards.js?v=14→v15`.
+
+**Verificações feitas antes do push:** `node --check` OK; diff completo contra `34dcc43f` mostrou só a diferença de comentário (10 linhas de comentário, zero linha de lógica); `public/index.html` 714 linhas, `<!DOCTYPE html>`/`</html>` intactos, `<style>` 3/3 balanceado; `api/` continua com exatamente 10 arquivos.
+
+**Deploy confirmado:** `deploy.yml` run `32291321985`, step "Deploy to Vercel Production" `completed`/`conclusion:success` (19:08:12–19:09:03 UTC).
+
+#### 🚨 REGRA PARA A PRÓXIMA SESSÃO — NÃO ALTERAR `filterRecent()` SEM AUTORIZAÇÃO EXPLÍCITA
+
+```
+❌ NUNCA mexer em filterRecent() (public/js/ovc-cards.js) de novo sem
+   autorização explícita de Roberto — já foram 3 versões diferentes no
+   mesmo dia (19/08/2026): sem fallback, fallback de 7 dias, e por fim
+   revert pra versão original. As duas primeiras tentativas, mesmo bem-
+   intencionadas, quebraram cards que estavam funcionando.
+❌ A versão ATUAL (e definitiva até novo aviso) é: filtro de 48h, com
+   fallback pro post mais recente do pool geral se nada estiver dentro
+   da janela — SEMPRE garante conteúdo em todo card, mesmo que
+   ocasionalmente não seja das últimas horas.
+✅ Se Roberto reclamar de conteúdo velho de novo no futuro: NÃO tocar
+   em filterRecent() por iniciativa própria. Perguntar a ele primeiro
+   que trade-off ele prefere (conteúdo garantido mas às vezes velho vs.
+   risco de card vazio) — ele já deixou claro que prefere conteúdo
+   garantido.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (19/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **`filterRecent()` revertida pra versão original** (byte-a-byte idêntica ao commit `34dcc43f`) | ✅ EM PRODUÇÃO (commit `87c9a39b`, deploy `32291321985` confirmado `success`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** que os cards voltaram a ter conteúdo em todo lugar, como antes desta sessão.
+2. **NÃO alterar `filterRecent()` de novo** sem autorização explícita — ver regra acima.
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
