@@ -373,29 +373,52 @@ async function _callGroq(systemKernel, userContent, maxTokens) {
   // groqMaxTokens de novo com evidência real.
   const groqMaxTokens = Math.min(maxTokens, 2600);
   const groqUserContent = userContent.length > 4000 ? userContent.slice(0, 4000) : userContent;
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: "openai/gpt-oss-120b",
-      messages: [
-        { role: "system", content: systemKernel },
-        { role: "user", content: groqUserContent }
-      ],
-      max_tokens: groqMaxTokens,
-      temperature: 0.3,
-      reasoning_effort: "low"
-    })
-  });
-  const d = await res.json();
-  if (!res.ok) {
-    const err = new Error(`Groq ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
-    err.status = res.status;
+  async function _tentarGroq() {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "openai/gpt-oss-120b",
+        messages: [
+          { role: "system", content: systemKernel },
+          { role: "user", content: groqUserContent }
+        ],
+        max_tokens: groqMaxTokens,
+        temperature: 0.3,
+        reasoning_effort: "low"
+      })
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      const err = new Error(`Groq ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
+      err.status = res.status;
+      throw err;
+    }
+    const text = d.choices?.[0]?.message?.content;
+    if (text && text.length > 100) return _sanitizarMarkdownGroq(text);
+    throw new Error("Groq retornou resposta vazia");
+  }
+  // 19/08/2026 — Roberto: "RADAR DOS ESPORTES NAO ATUALIZA NUNCA MAIS" (e, na
+  // mesma checagem, os outros 6 canais também mostraram generated:0 na hora).
+  // Confirmado com evidência real (logs do cron): TODOS os canais falham no
+  // mesmo dia porque o orçamento diário do Gemini já está esgotado bem cedo,
+  // e o único fallback (Groq) também bate 429 — "Rate limit reached for model
+  // openai/gpt-oss-120b" — em até 21 de 25 candidatos numa ÚNICA rodada do
+  // Radar do Esporte. Causa: o loop de candidatos chama _callGroq() em
+  // sequência rápida (sem pausa), e o teto de TPM/RPM é do Groq INTEIRO
+  // (compartilhado por todos os 7 canais do cron, 1 chave só). Fix: retry
+  // único e curto (2s) em 429 — mesma filosofia já usada pro 503 do Gemini —
+  // recupera parte real das falhas sem estourar o budget de ~50s de cada
+  // rodada do loop de candidatos (api/run_portal.js).
+  try {
+    return await _tentarGroq();
+  } catch (err) {
+    if (err.status === 429) {
+      await new Promise(r => setTimeout(r, 2000));
+      return await _tentarGroq();
+    }
     throw err;
   }
-  const text = d.choices?.[0]?.message?.content;
-  if (text && text.length > 100) return _sanitizarMarkdownGroq(text);
-  throw new Error("Groq retornou resposta vazia");
 }
 
 // 17/08/2026 — testado ao vivo: Groq gerou conteúdo válido (erro:0) mas o

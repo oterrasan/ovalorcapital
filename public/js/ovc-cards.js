@@ -55,15 +55,21 @@
     });
   }
 
-  // Filtra posts com até 48h — fallback para o post mais recente se não houver nenhum
+  // Filtra posts com até 48h. 19/08/2026 — Roberto: "O CARD FINANCAS ESTA
+  // ROTACIONANDO COISAS ANTIGAS QUE NAO FAZEM SENTIDO... SEMPRE NOTICIAS E
+  // CONTEUDOS DAS ULTIMAS HORAS". O fallback antigo (`posts.slice(0,1)` quando
+  // nenhum post estava dentro das 48h) pegava o item MAIS RECENTE DENTRO DO
+  // POOL LIMITADO de 300 posts gerais — que, pra uma categoria rara nesse
+  // pool, podia ser um artigo de semanas atrás. Removido: sem post fresco,
+  // retorna vazio — todo caller já trata array vazio mostrando "Em breve"
+  // (mostrarVazio) em vez de inventar um card com conteúdo velho.
   var _48H = 48 * 3600 * 1000;
   function filterRecent(posts) {
     var cutoff = Date.now() - _48H;
-    var fresh = posts.filter(function(p) {
+    return posts.filter(function(p) {
       var ts = new Date(p.published_at || p.data || p.created_at || 0).getTime();
       return ts >= cutoff;
     });
-    return fresh.length > 0 ? fresh : posts.slice(0, 1);
   }
 
   function _slugify(s){
