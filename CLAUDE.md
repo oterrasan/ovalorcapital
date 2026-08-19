@@ -6988,3 +6988,68 @@ Não verificado visualmente em navegador real (sandbox sem acesso de rede ao sit
 2. **Se Roberto insistir em vídeo real**: pedir um arquivo mp4/webm já hospedado (Supabase Storage, YouTube/Vimeo embed, ou CDN próprio) — trocar a cena CSS/SVG por `<video>` é mudança pequena e localizada assim que houver uma fonte real.
 3. **TV OVC ainda presa no rail esquerdo por `organizarRailsHome()`** (`public/js/ovc-cards.js` linha ~1090) — causa raiz já documentada, aguardando Roberto pedir explicitamente para corrigir.
 4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 19/08/2026 — BANNER DE SAÚDE: FOTOS REAIS (Roberto rejeitou a cena ilustrada do PR #454)
+
+#### Contexto
+
+Roberto rejeitou com força o resultado do PR #454 (cena SVG/ilustrada de médico caminhando): *"claude, mudou o tramanho sim, mas voce nao entendeu nada do que eu quero. eu nao quero figurinhas ou emojis, eu quero pessoas reais, imagens de gente real!!!!!!"*
+
+Isso invalida a abordagem de ilustração usada no PR #454 (e no PR #454 anterior a este, que já tinha o médico caminhando animado) — Roberto quer fotografia de verdade, não desenho/emoji.
+
+#### Como as fotos foram obtidas (sandbox sem rede)
+
+Este ambiente de sessão bloqueia acesso de rede de saída (mesma limitação documentada extensivamente em sessões anteriores para Supabase/ESPN/produção — `WebFetch` para `commons.wikimedia.org` retorna `EGRESS_BLOCKED`). Usado o mesmo padrão já estabelecido no projeto (`diag-once.yml`, GitHub Actions tem rede real):
+
+1. Workflow one-off baixou 4 fotos candidatas via `curl` do Wikimedia Commons `Special:FilePath` (redireciona pro binário real em `upload.wikimedia.org`), convertidas para WebP quality 82 com `cwebp` (mesma convenção de `core/image_processor.js`).
+2. **Primeira tentativa de push do workflow falhou** — `403 Permission ... denied to github-actions[bot]`: o `GITHUB_TOKEN` default de um workflow não tem `contents: write` a menos que declarado explicitamente. Fix: `permissions: contents: write` no workflow + `persist-credentials: true` no `actions/checkout`.
+3. Fotos puxadas de volta pro sandbox via `git fetch`/`checkout` da branch onde o workflow fez push, e **inspecionadas visualmente uma a uma com a ferramenta `Read`** (que renderiza imagens) para confirmar que eram fotografias reais de médico/paciente, não ilustrações — antes de usar qualquer uma.
+4. Escolhidas as 3 melhores (das 4 candidatas) para o formato de rail vertical estreito: duas fotos de enquadramento fechado e caloroso (médica/paciente conversando de perto) e uma terceira mostrando médica exibindo resultado de exame — a quarta (composição larga de 3 pessoas) descartada por se enquadrar mal numa coluna estreita.
+
+#### O que foi implementado (PR #456, squash commit `182c76a7`)
+
+**Fotos:** Wikimedia Commons / National Cancer Institute (NCI) Visuals Online (US NIH) — licença **Public Domain Mark 1.0**, sem custo e sem atribuição legalmente exigida. Salvas como assets próprios do portal em `public/img/banners/medico-paciente-{1,2,3}.webp` (nunca hotlink de terceiros — mesma prática já usada em todo o resto do site).
+
+**`public/index.html` — banner `#ovc-banner-saude` reconstruído:**
+- Removida por completo a cena SVG ilustrada (boneco andando, balão de fala, ícone de check) — `<svg>`/`</svg>` confirmado 0/0 no arquivo final.
+- Novo bloco `.ovc-bs-photos` (340px de altura, topo do banner) com as 3 fotos reais em `<img>`, crossfade + zoom Ken Burns sutil (`scale(1)→scale(1.08)`) num loop de 18s — mesma técnica já usada e comprovada no ticker de 5 mensagens do próprio banner (`animation-delay` escalonado + `animation-iteration-count:infinite`; um delay positivo só afeta a 1ª repetição, depois os ciclos se repetem colados mantendo o espaçamento de fase para sempre).
+- Sombreado gradiente (`.ovc-bs-photo-shade`) na base das fotos para transição suave até o corpo do banner.
+- **Preservado sem alteração:** ticker de 5 mensagens, kicker "Publicidade · Planos de Saúde", `<h3>`/`<p>`, CTA "Solicitar cotação agora" com efeito sweep, link `https://www.grupoterrasan.com.br` (`target="_blank" rel="noopener sponsored"` — Regra #25 respeitada), rodapé "Publicidade · Grupo Terrasan", `min-height:700px`, `@media (prefers-reduced-motion:reduce)` (atualizado para as novas classes `.ovc-bs-photo`).
+- `.github/workflows/diag-once.yml` resetado ao placeholder inerte de sempre.
+
+#### Verificações feitas antes do push
+
+`public/index.html`: 714 linhas (≥700), `<!DOCTYPE html>`/`</html>` intactos, `<style>`/`</style>` balanceados (3/3 via regex, não string literal ingênua), `<svg>`/`</svg>` 0/0. `api/` continua com exatamente 10 arquivos (Regra Zero-A). `public/admin/index.html` não tocado (diff vazio).
+
+#### Deploy confirmado com sucesso em produção
+
+CI "Verificar arquivos críticos" verde, PR #456 mergeado (squash `182c76a7`). `deploy.yml` run `32212339736` — `status:completed`, `conclusion:success` (03:29:43–03:31:12 UTC).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (19/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Banner de Planos de Saúde — cena SVG ilustrada substituída por 3 fotos REAIS de médico/paciente** (Wikimedia Commons/NCI Visuals Online, domínio público) | ✅ EM PRODUÇÃO (PR #456, commit `182c76a7`) — deploy confirmado com sucesso via `deploy.yml` |
+| **Crossfade + zoom Ken Burns entre as 3 fotos, loop de 18s** | ✅ EM PRODUÇÃO — mesma técnica de `animation-delay`+`infinite` já validada no ticker |
+| **Ticker de 5 mensagens, CTA e link pro Grupo Terrasan** | ✅ INALTERADOS, confirmados no diff |
+| **Vídeo real de médicos** | ❌ AINDA NÃO IMPLEMENTADO — sandbox sem rede pra licenciar/hospedar footage. Fotos reais atendem o pedido central de Roberto ("gente real", não "figurinha"); se ele insistir especificamente em vídeo, precisa de um arquivo mp4/webm já hospedado por ele |
+
+#### ⚠️ Nota de transparência
+
+Não verificado visualmente em navegador real (sandbox sem acesso de rede ao site em produção) — só confirmado via CI verde + deploy `success`. **Roberto precisa confirmar visualmente** que as fotos aparecem corretas, o crossfade funciona, e o enquadramento das fotos (recortadas via `object-fit:cover` numa faixa de 340px) ficou bom no rail estreito.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — fotos reais aparecendo, crossfade funcionando, enquadramento adequado.
+2. **Se Roberto ainda quiser vídeo de verdade** (não só fotos): pedir arquivo mp4/webm já hospedado — troca simples do bloco `.ovc-bs-photos` por `<video>`.
+3. **TV OVC ainda presa no rail esquerdo por `organizarRailsHome()`** (`public/js/ovc-cards.js` linha ~1090) — causa raiz já documentada, aguardando Roberto pedir explicitamente.
+4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
