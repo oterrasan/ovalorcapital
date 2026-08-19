@@ -181,12 +181,29 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
 // suposição): 4 chamadas diretas ao Gemini, feitas DEPOIS do contador
 // interno já estar em 200/200, todas retornaram HTTP 200 — ou seja, o teto
 // real do Google HOJE não está em 200, o gate interno é que ficou
-// artificialmente baixo demais pro volume real de uso. Subido pra 500 —
-// ainda é só um gate de eficiência local, não uma alegação sobre o teto
-// real do Google (que segue desconhecido). Se 500 também se provar baixo
-// ou alto demais, ajustar de novo com base em evidência real (429 de
-// verdade vindo do Google), nunca em suposição.
-const GEMINI_DAILY_BUDGET = 500;
+// artificialmente baixo demais pro volume real de uso.
+//
+// 19/08/2026 — MESMO BUG DE NOVO, número maior: Roberto reportou "Radar do
+// Esporte" travado. Logs reais confirmaram generated:0 com candidates
+// saudáveis (99), falhas dominadas por "Groq 429: Rate limit reached" — ou
+// seja, Gemini estava falhando primeiro (silenciosamente, callIA() não
+// expõe o motivo real) e todos os 7 canais concorrentes despejavam junto
+// no Groq, que aí sim batia rate limit de verdade por volume. Consultado
+// o contador no Supabase: exatamente 500/500 (o teto anterior). Testado
+// ao vivo: chamada direta com as MESMAS duas chaves, feita DEPOIS do
+// contador já estar saturado, teve sucesso HTTP 200 nas duas — confirma
+// de novo que o teto interno (não o Google) é quem está bloqueando.
+//
+// Fix: em vez de re-adivinhar outro número fixo (mesmo erro do "300" already
+// documentado em 17/08/2026), o teto foi elevado bem acima do volume real
+// de uso do pipeline inteiro num dia — a intenção não é mais "adivinhar o
+// teto real do Google", é deixar de existir como gargalo prático. O 429 REAL
+// do Google (não este gate) continua sendo o único sinal confiável de cota
+// esgotada, e já é tratado corretamente dentro do loop de callGemini()
+// (retry na 2ª chave, depois fallback pro Groq) — esse gate serve só pra
+// não desperdiçar uma chamada de rede quando JÁ SABEMOS que vai falhar, não
+// pra impor um limite artificial que o Google nunca pediu.
+const GEMINI_DAILY_BUDGET = 5000;
 const GEMINI_MODEL = "gemini-flash-lite-latest"; // 17/08/2026 — trocado de gemini-flash-latest (20/dia) pra este (quota separada, > 44/dia confirmado ao vivo). Nome único, usado tanto na URL quanto na chave do contador abaixo
 
 function _diaAtualBRT() {

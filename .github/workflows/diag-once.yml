@@ -1,41 +1,13 @@
 name: Diag Once
+# Placeholder inerte — sem função ativa. Reutilizado sob demanda em sessões de
+# trabalho para diagnósticos pontuais via GitHub Actions (que tem rede real,
+# diferente do sandbox de execução), sempre resetado a este estado depois de
+# usado. Nunca deve virar um workflow permanente com lógica real.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Check Gemini budget + Gemini live + Groq live
-        run: |
-          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "=== 1) Contador de orcamento diario do Gemini ==="
-          curl -s "$SUPA_URL/rest/v1/config?key=eq.GEMINI_BUDGET_20260819_gemini-flash-lite-latest&select=value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY"
-          echo
-
-          echo "=== 2) Chaves Gemini/Groq no config ==="
-          curl -s "$SUPA_URL/rest/v1/config?key=in.(GEMINI_API_KEY,GEMINI_API_KEY_2,GROQ_API_KEY)&select=key,value" -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" > /tmp/keys.json
-          python3 -c "import json; d = json.load(open('/tmp/keys.json')); [print(row['key'], '->', (row['value'][:12] + '...' + row['value'][-6:]) if len(row['value']) > 20 else row['value']) for row in d]"
-
-          GEMINI_KEY1=$(python3 -c "import json; d=json.load(open('/tmp/keys.json')); print(next((r['value'] for r in d if r['key']=='GEMINI_API_KEY'), ''))")
-          GEMINI_KEY2=$(python3 -c "import json; d=json.load(open('/tmp/keys.json')); print(next((r['value'] for r in d if r['key']=='GEMINI_API_KEY_2'), ''))")
-          GROQ_KEY=$(python3 -c "import json; d=json.load(open('/tmp/keys.json')); print(next((r['value'] for r in d if r['key']=='GROQ_API_KEY'), ''))")
-
-          echo "=== 3) Teste direto Gemini KEY1 (gemini-flash-lite-latest) ==="
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$GEMINI_KEY1" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"diga apenas OK"}]}]}' | head -c 1200
-          echo
-
-          echo "=== 4) Teste direto Gemini KEY2 ==="
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$GEMINI_KEY2" -H "Content-Type: application/json" -d '{"contents":[{"parts":[{"text":"diga apenas OK"}]}]}' | head -c 1200
-          echo
-
-          echo "=== 5) Teste direto Groq (openai/gpt-oss-120b) ==="
-          curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "https://api.groq.com/openai/v1/chat/completions" -H "Content-Type: application/json" -H "Authorization: Bearer $GROQ_KEY" -d '{"model":"openai/gpt-oss-120b","messages":[{"role":"user","content":"diga apenas OK"}],"max_tokens":20}' | head -c 1200
-          echo
-
-          echo "=== FIM DO DIAGNOSTICO ==="
+      - run: echo "placeholder — sem função ativa"
