@@ -7176,3 +7176,66 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar visualmente com Roberto** que os cards voltaram a ter conteúdo em todo lugar, como antes desta sessão.
 2. **NÃO alterar `filterRecent()` de novo** sem autorização explícita — ver regra acima.
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 20/08/2026 — 🔴 CAUSA RAIZ REAL E FINAL DO "RADAR DO ESPORTE NAO GERA" — VALIDADOR ERRADO (validar() vs validarBrasilOn()) — CORRIGIDO E VERIFICADO END-TO-END
+
+#### Contexto
+
+Continuação direta de uma sessão anterior (não visível neste resumo) que já tinha aplicado um primeiro fix — commit `65350956`, trocando o kernel de geração dos geradores de curtinha de esportes de `rewriteEsportes()` (MASTER_PROMPT completo, 2500+ chars) para `rewriteEsportesCurtinha()` (kernel próprio, fiel ao tamanho da fonte curta de RSS, mesmo padrão de `BRASILON_KERNEL`). Essa troca já tinha sido deployada com sucesso. Seguindo a regra permanente desta sessão ("nunca reportar corrigido sem evidência real de produção"), rodei um teste ao vivo em produção via `diag-once.yml` (GitHub Actions — único jeito de alcançar `www.ovalorcapital.com.br`, sandbox sem rede) para os dois canais (`futebol`, `outros_esportes`).
+
+**Resultado do teste — o fix anterior NÃO tinha resolvido:** `generated:0` persistia nos dois canais, mas com uma assinatura de erro NOVA (`validar:categoria incoerente` e `validar:texto curto` dominando os `falhas`), substituindo a assinatura antiga (`INCONSISTENCIA` da auditoria do MASTER_PROMPT) — sinal de que a troca de kernel funcionou (o conteúdo deixou de ser universalmente rejeitado por "curto demais" pela própria IA), mas um SEGUNDO bug, distinto, continuava bloqueando 100% da publicação.
+
+#### 🔴 Causa raiz real — os dois geradores de esporte chamavam `validar()` em vez de `validarBrasilOn()`
+
+`api/run_portal.js` tem dois validadores de conteúdo pré-existentes:
+- **`validar()`** — o validador ESTRITO, desenhado pro pipeline com MASTER_PROMPT completo (`autoMaterias()`): título 35-115 chars, **checagem de coerência de categoria** (`content.categoria !== "esportes" && /futebol|tenis|copa do mundo|.../.test(tcat)) erros.push("categoria incoerente")`), **`texto.length < 2000` → "texto curto"**, mínimo de 5 parágrafos, etc.
+- **`validarBrasilOn()`** — validador leve, já reusado por Brasil ON/Jovem Pan Política/Internacional: título 20-120 chars, **`texto.length < 60` → "texto curto demais"**, exige parágrafo `<p><strong>Redação OVC</strong></p>` e ≥8 hashtags — exatamente o formato que `ESPORTES_CURTINHA_KERNEL` é instruído a produzir.
+
+`autoFutebolCurtinhas()` e `autoOutrosEsportesCurtinhas()` (os dois geradores de esporte) tinham sido migrados pro kernel curto (`rewriteEsportesCurtinha()`) na sessão anterior, mas **continuavam chamando `validar()`** — o validador de 2000+ chars/checagem de categoria, incompatível por design com o formato curto. Isso garantia rejeição quase universal: qualquer curtinha de esporte menciona palavras como "futebol"/"tênis"/"copa" no próprio corpo, então `content.categoria !== "esportes"` (campo que o kernel curto nem seta) sempre disparava "categoria incoerente"; e o texto curto por natureza sempre batia no piso de 2000 chars.
+
+#### Fix aplicado (commit `af3a3321`, push direto em main)
+
+Trocado `const erros = validar(content);` por `const erros = validarBrasilOn(content);` nas duas funções — reaproveitando um validador já existente e testado (usado por 3 outros canais em produção), sem escrever nenhuma lógica nova. `node --check` limpo, `api/` confirmado com 10 arquivos (Regra Zero-A intacta — mudança só em `api/run_portal.js`).
+
+#### Verificação end-to-end em produção — evidência real, não suposição
+
+Deploy (`deploy.yml`) confirmado `success` (step "Deploy to Vercel Production"). Disparado novo teste ao vivo via `diag-once.yml` pós-deploy:
+
+```json
+outros_esportes: {"status":"ok","generated":2,"tipo":"outros_esportes_jornal","candidates":101,
+  "porEsporte":{"motor":1,"basquete":1},
+  "distribuicaoBruta":{"motor":29,"basquete":10,"nfl":28,"mma":10,"tenis":19,"volei":5},
+  "falhas":{}}
+futebol: {"status":"ok","generated":0,"tipo":"futebol_jornal","candidates":8}
+```
+
+**`outros_esportes` — prova definitiva do fix:** 101 candidatos reais, 2 artigos gerados e publicados (Motor, Basquete), e **`falhas:{}` — objeto de falhas completamente vazio**, zero rejeições em qualquer etapa. Antes do fix, essa mesma chamada tinha `falhas` dominado por `validar:categoria incoerente`/`validar:texto curto`. Confirma que o bug foi eliminado, não só mitigado.
+
+**`futebol` — `generated:0` com `candidates:8`, sem falha visível.** Essa função não tem instrumentação de `falhas` (diferente de `outros_esportes`), então não dá pra saber exatamente onde os 8 candidatos pararam. Não é sinal de recorrência do bug do validador — é mais provável ser reflexo direto da limitação já documentada em 12/08/2026 (`FONTE_FUTEBOL` restrita a 4 fontes, das quais só GE Globo tem RSS vivo hoje — pool pequeno, alta chance de os 8 candidatos já estarem hash-duplicados de rodadas recentes do cron, que roda a cada 20min).
+
+#### ⚠️ Nota de transparência
+
+`diag-once.yml` resetado ao placeholder inerte (commit `28ff63eb`), convenção padrão do projeto.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (20/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real e final do "Radar do Esporte não gera"** — `validar()` (validador do MASTER_PROMPT, incompatível) trocado por `validarBrasilOn()` (validador correto pro kernel curto) em `autoFutebolCurtinhas()` e `autoOutrosEsportesCurtinhas()` | ✅ EM PRODUÇÃO (commit `af3a3321`) — verificado end-to-end com `falhas:{}` real em produção |
+| **`outros_esportes` gerando com 0 falhas de validação** | ✅ CONFIRMADO — `generated:2, candidates:101, falhas:{}` |
+| **`futebol` — `generated:0` persiste, mas por limitação de pool de fontes (não pelo bug do validador)** | ⚠️ NÃO É REGRESSÃO — pool pequeno (4 fontes, só 1 viva), sem instrumentação de `falhas` nessa função pra confirmar 100% |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Considerar adicionar instrumentação `falhas`/`distribuicaoBruta`** em `autoFutebolCurtinhas()` (mesmo padrão já usado em `autoOutrosEsportesCurtinhas()` desde 07/08) — hoje essa função não expõe onde os candidatos são descartados, dificultando diagnóstico futuro. Não feito nesta sessão por não ter sido pedido e por respeito ao princípio de mudança mínima — mas fica registrado como melhoria de visibilidade útil.
+2. **Confirmar com Roberto, ao longo do dia**, se o Radar do Esporte (todas as 7 abas, incluindo Futebol) está de fato publicando com regularidade — a prova desta sessão foi um teste pontual, não um dia inteiro de produção.
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
