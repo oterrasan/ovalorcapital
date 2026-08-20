@@ -1,25 +1,9 @@
 name: Diag Once
-# retest pos-fix validarBrasilOn 20/08/2026
 on:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
+  workflow_dispatch:
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Test outros_esportes
-        run: |
-          echo "=== outros_esportes ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"outros_esportes","force":true,"count":2}' \
-            --max-time 55 | head -c 3000
-      - name: Test futebol
-        run: |
-          echo "=== futebol ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"futebol","force":true,"count":2}' \
-            --max-time 55 | head -c 2000
+      - run: echo "placeholder — sem função ativa"
