@@ -58,6 +58,7 @@ export default async function handler(req, res) {
     if (action === "admin_colunista_post") return handleAdminColunistaPost(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (action === "track_view") return handleTrackView(res, body);
+    if (action === "newsletter_subscribe") return handleNewsletterSubscribe(res, body);
     if (body.id && !action) return handleApprovePortal(res, { id: body.id, action: "aprovar" });
 
     return res.status(200).json({ ok: false, degraded: true, error: "acao_indisponivel_no_modo_emergencia" });
@@ -240,6 +241,47 @@ function attachFotoColunista(c, photoMap) {
   const foto = safe.foto_url || photoMap[slug] || photoMap[safe.nome] || photoMap[slugify(safe.nome)];
   if (foto && !String(foto).includes(OLD_REF)) safe.foto_url = foto;
   return safe;
+}
+
+// 20/08/2026 — handler que faltava. As 3 frentes do site (footer sitewide via
+// bindNewsletterForms() em site.js, a barra escura injetada por newsletter-bar.js,
+// e a página dedicada /newsletter/) sempre chamaram uma action "newsletter_subscribe"
+// (ou uma rota /api/newsletter/subscribe que nunca existiu) sem NENHUM handler real
+// aqui — todo cadastro sempre caía no fallback "acao_indisponivel_no_modo_emergencia".
+// Armazena em config.NEWSLETTER_SUBSCRIBERS (JSON array) — sem tabela nova, sem
+// migração manual, funciona imediatamente. Usa o padrão seguro (select → update-se-
+// existir-senão-insert) — NUNCA .upsert(...,{onConflict:"key"}), a tabela config não
+// tem essa constraint (ver bugs GEMINI_BUDGET_*/COLUNISTAS_PHOTOS, mesma sessão).
+async function handleNewsletterSubscribe(res, body) {
+  const email = String(body?.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(200).json({ ok: false, error: "E-mail inválido." });
+  }
+  const topics = Array.isArray(body?.topics) ? body.topics.filter(t => typeof t === "string").slice(0, 20) : [];
+  const categoria = typeof body?.categoria === "string" ? body.categoria.slice(0, 60) : null;
+  const source = typeof body?.source === "string" ? body.source.slice(0, 60) : null;
+
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "NEWSLETTER_SUBSCRIBERS").limit(1);
+    const row = data && data[0];
+    let list = [];
+    if (row?.value) {
+      try { const parsed = JSON.parse(row.value); if (Array.isArray(parsed)) list = parsed; } catch (_) {}
+    }
+    const already = list.some(s => s && s.email === email);
+    if (!already) {
+      list.push({ email, topics, categoria, source, created_at: new Date().toISOString() });
+      const value = JSON.stringify(list);
+      if (row) {
+        await supabase.from("config").update({ value }).eq("key", "NEWSLETTER_SUBSCRIBERS");
+      } else {
+        await supabase.from("config").insert({ key: "NEWSLETTER_SUBSCRIBERS", value });
+      }
+    }
+    return res.status(200).json({ ok: true, duplicate: already });
+  } catch (error) {
+    return res.status(200).json({ ok: false, error: "Erro ao cadastrar. Tente novamente." });
+  }
 }
 
 async function handleCreateColunista(req, res, body) {

@@ -138,6 +138,32 @@ button, input, select, textarea { font: inherit; }
 }
 .ovc-field textarea { min-height: 110px; resize: vertical; }
 
+/* 20/08/2026 — .ovc-weather/.ovc-banner-slot/.ovc-form-grid/.ovc-newsletter-*
+   nunca tiveram CSS em lugar nenhum. Invisível nas ~190 páginas de categoria
+   normais (internal-page-v2.js reescreve o miolo antes do usuário ver), mas
+   fica exposto pra sempre em /vc/* e /newsletter/, onde essa reescrita é
+   propositalmente pulada (páginas institucionais) — renderizava como caixa
+   branca crua sem nenhuma identidade OVC. */
+.ovc-weather { padding: 22px 24px; }
+.ovc-weather h3 { margin: 0 0 10px; font-size: 18px; color: var(--text-main); }
+.ovc-weather p  { margin: 0; color: var(--text-soft); font-size: 14px; line-height: 1.7; }
+.ovc-banner-slot {
+  margin-top: 18px; padding: 16px; border-radius: 14px;
+  background: var(--accent-soft, var(--ovc-accent-soft));
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.ovc-banner-slot strong { display: block; font-size: 14px; color: var(--text-main); }
+.ovc-banner-slot span   { display: block; font-size: 13px; color: var(--text-soft); margin-top: 2px; }
+
+.ovc-newsletter-form { padding: 22px 24px; }
+.ovc-form-grid { display: grid; gap: 16px; max-width: 440px; }
+.ovc-newsletter-topics {
+  display: flex; flex-wrap: wrap; gap: 8px 20px;
+  font-size: 13px; color: var(--text-soft);
+}
+.ovc-newsletter-topics label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
 /* Admin */
 .ovc-admin-layout {
   width: min(1800px, 96vw);

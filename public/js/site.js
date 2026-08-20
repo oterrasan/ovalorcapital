@@ -113,9 +113,15 @@ window.OVC = {
       button?.addEventListener('click', async () => {
         const email = input?.value.trim();
         if (!email) return alert('Digite seu e-mail.');
-        const data = await this.fetchJSON('/api/newsletter/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, source: 'footer' }) });
-        alert(data.duplicate ? 'Este e-mail já está cadastrado.' : 'E-mail cadastrado com sucesso.');
-        if (input) input.value = '';
+        try {
+          // 20/08/2026 — apontava pra /api/newsletter/subscribe, rota que nunca existiu.
+          // Agora usa /api/manage com action=newsletter_subscribe (handler real).
+          const data = await this.fetchJSON('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'newsletter_subscribe', email, source: 'footer' }) });
+          alert(data.ok ? (data.duplicate ? 'Este e-mail já está cadastrado.' : 'E-mail cadastrado com sucesso.') : (data.error || 'Erro ao cadastrar. Tente novamente.'));
+          if (data.ok && input) input.value = '';
+        } catch (_) {
+          alert('Erro de conexão. Tente novamente.');
+        }
       });
     });
   },
