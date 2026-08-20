@@ -16,8 +16,8 @@ jobs:
           python3 -c "import json; rows=json.load(open('/tmp/current.json')); m=json.loads(rows[0]['value']); m.pop('diagtest', None); json.dump(m, open('/tmp/clean.json','w'))"
           echo "=== Novo valor (sem diagtest) ==="
           python3 -c "import json; print(list(json.load(open('/tmp/clean.json')).keys()))"
-          VALUE=$(python3 -c "import json; print(json.dumps(json.dumps(json.load(open('/tmp/clean.json')))))")
-          curl -sS -X PATCH "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d "{\"value\": $VALUE}" -w "\nHTTP_STATUS:%{http_code}\n"
+          python3 -c "import json; print(json.dumps({'value': json.dumps(json.load(open('/tmp/clean.json')))}))" > /tmp/payload.json
+          curl -sS -X PATCH "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d @/tmp/payload.json -w "\nHTTP_STATUS:%{http_code}\n"
           echo "=== Confirmando ==="
           curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/after.json
           python3 -c "import json; print(list(json.loads(json.load(open('/tmp/after.json'))[0]['value']).keys()))"
