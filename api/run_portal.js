@@ -713,7 +713,11 @@ async function autoFutebolCurtinhas(req, res, rec) {
       // de RSS) — ver comentário completo em core/ai_portal.js. Causa raiz real
       // do "Radar do Esporte parado": quase todo candidato virava INCONSISTENCIA.
       const content = remapCat(await rewriteEsportesCurtinha(sourceText, item.title || a.title || "", rec.contexto));
-      const erros = validar(content);
+      // 20/08/2026 — validar() é o validador do MASTER_PROMPT (2000+ chars,
+      // categoria==="esportes" obrigatório) — incompatível com o kernel curto
+      // ESPORTES_CURTINHA_KERNEL. validarBrasilOn() já é o validador correto
+      // pra esse formato (mesmo usado por Brasil ON/Jovem Pan/Internacional).
+      const erros = validarBrasilOn(content);
       if (erros.length) continue;
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
       // 14/08/2026 — Roberto: "precisamos raspar imagens, igual fizemos com o
@@ -858,7 +862,11 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
       // 19/08/2026 — mesmo fix de autoFutebolCurtinhas: rewriteEsportesCurtinha
       // em vez de rewriteEsportes (MASTER_PROMPT) — ver core/ai_portal.js.
       const content = remapCat(await rewriteEsportesCurtinha(sourceText, item.title || a.title || "", rec.contexto));
-      const erros = validar(content);
+      // 20/08/2026 — validar() é o validador do MASTER_PROMPT (2000+ chars,
+      // categoria==="esportes" obrigatório) — incompatível com o kernel curto
+      // ESPORTES_CURTINHA_KERNEL. validarBrasilOn() é o validador correto pra
+      // esse formato (mesmo usado por Brasil ON/Jovem Pan/Internacional).
+      const erros = validarBrasilOn(content);
       if (erros.length) { registrarFalha("validar:" + erros[0]); continue; }
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { registrarFalha("dedup_titulo_final"); continue; }
       // 14/08/2026 — Roberto: "precisamos raspar imagens, igual fizemos com o
