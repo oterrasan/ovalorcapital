@@ -207,8 +207,14 @@ async function getColunistaPhotoMap() {
   const map = {};
 
   try {
-    const { data } = await supabase.from("config").select("value").eq("key", "COLUNISTAS_PHOTOS").maybeSingle();
-    const parsed = JSON.parse(data?.value || "{}");
+    // 20/08/2026 — .maybeSingle() trocado por .limit(1): mesma classe de bug
+    // já corrigida em _salvarPesquisa() (PESQUISA_ELEITORAL, 13/08) — com
+    // linhas duplicadas de key="COLUNISTAS_PHOTOS" (causadas pelo upsert
+    // quebrado abaixo, agora também corrigido), .maybeSingle() lançava erro
+    // e o catch(_){} engolia silenciosamente, sempre retornando mapa vazio.
+    const { data } = await supabase.from("config").select("value").eq("key", "COLUNISTAS_PHOTOS").limit(1);
+    const row = data && data[0];
+    const parsed = JSON.parse(row?.value || "{}");
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) Object.assign(map, parsed);
   } catch (_) {}
 
@@ -265,8 +271,22 @@ async function handleUpdateColunistaPhoto(req, res, body) {
 async function savePhoto(slug, foto) {
   const current = await getColunistaPhotoMap();
   current[slug] = foto;
-  const { error } = await supabase.from("config").upsert({ key: "COLUNISTAS_PHOTOS", value: JSON.stringify(current), updated_at: new Date().toISOString() }, { onConflict: "key" });
-  if (error) throw error;
+  const value = JSON.stringify(current);
+  // 20/08/2026 — .upsert(...,{onConflict:"key"}) FALHA nesta tabela (config
+  // não tem constraint unique na coluna key — causa raiz real confirmada em
+  // 13/08/2026 pro card Internacional: "there is no unique or exclusion
+  // constraint matching the ON CONFLICT specification"). Com `if (error)
+  // throw error;`, isso derrubava toda tentativa de salvar foto de colunista.
+  // Fix: mesmo padrão já corrigido e comprovado em _salvarPesquisa() —
+  // checagem via .limit(1) (nunca ambígua) e update-se-existir-senão-insert.
+  const { data: existing } = await supabase.from("config").select("key").eq("key", "COLUNISTAS_PHOTOS").limit(1);
+  if (existing && existing.length) {
+    const { error } = await supabase.from("config").update({ value }).eq("key", "COLUNISTAS_PHOTOS");
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("config").insert({ key: "COLUNISTAS_PHOTOS", value });
+    if (error) throw error;
+  }
 }
 
 async function handleToggleColunista(req, res, body) {

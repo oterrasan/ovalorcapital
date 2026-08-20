@@ -225,36 +225,52 @@ function _chaveOrcamentoHoje() {
   return `GEMINI_BUDGET_${_diaAtualBRT()}_${GEMINI_MODEL}`;
 }
 
+// 20/08/2026 — REESCRITO. O padrão anterior ("select existing → update ou
+// insert") tinha uma condição de corrida real: com 7 canais rodando quase
+// simultaneamente (cron), múltiplas invocações concorrentes do Vercel (cada
+// lambda tem sua própria memória, _orcamentoCache não é compartilhado entre
+// elas) liam "não existe" ao mesmo tempo e cada uma inseria sua própria linha
+// — confirmado ao vivo em produção: 180+ linhas duplicadas da mesma chave
+// GEMINI_BUDGET_20260820_gemini-flash-lite-latest na tabela config num único
+// dia. Pior: com múltiplas linhas para a mesma key, `.maybeSingle()` (usado
+// tanto na leitura quanto na checagem de existência) não lança erro — o
+// Supabase client retorna `data:null` de forma ambígua, o código então trata
+// como "não existe" e insere de novo, criando um ciclo de duplicação que se
+// alimenta sozinho.
+//
+// Fix: abandonar o padrão check-then-write (impossível de fazer sem race
+// condition nesta tabela, que não tem constraint unique — ver Regra
+// documentada em 13/08/2026, card Internacional). Em vez disso, cada
+// incremento é um INSERT novo e independente (sempre seguro, nunca precisa
+// checar nada) e a leitura é uma CONTAGEM de linhas com aquele prefixo — uma
+// agregação, não uma leitura de linha única, então nunca é ambígua nem
+// precisa de constraint. Cache em memória por request (mesmo warm lambda)
+// continua evitando ida ao banco repetida dentro da mesma invocação.
 let _orcamentoCache = null; // { key, count }
 async function _lerOrcamentoDiario() {
   const key = _chaveOrcamentoHoje();
   if (_orcamentoCache && _orcamentoCache.key === key) return _orcamentoCache.count;
   try {
-    const { data } = await supabase.from("config").select("value").eq("key", key).maybeSingle();
-    const count = data ? parseInt(data.value, 10) || 0 : 0;
-    _orcamentoCache = { key, count };
-    return count;
+    const { count } = await supabase
+      .from("config")
+      .select("key", { count: "exact", head: true })
+      .like("key", `${key}%`);
+    const total = count || 0;
+    _orcamentoCache = { key, count: total };
+    return total;
   } catch (_) {
     return 0; // se a leitura falhar, não bloqueia (fail-open — nunca trava o pipeline por causa do próprio gate)
   }
 }
 
-// Update-se-existir-a-linha, senão insert — NUNCA .upsert(...,{onConflict:"key"}).
-// A tabela config não tem constraint unique/PK na coluna key; upsert com
-// onConflict falha silenciosamente nesse schema (causa raiz real documentada
-// em 13/08/2026 — card Internacional travado por exatamente este motivo).
 async function _incrementarOrcamentoDiario() {
   const key = _chaveOrcamentoHoje();
   try {
-    const atual = await _lerOrcamentoDiario();
-    const novo = atual + 1;
-    const { data: existing } = await supabase.from("config").select("key").eq("key", key).maybeSingle();
-    if (existing) {
-      await supabase.from("config").update({ value: String(novo) }).eq("key", key);
-    } else {
-      await supabase.from("config").insert({ key, value: String(novo) });
-    }
-    _orcamentoCache = { key, count: novo };
+    // Sufixo único por chamada (timestamp + random) — cada incremento é uma
+    // linha nova e independente, nunca colide, nunca precisa checar nada.
+    const rowKey = `${key}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await supabase.from("config").insert({ key: rowKey, value: "1" });
+    if (_orcamentoCache && _orcamentoCache.key === key) _orcamentoCache.count += 1;
   } catch (_) {} // falha ao gravar o contador não pode derrubar a chamada de IA em si
 }
 
