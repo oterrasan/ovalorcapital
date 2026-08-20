@@ -8,21 +8,28 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspecionar COLUNISTAS_PHOTOS (sem deletar nada ainda)
+      - name: Antes — contagem GEMINI_BUDGET hoje
         run: |
           SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=key,value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/photos.json
-          echo "=== COLUNISTAS_PHOTOS rows brutas ==="
-          cat /tmp/photos.json
-          echo ""
-          python3 -c "import json; rows = json.load(open('/tmp/photos.json')); print('total rows:', len(rows)); [print(r.get('value')) for r in rows]"
-      - name: Limpar duplicatas GEMINI_BUDGET (seguro — nunca contem dado real, so contador)
+          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
+      - name: Teste ao vivo — brasilon (dispara callGemini com o novo gate)
+        run: |
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"brasilon","force":true,"count":1}' --max-time 55 | head -c 1500
+      - name: Teste ao vivo — internacional
+        run: |
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"internacional","force":true,"count":1}' --max-time 55 | head -c 1500
+      - name: Depois — contagem GEMINI_BUDGET hoje + amostra de chaves
         run: |
           SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo "=== Antes ==="
           curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
-          curl -sS -X DELETE "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -w "\nHTTP_STATUS:%{http_code}\n"
-          echo "=== Depois ==="
-          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
+          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key&limit=5" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+      - name: Teste rapido — savePhoto (COLUNISTAS_PHOTOS) via handleUpdateColunistaPhoto
+        run: |
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" -H "Content-Type: application/json" -d '{"action":"update_colunista_photo","token":"ovc-admin-2026-secreto","slug":"__diag_test__","foto_url":"https://example.com/diag-test.jpg"}' --max-time 20
+      - name: Confirmar COLUNISTAS_PHOTOS ainda com 1 linha (sem duplicar)
+        run: |
+          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
