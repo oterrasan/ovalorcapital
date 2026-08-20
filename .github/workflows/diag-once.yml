@@ -8,28 +8,16 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Antes — contagem GEMINI_BUDGET hoje
+      - name: Remove entrada de teste diagtest de COLUNISTAS_PHOTOS
         run: |
           SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
-      - name: Teste ao vivo — brasilon (dispara callGemini com o novo gate)
-        run: |
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"brasilon","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — internacional
-        run: |
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"internacional","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Depois — contagem GEMINI_BUDGET hoje + amostra de chaves
-        run: |
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
-          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key&limit=5" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-      - name: Teste rapido — savePhoto (COLUNISTAS_PHOTOS) via handleUpdateColunistaPhoto
-        run: |
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" -H "Content-Type: application/json" -d '{"action":"update_colunista_photo","token":"ovc-admin-2026-secreto","slug":"__diag_test__","foto_url":"https://example.com/diag-test.jpg"}' --max-time 20
-      - name: Confirmar COLUNISTAS_PHOTOS ainda com 1 linha (sem duplicar)
-        run: |
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
+          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/current.json
+          python3 -c "import json; rows=json.load(open('/tmp/current.json')); m=json.loads(rows[0]['value']); m.pop('diagtest', None); json.dump(m, open('/tmp/clean.json','w'))"
+          echo "=== Novo valor (sem diagtest) ==="
+          python3 -c "import json; print(list(json.load(open('/tmp/clean.json')).keys()))"
+          VALUE=$(python3 -c "import json; print(json.dumps(json.dumps(json.load(open('/tmp/clean.json')))))")
+          curl -sS -X PATCH "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d "{\"value\": $VALUE}" -w "\nHTTP_STATUS:%{http_code}\n"
+          echo "=== Confirmando ==="
+          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/after.json
+          python3 -c "import json; print(list(json.loads(json.load(open('/tmp/after.json'))[0]['value']).keys()))"
