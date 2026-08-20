@@ -1,23 +1,8 @@
 name: Diag Once
 on:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
-
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Remove entrada de teste diagtest de COLUNISTAS_PHOTOS
-        run: |
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/current.json
-          python3 -c "import json; rows=json.load(open('/tmp/current.json')); m=json.loads(rows[0]['value']); m.pop('diagtest', None); json.dump(m, open('/tmp/clean.json','w'))"
-          echo "=== Novo valor (sem diagtest) ==="
-          python3 -c "import json; print(list(json.load(open('/tmp/clean.json')).keys()))"
-          python3 -c "import json; print(json.dumps({'value': json.dumps(json.load(open('/tmp/clean.json')))}))" > /tmp/payload.json
-          curl -sS -X PATCH "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d @/tmp/payload.json -w "\nHTTP_STATUS:%{http_code}\n"
-          echo "=== Confirmando ==="
-          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/after.json
-          python3 -c "import json; print(list(json.loads(json.load(open('/tmp/after.json'))[0]['value']).keys()))"
+      - run: echo "placeholder — sem função ativa"

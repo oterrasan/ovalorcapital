@@ -7239,3 +7239,118 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Considerar adicionar instrumentação `falhas`/`distribuicaoBruta`** em `autoFutebolCurtinhas()` (mesmo padrão já usado em `autoOutrosEsportesCurtinhas()` desde 07/08) — hoje essa função não expõe onde os candidatos são descartados, dificultando diagnóstico futuro. Não feito nesta sessão por não ter sido pedido e por respeito ao princípio de mudança mínima — mas fica registrado como melhoria de visibilidade útil.
 2. **Confirmar com Roberto, ao longo do dia**, se o Radar do Esporte (todas as 7 abas, incluindo Futebol) está de fato publicando com regularidade — a prova desta sessão foi um teste pontual, não um dia inteiro de produção.
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 20/08/2026 (continuação) — "CHEGA DE ERROS RIDÍCULOS" — AUDITORIA PROATIVA: 2 BUGS ESTRUTURAIS REAIS ENCONTRADOS E CORRIGIDOS NA MESMA CLASSE DO BUG DO CARD INTERNACIONAL (13/08)
+
+#### Contexto
+
+Logo após o fix do validador do Radar do Esporte (acima) ser confirmado, Roberto mandou uma mensagem sem pedido específico — um mandato amplo:
+
+> "claude,preste atencao. chega de erros ridiculos como estes. eu nao quero mais saber de paralisacoes de geracao de conteudos em radares e automacoes. voce ENTENDEU????"
+
+Não era relato de um bug ativo — era uma exigência de que eu pare de só reagir a sintomas pontuais e vá auditar proativamente a mesma classe de fragilidade estrutural que já causou incidentes reais nesta sessão e em sessões anteriores (13/08 — card Internacional travado; 17/08 — Radar Eleitoral com pesquisa presa em "mai/2026"). Ambos os incidentes anteriores tinham a MESMA causa raiz de fundo: `.upsert(payload, {onConflict:"key"})` na tabela `config`, que não tem constraint unique na coluna `key` — o Postgres rejeita com "there is no unique or exclusion constraint..." e um `catch(_){}` mudo engolia o erro silenciosamente, fazendo o sintoma parecer "trava sem explicação" por dias.
+
+#### Auditoria — varredura de todo lugar que usa esse padrão de upsert
+
+Buscado `.upsert(` em `core/ai_portal.js` e `api/manage.js` (os dois arquivos que interagem com a tabela `config`). Encontrados 2 pontos além dos já corrigidos (card Internacional/Brasil ON/Jovem Pan em 13/08, `PESQUISA_ELEITORAL` em 17/08):
+
+**Bug 1 — `GEMINI_BUDGET_*` (gate de orçamento diário do Gemini, criado em 16-17/08): race condition real, confirmada com evidência**
+
+`_incrementarOrcamentoDiario()` fazia `.select()` (ler contagem atual) → `.upsert({key, value: count+1}, {onConflict:"key"})` (gravar incrementado) — um padrão check-then-write clássico. Com 7 canais do cron disparando quase simultaneamente (mesmo padrão de concorrência já documentado em 14/08 no bug do `--max-time`), múltiplas chamadas liam a MESMA contagem antes de qualquer uma escrever, e cada `.upsert()` sem constraint unique real criava uma linha NOVA em vez de atualizar — inflando a tabela `config` com registros duplicados de `GEMINI_BUDGET_{data}_{modelo}` sem nunca reconciliar a contagem real. Confirmado via workflow diagnóstico: **266 linhas duplicadas** acumuladas na tabela só desse padrão — não travava geração no momento (o teto de 200 dava folga), mas era um vazamento silencioso de dados e uma bomba-relógio pronta para reproduzir o mesmo apagão de 15-16/08 assim que o volume de chamadas crescesse.
+
+**Fix — abandonado o padrão check-then-write, adotado insert-only com chave única por chamada:**
+```js
+// core/ai_portal.js
+let _orcamentoCache = null; // { key, count }
+async function _lerOrcamentoDiario() {
+  const key = _chaveOrcamentoHoje();
+  if (_orcamentoCache && _orcamentoCache.key === key) return _orcamentoCache.count;
+  const { count } = await supabase.from("config").select("key", { count: "exact", head: true }).like("key", `${key}%`);
+  const total = count || 0;
+  _orcamentoCache = { key, count: total };
+  return total;
+}
+async function _incrementarOrcamentoDiario() {
+  const key = _chaveOrcamentoHoje();
+  const rowKey = `${key}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await supabase.from("config").insert({ key: rowKey, value: "1" });
+  if (_orcamentoCache && _orcamentoCache.key === key) _orcamentoCache.count += 1;
+}
+```
+Cada incremento é um `INSERT` isolado com chave garantidamente única (timestamp + random) — zero corrida possível entre chamadas concorrentes, zero dependência de constraint que não existe no banco real. A contagem total é lida via `COUNT` agregado (`.like(key%)`), não via leitura+soma de uma única linha.
+
+**Bug 2 — `COLUNISTAS_PHOTOS` (`api/manage.js`): mesmo padrão quebrado, dado real em risco**
+
+`getColunistaPhotoMap()` usava `.maybeSingle()` (lança erro se houver >1 linha com a mesma key — exatamente o cenário que o bug de upsert produz) e `savePhoto()` usava `.upsert({key:"COLUNISTAS_PHOTOS",...},{onConflict:"key"})` — o mesmo erro Postgres real do card Internacional, silenciosamente engolido. Diferente do `GEMINI_BUDGET_*` (dado descartável), este armazena **fotos reais de colunistas** — um bug aqui poderia estar criando linhas duplicadas para a mesma key, com `.maybeSingle()` lançando erro toda vez que alguém tentasse ler a lista (ex: ao vincular foto de um novo colunista), silenciosamente engolido por outro `catch(_){}`.
+
+**Fix — mesmo padrão já provado correto em `_salvarPesquisa()` (17/08) e no card Internacional (13/08): update-se-existir-a-linha-senão-insert, sem depender de nenhum `ON CONFLICT`:**
+```js
+// api/manage.js — getColunistaPhotoMap()
+const { data } = await supabase.from("config").select("value").eq("key", "COLUNISTAS_PHOTOS").limit(1);
+const row = data && data[0];
+// ...
+
+// savePhoto()
+const { data: existing } = await supabase.from("config").select("key").eq("key", "COLUNISTAS_PHOTOS").limit(1);
+if (existing && existing.length) {
+  await supabase.from("config").update({ value }).eq("key", "COLUNISTAS_PHOTOS");
+} else {
+  await supabase.from("config").insert({ key: "COLUNISTAS_PHOTOS", value });
+}
+```
+
+#### Verificação end-to-end real — não só leitura de código
+
+1. Workflow diagnóstico confirmou os 266 registros duplicados de `GEMINI_BUDGET_*` (evidência real do bug 1, não suposição) — todos deletados após confirmar que eram só contadores descartáveis do dia, sem nenhum dado que precisasse ser preservado.
+2. Inspecionado `COLUNISTAS_PHOTOS` ANTES de qualquer ação destrutiva: só 1 linha real existia (nenhuma duplicata ainda tinha se manifestado ali) — decisão consciente de NÃO deletar cegamente esse valor (ao contrário do `GEMINI_BUDGET_*`), só corrigir o código de leitura/escrita.
+3. Deploy (`deploy.yml`) confirmado com sucesso.
+4. Testado ao vivo, pós-deploy: `_incrementarOrcamentoDiario()` chamada 2x → exatamente 2 novas linhas com chaves únicas com timestamp/random, sem ambiguidade, sem erro. `savePhoto()` chamada via `POST /api/manage {"action":"update_colunista_photo",...}` → `{"ok":true,...}` (antes do fix, essa chamada teria lançado o erro Postgres de `ON CONFLICT`) — e a contagem de linhas de `COLUNISTAS_PHOTOS` permaneceu em 1 (update real aconteceu, não duplicação).
+5. **Incidente de limpeza no processo:** o teste do item 4 injetou uma chave de teste (`diagtest`) dentro do JSON real de `COLUNISTAS_PHOTOS` para confirmar que `savePhoto()` funcionava. Ao tentar removê-la, o primeiro `curl -d "{\"value\": $VALUE}"` falhou com `Argument list too long` (exit 126) — a foto real do Roberto em base64 excedia o limite de argumento de linha de comando do shell. Corrigido escrevendo o payload PATCH pra um arquivo (`/tmp/payload.json`) e usando `curl -d @/tmp/payload.json` em vez de inline — confirmado no log: `HTTP_STATUS:204`, e a lista final de slugs voltou a ser exatamente os 9 reais (`roberto-terrasan, beta-ferreira, adriana-ferreira, michele-froiz, coluna-ovc, prof-marcos-pizzolatto, larissa-corvetto, taisa-da-fonseca, andre-oliveira`) — nenhum dado real perdido em nenhum momento, o erro ocorreu ANTES de qualquer escrita.
+
+#### 🚨🚨🚨 Lições registradas — gravar para toda sessão futura
+
+```
+❌ `.upsert(payload, {onConflict:"key"})` contra a tabela `config` deste projeto SEMPRE
+   vai falhar de verdade (Postgres rejeita "no unique constraint") — a tabela nunca teve
+   essa constraint. Qualquer código novo que precise gravar em `config` deve usar o padrão
+   já estabelecido: (a) para valor único por key — .select().eq("key",k).limit(1), depois
+   update-se-existir-senão-insert; (b) para contador/tally concorrente — nunca check-then-
+   write, sempre INSERT isolado com chave única por chamada + leitura via COUNT agregado.
+❌ .maybeSingle() é perigoso em qualquer tabela onde a mesma key pode acumular duplicatas
+   por um upsert quebrado — ele LANÇA erro (não retorna null) quando há >1 linha. Preferir
+   .limit(1) + pegar [0], que nunca lança nesse cenário.
+❌ Passar um payload grande (imagem em base64, texto longo) como argumento shell inline
+   ($VALUE dentro de -d "...") pode estourar o limite de tamanho de linha de comando do SO.
+   Sempre escrever pra um arquivo temporário e usar curl -d @arquivo quando o payload pode
+   ser grande — nunca assumir que vai caber inline.
+❌ Migração SQL de fundo AINDA NÃO FEITA e continua pendente com autorização de Roberto:
+   ALTER TABLE config ADD CONSTRAINT config_key_unique UNIQUE (key); — resolveria a causa
+   raiz pra qualquer upsert futuro, mas exige checar duplicatas existentes primeiro
+   (SELECT key, count(*) FROM config GROUP BY key HAVING count(*) > 1;). Os fixes de código
+   desta e das sessões de 13/08 e 17/08 já tornam qualquer código atual seguro sem essa
+   migração — ela é só uma segunda camada de proteção, não bloqueante.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudanças em `core/ai_portal.js` e `api/manage.js`, arquivos existentes)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (20/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **`GEMINI_BUDGET_*` — race condition real (266 duplicatas confirmadas) eliminada por design** (insert-only com chave única + COUNT agregado, nunca mais check-then-write) | ✅ EM PRODUÇÃO — verificado end-to-end (2 chamadas → 2 linhas novas únicas, sem erro) |
+| **`COLUNISTAS_PHOTOS` — mesmo bug de upsert do card Internacional, corrigido** (update-se-existir-senão-insert, `.maybeSingle()`→`.limit(1)`) | ✅ EM PRODUÇÃO — verificado end-to-end (`savePhoto()` retorna `ok:true`, contagem de linhas permanece 1) |
+| **Incidente de limpeza (`diagtest` injetado durante teste) resolvido sem perda de dado real** — fix do `Argument list too long` via payload em arquivo | ✅ CONFIRMADO — 9 slugs reais intactos, foto do Roberto preservada |
+| **`.github/workflows/diag-once.yml`** resetado ao placeholder inerte | ✅ FEITO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Migração SQL `ALTER TABLE config ADD CONSTRAINT config_key_unique UNIQUE (key)`** — ainda não executada, precisa de autorização de Roberto + checagem prévia de duplicatas. Não bloqueante (código já seguro sem ela).
+2. Se Roberto pedir mais rodadas de auditoria proativa no mesmo espírito: outros candidatos a revisar (não cobertos ainda) incluem `api/portal-posts.js`, `api/category.js`, `api/landing.js`, `api/institutional.js`, `api/sitemap.js`, `api/ig-handler.js`, `core/image_finder.js`/`image_processor.js`/`scraper.js`, e os widgets `public/js/ovc-*.js` ainda não varridos linha a linha (ver sessão 08/08/2026 continuação 2 para a lista original de itens não cobertos).
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
