@@ -8,46 +8,21 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Ultimo post por canal (Supabase direto)
+      - name: Inspecionar COLUNISTAS_PHOTOS (sem deletar nada ainda)
         run: |
-          echo "=== Ultimos posts por publish_method/tipo_conteudo (Supabase) ==="
           SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/posts?select=publish_method,tipo_conteudo,created_at,titulo&order=created_at.desc&limit=40" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/rows.json
-          python3 -c "import json; rows = json.load(open('/tmp/rows.json')); seen = {}; [seen.setdefault((r.get('publish_method'), r.get('tipo_conteudo')), r) for r in rows]; [print(k, '->', r.get('created_at'), '|', (r.get('titulo') or '')[:60]) for k, r in seen.items()]"
-      - name: Orcamento Gemini hoje
+          curl -sS "$SB_URL/rest/v1/config?key=eq.COLUNISTAS_PHOTOS&select=key,value" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/photos.json
+          echo "=== COLUNISTAS_PHOTOS rows brutas ==="
+          cat /tmp/photos.json
+          echo ""
+          python3 -c "import json; rows = json.load(open('/tmp/photos.json')); print('total rows:', len(rows)); [print(r.get('value')) for r in rows]"
+      - name: Limpar duplicatas GEMINI_BUDGET (seguro — nunca contem dado real, so contador)
         run: |
-          echo "=== Config GEMINI_BUDGET hoje ==="
           SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key,value" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-      - name: Teste ao vivo — brasilon
-        run: |
-          echo "=== brasilon ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"brasilon","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — jovempan_politica
-        run: |
-          echo "=== jovempan_politica ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"jovempan_politica","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — internacional
-        run: |
-          echo "=== internacional ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"internacional","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — minuto
-        run: |
-          echo "=== minuto ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"minuto","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — futebol
-        run: |
-          echo "=== futebol ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"futebol","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — outros_esportes
-        run: |
-          echo "=== outros_esportes ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"tipo":"outros_esportes","force":true,"count":1}' --max-time 55 | head -c 1500
-      - name: Teste ao vivo — materias
-        run: |
-          echo "=== materias ==="
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" -H "Content-Type: application/json" -d '{"force":true,"count":1}' --max-time 55 | head -c 1500
+          echo "=== Antes ==="
+          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
+          curl -sS -X DELETE "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -w "\nHTTP_STATUS:%{http_code}\n"
+          echo "=== Depois ==="
+          curl -sS "$SB_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&select=key" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range
