@@ -514,8 +514,14 @@ async function autoFutebolCurtinhas(req, res, rec) {
     if (NAO_FUTEBOL_KW.some(kw => t.includes(kw))) return false;
     return FUTEBOL_KW.some(kw => t.includes(kw));
   }).slice(0, 20);
+  // 23/08/2026 — instrumentação de diagnóstico (Roberto: "cade o motivo do erro e da
+  // trava e cade a solucao"). candidates ficava estável em ~5 por várias rodadas
+  // seguidas com generated:0, sem nenhum sinal de qual etapa rejeitava — mesmo padrão
+  // "falhas"/"distribuicaoBruta" já usado em autoOutrosEsportesCurtinhas() desde 07/08.
+  const falhas = {};
+  const _f = (k) => { falhas[k] = (falhas[k] || 0) + 1; };
   if (!futebolItems.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "futebol_jornal", candidates: 0, info: "no_futebol_news" });
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "futebol_jornal", candidates: 0, info: "no_futebol_news", allNewsLen: allNews.length });
   }
   let generated = 0;
   // Bug #confirmado 08/08/2026 (Roberto flagrou 3 posts idênticos "Flamengo Conquista
@@ -529,16 +535,16 @@ async function autoFutebolCurtinhas(req, res, rec) {
   const geradosAgora = [];
   for (const item of futebolItems) {
     if (Date.now() - start > 50000 || generated >= count) break;
-    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) { _f("pautaFonte"); continue; }
     let a, sourceText;
     try {
       a = await scrape(item.link, { timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
-    } catch(_) { continue; }
+      if (sourceText.length < 300) { _f("textoCurto"); continue; }
+    } catch(e) { _f("scrapeErro:" + (e?.message || e)); continue; }
     const hash = crypto.createHash("md5").update(item.link + "_futebol_jornal").digest("hex");
     const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) continue;
+    if (dup) { _f("hashDup"); continue; }
     try {
       // 19/08/2026 — rewriteEsportes (MASTER_PROMPT, 2.500+ chars) trocado por
       // rewriteEsportesCurtinha (kernel próprio, fiel ao tamanho da fonte curta
@@ -550,24 +556,24 @@ async function autoFutebolCurtinhas(req, res, rec) {
       // ESPORTES_CURTINHA_KERNEL. validarBrasilOn() já é o validador correto
       // pra esse formato (mesmo usado por Brasil ON/Jovem Pan/Internacional).
       const erros = validarBrasilOn(content);
-      if (erros.length) continue;
-      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) continue;
+      if (erros.length) { _f("validar:" + erros[0]); continue; }
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { _f("pautaTitulo"); continue; }
       // 14/08/2026 — Roberto: "precisamos raspar imagens, igual fizemos com o
       // bacci, jovem pan e demais". findImageFutebol() (busca genérica de
       // escudo/Wikipedia, até 10s) trocado pela imagem da PRÓPRIA matéria
       // (a.image, já raspada pelo scrape() acima, mesmo padrão dos outros
       // canais) — mais rápido e muito mais confiável. Sem imagem própria,
       // não publica (nunca reintroduz a busca genérica lenta).
-      if (!a.image) continue;
+      if (!a.image) { _f("semImagem"); continue; }
       const img = await processAndSaveImage(a.image, hash.slice(0, 12), start);
-      if (!img) continue;
+      if (!img) { _f("imgProcessoFalhou"); continue; }
       await salvarEsportesRadar(content, hash, img, "Futebol");
       await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)} | img:${!!img}`);
       geradosAgora.push(content.titulo);
       generated++;
-    } catch(_) { continue; }
+    } catch(e) { _f("excecao:" + (e?.message || e)); continue; }
   }
-  return res.status(200).json({ status: "ok", generated, tipo: "futebol_jornal", candidates: futebolItems.length });
+  return res.status(200).json({ status: "ok", generated, tipo: "futebol_jornal", candidates: futebolItems.length, falhas });
 }
 
 // ATIVADO — 04/08/2026 — Roberto: "quero o radar do esporte 24horas operando e com conteudo
