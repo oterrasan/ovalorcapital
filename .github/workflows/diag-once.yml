@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
+name: Diagnóstico único (temporário — será resetado ao placeholder após uso)
 on:
   push:
     branches: [main]
@@ -9,5 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Placeholder (nada a fazer)
-        run: echo "diag-once.yml resetado — inerte ate a proxima sessao precisar"
+      - name: Testar futebol com falhas instrumentadas
+        run: |
+          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"futebol","force":true,"count":4}')
+          echo "FUTEBOL_1: $RESP"
+      - name: Aguardar 5s
+        run: sleep 5
+      - name: Testar de novo (segunda amostra)
+        run: |
+          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"futebol","force":true,"count":4}')
+          echo "FUTEBOL_2: $RESP"
