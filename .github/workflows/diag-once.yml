@@ -1,4 +1,4 @@
-name: Diagnóstico único (temporário — será resetado ao placeholder após uso)
+name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
 on:
   push:
     branches: [main]
@@ -9,15 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Confirmar artigos reais de futebol publicados (evidencia final)
-        run: |
-          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=esportes&limit=300" \
-            | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-posts=d.get('posts') or d.get('items') or []
-fut=[p for p in posts if 'futebol' in json.dumps(p.get('subcategoria') or p.get('user_tags') or '').lower() or 'futebol' in (p.get('titulo') or '').lower()]
-print('TOTAL_ESPORTES:', len(posts))
-for p in posts[:8]:
-  print(p.get('published_at') or p.get('created_at'), '|', p.get('titulo'))
-"
+      - name: Placeholder (nada a fazer)
+        run: echo "diag-once.yml resetado — inerte ate a proxima sessao precisar"
