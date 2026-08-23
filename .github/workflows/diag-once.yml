@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Testar futebol com falhas instrumentadas
+      - name: Re-teste pos-deploy do fix allowCompetitorImage (GE Globo)
         run: |
           RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
