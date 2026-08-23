@@ -243,7 +243,15 @@ async function cleanupTitles(res, body) {
 // pendente:true agora — Minuto OVC NÃO está na lista de canais autorizados a
 // publicar direto, precisa de aprovação humana como qualquer matéria geral.
 async function saveCurtinha(content, hash, cat, tipo, img = null, subcategoriaOverride = null, pendente = false) {
-  const catFinal = CATS.has(content.categoria) ? content.categoria : (CATS.has(cat) ? cat : "politica");
+  // 21/08/2026 — Roberto: "coisas de esportes indo pra economia... por isso esportes nunca tem
+  // nada". Causa raiz: kernels curtos (ESPORTES_CURTINHA_KERNEL) não emitem CATEGORIA no texto —
+  // parse() cai no fallback hardcoded "economia" — e esta linha priorizava content.categoria
+  // (a categoria "adivinhada" pela IA) sobre `cat` (a categoria REAL que o chamador já sabe,
+  // ex: autoFutebolCurtinhas() sempre passa cat="esportes"). Prioridade invertida: `cat` agora
+  // vence sempre que válido — em todo caller existente cat já é a categoria correta pretendida
+  // (para autoMinutoOVC/autoCurtinhas, cat === content.categoria de qualquer forma, então nenhum
+  // comportamento muda ali; para futebol/outros_esportes, esporte deixa de vazar pra economia).
+  const catFinal = CATS.has(cat) ? cat : (CATS.has(content.categoria) ? content.categoria : "politica");
   const subcat = subcategoriaOverride || SUBCAT[catFinal] || "Geral";
   const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
@@ -422,9 +430,7 @@ async function autoMaterias(req, res, rec) {
 // tipo_conteudo="radar" na categoria esportes é EXCLUSIVAMENTE futebol (Regra Zero-I,
 // documentado desde 31/07/2026 — ver public/js/ovc-radar-widget.js). autoFutebolCurtinhas()
 // e autoCopaCurtinhas() sempre respeitaram isso (geram só a partir de itens já filtrados por
-// palavra-chave de futebol). autoCurtinhas() NÃO respeitava — decidia o tipo só pela categoria,
-// então qualquer esporte (automobilismo, basquete, tênis...) virava "radar" e contaminava
-// /radar-da-bola/, que exibe tudo com esse tipo sem filtro próprio. Fix 03/08/2026.
+// palavra-chave de futebol).
 const RADAR_ESPORTES_FUTEBOL_KW = [
   'futebol', 'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
   'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
@@ -438,46 +444,11 @@ function pareceFutebol(texto) {
   return RADAR_ESPORTES_FUTEBOL_KW.some(kw => t.includes(kw));
 }
 
-async function autoCurtinhas(req, res, rec) {
-  const start = Date.now();
-  const news = await getNews();
-  const seen = new Set();
-  const items = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
-  let generated = 0;
-  for (const item of items) {
-    if (Date.now() - start > 50000 || generated >= 4) break;
-    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
-    let a, sourceText;
-    try {
-      a = await scrape(item.link);
-      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
-    } catch(e) { continue; }
-    if (/\b2023\b/.test(sourceText) && !/\b2026\b/.test(sourceText)) continue;
-    const hash = crypto.createHash("md5").update(item.link + "_jornal").digest("hex");
-    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) continue;
-    try {
-      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
-      const erros = validar(content);
-      if (erros.length) continue;
-      if (pautaParecida(content.titulo, rec.titulos)) continue;
-      const cat = CATS.has(content.categoria) ? content.categoria : "politica";
-      let tipo = ["politica","esportes","internacional","brasil-on"].includes(cat) ? "radar"
-               : ["economia","negocios","investimentos","tributos","tecnologia","industria","imoveis","seguros","carreira"].includes(cat) ? "minuto"
-               : "pilula";
-      // esportes só vira "radar" se for de fato futebol — outro esporte (automobilismo,
-      // basquete, tênis, mma, vôlei, nfl) cai pra "pilula" (nicho genérico, sem essa exigência).
-      if (cat === "esportes" && tipo === "radar" && !pareceFutebol(content.titulo + " " + (content.meta_descricao || ""))) {
-        tipo = "pilula";
-      }
-      await saveCurtinha(content, hash, cat, tipo);
-      await log("info", `[jornal] ${tipo}: ${content.titulo?.slice(0,50)}`);
-      generated++;
-    } catch(e) { /* ignorado */ }
-  }
-  return res.status(200).json({ status: "ok", generated, tipo: "jornal" });
-}
+// autoCurtinhas() (gerador genérico "Pílula" qualquer categoria) DELETADO em 21/08/2026 —
+// Roberto: "Eu mandei voce remover e deletar semanas atras as pilulas... voce nao deletou.
+// DELETA TUDO ISSO IMEDIATAMENTE." A função já estava morta/inalcançável desde 13/06/2026
+// (dispatcher comentado — ver histórico no CLAUDE.md), consumia RSS/scrape à toa sem nunca
+// rodar de fato. Confirmado sem nenhuma chamada ativa antes da remoção.
 
 // MINUTO OVC — reativado 31/07/2026 a pedido de Roberto: SOMENTE fontes de finanças/economia
 // extremamente confiáveis (subconjunto curado das 70 fontes aprovadas), sem mistura com o pool geral.
@@ -562,7 +533,12 @@ async function autoMinutoOVC(req, res, rec) {
       if (pautaParecida(content.titulo, rec.titulos)) continue;
       // Nunca forçar categoria — se a própria IA não classificou como finanças/economia, descarta.
       if (!["economia", "financas", "negocios"].includes(content.categoria)) continue;
-      const post = await saveCurtinha(content, hash, content.categoria, "minuto", null, null, true);
+      // pendente:false (21/08/2026) — antes salvava como pendente/approved:false, mas
+      // handleCurtinhasMinuto() (api/portal-posts.js) só serve status="publicado" — o conteúdo
+      // nunca alcançava /minuto/ na prática (ficava preso atrás da fila geral de aprovação).
+      // Restaura o design original da Regra Zero-I (nichos publicam direto) e dá a este canal
+      // um destino real, conforme cobrado por Roberto: "TODOS OS CONTEUDOS DEVEM TER DESTINO".
+      const post = await saveCurtinha(content, hash, content.categoria, "minuto", null, null, false);
       await log("info", `[minuto] pendente: ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
       generated++;
     } catch (_) { continue; }
@@ -1317,8 +1293,8 @@ export default async function handler(req, res) {
   const rec = await recentes();
   try {
     if (body.url || body.texto) return manual(req, res, rec);
-    // AUTOGERAÇÃO PAUSADA — 14/06/2026 — aguardando implementação dois passes + prompt esportes
-    // if (body.tipo === "curtinhas") return autoCurtinhas(req, res, rec);
+    // "curtinhas" (Pílula genérica) — autoCurtinhas() DELETADA em 21/08/2026, ver comentário
+    // acima de MINUTO OVC. Já estava inalcançável desde 14/06/2026.
     // COPA DESATIVADA — 28/07/2026 — torneio encerrado, substituída pelo Radar do Futebol
     if (body.tipo === "copa") return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_desativado", info: "Radar da Copa desativado — torneio encerrado" });
     if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
