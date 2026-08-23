@@ -7491,3 +7491,72 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Confirmar, após alguns ciclos do cron reordenado**, que o Radar do Esporte (Futebol + Basquete/Motor/Tênis/MMA/Vôlei/NFL) está gerando com mais regularidade — a promoção de prioridade é recente, ainda não observada em produção ao longo de um ciclo completo.
 3. Pendências #2 e #3 da entrada anterior (21/08/2026, antes desta continuação) seguem válidas: confirmar `user_tags:["esportes"]` de verdade nos posts novos, e considerar correção retroativa do conteúdo histórico salvo como economia antes do fix de `saveCurtinha()`.
 4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 23/08/2026 — DELEÇÃO TOTAL DO SISTEMA DE CURTINHAS/PÍLULAS + 🔴 REGRESSÃO REAL E FIX: RADAR DO ESPORTE ESVAZIADO
+
+#### Contexto
+
+Roberto: *"TODAS AS CURTINHAS, PILULAS E O CARALHO A QUATRO... EU JA HAVIA MANDADO DELETAR ISSO HA SEMANAS"* + *"O RADAR DOS ESPORTES DEVERIAM SER MATERIAS COMPLETAS E COM IMAGENS, RASPADAS DE FONTES CONFIAVEIS"* + *"ESTAS MERDAS CONTINUAM DA HOME E NO PORTAL, NAO QUERO NADA DISSO NO SISTEMA"*. Também instrução crítica de comunicação: **"FALA EM PORTUGUIES!! CARALHO"** — todas as respostas a Roberto passam a ser em português, sem exceção, pro resto da sessão (e daqui pra frente).
+
+#### Parte 1 — Deleção completa (commit `6d7a7813`)
+
+- `saveCurtinha()` deletada de `api/run_portal.js`, substituída por `salvarEsportesRadar(content, hash, img, sportLabel)` — mesmo padrão de `salvarBrasilOn()`: `tipo_conteudo:"padrao"`, `status:"publicado"`, aparece como matéria normal em `/esportes/` e na home. `autoFutebolCurtinhas()`/`autoOutrosEsportesCurtinhas()` já raspavam fonte dedicada + exigiam imagem real — só a gravação mudou.
+- `handleCurtinhas()`/`handleCurtinhasRadar()`/`mapCurtinhaRow()`/`SEL_CURTINHAS` deletados de `api/portal-posts.js` — endpoint `?curtinhas=true` não existe mais.
+- `public/js/ovc-nichos.js` ("Notas do Dia") deletado por completo. Bloco B ("Notas do dia" — faixa de pílulas na home) removido de `ovc-cards.js`.
+- 9 widgets de esporte (`ovc-radar-esporte`, `ovc-radar-widget`, `ovc-copa`, `ovc-radar-motor`, `ovc-radar-tenis`, `ovc-radar-mma`, `ovc-radar-volei`, `ovc-torneio-espn`, `ovc-futebol-europeu`) migrados de `?curtinhas=true` pra `?recentes=true`.
+- `public/copa/index.html`: painel "Pílulas OVC · Copa 2026" removido.
+
+#### 🔴 Parte 2 — Regressão real reportada por Roberto, minutos depois do deploy
+
+Roberto confirmou o esperado (pílulas sumiram da home) mas reportou: **"SIM, SUMIRAM DA HOME, MAS TUDO O QUE TINHA DE CONTEUDO DENTRO DO RADAR DO ESPORTE SUMIU BASICAMENTE!!!!!!!! ISSO NAO PODE ACONTECER"**.
+
+**Investigação com evidência real (Supabase direto + API de produção, workflow `diag-once.yml`), sem suposição:**
+
+1. `/api/portal-posts?recentes=true&limit=300` (o endpoint que os 9 widgets passaram a usar) retornava, em produção real, **396 posts no total e só 7 de esportes**. Descartadas duas hipóteses antes de chegar na causa raiz: (a) campo `subcategoria` ausente na resposta — não era, `formatPost()` sempre retorna; (b) mismatch de label entre `OUTROS_ESPORTES[].label` (backend) e `SPORTS[].label` (frontend) — não era, batiam exatamente.
+2. Causa raiz real: `handleRecentes()` sempre foi um endpoint de **pool geral do site** (top-N por recência, SEM filtro de categoria na query) — o antigo `?curtinhas=true` era um endpoint **dedicado por categoria**, então esportes nunca competia por espaço com o resto do site. Ao trocar pra `?recentes=true`, esportes passou a competir pelos únicos 300 slots do site inteiro contra política/economia/internacional/brasil-on (todos com `count:3`, rodando 24h) — volume muito maior, esportes ficava diluído a quase nada.
+
+**Fix (commit `84344f3c`):** `handleRecentes()` em `api/portal-posts.js` ganha suporte a `?categoria=SLUG` — quando presente, faz uma query direta filtrada por categoria (mesmo padrão já usado no bloco de "fillers" pré-existente da própria função), e o `limit` passa a valer **dentro** da categoria, não do site inteiro. Os 9 widgets de esporte passaram a chamar `&categoria=esportes`.
+
+**Verificado end-to-end em produção real, pós-deploy (não só suposição):**
+```
+SEM categoria (comportamento antigo): TOTAL:396 ESPORTES:7
+COM categoria=esportes (fix novo):    TOTAL_RETORNADO:241 FORA_DE_ESPORTES:0
+```
+O pool disponível pros widgets passou de 7 pra 241 itens — cobrindo Futebol/Basquete/Tênis/Motor/NFL desde 10/07 até 22/08. Deploy (`deploy.yml`) confirmado `success` para ambos os commits (`6d7a7813` e `84344f3c`).
+
+#### 🚨 Lição registrada
+
+```
+❌ Ao trocar QUALQUER widget de um endpoint DEDICADO POR CATEGORIA para um
+   endpoint de POOL GERAL (top-N por recência sitewide), sempre verificar
+   se a categoria migrada tem volume de publicação MENOR que as categorias
+   concorrentes que também disputam aquele pool — se sim, ela vai ficar
+   diluída/esvaziada mesmo sem nenhum bug de lógica ou de matching. A
+   correção correta não é "achar o bug" na classificação — é dar à
+   categoria de menor volume uma query PRÓPRIA e filtrada no servidor,
+   não uma fatia de um pool compartilhado com limite fixo.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (23/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Sistema de curtinhas/pílulas — deletado por completo** (backend + `ovc-nichos.js` + Bloco B) | ✅ EM PRODUÇÃO (commit `6d7a7813`) |
+| **`handleRecentes()` com suporte a `?categoria=SLUG`** — query filtrada no servidor, não mais pool geral diluído | ✅ EM PRODUÇÃO (commit `84344f3c`) — verificado end-to-end (241 itens vs. 7 antes) |
+| **9 widgets de esporte usando `&categoria=esportes`** | ✅ EM PRODUÇÃO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** que o Radar do Esporte (home + 8 páginas dedicadas) está mostrando conteúdo variado nas 7 abas de novo — a correção foi verificada via API direta, não em navegador.
+2. **⚠️ IMPORTANTE — falar SEMPRE em português com Roberto**, sem exceção. Instrução explícita e enfática dada nesta sessão.
+3. Considerar se outros widgets que também migraram de `?curtinhas=true`/endpoints dedicados pra `?recentes=true` em sessões anteriores (Radar Eleitoral, Pulso BR) sofrem do mesmo tipo de diluição — não investigado nesta sessão, só o caso de esportes (o único reportado).
+4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
