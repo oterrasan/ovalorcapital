@@ -1,6 +1,9 @@
 name: Pipeline OVC — Matérias e Curtinhas
 
 on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/pipeline-cron.yml"]
   schedule:
     # 17/08/2026 — Roberto pediu pra reduzir um pouco a frequência (era a cada
     # 15min = 96 disparos/dia) mantendo volume mínimo de 110-120 conteúdos/dia,
