@@ -235,43 +235,44 @@ async function cleanupTitles(res, body) {
   return res.status(200).json({ status: "ok", fixedTitles, fixedContent: 0 });
 }
 
+// SISTEMA DE CURTINHAS/PÍLULAS DELETADO POR COMPLETO — 23/08/2026, Roberto:
+// "TODAS AS CURTINHAS, PILULAS E O CARALHO A QUATRO... EU JA HAVIA MANDADO
+// DELETAR ISSO HA SEMANAS" + "O RADAR DOS ESPORTES DEVERIAM SER MATERIAS
+// COMPLETAS E COM IMAGENS, RASPADAS DE FONTES CONFIAVEIS". A antiga
+// saveCurtinha() gravava tipo_conteudo="radar"/"pilula" — um formato de post
+// paralelo, invisível nas categorias normais e na home, só exibido por
+// widgets dedicados (ovc-nichos.js "Notas do Dia", ovc-radar-esporte.js,
+// ovc-radar-widget.js). Removida por completo, junto com buildCurtinhaUrl()
+// (nunca chamada em lugar nenhum) e o endpoint handleCurtinhas()/
+// handleCurtinhasRadar() em api/portal-posts.js e o widget ovc-nichos.js.
+//
+// Substituída por salvarEsportesRadar() abaixo — mesmo padrão de
+// salvarBrasilOn() (matéria PADRÃO completa, tipo_conteudo="padrao",
+// publicada direto, aparece normalmente em /esportes/ e na home, igual
+// qualquer outro artigo do portal). autoFutebolCurtinhas()/
+// autoOutrosEsportesCurtinhas() já raspavam fonte confiável dedicada por
+// esporte e já exigiam imagem real da própria matéria antes de publicar
+// (ver FONTE_FUTEBOL/FONTE_PARA_ESPORTE abaixo) — só a gravação no banco
+// mudou, a raspagem e a exigência de imagem real já eram assim.
+//
 // 16/08/2026 — Roberto: "NADA PUBLICA AUTOMATICAMENTE, SO BRASIL ON,
 // INTERNACIONAIS E POLITICA (...) ALEM DISSO, SO OS RADARES TAMBEM PUBLICAM
-// AUTOMATICAMENTE". Parâmetro `pendente` adicionado — default false preserva
-// o comportamento atual pros Radares (autoFutebolCurtinhas/autoOutrosEsportes-
-// Curtinhas, permitidos por regra explícita).
-async function saveCurtinha(content, hash, cat, tipo, img = null, subcategoriaOverride = null, pendente = false) {
-  // 21/08/2026 — Roberto: "coisas de esportes indo pra economia... por isso esportes nunca tem
-  // nada". Causa raiz: kernels curtos (ESPORTES_CURTINHA_KERNEL) não emitem CATEGORIA no texto —
-  // parse() cai no fallback hardcoded "economia" — e esta linha priorizava content.categoria
-  // (a categoria "adivinhada" pela IA) sobre `cat` (a categoria REAL que o chamador já sabe,
-  // ex: autoFutebolCurtinhas() sempre passa cat="esportes"). Prioridade invertida: `cat` agora
-  // vence sempre que válido — em todo caller existente cat já é a categoria correta pretendida,
-  // então nenhum comportamento muda exceto: esporte deixa de vazar pra economia.
-  const catFinal = CATS.has(cat) ? cat : (CATS.has(content.categoria) ? content.categoria : "politica");
-  const subcat = subcategoriaOverride || SUBCAT[catFinal] || "Geral";
+// AUTOMATICAMENTE" — regra ainda válida: Radar do Esporte publica direto,
+// sem fila de aprovação, igual Brasil ON/Jovem Pan/Internacional.
+async function salvarEsportesRadar(content, hash, img, sportLabel) {
   const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
-    comentario_fixado: (content.meta_descricao||"").trim(), imagem: img || null, hash,
-    status: pendente ? "pendente" : "publicado",
-    approved: !pendente,
-    publish_method: "portal",
-    published_at: pendente ? null : new Date().toISOString(),
-    user_tags: JSON.stringify([catFinal]), subcategoria: subcat,
-    subcategoria_slug: slugify(subcat), collaborators: "[]",
-    tipo_conteudo: tipo, metrics: { foco_keyword: content.foco_keyword||"", tipo },
+    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    status: "publicado", approved: true, publish_method: "esportes_radar",
+    published_at: new Date().toISOString(),
+    user_tags: JSON.stringify(["esportes"]), subcategoria: sportLabel || SUBCAT.esportes,
+    subcategoria_slug: slugify(sportLabel || SUBCAT.esportes), collaborators: "[]",
+    tipo_conteudo: "padrao",
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo) },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  return { id: data.id, categoria: catFinal, titulo: stripTitle(content.titulo), pendente };
-}
-
-// URL canônica de um post recém-salvo — mesmo esquema de api/article.js (categoria/slug-id8/)
-function buildCurtinhaUrl(post) {
-  if (!post?.id) return null;
-  const id8 = String(post.id).slice(0, 8);
-  const slug = slugify(post.titulo || "").slice(0, 55);
-  return `https://www.ovalorcapital.com.br/${post.categoria}/${slug}-${id8}/`;
+  return { id: data.id, categoria: "esportes", titulo: stripTitle(content.titulo) };
 }
 
 // ─── GOOGLE INDEXING API — best-effort, silencioso se GOOGLE_INDEXING_SA_JSON ausente ───
@@ -438,28 +439,13 @@ async function autoMaterias(req, res, rec) {
   return res.status(200).json({ status: "no_valid_news", generated: 0, categoria: cat, debug });
 }
 
-// tipo_conteudo="radar" na categoria esportes é EXCLUSIVAMENTE futebol (Regra Zero-I,
-// documentado desde 31/07/2026 — ver public/js/ovc-radar-widget.js). autoFutebolCurtinhas()
-// e autoCopaCurtinhas() sempre respeitaram isso (geram só a partir de itens já filtrados por
-// palavra-chave de futebol).
-const RADAR_ESPORTES_FUTEBOL_KW = [
-  'futebol', 'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
-  'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
-  'copa sul-americana', 'copa libertadores', 'copa do mundo', 'world cup', 'mundial 2026',
-  'fifa', 'seleção brasileira', 'selecao brasileira', 'champions league', 'liga dos campeões',
-  'liga dos campeoes', 'premier league', 'la liga', 'bundesliga', 'calcio', 'ligue 1',
-  'mercado da bola', 'janela de transferências', 'janela de transferencias'
-];
-function pareceFutebol(texto) {
-  const t = String(texto || "").toLowerCase();
-  return RADAR_ESPORTES_FUTEBOL_KW.some(kw => t.includes(kw));
-}
-
-// autoCurtinhas() (gerador genérico "Pílula" qualquer categoria) DELETADO em 21/08/2026 —
-// Roberto: "Eu mandei voce remover e deletar semanas atras as pilulas... voce nao deletou.
-// DELETA TUDO ISSO IMEDIATAMENTE." A função já estava morta/inalcançável desde 13/06/2026
-// (dispatcher comentado — ver histórico no CLAUDE.md), consumia RSS/scrape à toa sem nunca
-// rodar de fato. Confirmado sem nenhuma chamada ativa antes da remoção.
+// HISTÓRICO — Pílula genérica (autoCurtinhas), Radar da Copa (autoCopaCurtinhas) e o
+// classificador pareceFutebol()/RADAR_ESPORTES_FUTEBOL_KW (que só servia pra decidir
+// "radar" vs "pilula" dentro do sistema de curtinhas) foram TODOS deletados por completo
+// em 23/08/2026 — Roberto: "TODAS AS CURTINHAS, PILULAS E O CARALHO A QUATRO... EU JA
+// HAVIA MANDADO DELETAR ISSO HA SEMANAS". Já estavam inalcançáveis pelo dispatcher desde
+// 21/08 e 28/07 respectivamente, mas o código continuava no arquivo. Ver comentário acima
+// de salvarEsportesRadar() para o que substituiu o sistema de curtinhas do Radar do Esporte.
 
 // MINUTO OVC — DELETADO em 21/08/2026 — Roberto: "DELETA TUDO ISSO IMEDIATAMENTE... nao
 // quero resquicio de codigo no sistema do ovc". Toda a lógica (MINUTO_FONTES_CONFIAVEIS,
@@ -469,60 +455,6 @@ function pareceFutebol(texto) {
 // (/minuto/, /dolar-hoje/, /selic-hoje/, /ibovespa-hoje/) — ver CLAUDE.md para o
 // histórico completo. Roberto pediu manter e priorizar o Radar do Esporte/Futebol
 // (ver comentários em pipeline-cron.yml), NÃO confundir os dois sistemas.
-
-// DESATIVADO — 28/07/2026 — Roberto: Copa do Mundo 2026 encerrada, radar desligado.
-// Função mantida como histórico/referência, mas nunca mais é chamada pelo dispatcher.
-async function autoCopaCurtinhas(req, res, rec) {
-  const start = Date.now();
-  const body = req.body || {};
-  const count = Math.min(parseInt(body.count) || 2, 4);
-  // Filtro estrito: apenas termos que inequivocamente se referem à Copa do Mundo FIFA 2026
-  const COPA_KW = [
-    'copa do mundo', 'copa do mundo 2026', 'world cup', 'world cup 2026',
-    'mundial 2026', 'fifa 2026', 'fifa world cup', 'copa 2026',
-    'oitavas da copa', 'quartas da copa', 'semifinal da copa', 'final da copa',
-    'fase de grupos da copa', 'tabela da copa', 'grupo da copa',
-    'artilheiro da copa', 'escalação da copa', 'jogo da copa',
-    'seleção na copa', 'brasil na copa', 'seleção brasileira na copa',
-    'eliminado da copa', 'classificado para a copa',
-    'concacaf 2026', 'usmnt', 'canada soccer 2026', 'mexico soccer 2026',
-    'marrocos copa', 'portugal copa', 'argentina copa',
-    'france world cup', 'germany world cup', 'spain world cup', 'england world cup'
-  ];
-  const [esportes, geral] = await Promise.all([getNewsByCategoria("esportes"), getNews()]);
-  const seen = new Set();
-  const allNews = [...esportes, ...geral].filter(i => i?.link && !seen.has(i.link) && seen.add(i.link));
-  const copaItems = allNews.filter(i => {
-    const t = ((i.title || "") + " " + (i.description || "")).toLowerCase();
-    return COPA_KW.some(kw => t.includes(kw));
-  }).slice(0, 20);
-  if (!copaItems.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_jornal", candidates: 0, info: "no_copa_news" });
-  }
-  let generated = 0;
-  for (const item of copaItems) {
-    if (Date.now() - start > 50000 || generated >= count) break;
-    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
-    let a, sourceText;
-    try {
-      a = await scrape(item.link);
-      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
-    } catch(_) { continue; }
-    const hash = crypto.createHash("md5").update(item.link + "_copa_jornal").digest("hex");
-    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) continue;
-    try {
-      const content = remapCat(await rewriteEsportes(sourceText, item.title || a.title || "", rec.contexto));
-      const erros = validar(content);
-      if (erros.length) continue;
-      await saveCurtinha(content, hash, "esportes", "radar");
-      await log("info", `[copa-jornal] ${content.titulo?.slice(0,50)}`);
-      generated++;
-    } catch(_) { continue; }
-  }
-  return res.status(200).json({ status: "ok", generated, tipo: "copa_jornal", candidates: copaItems.length });
-}
 
 // ATIVADO — 28/07/2026 — Roberto: Radar do Futebol (Brasileirão A/B, Libertadores, Sul-Americana)
 // Substitui o Radar da Copa, mesmo padrão automático de geração.
@@ -629,7 +561,7 @@ async function autoFutebolCurtinhas(req, res, rec) {
       if (!a.image) continue;
       const img = await processAndSaveImage(a.image, hash.slice(0, 12), start);
       if (!img) continue;
-      await saveCurtinha(content, hash, "esportes", "radar", img);
+      await salvarEsportesRadar(content, hash, img, "Futebol");
       await log("info", `[futebol-jornal] ${content.titulo?.slice(0,50)} | img:${!!img}`);
       geradosAgora.push(content.titulo);
       generated++;
@@ -778,7 +710,7 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
       if (!a.image) { registrarFalha("semImagemFonte"); continue; }
       const img = await processAndSaveImage(a.image, hash.slice(0, 12), start);
       if (!img) { registrarFalha("imagemFalhouProcessar"); continue; }
-      await saveCurtinha(content, hash, "esportes", "pilula", img, sport.label);
+      await salvarEsportesRadar(content, hash, img, sport.label);
       await log("info", `[outros-esportes-jornal] ${sport.label}: ${content.titulo?.slice(0,50)}`);
       porEsporte[sport.key] = (porEsporte[sport.key] || 0) + 1;
       geradosAgora.push(content.titulo);
@@ -794,8 +726,8 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
 // ═══════════════════════════════════════════════════════════════════════════
 // BRASIL ON — 11/08/2026, Roberto Terrasan: divisão popular do OVC. Reescrita
 // 100% de um número pequeno de perfis/sites monitorados, quase instantânea,
-// publicação 24h sem aprovação no admin (mesma lógica de saveCurtinha — sem
-// fila, sem janela de horário). Categoria "brasil-on", publish_method="brasilon"
+// publicação 24h sem aprovação no admin (mesma lógica de salvarEsportesRadar —
+// sem fila, sem janela de horário). Categoria "brasil-on", publish_method="brasilon"
 // para rastreabilidade/futuro domínio próprio. Fontes em core/brasilon.js —
 // NUNCA adicionar fonte sem aprovação explícita de Roberto.
 //
@@ -1217,13 +1149,12 @@ export default async function handler(req, res) {
   const rec = await recentes();
   try {
     if (body.url || body.texto) return manual(req, res, rec);
-    // "curtinhas" (Pílula genérica) — autoCurtinhas() DELETADA em 21/08/2026, ver comentário
-    // acima de MINUTO OVC. Já estava inalcançável desde 14/06/2026.
-    // COPA DESATIVADA — 28/07/2026 — torneio encerrado, substituída pelo Radar do Futebol
+    // Pílula genérica e Radar da Copa — DELETADOS por completo em 23/08 e 28/07/2026
+    // respectivamente, ver comentário "HISTÓRICO" acima de FONTE_FUTEBOL.
     if (body.tipo === "copa") return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_desativado", info: "Radar da Copa desativado — torneio encerrado" });
     if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
     if (body.tipo === "outros_esportes") return autoOutrosEsportesCurtinhas(req, res, rec);
-    // Minuto OVC DELETADO em 21/08/2026 — ver comentário acima de autoCopaCurtinhas().
+    // Minuto OVC DELETADO em 21/08/2026 — ver comentário acima de FONTE_FUTEBOL.
     if (body.tipo === "brasilon") return autoBrasilOn(req, res, rec);
     if (body.tipo === "jovempan_politica") return autoJovempanPolitica(req, res, rec);
     if (body.tipo === "internacional") return autoInternacional(req, res, rec);

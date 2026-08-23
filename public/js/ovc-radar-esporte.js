@@ -354,30 +354,20 @@
     if (mainGrid) mainGrid.appendChild(bloco);
   }
 
+  // Sistema de curtinhas DELETADO — 23/08/2026 (Roberto). Todo o conteúdo de
+  // esportes (Futebol via autoFutebolCurtinhas, demais esportes via
+  // autoOutrosEsportesCurtinhas) agora salva como tipo_conteudo="padrao" —
+  // artigo completo, com imagem real, aparecendo normalmente no feed geral.
+  // A classificação por esporte usa exclusivamente o feed ?recentes=true,
+  // igual a todos os outros radares (ovc-copa.js, ovc-radar-volei.js etc.).
   function init() {
-    Promise.all([
-      fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=60').then(function(r){ return r.json(); }).catch(function(){ return {curtinhas:[]}; }),
-      fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).catch(function(){ return {posts:[]}; })
-    ]).then(function(results) {
-      var todosCurtinhas = results[0].curtinhas || [];
-      var todosArtigos   = results[1].posts    || [];
+    fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).then(function(d) {
+      var todosArtigos = d.posts || [];
 
       var porEsporte = {};
       SPORTS.forEach(function (s) { porEsporte[s.key] = []; });
-      var idsUsados = {};
-
-      todosCurtinhas.forEach(function (n) {
-        var tipo = n.tipo_conteudo || n.tipo || '';
-        if (tipo !== 'radar' && tipo !== 'pilula' && tipo !== 'micropilula') return;
-        var texto = ((n.titulo || '') + ' ' + (n.resumo || '')).toLowerCase();
-        var key = classificar(texto, n.subcategoria);
-        if (!key) return;
-        porEsporte[key].push(n);
-        idsUsados[n.id] = true;
-      });
 
       todosArtigos.forEach(function (p) {
-        if (idsUsados[p.id]) return;
         if (p.categoria !== 'esportes') return;
         var texto = ((p.titulo || '') + ' ' + (p.comentario_fixado || '')).toLowerCase();
         var key = classificar(texto, p.subcategoria);

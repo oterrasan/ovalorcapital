@@ -339,12 +339,8 @@
     if (!alvo) return;
     alvo.innerHTML = '<div class="ovc-mdb-wrap"><div class="ovc-mdb-empty">Carregando…</div></div>';
 
-    Promise.all([
-      fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=30').then(function (r) { return r.json(); }).catch(function () { return { curtinhas: [] }; }),
-      fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).catch(function () { return { posts: [] }; })
-    ]).then(function (results) {
-      var todos = (results[0].curtinhas || []).concat(results[1].posts || []);
-      montar(filtrar(todos));
+    fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).then(function (d) {
+      montar(filtrar(d.posts || []));
     }).catch(function () { montar([]); });
   }
 

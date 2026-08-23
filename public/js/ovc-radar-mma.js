@@ -187,11 +187,8 @@
 
   function fetchNoticias() {
     var kw = CFG.keywords || [];
-    Promise.all([
-      fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=30').then(function (r) { return r.json(); }).catch(function () { return { curtinhas: [] }; }),
-      fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).catch(function () { return { posts: [] }; })
-    ]).then(function (results) {
-      var todos = (results[0].curtinhas || []).concat(results[1].posts || []);
+    fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).then(function (d) {
+      var todos = d.posts || [];
       var vistos = {};
       var filtrados = todos.filter(function (p) {
         if (vistos[p.id]) return false;

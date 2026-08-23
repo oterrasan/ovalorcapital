@@ -114,98 +114,20 @@ async function handleHome(req, res) {
 }
 
 
-// ─── CURTINHAS (pilula/micropilula/radar) por categoria ──────────────────────
-// REGRA 0: esses conteúdos NUNCA aparecem nos cards normais da home.
-// Este endpoint é exclusivo: ?curtinhas=true&categoria=SLUG&limit=N
-// Retorna mix balanceado: top radar + top pilula (evita Copa dominar pool)
-// Minuto OVC DELETADO em 21/08/2026 (Roberto — ver CLAUDE.md) — nunca mais servir tipo_conteudo="minuto".
-const SEL_CURTINHAS = "id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at";
-
-function mapCurtinhaRow(row) {
-  const tags = parseTags(row.user_tags);
-  const categoria = normalizeCat(tags[0] || "politica") || "politica";
-  const catPath = CAT_PATH[categoria] || categoria;
-  const id8 = String(row.id || "").slice(0, 8);
-  const slug = slugify(row.titulo || "").slice(0, 55);
-  return {
-    id: row.id,
-    titulo: clean(row.titulo || ""),
-    resumo: clean(row.comentario_fixado || stripHtml(row.conteudo || "").slice(0, 200)),
-    categoria,
-    tipo: row.tipo_conteudo || "pilula",
-    data: row.published_at || row.created_at || new Date().toISOString(),
-    url: `/${catPath}/${slug}-${id8}/`
-  };
-}
-
-// Modo dedicado ?curtinhas=true&tipo=radar[&categoria=SLUG][&limit=N]
-// Usado pela página dedicada /radar-da-bola/ (e futuras páginas de Radar OVC por categoria).
-// Sem cap artificial (até 50) — diferente da query balanceada de handleCurtinhas(), que limita a 4
-// para não deixar o Radar dominar a home. Aqui é a listagem completa do nicho Radar OVC.
-async function handleCurtinhasRadar(req, res) {
-  const limit = Math.min(Math.max(parseInt(req.query.limit) || 30, 1), 50);
-  const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
-  let q = supabase.from("posts").select(SEL_CURTINHAS).eq("status", "publicado")
-    .eq("tipo_conteudo", "radar").order("published_at", { ascending: false }).limit(limit);
-  if (cat && cat !== "all") {
-    const aliases = CATEGORY_ALIASES[cat];
-    q = aliases
-      ? q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","))
-      : q.like("user_tags", `%"${cat}"%`);
-  }
-  const { data } = await q;
-  const posts = (data || []).map(mapCurtinhaRow);
-  return res.status(200).json({ curtinhas: posts, total: posts.length, categoria: cat || null });
-}
-
-async function handleCurtinhas(req, res) {
-  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
-
-  const tipoQ = String(req.query.tipo || "").toLowerCase();
-  if (tipoQ === "radar") {
-    return handleCurtinhasRadar(req, res);
-  }
-
-  const cat = normalizeCat(String(req.query.categoria || "").toLowerCase());
-  const hasCat = !!(cat && cat !== "all");
-
-  function addCatFilter(q) {
-    if (!hasCat) return q;
-    const aliases = CATEGORY_ALIASES[cat];
-    return aliases
-      ? q.or(aliases.map(c => `user_tags.like.%"${c}"%`).join(","))
-      : q.like("user_tags", `%"${cat}"%`);
-  }
-
-  // Busca balanceada: 3 queries paralelas por tipo para evitar que radares Copa dominem
-  // NA HOME (sem categoria) — caps fixos 4/3/3, pequenos de propósito.
-  //
-  // Widgets de PÁGINA DEDICADA (ovc-radar-esporte.js, ovc-copa.js, ovc-radar-motor.js,
-  // ovc-torneio-espn.js, etc — todos chamam ?curtinhas=true&categoria=X&limit=30/60) caíam
-  // no MESMO cap fixo 4/3/3 = 10 itens no total, ignorando o `limit` pedido. Com esportes
-  // dividido em 7 abas (futebol/basquete/motor/tênis/mma/vôlei/nfl) competindo por só 4
-  // vagas de "radar" + 3 de "pílula", quase nenhum esporte além do mais recente aparecia —
-  // era isso que fazia o Radar do Esporte da home (e as páginas dedicadas) parecerem
-  // travados/vazios mesmo com o pipeline gerando conteúdo novo normalmente. Bug real,
-  // achado e corrigido 08/08/2026 a partir do relato do Roberto ("nenhum radar funciona").
-  const limitParam = hasCat ? clampInt(req.query.limit, 30, 10, 60) : 10;
-  const capRadar = hasCat ? Math.max(6, Math.round(limitParam * 0.5)) : 4;
-  const capPilula = hasCat ? Math.max(6, Math.round(limitParam * 0.5)) : 6;
-
-  const [rRadar, rPilula] = await Promise.all([
-    addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["radar"]).order("published_at",{ascending:false}).limit(capRadar)),
-    addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(capPilula))
-  ]);
-
-  const posts = [
-    ...(rRadar.data || []).map(mapCurtinhaRow),
-    ...(rPilula.data || []).map(mapCurtinhaRow)
-  ];
-
-  return res.status(200).json({ curtinhas: posts, total: posts.length });
-}
+// SISTEMA DE CURTINHAS (pilula/micropilula/radar) DELETADO POR COMPLETO — 23/08/2026,
+// Roberto: "TODAS AS CURTINHAS, PILULAS E O CARALHO A QUATRO... EU JA HAVIA MANDADO
+// DELETAR ISSO HA SEMANAS" + "ESTAS MERDAS CONTINUAM DA HOME E NO PORTAL". Removidos
+// handleCurtinhas(), handleCurtinhasRadar(), mapCurtinhaRow() e SEL_CURTINHAS — o
+// endpoint ?curtinhas=true não existe mais. O Radar do Esporte (Futebol/Basquete/
+// Motor/Tênis/MMA/Vôlei/NFL) agora grava tipo_conteudo="padrao" (ver
+// salvarEsportesRadar() em api/run_portal.js) — aparece normalmente via
+// ?recentes=true, igual qualquer outro artigo do portal. public/js/ovc-nichos.js
+// (widget "Notas do Dia" da home) foi deletado inteiro — era o único consumidor da
+// query balanceada genérica. Os widgets de radar esportivo (ovc-radar-esporte.js,
+// ovc-radar-widget.js, ovc-radar-motor.js, ovc-radar-tenis.js, ovc-radar-mma.js,
+// ovc-radar-volei.js, ovc-torneio-espn.js, ovc-futebol-europeu.js,
+// ovc-mercado-da-bola.js, ovc-copa.js) foram atualizados para ler só de
+// ?recentes=true e classificar por subcategoria/palavra-chave.
 
 // ─── MAIS LIDOS — artigos mais acessados, sempre pelo menos 20 ───────────────
 async function handleMaisLidos(req, res) {
@@ -268,13 +190,7 @@ export default async function handler(req, res) {
   try {
     if (req.query.id) return handleOne(req, res);
     if (req.query.recentes === "true") return handleRecentes(req, res);
-    if (req.query.curtinhas === "true") {
-      try {
-        return await handleCurtinhas(req, res);
-      } catch (curtinhasErr) {
-        return res.status(200).json({ curtinhas: [], total: 0, error: curtinhasErr?.message || "curtinhas_failed" });
-      }
-    }
+    // ?curtinhas=true DELETADO — 23/08/2026, ver comentário logo após handleHome() acima.
     if (req.query.maisLidos === "true") return handleMaisLidos(req, res);
     return handleList(req, res);
   } catch (error) {

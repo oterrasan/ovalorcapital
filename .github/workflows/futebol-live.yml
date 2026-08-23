@@ -9,7 +9,7 @@ jobs:
   futebol-radar:
     runs-on: ubuntu-latest
     steps:
-      - name: Rodada 1 — Gerar curtinhas Futebol
+      - name: Rodada 1 — Gerar matérias Futebol
         run: |
           curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
             -H "Content-Type: application/json" \
@@ -19,7 +19,7 @@ jobs:
       - name: Aguardar 5s
         run: sleep 5
 
-      - name: Rodada 2 — Gerar curtinhas Futebol
+      - name: Rodada 2 — Gerar matérias Futebol
         run: |
           curl -s -X POST https://www.ovalorcapital.com.br/api/run_portal \
             -H "Content-Type: application/json" \

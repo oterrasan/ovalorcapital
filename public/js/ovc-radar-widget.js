@@ -1,23 +1,22 @@
 /**
- * ovc-radar-widget.js — Listagem completa do Radar OVC (tipo_conteudo="radar")
+ * ovc-radar-widget.js — Listagem completa do Radar do Futebol (/radar-da-bola/)
  * REGRA ZERO-I: 100% independente — não toca internal-page-v2.js nem home.js.
- * Consome ?curtinhas=true&tipo=radar[&categoria=SLUG] — modo isolado da query balanceada
- * usada por ovc-nichos.js na home, nunca mistura com ela.
- * Desde 31/07/2026 (Roberto), tipo_conteudo="radar" é exclusivamente conteúdo de futebol
- * (grande repercussão nacional/continental) — este widget é a listagem completa e
- * cronológica desse nicho.
+ *
+ * SISTEMA DE CURTINHAS DELETADO — 23/08/2026, Roberto: "TODAS AS CURTINHAS,
+ * PILULAS E O CARALHO A QUATRO" + "O RADAR DOS ESPORTES DEVERIAM SER MATERIAS
+ * COMPLETAS E COM IMAGENS, RASPADAS DE FONTES CONFIAVEIS". autoFutebolCurtinhas()
+ * (api/run_portal.js) agora grava matéria PADRÃO completa (tipo_conteudo="padrao",
+ * subcategoria="Futebol") em vez do antigo tipo_conteudo="radar" — este widget
+ * passou a consumir ?recentes=true (mesmo endpoint normal de artigos do portal,
+ * usado por handleRecentes()) filtrado por categoria=esportes + palavra-chave de
+ * futebol, mesmo padrão já usado pelos outros widgets de esporte
+ * (ovc-radar-motor.js, ovc-radar-mma.js, ovc-torneio-espn.js etc — todos já
+ * combinavam recentes+curtinhas antes, só perderam a metade curtinhas agora).
+ *
  * Visual "espetacular" (04/08/2026): dark carbon + destaque em pôster de manchete,
  * mesma linguagem do piloto do Motor/F1 e do ovc-torneio-espn.js.
  * Config via atributos data-* no elemento alvo:
  *   data-categoria — filtra por categoria (opcional, ex: "esportes")
- *
- * Filtro de futebol client-side (03/08/2026): o backend já era pra garantir que
- * "radar" em esportes é só futebol, mas um bug no pipeline (autoCurtinhas, corrigido
- * em api/run_portal.js) deixava passar outros esportes (ex: automobilismo). Este
- * widget é o único consumidor de "radar" que confiava cegamente no tipo sem checar
- * palavra-chave — os outros (ovc-radar-motor.js, ovc-radar-mma.js etc.) sempre
- * filtraram por keyword própria. Adicionado o mesmo padrão aqui como segunda trava,
- * inclusive pra esconder conteúdo já publicado errado antes do fix do pipeline.
  */
 (function () {
   'use strict';
@@ -38,7 +37,7 @@
     return new RegExp('(?:^|[^\\p{L}\\p{N}])' + esc2 + '(?:[^\\p{L}\\p{N}]|$)', 'iu').test(text);
   }
   function ehFutebol(p) {
-    var t = ((p.titulo || '') + ' ' + (p.resumo || '')).toLowerCase();
+    var t = ((p.titulo || '') + ' ' + (p.resumo || p.comentario_fixado || '')).toLowerCase();
     return FUTEBOL_KW.some(function (kw) { return kwMatch(t, kw); });
   }
 
@@ -122,7 +121,7 @@
       '<div class="ovc-rdr-hero-inner">' +
       '<span class="ovc-rdr-hero-badge"><span class="ovc-rdr-dot"></span>Radar OVC · ' + esc(minutosAtras(p.data)) + '</span>' +
       '<div class="ovc-rdr-hero-title">' + esc(p.titulo) + '</div>' +
-      '<div class="ovc-rdr-hero-resumo">' + esc(p.resumo) + '</div>' +
+      '<div class="ovc-rdr-hero-resumo">' + esc(p.resumo || p.comentario_fixado || '') + '</div>' +
       '<div class="ovc-rdr-hero-time">Grande repercussão · Futebol</div>' +
       '</div></a>';
   }
@@ -132,7 +131,7 @@
       '<span class="ovc-rdr-item-time">' + esc(minutosAtras(p.data)) + '</span>' +
       '<span class="ovc-rdr-item-body">' +
         '<span class="ovc-rdr-item-title">' + esc(p.titulo) + '</span>' +
-        '<span class="ovc-rdr-item-resumo">' + esc(p.resumo) + '</span>' +
+        '<span class="ovc-rdr-item-resumo">' + esc(p.resumo || p.comentario_fixado || '') + '</span>' +
       '</span></a>';
   }
 
@@ -156,13 +155,13 @@
   }
 
   function carregar(alvo, categoria) {
-    var qs = 'curtinhas=true&tipo=radar&limit=30';
-    if (categoria) qs += '&categoria=' + encodeURIComponent(categoria);
-    fetch('/api/portal-posts?' + qs)
+    fetch('/api/portal-posts?recentes=true&limit=300')
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        var lista = d.curtinhas || [];
-        if (categoria === 'esportes') lista = lista.filter(ehFutebol);
+        var lista = (d.posts || []).filter(function (p) {
+          if (categoria && p.categoria !== categoria) return false;
+          return ehFutebol(p);
+        });
         montar(alvo, lista);
       })
       .catch(function () { montar(alvo, []); });

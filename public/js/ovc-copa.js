@@ -190,33 +190,15 @@
 
   var COPA_KEYWORDS = ['copa do mundo','world cup','mundial','fifa','seleção brasileira','copa 2026','fase de grupos','oitavas','quartas','semifinal','final da copa','campeão do mundo','grupo a','grupo b','grupo c','grupo d','grupo e','grupo f','grupo g','grupo h','eliminado da copa','classificado para'];
 
+  // Sistema de curtinhas DELETADO — 23/08/2026 (Roberto). Filtra direto do feed
+  // normal de artigos (?recentes=true) por palavra-chave de Copa.
   function init() {
-    Promise.all([
-      fetch('/api/portal-posts?curtinhas=true&categoria=esportes&limit=30').then(function(r){ return r.json(); }).catch(function(){ return {curtinhas:[]}; }),
-      fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).catch(function(){ return {posts:[]}; })
-    ]).then(function(results) {
-      var todosCurtinhas = results[0].curtinhas || [];
-      var todosArtigos   = results[1].posts    || [];
-
-      // Curtinhas Copa: radar ou pílula com Copa no título
-      var copaCurtinhas = todosCurtinhas.filter(function(n) {
-        var tipo = n.tipo_conteudo || n.tipo || '';
-        if (tipo !== 'radar' && tipo !== 'pilula' && tipo !== 'micropilula') return false;
-        var t = (n.titulo || '').toLowerCase();
-        return COPA_KEYWORDS.some(function(kw) { return kwMatch(t, kw); });
-      });
-
-      // Artigos normais Copa (sem repetir o que já é curtinha)
-      var idsCurtinhas = {};
-      copaCurtinhas.forEach(function(n){ idsCurtinhas[n.id] = true; });
-      var artigosNormais = todosArtigos.filter(function(p) {
-        if (idsCurtinhas[p.id]) return false;
+    fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).then(function(d) {
+      var todosArtigos = d.posts || [];
+      var artigos = todosArtigos.filter(function(p) {
         var titulo = (p.titulo || '').toLowerCase();
         return COPA_KEYWORDS.some(function(kw) { return kwMatch(titulo, kw); });
-      });
-
-      // Curtinhas primeiro (mais recentes e específicas), depois artigos normais
-      var artigos = copaCurtinhas.concat(artigosNormais).slice(0, 5);
+      }).slice(0, 5);
       injetar(artigos);
     }).catch(function() {
       injetar([]);

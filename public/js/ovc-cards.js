@@ -251,29 +251,6 @@ function injetarEstilosMiolo(){
     /* Separador */
     '.ovc-sep{height:1px;background:#e8eaed;margin:0 0 40px;}',
 
-    /* Bloco B — faixa pílulas: fundo branco, borda sutil */
-    '.ovc-faixa-pilulas{background:#fff;border:1px solid #e2e5ea;',
-    'border-radius:12px;padding:16px 18px;width:100%;}',
-    '.ovc-pilulas-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;',
-    'border-bottom:1px solid #f0f2f5;padding-bottom:10px;}',
-    '.ovc-pilulas-dot{width:7px;height:7px;border-radius:50%;background:#c81e1e;',
-    'animation:ovc-pulse-dot 1.6s infinite;}',
-    '@keyframes ovc-pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}',
-    '.ovc-pilulas-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;',
-    'color:#c81e1e;font-weight:700;font-family:inherit;}',
-    '.ovc-pilulas-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;width:100%;}',
-    '.ovc-pilula-item{padding:0 8px;border-right:1px solid #f0f2f5;min-width:0;overflow:hidden;word-break:break-word;}',
-    '.ovc-pilula-item:first-child{padding-left:0;}',
-    '.ovc-pilula-item:last-child{border-right:none;}',
-    '.ovc-pilula-cat{font-size:9px;letter-spacing:.1em;text-transform:uppercase;',
-    'font-weight:700;margin-bottom:5px;font-family:inherit;}',
-    '.ovc-pilula-texto{font-size:11px;color:#1a1a2e;line-height:1.45;font-weight:500;max-width:100%;',
-    'font-family:inherit;display:-webkit-box;-webkit-line-clamp:3;',
-    '-webkit-box-orient:vertical;overflow:hidden;}',
-    '.ovc-pilula-hora{font-size:10px;color:#9aa0ab;margin-top:5px;font-family:inherit;}',
-    '.ovc-pilula-link{text-decoration:none;display:block;}',
-    '.ovc-pilula-link:hover .ovc-pilula-texto{color:#c81e1e;}',
-
     /* Bloco C — assimétrico */
     '.ovc-grade-assimetrica{display:grid;grid-template-columns:1.65fr 1fr;gap:22px;width:100%;}',
     '.ovc-card-grande{border-radius:14px;overflow:hidden;min-height:340px;',
@@ -419,72 +396,12 @@ function renderBlocoA(posts, cats3){
   return bloco;
 }
 
-function renderBlocoB(posts){
-  // Faixa de pílulas — 4 posts mais recentes sem imagem ou qualquer tipo
-  var bloco = document.createElement('div');
-  bloco.className = 'ovc-bloco';
-  var faixa = document.createElement('div');
-  faixa.className = 'ovc-faixa-pilulas';
-  faixa.innerHTML =
-    '<div class="ovc-pilulas-header">'
-    +'<span class="ovc-pilulas-dot"></span>'
-    +'<span class="ovc-pilulas-label">Notas do dia</span>'
-    +'</div>'
-    +'<div class="ovc-pilulas-grid" id="ovc-pilulas-grid"></div>';
-  bloco.appendChild(faixa);
-  // Preencher após load
-  bloco._posts = posts;
-  return bloco;
-}
-
 function labelCat(slug) {
   if (!slug) return '';
   for (var i = 0; i < CATS.length; i++) {
     if (CATS[i].cats.indexOf(slug) !== -1) return CATS[i].label;
   }
   return slug;
-}
-
-function preencherBlocoB(bloco, posts){
-  var grid = bloco.querySelector('#ovc-pilulas-grid');
-  if(!grid) return;
-  // Selecionar 6 posts: prioriza categorias unicas, completa sem repetir adjacente
-  var usados = [];
-  var catsUsadas = {};
-  var tentativas = posts.slice(0, 100);
-  // Passagem 1: 1 post por categoria
-  for(var i=0; i<tentativas.length && usados.length<6; i++){
-    var p = tentativas[i];
-    var cat = p.categoria || 'geral';
-    if(!catsUsadas[cat]){
-      usados.push(p);
-      catsUsadas[cat] = true;
-    }
-  }
-  // Passagem 2: completa apenas se categoria ainda nao usada — sem repeticao alguma
-  // Se nao ha posts suficientes com categorias diferentes, mostra menos pilulas
-  // Nao aceita repeticao de categoria em hipotese alguma
-  if(!usados.length){
-    bloco.style.display='none';
-    return;
-  }
-  grid.innerHTML = '';
-  usados.forEach(function(p){
-    var url = buildUrl(p);
-    var cor = CORES_CAT[p.categoria] || '#c81e1e';
-    var hora = p.data ? new Date(p.data).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
-    var item = document.createElement('a');
-    item.className = 'ovc-pilula-link';
-    item.href = url;
-    item.innerHTML =
-      '<div class="ovc-pilula-cat" style="color:'+cor+'">'+escHtml(labelCat(p.categoria))+'</div>'
-      +'<div class="ovc-pilula-texto">'+escHtml(p.titulo||'')+'</div>'
-      +(hora?'<div class="ovc-pilula-hora">'+hora+'</div>':'');
-    var wrapper = document.createElement('div');
-    wrapper.className = 'ovc-pilula-item';
-    wrapper.appendChild(item);
-    grid.appendChild(wrapper);
-  });
 }
 
 function renderBlocoC(catGrande, catsPilha){
@@ -674,11 +591,6 @@ function buildSection(container){
   // (Roberto pediu esse trecho especificamente mais agrupado, 04/08/2026).
   function sepTight(){ var d=document.createElement('div'); d.className='ovc-sep-tight'; return d; }
 
-  // ── Notas do dia (Pílulas) ────────────────────────────────────────────
-  var bB = renderBlocoB([]);
-  miolo.appendChild(bB);
-  miolo.appendChild(sep());
-
   // ── Zona 1: Brasil em Foco ───────────────────────────────────────────
   // ovc-zona-compact: trecho Brasil em Foco → Colunistas → Internacional pedido
   // mais agrupado por Roberto (04/08/2026) — só essas 3 seções ficam mais juntas,
@@ -773,7 +685,6 @@ function buildSection(container){
   miolo.appendChild(z3);
 
   container.appendChild(miolo);
-  container._blocoB = bB;
 }
 
 
@@ -947,27 +858,6 @@ function load(){
         lista.appendChild(a);
       });
     });
-
-    // Preencher Bloco B — busca APENAS posts tipo pilula ou micropilula
-    var bB = container._blocoB;
-    if(bB){
-      fetch('/api/portal-posts?tipo=pilula&limit=60')
-        .then(function(r){ return r.json(); })
-        .then(function(dp){
-          var pilulas = (dp.posts||[]).filter(function(p){
-            return p.tipo_conteudo==='pilula' || p.tipo_conteudo==='micropilula';
-          });
-          if(!pilulas.length){
-            // Sem pílulas reais no banco — ocultar a faixa
-            bB.style.display='none';
-            var sep = bB.previousSibling;
-            if(sep && sep.className==='ovc-sep') sep.style.display='none';
-          } else {
-            preencherBlocoB(bB, pilulas);
-          }
-        })
-        .catch(function(){ bB.style.display='none'; });
-    }
 
   }).catch(function(){
     CATS.forEach(function(item){
