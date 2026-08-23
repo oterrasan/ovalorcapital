@@ -538,7 +538,14 @@ async function autoFutebolCurtinhas(req, res, rec) {
     if (pautaParecida(item.title || "", rec.sourceTitulos)) { _f("pautaFonte"); continue; }
     let a, sourceText;
     try {
-      a = await scrape(item.link, { timeout: 3500 });
+      // 23/08/2026 — CAUSA RAIZ REAL de generated:0 persistente confirmada com evidência
+      // (falhas:{"semImagem":5} em 2 amostras ao vivo): a única fonte viva de futebol
+      // (GE Globo) está em COMPETITOR_IMG_HOSTS (glbimg.com/ge.globo.com — core/scraper.js),
+      // correto pro pipeline geral, mas este canal é dedicado (mesma regra já aplicada a
+      // Jovem Pan Política em 12/08/2026): a imagem DEVE ser sempre a da própria fonte.
+      // Sem allowCompetitorImage:true, isValidImage() rejeitava 100% das imagens do GE
+      // Globo, e o guard "if (!a.image) continue" (linha abaixo) matava todo candidato.
+      a = await scrape(item.link, { allowCompetitorImage: true, timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 300) { _f("textoCurto"); continue; }
     } catch(e) { _f("scrapeErro:" + (e?.message || e)); continue; }
