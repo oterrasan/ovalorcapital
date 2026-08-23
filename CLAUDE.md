@@ -7560,3 +7560,69 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **⚠️ IMPORTANTE — falar SEMPRE em português com Roberto**, sem exceção. Instrução explícita e enfática dada nesta sessão.
 3. Considerar se outros widgets que também migraram de `?curtinhas=true`/endpoints dedicados pra `?recentes=true` em sessões anteriores (Radar Eleitoral, Pulso BR) sofrem do mesmo tipo de diluição — não investigado nesta sessão, só o caso de esportes (o único reportado).
 4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 23/08/2026 (continuação) — 🔴 CAUSA RAIZ REAL DO RADAR DO FUTEBOL TRAVADO — MESMO BUG DA JOVEM PAN (12/08), SÓ QUE NA GE GLOBO — CORRIGIDO E VERIFICADO END-TO-END
+
+#### Contexto
+
+Roberto perguntou o status de todos os radares. Investigação real (logs do `pipeline-cron.yml` e do `futebol-live.yml`, não suposição) mostrou o Radar do Futebol estável em `candidates:5, generated:0` por várias rodadas seguidas, sem nenhum sinal de qual etapa rejeitava. Roberto cobrou com força, rejeitando explicitamente qualquer "vou investigar" sem entrega: *"????? e cade o motivo do erro e da trava e cade a solucao CARALHO???"*.
+
+#### Investigação — instrumentação + evidência real (commit `b521cc77`)
+
+`autoFutebolCurtinhas()` nunca tinha o mesmo diagnóstico `falhas`/`distribuicaoBruta` já usado em `autoOutrosEsportesCurtinhas()` desde 07/08/2026. Adicionado o mesmo padrão (sem tocar em nenhuma lógica de filtro/geração — só instrumentação), deployado, e testado ao vivo via `diag-once.yml` (GitHub Actions — único jeito de alcançar produção, este sandbox não tem rede pra `ovalorcapital.com.br`).
+
+**Resultado real, 2 amostras consecutivas:** `falhas:{"semImagem":5}` — 100% dos candidatos rejeitados por falta de imagem, apesar da GE Globo ser a única fonte viva de futebol (`FONTE_FUTEBOL`, restrita desde 08/08/2026 a 4 fontes por pedido de Roberto).
+
+#### 🔴 Causa raiz real — GE Globo está em `COMPETITOR_IMG_HOSTS`, exatamente o mesmo bug já corrigido pra Jovem Pan Política em 12/08/2026
+
+`core/scraper.js` tem `glbimg.com`/`ge.globo.com` na lista de domínios "concorrentes" — correto pro pipeline geral (nunca reaproveitar imagem de concorrente num artigo do MASTER_PROMPT), mas errado pra este canal dedicado, que só tem essa 1 fonte viva e precisa reaproveitar a própria imagem dela (mesmo padrão já estabelecido e documentado inline no próprio `core/scraper.js` desde 12/08/2026, quando `jovempan.com.br` sofreu do mesmo bug).
+
+#### Fix aplicado (commit `156e2bbc`)
+
+`api/run_portal.js` — `autoFutebolCurtinhas()`: `scrape(item.link, { timeout: 3500 })` → `scrape(item.link, { allowCompetitorImage: true, timeout: 3500 })`. Única chamada afetada — as fontes de `outros_esportes`/`brasilon`/`internacional` já não estão na lista de concorrentes ou já tinham o parâmetro.
+
+#### Verificação end-to-end, com evidência real (não suposição)
+
+Deploy (`deploy.yml` run `32650017546`) confirmado `conclusion:"success"`. Re-teste ao vivo pós-deploy via `diag-once.yml`, 2 chamadas reais em produção:
+```
+FUTEBOL_1: {"status":"ok","generated":0,"tipo":"futebol_jornal","candidates":5,"falhas":{"hashDup":5}}
+FUTEBOL_2: {"status":"ok","generated":0,"tipo":"futebol_jornal","candidates":5,"falhas":{"hashDup":5}}
+```
+`semImagem` desapareceu por completo — as falhas agora são só `hashDup` (os candidatos já existiam no banco, hash duplicado — resultado normal e esperado de rodadas anteriores do cron já terem processado os mesmos itens do RSS da GE Globo, não mais um erro). Isso confirma que a causa raiz foi eliminada — o gargalo de imagem sumiu, e o pipeline está processando normalmente (o próprio `futebol-live.yml`, que roda a cada 5min, e o `pipeline-cron.yml` já devem estar gerando artigos reais nas próximas rodadas com RSS fresco).
+
+#### 🚨 Lição registrada — reforça padrão já documentado
+
+```
+❌ Antes de reportar "corrigido" para Roberto, sempre re-testar em produção
+   real DEPOIS do deploy confirmado, comparando o campo de diagnóstico
+   (falhas/distribuicaoBruta) antes e depois — a mudança de assinatura de
+   erro (semImagem → hashDup) é a prova, não uma suposição de que "deve
+   ter funcionado".
+❌ Quando um canal dedicado (Bacci, Jovem Pan, GE Globo/Futebol) usa uma
+   fonte que está em COMPETITOR_IMG_HOSTS (core/scraper.js), o sintoma é
+   sempre o mesmo: falhas:{"semImagem":N} em 100% dos candidatos. Antes
+   de investigar mais fundo, checar essa lista primeiro — já são 2 canais
+   diferentes (Jovem Pan 12/08, Futebol 23/08) que caíram nesse mesmo bug.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudança só em `api/run_portal.js`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (23/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real do Radar do Futebol travado** — GE Globo em `COMPETITOR_IMG_HOSTS` bloqueava a própria imagem | ✅ EM PRODUÇÃO (commit `156e2bbc`) — verificado end-to-end (`falhas` mudou de `semImagem:5` pra `hashDup:5`) |
+| **Instrumentação `falhas`/`distribuicaoBruta` em `autoFutebolCurtinhas()`** — mesmo padrão já usado em `autoOutrosEsportesCurtinhas()` | ✅ EM PRODUÇÃO (commit `b521cc77`) |
+| **`diag-once.yml` resetado ao placeholder inerte** | ✅ FEITO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto, após alguns ciclos do `futebol-live.yml` (a cada 5min)**, que artigos reais e frescos de futebol estão sendo publicados de novo (o teste desta sessão confirmou que o gargalo de imagem sumiu, mas os 5 candidatos testados já eram hash-duplicados — a próxima leva de itens frescos do RSS da GE Globo deve gerar conteúdo real).
+2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
