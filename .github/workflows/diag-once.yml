@@ -1,8 +1,57 @@
 name: Diag Once
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "placeholder — sem função ativa"
+      - name: Buscar posts recentes possivelmente mal-categorizados (esportes -> outra categoria)
+        run: |
+          cat > /tmp/diag.py << 'PYEOF'
+          import urllib.request, json
+
+          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          def sb(path):
+              url = SUPABASE_URL + "/rest/v1/" + path
+              headers = {"apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY}
+              req = urllib.request.Request(url, headers=headers, method="GET")
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.loads(r.read().decode())
+
+          cats_alvo = ["economia", "financas", "brasil-on", "negocios"]
+          kw = [
+              "futebol","campeonato brasileiro","brasileirão","brasileirao","libertadores","sul-americana",
+              "copa do mundo","fifa","seleção brasileira","selecao brasileira","champions league","premier league",
+              "nba","basquete","fórmula 1","formula 1","f1 ","gp de ","grand prix","piloto",
+              "ufc","mma","octógono","octogono","luta principal",
+              "atp","wta","tênis","tenis","wimbledon","roland garros","us open",
+              "vôlei","volei","superliga","fivb",
+              "nfl","super bowl","touchdown","quarterback"
+          ]
+
+          posts = sb("posts?select=id,titulo,user_tags,created_at,status&order=created_at.desc&limit=1500")
+          achados = []
+          for p in posts:
+              try:
+                  tags = json.loads(p.get("user_tags") or "[]")
+              except Exception:
+                  tags = []
+              if not any(c in tags for c in cats_alvo):
+                  continue
+              titulo = (p.get("titulo") or "").lower()
+              hit = [k for k in kw if k in titulo]
+              if hit:
+                  achados.append({"id": p["id"], "titulo": p.get("titulo"), "tags": tags, "created_at": p.get("created_at"), "status": p.get("status"), "match": hit})
+
+          print("TOTAL_POSTS_CHECADOS:", len(posts))
+          print("SUSPEITOS_ENCONTRADOS:", len(achados))
+          for a in achados[:60]:
+              print(json.dumps(a, ensure_ascii=False))
+          PYEOF
+          python3 /tmp/diag.py
