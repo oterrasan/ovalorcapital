@@ -9,54 +9,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Investigar sumico de conteudo do Radar do Esporte pos-delecao das pilulas
+      - name: Verificar fix ?categoria=esportes em producao pos-deploy
         run: |
           cat > /tmp/diag.py << 'PYEOF'
           import urllib.request, json
-          from datetime import datetime, timezone
-
-          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          def sb(path):
-              url = SUPABASE_URL + "/rest/v1/" + path
-              headers = {"apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY}
-              req = urllib.request.Request(url, headers=headers, method="GET")
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
 
           def http(url):
               req = urllib.request.Request(url, headers={"User-Agent":"diag"})
               with urllib.request.urlopen(req, timeout=20) as r:
                   return json.loads(r.read().decode())
 
-          # 1) posts esportes com tipo_conteudo=padrao (formato novo, pos-delecao)
-          novos = sb("posts?select=id,titulo,tipo_conteudo,status,user_tags,created_at,subcategoria&or=(tipo_conteudo.is.null,tipo_conteudo.eq.padrao)&order=created_at.desc&limit=2000")
-          esportes_novos = [p for p in novos if "esportes" in (p.get("user_tags") or "")]
-          print("=== 1) posts tipo_conteudo=padrao/null com esportes em user_tags (top 2000 recentes) ===")
-          print("TOTAL:", len(esportes_novos))
-          for p in esportes_novos[:15]:
-              print(json.dumps(p, ensure_ascii=False))
+          print("=== SEM categoria (comportamento antigo, pra comparar) ===")
+          d1 = http("https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=300")
+          posts1 = d1.get("posts", [])
+          esp1 = [p for p in posts1 if p.get("categoria") == "esportes"]
+          print("TOTAL:", len(posts1), "ESPORTES:", len(esp1))
 
-          # 2) posts antigos radar/pilula/micropilula esportes (agora invisiveis no feed)
-          antigos = sb("posts?select=id,titulo,tipo_conteudo,status,user_tags,created_at,subcategoria&tipo_conteudo=in.(radar,pilula,micropilula)&order=created_at.desc&limit=500")
-          esportes_antigos = [p for p in antigos if "esportes" in (p.get("user_tags") or "")]
-          print("=== 2) posts tipo_conteudo IN (radar,pilula,micropilula) com esportes (agora fora do feed) ===")
-          print("TOTAL:", len(esportes_antigos))
-          for p in esportes_antigos[:10]:
-              print(json.dumps(p, ensure_ascii=False))
-
-          # 3) resposta real da API /api/portal-posts?recentes=true&limit=300 filtrada esportes
-          try:
-              data = http("https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=300")
-              posts_api = data.get("posts", [])
-              esp_api = [p for p in posts_api if p.get("categoria") == "esportes"]
-              print("=== 3) /api/portal-posts?recentes=true&limit=300 ===")
-              print("TOTAL_POSTS_API:", len(posts_api))
-              print("ESPORTES_NA_API:", len(esp_api))
-              for p in esp_api[:15]:
-                  print(json.dumps({"id":p.get("id"),"titulo":p.get("titulo"),"subcategoria":p.get("subcategoria"),"data":p.get("data") or p.get("published_at")}, ensure_ascii=False))
-          except Exception as e:
-              print("ERRO_API:", str(e))
+          print("=== COM categoria=esportes (fix novo) ===")
+          d2 = http("https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=esportes&limit=300")
+          posts2 = d2.get("posts", [])
+          print("TOTAL_RETORNADO:", len(posts2))
+          nao_esportes = [p for p in posts2 if p.get("categoria") != "esportes"]
+          print("QUALQUER_ITEM_FORA_DE_ESPORTES (deve ser 0):", len(nao_esportes))
+          for p in posts2[:20]:
+              print(json.dumps({"id":p.get("id"),"titulo":p.get("titulo"),"subcategoria":p.get("subcategoria"),"data":p.get("data") or p.get("published_at")}, ensure_ascii=False))
           PYEOF
           python3 /tmp/diag.py
