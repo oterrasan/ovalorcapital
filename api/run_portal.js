@@ -373,7 +373,14 @@ async function autoMaterias(req, res, rec) {
   const cat = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
   const [prio, geral] = await Promise.all([getNewsByCategoria(cat), getNews()]);
   const seen = new Set();
-  const baseNews = prio.length ? prio : geral;
+  // 21/08/2026 — Roberto: "ESPORTES É SÓ DENTRO DE ESPORTES. VOCE PRECISA GARANTIR ISSO"
+  // (conteúdo de esportes vazando pra economia/financas/brasil-on). Causa real: quando
+  // cat==="esportes" mas o pool específico (prio) vinha vazio, o fallback abaixo usava o
+  // pool GERAL do portal inteiro (geral) mesmo assim — misturando notícia de qualquer
+  // assunto com o kernel de reescrita de esportes (rewriteEsportes). NUNCA usar o pool
+  // geral pra esportes — sem candidato específico, esta rodada simplesmente não gera nada
+  // em vez de arriscar contaminação de categoria.
+  const baseNews = prio.length ? prio : (cat === "esportes" ? [] : geral);
   const news = baseNews.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 40);
   // Batch hash check (Bug #51 fix) — 1 query for all news instead of 1 per article
   const allHashes = news.map(i => crypto.createHash("md5").update(i.link + "_portal").digest("hex"));
@@ -397,6 +404,13 @@ async function autoMaterias(req, res, rec) {
       if (sourceText.length < 400) { debug.sem_fonte++; continue; }
       const gerador = cat === "esportes" ? rewriteEsportes : rewritePortal;
       const content = remapCat(await gerador(sourceText, item.title || a.title || "", rec.contexto));
+      // GARANTIA (21/08/2026, Roberto): a notícia-fonte veio exclusivamente do pool
+      // específico de esportes (getNewsByCategoria("esportes"), nunca do pool geral —
+      // ver fix acima em baseNews) e foi reescrita com o kernel de esportes
+      // (rewriteEsportes). Categoria nunca pode vazar pra outra, mesmo que a IA
+      // classifique diferente por causa de viés econômico do texto (ex: transferência,
+      // salário, patrocínio) — esportes é sempre esportes.
+      if (cat === "esportes") content.categoria = "esportes";
       const erros = validar(content);
       if (erros.length) { debug.reprovado++; if (debug.erros.length < 5) debug.erros.push(erros.join(", ")); continue; }
       if (pautaParecida(content.titulo, rec.titulos)) { debug.duplicado++; continue; }
