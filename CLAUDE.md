@@ -7416,7 +7416,78 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 #### 🔧 Pendências para a próxima sessão
 
-1. **Aguardando resposta de Roberto**: manter a infraestrutura do Radar do Esporte/Futebol (agora corrigida) ou deletar também? Não avançar nisso sem confirmação explícita.
+1. **Aguardando resposta de Roberto**: manter a infraestrutura do Radar do Esporte/Futebol (agora corrigida) ou deletar também? Não avançar nisso sem confirmação explícita. **[SUPERADO — ver continuação abaixo: Roberto respondeu, manter e priorizar.]**
 2. **Confirmar em produção, após alguns ciclos do cron**, que conteúdo de Basquete/Motor/Tênis/MMA/Vôlei/NFL/Futebol está sendo salvo com `user_tags:["esportes"]` de verdade (não testado ao vivo nesta sessão — só verificado por leitura de código + deploy bem-sucedido).
 3. **Conteúdo histórico já salvo errado** (posts de esporte marcados como economia antes do fix) não foi corrigido no banco — só o fluxo daqui pra frente. Se Roberto quiser, pode ser feita uma correção retroativa via admin/SQL numa sessão futura.
+4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 21/08/2026 (continuação) — MINUTO OVC DELETADO POR COMPLETO + RADAR DO ESPORTE REPRIORIZADO NO CRON
+
+#### Contexto
+
+Resposta de Roberto à pergunta em aberto acima, curta e definitiva: **"atencao, eu quero que voce delete isso totalmente, nao quero resquicio de codigo no sistema do ovc. o radar do esporte voce nao TOQUE JAMAIS, VOCE PRECIDA É CORRIGIR AS ROTAS PRA ELE SER ALIMENTADO, É O SEGUNDO OU O TERCEIRO MAIOR COMANDO DO OVC"**. Duas ordens distintas e opostas na mesma frase: (1) deletar o Minuto OVC por completo, sem sobrar nenhum vestígio de código; (2) NUNCA tocar na lógica de geração/matching do Radar do Esporte/Futebol — só corrigir o roteamento/prioridade pra ele "ser alimentado" de verdade.
+
+#### 1) Minuto OVC — deletado por completo (commit `6fc1c3c3`)
+
+Superou a decisão anterior desta mesma sessão (`autoMinutoOVC()` publicar direto em vez de ficar pendente) — Roberto não quer reparo, quer deleção total. Varredura completa antes de editar (Grep em todo o repo por "minuto"/"Minuto"/"MINUTO", verificação arquivo por arquivo pra distinguir código real de usos coincidentes da palavra portuguesa comum "minuto" = "minute"):
+
+- **`api/run_portal.js`**: removidos por completo `MINUTO_FONTES_CONFIAVEIS`, `MINUTO_ASSUNTO_KW`, `assuntoFinanceiro()`, `MINUTO_MAX_IDADE_MS`, `isUltimaHora()`, `autoMinutoOVC()` (a função inteira, ~95 linhas) e a linha do dispatcher `if (body.tipo === "minuto") ...`. Comentário anterior sobre `autoMinutoOVC()` (na função `saveCurtinha()`) reescrito para não referenciar mais uma função que não existe.
+- **`api/portal-posts.js`**: removidos `MINUTO_TOPICOS`, `handleCurtinhasMinuto()`, o branch de dispatch `tipoQ === "minuto"`, e a 3ª query (`rMinuto`)/fatia `tipo_conteudo:"minuto"` da query balanceada de `handleCurtinhas()` — a query balanceada volta a ser só radar+pílula (caps redistribuídos: 50/50 em vez de 50/40/15).
+- **`.github/workflows/pipeline-cron.yml`**: job `minuto:` inteiro deletado.
+- **`public/js/ovc-nichos.js`**: removida a variável `minutos` e todo o bloco de inserção do mini-card "Minuto OVC" na home (a âncora por `data-zona="poder-dinheiro"` que ele usava). Header comment do arquivo atualizado.
+- **`public/js/ovc-cards.js`**: removido o atributo `data-zona="poder-dinheiro"` da Zona "Poder & Dinheiro" — confirmado via Grep que essa era a ÚNICA leitora desse atributo (a de `ovc-nichos.js`, já deletada), então virou uma âncora genuinamente morta.
+- **`public/js/ovc-pulso-br.js`**, **`public/js/ovc-radar-widget.js`**: comentários de comparação que citavam `ovc-minuto-widget.js`/hub `/minuto/` reescritos (nenhuma dependência funcional, só texto de documentação inline).
+- **`public/copa/index.html`**: removida a chave `minuto` do `corMap` local e o `.replace('minuto','Minuto OVC')` da cadeia de labels — essa página filtra `categoria=esportes`, então o branch já era inalcançável na prática, mas removido por completude.
+- **Arquivos deletados inteiros**: `public/minuto/index.html`, `public/dolar-hoje/index.html`, `public/selic-hoje/index.html`, `public/ibovespa-hoje/index.html` (458 linhas cada, hub + 3 páginas "X Hoje" que só existiam pra hospedar o widget do Minuto), `public/js/ovc-minuto-widget.js` (126 linhas). Confirmado via Grep, antes de deletar, que **nenhum outro arquivo do repo** tem link (`href="/minuto/"` etc.) ou script-tag apontando pra esses 5 arquivos — eram destinos órfãos de URL direta, sem nenhum ponto de navegação quebrando com a remoção.
+- **`public/economia/minuto-fiscal/`** (feature distinta, "Minuto Fiscal" — editorial fixo sobre política fiscal, nada a ver com o Minuto OVC financeiro) — **explicitamente NÃO tocado**, confirmado via leitura de `api/sitemap.js`/`api/institutional.js` que é referência a uma página completamente diferente.
+
+#### 2) Radar do Esporte/Futebol — rotas reordenadas no cron, ZERO mudança na lógica de geração
+
+Cumprindo a ordem explícita de "nao TOQUE JAMAIS" na lógica de matching/geração: nenhuma linha de `autoFutebolCurtinhas()`, `autoOutrosEsportesCurtinhas()`, `classificarOutroEsporte()`, `FONTE_PARA_ESPORTE`, `FONTE_FUTEBOL` ou qualquer outra função de geração/classificação de esporte foi tocada nesta sessão. A única mudança foi de **infraestrutura de agendamento**: em `.github/workflows/pipeline-cron.yml`, os jobs `futebol` e `outros_esportes` — que uma sessão anterior (16/08/2026, crise de cota durante o período eleitoral) tinha rebaixado de propósito pros ÚLTIMOS lugares da fila (`sleep 600s`/`720s`) — foram promovidos pras posições 2-3, logo depois de `jovempan_politica`:
+
+| Ordem nova | Job | Sleep | Timeout | Ordem antiga |
+|---|---|---|---|---|
+| 1º | `jovempan_politica` | 0s | 3min | 1º (inalterado) |
+| 2º | `futebol` | 120s | 5min | 6º (era 600s/13min) |
+| 3º | `outros_esportes` | 240s | 7min | 7º/último (era 720s/15min) |
+| 4º | `materias` | 360s | 9min | 2º (era 120s/5min) |
+| 5º | `brasilon` | 480s | 11min | 3º (era 240s/7min) |
+| 6º | `internacional` | 600s | 13min | 4º (era 360s/9min) |
+| — | `minuto` | — | — | 5º (job deletado) |
+
+Comentário no topo do arquivo reescrito documentando explicitamente a citação de Roberto ("2º ou 3º maior comando do OVC") como justificativa da nova ordem, e deixando claro que a política/eleições continua em 1º lugar (não foi rebaixada, só o esporte subiu de 6º-7º pra 2º-3º).
+
+#### Verificações feitas antes do push
+
+- `node --check` limpo em `api/run_portal.js`, `api/portal-posts.js`, `public/js/ovc-cards.js`, `public/js/ovc-nichos.js`, `public/js/ovc-pulso-br.js`, `public/js/ovc-radar-widget.js`.
+- `python3 -c "import yaml; yaml.safe_load(...)"` confirmou `pipeline-cron.yml` válido, com exatamente os 6 jobs esperados na ordem certa.
+- Grep final em todo o repo confirmou zero referência funcional restante a Minuto OVC — só a própria documentação inline explicando a deleção e a menção não-relacionada a "Minuto Fiscal".
+- `api/` continua com exatamente 10 arquivos (Regra Zero-A intacta — nenhum arquivo criado/removido em `api/`, só editados `run_portal.js`/`portal-posts.js`).
+- `public/index.html`: 714 linhas (só o cache-bust de `ovc-cards.js?v=15→16` e `ovc-nichos.js?v=4→5`, `<!DOCTYPE html>`/`</html>` intactos — Regra Zero-E respeitada).
+- Nenhum link (`href="/minuto/"`, `/dolar-hoje/`, `/selic-hoje/`, `/ibovespa-hoje/"`) restante em nenhum HTML/JS do repo, confirmado após a deleção dos arquivos.
+
+Push direto em `main` (commit `6fc1c3c3`, mesmo padrão de crise já usado nesta sessão inteira). Deploy (`deploy.yml` run `32616950832`) confirmado `conclusion:"success"` ainda nesta sessão.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (21/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Minuto OVC — deletado por completo, código + 4 páginas de destino + 1 widget, zero resíduo funcional** | ✅ EM PRODUÇÃO (commit `6fc1c3c3`) — deploy confirmado `success` |
+| **Radar do Esporte/Futebol — lógica de geração/matching intocada, só reordenação de prioridade no cron (posições 2-3 em vez de 6-7)** | ✅ EM PRODUÇÃO (commit `6fc1c3c3`) — cumpre literalmente "nao TOQUE JAMAIS" na lógica |
+| **`handleCurtinhas()` balanceada — volta a ser só radar+pílula (50/50), sem a fatia minuto** | ✅ EM PRODUÇÃO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente/via API que `/minuto/`, `/dolar-hoje/`, `/selic-hoje/`, `/ibovespa-hoje/` retornam 404** (arquivos deletados) e que nenhuma página do portal ainda tenta linkar pra eles.
+2. **Confirmar, após alguns ciclos do cron reordenado**, que o Radar do Esporte (Futebol + Basquete/Motor/Tênis/MMA/Vôlei/NFL) está gerando com mais regularidade — a promoção de prioridade é recente, ainda não observada em produção ao longo de um ciclo completo.
+3. Pendências #2 e #3 da entrada anterior (21/08/2026, antes desta continuação) seguem válidas: confirmar `user_tags:["esportes"]` de verdade nos posts novos, e considerar correção retroativa do conteúdo histórico salvo como economia antes do fix de `saveCurtinha()`.
 4. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
