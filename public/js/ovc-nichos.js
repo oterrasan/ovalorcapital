@@ -13,6 +13,15 @@
  *
  * Minuto OVC DELETADO — 21/08/2026 (Roberto: "DELETA TUDO ISSO IMEDIATAMENTE... nao
  * quero resquicio de codigo no sistema do ovc"). Ver CLAUDE.md para o histórico completo.
+ *
+ * Esportes EXCLUÍDO das Pílulas — 23/08/2026 (Roberto: "olha esta merda de NOTAS DO
+ * DIA!!! Estao consumindo tokens das chaves a toa e roubando conteudo dos ESPORTES!").
+ * Mesma causa raiz já corrigida uma vez para o Radar OVC (31/07/2026, ver acima): o
+ * gerador 24h de esportes (autoOutrosEsportesCurtinhas) sempre salva tipo_conteudo="pilula"
+ * para Basquete/Motor/Tênis/MMA/Vôlei/NFL (só futebol usa "radar"), e essa Pílula genérica
+ * consumia a mesma query sem filtro de categoria — diluindo conteúdo esportivo, que já tem
+ * destino dedicado (Radar do Esporte / ovc-radar-esporte.js), dentro do widget genérico
+ * "Notas do Dia". Filtrado explicitamente.
  */
 (function () {
   'use strict';
@@ -118,7 +127,9 @@
 
       injetarCSS();
 
-      var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,3);
+      var pilulas = nichos.filter(function(n){
+        return (n.tipo==='pilula'||n.tipo==='micropilula') && n.categoria!=='esportes';
+      }).slice(0,3);
 
       // Pílulas → 3 mini-cards antes do último bloco original
       if (pilulas.length) {
