@@ -351,8 +351,7 @@
         });
       }, 60000);
 
-      // Termômetro setorial — refresh a cada 3min (mesma cadência do
-      // ovc-minuto-widget.js para conteúdo econômico).
+      // Termômetro setorial — refresh a cada 3min.
       setInterval(function () {
         buscarSetores().then(function (novoPorSetor) {
           var el = bloco.querySelector('[data-pb-setores]');

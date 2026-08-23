@@ -18,39 +18,42 @@ on:
 
 jobs:
   # 16/08/2026 — Roberto: "O PORTAL NAO TA GERANDO NADA, TA TRAVADO PRA VARIAR".
-  # Causa raiz confirmada ao vivo: os 7 jobs abaixo disparavam TODOS no mesmo
+  # Causa raiz confirmada ao vivo: os jobs abaixo disparavam TODOS no mesmo
   # minuto do cron, todos batendo nas MESMAS 2 chaves compartilhadas do Gemini
   # (GEMINI_API_KEY/GEMINI_API_KEY_2) ao mesmo tempo — estourava o limite de
   # requisições por minuto do nível grátis (10/min por projeto) em segundos,
   # confirmado no log real: "Gemini 429: You exceeded your current quota".
   # Fix: cada job agora espera um número diferente de segundos antes de chamar
-  # a API, espalhando os 7 canais ao longo de ~12 dos 15 minutos do ciclo do
-  # cron — nunca dois jobs disparando a chamada de IA no mesmo minuto.
-  # timeout-minutes de cada job foi ajustado pra caber o tempo de espera +
-  # margem real pra chamada em si completar.
+  # a API, espalhando os canais ao longo do ciclo do cron — nunca dois jobs
+  # disparando a chamada de IA no mesmo minuto. timeout-minutes de cada job
+  # foi ajustado pra caber o tempo de espera + margem real pra chamada completar.
   #
   # 16/08/2026 (continuação, mesmo dia) — Roberto: "eleicoes a mil, comcecaram
   # as campanhas e o portal nao publica nada das reecritas de bacci e joven
   # pan... VOCE FICOU DE ARRUMAR ISSO CRIANDO NOVO FLUXO E GARANTINDO QUE NAO
   # ACONTECERIA". Investigação confirmou a causa raiz de fundo: a cota real do
-  # Gemini free tier é 20 req/DIA por projeto (não só por minuto) — com 7
+  # Gemini free tier é 20 req/DIA por projeto (não só por minuto) — com vários
   # canais rodando 24h/dia, a cota do dia se esgota cedo, e QUALQUER canal que
   # disparasse tarde nessa fila (ordem definida pelos `sleep N` abaixo) ficava
-  # sem chance de gerar nada até o reset. Antes desta mudança, os 2 canais
-  # políticos (jovempan_politica, internacional) eram os ÚLTIMOS da fila
-  # (sleep 600s/720s) — exatamente o pior lugar durante um período eleitoral.
-  # `core/ai_portal.js` ganhou um gate de orçamento diário (mesmo commit) que
-  # impede o pipeline de desperdiçar o pouco de cota restante em chamadas
-  # fadadas a falhar — mas isso sozinho não resolve QUEM tem prioridade sobre
-  # a cota escassa. Fix aqui: reordenados os `sleep N` de cada job para que
-  # conteúdo político (jovempan_politica) dispare PRIMEIRO, seguido de
-  # materias/brasilon/internacional, com os 2 canais de esporte
-  # (futebol, outros_esportes — prioridade mais baixa no momento, conforme
-  # Roberto) agora nos ÚLTIMOS lugares da fila. Isso não cria cota nova —
-  # só o Google Cloud billing ou mais projetos separados resolvem o teto de
-  # verdade (ver comentário em core/ai_portal.js) — mas garante que, dos ~18
-  # slots reais disponíveis por dia, política/eleições sejam servidas antes
-  # de esporte se a cota se esgotar no meio do ciclo diário.
+  # sem chance de gerar nada até o reset. `core/ai_portal.js` ganhou um gate de
+  # orçamento diário (mesmo commit) que impede o pipeline de desperdiçar o
+  # pouco de cota restante em chamadas fadadas a falhar — mas isso sozinho não
+  # resolve QUEM tem prioridade sobre a cota escassa.
+  #
+  # 21/08/2026 — Roberto: "o radar do esporte voce nao TOQUE JAMAIS, VOCE
+  # PRECIDA É CORRIGIR AS ROTAS PRA ELE SER ALIMENTADO, É O SEGUNDO OU O
+  # TERCEIRO MAIOR COMANDO DO OVC". A prioridade eleitoral de 16-17/08 tinha
+  # rebaixado futebol/outros_esportes pros ÚLTIMOS lugares da fila (sleep
+  # 600s/720s) — exatamente o oposto do que Roberto define como prioridade
+  # real do produto. Reordenado: jovempan_politica dispara primeiro (mantém
+  # prioridade #1 de política/eleições), seguido IMEDIATAMENTE por futebol e
+  # outros_esportes (Radar do Esporte — 2º/3º maior comando do OVC), depois
+  # materias/brasilon/internacional. Minuto OVC DELETADO nesta mesma sessão —
+  # ver comentário em api/run_portal.js. Isso não cria cota nova — só o Google
+  # Cloud billing ou mais projetos separados resolvem o teto de verdade (ver
+  # comentário em core/ai_portal.js) — mas garante que, dos slots reais
+  # disponíveis por dia, política e Radar do Esporte sejam servidos antes de
+  # materias/brasilon/internacional se a cota se esgotar no meio do ciclo.
   jovempan_politica:
     name: Jovem Pan Política (mesma estrutura do Brasil ON/Bacci)
     runs-on: ubuntu-latest
@@ -87,10 +90,52 @@ jobs:
             -d '{"tipo":"jovempan_politica","force":true,"count":3}')
           echo "JOVEMPAN_POLITICA: $RESP" | head -c 500
 
+  futebol:
+    name: Radar do Futebol 24h
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Gerar radar do futebol
+        # 21/08/2026 — slot 2min, PROMOVIDO pra logo após política — Roberto:
+        # "o radar do esporte... É O SEGUNDO OU O TERCEIRO MAIOR COMANDO DO
+        # OVC". Ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 120
+          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"futebol","force":true}')
+          echo "FUTEBOL: $RESP" | head -c 300
+
+  outros_esportes:
+    name: Radar do Esporte 24h — Basquete/Motor/Tênis/MMA/Vôlei/NFL
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Gerar pílulas dos outros esportes
+        # head -c 300 cortava a resposta antes dos campos de diagnóstico
+        # (distribuicaoBruta/falhas, adicionados 08/08/2026) — aumentado pra 2000
+        # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
+        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} explícito no log —
+        # ver comentário em cima do job jovempan_politica, mesmo motivo.
+        # 14/08/2026 (mesmo dia, continuação): --max-time 12 era curto DEMAIS —
+        # confirmado via logs reais que /api/run_portal, quando os jobs deste
+        # workflow disparam quase simultaneamente contra a mesma function serverless,
+        # rotineiramente leva 53-60s pra responder. Subido pra 55s — folga real
+        # sobre o pior caso observado, ainda dentro do timeout-minutes do job inteiro.
+        # 21/08/2026 — slot 4min, PROMOVIDO pra logo após política/futebol —
+        # Roberto: "o radar do esporte... É O SEGUNDO OU O TERCEIRO MAIOR
+        # COMANDO DO OVC". Ver comentário de escalonamento no topo do arquivo.
+        run: |
+          sleep 240
+          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"outros_esportes","force":true,"count":2}')
+          echo "OUTROS_ESPORTES: $RESP" | head -c 2000
+
   materias:
     name: Matéria 07h–00h30 BRT
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 9
     steps:
       - name: Verificar janela BRT
         id: janela
@@ -110,11 +155,10 @@ jobs:
 
       - name: Gerar matéria
         if: steps.janela.outputs.ok == 'true'
-        # 16/08/2026 — slot 2min — ver comentário de escalonamento no topo do
-        # arquivo (matérias gerais incluem política, então ficam logo após
-        # o canal 100% dedicado a política).
+        # 21/08/2026 — slot 6min, DESLOCADO pra depois do Radar do Esporte —
+        # ver comentário de escalonamento no topo do arquivo.
         run: |
-          sleep 120
+          sleep 360
           RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"materias","force":true,"count":8}')
@@ -123,18 +167,19 @@ jobs:
   brasilon:
     name: Brasil ON — Bacci Notícias + Revista Oeste (quase instantâneo)
     runs-on: ubuntu-latest
-    timeout-minutes: 7
+    timeout-minutes: 11
     steps:
       - name: Gerar conteúdo Brasil ON
         # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
         # em cima do job jovempan_politica, mesmo motivo.
         # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
-        # ver comentário completo no job outros_esportes abaixo.
-        # 16/08/2026 — slot 4min — ver comentário de escalonamento no topo do arquivo.
+        # ver comentário completo no job outros_esportes acima.
         # 17/08/2026 — count 2→3. Roberto pediu foco explícito em brasil-on
-        # (prioridade #2/3) pra bater o mínimo de 110-120 conteúdos/dia.
+        # pra bater o mínimo de 110-120 conteúdos/dia.
+        # 21/08/2026 — slot 8min, DESLOCADO pra depois do Radar do Esporte —
+        # ver comentário de escalonamento no topo do arquivo.
         run: |
-          sleep 240
+          sleep 480
           RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"brasilon","force":true,"count":3}')
@@ -143,81 +188,20 @@ jobs:
   internacional:
     name: Internacional — BBC News + CNN (mesma estrutura do Brasil ON/Bacci)
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 13
     steps:
       - name: Gerar conteúdo Internacional
         # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} — ver comentário
         # em cima do job jovempan_politica, mesmo motivo.
         # 14/08/2026 (continuação) — --max-time 12 subido pra 55 — era curto demais,
-        # ver comentário completo no job outros_esportes abaixo.
-        # 16/08/2026 — slot 6min — ver comentário de escalonamento no topo do arquivo.
+        # ver comentário completo no job outros_esportes acima.
         # 17/08/2026 — count 2→3. Roberto pediu foco explícito em internacional
-        # (prioridade #2/3) pra bater o mínimo de 110-120 conteúdos/dia.
+        # pra bater o mínimo de 110-120 conteúdos/dia.
+        # 21/08/2026 — slot 10min, DESLOCADO pra depois do Radar do Esporte —
+        # ver comentário de escalonamento no topo do arquivo.
         run: |
-          sleep 360
+          sleep 600
           RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
             -H "Content-Type: application/json" \
             -d '{"tipo":"internacional","force":true,"count":3}')
           echo "INTERNACIONAL: $RESP" | head -c 500
-
-  minuto:
-    name: Minuto OVC — finanças/economia (fontes confiáveis)
-    runs-on: ubuntu-latest
-    timeout-minutes: 11
-    steps:
-      - name: Gerar Minuto OVC
-        # 16/08/2026 — slot 8min — ver comentário de escalonamento no topo do arquivo.
-        run: |
-          sleep 480
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"minuto","force":true,"count":2}')
-          echo "MINUTO: $RESP" | head -c 300
-
-  futebol:
-    name: Radar do Futebol 24h
-    runs-on: ubuntu-latest
-    timeout-minutes: 13
-    steps:
-      - name: Gerar radar do futebol
-        # 16/08/2026 — slot 10min — REBAIXADO de propósito, prioridade menor
-        # que política/eleições agora (Roberto). Ver comentário de
-        # escalonamento no topo do arquivo.
-        run: |
-          sleep 600
-          RESP=$(curl -s -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"futebol","force":true}')
-          echo "FUTEBOL: $RESP" | head -c 300
-
-  outros_esportes:
-    name: Radar do Esporte 24h — Basquete/Motor/Tênis/MMA/Vôlei/NFL
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Gerar pílulas dos outros esportes
-        # head -c 300 cortava a resposta antes dos campos de diagnóstico
-        # (distribuicaoBruta/falhas, adicionados 08/08/2026) — aumentado pra 2000
-        # pra dar pra ver no log do Actions por que um esporte específico não gera nada.
-        # 14/08/2026: count 3→2 + --max-time 12 + %{http_code} explícito no log —
-        # ver comentário em cima do job jovempan_politica, mesmo motivo.
-        # 14/08/2026 (mesmo dia, continuação): --max-time 12 era curto DEMAIS —
-        # confirmado via logs reais que /api/run_portal, quando os 7 jobs deste
-        # workflow disparam quase simultaneamente contra a mesma function serverless,
-        # rotineiramente leva 53-60s pra responder (futebol/minuto, sem limite de
-        # tempo, completaram em 60s e 54s na mesma execução em que este job estourou
-        # o timeout aos 12s com exit code 28 = timeout de conexão, zero resposta HTTP
-        # recebida). Resultado: este job (e os outros 3 com o mesmo --max-time 12)
-        # falhavam em praticamente TODA rodada do cron, silenciosamente pro usuário
-        # (só aparecia como "red X" no Actions, sem afetar o "pipeline geral" visível
-        # no admin). Subido pra 55s — folga real sobre o pior caso observado (60s),
-        # ainda dentro do limite de 180s (timeout-minutes: 3) do job inteiro.
-        # 16/08/2026 — slot 12min (último de todos) — REBAIXADO de propósito,
-        # esporte é a prioridade mais baixa no momento (Roberto, período
-        # eleitoral). Ver comentário de escalonamento no topo do arquivo.
-        run: |
-          sleep 720
-          RESP=$(curl -s --max-time 55 -w "\nHTTP_CODE:%{http_code}" -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"outros_esportes","force":true,"count":2}')
-          echo "OUTROS_ESPORTES: $RESP" | head -c 2000

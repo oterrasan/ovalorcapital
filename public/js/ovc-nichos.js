@@ -4,13 +4,15 @@
  * Se este arquivo falhar, os cards da home continuam funcionando normalmente.
  *
  * Layout:
- * - Minuto OVC → 3 mini-cards horizontais entre blocos do miolo
- * - Pílulas    → 3 mini-cards horizontais antes do último bloco do miolo
+ * - Pílulas → 3 mini-cards horizontais antes do último bloco do miolo
  *
  * Radar OVC REMOVIDO — 31/07/2026 (Roberto): consumia o mesmo tipo_conteudo="radar"
  * usado pelo Radar do Esporte (ovc-radar-esporte.js) sem filtrar por categoria, duplicando
  * conteúdo esportivo fora do lugar certo. Conteúdo de futebol vive exclusivamente
  * no Radar do Futebol/Radar da Bola.
+ *
+ * Minuto OVC DELETADO — 21/08/2026 (Roberto: "DELETA TUDO ISSO IMEDIATAMENTE... nao
+ * quero resquicio de codigo no sistema do ovc"). Ver CLAUDE.md para o histórico completo.
  */
 (function () {
   'use strict';
@@ -117,30 +119,8 @@
       injetarCSS();
 
       var pilulas = nichos.filter(function(n){ return n.tipo==='pilula'||n.tipo==='micropilula'; }).slice(0,3);
-      var minutos = nichos.filter(function(n){ return n.tipo==='minuto'; }).slice(0,3);
 
-      // 2. Minuto OVC → 3 mini-cards logo antes da zona "Poder & Dinheiro"
-      // Âncora por data-zona (não por índice numérico de filho) — um índice fixo
-      // quebra silenciosamente toda vez que outro bloco é inserido antes dele na
-      // home (aconteceu em 04/08/2026 com a fileira de Colunistas OVC).
-      if (minutos.length) {
-        var blocoMinuto = criarLinhaMiniCards(minutos, {
-          id: 'ovc-nicho-minuto',
-          label: 'Minuto OVC',
-          badge: 'Economia',
-          cor: '#0369a1',
-          bgCor: '#e0f2fe'
-        });
-        if (blocoMinuto) {
-          var zonaPoderDinheiro = miolo.querySelector('[data-zona="poder-dinheiro"]');
-          var filhosAgora = Array.from(miolo.children);
-          var ref = zonaPoderDinheiro || filhosAgora[filhosAgora.length - 1];
-          if (ref) miolo.insertBefore(blocoMinuto, ref);
-          else miolo.appendChild(blocoMinuto);
-        }
-      }
-
-      // 3. Pílulas → 3 mini-cards antes do último bloco original
+      // Pílulas → 3 mini-cards antes do último bloco original
       if (pilulas.length) {
         var blocoPilulas = criarLinhaMiniCards(pilulas, {
           id: 'ovc-nicho-pilulas',

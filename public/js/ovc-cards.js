@@ -714,12 +714,6 @@ function buildSection(container){
   // ── Zona 2: Poder & Dinheiro (4 mini-cards) ──────────────────────────
   var z2 = document.createElement('div');
   z2.className = 'ovc-zona';
-  // data-zona = âncora estável pro ovc-nichos.js inserir o Minuto OVC logo antes
-  // desta zona — NUNCA usar índice numérico de filho aqui (ex: filhos[6]), pois
-  // qualquer novo bloco adicionado antes na home desloca a contagem e quebra a
-  // posição do Minuto OVC silenciosamente (aconteceu em 04/08/2026 ao inserir
-  // a fileira de Colunistas OVC).
-  z2.setAttribute('data-zona', 'poder-dinheiro');
   z2.appendChild(renderZonaHeader('Poder & Dinheiro', '/financas/'));
   z2.appendChild(renderBlocoD([CATS[3], CATS[4], CATS[5], CATS[7]]));
   miolo.appendChild(z2);

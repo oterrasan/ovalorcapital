@@ -5,7 +5,7 @@
  * usada por ovc-nichos.js na home, nunca mistura com ela.
  * Desde 31/07/2026 (Roberto), tipo_conteudo="radar" é exclusivamente conteúdo de futebol
  * (grande repercussão nacional/continental) — este widget é a listagem completa e
- * cronológica desse nicho, no mesmo padrão do hub /minuto/ (ovc-minuto-widget.js).
+ * cronológica desse nicho.
  * Visual "espetacular" (04/08/2026): dark carbon + destaque em pôster de manchete,
  * mesma linguagem do piloto do Motor/F1 e do ovc-torneio-espn.js.
  * Config via atributos data-* no elemento alvo:
@@ -22,7 +22,7 @@
 (function () {
   'use strict';
 
-  var REFRESH_MS = 120000; // reconsulta a cada 2min — mesma proposta "ao vivo" do Minuto OVC
+  var REFRESH_MS = 120000; // reconsulta a cada 2min
   var ACC = '#16a34a';
 
   var FUTEBOL_KW = [

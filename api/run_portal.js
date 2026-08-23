@@ -239,18 +239,15 @@ async function cleanupTitles(res, body) {
 // INTERNACIONAIS E POLITICA (...) ALEM DISSO, SO OS RADARES TAMBEM PUBLICAM
 // AUTOMATICAMENTE". Parâmetro `pendente` adicionado — default false preserva
 // o comportamento atual pros Radares (autoFutebolCurtinhas/autoOutrosEsportes-
-// Curtinhas, permitidos por regra explícita). autoMinutoOVC() passa
-// pendente:true agora — Minuto OVC NÃO está na lista de canais autorizados a
-// publicar direto, precisa de aprovação humana como qualquer matéria geral.
+// Curtinhas, permitidos por regra explícita).
 async function saveCurtinha(content, hash, cat, tipo, img = null, subcategoriaOverride = null, pendente = false) {
   // 21/08/2026 — Roberto: "coisas de esportes indo pra economia... por isso esportes nunca tem
   // nada". Causa raiz: kernels curtos (ESPORTES_CURTINHA_KERNEL) não emitem CATEGORIA no texto —
   // parse() cai no fallback hardcoded "economia" — e esta linha priorizava content.categoria
   // (a categoria "adivinhada" pela IA) sobre `cat` (a categoria REAL que o chamador já sabe,
   // ex: autoFutebolCurtinhas() sempre passa cat="esportes"). Prioridade invertida: `cat` agora
-  // vence sempre que válido — em todo caller existente cat já é a categoria correta pretendida
-  // (para autoMinutoOVC/autoCurtinhas, cat === content.categoria de qualquer forma, então nenhum
-  // comportamento muda ali; para futebol/outros_esportes, esporte deixa de vazar pra economia).
+  // vence sempre que válido — em todo caller existente cat já é a categoria correta pretendida,
+  // então nenhum comportamento muda exceto: esporte deixa de vazar pra economia.
   const catFinal = CATS.has(cat) ? cat : (CATS.has(content.categoria) ? content.categoria : "politica");
   const subcat = subcategoriaOverride || SUBCAT[catFinal] || "Geral";
   const { data, error } = await supabase.from("posts").insert({
@@ -450,101 +447,14 @@ function pareceFutebol(texto) {
 // (dispatcher comentado — ver histórico no CLAUDE.md), consumia RSS/scrape à toa sem nunca
 // rodar de fato. Confirmado sem nenhuma chamada ativa antes da remoção.
 
-// MINUTO OVC — reativado 31/07/2026 a pedido de Roberto: SOMENTE fontes de finanças/economia
-// extremamente confiáveis (subconjunto curado das 70 fontes aprovadas), sem mistura com o pool geral.
-const MINUTO_FONTES_CONFIAVEIS = new Set([
-  "Valor Econômico", "InfoMoney", "Money Times", "Bloomberg Línea",
-  "Brazil Journal", "IstoÉ Dinheiro", "Bloomberg", "Financial Times",
-  "The Wall Street Journal", "The Economist", "Reuters", "Exame"
-]);
-// Reuters/FT/The Economist usam feed geral (capa do site), não exclusivo de economia — por isso
-// é obrigatório filtrar por assunto também, não só por fonte confiável.
-const MINUTO_ASSUNTO_KW = [
-  "juros","selic","copom","inflação","inflacao","ipca","igp-m","pib","câmbio","cambio","dólar","dolar",
-  "bolsa","ibovespa","b3","ações","acoes","mercado financeiro","banco central","bacen","fed","federal reserve",
-  "fiscal","déficit","deficit","superávit","superavit","dívida pública","divida publica","orçamento","orcamento",
-  "investimento","investidor","renda fixa","renda variável","renda variavel","fundo imobiliário","fundo imobiliario",
-  "tesouro direto","commodities","recessão","recessao","crescimento econômico","crescimento economico",
-  "balanço","balanco","lucro líquido","lucro liquido","receita líquida","receita liquida","faturamento",
-  "ipo","fusão","fusao","aquisição","aquisicao","m&a","startup","unicórnio","unicornio",
-  "tarifa","tarifaço","tarifaco","importação","importacao","exportação","exportacao","balança comercial","balanca comercial",
-  "crédito","credito","dívida","divida","tributário","tributario","imposto","reforma tributária","reforma tributaria",
-  "wall street","nasdaq","s&p 500","dow jones","commodity","varejo","agronegócio","agronegocio","emprego","desemprego",
-  "salário mínimo","salario minimo","caged","pmi","gdp","inflation","interest rate","stock market","earnings"
-];
-function assuntoFinanceiro(item) {
-  const t = ((item.title || "") + " " + (item.description || "")).toLowerCase();
-  return MINUTO_ASSUNTO_KW.some(kw => t.includes(kw));
-}
-
-// Filtro de idade PRÓPRIO do Minuto OVC — NUNCA usar isRecente() (48h) aqui.
-// Minuto publica direto, sem revisão humana (Regra Zero-I) — precisa de janela
-// muito mais estrita que as matérias normais, que ficam pendentes de aprovação.
-// Roberto, 01/08/2026: "passou de 59 minutos que a noticia foi publicada, descarta".
-// AJUSTADO 02/08/2026: 59min zerava o Minuto quase sempre — logs do pipeline
-// confirmaram (descartadosPorIdade:20 de 20 candidatos) que o cron real do
-// GitHub Actions dispara a cada ~60min (não a cada 15min como configurado no
-// YAML — throttling de plataforma para schedules frequentes), então um item
-// com <59min no fetch já nasce velho demais até a próxima rodada rodar. Subiu
-// para 3h para sobreviver ao intervalo real entre execuções, mantendo o
-// espírito de "só notícia fresca" sem zerar o recurso inteiro.
-const MINUTO_MAX_IDADE_MS = 180 * 60 * 1000;
-function isUltimaHora(item) {
-  const dateStr = item?.pubDate;
-  if (!dateStr) return false;
-  const t = new Date(dateStr).getTime();
-  if (isNaN(t)) return false;
-  return (Date.now() - t) < MINUTO_MAX_IDADE_MS;
-}
-
-async function autoMinutoOVC(req, res, rec) {
-  const start = Date.now();
-  const body = req.body || {};
-  const count = Math.min(parseInt(body.count) || 2, 4);
-  const fontes = FONTES_APROVADAS_URLS.filter(f => MINUTO_FONTES_CONFIAVEIS.has(f.name)).map(f => ({ url: f.url, name: f.name }));
-  const news = await buscarFeedsEspecificos(fontes);
-  const seen = new Set();
-  const financeiros = news.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link) && assuntoFinanceiro(i));
-  const items = financeiros.filter(isUltimaHora).slice(0, 25);
-  if (!items.length) {
-    return res.status(200).json({
-      status: "ok", generated: 0, tipo: "minuto", candidates: 0,
-      info: "no_minuto_news",
-      stats: { totalFeed: news.length, financeiros: financeiros.length, descartadosPorIdade: financeiros.length - items.length }
-    });
-  }
-  let generated = 0;
-  for (const item of items) {
-    if (Date.now() - start > 50000 || generated >= count) break;
-    if (pautaParecida(item.title || "", rec.sourceTitulos)) continue;
-    let a, sourceText;
-    try {
-      a = await scrape(item.link);
-      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 300) continue;
-    } catch (_) { continue; }
-    const hash = crypto.createHash("md5").update(item.link + "_minuto").digest("hex");
-    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-    if (dup) continue;
-    try {
-      const content = remapCat(await rewritePortal(sourceText, item.title || a.title || "", rec.contexto));
-      const erros = validar(content);
-      if (erros.length) continue;
-      if (pautaParecida(content.titulo, rec.titulos)) continue;
-      // Nunca forçar categoria — se a própria IA não classificou como finanças/economia, descarta.
-      if (!["economia", "financas", "negocios"].includes(content.categoria)) continue;
-      // pendente:false (21/08/2026) — antes salvava como pendente/approved:false, mas
-      // handleCurtinhasMinuto() (api/portal-posts.js) só serve status="publicado" — o conteúdo
-      // nunca alcançava /minuto/ na prática (ficava preso atrás da fila geral de aprovação).
-      // Restaura o design original da Regra Zero-I (nichos publicam direto) e dá a este canal
-      // um destino real, conforme cobrado por Roberto: "TODOS OS CONTEUDOS DEVEM TER DESTINO".
-      const post = await saveCurtinha(content, hash, content.categoria, "minuto", null, null, false);
-      await log("info", `[minuto] pendente: ${content.titulo?.slice(0, 50)} | fonte:${item.source}`);
-      generated++;
-    } catch (_) { continue; }
-  }
-  return res.status(200).json({ status: "ok", generated, tipo: "minuto", candidates: items.length });
-}
+// MINUTO OVC — DELETADO em 21/08/2026 — Roberto: "DELETA TUDO ISSO IMEDIATAMENTE... nao
+// quero resquicio de codigo no sistema do ovc". Toda a lógica (MINUTO_FONTES_CONFIAVEIS,
+// MINUTO_ASSUNTO_KW, assuntoFinanceiro(), MINUTO_MAX_IDADE_MS, isUltimaHora(),
+// autoMinutoOVC()) foi removida junto com o dispatcher, o endpoint de leitura
+// (handleCurtinhasMinuto() em api/portal-posts.js) e as 4 páginas de destino
+// (/minuto/, /dolar-hoje/, /selic-hoje/, /ibovespa-hoje/) — ver CLAUDE.md para o
+// histórico completo. Roberto pediu manter e priorizar o Radar do Esporte/Futebol
+// (ver comentários em pipeline-cron.yml), NÃO confundir os dois sistemas.
 
 // DESATIVADO — 28/07/2026 — Roberto: Copa do Mundo 2026 encerrada, radar desligado.
 // Função mantida como histórico/referência, mas nunca mais é chamada pelo dispatcher.
@@ -1299,7 +1209,7 @@ export default async function handler(req, res) {
     if (body.tipo === "copa") return res.status(200).json({ status: "ok", generated: 0, tipo: "copa_desativado", info: "Radar da Copa desativado — torneio encerrado" });
     if (body.tipo === "futebol") return autoFutebolCurtinhas(req, res, rec);
     if (body.tipo === "outros_esportes") return autoOutrosEsportesCurtinhas(req, res, rec);
-    if (body.tipo === "minuto") return autoMinutoOVC(req, res, rec);
+    // Minuto OVC DELETADO em 21/08/2026 — ver comentário acima de autoCopaCurtinhas().
     if (body.tipo === "brasilon") return autoBrasilOn(req, res, rec);
     if (body.tipo === "jovempan_politica") return autoJovempanPolitica(req, res, rec);
     if (body.tipo === "internacional") return autoInternacional(req, res, rec);

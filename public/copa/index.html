@@ -1125,11 +1125,11 @@ if(!list.length)return;
 var painel=document.getElementById('copa-pilulas-painel');
 var cont=document.getElementById('copa-pilulas-list');
 if(!painel||!cont)return;
-var corMap={radar:'#dc2626',minuto:'#2563eb',pilula:'#16a34a',micropilula:'#16a34a'};
+var corMap={radar:'#dc2626',pilula:'#16a34a',micropilula:'#16a34a'};
 cont.innerHTML=list.slice(0,6).map(function(p){
 var tipo=p.tipo_conteudo||'pilula';
 var cor=corMap[tipo]||'#16a34a';
-var label=tipo.replace('micropilula','Pílula').replace('pilula','Pílula').replace('radar','Radar OVC').replace('minuto','Minuto OVC');
+var label=tipo.replace('micropilula','Pílula').replace('pilula','Pílula').replace('radar','Radar OVC');
 var slug=p.seo_slug||p.slug||p.id;
 return '<a href="/esportes/'+slug+'/" class="copa-pilula-item">'+
 '<div class="copa-pilula-badge" style="color:'+cor+';">'+label+'</div>'+

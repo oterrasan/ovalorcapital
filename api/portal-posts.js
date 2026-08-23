@@ -114,10 +114,11 @@ async function handleHome(req, res) {
 }
 
 
-// ─── CURTINHAS (pilula/micropilula/radar/minuto) por categoria ───────────────
+// ─── CURTINHAS (pilula/micropilula/radar) por categoria ──────────────────────
 // REGRA 0: esses conteúdos NUNCA aparecem nos cards normais da home.
 // Este endpoint é exclusivo: ?curtinhas=true&categoria=SLUG&limit=N
-// Retorna mix balanceado: top 4 radar + top 3 pilula + top 3 minuto (evita Copa dominar pool)
+// Retorna mix balanceado: top radar + top pilula (evita Copa dominar pool)
+// Minuto OVC DELETADO em 21/08/2026 (Roberto — ver CLAUDE.md) — nunca mais servir tipo_conteudo="minuto".
 const SEL_CURTINHAS = "id,titulo,comentario_fixado,conteudo,user_tags,tipo_conteudo,published_at,created_at";
 
 function mapCurtinhaRow(row) {
@@ -135,31 +136,6 @@ function mapCurtinhaRow(row) {
     data: row.published_at || row.created_at || new Date().toISOString(),
     url: `/${catPath}/${slug}-${id8}/`
   };
-}
-
-// Keywords por tópico — usadas SOMENTE pelo modo ?tipo=minuto (páginas "X Hoje" + hub /minuto/).
-// Server-side e fixo por decisão de design: evita que o cliente injete termos de busca livres.
-const MINUTO_TOPICOS = {
-  dolar: ["dólar", "dolar", "câmbio", "cambio", "usd/brl", "taxa de câmbio", "taxa de cambio"],
-  selic: ["selic", "copom", "taxa básica de juros", "taxa basica de juros", "juros básicos", "juros basicos"],
-  ibovespa: ["ibovespa", "ibov", "bolsa de valores", "b3 ", " b3,", "bolsa brasileira"]
-};
-
-// Modo dedicado ?curtinhas=true&tipo=minuto[&topico=SLUG][&limit=N]
-// Usado pelas páginas /dolar-hoje/, /selic-hoje/, /ibovespa-hoje/ e pelo hub /minuto/.
-// Isolado da query balanceada acima — NUNCA usado por ovc-nichos.js (Regra Zero-I preservada).
-async function handleCurtinhasMinuto(req, res) {
-  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
-  const topico = String(req.query.topico || "").toLowerCase();
-  let q = supabase.from("posts").select(SEL_CURTINHAS).eq("status", "publicado")
-    .eq("tipo_conteudo", "minuto").order("published_at", { ascending: false }).limit(limit);
-  const kws = MINUTO_TOPICOS[topico];
-  if (kws) {
-    q = q.or(kws.map(k => `titulo.ilike.%${k}%,conteudo.ilike.%${k}%`).join(","));
-  }
-  const { data } = await q;
-  const posts = (data || []).map(mapCurtinhaRow);
-  return res.status(200).json({ curtinhas: posts, total: posts.length, topico: topico || null });
 }
 
 // Modo dedicado ?curtinhas=true&tipo=radar[&categoria=SLUG][&limit=N]
@@ -186,9 +162,6 @@ async function handleCurtinhas(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
 
   const tipoQ = String(req.query.tipo || "").toLowerCase();
-  if (tipoQ === "minuto") {
-    return handleCurtinhasMinuto(req, res);
-  }
   if (tipoQ === "radar") {
     return handleCurtinhasRadar(req, res);
   }
@@ -217,22 +190,18 @@ async function handleCurtinhas(req, res) {
   // achado e corrigido 08/08/2026 a partir do relato do Roberto ("nenhum radar funciona").
   const limitParam = hasCat ? clampInt(req.query.limit, 30, 10, 60) : 10;
   const capRadar = hasCat ? Math.max(6, Math.round(limitParam * 0.5)) : 4;
-  const capPilula = hasCat ? Math.max(6, Math.round(limitParam * 0.4)) : 3;
-  const capMinuto = hasCat ? Math.max(3, Math.round(limitParam * 0.15)) : 3;
+  const capPilula = hasCat ? Math.max(6, Math.round(limitParam * 0.5)) : 6;
 
-  const [rRadar, rPilula, rMinuto] = await Promise.all([
+  const [rRadar, rPilula] = await Promise.all([
     addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
       .in("tipo_conteudo",["radar"]).order("published_at",{ascending:false}).limit(capRadar)),
     addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(capPilula)),
-    addCatFilter(supabase.from("posts").select(SEL_CURTINHAS).eq("status","publicado")
-      .in("tipo_conteudo",["minuto"]).order("published_at",{ascending:false}).limit(capMinuto))
+      .in("tipo_conteudo",["pilula","micropilula"]).order("published_at",{ascending:false}).limit(capPilula))
   ]);
 
   const posts = [
     ...(rRadar.data || []).map(mapCurtinhaRow),
-    ...(rPilula.data || []).map(mapCurtinhaRow),
-    ...(rMinuto.data || []).map(mapCurtinhaRow)
+    ...(rPilula.data || []).map(mapCurtinhaRow)
   ];
 
   return res.status(200).json({ curtinhas: posts, total: posts.length });
