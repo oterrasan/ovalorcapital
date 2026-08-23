@@ -193,7 +193,7 @@
   // Sistema de curtinhas DELETADO — 23/08/2026 (Roberto). Filtra direto do feed
   // normal de artigos (?recentes=true) por palavra-chave de Copa.
   function init() {
-    fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).then(function(d) {
+    fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300').then(function(r){ return r.json(); }).then(function(d) {
       var todosArtigos = d.posts || [];
       var artigos = todosArtigos.filter(function(p) {
         var titulo = (p.titulo || '').toLowerCase();

@@ -339,7 +339,7 @@
     if (!alvo) return;
     alvo.innerHTML = '<div class="ovc-mdb-wrap"><div class="ovc-mdb-empty">Carregando…</div></div>';
 
-    fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).then(function (d) {
+    fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300').then(function (r) { return r.json(); }).then(function (d) {
       montar(filtrar(d.posts || []));
     }).catch(function () { montar([]); });
   }

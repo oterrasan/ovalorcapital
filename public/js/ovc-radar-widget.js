@@ -155,7 +155,7 @@
   }
 
   function carregar(alvo, categoria) {
-    fetch('/api/portal-posts?recentes=true&limit=300')
+    fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300')
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var lista = (d.posts || []).filter(function (p) {

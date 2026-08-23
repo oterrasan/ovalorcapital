@@ -187,7 +187,7 @@
 
   function fetchNoticias() {
     var kw = CFG.keywords || [];
-    fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).then(function (d) {
+    fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300').then(function (r) { return r.json(); }).then(function (d) {
       var todos = d.posts || [];
       var vistos = {};
       var filtrados = todos.filter(function (p) {

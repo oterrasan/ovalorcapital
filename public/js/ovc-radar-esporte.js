@@ -361,7 +361,7 @@
   // A classificação por esporte usa exclusivamente o feed ?recentes=true,
   // igual a todos os outros radares (ovc-copa.js, ovc-radar-volei.js etc.).
   function init() {
-    fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).then(function(d) {
+    fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300').then(function(r){ return r.json(); }).then(function(d) {
       var todosArtigos = d.posts || [];
 
       var porEsporte = {};

@@ -223,6 +223,32 @@ async function handleRecentes(req, res) {
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
 
   const limit = clampInt(req.query.limit, 80, 1, 300);
+
+  // 23/08/2026 — Roberto: "tudo o que tinha de conteudo dentro do radar do esporte sumiu
+  // basicamente". Causa raiz: após a deleção do endpoint dedicado ?curtinhas=true, os 9
+  // widgets de esporte (home + páginas dedicadas de Futebol/Basquete/Motor/Tênis/MMA/Vôlei/
+  // NFL) passaram a consumir ?recentes=true&limit=300 (pool GERAL do site) e filtrar
+  // categoria==='esportes' no client — mas esportes é diluído pelo alto volume de outras
+  // categorias (política/economia/internacional/brasil-on, count:3 cada, rodando 24h) e
+  // raramente sobra espaço suficiente no top-300 sitewide. Fix: quando `categoria` é passado
+  // explicitamente, consulta direto filtrada por ela (mesmo padrão já usado no bloco
+  // "fillers" abaixo) — o limit passa a valer DENTRO da categoria, não do site inteiro.
+  const categoriaFiltro = normalizeCat(req.query.categoria || "");
+  if (categoriaFiltro) {
+    const { data: rowsCat, error: errCat } = await supabase.from("posts")
+      .select(POST_COLUMNS)
+      .eq("status", "publicado")
+      .or("tipo_conteudo.is.null,tipo_conteudo.eq.padrao")
+      .like("user_tags", `%"${categoriaFiltro}"%`)
+      .order("published_at", { ascending: false })
+      .limit(limit);
+    if (errCat) throw errCat;
+    const postsCat = dedupe(rowsCat || [])
+      .map(row => formatPost(row, false))
+      .filter(p => p.categoria === categoriaFiltro || (p.tags || []).includes(categoriaFiltro));
+    return res.status(200).json({ posts: postsCat, total: postsCat.length });
+  }
+
   const { data, error } = await supabase.from("posts")
     .select(POST_COLUMNS)
     .eq("status", "publicado")

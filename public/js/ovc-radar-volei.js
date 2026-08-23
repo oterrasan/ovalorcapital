@@ -137,7 +137,7 @@
     if (!alvo) return;
     alvo.innerHTML = '<div class="ovc-vly-wrap"><div class="ovc-vly-body"><div class="ovc-vly-empty">Carregando…</div></div></div>';
 
-    fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).then(function (d) {
+    fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300').then(function (r) { return r.json(); }).then(function (d) {
       montar(filtrar(d.posts || []));
     }).catch(function () { montar([]); });
   }
