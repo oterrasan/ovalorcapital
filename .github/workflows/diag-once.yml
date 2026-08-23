@@ -9,17 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Re-teste pos-deploy do fix allowCompetitorImage (GE Globo)
+      - name: Confirmar artigos reais de futebol publicados (evidencia final)
         run: |
-          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"futebol","force":true,"count":4}')
-          echo "FUTEBOL_1: $RESP"
-      - name: Aguardar 5s
-        run: sleep 5
-      - name: Testar de novo (segunda amostra)
-        run: |
-          RESP=$(curl -s --max-time 55 -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -d '{"tipo":"futebol","force":true,"count":4}')
-          echo "FUTEBOL_2: $RESP"
+          curl -s --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&categoria=esportes&limit=300" \
+            | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+posts=d.get('posts') or d.get('items') or []
+fut=[p for p in posts if 'futebol' in json.dumps(p.get('subcategoria') or p.get('user_tags') or '').lower() or 'futebol' in (p.get('titulo') or '').lower()]
+print('TOTAL_ESPORTES:', len(posts))
+for p in posts[:8]:
+  print(p.get('published_at') or p.get('created_at'), '|', p.get('titulo'))
+"
