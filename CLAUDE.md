@@ -7695,9 +7695,8 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 | Sistema | Status |
 |---|---|
-| **`IA_KEYS_POLICY.md` corrigido** — reflete Gemini como motor oficial, Groq como fallback, OpenAI proibida | ✅ PR #457 aberto (draft), CI a confirmar |
+| **`IA_KEYS_POLICY.md` corrigido** — reflete Gemini como motor oficial, Groq como fallback, OpenAI proibida | ✅ EM PRODUÇÃO — PR #457 mergeado (squash `336d5f4f`), CI verde ("Verificar arquivos críticos" + "Vercel Preview Comments"), `deploy.yml` run 1539 confirmado `completed`/`success` |
 
 #### 🔧 Pendências para a próxima sessão
 
-1. **Confirmar merge do PR #457** e que o CI ("Verificar arquivos críticos") passou — mudança é só documentação, baixo risco.
-2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
+1. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
