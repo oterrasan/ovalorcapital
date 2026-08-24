@@ -7661,3 +7661,43 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar com Roberto, após alguns ciclos do `futebol-live.yml` (a cada 5min)**, que artigos reais e frescos de futebol estão sendo publicados de novo (o teste desta sessão confirmou que o gargalo de imagem sumiu, mas os 5 candidatos testados já eram hash-duplicados — a próxima leva de itens frescos do RSS da GE Globo deve gerar conteúdo real).
 2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, e a pendência sobre a matéria especial de economia/Pulso BR).
+
+---
+
+### Sessão 24/08/2026 — LEITURA DOS MDs + `IA_KEYS_POLICY.md` CORRIGIDO (obsoleto/conflitante desde 15-17/08)
+
+#### Contexto
+
+Roberto pediu leitura de todos os últimos `.md` do projeto pra retomar o contexto. Na varredura, encontrado que `IA_KEYS_POLICY.md` (versão de 30/05/2026) exigia exclusivamente `OPENAI_API_KEY` e **proibia explicitamente Gemini/Groq** — política diretamente conflitante com a realidade do sistema desde a crise de 15-17/08/2026, quando o motor migrou pra Gemini como primário e Groq como fallback, com OpenAI descartada por decisão de Roberto ("esquece OpenAI"). O arquivo nunca tinha sido atualizado pra refletir essa mudança.
+
+Roberto confirmou de forma explícita e definitiva: **Gemini (`gemini-flash-lite-latest`) é o motor oficial, Groq (`openai/gpt-oss-120b`) é o fallback oficial, OpenAI está morta e nunca deve ser sugerida de novo — nem como solução de emergência.**
+
+#### O que foi feito (PR #457, branch `claude/ler-ultimos-mds-27hk94`)
+
+- Varredura em todos os `.md` do repositório (`grep -rniE "openai|gemini|groq" --include="*.md"`) — só `IA_KEYS_POLICY.md` estabelecia uma política ativa e conflitante. `BUGS_CORRIGIDOS.md` e `INCIDENTE_16_05_2026.md` só citam esses provedores em relatos históricos de bugs/incidentes passados (contexto factual do que aconteceu naquele dia, não regra vigente) — não tocados. `CLAUDE.md` já refletia a realidade correta.
+- `IA_KEYS_POLICY.md` reescrito por completo: regra oficial atualizada (Gemini + Groq, OpenAI proibida), onde as chaves reais vivem (tabela `config` do Supabase, nunca em arquivo do repo), a ordem real de fallback usada em `callIA()` (`core/ai_portal.js`), histórico resumido de por que a política antiga caiu, e regras invioláveis reforçando: nunca sugerir OpenAI, nunca registrar chave real em `.md`/código, nunca trocar de modelo Gemini/Groq sem testar até exaurir a cota real em produção.
+- `api/` não tocado — mudança isolada em documentação, 10 arquivos mantidos (Regra Zero-A intacta).
+
+#### Reforço de regras feito por Roberto nesta sessão (documentado aqui para referência rápida)
+
+Roberto reiterou explicitamente as regras invioláveis do topo deste arquivo (máx. 10 arquivos em `api/`, nunca alterar o MASTER_PROMPT sem autorização verbal explícita nesta conversa, nunca push sem revisar diff, portal nunca offline, `vercel.json` sempre em commit isolado, nunca revert de `index.html` via GitHub Web) e confirmou que **a Regra Zero-I (sistema de nichos Pílula/Radar OVC genérico/Minuto OVC) está OBSOLETA** — todo esse sistema foi deletado por completo em 23/08/2026 a pedido dele; não recriar nada parecido sem novo pedido explícito.
+
+Roberto também listou as automações que **nunca podem parar** e que são prioridade máxima de investigação se `candidates:0`/`generated:0` aparecer sem causa investigada e corrigida com evidência real: Matérias gerais, Brasil ON (Bacci), Jovem Pan Política, Internacional (BBC+CNN), Radar do Futebol (GE Globo), Radar do Esporte/Outros Esportes (Basquete/Motor/Tênis/MMA/Vôlei/NFL). Todas já documentadas e ativas nas sessões anteriores — nenhuma mudança de código nelas nesta sessão, só reafirmação da prioridade.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (24/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **`IA_KEYS_POLICY.md` corrigido** — reflete Gemini como motor oficial, Groq como fallback, OpenAI proibida | ✅ PR #457 aberto (draft), CI a confirmar |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar merge do PR #457** e que o CI ("Verificar arquivos críticos") passou — mudança é só documentação, baixo risco.
+2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
