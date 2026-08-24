@@ -7494,11 +7494,46 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 ---
 
+### Sessão 21/08/2026 (continuação 2) — SCHEDULER TRAVADO DE NOVO + SEGUNDO VAZAMENTO DE ESPORTES (agora no pipeline geral de matérias, não só nas curtinhas)
+
+#### Scheduler do cron travado ~42min — mesmo padrão já visto em 15-16/08, resolvido do mesmo jeito
+
+Antes do fix de categorização (`7b88a43e`), Roberto cobrou porque o `pipeline-cron.yml` agendado não disparava havia mais de 42 minutos. Mesma causa mais provável já documentada (atraso do scheduler do GitHub Actions sob carga) e mesma ação corretiva imediata já estabelecida como padrão: adicionado um trigger `push` temporário no próprio arquivo do workflow (commit `4e678521`) pra forçar uma rodada na hora, confirmado rodando com sucesso, e o trigger removido no commit seguinte (`54974130`) — cron voltou ao normal, sem ficar só "de olho".
+
+#### 🔴 Segundo vazamento de categoria de esportes — desta vez no pipeline geral (`autoMaterias()`), não nas curtinhas
+
+O fix `7b88a43e` (já documentado acima) corrigiu a prioridade de categoria em `saveCurtinha()` — mas isso só cobria os geradores de curtinha/radar de esporte. Investigação adicional (commit `42d898ff`) encontrou uma causa raiz **diferente e mais antiga**, no caminho normal de matérias completas (`autoMaterias()`):
+
+1. **`baseNews` caía no pool geral do portal inteiro quando `cat==="esportes"` mas o pool específico (`getNewsByCategoria("esportes")`) vinha vazio** — misturando notícia de qualquer assunto com o kernel de reescrita de esportes (`rewriteEsportes`). Fix: pra `cat==="esportes"`, nunca usar o pool geral — sem candidato específico, a rodada simplesmente não gera nada em vez de arriscar contaminação.
+2. **`inserir()` confiava 100% na classificação livre da IA** (`content.categoria`) mesmo quando a notícia-fonte veio exclusivamente do pool de esportes e foi reescrita com o kernel de esportes — nada garantia que a IA não classificasse como economia/finanças/brasil-on (viés comum quando o texto fala de transferência, salário, patrocínio). Fix: `content.categoria` forçado pra `"esportes"` sempre que `cat==="esportes"`, antes da validação e inserção.
+
+Isso fecha o ciclo completo: agora tanto o pipeline geral de matérias quanto os 2 geradores de curtinha de esporte (já corrigidos antes na mesma sessão) garantem que conteúdo de esportes nunca escapa pra outra categoria.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudança só em `api/run_portal.js`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (21/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **Scheduler do cron travado ~42min — corrigido na hora via trigger de push temporário** | ✅ CORRIGIDO EM TEMPO REAL (commits `4e678521`/`54974130`) |
+| **Vazamento de categoria de esportes no pipeline geral (`autoMaterias()`)** — pool geral nunca mais usado pra esportes + categoria forçada antes da inserção | ✅ EM PRODUÇÃO (commit `42d898ff`) |
+
+---
+
 ### Sessão 23/08/2026 — DELEÇÃO TOTAL DO SISTEMA DE CURTINHAS/PÍLULAS + 🔴 REGRESSÃO REAL E FIX: RADAR DO ESPORTE ESVAZIADO
 
 #### Contexto
 
 Roberto: *"TODAS AS CURTINHAS, PILULAS E O CARALHO A QUATRO... EU JA HAVIA MANDADO DELETAR ISSO HA SEMANAS"* + *"O RADAR DOS ESPORTES DEVERIAM SER MATERIAS COMPLETAS E COM IMAGENS, RASPADAS DE FONTES CONFIAVEIS"* + *"ESTAS MERDAS CONTINUAM DA HOME E NO PORTAL, NAO QUERO NADA DISSO NO SISTEMA"*. Também instrução crítica de comunicação: **"FALA EM PORTUGUIES!! CARALHO"** — todas as respostas a Roberto passam a ser em português, sem exceção, pro resto da sessão (e daqui pra frente).
+
+#### Parte 0 — Tentativa incremental que a própria sessão superou horas depois (commit `c762715b`)
+
+Antes do pedido de deleção total acima, Roberto tinha reportado um sintoma pontual: *"olha esta merda de NOTAS DO DIA!!! Estao consumindo tokens das chaves a toa e roubando conteudo dos ESPORTES!"*. Causa raiz: `autoOutrosEsportesCurtinhas()` salvava Basquete/Motor/Tênis/MMA/Vôlei/NFL como `tipo_conteudo="pilula"` (só futebol usa `"radar"`), e `ovc-nichos.js` buscava pílulas sem filtro de categoria — esse conteúdo esportivo, que já tem destino dedicado no Radar do Esporte, vazava pro widget genérico "Notas do Dia" da home. Fix aplicado: pílulas filtradas por `categoria!=='esportes'` antes do `slice(0,3)` (mesma classe de bug já corrigida uma vez pro Radar OVC em 31/07/2026). **Esse fix ficou obsoleto poucas horas depois no mesmo dia** — Roberto voltou pedindo a deleção total do sistema (Parte 1 abaixo), que removeu o próprio `ovc-nichos.js`/"Notas do Dia" por completo, tornando este fix pontual desnecessário. Registrado aqui só pra completude do histórico — não há nada pra reverter, o arquivo inteiro já não existe mais.
 
 #### Parte 1 — Deleção completa (commit `6d7a7813`)
 
