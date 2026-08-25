@@ -143,6 +143,58 @@ const fmt = d => { if(!d) return '—'; const dt = new Date(d); return dt.toLoca
 const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
 const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
 
+// ── PREVIEW INSTAGRAM (24/08/2026, a pedido de Roberto) ──
+// Converte o HTML de qualquer post do portal em texto puro, formatado
+// exatamente como uma legenda real de Instagram — nunca mostrar tag HTML
+// crua pro usuário. Usado só para PRÉVIA (não publica nada).
+function stripHtmlToText(html) {
+  if (!html) return '';
+  let s = String(html);
+  s = s.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '');
+  s = s.replace(/<\/(p|div|h[1-6]|li|blockquote|figure|figcaption)>/gi, '\n\n');
+  s = s.replace(/<br\s*\/?>/gi, '\n');
+  s = s.replace(/<li[^>]*>/gi, '• ');
+  s = s.replace(/<[^>]+>/g, '');
+  const ta = document.createElement('textarea');
+  ta.innerHTML = s;
+  s = ta.value;
+  s = s.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  return s;
+}
+
+// Hashtag real do Instagram nunca aceita acento/cedilha (quebra no primeiro
+// caractere especial) — normaliza sempre, pra prévia ser fiel ao que o
+// Instagram de fato mostraria, nunca uma hashtag que quebraria na prática.
+function toHashtag(s) {
+  const limpo = String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'');
+  return limpo ? '#'+limpo : '';
+}
+const CAT_HASHTAG_LABEL = {
+  'brasil-on':'BrasilOn','politica':'Politica','economia':'Economia','financas':'Financas',
+  'negocios':'Negocios','tecnologia':'Tecnologia','internacional':'Internacional',
+  'industria':'Industria','familia':'Familia','esportes':'Esportes','vc':'VC','colunistas':'Colunistas'
+};
+
+// Monta a legenda EXATAMENTE como o sistema publica de verdade (mesma
+// convenção de core/ai.js e do formulário "Novo Post Manual"): título em
+// caixa alta, corpo em texto puro (limite real de 1500 chars), assinatura
+// fixa "Redação OVC — {data}" e hashtags sempre terminando em #ovalorcapital.
+function buildIgCaption(post) {
+  const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
+  const titulo = String(post.titulo||'').toUpperCase();
+  const corpoCompleto = stripHtmlToText(post.conteudo);
+  const LIMITE = 1500;
+  const truncado = corpoCompleto.length > LIMITE;
+  const corpo = truncado ? corpoCompleto.slice(0, LIMITE).replace(/\s+\S*$/, '') + '…' : corpoCompleto;
+  const assinatura = `Redação OVC — ${hoje}`;
+  const hashtags = [];
+  if (post.categoria && CAT_HASHTAG_LABEL[post.categoria]) hashtags.push('#'+CAT_HASHTAG_LABEL[post.categoria]);
+  if (post.subcategoria) { const h = toHashtag(post.subcategoria); if (h && h.toLowerCase() !== (hashtags[0]||'').toLowerCase()) hashtags.push(h); }
+  hashtags.push('#ovalorcapital');
+  const partes = [titulo, corpo, assinatura, hashtags.join('\n')].filter(Boolean);
+  return { titulo, corpo, assinatura, hashtags, truncado, texto: partes.join('\n\n') };
+}
+
 // ── LOGIN ──
 function Login({ onLogin }) {
   const [pass, setPass] = useState('');
@@ -1021,17 +1073,25 @@ function Postagens() {
     <div>
       <div className="page-header"><div className="page-title">Postagens</div><div className="page-sub">Aprovação, edição e histórico de posts</div></div>
       <div className="page-body">
-        {previewPost&&(
+        {previewPost&&(() => {
+          const ig = buildIgCaption(previewPost);
+          const copiar = () => { navigator.clipboard.writeText(ig.texto).then(()=>alert('✅ Legenda copiada!')).catch(()=>alert('Não foi possível copiar. Selecione o texto manualmente.')); };
+          return (
           <div className="modal-bg" onClick={()=>setPreviewPost(null)}>
-            <div className="modal" onClick={e=>e.stopPropagation()}>
-              <div className="modal-header"><span className="modal-title">Preview do Post</span><button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(null)}>✕</button></div>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:640}}>
+              <div className="modal-header"><span className="modal-title">📲 Como ficará no Instagram</span><button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(null)}>✕</button></div>
               <div className="modal-body" style={{display:'flex',gap:20,flexWrap:'wrap'}}>
-                <div className="preview-card" style={{flex:'0 0 280px'}}>
-                  {previewPost.imagem?<img src={previewPost.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover'}} onError={e=>e.target.style.display='none'} alt=""/>:<div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>}
-                  <div className="preview-caption">{previewPost.conteudo}</div>
+                <div className="preview-card" style={{flex:'0 0 240px'}}>
+                  {previewPost.imagem?<img src={previewPost.imagem} style={{width:'100%',aspectRatio:'4/5',objectFit:'cover',borderRadius:8}} onError={e=>e.target.style.display='none'} alt=""/>:<div style={{width:'100%',aspectRatio:'4/5',background:'#1a1a2e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',fontSize:12}}>Sem imagem</div>}
                 </div>
-                <div style={{flex:1,minWidth:200}}>
-                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:8}}>Comentário fixado:</div>
+                <div style={{flex:1,minWidth:280}}>
+                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                    <span>Legenda — texto puro, exatamente como será publicada:</span>
+                    <button className="btn btn-secondary btn-sm" onClick={copiar} style={{whiteSpace:'nowrap'}}>📋 Copiar</button>
+                  </div>
+                  <div style={{fontSize:13,color:'var(--t1)',background:'var(--input)',padding:14,borderRadius:8,whiteSpace:'pre-wrap',lineHeight:1.55,maxHeight:380,overflowY:'auto'}}>{ig.texto}</div>
+                  {ig.truncado&&<div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⚠️ Corpo truncado em 1.500 caracteres — mesmo limite usado quando o sistema publica de verdade no Instagram.</div>}
+                  <div style={{fontSize:12,color:'var(--t2)',marginTop:14,marginBottom:4}}>Comentário fixado:</div>
                   <div style={{fontSize:13,color:'var(--t1)',background:'var(--input)',padding:12,borderRadius:8}}>{previewPost.comentario_fixado||'—'}</div>
                   <div style={{fontSize:12,color:'var(--t2)',marginTop:12,marginBottom:4}}>Conta:</div>
                   <div style={{fontSize:13}}>{previewPost.ig_accounts?.username||'Automática'}</div>
@@ -1041,7 +1101,8 @@ function Postagens() {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
         {revisaoModal.show&&(
           <div className="modal-bg" onClick={()=>setRevisaoModal(m=>({...m,show:false}))}>
             <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:500}}>
@@ -1265,7 +1326,7 @@ function Postagens() {
                     <td className="text-secondary text-small">{fmt(p.created_at)}</td>
                     <td>
                       <div className="gap-8">
-                        <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Preview">👁</button>
+                        <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Ver como ficará no Instagram">📲</button>
                         <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
                         {p.status==='pendente'&&<>
                           <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Publicar</button>
