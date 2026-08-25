@@ -1,25 +1,10 @@
-name: Diagnóstico único (Brasil ON — inspecionar DNS do domínio)
+name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
+  workflow_dispatch: {}
 
 jobs:
-  inspect_domain:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Inspecionar DNS exigido pela Vercel
-        working-directory: brasilon
-        run: |
-          npm install -g vercel@54.6.1
-          echo "=== domains ls ==="
-          vercel domains ls --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
-          echo "=== inspect obrasilon.com.br ==="
-          vercel domains inspect obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
-          echo "=== inspect www.obrasilon.com.br ==="
-          vercel domains inspect www.obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
+      - run: echo "placeholder inerte — brasilon.vercel.app no ar, domínio anexado ao projeto, aguardando Roberto configurar DNS na Locaweb"
