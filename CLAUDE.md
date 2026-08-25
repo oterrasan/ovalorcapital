@@ -7908,12 +7908,12 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | Sistema | Status |
 |---|---|
 | **Comando completo de integração Instagram entregue a Roberto (pra ele repassar ao Codex)** | ✅ ENTREGUE — nenhuma ação de código nesta sessão (Codex fará via navegador do Roberto) |
-| **Código completo do portal Brasil ON** (backend SSR + frontend + admin) | ✅ EM PRODUÇÃO no repo (PR #467, commit `98d3db9`) — falta deploy Vercel + tabela Supabase pra funcionar de fato |
+| **Código completo do portal Brasil ON** (backend SSR + frontend + admin) | ✅ EM PRODUÇÃO no repo (PR #467, commit `98d3db9`) |
+| **Tabela `brasilon_posts` criada no Supabase** — Roberto rodou o SQL manualmente no SQL Editor (com RLS habilitado, sem policy — só `service_role` acessa, que é exatamente o que o backend do Brasil ON usa) | ✅ CONFIRMADO COM EVIDÊNCIA REAL — verificado via REST API (workflow diagnóstico, PR #469): `HTTP/2 200`, `content-range: */0` (existe, vazia — esperado, sync ainda não rodou) |
 
 ### 🔧 Pendências para a próxima sessão
 
-1. **Rodar o SQL acima manualmente no Supabase** (Roberto tem acesso ao SQL Editor; esta sessão não tem rede pra chegar lá de nenhuma forma que funcionou)
-2. **Criar o projeto Vercel novo** apontando pro mesmo repo `ovalorcapital`, com **Root Directory: `brasilon`**, e conectar o domínio `obrasilon.com.br`
-3. **Confirmar o cron de sync rodando** (`brasilon/vercel.json`, a cada 20min) e testar `action=sync`/`action=status` de verdade assim que a tabela existir e o projeto estiver no ar
-4. **Testar a aba "🇧🇷 Brasil ON" no admin do OVC** — status e botão de sync manual, cross-origin
-5. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram — aguardando assets de Roberto; Radar do Futebol pós-fix; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense)
+1. **Criar o projeto Vercel novo** apontando pro mesmo repo `ovalorcapital`, com **Root Directory: `brasilon`**, e conectar o domínio `obrasilon.com.br` — esse é o único passo que falta pro Brasil ON ir ao ar de verdade
+2. **Confirmar o cron de sync rodando** (`brasilon/vercel.json`, a cada 20min) e testar `action=sync`/`action=status` de verdade assim que o projeto estiver no ar
+3. **Testar a aba "🇧🇷 Brasil ON" no admin do OVC** — status e botão de sync manual, cross-origin (só vai responder de verdade depois do passo 1)
+4. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram — aguardando assets de Roberto; Radar do Futebol pós-fix; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense)
