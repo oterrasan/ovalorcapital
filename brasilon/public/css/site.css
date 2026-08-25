@@ -1,0 +1,185 @@
+/* Brasil ON — design compacto, próprio, no mesmo espírito editorial do
+   O Valor Capital (header com ticker, cards, rodapé institucional), mas
+   construído do zero e enxuto — só o necessário pra um portal menor. */
+
+:root {
+  --bg: #f5f6f8;
+  --bg-card: #ffffff;
+  --text-main: #14171c;
+  --text-muted: #5b6572;
+  --border: #e3e6ea;
+  --brand: #0f7a3d;
+  --brand-dark: #0a5c2c;
+  --accent: #ffb703;
+  --header-bg: #0d1117;
+  --header-text: #f4f6f8;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text-main);
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+
+/* ── TICKER ── */
+.bon-ticker {
+  background: #000;
+  color: #d1d5db;
+  font-size: 12px;
+  padding: 4px 16px;
+  display: flex;
+  justify-content: space-between;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.bon-ticker span { margin-right: 18px; }
+
+/* ── HEADER ── */
+.bon-header {
+  background: var(--header-bg);
+  color: var(--header-text);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.bon-logo {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bon-logo span.on { color: var(--accent); }
+.bon-nav { display: flex; gap: 20px; }
+.bon-nav a {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 4px;
+  border-bottom: 2px solid transparent;
+}
+.bon-nav a:hover, .bon-nav a.active { border-color: var(--accent); }
+
+/* ── HERO ── */
+.bon-hero {
+  max-width: 1180px;
+  margin: 24px auto 0;
+  padding: 0 20px;
+}
+.bon-hero-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #111;
+  min-height: 340px;
+  display: flex;
+  align-items: flex-end;
+}
+.bon-hero-card img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.75;
+}
+.bon-hero-card .bon-hero-overlay {
+  position: relative;
+  z-index: 1;
+  padding: 28px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0));
+  width: 100%;
+}
+.bon-hero-card .bon-kicker {
+  color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+}
+.bon-hero-card h1 {
+  color: #fff; font-size: 28px; line-height: 1.25; margin: 8px 0 0;
+}
+
+/* ── GRID DE CARDS ── */
+.bon-main {
+  max-width: 1180px;
+  margin: 28px auto 60px;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.bon-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s ease;
+}
+.bon-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+.bon-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #ddd; }
+.bon-card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.bon-card-cat { font-size: 11px; font-weight: 800; color: var(--brand); text-transform: uppercase; letter-spacing: 0.5px; }
+.bon-card h3 { font-size: 16px; line-height: 1.3; margin: 0; }
+.bon-card p { font-size: 13px; color: var(--text-muted); margin: 0; }
+.bon-card time { font-size: 11px; color: #9aa2ab; margin-top: auto; }
+
+/* ── CATEGORIA (título + descrição no topo da listagem) ── */
+.bon-cat-header {
+  max-width: 1180px; margin: 24px auto 0; padding: 0 20px;
+}
+.bon-cat-header h1 { font-size: 26px; margin: 0 0 6px; }
+.bon-cat-header p { color: var(--text-muted); font-size: 14px; margin: 0; }
+
+/* ── ARTIGO ── */
+.bon-article {
+  max-width: 760px;
+  margin: 28px auto 60px;
+  padding: 0 20px;
+}
+.bon-article .bon-card-cat { margin-bottom: 10px; }
+.bon-article h1 {
+  font-size: 30px; line-height: 1.28; margin: 0 0 14px;
+}
+.bon-article .bon-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+.bon-article img.bon-cover {
+  width: 100%; border-radius: 10px; margin-bottom: 20px; aspect-ratio: 16/9; object-fit: cover; background: #ddd;
+}
+.bon-article .bon-body { font-size: 17px; line-height: 1.85; color: #1e242c; }
+.bon-article .bon-body p { margin: 0 0 20px; }
+.bon-article .bon-body strong { color: #000; }
+
+/* ── ESTADOS ── */
+.bon-empty, .bon-loading {
+  text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px;
+}
+
+/* ── RODAPÉ ── */
+.bon-footer {
+  background: var(--header-bg);
+  color: #cbd2d9;
+  padding: 36px 20px 24px;
+  margin-top: 40px;
+}
+.bon-footer-inner {
+  max-width: 1180px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px;
+}
+.bon-footer h4 { color: #fff; font-size: 14px; margin: 0 0 10px; }
+.bon-footer a { display: block; font-size: 13px; color: #9aa2ab; margin-bottom: 6px; }
+.bon-footer a:hover { color: #fff; }
+.bon-footer-copy {
+  max-width: 1180px; margin: 24px auto 0; padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px; color: #6b7280;
+}
+
+@media (max-width: 640px) {
+  .bon-header { flex-direction: column; align-items: flex-start; }
+  .bon-nav { gap: 14px; flex-wrap: wrap; }
+  .bon-hero-card { min-height: 240px; }
+  .bon-hero-card h1 { font-size: 22px; }
+  .bon-article h1 { font-size: 24px; }
+}
