@@ -1,4 +1,4 @@
-name: Diagnóstico único (Brasil ON — associar domínio)
+name: Diagnóstico único (Brasil ON — inspecionar DNS do domínio)
 
 on:
   push:
@@ -7,21 +7,19 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  domain_brasilon:
+  inspect_domain:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
 
-      - name: Associar obrasilon.com.br ao projeto brasilon
+      - name: Inspecionar DNS exigido pela Vercel
         working-directory: brasilon
         run: |
           npm install -g vercel@54.6.1
-          echo "=== add obrasilon.com.br ==="
-          vercel domains add obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
-          echo "=== add www.obrasilon.com.br ==="
-          vercel domains add www.obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
-          echo "=== inspect obrasilon.com.br (mostra os DNS records exatos que a Vercel espera) ==="
+          echo "=== domains ls ==="
+          vercel domains ls --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
+          echo "=== inspect obrasilon.com.br ==="
           vercel domains inspect obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
           echo "=== inspect www.obrasilon.com.br ==="
           vercel domains inspect www.obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
