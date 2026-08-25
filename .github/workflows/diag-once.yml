@@ -1,4 +1,9 @@
-name: Diagnóstico único (verificar brasilon_posts criada)
+name: Diagnóstico único (placeholder)
+
+# Workflow one-off inerte. Convenção do projeto: escrever uma tarefa real
+# aqui, dar push (dispara mesmo em branch de feature com PR aberto), conferir
+# o resultado nos Actions, e resetar para este estado inerte depois. Nunca
+# deixar uma tarefa real ativa aqui.
 
 on:
   push:
@@ -7,22 +12,7 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  verificar:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
-      - name: Consulta a tabela brasilon_posts via REST API do Supabase
-        env:
-          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
-          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY_FALLBACK_INLINE }}
-        run: |
-          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo "=== HEAD (existência + contagem) ==="
-          curl -sS -D- -o /dev/null \
-            "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?select=id" \
-            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
-            -H "Prefer: count=exact" -H "Range: 0-0"
-          echo "=== GET (0 linhas esperado, mas confirma schema respondendo) ==="
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?select=id,categoria,status&limit=3" \
-            -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
+      - run: echo "placeholder — nenhuma tarefa ativa"
