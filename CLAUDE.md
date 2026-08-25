@@ -7820,3 +7820,100 @@ Investigação arquitetural feita (sem escrever código, só leitura): o ponto n
 1. **AGUARDAR Roberto enviar o logo (PNG, fundo transparente, ícone) e o texto exato do rodapé** — não iniciar a implementação da marca d'água sem esses dois itens.
 2. Quando os assets chegarem: implementar em `core/image_processor.js` (`buildWatermark()`/`processImage()`) — ícone no topo, faixa de rodapé com info completa, só para imagens novas (não retroativo). Confirmar qual fluxo real de imagens alimenta o Instagram antes de decidir onde exatamente plugar (pipeline de geração vs. algum passo específico do `ig-handler.js`).
 3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
+
+---
+
+## 🆕 BRASIL ON — SEGUNDO PORTAL, CÓDIGO COMPLETO ENTREGUE (25/08/2026)
+
+### Contexto
+
+Duas demandas na mesma sessão. Primeiro: comando completo pro Codex integrar o Instagram (Graph API oficial, login pelo navegador do próprio Roberto — Codex tem esse acesso, esta sessão não). Depois, pedido maior: *"NÓS IREMOS CRIAR UM PORTAL MENOR AGORA, MAS IDENTICO AO OVC EM FUNCIONAMENTO... CHAMADO BRASIL ON... TODO O CODIGO, A ADMINISTRACAO TOTAL DELE, DEVE SER DENTRO DO MESMO ADMIN... O PORTAL BRASIL ON SÓ IRA POSTAR, REPOSTAR A CATEGORIA BRASIL ON DO OVC E O FUTEBOL... AUTOMATICO E COM IMAGENS, BACCI PRA TUDO."*
+
+Domínio confirmado por Roberto via print: **obrasilon.com.br** (já registrado na Locaweb, ativo, expira 18/08/2027).
+
+Roberto dispensou 2 rodadas de `AskUserQuestion` sobre decisões de arquitetura (domínio; depois repo/projeto, modelo de dados, fluxo de aprovação) — sinal claro pra parar de perguntar e agir direto, documentando decisões no próprio código/PR em vez de bloquear em pergunta.
+
+### Decisões tomadas (sem perguntar, registradas aqui)
+
+1. **Repositório**: criação de repo novo via GitHub App bloqueada (403 `Resource not accessible by integration` — sem permissão `repo:create`). Decisão: construir Brasil ON como pasta autocontida `brasilon/` dentro do MESMO repo `ovalorcapital`, pra depois virar um projeto Vercel SEPARADO via "Root Directory: brasilon" (feature de monorepo da Vercel — Roberto confirmou "meu plano na vercel é o free... da pra cadastrar um novo?" → sim, cada projeto tem cota própria).
+2. **Zero import cruzado com `core/`/`api/` do OVC** — todo código de Brasil ON é autocontido dentro de `brasilon/`, mesmo que duplique lógica pequena (ex: `slugify()`), pra evitar risco de bundling cruzado entre 2 projetos Vercel diferentes lendo arquivos fora do próprio Root Directory.
+3. **Modelo de dados**: tabela nova `brasilon_posts` no MESMO Supabase do OVC — é uma cópia/mirror (não uma view ao vivo), sincronizada por um endpoint de `sync` próprio. Mantém os dois portais com ciclo de vida de dado independente.
+4. **Classificação do que é "conteúdo Brasil ON"**: post do OVC com `user_tags` (JSON array em TEXT, sempre `JSON.parse()`) contendo `"brasil-on"` → categoria `brasil-on`; OU contendo `"esportes"` E `subcategoria_slug === "futebol"` → categoria `futebol`.
+5. **Publicação 100% automática, sem fila de aprovação** — como pedido ("MESMA LOGICA, AUTOMATICO").
+
+### O que foi entregue (PR #467, mergeado, commit `98d3db9`)
+
+**Backend `brasilon/api/`** (SSR completo, próprio, sem tocar em nada do OVC):
+- `article.js` — SSR de artigo, JSON-LD `NewsArticle`, SEO completo, `BASE=https://www.obrasilon.com.br`
+- `category.js` — SSR de categoria, só `brasil-on` e `futebol`
+- `portal-posts.js` — feed JSON (`?categoria=&limit=&offset=`)
+- `sitemap.js` — sitemap.xml dinâmico (urlset único, sem paginação — volume menor que o OVC)
+- `manage.js` — `action=sync` (busca posts publicados do OVC nas últimas 72h, classifica, dedup por `origem_post_id` — que tem constraint unique real no schema, upsert seguro aqui, diferente do bug de `config` sem constraint já documentado em sessões anteriores do OVC) e `action=status`. CORS liberado (`Access-Control-Allow-Origin: *`) porque o admin do OVC chama isso de outro domínio.
+
+**Frontend `brasilon/public/`** — homepage, `/brasil-on/`, `/futebol/`, CSS e JS 100% próprios (`site.js`, `home.js`, `category.js`, `article.js`), `robots.txt`, imagem OG padrão copiada do OVC.
+
+**`brasilon/vercel.json`** — rotas de categoria/artigo + cron de sync a cada 20min (`*/20 * * * *`).
+
+**Admin do OVC (`public/admin/index.html`)** — nova aba **🇧🇷 Brasil ON**: mostra status (total, por categoria, últimos 5 posts) e botão "🔄 Sincronizar agora" que chama `manage.js?action=sync` do domínio Brasil ON via fetch cross-origin. Primeiro passo do "admin como centro de comando único pros dois portais", como pedido.
+
+### Verificações feitas antes do push
+
+- `node --check` em todos os 9 arquivos JS de `brasilon/` — OK
+- `JSON.parse` em `brasilon/vercel.json` — OK
+- **Validação de sintaxe JSX completa via `@babel/core` real** (não só balanceamento de chaves) no `public/admin/index.html` inteiro, depois das 3 edições (novo componente `BrasilOnAdmin()`, entrada em `PAGES`, entrada em `PageComp`) — `SINTAXE OK`
+- `api/` do OVC (Regra Zero-A) intocado — continua com exatamente 10 arquivos
+- CI "Verificar arquivos críticos" verde, deploy `deploy.yml` do commit de merge confirmado em andamento/sucesso
+
+### 🔴 PENDÊNCIA CRÍTICA — tabela `brasilon_posts` ainda não existe no Supabase
+
+Três tentativas automatizadas de criar a tabela via GitHub Actions (`diag-once.yml`, PRs #464/#465/#466) falharam, todas com erro real (não simulado):
+1. Host direto (`db.<ref>.supabase.co`) → `Network is unreachable` (resolve só IPv6, runner do GitHub Actions não tem rota IPv6)
+2. Session Pooler, região `sa-east-1` (a documentada neste CLAUDE.md pra esse projeto Supabase) → `FATAL: tenant/user postgres.yntwvfcxjardzafdqanj not found`
+3. Session Pooler, loop em 10 regiões AWS (`us-east-1`, `us-east-2`, `us-west-1`, `eu-central-1`, `eu-west-1`, `eu-west-2`, `ap-southeast-1`, `ap-southeast-2`, `ap-south-1`, `sa-east-1`) → **todas** com o mesmo erro `tenant/user not found`
+
+**Conclusão:** a região `sa-east-1` documentada na seção 16 deste arquivo (para efeito de outras coisas, ex: região do projeto Supabase em si) não corresponde à região real do pooler — e nenhuma das 10 regiões comuns testadas bateu. Não foi tentada a Transaction Pooler (porta 6543, em vez de Session Pooler 5432) — pode valer tentar numa sessão futura, mas o caminho mais confiável agora é manual.
+
+**SQL pronto pra rodar manualmente no SQL Editor do Supabase** (Roberto ou próxima sessão com acesso):
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE TABLE IF NOT EXISTS brasilon_posts (
+  id uuid primary key default uuid_generate_v4(),
+  origem_post_id uuid,
+  categoria text not null,
+  titulo text,
+  conteudo text,
+  comentario_fixado text,
+  meta_title text,
+  imagem text,
+  status text default 'publicado',
+  created_at timestamptz default now(),
+  published_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS brasilon_posts_origem_idx ON brasilon_posts(origem_post_id) WHERE origem_post_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS brasilon_posts_categoria_idx ON brasilon_posts(categoria);
+CREATE INDEX IF NOT EXISTS brasilon_posts_published_idx ON brasilon_posts(published_at DESC);
+CREATE INDEX IF NOT EXISTS brasilon_posts_status_idx ON brasilon_posts(status);
+```
+
+### Estado de api/ do OVC — 10 ARQUIVOS ✅ (inalterado — Brasil ON vive inteiramente em `brasilon/`, fora da contagem)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (25/08/2026 — Brasil ON)
+
+| Sistema | Status |
+|---|---|
+| **Comando completo de integração Instagram entregue a Roberto (pra ele repassar ao Codex)** | ✅ ENTREGUE — nenhuma ação de código nesta sessão (Codex fará via navegador do Roberto) |
+| **Código completo do portal Brasil ON** (backend SSR + frontend + admin) | ✅ EM PRODUÇÃO no repo (PR #467, commit `98d3db9`) — falta deploy Vercel + tabela Supabase pra funcionar de fato |
+
+### 🔧 Pendências para a próxima sessão
+
+1. **Rodar o SQL acima manualmente no Supabase** (Roberto tem acesso ao SQL Editor; esta sessão não tem rede pra chegar lá de nenhuma forma que funcionou)
+2. **Criar o projeto Vercel novo** apontando pro mesmo repo `ovalorcapital`, com **Root Directory: `brasilon`**, e conectar o domínio `obrasilon.com.br`
+3. **Confirmar o cron de sync rodando** (`brasilon/vercel.json`, a cada 20min) e testar `action=sync`/`action=status` de verdade assim que a tabela existir e o projeto estiver no ar
+4. **Testar a aba "🇧🇷 Brasil ON" no admin do OVC** — status e botão de sync manual, cross-origin
+5. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram — aguardando assets de Roberto; Radar do Futebol pós-fix; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense)
