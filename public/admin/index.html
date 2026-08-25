@@ -175,6 +175,25 @@ const CAT_HASHTAG_LABEL = {
   'industria':'Industria','familia':'Familia','esportes':'Esportes','vc':'VC','colunistas':'Colunistas'
 };
 
+// O corpo do artigo, por regra do MASTER_PROMPT/kernels (core/ai_portal.js),
+// SEMPRE nasce com um 1º parágrafo obrigatório "Redação OVC · {data}" e
+// (em vários kernels) um ÚLTIMO parágrafo obrigatório de 10 hashtags — ambos
+// já embutidos no HTML salvo em post.conteudo. Sem remover isso antes de
+// montar a legenda, a prévia duplicava a assinatura e as hashtags (bug real
+// reportado por Roberto em 25/08/2026 — "ZEMA RECUA..." saiu com "Redação
+// OVC" 2x, uma do próprio corpo e outra adicionada aqui).
+function removerAssinaturaEHashtagsDoCorpo(texto) {
+  if (!texto) return texto;
+  let blocos = texto.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (blocos.length && /^reda[çc][ãa]o\s+ovc\b/i.test(blocos[0])) blocos = blocos.slice(1);
+  if (blocos.length) {
+    const palavras = blocos[blocos.length-1].split(/\s+/).filter(Boolean);
+    const nHashtags = palavras.filter(p => p.startsWith('#')).length;
+    if (palavras.length && nHashtags / palavras.length >= 0.7) blocos = blocos.slice(0, -1);
+  }
+  return blocos.join('\n\n').trim();
+}
+
 // Monta a legenda EXATAMENTE como o sistema publica de verdade (mesma
 // convenção de core/ai.js e do formulário "Novo Post Manual"): título em
 // caixa alta, corpo em texto puro (limite real de 1500 chars), assinatura
@@ -182,7 +201,7 @@ const CAT_HASHTAG_LABEL = {
 function buildIgCaption(post) {
   const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
   const titulo = String(post.titulo||'').toUpperCase();
-  const corpoCompleto = stripHtmlToText(post.conteudo);
+  const corpoCompleto = removerAssinaturaEHashtagsDoCorpo(stripHtmlToText(post.conteudo));
   const LIMITE = 1500;
   const truncado = corpoCompleto.length > LIMITE;
   const corpo = truncado ? corpoCompleto.slice(0, LIMITE).replace(/\s+\S*$/, '') + '…' : corpoCompleto;
