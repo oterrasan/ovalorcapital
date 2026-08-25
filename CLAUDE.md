@@ -7700,3 +7700,53 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 #### 🔧 Pendências para a próxima sessão
 
 1. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
+
+---
+
+### Sessão 25/08/2026 — ADMIN: BOTÃO "VER COMO FICARÁ NO INSTAGRAM" EM POSTAGENS
+
+#### Contexto
+
+Roberto: *"necessito que todo conteudo publicado no portal, esteja no admin, como já está, mas que a partir de agora... um botao que me de a opcao de ver como está ou ficará a publicacao no instagram, sem as codificacoes em HTML ou nenjum tipo de codigo, texto puro bem formatado e com a ortografia correta, tidulo, texto, hashtags e frase fixa"* + *"isso deve estar na mesma tela, tudo isso na mesma area e ambiente para facilitar minha vida."*
+
+#### O que foi feito (PR #459, commit squash `31dca762`)
+
+Investigação prévia revelou que a tela **Postagens** já tinha um modal de preview (ícone 👁), mas **quebrado**: mostrava `previewPost.conteudo` cru — o HTML do artigo aparecia literalmente com as tags visíveis (`<p>`, `&amp;` etc.), exatamente o problema que Roberto queria resolver. Em vez de criar tela/modal novo (Roberto pediu explicitamente "mesma área e ambiente"), esse modal existente foi corrigido para cumprir a função pedida:
+
+- **`stripHtmlToText(html)`** — converte o HTML real do post em texto puro, preservando quebras de parágrafo/lista (`</p>`, `<br>`, `<li>`) e decodificando entidades HTML via `textarea.innerHTML` (truque padrão e seguro — só decodifica, não executa nada).
+- **`toHashtag(s)`** — normaliza qualquer texto pra hashtag válida (sem acento/cedilha — confirmado que hashtag real do Instagram quebra nesses casos, então a prévia precisa ser fiel a isso).
+- **`buildIgCaption(post)`** — monta a legenda completa seguindo EXATAMENTE a mesma convenção já usada em `core/ai.js` (`PROMPT_BASE`) e no formulário "Novo Post Manual" (`NovoPost()`): título em CAIXA ALTA, corpo em texto puro truncado em 1.500 chars (mesmo limite real do sistema, com aviso visual quando trunca), assinatura fixa `Redação OVC — {data}`, hashtags de categoria+subcategoria terminando sempre em `#ovalorcapital`.
+- Modal reescrito: título mudou pra "📲 Como ficará no Instagram", a legenda aparece em `white-space:pre-wrap` (texto puro real, não HTML), com botão **📋 Copiar** (`navigator.clipboard.writeText`) — Roberto pediu facilidade, copiar e colar direto é o caminho mais rápido pra postagem manual.
+- Botão que abre o modal (na lista de posts, ao lado de ✏️ Editar) trocado de `👁 "Preview"` pra `📲 "Ver como ficará no Instagram"` — mesmo botão, função corrigida.
+- Funciona tanto pra posts `pendente` quanto `publicado` — nenhuma restrição de status.
+
+#### ⚠️ Cuidado extra tomado — regex de diacríticos
+
+`toHashtag()` usa a mesma faixa Unicode de diacríticos combinantes (`/[̀-ͯ]/g`) já usada em `core/rss.js`/`public/js/site.js` — faixa que **já causou um incidente grave documentado neste arquivo** (sessão 30-31/07/2026: `site.js` ficou mais de 1 mês travado por `SyntaxError` depois que essa mesma faixa foi corrompida silenciosamente por double-encoding UTF-8). Antes de prosseguir, a regex foi **testada isoladamente em Node** (`'Política Econômica & Finanças'` → `'PoliticaEconomicaFinancas'`, confirmado correto) e a **sintaxe JSX completa do arquivo foi validada via `@babel/core` real** (`babel.transform` com `@babel/preset-react`, não só balanceamento de chaves) — tanto antes quanto depois da edição.
+
+#### Verificação
+
+- Sintaxe JSX: `SINTAXE OK` via Babel real.
+- `api/`: intocado, continua com exatamente 10 arquivos.
+- `public/index.html`: não tocado, confirmado íntegro (714 linhas, `<!DOCTYPE html>`/`</html>`).
+- Diff isolado só em `public/admin/index.html` (71 inserções / 10 deleções).
+- CI ("Verificar arquivos críticos" + "Vercel Preview Comments") verde.
+- Deploy de produção confirmado com evidência real: `deploy.yml` run `32881196137`, `status:"completed"`, `conclusion:"success"`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (25/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Botão "📲 Ver como ficará no Instagram" em Postagens** — modal de preview corrigido (mostrava HTML cru), agora legenda em texto puro fiel ao que o sistema publica de verdade | ✅ EM PRODUÇÃO — PR #459 mergeado (squash `31dca762`), deploy `32881196137` confirmado `success` |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** — clicar no botão 📲 em um post qualquer (pendente e publicado) e confirmar que a legenda aparece limpa, com hashtags corretas e o botão Copiar funcionando.
+2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
