@@ -7746,7 +7746,77 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 |---|---|
 | **Botão "📲 Ver como ficará no Instagram" em Postagens** — modal de preview corrigido (mostrava HTML cru), agora legenda em texto puro fiel ao que o sistema publica de verdade | ✅ EM PRODUÇÃO — PR #459 mergeado (squash `31dca762`), deploy `32881196137` confirmado `success` |
 
+#### 🔧 Pendências (já resolvidas nesta mesma sessão — ver continuações abaixo)
+
+1. ~~Confirmar visualmente com Roberto~~ — Roberto testou de verdade e reportou 2 bugs reais, ambos corrigidos nesta mesma sessão (ver abaixo).
+2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
+
+---
+
+### Sessão 25/08/2026 (continuação) — BUG REAL #1: "Redação OVC" duplicada + hashtags cortadas na prévia do Instagram
+
+#### Contexto
+
+Roberto testou o botão 📲 recém-criado num artigo real ("ZEMA RECUA SOBRE IDADE MÍNIMA...") e reportou colando a saída quebrada: *"OLHE COMO FICOU DESFORMATADO: LEIA TUDO E ME DIGA O QUE VOCE IDENTIFICA DE ERRO"*. A legenda mostrava **"Redação OVC" duas vezes** e terminava com só 2 hashtags soltas (`#Politica` `#ovalorcapital`), claramente cortada.
+
+#### Causa raiz real (investigada em `core/ai_portal.js`, não suposição)
+
+Todo corpo de artigo gerado pelos kernels do sistema (MASTER_PROMPT e os demais — Jovem Pan Política, Internacional, Brasil ON, esportes) **já nasce**, por especificação obrigatória do próprio prompt, com:
+- 1º parágrafo fixo: `<p><strong>Redação OVC</strong> · {data}</p>`
+- Em vários kernels, um ÚLTIMO parágrafo fixo com **10 hashtags reais e específicas do tema**, geradas pela própria IA.
+
+`buildIgCaption()` (criada na sessão anterior, mesma sessão de hoje) não sabia disso — sempre acrescentava sua PRÓPRIA assinatura e suas próprias 2-3 hashtags de categoria no final, duplicando a assinatura e enterrando/perdendo as 10 hashtags reais que já existiam no corpo.
+
+#### PR #461 — remove a duplicação (commit squash `d4522274`)
+
+`removerAssinaturaEHashtagsDoCorpo(texto)`: detecta o 1º parágrafo se começar com "Redação OVC" e remove; detecta o último bloco se ≥70% das palavras começarem com `#` e remove. Testado isoladamente em Node com o texto exato reportado — confirmado que remove os dois blocos corretamente. Deploy confirmado: `deploy.yml` run `32882703244`, `status:"completed"`, `conclusion:"success"`.
+
+#### 🔴 Regressão do próprio fix — Roberto reportou de novo: "AS # continuam cortadas e só duas aparecem"
+
+O fix acima **removia** as 10 hashtags reais do corpo, mas **descartava** esse conteúdo em vez de reaproveitá-lo — a legenda final ficava só com as 2-3 hashtags genéricas de categoria/subcategoria que `buildIgCaption()` sempre adicionava, perdendo a especificidade real do artigo.
+
+#### PR #462 — reaproveita as hashtags reais (commit squash `a5c62b22`)
+
+- `removerAssinaturaEHashtagsDoCorpo()` renomeada para `extrairEremoverAssinaturaEHashtags()` — agora **extrai** as hashtags do bloco final (não só descarta) e as retorna junto com o corpo limpo.
+- `buildIgCaption()` reaproveita essa lista real como as hashtags da legenda (specíficas do tema, geradas pela IA), garantindo `#ovalorcapital` ao final caso ainda não esteja presente. Fallback pra hashtags de categoria/subcategoria só no caso raro de o artigo não ter bloco de hashtags no corpo.
+- Testado isoladamente em Node com o texto real do caso "ZEMA RECUA..." — confirmado: agora aparecem as 10 hashtags reais do artigo + `#ovalorcapital`, sem duplicação de assinatura.
+- Sintaxe JSX completa revalidada via `@babel/core` real (SINTAXE OK) antes e depois da edição.
+- Deploy confirmado com evidência real: `deploy.yml` run `32883338957`, job `deploy` com todos os 6 steps `completed`/`success` (18:22:08–18:23:39 UTC) — a API do run-level ficou com `updated_at` congelado por alguns minutos (só cache atrasado da API, não um travamento real; confirmado consultando o job/steps individualmente via `list_workflow_jobs`, que mostrou o job já concluído com sucesso).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudanças só em `public/admin/index.html`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (25/08/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Prévia do Instagram — assinatura "Redação OVC" duplicada corrigida** | ✅ EM PRODUÇÃO (PR #461, commit `d4522274`) — deploy `32882703244` confirmado `success` |
+| **Prévia do Instagram — hashtags reais do artigo (10) reaproveitadas em vez de descartadas** | ✅ EM PRODUÇÃO (PR #462, commit `a5c62b22`) — deploy `32883338957` confirmado `success` (job/steps individuais) |
+
+---
+
+### Sessão 25/08/2026 (continuação 2) — MARCA D'ÁGUA NO INSTAGRAM — EM ESPERA, NENHUM CÓDIGO ESCRITO AINDA
+
+#### Contexto
+
+Roberto, depois de confirmar que a prévia do Instagram ficou correta ("ótimo. ficou asim. perfeito"), pediu a próxima feature: *"toda imagem aqui, será carregada para o instagram. entao eu preciso que voce encontre uma solucao sem gambiarra para que todas as imagens ai tenham o logotipo em marca dagua. eu vou te mandar o logo e as informacoes que preciso que constem em TODAS as publicacoes."*
+
+Perguntas de esclarecimento feitas e já respondidas por Roberto:
+- **Retroatividade:** só as imagens NOVAS a partir de agora — os ~554 posts já publicados hoje sem marca d'água NÃO precisam ser reprocessados.
+- **Posicionamento:** ícone do logo sozinho no TOPO da imagem; no RODAPÉ, uma faixa com TODAS as informações do O Valor Capital.
+
+Investigação arquitetural feita (sem escrever código, só leitura): o ponto natural de inserção é `buildWatermark()`/`processImage()` em `core/image_processor.js` (já parametrizado com `outWidth`/`outHeight`/`watermarkLabel`/`bucket`/`prefix`/`skipVision`, usado por TODOS os canais de geração de imagem do pipeline — matérias normais, Brasil ON, Jovem Pan, Internacional, radares de esporte). `core/instagram.js` (Graph API) e `core/publish_engine.js` são código morto, não usados por nenhum caller ativo — a publicação real no Instagram passa por outro mecanismo (fila via `api/ig-handler.js`, alimentada externamente) ou é manual (usando agora o botão 📲+Copiar recém-criado).
+
+#### 🚨 INSTRUÇÃO EXPLÍCITA DE ROBERTO — NÃO CONSTRUIR AINDA
+
+*"NAO É PRA VOCE CONSTRUIR NADA AINDA, EU PRECISO TE PASSAR AS IMAGENS"* — nenhuma linha de código desta feature foi escrita. Aguardando Roberto enviar: (1) o arquivo do logo (ícone separado da versão completa, fundo transparente) e (2) o texto exato que deve aparecer na faixa de rodapé.
+
 #### 🔧 Pendências para a próxima sessão
 
-1. **Confirmar visualmente com Roberto** — clicar no botão 📲 em um post qualquer (pendente e publicado) e confirmar que a legenda aparece limpa, com hashtags corretas e o botão Copiar funcionando.
-2. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
+1. **AGUARDAR Roberto enviar o logo (PNG, fundo transparente, ícone) e o texto exato do rodapé** — não iniciar a implementação da marca d'água sem esses dois itens.
+2. Quando os assets chegarem: implementar em `core/image_processor.js` (`buildWatermark()`/`processImage()`) — ícone no topo, faixa de rodapé com info completa, só para imagens novas (não retroativo). Confirmar qual fluxo real de imagens alimenta o Instagram antes de decidir onde exatamente plugar (pipeline de geração vs. algum passo específico do `ig-handler.js`).
+3. Demais pendências consolidadas de sessões anteriores seguem válidas (ver lista de 17/08/2026 — M1-M10/B1-B6/R1-R6, a pendência sobre a matéria especial de economia/Pulso BR, e a pendência da sessão 23/08 sobre confirmar geração real do Radar do Futebol após o fix de imagem).
