@@ -1515,6 +1515,79 @@ function ContasInstagram() {
   );
 }
 
+// ── BRASIL ON (25/08/2026) ──
+// Portal separado (obrasilon.com.br), próprio projeto Vercel/repositório
+// (brasilon/ na raiz deste repo, deploy independente), mesmo Supabase.
+// Reposta automaticamente os posts do OVC marcados brasil-on ou futebol —
+// sem fila própria (Roberto: "MESMA LOGICA, AUTOMATICO"). Esta aba só
+// mostra status e permite forçar uma sincronização manual — a real
+// automação roda sozinha via cron do próprio projeto Brasil ON.
+const BON_API = "https://www.obrasilon.com.br/api/manage";
+const BON_PASS = "ovc-admin-2026-secreto";
+
+function BrasilOnAdmin() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BON_API}?action=status&pass=${BON_PASS}`);
+      setStatus(await r.json());
+    } catch (e) {
+      setStatus({ error: e.message });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const sincronizar = async () => {
+    setSyncing(true); setMsg("");
+    try {
+      const r = await fetch(`${BON_API}?action=sync&pass=${BON_PASS}`, { method: "POST" });
+      const d = await r.json();
+      setMsg(d.ok ? `✅ ${d.sincronizados} post(s) novo(s) sincronizado(s) (de ${d.candidatos} candidatos analisados).` : `❌ ${d.error || "erro desconhecido"}`);
+      load();
+    } catch (e) {
+      setMsg("❌ " + e.message);
+    }
+    setSyncing(false);
+  };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">🇧🇷 Brasil ON</div><div className="page-sub">Portal separado (obrasilon.com.br) — reposta automaticamente Brasil ON + Futebol do OVC</div></div>
+      <div className="page-body">
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title">Status da sincronização</span>
+            <button className="btn btn-primary btn-sm" onClick={sincronizar} disabled={syncing}>{syncing ? "Sincronizando..." : "🔄 Sincronizar agora"}</button>
+          </div>
+          {loading ? <div className="loading">Carregando...</div> : status?.error ? (
+            <div className="alert-banner yellow"><span>⚠️</span><span>Não foi possível conectar ao Brasil ON: {status.error}. Confirme se o projeto já foi implantado na Vercel com o domínio obrasilon.com.br.</span></div>
+          ) : (
+            <>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,padding:'0 20px 20px'}}>
+                <div className="stat-card"><div className="stat-value">{status?.total ?? '—'}</div><div className="stat-label">Total publicado</div></div>
+                <div className="stat-card"><div className="stat-value">{status?.['brasil-on'] ?? '—'}</div><div className="stat-label">Brasil ON</div></div>
+                <div className="stat-card"><div className="stat-value">{status?.futebol ?? '—'}</div><div className="stat-label">Futebol</div></div>
+              </div>
+              {msg && <div style={{padding:'0 20px 16px',fontSize:13}}>{msg}</div>}
+              <table><thead><tr><th>Título</th><th>Categoria</th><th>Publicado</th></tr></thead>
+              <tbody>{(status?.ultimos||[]).map((p,i)=>(
+                <tr key={i}><td>{p.titulo}</td><td>{p.categoria}</td><td className="text-secondary text-small">{fmt(p.published_at)}</td></tr>
+              ))}</tbody></table>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── FONTES RSS ──
 function FontesRSS() {
   const [sources, setSources] = useState([]);
@@ -3009,6 +3082,7 @@ const PAGES = [
   {id:'editor_imagens',label:'Editor de Imagens',icon:'✂️'},
   {id:'banners',label:'Banners',icon:'📢'},
   {id:'portal_colunistas',label:'Portal Colunistas',icon:'🪪'},
+  {id:'brasilon',label:'Brasil ON',icon:'🇧🇷'},
 ];
 
 // ── SELETOR DE IMAGEM ──
@@ -3178,7 +3252,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{localStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">

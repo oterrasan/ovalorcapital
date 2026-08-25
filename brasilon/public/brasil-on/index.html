@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brasil ON | Notícias do Brasil</title>
+<meta name="description" content="Notícias do Brasil, em tempo real: cotidiano, cidades, segurança, política e o que está acontecendo agora — reportado rápido, direto ao ponto.">
+<link rel="canonical" href="https://www.obrasilon.com.br/brasil-on/">
+<link rel="stylesheet" href="/css/site.css">
+</head>
+<body data-category="brasil-on">
+  <div class="bon-ticker" data-bon-ticker></div>
+  <header class="bon-header">
+    <a class="bon-logo" href="/">BRASIL <span class="on">ON</span></a>
+    <nav class="bon-nav">
+      <a href="/">Início</a>
+      <a href="/brasil-on/">Brasil ON</a>
+      <a href="/futebol/">Futebol</a>
+    </nav>
+  </header>
+
+  <div class="bon-article" data-bon-article></div>
+
+  <div class="bon-cat-header">
+    <h1>Brasil ON</h1>
+    <p>Notícias do Brasil, em tempo real.</p>
+  </div>
+  <main class="bon-main" data-bon-grid>
+    <div class="bon-loading">Carregando notícias…</div>
+  </main>
+
+  <footer class="bon-footer">
+    <div class="bon-footer-inner">
+      <div>
+        <h4>Brasil ON</h4>
+        <a href="/brasil-on/">Brasil ON</a>
+        <a href="/futebol/">Futebol</a>
+      </div>
+      <div>
+        <h4>O Valor Capital</h4>
+        <a href="https://www.ovalorcapital.com.br/" target="_blank" rel="noopener">Portal O Valor Capital</a>
+      </div>
+    </div>
+    <div class="bon-footer-copy">© <span id="bon-year"></span> Brasil ON — Todos os direitos reservados.</div>
+  </footer>
+
+  <script src="/js/site.js" defer></script>
+  <script src="/js/category.js" defer></script>
+  <script src="/js/article.js" defer></script>
+  <script>document.getElementById('bon-year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

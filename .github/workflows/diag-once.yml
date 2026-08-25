@@ -1,4 +1,9 @@
-name: Diagnóstico único (Brasil ON — criar tabela brasilon_posts)
+name: Diagnóstico único (placeholder)
+
+# Workflow one-off inerte. Convenção do projeto: escrever uma tarefa real
+# aqui, dar push (dispara mesmo em branch de feature com PR aberto), conferir
+# o resultado nos Actions, e resetar para este estado inerte depois. Nunca
+# deixar uma tarefa real ativa aqui.
 
 on:
   push:
@@ -7,43 +12,7 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  criar_tabela:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Instalar psql
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-
-      - name: Achar o pooler certo e criar brasilon_posts
-        env:
-          DB_PASS: fEkAur912eR35rH4
-          PROJECT_REF: yntwvfcxjardzafdqanj
-        run: |
-          export PGPASSWORD="$DB_PASS"
-          FOUND=""
-          for REGION in sa-east-1 us-east-1 us-east-2 us-west-1 eu-central-1 eu-west-1 eu-west-2 ap-southeast-1 ap-southeast-2 ap-south-1; do
-            CONN="postgresql://postgres.${PROJECT_REF}:${DB_PASS}@aws-0-${REGION}.pooler.supabase.com:5432/postgres"
-            echo "=== Tentando região ${REGION} ==="
-            if psql "$CONN" -c "SELECT 1 AS ok;" 2>&1; then
-              echo "✅ Região certa: ${REGION}"
-              FOUND="$REGION"
-              break
-            fi
-          done
-
-          if [ -z "$FOUND" ]; then
-            echo "Nenhuma região do pooler funcionou. Roberto precisa rodar o SQL manualmente no SQL Editor do Supabase."
-            exit 1
-          fi
-
-          CONN="postgresql://postgres.${PROJECT_REF}:${DB_PASS}@aws-0-${FOUND}.pooler.supabase.com:5432/postgres"
-          echo "=== Criando brasilon_posts (região ${FOUND}) ==="
-          psql "$CONN" -v ON_ERROR_STOP=1 \
-            -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" \
-            -c "CREATE TABLE IF NOT EXISTS brasilon_posts (id uuid primary key default uuid_generate_v4(), origem_post_id uuid, categoria text not null, titulo text, conteudo text, comentario_fixado text, meta_title text, imagem text, status text default 'publicado', created_at timestamptz default now(), published_at timestamptz default now(), updated_at timestamptz default now());" \
-            -c "CREATE UNIQUE INDEX IF NOT EXISTS brasilon_posts_origem_idx ON brasilon_posts(origem_post_id) WHERE origem_post_id IS NOT NULL;" \
-            -c "CREATE INDEX IF NOT EXISTS brasilon_posts_categoria_idx ON brasilon_posts(categoria);" \
-            -c "CREATE INDEX IF NOT EXISTS brasilon_posts_published_idx ON brasilon_posts(published_at DESC);" \
-            -c "CREATE INDEX IF NOT EXISTS brasilon_posts_status_idx ON brasilon_posts(status);" \
-            -c "SELECT 'brasilon_posts pronta' AS resultado, count(*) AS linhas FROM brasilon_posts;"
-          echo "Tabela brasilon_posts criada/confirmada"
+      - run: echo "placeholder — nenhuma tarefa ativa"
