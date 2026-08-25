@@ -1,13 +1,39 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
+name: Diagnóstico único (Brasil ON — criar tabela brasilon_posts)
+
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/diag-once.yml'
+
 jobs:
-  diag:
+  criar_tabela:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Placeholder (nada a fazer)
-        run: echo "diag-once.yml resetado — inerte ate a proxima sessao precisar"
+      - name: Instalar psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Criar tabela brasilon_posts (idempotente, IF NOT EXISTS)
+        env:
+          DB_HOST: db.yntwvfcxjardzafdqanj.supabase.co
+          DB_PASS: fEkAur912eR35rH4
+        run: |
+          export PGPASSWORD="$DB_PASS"
+          CONN="postgresql://postgres:${DB_PASS}@${DB_HOST}:5432/postgres"
+          echo "=== Testando conexão ==="
+          psql "$CONN" -c "SELECT 1 AS ok;" || {
+            echo "Falha na conexao - senha pode ter mudado desde a migracao de 03/06/2026."
+            echo "Se falhar, Roberto precisa rodar o SQL manualmente no SQL Editor do Supabase."
+            exit 1
+          }
+          echo "=== Criando brasilon_posts ==="
+          psql "$CONN" -v ON_ERROR_STOP=1 \
+            -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" \
+            -c "CREATE TABLE IF NOT EXISTS brasilon_posts (id uuid primary key default uuid_generate_v4(), origem_post_id uuid, categoria text not null, titulo text, conteudo text, comentario_fixado text, meta_title text, imagem text, status text default 'publicado', created_at timestamptz default now(), published_at timestamptz default now(), updated_at timestamptz default now());" \
+            -c "CREATE UNIQUE INDEX IF NOT EXISTS brasilon_posts_origem_idx ON brasilon_posts(origem_post_id) WHERE origem_post_id IS NOT NULL;" \
+            -c "CREATE INDEX IF NOT EXISTS brasilon_posts_categoria_idx ON brasilon_posts(categoria);" \
+            -c "CREATE INDEX IF NOT EXISTS brasilon_posts_published_idx ON brasilon_posts(published_at DESC);" \
+            -c "CREATE INDEX IF NOT EXISTS brasilon_posts_status_idx ON brasilon_posts(status);" \
+            -c "SELECT 'brasilon_posts pronta' AS resultado, count(*) AS linhas FROM brasilon_posts;"
+          echo "Tabela brasilon_posts criada/confirmada"
