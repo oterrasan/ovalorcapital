@@ -182,35 +182,50 @@ const CAT_HASHTAG_LABEL = {
 // montar a legenda, a prévia duplicava a assinatura e as hashtags (bug real
 // reportado por Roberto em 25/08/2026 — "ZEMA RECUA..." saiu com "Redação
 // OVC" 2x, uma do próprio corpo e outra adicionada aqui).
-function removerAssinaturaEHashtagsDoCorpo(texto) {
-  if (!texto) return texto;
+//
+// IMPORTANTE (fix 25/08/2026, 2ª rodada — Roberto: "AS # continuam cortadas
+// e só duas aparecem"): as hashtags do parágrafo final NÃO são lixo — são as
+// 10 hashtags reais, específicas do tema, geradas pela própria IA. O fix
+// anterior as descartava e substituía por só 2-3 hashtags genéricas de
+// categoria. Agora elas são EXTRAÍDAS (não só removidas) e reaproveitadas
+// como a lista real de hashtags da legenda.
+function extrairEremoverAssinaturaEHashtags(texto) {
+  if (!texto) return { corpo: texto, hashtags: [] };
   let blocos = texto.split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
   if (blocos.length && /^reda[çc][ãa]o\s+ovc\b/i.test(blocos[0])) blocos = blocos.slice(1);
+  let hashtags = [];
   if (blocos.length) {
     const palavras = blocos[blocos.length-1].split(/\s+/).filter(Boolean);
-    const nHashtags = palavras.filter(p => p.startsWith('#')).length;
-    if (palavras.length && nHashtags / palavras.length >= 0.7) blocos = blocos.slice(0, -1);
+    const doBloco = palavras.filter(p => p.startsWith('#'));
+    if (palavras.length && doBloco.length / palavras.length >= 0.7) {
+      hashtags = doBloco;
+      blocos = blocos.slice(0, -1);
+    }
   }
-  return blocos.join('\n\n').trim();
+  return { corpo: blocos.join('\n\n').trim(), hashtags };
 }
 
 // Monta a legenda EXATAMENTE como o sistema publica de verdade (mesma
 // convenção de core/ai.js e do formulário "Novo Post Manual"): título em
 // caixa alta, corpo em texto puro (limite real de 1500 chars), assinatura
-// fixa "Redação OVC — {data}" e hashtags sempre terminando em #ovalorcapital.
+// fixa "Redação OVC — {data}" e as hashtags reais do artigo (ou, na ausência
+// delas, hashtags de categoria como fallback) sempre terminando em
+// #ovalorcapital.
 function buildIgCaption(post) {
   const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'});
   const titulo = String(post.titulo||'').toUpperCase();
-  const corpoCompleto = removerAssinaturaEHashtagsDoCorpo(stripHtmlToText(post.conteudo));
+  const { corpo: corpoCompleto, hashtags: hashtagsDoCorpo } = extrairEremoverAssinaturaEHashtags(stripHtmlToText(post.conteudo));
   const LIMITE = 1500;
   const truncado = corpoCompleto.length > LIMITE;
   const corpo = truncado ? corpoCompleto.slice(0, LIMITE).replace(/\s+\S*$/, '') + '…' : corpoCompleto;
   const assinatura = `Redação OVC — ${hoje}`;
-  const hashtags = [];
-  if (post.categoria && CAT_HASHTAG_LABEL[post.categoria]) hashtags.push('#'+CAT_HASHTAG_LABEL[post.categoria]);
-  if (post.subcategoria) { const h = toHashtag(post.subcategoria); if (h && h.toLowerCase() !== (hashtags[0]||'').toLowerCase()) hashtags.push(h); }
-  hashtags.push('#ovalorcapital');
-  const partes = [titulo, corpo, assinatura, hashtags.join('\n')].filter(Boolean);
+  let hashtags = hashtagsDoCorpo.slice();
+  if (!hashtags.length) {
+    if (post.categoria && CAT_HASHTAG_LABEL[post.categoria]) hashtags.push('#'+CAT_HASHTAG_LABEL[post.categoria]);
+    if (post.subcategoria) { const h = toHashtag(post.subcategoria); if (h && h.toLowerCase() !== (hashtags[0]||'').toLowerCase()) hashtags.push(h); }
+  }
+  if (!hashtags.some(h => h.toLowerCase() === '#ovalorcapital')) hashtags.push('#ovalorcapital');
+  const partes = [titulo, corpo, assinatura, hashtags.join(' ')].filter(Boolean);
   return { titulo, corpo, assinatura, hashtags, truncado, texto: partes.join('\n\n') };
 }
 
