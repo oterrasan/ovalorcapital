@@ -1,4 +1,4 @@
-name: Diagnóstico único (Brasil ON — deploy real na Vercel + domínio)
+name: Diagnóstico único (Brasil ON — associar domínio)
 
 on:
   push:
@@ -7,32 +7,21 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  deploy_brasilon:
+  domain_brasilon:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v3
 
-      - name: Deploy Brasil ON como projeto novo na Vercel (a partir de brasilon/)
+      - name: Associar obrasilon.com.br ao projeto brasilon
         working-directory: brasilon
         run: |
           npm install -g vercel@54.6.1
-          echo "=== Deploy (cria projeto novo 'brasilon' automaticamente, sem --scope) ==="
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy_out.txt
-          echo "=== URL de produção capturada ==="
-          tail -5 /tmp/deploy_out.txt
-
-      - name: Adicionar domínio obrasilon.com.br ao projeto
-        working-directory: brasilon
-        run: |
-          echo "=== Tentativa: vercel domains add <dominio> <projeto> ==="
-          vercel domains add obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1 || true
-          echo "=== Tentativa www ==="
-          vercel domains add www.obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1 || true
-          echo "=== Inspecionar domínio (mostra o que falta configurar no DNS) ==="
+          echo "=== add obrasilon.com.br ==="
+          vercel domains add obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
+          echo "=== add www.obrasilon.com.br ==="
+          vercel domains add www.obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
+          echo "=== inspect obrasilon.com.br (mostra os DNS records exatos que a Vercel espera) ==="
           vercel domains inspect obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
-
-      - name: Listar projetos (confirmação)
-        working-directory: brasilon
-        run: |
-          vercel project ls --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
+          echo "=== inspect www.obrasilon.com.br ==="
+          vercel domains inspect www.obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
