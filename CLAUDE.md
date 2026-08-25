@@ -7910,10 +7910,25 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 | **Comando completo de integração Instagram entregue a Roberto (pra ele repassar ao Codex)** | ✅ ENTREGUE — nenhuma ação de código nesta sessão (Codex fará via navegador do Roberto) |
 | **Código completo do portal Brasil ON** (backend SSR + frontend + admin) | ✅ EM PRODUÇÃO no repo (PR #467, commit `98d3db9`) |
 | **Tabela `brasilon_posts` criada no Supabase** — Roberto rodou o SQL manualmente no SQL Editor (com RLS habilitado, sem policy — só `service_role` acessa, que é exatamente o que o backend do Brasil ON usa) | ✅ CONFIRMADO COM EVIDÊNCIA REAL — verificado via REST API (workflow diagnóstico, PR #469): `HTTP/2 200`, `content-range: */0` (existe, vazia — esperado, sync ainda não rodou) |
+| **Projeto Vercel `brasilon` criado e deployado** (roberto-terrasans-projects/brasilon) — feito pelo próprio Claude via `vercel --token=... --yes --prod` dentro de `brasilon/`, sem passar por dashboard/browser | ✅ EM PRODUÇÃO — `https://brasilon.vercel.app` (Ready, 23s, 5 funções serverless compiladas: article/category/manage/portal-posts/sitemap). Zero interferência nos 3 projetos OVC existentes (confirmado por `vercel project ls`) |
+| **Domínio `obrasilon.com.br` + `www.obrasilon.com.br` anexados ao projeto** | ✅ CONFIRMADO — `vercel domains add` retornou "Success! Domain ... added to project brasilon" para os dois. Falta só o DNS na Locaweb (ver abaixo) |
+
+#### 🔴 ÚNICA AÇÃO PENDENTE — Roberto precisa configurar o DNS na Locaweb
+
+O domínio já está anexado ao projeto Vercel. Falta só apontar o DNS pra Vercel (padrão documentado publicamente pela própria Vercel, sem precisar de `vercel domains inspect` — esse comando deu 403 mesmo com o domínio já anexado, provavelmente porque `obrasilon.com.br` ainda não tem DNS externo apontando pra lá, então a Vercel ainda não o trata como "domain resource" verificável; isso não bloqueia nada, é só a ordem: primeiro anexa ao projeto, depois aponta o DNS).
+
+**No painel da Locaweb, em `obrasilon.com.br` → Zona de DNS:**
+| Tipo | Host | Valor |
+|---|---|---|
+| A | @ (raiz/vazio) | `76.76.21.21` |
+| CNAME | www | `cname.vercel-dns.com` |
+
+Depois de configurar (propagação leva de minutos a algumas horas), `https://obrasilon.com.br` e `https://www.obrasilon.com.br` passam a servir o site direto — sem precisar de nenhuma ação extra no lado da Vercel.
 
 ### 🔧 Pendências para a próxima sessão
 
-1. **Criar o projeto Vercel novo** apontando pro mesmo repo `ovalorcapital`, com **Root Directory: `brasilon`**, e conectar o domínio `obrasilon.com.br` — esse é o único passo que falta pro Brasil ON ir ao ar de verdade
-2. **Confirmar o cron de sync rodando** (`brasilon/vercel.json`, a cada 20min) e testar `action=sync`/`action=status` de verdade assim que o projeto estiver no ar
-3. **Testar a aba "🇧🇷 Brasil ON" no admin do OVC** — status e botão de sync manual, cross-origin (só vai responder de verdade depois do passo 1)
-4. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram — aguardando assets de Roberto; Radar do Futebol pós-fix; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense)
+1. **Confirmar com Roberto que ele configurou o DNS na Locaweb** e que `obrasilon.com.br` já resolve pro site — só então considerar o domínio 100% no ar
+2. **Confirmar o cron de sync rodando** (`brasilon_sync` em `pipeline-cron.yml`, a cada 20min) — vai começar a funcionar de verdade assim que `www.obrasilon.com.br` resolver (o job chama esse host)
+3. **Testar a aba "🇧🇷 Brasil ON" no admin do OVC** — status e botão de sync manual, cross-origin
+4. **Discutir layout/design do Brasil ON com Roberto** — ele pediu explicitamente pra essa ser a próxima conversa assim que o site estivesse no ar
+5. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram — aguardando assets de Roberto; Radar do Futebol pós-fix; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense)
