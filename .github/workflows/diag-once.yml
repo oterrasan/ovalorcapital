@@ -1,9 +1,4 @@
-name: Diagnóstico único (placeholder)
-
-# Workflow one-off inerte. Convenção do projeto: escrever uma tarefa real
-# aqui, dar push (dispara mesmo em branch de feature com PR aberto), conferir
-# o resultado nos Actions, e resetar para este estado inerte depois. Nunca
-# deixar uma tarefa real ativa aqui.
+name: Diagnóstico único (Brasil ON — deploy real na Vercel + domínio)
 
 on:
   push:
@@ -12,7 +7,34 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  deploy_brasilon:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - run: echo "placeholder — nenhuma tarefa ativa"
+      - uses: actions/checkout@v3
+
+      - name: Deploy Brasil ON como projeto novo na Vercel (a partir de brasilon/)
+        working-directory: brasilon
+        run: |
+          npm install -g vercel@54.6.1
+          echo "=== Deploy (cria projeto novo 'brasilon' automaticamente) ==="
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" --yes --prod 2>&1 | tee /tmp/deploy_out.txt
+          echo "=== URL de produção capturada ==="
+          tail -1 /tmp/deploy_out.txt
+
+      - name: Adicionar domínio obrasilon.com.br ao projeto
+        working-directory: brasilon
+        run: |
+          echo "=== vercel domains add --help (referência) ==="
+          vercel domains add --help --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" 2>&1 || true
+          echo "=== Tentativa: vercel domains add <dominio> <projeto> ==="
+          vercel domains add obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" --yes 2>&1 || true
+          echo "=== Tentativa www ==="
+          vercel domains add www.obrasilon.com.br brasilon --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" --yes 2>&1 || true
+          echo "=== Inspecionar domínio (mostra o que falta configurar no DNS) ==="
+          vercel domains inspect obrasilon.com.br --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" 2>&1 || true
+
+      - name: Listar projetos (confirmação)
+        working-directory: brasilon
+        run: |
+          vercel project ls --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" 2>&1 || true
