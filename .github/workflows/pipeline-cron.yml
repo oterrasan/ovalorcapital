@@ -205,3 +205,20 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"tipo":"internacional","force":true,"count":3}')
           echo "INTERNACIONAL: $RESP" | head -c 500
+
+  brasilon_sync:
+    name: Brasil ON — sincroniza posts brasil-on/futebol do OVC (sem chamada de IA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Disparar sync do Brasil ON
+        # 25/08/2026 — brasilon/vercel.json tinha um cron nativo da Vercel pra
+        # isso (*/20 * * * *), mas o plano Hobby só permite cron 1x/dia — teria
+        # quebrado o deploy. Movido pra cá, mesmo padrão já usado pro resto do
+        # pipeline. Esse job só copia dados já existentes do Supabase pra
+        # brasilon_posts — não chama nenhuma IA, então não compete pela cota
+        # do Gemini com os outros jobs acima.
+        run: |
+          RESP=$(curl -s --max-time 20 -w "\nHTTP_CODE:%{http_code}" -X POST \
+            "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto")
+          echo "BRASIL_ON_SYNC: $RESP" | head -c 500
