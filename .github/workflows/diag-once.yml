@@ -12,27 +12,32 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Instalar psql
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client dnsutils
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
-      - name: Criar tabela brasilon_posts (idempotente, IF NOT EXISTS)
+      - name: Achar o pooler certo e criar brasilon_posts
         env:
           DB_PASS: fEkAur912eR35rH4
           PROJECT_REF: yntwvfcxjardzafdqanj
-          REGION: sa-east-1
         run: |
           export PGPASSWORD="$DB_PASS"
-          echo "=== Checando se o host direto tem IPv4 (GH Actions runner nao tem rota IPv6) ==="
-          getent ahostsv4 "db.${PROJECT_REF}.supabase.co" || echo "sem IPv4 direto — vamos usar o connection pooler (Supavisor), feito pra IPv4"
+          FOUND=""
+          for REGION in sa-east-1 us-east-1 us-east-2 us-west-1 eu-central-1 eu-west-1 eu-west-2 ap-southeast-1 ap-southeast-2 ap-south-1; do
+            CONN="postgresql://postgres.${PROJECT_REF}:${DB_PASS}@aws-0-${REGION}.pooler.supabase.com:5432/postgres"
+            echo "=== Tentando região ${REGION} ==="
+            if psql "$CONN" -c "SELECT 1 AS ok;" 2>&1; then
+              echo "✅ Região certa: ${REGION}"
+              FOUND="$REGION"
+              break
+            fi
+          done
 
-          echo "=== Usando o Session Pooler (IPv4) — host aws-0-${REGION}.pooler.supabase.com ==="
-          CONN="postgresql://postgres.${PROJECT_REF}:${DB_PASS}@aws-0-${REGION}.pooler.supabase.com:5432/postgres"
-
-          echo "=== Testando conexão ==="
-          psql "$CONN" -c "SELECT 1 AS ok;" || {
-            echo "Falha na conexao via pooler tambem. Roberto precisa rodar o SQL manualmente no SQL Editor do Supabase."
+          if [ -z "$FOUND" ]; then
+            echo "Nenhuma região do pooler funcionou. Roberto precisa rodar o SQL manualmente no SQL Editor do Supabase."
             exit 1
-          }
-          echo "=== Criando brasilon_posts ==="
+          fi
+
+          CONN="postgresql://postgres.${PROJECT_REF}:${DB_PASS}@aws-0-${FOUND}.pooler.supabase.com:5432/postgres"
+          echo "=== Criando brasilon_posts (região ${FOUND}) ==="
           psql "$CONN" -v ON_ERROR_STOP=1 \
             -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";" \
             -c "CREATE TABLE IF NOT EXISTS brasilon_posts (id uuid primary key default uuid_generate_v4(), origem_post_id uuid, categoria text not null, titulo text, conteudo text, comentario_fixado text, meta_title text, imagem text, status text default 'publicado', created_at timestamptz default now(), published_at timestamptz default now(), updated_at timestamptz default now());" \
