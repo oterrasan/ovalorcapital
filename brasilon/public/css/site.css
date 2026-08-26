@@ -234,11 +234,18 @@ h1, h2, h3, h4, h5 { margin: 0; }
 }
 .bon-dense-item time { display: block; font-size: 11px; color: var(--ink-soft); margin-top: 6px; font-weight: 600; }
 
-/* ── ITEM COM THUMB PEQUENO (usado em alguns itens do grid denso para variar) ── */
-.bon-thumb-item { display: flex; gap: 10px; align-items: flex-start; }
-.bon-thumb-item .bon-thumb { width: 76px; height: 76px; flex-shrink: 0; overflow: hidden; background: #e2e0d6; }
+/* ── ITEM COM THUMB PEQUENO — usado em TODO item do grid denso que tem foto,
+   pra nunca ficar uma lista inteira só de texto ── */
+.bon-thumb-item { display: flex; gap: 14px; align-items: flex-start; }
+.bon-thumb-item .bon-thumb { width: 92px; height: 92px; flex-shrink: 0; overflow: hidden; background: #e2e0d6; }
 .bon-thumb-item .bon-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .bon-thumb-item .bon-thumb-body { flex: 1; min-width: 0; }
+.bon-thumb-item .bon-thumb-body h4 { font-size: 14.5px; }
+
+/* ── SEGUNDA LINHA DE DESTAQUES (2 médios, foto 16:9) — quebra o padrão
+   entre a linha de 3 destaques e a lista densa, pra não ficar tudo igual ── */
+.bon-subfeatured-row { grid-template-columns: repeat(2, 1fr); }
+.bon-subfeatured-row .bon-featured-media { aspect-ratio: 16/9; }
 
 /* ── LATERAL (aside) — listas bem compactas, sem foto ── */
 .bon-col-side { border-left: 1px solid var(--rule); padding-left: 32px; }

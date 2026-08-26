@@ -60,13 +60,17 @@
   }
 
   function denseHtml(p) {
-    return (
-      '<a class="bon-dense-item" href="' + p.url + '">' +
-      pillHtml(p.categoria) +
-      "<h4>" + esc(p.titulo) + "</h4>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
-      "</a>"
-    );
+    var body = pillHtml(p.categoria) + "<h4>" + esc(p.titulo) + "</h4>" +
+      "<time>" + timeAgo(p.published_at) + "</time>";
+    if (p.imagem) {
+      return (
+        '<a class="bon-dense-item bon-thumb-item" href="' + p.url + '">' +
+        '<div class="bon-thumb"><img src="' + p.imagem + '" alt="" loading="lazy"></div>' +
+        '<div class="bon-thumb-body">' + body + "</div>" +
+        "</a>"
+      );
+    }
+    return '<a class="bon-dense-item" href="' + p.url + '">' + body + "</a>";
   }
 
   function sideItemHtml(p) {
@@ -86,6 +90,7 @@
   async function load() {
     var heroSlot = document.querySelector("[data-bon-hero]");
     var featuredSlot = document.querySelector("[data-bon-featured]");
+    var subFeaturedSlot = document.querySelector("[data-bon-subfeatured]");
     var denseSlot = document.querySelector("[data-bon-dense]");
     var ultimasSlot = document.querySelector("[data-bon-ultimas]");
     var futebolSideSlot = document.querySelector("[data-bon-futebol-side]");
@@ -112,13 +117,17 @@
           : '<div class="bon-empty" style="padding:10px 0;text-align:left;">Sem notícias de futebol no momento.</div>';
       }
 
-      // Corpo principal: hero (1) + destaques com foto (3) + resto em lista densa.
+      // Corpo principal: hero (1) + destaques com foto 4:3 (3) + 2ª linha de
+      // destaques com foto 16:9 (2) + resto em lista densa — cada item com
+      // sua própria thumb (nunca uma lista só de texto).
       var hero = posts[0];
       var featured = posts.slice(1, 4);
-      var resto = posts.slice(4);
+      var subFeatured = posts.slice(4, 6);
+      var resto = posts.slice(6);
 
       if (heroSlot) heroSlot.innerHTML = heroHtml(hero);
       if (featuredSlot) featuredSlot.innerHTML = featured.map(featuredHtml).join("");
+      if (subFeaturedSlot) subFeaturedSlot.innerHTML = subFeatured.map(featuredHtml).join("");
       denseSlot.innerHTML = resto.length
         ? resto.map(denseHtml).join("")
         : '<div class="bon-empty">Sem mais notícias no momento.</div>';
