@@ -1,24 +1,11 @@
-name: Diagnóstico único (redeploy Brasil ON — fix fotos/densa)
+name: Diagnóstico único (placeholder inerte)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v3
-      - name: Deploy Brasil ON em produção
-        working-directory: brasilon
-        run: |
-          npm install -g vercel@54.6.1
-          set +e
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod > /tmp/deploy_out.txt 2>&1
-          code=$?
-          cat /tmp/deploy_out.txt
-          echo "EXIT_CODE:$code"
-          exit 0
+      - name: Placeholder — nada a fazer
+        run: echo "placeholder inerte — sem diagnóstico pendente"
