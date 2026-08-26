@@ -1,11 +1,25 @@
-name: Diagnóstico único (placeholder inerte)
+name: Diagnóstico único (Brasil ON — confirmar sync + status)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
-      - name: Placeholder — nada a fazer
-        run: echo "placeholder inerte — sem diagnóstico pendente"
+      - name: Disparar sync manual e checar status
+        run: |
+          echo "=== SYNC ==="
+          curl -s --max-time 20 -w "\nHTTP_CODE:%{http_code}\n" -X POST \
+            "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto"
+          echo ""
+          echo "=== STATUS ==="
+          curl -s --max-time 20 -w "\nHTTP_CODE:%{http_code}\n" \
+            "https://www.obrasilon.com.br/api/manage?action=status&pass=ovc-admin-2026-secreto"
+          echo ""
+          echo "=== HOMEPAGE (primeiros 500 chars) ==="
+          curl -s --max-time 20 "https://www.obrasilon.com.br/" | head -c 500
