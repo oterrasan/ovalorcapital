@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { publish } from "../core/instagram.js";
+import { prepareInstagramImage } from "../core/instagram_image.js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -273,7 +274,8 @@ async function handleIgPublish(req, res, body) {
   const now = new Date().toISOString();
 
   try {
-    const ig = await publish(imageUrl, caption, accountId);
+    const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase });
+    const ig = await publish(instagramImage.url, caption, accountId);
     const metrics = parseJsonMaybe(post.metrics, {});
     const nextStatus = post.status === "publicado" ? post.status : "success";
     const patch = {
@@ -288,6 +290,8 @@ async function handleIgPublish(req, res, body) {
           ig_id: ig.id,
           account_id: ig.account_id,
           username: ig.username,
+          image_url: instagramImage.url,
+          image_path: instagramImage.path,
           published_at: now
         }
       }
