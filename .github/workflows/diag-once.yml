@@ -1,4 +1,4 @@
-name: Diagnóstico único (Brasil ON — confirmar sync real e HTTPS)
+name: Diagnóstico único (Brasil ON — redeploy pós-fix package.json + testar sync)
 
 on:
   push:
@@ -7,14 +7,19 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  check_sync:
+  deploy_and_test:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Testar www.obrasilon.com.br + disparar sync + checar status
+      - uses: actions/checkout@v3
+      - name: Deploy Brasil ON em produção
+        working-directory: brasilon
         run: |
-          echo "=== curl -v https://www.obrasilon.com.br/ ==="
-          curl -v --max-time 10 https://www.obrasilon.com.br/ 2>&1 | tail -20 || true
+          npm install -g vercel@54.6.1
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy_out.txt
+          tail -5 /tmp/deploy_out.txt
+      - name: Testar sync e status pós-deploy
+        run: |
           echo "=== dispara sync ==="
           curl -s --max-time 20 -w "\nHTTP_CODE:%{http_code}\n" -X POST \
             "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto" || true
