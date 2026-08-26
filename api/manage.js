@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { publish } from "../core/instagram.js";
+import { getAccount, postComment, publish } from "../core/instagram.js";
 import { prepareInstagramImage } from "../core/instagram_image.js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
@@ -246,6 +246,12 @@ function buildInstagramCaption(post) {
   return caption.length > 2200 ? caption.slice(0, 2197).replace(/\s+\S*$/, "") + "…" : caption;
 }
 
+function buildInstagramFirstComment(post) {
+  const configured = stripHtmlToText(post?.comentario_fixado || "").trim();
+  const text = configured || "Leia a matéria completa no O Valor Capital.\n\n#ovalorcapital";
+  return text.length > 2000 ? text.slice(0, 1997).replace(/\s+\S*$/, "") + "…" : text;
+}
+
 function redactSecrets(message) {
   return String(message || "")
     .replace(/access_token=([^&\s"]+)/gi, "access_token=[redacted]")
@@ -276,6 +282,17 @@ async function handleIgPublish(req, res, body) {
   try {
     const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
     const ig = await publish(instagramImage.url, caption, accountId);
+    const firstCommentText = buildInstagramFirstComment(post);
+    let firstComment = null;
+    let firstCommentError = null;
+    if (firstCommentText) {
+      try {
+        const account = await getAccount(ig.account_id);
+        firstComment = await postComment(ig.id, firstCommentText, account?.token);
+      } catch (commentError) {
+        firstCommentError = redactSecrets(commentError?.message || String(commentError));
+      }
+    }
     const metrics = parseJsonMaybe(post.metrics, {});
     const nextStatus = post.status === "publicado" ? post.status : "success";
     const patch = {
@@ -292,7 +309,10 @@ async function handleIgPublish(req, res, body) {
           username: ig.username,
           image_url: instagramImage.url,
           image_path: instagramImage.path,
-          published_at: now
+          published_at: now,
+          first_comment_text: firstCommentText,
+          first_comment_id: firstComment?.id || null,
+          first_comment_error: firstCommentError
         }
       }
     };
@@ -312,7 +332,14 @@ async function handleIgPublish(req, res, body) {
       if (fallbackError) throw updateError;
     }
 
-    return res.status(200).json({ ok: true, ig_id: ig.id, account_id: ig.account_id, username: ig.username });
+    return res.status(200).json({
+      ok: true,
+      ig_id: ig.id,
+      account_id: ig.account_id,
+      username: ig.username,
+      first_comment_id: firstComment?.id || null,
+      first_comment_error: firstCommentError
+    });
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     try {

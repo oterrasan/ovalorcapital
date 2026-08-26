@@ -47,13 +47,15 @@ export async function publish(imageUrl, caption, accountId) {
 }
 
 export async function postComment(mediaId, text, token) {
-  if (!token) return null;
+  if (!token) throw new Error("Token ausente para comentar no Instagram");
   const res = await fetch(`${BASE}/${mediaId}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: text, access_token: token })
   });
-  return await res.json();
+  const data = await res.json();
+  if (!res.ok || !data?.id) throw new Error("Erro ao postar comentário: " + JSON.stringify(data));
+  return data;
 }
 
 export { getAccount };
