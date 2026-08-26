@@ -274,7 +274,7 @@ async function handleIgPublish(req, res, body) {
   const now = new Date().toISOString();
 
   try {
-    const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase });
+    const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
     const ig = await publish(instagramImage.url, caption, accountId);
     const metrics = parseJsonMaybe(post.metrics, {});
     const nextStatus = post.status === "publicado" ? post.status : "success";
