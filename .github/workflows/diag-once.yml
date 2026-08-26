@@ -1,4 +1,4 @@
-name: Diagnóstico único (checar propagação DNS obrasilon.com.br)
+name: Diagnóstico único (checar propagação DNS obrasilon.com.br v2)
 
 on:
   push:
@@ -11,13 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Resolver e testar HTTP
+      - name: Resolver e testar HTTP (verboso)
         run: |
           echo "=== dig obrasilon.com.br A ==="
           dig +short obrasilon.com.br A || true
-          echo "=== dig www.obrasilon.com.br CNAME ==="
-          dig +short www.obrasilon.com.br CNAME || true
-          echo "=== curl obrasilon.com.br ==="
-          curl -s -o /dev/null -w "HTTP_CODE:%{http_code}\n" --max-time 10 https://obrasilon.com.br/ || true
-          echo "=== curl www.obrasilon.com.br ==="
-          curl -s -o /dev/null -w "HTTP_CODE:%{http_code}\n" --max-time 10 https://www.obrasilon.com.br/ || true
+          echo "=== curl -v https://obrasilon.com.br ==="
+          curl -v --max-time 10 https://obrasilon.com.br/ 2>&1 | tail -40 || true
+          echo "=== curl -v http://obrasilon.com.br (porta 80) ==="
+          curl -v --max-time 10 http://obrasilon.com.br/ 2>&1 | tail -25 || true
