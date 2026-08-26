@@ -1,4 +1,4 @@
-name: Diagnóstico único (deploy Brasil ON — SEO + institucional)
+name: Diagnóstico único (checar por que o link mostra ícone/dados do OVC)
 
 on:
   push:
@@ -7,18 +7,29 @@ on:
       - '.github/workflows/diag-once.yml'
 
 jobs:
-  deploy:
+  diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v3
-      - name: Deploy Brasil ON em produção
-        working-directory: brasilon
+      - name: DNS + resposta real dos dois domínios
         run: |
-          npm install -g vercel@54.6.1
-          set +e
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod > /tmp/deploy_out.txt 2>&1
-          code=$?
-          cat /tmp/deploy_out.txt
-          echo "EXIT_CODE:$code"
-          exit 0
+          echo "=== DNS obrasilon.com.br ==="
+          dig +short obrasilon.com.br A || true
+          echo "=== DNS www.obrasilon.com.br ==="
+          dig +short www.obrasilon.com.br CNAME || true
+          dig +short www.obrasilon.com.br A || true
+          echo ""
+          echo "=== curl -I obrasilon.com.br (sem www) ==="
+          curl -sS -D - -o /dev/null -L --max-time 10 "https://obrasilon.com.br/" || true
+          echo ""
+          echo "=== curl -I www.obrasilon.com.br ==="
+          curl -sS -D - -o /dev/null -L --max-time 10 "https://www.obrasilon.com.br/" || true
+          echo ""
+          echo "=== body head www.obrasilon.com.br (title/og/icon) ==="
+          curl -sS -L --max-time 10 "https://www.obrasilon.com.br/" -o /tmp/body.html || true
+          grep -o -i '<title>[^<]*</title>' /tmp/body.html || echo "sem title"
+          grep -o -i '<meta property="og:site_name"[^>]*>' /tmp/body.html || echo "sem og:site_name"
+          grep -o -i '<meta property="og:image"[^>]*>' /tmp/body.html || echo "sem og:image"
+          grep -o -i '<link rel="icon"[^>]*>' /tmp/body.html | head -c 300 || echo "sem favicon link"
+          echo ""
+          wc -l /tmp/body.html
