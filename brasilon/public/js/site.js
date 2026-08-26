@@ -6,7 +6,9 @@
     if (!el) return;
     var agora = new Date();
     var dataFmt = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
-    el.innerHTML = "<span>" + dataFmt.charAt(0).toUpperCase() + dataFmt.slice(1) + "</span><span>Brasil ON — atualizado ao longo do dia</span>";
+    el.innerHTML =
+      '<span><span class="bon-live-dot"></span>' + dataFmt.charAt(0).toUpperCase() + dataFmt.slice(1) + "</span>" +
+      "<span>Brasil ON — atualizado ao longo do dia</span>";
   }
 
   function markActiveNav() {

@@ -1,29 +1,40 @@
 // Brasil ON — página de categoria: lista todos os posts daquela categoria.
 (function () {
   var CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
-
-  function fmtData(iso) {
-    if (!iso) return "";
-    try {
-      return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-    } catch (_) { return ""; }
-  }
+  var CAT_SLUG = { "brasil-on": "brasil-on", futebol: "futebol" };
 
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  function catClass(categoria) {
+    return CAT_SLUG[categoria] ? "cat-" + CAT_SLUG[categoria] : "";
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return "";
+    var diffMs = Date.now() - new Date(iso).getTime();
+    var min = Math.floor(diffMs / 60000);
+    if (min < 1) return "agora";
+    if (min < 60) return "há " + min + " min";
+    var h = Math.floor(min / 60);
+    if (h < 24) return "há " + h + "h";
+    var d = Math.floor(h / 24);
+    return "há " + d + "d";
+  }
+
   function cardHtml(p) {
     var cat = CAT_LABEL[p.categoria] || p.categoria;
-    var img = p.imagem ? '<img src="' + p.imagem + '" alt="" loading="lazy">' : '<div style="aspect-ratio:16/9;background:#e5e7eb"></div>';
+    var img = p.imagem
+      ? '<img src="' + p.imagem + '" alt="" loading="lazy">'
+      : '<div style="width:100%;height:100%;background:#e2e8e2"></div>';
     return (
       '<a class="bon-card" href="' + p.url + '">' +
-      img +
+      '<div class="bon-card-media">' + img + '<span class="bon-catpill ' + catClass(p.categoria) + '">' + esc(cat) + "</span></div>" +
       '<div class="bon-card-body">' +
-      '<span class="bon-card-cat">' + cat + "</span>" +
       "<h3>" + esc(p.titulo) + "</h3>" +
-      (p.resumo ? "<p>" + esc(p.resumo).slice(0, 110) + "</p>" : "") +
-      "<time>" + fmtData(p.published_at) + "</time>" +
+      (p.resumo ? "<p>" + esc(p.resumo).slice(0, 100) + "</p>" : "") +
+      "<time>" + timeAgo(p.published_at) + "</time>" +
       "</div></a>"
     );
   }

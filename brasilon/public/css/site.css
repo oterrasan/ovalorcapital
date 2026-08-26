@@ -1,25 +1,24 @@
-/* Brasil ON — paleta oficial da bandeira do Brasil (verde/amarelo/azul),
-   a pedido explícito de Roberto: "quero as cores e a paleta de tons do
-   brasil, por isso BRASIL ON". Fundo claro (público popular/acessível,
-   não o dark premium do OVC), tipografia bold. */
+/* Brasil ON — identidade popular/acessível com a paleta da bandeira do
+   Brasil (verde/amarelo/azul). Roberto, 26/08/2026: "não é porque é
+   popular que será ruim, pelo contrário" — manchete grande, foto com
+   presença, categoria em selo colorido. Nada de card branco genérico.
+   Fonte Anton/Inter carregada via <link> no <head> de cada página
+   (mais rápido que @import — não bloqueia o parse do CSS). */
 
 :root {
-  --bg: #f6f8f6;
+  --bg: #f3f5f2;
   --bg-card: #ffffff;
-  --bg-card-hover: #f0fbf4;
   --text-main: #14171c;
   --text-muted: #5b6572;
-  --border: #dfe6e1;
+  --border: #e2e8e2;
   --verde: #009639;
   --verde-dark: #00722b;
   --amarelo: #ffdf00;
-  --amarelo-dark: #e6c900;
+  --amarelo-dark: #d9bd00;
   --azul: #002776;
   --azul-light: #1351b4;
-  --accent: var(--amarelo);
-  --header-bg: #009639;
-  --header-text: #ffffff;
-  --footer-bg: #002776;
+  --header-bg: #00591f;
+  --footer-bg: #001c57;
 }
 
 * { box-sizing: border-box; }
@@ -27,122 +26,242 @@ html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg);
   color: var(--text-main);
-  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
+
+.bon-headline {
+  font-family: Anton, Inter, sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+/* ── FAIXA BANDEIRA ── */
+.bon-flagbar {
+  height: 6px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--verde) 0px, var(--verde) 22px,
+    var(--amarelo) 22px, var(--amarelo) 44px,
+    var(--azul) 44px, var(--azul) 66px
+  );
+}
 
 /* ── TICKER ── */
 .bon-ticker {
   background: var(--azul);
   color: #dce6f7;
   font-size: 12px;
-  padding: 4px 16px;
+  font-weight: 600;
+  padding: 5px 20px;
   display: flex;
+  align-items: center;
+  gap: 10px;
   justify-content: space-between;
   overflow-x: auto;
   white-space: nowrap;
 }
-.bon-ticker span { margin-right: 18px; }
+.bon-ticker .bon-live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--amarelo);
+  margin-right: 6px;
+  animation: bonPulse 1.6s ease-in-out infinite;
+}
+@keyframes bonPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,223,0,0.5); }
+  50% { opacity: 0.5; box-shadow: 0 0 0 4px rgba(255,223,0,0); }
+}
 
 /* ── HEADER ── */
 .bon-header {
-  background: var(--header-bg);
-  color: var(--header-text);
-  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--header-bg) 0%, #00722b 100%);
+  color: #fff;
+  padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  border-bottom: 3px solid var(--amarelo);
+  gap: 14px;
 }
 .bon-logo {
-  font-size: 20px;
-  font-weight: 900;
-  letter-spacing: -0.3px;
+  font-family: Anton, Inter, sans-serif;
+  font-size: 26px;
+  letter-spacing: 0.5px;
   display: flex;
   align-items: center;
   gap: 10px;
   color: #fff;
 }
-.bon-logo .bon-badge { flex-shrink: 0; display: block; }
+.bon-logo .bon-badge { flex-shrink: 0; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25)); }
 .bon-logo span.on { color: var(--amarelo); }
-.bon-nav { display: flex; gap: 20px; }
+.bon-nav { display: flex; gap: 22px; }
 .bon-nav a {
   font-size: 14px;
-  font-weight: 700;
-  padding: 6px 4px;
-  border-bottom: 2px solid transparent;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 8px 4px;
+  border-bottom: 3px solid transparent;
   color: #eafff0;
 }
 .bon-nav a:hover, .bon-nav a.active { border-color: var(--amarelo); color: #fff; }
 
-/* ── HERO ── */
-.bon-hero {
-  max-width: 1180px;
-  margin: 24px auto 0;
-  padding: 0 20px;
-}
+/* ── HERO — capa de jornal popular ── */
+.bon-hero { margin: 0 0 28px; }
 .bon-hero-card {
   position: relative;
-  border-radius: 12px;
+  display: block;
+  min-height: 420px;
   overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  min-height: 340px;
-  display: flex;
-  align-items: flex-end;
+  background: #0d2f16;
 }
 .bon-hero-card img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 }
-.bon-hero-card .bon-hero-overlay {
+.bon-hero-card::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,10,4,0.92) 0%, rgba(0,10,4,0.35) 55%, rgba(0,10,4,0.05) 100%);
+}
+.bon-hero-overlay {
   position: relative;
   z-index: 1;
-  padding: 28px;
-  background: linear-gradient(to top, rgba(0,39,118,0.92), rgba(0,39,118,0.05));
-  width: 100%;
-}
-.bon-hero-card .bon-kicker {
-  color: var(--amarelo); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;
-}
-.bon-hero-card h1 {
-  color: #fff; font-size: 28px; font-weight: 900; line-height: 1.22; margin: 8px 0 0;
-}
-
-/* ── GRID DE CARDS ── */
-.bon-main {
   max-width: 1180px;
-  margin: 28px auto 60px;
+  margin: 0 auto;
+  padding: 0 20px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 420px;
+}
+.bon-kicker {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  background: var(--amarelo);
+  color: #14210a;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 5px 12px;
+  border-radius: 3px;
+  margin-bottom: 14px;
+}
+.bon-kicker.cat-futebol { background: #4ea8ff; color: #001c3d; }
+.bon-hero-card h1 {
+  font-family: Anton, Inter, sans-serif;
+  color: #fff;
+  font-size: clamp(28px, 4.4vw, 48px);
+  line-height: 1.08;
+  margin: 0 0 10px;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.55);
+  max-width: 900px;
+}
+.bon-hero-time { color: #d6e6d9; font-size: 13px; font-weight: 600; }
+
+/* ── DESTAQUES SECUNDÁRIOS (2 cards médios logo após o hero) ── */
+.bon-subhero {
+  max-width: 1180px;
+  margin: 0 auto 8px;
   padding: 0 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.bon-sub-card {
+  position: relative;
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 220px;
+  background: #e2e8e2;
+}
+.bon-sub-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bon-sub-card::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,10,4,0.88) 0%, rgba(0,10,4,0.15) 65%);
+}
+.bon-sub-body { position: relative; z-index: 1; padding: 16px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.bon-sub-card h3 {
+  font-family: Anton, Inter, sans-serif;
+  color: #fff;
+  font-size: 21px;
+  line-height: 1.14;
+  margin: 8px 0 0;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+}
+
+/* ── SELO DE CATEGORIA (usado no grid) ── */
+.bon-catpill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  color: #fff;
+  background: var(--verde);
+}
+.bon-catpill.cat-futebol { background: var(--azul-light); }
+
+/* ── GRID DE CARDS ── */
+.bon-section-title {
+  max-width: 1180px; margin: 0 auto; padding: 0 20px;
+  font-family: Anton, Inter, sans-serif;
+  font-size: 20px;
+  color: var(--text-main);
+  border-left: 6px solid var(--verde);
+  padding-left: 12px;
+  margin-bottom: 14px;
+  margin-top: 8px;
+}
+.bon-main {
+  max-width: 1180px;
+  margin: 0 auto 60px;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 22px;
 }
 .bon-card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0,20,10,0.08);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
-.bon-card:hover { box-shadow: 0 8px 20px rgba(0,39,118,0.12); border-color: var(--verde); transform: translateY(-2px); }
-.bon-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #e2e8e4; }
-.bon-card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.bon-card-cat { font-size: 11px; font-weight: 900; color: var(--verde-dark); text-transform: uppercase; letter-spacing: 0.5px; }
-.bon-card h3 { font-size: 16px; font-weight: 800; line-height: 1.3; margin: 0; color: var(--text-main); }
+.bon-card:hover { box-shadow: 0 10px 24px rgba(0,20,10,0.16); transform: translateY(-3px); }
+.bon-card .bon-card-media { position: relative; aspect-ratio: 4/3; overflow: hidden; background: #e2e8e2; }
+.bon-card .bon-card-media img { width: 100%; height: 100%; object-fit: cover; }
+.bon-card .bon-catpill { position: absolute; top: 10px; left: 10px; }
+.bon-card-body { padding: 14px 15px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.bon-card h3 {
+  font-family: Anton, Inter, sans-serif;
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0;
+  color: var(--text-main);
+}
 .bon-card p { font-size: 13px; color: var(--text-muted); margin: 0; }
-.bon-card time { font-size: 11px; color: #8b9aa0; margin-top: auto; }
+.bon-card time { font-size: 11.5px; font-weight: 700; color: var(--verde-dark); margin-top: auto; text-transform: uppercase; }
 
 /* ── CATEGORIA (título + descrição no topo da listagem) ── */
 .bon-cat-header {
   max-width: 1180px; margin: 24px auto 0; padding: 0 20px;
 }
-.bon-cat-header h1 { font-size: 26px; font-weight: 900; margin: 0 0 6px; color: var(--text-main); }
+.bon-cat-header h1 { font-family: Anton, Inter, sans-serif; font-size: 30px; margin: 0 0 6px; color: var(--text-main); }
 .bon-cat-header p { color: var(--text-muted); font-size: 14px; margin: 0; }
 
 /* ── ARTIGO ── */
@@ -151,13 +270,17 @@ img { max-width: 100%; display: block; }
   margin: 28px auto 60px;
   padding: 0 20px;
 }
-.bon-article .bon-card-cat { margin-bottom: 10px; }
+.bon-article .bon-catpill { margin-bottom: 12px; }
 .bon-article h1 {
-  font-size: 30px; font-weight: 900; line-height: 1.26; margin: 0 0 14px; color: var(--text-main);
+  font-family: Anton, Inter, sans-serif;
+  font-size: clamp(26px, 4vw, 38px);
+  line-height: 1.16;
+  margin: 0 0 14px;
+  color: var(--text-main);
 }
-.bon-article .bon-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+.bon-article .bon-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; font-weight: 600; }
 .bon-article img.bon-cover {
-  width: 100%; border-radius: 10px; margin-bottom: 20px; aspect-ratio: 16/9; object-fit: cover; background: #e2e8e4;
+  width: 100%; border-radius: 8px; margin-bottom: 20px; aspect-ratio: 16/9; object-fit: cover; background: #e2e8e2;
 }
 .bon-article .bon-body { font-size: 17px; line-height: 1.85; color: #1e242c; }
 .bon-article .bon-body p { margin: 0 0 20px; }
@@ -173,14 +296,13 @@ img { max-width: 100%; display: block; }
   background: var(--footer-bg);
   color: #dce6f7;
   padding: 36px 20px 24px;
-  margin-top: 40px;
-  border-top: 3px solid var(--amarelo);
+  margin-top: 20px;
 }
 .bon-footer-inner {
   max-width: 1180px; margin: 0 auto;
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px;
 }
-.bon-footer h4 { color: #fff; font-size: 14px; margin: 0 0 10px; }
+.bon-footer h4 { color: #fff; font-family: Anton, Inter, sans-serif; font-size: 15px; margin: 0 0 10px; letter-spacing: 0.3px; }
 .bon-footer a { display: block; font-size: 13px; color: #bcd0ef; margin-bottom: 6px; }
 .bon-footer a:hover { color: var(--amarelo); }
 .bon-footer-copy {
@@ -189,10 +311,12 @@ img { max-width: 100%; display: block; }
   font-size: 12px; color: #9db3d6;
 }
 
+@media (max-width: 860px) {
+  .bon-subhero { grid-template-columns: 1fr; }
+}
 @media (max-width: 640px) {
   .bon-header { flex-direction: column; align-items: flex-start; }
-  .bon-nav { gap: 14px; flex-wrap: wrap; }
-  .bon-hero-card { min-height: 240px; }
-  .bon-hero-card h1 { font-size: 22px; }
-  .bon-article h1 { font-size: 24px; }
+  .bon-nav { gap: 16px; flex-wrap: wrap; }
+  .bon-hero-card, .bon-hero-overlay { min-height: 300px; }
+  .bon-article h1 { font-size: 26px; }
 }
