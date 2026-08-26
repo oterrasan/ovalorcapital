@@ -3,6 +3,7 @@
 // kernels de IA do OVC) — nunca escapar, só injetar direto.
 (function () {
   var CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
+  var CAT_SLUG = { "brasil-on": "brasil-on", futebol: "futebol" };
 
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -23,8 +24,9 @@
     var cat = CAT_LABEL[art.categoria] || art.categoria;
     var cover = art.imagem ? '<img class="bon-cover" src="' + art.imagem + '" alt="">' : "";
 
+    var catClass = CAT_SLUG[art.categoria] ? "cat-" + CAT_SLUG[art.categoria] : "";
     mount.innerHTML =
-      '<span class="bon-card-cat">' + esc(cat) + "</span>" +
+      '<span class="bon-catpill ' + catClass + '">' + esc(cat) + "</span>" +
       "<h1>" + esc(art.titulo) + "</h1>" +
       '<div class="bon-meta">Redação Brasil ON · ' + fmtData(art.published_at) + "</div>" +
       cover +
