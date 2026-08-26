@@ -1,10 +1,20 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
+name: Diagnóstico único (Brasil ON — redeploy produção com identidade visual nova)
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  deploy_brasilon:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "placeholder inerte — obrasilon.com.br DNS propagado, servindo via HTTP; aguardando cert HTTPS da Vercel provisionar"
+      - uses: actions/checkout@v3
+      - name: Deploy Brasil ON em produção (código atualizado)
+        working-directory: brasilon
+        run: |
+          npm install -g vercel@54.6.1
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy_out.txt
+          tail -3 /tmp/deploy_out.txt
