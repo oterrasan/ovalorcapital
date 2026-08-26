@@ -1,11 +1,24 @@
-name: Diagnóstico único (placeholder inerte)
+name: Diagnóstico único (redeploy Brasil ON — motor de blocos)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Placeholder — nada a fazer
-        run: echo "placeholder inerte — sem diagnóstico pendente"
+      - uses: actions/checkout@v3
+      - name: Deploy Brasil ON em produção
+        working-directory: brasilon
+        run: |
+          npm install -g vercel@54.6.1
+          set +e
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod > /tmp/deploy_out.txt 2>&1
+          code=$?
+          cat /tmp/deploy_out.txt
+          echo "EXIT_CODE:$code"
+          exit 0
