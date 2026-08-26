@@ -1,6 +1,7 @@
-// Brasil ON — homepage: hero (post mais recente) + 2 sub-destaques + grid.
-// Identidade popular: manchete grande, foto com presença, selo de categoria
-// colorido (verde=Brasil ON, azul=Futebol), tempo relativo tipo "há 12 min".
+// Brasil ON — homepage estilo jornal de banca: manchete gigante, 3
+// destaques médios, lista densa em 2 colunas (índice de jornal), lateral
+// "Últimas" + "Futebol" bem compacta. MUITO conteúdo na mesma tela,
+// hierarquia real — nada de cards todos iguais.
 (function () {
   var CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
   var CAT_SLUG = { "brasil-on": "brasil-on", futebol: "futebol" };
@@ -30,71 +31,99 @@
     return '<span class="bon-catpill ' + catClass(categoria) + '">' + esc(cat) + "</span>";
   }
 
-  function cardHtml(p) {
-    var img = p.imagem
-      ? '<img src="' + p.imagem + '" alt="" loading="lazy">'
-      : '<div style="width:100%;height:100%;background:#e2e8e2"></div>';
-    return (
-      '<a class="bon-card" href="' + p.url + '">' +
-      '<div class="bon-card-media">' + img + pillHtml(p.categoria) + "</div>" +
-      '<div class="bon-card-body">' +
-      "<h3>" + esc(p.titulo) + "</h3>" +
-      (p.resumo ? "<p>" + esc(p.resumo).slice(0, 100) + "</p>" : "") +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
-      "</div></a>"
-    );
-  }
-
-  function subHtml(p) {
-    var img = p.imagem ? '<img src="' + p.imagem + '" alt="" loading="lazy">' : "";
-    return (
-      '<a class="bon-sub-card" href="' + p.url + '">' +
-      img +
-      '<div class="bon-sub-body">' +
-      pillHtml(p.categoria) +
-      "<h3>" + esc(p.titulo) + "</h3>" +
-      "</div></a>"
-    );
-  }
-
   function heroHtml(p) {
-    var cat = CAT_LABEL[p.categoria] || p.categoria;
-    var img = p.imagem || "/assets/og-default.jpg";
+    var img = p.imagem
+      ? '<div class="bon-hero-media"><img src="' + p.imagem + '" alt=""></div>'
+      : "";
     return (
       '<a class="bon-hero-card" href="' + p.url + '">' +
-      '<img src="' + img + '" alt="">' +
-      '<div class="bon-hero-overlay">' +
-      '<span class="bon-kicker ' + catClass(p.categoria) + '">' + esc(cat) + "</span>" +
+      img +
+      pillHtml(p.categoria) +
       "<h1>" + esc(p.titulo) + "</h1>" +
+      (p.resumo ? '<p class="bon-hero-deck">' + esc(p.resumo).slice(0, 180) + "</p>" : "") +
       '<div class="bon-hero-time">' + timeAgo(p.published_at) + "</div>" +
-      "</div></a>"
+      "</a>"
     );
+  }
+
+  function featuredHtml(p) {
+    var img = p.imagem
+      ? '<div class="bon-featured-media"><img src="' + p.imagem + '" alt="" loading="lazy"></div>'
+      : "";
+    return (
+      '<a class="bon-featured-item" href="' + p.url + '">' +
+      img +
+      pillHtml(p.categoria) +
+      "<h3>" + esc(p.titulo) + "</h3>" +
+      "</a>"
+    );
+  }
+
+  function denseHtml(p) {
+    return (
+      '<a class="bon-dense-item" href="' + p.url + '">' +
+      pillHtml(p.categoria) +
+      "<h4>" + esc(p.titulo) + "</h4>" +
+      "<time>" + timeAgo(p.published_at) + "</time>" +
+      "</a>"
+    );
+  }
+
+  function sideItemHtml(p) {
+    return (
+      '<a class="bon-side-item" href="' + p.url + '">' +
+      "<h5>" + esc(p.titulo) + "</h5>" +
+      "<time>" + timeAgo(p.published_at) + "</time>" +
+      "</a>"
+    );
+  }
+
+  async function fetchJson(url) {
+    var r = await fetch(url);
+    return r.json();
   }
 
   async function load() {
     var heroSlot = document.querySelector("[data-bon-hero]");
-    var subSlot = document.querySelector("[data-bon-subhero]");
-    var gridSlot = document.querySelector("[data-bon-grid]");
-    if (!gridSlot) return;
+    var featuredSlot = document.querySelector("[data-bon-featured]");
+    var denseSlot = document.querySelector("[data-bon-dense]");
+    var ultimasSlot = document.querySelector("[data-bon-ultimas]");
+    var futebolSideSlot = document.querySelector("[data-bon-futebol-side]");
+    if (!denseSlot) return;
+
     try {
-      var r = await fetch("/api/portal-posts?limit=25");
-      var d = await r.json();
+      var d = await fetchJson("/api/portal-posts?limit=60");
       var posts = d.posts || [];
       if (!posts.length) {
-        gridSlot.innerHTML = '<div class="bon-empty">Nenhuma notícia publicada ainda.</div>';
+        denseSlot.innerHTML = '<div class="bon-empty">Nenhuma notícia publicada ainda.</div>';
         return;
       }
-      if (heroSlot) {
-        heroSlot.innerHTML = heroHtml(posts[0]);
-        posts = posts.slice(1);
+
+      // Lateral "Últimas" — as 12 mais recentes de qualquer categoria, sempre.
+      if (ultimasSlot) {
+        ultimasSlot.innerHTML = posts.slice(0, 12).map(sideItemHtml).join("");
       }
-      if (subSlot && posts.length >= 2) {
-        subSlot.innerHTML = subHtml(posts[0]) + subHtml(posts[1]);
-        posts = posts.slice(2);
+
+      // Lateral "Futebol" — as 10 mais recentes só de futebol.
+      if (futebolSideSlot) {
+        var futebolPosts = posts.filter(function (p) { return p.categoria === "futebol"; }).slice(0, 10);
+        futebolSideSlot.innerHTML = futebolPosts.length
+          ? futebolPosts.map(sideItemHtml).join("")
+          : '<div class="bon-empty" style="padding:10px 0;text-align:left;">Sem notícias de futebol no momento.</div>';
       }
-      gridSlot.innerHTML = posts.map(cardHtml).join("");
+
+      // Corpo principal: hero (1) + destaques com foto (3) + resto em lista densa.
+      var hero = posts[0];
+      var featured = posts.slice(1, 4);
+      var resto = posts.slice(4);
+
+      if (heroSlot) heroSlot.innerHTML = heroHtml(hero);
+      if (featuredSlot) featuredSlot.innerHTML = featured.map(featuredHtml).join("");
+      denseSlot.innerHTML = resto.length
+        ? resto.map(denseHtml).join("")
+        : '<div class="bon-empty">Sem mais notícias no momento.</div>';
     } catch (_) {
-      gridSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
+      denseSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
     }
   }
 
