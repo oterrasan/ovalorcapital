@@ -101,6 +101,7 @@
     { "src": "^/api/editor_ia$",            "dest": "/api/manage?action=editor_ia" },
     { "src": "^/api/seo_batch$",            "dest": "/api/manage?action=seo_batch" },
     { "src": "^/api/live-data$",            "dest": "/api/portal-posts?format=live-data" },
+    { "src": "^/api/ig_publish$",           "dest": "/api/manage?action=ig_publish" },
     { "src": "^/api/ig-setup$",             "dest": "/api/ig-handler?op=setup" },
     { "src": "^/api/ig-queue$",             "dest": "/api/ig-handler?op=queue" },
     { "src": "^/api/ig-proxy$",             "dest": "/api/ig-handler?op=proxy" },
