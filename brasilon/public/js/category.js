@@ -43,16 +43,21 @@
   }
 
   function denseHtml(p) {
-    return (
-      '<a class="bon-dense-item" href="' + p.url + '">' +
-      "<h4>" + esc(p.titulo) + "</h4>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
-      "</a>"
-    );
+    var body = "<h4>" + esc(p.titulo) + "</h4>" + "<time>" + timeAgo(p.published_at) + "</time>";
+    if (p.imagem) {
+      return (
+        '<a class="bon-dense-item bon-thumb-item" href="' + p.url + '">' +
+        '<div class="bon-thumb"><img src="' + p.imagem + '" alt="" loading="lazy"></div>' +
+        '<div class="bon-thumb-body">' + body + "</div>" +
+        "</a>"
+      );
+    }
+    return '<a class="bon-dense-item" href="' + p.url + '">' + body + "</a>";
   }
 
   async function load() {
     var featuredSlot = document.querySelector("[data-bon-featured]");
+    var subFeaturedSlot = document.querySelector("[data-bon-subfeatured]");
     var denseSlot = document.querySelector("[data-bon-grid]");
     if (!denseSlot) return;
     var categoria = document.body.getAttribute("data-category");
@@ -65,8 +70,10 @@
         return;
       }
       var featured = posts.slice(0, 3);
-      var resto = posts.slice(3);
+      var subFeatured = posts.slice(3, 5);
+      var resto = posts.slice(5);
       if (featuredSlot) featuredSlot.innerHTML = featured.map(featuredHtml).join("");
+      if (subFeaturedSlot) subFeaturedSlot.innerHTML = subFeatured.map(featuredHtml).join("");
       denseSlot.innerHTML = resto.length
         ? resto.map(denseHtml).join("")
         : '<div class="bon-empty">Sem mais notícias no momento.</div>';
