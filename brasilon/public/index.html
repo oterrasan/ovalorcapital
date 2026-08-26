@@ -26,7 +26,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="/css/site.css?v=5">
+<link rel="stylesheet" href="/css/site.css?v=6">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsMediaOrganization","name":"Brasil ON","url":"https://www.obrasilon.com.br/","logo":{"@type":"ImageObject","url":"https://www.obrasilon.com.br/assets/og-default.jpg","width":1200,"height":630},"sameAs":["https://www.instagram.com/obrasilon/","https://www.ovalorcapital.com.br/"]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Brasil ON","url":"https://www.obrasilon.com.br/","inLanguage":"pt-BR"}</script>
 </head>
@@ -57,16 +57,8 @@
 
       <div class="bon-rule"></div>
 
-      <div class="bon-featured-row" data-bon-featured></div>
-
-      <div class="bon-rule"></div>
-
-      <div class="bon-featured-row bon-subfeatured-row" data-bon-subfeatured></div>
-
-      <div class="bon-rule"></div>
-
       <h2 class="bon-section-title">Mais Notícias</h2>
-      <div class="bon-dense-grid" data-bon-dense></div>
+      <div data-bon-blocks></div>
     </div>
 
     <aside class="bon-col-side">
@@ -104,6 +96,7 @@
   </footer>
 
   <script src="/js/site.js" defer></script>
+  <script src="/js/blocks.js" defer></script>
   <script src="/js/home.js" defer></script>
   <script>document.getElementById('bon-year').textContent = new Date().getFullYear();</script>
 </body>

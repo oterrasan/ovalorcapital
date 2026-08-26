@@ -1,17 +1,9 @@
-// Brasil ON — homepage estilo jornal de banca: manchete gigante, 3
-// destaques médios, lista densa em 2 colunas (índice de jornal), lateral
-// "Últimas" + "Futebol" bem compacta. MUITO conteúdo na mesma tela,
-// hierarquia real — nada de cards todos iguais.
+// Brasil ON — homepage estilo jornal de banca: manchete gigante + corpo
+// principal com disposições de card variando (ver blocks.js) + lateral
+// "Últimas"/"Futebol" compacta.
 (function () {
-  var CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
-  var CAT_SLUG = { "brasil-on": "brasil-on", futebol: "futebol" };
-
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
-
-  function catClass(categoria) {
-    return CAT_SLUG[categoria] ? "cat-" + CAT_SLUG[categoria] : "";
   }
 
   function timeAgo(iso) {
@@ -26,11 +18,6 @@
     return "há " + d + "d";
   }
 
-  function pillHtml(categoria) {
-    var cat = CAT_LABEL[categoria] || categoria;
-    return '<span class="bon-catpill ' + catClass(categoria) + '">' + esc(cat) + "</span>";
-  }
-
   function heroHtml(p) {
     var img = p.imagem
       ? '<div class="bon-hero-media"><img src="' + p.imagem + '" alt=""></div>'
@@ -38,39 +25,12 @@
     return (
       '<a class="bon-hero-card" href="' + p.url + '">' +
       img +
-      pillHtml(p.categoria) +
+      window.BonBlocks.pillHtml(p.categoria) +
       "<h1>" + esc(p.titulo) + "</h1>" +
       (p.resumo ? '<p class="bon-hero-deck">' + esc(p.resumo).slice(0, 180) + "</p>" : "") +
       '<div class="bon-hero-time">' + timeAgo(p.published_at) + "</div>" +
       "</a>"
     );
-  }
-
-  function featuredHtml(p) {
-    var img = p.imagem
-      ? '<div class="bon-featured-media"><img src="' + p.imagem + '" alt="" loading="lazy"></div>'
-      : "";
-    return (
-      '<a class="bon-featured-item" href="' + p.url + '">' +
-      img +
-      pillHtml(p.categoria) +
-      "<h3>" + esc(p.titulo) + "</h3>" +
-      "</a>"
-    );
-  }
-
-  function denseHtml(p) {
-    var body = pillHtml(p.categoria) + "<h4>" + esc(p.titulo) + "</h4>" +
-      "<time>" + timeAgo(p.published_at) + "</time>";
-    if (p.imagem) {
-      return (
-        '<a class="bon-dense-item bon-thumb-item" href="' + p.url + '">' +
-        '<div class="bon-thumb"><img src="' + p.imagem + '" alt="" loading="lazy"></div>' +
-        '<div class="bon-thumb-body">' + body + "</div>" +
-        "</a>"
-      );
-    }
-    return '<a class="bon-dense-item" href="' + p.url + '">' + body + "</a>";
   }
 
   function sideItemHtml(p) {
@@ -89,18 +49,16 @@
 
   async function load() {
     var heroSlot = document.querySelector("[data-bon-hero]");
-    var featuredSlot = document.querySelector("[data-bon-featured]");
-    var subFeaturedSlot = document.querySelector("[data-bon-subfeatured]");
-    var denseSlot = document.querySelector("[data-bon-dense]");
+    var blocksSlot = document.querySelector("[data-bon-blocks]");
     var ultimasSlot = document.querySelector("[data-bon-ultimas]");
     var futebolSideSlot = document.querySelector("[data-bon-futebol-side]");
-    if (!denseSlot) return;
+    if (!blocksSlot) return;
 
     try {
       var d = await fetchJson("/api/portal-posts?limit=60");
       var posts = d.posts || [];
       if (!posts.length) {
-        denseSlot.innerHTML = '<div class="bon-empty">Nenhuma notícia publicada ainda.</div>';
+        blocksSlot.innerHTML = '<div class="bon-empty">Nenhuma notícia publicada ainda.</div>';
         return;
       }
 
@@ -117,22 +75,17 @@
           : '<div class="bon-empty" style="padding:10px 0;text-align:left;">Sem notícias de futebol no momento.</div>';
       }
 
-      // Corpo principal: hero (1) + destaques com foto 4:3 (3) + 2ª linha de
-      // destaques com foto 16:9 (2) + resto em lista densa — cada item com
-      // sua própria thumb (nunca uma lista só de texto).
+      // Manchete gigante (1) + todo o resto em disposições de card que
+      // variam a cada 3-4 itens (blocks.js) — nunca um formato só.
       var hero = posts[0];
-      var featured = posts.slice(1, 4);
-      var subFeatured = posts.slice(4, 6);
-      var resto = posts.slice(6);
+      var resto = posts.slice(1);
 
       if (heroSlot) heroSlot.innerHTML = heroHtml(hero);
-      if (featuredSlot) featuredSlot.innerHTML = featured.map(featuredHtml).join("");
-      if (subFeaturedSlot) subFeaturedSlot.innerHTML = subFeatured.map(featuredHtml).join("");
-      denseSlot.innerHTML = resto.length
-        ? resto.map(denseHtml).join("")
+      blocksSlot.innerHTML = resto.length
+        ? window.BonBlocks.renderBlocks(resto)
         : '<div class="bon-empty">Sem mais notícias no momento.</div>';
     } catch (_) {
-      denseSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
+      blocksSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
     }
   }
 
