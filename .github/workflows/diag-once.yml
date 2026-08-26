@@ -7,4 +7,6 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder inerte — sync Brasil ON confirmado funcionando: 112 posts sincronizados (67 brasil-on + 45 futebol)"
+      - name: noop
+        run: |
+          echo "placeholder inerte - sync Brasil ON confirmado funcionando (112 posts sincronizados: 67 brasil-on + 45 futebol)"
