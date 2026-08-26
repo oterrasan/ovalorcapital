@@ -2,19 +2,21 @@ import crypto from "crypto";
 import { readFileSync } from "fs";
 import sharp from "sharp";
 
-const W = 1080;
-const H = 1350;
+const W = 1440;
+const H = 1800;
+const SCALE = W / 1080;
+const px = value => Math.round(value * SCALE);
 const BUCKET = "post-images";
 const PREFIX = "instagram";
 const OVERLAY_PATH = new URL("../public/assets/ig-overlay-ovc-canva.png", import.meta.url);
-const HEADLINE_VERSION = "canva-headline-v3";
+const HEADLINE_VERSION = "canva-headline-v4-1440";
 const HEADLINE_BOX = {
-  x: 150,
-  y: 705,
-  width: 780,
+  x: px(150),
+  y: px(705),
+  width: px(780),
   maxLines: 4,
-  maxFontSize: 46,
-  minFontSize: 32,
+  maxFontSize: px(46),
+  minFontSize: px(32),
   lineHeight: 1.18
 };
 const HIGHLIGHT_COLOR = "#f28c22";
@@ -173,6 +175,22 @@ function buildHeadlineSvg(title) {
 </svg>`);
 }
 
+function buildBottomGradientSvg() {
+  const startY = px(520);
+  return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bottomMask" x1="0" y1="${startY}" x2="0" y2="${H}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.34" stop-color="#000000" stop-opacity="0.48"/>
+      <stop offset="0.62" stop-color="#000000" stop-opacity="0.86"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.98"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="${startY}" width="${W}" height="${H - startY}" fill="url(#bottomMask)"/>
+</svg>`);
+}
+
 async function downloadImage(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
@@ -208,16 +226,33 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
 
   const overlay = await sharp(readFileSync(OVERLAY_PATH))
     .resize(W, H, { fit: "fill" })
+    .sharpen({ sigma: 0.55 })
+    .modulate({ brightness: 1.06, saturation: 1.12 })
+    .png()
+    .toBuffer();
+  const topBrandBoostHeight = px(300);
+  const footerBoostTop = px(920);
+  const topBrandBoost = await sharp(overlay)
+    .extract({ left: 0, top: 0, width: W, height: topBrandBoostHeight })
+    .png()
+    .toBuffer();
+  const footerBoost = await sharp(overlay)
+    .extract({ left: 0, top: footerBoostTop, width: W, height: H - footerBoostTop })
     .png()
     .toBuffer();
 
-  const layers = [{ input: overlay, top: 0, left: 0 }];
+  const layers = [
+    { input: buildBottomGradientSvg(), top: 0, left: 0 },
+    { input: overlay, top: 0, left: 0 },
+    { input: topBrandBoost, top: 0, left: 0 },
+    { input: footerBoost, top: footerBoostTop, left: 0 }
+  ];
   const headline = buildHeadlineSvg(title);
   if (headline) layers.push({ input: headline, top: 0, left: 0 });
 
   return sharp(base)
     .composite(layers)
-    .jpeg({ quality: 98, mozjpeg: true, chromaSubsampling: "4:4:4" })
+    .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
     .toBuffer();
 }
 
