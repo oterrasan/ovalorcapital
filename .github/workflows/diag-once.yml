@@ -1,21 +1,10 @@
-name: Diagnóstico único (checar propagação DNS obrasilon.com.br v2)
+name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
+  workflow_dispatch: {}
 
 jobs:
-  check_dns:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
     steps:
-      - name: Resolver e testar HTTP (verboso)
-        run: |
-          echo "=== dig obrasilon.com.br A ==="
-          dig +short obrasilon.com.br A || true
-          echo "=== curl -v https://obrasilon.com.br ==="
-          curl -v --max-time 10 https://obrasilon.com.br/ 2>&1 | tail -40 || true
-          echo "=== curl -v http://obrasilon.com.br (porta 80) ==="
-          curl -v --max-time 10 http://obrasilon.com.br/ 2>&1 | tail -25 || true
+      - run: echo "placeholder inerte — obrasilon.com.br DNS propagado, servindo via HTTP; aguardando cert HTTPS da Vercel provisionar"
