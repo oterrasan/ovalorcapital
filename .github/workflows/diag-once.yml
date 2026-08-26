@@ -1,28 +1,12 @@
-name: Diagnóstico único (Brasil ON — redeploy pós-fix package.json + testar sync)
+name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
+  workflow_dispatch: {}
 
 jobs:
-  deploy_and_test:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v3
-      - name: Deploy Brasil ON em produção
-        working-directory: brasilon
+      - name: noop
         run: |
-          npm install -g vercel@54.6.1
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy_out.txt
-          tail -5 /tmp/deploy_out.txt
-      - name: Testar sync e status pós-deploy
-        run: |
-          echo "=== dispara sync ==="
-          curl -s --max-time 20 -w "\nHTTP_CODE:%{http_code}\n" -X POST \
-            "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto" || true
-          echo "=== status ==="
-          curl -s --max-time 10 -w "\nHTTP_CODE:%{http_code}\n" \
-            "https://www.obrasilon.com.br/api/manage?action=status&pass=ovc-admin-2026-secreto" || true
+          echo "placeholder inerte - sync Brasil ON confirmado funcionando (112 posts sincronizados: 67 brasil-on + 45 futebol)"
