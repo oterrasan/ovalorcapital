@@ -7,16 +7,32 @@ const H = 1350;
 const BUCKET = "post-images";
 const PREFIX = "instagram";
 const OVERLAY_PATH = new URL("../public/assets/ig-overlay-ovc-canva.png", import.meta.url);
-const HEADLINE_VERSION = "canva-headline-v2";
+const HEADLINE_VERSION = "canva-headline-v3";
 const HEADLINE_BOX = {
-  x: 80,
-  y: 700,
-  width: 920,
+  x: 150,
+  y: 705,
+  width: 780,
   maxLines: 4,
-  maxFontSize: 62,
-  minFontSize: 44,
-  lineHeight: 1.1
+  maxFontSize: 46,
+  minFontSize: 32,
+  lineHeight: 1.18
 };
+const HIGHLIGHT_COLOR = "#f28c22";
+const STOPWORDS = new Set([
+  "A", "O", "AS", "OS", "UM", "UMA", "UNS", "UMAS",
+  "DE", "DA", "DO", "DAS", "DOS", "E", "EM", "NO", "NA", "NOS", "NAS",
+  "POR", "PARA", "COM", "SEM", "SOB", "SOBRE", "ENTRE", "APOS", "ATE",
+  "AO", "AOS", "QUE", "SE", "SUA", "SEU", "SUAS", "SEUS", "PROPRIA",
+  "PROPRIO", "EX", "EUA"
+]);
+const IMPACT_WORDS = new Map([
+  ["MORTE", 80], ["MORTA", 80], ["MORTO", 80], ["MORRE", 80], ["ASSASSINATO", 78],
+  ["CULPADA", 76], ["CULPADO", 76], ["CONDENADO", 74], ["CONDENADA", 74],
+  ["CRIME", 72], ["FACADAS", 70], ["MATAR", 68], ["PRESO", 68], ["PRESA", 68],
+  ["BILIONARIO", 66], ["MILIONARIO", 64], ["ALTA", 62], ["QUEDA", 62],
+  ["RECUA", 62], ["AVANCA", 62], ["DOLAR", 62], ["JUROS", 62], ["LULA", 70],
+  ["BOLSONARO", 70], ["TRUMP", 70], ["STF", 70], ["GOVERNO", 58]
+]);
 
 function escapeXml(value) {
   return String(value || "")
@@ -30,11 +46,51 @@ function estimateTextWidth(text, fontSize) {
   let units = 0;
   for (const ch of String(text || "")) {
     if (ch === " ") units += 0.28;
-    else if ("IÍÌÎÏ!.,:;|".includes(ch)) units += 0.32;
-    else if ("MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ".includes(ch)) units += 0.82;
-    else units += 0.58;
+    else if ("IÍÌÎÏ!.,:;|".includes(ch)) units += 0.34;
+    else if ("MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ".includes(ch)) units += 0.88;
+    else units += 0.64;
   }
   return units * fontSize;
+}
+
+function normalizeWord(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase();
+}
+
+function chooseHighlightWord(title) {
+  const words = String(title || "").match(/[\p{L}\p{N}]+/gu) || [];
+  let best = null;
+  words.forEach((word, index) => {
+    const normalized = normalizeWord(word);
+    if (!normalized || STOPWORDS.has(normalized) || normalized.length < 4) return;
+    const score = (IMPACT_WORDS.get(normalized) || 0)
+      + Math.min(normalized.length, 14)
+      - index * 0.35;
+    if (!best || score > best.score) best = { normalized, score };
+  });
+  return best?.normalized || null;
+}
+
+function renderLineTspans(line, y, highlightWord, state) {
+  const parts = String(line || "").split(/(\s+)/);
+  let first = true;
+  return parts.map(part => {
+    if (!part) return "";
+    const token = normalizeWord(part);
+    const highlight = !state.used && highlightWord && token === highlightWord;
+    if (highlight) state.used = true;
+    const attrs = [
+      first ? `x="${W / 2}"` : "",
+      first ? `y="${y}"` : "",
+      `fill="${highlight ? HIGHLIGHT_COLOR : "#ffffff"}"`
+    ].filter(Boolean).join(" ");
+    first = false;
+    return `<tspan ${attrs}>${escapeXml(part)}</tspan>`;
+  }).join("");
 }
 
 function truncateLine(line, fontSize, maxWidth) {
@@ -94,8 +150,10 @@ function buildHeadlineSvg(title) {
 
   const lineHeight = Math.round(selected.fontSize * HEADLINE_BOX.lineHeight);
   const firstY = HEADLINE_BOX.y + selected.fontSize;
+  const highlightWord = chooseHighlightWord(normalized);
+  const highlightState = { used: false };
   const tspans = selected.lines
-    .map((line, index) => `<tspan x="${W / 2}" y="${firstY + index * lineHeight}">${escapeXml(line)}</tspan>`)
+    .map((line, index) => renderLineTspans(line, firstY + index * lineHeight, highlightWord, highlightState))
     .join("");
 
   return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
@@ -110,7 +168,8 @@ function buildHeadlineSvg(title) {
         font-size="${selected.fontSize}" font-weight="800"
         letter-spacing="0" fill="#ffffff"
         stroke="#050505" stroke-opacity="0.42" stroke-width="3"
-        paint-order="stroke fill" filter="url(#headlineShadow)">${tspans}</text>
+        paint-order="stroke fill" filter="url(#headlineShadow)"
+        xml:space="preserve">${tspans}</text>
 </svg>`);
 }
 
