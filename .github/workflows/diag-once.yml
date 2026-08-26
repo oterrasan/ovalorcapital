@@ -1,10 +1,23 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
+name: Diagnóstico único (checar propagação DNS obrasilon.com.br)
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  check_dns:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
-      - run: echo "placeholder inerte — brasilon.vercel.app no ar, domínio anexado ao projeto, aguardando Roberto configurar DNS na Locaweb"
+      - name: Resolver e testar HTTP
+        run: |
+          echo "=== dig obrasilon.com.br A ==="
+          dig +short obrasilon.com.br A || true
+          echo "=== dig www.obrasilon.com.br CNAME ==="
+          dig +short www.obrasilon.com.br CNAME || true
+          echo "=== curl obrasilon.com.br ==="
+          curl -s -o /dev/null -w "HTTP_CODE:%{http_code}\n" --max-time 10 https://obrasilon.com.br/ || true
+          echo "=== curl www.obrasilon.com.br ==="
+          curl -s -o /dev/null -w "HTTP_CODE:%{http_code}\n" --max-time 10 https://www.obrasilon.com.br/ || true
