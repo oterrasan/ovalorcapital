@@ -28,7 +28,7 @@
     mount.innerHTML =
       '<span class="bon-catpill ' + catClass + '">' + esc(cat) + "</span>" +
       "<h1>" + esc(art.titulo) + "</h1>" +
-      '<div class="bon-meta">Redação Brasil ON · ' + fmtData(art.published_at) + "</div>" +
+      '<div class="bon-meta">BRASIL ON · ' + fmtData(art.published_at) + "</div>" +
       cover +
       '<div class="bon-body">' + (art.corpo || "") + "</div>";
   });

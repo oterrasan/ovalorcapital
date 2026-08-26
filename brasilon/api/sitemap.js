@@ -8,6 +8,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const BASE = "https://www.obrasilon.com.br";
 const STATIC_PATHS = ["/", "/brasil-on/", "/futebol/"];
+const INSTITUTIONAL_PATHS = ["/quem-somos/", "/politica-editorial/", "/contato/", "/privacidade/", "/termos-de-uso/"];
 
 function slugify(text) {
   return String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -27,6 +28,7 @@ export default async function handler(req, res) {
     if (error) throw error;
 
     const staticXml = STATIC_PATHS.map(p => `  <url><loc>${BASE}${p}</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>`);
+    const institXml = INSTITUTIONAL_PATHS.map(p => `  <url><loc>${BASE}${p}</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>`);
     const postsXml = (posts || []).map(p => {
       const id8 = String(p.id).slice(0, 8);
       const slug = slugify(p.titulo || "");
@@ -34,10 +36,10 @@ export default async function handler(req, res) {
       return `  <url><loc>${BASE}/${p.categoria}/${slug}-${id8}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<changefreq>monthly</changefreq><priority>0.8</priority></url>`;
     });
 
-    const xml = [...staticXml, ...postsXml].join("\n");
+    const xml = [...staticXml, ...institXml, ...postsXml].join("\n");
     return res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xml}\n</urlset>`);
   } catch (error) {
-    const xml = STATIC_PATHS.map(p => `  <url><loc>${BASE}${p}</loc></url>`).join("\n");
+    const xml = [...STATIC_PATHS, ...INSTITUTIONAL_PATHS].map(p => `  <url><loc>${BASE}${p}</loc></url>`).join("\n");
     res.setHeader("X-Brasilon-Fallback", "static-only");
     return res.status(200).send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xml}\n</urlset>`);
   }
