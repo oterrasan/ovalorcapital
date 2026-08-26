@@ -69,7 +69,7 @@ async function handleSync(req, res) {
       origem_post_id: post.id,
       categoria,
       titulo: post.titulo,
-      conteudo: post.conteudo,
+      conteudo: assinarBrasilOn(post.conteudo),
       comentario_fixado: post.comentario_fixado || "",
       meta_title: (post.metrics && post.metrics.meta_title) || post.titulo,
       imagem: post.imagem || "",
@@ -86,6 +86,14 @@ async function handleSync(req, res) {
   } catch (error) {
     return res.status(500).json({ ok: false, error: error?.message || String(error) });
   }
+}
+
+// Roberto, 26/08/2026: "as materias nao devem ser assinadas como redacao
+// ovc, assine como BRASIL On e a data apenas." Os kernels de IA do OVC
+// sempre abrem o corpo com "<p><strong>Redação OVC</strong> · {data}</p>"
+// — troca a assinatura pro nome do Brasil ON, sem a palavra "Redação".
+function assinarBrasilOn(conteudo) {
+  return String(conteudo || "").replace(/Reda[çc][ãa]o\s+OVC/gi, "BRASIL ON");
 }
 
 // Classifica um post do OVC como 'brasil-on', 'futebol' ou null (fora do

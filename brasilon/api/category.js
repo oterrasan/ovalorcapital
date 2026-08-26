@@ -56,27 +56,41 @@ export default async function handler(req, res) {
     name: seo.title,
     description: seo.desc,
     url: seo.canonical,
-    publisher: { "@type": "Organization", name: SITE, logo: { "@type": "ImageObject", url: OG_DEFAULT } },
+    publisher: { "@type": "Organization", name: SITE, logo: { "@type": "ImageObject", url: OG_DEFAULT, width: 1200, height: 630 } },
     inLanguage: "pt-BR",
     isAccessibleForFree: true
+  });
+
+  const breadcrumbLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Início", item: BASE + "/" },
+      { "@type": "ListItem", position: 2, name: seo.title.split(" | ")[0], item: seo.canonical }
+    ]
   });
 
   const seoTags = [
     `<title>${esc(seo.title)}</title>`,
     `<meta name="description" content="${esc(seo.desc)}">`,
+    `<meta name="robots" content="index, follow, max-image-preview:large">`,
     `<link rel="canonical" href="${seo.canonical}">`,
     `<meta property="og:type" content="website">`,
     `<meta property="og:site_name" content="${SITE}">`,
     `<meta property="og:title" content="${esc(seo.title)}">`,
     `<meta property="og:description" content="${esc(seo.desc)}">`,
     `<meta property="og:image" content="${OG_DEFAULT}">`,
+    `<meta property="og:image:width" content="1200">`,
+    `<meta property="og:image:height" content="630">`,
     `<meta property="og:url" content="${seo.canonical}">`,
     `<meta property="og:locale" content="pt_BR">`,
     `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:site" content="@obrasilon">`,
     `<meta name="twitter:title" content="${esc(seo.title)}">`,
     `<meta name="twitter:description" content="${esc(seo.desc)}">`,
     `<meta name="twitter:image" content="${OG_DEFAULT}">`,
-    `<script type="application/ld+json">${jsonLd}</script>`
+    `<script type="application/ld+json">${jsonLd}</script>`,
+    `<script type="application/ld+json">${breadcrumbLd}</script>`
   ].join("\n");
 
   let html = tpl;

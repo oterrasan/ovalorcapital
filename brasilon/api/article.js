@@ -74,11 +74,11 @@ export default async function handler(req, res) {
       image: [image],
       datePublished: publishedAt,
       dateModified: modifiedAt,
-      author: [{ "@type": "Organization", name: "Redação Brasil ON", url: BASE }],
+      author: [{ "@type": "Organization", name: "BRASIL ON", url: BASE }],
       publisher: {
         "@type": "Organization",
         name: "Brasil ON",
-        logo: { "@type": "ImageObject", url: `${BASE}/assets/og-default.jpg` }
+        logo: { "@type": "ImageObject", url: `${BASE}/assets/og-default.jpg`, width: 1200, height: 630 }
       },
       mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
       articleSection: catLabel,
@@ -86,22 +86,41 @@ export default async function handler(req, res) {
       isAccessibleForFree: true
     };
 
+    const breadcrumbLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Início", item: BASE + "/" },
+        { "@type": "ListItem", position: 2, name: catLabel, item: `${BASE}/${articleCat}/` },
+        { "@type": "ListItem", position: 3, name: title, item: canonical }
+      ]
+    };
+
     const seoTags = [
       `<title>${esc(title)} | Brasil ON</title>`,
       `<meta name="description" content="${esc(description)}">`,
+      `<meta name="robots" content="index, follow, max-image-preview:large">`,
+      `<meta name="news_keywords" content="${esc(catLabel)}, Brasil, notícias, ${esc(title.split(" ").slice(0, 4).join(" "))}">`,
       `<link rel="canonical" href="${canonical}">`,
       `<meta property="og:type" content="article">`,
       `<meta property="og:site_name" content="Brasil ON">`,
       `<meta property="og:title" content="${esc(title)}">`,
       `<meta property="og:description" content="${esc(description)}">`,
       `<meta property="og:image" content="${esc(image)}">`,
+      `<meta property="og:image:width" content="1200">`,
+      `<meta property="og:image:height" content="630">`,
       `<meta property="og:url" content="${canonical}">`,
       `<meta property="og:locale" content="pt_BR">`,
+      `<meta property="article:published_time" content="${publishedAt}">`,
+      `<meta property="article:modified_time" content="${modifiedAt}">`,
+      `<meta property="article:section" content="${esc(catLabel)}">`,
       `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:site" content="@obrasilon">`,
       `<meta name="twitter:title" content="${esc(title)}">`,
       `<meta name="twitter:description" content="${esc(description)}">`,
       `<meta name="twitter:image" content="${esc(image)}">`,
       `<script type="application/ld+json">${safeJson(jsonLd)}</script>`,
+      `<script type="application/ld+json">${safeJson(breadcrumbLd)}</script>`,
       `<script>window.__BON_ARTICLE__=${safeJson(preload)};</script>`
     ].join("\n");
 
