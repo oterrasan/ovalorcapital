@@ -1,53 +1,49 @@
-/* Brasil ON — identidade popular/acessível com a paleta da bandeira do
-   Brasil (verde/amarelo/azul). Roberto, 26/08/2026: "não é porque é
-   popular que será ruim, pelo contrário" — manchete grande, foto com
-   presença, categoria em selo colorido. Nada de card branco genérico.
-   Fonte Anton/Inter carregada via <link> no <head> de cada página
-   (mais rápido que @import — não bloqueia o parse do CSS). */
+/* Brasil ON — "jornal de banca como antigamente": masthead clássico,
+   MUITA matéria na mesma tela, hierarquia real (manchete gigante, destaques
+   médios, listas densas tipo índice), colunas como jornal impresso.
+   Roberto, 26/08/2026: "cards todos iguais? nao da ne". Paleta da
+   bandeira do Brasil mantida (verde/amarelo/azul), mas o produto agora
+   é densidade editorial, não tabloide de rede social. */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg: #f3f5f2;
+  --bg: #f7f5ef;
   --bg-card: #ffffff;
-  --text-main: #14171c;
-  --text-muted: #5b6572;
-  --border: #e2e8e2;
+  --ink: #171512;
+  --ink-soft: #4a453e;
+  --rule: #d8d2c4;
+  --rule-strong: #171512;
   --verde: #009639;
   --verde-dark: #00722b;
   --amarelo: #ffdf00;
-  --amarelo-dark: #d9bd00;
   --azul: #002776;
   --azul-light: #1351b4;
-  --header-bg: #00591f;
-  --footer-bg: #001c57;
 }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg);
-  color: var(--text-main);
+  color: var(--ink);
   font-family: Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  line-height: 1.5;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
+h1, h2, h3, h4, h5 { margin: 0; }
 
-.bon-headline {
-  font-family: Anton, Inter, sans-serif;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-}
+.serif { font-family: "Playfair Display", Georgia, serif; }
 
 /* ── FAIXA BANDEIRA ── */
 .bon-flagbar {
-  height: 6px;
+  height: 5px;
   background: repeating-linear-gradient(
     -45deg,
-    var(--verde) 0px, var(--verde) 22px,
-    var(--amarelo) 22px, var(--amarelo) 44px,
-    var(--azul) 44px, var(--azul) 66px
+    var(--verde) 0px, var(--verde) 20px,
+    var(--amarelo) 20px, var(--amarelo) 40px,
+    var(--azul) 40px, var(--azul) 60px
   );
 }
 
@@ -78,245 +74,269 @@ img { max-width: 100%; display: block; }
   50% { opacity: 0.5; box-shadow: 0 0 0 4px rgba(255,223,0,0); }
 }
 
-/* ── HEADER ── */
-.bon-header {
-  background: linear-gradient(135deg, var(--header-bg) 0%, #00722b 100%);
-  color: #fff;
-  padding: 14px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-.bon-logo {
-  font-family: Anton, Inter, sans-serif;
-  font-size: 26px;
-  letter-spacing: 0.5px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #fff;
-}
-.bon-logo .bon-badge { flex-shrink: 0; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25)); }
-.bon-logo span.on { color: var(--amarelo); }
-.bon-nav { display: flex; gap: 22px; }
-.bon-nav a {
-  font-size: 14px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 8px 4px;
-  border-bottom: 3px solid transparent;
-  color: #eafff0;
-}
-.bon-nav a:hover, .bon-nav a.active { border-color: var(--amarelo); color: #fff; }
-
-/* ── HERO — capa de jornal popular ── */
-.bon-hero { margin: 0 0 28px; }
-.bon-hero-card {
-  position: relative;
-  display: block;
-  min-height: 420px;
-  overflow: hidden;
-  background: #0d2f16;
-}
-.bon-hero-card img {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-}
-.bon-hero-card::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(0,10,4,0.92) 0%, rgba(0,10,4,0.35) 55%, rgba(0,10,4,0.05) 100%);
-}
-.bon-hero-overlay {
-  position: relative;
-  z-index: 1;
-  max-width: 1180px;
+/* ── MASTHEAD — capa de jornal clássico ── */
+.bon-masthead {
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 0 20px 32px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 420px;
+  padding: 14px 20px 0;
+  background: var(--bg);
 }
-.bon-kicker {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 6px;
-  background: var(--amarelo);
-  color: #14210a;
+.bon-masthead-top {
+  display: flex;
+  justify-content: space-between;
   font-size: 12px;
+  color: var(--ink-soft);
+  text-transform: capitalize;
+  padding-bottom: 8px;
+}
+.bon-masthead-rule-thick {
+  height: 4px;
+  background: var(--ink);
+}
+.bon-masthead-rule-thin {
+  height: 1px;
+  background: var(--rule);
+  margin: 6px 0;
+}
+.bon-masthead-brand {
+  display: block;
+  text-align: center;
+  padding: 14px 0 4px;
+}
+.bon-masthead-brand .name {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(34px, 6vw, 58px);
+  letter-spacing: 0.5px;
+  color: var(--ink);
+}
+.bon-masthead-brand .on { color: var(--verde-dark); }
+.bon-masthead-tagline {
+  text-align: center;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding-bottom: 12px;
+}
+.bon-nav {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  padding: 10px 0;
+}
+.bon-nav a {
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  padding: 5px 12px;
-  border-radius: 3px;
-  margin-bottom: 14px;
+  color: var(--ink);
+  padding-bottom: 4px;
+  border-bottom: 2px solid transparent;
 }
-.bon-kicker.cat-futebol { background: #4ea8ff; color: #001c3d; }
-.bon-hero-card h1 {
-  font-family: Anton, Inter, sans-serif;
-  color: #fff;
-  font-size: clamp(28px, 4.4vw, 48px);
-  line-height: 1.08;
-  margin: 0 0 10px;
-  text-shadow: 0 2px 14px rgba(0,0,0,0.55);
-  max-width: 900px;
-}
-.bon-hero-time { color: #d6e6d9; font-size: 13px; font-weight: 600; }
+.bon-nav a:hover, .bon-nav a.active { border-color: var(--verde); color: var(--verde-dark); }
 
-/* ── DESTAQUES SECUNDÁRIOS (2 cards médios logo após o hero) ── */
-.bon-subhero {
-  max-width: 1180px;
-  margin: 0 auto 8px;
-  padding: 0 20px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-.bon-sub-card {
-  position: relative;
-  display: block;
-  border-radius: 8px;
-  overflow: hidden;
-  min-height: 220px;
-  background: #e2e8e2;
-}
-.bon-sub-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.bon-sub-card::after {
-  content: "";
-  position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(0,10,4,0.88) 0%, rgba(0,10,4,0.15) 65%);
-}
-.bon-sub-body { position: relative; z-index: 1; padding: 16px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
-.bon-sub-card h3 {
-  font-family: Anton, Inter, sans-serif;
-  color: #fff;
-  font-size: 21px;
-  line-height: 1.14;
-  margin: 8px 0 0;
-  text-shadow: 0 1px 8px rgba(0,0,0,0.5);
-}
-
-/* ── SELO DE CATEGORIA (usado no grid) ── */
+/* ── SELO DE CATEGORIA ── */
 .bon-catpill {
   display: inline-block;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding: 4px 10px;
-  border-radius: 3px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
   color: #fff;
   background: var(--verde);
 }
 .bon-catpill.cat-futebol { background: var(--azul-light); }
 
-/* ── GRID DE CARDS ── */
-.bon-section-title {
-  max-width: 1180px; margin: 0 auto; padding: 0 20px;
-  font-family: Anton, Inter, sans-serif;
-  font-size: 20px;
-  color: var(--text-main);
-  border-left: 6px solid var(--verde);
-  padding-left: 12px;
-  margin-bottom: 14px;
-  margin-top: 8px;
-}
-.bon-main {
-  max-width: 1180px;
-  margin: 0 auto 60px;
+/* ── FRONTPAGE — 2 colunas como jornal impresso ── */
+.bon-frontpage {
+  max-width: 1240px;
+  margin: 18px auto 60px;
   padding: 0 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 36px;
+  align-items: start;
+}
+.bon-rule { height: 1px; background: var(--rule); margin: 22px 0; }
+
+/* ── HERO (manchete principal) ── */
+.bon-hero-card { display: block; }
+.bon-hero-media { position: relative; aspect-ratio: 16/8; overflow: hidden; background: #e2e0d6; margin-bottom: 14px; }
+.bon-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.bon-hero-card .bon-catpill { margin-bottom: 10px; }
+.bon-hero-card h1 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.06;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.bon-hero-deck {
+  font-size: 16px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.bon-hero-time { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+
+/* ── DESTAQUES (linha de 3 médios, com foto) ── */
+.bon-featured-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 22px;
 }
-.bon-card {
-  background: var(--bg-card);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 1px 3px rgba(0,20,10,0.08);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+.bon-featured-item { display: block; }
+.bon-featured-media { aspect-ratio: 4/3; overflow: hidden; background: #e2e0d6; margin-bottom: 8px; }
+.bon-featured-media img { width: 100%; height: 100%; object-fit: cover; }
+.bon-featured-item .bon-catpill { margin-bottom: 6px; }
+.bon-featured-item h3 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.22;
+  color: var(--ink);
 }
-.bon-card:hover { box-shadow: 0 10px 24px rgba(0,20,10,0.16); transform: translateY(-3px); }
-.bon-card .bon-card-media { position: relative; aspect-ratio: 4/3; overflow: hidden; background: #e2e8e2; }
-.bon-card .bon-card-media img { width: 100%; height: 100%; object-fit: cover; }
-.bon-card .bon-catpill { position: absolute; top: 10px; left: 10px; }
-.bon-card-body { padding: 14px 15px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.bon-card h3 {
-  font-family: Anton, Inter, sans-serif;
-  font-size: 18px;
-  line-height: 1.2;
-  margin: 0;
-  color: var(--text-main);
+
+/* ── TÍTULO DE SEÇÃO ── */
+.bon-section-title {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ink);
+  border-bottom: 3px solid var(--ink);
+  padding-bottom: 6px;
+  margin-bottom: 14px;
 }
-.bon-card p { font-size: 13px; color: var(--text-muted); margin: 0; }
-.bon-card time { font-size: 11.5px; font-weight: 700; color: var(--verde-dark); margin-top: auto; text-transform: uppercase; }
+
+/* ── GRID DENSO — lista tipo índice de jornal, 2 sub-colunas, sem foto obrigatória ── */
+.bon-dense-grid {
+  column-count: 2;
+  column-gap: 28px;
+}
+.bon-dense-item {
+  display: block;
+  break-inside: avoid;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.bon-dense-item .bon-catpill { margin-bottom: 5px; }
+.bon-dense-item h4 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: 15.5px;
+  line-height: 1.28;
+  color: var(--ink);
+}
+.bon-dense-item time { display: block; font-size: 11px; color: var(--ink-soft); margin-top: 4px; font-weight: 600; }
+
+/* ── ITEM COM THUMB PEQUENO (usado em alguns itens do grid denso para variar) ── */
+.bon-thumb-item { display: flex; gap: 10px; align-items: flex-start; }
+.bon-thumb-item .bon-thumb { width: 76px; height: 76px; flex-shrink: 0; overflow: hidden; background: #e2e0d6; }
+.bon-thumb-item .bon-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.bon-thumb-item .bon-thumb-body { flex: 1; min-width: 0; }
+
+/* ── LATERAL (aside) — listas bem compactas, sem foto ── */
+.bon-col-side { border-left: 1px solid var(--rule); padding-left: 26px; }
+.bon-side-title {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #fff;
+  background: var(--ink);
+  padding: 6px 10px;
+  margin-bottom: 12px;
+}
+.bon-side-title.side-futebol { background: var(--azul); }
+.bon-side-list { margin-bottom: 26px; }
+.bon-side-item {
+  display: block;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.bon-side-item:first-child { padding-top: 0; }
+.bon-side-item h5 {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.bon-side-item time { display: block; font-size: 10.5px; color: var(--ink-soft); margin-top: 3px; }
 
 /* ── CATEGORIA (título + descrição no topo da listagem) ── */
 .bon-cat-header {
-  max-width: 1180px; margin: 24px auto 0; padding: 0 20px;
+  max-width: 1240px; margin: 20px auto 0; padding: 0 20px;
 }
-.bon-cat-header h1 { font-family: Anton, Inter, sans-serif; font-size: 30px; margin: 0 0 6px; color: var(--text-main); }
-.bon-cat-header p { color: var(--text-muted); font-size: 14px; margin: 0; }
+.bon-cat-header h1 { font-family: "Playfair Display", Georgia, serif; font-weight: 900; font-size: 30px; margin: 0 0 6px; color: var(--ink); }
+.bon-cat-header p { color: var(--ink-soft); font-size: 14px; margin: 0; }
+.bon-cat-main {
+  max-width: 1240px; margin: 18px auto 60px; padding: 0 20px;
+}
 
 /* ── ARTIGO ── */
 .bon-article {
-  max-width: 760px;
-  margin: 28px auto 60px;
+  max-width: 740px;
+  margin: 24px auto 60px;
   padding: 0 20px;
 }
 .bon-article .bon-catpill { margin-bottom: 12px; }
 .bon-article h1 {
-  font-family: Anton, Inter, sans-serif;
-  font-size: clamp(26px, 4vw, 38px);
-  line-height: 1.16;
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(26px, 4vw, 40px);
+  line-height: 1.12;
   margin: 0 0 14px;
-  color: var(--text-main);
+  color: var(--ink);
 }
-.bon-article .bon-meta { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; font-weight: 600; }
+.bon-article .bon-meta { font-size: 13px; color: var(--ink-soft); margin-bottom: 18px; font-weight: 600; }
 .bon-article img.bon-cover {
-  width: 100%; border-radius: 8px; margin-bottom: 20px; aspect-ratio: 16/9; object-fit: cover; background: #e2e8e2;
+  width: 100%; margin-bottom: 20px; aspect-ratio: 16/9; object-fit: cover; background: #e2e0d6;
 }
-.bon-article .bon-body { font-size: 17px; line-height: 1.85; color: #1e242c; }
+.bon-article .bon-body { font-size: 18px; line-height: 1.85; color: #1e1c18; }
 .bon-article .bon-body p { margin: 0 0 20px; }
 .bon-article .bon-body strong { color: var(--verde-dark); }
 
 /* ── ESTADOS ── */
 .bon-empty, .bon-loading {
-  text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px;
+  text-align: center; color: var(--ink-soft); padding: 40px 20px; font-size: 14px;
 }
 
 /* ── RODAPÉ ── */
 .bon-footer {
-  background: var(--footer-bg);
-  color: #dce6f7;
+  background: var(--ink);
+  color: #d6d2c8;
   padding: 36px 20px 24px;
   margin-top: 20px;
+  border-top: 5px solid var(--verde);
 }
 .bon-footer-inner {
-  max-width: 1180px; margin: 0 auto;
+  max-width: 1240px; margin: 0 auto;
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px;
 }
-.bon-footer h4 { color: #fff; font-family: Anton, Inter, sans-serif; font-size: 15px; margin: 0 0 10px; letter-spacing: 0.3px; }
-.bon-footer a { display: block; font-size: 13px; color: #bcd0ef; margin-bottom: 6px; }
+.bon-footer h4 { color: #fff; font-family: "Playfair Display", Georgia, serif; font-size: 15px; margin: 0 0 10px; letter-spacing: 0.3px; }
+.bon-footer a { display: block; font-size: 13px; color: #b8b3a6; margin-bottom: 6px; }
 .bon-footer a:hover { color: var(--amarelo); }
 .bon-footer-copy {
-  max-width: 1180px; margin: 24px auto 0; padding-top: 18px;
-  border-top: 1px solid rgba(255,255,255,0.15);
-  font-size: 12px; color: #9db3d6;
+  max-width: 1240px; margin: 24px auto 0; padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  font-size: 12px; color: #8f8a7d;
 }
 
-@media (max-width: 860px) {
-  .bon-subhero { grid-template-columns: 1fr; }
+@media (max-width: 980px) {
+  .bon-frontpage { grid-template-columns: 1fr; }
+  .bon-col-side { border-left: none; padding-left: 0; border-top: 3px solid var(--ink); padding-top: 18px; margin-top: 10px; }
+  .bon-featured-row { grid-template-columns: 1fr 1fr; }
+  .bon-dense-grid { column-count: 1; }
 }
 @media (max-width: 640px) {
-  .bon-header { flex-direction: column; align-items: flex-start; }
-  .bon-nav { gap: 16px; flex-wrap: wrap; }
-  .bon-hero-card, .bon-hero-overlay { min-height: 300px; }
+  .bon-masthead-top { flex-direction: column; gap: 2px; }
+  .bon-nav { gap: 14px; flex-wrap: wrap; }
+  .bon-featured-row { grid-template-columns: 1fr; }
   .bon-article h1 { font-size: 26px; }
 }

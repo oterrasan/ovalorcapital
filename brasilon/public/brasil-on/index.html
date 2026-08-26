@@ -10,29 +10,21 @@
 <meta name="theme-color" content="#009639">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800&display=swap">
-<link rel="stylesheet" href="/css/site.css?v=2">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/site.css?v=3">
 </head>
 <body data-category="brasil-on">
   <div class="bon-flagbar"></div>
   <div class="bon-ticker" data-bon-ticker></div>
-  <header class="bon-header">
-    <a class="bon-logo" href="/">
-      <svg class="bon-badge" width="34" height="34" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <defs>
-          <radialGradient id="bonGreen" cx="35%" cy="30%" r="75%">
-            <stop offset="0%" stop-color="#00b452"/>
-            <stop offset="55%" stop-color="#009639"/>
-            <stop offset="100%" stop-color="#00591f"/>
-          </radialGradient>
-        </defs>
-        <circle cx="50" cy="50" r="48" fill="#ffdf00"/>
-        <circle cx="50" cy="50" r="40" fill="url(#bonGreen)"/>
-        <text x="50" y="42" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="15" fill="#fff">BRASIL</text>
-        <text x="50" y="69" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="27" fill="#fff">ON</text>
-      </svg>
-      BRASIL <span class="on">ON</span>
+
+  <header class="bon-masthead">
+    <div class="bon-masthead-top" data-bon-masthead-date></div>
+    <div class="bon-masthead-rule-thick"></div>
+    <a class="bon-masthead-brand" href="/">
+      <span class="name serif">BRASIL <span class="on">ON</span></span>
     </a>
+    <div class="bon-masthead-tagline">Notícias do Brasil, em tempo real — direto ao ponto</div>
+    <div class="bon-masthead-rule-thick"></div>
     <nav class="bon-nav">
       <a href="/">Início</a>
       <a href="/brasil-on/">Brasil ON</a>
@@ -46,8 +38,13 @@
     <h1>Brasil ON</h1>
     <p>Notícias do Brasil, em tempo real.</p>
   </div>
-  <main class="bon-main" data-bon-grid>
-    <div class="bon-loading">Carregando notícias…</div>
+  <main class="bon-cat-main">
+    <div class="bon-featured-row" data-bon-featured></div>
+    <div class="bon-rule"></div>
+    <h2 class="bon-section-title">Todas as Notícias</h2>
+    <div class="bon-dense-grid" data-bon-grid>
+      <div class="bon-loading">Carregando notícias…</div>
+    </div>
   </main>
 
   <footer class="bon-footer">

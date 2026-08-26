@@ -1,4 +1,5 @@
-// Brasil ON — página de categoria: lista todos os posts daquela categoria.
+// Brasil ON — página de categoria: mesma densidade da home — destaques
+// com foto + lista densa em índice, sem cards uniformes.
 (function () {
   var CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
   var CAT_SLUG = { "brasil-on": "brasil-on", futebol: "futebol" };
@@ -23,37 +24,54 @@
     return "há " + d + "d";
   }
 
-  function cardHtml(p) {
-    var cat = CAT_LABEL[p.categoria] || p.categoria;
+  function pillHtml(categoria) {
+    var cat = CAT_LABEL[categoria] || categoria;
+    return '<span class="bon-catpill ' + catClass(categoria) + '">' + esc(cat) + "</span>";
+  }
+
+  function featuredHtml(p) {
     var img = p.imagem
-      ? '<img src="' + p.imagem + '" alt="" loading="lazy">'
-      : '<div style="width:100%;height:100%;background:#e2e8e2"></div>';
+      ? '<div class="bon-featured-media"><img src="' + p.imagem + '" alt="" loading="lazy"></div>'
+      : "";
     return (
-      '<a class="bon-card" href="' + p.url + '">' +
-      '<div class="bon-card-media">' + img + '<span class="bon-catpill ' + catClass(p.categoria) + '">' + esc(cat) + "</span></div>" +
-      '<div class="bon-card-body">' +
+      '<a class="bon-featured-item" href="' + p.url + '">' +
+      img +
       "<h3>" + esc(p.titulo) + "</h3>" +
-      (p.resumo ? "<p>" + esc(p.resumo).slice(0, 100) + "</p>" : "") +
+      '<time style="display:block;font-size:11px;color:var(--ink-soft);margin-top:6px;font-weight:600;">' + timeAgo(p.published_at) + "</time>" +
+      "</a>"
+    );
+  }
+
+  function denseHtml(p) {
+    return (
+      '<a class="bon-dense-item" href="' + p.url + '">' +
+      "<h4>" + esc(p.titulo) + "</h4>" +
       "<time>" + timeAgo(p.published_at) + "</time>" +
-      "</div></a>"
+      "</a>"
     );
   }
 
   async function load() {
-    var gridSlot = document.querySelector("[data-bon-grid]");
-    if (!gridSlot) return;
+    var featuredSlot = document.querySelector("[data-bon-featured]");
+    var denseSlot = document.querySelector("[data-bon-grid]");
+    if (!denseSlot) return;
     var categoria = document.body.getAttribute("data-category");
     try {
-      var r = await fetch("/api/portal-posts?categoria=" + encodeURIComponent(categoria) + "&limit=40");
+      var r = await fetch("/api/portal-posts?categoria=" + encodeURIComponent(categoria) + "&limit=60");
       var d = await r.json();
       var posts = d.posts || [];
       if (!posts.length) {
-        gridSlot.innerHTML = '<div class="bon-empty">Nenhuma notícia publicada nesta categoria ainda.</div>';
+        denseSlot.innerHTML = '<div class="bon-empty">Nenhuma notícia publicada nesta categoria ainda.</div>';
         return;
       }
-      gridSlot.innerHTML = posts.map(cardHtml).join("");
+      var featured = posts.slice(0, 3);
+      var resto = posts.slice(3);
+      if (featuredSlot) featuredSlot.innerHTML = featured.map(featuredHtml).join("");
+      denseSlot.innerHTML = resto.length
+        ? resto.map(denseHtml).join("")
+        : '<div class="bon-empty">Sem mais notícias no momento.</div>';
     } catch (_) {
-      gridSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
+      denseSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
     }
   }
 
