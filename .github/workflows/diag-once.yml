@@ -1,10 +1,23 @@
-name: Diagnóstico único (placeholder — inerte até a próxima sessão precisar)
+name: Diagnóstico único (Brasil ON — confirmar sync real e HTTPS)
 
 on:
-  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  check_sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
-      - run: echo "placeholder inerte — brasilon.vercel.app/obrasilon.com.br em produção com identidade visual navy/azul/dourado"
+      - name: Testar www.obrasilon.com.br + disparar sync + checar status
+        run: |
+          echo "=== curl -v https://www.obrasilon.com.br/ ==="
+          curl -v --max-time 10 https://www.obrasilon.com.br/ 2>&1 | tail -20 || true
+          echo "=== dispara sync ==="
+          curl -s --max-time 20 -w "\nHTTP_CODE:%{http_code}\n" -X POST \
+            "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto" || true
+          echo "=== status ==="
+          curl -s --max-time 10 -w "\nHTTP_CODE:%{http_code}\n" \
+            "https://www.obrasilon.com.br/api/manage?action=status&pass=ovc-admin-2026-secreto" || true
