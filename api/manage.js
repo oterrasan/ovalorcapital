@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { publish } from "../core/instagram.js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
 
     if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
     const body = req.body || {};
-    const action = String(body.action || "");
+    const action = String(body.action || req.query.action || "");
 
     if (action === "create_colunista") return handleCreateColunista(req, res, body);
     if (action === "update_colunista_photo") return handleUpdateColunistaPhoto(req, res, body);
@@ -56,6 +57,7 @@ export default async function handler(req, res) {
     if (action === "delete_colunista") return handleDeleteColunista(req, res, body);
     if (action === "submit_colunista_post") return handleSubmitColunistaPost(req, res, body);
     if (action === "admin_colunista_post") return handleAdminColunistaPost(req, res, body);
+    if (action === "ig_publish") return handleIgPublish(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (action === "track_view") return handleTrackView(res, body);
     if (action === "newsletter_subscribe") return handleNewsletterSubscribe(res, body);
@@ -152,6 +154,168 @@ async function handleApprovePortal(res, body) {
   }
 
   return res.status(400).json({ ok: false, error: "missing_params" });
+}
+
+function stripHtmlToText(html) {
+  if (!html) return "";
+  let s = String(html);
+  s = s.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "");
+  s = s.replace(/<\/(p|div|h[1-6]|li|blockquote|figure|figcaption)>/gi, "\n\n");
+  s = s.replace(/<br\s*\/?>/gi, "\n");
+  s = s.replace(/<li[^>]*>/gi, "- ");
+  s = s.replace(/<[^>]+>/g, "");
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+  return s.replace(/\r\n/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function toHashtag(value) {
+  const clean = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "");
+  return clean ? "#" + clean : "";
+}
+
+function parseJsonMaybe(value, fallback) {
+  if (value && typeof value === "object") return value;
+  try { return JSON.parse(value || ""); } catch (_) { return fallback; }
+}
+
+function extractCaptionBodyAndHashtags(text) {
+  if (!text) return { body: "", hashtags: [] };
+  let blocks = String(text).split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length && /^reda[çc][ãa]o\s+ovc\b/i.test(blocks[0])) blocks = blocks.slice(1);
+  let hashtags = [];
+  if (blocks.length) {
+    const words = blocks[blocks.length - 1].split(/\s+/).filter(Boolean);
+    const hashWords = words.filter(w => w.startsWith("#"));
+    if (words.length && hashWords.length / words.length >= 0.7) {
+      hashtags = hashWords;
+      blocks = blocks.slice(0, -1);
+    }
+  }
+  return { body: blocks.join("\n\n").trim(), hashtags };
+}
+
+const CAT_HASHTAG_LABEL = {
+  "brasil-on": "BrasilOn",
+  politica: "Politica",
+  economia: "Economia",
+  financas: "Financas",
+  negocios: "Negocios",
+  tecnologia: "Tecnologia",
+  internacional: "Internacional",
+  industria: "Industria",
+  familia: "Familia",
+  esportes: "Esportes",
+  vc: "VC",
+  colunistas: "Colunistas"
+};
+
+function buildInstagramCaption(post) {
+  const date = new Date().toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  });
+  const title = String(post.titulo || "").toUpperCase();
+  const tags = Array.isArray(post.user_tags) ? post.user_tags : parseJsonMaybe(post.user_tags, []);
+  const category = tags[0] || "";
+  const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
+  const maxBodyLength = 1500;
+  const body = extracted.body.length > maxBodyLength
+    ? extracted.body.slice(0, maxBodyLength).replace(/\s+\S*$/, "") + "…"
+    : extracted.body;
+  const signature = "Redação OVC — " + date;
+  const hashtags = extracted.hashtags.slice();
+  if (!hashtags.length) {
+    if (category && CAT_HASHTAG_LABEL[category]) hashtags.push("#" + CAT_HASHTAG_LABEL[category]);
+    const sub = toHashtag(post.subcategoria);
+    if (sub && sub.toLowerCase() !== (hashtags[0] || "").toLowerCase()) hashtags.push(sub);
+  }
+  if (!hashtags.some(h => h.toLowerCase() === "#ovalorcapital")) hashtags.push("#ovalorcapital");
+  const caption = [title, body, signature, hashtags.join(" ")].filter(Boolean).join("\n\n");
+  return caption.length > 2200 ? caption.slice(0, 2197).replace(/\s+\S*$/, "") + "…" : caption;
+}
+
+function redactSecrets(message) {
+  return String(message || "")
+    .replace(/access_token=([^&\s"]+)/gi, "access_token=[redacted]")
+    .replace(/("access_token"\s*:\s*")[^"]+/gi, "$1[redacted]")
+    .replace(/("token"\s*:\s*")[^"]+/gi, "$1[redacted]");
+}
+
+async function handleIgPublish(req, res, body) {
+  const postId = String(body?.post_id || body?.id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+
+  const { data: post, error } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", postId)
+    .single();
+  if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
+
+  const imageUrl = String(post.imagem || "").trim();
+  if (!/^https?:\/\//i.test(imageUrl)) {
+    return res.status(400).json({ ok: false, error: "post_sem_imagem_publica" });
+  }
+
+  const accountId = body?.account_id || body?.ig_account_id || post.ig_account_id || null;
+  const caption = buildInstagramCaption(post);
+  const now = new Date().toISOString();
+
+  try {
+    const ig = await publish(imageUrl, caption, accountId);
+    const metrics = parseJsonMaybe(post.metrics, {});
+    const nextStatus = post.status === "publicado" ? post.status : "success";
+    const patch = {
+      status: nextStatus,
+      ig_id: ig.id,
+      ig_account_id: ig.account_id,
+      approved: true,
+      updated_at: now,
+      metrics: {
+        ...metrics,
+        instagram: {
+          ig_id: ig.id,
+          account_id: ig.account_id,
+          username: ig.username,
+          published_at: now
+        }
+      }
+    };
+    if (post.status !== "publicado") patch.published_at = now;
+
+    const { error: updateError } = await supabase.from("posts").update(patch).eq("id", post.id);
+    if (updateError) {
+      const fallbackPatch = {
+        status: nextStatus,
+        ig_account_id: ig.account_id,
+        approved: true,
+        updated_at: now,
+        metrics: patch.metrics
+      };
+      if (post.status !== "publicado") fallbackPatch.published_at = now;
+      const { error: fallbackError } = await supabase.from("posts").update(fallbackPatch).eq("id", post.id);
+      if (fallbackError) throw updateError;
+    }
+
+    return res.status(200).json({ ok: true, ig_id: ig.id, account_id: ig.account_id, username: ig.username });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    try {
+      await supabase.from("posts").update({ error_msg: safeError, updated_at: now }).eq("id", post.id);
+    } catch (_) {}
+    return res.status(200).json({ ok: false, error: safeError });
+  }
 }
 
 async function handleTrackView(res, body) {

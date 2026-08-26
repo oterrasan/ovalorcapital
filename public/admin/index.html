@@ -920,13 +920,6 @@ function Postagens() {
   const [igPublishing, setIgPublishing] = useState(null);
 
   const publicarIG = async (post) => {
-    // Buscar URL do serviço nas configurações
-    const { data: cfg } = await sb.from('config').select('value').eq('key','IG_SERVICE_URL').single();
-    const serviceUrl = cfg?.value;
-    if (!serviceUrl) {
-      alert('Configure a URL do serviço Instagram em Configurações → URL Serviço Instagram.');
-      return;
-    }
     if (!confirm(`Publicar "${post.titulo}" no Instagram?`)) return;
     setIgPublishing(post.id);
     try {
@@ -935,18 +928,18 @@ function Postagens() {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({
           post_id: post.id,
-          image_url: post.imagem,
-          caption: post.conteudo ? post.conteudo.slice(0, 2200) : post.titulo
+          ig_account_id: post.ig_account_id || null
         })
       });
       const d = await r.json();
       if (d.ok) {
         alert('✅ Publicado no Instagram com sucesso!');
+        load();
       } else {
         alert('❌ Erro: ' + (d.error || 'Falha ao publicar'));
       }
     } catch(e) {
-      alert('❌ Erro de conexão com o serviço: ' + e.message);
+      alert('❌ Erro de conexão: ' + e.message);
     }
     setIgPublishing(null);
   };
@@ -2131,7 +2124,6 @@ function Configuracoes() {
             <Field label="Intervalo mínimo entre posts (segundos)" k="MIN_INTERVAL" type="number"/>
             <Field label="Intervalo máximo entre posts (segundos)" k="MAX_INTERVAL" type="number"/>
             <Field label="Modelo IA" k="AI_MODEL"/>
-            <Field label="URL Serviço Instagram (ex: https://ovc-instagram-bot.onrender.com)" k="IG_SERVICE_URL"/>
             <Field label="URL YouTube ao Vivo — OVC TV (ex: https://www.youtube.com/embed/VIDEO_OU_LIVE_ID)" k="YOUTUBE_LIVE_URL"/>
           </div>
         </div>
