@@ -181,8 +181,13 @@ h1, h2, h3, h4, h5 { margin: 0; }
 }
 .bon-hero-time { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
 
-/* ── DESTAQUES (linha de 3 médios, com foto) ── */
-.bon-featured-row {
+/* ── DISPOSIÇÕES DE CARD — cada bloco (blocks.js) tem tamanho/proporção
+   diferente do anterior, de propósito. Nunca uma lista uniforme. ── */
+.bon-block { margin-bottom: 38px; padding-bottom: 30px; border-bottom: 1px solid var(--rule); }
+.bon-block:last-child { border-bottom: none; }
+
+/* Template 1 — trio equilibrado, foto 4:3, peso médio */
+.bon-featured-row, .bon-block-trio {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 30px;
@@ -212,18 +217,15 @@ h1, h2, h3, h4, h5 { margin: 0; }
   margin-bottom: 20px;
 }
 
-/* ── GRID DENSO — lista tipo índice de jornal, 2 sub-colunas, sem foto obrigatória ── */
-.bon-dense-grid {
-  column-count: 2;
-  column-gap: 40px;
-}
+/* Template 4 — lista com thumb: linhas verticais, foto pequena à esquerda */
+.bon-block-thumblist { display: block; }
 .bon-dense-item {
   display: block;
-  break-inside: avoid;
   padding-bottom: 18px;
   margin-bottom: 18px;
   border-bottom: 1px solid var(--rule);
 }
+.bon-dense-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .bon-dense-item .bon-catpill { margin-bottom: 7px; }
 .bon-dense-item h4 {
   font-family: "Playfair Display", Georgia, serif;
@@ -234,18 +236,84 @@ h1, h2, h3, h4, h5 { margin: 0; }
 }
 .bon-dense-item time { display: block; font-size: 11px; color: var(--ink-soft); margin-top: 6px; font-weight: 600; }
 
-/* ── ITEM COM THUMB PEQUENO — usado em TODO item do grid denso que tem foto,
-   pra nunca ficar uma lista inteira só de texto ── */
 .bon-thumb-item { display: flex; gap: 14px; align-items: flex-start; }
 .bon-thumb-item .bon-thumb { width: 92px; height: 92px; flex-shrink: 0; overflow: hidden; background: #e2e0d6; }
 .bon-thumb-item .bon-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .bon-thumb-item .bon-thumb-body { flex: 1; min-width: 0; }
 .bon-thumb-item .bon-thumb-body h4 { font-size: 14.5px; }
 
-/* ── SEGUNDA LINHA DE DESTAQUES (2 médios, foto 16:9) — quebra o padrão
-   entre a linha de 3 destaques e a lista densa, pra não ficar tudo igual ── */
-.bon-subfeatured-row { grid-template-columns: repeat(2, 1fr); }
-.bon-subfeatured-row .bon-featured-media { aspect-ratio: 16/9; }
+/* Template 2 — grade miniúscula: 4 fotos quadradas pequenas, bem denso */
+.bon-block-quad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.bon-quad-item { display: block; }
+.bon-quad-media { aspect-ratio: 1/1; overflow: hidden; background: #e2e0d6; margin-bottom: 9px; }
+.bon-quad-media img { width: 100%; height: 100%; object-fit: cover; }
+.bon-quad-item .bon-catpill { margin-bottom: 6px; font-size: 10px; padding: 2px 7px; }
+.bon-quad-item h5 { font-family: "Playfair Display", Georgia, serif; font-weight: 700; font-size: 13.5px; line-height: 1.32; color: var(--ink); }
+.bon-quad-item time { display: block; font-size: 10px; color: var(--ink-soft); margin-top: 5px; }
+
+/* Template 3 — assimétrico: 1 card grande (16:9) + 2 pequenos ao lado —
+   tamanhos diferentes DENTRO do mesmo bloco, de propósito */
+.bon-block-asym { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; align-items: start; }
+.bon-asym-lead { display: block; }
+.bon-asym-media { aspect-ratio: 16/9; overflow: hidden; background: #e2e0d6; margin-bottom: 14px; }
+.bon-asym-media img { width: 100%; height: 100%; object-fit: cover; }
+.bon-asym-lead .bon-catpill { margin-bottom: 10px; }
+.bon-asym-lead h2 { font-family: "Playfair Display", Georgia, serif; font-weight: 900; font-size: 25px; line-height: 1.2; color: var(--ink); margin-bottom: 8px; }
+.bon-asym-deck { font-size: 14px; color: var(--ink-soft); line-height: 1.55; margin-bottom: 10px; }
+.bon-asym-lead > time { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+.bon-asym-side { display: flex; flex-direction: column; gap: 18px; }
+.bon-asym-side-item .bon-thumb { width: 78px; height: 78px; }
+.bon-asym-side-item .bon-thumb-body h4 { font-size: 13.5px; }
+
+/* Template 5 — dupla grande: 2x2, fotos 16:9 maiores que a grade miniúscula */
+.bon-block-duogrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 26px; }
+.bon-duogrid-item { display: block; }
+.bon-duogrid-media { aspect-ratio: 16/9; overflow: hidden; background: #e2e0d6; margin-bottom: 10px; }
+.bon-duogrid-media img { width: 100%; height: 100%; object-fit: cover; }
+.bon-duogrid-item .bon-catpill { margin-bottom: 8px; }
+.bon-duogrid-item h4 { font-family: "Playfair Display", Georgia, serif; font-weight: 700; font-size: 16px; line-height: 1.3; color: var(--ink); }
+.bon-duogrid-item time { display: block; font-size: 11px; color: var(--ink-soft); margin-top: 6px; font-weight: 600; }
+
+/* Template 6 — spotlight escuro: 1 card full-width, paleta INVERTIDA
+   (foto com overlay escuro + título grande branco). Não é só outro
+   tamanho, é outro estilo — quebra a página claro/branco de propósito. */
+.bon-block-spotlight { border-bottom: none; }
+.bon-spotlight-card { position: relative; display: block; aspect-ratio: 21/9; overflow: hidden; background: var(--ink); }
+.bon-spotlight-media { position: absolute; inset: 0; margin: 0; }
+.bon-spotlight-media img { width: 100%; height: 100%; object-fit: cover; opacity: 0.72; }
+.bon-spotlight-overlay {
+  position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 20px 34px 28px; background: linear-gradient(180deg, rgba(23,21,18,0) 30%, rgba(23,21,18,0.92) 100%);
+}
+.bon-catpill-inverse { background: var(--verde) !important; }
+.bon-spotlight-overlay h2 { font-family: "Playfair Display", Georgia, serif; font-weight: 900; font-size: clamp(22px, 3.2vw, 36px); line-height: 1.14; color: #fff; margin: 10px 0 8px; }
+.bon-spotlight-overlay time { font-size: 12px; color: #d8d2c4; font-weight: 600; }
+
+/* Template 7 — caixa de destaque SEM foto: fundo creme, barra colorida
+   lateral, tipografia de manchete curta — o oposto de todo bloco com
+   foto. Alterna cor da barra por categoria pra também variar entre si. */
+.bon-block-briefs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.bon-brief-item {
+  display: block; background: #efe9d8; border-left: 5px solid var(--verde);
+  padding: 20px 20px 18px;
+}
+.bon-brief-item:has(.cat-futebol) { border-left-color: var(--azul-light); }
+.bon-brief-item .bon-catpill { margin-bottom: 10px; }
+.bon-brief-item h3 { font-family: "Playfair Display", Georgia, serif; font-weight: 900; font-size: 19px; line-height: 1.28; color: var(--ink); margin-bottom: 10px; }
+.bon-brief-item time { display: block; font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+
+/* Template 8 — dupla escalonada (masonry): proporções DIFERENTES entre
+   si (retrato 3:4 vs. paisagem 16:9) e posição vertical deslocada —
+   não alinham na mesma linha, de propósito. */
+.bon-block-stagger { display: grid; grid-template-columns: 1fr 1.4fr; gap: 30px; align-items: start; }
+.bon-stagger-item { display: block; }
+.bon-stagger-tall { margin-top: 0; }
+.bon-stagger-wide { margin-top: 46px; }
+.bon-stagger-media-tall { aspect-ratio: 3/4; overflow: hidden; background: #e2e0d6; margin-bottom: 12px; }
+.bon-stagger-media-wide { aspect-ratio: 16/9; overflow: hidden; background: #e2e0d6; margin-bottom: 12px; }
+.bon-stagger-item img { width: 100%; height: 100%; object-fit: cover; }
+.bon-stagger-item h3 { font-family: "Playfair Display", Georgia, serif; font-weight: 700; font-size: 17px; line-height: 1.3; color: var(--ink); margin-bottom: 6px; }
+.bon-stagger-item time { display: block; font-size: 11px; color: var(--ink-soft); font-weight: 600; }
 
 /* ── LATERAL (aside) — listas bem compactas, sem foto ── */
 .bon-col-side { border-left: 1px solid var(--rule); padding-left: 32px; }
@@ -338,12 +406,24 @@ h1, h2, h3, h4, h5 { margin: 0; }
 @media (max-width: 980px) {
   .bon-frontpage { grid-template-columns: 1fr; }
   .bon-col-side { border-left: none; padding-left: 0; border-top: 3px solid var(--ink); padding-top: 18px; margin-top: 10px; }
-  .bon-featured-row { grid-template-columns: 1fr 1fr; }
-  .bon-dense-grid { column-count: 1; }
+  .bon-featured-row, .bon-block-trio { grid-template-columns: 1fr 1fr; }
+  .bon-block-quad { grid-template-columns: repeat(2, 1fr); }
+  .bon-block-asym { grid-template-columns: 1fr; }
+  .bon-block-duogrid { grid-template-columns: 1fr 1fr; }
+  .bon-block-briefs { grid-template-columns: 1fr 1fr; }
+  .bon-block-stagger { grid-template-columns: 1fr 1fr; }
+  .bon-spotlight-card { aspect-ratio: 16/9; }
 }
 @media (max-width: 640px) {
   .bon-masthead-top { flex-direction: column; gap: 2px; }
   .bon-nav { gap: 14px; flex-wrap: wrap; }
-  .bon-featured-row { grid-template-columns: 1fr; }
+  .bon-featured-row, .bon-block-trio { grid-template-columns: 1fr; }
+  .bon-block-quad { grid-template-columns: 1fr 1fr; }
+  .bon-block-duogrid { grid-template-columns: 1fr; }
+  .bon-block-briefs { grid-template-columns: 1fr; }
+  .bon-block-stagger { grid-template-columns: 1fr; }
+  .bon-stagger-wide { margin-top: 0; }
+  .bon-spotlight-card { aspect-ratio: 4/3; }
+  .bon-spotlight-overlay h2 { font-size: 22px; }
   .bon-article h1 { font-size: 26px; }
 }
