@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="/css/site.css?v=7">
+<link rel="stylesheet" href="/css/site.css?v=8">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsMediaOrganization","name":"Brasil ON","url":"https://www.obrasilon.com.br/","logo":{"@type":"ImageObject","url":"https://www.obrasilon.com.br/assets/og-brasilon.png","width":1200,"height":630},"sameAs":["https://www.instagram.com/obrasilon/","https://www.ovalorcapital.com.br/"]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Brasil ON","url":"https://www.obrasilon.com.br/","inLanguage":"pt-BR"}</script>
 </head>
@@ -63,8 +63,31 @@
     </div>
 
     <aside class="bon-col-side">
+      <div class="bon-widget bon-widget-clima">
+        <h3 class="bon-widget-title accent-azul">🌤️ Clima</h3>
+        <div class="bon-clima-grid" data-bon-w-clima><div class="bon-widget-empty">Carregando…</div></div>
+      </div>
+
+      <div class="bon-widget bon-widget-eleicoes">
+        <h3 class="bon-widget-title accent-verde">🗳️ Eleições 2026</h3>
+        <div class="bon-eleicoes-countdown" data-bon-w-eleicoes-cd></div>
+        <div class="bon-side-list" data-bon-w-eleicoes-list><div class="bon-widget-empty">Carregando…</div></div>
+      </div>
+
       <h3 class="bon-side-title">Últimas</h3>
       <div class="bon-side-list" data-bon-ultimas></div>
+
+      <div class="bon-widget bon-widget-fofoca">
+        <h3 class="bon-widget-title accent-amarelo">💬 Fofoca</h3>
+        <div class="bon-side-list" data-bon-w-fofoca><div class="bon-widget-empty">Carregando…</div></div>
+      </div>
+
+      <div class="bon-widget bon-widget-horoscopo">
+        <h3 class="bon-widget-title">✨ Horóscopo do Dia</h3>
+        <p class="bon-widget-caption">Escolha seu signo — apenas para diversão</p>
+        <div class="bon-signo-grid" data-bon-w-horoscopo-grid></div>
+        <div class="bon-horoscopo-texto" data-bon-w-horoscopo-texto>Toque em um signo acima.</div>
+      </div>
 
       <h3 class="bon-side-title side-futebol">Futebol</h3>
       <div class="bon-side-list" data-bon-futebol-side></div>
@@ -111,6 +134,7 @@
   <script src="/js/site.js" defer></script>
   <script src="/js/blocks.js" defer></script>
   <script src="/js/home.js" defer></script>
+  <script src="/js/widgets.js" defer></script>
   <script>document.getElementById('bon-year').textContent = new Date().getFullYear();</script>
 </body>
 </html>
