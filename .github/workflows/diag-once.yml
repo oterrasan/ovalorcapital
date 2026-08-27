@@ -1,37 +1,11 @@
-name: Diagnóstico único (contagem real de posts publicados no banco)
+name: Diagnóstico único (placeholder inerte)
 
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Contar posts reais no Supabase (status=publicado)
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          echo "=== Total de posts com status=publicado (contagem exata) ==="
-          curl -s -X GET "$SUPABASE_URL/rest/v1/posts?select=id&status=eq.publicado&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" -D - -o /dev/null | grep -i "content-range"
-          echo
-          echo "=== Total de posts com status=pendente (aguardando aprovacao) ==="
-          curl -s -X GET "$SUPABASE_URL/rest/v1/posts?select=id&status=eq.pendente&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" -D - -o /dev/null | grep -i "content-range"
-          echo
-          echo "=== Total geral (todos os status, tabela inteira) ==="
-          curl -s -X GET "$SUPABASE_URL/rest/v1/posts?select=id&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" -D - -o /dev/null | grep -i "content-range"
-          echo
-          echo "=== Publicados por categoria principal (user_tags primeiro item) ==="
-          curl -s "$SUPABASE_URL/rest/v1/posts?select=user_tags&status=eq.publicado&limit=20000" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o /tmp/tags.json
-          jq -r '.[] | (.user_tags // "[]") | (try fromjson catch []) | (.[0] // "(sem categoria)")' /tmp/tags.json | sort | uniq -c | sort -rn
-          echo "total lido:"
-          jq 'length' /tmp/tags.json
-          echo
-          echo "=== Sitemap real — paginas de posts (indice) + estaticas ==="
-          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml" -o /tmp/index.xml
-          echo "blocos type=posts no indice:"
-          grep -c "type=posts" /tmp/index.xml
-          echo "paginas estaticas:"
-          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=static" | grep -c "<loc>"
+      - name: Placeholder — nada a fazer
+        run: echo "placeholder inerte — sem diagnóstico pendente"
