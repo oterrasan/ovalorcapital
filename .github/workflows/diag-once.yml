@@ -1,11 +1,54 @@
-name: Diagnóstico único (placeholder inerte)
+name: Diagnóstico único (checar publicação real no Instagram)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
-  noop:
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Placeholder — nada a fazer
-        run: echo "placeholder inerte — sem diagnóstico pendente"
+      - name: Checar posts com metrics.instagram + contas ig_accounts
+        run: |
+          set +e
+          SUPA_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          echo "=== ultimos 30 posts atualizados (id,titulo,status,updated_at,metrics) ==="
+          curl -s "$SUPA_URL/rest/v1/posts?select=id,titulo,status,updated_at,metrics&order=updated_at.desc&limit=30" \
+            -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" > /tmp/posts.json
+          python3 - << 'PYEOF'
+import json
+rows = json.load(open('/tmp/posts.json'))
+if isinstance(rows, dict):
+    print("ERRO:", rows)
+else:
+    found = False
+    for r in rows:
+        m = r.get('metrics')
+        if isinstance(m, str):
+            try: m = json.loads(m)
+            except Exception: m = {}
+        ig = (m or {}).get('instagram')
+        if ig:
+            found = True
+            print("---")
+            print("id:", r.get('id'))
+            print("titulo:", r.get('titulo'))
+            print("status:", r.get('status'))
+            print("updated_at:", r.get('updated_at'))
+            print("ig:", json.dumps(ig, ensure_ascii=False))
+    if not found:
+        print("NENHUM post com metrics.instagram encontrado nos ultimos 30 atualizados")
+        print("Primeiros 3 ids/titulos pra referencia:")
+        for r in rows[:3]:
+            print(r.get('id'), '-', r.get('titulo'), '-', r.get('status'), '-', r.get('updated_at'))
+PYEOF
+          echo ""
+          echo "=== contas ig_accounts ==="
+          curl -s "$SUPA_URL/rest/v1/ig_accounts?select=id,username,active,posts_hoje,ultima_atividade,distribuicao_automatica,limite_diario" \
+            -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY"
+          echo ""
+          exit 0
