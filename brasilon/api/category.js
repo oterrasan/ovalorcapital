@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 const BASE = "https://www.obrasilon.com.br";
-const OG_DEFAULT = `${BASE}/assets/og-default.jpg`;
+const OG_DEFAULT = `${BASE}/assets/og-brasilon.png`;
 const SITE = "Brasil ON";
 
 const CAT_SEO = {
