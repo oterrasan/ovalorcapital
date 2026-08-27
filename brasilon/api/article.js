@@ -11,7 +11,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const BASE = "https://www.obrasilon.com.br";
-const OG_DEFAULT = `${BASE}/assets/og-default.jpg`;
+const OG_DEFAULT = `${BASE}/assets/og-brasilon.png`;
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,categoria,meta_title,created_at,published_at,updated_at";
 
 const CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       publisher: {
         "@type": "Organization",
         name: "Brasil ON",
-        logo: { "@type": "ImageObject", url: `${BASE}/assets/og-default.jpg`, width: 1200, height: 630 }
+        logo: { "@type": "ImageObject", url: `${BASE}/assets/og-brasilon.png`, width: 1200, height: 630 }
       },
       mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
       articleSection: catLabel,
