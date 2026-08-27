@@ -1,17 +1,11 @@
-name: Diagnóstico único — forçar 2 posts de teste ig_auto_publish
+name: Diagnóstico único (placeholder inerte)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
 jobs:
-  check:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
-      - name: Forçar 2 posts de teste (ig_auto_publish)
-        run: bash scripts/one-off/test_ig_auto_publish.sh
+      - name: Placeholder — nada a fazer
+        run: echo "placeholder inerte — sem diagnóstico pendente"
