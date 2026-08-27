@@ -1,0 +1,38 @@
+name: Deploy Brasil ON (Vercel)
+
+# Deploy automático do portal Brasil ON (projeto Vercel separado, pasta
+# brasilon/ do monorepo) — substitui o padrão anterior de sessões manuais
+# via diag-once.yml (ver histórico em brasilon/CLAUDE.md). Dispara sozinho
+# em qualquer push a main que toque brasilon/**, e também pode ser
+# disparado manualmente (workflow_dispatch) — usado pela rotina automática
+# de retry quando a cota diária de deploy da Vercel está esgotada.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'brasilon/**'
+  workflow_dispatch:
+
+concurrency:
+  group: brasilon-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy Brasil ON para produção na Vercel
+        working-directory: brasilon
+        run: |
+          npm install -g vercel@54.6.1
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --scope="${{ secrets.VERCEL_ORG_ID }}" --yes --prod
+
+      - name: Disparar sync pós-deploy
+        run: |
+          sleep 10
+          RESP=$(curl -s --max-time 20 -X POST "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto")
+          echo "BRASIL_ON_SYNC: $RESP" | head -c 300
