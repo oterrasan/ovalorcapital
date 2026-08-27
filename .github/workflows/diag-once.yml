@@ -1,11 +1,32 @@
-name: Diagnóstico único (placeholder inerte)
+name: Diagnóstico único (confirmar sitemap.js corrigido em produção)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diag-once.yml']
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder — nada a fazer
-        run: echo "placeholder inerte — sem diagnóstico pendente"
+      - name: Checar sitemap real em produção
+        run: |
+          echo "=== sitemap.xml (indice) ==="
+          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml" | head -c 800
+          echo
+          echo
+          echo "=== sitemap.xml?type=static — deve ter /brasil-on/ /financas/ /internacional/, NAO deve ter /investimentos/ /seguros/ /tributos/ ==="
+          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=static" -o /tmp/static.xml
+          grep -c "<loc>" /tmp/static.xml
+          for p in "/brasil-on/" "/financas/" "/internacional/" "/investimentos/" "/seguros/" "/tributos/" "/regulacao/" "/parcerias/"; do
+            if grep -q "$p<" /tmp/static.xml; then echo "TEM: $p"; else echo "NAO TEM: $p"; fi
+          done
+          echo
+          echo "=== sitemap.xml?type=posts&page=0 — amostra de 5 URLs reais de artigos ==="
+          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=posts&page=0" | grep -o "<loc>[^<]*</loc>" | head -5
+          echo
+          echo "=== contando quantos artigos da amostra caem em /politica/ (fallback antigo) vs outras categorias ==="
+          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=posts&page=0" | grep -o "<loc>[^<]*</loc>" > /tmp/posts.txt
+          wc -l /tmp/posts.txt
+          echo "--- distribuição por categoria (top 15) ---"
+          sed -E 's#.*ovalorcapital\.com\.br/([a-z-]+)/.*#\1#' /tmp/posts.txt | sort | uniq -c | sort -rn | head -15
