@@ -460,6 +460,14 @@ async function handleIgPublish(req, res, body) {
 // ══════════════════════════════════════════════════════
 const IG_AUTO_CATEGORIAS = ["brasil-on", "politica", "financas", "economia", "colunistas"];
 const IG_AUTO_LIMITE_DIARIO = 100;
+const IG_AUTO_IDADE_MAXIMA_MS = 3 * 60 * 60 * 1000;
+
+function _igAutoPublishedAtMs(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return NaN;
+  const hasTimezone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(raw);
+  return Date.parse(hasTimezone ? raw : `${raw}-03:00`);
+}
 
 function _igAutoDiaBRT() {
   // BRT = UTC-3. Usa o "dia de calendário" em BRT, não em UTC.
@@ -502,12 +510,13 @@ async function handleIgAutoPublish(req, res, body) {
   }
 
   let candidatos;
+  const agoraMs = Date.now();
   try {
     const { data, error } = await supabase
       .from("posts")
       .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_account_id, published_at")
       .eq("status", "publicado")
-      .order("published_at", { ascending: true })
+      .order("published_at", { ascending: false })
       .limit(200);
     if (error) throw error;
     candidatos = data || [];
@@ -516,6 +525,9 @@ async function handleIgAutoPublish(req, res, body) {
   }
 
   const post = candidatos.find((p) => {
+    const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
+    const idadeMs = agoraMs - publishedAtMs;
+    if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
     if (metrics?.instagram?.ig_id) return false; // já publicado no IG
@@ -524,7 +536,13 @@ async function handleIgAutoPublish(req, res, body) {
   });
 
   if (!post) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_candidato_elegivel", publicados_hoje: publicadosHoje });
+    return res.status(200).json({
+      ok: true,
+      skipped: true,
+      reason: "nenhum_candidato_recente_elegivel",
+      janela_horas: 3,
+      publicados_hoje: publicadosHoje
+    });
   }
 
   const accountId = post.ig_account_id || null;
