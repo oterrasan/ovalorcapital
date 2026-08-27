@@ -68,7 +68,27 @@ export async function publish(imageUrl, caption, accountId) {
   const createData = await createRes.json();
   if (!createData.id) throw new Error("Erro ao criar container: " + JSON.stringify(createData));
 
-  // 2. Publicar
+  // 2. Aguardar o processamento da imagem pela Meta
+  let containerStatus = null;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const statusRes = await fetch(
+      `${BASE}/${createData.id}?fields=status_code,status&access_token=${encodeURIComponent(token)}`
+    );
+    containerStatus = await statusRes.json();
+
+    if (containerStatus?.status_code === "FINISHED") break;
+    if (["ERROR", "EXPIRED"].includes(containerStatus?.status_code)) {
+      throw new Error("Erro ao processar container: " + JSON.stringify(containerStatus));
+    }
+  }
+
+  if (containerStatus?.status_code !== "FINISHED") {
+    throw new Error("Tempo esgotado ao processar container: " + JSON.stringify(containerStatus));
+  }
+
+  // 3. Publicar
   const pubRes = await fetch(`${BASE}/${ig_user_id}/media_publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -77,7 +97,7 @@ export async function publish(imageUrl, caption, accountId) {
   const pubData = await pubRes.json();
   if (!pubData.id) throw new Error("Erro ao publicar: " + JSON.stringify(pubData));
 
-  // 3. Atualizar contador
+  // 4. Atualizar contador
   await supabase.from("ig_accounts").update({
     posts_hoje: (account.posts_hoje || 0) + 1,
     ultima_atividade: new Date().toISOString()
