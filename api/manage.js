@@ -312,7 +312,7 @@ function buildInstagramCaption(post) {
 
 function buildInstagramFirstComment(post) {
   const configured = stripHtmlToText(post?.comentario_fixado || "").trim();
-  const text = configured || "Leia a matéria completa no O Valor Capital.\n\n#ovalorcapital";
+  const text = configured || "Leia a matéria completa no O Valor Capital.";
   return text.length > 2000 ? text.slice(0, 1997).replace(/\s+\S*$/, "") + "…" : text;
 }
 
@@ -381,6 +381,7 @@ async function handleIgPublish(req, res, body) {
           image_url: instagramImage.url,
           image_path: instagramImage.path,
           published_at: now,
+          quota_before_publish: ig.quota_before || null,
           first_comment_text: firstCommentText,
           first_comment_id: firstComment?.id || null,
           first_comment_error: firstCommentError,
