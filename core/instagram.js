@@ -89,13 +89,22 @@ export async function publish(imageUrl, caption, accountId) {
   }
 
   // 3. Publicar
-  const pubRes = await fetch(`${BASE}/${ig_user_id}/media_publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ creation_id: createData.id, access_token: token })
-  });
-  const pubData = await pubRes.json();
-  if (!pubData.id) throw new Error("Erro ao publicar: " + JSON.stringify(pubData));
+  let pubData = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 3000));
+
+    const pubRes = await fetch(`${BASE}/${ig_user_id}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: createData.id, access_token: token })
+    });
+    pubData = await pubRes.json();
+
+    if (pubData?.id) break;
+    if (pubData?.error?.code !== 9007) break;
+  }
+
+  if (!pubData?.id) throw new Error("Erro ao publicar: " + JSON.stringify(pubData));
 
   // 4. Atualizar contador
   await supabase.from("ig_accounts").update({
