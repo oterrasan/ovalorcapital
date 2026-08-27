@@ -1,0 +1,27 @@
+name: Instagram - Publicação Automática
+
+# Chama a cada ~10 minutos, na janela 07:00-00:00 BRT (10:00-23:59 UTC + 00:00-02:59 UTC),
+# a ação ig_auto_publish (api/manage.js). Escopo e limite definidos por Roberto em 25/08/2026:
+# brasil-on + politica + financas + economia + colunistas, até 100 publicações/dia.
+# A própria função controla o limite diário via tabela config — este cron só dispara a
+# chamada; se o limite já foi atingido ou não há candidato elegível, a resposta vem com
+# skipped:true e nada é publicado.
+
+on:
+  schedule:
+    - cron: '*/10 10-23 * * *'
+    - cron: '*/10 0-2 * * *'
+  workflow_dispatch:
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Chamar ig_auto_publish
+        run: |
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"ig_auto_publish","token":"ovc-admin-2026-secreto"}' \
+            --max-time 55 \
+            -w "\nHTTP_STATUS:%{http_code}\n" || true
