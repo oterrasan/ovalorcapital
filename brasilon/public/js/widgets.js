@@ -52,16 +52,41 @@
     });
   }
 
-  // ── CLIMA — Open-Meteo (grátis, sem chave), 5 capitais ──
+  // ── CLIMA — Open-Meteo (grátis, sem chave), as 27 capitais (26 estados +
+  // DF) agrupadas por região — Roberto: "o clima tem que ser de todo o
+  // Brasil". Lista rola dentro da caixa (max-height no CSS) pra não
+  // estourar a lateral inteira.
   function initClima() {
     var slot = document.querySelector("[data-bon-w-clima]");
     if (!slot) return;
     var cidades = [
-      { nome: "São Paulo", lat: -23.55, lon: -46.63 },
-      { nome: "Rio de Janeiro", lat: -22.90, lon: -43.21 },
-      { nome: "Brasília", lat: -15.78, lon: -47.93 },
-      { nome: "Belo Horizonte", lat: -19.92, lon: -43.94 },
-      { nome: "Salvador", lat: -12.97, lon: -38.51 },
+      { nome: "Manaus", uf: "AM", regiao: "Norte", lat: -3.10, lon: -60.02 },
+      { nome: "Belém", uf: "PA", regiao: "Norte", lat: -1.46, lon: -48.50 },
+      { nome: "Porto Velho", uf: "RO", regiao: "Norte", lat: -8.76, lon: -63.90 },
+      { nome: "Rio Branco", uf: "AC", regiao: "Norte", lat: -9.97, lon: -67.81 },
+      { nome: "Boa Vista", uf: "RR", regiao: "Norte", lat: 2.82, lon: -60.67 },
+      { nome: "Macapá", uf: "AP", regiao: "Norte", lat: 0.03, lon: -51.05 },
+      { nome: "Palmas", uf: "TO", regiao: "Norte", lat: -10.25, lon: -48.32 },
+      { nome: "Salvador", uf: "BA", regiao: "Nordeste", lat: -12.97, lon: -38.51 },
+      { nome: "Recife", uf: "PE", regiao: "Nordeste", lat: -8.05, lon: -34.90 },
+      { nome: "Fortaleza", uf: "CE", regiao: "Nordeste", lat: -3.73, lon: -38.53 },
+      { nome: "São Luís", uf: "MA", regiao: "Nordeste", lat: -2.53, lon: -44.30 },
+      { nome: "Natal", uf: "RN", regiao: "Nordeste", lat: -5.79, lon: -35.21 },
+      { nome: "João Pessoa", uf: "PB", regiao: "Nordeste", lat: -7.12, lon: -34.86 },
+      { nome: "Maceió", uf: "AL", regiao: "Nordeste", lat: -9.65, lon: -35.70 },
+      { nome: "Aracaju", uf: "SE", regiao: "Nordeste", lat: -10.91, lon: -37.07 },
+      { nome: "Teresina", uf: "PI", regiao: "Nordeste", lat: -5.09, lon: -42.80 },
+      { nome: "Brasília", uf: "DF", regiao: "Centro-Oeste", lat: -15.78, lon: -47.93 },
+      { nome: "Goiânia", uf: "GO", regiao: "Centro-Oeste", lat: -16.68, lon: -49.25 },
+      { nome: "Cuiabá", uf: "MT", regiao: "Centro-Oeste", lat: -15.60, lon: -56.10 },
+      { nome: "Campo Grande", uf: "MS", regiao: "Centro-Oeste", lat: -20.44, lon: -54.65 },
+      { nome: "São Paulo", uf: "SP", regiao: "Sudeste", lat: -23.55, lon: -46.63 },
+      { nome: "Rio de Janeiro", uf: "RJ", regiao: "Sudeste", lat: -22.90, lon: -43.21 },
+      { nome: "Belo Horizonte", uf: "MG", regiao: "Sudeste", lat: -19.92, lon: -43.94 },
+      { nome: "Vitória", uf: "ES", regiao: "Sudeste", lat: -20.32, lon: -40.34 },
+      { nome: "Curitiba", uf: "PR", regiao: "Sul", lat: -25.43, lon: -49.27 },
+      { nome: "Florianópolis", uf: "SC", regiao: "Sul", lat: -27.60, lon: -48.55 },
+      { nome: "Porto Alegre", uf: "RS", regiao: "Sul", lat: -30.03, lon: -51.23 },
     ];
     function iconeDoCodigo(code) {
       if (code === 0) return "☀️";
@@ -82,16 +107,19 @@
       .then(function (r) { return r.json(); })
       .then(function (d) {
         var lista = Array.isArray(d) ? d : [d];
-        slot.innerHTML = cidades.map(function (c, i) {
+        var porRegiao = {};
+        var ordemRegioes = ["Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"];
+        cidades.forEach(function (c, i) {
           var w = lista[i] && lista[i].current_weather;
-          if (!w) return '<div class="bon-clima-item"><span class="bon-clima-city">' + c.nome + "</span><span class=\"bon-clima-na\">—</span></div>";
-          return (
-            '<div class="bon-clima-item">' +
-            '<span class="bon-clima-ico">' + iconeDoCodigo(w.weathercode) + "</span>" +
-            '<span class="bon-clima-city">' + c.nome + "</span>" +
-            '<span class="bon-clima-temp">' + Math.round(w.temperature) + "°C</span>" +
-            "</div>"
-          );
+          var cidadeLabel = c.nome + " (" + c.uf + ")";
+          var meio = w
+            ? '<span class="bon-clima-ico">' + iconeDoCodigo(w.weathercode) + '</span><span class="bon-clima-city">' + cidadeLabel + '</span><span class="bon-clima-temp">' + Math.round(w.temperature) + "°C</span>"
+            : '<span class="bon-clima-city">' + cidadeLabel + '</span><span class="bon-clima-na">—</span>';
+          var linha = '<div class="bon-clima-item">' + meio + "</div>";
+          (porRegiao[c.regiao] = porRegiao[c.regiao] || []).push(linha);
+        });
+        slot.innerHTML = ordemRegioes.map(function (r) {
+          return '<div class="bon-clima-regiao">' + r + '</div>' + (porRegiao[r] || []).join("");
         }).join("");
       })
       .catch(function () {
