@@ -275,3 +275,17 @@ reler o dia inteiro de histórico do CLAUDE.md da raiz.
 | 2 | Automação de Instagram pro Brasil ON — ver seção 6 (bloqueado em decisões de Roberto) | Codex / próxima sessão |
 | 3 | Confirmar visualmente o ícone novo (`icone-brasil-on.svg`) depois do próximo deploy bem-sucedido | Roberto |
 | 4 | Discutir mais definições de layout/design com Roberto (ele pediu que fosse a conversa seguinte depois do site estar 100% no ar) | Roberto |
+
+---
+
+### Nota técnica (27/08/2026) — `workflow_dispatch` não é disparável via API nesta sessão
+
+A tentativa de retry automático via `mcp__github__actions_run_trigger`
+(`run_workflow`) bateu em `403 Resource not accessible by integration` —
+a integração GitHub usada por esta sessão não tem permissão pra disparar
+`workflow_dispatch` em nenhum dos dois workflows de deploy (mesma
+limitação já documentada em outras sessões deste projeto pra outros
+workflows). **Retry automático de verdade precisa ser via push real a
+`main`** (qualquer commit dispara `deploy.yml`; um commit que toque
+`brasilon/**` dispara `deploy-brasilon.yml` também) — não via
+`workflow_dispatch`. A rotina agendada de retry foi ajustada pra isso.
