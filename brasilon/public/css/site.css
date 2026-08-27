@@ -147,6 +147,8 @@ h1, h2, h3, h4, h5 { margin: 0; }
   background: var(--verde);
 }
 .bon-catpill.cat-futebol { background: var(--azul-light); }
+.bon-catpill.cat-politica { background: var(--azul); }
+.bon-catpill.cat-policia { background: var(--ink); }
 
 /* ── FRONTPAGE — 2 colunas como jornal impresso ── */
 .bon-frontpage {

@@ -14,7 +14,7 @@ const BASE = "https://www.obrasilon.com.br";
 const OG_DEFAULT = `${BASE}/assets/og-brasilon.png`;
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,categoria,meta_title,created_at,published_at,updated_at";
 
-const CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
+const CAT_LABEL = { "brasil-on": "Brasil ON", politica: "Política", policia: "Polícia", futebol: "Futebol" };
 const STATIC_DIRS = new Set(["js", "css", "assets", "images", "img", "fonts"]);
 const templates = new Map();
 

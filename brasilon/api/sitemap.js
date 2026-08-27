@@ -1,4 +1,4 @@
-// Brasil ON — sitemap dinâmico. Volume bem menor que o OVC (só 2
+// Brasil ON — sitemap dinâmico. Volume bem menor que o OVC (4
 // categorias), então um único urlset é suficiente — sem sitemapindex.
 import { createClient } from "@supabase/supabase-js";
 
@@ -7,7 +7,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const BASE = "https://www.obrasilon.com.br";
-const STATIC_PATHS = ["/", "/brasil-on/", "/futebol/"];
+const STATIC_PATHS = ["/", "/brasil-on/", "/politica/", "/policia/", "/futebol/"];
 const INSTITUTIONAL_PATHS = ["/quem-somos/", "/politica-editorial/", "/contato/", "/privacidade/", "/termos-de-uso/"];
 
 function slugify(text) {

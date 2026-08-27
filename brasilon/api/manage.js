@@ -1,6 +1,6 @@
 // Brasil ON — administração mínima.
 // action=sync: copia pra brasilon_posts os posts do OVC (mesmo Supabase)
-// que são brasil-on ou futebol e publicado, sempre automático (Roberto,
+// que são brasil-on/política/futebol e publicado, sempre automático (Roberto,
 // 25/08/2026: "MESMA LOGICA, AUTOMATICO"), sem fila de aprovação própria.
 import { createClient } from "@supabase/supabase-js";
 
@@ -35,11 +35,11 @@ export default async function handler(req, res) {
   return res.status(400).json({ error: "action inválida — use sync ou status" });
 }
 
-// Busca no OVC (posts) os candidatos brasil-on/futebol publicados recentes,
-// e insere no brasilon_posts os que ainda não foram copiados (dedup por
-// origem_post_id, que TEM constraint unique real criada no schema —
-// upsert com onConflict é seguro aqui, diferente do bug já documentado
-// na tabela config do OVC, que não tem constraint).
+// Busca no OVC (posts) os candidatos brasil-on/política/futebol publicados
+// recentes, e insere no brasilon_posts os que ainda não foram copiados
+// (dedup por origem_post_id, que TEM constraint unique real criada no
+// schema — upsert com onConflict é seguro aqui, diferente do bug já
+// documentado na tabela config do OVC, que não tem constraint).
 async function handleSync(req, res) {
   try {
     const cutoff = new Date(Date.now() - SYNC_LOOKBACK_HORAS * 3600000).toISOString();
@@ -56,14 +56,17 @@ async function handleSync(req, res) {
       .map(p => ({ post: p, categoria: classificar(p) }))
       .filter(x => x.categoria);
 
-    if (!alvos.length) return res.status(200).json({ ok: true, candidatos: (candidatos || []).length, sincronizados: 0 });
+    const porCategoria = {};
+    alvos.forEach(a => { porCategoria[a.categoria] = (porCategoria[a.categoria] || 0) + 1; });
+
+    if (!alvos.length) return res.status(200).json({ ok: true, candidatos: (candidatos || []).length, sincronizados: 0, porCategoria });
 
     const ids = alvos.map(a => a.post.id);
     const { data: existentes } = await supabase.from("brasilon_posts").select("origem_post_id").in("origem_post_id", ids);
     const jaExiste = new Set((existentes || []).map(r => r.origem_post_id));
 
     const novos = alvos.filter(a => !jaExiste.has(a.post.id));
-    if (!novos.length) return res.status(200).json({ ok: true, candidatos: candidatos.length, sincronizados: 0 });
+    if (!novos.length) return res.status(200).json({ ok: true, candidatos: candidatos.length, sincronizados: 0, porCategoria });
 
     const rows = novos.map(({ post, categoria }) => ({
       origem_post_id: post.id,
@@ -82,10 +85,30 @@ async function handleSync(req, res) {
     const { error: insertErr } = await supabase.from("brasilon_posts").insert(rows);
     if (insertErr) throw insertErr;
 
-    return res.status(200).json({ ok: true, candidatos: candidatos.length, sincronizados: rows.length });
+    return res.status(200).json({ ok: true, candidatos: candidatos.length, sincronizados: rows.length, porCategoria });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error?.message || String(error) });
   }
+}
+
+// Palavras que indicam matéria de polícia/crime — usadas só para separar
+// esse recorte de dentro do que seria brasil-on genérico. Não existe
+// subcategoria estruturada de "polícia" no OVC (cai em Cotidiano/Geral),
+// então a única forma barata (sem gastar cota de IA) de identificar é
+// por palavra-chave no título/meta descrição — mesmo padrão já usado
+// pros widgets de Eleições/Fofoca em public/js/widgets.js.
+const POLICIA_KW = [
+  "polícia", "policial", "delegacia", "delegado", "preso em", "prisão de",
+  "foi preso", "detido", "suspeito de", "flagrante", "assalto", "assaltou",
+  "roubo", "roubou", "furto", "furtou", "homicídio", "assassinato",
+  "assassinado", "tráfico de drogas", "operação policial",
+  "investigação criminal", "sequestro", "chacina", "crime organizado",
+  "facção", "tiroteio", "baleado", "esfaqueado", "estupro", "feminicídio",
+  "corpo encontrado", "mandado de prisão"
+];
+function pareceCrimePolicial(titulo, resumo) {
+  const texto = ((titulo || "") + " " + (resumo || "")).toLowerCase();
+  return POLICIA_KW.some(kw => texto.includes(kw));
 }
 
 // Roberto, 26/08/2026: "as materias nao devem ser assinadas como redacao
@@ -96,21 +119,31 @@ function assinarBrasilOn(conteudo) {
   return String(conteudo || "").replace(/Reda[çc][ãa]o\s+OVC/gi, "BRASIL ON");
 }
 
-// Classifica um post do OVC como 'brasil-on', 'futebol' ou null (fora do
-// escopo do Brasil ON). user_tags é TEXT (JSON array) — nunca .contains(),
-// sempre parse manual (mesma regra do resto do OVC).
+// Classifica um post do OVC como 'brasil-on', 'politica', 'policia',
+// 'futebol' ou null (fora do escopo do Brasil ON). Roberto, 27/08/2026:
+// "o brasil on nao pode ter duas categorias apenas... precisa de uma
+// inteligencia organizando melhor politica, noticias, policia, esportes".
+// Tudo aqui é regra fixa em cima de metadado que o OVC já gerou (tag +
+// palavra-chave) — zero chamada de IA nova, continua sendo um DE-PARA.
+// user_tags é TEXT (JSON array) — nunca .contains(), sempre parse manual
+// (mesma regra do resto do OVC).
 function classificar(post) {
   let tags = [];
   try { tags = JSON.parse(post.user_tags || "[]"); } catch (_) {}
-  if (tags.includes("brasil-on")) return "brasil-on";
   if (tags.includes("esportes") && post.subcategoria_slug === "futebol") return "futebol";
+  if (tags.includes("politica")) return "politica";
+  if (tags.includes("brasil-on")) {
+    return pareceCrimePolicial(post.titulo, post.comentario_fixado) ? "policia" : "brasil-on";
+  }
   return null;
 }
 
 async function handleStatus(req, res) {
   const { count: total } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true });
   const { count: brasilOn } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "brasil-on");
+  const { count: politica } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "politica");
+  const { count: policia } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "policia");
   const { count: futebol } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "futebol");
   const { data: ultimos } = await supabase.from("brasilon_posts").select("titulo,categoria,published_at").order("published_at", { ascending: false }).limit(5);
-  return res.status(200).json({ total: total || 0, "brasil-on": brasilOn || 0, futebol: futebol || 0, ultimos: ultimos || [] });
+  return res.status(200).json({ total: total || 0, "brasil-on": brasilOn || 0, politica: politica || 0, policia: policia || 0, futebol: futebol || 0, ultimos: ultimos || [] });
 }

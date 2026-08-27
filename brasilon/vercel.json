@@ -6,8 +6,10 @@
 
     { "src": "^/sitemap\\.xml$", "dest": "/api/sitemap" },
     { "src": "^/brasil-on/?$", "dest": "/api/category?cat=brasil-on" },
+    { "src": "^/politica/?$", "dest": "/api/category?cat=politica" },
+    { "src": "^/policia/?$", "dest": "/api/category?cat=policia" },
     { "src": "^/futebol/?$", "dest": "/api/category?cat=futebol" },
 
-    { "src": "^/(brasil-on|futebol)/([^/]+)/?$", "dest": "/api/article?cat=$1&slug=$2" }
+    { "src": "^/(brasil-on|politica|policia|futebol)/([^/]+)/?$", "dest": "/api/article?cat=$1&slug=$2" }
   ]
 }
