@@ -374,16 +374,27 @@ h1, h2, h3, h4, h5 { margin: 0; }
 .bon-widget .bon-side-item { padding: 10px 0; }
 .bon-widget .bon-side-item:last-child { border-bottom: none; }
 
-/* Clima */
-.bon-clima-grid { display: flex; flex-direction: column; gap: 8px; }
+/* Clima — as 27 capitais (26 estados + DF), agrupadas por região; a lista
+   rola dentro da caixa pra não estourar a lateral inteira (Roberto,
+   27/08/2026: "o clima tem que ser de todo o Brasil"). */
+.bon-clima-grid {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 280px; overflow-y: auto; padding-right: 4px;
+}
+.bon-clima-regiao {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--azul); margin: 10px 0 2px;
+}
+.bon-clima-regiao:first-child { margin-top: 0; }
 .bon-clima-item {
   display: flex; align-items: center; gap: 8px;
-  font-size: 12.5px; font-weight: 600; color: var(--ink);
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  padding: 3px 0;
 }
-.bon-clima-ico { font-size: 16px; width: 20px; text-align: center; }
+.bon-clima-ico { font-size: 15px; width: 18px; text-align: center; flex: 0 0 auto; }
 .bon-clima-city { flex: 1; }
-.bon-clima-temp { font-weight: 800; color: var(--azul); }
-.bon-clima-na { color: var(--ink-soft); }
+.bon-clima-temp { font-weight: 800; color: var(--azul); flex: 0 0 auto; }
+.bon-clima-na { color: var(--ink-soft); flex: 0 0 auto; }
 
 /* Eleições */
 .bon-eleicoes-countdown {
