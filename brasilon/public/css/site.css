@@ -344,6 +344,80 @@ h1, h2, h3, h4, h5 { margin: 0; }
 }
 .bon-side-item time { display: block; font-size: 10.5px; color: var(--ink-soft); margin-top: 5px; }
 
+/* ── WIDGETS da lateral — clima/eleições/fofoca/horóscopo (Roberto,
+   26/08/2026: "nada nas laterais, pobreza total... mete uns widgets ai").
+   Caixa própria (borda + fundo levemente destacado), distinta das listas
+   simples de texto (.bon-side-list) já existentes, pra dar mais peso
+   visual real ao rail direito. ── */
+.bon-widget {
+  border: 1px solid var(--rule);
+  background: #fff;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.bon-widget-title {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ink);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--ink);
+}
+.bon-widget-title.accent-azul { border-bottom-color: var(--azul); }
+.bon-widget-title.accent-verde { border-bottom-color: var(--verde); }
+.bon-widget-title.accent-amarelo { border-bottom-color: var(--amarelo); }
+.bon-widget-caption { margin: -6px 0 10px; font-size: 11px; font-style: italic; color: var(--ink-soft); }
+.bon-widget-empty { font-size: 12.5px; color: var(--ink-soft); padding: 6px 0; }
+.bon-widget .bon-side-item { padding: 10px 0; }
+.bon-widget .bon-side-item:last-child { border-bottom: none; }
+
+/* Clima */
+.bon-clima-grid { display: flex; flex-direction: column; gap: 8px; }
+.bon-clima-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--ink);
+}
+.bon-clima-ico { font-size: 16px; width: 20px; text-align: center; }
+.bon-clima-city { flex: 1; }
+.bon-clima-temp { font-weight: 800; color: var(--azul); }
+.bon-clima-na { color: var(--ink-soft); }
+
+/* Eleições */
+.bon-eleicoes-countdown {
+  background: var(--verde);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding: 10px 8px;
+  margin-bottom: 12px;
+}
+.bon-eleicoes-countdown strong { font-size: 20px; display: block; line-height: 1; margin-bottom: 2px; }
+
+/* Horóscopo */
+.bon-signo-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.bon-signo-btn {
+  font-size: 19px;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.bon-signo-btn:hover { background: #fff; border-color: var(--ink); }
+.bon-signo-btn.active { background: var(--amarelo); border-color: var(--ink); }
+.bon-horoscopo-texto { font-size: 12.5px; line-height: 1.5; color: var(--ink-soft); }
+.bon-horoscopo-texto strong { color: var(--ink); }
+
 /* ── CATEGORIA (título + descrição no topo da listagem) ── */
 .bon-cat-header {
   max-width: 1240px; margin: 28px auto 0; padding: 0 20px;
