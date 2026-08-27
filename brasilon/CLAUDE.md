@@ -289,3 +289,14 @@ workflows). **Retry automático de verdade precisa ser via push real a
 `main`** (qualquer commit dispara `deploy.yml`; um commit que toque
 `brasilon/**` dispara `deploy-brasilon.yml` também) — não via
 `workflow_dispatch`. A rotina agendada de retry foi ajustada pra isso.
+
+### Bug real corrigido (27/08/2026) — `--scope` inválido em `deploy-brasilon.yml`
+
+O workflow `deploy-brasilon.yml`, na primeira versão, incluía
+`--scope="${{ secrets.VERCEL_ORG_ID }}"` no comando de deploy. Log real
+confirmou o erro: `Error: You cannot set your Personal Account as the
+scope.` — a conta Vercel usada aqui é pessoal, não de time, e `--scope`
+só se aplica a contas de time. O comando correto (o mesmo usado com
+sucesso o dia inteiro via `diag-once.yml` antes deste workflow existir)
+nunca teve `--scope`: `vercel --token="..." --yes --prod`. Corrigido.
+Se um dia a Vercel migrar pra uma conta de time, revisitar isso.
