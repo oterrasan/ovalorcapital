@@ -1,4 +1,4 @@
-name: Diagnóstico único (forçar 10 publicações no Instagram — comando manual)
+name: Diagnóstico único (baixar imagem real do Instagram publicada)
 
 on:
   push:
@@ -8,27 +8,31 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - name: Chamar ig_auto_publish 10 vezes em produção
+      - name: Buscar URL real da imagem salva + baixar
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          URL="https://www.ovalorcapital.com.br/api/manage"
-          TOKEN="ovc-admin-2026-secreto"
-          OK=0
-          for i in $(seq 1 10); do
-            echo "=== Tentativa $i ==="
-            RESP=$(curl -s --max-time 60 -X POST "$URL" \
-              -H "Content-Type: application/json" \
-              -d "{\"action\":\"ig_auto_publish\",\"token\":\"$TOKEN\"}")
-            echo "$RESP" | jq '.' 2>/dev/null || echo "$RESP"
-            OK_FLAG=$(echo "$RESP" | jq -r '.ok // false' 2>/dev/null)
-            SKIPPED=$(echo "$RESP" | jq -r '.skipped // false' 2>/dev/null)
-            if [ "$OK_FLAG" = "true" ] && [ "$SKIPPED" != "true" ]; then
-              OK=$((OK+1))
-            fi
-            if [ "$SKIPPED" = "true" ]; then
-              echo "Parando — sem mais candidatos elegíveis ou limite atingido."
-              break
-            fi
+          echo "=== Buscar os 4 posts publicados no IG hoje ==="
+          curl -s "$SUPABASE_URL/rest/v1/posts?select=id,titulo,imagem,metrics&or=(id.eq.7580cdde-2568-420f-86d4-bc28f71f9667,id.eq.342892f5-8edd-418d-b904-94e9c89b4f7e,id.eq.2d3f2cd0-3dae-4617-876f-c4a781a98bfe,id.eq.75d67467-e238-4905-8178-1b5648839378)" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o /tmp/posts.json
+          cat /tmp/posts.json | jq '.[] | {id, titulo, imagem_original: .imagem, instagram_image_url: .metrics.instagram.image_url}'
+
+          echo "=== Baixando cada imagem real que foi pro Instagram ==="
+          mkdir -p /tmp/out
+          i=0
+          for url in $(cat /tmp/posts.json | jq -r '.[].metrics.instagram.image_url // empty'); do
+            i=$((i+1))
+            echo "Baixando $i: $url"
+            curl -sL "$url" -o "/tmp/out/ig_real_$i.jpg"
+            file "/tmp/out/ig_real_$i.jpg"
+            ls -la "/tmp/out/ig_real_$i.jpg"
           done
-          echo "=== RESUMO: $OK publicações reais confirmadas ==="
+
+      - name: Upload como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ig-real-images
+          path: /tmp/out/*.jpg
+          retention-days: 1
