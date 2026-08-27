@@ -5,4 +5,4 @@ possível disparar via workflow_dispatch nesta integração — 403). Ver
 brasilon/CLAUDE.md, seção "Nota técnica". Conteúdo sem função nenhuma além
 de mudar — não apagar, é usado pela rotina de retry da cota da Vercel.
 
-last_retry_utc: 2026-08-27T06:33:49Z
+last_retry_utc: 2026-08-27T09:02:41Z
