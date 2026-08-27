@@ -1,11 +1,14 @@
-name: Diagnóstico único (placeholder inerte)
+name: Diagnóstico único (status real do Brasil ON)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diag-once.yml']
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder — nada a fazer
-        run: echo "placeholder inerte — sem diagnóstico pendente"
+      - uses: actions/checkout@v4
+      - name: Checar status real do Brasil ON
+        run: bash scripts/one-off/check_brasilon_status_v2.sh
