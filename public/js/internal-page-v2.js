@@ -699,6 +699,7 @@
           +'<div id="cat-hero-slot" style="margin-bottom:20px;"></div>'
           +'<div id="cat-main-grid"></div>'
           +'<div id="cat-more-list" style="margin-top:20px;"></div>'
+          +'<div id="cat-load-more-wrap" style="margin-top:24px;text-align:center;"></div>'
         +'</div>'
         +'<aside class="cat-rail-dir">'
           +'<div class="cat-bloco" id="cat-ultimas">'
@@ -725,6 +726,78 @@
 
     var _apiUrl = '/api/portal-posts?categoria=' + encodeURIComponent(catFiltro) + '&limit=60';
     if(subFilter && subLabel) _apiUrl += '&q=' + encodeURIComponent(subLabel);
+
+    // 27/08/2026 — conteúdo legado (mais antigo que os ~60 posts mais
+    // recentes desta categoria) nunca aparecia — a página só chamava a
+    // primeira página do handleList e nunca havia como pedir mais. Estado
+    // de paginação real vive neste escopo (fechamento sobre catFiltro/
+    // aliases/subLabel), alimentado pelo botão "Carregar mais notícias".
+    var usedIds = {}, usedTitulos = {}, mostradas = [];
+    var _cmBuffer = [], _cmServerPage = 1, _cmExhausted = false, _cmLoading = false;
+
+    function _dedupPush(list){
+      var out = [];
+      list.forEach(function(p){
+        if(!p || !p.id || !p.titulo) return;
+        if(usedIds[p.id]) return;
+        var tNorm = (p.titulo||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,30);
+        if(usedTitulos[tNorm]) return;
+        usedIds[p.id]=true; usedTitulos[tNorm]=true;
+        out.push(p); mostradas.push(p);
+      });
+      return out;
+    }
+
+    function _renderLoadMoreBtn(){
+      var wrap = document.getElementById('cat-load-more-wrap');
+      if(!wrap) return;
+      if(_cmExhausted){
+        wrap.innerHTML = '<p style="font-size:12px;color:#94a3b8;padding:12px 0;">Não há mais conteúdo em '+lbl(catFiltro)+(subLabel?' · '+subLabel:'')+'.</p>';
+        return;
+      }
+      wrap.innerHTML = '<button id="cat-load-more-btn" style="background:'+acento+';color:#fff;border:none;padding:12px 28px;border-radius:8px;font-size:13px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;cursor:pointer;">'
+        +(_cmLoading ? 'Carregando...' : 'Carregar mais notícias')+'</button>';
+      var btn = document.getElementById('cat-load-more-btn');
+      if(btn && !_cmLoading) btn.addEventListener('click', _carregarMais);
+    }
+
+    function _appendMore(list){
+      var moreEl = document.getElementById('cat-more-list');
+      if(moreEl && list.length) moreEl.innerHTML += list.map(renderCardCompacto).join('');
+    }
+
+    function _carregarMais(){
+      if(_cmLoading || _cmExhausted) return;
+      _cmLoading = true; _renderLoadMoreBtn();
+      if(_cmBuffer.length){
+        var chunk = _dedupPush(_cmBuffer.splice(0, 11));
+        _appendMore(chunk);
+        _cmLoading = false; _renderLoadMoreBtn();
+        return;
+      }
+      var url = '/api/portal-posts?categoria=' + encodeURIComponent(catFiltro) + '&limit=60&page=' + _cmServerPage;
+      if(subFilter && subLabel) url += '&q=' + encodeURIComponent(subLabel);
+      fetch(url).then(function(r){ return r.json(); }).then(function(json){
+        var validCats = aliases ? new Set(aliases) : null;
+        var novos = (json.posts || []).filter(function(p){
+          if(!p.titulo) return false;
+          if(validCats) return validCats.has(p.categoria);
+          return p.categoria === catFiltro;
+        });
+        _cmServerPage++;
+        if(!novos.length){
+          _cmExhausted = true; _cmLoading = false; _renderLoadMoreBtn();
+          return;
+        }
+        _cmBuffer = _cmBuffer.concat(novos);
+        var chunk = _dedupPush(_cmBuffer.splice(0, 11));
+        _appendMore(chunk);
+        _cmLoading = false;
+        if(!chunk.length && !_cmBuffer.length) _cmExhausted = true;
+        _renderLoadMoreBtn();
+      }).catch(function(){ _cmLoading = false; _renderLoadMoreBtn(); });
+    }
+
     fetch(_apiUrl)
       .then(function(r){ return r.json(); })
       .then(function(json){
@@ -750,14 +823,7 @@
           return;
         }
 
-        var usedIds = {}, usedTitulos = {}, deduped = [];
-        posts.forEach(function(p){
-          if(!p.id || !p.titulo) return;
-          if(usedIds[p.id]) return;
-          var tNorm = (p.titulo||'').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,30);
-          if(usedTitulos[tNorm]) return;
-          usedIds[p.id]=true; usedTitulos[tNorm]=true; deduped.push(p);
-        });
+        var deduped = _dedupPush(posts);
         if(!deduped.length) return;
 
         var heroSlot = document.getElementById('cat-hero-slot');
@@ -785,6 +851,13 @@
 
         var moreEl = document.getElementById('cat-more-list');
         if(moreEl && deduped.length > 11) moreEl.innerHTML = deduped.slice(11,22).map(renderCardCompacto).join('');
+
+        // 27/08/2026 — o resto do lote de 60 (índice 22+), ainda não exibido
+        // em tela, alimenta o botão "carregar mais" antes de qualquer nova
+        // requisição ao servidor — evita gastar rede pra reexibir o que já
+        // veio na primeira chamada.
+        if(deduped.length > 22) _cmBuffer = deduped.slice(22);
+        _renderLoadMoreBtn();
 
       }).catch(function(e){ console.warn('OVC categoria:', e.message); });
 
