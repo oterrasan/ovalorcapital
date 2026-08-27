@@ -460,13 +460,23 @@ async function handleIgPublish(req, res, body) {
 // ══════════════════════════════════════════════════════
 const IG_AUTO_CATEGORIAS = ["brasil-on", "politica", "financas", "economia", "colunistas"];
 const IG_AUTO_LIMITE_DIARIO = 100;
-const IG_AUTO_IDADE_MAXIMA_MS = 3 * 60 * 60 * 1000;
+const IG_AUTO_JANELA_HORAS = 12;
+const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 
 function _igAutoPublishedAtMs(value) {
   const raw = String(value || "").trim();
   if (!raw) return NaN;
   const hasTimezone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(raw);
   return Date.parse(hasTimezone ? raw : `${raw}-03:00`);
+}
+
+function _igAutoTitleKey(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function _igAutoDiaBRT() {
@@ -524,6 +534,13 @@ async function handleIgAutoPublish(req, res, body) {
     return res.status(200).json({ ok: false, error: "erro_busca_candidatos: " + redactSecrets(e?.message || String(e)) });
   }
 
+  const titulosJaPublicados = new Set(
+    candidatos
+      .filter((p) => parseJsonMaybe(p.metrics, {})?.instagram?.ig_id)
+      .map((p) => _igAutoTitleKey(p.titulo))
+      .filter(Boolean)
+  );
+
   const post = candidatos.find((p) => {
     const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
     const idadeMs = agoraMs - publishedAtMs;
@@ -531,6 +548,7 @@ async function handleIgAutoPublish(req, res, body) {
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
     if (metrics?.instagram?.ig_id) return false; // já publicado no IG
+    if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false; // mesma matéria em outra linha
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     return tags.some((t) => IG_AUTO_CATEGORIAS.includes(String(t)));
   });
@@ -540,7 +558,7 @@ async function handleIgAutoPublish(req, res, body) {
       ok: true,
       skipped: true,
       reason: "nenhum_candidato_recente_elegivel",
-      janela_horas: 3,
+      janela_horas: IG_AUTO_JANELA_HORAS,
       publicados_hoje: publicadosHoje
     });
   }
