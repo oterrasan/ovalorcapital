@@ -59,6 +59,7 @@ export default async function handler(req, res) {
     if (action === "submit_colunista_post") return handleSubmitColunistaPost(req, res, body);
     if (action === "admin_colunista_post") return handleAdminColunistaPost(req, res, body);
     if (action === "ig_publish") return handleIgPublish(req, res, body);
+    if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (action === "track_view") return handleTrackView(res, body);
     if (action === "newsletter_subscribe") return handleNewsletterSubscribe(res, body);
@@ -273,9 +274,9 @@ function buildInstagramHashtags(post, extracted, category) {
   return unique.slice(0, 10);
 }
 
-function fitInstagramCaption(title, body, signature, hashtags) {
+function fitInstagramCaption(title, body, signature, hashtags, ctaBlock) {
   const hashtagBlock = hashtags.join(" ");
-  const compose = (bodyText) => [title, bodyText, signature, hashtagBlock].filter(Boolean).join("\n\n");
+  const compose = (bodyText) => [title, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;
@@ -294,6 +295,27 @@ function fitInstagramCaption(title, body, signature, hashtags) {
   return caption;
 }
 
+// URL real do portal para a matéria — mesmo esquema usado por api/portal-posts.js
+// (formatPost) e public/js/ovc-cards.js (buildUrl): /{categoria}/{slug}-{id8}/.
+// O lookup em api/article.js resolve o artigo só pelo id8, então o slug/categoria
+// aqui não precisam bater 100% com o canonical — o link sempre abre a matéria certa.
+const SITE_BASE = "https://www.ovalorcapital.com.br";
+const IG_CAT_PATH = {
+  "brasil-on": "brasil-on", politica: "politica", economia: "economia",
+  financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
+  internacional: "internacional", industria: "industria", familia: "familia",
+  esportes: "esportes", vc: "colunistas", colunistas: "colunistas"
+};
+
+function buildArticleUrl(post) {
+  const tags = Array.isArray(post.user_tags) ? post.user_tags : parseJsonMaybe(post.user_tags, []);
+  const categoria = tags[0] || "politica";
+  const catPath = IG_CAT_PATH[categoria] || "politica";
+  const slug = slugify(post.titulo || "") || "materia";
+  const id8 = String(post.id || "").slice(0, 8);
+  return `${SITE_BASE}/${catPath}/${slug}-${id8}/`;
+}
+
 function buildInstagramCaption(post) {
   const date = new Date().toLocaleDateString("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -307,7 +329,9 @@ function buildInstagramCaption(post) {
   const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
   const signature = "Redação OVC — " + date;
   const hashtags = buildInstagramHashtags(post, extracted, category);
-  return fitInstagramCaption(title, extracted.body, signature, hashtags);
+  // Pedido explícito de Roberto (25/08/2026): toda publicação termina com CTA + link real da matéria.
+  const ctaBlock = "📲 Acesse o portal e confira a matéria na íntegra:\n" + buildArticleUrl(post);
+  return fitInstagramCaption(title, extracted.body, signature, hashtags, ctaBlock);
 }
 
 function buildInstagramFirstComment(post) {
@@ -422,6 +446,166 @@ async function handleIgPublish(req, res, body) {
       await supabase.from("posts").update({ error_msg: safeError, updated_at: now }).eq("id", post.id);
     } catch (_) {}
     return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PUBLICAÇÃO AUTOMÁTICA NO INSTAGRAM — 25/08/2026 (pedido de Roberto)
+// Função NOVA e autocontida — NUNCA chama nem reaproveita a orquestração de
+// handleIgPublish() acima, para blindar o botão manual (já confirmado
+// funcionando em produção) contra qualquer bug introduzido aqui.
+// Escopo fechado por Roberto: brasil-on, politica, financas, economia,
+// colunistas. Limite: 100 publicações/dia (janela 07h-00h BRT, ~10 em 10min,
+// controlado pelo cron em .github/workflows/instagram-auto.yml).
+// ══════════════════════════════════════════════════════
+const IG_AUTO_CATEGORIAS = ["brasil-on", "politica", "financas", "economia", "colunistas"];
+const IG_AUTO_LIMITE_DIARIO = 100;
+
+function _igAutoDiaBRT() {
+  // BRT = UTC-3. Usa o "dia de calendário" em BRT, não em UTC.
+  const brt = new Date(Date.now() - 3 * 3600 * 1000);
+  return brt.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+// Contador via tabela config, sem upsert (a coluna "key" não tem constraint
+// unique real no banco — ver CLAUDE.md, bug já documentado e corrigido em
+// 13/08 e 20/08/2026). Cada publicação grava 1 linha nova com chave única
+// (timestamp+random) — nunca há corrida entre chamadas concorrentes, e a
+// contagem real vem de um COUNT agregado, não de leitura+soma de 1 linha.
+async function _igAutoContarHoje() {
+  const dia = _igAutoDiaBRT();
+  const { count, error } = await supabase
+    .from("config")
+    .select("key", { count: "exact", head: true })
+    .like("key", `IG_AUTO_${dia}__%`);
+  if (error) throw error;
+  return count || 0;
+}
+
+async function _igAutoRegistrarPublicacao() {
+  const dia = _igAutoDiaBRT();
+  const rowKey = `IG_AUTO_${dia}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await supabase.from("config").insert({ key: rowKey, value: "1" });
+}
+
+async function handleIgAutoPublish(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  let publicadosHoje = 0;
+  try {
+    publicadosHoje = await _igAutoContarHoje();
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: "erro_contador: " + redactSecrets(e?.message || String(e)) });
+  }
+  if (publicadosHoje >= IG_AUTO_LIMITE_DIARIO) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "limite_diario_atingido", publicados_hoje: publicadosHoje });
+  }
+
+  let candidatos;
+  try {
+    const { data, error } = await supabase
+      .from("posts")
+      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_account_id, published_at")
+      .eq("status", "publicado")
+      .order("published_at", { ascending: true })
+      .limit(200);
+    if (error) throw error;
+    candidatos = data || [];
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: "erro_busca_candidatos: " + redactSecrets(e?.message || String(e)) });
+  }
+
+  const post = candidatos.find((p) => {
+    if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
+    const metrics = parseJsonMaybe(p.metrics, {});
+    if (metrics?.instagram?.ig_id) return false; // já publicado no IG
+    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+    return tags.some((t) => IG_AUTO_CATEGORIAS.includes(String(t)));
+  });
+
+  if (!post) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_candidato_elegivel", publicados_hoje: publicadosHoje });
+  }
+
+  const accountId = post.ig_account_id || null;
+  const caption = buildInstagramCaption(post);
+  const now = new Date().toISOString();
+
+  try {
+    const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
+    const ig = await publish(instagramImage.url, caption, accountId);
+    const firstCommentText = buildInstagramFirstComment(post);
+    let firstComment = null;
+    let firstCommentError = null;
+    let selfLike = null;
+    let selfLikeError = null;
+    if (firstCommentText) {
+      try {
+        const account = await getAccount(ig.account_id);
+        firstComment = await postComment(ig.id, firstCommentText, account?.token);
+      } catch (commentError) {
+        firstCommentError = redactSecrets(commentError?.message || String(commentError));
+      }
+    }
+    try {
+      selfLike = await likeMedia(ig.id, ig.account_id);
+    } catch (likeError) {
+      selfLikeError = redactSecrets(likeError?.message || String(likeError));
+    }
+
+    const metrics = parseJsonMaybe(post.metrics, {});
+    const patch = {
+      ig_id: ig.id,
+      ig_account_id: ig.account_id,
+      updated_at: now,
+      metrics: {
+        ...metrics,
+        instagram: {
+          ig_id: ig.id,
+          account_id: ig.account_id,
+          username: ig.username,
+          image_url: instagramImage.url,
+          image_path: instagramImage.path,
+          published_at: now,
+          published_via: "ig_auto_publish",
+          quota_before_publish: ig.quota_before || null,
+          first_comment_text: firstCommentText,
+          first_comment_id: firstComment?.id || null,
+          first_comment_error: firstCommentError,
+          self_like_success: selfLike?.success === true,
+          self_like_error: selfLikeError
+        }
+      }
+    };
+
+    const { error: updateError } = await supabase.from("posts").update(patch).eq("id", post.id);
+    if (updateError) {
+      const fallbackPatch = { ig_account_id: ig.account_id, updated_at: now, metrics: patch.metrics };
+      const { error: fallbackError } = await supabase.from("posts").update(fallbackPatch).eq("id", post.id);
+      if (fallbackError) throw updateError;
+    }
+
+    try { await _igAutoRegistrarPublicacao(); } catch (_) {}
+
+    return res.status(200).json({
+      ok: true,
+      post_id: post.id,
+      titulo: post.titulo,
+      ig_id: ig.id,
+      account_id: ig.account_id,
+      username: ig.username,
+      publicados_hoje: publicadosHoje + 1,
+      first_comment_id: firstComment?.id || null,
+      first_comment_error: firstCommentError,
+      self_like_success: selfLike?.success === true,
+      self_like_error: selfLikeError
+    });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    try {
+      await supabase.from("posts").update({ error_msg: safeError, updated_at: now }).eq("id", post.id);
+    } catch (_) {}
+    return res.status(200).json({ ok: false, error: safeError, post_id: post.id });
   }
 }
 
