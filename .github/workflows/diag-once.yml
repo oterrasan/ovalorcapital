@@ -5,34 +5,43 @@ on:
     branches: [main]
     paths: ['.github/workflows/diag-once.yml']
 
+permissions:
+  contents: write
+
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Buscar URL real da imagem salva + baixar
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Buscar URL real da imagem salva + baixar + reduzir + commitar em branch separada
         env:
           SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
           SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          echo "=== Buscar os 4 posts publicados no IG hoje ==="
+          echo "=== Buscar os 4 posts publicados no IG ==="
           curl -s "$SUPABASE_URL/rest/v1/posts?select=id,titulo,imagem,metrics&or=(id.eq.7580cdde-2568-420f-86d4-bc28f71f9667,id.eq.342892f5-8edd-418d-b904-94e9c89b4f7e,id.eq.2d3f2cd0-3dae-4617-876f-c4a781a98bfe,id.eq.75d67467-e238-4905-8178-1b5648839378)" \
             -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o /tmp/posts.json
           cat /tmp/posts.json | jq '.[] | {id, titulo, imagem_original: .imagem, instagram_image_url: .metrics.instagram.image_url}'
 
-          echo "=== Baixando cada imagem real que foi pro Instagram ==="
-          mkdir -p /tmp/out
+          mkdir -p diag_out
           i=0
           for url in $(cat /tmp/posts.json | jq -r '.[].metrics.instagram.image_url // empty'); do
             i=$((i+1))
-            echo "Baixando $i: $url"
-            curl -sL "$url" -o "/tmp/out/ig_real_$i.jpg"
-            file "/tmp/out/ig_real_$i.jpg"
-            ls -la "/tmp/out/ig_real_$i.jpg"
+            curl -sL "$url" -o "diag_out/ig_real_$i.jpg"
           done
 
-      - name: Upload como artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ig-real-images
-          path: /tmp/out/*.jpg
-          retention-days: 1
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+          for f in diag_out/*.jpg; do
+            convert "$f" -resize 480x600 "${f%.jpg}_small.jpg"
+          done
+          ls -la diag_out/
+
+          git config user.name "diag-bot"
+          git config user.email "diag-bot@users.noreply.github.com"
+          git checkout -B diag/ig-real-images
+          git add diag_out
+          git commit -m "diag: imagens reais publicadas no Instagram (temporario)"
+          git push -f origin diag/ig-real-images
