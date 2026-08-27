@@ -408,6 +408,28 @@ h1, h2, h3, h4, h5 { margin: 0; }
 .bon-widget .bon-side-item { padding: 10px 0; }
 .bon-widget .bon-side-item:last-child { border-bottom: none; }
 
+/* Mais Lidas — ranking por views reais (proxy do OVC via origem_post_id,
+   ver api/portal-posts.js handleMaisLidas). Sem número de leituras exibido
+   (mesma decisão do OVC: contagem baixa pra visitante novo "pega mal") —
+   só a posição no ranking (1, 2, 3...) importa aqui. */
+.bon-ml-item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.bon-ml-item:last-child { border-bottom: none; }
+.bon-ml-rank {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 900;
+  font-size: 19px;
+  color: var(--azul);
+  flex: 0 0 auto;
+  min-width: 16px;
+}
+.bon-ml-title { font-size: 13.5px; font-weight: 700; line-height: 1.4; color: var(--ink); }
+
 /* Clima — as 27 capitais (26 estados + DF), agrupadas por região; a lista
    rola dentro da caixa pra não estourar a lateral inteira (Roberto,
    27/08/2026: "o clima tem que ser de todo o Brasil"). */
@@ -471,7 +493,25 @@ h1, h2, h3, h4, h5 { margin: 0; }
 .bon-cat-header p { color: var(--ink-soft); font-size: 14px; margin: 0 0 8px; }
 .bon-cat-main {
   max-width: 1240px; margin: 24px auto 70px; padding: 0 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 48px;
+  align-items: start;
 }
+.bon-cat-main-content { min-width: 0; }
+
+/* Paginação — "Carregar mais" nas listagens de categoria (Roberto,
+   27/08/2026: "precisa ter paginacao... que nao tem nada disso"). */
+.bon-pagination { margin-top: 26px; text-align: center; }
+.bon-pagination-btn {
+  background: var(--ink-fixed); color: #fff;
+  border: none; padding: 12px 28px;
+  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+  cursor: pointer;
+}
+.bon-pagination-btn:hover { background: var(--verde-dark); }
+.bon-pagination-btn:disabled { opacity: 0.5; cursor: default; }
+.bon-pagination-done { font-size: 12.5px; color: var(--ink-soft); }
 
 /* ── ARTIGO ── */
 .bon-article {
@@ -564,6 +604,7 @@ h1, h2, h3, h4, h5 { margin: 0; }
 
 @media (max-width: 980px) {
   .bon-frontpage { grid-template-columns: 1fr; }
+  .bon-cat-main { grid-template-columns: 1fr; }
   .bon-col-side { border-left: none; padding-left: 0; border-top: 3px solid var(--ink); padding-top: 18px; margin-top: 10px; }
   .bon-featured-row, .bon-block-trio { grid-template-columns: 1fr 1fr; }
   .bon-block-quad { grid-template-columns: repeat(2, 1fr); }

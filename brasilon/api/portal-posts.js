@@ -12,6 +12,8 @@ const CATS = new Set(["brasil-on", "politica", "policia", "futebol"]);
 
 export default async function handler(req, res) {
   try {
+    if (String(req.query.maisLidas || "") === "true") return handleMaisLidas(req, res);
+
     const categoria = String(req.query.categoria || "").toLowerCase();
     const limit = clampInt(req.query.limit, 20, 1, 60);
     const offset = clampInt(req.query.offset, 0, 0, 5000);
@@ -33,6 +35,50 @@ export default async function handler(req, res) {
     const posts = (data || []).map(formatPost);
     res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     return res.status(200).json({ posts, total: count || 0 });
+  } catch (error) {
+    return res.status(500).json({ error: error?.message || String(error) });
+  }
+}
+
+// Mais Lidas — Brasil ON não tem contador de views próprio ainda (exigiria
+// coluna nova em brasilon_posts, uma migração que precisa ser rodada à mão
+// no Supabase). Enquanto isso não existe, usa como proxy honesto o
+// metrics.views já acumulado no artigo ORIGINAL do OVC (origem_post_id) —
+// é o post idêntico, então "quanto essa matéria já foi lida" é um número
+// real, só que contado do lado do OVC, não visitas específicas do Brasil ON.
+async function handleMaisLidas(req, res) {
+  try {
+    const categoria = String(req.query.categoria || "").toLowerCase();
+    const limit = clampInt(req.query.limit, 8, 1, 20);
+
+    let q = supabase.from("brasilon_posts")
+      .select("id,origem_post_id,titulo,comentario_fixado,imagem,categoria,created_at,published_at")
+      .eq("status", "publicado")
+      .not("origem_post_id", "is", null)
+      .order("published_at", { ascending: false })
+      .limit(300);
+    if (categoria) {
+      if (!CATS.has(categoria)) return res.status(400).json({ error: "categoria inválida" });
+      q = q.eq("categoria", categoria);
+    }
+
+    const { data: candidatos, error } = await q;
+    if (error) throw error;
+    if (!candidatos?.length) return res.status(200).json({ posts: [] });
+
+    const ids = candidatos.map(c => c.origem_post_id);
+    const { data: viewsRows } = await supabase.from("posts").select("id,metrics").in("id", ids);
+    const viewsMap = {};
+    (viewsRows || []).forEach(r => { viewsMap[r.id] = parseInt(r.metrics?.views, 10) || 0; });
+
+    const ranked = candidatos
+      .map(c => ({ ...c, __views: viewsMap[c.origem_post_id] || 0 }))
+      .sort((a, b) => b.__views - a.__views || new Date(b.published_at) - new Date(a.published_at))
+      .slice(0, limit)
+      .map(formatPost);
+
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=1800");
+    return res.status(200).json({ posts: ranked });
   } catch (error) {
     return res.status(500).json({ error: error?.message || String(error) });
   }

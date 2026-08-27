@@ -42,10 +42,23 @@
     <p>Últimas do futebol brasileiro e internacional.</p>
   </div>
   <main class="bon-cat-main">
-    <h2 class="bon-section-title">Todas as Notícias</h2>
-    <div data-bon-grid>
-      <div class="bon-loading">Carregando notícias…</div>
+    <div class="bon-cat-main-content">
+      <h2 class="bon-section-title">Todas as Notícias</h2>
+      <div data-bon-grid>
+        <div class="bon-loading">Carregando notícias…</div>
+      </div>
+      <div class="bon-pagination" data-bon-pagination></div>
     </div>
+
+    <aside class="bon-col-side">
+      <div class="bon-widget bon-widget-maislidas">
+        <h3 class="bon-widget-title accent-amarelo">🔥 Mais Lidas</h3>
+        <div data-bon-w-maislidas data-categoria="futebol"><div class="bon-widget-empty">Carregando…</div></div>
+      </div>
+
+      <h3 class="bon-side-title">Últimas</h3>
+      <div class="bon-side-list" data-bon-ultimas></div>
+    </aside>
   </main>
 
   <footer class="bon-footer">
@@ -90,6 +103,7 @@
   <script src="/js/site.js?v=2" defer></script>
   <script src="/js/blocks.js" defer></script>
   <script src="/js/category.js" defer></script>
+  <script src="/js/mais-lidas.js" defer></script>
   <script src="/js/article.js" defer></script>
   <script>document.getElementById('bon-year').textContent = new Date().getFullYear();</script>
 </body>
