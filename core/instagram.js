@@ -58,4 +58,18 @@ export async function postComment(mediaId, text, token) {
   return data;
 }
 
+export async function likeMedia(mediaId, accountId) {
+  const account = await getAccount(accountId);
+  if (!account?.ig_user_id || !account?.token) throw new Error("Conta sem ig_user_id ou token para curtir");
+
+  const res = await fetch(`${BASE}/${account.ig_user_id}/likes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_id: mediaId, access_token: account.token })
+  });
+  const data = await res.json();
+  if (!res.ok || data?.success !== true) throw new Error("Erro ao curtir publicação: " + JSON.stringify(data));
+  return data;
+}
+
 export { getAccount };

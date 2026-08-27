@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { getAccount, postComment, publish } from "../core/instagram.js";
+import { getAccount, likeMedia, postComment, publish } from "../core/instagram.js";
 import { prepareInstagramImage } from "../core/instagram_image.js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
@@ -219,6 +219,81 @@ const CAT_HASHTAG_LABEL = {
   colunistas: "Colunistas"
 };
 
+const FALLBACK_HASHTAGS = [
+  "#Noticias",
+  "#Brasil",
+  "#Economia",
+  "#Politica",
+  "#Mercado",
+  "#Financas",
+  "#Atualidades",
+  "#Jornalismo",
+  "#LiberdadeEconomica"
+];
+
+const THEME_HASHTAGS = [
+  [/eua|estados unidos|washington|nova york|california|florida/i, ["#EUA", "#EstadosUnidos", "#Internacional"]],
+  [/internacional|mundo|exterior|global/i, ["#Internacional", "#Mundo"]],
+  [/crime|assassin|homic[ií]dio|matar|facada|pris[aã]o|culpad|tribunal|justi[cç]a/i, ["#Crime", "#Justica", "#Tribunal"]],
+  [/governo|congresso|senado|c[aâ]mara|stf|elei[cç][aã]o|pol[ií]tica/i, ["#Politica", "#Brasil"]],
+  [/economia|mercado|juros|banco central|infla[cç][aã]o|d[oó]lar|bolsa/i, ["#Economia", "#Mercado", "#Financas"]],
+  [/fam[ií]lia|educa[cç][aã]o|sa[uú]de|comportamento/i, ["#Familia", "#Sociedade"]],
+  [/tecnologia|intelig[eê]ncia artificial|startup|inova[cç][aã]o/i, ["#Tecnologia", "#Inovacao"]],
+  [/futebol|esporte|copa|campeonato|atleta/i, ["#Esportes", "#Futebol"]]
+];
+
+function uniqueHashtags(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const tag = String(value || "").startsWith("#") ? toHashtag(value) : toHashtag(value);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+  }
+  return out;
+}
+
+function buildInstagramHashtags(post, extracted, category) {
+  const source = [post?.titulo, post?.subcategoria, stripHtmlToText(post?.conteudo || "")].filter(Boolean).join(" ");
+  const hashtags = [];
+  hashtags.push(...(extracted?.hashtags || []));
+  if (category && CAT_HASHTAG_LABEL[category]) hashtags.push("#" + CAT_HASHTAG_LABEL[category]);
+  hashtags.push(toHashtag(post?.subcategoria));
+  for (const [pattern, tags] of THEME_HASHTAGS) {
+    if (pattern.test(source)) hashtags.push(...tags);
+  }
+  hashtags.push(...FALLBACK_HASHTAGS);
+
+  let unique = uniqueHashtags(hashtags).filter(h => h.toLowerCase() !== "#ovalorcapital");
+  unique = unique.slice(0, 9);
+  unique.push("#OValorCapital");
+  return unique.slice(0, 10);
+}
+
+function fitInstagramCaption(title, body, signature, hashtags) {
+  const hashtagBlock = hashtags.join(" ");
+  const compose = (bodyText) => [title, bodyText, signature, hashtagBlock].filter(Boolean).join("\n\n");
+  let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
+  let caption = compose(bodyText);
+  if (caption.length <= 2200) return caption;
+
+  const excess = caption.length - 2200;
+  const nextLength = Math.max(0, bodyText.length - excess - 3);
+  bodyText = bodyText.slice(0, nextLength).replace(/\s+\S*$/, "");
+  if (bodyText && bodyText.length < body.length) bodyText += "…";
+  caption = compose(bodyText);
+
+  while (caption.length > 2200 && bodyText.length > 0) {
+    bodyText = bodyText.slice(0, Math.max(0, bodyText.length - 40)).replace(/\s+\S*$/, "");
+    if (bodyText) bodyText += "…";
+    caption = compose(bodyText);
+  }
+  return caption;
+}
+
 function buildInstagramCaption(post) {
   const date = new Date().toLocaleDateString("pt-BR", {
     timeZone: "America/Sao_Paulo",
@@ -230,20 +305,9 @@ function buildInstagramCaption(post) {
   const tags = Array.isArray(post.user_tags) ? post.user_tags : parseJsonMaybe(post.user_tags, []);
   const category = tags[0] || "";
   const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
-  const maxBodyLength = 1500;
-  const body = extracted.body.length > maxBodyLength
-    ? extracted.body.slice(0, maxBodyLength).replace(/\s+\S*$/, "") + "…"
-    : extracted.body;
   const signature = "Redação OVC — " + date;
-  const hashtags = extracted.hashtags.slice();
-  if (!hashtags.length) {
-    if (category && CAT_HASHTAG_LABEL[category]) hashtags.push("#" + CAT_HASHTAG_LABEL[category]);
-    const sub = toHashtag(post.subcategoria);
-    if (sub && sub.toLowerCase() !== (hashtags[0] || "").toLowerCase()) hashtags.push(sub);
-  }
-  if (!hashtags.some(h => h.toLowerCase() === "#ovalorcapital")) hashtags.push("#ovalorcapital");
-  const caption = [title, body, signature, hashtags.join(" ")].filter(Boolean).join("\n\n");
-  return caption.length > 2200 ? caption.slice(0, 2197).replace(/\s+\S*$/, "") + "…" : caption;
+  const hashtags = buildInstagramHashtags(post, extracted, category);
+  return fitInstagramCaption(title, extracted.body, signature, hashtags);
 }
 
 function buildInstagramFirstComment(post) {
@@ -285,6 +349,8 @@ async function handleIgPublish(req, res, body) {
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
+    let selfLike = null;
+    let selfLikeError = null;
     if (firstCommentText) {
       try {
         const account = await getAccount(ig.account_id);
@@ -292,6 +358,11 @@ async function handleIgPublish(req, res, body) {
       } catch (commentError) {
         firstCommentError = redactSecrets(commentError?.message || String(commentError));
       }
+    }
+    try {
+      selfLike = await likeMedia(ig.id, ig.account_id);
+    } catch (likeError) {
+      selfLikeError = redactSecrets(likeError?.message || String(likeError));
     }
     const metrics = parseJsonMaybe(post.metrics, {});
     const nextStatus = post.status === "publicado" ? post.status : "success";
@@ -312,7 +383,9 @@ async function handleIgPublish(req, res, body) {
           published_at: now,
           first_comment_text: firstCommentText,
           first_comment_id: firstComment?.id || null,
-          first_comment_error: firstCommentError
+          first_comment_error: firstCommentError,
+          self_like_success: selfLike?.success === true,
+          self_like_error: selfLikeError
         }
       }
     };
@@ -338,7 +411,9 @@ async function handleIgPublish(req, res, body) {
       account_id: ig.account_id,
       username: ig.username,
       first_comment_id: firstComment?.id || null,
-      first_comment_error: firstCommentError
+      first_comment_error: firstCommentError,
+      self_like_success: selfLike?.success === true,
+      self_like_error: selfLikeError
     });
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
