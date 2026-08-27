@@ -218,9 +218,17 @@ async function downloadImage(url) {
 
 export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
   const source = await downloadImage(sourceUrl);
+  // 27/08/2026 — pedido explícito de Roberto: a foto da matéria tem que
+  // aparecer INTEIRA no template, sem cortar (ele mostrou comparação real:
+  // automação com fit:"cover" cortava as bordas/rosto ficando "fechado
+  // demais"; versão que ele montou manualmente no Canva mostra a imagem
+  // completa). fit:"contain" nunca corta a imagem original — o espaço que
+  // sobra (quando a proporção da foto não bate 1440x1800) é preenchido de
+  // preto sólido, que já é a cor dominante do resto do template (topo com
+  // logo e rodapé/gradiente pretos), então nunca fica com "borda estranha".
   const base = await sharp(source)
     .rotate()
-    .resize(W, H, { fit: "cover", position: "centre" })
+    .resize(W, H, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 1 } })
     .png()
     .toBuffer();
 
