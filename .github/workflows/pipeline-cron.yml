@@ -1,6 +1,15 @@
 name: Pipeline OVC — Matérias e Radar do Esporte
 
 on:
+  # TEMPORÁRIO — 27/08/2026: gap real de ~11h sem NENHUM run agendado
+  # (03:20 UTC -> 14:19 UTC) confirmado via GitHub Actions — mesmo padrão de
+  # "scheduler do cron atrasado" já documentado em 15-16/08 e 21/08/2026.
+  # Este push: branches:[main] força uma rodada AGORA, real, sem depender do
+  # scheduler nem de workflow_dispatch (bloqueado 403 nesta integração). Será
+  # removido no próximo commit assim que a rodada forçada for confirmada.
+  push:
+    branches: [main]
+    paths: ['.github/workflows/pipeline-cron.yml']
   schedule:
     # 17/08/2026 — Roberto pediu pra reduzir um pouco a frequência (era a cada
     # 15min = 96 disparos/dia) mantendo volume mínimo de 110-120 conteúdos/dia,
