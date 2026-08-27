@@ -208,6 +208,9 @@
     { take: 4, min: 3, render: blockDuogrid },
   ];
 
+  // Retorna {html, nextIndex} — nextIndex é o índice de template por onde
+  // parou, pra paginação (public/js/category.js) continuar o ciclo de
+  // formatos na página seguinte em vez de reiniciar sempre do T1.
   function renderBlocks(posts, opts) {
     opts = opts || {};
     var showPill = opts.showPill !== false;
@@ -229,7 +232,7 @@
       i += chunk.length;
       tIdx++;
     }
-    return out.join("");
+    return { html: out.join(""), nextIndex: tIdx };
   }
 
   window.BonBlocks = { renderBlocks: renderBlocks, esc: esc, timeAgo: timeAgo, pillHtml: pillHtml };

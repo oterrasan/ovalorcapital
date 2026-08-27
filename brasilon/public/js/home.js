@@ -82,7 +82,7 @@
 
       if (heroSlot) heroSlot.innerHTML = heroHtml(hero);
       blocksSlot.innerHTML = resto.length
-        ? window.BonBlocks.renderBlocks(resto)
+        ? window.BonBlocks.renderBlocks(resto).html
         : '<div class="bon-empty">Sem mais notícias no momento.</div>';
     } catch (_) {
       blocksSlot.innerHTML = '<div class="bon-empty">Não foi possível carregar as notícias agora.</div>';
