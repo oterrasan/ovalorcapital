@@ -1,4 +1,4 @@
-name: Diagnóstico único (confirmar sitemap.js corrigido em produção)
+name: Diagnóstico único (contagem real de posts publicados no banco)
 
 on:
   push:
@@ -9,24 +9,29 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar sitemap real em produção
+      - name: Contar posts reais no Supabase (status=publicado)
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          echo "=== sitemap.xml (indice) ==="
-          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml" | head -c 800
+          echo "=== Total de posts com status=publicado (contagem exata) ==="
+          curl -s -X GET "$SUPABASE_URL/rest/v1/posts?select=id&status=eq.publicado&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" -D - -o /dev/null | grep -i "content-range"
           echo
+          echo "=== Total de posts com status=pendente (aguardando aprovacao) ==="
+          curl -s -X GET "$SUPABASE_URL/rest/v1/posts?select=id&status=eq.pendente&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" -D - -o /dev/null | grep -i "content-range"
           echo
-          echo "=== sitemap.xml?type=static — deve ter /brasil-on/ /financas/ /internacional/, NAO deve ter /investimentos/ /seguros/ /tributos/ ==="
-          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=static" -o /tmp/static.xml
-          grep -c "<loc>" /tmp/static.xml
-          for p in "/brasil-on/" "/financas/" "/internacional/" "/investimentos/" "/seguros/" "/tributos/" "/regulacao/" "/parcerias/"; do
-            if grep -q "$p<" /tmp/static.xml; then echo "TEM: $p"; else echo "NAO TEM: $p"; fi
-          done
+          echo "=== Total geral (todos os status, tabela inteira) ==="
+          curl -s -X GET "$SUPABASE_URL/rest/v1/posts?select=id&limit=1" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" -D - -o /dev/null | grep -i "content-range"
           echo
-          echo "=== sitemap.xml?type=posts&page=0 — amostra de 5 URLs reais de artigos ==="
-          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=posts&page=0" | grep -o "<loc>[^<]*</loc>" | head -5
+          echo "=== Publicados por categoria principal (user_tags primeiro item) ==="
+          curl -s "$SUPABASE_URL/rest/v1/posts?select=user_tags&status=eq.publicado&limit=20000" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o /tmp/tags.json
+          jq -r '.[] | (.user_tags // "[]") | (try fromjson catch []) | (.[0] // "(sem categoria)")' /tmp/tags.json | sort | uniq -c | sort -rn
+          echo "total lido:"
+          jq 'length' /tmp/tags.json
           echo
-          echo "=== contando quantos artigos da amostra caem em /politica/ (fallback antigo) vs outras categorias ==="
-          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=posts&page=0" | grep -o "<loc>[^<]*</loc>" > /tmp/posts.txt
-          wc -l /tmp/posts.txt
-          echo "--- distribuição por categoria (top 15) ---"
-          sed -E 's#.*ovalorcapital\.com\.br/([a-z-]+)/.*#\1#' /tmp/posts.txt | sort | uniq -c | sort -rn | head -15
+          echo "=== Sitemap real — paginas de posts (indice) + estaticas ==="
+          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml" -o /tmp/index.xml
+          echo "blocos type=posts no indice:"
+          grep -c "type=posts" /tmp/index.xml
+          echo "paginas estaticas:"
+          curl -s --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml?type=static" | grep -c "<loc>"
