@@ -1,14 +1,11 @@
-name: Diagnóstico único (checar token real do Instagram — ig_accounts)
+name: Diagnóstico único (placeholder inerte)
 
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Checar ig_accounts + debug_token
-        run: python3 scripts/one-off/check_ig_token.py
+      - name: Placeholder — nada a fazer
+        run: echo "placeholder inerte — sem diagnóstico pendente"
