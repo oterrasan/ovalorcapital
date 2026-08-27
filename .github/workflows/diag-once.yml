@@ -9,3 +9,4 @@ jobs:
     steps:
       - name: Placeholder — nada a fazer
         run: echo "placeholder inerte — sem diagnóstico pendente"
+# retry marker 2026-08-27T19:38 UTC — força push real pra tentar deploy.yml de novo (cota Vercel)
