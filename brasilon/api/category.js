@@ -1,4 +1,4 @@
-// Brasil ON — SSR de página de categoria (brasil-on ou futebol).
+// Brasil ON — SSR de página de categoria (brasil-on, política, polícia ou futebol).
 // Espelho simplificado de api/category.js do OVC: só SEO + template estático,
 // a listagem real de posts é buscada client-side via portal-posts.js.
 import { readFileSync } from "fs";
@@ -13,6 +13,16 @@ const CAT_SEO = {
     title: "Brasil ON | Notícias do Brasil",
     desc: "Notícias do Brasil, em tempo real: cotidiano, cidades, segurança, política e o que está acontecendo agora — reportado rápido, direto ao ponto.",
     canonical: `${BASE}/brasil-on/`
+  },
+  politica: {
+    title: "Política | Brasil ON",
+    desc: "Bastidores de Brasília, eleições e o dia a dia do poder no Brasil — reportado rápido, direto ao ponto.",
+    canonical: `${BASE}/politica/`
+  },
+  policia: {
+    title: "Polícia | Brasil ON",
+    desc: "Ocorrências policiais, investigações e segurança pública no Brasil, atualizado ao longo do dia.",
+    canonical: `${BASE}/policia/`
   },
   futebol: {
     title: "Futebol | Brasil ON",

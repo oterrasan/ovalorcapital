@@ -2,8 +2,8 @@
 // SSR de api/article.js). O corpo já vem em HTML puro (mesmo padrão dos
 // kernels de IA do OVC) — nunca escapar, só injetar direto.
 (function () {
-  var CAT_LABEL = { "brasil-on": "Brasil ON", futebol: "Futebol" };
-  var CAT_SLUG = { "brasil-on": "brasil-on", futebol: "futebol" };
+  var CAT_LABEL = { "brasil-on": "Brasil ON", politica: "Política", policia: "Polícia", futebol: "Futebol" };
+  var CAT_SLUG = { "brasil-on": "brasil-on", politica: "politica", policia: "policia", futebol: "futebol" };
 
   function esc(s) {
     return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
