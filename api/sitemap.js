@@ -6,18 +6,31 @@ const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", proces
 const BASE = "https://www.ovalorcapital.com.br";
 const PAGE_SIZE = 500;
 
+// 27/08/2026 — CRÍTICO: este mapa estava desatualizado desde a reestruturação
+// de categorias de 24/06/2026 — faltavam "brasil-on" e "financas" (as duas
+// categorias mais usadas hoje, incluindo TODO o Brasil ON/Bacci e a maior
+// parte do pipeline geral), então TODO post nessas categorias caía no
+// fallback `|| "politica"` em sendPostUrlset() e o sitemap anunciava pro
+// Google uma URL ERRADA (ex: /politica/titulo-id8/ pra um post que é
+// brasil-on de verdade) — o canonical real da página (api/article.js, que
+// já usa o mapa certo) aponta pra /brasil-on/titulo-id8/, uma URL diferente
+// da anunciada. Isso é exatamente o padrão "Página alternativa com tag
+// canônica adequada" que dominava o Google Search Console. Mapa agora é
+// cópia exata do CAT_PATH de api/article.js — mesma fonte da verdade.
 const CAT_PATH = {
-  politica:"politica", economia:"economia", negocios:"negocios",
-  investimentos:"investimentos", seguros:"seguros", mercados:"mercados",
-  educacao:"educacao", industria:"industria", tecnologia:"tecnologia",
-  esportes:"esportes", saude:"saude", familia:"familia",
-  tributacao:"tributos", regulacao:"regulacao", parcerias:"parcerias",
-  internacional:"internacional", vc:"colunistas", vagas:"vagas",
-  concursos:"concursos", imoveis:"imoveis", esg:"esg",
-  defesa:"defesa", religiao:"religiao", cultura:"cultura",
-  profissoes:"profissoes", seguranca:"seguranca",
-  investigativo:"investigativo", variedades:"variedades",
-  colunistas:"colunistas", radar:"radar", geral:"politica"
+  "brasil-on": "brasil-on", politica: "politica", economia: "economia",
+  financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
+  internacional: "internacional", industria: "industria", familia: "familia",
+  esportes: "esportes", vc: "colunistas", colunistas: "colunistas",
+  // Legado → novas categorias (artigos antigos no banco, mesmo de-para de article.js)
+  investimentos: "financas", seguros: "financas", mercados: "financas",
+  saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+  cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+  variedades: "brasil-on", investigativo: "brasil-on", seguranca: "brasil-on",
+  esg: "brasil-on", defesa: "brasil-on", profissoes: "brasil-on",
+  vagas: "brasil-on", concursos: "brasil-on", parcerias: "negocios",
+  tributos: "economia", tributacao: "economia", regulacao: "economia",
+  geral: "politica"
 };
 
 function slugify(text) {
@@ -25,25 +38,30 @@ function slugify(text) {
     .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 55);
 }
 
+// 27/08/2026 — CRÍTICO: removidas as ~20 categorias legadas (investimentos,
+// seguros, mercados, educacao, saude, tributos, regulacao, parcerias, vagas,
+// concursos, imoveis, esg, defesa, religiao, cultura, profissoes,
+// investigativo, seguranca, variedades) e suas ~150 subpáginas fictícias —
+// confirmado em vercel.json que TODA URL sob esses prefixos (raiz e
+// subcaminho) é 301 pra categoria atual (ex: /investimentos/(.+) →
+// /financas/$1). O sitemap estava anunciando ~170 URLs que são sempre
+// redirect — exatamente o padrão "Página com redirecionamento" que dominava
+// o Search Console. Adicionadas as 3 raízes atuais que nunca estiveram no
+// sitemap (brasil-on, financas, internacional) + as páginas reais novas
+// (radares esportivos dedicados, futebol, institucionais) confirmadas
+// existindo em public/ mas nunca anunciadas antes.
 const STATIC_PATHS = [
-  "/","/busca/","/newsletter/","/radar/","/tv-ovc/","/radio-ovc/","/dados/","/dados/cotacoes/","/dados/agenda-economica/",
-  "/politica/","/economia/","/negocios/","/investimentos/","/seguros/","/mercados/","/educacao/","/industria/","/tecnologia/","/esportes/","/saude/","/familia/","/tributos/","/regulacao/","/parcerias/","/colunistas/","/vagas/","/concursos/","/imoveis/","/esg/","/defesa/","/religiao/","/cultura/","/profissoes/","/investigativo/","/seguranca/","/variedades/",
+  "/","/busca/","/newsletter/","/radar/","/tv-ovc/","/radio-ovc/","/dados/","/dados/cotacoes/","/dados/agenda-economica/","/pulso-br/",
+  "/politica/","/economia/","/negocios/","/industria/","/tecnologia/","/esportes/","/familia/","/brasil-on/","/financas/","/internacional/","/colunistas/",
   "/vc/","/vc/quem-somos/","/vc/principios-editoriais/","/vc/liberdade-economica/","/vc/familia-e-patrimonio/",
   "/politica/executivo/","/politica/legislativo-congresso-ao-vivo/","/politica/judiciario/","/politica/projetos-de-lei/","/politica/eleicoes/","/politica/agenda-regulatoria/","/politica/geral/",
   "/economia/monetaria-copom-selic/","/economia/fiscal-orcamento-divida-pib-primario/","/economia/conjuntura-pib-emprego-consumo-focus/","/economia/internacional-eua-europa-china-commodities/","/economia/minuto-fiscal/","/economia/geral/",
   "/negocios/empreender-mei-me-ltda/","/negocios/tributacao-pj/","/negocios/gestao-financeira/","/negocios/credito/","/negocios/vendas-e-preco/","/negocios/contratos-e-societario/","/negocios/lgpd-e-compliance/","/negocios/startups/","/negocios/geral/",
-  "/investimentos/renda-fixa/","/investimentos/renda-variavel/","/investimentos/fundos/","/investimentos/previdencia/","/investimentos/alternativos/","/investimentos/estrategias/","/investimentos/calendario-e-dividendos/","/investimentos/educacao-do-investidor/","/investimentos/geral/",
-  "/seguros/saude-e-odonto/","/seguros/vida/","/seguros/auto/","/seguros/residencial/","/seguros/empresarial-e-rc/","/seguros/viagem/","/seguros/kpis/","/seguros/geral/",
-  "/mercados/bolsa-earnings-dividendos/","/mercados/juros-di/","/mercados/cambio/","/mercados/commodities/","/mercados/cripto/","/mercados/ipos-fos/","/mercados/indices/","/mercados/cotacoes-em-tempo-real/","/mercados/geral/",
-  "/educacao/trilha-zero/","/educacao/financas-pessoais/","/educacao/carreira-e-empregos/","/educacao/cursos-e-certificacoes/","/educacao/parcerias-academicas/","/educacao/glossario/","/educacao/workshops-e-aulas/","/educacao/geral/",
   "/industria/construcao-e-imobiliario/","/industria/energia-e-infra/","/industria/agro/","/industria/mineracao-e-siderurgia/","/industria/quimica-e-materiais/","/industria/automotivo/","/industria/logistica-e-portos-e-ferrovias/","/industria/industria-4-0/","/industria/geral/",
   "/tecnologia/ia-e-dados/","/tecnologia/fintechs-e-pagamentos/","/tecnologia/e-commerce/","/tecnologia/ciberseguranca/","/tecnologia/telecom-e-5g/","/tecnologia/transformacao-digital/","/tecnologia/govtech/","/tecnologia/saude-digital/","/tecnologia/geral/",
-  "/esportes/futebol/","/esportes/basquete/","/esportes/tenis/","/esportes/automobilismo/","/esportes/nfl/","/esportes/mlb/","/esportes/mma/","/esportes/esports/","/esportes/geral/",
-  "/saude/preventiva/","/saude/mental/","/saude/custos-e-indicadores/","/saude/politicas/","/saude/saude-digital/","/saude/geral/",
   "/familia/orcamento/","/familia/educacao-dos-filhos/","/familia/habitacao/","/familia/lazer-e-esportes/","/familia/seguranca/","/familia/seguros-da-familia/","/familia/sucessao-e-patrimonio/","/familia/geral/",
-  "/tributos/irpf/","/tributos/investimentos/","/tributos/obrigacoes/","/tributos/planejamento/","/tributos/simuladores/","/tributos/geral/",
-  "/regulacao/financeiro/","/regulacao/fiscal-e-receita/","/regulacao/infra-e-energia/","/regulacao/telecom-e-midia/","/regulacao/transporte-e-logistica/","/regulacao/saude/","/regulacao/consumidor-e-normas/","/regulacao/concorrencia-e-controle/","/regulacao/mineracao-e-industria/","/regulacao/geral/",
-  "/parcerias/empresas-e-startups/","/parcerias/universidades-e-faculdades/","/parcerias/orgaos-e-associacoes/","/parcerias/comunidades-e-influenciadores/","/parcerias/programas-e-editais/","/parcerias/beneficios-e-descontos/","/parcerias/geral/"
+  "/radar-da-bola/","/mercado-da-bola/","/copa/","/libertadores/","/brasileirao-serie-a/","/brasileirao-serie-b/","/sul-americana/","/futebol-europeu/","/basquete/","/motor/","/tenis/","/mma/","/volei/","/nfl/",
+  "/contato/","/cookies/","/privacidade/","/termos/","/anuncie/","/seja-parceiro/"
 ];
 
 export default async function handler(req, res) {
