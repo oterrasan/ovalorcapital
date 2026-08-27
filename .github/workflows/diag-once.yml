@@ -1,12 +1,34 @@
-name: Diagnóstico único (placeholder inerte)
+name: Diagnóstico único (forçar 10 publicações no Instagram — comando manual)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diag-once.yml']
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Placeholder — nada a fazer
-        run: echo "placeholder inerte — sem diagnóstico pendente"
-# retry marker 2026-08-27T19:38 UTC — força push real pra tentar deploy.yml de novo (cota Vercel)
+      - name: Chamar ig_auto_publish 10 vezes em produção
+        run: |
+          URL="https://www.ovalorcapital.com.br/api/manage"
+          TOKEN="ovc-admin-2026-secreto"
+          OK=0
+          for i in $(seq 1 10); do
+            echo "=== Tentativa $i ==="
+            RESP=$(curl -s --max-time 60 -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -d "{\"action\":\"ig_auto_publish\",\"token\":\"$TOKEN\"}")
+            echo "$RESP" | jq '.' 2>/dev/null || echo "$RESP"
+            OK_FLAG=$(echo "$RESP" | jq -r '.ok // false' 2>/dev/null)
+            SKIPPED=$(echo "$RESP" | jq -r '.skipped // false' 2>/dev/null)
+            if [ "$OK_FLAG" = "true" ] && [ "$SKIPPED" != "true" ]; then
+              OK=$((OK+1))
+            fi
+            if [ "$SKIPPED" = "true" ]; then
+              echo "Parando — sem mais candidatos elegíveis ou limite atingido."
+              break
+            fi
+          done
+          echo "=== RESUMO: $OK publicações reais confirmadas ==="
