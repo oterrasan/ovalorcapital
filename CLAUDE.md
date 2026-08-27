@@ -7932,3 +7932,129 @@ Depois de configurar (propagação leva de minutos a algumas horas), `https://ob
 3. **Testar a aba "🇧🇷 Brasil ON" no admin do OVC** — status e botão de sync manual, cross-origin
 4. **Discutir layout/design do Brasil ON com Roberto** — ele pediu explicitamente pra essa ser a próxima conversa assim que o site estivesse no ar
 5. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram — aguardando assets de Roberto; Radar do Futebol pós-fix; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense)
+
+---
+
+### Sessão 27/08/2026 — PUBLICAÇÃO AUTOMÁTICA NO INSTAGRAM (OVC) + FECHAMENTO DO DIA + DOCS DO BRASIL ON SEPARADOS
+
+#### Contexto
+
+Continuação direta da sessão anterior (25-27/08/2026, criação/estabilização do
+Brasil ON). Roberto confirmou que a automação de Instagram do OVC (construída
+por "Codex") estava funcionando de verdade, pediu pra eu entender o mecanismo
+e construir o agendador de publicação automática. Depois de negociar ida e
+volta os parâmetros (100/dia, ~10min, janela 07h-00h BRT, escopo brasil-on +
+política + finanças + economia + colunistas), implementei e testei.
+
+#### O que foi feito — Instagram automático do OVC (PR #528, mergeado)
+
+- `api/manage.js` — `buildInstagramCaption(post)` agora **sempre** termina a
+  legenda com `📲 Acesse o portal e confira a matéria na íntegra:` + o link
+  real da matéria (`buildArticleUrl()`, mesmo esquema `/{categoria}/{slug}-
+  {id8}/` já usado em `api/portal-posts.js`/`ovc-cards.js` — o lookup em
+  `api/article.js` resolve só pelo `id8`, então o link sempre abre certo).
+  `fitInstagramCaption()` ajustada pra NUNCA cortar esse bloco no limite de
+  2200 chars — só o corpo é truncado.
+- Nova ação `ig_auto_publish` (`handleIgAutoPublish`) — **função nova e
+  totalmente autocontida**, não toca em `handleIgPublish` (o botão manual,
+  já confirmado funcionando em produção com posts reais) — zero risco de
+  quebrar o que já funcionava, por pedido explícito de Roberto ("PELO AMOR
+  DE DEUS, NAO FACA NADA QUE POSSA QUEBRAR ALGUMA COISA").
+  - Escopo: `brasil-on`, `politica`, `financas`, `economia`, `colunistas`.
+  - Limite 100/dia, controlado via tabela `config` com padrão insert-only +
+    chave única por chamada (mesmo esquema já comprovado seguro pro gate de
+    orçamento do Gemini — evita o bug clássico de `.upsert()` sem
+    constraint unique já documentado várias vezes neste arquivo).
+  - Anti-duplicata: nunca escolhe um post que já tenha
+    `metrics.instagram.ig_id` gravado — carimbo permanente, sem reset.
+    Escolhe sempre o post mais ANTIGO ainda sem carimbo (FIFO), evitando
+    tanto duplicar quanto sempre repetir os mais recentes.
+  - Protegida por `checkAdmin()` (diferente de `ig_publish`, que Roberto
+    pediu explicitamente pra deixar sem senha por enquanto — "PODEMOS
+    CORRIGIR ISSO DEPOIS", não fixado nesta sessão).
+- `.github/workflows/instagram-auto.yml` (novo) — cron a cada ~10min, janela
+  07h-00h BRT (`10-23 UTC` + `0-2 UTC`), chama `ig_auto_publish`.
+
+#### 🔴 Saga do dia — cota diária de deploy da Vercel esgotada (contexto real, não bug de código)
+
+O projeto `ovalorcapital-xuhw` (produção do OVC) bateu no limite de 100
+deploys/dia do plano Hobby (`api-deployments-free-per-day`) bem antes desta
+sessão começar (por causa do volume de PRs de Brasil ON do dia inteiro) e
+continuou esgotado por toda a sessão — **TODOS** os deploys tentados
+(PRs #528 a #534) falharam com o mesmo erro, confirmado via log real do job
+GitHub Actions, nunca por suposição. Testado diretamente com evidência real:
+chamar `action=ig_auto_publish` em produção retornou
+`{"ok":false,"degraded":true,"error":"acao_indisponivel_no_modo_emergencia"}`
+— confirma que o código novo (correto, mergeado em `main`) simplesmente
+ainda não tinha chegado ao ar, não que havia bug nele.
+
+**Fix definitivo pra não depender mais de sessão manual (PR #534, mergeado):**
+- `deploy.yml` (OVC) — adicionado `workflow_dispatch`, `push:branches:[main]`
+  intacto. Permite redisparar sem precisar de commit novo.
+- `deploy-brasilon.yml` (**novo, permanente**) — mesmo comando `vercel
+  --token=... --yes --prod` dentro de `brasilon/` que vinha sendo repetido
+  manualmente o dia inteiro via `diag-once.yml` — agora dispara sozinho em
+  qualquer push que toque `brasilon/**`, ou manualmente via
+  `workflow_dispatch`. **NUNCA MAIS criar workflow one-off só pra deploy do
+  Brasil ON** — usar este arquivo.
+- Uma rotina agendada (fora do repo, gerenciada por este agente) redispara
+  os dois workflows via `workflow_dispatch` periodicamente até a cota
+  liberar, e só avisa Roberto quando o primeiro deploy de sucesso realmente
+  acontecer — evita spam de "ainda não liberou" repetido.
+
+#### Confirmação do ícone do Brasil ON (PR #531, mergeado)
+
+Roberto mandou a arte oficial (círculo, anel amarelo, disco azul, "BRASIL
+ON" em branco, **com fundo escuro quadrado ao redor**) e pediu
+explicitamente pra **não** usar esse fundo escuro no meio do portal branco —
+só o ícone circular. Como a imagem colada no chat não vira arquivo acessível
+neste ambiente (limitação já documentada), recriei como SVG próprio, fiel
+às cores/leiaute reais, sem nenhum retângulo de fundo — verificado
+visualmente via Chromium headless antes de aplicar. Substitui o favicon
+placeholder genérico ("círculo + ON") nas 10 páginas do Brasil ON.
+
+#### 📁 DOCUMENTAÇÃO DO BRASIL ON SEPARADA (pedido explícito de Roberto: "separa bem o projeto do brasil on")
+
+**Criado `brasilon/CLAUDE.md`** — a partir de agora, TODA documentação nova
+específica do Brasil ON vai nesse arquivo dedicado, não mais aqui no
+CLAUDE.md da raiz (que já passa de 600KB e é sobre o OVC). O arquivo novo
+cobre: arquitetura completa, mapa de arquivos, como o deploy automático
+funciona agora, identidade visual, armadilhas conhecidas, e — mais
+importante — um brief completo e autocontido para o **próximo passo**
+pedido por Roberto: **Codex construir a automação de Instagram do Brasil
+ON**, espelhando o mecanismo que acabou de ser confirmado funcionando no
+OVC. O brief lista as 7 decisões que só Roberto pode confirmar antes de
+implementar (conta do Instagram, onde salvar token, overlay de imagem
+próprio, escopo de categorias, limite diário, etc.) — não foi implementado
+nesta sessão, só documentado como próxima tarefa.
+
+**Daqui pra frente:** qualquer sessão (Claude ou Codex) que for mexer em
+`brasilon/` deve ler `brasilon/CLAUDE.md` primeiro — este arquivo da raiz
+mantém só o histórico até 27/08/2026 (não vai crescer mais com detalhes
+novos do Brasil ON).
+
+#### Estado de api/ do OVC — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (27/08/2026)
+
+| Sistema | Status |
+|---|---|
+| **Link automático + CTA em toda legenda do Instagram** (manual e automático) | ✅ CÓDIGO CORRETO EM `main` (PR #528) — aguardando deploy (cota Vercel) |
+| **Publicação automática no Instagram (`ig_auto_publish`)** — 100/dia, 07h-00h BRT, anti-duplicata permanente | ✅ CÓDIGO CORRETO EM `main` (PR #528) — aguardando deploy (cota Vercel) |
+| **Ícone do Brasil ON recriado** (sem fundo escuro, fiel à arte real) | ✅ CÓDIGO CORRETO EM `main` (PR #531) — aguardando deploy (cota Vercel) |
+| **Deploy automático do Brasil ON** (`deploy-brasilon.yml`, permanente) | ✅ EM PRODUÇÃO (PR #534) — elimina a necessidade de sessão manual daqui pra frente |
+| **`workflow_dispatch` em `deploy.yml`** — permite redeploy sob demanda sem novo commit | ✅ EM PRODUÇÃO (PR #534) |
+| **`brasilon/CLAUDE.md` criado** — documentação do Brasil ON separada da raiz | ✅ FEITO |
+| **Status real do Brasil ON verificado com evidência** (DNS, HTTP 200, sync funcionando — 4 posts sincronizados num teste real) | ✅ CONFIRMADO (sessão anterior + esta) |
+
+### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar que os deploys pendentes (ig_auto_publish, ícone do Brasil ON) foram ao ar** assim que a cota da Vercel liberar — a rotina automática deve avisar Roberto sozinha quando isso acontecer; se não avisar em algumas horas, checar manualmente via `workflow_dispatch` nos dois workflows de deploy.
+2. **Automação de Instagram do Brasil ON** — ver brief completo em `brasilon/CLAUDE.md` seção 6. Bloqueado em 7 decisões que só Roberto pode confirmar (conta do Instagram do @obrasilon, overlay de imagem próprio, limite diário, etc.) — próximo passo é o Codex (ou uma sessão futura) levar essas perguntas a Roberto antes de implementar.
+3. **Fixar autenticação de `ig_publish`** (o botão manual) — Roberto pediu explicitamente pra deixar pra depois ("PODEMOS CORRIGIR ISSO DEPOIS"). Não mexer sem autorização nova.
+4. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram do OVC — aguardando assets de Roberto; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense; discutir layout/design do Brasil ON com Roberto).
