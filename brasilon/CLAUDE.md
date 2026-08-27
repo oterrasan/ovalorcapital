@@ -300,3 +300,11 @@ só se aplica a contas de time. O comando correto (o mesmo usado com
 sucesso o dia inteiro via `diag-once.yml` antes deste workflow existir)
 nunca teve `--scope`: `vercel --token="..." --yes --prod`. Corrigido.
 Se um dia a Vercel migrar pra uma conta de time, revisitar isso.
+
+### Marcador `brasilon/.deploy-trigger` (27/08/2026)
+
+Arquivo criado só pra ter um jeito confiável de forçar um novo push que
+toque `brasilon/**` (dispara `deploy-brasilon.yml`) sem precisar de uma
+mudança de código real toda vez que a cota da Vercel travar. A rotina
+automática de retry atualiza a linha `last_retry_utc` dele e comita —
+**não apagar**, é usado enquanto a cota da Vercel estiver instável.
