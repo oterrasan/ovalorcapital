@@ -492,6 +492,7 @@ const IG_AUTO_LIMITE_DIARIO = 100;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
+const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
 const IG_AUTO_CONFIG_KEYS = [
   "IG_AUTOMATION_ENABLED", "IG_AUTOMATION_INTERVAL",
   "IG_AUTOMATION_DAILY_LIMIT", "IG_AUTOMATION_CATEGORIES",
@@ -647,6 +648,9 @@ async function handleIgAutoPublish(req, res, body) {
     const idadeMs = agoraMs - publishedAtMs;
     if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
+    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+    const categoria = String(tags[0] || "").trim().toLowerCase();
+    if (!IG_AUTO_CATEGORIAS.has(categoria)) return false;
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     const categoria = String(tags[0] || "").trim().toLowerCase();
     if (!settings.categories.has(categoria)) return false;
