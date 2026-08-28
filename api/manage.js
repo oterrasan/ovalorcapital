@@ -59,6 +59,7 @@ export default async function handler(req, res) {
     if (action === "submit_colunista_post") return handleSubmitColunistaPost(req, res, body);
     if (action === "admin_colunista_post") return handleAdminColunistaPost(req, res, body);
     if (action === "ig_publish") return handleIgPublish(req, res, body);
+    if (action === "ig_preview") return handleIgPreview(req, res, body);
     if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (action === "track_view") return handleTrackView(res, body);
@@ -503,6 +504,38 @@ async function _igAutoRegistrarPublicacao() {
   const dia = _igAutoDiaBRT();
   const rowKey = `IG_AUTO_${dia}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   await supabase.from("config").insert({ key: rowKey, value: "1" });
+}
+
+async function handleIgPreview(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body.post_id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+
+  const { data: post, error } = await supabase
+    .from("posts")
+    .select("id,titulo,imagem,status,approved")
+    .eq("id", postId)
+    .single();
+  if (error || !post) return res.status(404).json({ ok: false, error: "materia_nao_encontrada" });
+  if (!/^https?:\/\//i.test(String(post.imagem || ""))) {
+    return res.status(400).json({ ok: false, error: "imagem_publica_ausente" });
+  }
+
+  const preview = await prepareInstagramImage({
+    sourceUrl: post.imagem,
+    postId: `preview-${post.id}`,
+    supabase,
+    title: post.titulo
+  });
+  return res.status(200).json({
+    ok: true,
+    preview_only: true,
+    post_id: post.id,
+    titulo: post.titulo,
+    image_url: preview.url,
+    image_path: preview.path,
+    generator_version: preview.version || null
+  });
 }
 
 async function handleIgAutoPublish(req, res, body) {

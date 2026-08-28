@@ -284,5 +284,5 @@ export async function prepareInstagramImage({ sourceUrl, postId, supabase, title
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   const url = data?.publicUrl;
   if (!url) throw new Error("instagram_image_public_url_missing");
-  return { url, path };
+  return { url, path, version: HEADLINE_VERSION };
 }
