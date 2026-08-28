@@ -492,6 +492,17 @@ const IG_AUTO_LIMITE_DIARIO = 100;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
+const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c40a0c8ed16065";
+
+function _igCronAuthorized(req, body) {
+  if (checkAdmin(req, body)) return true;
+  const supplied = String(req.headers["x-ovc-cron-secret"] || "");
+  if (!supplied) return false;
+  const digest = crypto.createHash("sha256").update(supplied).digest("hex");
+  const expected = Buffer.from(IG_CRON_SECRET_HASH, "hex");
+  const actual = Buffer.from(digest, "hex");
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
 const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
 const IG_AUTO_CONFIG_KEYS = [
   "IG_AUTOMATION_ENABLED", "IG_AUTOMATION_INTERVAL",
@@ -600,7 +611,7 @@ async function handleIgPreview(req, res, body) {
 }
 
 async function handleIgAutoPublish(req, res, body) {
-  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
 
   const settings = await _igAutoConfig();
   if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_desligada_no_admin" });
