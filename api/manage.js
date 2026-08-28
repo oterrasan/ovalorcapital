@@ -471,6 +471,7 @@ async function handleIgPublish(req, res, body) {
     });
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", `[ig-auto] falha: ${safeError}`);
     try {
       await supabase.from("posts").update({ error_msg: safeError, updated_at: now }).eq("id", post.id);
     } catch (_) {}
@@ -491,6 +492,36 @@ const IG_AUTO_LIMITE_DIARIO = 100;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
+const IG_AUTO_CONFIG_KEYS = [
+  "IG_AUTOMATION_ENABLED", "IG_AUTOMATION_INTERVAL",
+  "IG_AUTOMATION_DAILY_LIMIT", "IG_AUTOMATION_CATEGORIES",
+  "IG_AUTOMATION_LAST_RUN"
+];
+
+async function _igAutoConfig() {
+  const { data } = await supabase.from("config").select("key,value,updated_at").in("key", IG_AUTO_CONFIG_KEYS).order("updated_at", { ascending: false });
+  const latest = {};
+  for (const row of data || []) if (!(row.key in latest)) latest[row.key] = row.value;
+  let categories = [...IG_AUTO_CATEGORIAS];
+  try {
+    const parsed = JSON.parse(latest.IG_AUTOMATION_CATEGORIES || "[]");
+    if (Array.isArray(parsed) && parsed.length) categories = parsed.map(v => String(v).trim().toLowerCase()).filter(Boolean);
+  } catch (_) {}
+  const interval = Number(latest.IG_AUTOMATION_INTERVAL || 15);
+  const dailyLimit = Number(latest.IG_AUTOMATION_DAILY_LIMIT || IG_AUTO_LIMITE_DIARIO);
+  return {
+    enabled: latest.IG_AUTOMATION_ENABLED !== "off",
+    interval: Number.isFinite(interval) ? Math.max(15, interval) : 15,
+    dailyLimit: Number.isFinite(dailyLimit) ? Math.min(100, Math.max(1, dailyLimit)) : IG_AUTO_LIMITE_DIARIO,
+    categories: new Set(categories),
+    lastRun: Number(latest.IG_AUTOMATION_LAST_RUN || 0)
+  };
+}
+
+async function _igAutoSetConfig(key, value) {
+  await supabase.from("config").delete().eq("key", key);
+  await supabase.from("config").insert({ key, value: String(value), updated_at: new Date().toISOString() });
+}
 
 function _igAutoPublishedAtMs(value) {
   const raw = String(value || "").trim();
@@ -570,13 +601,22 @@ async function handleIgPreview(req, res, body) {
 async function handleIgAutoPublish(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
 
+  const settings = await _igAutoConfig();
+  if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_desligada_no_admin" });
+  const elapsedMinutes = settings.lastRun ? (Date.now() - settings.lastRun) / 60000 : Infinity;
+  if (elapsedMinutes < settings.interval - 1) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "intervalo_configurado", proxima_em_minutos: Math.ceil(settings.interval - elapsedMinutes) });
+  }
+  await _igAutoSetConfig("IG_AUTOMATION_LAST_RUN", Date.now());
+  await writeLog("info", "[ig-auto] execução iniciada");
+
   let publicadosHoje = 0;
   try {
     publicadosHoje = await _igAutoContarHoje();
   } catch (e) {
     return res.status(200).json({ ok: false, error: "erro_contador: " + redactSecrets(e?.message || String(e)) });
   }
-  if (publicadosHoje >= IG_AUTO_LIMITE_DIARIO) {
+  if (publicadosHoje >= settings.dailyLimit) {
     return res.status(200).json({ ok: true, skipped: true, reason: "limite_diario_atingido", publicados_hoje: publicadosHoje });
   }
 
@@ -609,7 +649,7 @@ async function handleIgAutoPublish(req, res, body) {
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     const categoria = String(tags[0] || "").trim().toLowerCase();
-    if (!IG_AUTO_CATEGORIAS.has(categoria)) return false;
+    if (!settings.categories.has(categoria)) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
     if (p.ig_id || metrics?.instagram?.ig_id) return false; // já publicado ou reservado no IG
     if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false; // mesma matéria em outra linha
@@ -617,6 +657,7 @@ async function handleIgAutoPublish(req, res, body) {
   });
 
   if (!post) {
+    await writeLog("info", "[ig-auto] nenhuma matéria elegível");
     return res.status(200).json({
       ok: true,
       skipped: true,
@@ -699,6 +740,7 @@ async function handleIgAutoPublish(req, res, body) {
     }
 
     try { await _igAutoRegistrarPublicacao(); } catch (_) {}
+    await writeLog("info", `[ig-auto] publicado: ${post.titulo} | ig:${ig.id}`);
 
     return res.status(200).json({
       ok: true,
