@@ -660,9 +660,6 @@ async function handleIgAutoPublish(req, res, body) {
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     const categoria = String(tags[0] || "").trim().toLowerCase();
-    if (!IG_AUTO_CATEGORIAS.has(categoria)) return false;
-    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
-    const categoria = String(tags[0] || "").trim().toLowerCase();
     if (!settings.categories.has(categoria)) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
     if (p.ig_id || metrics?.instagram?.ig_id) return false; // já publicado ou reservado no IG
