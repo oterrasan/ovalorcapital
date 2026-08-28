@@ -503,7 +503,6 @@ function _igCronAuthorized(req, body) {
   const actual = Buffer.from(digest, "hex");
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
-const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
 const IG_AUTO_CONFIG_KEYS = [
   "IG_AUTOMATION_ENABLED", "IG_AUTOMATION_INTERVAL",
   "IG_AUTOMATION_DAILY_LIMIT", "IG_AUTOMATION_CATEGORIES",
