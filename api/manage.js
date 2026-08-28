@@ -490,6 +490,7 @@ async function handleIgPublish(req, res, body) {
 const IG_AUTO_LIMITE_DIARIO = 100;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
+const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
 
 function _igAutoPublishedAtMs(value) {
   const raw = String(value || "").trim();
@@ -606,6 +607,9 @@ async function handleIgAutoPublish(req, res, body) {
     const idadeMs = agoraMs - publishedAtMs;
     if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
+    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+    const categoria = String(tags[0] || "").trim().toLowerCase();
+    if (!IG_AUTO_CATEGORIAS.has(categoria)) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
     if (p.ig_id || metrics?.instagram?.ig_id) return false; // já publicado ou reservado no IG
     if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false; // mesma matéria em outra linha
