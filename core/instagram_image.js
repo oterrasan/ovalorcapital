@@ -6,10 +6,11 @@ const W = 1440;
 const H = 1800;
 const SCALE = W / 1080;
 const px = value => Math.round(value * SCALE);
+const PHOTO_HEIGHT = px(780);
 const BUCKET = "post-images";
 const PREFIX = "instagram";
 const OVERLAY_PATH = new URL("../public/assets/ig-overlay-ovc-canva.png", import.meta.url);
-const HEADLINE_VERSION = "canva-headline-v4-1440";
+const HEADLINE_VERSION = "canva-headline-v5-open-photo-1440";
 const HEADLINE_BOX = {
   x: px(150),
   y: px(705),
@@ -218,9 +219,15 @@ async function downloadImage(url) {
 
 export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
   const source = await downloadImage(sourceUrl);
-  const base = await sharp(source)
+  const photo = await sharp(source)
     .rotate()
-    .resize(W, H, { fit: "cover", position: "centre" })
+    .resize(W, PHOTO_HEIGHT, { fit: "cover", position: "centre" })
+    .png()
+    .toBuffer();
+  const base = await sharp({
+    create: { width: W, height: H, channels: 3, background: "#000000" }
+  })
+    .composite([{ input: photo, top: 0, left: 0 }])
     .png()
     .toBuffer();
 

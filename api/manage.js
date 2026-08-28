@@ -454,11 +454,10 @@ async function handleIgPublish(req, res, body) {
 // Função NOVA e autocontida — NUNCA chama nem reaproveita a orquestração de
 // handleIgPublish() acima, para blindar o botão manual (já confirmado
 // funcionando em produção) contra qualquer bug introduzido aqui.
-// Escopo fechado por Roberto: brasil-on, politica, financas, economia,
-// colunistas. Limite: 100 publicações/dia (janela 07h-00h BRT, ~10 em 10min,
-// controlado pelo cron em .github/workflows/instagram-auto.yml).
+// Escopo: todas as matérias publicadas no portal. Limite: 100 publicações/dia
+// (janela 07h-00h BRT, ~10 em 10min, controlado pelo cron em
+// .github/workflows/instagram-auto.yml).
 // ══════════════════════════════════════════════════════
-const IG_AUTO_CATEGORIAS = ["brasil-on", "politica", "financas", "economia", "colunistas"];
 const IG_AUTO_LIMITE_DIARIO = 100;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
@@ -467,7 +466,7 @@ function _igAutoPublishedAtMs(value) {
   const raw = String(value || "").trim();
   if (!raw) return NaN;
   const hasTimezone = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(raw);
-  return Date.parse(hasTimezone ? raw : `${raw}-03:00`);
+  return Date.parse(hasTimezone ? raw : `${raw}Z`);
 }
 
 function _igAutoTitleKey(value) {
@@ -524,7 +523,7 @@ async function handleIgAutoPublish(req, res, body) {
   try {
     const { data, error } = await supabase
       .from("posts")
-      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_account_id, published_at")
+      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
       .eq("status", "publicado")
       .order("published_at", { ascending: false })
       .limit(200);
@@ -536,7 +535,7 @@ async function handleIgAutoPublish(req, res, body) {
 
   const titulosJaPublicados = new Set(
     candidatos
-      .filter((p) => parseJsonMaybe(p.metrics, {})?.instagram?.ig_id)
+      .filter((p) => p.ig_id || parseJsonMaybe(p.metrics, {})?.instagram?.ig_id)
       .map((p) => _igAutoTitleKey(p.titulo))
       .filter(Boolean)
   );
@@ -547,10 +546,9 @@ async function handleIgAutoPublish(req, res, body) {
     if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
-    if (metrics?.instagram?.ig_id) return false; // já publicado no IG
+    if (p.ig_id || metrics?.instagram?.ig_id) return false; // já publicado ou reservado no IG
     if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false; // mesma matéria em outra linha
-    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
-    return tags.some((t) => IG_AUTO_CATEGORIAS.includes(String(t)));
+    return true;
   });
 
   if (!post) {
@@ -566,6 +564,20 @@ async function handleIgAutoPublish(req, res, body) {
   const accountId = post.ig_account_id || null;
   const caption = buildInstagramCaption(post);
   const now = new Date().toISOString();
+  const claimId = `processing:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+
+  const { data: claimedRows, error: claimError } = await supabase
+    .from("posts")
+    .update({ ig_id: claimId, updated_at: now })
+    .eq("id", post.id)
+    .is("ig_id", null)
+    .select("id");
+  if (claimError) {
+    return res.status(200).json({ ok: false, error: "erro_reserva_publicacao", post_id: post.id });
+  }
+  if (!claimedRows?.length) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "materia_ja_reservada_ou_publicada", post_id: post.id });
+  }
 
   try {
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
@@ -639,7 +651,11 @@ async function handleIgAutoPublish(req, res, body) {
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     try {
-      await supabase.from("posts").update({ error_msg: safeError, updated_at: now }).eq("id", post.id);
+      await supabase
+        .from("posts")
+        .update({ ig_id: null, error_msg: safeError, updated_at: new Date().toISOString() })
+        .eq("id", post.id)
+        .eq("ig_id", claimId);
     } catch (_) {}
     return res.status(200).json({ ok: false, error: safeError, post_id: post.id });
   }
