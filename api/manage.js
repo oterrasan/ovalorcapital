@@ -206,6 +206,34 @@ function extractCaptionBodyAndHashtags(text) {
   return { body: blocks.join("\n\n").trim(), hashtags };
 }
 
+function normalizeCaptionText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function removeRepeatedHeadline(title, body) {
+  const blocks = String(body || "").split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (!blocks.length) return "";
+
+  const normalizedTitle = normalizeCaptionText(title);
+  const normalizedFirstBlock = normalizeCaptionText(blocks[0]);
+  if (!normalizedTitle || !normalizedFirstBlock) return blocks.join("\n\n");
+
+  const firstWords = new Set(normalizedFirstBlock.split(" "));
+  const titleWords = normalizedTitle.split(" ");
+  const sharedWords = titleWords.filter(word => firstWords.has(word)).length;
+  const similarity = titleWords.length ? sharedWords / titleWords.length : 0;
+  const isHeadlineLength = normalizedFirstBlock.length <= normalizedTitle.length + 30;
+  const repeatsHeadline = normalizedFirstBlock === normalizedTitle ||
+    (isHeadlineLength && similarity >= 0.8);
+
+  return (repeatsHeadline ? blocks.slice(1) : blocks).join("\n\n").trim();
+}
+
 const CAT_HASHTAG_LABEL = {
   "brasil-on": "BrasilOn",
   politica: "Politica",
@@ -275,9 +303,9 @@ function buildInstagramHashtags(post, extracted, category) {
   return unique.slice(0, 10);
 }
 
-function fitInstagramCaption(title, body, signature, hashtags, ctaBlock) {
+function fitInstagramCaption(body, signature, hashtags, ctaBlock) {
   const hashtagBlock = hashtags.join(" ");
-  const compose = (bodyText) => [title, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  const compose = (bodyText) => [bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;
@@ -324,15 +352,15 @@ function buildInstagramCaption(post) {
     month: "long",
     year: "numeric"
   });
-  const title = String(post.titulo || "").toUpperCase();
   const tags = Array.isArray(post.user_tags) ? post.user_tags : parseJsonMaybe(post.user_tags, []);
   const category = tags[0] || "";
   const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
+  const body = removeRepeatedHeadline(post.titulo, extracted.body);
   const signature = "Redação OVC — " + date;
   const hashtags = buildInstagramHashtags(post, extracted, category);
   // Pedido explícito de Roberto (25/08/2026): toda publicação termina com CTA + link real da matéria.
   const ctaBlock = "📲 Acesse o portal e confira a matéria na íntegra:\n" + buildArticleUrl(post);
-  return fitInstagramCaption(title, extracted.body, signature, hashtags, ctaBlock);
+  return fitInstagramCaption(body, signature, hashtags, ctaBlock);
 }
 
 function buildInstagramFirstComment(post) {

@@ -7,19 +7,18 @@ const W = 1440;
 const H = 1800;
 const SCALE = W / 1080;
 const px = value => Math.round(value * SCALE);
-const PHOTO_HEIGHT = px(780);
+const PHOTO_HEIGHT = px(960);
 const BUCKET = "post-images";
 const PREFIX = "instagram";
 const OVERLAY_PATH = new URL("../public/assets/ig-overlay-ovc-canva.png", import.meta.url);
 const HEADLINE_FONT_PATH = fileURLToPath(new URL("../public/assets/fonts/Inter-Variable.ttf", import.meta.url));
-const HEADLINE_VERSION = "canva-headline-v6-bundled-font-1440";
+const HEADLINE_VERSION = "canva-headline-v8-editorial-fit-1440";
 const HEADLINE_BOX = {
-  x: px(150),
   y: px(705),
   width: px(780),
   maxLines: 4,
-  maxFontSize: px(46),
-  minFontSize: px(32)
+  maxFontSize: px(42),
+  minFontSize: px(30)
 };
 const HIGHLIGHT_COLOR = "#f28c22";
 const STOPWORDS = new Set([
@@ -148,47 +147,24 @@ async function buildHeadlineLayers(title) {
 
   const highlightWord = chooseHighlightWord(normalized);
   const highlightState = { used: false };
-  const shadowState = { used: false };
   const markup = selected.lines
     .map(line => renderLineMarkup(line, highlightWord, highlightState, true))
-    .join("\n");
-  const shadowMarkup = selected.lines
-    .map(line => renderLineMarkup(line, highlightWord, shadowState, false))
     .join("\n");
   const textOptions = text => ({
     text: `<span weight="800">${text}</span>`,
     font: `Inter ${selected.fontSize}`,
     fontfile: HEADLINE_FONT_PATH,
-    width: HEADLINE_BOX.width,
     align: "center",
     rgba: true,
     dpi: 72,
     wrap: "none"
   });
-  const [shadow, foreground] = await Promise.all([
-    sharp({ text: textOptions(shadowMarkup) }).png().toBuffer(),
-    sharp({ text: textOptions(markup) }).png().toBuffer()
-  ]);
+  const foreground = await sharp({ text: textOptions(markup) }).png().toBuffer();
+  const { width = HEADLINE_BOX.width } = await sharp(foreground).metadata();
+  const left = Math.max(0, Math.round((W - width) / 2));
   return [
-    { input: shadow, top: HEADLINE_BOX.y + px(4), left: HEADLINE_BOX.x + px(2), blend: "over" },
-    { input: foreground, top: HEADLINE_BOX.y, left: HEADLINE_BOX.x, blend: "over" }
+    { input: foreground, top: HEADLINE_BOX.y, left, blend: "over" }
   ];
-}
-
-function buildBottomGradientSvg() {
-  const startY = px(520);
-  return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bottomMask" x1="0" y1="${startY}" x2="0" y2="${H}" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
-      <stop offset="0.34" stop-color="#000000" stop-opacity="0.48"/>
-      <stop offset="0.62" stop-color="#000000" stop-opacity="0.86"/>
-      <stop offset="1" stop-color="#000000" stop-opacity="0.98"/>
-    </linearGradient>
-  </defs>
-  <rect x="0" y="${startY}" width="${W}" height="${H - startY}" fill="url(#bottomMask)"/>
-</svg>`);
 }
 
 async function downloadImage(url) {
@@ -220,7 +196,7 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
   const source = await downloadImage(sourceUrl);
   const photo = await sharp(source)
     .rotate()
-    .resize(W, PHOTO_HEIGHT, { fit: "cover", position: "centre" })
+    .resize(W, PHOTO_HEIGHT, { fit: "cover", position: sharp.strategy.attention })
     .png()
     .toBuffer();
   const base = await sharp({
@@ -229,29 +205,13 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
     .composite([{ input: photo, top: 0, left: 0 }])
     .png()
     .toBuffer();
-
   const overlay = await sharp(readFileSync(OVERLAY_PATH))
     .resize(W, H, { fit: "fill" })
-    .sharpen({ sigma: 0.55 })
-    .modulate({ brightness: 1.06, saturation: 1.12 })
-    .png()
-    .toBuffer();
-  const topBrandBoostHeight = px(300);
-  const footerBoostTop = px(920);
-  const topBrandBoost = await sharp(overlay)
-    .extract({ left: 0, top: 0, width: W, height: topBrandBoostHeight })
-    .png()
-    .toBuffer();
-  const footerBoost = await sharp(overlay)
-    .extract({ left: 0, top: footerBoostTop, width: W, height: H - footerBoostTop })
     .png()
     .toBuffer();
 
   const layers = [
-    { input: buildBottomGradientSvg(), top: 0, left: 0 },
-    { input: overlay, top: 0, left: 0 },
-    { input: topBrandBoost, top: 0, left: 0 },
-    { input: footerBoost, top: footerBoostTop, left: 0 }
+    { input: overlay, top: 0, left: 0 }
   ];
   const headlineLayers = await buildHeadlineLayers(title);
   if (headlineLayers) layers.push(...headlineLayers);
