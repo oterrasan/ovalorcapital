@@ -1,6 +1,6 @@
 name: Instagram - Publicação Automática
 
-# Chama a cada ~10 minutos, 24 horas por dia, a ação ig_auto_publish (api/manage.js).
+# Chama a cada ~15 minutos, 24 horas por dia, a ação ig_auto_publish (api/manage.js).
 # Escopo e limite definidos por Roberto: matérias publicadas nas últimas 12 horas,
 # sem duplicação e respeitando o limite diário configurado no backend.
 # A própria função controla o limite diário via tabela config — este cron só dispara a
@@ -9,7 +9,7 @@ name: Instagram - Publicação Automática
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
