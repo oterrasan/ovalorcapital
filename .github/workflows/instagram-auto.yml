@@ -9,7 +9,11 @@ name: Instagram - Publicação Automática
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '7,22,37,52 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/instagram-auto.yml'
   workflow_dispatch:
 
 jobs:
