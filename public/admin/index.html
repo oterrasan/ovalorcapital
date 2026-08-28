@@ -121,6 +121,11 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .preview-caption{padding:12px;font-size:12px;color:var(--t2);line-height:1.5;white-space:pre-wrap;max-height:120px;overflow-y:auto}
 .alert-banner{background:rgba(200,30,30,0.1);border:1px solid rgba(200,30,30,0.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
 .alert-banner.yellow{background:var(--yellow-s);border-color:rgba(255,200,0,0.3)}
+.alert-banner.green{background:var(--green-s);border-color:rgba(22,163,74,0.35)}
+.ig-auto-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.ig-auto-config{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media(max-width:900px){.ig-auto-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ig-auto-config{grid-template-columns:1fr}}
+@media(max-width:520px){.ig-auto-metrics{grid-template-columns:1fr}}
 .notif-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;margin-left:4px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .suggestion-card{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
@@ -3052,6 +3057,94 @@ function EditorColunas() {
   );
 }
 
+// ── AUTOMAÇÃO INSTAGRAM ──
+function AutomacaoInstagram() {
+  const CATEGORIAS = [
+    ['politica','Política'], ['economia','Economia'], ['financas','Finanças'],
+    ['brasil-on','Brasil ON'], ['colunistas','Colunistas']
+  ];
+  const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:100,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
+  const [posts,setPosts] = useState([]);
+  const [logs,setLogs] = useState([]);
+  const [account,setAccount] = useState(null);
+  const [loading,setLoading] = useState(true);
+  const [saving,setSaving] = useState(false);
+  const [msg,setMsg] = useState('');
+
+  const brtStart = () => {
+    const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    return new Date(parts+'T00:00:00-03:00').toISOString();
+  };
+  const parseMetrics = value => {
+    if (value && typeof value === 'object') return value;
+    try { return JSON.parse(value||'{}'); } catch { return {}; }
+  };
+  const setConfig = async (key,value) => {
+    await sb.from('config').delete().eq('key',key);
+    const {error}=await sb.from('config').insert({key,value:String(value),updated_at:new Date().toISOString()});
+    if(error) throw error;
+  };
+  const load = async () => {
+    setLoading(true);
+    const start=brtStart();
+    const [c,p,l,a]=await Promise.all([
+      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN']).order('updated_at',{ascending:false}),
+      sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
+      sb.from('logs').select('level,message,created_at').gte('created_at',start).ilike('message','%[ig-auto]%').order('created_at',{ascending:false}).limit(100),
+      sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).limit(1).maybeSingle()
+    ]);
+    const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
+    let cats=CATEGORIAS.map(x=>x[0]); try{const parsed=JSON.parse(latest.IG_AUTOMATION_CATEGORIES||'[]');if(Array.isArray(parsed)&&parsed.length)cats=parsed;}catch{}
+    setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT||100),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
+    setPosts((p.data||[]).filter(row=>parseMetrics(row.metrics)?.instagram?.published_via==='ig_auto_publish'));
+    setLogs(l.data||[]); setAccount(a.data||null); setLoading(false);
+  };
+  useEffect(()=>{load();const timer=setInterval(load,60000);return()=>clearInterval(timer);},[]);
+
+  const save = async () => {
+    if(!cfg.categories.length){setMsg('Selecione pelo menos uma categoria.');return;}
+    setSaving(true);setMsg('');
+    try{
+      await setConfig('IG_AUTOMATION_ENABLED',cfg.enabled?'on':'off');
+      await setConfig('IG_AUTOMATION_INTERVAL',Math.max(15,Number(cfg.interval)||15));
+      await setConfig('IG_AUTOMATION_DAILY_LIMIT',Math.min(100,Math.max(1,Number(cfg.dailyLimit)||100)));
+      await setConfig('IG_AUTOMATION_CATEGORIES',JSON.stringify(cfg.categories));
+      setMsg('Configuração salva e aplicada à automação.');
+      await load();
+    }catch(e){setMsg('Erro ao salvar: '+e.message);}finally{setSaving(false);}
+  };
+  const toggleCat = cat => setCfg({...cfg,categories:cfg.categories.includes(cat)?cfg.categories.filter(x=>x!==cat):[...cfg.categories,cat]});
+  const failures=logs.filter(x=>x.level==='error');
+
+  if(loading)return <div className="loading">Carregando automação do Instagram...</div>;
+  return <div>
+    <div className="page-header"><div className="page-title">Automação do Instagram</div><div className="page-sub">Controle, operação e relatório diário do @ovalorcapital</div></div>
+    <div className="page-body">
+      <div className={`alert-banner ${cfg.enabled?'green':'yellow'}`}><span>{cfg.enabled?'●':'○'}</span><span><strong>{cfg.enabled?'Automação ligada':'Automação desligada'}</strong> · Conta {account?'@'+account.username:'não encontrada'} · Token {account?.token?'configurado':'ausente'}</span></div>
+      <div className="ig-auto-metrics">
+        <div className="metric-card"><div className="metric-label">Publicados hoje</div><div className="metric-value">{posts.length}</div></div>
+        <div className="metric-card"><div className="metric-label">Limite diário</div><div className="metric-value">{cfg.dailyLimit}</div></div>
+        <div className="metric-card"><div className="metric-label">Falhas hoje</div><div className="metric-value" style={{color:failures.length?'var(--red)':'var(--green)'}}>{failures.length}</div></div>
+        <div className="metric-card"><div className="metric-label">Última execução</div><div style={{fontSize:15,fontWeight:700,marginTop:10}}>{cfg.lastRun?fmt(new Date(cfg.lastRun).toISOString()):'Aguardando'}</div></div>
+      </div>
+      <div className="panel" style={{marginBottom:18}}>
+        <div className="panel-header"><span className="panel-title">Configuração operacional</span><span className={`badge ${cfg.enabled?'badge-green':'badge-red'}`}>{cfg.enabled?'ATIVA':'PAUSADA'}</span></div>
+        <div style={{padding:20}}>
+          <div className="ig-auto-config">
+            <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={cfg.enabled} onChange={e=>setCfg({...cfg,enabled:e.target.checked})}/><span>{cfg.enabled?'Ligada 24 horas':'Desligada'}</span></label></div>
+            <div className="form-group"><label className="form-label">Intervalo</label><select className="form-input" value={cfg.interval} onChange={e=>setCfg({...cfg,interval:Number(e.target.value)})}>{[15,30,45,60].map(v=><option key={v} value={v}>{v} minutos</option>)}</select></div>
+            <div className="form-group"><label className="form-label">Limite diário</label><input className="form-input" type="number" min="1" max="100" value={cfg.dailyLimit} onChange={e=>setCfg({...cfg,dailyLimit:e.target.value})}/></div>
+          </div>
+          <div className="form-group"><label className="form-label">Categorias autorizadas</label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{CATEGORIAS.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer'}}><input type="checkbox" checked={cfg.categories.includes(id)} onChange={()=>toggleCat(id)}/><span>{label}</span></label>)}</div></div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={saving} onClick={save}>{saving?'Salvando...':'Salvar configuração'}</button>{msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{msg}</span>}</div>
+        </div>
+      </div>
+      <div className="panel" style={{marginBottom:18}}><div className="panel-header"><span className="panel-title">Publicações automáticas de hoje</span><button className="btn btn-secondary btn-sm" onClick={load}>Atualizar</button></div>{posts.length===0?<div className="empty-state"><div className="empty-text">Nenhuma publicação automática registrada hoje</div></div>:<table><thead><tr><th>Horário</th><th>Matéria</th><th>Categoria</th><th>Instagram</th></tr></thead><tbody>{posts.map(p=>{let cat='';try{cat=(Array.isArray(p.user_tags)?p.user_tags:JSON.parse(p.user_tags||'[]'))[0]||''}catch{}return <tr key={p.id}><td>{fmt(p.updated_at)}</td><td>{truncate(p.titulo,70)}</td><td><span className="badge badge-gray">{cat}</span></td><td className="text-small">{p.ig_id||'—'}</td></tr>})}</tbody></table>}</div>
+      <div className="panel"><div className="panel-header"><span className="panel-title">Execuções e falhas de hoje</span><span className="badge badge-gray">{logs.length}</span></div>{logs.length===0?<div className="empty-state"><div className="empty-text">Sem registros hoje</div></div>:<table><thead><tr><th>Horário</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>{logs.map((l,i)=><tr key={i}><td>{fmt(l.created_at)}</td><td><span className={`badge ${l.level==='error'?'badge-red':'badge-green'}`}>{l.level==='error'?'Falha':'OK'}</span></td><td>{l.message.replace('[ig-auto] ','')}</td></tr>)}</tbody></table>}</div>
+    </div>
+  </div>;
+}
+
 // ── APP ──
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
@@ -3060,6 +3153,7 @@ const PAGES = [
   {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'postagens',label:'Postagens',icon:'📝'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
+  {id:'automacao_instagram',label:'Automação Instagram',icon:'⏱️'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
   {id:'alertas',label:'Alertas',icon:'🚨'},
   {id:'engajamento',label:'Engajamento',icon:'💬'},
@@ -3244,7 +3338,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{localStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,automacao_instagram:AutomacaoInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">
