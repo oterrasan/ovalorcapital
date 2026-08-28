@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
 import sharp from "sharp";
 
 const W = 1440;
@@ -10,15 +11,15 @@ const PHOTO_HEIGHT = px(780);
 const BUCKET = "post-images";
 const PREFIX = "instagram";
 const OVERLAY_PATH = new URL("../public/assets/ig-overlay-ovc-canva.png", import.meta.url);
-const HEADLINE_VERSION = "canva-headline-v5-open-photo-1440";
+const HEADLINE_FONT_PATH = fileURLToPath(new URL("../public/assets/fonts/Inter-Variable.ttf", import.meta.url));
+const HEADLINE_VERSION = "canva-headline-v6-bundled-font-1440";
 const HEADLINE_BOX = {
   x: px(150),
   y: px(705),
   width: px(780),
   maxLines: 4,
   maxFontSize: px(46),
-  minFontSize: px(32),
-  lineHeight: 1.18
+  minFontSize: px(32)
 };
 const HIGHLIGHT_COLOR = "#f28c22";
 const STOPWORDS = new Set([
@@ -78,21 +79,15 @@ function chooseHighlightWord(title) {
   return best?.normalized || null;
 }
 
-function renderLineTspans(line, y, highlightWord, state) {
+function renderLineMarkup(line, highlightWord, state, color = true) {
   const parts = String(line || "").split(/(\s+)/);
-  let first = true;
   return parts.map(part => {
     if (!part) return "";
     const token = normalizeWord(part);
     const highlight = !state.used && highlightWord && token === highlightWord;
     if (highlight) state.used = true;
-    const attrs = [
-      first ? `x="${W / 2}"` : "",
-      first ? `y="${y}"` : "",
-      `fill="${highlight ? HIGHLIGHT_COLOR : "#ffffff"}"`
-    ].filter(Boolean).join(" ");
-    first = false;
-    return `<tspan ${attrs}>${escapeXml(part)}</tspan>`;
+    const foreground = color && highlight ? HIGHLIGHT_COLOR : color ? "#ffffff" : "#050505";
+    return `<span foreground="${foreground}">${escapeXml(part)}</span>`;
   }).join("");
 }
 
@@ -130,7 +125,7 @@ function wrapHeadline(text, fontSize, maxWidth, maxLines) {
   return clipped;
 }
 
-function buildHeadlineSvg(title) {
+async function buildHeadlineLayers(title) {
   const normalized = String(title || "").replace(/\s+/g, " ").trim().toUpperCase();
   if (!normalized) return null;
 
@@ -151,29 +146,33 @@ function buildHeadlineSvg(title) {
     };
   }
 
-  const lineHeight = Math.round(selected.fontSize * HEADLINE_BOX.lineHeight);
-  const firstY = HEADLINE_BOX.y + selected.fontSize;
   const highlightWord = chooseHighlightWord(normalized);
   const highlightState = { used: false };
-  const tspans = selected.lines
-    .map((line, index) => renderLineTspans(line, firstY + index * lineHeight, highlightWord, highlightState))
-    .join("");
-
-  return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="headlineShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.55"/>
-    </filter>
-  </defs>
-  <text x="${W / 2}" text-anchor="middle"
-        font-family="Inter, Arial, Helvetica, sans-serif"
-        font-size="${selected.fontSize}" font-weight="800"
-        letter-spacing="0" fill="#ffffff"
-        stroke="#050505" stroke-opacity="0.42" stroke-width="3"
-        paint-order="stroke fill" filter="url(#headlineShadow)"
-        xml:space="preserve">${tspans}</text>
-</svg>`);
+  const shadowState = { used: false };
+  const markup = selected.lines
+    .map(line => renderLineMarkup(line, highlightWord, highlightState, true))
+    .join("\n");
+  const shadowMarkup = selected.lines
+    .map(line => renderLineMarkup(line, highlightWord, shadowState, false))
+    .join("\n");
+  const textOptions = text => ({
+    text: `<span weight="800">${text}</span>`,
+    font: `Inter ${selected.fontSize}`,
+    fontfile: HEADLINE_FONT_PATH,
+    width: HEADLINE_BOX.width,
+    align: "center",
+    rgba: true,
+    dpi: 72,
+    wrap: "none"
+  });
+  const [shadow, foreground] = await Promise.all([
+    sharp({ text: textOptions(shadowMarkup) }).png().toBuffer(),
+    sharp({ text: textOptions(markup) }).png().toBuffer()
+  ]);
+  return [
+    { input: shadow, top: HEADLINE_BOX.y + px(4), left: HEADLINE_BOX.x + px(2), blend: "over" },
+    { input: foreground, top: HEADLINE_BOX.y, left: HEADLINE_BOX.x, blend: "over" }
+  ];
 }
 
 function buildBottomGradientSvg() {
@@ -254,8 +253,8 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
     { input: topBrandBoost, top: 0, left: 0 },
     { input: footerBoost, top: footerBoostTop, left: 0 }
   ];
-  const headline = buildHeadlineSvg(title);
-  if (headline) layers.push({ input: headline, top: 0, left: 0 });
+  const headlineLayers = await buildHeadlineLayers(title);
+  if (headlineLayers) layers.push(...headlineLayers);
 
   return sharp(base)
     .composite(layers)
