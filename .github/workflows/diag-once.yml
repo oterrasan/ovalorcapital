@@ -28,11 +28,11 @@ jobs:
           cat /tmp/scratch/idx.xml
 
           echo ""
-          echo "=== extraindo <sitemap><loc> (indice de sub-sitemaps mensais) ==="
-          grep -oE '<loc>[^<]*</loc>' /tmp/scratch/idx.xml
+          echo "=== extraindo apenas post-sitemapN.xml (materias de verdade, nao tags/categorias/paginas) ==="
+          grep -oE '<loc>[^<]*post-sitemap[0-9]*\.xml</loc>' /tmp/scratch/idx.xml
 
-          SUB=$(grep -oE '<loc>[^<]*</loc>' /tmp/scratch/idx.xml | tail -1 | sed -e 's/<loc>//' -e 's/<\/loc>//')
-          echo "sub-sitemap mais recente: [$SUB]"
+          SUB=$(grep -oE '<loc>[^<]*post-sitemap[0-9]*\.xml</loc>' /tmp/scratch/idx.xml | tail -1 | sed -e 's/<loc>//' -e 's/<\/loc>//')
+          echo "post-sitemap mais recente (chunk mais alto): [$SUB]"
 
           if [ -n "$SUB" ]; then
             echo "=== conteudo do sub-sitemap mais recente (primeiros 2000 chars) ==="
