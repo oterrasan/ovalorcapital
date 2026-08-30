@@ -6,27 +6,10 @@ name: Diagnóstico único (placeholder)
 # entre uma investigação e outra.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
 jobs:
-  checar_producao:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
     steps:
-      - name: Checar homepage + admin + API
-        run: |
-          echo "=== HOME ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code} TIME:%{time_total}s SIZE:%{size_download}\n" --max-time 20 "https://www.ovalorcapital.com.br/"
-          echo "=== ADMIN ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code} TIME:%{time_total}s\n" --max-time 20 "https://www.ovalorcapital.com.br/admin/"
-          echo "=== API portal-posts ==="
-          curl -sS --max-time 20 "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=1" | head -c 400
-          echo
-          echo "=== API run_portal (status only, sem gerar nada) ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code} TIME:%{time_total}s\n" --max-time 20 "https://www.ovalorcapital.com.br/api/run_portal"
-          echo "=== BRASIL ON ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code} TIME:%{time_total}s\n" --max-time 20 "https://www.obrasilon.com.br/"
+      - run: echo "placeholder — nada a fazer"
