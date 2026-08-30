@@ -1,14 +1,14 @@
 name: Pipeline OVC — Matérias e Radar do Esporte
 
+# 30/08/2026 — schedule: REMOVIDO. O agendamento automático de todos os 6
+# jobs abaixo (jovempan_politica/futebol/outros_esportes/materias/brasilon/
+# internacional) migrou pro cron nativo da Vercel Pro (vercel.json na raiz
+# do repo, PR #567) — mesmos offsets staggered de sempre, só que disparado
+# pela própria Vercel em vez do agendador do GitHub Actions (que já
+# atrasou/pulou disparos por horas seguidas várias vezes, documentado
+# 15-16/08 e 21/08). Este arquivo continua existindo só pra disparo manual
+# (workflow_dispatch) — útil pra diagnóstico e teste, como sempre foi.
 on:
-  schedule:
-    # 17/08/2026 — Roberto pediu pra reduzir um pouco a frequência (era a cada
-    # 15min = 96 disparos/dia) mantendo volume mínimo de 110-120 conteúdos/dia,
-    # com foco em política/internacional/brasil-on. Reduzido pra a cada 20min
-    # (72 disparos/dia, ~25% menos) — compensado com count maior nos 3 canais
-    # prioritários (ver comentários em cada job abaixo) e teto interno do
-    # Gemini elevado (core/ai_portal.js GEMINI_DAILY_BUDGET 18→200).
-    - cron: '2,22,42 * * * *'
   workflow_dispatch:
     inputs:
       tipo:
