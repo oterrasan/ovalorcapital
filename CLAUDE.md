@@ -8058,3 +8058,62 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Automação de Instagram do Brasil ON** — ver brief completo em `brasilon/CLAUDE.md` seção 6. Bloqueado em 7 decisões que só Roberto pode confirmar (conta do Instagram do @obrasilon, overlay de imagem próprio, limite diário, etc.) — próximo passo é o Codex (ou uma sessão futura) levar essas perguntas a Roberto antes de implementar.
 3. **Fixar autenticação de `ig_publish`** (o botão manual) — Roberto pediu explicitamente pra deixar pra depois ("PODEMOS CORRIGIR ISSO DEPOIS"). Não mexer sem autorização nova.
 4. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram do OVC — aguardando assets de Roberto; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense; discutir layout/design do Brasil ON com Roberto).
+
+---
+
+### Sessão 30/08/2026 — LEITURA DE CÓDIGO: TUDO O QUE ACONTECEU EM 27-28/08 (sem registro no CLAUDE.md até agora) + CONFIRMAÇÃO REAL DA AUTOMAÇÃO DE INSTAGRAM
+
+#### Contexto
+
+Roberto voltou depois de ~2 dias sem interação com esta sessão e cobrou, com razão: nenhuma sessão tinha lido/documentado o que aconteceu em 27-28/08/2026 — um volume grande de trabalho real (meu, de sessões anteriores, **e do Codex, trabalhando em paralelo no mesmo `main`**) tinha sido mergeado e deployado sem nunca virar uma entrada aqui. Pedido explícito: **"leia o codigo e encontre tudo o que foi feito nos ultimos 2 dias. nao mexa em nada, apenas se atualize"** — e depois, ao ver o resumo: **"atualize tudo, e voce leu o admin? [...] acredito que nas ultimas 24 horas publicou automatico, umas 40 materias"**.
+
+Esta entrada fecha esse buraco de documentação (commits de `a2df6925` até `1eef5212`, 27/08 01:50 → 28/08 13:41 UTC) e confirma com dado real — não suposição — o volume de publicações automáticas.
+
+#### 🚨 Achado processual — sessões podem rodar em paralelo sem se ver
+
+Metade destes commits são de **`Codex <codex@openai.com>`**, não de uma sessão Claude — confirmado via `git log --format=%an`. Roberto está operando (pelo menos) duas ferramentas de IA no mesmo repositório ao mesmo tempo, cada uma sem visibilidade do que a outra fez, a não ser lendo o histórico do git depois. **Lição registrada:** ao retomar qualquer sessão, sempre checar o autor real dos commits recentes (`git log --format="%an %ad %s"`), não assumir que "nenhuma sessão Claude trabalhou" significa "nada mudou" — o Codex pode ter feito mudanças reais e substanciais no meio tempo.
+
+#### O que foi feito em 27-28/08/2026 (lido do diff `a2df6925..1eef5212`, 78 arquivos, ~5990 inserções/4910 deleções)
+
+**1. Instagram automático — evolução real, vários bugs corrigidos (Codex + sessões anteriores):**
+- `core/instagram.js` — bug real corrigido: a Meta às vezes ainda está processando o container de mídia quando o sistema tentava publicar (erro código 9007, "Media ID is not available"). Agora espera o `status_code` virar `FINISHED` (até 10 tentativas, 2s de intervalo) antes de chamar `media_publish`, com retry também na própria publicação.
+- `core/instagram_image.js` — trocou a geração do texto do headline: antes usava `<text>`/`<tspan>` em SVG puro com `font-family="Inter, Arial, Helvetica, sans-serif"`, que depende do sistema operacional ter essa fonte instalada (frágil em ambiente serverless — podia cair pra uma fonte genérica sem aviso). Agora empacota a fonte de verdade dentro do repo (`public/assets/fonts/Inter-Variable.ttf`, licença OFL incluída) e renderiza via Pango markup do `sharp`. Também mudou o recorte da foto: de `resize(W,H,{fit:'cover',position:'centre'})` pra focar automaticamente no ponto de maior interesse da imagem (`sharp.strategy.attention`) numa altura menor (960px em vez da tela inteira), sobrando espaço pro texto sem cortar rosto/elemento importante.
+- `api/manage.js` (`buildInstagramCaption`) — parou de repetir o título dentro do corpo da legenda (`removeRepeatedHeadline`, detecta se o 1º parágrafo é essencialmente o próprio título e remove).
+- `handleIgAutoPublish` foi reescrito por completo pelo Codex: janela de elegibilidade de 12h (só publica matéria com até 12h de idade, não qualquer coisa do banco), trava anti-corrida (`claim` via `UPDATE ... WHERE ig_id IS NULL`, evita duas execuções simultâneas publicarem a mesma matéria), dedup por título normalizado (não só por id), autenticação separada por hash de secret (`x-ovc-cron-secret`) além do `checkAdmin()` normal, e configuração dinâmica (liga/desliga, intervalo, limite diário, categorias) lida da tabela `config` em vez de constantes fixas no código.
+- **2 bugs de sintaxe reais entraram e foram corrigidos em 2 minutos** (28/08 13:39 e 13:41 UTC, últimos 2 commits do dia): `const` declarada duas vezes no mesmo escopo (`IG_AUTO_CATEGORIAS`, depois `tags`/`categoria`) — um erro desses quebraria `api/manage.js` inteiro (não só o Instagram: aprovação de posts, editor IA, todo o admin). Confirmado agora com `node --check api/manage.js` → limpo, sem erro pendente.
+- `.github/workflows/instagram-auto.yml` — Codex mudou de "janela 07h-00h BRT, a cada 10min" pra "24 horas por dia, a cada 15min", e trocou a senha hardcoded no próprio YAML por secret do GitHub (`OVC_ADMIN_TOKEN`, header `Authorization: Bearer`).
+- **Dashboard novo no admin** (`public/admin/index.html`, aba "⏱️ Automação Instagram", componente `AutomacaoInstagram()`): liga/desliga, intervalo, limite diário, checkboxes de categoria, métricas do dia (publicados hoje, limite, falhas, última execução), tabela de publicações automáticas do dia e tabela de execuções/falhas (lidas de `logs` filtrando `[ig-auto]`). **Nota:** o diff bruto desse arquivo mostrava ~9500 linhas alteradas — confirmado com `git diff -w` (ignora espaço em branco) que é só reformatação/reindentação do arquivo inteiro (provavelmente um formatter rodou em cima); a mudança de lógica real é de 95 linhas. Arquivo continua íntegro, 4819 linhas.
+
+**2. `api/sitemap.js` — bug real de SEO corrigido (27/08, crítico):** o mapa de categorias do sitemap (`CAT_PATH`) estava desatualizado desde a reestruturação de taxonomia de 24/06/2026 — faltavam `brasil-on` e `financas`, hoje as categorias com mais volume do portal (todo o Brasil ON/Bacci e boa parte do pipeline geral). Todo post nessas categorias caía no fallback `|| "politica"` e o sitemap anunciava pro Google uma URL diferente da canônica real de `api/article.js` — exatamente o padrão "Página alternativa com tag canônica adequada" que dominava o Search Console. Corrigido (mapa agora é cópia exata do de `article.js`) + removidas ~170 URLs estáticas de categorias extintas desde 24/06 (sempre-redirect 301 confirmado em `vercel.json`) que o sitemap ainda anunciava.
+
+**3. Paginação real de conteúdo legado nas páginas de categoria** (`public/js/internal-page-v2.js`, #553) — antes só existiam os ~60 posts mais recentes de cada categoria, sem nenhum jeito de ver mais. Botão "Carregar mais notícias" agora busca páginas seguintes via `handleList` (que já suportava paginação no backend, nunca exposta no frontend).
+
+**4. Brasil ON:** ícone recriado como SVG próprio (sem o fundo escuro quadrado que Roberto não queria, só o círculo), `deploy-brasilon.yml` criado como deploy automático permanente (antes precisava de workflow one-off manual toda vez), confirmado 100% no ar (DNS, HTTP, sync).
+
+**5. Vários workflows `diag-once.yml`** — só investigações pontuais em produção (contagem de posts, status do Brasil ON, origem de uma matéria específica, teste de publicação), todos resetados ao placeholder logo depois. Sem efeito residual no código.
+
+#### ✅ Confirmado com dado real — automação de Instagram, últimas 24h (30/08/2026)
+
+Consultado direto o Supabase de produção (workflow diagnóstico, GitHub Actions — este sandbox não tem rede pro Supabase):
+
+```
+Posts com ig_id preenchido (updated_at últimas 24h): 35
+  └─ published_via = "ig_auto_publish": 33
+  └─ published_via ausente (provavelmente publicação manual/antiga): 2
+Logs [ig-auto] últimas 24h: 186 entradas, 100% nível "info" — ZERO erro
+IG_AUTOMATION_LAST_RUN: 2026-08-30T02:45:01 UTC (rodando há poucos minutos da checagem)
+```
+
+Roberto estimou "uns 40" — a contagem real é **33 publicações automáticas confirmadas**, bem próxima do que ele percebeu. A automação está ligada com os valores padrão do código (ninguém mexeu ainda na aba nova do admin — não há linha `IG_AUTOMATION_ENABLED`/`CATEGORIES`/`DAILY_LIMIT` na tabela `config`, só `LAST_RUN`), rodando 24h a cada 15min, zero falha nas últimas 24h.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — nenhuma mudança de código nesta sessão, só leitura + 1 diagnóstico)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Configurar a aba "Automação Instagram" no admin** se Roberto quiser mudar algo dos defaults (categorias, limite diário, intervalo) — hoje está tudo no valor padrão do código, nunca foi tocado na UI.
+2. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram do OVC — aguardando assets de Roberto; automação de Instagram do Brasil ON — brief em `brasilon/CLAUDE.md`; fixar autenticação de `ig_publish`; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense; discutir layout/design do Brasil ON com Roberto).
