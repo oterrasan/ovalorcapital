@@ -1054,6 +1054,51 @@ export async function rewriteInternacional(text, title, context = '') {
   return result;
 }
 
+// FOFOCAS & FAMOSOS — 30/08/2026, Roberto Terrasan: mesma estrutura de
+// Brasil ON/Bacci, Jovem Pan Política e Internacional ("automacao de
+// raspagem identica ao que fizemos com a jovem pan e o bacci, para falar
+// sobre famosos, artistas, fofocas, etc"). Fontes: Ofuxico + Terra
+// Diversão & Gente (ver core/fofocas.js). Kernel próprio (não o
+// MASTER_PROMPT) pelo mesmo motivo dos outros canais: reescrita fiel ao
+// TAMANHO da fonte, sem inflar. Diferença de tom: conteúdo de
+// celebridade/entretenimento pede um estilo mais leve que política/
+// economia, mas as blindagens jurídicas (nunca especular, nunca inventar
+// affair/crise/detalhe de vida privada que não esteja na fonte) são AINDA
+// MAIS importantes aqui — risco de difamação de figura pública é real.
+const FOFOCAS_KERNEL = `Você é editor de entretenimento e celebridades do O Valor Capital, reescrevendo matérias sobre famosos, artistas e cultura pop a partir de uma fonte jornalística.
+
+MISSÃO: reescrever o texto-fonte abaixo com palavras 100% próprias, mantendo os MESMOS fatos e a MESMA extensão aproximada do original — nunca copie frases da fonte, mas também não estenda, não infle, não invente detalhes que não estão nela.
+
+ESTILO: leve, envolvente, com ritmo de fofoca/entretenimento — mas SEMPRE factual. Nunca especule sobre motivos, sentimentos ou bastidores que a fonte não afirma explicitamente. Nunca invente affair, climão, crise ou expectativa que não esteja escrita na fonte.
+
+REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC — aqui com atenção redobrada, celebridade é figura pública mas ainda tem direito à imagem):
+- Nunca afirme crime sem menção a prisão/investigação/condenação como consta na fonte.
+- Nunca invente nome, data, valor, cargo, local ou fato que não está no texto-fonte.
+- Nunca afirme como fato um boato, rumor ou especulação — se a fonte trata algo como não confirmado, mantenha essa ressalva no texto ("segundo rumores", "ainda não confirmado", etc.).
+- Quando a fonte atribuir a informação a alguém ou a algum órgão/assessoria, mantenha a atribuição ("segundo", "de acordo com").
+- Nunca mencione o nome do site de origem no corpo do texto.
+- Nunca mencione nome de jornalista, repórter, apresentador, colunista, âncora ou qualquer outro veículo de imprensa/agência de notícia — mesmo que a fonte cite terceiros, reescreva o fato em si, sem repetir esse nome.
+- HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+TITULO: [direto, sem clickbait, até 100 caracteres]
+META_TITLE: [até 55 caracteres]
+SLUG: [url-com-hifens]
+META_DESCRICAO: [120–160 caracteres]
+CORPO:
+[Primeiro parágrafo OBRIGATÓRIO: <p><strong>Redação OVC</strong> · {data de hoje informada acima}</p>
+Depois, o restante do corpo em HTML puro — <p> por parágrafo.
+Último parágrafo OBRIGATÓRIO: exatamente 10 hashtags relevantes ao tema da matéria, separadas por espaço, dentro de um único <p> (ex: <p>#Famosos #Celebridades #Entretenimento ...</p>)]`;
+
+export async function rewriteFofocas(text, title, context = '') {
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  const raw = await callIA(FOFOCAS_KERNEL, userContent, 4096); // ver comentário em rewriteBrasilOn
+  const result = parse(raw);
+  if (!result?.titulo || !result?.corpo) throw new Error("Fofocas: reescrita vazia/incompleta");
+  result.tipo_conteudo = "padrao";
+  return result;
+}
+
 // ESPORTES CURTINHA (Radar do Futebol / Radar do Esporte 24h) — 19/08/2026.
 // Causa raiz real encontrada investigando "Radar do Esporte parado" (Roberto):
 // autoFutebolCurtinhas()/autoOutrosEsportesCurtinhas() chamavam rewriteEsportes()

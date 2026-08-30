@@ -4,10 +4,11 @@ import { getNews, getNewsByCategoria, buscarFeedsEspecificos, FONTES_APROVADAS_U
 import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
-import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional } from "../core/ai_portal.js";
+import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteFofocas } from "../core/ai_portal.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
+import { buscarCandidatosFofocas, pareceConteudoPromocional as pareceConteudoPromocionalFofocas } from "../core/fofocas.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -788,7 +789,12 @@ async function salvarBrasilOn(content, hash, img, fonte) {
 // diferente de COMPETITOR_IMG_HOSTS em core/scraper.js, que é sobre imagem)
 // — pega tanto o veículo-fonte quanto agências de notícia que ele mesmo
 // costuma citar dentro da matéria (ex: artigo da BBC citando a Reuters).
-const VEICULO_CITADO_RE = /\bBacci(?:\s+Not[ií]cias)?\b|\bRevista\s+Oeste\b|\bJovem\s+Pan\b|\bBBC(?:\s+News)?\b|\bCNN\b|\bReuters\b|\bAFP\b|\bAssociated\s+Press\b|\bAP\s+News\b|\bAl\s+Jazeera\b|\bBloomberg\b|\bDeutsche\s+Welle\b|\bNew\s+York\s+Post\b|\bFolha\s+de\s+S[ãa]o\s+Paulo\b|\bO\s+Globo\b|\bG1\b|\bUOL\b|\bEstad[ãa]o\b|\bTerra\b|\bR7\b|\bSBT\b|\bBand\s+News\b|\bVeja\b|\bExame\b|\bCartaCapital\b|\bPoder360\b|\bGazeta\s+do\s+Povo\b|\bMetr[óo]poles\b|\bInfoMoney\b/i;
+// Ofuxico incluído aqui (canal Fofocas, 30/08/2026) — mesmo padrão dos
+// outros canais, nunca citar o próprio veículo-fonte no corpo. \bTerra\b já
+// existia nesta lista antes deste canal (cobre o portal Terra em geral) —
+// mantido como está, risco de falso positivo com a palavra comum "terra" já
+// era aceito historicamente, não introduzido agora.
+const VEICULO_CITADO_RE = /\bBacci(?:\s+Not[ií]cias)?\b|\bRevista\s+Oeste\b|\bJovem\s+Pan\b|\bBBC(?:\s+News)?\b|\bCNN\b|\bReuters\b|\bAFP\b|\bAssociated\s+Press\b|\bAP\s+News\b|\bAl\s+Jazeera\b|\bBloomberg\b|\bDeutsche\s+Welle\b|\bNew\s+York\s+Post\b|\bFolha\s+de\s+S[ãa]o\s+Paulo\b|\bO\s+Globo\b|\bG1\b|\bUOL\b|\bEstad[ãa]o\b|\bTerra\b|\bR7\b|\bSBT\b|\bBand\s+News\b|\bVeja\b|\bExame\b|\bCartaCapital\b|\bPoder360\b|\bGazeta\s+do\s+Povo\b|\bMetr[óo]poles\b|\bInfoMoney\b|\bOfuxico\b/i;
 
 // Validação leve para Brasil ON — NÃO reusa validar() (mínimo 2000 chars, 5
 // parágrafos, etc — pensado pra matéria longa padrão OVC). Conteúdo-fonte aqui
@@ -1143,6 +1149,86 @@ async function autoInternacional(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "internacional", candidates: items.length, falhas });
 }
 
+// FOFOCAS & FAMOSOS — 30/08/2026, Roberto Terrasan: mesma estrutura de
+// Brasil ON/Bacci, Jovem Pan Política e Internacional. Fontes: Ofuxico +
+// Terra Diversão & Gente (ver core/fofocas.js). Categoria SEMPRE "brasil-on"
+// (celebridade/entretenimento não tem categoria própria na taxonomia atual
+// do OVC — "cultura"/"variedades" já redirecionam pra brasil-on desde
+// 24/06/2026), com subcategoria própria "Famosos" pra diferenciar do
+// conteúdo geral da Bacci (subcategoria "Brasil ON").
+async function salvarFofocas(content, hash, img, fonte) {
+  const { data, error } = await supabase.from("posts").insert({
+    titulo: stripTitle(content.titulo), conteudo: content.corpo,
+    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    status: "publicado", approved: true, publish_method: "fofocas",
+    published_at: new Date().toISOString(),
+    user_tags: JSON.stringify(["brasil-on"]), subcategoria: "Famosos",
+    subcategoria_slug: "famosos", collaborators: "[]",
+    tipo_conteudo: "padrao",
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
+    priority: 0, retry_count: 0, max_retries: 3
+  }).select("id").single();
+  if (error) return null;
+  return { id: data.id, titulo: stripTitle(content.titulo) };
+}
+
+async function autoFofocas(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 2, 4);
+  const candidatos = await buscarCandidatosFofocas();
+  const seen = new Set();
+  const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+  const prontos = await filtrarCandidatosProntos("FOFOCAS", brutos.map(i => i.link));
+  const items = brutos.filter(i => prontos.has(i.link));
+  if (!items.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "fofocas", candidates: 0, info: "no_fofocas_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
+  }
+  let generated = 0;
+  const geradosAgora = [];
+  const falhas = { pautaFonte: 0, scrapeErro: 0, textoCurto: 0, promo: 0, anuncioPrograma: 0, hashDup: 0, rewriteErro: 0, validacao: 0, pautaTitulo: 0, semImagem: 0 };
+  for (const item of items) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) { falhas.pautaFonte++; continue; }
+    let a, sourceText;
+    try {
+      // Nem ofuxico.com.br nem terra.com.br (a via da imagem, p2.trrsf.com)
+      // estão em COMPETITOR_IMG_HOSTS — não precisa de allowCompetitorImage.
+      a = await scrape(item.link, { timeout: 3500 });
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 100) { falhas.textoCurto++; continue; }
+      if (pareceConteudoPromocionalFofocas(item.title || a.title || "", sourceText)) { falhas.promo++; continue; }
+      if (pareceAnuncioDePrograma(item.title || a.title || "", sourceText)) { falhas.anuncioPrograma++; continue; }
+    } catch (_) { falhas.scrapeErro++; continue; }
+    const hash = crypto.createHash("md5").update(item.link + "_fofocas").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) { falhas.hashDup++; continue; }
+    try {
+      const content = await rewriteFofocas(sourceText, item.title || a.title || "", rec.contexto);
+      content.categoria = "brasil-on";
+      content.subcategoria = "Famosos";
+      const erros = validarBrasilOn(content);
+      if (erros.length) { falhas.validacao++; continue; }
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { falhas.pautaTitulo++; continue; }
+      const sourceImage = a.image || "";
+      const img = sourceImage
+        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true })
+        : null;
+      if (!img) {
+        falhas.semImagem++;
+        await log("info", `[fofocas] SKIP sem imagem — ${item.source}: ${content.titulo?.slice(0, 50)} | sourceImage:${sourceImage || "(vazio)"}`);
+        continue;
+      }
+      const post = await salvarFofocas(content, hash, img, item.source);
+      if (!post) continue;
+      await log("info", `[fofocas] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
+      geradosAgora.push(content.titulo);
+      generated++;
+    } catch (_) { falhas.rewriteErro++; continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "fofocas", candidates: items.length, falhas });
+}
+
 // 30/08/2026 — cron nativo da Vercel (Pro, ativado hoje) dispara via GET,
 // com os parâmetros direto na URL configurada em vercel.json — nunca tem
 // corpo (body). Autenticado pelo MESMO token admin já usado em todo o
@@ -1182,6 +1268,7 @@ export default async function handler(req, res) {
     if (body.tipo === "brasilon") return autoBrasilOn(req, res, rec);
     if (body.tipo === "jovempan_politica") return autoJovempanPolitica(req, res, rec);
     if (body.tipo === "internacional") return autoInternacional(req, res, rec);
+    if (body.tipo === "fofocas") return autoFofocas(req, res, rec);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
