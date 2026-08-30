@@ -1,25 +1,15 @@
-name: Diagnóstico único (testar disparo GET nativo)
+name: Diagnóstico único (placeholder)
+
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
 jobs:
-  testar_get_cron:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
-      - name: Sync Brasil ON via GET (mesmo que o cron nativo vai fazer)
-        run: |
-          RESP=$(curl -sS --max-time 20 -w "\nHTTP_CODE:%{http_code}" \
-            "https://www.obrasilon.com.br/api/manage?action=sync&pass=ovc-admin-2026-secreto")
-          echo "BRASIL_ON_SYNC: $RESP" | head -c 500
-
-      - name: run_portal.js via GET simulando cron nativo (jovempan_politica)
-        run: |
-          RESP=$(curl -sS --max-time 60 -w "\nHTTP_CODE:%{http_code}" \
-            "https://www.ovalorcapital.com.br/api/run_portal?tipo=jovempan_politica&force=true&count=1&pass=ovc-admin-2026-secreto")
-          echo "GET_TRIGGER: $RESP" | head -c 800
+      - run: echo "placeholder — nada a fazer"
