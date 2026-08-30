@@ -21,7 +21,7 @@ const CAT_PATH = {
   "brasil-on": "brasil-on", politica: "politica", economia: "economia",
   financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
   internacional: "internacional", industria: "industria", familia: "familia",
-  esportes: "esportes", vc: "colunistas", colunistas: "colunistas",
+  esportes: "esportes", giro: "giro", vc: "colunistas", colunistas: "colunistas",
   // Legado → novas categorias (artigos antigos no banco, mesmo de-para de article.js)
   investimentos: "financas", seguros: "financas", mercados: "financas",
   saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
@@ -52,7 +52,7 @@ function slugify(text) {
 // existindo em public/ mas nunca anunciadas antes.
 const STATIC_PATHS = [
   "/","/busca/","/newsletter/","/radar/","/tv-ovc/","/radio-ovc/","/dados/","/dados/cotacoes/","/dados/agenda-economica/","/pulso-br/",
-  "/politica/","/economia/","/negocios/","/industria/","/tecnologia/","/esportes/","/familia/","/brasil-on/","/financas/","/internacional/","/colunistas/",
+  "/politica/","/economia/","/negocios/","/industria/","/tecnologia/","/esportes/","/familia/","/brasil-on/","/financas/","/internacional/","/giro/","/colunistas/",
   "/vc/","/vc/quem-somos/","/vc/principios-editoriais/","/vc/liberdade-economica/","/vc/familia-e-patrimonio/",
   "/politica/executivo/","/politica/legislativo-congresso-ao-vivo/","/politica/judiciario/","/politica/projetos-de-lei/","/politica/eleicoes/","/politica/agenda-regulatoria/","/politica/geral/",
   "/economia/monetaria-copom-selic/","/economia/fiscal-orcamento-divida-pib-primario/","/economia/conjuntura-pib-emprego-consumo-focus/","/economia/internacional-eua-europa-china-commodities/","/economia/minuto-fiscal/","/economia/geral/",

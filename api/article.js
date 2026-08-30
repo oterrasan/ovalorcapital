@@ -22,7 +22,7 @@ const CAT_PATH = {
   "brasil-on": "brasil-on", politica: "politica", economia: "economia",
   financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
   internacional: "internacional", industria: "industria", familia: "familia",
-  esportes: "esportes", vc: "colunistas", colunistas: "colunistas",
+  esportes: "esportes", giro: "giro", vc: "colunistas", colunistas: "colunistas",
   // Legado → novas categorias (artigos antigos no banco)
   investimentos: "financas", seguros: "financas", mercados: "financas",
   saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
@@ -40,7 +40,7 @@ const SLUG_TO_CAT = {
   "brasil-on": "brasil-on", politica: "politica", economia: "economia",
   financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
   internacional: "internacional", industria: "industria", familia: "familia",
-  esportes: "esportes", vc: "colunistas", colunistas: "colunistas",
+  esportes: "esportes", giro: "giro", vc: "colunistas", colunistas: "colunistas",
   // Legado → novas categorias
   investimentos: "financas", seguros: "financas", mercados: "financas",
   saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
@@ -55,7 +55,7 @@ const CAT_LABEL = {
   "brasil-on": "Brasil On", politica: "Política", economia: "Economia",
   financas: "Finanças", negocios: "Negócios", tecnologia: "Tecnologia",
   internacional: "Internacional", industria: "Indústria", familia: "Família",
-  esportes: "Esportes", colunistas: "Colunistas",
+  esportes: "Esportes", giro: "Giro", colunistas: "Colunistas",
   // Legado (para artigos antigos com user_tags antigas)
   investimentos: "Finanças", seguros: "Finanças", mercados: "Finanças",
   saude: "Brasil On", carreira: "Brasil On", imoveis: "Brasil On",

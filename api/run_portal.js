@@ -1149,21 +1149,22 @@ async function autoInternacional(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "internacional", candidates: items.length, falhas });
 }
 
-// FOFOCAS & FAMOSOS — 30/08/2026, Roberto Terrasan: mesma estrutura de
-// Brasil ON/Bacci, Jovem Pan Política e Internacional. Fontes: Ofuxico +
-// Terra Diversão & Gente (ver core/fofocas.js). Categoria SEMPRE "brasil-on"
-// (celebridade/entretenimento não tem categoria própria na taxonomia atual
-// do OVC — "cultura"/"variedades" já redirecionam pra brasil-on desde
-// 24/06/2026), com subcategoria própria "Famosos" pra diferenciar do
-// conteúdo geral da Bacci (subcategoria "Brasil ON").
+// GIRO — 30/08/2026, Roberto Terrasan: mesma estrutura de Brasil ON/Bacci,
+// Jovem Pan Política e Internacional. Fontes: Ofuxico + Terra Diversão &
+// Gente (ver core/fofocas.js). Categoria própria "giro" — categoria NOVA e
+// dedicada, criada 30/08/2026 a pedido explícito de Roberto ("EU QUERO UMA
+// NOVA CATEGORIA PRA ISSO / MAS NAO COM ESSES NOMES DE BAIXO VALOR / [...]
+// É UMA CATEGORIA DO ZERO EM? NAO MISTURA NADA DISSO COM OUTRAS"). Antes
+// desta data o conteúdo caía em brasil-on/subcategoria "Famosos" — migrado
+// pra categoria própria, sem mistura com brasil-on.
 async function salvarFofocas(content, hash, img, fonte) {
   const { data, error } = await supabase.from("posts").insert({
     titulo: stripTitle(content.titulo), conteudo: content.corpo,
     comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "fofocas",
     published_at: new Date().toISOString(),
-    user_tags: JSON.stringify(["brasil-on"]), subcategoria: "Famosos",
-    subcategoria_slug: "famosos", collaborators: "[]",
+    user_tags: JSON.stringify(["giro"]), subcategoria: "Giro",
+    subcategoria_slug: "geral", collaborators: "[]",
     tipo_conteudo: "padrao",
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
