@@ -8117,3 +8117,62 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Configurar a aba "Automação Instagram" no admin** se Roberto quiser mudar algo dos defaults (categorias, limite diário, intervalo) — hoje está tudo no valor padrão do código, nunca foi tocado na UI.
 2. Demais pendências de sessões anteriores seguem válidas (marca d'água Instagram do OVC — aguardando assets de Roberto; automação de Instagram do Brasil ON — brief em `brasilon/CLAUDE.md`; fixar autenticação de `ig_publish`; SUPABASE_KEY env var morta; Instagram SSL; Google Indexing API; AdSense; discutir layout/design do Brasil ON com Roberto).
+
+---
+
+### Sessão 30/08/2026 (continuação) — 🆕 CONTA VIROU VERCEL PRO — causa raiz real da queda do portal confirmada
+
+#### Contexto
+
+Roberto reportou que o portal (site inteiro, não só deploy) ficou fora do ar — "a vercel me comunicou que estouramos o limite das capacidades do free" — e que foi pego de surpresa. Upgradou a conta pra **Vercel Pro** (confirmado por print do dashboard: `Roberto Terrasan's ... Pro`, uso real da conta: **$0.31 de $20.00 de crédito incluído** — consumo praticamente nulo, não foi custo que causou a queda, foi teto de capacidade do plano Hobby mesmo).
+
+Roberto foi explícito: **"não é porque somos PRO que vamos sair gastando igual loucos"** — o upgrade é pra resolver travas reais, não autorização pra aumentar volume/frequência à toa. Registrado como diretriz permanente.
+
+#### O que foi verificado com evidência real (não suposição)
+
+Investigação nos logs reais do GitHub Actions (não o site — antes de saber a causa) encontrou **duas coisas diferentes**, importante não confundir:
+
+1. **Confirmado: buraco real de ~5h sem nenhum disparo do `pipeline-cron.yml`** no sábado de manhã BRT (06:37→11:40 BRT) — o agendador do próprio **GitHub Actions** atrasa/pula disparos de `schedule:` sob carga, sem erro visível. Isso é problema de outro fornecedor (GitHub), **não é resolvido por virar Pro na Vercel** — já documentado como padrão recorrente (15-16/08, 21/08).
+2. **A queda real do site** (confirmada por Roberto: aviso oficial da Vercel de estouro de capacidade do free) é auto-explicada pelo histórico de "cota Vercel esgotada" já fartamente documentado (26-27/08, dezenas de deploys falhando) — o plano Hobby tem tetos de capacidade (não só 100 deploys/dia) que o volume de automações deste projeto (7 canais rodando quase 24h) estourava com frequência.
+
+#### Verificação pós-upgrade — produção 100% confirmada no ar (PRs #562/#563, workflow diagnóstico via GitHub Actions)
+
+```
+HOME: HTTP:200 TIME:0.40s SIZE:303364 bytes
+ADMIN: HTTP:200 TIME:0.13s
+API portal-posts: HTTP 200, dado real e fresco (matéria de futebol do dia)
+API run_portal: HTTP:200 TIME:0.07s
+BRASIL ON (obrasilon.com.br): HTTP:200 TIME:0.40s
+```
+
+#### O que o Pro desbloqueia de fato (pesquisado, com fonte — não memória de treinamento)
+
+| Limite | Hobby | Pro |
+|---|---|---|
+| Deploys/dia | 100 (travou o projeto dezenas de vezes) | sem esse teto fixo |
+| Serverless Functions/deploy | 12 (origem da Regra Zero-A) | muito acima disso |
+| `maxDuration` de função | ~10s default | até **800s** |
+| Cron nativo da Vercel | 2 no total, só 1x/dia, sem timezone | até **40 por projeto, qualquer expressão, com timezone nativo** |
+
+Fontes: [Vercel Functions Limits](https://vercel.com/docs/functions/limitations), [Vercel Limits](https://vercel.com/docs/limits), [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs)
+
+#### 🚨 Nada disso foi ainda aplicado no código — aguardando autorização explícita de Roberto
+
+Respeitando a diretriz de "não gastar como loucos" e a Regra Zero-A (regra sagrada, só relaxa com autorização explícita), **nenhuma mudança de arquitetura foi feita ainda**. Proposta em aberto, para quando Roberto autorizar:
+
+1. **Subir `maxDuration`** em `vercel.json` pras rotas mais lentas (`run_portal.js`) — baixo risco, resolve timeouts documentados (ex: Jovem Pan 14/08, curl exit 28 em 29/08).
+2. **Migrar os crons de GitHub Actions pra cron nativo da Vercel com timezone `America/Sao_Paulo`** — resolveria de vez tanto os buracos de agendamento (item 1 acima) quanto a reclamação de Roberto sobre horário errado (sessão anterior, mesmo dia). É a mudança de maior risco/maior escopo — mexe em `vercel.json` (já derrubou o portal 2x por erro de header, Regra Zero-F) e no fluxo de disparo do pipeline inteiro. Só fazer com Roberto confirmando explicitamente, testado com calma.
+3. **Relaxar Regra Zero-A** (10 arquivos em `api/`) pro número real que o plano Pro permite — só com Roberto dizendo "pode aumentar" e, se possível, confirmando o teto real que aparece no dashboard dele (Settings → Functions).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — nenhuma mudança de arquitetura feita)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Aguardando decisão de Roberto** sobre os 3 itens da proposta acima (maxDuration, migração de cron nativo, relaxar Regra Zero-A) — não iniciar nenhum sem autorização explícita e específica.
+2. Se ele autorizar a migração de cron: planejar com cuidado — é a mudança de maior risco documentada nesta entrada, tocar em `vercel.json` sempre em commit isolado (Regra Zero-F).
+3. Demais pendências de sessões anteriores seguem todas válidas (ver lista da entrada anterior, 30/08/2026).
