@@ -1,35 +1,15 @@
 name: Diagnóstico único (placeholder)
 
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
+
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - claude/ovc-atualizacao-ultimos-mds-6lo95i
 
 jobs:
-  testar_fontes_fofocas:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Confirmar Ofuxico + Terra — artigos reais com imagem
-        run: |
-          set +e
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-
-          echo "=== OFUXICO post-sitemap.xml — slugs reais (excluindo listagem) ==="
-          curl -s -o /tmp/ofx2.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://ofuxico.com.br/post-sitemap.xml" --max-time 20
-          grep -oE '<url><loc>https://ofuxico\.com\.br/[a-z0-9-]{15,}/</loc><lastmod>[^<]+</lastmod>' /tmp/ofx2.xml 2>/dev/null \
-            | grep -viE 'todas-as-noticias|categoria|tag/' | tail -6
-
-          OFX_URL=$(grep -oE '<url><loc>https://ofuxico\.com\.br/[a-z0-9-]{15,}/</loc>' /tmp/ofx2.xml 2>/dev/null \
-            | grep -viE 'todas-as-noticias|categoria|tag/' | tail -1 | sed -E 's/<url><loc>//;s/<\/loc>//')
-          echo "URL escolhida: $OFX_URL"
-          curl -s -o /tmp/ofx_art.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "$OFX_URL" --max-time 10
-          echo "og:image:"; grep -oE '<meta property="og:image" content="[^"]+"' /tmp/ofx_art.html 2>/dev/null | head -1
-          echo "title:"; grep -oE '<title>[^<]+</title>' /tmp/ofx_art.html 2>/dev/null | head -1
-
-          echo ""
-          echo "=== TERRA — artigo real com imagem ==="
-          TERRA_URL="https://www.terra.com.br/diversao/gente/ana-castela-vira-alvo-de-polemica-ao-recriar-versao-ostentadora-de-rap-da-felicidade,84b182388a17d896e4a6e0575de3e8b7pn3cgwly.html"
-          curl -s -o /tmp/terra_art.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "$TERRA_URL" --max-time 10
-          echo "og:image:"; grep -oE '<meta property="og:image" content="[^"]+"' /tmp/terra_art.html 2>/dev/null | head -1
-          echo "title:"; grep -oE '<title>[^<]+</title>' /tmp/terra_art.html 2>/dev/null | head -1
+      - run: echo "placeholder — nada a fazer"
