@@ -1,15 +1,47 @@
 name: Diagnóstico único (placeholder)
 
-# Este arquivo é reescrito sob demanda para investigações pontuais em produção
-# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
-# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
-# entre uma investigação e outra.
-
 on:
   workflow_dispatch:
 
 jobs:
-  noop:
+  testar_fontes_fofocas:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Testar candidatos de fonte — fofocas/famosos
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          echo "=== PUREPEOPLE (sitemap) ==="
+          curl -s -o /tmp/pp.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://www.purepeople.com.br/sitemap_index.xml" --max-time 10 || true
+          head -c 400 /tmp/pp.xml 2>/dev/null; echo
+          echo "=== PUREPEOPLE (feed) ==="
+          curl -s -o /tmp/pp2.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://www.purepeople.com.br/feed/" --max-time 10 || true
+          head -c 400 /tmp/pp2.xml 2>/dev/null; echo
+
+          echo "=== QUEM (Globo) sitemap ==="
+          curl -s -o /tmp/quem.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://revistaquem.globo.com/sitemap/sitemap.xml" --max-time 10 || true
+          head -c 400 /tmp/quem.xml 2>/dev/null; echo
+          echo "=== QUEM rss ==="
+          curl -s -o /tmp/quem2.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://revistaquem.globo.com/rss/ultimas/feed.xml" --max-time 10 || true
+          head -c 400 /tmp/quem2.xml 2>/dev/null; echo
+
+          echo "=== CARAS BRASIL sitemap_index ==="
+          curl -s -o /tmp/caras.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://caras.com.br/sitemap_index.xml" --max-time 10 || true
+          head -c 400 /tmp/caras.xml 2>/dev/null; echo
+          echo "=== CARAS homepage ==="
+          curl -s -o /tmp/caras2.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://caras.com.br/" --max-time 10 || true
+          grep -oE 'href="https://caras\.com\.br/[a-z0-9-]{15,}/?"' /tmp/caras2.html 2>/dev/null | sort -u | head -10
+
+          echo "=== HUGOGLOSS ==="
+          curl -s -o /tmp/hg.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://hugogloss.uol.com.br/" --max-time 10 || true
+          grep -oE 'href="https://hugogloss\.uol\.com\.br/[a-z0-9-]{15,}/?"' /tmp/hg.html 2>/dev/null | sort -u | head -10
+
+          echo "=== CONTIGO sitemap_index ==="
+          curl -s -o /tmp/contigo.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://contigo.com.br/sitemap_index.xml" --max-time 10 || true
+          head -c 400 /tmp/contigo.xml 2>/dev/null; echo
+          echo "=== CONTIGO homepage ==="
+          curl -s -o /tmp/contigo2.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://contigo.com.br/" --max-time 10 || true
+          grep -oE 'href="https://contigo\.com\.br/[a-z0-9-]{15,}/?"' /tmp/contigo2.html 2>/dev/null | sort -u | head -10
+
+          echo "=== SEGUE A EX / OFUXICO sitemap ==="
+          curl -s -o /tmp/ofx.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://ofuxico.com.br/sitemap_index.xml" --max-time 10 || true
+          head -c 400 /tmp/ofx.xml 2>/dev/null; echo
