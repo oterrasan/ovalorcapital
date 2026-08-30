@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 const BASE = "https://graph.facebook.com/v25.0";
+const DEFAULT_COLLABORATOR = "oterrasan";
+const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 
 function normalizePublishingLimit(raw) {
   const item = Array.isArray(raw?.data) ? raw.data[0] : raw;
@@ -22,7 +24,22 @@ async function getAccount(accountId) {
     const { data } = await supabase.from("ig_accounts").select("*").eq("id", accountId).single();
     if (data?.active && data?.token) return data;
   }
-  const { data } = await supabase.from("ig_accounts").select("*").eq("active", true).not("token", "is", null).order("posts_hoje", { ascending: true }).limit(1);
+  const { data: preferred } = await supabase
+    .from("ig_accounts")
+    .select("*")
+    .eq("active", true)
+    .eq("username", DEFAULT_ACCOUNT_USERNAME)
+    .not("token", "is", null)
+    .limit(1);
+  if (preferred?.[0]) return preferred[0];
+
+  const { data } = await supabase
+    .from("ig_accounts")
+    .select("*")
+    .eq("active", true)
+    .not("token", "is", null)
+    .order("posts_hoje", { ascending: true })
+    .limit(1);
   return data?.[0] || null;
 }
 
@@ -60,10 +77,14 @@ export async function publish(imageUrl, caption, accountId) {
   }
 
   // 1. Criar container
+  const createPayload = { image_url: imageUrl, caption, access_token: token };
+  if (String(account.username || "").replace(/^@/, "").toLowerCase() !== DEFAULT_COLLABORATOR) {
+    createPayload.collaborators = [DEFAULT_COLLABORATOR];
+  }
   const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image_url: imageUrl, caption, access_token: token })
+    body: JSON.stringify(createPayload)
   });
   const createData = await createRes.json();
   if (!createData.id) throw new Error("Erro ao criar container: " + JSON.stringify(createData));
