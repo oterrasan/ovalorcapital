@@ -8176,3 +8176,56 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Aguardando decisão de Roberto** sobre os 3 itens da proposta acima (maxDuration, migração de cron nativo, relaxar Regra Zero-A) — não iniciar nenhum sem autorização explícita e específica.
 2. Se ele autorizar a migração de cron: planejar com cuidado — é a mudança de maior risco documentada nesta entrada, tocar em `vercel.json` sempre em commit isolado (Regra Zero-F).
 3. Demais pendências de sessões anteriores seguem todas válidas (ver lista da entrada anterior, 30/08/2026).
+
+---
+
+### Sessão 30/08/2026 (continuação 2) — MIGRAÇÃO REAL PRA CRON NATIVO DA VERCEL PRO — CONCLUÍDA E VERIFICADA END-TO-END
+
+#### Contexto
+
+Roberto autorizou explicitamente: "quero que voce construa as automacoes que ficaram de lado agora que temos o vercel pro. o problema era esse, certo?" — e ofereceu criar mais 2-3 contas Google novas se precisar de mais cota de IA (separado do assunto Vercel, ver nota abaixo).
+
+#### O que foi migrado (4 PRs, #565-#568, todos mergeados e verificados)
+
+1. **`api/run_portal.js`** (PR #565) — handler ganhou um segundo caminho de disparo: `GET` autenticado por `?pass=<token admin>` (mesmo token já usado em `api/manage.js`, não o `CRON_SECRET` da própria Vercel — esse não dá pra ler/testar daqui). 100% aditivo — o caminho `POST` com body continua idêntico pra quem já chamava assim (admin, disparo manual).
+2. **`brasilon/vercel.json`** (PR #566) — cron nativo `*/20 * * * *` chamando `action=sync` — substitui o workaround que existia desde a criação do Brasil ON (25/08/2026), documentado explicitamente como bloqueado pelo Hobby ("plano Hobby só permite 1x/dia").
+3. **`vercel.json` (raiz)** (PR #567) — cron nativo pros 6 canais do pipeline principal (jovempan_politica/futebol/outros_esportes/materias/brasilon/internacional), mesmos offsets staggered de sempre (nunca 2 no mesmo minuto — lição do incidente de rate-limit do Gemini de 16/08). `futebol` passou a `*/5min`, consolidando dois disparadores que existiam separados (`pipeline-cron.yml` + `futebol-live.yml`). `maxDuration:60` em `run_portal.js` (Hobby limitava a ~10s — suspeita real de timeout documentada, ex: Jovem Pan 14/08).
+4. **`.github/workflows/pipeline-cron.yml` + `futebol-live.yml`** (PR #568) — `schedule:` removido de ambos (ficam só com `workflow_dispatch`, pra disparo manual/diagnóstico como sempre foi possível) — evita disparo duplicado agora que o cron nativo cobre os mesmos canais. `brasilon/CLAUDE.md` atualizado (a proibição de cron nativo era específica do Hobby, não existe mais).
+
+#### Verificação real, ponta a ponta (PR #569/#570, workflow diagnóstico)
+
+Antes de considerar migrado, testei o EXATO mecanismo que o cron nativo vai usar (GET com os mesmos parâmetros), direto em produção:
+
+```
+BRASIL_ON_SYNC: {"ok":true,"candidatos":185,"sincronizados":2,"porCategoria":{...}} — HTTP 200
+GET_TRIGGER (run_portal.js, tipo=jovempan_politica): {"status":"ok","generated":1,
+  "candidates":14,"falhas":{"hashDup":12,"pautaTitulo":1, resto zero}} — HTTP 200
+```
+1 matéria real gerada e publicada via GET — confirma que o caminho novo funciona de ponta a ponta, não só por leitura de código.
+
+#### Ordem de execução seguida (importante pra próxima sessão que precisar repetir esse padrão)
+
+Nunca desativei o `pipeline-cron.yml` antigo até confirmar (via `deploy.yml`, `status:completed, conclusion:success`) que o `vercel.json` novo já estava em produção — evita uma janela sem NENHUM disparo (nem o antigo, nem o novo). PR #567 (vercel.json) mergeado e confirmado deployado (~1min40s, dentro do normal — uma sequência de polls capturou ele "in_progress" por mais tempo que o usual só por estar checando no meio do processo, não travou de verdade) → só então mergeado o PR #568 que desativa o GitHub Actions antigo.
+
+#### Correção importante feita nesta sessão (não deixar cair no esquecimento)
+
+Corrigi, com a Roberto ainda na mesma conversa, uma afirmação errada que eu tinha feito antes: **cron nativo da Vercel NÃO tem opção de timezone, nem no Pro** (confirmado via 2 buscas independentes). O ganho real da migração não é fuso horário — é confiabilidade (o agendador do GitHub Actions já ficou horas sem disparar nada, documentado 15-16/08 e 21/08 — problema de OUTRO fornecedor, que a Vercel não resolve) e granularidade (Hobby só permitia 1 cron/dia, Pro permite 1min).
+
+#### Nota — pedido de Roberto sobre "mais 2-3 contas" NÃO é sobre Vercel
+
+Roberto ofereceu criar mais contas/projetos se precisar, na mesma mensagem que autorizou a migração de cron. Isso é sobre um problema DIFERENTE e ainda não resolvido: o teto de 20 requisições/dia do Gemini free tier por projeto Google Cloud (documentado extensivamente 16-17/08/2026) — não sobre a Vercel, que já resolvemos virando Pro. Se o volume de conteúdo aumentar agora que os disparos ficam mais confiáveis/frequentes, é bem provável que a cota do Gemini vire gargalo de novo antes da Vercel — nesse caso, a saída real e já mapeada é pedir a Roberto pra criar um projeto Google **novo** (não só chave nova na mesma conta — isso já foi testado e não soma cota) no Google AI Studio e me passar a chave, pra virar `GEMINI_API_KEY_3` no `_getGeminiKeys()` de `core/ai_portal.js`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — toda a migração foi em `vercel.json`/`brasilon/vercel.json`/`.github/workflows/`/`api/run_portal.js`, nenhum arquivo novo em `api/`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto ao longo do dia** que os 7 canais estão publicando com a frequência esperada (o teste confirmou o mecanismo funcionando, mas não um dia inteiro de operação real via cron nativo).
+2. **Se a cota do Gemini virar gargalo** (ver nota acima) — não esperar Roberto perceber sozinho, avisar proativamente e propor o projeto Google novo.
+3. `maxDuration:60` só foi aplicado em `run_portal.js` — se outros endpoints (`api/manage.js`, por exemplo `ig_auto_publish`/processamento de imagem) também tiverem timeout documentado no futuro, aplicar o mesmo padrão lá.
+4. Regra Zero-A (10 arquivos em `api/`) e o resto da proposta de "melhorar desempenho" ficou explicitamente pra segunda-feira, a pedido de Roberto — não adiantar essa conversa sozinho.
+5. Demais pendências de sessões anteriores seguem válidas (ver lista da entrada anterior).
