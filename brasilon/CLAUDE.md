@@ -161,10 +161,20 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
 ## 5. LIMITES CONHECIDOS E ARMADILHAS
 
 ```
-❌ NUNCA colocar cron nativo no vercel.json do Brasil ON (`crons: [...]`)
-   — plano Hobby só permite 1x/dia, e o sync precisa rodar a cada 20min.
-   O sync roda via GitHub Actions (job brasilon_sync em
-   .github/workflows/pipeline-cron.yml), não via cron da própria Vercel.
+✅ 30/08/2026 — conta virou Vercel PRO. O sync AGORA roda via cron nativo
+   da própria Vercel (`brasilon/vercel.json`, `crons: [...]`, */20min) —
+   Pro permite intervalo mínimo de 1min (Hobby só permitia 1x/dia, por
+   isso o sync vivia como workaround no GitHub Actions). O job
+   `brasilon_sync` foi removido de `.github/workflows/pipeline-cron.yml`
+   (esse arquivo não dispara mais nada por schedule — só workflow_dispatch
+   manual). Handler (`brasilon/api/manage.js`) não precisou de nenhuma
+   mudança — já lia `action`/`pass` via `req.query`, funciona igual pra
+   GET (cron) e POST (chamada manual antiga).
+❌ Cron nativo da Vercel é SEMPRE UTC, mesmo no Pro — não existe opção de
+   timezone (confirmado 30/08/2026 via busca real, não suposição). Se
+   algum dia um horário específico em BRT importar pro sync, calcular o
+   offset UTC-3 na hora de escrever o `schedule`, igual já é feito em
+   outras partes do projeto (`_igAutoDiaBRT()`, `janelaOk()` no OVC).
 ❌ NUNCA esquecer package.json próprio dentro de brasilon/ — já causou um
    incidente real (Bug: FUNCTION_INVOCATION_FAILED 500 em todas as
    functions que importavam @supabase/supabase-js, porque o projeto

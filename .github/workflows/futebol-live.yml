@@ -1,8 +1,10 @@
 name: Radar do Futebol — Cobertura Contínua
 
+# 30/08/2026 — schedule: REMOVIDO. Substituído pelo cron nativo da Vercel
+# Pro (vercel.json na raiz, tipo=futebol, */5min — PR #567), que consolida
+# este disparador com o job "futebol" de pipeline-cron.yml num só. Mantido
+# só pra disparo manual (workflow_dispatch).
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
