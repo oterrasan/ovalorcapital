@@ -1193,8 +1193,9 @@ async function autoFofocas(req, res, rec) {
     if (pautaParecida(item.title || "", rec.sourceTitulos)) { falhas.pautaFonte++; continue; }
     let a, sourceText;
     try {
-      // Nem ofuxico.com.br nem terra.com.br (a via da imagem, p2.trrsf.com)
-      // estão em COMPETITOR_IMG_HOSTS — não precisa de allowCompetitorImage.
+      // Nem ofuxico.com.br nem assets.portalleodias.com (CDN de imagem da
+      // Leo Dias) estão em COMPETITOR_IMG_HOSTS — não precisa de
+      // allowCompetitorImage.
       a = await scrape(item.link, { timeout: 3500 });
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
       if (sourceText.length < 100) { falhas.textoCurto++; continue; }
@@ -1206,14 +1207,21 @@ async function autoFofocas(req, res, rec) {
     if (dup) { falhas.hashDup++; continue; }
     try {
       const content = await rewriteFofocas(sourceText, item.title || a.title || "", rec.contexto);
-      content.categoria = "brasil-on";
-      content.subcategoria = "Famosos";
+      // Vestigial (validarBrasilOn() não lê estes campos e salvarFofocas()
+      // grava os próprios valores fixos "giro"/"Giro" no banco) — mantido só
+      // por clareza de leitura, já refletindo a categoria real desde a
+      // criação do Giro (30/08/2026).
+      content.categoria = "giro";
+      content.subcategoria = "Giro";
       const erros = validarBrasilOn(content);
       if (erros.length) { falhas.validacao++; continue; }
       if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { falhas.pautaTitulo++; continue; }
       const sourceImage = a.image || "";
+      // geminiVision:true — 25/08/2026: achado real de logo "LEO DIAS"
+      // visível numa imagem de amostra (flâmula de microfone, cobertura ao
+      // vivo). Ver core/image_processor.js e core/fofocas.js pro detalhe.
       const img = sourceImage
-        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true })
+        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true, geminiVision: true })
         : null;
       if (!img) {
         falhas.semImagem++;

@@ -75,6 +75,81 @@ async function analyzeImageVision(buffer) {
   }
 }
 
+// Cache local das chaves Gemini — duplicado de propósito, sem acoplar
+// image_processor.js a ai_portal.js (mesma convenção já usada em
+// api/manage.js pro mesmo motivo — ver histórico do projeto).
+let _geminiKeysImgCache = null;
+let _geminiKeysImgCacheTs = 0;
+async function _getGeminiKeysImg() {
+  const now = Date.now();
+  if (_geminiKeysImgCache && now - _geminiKeysImgCacheTs < 300000) return _geminiKeysImgCache;
+  try {
+    const { data } = await supabase.from("config").select("key,value").in("key", ["GEMINI_API_KEY", "GEMINI_API_KEY_2"]);
+    const keys = {};
+    (data || []).forEach(r => { keys[r.key] = r.value; });
+    const list = [keys.GEMINI_API_KEY, keys.GEMINI_API_KEY_2].filter(Boolean);
+    if (list.length) { _geminiKeysImgCache = list; _geminiKeysImgCacheTs = now; return list; }
+  } catch (_) {}
+  return [];
+}
+
+// 25/08/2026 — Analisa imagem via Gemini Vision — rejeita QUALQUER marca/logo
+// de veículo de forma GENÉRICA (não depende de lista fixa de nomes, ao
+// contrário de analyzeImageVision() abaixo, que é GPT-4o-mini com lista
+// fechada de portais). Criado especificamente pro canal de Fofocas/Giro
+// (core/fofocas.js): achado real (25/08/2026) — imagem de matéria real da
+// Leo Dias trazia a logo "LEO DIAS" bem visível na flâmula do microfone do
+// repórter deles, mesmo a foto sendo de cobertura ao vivo/pessoal (não um
+// screenshot óbvio). Roberto: "verifique se as imagens... sao plausiveis de
+// raspar... nao podemos ter citacoes de outros portais, nome de jornalistas
+// e nem logotipos etc" — este é o filtro que cumpre essa regra sem depender
+// do OpenAI (Roberto pediu pra abandonar o OpenAI por completo em
+// 16-17/08/2026 pra geração de texto; o filtro antigo baseado em GPT-4o-mini
+// segue existindo só pro pipeline principal de matérias, fora do escopo
+// desta mudança).
+async function analyzeImageVisionGemini(buffer) {
+  try {
+    const keys = await _getGeminiKeysImg();
+    if (!keys.length) return null;
+    let mimeType = "image/jpeg";
+    try {
+      const meta = await sharp(buffer).metadata();
+      if (meta.format) mimeType = `image/${meta.format === "jpg" ? "jpeg" : meta.format}`;
+    } catch (_) {}
+    const base64 = buffer.toString("base64");
+    const prompt = 'Analyze this image, which will be published on a Brazilian news portal that must NEVER show another outlet\'s branding. Respond ONLY with valid JSON: {"has_logo_or_watermark":true/false,"is_illustration":true/false}\nhas_logo_or_watermark: true if there is ANY visible brand logo, watermark, channel/outlet name, magazine name, website name, or journalist/reporter credit anywhere in the image — including on microphones, backdrops, banners, lower-third graphics, or small corner watermarks — even if small or partial. False only if the photo has no visible media-outlet branding at all.\nis_illustration: true if this is a drawing, cartoon, graphic, or non-photographic artwork rather than a real photograph.';
+    const body = {
+      contents: [{ role: "user", parts: [
+        { text: prompt },
+        { inline_data: { mime_type: mimeType, data: base64 } }
+      ] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 100 }
+    };
+    for (const key of keys) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${key}`, {
+          method: "POST",
+          signal: controller.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        clearTimeout(timer);
+        if (!res.ok) { if (res.status === 429 || res.status === 503) continue; return null; }
+        const d = await res.json();
+        const text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const m = text.match(/\{[^}]+\}/);
+        if (!m) return null;
+        return JSON.parse(m[0]);
+      } catch (_) { continue; }
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Gera overlay SVG com marca d'água (canto inferior direito) — label parametrizável
 // para portais irmãos (ex: Brasil ON) que precisam de marca própria.
 function buildWatermark(width, height, label) {
@@ -186,12 +261,18 @@ async function uploadToSupabase(buffer, filename, bucket = "post-images", prefix
 //   outWidth/outHeight — dimensão final (default 1200x675, 16:9)
 //   watermarkLabel — texto da marca d'água, '' ou null para nenhuma (default "ovalorcapital.com.br")
 //   bucket/prefix — destino no Supabase Storage (default "post-images"/"imagens")
-//   skipVision — true pula a análise Vision (logo/gráfico/ilustração/ponto turístico/
-//   concorrente) inteira, sem gastar chamada de IA nem tempo. Usado pelo Brasil ON:
-//   Roberto Terrasan confirmou 11/08/2026 que as fontes aprovadas (Bacci Notícias,
-//   Revista Oeste) não têm marca d'água nem nada que impeça reaproveitamento direto
-//   da imagem — o filtro do OVC (pensado pro pool de 1000+ fontes RSS) é desnecessário
+//   skipVision — true pula a análise Vision OpenAI (logo/gráfico/ilustração/ponto
+//   turístico/concorrente) inteira, sem gastar chamada de IA nem tempo. Usado pelo
+//   Brasil ON/Jovem Pan/Internacional: Roberto Terrasan confirmou que as fontes
+//   aprovadas não têm marca d'água nem nada que impeça reaproveitamento direto da
+//   imagem — o filtro do OVC (pensado pro pool de 1000+ fontes RSS) é desnecessário
 //   ali. Imagem sempre vem da própria matéria (og:image), nunca de outro lugar.
+//   geminiVision — true roda analyzeImageVisionGemini() (independente de skipVision)
+//   pra rejeitar QUALQUER logo/marca/watermark de forma genérica, fail-closed (rejeita
+//   se a análise falhar, não só se detectar algo). Criado pro canal de Fofocas/Giro
+//   (25/08/2026) — fontes de raspagem de celebridades podem ter foto de cobertura ao
+//   vivo com a marca do próprio veículo visível (ex: flâmula de microfone), diferente
+//   de Brasil ON/Jovem Pan/Internacional, cujas fontes foram confirmadas limpas.
 export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {}) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
   // Rejeita URLs de origem ruins antes de qualquer download — ícone GE, CDN Google, etc.
@@ -200,21 +281,33 @@ export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {
     const buffer = await downloadImage(sourceUrl);
     if (!buffer || buffer.length < 5000) return null;
 
-    let visionMetrics = null;
-    if (!opts.skipVision) {
+    if (opts.geminiVision) {
+      const elapsed = startTime ? Date.now() - startTime : 0;
+      let visionMetrics = null;
+      if (elapsed < 15000) {
+        visionMetrics = await analyzeImageVisionGemini(buffer);
+      }
+      // Fail-closed: rejeita se a análise não pôde ser feita (sem chave, timeout,
+      // erro) OU se achou logo/marca/ilustração. Diferente do caminho OpenAI abaixo
+      // (fail-open) — aqui o risco de vazar marca de fonte de raspagem é maior que
+      // perder uma imagem boa.
+      if (!visionMetrics || visionMetrics.has_logo_or_watermark === true || visionMetrics.is_illustration === true) {
+        return null;
+      }
+    } else if (!opts.skipVision) {
       // Chama Vision só se há orçamento de tempo (< 5s decorridos desde início da request)
       const elapsed = startTime ? Date.now() - startTime : 0;
+      let visionMetrics = null;
       if (elapsed < 5000) {
         visionMetrics = await analyzeImageVision(buffer);
       }
+      // Rejeita: logo, ponto turístico genérico, logo concorrente, gráfico/tabela, ilustração
+      if (visionMetrics?.is_logo === true) return null;
+      if (visionMetrics?.is_tourist_landmark === true) return null;
+      if (visionMetrics?.has_competitor_logo === true) return null;
+      if (visionMetrics?.is_chart_or_table === true) return null;
+      if (visionMetrics?.is_illustration === true) return null;
     }
-
-    // Rejeita: logo, ponto turístico genérico, logo concorrente, gráfico/tabela, ilustração
-    if (visionMetrics?.is_logo === true) return null;
-    if (visionMetrics?.is_tourist_landmark === true) return null;
-    if (visionMetrics?.has_competitor_logo === true) return null;
-    if (visionMetrics?.is_chart_or_table === true) return null;
-    if (visionMetrics?.is_illustration === true) return null;
 
     const processed = await processImage(buffer, opts);
     if (!processed) return null;
