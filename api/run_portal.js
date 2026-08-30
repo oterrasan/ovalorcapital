@@ -1143,8 +1143,19 @@ async function autoInternacional(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "internacional", candidates: items.length, falhas });
 }
 
+// 30/08/2026 — cron nativo da Vercel (Pro, ativado hoje) dispara via GET,
+// com os parâmetros direto na URL configurada em vercel.json — nunca tem
+// corpo (body). Autenticado pelo MESMO token admin já usado em todo o
+// resto do projeto (api/manage.js) — nunca o CRON_SECRET que a Vercel
+// injeta sozinha, porque esse eu não consigo ler nem testar daqui, e este
+// projeto sempre confirma com evidência real antes de depender de algo.
+// Sem o token certo, GET continua caindo no "ready" de sempre — zero
+// mudança de comportamento pra quem já chama via POST (GH Actions, admin).
+const CRON_TOKEN = process.env.ADMIN_TOKEN || process.env.ADMIN_PASSWORD || "ovc-admin-2026-secreto";
+
 export default async function handler(req, res) {
-  const body = req.body || {};
+  const isCronTrigger = req.method === "GET" && req.query?.pass === CRON_TOKEN;
+  const body = isCronTrigger ? { ...req.query } : (req.body || {});
   const meta = req.query || {};
   if (meta.action === "buscar_imagem") {
     const q = String(meta.q || "").trim();
@@ -1155,7 +1166,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ url: url || null, categoria: cat || null });
   }
   if (body.action === "cleanup_titles") return cleanupTitles(res, body);
-  if (req.method !== "POST") return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
+  if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });
   if (!body.force && !janelaOk()) return res.status(200).json({ status: "fora_horario", janela: "07:00-00:30 BRT", generated: 0 });
