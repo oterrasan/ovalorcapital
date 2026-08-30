@@ -1,47 +1,15 @@
-name: Diagnóstico único (contar publicações reais do Instagram nas últimas 24h)
+name: Diagnóstico único (placeholder)
+
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
 
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Contar posts com ig_id preenchido nas últimas 24h
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq jq
-          SINCE=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%S)
-          echo "=== Janela: desde $SINCE (UTC) até agora ==="
-
-          echo ""
-          echo "=== 1) Contagem exact via header Prefer: count=exact — posts com ig_id preenchido, updated_at nas últimas 24h ==="
-          curl -sS "$SUPABASE_URL/rest/v1/posts?select=id&ig_id=not.is.null&updated_at=gte.$SINCE" \
-            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" \
-            -H "Prefer: count=exact" -I | grep -i content-range
-
-          echo ""
-          echo "=== 2) Amostra dos posts (id, titulo, categoria, updated_at, ig_id, published_via) ==="
-          curl -sS "$SUPABASE_URL/rest/v1/posts?select=id,titulo,user_tags,updated_at,ig_id,metrics&ig_id=not.is.null&updated_at=gte.$SINCE&order=updated_at.desc&limit=200" \
-            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o /tmp/ig_posts.json
-          jq 'length' /tmp/ig_posts.json
-          jq '[.[] | .metrics.instagram.published_via] | group_by(.) | map({via: .[0], n: length})' /tmp/ig_posts.json
-          echo ""
-          echo "--- primeiras 10 linhas (mais recentes) ---"
-          jq -r '.[:10][] | "\(.updated_at) | \(.ig_id) | \(.metrics.instagram.published_via // "?") | \(.titulo)"' /tmp/ig_posts.json
-
-          echo ""
-          echo "=== 3) Config atual da automação (IG_AUTOMATION_*) ==="
-          curl -sS "$SUPABASE_URL/rest/v1/config?select=key,value,updated_at&key=in.(IG_AUTOMATION_ENABLED,IG_AUTOMATION_INTERVAL,IG_AUTOMATION_DAILY_LIMIT,IG_AUTOMATION_CATEGORIES,IG_AUTOMATION_LAST_RUN)&order=updated_at.desc" \
-            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | jq '.'
-
-          echo ""
-          echo "=== 4) Logs [ig-auto] das últimas 24h (erro vs info) ==="
-          curl -sS "$SUPABASE_URL/rest/v1/logs?select=level,message,created_at&message=ilike.*%5Big-auto%5D*&created_at=gte.$SINCE&order=created_at.desc&limit=500" \
-            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o /tmp/ig_logs.json
-          jq 'length' /tmp/ig_logs.json
-          jq '[.[] | .level] | group_by(.) | map({level: .[0], n: length})' /tmp/ig_logs.json
+      - run: echo "placeholder — nada a fazer"
