@@ -230,7 +230,7 @@ window.OVC = {
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-modal', 'true');
     menu.setAttribute('aria-label', 'Menu de navegação');
-    const links = [['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],['Finanças','/financas/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],['Internacional','/internacional/'],['Indústria','/industria/'],['Família','/familia/'],['Esportes','/esportes/'],['Colunistas','/colunistas/'],['VC','/vc/'],['Dados & Indicadores','/dados/'],['Radar OVC','/radar/'],['Newsletter','/newsletter/']];
+    const links = [['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],['Finanças','/financas/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],['Internacional','/internacional/'],['Indústria','/industria/'],['Família','/familia/'],['Esportes','/esportes/'],['Giro','/giro/'],['Colunistas','/colunistas/'],['VC','/vc/'],['Dados & Indicadores','/dados/'],['Radar OVC','/radar/'],['Newsletter','/newsletter/']];
     menu.innerHTML='<div class="mobile-menu-header"><span class="mobile-menu-title">O Valor Capital</span><button class="mobile-menu-close" id="mobileMenuClose" aria-label="Fechar menu">✕</button></div><nav class="mobile-menu-nav" aria-label="Navegação mobile">'+links.map(([l,h])=>`<a class="mobile-menu-link" href="${h}">${l}</a>`).join('')+'</nav>';
     document.body.appendChild(menu);
     function openMenu(){menu.classList.add('open');overlay.classList.add('open');btn.classList.add('active');btn.setAttribute('aria-expanded','true');document.body.style.overflow='hidden';}
@@ -312,7 +312,7 @@ OVC.updateInnerNav = function(){
     ['Brasil On','/brasil-on/'],['Política','/politica/'],['Economia','/economia/'],
     ['Finanças','/financas/'],['Negócios','/negocios/'],['Tecnologia','/tecnologia/'],
     ['Internacional','/internacional/'],['Indústria','/industria/'],['Família','/familia/'],
-    ['Esportes','/esportes/'],['Colunistas','/colunistas/'],['VC','/vc/']
+    ['Esportes','/esportes/'],['Giro','/giro/'],['Colunistas','/colunistas/'],['VC','/vc/']
   ];
   nav.innerHTML = navItems.map(function(item){
     var isActive = currentPath === item[1] || currentPath.startsWith(item[1].slice(0,-1));

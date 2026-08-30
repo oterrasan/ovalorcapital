@@ -97,6 +97,12 @@ const CAT_SEO = {
     canonical: "https://www.ovalorcapital.com.br/esportes/",
     tplPath: "esportes",
   },
+  giro: {
+    title: "Giro | O Valor Capital",
+    desc: "Famosos, celebridades, bastidores, entretenimento e cultura pop no Brasil e no mundo. O giro do que está sendo comentado, com o padrão editorial do OVC.",
+    canonical: "https://www.ovalorcapital.com.br/giro/",
+    tplPath: "giro",
+  },
   cultura: {
     title: "Cultura | O Valor Capital",
     desc: "Cinema, música, literatura, teatro, gastronomia e a produção cultural brasileira. Entretenimento com análise editorial e impacto na sociedade e na economia.",
@@ -190,6 +196,9 @@ const SECTION_LABELS = {
     tenis: "Tênis", mma: "MMA", volei: "Vôlei", nfl: "NFL", geral: "Geral",
     // legado
     automobilismo: "Automobilismo", "e-sports": "E-sports"
+  },
+  giro: {
+    famosos: "Famosos", bastidores: "Bastidores", geral: "Geral"
   },
   familia: {
     "orcamento-familiar": "Orçamento Familiar",

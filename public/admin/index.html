@@ -595,6 +595,7 @@ function Pipeline() {
     {id:'industria',     label:'🏭 Indústria'},
     {id:'familia',       label:'👨‍👩‍👧 Família'},
     {id:'esportes',      label:'⚽ Esportes'},
+    {id:'giro',          label:'🎬 Giro'},
   ];
 
   const SUBCATS = {
@@ -608,6 +609,7 @@ function Pipeline() {
     industria:     ['Agronegócio','Energia','Construção Civil','Logística','Geral'],
     familia:       ['Orçamento Familiar','Educação dos Filhos','Habitação','Sucessão','Geral'],
     esportes:      ['Futebol','Basquete','Motor','Tênis','MMA','Vôlei','NFL','Geral'],
+    giro:          ['Famosos','Bastidores','Geral'],
   };
 
   const [pedidos, setPedidos] = useState([{categoria:'politica', subcategoria:'', quantidade:3}]);
@@ -772,7 +774,7 @@ function Pipeline() {
 }
 
 // ── POSTAGENS ──
-const CATS_LIST = ['','brasil-on','politica','economia','financas','negocios','tecnologia','internacional','industria','familia','esportes','vc','colunistas'];
+const CATS_LIST = ['','brasil-on','politica','economia','financas','negocios','tecnologia','internacional','industria','familia','esportes','giro','vc','colunistas'];
 const SUBCATS_POST = {
   'brasil-on':   ['Cotidiano','Consumidor','Bem-estar','Meio Ambiente','Ciência e Inovação','Geral'],
   politica:      ['Bastidores de Brasília','Eleições 2026','Notícias 24hrs','Corrupção e Investigação','Política Internacional','Geral'],
@@ -784,6 +786,7 @@ const SUBCATS_POST = {
   industria:     ['Agronegócio','Energia','Construção Civil','Logística','Geral'],
   familia:       ['Orçamento Familiar','Educação dos Filhos','Habitação','Sucessão','Geral'],
   esportes:      ['Futebol','Basquete','Motor','Tênis','MMA','Vôlei','NFL','Geral'],
+  giro:          ['Famosos','Bastidores','Geral'],
   vc:            [],
   colunistas:    [],
 };

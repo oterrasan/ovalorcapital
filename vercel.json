@@ -102,6 +102,7 @@
     { "src": "^/tecnologia/?$",             "dest": "/api/category?cat=tecnologia" },
     { "src": "^/esportes/?$",               "dest": "/api/category?cat=esportes" },
     { "src": "^/familia/?$",               "dest": "/api/category?cat=familia" },
+    { "src": "^/giro/?$",                   "dest": "/api/category?cat=giro" },
     { "src": "^/internacional/?$",          "dest": "/api/category?cat=internacional" },
     { "src": "^/brasil-on/?$",              "dest": "/api/category?cat=brasil-on" },
     { "src": "^/colunistas/?$",             "dest": "/api/category?cat=colunistas" },
