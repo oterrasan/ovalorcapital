@@ -10,35 +10,26 @@ jobs:
   testar_fontes_fofocas:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar candidatos de fonte — fofocas/famosos (rodada 2)
+      - name: Confirmar Ofuxico + Terra — artigos reais com imagem
         run: |
           set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
-          echo "=== OFUXICO post-sitemap.xml (chunk mais recente) ==="
+          echo "=== OFUXICO post-sitemap.xml — slugs reais (excluindo listagem) ==="
           curl -s -o /tmp/ofx2.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://ofuxico.com.br/post-sitemap.xml" --max-time 20
-          grep -oE '<loc>https://ofuxico\.com\.br/[a-z0-9-]{15,}/?</loc>' /tmp/ofx2.xml 2>/dev/null | sed -n '1,8p'
-          echo "total urls:"; grep -c '<loc>' /tmp/ofx2.xml 2>/dev/null
+          grep -oE '<url><loc>https://ofuxico\.com\.br/[a-z0-9-]{15,}/</loc><lastmod>[^<]+</lastmod>' /tmp/ofx2.xml 2>/dev/null \
+            | grep -viE 'todas-as-noticias|categoria|tag/' | tail -6
 
-          echo "=== HUGOGLOSS homepage bruta (achar padrão real de link) ==="
-          curl -s -o /tmp/hg.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://hugogloss.uol.com.br/" --max-time 10 || true
-          grep -oE 'href="[^"]*hugogloss[^"]{10,80}"' /tmp/hg.html 2>/dev/null | sort -u | head -10
+          OFX_URL=$(grep -oE '<url><loc>https://ofuxico\.com\.br/[a-z0-9-]{15,}/</loc>' /tmp/ofx2.xml 2>/dev/null \
+            | grep -viE 'todas-as-noticias|categoria|tag/' | tail -1 | sed -E 's/<url><loc>//;s/<\/loc>//')
+          echo "URL escolhida: $OFX_URL"
+          curl -s -o /tmp/ofx_art.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "$OFX_URL" --max-time 10
+          echo "og:image:"; grep -oE '<meta property="og:image" content="[^"]+"' /tmp/ofx_art.html 2>/dev/null | head -1
+          echo "title:"; grep -oE '<title>[^<]+</title>' /tmp/ofx_art.html 2>/dev/null | head -1
 
-          echo "=== METROPOLES FAMOSOS sitemap_index ==="
-          curl -s -o /tmp/metro.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://www.metropoles.com/sitemap_index.xml" --max-time 10 || true
-          head -c 300 /tmp/metro.xml 2>/dev/null; echo
-          echo "=== METROPOLES FAMOSOS homepage ==="
-          curl -s -o /tmp/metro2.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://www.metropoles.com/famosos" --max-time 10 || true
-          grep -oE 'href="https://www\.metropoles\.com/famosos/[a-z0-9-]{10,}"' /tmp/metro2.html 2>/dev/null | sort -u | head -10
-
-          echo "=== NOTICIAS DA TV (uol) ==="
-          curl -s -o /tmp/ntv.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://noticiasdatv.uol.com.br/" --max-time 10 || true
-          grep -oE 'href="https://noticiasdatv\.uol\.com\.br/[a-z0-9-]{15,}/?"' /tmp/ntv.html 2>/dev/null | sort -u | head -10
-
-          echo "=== ESTRELANDO sitemap_index ==="
-          curl -s -o /tmp/estr.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://estrelando.com.br/sitemap_index.xml" --max-time 10 || true
-          head -c 300 /tmp/estr.xml 2>/dev/null; echo
-
-          echo "=== TERRA DIVERSAO ==="
-          curl -s -o /tmp/terra.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://www.terra.com.br/diversao/gente/" --max-time 10 || true
-          grep -oE 'href="[^"]*terra\.com\.br/diversao/gente/[a-z0-9-]{10,}[^"]*"' /tmp/terra.html 2>/dev/null | sort -u | head -10
+          echo ""
+          echo "=== TERRA — artigo real com imagem ==="
+          TERRA_URL="https://www.terra.com.br/diversao/gente/ana-castela-vira-alvo-de-polemica-ao-recriar-versao-ostentadora-de-rap-da-felicidade,84b182388a17d896e4a6e0575de3e8b7pn3cgwly.html"
+          curl -s -o /tmp/terra_art.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "$TERRA_URL" --max-time 10
+          echo "og:image:"; grep -oE '<meta property="og:image" content="[^"]+"' /tmp/terra_art.html 2>/dev/null | head -1
+          echo "title:"; grep -oE '<title>[^<]+</title>' /tmp/terra_art.html 2>/dev/null | head -1
