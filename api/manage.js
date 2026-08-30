@@ -4,6 +4,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { getAccount, likeMedia, postComment, publish } from "../core/instagram.js";
 import { prepareInstagramImage } from "../core/instagram_image.js";
+import { detectPublicationLocation } from "../core/instagram_location.js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -303,9 +304,10 @@ function buildInstagramHashtags(post, extracted, category) {
   return unique.slice(0, 10);
 }
 
-function fitInstagramCaption(body, signature, hashtags, ctaBlock) {
+function fitInstagramCaption(body, signature, hashtags, ctaBlock, location) {
   const hashtagBlock = hashtags.join(" ");
-  const compose = (bodyText) => [bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  const locationBlock = location ? `📍 ${location}` : "";
+  const compose = (bodyText) => [locationBlock, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;
@@ -356,11 +358,12 @@ function buildInstagramCaption(post) {
   const category = tags[0] || "";
   const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
   const body = removeRepeatedHeadline(post.titulo, extracted.body);
+  const location = detectPublicationLocation(post.titulo, body);
   const signature = "Redação OVC — " + date;
   const hashtags = buildInstagramHashtags(post, extracted, category);
   // Pedido explícito de Roberto (25/08/2026): toda publicação termina com CTA + link real da matéria.
   const ctaBlock = "📲 Acesse o portal e confira a matéria na íntegra:\n" + buildArticleUrl(post);
-  return fitInstagramCaption(body, signature, hashtags, ctaBlock);
+  return fitInstagramCaption(body, signature, hashtags, ctaBlock, location);
 }
 
 function buildInstagramFirstComment(post) {
@@ -561,19 +564,26 @@ function _igAutoDiaBRT() {
 // 13/08 e 20/08/2026). Cada publicação grava 1 linha nova com chave única
 // (timestamp+random) — nunca há corrida entre chamadas concorrentes, e a
 // contagem real vem de um COUNT agregado, não de leitura+soma de 1 linha.
-async function _igAutoContarHoje() {
+function _igAutoInicioDiaBRT() {
   const dia = _igAutoDiaBRT();
+  const iso = `${dia.slice(0, 4)}-${dia.slice(4, 6)}-${dia.slice(6, 8)}`;
+  return new Date(`${iso}T00:00:00-03:00`).toISOString();
+}
+
+async function _igAutoContarHoje(accountId) {
   const { count, error } = await supabase
-    .from("config")
-    .select("key", { count: "exact", head: true })
-    .like("key", `IG_AUTO_${dia}__%`);
+    .from("posts")
+    .select("id", { count: "exact", head: true })
+    .eq("ig_account_id", accountId)
+    .not("ig_id", "is", null)
+    .gte("updated_at", _igAutoInicioDiaBRT());
   if (error) throw error;
   return count || 0;
 }
 
-async function _igAutoRegistrarPublicacao() {
+async function _igAutoRegistrarPublicacao(accountId) {
   const dia = _igAutoDiaBRT();
-  const rowKey = `IG_AUTO_${dia}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const rowKey = `IG_AUTO_${dia}__${accountId}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   await supabase.from("config").insert({ key: rowKey, value: "1" });
 }
 
@@ -609,51 +619,36 @@ async function handleIgPreview(req, res, body) {
   });
 }
 
-async function handleIgAutoPublish(req, res, body) {
-  if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
+  const username = String(account.username || "").replace(/^@/, "").toLowerCase();
+  const isDefaultAccount = username === "ovalorcapital";
+  const accountLimitRaw = Number(account.limite_diario || settings.dailyLimit);
+  const accountLimit = Number.isFinite(accountLimitRaw) ? Math.min(100, Math.max(1, accountLimitRaw)) : settings.dailyLimit;
 
-  const settings = await _igAutoConfig();
-  if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_desligada_no_admin" });
-  const elapsedMinutes = settings.lastRun ? (Date.now() - settings.lastRun) / 60000 : Infinity;
-  if (elapsedMinutes < settings.interval - 1) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "intervalo_configurado", proxima_em_minutos: Math.ceil(settings.interval - elapsedMinutes) });
-  }
-  await _igAutoSetConfig("IG_AUTOMATION_LAST_RUN", Date.now());
-  await writeLog("info", "[ig-auto] execução iniciada");
-
-  let publicadosHoje = 0;
+  let publicadosHoje;
   try {
-    publicadosHoje = await _igAutoContarHoje();
+    publicadosHoje = await _igAutoContarHoje(account.id);
   } catch (e) {
-    return res.status(200).json({ ok: false, error: "erro_contador: " + redactSecrets(e?.message || String(e)) });
+    return { ok: false, account_id: account.id, username, error: "erro_contador: " + redactSecrets(e?.message || String(e)) };
   }
-  if (publicadosHoje >= settings.dailyLimit) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "limite_diario_atingido", publicados_hoje: publicadosHoje });
-  }
-
-  let candidatos;
-  const agoraMs = Date.now();
-  try {
-    const { data, error } = await supabase
-      .from("posts")
-      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
-      .eq("status", "publicado")
-      .order("published_at", { ascending: false })
-      .limit(200);
-    if (error) throw error;
-    candidatos = data || [];
-  } catch (e) {
-    return res.status(200).json({ ok: false, error: "erro_busca_candidatos: " + redactSecrets(e?.message || String(e)) });
+  if (publicadosHoje >= accountLimit) {
+    return { ok: true, skipped: true, reason: "limite_diario_da_conta_atingido", account_id: account.id, username, publicados_hoje: publicadosHoje, limite: accountLimit };
   }
 
   const titulosJaPublicados = new Set(
     candidatos
-      .filter((p) => p.ig_id || parseJsonMaybe(p.metrics, {})?.instagram?.ig_id)
+      .filter((p) => String(p.ig_account_id || "") === String(account.id) && (p.ig_id || parseJsonMaybe(p.metrics, {})?.instagram?.ig_id))
       .map((p) => _igAutoTitleKey(p.titulo))
       .filter(Boolean)
   );
 
   const post = candidatos.find((p) => {
+    const assignedAccountId = String(p.ig_account_id || "");
+    const routedToAccount = assignedAccountId
+      ? assignedAccountId === String(account.id)
+      : isDefaultAccount;
+    if (!routedToAccount) return false;
+
     const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
     const idadeMs = agoraMs - publishedAtMs;
     if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
@@ -662,23 +657,16 @@ async function handleIgAutoPublish(req, res, body) {
     const categoria = String(tags[0] || "").trim().toLowerCase();
     if (!settings.categories.has(categoria)) return false;
     const metrics = parseJsonMaybe(p.metrics, {});
-    if (p.ig_id || metrics?.instagram?.ig_id) return false; // já publicado ou reservado no IG
-    if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false; // mesma matéria em outra linha
+    if (p.ig_id || metrics?.instagram?.ig_id) return false;
+    if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false;
     return true;
   });
 
   if (!post) {
-    await writeLog("info", "[ig-auto] nenhuma matéria elegível");
-    return res.status(200).json({
-      ok: true,
-      skipped: true,
-      reason: "nenhum_candidato_recente_elegivel",
-      janela_horas: IG_AUTO_JANELA_HORAS,
-      publicados_hoje: publicadosHoje
-    });
+    await writeLog("info", `[ig-auto] @${username}: nenhuma matéria elegível`);
+    return { ok: true, skipped: true, reason: "nenhum_candidato_recente_elegivel", account_id: account.id, username, janela_horas: IG_AUTO_JANELA_HORAS, publicados_hoje: publicadosHoje };
   }
 
-  const accountId = post.ig_account_id || null;
   const caption = buildInstagramCaption(post);
   const now = new Date().toISOString();
   const claimId = `processing:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
@@ -690,15 +678,15 @@ async function handleIgAutoPublish(req, res, body) {
     .is("ig_id", null)
     .select("id");
   if (claimError) {
-    return res.status(200).json({ ok: false, error: "erro_reserva_publicacao", post_id: post.id });
+    return { ok: false, error: "erro_reserva_publicacao", post_id: post.id, account_id: account.id, username };
   }
   if (!claimedRows?.length) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "materia_ja_reservada_ou_publicada", post_id: post.id });
+    return { ok: true, skipped: true, reason: "materia_ja_reservada_ou_publicada", post_id: post.id, account_id: account.id, username };
   }
 
   try {
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, accountId);
+    const ig = await publish(instagramImage.url, caption, account.id);
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
@@ -750,11 +738,12 @@ async function handleIgAutoPublish(req, res, body) {
       if (fallbackError) throw updateError;
     }
 
-    try { await _igAutoRegistrarPublicacao(); } catch (_) {}
-    await writeLog("info", `[ig-auto] publicado: ${post.titulo} | ig:${ig.id}`);
+    try { await _igAutoRegistrarPublicacao(account.id); } catch (_) {}
+    await writeLog("info", `[ig-auto] @${username} publicado: ${post.titulo} | ig:${ig.id}`);
 
-    return res.status(200).json({
+    return {
       ok: true,
+      published: true,
       post_id: post.id,
       titulo: post.titulo,
       ig_id: ig.id,
@@ -765,7 +754,7 @@ async function handleIgAutoPublish(req, res, body) {
       first_comment_error: firstCommentError,
       self_like_success: selfLike?.success === true,
       self_like_error: selfLikeError
-    });
+    };
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     try {
@@ -775,7 +764,55 @@ async function handleIgAutoPublish(req, res, body) {
         .eq("id", post.id)
         .eq("ig_id", claimId);
     } catch (_) {}
-    return res.status(200).json({ ok: false, error: safeError, post_id: post.id });
+    await writeLog("error", `[ig-auto] @${username} falhou: ${safeError}`);
+    return { ok: false, error: safeError, post_id: post.id, account_id: account.id, username };
+  }
+}
+
+async function handleIgAutoPublish(req, res, body) {
+  if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  const settings = await _igAutoConfig();
+  if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_desligada_no_admin" });
+  const elapsedMinutes = settings.lastRun ? (Date.now() - settings.lastRun) / 60000 : Infinity;
+  if (elapsedMinutes < settings.interval - 1) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "intervalo_configurado", proxima_em_minutos: Math.ceil(settings.interval - elapsedMinutes) });
+  }
+  await _igAutoSetConfig("IG_AUTOMATION_LAST_RUN", Date.now());
+  await writeLog("info", "[ig-auto] execução simultânea iniciada");
+
+  try {
+    const [{ data: accounts, error: accountsError }, { data: candidatos, error: candidatesError }] = await Promise.all([
+      supabase
+        .from("ig_accounts")
+        .select("*")
+        .eq("active", true)
+        .eq("distribuicao_automatica", true)
+        .not("token", "is", null),
+      supabase
+        .from("posts")
+        .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
+        .eq("status", "publicado")
+        .order("published_at", { ascending: false })
+        .limit(500)
+    ]);
+    if (accountsError) throw accountsError;
+    if (candidatesError) throw candidatesError;
+    if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
+
+    const results = await Promise.all(accounts.map((account) => _igAutoProcessAccount(account, candidatos || [], settings, Date.now())));
+    const failures = results.filter((result) => !result.ok);
+    return res.status(200).json({
+      ok: failures.length === 0,
+      simultaneous: true,
+      accounts_processed: results.length,
+      published: results.filter((result) => result.published).length,
+      results
+    });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", "[ig-auto] falha na execução simultânea: " + safeError);
+    return res.status(200).json({ ok: false, error: safeError });
   }
 }
 
