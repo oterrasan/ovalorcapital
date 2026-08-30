@@ -27,6 +27,14 @@ const CAT_PATH = {
   defesa: "brasil-on", esg: "brasil-on",
   tributacao: "economia", tributos: "economia", regulacao: "economia",
   parcerias: "negocios",
+  // Categoria própria (30/08/2026, PR #573) — faltava aqui. Sem ela,
+  // VALID_CATS não reconhecia "giro" e handleList() (usado por /giro/ via
+  // ?categoria=giro&limit=60, SEM recentes=true) descartava todo post giro
+  // no filtro final (linha ~339), mesmo a query já tendo achado eles certo
+  // no banco — página ficava sem nenhum card. handleRecentes() com
+  // categoria explícita não sofria disso (filtro próprio, sem VALID_CATS),
+  // por isso ?recentes=true&categoria=giro sempre funcionou nos testes.
+  giro: "giro",
   // Sistema
   radar: "radar", vc: "colunistas", colunistas: "colunistas", geral: "politica"
 };
