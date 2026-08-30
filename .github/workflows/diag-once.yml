@@ -1,90 +1,15 @@
 name: Diagnóstico único (placeholder)
 
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
+
 on:
-  push:
-    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
-    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-
-      - name: Leo Dias — estrutura completa do sitemap + 3 artigos reais + imagens
-        run: |
-          set +e
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-          mkdir -p /tmp/scratch/imgs
-
-          echo "=== /sitemap.xml completo ==="
-          curl -sS -m 15 -A "$UA" "https://portalleodias.com/sitemap.xml" -o /tmp/scratch/idx.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-          cat /tmp/scratch/idx.xml
-
-          echo ""
-          echo "=== extraindo apenas post-sitemapN.xml (materias de verdade, nao tags/categorias/paginas) ==="
-          grep -oE '<loc>[^<]*post-sitemap[0-9]*\.xml</loc>' /tmp/scratch/idx.xml
-
-          SUB=$(grep -oE '<loc>[^<]*post-sitemap[0-9]*\.xml</loc>' /tmp/scratch/idx.xml | tail -1 | sed -e 's/<loc>//' -e 's/<\/loc>//')
-          echo "post-sitemap mais recente (chunk mais alto): [$SUB]"
-
-          if [ -n "$SUB" ]; then
-            echo "=== conteudo do sub-sitemap mais recente (primeiros 2000 chars) ==="
-            curl -sS -m 15 -A "$UA" "$SUB" -o /tmp/scratch/sub.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-            head -c 2000 /tmp/scratch/sub.xml
-            echo ""
-            echo "=== todas as <loc> do sub-sitemap ==="
-            grep -oE '<loc>[^<]*</loc>' /tmp/scratch/sub.xml | sed -e 's/<loc>//' -e 's/<\/loc>//' | tail -20
-          fi
-
-          echo ""
-          echo "=== pegando 3 artigos reais (ultimos da lista, filtrando paginas nao-materia) ==="
-          ARTS=$(grep -oE '<loc>[^<]*</loc>' /tmp/scratch/sub.xml 2>/dev/null | sed -e 's/<loc>//' -e 's/<\/loc>//' | grep -viE '/categoria/|/tag/|/autor/|/page/|/sobre/|/contato/|/politica-de-privacidade/|/anuncie' | tail -3)
-          echo "$ARTS"
-          i=0
-          for URL in $ARTS; do
-            i=$((i+1))
-            echo "--- artigo LD $i: $URL ---"
-            curl -sS -m 15 -A "$UA" "$URL" -o /tmp/scratch/art_$i.html -w "HTTP:%{http_code} SIZE:%{size_download}\n"
-            echo "title:"
-            grep -o '<title>[^<]*</title>' /tmp/scratch/art_$i.html | head -1
-            echo "og:image:"
-            grep -o 'property="og:image" content="[^"]*"' /tmp/scratch/art_$i.html | head -1
-            echo "possiveis bylines/autor:"
-            grep -oiE '(class="[^"]*author[^"]*"[^>]*>[^<]{2,60}<|rel="author"[^>]*>[^<]{2,60}<)' /tmp/scratch/art_$i.html | head -5
-            echo "citacoes a outros veiculos no corpo:"
-            grep -oiE '(segundo (a|o) (revista |site |portal |coluna )?[A-ZÀ-Ú][a-zà-ú]+|de acordo com (a|o) (revista |site |portal )?[A-ZÀ-Ú][a-zà-ú]+|conforme (a|o) [A-ZÀ-Ú][a-zà-ú]+)' /tmp/scratch/art_$i.html | sort -u | head -10
-            IMG=$(grep -o 'property="og:image" content="[^"]*"' /tmp/scratch/art_$i.html | head -1 | sed -e 's/.*content="//' -e 's/"$//')
-            echo "IMG URL: $IMG"
-            if [ -n "$IMG" ]; then
-              curl -sS -m 15 -A "$UA" "$IMG" -o /tmp/scratch/imgs/ld_$i.jpg -w "download HTTP:%{http_code} SIZE:%{size_download}\n"
-            fi
-          done
-
-          echo "=== resumo de arquivos baixados ==="
-          ls -la /tmp/scratch/imgs/
-
-      - name: Publicar imagens numa branch de diagnóstico pra inspeção visual
-        run: |
-          set +e
-          mkdir -p /tmp/diag-imgs-out
-          cp /tmp/scratch/imgs/*.jpg /tmp/diag-imgs-out/ 2>/dev/null
-          git config user.name "diag-bot"
-          git config user.email "diag-bot@users.noreply.github.com"
-          git checkout --orphan diag-leodias-imgs
-          git rm -rf . > /dev/null 2>&1
-          cp /tmp/diag-imgs-out/*.jpg . 2>/dev/null
-          ls -la
-          if ls *.jpg >/dev/null 2>&1; then
-            git add -A
-            git commit -m "diag: imagens reais Leo Dias pra inspecao visual"
-            git push -f origin HEAD:diag-leodias-imgs
-          else
-            echo "nenhuma imagem baixada, nada pra publicar"
-          fi
+      - run: echo "placeholder — nada a fazer"
