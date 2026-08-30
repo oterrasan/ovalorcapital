@@ -282,11 +282,19 @@ export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {
     if (!buffer || buffer.length < 5000) return null;
 
     if (opts.geminiVision) {
-      const elapsed = startTime ? Date.now() - startTime : 0;
-      let visionMetrics = null;
-      if (elapsed < 15000) {
-        visionMetrics = await analyzeImageVisionGemini(buffer);
-      }
+      // Sem gate de orçamento por elapsed (diferente do caminho OpenAI abaixo)
+      // — 25/08/2026, achado real com evidência: usar o mesmo `startTime` (que é
+      // o início da FUNÇÃO CHAMADORA inteira, ex: autoFofocas(), não deste
+      // item específico) rejeitava sistematicamente o 2º/3º/4º/5º candidato de
+      // um lote por "sem orçamento de tempo" — não por logo de verdade. Testado
+      // ao vivo: uma imagem confirmada limpa (Gemini real, mesma chamada exata)
+      // voltou has_logo_or_watermark:false, mas a produção rejeitava porque o
+      // gate de 15s já tinha estourado antes de chegar nesse candidato (cada
+      // item anterior gasta tempo com scrape + reescrita via Gemini). A própria
+      // analyzeImageVisionGemini() já tem timeout de 4s por chave (~8s pior
+      // caso com 2 chaves) — suficiente, e autoFofocas()/canais equivalentes já
+      // têm seu próprio orçamento de loop (50s) que impede runaway total.
+      const visionMetrics = await analyzeImageVisionGemini(buffer);
       // Fail-closed: rejeita se a análise não pôde ser feita (sem chave, timeout,
       // erro) OU se achou logo/marca/ilustração. Diferente do caminho OpenAI abaixo
       // (fail-open) — aqui o risco de vazar marca de fonte de raspagem é maior que
