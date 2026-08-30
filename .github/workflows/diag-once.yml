@@ -12,10 +12,11 @@ jobs:
     steps:
       - name: Testar candidatos de fonte — fofocas/famosos (rodada 2)
         run: |
+          set +e
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
           echo "=== OFUXICO post-sitemap.xml (chunk mais recente) ==="
-          curl -s -o /tmp/ofx2.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://ofuxico.com.br/post-sitemap.xml" --max-time 10 || true
+          curl -s -o /tmp/ofx2.xml -w "HTTP:%{http_code} SIZE:%{size_download}\n" -A "$UA" "https://ofuxico.com.br/post-sitemap.xml" --max-time 20
           grep -oE '<loc>https://ofuxico\.com\.br/[a-z0-9-]{15,}/?</loc>' /tmp/ofx2.xml 2>/dev/null | sed -n '1,8p'
           echo "total urls:"; grep -c '<loc>' /tmp/ofx2.xml 2>/dev/null
 
