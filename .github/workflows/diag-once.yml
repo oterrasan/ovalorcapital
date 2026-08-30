@@ -6,18 +6,11 @@ name: Diagnóstico único (placeholder)
 # entre uma investigação e outra.
 
 on:
-  push:
-    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
-    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 1
     steps:
-      - name: Confirma o fix — mesma URL que /giro/ usa de verdade (sem recentes=true)
-        run: |
-          set +e
-          echo "=== /api/portal-posts?categoria=giro&limit=60 (URL EXATA que a página /giro/ chama) ==="
-          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/api/portal-posts?categoria=giro&limit=60" -w "\nHTTP:%{http_code}\n"
+      - run: echo "placeholder — nada a fazer"
