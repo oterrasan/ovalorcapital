@@ -3,7 +3,6 @@ import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 const CROP_TOP_PCT    = 0.05;
 const CROP_BOTTOM_PCT = 0.08;
@@ -33,47 +32,15 @@ function _isUrlBloqueada(url) {
     /\b(16|32|48|64)x(16|32|48|64)\b/.test(u);
 }
 
-// Analisa imagem via GPT-4o Vision — rejeita logos, gráficos, ilustrações e concorrentes
-async function analyzeImageVision(buffer) {
-  if (!OPENAI_KEY) return null;
-  try {
-    const base64 = buffer.toString("base64");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 120,
-        temperature: 0,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: 'Analyze this image. Respond ONLY with valid JSON: {"has_competitor_logo":true/false,"is_chart_or_table":true/false,"is_illustration":true/false,"is_logo":true/false,"is_tourist_landmark":true/false}\nhas_competitor_logo: true if logos/watermarks from G1, UOL, Estadão, CNN Brasil, Folha, Globo, Band, Record, SBT, R7, Jovem Pan, Veja, Exame, Reuters, AP.\nis_chart_or_table: true if image is a chart, graph, infographic, map, table, or has critical readable text/numbers.\nis_illustration: true if image is a drawing, cartoon, illustration, clipart, painting, animation, or any non-photographic artwork — NOT a real photograph of a person, place or event.\nis_logo: true if image is primarily a brand logo, company symbol, product icon, app icon, or corporate identity — examples: Google logo, Apple logo, government seal, party symbol, team badge. False if the logo is small/secondary in a real photograph.\nis_tourist_landmark: true if image shows ONLY a tourist attraction, historic monument, temple, pagoda, castle, church exterior, famous building, or scenic landscape with NO people or news context — i.e. a generic travel/stock photo of a place. False if there are people, protest, event, or clear news context.'
-            },
-            {
-              type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${base64}`, detail: "low" }
-            }
-          ]
-        }]
-      })
-    });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const d = await res.json();
-    const text = (d.choices?.[0]?.message?.content || "").trim();
-    const m = text.match(/\{[^}]+\}/);
-    if (!m) return null;
-    return JSON.parse(m[0]);
-  } catch(_) {
-    return null;
-  }
-}
+// 31/08/2026 — analyzeImageVision() (GPT-4o-mini, OpenAI) removida por
+// completo. Roberto Terrasan: "remova tudo que tiver de chaves, só devem
+// ficar as do gemini, as outras nem usamos mais". A função já estava morta
+// na prática havia semanas (OPENAI_API_KEY nunca configurada nesta parte do
+// sistema desde a migração pra Gemini-only de 16-17/08/2026 — sem chave, a
+// função sempre retornava null e o caminho ficava fail-open, ou seja, TODA
+// imagem passava sem checagem nenhuma). O substituto real e funcional é
+// analyzeImageVisionGemini() logo abaixo — usado explicitamente via
+// opts.geminiVision:true (ver processAndSaveImage()).
 
 // Cache local das chaves Gemini — duplicado de propósito, sem acoplar
 // image_processor.js a ai_portal.js (mesma convenção já usada em
@@ -261,18 +228,22 @@ async function uploadToSupabase(buffer, filename, bucket = "post-images", prefix
 //   outWidth/outHeight — dimensão final (default 1200x675, 16:9)
 //   watermarkLabel — texto da marca d'água, '' ou null para nenhuma (default "ovalorcapital.com.br")
 //   bucket/prefix — destino no Supabase Storage (default "post-images"/"imagens")
-//   skipVision — true pula a análise Vision OpenAI (logo/gráfico/ilustração/ponto
-//   turístico/concorrente) inteira, sem gastar chamada de IA nem tempo. Usado pelo
-//   Brasil ON/Jovem Pan/Internacional: Roberto Terrasan confirmou que as fontes
-//   aprovadas não têm marca d'água nem nada que impeça reaproveitamento direto da
-//   imagem — o filtro do OVC (pensado pro pool de 1000+ fontes RSS) é desnecessário
-//   ali. Imagem sempre vem da própria matéria (og:image), nunca de outro lugar.
-//   geminiVision — true roda analyzeImageVisionGemini() (independente de skipVision)
-//   pra rejeitar QUALQUER logo/marca/watermark de forma genérica, fail-closed (rejeita
-//   se a análise falhar, não só se detectar algo). Criado pro canal de Fofocas/Giro
+//   skipVision — não tem mais nenhum efeito prático desde 31/08/2026 (a checagem
+//   OpenAI que ele desligava já foi removida por completo — ver nota abaixo).
+//   Mantido no parâmetro só por retrocompatibilidade com chamadas existentes
+//   (Brasil ON/Jovem Pan/Internacional), sem quebrar nada.
+//   geminiVision — true roda analyzeImageVisionGemini() pra rejeitar QUALQUER
+//   logo/marca/watermark de forma genérica, fail-closed (rejeita se a análise
+//   falhar, não só se detectar algo). Criado pro canal de Fofocas/Giro
 //   (25/08/2026) — fontes de raspagem de celebridades podem ter foto de cobertura ao
 //   vivo com a marca do próprio veículo visível (ex: flâmula de microfone), diferente
 //   de Brasil ON/Jovem Pan/Internacional, cujas fontes foram confirmadas limpas.
+//   31/08/2026 — Roberto: "remova tudo que tiver de chaves, só devem ficar as do
+//   gemini". A checagem OpenAI (que rodava por padrão quando nem skipVision nem
+//   geminiVision eram passados) foi removida por completo — ela já era um no-op
+//   na prática (OPENAI_API_KEY nunca configurada aqui, sempre fail-open). Se algum
+//   canal futuro quiser vision-check de verdade sem ser Fofocas/Giro, é só passar
+//   geminiVision:true, mesmo padrão já usado ali.
 export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {}) {
   if (!sourceUrl || sourceUrl.length < 10) return null;
   // Rejeita URLs de origem ruins antes de qualquer download — ícone GE, CDN Google, etc.
@@ -282,39 +253,25 @@ export async function processAndSaveImage(sourceUrl, postId, startTime, opts = {
     if (!buffer || buffer.length < 5000) return null;
 
     if (opts.geminiVision) {
-      // Sem gate de orçamento por elapsed (diferente do caminho OpenAI abaixo)
-      // — 25/08/2026, achado real com evidência: usar o mesmo `startTime` (que é
-      // o início da FUNÇÃO CHAMADORA inteira, ex: autoFofocas(), não deste
-      // item específico) rejeitava sistematicamente o 2º/3º/4º/5º candidato de
-      // um lote por "sem orçamento de tempo" — não por logo de verdade. Testado
-      // ao vivo: uma imagem confirmada limpa (Gemini real, mesma chamada exata)
-      // voltou has_logo_or_watermark:false, mas a produção rejeitava porque o
-      // gate de 15s já tinha estourado antes de chegar nesse candidato (cada
-      // item anterior gasta tempo com scrape + reescrita via Gemini). A própria
+      // Sem gate de orçamento por elapsed — 25/08/2026, achado real com
+      // evidência: usar o mesmo `startTime` (que é o início da FUNÇÃO
+      // CHAMADORA inteira, ex: autoFofocas(), não deste item específico)
+      // rejeitava sistematicamente o 2º/3º/4º/5º candidato de um lote por
+      // "sem orçamento de tempo" — não por logo de verdade. Testado ao vivo:
+      // uma imagem confirmada limpa (Gemini real, mesma chamada exata) voltou
+      // has_logo_or_watermark:false, mas a produção rejeitava porque o gate de
+      // 15s já tinha estourado antes de chegar nesse candidato (cada item
+      // anterior gasta tempo com scrape + reescrita via Gemini). A própria
       // analyzeImageVisionGemini() já tem timeout de 4s por chave (~8s pior
       // caso com 2 chaves) — suficiente, e autoFofocas()/canais equivalentes já
       // têm seu próprio orçamento de loop (50s) que impede runaway total.
       const visionMetrics = await analyzeImageVisionGemini(buffer);
       // Fail-closed: rejeita se a análise não pôde ser feita (sem chave, timeout,
-      // erro) OU se achou logo/marca/ilustração. Diferente do caminho OpenAI abaixo
-      // (fail-open) — aqui o risco de vazar marca de fonte de raspagem é maior que
-      // perder uma imagem boa.
+      // erro) OU se achou logo/marca/ilustração — aqui o risco de vazar marca de
+      // fonte de raspagem é maior que perder uma imagem boa.
       if (!visionMetrics || visionMetrics.has_logo_or_watermark === true || visionMetrics.is_illustration === true) {
         return null;
       }
-    } else if (!opts.skipVision) {
-      // Chama Vision só se há orçamento de tempo (< 5s decorridos desde início da request)
-      const elapsed = startTime ? Date.now() - startTime : 0;
-      let visionMetrics = null;
-      if (elapsed < 5000) {
-        visionMetrics = await analyzeImageVision(buffer);
-      }
-      // Rejeita: logo, ponto turístico genérico, logo concorrente, gráfico/tabela, ilustração
-      if (visionMetrics?.is_logo === true) return null;
-      if (visionMetrics?.is_tourist_landmark === true) return null;
-      if (visionMetrics?.has_competitor_logo === true) return null;
-      if (visionMetrics?.is_chart_or_table === true) return null;
-      if (visionMetrics?.is_illustration === true) return null;
     }
 
     const processed = await processImage(buffer, opts);

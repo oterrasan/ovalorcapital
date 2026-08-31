@@ -200,7 +200,7 @@ async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
 // teto real do Google", é deixar de existir como gargalo prático. O 429 REAL
 // do Google (não este gate) continua sendo o único sinal confiável de cota
 // esgotada, e já é tratado corretamente dentro do loop de callGemini()
-// (retry na 2ª chave, depois fallback pro Groq) — esse gate serve só pra
+// (retry na 2ª chave) — esse gate serve só pra
 // não desperdiçar uma chamada de rede quando JÁ SABEMOS que vai falhar, não
 // pra impor um limite artificial que o Google nunca pediu.
 const GEMINI_DAILY_BUDGET = 5000;
@@ -338,161 +338,22 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
 // silenciosamente pro OpenAI, que estava sem crédito (429) — mascarando o erro
 // real do Gemini atrás de um fallback morto.
 //
-// 17/08/2026 — Roberto: "ENCONTRE UMA SOLUCAO GRATUITA... O SISTEMA PRECISA
-// SER CAPAZ DE PUBLICAR AO MENOS 200 ARTIGOS DIARIAMENTE". Gemini free tier
-// tem 20 requisições/dia/projeto — catastroficamente pouco pra 7 canais
-// rodando o dia todo. Pesquisado (WebSearch) e confirmado: Groq (grátis, sem
-// cartão de crédito) tem free tier de 14.400 requisições/dia — 720x mais que
-// o Gemini. Groq vira fallback real quando o Gemini falha (cota esgotada,
-// 503 persistente, etc.) — mesma MASTER_PROMPT, mesmo formato de entrada,
-// endpoint compatível com OpenAI (chat/completions). NÃO é o fallback OpenAI
-// morto que Roberto mandou tirar — é um provedor diferente, com chave e
-// cota próprias, genuinamente grátis.
+// 17/08/2026 — Groq foi integrado como segundo fallback (livre, sem cartão de
+// crédito) quando o Gemini falhava, com vários ajustes reais (teto de TPM,
+// troca de modelo depois que o Google descontinuou o llama-3.3-70b-versatile
+// do catálogo do Groq, sanitização de markdown solto na saída).
 //
-// ⚠️ Ressalva honesta: o teto de 14.400/dia é por REQUISIÇÃO — Groq também
-// limita por TOKENS/MINUTO (6.000 no free tier). O MASTER_PROMPT é longo
-// (~2-3 mil tokens só de instrução), então o gargalo real na prática pode
-// ser o de tokens, não o de 14.400 pedidos — throughput real só se confirma
-// testando com uma chave de verdade. Ainda assim, é uma capacidade MUITO
-// maior que os 20/dia atuais do Gemini, e continua 100% grátis.
-async function _getGroqKey() {
-  try {
-    const { data } = await supabase.from("config").select("value").eq("key", "GROQ_API_KEY").maybeSingle();
-    return data?.value || "";
-  } catch (_) {
-    return "";
-  }
-}
-
-async function _callGroq(systemKernel, userContent, maxTokens) {
-  const key = await _getGroqKey();
-  if (!key) throw new Error("GROQ_API_KEY não configurada no Supabase config");
-  // 17/08/2026 — testado ao vivo: a chave funciona (200, resposta real), mas
-  // o pipeline real falhou com "413 Request too large... tokens per minute
-  // (TPM): Limit 12000, Requested 13211/12331". Groq soma o max_tokens
-  // PEDIDO (não o realmente usado) ao total contra o teto de TPM — com
-  // maxTokens=8192 (default de callIA/callGemini) + MASTER_PROMPT +
-  // artigo-fonte, estourava os 12.000 quase sempre. Fix: teto próprio pro
-  // Groq, bem abaixo do default do Gemini — ainda dá margem de sobra pro
-  // mínimo de 8 parágrafos/2.500+ chars exigido pelo MASTER_PROMPT.
-  //
-  // 17/08/2026 (continuação) — testado de novo com o teto de 4000: ainda
-  // batia 429 de TPM (12.000/min é do GROQ INTEIRO — compartilhado entre
-  // os 7 canais automáticos + qualquer chamada manual, não por chave/canal;
-  // Groq só tem 1 chave, ao contrário do Gemini que tem 2). Não dá pra
-  // esperar o "try again in Ns" do próprio erro (Vercel Hobby só tem 10s de
-  // execução — REGRA ZERO-A — um sleep de 16-36s estouraria o timeout).
-  // Único ajuste seguro dentro de 1 chamada: pedir MENOS tokens no total
-  // (prompt de entrada + saída) — reduz "Requested" por chamada, dando mais
-  // margem dentro do teto compartilhado. userContent (texto-fonte bruto)
-  // cortado pra até 4000 chars — sobra de sobra pro MASTER_PROMPT reescrever
-  // (mínimo exigido é só 2.500+ chars de SAÍDA, não de entrada).
-  // 17/08/2026 — CONFIRMADO com evidência real: "llama-3.3-70b-versatile" foi
-  // removido do catálogo do Groq (404 "does not exist or you do not have
-  // access to it" — testado ao vivo). A lista real de modelos disponíveis na
-  // conta hoje (GET /v1/models) não tem NENHUM modelo Llama de chat — Groq
-  // trocou a linha para modelos OpenAI open-weight (gpt-oss) + Qwen. Trocado
-  // pra "openai/gpt-oss-120b" — testado ao vivo com prompt real (~1600
-  // tokens de entrada), respondeu HTTP 200 com conteúdo real. É um modelo de
-  // RACIOCÍNIO — a resposta da API vem com dois campos separados,
-  // message.reasoning (o "pensamento" interno) e message.content (a
-  // resposta final) — _callGroq() já lê só .content abaixo, então o
-  // raciocínio nunca vaza pro texto do artigo. reasoning_effort:"low" reduz
-  // o quanto o modelo "pensa" antes de responder, sobrando mais do
-  // orçamento de tokens pro CONTEÚDO real do artigo (groqMaxTokens subido
-  // de 2200→2600 de margem). ⚠️ Testado só com prompt curto até agora — a
-  // próxima geração real de artigo via Groq (fallback do Gemini) confirma
-  // se o teto é suficiente pra um artigo completo; se sair truncado, subir
-  // groqMaxTokens de novo com evidência real.
-  const groqMaxTokens = Math.min(maxTokens, 2600);
-  const groqUserContent = userContent.length > 4000 ? userContent.slice(0, 4000) : userContent;
-  async function _tentarGroq() {
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-120b",
-        messages: [
-          { role: "system", content: systemKernel },
-          { role: "user", content: groqUserContent }
-        ],
-        max_tokens: groqMaxTokens,
-        temperature: 0.3,
-        reasoning_effort: "low"
-      })
-    });
-    const d = await res.json();
-    if (!res.ok) {
-      const err = new Error(`Groq ${res.status}: ${d.error?.message || JSON.stringify(d)}`);
-      err.status = res.status;
-      throw err;
-    }
-    const text = d.choices?.[0]?.message?.content;
-    if (text && text.length > 100) return _sanitizarMarkdownGroq(text);
-    throw new Error("Groq retornou resposta vazia");
-  }
-  // 19/08/2026 — Roberto: "RADAR DOS ESPORTES NAO ATUALIZA NUNCA MAIS" (e, na
-  // mesma checagem, os outros 6 canais também mostraram generated:0 na hora).
-  // Confirmado com evidência real (logs do cron): TODOS os canais falham no
-  // mesmo dia porque o orçamento diário do Gemini já está esgotado bem cedo,
-  // e o único fallback (Groq) também bate 429 — "Rate limit reached for model
-  // openai/gpt-oss-120b" — em até 21 de 25 candidatos numa ÚNICA rodada do
-  // Radar do Esporte. Causa: o loop de candidatos chama _callGroq() em
-  // sequência rápida (sem pausa), e o teto de TPM/RPM é do Groq INTEIRO
-  // (compartilhado por todos os 7 canais do cron, 1 chave só). Fix: retry
-  // único e curto (2s) em 429 — mesma filosofia já usada pro 503 do Gemini —
-  // recupera parte real das falhas sem estourar o budget de ~50s de cada
-  // rodada do loop de candidatos (api/run_portal.js).
-  try {
-    return await _tentarGroq();
-  } catch (err) {
-    if (err.status === 429) {
-      await new Promise(r => setTimeout(r, 2000));
-      return await _tentarGroq();
-    }
-    throw err;
-  }
-}
-
-// 17/08/2026 — testado ao vivo: Groq gerou conteúdo válido (erro:0) mas o
-// validador do pipeline rejeitou com "markdown/metadados no corpo" —
-// diferente do Gemini, o Llama 3.3 (motor do Groq) tem o hábito de devolver
-// **negrito** e ##título mesmo quando o MASTER_PROMPT pede HTML puro. Isso
-// NÃO é alteração de prompt (Regra Zero-B intacta — nenhum texto do
-// MASTER_PROMPT foi tocado) — é só limpeza mecânica da saída de UM provedor
-// específico, antes de devolver o texto pro resto do pipeline.
-//
-// 17/08/2026 (continuação) — BUG REAL encontrado testando ao vivo: a versão
-// anterior removia QUALQUER linha começando com TITULO:/META_TITLE:/
-// FOCO_KEYWORD:/META_DESCRICAO: do texto INTEIRO, antes do parse() rodar —
-// isso apagava as linhas de metadado de VERDADE (que o parser precisa pra
-// extrair o título), não só linhas soltas que vazassem dentro do corpo.
-// Resultado: titulo ficava vazio → parse() caía no fallback "Sem título"
-// (10 chars) → auditoria rejeitava "titulo fora do tamanho seguro" (exige
-// 15-120). Fix: só limpar metadado solto DEPOIS do marcador "CORPO EM
-// HTML:" (onde ele pode vazar por engano) — as linhas de metadado real,
-// antes desse marcador, ficam intocadas.
-function _sanitizarMarkdownGroq(text) {
-  const semNegritoEHeaders = text
-    .replace(/\*\*(.*?)\*\*/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "");
-  const marcador = /CORPO(?: EM HTML)?:/i;
-  const idx = semNegritoEHeaders.search(marcador);
-  if (idx === -1) return semNegritoEHeaders;
-  const cabecalho = semNegritoEHeaders.slice(0, idx);
-  const corpo = semNegritoEHeaders.slice(idx).replace(/^(TITULO|META_TITLE|FOCO_KEYWORD|META_DESCRICAO):.*$/gim, "");
-  return cabecalho + corpo;
-}
-
+// 31/08/2026 — Roberto Terrasan: "remova tudo que tiver de chaves, só devem
+// ficar as do gemini, as outras nem usamos mais". Groq removido por completo
+// (funções _getGroqKey/_callGroq/_sanitizarMarkdownGroq deletadas) — o Gemini
+// passa a ser o ÚNICO motor de IA do sistema, sem fallback pra outro
+// provedor. callGemini() já trata os erros reais de cota (429, retry na 2ª
+// chave) e sobrecarga temporária (503, retry com espera) — se as duas chaves
+// falharem de verdade, a chamada simplesmente propaga o erro (não mascara
+// mais atrás de um fallback silencioso), o que é a prioridade máxima de
+// investigação de qualquer sessão futura (ver IA_KEYS_POLICY.md).
 async function callIA(systemKernel, userContent, maxTokens = 8192) {
-  try {
-    return await callGemini(systemKernel, userContent, maxTokens);
-  } catch (err) {
-    // orçamento do Gemini esgotado ou qualquer outra falha real (não mascara
-    // erro — só tenta uma fonte de capacidade genuinamente diferente)
-    console.warn(`Gemini falhou (${(err.message || "").slice(0, 100)}), tentando Groq...`);
-    return await _callGroq(systemKernel, userContent, maxTokens);
-  }
+  return callGemini(systemKernel, userContent, maxTokens);
 }
 
 const SUBCATS_POR_CAT = {

@@ -1349,7 +1349,7 @@ async function handleBanners(req, res) {
   return res.status(200).json({ banners: candidatos });
 }
 
-// ── Pesquisa Eleitoral — GET: busca artigos recentes, extrai via OpenAI, salva ──
+// ── Pesquisa Eleitoral — GET: busca artigos recentes, extrai via Gemini, salva ──
 // Busca RSS do Google News com dados de pesquisa eleitoral — fonte mais
 // confiável que os artigos próprios do OVC pra números CONCRETOS e recentes.
 async function _buscarGoogleNewsPesquisa() {

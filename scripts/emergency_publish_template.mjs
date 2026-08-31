@@ -50,7 +50,7 @@
 //
 // ═══════════════════════════════════════════════════════════════════════
 // DUAS TENTATIVAS DE ESCRITA — tenta a IA real primeiro, cai pra Claude
-// escrever direto se as chaves estiverem fora do ar
+// escrever direto se a chave estiver fora do ar
 // ═══════════════════════════════════════════════════════════════════════
 // TENTATIVA 1 (preferível, mais rápida) — usar o pipeline real: importar o
 // handler default de api/run_portal.js e chamar com
@@ -58,10 +58,13 @@
 // manual() → scrape() + rewritePortal() (MASTER_PROMPT protegido, sem
 // alterar nada) + validar(). Só funciona se:
 //   a) scrape() da fonte conseguir ≥300 chars de texto, e
-//   b) Gemini ou OpenAI estiverem respondendo (ver CAVEATS abaixo).
+//   b) o Gemini estiver respondendo (ver CAVEATS abaixo — 31/08/2026: é o
+//      ÚNICO motor de IA do sistema, sem nenhum fallback pra outro
+//      provedor — Roberto: "as outras nem usamos mais", ver
+//      IA_KEYS_POLICY.md).
 //
-// TENTATIVA 2 (fallback manual) — se a Tentativa 1 falhar por causa de
-// chave/modelo de IA fora do ar, Claude escreve o texto diretamente,
+// TENTATIVA 2 (fallback manual) — se a Tentativa 1 falhar por causa do
+// Gemini fora do ar, Claude escreve o texto diretamente,
 // seguindo à risca as regras do MASTER_PROMPT V8.0 (não é preciso importar
 // nada do prompt — só seguir as mesmas regras manualmente):
 //   - Voz Reuters em português, lead direto no primeiro parágrafo
@@ -81,25 +84,19 @@
 // ônibus do São Paulo apreendido na Bolívia).
 //
 // ═══════════════════════════════════════════════════════════════════════
-// CAVEATS CONHECIDOS EM 11/08/2026 — confira se ainda procedem antes de
-// cada emergência (podem ter sido corrigidos por sessão futura)
+// CAVEATS CONHECIDOS — confira se ainda procedem antes de cada emergência
+// (podem ter sido corrigidos por sessão futura)
 // ═══════════════════════════════════════════════════════════════════════
-// - Gemini: modelo "gemini-2.0-flash" (usado em core/ai_portal.js) retornou
-//   404 "This model is no longer available" DIRETO da API do Google — não é
-//   problema de ambiente, é deprecação real do lado do Google. Se persistir,
-//   a Tentativa 1 sempre cai no fallback OpenAI dentro do próprio callIA().
-//   NÃO mude o nome do modelo sem autorização explícita de Roberto (mesmo
-//   espírito da Regra Zero-B — parâmetros de IA são sensíveis).
-// - A chave OpenAI hardcoded de fallback documentada no CLAUDE.md (seção 16,
-//   termina em "wh8A") estava REVOGADA (401 Incorrect API key) em
-//   11/08/2026. A Tentativa 1 SÓ funciona de dentro deste sandbox de teste
-//   se você exportar uma OPENAI_API_KEY válida pro processo Node ANTES de
-//   importar api/run_portal.js (ele lê process.env.OPENAI_API_KEY na carga
-//   do módulo — use import() dinâmico depois de setar a env var, não import
-//   estático no topo do arquivo). Em produção (Vercel) isso não é problema,
-//   porque a Vercel tem sua própria env var OPENAI_API_KEY configurada
-//   separadamente por Roberto — mas este sandbox de teste não tem acesso a
-//   ela.
+// - 31/08/2026 — Gemini é o ÚNICO motor de IA do sistema (Roberto removeu
+//   OpenAI e Groq por completo — "as outras nem usamos mais"). Se o Gemini
+//   falhar (cota diária esgotada, modelo descontinuado pelo Google como já
+//   aconteceu em 15-16/08/2026 com o "gemini-2.0-flash", etc.), a Tentativa
+//   1 propaga o erro sem cair em nenhum fallback automático — vá direto pra
+//   Tentativa 2 (Claude escreve manualmente). NÃO mude o nome do modelo em
+//   core/ai_portal.js sem autorização explícita de Roberto (mesmo espírito
+//   da Regra Zero-B — parâmetros de IA são sensíveis) e nunca testando até
+//   exaurir a cota real, não só 1-2 chamadas de sucesso — ver
+//   IA_KEYS_POLICY.md pro histórico completo dessa lição.
 //
 // ═══════════════════════════════════════════════════════════════════════
 // TEMPLATE — TENTATIVA 2 (fallback manual), já testado e funcionando
