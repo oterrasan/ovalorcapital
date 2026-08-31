@@ -47,6 +47,7 @@ export default async function handler(req, res) {
       if (action === "interruptor_status") return handleInterruptorStatus(req, res);
       if (action === "interruptor_toggle") return handleInterruptorToggle(req, res);
       if (action === "banners") return handleBanners(req, res);
+      if (action === "list_posts_colunista") return handleListPostsColunista(req, res);
       return handleStatus(res);
     }
 
@@ -55,6 +56,7 @@ export default async function handler(req, res) {
     const action = String(body.action || req.query.action || "");
 
     if (action === "create_colunista") return handleCreateColunista(req, res, body);
+    if (action === "login_colunista") return handleLoginColunista(req, res, body);
     if (action === "update_colunista_photo") return handleUpdateColunistaPhoto(req, res, body);
     if (action === "toggle_colunista") return handleToggleColunista(req, res, body);
     if (action === "delete_colunista") return handleDeleteColunista(req, res, body);
@@ -959,8 +961,21 @@ async function handleNewsletterSubscribe(res, body) {
   }
 }
 
+// Mesmo padrão de hash usado na senha mestra do admin (public/admin/index.html,
+// _sha256(pass + 'ovc_salt_2026')) — reaproveitado aqui pra senha de colunista.
+function hashSenhaColunista(senha) {
+  return crypto.createHash("sha256").update(String(senha || "") + "ovc_salt_2026").digest("hex");
+}
+
 async function handleCreateColunista(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  // 31/08/2026 — BUG CORRIGIDO: este handler lia body.senha_hash, mas o único
+  // caller real (criarLogin() no admin) sempre mandou body.senha em texto puro
+  // — senha_hash nunca era populada, todo colunista criado por este caminho
+  // ficava com senha_hash:null e nunca conseguia logar. Agora hasheia
+  // server-side a partir de body.senha (aceita senha_hash direto também, pra
+  // não quebrar nenhum outro caller que já mande o hash pronto).
+  const senhaHash = body.senha_hash || (body.senha ? hashSenhaColunista(body.senha) : null);
   const payload = {
     nome: body.nome,
     email: String(body.email || "").toLowerCase().trim(),
@@ -968,12 +983,60 @@ async function handleCreateColunista(req, res, body) {
     slug: slugify(body.slug || body.nome),
     bio: body.bio || null,
     ativo: true,
-    senha_hash: body.senha_hash || null
+    senha_hash: senhaHash
   };
   const { error } = await supabase.from("colunistas").insert(payload);
   if (error) return res.status(400).json({ ok: false, error: error.message });
   if (body.foto_url) await savePhoto(payload.slug, body.foto_url);
   return res.status(200).json({ ok: true });
+}
+
+// 31/08/2026 — NOVO. login_colunista e list_posts_colunista: até aqui,
+// public/admin/colunista/index.html (o portal de autoatendimento do
+// colunista — "entra no portal, tem login e senha") chamava as duas sem
+// NENHUM handler existir no backend (confirmado via grep em todo o repo) —
+// a página nunca funcionou pra ninguém, mesmo já sendo linkada de dentro do
+// admin. Reaproveita o mesmo mecanismo de sessão que já é validado de
+// verdade em handleSubmitColunistaPost() (col.session_token === token).
+async function handleLoginColunista(req, res, body) {
+  const email = String(body?.email || "").toLowerCase().trim();
+  const senha = String(body?.senha || "");
+  if (!email || !senha) return res.status(400).json({ ok: false, error: "email e senha obrigatorios" });
+  const { data: col, error } = await supabase.from("colunistas")
+    .select("id,nome,slug,email,telefone,bio,ativo,senha_hash").eq("email", email).maybeSingle();
+  if (error || !col) return res.status(401).json({ ok: false, error: "email ou senha invalidos" });
+  if (!col.ativo) return res.status(403).json({ ok: false, error: "conta desativada" });
+  if (!col.senha_hash || col.senha_hash !== hashSenhaColunista(senha)) {
+    return res.status(401).json({ ok: false, error: "email ou senha invalidos" });
+  }
+  const token = crypto.randomBytes(24).toString("hex");
+  await supabase.from("colunistas").update({ session_token: token, last_login: new Date().toISOString() }).eq("id", col.id);
+  let fotoUrl = null;
+  try {
+    const fotos = await getColunistaPhotoMap();
+    fotoUrl = fotos?.[col.slug] || null;
+  } catch (_) {}
+  return res.status(200).json({
+    ok: true, colunista_id: col.id, token, nome: col.nome,
+    bio: col.bio || "", email: col.email, telefone: col.telefone || "", foto_url: fotoUrl
+  });
+}
+
+async function handleListPostsColunista(req, res) {
+  const colunista_id = req.query?.colunista_id;
+  const token = req.query?.token;
+  if (!colunista_id || !token) return res.status(401).json({ ok: false, error: "colunista_id e token obrigatorios" });
+  const { data: col, error } = await supabase.from("colunistas")
+    .select("id,nome,slug,ativo,session_token").eq("id", colunista_id).maybeSingle();
+  if (error || !col) return res.status(401).json({ ok: false, error: "colunista nao encontrado" });
+  if (!col.ativo) return res.status(403).json({ ok: false, error: "colunista inativo" });
+  if (col.session_token !== token) return res.status(401).json({ ok: false, error: "token invalido" });
+  const slug = col.slug || slugify(col.nome);
+  const { data: posts, error: postsErr } = await supabase.from("posts")
+    .select("id,titulo,status,created_at").eq("subcategoria_slug", slug).eq("publish_method", "colunista")
+    .order("created_at", { ascending: false }).limit(100);
+  if (postsErr) return res.status(500).json({ ok: false, error: postsErr.message });
+  return res.status(200).json({ ok: true, posts: posts || [] });
 }
 
 // 31/08/2026 — NOVO. Suporta "Devolver para revisão" e "Revisar com IA" em
