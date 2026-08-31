@@ -1,0 +1,122 @@
+name: Rastreador de saúde da API (previne apagões silenciosos)
+
+# Criado em 31/08/2026 após o incidente: api/manage.js crashou (FUNCTION_INVOCATION_FAILED
+# em TODA ação, admin em tela preta + Instagram automático parado) SEM nenhum commit/deploy
+# novo — o smoke test existente (portal-smoke-test.yml) só roda em push e só checa a
+# homepage/uma categoria, então esse tipo de quebra "silenciosa" (função quebra sozinha,
+# sem deploy) nunca era detectada. Este workflow roda de forma independente de qualquer
+# deploy, a cada 15 minutos, e testa uma rota real de CADA UM dos 10 arquivos em api/ —
+# se qualquer uma delas crashar (500, ou o sinal específico da Vercel
+# x-vercel-error: FUNCTION_INVOCATION_FAILED), abre (ou atualiza) uma issue de alerta.
+# Quando volta a funcionar, fecha a issue sozinho.
+#
+# ❌ NUNCA remover este workflow sem substituir por outro mecanismo equivalente.
+# ❌ NUNCA trocar as URLs de teste por rotas que fazem escrita/geração de conteúdo —
+#    todas abaixo são leitura pura, sem efeito colateral (checado antes de cada uma
+#    ser adicionada aqui).
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Testar uma rota de cada função (api/*.js) + homepage
+        id: probe
+        run: |
+          BASE="https://www.ovalorcapital.com.br"
+          : > /tmp/failures.txt
+
+          check() {
+            local name="$1" url="$2"
+            local hdrs body code verr
+            hdrs=$(mktemp)
+            code=$(curl -sS -o /tmp/body.txt -D "$hdrs" -w "%{http_code}" --max-time 15 "$url" || echo "000")
+            verr=$(grep -i "^x-vercel-error:" "$hdrs" | head -1 | tr -d '\r' || true)
+            if [ "$code" != "200" ]; then
+              echo "❌ $name -> HTTP $code $verr ($url)"
+              echo "$name|$code|$verr|$url" >> /tmp/failures.txt
+            else
+              echo "✅ $name -> HTTP $code"
+            fi
+            rm -f "$hdrs"
+          }
+
+          check "homepage (estático)"        "$BASE/"
+          check "api/manage.js (status)"     "$BASE/api/manage"
+          check "api/manage.js (vendor_js)"  "$BASE/api/manage?action=vendor_js&name=react"
+          check "api/portal-posts.js"        "$BASE/api/portal-posts?recentes=true&limit=1"
+          check "api/category.js+article.js" "$BASE/politica/"
+          check "api/institutional.js"       "$BASE/quem-somos/"
+          check "api/sitemap.js"             "$BASE/sitemap.xml"
+          check "api/landing.js"             "$BASE/trabalho/"
+          check "api/live.js"                "$BASE/radar/"
+          check "api/run_portal.js"          "$BASE/api/run_portal"
+          check "api/ig-handler.js"          "$BASE/api/ig-queue"
+
+          if [ -s /tmp/failures.txt ]; then
+            echo "houve_falha=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "houve_falha=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Abrir/atualizar issue de alerta se algo falhou
+        if: steps.probe.outputs.houve_falha == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const linhas = fs.readFileSync('/tmp/failures.txt', 'utf8').trim().split('\n').filter(Boolean);
+            const lista = linhas.map(l => {
+              const [name, code, verr, url] = l.split('|');
+              return `- **${name}** — HTTP ${code}${verr ? ` (${verr})` : ''} — ${url}`;
+            }).join('\n');
+            const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const TITLE = '🚨 API com falha — detectado pelo rastreador automático';
+            const LABEL = 'api-health';
+
+            const { data: existentes } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: LABEL, per_page: 5
+            });
+
+            const corpo = [
+              `**Detectado em:** ${hora} (Brasília)`,
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              '**Rotas com falha agora:**',
+              lista,
+              '',
+              '_Verificado a cada 15 minutos. Esta issue fecha sozinha assim que todas as rotas voltarem a responder HTTP 200._'
+            ].join('\n');
+
+            if (existentes.length > 0) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existentes[0].number, body: corpo });
+              console.log(`Issue #${existentes[0].number} já aberta — comentário adicionado.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body: corpo, labels: [LABEL, 'bug']
+              });
+              console.log(`🚨 Issue #${created.data.number} criada.`);
+            }
+
+      - name: Fechar issue de alerta se tudo voltou a funcionar
+        if: steps.probe.outputs.houve_falha == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'api-health';
+            const { data: existentes } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: LABEL, per_page: 5
+            });
+            for (const issue of existentes) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number,
+                body: '✅ Todas as rotas voltaram a responder HTTP 200 — fechando automaticamente.'
+              });
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, state: 'closed' });
+              console.log(`Issue #${issue.number} fechada.`);
+            }

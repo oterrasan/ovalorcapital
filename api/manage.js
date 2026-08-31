@@ -2,10 +2,30 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { getAccount, likeMedia, postComment, publish } from "../core/instagram.js";
-import { prepareInstagramImage } from "../core/instagram_image.js";
 import { detectPublicationLocation } from "../core/instagram_location.js";
 import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
+
+// 🚨 REGRA PERMANENTE — INCIDENTE 31/08/2026 (FUNCTION_INVOCATION_FAILED em TODA
+// ação de api/manage.js, admin em tela preta + Instagram automático parado):
+// core/instagram.js e core/instagram_image.js eram importados de forma ESTÁTICA
+// no topo do arquivo. core/instagram_image.js usa "sharp" — biblioteca nativa/
+// binária conhecida por falhar ao carregar quando o binário compilado não bate
+// com o container serverless (falha SEM nenhum commit novo, só recriando o
+// container). Import estático = QUALQUER falha ao carregar QUALQUER um desses 2
+// arquivos derruba TODO o módulo — ou seja, TODAS as ~40 ações de api/manage.js
+// (vendor_js, colunistas, aprovação de posts, editor IA, etc.), mesmo as que nada
+// têm a ver com Instagram.
+// Fix: import() DINÂMICO, carregado sob demanda só dentro da função que usa, com
+// try/catch — se esses 2 módulos falharem, SÓ a ação de publicar/pré-visualizar
+// no Instagram retorna erro limpo em JSON; o resto do arquivo continua funcionando.
+// (core/instagram_location.js e core/ai_portal.js NÃO usam bibliotecas nativas —
+// só JS/dados puros — por isso continuam import estático, sem esse risco.)
+// ❌ NUNCA voltar a transformar isto em `import { x } from "../core/instagram.js"`
+// ou `"../core/instagram_image.js"` no topo do arquivo — usar sempre os helpers
+// _loadInstagram()/_loadInstagramImage() abaixo.
+let _modInstagram = null, _modInstagramImage = null;
+async function _loadInstagram() { return _modInstagram || (_modInstagram = await import("../core/instagram.js")); }
+async function _loadInstagramImage() { return _modInstagramImage || (_modInstagramImage = await import("../core/instagram_image.js")); }
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -415,6 +435,8 @@ async function handleIgPublish(req, res, body) {
   const now = new Date().toISOString();
 
   try {
+    const { prepareInstagramImage } = await _loadInstagramImage();
+    const { publish, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
     const ig = await publish(instagramImage.url, caption, accountId);
     const firstCommentText = buildInstagramFirstComment(post);
@@ -617,6 +639,7 @@ async function handleIgPreview(req, res, body) {
     return res.status(400).json({ ok: false, error: "imagem_publica_ausente" });
   }
 
+  const { prepareInstagramImage } = await _loadInstagramImage();
   const preview = await prepareInstagramImage({
     sourceUrl: post.imagem,
     postId: `preview-${post.id}`,
@@ -700,6 +723,8 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
   }
 
   try {
+    const { prepareInstagramImage } = await _loadInstagramImage();
+    const { publish, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
     const ig = await publish(instagramImage.url, caption, account.id);
     const firstCommentText = buildInstagramFirstComment(post);
