@@ -1,16 +1,29 @@
 name: Diagnóstico único (placeholder)
 
-# Este arquivo é reescrito sob demanda para investigações pontuais em produção
-# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
-# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
-# entre uma investigação e outra.
-
 on:
   workflow_dispatch:
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 2
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Consulta posts recentes + hora real do servidor
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          echo "=== HORA REAL UTC DESTE RUNNER ==="
+          date -u
+          echo ""
+          echo "=== 15 POSTS MAIS RECENTES (created_at DESC) ==="
+          curl -sS "$SUPABASE_URL/rest/v1/posts?select=id,created_at,publish_method,titulo&order=created_at.desc&limit=15" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY"
+          echo ""
+          echo "=== COUNT total de posts com created_at >= 2026-08-31T00:00:00Z ==="
+          curl -sS -I "$SUPABASE_URL/rest/v1/posts?select=id&created_at=gte.2026-08-31T00:00:00Z" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" | grep -i content-range
+          echo ""
+          echo "=== COUNT total de posts com created_at >= 2026-08-31T03:00:00Z (inicio do dia BRT 31) ==="
+          curl -sS -I "$SUPABASE_URL/rest/v1/posts?select=id&created_at=gte.2026-08-31T03:00:00Z" \
+            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -H "Prefer: count=exact" | grep -i content-range
