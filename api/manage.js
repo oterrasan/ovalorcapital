@@ -976,10 +976,14 @@ async function handleCreateColunista(req, res, body) {
   // server-side a partir de body.senha (aceita senha_hash direto também, pra
   // não quebrar nenhum outro caller que já mande o hash pronto).
   const senhaHash = body.senha_hash || (body.senha ? hashSenhaColunista(body.senha) : null);
+  // 31/08/2026 — BUG CORRIGIDO: "telefone" NÃO existe na tabela colunistas real
+  // (schema confirmado via consulta direta: id,nome,slug,bio,email,rss_url,
+  // ativo,created_at,updated_at,senha_hash,session_token,last_login) — incluir
+  // esse campo no payload fazia o INSERT falhar com "column ... does not exist"
+  // (Postgres 42703). Removido daqui e do SELECT/resposta de handleLoginColunista.
   const payload = {
     nome: body.nome,
     email: String(body.email || "").toLowerCase().trim(),
-    telefone: body.telefone || null,
     slug: slugify(body.slug || body.nome),
     bio: body.bio || null,
     ativo: true,
@@ -1003,7 +1007,7 @@ async function handleLoginColunista(req, res, body) {
   const senha = String(body?.senha || "");
   if (!email || !senha) return res.status(400).json({ ok: false, error: "email e senha obrigatorios" });
   const { data: col, error } = await supabase.from("colunistas")
-    .select("id,nome,slug,email,telefone,bio,ativo,senha_hash").eq("email", email).maybeSingle();
+    .select("id,nome,slug,email,bio,ativo,senha_hash").eq("email", email).maybeSingle();
   if (error || !col) return res.status(401).json({ ok: false, error: "email ou senha invalidos" });
   if (!col.ativo) return res.status(403).json({ ok: false, error: "conta desativada" });
   if (!col.senha_hash || col.senha_hash !== hashSenhaColunista(senha)) {
@@ -1018,7 +1022,7 @@ async function handleLoginColunista(req, res, body) {
   } catch (_) {}
   return res.status(200).json({
     ok: true, colunista_id: col.id, token, nome: col.nome,
-    bio: col.bio || "", email: col.email, telefone: col.telefone || "", foto_url: fotoUrl
+    bio: col.bio || "", email: col.email, foto_url: fotoUrl
   });
 }
 
