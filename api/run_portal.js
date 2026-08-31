@@ -1221,7 +1221,7 @@ async function autoFofocas(req, res, rec) {
       // visível numa imagem de amostra (flâmula de microfone, cobertura ao
       // vivo). Ver core/image_processor.js e core/fofocas.js pro detalhe.
       const img = sourceImage
-        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true, geminiVision: true })
+        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", geminiVision: true })
         : null;
       if (!img) {
         falhas.semImagem++;

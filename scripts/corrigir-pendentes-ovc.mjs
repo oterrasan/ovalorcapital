@@ -27,10 +27,11 @@ if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error('SUPABASE_URL/SUPABASE_KEY a
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function hydrateAIKeys() {
-  const { data, error } = await supabase.from('config').select('key,value').in('key', ['OPENAI_API_KEY', 'OPENAI_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY']);
+  // 31/08/2026 — Roberto: "remova tudo que tiver de chaves, só devem ficar as
+  // do gemini, as outras nem usamos mais". Só busca GEMINI_API_KEY/_2 agora.
+  const { data, error } = await supabase.from('config').select('key,value').in('key', ['GEMINI_API_KEY', 'GEMINI_API_KEY_2']);
   if (error) throw error;
   for (const row of data || []) if (row?.key && row?.value && !process.env[row.key]) process.env[row.key] = String(row.value).trim();
-  if (!process.env.OPENAI_API_KEY && process.env.OPENAI_KEY) process.env.OPENAI_API_KEY = process.env.OPENAI_KEY;
 }
 await hydrateAIKeys();
 
@@ -61,23 +62,27 @@ function audit(content) {
   if (/nao foi possivel|conteudo insuficiente|não foi possível|conteúdo insuficiente/i.test(texto)) issues.push('recusa vazou no texto');
   return issues;
 }
-async function callOpenAI(prompt) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0.45, max_tokens: 5200, messages: [{ role: 'system', content: 'Voce e um editor jornalistico senior do O Valor Capital. Responda apenas no formato pedido.' }, { role: 'user', content: prompt }] }) });
-  const data = await res.json(); if (!res.ok) throw new Error(data.error?.message || 'Erro OpenAI'); return data.choices?.[0]?.message?.content || '';
-}
-async function callGemini(prompt) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.45, maxOutputTokens: 6000 } }) });
-  const data = await res.json(); if (!res.ok) throw new Error(data.error?.message || 'Erro Gemini'); return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-}
-async function callGroq(prompt) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.GROQ_API_KEY}` }, body: JSON.stringify({ model: 'llama-3.3-70b-versatile', temperature: 0.45, max_tokens: 5200, messages: [{ role: 'system', content: 'Voce e um editor jornalistico senior do O Valor Capital. Responda apenas no formato pedido.' }, { role: 'user', content: prompt }] }) });
-  const data = await res.json(); if (!res.ok) throw new Error(data.error?.message || 'Erro Groq'); return data.choices?.[0]?.message?.content || '';
+// 31/08/2026 — só Gemini (Roberto: "as outras nem usamos mais"). Modelo
+// alinhado com core/ai_portal.js: gemini-2.0-flash foi descontinuado pelo
+// Google (404) em 15-16/08/2026 — gemini-flash-lite-latest é o que está em
+// produção hoje (quota diária maior, ver IA_KEYS_POLICY.md). Tenta
+// GEMINI_API_KEY, depois GEMINI_API_KEY_2 (mesmo padrão de retry em 429/503
+// já usado em produção).
+async function _callGeminiKey(key, prompt) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.45, maxOutputTokens: 6000 } }) });
+  const data = await res.json();
+  if (!res.ok) { const err = new Error(data.error?.message || 'Erro Gemini'); err.status = res.status; throw err; }
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 async function callAI(prompt) {
-  if (process.env.OPENAI_API_KEY) return callOpenAI(prompt);
-  if (process.env.GEMINI_API_KEY) return callGemini(prompt);
-  if (process.env.GROQ_API_KEY) return callGroq(prompt);
-  throw new Error('Nenhuma chave de IA disponivel: OPENAI_API_KEY, GEMINI_API_KEY ou GROQ_API_KEY.');
+  const keys = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_2].filter(Boolean);
+  if (!keys.length) throw new Error('Nenhuma chave de IA disponivel: GEMINI_API_KEY ausente no Supabase config.');
+  let lastErr;
+  for (const key of keys) {
+    try { return await _callGeminiKey(key, prompt); }
+    catch (err) { lastErr = err; if (err.status === 429 || err.status === 503) continue; throw err; }
+  }
+  throw lastErr;
 }
 function buildPrompt(fonte) {
   return `# REPARO EDITORIAL OVC - MATERIA PENDENTE
@@ -127,7 +132,7 @@ async function fetchPosts() {
   return (data || []).filter(p => includeColunas || !['coluna', 'colunista'].includes(String(p.publish_method || '').toLowerCase())).slice(0, limit);
 }
 const posts = await fetchPosts(); const now = new Date().toISOString(); const results = [];
-console.log(`OVC repair: pendentes selecionados=${posts.length}, limit=${limit}, dryRun=${dryRun}, provider=${process.env.OPENAI_API_KEY ? 'openai' : process.env.GEMINI_API_KEY ? 'gemini' : process.env.GROQ_API_KEY ? 'groq' : 'none'}`);
+console.log(`OVC repair: pendentes selecionados=${posts.length}, limit=${limit}, dryRun=${dryRun}, provider=${process.env.GEMINI_API_KEY ? 'gemini' : 'none'}`);
 for (const post of posts) {
   try {
     const fonte = [post.titulo ? `TITULO ATUAL: ${post.titulo}` : '', post.comentario_fixado ? `RESUMO ATUAL: ${post.comentario_fixado}` : '', post.conteudo || ''].filter(Boolean).join('\n\n');
