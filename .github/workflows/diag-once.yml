@@ -1,20 +1,16 @@
 name: Diagnóstico único (placeholder)
 
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
+
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 1
     steps:
-      - name: Schema real da tabela colunistas (select=*)
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          curl -sS "$SUPABASE_URL/rest/v1/colunistas?email=eq.roberto%40ovalorcapital.com.br&select=*" \
-            -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | python3 -m json.tool
+      - run: echo "placeholder — nada a fazer"
