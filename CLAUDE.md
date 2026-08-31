@@ -8350,3 +8350,78 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **`public/admin/colunista/index.html` linha 262** (`session.telefone`) e **`public/admin/index.html`** (campo "Telefone / WhatsApp" no form de criar login) — ambos inofensivos agora (campo sempre `undefined`, sem crash), mas cosmeticamente desconectados do schema real. Limpeza de baixa prioridade, não bloqueante.
 2. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense).
+
+---
+
+### Sessão 31/08/2026 (continuação 2) — 🚨 INCIDENTE CRÍTICO: `api/manage.js` CRASHAVA EM TODA AÇÃO SEM NENHUM DEPLOY NOVO — ADMIN EM TELA PRETA + INSTAGRAM AUTOMÁTICO PARADO
+
+#### Contexto
+
+Poucas horas depois do fix do login de colunistas (confirmado funcionando às 15:32 UTC), Roberto reportou: *"VOCE MEXEU EM ALGUMA COISA QUE QUEBROU O ADMIN, NAO ABRE, E O SISTEMA DE AUTOMACAO DO INSTAGRAM PAROU DE PUBLICAR"* — com print mostrando o admin em tela **completamente preta**, nada renderizado. Instrução inicial explícita: **"NAO FACA NADA, MAS IDENTIFIQUE O QUE FOI"** — investigação read-only primeiro, sem tocar em código.
+
+#### Investigação (read-only, via `diag-once.yml`, curl direto em produção)
+
+Testadas 3 chamadas reais a `api/manage.js` (`vendor_js`, `list_colunistas`, rota padrão sem `action`) — **as três** voltaram:
+```
+HTTP/2 500
+x-vercel-error: FUNCTION_INVOCATION_FAILED
+"A server error has occurred"
+```
+Esse não é um erro de aplicação tratado (que retornaria JSON) — é a Vercel dizendo que o **processo da função crashou antes de conseguir montar qualquer resposta**. Em paralelo, `api/portal-posts.js` e a homepage estática continuavam `HTTP 200` normal — o problema era isolado a `api/manage.js`.
+
+**Isso explica os dois sintomas de uma vez:** o admin carrega React/ReactDOM/Babel/Supabase-js através de um proxy same-origin (`/api/manage?action=vendor_js`, não CDN direto) — com essa função morta, nada dessas bibliotecas carrega e a página nunca renderiza. E `ig_auto_publish` (a automação do Instagram) mora no mesmo arquivo.
+
+**O detalhe mais estranho:** conferido o histórico de deploys — nenhum deploy novo aconteceu entre o último estado confirmado funcionando (15:32 UTC) e a quebra (~16:14 UTC). O mesmo build que funcionava começou a crashar sozinho, sem nenhum push.
+
+**Causa mais provável identificada por leitura de código:** `api/manage.js` importava `core/instagram.js` e `core/instagram_image.js` de forma **estática** no topo do arquivo. `core/instagram_image.js` usa `sharp` (biblioteca nativa/binária) para montar a arte do Instagram — uma falha de binário nativo num cold start novo (comum na Vercel, pode acontecer sem nenhum commit — um container antigo "morre" e um novo é criado com o binário incompatível) derruba o módulo **inteiro** quando importado estaticamente, quebrando as ~40 ações do arquivo, não só as de Instagram. Não foi possível confirmar 100% via logs de runtime da Vercel (fora do alcance deste ambiente) — mas a leitura de código e o padrão do sintoma (crash idêntico e total em toda ação, sem nenhum commit novo) são fortemente consistentes com essa causa.
+
+#### Fix (autorizado por Roberto: "resolva isso imediatamente e procure colocar um rastreador que identifique e previna futuros erros") — PR #586, commit `91af09b8`
+
+1. **`api/manage.js` — isolamento do import arriscado.** `core/instagram.js`/`core/instagram_image.js` trocados de `import` estático para `import()` **dinâmico**, carregado sob demanda só dentro das 3 funções que realmente usam (`handleIgPublish`, `handleIgPreview`, `_igAutoProcessAccount`). Se esses módulos falharem ao carregar agora, **só** a ação de publicar/pré-visualizar no Instagram retorna erro limpo em JSON — o resto do arquivo (admin, colunistas, editor IA, aprovação de posts, ~35 outras ações) continua funcionando normalmente. `core/instagram_location.js` e `core/ai_portal.js` continuam import estático (JS/dados puros, sem `sharp`, sem risco de binário nativo).
+2. **Novo `.github/workflows/api-health-check.yml` — rastreador de saúde da API.** Roda a cada 15 minutos, **independente de qualquer deploy**, testa uma rota real de cada um dos 10 arquivos em `api/` + a homepage (todas leitura pura, sem efeito colateral). Se qualquer uma crashar (500/`FUNCTION_INVOCATION_FAILED`), abre uma issue automática no GitHub com a lista de rotas quebradas; quando tudo volta a responder 200, fecha a issue sozinho e comenta a recuperação. Fecha o gap do `portal-smoke-test.yml` existente (que só roda em `push`, só cobre homepage + 1 categoria, e por isso NUNCA teria detectado este apagão silencioso — não houve deploy nenhum durante o incidente).
+
+**Verificado em produção real, pós-deploy (não só suposição):** as mesmas 3 chamadas que retornavam 500 voltaram a `HTTP/2 200` — `vendor_js` (`content-type: application/javascript`), `list_colunistas` e a rota padrão (ambos `content-type: application/json`). Confirmado também que o HTML do admin contém as 5 tags `<script>` de `vendor_js` esperadas.
+
+#### 🚨 Lição registrada — gravar para toda sessão futura
+
+```
+❌ Import ESTÁTICO no topo de api/manage.js (ou qualquer outro arquivo de api/)
+   de um módulo que usa dependência nativa/binária (sharp, e qualquer coisa
+   parecida no futuro) é um risco real: uma falha de binário em UM cold start
+   — sem nenhum commit novo — derruba o módulo INTEIRO pra TODAS as ações
+   daquele arquivo, não só a que usa a dependência arriscada.
+✅ Qualquer import de dependência nativa/binária (sharp, canvas, etc.) dentro
+   de api/manage.js (ou de qualquer arquivo com múltiplas ações num só
+   handler) deve ser import() DINÂMICO, carregado só dentro da função
+   específica que usa — nunca estático no topo do arquivo. Ver
+   _loadInstagram()/_loadInstagramImage() em api/manage.js como padrão de
+   referência.
+✅ "Não teve deploy novo, mas quebrou sozinho" é evidência real de causa
+   PLATAFORMA/RUNTIME (cold start, binário nativo, etc.), não de bug de
+   código introduzido por commit — não perder tempo revisando git log em
+   busca de um commit culpado quando os deploys já provam que não houve um.
+✅ .github/workflows/api-health-check.yml agora roda 24h/dia, a cada 15min,
+   independente de deploy — QUALQUER sessão futura que reportar "admin não
+   abre"/"automação parou" deve checar primeiro se há uma issue aberta com
+   label `api-health` antes de investigar do zero.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (31/08/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **`api/manage.js` — crash em toda ação, resolvido** (imports de Instagram isolados via `import()` dinâmico) | ✅ EM PRODUÇÃO (PR #586, commit `91af09b8`) — verificado end-to-end, 3 endpoints voltaram a HTTP 200 |
+| **Rastreador de saúde da API** (`api-health-check.yml`, cron 15min, abre/fecha issue automática) | ✅ EM PRODUÇÃO — cobre os 10 arquivos de `api/` + homepage |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** que o admin abre normalmente e que a automação de Instagram voltou a publicar.
+2. **Se a issue `api-health` abrir de novo no futuro**, isso já identifica QUAL rota específica está falhando — investigar a partir dela em vez de repetir o diagnóstico manual desta sessão.
+3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `public/admin/colunista/index.html` campo `telefone` cosmético).
