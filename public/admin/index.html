@@ -144,8 +144,19 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const ADMIN_PASS_HASH = 'f0a2470ce55e8c7a2774e60fde538043d626e0f32f02577ca9f1ce4331f8032b';
 const _sha256 = async m => { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(m)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); };
 
-const fmt = d => { if(!d) return '—'; const dt = new Date(d); return dt.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); };
-const fmtDate = d => d ? new Date(d).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
+// 31/08/2026 — BUG CRÍTICO CORRIGIDO: o Supabase retorna created_at/published_at/
+// updated_at SEM sufixo de fuso (ex: "2026-08-31T02:48:44.453173", sem "Z"). O
+// construtor Date() do JS, quando recebe uma string de data-hora SEM timezone,
+// interpreta como HORA LOCAL DO NAVEGADOR (não UTC) — para um navegador em
+// America/Sao_Paulo, isso faz um timestamp que é 23h48 de domingo em UTC real
+// virar "31/08" na tela (o "dia" vira 3h mais cedo do que deveria em BRT).
+// toUtcISO() normaliza a string ANTES de qualquer new Date() — só acrescenta
+// "Z" se a string ainda não tiver nenhum marcador de fuso; se já vier um objeto
+// Date (não string), devolve sem alterar. Usar SEMPRE que ler created_at/
+// published_at/updated_at vindo direto do Supabase.
+const toUtcISO = s => { if (!s) return s; if (s instanceof Date) return s; const str = String(s); return /[Zz]|[+-]\d\d:?\d\d$/.test(str) ? str : str + 'Z'; };
+const fmt = d => { if(!d) return '—'; const dt = new Date(toUtcISO(d)); return dt.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}); };
+const fmtDate = d => d ? new Date(toUtcISO(d)).toLocaleDateString('pt-BR', {timeZone:'America/Sao_Paulo'}) : '—';
 const truncate = (s, n) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
 
 // ── PREVIEW INSTAGRAM (24/08/2026, a pedido de Roberto) ──
@@ -273,7 +284,7 @@ function Dashboard() {
     try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
     const { data: p } = await sb.from('posts').select('id,titulo,status,approved,imagem,user_tags,created_at,published_at').order('created_at',{ascending:false}).limit(15);
     setPosts(p||[]);
-    const brtDate = d => new Date(d).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
+    const brtDate = d => new Date(toUtcISO(d)).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
     const hojeStr = brtDate(new Date()); const hojeUTC = new Date(hojeStr+'T03:00:00Z');
     const { data: hp } = await sb.from('posts').select('user_tags').gte('created_at', hojeUTC.toISOString());
     const cc = {}; (hp||[]).forEach(x=>{ try{JSON.parse(x.user_tags||'[]').forEach(t=>cc[t]=(cc[t]||0)+1);}catch(_){} });
@@ -310,7 +321,7 @@ function Dashboard() {
   };
 
   const pendentes = posts.filter(p=>p.status==='pendente').length;
-  const semana = posts.filter(p=>(Date.now()-new Date(p.created_at).getTime())<7*24*3600*1000).length;
+  const semana = posts.filter(p=>(Date.now()-new Date(toUtcISO(p.created_at)).getTime())<7*24*3600*1000).length;
   const semImagem = posts.filter(p=>!p.imagem).length;
   const usd=cotacoes&&cotacoes['USDBRL'], eur=cotacoes&&cotacoes['EURBRL'], btc=cotacoes&&cotacoes['BTCBRL'];
   const pct=v=>parseFloat((v&&v.pctChange)||0);
@@ -2009,7 +2020,7 @@ function Relatorios() {
     const erros_count = (logs||[]).filter(l => l.level === 'error').length;
 
     // Posts por dia — datas em BRT
-    const brtDay = d => new Date(d).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
+    const brtDay = d => new Date(toUtcISO(d)).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
     const porDia = {};
     posts.forEach(p => {
       const dia = brtDay(p.created_at);
@@ -3090,7 +3101,7 @@ function ColunistasAdmin({ setPage }){
                       <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr auto auto auto',gap:12,alignItems:'center',padding:'12px 0',borderBottom:'1px solid rgba(255,255,255,.04)'}}>
                         <div style={{fontSize:13,color:'var(--t1)',lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.titulo}</div>
                         <span className={`badge badge-${p.status==='publicado'?'green':p.status==='pendente'?'yellow':'red'}`}>{p.status}</span>
-                        <span style={{fontSize:11,color:'var(--t3)',whiteSpace:'nowrap'}}>{p.created_at?new Date(p.created_at).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'-'}</span>
+                        <span style={{fontSize:11,color:'var(--t3)',whiteSpace:'nowrap'}}>{p.created_at?new Date(toUtcISO(p.created_at)).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'-'}</span>
                         <div style={{display:'flex',gap:6}}>
                           {p.status==='pendente' && <>
                             <button className="btn btn-green btn-sm" style={{fontSize:11,padding:'4px 10px'}} onClick={()=>aprovarPost(p.id)}>✓ Pub.</button>
@@ -4729,7 +4740,7 @@ function PortalColunistasAdmin() {
   };
 
   const pendentes = submissoes.filter(x=>x.status==='pendente').length;
-  const fmtDate=d=>d?new Date(d).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const fmtDate=d=>d?new Date(toUtcISO(d)).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 
   const SQL_SETUP = `-- Tabela de tokens de acesso
 CREATE TABLE IF NOT EXISTS colunista_tokens (
