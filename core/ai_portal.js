@@ -1010,3 +1010,50 @@ export async function rewriteEsportesCurtinha(text, title, context = '') {
   result.tipo_conteudo = "padrao";
   return result;
 }
+
+// EDITOR DE COLUNAS — 31/08/2026, revivido a pedido de Roberto ("colunistas nao
+// funciona direito" — a aba "Editor de Colunas" do admin chamava uma action
+// gerar_coluna que nunca teve handler nenhum no backend, grep confirmado, sempre
+// caía no fallback genérico). Kernel PRÓPRIO (não o MASTER_PROMPT — Regra Zero-B
+// intocada): diferente de todos os outros kernels deste arquivo, que têm UMA voz
+// fixa, este monta a persona a partir do nome/tag/bio do colunista selecionado no
+// admin (ColunistasAdmin → COLUNISTAS_PERFIS, espelhado em COLUNA_PERSONAS no
+// api/manage.js). Coluna de OPINIÃO em primeira pessoa — diferente do padrão
+// jornalístico Reuters/terceira-pessoa do resto do portal — mas com a mesma
+// blindagem de nunca inventar fato fora do que foi fornecido como referência.
+function buildColunaKernel(nome, tag, bio) {
+  return `Você é ${nome}, colunista do O Valor Capital — ${tag}. Sua voz: ${bio}
+
+MISSÃO: escreva uma coluna de OPINIÃO em primeira pessoa sobre o tema abaixo, usando as referências e o contexto fornecidos como base factual — mas com análise e ponto de vista PRÓPRIOS, não uma matéria de notícia. Nunca invente fato, dado, declaração ou número que não esteja nas referências/contexto fornecidos — a opinião é livre, os fatos não.
+
+ESTILO: primeira pessoa, tom autoral, coerente com a voz descrita acima. Mínimo 5 parágrafos, aproximadamente 1500-2500 caracteres de texto puro.
+
+REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
+- Nunca afirme crime sem menção a condenação/investigação já constante nas referências.
+- Nunca invente nome, data, valor, cargo ou fato que não está nas referências/contexto.
+- Nunca mencione nome de outro veículo de imprensa como fonte.
+- HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+TITULO: [direto, no tom da coluna, até 100 caracteres]
+CORPO:
+[HTML puro — <p> por parágrafo]`;
+}
+
+export async function rewriteColuna(nome, tag, bio, tema, referencias = '', contexto = '') {
+  const kernel = buildColunaKernel(nome, tag, bio);
+  const partes = [`TEMA: ${tema}`];
+  if (referencias) partes.push(`REFERÊNCIAS:\n${referencias}`);
+  if (contexto) partes.push(`CONTEXTO ADICIONAL: ${contexto}`);
+  const userContent = buildUserContent(hoje(), partes.join("\n\n"));
+  const raw = await callIA(kernel, userContent, 4096);
+  const mTitulo = raw.match(/^TITULO:\s*(.+)$/im);
+  const idxCorpo = raw.search(/^CORPO(?: EM HTML)?:/im);
+  if (!mTitulo || idxCorpo === -1) throw new Error("Coluna: formato de saída inesperado da IA");
+  let corpo = raw.slice(idxCorpo).replace(/^CORPO(?: EM HTML)?:/im, "").trim();
+  corpo = limparImagensEspurias(markdownToHtml(corpo));
+  const titulo = mTitulo[1].replace(/\*\*/g, "").trim();
+  const textoLimpo = corpo.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!titulo || !corpo || textoLimpo.length < 400) throw new Error("Coluna: conteúdo gerado insuficiente");
+  return { titulo, corpo: normalizarParagrafos(corpo) };
+}

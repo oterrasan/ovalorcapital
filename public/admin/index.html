@@ -549,37 +549,40 @@ function Pipeline() {
     setForcing(false);
   };
 
+  // 31/08/2026 — REESCRITO. Antes disparava 8 chamadas com {batch:true,count:3} —
+  // `batch` nunca era lido em lugar nenhum de api/run_portal.js (grep confirmado) e
+  // `count` também não existe no handler default (autoMaterias() sempre gera no
+  // máximo 1 post por chamada, `return` no primeiro sucesso) — então o botão só
+  // disparava 8 chamadas redundantes de categoria ALEATÓRIA, o mesmo que clicar
+  // "Gerar 3 agora" várias vezes, nunca cobrindo de fato "TODAS as categorias"
+  // como o rótulo prometia. Fix: 1 chamada real por categoria, sequencial (evita
+  // sobrecarregar a cota diária do Gemini com uma rajada paralela), com
+  // categoria:catId forçando o pool de RSS certo (CATS.has(body.categoria) em
+  // autoMaterias()) — agora o botão cumpre o que o rótulo diz.
   const runBatch = async () => {
     setBatchRunning(true);
-    setBatchLog(['🚀 Disparando 8 chamadas em paralelo (até 3 artigos cada)...']);
-    var CHAMADAS = 8;
-    var promises = [];
-    for (var i = 0; i < CHAMADAS; i++) {
-      promises.push(
-        fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({batch:true,count:3})})
-          .then(function(r){ return r.json(); })
-          .catch(function(e){ return {status:'erro',error:e.message}; })
-      );
-    }
-    var resultados = await Promise.allSettled(promises);
-    var totalArtigos = 0;
     var linhas = [];
-    resultados.forEach(function(r, idx) {
-      var j = r.status === 'fulfilled' ? r.value : {status:'erro'};
-      if (j.artigos && j.artigos.length) {
-        totalArtigos += j.artigos.length;
-        j.artigos.forEach(function(a) {
-          linhas.push('✅ [' + (a.categoria||'?') + '] ' + (a.titulo||'sem título'));
-        });
-      } else if (j.status === 'ok') {
-        totalArtigos++;
-        linhas.push('✅ [' + (j.categoria||'?') + '] ' + (j.titulo||'sem título'));
-      } else {
-        linhas.push('⚠️ Chamada ' + (idx+1) + ': ' + (j.status||'sem retorno'));
+    var totalArtigos = 0;
+    setBatchLog(['🚀 Disparando 1 matéria por categoria (' + CATS_DISPONIVEIS.length + ' no total)...']);
+    for (var i = 0; i < CATS_DISPONIVEIS.length; i++) {
+      var catId = CATS_DISPONIVEIS[i].id;
+      try {
+        var r = await fetch('/api/run_portal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({force:true,categoria:catId})});
+        var j = await r.json();
+        if (j.status === 'ok') {
+          totalArtigos++;
+          linhas.push('✅ [' + catId + '] ' + (j.titulo||'sem título'));
+        } else if (j.status === 'limite_diario_atingido') {
+          linhas.push('⛔ Limite diário do pipeline atingido (' + j.hoje + '/' + j.limite + ') — parando.');
+          break;
+        } else {
+          linhas.push('⚠️ [' + catId + '] ' + (j.status||'sem retorno'));
+        }
+      } catch(e) {
+        linhas.push('❌ [' + catId + '] ' + e.message);
       }
-    });
-    linhas.unshift('📊 Total gerado: ' + totalArtigos + ' artigos pendentes');
-    setBatchLog(linhas);
+      setBatchLog(['📊 Total gerado: ' + totalArtigos + '/' + CATS_DISPONIVEIS.length].concat(linhas));
+    }
     setBatchRunning(false);
     load();
   };
@@ -622,14 +625,68 @@ function Pipeline() {
   const removePedido = idx => setPedidos(prev => prev.filter((_,i)=>i!==idx));
   const updatePedido = (idx, field, val) => setPedidos(prev => prev.map((p,i) => i===idx ? {...p, [field]:val, ...(field==='categoria'?{subcategoria:''}:{})} : p));
 
+  // 31/08/2026 — REESCRITO. Antes chamava POST /api/manage com {pedidos,fonteManual}
+  // sem nenhum campo `action` — cai direto no fallback genérico
+  // ("acao_indisponivel_no_modo_emergencia"), nunca existiu handler nenhum pra
+  // isso (grep confirmado). Fix: reaproveita os dois caminhos reais e já
+  // comprovados de /api/run_portal — manual() (quando há url/texto — Modo B) e
+  // autoMaterias() (quando não há fonte manual — Modo A, RSS, uma chamada por
+  // matéria solicitada, já que autoMaterias() sempre gera no máximo 1 post por
+  // chamada, nunca lê `count`).
   const runManual = async () => {
     if (modoManual && !fonteManual.trim()) { alert('Informe a URL ou texto da fonte.'); return; }
     setManualRunning(true); setManualResult(null);
+    const notificacoes = [];
+    const resultados = [];
     try {
-      const body = { pedidos, fonteManual: modoManual ? fonteManual.trim() : null };
-      const r = await fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-      const j = await r.json();
-      setManualResult(j);
+      if (modoManual) {
+        const fonte = fonteManual.trim();
+        const body = {
+          force: true,
+          categoria: pedidos[0]?.categoria || 'economia',
+        };
+        if (pedidos[0]?.subcategoria) body.subcategoria = pedidos[0].subcategoria;
+        if (/^https?:\/\//i.test(fonte)) body.url = fonte; else body.texto = fonte;
+        const r = await fetch('/api/run_portal', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+        const j = await r.json();
+        if (j.status === 'ok') {
+          resultados.push({status:'ok', categoria: body.categoria, subcategoria: body.subcategoria, titulo: j.titulo});
+          notificacoes.push({tipo:'sucesso', mensagem: `✅ Matéria gerada e salva como pendente: "${j.titulo}"`});
+        } else if (j.status === 'reprovado') {
+          notificacoes.push({tipo:'erro', mensagem: `❌ Reprovada na auditoria: ${(j.erros||[]).join(', ')}`});
+        } else if (j.error) {
+          notificacoes.push({tipo:'erro', mensagem: `❌ ${j.error}`});
+        } else {
+          notificacoes.push({tipo:'aviso', mensagem: `⚠️ Resposta inesperada: ${JSON.stringify(j)}`});
+        }
+      } else {
+        const totalPedido = pedidos.reduce((s,p)=>s+(parseInt(p.quantidade)||0),0);
+        if (totalPedido > 30) { alert('Máximo de 30 matérias por disparo — reduza a quantidade (custa 1 chamada real de IA por matéria).'); setManualRunning(false); return; }
+        outer:
+        for (const p of pedidos) {
+          const qtd = parseInt(p.quantidade) || 0;
+          for (let i = 0; i < qtd; i++) {
+            try {
+              const r = await fetch('/api/run_portal', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({force:true, categoria: p.categoria})});
+              const j = await r.json();
+              if (j.status === 'ok') {
+                resultados.push({status:'ok', categoria: j.categoria || p.categoria, subcategoria: j.subcategoria, titulo: j.titulo});
+              } else if (j.status === 'no_valid_news') {
+                notificacoes.push({tipo:'aviso', mensagem:`⚠️ [${p.categoria}] sem notícia nova disponível agora (${i+1}/${qtd})`});
+              } else if (j.status === 'limite_diario_atingido') {
+                notificacoes.push({tipo:'erro', mensagem:`⛔ Limite diário do pipeline atingido (${j.hoje}/${j.limite}) — parando aqui.`});
+                break outer;
+              } else {
+                notificacoes.push({tipo:'aviso', mensagem:`⚠️ [${p.categoria}] ${j.status||'sem retorno'}`});
+              }
+            } catch(e) {
+              notificacoes.push({tipo:'erro', mensagem:`❌ [${p.categoria}] ${e.message}`});
+            }
+          }
+        }
+        notificacoes.unshift({tipo:'sucesso', mensagem:`✅ ${resultados.length} matéria(s) gerada(s) de ${totalPedido} solicitada(s)`});
+      }
+      setManualResult({status:'done', notificacoes, resultados});
       load();
     } catch(e){ setManualResult({status:'error', notificacoes:[{tipo:'erro', mensagem:e.message}]}); }
     setManualRunning(false);
@@ -644,7 +701,7 @@ function Pipeline() {
           <div className="panel-header"><span className="panel-title">Status da Automação</span>
             <div style={{display:'flex',gap:8}}>
               <button className="btn btn-primary btn-sm" onClick={forceRun} disabled={forcing||batchRunning}>{forcing?'Executando...':'▶ Gerar 3 agora'}</button>
-              <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={runBatch} disabled={forcing||batchRunning}>{batchRunning?'⏳ Gerando em lote...':'🚀 Gerar para TODAS as categorias'}</button>
+              <button style={{background:'#7c3aed',color:'#fff',border:'none',borderRadius:6,padding:'4px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}} onClick={runBatch} disabled={forcing||batchRunning}>{batchRunning?'⏳ Gerando 1 por categoria...':'🚀 Gerar 1 por categoria (' + CATS_DISPONIVEIS.length + ')'}</button>
               <button onClick={limparArtigosCorrompidos} style={{background:'#1a1a2e',color:'#e94560',border:'1px solid #e94560',padding:'4px 14px',borderRadius:4,cursor:'pointer',fontSize:12,fontWeight:700}}>🧹 Limpar Artigos Corrompidos</button>
             </div>
           </div>
@@ -978,10 +1035,10 @@ function Postagens() {
       // Revisar texto com IA se solicitado
       if (flags.texto) {
         try {
-          const r = await fetch('/api/editor_ia', {
+          const r = await fetch('/api/manage', {
             method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({texto: post.conteudo, acao:'melhorar', ia:'openai', publicar:false})
+            headers: {'Content-Type':'application/json', 'x-admin-password':ADMIN_PASS},
+            body: JSON.stringify({action:'revisar_texto_ia', texto: post.conteudo, titulo: post.titulo})
           });
           const d = await r.json();
           if (d.ok && d.corpo) {
@@ -990,6 +1047,8 @@ function Postagens() {
               conteudo: d.corpo,
               comentario_fixado: d.meta_descricao || post.comentario_fixado
             }).eq('id', post.id);
+          } else {
+            console.warn('Revisão de texto falhou:', d.error);
           }
         } catch(e) { console.warn('Revisão de texto falhou:', e.message); }
       }
@@ -1008,29 +1067,28 @@ function Postagens() {
   };
 
   const revisarIA = async (post) => {
-    if (!confirm('A IA vai revisar o conteúdo e buscar nova imagem para este post. Continuar?')) return;
+    if (!confirm('A IA vai revisar o texto deste post (reescrita, mesmos fatos). Continuar?')) return;
     setRevisando(post.id);
     try {
-      // Pedir revisão ao editor_ia
-      const r = await fetch('/api/editor_ia', {
+      // 31/08/2026 — chamava /api/editor_ia (endpoint morto, sem handler —
+      // sempre respondia 200 com {ok:false,degraded:true,...}); como o
+      // status HTTP era sempre 200, "if(!r.ok)" nunca disparava, e o modal
+      // abria com o post INALTERADO marcado como _revisado:true — dando a
+      // falsa impressão de que a IA tinha revisado o texto. Fix: usa a
+      // action real revisar_texto_ia (ver api/manage.js), que checa `d.ok`
+      // de verdade antes de aplicar qualquer coisa.
+      const r = await fetch('/api/manage', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          texto: post.conteudo,
-          acao: 'melhorar',
-          ia: 'gemini',
-          buscarImagem: true,
-          publicar: false
-        })
+        headers: {'Content-Type':'application/json', 'x-admin-password':ADMIN_PASS},
+        body: JSON.stringify({action:'revisar_texto_ia', texto: post.conteudo, titulo: post.titulo})
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Erro ao revisar');
+      if (!d.ok) throw new Error(d.error || 'Erro ao revisar');
       // Abrir modal de edição com o resultado revisado
       setEditPost({
         ...post,
         titulo: d.titulo || post.titulo,
         conteudo: d.corpo || post.conteudo,
-        imagem: d.imagem || post.imagem,
         _revisado: true
       });
     } catch(e) {
@@ -2820,20 +2878,35 @@ function ColunistasAdmin({ setPage }){
     setSubmetendo(false);
   }
 
-  function salvarFoto(nome){
+  // 31/08/2026 — REESCRITO. Antes salvava só em sessionStorage (some ao fechar
+  // a aba, nunca chega no banco nem aparece no site) — o backend já tem um
+  // handler real e testado pra isso (update_colunista_photo → savePhoto() →
+  // config.COLUNISTAS_PHOTOS), só nunca era chamado daqui. getFoto() agora lê
+  // de dbList (já vem com foto_url mesclada, ver attachFotoColunista() em
+  // api/manage.js), não mais de sessionStorage.
+  const [salvandoFoto, setSalvandoFoto] = React.useState(false);
+  async function salvarFoto(nome){
+    const url = fotoUrl.trim();
+    if(!url){ setShowFotoModal(null); return; }
+    setSalvandoFoto(true);
     try{
-      const saved = JSON.parse(sessionStorage.getItem('ovc_fotos_colunistas')||'{}');
-      saved[nome] = fotoUrl;
-      sessionStorage.setItem('ovc_fotos_colunistas', JSON.stringify(saved));
-    }catch(_){}
+      const r = await fetch('/api/manage',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS},
+        body:JSON.stringify({action:'update_colunista_photo', nome, foto_url:url})});
+      const d = await r.json();
+      if(d.ok){
+        setMsg('✅ Foto salva.');
+        fetch('/api/manage?action=list_colunistas').then(r=>r.json()).then(d=>{ if(d.ok) setDbList(d.colunistas||[]); });
+      } else {
+        setMsg('❌ '+(d.error||'erro ao salvar foto'));
+      }
+    }catch(e){ setMsg('❌ '+e.message); }
+    setSalvandoFoto(false);
     setShowFotoModal(null); setFotoUrl('');
   }
 
   function getFoto(nome){
-    try{
-      const saved = JSON.parse(sessionStorage.getItem('ovc_fotos_colunistas')||'{}');
-      return saved[nome] || '';
-    }catch(_){ return ''; }
+    const db = getDbEntry(nome);
+    return db?.foto_url || '';
   }
 
   const initials = nome => nome.split(' ').filter((_,i)=>i<2).map(w=>w[0]||'').join('').toUpperCase();
@@ -2940,8 +3013,8 @@ function ColunistasAdmin({ setPage }){
               <input className="form-input" style={{marginBottom:16}} placeholder="https://..." value={fotoUrl} onChange={e=>setFotoUrl(e.target.value)}/>
               {fotoUrl && <img src={fotoUrl} alt="" style={{width:'100%',height:180,objectFit:'cover',objectPosition:'top',borderRadius:8,marginBottom:16}}/>}
               <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-                <button className="btn btn-secondary btn-sm" onClick={()=>setShowFotoModal(null)}>Cancelar</button>
-                <button className="btn btn-primary btn-sm" onClick={()=>salvarFoto(showFotoModal)}>Salvar Foto</button>
+                <button className="btn btn-secondary btn-sm" onClick={()=>setShowFotoModal(null)} disabled={salvandoFoto}>Cancelar</button>
+                <button className="btn btn-primary btn-sm" onClick={()=>salvarFoto(showFotoModal)} disabled={salvandoFoto}>{salvandoFoto?'Salvando...':'Salvar Foto'}</button>
               </div>
             </div>
           </div>
@@ -3506,8 +3579,11 @@ function UploadImagens() {
   }, []);
 
   React.useEffect(() => {
-    // Garante que o bucket existe (cria automaticamente se não existir)
-    fetch('/api/manage', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'setup_storage'})})
+    // Garante que o bucket existe (cria automaticamente se não existir).
+    // 31/08/2026 — era POST com action no body, mas handleSetupStorage() só
+    // está ligado no dispatch de GET (?action=setup_storage) — toda chamada
+    // caía no fallback genérico e o bucket nunca era garantido por aqui.
+    fetch('/api/manage?action=setup_storage')
       .then(() => carregarGaleria());
     sb.from('posts').select('id,titulo,status').in('status',['pendente','pending']).order('created_at',{ascending:false}).limit(100).then(({data}) => {
       if(data) setPosts(data);
@@ -3744,189 +3820,122 @@ function UploadImagens() {
 
 
 // ── EDITOR IA ──
+// 31/08/2026 — REESCRITO. Antes chamava POST /api/editor_ia (rewrite em
+// vercel.json pra /api/manage?action=editor_ia) — mas api/manage.js nunca
+// teve handler nenhum pra essa action (grep confirmado, zero ocorrências) —
+// todo clique caía direto no fallback genérico "acao_indisponivel_no_modo_
+// emergencia" e nunca funcionou. Também escolhia entre 4 IAs (ChatGPT/Gemini/
+// Groq/Grok) das quais só "ChatGPT" vinha marcada como ativa — mas o sistema
+// não usa mais OpenAI/Groq em lugar nenhum desde 31/08/2026 (ver
+// IA_KEYS_POLICY.md), então o seletor inteiro era enganoso.
+// Fix: reaproveita o mecanismo real e já comprovado — POST /api/run_portal
+// com {url|texto, categoria, force:true} — a mesma chamada que o botão
+// flutuante "REESCRITA OVC" já usa com sucesso. As opções "Criar do tema" e
+// "Prompt livre" foram removidas — o backend não tem (e nunca teve) um
+// caminho real pra gerar matéria sem uma fonte de texto real (é uma decisão
+// de design deliberada do MASTER_PROMPT: nunca inventar, sempre reescrever
+// fiel a uma fonte) — mostrar essas opções como se funcionassem seria
+// prometer algo que o sistema não faz.
 function EditorIA() {
   const [entrada, setEntrada] = React.useState('');
-  const [acao, setAcao] = React.useState('reescrever');
-  const [promptLivre, setPromptLivre] = React.useState('');
-  const [ia, setIa] = React.useState('openai');
   const [imagem, setImagem] = React.useState('');
   const [buscarImagem, setBuscarImagem] = React.useState(false);
+  const [categoria, setCategoria] = React.useState('economia');
   const [loading, setLoading] = React.useState(false);
-  const [resultado, setResultado] = React.useState(null);
   const [erro, setErro] = React.useState('');
-  const [salvando, setSalvando] = React.useState(false);
   const [salvo, setSalvo] = React.useState(null);
 
-  const IAS = [
-    {id:'openai', label:'ChatGPT', ativo:true},
-    {id:'gemini', label:'Gemini',  ativo:false},
-    {id:'groq',   label:'Groq',    ativo:false},
-    {id:'grok',   label:'Grok',    ativo:false},
-  ];
-
-  const ACOES = [
-    {id:'reescrever', label:'Reescrever no padrão OVC'},
-    {id:'melhorar',   label:'Melhorar meu texto'},
-    {id:'tema',       label:'Criar matéria do tema'},
-    {id:'livre',      label:'Prompt livre'},
+  const CATS = [
+    {id:'brasil-on',     label:'Brasil On'},
+    {id:'politica',      label:'Política'},
+    {id:'economia',      label:'Economia'},
+    {id:'financas',      label:'Finanças'},
+    {id:'negocios',      label:'Negócios'},
+    {id:'tecnologia',    label:'Tecnologia'},
+    {id:'internacional', label:'Internacional'},
+    {id:'industria',     label:'Indústria'},
+    {id:'familia',       label:'Família'},
+    {id:'esportes',      label:'Esportes'},
+    {id:'giro',          label:'Giro'},
   ];
 
   const isUrl = entrada.trim().startsWith('http');
 
   async function gerar() {
-    if (!entrada.trim()) { setErro('Cole um link, texto ou tema'); return; }
-    if (acao === 'livre' && !promptLivre.trim()) { setErro('Digite seu prompt'); return; }
-    setLoading(true); setErro(''); setResultado(null); setSalvo(null);
+    if (!entrada.trim()) { setErro('Cole um link ou o texto completo da notícia-fonte'); return; }
+    setLoading(true); setErro(''); setSalvo(null);
     try {
-      const body = { acao, ia, imagem: imagem.trim(), buscarImagem, promptLivre, publicar: false };
-      if (isUrl) body.url = entrada.trim();
-      else body.texto = entrada.trim();
-      const r = await fetch('/api/editor_ia', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const body = { force: true, categoria };
+      if (isUrl) body.url = entrada.trim(); else body.texto = entrada.trim();
+      if (imagem.trim()) body.image_url = imagem.trim();
+      else if (buscarImagem) body.image_query = entrada.trim().slice(0, 120);
+      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Erro ao gerar');
-      setResultado(d);
+      if (d.status === 'ok') {
+        setSalvo({ titulo: d.titulo, categoria });
+        setEntrada(''); setImagem('');
+      } else if (d.status === 'reprovado') {
+        setErro('Reprovada na auditoria editorial: ' + (d.erros || []).join(', '));
+      } else if (d.error) {
+        setErro(d.error);
+      } else {
+        setErro('Resposta inesperada do pipeline: ' + JSON.stringify(d));
+      }
     } catch(e) { setErro(e.message); }
     setLoading(false);
-  }
-
-  async function salvar() {
-    if (!resultado) return;
-    setSalvando(true);
-    try {
-      // Salvar diretamente no banco o conteúdo já gerado — NÃO chamar a IA de novo
-      const postData = {
-        titulo: resultado.titulo,
-        conteudo: resultado.corpo,
-        comentario_fixado: resultado.subtitulo || '',
-        imagem: resultado.imagem || imagem.trim() || '',
-        hash: Math.random().toString(36).slice(2) + Date.now().toString(36),
-        status: 'pendente',
-        approved: false,
-        publish_method: 'portal',
-        published_at: null,
-        user_tags: JSON.stringify([resultado.categoria || 'geral']),
-        subcategoria: resultado.subcategoria || '',
-        subcategoria_slug: (resultado.subcategoria||'geral').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-'),
-        collaborators: '[]',
-        metrics: {},
-        priority: 1,
-        retry_count: 0,
-        max_retries: 3
-      };
-      const { data: post, error } = await sb.from('posts').insert([postData]).select().single();
-      if (error) throw new Error(error.message);
-      setSalvo({ ok: true, status: 'pendente', titulo: resultado.titulo, categoria: resultado.categoria, id: post?.id });
-      setResultado(null); setEntrada(''); setImagem('');
-    } catch(e) { setErro(e.message); }
-    setSalvando(false);
   }
 
   return (
     <div>
       <div className="page-header">
         <div className="page-title">⚡ Editor IA</div>
-        <div className="page-sub">Você manda o link ou texto. A IA processa no padrão OVC. Você aprova.</div>
+        <div className="page-sub">Você manda o link ou o texto da fonte. O Gemini reescreve no padrão OVC (fiel ao que está na fonte) e salva como pendente.</div>
       </div>
       <div className="page-body">
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:20}}>
-
-          {/* Entrada */}
-          <div>
-            <div className="panel">
-              <div className="panel-header"><span className="panel-title">Entrada</span></div>
-              <div style={{padding:20}}>
-                <div className="form-group">
-                  <label className="form-label">Link ou texto da notícia</label>
-                  <textarea className="form-textarea" style={{minHeight:130}} value={entrada} onChange={e=>setEntrada(e.target.value)} disabled={loading}
-                    placeholder="Cole aqui a URL da notícia ou o texto completo..."/>
-                  {isUrl && <div style={{fontSize:11,color:'#4ade80',marginTop:4}}>🔗 URL detectada — será extraída automaticamente</div>}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">O que fazer</label>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-                    {ACOES.map(a=>(
-                      <button key={a.id} onClick={()=>setAcao(a.id)} className={`btn btn-sm ${acao===a.id?'btn-primary':'btn-secondary'}`}>{a.label}</button>
-                    ))}
-                  </div>
-                </div>
-
-                {acao === 'livre' && (
-                  <div className="form-group">
-                    <label className="form-label">Seu prompt</label>
-                    <textarea className="form-textarea" style={{minHeight:70}} value={promptLivre} onChange={e=>setPromptLivre(e.target.value)} disabled={loading} placeholder="Digite sua instrução para a IA..."/>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label className="form-label">Qual IA usar</label>
-                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                    {IAS.map(i=>(
-                      <button key={i.id} onClick={()=>i.ativo&&setIa(i.id)}
-                        className={`btn btn-sm ${ia===i.id?'btn-primary':'btn-secondary'}`}
-                        style={{opacity:i.ativo?1:.4,cursor:i.ativo?'pointer':'not-allowed'}}
-                        title={i.ativo?'':'Em breve'}>
-                        {i.label}{!i.ativo?' 🔒':''}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Imagem (opcional)</label>
-                  <input className="form-input" value={imagem} onChange={e=>{setImagem(e.target.value);if(e.target.value)setBuscarImagem(false);}} disabled={loading} placeholder="Cole a URL da imagem aqui..."/>
-                  <label style={{display:'flex',alignItems:'center',gap:8,marginTop:8,fontSize:13,cursor:'pointer',color:'var(--t2)'}}>
-                    <input type="checkbox" checked={buscarImagem} onChange={e=>{setBuscarImagem(e.target.checked);if(e.target.checked)setImagem('');}} disabled={loading||!!imagem}/>
-                    Buscar imagem automaticamente
-                  </label>
-                </div>
-
-                <button className="btn btn-primary" style={{width:'100%',padding:'12px',opacity:loading?.6:1}} onClick={gerar} disabled={loading}>
-                  {loading ? '⏳ Processando...' : '⚡ Gerar matéria'}
-                </button>
-
-                {erro && <div className="alert-banner" style={{marginTop:12}}><span>⚠️ {erro}</span></div>}
+        <div style={{maxWidth:640}}>
+          <div className="panel">
+            <div className="panel-header"><span className="panel-title">Entrada</span></div>
+            <div style={{padding:20}}>
+              <div className="form-group">
+                <label className="form-label">Link ou texto completo da notícia-fonte</label>
+                <textarea className="form-textarea" style={{minHeight:130}} value={entrada} onChange={e=>setEntrada(e.target.value)} disabled={loading}
+                  placeholder="Cole aqui a URL da notícia ou o texto completo..."/>
+                {isUrl && <div style={{fontSize:11,color:'#4ade80',marginTop:4}}>🔗 URL detectada — o texto será extraído automaticamente</div>}
               </div>
+
+              <div className="form-group">
+                <label className="form-label">Categoria</label>
+                <select className="form-select" value={categoria} onChange={e=>setCategoria(e.target.value)} disabled={loading}>
+                  {CATS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Imagem (opcional)</label>
+                <input className="form-input" value={imagem} onChange={e=>{setImagem(e.target.value);if(e.target.value)setBuscarImagem(false);}} disabled={loading} placeholder="Cole a URL da imagem aqui..."/>
+                <label style={{display:'flex',alignItems:'center',gap:8,marginTop:8,fontSize:13,cursor:'pointer',color:'var(--t2)'}}>
+                  <input type="checkbox" checked={buscarImagem} onChange={e=>{setBuscarImagem(e.target.checked);if(e.target.checked)setImagem('');}} disabled={loading||!!imagem}/>
+                  Buscar imagem automaticamente
+                </label>
+              </div>
+
+              <button className="btn btn-primary" style={{width:'100%',padding:'12px',opacity:loading?.6:1}} onClick={gerar} disabled={loading}>
+                {loading ? '⏳ Gerando...' : '⚡ Gerar e salvar como pendente'}
+              </button>
+
+              {erro && <div className="alert-banner" style={{marginTop:12}}><span>⚠️ {erro}</span></div>}
             </div>
           </div>
 
-          {/* Resultado */}
-          <div>
-            {resultado && (
-              <div className="panel">
-                <div className="panel-header"><span className="panel-title" style={{color:'#4ade80'}}>✅ Matéria gerada</span></div>
-                <div style={{padding:20}}>
-                  {resultado.imagem && <img src={resultado.imagem} alt="" style={{width:'100%',height:160,objectFit:'cover',borderRadius:8,marginBottom:12,display:'block'}} onError={e=>e.target.style.display='none'}/>}
-                  <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{resultado.titulo}</div>
-                  <div style={{fontSize:12,color:'var(--t2)',marginBottom:12}}>Categoria: {resultado.categoria}{resultado.subtitulo?' · '+resultado.subtitulo:''}</div>
-                  <div style={{background:'rgba(255,255,255,0.03)',borderRadius:8,padding:14,fontSize:13,lineHeight:1.7,maxHeight:320,overflowY:'auto',whiteSpace:'pre-wrap',marginBottom:16}}>{resultado.corpo}</div>
-                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-                    <button className="btn btn-green" onClick={()=>salvar()} disabled={salvando}>{salvando?'Salvando...':'💾 Salvar como pendente'}</button>
-                    <button className="btn btn-secondary" onClick={()=>setResultado(null)}>✕ Descartar</button>
-                  </div>
-                </div>
+          {salvo && (
+            <div className="panel" style={{border:'1px solid rgba(22,163,74,.3)',marginTop:20}}>
+              <div style={{padding:20}}>
+                <div style={{fontWeight:700,color:'#4ade80',marginBottom:8}}>✅ Salvo como pendente — vá em Postagens para aprovar</div>
+                <div style={{fontWeight:600}}>{salvo.titulo}</div>
+                <div style={{fontSize:12,color:'var(--t2)',marginTop:4}}>Categoria: {salvo.categoria}</div>
               </div>
-            )}
-
-            {salvo && (
-              <div className="panel" style={{border:'1px solid rgba(22,163,74,.3)'}}>
-                <div style={{padding:20}}>
-                  <div style={{fontWeight:700,color:'#4ade80',marginBottom:8}}>{salvo.status==='publicado'?'✅ Publicado no portal!':'✅ Salvo como pendente — vá em Postagens para aprovar'}</div>
-                  <div style={{fontWeight:600}}>{salvo.titulo}</div>
-                  <div style={{fontSize:12,color:'var(--t2)',marginTop:4}}>Categoria: {salvo.categoria}</div>
-                </div>
-              </div>
-            )}
-
-            {!resultado && !salvo && (
-              <div className="panel" style={{minHeight:300,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <div style={{textAlign:'center',color:'var(--t2)'}}>
-                  <div style={{fontSize:48,marginBottom:12}}>⚡</div>
-                  <div>Preencha os campos ao lado e clique em Gerar</div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -4689,8 +4698,17 @@ function PortalColunistasAdmin() {
     loadTokens();
   };
 
+  // 31/08/2026 — o link gerado apontava pra "${BASE_URL}/colunista?token=..."
+  // — essa rota NUNCA existiu (nem em vercel.json nem como página estática),
+  // 404 garantido pra todo colunista que recebesse o link. A página real do
+  // portal do colunista é public/admin/colunista/index.html (servida em
+  // /admin/colunista/) — MAS ela usa login por email+senha (action
+  // login_colunista), não um token na URL — o token de colunista_tokens não
+  // é lido por ela em lugar nenhum. Fix mínimo e honesto: aponta pra página
+  // real (que pelo menos existe e funciona), mas o colunista ainda precisa
+  // de login de verdade — ver nota na aba Acessos abaixo.
   const copiarLink=(token)=>{
-    const link=`${BASE_URL}/colunista?token=${token}`;
+    const link=`${BASE_URL}/admin/colunista/`;
     navigator.clipboard.writeText(link).then(()=>{setCopiado(token);setTimeout(()=>setCopiado(''),2000);});
   };
 
@@ -4821,7 +4839,7 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS publish_method text;`;
                 <button className="btn btn-primary" onClick={gerarToken} disabled={gerando}>{gerando?'Gerando…':'Gerar link de acesso'}</button>
               </div>
               <div style={{padding:'0 20px 16px',fontSize:12,color:'var(--t2)'}}>
-                O colunista receberá um link único. Ao acessar, poderá enviar artigos que chegarão aqui como pendentes para sua aprovação.
+                ⚠️ Este link é só um registro — a página do portal do colunista (/admin/colunista/) exige login por e-mail e senha, não abre sozinha com este token. Para o colunista conseguir entrar de verdade, crie o login dele na aba <strong>Colunistas</strong> ("+ Criar Login").
               </div>
             </div>
 
@@ -4844,7 +4862,7 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS publish_method text;`;
                         <td style={{fontSize:12,color:'var(--t2)'}}>{t.email}</td>
                         <td>
                           <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                            <code style={{fontSize:10,color:'var(--t3)',background:'rgba(255,255,255,0.04)',padding:'2px 6px',borderRadius:4}}>{BASE_URL}/colunista?token={t.token.slice(0,12)}…</code>
+                            <code style={{fontSize:10,color:'var(--t3)',background:'rgba(255,255,255,0.04)',padding:'2px 6px',borderRadius:4}}>{BASE_URL}/admin/colunista/</code>
                             <button className="btn btn-secondary btn-sm" onClick={()=>copiarLink(t.token)}>
                               {copiado===t.token?'✓ Copiado':'📋 Copiar'}
                             </button>
@@ -4877,7 +4895,7 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS publish_method text;`;
                 Acesse: <strong style={{color:'var(--t1)'}}>Supabase Dashboard → SQL Editor</strong> → cole o código acima → clique em <strong style={{color:'var(--t1)'}}>Run</strong>
               </div>
               <div style={{marginTop:16,padding:12,background:'rgba(255,200,0,0.08)',borderRadius:8,border:'1px solid rgba(255,200,0,0.2)',fontSize:12,color:'var(--yellow)'}}>
-                ⚠️ O portal de submissão do colunista fica em <strong>/colunista?token=TOKEN</strong>. Esta página precisa ser criada no frontend do portal separadamente.
+                ⚠️ O portal de submissão do colunista já existe em <strong>/admin/colunista/</strong> (public/admin/colunista/index.html) — mas usa login por e-mail e senha (tabela <code>colunistas</code>), não o token desta tabela <code>colunista_tokens</code>. As duas tabelas nunca foram integradas. Pra colunista acessar de verdade hoje, use "+ Criar Login" na aba Colunistas.
               </div>
             </div>
           </div>
