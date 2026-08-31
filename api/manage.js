@@ -92,8 +92,18 @@ async function handleVendorJs(req, res) {
 }
 
 async function handleStatus(res) {
-  const today = new Date();
-  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 3, 0, 0));
+  // BUG REAL (30/08/2026, Roberto reportou "Posts Hoje: 0" às 21h07 BRT) — a versão
+  // anterior usava o DIA UTC ATUAL (today.getUTCDate()) pra montar "hoje às 03:00 UTC".
+  // Entre 21h00 e 00h00 BRT, o dia UTC já virou (BRT=UTC-3), então esse limite virava
+  // um horário NO FUTURO em relação ao "agora" — a query `created_at >= start` nunca
+  // batia, e o card sempre mostrava 0, todo dia, nessa janela de 3h — mesmo com posts
+  // reais sendo gerados (confirmado comparando com "Categorias Hoje", calculado no
+  // client com a lógica correta abaixo, que nunca teve esse bug).
+  // Fix: mesma técnica já usada e comprovada certa em contarHoje() (api/run_portal.js)
+  // — desloca "agora" 3h pra trás (BRT), aí sim extrai o dia/mês/ano, e remonta o
+  // limite de 03:00 UTC a partir da data BRT real, nunca do dia UTC corrente.
+  const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
+  const start = new Date(Date.UTC(nowBRT.getUTCFullYear(), nowBRT.getUTCMonth(), nowBRT.getUTCDate(), 3, 0, 0));
 
   const [autoCfg, maxCfg, pendentes, erros, hoje, youtube] = await Promise.allSettled([
     supabase.from("config").select("value").eq("key", "AUTOMATION").maybeSingle(),
