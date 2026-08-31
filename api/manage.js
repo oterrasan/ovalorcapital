@@ -1061,8 +1061,15 @@ async function handleListPostsColunista(req, res) {
   if (!col.ativo) return res.status(403).json({ ok: false, error: "colunista inativo" });
   if (col.session_token !== token) return res.status(401).json({ ok: false, error: "token invalido" });
   const slug = col.slug || slugify(col.nome);
+  // 31/08/2026 — REMOVIDO .eq("publish_method","colunista"): a posse real de um
+  // post é subcategoria_slug (o dono da coluna), não o mecanismo que o publicou.
+  // Colunas geradas pelo pipeline normal (publish_method:"portal") — comum quando
+  // o colunista ainda não tinha login e a equipe publicava manualmente por ele —
+  // ficavam invisíveis no próprio portal do colunista com o filtro antigo, mesmo
+  // já estando ao vivo no site. Ver Taísa da Fonseca: 8 de 10 colunas reais dela
+  // tinham publish_method:"portal" e nunca apareciam pra ela.
   const { data: posts, error: postsErr } = await supabase.from("posts")
-    .select("id,titulo,status,created_at").eq("subcategoria_slug", slug).eq("publish_method", "colunista")
+    .select("id,titulo,status,created_at").eq("subcategoria_slug", slug)
     .order("created_at", { ascending: false }).limit(100);
   if (postsErr) return res.status(500).json({ ok: false, error: postsErr.message });
   return res.status(200).json({ ok: true, posts: posts || [] });
