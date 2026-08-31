@@ -7,9 +7,6 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   noop:
