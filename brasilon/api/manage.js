@@ -87,7 +87,7 @@ async function setInstagramConfig(key, value) {
 
 async function getInstagramAccount() {
   const { data, error } = await supabase.from("ig_accounts")
-    .select("id,username,ig_user_id,token,active,distribuicao_automatica,limite_diario,updated_at")
+    .select("id,username,ig_user_id,token,active,distribuicao_automatica,limite_diario")
     .eq("username", INSTAGRAM_USERNAME)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -117,8 +117,7 @@ async function handleInstagramStatus(req, res) {
         id: account.id,
         username: account.username,
         ig_user_id: account.ig_user_id || "",
-        token_configured: Boolean(account.token),
-        updated_at: account.updated_at || null
+        token_configured: Boolean(account.token)
       } : null,
       ready: blockers.length === 0,
       blockers,
@@ -168,8 +167,7 @@ async function handleInstagramAccount(req, res) {
       ig_user_id: igUserId || existing?.ig_user_id || "",
       active: false,
       distribuicao_automatica: false,
-      limite_diario: Number(existing?.limite_diario || 60),
-      updated_at: new Date().toISOString()
+      limite_diario: Number(existing?.limite_diario || 60)
     };
     if (token) patch.token = token;
     let error;
@@ -297,3 +295,4 @@ async function handleStatus(req, res) {
   const { data: ultimos } = await supabase.from("brasilon_posts").select("titulo,categoria,published_at").order("published_at", { ascending: false }).limit(5);
   return res.status(200).json({ total: total || 0, "brasil-on": brasilOn || 0, politica: politica || 0, policia: policia || 0, futebol: futebol || 0, ultimos: ultimos || [] });
 }
+
