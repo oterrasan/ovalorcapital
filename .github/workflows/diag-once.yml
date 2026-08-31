@@ -6,11 +6,18 @@ name: Diagnóstico único (placeholder)
 # entre uma investigação e outra.
 
 on:
+  push:
+    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
+    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 3
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Confirma o fix pós-deploy — GET /api/manage (posts_hoje não deve mais ser 0)
+        run: |
+          set +e
+          echo "hora do runner (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/api/manage" -w "\nHTTP:%{http_code}\n"
