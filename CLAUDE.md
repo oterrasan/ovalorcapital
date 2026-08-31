@@ -8301,3 +8301,52 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Trabalho em andamento, interrompido por este bug**: sistema de login de colunistas — `login_colunista` e `list_posts_colunista` não têm handler nenhum no backend (confirmado via grep em todo o repo), apesar da página real `/admin/colunista/` já chamá-los. Além disso, `handleCreateColunista` lê `body.senha_hash` mas o único caller real (`criarLogin()`) manda `body.senha` (texto puro) — nenhuma conta criada via "+Criar Login" tem senha válida. Retomar: construir os dois handlers faltantes + corrigir o hash de senha em `handleCreateColunista` (reusar `SHA256(senha+"ovc_salt_2026")`, mesmo padrão já usado pra senha mestra do admin).
 2. Roberto pediu pra cadastrar um colunista específico agora com login/senha aleatórios — ainda não especificou qual colunista nem os dados reais (e-mail é obrigatório, campo único).
 3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, cota Gemini se voltar a ser gargalo com o cron nativo mais frequente).
+
+---
+
+### Sessão 31/08/2026 (continuação) — LOGIN DE COLUNISTAS: FIX REAL — COLUNA "TELEFONE" NÃO EXISTIA + CREDENCIAIS REAIS PARA ROBERTO E TAÍSA
+
+#### Contexto
+
+Continuação direta da entrada anterior (login_colunista/list_posts_colunista recém-criados em PR #583, mas nunca testados de ponta a ponta). Roberto: "cadatra o meu, com meus dados e cadastra a Taisa da Fonseca" + "vamos rodar testes entao nao necessita de todos os dados certo, gera manualmente um logine senha pra ela que funcione de verdade."
+
+#### Descoberta 1 — Roberto e Taísa já existiam como colunistas (criados 01/06/2026)
+
+Consulta direta ao Supabase confirmou que ambos já tinham linha na tabela `colunistas`, com email real: `roberto@ovalorcapital.com.br` e `taisadafonseca@gmail.com`. Gerei senhas aleatórias novas para os dois e atualizei `senha_hash` diretamente no banco (mesmo padrão `SHA256(senha+"ovc_salt_2026")` do handler).
+
+#### 🔴 Descoberta 2 — bug real: login continuava dando 401 mesmo com senha certa
+
+Testado `login_colunista` em produção real (não suposição) — sempre `{"ok":false,"error":"email ou senha invalidos"}`, mesmo com o `senha_hash` no banco batendo exatamente com o hash local calculado (confirmado em Node e Python, resultado idêntico). Descartadas, uma a uma, com evidência real: env var apontando pro banco morto (não — `list_colunistas` via o MESMO client encontrou os dados certos), linhas duplicadas por email (não — exatamente 1 linha cada), deploy desatualizado (não — 3 canários confirmaram o código novo já estava no ar).
+
+**Causa raiz real, confirmada com o erro exato do Postgres:** testei o `SELECT` idêntico ao de `handleLoginColunista()` direto contra o Supabase e veio `{"code":"42703","message":"column colunistas.telefone does not exist"}`. A tabela real nunca teve coluna `telefone` — schema verdadeiro confirmado via `select=*`: `id, nome, slug, bio, email, rss_url, ativo, created_at, updated_at, senha_hash, session_token, last_login`. O `.maybeSingle()` retornava erro por causa dessa coluna inexistente, e o `catch` genérico (`error || !col`) mascarava isso atrás da mesma mensagem ambígua "email ou senha invalidos" — nunca chegava a comparar hash nenhum.
+
+#### Fix (PR #584, mergeado)
+
+Removido `telefone` do `SELECT`/resposta de `handleLoginColunista()` e do payload de `handleCreateColunista()` (mesmo bug latente lá, nunca disparado nesta sessão porque nenhuma chamada real preenchia esse campo). `api/manage.js` — único arquivo tocado, `api/` continua com 10 arquivos.
+
+**Verificado end-to-end em produção, pós-deploy** (não só leitura de código): `login_colunista` com as credenciais reais retornou `ok:true` + `session_token` válido pros dois:
+```
+Roberto Terrasan → colunista_id 5e001f76-2b61-4d28-abfd-77c42fa06d75 → ok:true
+Taísa da Fonseca → colunista_id e19de652-7eb7-4962-b0a2-8fa869b3bcab → ok:true
+```
+
+#### Credenciais reais entregues a Roberto (senhas geradas, não anotadas no repo — só nesta conversa)
+
+| Colunista | Email | Onde logar |
+|---|---|---|
+| Roberto Terrasan | roberto@ovalorcapital.com.br | `/admin/colunista/` |
+| Taísa da Fonseca | taisadafonseca@gmail.com | `/admin/colunista/` |
+
+**NUNCA registrar as senhas em texto puro neste arquivo nem em nenhum outro arquivo do repo** — mesma regra já aplicada às chaves de API (seção `IA_KEYS_POLICY.md`).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **`public/admin/colunista/index.html` linha 262** (`session.telefone`) e **`public/admin/index.html`** (campo "Telefone / WhatsApp" no form de criar login) — ambos inofensivos agora (campo sempre `undefined`, sem crash), mas cosmeticamente desconectados do schema real. Limpeza de baixa prioridade, não bloqueante.
+2. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense).
