@@ -8425,3 +8425,53 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto** que o admin abre normalmente e que a automação de Instagram voltou a publicar.
 2. **Se a issue `api-health` abrir de novo no futuro**, isso já identifica QUAL rota específica está falhando — investigar a partir dela em vez de repetir o diagnóstico manual desta sessão.
 3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `public/admin/colunista/index.html` campo `telefone` cosmético).
+
+---
+
+### Sessão 31/08/2026 (continuação 3) — COLUNAS "FANTASMA" DA TAÍSA (8 de 10 invisíveis) + ROBERTO RESOLVEU SOZINHO O "SISTEMA PARADO" (trava diária do Instagram + seletor de conta)
+
+#### Contexto
+
+Roberto: *"ok, precisa atualizar as informacoes la da taisa, tem outras colunas dela que enviamos manualmente ja que ela nao tinha acesso. voce localiza e coloca pra ela? estao todas em colunistas"* — pedido pra achar as colunas reais dela que a equipe publicou manualmente antes do login existir, e fazer aparecerem no próprio painel dela.
+
+#### 🔴 Causa raiz real (PR #588, commit `ec2cc81`)
+
+Consulta direta em produção confirmou: Taísa tem **10 colunas reais publicadas** (`subcategoria_slug='taisa-da-fonseca'`, `status='publicado'`), mas `handleListPostsColunista()` só retornava as que também tinham `publish_method='colunista'` — só **2 das 10**. As outras 8 foram geradas pelo pipeline normal (`publish_method='portal'`) antes dela ter login, e ficavam 100% invisíveis em `/admin/colunista/` mesmo já estando ao vivo no site público.
+
+**Fix:** removido o filtro `.eq("publish_method","colunista")` do `SELECT` — a posse real de um post é `subcategoria_slug` (o dono da coluna), não `publish_method` (que só registra como foi criado). Corrige o mesmo bug pra todos os colunistas, não só a Taísa — único arquivo tocado foi `api/manage.js`, `api/` continua com 10 arquivos.
+
+**Verificado end-to-end em produção, pós-deploy** (não só leitura de código): login real da Taísa + `list_posts_colunista` retornou as **10/10** posts, contra 2/10 antes do fix.
+
+#### Confirmação explícita pedida por Roberto no meio da tarefa — segurança de link/SEO
+
+Roberto interrompeu com uma exigência direta: *"isso nao quebrará nenhum link, e nenhuma indexacao ne? NAO PODE acontecer"*. Respondido e confirmado antes de prosseguir: o endpoint tocado (`list_posts_colunista`) é privado, autenticado e não-indexado — só alimenta o painel interno do colunista. O fix não faz nenhum `UPDATE` em post nenhum, e não toca em `api/article.js`, `api/sitemap.js`, `api/category.js` nem `vercel.json` — nenhuma URL pública, canonical ou entrada de sitemap é afetada.
+
+#### 🔴 "Por que o sistema está parado?????" — Roberto resolveu sozinho, ANTES de eu terminar de investigar
+
+Roberto cobrou com urgência ("claude, POR QUE O SISTEMA ESTÁ PARADO?????") enquanto eu ainda levantava evidência (runs do `pipeline-cron.yml`, issues `api-health`). Antes de eu concluir o diagnóstico, ele mesmo aplicou 2 commits reais direto em produção (confirmados via `git log origin/main`, autor `oterrasan`) e avisou "ja consertei, esqueca":
+
+1. **`f06587b` — remove trava diária interna do Instagram automático.** `IG_AUTO_LIMITE_DIARIO` (usado como default quando a conta/config não define nada) mudou de `100` pra `0` — e `0` agora significa "sem trava interna" (só a cota real da Meta continua valendo), em vez de "0 publicações permitidas". A lógica de checagem em `_igAutoProcessAccount()` mudou de `if (publicadosHoje >= accountLimit)` pra `if (accountLimit > 0 && publicadosHoje >= accountLimit)` — antes, qualquer conta sem `limite_diario` configurado explicitamente ficava travada em 100/dia (ou, pior, em `NaN`/valor não numérico dependendo do fallback), o que é o candidato mais forte pra causa real do "sistema parado".
+2. **`88dd4d2` — seletor de conta na publicação manual do Instagram.** O botão "📱 Instagram" em Postagens agora abre um modal (`igPublishModal`) pra escolher explicitamente qual conta Instagram recebe o post (`<select>` com todas as `accounts` ativas) — antes publicava direto usando `post.ig_account_id || null`, sem opção de escolha. Faz sentido com o Brasil ON ter conta própria de Instagram separada da conta do OVC (`@ovalorcapital`). Painel "Contas Instagram" e o config de `AutomacaoInstagram()` também migraram o default de `limite_diario`/`dailyLimit` de `25`/`100` pra `0`, com rótulo "0 = sem trava interna" na UI.
+
+Nenhum dos dois commits precisou de ação minha — só confirmação, via `git log`, de que já estão em `main` e refletidos aqui.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (31/08/2026 continuação 3)
+
+| Sistema | Status |
+|---|---|
+| **Colunas "fantasma" da Taísa (8 de 10 invisíveis) — corrigido pra todos os colunistas** | ✅ EM PRODUÇÃO (PR #588, commit `ec2cc81`) — verificado end-to-end, 10/10 posts visíveis |
+| **Trava diária interna do Instagram automático removida** (só a cota real da Meta vale) | ✅ EM PRODUÇÃO — aplicado por Roberto direto (commit `f06587b`) |
+| **Seletor de conta na publicação manual do Instagram** (suporta múltiplas contas, ex: OVC + Brasil ON) | ✅ EM PRODUÇÃO — aplicado por Roberto direto (commit `88dd4d2`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** que a automação de Instagram está publicando com regularidade de novo, sem a trava de 100/dia interrompendo antes da hora.
+2. **`public/admin/colunista/index.html` linha 262** (`session.telefone`) e o campo "Telefone / WhatsApp" no form de criar login — cosmético, baixa prioridade (já registrado antes).
+3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense).
