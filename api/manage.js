@@ -524,11 +524,11 @@ async function handleIgPublish(req, res, body) {
 // Função NOVA e autocontida — NUNCA chama nem reaproveita a orquestração de
 // handleIgPublish() acima, para blindar o botão manual (já confirmado
 // funcionando em produção) contra qualquer bug introduzido aqui.
-// Escopo: todas as matérias publicadas no portal. Limite: 100 publicações/dia
-// (janela 07h-00h BRT, ~10 em 10min, controlado pelo cron em
-// .github/workflows/instagram-auto.yml).
+// Escopo: todas as matérias publicadas no portal. O limite diário é controlado
+// pelo Admin; zero desativa apenas a trava interna (a cota oficial da Meta
+// continua valendo). O intervalo é controlado pelo cron e pelo Admin.
 // ══════════════════════════════════════════════════════
-const IG_AUTO_LIMITE_DIARIO = 100;
+const IG_AUTO_LIMITE_DIARIO = 0;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
@@ -559,11 +559,11 @@ async function _igAutoConfig() {
     if (Array.isArray(parsed) && parsed.length) categories = parsed.map(v => String(v).trim().toLowerCase()).filter(Boolean);
   } catch (_) {}
   const interval = Number(latest.IG_AUTOMATION_INTERVAL || 15);
-  const dailyLimit = Number(latest.IG_AUTOMATION_DAILY_LIMIT || IG_AUTO_LIMITE_DIARIO);
+  const dailyLimit = Number(latest.IG_AUTOMATION_DAILY_LIMIT ?? IG_AUTO_LIMITE_DIARIO);
   return {
     enabled: latest.IG_AUTOMATION_ENABLED !== "off",
     interval: Number.isFinite(interval) ? Math.max(15, interval) : 15,
-    dailyLimit: Number.isFinite(dailyLimit) ? Math.min(100, Math.max(1, dailyLimit)) : IG_AUTO_LIMITE_DIARIO,
+    dailyLimit: Number.isFinite(dailyLimit) ? Math.max(0, Math.floor(dailyLimit)) : IG_AUTO_LIMITE_DIARIO,
     categories: new Set(categories),
     lastRun: Number(latest.IG_AUTOMATION_LAST_RUN || 0)
   };
@@ -660,8 +660,11 @@ async function handleIgPreview(req, res, body) {
 async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
   const username = String(account.username || "").replace(/^@/, "").toLowerCase();
   const isDefaultAccount = username === "ovalorcapital";
-  const accountLimitRaw = Number(account.limite_diario || settings.dailyLimit);
-  const accountLimit = Number.isFinite(accountLimitRaw) ? Math.min(100, Math.max(1, accountLimitRaw)) : settings.dailyLimit;
+  const hasAccountLimit = account.limite_diario !== null
+    && account.limite_diario !== undefined
+    && String(account.limite_diario).trim() !== "";
+  const accountLimitRaw = hasAccountLimit ? Number(account.limite_diario) : settings.dailyLimit;
+  const accountLimit = Number.isFinite(accountLimitRaw) ? Math.max(0, Math.floor(accountLimitRaw)) : 0;
 
   let publicadosHoje;
   try {
@@ -669,7 +672,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
   } catch (e) {
     return { ok: false, account_id: account.id, username, error: "erro_contador: " + redactSecrets(e?.message || String(e)) };
   }
-  if (publicadosHoje >= accountLimit) {
+  if (accountLimit > 0 && publicadosHoje >= accountLimit) {
     return { ok: true, skipped: true, reason: "limite_diario_da_conta_atingido", account_id: account.id, username, publicados_hoje: publicadosHoje, limite: accountLimit };
   }
 
