@@ -994,9 +994,18 @@ function Postagens() {
   };
 
   const [igPublishing, setIgPublishing] = useState(null);
+  const [igPublishModal, setIgPublishModal] = useState({show:false,post:null,accountId:''});
 
-  const publicarIG = async (post) => {
-    if (!confirm(`Publicar "${post.titulo}" no Instagram?`)) return;
+  const abrirPublicacaoIG = post => {
+    if (!accounts.length) {
+      alert('Nenhuma conta ativa do Instagram foi encontrada.');
+      return;
+    }
+    setIgPublishModal({show:true,post,accountId:''});
+  };
+
+  const publicarIG = async (post, accountId) => {
+    if (!accountId) return;
     setIgPublishing(post.id);
     try {
       const r = await fetch('/api/ig_publish', {
@@ -1004,12 +1013,14 @@ function Postagens() {
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({
           post_id: post.id,
-          ig_account_id: post.ig_account_id || null
+          ig_account_id: accountId
         })
       });
       const d = await r.json();
       if (d.ok) {
-        alert('✅ Publicado no Instagram com sucesso!');
+        const conta = accounts.find(a=>String(a.id)===String(accountId));
+        alert('✅ Publicado com sucesso em @' + (conta?.username||d.username||'Instagram') + '!');
+        setIgPublishModal({show:false,post:null,accountId:''});
         load();
       } else {
         alert('❌ Erro: ' + (d.error || 'Falha ao publicar'));
@@ -1297,6 +1308,34 @@ function Postagens() {
             </div>
           </div>
         )}
+        {igPublishModal.show&&(
+          <div className="modal-bg" onClick={()=>!igPublishing&&setIgPublishModal({show:false,post:null,accountId:''})}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:460}}>
+              <div className="modal-header">
+                <span className="modal-title">Publicar no Instagram</span>
+                <button className="btn btn-secondary btn-sm" disabled={!!igPublishing} onClick={()=>setIgPublishModal({show:false,post:null,accountId:''})}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div style={{fontSize:13,color:'var(--t2)',marginBottom:16,lineHeight:1.5}}>
+                  Escolha a conta que receberá <strong style={{color:'var(--t1)'}}>{igPublishModal.post?.titulo}</strong>.
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Conta de destino</label>
+                  <select className="form-select" value={igPublishModal.accountId} disabled={!!igPublishing} onChange={e=>setIgPublishModal(m=>({...m,accountId:e.target.value}))}>
+                    <option value="">Selecione uma conta...</option>
+                    {accounts.map(a=><option key={a.id} value={a.id}>@{a.username}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" disabled={!!igPublishing} onClick={()=>setIgPublishModal({show:false,post:null,accountId:''})}>Cancelar</button>
+                <button className="btn btn-primary" disabled={!igPublishModal.accountId||!!igPublishing} onClick={()=>publicarIG(igPublishModal.post,igPublishModal.accountId)}>
+                  {igPublishing?'Publicando...':'Publicar na conta escolhida'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* ── KPI DASHBOARD ── */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:16}}>
           {[
@@ -1435,10 +1474,10 @@ function Postagens() {
                         {p.status==='pendente'&&<>
                           <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Publicar</button>
                           <button className="btn btn-sm" style={{background:'rgba(255,200,0,0.15)',color:'var(--yellow)',border:'1px solid rgba(255,200,0,0.35)'}} onClick={()=>abrirRevisao(p)} disabled={!!revisando} title="Devolver para revisão">🔄 Revisar</button>
-                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} disabled={!!igPublishing} title="Publicar no Instagram">📱 Instagram</button>
+                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>abrirPublicacaoIG(p)} disabled={!!igPublishing} title="Escolher conta e publicar no Instagram">📱 Instagram</button>
                         </>}
                         {p.status==='publicado'&&<>
-                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarIG(p)} title="Publicar no Instagram">📱 Instagram</button>
+                          <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>abrirPublicacaoIG(p)} disabled={!!igPublishing} title="Escolher conta e publicar no Instagram">📱 Instagram</button>
                           <button className="btn btn-sm" style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)'}} onClick={()=>revisarIA(p)} title="Revisar com IA">🤖 Revisar IA</button>
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
@@ -1497,7 +1536,7 @@ function ContasInstagram() {
   const [loading, setLoading] = useState(true);
   const [editAcc, setEditAcc] = useState(null);
   const [newAcc, setNewAcc] = useState(false);
-  const [form, setForm] = useState({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+  const [form, setForm] = useState({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:0});
 
   const load = async () => {
     setLoading(true);
@@ -1515,7 +1554,7 @@ function ContasInstagram() {
       await sb.from('ig_accounts').insert([{...form,posts_hoje:0}]);
     }
     setEditAcc(null); setNewAcc(false);
-    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:0});
     load();
   };
 
@@ -1525,12 +1564,12 @@ function ContasInstagram() {
   };
 
   const openEdit = acc => {
-    setForm({username:acc.username||'',ig_user_id:acc.ig_user_id||'',token:acc.token||'',active:acc.active,distribuicao_automatica:acc.distribuicao_automatica,limite_diario:acc.limite_diario||25});
+    setForm({username:acc.username||'',ig_user_id:acc.ig_user_id||'',token:acc.token||'',active:acc.active,distribuicao_automatica:acc.distribuicao_automatica,limite_diario:acc.limite_diario??0});
     setEditAcc(acc); setNewAcc(false);
   };
 
   const openNew = () => {
-    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:25});
+    setForm({username:'',ig_user_id:'',token:'',active:true,distribuicao_automatica:true,limite_diario:0});
     setNewAcc(true); setEditAcc(null);
   };
 
@@ -1547,7 +1586,7 @@ function ContasInstagram() {
                 <div className="form-group"><label className="form-label">IG User ID</label><input className="form-input" value={form.ig_user_id} onChange={e=>setForm({...form,ig_user_id:e.target.value})}/></div>
                 <div className="form-group"><label className="form-label">Access Token</label><textarea className="form-textarea" style={{minHeight:80}} value={form.token} onChange={e=>setForm({...form,token:e.target.value})}/></div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-                  <div className="form-group"><label className="form-label">Limite Diário</label><input className="form-input" type="number" value={form.limite_diario} onChange={e=>setForm({...form,limite_diario:parseInt(e.target.value)||25})}/></div>
+                  <div className="form-group"><label className="form-label">Limite diário (0 = sem trava interna)</label><input className="form-input" type="number" min="0" value={form.limite_diario} onChange={e=>setForm({...form,limite_diario:Math.max(0,parseInt(e.target.value)||0)})}/></div>
                   <div className="form-group" style={{paddingTop:20}}>
                     <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
                       <input type="checkbox" checked={form.distribuicao_automatica} onChange={e=>setForm({...form,distribuicao_automatica:e.target.checked})}/>
@@ -1569,7 +1608,7 @@ function ContasInstagram() {
                 <td style={{fontWeight:600}}>@{a.username}</td>
                 <td><span className={`badge ${a.active?'badge-green':'badge-red'}`}>{a.active?'Ativa':'Inativa'}</span></td>
                 <td>{a.posts_hoje||0}</td>
-                <td>{a.limite_diario||25}</td>
+                <td>{Number(a.limite_diario)>0?a.limite_diario:'Sem limite interno'}</td>
                 <td><span className={`badge ${a.distribuicao_automatica?'badge-green':'badge-gray'}`}>{a.distribuicao_automatica?'Sim':'Não'}</span></td>
                 <td className="text-secondary text-small">{a.ultima_atividade?fmt(a.ultima_atividade):'Nunca'}</td>
                 <td><div className="gap-8">
@@ -3225,7 +3264,7 @@ function AutomacaoInstagram() {
     ['politica','Política'], ['economia','Economia'], ['financas','Finanças'],
     ['brasil-on','Brasil ON'], ['colunistas','Colunistas']
   ];
-  const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:100,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
+  const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:0,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
   const [posts,setPosts] = useState([]);
   const [logs,setLogs] = useState([]);
   const [account,setAccount] = useState(null);
@@ -3257,7 +3296,7 @@ function AutomacaoInstagram() {
     ]);
     const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
     let cats=CATEGORIAS.map(x=>x[0]); try{const parsed=JSON.parse(latest.IG_AUTOMATION_CATEGORIES||'[]');if(Array.isArray(parsed)&&parsed.length)cats=parsed;}catch{}
-    setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT||100),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
+    setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
     setPosts((p.data||[]).filter(row=>parseMetrics(row.metrics)?.instagram?.published_via==='ig_auto_publish'));
     setLogs(l.data||[]); setAccount(a.data||null); setLoading(false);
   };
@@ -3269,7 +3308,7 @@ function AutomacaoInstagram() {
     try{
       await setConfig('IG_AUTOMATION_ENABLED',cfg.enabled?'on':'off');
       await setConfig('IG_AUTOMATION_INTERVAL',Math.max(15,Number(cfg.interval)||15));
-      await setConfig('IG_AUTOMATION_DAILY_LIMIT',Math.min(100,Math.max(1,Number(cfg.dailyLimit)||100)));
+      await setConfig('IG_AUTOMATION_DAILY_LIMIT',Math.max(0,Number(cfg.dailyLimit)||0));
       await setConfig('IG_AUTOMATION_CATEGORIES',JSON.stringify(cfg.categories));
       setMsg('Configuração salva e aplicada à automação.');
       await load();
@@ -3285,7 +3324,7 @@ function AutomacaoInstagram() {
       <div className={`alert-banner ${cfg.enabled?'green':'yellow'}`}><span>{cfg.enabled?'●':'○'}</span><span><strong>{cfg.enabled?'Automação ligada':'Automação desligada'}</strong> · Conta {account?'@'+account.username:'não encontrada'} · Token {account?.token?'configurado':'ausente'}</span></div>
       <div className="ig-auto-metrics">
         <div className="metric-card"><div className="metric-label">Publicados hoje</div><div className="metric-value">{posts.length}</div></div>
-        <div className="metric-card"><div className="metric-label">Limite diário</div><div className="metric-value">{cfg.dailyLimit}</div></div>
+        <div className="metric-card"><div className="metric-label">Limite diário</div><div className="metric-value">{Number(cfg.dailyLimit)>0?cfg.dailyLimit:'Livre'}</div></div>
         <div className="metric-card"><div className="metric-label">Falhas hoje</div><div className="metric-value" style={{color:failures.length?'var(--red)':'var(--green)'}}>{failures.length}</div></div>
         <div className="metric-card"><div className="metric-label">Última execução</div><div style={{fontSize:15,fontWeight:700,marginTop:10}}>{cfg.lastRun?fmt(new Date(cfg.lastRun).toISOString()):'Aguardando'}</div></div>
       </div>
@@ -3295,7 +3334,7 @@ function AutomacaoInstagram() {
           <div className="ig-auto-config">
             <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={cfg.enabled} onChange={e=>setCfg({...cfg,enabled:e.target.checked})}/><span>{cfg.enabled?'Ligada 24 horas':'Desligada'}</span></label></div>
             <div className="form-group"><label className="form-label">Intervalo</label><select className="form-input" value={cfg.interval} onChange={e=>setCfg({...cfg,interval:Number(e.target.value)})}>{[15,30,45,60].map(v=><option key={v} value={v}>{v} minutos</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Limite diário</label><input className="form-input" type="number" min="1" max="100" value={cfg.dailyLimit} onChange={e=>setCfg({...cfg,dailyLimit:e.target.value})}/></div>
+            <div className="form-group"><label className="form-label">Limite diário (0 = sem trava interna)</label><input className="form-input" type="number" min="0" value={cfg.dailyLimit} onChange={e=>setCfg({...cfg,dailyLimit:e.target.value})}/></div>
           </div>
           <div className="form-group"><label className="form-label">Categorias autorizadas</label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{CATEGORIAS.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer'}}><input type="checkbox" checked={cfg.categories.includes(id)} onChange={()=>toggleCat(id)}/><span>{label}</span></label>)}</div></div>
           <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={saving} onClick={save}>{saving?'Salvando...':'Salvar configuração'}</button>{msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{msg}</span>}</div>
