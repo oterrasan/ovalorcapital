@@ -5,6 +5,7 @@ import { join } from "path";
 import { getAccount, likeMedia, postComment, publish } from "../core/instagram.js";
 import { prepareInstagramImage } from "../core/instagram_image.js";
 import { detectPublicationLocation } from "../core/instagram_location.js";
+import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
@@ -62,6 +63,8 @@ export default async function handler(req, res) {
     if (action === "ig_publish") return handleIgPublish(req, res, body);
     if (action === "ig_preview") return handleIgPreview(req, res, body);
     if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
+    if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
+    if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (action === "track_view") return handleTrackView(res, body);
     if (action === "newsletter_subscribe") return handleNewsletterSubscribe(res, body);
@@ -971,6 +974,88 @@ async function handleCreateColunista(req, res, body) {
   if (error) return res.status(400).json({ ok: false, error: error.message });
   if (body.foto_url) await savePhoto(payload.slug, body.foto_url);
   return res.status(200).json({ ok: true });
+}
+
+// 31/08/2026 — NOVO. Suporta "Devolver para revisão" e "Revisar com IA" em
+// Postagens() (public/admin/index.html) — antes as duas chamavam POST
+// /api/editor_ia, uma action que nunca teve handler em lugar nenhum (mesma
+// causa raiz do Editor IA, ver comentário no admin) e sempre caía no
+// fallback genérico com status HTTP 200 — a chamada nunca lançava erro
+// visível, então "Revisar com IA" abria o modal de edição com o post
+// INALTERADO marcado como `_revisado:true`, dando a falsa impressão de que a
+// IA tinha revisado o texto. Reaproveita rewritePortal() (MASTER_PROMPT,
+// intocado — Regra Zero-B) já usado pelo pipeline principal, mas SEM
+// inserir nada no banco — só devolve titulo/corpo pro caller decidir o que
+// fazer (update no post existente, não um post novo).
+async function handleRevisarTextoIA(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const textoLimpo = String(body.texto || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (textoLimpo.length < 200) return res.status(400).json({ ok: false, error: "Texto curto demais para revisão editorial (minimo 200 caracteres de texto puro)." });
+  try {
+    const result = await rewritePortal(textoLimpo, body.titulo || "", "");
+    return res.status(200).json({
+      ok: true,
+      titulo: result.titulo,
+      corpo: result.corpo,
+      subtitulo: result.subtitulo || result.meta_descricao || "",
+      meta_descricao: result.meta_descricao || ""
+    });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message || "Falha na revisão editorial" });
+  }
+}
+
+// 31/08/2026 — NOVO. Espelha COLUNISTAS_COM_IA/COLUNISTAS_PERFIS do admin
+// (public/admin/index.html) — só os 5 colunistas com IA habilitada (tag/bio
+// copiados de lá, mantidos em sincronia manualmente já que o admin não
+// consegue importar este arquivo do backend). Suporta "Editor de Colunas".
+const COLUNA_PERSONAS = {
+  "roberto-terrasan": { nome: "Roberto Terrasan", tag: "Fundador & Editor", bio: "Visceral, feroz, incorruptível. Patriota, família, conservador, direita." },
+  "beta-ferreira":    { nome: "Beta Ferreira",     tag: "Colunista Internacional", bio: "Intelectual, elegante, provocativa. Nível dos maiores jornais globais." },
+  "adriana-ferreira": { nome: "Adriana Ferreira",  tag: "Colunista Investigativa", bio: "Intelectual, elegante, investigativa. Conservadora de alto nível." },
+  "michele-froiz":    { nome: "Michele Froiz",     tag: "Colunista Comportamento", bio: "Leve, sutil, fala a língua da galera sem perder substância." },
+  "coluna-ovc":       { nome: "Coluna OVC",        tag: "Voz Institucional", bio: "Padrão editorial OVC estilo coluna. Conservador, analítico, factual." }
+};
+
+// 31/08/2026 — NOVO. "Editor de Colunas" (aba EditorColunas do admin) chamava
+// esta action sem NENHUM handler existir (grep confirmado) — sempre caía no
+// fallback genérico. Gera via rewriteColuna() (core/ai_portal.js — kernel
+// próprio, MASTER_PROMPT intocado, Regra Zero-B) e já salva como pendente
+// (mesmo modelo de status/approved de handleAdminColunistaPost), pra bater
+// com o que o frontend já espera de volta (id/preview/chars).
+async function handleGerarColuna(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const slug = slugify(body.colunista_nome || "");
+  const persona = COLUNA_PERSONAS[slug];
+  if (!persona) return res.status(400).json({ ok: false, error: "Colunista não habilitado para geração por IA." });
+  const tema = String(body.tema || "").trim();
+  if (!tema) return res.status(400).json({ ok: false, error: "Informe o tema da coluna." });
+  try {
+    const { titulo, corpo } = await rewriteColuna(persona.nome, persona.tag, persona.bio, tema, body.referencias || "", body.contexto || "");
+    const hash = crypto.createHash("md5").update(slug + "_" + tema.slice(0, 100) + "_" + Date.now()).digest("hex");
+    const post = {
+      titulo, conteudo: corpo,
+      comentario_fixado: "",
+      imagem: null, hash,
+      status: "pendente", approved: false,
+      publish_method: "colunista",
+      published_at: null,
+      user_tags: JSON.stringify(["colunistas"]),
+      subcategoria: persona.nome, subcategoria_slug: slug,
+      collaborators: "[]", metrics: {},
+      priority: 1, retry_count: 0, max_retries: 3
+    };
+    const { data: saved, error } = await supabase.from("posts").insert(post).select("id").maybeSingle();
+    if (error) return res.status(500).json({ ok: false, error: error.message });
+    const plain = corpo.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return res.status(200).json({
+      ok: true, id: saved?.id, colunista: persona.nome, titulo,
+      categoria: "colunistas", chars: plain.length,
+      preview: plain.slice(0, 300) + (plain.length > 300 ? "…" : "")
+    });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message || "Falha ao gerar coluna" });
+  }
 }
 
 async function handleUpdateColunistaPhoto(req, res, body) {
