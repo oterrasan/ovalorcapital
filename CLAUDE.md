@@ -8229,3 +8229,75 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. `maxDuration:60` só foi aplicado em `run_portal.js` — se outros endpoints (`api/manage.js`, por exemplo `ig_auto_publish`/processamento de imagem) também tiverem timeout documentado no futuro, aplicar o mesmo padrão lá.
 4. Regra Zero-A (10 arquivos em `api/`) e o resto da proposta de "melhorar desempenho" ficou explicitamente pra segunda-feira, a pedido de Roberto — não adiantar essa conversa sozinho.
 5. Demais pendências de sessões anteriores seguem válidas (ver lista da entrada anterior).
+
+---
+
+### Sessão 31/08/2026 — LIMPEZA GEMINI-ONLY + AUDITORIA DO ADMIN + BUG CRÍTICO: DIA VIRANDO CEDO NO DASHBOARD
+
+#### Contexto
+
+Sessão longa com 3 frentes. Primeiro Roberto pediu remoção total de OpenAI/Groq ("arruma tudo. passa o pente fino, e remova tudo que tiver de chaves, só devem ficar as do gemini") e uma auditoria completa do admin ("a geracao de materias manuais nao funciona, colunistas nao funciona direito... tem miuto botao la que nem funciona"). Depois, no meio da investigação sobre login de colunistas, Roberto interrompeu com um bug real e urgente no dashboard.
+
+#### Parte 1 — Gemini-only (PR #580, mergeado)
+
+- `core/ai_portal.js`: `_getGroqKey()`/`_callGroq()`/`_sanitizarMarkdownGroq()` removidas por completo. `callIA()` virou passthrough direto pra `callGemini()`, sem fallback pra outro provedor.
+- `core/image_processor.js`: `OPENAI_KEY`/`analyzeImageVision()` (GPT-4o-mini) removidos — já estavam mortos na prática (sem chave configurada, sempre fail-open). `analyzeImageVisionGemini()` segue sendo o único vision-check real.
+- `.github/workflows/sync_ai_keys.yml` **deletado** — workflow ativo que sincronizava `OPENAI_API_KEY` pra Vercel e removia `GEMINI_API_KEY` de lá, o oposto exato da política atual.
+- `public/admin-source.txt` deletado (backup estático morto, 3360 linhas, Editor IA hardcoded em `ia:'openai'`).
+- `scripts/corrigir-pendentes-ovc.mjs`, `scripts/emergency_publish_template.mjs`, `IA_KEYS_POLICY.md` atualizados pra Gemini-only.
+- Instagram/automações (`core/ai.js`, `core/instagram*.js`, `core/publish_engine.js`, abas Contas/Automação Instagram do admin) **NÃO tocados** — Codex mexendo nesse domínio em paralelo, instrução explícita de Roberto.
+
+#### Parte 2 — Auditoria do admin (PR #581, mergeado)
+
+Leitura cruzada de todo `fetch('/api/...')` do admin contra os dispatchers reais de `api/manage.js`/`api/run_portal.js` — encontrados vários botões desconectados do backend (nunca chegavam a fazer nada real, ou caíam num fallback genérico que retorna HTTP 200 mesmo sem executar nada):
+
+- **"Geração Manual Controlada"**: não mandava nenhum `action` — sempre caía no fallback genérico. Religado pra `/api/run_portal` (`manual()` pra fonte manual, `autoMaterias({force:true,categoria})` pro modo RSS).
+- **"Gerar para TODAS as categorias"**: mandava `{batch:true,count:3}` — nenhum dos dois campos é lido pelo backend, só disparava 8 chamadas redundantes de categoria aleatória. Corrigido pra 1 chamada real por categoria.
+- **Editor IA**: chamava `/api/editor_ia` — rewrite existe em `vercel.json` mas o handler `action=editor_ia` nunca existiu. Religado pro mesmo mecanismo do botão flutuante "REESCRITA OVC" (já funcionando).
+- **"Revisar com IA"/"Devolver para revisão"**: mesmo endpoint morto — "Revisar com IA" nem lançava erro visível, abria o post inalterado marcado como já revisado. Nova action `revisar_texto_ia` (reaproveita `rewritePortal()`).
+- **"Gerar Coluna IA"**: `action=gerar_coluna` sem handler. Nova `rewriteColuna()` em `core/ai_portal.js` (kernel próprio, persona em 1ª pessoa por colunista, MASTER_PROMPT intocado — Regra Zero-B) + `handleGerarColuna()`.
+- **Colunistas → "Definir foto"**: salvava só em `sessionStorage` (nunca chegava no banco). Religado pro handler real `update_colunista_photo`, que já existia mas nunca era chamado daqui.
+- **Upload de Imagens**: `setup_storage` chamado via POST, só ligado no dispatch de GET — trocado pro verbo certo.
+- **Portal de Colunistas → link de acesso**: apontava pra `/colunista?token=…`, rota que nunca existiu. Corrigido pra apontar pra página real (`/admin/colunista/`) — **mas essa página, investigada a fundo na Parte 3 abaixo, também estava completamente não-funcional** (ver Sessão 31/08 continuação).
+
+#### Parte 3 — 🔴 BUG CRÍTICO CONFIRMADO — dia virando cedo no dashboard do admin (PR #582, mergeado)
+
+Roberto, no meio da investigação de colunistas, interrompeu: *"achei que voce havia ditro que tinha arrumado os horarios!!!! Olha ai no admin tudo errado! ainda é 23h45 de domingo!!! e ja abriu um novo dia e a conta é de mais de 40 posts. isso NAO PODE ACONTECER"* — com print do painel "📅 Produção por Dia" mostrando "2026-08-31: 43 posts" enquanto ainda era domingo à noite em BRT.
+
+**Investigação com evidência real** (consulta direta ao Supabase de produção via workflow diagnóstico, não suposição): confirmado que o post mais recente tinha `created_at: "2026-08-31T02:48:44.453173"` — **sem sufixo `Z`/timezone**. Confirmado também: zero posts com `created_at >= 2026-08-31T03:00:00Z` (o início real do dia BRT-31) — ou seja, os 45 posts "de hoje" eram todos legitimamente de domingo (BRT), a contagem real do pipeline nunca esteve errada.
+
+**Causa raiz real**: o construtor `Date()` do JavaScript, ao receber uma string data-hora **sem** timezone explícito, interpreta como **hora local do navegador** (não UTC) — comportamento documentado no próprio spec ECMAScript, não um bug do Supabase. Para o navegador de Roberto (America/Sao_Paulo, UTC-3), isso faz `new Date("2026-08-31T02:48:44")` ser interpretado como 02:48 BRT (já local!) em vez do que realmente é (23:48 BRT do dia anterior) — e ao converter de volta pra BRT pra exibição, o "arredondamento" acidentalmente ecoa os mesmos dígitos da string bruta, fazendo a data UTC aparecer como se já fosse a data BRT, 3h adiantada.
+
+**Por que isso nunca apareceu nos fixes anteriores de BRT** (todos documentados em sessões passadas — `contarHoje()`, `_igAutoDiaBRT()`, `_diaAtualBRT()`): todo esse código roda **server-side** (Node em Vercel/GitHub Actions), onde o `TZ` do runtime é sempre UTC — nesse ambiente, "hora local" e "UTC" são a mesma coisa, então o bug nunca se manifesta lá. Ele só existe no código que roda de fato **no navegador** de Roberto — ou seja, só no `public/admin/index.html`, nunca detectado antes porque nenhuma sessão passada tinha investigado especificamente o client-side JS do admin sob essa ótica.
+
+**Fix**: helper global `toUtcISO(s)` que normaliza a string antes de qualquer `new Date()` — só acrescenta `Z` quando a string ainda não tem nenhum marcador de fuso (se já vier um objeto `Date`, devolve sem alterar). Aplicado nos 6 pontos confirmados que convertiam timestamps reais do Supabase pra exibição/bucketing em BRT: `fmt`/`fmtDate` globais (usados em dezenas de lugares no admin), `Dashboard()` (contagem "esta semana" + gráfico 7 dias), `Relatorios()` ("Produção por Dia" — o painel exato do print de Roberto), `ColunistasAdmin`, `PortalColunistasAdmin`.
+
+**Verificado com o valor real**: `brtDay('2026-08-31T02:48:44.453173')` — antes do fix dava (indiretamente, via o bug) `"2026-08-31"`; testado isoladamente em Node com o fix aplicado, dá `"2026-08-30"` (correto). Deploy confirmado com sucesso via `deploy.yml`.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🚨 Lição registrada — gravar para toda sessão futura
+
+```
+❌ Timestamps do Supabase (created_at/published_at/updated_at), quando lidos por
+   código que roda no NAVEGADOR (não no servidor), NUNCA devem ser passados direto
+   pra new Date(string) — a string vem sem sufixo de fuso, e o navegador interpreta
+   como hora LOCAL DO VISITANTE, não UTC. Isso é diferente de todo o histórico de
+   bugs de "janela BRT" já documentado neste arquivo, que era 100% server-side
+   (Node/Vercel, onde TZ=UTC sempre, então o bug nunca aparecia lá).
+✅ SEMPRE usar toUtcISO(s) (definido em public/admin/index.html, logo após os
+   helpers fmt/fmtDate) antes de new Date() em qualquer lugar do admin que
+   trabalhe com um timestamp vindo direto do Supabase — string OU seu uso em
+   bucketing/contagem por dia.
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Trabalho em andamento, interrompido por este bug**: sistema de login de colunistas — `login_colunista` e `list_posts_colunista` não têm handler nenhum no backend (confirmado via grep em todo o repo), apesar da página real `/admin/colunista/` já chamá-los. Além disso, `handleCreateColunista` lê `body.senha_hash` mas o único caller real (`criarLogin()`) manda `body.senha` (texto puro) — nenhuma conta criada via "+Criar Login" tem senha válida. Retomar: construir os dois handlers faltantes + corrigir o hash de senha em `handleCreateColunista` (reusar `SHA256(senha+"ovc_salt_2026")`, mesmo padrão já usado pra senha mestra do admin).
+2. Roberto pediu pra cadastrar um colunista específico agora com login/senha aleatórios — ainda não especificou qual colunista nem os dados reais (e-mail é obrigatório, campo único).
+3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, cota Gemini se voltar a ser gargalo com o cron nativo mais frequente).
