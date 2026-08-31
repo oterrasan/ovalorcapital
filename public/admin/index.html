@@ -1528,15 +1528,32 @@ const BON_PASS = "ovc-admin-2026-secreto";
 
 function BrasilOnAdmin() {
   const [status, setStatus] = useState(null);
+  const [igStatus, setIgStatus] = useState(null);
+  const [igConfig, setIgConfig] = useState({enabled:false,interval:15,dailyLimit:60,categories:['politica','policia','brasil-on','futebol']});
+  const [igAccount, setIgAccount] = useState({ig_user_id:'',token:''});
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [savingIg, setSavingIg] = useState(false);
   const [msg, setMsg] = useState("");
+  const [igMsg, setIgMsg] = useState("");
 
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${BON_API}?action=status&pass=${BON_PASS}`);
+      const [r, ir] = await Promise.all([
+        fetch(`${BON_API}?action=status&pass=${BON_PASS}`),
+        fetch(`${BON_API}?action=instagram_status&pass=${BON_PASS}`)
+      ]);
       setStatus(await r.json());
+      const ig = await ir.json();
+      setIgStatus(ig);
+      if (ig?.config) setIgConfig({
+        enabled:Boolean(ig.config.enabled),
+        interval:Number(ig.config.interval||15),
+        dailyLimit:Number(ig.config.dailyLimit||60),
+        categories:Array.isArray(ig.config.categories)?ig.config.categories:['politica','policia','brasil-on','futebol']
+      });
+      if (ig?.account) setIgAccount({ig_user_id:ig.account.ig_user_id||'',token:''});
     } catch (e) {
       setStatus({ error: e.message });
     }
@@ -1557,6 +1574,40 @@ function BrasilOnAdmin() {
     }
     setSyncing(false);
   };
+
+  const saveInstagramAccount = async () => {
+    setSavingIg(true); setIgMsg('');
+    try {
+      const r = await fetch(`${BON_API}?action=instagram_account`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({pass:BON_PASS,ig_user_id:igAccount.ig_user_id,token:igAccount.token})
+      });
+      const d = await r.json();
+      if(!d.ok) throw new Error(d.error||'erro ao salvar conta');
+      setIgAccount({...igAccount,token:''});
+      setIgMsg('Conta @obrasilon salva. A automação continua desligada.');
+      await load();
+    } catch(e) { setIgMsg('Erro: '+e.message); }
+    setSavingIg(false);
+  };
+
+  const saveInstagramConfig = async () => {
+    setSavingIg(true); setIgMsg('');
+    try {
+      const r = await fetch(`${BON_API}?action=instagram_config`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({pass:BON_PASS,...igConfig})
+      });
+      const d = await r.json();
+      if(!d.ok) throw new Error(d.blockers?.join(', ')||d.error||'erro ao salvar configuração');
+      setIgMsg('Configuração do Brasil ON salva.');
+      await load();
+    } catch(e) { setIgMsg('Erro: '+e.message); }
+    setSavingIg(false);
+  };
+
+  const toggleIgCategory = cat => setIgConfig({...igConfig,categories:igConfig.categories.includes(cat)?igConfig.categories.filter(x=>x!==cat):[...igConfig.categories,cat]});
+  const igCategories = [['politica','Política'],['policia','Polícia'],['brasil-on','Brasil ON'],['futebol','Futebol']];
 
   return (
     <div>
@@ -1583,6 +1634,30 @@ function BrasilOnAdmin() {
               ))}</tbody></table>
             </>
           )}
+        </div>
+        <div className="panel" style={{marginTop:18}}>
+          <div className="panel-header"><span className="panel-title">Instagram @obrasilon</span><span className={`badge ${igStatus?.automation_active?'badge-green':'badge-gray'}`}>{igStatus?.automation_active?'ATIVA':'DESLIGADA'}</span></div>
+          <div style={{padding:20}}>
+            <div className={`alert-banner ${igStatus?.ready?'green':'yellow'}`}>
+              <span>{igStatus?.ready?'●':'○'}</span>
+              <span>{igStatus?.ready?'Estrutura pronta para ativação.':'Preparação segura: nenhuma publicação será disparada enquanto houver pendências.'}</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16,marginTop:16}}>
+              <div className="form-group"><label className="form-label">Conta</label><input className="form-input" value="@obrasilon" disabled/></div>
+              <div className="form-group"><label className="form-label">IG User ID</label><input className="form-input" value={igAccount.ig_user_id} onChange={e=>setIgAccount({...igAccount,ig_user_id:e.target.value})} placeholder="Será obtido na Meta"/></div>
+              <div className="form-group"><label className="form-label">Token oficial da Página</label><input className="form-input" type="password" value={igAccount.token} onChange={e=>setIgAccount({...igAccount,token:e.target.value})} placeholder={igStatus?.account?.token_configured?'Token já configurado':'Pendente'}/></div>
+            </div>
+            <button className="btn btn-secondary" onClick={saveInstagramAccount} disabled={savingIg}>Salvar conta</button>
+            <div style={{height:1,background:'var(--border)',margin:'20px 0'}}></div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:16}}>
+              <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={igConfig.enabled} disabled={!igStatus?.ready} onChange={e=>setIgConfig({...igConfig,enabled:e.target.checked})}/><span>{igConfig.enabled?'Ligada':'Desligada'}</span></label></div>
+              <div className="form-group"><label className="form-label">Intervalo</label><select className="form-input" value={igConfig.interval} onChange={e=>setIgConfig({...igConfig,interval:Number(e.target.value)})}>{[15,30,45,60].map(v=><option key={v} value={v}>{v} minutos</option>)}</select></div>
+              <div className="form-group"><label className="form-label">Limite diário</label><input className="form-input" type="number" min="1" max="100" value={igConfig.dailyLimit} onChange={e=>setIgConfig({...igConfig,dailyLimit:Number(e.target.value)})}/></div>
+            </div>
+            <div className="form-group"><label className="form-label">Categorias</label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{igCategories.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6}}><input type="checkbox" checked={igConfig.categories.includes(id)} onChange={()=>toggleIgCategory(id)}/><span>{label}</span></label>)}</div></div>
+            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}><button className="btn btn-primary" onClick={saveInstagramConfig} disabled={savingIg}>Salvar configuração</button>{igMsg&&<span style={{fontSize:12,color:igMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{igMsg}</span>}</div>
+            <div style={{marginTop:14,fontSize:12,color:'var(--t2)'}}>Fonte: brasilon_posts · Layout: {igStatus?.config?.layoutReady?'aprovado':'pendente'} · Credenciais: {igStatus?.account?.token_configured&&igStatus?.account?.ig_user_id?'configuradas':'pendentes'}</div>
+          </div>
         </div>
       </div>
     </div>
