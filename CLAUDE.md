@@ -8703,3 +8703,22 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Quando Roberto voltar a falar em cadastrar fontes de vídeo pra raspagem automática**: perguntar quais fontes especificamente antes de implementar (mesmo protocolo já usado pra Bacci/Jovem Pan/Internacional — nunca badalar fonte nova sem confirmação explícita), e reaproveitar `downloadAndUploadVideo()` (já pronta) como o mecanismo de hospedagem — só falta a parte de descoberta/scraping de qual vídeo pegar de cada fonte.
 4. **Considerar avisar Roberto sobre o achado de segurança da service_role key exposta como "anon key"** (ver seção acima) — não é bloqueante pra vídeo, mas é uma exposição real que só ele pode decidir quando/como tratar.
 5. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 01/09/2026 anterior — agrupar/minificar os 11 JS da home, revisar `setInterval`s concorrentes, limpar `GEMINI_BUDGET_*` antigo, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense).
+
+---
+
+### 🔴 PENDÊNCIA PRIORITÁRIA NOVA (01/09/2026) — SEÇÕES "SHORTS" E "VÍDEOS" NO PORTAL, MOLDE SBT NEWS
+
+> Roberto mandou print de `sbtnews.sbt.com.br` e disse explicitamente: **"segura este print por enquanto, nao faca nada. mas anota como pendencia prioritaria. quero isso no portal"**. NADA foi implementado — instrução foi só registrar, não construir. Não iniciar sem ele confirmar explicitamente que é hora de começar.
+
+**O que o print mostra (referência de layout, não pra copiar o SBT literalmente):**
+- Bloco **"Shorts"** — carrossel horizontal de cards verticais (vídeo curto, ~30s, formato Reels/vertical), cada card com thumbnail + badge de duração + título curto sobreposto, link "Ver tudo" no canto.
+- Bloco **"Vídeos"** — grid de 3 cards horizontais (vídeo de matéria comum, ~5min), cada um com thumbnail 16:9 + selo do tipo de conteúdo + duração + manchete abaixo, link "Ver tudo" no canto.
+- Ambos os blocos aparecem na home/listagem do portal deles, entre outros blocos de notícia — não são páginas dedicadas isoladas, são seções da própria home.
+
+**Por que isso conecta direto com o trabalho desta sessão:** a base técnica pra isso (campo `video_url` no post, render de `<video>` próprio OU embed do YouTube via `parseYouTube()`, JSON-LD `VideoObject`/`embedUrl`) acabou de ser construída nesta mesma sessão (PR #596) — os posts já podem carregar vídeo. O que falta pra isso virar as seções "Shorts"/"Vídeos" da home é:
+1. Um jeito de marcar/filtrar quais posts são "vídeo curto tipo Shorts" vs. "vídeo de matéria normal" — hoje `video_url` só diz que TEM vídeo, não o formato/duração. Precisa decidir: campo novo (`video_formato`? inferir automaticamente pela proporção do vídeo?) ou alguma convenção de categoria/tag.
+2. Dois blocos novos de UI na home (carrossel horizontal pros Shorts, grid horizontal pros Vídeos) — seguindo o padrão visual já estabelecido no portal (mesma linguagem dos outros blocos de card da home), com JS independente própria (REGRA ZERO-I — nunca misturar com `home.js`/`ovc-cards.js` direto, mesmo padrão dos radares esportivos/Pulso BR/Radar Eleitoral).
+3. Endpoint de backend que filtre só posts com vídeo (`?comVideo=true` ou similar em `api/portal-posts.js`) — hoje não existe essa query, só o `video_url` por post individual.
+4. Decidir a fonte de conteúdo: por ora só o que Roberto sobe manualmente (upload/YouTube) — a raspagem automática de vídeo de fontes externas continua sendo a "próxima etapa" já registrada acima, ainda sem fontes definidas por ele.
+
+**Ação da próxima sessão quando Roberto autorizar:** perguntar antes de construir — layout específico que ele quer (esse exato do SBT ou uma adaptação), onde entra na home (posição entre quais blocos), e se "Shorts" tem página dedicada própria (tipo `/shorts/`) ou é só um carrossel na home. Não assumir nenhuma dessas decisões sozinho.
