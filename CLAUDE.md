@@ -829,7 +829,8 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Nome:** Roberto Cesar Terrasan
 - **Objetivo:** maior portal premium de notícias do Brasil
 - **Perfil técnico:** não é programador — implementações diretas, sem explicações longas
-- **Estilo:** cobra resultados reais. Não quer links nem status — quer feito e funcionando.
+- **Estilo:** cobra resultados reais. Quer feito e funcionando — quando EU consigo fazer sozinho, não ficar narrando passos, só fazer e reportar o resultado.
+- **🚨 REGRA PERMANENTE (01/09/2026) — instruções pra AÇÃO QUE SÓ ELE PODE FAZER:** sempre que uma tarefa depender de Roberto clicar em algo fora do meu alcance (SQL Editor do Supabase, Vercel Dashboard, GitHub Secrets, configurações de conta, etc.), NUNCA assumir que ele sabe onde ir. SEMPRE mandar: (1) o **link direto e exato** da página (não "acesse o Supabase", e sim a URL completa clicável), (2) passo a passo numerado do que clicar/colar/rodar, (3) o que esperar como confirmação de sucesso. Ele foi explícito: *"voce DEVE ME INSTRUIR SEMPRE, E ME ENVIAR OS LINKS EXATOS DE ONDE TENHO DE IR E O QUE FAZER"*. Isso vale especificamente pra ações manuais dele — não contradiz a regra acima de "fazer sozinho quando dá", que é sobre tarefas que EU consigo executar sem ele.
 - **Comunicação:** português, direto ao ponto
 - **NUNCA perguntar** coisas óbvias sobre infraestrutura que claramente está no ar
 - **NUNCA mexer em nada enquanto conversa com o dono** — esperar OK explícito antes de cada ação
