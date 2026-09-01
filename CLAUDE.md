@@ -8722,3 +8722,16 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 4. Decidir a fonte de conteúdo: por ora só o que Roberto sobe manualmente (upload/YouTube) — a raspagem automática de vídeo de fontes externas continua sendo a "próxima etapa" já registrada acima, ainda sem fontes definidas por ele.
 
 **Ação da próxima sessão quando Roberto autorizar:** perguntar antes de construir — layout específico que ele quer (esse exato do SBT ou uma adaptação), onde entra na home (posição entre quais blocos), e se "Shorts" tem página dedicada própria (tipo `/shorts/`) ou é só um carrossel na home. Não assumir nenhuma dessas decisões sozinho.
+
+---
+
+### 🔴 PENDÊNCIA PRIORITÁRIA NOVA #2 (01/09/2026, mesma sessão) — REDESIGN GERAL DA HOME, MOLDE SBT NEWS ("cara de portal grande")
+
+> Roberto mandou um segundo print (homepage inteira do `sbtnews.sbt.com.br`, não só os blocos de vídeo) e pediu: **"salva este outro print, quero fazer mudancas no layout e quero que a gente analise este print do sbt news [...] eu quero que isso [a cara de portal grande]"**. Igual à pendência #1 acima: só registrar, nada de código foi tocado.
+
+**Comparação pedida por ele — nossa análise nesta sessão (sem mexer em código):**
+1. **TV ao vivo em destaque real** — no SBT o player fica junto do topo da página (indicador "Ao Vivo" com bolinha vermelha, controles de som/tela cheia), fazendo parte do centro de gravidade visual da home. No OVC hoje a TV OVC é só um widget pequeno de rail lateral — e **já está com bug conhecido**: `organizarRailsHome()` (`public/js/ovc-cards.js`, linha ~1090) força ela de volta pro `.rail-left` em todo carregamento, mesmo com o HTML movido pro `.rail-right` (ver PR #449, 18/08/2026 — causa raiz identificada, correção deferida a pedido do próprio Roberto até ele decidir retomar). Esse bug provavelmente precisa ser resolvido como PRÉ-REQUISITO de qualquer redesign que dê mais destaque à TV.
+2. **Densidade acima da dobra** — o SBT empilha muito mais conteúdo em pouco espaço: manchete grande + 3 sub-chamadas em bullet, 6+ blocos secundários com foto pequena + título, coluna de Colunistas compacta (avatar + nome + manchete, lista vertical enxuta). O OVC hoje tem mais espaço em branco por elemento (nas palavras do próprio Roberto: "o nosso é mais amplo, mais bonito, mas o sbt tem a cara de um portal grande mesmo").
+3. **Colunistas como lista compacta fixa do rail** — o OVC já tem a fileira de Colunistas na home (ver sessão 04/08/2026, PR #340-345), mas em formato de cards horizontais, não lista vertical compacta de rail como o SBT.
+
+**Escopo do que falta decidir com Roberto antes de qualquer código:** por onde começar (TV em destaque primeiro? densidade da home primeiro? os dois juntos?), se é redesign incremental (bloco por bloco) ou um replanejamento de grid inteiro, e se o bug do `organizarRailsHome()`/TV OVC deve ser resolvido junto ou antes. **Não iniciar nada disso sem ele confirmar explicitamente.**
