@@ -9,58 +9,36 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: npm install supabase-js
-        run: npm install @supabase/supabase-js --no-save --silent
-      - name: Consulta direta ao post no Supabase
+      - name: Instalar Playwright + Chromium
+        run: |
+          npm init -y --silent >/dev/null
+          npm install --no-save --silent playwright
+          npx playwright install --with-deps chromium
+      - name: Abrir a página real com navegador de verdade e inspecionar o DOM
         run: |
           node -e "
-          const { createClient } = require('@supabase/supabase-js');
-          const supabase = createClient(
-            'https://yntwvfcxjardzafdqanj.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40'
-          );
+          const { chromium } = require('playwright');
           (async () => {
-            const id8 = '7391ed1b';
-            const lo = id8 + '-0000-0000-0000-000000000000';
-            const hi = id8 + '-ffff-ffff-ffff-ffffffffffff';
-            const { data, error } = await supabase.from('posts')
-              .select('id,titulo,status,video_url,imagem,updated_at,created_at')
-              .gte('id', lo).lte('id', hi).limit(1);
-            console.log('ERROR:', error);
-            console.log('DATA:', JSON.stringify(data, null, 2));
-          })();
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            const consoleMsgs = [];
+            page.on('console', msg => consoleMsgs.push(msg.type() + ': ' + msg.text()));
+            page.on('pageerror', err => consoleMsgs.push('PAGEERROR: ' + err.message));
+            await page.goto('https://www.ovalorcapital.com.br/tecnologia/robo-chines-supera-recorde-de-usain-bolt-nos-100-metros-7391ed1b/', { waitUntil: 'networkidle', timeout: 20000 });
+            await page.waitForTimeout(2000);
+            const videoCount = await page.locator('video').count();
+            const heroHtml = await page.locator('[data-hero-card]').innerHTML().catch(() => 'HERO_NAO_ENCONTRADO');
+            console.log('=== VIDEO TAGS NO DOM ===');
+            console.log(videoCount);
+            console.log('=== CONSOLE/ERROS JS ===');
+            console.log(consoleMsgs.join('\n') || '(nenhum)');
+            console.log('=== PRIMEIROS 3000 CHARS DO data-hero-card ===');
+            console.log(String(heroHtml).slice(0, 3000));
+            await browser.close();
+          })().catch(e => { console.error('FALHA PLAYWRIGHT:', e.message); process.exit(1); });
           "
-      - name: Curl na página real do artigo
-        run: |
-          curl -sS "https://www.ovalorcapital.com.br/tecnologia/robo-chines-supera-recorde-de-usain-bolt-nos-100-metros-7391ed1b/" -o /tmp/page.html
-          echo "=== TAMANHO ==="
-          wc -c /tmp/page.html
-          echo "=== script internal-page-v2 (versão) ==="
-          grep -o 'internal-page-v2\.js?v=[0-9]*' /tmp/page.html || echo "NAO ENCONTRADO"
-          echo "=== presença de <video na resposta SSR ==="
-          grep -c '<video' /tmp/page.html || echo "0"
-          echo "=== campo video no window.__OVC_ARTICLE__ ==="
-          grep -o '"video":"[^"]*"' /tmp/page.html || echo "campo video ausente/vazio no preload SSR"
-      - name: Conteúdo REAL do JS servido em produção (renderMedia existe? qual assinatura do preload usada?)
-        run: |
-          curl -sS "https://www.ovalorcapital.com.br/js/internal-page-v2.js?v=4" -o /tmp/live.js
-          echo "=== TAMANHO ==="
-          wc -c /tmp/live.js
-          echo "=== SHA256 (comparar com o do repo local) ==="
-          sha256sum /tmp/live.js
-          sha256sum public/js/internal-page-v2.js
-          echo "=== contém renderMedia? ==="
-          grep -c 'renderMedia' /tmp/live.js || echo "0 — FUNCAO AUSENTE EM PRODUCAO"
-          echo "=== contém ovc-art-video-wrap? ==="
-          grep -c 'ovc-art-video-wrap' /tmp/live.js || echo "0"
-          echo "=== linha que monta p.video (contexto) ==="
-          grep -n 'p\.video' /tmp/live.js || echo "p.video NAO REFERENCIADO NO ARQUIVO SERVIDO"
-      - name: Cache-Control do JS (CDN pode estar segurando versão antiga mesmo com ?v=4)
-        run: |
-          curl -sSI "https://www.ovalorcapital.com.br/js/internal-page-v2.js?v=4" | grep -i -E 'cache-control|age:|x-vercel-cache|etag|last-modified'
