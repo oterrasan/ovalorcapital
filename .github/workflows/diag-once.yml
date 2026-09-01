@@ -47,3 +47,20 @@ jobs:
           grep -c '<video' /tmp/page.html || echo "0"
           echo "=== campo video no window.__OVC_ARTICLE__ ==="
           grep -o '"video":"[^"]*"' /tmp/page.html || echo "campo video ausente/vazio no preload SSR"
+      - name: Conteúdo REAL do JS servido em produção (renderMedia existe? qual assinatura do preload usada?)
+        run: |
+          curl -sS "https://www.ovalorcapital.com.br/js/internal-page-v2.js?v=4" -o /tmp/live.js
+          echo "=== TAMANHO ==="
+          wc -c /tmp/live.js
+          echo "=== SHA256 (comparar com o do repo local) ==="
+          sha256sum /tmp/live.js
+          sha256sum public/js/internal-page-v2.js
+          echo "=== contém renderMedia? ==="
+          grep -c 'renderMedia' /tmp/live.js || echo "0 — FUNCAO AUSENTE EM PRODUCAO"
+          echo "=== contém ovc-art-video-wrap? ==="
+          grep -c 'ovc-art-video-wrap' /tmp/live.js || echo "0"
+          echo "=== linha que monta p.video (contexto) ==="
+          grep -n 'p\.video' /tmp/live.js || echo "p.video NAO REFERENCIADO NO ARQUIVO SERVIDO"
+      - name: Cache-Control do JS (CDN pode estar segurando versão antiga mesmo com ?v=4)
+        run: |
+          curl -sSI "https://www.ovalorcapital.com.br/js/internal-page-v2.js?v=4" | grep -i -E 'cache-control|age:|x-vercel-cache|etag|last-modified'
