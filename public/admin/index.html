@@ -515,7 +515,17 @@ function Pipeline() {
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
-    const { data: cfgs } = await sb.from('config').select('*');
+    // 01/09/2026 — FIX CRÍTICO: select('*') sem filtro estava trazendo a tabela
+    // config inteira (14.460+ linhas, dominada por milhares de linhas
+    // GEMINI_BUDGET_* — rastreador insert-only de orçamento diário do Gemini).
+    // O PostgREST tem um teto padrão de 1000 linhas por resposta quando não se
+    // passa Range/limit — então essa chamada SEMPRE vinha truncada, e a linha
+    // AUTOMATION (e às vezes INTERVALO) simplesmente não estava no lote
+    // retornado. Resultado real observado: cfgs.find(c=>c.key==='AUTOMATION')
+    // retornava undefined -> setAuto(false) -> painel mostrava "PAUSADA" mesmo
+    // com o valor real no banco sendo "on". Fix: filtrar só as 3 chaves que
+    // este componente realmente usa — nunca mais depende do tamanho da tabela.
+    const { data: cfgs } = await sb.from('config').select('*').in('key', ['AUTOMATION','MAX_POSTS_DIA','INTERVALO']);
     if (cfgs) {
       const a = cfgs.find(c=>c.key==='AUTOMATION');
       const mp = cfgs.find(c=>c.key==='MAX_POSTS_DIA');
@@ -2221,7 +2231,13 @@ function Configuracoes() {
   const [msg, setMsg] = useState('');
 
   useEffect(()=>{
-    sb.from('config').select('*').then(({data})=>{
+    // 01/09/2026 — mesmo bug do Pipeline(): select('*') sem filtro na tabela
+    // config (14.462+ linhas, 14.188 delas só de GEMINI_BUDGET_* — rastreador
+    // insert-only de orçamento diário do Gemini) sempre vinha truncado pelo
+    // teto padrão de 1000 linhas do PostgREST, escondendo chaves reais desta
+    // tela por trás do ruído. Excluindo o prefixo GEMINI_BUDGET_* sobra ~270
+    // linhas reais — bem abaixo do teto, nunca mais trunca.
+    sb.from('config').select('*').not('key','like','GEMINI_BUDGET_%').then(({data})=>{
       if (data) {
         const obj = {};
         data.forEach(c=>obj[c.key]=c.value);
