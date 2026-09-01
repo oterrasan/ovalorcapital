@@ -941,12 +941,42 @@ function Postagens() {
   // classe de risco do incidente real do `sharp` em 31/08/2026).
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const [videoBusy, setVideoBusy] = useState('');
+  const [videoWarning, setVideoWarning] = useState('');
+  // Checagem 100% client-side (sem ffmpeg, sem servidor) de que o navegador
+  // consegue DECODIFICAR o vídeo — não só baixá-lo. Um vídeo HEVC/H.265
+  // carrega metadata (duração) normalmente mas fica com videoWidth=0 pra
+  // sempre no Chrome/Firefox desktop (sem extensão paga de codec). Achado
+  // real 01/09/2026: vídeo do Roberto (celular) é HEVC, servidor/CORS/bucket
+  // 100% corretos, só o codec que o Chrome não decodifica.
+  const probeVideoPlayable = (url) => new Promise((resolve) => {
+    try {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      let done = false;
+      const finish = (ok) => { if (done) return; done = true; resolve(ok); };
+      v.addEventListener('loadedmetadata', () => finish(v.videoWidth > 0), { once: true });
+      v.addEventListener('error', () => finish(false), { once: true });
+      setTimeout(() => finish(true), 6000); // sem resposta a tempo = não alarma à toa
+      v.src = url;
+    } catch (_) { resolve(true); }
+  });
+  const HEVC_AVISO = '⚠️ Este vídeo parece estar em um formato/codec (provavelmente HEVC/H.265, comum em iPhone e celulares Android mais novos) que o Chrome e outros navegadores de mesa não conseguem reproduzir. Ele foi salvo normalmente, mas pode aparecer em branco pra boa parte dos visitantes. Reencode para H.264 (opção "Mais compatível" nas configurações de vídeo do celular, ou em qualquer editor como CapCut) e envie de novo pra garantir que todo mundo consiga assistir.';
+  // Link do YouTube: nunca baixa/reprocessa nada (mesmo espírito do resto
+  // desta tela — sem ffmpeg) — o YouTube já entrega um formato compatível
+  // com qualquer navegador, então só guardamos a URL e a matéria embute o
+  // player deles direto (ver parseYouTube() em internal-page-v2.js).
+  const parseYouTubeId = (url) => {
+    const m = String(url||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : '';
+  };
   const uploadVideoArquivo = async (file) => {
     if (!file) return;
     if (!/^video\//.test(file.type) && !/\.(mp4|webm|mov|m4v)$/i.test(file.name||'')) {
       alert('❌ Escolha um arquivo de vídeo (mp4, webm, mov).'); return;
     }
     setVideoBusy('Enviando vídeo...');
+    setVideoWarning('');
     try {
       try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
       const ext = (file.name.split('.').pop()||'mp4').toLowerCase();
@@ -955,6 +985,7 @@ function Postagens() {
       if (error) { alert('❌ Falha no upload do vídeo: ' + error.message); setVideoBusy(''); return; }
       const { data } = sb.storage.from('post-videos').getPublicUrl(path);
       setEditPost(p=>({...p, video_url: data.publicUrl}));
+      probeVideoPlayable(data.publicUrl).then(ok => { if (!ok) setVideoWarning(HEVC_AVISO); });
     } catch(e) {
       alert('❌ Erro ao enviar vídeo: ' + e.message);
     } finally {
@@ -964,6 +995,13 @@ function Postagens() {
   const hospedarVideoDeUrl = async () => {
     const url = videoUrlInput.trim();
     if (!url) return;
+    setVideoWarning('');
+    if (parseYouTubeId(url)) {
+      // YouTube: nada pra baixar/hospedar — só guarda o link mesmo.
+      setEditPost(p=>({...p, video_url: url}));
+      setVideoUrlInput('');
+      return;
+    }
     setVideoBusy('Baixando e hospedando vídeo...');
     try {
       const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}) });
@@ -971,6 +1009,7 @@ function Postagens() {
       if (!d.ok || !d.url) { alert('❌ Não foi possível hospedar este vídeo. Verifique o link.'); setVideoBusy(''); return; }
       setEditPost(p=>({...p, video_url: d.url}));
       setVideoUrlInput('');
+      probeVideoPlayable(d.url).then(ok => { if (!ok) setVideoWarning(HEVC_AVISO); });
     } catch(e) {
       alert('❌ Erro ao hospedar vídeo: ' + e.message);
     } finally {
@@ -1201,6 +1240,7 @@ function Postagens() {
         conteudo: d.corpo || post.conteudo,
         _revisado: true
       });
+      setVideoWarning('');
     } catch(e) {
       alert('Erro ao revisar: ' + e.message);
     }
@@ -1389,8 +1429,13 @@ function Postagens() {
                   <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>🎬 Vídeo da matéria</div>
                   {editPost.video_url ? (
                     <div style={{marginBottom:10}}>
-                      <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
-                      <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>setEditPost(p=>({...p,video_url:''}))}>Remover vídeo</button>
+                      {parseYouTubeId(editPost.video_url) ? (
+                        <iframe src={'https://www.youtube-nocookie.com/embed/'+parseYouTubeId(editPost.video_url)} style={{width:'100%',aspectRatio:'16/9',border:0,borderRadius:6,display:'block',background:'#000'}} allowFullScreen/>
+                      ) : (
+                        <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
+                      )}
+                      <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
+                      {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
                   ) : (
                     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
@@ -1399,11 +1444,11 @@ function Postagens() {
                     </div>
                   )}
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    <input className="form-input" style={{flex:'2 1 220px'}} placeholder="Ou cole a URL de um vídeo já hospedado (.mp4/.webm)" value={videoUrlInput} onChange={e=>setVideoUrlInput(e.target.value)}/>
-                    <button type="button" className="btn btn-secondary btn-sm" disabled={!videoUrlInput.trim()||!!videoBusy} onClick={hospedarVideoDeUrl}>Hospedar</button>
+                    <input className="form-input" style={{flex:'2 1 220px'}} placeholder="Cole um link do YouTube, ou a URL de um vídeo já hospedado (.mp4/.webm)" value={videoUrlInput} onChange={e=>setVideoUrlInput(e.target.value)}/>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!videoUrlInput.trim()||!!videoBusy} onClick={hospedarVideoDeUrl}>{parseYouTubeId(videoUrlInput)?'Usar vídeo do YouTube':'Hospedar'}</button>
                   </div>
                   {videoBusy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {videoBusy}</div>}
-                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>O vídeo aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Link do YouTube: o player deles é embutido direto, sem baixar nada (formato sempre compatível). Arquivo próprio: aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
@@ -1587,7 +1632,7 @@ function Postagens() {
                     <td>
                       <div className="gap-8">
                         <button className="btn btn-secondary btn-sm" onClick={()=>setPreviewPost(p)} title="Ver como ficará no Instagram">📲</button>
-                        <button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar">✏️</button>
+                        <button className="btn btn-secondary btn-sm" onClick={()=>{setEditPost({...p});setVideoWarning('');}} title="Editar">✏️</button>
                         {p.status==='pendente'&&<>
                           <button className="btn btn-success btn-sm" onClick={()=>pubPortal(p.id)} disabled={approving} title="Publicar no Portal Web">🌐 Publicar</button>
                           <button className="btn btn-sm" style={{background:'rgba(255,200,0,0.15)',color:'var(--yellow)',border:'1px solid rgba(255,200,0,0.35)'}} onClick={()=>abrirRevisao(p)} disabled={!!revisando} title="Devolver para revisão">🔄 Revisar</button>
@@ -1598,7 +1643,7 @@ function Postagens() {
                           <button className="btn btn-sm" style={{background:'rgba(139,92,246,0.15)',color:'#a78bfa',border:'1px solid rgba(139,92,246,0.3)'}} onClick={()=>revisarIA(p)} title="Revisar com IA">🤖 Revisar IA</button>
                           <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.15)',color:'#ff6b6b',border:'1px solid rgba(200,30,30,0.3)'}} onClick={()=>despublicar(p.id)} title="Despublicar — remover do portal">⛔ Despublicar</button>
                         </>}
-                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>setEditPost({...p})} title="Editar e republicar">✏️</button>}
+                        {p.status==='error'&&<button className="btn btn-secondary btn-sm" onClick={()=>{setEditPost({...p});setVideoWarning('');}} title="Editar e republicar">✏️</button>}
                         <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.12)',color:'#f87171',border:'1px solid rgba(200,30,30,0.25)'}} onClick={()=>deletarPost(p.id)} title="Excluir permanentemente">🗑️</button>
                       </div>
                     </td>
