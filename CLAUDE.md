@@ -8571,3 +8571,45 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Limpar `GEMINI_BUDGET_*` antigo no Supabase** quando o card "Saúde do Banco" ficar amarelo/vermelho — apagar linhas de mais de 2-3 dias atrás, sem afetar nenhum outro canal.
 4. **Dead code de baixa prioridade**: `?format=home`/`getHomeTemplate()`/`injectHeadGuards()` em `api/portal-posts.js` — string-replace hardcoded que não casa mais (`home.css?v=2` vs `?v=5` real). Rota já desativada desde 04/06/2026, sem impacto ativo — só limpar quando sobrar tempo.
 5. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `public/admin/colunista/index.html` campo `telefone` cosmético).
+
+---
+
+### Sessão 01/09/2026 (continuação) — CAUSA RAIZ REAL DO PAGESPEED 49 — LIGHTHOUSE REAL CONTRA PRODUÇÃO + IMAGENS EXTERNAS CRUAS SEM OTIMIZAÇÃO NENHUMA
+
+#### Contexto
+
+Roberto mandou 2 prints reais do PageSpeed Insights (`pagespeed.web.dev`) pra `www.ovalorcapital.com.br` mobile: **Performance 49** (vermelho), FCP 3.5s, LCP 6.6s, TBT 760ms, Speed Index 4.4s — "olhe o absurdo". Isso é evidência concreta e nova, diferente dos 2 fixes de performance já enviados no PR #592 (que eram sobre fetches redundantes/colunas desnecessárias no backend — corretos, mas não a causa raiz do LCP de 6,6s+).
+
+#### Investigação — Lighthouse REAL, não suposição
+
+Como este sandbox não tem rede pra produção, rodei um **Lighthouse de verdade** (`npx lighthouse`, headless Chrome real) dentro de um runner do GitHub Actions, com emulação mobile e throttling calibrados pra bater com a metodologia do PageSpeed Insights (RTT/throughput/CPU-slowdown explícitos, `form-factor=mobile`, emulação Moto G Power). Resultado real contra `https://www.ovalorcapital.com.br/`: score confirmado na mesma faixa reportada por Roberto, com **LCP dominado por uma imagem pesadíssima** e uma lista real de "oportunidades de economia" liderada por imagens externas não otimizadas.
+
+**Achado concreto e citável**: 1 imagem de `bonsfluidos.com.br` pesando **1.028 KB**, carregando direto no navegador de cada visitante, sem nenhum processamento. Outras várias imagens de centenas de KB vindas de domínios completamente alheios ao portal (unsplash.com, exame.com, climatempo.com.br, uol.com.br, investing.com, investidor10.com.br).
+
+#### Causa raiz real — `buscar_imagem` nunca passava pelo pipeline de otimização
+
+`api/run_portal.js`, ação `buscar_imagem` — usada por **4 pontos diferentes do admin**: campo de capa de artigo (manual e edição), busca de foto de perfil de colunista, banner de Interruptor, e a ferramenta de inserir imagem no meio do texto (todos os "🔍 Descreva aqui e aperte Enter para buscar..." do painel). Essa ação **nunca chamava `processAndSaveImage()`** — devolvia o link externo cru, exatamente como veio da busca (`findImage()`), no tamanho/formato/host original da fonte. Todo o resto do pipeline (matérias automáticas, Brasil ON, Jovem Pan, Internacional, esportes) sempre processou a imagem antes de salvar — só este caminho manual vazava imagem crua.
+
+**Fix** (`api/run_portal.js`): `buscar_imagem` agora chama `processAndSaveImage(url, null, null, {watermarkLabel:""})` antes de devolver a URL pro admin — vira WebP, hospedado no nosso Supabase Storage, do mesmo jeito que o resto do pipeline. Sem marca d'água de propósito (o mesmo endpoint atende foto de perfil de colunista — um selo "ovalorcapital.com.br" estampado num rosto ficaria errado). Se o reprocessamento falhar por qualquer razão (fonte bloqueando bot, timeout), cai pro link original — a busca nunca "some" um resultado, só deixa de ganhar a otimização daquela vez.
+
+#### Migração retroativa dos posts já publicados — dado real, verificado
+
+Rodada via script direto contra o Supabase de produção (mesmo padrão `diag-once.yml`), sem alterar `core/image_processor.js`:
+
+- **43 posts publicados** (dos 1000 mais recentes consultados — teto do PostgREST) tinham imagem hospedada FORA do nosso `supabase.co`.
+- Reprocessados os **25 mais recentes** (os que aparecem na home agora): **19 corrigidos** com sucesso (viraram WebP no nosso Storage), **6 falharam** — todos do domínio `encrypted-tbn0.gstatic.com` (proxy de thumbnail do Google, bloqueia esse tipo de acesso direto) — mantidos como estavam, sem quebrar nada.
+- **9 fotos de colunistas** (Roberto, Beta Ferreira, Adriana Ferreira, Michele Froiz, Coluna OVC, Prof. Marcos Pizzolatto, Larissa Corvetto, Taísa da Fonseca, André Oliveira) estavam salvas como **base64 dentro do JSON de config** `COLUNISTAS_PHOTOS` (~60-64KB cada, sem cache de CDN nenhum, recarregadas cruas toda vez) — todas convertidas pra arquivo WebP real em `posts-images/colunistas/{slug}.webp` e removidas do blob JSON.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** um novo PageSpeed Insights real depois deste deploy — não prometer o número exato sem re-medir, mas a causa raiz mais pesada (imagem de 1MB+ crua) está eliminada tanto pra frente (fix no código) quanto pros posts recentes (migração retroativa).
+2. **Os 18 posts restantes** (dos 43 externos, além dos 25 já tratados) ainda têm imagem crua — de baixo impacto imediato (não aparecem mais na home), mas podem ser migrados numa passada futura se Roberto quiser 100% de cobertura.
+3. **6 imagens do `encrypted-tbn0.gstatic.com`** continuam cruas — esse domínio bloqueia acesso direto; se aparecerem de novo, considerar não usar esse tipo de fonte de imagem na busca (`findImage()`/`core/image_finder.js`).
+4. Demais pendências de sessões anteriores seguem válidas (agrupar/minificar os 11 JS da home, revisar `setInterval`s concorrentes, limpar `GEMINI_BUDGET_*` antigo, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense).

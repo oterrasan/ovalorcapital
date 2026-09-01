@@ -1258,7 +1258,25 @@ export default async function handler(req, res) {
     if (!q) return res.status(400).json({ error: "q obrigatorio" });
     if (!canUseStockImageSearch(q, cat)) return res.status(200).json({ url: null, categoria: cat || null });
     const url = await findImage(q, cat, "", "");
-    return res.status(200).json({ url: url || null, categoria: cat || null });
+    if (!url) return res.status(200).json({ url: null, categoria: cat || null });
+    // 01/09/2026 — achado real via Lighthouse contra produção (Roberto reportou
+    // PageSpeed mobile 49, LCP 6,6-11s): a imagem escolhida por ESTE buscador
+    // (usado pelo campo de capa de artigo, foto de perfil de colunista, banner
+    // de interruptor, imagem inserida no meio do texto — todos os "🔍 Descreva
+    // aqui..." do admin) NUNCA passava por processAndSaveImage() — ia pro post
+    // como o link externo cru, no tamanho/formato original da fonte. Achado
+    // concreto no mesmo relatório: 1 imagem de bonsfluidos.com.br pesando
+    // 1.028 KB carregando direto no navegador de cada visitante. Fix:
+    // reprocessa igual ao resto do pipeline (WebP, hospedado no Supabase)
+    // antes de devolver pro admin — sem marca d'água aqui, de propósito: este
+    // endpoint atende tanto capa de artigo quanto foto de perfil, um selo
+    // "ovalorcapital.com.br" ficaria errado estampado num rosto. Se o
+    // reprocessamento falhar por qualquer motivo (fonte bloqueando bot,
+    // timeout, imagem pequena demais), cai pro link original — mesmo
+    // comportamento de sempre, a busca nunca "some" um resultado por causa
+    // disso, só deixa de ganhar a otimização daquela vez.
+    const optimized = await processAndSaveImage(url, null, null, { watermarkLabel: "" });
+    return res.status(200).json({ url: optimized || url, categoria: cat || null });
   }
   if (body.action === "cleanup_titles") return cleanupTitles(res, body);
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
