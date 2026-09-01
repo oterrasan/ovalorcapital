@@ -8475,3 +8475,99 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto** que a automação de Instagram está publicando com regularidade de novo, sem a trava de 100/dia interrompendo antes da hora.
 2. **`public/admin/colunista/index.html` linha 262** (`session.telefone`) e o campo "Telefone / WhatsApp" no form de criar login — cosmético, baixa prioridade (já registrado antes).
 3. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense).
+
+---
+
+### Sessão 01/09/2026 — RELATÓRIO REAL DE PRODUÇÃO + CAUSA RAIZ "AUTOMAÇÃO PAUSADA" FALSA + CARD "SAÚDE DO BANCO" + LENTIDÃO DO SITE (TV/TABLET) — 3 PRs
+
+#### Contexto
+
+Primeiro dia inteiro de operação com automação de Instagram contínua + Vercel Pro. Roberto pediu, em sequência: (1) relatório real do dia 31/08 completo + 01/09 parcial; (2) confirmação se o pipeline geral fica travado de madrugada até as 7h; (3) preocupação com a cota do Gemini logo no início do dia; (4) projeção de capacidade pra 400 conteúdos/dia por um mês inteiro, sem explodir custo; (5) por que o painel do admin mostrava "● Automação PAUSADA" mesmo com tudo rodando; (6) reclamação de lentidão/travamento no site, principalmente em navegadores de TV/tablet, com o volume subindo pra ~300/dia.
+
+Todas as respostas desta sessão foram construídas com evidência real (consultas diretas ao Supabase/Vercel/Gemini via o padrão `diag-once.yml` no GitHub Actions — este sandbox não tem rede direta pra produção), nunca repetindo uma resposta anterior sem re-verificar.
+
+---
+
+#### 1) Relatório real 31/08 (completo) + 01/09 (parcial)
+
+Consulta direta ao banco confirmou **362 posts publicados no dia 31/08** (primeiro dia cheio com automação de Instagram + Vercel Pro rodando sem as travas de cota que causaram os apagões de dias anteriores), com automação de Instagram publicando de forma consistente e taxa de erro baixa nos logs `[ig-auto]`.
+
+#### 2) Pipeline NÃO fica travado de madrugada — `force:true` sempre bypassa a janela
+
+Confirmado por leitura de código (`api/run_portal.js`): `automacaoAtiva()` (checa `config.AUTOMATION==="on"`) é checado ANTES de tudo — se estiver "off", nada roda em hora nenhuma. Mas a checagem de horário (`janelaOk()`, 07:00–00:30 BRT) só se aplica quando `!body.force` — e todos os 7 jobs do cron (`vercel.json`, cron nativo desde a migração de 30/08/2026) disparam sempre com `force:true`. Confirmado ao vivo: uma chamada real de madrugada gerou artigo normalmente. **O verdadeiro limitador de madrugada nunca foi o relógio — é o volume de notícia disponível nas fontes** (menos fontes internacionais publicando de madrugada BRT) e, ocasionalmente, cota de IA.
+
+#### 3) Cota do Gemini — throttle por minuto, não bloqueio do dia todo
+
+Testado ao vivo, 2 rodadas espaçadas: um 429 real (`"Please retry in ~55-58s"`) limpou sozinho dentro de ~70s-2min no reteste — confirma **throttle por minuto (RPM)**, não esgotamento da cota diária inteira. Reconfirmado horas depois com nova bateria de testes espaçados — mesma conclusão. Contagem real das linhas `GEMINI_BUDGET_*` (rastreador insert-only de tentativas): **1.967 chamadas em 20260831**, **368+ em 20260901** (parcial) — volume alto e sustentado, sem indicar bloqueio total.
+
+#### 4) Projeção de capacidade — 400 conteúdos/dia por um mês, sem custo extra
+
+- **Gemini**: free-tier, sem billing habilitado — mesmo com ~2.000+ chamadas/dia já sustentadas (confirmado real), não há cobrança. Throttles por minuto são absorvidos pelo retry já existente (`callGemini()`).
+- **Vercel**: confirmado via chamada real autenticada à API (`https://api.vercel.com/v1/teams`, usando `secrets.VERCEL_TOKEN` do próprio repo) que a conta `roberto-terrasans-projects` está em **`"plan":"pro","status":"active"`** de verdade. Pricing real (raspado de `vercel.com/pricing` via runner do GitHub Actions, não memória): inclui 10M invocações/mês, 1TB de banda/mês, 1M de requests — o volume de automação do OVC (~24k invocações/mês em ordem de grandeza) fica bem abaixo desses tetos. Overage é **medido e cobrado**, não é um corte duro tipo Hobby.
+- **Conclusão prática**: 400/dia é sustentável tecnicamente sem custo extra — o único gargalo real de custo seria tráfego/banda de visitantes crescendo MUITO (não o volume de geração de conteúdo em si).
+
+#### 🔴 5) Causa raiz real — "Automação PAUSADA" falsa no painel (PR #590, commits `a4c7add`+`39e8725`)
+
+Roberto mandou print do admin mostrando "● Automação PAUSADA" em vermelho, contradizendo tudo que já tinha sido confirmado (pipeline rodando, 362 posts/dia). Investigação com evidência real, não suposição:
+
+**Causa raiz:** a tabela `config` do Supabase acumulou **14.462 linhas** — 14.188 delas só de `GEMINI_BUDGET_*` (rastreador insert-only de orçamento diário do Gemini, uma linha por tentativa de chamada, criado numa sessão de crise anterior — 16-17/08/2026 — pra evitar um bug de corrida diferente). O painel `Pipeline()` do admin fazia `sb.from('config').select('*')` **sem nenhum filtro/limit** — e o PostgREST/Supabase trunca silenciosamente a resposta em **1000 linhas** quando não se passa `Range`/`limit` explícito. Com a tabela nesse tamanho, a linha `AUTOMATION` simplesmente ficava fora do lote de 1000 retornado, e o código lia isso como "não achei = pausada" (`cfgs.find(c=>c.key==='AUTOMATION')` retornando `undefined` → `setAuto(false)`), mesmo o valor real no banco sendo `"on"` o tempo todo, atualizado às 01:34 BRT.
+
+**Confirmado com dado real antes e depois do fix:**
+- `select=*` sem filtro → 1000 linhas retornadas, `AUTOMATION` ausente do lote.
+- Excluindo o prefixo `GEMINI_BUDGET_*` → só **274 linhas reais** sobram (bem abaixo do teto de 1000).
+
+**Fix:**
+- `Pipeline()`: filtra só as 3 chaves que usa — `.in('key', ['AUTOMATION','MAX_POSTS_DIA','INTERVALO'])`.
+- `Configuracoes()`: exclui o prefixo `GEMINI_BUDGET_*` — `.not('key','like','GEMINI_BUDGET_%')`.
+
+**Verificado end-to-end pós-deploy**: reproduzida a query exata do admin em produção — `AUTOMATION` e `MAX_POSTS_DIA` voltam corretamente no lote filtrado; o HTML real do admin em produção já contém as duas strings do fix.
+
+#### 6) Card "Saúde do Banco" no Dashboard (PR #591, commit `39e8725`)
+
+Roberto perguntou, depois do fix acima: *"quando saberei que é hora de parar tudo pra limpar e organizar?"*. Resposta prática: em vez de depender de memória/regra de bolso, o próprio Dashboard passou a monitorar o sinal real que causou o bug acima. Novo card ao lado de "Sem Imagem":
+- 🟢 verde/"saudável" — abaixo de 15.000 linhas em `config`
+- 🟡 amarelo/"de olho" — entre 15.000 e 25.000
+- 🔴 vermelho/"LIMPAR AGORA" — acima de 25.000 (o bug real aconteceu em 14.462 — margem de segurança)
+
+Consulta via `sb.from('config').select(...,{count:'exact',head:true})`, mesmo client já usado no resto do admin, sem endpoint novo em `api/`.
+
+#### 🔴 7) Lentidão/travamento em TV/tablet (PR #592, commit `b4556e7`)
+
+Roberto: *"o site está muito lento... nao roda direito em navegadores como televisao, ipad, tablets"*, com o volume subindo pra ~300/dia. Auditoria estática do repo (sem rede — sandbox sem acesso a produção) encontrou 2 causas reais:
+
+**a) Fetches redundantes na home.** `window.__OVC_CACHE__` (cache compartilhado das 2 chamadas mais caras da home — `?recentes=true&limit=300` e `?format=live-data` — criado numa sessão anterior em `site.js`) era corretamente reusado por `home.js` e `ovc-cards.js`, mas **`ovc-eleitoral.js` e `ovc-pulso-br.js` nunca foram conectados a ele** — cada um fazia `fetch()` próprio das mesmas 2 chamadas caras toda vez que a home carregava. Fix: os 2 arquivos passam a reusar `window.__OVC_CACHE__`, mesmo padrão com fallback seguro já comprovado nos outros dois. `ovc-radar-esporte.js` foi deliberadamente **não tocado** — usa uma query diferente, filtrada por categoria no servidor (fix de 23/08/2026 pra esportes não sumir diluído no pool geral); redirecioná-lo pro cache genérico reintroduziria aquele bug já corrigido.
+
+**b) Backend lendo colunas nunca usadas.** `handleRecentes()`/`handleList()` em `api/portal-posts.js` sempre buscavam `conteudo` (corpo HTML completo, 4.000+ chars por artigo pela regra do MASTER_PROMPT) e `metrics` do Postgres em até 300+ linhas por chamada, mesmo `formatPost()` já descartando os 2 campos da resposta JSON quando `full=false` (nunca usados em card/teaser) — puro desperdício de leitura no Supabase + memória/CPU da function. Antes de remover, verificado com dado real que era seguro: **0 de 838 posts publicados nas últimas 72h têm `comentario_fixado` vazio/nulo** (o único fallback que dependia de `conteudo`). Fix: nova constante `POST_COLUMNS_LISTAGEM` (sem `conteudo`/`metrics`) usada nas 4 queries de listagem; `handleOne()` (artigo individual) continua com todas as colunas.
+
+**Achado auditado mas não corrigido (baixa prioridade, registrado pra referência futura):** a home carrega 11 arquivos JS separados (~194KB somados, sem minificação/bundling) + ~124KB de CSS (`home.css` 88KB + `site.css` 14,8KB + `responsive.css` 19KB) + 8 loops `setInterval` concorrentes (um deles, o ticker do impostômetro, roda a cada 1000ms indefinidamente). Isso não foi tocado nesta sessão — é uma mudança arquitetural maior (agrupar/comprimir JS, revisar frequência de polling), avisado a Roberto como próximo passo que precisa de aval antes de mexer, não urgente igual os 2 fixes acima. Também identificado (não corrigido, dead code de baixa prioridade): `?format=home` em `api/portal-posts.js` (`getHomeTemplate()`/`injectHeadGuards()`) faz replace de string hardcoded procurando `home.css?v=2`, mas o `public/index.html` real já está em `?v=5` — o replace nunca mais casa. Não é bug ativo porque essa rota SSR da home está desativada desde 04/06/2026 (`/` serve o arquivo estático direto, por decisão daquela sessão) — só lixo de código vestigial.
+
+Cache-bust: `ovc-eleitoral.js?v=7→8`, `ovc-pulso-br.js?v=2→3`.
+
+---
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (01/09/2026)
+
+| Sistema | Status |
+|---|---|
+| **Relatório real 31/08 (362 posts) + confirmação de que o pipeline não trava de madrugada** (`force:true` sempre bypassa `janelaOk()`) | ✅ CONFIRMADO com evidência real |
+| **Cota do Gemini — throttle por minuto, não bloqueio diário** (429 real limpa em ~70s-2min) | ✅ CONFIRMADO — reteste espaçado 2x |
+| **Projeção 400/dia — Gemini free real, Vercel Pro confirmado (`plan:pro,status:active`), overage é medido, não corte duro** | ✅ CONFIRMADO com evidência real (API Vercel + pricing real) |
+| **Causa raiz real do "Automação PAUSADA" falso** — `select('*')` sem filtro truncado em 1000 linhas pelo PostgREST, tabela `config` com 14.462 linhas (14.188 de `GEMINI_BUDGET_*`) | ✅ EM PRODUÇÃO (PR #590) — verificado end-to-end pós-deploy |
+| **Card "Saúde do Banco" no Dashboard** — farol verde/amarelo/vermelho pro tamanho da tabela `config` | ✅ EM PRODUÇÃO (PR #591) |
+| **Fetches redundantes da home eliminados** (`ovc-eleitoral.js`/`ovc-pulso-br.js` reconectados ao `window.__OVC_CACHE__` já existente) | ✅ EM PRODUÇÃO (PR #592) |
+| **Backend não lê mais `conteudo`/`metrics` nas 4 queries de listagem** (`POST_COLUMNS_LISTAGEM`) — verificado seguro (0/838 posts dependiam do fallback) | ✅ EM PRODUÇÃO (PR #592) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** se a lentidão em TV/tablet melhorou depois do deploy do PR #592 — pedir teste real após limpar cache.
+2. **Se ainda estiver lento**: próximo passo é uma mudança maior (agrupar/minificar os 11 arquivos JS da home, revisar frequência dos 8 `setInterval` concorrentes) — precisa de aval explícito de Roberto antes de mexer, é trabalho de sessão dedicada, não fix rápido.
+3. **Limpar `GEMINI_BUDGET_*` antigo no Supabase** quando o card "Saúde do Banco" ficar amarelo/vermelho — apagar linhas de mais de 2-3 dias atrás, sem afetar nenhum outro canal.
+4. **Dead code de baixa prioridade**: `?format=home`/`getHomeTemplate()`/`injectHeadGuards()` em `api/portal-posts.js` — string-replace hardcoded que não casa mais (`home.css?v=2` vs `?v=5` real). Rota já desativada desde 04/06/2026, sem impacto ativo — só limpar quando sobrar tempo.
+5. Demais pendências de sessões anteriores seguem válidas (SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, `public/admin/colunista/index.html` campo `telefone` cosmético).
