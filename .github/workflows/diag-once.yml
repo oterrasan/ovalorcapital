@@ -1,32 +1,16 @@
-name: Diagnóstico único (investigação pontual)
+name: Diagnóstico único (placeholder)
+
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 1
     steps:
-      - name: Verifica se comentario_fixado esta confiavel antes de remover fallback via conteudo
-        run: |
-          set +e
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "===== total publicado nas ultimas 72h ====="
-          curl -sS "$SB_URL/rest/v1/posts?select=id&status=eq.publicado&created_at=gte.$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%S)" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>&1 | grep -i "content-range"
-
-          echo
-          echo "===== com comentario_fixado NULO ou vazio nas ultimas 72h ====="
-          curl -sS "$SB_URL/rest/v1/posts?select=id&status=eq.publicado&created_at=gte.$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%S)&or=(comentario_fixado.is.null,comentario_fixado.eq.)" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>&1 | grep -i "content-range"
-
-          echo
-          echo "===== amostra de 5 posts com comentario_fixado vazio/nulo, se existirem ====="
-          curl -sS "$SB_URL/rest/v1/posts?select=id,titulo,comentario_fixado,user_tags,publish_method,created_at&status=eq.publicado&created_at=gte.$(date -u -d '72 hours ago' +%Y-%m-%dT%H:%M:%S)&or=(comentario_fixado.is.null,comentario_fixado.eq.)&limit=5" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+      - run: echo "placeholder — nada a fazer"

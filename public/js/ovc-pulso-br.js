@@ -318,11 +318,16 @@
     }
   }
 
+  // 01/09/2026 — reusa window.__OVC_CACHE__ (já primed por site.js em TODA
+  // página) em vez de fetch() próprio — mesmo padrão já usado com sucesso em
+  // home.js/ovc-cards.js. Este widget era 1 de 3 (junto com ovc-eleitoral.js)
+  // fazendo fetch() redundante das mesmas 2 chamadas caras toda vez que a
+  // home carregava.
   function buscarLive() {
-    return fetch('/api/portal-posts?format=live-data').then(function (r) { return r.json(); }).catch(function () { return null; });
+    return (window.__OVC_CACHE__?.live || fetch('/api/portal-posts?format=live-data').then(function (r) { return r.json(); })).catch(function () { return null; });
   }
   function buscarSetores() {
-    return fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); }).then(function (d) {
+    return (window.__OVC_CACHE__?.recentes || fetch('/api/portal-posts?recentes=true&limit=300').then(function (r) { return r.json(); })).then(function (d) {
       var todos = (d && d.posts) || [];
       var porSetor = {};
       for (var i = 0; i < todos.length; i++) {
