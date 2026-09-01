@@ -1,4 +1,4 @@
-name: Diagnóstico único (por que o request do vídeo aborta)
+name: Diagnóstico único (codec real do vídeo + erro real do player)
 
 on:
   workflow_dispatch:
@@ -9,19 +9,58 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     steps:
-      - name: Testar a URL do vídeo direto (sem Range, com Range, e checar o bucket)
+      - name: Baixar o vídeo real e checar o codec com ffprobe
         run: |
           URL="https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1788291566365-vr6om3.mp4"
-          echo "=== GET sem Range (só headers) ==="
-          curl -sS -D - -o /dev/null -m 20 "$URL"
-          echo
-          echo "=== GET com Range (como um <video> pede) ==="
-          curl -sS -D - -o /dev/null -m 20 -H "Range: bytes=0-1023" "$URL"
-          echo
-          echo "=== Info do bucket post-videos (config pública/privada real) ==="
-          curl -sS -m 20 "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/bucket/post-videos" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo
+          curl -sS -m 30 -o /tmp/video.mp4 "$URL"
+          echo "tamanho baixado: $(stat -c%s /tmp/video.mp4) bytes"
+          sudo apt-get update -qq >/dev/null 2>&1
+          sudo apt-get install -y -qq ffmpeg >/dev/null 2>&1
+          echo "=== ffprobe (codec/stream real) ==="
+          ffprobe -v error -show_entries stream=index,codec_name,codec_type,width,height,pix_fmt -of default=noprint_wrappers=1 /tmp/video.mp4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar Playwright + Chromium
+        run: |
+          npm init -y --silent >/dev/null
+          npm install --no-save --silent playwright
+          npx playwright install --with-deps chromium
+      - name: Verificar o estado REAL do elemento <video> (erro, readyState, duration)
+        run: |
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+            await page.goto('https://www.ovalorcapital.com.br/tecnologia/robo-chines-supera-recorde-de-usain-bolt-nos-100-metros-7391ed1b/', { waitUntil: 'networkidle', timeout: 20000 });
+            const info = await page.evaluate(async () => {
+              const v = document.querySelector('video.ovc-art-video');
+              if (!v) return { found: false };
+              await new Promise(resolve => {
+                let done = false;
+                const finish = () => { if (!done) { done = true; resolve(); } };
+                v.addEventListener('loadedmetadata', finish, { once: true });
+                v.addEventListener('error', finish, { once: true });
+                setTimeout(finish, 8000);
+              });
+              return {
+                found: true,
+                readyState: v.readyState,
+                networkState: v.networkState,
+                duration: v.duration,
+                videoWidth: v.videoWidth,
+                videoHeight: v.videoHeight,
+                errorCode: v.error ? v.error.code : null,
+                errorMessage: v.error ? v.error.message : null,
+                canPlayHevc: v.canPlayType('video/mp4; codecs=\"hvc1\"'),
+                canPlayH264: v.canPlayType('video/mp4; codecs=\"avc1.42E01E\"')
+              };
+            });
+            console.log('=== ESTADO REAL DO <video> ===');
+            console.log(JSON.stringify(info, null, 2));
+            await browser.close();
+          })().catch(e => { console.error('FALHA:', e.message); process.exit(1); });
+          "
