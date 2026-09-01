@@ -829,7 +829,8 @@ Documentação completa em `BUGS_CORRIGIDOS.md`.
 - **Nome:** Roberto Cesar Terrasan
 - **Objetivo:** maior portal premium de notícias do Brasil
 - **Perfil técnico:** não é programador — implementações diretas, sem explicações longas
-- **Estilo:** cobra resultados reais. Não quer links nem status — quer feito e funcionando.
+- **Estilo:** cobra resultados reais. Quer feito e funcionando — quando EU consigo fazer sozinho, não ficar narrando passos, só fazer e reportar o resultado.
+- **🚨 REGRA PERMANENTE (01/09/2026) — instruções pra AÇÃO QUE SÓ ELE PODE FAZER:** sempre que uma tarefa depender de Roberto clicar em algo fora do meu alcance (SQL Editor do Supabase, Vercel Dashboard, GitHub Secrets, configurações de conta, etc.), NUNCA assumir que ele sabe onde ir. SEMPRE mandar: (1) o **link direto e exato** da página (não "acesse o Supabase", e sim a URL completa clicável), (2) passo a passo numerado do que clicar/colar/rodar, (3) o que esperar como confirmação de sucesso. Ele foi explícito: *"voce DEVE ME INSTRUIR SEMPRE, E ME ENVIAR OS LINKS EXATOS DE ONDE TENHO DE IR E O QUE FAZER"*. Isso vale especificamente pra ações manuais dele — não contradiz a regra acima de "fazer sozinho quando dá", que é sobre tarefas que EU consigo executar sem ele.
 - **Comunicação:** português, direto ao ponto
 - **NUNCA perguntar** coisas óbvias sobre infraestrutura que claramente está no ar
 - **NUNCA mexer em nada enquanto conversa com o dono** — esperar OK explícito antes de cada ação
@@ -8613,3 +8614,92 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. **Os 18 posts restantes** (dos 43 externos, além dos 25 já tratados) ainda têm imagem crua — de baixo impacto imediato (não aparecem mais na home), mas podem ser migrados numa passada futura se Roberto quiser 100% de cobertura.
 3. **6 imagens do `encrypted-tbn0.gstatic.com`** continuam cruas — esse domínio bloqueia acesso direto; se aparecerem de novo, considerar não usar esse tipo de fonte de imagem na busca (`findImage()`/`core/image_finder.js`).
 4. Demais pendências de sessões anteriores seguem válidas (agrupar/minificar os 11 JS da home, revisar `setInterval`s concorrentes, limpar `GEMINI_BUDGET_*` antigo, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense).
+
+---
+
+## 🆕 VÍDEO NAS MATÉRIAS — NOVA FEATURE (iniciada 01/09/2026)
+
+### Sessão 01/09/2026 (continuação) — vídeo manual no admin + exibição no site + SEO (PR #595, draft)
+
+#### Contexto
+
+Roberto anexou um vídeo de referência real no chat (formato tipo Reels vertical, 720×1280, 60s, HEVC — confirmado tecnicamente via PyAV neste sandbox, já que não há ffmpeg instalável nem acesso de rede pra CDNs externos aqui) e pediu: *"preciso que você implemente postagens de vídeos no portal, pega esse como exemplo. depois vamos cadastrar fontes que tem vídeos confiáveis e sem logotipo de nenhum veículo para rasparmos."*
+
+Extraídos frames do vídeo (via PyAV/PIL, instalado via pip neste sandbox) pra confirmar o formato: os primeiros segundos mostram um título em **barra branca com texto negrito preto sobreposto** ao vídeo bruto ("ROBÔ VS BOLT: MÁQUINA CHINESA BATE RECORDE DOS 100 METROS RASOS DE NOVO!" — matéria sobre robôs humanoides correndo numa pista de atletismo na China), depois é só o vídeo cru do evento, **sem logotipo de nenhum veículo**.
+
+**Escopo desta sessão, deixado claro por Roberto**: só a implementação de vídeo no portal (base técnica). "Depois vamos cadastrar fontes" = a raspagem automática de fontes de vídeo é a PRÓXIMA etapa, explicitamente adiada — **não implementada nesta sessão, nem deve ser assumida/iniciada por iniciativa própria numa sessão futura sem Roberto confirmar as fontes**.
+
+#### Decisão arquitetural central — por que NÃO tem ffmpeg em lugar nenhum
+
+Investigado o histórico do projeto antes de decidir: o incidente mais recente e mais grave documentado (31/08/2026) foi causado por `sharp` (dependência nativa/binária) importada **estaticamente** no topo de `api/manage.js` — uma falha de binário num cold start (sem nenhum commit novo) derrubou a função **inteira**, quebrando TODAS as ~40 ações dela (admin em tela preta, automação de Instagram parada por horas). ffmpeg é uma dependência nativa **muito mais pesada** que sharp — repetir esse padrão pra "queimar" o overlay de título no arquivo de vídeo, ou pra transcodificar/redimensionar, seria arriscar o mesmo tipo de incidente, só que pior.
+
+**Decisão**: zero processamento de vídeo no servidor. Duas únicas operações, ambas seguras:
+1. **Upload manual de arquivo** (admin) → vai **direto do navegador pro Supabase Storage**, usando o client Supabase (`sb`) que o admin **já tem** com acesso total (mesmo padrão já usado no resto do admin) — nunca passa pela nossa function serverless, então nem esbarra no limite de ~4.5MB de payload dela (um vídeo de 60s como o de exemplo já tem 12MB, bem acima disso).
+2. **Vídeo já hospedado numa URL externa** (link colado no admin, ou futuramente uma fonte de raspagem) → só isso PRECISA rodar no servidor (CORS não permite fetch de qualquer domínio direto do browser) — `downloadAndUploadVideo()` em `core/storage.js`, baixa os bytes crus via `fetch()` e reenvia pro nosso Storage **sem decodificar nem reencodar nada**.
+
+O overlay de título (barra branca + texto, replicando o vídeo de referência) é feito **100% em CSS/HTML por cima do `<video>`** no player do site (`public/js/internal-page-v2.js`) — nunca gravado no arquivo em si. Reversível (editar o título muda o overlay automaticamente), barato, zero risco de binário nativo.
+
+#### O que foi implementado
+
+**`core/storage.js`** — reescrito por completo. O arquivo antes era **código morto** (confirmado via grep: `uploadImage()` nunca era importada por nenhum caller ativo) — reaproveitado em vez de criar um arquivo novo (não conta pra Regra Zero-A de qualquer forma, é `core/`, mas mesmo assim preferível reaproveitar). `downloadAndUploadVideo(sourceUrl)`: valida protocolo/content-type/tamanho (teto de segurança 150MB — não é limite real de nenhum plano, só sanidade), baixa com timeout de 45s e `Referer` da própria origem (mesmo truque anti-hotlink já usado em `core/image_processor.js`), reenvia pro bucket `post-videos` (criado sob demanda, `public:true`). `ensureVideoBucket()` idempotente (ignora erro "already exists").
+
+**`api/run_portal.js`** — nova ação `body.action === "video_de_url"` (POST), mesmo padrão de dispatch já usado por `cleanup_titles`/`buscar_imagem` no mesmo arquivo. Sem autenticação extra — consistente com `buscar_imagem`, que também é uma ação aberta neste arquivo (decisão de manter consistência com o padrão já estabelecido, não introduzir um nível de segurança diferente do resto do arquivo).
+
+**`api/manage.js`**:
+- `handleApprovePortal()` (ação `editar_aprovar`): `patch` agora inclui `video_url` (desestruturado do `body`).
+- `handleSetupStorage()`: também cria o bucket `post-videos` (best-effort, silencioso — redundância, já que o admin também tenta criar sob demanda antes do primeiro upload, não depende de ninguém clicar num botão específico).
+
+**`api/article.js` / `api/portal-posts.js`** — 🔴 **ponto mais delicado desta implementação**: a coluna `video_url` **ainda não existe** no banco (Roberto precisa rodar a migração, ver abaixo). A primeira versão desta mudança colocava `video_url` direto no `SELECT` principal do artigo (`POST_COLUMNS`) — isso teria feito **QUALQUER artigo do portal parar de carregar** (erro "column does not exist") até a migração rodar, violando a Regra Zero-E (portal nunca pode ficar offline). Corrigido: `video_url` é lido via uma **consulta SEPARADA e silenciosa** (`findArticleVideo()`/`findPostVideo()`, try/catch que nunca lança, retorna `""` em qualquer erro) — nunca pode derrubar a leitura do artigo principal. `VideoObject` adicionado ao JSON-LD (`api/article.js`) quando `row.video_url` existe, seguindo a Regra #1 (SEO 100% completo).
+
+**`public/js/internal-page-v2.js`** — nova função `renderMedia(p, tituloLimpo)`: quando `p.video` existe, renderiza um `<video controls playsinline preload="metadata">` (com `poster` = imagem de capa do post, se houver) full-width (max-width 460px, centralizado, `clear:both`) no topo da matéria, com `.ovc-art-video-caption` (barra branca, texto negrito, `position:absolute` no rodapé do player, `pointer-events:none` pra não atrapalhar os controles nativos) — réplica visual do overlay do vídeo de referência. Quando há vídeo, a imagem de capa (`<img class="ovc-art-img">`, o float lateral de sempre) **não** é mais renderizada no topo (evita duplicar mídia) — ela continua servindo normalmente pra cards, redes sociais e SEO (og:image/JSON-LD), só não aparece mais no corpo do artigo em si quando há vídeo.
+
+**`public/admin/index.html`** (Postagens → Editar Post) — bloco "🎬 Vídeo da matéria":
+- Upload de arquivo (`<input type="file" accept="video/*">`) → `uploadVideoArquivo()`: cria o bucket sob demanda, `sb.storage.from('post-videos').upload(path, file, ...)` **direto do navegador** (usando `sb`, o client Supabase já instanciado no topo do arquivo com acesso total — **mesmo padrão de segurança pré-existente do projeto**, não introduzido por esta mudança: `SUPABASE_ANON` no admin já era, na real, a service_role key, hardcoded e exposta no HTML — ver nota de segurança abaixo).
+- Campo de colar URL externa + botão "Hospedar" → chama `POST /api/run_portal {action:'video_de_url', url}`.
+- Preview do vídeo atual (`<video controls>`) + botão "Remover vídeo".
+- `saveEdit()`: o update de `video_url` é uma **chamada SEPARADA** (`sb.from('posts').update({video_url:...})`) do resto do payload de edição do post — pelo mesmo motivo do ponto delicado acima: se a coluna não existir ainda, só essa chamada falha (com um alert claro pro Roberto pedindo pra rodar a migração), **nunca** o resto da edição do post (título/conteúdo/imagem/categoria), que já foi salvo com sucesso antes.
+- Sintaxe JSX validada via **Babel real** (`@babel/core` + `@babel/preset-react`, instalado via npm neste sandbox só pra validação, não fica no repo) — mesmo protocolo já usado em sessões anteriores pra este arquivo especificamente, dado o histórico de incidentes graves de sintaxe quebrando o admin inteiro. `git diff --stat`: 74 inserções, **0 deleções** — confirma que nada foi perdido/truncado.
+
+**Cache-bust**: `internal-page-v2.js?v=3` → `?v=4` nas 50 páginas HTML que o carregam (script já tinha esse padrão de versão — sem o bump, o CDN poderia continuar servindo a versão sem suporte a vídeo indefinidamente, mesmo bug já documentado várias vezes neste arquivo em sessões anteriores).
+
+#### 🔴 MIGRAÇÃO PENDENTE — Roberto precisa rodar no SQL Editor do Supabase
+
+```sql
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS video_url text;
+```
+
+Sem essa coluna, **nada quebra** — só não há campo pra salvar/exibir vídeo ainda (confirmado pelo padrão de consulta separada e silenciosa usado em todo o código novo, testado por leitura de código e `node --check`, não em produção real). Os buckets do Storage (`post-videos`) são criados automaticamente sob demanda (admin ao selecionar arquivo, ou backend na primeira chamada de `video_de_url`) — não precisam de ação manual.
+
+#### ⚠️ Achado de segurança PRÉ-EXISTENTE, NÃO corrigido nesta sessão (fora do escopo, registrado pra decisão futura de Roberto)
+
+`public/admin/index.html` (`SUPABASE_ANON`) e `api/article.js` (`window.SUPABASE_ANON_KEY`) expõem, sob o nome de "anon key", a **chave service_role real** (acesso total ao banco, bypassa RLS) — hardcoded e visível no HTML público de `/admin/` e de **toda página de artigo do portal**. Isso é o que tornou o upload direto do browser tecnicamente simples nesta sessão (o client `sb` do admin já tinha permissão de sobra), mas é uma prática de segurança arriscada que já existia antes desta mudança, em pelo menos 2 lugares do código. **Não foi "consertado" aqui** — é uma decisão maior (poderia quebrar outras chamadas que dependem desse acesso total) que precisa de avaliação própria e autorização explícita de Roberto, não uma correção lateral dentro de uma tarefa de vídeo.
+
+#### ⚠️ Nota de transparência — nada testado em produção real
+
+Sandbox sem acesso de rede a `www.ovalorcapital.com.br` nem ao Supabase real (limitação já documentada extensivamente neste arquivo pra outras sessões). Tudo verificado por: leitura cuidadosa de código, `node --check` nos 4 arquivos `.js` de `api/`+`core/storage.js`, validação de sintaxe JSX via Babel real pro admin, e revisão manual do diff completo (`git diff`) de cada arquivo tocado. **Nada disso substitui teste real em produção** — ver pendências abaixo.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — nenhum arquivo novo criado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (01/09/2026 continuação — vídeo)
+
+| Sistema | Status |
+|---|---|
+| **Backend de vídeo** (`core/storage.js`, ação `video_de_url`, `editar_aprovar` aceita `video_url`) | ✅ CÓDIGO EM PR #595 (draft) — verificado por leitura de código + `node --check`, NÃO testado em produção real |
+| **Consulta separada e silenciosa de `video_url`** (nunca quebra leitura de artigo mesmo sem a coluna existir) | ✅ CÓDIGO EM PR #595 — decisão deliberada, ver "ponto mais delicado" acima |
+| **Player de vídeo + overlay de título no site** (`internal-page-v2.js`) | ✅ CÓDIGO EM PR #595 — não visto rodando num navegador real |
+| **Upload de vídeo no admin** (arquivo direto pro Storage, ou colar URL externa) | ✅ CÓDIGO EM PR #595 — sintaxe validada via Babel real, não testado end-to-end |
+| **Migração SQL da coluna `video_url`** | ❌ NÃO EXECUTADA — pendente, Roberto precisa rodar no SQL Editor do Supabase |
+| **Raspagem automática de fontes de vídeo** | ❌ NÃO INICIADA DE PROPÓSITO — Roberto disse explicitamente "depois vamos cadastrar fontes", é a próxima etapa |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Roberto rodar a migração SQL** (`ALTER TABLE posts ADD COLUMN IF NOT EXISTS video_url text;`) — sem isso, o campo de vídeo no admin salva a imagem/mídia normalmente mas o vídeo em si não persiste (alert claro avisa disso no momento de salvar).
+2. **Testar o fluxo completo em produção real** assim que a migração rodar: subir o vídeo de exemplo (ou um novo) via admin → confirmar que salva → confirmar que aparece na matéria publicada com o overlay de título → conferir em pelo menos Chrome e Safari (o vídeo de exemplo é HEVC, que tem suporte mais universal no Safari/iOS que no Chrome/Firefox desktop sem decodificação de hardware — se algum navegador não reproduzir, considerar orientar Roberto a preferir H.264/mp4 nas fontes que ele for cadastrar).
+3. **Quando Roberto voltar a falar em cadastrar fontes de vídeo pra raspagem automática**: perguntar quais fontes especificamente antes de implementar (mesmo protocolo já usado pra Bacci/Jovem Pan/Internacional — nunca badalar fonte nova sem confirmação explícita), e reaproveitar `downloadAndUploadVideo()` (já pronta) como o mecanismo de hospedagem — só falta a parte de descoberta/scraping de qual vídeo pegar de cada fonte.
+4. **Considerar avisar Roberto sobre o achado de segurança da service_role key exposta como "anon key"** (ver seção acima) — não é bloqueante pra vídeo, mas é uma exposição real que só ele pode decidir quando/como tratar.
+5. Demais pendências de sessões anteriores seguem válidas (ver lista da sessão 01/09/2026 anterior — agrupar/minificar os 11 JS da home, revisar `setInterval`s concorrentes, limpar `GEMINI_BUDGET_*` antigo, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense).

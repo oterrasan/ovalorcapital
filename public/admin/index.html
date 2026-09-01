@@ -932,6 +932,51 @@ function Postagens() {
   const [imgInsert, setImgInsert] = useState({query:'',caption:'',buscando:false});
   const conteudoEditRef = useRef(null);
   function escAttrImg(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  // 01/09/2026 — Vídeo nas matérias, a pedido de Roberto. Upload de arquivo
+  // vai DIRETO do navegador pro Supabase Storage usando o client `sb` já
+  // existente (acesso total, mesmo padrão do resto do admin) — nunca passa
+  // pela nossa function serverless, então não esbarra no limite de ~4.5MB
+  // de payload dela. Nunca reencoda/processa nada (sem ffmpeg — a mesma
+  // classe de risco do incidente real do `sharp` em 31/08/2026).
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const [videoBusy, setVideoBusy] = useState('');
+  const uploadVideoArquivo = async (file) => {
+    if (!file) return;
+    if (!/^video\//.test(file.type) && !/\.(mp4|webm|mov|m4v)$/i.test(file.name||'')) {
+      alert('❌ Escolha um arquivo de vídeo (mp4, webm, mov).'); return;
+    }
+    setVideoBusy('Enviando vídeo...');
+    try {
+      try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
+      const ext = (file.name.split('.').pop()||'mp4').toLowerCase();
+      const path = 'videos/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+      const { error } = await sb.storage.from('post-videos').upload(path, file, { contentType: file.type||'video/mp4', upsert:true, cacheControl:'31536000' });
+      if (error) { alert('❌ Falha no upload do vídeo: ' + error.message); setVideoBusy(''); return; }
+      const { data } = sb.storage.from('post-videos').getPublicUrl(path);
+      setEditPost(p=>({...p, video_url: data.publicUrl}));
+    } catch(e) {
+      alert('❌ Erro ao enviar vídeo: ' + e.message);
+    } finally {
+      setVideoBusy('');
+    }
+  };
+  const hospedarVideoDeUrl = async () => {
+    const url = videoUrlInput.trim();
+    if (!url) return;
+    setVideoBusy('Baixando e hospedando vídeo...');
+    try {
+      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}) });
+      const d = await r.json();
+      if (!d.ok || !d.url) { alert('❌ Não foi possível hospedar este vídeo. Verifique o link.'); setVideoBusy(''); return; }
+      setEditPost(p=>({...p, video_url: d.url}));
+      setVideoUrlInput('');
+    } catch(e) {
+      alert('❌ Erro ao hospedar vídeo: ' + e.message);
+    } finally {
+      setVideoBusy('');
+    }
+  };
   const inserirImagemNoTextoEdit = async () => {
     const q = imgInsert.query.trim();
     if (!q || !editPost) return;
@@ -1223,6 +1268,15 @@ function Postagens() {
       };
       const {error} = await sb.from('posts').update(payload).eq('id',editPost.id);
       if(error) { alert('❌ Erro ao salvar: ' + error.message); return; }
+      // 01/09/2026 — video_url é coluna NOVA (Roberto ainda pode não ter
+      // rodado o ALTER TABLE no Supabase — ver seção 4 do CLAUDE.md).
+      // Update SEPARADO de propósito: se a coluna ainda não existir, só
+      // isto falha — nunca o resto da edição do post, que já foi salva
+      // acima com sucesso.
+      try {
+        const {error: videoErr} = await sb.from('posts').update({video_url: editPost.video_url||null}).eq('id',editPost.id);
+        if (videoErr && editPost.video_url) alert('⚠️ Post salvo, mas o vídeo não foi vinculado (coluna video_url ainda não existe no banco — peça pra rodar o ALTER TABLE). Detalhe: ' + videoErr.message);
+      } catch(_) {}
       setEditPost(null); load();
     } catch(e) { alert('❌ Erro: ' + e.message); }
   };
@@ -1330,6 +1384,26 @@ function Postagens() {
                   <label className="form-label">URL da Imagem</label>
                   <input className="form-input" value={editPost.imagem||''} onChange={e=>setEditPost({...editPost,imagem:e.target.value})}/>
                   {editPost.imagem && <img src={editPost.imagem} alt="" style={{marginTop:8,width:'100%',height:160,objectFit:'cover',borderRadius:6,display:'block'}} onError={e=>e.target.style.display='none'}/>}
+                </div>
+                <div style={{background:'var(--surface-2,rgba(255,255,255,.03))',border:'1px solid var(--border)',borderRadius:8,padding:12,marginBottom:14}}>
+                  <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>🎬 Vídeo da matéria</div>
+                  {editPost.video_url ? (
+                    <div style={{marginBottom:10}}>
+                      <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
+                      <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>setEditPost(p=>({...p,video_url:''}))}>Remover vídeo</button>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+                      <input type="file" accept="video/mp4,video/webm,video/quicktime,video/*" disabled={!!videoBusy}
+                        onChange={e=>{ const f=e.target.files&&e.target.files[0]; if(f) uploadVideoArquivo(f); e.target.value=''; }}/>
+                    </div>
+                  )}
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <input className="form-input" style={{flex:'2 1 220px'}} placeholder="Ou cole a URL de um vídeo já hospedado (.mp4/.webm)" value={videoUrlInput} onChange={e=>setVideoUrlInput(e.target.value)}/>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!videoUrlInput.trim()||!!videoBusy} onClick={hospedarVideoDeUrl}>Hospedar</button>
+                  </div>
+                  {videoBusy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {videoBusy}</div>}
+                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>O vídeo aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
