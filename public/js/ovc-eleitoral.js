@@ -258,9 +258,15 @@
     var EL_KEYWORDS = ['eleição','eleições','candidat','presidencial','eleitoral','voto','urna','tse','pleito','campanha eleitoral','pesquisa eleitoral','datafolha','quaest','ipespe','intenção de voto','debate presidencial','chapa','coligação','programa de governo','registro de candidatura','primeiro turno','segundo turno'];
 
     // Busca pesquisa e artigos em paralelo
+    // 01/09/2026 — reusa window.__OVC_CACHE__.recentes (já primed por site.js
+    // em TODA página) em vez de fetch() próprio — mesmo padrão já usado com
+    // sucesso em home.js/ovc-cards.js. Antes desse fix, este widget era 1 de
+    // 3 (junto com ovc-pulso-br.js) que faziam a MESMA chamada cara
+    // (?recentes=true&limit=300) de novo, sem reaproveitar o cache já
+    // existente — 3 requisições redundantes só nesta página, toda vez.
     Promise.all([
       fetch('/api/manage?action=get_pesquisa_eleitoral').then(function(r){ return r.json(); }).catch(function(){ return null; }),
-      fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); }).catch(function(){ return { posts: [] }; })
+      (window.__OVC_CACHE__?.recentes || fetch('/api/portal-posts?recentes=true&limit=300').then(function(r){ return r.json(); })).catch(function(){ return { posts: [] }; })
     ]).then(function(results) {
       var pesquisaData = (results[0] && results[0].pesquisa) || null;
       var todos = (results[1] && results[1].posts) || [];
