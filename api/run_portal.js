@@ -5,6 +5,7 @@ import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteFofocas } from "../core/ai_portal.js";
+import { downloadAndUploadVideo } from "../core/storage.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
@@ -1279,6 +1280,23 @@ export default async function handler(req, res) {
     return res.status(200).json({ url: optimized || url, categoria: cat || null });
   }
   if (body.action === "cleanup_titles") return cleanupTitles(res, body);
+
+  // 01/09/2026 — Vídeo nas matérias. Upload manual (arquivo escolhido no
+  // admin) NÃO passa por aqui — vai direto do navegador pro Supabase
+  // Storage (o admin já tem um client com acesso total, ver public/admin/
+  // index.html). Esta ação cobre só o caso que TEM que rodar no servidor:
+  // baixar um vídeo já hospedado numa URL externa (link colado no admin,
+  // ou futuramente uma fonte de raspagem) e reenviar os bytes crus pro
+  // nosso Storage, sem decodificar/reencodar nada — sem ffmpeg, mesma
+  // classe de risco do incidente real do `sharp` em 31/08/2026 (binário
+  // nativo derrubando toda uma function sem nenhum deploy novo).
+  if (body.action === "video_de_url") {
+    const url = String(body.url || "").trim();
+    if (!url) return res.status(400).json({ ok: false, error: "url obrigatoria" });
+    const publicUrl = await downloadAndUploadVideo(url);
+    if (!publicUrl) return res.status(200).json({ ok: false, error: "nao foi possivel baixar/hospedar este video" });
+    return res.status(200).json({ ok: true, url: publicUrl });
+  }
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });

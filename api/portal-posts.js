@@ -233,7 +233,23 @@ async function handleOne(req, res) {
   }
 
   if (!row) return res.status(404).json({ error: "not_found" });
+  row.video_url = await findPostVideo(row.id);
   return res.status(200).json(formatPost(row, true));
+}
+
+// 01/09/2026 — coluna video_url é NOVA (Roberto ainda precisa rodar o
+// ALTER TABLE no Supabase — ver seção 4 do CLAUDE.md). Consulta separada e
+// silenciosa, mesmo padrão de api/article.js: NUNCA pode fazer a leitura
+// do artigo em si falhar — sem essa coluna (ou qualquer outro erro),
+// simplesmente não há vídeo.
+async function findPostVideo(id) {
+  try {
+    const { data, error } = await supabase.from("posts").select("video_url").eq("id", id).maybeSingle();
+    if (error) return "";
+    return data?.video_url || "";
+  } catch (_) {
+    return "";
+  }
 }
 
 async function handleRecentes(req, res) {
@@ -456,6 +472,7 @@ function formatPost(row, full) {
     comentario_fixado: row.comentario_fixado || resumo,
     conteudo: full ? conteudo : undefined,
     imagem: safeImage(row.imagem),
+    video: full ? (row.video_url || "") : undefined,
     categoria,
     subcategoria: row.subcategoria || "",
     subcategoria_slug: row.subcategoria_slug || "",

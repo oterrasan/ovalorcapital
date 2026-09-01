@@ -113,6 +113,7 @@ export default async function handler(req, res) {
       corpo: row.conteudo || "",
       conteudo: row.conteudo || "",
       imagem: displayImage,
+      video: row.video_url || "",
       categoria: articleCat,
       subcategoria: row.subcategoria || "",
       tags,
@@ -141,6 +142,16 @@ export default async function handler(req, res) {
       inLanguage: "pt-BR",
       isAccessibleForFree: true
     };
+    if (row.video_url) {
+      jsonLd.video = {
+        "@type": "VideoObject",
+        name: title,
+        description,
+        thumbnailUrl: [image],
+        uploadDate: publishedAt,
+        contentUrl: row.video_url
+      };
+    }
 
     const seoTags = [
       `<title>${esc(title)} | O Valor Capital</title>`,
@@ -219,7 +230,26 @@ async function findArticle(id8) {
   }
 
   if (result.error) throw result.error;
-  return result.data?.[0] || null;
+  const row = result.data?.[0] || null;
+  if (row) row.video_url = await findArticleVideo(row.id);
+  return row;
+}
+
+// 01/09/2026 — coluna video_url é NOVA (Roberto ainda precisa rodar o
+// ALTER TABLE no Supabase — ver seção 4 do CLAUDE.md). Consulta separada e
+// silenciosa: nunca pode derrubar a leitura do artigo principal — sem essa
+// coluna (ou com qualquer outro erro), simplesmente não há vídeo, igual a
+// qualquer post sem video_url de verdade. NUNCA misturar isso no SELECT
+// principal (findArticle) — faria QUALQUER artigo do portal parar de
+// carregar até a migração rodar, o que violaria a Regra Zero-E.
+async function findArticleVideo(id) {
+  try {
+    const { data, error } = await supabase.from("posts").select("video_url").eq("id", id).maybeSingle();
+    if (error) return "";
+    return data?.video_url || "";
+  } catch (_) {
+    return "";
+  }
 }
 
 function getTemplate(catPath) {

@@ -154,12 +154,16 @@ async function handleStatus(res) {
 async function handleSetupStorage(res) {
   const { error } = await supabase.storage.createBucket("posts-images", { public: true });
   if (error && !String(error.message || "").toLowerCase().includes("already")) return res.status(200).json({ ok: false, error: error.message });
+  // 01/09/2026 — bucket de vídeo das matérias. Best-effort e silencioso —
+  // o admin também tenta criar sob demanda antes do primeiro upload (não
+  // depende de alguém clicar neste botão), isto aqui é só redundância.
+  try { await supabase.storage.createBucket("post-videos", { public: true }); } catch (_) {}
   return res.status(200).json({ ok: true });
 }
 
 async function handleApprovePortal(res, body) {
   const now = new Date().toISOString();
-  const { id, ids, action, titulo, conteudo, imagem, comentario_fixado } = body;
+  const { id, ids, action, titulo, conteudo, imagem, comentario_fixado, video_url } = body;
 
   if (action === "aprovar" && id) {
     const { error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).eq("id", id);
@@ -174,7 +178,7 @@ async function handleApprovePortal(res, body) {
   }
 
   if (action === "editar_aprovar" && id) {
-    const patch = { titulo, conteudo, imagem, comentario_fixado, status: "publicado", approved: true, published_at: now, updated_at: now };
+    const patch = { titulo, conteudo, imagem, comentario_fixado, video_url, status: "publicado", approved: true, published_at: now, updated_at: now };
     const { error } = await supabase.from("posts").update(patch).eq("id", id);
     if (error) throw error;
     return res.status(200).json({ ok: true, action: "editado_aprovado", id });
