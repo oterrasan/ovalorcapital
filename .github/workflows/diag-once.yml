@@ -1,35 +1,16 @@
-name: Diagnóstico único (investigação pontual)
+name: Diagnóstico único (placeholder)
+
+# Este arquivo é reescrito sob demanda para investigações pontuais em produção
+# (consultas diretas ao Supabase, testes de endpoint, etc.) e resetado a este
+# placeholder inerte logo depois — nunca fica com lógica de diagnóstico ativa
+# entre uma investigação e outra.
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/ovc-atualizacao-ultimos-mds-6lo95i]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 1
     steps:
-      - name: Confirma pos-deploy que Pipeline() e Configuracoes() agora enxergam AUTOMATION
-        run: |
-          set +e
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "===== 1) valor real de AUTOMATION agora ====="
-          curl -sS "$SB_URL/rest/v1/config?select=key,value,updated_at&key=eq.AUTOMATION" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-
-          echo
-          echo
-          echo "===== 2) exatamente a query nova do Pipeline() ====="
-          curl -sS "$SB_URL/rest/v1/config?select=*&key=in.(AUTOMATION,MAX_POSTS_DIA,INTERVALO)" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-
-          echo
-          echo
-          echo "===== 3) admin/index.html em producao ja tem o fix (nao mais select('*') puro na linha do Pipeline)? ====="
-          curl -sS "https://www.ovalorcapital.com.br/admin/index.html" -o /tmp/admin_live.html -w "HTTP:%{http_code}\n"
-          grep -c "in('key', \['AUTOMATION','MAX_POSTS_DIA','INTERVALO'\])" /tmp/admin_live.html
-          grep -c "not('key','like','GEMINI_BUDGET_%')" /tmp/admin_live.html
+      - run: echo "placeholder — nada a fazer"
