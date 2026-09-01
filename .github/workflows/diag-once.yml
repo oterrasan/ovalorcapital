@@ -1,4 +1,4 @@
-name: Diagnóstico único (por que o vídeo falha ao carregar)
+name: Diagnóstico único (por que o request do vídeo aborta)
 
 on:
   workflow_dispatch:
@@ -9,47 +9,19 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Instalar Playwright + Chromium
+      - name: Testar a URL do vídeo direto (sem Range, com Range, e checar o bucket)
         run: |
-          npm init -y --silent >/dev/null
-          npm install --no-save --silent playwright
-          npx playwright install --with-deps chromium
-      - name: Capturar a URL do vídeo + o request real (status/erro) de quem carrega ele
-        run: |
-          node -e "
-          const { chromium } = require('playwright');
-          (async () => {
-            const browser = await chromium.launch();
-            const page = await browser.newPage();
-            const failed = [];
-            const responses = [];
-            page.on('requestfailed', req => failed.push(req.url() + ' :: ' + (req.failure() && req.failure().errorText)));
-            page.on('response', async res => {
-              if (res.status() >= 400) responses.push(res.status() + ' :: ' + res.url());
-            });
-            await page.goto('https://www.ovalorcapital.com.br/tecnologia/robo-chines-supera-recorde-de-usain-bolt-nos-100-metros-7391ed1b/', { waitUntil: 'networkidle', timeout: 20000 });
-            await page.waitForTimeout(2500);
-            const videoHtml = await page.locator('video.ovc-art-video').first().evaluate(el => el.outerHTML).catch(() => 'NAO_ENCONTRADO_video.ovc-art-video');
-            const rawHtml = await page.content();
-            const preloadMatch = rawHtml.match(/window\.__OVC_ARTICLE__\s*=\s*(\{[\s\S]*?\});/);
-            console.log('=== <video class=ovc-art-video> outerHTML ===');
-            console.log(videoHtml);
-            console.log('=== preload __OVC_ARTICLE__.video (campo cru) ===');
-            if (preloadMatch) {
-              try {
-                const obj = JSON.parse(preloadMatch[1]);
-                console.log(JSON.stringify({ video: obj.video, imagem: obj.imagem }, null, 2));
-              } catch (e) { console.log('parse falhou: ' + e.message); }
-            } else console.log('preload NAO encontrado no HTML');
-            console.log('=== RESPONSES >= 400 ===');
-            console.log(responses.join('\n') || '(nenhum)');
-            console.log('=== REQUESTS FALHOS (requestfailed) ===');
-            console.log(failed.join('\n') || '(nenhum)');
-            await browser.close();
-          })().catch(e => { console.error('FALHA PLAYWRIGHT:', e.message); process.exit(1); });
-          "
+          URL="https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1788291566365-vr6om3.mp4"
+          echo "=== GET sem Range (só headers) ==="
+          curl -sS -D - -o /dev/null -m 20 "$URL"
+          echo
+          echo "=== GET com Range (como um <video> pede) ==="
+          curl -sS -D - -o /dev/null -m 20 -H "Range: bytes=0-1023" "$URL"
+          echo
+          echo "=== Info do bucket post-videos (config pública/privada real) ==="
+          curl -sS -m 20 "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/bucket/post-videos" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          echo
