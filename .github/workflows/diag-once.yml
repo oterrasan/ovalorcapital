@@ -2,6 +2,9 @@ name: Diagnóstico único (vídeo não aparece na matéria)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/diag-video-nao-aparece]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
