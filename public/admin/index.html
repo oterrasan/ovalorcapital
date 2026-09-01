@@ -279,9 +279,25 @@ function Dashboard() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [aprovando, setAprovando] = useState(null);
   const [chart7dias, setChart7dias] = useState([]);
+  const [dbHealth, setDbHealth] = useState({total:null,budget:null});
 
   const load = useCallback(async () => {
     try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
+    // 01/09/2026 — card "Saúde do Banco": a tabela config acumula linhas
+    // insert-only (GEMINI_BUDGET_*, uma por tentativa de chamada do Gemini) e
+    // foi exatamente esse acúmulo (14.462+ linhas) que causou o bug do
+    // "Automação PAUSADA" falso hoje de manhã — o select('*') sem filtro do
+    // Pipeline() vinha truncado pelo teto de 1000 linhas do PostgREST antes
+    // de chegar na linha AUTOMATION. Esse card monitora o tamanho real da
+    // tabela pra avisar ANTES que vire bug de novo, em vez de descobrir só
+    // quando alguma tela parar de funcionar.
+    try {
+      const [{count:totalCfg}, {count:budgetCfg}] = await Promise.all([
+        sb.from('config').select('key',{count:'exact',head:true}),
+        sb.from('config').select('key',{count:'exact',head:true}).like('key','GEMINI_BUDGET_%'),
+      ]);
+      setDbHealth({total:totalCfg, budget:budgetCfg});
+    } catch(_) {}
     const { data: p } = await sb.from('posts').select('id,titulo,status,approved,imagem,user_tags,created_at,published_at').order('created_at',{ascending:false}).limit(15);
     setPosts(p||[]);
     const brtDate = d => new Date(toUtcISO(d)).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
@@ -349,7 +365,7 @@ function Dashboard() {
         </div>
       </div>
       <div className="page-body">
-        <div className="metrics" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
+        <div className="metrics" style={{gridTemplateColumns:'repeat(6,1fr)'}}>
           <div className="metric-card">
             <div className="metric-label">Posts Hoje</div>
             <div className="metric-value">{status.posts_hoje||0}</div>
@@ -380,6 +396,23 @@ function Dashboard() {
             <div className="metric-icon">🖼️</div>
             {semImagem>0&&<span className="badge badge-red">revisar</span>}
           </div>
+          {(function(){
+            var t = dbHealth.total;
+            // limpar>25k (bug real já aconteceu com 14k), atenção>15k, ok abaixo disso
+            var nivel = t==null ? null : (t>25000?'limpar':(t>15000?'atencao':'ok'));
+            var cor = {limpar:'#f87171',atencao:'#fbbf24',ok:'#4ade80'}[nivel]||'var(--t1)';
+            var texto = {limpar:'LIMPAR AGORA',atencao:'de olho',ok:'saudável'}[nivel]||'—';
+            var icone = {limpar:'🔴',atencao:'🟡',ok:'🟢'}[nivel]||'🗄️';
+            return (
+              <div className="metric-card" style={{borderColor:nivel==='limpar'?'rgba(200,30,30,0.4)':'var(--border)'}} title="Linhas na tabela config do Supabase — GEMINI_BUDGET_* é o rastreador de orçamento diário do Gemini, cresce sozinho todo dia">
+                <div className="metric-label">Saúde do Banco</div>
+                <div className="metric-value" style={{color:cor,fontSize:t==null?16:24}}>{t==null?'...':t.toLocaleString('pt-BR')}</div>
+                <div className="metric-icon">{icone}</div>
+                <div style={{fontSize:10,color:'var(--t3)',marginTop:4}}>{dbHealth.budget!=null?dbHealth.budget.toLocaleString('pt-BR')+' de orçamento IA':'linhas em config'}</div>
+                {nivel&&nivel!=='ok'&&<span className={`badge ${nivel==='limpar'?'badge-red':'badge-yellow'}`}>{texto}</span>}
+              </div>
+            );
+          })()}
         </div>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
