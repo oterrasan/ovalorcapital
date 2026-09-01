@@ -143,13 +143,21 @@ export default async function handler(req, res) {
       isAccessibleForFree: true
     };
     if (row.video_url) {
+      // Link do YouTube (01/09/2026, ver core/storage.js e internal-page-v2.js
+      // parseYouTube()) usa embedUrl no schema.org, nunca contentUrl -- o
+      // YouTube não expõe um arquivo de vídeo bruto na URL de watch/embed,
+      // contentUrl deve apontar pra um arquivo real (o caso do vídeo
+      // hospedado direto no nosso Storage).
+      const ytMatch = String(row.video_url).match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
       jsonLd.video = {
         "@type": "VideoObject",
         name: title,
         description,
         thumbnailUrl: [image],
         uploadDate: publishedAt,
-        contentUrl: row.video_url
+        ...(ytMatch
+          ? { embedUrl: `https://www.youtube-nocookie.com/embed/${ytMatch[1]}` }
+          : { contentUrl: row.video_url })
       };
     }
 

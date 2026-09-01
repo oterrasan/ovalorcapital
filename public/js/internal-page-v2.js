@@ -201,11 +201,31 @@
   // 01/09/2026 — player de vídeo da matéria, quando o post tem video_url.
   // Overlay de título replicando o formato de referência (barra branca +
   // texto negrito sobre o vídeo) — feito 100% em CSS/HTML por cima do
-  // <video>, nunca "queimado" no arquivo em si (sem ffmpeg no servidor,
+  // player, nunca "queimado" no arquivo em si (sem ffmpeg no servidor,
   // ver core/storage.js). poster usa a imagem de capa do post quando
   // existir, senão o player mostra o primeiro frame assim que carregar.
+  //
+  // video_url do YouTube (achado real 01/09/2026: vídeo de celular vem em
+  // HEVC/H.265, que o Chrome não decodifica — nosso Storage só hospeda o
+  // arquivo cru, sem reencodar, então herda o mesmo problema) vira um
+  // <iframe> embutido em vez de <video src=...> — o YouTube sempre entrega
+  // um formato compatível com qualquer navegador, sem precisarmos baixar
+  // nem reprocessar nada.
+  function parseYouTube(url){
+    if(!url) return null;
+    var m = String(url).match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if(!m) return null;
+    return { id: m[1], vertical: /\/shorts\//.test(url) };
+  }
   function renderMedia(p, tituloLimpo){
     if(!p.video) return '';
+    var yt = parseYouTube(p.video);
+    if(yt){
+      return '<div class="ovc-art-video-wrap ovc-art-video-yt'+(yt.vertical?' ovc-art-video-yt-v':'')+'">'
+        +'<iframe src="https://www.youtube-nocookie.com/embed/'+yt.id+'" title="'+esc(tituloLimpo)+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>'
+        +'<div class="ovc-art-video-caption">'+esc(tituloLimpo)+'</div>'
+      +'</div>';
+    }
     var posterAttr = p.imagem ? ' poster="'+esc(p.imagem)+'"' : '';
     return '<div class="ovc-art-video-wrap">'
       +'<video class="ovc-art-video" controls playsinline preload="metadata"'+posterAttr+' src="'+esc(p.video)+'">'
@@ -350,7 +370,7 @@
       if(!document.getElementById('ovc-art-float-style')){
         var sty = document.createElement('style');
         sty.id = 'ovc-art-float-style';
-        sty.textContent = '.ovc-art-img{float:left;width:38%;max-width:360px;margin:0 24px 20px 0;border-radius:12px;display:block;object-fit:cover;aspect-ratio:4/5;}.ovc-art-video-wrap{width:100%;max-width:460px;margin:0 auto 22px;border-radius:12px;overflow:hidden;position:relative;background:#000;clear:both;}.ovc-art-video-wrap video{width:100%;max-height:78vh;display:block;background:#000;}.ovc-art-video-caption{position:absolute;left:0;right:0;bottom:0;background:#fff;color:#0f172a;font-weight:800;font-size:13px;line-height:1.35;padding:10px 12px;pointer-events:none;box-shadow:0 -2px 10px rgba(0,0,0,.15);}.ovc-art-body{overflow:hidden;}.ovc-corpo p{margin:0 0 22px!important;font-size:17px;line-height:1.9;color:var(--text-main,#1e293b)}.ovc-corpo h2{font-size:20px;font-weight:800;margin:32px 0 12px!important;border-left:3px solid var(--ovc-accent,#dc2626);padding-left:12px}.ovc-corpo h3{font-size:18px;font-weight:700;margin:24px 0 10px!important}.ovc-corpo strong,.ovc-corpo b{font-weight:700}.ovc-corpo ul,.ovc-corpo ol{margin:0 0 22px!important;padding-left:24px}.ovc-corpo li{margin-bottom:8px;font-size:17px;line-height:1.8}.leia-tambem{margin-top:52px!important;padding:22px 24px;background:var(--surface-2,#f8fafc);border-radius:10px;border-top:3px solid var(--ovc-accent,#dc2626);clear:both}.leia-tambem strong{display:block;font-size:15px;font-weight:800;margin-bottom:14px!important;color:var(--text-main,#0f172a);text-transform:uppercase;letter-spacing:.04em}.leia-tambem ul{margin:0!important;padding-left:18px}.leia-tambem li{margin-bottom:10px!important;font-size:15px}.leia-tambem a{color:var(--ovc-accent,#dc2626);text-decoration:none;font-weight:500}.leia-tambem a:hover{text-decoration:underline}@media(max-width:680px){.ovc-art-img{float:none;width:100%;max-width:100%;margin:0 0 20px 0;aspect-ratio:auto;}}';
+        sty.textContent = '.ovc-art-img{float:left;width:38%;max-width:360px;margin:0 24px 20px 0;border-radius:12px;display:block;object-fit:cover;aspect-ratio:4/5;}.ovc-art-video-wrap{width:100%;max-width:460px;margin:0 auto 22px;border-radius:12px;overflow:hidden;position:relative;background:#000;clear:both;}.ovc-art-video-wrap video{width:100%;max-height:78vh;display:block;background:#000;}.ovc-art-video-wrap.ovc-art-video-yt{aspect-ratio:16/9;}.ovc-art-video-wrap.ovc-art-video-yt.ovc-art-video-yt-v{aspect-ratio:9/16;}.ovc-art-video-wrap.ovc-art-video-yt iframe{width:100%;height:100%;border:0;display:block;}.ovc-art-video-caption{position:absolute;left:0;right:0;bottom:0;background:#fff;color:#0f172a;font-weight:800;font-size:13px;line-height:1.35;padding:10px 12px;pointer-events:none;box-shadow:0 -2px 10px rgba(0,0,0,.15);}.ovc-art-body{overflow:hidden;}.ovc-corpo p{margin:0 0 22px!important;font-size:17px;line-height:1.9;color:var(--text-main,#1e293b)}.ovc-corpo h2{font-size:20px;font-weight:800;margin:32px 0 12px!important;border-left:3px solid var(--ovc-accent,#dc2626);padding-left:12px}.ovc-corpo h3{font-size:18px;font-weight:700;margin:24px 0 10px!important}.ovc-corpo strong,.ovc-corpo b{font-weight:700}.ovc-corpo ul,.ovc-corpo ol{margin:0 0 22px!important;padding-left:24px}.ovc-corpo li{margin-bottom:8px;font-size:17px;line-height:1.8}.leia-tambem{margin-top:52px!important;padding:22px 24px;background:var(--surface-2,#f8fafc);border-radius:10px;border-top:3px solid var(--ovc-accent,#dc2626);clear:both}.leia-tambem strong{display:block;font-size:15px;font-weight:800;margin-bottom:14px!important;color:var(--text-main,#0f172a);text-transform:uppercase;letter-spacing:.04em}.leia-tambem ul{margin:0!important;padding-left:18px}.leia-tambem li{margin-bottom:10px!important;font-size:15px}.leia-tambem a{color:var(--ovc-accent,#dc2626);text-decoration:none;font-weight:500}.leia-tambem a:hover{text-decoration:underline}@media(max-width:680px){.ovc-art-img{float:none;width:100%;max-width:100%;margin:0 0 20px 0;aspect-ratio:auto;}}';
         document.head.appendChild(sty);
       }
 

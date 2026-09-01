@@ -962,6 +962,14 @@ function Postagens() {
     } catch (_) { resolve(true); }
   });
   const HEVC_AVISO = '⚠️ Este vídeo parece estar em um formato/codec (provavelmente HEVC/H.265, comum em iPhone e celulares Android mais novos) que o Chrome e outros navegadores de mesa não conseguem reproduzir. Ele foi salvo normalmente, mas pode aparecer em branco pra boa parte dos visitantes. Reencode para H.264 (opção "Mais compatível" nas configurações de vídeo do celular, ou em qualquer editor como CapCut) e envie de novo pra garantir que todo mundo consiga assistir.';
+  // Link do YouTube: nunca baixa/reprocessa nada (mesmo espírito do resto
+  // desta tela — sem ffmpeg) — o YouTube já entrega um formato compatível
+  // com qualquer navegador, então só guardamos a URL e a matéria embute o
+  // player deles direto (ver parseYouTube() em internal-page-v2.js).
+  const parseYouTubeId = (url) => {
+    const m = String(url||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : '';
+  };
   const uploadVideoArquivo = async (file) => {
     if (!file) return;
     if (!/^video\//.test(file.type) && !/\.(mp4|webm|mov|m4v)$/i.test(file.name||'')) {
@@ -987,8 +995,14 @@ function Postagens() {
   const hospedarVideoDeUrl = async () => {
     const url = videoUrlInput.trim();
     if (!url) return;
-    setVideoBusy('Baixando e hospedando vídeo...');
     setVideoWarning('');
+    if (parseYouTubeId(url)) {
+      // YouTube: nada pra baixar/hospedar — só guarda o link mesmo.
+      setEditPost(p=>({...p, video_url: url}));
+      setVideoUrlInput('');
+      return;
+    }
+    setVideoBusy('Baixando e hospedando vídeo...');
     try {
       const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}) });
       const d = await r.json();
@@ -1415,7 +1429,11 @@ function Postagens() {
                   <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>🎬 Vídeo da matéria</div>
                   {editPost.video_url ? (
                     <div style={{marginBottom:10}}>
-                      <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
+                      {parseYouTubeId(editPost.video_url) ? (
+                        <iframe src={'https://www.youtube-nocookie.com/embed/'+parseYouTubeId(editPost.video_url)} style={{width:'100%',aspectRatio:'16/9',border:0,borderRadius:6,display:'block',background:'#000'}} allowFullScreen/>
+                      ) : (
+                        <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
+                      )}
                       <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
                       {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
@@ -1426,11 +1444,11 @@ function Postagens() {
                     </div>
                   )}
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                    <input className="form-input" style={{flex:'2 1 220px'}} placeholder="Ou cole a URL de um vídeo já hospedado (.mp4/.webm)" value={videoUrlInput} onChange={e=>setVideoUrlInput(e.target.value)}/>
-                    <button type="button" className="btn btn-secondary btn-sm" disabled={!videoUrlInput.trim()||!!videoBusy} onClick={hospedarVideoDeUrl}>Hospedar</button>
+                    <input className="form-input" style={{flex:'2 1 220px'}} placeholder="Cole um link do YouTube, ou a URL de um vídeo já hospedado (.mp4/.webm)" value={videoUrlInput} onChange={e=>setVideoUrlInput(e.target.value)}/>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!videoUrlInput.trim()||!!videoBusy} onClick={hospedarVideoDeUrl}>{parseYouTubeId(videoUrlInput)?'Usar vídeo do YouTube':'Hospedar'}</button>
                   </div>
                   {videoBusy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {videoBusy}</div>}
-                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>O vídeo aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
+                  <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Link do YouTube: o player deles é embutido direto, sem baixar nada (formato sempre compatível). Arquivo próprio: aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
