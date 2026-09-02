@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder)
+name: Diagnóstico único (padrão real multi-dia de cota Gemini)
 
 on:
   push:
@@ -12,5 +12,75 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: noop
-        run: echo "placeholder — sem diagnóstico ativo no momento"
+      - name: Consumo real por dia completo (30/08, 31/08, 01/09, 02/09 parcial) + hora de estouro
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json, datetime
+
+          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          def get(path):
+              req = urllib.request.Request(
+                  SUPABASE_URL + path,
+                  headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+              )
+              res = urllib.request.urlopen(req, timeout=25)
+              return json.loads(res.read().decode())
+
+          def all_keys_for_day(dia):
+              # dia: 'YYYYMMDD'. Pagina em blocos de 1000 (PostgREST trunca sem limite/offset).
+              keys = []
+              offset = 0
+              while True:
+                  path = f"/rest/v1/config?select=key&key=like.GEMINI_BUDGET_{dia}_*&limit=1000&offset={offset}"
+                  page = get(path)
+                  if not page:
+                      break
+                  keys.extend(r["key"] for r in page)
+                  if len(page) < 1000:
+                      break
+                  offset += 1000
+                  if offset > 6000:
+                      break
+              return keys
+
+          def epoch_from_key(k):
+              # formato: GEMINI_BUDGET_{dia}_{modelo}__{epoch_ms}_{rand}
+              try:
+                  tail = k.rsplit("__", 1)[1]
+                  ms = int(tail.split("_")[0])
+                  return ms / 1000.0
+              except Exception:
+                  return None
+
+          hoje_brt = datetime.datetime.utcnow() - datetime.timedelta(hours=3)
+          dias = []
+          for delta in range(3, -1, -1):
+              d = (hoje_brt - datetime.timedelta(days=delta)).strftime("%Y%m%d")
+              dias.append(d)
+
+          print("=== CONSUMO REAL POR DIA (BRT) — TETO REAL CONFIRMADO: 500/dia ===")
+          for dia in dias:
+              keys = all_keys_for_day(dia)
+              total = len(keys)
+              epochs = sorted(e for e in (epoch_from_key(k) for k in keys) if e is not None)
+              primeiro = datetime.datetime.utcfromtimestamp(epochs[0]) - datetime.timedelta(hours=3) if epochs else None
+              ultimo = datetime.datetime.utcfromtimestamp(epochs[-1]) - datetime.timedelta(hours=3) if epochs else None
+              estouro_str = "não bateu 500 (dado disponível)"
+              if len(epochs) >= 500:
+                  t500 = datetime.datetime.utcfromtimestamp(epochs[499]) - datetime.timedelta(hours=3)
+                  estouro_str = f"bateu 500 às {t500.strftime('%H:%M:%S')} BRT"
+              print(f"\nDIA {dia}: total_tentativas={total} | 1a_tentativa={primeiro} | ultima_tentativa={ultimo} | {estouro_str}")
+
+          # posts publicados por dia (contagem simples, pra cruzar com o consumo de cota)
+          print("\n=== POSTS PUBLICADOS POR DIA (mesmos 4 dias, pra cruzar com a cota) ===")
+          for dia in dias:
+              ano, mes, di = dia[0:4], dia[4:6], dia[6:8]
+              ini_brt = datetime.datetime(int(ano), int(mes), int(di), 0, 0, 0)
+              fim_brt = ini_brt + datetime.timedelta(days=1)
+              ini_utc = (ini_brt + datetime.timedelta(hours=3)).isoformat() + "Z"
+              fim_utc = (fim_brt + datetime.timedelta(hours=3)).isoformat() + "Z"
+              rows = get(f"/rest/v1/posts?select=id&created_at=gte.{ini_utc}&created_at=lt.{fim_utc}&limit=2000")
+              print(f"DIA {dia}: posts_publicados={len(rows)}")
+          PYEOF
