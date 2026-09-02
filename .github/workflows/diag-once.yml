@@ -12,47 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Consumo real de hoje (config GEMINI_BUDGET_*, sem gastar cota)
-        run: |
-          python3 << 'PYEOF'
-          import urllib.request, json, datetime
-
-          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          # dia BRT atual (UTC-3), mesma lógica de _diaAtualBRT() em core/ai_portal.js
-          agora_utc = datetime.datetime.utcnow()
-          agora_brt = agora_utc - datetime.timedelta(hours=3)
-          dia_brt = agora_brt.strftime("%Y%m%d")
-          modelo = "gemini-flash-lite-latest"
-          prefixo = f"GEMINI_BUDGET_{dia_brt}_{modelo}"
-
-          def get(path):
-              req = urllib.request.Request(
-                  SUPABASE_URL + path,
-                  headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Prefer": "count=exact"},
-              )
-              res = urllib.request.urlopen(req, timeout=20)
-              return res.headers.get("Content-Range"), json.loads(res.read().decode())
-
-          # count exato de tentativas de chamada Gemini hoje (insert-only, 1 linha por tentativa)
-          cr, rows = get(f"/rest/v1/config?select=key&key=like.{prefixo}*&limit=1")
-          total_hoje = None
-          if cr and "/" in cr:
-              total_hoje = cr.split("/")[-1]
-          print(f"HORA_ATUAL_UTC: {agora_utc.isoformat()}")
-          print(f"HORA_ATUAL_BRT: {agora_brt.isoformat()}")
-          print(f"DIA_BRT: {dia_brt}")
-          print(f"CHAMADAS_GEMINI_TENTADAS_HOJE (prefixo {prefixo}): {total_hoje}")
-
-          # AUTOMATION ligado?
-          cr2, rows2 = get("/rest/v1/config?select=key,value&key=eq.AUTOMATION")
-          print("AUTOMATION:", rows2)
-
-          # posts publicados nas ultimas 2h, pra ver se algo saiu recentemente
-          desde = (agora_utc - datetime.timedelta(hours=2)).isoformat() + "Z"
-          cr3, rows3 = get(f"/rest/v1/posts?select=titulo,user_tags,created_at&created_at=gte.{desde}&order=created_at.desc&limit=20")
-          print(f"POSTS_ULTIMAS_2H (count={len(rows3)}):")
-          for r in rows3:
-              print(" -", r.get("created_at"), r.get("user_tags"), (r.get("titulo") or "")[:70])
-          PYEOF
+      - name: noop
+        run: echo "placeholder — sem diagnóstico ativo no momento"
