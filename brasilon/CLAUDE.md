@@ -277,14 +277,15 @@ reler o dia inteiro de histórico do CLAUDE.md da raiz.
 
 ---
 
-## 7. PENDÊNCIAS ATUAIS (27/08/2026)
+## 7. PENDÊNCIAS ATUAIS (atualizado 02/09/2026)
 
 | # | Pendência | Quem |
 |---|---|---|
-| 1 | Confirmar DNS de `obrasilon.com.br` propagado 100% (já confirmado resolvendo pra Vercel, HTTP 200 — ver CLAUDE.md raiz) | Feito, monitorar |
-| 2 | Automação de Instagram pro Brasil ON — ver seção 6 (bloqueado em decisões de Roberto) | Codex / próxima sessão |
+| 1 | ~~Confirmar DNS de `obrasilon.com.br` propagado 100%~~ | ✅ Feito |
+| 2 | Automação de Instagram pro Brasil ON — ver seção 6 (bloqueado em decisões de Roberto). **Atenção**: 2 commits do Codex em 31/08/2026 ("Prepare isolated Brasil ON Instagram automation", "Fix Brasil ON Instagram account schema compatibility") sugerem que isso já avançou — confirmar o estado real antes de assumir que a seção 6 ainda reflete "nada implementado" | Codex / próxima sessão |
 | 3 | Confirmar visualmente o ícone novo (`icone-brasil-on.svg`) depois do próximo deploy bem-sucedido | Roberto |
 | 4 | Discutir mais definições de layout/design com Roberto (ele pediu que fosse a conversa seguinte depois do site estar 100% no ar) | Roberto |
+| 5 | ~~Vincular `www.obrasilon.com.br` ao Google Search Console + submeter sitemap~~ | ✅ Feito (ver seção 8) |
 
 ---
 
@@ -318,3 +319,48 @@ toque `brasilon/**` (dispara `deploy-brasilon.yml`) sem precisar de uma
 mudança de código real toda vez que a cota da Vercel travar. A rotina
 automática de retry atualiza a linha `last_retry_utc` dele e comita —
 **não apagar**, é usado enquanto a cota da Vercel estiver instável.
+
+---
+
+## 8. GOOGLE SEARCH CONSOLE — VINCULADO E CONFIRMADO (02/09/2026)
+
+Roberto pediu, com urgência ("RAPIDINHO... VOCE NAO FEZ ISSO AINDA"), pra
+vincular `https://www.obrasilon.com.br` ao Google Search Console. Concluído
+de ponta a ponta nesta sessão.
+
+**Método usado — "Prefixo do URL" + "Arquivo HTML"** (não "Domínio"/DNS
+TXT — a tentativa real de Roberto com verificação por domínio falhou:
+"Não foi possível encontrar seu token de verificação nos registros TXT do
+domínio". "Arquivo HTML" é mais rápido, não depende de propagação de DNS,
+e fica inteiramente sob controle do Claude — só precisa commitar um
+arquivo estático em `public/`).
+
+**O que foi feito:**
+1. Criado `brasilon/public/google2387e8258ddf2033.html` (conteúdo:
+   `google-site-verification: google2387e8258ddf2033.html`), commit
+   isolado (só esse arquivo).
+2. PR #608 (squash `87a77a872065364d077a2d16ff9056ade31e62f9`) — mergeado,
+   `deploy-brasilon.yml` disparou automaticamente (deploy 1m19s + sync
+   12s, confirmado via `list_workflow_jobs`).
+3. **Confirmado no ar com evidência real** (não assumido) — PR #609
+   (squash `843d39c740ce4d650a921448ba0f175b60d24f8c`), `diag-once.yml`
+   temporário com `curl` direto na URL de produção: `HTTP_CODE:200`, corpo
+   idêntico ao commitado. PR #610 (squash
+   `615ca0bcbf1a2f10351247eb3cee62e2208593ae`) resetou `diag-once.yml` de
+   volta ao placeholder.
+4. Roberto clicou em "Verificar" no Search Console → confirmado por print
+   dele: "Propriedade verificada" (diálogo verde de sucesso).
+5. Roberto submeteu `sitemap.xml` na aba Sitemaps → confirmado por print
+   final: Status **"Processado"** (verde), **"861" páginas encontradas**,
+   "0" vídeos encontrados.
+6. Roberto perguntou explicitamente, antes de considerar encerrado: "tudo
+   certo, mesmo? nao quero problemas neste site" — respondido com a
+   garantia técnica de que o Search Console **só lê** dados públicos do
+   site (nunca escreve/altera nada nele), e que a única mudança de código
+   foi 1 arquivo estático isolado, já revisado linha a linha antes do
+   commit — zero risco real à estabilidade ou à indexação do site.
+
+**Não é necessária nenhuma ação futura sobre isso** — o arquivo de
+verificação deve permanecer no repo indefinidamente (é assim que o Google
+mantém a verificação válida; removê-lo poderia invalidar a propriedade no
+Search Console).

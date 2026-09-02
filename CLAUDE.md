@@ -8845,3 +8845,44 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Verificar se `brasilon/CLAUDE.md` está desatualizado** na seção 6 (automação de Instagram do Brasil ON) — 2 commits do Codex em 31/08/2026 sugerem que já avançou, sem confirmação/documentação nesta sessão.
 4. **Confirmar visualmente, após a próxima meia-noite,** que a pausa 00h-06h BRT realmente entrou em vigor (Jovem Pan/Matérias/Brasil ON/Internacional/Fofocas/Instagram/sync do Brasil ON param; Radar do Esporte continua).
 5. Demais pendências de sessões anteriores seguem válidas: migração SQL da coluna `video_url` (se ainda não rodada — confirmar com Roberto), raspagem automática de fontes de vídeo (aguardando Roberto definir fontes), as 2 pendências prioritárias do SBT News (Shorts/Vídeos e redesign geral da home — aguardando autorização explícita), marca d'água do Instagram do OVC (aguardando assets de Roberto), SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense.
+
+---
+
+### Sessão 02/09/2026 — GOOGLE SEARCH CONSOLE DO BRASIL ON + INVESTIGAÇÃO REAL MULTI-DIA DA COTA DO GEMINI + EXPLORAÇÃO DE REDESIGN "CONTINUIDADE DE NAVEGAÇÃO" (pausada por Roberto)
+
+#### 1) Brasil ON vinculado ao Google Search Console — CONCLUÍDO
+
+Roberto pediu com urgência ("RAPIDINHO... VOCE NAO FEZ ISSO AINDA") o passo a passo pra vincular `https://www.obrasilon.com.br` ao Search Console. Detalhe técnico completo documentado em `brasilon/CLAUDE.md` (seção 8, nova) — aqui só o resumo:
+
+- Propriedade tipo **"Prefixo do URL"** (não "Domínio" — a verificação por TXT do DNS falhou na tentativa real do Roberto), verificada via método **"Arquivo HTML"**.
+- Arquivo `brasilon/public/google2387e8258ddf2033.html` criado, deployado isoladamente (PR #608, squash `87a77a872065364d077a2d16ff9056ade31e62f9`) via `deploy-brasilon.yml` (deploy 1m19s + sync 12s), **confirmado no ar com evidência real** (`curl` direto em produção via `diag-once.yml`, PR #609/#610: `HTTP_CODE:200`, corpo idêntico ao commitado) antes de Roberto clicar em "Verificar".
+- Roberto confirmou "Propriedade verificada" (print) e depois submeteu `sitemap.xml` — confirmado "Processado", **861 páginas encontradas**, 0 vídeos (print final).
+- Roberto perguntou explicitamente "tudo certo, mesmo? nao quero problemas neste site" — respondido com a garantia técnica de que o Search Console só LÊ dados públicos do site (nunca escreve/altera nada nele) e que a única mudança de código foi um único arquivo estático isolado, já revisado — zero risco à estabilidade/indexação do OVC ou do Brasil ON.
+
+#### 2) Cota do Gemini — investigação real multi-dia, NENHUMA correção aplicada (aguardando Roberto)
+
+Roberto perguntou se, **do jeito que o sistema está hoje** (sem nenhuma mudança), a produção se sustenta sem problema de cota — e foi enfático em rejeitar uma primeira resposta baseada só num instante isolado do dia (justamente durante a janela de pausa 00h-06h configurada horas antes), exigindo o padrão real dos últimos dias ("hoje, ontem, anteontem").
+
+**Investigação real (via `diag-once.yml`, GitHub Actions — único acesso possível à produção neste sandbox), script Python paginando `GEMINI_BUDGET_{dia}_*` em blocos de 1000 linhas (evita o truncamento silencioso do PostgREST em 1000 sem `limit`/`offset`), extraindo o timestamp real embutido na própria chave (`__{epoch_ms}_{rand}`), cruzado com contagem real de posts publicados por dia BRT:**
+
+- **Confirmado o teto real do Gemini free-tier: 500 requisições/dia por projeto** — número explícito no corpo real do erro 429 (`"limit: 500, model: gemini-3.5-flash-lite"`), substituindo o "só sabemos que é >44/dia" registrado numa sessão anterior (17/08/2026).
+- **Em todos os dias observados (30/08, 31/08, 01/09) o sistema estourou os 500/dia.**
+- Nos 2 dias completos mais recentes (31/08 e 01/09), a cota se esgotou **extremamente cedo — por volta das 03:15-03:30 BRT** — deixando cerca de **20 horas/dia** de operação real acontecendo já sem cota disponível.
+- Isso confirma e quantifica com dado real a suspeita já registrada antes desta sessão: a janela de pausa 00h-06h BRT (que deixa só o Radar do Esporte ativo, sem concorrência) dá a ele acesso exclusivo e sem limite ao pool de cota compartilhado durante a madrugada — provavelmente contribuindo pra faminar as categorias diurnas (Economia, Finanças, Tecnologia, Indústria, Família, Negócios) do resto do dia.
+
+**🚨 INSTRUÇÃO ATIVA DE ROBERTO — NÃO IMPLEMENTAR NADA:** *"NAO FACA NADA. hoje a tarde, irei criar um projeto novo e duas novas chaves do gemini. voce vai configurar este projeto e estas chaves para a gestao das categorias que nao tem raspagem e publicacao automatica, que sao estas que estamos falando."* — ou seja: nem a reordenação de prioridade de categoria, nem qualquer mecanismo de reserva de cota deve ser implementado até ele fornecer um **novo projeto Google Cloud + 2 novas chaves Gemini**, dedicadas especificamente às categorias sem canal próprio de raspagem/publicação automática (Economia, Finanças, Tecnologia, Indústria, Família, Negócios). Quando ele fornecer: configurar como pool de capacidade dedicado só pra essas 6 categorias (provável extensão de `_getGeminiKeys()` em `core/ai_portal.js`, mas a forma exata de rotear qual categoria usa qual pool ainda não foi desenhada — decidir só depois de ter as chaves reais em mãos).
+
+#### 3) Exploração de redesign "continuidade de navegação" — pausada por Roberto, retomar só quando ele reengajar
+
+Roberto pediu ajuda pra repensar a área de conteúdo das páginas internas (não a home nem a estrutura topo/laterais/rodapé, que ele foi explícito em **nunca** mudar): *"nao estou satisfeito com a visualizacao das materias antigas especialmente... ANTECIPANDO DUVIDAS: nao vamos mudar nada na estrutura da home nem das paginas internas das categirias, a estrutura seguira igual. topo, laterais e rodape. mas o recheio, precisamos repesar a disposicao."*
+
+**Investigação real feita (útil pra retomar, não precisa refazer):**
+- **Causa raiz real de "matéria antiga fica invisível"**: `public/js/internal-page-v2.js` tem **4-5 blocos redundantes de "conteúdo relacionado"** no fim de todo artigo (`#ovc-subcat-more`, `#ovc-cat-more`, `#ovc-voce-pode-gostar`, `#ovc-outras-cats`, mais o rail direito `[data-banner-sidebar]`) — todos puxam de `/api/portal-posts?categoria=X&limit=60`, **sem nenhum filtro ou mecanismo consciente de data** — é só "os 60 mais recentes", então qualquer coisa mais velha que isso nunca aparece em lugar nenhum de descoberta.
+- **11 categorias reais da home** (confirmado em `public/js/ovc-cards.js`, array `CATS`, nunca assumir de memória): `brasil-on`, `politica`, `economia`, `financas`, `negocios`, `tecnologia`, `internacional`, `industria`, `familia`, `esportes`, `vc` (Colunistas). **"Giro" não é uma categoria da home** — só existe como link de nav, sem zona de cards própria.
+- Protótipo visual construído ("Arquivo Vivo" — mosaico assimétrico de 6 formatos de card em CSS Grid, com busca por categoria/assunto, tokens de cor/tipografia reais do OVC) — publicado como artifact, **rejeitado por Roberto** ("achei uma bagunca só... nao gostei muito nao"). Não retomar essa direção específica.
+- **🚨 REGRA PERMANENTE DESTA EXPLORAÇÃO — Roberto foi enfático e repetiu que já aconteceu antes**: *"nao quero perder indexacao de nada, voce entendeu isso? porque isso ja aconteceu algumas vezes e nao vamos correr risco de quebrar links e perder novamente a indexacao que conseguimos."* — qualquer redesign futuro do "recheio" das páginas internas tem que preservar 100% das URLs/canonical/sitemap/SSR existentes. Nunca alterar rota, nunca quebrar link.
+- Direção final dada por Roberto pra quando o assunto for retomado (não hoje — *"amanha vems isso, eu preciso descansar"*): reaproveitar os formatos de card **já existentes** (não inventar "espécies" novas), focar em deixar a **HOME mais preenchida/densa** usando as 11 categorias reais listadas acima, sem tirar nenhuma delas.
+
+**Nada foi implementado desta exploração — só investigação e protótipo (rejeitado). Não retomar por iniciativa própria; esperar Roberto reengajar o assunto.**
+
+---
