@@ -8735,3 +8735,113 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. **Colunistas como lista compacta fixa do rail** — o OVC já tem a fileira de Colunistas na home (ver sessão 04/08/2026, PR #340-345), mas em formato de cards horizontais, não lista vertical compacta de rail como o SBT.
 
 **Escopo do que falta decidir com Roberto antes de qualquer código:** por onde começar (TV em destaque primeiro? densidade da home primeiro? os dois juntos?), se é redesign incremental (bloco por bloco) ou um replanejamento de grid inteiro, e se o bug do `organizarRailsHome()`/TV OVC deve ser resolvido junto ou antes. **Não iniciar nada disso sem ele confirmar explicitamente.**
+
+---
+
+### Sessão 01-02/09/2026 (continuação) — VÍDEO CONFIRMADO EM PRODUÇÃO, LAYOUT FLUTUANTE, ÁREA DEDICADA NO ADMIN + PAUSA NOTURNA GERAL DA AUTOMAÇÃO (00h-06h BRT)
+
+#### ⚠️ Correção de status — PR #595/#596 (vídeo + YouTube embed) NÃO estão mais em "draft não testado"
+
+A tabela de status logo acima (seção "✅ CONFIRMADO NESTA SESSÃO — 01/09/2026 continuação — vídeo") ficou desatualizada minutos depois de escrita — mantida como está por ser um registro histórico do estado NAQUELE momento (convenção deste arquivo: nunca reescrever entrada antiga, só corrigir em entrada nova). Estado real, confirmado nesta continuação:
+
+- **PR #595** (`d2bf403`) e **PR #596** (`092379c`) — ambos **mergeados em `main`**, não mais draft.
+- Roberto testou o link do YouTube embutido num artigo real e confirmou visualmente: **"perfeito, funcionou"**.
+- A ressalva sobre HEVC (vídeo próprio, upload direto) segue válida como aviso não-bloqueante no admin — não é mais incerteza, é comportamento esperado e documentado.
+
+#### PR #598 — vídeo centralizado → flutua pro lado (commit `797d190`, merge squash)
+
+Roberto: *"perfeito, funcionou. mas ele está no meio da tela, precisa colocar ele pro lado, formatar isso pra ficar mais bonito."*
+
+`public/js/internal-page-v2.js` — bloco CSS de `.ovc-art-video-wrap` reescrito pra seguir exatamente o mesmo padrão já usado pela imagem de capa (`.ovc-art-img`: `float:left`, largura percentual com teto em px, margem pra empurrar o texto ao lado):
+```css
+.ovc-art-video-wrap{float:left;width:42%;max-width:380px;margin:4px 24px 20px 0;border-radius:14px;overflow:hidden;position:relative;background:#000;box-shadow:0 8px 24px rgba(15,23,42,.18);}
+.ovc-art-video-wrap video{width:100%;max-height:78vh;display:block;background:#000;}
+.ovc-art-video-wrap.ovc-art-video-yt{aspect-ratio:16/9;}
+.ovc-art-video-wrap.ovc-art-video-yt.ovc-art-video-yt-v{aspect-ratio:9/16;}
+```
+`.ovc-art-body{overflow:hidden}` adicionado pro clearfix funcionar (sem isso, `float:left` do vídeo vazaria pra fora do container do corpo do artigo). Media query `max-width:680px` derruba o float em telas pequenas (`float:none;width:100%`), mesmo padrão já usado pra `.ovc-art-img`. Cache-bust `internal-page-v2.js?v=4→v=5` nas 50 páginas. Deploy confirmado com sucesso (`deploy.yml`, head_sha `797d190`).
+
+#### Pergunta de Roberto — vídeo do YouTube embutido conta como view do OVC?
+
+*"agora... isso conta visualizacoes pro OVC? ou só conta pro yoybut?"* — respondido com base em leitura direta do código, sem suposição: `track_view` (`public/js/internal-page-v2.js`, chamada incondicional em todo carregamento de página de artigo, `POST /api/manage {action:'track_view', post_id}`) dispara **sempre**, alimentando `metrics.views` do post no Supabase — usado pelo ranking real de "Mais Lidas". É 100% independente de o artigo ter vídeo, ter vídeo do YouTube, ou não ter vídeo nenhum — conta como view do OVC igual a qualquer outro artigo. O contador de views do próprio YouTube (visitas ao player embutido) é totalmente separado e não interfere nem é afetado pela contagem do OVC.
+
+#### Investigação — publicar esse vídeo no Instagram usando a automação existente
+
+Roberto: *"agora o mais desafiador de tudo. fazer isso ir pro instagram, usando a automacao que criei."* Investigação completa (não implementação) de `core/instagram.js`, `core/instagram_image.js` e a lógica de seleção/publicação em `api/manage.js` (`buildInstagramCaption`, `handleIgPublish`, `_igAutoProcessAccount`, `handleIgAutoPublish`) — sem escrever nenhum código de Instagram nesta rodada.
+
+**Confirmado por leitura de código:**
+- A automação de Instagram (manual e automática) é **100% baseada em imagem** — usa `post.imagem` (a foto de capa), nunca `post.video_url`. `core/instagram_image.js` baixa a imagem de capa e monta a arte com overlay de manchete via `sharp`; `core/instagram.js`'s `publish()` só cria container `image_url`, nunca `media_type:REELS`/`video_url` — isso não existe em nenhum lugar do código.
+- **Consequência prática:** qualquer artigo com vídeo, incluindo o de teste, **já vai pro Instagram automaticamente como post de imagem normal** (usando a foto de capa do artigo) — desde que dentro da janela de frescor de 12h (`IG_AUTO_IDADE_MAXIMA_MS`) e na categoria certa (padrão: `politica`, `economia`, `financas`, `brasil-on`, `colunistas`, configurável via `IG_AUTOMATION_CATEGORIES` na tabela `config`). O vídeo em si nunca é tocado por essa automação hoje.
+- Pra publicar de fato COMO VÍDEO/Reels precisaria de código novo (fluxo diferente da API do Instagram: `media_type:REELS` + `video_url` na criação do container, polling mais longo) — não existe ainda.
+
+**Ressalva de direito autoral, levantada com Roberto antes de qualquer proposta de código (nunca silenciosamente ignorada):** o vídeo do artigo de teste é da **Euronews** (selo "NO COMMENT" visível), hospedado no YouTube deles — embutir via iframe do YouTube no site é o mecanismo que o próprio Google/YouTube autoriza; baixar esse vídeo e republicar como Reels com a marca do OVC seria redistribuir conteúdo de terceiro sem direito, risco real e diferente do embed. Proposta feita a Roberto: construir publicação de Reels só pra vídeo **hospedado por nós de verdade** (upload no admin, ou fonte que ele confirme ter direito de usar) — nunca pra vídeo embutido do YouTube de outro veículo. **Aguardando confirmação — nada disso foi implementado.**
+
+#### PR #599 — área dedicada "🎬 Vídeos" no admin (commit `890ec4f`, merge squash)
+
+Roberto: *"temos de ter as 3 opcoes, o que ja existe, pra colocar videos direto do youtbe e ai fica no portal apenas. os videos que eu subo direto do meu cimputador ou de algum diretorio meu pessoao e videos através de links de sistes diretos. preciso de uma area no admin dedicada a isso."*
+
+Nova aba **🎬 Vídeos** no menu lateral do admin (`public/admin/index.html`), separada do modal "Editar Post" — busca/lista matérias recentes (título + status + badge "🎬 já tem vídeo"), seleciona uma, e vincula vídeo por uma das 3 opções lado a lado, com botão próprio cada uma:
+
+1. **Link do YouTube** — só embutido (iframe), zero download.
+2. **Upload do computador** — vai direto pro Supabase Storage pelo client já autenticado do admin (`sb`), sem passar pela function serverless.
+3. **Link direto de outro site** — baixa e re-hospeda via `POST /api/run_portal {action:'video_de_url'}` (rota já existente desde o PR #595).
+
+**Reaproveitamento sem duplicar lógica:** os helpers puros que já existiam só dentro do componente `Postagens` (`parseYouTubeId`, `probeVideoPlayable`, o texto `HEVC_AVISO`) foram promovidos pra escopo de módulo (fora de qualquer componente), usados tanto pelo modal "Editar Post" quanto pela nova aba `VideosAdmin`, sem copiar/colar. Zero import de dependência nativa nova — mantém a cautela estabelecida após o incidente do `sharp` em 31/08/2026 (import estático de binário nativo derrubou `api/manage.js` inteiro).
+
+**Verificação feita:** `public/admin/index.html` extraído e validado com Babel real (`@babel/core` + `@babel/preset-react`, `transformSync`) antes e depois da edição — **SINTAXE OK**. `git diff --stat`: 204 inserções / 29 deleções (deleções conferidas linha a linha — só o bloco de helpers duplicado, agora hoistado). Único arquivo tocado. Deploy confirmado com sucesso (`deploy.yml`, head_sha `890ec4f`).
+
+#### PRs #600 e #601 — pausa geral da automação 00h-06h horário de Brasília, Radar do Esporte fica de fora
+
+Roberto: *"necessito que voce faca uma configuracao pra mim. na automacao geral vamos fazer a pausa de tudo, meia noite, exceto pelos radares do esporte que permanecem. [...] todo o resto, incluindo a automacao com o instagram param a meia noite do brasil, ATENCAO NISSO, É 00H00 HORARIO DE BRASÍLIA e voltamos as 6 da manha em tudo."* Depois, quando perguntado sobre o sync do Brasil ON (não gera conteúdo, não usa IA): *"segura tudo meia noite. exceto o que eu disse pra nao travar, que é o radar do esporte."* — ou seja, **sem exceção além do Radar do Esporte**.
+
+**Conversão de fuso — cron da Vercel e do GitHub Actions são SEMPRE UTC, sem opção de timezone** (confirmado em sessão anterior, 30/08/2026, e reconfirmado aqui): BRT = UTC-3, então 00:00 BRT = **03:00 UTC** e 06:00 BRT = **09:00 UTC**. Pausa nas horas UTC 3,4,5,6,7,8 → filtro de hora de cron `0-2,9-23` (ativo) nas entradas que devem pausar. Esse padrão de conversão é reusável pra qualquer janela BRT futura em cron nativo.
+
+**PR #600 (commits `45284e8` + `5788bc3`, 2 commits isolados no mesmo PR, squash `fff6add`):**
+- `vercel.json` (raiz) — filtro `0-2,9-23` aplicado a `jovempan_politica`, `materias`, `brasilon`, `internacional`, `fofocas`. **`futebol` e `outros_esportes` (Radar do Esporte) intocados**, seguem `*/5 * * * *` e `6,26,46 * * * *` sem restrição de hora — cumpre literalmente "o radar do esporte voce nao TOQUE JAMAIS" (regra já estabelecida em 21/08/2026).
+- `.github/workflows/instagram-auto.yml` — mesmo filtro `0-2,9-23` no cron `*/15 * * * *` → `*/15 0-2,9-23 * * *`.
+- Commit isolado do `vercel.json` (Regra Zero-F) mesmo dentro do mesmo PR — nunca junto de outro arquivo no mesmo commit.
+- Deploy confirmado com sucesso (`deploy.yml`, head_sha `fff6add`).
+
+**PR #601 (commit `0e23b83`, squash `eed989d`) — fechamento, sync do Brasil ON também pausa:**
+- `brasilon/vercel.json` — `action=sync` (`*/20 * * * *` → `*/20 0-2,9-23 * * *`). Esse job só copia posts já publicados do OVC pra `brasilon_posts`, não chama IA — mas Roberto confirmou explicitamente "tudo... exceto o radar do esporte", sem essa exceção, então entrou na pausa.
+- Deploy confirmado com sucesso via `deploy-brasilon.yml` (não `deploy.yml` — PR toca `brasilon/**`, dispara o workflow de deploy específico do Brasil ON), head_sha `eed989d`.
+
+**Estado final — o que pausa 00h-06h BRT e o que não pausa:**
+
+| Automação | 00h-06h BRT |
+|---|---|
+| Jovem Pan Política, Matérias, Brasil ON (Bacci), Internacional, Fofocas | ⏸️ PAUSA |
+| Automação de publicação no Instagram | ⏸️ PAUSA |
+| Sync do Brasil ON (`brasilon_posts`) | ⏸️ PAUSA |
+| **Radar do Esporte — futebol + outros esportes** | ✅ **24h, sem interrupção** |
+
+#### Achado paralelo, NÃO investigado nesta sessão (registrado pra não ficar buraco de documentação)
+
+Ao consultar o histórico de `deploy-brasilon.yml` pra confirmar o deploy do PR #601, apareceram 2 commits de 31/08/2026 feitos fora desta sessão — **"Prepare isolated Brasil ON Instagram automation"** e **"Fix Brasil ON Instagram account schema compatibility"** — sugerindo que o Codex avançou na automação de Instagram do Brasil ON (item registrado como "NÃO implementado, brief pronto" na seção 6 de `brasilon/CLAUDE.md`, escrito em 27/08/2026). **Não verificado nesta sessão** — `brasilon/CLAUDE.md` pode estar desatualizado nesse ponto específico. Registrado aqui pra não repetir o erro já documentado em 30/08/2026 ("sessões podem rodar em paralelo sem se ver" — sempre checar `git log --format="%an"` recente antes de assumir que nada mudou).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (01-02/09/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Vídeo nas matérias (PR #595/#596) confirmado em produção** — Roberto testou o YouTube embed e confirmou visualmente | ✅ EM PRODUÇÃO, testado por Roberto (supera o status "draft/não testado" registrado antes) |
+| **Vídeo flutua ao lado do texto** (mesmo padrão da imagem de capa) | ✅ EM PRODUÇÃO (PR #598, commit `797d190`) |
+| **`track_view` conta view do OVC independente do vídeo/YouTube** | ✅ CONFIRMADO por leitura de código — nenhuma mudança necessária |
+| **Automação de Instagram investigada a fundo** — hoje 100% baseada em imagem, artigo com vídeo já vai pro Instagram como post de imagem normal (usa a capa) | ✅ CONFIRMADO por leitura de código, nenhum código de Reels escrito ainda |
+| **Ressalva de direito autoral levantada com Roberto** (vídeo de teste é da Euronews) antes de propor Reels-publishing | ✅ COMUNICADO — aguardando confirmação de escopo |
+| **Área dedicada "🎬 Vídeos" no admin** (YouTube / upload / link externo) | ✅ EM PRODUÇÃO (PR #599, commit `890ec4f`) |
+| **Pausa geral da automação 00h-06h BRT, Radar do Esporte de fora** | ✅ EM PRODUÇÃO (PRs #600/#601, commits `fff6add`/`eed989d`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** a aba "🎬 Vídeos" no admin (as 3 opções, busca de matéria, vínculo salvando certo).
+2. **Confirmar Reels no Instagram** — Roberto ainda não respondeu à proposta de escopo (só vídeo hospedado por nós/com direito, nunca vídeo embutido de YouTube de terceiro). Não implementar nada de Instagram+vídeo sem essa confirmação.
+3. **Verificar se `brasilon/CLAUDE.md` está desatualizado** na seção 6 (automação de Instagram do Brasil ON) — 2 commits do Codex em 31/08/2026 sugerem que já avançou, sem confirmação/documentação nesta sessão.
+4. **Confirmar visualmente, após a próxima meia-noite,** que a pausa 00h-06h BRT realmente entrou em vigor (Jovem Pan/Matérias/Brasil ON/Internacional/Fofocas/Instagram/sync do Brasil ON param; Radar do Esporte continua).
+5. Demais pendências de sessões anteriores seguem válidas: migração SQL da coluna `video_url` (se ainda não rodada — confirmar com Roberto), raspagem automática de fontes de vídeo (aguardando Roberto definir fontes), as 2 pendências prioritárias do SBT News (Shorts/Vídeos e redesign geral da home — aguardando autorização explícita), marca d'água do Instagram do OVC (aguardando assets de Roberto), SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense.
