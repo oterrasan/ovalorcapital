@@ -902,6 +902,37 @@ const SUBCATS_POST = {
   colunistas:    [],
 };
 
+// 01/09/2026 — Vídeo nas matérias: helpers PUROS (sem estado de nenhum
+// componente), reusados por Postagens (aba Editar Post → bloco Vídeo) e
+// por VideosAdmin (aba dedicada "🎬 Vídeos"). Upload/hospedagem em si vão
+// direto do navegador pro Supabase Storage (mesmo client `sb` de acesso
+// total já usado no resto do admin) ou via /api/run_portal action=video_de_url
+// pra links externos — nunca reencoda/processa nada (zero ffmpeg, mesma
+// classe de risco do incidente real do `sharp` em 31/08/2026, que derrubou
+// api/manage.js inteiro por causa de import estático de dependência nativa).
+const probeVideoPlayable = (url) => new Promise((resolve) => {
+  try {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.muted = true;
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; resolve(ok); };
+    v.addEventListener('loadedmetadata', () => finish(v.videoWidth > 0), { once: true });
+    v.addEventListener('error', () => finish(false), { once: true });
+    setTimeout(() => finish(true), 6000); // sem resposta a tempo = não alarma à toa
+    v.src = url;
+  } catch (_) { resolve(true); }
+});
+const HEVC_AVISO = '⚠️ Este vídeo parece estar em um formato/codec (provavelmente HEVC/H.265, comum em iPhone e celulares Android mais novos) que o Chrome e outros navegadores de mesa não conseguem reproduzir. Ele foi salvo normalmente, mas pode aparecer em branco pra boa parte dos visitantes. Reencode para H.264 (opção "Mais compatível" nas configurações de vídeo do celular, ou em qualquer editor como CapCut) e envie de novo pra garantir que todo mundo consiga assistir.';
+// Link do YouTube: nunca baixa/reprocessa nada (mesmo espírito do resto
+// desta tela — sem ffmpeg) — o YouTube já entrega um formato compatível
+// com qualquer navegador, então só guardamos a URL e a matéria embute o
+// player deles direto (ver parseYouTube() em internal-page-v2.js).
+const parseYouTubeId = (url) => {
+  const m = String(url||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : '';
+};
+
 function Postagens() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -942,34 +973,6 @@ function Postagens() {
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const [videoBusy, setVideoBusy] = useState('');
   const [videoWarning, setVideoWarning] = useState('');
-  // Checagem 100% client-side (sem ffmpeg, sem servidor) de que o navegador
-  // consegue DECODIFICAR o vídeo — não só baixá-lo. Um vídeo HEVC/H.265
-  // carrega metadata (duração) normalmente mas fica com videoWidth=0 pra
-  // sempre no Chrome/Firefox desktop (sem extensão paga de codec). Achado
-  // real 01/09/2026: vídeo do Roberto (celular) é HEVC, servidor/CORS/bucket
-  // 100% corretos, só o codec que o Chrome não decodifica.
-  const probeVideoPlayable = (url) => new Promise((resolve) => {
-    try {
-      const v = document.createElement('video');
-      v.preload = 'metadata';
-      v.muted = true;
-      let done = false;
-      const finish = (ok) => { if (done) return; done = true; resolve(ok); };
-      v.addEventListener('loadedmetadata', () => finish(v.videoWidth > 0), { once: true });
-      v.addEventListener('error', () => finish(false), { once: true });
-      setTimeout(() => finish(true), 6000); // sem resposta a tempo = não alarma à toa
-      v.src = url;
-    } catch (_) { resolve(true); }
-  });
-  const HEVC_AVISO = '⚠️ Este vídeo parece estar em um formato/codec (provavelmente HEVC/H.265, comum em iPhone e celulares Android mais novos) que o Chrome e outros navegadores de mesa não conseguem reproduzir. Ele foi salvo normalmente, mas pode aparecer em branco pra boa parte dos visitantes. Reencode para H.264 (opção "Mais compatível" nas configurações de vídeo do celular, ou em qualquer editor como CapCut) e envie de novo pra garantir que todo mundo consiga assistir.';
-  // Link do YouTube: nunca baixa/reprocessa nada (mesmo espírito do resto
-  // desta tela — sem ffmpeg) — o YouTube já entrega um formato compatível
-  // com qualquer navegador, então só guardamos a URL e a matéria embute o
-  // player deles direto (ver parseYouTube() em internal-page-v2.js).
-  const parseYouTubeId = (url) => {
-    const m = String(url||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-    return m ? m[1] : '';
-  };
   const uploadVideoArquivo = async (file) => {
     if (!file) return;
     if (!/^video\//.test(file.type) && !/\.(mp4|webm|mov|m4v)$/i.test(file.name||'')) {
@@ -3515,12 +3518,184 @@ function AutomacaoInstagram() {
 }
 
 // ── APP ──
+// 01/09/2026 — área dedicada de Vídeos, a pedido de Roberto ("preciso de
+// uma area no admin dedicada a isso"). Reusa os helpers puros hoistados
+// acima de Postagens() (parseYouTubeId/probeVideoPlayable/HEVC_AVISO) e o
+// mesmo padrão de upload/hospedagem já validado ali — nunca ffmpeg.
+function VideosAdmin() {
+  const [busca, setBusca] = useState('');
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [ytUrl, setYtUrl] = useState('');
+  const [extUrl, setExtUrl] = useState('');
+  const [videoBusy, setVideoBusy] = useState('');
+  const [videoWarning, setVideoWarning] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
+  const selected = posts.find(p => p.id === selectedId) || null;
+
+  const carregar = async (q) => {
+    setLoading(true);
+    let query = sb.from('posts').select('id,titulo,video_url,status,published_at,created_at').order('created_at',{ascending:false}).limit(40);
+    if (q && q.trim()) query = query.ilike('titulo','%'+q.trim()+'%');
+    const { data, error } = await query;
+    if (!error) setPosts(data||[]);
+    setLoading(false);
+  };
+  useEffect(()=>{ carregar(''); },[]);
+
+  const trocarSelecao = (id) => { setSelectedId(id); setVideoWarning(''); setSaveMsg(''); setYtUrl(''); setExtUrl(''); };
+
+  const salvar = async (url) => {
+    if (!selectedId) return false;
+    setSaveMsg('');
+    const { error } = await sb.from('posts').update({video_url: url||null}).eq('id', selectedId);
+    if (error) {
+      setSaveMsg('⚠️ Não foi possível salvar (a coluna video_url pode não existir ainda no banco — peça pra rodar o ALTER TABLE). Detalhe: ' + error.message);
+      return false;
+    }
+    setPosts(ps => ps.map(p => p.id===selectedId ? {...p, video_url:url} : p));
+    setSaveMsg(url ? '✅ Vídeo vinculado à matéria.' : '✅ Vídeo removido da matéria.');
+    return true;
+  };
+
+  const usarYoutube = async () => {
+    const url = ytUrl.trim();
+    if (!url) return;
+    if (!parseYouTubeId(url)) { alert('❌ Esse link não parece ser do YouTube. Cole algo como youtube.com/watch?v=... ou youtu.be/...'); return; }
+    setVideoWarning('');
+    const ok = await salvar(url);
+    if (ok) setYtUrl('');
+  };
+
+  const uploadArquivo = async (file) => {
+    if (!file || !selectedId) return;
+    if (!/^video\//.test(file.type) && !/\.(mp4|webm|mov|m4v)$/i.test(file.name||'')) {
+      alert('❌ Escolha um arquivo de vídeo (mp4, webm, mov).'); return;
+    }
+    setVideoBusy('Enviando vídeo...'); setVideoWarning('');
+    try {
+      try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
+      const ext = (file.name.split('.').pop()||'mp4').toLowerCase();
+      const path = 'videos/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+      const { error } = await sb.storage.from('post-videos').upload(path, file, { contentType: file.type||'video/mp4', upsert:true, cacheControl:'31536000' });
+      if (error) { alert('❌ Falha no upload do vídeo: ' + error.message); return; }
+      const { data } = sb.storage.from('post-videos').getPublicUrl(path);
+      await salvar(data.publicUrl);
+      probeVideoPlayable(data.publicUrl).then(ok => { if (!ok) setVideoWarning(HEVC_AVISO); });
+    } catch(e) {
+      alert('❌ Erro ao enviar vídeo: ' + e.message);
+    } finally {
+      setVideoBusy('');
+    }
+  };
+
+  const hospedarExterno = async () => {
+    const url = extUrl.trim();
+    if (!url || !selectedId) return;
+    if (parseYouTubeId(url)) { alert('Esse é um link do YouTube — use o campo "Link do YouTube" ao lado (ele fica só embutido, sem baixar nada).'); return; }
+    setVideoWarning(''); setVideoBusy('Baixando e hospedando vídeo...');
+    try {
+      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}) });
+      const d = await r.json();
+      if (!d.ok || !d.url) { alert('❌ Não foi possível hospedar este vídeo. Verifique o link.'); return; }
+      await salvar(d.url);
+      setExtUrl('');
+      probeVideoPlayable(d.url).then(ok => { if (!ok) setVideoWarning(HEVC_AVISO); });
+    } catch(e) {
+      alert('❌ Erro ao hospedar vídeo: ' + e.message);
+    } finally {
+      setVideoBusy('');
+    }
+  };
+
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">🎬 Vídeos</div><div className="page-sub">Vincule vídeo a qualquer matéria — YouTube (só embutido), upload do seu computador, ou link direto de outro site (nós baixamos e hospedamos)</div></div>
+      <div className="page-body" style={{display:'grid',gridTemplateColumns:'320px 1fr',gap:16,alignItems:'start'}}>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Escolha a matéria</span></div>
+          <div style={{padding:14}}>
+            <input className="form-input" style={{fontSize:13,marginBottom:8}} placeholder="Buscar por título..." value={busca}
+              onChange={e=>setBusca(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') carregar(busca); }}/>
+            <button className="btn btn-secondary btn-sm" style={{width:'100%',marginBottom:10}} onClick={()=>carregar(busca)} disabled={loading}>{loading?'Buscando...':'🔍 Buscar'}</button>
+            <div style={{maxHeight:520,overflowY:'auto',display:'flex',flexDirection:'column',gap:6}}>
+              {posts.map(p => (
+                <div key={p.id} onClick={()=>trocarSelecao(p.id)}
+                  style={{padding:'8px 10px',borderRadius:8,cursor:'pointer',fontSize:12,lineHeight:1.35,
+                    background: p.id===selectedId ? 'rgba(220,38,38,.14)' : 'rgba(255,255,255,.04)',
+                    border: p.id===selectedId ? '1px solid var(--red)' : '1px solid transparent'}}>
+                  <div style={{fontWeight:600}}>{p.titulo || '(sem título)'}</div>
+                  <div className="text-secondary text-small" style={{marginTop:2,display:'flex',gap:6,alignItems:'center'}}>
+                    <span>{p.status}</span>
+                    {p.video_url && <span style={{color:'#22c55e'}}>🎬 já tem vídeo</span>}
+                  </div>
+                </div>
+              ))}
+              {!loading && posts.length===0 && <div className="text-secondary text-small">Nenhuma matéria encontrada.</div>}
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">{selected ? selected.titulo : 'Nenhuma matéria selecionada'}</span></div>
+          <div style={{padding:18}}>
+            {!selected ? (
+              <div className="text-secondary text-small">← Escolha uma matéria na lista pra vincular um vídeo a ela.</div>
+            ) : (
+              <>
+                {selected.video_url && (
+                  <div style={{marginBottom:20}}>
+                    <div className="form-label" style={{marginBottom:6}}>Vídeo atual</div>
+                    {parseYouTubeId(selected.video_url) ? (
+                      <iframe src={'https://www.youtube-nocookie.com/embed/'+parseYouTubeId(selected.video_url)} style={{width:'100%',maxWidth:420,aspectRatio:'16/9',border:0,borderRadius:8,display:'block',background:'#000'}} allowFullScreen/>
+                    ) : (
+                      <video src={selected.video_url} controls style={{width:'100%',maxWidth:420,maxHeight:320,borderRadius:8,display:'block',background:'#000'}}/>
+                    )}
+                    <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
+                  </div>
+                )}
+
+                {videoBusy && <div className="text-secondary text-small" style={{marginBottom:10}}>⏳ {videoBusy}</div>}
+                {videoWarning && <div className="alert-banner yellow" style={{marginBottom:10}}><span>⚠️</span><span>{videoWarning}</span></div>}
+                {saveMsg && <div style={{fontSize:13,marginBottom:10,color: saveMsg.startsWith('✅') ? '#22c55e' : '#f59e0b'}}>{saveMsg}</div>}
+
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+                  <div className="form-group" style={{border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:12,margin:0}}>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>▶️ Opção 1 — Link do YouTube</div>
+                    <div className="text-secondary text-small" style={{marginBottom:8}}>Fica só embutido no site (player do YouTube) — nada é baixado.</div>
+                    <input className="form-input" style={{fontSize:12,marginBottom:8}} placeholder="https://youtube.com/watch?v=..." value={ytUrl} onChange={e=>setYtUrl(e.target.value)}/>
+                    <button type="button" className="btn btn-primary btn-sm" style={{width:'100%'}} disabled={!ytUrl.trim()||!!videoBusy} onClick={usarYoutube}>Usar este vídeo</button>
+                  </div>
+                  <div className="form-group" style={{border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:12,margin:0}}>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>💻 Opção 2 — Upload do computador</div>
+                    <div className="text-secondary text-small" style={{marginBottom:8}}>Vai direto pro nosso Storage — sem passar pelo servidor.</div>
+                    <input type="file" accept="video/*" disabled={!!videoBusy}
+                      onChange={e=>{ const f=e.target.files&&e.target.files[0]; if(f) uploadArquivo(f); e.target.value=''; }}/>
+                  </div>
+                  <div className="form-group" style={{border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:12,margin:0}}>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:6}}>🔗 Opção 3 — Link direto de outro site</div>
+                    <div className="text-secondary text-small" style={{marginBottom:8}}>Baixamos o arquivo (.mp4 etc) e hospedamos no nosso Storage.</div>
+                    <input className="form-input" style={{fontSize:12,marginBottom:8}} placeholder="https://outrosite.com/video.mp4" value={extUrl} onChange={e=>setExtUrl(e.target.value)}/>
+                    <button type="button" className="btn btn-primary btn-sm" style={{width:'100%'}} disabled={!extUrl.trim()||!!videoBusy} onClick={hospedarExterno}>Baixar e hospedar</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
   {id:'editorai',label:'Editor IA',icon:'⚡'},
   {id:'pipeline',label:'Pipeline',icon:'⚙️'},
   {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'postagens',label:'Postagens',icon:'📝'},
+  {id:'videos',label:'Vídeos',icon:'🎬'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'automacao_instagram',label:'Automação Instagram',icon:'⏱️'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
@@ -3707,7 +3882,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{localStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,contas:ContasInstagram,automacao_instagram:AutomacaoInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,videos:VideosAdmin,contas:ContasInstagram,automacao_instagram:AutomacaoInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">
