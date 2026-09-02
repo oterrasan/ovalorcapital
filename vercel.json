@@ -6,13 +6,13 @@
       "path": "/api/manage?action=refresh_token",
       "schedule": "0 3 1 * *"
     },
-    { "path": "/api/run_portal?tipo=jovempan_politica&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "2,22,42 * * * *" },
+    { "path": "/api/run_portal?tipo=jovempan_politica&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "2,22,42 0-2,9-23 * * *" },
     { "path": "/api/run_portal?tipo=futebol&force=true&count=2&pass=ovc-admin-2026-secreto", "schedule": "*/5 * * * *" },
     { "path": "/api/run_portal?tipo=outros_esportes&force=true&count=2&pass=ovc-admin-2026-secreto", "schedule": "6,26,46 * * * *" },
-    { "path": "/api/run_portal?tipo=materias&force=true&count=8&pass=ovc-admin-2026-secreto", "schedule": "8,28,48 * * * *" },
-    { "path": "/api/run_portal?tipo=brasilon&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "12,32,52 * * * *" },
-    { "path": "/api/run_portal?tipo=internacional&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "14,34,54 * * * *" },
-    { "path": "/api/run_portal?tipo=fofocas&force=true&count=4&pass=ovc-admin-2026-secreto", "schedule": "16,36,56 * * * *" }
+    { "path": "/api/run_portal?tipo=materias&force=true&count=8&pass=ovc-admin-2026-secreto", "schedule": "8,28,48 0-2,9-23 * * *" },
+    { "path": "/api/run_portal?tipo=brasilon&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "12,32,52 0-2,9-23 * * *" },
+    { "path": "/api/run_portal?tipo=internacional&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "14,34,54 0-2,9-23 * * *" },
+    { "path": "/api/run_portal?tipo=fofocas&force=true&count=4&pass=ovc-admin-2026-secreto", "schedule": "16,36,56 0-2,9-23 * * *" }
   ],
   "functions": {
     "api/run_portal.js": { "maxDuration": 60 }
