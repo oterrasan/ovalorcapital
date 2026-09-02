@@ -12,5 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: noop
-        run: echo "placeholder — sem diagnóstico ativo no momento"
+      - name: Confirma arquivo de verificação Google no ar
+        run: |
+          curl -s -o /tmp/body.txt -w "HTTP_CODE:%{http_code}\n" \
+            "https://www.obrasilon.com.br/google2387e8258ddf2033.html"
+          echo "--- BODY ---"
+          cat /tmp/body.txt
