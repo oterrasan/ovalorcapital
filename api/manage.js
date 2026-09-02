@@ -538,6 +538,25 @@ const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
 const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c40a0c8ed16065";
 
+// 02/09/2026 (2ª correção do dia) — Roberto reportou publicação real às
+// 04h13 BRT, mesmo com a janela ativa configurada como 08h-22h BRT em
+// .github/workflows/instagram-auto.yml. Investigado com evidência real
+// (logs do próprio run no GitHub Actions): o cron do Actions de fato
+// disparou às 07:13 UTC (=04:13 BRT), FORA do filtro de hora configurado
+// (github's scheduled trigger não garante 100% que só dispara dentro do
+// range de horas do cron — quirk real e observado, não suposição). Como
+// o backend não tinha NENHUM gate próprio de horário, publicou.
+// Fix: gate de segurança aqui, redundante ao cron — mesmo se o Actions
+// disparar fora de hora de novo, o backend recusa. Janela precisa ficar
+// EXATAMENTE em sincronia com o cron do workflow — se Roberto pedir pra
+// mudar o horário de novo, atualizar os dois juntos.
+const IG_AUTO_JANELA_ATIVA_INICIO_BRT = 8;  // 08h BRT
+const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;    // corte seco às 22h BRT (22h já é pausa)
+function _igAutoDentroDaJanelaAtiva() {
+  const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
+  return horaBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT;
+}
+
 function _igCronAuthorized(req, body) {
   if (checkAdmin(req, body)) return true;
   const supplied = String(req.headers["x-ovc-cron-secret"] || "");
@@ -818,6 +837,9 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
 
 async function handleIgAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  if (!_igAutoDentroDaJanelaAtiva()) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08h_22h_brt" });
+  }
 
   const settings = await _igAutoConfig();
   if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_desligada_no_admin" });
