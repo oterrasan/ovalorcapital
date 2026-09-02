@@ -1,11 +1,18 @@
 name: Instagram - Publicação Automática
 
-# Disparador externo independente do Codex: executa a cada 15 minutos, 24 horas por dia.
+# Disparador externo independente do Codex: executa a cada 15 minutos.
 # O backend filtra matérias das últimas 12 horas, evita duplicações e aplica as
 # categorias e o limite diário configurados no Admin.
+#
+# 02/09/2026 — Roberto: pausa geral da automação 00h-06h horário de Brasília
+# (BRT = UTC-3), Instagram incluído explicitamente ("ATENCAO NISSO, É 00H00
+# HORARIO DE BRASILIA... voltamos as 6 da manha em tudo"). Cron é sempre UTC
+# (não existe opção de timezone, nem no Actions nem na Vercel — já confirmado
+# nesta mesma sessão pro cron nativo da Vercel). 00:00 BRT = 03:00 UTC,
+# 06:00 BRT = 09:00 UTC — pausa nas horas UTC 3,4,5,6,7,8, ativo em 9-23,0-2.
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/15 0-2,9-23 * * *'
   push:
     branches: [main]
     paths:
