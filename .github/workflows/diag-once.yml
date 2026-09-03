@@ -10,37 +10,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - name: reconfere "Redação OVC" residual em brasilon_posts.conteudo (pós-fix)
-        run: |
-          python3 << 'PYEOF'
-          import json
-          import re
-          import urllib.request
-
-          BASE = "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts"
-          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          HEADERS = {"apikey": KEY, "Authorization": "Bearer " + KEY}
-          PATTERN = re.compile(r"Reda[çc][ãa]o\s+OVC", re.IGNORECASE)
-
-          def req(method, url):
-              r = urllib.request.Request(url, headers=HEADERS, method=method)
-              with urllib.request.urlopen(r, timeout=20) as resp:
-                  return json.loads(resp.read().decode("utf-8") or "[]")
-
-          rows = []
-          offset = 0
-          while True:
-              chunk = req("GET", f"{BASE}?select=id,titulo,conteudo&order=id.asc&limit=1000&offset={offset}")
-              rows.extend(chunk)
-              if len(chunk) < 1000:
-                  break
-              offset += 1000
-
-          print(f"total de linhas em brasilon_posts: {len(rows)}")
-          alvos = [r for r in rows if PATTERN.search(r.get("conteudo") or "")]
-          print(f"linhas com 'Redação OVC' residual (esperado 0): {len(alvos)}")
-          for r in alvos:
-              print(" -", r["id"], "|", r["titulo"])
-          PYEOF
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
