@@ -10,7 +10,47 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - name: corrige "Redação OVC" residual em brasilon_posts.conteudo
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import re
+          import urllib.request
+
+          BASE = "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts"
+          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          HEADERS = {"apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json"}
+          PATTERN = re.compile(r"Reda[çc][ãa]o\s+OVC", re.IGNORECASE)
+
+          def req(method, url, body=None):
+              data = json.dumps(body).encode("utf-8") if body is not None else None
+              r = urllib.request.Request(url, data=data, headers=HEADERS, method=method)
+              with urllib.request.urlopen(r, timeout=20) as resp:
+                  return json.loads(resp.read().decode("utf-8") or "[]")
+
+          rows = []
+          offset = 0
+          while True:
+              chunk = req("GET", f"{BASE}?select=id,titulo,conteudo&order=id.asc&limit=1000&offset={offset}")
+              rows.extend(chunk)
+              if len(chunk) < 1000:
+                  break
+              offset += 1000
+
+          print(f"total de linhas em brasilon_posts: {len(rows)}")
+
+          alvos = [r for r in rows if PATTERN.search(r.get("conteudo") or "")]
+          print(f"linhas com 'Redação OVC' residual: {len(alvos)}")
+          for r in alvos:
+              print(" -", r["id"], "|", r["titulo"])
+
+          corrigidos = 0
+          for r in alvos:
+              novo = PATTERN.sub("BRASIL ON", r["conteudo"])
+              req("PATCH", f"{BASE}?id=eq.{r['id']}", {"conteudo": novo})
+              corrigidos += 1
+
+          print(f"corrigidos: {corrigidos}")
+          PYEOF
