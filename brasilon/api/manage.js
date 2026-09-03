@@ -469,7 +469,13 @@ function buildArticleUrl(post) {
 
 function buildInstagramCaption(post) {
   const date = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "long", year: "numeric" });
-  const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
+  // 03/09/2026 — reaplica assinarBrasilOn() aqui (defesa extra, não só no
+  // sync). Confirmado com evidência real: posts sincronizados ANTES de
+  // 26/08/2026 (quando assinarBrasilOn() foi criada) ficaram com "Redação
+  // OVC" gravado permanentemente em brasilon_posts.conteudo — handleSync()
+  // nunca re-processa linha já copiada. Sem isso aqui, a legenda sai com
+  // "Redação OVC · {data velha}" solto no primeiro parágrafo.
+  const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(assinarBrasilOn(post.conteudo)));
   const body = removeRepeatedHeadline(post.titulo, extracted.body);
   const signature = "BRASIL ON — " + date;
   const hashtags = buildInstagramHashtags(post, extracted, post.categoria);
