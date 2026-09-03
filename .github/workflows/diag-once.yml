@@ -12,5 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - name: status pós-deploy do motor de Instagram do Brasil ON
+        run: |
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto" -w "\nHTTP:%{http_code}\n"
