@@ -192,12 +192,68 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
 
 ---
 
-## 6. 🔴 PRÓXIMO PASSO — AUTOMAÇÃO DE INSTAGRAM PRA BRASIL ON (Codex)
+## 6. 🔴 AUTOMAÇÃO DE INSTAGRAM PRA BRASIL ON — EM CONSTRUÇÃO (03/09/2026)
 
 > Registrado em 27/08/2026 por pedido explícito de Roberto: "proximo apsso
 > e o codex construir o mesmo mecanismo pro brasil on, automacao de
-> instagram". Ainda NÃO implementado — este é o brief pra quem for
-> construir isso (Codex, ou uma sessão futura do Claude).
+> instagram". Retomado em 03/09/2026 pelo Claude — ver estado real abaixo
+> ANTES de assumir o que falta, essa seção mudou bastante desde 27/08.
+
+### ✅ Estado real confirmado em 03/09/2026 (não assumido — lido do código)
+
+- **Config/status/conta — JÁ EXISTE**, feito pelo Codex em 28-30/08/2026
+  (commits "Connect Instagram automation settings to admin", "Prepare
+  isolated Brasil ON Instagram automation", "Fix Brasil ON Instagram
+  account schema compatibility"): `brasilon/api/manage.js` já tem
+  `action=instagram_status`, `action=instagram_config`,
+  `action=instagram_account` (grava token/ig_user_id na tabela
+  `ig_accounts`, filtrando por `username=INSTAGRAM_USERNAME='obrasilon'`
+  — reaproveita a MESMA tabela do OVC, discriminando por username, não
+  uma tabela separada) e `instagramReadiness()`.
+- **❌ O que NÃO existe ainda** (confirmado por leitura completa do
+  arquivo, não tem em lugar nenhum): nenhum `handleIgPublish`/
+  `handleIgAutoPublish` equivalente, nenhum `brasilon/core/instagram.js`
+  (client da Graph API), nenhum cron de publicação em `brasilon/vercel.json`.
+  Ou seja: dá pra CONFIGURAR a automação no admin (ligar/desligar,
+  categorias, limite, conta), mas ela nunca publica nada de verdade — o
+  "motor" simplesmente não existe. Se Roberto perguntar de novo "só falta
+  o layout?" — NÃO, falta o motor inteiro de publicação.
+- **✅ Imagem — RESOLVIDA e visualmente confirmada** (03/09/2026):
+  Roberto abandonou a ideia de "layout" elaborado (`instagramReadiness()`
+  ainda tem o campo `layoutReady`/`BON_IG_LAYOUT_READY`, mas a checagem
+  desse blocker deve ser REMOVIDA quando o motor for construído — não
+  faz mais sentido, a imagem não depende de nenhuma aprovação de layout
+  separada). Spec fechada por ele: "nao tem nada de arte. é a imagem
+  inteira ocupando todo o card. o icone do brasil ON abaixo do titulo da
+  manchete. manchete dentro de uma moldura amarela e fonte preta.
+  acabeou. é isso". Implementado em `brasilon/core/instagram_image.js`
+  (`buildInstagramImageBuffer`/`prepareInstagramImage`) — foto crua
+  full-bleed (cover, sem banda/base como o OVC tem), caixa amarela sólida
+  com a manchete em preto negrito (texto via sharp+Pango, fonte
+  `Inter-Variable.ttf` copiada pra `brasilon/public/assets/fonts/` —
+  zero dependência de fonte do SO), ícone `icone-brasil-on.svg`
+  centralizado logo abaixo da caixa. **Testado com dado real** (post
+  "Remo e Flamengo revivem no Mangueirão...") via `diag-once.yml`
+  (`npm install` real + sharp real rodando no runner do GitHub Actions,
+  já que este sandbox não tem esse binário), resultado puxado de volta e
+  inspecionado visualmente — bateu exatamente com a descrição de Roberto.
+  `sharp` adicionado a `brasilon/package.json` (não existia, projeto é
+  100% independente do OVC — ver seção 5).
+
+### 🔴 Aguardando resposta de Roberto (perguntado em 03/09/2026, junto com o preview) antes de construir o motor
+
+1. A conta `@obrasilon` já está conectada de verdade (token + ig_user_id
+   reais salvos via `action=instagram_account`), ou ainda falta cadastrar
+   isso no admin?
+2. Limite diário e janela de horário — usar os mesmos 08h-22h BRT /
+   intervalo do OVC, ou outro?
+3. As 4 categorias (brasil-on, política, polícia, futebol) entram todas,
+   ou alguma fica de fora?
+
+**NÃO prosseguir com o motor de publicação sem essas respostas** — seria
+fácil implementar de um jeito que Roberto teria que pedir pra refazer
+(ex: presumir 100/dia quando ele quer outro número, ou publicar polícia
+quando ele não queria).
 
 ### O que já existe no OVC — o "mesmo mecanismo" a replicar
 
@@ -229,51 +285,39 @@ e `api/manage.js` na raiz do repo — **não** dentro de `brasilon/`):
      diário controlado via tabela `config` (padrão insert-only + chave
      única por chamada, sem `.upsert()` — evita bug de concorrência já
      documentado no projeto).
-4. **`.github/workflows/instagram-auto.yml`** — cron a cada ~10min, 07h–
-   00h BRT, chama `ig_auto_publish`.
+4. **`.github/workflows/instagram-auto.yml`** — cron a cada 20min, ativo
+   08h–22h BRT (corte seco às 22h, atualizado 02-03/09/2026 — não é mais
+   07h-00h), chama `ig_auto_publish`. Roteado via cron do GitHub Actions
+   (não cron nativo da Vercel), com um gate redundante server-side em
+   `api/manage.js` (`_igAutoDentroDaJanelaAtiva()`) — um bug real do
+   scheduler do GitHub Actions já fez disparar fora da janela configurada
+   uma vez, então o horário nunca deve depender só do cron externo.
 
-### O que precisa ser decidido/construído pro Brasil ON (perguntas em aberto — não assumir)
+### O que ainda falta decidir/construir pro motor (03/09/2026 — atualizado)
 
-1. **Conta do Instagram:** o Brasil ON precisa da própria conta Business
-   do Instagram conectada (token de acesso, `ig_account_id` etc.) — **não**
-   pode usar a mesma conta/token do @ovalorcapital. Confirmar com Roberto
-   se @obrasilon já existe e já está configurada como conta Business
-   vinculada a uma Página do Facebook (pré-requisito da Graph API).
-2. **Onde salvar o token/conta:** o OVC usa uma tabela `ig_accounts` no
-   Supabase. Pro Brasil ON, avaliar se cria uma tabela própria
-   (`brasilon_ig_accounts`) ou reaproveita a mesma `ig_accounts` com uma
-   coluna discriminando o portal — evitar misturar posts do OVC com posts
-   do Brasil ON na mesma lógica de seleção de conta.
-3. **De onde vem o conteúdo:** publicar a partir de `brasilon_posts` (a
-   tabela própria do Brasil ON), não de `posts` (tabela do OVC) — o
-   carimbo anti-duplicata deve ser gravado em `brasilon_posts`, campo
-   próprio (a tabela hoje não tem uma coluna `metrics`/`ig_id` — precisa
-   de migração leve, `ALTER TABLE brasilon_posts ADD COLUMN metrics jsonb`
-   ou equivalente).
-4. **Overlay de imagem:** o Brasil ON precisa de um overlay de marca
-   PRÓPRIO (não reaproveitar `ig-overlay-ovc-canva.png`, que é do OVC) —
-   usar a identidade visual da seção 4 (verde/amarelo/azul, ícone novo).
-   Pedir a Roberto se ele tem uma arte de overlay pronta, ou construir uma
-   nova seguindo o mesmo padrão do OVC (headline + destaque automático).
-5. **Escopo de categorias:** o Brasil ON só tem 4 categorias (política,
-   polícia, brasil-on, futebol) — perguntar a Roberto se TODAS entram na
-   automação ou se ele quer excluir alguma.
-6. **Limite diário e horário:** perguntar a Roberto o número (o OVC usa
-   100/dia, 07h–00h BRT, ~10min de intervalo) — não assumir que é igual.
-7. **Onde vive o código:** dentro de `brasilon/api/manage.js` (mesmo
-   padrão de isolamento do resto do projeto — nunca importar de `core/`ou
-   `api/` da raiz) + um workflow próprio
-   `.github/workflows/instagram-auto-brasilon.yml` (nome sugerido, evitar
-   colidir com o `instagram-auto.yml` do OVC).
-
-### Por que registrar isso aqui em vez de já implementar
-
-Cada um dos 7 pontos acima é uma decisão de produto/infra que só Roberto
-pode confirmar (conta do Instagram, overlay, limite diário) — implementar
-sem essas respostas arriscaria construir a coisa errada e ter que refazer.
-Este brief existe pra quem for construir (Codex ou sessão futura) começar
-já sabendo exatamente o que perguntar e qual padrão replicar, sem precisar
-reler o dia inteiro de histórico do CLAUDE.md da raiz.
+1. **Conta do Instagram** — já dá pra cadastrar via `action=instagram_account`
+   (grava em `ig_accounts`, `username='obrasilon'`, mesma tabela do OVC,
+   discriminada por username — não precisa de tabela nova). **Falta
+   confirmar com Roberto se já foi cadastrada com token real** (pergunta 1
+   acima).
+2. **De onde vem o conteúdo:** publicar a partir de `brasilon_posts`, não
+   de `posts` (tabela do OVC). Anti-duplicata: em vez de migração de schema
+   (`ALTER TABLE brasilon_posts ADD COLUMN...`), preferir reaproveitar o
+   padrão insert-only já comprovado nesse projeto pra tabela `config`
+   (mesma usada pro orçamento diário do Gemini) — uma chave por post
+   publicado, tipo `BON_IG_POSTED__{brasilon_posts.id}` — evita qualquer
+   migração e evita o bug de `.upsert()` sem constraint já documentado.
+3. **Overlay de imagem — RESOLVIDO** (ver acima, seção "Imagem").
+4. **Escopo de categorias e limite diário/horário** — perguntado a
+   Roberto em 03/09/2026, aguardando resposta (perguntas 2 e 3 acima).
+5. **Onde vive o código:** dentro de `brasilon/api/manage.js` (mesmo
+   padrão de isolamento — nunca importar de `core/`/`api/` da raiz) +
+   `brasilon/core/instagram.js` (client da Graph API, adaptado do OVC,
+   sem collaborators por padrão — perguntar se Roberto quer isso também)
+   + cron nativo em `brasilon/vercel.json` (Pro permite granularidade de
+   minuto, mesmo padrão já usado pelo `sync` — não precisa de workflow
+   GitHub Actions separado, ao contrário do OVC que ainda usa Actions pro
+   Instagram).
 
 ---
 
