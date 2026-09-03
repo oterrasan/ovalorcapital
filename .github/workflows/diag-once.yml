@@ -10,26 +10,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
+    timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: instalar deps do brasilon (sharp real)
-        working-directory: brasilon
-        run: npm install --omit=dev
-      - name: renderizar preview real do card Instagram (Remo e Flamengo)
-        working-directory: brasilon
-        run: node _render_test.mjs
-      - name: commitar imagem de teste pra inspeção visual
-        run: |
-          git config user.name "diag-bot"
-          git config user.email "diag-bot@users.noreply.github.com"
-          git add brasilon/public/assets/_test_ig_preview.jpg
-          git commit -m "diag: preview real do card Instagram Brasil ON (teste)" || echo "nada pra commitar"
-          git push
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
