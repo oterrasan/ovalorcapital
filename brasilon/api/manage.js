@@ -2,11 +2,25 @@
 // action=sync: copia pra brasilon_posts os posts do OVC (mesmo Supabase)
 // que são brasil-on/política/futebol e publicado, sempre automático (Roberto,
 // 25/08/2026: "MESMA LOGICA, AUTOMATICO"), sem fila de aprovação própria.
+//
+// Motor de publicação no Instagram (03/09/2026) — core/instagram.js e
+// core/instagram_image.js (ambos dentro de brasilon/, zero import cruzado
+// com o OVC) são importados de forma DINÂMICA aqui, nunca estática — mesmo
+// padrão obrigatório já estabelecido no incidente de 31/08/2026 (sharp,
+// dependência nativa, derrubou TODO api/manage.js do OVC quando importado
+// no topo do arquivo). Se esses 2 módulos falharem ao carregar, só a ação
+// de publicar no Instagram quebra — o resto do arquivo (sync/status/config)
+// continua funcionando.
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let _modInstagram = null;
+let _modInstagramImage = null;
+async function _loadInstagram() { return _modInstagram || (_modInstagram = await import("../core/instagram.js")); }
+async function _loadInstagramImage() { return _modInstagramImage || (_modInstagramImage = await import("../core/instagram_image.js")); }
 
 const PASS = "ovc-admin-2026-secreto";
 const SYNC_LOOKBACK_HORAS = 72;
@@ -17,6 +31,22 @@ const INSTAGRAM_CONFIG_KEYS = [
   "BON_IG_ENABLED", "BON_IG_INTERVAL", "BON_IG_DAILY_LIMIT",
   "BON_IG_CATEGORIES", "BON_IG_LAYOUT_READY", "BON_IG_LAYOUT_VERSION"
 ];
+const SITE_BASE = "https://www.obrasilon.com.br";
+// Janela ativa de publicação — mesmo padrão 08h-22h BRT já usado pro OVC
+// (Roberto ainda não pediu horário diferente pro Brasil ON especificamente;
+// se pedir, atualizar aqui). Corte seco às 22h, sem cron nativo com opção
+// de timezone (Vercel não tem — confirmado 30/08/2026), então o cálculo é
+// sempre em UTC-3 manual.
+const IG_AUTO_JANELA_INICIO_BRT = 8;
+const IG_AUTO_JANELA_FIM_BRT = 22;
+function _igAutoDentroDaJanelaAtiva() {
+  const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
+  return horaBRT >= IG_AUTO_JANELA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_FIM_BRT;
+}
+function _igAutoDiaBRT() {
+  const brt = new Date(Date.now() - 3 * 3600 * 1000);
+  return brt.toISOString().slice(0, 10).replace(/-/g, "");
+}
 
 export default async function handler(req, res) {
   // CORS liberado — o admin único do OVC (ovalorcapital.com.br) chama esta
@@ -51,6 +81,16 @@ export default async function handler(req, res) {
   if (action === "instagram_account") {
     if (req.method !== "POST" || req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
     return handleInstagramAccount(req, res);
+  }
+
+  if (action === "instagram_publish") {
+    if (req.method !== "POST" || req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
+    return handleInstagramPublish(req, res, req.body);
+  }
+
+  if (action === "instagram_auto_publish") {
+    if (req.query.pass !== PASS && req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
+    return handleInstagramAutoPublish(req, res);
   }
 
   return res.status(400).json({ error: "action inválida" });
@@ -97,9 +137,11 @@ async function getInstagramAccount() {
 }
 
 function instagramReadiness(config, account) {
+  // 03/09/2026 — Roberto: "esquece layout" — a imagem (foto crua+caixa
+  // amarela+ícone) não depende de nenhuma aprovação separada, já é o
+  // comportamento padrão de core/instagram_image.js. blocker removido.
   const blockers = [];
   if (!account?.ig_user_id || !account?.token) blockers.push("credenciais_da_conta_pendentes");
-  if (!config.layoutReady) blockers.push("layout_pendente");
   return blockers;
 }
 
@@ -284,6 +326,294 @@ function classificar(post) {
     return pareceCrimePolicial(post.titulo, post.comentario_fixado) ? "policia" : "brasil-on";
   }
   return null;
+}
+
+// ══════════════════════════════════════════════════════
+// PUBLICAÇÃO NO INSTAGRAM — 03/09/2026, pedido explícito de Roberto.
+// Adaptado do motor real do OVC (api/manage.js raiz), simplificado pro
+// caso do Brasil ON: 1 conta só (@obrasilon), conteúdo vem de
+// brasilon_posts (não de posts), sem coluna metrics/ig_id nessa tabela
+// — anti-duplicata e contador diário vivem 100% na tabela config, padrão
+// insert-only (nunca .upsert com onConflict — a coluna key não tem
+// constraint unique real, bug já documentado extensamente no OVC).
+// ══════════════════════════════════════════════════════
+function stripHtmlToText(html) {
+  if (!html) return "";
+  let s = String(html);
+  s = s.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, "");
+  s = s.replace(/<\/(p|div|h[1-6]|li|blockquote|figure|figcaption)>/gi, "\n\n");
+  s = s.replace(/<br\s*\/?>/gi, "\n");
+  s = s.replace(/<li[^>]*>/gi, "- ");
+  s = s.replace(/<[^>]+>/g, "");
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+  return s.replace(/\r\n/g, "\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function toHashtag(value) {
+  const clean = String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "");
+  return clean ? "#" + clean : "";
+}
+
+// assinarBrasilOn() já troca "Redação OVC" por "BRASIL ON" no corpo — o
+// bloco de assinatura aqui começa com "BRASIL ON", não "Redação OVC".
+function extractCaptionBodyAndHashtags(text) {
+  if (!text) return { body: "", hashtags: [] };
+  let blocks = String(text).split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length && /^brasil\s+on\b/i.test(blocks[0])) blocks = blocks.slice(1);
+  let hashtags = [];
+  if (blocks.length) {
+    const words = blocks[blocks.length - 1].split(/\s+/).filter(Boolean);
+    const hashWords = words.filter(w => w.startsWith("#"));
+    if (words.length && hashWords.length / words.length >= 0.7) {
+      hashtags = hashWords;
+      blocks = blocks.slice(0, -1);
+    }
+  }
+  return { body: blocks.join("\n\n").trim(), hashtags };
+}
+
+function normalizeCaptionText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function removeRepeatedHeadline(title, body) {
+  const blocks = String(body || "").split(/\n{2,}/).map(b => b.trim()).filter(Boolean);
+  if (!blocks.length) return "";
+  const normalizedTitle = normalizeCaptionText(title);
+  const normalizedFirstBlock = normalizeCaptionText(blocks[0]);
+  if (!normalizedTitle || !normalizedFirstBlock) return blocks.join("\n\n");
+  const firstWords = new Set(normalizedFirstBlock.split(" "));
+  const titleWords = normalizedTitle.split(" ");
+  const sharedWords = titleWords.filter(word => firstWords.has(word)).length;
+  const similarity = titleWords.length ? sharedWords / titleWords.length : 0;
+  const isHeadlineLength = normalizedFirstBlock.length <= normalizedTitle.length + 30;
+  const repeatsHeadline = normalizedFirstBlock === normalizedTitle || (isHeadlineLength && similarity >= 0.8);
+  return (repeatsHeadline ? blocks.slice(1) : blocks).join("\n\n").trim();
+}
+
+const CAT_HASHTAG_LABEL = { "brasil-on": "BrasilOn", politica: "Politica", policia: "Policia", futebol: "Futebol" };
+const FALLBACK_HASHTAGS = ["#Noticias", "#Brasil", "#Atualidades", "#Jornalismo", "#BrasilOn"];
+const THEME_HASHTAGS = [
+  [/futebol|esporte|copa|campeonato|atleta|flamengo|palmeiras|corinthians|santos|gremio|internacional/i, ["#Esportes", "#Futebol"]],
+  [/pol[ií]cia|policial|preso|prisao|flagrante|assalto|roubo|homicidio|crime/i, ["#Policia", "#Seguranca"]],
+  [/governo|congresso|senado|c[aâ]mara|stf|elei[cç][aã]o|pol[ií]tica/i, ["#Politica", "#Brasil"]],
+  [/internacional|mundo|exterior|global|eua|estados unidos/i, ["#Internacional", "#Mundo"]]
+];
+
+function uniqueHashtags(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const tag = toHashtag(value);
+    if (!tag) continue;
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(tag);
+  }
+  return out;
+}
+
+function buildInstagramHashtags(post, extracted, category) {
+  const source = [post?.titulo, stripHtmlToText(post?.conteudo || "")].filter(Boolean).join(" ");
+  const hashtags = [...(extracted?.hashtags || [])];
+  if (category && CAT_HASHTAG_LABEL[category]) hashtags.push("#" + CAT_HASHTAG_LABEL[category]);
+  for (const [pattern, tags] of THEME_HASHTAGS) if (pattern.test(source)) hashtags.push(...tags);
+  hashtags.push(...FALLBACK_HASHTAGS);
+  let unique = uniqueHashtags(hashtags).filter(h => h.toLowerCase() !== "#brasilon");
+  unique = unique.slice(0, 9);
+  unique.push("#BrasilOn");
+  return unique.slice(0, 10);
+}
+
+function fitInstagramCaption(body, signature, hashtags, ctaBlock) {
+  const hashtagBlock = hashtags.join(" ");
+  const compose = (bodyText) => [bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
+  let caption = compose(bodyText);
+  if (caption.length <= 2200) return caption;
+  const excess = caption.length - 2200;
+  const nextLength = Math.max(0, bodyText.length - excess - 3);
+  bodyText = bodyText.slice(0, nextLength).replace(/\s+\S*$/, "");
+  if (bodyText && bodyText.length < body.length) bodyText += "…";
+  caption = compose(bodyText);
+  while (caption.length > 2200 && bodyText.length > 0) {
+    bodyText = bodyText.slice(0, Math.max(0, bodyText.length - 40)).replace(/\s+\S*$/, "");
+    if (bodyText) bodyText += "…";
+    caption = compose(bodyText);
+  }
+  return caption;
+}
+
+function buildArticleUrl(post) {
+  const slug = String(post.titulo || "")
+    .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80) || "materia";
+  const id8 = String(post.id || "").slice(0, 8);
+  return `${SITE_BASE}/${post.categoria || "brasil-on"}/${slug}-${id8}/`;
+}
+
+function buildInstagramCaption(post) {
+  const date = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "long", year: "numeric" });
+  const extracted = extractCaptionBodyAndHashtags(stripHtmlToText(post.conteudo));
+  const body = removeRepeatedHeadline(post.titulo, extracted.body);
+  const signature = "BRASIL ON — " + date;
+  const hashtags = buildInstagramHashtags(post, extracted, post.categoria);
+  const ctaBlock = "📲 Acesse o portal e confira a matéria na íntegra:\n" + buildArticleUrl(post);
+  return fitInstagramCaption(body, signature, hashtags, ctaBlock);
+}
+
+function buildInstagramFirstComment(post) {
+  const configured = stripHtmlToText(post?.comentario_fixado || "").trim();
+  const text = configured || "Leia a matéria completa no Brasil ON.";
+  return text.length > 2000 ? text.slice(0, 1997).replace(/\s+\S*$/, "") + "…" : text;
+}
+
+function redactSecrets(message) {
+  return String(message || "")
+    .replace(/access_token=([^&\s"]+)/gi, "access_token=[redacted]")
+    .replace(/("access_token"\s*:\s*")[^"]+/gi, "$1[redacted]")
+    .replace(/("token"\s*:\s*")[^"]+/gi, "$1[redacted]");
+}
+
+async function _igPostagemJaFeita(postId) {
+  const { data } = await supabase.from("config").select("key").eq("key", `BON_IG_POSTED__${postId}`).limit(1);
+  return Boolean(data && data.length);
+}
+
+async function _igClaim(postId) {
+  await supabase.from("config").insert({ key: `BON_IG_POSTED__${postId}`, value: "claiming" });
+}
+async function _igClaimConfirmar(postId, detalhe) {
+  await supabase.from("config").update({ value: JSON.stringify(detalhe) }).eq("key", `BON_IG_POSTED__${postId}`);
+}
+async function _igClaimDesfazer(postId) {
+  await supabase.from("config").delete().eq("key", `BON_IG_POSTED__${postId}`);
+}
+async function _igContarHojeAuto() {
+  const dia = _igAutoDiaBRT();
+  const { count } = await supabase.from("config").select("key", { count: "exact", head: true }).ilike("key", `BON_IG_AUTO_COUNT_${dia}__%`);
+  return count || 0;
+}
+async function _igRegistrarContadorDiario() {
+  const dia = _igAutoDiaBRT();
+  const rowKey = `BON_IG_AUTO_COUNT_${dia}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await supabase.from("config").insert({ key: rowKey, value: "1" });
+}
+
+async function _igPublicarPost(post) {
+  const imageUrl = String(post.imagem || "").trim();
+  if (!/^https?:\/\//i.test(imageUrl)) throw new Error("post_sem_imagem_publica");
+
+  const caption = buildInstagramCaption(post);
+  const { prepareInstagramImage } = await _loadInstagramImage();
+  const { publish, postComment, getAccount } = await _loadInstagram();
+  const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
+  const ig = await publish(instagramImage.url, caption);
+
+  const firstCommentText = buildInstagramFirstComment(post);
+  let firstComment = null;
+  let firstCommentError = null;
+  if (firstCommentText) {
+    try {
+      const account = await getAccount();
+      firstComment = await postComment(ig.id, firstCommentText, account?.token);
+    } catch (commentError) {
+      firstCommentError = redactSecrets(commentError?.message || String(commentError));
+    }
+  }
+
+  return {
+    ig_id: ig.id,
+    username: ig.username,
+    image_url: instagramImage.url,
+    published_at: new Date().toISOString(),
+    first_comment_id: firstComment?.id || null,
+    first_comment_error: firstCommentError
+  };
+}
+
+// Manual — Roberto escolhe uma matéria específica no admin.
+async function handleInstagramPublish(req, res, body) {
+  const postId = String(body?.post_id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+
+  const { data: post, error } = await supabase.from("brasilon_posts").select("*").eq("id", postId).single();
+  if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
+
+  try {
+    const resultado = await _igPublicarPost(post);
+    await supabase.from("config").delete().eq("key", `BON_IG_POSTED__${postId}`);
+    await supabase.from("config").insert({ key: `BON_IG_POSTED__${postId}`, value: JSON.stringify(resultado) });
+    return res.status(200).json({ ok: true, ...resultado });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// Automático — disparado pelo cron nativo da Vercel (brasilon/vercel.json).
+async function handleInstagramAutoPublish(req, res) {
+  if (!_igAutoDentroDaJanelaAtiva()) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08h_22h_brt" });
+  }
+
+  try {
+    const [config, account] = await Promise.all([readInstagramConfig(), getInstagramAccount()]);
+    if (!config.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_desligada_no_admin" });
+    const blockers = instagramReadiness(config, account);
+    if (blockers.length) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_nao_pronta", blockers });
+
+    const publicadosHoje = await _igContarHojeAuto();
+    if (publicadosHoje >= config.dailyLimit) {
+      return res.status(200).json({ ok: true, skipped: true, reason: "limite_diario_atingido", publicados_hoje: publicadosHoje, limite: config.dailyLimit });
+    }
+
+    const { data: candidatos, error } = await supabase.from("brasilon_posts")
+      .select("id,titulo,conteudo,comentario_fixado,imagem,categoria,status,published_at")
+      .eq("status", "publicado")
+      .in("categoria", config.categories)
+      .order("published_at", { ascending: true })
+      .limit(50);
+    if (error) throw error;
+
+    let post = null;
+    for (const candidato of candidatos || []) {
+      if (await _igPostagemJaFeita(candidato.id)) continue;
+      post = candidato;
+      break;
+    }
+    if (!post) return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_candidato_elegivel", publicados_hoje: publicadosHoje });
+
+    await _igClaim(post.id);
+    try {
+      const resultado = await _igPublicarPost(post);
+      await _igClaimConfirmar(post.id, resultado);
+      await _igRegistrarContadorDiario();
+      return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, publicados_hoje: publicadosHoje + 1, ...resultado });
+    } catch (e) {
+      await _igClaimDesfazer(post.id);
+      const safeError = redactSecrets(e?.message || String(e));
+      return res.status(200).json({ ok: false, error: safeError, post_id: post.id });
+    }
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    return res.status(200).json({ ok: false, error: safeError });
+  }
 }
 
 async function handleStatus(req, res) {
