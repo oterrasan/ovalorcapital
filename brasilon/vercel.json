@@ -2,7 +2,8 @@
   "version": 2,
   "outputDirectory": "public",
   "crons": [
-    { "path": "/api/manage?action=sync&pass=ovc-admin-2026-secreto", "schedule": "*/20 0-2,9-23 * * *" }
+    { "path": "/api/manage?action=sync&pass=ovc-admin-2026-secreto", "schedule": "*/20 0-2,9-23 * * *" },
+    { "path": "/api/manage?action=instagram_auto_publish&pass=ovc-admin-2026-secreto", "schedule": "*/15 * * * *" }
   ],
   "routes": [
     { "src": "^/js/(.+)$", "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache" }, "continue": true },
