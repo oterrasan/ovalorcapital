@@ -542,6 +542,8 @@ async function _igPublicarPost(post) {
     username: ig.username,
     image_url: instagramImage.url,
     published_at: new Date().toISOString(),
+    caption,
+    first_comment_text: firstCommentText,
     first_comment_id: firstComment?.id || null,
     first_comment_error: firstCommentError
   };
