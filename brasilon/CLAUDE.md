@@ -242,12 +242,48 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
     inteiro DE PROPÓSITO (sem restringir hora no cron em si) — o gate
     real fica 100% no código, nunca dependendo só da config do
     agendador.
-  - **`config.enabled` = `false` por padrão** (nunca ligado sozinho por
-    este trabalho) — Roberto precisa confirmar ligar via
-    `action=instagram_config {enabled:true, ...}` ou pelo admin, quando
-    quiser que comece a publicar de verdade. `dailyLimit` default = 60,
-    `categories` default = todas as 4, `interval` default = 15min —
-    ajustáveis a qualquer momento sem precisar de deploy novo.
+  - **✅ LIGADO EM PRODUÇÃO (03/09/2026)** — Roberto: "pode ligar, deixa
+    rodando. vamos ver qual é!". `config.enabled=true`, `dailyLimit:60`,
+    `interval:15`, todas as 4 categorias. **Primeira publicação real
+    confirmada com evidência da própria API** (não simulada): post "Piloto
+    brasileiro desenha nome de Lito Sousa no céu do Texas", IG media id
+    `18242911339311542`, comentário fixado publicado com sucesso (id
+    `18021623927868051`, `first_comment_error: null`), hashtags reais
+    geradas (`#LitoSousa #Aviacao #Texas #Brasil #DoencasRaras #Ciencia
+    #PesquisaMedica #EstadosUnidos #Homenagem #BrasilOn`) — confirma a
+    pergunta de Roberto "comentario e hashtags tambem devidamente
+    preenchidas?" com dado real.
+
+### 🔴 Bug real — "Redação OVC" vazando pro Brasil ON (03/09/2026, corrigido)
+
+Descoberto em 2 camadas diferentes, mesma causa raiz:
+
+1. **Na legenda do Instagram** — encontrado por mim, proativamente, no
+   primeiro post real publicado (ver acima): o 1º parágrafo da legenda
+   dizia "Redação OVC · 25 de agosto de 2026". Causa: `assinarBrasilOn()`
+   (troca "Redação OVC"→"BRASIL ON") só roda em `handleSync()`, no
+   momento da cópia — e só existe desde 26/08/2026. Toda matéria
+   sincronizada ANTES dessa data ficou com o texto original pra sempre,
+   já que o sync nunca reprocessa linha já copiada (dedup por
+   `origem_post_id`). **Fix**: `buildInstagramCaption()` agora chama
+   `assinarBrasilOn(post.conteudo)` defensivamente, no momento de montar
+   a legenda — não depende mais de quando a linha foi sincronizada.
+2. **No próprio site público** — Roberto descobriu sozinho, navegando o
+   site ao vivo, e reportou com urgência: "BRASIL ON - NAO ASSINA REDACAO
+   OVC CARALHO! CORRIJA NO SITE IMEDIATAMENTE É BRASIL ON". O fix da
+   legenda (item 1) NÃO tocava o dado gravado — as páginas de artigo
+   renderizam `brasilon_posts.conteudo` direto do banco. **Fix**: migração
+   real no banco de produção (via `diag-once.yml`, já resetado ao
+   placeholder depois) — varridas as 1.041 linhas de `brasilon_posts`,
+   encontradas **164** ainda com "Redação OVC" no `conteudo`, todas
+   corrigidas via `PATCH` individual pra "BRASIL ON". Confirmado por
+   reconferência real pós-fix (segunda passada na tabela inteira): 0
+   linhas residuais.
+
+**Lição**: qualquer regra editorial "gravada" só no momento da
+sincronização/geração (como `assinarBrasilOn()`) nunca corrige dado já
+existente — se a regra mudar ou for criada depois, sempre checar se
+precisa de um backfill retroativo além do fix pra frente.
 - **Imagem — detalhe da spec fechada por Roberto:** "nao tem nada de
   arte. é a imagem inteira ocupando todo o card. o icone do brasil ON
   abaixo do titulo da manchete. manchete dentro de uma moldura amarela e
@@ -333,7 +369,7 @@ e `api/manage.js` na raiz do repo — **não** dentro de `brasilon/`):
 | # | Pendência | Quem |
 |---|---|---|
 | 1 | ~~Confirmar DNS de `obrasilon.com.br` propagado 100%~~ | ✅ Feito |
-| 2 | ~~Automação de Instagram pro Brasil ON~~ — motor construído e deployado (ver seção 6). Falta só Roberto confirmar **ligar** (`config.enabled=true`, hoje desligado por padrão) — feito sozinho ou por pedido dele, nunca automaticamente pela sessão sem aviso explícito | Claude confirma com Roberto |
+| 2 | ~~Automação de Instagram pro Brasil ON~~ — construída, LIGADA e publicando de verdade (ver seção 6). Corrigido também o bug de "Redação OVC" vazando (legenda + dado gravado no site, 164 linhas). Monitorar próximos ciclos do cron pra confirmar operação contínua | Claude monitora |
 | 3 | Confirmar visualmente o ícone novo (`icone-brasil-on.svg`) depois do próximo deploy bem-sucedido | Roberto |
 | 4 | Discutir mais definições de layout/design com Roberto (ele pediu que fosse a conversa seguinte depois do site estar 100% no ar) | Roberto |
 | 5 | ~~Vincular `www.obrasilon.com.br` ao Google Search Console + submeter sitemap~~ | ✅ Feito (ver seção 8) |
