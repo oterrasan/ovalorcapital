@@ -12,5 +12,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - name: liga a automação do Brasil ON e dispara 1 publicação real
+        run: |
+          echo "--- 1. LIGANDO config.enabled=true ---"
+          curl -sS -X POST "https://www.obrasilon.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"instagram_config","pass":"ovc-admin-2026-secreto","enabled":true,"interval":15,"dailyLimit":60,"categories":["politica","policia","brasil-on","futebol"]}' \
+            -w "\nHTTP:%{http_code}\n"
+          echo "--- 2. STATUS APÓS LIGAR ---"
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto" -w "\nHTTP:%{http_code}\n"
+          echo "--- 3. DISPARANDO 1 PUBLICAÇÃO REAL AGORA (instagram_auto_publish) ---"
+          curl -sS -X POST "https://www.obrasilon.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"instagram_auto_publish","pass":"ovc-admin-2026-secreto"}' \
+            -w "\nHTTP:%{http_code}\n"
