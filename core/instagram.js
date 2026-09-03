@@ -2,7 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 const BASE = "https://graph.facebook.com/v25.0";
-const DEFAULT_COLLABORATOR = "oterrasan";
+// 03/09/2026 — Roberto pediu pra cadastrar mais 3 perfis junto do @oterrasan,
+// todos recebendo collab em TODO post automaticamente. Limite real do
+// Instagram: até 4 collaborators + o autor original (5 contas no total) —
+// com exatamente 4 nomes aqui, cabem todos sem rodízio.
+const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
 const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 
 function normalizePublishingLimit(raw) {
@@ -78,8 +82,10 @@ export async function publish(imageUrl, caption, accountId) {
 
   // 1. Criar container
   const createPayload = { image_url: imageUrl, caption, access_token: token };
-  if (String(account.username || "").replace(/^@/, "").toLowerCase() !== DEFAULT_COLLABORATOR) {
-    createPayload.collaborators = [DEFAULT_COLLABORATOR];
+  const publisherUsername = String(account.username || "").replace(/^@/, "").toLowerCase();
+  const collaborators = DEFAULT_COLLABORATORS.filter(c => c.toLowerCase() !== publisherUsername);
+  if (collaborators.length) {
+    createPayload.collaborators = collaborators;
   }
   const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
     method: "POST",
