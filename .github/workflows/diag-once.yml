@@ -12,7 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: status real da automação Instagram do Brasil ON
-        run: |
-          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto"
-          echo
+      - name: noop
+        run: echo "placeholder — sem diagnóstico ativo no momento"
