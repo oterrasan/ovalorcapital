@@ -12,7 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Confirmar em produção — home mostra histórico completo de novo
-        run: |
-          curl -sS "https://www.obrasilon.com.br/api/portal-posts?limit=10" \
-            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 20 || echo "FALHOU"
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
