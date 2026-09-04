@@ -38,9 +38,12 @@ const SITE_BASE = "https://www.obrasilon.com.br";
 // UTC-3 manual.
 // 04/09/2026 — Roberto pediu pausa de almoço: ativo 9h-12h BRT, pausa
 // 12h-13h BRT, ativo de novo 13h-22h BRT (corte seco às 22h).
+// 04/09/2026 (mesmo dia, correção) — Roberto errou o horário na primeira
+// vez: o retorno correto é 14h00, não 13h00, e vale pras DUAS automações
+// (OVC e Brasil ON — ver api/manage.js na raiz, atualizado junto).
 const IG_AUTO_JANELA_MANHA_INICIO_BRT = 9;
 const IG_AUTO_JANELA_PAUSA_INICIO_BRT = 12;
-const IG_AUTO_JANELA_PAUSA_FIM_BRT = 13;
+const IG_AUTO_JANELA_PAUSA_FIM_BRT = 14;
 const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;
 function _igAutoDentroDaJanelaAtiva() {
   const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
@@ -582,7 +585,7 @@ async function handleInstagramPublish(req, res, body) {
 // Automático — disparado pelo cron nativo da Vercel (brasilon/vercel.json).
 async function handleInstagramAutoPublish(req, res) {
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_13_22_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_14_22_brt" });
   }
 
   try {

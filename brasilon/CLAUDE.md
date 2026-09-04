@@ -235,8 +235,10 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
     (1 linha por post, claim-antes-de-publicar + desfaz se falhar) e
     `BON_IG_AUTO_COUNT_{diaBRT}__{timestamp}_{rand}` (contador do dia,
     somado via `COUNT`, nunca lido+somado de 1 linha).
-  - **Janela ativa 9h-12h e 13h-22h BRT, pausa de almoço 12h-13h**
-    (atualizado 04/09/2026, gate no próprio código, não só no cron —
+  - **Janela ativa 9h-12h e 14h-22h BRT, pausa de almoço 12h-14h**
+    (ajustado 04/09/2026 — Roberto pediu 13h30 primeiro, corrigiu no
+    mesmo dia pra 14h00 e deixou explícito que vale pras duas automações,
+    OVC e Brasil ON — gate no próprio código, não só no cron —
     mesma lição do incidente do OVC de 02/09/2026, onde o scheduler do
     GitHub Actions disparou fora do range configurado). Cron do Vercel
     (`brasilon/vercel.json`) roda `*/15 * * * *` o dia inteiro DE
@@ -331,8 +333,9 @@ e `api/manage.js` na raiz do repo — **não** dentro de `brasilon/`):
      única por chamada, sem `.upsert()` — evita bug de concorrência já
      documentado no projeto).
 4. **`.github/workflows/instagram-auto.yml`** — cron a cada 20min, ativo
-   9h-12h e 13h-22h BRT com pausa de almoço 12h-13h (atualizado
-   04/09/2026 — antes era 08h-22h sem pausa), chama `ig_auto_publish`.
+   9h-12h e 14h-22h BRT com pausa de almoço 12h-14h (04/09/2026: primeiro
+   13h-22h/pausa 12h-13h, corrigido no mesmo dia pra 14h — antes disso,
+   08h-22h sem pausa), chama `ig_auto_publish`.
    Roteado via cron do GitHub Actions
    (não cron nativo da Vercel), com um gate redundante server-side em
    `api/manage.js` (`_igAutoDentroDaJanelaAtiva()`) — um bug real do
