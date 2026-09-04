@@ -12,5 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - name: Confirmar em produção — site mostra só hoje + auto_publish
+        run: |
+          echo "=== 1) Feed da home (sem categoria) — deve ser só hoje ==="
+          curl -sS "https://www.obrasilon.com.br/api/portal-posts?limit=10" \
+            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 20 || echo "FALHOU"
+
+          echo ""
+          echo "=== 2) Feed de brasil-on — deve ser só hoje ==="
+          curl -sS "https://www.obrasilon.com.br/api/portal-posts?categoria=brasil-on&limit=10" \
+            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 20 || echo "FALHOU"
+
+          echo ""
+          echo "=== 3) instagram_auto_publish real de novo ==="
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_auto_publish&pass=ovc-admin-2026-secreto" \
+            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 45 || echo "FALHOU"
