@@ -12,19 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: coloca coluna "A Fazenda dos Porcos de Toga" como pendente
-        run: |
-          python3 << 'PYEOF'
-          import json, urllib.request
-
-          BASE = "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts"
-          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          HEADERS = {"apikey": KEY, "Authorization": "Bearer " + KEY, "Content-Type": "application/json", "Prefer": "return=representation"}
-          POST_ID = "cf734426-7fec-4ad1-b60d-05f17d6031cb"
-
-          body = json.dumps({"status": "pendente", "approved": False}).encode("utf-8")
-          req = urllib.request.Request(f"{BASE}?id=eq.{POST_ID}", data=body, headers=HEADERS, method="PATCH")
-          with urllib.request.urlopen(req, timeout=20) as resp:
-              print("HTTP_STATUS:", resp.status)
-              print(resp.read().decode("utf-8"))
-          PYEOF
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
