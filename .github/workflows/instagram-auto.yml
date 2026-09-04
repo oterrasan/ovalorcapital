@@ -16,14 +16,21 @@ name: Instagram - Publicação Automática
 # total 22h–08h BRT, ritmo de 1 post a cada 20 minutos dentro da janela ativa.
 # Substitui a janela 06h-00h BRT (pausa 00h-06h) de mais cedo no mesmo dia.
 #
+# 04/09/2026 — Roberto pediu pausa de almoço: ativo 9h-12h BRT, pausa
+# 12h-13h BRT, ativo de novo 13h-22h BRT (corte seco às 22h). Gate redundante
+# em api/manage.js (_igAutoDentroDaJanelaAtiva) precisa ficar EXATAMENTE em
+# sincronia com este cron — se Roberto pedir pra mudar de novo, atualizar
+# os dois juntos.
+#
 # Cron é sempre UTC (não existe opção de timezone, nem no Actions nem na
 # Vercel — já confirmado nesta mesma sessão pro cron nativo da Vercel).
-# BRT = UTC-3. Ativo 08h–21:59 BRT = 11h–24h59 UTC = horas UTC 11-23 e 0
-# (a hora BRT 21 vira UTC 0 do dia seguinte). Pausa 22h-08h BRT = horas
-# UTC 1-10 (10 horas).
+# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 9h-12h BRT = 12h-15h UTC
+# (horas 12,13,14). Ativo 13h-22h BRT = 16h-01h UTC do dia seguinte (horas
+# 16-23 e 0). Pausa 12h-13h BRT = 15h-16h UTC (hora 15). Pausa 22h-09h BRT
+# = 01h-12h UTC (horas 1-11).
 on:
   schedule:
-    - cron: '*/20 0,11-23 * * *'
+    - cron: '*/20 0,12-14,16-23 * * *'
   push:
     branches: [main]
     paths:
