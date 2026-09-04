@@ -22,27 +22,27 @@ name: Instagram - Publicação Automática
 # sincronia com este cron — se Roberto pedir pra mudar de novo, atualizar
 # os dois juntos.
 #
-# 04/09/2026 (mesmo dia, ajuste — SÓ NO OVC, não no Brasil ON) — Roberto
-# pediu o retorno do almoço às 13h30 em vez de 13h00. O CRON deste arquivo
-# NÃO precisou mudar — a hora 16 UTC (13h BRT) já estava no filtro; o real
-# corte de 13h30 passou a ser aplicado pelo gate de MINUTO em api/manage.js
-# (_igAutoDentroDaJanelaAtiva, agora em minutos desde meia-noite BRT, não
-# só hora inteira). Efeito prático: os ticks de 16:00 e 16:20 UTC (13:00 e
-# 13:20 BRT) continuam batendo mas são recusados pelo gate ("ainda almoço");
-# o de 16:40 UTC (13:40 BRT) é o primeiro aceito — ou seja, o primeiro post
-# real após o almoço sai por volta de 13:30-13:50 BRT, não no minuto exato
-# (granularidade de tick é de 20 em 20 min). Se Roberto quiser precisão
-# maior no futuro, dá pra adicionar um tick extra só às :30 no cron.
+# 04/09/2026 (mesmo dia, 2 ajustes seguidos) — primeiro Roberto pediu
+# retorno às 13h30 (só OVC), depois corrigiu: ele tinha errado o horário —
+# é 14h00, e vale pras DUAS automações (OVC e Brasil ON, não só uma).
+# ESTADO FINAL, vigente: ativo 9h-12h BRT, pausa 12h-14h BRT, ativo de
+# novo 14h-22h BRT (corte seco às 22h). Como 14h00 é hora cheia, o cron
+# deste arquivo (que só tem granularidade de hora) reflete o corte exato
+# sem folga — não precisa mais do gate de minuto que a tentativa de 13h30
+# exigiu (esse gate ficou em api/manage.js, inofensivo, só não é mais
+# necessário pra bater em cima da hora). Brasil ON usa cron nativo da
+# Vercel sem pausa no schedule — o único enforcement de horário lá é o
+# gate em brasilon/api/manage.js, atualizado pro mesmo valor (14h).
 #
 # Cron é sempre UTC (não existe opção de timezone, nem no Actions nem na
 # Vercel — já confirmado nesta mesma sessão pro cron nativo da Vercel).
 # BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 9h-12h BRT = 12h-15h UTC
-# (horas 12,13,14). Ativo 13h30-22h BRT = 16h30-01h UTC do dia seguinte
-# (primeiro tick real na hora 16 UTC é o de :40, depois 17-23 e 0 inteiros).
-# Pausa 12h-13h30 BRT = 15h-16h29 UTC. Pausa 22h-09h BRT = 01h-12h UTC.
+# (horas 12,13,14). Pausa 12h-14h BRT = 15h-17h UTC (horas 15,16). Ativo
+# 14h-22h BRT = 17h-01h UTC do dia seguinte (horas 17-23 e 0). Pausa
+# 22h-09h BRT = 01h-12h UTC (horas 1-11).
 on:
   schedule:
-    - cron: '*/20 0,12-14,16-23 * * *'
+    - cron: '*/20 0,12-14,17-23 * * *'
   push:
     branches: [main]
     paths:
