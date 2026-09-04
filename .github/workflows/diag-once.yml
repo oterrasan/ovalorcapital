@@ -12,26 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: pausar IG_AUTOMATION_ENABLED do OVC
-        run: |
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo "--- antes ---"
-          curl -sS "$SB_URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=key,value,updated_at" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-          echo ""
-          echo "--- delete ---"
-          curl -sS -o /dev/null -w "HTTP_STATUS:%{http_code}\n" -X DELETE \
-            "$SB_URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-          echo "--- insert off ---"
-          NOW=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
-          curl -sS -o /dev/null -w "HTTP_STATUS:%{http_code}\n" -X POST \
-            "$SB_URL/rest/v1/config" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
-            -H "Content-Type: application/json" -H "Prefer: return=minimal" \
-            -d "{\"key\":\"IG_AUTOMATION_ENABLED\",\"value\":\"off\",\"updated_at\":\"$NOW\"}"
-          echo "--- depois ---"
-          curl -sS "$SB_URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=key,value,updated_at" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-          echo ""
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
