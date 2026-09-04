@@ -10,6 +10,7 @@ import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasi
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
 import { buscarCandidatosFofocas, pareceConteudoPromocional as pareceConteudoPromocionalFofocas } from "../core/fofocas.js";
+import { mirrorPostToBrasilOn } from "../core/brasilonMirror.js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 
@@ -262,19 +263,32 @@ async function cleanupTitles(res, body) {
 // AUTOMATICAMENTE" — regra ainda válida: Radar do Esporte publica direto,
 // sem fila de aprovação, igual Brasil ON/Jovem Pan/Internacional.
 async function salvarEsportesRadar(content, hash, img, sportLabel) {
+  const titulo = stripTitle(content.titulo);
+  const comentario_fixado = (content.meta_descricao || "").trim();
+  const subSlug = slugify(sportLabel || SUBCAT.esportes);
+  const metaTitle = stripTitle(content.meta_title || content.titulo);
+  const publishedAt = new Date().toISOString();
   const { data, error } = await supabase.from("posts").insert({
-    titulo: stripTitle(content.titulo), conteudo: content.corpo,
-    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    titulo, conteudo: content.corpo,
+    comentario_fixado, imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "esportes_radar",
-    published_at: new Date().toISOString(),
+    published_at: publishedAt,
     user_tags: JSON.stringify(["esportes"]), subcategoria: sportLabel || SUBCAT.esportes,
-    subcategoria_slug: slugify(sportLabel || SUBCAT.esportes), collaborators: "[]",
+    subcategoria_slug: subSlug, collaborators: "[]",
     tipo_conteudo: "padrao",
-    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo) },
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  return { id: data.id, categoria: "esportes", titulo: stripTitle(content.titulo) };
+  // DE-PARA Brasil ON — só futebol entra lá (ver core/brasilonMirror.js).
+  if (subSlug === "futebol") {
+    await mirrorPostToBrasilOn({
+      id: data.id, titulo, conteudo: content.corpo, comentario_fixado, imagem: img || null,
+      metrics: { meta_title: metaTitle }, user_tags: ["esportes"], subcategoria_slug: subSlug,
+      published_at: publishedAt
+    });
+  }
+  return { id: data.id, categoria: "esportes", titulo };
 }
 
 // ─── GOOGLE INDEXING API — best-effort, silencioso se GOOGLE_INDEXING_SA_JSON ausente ───
@@ -769,19 +783,30 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
 // FINAL (já reescrito) contra rec.titulos (últimas 48h, banco inteiro) + títulos
 // já gerados nesta mesma chamada. rec vem de recentes() — ver essa função acima.
 async function salvarBrasilOn(content, hash, img, fonte) {
+  const titulo = stripTitle(content.titulo);
+  const comentario_fixado = (content.meta_descricao || "").trim();
+  const metaTitle = stripTitle(content.meta_title || content.titulo);
+  const publishedAt = new Date().toISOString();
   const { data, error } = await supabase.from("posts").insert({
-    titulo: stripTitle(content.titulo), conteudo: content.corpo,
-    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    titulo, conteudo: content.corpo,
+    comentario_fixado, imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "brasilon",
-    published_at: new Date().toISOString(),
+    published_at: publishedAt,
     user_tags: JSON.stringify(["brasil-on"]), subcategoria: "Brasil ON",
     subcategoria_slug: "brasil-on", collaborators: "[]",
     tipo_conteudo: "padrao",
-    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  return { id: data.id, titulo: stripTitle(content.titulo) };
+  // DE-PARA Brasil ON — categoria brasil-on já cai direto no OVC-BrasilOn
+  // (Roberto, 04/09/2026): mesma matéria, sem esperar o cron de sync.
+  await mirrorPostToBrasilOn({
+    id: data.id, titulo, conteudo: content.corpo, comentario_fixado, imagem: img || null,
+    metrics: { meta_title: metaTitle }, user_tags: ["brasil-on"], subcategoria_slug: "brasil-on",
+    published_at: publishedAt
+  });
+  return { id: data.id, titulo };
 }
 
 // Nomes de veículos/agências que NUNCA podem aparecer no corpo reescrito —
@@ -971,19 +996,29 @@ async function autoBrasilOn(req, res, rec) {
 // visual do Roberto). Categoria SEMPRE "politica" (forçada — content.categoria
 // nunca decide sozinho aqui, diferente do pipeline geral).
 async function salvarJovempanPolitica(content, hash, img, fonte) {
+  const titulo = stripTitle(content.titulo);
+  const comentario_fixado = (content.meta_descricao || "").trim();
+  const metaTitle = stripTitle(content.meta_title || content.titulo);
+  const publishedAt = new Date().toISOString();
   const { data, error } = await supabase.from("posts").insert({
-    titulo: stripTitle(content.titulo), conteudo: content.corpo,
-    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    titulo, conteudo: content.corpo,
+    comentario_fixado, imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "jovempan_politica",
-    published_at: new Date().toISOString(),
+    published_at: publishedAt,
     user_tags: JSON.stringify(["politica"]), subcategoria: "Política",
     subcategoria_slug: "politica", collaborators: "[]",
     tipo_conteudo: "padrao",
-    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  return { id: data.id, titulo: stripTitle(content.titulo) };
+  // DE-PARA Brasil ON — categoria politica sempre entra lá (Roberto, 04/09/2026).
+  await mirrorPostToBrasilOn({
+    id: data.id, titulo, conteudo: content.corpo, comentario_fixado, imagem: img || null,
+    metrics: { meta_title: metaTitle }, user_tags: ["politica"], subcategoria_slug: "politica",
+    published_at: publishedAt
+  });
+  return { id: data.id, titulo };
 }
 
 async function autoJovempanPolitica(req, res, rec) {

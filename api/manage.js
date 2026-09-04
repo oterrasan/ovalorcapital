@@ -4,6 +4,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { detectPublicationLocation } from "../core/instagram_location.js";
 import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
+import { mirrorPostToBrasilOn } from "../core/brasilonMirror.js";
 
 // 🚨 REGRA PERMANENTE — INCIDENTE 31/08/2026 (FUNCTION_INVOCATION_FAILED em TODA
 // ação de api/manage.js, admin em tela preta + Instagram automático parado):
@@ -165,9 +166,17 @@ async function handleApprovePortal(res, body) {
   const now = new Date().toISOString();
   const { id, ids, action, titulo, conteudo, imagem, comentario_fixado, video_url } = body;
 
+  // DE-PARA Brasil ON (Roberto, 04/09/2026) — sempre que um post do OVC vira
+  // "publicado" nas categorias brasil-on/política/futebol, espelha na hora em
+  // brasilon_posts (mirrorPostToBrasilOn descarta sozinho o que não classifica
+  // — ver core/brasilonMirror.js). .select() extra pra pegar a linha completa
+  // sem precisar de uma segunda query.
+  const MIRROR_COLS = "id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at";
+
   if (action === "aprovar" && id) {
-    const { error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).eq("id", id);
+    const { data, error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).eq("id", id).select(MIRROR_COLS).single();
     if (error) throw error;
+    await mirrorPostToBrasilOn(data);
     return res.status(200).json({ ok: true, action: "aprovado", id });
   }
 
@@ -179,14 +188,16 @@ async function handleApprovePortal(res, body) {
 
   if (action === "editar_aprovar" && id) {
     const patch = { titulo, conteudo, imagem, comentario_fixado, video_url, status: "publicado", approved: true, published_at: now, updated_at: now };
-    const { error } = await supabase.from("posts").update(patch).eq("id", id);
+    const { data, error } = await supabase.from("posts").update(patch).eq("id", id).select(MIRROR_COLS).single();
     if (error) throw error;
+    await mirrorPostToBrasilOn(data);
     return res.status(200).json({ ok: true, action: "editado_aprovado", id });
   }
 
   if (action === "aprovar_lote" && Array.isArray(ids)) {
-    const { error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).in("id", ids);
+    const { data, error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).in("id", ids).select(MIRROR_COLS);
     if (error) throw error;
+    await Promise.all((data || []).map(row => mirrorPostToBrasilOn(row)));
     return res.status(200).json({ ok: true, action: "lote_aprovado", total: ids.length });
   }
 
