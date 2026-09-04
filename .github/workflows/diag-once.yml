@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: balanço real de temas — OVC (posts) e Brasil ON (brasilon_posts)
+      - name: fila PENDENTE do OVC por categoria (canal materias) + volume total
         run: |
           python3 << 'PYEOF'
           import json, urllib.request, collections, datetime
@@ -40,15 +40,14 @@ jobs:
           now = datetime.datetime.utcnow()
           cutoff_24h = (now - datetime.timedelta(hours=24)).isoformat()
           cutoff_48h = (now - datetime.timedelta(hours=48)).isoformat()
-          cutoff_72h = (now - datetime.timedelta(hours=72)).isoformat()
 
-          print("=== OVC (posts) — últimas 24h, status=publicado, por 1ª tag em user_tags ===")
-          ovc_url = f"{BASE}/posts?select=user_tags,publish_method,published_at&status=eq.publicado&published_at=gte.{cutoff_24h}&order=published_at.desc"
-          ovc_rows = paginate(ovc_url)
-          print("total posts OVC 24h:", len(ovc_rows))
+          print("=== OVC — TODOS os pendentes (status=pendente), sem filtro de data, por 1ª tag ===")
+          pend_url = f"{BASE}/posts?select=user_tags,publish_method,created_at&status=eq.pendente&order=created_at.desc"
+          pend_rows = paginate(pend_url)
+          print("total pendentes (todos os tempos):", len(pend_rows))
           cat_count = collections.Counter()
           method_count = collections.Counter()
-          for r in ovc_rows:
+          for r in pend_rows:
               try:
                   tags = json.loads(r.get("user_tags") or "[]")
               except Exception:
@@ -58,45 +57,48 @@ jobs:
               method_count[r.get("publish_method") or "(sem method)"] += 1
           for cat, n in cat_count.most_common():
               print(f"  {cat:15s} {n}")
-          print("--- por publish_method (canal de origem) ---")
+          print("--- por publish_method ---")
           for m, n in method_count.most_common():
               print(f"  {m:20s} {n}")
 
           print()
-          print("=== OVC (posts) — últimas 48h, mesma coisa (janela maior p/ contexto) ===")
-          ovc_url_48 = f"{BASE}/posts?select=user_tags,published_at&status=eq.publicado&published_at=gte.{cutoff_48h}&order=published_at.desc"
-          ovc_rows_48 = paginate(ovc_url_48)
-          print("total posts OVC 48h:", len(ovc_rows_48))
-          cat_count_48 = collections.Counter()
-          for r in ovc_rows_48:
+          print("=== OVC — pendentes criados nas últimas 48h, por 1ª tag ===")
+          pend_48 = [r for r in pend_rows if r.get("created_at") and r["created_at"] >= cutoff_48h]
+          print("total pendentes últimas 48h:", len(pend_48))
+          cat_48 = collections.Counter()
+          for r in pend_48:
               try:
                   tags = json.loads(r.get("user_tags") or "[]")
               except Exception:
                   tags = []
               cat = tags[0] if tags else "(sem tag)"
-              cat_count_48[cat] += 1
-          for cat, n in cat_count_48.most_common():
+              cat_48[cat] += 1
+          for cat, n in cat_48.most_common():
               print(f"  {cat:15s} {n}")
 
           print()
-          print("=== Brasil ON (brasilon_posts) — últimas 72h, por categoria ===")
-          bon_url = f"{BASE}/brasilon_posts?select=categoria,published_at&published_at=gte.{cutoff_72h}&order=published_at.desc"
-          bon_rows = paginate(bon_url)
-          print("total posts Brasil ON 72h:", len(bon_rows))
-          bon_count = collections.Counter()
-          for r in bon_rows:
-              bon_count[r.get("categoria") or "(sem categoria)"] += 1
-          for cat, n in bon_count.most_common():
+          print("=== OVC — pendentes criados nas últimas 24h, por 1ª tag ===")
+          pend_24 = [r for r in pend_rows if r.get("created_at") and r["created_at"] >= cutoff_24h]
+          print("total pendentes últimas 24h:", len(pend_24))
+          cat_24 = collections.Counter()
+          for r in pend_24:
+              try:
+                  tags = json.loads(r.get("user_tags") or "[]")
+              except Exception:
+                  tags = []
+              cat = tags[0] if tags else "(sem tag)"
+              cat_24[cat] += 1
+          for cat, n in cat_24.most_common():
               print(f"  {cat:15s} {n}")
 
           print()
-          print("=== Brasil ON — últimas 24h, por categoria (janela mais recente) ===")
-          bon_url_24 = f"{BASE}/brasilon_posts?select=categoria,published_at&published_at=gte.{cutoff_24h}&order=published_at.desc"
-          bon_rows_24 = paginate(bon_url_24)
-          print("total posts Brasil ON 24h:", len(bon_rows_24))
-          bon_count_24 = collections.Counter()
-          for r in bon_rows_24:
-              bon_count_24[r.get("categoria") or "(sem categoria)"] += 1
-          for cat, n in bon_count_24.most_common():
-              print(f"  {cat:15s} {n}")
+          print("=== OVC — mais recente criado por cada categoria-alvo do canal materias (pendente OU publicado) ===")
+          alvo_cats = ["economia","financas","negocios","tecnologia","industria","familia"]
+          for c in alvo_cats:
+              rows = paginate(f"{BASE}/posts?select=titulo,status,created_at&user_tags=ilike.*{c}*&order=created_at.desc")
+              if rows:
+                  r0 = rows[0]
+                  print(f"  {c:12s} -> mais recente: {r0['created_at']}  status={r0['status']}  \"{r0['titulo'][:60]}\"  (total encontrados: {len(rows)})")
+              else:
+                  print(f"  {c:12s} -> NENHUM post encontrado (nunca gerado, ou tag não bate)")
           PYEOF
