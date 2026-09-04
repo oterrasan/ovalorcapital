@@ -10,22 +10,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CATS = new Set(["brasil-on", "politica", "policia", "futebol"]);
 
-// 04/09/2026 — Roberto foi explícito: "NO PORTAL (NO SITE DO BRASIL ON) SÓ
-// PODE SER PUBLICADO O QUE O OVC PUBLICOU NO DIA... É SEMPRE O ESPELHO DO
-// DIA." A tabela brasilon_posts é um arquivo permanente que acumula desde
-// 25/08 (nunca expira sozinho), mas a LISTAGEM visível (home + páginas de
-// categoria, que é isso que este endpoint alimenta) deve mostrar só o
-// que tem published_at dentro do dia calendário BRT de hoje.
-// Deliberadamente NÃO aplicado em article.js (páginas individuais
-// permanecem acessíveis pelo link direto) nem em sitemap.js (continua
-// listando tudo) — mexer nisso derrubaria as 861 páginas já indexadas no
-// Search Console (confirmado por Roberto hoje mesmo). Só a listagem que
-// um visitante navega precisa ser o "espelho do dia".
-function inicioHojeBRT() {
-  const anoMesDia = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
-  return new Date(`${anoMesDia}T00:00:00-03:00`).toISOString();
-}
-
 export default async function handler(req, res) {
   try {
     if (String(req.query.maisLidas || "") === "true") return handleMaisLidas(req, res);
@@ -37,7 +21,6 @@ export default async function handler(req, res) {
     let q = supabase.from("brasilon_posts")
       .select("id,titulo,comentario_fixado,imagem,categoria,created_at,published_at", { count: "exact" })
       .eq("status", "publicado")
-      .gte("published_at", inicioHojeBRT())
       .order("published_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -72,7 +55,6 @@ async function handleMaisLidas(req, res) {
       .select("id,origem_post_id,titulo,comentario_fixado,imagem,categoria,created_at,published_at")
       .eq("status", "publicado")
       .not("origem_post_id", "is", null)
-      .gte("published_at", inicioHojeBRT())
       .order("published_at", { ascending: false })
       .limit(300);
     if (categoria) {
