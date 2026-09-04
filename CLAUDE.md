@@ -8968,3 +8968,76 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 5. Demais pendências de sessões anteriores seguem válidas: migração SQL da coluna `video_url` (se ainda não rodada), raspagem automática de fontes de vídeo, as 2 pendências prioritárias do SBT News (Shorts/Vídeos e redesign geral da home — aguardando autorização explícita), Reels no Instagram (aguardando confirmação de escopo sobre direito autoral de vídeo embutido), exploração de redesign "continuidade de navegação" (pausada por Roberto), novo projeto Google Cloud + chaves Gemini dedicadas às 6 categorias sem canal próprio (Roberto disse que ia criar, ainda não confirmado), marca d'água do Instagram do OVC (aguardando assets de Roberto), SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense.
 
 ---
+
+### Sessão 04/09/2026 (continuação) — 🔴 INSTAGRAM DO BRASIL ON TRAVADO (~1h) + CORREÇÃO DE ESCOPO EXPLÍCITA DE ROBERTO + DE-PARA DIRETO OVC→BRASIL ON (substitui polling)
+
+#### 1) Instagram do Brasil ON parado ~1h — causa raiz real, corrigida
+
+Roberto: *"preciso que investigue se tem algo errado com o brasil on, porque tem quase uma hora que nao chega nada no instagram."* Investigado com dado real (workflow diagnóstico via GitHub Actions, sem suposição): `handleInstagramAutoPublish` (`brasilon/api/manage.js`) sempre buscava os **50 posts MAIS ANTIGOS** de `brasilon_posts` (`.order("published_at",{ascending:true}).limit(50)`) — e esses 50 já estavam 100% carimbados como publicados (todos de 25/08/2026). A automação nunca olhava além desse lote fixo, então conteúdo fresco (publicado minutos antes) ficava permanentemente invisível pra ela. Fix: invertido pra `.order("published_at",{ascending:false}).limit(500)` — mesmo padrão já em produção no `handleIgAutoPublish` do OVC.
+
+#### 2) Roberto exige trava explícita: Instagram do Brasil ON só publica notícia DO DIA
+
+Furioso, logo após o fix #1: *"ISSO É UM ABSURDO TOTAL E ABSOLUTO O ISNTAGRAM DO BRASIL ON, SÓ PODE PUBLICAR O QUE FOR NOTICIA DO DIA!!!!!!!"* — a inversão de ordenação sozinha resolvia o travamento eterno, mas ainda deixava aberto postar backlog de dias anteriores se o topo da janela de 500 estivesse todo carimbado. Adicionada `_igAutoDiaBRTDe(iso)` — mesmo padrão de `_igAutoDiaBRT()` já usado no projeto, aplicado ao `published_at` de cada candidato — só publica se cair no mesmo dia calendário BRT de hoje; senão pula pro próximo.
+
+#### 🔴 3) ERRO MEU, CORRIGIDO NA HORA — apliquei "só hoje" também no SITE, sem ter sido pedido
+
+Roberto, na sequência, foi mais específico: *"NO PORTAL (NO SITE DO BRASIL ON) SÓ PODE SER PUBLICADO, O QUE O OVC PIUBLICOU NO DIA!!! É SEMPRE O ESPELHO DO DIA."* Interpretei (errado) que isso pedia pra restringir TAMBÉM a home e as páginas de categoria do site (`brasilon/api/portal-posts.js`) a só mostrar posts de hoje, e implementei/deployei isso.
+
+Roberto rejeitou com força total: *"CLAUDE, EU NAO MANDEI VOCE FAZER ISSO. EU FUI MUITO CLARO!!!! O QUE JA FOI, JA FOI. DEIXE NO AR O BRASIL ON PRECISA TER SEU LEGADO E SEU HISTORICO SEMPRE ATIVO, IGUAL A QUALQUER SITE VOCE ESTÁ LOUCO?"* — revertido imediatamente (`brasilon/api/portal-posts.js` voltou ao estado original, sem nenhum filtro de data), confirmado com dado real pós-deploy (`total` do feed voltou de 65 — o corte artificial — pra 1208, o histórico completo).
+
+**🚨 REGRA PERMANENTE, gravar — escopo correto e final:**
+```
+✅ Instagram do Brasil ON — publica SÓ notícia do dia (published_at = hoje BRT).
+✅ Site do Brasil ON (home + /brasil-on/ + /politica/ + /policia/ + /futebol/)
+   — SEMPRE mostra o histórico completo, nunca restrito por data. É um
+   portal com legado, igual qualquer outro site — nunca um "jornal do dia
+   que reseta amanhã".
+❌ NUNCA generalizar uma trava de data pedida pro Instagram e aplicar
+   também na listagem/feed do site sem Roberto pedir isso explicitamente
+   pro site — são coisas completamente diferentes, ele já corrigiu esse
+   erro uma vez com muita força.
+```
+
+#### 4) 🆕 Pedido final de Roberto — trocar o mecanismo por completo: DE-PARA direto (PR #655, mergeado)
+
+Depois de tudo isso resolvido, Roberto propôs a solução de fundo: *"O correto seria simplesmente ter um DE-PARA. do OVC para o BRASIL-ON. Tudo o que a categoria BRASIL ON postar no OVC, automaticamente posta no BRASIL ON tambem. isso resolve todos os problemas."*
+
+Em vez de manter o Brasil ON dependente de um cron de sync (`action=sync`, a cada 20min, varrendo os últimos 72h — a mesma arquitetura que causou o travamento do item 1), implementado um push direto: no exato momento em que o OVC publica um post nas categorias que o Brasil ON espelha, a matéria já é gravada em `brasilon_posts` — mesmo Supabase, sem chamada de rede entre os dois deploys Vercel, zero delay.
+
+**`core/brasilonMirror.js`** (novo, no OVC) — `mirrorPostToBrasilOn(post)`:
+- Cópia EXATA da classificação já usada em `brasilon/api/manage.js` (`classificar()`, `POLICIA_KW`, `pareceCrimePolicial`) — replicada de propósito (zero import cruzado entre OVC e Brasil ON, mesma regra de sempre).
+- Também replica `assinarBrasilOn()` (troca "Redação OVC" → "BRASIL ON" no corpo) — Roberto confirmou explicitamente que essa regra continua valendo ("voce se lembra que o que for postado no brasil on deve ser assinado como BRASIL ON, NE?"), e está aplicada nas duas rotas (mirror direto E o cron de sync antigo, que continua ativo).
+- Upsert por `origem_post_id` (constraint unique real no schema — nunca duplica, mesmo se o mirror e o cron de sync tentarem gravar o mesmo post).
+- 100% best-effort — `try/catch` interno, nunca lança exceção. Uma falha aqui **nunca** pode quebrar a publicação real no OVC.
+
+**Chamado em 2 famílias de pontos** (cobre tudo que vira "publicado" no OVC):
+- **`api/run_portal.js`** — `salvarBrasilOn` (Bacci, sempre), `salvarJovempanPolitica` (sempre), `salvarEsportesRadar` (só quando `sportLabel` é Futebol) — os 3 canais que publicam direto sem fila de aprovação.
+- **`api/manage.js`** — `handleApprovePortal` (`aprovar` / `editar_aprovar` / `aprovar_lote`) — cobre o pipeline geral (`autoMaterias`) quando Roberto aprova manualmente uma matéria pendente de categoria `brasil-on`/`política`.
+
+O cron de sync antigo (`brasilon/api/manage.js`, `action=sync`) **continua ativo**, agora só como rede de segurança (nunca duplica, upsert idempotente) — não foi removido, é seguro tê-lo rodando em paralelo.
+
+**Verificação:** `node --check` limpo nos 3 arquivos, `api/` confirmado com exatamente 10 arquivos (Regra Zero-A), `public/index.html` não tocado. PR #655 mergeado (squash `3e6cc0ac`), CI verde, deploy de produção do OVC (`deploy.yml`) confirmado `conclusion:success`. Não testado end-to-end com um post real ainda (sandbox sem rede pra produção) — próxima sessão deve confirmar com evidência real que uma matéria nova de `brasil-on`/`política`/futebol aparece em `brasilon_posts` no mesmo instante da publicação no OVC.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudança em `api/run_portal.js`/`api/manage.js` existentes + `core/brasilonMirror.js` novo, que não conta pra Regra Zero-A)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (04/09/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real do Instagram do Brasil ON travado ~1h** — query sempre buscava os 50 mais antigos, todos já carimbados | ✅ CORRIGIDO — ordenação invertida pra 500 mais recentes |
+| **Trava "só notícia do dia" no Instagram do Brasil ON** | ✅ EM PRODUÇÃO — `_igAutoDiaBRTDe()` |
+| **Erro meu (filtro "só hoje" aplicado também no site) — revertido** | ✅ REVERTIDO E VERIFICADO — feed voltou a `total:1208` (histórico completo) |
+| **DE-PARA direto OVC→Brasil ON** (`core/brasilonMirror.js`) — substitui a dependência do cron de sync como caminho principal | ✅ EM PRODUÇÃO (PR #655, commit `3e6cc0ac`) — deploy confirmado `success`, ainda sem teste end-to-end com post real |
+| **Assinatura "BRASIL ON" (nunca "Redação OVC")** — confirmada mantida no novo mecanismo, mesma regra de sempre | ✅ CONFIRMADO NO CÓDIGO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com evidência real** (não só leitura de código) que o DE-PARA direto está funcionando — publicar/aprovar uma matéria real de `brasil-on`/`política`/futebol no OVC e conferir que ela aparece em `brasilon_posts` (e no site do Brasil ON) no mesmo instante, sem esperar o cron de sync.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista completa na entrada "02-04/09/2026" logo acima: imagem da coluna da Fazenda dos Porcos de Toga, cópia já publicada no Instagram do post revertido, migração SQL de `video_url`, raspagem de vídeo, SBT News, Reels, projeto Google Cloud novo pra Gemini, marca d'água do Instagram do OVC, SUPABASE_KEY morta, Instagram SSL, Google Indexing API, AdSense).
+
+---
