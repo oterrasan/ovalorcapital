@@ -55,6 +55,19 @@ function _igAutoDiaBRT() {
   const brt = new Date(Date.now() - 3 * 3600 * 1000);
   return brt.toISOString().slice(0, 10).replace(/-/g, "");
 }
+// 04/09/2026 — Roberto foi explícito: "SÓ PODE PUBLICAR O QUE FOR NOTICIA
+// DO DIA". Mesma função acima, mas pra uma data qualquer (published_at de
+// um post) — usada pra travar a automação em só publicar conteúdo cujo
+// published_at cai no MESMO dia calendário BRT de hoje. Sem isso, o fix da
+// janela de 500 recentes (ver handleInstagramAutoPublish) resolvia o
+// travamento eterno, mas ainda deixava aberto postar backlog de dias
+// anteriores se o topo da janela estivesse todo carimbado.
+function _igAutoDiaBRTDe(iso) {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const brt = new Date(ms - 3 * 3600 * 1000);
+  return brt.toISOString().slice(0, 10).replace(/-/g, "");
+}
 
 export default async function handler(req, res) {
   // CORS liberado — o admin único do OVC (ovalorcapital.com.br) chama esta
@@ -618,13 +631,21 @@ async function handleInstagramAutoPublish(req, res) {
       .limit(500);
     if (error) throw error;
 
+    // 04/09/2026 — trava adicional explícita de Roberto: só publica se o
+    // published_at do post cair no MESMO dia calendário BRT de hoje.
+    // Nunca posta backlog de dias anteriores, mesmo que o topo da janela
+    // de 500 mais recentes já esteja todo carimbado.
+    const hojeBRT = _igAutoDiaBRT();
     let post = null;
+    let candidatosDeHoje = 0;
     for (const candidato of candidatos || []) {
+      if (_igAutoDiaBRTDe(candidato.published_at) !== hojeBRT) continue;
+      candidatosDeHoje++;
       if (await _igPostagemJaFeita(candidato.id)) continue;
       post = candidato;
       break;
     }
-    if (!post) return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_candidato_elegivel", publicados_hoje: publicadosHoje });
+    if (!post) return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_candidato_elegivel", dia_brt: hojeBRT, candidatos_de_hoje: candidatosDeHoje, publicados_hoje: publicadosHoje });
 
     await _igClaim(post.id);
     try {
