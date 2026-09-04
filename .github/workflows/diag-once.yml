@@ -12,5 +12,91 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - name: balanço real de temas — OVC (posts) e Brasil ON (brasilon_posts)
+        run: |
+          python3 << 'PYEOF'
+          import json, urllib.request, collections, datetime
+
+          BASE = "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1"
+          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          HEADERS = {"apikey": KEY, "Authorization": "Bearer " + KEY}
+
+          def get(url):
+              req = urllib.request.Request(url, headers=HEADERS)
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  return json.loads(resp.read().decode("utf-8") or "[]")
+
+          def paginate(base_url, limit=1000):
+              rows, offset = [], 0
+              while True:
+                  sep = "&" if "?" in base_url else "?"
+                  chunk = get(f"{base_url}{sep}limit={limit}&offset={offset}")
+                  rows.extend(chunk)
+                  if len(chunk) < limit:
+                      break
+                  offset += limit
+              return rows
+
+          now = datetime.datetime.utcnow()
+          cutoff_24h = (now - datetime.timedelta(hours=24)).isoformat()
+          cutoff_48h = (now - datetime.timedelta(hours=48)).isoformat()
+          cutoff_72h = (now - datetime.timedelta(hours=72)).isoformat()
+
+          print("=== OVC (posts) — últimas 24h, status=publicado, por 1ª tag em user_tags ===")
+          ovc_url = f"{BASE}/posts?select=user_tags,publish_method,published_at&status=eq.publicado&published_at=gte.{cutoff_24h}&order=published_at.desc"
+          ovc_rows = paginate(ovc_url)
+          print("total posts OVC 24h:", len(ovc_rows))
+          cat_count = collections.Counter()
+          method_count = collections.Counter()
+          for r in ovc_rows:
+              try:
+                  tags = json.loads(r.get("user_tags") or "[]")
+              except Exception:
+                  tags = []
+              cat = tags[0] if tags else "(sem tag)"
+              cat_count[cat] += 1
+              method_count[r.get("publish_method") or "(sem method)"] += 1
+          for cat, n in cat_count.most_common():
+              print(f"  {cat:15s} {n}")
+          print("--- por publish_method (canal de origem) ---")
+          for m, n in method_count.most_common():
+              print(f"  {m:20s} {n}")
+
+          print()
+          print("=== OVC (posts) — últimas 48h, mesma coisa (janela maior p/ contexto) ===")
+          ovc_url_48 = f"{BASE}/posts?select=user_tags,published_at&status=eq.publicado&published_at=gte.{cutoff_48h}&order=published_at.desc"
+          ovc_rows_48 = paginate(ovc_url_48)
+          print("total posts OVC 48h:", len(ovc_rows_48))
+          cat_count_48 = collections.Counter()
+          for r in ovc_rows_48:
+              try:
+                  tags = json.loads(r.get("user_tags") or "[]")
+              except Exception:
+                  tags = []
+              cat = tags[0] if tags else "(sem tag)"
+              cat_count_48[cat] += 1
+          for cat, n in cat_count_48.most_common():
+              print(f"  {cat:15s} {n}")
+
+          print()
+          print("=== Brasil ON (brasilon_posts) — últimas 72h, por categoria ===")
+          bon_url = f"{BASE}/brasilon_posts?select=categoria,published_at&published_at=gte.{cutoff_72h}&order=published_at.desc"
+          bon_rows = paginate(bon_url)
+          print("total posts Brasil ON 72h:", len(bon_rows))
+          bon_count = collections.Counter()
+          for r in bon_rows:
+              bon_count[r.get("categoria") or "(sem categoria)"] += 1
+          for cat, n in bon_count.most_common():
+              print(f"  {cat:15s} {n}")
+
+          print()
+          print("=== Brasil ON — últimas 24h, por categoria (janela mais recente) ===")
+          bon_url_24 = f"{BASE}/brasilon_posts?select=categoria,published_at&published_at=gte.{cutoff_24h}&order=published_at.desc"
+          bon_rows_24 = paginate(bon_url_24)
+          print("total posts Brasil ON 24h:", len(bon_rows_24))
+          bon_count_24 = collections.Counter()
+          for r in bon_rows_24:
+              bon_count_24[r.get("categoria") or "(sem categoria)"] += 1
+          for cat, n in bon_count_24.most_common():
+              print(f"  {cat:15s} {n}")
+          PYEOF
