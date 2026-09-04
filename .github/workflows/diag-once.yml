@@ -12,5 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - name: Investigar Instagram Brasil ON — status + chamada real + config
+        run: |
+          echo "=== HORA ATUAL (UTC) ==="
+          date -u
+
+          echo ""
+          echo "=== 1) action=instagram_status (Brasil ON) ==="
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto" \
+            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 20 || echo "FALHOU"
+
+          echo ""
+          echo "=== 2) action=instagram_config (Brasil ON) ==="
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_config&pass=ovc-admin-2026-secreto" \
+            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 20 || echo "FALHOU"
+
+          echo ""
+          echo "=== 3) Chamada real de instagram_auto_publish (o que o cron chama) ==="
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_auto_publish&pass=ovc-admin-2026-secreto" \
+            -w "\nHTTP_STATUS:%{http_code}\n" --max-time 45 || echo "FALHOU"
