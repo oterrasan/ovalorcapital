@@ -8886,3 +8886,85 @@ Roberto pediu ajuda pra repensar a área de conteúdo das páginas internas (nã
 **Nada foi implementado desta exploração — só investigação e protótipo (rejeitado). Não retomar por iniciativa própria; esperar Roberto reengajar o assunto.**
 
 ---
+
+### Sessão 02-04/09/2026 — INSTAGRAM DO OVC: JANELA + GATE REDUNDANTE + COLLABORATORS · MOTOR DE INSTAGRAM DO BRASIL ON CONSTRUÍDO DO ZERO · PUBLICAÇÃO E REVERSÃO DA COLUNA DE ROBERTO · JANELA FINAL COM PAUSA DE ALMOÇO (9h-12h/13h-22h BRT)
+
+#### 1) Instagram do OVC — 3 ajustes reais em sequência
+
+**PR #612 — janela 08h-22h BRT** (substitui a janela anterior 06h-00h): `.github/workflows/instagram-auto.yml`, cron `*/20 0,11-23 * * *`, post a cada 20min dentro da janela ativa, corte seco às 22h.
+
+**🔴 PR #613 — bug real: publicação às 04h BRT mesmo com o cron "correto"** — Roberto reportou post real publicado de madrugada. Confirmado com evidência real (não suposição): run `33602468773` disparado por `schedule` às `2026-09-02T07:13:07Z` (= 04:13 BRT) — hora UTC 7 **fora** do filtro `0-2,9-23` do cron em vigor. O agendador do próprio GitHub Actions disparou `schedule:` fora da janela configurada (quirk real do Actions, não erro de cálculo). Fix: `api/manage.js` ganhou `_igAutoDentroDaJanelaAtiva()` — gate redundante e hardcoded dentro do próprio `handleIgAutoPublish`, que recusa publicar mesmo se o Actions disparar fora de hora (`skipped:true, reason:"fora_da_janela_ativa_08h_22h_brt"`). Esse padrão (cron + gate server-side redundante, sempre sincronizados) virou a convenção definitiva da automação de Instagram deste projeto.
+
+**PR #614 — 3 collaborators novos**: `core/instagram.js` — `DEFAULT_COLLABORATOR` (string única) → `DEFAULT_COLLABORATORS` (array de 4: `@oterrasan`, `@souabetaferreira`, `@adriana.ferreirasp`, `@amichelefroes`), todos recebendo collab automático em todo post publicado (manual e automação), com a mesma lógica de auto-exclusão de quem publica.
+
+#### 2) Motor de publicação no Instagram do Brasil ON — construído do zero (spec fechada por Roberto em 03/09/2026)
+
+Diferente do OVC (onde a automação já existia), o Brasil ON só tinha config/conta (feito pelo Codex) — faltava o motor de publicação de verdade. Sequência real de PRs:
+
+- **#618** — módulo `brasilon/core/instagram_image.js`: imagem crua full-bleed + manchete em caixa amarela (texto preto) + ícone Brasil ON abaixo da caixa. Só o módulo de composição + 1 render de teste real (post Remo/Flamengo) via `diag-once.yml`, inspecionado visualmente antes de qualquer wiring com publish de verdade.
+- **#619/#620** — preview confirmado visualmente com dado real; `brasilon/CLAUDE.md` atualizado documentando o estado (imagem resolvida, motor ainda faltando).
+- **#622** — motor completo: `brasilon/core/instagram.js` (novo, client Graph API v25.0, single-account, `publish()` sempre com `collaborators:['oterrasan']` por pedido explícito de Roberto), `brasilon/api/manage.js` ganhou `buildInstagramCaption`/`buildInstagramFirstComment` (adaptado do OVC) + ações `instagram_publish` (manual) e `instagram_auto_publish` (cron), `brasilon/vercel.json` com cron nativo a cada 15min (24h — o gate de horário real vive no código), anti-duplicata + contador diário via tabela `config` insert-only (sem migração de schema em `brasilon_posts`, mesmo padrão já validado no OVC contra o bug de upsert sem constraint). Conta `@obrasilon` confirmada já conectada (token real). `config.enabled` continua `false` por padrão — não liga sozinho.
+- **#623/#624** — status do motor confirmado `ready:true` pós-deploy.
+- **#625** — `instagram_publish`/`instagram_auto_publish` passam a retornar `caption`/`first_comment_text` no response — pura transparência pra Roberto conferir hashtags/comentário reais, nenhum campo secreto.
+- **#626** — automação ligada em produção de verdade + 1 publicação real de teste disparada.
+
+**🔴 Bug real "Redação OVC" vazando — corrigido em 2 camadas:**
+- **#627** — o 1º post real publicado saiu com `"Redação OVC · 25 de agosto de 2026"` solto no início da legenda do Instagram. Causa: posts sincronizados do OVC pro Brasil ON **antes** de `assinarBrasilOn()` existir (26/08/2026) nunca foram reprocessados pelo `handleSync()` (que só copia linha nova, não relê linha já existente). Fix: `buildInstagramCaption()` reaplica a normalização na hora de montar a legenda, cobrindo tanto o estoque antigo quanto qualquer futuro descompasso entre sync e assinatura.
+- **#628** — Roberto apontou que o problema não era só a legenda do Instagram: o **próprio site** (`brasilon_posts.conteudo`) também mostrava "Redação OVC" nesses posts antigos. Backfill direto na tabela, só substituindo a assinatura — **164 linhas corrigidas**.
+- **#629** — reconferido com query real e paginada (evita truncamento silencioso do PostgREST em 1000 sem `limit`/`offset`): `total de linhas em brasilon_posts: 1041` / `linhas com 'Redação OVC' residual (esperado 0): 0` — confirmado, zero resíduo.
+- **#630** — `brasilon/CLAUDE.md` atualizado com o estado real (motor ligado + evidência da 1ª publicação real + os 2 bugs e seus fixes).
+
+#### 3) Coluna de Roberto — "A Fazenda dos Porcos de Toga" (Moraes/Vorcaro-Banco Master) — publicada, depois revertida a pedido dele
+
+Roberto anexou o texto (markdown) da coluna semanal dele sobre a crise STF/Banco Master (relatório da PF sobre o celular de Daniel Vorcaro, contratos da esposa do ministro Alexandre de Moraes, a sessão do STF do dia seguinte sem menção pública ao caso, e a foto real dos ministros rindo nos bastidores). Antes de publicar, as afirmações factuais mais sérias (nomear um ministro do STF em conexão com escândalo de corrupção) foram **verificadas de forma independente via WebSearch em múltiplas fontes confiáveis**, não aceitas de bandeja — mesmo Roberto sendo o autor e já confiável, essa é a prática já estabelecida no projeto pra claim extraordinário.
+
+**Publicação (#632)**: via `action=admin_colunista_post` (`token`, não `pass`), publica direto (`status:publicado, approved:true`) — sem fila de aprovação, mecanismo diferente do pipeline automático. URL real: `https://www.ovalorcapital.com.br/colunistas/a-fazenda-dos-porcos-de-toga-cf734426/`. Publicada **sem imagem de capa** — a imagem que Roberto anexou foi colada direto no chat (não como upload de arquivo), e por limitação já documentada deste sandbox, uma imagem colada assim é visível via visão mas **seus bytes não ficam acessíveis como arquivo local** (confirmado buscando em `/root/.claude/uploads/`, `/tmp`, `/mnt` — só achado o `.md`, um vídeo e um html não relacionados). Roberto foi avisado dessa limitação e pedido pra mandar link direto (upload via admin Imagens, ou URL já hospedada) — **ele ainda não respondeu a esse pedido específico**.
+
+**Reversão (#634)**: Roberto pediu para colocar de volta como pendente ("coloca a materia como pendente e eu faco o resto") — feito via PATCH direto (`status:pendente, approved:false`) no post `cf734426-7fec-4ad1-b60d-05f17d6031cb`.
+
+**🔴 Achado real, não esperado, confirmado no próprio retorno do PATCH**: antes da reversão, a automação de Instagram do OVC **já tinha publicado esse post automaticamente** — `metrics.instagram`: `ig_id:"18378548272233039"`, `username:"ovalorcapital"`, `published_at:"2026-09-03T20:42:19.293Z"` (17:42 BRT), `self_like_success:true`, comentário fixado publicado com o `meta_descricao` real, `quota_before_publish:{quota_total:100, quota_usage:57, quota_remaining:43}`. Ou seja: o post virou `pendente` **no site**, mas a cópia já publicada no Instagram (like próprio, comentário, tudo real) continua no ar lá — reverter o status do post no banco não desfaz nada do Instagram. **Roberto ainda não disse o que fazer** (se é pra deixar como está, apagar o post do Instagram manualmente, ou algo mais) — não presumir nenhuma ação sobre isso sem ele confirmar.
+
+#### 4) 🚨 Incidente relatado por Roberto, não totalmente investigado — sessão parecendo travada por horas
+
+Roberto relatou, com razão de estar incomodado: *"eu não mandei você fazer nada! e fui eu quem postou !!!! já que você travou horas atrás e só retornou agora"* — indicando um gap real de várias horas em que a sessão pareceu sem resposta, e ele mesmo tomou uma ação (o merge do PR #635, reset do `diag-once.yml`) nesse meio tempo, achando que a sessão estava travada. **Não foi investigada a causa raiz desse gap** — o assunto foi interrompido pelo pedido seguinte (ajuste de horário) e a sessão seguiu direto pra execução, sem voltar a esse ponto. Registrado aqui como um incidente real relatado pelo dono, sem explicação encontrada — se acontecer de novo, vale investigar mais a fundo (não é do tipo "workflow travado" já documentado antes, é a própria sessão de conversa que pareceu não responder).
+
+#### 5) Ajuste final de horário — janela com pausa de almoço (9h-12h / pausa 12h-13h / 13h-22h BRT)
+
+Roberto pediu, de forma direta e final: *"você vai ajustar os horários da automação. elas devem começar as 9hrs da manhã, pausar as 12hrs e retornar as 13hrs. e ir até às 22hrs."* — o plural "elas" resolvido por leitura de código (não pergunta): as duas automações de Instagram (OVC e Brasil ON) sempre foram documentadas e mantidas em sincronia desde a construção do motor do Brasil ON acima.
+
+**PR #636 (commit squash `5684e80`)** — 4 arquivos, mantidos em sincronia:
+- `api/manage.js` — `_igAutoDentroDaJanelaAtiva()` reescrita: `IG_AUTO_JANELA_MANHA_INICIO_BRT=9`, `IG_AUTO_JANELA_PAUSA_INICIO_BRT=12`, `IG_AUTO_JANELA_PAUSA_FIM_BRT=13`, `IG_AUTO_JANELA_ATIVA_FIM_BRT=22` — ativo se `(hora≥9 e hora<12) ou (hora≥13 e hora<22)`.
+- `brasilon/api/manage.js` — mesmo gate, espelhado.
+- `.github/workflows/instagram-auto.yml` — cron `*/20 0,12-14,16-23 * * *` (BRT+3: ativo 9h-12h BRT = 12h-15h UTC; pausa 12h-13h BRT = 15h UTC; ativo 13h-22h BRT = 16h UTC-01h UTC do dia seguinte).
+- `brasilon/CLAUDE.md` — documentação atualizada.
+
+**Verificação real, não só leitura de código**: os 4 arquivos validados (`node --check` nos 2 `.js`, `python3 -c "import yaml"` no workflow), `api/` confirmado com 10 arquivos, `public/index.html` intocado (723 linhas). Deploy de produção confirmado com sucesso via `deploy.yml` (`Deploy Production`) **e** `deploy-brasilon.yml` (`Deploy Brasil ON (Vercel)`), ambos `conclusion:success` no mesmo commit — a nova janela já está ao vivo nos dois portais.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (02-04/09/2026)
+
+| Sistema | Status |
+|---|---|
+| **Instagram do OVC — janela 08h-22h BRT + gate redundante server-side** (corrige publicação real às 04h causada por quirk do agendador do GitHub Actions) | ✅ EM PRODUÇÃO (PRs #612/#613) — depois substituída pela janela com pausa de almoço (item abaixo) |
+| **Instagram do OVC — 4 collaborators automáticos** (`@oterrasan`, `@souabetaferreira`, `@adriana.ferreirasp`, `@amichelefroes`) | ✅ EM PRODUÇÃO (PR #614) |
+| **Motor de publicação no Instagram do Brasil ON construído do zero** — imagem crua + caixa amarela + ícone, `core/instagram.js` próprio, ações `instagram_publish`/`instagram_auto_publish`, cron nativo 24h com gate server-side | ✅ EM PRODUÇÃO, testado com publicação real (PRs #618-#626) |
+| **Bug "Redação OVC" vazando na legenda do Instagram e no site — corrigido em código + backfill de 164 linhas, reconferido 0 residual em 1041 linhas** | ✅ EM PRODUÇÃO E VERIFICADO (PRs #627/#628/#629) |
+| **Coluna "A Fazenda dos Porcos de Toga" (Roberto Terrasan)** — fact-checked, publicada, depois revertida pra pendente a pedido dele | ✅ FEITO — post `cf734426-7fec-4ad1-b60d-05f17d6031cb`, `pendente` no site |
+| **Cópia já publicada no Instagram desse mesmo post** (like + comentário reais, antes da reversão) | ⚠️ CONTINUA NO AR — Roberto ainda não disse o que fazer a respeito |
+| **Janela final de Instagram — 9h-12h / pausa 12h-13h / 13h-22h BRT, OVC e Brasil ON sincronizados** | ✅ EM PRODUÇÃO (PR #636, commit `5684e80`) — deploy confirmado nos dois portais |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Imagem da coluna "A Fazenda dos Porcos de Toga"** — Roberto ainda não respondeu se vai mandar link/upload. Publicar sem imagem de capa não é ideal, mas não é bloqueante — ele disse que ia terminar de revisar sozinho no admin.
+2. **Cópia já publicada no Instagram do post revertido pra pendente** (`ig_id:18378548272233039`) — perguntar a Roberto se quer que algo seja feito a respeito (deixar como está, apagar manualmente, etc.) antes de presumir qualquer ação.
+3. **Incidente do "travou horas atrás"** — não investigado a fundo. Se se repetir, vale olhar mais de perto (não é o mesmo padrão já documentado de workflow do GitHub Actions atrasando — parece ser da própria conversa).
+4. **Confirmar visualmente com Roberto, ao vivo, a nova janela 9h-12h/pausa/13h-22h BRT** — código e deploy confirmados, mas o comportamento real ao longo de um dia inteiro (respeitar a pausa do meio-dia, cortar seco às 22h) ainda não foi observado em produção por uma sessão.
+5. Demais pendências de sessões anteriores seguem válidas: migração SQL da coluna `video_url` (se ainda não rodada), raspagem automática de fontes de vídeo, as 2 pendências prioritárias do SBT News (Shorts/Vídeos e redesign geral da home — aguardando autorização explícita), Reels no Instagram (aguardando confirmação de escopo sobre direito autoral de vídeo embutido), exploração de redesign "continuidade de navegação" (pausada por Roberto), novo projeto Google Cloud + chaves Gemini dedicadas às 6 categorias sem canal próprio (Roberto disse que ia criar, ainda não confirmado), marca d'água do Instagram do OVC (aguardando assets de Roberto), SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense.
+
+---
