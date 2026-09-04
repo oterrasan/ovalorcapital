@@ -599,12 +599,23 @@ async function handleInstagramAutoPublish(req, res) {
       return res.status(200).json({ ok: true, skipped: true, reason: "limite_diario_atingido", publicados_hoje: publicadosHoje, limite: config.dailyLimit });
     }
 
+    // 04/09/2026 — BUG REAL corrigido: a query antes buscava os 50 posts
+    // MAIS ANTIGOS (ascending). Com a automação rodando desde 03/09, os 50
+    // mais antigos (todos de 25/08) já ficaram 100% carimbados como
+    // postados — e como a query nunca olhava além desse lote fixo, a
+    // automação ficava presa respondendo "nenhum candidato elegível" pra
+    // sempre, mesmo com conteúdo fresco chegando o tempo todo via sync.
+    // Fix: mesmo padrão já em produção no OVC (api/manage.js raiz,
+    // handleIgAutoPublish) — janela dos 500 posts MAIS RECENTES (desc),
+    // não um lote fixo antigo. Isso garante que a automação sempre
+    // enxerga o conteúdo novo, e só desce pro backlog quando o topo da
+    // janela já está todo carimbado.
     const { data: candidatos, error } = await supabase.from("brasilon_posts")
       .select("id,titulo,conteudo,comentario_fixado,imagem,categoria,status,published_at")
       .eq("status", "publicado")
       .in("categoria", config.categories)
-      .order("published_at", { ascending: true })
-      .limit(50);
+      .order("published_at", { ascending: false })
+      .limit(500);
     if (error) throw error;
 
     let post = null;
