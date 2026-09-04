@@ -235,13 +235,15 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
     (1 linha por post, claim-antes-de-publicar + desfaz se falhar) e
     `BON_IG_AUTO_COUNT_{diaBRT}__{timestamp}_{rand}` (contador do dia,
     somado via `COUNT`, nunca lido+somado de 1 linha).
-  - **Janela ativa 08h-22h BRT** (gate no próprio código, não só no
-    cron — mesma lição do incidente do OVC de 02/09/2026, onde o
-    scheduler do GitHub Actions disparou fora do range configurado).
-    Cron do Vercel (`brasilon/vercel.json`) roda `*/15 * * * *` o dia
-    inteiro DE PROPÓSITO (sem restringir hora no cron em si) — o gate
-    real fica 100% no código, nunca dependendo só da config do
-    agendador.
+  - **Janela ativa 9h-12h e 13h-22h BRT, pausa de almoço 12h-13h**
+    (atualizado 04/09/2026, gate no próprio código, não só no cron —
+    mesma lição do incidente do OVC de 02/09/2026, onde o scheduler do
+    GitHub Actions disparou fora do range configurado). Cron do Vercel
+    (`brasilon/vercel.json`) roda `*/15 * * * *` o dia inteiro DE
+    PROPÓSITO (sem restringir hora no cron em si) — o gate real fica
+    100% no código (`_igAutoDentroDaJanelaAtiva()` em
+    `brasilon/api/manage.js`), nunca dependendo só da config do
+    agendador. Mantido em sincronia com a mesma janela do OVC.
   - **✅ LIGADO EM PRODUÇÃO (03/09/2026)** — Roberto: "pode ligar, deixa
     rodando. vamos ver qual é!". `config.enabled=true`, `dailyLimit:60`,
     `interval:15`, todas as 4 categorias. **Primeira publicação real
@@ -329,8 +331,9 @@ e `api/manage.js` na raiz do repo — **não** dentro de `brasilon/`):
      única por chamada, sem `.upsert()` — evita bug de concorrência já
      documentado no projeto).
 4. **`.github/workflows/instagram-auto.yml`** — cron a cada 20min, ativo
-   08h–22h BRT (corte seco às 22h, atualizado 02-03/09/2026 — não é mais
-   07h-00h), chama `ig_auto_publish`. Roteado via cron do GitHub Actions
+   9h-12h e 13h-22h BRT com pausa de almoço 12h-13h (atualizado
+   04/09/2026 — antes era 08h-22h sem pausa), chama `ig_auto_publish`.
+   Roteado via cron do GitHub Actions
    (não cron nativo da Vercel), com um gate redundante server-side em
    `api/manage.js` (`_igAutoDentroDaJanelaAtiva()`) — um bug real do
    scheduler do GitHub Actions já fez disparar fora da janela configurada

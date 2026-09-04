@@ -32,16 +32,21 @@ const INSTAGRAM_CONFIG_KEYS = [
   "BON_IG_CATEGORIES", "BON_IG_LAYOUT_READY", "BON_IG_LAYOUT_VERSION"
 ];
 const SITE_BASE = "https://www.obrasilon.com.br";
-// Janela ativa de publicação — mesmo padrão 08h-22h BRT já usado pro OVC
-// (Roberto ainda não pediu horário diferente pro Brasil ON especificamente;
-// se pedir, atualizar aqui). Corte seco às 22h, sem cron nativo com opção
-// de timezone (Vercel não tem — confirmado 30/08/2026), então o cálculo é
-// sempre em UTC-3 manual.
-const IG_AUTO_JANELA_INICIO_BRT = 8;
-const IG_AUTO_JANELA_FIM_BRT = 22;
+// Janela ativa de publicação — mesmo padrão já usado pro OVC, mantido em
+// sincronia com api/manage.js (raiz). Sem cron nativo com opção de timezone
+// (Vercel não tem — confirmado 30/08/2026), então o cálculo é sempre em
+// UTC-3 manual.
+// 04/09/2026 — Roberto pediu pausa de almoço: ativo 9h-12h BRT, pausa
+// 12h-13h BRT, ativo de novo 13h-22h BRT (corte seco às 22h).
+const IG_AUTO_JANELA_MANHA_INICIO_BRT = 9;
+const IG_AUTO_JANELA_PAUSA_INICIO_BRT = 12;
+const IG_AUTO_JANELA_PAUSA_FIM_BRT = 13;
+const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;
 function _igAutoDentroDaJanelaAtiva() {
   const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
-  return horaBRT >= IG_AUTO_JANELA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_FIM_BRT;
+  const manha = horaBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT;
+  const tarde = horaBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT && horaBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT;
+  return manha || tarde;
 }
 function _igAutoDiaBRT() {
   const brt = new Date(Date.now() - 3 * 3600 * 1000);
@@ -577,7 +582,7 @@ async function handleInstagramPublish(req, res, body) {
 // Automático — disparado pelo cron nativo da Vercel (brasilon/vercel.json).
 async function handleInstagramAutoPublish(req, res) {
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08h_22h_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_13_22_brt" });
   }
 
   try {

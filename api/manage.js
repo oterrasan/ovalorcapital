@@ -539,22 +539,29 @@ const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-
 const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c40a0c8ed16065";
 
 // 02/09/2026 (2ª correção do dia) — Roberto reportou publicação real às
-// 04h13 BRT, mesmo com a janela ativa configurada como 08h-22h BRT em
+// 04h13 BRT, mesmo com a janela ativa configurada em
 // .github/workflows/instagram-auto.yml. Investigado com evidência real
 // (logs do próprio run no GitHub Actions): o cron do Actions de fato
-// disparou às 07:13 UTC (=04:13 BRT), FORA do filtro de hora configurado
-// (github's scheduled trigger não garante 100% que só dispara dentro do
-// range de horas do cron — quirk real e observado, não suposição). Como
-// o backend não tinha NENHUM gate próprio de horário, publicou.
+// disparou fora do filtro de hora configurado (github's scheduled trigger
+// não garante 100% que só dispara dentro do range de horas do cron —
+// quirk real e observado, não suposição). Como o backend não tinha
+// NENHUM gate próprio de horário, publicou.
 // Fix: gate de segurança aqui, redundante ao cron — mesmo se o Actions
 // disparar fora de hora de novo, o backend recusa. Janela precisa ficar
 // EXATAMENTE em sincronia com o cron do workflow — se Roberto pedir pra
 // mudar o horário de novo, atualizar os dois juntos.
-const IG_AUTO_JANELA_ATIVA_INICIO_BRT = 8;  // 08h BRT
-const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;    // corte seco às 22h BRT (22h já é pausa)
+//
+// 04/09/2026 — Roberto pediu janela com pausa de almoço: ativo 9h-12h BRT,
+// pausa 12h-13h BRT, ativo de novo 13h-22h BRT (corte seco às 22h).
+const IG_AUTO_JANELA_MANHA_INICIO_BRT = 9;   // 09h BRT — início
+const IG_AUTO_JANELA_PAUSA_INICIO_BRT = 12;  // 12h BRT — pausa de almoço começa
+const IG_AUTO_JANELA_PAUSA_FIM_BRT = 13;     // 13h BRT — retoma
+const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;     // corte seco às 22h BRT (22h já é pausa)
 function _igAutoDentroDaJanelaAtiva() {
   const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
-  return horaBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT;
+  const manha = horaBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT;
+  const tarde = horaBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT && horaBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT;
+  return manha || tarde;
 }
 
 function _igCronAuthorized(req, body) {
@@ -838,7 +845,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
 async function handleIgAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08h_22h_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_13_22_brt" });
   }
 
   const settings = await _igAutoConfig();
