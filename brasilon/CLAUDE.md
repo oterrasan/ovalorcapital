@@ -41,20 +41,67 @@ institucional/premium do OVC.
 ## 2. ARQUITETURA — COMO O CONTEÚDO CHEGA NO BRASIL ON
 
 **Brasil ON não gera conteúdo próprio.** Ele **reposta** automaticamente
-matérias que o pipeline do OVC já gerou, filtradas por categoria:
+matérias que o pipeline do OVC já gerou, filtradas por categoria.
+
+### ✅ 04/09/2026 — DE-PARA DIRETO (caminho principal, substitui o polling)
+
+Roberto: *"O correto seria simplesmente ter um DE-PARA. Tudo o que a
+categoria BRASIL ON postar no OVC, automaticamente posta no BRASIL ON
+também. isso resolve todos os problemas."* Motivo real: o sync por cron
+(ver abaixo) causou um travamento real de quase 1h no Instagram do
+Brasil ON — sua query de publicação sempre buscava o lote dos 50 posts
+MAIS ANTIGOS, e esses já estavam 100% carimbados como postados, então
+conteúdo fresco nunca era alcançado.
 
 ```
-Pipeline do OVC gera matéria → salva em `posts` (banco do OVC)
+Pipeline do OVC salva um post como "publicado" (direto, ou via aprovação
+manual no admin) em `posts` (banco do OVC)
         ↓
-Job "brasilon_sync" (pipeline-cron.yml, a cada 20min) chama:
-  POST https://www.obrasilon.com.br/api/manage?action=sync&pass=...
+core/brasilonMirror.js (mirrorPostToBrasilOn) — VIVE DO LADO DO OVC,
+FORA de brasilon/ — chamado NA HORA, logo após o insert/update bem-
+sucedido, dentro de:
+  • api/run_portal.js: salvarBrasilOn(), salvarJovempanPolitica(),
+    salvarEsportesRadar() (só quando é Futebol)
+  • api/manage.js: handleApprovePortal() (aprovar / editar_aprovar /
+    aprovar_lote — cobre o pipeline geral aprovado manualmente)
         ↓
-brasilon/api/manage.js handleSync() busca posts recentes do OVC,
-classifica em 4 categorias (ver abaixo), copia pra `brasilon_posts`
-(vinculado por `origem_post_id`, com índice UNIQUE — nunca duplica)
+Mesma classificação de classificar() abaixo, replicada em código (ZERO
+IMPORT — é uma cópia da lógica, não um import de brasilon/, a regra de
+"zero import cruzado" continua intacta: core/brasilonMirror.js nunca
+importa nada de dentro de brasilon/, só escreve direto na tabela
+brasilon_posts do mesmo Supabase, exatamente como o cron de sync sempre
+fez via HTTP) — upsert por origem_post_id (constraint unique real,
+nunca duplica), inclui assinarBrasilOn() (troca "Redação OVC" por
+"BRASIL ON" — Roberto confirmou 04/09/2026 que essa regra continua
+valendo). 100% best-effort, nunca lança exceção — uma falha aqui JAMAIS
+pode quebrar a publicação real no OVC.
         ↓
-brasilon/api/*.js servem esse conteúdo já classificado no site
+brasilon/api/*.js servem esse conteúdo já classificado no site,
+normalmente no mesmo minuto em que foi publicado no OVC
 ```
+
+**Se um dia mexer na classificação (`classificar()`, `POLICIA_KW`,
+`assinarBrasilOn()`) em `brasilon/api/manage.js`, replicar a MESMA
+mudança em `core/brasilonMirror.js` (repo do OVC, fora de `brasilon/`)
+— os dois têm que ficar sempre em sincronia, não há um jeito automático
+de garantir isso.**
+
+### Sync por cron — ainda ativo, agora só como rede de segurança
+
+```
+Job "brasilon_sync" (brasilon/vercel.json, cron nativo, a cada 20min) chama:
+  GET https://www.obrasilon.com.br/api/manage?action=sync&pass=...
+        ↓
+brasilon/api/manage.js handleSync() busca posts publicados nas últimas
+72h do OVC, classifica em 4 categorias (ver abaixo), copia pra
+`brasilon_posts` (vinculado por `origem_post_id`, índice UNIQUE — nunca
+duplica, mesmo rodando em paralelo com o DE-PARA acima)
+```
+
+Não foi removido — cobre qualquer coisa que escape do push direto (erro
+transiente de rede no momento exato da publicação, por exemplo). Na
+prática, com o DE-PARA ativo, ele deve quase sempre encontrar zero
+posts novos pra sincronizar.
 
 ### As 4 categorias do Brasil ON (fechado em 27/08/2026, PR #519)
 
@@ -197,6 +244,21 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
 > Registrado em 27/08/2026, retomado e concluído em 03/09/2026. O motor
 > de publicação (que faltava desde a fase de config/scaffolding do
 > Codex) existe agora — ver estado real abaixo.
+
+> **🔴 04/09/2026 — 2 bugs reais corrigidos, ambos em
+> `handleInstagramAutoPublish` (`brasilon/api/manage.js`):**
+> 1. **Travamento real de ~1h** — a query de candidatos sempre buscava
+>    os 50 posts MAIS ANTIGOS (`ascending:true, limit:50`), todos já
+>    100% carimbados como publicados — automação nunca via conteúdo
+>    novo. Fix: `.order("published_at",{ascending:false}).limit(500)`,
+>    mesmo padrão já em produção no OVC.
+> 2. **Trava "só notícia do dia"** — pedido explícito de Roberto,
+>    furioso: só publica se `published_at` do candidato cair no mesmo
+>    dia calendário BRT de hoje (`_igAutoDiaBRTDe()`), nunca posta
+>    backlog de dias anteriores mesmo com a janela de 500 toda
+>    carimbada. **Essa trava é EXCLUSIVA do Instagram — o SITE do
+>    Brasil ON (home/categoria/feed) nunca deve ter filtro de data,
+>    ver seção 2 e seção 7 (pendência 7).**
 
 ### ✅ Estado real confirmado em 03/09/2026 (não assumido — lido do código + testado)
 
@@ -381,15 +443,17 @@ e `api/manage.js` na raiz do repo — **não** dentro de `brasilon/`):
 
 ---
 
-## 7. PENDÊNCIAS ATUAIS (atualizado 03/09/2026)
+## 7. PENDÊNCIAS ATUAIS (atualizado 04/09/2026)
 
 | # | Pendência | Quem |
 |---|---|---|
 | 1 | ~~Confirmar DNS de `obrasilon.com.br` propagado 100%~~ | ✅ Feito |
-| 2 | ~~Automação de Instagram pro Brasil ON~~ — construída, LIGADA e publicando de verdade (ver seção 6). Corrigido também o bug de "Redação OVC" vazando (legenda + dado gravado no site, 164 linhas). Monitorar próximos ciclos do cron pra confirmar operação contínua | Claude monitora |
+| 2 | ~~Automação de Instagram pro Brasil ON~~ — construída, LIGADA e publicando de verdade (ver seção 6). Corrigido também o bug de "Redação OVC" vazando (legenda + dado gravado no site, 164 linhas), o bug real de travamento ~1h (query buscava sempre os 50 mais antigos) e adicionada trava "só notícia do dia" (ver seção 2 e seção 6) | ✅ Feito — monitorar operação contínua |
 | 3 | Confirmar visualmente o ícone novo (`icone-brasil-on.svg`) depois do próximo deploy bem-sucedido | Roberto |
 | 4 | Discutir mais definições de layout/design com Roberto (ele pediu que fosse a conversa seguinte depois do site estar 100% no ar) | Roberto |
 | 5 | ~~Vincular `www.obrasilon.com.br` ao Google Search Console + submeter sitemap~~ | ✅ Feito (ver seção 8) |
+| 6 | **Confirmar com evidência real** que o DE-PARA direto (seção 2) está publicando matéria nova em `brasilon_posts` no mesmo instante da publicação no OVC — implementado e deployado 04/09/2026, ainda sem teste end-to-end com post real (sandbox sem rede pra produção) | Claude confirma na próxima sessão |
+| 7 | 🚨 **NUNCA aplicar filtro "só hoje"/data no site do Brasil ON (home/categoria/feed)** — o site precisa SEMPRE mostrar o histórico completo, "igual a qualquer site". Essa trava é EXCLUSIVA do Instagram (ver seção 2 e seção 6). Erro real já cometido e revertido com força por Roberto em 04/09/2026 — não repetir | Regra permanente |
 
 ---
 
