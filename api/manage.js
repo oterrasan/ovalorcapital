@@ -553,14 +553,21 @@ const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c
 //
 // 04/09/2026 — Roberto pediu janela com pausa de almoço: ativo 9h-12h BRT,
 // pausa 12h-13h BRT, ativo de novo 13h-22h BRT (corte seco às 22h).
-const IG_AUTO_JANELA_MANHA_INICIO_BRT = 9;   // 09h BRT — início
-const IG_AUTO_JANELA_PAUSA_INICIO_BRT = 12;  // 12h BRT — pausa de almoço começa
-const IG_AUTO_JANELA_PAUSA_FIM_BRT = 13;     // 13h BRT — retoma
-const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;     // corte seco às 22h BRT (22h já é pausa)
+// 04/09/2026 (mesmo dia, ajuste) — Roberto pediu SÓ pro OVC (não pro
+// Brasil ON, que continua retomando às 13h — ver brasilon/api/manage.js)
+// que o retorno do almoço fosse às 13h30, não 13h00. Isso exige precisão
+// de MINUTO (não só hora inteira) — daqui pra frente os limites são em
+// minutos desde a meia-noite BRT, não em horas soltas. Se Roberto pedir
+// pra mudar de novo, atualizar os *_MIN abaixo (hora*60+minuto).
+const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 9 * 60;        // 09:00 BRT — início
+const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa de almoço começa
+const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 13 * 60 + 30;     // 13:30 BRT — retoma
+const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 22 * 60;          // corte seco às 22:00 BRT (22h já é pausa)
 function _igAutoDentroDaJanelaAtiva() {
-  const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
-  const manha = horaBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT;
-  const tarde = horaBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT && horaBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT;
+  const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
+  const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
+  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
+  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
   return manha || tarde;
 }
 
@@ -845,7 +852,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
 async function handleIgAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_13_22_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_1330_22_brt" });
   }
 
   const settings = await _igAutoConfig();
