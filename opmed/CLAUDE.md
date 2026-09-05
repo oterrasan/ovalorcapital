@@ -143,5 +143,41 @@ duplique lógica pequena.
 ## 6. ONDE ESTÁ O CÓDIGO AGORA
 
 PR #661 (`oterrasan/ovalorcapital`, branch `feat/opmed-scaffold`) —
-**draft**, não mergeado em `main`. Nada disso está em produção — é só
+**draft**, não mergeado em `main`. Nada disso está em produção real — é só
 código guardado no GitHub esperando as decisões da seção 5.
+
+### ✅ Ambiente de teste ao vivo (05/09/2026)
+
+A pedido de Roberto ("COLOCA NO AR em um ambiente de teste no vercel, pra
+eu ir vendo e me mostra"), foi criado um projeto Vercel novo e separado
+(`roberto-terrasans-projects/opmed`) só pra visualização — **não é
+produção real, é só um preview pra Roberto avaliar o layout**.
+
+**URL estável:** https://opmed-teal.vercel.app
+
+Mostra o layout completo (topo+rails+rodapé do OVC + miolo do Brasil ON)
+com **dados de exemplo (mock)**, já que ainda não existe backend/`api/`
+próprio — a página busca `/api/portal-posts` (que não existe ainda em
+`opmed/`), recebe erro, e cai automaticamente num fallback de 22 posts
+fictícios cobrindo as 5 categorias, com um banner amarelo fixo no topo
+avisando "⚠️ DADOS DE EXEMPLO — o OPMED ainda não tem backend/matérias
+reais" — nunca finge que é dado real. Esse fallback (`MOCK_POSTS` em
+`opmed/public/js/home.js`) é temporário e deve ser removido assim que o
+backend de verdade existir.
+
+**Como atualizar esse ambiente de teste** (o mesmo padrão de deploy manual
+usado pelo Brasil ON antes de `deploy-brasilon.yml` existir — aqui ainda
+não vale a pena automatizar, é só um preview de avaliação, não produção):
+escrever um script one-off em `.github/workflows/diag-once.yml` que roda
+`vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod` dentro de
+`opmed/` (checkout da branch `feat/opmed-scaffold`), commitar, abrir PR,
+mergear, conferir o log, e resetar `diag-once.yml` ao placeholder.
+
+**⚠️ Lição real desta sessão — sempre usar `--prod`:** rodar o comando
+SEM `--prod` cria um preview novo com URL aleatória
+(`opmed-xxxxxxxxx-roberto-terrasans-projects.vercel.app`) e NÃO atualiza
+`opmed-teal.vercel.app` — a primeira vez só virou produção porque foi o
+primeiro deploy do projeto (qualquer primeiro deploy vira produção
+automaticamente, mesmo sem `--prod`). Todo redeploy seguinte precisa do
+`--prod` explícito pra continuar atualizando essa mesma URL estável que
+Roberto já tem em mãos.
