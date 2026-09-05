@@ -1,4 +1,9 @@
-name: Diagnóstico único (placeholder)
+name: Diagnóstico único (redeploy de teste OPMED — temporário)
+
+# One-off: redeploy do preview de teste do OPMED (mesmo projeto Vercel
+# "roberto-terrasans-projects/opmed" já criado antes), agora com o
+# fallback de dados de exemplo (Roberto: "do jeito que está nao consigo
+# ter nocao alguma"). Reset pro placeholder assim que a URL for capturada.
 
 on:
   push:
@@ -10,7 +15,16 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: placeholder — nada a fazer
-        run: echo "placeholder"
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/opmed-scaffold
+
+      - name: Redeploy de teste (preview) do OPMED na Vercel
+        working-directory: opmed
+        run: |
+          npm install -g vercel@54.6.1
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1 | tee /tmp/deploy.log
+          echo "=== URL DO PREVIEW ==="
+          grep -Eo 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/deploy.log | tail -1
