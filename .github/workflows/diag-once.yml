@@ -1,31 +1,14 @@
-name: Diagnóstico único (redeploy PRODUÇÃO de teste OPMED — temporário)
-
-# One-off: o redeploy anterior (sem --prod) caiu como preview novo
-# (opmed-g9uhriy1y-...) em vez de atualizar a URL estável que Roberto já
-# abriu (opmed-teal.vercel.app). Este redeploy usa --prod pra garantir
-# que a URL que ele já tem em mãos mostre os dados de exemplo. Reset pro
-# placeholder assim que confirmado.
-
+name: Diagnóstico único (placeholder)
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/diag-once.yml'
   workflow_dispatch:
-
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: feat/opmed-scaffold
-
-      - name: Redeploy de PRODUÇÃO de teste do OPMED na Vercel
-        working-directory: opmed
-        run: |
-          npm install -g vercel@54.6.1
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy.log
-          echo "=== URL DE PRODUÇÃO ==="
-          grep -Eo 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/deploy.log | tail -1
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
