@@ -1,9 +1,10 @@
-name: Diagnóstico único (redeploy de teste OPMED — temporário)
+name: Diagnóstico único (redeploy PRODUÇÃO de teste OPMED — temporário)
 
-# One-off: redeploy do preview de teste do OPMED (mesmo projeto Vercel
-# "roberto-terrasans-projects/opmed" já criado antes), agora com o
-# fallback de dados de exemplo (Roberto: "do jeito que está nao consigo
-# ter nocao alguma"). Reset pro placeholder assim que a URL for capturada.
+# One-off: o redeploy anterior (sem --prod) caiu como preview novo
+# (opmed-g9uhriy1y-...) em vez de atualizar a URL estável que Roberto já
+# abriu (opmed-teal.vercel.app). Este redeploy usa --prod pra garantir
+# que a URL que ele já tem em mãos mostre os dados de exemplo. Reset pro
+# placeholder assim que confirmado.
 
 on:
   push:
@@ -21,10 +22,10 @@ jobs:
         with:
           ref: feat/opmed-scaffold
 
-      - name: Redeploy de teste (preview) do OPMED na Vercel
+      - name: Redeploy de PRODUÇÃO de teste do OPMED na Vercel
         working-directory: opmed
         run: |
           npm install -g vercel@54.6.1
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1 | tee /tmp/deploy.log
-          echo "=== URL DO PREVIEW ==="
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy.log
+          echo "=== URL DE PRODUÇÃO ==="
           grep -Eo 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/deploy.log | tail -1
