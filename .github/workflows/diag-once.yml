@@ -1,13 +1,4 @@
-name: Diagnóstico único (deploy de teste OPMED — temporário)
-
-# Ação one-off: sobe um preview de teste do OPMED na Vercel (projeto
-# separado, "opmed", criado automaticamente no primeiro deploy — mesmo
-# padrão usado pra bootstrapar o Brasil ON). Pedido de Roberto: "COLOCA NO
-# AR em um ambiente de teste no vercel, pra eu ir vendo e me mostra".
-# Faz checkout do branch feat/opmed-scaffold (ainda draft, PR #661) — o
-# scaffold do OPMED NUNCA foi mergeado em main, só este workflow
-# temporário vive em main pra poder rodar. Resetar pro placeholder assim
-# que a URL do preview for capturada.
+name: Diagnóstico único (placeholder)
 
 on:
   push:
@@ -19,16 +10,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: feat/opmed-scaffold
-
-      - name: Deploy de teste (preview) do OPMED na Vercel
-        working-directory: opmed
-        run: |
-          npm install -g vercel@54.6.1
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes 2>&1 | tee /tmp/deploy.log
-          echo "=== URL DO PREVIEW ==="
-          grep -Eo 'https://[a-zA-Z0-9._-]+\.vercel\.app' /tmp/deploy.log | tail -1
+      - name: placeholder — nada a fazer
+        run: echo "placeholder"
