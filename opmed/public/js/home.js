@@ -48,6 +48,22 @@
     return r.json();
   }
 
+  // Widget de rail filtrado por categoria — mesmo mecanismo do rail
+  // "Futebol" do Brasil ON (home.js): filtra os PRÓPRIOS posts do
+  // portal já carregados, sem chamada extra de rede. O wrapper (passado
+  // via data-attr "-wrap" ao lado do slot) só aparece se houver conteúdo
+  // de verdade — nunca deixa caixa vazia (mesma regra do OVC: "se não
+  // houver conteúdo disponível, o bloco não aparece").
+  function renderCategoriaWidget(posts, categoria, slotAttr, limit) {
+    var slot = document.querySelector("[data-op-w-" + slotAttr + "]");
+    if (!slot) return;
+    var wrap = document.querySelector("[data-op-w-" + slotAttr + "-wrap]");
+    var itens = posts.filter(function (p) { return p.categoria === categoria; }).slice(0, limit || 6);
+    if (!itens.length) { if (wrap) wrap.hidden = true; return; }
+    slot.innerHTML = itens.map(sideItemHtml).join("");
+    if (wrap) wrap.hidden = false;
+  }
+
   async function load() {
     var heroSlot = document.querySelector("[data-op-hero]");
     var blocksSlot = document.querySelector("[data-op-blocks]");
@@ -73,6 +89,9 @@
         // por ordem de publicação até esse endpoint existir.
         maisLidasSlot.innerHTML = posts.slice(0, 8).map(sideItemHtml).join("");
       }
+
+      renderCategoriaWidget(posts, "saude-publica", "saudepublica", 6);
+      renderCategoriaWidget(posts, "ciencia", "ciencia", 6);
 
       var hero = posts[0];
       var resto = posts.slice(1);

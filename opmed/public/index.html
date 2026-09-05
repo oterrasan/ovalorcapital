@@ -122,11 +122,13 @@
 <h3 class="op-widget-title">🔥 Mais Lidas</h3>
 <div data-op-w-maislidas><div class="op-widget-empty">Carregando…</div></div>
 </div>
-<!-- ⚠️ PLACEHOLDER — widget de saúde a definir com Roberto (ex: alerta
-     de saúde pública tipo dengue/gripe, calendário de vacinação). -->
-<div class="op-widget">
-<h3 class="op-widget-title">📋 Alerta de Saúde</h3>
-<div class="op-widget-empty">Em construção.</div>
+<!-- Saúde Pública em Foco — real: filtra os próprios posts do portal
+     por categoria=saude-publica, mesmo mecanismo do rail "Futebol" do
+     Brasil ON (home.js). Some sozinho se não houver post nessa categoria
+     ainda (nunca mostra caixa vazia). -->
+<div class="op-widget" data-op-w-saudepublica-wrap hidden>
+<h3 class="op-widget-title">📋 Saúde Pública em Foco</h3>
+<div data-op-w-saudepublica></div>
 </div>
 </aside>
 
@@ -143,11 +145,11 @@
 <h3 class="op-widget-title">Últimas</h3>
 <div data-op-ultimas><div class="op-widget-empty">Carregando…</div></div>
 </div>
-<!-- ⚠️ PLACEHOLDER — segundo widget de saúde a definir com Roberto (ex:
-     "curiosidade científica do dia"). -->
-<div class="op-widget">
-<h3 class="op-widget-title">🔬 Ciência em 1 Minuto</h3>
-<div class="op-widget-empty">Em construção.</div>
+<!-- Ciência & Novidades — real: filtra os próprios posts do portal por
+     categoria=ciencia, mesmo mecanismo acima. Some sozinho se vazio. -->
+<div class="op-widget" data-op-w-ciencia-wrap hidden>
+<h3 class="op-widget-title">🔬 Ciência &amp; Novidades</h3>
+<div data-op-w-ciencia></div>
 </div>
 </aside>
 </div>
