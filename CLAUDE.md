@@ -9041,3 +9041,59 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa na entrada "02-04/09/2026" logo acima: imagem da coluna da Fazenda dos Porcos de Toga, cópia já publicada no Instagram do post revertido, migração SQL de `video_url`, raspagem de vídeo, SBT News, Reels, projeto Google Cloud novo pra Gemini, marca d'água do Instagram do OVC, SUPABASE_KEY morta, Instagram SSL, Google Indexing API, AdSense).
 
 ---
+
+### Sessão 04/09/2026 (continuação 2) — INSTAGRAM DO OVC PAUSADO A PEDIDO DE ROBERTO + ⚠️ ACHADO NÃO INVESTIGADO ("Conta não encontrada · Token ausente")
+
+#### Contexto
+
+Roberto: *"preciso descansar um pouco e pensar em ajustes. pause a automação do Instagram do OVC, deixe do Brasil on ativa."*
+
+#### O que foi feito — pausa via dado, não via código (PRs #657 + #658)
+
+`IG_AUTOMATION_ENABLED` (tabela `config` do OVC) gravado como `"off"` — mesmo mecanismo de sempre (delete+insert, insert-only, sem `.upsert()` — a coluna `key` não tem constraint unique real, bug já documentado extensivamente neste arquivo). Feito via workflow diagnóstico (`diag-once.yml`, GitHub Actions — este sandbox não tem rede pra produção), confirmado com evidência real antes/depois via REST API do Supabase. `diag-once.yml` resetado ao placeholder logo em seguida. **Nenhuma linha de código de produção foi tocada** — `_igAutoConfig()`/`handleIgAutoPublish` (`api/manage.js`) já leem essa flag em runtime a cada disparo do cron, então o efeito foi imediato, sem deploy. Brasil ON **não foi tocado** — continua com sua própria automação (`brasilon/api/manage.js`) ativa e independente.
+
+#### Esclarecimento pedido por Roberto — "no admin tem um botão de pausar e ligar?"
+
+Roberto ficou confuso, achando que eu tinha inventado um mecanismo à parte. Esclarecido com leitura real de código: **existe sim** um botão de verdade no admin — menu lateral → **⏱️ Automação Instagram** (`AutomacaoInstagram()` em `public/admin/index.html`) — checkbox "Funcionamento" (Ligada 24 horas / Desligada) + botão "Salvar configuração", que grava exatamente a mesma chave `IG_AUTOMATION_ENABLED` na mesma tabela `config`. A mudança feita por mim e o botão do admin são **dois caminhos pro mesmo interruptor** — não dois mecanismos diferentes.
+
+#### 🔴 ACHADO REAL, NÃO INVESTIGADO — "Conta não encontrada · Token ausente"
+
+Roberto mandou print real do admin (`/admin` → Automação Instagram) mostrando, além de "Automação desligada" (esperado, é o que eu tinha acabado de pausar): **"· Conta não encontrada · Token ausente"**. Isso é um sinal potencialmente sério e **separado** do toggle que eu mexi — a automação já tinha publicado de verdade em sessões recentes (33 posts confirmados em 24h, documentado em sessão anterior), então uma conta "não encontrada" agora é uma mudança de estado que merece investigação própria.
+
+**Hipótese de leitura de código, NÃO confirmada com dado real:** a query que o admin usa pra mostrar esse banner (`public/admin/index.html`, dentro de `AutomacaoInstagram()`'s `load()`) é:
+```js
+sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).limit(1).maybeSingle()
+```
+Note que essa query **não filtra por `username='ovalorcapital'`** — pega qualquer linha com `active=true`, sem `order by` explícito. Isso é **diferente** da lógica real de publicação (`core/instagram.js`'s `getAccount()`, que primeiro tenta `username='ovalorcapital' AND active=true AND token IS NOT NULL`, e só cai pro fallback genérico se não achar). Se a linha da conta `ovalorcapital` estiver com `active=false` por algum motivo (ou se a query do admin estiver pegando um registro totalmente diferente, tipo o `@obrasilon`, que vive na MESMA tabela `ig_accounts`, discriminado só por `username`), o banner do admin mostraria "não encontrada" mesmo que a conta real ainda exista e funcione — **ou pode ser um problema real** (token realmente expirado/removido). **Não dá pra saber qual dos dois cenários é o real sem consultar o banco.**
+
+**Comecei a escrever um workflow diagnóstico pra consultar `ig_accounts` sem filtro (todas as linhas, `active`, presença de token) e confirmar com dado real qual dos dois cenários é verdadeiro — Roberto interrompeu antes de eu rodar:** *"DEIXA PRA LA. EU VOU VER ISSO DEPOIS"* e, em seguida, *"CLAUDE, NAO MEXA EM NADA"*. Parei imediatamente. O arquivo `diag-once.yml` só foi editado localmente (nunca commitado nem enviado a lugar nenhum) e foi revertido ao placeholder de sempre — **zero mudança chegou ao repositório remoto por causa dessa investigação**.
+
+**🚨 Pendência real e não resolvida:** a causa raiz de "Conta não encontrada · Token ausente" continua desconhecida. Pode ser só um reflexo de uma query do admin com filtro incompleto (o que não afetaria a publicação de verdade, só o banner), ou pode ser um problema genuíno de credencial. **Não presumir nenhuma das duas coisas** — investigar com dado real (consultar `ig_accounts` sem suposição) na próxima vez que Roberto pedir pra religar ou pedir pra investigar isso.
+
+#### Confirmação final dada a Roberto
+
+Pergunta dele: *"A AUTOMACAO ESTA PAUSADA ATÉ EU RELIGAR?"* — resposta: **sim**, sem prazo, não volta sozinha. Fica desligada até ele marcar o checkbox no admin (Automação Instagram → Funcionamento → Salvar) ou pedir pra mim religar via o mesmo mecanismo de dado.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — nesta continuação só houve mudança de DADO, `diag-once.yml` voltou ao placeholder sem chegar a ser commitado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (04/09/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **Instagram do OVC pausado** (`IG_AUTOMATION_ENABLED=off`) — a pedido explícito de Roberto | ✅ CONFIRMADO com evidência real (PRs #657/#658) |
+| **Instagram do Brasil ON** — intocado, continua ativo | ✅ CONFIRMADO — nenhuma mudança feita nele |
+| **Botão real de ligar/desligar no admin** (`⏱️ Automação Instagram`) — mesmo campo que a mudança de dado, dois caminhos pro mesmo interruptor | ✅ CONFIRMADO por leitura de código |
+| **"Conta não encontrada · Token ausente" no banner do admin** — causa raiz desconhecida | ❌ NÃO INVESTIGADO — Roberto pediu pra parar antes da checagem real |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Investigar com dado real** (consultar `ig_accounts` sem suposição) a causa de "Conta não encontrada · Token ausente" no admin — pode ser só um filtro incompleto na query do admin (`public/admin/index.html`, `AutomacaoInstagram()`'s `load()`, que não filtra por `username`), ou pode ser uma credencial real perdida/expirada. Só investigar quando Roberto pedir — ele disse explicitamente "vou ver isso depois".
+2. **Religar o Instagram do OVC** só quando Roberto pedir — não fazer por iniciativa própria.
+3. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas "02-04/09/2026" e "04/09/2026 continuação" acima).
+
+---
