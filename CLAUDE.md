@@ -8848,6 +8848,33 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 ---
 
+### 🆕 REGRA DE ESCOPO — REELS NO INSTAGRAM NUNCA AUTOMÁTICO (definida por Roberto, 05/09/2026)
+
+> Nada disto foi implementado ainda — é só a decisão de arquitetura registrada pra quando a feature for construída. Roberto perguntou, em termos simples, se o sistema seria capaz de reaproveitar a automação já existente do feed (conta, agendamento, hashtags, cron) pra publicar vídeo como Reels, assumindo que a gente construísse um template de vídeo equivalente ao de imagem. Resposta confirmada: **sim, é capaz** — a infraestrutura de automação se reaproveita, só falta construir (1) o motor que aplica o template no vídeo (queima o texto nele — Instagram não aceita overlay HTML separado, diferente do player do site) e (2) o código de publicar como Reels (formato de container diferente de imagem na API do Instagram).
+
+**Mas Roberto foi explícito sobre o fluxo, ANTES de eu construir qualquer coisa:**
+
+> *"Só que a princicpio, nao quero que as postagens de reels sejam automaticas. eu quero que tudo o que for video fique pendente para eu olhar e colocar quando quiser."*
+
+```
+✅ Reels/vídeo NUNCA publica sozinho no Instagram, mesmo depois que o
+   mecanismo for construído — sempre cai como PENDENTE, esperando
+   Roberto revisar e publicar manualmente quando ele quiser.
+✅ Isso é uma exceção deliberada ao padrão do feed de imagem, que hoje
+   publica automático (config.IG_AUTOMATION_ENABLED) — vídeo segue uma
+   regra DIFERENTE e mais restrita.
+❌ Quando o mecanismo de Reels for construído (nova função em
+   core/instagram.js tipo publishReel(), decisão de quando um post tem
+   vídeo elegível), NUNCA ligar isso no cron/automação — só criar a
+   ação manual (ex: um botão "Publicar como Reels" na aba Vídeos do
+   admin), nunca um handleReelsAutoPublish() equivalente ao
+   handleIgAutoPublish() de imagem.
+```
+
+**Ainda pendente de resposta de Roberto** (não mudou com esta decisão): a ressalva de direito autoral levantada em sessão anterior — só publicar como Reels vídeo que o próprio OVC tem direito de usar (upload direto ou fonte confirmada), nunca vídeo embutido do YouTube de outro veículo.
+
+---
+
 ### Sessão 02/09/2026 — GOOGLE SEARCH CONSOLE DO BRASIL ON + INVESTIGAÇÃO REAL MULTI-DIA DA COTA DO GEMINI + EXPLORAÇÃO DE REDESIGN "CONTINUIDADE DE NAVEGAÇÃO" (pausada por Roberto)
 
 #### 1) Brasil ON vinculado ao Google Search Console — CONCLUÍDO
