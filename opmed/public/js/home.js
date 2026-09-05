@@ -48,6 +48,41 @@
     return r.json();
   }
 
+  // ⚠️ DADOS DE EXEMPLO (mock) — o backend do OPMED ainda não existe
+  // (sem banco, sem API, sem matéria real). Sem isso, a homepage carregava
+  // vazia/com erro e não dava pra avaliar o layout de verdade. Isso NUNCA
+  // deve ser confundido com conteúdo real — some sozinho assim que
+  // /api/portal-posts existir e responder com posts de verdade (o fetch()
+  // real é sempre tentado primeiro; isso só entra em cena se ele falhar).
+  var MOCK_POSTS = [
+    { titulo: "Ministério da Saúde amplia campanha de vacinação contra a gripe em todo o país", resumo: "Nova fase da campanha prioriza idosos, gestantes e profissionais da saúde, com previsão de ampliação dos postos de atendimento.", categoria: "saude-publica", imagem: "https://picsum.photos/id/1074/1200/675", published_at: mockDate(8), url: "#" },
+    { titulo: "Estudo brasileiro identifica novo marcador genético associado a doenças cardíacas", resumo: "Pesquisa de dez anos conduzida por universidades públicas pode abrir caminho para diagnósticos mais precoces.", categoria: "ciencia", imagem: "https://picsum.photos/id/1005/1200/900", published_at: mockDate(25), url: "#" },
+    { titulo: "Uso de fio dental reduz em até 40% risco de doenças gengivais, aponta levantamento", resumo: "", categoria: "odontologia", imagem: "https://picsum.photos/id/1025/1200/900", published_at: mockDate(40), url: "#" },
+    { titulo: "Especialistas recomendam pausas regulares para reduzir fadiga visual no trabalho remoto", resumo: "", categoria: "bem-estar", imagem: "https://picsum.photos/id/1011/1200/900", published_at: mockDate(55), url: "#" },
+    { titulo: "Hospitais brasileiros ampliam uso de telemedicina para consultas de acompanhamento", resumo: "", categoria: "medicina", imagem: "https://picsum.photos/id/1015/900/1200", published_at: mockDate(70), url: "#" },
+    { titulo: "Anvisa aprova novo protocolo para testes rápidos de doenças respiratórias", resumo: "", categoria: "saude-publica", imagem: "https://picsum.photos/id/1027/1200/675", published_at: mockDate(90), url: "#" },
+    { titulo: "Pesquisadores desenvolvem sensor que detecta níveis de glicose sem picada de agulha", resumo: "", categoria: "ciencia", imagem: "", published_at: mockDate(100), url: "#" },
+    { titulo: "Sono de má qualidade está ligado a maior risco de ansiedade, mostra revisão de estudos", resumo: "", categoria: "bem-estar", imagem: "https://picsum.photos/id/1040/900/1200", published_at: mockDate(115), url: "#" },
+    { titulo: "Nova diretriz orienta pediatras sobre uso de telas em crianças pequenas", resumo: "", categoria: "medicina", imagem: "https://picsum.photos/id/1043/1200/900", published_at: mockDate(130), url: "#" },
+    { titulo: "Clareamento dental caseiro: dentistas alertam para riscos de produtos sem regulamentação", resumo: "", categoria: "odontologia", imagem: "", published_at: mockDate(140), url: "#" },
+    { titulo: "Ministério da Saúde divulga boletim semanal de monitoramento de arboviroses", resumo: "", categoria: "saude-publica", imagem: "https://picsum.photos/id/1050/1200/900", published_at: mockDate(150), url: "#" },
+    { titulo: "Simulações em laboratório indicam nova via para tratamento de resistência a antibióticos", resumo: "", categoria: "ciencia", imagem: "https://picsum.photos/id/1053/1200/900", published_at: mockDate(160), url: "#" },
+    { titulo: "Caminhada leve de 20 minutos por dia já traz benefícios cardiovasculares, diz estudo", resumo: "", categoria: "bem-estar", imagem: "https://picsum.photos/id/1060/1200/900", published_at: mockDate(170), url: "#" },
+    { titulo: "Cirurgias eletivas voltam a crescer na rede pública após redução de filas de espera", resumo: "", categoria: "medicina", imagem: "https://picsum.photos/id/1062/1200/675", published_at: mockDate(180), url: "#" },
+    { titulo: "Aparelho ortodôntico invisível ganha popularidade entre adultos, mostra levantamento", resumo: "", categoria: "odontologia", imagem: "https://picsum.photos/id/1074/900/1200", published_at: mockDate(190), url: "#" },
+    { titulo: "Campanha de conscientização sobre saúde mental chega às escolas públicas", resumo: "", categoria: "saude-publica", imagem: "", published_at: mockDate(200), url: "#" },
+    { titulo: "Vacina experimental contra dengue mostra resultados promissores em nova fase de testes", resumo: "", categoria: "ciencia", imagem: "https://picsum.photos/id/1080/1200/900", published_at: mockDate(210), url: "#" },
+    { titulo: "Meditação guiada reduz níveis de cortisol em apenas quatro semanas, aponta pesquisa", resumo: "", categoria: "bem-estar", imagem: "https://picsum.photos/id/1084/1200/900", published_at: mockDate(220), url: "#" },
+    { titulo: "Hospitais universitários relatam avanço no uso de inteligência artificial em diagnósticos", resumo: "", categoria: "medicina", imagem: "https://picsum.photos/id/1082/1200/675", published_at: mockDate(230), url: "#" },
+    { titulo: "Dor de dente persistente pode ser sinal de problema mais sério, alertam especialistas", resumo: "", categoria: "odontologia", imagem: "https://picsum.photos/id/1067/1200/900", published_at: mockDate(240), url: "#" },
+    { titulo: "Município amplia rede de UBS e reduz tempo médio de espera por consulta", resumo: "", categoria: "saude-publica", imagem: "https://picsum.photos/id/1069/1200/900", published_at: mockDate(250), url: "#" },
+    { titulo: "Novo estudo mapeia impacto da poluição do ar em doenças respiratórias crônicas", resumo: "", categoria: "ciencia", imagem: "", published_at: mockDate(260), url: "#" }
+  ];
+
+  function mockDate(minutesAgo) {
+    return new Date(Date.now() - minutesAgo * 60000).toISOString();
+  }
+
   // Widget de rail filtrado por categoria — mesmo mecanismo do rail
   // "Futebol" do Brasil ON (home.js): filtra os PRÓPRIOS posts do
   // portal já carregados, sem chamada extra de rede. O wrapper (passado
@@ -64,6 +99,15 @@
     if (wrap) wrap.hidden = false;
   }
 
+  function showMockBanner() {
+    if (document.querySelector("[data-op-mock-banner]")) return;
+    var b = document.createElement("div");
+    b.setAttribute("data-op-mock-banner", "");
+    b.style.cssText = "background:#fef3c7;color:#78350f;font:600 13px/1.4 var(--font-base);text-align:center;padding:8px 16px;border-bottom:1px solid #fde68a;";
+    b.textContent = "⚠️ DADOS DE EXEMPLO — o OPMED ainda não tem backend/matérias reais. Este conteúdo é só pra visualizar o layout.";
+    document.body.insertBefore(b, document.body.firstChild);
+  }
+
   async function load() {
     var heroSlot = document.querySelector("[data-op-hero]");
     var blocksSlot = document.querySelector("[data-op-blocks]");
@@ -71,14 +115,20 @@
     var maisLidasSlot = document.querySelector("[data-op-w-maislidas]");
     if (!blocksSlot) return;
 
+    var posts;
     try {
       var d = await fetchJson("/api/portal-posts?limit=60");
-      var posts = d.posts || [];
-      if (!posts.length) {
-        blocksSlot.innerHTML = '<div class="op-empty">Nenhuma matéria publicada ainda.</div>';
-        return;
-      }
+      posts = d.posts || [];
+    } catch (_) {
+      posts = [];
+    }
 
+    if (!posts.length) {
+      posts = MOCK_POSTS;
+      showMockBanner();
+    }
+
+    try {
       if (ultimasSlot) {
         ultimasSlot.innerHTML = posts.slice(0, 12).map(sideItemHtml).join("");
       }
