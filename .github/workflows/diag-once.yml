@@ -1,11 +1,9 @@
-name: Diagnóstico único (candidatos de bem-estar pro OPMED — temporário)
+name: Diagnóstico único (redeploy final OPMED com imagens reais — temporário)
 
-# One-off: as 2 imagens de bem-estar da rodada anterior ainda estavam
-# erradas (bemestar-1 = foto de arquivo militar de 1917 numa fábrica de
-# aviões, "stretching" bateu por coincidência léxica; bemestar-2 = um
-# infográfico gráfico, não fotografia). Baixa 3 candidatos por slot (sem
-# escolher automaticamente) pra inspeção visual manual antes de decidir
-# qual fica. Reset pro placeholder assim que confirmado.
+# One-off: redeploy de produção do ambiente de teste do OPMED
+# (opmed-teal.vercel.app) após finalizar as imagens reais de bem-estar e
+# ligar as 22 imagens mock por categoria em home.js. Reset pro placeholder
+# assim que confirmado no ar.
 
 on:
   push:
@@ -13,9 +11,6 @@ on:
     paths:
       - '.github/workflows/diag-once.yml'
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   diag:
@@ -26,96 +21,16 @@ jobs:
         with:
           ref: feat/opmed-scaffold
 
-      - name: Baixa 3 candidatos por slot (Wikimedia Commons)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instala Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy de PRODUÇÃO (opmed-teal.vercel.app)
+        working-directory: opmed
         run: |
-          python3 << 'PYEOF'
-          import json, urllib.request, urllib.parse, os
-
-          UA = "OPMED-mock-image-fetch/1.0 (internal test; contact: n/a)"
-          BAD_WORDS = ["military", "army", "navy", "marine", "guantanamo", "soldier",
-                       "air force", "national guard", "wellcome", "nara", "archive",
-                       "aviation", "infographic", "poster", "chart", "diagram",
-                       "vector", "cartoon", "illustration", "banner", "logo", "1917", "1918"]
-
-          def api_get(params):
-              url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params)
-              req = urllib.request.Request(url, headers={"User-Agent": UA})
-              with urllib.request.urlopen(req, timeout=25) as r:
-                  return json.loads(r.read().decode())
-
-          def download(url, dest):
-              req = urllib.request.Request(url, headers={"User-Agent": UA})
-              with urllib.request.urlopen(req, timeout=25) as r:
-                  data = r.read()
-              with open(dest, "wb") as f:
-                  f.write(data)
-              return len(data)
-
-          targets = {
-              "bemestar-1": ["woman doing yoga pose photograph", "person meditating outdoors calm photograph", "yoga mat stretching photograph"],
-              "bemestar-2": ["people exercising outdoors group photograph", "man jogging park photograph", "group fitness class photograph"],
-          }
-
-          os.makedirs("opmed/public/assets/mock/candidatos", exist_ok=True)
-          done = []
-
-          for dest_name, terms in targets.items():
-              n = 0
-              for term in terms:
-                  if n >= 3:
-                      break
-                  try:
-                      data = api_get({
-                          "action": "query", "format": "json", "generator": "search",
-                          "gsrsearch": term + " filetype:bitmap", "gsrnamespace": "6", "gsrlimit": "15",
-                          "prop": "imageinfo", "iiprop": "url|extmetadata|mime", "iiurlwidth": "700",
-                      })
-                  except Exception as e:
-                      print(f"ERRO busca {dest_name}/{term}: {e}")
-                      continue
-                  pages = data.get("query", {}).get("pages", {})
-                  for pid, page in pages.items():
-                      if n >= 3:
-                          break
-                      info = (page.get("imageinfo") or [{}])[0]
-                      mime = info.get("mime", "")
-                      if mime not in ("image/jpeg", "image/png"):
-                          continue
-                      url = info.get("thumburl") or info.get("url")
-                      if not url:
-                          continue
-                      title = page.get("title", "")
-                      title_low = title.lower()
-                      if any(bw in title_low for bw in BAD_WORDS):
-                          print(f"PULADO (palavra bloqueada) {dest_name}: {title}")
-                          continue
-                      license_short = (info.get("extmetadata", {}) or {}).get("LicenseShortName", {}).get("value", "?")
-                      if not any(k in license_short.lower() for k in ["public domain", "cc0", "pd", "cc-by"]):
-                          continue
-                      n += 1
-                      dest = f"opmed/public/assets/mock/candidatos/{dest_name}-cand{n}.jpg"
-                      try:
-                          size = download(url, dest)
-                      except Exception as e:
-                          print(f"ERRO download {title}: {e}")
-                          n -= 1
-                          continue
-                      print(f"OK {dest_name}-cand{n}.jpg <- {title} | licenca={license_short} | {size} bytes | {url}")
-                      done.append((f"{dest_name}-cand{n}", title, license_short, url))
-
-          print("=== RESUMO ===")
-          for d in done:
-              print(d)
-          PYEOF
-
-      - name: Lista candidatos
-        run: ls -la opmed/public/assets/mock/candidatos/
-
-      - name: Commit e push dos candidatos (pasta temporária, não usada pelo site)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add opmed/public/assets/mock/candidatos/
-          git status
-          git commit -m "diag(opmed): candidatos de bem-estar pra revisão visual (pasta temporária)" || echo "nada novo pra commitar"
-          git push origin HEAD:feat/opmed-scaffold
+          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy.log
+          echo "---"
+          grep -i "Aliased\|Production:" /tmp/deploy.log || true
