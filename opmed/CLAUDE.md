@@ -181,3 +181,93 @@ primeiro deploy do projeto (qualquer primeiro deploy vira produção
 automaticamente, mesmo sem `--prod`). Todo redeploy seguinte precisa do
 `--prod` explícito pra continuar atualizando essa mesma URL estável que
 Roberto já tem em mãos.
+
+---
+
+## 7. IMAGENS REAIS NOS CARDS MOCK (06/09/2026)
+
+### Pedido de Roberto
+
+Depois de ver o layout pela primeira vez, Roberto pediu (com bastante
+ênfase) fotos reais e temáticas em todos os cards, não emoji nem imagem
+aleatória:
+
+> "coloca imagens em todos os cards e informacoes da saude pra eu ver ne?
+> [...] e coloca imagens que remetam, imagens reais, nao emogis ou coisas
+> aleatorias"
+
+As imagens originais eram todas `picsum.photos` (fotos de banco de
+imagens genéricas, aleatórias, sem nenhuma relação com saúde) — ou campo
+`imagem` vazio em vários posts.
+
+### Fonte usada: Wikimedia Commons (grátis, sem chave de API)
+
+Buscas via `action=query&generator=search&gsrsearch=<termo>+filetype:bitmap`,
+filtrando por `mime` (`image/jpeg`/`image/png` — nunca vetor/SVG) e por
+`LicenseShortName` (precisa conter "public domain", "cc0", "pd" ou
+"cc-by"). **Isso sozinho NÃO é suficiente** — ver as 3 rodadas de erro
+reais abaixo.
+
+### 🚨 3 rodadas de erro real, até acertar — lição pra qualquer busca futura de imagem
+
+**Rodada 1** (busca simples + filtro de licença só): pegou uma gravura
+histórica (odontologia), um sadhu de arquivo sem camisa (bem-estar), foto
+de ginásio do Exército americano (bem-estar) e uma foto com uniforme
+militar/"Guantanamo Bay" (saúde pública) — real, mas fora de contexto pra
+um portal de saúde civil brasileiro.
+
+**Rodada 2** (adicionado blocklist de palavras no título — military, army,
+navy, guantanamo, wellcome etc.): resolveu odontologia e saúde pública, mas
+bem-estar continuou errado — uma foto de arquivo de 1917 numa fábrica de
+aviões (bateu por coincidência léxica com "stretching") e um infográfico
+gráfico "WORKOUT at HOME" (não é fotografia).
+
+**Rodada 3** (blocklist bem maior — nara/archive/aviation/infographic/
+poster/chart/diagram/vector/cartoon/illustration/banner/logo/1917/1918 —
+E MUDANÇA DE ESTRATÉGIA: baixar 3 candidatos por vaga sem escolher
+automaticamente, pra revisão visual manual antes de decidir): finalmente
+resolveu — yoga real numa trilha de montanha (bem-estar-1) e corrida real
+num parque (bem-estar-2).
+
+**🚨🚨🚨 REGRA PERMANENTE — nunca confiar só em filtro automático:**
+```
+❌ "bateu no termo de busca + licença Public Domain + mime correto" NÃO é
+   prova de que uma imagem do Wikimedia Commons é o que ela diz ser —
+   pode ser gravura histórica, arquivo militar, infográfico, ou conteúdo
+   real mas fora de contexto (ex: uniforme militar americano num portal
+   de saúde civil brasileiro).
+✅ SEMPRE inspecionar visualmente cada imagem via a ferramenta Read (que
+   renderiza imagem) antes de usá-la em qualquer card ou reportar
+   "concluído" pro Roberto — principalmente quando ele pede "imagens
+   reais" de forma explícita.
+✅ Quando a 1ª tentativa automática errar 2x seguidas pra uma mesma vaga,
+   trocar de estratégia: baixar 2-3 candidatos SEM escolher sozinho, e
+   revisar visualmente antes de decidir — evita uma 3ª/4ª rodada de
+   suposição errada.
+```
+
+### Estado final das imagens (06/09/2026) — `opmed/public/assets/mock/`
+
+| Categoria | Arquivos | Origem |
+|---|---|---|
+| `medicina` | `medicina-{1,2,3}.webp` | Reaproveitadas de `public/img/banners/medico-paciente-{1,2,3}.webp` do OVC (já verificadas antes) |
+| `odontologia` | `odontologia-{1,2}.jpg` | Wikimedia Commons, fotos reais de clínica odontológica |
+| `bem-estar` | `bemestar-{1,2}.jpg` | Wikimedia Commons — yoga em trilha de montanha / corrida em parque |
+| `ciencia` | `ciencia-{1,2}.jpg` | Wikimedia Commons, fotos reais de laboratório |
+| `saude-publica` | `saudepublica-{1,2}.jpg` | Wikimedia Commons, fotos reais de vacinação/atendimento |
+
+`home.js`'s `MOCK_POSTS` — os 22 posts fictícios (nota: a categoria usada
+no dado é `"saude-publica"`, hifenizada; os arquivos de imagem usam o
+prefixo `saudepublica`, sem hífen — não confundir os dois) — agora têm
+`imagem` sempre apontando pra um desses arquivos locais (rotação entre as
+imagens disponíveis daquela categoria), nunca mais `picsum.photos` nem
+campo vazio.
+
+**Redeploy confirmado**: `https://opmed-teal.vercel.app` já reflete essas
+imagens (run `34001065068`, log confirma `▲ Aliased
+https://opmed-teal.vercel.app`).
+
+### 🔧 Pendência pra próxima sessão
+
+Roberto ainda não viu/aprovou este resultado — reportar em português e
+aguardar feedback antes de qualquer novo ajuste visual.
