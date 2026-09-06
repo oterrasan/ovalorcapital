@@ -55,28 +55,41 @@
   // /api/portal-posts existir e responder com posts de verdade (o fetch()
   // real é sempre tentado primeiro; isso só entra em cena se ele falhar).
   var MOCK_POSTS = [
-    { titulo: "Ministério da Saúde amplia campanha de vacinação contra a gripe em todo o país", resumo: "Nova fase da campanha prioriza idosos, gestantes e profissionais da saúde, com previsão de ampliação dos postos de atendimento.", categoria: "saude-publica", imagem: "/assets/mock/saudepublica-1.jpg", published_at: mockDate(8), url: "#" },
-    { titulo: "Estudo brasileiro identifica novo marcador genético associado a doenças cardíacas", resumo: "Pesquisa de dez anos conduzida por universidades públicas pode abrir caminho para diagnósticos mais precoces.", categoria: "ciencia", imagem: "/assets/mock/ciencia-1.jpg", published_at: mockDate(25), url: "#" },
-    { titulo: "Uso de fio dental reduz em até 40% risco de doenças gengivais, aponta levantamento", resumo: "", categoria: "odontologia", imagem: "/assets/mock/odontologia-1.jpg", published_at: mockDate(40), url: "#" },
-    { titulo: "Especialistas recomendam pausas regulares para reduzir fadiga visual no trabalho remoto", resumo: "", categoria: "bem-estar", imagem: "/assets/mock/bemestar-1.jpg", published_at: mockDate(55), url: "#" },
-    { titulo: "Hospitais brasileiros ampliam uso de telemedicina para consultas de acompanhamento", resumo: "", categoria: "medicina", imagem: "/assets/mock/medicina-1.webp", published_at: mockDate(70), url: "#" },
-    { titulo: "Anvisa aprova novo protocolo para testes rápidos de doenças respiratórias", resumo: "", categoria: "saude-publica", imagem: "/assets/mock/saudepublica-2.jpg", published_at: mockDate(90), url: "#" },
-    { titulo: "Pesquisadores desenvolvem sensor que detecta níveis de glicose sem picada de agulha", resumo: "", categoria: "ciencia", imagem: "/assets/mock/ciencia-2.jpg", published_at: mockDate(100), url: "#" },
-    { titulo: "Sono de má qualidade está ligado a maior risco de ansiedade, mostra revisão de estudos", resumo: "", categoria: "bem-estar", imagem: "/assets/mock/bemestar-2.jpg", published_at: mockDate(115), url: "#" },
-    { titulo: "Nova diretriz orienta pediatras sobre uso de telas em crianças pequenas", resumo: "", categoria: "medicina", imagem: "/assets/mock/medicina-2.webp", published_at: mockDate(130), url: "#" },
-    { titulo: "Clareamento dental caseiro: dentistas alertam para riscos de produtos sem regulamentação", resumo: "", categoria: "odontologia", imagem: "/assets/mock/odontologia-2.jpg", published_at: mockDate(140), url: "#" },
-    { titulo: "Ministério da Saúde divulga boletim semanal de monitoramento de arboviroses", resumo: "", categoria: "saude-publica", imagem: "/assets/mock/saudepublica-1.jpg", published_at: mockDate(150), url: "#" },
-    { titulo: "Simulações em laboratório indicam nova via para tratamento de resistência a antibióticos", resumo: "", categoria: "ciencia", imagem: "/assets/mock/ciencia-1.jpg", published_at: mockDate(160), url: "#" },
-    { titulo: "Caminhada leve de 20 minutos por dia já traz benefícios cardiovasculares, diz estudo", resumo: "", categoria: "bem-estar", imagem: "/assets/mock/bemestar-1.jpg", published_at: mockDate(170), url: "#" },
-    { titulo: "Cirurgias eletivas voltam a crescer na rede pública após redução de filas de espera", resumo: "", categoria: "medicina", imagem: "/assets/mock/medicina-3.webp", published_at: mockDate(180), url: "#" },
-    { titulo: "Aparelho ortodôntico invisível ganha popularidade entre adultos, mostra levantamento", resumo: "", categoria: "odontologia", imagem: "/assets/mock/odontologia-1.jpg", published_at: mockDate(190), url: "#" },
-    { titulo: "Campanha de conscientização sobre saúde mental chega às escolas públicas", resumo: "", categoria: "saude-publica", imagem: "/assets/mock/saudepublica-2.jpg", published_at: mockDate(200), url: "#" },
-    { titulo: "Vacina experimental contra dengue mostra resultados promissores em nova fase de testes", resumo: "", categoria: "ciencia", imagem: "/assets/mock/ciencia-2.jpg", published_at: mockDate(210), url: "#" },
-    { titulo: "Meditação guiada reduz níveis de cortisol em apenas quatro semanas, aponta pesquisa", resumo: "", categoria: "bem-estar", imagem: "/assets/mock/bemestar-2.jpg", published_at: mockDate(220), url: "#" },
-    { titulo: "Hospitais universitários relatam avanço no uso de inteligência artificial em diagnósticos", resumo: "", categoria: "medicina", imagem: "/assets/mock/medicina-1.webp", published_at: mockDate(230), url: "#" },
-    { titulo: "Dor de dente persistente pode ser sinal de problema mais sério, alertam especialistas", resumo: "", categoria: "odontologia", imagem: "/assets/mock/odontologia-2.jpg", published_at: mockDate(240), url: "#" },
-    { titulo: "Município amplia rede de UBS e reduz tempo médio de espera por consulta", resumo: "", categoria: "saude-publica", imagem: "/assets/mock/saudepublica-1.jpg", published_at: mockDate(250), url: "#" },
-    { titulo: "Novo estudo mapeia impacto da poluição do ar em doenças respiratórias crônicas", resumo: "", categoria: "ciencia", imagem: "/assets/mock/ciencia-1.jpg", published_at: mockDate(260), url: "#" }
+    // ── 1. Mercado, Negócios & Gestão ──
+    { titulo: "ANS aprova novo modelo de reajuste para planos de saúde coletivos empresariais", resumo: "Mudança na metodologia de cálculo da sinistralidade deve afetar renegociações de contratos corporativos a partir do próximo trimestre.", categoria: "mercado-negocios", subcategoria: "Planos de Saúde & Saúde Suplementar", imagem: "/assets/mock/medicina-2.webp", published_at: mockDate(8), url: "#" },
+    { titulo: "Rede hospitalar brasileira investe em acreditação internacional para atrair pacientes de fora", resumo: "Certificações ONA e JCI viram diferencial competitivo em meio à disputa por leitos de alta complexidade.", categoria: "mercado-negocios", subcategoria: "Hospitais & Clínicas", imagem: "/assets/mock/medicina-1.webp", published_at: mockDate(45), url: "#" },
+    { titulo: "Fusão entre grandes redes de laboratórios de análises clínicas avança no CADE", resumo: "", categoria: "mercado-negocios", subcategoria: "Laboratórios & Diagnóstico", imagem: "/assets/mock/ciencia-1.jpg", published_at: mockDate(95), url: "#" },
+    { titulo: "Indústria farmacêutica reporta gargalo global na cadeia de insumos para medicamentos injetáveis", resumo: "", categoria: "mercado-negocios", subcategoria: "Indústria Farmacêutica & Insumos", imagem: "/assets/mock/ciencia-2.jpg", published_at: mockDate(150), url: "#" },
+
+    // ── 2. Prática Clínica & Especialidades ──
+    { titulo: "Novo protocolo de cirurgia robótica reduz tempo de recuperação em procedimentos abdominais", resumo: "Estudo multicêntrico acompanhou pacientes de oito hospitais brasileiros ao longo de dois anos.", categoria: "pratica-clinica", subcategoria: "Medicina & Enfermagem", imagem: "/assets/mock/medicina-3.webp", published_at: mockDate(20), url: "#" },
+    { titulo: "Implantodontia guiada por computador ganha espaço em clínicas odontológicas do país", resumo: "", categoria: "pratica-clinica", subcategoria: "Odontologia (Saúde Bucal)", imagem: "/assets/mock/odontologia-1.jpg", published_at: mockDate(60), url: "#" },
+    { titulo: "Fisioterapia baseada em realidade virtual acelera reabilitação de lesões esportivas", resumo: "", categoria: "pratica-clinica", subcategoria: "Reabilitação & Movimento", imagem: "/assets/mock/bemestar-2.jpg", published_at: mockDate(110), url: "#" },
+    { titulo: "Pesquisa em imunologia identifica novo marcador genético associado a doenças cardíacas", resumo: "", categoria: "pratica-clinica", subcategoria: "Ciências Biológicas & Diagnósticas", imagem: "/assets/mock/odontologia-2.jpg", published_at: mockDate(165), url: "#" },
+
+    // ── 3. Inovação & Saúde Digital ──
+    { titulo: "Algoritmo de IA para triagem de pronto-socorro reduz tempo de espera em hospital-piloto", resumo: "Ferramenta prioriza casos de risco a partir de sinais vitais e histórico do paciente, com supervisão médica em todas as etapas.", categoria: "inovacao-digital", subcategoria: "Inteligência Artificial", imagem: "/assets/mock/ciencia-1.jpg", published_at: mockDate(32), url: "#" },
+    { titulo: "Regulamentação de prescrição digital avança e amplia acesso à telemedicina no interior do país", resumo: "", categoria: "inovacao-digital", subcategoria: "Telessaúde & Telemedicina", imagem: "/assets/mock/medicina-1.webp", published_at: mockDate(80), url: "#" },
+    { titulo: "Prótese biônica com controle neural entra em fase de testes clínicos no Brasil", resumo: "", categoria: "inovacao-digital", subcategoria: "Engenharia Biomédica", imagem: "/assets/mock/ciencia-2.jpg", published_at: mockDate(135), url: "#" },
+    { titulo: "Wearables de monitoramento contínuo de glicose ganham nova geração de sensores", resumo: "", categoria: "inovacao-digital", subcategoria: "Telessaúde & Telemedicina", imagem: "/assets/mock/medicina-2.webp", published_at: mockDate(190), url: "#" },
+
+    // ── 4. Saúde Mental & Comportamento ──
+    { titulo: "Novo protocolo de terapia cognitivo-comportamental mostra resultados em quatro semanas", resumo: "Estudo clínico acompanhou pacientes com ansiedade generalizada em rede pública de saúde mental.", categoria: "saude-mental", subcategoria: "Psicologia & Psiquiatria", imagem: "/assets/mock/bemestar-1.jpg", published_at: mockDate(15), url: "#" },
+    { titulo: "Hospitais lançam programas internos para prevenir burnout em equipes de enfermagem", resumo: "", categoria: "saude-mental", subcategoria: "Saúde Mental do Profissional", imagem: "/assets/mock/bemestar-2.jpg", published_at: mockDate(70), url: "#" },
+    { titulo: "Acupuntura como terapia complementar ganha respaldo em revisão de estudos clínicos", resumo: "", categoria: "saude-mental", subcategoria: "Terapias Integrativas", imagem: "/assets/mock/bemestar-1.jpg", published_at: mockDate(125), url: "#" },
+
+    // ── 5. Prevenção, Longevidade & Estilo de Vida ──
+    { titulo: "Dieta rica em fibras reduz risco de doenças crônicas em estudo de longo prazo", resumo: "Pesquisa acompanhou hábitos alimentares de mais de dez mil participantes ao longo de uma década.", categoria: "prevencao-longevidade", subcategoria: "Nutrição & Dietética", imagem: "/assets/mock/bemestar-2.jpg", published_at: mockDate(28), url: "#" },
+    { titulo: "Caminhada leve de 20 minutos por dia já traz benefícios cardiovasculares, diz estudo", resumo: "", categoria: "prevencao-longevidade", subcategoria: "Educação Física & Esporte", imagem: "/assets/mock/bemestar-1.jpg", published_at: mockDate(85), url: "#" },
+    { titulo: "Medicina esportiva orienta clubes sobre prevenção de lesões em atletas de base", resumo: "", categoria: "prevencao-longevidade", subcategoria: "Educação Física & Esporte", imagem: "/assets/mock/bemestar-2.jpg", published_at: mockDate(145), url: "#" },
+
+    // ── 6. Saúde Coletiva & Políticas Públicas ──
+    { titulo: "Ministério da Saúde amplia campanha de vacinação contra a gripe em todo o país", resumo: "Nova fase da campanha prioriza idosos, gestantes e profissionais da saúde, com previsão de ampliação dos postos de atendimento.", categoria: "saude-coletiva", subcategoria: "Epidemiologia & Surtos", imagem: "/assets/mock/saudepublica-1.jpg", published_at: mockDate(12), url: "#" },
+    { titulo: "Município amplia rede de UBS e reduz tempo médio de espera por consulta no SUS", resumo: "", categoria: "saude-coletiva", subcategoria: "Políticas Públicas & SUS", imagem: "/assets/mock/saudepublica-2.jpg", published_at: mockDate(55), url: "#" },
+    { titulo: "Grandes empresas ampliam programas de medicina do trabalho e ergonomia após novas normas", resumo: "", categoria: "saude-coletiva", subcategoria: "Saúde Corporativa & do Trabalho", imagem: "/assets/mock/saudepublica-1.jpg", published_at: mockDate(105), url: "#" },
+    { titulo: "Vigilância sanitária intensifica fiscalização de estabelecimentos após surto de intoxicação alimentar", resumo: "", categoria: "saude-coletiva", subcategoria: "Vigilância Sanitária", imagem: "/assets/mock/saudepublica-2.jpg", published_at: mockDate(160), url: "#" },
+    { titulo: "OMS revisa diretrizes globais de resposta a surtos de doenças respiratórias", resumo: "", categoria: "saude-coletiva", subcategoria: "Epidemiologia & Surtos", imagem: "/assets/mock/saudepublica-1.jpg", published_at: mockDate(210), url: "#" },
+    { titulo: "Anvisa aprova novo protocolo para testes rápidos de doenças respiratórias", resumo: "", categoria: "saude-coletiva", subcategoria: "Vigilância Sanitária", imagem: "/assets/mock/saudepublica-2.jpg", published_at: mockDate(240), url: "#" }
   ];
 
   function mockDate(minutesAgo) {
@@ -140,8 +153,8 @@
         maisLidasSlot.innerHTML = posts.slice(0, 8).map(sideItemHtml).join("");
       }
 
-      renderCategoriaWidget(posts, "saude-publica", "saudepublica", 6);
-      renderCategoriaWidget(posts, "ciencia", "ciencia", 6);
+      renderCategoriaWidget(posts, "saude-coletiva", "coletiva", 6);
+      renderCategoriaWidget(posts, "inovacao-digital", "inovacao", 6);
 
       var hero = posts[0];
       var resto = posts.slice(1);

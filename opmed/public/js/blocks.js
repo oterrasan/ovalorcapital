@@ -5,24 +5,25 @@
 // paleta e presença de foto variando. home.js e category.js só chamam
 // OpBlocks.renderBlocks(posts) e injetam o HTML.
 //
-// ⚠️ PLACEHOLDER — as 5 categorias abaixo (Medicina, Odontologia, Bem-Estar,
-// Ciência, Saúde Pública) são um ponto de partida discutido com Roberto
-// ("saude, medicina, odontologica, ciencia, bem estar") — trocar/expandir
-// aqui quando a lista definitiva for fechada.
+// Taxonomia de 6 macro-editorias definida por Roberto em 06/09/2026 (ver
+// opmed/CLAUDE.md seção 4 pro mapa completo de subcategorias/slugs) —
+// substitui o placeholder de 5 categorias soltas da primeira versão.
 (function () {
   var CAT_LABEL = {
-    medicina: "Medicina",
-    odontologia: "Odontologia",
-    "bem-estar": "Bem-Estar",
-    ciencia: "Ciência",
-    "saude-publica": "Saúde Pública"
+    "mercado-negocios": "Mercado & Negócios",
+    "pratica-clinica": "Prática Clínica",
+    "inovacao-digital": "Inovação Digital",
+    "saude-mental": "Saúde Mental",
+    "prevencao-longevidade": "Prevenção & Longevidade",
+    "saude-coletiva": "Saúde Coletiva"
   };
   var CAT_SLUG = {
-    medicina: "medicina",
-    odontologia: "odontologia",
-    "bem-estar": "bem-estar",
-    ciencia: "ciencia",
-    "saude-publica": "saude-publica"
+    "mercado-negocios": "mercado-negocios",
+    "pratica-clinica": "pratica-clinica",
+    "inovacao-digital": "inovacao-digital",
+    "saude-mental": "saude-mental",
+    "prevencao-longevidade": "prevencao-longevidade",
+    "saude-coletiva": "saude-coletiva"
   };
 
   function esc(s) {
@@ -51,6 +52,15 @@
     return '<span class="op-catpill ' + catClass(categoria) + (extraClass ? " " + extraClass : "") + '">' + esc(cat) + "</span>";
   }
 
+  // Linha de metadado do card: subcategoria (quando existe) + tempo — dá
+  // credibilidade editorial mostrando a especialidade real, não só a
+  // macro-categoria genérica do pill. Some sozinho se não houver subcategoria.
+  function metaHtml(p) {
+    var t = timeAgo(p.published_at);
+    if (p.subcategoria) return "<time>" + esc(p.subcategoria) + " · " + t + "</time>";
+    return "<time>" + t + "</time>";
+  }
+
   function img(p, cls) {
     return p.imagem ? '<div class="' + cls + '"><img src="' + p.imagem + '" alt="" loading="lazy"></div>' : "";
   }
@@ -76,7 +86,7 @@
       img(p, "op-quad-media") +
       pillHtml(p.categoria, showPill) +
       "<h5>" + esc(p.titulo) + "</h5>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
+      metaHtml(p) +
       "</a>"
     );
   }
@@ -92,7 +102,7 @@
       pillHtml(p.categoria, showPill) +
       "<h2>" + esc(p.titulo) + "</h2>" +
       (p.resumo ? '<p class="op-asym-deck">' + esc(p.resumo).slice(0, 140) + "</p>" : "") +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
+      metaHtml(p) +
       "</a>"
     );
   }
@@ -101,7 +111,7 @@
       '<a class="op-thumb-item op-asym-side-item" href="' + p.url + '">' +
       '<div class="op-thumb"><img src="' + (p.imagem || "") + '" alt="" loading="lazy"></div>' +
       '<div class="op-thumb-body">' + pillHtml(p.categoria, showPill) + "<h4>" + esc(p.titulo) + "</h4>" +
-      "<time>" + timeAgo(p.published_at) + "</time></div>" +
+      metaHtml(p) + "</div>" +
       "</a>"
     );
   }
@@ -118,7 +128,7 @@
 
   // ── T4 — LISTA COM THUMB: linhas verticais, foto pequena à esquerda ──
   function thumbItem(p, showPill) {
-    var body = pillHtml(p.categoria, showPill) + "<h4>" + esc(p.titulo) + "</h4>" + "<time>" + timeAgo(p.published_at) + "</time>";
+    var body = pillHtml(p.categoria, showPill) + "<h4>" + esc(p.titulo) + "</h4>" + metaHtml(p);
     if (p.imagem) {
       return (
         '<a class="op-dense-item op-thumb-item" href="' + p.url + '">' +
@@ -140,7 +150,7 @@
       img(p, "op-duogrid-media") +
       pillHtml(p.categoria, showPill) +
       "<h4>" + esc(p.titulo) + "</h4>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
+      metaHtml(p) +
       "</a>"
     );
   }
@@ -156,7 +166,7 @@
       '<div class="op-spotlight-overlay">' +
       pillHtml(p.categoria, showPill, "op-catpill-inverse") +
       "<h2>" + esc(p.titulo) + "</h2>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
+      metaHtml(p) +
       "</div></a>"
     );
   }
@@ -170,7 +180,7 @@
       '<a class="op-brief-item" href="' + p.url + '">' +
       pillHtml(p.categoria, showPill) +
       "<h3>" + esc(p.titulo) + "</h3>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
+      metaHtml(p) +
       "</a>"
     );
   }
@@ -184,7 +194,7 @@
       '<a class="op-stagger-item ' + cls + '" href="' + p.url + '">' +
       img(p, mediaCls) +
       "<h3>" + esc(p.titulo) + "</h3>" +
-      "<time>" + timeAgo(p.published_at) + "</time>" +
+      metaHtml(p) +
       "</a>"
     );
   }

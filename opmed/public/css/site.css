@@ -210,6 +210,18 @@ h1, h2, h3, h4, h5 { margin: 0; }
 .submenu a:hover { background: rgba(20,184,166,0.18); color: var(--accent-brand); }
 .supermenu-item .submenu-right { left: auto; right: 0; }
 
+/* Faixa 4: barra de serviços fixa (Vagas / Agenda de Eventos / Colunistas)
+   — pedido explícito de Roberto (06/09/2026), separada visualmente do
+   menu editorial acima para nunca ser confundida com uma categoria. */
+.header-services-bar { background: var(--bg-header-mid, var(--bg-header-top)); border-bottom: 1px solid var(--border-header); padding: 7px 28px; display: flex; justify-content: center; }
+.header-services-inner { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; width: 100%; max-width: 1600px; }
+.service-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
+  color: var(--accent-brand); text-decoration: none; padding: 5px 13px; border-radius: 999px;
+  border: 1px solid rgba(20,184,166,0.45); background: rgba(20,184,166,0.08); white-space: nowrap;
+}
+.service-chip:hover { background: rgba(20,184,166,0.2); border-color: var(--accent-brand); color: #f4fbfa; }
+
 /* ============================================================
    RAILS + MIOLO — grid PORTADO do .main-grid do OVC; o miolo (centro)
    é preenchido pelo motor de cards do Brasil ON (op-block-* abaixo)
@@ -359,6 +371,7 @@ h1, h2, h3, h4, h5 { margin: 0; }
 .footer-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .footer-links li a { font-size: var(--font-size-sm); color: #d7ede9; }
 .footer-links li a:hover { color: var(--accent-brand); }
+.footer-links + .footer-col-title { margin-top: 14px; }
 .footer-middle { display: grid; grid-template-columns: 2fr 1.2fr; gap: 24px; align-items: flex-start; }
 .footer-newsletter-title { font-size: var(--font-size-md); font-weight: 600; margin-bottom: 6px; }
 .footer-newsletter-text { font-size: var(--font-size-sm); color: #7fb0a8; margin-bottom: 10px; }

@@ -115,10 +115,10 @@ duplique lógica pequena.
 - **Nome:** OPMED
 - **Cor de destaque:** teal (`#14b8a6`/`#0d9488` — reaproveita
   `--cat-saude` que já existe no design system do OVC)
-- **Categorias (5):** Medicina, Odontologia, Bem-Estar, Ciência, Saúde
-  Pública — discutido com Roberto como ponto de partida
-  ("saude, medicina, odontologica, ciencia, bem estar"), nunca confirmado
-  como lista definitiva
+- **Categorias:** as 5 categorias soltas do scaffold inicial foram
+  **substituídas em 06/09/2026** por uma taxonomia completa de 6
+  macro-editorias com subcategorias, escrita e entregue por Roberto —
+  ver seção 8 pro mapa completo (nome/slug/subcats de cada uma)
 - **Ticker do topo:** no OVC mostra cotação financeira (ibov, dólar...) —
   não faz sentido aqui. Deixado como contador genérico ("Casos
   monitorados hoje") até Roberto decidir o que mostrar de verdade
@@ -131,7 +131,7 @@ duplique lógica pequena.
 |---|---|---|
 | 1 | Comprar domínio | Roberto ("eu vou comprar o dominio ainda") |
 | 2 | Confirmar nome definitivo (OPMED ou outro) | Roberto |
-| 3 | Confirmar/expandir as 5 categorias | Roberto |
+| 3 | ~~Confirmar/expandir as 5 categorias~~ — **RESOLVIDO 06/09/2026**, ver seção 8 | — |
 | 4 | Confirmar paleta de cor definitiva | Roberto |
 | 5 | Decidir conteúdo real do ticker/contador do topo | Roberto |
 | 6 | Backend (`api/`), fontes RSS de saúde confiáveis, tabela Supabase | Claude, quando Roberto autorizar — pesquisa inicial de fontes já feita numa sessão anterior (Agência Fiocruz, Ministério da Saúde/Gov.br, BVS-MS — todas institucionais, baixo risco) |
@@ -271,3 +271,95 @@ https://opmed-teal.vercel.app`).
 
 Roberto ainda não viu/aprovou este resultado — reportar em português e
 aguardar feedback antes de qualquer novo ajuste visual.
+
+---
+
+## 8. TAXONOMIA DE 6 MACRO-EDITORIAS (definida por Roberto, 06/09/2026)
+
+### Pedido de Roberto
+
+Roberto rejeitou o layout inicial: "melhorou bastante, mas ainda está meio
+bagunçado... nao gera muita credibilidade... fontes esquisitas, meio
+desordenado, nao tem um menu, categorias, etc." — e entregou uma
+arquitetura de conteúdo completa e escrita por ele, com 6 macro-editorias,
+suas subcategorias, e uma "barra de serviços" fixa. Isso **substitui por
+completo** a taxonomia placeholder de 5 categorias soltas do scaffold
+inicial (seção 4).
+
+### As 6 macro-editorias (slug → subcategorias → slug)
+
+| Macro (slug) | Subcategorias (label → slug) |
+|---|---|
+| **Mercado, Negócios & Gestão** (`mercado-negocios`) | Planos de Saúde & Saúde Suplementar → `planos-de-saude` · Hospitais & Clínicas → `hospitais-clinicas` · Laboratórios & Diagnóstico → `laboratorios-diagnostico` · Indústria Farmacêutica & Insumos → `industria-farmaceutica` · Regulação & Compliance → `regulacao-compliance` |
+| **Prática Clínica & Especialidades** (`pratica-clinica`) | Medicina & Enfermagem → `medicina-enfermagem` · Odontologia (Saúde Bucal) → `odontologia` · Reabilitação & Movimento → `reabilitacao-movimento` · Ciências Biológicas & Diagnósticas → `ciencias-biologicas` |
+| **Inovação & Saúde Digital** (`inovacao-digital`) | Inteligência Artificial → `inteligencia-artificial` · Telessaúde & Telemedicina → `telessaude-telemedicina` · Engenharia Biomédica → `engenharia-biomedica` |
+| **Saúde Mental & Comportamento** (`saude-mental`) | Psicologia & Psiquiatria → `psicologia-psiquiatria` · Saúde Mental do Profissional → `saude-mental-profissional` · Terapias Integrativas → `terapias-integrativas` |
+| **Prevenção, Longevidade & Estilo de Vida** (`prevencao-longevidade`) | Nutrição & Dietética → `nutricao-dietetica` · Educação Física & Esporte → `educacao-fisica-esporte` |
+| **Saúde Coletiva & Políticas Públicas** (`saude-coletiva`) | Epidemiologia & Surtos → `epidemiologia-surtos` · Políticas Públicas & SUS → `politicas-publicas-sus` · Saúde Corporativa & do Trabalho → `saude-corporativa-trabalho` · Vigilância Sanitária → `vigilancia-sanitaria` |
+
+URL de categoria: `/{macro-slug}/`. URL de subcategoria: `/{macro-slug}/{subcat-slug}/`
+(nenhuma dessas páginas existe ainda — mesma situação de `/vagas/`,
+`/eventos/`, `/colunistas/`, `/admin/`, `/newsletter/`: são links reais no
+scaffold, sem página própria por trás, normal nesta fase de mock).
+
+### Barra de Serviços fixa (pedido explícito — "o coração do engajamento")
+
+3 itens sempre visíveis, numa faixa própria abaixo do supermenu editorial
+(nunca dentro dele — Roberto foi claro que isso não é uma categoria de
+conteúdo, é utilidade fixa):
+- 💼 Hub de Carreiras (`/vagas/`) — painel de vagas filtrável por região/área
+- 📅 Agenda de Eventos do Setor (`/eventos/`) — congressos, feiras (ex:
+  Hospitalar), simpósios, webinars
+- ✍️ Colunistas (`/colunistas/`) — artigos assinados por CEOs de hospital,
+  presidentes de operadora, líderes de conselho de classe
+
+### O que foi implementado nesta sessão (06/09/2026)
+
+- `opmed/public/index.html` — supermenu reescrito com os 6 macros + submenu
+  completo de subcategorias cada (mesmo padrão dropdown do OVC); nova faixa
+  `.header-services-bar` com os 3 chips de serviço; footer reestruturado
+  (mesmo grid de 4 colunas, 2 grupos macro empilhados por coluna + coluna
+  de Serviços/Institucional); `search-chips` do topo atualizados pros
+  termos novos.
+- `opmed/public/js/blocks.js` — `CAT_LABEL`/`CAT_SLUG` trocados pros 6
+  macros; nova função `metaHtml(p)` que mostra a **subcategoria real**
+  junto do tempo (ex: "Planos de Saúde & Saúde Suplementar · há 2h") em
+  todo card que tenha `<time>` — dá a sensação de especialização editorial
+  que Roberto pediu, não só um pill genérico de macro-categoria.
+- `opmed/public/js/home.js` — `MOCK_POSTS` reescrito: 24 posts (era 22),
+  4 por macro-categoria (exceto Saúde Coletiva com 6, Saúde Mental e
+  Prevenção com 3 cada), cada um com campo novo `subcategoria` (label
+  completo, não o slug) além de `categoria` (slug do macro). As imagens
+  reais já existentes (`medicina-*`, `odontologia-*`, `bemestar-*`,
+  `ciencia-*`, `saudepublica-*` — nomes de arquivo mantidos como estavam,
+  são só temas de asset, não os slugs de categoria) foram redistribuídas
+  por aproximação temática entre os 6 macros novos. Os 2 widgets de rail
+  que filtram por categoria própria foram renomeados: `saude-publica`→
+  `saude-coletiva` ("📋 Saúde Coletiva em Foco") e `ciencia`→
+  `inovacao-digital` ("💻 Inovação & HealthTechs").
+- `opmed/public/css/site.css` — `.header-services-bar`/`.service-chip`
+  novos (chip com borda/fundo teal translúcido, mesmo `--accent-brand` já
+  usado no resto do site); `.footer-links + .footer-col-title{margin-top}`
+  pra empilhar 2 grupos título+lista dentro da mesma coluna do footer sem
+  CSS novo de grid.
+- Cache-bust: `site.css?v=2`, `blocks.js?v=2`, `home.js?v=2` (site.js não
+  mudou, ficou em `v=1`).
+
+### ⚠️ O que NÃO foi feito nesta rodada (fora de escopo, registrado)
+
+- Nenhuma página de categoria/subcategoria real foi criada — os links do
+  menu levam a URLs que ainda não existem (esperado nesta fase).
+- Cores por macro-categoria (ex: pill colorido diferente por editoria,
+  como o OVC faz) não foram adicionadas — o `.op-catpill` continua com uma
+  única cor teal fixa. Se Roberto quiser diferenciação visual por cor
+  entre as 6 editorias, é um pedido novo a confirmar antes de implementar.
+- Fontes de conteúdo reais ("fontes esquisitas" na queixa de Roberto) —
+  isso é sobre o **backend/RSS** (pendência #6 da seção 5, ainda não
+  autorizada), não sobre o menu/categorias corrigidos aqui. A queixa dele
+  cobria os dois problemas juntos; este commit resolve só o de
+  estrutura/menu/categorias — a fonte de conteúdo real segue pendente.
+
+### 🔧 Pendência pra próxima sessão
+
+Redeploy feito, aguardando Roberto revisar `https://opmed-teal.vercel.app`
+de novo com o menu/categorias novos antes de qualquer ajuste adicional.
