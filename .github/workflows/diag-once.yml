@@ -7,52 +7,9 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Limpar GEMINI_BUDGET_* antigo (autorizado por Roberto)
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "${{ secrets.SUPABASE_SERVICE_KEY || '' }}"
-        run: |
-          set -e
-          KEY="$SUPABASE_KEY"
-          if [ -z "$KEY" ]; then
-            KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          fi
-          HOJE=$(date -u -d '3 hours ago' +%Y%m%d)
-          echo "== Data BRT usada como corte (nunca deletar): $HOJE =="
-
-          echo "== ANTES =="
-          echo "-- total posts (integridade — nao deve mudar) --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/posts?select=id" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- total config --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/config?select=key" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- GEMINI_BUDGET_* total --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/config?select=key&key=like.GEMINI_BUDGET_*" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- GEMINI_BUDGET_* de HOJE (serao preservadas) --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/config?select=key&key=like.GEMINI_BUDGET_${HOJE}_*" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- AUTOMATION (integridade — deve continuar existindo, valor intocado) --"
-          curl -s "$SUPABASE_URL/rest/v1/config?select=key,value&key=eq.AUTOMATION" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
-
-          echo "== DELETE (so GEMINI_BUDGET_* de dias anteriores a hoje) =="
-          curl -s -o /dev/null -w "HTTP_STATUS:%{http_code}\n" -X DELETE \
-            "$SUPABASE_URL/rest/v1/config?key=like.GEMINI_BUDGET_*&key=not.like.GEMINI_BUDGET_${HOJE}_*" \
-            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: return=minimal"
-
-          echo "== DEPOIS =="
-          echo "-- total posts (deve ser IDENTICO ao de antes) --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/posts?select=id" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- total config --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/config?select=key" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- GEMINI_BUDGET_* restante (deve ser so' as de hoje) --"
-          curl -s -o /dev/null -D - "$SUPABASE_URL/rest/v1/config?select=key&key=like.GEMINI_BUDGET_*" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Prefer: count=exact" -H "Range: 0-0" | grep -i content-range
-          echo "-- AUTOMATION depois (deve ser identica a de antes) --"
-          curl -s "$SUPABASE_URL/rest/v1/config?select=key,value&key=eq.AUTOMATION" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
+      - run: echo "placeholder — nada a fazer"
