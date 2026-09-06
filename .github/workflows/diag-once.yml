@@ -1,36 +1,15 @@
-name: Diagnóstico único (redeploy final OPMED com imagens reais — temporário)
+name: Diagnóstico único (placeholder)
 
-# One-off: redeploy de produção do ambiente de teste do OPMED
-# (opmed-teal.vercel.app) após finalizar as imagens reais de bem-estar e
-# ligar as 22 imagens mock por categoria em home.js. Reset pro placeholder
-# assim que confirmado no ar.
+# Este arquivo é reaproveitado sob demanda para diagnósticos pontuais em
+# produção (ex.: consultar Supabase, testar um endpoint, disparar um
+# redeploy manual). Fora de uso, fica assim — inerte, sem nenhuma ação real.
+# Sempre resetar para este estado depois de qualquer uso pontual.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: feat/opmed-scaffold
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Instala Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Deploy de PRODUÇÃO (opmed-teal.vercel.app)
-        working-directory: opmed
-        run: |
-          vercel --token="${{ secrets.VERCEL_TOKEN }}" --yes --prod 2>&1 | tee /tmp/deploy.log
-          echo "---"
-          grep -i "Aliased\|Production:" /tmp/deploy.log || true
+      - run: echo "placeholder — nada a fazer"
