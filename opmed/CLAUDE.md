@@ -363,3 +363,101 @@ conteúdo, é utilidade fixa):
 
 Redeploy feito, aguardando Roberto revisar `https://opmed-teal.vercel.app`
 de novo com o menu/categorias novos antes de qualquer ajuste adicional.
+
+---
+
+## 9. POSICIONAMENTO ESTRATÉGICO (Roberto, 06/09/2026)
+
+> **Objetivo declarado por Roberto, textual:** "quero me posicionar como o
+> maior e unico portal que reune tudo isso em um unico local." — ou seja,
+> o OPMED não compete pra ser "mais um" nicho — a tese é ser o único
+> agregador que amarra TODOS os eixos do setor de saúde (clínico, negócios,
+> tecnologia, bem-estar) num só lugar, ocupando um "oceano azul" que hoje
+> não existe no Brasil (mercado fragmentado em players de nicho único).
+
+### Mapeamento competitivo que Roberto trouxe (contexto, não fonte oficial —
+### links e classificações vieram da pesquisa dele, não verificados por nós)
+
+| Foco | Brasil | Internacional |
+|---|---|---|
+| Negócios/Gestão (B2B) | Saúde Insider, Futuro da Saúde, Medicina S/A | Modern Healthcare, Becker's Hospital Review |
+| Prática Clínica (médico) | Medscape Brasil, PEBMED | Fierce Healthcare (+ Fierce Biotech/Pharma) |
+| Saúde Digital/IA | — (lacuna no Brasil) | Healthcare IT News |
+| Público geral (B2C) | Tua Saúde, Drauzio Varella | — |
+
+**A tese de Roberto:** nenhum desses cobre TODOS os eixos ao mesmo tempo —
+cada um é forte num nicho só. O espaço de "hub único que integra tudo" está
+vazio no Brasil. O OPMED nasce pra ocupar exatamente esse vazio.
+
+### Arquitetura "Multi-Home" proposta por Roberto — 4 "portas de entrada"
+
+Diferente da taxonomia de 6 macro-editorias já implementada (seção 8),
+Roberto descreveu agora uma camada de **4 grandes portas de entrada**
+(subportais/abas com identidade visual própria), cada uma "sob medida"
+pro perfil de quem entra:
+
+1. **Negócios & Mercado** — CEOs de plano de saúde, donos de laboratório:
+   fusões, Anvisa/ANS, finanças, regulação
+2. **Prática Clínica** — médico, dentista, enfermeiro, fisioterapeuta:
+   protocolos, estudos, congressos
+3. **Saúde Digital & Inovação** — startups (HealthTechs), investidores,
+   engenheiros biomédicos, entusiastas de IA
+4. **Longevidade & Bem-estar** — medicina integrativa, nutrição, esporte,
+   prevenção — atrai também público geral de alto padrão e marcas de
+   consumo
+
+**🚨 PONTO EM ABERTO, NÃO RESOLVIDO — perguntado a Roberto, aguardando
+resposta antes de mexer em navegação de novo:** essas 4 portas não batem
+1:1 com as 6 macro-editorias já no menu (seção 8). Mercado & Negócios e
+Prática Clínica batem direto; Saúde Digital & Inovação bate com Inovação
+Digital; mas Longevidade & Bem-estar juntaria hoje 2 categorias (Prevenção
+& Longevidade + Saúde Mental), e **Saúde Coletiva & Políticas Públicas
+não tem porta própria nenhuma** nas 4 descritas — não colocar essa
+categoria em nenhum canto sem confirmação, nem inventar mapeamento.
+Perguntamos a Roberto qual das 3 rotas ele quer:
+(a) manter as 6 categorias reais como estão e criar as 4 portas só como
+uma camada visual de destaque na home (4 cards grandes agrupando por
+baixo dos panos) — **opção recomendada**, não perde nenhuma categoria;
+(b) reduzir de fato o menu pra 4 categorias reais, fundindo Saúde Coletiva
+em alguma das 4; (c) deixar como está por enquanto e revisitar depois.
+**Nenhuma das 3 foi implementada ainda.**
+
+### Estratégia de monetização B2B (Media Kit segmentado)
+
+Consequência direta de ter todas as verticais num só lugar: dá pra vender
+patrocínio **cirúrgico por editoria** — ex.: indústria de implante odontológico
+patrocina só a editoria de Odontologia; banco de investimento patrocina só
+Economia da Saúde/Planos de Saúde; big tech patrocina a trilha de IA &
+Saúde Digital. Isso é consistente com os 4 pilares de monetização já
+registrados na seção de posicionamento anterior (ver histórico do
+CLAUDE.md da raiz, sessão 06/09/2026) — publicidade segmentada, Hub de
+Carreiras patrocinado, eventos/webinars, conteúdo premium.
+
+### 3 pilares de autoridade rápida (produto/editorial, não código)
+
+1. **Furos de reportagem** — jornalistas com fonte dentro de Anvisa, ANS,
+   grandes hospitais (Einstein, Sírio-Libanês, Rede D'Or)
+2. **Conselho editorial de peso** — médico famoso, CEO de plano de saúde,
+   diretor de faculdade de odontologia, validando o portal publicamente
+3. **Dados e relatórios anuais** — "Anuário do Ecossistema da Saúde",
+   compilando dados de laboratórios/planos/tecnologia/clínicas — vira
+   referência de mercado citada por terceiros
+
+Nenhum desses 3 pilares é tarefa de código — são decisões editoriais/de
+negócio de Roberto, registradas aqui só pra nenhuma sessão futura tratar
+o OPMED como "mais um portal de notícias" sem entender a ambição real.
+
+### Slogans propostos por Roberto (nenhum escolhido ainda)
+
+- "O ponto de encontro definitivo da saúde: da bancada científica à mesa
+  de negócios."
+- "A engrenagem completa do ecossistema da saúde em um só lugar."
+- "Ciência, Gestão, Tecnologia e Mercado. A saúde integrada de ponta a
+  ponta."
+
+### 🔧 Pendência pra próxima sessão (atualizado)
+
+1. Aguardar resposta de Roberto sobre o mapeamento Multi-Home (ver ponto
+   em aberto acima) antes de tocar em navegação/home de novo.
+2. Nenhuma decisão de slogan definitivo, Media Kit real ou conselho
+   editorial foi tomada — tudo registrado como visão, não implementado.
