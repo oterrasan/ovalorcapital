@@ -7,6 +7,9 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
