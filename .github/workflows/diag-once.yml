@@ -15,6 +15,9 @@ on:
       - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -47,7 +50,7 @@ jobs:
 
           queries = {
               "odontologia": ["dentist examining patient photograph", "dental clinic treatment photograph"],
-              "bemestar": ["yoga exercise wellness photograph", "meditation relaxation photograph"],
+              "bemestar": ["yoga practice photograph", "physical exercise fitness photograph", "person meditating photograph", "healthy lifestyle exercise photograph"],
               "ciencia": ["scientist laboratory research photograph", "microscope research scientist photograph"],
               "saudepublica": ["vaccination clinic photograph", "community health clinic photograph"],
           }
