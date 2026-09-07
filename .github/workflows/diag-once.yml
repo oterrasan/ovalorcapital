@@ -1,40 +1,15 @@
 name: Diagnóstico único (placeholder)
 
+# Este arquivo é reaproveitado sob demanda para diagnósticos pontuais em
+# produção (ex.: consultar Supabase, testar um endpoint, disparar um
+# redeploy manual). Fora de uso, fica assim — inerte, sem nenhuma ação real.
+# Sempre resetar para este estado depois de qualquer uso pontual.
+
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Pausar automação de Reels (OVC + Brasil ON)
-        run: |
-          set_off() {
-            local KEY="$1"
-            echo "--- $KEY ---"
-            EXISTING=$(curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$KEY&select=key,value" \
-              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY")
-            echo "antes: $EXISTING"
-            if echo "$EXISTING" | grep -q "\"key\""; then
-              curl -sS -X PATCH "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$KEY" \
-                -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
-                -H "Content-Type: application/json" -H "Prefer: return=minimal" \
-                -d '{"value":"off"}'
-            else
-              curl -sS -X POST "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config" \
-                -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
-                -H "Content-Type: application/json" -H "Prefer: return=minimal" \
-                -d "{\"key\":\"$KEY\",\"value\":\"off\"}"
-            fi
-            AFTER=$(curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$KEY&select=key,value" \
-              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY")
-            echo "depois: $AFTER"
-          }
-          set_off "REELS_AUTOMATION_ENABLED"
-          set_off "BON_REEL_ENABLED"
-        env:
-          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+      - run: echo "placeholder — nada a fazer"
