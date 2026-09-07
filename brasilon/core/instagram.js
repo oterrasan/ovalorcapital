@@ -114,6 +114,71 @@ export async function publish(imageUrl, caption) {
   return { id: pubData.id, username: account.username, quota_before: limit };
 }
 
+// REELS (vídeo) — 07/09/2026, mesmo mecanismo do OVC (core/instagram.js,
+// raiz), adaptado ao estilo de conta única já usado neste arquivo. O
+// Instagram exige video_url DIRETO pro arquivo (nunca link/embed do
+// YouTube) — o filtro disso fica em quem chama (brasilon/api/manage.js),
+// não aqui.
+export async function publishReel(videoUrl, caption) {
+  const account = await getAccount();
+  if (!account) throw new Error("Conta @obrasilon não cadastrada em ig_accounts");
+  const { ig_user_id, token } = account;
+  if (!ig_user_id || !token) throw new Error("Conta @obrasilon sem ig_user_id ou token");
+
+  const limit = await getPublishingLimitForAccount(account);
+  if (limit.quota_total !== null && limit.quota_usage !== null && limit.quota_usage >= limit.quota_total) {
+    throw new Error(`Limite de publicação do Instagram atingido (${limit.quota_usage}/${limit.quota_total} em ${limit.quota_duration || 86400}s)`);
+  }
+
+  // 1. Criar container de Reel
+  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_type: "REELS", video_url: videoUrl, caption, share_to_feed: true, access_token: token, collaborators: DEFAULT_COLLABORATORS })
+  });
+  const createData = await createRes.json();
+  if (!createData.id) throw new Error("Erro ao criar container de Reel: " + JSON.stringify(createData));
+
+  // 2. Aguardar processamento do vídeo pela Meta (mais lento que imagem)
+  let containerStatus = null;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 3000));
+    const statusRes = await fetch(`${BASE}/${createData.id}?fields=status_code,status&access_token=${encodeURIComponent(token)}`);
+    containerStatus = await statusRes.json();
+    if (containerStatus?.status_code === "FINISHED") break;
+    if (["ERROR", "EXPIRED"].includes(containerStatus?.status_code)) {
+      throw new Error("Erro ao processar vídeo do Reel: " + JSON.stringify(containerStatus));
+    }
+  }
+  if (containerStatus?.status_code !== "FINISHED") {
+    const err = new Error("Vídeo do Reel ainda em processamento pela Meta — tentar de novo depois: " + JSON.stringify(containerStatus));
+    err.pending = true;
+    throw err;
+  }
+
+  // 3. Publicar (retry em 9007 — Meta ainda processando, mesmo padrão do OVC)
+  let pubData = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 3000));
+    const pubRes = await fetch(`${BASE}/${ig_user_id}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: createData.id, access_token: token })
+    });
+    pubData = await pubRes.json();
+    if (pubData?.id) break;
+    if (pubData?.error?.code !== 9007) break;
+  }
+  if (!pubData?.id) throw new Error("Erro ao publicar Reel: " + JSON.stringify(pubData));
+
+  await supabase.from("ig_accounts").update({
+    posts_hoje: (account.posts_hoje || 0) + 1,
+    ultima_atividade: new Date().toISOString()
+  }).eq("id", account.id);
+
+  return { id: pubData.id, username: account.username, quota_before: limit };
+}
+
 export async function postComment(mediaId, text, token) {
   if (!token) throw new Error("Token ausente para comentar no Instagram");
   const res = await fetch(`${BASE}/${mediaId}/comments`, {

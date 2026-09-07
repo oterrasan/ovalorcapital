@@ -114,6 +114,25 @@ export default async function handler(req, res) {
     return handleInstagramAutoPublish(req, res);
   }
 
+  if (action === "reels_config") {
+    if (req.method === "POST") {
+      if (req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
+      return handleReelsConfigSet(req, res);
+    }
+    if (req.query.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
+    return handleReelsConfigGet(req, res);
+  }
+
+  if (action === "reels_publish") {
+    if (req.method !== "POST" || req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
+    return handleReelsPublish(req, res, req.body);
+  }
+
+  if (action === "reels_auto_publish") {
+    if (req.query.pass !== PASS && req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
+    return handleReelsAutoPublish(req, res);
+  }
+
   return res.status(400).json({ error: "action inválida" });
 }
 
@@ -256,7 +275,7 @@ async function handleSync(req, res) {
     const cutoff = new Date(Date.now() - SYNC_LOOKBACK_HORAS * 3600000).toISOString();
 
     const { data: candidatos, error } = await supabase.from("posts")
-      .select("id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at,status")
+      .select("id,titulo,conteudo,comentario_fixado,imagem,video_url,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at,status")
       .eq("status", "publicado")
       .gte("published_at", cutoff)
       .order("published_at", { ascending: false })
@@ -279,21 +298,34 @@ async function handleSync(req, res) {
     const novos = alvos.filter(a => !jaExiste.has(a.post.id));
     if (!novos.length) return res.status(200).json({ ok: true, candidatos: candidatos.length, sincronizados: 0, porCategoria });
 
-    const rows = novos.map(({ post, categoria }) => ({
-      origem_post_id: post.id,
-      categoria,
-      titulo: post.titulo,
-      conteudo: assinarBrasilOn(post.conteudo),
-      comentario_fixado: post.comentario_fixado || "",
-      meta_title: (post.metrics && post.metrics.meta_title) || post.titulo,
-      imagem: post.imagem || "",
-      status: "publicado",
-      created_at: post.created_at,
-      published_at: post.published_at || post.created_at,
-      updated_at: post.updated_at || post.published_at || post.created_at
-    }));
+    const rows = novos.map(({ post, categoria }) => {
+      const row = {
+        origem_post_id: post.id,
+        categoria,
+        titulo: post.titulo,
+        conteudo: assinarBrasilOn(post.conteudo),
+        comentario_fixado: post.comentario_fixado || "",
+        meta_title: (post.metrics && post.metrics.meta_title) || post.titulo,
+        imagem: post.imagem || "",
+        status: "publicado",
+        created_at: post.created_at,
+        published_at: post.published_at || post.created_at,
+        updated_at: post.updated_at || post.published_at || post.created_at
+      };
+      if (post.video_url) row.video_url = post.video_url;
+      return row;
+    });
 
-    const { error: insertErr } = await supabase.from("brasilon_posts").insert(rows);
+    // 07/09/2026 — video_url é campo NOVO (mesma migração pendente de
+    // posts.video_url, agora em brasilon_posts). Se a coluna ainda não
+    // existir, o Postgres rejeita o INSERT inteiro com 42703 — nesse caso
+    // refaz sem o campo, nunca deixando o sync inteiro quebrado por causa
+    // disso. Assim que a coluna existir, passa a funcionar sozinho.
+    let { error: insertErr } = await supabase.from("brasilon_posts").insert(rows);
+    if (insertErr && insertErr.code === "42703") {
+      const semVideo = rows.map(({ video_url, ...r }) => r);
+      ({ error: insertErr } = await supabase.from("brasilon_posts").insert(semVideo));
+    }
     if (insertErr) throw insertErr;
 
     return res.status(200).json({ ok: true, candidatos: candidatos.length, sincronizados: rows.length, porCategoria });
@@ -655,6 +687,164 @@ async function handleInstagramAutoPublish(req, res) {
       return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, publicados_hoje: publicadosHoje + 1, ...resultado });
     } catch (e) {
       await _igClaimDesfazer(post.id);
+      const safeError = redactSecrets(e?.message || String(e));
+      return res.status(200).json({ ok: false, error: safeError, post_id: post.id });
+    }
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// REELS (VÍDEO) — 07/09/2026, mesmo pedido/mecanismo do OVC (ver
+// api/manage.js na raiz) — publica automaticamente por padrão, com um
+// toggle de pausa no Admin (BON_REEL_ENABLED). Fonte: qualquer post de
+// brasilon_posts com video_url herdado do OVC (core/brasilonMirror.js e
+// handleSync acima já espelham esse campo). Mesmo guarda-corpo do OVC:
+// nunca publica vídeo do YouTube como Reel (a Meta exige link direto pro
+// arquivo, e republicar vídeo de terceiro sem direito é o risco que
+// Roberto e a sessão concordaram em nunca correr).
+// Claim/anti-duplicata: mesmo estilo já usado pro feed de imagem deste
+// arquivo (BON_IG_POSTED__{id}, insert-only em config) — sem migração
+// de schema em brasilon_posts.
+// ══════════════════════════════════════════════════════
+function _isYouTubeUrl(url) {
+  return /youtube(?:-nocookie)?\.com|youtu\.be/i.test(String(url || ""));
+}
+
+async function readReelsConfig() {
+  const { data } = await supabase.from("config").select("key,value").in("key", ["BON_REEL_ENABLED"]);
+  const latest = {};
+  for (const row of data || []) latest[row.key] = row.value;
+  return { enabled: latest.BON_REEL_ENABLED === "on" };
+}
+
+async function handleReelsConfigGet(req, res) {
+  try {
+    const config = await readReelsConfig();
+    return res.status(200).json({ ok: true, config });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: redactSecrets(e?.message || String(e)) });
+  }
+}
+
+async function handleReelsConfigSet(req, res) {
+  try {
+    const wantsEnabled = req.body?.enabled === true;
+    await setInstagramConfig("BON_REEL_ENABLED", wantsEnabled ? "on" : "off");
+    return res.status(200).json({ ok: true, config: { enabled: wantsEnabled } });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: redactSecrets(e?.message || String(e)) });
+  }
+}
+
+async function _reelPostagemJaFeita(postId) {
+  const { data } = await supabase.from("config").select("key").eq("key", `BON_REEL_POSTED__${postId}`).limit(1);
+  return Boolean(data && data.length);
+}
+async function _reelClaim(postId) {
+  await supabase.from("config").insert({ key: `BON_REEL_POSTED__${postId}`, value: "claiming" });
+}
+async function _reelClaimConfirmar(postId, detalhe) {
+  await supabase.from("config").update({ value: JSON.stringify(detalhe) }).eq("key", `BON_REEL_POSTED__${postId}`);
+}
+async function _reelClaimDesfazer(postId) {
+  await supabase.from("config").delete().eq("key", `BON_REEL_POSTED__${postId}`);
+}
+
+async function _reelPublicarPost(post) {
+  const videoUrl = String(post.video_url || "").trim();
+  if (!/^https?:\/\//i.test(videoUrl)) throw new Error("post_sem_video");
+  if (_isYouTubeUrl(videoUrl)) throw new Error("video_do_youtube_nao_pode_virar_reel");
+
+  const caption = buildInstagramCaption(post);
+  const { publishReel, postComment, getAccount } = await _loadInstagram();
+  const ig = await publishReel(videoUrl, caption);
+
+  const firstCommentText = buildInstagramFirstComment(post);
+  let firstComment = null;
+  let firstCommentError = null;
+  if (firstCommentText) {
+    try {
+      const account = await getAccount();
+      firstComment = await postComment(ig.id, firstCommentText, account?.token);
+    } catch (commentError) {
+      firstCommentError = redactSecrets(commentError?.message || String(commentError));
+    }
+  }
+
+  return {
+    ig_id: ig.id,
+    username: ig.username,
+    video_url: videoUrl,
+    published_at: new Date().toISOString(),
+    caption,
+    first_comment_text: firstCommentText,
+    first_comment_id: firstComment?.id || null,
+    first_comment_error: firstCommentError
+  };
+}
+
+// Manual — Roberto escolhe um post específico com vídeo no admin.
+async function handleReelsPublish(req, res, body) {
+  const postId = String(body?.post_id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+
+  const { data: post, error } = await supabase.from("brasilon_posts").select("*").eq("id", postId).single();
+  if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
+
+  try {
+    const resultado = await _reelPublicarPost(post);
+    await supabase.from("config").delete().eq("key", `BON_REEL_POSTED__${postId}`);
+    await supabase.from("config").insert({ key: `BON_REEL_POSTED__${postId}`, value: JSON.stringify(resultado) });
+    return res.status(200).json({ ok: true, ...resultado });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// Automático — cron nativo da Vercel (brasilon/vercel.json), mesma janela
+// ativa da automação de imagem já em produção.
+async function handleReelsAutoPublish(req, res) {
+  if (!_igAutoDentroDaJanelaAtiva()) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa" });
+  }
+  try {
+    const reelsConfig = await readReelsConfig();
+    if (!reelsConfig.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_de_reels_pausada_no_admin" });
+
+    const account = await getInstagramAccount();
+    if (!account?.ig_user_id || !account?.token) {
+      return res.status(200).json({ ok: true, skipped: true, reason: "credenciais_da_conta_pendentes" });
+    }
+
+    const { data: candidatos, error } = await supabase.from("brasilon_posts")
+      .select("id,titulo,conteudo,comentario_fixado,video_url,categoria,status,published_at")
+      .eq("status", "publicado")
+      .not("video_url", "is", null)
+      .order("published_at", { ascending: true })
+      .limit(200);
+    if (error) throw error;
+
+    let post = null;
+    for (const candidato of candidatos || []) {
+      const url = String(candidato.video_url || "");
+      if (!/^https?:\/\//i.test(url) || _isYouTubeUrl(url)) continue;
+      if (await _reelPostagemJaFeita(candidato.id)) continue;
+      post = candidato;
+      break;
+    }
+    if (!post) return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_video_elegivel" });
+
+    await _reelClaim(post.id);
+    try {
+      const resultado = await _reelPublicarPost(post);
+      await _reelClaimConfirmar(post.id, resultado);
+      return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, ...resultado });
+    } catch (e) {
+      await _reelClaimDesfazer(post.id);
       const safeError = redactSecrets(e?.message || String(e));
       return res.status(200).json({ ok: false, error: safeError, post_id: post.id });
     }

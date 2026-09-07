@@ -51,7 +51,7 @@ on:
 jobs:
   publicar:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Chamar ig_auto_publish
         env:
@@ -62,6 +62,25 @@ jobs:
             -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
             -d '{"action":"ig_auto_publish"}' \
             --max-time 55 \
+            -w "\nHTTP_STATUS:%{http_code}\n")
+          echo "$response"
+          status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')
+          test "$status" = "200"
+      # 07/09/2026 — Reels (vídeo), a pedido de Roberto: "construa a
+      # automacao dos videos". Mesmo disparador/janela/autorização do
+      # feed de imagem acima — só a action muda. Processamento de vídeo
+      # na Meta é mais lento que imagem, por isso --max-time maior e
+      # api/manage.js ganhou maxDuration:120 em vercel.json.
+      - name: Chamar reels_auto_publish
+        if: always()
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          response=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"reels_auto_publish"}' \
+            --max-time 115 \
             -w "\nHTTP_STATUS:%{http_code}\n")
           echo "$response"
           status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')

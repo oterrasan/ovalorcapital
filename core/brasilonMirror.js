@@ -101,7 +101,20 @@ export async function mirrorPostToBrasilOn(post) {
       published_at: post.published_at || nowIso,
       updated_at: post.updated_at || post.published_at || nowIso
     };
-    await sb().from("brasilon_posts").upsert(row, { onConflict: "origem_post_id" });
+    // 07/09/2026 — vídeo (Roberto: "construa a automacao dos videos") —
+    // espelha video_url também, pra Brasil ON poder gerar Reel a partir do
+    // mesmo vídeo do OVC. brasilon_posts ainda PODE não ter essa coluna
+    // (mesma migração manual de video_url que posts já recebeu, no
+    // Supabase, ainda pendente pra brasilon_posts) — tenta com o campo, e
+    // se o Postgres reclamar de coluna inexistente (42703), refaz sem ele.
+    // Zero coordenação necessária: assim que a coluna existir, passa a
+    // funcionar sozinho, sem precisar tocar em código de novo.
+    if (post.video_url) row.video_url = post.video_url;
+    const { error } = await sb().from("brasilon_posts").upsert(row, { onConflict: "origem_post_id" });
+    if (error && error.code === "42703" && "video_url" in row) {
+      const { video_url, ...semVideo } = row;
+      await sb().from("brasilon_posts").upsert(semVideo, { onConflict: "origem_post_id" });
+    }
   } catch (_) {
     // best-effort — nunca pode quebrar a publicação real no OVC. O cron
     // de sync (brasilon/api/manage.js, action=sync) pega o que escapar.
