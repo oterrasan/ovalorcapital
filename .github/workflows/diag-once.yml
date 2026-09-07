@@ -11,17 +11,20 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar estado real de BON_IG_ENABLED e BON_REEL_ENABLED
+      - name: Ligar automação de Instagram (feed de imagem) do Brasil ON
         run: |
-          check() {
-            local KEY="$1"
-            echo "--- $KEY ---"
-            curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$KEY&select=key,value,updated_at" \
-              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-            echo ""
-          }
-          check "BON_IG_ENABLED"
-          check "BON_REEL_ENABLED"
+          echo "antes:"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BON_IG_ENABLED&select=key,value" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+          echo ""
+          curl -sS -X PATCH "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BON_IG_ENABLED" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
+            -H "Content-Type: application/json" -H "Prefer: return=minimal" \
+            -d '{"value":"on"}'
+          echo "depois:"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BON_IG_ENABLED&select=key,value" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+          echo ""
           echo "--- status Brasil ON (instagram_status) ---"
           curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto"
           echo ""
