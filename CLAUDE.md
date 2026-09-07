@@ -9175,3 +9175,52 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas "02-04/09/2026" e "04/09/2026 continuação" acima) — inclusive a investigação de "Esportes 132/242 (54%) dominando a geração diária", levantada nesta mesma conversa mas ainda não decidida por Roberto (ele focou primeiro na limpeza do banco).
 
 ---
+
+### Sessão 07/09/2026 — INSTAGRAM DO OVC REATIVADO — "Conta não encontrada" não se confirmou como problema real
+
+#### Contexto
+
+Roberto pediu diretamente: "ative a automação do Instagram do OVC que está pausada". Estava desligada desde 04/09/2026 (`IG_AUTOMATION_ENABLED=off`, pausa explícita pedida por ele naquela sessão, ver entrada "04/09/2026 continuação 2" acima, que também registrava a pendência não investigada "Conta não encontrada · Token ausente" no banner do admin).
+
+#### O que foi feito (PRs #679/#680 — mesmo padrão `diag-once.yml`)
+
+Antes de só religar a chave, aproveitei pra checar o estado real de `ig_accounts` (sem expor token) — já que ligar a flag sem conta elegível de verdade seria um "sim" vazio pra Roberto. Evidência real do log:
+
+```
+ANTES: IG_AUTOMATION_ENABLED = "off"
+
+ig_accounts (3 linhas):
+  obrasilon      | active:true | distribuicao_automatica:false
+  oterrasan      | active:true | distribuicao_automatica:true
+  ovalorcapital  | active:true | distribuicao_automatica:true
+
+Elegíveis pra automação (active + distribuicao_automatica + token presente):
+  oterrasan, ovalorcapital  ← AMBAS com token real, incluindo a conta oficial do portal
+
+PATCH: HTTP 204
+DEPOIS: IG_AUTOMATION_ENABLED = "on"
+```
+
+**Boa notícia:** a conta `ovalorcapital` tem token real e está elegível — a reativação deve funcionar de verdade, não só ligar uma flag sem efeito. A pendência antiga "Conta não encontrada · Token ausente" (banner do admin) não se confirmou como problema real nos dados de produção — segue como suspeita de query incompleta no front do admin (não investigada a fundo ainda), não como perda de credencial.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudança só de DADO em `config`, `diag-once.yml` resetado ao placeholder)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (07/09/2026)
+
+| Sistema | Status |
+|---|---|
+| **Instagram do OVC reativado** (`IG_AUTOMATION_ENABLED=on`) — a pedido explícito de Roberto | ✅ CONFIRMADO com evidência real (PRs #679/#680) |
+| **Conta `ovalorcapital` com token real, elegível pra automação** | ✅ CONFIRMADO — reativação deve gerar publicação real, não só flag |
+| **"Conta não encontrada · Token ausente" no banner do admin** — dado real mostra conta OK | ⚠️ Segue sem investigação do porquê do banner mostrar isso (suspeita: query do front sem filtro por username) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. Confirmar com Roberto se o banner "Conta não encontrada" no admin sumiu depois da reativação, ou se persiste mesmo com a conta real OK no banco — se persistir, é bug de query do front (`AutomacaoInstagram()`'s `load()`), não de credencial.
+2. Demais pendências de sessões anteriores seguem válidas (botão "LIMPAR AGORA" decorativo, Esportes dominando a geração diária, e a lista completa nas entradas "02-04/09/2026"/"04/09/2026 continuação"/"06/09/2026" acima).
+
+---
