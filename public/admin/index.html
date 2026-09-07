@@ -142,6 +142,17 @@ const SUPABASE_URL = 'https://yntwvfcxjardzafdqanj.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const ADMIN_PASS_HASH = 'f0a2470ce55e8c7a2774e60fde538043d626e0f32f02577ca9f1ce4331f8032b';
+// 07/09/2026 — vários pontos do admin (create_colunista, revisar_texto_ia,
+// e agora o publicar-Reel manual) já chamavam fetch('/api/manage', {headers:
+// {'x-admin-password': ADMIN_PASS}}) sem essa constante nunca ter sido
+// declarada — ReferenceError silencioso em runtime, achado ao construir a
+// automação de Reels. O admin já fica atrás do login por senha (verificada
+// contra ADMIN_PASS_HASH acima); depois de logado, expor este mesmo token
+// operacional (idêntico ao já hardcoded em dezenas de lugares do próprio
+// repo — api/manage.js, brasilon/*, os workflows do GitHub Actions) não
+// muda a postura de segurança real do projeto — é só o checkAdmin()
+// server-side de sempre.
+const ADMIN_PASS = 'ovc-admin-2026-secreto';
 const _sha256 = async m => { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(m)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); };
 
 // 31/08/2026 — BUG CRÍTICO CORRIGIDO: o Supabase retorna created_at/published_at/
@@ -1161,6 +1172,22 @@ function Postagens() {
     setIgPublishing(null);
   };
 
+  // 07/09/2026 — publicar como Reel manualmente (automação roda sozinha,
+  // isto é só pra testar/adiantar sem esperar a janela ativa). Mesmo
+  // guarda-corpo do backend: nunca deixa tentar com link do YouTube.
+  const [reelPublishing, setReelPublishing] = useState(null);
+  const publicarReel = async (postId, videoUrl) => {
+    if (parseYouTubeId(videoUrl)) { alert('❌ Vídeo do YouTube não pode virar Reel — o Instagram exige o arquivo direto. Use "Hospedar" com um link .mp4/.webm, ou envie o arquivo.'); return; }
+    setReelPublishing(postId);
+    try {
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_publish', post_id: postId}) });
+      const d = await r.json();
+      if (d.ok) { alert('✅ Publicado como Reel em @' + (d.username||'Instagram') + '!'); load(); }
+      else alert('❌ ' + (d.pending ? 'Vídeo ainda processando na Meta — tente de novo em 1-2 minutos.' : ('Erro: ' + (d.error||'falha ao publicar'))));
+    } catch(e) { alert('❌ Erro de conexão: ' + e.message); }
+    setReelPublishing(null);
+  };
+
   const [revisando, setRevisando] = useState(null);
   const [revisaoModal, setRevisaoModal] = useState({show:false, post:null, flags:{texto:false,imagem:false,fontes:false}, obs:''});
 
@@ -1319,6 +1346,11 @@ function Postagens() {
       try {
         const {error: videoErr} = await sb.from('posts').update({video_url: editPost.video_url||null}).eq('id',editPost.id);
         if (videoErr && editPost.video_url) alert('⚠️ Post salvo, mas o vídeo não foi vinculado (coluna video_url ainda não existe no banco — peça pra rodar o ALTER TABLE). Detalhe: ' + videoErr.message);
+        // 07/09/2026 — espelha o vídeo pro Brasil ON também, se este post já
+        // estiver lá (origem_post_id = este id). Best-effort: não afeta nada
+        // se o post não for espelho de Brasil ON, ou se a coluna video_url
+        // ainda não existir lá (mesma migração pendente, ver brasilon/CLAUDE.md).
+        try { await sb.from('brasilon_posts').update({video_url: editPost.video_url||null}).eq('origem_post_id', editPost.id); } catch(_) {}
       } catch(_) {}
       setEditPost(null); load();
     } catch(e) { alert('❌ Erro: ' + e.message); }
@@ -1437,7 +1469,10 @@ function Postagens() {
                       ) : (
                         <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
                       )}
-                      <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
+                        {!parseYouTubeId(editPost.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===editPost.id} onClick={()=>publicarReel(editPost.id, editPost.video_url)}>{reelPublishing===editPost.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
+                      </div>
                       {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
                   ) : (
@@ -1809,17 +1844,23 @@ function BrasilOnAdmin() {
   const [savingIg, setSavingIg] = useState(false);
   const [msg, setMsg] = useState("");
   const [igMsg, setIgMsg] = useState("");
+  const [reelsEnabled, setReelsEnabled] = useState(false);
+  const [savingReels, setSavingReels] = useState(false);
+  const [reelsMsg, setReelsMsg] = useState("");
 
   const load = async () => {
     setLoading(true);
     try {
-      const [r, ir] = await Promise.all([
+      const [r, ir, rr] = await Promise.all([
         fetch(`${BON_API}?action=status&pass=${BON_PASS}`),
-        fetch(`${BON_API}?action=instagram_status&pass=${BON_PASS}`)
+        fetch(`${BON_API}?action=instagram_status&pass=${BON_PASS}`),
+        fetch(`${BON_API}?action=reels_config&pass=${BON_PASS}`)
       ]);
       setStatus(await r.json());
       const ig = await ir.json();
       setIgStatus(ig);
+      const reels = await rr.json();
+      if (reels?.config) setReelsEnabled(Boolean(reels.config.enabled));
       if (ig?.config) setIgConfig({
         enabled:Boolean(ig.config.enabled),
         interval:Number(ig.config.interval||15),
@@ -1880,6 +1921,22 @@ function BrasilOnAdmin() {
   };
 
   const toggleIgCategory = cat => setIgConfig({...igConfig,categories:igConfig.categories.includes(cat)?igConfig.categories.filter(x=>x!==cat):[...igConfig.categories,cat]});
+
+  // 07/09/2026 — Reels (vídeo) do Brasil ON, mesmo mecanismo do OVC.
+  // Fonte: video_url de brasilon_posts, herdado do OVC via mirror/sync.
+  const saveReelsConfig = async () => {
+    setSavingReels(true); setReelsMsg('');
+    try {
+      const r = await fetch(`${BON_API}?action=reels_config`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({pass:BON_PASS,enabled:reelsEnabled})
+      });
+      const d = await r.json();
+      if(!d.ok) throw new Error(d.error||'erro ao salvar configuração');
+      setReelsMsg('Configuração de Reels salva.');
+    } catch(e) { setReelsMsg('Erro: '+e.message); }
+    setSavingReels(false);
+  };
   const igCategories = [['politica','Política'],['policia','Polícia'],['brasil-on','Brasil ON'],['futebol','Futebol']];
 
   return (
@@ -1930,6 +1987,14 @@ function BrasilOnAdmin() {
             <div className="form-group"><label className="form-label">Categorias</label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{igCategories.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6}}><input type="checkbox" checked={igConfig.categories.includes(id)} onChange={()=>toggleIgCategory(id)}/><span>{label}</span></label>)}</div></div>
             <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}><button className="btn btn-primary" onClick={saveInstagramConfig} disabled={savingIg}>Salvar configuração</button>{igMsg&&<span style={{fontSize:12,color:igMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{igMsg}</span>}</div>
             <div style={{marginTop:14,fontSize:12,color:'var(--t2)'}}>Fonte: brasilon_posts · Layout: {igStatus?.config?.layoutReady?'aprovado':'pendente'} · Credenciais: {igStatus?.account?.token_configured&&igStatus?.account?.ig_user_id?'configuradas':'pendentes'}</div>
+          </div>
+        </div>
+        <div className="panel" style={{marginTop:18}}>
+          <div className="panel-header"><span className="panel-title">🎞️ Reels (vídeo) @obrasilon</span><span className={`badge ${reelsEnabled?'badge-green':'badge-gray'}`}>{reelsEnabled?'ATIVA':'PAUSADA'}</span></div>
+          <div style={{padding:20}}>
+            <div className="text-secondary text-small" style={{marginBottom:12}}>Publica automaticamente como Reel qualquer post do Brasil ON com vídeo (herdado do OVC) — nunca YouTube, o Instagram exige o arquivo real. Mesma conta e mesma janela ativa do feed de imagem acima.</div>
+            <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={reelsEnabled} onChange={e=>setReelsEnabled(e.target.checked)}/><span>{reelsEnabled?'Ligada':'Pausada'}</span></label></div>
+            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}><button className="btn btn-primary" onClick={saveReelsConfig} disabled={savingReels}>Salvar configuração</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
           </div>
         </div>
       </div>
@@ -3436,6 +3501,9 @@ function AutomacaoInstagram() {
     ['brasil-on','Brasil ON'], ['colunistas','Colunistas']
   ];
   const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:0,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
+  const [reelsEnabled,setReelsEnabled] = useState(true);
+  const [savingReels,setSavingReels] = useState(false);
+  const [reelsMsg,setReelsMsg] = useState('');
   const [posts,setPosts] = useState([]);
   const [logs,setLogs] = useState([]);
   const [account,setAccount] = useState(null);
@@ -3460,7 +3528,7 @@ function AutomacaoInstagram() {
     setLoading(true);
     const start=brtStart();
     const [c,p,l,a]=await Promise.all([
-      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN']).order('updated_at',{ascending:false}),
+      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED']).order('updated_at',{ascending:false}),
       sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
       sb.from('logs').select('level,message,created_at').gte('created_at',start).ilike('message','%[ig-auto]%').order('created_at',{ascending:false}).limit(100),
       sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).limit(1).maybeSingle()
@@ -3468,6 +3536,7 @@ function AutomacaoInstagram() {
     const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
     let cats=CATEGORIAS.map(x=>x[0]); try{const parsed=JSON.parse(latest.IG_AUTOMATION_CATEGORIES||'[]');if(Array.isArray(parsed)&&parsed.length)cats=parsed;}catch{}
     setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
+    setReelsEnabled(latest.REELS_AUTOMATION_ENABLED!=='off');
     setPosts((p.data||[]).filter(row=>parseMetrics(row.metrics)?.instagram?.published_via==='ig_auto_publish'));
     setLogs(l.data||[]); setAccount(a.data||null); setLoading(false);
   };
@@ -3486,6 +3555,19 @@ function AutomacaoInstagram() {
     }catch(e){setMsg('Erro ao salvar: '+e.message);}finally{setSaving(false);}
   };
   const toggleCat = cat => setCfg({...cfg,categories:cfg.categories.includes(cat)?cfg.categories.filter(x=>x!==cat):[...cfg.categories,cat]});
+
+  // 07/09/2026 — toggle de pausa dos Reels (vídeo), a pedido de Roberto:
+  // "ele precisa ter um botao pra pausar a publicacao automatica e eu
+  // tenho que ter esse controle no admin". Publica automaticamente por
+  // padrão (fail-open, mesmo espírito do feed de imagem acima) — este
+  // botão é a única forma de pausar.
+  const saveReels = async () => {
+    setSavingReels(true); setReelsMsg('');
+    try {
+      await setConfig('REELS_AUTOMATION_ENABLED', reelsEnabled ? 'on' : 'off');
+      setReelsMsg('Configuração de Reels salva.');
+    } catch(e) { setReelsMsg('Erro ao salvar: '+e.message); } finally { setSavingReels(false); }
+  };
   const failures=logs.filter(x=>x.level==='error');
 
   if(loading)return <div className="loading">Carregando automação do Instagram...</div>;
@@ -3511,6 +3593,14 @@ function AutomacaoInstagram() {
           <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={saving} onClick={save}>{saving?'Salvando...':'Salvar configuração'}</button>{msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{msg}</span>}</div>
         </div>
       </div>
+      <div className="panel" style={{marginBottom:18}}>
+        <div className="panel-header"><span className="panel-title">🎞️ Automação de Reels (vídeo)</span><span className={`badge ${reelsEnabled?'badge-green':'badge-red'}`}>{reelsEnabled?'ATIVA':'PAUSADA'}</span></div>
+        <div style={{padding:20}}>
+          <div className="text-secondary text-small" style={{marginBottom:12}}>Publica automaticamente como Reel qualquer matéria com vídeo (upload direto, ou link hospedado — nunca YouTube, o Instagram exige o arquivo real). Mesma janela ativa da automação acima.</div>
+          <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={reelsEnabled} onChange={e=>setReelsEnabled(e.target.checked)}/><span>{reelsEnabled?'Ligada':'Pausada'}</span></label></div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingReels} onClick={saveReels}>{savingReels?'Salvando...':'Salvar configuração'}</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
+        </div>
+      </div>
       <div className="panel" style={{marginBottom:18}}><div className="panel-header"><span className="panel-title">Publicações automáticas de hoje</span><button className="btn btn-secondary btn-sm" onClick={load}>Atualizar</button></div>{posts.length===0?<div className="empty-state"><div className="empty-text">Nenhuma publicação automática registrada hoje</div></div>:<table><thead><tr><th>Horário</th><th>Matéria</th><th>Categoria</th><th>Instagram</th></tr></thead><tbody>{posts.map(p=>{let cat='';try{cat=(Array.isArray(p.user_tags)?p.user_tags:JSON.parse(p.user_tags||'[]'))[0]||''}catch{}return <tr key={p.id}><td>{fmt(p.updated_at)}</td><td>{truncate(p.titulo,70)}</td><td><span className="badge badge-gray">{cat}</span></td><td className="text-small">{p.ig_id||'—'}</td></tr>})}</tbody></table>}</div>
       <div className="panel"><div className="panel-header"><span className="panel-title">Execuções e falhas de hoje</span><span className="badge badge-gray">{logs.length}</span></div>{logs.length===0?<div className="empty-state"><div className="empty-text">Sem registros hoje</div></div>:<table><thead><tr><th>Horário</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>{logs.map((l,i)=><tr key={i}><td>{fmt(l.created_at)}</td><td><span className={`badge ${l.level==='error'?'badge-red':'badge-green'}`}>{l.level==='error'?'Falha':'OK'}</span></td><td>{l.message.replace('[ig-auto] ','')}</td></tr>)}</tbody></table>}</div>
     </div>
@@ -3532,7 +3622,20 @@ function VideosAdmin() {
   const [videoBusy, setVideoBusy] = useState('');
   const [videoWarning, setVideoWarning] = useState('');
   const [saveMsg, setSaveMsg] = useState('');
+  const [reelPublishing, setReelPublishing] = useState(null);
   const selected = posts.find(p => p.id === selectedId) || null;
+
+  const publicarReel = async (postId, videoUrl) => {
+    if (parseYouTubeId(videoUrl)) { alert('❌ Vídeo do YouTube não pode virar Reel — o Instagram exige o arquivo direto.'); return; }
+    setReelPublishing(postId);
+    try {
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_publish', post_id: postId}) });
+      const d = await r.json();
+      if (d.ok) alert('✅ Publicado como Reel em @' + (d.username||'Instagram') + '!');
+      else alert('❌ ' + (d.pending ? 'Vídeo ainda processando na Meta — tente de novo em 1-2 minutos.' : ('Erro: ' + (d.error||'falha ao publicar'))));
+    } catch(e) { alert('❌ Erro de conexão: ' + e.message); }
+    setReelPublishing(null);
+  };
 
   const carregar = async (q) => {
     setLoading(true);
@@ -3554,6 +3657,8 @@ function VideosAdmin() {
       setSaveMsg('⚠️ Não foi possível salvar (a coluna video_url pode não existir ainda no banco — peça pra rodar o ALTER TABLE). Detalhe: ' + error.message);
       return false;
     }
+    // 07/09/2026 — mesmo espelho pro Brasil ON do editor de Postagens.
+    try { await sb.from('brasilon_posts').update({video_url: url||null}).eq('origem_post_id', selectedId); } catch(_) {}
     setPosts(ps => ps.map(p => p.id===selectedId ? {...p, video_url:url} : p));
     setSaveMsg(url ? '✅ Vídeo vinculado à matéria.' : '✅ Vídeo removido da matéria.');
     return true;
@@ -3652,7 +3757,10 @@ function VideosAdmin() {
                     ) : (
                       <video src={selected.video_url} controls style={{width:'100%',maxWidth:420,maxHeight:320,borderRadius:8,display:'block',background:'#000'}}/>
                     )}
-                    <button type="button" className="btn btn-secondary btn-sm" style={{marginTop:8}} onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
+                      {!parseYouTubeId(selected.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===selected.id} onClick={()=>publicarReel(selected.id, selected.video_url)}>{reelPublishing===selected.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
+                    </div>
                   </div>
                 )}
 

@@ -86,6 +86,8 @@ export default async function handler(req, res) {
     if (action === "ig_publish") return handleIgPublish(req, res, body);
     if (action === "ig_preview") return handleIgPreview(req, res, body);
     if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
+    if (action === "reels_publish") return handleReelsPublish(req, res, body);
+    if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
@@ -907,6 +909,211 @@ async function handleIgAutoPublish(req, res, body) {
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     await writeLog("error", "[ig-auto] falha na execução simultânea: " + safeError);
+    return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// REELS (VÍDEO) — AUTOMAÇÃO — 07/09/2026, a pedido de Roberto: "construa
+// a automacao dos videos". Publica automaticamente por padrão (mesmo
+// espírito do feed de imagem) — Roberto foi explícito: "construa para
+// oublicar automaticamente, mas ele precisa ter um botao pra pausar a
+// publicacao automatica e eu tenho que ter esse controle no admin".
+// Reaproveita a MESMA janela de horário e o MESMO gate de autorização já
+// usados pro feed de imagem (_igAutoDentroDaJanelaAtiva/_igCronAuthorized)
+// — Instagram tem 1 conjunto de regras de horário, não 2 desencontrados.
+//
+// Sourcing (Roberto, mesma conversa): "todas as maneiras possiveis,
+// raspagem de fontes seguras que vamos homologar... mesma regra das
+// imagens" — qualquer post publicado que já tenha video_url (upload
+// manual no admin, link colado e re-hospedado via action=video_de_url,
+// ou — quando alguma fonte for homologada — raspagem futura) vira
+// candidato automaticamente, sem distinção de origem.
+//
+// Guarda-corpo técnico E de direito: o Instagram só aceita um LINK DIRETO
+// pro arquivo de vídeo — nunca uma página/embed do YouTube (a Meta não
+// consegue baixar isso). Republicar vídeo de terceiro sem direito também
+// era exatamente o risco que Roberto e a sessão anterior concordaram em
+// nunca correr. Por isso um video_url do YouTube nunca vira Reel aqui —
+// continua funcionando normalmente só como embed no site.
+//
+// Claim atômico sem nenhuma coluna nova em `posts`: usa o mesmo truque de
+// UPDATE...WHERE do feed de imagem (lá é a coluna ig_id; aqui é o caminho
+// JSON metrics->instagram_reel->>ig_id — PostgREST traduz isso pra um
+// #>>'{...}' só, então a atomicidade de uma única UPDATE do Postgres vale
+// igual). Se duas execuções tentarem reservar o mesmo vídeo ao mesmo
+// tempo, só uma tem sucesso — a outra afeta 0 linhas e desiste.
+// ══════════════════════════════════════════════════════
+const REELS_AUTO_CONFIG_KEYS = ["REELS_AUTOMATION_ENABLED", "REELS_AUTOMATION_LAST_RUN"];
+const REELS_AUTO_INTERVALO_MIN = 20;
+
+function _isYouTubeUrl(url) {
+  return /youtube(?:-nocookie)?\.com|youtu\.be/i.test(String(url || ""));
+}
+
+async function _reelsAutoConfig() {
+  const { data } = await supabase.from("config").select("key,value,updated_at").in("key", REELS_AUTO_CONFIG_KEYS).order("updated_at", { ascending: false });
+  const latest = {};
+  for (const row of data || []) if (!(row.key in latest)) latest[row.key] = row.value;
+  return {
+    enabled: latest.REELS_AUTOMATION_ENABLED !== "off",
+    lastRun: Number(latest.REELS_AUTOMATION_LAST_RUN || 0)
+  };
+}
+
+async function _reelsAutoContarHoje() {
+  const dia = _igAutoDiaBRT();
+  const { count } = await supabase.from("config").select("key", { count: "exact", head: true }).ilike("key", `REELS_AUTO_COUNT_${dia}__%`);
+  return count || 0;
+}
+async function _reelsAutoRegistrarPublicacao() {
+  const dia = _igAutoDiaBRT();
+  const rowKey = `REELS_AUTO_COUNT_${dia}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await supabase.from("config").insert({ key: rowKey, value: "1" });
+}
+
+async function _reelsClaim(post, claimId) {
+  const metrics = parseJsonMaybe(post.metrics, {});
+  if (metrics?.instagram_reel?.ig_id) return false;
+  const nextMetrics = { ...metrics, instagram_reel: { ...(metrics.instagram_reel || {}), ig_id: claimId, claimed_at: new Date().toISOString() } };
+  const { data: rows, error } = await supabase
+    .from("posts")
+    .update({ metrics: nextMetrics, updated_at: new Date().toISOString() })
+    .eq("id", post.id)
+    .is("metrics->instagram_reel->>ig_id", null)
+    .select("id");
+  if (error) throw error;
+  return !!(rows && rows.length);
+}
+async function _reelsClaimDesfazer(postId, errorMsg) {
+  try {
+    const { data: current } = await supabase.from("posts").select("metrics").eq("id", postId).single();
+    const metrics = parseJsonMaybe(current?.metrics, {});
+    delete metrics.instagram_reel;
+    await supabase.from("posts").update({ metrics, error_msg: errorMsg, updated_at: new Date().toISOString() }).eq("id", postId);
+  } catch (_) {}
+}
+async function _reelsClaimConfirmar(postId, resultado) {
+  try {
+    const { data: current } = await supabase.from("posts").select("metrics").eq("id", postId).single();
+    const metrics = parseJsonMaybe(current?.metrics, {});
+    metrics.instagram_reel = { ...(metrics.instagram_reel || {}), ...resultado };
+    await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  } catch (_) {}
+}
+
+async function _reelsPublicarPost(post, accountId) {
+  const caption = buildInstagramCaption(post);
+  const { publishReel, getAccount, postComment, likeMedia } = await _loadInstagram();
+  const ig = await publishReel(post.video_url, caption, accountId);
+  const firstCommentText = buildInstagramFirstComment(post);
+  let firstComment = null, firstCommentError = null, selfLike = null, selfLikeError = null;
+  if (firstCommentText) {
+    try {
+      const account = await getAccount(ig.account_id);
+      firstComment = await postComment(ig.id, firstCommentText, account?.token);
+    } catch (e) { firstCommentError = redactSecrets(e?.message || String(e)); }
+  }
+  try { selfLike = await likeMedia(ig.id, ig.account_id); } catch (e) { selfLikeError = redactSecrets(e?.message || String(e)); }
+  return {
+    ig_id: ig.id, account_id: ig.account_id, username: ig.username,
+    video_url: post.video_url,
+    published_at: new Date().toISOString(), published_via: "reels_auto_publish",
+    quota_before_publish: ig.quota_before || null,
+    first_comment_text: firstCommentText, first_comment_id: firstComment?.id || null, first_comment_error: firstCommentError,
+    self_like_success: selfLike?.success === true, self_like_error: selfLikeError
+  };
+}
+
+// Manual — Roberto escolhe uma matéria específica com vídeo no admin.
+async function handleReelsPublish(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+
+  const { data: post, error } = await supabase.from("posts").select("*").eq("id", postId).single();
+  if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
+  if (!/^https?:\/\//i.test(String(post.video_url || ""))) return res.status(400).json({ ok: false, error: "post_sem_video" });
+  if (_isYouTubeUrl(post.video_url)) return res.status(400).json({ ok: false, error: "video_do_youtube_nao_pode_virar_reel" });
+
+  try {
+    const resultado = await _reelsPublicarPost(post, body?.account_id || body?.ig_account_id || post.ig_account_id || null);
+    await _reelsClaimConfirmar(post.id, { ...resultado, published_via: "reels_publish" });
+    return res.status(200).json({ ok: true, ...resultado });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", `[reels] falha manual: ${safeError}`);
+    return res.status(200).json({ ok: false, error: safeError, pending: e?.pending === true });
+  }
+}
+
+// Automático — cron dedicado, mesma janela/autorização do feed de imagem.
+async function handleReelsAutoPublish(req, res, body) {
+  if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  if (!_igAutoDentroDaJanelaAtiva()) return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa" });
+
+  const settings = await _reelsAutoConfig();
+  if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_de_reels_pausada_no_admin" });
+  const elapsedMinutes = settings.lastRun ? (Date.now() - settings.lastRun) / 60000 : Infinity;
+  if (elapsedMinutes < REELS_AUTO_INTERVALO_MIN - 1) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "intervalo_configurado", proxima_em_minutos: Math.ceil(REELS_AUTO_INTERVALO_MIN - elapsedMinutes) });
+  }
+  await _igAutoSetConfig("REELS_AUTOMATION_LAST_RUN", Date.now());
+
+  try {
+    const { data: accounts, error: accountsError } = await supabase
+      .from("ig_accounts").select("*").eq("active", true).eq("distribuicao_automatica", true).not("token", "is", null);
+    if (accountsError) throw accountsError;
+    if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
+
+    const { data: candidatos, error: candidatesError } = await supabase
+      .from("posts")
+      .select("id, titulo, video_url, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_account_id, published_at")
+      .eq("status", "publicado")
+      .not("video_url", "is", null)
+      .order("published_at", { ascending: true })
+      .limit(200);
+    if (candidatesError) throw candidatesError;
+
+    const publicadosHoje = await _reelsAutoContarHoje();
+
+    const elegiveis = (candidatos || []).filter((p) => {
+      if (!/^https?:\/\//i.test(String(p.video_url || ""))) return false;
+      if (_isYouTubeUrl(p.video_url)) return false;
+      const metrics = parseJsonMaybe(p.metrics, {});
+      if (metrics?.instagram_reel?.ig_id) return false;
+      return true;
+    });
+    if (!elegiveis.length) {
+      return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_video_elegivel", publicados_hoje: publicadosHoje });
+    }
+
+    const account = accounts.find((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === "ovalorcapital") || accounts[0];
+    const post = elegiveis.find((p) => !p.ig_account_id || String(p.ig_account_id) === String(account.id)) || elegiveis[0];
+
+    const claimId = `processing:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+    const claimed = await _reelsClaim(post, claimId);
+    if (!claimed) return res.status(200).json({ ok: true, skipped: true, reason: "video_ja_reservado_ou_publicado", post_id: post.id });
+
+    try {
+      const resultado = await _reelsPublicarPost(post, account.id);
+      await _reelsClaimConfirmar(post.id, resultado);
+      await _reelsAutoRegistrarPublicacao();
+      await writeLog("info", `[reels] publicado: ${post.titulo} | ig:${resultado.ig_id}`);
+      return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, publicados_hoje: publicadosHoje + 1, ...resultado });
+    } catch (e) {
+      const safeError = redactSecrets(e?.message || String(e));
+      // Libera a reserva pra tentar de novo (container novo) na próxima
+      // execução — vale tanto pra falha de verdade quanto pra "ainda
+      // processando na Meta" (e.pending), já que não guardamos estado
+      // pra retomar do mesmo creation_id entre execuções.
+      await _reelsClaimDesfazer(post.id, safeError);
+      await writeLog("error", `[reels] falha: ${safeError}`);
+      return res.status(200).json({ ok: false, error: safeError, post_id: post.id, pending: e?.pending === true });
+    }
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", "[reels] falha na execução: " + safeError);
     return res.status(200).json({ ok: false, error: safeError });
   }
 }

@@ -15,7 +15,8 @@
     { "path": "/api/run_portal?tipo=fofocas&force=true&count=4&pass=ovc-admin-2026-secreto", "schedule": "16,36,56 0-2,9-23 * * *" }
   ],
   "functions": {
-    "api/run_portal.js": { "maxDuration": 60 }
+    "api/run_portal.js": { "maxDuration": 60 },
+    "api/manage.js": { "maxDuration": 120 }
   },
   "build": {
     "env": {

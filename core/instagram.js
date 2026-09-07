@@ -142,6 +142,114 @@ export async function publish(imageUrl, caption, accountId) {
   return { id: pubData.id, account_id: account.id, username: account.username, quota_before: limit };
 }
 
+// ══════════════════════════════════════════════════════
+// REELS (vídeo) — 07/09/2026, a pedido de Roberto: "construa a automacao
+// dos videos". Mesmo client/conta/collaborators/quota de sempre — só o
+// media_type e o payload mudam (video_url em vez de image_url). O
+// Instagram exige um link DIRETO pro arquivo de vídeo (mp4/mov real,
+// hospedado por nós) — nunca uma página/embed do YouTube, que a Meta não
+// consegue baixar. Isso é filtrado do lado de quem chama (api/manage.js),
+// não aqui — este módulo só publica o que já chegou como video_url direto.
+// ══════════════════════════════════════════════════════
+export async function createReelContainer(videoUrl, caption, accountId, opts = {}) {
+  const account = await getAccount(accountId);
+  if (!account) throw new Error("Nenhuma conta Instagram ativa com token disponível");
+  const { ig_user_id, token } = account;
+  if (!ig_user_id || !token) throw new Error("Conta sem ig_user_id ou token: " + account.username);
+
+  const limit = await getPublishingLimitForAccount(account);
+  if (limit.quota_total !== null && limit.quota_usage !== null && limit.quota_usage >= limit.quota_total) {
+    throw new Error(`Limite de publicação do Instagram atingido (${limit.quota_usage}/${limit.quota_total} em ${limit.quota_duration || 86400}s)`);
+  }
+
+  const createPayload = {
+    media_type: "REELS",
+    video_url: videoUrl,
+    caption,
+    access_token: token,
+    share_to_feed: opts.shareToFeed !== false
+  };
+  const publisherUsername = String(account.username || "").replace(/^@/, "").toLowerCase();
+  const collaborators = DEFAULT_COLLABORATORS.filter(c => c.toLowerCase() !== publisherUsername);
+  if (collaborators.length) createPayload.collaborators = collaborators;
+  if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
+
+  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(createPayload)
+  });
+  const createData = await createRes.json();
+  if (!createData.id) throw new Error("Erro ao criar container de Reel: " + JSON.stringify(createData));
+
+  return { creation_id: createData.id, account_id: account.id, username: account.username, quota_before: limit };
+}
+
+export async function checkReelStatus(creationId, accountId) {
+  const account = await getAccount(accountId);
+  if (!account?.token) throw new Error("Conta sem token para checar status do Reel");
+  const statusRes = await fetch(`${BASE}/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(account.token)}`);
+  return statusRes.json();
+}
+
+export async function publishReelContainer(creationId, accountId) {
+  const account = await getAccount(accountId);
+  if (!account?.ig_user_id || !account?.token) throw new Error("Conta sem ig_user_id ou token para publicar");
+
+  let pubData = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 3000));
+    const pubRes = await fetch(`${BASE}/${account.ig_user_id}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ creation_id: creationId, access_token: account.token })
+    });
+    pubData = await pubRes.json();
+    if (pubData?.id) break;
+    if (pubData?.error?.code !== 9007) break;
+  }
+  if (!pubData?.id) throw new Error("Erro ao publicar Reel: " + JSON.stringify(pubData));
+
+  await supabase.from("ig_accounts").update({
+    posts_hoje: (account.posts_hoje || 0) + 1,
+    ultima_atividade: new Date().toISOString()
+  }).eq("id", account.id);
+
+  return { id: pubData.id, account_id: account.id, username: account.username };
+}
+
+// Cria + aguarda o processamento do vídeo pela Meta (pode levar bem mais
+// tempo que uma imagem) + publica, tudo numa chamada só. Se o vídeo ainda
+// não tiver terminado de processar dentro do orçamento de polling, lança
+// um erro com `.pending=true` — quem chamou decide se tenta de novo depois
+// (nunca deixamos a function serverless travada esperando indefinidamente).
+export async function publishReel(videoUrl, caption, accountId, opts = {}) {
+  const { creation_id, account_id, quota_before } = await createReelContainer(videoUrl, caption, accountId, opts);
+
+  let status = null;
+  const maxAttempts = opts.maxPollAttempts ?? 15;
+  const pollDelayMs = opts.pollDelayMs ?? 3000;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, pollDelayMs));
+    status = await checkReelStatus(creation_id, account_id);
+    if (status?.status_code === "FINISHED") break;
+    if (["ERROR", "EXPIRED"].includes(status?.status_code)) {
+      throw new Error("Erro ao processar vídeo do Reel: " + JSON.stringify(status));
+    }
+  }
+
+  if (status?.status_code !== "FINISHED") {
+    const err = new Error("Vídeo do Reel ainda em processamento pela Meta — tentar de novo depois: " + JSON.stringify(status));
+    err.pending = true;
+    err.creation_id = creation_id;
+    err.account_id = account_id;
+    throw err;
+  }
+
+  const published = await publishReelContainer(creation_id, account_id);
+  return { ...published, quota_before };
+}
+
 export async function postComment(mediaId, text, token) {
   if (!token) throw new Error("Token ausente para comentar no Instagram");
   const res = await fetch(`${BASE}/${mediaId}/comments`, {
