@@ -1,15 +1,29 @@
 name: Diagnóstico único (placeholder)
 
-# Este arquivo é reaproveitado sob demanda para diagnósticos pontuais em
-# produção (ex.: consultar Supabase, testar um endpoint, disparar um
-# redeploy manual). Fora de uso, fica assim — inerte, sem nenhuma ação real.
-# Sempre resetar para este estado depois de qualquer uso pontual.
-
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Checar estado real de BON_IG_ENABLED e BON_REEL_ENABLED
+        run: |
+          check() {
+            local KEY="$1"
+            echo "--- $KEY ---"
+            curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.$KEY&select=key,value,updated_at" \
+              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+            echo ""
+          }
+          check "BON_IG_ENABLED"
+          check "BON_REEL_ENABLED"
+          echo "--- status Brasil ON (instagram_status) ---"
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto"
+          echo ""
+        env:
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
