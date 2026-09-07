@@ -7,9 +7,52 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Reativar Instagram OVC (autorizado por Roberto) + checar conta real
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "${{ secrets.SUPABASE_SERVICE_KEY || '' }}"
+        run: |
+          set -e
+          KEY="$SUPABASE_KEY"
+          if [ -z "$KEY" ]; then
+            KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          fi
+
+          echo "== ANTES: IG_AUTOMATION_ENABLED =="
+          curl -s "$SUPABASE_URL/rest/v1/config?select=key,value&key=eq.IG_AUTOMATION_ENABLED" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo ""
+
+          echo "== ig_accounts (sem expor token) =="
+          curl -s "$SUPABASE_URL/rest/v1/ig_accounts?select=id,username,active,distribuicao_automatica" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo ""
+
+          echo "== ig_accounts com token real presente (elegiveis pra automacao) =="
+          curl -s "$SUPABASE_URL/rest/v1/ig_accounts?select=username,active,distribuicao_automatica&active=eq.true&distribuicao_automatica=eq.true&token=not.is.null" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo ""
+
+          echo "== Ligando (update-se-existir-senao-insert, nunca upsert onConflict) =="
+          EXISTE=$(curl -s "$SUPABASE_URL/rest/v1/config?select=key&key=eq.IG_AUTOMATION_ENABLED" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "linha existente: $EXISTE"
+          if echo "$EXISTE" | grep -q "IG_AUTOMATION_ENABLED"; then
+            curl -s -o /dev/null -w "PATCH_STATUS:%{http_code}\n" -X PATCH \
+              "$SUPABASE_URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" \
+              -d '{"value":"on"}'
+          else
+            curl -s -o /dev/null -w "INSERT_STATUS:%{http_code}\n" -X POST \
+              "$SUPABASE_URL/rest/v1/config" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" \
+              -d '{"key":"IG_AUTOMATION_ENABLED","value":"on"}'
+          fi
+
+          echo "== DEPOIS: IG_AUTOMATION_ENABLED =="
+          curl -s "$SUPABASE_URL/rest/v1/config?select=key,value&key=eq.IG_AUTOMATION_ENABLED" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo ""
