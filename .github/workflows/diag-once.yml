@@ -18,15 +18,15 @@ jobs:
           curl -sSI "$URL" | grep -iE "^(age|cache-control|x-vercel-cache):" || true
           echo ""
           curl -sS "$URL" -o /tmp/page.html
-          python3 -c "
-import re, json
-html = open('/tmp/page.html', encoding='utf-8').read()
-m = re.search(r'window\.__OVC_ARTICLE__\s*=\s*(\{.*?\});', html, re.DOTALL)
-if not m:
-    print('NAO ACHOU window.__OVC_ARTICLE__ no HTML')
-else:
-    obj = json.loads(m.group(1))
-    print('campo video presente:', 'video' in obj)
-    print('valor de video:', obj.get('video'))
-    print('status implicito (id bate):', obj.get('id'))
-"
+          python3 << 'PYEOF'
+          import re, json
+          html = open('/tmp/page.html', encoding='utf-8').read()
+          m = re.search(r'window\.__OVC_ARTICLE__\s*=\s*(\{.*?\});', html, re.DOTALL)
+          if not m:
+              print('NAO ACHOU window.__OVC_ARTICLE__ no HTML')
+          else:
+              obj = json.loads(m.group(1))
+              print('campo video presente:', 'video' in obj)
+              print('valor de video:', obj.get('video'))
+              print('id:', obj.get('id'))
+          PYEOF
