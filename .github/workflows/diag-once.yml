@@ -2,9 +2,28 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Checar estado real do post f1e07b70 (status + video_url)
+        env:
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?id=eq.f1e07b70-fcea-489c-afa9-70045cab2858&select=id,titulo,status,video_url,updated_at" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
+
+      - name: Buscar HTML real servido por api/article.js pro slug (checar cache + window.__OVC_ARTICLE__)
+        run: |
+          URL="https://www.ovalorcapital.com.br/politica/video-mostra-grupo-ex-bope-queimando-bandeira-com-imagem-de--f1e07b70/"
+          echo "--- headers (Age / Cache-Control / x-vercel-cache) ---"
+          curl -sSI "$URL" | grep -iE "^(age|cache-control|x-vercel-cache|date):" || true
+          echo ""
+          echo "--- trecho window.__OVC_ARTICLE__ do HTML ---"
+          curl -sS "$URL" | grep -o 'window.__OVC_ARTICLE__=[^;]*;' | head -c 3000
+          echo ""
