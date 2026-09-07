@@ -7,9 +7,50 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Pausar todas as automações (autorizado por Roberto)
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "${{ secrets.SUPABASE_SERVICE_KEY || '' }}"
+        run: |
+          set -e
+          KEY="$SUPABASE_KEY"
+          if [ -z "$KEY" ]; then
+            KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          fi
+
+          set_off () {
+            local KEYNAME="$1"
+            local EXISTE=$(curl -s "$SUPABASE_URL/rest/v1/config?select=key&key=eq.${KEYNAME}" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+            if echo "$EXISTE" | grep -q "$KEYNAME"; then
+              curl -s -o /dev/null -w "PATCH ${KEYNAME}: %{http_code}\n" -X PATCH \
+                "$SUPABASE_URL/rest/v1/config?key=eq.${KEYNAME}" \
+                -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" \
+                -d '{"value":"off"}'
+            else
+              curl -s -o /dev/null -w "INSERT ${KEYNAME}: %{http_code}\n" -X POST \
+                "$SUPABASE_URL/rest/v1/config" \
+                -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" \
+                -d "{\"key\":\"${KEYNAME}\",\"value\":\"off\"}"
+            fi
+          }
+
+          echo "== ANTES =="
+          curl -s "$SUPABASE_URL/rest/v1/config?select=key,value&key=in.(AUTOMATION,IG_AUTOMATION_ENABLED,BON_IG_ENABLED)" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo ""
+
+          echo "== Pausando =="
+          set_off "AUTOMATION"
+          set_off "IG_AUTOMATION_ENABLED"
+          set_off "BON_IG_ENABLED"
+
+          echo "== DEPOIS =="
+          curl -s "$SUPABASE_URL/rest/v1/config?select=key,value&key=in.(AUTOMATION,IG_AUTOMATION_ENABLED,BON_IG_ENABLED)" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
+          echo ""
