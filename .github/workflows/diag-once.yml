@@ -11,38 +11,34 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar upsert real em brasilon_posts com um post de hoje (mesma forma do mirror)
+      - name: Disparar geração real (aciona mirrorPostToBrasilOn) e conferir brasilon_posts
         env:
           SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          echo "--- post real de hoje (275b4df4) ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?id=eq.275b4df4-baea-4a8d-8f53-6f45917125e8&select=id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" > /tmp/post.json
+          echo "--- disparando POST /api/run_portal tipo=brasilon (Bacci, publica direto) ---"
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -d '{"tipo":"brasilon","force":true,"count":1}' \
+            --max-time 55 -w "\nHTTP_STATUS:%{http_code}\n"
+          echo "--- post OVC mais recente publish_method=brasilon (últimos 3min) ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?publish_method=eq.brasilon&order=created_at.desc&limit=1&select=id,titulo,created_at" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" > /tmp/latest.json
+          cat /tmp/latest.json
+          echo
+          echo "--- checando se esse mesmo id já existe em brasilon_posts (origem_post_id) ---"
           python3 << 'PYEOF'
-          import json
-          p = json.load(open('/tmp/post.json'))[0]
-          print('titulo:', p['titulo'])
-          print('conteudo presente:', bool(p.get('conteudo')))
-          print('user_tags:', p.get('user_tags'))
-          print('subcategoria_slug:', p.get('subcategoria_slug'))
-          row = {
-              'origem_post_id': p['id'],
-              'categoria': 'brasil-on',
-              'titulo': p['titulo'],
-              'conteudo': p.get('conteudo') or '',
-              'comentario_fixado': p.get('comentario_fixado') or '',
-              'meta_title': (p.get('metrics') or {}).get('meta_title') or p['titulo'],
-              'imagem': p.get('imagem') or '',
-              'status': 'publicado',
-              'created_at': p.get('created_at'),
-              'published_at': p.get('published_at'),
-              'updated_at': p.get('updated_at') or p.get('published_at'),
-          }
-          json.dump(row, open('/tmp/row.json', 'w'))
-          print('linha montada, escrevendo...')
+          import json, subprocess
+          rows = json.load(open('/tmp/latest.json'))
+          if not rows:
+              print('NENHUM post publish_method=brasilon encontrado')
+          else:
+              pid = rows[0]['id']
+              print('id do post OVC mais recente:', pid, rows[0]['titulo'])
+              open('/tmp/pid.txt', 'w').write(pid)
           PYEOF
-          echo "--- tentando upsert real (mesma forma do mirror, onConflict=origem_post_id) ---"
-          curl -sS -X POST "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?on_conflict=origem_post_id" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" \
-            -H "Prefer: resolution=merge-duplicates,return=representation" \
-            -d @/tmp/row.json -w "\nHTTP_STATUS:%{http_code}\n"
+          if [ -f /tmp/pid.txt ]; then
+            PID=$(cat /tmp/pid.txt)
+            echo "--- consultando brasilon_posts com origem_post_id=$PID ---"
+            curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?origem_post_id=eq.$PID&select=id,titulo,categoria,created_at" \
+              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -w "\nHTTP_STATUS:%{http_code}\n"
+          fi
