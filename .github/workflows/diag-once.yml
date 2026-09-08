@@ -11,17 +11,36 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar config real do OVC e do Brasil ON (automação Instagram)
+      - name: Religar IG_AUTOMATION_ENABLED do OVC (estava off desde 04/09) + confirmar
         env:
           SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          echo "--- OVC: IG_AUTOMATION_ENABLED (todas as linhas, mais recente primeiro) ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=key,value,updated_at&order=updated_at.desc&limit=5" \
+          echo "--- ANTES ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=value,updated_at" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+          echo ""
+          echo "--- PATCH pra on ---"
+          curl -sS -X PATCH "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: return=representation" \
+            -d '{"value":"on","updated_at":"'"$(date -u +%Y-%m-%dT%H:%M:%S.000)"'"}'
+          echo ""
+          echo "--- DEPOIS ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=value,updated_at" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+
+      - name: Checar evidência real de publicação do Brasil ON hoje (contador do dia)
+        env:
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          HOJE=$(date -u -d '-3 hours' +%Y%m%d)
+          echo "Dia BRT de hoje: $HOJE"
+          echo "--- BON_IG_AUTO_COUNT_${HOJE}__* (1 linha por publicação de hoje) ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.BON_IG_AUTO_COUNT_${HOJE}__*&select=key,value" \
             -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
           echo ""
-          echo "--- Brasil ON: BON_IG_ENABLED ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BON_IG_ENABLED&select=key,value,updated_at&order=updated_at.desc&limit=5" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
+          echo "--- BON_IG_ENABLED atual ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BON_IG_ENABLED&select=value,updated_at" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
           echo ""
-          echo "--- Hora atual do servidor (referência) ---"
-          date -u
+          echo "--- Chamada real do endpoint (mesma que o cron nativo do Brasil ON usa) ---"
+          curl -sS "https://www.obrasilon.com.br/api/manage?action=instagram_auto_publish&pass=ovc-admin-2026-secreto" -w "\nHTTP_STATUS:%{http_code}\n"
