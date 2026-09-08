@@ -1219,19 +1219,33 @@ async function autoInternacional(req, res, rec) {
 // desta data o conteúdo caía em brasil-on/subcategoria "Famosos" — migrado
 // pra categoria própria, sem mistura com brasil-on.
 async function salvarFofocas(content, hash, img, fonte) {
+  const titulo = stripTitle(content.titulo);
+  const comentario_fixado = (content.meta_descricao || "").trim();
+  const metaTitle = stripTitle(content.meta_title || content.titulo);
+  const publishedAt = new Date().toISOString();
   const { data, error } = await supabase.from("posts").insert({
-    titulo: stripTitle(content.titulo), conteudo: content.corpo,
-    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    titulo, conteudo: content.corpo,
+    comentario_fixado, imagem: img || null, hash,
     status: "publicado", approved: true, publish_method: "fofocas",
-    published_at: new Date().toISOString(),
+    published_at: publishedAt,
     user_tags: JSON.stringify(["giro"]), subcategoria: "Giro",
     subcategoria_slug: "geral", collaborators: "[]",
     tipo_conteudo: "padrao",
-    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_brasilon: fonte || "" },
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
-  return { id: data.id, titulo: stripTitle(content.titulo) };
+  // 08/09/2026 — DE-PARA Giro → Brasil ON, a pedido explícito de Roberto:
+  // "GIRO É UMA CATEGORIA DO OVC QUE DEVERIA ESTAR INTEGRADA COM O
+  // INSTAGRAM DO BRASIL ON, VINCULE ELA". Mesmo padrão de salvarBrasilOn()/
+  // salvarJovempanPolitica() — 100% best-effort, nunca lança exceção, nunca
+  // pode quebrar a publicação real no OVC.
+  await mirrorPostToBrasilOn({
+    id: data.id, titulo, conteudo: content.corpo, comentario_fixado, imagem: img || null,
+    metrics: { meta_title: metaTitle }, user_tags: ["giro"], subcategoria_slug: "geral",
+    published_at: publishedAt
+  });
+  return { id: data.id, titulo };
 }
 
 async function autoFofocas(req, res, rec) {

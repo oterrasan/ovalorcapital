@@ -79,11 +79,15 @@ function assinarBrasilOn(conteudo) {
 // user_tags no schema de posts é TEXT (JSON array) — pode chegar aqui já
 // parseado (array) quando o caller monta um objeto sintético na hora, ou
 // como string crua quando vem direto de uma linha do banco.
+// 08/09/2026 — "giro" adicionada aqui em sincronia com a cópia real em
+// brasilon/api/manage.js (Roberto pediu explicitamente que Giro fosse
+// integrada ao Brasil ON — antes dessa data nunca era espelhada).
 function classificar(post) {
   let tags = [];
   if (Array.isArray(post.user_tags)) tags = post.user_tags;
   else { try { tags = JSON.parse(post.user_tags || "[]"); } catch (_) {} }
   if (tags.includes("esportes") && post.subcategoria_slug === "futebol") return "futebol";
+  if (tags.includes("giro")) return "giro";
   if (tags.includes("politica")) return "politica";
   if (tags.includes("brasil-on")) {
     return pareceCrimePolicial(post.titulo, post.comentario_fixado) ? "policia" : "brasil-on";

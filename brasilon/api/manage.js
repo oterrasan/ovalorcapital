@@ -26,7 +26,22 @@ const PASS = "ovc-admin-2026-secreto";
 const SYNC_LOOKBACK_HORAS = 72;
 const SYNC_LIMIT = 200;
 const INSTAGRAM_USERNAME = "obrasilon";
-const INSTAGRAM_CATEGORIES = ["politica", "policia", "brasil-on", "futebol"];
+// 08/09/2026 — Roberto: "brasilON - SO POSTA MATERIA DAS CATEGORIAS GIRO,
+// BRASILON, ESPORTES" (Instagram do Brasil ON). "giro" adicionada como
+// categoria válida aqui (é a categoria "Giro" do OVC — famosos/bastidores/
+// entretenimento, ver api/run_portal.js salvarFofocas() na raiz — agora
+// espelhada pro Brasil ON via classificar() e core/brasilonMirror.js).
+// O default de categorias do Instagram (ver readInstagramConfig()) e o
+// valor já salvo em config.BON_IG_CATEGORIES foram atualizados pra
+// ["giro","brasil-on","futebol"] — política e polícia saem do Instagram
+// do Brasil ON (continuam normalmente no site, isso é só sobre o que a
+// automação de Instagram publica). INSTAGRAM_CATEGORIES continua listando
+// TODAS as categorias válidas do Brasil ON (é usada como allowlist pra
+// validar o que o admin pode salvar em BON_IG_CATEGORIES) — "politica" e
+// "policia" continuam aqui por esse motivo, só não fazem mais parte do
+// default habilitado.
+const INSTAGRAM_CATEGORIES = ["politica", "policia", "brasil-on", "futebol", "giro"];
+const INSTAGRAM_DEFAULT_CATEGORIES = ["giro", "brasil-on", "futebol"];
 const INSTAGRAM_CONFIG_KEYS = [
   "BON_IG_ENABLED", "BON_IG_INTERVAL", "BON_IG_DAILY_LIMIT",
   "BON_IG_CATEGORIES", "BON_IG_LAYOUT_READY", "BON_IG_LAYOUT_VERSION"
@@ -150,7 +165,7 @@ async function readInstagramConfig() {
   if (error) throw error;
   const latest = {};
   for (const row of data || []) if (!(row.key in latest)) latest[row.key] = row.value;
-  let categories = [...INSTAGRAM_CATEGORIES];
+  let categories = [...INSTAGRAM_DEFAULT_CATEGORIES];
   try {
     const parsed = JSON.parse(latest.BON_IG_CATEGORIES || "[]");
     if (Array.isArray(parsed) && parsed.length) categories = parsed.filter(v => INSTAGRAM_CATEGORIES.includes(v));
@@ -369,17 +384,21 @@ function assinarBrasilOn(conteudo) {
 }
 
 // Classifica um post do OVC como 'brasil-on', 'politica', 'policia',
-// 'futebol' ou null (fora do escopo do Brasil ON). Roberto, 27/08/2026:
+// 'futebol', 'giro' ou null (fora do escopo do Brasil ON). Roberto, 27/08/2026:
 // "o brasil on nao pode ter duas categorias apenas... precisa de uma
 // inteligencia organizando melhor politica, noticias, policia, esportes".
 // Tudo aqui é regra fixa em cima de metadado que o OVC já gerou (tag +
 // palavra-chave) — zero chamada de IA nova, continua sendo um DE-PARA.
 // user_tags é TEXT (JSON array) — nunca .contains(), sempre parse manual
 // (mesma regra do resto do OVC).
+// 08/09/2026 — "giro" adicionada: Roberto pediu explicitamente que a
+// categoria Giro do OVC (famosos/bastidores/entretenimento, ver
+// api/run_portal.js salvarFofocas() na raiz) fosse integrada ao Brasil ON.
 function classificar(post) {
   let tags = [];
   try { tags = JSON.parse(post.user_tags || "[]"); } catch (_) {}
   if (tags.includes("esportes") && post.subcategoria_slug === "futebol") return "futebol";
+  if (tags.includes("giro")) return "giro";
   if (tags.includes("politica")) return "politica";
   if (tags.includes("brasil-on")) {
     return pareceCrimePolicial(post.titulo, post.comentario_fixado) ? "policia" : "brasil-on";
@@ -586,7 +605,7 @@ async function _igPublicarPost(post) {
 
   const caption = buildInstagramCaption(post);
   const { prepareInstagramImage } = await _loadInstagramImage();
-  const { publish, postComment, getAccount } = await _loadInstagram();
+  const { publish, postComment, likeMedia, getAccount } = await _loadInstagram();
   const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
   const ig = await publish(instagramImage.url, caption);
 
@@ -602,6 +621,17 @@ async function _igPublicarPost(post) {
     }
   }
 
+  // 08/09/2026 — Roberto: "precisa que tenha a curtida automatica, igual
+  // o ovc". Mesmo padrão do OVC (api/manage.js raiz) — nunca lança, só
+  // registra o erro real da Meta se houver.
+  let selfLike = null;
+  let selfLikeError = null;
+  try {
+    selfLike = await likeMedia(ig.id);
+  } catch (likeError) {
+    selfLikeError = redactSecrets(likeError?.message || String(likeError));
+  }
+
   return {
     ig_id: ig.id,
     username: ig.username,
@@ -610,7 +640,9 @@ async function _igPublicarPost(post) {
     caption,
     first_comment_text: firstCommentText,
     first_comment_id: firstComment?.id || null,
-    first_comment_error: firstCommentError
+    first_comment_error: firstCommentError,
+    self_like_success: selfLike?.success === true,
+    self_like_error: selfLikeError
   };
 }
 
@@ -765,7 +797,7 @@ async function _reelPublicarPost(post) {
   if (_isYouTubeUrl(videoUrl)) throw new Error("video_do_youtube_nao_pode_virar_reel");
 
   const caption = buildInstagramCaption(post);
-  const { publishReel, postComment, getAccount } = await _loadInstagram();
+  const { publishReel, postComment, likeMedia, getAccount } = await _loadInstagram();
   const ig = await publishReel(videoUrl, caption);
 
   const firstCommentText = buildInstagramFirstComment(post);
@@ -780,6 +812,15 @@ async function _reelPublicarPost(post) {
     }
   }
 
+  // 08/09/2026 — mesma curtida automática do feed de imagem, igual o OVC.
+  let selfLike = null;
+  let selfLikeError = null;
+  try {
+    selfLike = await likeMedia(ig.id);
+  } catch (likeError) {
+    selfLikeError = redactSecrets(likeError?.message || String(likeError));
+  }
+
   return {
     ig_id: ig.id,
     username: ig.username,
@@ -788,7 +829,9 @@ async function _reelPublicarPost(post) {
     caption,
     first_comment_text: firstCommentText,
     first_comment_id: firstComment?.id || null,
-    first_comment_error: firstCommentError
+    first_comment_error: firstCommentError,
+    self_like_success: selfLike?.success === true,
+    self_like_error: selfLikeError
   };
 }
 
