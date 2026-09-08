@@ -11,42 +11,33 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Investiga SBT News Shorts — HTML bruto e possíveis URLs de vídeo
+      - name: Baixa HTML de /videos + IDs de vídeo do YouTube encontrados nas thumbnails
         run: |
-          echo "=== HTML bruto de /videos ==="
-          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" \
+          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
             "https://sbtnews.sbt.com.br/videos" -o /tmp/sbt.html
-          wc -c /tmp/sbt.html
-          echo "--- content-type real (via -I) ---"
-          curl -sI -A "Mozilla/5.0" "https://sbtnews.sbt.com.br/videos" | head -20
-
-          echo ""
-          echo "=== Tem __NEXT_DATA__? ==="
-          grep -o "__NEXT_DATA__" /tmp/sbt.html | head -1 || echo "não achou __NEXT_DATA__"
-
-          echo ""
-          echo "=== URLs .mp4 soltas no HTML ==="
-          grep -oE 'https?://[^"'"'"'\\ ]+\.mp4[^"'"'"'\\ ]*' /tmp/sbt.html | sort -u | head -20
-
-          echo ""
-          echo "=== URLs .m3u8 (HLS) soltas no HTML ==="
-          grep -oE 'https?://[^"'"'"'\\ ]+\.m3u8[^"'"'"'\\ ]*' /tmp/sbt.html | sort -u | head -20
-
-          echo ""
-          echo "=== Domínios de CDN de vídeo mencionados (globo, cloudfront, akamai, etc) ==="
-          grep -oE '[a-zA-Z0-9.-]*(cdn|video|stream|media|akamai|cloudfront|globo)[a-zA-Z0-9.-]*\.[a-z]{2,}' /tmp/sbt.html | sort -u | head -30
-
-          echo ""
-          echo "=== primeiros 3000 chars do HTML (visual geral) ==="
-          head -c 3000 /tmp/sbt.html
-      - name: Tenta achar API JSON de listagem de vídeos (Next.js costuma expor /_next/data ou API própria)
+          echo "=== IDs de vídeo do YouTube (i.ytimg.com/vi/ID/...) ==="
+          grep -oE 'ytimg\.com/vi/[A-Za-z0-9_-]{11}' /tmp/sbt.html | sed 's#.*/vi/##' | sort -u > /tmp/ids.txt
+          cat /tmp/ids.txt
+      - name: Baixa thumbnail HD do 1º e 2º vídeo pra inspeção visual
         run: |
-          python3 << 'PYEOF'
-          import re
-          html = open("/tmp/sbt.html", encoding="utf-8", errors="ignore").read()
-          m = re.search(r'"buildId":"([^"]+)"', html)
-          print("buildId:", m.group(1) if m else "não achado")
-          # procura qualquer coisa parecida com endpoint de API
-          apis = set(re.findall(r'https?://[a-zA-Z0-9._-]+api[a-zA-Z0-9._/-]*', html))
-          print("possiveis APIs:", list(apis)[:20])
-          PYEOF
+          mkdir -p /tmp/thumbs
+          i=0
+          while read -r id; do
+            i=$((i+1))
+            [ $i -gt 2 ] && break
+            curl -sL "https://i.ytimg.com/vi/${id}/maxresdefault.jpg" -o "/tmp/thumbs/${id}.jpg"
+            echo "baixado: ${id}.jpg ($(wc -c < /tmp/thumbs/${id}.jpg) bytes)"
+          done < /tmp/ids.txt
+      - name: Verifica se o canal/vídeo tem título/branding "SBT News" via oEmbed público do YouTube
+        run: |
+          while read -r id; do
+            echo "=== $id ==="
+            curl -s "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json"
+            echo ""
+          done < /tmp/ids.txt
+      - name: Upload das thumbnails como artifact pra eu examinar
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbt-thumbs
+          path: /tmp/thumbs/*.jpg
+          retention-days: 1
