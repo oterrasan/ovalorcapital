@@ -13,41 +13,72 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Extrair JSON-LD VideoObject completo do G1
+      - name: Testar a lógica real de downloadAndUploadVideo contra o G1 (sem upload)
         run: |
-          python3 << 'PYEOF'
-          import urllib.request
-          import re
-          import json
+          node << 'NODEEOF'
+          async function fetchComTimeout(url, timeoutMs, accept) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+              let referer;
+              try { referer = new URL(url).origin + "/"; } catch (_) {}
+              const res = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                  "Accept": accept,
+                  ...(referer ? { "Referer": referer } : {})
+                }
+              });
+              return res;
+            } catch (e) {
+              console.log("fetch erro:", e.message);
+              return null;
+            } finally {
+              clearTimeout(timer);
+            }
+          }
 
-          url = "https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml"
-          req = urllib.request.Request(url, headers={
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-              "Accept": "text/html,application/xhtml+xml"
-          })
-          with urllib.request.urlopen(req, timeout=25) as r:
-              html = r.read().decode("utf-8", errors="replace")
+          function extrairMp4DoHtml(html) {
+            const m = String(html || "").match(/https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/i);
+            return m ? m[0].replace(/&amp;/g, "&") : null;
+          }
 
-          # Pega todos os blocos <script type="application/ld+json">
-          blocks = re.findall(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', html, re.S)
-          print(f"total de blocos ld+json: {len(blocks)}")
-          for i, b in enumerate(blocks):
-              try:
-                  data = json.loads(b)
-              except Exception as e:
-                  print(f"[{i}] erro parse: {e}")
-                  continue
-              items = data if isinstance(data, list) else [data]
-              for item in items:
-                  if isinstance(item, dict) and item.get("@type") == "VideoObject":
-                      print(f"[{i}] VideoObject completo:")
-                      print(json.dumps(item, indent=2, ensure_ascii=False)[:2000])
-                      print("=====")
+          async function testar(sourceUrl) {
+            let res = await fetchComTimeout(sourceUrl, 20000, "video/mp4,video/webm,video/*,text/html,*/*");
+            if (!res || !res.ok) { console.log("FALHOU no fetch inicial", res && res.status); return; }
 
-          # também tenta achar mp4 mais próximo do maior bitrate (não só o primeiro match)
-          mp4s = re.findall(r'https?://[^"\'\s]+\.mp4[^"\'\s]*', html)
-          print()
-          print(f"total de urls .mp4 no HTML: {len(mp4s)}")
-          for m in mp4s[:10]:
-              print(" -", m)
-          PYEOF
+            let finalUrl = sourceUrl;
+            let ct = (res.headers.get("content-type") || "").toLowerCase();
+            const pareceVideo = (url, contentType) =>
+              contentType.includes("video") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
+
+            console.log("1º fetch — content-type:", ct);
+
+            if (!pareceVideo(sourceUrl, ct)) {
+              if (!ct.includes("html")) { console.log("FALHOU — não é vídeo nem html"); return; }
+              const html = await res.text();
+              const mp4Url = extrairMp4DoHtml(html);
+              console.log("mp4 extraído da página:", mp4Url);
+              if (!mp4Url) { console.log("FALHOU — nenhum mp4 achado na página"); return; }
+              res = await fetchComTimeout(mp4Url, 20000, "video/mp4,video/webm,video/*,*/*");
+              if (!res || !res.ok) { console.log("FALHOU no fetch do mp4", res && res.status); return; }
+              finalUrl = mp4Url;
+              ct = (res.headers.get("content-type") || "").toLowerCase();
+              console.log("2º fetch — content-type:", ct);
+              if (!pareceVideo(mp4Url, ct)) { console.log("FALHOU — mp4 baixado não parece vídeo"); return; }
+            }
+
+            const lenHeader = Number(res.headers.get("content-length") || 0);
+            console.log("content-length declarado:", lenHeader);
+
+            const ab = await res.arrayBuffer();
+            const buf = Buffer.from(ab);
+            console.log("bytes baixados de verdade:", buf.length);
+            console.log("finalUrl:", finalUrl);
+            console.log(buf.length >= 2000 ? "SUCESSO — passaria no fluxo real" : "FALHOU — buffer pequeno demais");
+          }
+
+          testar("https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml")
+            .catch(e => console.log("ERRO GERAL:", e.message));
+          NODEEOF
