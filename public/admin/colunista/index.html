@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Portal do Colunista — OVC</title>
+  <script src="/api/manage?action=vendor_js&name=supabase"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Inter,system-ui,sans-serif;background:#08080f;color:#e5e7eb;min-height:100vh}
@@ -168,9 +169,12 @@
           <div class="char-count" id="count-conteudo">0 caracteres · mínimo 200</div>
         </div>
         <div style="margin-bottom:24px">
-          <label>URL da Imagem (opcional)</label>
-          <input type="url" id="post-imagem" placeholder="https://exemplo.com/imagem.jpg" oninput="previewImg()">
+          <label>Imagem da matéria (opcional)</label>
+          <input type="hidden" id="post-imagem">
+          <input type="file" id="post-imagem-file" accept="image/*" onchange="uploadImagemColuna(this.files&&this.files[0])" style="padding:8px 0;border:none;background:transparent">
+          <div id="img-upload-msg" style="font-size:12px;color:#64748b;margin-top:4px"></div>
           <img id="img-preview" class="img-preview" alt="Pré-visualização">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-remove-img" onclick="removerImagemColuna()" style="margin-top:8px;display:none">Remover imagem</button>
         </div>
         <button class="btn btn-primary" onclick="submitPost()" id="btn-submit">Enviar para Revisão</button>
         <div id="submit-msg"></div>
@@ -184,6 +188,13 @@
 const API = '/api/manage';
 let session = null;
 let allPosts = [];
+
+// Upload direto de imagem — mesmo client/bucket já usados no admin principal
+// (public/admin/index.html): sb.storage.from('posts-images'). Vai direto do
+// navegador pro Supabase Storage, sem passar pela function serverless.
+const SUPABASE_URL = 'https://yntwvfcxjardzafdqanj.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 function showMsg(id, text, isOk) {
   const el = document.getElementById(id);
@@ -352,15 +363,37 @@ function updateCharCount(inputId, countId) {
   el.style.color = len >= min ? '#22c55e' : '#6b7280';
 }
 
-function previewImg() {
-  const url = document.getElementById('post-imagem').value.trim();
-  const img = document.getElementById('img-preview');
-  if (url.startsWith('http')) {
-    img.src = url; img.style.display = 'block';
-    img.onerror = () => { img.style.display = 'none'; };
-  } else {
-    img.style.display = 'none';
+async function uploadImagemColuna(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    document.getElementById('img-upload-msg').textContent = 'Selecione um arquivo de imagem (PNG, JPEG, WebP).';
+    document.getElementById('img-upload-msg').style.color = '#ef4444';
+    return;
   }
+  const msg = document.getElementById('img-upload-msg');
+  msg.textContent = 'Enviando imagem...'; msg.style.color = '#64748b';
+  try {
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = 'uploads/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+    const { error } = await sb.storage.from('posts-images').upload(path, file, { contentType: file.type, upsert: true });
+    if (error) throw new Error(error.message);
+    const { data } = sb.storage.from('posts-images').getPublicUrl(path);
+    document.getElementById('post-imagem').value = data.publicUrl;
+    const img = document.getElementById('img-preview');
+    img.src = data.publicUrl; img.style.display = 'block';
+    document.getElementById('btn-remove-img').style.display = 'inline-block';
+    msg.textContent = '✅ Imagem enviada.'; msg.style.color = '#22c55e';
+  } catch (e) {
+    msg.textContent = '❌ Erro ao enviar imagem: ' + e.message; msg.style.color = '#ef4444';
+  }
+}
+
+function removerImagemColuna() {
+  document.getElementById('post-imagem').value = '';
+  document.getElementById('post-imagem-file').value = '';
+  document.getElementById('img-preview').style.display = 'none';
+  document.getElementById('btn-remove-img').style.display = 'none';
+  document.getElementById('img-upload-msg').textContent = '';
 }
 
 async function submitPost() {
@@ -388,8 +421,7 @@ async function submitPost() {
       showMsg('submit-msg', '✅ Artigo enviado! Aguarde a revisão da redação OVC.', true);
       document.getElementById('post-titulo').value = '';
       document.getElementById('post-conteudo').value = '';
-      document.getElementById('post-imagem').value = '';
-      document.getElementById('img-preview').style.display = 'none';
+      removerImagemColuna();
       updateCharCount('post-titulo', 'count-titulo');
       updateCharCount('post-conteudo', 'count-conteudo');
       setTimeout(() => { showTab('tab-posts', document.querySelector('.tab')); }, 1500);
