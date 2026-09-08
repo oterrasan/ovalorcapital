@@ -79,7 +79,19 @@ function pautaParecida(titulo, recentes) {
     // Dedup com palavra de ação (política/economia): threshold menor
     if (inter.some(w => EVENTO.has(w)) && jaccard >= 0.62) return true;
     // Dedup geral: 3+ palavras comuns com alta sobreposição (inter.length >= 3 cobre artigos curtos)
-    if (inter.length >= 3 && jaccard >= 0.75) return true;
+    // 08/09/2026 — 0.75 → 0.70: confirmado com dado real de produção que 0.75
+    // era rígido demais pra paráfrase de IA sobre o MESMO evento. Ex. real:
+    // "Alexander Zverev vence Luciano Darderi e avança às quartas do US Open"
+    // vs "Zverev vence Darderi, avança às quartas do US Open e fecha quarteto
+    // de Majors" (mesmo resultado de partida, ~3h20 de intervalo — não é
+    // problema de janela/cap) deu jaccard=0.714, abaixo do corte antigo de
+    // 0.75, então NUNCA foi bloqueado — 2 posts publicados sobre o mesmo jogo.
+    // NÃO baixado mais que isso: Roberto já vetou explicitamente ir abaixo de
+    // 0.55 num threshold Jaccard parecido (Regra #27, core/rss.js) por medo
+    // de bloquear cobertura legítima e distinta do mesmo ator recorrente
+    // (ex: Lula/Bolsonaro aparecendo várias vezes ao dia em fatos diferentes)
+    // — 0.70 mantém margem real dessa linha, só fecha o caso confirmado.
+    if (inter.length >= 3 && jaccard >= 0.70) return true;
     return false;
   });
 }
@@ -189,7 +201,20 @@ function validar(content) {
 
 async function recentes() {
   try {
-    const { data } = await supabase.from("posts").select("titulo,metrics,user_tags").gte("created_at", new Date(Date.now() - 48 * 3600000).toISOString()).order("created_at", { ascending: false }).limit(250);
+    // 08/09/2026 — Roberto: "os conteudos estao saindo muito duplicados". Causa
+    // raiz real confirmada com dado de produção (não suposição — script de
+    // diagnóstico rodou contra as últimas 30h): volume atual é ~16 posts/hora
+    // (~480/dia), ou seja ~770 posts numa janela de 48h. O .limit(250) antigo
+    // (calibrado numa época de volume bem menor) cobria só ~1/3 da janela —
+    // um post publicado há mais de ~15h já tinha sido empurrado pra fora do
+    // corte, ficando invisível pro pautaParecida() de qualquer post gerado
+    // depois. Casos reais confirmados: "Bernie Ecclestone detido" (19h de
+    // intervalo, ~304 posts entre as duas publicações — bem acima do cap
+    // antigo) e "Kimi Antonelli vence GP da Itália" (21h39 de intervalo, ~346
+    // posts entre elas) nunca chegaram a se comparar. Elevado para 1000 —
+    // mesmo teto de página única já usado em outras queries do projeto,
+    // margem real sobre o volume atual, sem paginação adicional.
+    const { data } = await supabase.from("posts").select("titulo,metrics,user_tags").gte("created_at", new Date(Date.now() - 48 * 3600000).toISOString()).order("created_at", { ascending: false }).limit(1000);
     const titulos = (data || []).map(p => p.titulo).filter(Boolean);
     const sourceTitulos = (data || []).map(p => p.metrics?.source_title).filter(Boolean);
     const kws = (data || []).map(p => p.metrics?.foco_keyword).filter(Boolean).slice(0, 20);
