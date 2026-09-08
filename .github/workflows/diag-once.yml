@@ -11,14 +11,38 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar os brasilon_posts mais recentes de verdade (sem filtro de data)
+      - name: Testar upsert real em brasilon_posts com um post de hoje (mesma forma do mirror)
         env:
           SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          echo "--- 10 brasilon_posts mais recentes (published_at desc, sem filtro) ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?select=id,titulo,categoria,published_at,origem_post_id&order=published_at.desc&limit=10" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
-          echo ""
-          echo "--- Confirmar se um dos posts recentes do OVC (brasil-on, publicado hoje) tem espelho em brasilon_posts por origem_post_id ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?origem_post_id=eq.275b4df4-baea-4a8d-8f53-6f45917125e8&select=*" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
+          echo "--- post real de hoje (275b4df4) ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?id=eq.275b4df4-baea-4a8d-8f53-6f45917125e8&select=id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" > /tmp/post.json
+          python3 -c "
+import json
+p = json.load(open('/tmp/post.json'))[0]
+print('titulo:', p['titulo'])
+print('conteudo presente:', bool(p.get('conteudo')))
+print('user_tags:', p.get('user_tags'))
+print('subcategoria_slug:', p.get('subcategoria_slug'))
+row = {
+  'origem_post_id': p['id'],
+  'categoria': 'brasil-on',
+  'titulo': p['titulo'],
+  'conteudo': p.get('conteudo') or '',
+  'comentario_fixado': p.get('comentario_fixado') or '',
+  'meta_title': (p.get('metrics') or {}).get('meta_title') or p['titulo'],
+  'imagem': p.get('imagem') or '',
+  'status': 'publicado',
+  'created_at': p.get('created_at'),
+  'published_at': p.get('published_at'),
+  'updated_at': p.get('updated_at') or p.get('published_at'),
+}
+json.dump(row, open('/tmp/row.json','w'))
+print('linha montada, escrevendo...')
+"
+          echo "--- tentando upsert real (mesma forma do mirror, onConflict=origem_post_id) ---"
+          curl -sS -X POST "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?on_conflict=origem_post_id" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates,return=representation" \
+            -d @/tmp/row.json -w "\nHTTP_STATUS:%{http_code}\n"
