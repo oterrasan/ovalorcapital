@@ -9224,3 +9224,130 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Demais pendências de sessões anteriores seguem válidas (botão "LIMPAR AGORA" decorativo, Esportes dominando a geração diária, e a lista completa nas entradas "02-04/09/2026"/"04/09/2026 continuação"/"06/09/2026" acima).
 
 ---
+
+### Sessão 07-08/09/2026 — BRASIL ON IG LIGADO + PACOTE DE VÍDEOS DO 7 DE SETEMBRO + REELS: MECÂNICA CONFIRMADA + BUG REAL DE CACHE INVESTIGADO E EXPLICADO + 2º ERRO DE REEL AINDA ABERTO
+
+#### 1) Instagram do Brasil ON — automação de feed de imagem ligada (PRs #690/#691)
+
+`BON_IG_ENABLED` (`brasilon`, tabela `config`) confirmado `off→on` com evidência real (valor lido antes/depois direto no Supabase) + `instagram_status` reconferido depois mostrando `automation_active:true`. Mesmo padrão insert/update seguro já usado no projeto (nunca `.upsert(...,{onConflict:"key"})`).
+
+#### 2) Confirmado que `posts.video_url` existe de verdade (PRs #692/#693)
+
+Antes de Roberto testar a publicação manual de Reels, confirmado com uma consulta real (`select=video_url` num post qualquer, HTTP 200 com `video_url:null`, não erro de coluna inexistente) que a migração de 01/09/2026 já tinha sido aplicada — sem isso, qualquer tentativa de salvar vídeo falharia silenciosamente.
+
+#### 3) 8 matérias curtas escritas para o pacote de vídeos do 7 de Setembro (PRs #694/#695)
+
+Roberto mandou 8 prints de vídeos verticais já no padrão visual OVC sobre os atos políticos de 7 de Setembro de 2026 (desfile de Lula/Janja, ato da Paulista com Nikolas/Tarcísio/Flávio Bolsonaro/Malafaia, confusão com bombas de gás da PM, vídeo de suposto grupo ex-BOPE queimando bandeira, protestos em Brasília, "Fora Moraes") e pediu 8 matérias curtas no padrão OVC, deixadas na fila pra ele mesmo anexar os vídeos depois.
+
+**Protocolo de apuração seguido antes de escrever qualquer coisa** (nunca aceito de bandeja só pela legenda do card): checagem via WebSearch em múltiplas fontes reais (Exame, Poder360, ABCD Jornal, Gazeta do Povo, Diário do Poder, InfoMoney, CNN Brasil, Itatiaia, Tribuna do Sertão, Otempo). Blindagem jurídica aplicada nos 8 textos: vínculo do grupo do vídeo com o BOPE tratado como **não confirmado oficialmente** (só autoidentificação nas redes), evento identificado como airsoft (não operação policial real); a caracterização de "evento vazio" atribuída à oposição/análises, **nunca** colocada como fala do próprio Lula (não há evidência real de que ele tenha dito isso sobre o próprio evento).
+
+Inseridas via REST direto no Supabase (sandbox sem rede pra produção, mesmo padrão `diag-once.yml` já usado o resto da sessão) como `status:pendente`, `approved:false`, `publish_method:portal`, `user_tags:["politica"]`, `subcategoria:"Eleições 2026"` (mesma subcategoria_slug já usada pelo CTA do Radar Eleitoral) — **sem imagem nem vídeo**, propositalmente, pra Roberto anexar cada vídeo do pacote manualmente e revisar antes de aprovar.
+
+#### 4) Mecânica de Reels confirmada — espelha 100% a automação de imagem já existente (informativo, sem mudança de código)
+
+Roberto perguntou se o publicador manual de Reels usa a mesma conta/cota/collaborators da automação de feed já rodando. Confirmado por leitura de arquitetura: mesma conta, mesmo `getContentPublishingLimit()`/checagem de cota, mesma lista `DEFAULT_COLLABORATORS` (`@oterrasan`, `@souabetaferreira`, `@adriana.ferreirasp`, `@amichelefroes`, sempre excluindo quem estiver publicando) — só muda o `media_type` (`REELS` em vez de imagem) e o campo do payload (`video_url` em vez de `image_url`).
+
+#### 5) Confirmado: matéria com vídeo continua sendo matéria normal do portal, independente do Instagram (informativo)
+
+Respondida a pergunta de Roberto ("isso também fica no portal como matéria e vídeo, né?") — sim: o artigo é sempre conteúdo normal do portal (URL própria, SEO, JSON-LD), e o player de vídeo (`renderMedia()` em `internal-page-v2.js`) aparece flutuando ao lado do texto sempre que `video_url` estiver preenchido, **independente** de ter sido publicado como Reel no Instagram ou não — são dois sistemas desacoplados.
+
+#### 6) Verificação real do 1º Reel publicado — sem sinal de erro, mas sem confirmação de collaborators (PRs #696/#697)
+
+Roberto confirmou por print que o Reel do vídeo "ex-BOPE" publicou com sucesso em `@ovalorcapital`, mas reparou que o campo "COLABORADORES" do modal do admin aparecia vazio. Conferido o registro real salvo em `metrics.instagram_reel` desse post:
+
+```
+ig_id: 18120688831899751 | username: ovalorcapital | published_via: reels_publish
+self_like_success: true | first_comment_id: 17958281607230198 (comentário fixado publicado)
+quota_before_publish: {total:100, usage:33, remaining:67}
+```
+
+**Sem campo de collaborators nesse registro** — mas isso é esperado: a Instagram Graph API não devolve os colaboradores de volta como resposta legível depois da publicação, então nosso sistema nunca teria como gravar isso mesmo que tenham sido enviados corretamente. Explicado a Roberto: o campo "COLABORADORES" do modal é **manual e opcional**, só serve pra somar collaborators extras além dos 4 padrão que já entram automático em toda publicação, vazio ou não. **Honestidade dada a Roberto**: não dá pra confirmar 100% só pelo nosso banco se o Instagram de fato exibiu a marcação de colaboradores nesse Reel — só abrindo o próprio Reel no app pra ver.
+
+#### 7) 🔴 Investigação real: "a matéria no portal não ficou com o vídeo, só a imagem" (PRs #698/#699/#700/#701)
+
+Roberto reportou, com print, que a matéria do vídeo ex-BOPE (`f1e07b70`) já publicada no site mostrava só a imagem — o vídeo, segundo ele, "foi só pro Instagram".
+
+**Investigação com evidência real, sem suposição:**
+1. Lido `renderMedia()`/`api/article.js` — confirmado que o código mapeia `row.video_url` → `preload.video` corretamente, e que `findArticleVideo()` faz uma consulta separada e silenciosa (nunca derruba a leitura do artigo principal, por desenho desde 01/09/2026).
+2. Consulta direta ao post confirmou `status:publicado` + `video_url` preenchido com a URL real do mp4.
+3. Buscado o HTML servido agora em produção pra esse artigo — **primeira tentativa (PR #698) teve um erro meu de extração** (`grep` cortou o JSON no primeiro `;` que apareceu, que por acaso caiu dentro do próprio texto do subtítulo, "...evento de airsoft; vínculo...") — corrigido usando parse real de JSON em vez de grep ingênuo (PR #699).
+4. **PR #699 quebrou com `startup_failure`/0 jobs** — mesmo bug de indentação de heredoc Python dentro de bloco YAML `run: |` já documentado antes no projeto (12/08 e 16/08/2026): as linhas do `python3 -c "..."` estavam na coluna 1, abaixo da indentação mínima do bloco, encerrando o block scalar antes da hora e quebrando o parse do arquivo inteiro. Corrigido reescrevendo como heredoc bash (`python3 << 'PYEOF'`) com indentação consistente, validado localmente com `yaml.safe_load()` + execução real do bash antes do push (PR #700).
+5. **Resultado real, confirmado**: `campo video presente: True`, `valor de video: https://.../post-videos/videos/1788820802576-bfnksc.mp4`, headers `x-vercel-cache: MISS, age: 0` — ou seja, o HTML servido agora contém o vídeo corretamente.
+
+**Conclusão comunicada a Roberto**: o código está certo — muito provavelmente ele viu uma cópia em cache do CDN da Vercel (a rota tem `s-maxage=300`/`stale-while-revalidate=600`) de um momento anterior a ele anexar o vídeo. Sugerido hard refresh / aba anônima pra conferir. `diag-once.yml` resetado ao placeholder ao final (PR #701).
+
+**🚨 Lição reforçada — gravar de novo**: bug de indentação de heredoc Python dentro de `run: |` já é reincidente (3ª vez documentada no projeto). Sempre validar localmente com `yaml.safe_load()` + rodar o bash extraído de verdade antes de empurrar qualquer workflow com script embutido.
+
+#### 8) 🟡 2º erro real reportado por Roberto — Reel trava em "Meta ainda processando" — AINDA NÃO INVESTIGADO, aguardando autorização
+
+Roberto tentou publicar outro Reel do pacote (matéria "Confusão na Avenida Paulista") e recebeu, pela segunda vez seguida: **"Vídeo ainda processando na Meta — tente de novo em 1-2 minutos."** — o botão ficou preso em "Publicando Reel...". Instrução explícita dele: **"não faça nada por enquanto. espere. só pra você anotar aí."** — nada foi investigado nem alterado. Ver pendência abaixo.
+
+#### Encerramento do dia (mensagem final de Roberto)
+
+*"o video funcionou e amanha faremos alguns ajustes nisso e em outras questoes"* — confirmação de que o fluxo de vídeo (pelo menos o primeiro Reel) funcionou de ponta a ponta; ajustes adicionais (incluindo o erro do item 8) ficaram para a próxima sessão.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — toda a sessão foi automação de PR/diagnóstico + escrita editorial, nenhum arquivo de código tocado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (07-08/09/2026)
+
+| Sistema | Status |
+|---|---|
+| **Instagram do Brasil ON — automação de feed ligada** (`BON_IG_ENABLED=on`) | ✅ CONFIRMADO com evidência real (PRs #690/#691) |
+| **Coluna `posts.video_url` confirmada existente** | ✅ CONFIRMADO (PRs #692/#693) |
+| **8 matérias curtas do 7 de Setembro, apuradas e inseridas como pendentes** | ✅ FEITO (PRs #694/#695) — aguardando Roberto anexar os vídeos e aprovar cada uma |
+| **Mecânica de Reels confirmada — mesma conta/cota/collaborators da automação de imagem** | ✅ CONFIRMADO por leitura de arquitetura (informativo) |
+| **Matéria com vídeo continua sendo conteúdo normal do portal, independente do Instagram** | ✅ CONFIRMADO (informativo) |
+| **1º Reel publicado com sucesso** (`ig_id 18120688831899751`) — like próprio e comentário fixado reais | ✅ CONFIRMADO (PRs #696/#697) — collaborators não confirmáveis só pelo nosso banco (limitação real da API, explicada a Roberto) |
+| **"Vídeo só com imagem no portal" — investigado e resolvido: era cache do CDN, código está correto** | ✅ CONFIRMADO com evidência real (PRs #698-#701) — vídeo presente no HTML servido |
+| **Bug de indentação de heredoc Python em `diag-once.yml` (3ª ocorrência)** — corrigido, lição reforçada | ✅ CORRIGIDO |
+| **2º Reel — erro "Vídeo ainda processando na Meta", 2ª vez seguida** | 🟡 REPORTADO, NÃO INVESTIGADO — Roberto pediu para aguardar |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Investigar o erro "Vídeo ainda processando na Meta — tente de novo em 1-2 minutos"** no Reel da matéria "Confusão na Avenida Paulista" — já ocorreu 2x seguidas no mesmo vídeo. Só investigar quando Roberto autorizar explicitamente (ele pediu pra aguardar). Hipóteses a checar quando autorizado: se o polling de `status_code` até `FINISHED` (já implementado em `core/instagram.js`, ver sessão 27-28/08/2026) está de fato aguardando tempo suficiente para vídeos maiores, ou se há algo específico desse arquivo de vídeo (tamanho/duração/codec) atrasando o processamento do lado da Meta.
+2. **Anexar os 7 vídeos restantes do pacote do 7 de Setembro** às 8 matérias já escritas (só a do "ex-BOPE" tem vídeo até agora) — ação de Roberto.
+3. **Confirmar se o banner "Conta não encontrada" no admin sumiu** após a reativação do Instagram do OVC (pendência já registrada em 07/09/2026, ainda não confirmada).
+4. Demais pendências de sessões anteriores seguem válidas (botão "LIMPAR AGORA" decorativo, Esportes dominando a geração diária, foto da coluna "A Fazenda dos Porcos de Toga", SUPABASE_KEY env var morta no Vercel, Instagram SSL, Google Indexing API, AdSense, e a lista completa nas entradas "02-04/09/2026"/"04/09/2026 continuação"/"06/09/2026" acima).
+
+---
+
+### Sessão 08/09/2026 (continuação) — JANELA DO INSTAGRAM RESSINCRONIZADA — OVC e Brasil ON: 07h-12h / pausa / 14h-22h BRT
+
+#### Contexto
+
+Roberto, ainda na mesma sessão, pediu explicitamente: *"quero que programe a automacao dos instagrans da seguinte maneira: ligar as 07h, pausar as 12h / voltar as 14h00 - pausar as 22h00 / OVC e BRASILON"* — ressincronizando as duas automações (que tinham ficado dessincronizadas de propósito desde 04/09/2026: OVC em 9h-12h/15h-22h, Brasil ON em 9h-12h/14h-22h).
+
+#### O que foi feito
+
+Nova janela, idêntica pras duas automações: **ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo 14h-22h BRT (corte seco às 22h), pausa total 22h-07h BRT**.
+
+- **`api/manage.js`** (OVC) — `_igAutoDentroDaJanelaAtiva()`: `IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN` 9h→7h; pausa (12h) e retorno (14h, era 15h) e corte (22h) ajustados/mantidos conforme o novo pedido.
+- **`.github/workflows/instagram-auto.yml`** (cron do OVC, gate redundante em sincronia obrigatória com o código, lição do incidente de 02/09/2026) — `cron: '*/20 0,10-14,17-23 * * *'` (UTC). Conversão BRT→UTC verificada programaticamente hora a hora (as 24 horas do dia, gate do código vs. cron) — bate 100%.
+- **`brasilon/api/manage.js`** — `IG_AUTO_JANELA_MANHA_INICIO_BRT` 9→7 (pausa/retorno/corte já eram 12/14/22 aqui, não mudaram). Cron do Brasil ON (`brasilon/vercel.json`) roda o dia inteiro sem restrição de hora, de propósito — o gate real é 100% no código, não precisou de mudança.
+
+**Verificação antes do commit:** `node --check` nos dois `.js`, `yaml.safe_load()` no workflow, e simulação em Python das 24 horas do dia comparando `gate do código` vs. `cron` — nenhuma divergência.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (08/09/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Janela do Instagram ressincronizada — OVC e Brasil ON: 07h-12h / pausa / 14h-22h BRT** | ✅ EM CÓDIGO — validado localmente (sintaxe + simulação hora a hora), aguardando confirmação de deploy/comportamento real ao longo do próximo ciclo |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar em produção, ao longo do próximo dia**, que as duas automações respeitam a nova janela (07h-12h/14h-22h BRT) — código e cron validados localmente, mas ainda não observados rodando de verdade.
+2. Demais pendências seguem válidas (ver lista completa logo acima, sessão 07-08/09/2026 — investigar o erro "Vídeo ainda processando na Meta" só quando Roberto autorizar, anexar os 7 vídeos restantes, banner "Conta não encontrada", e a lista histórica de pendências de sessões anteriores).
+
+---

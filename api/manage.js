@@ -570,12 +570,15 @@ const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c
 // OVC. 2º pedido (correção): 14h00, nas duas automações (OVC e Brasil ON).
 // 3º pedido: Roberto pediu pra POSTERGAR só o OVC, mantendo o Brasil ON
 // liberado no horário que já estava (14h00 — ver brasilon/api/manage.js,
-// INTOCADO nesta 3ª rodada). ESTADO FINAL DO OVC, vigente: retorno às
-// 15h00 — as duas automações NÃO estão mais sincronizadas de propósito,
-// por pedido explícito. Se Roberto quiser voltar a sincronizar, avisar.
-const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 9 * 60;        // 09:00 BRT — início
+// INTOCADO nesta 3ª rodada). ESTADO daquele dia: retorno às 15h00 —
+// as duas automações ficaram dessincronizadas de propósito.
+// 08/09/2026 — Roberto pediu de novo, RESSINCRONIZANDO as duas automações
+// (OVC e Brasil ON): ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo
+// 14h-22h BRT (corte seco às 22h). ESTADO ATUAL, vigente — ver
+// brasilon/api/manage.js, atualizado junto no mesmo pedido.
+const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 7 * 60;        // 07:00 BRT — início
 const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa começa
-const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 15 * 60;          // 15:00 BRT — retoma (só OVC, postergado)
+const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60;          // 14:00 BRT — retoma
 const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 22 * 60;          // corte seco às 22:00 BRT (22h já é pausa)
 function _igAutoDentroDaJanelaAtiva() {
   const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);

@@ -27,21 +27,25 @@ name: Instagram - Publicação Automática
 # e Brasil ON). 3º pedido: Roberto pediu pra POSTERGAR só o OVC — o
 # Brasil ON continua liberado às 14h00 (`brasilon/vercel.json`/
 # `brasilon/api/manage.js`, INTOCADOS nesta 3ª rodada, não fazem parte
-# deste arquivo). ESTADO FINAL DESTE ARQUIVO (só OVC), vigente: ativo
-# 9h-12h BRT, pausa 12h-15h BRT, ativo de novo 15h-22h BRT (corte seco
-# às 22h). Gate redundante em api/manage.js atualizado junto. As duas
-# automações NÃO estão mais sincronizadas de propósito — se Roberto
-# quiser voltar a sincronizar, avisar antes de assumir.
+# deste arquivo). ESTADO daquele dia (só OVC): ativo 9h-12h BRT, pausa
+# 12h-15h BRT, ativo de novo 15h-22h BRT — as duas automações ficaram
+# dessincronizadas de propósito.
+#
+# 08/09/2026 — Roberto pediu de novo, RESSINCRONIZANDO as duas automações
+# (OVC e Brasil ON): ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo
+# 14h-22h BRT (corte seco às 22h). Gate redundante em api/manage.js
+# (_igAutoDentroDaJanelaAtiva) e em brasilon/api/manage.js atualizados
+# junto, no mesmo pedido. ESTADO ATUAL, vigente.
 #
 # Cron é sempre UTC (não existe opção de timezone, nem no Actions nem na
 # Vercel — já confirmado nesta mesma sessão pro cron nativo da Vercel).
-# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 9h-12h BRT = 12h-15h UTC
-# (horas 12,13,14). Pausa 12h-15h BRT = 15h-18h UTC (horas 15,16,17). Ativo
-# 15h-22h BRT = 18h-01h UTC do dia seguinte (horas 18-23 e 0). Pausa
-# 22h-09h BRT = 01h-12h UTC (horas 1-11).
+# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 07h-12h BRT = 10h-15h UTC
+# (horas 10,11,12,13,14). Pausa 12h-14h BRT = 15h-17h UTC (horas 15,16). Ativo
+# 14h-22h BRT = 17h-01h UTC do dia seguinte (horas 17-23 e 0). Pausa
+# 22h-07h BRT = 01h-10h UTC (horas 1-9).
 on:
   schedule:
-    - cron: '*/20 0,12-14,18-23 * * *'
+    - cron: '*/20 0,10-14,17-23 * * *'
   push:
     branches: [main]
     paths:

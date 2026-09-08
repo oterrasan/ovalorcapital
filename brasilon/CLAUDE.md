@@ -297,26 +297,30 @@ DIAGNÓSTICO de verdade (checar algo, rodar um teste), nunca deploy.
     (1 linha por post, claim-antes-de-publicar + desfaz se falhar) e
     `BON_IG_AUTO_COUNT_{diaBRT}__{timestamp}_{rand}` (contador do dia,
     somado via `COUNT`, nunca lido+somado de 1 linha).
-  - **Janela ativa 9h-12h e 14h-22h BRT, pausa de almoço 12h-14h**
-    (ajustado 04/09/2026 — Roberto pediu 13h30 primeiro, corrigiu no
-    mesmo dia pra 14h00 e deixou explícito que valia pras duas
-    automações, OVC e Brasil ON — gate no próprio código, não só no
-    cron — mesma lição do incidente do OVC de 02/09/2026, onde o
-    scheduler do GitHub Actions disparou fora do range configurado).
-    Cron do Vercel (`brasilon/vercel.json`) roda `*/15 * * * *` o dia
-    inteiro DE PROPÓSITO (sem restringir hora no cron em si) — o gate
-    real fica 100% no código (`_igAutoDentroDaJanelaAtiva()` em
-    `brasilon/api/manage.js`).
-    **⚠️ 04/09/2026 (mesmo dia, 3º ajuste) — DESSINCRONIZADO DO OVC DE
-    PROPÓSITO:** Roberto pediu pra postergar só o OVC (retorno movido
-    pra 15h00 lá) e deixar o Brasil ON liberado no horário que já
-    estava. `brasilon/api/manage.js` **NÃO foi tocado nesta 3ª rodada**
-    — Brasil ON continua retomando às **14h00**, diferente do OVC
-    (15h00). Não assumir mais que as duas janelas são sempre iguais —
-    conferir os dois arquivos (`api/manage.js` na raiz e
-    `brasilon/api/manage.js`) antes de qualquer mudança futura de
-    horário, e só voltar a sincronizá-los se Roberto pedir
-    explicitamente.
+  - **Janela ativa 07h-12h e 14h-22h BRT, pausa de almoço 12h-14h**
+    (ajustado 08/09/2026 — ver histórico de ajustes abaixo). Gate no
+    próprio código, não só no cron — mesma lição do incidente do OVC de
+    02/09/2026, onde o scheduler do GitHub Actions disparou fora do
+    range configurado. Cron do Vercel (`brasilon/vercel.json`) roda
+    `*/15 * * * *` o dia inteiro DE PROPÓSITO (sem restringir hora no
+    cron em si) — o gate real fica 100% no código
+    (`_igAutoDentroDaJanelaAtiva()` em `brasilon/api/manage.js`).
+
+    **Histórico de ajustes:**
+    - 04/09/2026 — janela 9h-12h/14h-22h BRT, pausa de almoço (13h30 →
+      corrigido pra 14h00 no mesmo dia, valendo pras duas automações).
+    - 04/09/2026 (3º ajuste, mesmo dia) — Roberto postergou SÓ o OVC
+      (retorno pra 15h00 lá); Brasil ON ficou intocado, retomando às
+      14h00 — as duas janelas ficaram dessincronizadas de propósito.
+    - **08/09/2026 — RESSINCRONIZADO**: Roberto pediu de novo, pras
+      DUAS automações (OVC e Brasil ON): ativo 07h-12h BRT, pausa
+      12h-14h BRT, ativo de novo 14h-22h BRT (corte seco às 22h). Aqui
+      no Brasil ON só o início da manhã mudou (9h→7h) — pausa/retorno/
+      corte já eram 12h/14h/22h. Ver `api/manage.js` (raiz, OVC),
+      atualizado junto no mesmo pedido. As duas janelas voltaram a
+      ficar idênticas — conferir os dois arquivos antes de qualquer
+      mudança futura de horário, caso Roberto peça de novo pra
+      dessincronizar.
   - **✅ LIGADO EM PRODUÇÃO (03/09/2026)** — Roberto: "pode ligar, deixa
     rodando. vamos ver qual é!". `config.enabled=true`, `dailyLimit:60`,
     `interval:15`, todas as 4 categorias. **Primeira publicação real
@@ -404,11 +408,13 @@ e `api/manage.js` na raiz do repo — **não** dentro de `brasilon/`):
      única por chamada, sem `.upsert()` — evita bug de concorrência já
      documentado no projeto).
 4. **`.github/workflows/instagram-auto.yml`** — cron a cada 20min, **só
-   do OVC** (não afeta o Brasil ON). Janela atual: ativo 9h-12h e
-   15h-22h BRT, pausa 12h-15h (04/09/2026, 3 ajustes no mesmo dia:
-   13h30 só OVC → 14h nas duas → 15h só OVC, postergado, Brasil ON ficou
-   em 14h — ver o aviso de dessincronização acima). Antes de tudo isso,
-   08h-22h sem pausa. Chama `ig_auto_publish`.
+   do OVC** (não afeta o Brasil ON). Janela atual (08/09/2026,
+   ressincronizada com o Brasil ON): ativo 07h-12h e 14h-22h BRT, pausa
+   12h-14h. Histórico de ajustes no mesmo dia 04/09/2026: 13h30 só OVC →
+   14h nas duas → 15h só OVC (dessincronizado do Brasil ON) — ver seção
+   "Histórico de ajustes" acima. Antes de tudo isso, 08h-22h sem pausa.
+   Chama `ig_auto_publish` (e, desde 07/09/2026, também `reels_auto_publish`
+   logo em seguida, mesma janela).
    Roteado via cron do GitHub Actions
    (não cron nativo da Vercel), com um gate redundante server-side em
    `api/manage.js` (`_igAutoDentroDaJanelaAtiva()`) — um bug real do
