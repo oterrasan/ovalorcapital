@@ -11,20 +11,14 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar volume real de posts gerados hoje (BRT) + brasilon_posts
+      - name: Checar os brasilon_posts mais recentes de verdade (sem filtro de data)
         env:
           SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
-          echo "--- posts do OVC criados desde meia-noite BRT (03:00 UTC de hoje) ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?created_at=gte.2026-09-08T03:00:00&select=id,titulo,status,created_at,publish_method,user_tags&order=created_at.desc&limit=20" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -D /tmp/headers.txt | python3 -m json.tool
-          echo "--- content-range (total real) ---"
-          grep -i content-range /tmp/headers.txt || true
-          echo ""
-          echo "--- brasilon_posts com published_at de hoje ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?published_at=gte.2026-09-08T03:00:00&select=id,titulo,categoria,published_at&order=published_at.desc&limit=20" \
+          echo "--- 10 brasilon_posts mais recentes (published_at desc, sem filtro) ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?select=id,titulo,categoria,published_at,origem_post_id&order=published_at.desc&limit=10" \
             -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
           echo ""
-          echo "--- último post publicado no OVC (categoria/tag), independente de hoje ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?status=eq.publicado&select=id,titulo,user_tags,created_at,published_at&order=created_at.desc&limit=5" \
+          echo "--- Confirmar se um dos posts recentes do OVC (brasil-on, publicado hoje) tem espelho em brasilon_posts por origem_post_id ---"
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/brasilon_posts?origem_post_id=eq.275b4df4-baea-4a8d-8f53-6f45917125e8&select=*" \
             -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" | python3 -m json.tool
