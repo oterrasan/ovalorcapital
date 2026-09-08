@@ -13,30 +13,35 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar por que o fetch do mp4 do CDN da Globo deu 400
+      - name: Extrai e baixa na mesma execução, sem delay — testa hipótese de token de curta duração
         run: |
           node << 'NODEEOF'
-          const mp4Url = "https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4";
           const paginaUrl = "https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml";
 
-          async function tentar(nome, headers) {
-            try {
-              const res = await fetch(mp4Url, { headers });
-              const body = res.ok ? "" : await res.text().catch(() => "");
-              console.log(`[${nome}] status=${res.status} content-type=${res.headers.get("content-type")} content-length=${res.headers.get("content-length")}`);
-              if (!res.ok) console.log(`[${nome}] body (primeiros 300):`, body.slice(0, 300));
-              return res.ok;
-            } catch (e) {
-              console.log(`[${nome}] ERRO:`, e.message);
-              return false;
-            }
-          }
-
           (async () => {
-            await tentar("sem headers", {});
-            await tentar("referer=proprio CDN", { "Referer": "https://vodstreaming01.video.globo.com/" });
-            await tentar("referer=g1.globo.com", { "Referer": "https://g1.globo.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
-            await tentar("referer=pagina exata", { "Referer": paginaUrl, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
-            await tentar("origin+referer=g1.globo.com", { "Referer": "https://g1.globo.com/", "Origin": "https://g1.globo.com", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
-          })();
+            const t0 = Date.now();
+            const pageRes = await fetch(paginaUrl, {
+              headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+            });
+            const html = await pageRes.text();
+            const m = html.match(/https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/i);
+            const mp4Url = m ? m[0] : null;
+            console.log("tempo até extrair:", Date.now() - t0, "ms");
+            console.log("mp4Url:", mp4Url);
+            if (!mp4Url) { console.log("nenhum mp4 achado"); return; }
+
+            const t1 = Date.now();
+            const vidRes = await fetch(mp4Url, {
+              headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+            });
+            console.log("tempo do fetch do mp4:", Date.now() - t1, "ms");
+            console.log("status:", vidRes.status);
+            console.log("headers:", JSON.stringify([...vidRes.headers.entries()]));
+            const body = vidRes.ok ? "" : await vidRes.text().catch(() => "");
+            if (!vidRes.ok) console.log("body:", body.slice(0, 500));
+            else {
+              const ab = await vidRes.arrayBuffer();
+              console.log("bytes baixados:", ab.byteLength);
+            }
+          })().catch(e => console.log("ERRO GERAL:", e.message));
           NODEEOF
