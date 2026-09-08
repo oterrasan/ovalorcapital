@@ -1,32 +1,10 @@
 name: Diagnóstico único (placeholder)
 
 on:
-  push:
-    paths:
-      - ".github/workflows/diag-once.yml"
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testa header Range e curl direto no mp4 do CDN da Globo
-        run: |
-          echo "=== curl -v (headers completos da requisição e resposta) ==="
-          curl -v -o /dev/null "https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4" 2>&1 | head -60
-          echo ""
-          echo "=== curl com Range ==="
-          curl -v -H "Range: bytes=0-1023" -o /dev/null "https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4" 2>&1 | head -60
-          echo ""
-          echo "=== node fetch com Range ==="
-          node -e '
-            fetch("https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4", {
-              headers: { "Range": "bytes=0-1023", "User-Agent": "Mozilla/5.0" }
-            }).then(async r => {
-              console.log("status:", r.status);
-              console.log("headers:", JSON.stringify([...r.headers.entries()]));
-            }).catch(e => console.log("erro:", e.message));
-          '
+      - run: echo "placeholder — nada a fazer"
