@@ -13,72 +13,30 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar a lógica real de downloadAndUploadVideo contra o G1 (sem upload)
+      - name: Testar por que o fetch do mp4 do CDN da Globo deu 400
         run: |
           node << 'NODEEOF'
-          async function fetchComTimeout(url, timeoutMs, accept) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
+          const mp4Url = "https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4";
+          const paginaUrl = "https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml";
+
+          async function tentar(nome, headers) {
             try {
-              let referer;
-              try { referer = new URL(url).origin + "/"; } catch (_) {}
-              const res = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                  "Accept": accept,
-                  ...(referer ? { "Referer": referer } : {})
-                }
-              });
-              return res;
+              const res = await fetch(mp4Url, { headers });
+              const body = res.ok ? "" : await res.text().catch(() => "");
+              console.log(`[${nome}] status=${res.status} content-type=${res.headers.get("content-type")} content-length=${res.headers.get("content-length")}`);
+              if (!res.ok) console.log(`[${nome}] body (primeiros 300):`, body.slice(0, 300));
+              return res.ok;
             } catch (e) {
-              console.log("fetch erro:", e.message);
-              return null;
-            } finally {
-              clearTimeout(timer);
+              console.log(`[${nome}] ERRO:`, e.message);
+              return false;
             }
           }
 
-          function extrairMp4DoHtml(html) {
-            const m = String(html || "").match(/https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/i);
-            return m ? m[0].replace(/&amp;/g, "&") : null;
-          }
-
-          async function testar(sourceUrl) {
-            let res = await fetchComTimeout(sourceUrl, 20000, "video/mp4,video/webm,video/*,text/html,*/*");
-            if (!res || !res.ok) { console.log("FALHOU no fetch inicial", res && res.status); return; }
-
-            let finalUrl = sourceUrl;
-            let ct = (res.headers.get("content-type") || "").toLowerCase();
-            const pareceVideo = (url, contentType) =>
-              contentType.includes("video") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
-
-            console.log("1º fetch — content-type:", ct);
-
-            if (!pareceVideo(sourceUrl, ct)) {
-              if (!ct.includes("html")) { console.log("FALHOU — não é vídeo nem html"); return; }
-              const html = await res.text();
-              const mp4Url = extrairMp4DoHtml(html);
-              console.log("mp4 extraído da página:", mp4Url);
-              if (!mp4Url) { console.log("FALHOU — nenhum mp4 achado na página"); return; }
-              res = await fetchComTimeout(mp4Url, 20000, "video/mp4,video/webm,video/*,*/*");
-              if (!res || !res.ok) { console.log("FALHOU no fetch do mp4", res && res.status); return; }
-              finalUrl = mp4Url;
-              ct = (res.headers.get("content-type") || "").toLowerCase();
-              console.log("2º fetch — content-type:", ct);
-              if (!pareceVideo(mp4Url, ct)) { console.log("FALHOU — mp4 baixado não parece vídeo"); return; }
-            }
-
-            const lenHeader = Number(res.headers.get("content-length") || 0);
-            console.log("content-length declarado:", lenHeader);
-
-            const ab = await res.arrayBuffer();
-            const buf = Buffer.from(ab);
-            console.log("bytes baixados de verdade:", buf.length);
-            console.log("finalUrl:", finalUrl);
-            console.log(buf.length >= 2000 ? "SUCESSO — passaria no fluxo real" : "FALHOU — buffer pequeno demais");
-          }
-
-          testar("https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml")
-            .catch(e => console.log("ERRO GERAL:", e.message));
+          (async () => {
+            await tentar("sem headers", {});
+            await tentar("referer=proprio CDN", { "Referer": "https://vodstreaming01.video.globo.com/" });
+            await tentar("referer=g1.globo.com", { "Referer": "https://g1.globo.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
+            await tentar("referer=pagina exata", { "Referer": paginaUrl, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
+            await tentar("origin+referer=g1.globo.com", { "Referer": "https://g1.globo.com/", "Origin": "https://g1.globo.com", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" });
+          })();
           NODEEOF
