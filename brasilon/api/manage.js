@@ -41,7 +41,13 @@ const SITE_BASE = "https://www.obrasilon.com.br";
 // 04/09/2026 (mesmo dia, correção) — Roberto errou o horário na primeira
 // vez: o retorno correto é 14h00, não 13h00, e vale pras DUAS automações
 // (OVC e Brasil ON — ver api/manage.js na raiz, atualizado junto).
-const IG_AUTO_JANELA_MANHA_INICIO_BRT = 9;
+// 04/09/2026 (mesmo dia, 3º ajuste) — Roberto postergou só o OVC (15h00
+// lá); Brasil ON continuou aqui, sem mudança (14h00).
+// 08/09/2026 — Roberto pediu de novo, RESSINCRONIZANDO as duas automações
+// (OVC e Brasil ON): ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo
+// 14h-22h BRT (corte seco às 22h). ESTADO ATUAL, vigente — só o início da
+// manhã mudou (9→7); pausa/retorno/corte já eram 12/14/22 aqui.
+const IG_AUTO_JANELA_MANHA_INICIO_BRT = 7;
 const IG_AUTO_JANELA_PAUSA_INICIO_BRT = 12;
 const IG_AUTO_JANELA_PAUSA_FIM_BRT = 14;
 const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;
