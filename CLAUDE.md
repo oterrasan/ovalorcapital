@@ -9351,3 +9351,58 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Demais pendências seguem válidas (ver lista completa logo acima, sessão 07-08/09/2026 — investigar o erro "Vídeo ainda processando na Meta" só quando Roberto autorizar, anexar os 7 vídeos restantes, banner "Conta não encontrada", e a lista histórica de pendências de sessões anteriores).
 
 ---
+
+### Sessão 08/09/2026 (continuação 2) — 🔴 "NADA PUBLICOU NOS INSTAGRAMS ATÉ QUASE MEIO-DIA" — 2 CAUSAS RAIZ REAIS, DIFERENTES, AMBAS CORRIGIDAS E VERIFICADAS END-TO-END
+
+#### Contexto
+
+Roberto: *"o que você fez que já é quase meio dia e não publixou nada nos Instagramns?"* (plural — os dois portais). Investigação com evidência real, sem suposição, seguindo o protocolo já estabelecido no projeto.
+
+#### Causa raiz 1 — OVC — `IG_AUTOMATION_ENABLED` estava `"off"` desde 04/09/2026
+
+Confirmado direto no Supabase: a flag estava `"off"` com `updated_at` batendo com a pausa pedida por Roberto em 04/09/2026 — nunca tinha voltado a `"on"` de fato, apesar de entrada anterior deste mesmo arquivo registrar uma reativação em 07/09. Religada via PATCH direto (mesmo padrão seguro update-only, nunca `.upsert(...,{onConflict:"key"})` — a coluna `key` da tabela `config` nunca teve constraint unique real, bug já documentado extensivamente). Confirmado com GET antes/depois.
+
+#### 🔴 Causa raiz 2 — Brasil ON — `core/brasilonMirror.js` nunca gravou UMA LINHA sequer desde que foi criado (04/09/2026)
+
+Investigação mais funda revelou algo mais sério: mesmo com `BON_IG_ENABLED="on"` e o endpoint de automação do Brasil ON respondendo limpo, `nenhum_candidato_elegivel` — apesar do OVC ter publicado 140+ posts desde meia-noite BRT, vários deles nas categorias espelhadas (`brasil-on`/`política`/`futebol`). `brasilon_posts` não recebia nada há ~15h.
+
+**Evidência real, direta contra o Postgres:** replicando a EXATA escrita que `mirrorPostToBrasilOn()` faz (`.upsert(row, {onConflict:"origem_post_id"})`) com um post real de hoje:
+```
+{"code":"42P10","message":"there is no unique or exclusion constraint matching the ON CONFLICT specification"}
+HTTP 400
+```
+
+`brasilon_posts.origem_post_id` **nunca teve constraint unique real** — apesar do comentário do próprio arquivo (`core/brasilonMirror.js`, escrito quando ele foi criado) afirmar que tinha. Isso nunca foi testado com dado real quando o arquivo foi escrito — só assumido. **Mesma classe de bug já documentada extensivamente pra tabela `config`, agora confirmada também em `brasilon_posts`.** O `try/catch` best-effort de `mirrorPostToBrasilOn()` (desenhado deliberadamente pra nunca quebrar a publicação real do OVC) engolia esse erro silenciosamente em **100% das chamadas**, desde a criação do arquivo — todo o histórico real de conteúdo em `brasilon_posts` sempre veio do cron `action=sync` (a rede de segurança de 20 em 20 min), nunca do mirror direto.
+
+**Fix (PR #709, commit `cda879b`):** `_writeRow()` — select-then-update-or-insert, mesmo padrão seguro já usado em todo o projeto (`config`, `_salvarPesquisa`) — nunca mais depender de `ON CONFLICT` numa coluna sem constraint confirmada com dado real. Comentário do arquivo reescrito documentando a causa raiz real (não mais a afirmação errada anterior).
+
+**Verificação end-to-end real, pós-deploy (PR #710/#711, não só teste isolado):** disparado `POST /api/run_portal {"tipo":"brasilon","force":true,"count":1}` de verdade — gerou o post real "Cleitinho lidera disputa para governo de Minas Gerais, diz pesquisa" no OVC às `14:44:08.379` — e o MESMO post apareceu em `brasilon_posts` (`origem_post_id` batendo, `categoria:"brasil-on"`) às `14:44:08.478` — **~100ms de diferença**, confirmando o mirror síncrono direto funcionando de verdade (não o cron de 20min, que levaria minutos). Causa raiz eliminada, não só mitigada.
+
+#### 🚨 4ª ocorrência do mesmo bug de indentação de heredoc Python em YAML — reincidência própria, corrigida na hora
+
+Ao escrever o script de diagnóstico pra replicar a escrita do mirror (`diag-once.yml`), cometi **de novo** o mesmo erro já documentado 3 vezes antes no projeto: `python3 -c "\n<corpo desindentado>\n"` dentro de um bloco `run: |` do YAML — o bloco termina prematuramente na primeira linha com indentação menor que a estabelecida, quebrando o parse do arquivo inteiro (`conclusion:"failure"`, zero jobs criados, nome do run aparecendo como o path bruto do arquivo em vez do `name:` declarado). Reescrito como heredoc bash (`python3 << 'PYEOF' ... PYEOF`) com indentação consistente — desta vez **validado localmente com `python3 -c "import yaml; yaml.safe_load(...)"` antes de cada push**, sem exceção, até o fim da sessão.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (08/09/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **OVC — `IG_AUTOMATION_ENABLED` religada** (estava `"off"` desde 04/09/2026) | ✅ CONFIRMADO com evidência real (GET antes/depois) |
+| **Causa raiz real do DE-PARA OVC→Brasil ON nunca ter gravado nada** — `brasilon_posts.origem_post_id` sem constraint unique real, `.upsert(...,{onConflict:...})` sempre falhava com 42P10, engolido silenciosamente desde a criação do arquivo | ✅ IDENTIFICADA E CORRIGIDA (PR #709, commit `cda879b`) |
+| **`_writeRow()` — select-then-update-or-insert**, mesmo padrão seguro já usado em `config`/`_salvarPesquisa` | ✅ EM PRODUÇÃO |
+| **Verificado end-to-end**: post real publicado no OVC apareceu em `brasilon_posts` ~100ms depois (mirror síncrono, não o cron) | ✅ CONFIRMADO com evidência real, não suposição |
+| **4ª ocorrência do bug de indentação de heredoc Python em `diag-once.yml`** — corrigida, `diag-once.yml` resetado ao placeholder inerte | ✅ RESOLVIDO (PR #711) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto que os dois Instagrams (OVC e Brasil ON) estão publicando com regularidade agora** — as duas causas raiz foram corrigidas e verificadas, mas um ciclo completo de operação real (respeitando a nova janela 07h-12h/14h-22h BRT) ainda não foi observado por uma sessão.
+2. **Considerar auditar outros usos de `.upsert(...,{onConflict:...})` no projeto** contra tabelas cuja constraint unique nunca foi confirmada com dado real — este é o 3º caso confirmado desta classe de bug (`config.key`, agora `brasilon_posts.origem_post_id`). Regra permanente: **nunca assumir/comentar que uma coluna tem constraint unique sem testar com dado real** — sempre usar o padrão select-then-update-or-insert quando não houver certeza.
+3. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores desta sessão e sessões antecedentes).
+
+---
