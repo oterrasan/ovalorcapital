@@ -21,11 +21,24 @@
 // O cron de sync (brasilon/api/manage.js, action=sync) continua ativo
 // como rede de segurança — pega qualquer coisa que escape do push direto
 // (erro transiente de rede, deploy no meio de uma publicação, etc.).
-// Nunca duplica: origem_post_id tem constraint unique real no schema de
-// brasilon_posts (confirmado no comentário de handleSync em
-// brasilon/api/manage.js), upsert com onConflict é seguro aqui —
-// diferente do bug de upsert sem constraint já documentado pra tabela
-// config em várias sessões deste projeto.
+//
+// 🔴 08/09/2026 — CAUSA RAIZ REAL de o mirror nunca ter gravado nada:
+// a afirmação anterior deste comentário ("origem_post_id tem constraint
+// unique real") estava ERRADA — nunca foi confirmada com dado real, só
+// assumida. Testado ao vivo contra o Supabase: `.upsert(row,
+// {onConflict:"origem_post_id"})` sempre retorna
+// `{"code":"42P10","message":"there is no unique or exclusion constraint
+// matching the ON CONFLICT specification"}` (HTTP 400) — MESMA classe de
+// bug já documentada extensivamente pra tabela `config` (coluna `key`
+// sem constraint unique). O `try/catch` best-effort engolia esse erro
+// silenciosamente, 100% das chamadas, desde a criação deste arquivo —
+// todo o histórico real de posts em `brasilon_posts` sempre veio do cron
+// de sync, nunca deste caminho direto.
+//
+// FIX: select-then-update-or-insert (mesmo padrão seguro já usado no
+// projeto pra `config` e pra `_salvarPesquisa`) — nunca mais depender de
+// `ON CONFLICT` numa coluna sem constraint unique CONFIRMADA com dado
+// real (nunca assumir/comentar que existe sem testar).
 //
 // Classificação: CÓPIA EXATA (mesma lógica, arquivo diferente por
 // desenho — Brasil ON nunca importa código do OVC e vice-versa, ver
@@ -78,6 +91,30 @@ function classificar(post) {
   return null;
 }
 
+// Grava uma linha em brasilon_posts sem depender de ON CONFLICT (ver
+// comentário acima — origem_post_id NÃO tem constraint unique real).
+// Sempre confere se já existe uma linha com esse origem_post_id: se sim,
+// UPDATE; senão, INSERT. Nunca duplica, nunca lança (a única exceção
+// tratada é 42703 — coluna video_url ainda não existe em brasilon_posts —
+// que refaz a escrita sem esse campo).
+async function _writeRow(row) {
+  const { data: existing } = await sb()
+    .from("brasilon_posts")
+    .select("id")
+    .eq("origem_post_id", row.origem_post_id)
+    .limit(1);
+  let error;
+  if (existing && existing.length) {
+    ({ error } = await sb().from("brasilon_posts").update(row).eq("origem_post_id", row.origem_post_id));
+  } else {
+    ({ error } = await sb().from("brasilon_posts").insert(row));
+  }
+  if (error && error.code === "42703" && "video_url" in row) {
+    const { video_url, ...semVideo } = row;
+    await _writeRow(semVideo);
+  }
+}
+
 // post: shape de uma linha da tabela posts (ou um objeto sintético com os
 // mesmos campos) — id, titulo, conteudo, comentario_fixado, imagem,
 // metrics (objeto, pode ter meta_title), user_tags, subcategoria_slug,
@@ -110,11 +147,7 @@ export async function mirrorPostToBrasilOn(post) {
     // Zero coordenação necessária: assim que a coluna existir, passa a
     // funcionar sozinho, sem precisar tocar em código de novo.
     if (post.video_url) row.video_url = post.video_url;
-    const { error } = await sb().from("brasilon_posts").upsert(row, { onConflict: "origem_post_id" });
-    if (error && error.code === "42703" && "video_url" in row) {
-      const { video_url, ...semVideo } = row;
-      await sb().from("brasilon_posts").upsert(semVideo, { onConflict: "origem_post_id" });
-    }
+    await _writeRow(row);
   } catch (_) {
     // best-effort — nunca pode quebrar a publicação real no OVC. O cron
     // de sync (brasilon/api/manage.js, action=sync) pega o que escapar.
