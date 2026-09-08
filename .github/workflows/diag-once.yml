@@ -2,57 +2,9 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/diag-once.yml"
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Pausa automação de Instagram — OVC e Brasil ON
-        env:
-          SB_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          python3 << 'PYEOF'
-          import os, json, urllib.request
-
-          SB_URL = os.environ["SB_URL"]
-          SB_KEY = os.environ["SB_KEY"]
-          HEADERS = {
-              "apikey": SB_KEY,
-              "Authorization": f"Bearer {SB_KEY}",
-              "Content-Type": "application/json",
-              "Prefer": "return=representation",
-          }
-
-          def req(method, path, body=None):
-              url = f"{SB_URL}/rest/v1/{path}"
-              data = json.dumps(body).encode() if body is not None else None
-              r = urllib.request.Request(url, data=data, headers=HEADERS, method=method)
-              with urllib.request.urlopen(r) as resp:
-                  raw = resp.read()
-                  return json.loads(raw) if raw else []
-
-          def set_flag(key, value):
-              existing = req("GET", f"config?key=eq.{key}&select=key")
-              if existing:
-                  req("PATCH", f"config?key=eq.{key}", {"value": value})
-                  print(f"{key}: UPDATE -> {value}")
-              else:
-                  req("POST", "config", {"key": key, "value": value})
-                  print(f"{key}: INSERT -> {value}")
-
-          for key in ["IG_AUTOMATION_ENABLED", "BON_IG_ENABLED"]:
-              before = req("GET", f"config?key=eq.{key}&select=value")
-              print(f"{key} ANTES:", before)
-
-          set_flag("IG_AUTOMATION_ENABLED", "off")
-          set_flag("BON_IG_ENABLED", "off")
-
-          for key in ["IG_AUTOMATION_ENABLED", "BON_IG_ENABLED"]:
-              after = req("GET", f"config?key=eq.{key}&select=value")
-              print(f"{key} DEPOIS:", after)
-          PYEOF
+      - run: echo "placeholder — nada a fazer"
