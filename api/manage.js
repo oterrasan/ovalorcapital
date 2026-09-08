@@ -548,7 +548,16 @@ async function handleIgPublish(req, res, body) {
 const IG_AUTO_LIMITE_DIARIO = 0;
 const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
-const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "brasil-on", "colunistas"]);
+// 08/09/2026 — Roberto: "OVC - posta TUDO - com prioridade para politica,
+// mas POSTA TUDO". Antes era um Set restrito a 5 categorias (politica,
+// economia, financas, brasil-on, colunistas) — agora é todas as categorias
+// reais que o pipeline gera (as 12 de CATS em api/run_portal.js + "giro",
+// que é gerado por um canal separado — salvarFofocas — e nunca passa por
+// essa constante). "vc" fica de fora por não ser gerada automaticamente.
+// A PRIORIDADE de política é aplicada em _igAutoProcessAccount() (2
+// passadas: primeiro tenta achar um elegível de categoria "politica", só
+// cai pra qualquer categoria se não achar nenhum).
+const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "negocios", "tecnologia", "internacional", "industria", "familia", "esportes", "brasil-on", "colunistas", "giro"]);
 const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c40a0c8ed16065";
 
 // 02/09/2026 (2ª correção do dia) — Roberto reportou publicação real às
@@ -737,7 +746,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
       .filter(Boolean)
   );
 
-  const post = candidatos.find((p) => {
+  const elegivel = (p) => {
     const assignedAccountId = String(p.ig_account_id || "");
     const routedToAccount = assignedAccountId
       ? assignedAccountId === String(account.id)
@@ -755,7 +764,17 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     if (p.ig_id || metrics?.instagram?.ig_id) return false;
     if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false;
     return true;
-  });
+  };
+  // 08/09/2026 — Roberto: "com prioridade para politica". candidatos já vem
+  // ordenado por published_at desc (query em handleIgAutoPublish), então
+  // dentro de cada passada o mais recente elegível vence. 1ª passada só
+  // política; se não achar nenhuma elegível, cai pra qualquer categoria.
+  const categoriaDe = (p) => {
+    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+    return String(tags[0] || "").trim().toLowerCase();
+  };
+  const post = candidatos.find((p) => elegivel(p) && categoriaDe(p) === "politica")
+    || candidatos.find((p) => elegivel(p));
 
   if (!post) {
     await writeLog("info", `[ig-auto] @${username}: nenhuma matéria elegível`);

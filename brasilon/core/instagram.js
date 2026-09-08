@@ -5,9 +5,12 @@
 // getInstagramAccount()), sem lógica de escolha entre várias contas.
 //
 // Collab: Roberto, 03/09/2026, direto no chat, assim que a imagem foi
-// aprovada: "os posts do brasil on, TODOS em collabs com o @oterrasan" —
-// sempre, sem exceção, sem rodízio (só 1 colaborador aqui, bem abaixo do
-// limite real de 4 collaborators+autor confirmado pro OVC).
+// aprovada: "os posts do brasil on, TODOS em collabs com o @oterrasan".
+// 08/09/2026 — Roberto pediu explicitamente: "Brasilon - deve enviar
+// convite para colaboracao para as mesmas contas qiue o OVC envia quando
+// posta. todas elas" — mesma lista de 4 do OVC (core/instagram.js, raiz),
+// duplicada aqui de propósito (zero import cruzado entre OVC e Brasil ON,
+// mesma regra de sempre).
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
@@ -15,7 +18,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const BASE = "https://graph.facebook.com/v25.0";
 const USERNAME = "obrasilon";
-const DEFAULT_COLLABORATORS = ["oterrasan"];
+const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
 
 function normalizePublishingLimit(raw) {
   const item = Array.isArray(raw?.data) ? raw.data[0] : raw;
@@ -188,5 +191,22 @@ export async function postComment(mediaId, text, token) {
   });
   const data = await res.json();
   if (!res.ok || !data?.id) throw new Error("Erro ao postar comentário: " + JSON.stringify(data));
+  return data;
+}
+
+// 08/09/2026 — Roberto: "precisa que tenha a curtida automatica, igual o
+// ovc". Réplica exata de likeMedia() em core/instagram.js (raiz), adaptada
+// pra conta única (@obrasilon) — mesmo endpoint, mesmo formato de payload.
+export async function likeMedia(mediaId) {
+  const account = await getAccount();
+  if (!account?.ig_user_id || !account?.token) throw new Error("Conta @obrasilon sem ig_user_id ou token para curtir");
+
+  const res = await fetch(`${BASE}/${account.ig_user_id}/likes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_id: mediaId, access_token: account.token })
+  });
+  const data = await res.json();
+  if (!res.ok || data?.success !== true) throw new Error("Erro ao curtir publicação: " + JSON.stringify(data));
   return data;
 }
