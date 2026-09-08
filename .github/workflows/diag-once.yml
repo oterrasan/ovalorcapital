@@ -13,11 +13,12 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Investigar estrutura de vídeo da página G1
+      - name: Extrair JSON-LD VideoObject completo do G1
         run: |
           python3 << 'PYEOF'
           import urllib.request
           import re
+          import json
 
           url = "https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml"
           req = urllib.request.Request(url, headers={
@@ -25,33 +26,28 @@ jobs:
               "Accept": "text/html,application/xhtml+xml"
           })
           with urllib.request.urlopen(req, timeout=25) as r:
-              status = r.status
-              ct = r.headers.get("Content-Type")
               html = r.read().decode("utf-8", errors="replace")
 
-          print("HTTP status:", status)
-          print("Content-Type:", ct)
-          print("HTML length:", len(html))
+          # Pega todos os blocos <script type="application/ld+json">
+          blocks = re.findall(r'<script type="application/ld\+json"[^>]*>(.*?)</script>', html, re.S)
+          print(f"total de blocos ld+json: {len(blocks)}")
+          for i, b in enumerate(blocks):
+              try:
+                  data = json.loads(b)
+              except Exception as e:
+                  print(f"[{i}] erro parse: {e}")
+                  continue
+              items = data if isinstance(data, list) else [data]
+              for item in items:
+                  if isinstance(item, dict) and item.get("@type") == "VideoObject":
+                      print(f"[{i}] VideoObject completo:")
+                      print(json.dumps(item, indent=2, ensure_ascii=False)[:2000])
+                      print("=====")
+
+          # também tenta achar mp4 mais próximo do maior bitrate (não só o primeiro match)
+          mp4s = re.findall(r'https?://[^"\'\s]+\.mp4[^"\'\s]*', html)
           print()
-
-          # og:video / og:video:url
-          for m in re.finditer(r'<meta[^>]+property="og:video[^"]*"[^>]*>', html, re.I):
-              print("OG VIDEO TAG:", m.group(0)[:300])
-
-          # JSON-LD VideoObject
-          for m in re.finditer(r'"@type"\s*:\s*"VideoObject".{0,400}', html, re.S):
-              print("JSON-LD VideoObject:", m.group(0)[:400])
-              print("---")
-
-          # padrões comuns de manifest/CDN de vídeo Globo
-          for pat in [r'https?://[^"\'\s]+\.m3u8[^"\'\s]*', r'https?://[^"\'\s]+\.mp4[^"\'\s]*',
-                      r'"videoId"\s*:\s*"?\d+', r'"videosID"\s*:\s*"?\d+',
-                      r'glbvid\.com\S*', r'globoplay\.globo\.com\S*']:
-              found = re.findall(pat, html)
-              if found:
-                  print(f"PATTERN {pat} -> {len(found)} matches, ex:", found[:3])
-
-          print()
-          print("=== primeiros 800 chars do HTML ===")
-          print(html[:800])
+          print(f"total de urls .mp4 no HTML: {len(mp4s)}")
+          for m in mp4s[:10]:
+              print(" -", m)
           PYEOF
