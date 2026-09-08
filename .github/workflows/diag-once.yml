@@ -1,10 +1,69 @@
 name: Diagnóstico único (placeholder)
 
 on:
+  push:
+    paths:
+      - ".github/workflows/diag-once.yml"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Atualizar BON_IG_CATEGORIES pra giro/brasil-on/futebol
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import urllib.request
+          import urllib.parse
+          from datetime import datetime, timezone
+
+          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          def req(method, path, body=None, params=None):
+              url = f"{SUPABASE_URL}/rest/v1/{path}"
+              if params:
+                  url += "?" + urllib.parse.urlencode(params, safe=",.()*")
+              data = json.dumps(body).encode() if body is not None else None
+              r = urllib.request.Request(url, data=data, method=method, headers={
+                  "apikey": SUPABASE_KEY,
+                  "Authorization": f"Bearer {SUPABASE_KEY}",
+                  "Content-Type": "application/json",
+                  "Prefer": "return=representation"
+              })
+              try:
+                  with urllib.request.urlopen(r, timeout=20) as resp:
+                      body_out = resp.read().decode()
+                      return resp.status, (json.loads(body_out) if body_out else None)
+              except urllib.error.HTTPError as e:
+                  body_out = e.read().decode()
+                  return e.code, (json.loads(body_out) if body_out else None)
+
+          novo_valor = json.dumps(["giro", "brasil-on", "futebol"])
+
+          print("=== antes ===")
+          code, rows = req("GET", "config", params={"select": "key,value,updated_at", "key": "eq.BON_IG_CATEGORIES"})
+          print("HTTP", code, json.dumps(rows, ensure_ascii=False))
+
+          if rows:
+              # UPDATE — mesmo padrão select-then-update-or-insert já usado
+              # no projeto (config.key não tem constraint unique real).
+              agora_iso = datetime.now(timezone.utc).isoformat()
+              code, rows2 = req("PATCH", "config", body={"value": novo_valor, "updated_at": agora_iso}, params={"key": "eq.BON_IG_CATEGORIES"})
+              print("PATCH HTTP", code, json.dumps(rows2, ensure_ascii=False))
+          else:
+              code, rows2 = req("POST", "config", body={"key": "BON_IG_CATEGORIES", "value": novo_valor})
+              print("POST HTTP", code, json.dumps(rows2, ensure_ascii=False))
+
+          print()
+          print("=== depois ===")
+          code, rows = req("GET", "config", params={"select": "key,value,updated_at", "key": "eq.BON_IG_CATEGORIES", "order": "updated_at.desc"})
+          print("HTTP", code, json.dumps(rows, ensure_ascii=False))
+          PYEOF
