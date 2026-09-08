@@ -13,35 +13,20 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Extrai e baixa na mesma execução, sem delay — testa hipótese de token de curta duração
+      - name: Testa header Range e curl direto no mp4 do CDN da Globo
         run: |
-          node << 'NODEEOF'
-          const paginaUrl = "https://g1.globo.com/ms/mato-grosso-do-sul/video/em-video-e-possivel-escutar-desespero-de-vitima-durante-sequestro-em-bonito-14938018.ghtml";
-
-          (async () => {
-            const t0 = Date.now();
-            const pageRes = await fetch(paginaUrl, {
-              headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-            });
-            const html = await pageRes.text();
-            const m = html.match(/https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/i);
-            const mp4Url = m ? m[0] : null;
-            console.log("tempo até extrair:", Date.now() - t0, "ms");
-            console.log("mp4Url:", mp4Url);
-            if (!mp4Url) { console.log("nenhum mp4 achado"); return; }
-
-            const t1 = Date.now();
-            const vidRes = await fetch(mp4Url, {
-              headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
-            });
-            console.log("tempo do fetch do mp4:", Date.now() - t1, "ms");
-            console.log("status:", vidRes.status);
-            console.log("headers:", JSON.stringify([...vidRes.headers.entries()]));
-            const body = vidRes.ok ? "" : await vidRes.text().catch(() => "");
-            if (!vidRes.ok) console.log("body:", body.slice(0, 500));
-            else {
-              const ab = await vidRes.arrayBuffer();
-              console.log("bytes baixados:", ab.byteLength);
-            }
-          })().catch(e => console.log("ERRO GERAL:", e.message));
-          NODEEOF
+          echo "=== curl -v (headers completos da requisição e resposta) ==="
+          curl -v -o /dev/null "https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4" 2>&1 | head -60
+          echo ""
+          echo "=== curl com Range ==="
+          curl -v -H "Range: bytes=0-1023" -o /dev/null "https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4" 2>&1 | head -60
+          echo ""
+          echo "=== node fetch com Range ==="
+          node -e '
+            fetch("https://vodstreaming01.video.globo.com/44/a0/cd/14938018_cdcd628552f574633d92e9fa30516678880f1617/14938018-360p_300k_h264-3868a250-8cfc-013f-d951-72f8c9683483.mp4", {
+              headers: { "Range": "bytes=0-1023", "User-Agent": "Mozilla/5.0" }
+            }).then(async r => {
+              console.log("status:", r.status);
+              console.log("headers:", JSON.stringify([...r.headers.entries()]));
+            }).catch(e => console.log("erro:", e.message));
+          '
