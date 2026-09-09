@@ -88,6 +88,10 @@ export default async function handler(req, res) {
     if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
     if (action === "reels_publish") return handleReelsPublish(req, res, body);
     if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
+    if (action === "reels_set_source") return handleReelsSetSource(req, res, body);
+    if (action === "reels_render_job") return handleReelsRenderJob(req, res, body);
+    if (action === "reels_render_complete") return handleReelsRenderComplete(req, res, body);
+    if (action === "reels_render_fail") return handleReelsRenderFail(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
@@ -968,9 +972,203 @@ async function handleIgAutoPublish(req, res, body) {
 // ══════════════════════════════════════════════════════
 const REELS_AUTO_CONFIG_KEYS = ["REELS_AUTOMATION_ENABLED", "REELS_AUTOMATION_LAST_RUN"];
 const REELS_AUTO_INTERVALO_MIN = 20;
+const REELS_TEMPLATE_VERSION = "ovc-reels-2026-09-v1";
+const REELS_STORAGE_BUCKET = "post-videos";
 
 function _isYouTubeUrl(url) {
   return /youtube(?:-nocookie)?\.com|youtu\.be/i.test(String(url || ""));
+}
+
+function _reelsTemplate(metrics) {
+  return parseJsonMaybe(metrics, {})?.instagram_reel_template || null;
+}
+
+function _reelsTemplateReady(post) {
+  const template = _reelsTemplate(post?.metrics);
+  return template?.status === "ready" && template?.version === REELS_TEMPLATE_VERSION
+    && /^https?:\/\//i.test(String(template?.rendered_url || ""))
+    && String(post?.video_url || "") === String(template.rendered_url);
+}
+
+async function _reelsLoadPost(postId) {
+  const { data, error } = await supabase.from("posts").select("*").eq("id", postId).single();
+  if (error || !data) throw new Error("post_not_found");
+  return data;
+}
+
+// O Admin registra aqui o arquivo bruto. O vídeo original é preservado em
+// metrics; somente reels_render_complete troca video_url pela versão final.
+async function handleReelsSetSource(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const sourceUrl = String(body?.video_url || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+
+  let post;
+  try { post = await _reelsLoadPost(postId); }
+  catch (_) { return res.status(404).json({ ok: false, error: "post_not_found" }); }
+
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const previous = metrics.instagram_reel_template || {};
+  if (!sourceUrl) {
+    delete metrics.instagram_reel_template;
+    delete metrics.instagram_reel;
+    const { error } = await supabase.from("posts").update({ video_url: null, metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, removed: true, video_url: null, metrics });
+  }
+
+  if (!/^https?:\/\//i.test(sourceUrl)) return res.status(400).json({ ok: false, error: "video_url_invalida" });
+  if (_isYouTubeUrl(sourceUrl)) {
+    metrics.instagram_reel_template = {
+      version: REELS_TEMPLATE_VERSION,
+      status: "embed_only",
+      source_url: sourceUrl,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await supabase.from("posts").update({ video_url: sourceUrl, metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, embed_only: true, video_url: sourceUrl, metrics });
+  }
+
+  const sourceChanged = previous.source_url !== sourceUrl;
+  if (!sourceChanged && ["pending", "processing", "ready"].includes(previous.status)) {
+    return res.status(200).json({ ok: true, queued: previous.status !== "ready", unchanged: true, video_url: post.video_url, metrics });
+  }
+  metrics.instagram_reel_template = {
+    version: REELS_TEMPLATE_VERSION,
+    status: "pending",
+    source_url: sourceUrl,
+    queued_at: new Date().toISOString(),
+    attempts: sourceChanged ? 0 : Number(previous.attempts || 0)
+  };
+  if (sourceChanged) delete metrics.instagram_reel;
+  const { error } = await supabase.from("posts").update({ video_url: sourceUrl, metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  if (error) throw error;
+  await writeLog("info", `[reels-render] vídeo bruto enfileirado: ${post.titulo || postId}`);
+  return res.status(200).json({ ok: true, queued: true, video_url: sourceUrl, metrics });
+}
+
+async function handleReelsRenderJob(req, res, body) {
+  if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  const staleBefore = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+  const { data: candidates, error } = await supabase
+    .from("posts")
+    .select("id,titulo,conteudo,video_url,metrics,status,published_at,created_at,updated_at")
+    .in("status", ["publicado", "pendente"])
+    .order("updated_at", { ascending: false })
+    .limit(250);
+  if (error) throw error;
+
+  const candidate = (candidates || []).find((post) => {
+    const template = _reelsTemplate(post.metrics);
+    if (!template || template.version !== REELS_TEMPLATE_VERSION || !/^https?:\/\//i.test(String(template.source_url || ""))) return false;
+    if (template.status === "pending" || template.status === "error") return true;
+    return template.status === "processing" && String(template.processing_at || "") < staleBefore;
+  });
+  if (!candidate) return res.status(200).json({ ok: true, job: null, reason: "nenhum_video_aguardando_template" });
+  if (body?.peek === true) return res.status(200).json({ ok: true, job: { pending: true } });
+
+  const metrics = parseJsonMaybe(candidate.metrics, {});
+  const current = metrics.instagram_reel_template;
+  const claimId = crypto.randomUUID();
+  const processing = {
+    ...current,
+    status: "processing",
+    claim_id: claimId,
+    processing_at: new Date().toISOString(),
+    attempts: Number(current.attempts || 0) + 1,
+    last_error: null
+  };
+  metrics.instagram_reel_template = processing;
+  let claimQuery = supabase
+    .from("posts")
+    .update({ metrics, updated_at: new Date().toISOString() })
+    .eq("id", candidate.id)
+    .eq("metrics->instagram_reel_template->>version", REELS_TEMPLATE_VERSION)
+    .eq("metrics->instagram_reel_template->>source_url", current.source_url)
+    .eq("metrics->instagram_reel_template->>status", current.status);
+  if (current.status === "processing" && current.processing_at) {
+    claimQuery = claimQuery.eq("metrics->instagram_reel_template->>processing_at", current.processing_at);
+  }
+  const { data: claimed, error: claimError } = await claimQuery.select("id");
+  if (claimError) throw claimError;
+  if (!claimed?.length) return res.status(200).json({ ok: true, job: null, reason: "video_reservado_por_outra_execucao" });
+
+  const safeId = String(candidate.id).replace(/[^a-zA-Z0-9_-]/g, "");
+  const outputPath = `reels-rendered/${safeId}-${claimId}.mp4`;
+  const { data: signed, error: signedError } = await supabase.storage.from(REELS_STORAGE_BUCKET).createSignedUploadUrl(outputPath, { upsert: true });
+  if (signedError || !signed?.signedUrl) {
+    processing.status = "error";
+    processing.last_error = signedError?.message || "signed_upload_url_failed";
+    metrics.instagram_reel_template = processing;
+    await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
+    throw signedError || new Error("signed_upload_url_failed");
+  }
+  const publicUrl = supabase.storage.from(REELS_STORAGE_BUCKET).getPublicUrl(outputPath).data.publicUrl;
+  processing.output_path = outputPath;
+  processing.public_url = publicUrl;
+  metrics.instagram_reel_template = processing;
+  const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
+  if (jobStateError) throw jobStateError;
+  return res.status(200).json({
+    ok: true,
+    job: {
+      post_id: candidate.id,
+      claim_id: claimId,
+      title: stripHtmlToText(candidate.titulo || ""),
+      body: stripHtmlToText(candidate.conteudo || ""),
+      source_url: current.source_url,
+      output_path: outputPath,
+      upload_url: signed.signedUrl,
+      public_url: publicUrl,
+      template_version: REELS_TEMPLATE_VERSION
+    }
+  });
+}
+
+async function handleReelsRenderComplete(req, res, body) {
+  if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const claimId = String(body?.claim_id || "").trim();
+  const publicUrl = String(body?.public_url || "").trim();
+  if (!postId || !claimId || !/^https?:\/\//i.test(publicUrl)) return res.status(400).json({ ok: false, error: "render_complete_invalido" });
+  const post = await _reelsLoadPost(postId);
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const template = metrics.instagram_reel_template || {};
+  if (template.claim_id !== claimId || template.status !== "processing") return res.status(409).json({ ok: false, error: "render_claim_invalido" });
+  if (template.public_url !== publicUrl) return res.status(409).json({ ok: false, error: "render_url_invalida" });
+  metrics.instagram_reel_template = {
+    ...template,
+    status: "ready",
+    rendered_url: publicUrl,
+    ready_at: new Date().toISOString(),
+    last_error: null
+  };
+  const { error } = await supabase.from("posts").update({ video_url: publicUrl, metrics, error_msg: null, updated_at: new Date().toISOString() }).eq("id", postId);
+  if (error) throw error;
+  await writeLog("info", `[reels-render] template pronto: ${post.titulo || postId}`);
+  return res.status(200).json({ ok: true, ready: true, post_id: postId, video_url: publicUrl });
+}
+
+async function handleReelsRenderFail(req, res, body) {
+  if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const claimId = String(body?.claim_id || "").trim();
+  if (!postId || !claimId) return res.status(400).json({ ok: false, error: "render_fail_invalido" });
+  const post = await _reelsLoadPost(postId);
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const template = metrics.instagram_reel_template || {};
+  if (template.claim_id !== claimId) return res.status(409).json({ ok: false, error: "render_claim_invalido" });
+  metrics.instagram_reel_template = {
+    ...template,
+    status: "error",
+    failed_at: new Date().toISOString(),
+    last_error: redactSecrets(String(body?.error || "render_failed")).slice(0, 500)
+  };
+  await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  return res.status(200).json({ ok: true, retry_scheduled: true });
 }
 
 async function _reelsAutoConfig() {
@@ -1057,6 +1255,15 @@ async function handleReelsPublish(req, res, body) {
   if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
   if (!/^https?:\/\//i.test(String(post.video_url || ""))) return res.status(400).json({ ok: false, error: "post_sem_video" });
   if (_isYouTubeUrl(post.video_url)) return res.status(400).json({ ok: false, error: "video_do_youtube_nao_pode_virar_reel" });
+  if (!_reelsTemplateReady(post)) {
+    const template = _reelsTemplate(post.metrics);
+    return res.status(409).json({
+      ok: false,
+      pending: ["pending", "processing", "error"].includes(template?.status),
+      error: "template_do_reel_ainda_nao_esta_pronto",
+      template_status: template?.status || "nao_enfileirado"
+    });
+  }
 
   try {
     const resultado = await _reelsPublicarPost(post, body?.account_id || body?.ig_account_id || post.ig_account_id || null);
@@ -1104,6 +1311,7 @@ async function handleReelsAutoPublish(req, res, body) {
       if (_isYouTubeUrl(p.video_url)) return false;
       const metrics = parseJsonMaybe(p.metrics, {});
       if (metrics?.instagram_reel?.ig_id) return false;
+      if (!_reelsTemplateReady(p)) return false;
       return true;
     });
     if (!elegiveis.length) {

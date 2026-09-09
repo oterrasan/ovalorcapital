@@ -943,6 +943,20 @@ const parseYouTubeId = (url) => {
   const m = String(url||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : '';
 };
+const reelTemplateInfo = (post) => {
+  try {
+    const metrics = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{});
+    return metrics.instagram_reel_template || null;
+  } catch(_) { return null; }
+};
+const reelTemplateLabel = (post) => {
+  const status = reelTemplateInfo(post)?.status;
+  if (status === 'ready') return '✅ Layout OVC pronto';
+  if (status === 'processing') return '⏳ Aplicando layout OVC';
+  if (status === 'pending' || status === 'error') return '🕒 Aguardando acabamento';
+  if (status === 'embed_only') return '▶️ YouTube: apenas no portal';
+  return '⚠️ Vídeo ainda não preparado';
+};
 
 function Postagens() {
   const [posts, setPosts] = useState([]);
@@ -1338,20 +1352,18 @@ function Postagens() {
       };
       const {error} = await sb.from('posts').update(payload).eq('id',editPost.id);
       if(error) { alert('❌ Erro ao salvar: ' + error.message); return; }
-      // 01/09/2026 — video_url é coluna NOVA (Roberto ainda pode não ter
-      // rodado o ALTER TABLE no Supabase — ver seção 4 do CLAUDE.md).
-      // Update SEPARADO de propósito: se a coluna ainda não existir, só
-      // isto falha — nunca o resto da edição do post, que já foi salva
-      // acima com sucesso.
-      try {
-        const {error: videoErr} = await sb.from('posts').update({video_url: editPost.video_url||null}).eq('id',editPost.id);
-        if (videoErr && editPost.video_url) alert('⚠️ Post salvo, mas o vídeo não foi vinculado (coluna video_url ainda não existe no banco — peça pra rodar o ALTER TABLE). Detalhe: ' + videoErr.message);
-        // 07/09/2026 — espelha o vídeo pro Brasil ON também, se este post já
-        // estiver lá (origem_post_id = este id). Best-effort: não afeta nada
-        // se o post não for espelho de Brasil ON, ou se a coluna video_url
-        // ainda não existir lá (mesma migração pendente, ver brasilon/CLAUDE.md).
-        try { await sb.from('brasilon_posts').update({video_url: editPost.video_url||null}).eq('origem_post_id', editPost.id); } catch(_) {}
-      } catch(_) {}
+      const currentTemplate = reelTemplateInfo(editPost);
+      const videoSource = currentTemplate?.rendered_url === editPost.video_url ? currentTemplate.source_url : editPost.video_url;
+      const videoResponse = await fetch('/api/manage', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS},
+        body:JSON.stringify({action:'reels_set_source',post_id:editPost.id,video_url:videoSource||''})
+      });
+      const videoResult = await videoResponse.json();
+      if (!videoResult.ok) {
+        alert('⚠️ O post foi salvo, mas o vídeo não entrou na fila de acabamento: ' + (videoResult.error||'erro desconhecido'));
+        return;
+      }
       setEditPost(null); load();
     } catch(e) { alert('❌ Erro: ' + e.message); }
   };
@@ -1471,8 +1483,9 @@ function Postagens() {
                       )}
                       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
-                        {!parseYouTubeId(editPost.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===editPost.id} onClick={()=>publicarReel(editPost.id, editPost.video_url)}>{reelPublishing===editPost.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
+                        {!parseYouTubeId(editPost.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===editPost.id||reelTemplateInfo(editPost)?.status!=='ready'} onClick={()=>publicarReel(editPost.id, editPost.video_url)}>{reelPublishing===editPost.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                       </div>
+                      {!parseYouTubeId(editPost.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(editPost)?.status==='ready'?'#22c55e':'var(--yellow)',marginTop:8}}>{reelTemplateLabel(editPost)}</div>}
                       {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
                   ) : (
@@ -3639,7 +3652,7 @@ function VideosAdmin() {
 
   const carregar = async (q) => {
     setLoading(true);
-    let query = sb.from('posts').select('id,titulo,video_url,status,published_at,created_at').order('created_at',{ascending:false}).limit(40);
+    let query = sb.from('posts').select('id,titulo,video_url,status,published_at,created_at,metrics').order('created_at',{ascending:false}).limit(40);
     if (q && q.trim()) query = query.ilike('titulo','%'+q.trim()+'%');
     const { data, error } = await query;
     if (!error) setPosts(data||[]);
@@ -3652,15 +3665,18 @@ function VideosAdmin() {
   const salvar = async (url) => {
     if (!selectedId) return false;
     setSaveMsg('');
-    const { error } = await sb.from('posts').update({video_url: url||null}).eq('id', selectedId);
-    if (error) {
-      setSaveMsg('⚠️ Não foi possível salvar (a coluna video_url pode não existir ainda no banco — peça pra rodar o ALTER TABLE). Detalhe: ' + error.message);
+    const response = await fetch('/api/manage', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS},
+      body:JSON.stringify({action:'reels_set_source',post_id:selectedId,video_url:url||''})
+    });
+    const result = await response.json();
+    if (!result.ok) {
+      setSaveMsg('⚠️ Não foi possível colocar o vídeo na fila: ' + (result.error||'erro desconhecido'));
       return false;
     }
-    // 07/09/2026 — mesmo espelho pro Brasil ON do editor de Postagens.
-    try { await sb.from('brasilon_posts').update({video_url: url||null}).eq('origem_post_id', selectedId); } catch(_) {}
-    setPosts(ps => ps.map(p => p.id===selectedId ? {...p, video_url:url} : p));
-    setSaveMsg(url ? '✅ Vídeo vinculado à matéria.' : '✅ Vídeo removido da matéria.');
+    setPosts(ps => ps.map(p => p.id===selectedId ? {...p, video_url:result.video_url||'', metrics:result.metrics||p.metrics} : p));
+    setSaveMsg(url ? (result.embed_only ? '✅ YouTube vinculado ao portal.' : '✅ Vídeo enviado. O acabamento OVC entrou na fila.') : '✅ Vídeo removido da matéria.');
     return true;
   };
 
@@ -3733,7 +3749,7 @@ function VideosAdmin() {
                   <div style={{fontWeight:600}}>{p.titulo || '(sem título)'}</div>
                   <div className="text-secondary text-small" style={{marginTop:2,display:'flex',gap:6,alignItems:'center'}}>
                     <span>{p.status}</span>
-                    {p.video_url && <span style={{color:'#22c55e'}}>🎬 já tem vídeo</span>}
+                    {p.video_url && <span style={{color:reelTemplateInfo(p)?.status==='ready'?'#22c55e':'#f59e0b'}}>{reelTemplateLabel(p)}</span>}
                   </div>
                 </div>
               ))}
@@ -3759,8 +3775,9 @@ function VideosAdmin() {
                     )}
                     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
-                      {!parseYouTubeId(selected.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===selected.id} onClick={()=>publicarReel(selected.id, selected.video_url)}>{reelPublishing===selected.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
+                      {!parseYouTubeId(selected.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===selected.id||reelTemplateInfo(selected)?.status!=='ready'} onClick={()=>publicarReel(selected.id, selected.video_url)}>{reelPublishing===selected.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                     </div>
+                    {!parseYouTubeId(selected.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(selected)?.status==='ready'?'#22c55e':'#f59e0b',marginTop:8}}>{reelTemplateLabel(selected)}</div>}
                   </div>
                 )}
 
