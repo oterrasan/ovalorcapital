@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder)
+name: Diagnóstico único (investigação — vídeo Reel preso em "Aguardando acabamento")
 
 on:
   workflow_dispatch:
@@ -7,4 +7,44 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Consultar posts com vídeo pendente/erro no template do Reel
+        env:
+          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python3 << 'PYEOF'
+          import os, json, urllib.request, urllib.parse
+
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ["SUPABASE_KEY"]
+          headers = {"apikey": key, "Authorization": "Bearer " + key}
+
+          def get(path):
+              req = urllib.request.Request(url + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode())
+
+          # posts atualizados recentemente que têm video_url preenchido
+          q = "/rest/v1/posts?select=id,titulo,status,video_url,metrics,updated_at&video_url=not.is.null&order=updated_at.desc&limit=15"
+          rows = get(q)
+          print("=== últimos 15 posts com video_url, mais recentes primeiro ===")
+          for r in rows:
+              m = r.get("metrics")
+              try:
+                  m = json.loads(m) if isinstance(m, str) else (m or {})
+              except Exception:
+                  m = {}
+              tpl = m.get("instagram_reel_template")
+              print("---")
+              print("id:", r["id"])
+              print("titulo:", (r.get("titulo") or "")[:80])
+              print("status:", r.get("status"))
+              print("updated_at:", r.get("updated_at"))
+              print("video_url:", r.get("video_url"))
+              print("instagram_reel_template:", json.dumps(tpl, ensure_ascii=False))
+
+          print()
+          print("=== config REELS_AUTOMATION_ENABLED ===")
+          cfg = get("/rest/v1/config?select=key,value,updated_at&key=eq.REELS_AUTOMATION_ENABLED")
+          print(json.dumps(cfg, ensure_ascii=False))
+          PYEOF
