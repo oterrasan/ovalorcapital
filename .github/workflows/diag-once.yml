@@ -2,6 +2,9 @@ name: Diagnóstico único (pausar automação Instagram — OVC + Brasil ON)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
