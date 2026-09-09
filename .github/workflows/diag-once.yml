@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder)
+name: Diagnóstico único (pausar automação Instagram — OVC + Brasil ON)
 
 on:
   workflow_dispatch:
@@ -7,4 +7,40 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Pausar IG_AUTOMATION_ENABLED (OVC) e BON_IG_ENABLED (Brasil ON)
+        env:
+          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+        run: |
+          python3 << 'PYEOF'
+          import os, json, urllib.request
+
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ["SUPABASE_KEY"]
+          headers = {"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json"}
+
+          def get(path):
+              req = urllib.request.Request(url + path, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode())
+
+          def set_flag(key_name):
+              # SELECT primeiro — nunca .upsert(onConflict) contra a tabela
+              # config: a coluna key não tem constraint unique real (bug já
+              # documentado no projeto). Update se existir, senão insert.
+              rows = get("/rest/v1/config?select=key,value&key=eq." + key_name)
+              print(key_name, "ANTES:", json.dumps(rows, ensure_ascii=False))
+              body = json.dumps({"value": "off"}).encode()
+              if rows:
+                  req = urllib.request.Request(url + "/rest/v1/config?key=eq." + key_name, data=body, headers=headers, method="PATCH")
+              else:
+                  body = json.dumps({"key": key_name, "value": "off"}).encode()
+                  req = urllib.request.Request(url + "/rest/v1/config", data=body, headers=headers, method="POST")
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  print(key_name, "status HTTP:", r.status)
+              rows2 = get("/rest/v1/config?select=key,value&key=eq." + key_name)
+              print(key_name, "DEPOIS:", json.dumps(rows2, ensure_ascii=False))
+
+          set_flag("IG_AUTOMATION_ENABLED")
+          set_flag("BON_IG_ENABLED")
+          PYEOF
