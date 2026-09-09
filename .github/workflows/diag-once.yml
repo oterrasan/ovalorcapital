@@ -2,6 +2,9 @@ name: Diagnóstico único (investigação — vídeo Reel preso em "Aguardando a
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 
 jobs:
   diag:
