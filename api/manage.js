@@ -588,20 +588,18 @@ const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c
 // 08/09/2026 — Roberto pediu de novo, RESSINCRONIZANDO as duas automações
 // (OVC e Brasil ON): ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo
 // 14h-22h BRT (corte seco às 22h).
-// 10/09/2026 — Roberto pediu janela nova, pras duas automações: ativo
-// 08h-12h BRT, pausa 12h-14h30 BRT, ativo de novo 14h30-19h BRT (corte
-// seco às 19h). ESTADO ATUAL, vigente — ver brasilon/api/manage.js e
-// .github/workflows/instagram-auto.yml, atualizados junto no mesmo pedido.
-const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 8 * 60;        // 08:00 BRT — início
-const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa começa
-const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60 + 30;     // 14:30 BRT — retoma
-const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT (19h já é pausa)
+// 10/09/2026 (manhã) — janela 08h-12h/14h30-19h BRT — SUBSTITUÍDA no mesmo dia.
+// 10/09/2026 (tarde) — Roberto: "pause as automações dos Instagrams / retorne
+// as 14hrs apenas". Janela única, sem bloco de manhã nem pausa de meio-dia:
+// ativo 14h-19h BRT (corte seco às 19h). ESTADO ATUAL, vigente — ver
+// brasilon/api/manage.js e .github/workflows/instagram-auto.yml, atualizados
+// junto no mesmo pedido.
+const IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN = 14 * 60;       // 14:00 BRT — início
+const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT
 function _igAutoDentroDaJanelaAtiva() {
   const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
   const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
-  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
-  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
-  return manha || tarde;
+  return minutosBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
 }
 
 function _igCronAuthorized(req, body) {
