@@ -1,49 +1,10 @@
-name: Diagnóstico único (pausa IG)
+name: Diagnóstico único (placeholder)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Pausar automações de Instagram (OVC + Brasil ON)
-        run: |
-          set -e
-          URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "=== ANTES ==="
-          curl -sS "$URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=key,value" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
-          curl -sS "$URL/rest/v1/config?key=eq.BON_IG_ENABLED&select=key,value" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
-
-          set_flag() {
-            KEYNAME="$1"
-            EXISTING=$(curl -sS "$URL/rest/v1/config?key=eq.$KEYNAME&select=key" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
-            if echo "$EXISTING" | grep -q "\"key\""; then
-              curl -sS -X PATCH "$URL/rest/v1/config?key=eq.$KEYNAME" \
-                -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
-                -H "Content-Type: application/json" -H "Prefer: return=minimal" \
-                -d '{"value":"off"}'
-            else
-              curl -sS -X POST "$URL/rest/v1/config" \
-                -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
-                -H "Content-Type: application/json" -H "Prefer: return=minimal" \
-                -d "{\"key\":\"$KEYNAME\",\"value\":\"off\"}"
-            fi
-          }
-
-          set_flag "IG_AUTOMATION_ENABLED"
-          set_flag "BON_IG_ENABLED"
-
-          echo "=== DEPOIS ==="
-          curl -sS "$URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=key,value" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
-          curl -sS "$URL/rest/v1/config?key=eq.BON_IG_ENABLED&select=key,value" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-          echo ""
+      - run: echo "placeholder — nada a fazer"
