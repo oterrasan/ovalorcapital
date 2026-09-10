@@ -6,6 +6,10 @@
 
 ---
 
+## HANDOFF REELS OVC - 09/09/2026
+
+O acabamento de videos, a melhoria de nitidez e a remocao automatica de encerramentos promocionais estao documentados em `REELS_OVC_PROCESSAMENTO.md`. Leia esse arquivo antes de alterar `scripts/render-instagram-reel.mjs`, `api/manage.js` ou o job de Reels em `.github/workflows/instagram-auto.yml`.
+
 # ══════════════════════════════════════════════════════
 # 🚨🚨🚨 REGRAS ABSOLUTAMENTE INVIOLÁVEIS 🚨🚨🚨
 # ══════════════════════════════════════════════════════

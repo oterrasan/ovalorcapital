@@ -975,7 +975,7 @@ async function handleIgAutoPublish(req, res, body) {
 // ══════════════════════════════════════════════════════
 const REELS_AUTO_CONFIG_KEYS = ["REELS_AUTOMATION_ENABLED", "REELS_AUTOMATION_LAST_RUN"];
 const REELS_AUTO_INTERVALO_MIN = 20;
-const REELS_TEMPLATE_VERSION = "ovc-reels-2026-09-v1";
+const REELS_TEMPLATE_VERSION = "ovc-reels-2026-09-v2";
 const REELS_STORAGE_BUCKET = "post-videos";
 
 function _isYouTubeUrl(url) {
@@ -1034,7 +1034,7 @@ async function handleReelsSetSource(req, res, body) {
     return res.status(200).json({ ok: true, embed_only: true, video_url: sourceUrl, metrics });
   }
 
-  const sourceChanged = previous.source_url !== sourceUrl;
+  const sourceChanged = previous.source_url !== sourceUrl || previous.version !== REELS_TEMPLATE_VERSION;
   if (!sourceChanged && ["pending", "processing", "ready"].includes(previous.status)) {
     return res.status(200).json({ ok: true, queued: previous.status !== "ready", unchanged: true, video_url: post.video_url, metrics });
   }
@@ -1146,6 +1146,7 @@ async function handleReelsRenderComplete(req, res, body) {
     ...template,
     status: "ready",
     rendered_url: publicUrl,
+    end_trim: body?.end_trim && typeof body.end_trim === "object" ? body.end_trim : null,
     ready_at: new Date().toISOString(),
     last_error: null
   };
@@ -1179,7 +1180,9 @@ async function _reelsAutoConfig() {
   const latest = {};
   for (const row of data || []) if (!(row.key in latest)) latest[row.key] = row.value;
   return {
-    enabled: latest.REELS_AUTOMATION_ENABLED !== "off",
+    // Fail-closed: preparar o vídeo continua automático, mas publicar só
+    // acontece depois de Roberto ligar explicitamente no Admin.
+    enabled: latest.REELS_AUTOMATION_ENABLED === "on",
     lastRun: Number(latest.REELS_AUTOMATION_LAST_RUN || 0)
   };
 }

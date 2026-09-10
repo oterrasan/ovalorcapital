@@ -3549,7 +3549,7 @@ function AutomacaoInstagram() {
     const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
     let cats=CATEGORIAS.map(x=>x[0]); try{const parsed=JSON.parse(latest.IG_AUTOMATION_CATEGORIES||'[]');if(Array.isArray(parsed)&&parsed.length)cats=parsed;}catch{}
     setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
-    setReelsEnabled(latest.REELS_AUTOMATION_ENABLED!=='off');
+    setReelsEnabled(latest.REELS_AUTOMATION_ENABLED==='on');
     setPosts((p.data||[]).filter(row=>parseMetrics(row.metrics)?.instagram?.published_via==='ig_auto_publish'));
     setLogs(l.data||[]); setAccount(a.data||null); setLoading(false);
   };
@@ -3572,8 +3572,8 @@ function AutomacaoInstagram() {
   // 07/09/2026 — toggle de pausa dos Reels (vídeo), a pedido de Roberto:
   // "ele precisa ter um botao pra pausar a publicacao automatica e eu
   // tenho que ter esse controle no admin". Publica automaticamente por
-  // padrão (fail-open, mesmo espírito do feed de imagem acima) — este
-  // botão é a única forma de pausar.
+  // Reels começam pausados (fail-closed). Só este controle permite ativar
+  // a publicação automática; o acabamento do vídeo continua funcionando.
   const saveReels = async () => {
     setSavingReels(true); setReelsMsg('');
     try {
