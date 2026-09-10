@@ -141,7 +141,8 @@ jobs:
           public_url=$(node -p 'require("./render-job.json").job.public_url')
 
           curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
-          node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png
+          node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
+          cat render-result.json
           curl --fail -sS -X PUT "$upload_url" \
             -H "Content-Type: video/mp4" \
             -H "Cache-Control: max-age=31536000" \
@@ -150,7 +151,8 @@ jobs:
 
           POST_ID="$post_id" CLAIM_ID="$claim_id" PUBLIC_URL="$public_url" node --input-type=module -e '
             import { writeFileSync } from "node:fs";
-            writeFileSync("render-complete.json", JSON.stringify({action:"reels_render_complete",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,public_url:process.env.PUBLIC_URL}));
+            const render = JSON.parse(await import("node:fs/promises").then(m => m.readFile("render-result.json", "utf8")));
+            writeFileSync("render-complete.json", JSON.stringify({action:"reels_render_complete",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,public_url:process.env.PUBLIC_URL,end_trim:render.end_trim||null}));
           '
           curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
             -H "Content-Type: application/json" \
