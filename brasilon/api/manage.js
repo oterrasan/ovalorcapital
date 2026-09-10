@@ -62,21 +62,17 @@ const SITE_BASE = "https://www.obrasilon.com.br";
 // (OVC e Brasil ON): ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo
 // 14h-22h BRT (corte seco às 22h). Só o início da manhã mudou (9→7);
 // pausa/retorno/corte já eram 12/14/22 aqui.
-// 10/09/2026 — Roberto pediu janela nova, pras duas automações: ativo
-// 08h-12h BRT, pausa 12h-14h30 BRT, ativo de novo 14h30-19h BRT (corte
-// seco às 19h). O retorno em minuto quebrado (14h30) exigiu trocar o
-// cálculo de horas inteiras pra minutos — mesmo padrão já usado em
-// api/manage.js (raiz). ESTADO ATUAL, vigente.
-const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 8 * 60;        // 08:00 BRT — início
-const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa começa
-const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60 + 30;     // 14:30 BRT — retoma
-const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT (19h já é pausa)
+// 10/09/2026 (manhã) — janela 08h-12h/14h30-19h BRT — SUBSTITUÍDA no mesmo dia.
+// 10/09/2026 (tarde) — Roberto: "pause as automações dos Instagrams /
+// retorne as 14hrs apenas". Janela única, sem bloco de manhã nem pausa de
+// meio-dia: ativo 14h-19h BRT (corte seco às 19h). ESTADO ATUAL, vigente —
+// ver api/manage.js (raiz, OVC), atualizado junto no mesmo pedido.
+const IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN = 14 * 60;       // 14:00 BRT — início
+const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT
 function _igAutoDentroDaJanelaAtiva() {
   const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
   const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
-  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
-  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
-  return manha || tarde;
+  return minutosBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
 }
 function _igAutoDiaBRT() {
   const brt = new Date(Date.now() - 3 * 3600 * 1000);

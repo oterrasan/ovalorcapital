@@ -37,25 +37,23 @@ name: Instagram - Publicação Automática
 # (_igAutoDentroDaJanelaAtiva) e em brasilon/api/manage.js atualizados
 # junto, no mesmo pedido.
 #
-# 10/09/2026 — Roberto pediu janela nova, pras duas automações: ativo
-# 08h-12h BRT, pausa 12h-14h30 BRT, ativo de novo 14h30-19h BRT (corte
-# seco às 19h). Gate redundante em api/manage.js e em
-# brasilon/api/manage.js atualizados junto (os dois trocaram o cálculo
-# de horas inteiras pra minutos, pra suportar o retorno em 14h30). ESTADO
-# ATUAL, vigente.
+# 10/09/2026 (manhã) — janela 08h-12h/14h30-19h BRT — SUBSTITUÍDA no mesmo dia.
+#
+# 10/09/2026 (tarde) — Roberto: "pause as automações dos Instagrams /
+# retorne as 14hrs apenas". Janela única, sem bloco de manhã nem pausa de
+# meio-dia: ativo 14h-19h BRT (corte seco às 19h). Gate redundante em
+# api/manage.js e em brasilon/api/manage.js atualizados junto, no mesmo
+# pedido (os dois voltaram pro cálculo simples de horas inteiras — não
+# há mais nenhum limite em minuto quebrado). ESTADO ATUAL, vigente.
 #
 # Cron é sempre UTC (não existe opção de timezone, nem no Actions nem na
 # Vercel — já confirmado nesta mesma sessão pro cron nativo da Vercel).
-# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 08h-12h BRT = 11h-15h UTC
-# (horas 11,12,13,14 inteiras). Pausa 12h-14h30 BRT = 15h-17h30 UTC (horas
-# 15,16 inteiras + primeira metade da hora 17). Ativo 14h30-19h BRT =
-# 17h30-22h UTC (segunda metade da hora 17 + horas 18,19,20,21 inteiras).
-# Pausa 19h-08h BRT = 22h-11h UTC (horas 22,23,0-10).
+# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 14h-19h BRT = 17h-22h UTC
+# (horas 17,18,19,20,21 inteiras). Pausa 19h-14h BRT = 22h-17h UTC (todo o
+# resto do dia).
 on:
   schedule:
-    - cron: '*/20 11-14 * * *'
-    - cron: '30,50 17 * * *'
-    - cron: '*/20 18-21 * * *'
+    - cron: '*/20 17-21 * * *'
   workflow_dispatch:
 
 concurrency:
