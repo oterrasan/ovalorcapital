@@ -1,6 +1,9 @@
 name: Diagnóstico único (religar automação Instagram — nova janela 08-12/14h30-19)
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diag-once.yml']
   workflow_dispatch:
 
 jobs:
