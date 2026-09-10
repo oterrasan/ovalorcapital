@@ -60,16 +60,22 @@ const SITE_BASE = "https://www.obrasilon.com.br";
 // lá); Brasil ON continuou aqui, sem mudança (14h00).
 // 08/09/2026 — Roberto pediu de novo, RESSINCRONIZANDO as duas automações
 // (OVC e Brasil ON): ativo 07h-12h BRT, pausa 12h-14h BRT, ativo de novo
-// 14h-22h BRT (corte seco às 22h). ESTADO ATUAL, vigente — só o início da
-// manhã mudou (9→7); pausa/retorno/corte já eram 12/14/22 aqui.
-const IG_AUTO_JANELA_MANHA_INICIO_BRT = 7;
-const IG_AUTO_JANELA_PAUSA_INICIO_BRT = 12;
-const IG_AUTO_JANELA_PAUSA_FIM_BRT = 14;
-const IG_AUTO_JANELA_ATIVA_FIM_BRT = 22;
+// 14h-22h BRT (corte seco às 22h). Só o início da manhã mudou (9→7);
+// pausa/retorno/corte já eram 12/14/22 aqui.
+// 10/09/2026 — Roberto pediu janela nova, pras duas automações: ativo
+// 08h-12h BRT, pausa 12h-14h30 BRT, ativo de novo 14h30-19h BRT (corte
+// seco às 19h). O retorno em minuto quebrado (14h30) exigiu trocar o
+// cálculo de horas inteiras pra minutos — mesmo padrão já usado em
+// api/manage.js (raiz). ESTADO ATUAL, vigente.
+const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 8 * 60;        // 08:00 BRT — início
+const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa começa
+const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60 + 30;     // 14:30 BRT — retoma
+const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT (19h já é pausa)
 function _igAutoDentroDaJanelaAtiva() {
-  const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
-  const manha = horaBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT && horaBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT;
-  const tarde = horaBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT && horaBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT;
+  const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
+  const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
+  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
+  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
   return manha || tarde;
 }
 function _igAutoDiaBRT() {
