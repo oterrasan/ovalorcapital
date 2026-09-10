@@ -453,6 +453,31 @@ async function handleIgPublish(req, res, body) {
   }
 
   const accountId = body?.account_id || body?.ig_account_id || post.ig_account_id || null;
+
+  // 10/09/2026 — Roberto: "quando eu clico para postar no instagram do
+  // brasil on manualmente, sai com o layout do OVC". Causa raiz real: o
+  // dropdown de contas deste modal (Postagens, OVC) lista TODAS as contas
+  // ativas de ig_accounts — incluindo @obrasilon, que vive na MESMA tabela
+  // (mesmo Supabase). Mas este handler SEMPRE compõe a imagem com
+  // core/instagram_image.js (o módulo visual do OVC) — nunca com o módulo
+  // próprio do Brasil ON (brasilon/core/instagram_image.js, foto cheia +
+  // caixa amarela + ícone). Publicar um post do OVC pra @obrasilon por
+  // aqui sempre sai com o layout errado, não importa o que se faça na
+  // composição — os dois pipelines são propositalmente isolados (ver
+  // brasilon/CLAUDE.md, "zero import cruzado"). Fix real: recusar aqui,
+  // de vez, e apontar pro caminho certo (aba Brasil ON no admin, que usa
+  // o /api/manage do PRÓPRIO projeto Brasil ON — instagram_publish).
+  if (accountId) {
+    const { data: targetAccount } = await supabase.from("ig_accounts").select("username").eq("id", accountId).maybeSingle();
+    if (String(targetAccount?.username || "").replace(/^@/, "").toLowerCase() === "obrasilon") {
+      return res.status(400).json({
+        ok: false,
+        error: "conta_obrasilon_nao_publica_por_aqui",
+        detalhe: "Matérias do Brasil ON têm layout e pipeline próprios — publique pela aba 🇧🇷 Brasil ON do admin, não daqui."
+      });
+    }
+  }
+
   const caption = buildInstagramCaption(post);
   const now = new Date().toISOString();
 
@@ -754,6 +779,15 @@ async function _publicarPostFeedAutomatico(post, account, opts) {
   const username = String(account.username || "").replace(/^@/, "").toLowerCase();
   const logTag = opts?.logTag || "[ig-auto]";
   const publishedVia = opts?.publishedVia || "ig_auto_publish";
+
+  // 10/09/2026 — defesa extra (a conta @obrasilon já é salva com
+  // distribuicao_automatica:false, então normalmente nunca chega aqui —
+  // ver guard equivalente e o comentário completo em handleIgPublish).
+  // Mesmo assim, nunca compor um post do OVC com o layout do OVC pra essa
+  // conta, por nenhum caminho automático.
+  if (username === "obrasilon") {
+    return { ok: false, error: "conta_obrasilon_nao_publica_por_aqui", post_id: post.id, account_id: account.id, username };
+  }
 
   const caption = buildInstagramCaption(post);
   const now = new Date().toISOString();

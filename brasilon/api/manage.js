@@ -911,7 +911,9 @@ async function handleStatus(req, res) {
   const { count: politica } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "politica");
   const { count: policia } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "policia");
   const { count: futebol } = await supabase.from("brasilon_posts").select("*", { count: "exact", head: true }).eq("categoria", "futebol");
-  const { data: ultimos } = await supabase.from("brasilon_posts").select("titulo,categoria,published_at").order("published_at", { ascending: false }).limit(5);
+  // 10/09/2026 — id+imagem adicionados (antes só título/categoria/data) pra
+  // alimentar o botão "Publicar manualmente" no admin, sem endpoint novo.
+  const { data: ultimos } = await supabase.from("brasilon_posts").select("id,titulo,categoria,imagem,published_at").order("published_at", { ascending: false }).limit(20);
   return res.status(200).json({ total: total || 0, "brasil-on": brasilOn || 0, politica: politica || 0, policia: policia || 0, futebol: futebol || 0, ultimos: ultimos || [] });
 }
 

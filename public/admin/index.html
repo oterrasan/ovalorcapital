@@ -1115,7 +1115,13 @@ function Postagens() {
     setPosts(norm);
     setTotalCount(count||0);
     const { data: acc } = await sb.from('ig_accounts').select('id,username').eq('active',true);
-    setAccounts(acc||[]);
+    // 10/09/2026 — @obrasilon NUNCA aparece aqui: publicar um post do OVC
+    // pra essa conta sempre sairia com o layout do OVC (módulo de imagem
+    // errado — Brasil ON tem o próprio, foto cheia + caixa amarela +
+    // ícone, isolado em brasilon/). O backend também recusa (defesa em
+    // profundidade), mas nem oferecer a opção aqui evita o erro na
+    // origem. Publicação manual pro Brasil ON é só pela aba 🇧🇷 Brasil ON.
+    setAccounts((acc||[]).filter(a => String(a.username||'').replace(/^@/,'').toLowerCase() !== 'obrasilon'));
     setLoading(false);
   },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte]);
 
@@ -1978,6 +1984,30 @@ function BrasilOnAdmin() {
     setSyncing(false);
   };
 
+  // 10/09/2026 — Roberto: "quando eu clico para postar no instagram do
+  // brasil on manualmente, sai com o layout do OVC". Causa real: não
+  // existia NENHUM botão aqui chamando o instagram_publish do PRÓPRIO
+  // Brasil ON (já existia no backend desde 03/09/2026, nunca tinha UI) —
+  // o único jeito de "publicar manualmente" era pelo botão 📱 Instagram
+  // de Postagens (tela do OVC), que sempre usa o módulo de imagem do OVC.
+  // Este botão publica de verdade pelo pipeline do Brasil ON (foto cheia
+  // + caixa amarela + ícone, brasilon/core/instagram_image.js).
+  const [publicandoManual, setPublicandoManual] = useState(null);
+  const publicarManual = async (postId) => {
+    setPublicandoManual(postId); setMsg('');
+    try {
+      const r = await fetch(`${BON_API}?action=instagram_publish`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ pass: BON_PASS, post_id: postId })
+      });
+      const d = await r.json();
+      setMsg(d.ok ? `✅ Publicado em @obrasilon (ig:${d.ig_id}).` : `❌ ${d.error || 'erro desconhecido'}`);
+    } catch (e) {
+      setMsg('❌ ' + e.message);
+    }
+    setPublicandoManual(null);
+  };
+
   const saveInstagramAccount = async () => {
     setSavingIg(true); setIgMsg('');
     try {
@@ -2047,9 +2077,13 @@ function BrasilOnAdmin() {
                 <div className="stat-card"><div className="stat-value">{status?.futebol ?? '—'}</div><div className="stat-label">Futebol</div></div>
               </div>
               {msg && <div style={{padding:'0 20px 16px',fontSize:13}}>{msg}</div>}
-              <table><thead><tr><th>Título</th><th>Categoria</th><th>Publicado</th></tr></thead>
+              <div style={{padding:'0 20px 8px',fontSize:12,color:'var(--t3)'}}>📲 Publicar aqui usa o layout real do Brasil ON (foto cheia + caixa amarela + ícone) — nunca o do OVC.</div>
+              <table><thead><tr><th>Título</th><th>Categoria</th><th>Publicado</th><th></th></tr></thead>
               <tbody>{(status?.ultimos||[]).map((p,i)=>(
-                <tr key={i}><td>{p.titulo}</td><td>{p.categoria}</td><td className="text-secondary text-small">{fmt(p.published_at)}</td></tr>
+                <tr key={p.id||i}>
+                  <td>{p.titulo}</td><td>{p.categoria}</td><td className="text-secondary text-small">{fmt(p.published_at)}</td>
+                  <td>{p.id && <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={()=>publicarManual(p.id)} disabled={!!publicandoManual}>{publicandoManual===p.id?'Publicando...':'📲 Publicar'}</button>}</td>
+                </tr>
               ))}</tbody></table>
             </>
           )}
@@ -2735,7 +2769,9 @@ function NovoPost() {
   const [msgType, setMsgType] = useState('ok');
 
   useEffect(() => {
-    sb.from('ig_accounts').select('id,username').eq('active',true).then(({data}) => setAccounts(data||[]));
+    // 10/09/2026 — mesmo filtro de Postagens(): @obrasilon nunca aparece
+    // aqui, publicar um post do OVC pra essa conta sai com o layout errado.
+    sb.from('ig_accounts').select('id,username').eq('active',true).then(({data}) => setAccounts((data||[]).filter(a => String(a.username||'').replace(/^@/,'').toLowerCase() !== 'obrasilon')));
   }, []);
 
   const hoje = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'});
