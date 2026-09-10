@@ -1331,6 +1331,75 @@ function Postagens() {
     load(); setApproving(false);
   };
 
+  // 10/09/2026 — Fila prioritária de Instagram, a pedido de Roberto: seleciona
+  // N matérias, aperta 1 botão, o sistema publica 1 a cada ~5min (na ordem
+  // selecionada) sem precisar clicar em cada uma. O ENFILEIRAR acontece
+  // direto aqui via `sb` (mesmo padrão de pubPortalBatch/deletarBatch acima —
+  // grava metrics.instagram_priority em cada post). Quem PUBLICA de fato é o
+  // servidor (handleIgPriorityPublish em api/manage.js, chamado a cada 5min
+  // por instagram-auto.yml) — precisa rodar lá porque chama a API da Meta.
+  const [filaBusy, setFilaBusy] = useState(false);
+  const [filaCount, setFilaCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const checarFila = async () => {
+      const { count } = await sb.from('posts').select('id', { count: 'exact', head: true }).not('metrics->>instagram_priority', 'is', null);
+      if (alive) setFilaCount(count || 0);
+    };
+    checarFila();
+    const t = setInterval(checarFila, 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  const cancelarFila = async () => {
+    if (!confirm('Cancelar toda a fila do Instagram? Os posts continuam como estão — só saem da publicação automática por ordem.')) return;
+    setFilaBusy(true);
+    const { data } = await sb.from('posts').select('id,metrics').not('metrics->>instagram_priority', 'is', null);
+    for (const row of (data || [])) {
+      let m = {}; try { m = typeof row.metrics === 'string' ? JSON.parse(row.metrics || '{}') : (row.metrics || {}); } catch (_) {}
+      delete m.instagram_priority;
+      await sb.from('posts').update({ metrics: m }).eq('id', row.id);
+    }
+    setFilaCount(0);
+    setFilaBusy(false);
+  };
+  const filaInstagramBatch = async () => {
+    if (!selected.length) return;
+    const alvo = selected.map(id => posts.find(p => p.id === id)).filter(Boolean);
+    const jaPublicados = [];
+    const semImagem = [];
+    const aEnfileirar = [];
+    for (const p of alvo) {
+      let m = {}; try { m = typeof p.metrics === 'string' ? JSON.parse(p.metrics || '{}') : (p.metrics || {}); } catch (_) {}
+      const jaNoIg = !!p.ig_id || !!m.instagram?.ig_id || !!m.instagram_reel?.ig_id;
+      if (jaNoIg) { jaPublicados.push(p); continue; }
+      if (!p.imagem || !/^https?:\/\//i.test(p.imagem)) { semImagem.push(p); continue; }
+      aEnfileirar.push({ post: p, metrics: m });
+    }
+    if (!aEnfileirar.length) {
+      alert('Nenhum dos selecionados pode entrar na fila — ' + (jaPublicados.length ? `${jaPublicados.length} já publicado(s) no Instagram` : '') + (jaPublicados.length && semImagem.length ? ' e ' : '') + (semImagem.length ? `${semImagem.length} sem imagem` : '') + '.');
+      return;
+    }
+    const avisos = [];
+    if (jaPublicados.length) avisos.push(`${jaPublicados.length} já publicado(s) no Instagram`);
+    if (semImagem.length) avisos.push(`${semImagem.length} sem imagem`);
+    const msg = `Enfileirar ${aEnfileirar.length} post(s) pro Instagram — publicação automática a cada ~5 minutos, na ordem selecionada.` + (avisos.length ? `\n\nIgnorados: ${avisos.join(', ')}.` : '');
+    if (!confirm(msg)) return;
+    setFilaBusy(true);
+    let ok = 0;
+    const agora = new Date().toISOString();
+    for (let i = 0; i < aEnfileirar.length; i++) {
+      const { post, metrics } = aEnfileirar[i];
+      const novoMetrics = { ...metrics, instagram_priority: { queued_at: agora, order: i } };
+      const { error } = await sb.from('posts').update({ metrics: novoMetrics }).eq('id', post.id);
+      if (!error) ok++;
+    }
+    alert(`✅ ${ok} post(s) na fila do Instagram — um a cada ~5 minutos, começando na próxima execução automática.`);
+    setSelected([]);
+    setFilaCount(c => c + ok);
+    load();
+    setFilaBusy(false);
+  };
+
   const saveEdit = async () => {
     const slugSub = (editPost.subcategoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
     try {
@@ -1655,10 +1724,17 @@ function Postagens() {
               </div>
             </div>
           )}
+          {filaCount>0&&(
+            <div style={{padding:'10px 20px',background:'rgba(225,48,108,0.08)',borderBottom:'1px solid rgba(225,48,108,0.2)',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+              <span style={{color:'#f472b6',fontSize:13,fontWeight:600}}>📲 Fila do Instagram: {filaCount} restante(s) — publicando 1 a cada ~5min</span>
+              <button className="btn btn-secondary btn-sm" onClick={cancelarFila} disabled={filaBusy}>✕ Cancelar fila</button>
+            </div>
+          )}
           {selected.length>0&&(
             <div style={{padding:'12px 20px',background:'rgba(200,30,30,0.08)',borderBottom:'1px solid rgba(200,30,30,0.2)',display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
               <span style={{color:'var(--yellow)',fontSize:13,fontWeight:600}}>{selected.length} selecionado(s)</span>
               <button className="btn btn-success btn-sm" onClick={pubPortalBatch} disabled={approving}>🌐 Publicar no Portal</button>
+              <button className="btn btn-sm" style={{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.3)'}} onClick={filaInstagramBatch} disabled={filaBusy} title="Publica 1 a cada ~5 minutos, na ordem selecionada">📲 Publicar no Instagram (fila 5min)</button>
               <button className="btn btn-sm" style={{background:'rgba(200,30,30,0.2)',color:'#f87171',border:'1px solid rgba(200,30,30,0.4)'}} onClick={deletarBatch} disabled={approving}>🗑️ Excluir selecionados</button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setSelected([])}>✕ Cancelar seleção</button>
             </div>

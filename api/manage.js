@@ -86,6 +86,7 @@ export default async function handler(req, res) {
     if (action === "ig_publish") return handleIgPublish(req, res, body);
     if (action === "ig_preview") return handleIgPreview(req, res, body);
     if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
+    if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, body);
     if (action === "reels_publish") return handleReelsPublish(req, res, body);
     if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
     if (action === "reels_set_source") return handleReelsSetSource(req, res, body);
@@ -725,66 +726,34 @@ async function handleIgPreview(req, res, body) {
   });
 }
 
-async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
+// 10/09/2026 — Roberto: "detecte o que eu já postei manualmente no
+// instagram... para que o sistema automático não republique o que já
+// fiz". Causa raiz real, confirmada por leitura de código: o feed-auto só
+// checava ig_id/metrics.instagram.ig_id, o Reels-auto só checava
+// metrics.instagram_reel.ig_id — cada automação só enxergava a PRÓPRIA
+// marca, nunca a do outro formato. Publicar manualmente como Reel não
+// impedia o feed-auto de repostar a MESMA matéria como imagem (e
+// vice-versa). Esta função é o único lugar que decide "já foi pro
+// Instagram" — usada pelos dois lados agora.
+function _jaPublicadoOuReservadoNoInstagram(post, metrics) {
+  if (post?.ig_id) return true;
+  if (metrics?.instagram?.ig_id) return true;
+  if (metrics?.instagram_reel?.ig_id) return true;
+  return false;
+}
+
+// Núcleo compartilhado de "reservar (claim atômico) + publicar no feed +
+// comentário fixado + like próprio + gravar o resultado" — usado pelos DOIS
+// caminhos que escolhem o post sozinhos: a descoberta automática
+// (_igAutoProcessAccount) e a fila prioritária manual
+// (handleIgPriorityPublish, 10/09/2026). NUNCA usado por handleIgPublish (o
+// botão manual único) — aquele continua com sua própria cópia isolada, por
+// design (ver comentário histórico logo acima dele), pra nunca arriscar o
+// caminho já confirmado funcionando em produção.
+async function _publicarPostFeedAutomatico(post, account, opts) {
   const username = String(account.username || "").replace(/^@/, "").toLowerCase();
-  const isDefaultAccount = username === "ovalorcapital";
-  const hasAccountLimit = account.limite_diario !== null
-    && account.limite_diario !== undefined
-    && String(account.limite_diario).trim() !== "";
-  const accountLimitRaw = hasAccountLimit ? Number(account.limite_diario) : settings.dailyLimit;
-  const accountLimit = Number.isFinite(accountLimitRaw) ? Math.max(0, Math.floor(accountLimitRaw)) : 0;
-
-  let publicadosHoje;
-  try {
-    publicadosHoje = await _igAutoContarHoje(account.id);
-  } catch (e) {
-    return { ok: false, account_id: account.id, username, error: "erro_contador: " + redactSecrets(e?.message || String(e)) };
-  }
-  if (accountLimit > 0 && publicadosHoje >= accountLimit) {
-    return { ok: true, skipped: true, reason: "limite_diario_da_conta_atingido", account_id: account.id, username, publicados_hoje: publicadosHoje, limite: accountLimit };
-  }
-
-  const titulosJaPublicados = new Set(
-    candidatos
-      .filter((p) => String(p.ig_account_id || "") === String(account.id) && (p.ig_id || parseJsonMaybe(p.metrics, {})?.instagram?.ig_id))
-      .map((p) => _igAutoTitleKey(p.titulo))
-      .filter(Boolean)
-  );
-
-  const elegivel = (p) => {
-    const assignedAccountId = String(p.ig_account_id || "");
-    const routedToAccount = assignedAccountId
-      ? assignedAccountId === String(account.id)
-      : isDefaultAccount;
-    if (!routedToAccount) return false;
-
-    const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
-    const idadeMs = agoraMs - publishedAtMs;
-    if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
-    if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
-    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
-    const categoria = String(tags[0] || "").trim().toLowerCase();
-    if (!settings.categories.has(categoria)) return false;
-    const metrics = parseJsonMaybe(p.metrics, {});
-    if (p.ig_id || metrics?.instagram?.ig_id) return false;
-    if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false;
-    return true;
-  };
-  // 08/09/2026 — Roberto: "com prioridade para politica". candidatos já vem
-  // ordenado por published_at desc (query em handleIgAutoPublish), então
-  // dentro de cada passada o mais recente elegível vence. 1ª passada só
-  // política; se não achar nenhuma elegível, cai pra qualquer categoria.
-  const categoriaDe = (p) => {
-    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
-    return String(tags[0] || "").trim().toLowerCase();
-  };
-  const post = candidatos.find((p) => elegivel(p) && categoriaDe(p) === "politica")
-    || candidatos.find((p) => elegivel(p));
-
-  if (!post) {
-    await writeLog("info", `[ig-auto] @${username}: nenhuma matéria elegível`);
-    return { ok: true, skipped: true, reason: "nenhum_candidato_recente_elegivel", account_id: account.id, username, janela_horas: IG_AUTO_JANELA_HORAS, publicados_hoje: publicadosHoje };
-  }
+  const logTag = opts?.logTag || "[ig-auto]";
+  const publishedVia = opts?.publishedVia || "ig_auto_publish";
 
   const caption = buildInstagramCaption(post);
   const now = new Date().toISOString();
@@ -815,8 +784,8 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     let selfLikeError = null;
     if (firstCommentText) {
       try {
-        const account = await getAccount(ig.account_id);
-        firstComment = await postComment(ig.id, firstCommentText, account?.token);
+        const acc = await getAccount(ig.account_id);
+        firstComment = await postComment(ig.id, firstCommentText, acc?.token);
       } catch (commentError) {
         firstCommentError = redactSecrets(commentError?.message || String(commentError));
       }
@@ -841,7 +810,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
           image_url: instagramImage.url,
           image_path: instagramImage.path,
           published_at: now,
-          published_via: "ig_auto_publish",
+          published_via: publishedVia,
           quota_before_publish: ig.quota_before || null,
           first_comment_text: firstCommentText,
           first_comment_id: firstComment?.id || null,
@@ -860,7 +829,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     }
 
     try { await _igAutoRegistrarPublicacao(account.id); } catch (_) {}
-    await writeLog("info", `[ig-auto] @${username} publicado: ${post.titulo} | ig:${ig.id}`);
+    await writeLog("info", `${logTag} @${username} publicado: ${post.titulo} | ig:${ig.id}`);
 
     return {
       ok: true,
@@ -870,7 +839,6 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
       ig_id: ig.id,
       account_id: ig.account_id,
       username: ig.username,
-      publicados_hoje: publicadosHoje + 1,
       first_comment_id: firstComment?.id || null,
       first_comment_error: firstCommentError,
       self_like_success: selfLike?.success === true,
@@ -885,9 +853,77 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
         .eq("id", post.id)
         .eq("ig_id", claimId);
     } catch (_) {}
-    await writeLog("error", `[ig-auto] @${username} falhou: ${safeError}`);
+    await writeLog("error", `${logTag} @${username} falhou: ${safeError}`);
     return { ok: false, error: safeError, post_id: post.id, account_id: account.id, username };
   }
+}
+
+async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
+  const username = String(account.username || "").replace(/^@/, "").toLowerCase();
+  const isDefaultAccount = username === "ovalorcapital";
+  const hasAccountLimit = account.limite_diario !== null
+    && account.limite_diario !== undefined
+    && String(account.limite_diario).trim() !== "";
+  const accountLimitRaw = hasAccountLimit ? Number(account.limite_diario) : settings.dailyLimit;
+  const accountLimit = Number.isFinite(accountLimitRaw) ? Math.max(0, Math.floor(accountLimitRaw)) : 0;
+
+  let publicadosHoje;
+  try {
+    publicadosHoje = await _igAutoContarHoje(account.id);
+  } catch (e) {
+    return { ok: false, account_id: account.id, username, error: "erro_contador: " + redactSecrets(e?.message || String(e)) };
+  }
+  if (accountLimit > 0 && publicadosHoje >= accountLimit) {
+    return { ok: true, skipped: true, reason: "limite_diario_da_conta_atingido", account_id: account.id, username, publicados_hoje: publicadosHoje, limite: accountLimit };
+  }
+
+  const titulosJaPublicados = new Set(
+    candidatos
+      .filter((p) => String(p.ig_account_id || "") === String(account.id) && _jaPublicadoOuReservadoNoInstagram(p, parseJsonMaybe(p.metrics, {})))
+      .map((p) => _igAutoTitleKey(p.titulo))
+      .filter(Boolean)
+  );
+
+  const elegivel = (p) => {
+    const assignedAccountId = String(p.ig_account_id || "");
+    const routedToAccount = assignedAccountId
+      ? assignedAccountId === String(account.id)
+      : isDefaultAccount;
+    if (!routedToAccount) return false;
+
+    const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
+    const idadeMs = agoraMs - publishedAtMs;
+    if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
+    if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
+    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+    const categoria = String(tags[0] || "").trim().toLowerCase();
+    if (!settings.categories.has(categoria)) return false;
+    const metrics = parseJsonMaybe(p.metrics, {});
+    if (_jaPublicadoOuReservadoNoInstagram(p, metrics)) return false;
+    if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false;
+    return true;
+  };
+  // 08/09/2026 — Roberto: "com prioridade para politica". candidatos já vem
+  // ordenado por published_at desc (query em handleIgAutoPublish), então
+  // dentro de cada passada o mais recente elegível vence. 1ª passada só
+  // política; se não achar nenhuma elegível, cai pra qualquer categoria.
+  const categoriaDe = (p) => {
+    const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+    return String(tags[0] || "").trim().toLowerCase();
+  };
+  const post = candidatos.find((p) => elegivel(p) && categoriaDe(p) === "politica")
+    || candidatos.find((p) => elegivel(p));
+
+  if (!post) {
+    await writeLog("info", `[ig-auto] @${username}: nenhuma matéria elegível`);
+    return { ok: true, skipped: true, reason: "nenhum_candidato_recente_elegivel", account_id: account.id, username, janela_horas: IG_AUTO_JANELA_HORAS, publicados_hoje: publicadosHoje };
+  }
+
+  const resultado = await _publicarPostFeedAutomatico(post, account, { logTag: "[ig-auto]", publishedVia: "ig_auto_publish" });
+  if (resultado.ok && resultado.published) {
+    return { ...resultado, publicados_hoje: publicadosHoje + 1 };
+  }
+  return resultado;
 }
 
 async function handleIgAutoPublish(req, res, body) {
@@ -936,6 +972,95 @@ async function handleIgAutoPublish(req, res, body) {
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     await writeLog("error", "[ig-auto] falha na execução simultânea: " + safeError);
+    return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// FILA PRIORITÁRIA MANUAL — 10/09/2026, a pedido de Roberto: "selecionar
+// varias materias e apertar publicar todos... o sistema entenda que se eu
+// dei um comando de publicar 30 materias, ele irá priorizar estas matérias
+// e postar uma a cada 5 minutos".
+// O ENFILEIRAR em si acontece direto do admin (grava metrics.instagram_priority
+// via o client Supabase que o admin já usa pra tudo — pubPortalBatch,
+// deletarBatch etc. fazem exatamente o mesmo tipo de escrita direta, sem
+// precisar de action nova aqui). Esta função só faz a PUBLICAÇÃO em si
+// (precisa rodar no servidor — chama a API da Meta), 1 item por chamada,
+// disparada a cada 5 minutos por um cron dedicado em instagram-auto.yml.
+// Reaproveita o mesmo núcleo de claim+publish de _igAutoProcessAccount
+// (_publicarPostFeedAutomatico) — mesma proteção contra corrida/duplicação.
+// NÃO respeita a janela horária do resto da automação
+// (_igAutoDentroDaJanelaAtiva) de propósito: é um comando explícito e
+// imediato de Roberto sobre matérias que ELE escolheu, não uma decisão
+// autônoma do sistema — diferente em natureza do resto da automação, que
+// decide sozinha o quê e quando publicar.
+// ══════════════════════════════════════════════════════
+async function handleIgPriorityPublish(req, res, body) {
+  if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  const desenfileirar = async (postId, extraPatch) => {
+    // Sempre relê o metrics mais fresco possível antes de escrever — nunca
+    // confiar numa cópia capturada antes de _publicarPostFeedAutomatico
+    // rodar, senão a escrita daqui apaga o metrics.instagram que ele
+    // acabou de gravar.
+    try {
+      const { data: fresh } = await supabase.from("posts").select("metrics").eq("id", postId).single();
+      const m = parseJsonMaybe(fresh?.metrics, {});
+      if (extraPatch) Object.assign(m, extraPatch);
+      delete m.instagram_priority;
+      await supabase.from("posts").update({ metrics: m }).eq("id", postId);
+    } catch (_) {}
+  };
+
+  try {
+    const { data: candidatos, error: candidatesError } = await supabase
+      .from("posts")
+      .select("id, titulo, imagem, ig_id, ig_account_id, metrics")
+      .not("metrics->>instagram_priority", "is", null)
+      .limit(500);
+    if (candidatesError) throw candidatesError;
+
+    const fila = (candidatos || [])
+      .map((p) => ({ post: p, metrics: parseJsonMaybe(p.metrics, {}) }))
+      .filter((x) => x.metrics && x.metrics.instagram_priority)
+      .sort((a, b) => Number(a.metrics.instagram_priority.order ?? 0) - Number(b.metrics.instagram_priority.order ?? 0));
+
+    if (!fila.length) return res.status(200).json({ ok: true, skipped: true, reason: "fila_vazia" });
+
+    let alvo = null;
+    for (const item of fila) {
+      if (_jaPublicadoOuReservadoNoInstagram(item.post, item.metrics)) {
+        await desenfileirar(item.post.id);
+        continue;
+      }
+      if (!/^https?:\/\//i.test(String(item.post.imagem || ""))) {
+        await desenfileirar(item.post.id, { instagram_priority_failed: { at: new Date().toISOString(), error: "post_sem_imagem_publica" } });
+        continue;
+      }
+      alvo = item;
+      break;
+    }
+    if (!alvo) return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_item_publicavel_na_fila", fila_total: fila.length });
+
+    const { data: accounts, error: accountsError } = await supabase
+      .from("ig_accounts").select("*").eq("active", true).eq("distribuicao_automatica", true).not("token", "is", null);
+    if (accountsError) throw accountsError;
+    if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
+
+    const account = accounts.find((a) => String(a.id) === String(alvo.post.ig_account_id))
+      || accounts.find((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === "ovalorcapital")
+      || accounts[0];
+
+    const resultado = await _publicarPostFeedAutomatico(alvo.post, account, { logTag: "[ig-priority]", publishedVia: "ig_priority_publish" });
+
+    // Desenfileira sempre — sucesso ou falha — nunca deixa 1 item ruim
+    // travar o resto da fila indefinidamente.
+    await desenfileirar(alvo.post.id, resultado.ok ? undefined : { instagram_priority_failed: { at: new Date().toISOString(), error: resultado.error || resultado.reason || "falha_desconhecida" } });
+
+    return res.status(200).json({ ok: true, ...resultado, restantes_na_fila: fila.length - 1 });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", "[ig-priority] falha na execução: " + safeError);
     return res.status(200).json({ ok: false, error: safeError });
   }
 }
@@ -1301,7 +1426,7 @@ async function handleReelsAutoPublish(req, res, body) {
 
     const { data: candidatos, error: candidatesError } = await supabase
       .from("posts")
-      .select("id, titulo, video_url, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_account_id, published_at")
+      .select("id, titulo, video_url, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
       .eq("status", "publicado")
       .not("video_url", "is", null)
       .order("published_at", { ascending: true })
@@ -1314,7 +1439,11 @@ async function handleReelsAutoPublish(req, res, body) {
       if (!/^https?:\/\//i.test(String(p.video_url || ""))) return false;
       if (_isYouTubeUrl(p.video_url)) return false;
       const metrics = parseJsonMaybe(p.metrics, {});
-      if (metrics?.instagram_reel?.ig_id) return false;
+      // 10/09/2026 — fix real: antes só checava metrics.instagram_reel.ig_id.
+      // Se Roberto publica manualmente como IMAGEM no feed (ig_publish),
+      // esse marcador nunca é setado — o Reels-auto republicava a MESMA
+      // matéria como vídeo, achando que nunca tinha ido pro Instagram.
+      if (_jaPublicadoOuReservadoNoInstagram(p, metrics)) return false;
       if (!_reelsTemplateReady(p)) return false;
       return true;
     });
