@@ -65,14 +65,24 @@ const SITE_BASE = "https://www.obrasilon.com.br";
 // 10/09/2026 (manhã) — janela 08h-12h/14h30-19h BRT — SUBSTITUÍDA no mesmo dia.
 // 10/09/2026 (tarde) — Roberto: "pause as automações dos Instagrams /
 // retorne as 14hrs apenas". Janela única, sem bloco de manhã nem pausa de
-// meio-dia: ativo 14h-19h BRT (corte seco às 19h). ESTADO ATUAL, vigente —
-// ver api/manage.js (raiz, OVC), atualizado junto no mesmo pedido.
-const IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN = 14 * 60;       // 14:00 BRT — início
+// meio-dia: ativo 14h-19h BRT (corte seco às 19h). ver api/manage.js
+// (raiz, OVC), atualizado junto no mesmo pedido.
+// 11/09/2026 — Roberto: "voce só ligou as janelas da tarde. e esqueceu as
+// da manha. comecam as 08hrs e param meio dia. retornam as 14h00" — o
+// bloco da manhã (removido por engano em 10/09/2026 tarde) volta a
+// existir. ESTADO ATUAL, vigente: ativo 08h-12h BRT, pausa 12h-14h BRT,
+// ativo de novo 14h-19h BRT (corte seco às 19h). Ver api/manage.js (raiz,
+// OVC), atualizado junto no mesmo pedido.
+const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 8 * 60;        // 08:00 BRT — início do bloco da manhã
+const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa de almoço começa
+const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60;          // 14:00 BRT — retoma o bloco da tarde
 const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT
 function _igAutoDentroDaJanelaAtiva() {
   const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
   const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
-  return minutosBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
+  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
+  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
+  return manha || tarde;
 }
 function _igAutoDiaBRT() {
   const brt = new Date(Date.now() - 3 * 3600 * 1000);
