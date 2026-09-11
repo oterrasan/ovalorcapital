@@ -1,21 +1,8 @@
-Warning: truncated output (original token count: 208684)
-Total output lines: 9556
-
 # CLAUDE.md — Contexto completo do projeto O Valor Capital
 
 > Este arquivo serve para retomar qualquer sessão de trabalho sem precisar explicar nada novamente.
 > Leia do início ao fim antes de qualquer ação.
 > **REGRA PERMANENTE:** Ao final de cada sessão, atualize este arquivo com tudo o que foi feito/planejado. O próximo Claude depende disso.
-
-## ACEITE AUTOMATICO DE COLLABS - 10/09/2026
-
-- A publicacao e o envio de convites existentes nao foram alterados.
-- Nova acao isolada: `ig_collab_auto_process` em `api/manage.js`, usando o endpoint oficial `/collaboration_invites` da Meta.
-- Politica fixa de seguranca: convites de `@ovalorcapital` e `@obrasilon` podem ser aceitos pelas contas destinatarias configuradas; `@oterrasan` nunca aceita automaticamente e publicacoes originadas por ele nunca sao aceitas automaticamente.
-- Depois de um aceite autorizado, a conta destinataria tenta curtir a publicacao.
-- Controle no Admin em Automacao Instagram, com estado inicial PAUSADO e indicador de credenciais por conta.
-- Disparador dedicado a cada 10 minutos no GitHub Actions. Enquanto a chave `IG_COLLAB_AUTO_ACCEPT_ENABLED` nao estiver em `on`, ele apenas encerra sem executar acoes no Instagram.
-- Contas publicadoras encontradas no sistema: `@ovalorcapital`, `@obrasilon`, `@oterrasan`. Destinatarias previstas ainda precisam de linhas completas em `ig_accounts`: `@souabetaferreira`, `@adriana.ferreirasp`, `@amichelefroes`.
 
 ---
 
@@ -5567,7 +5554,332 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 **O que estava errado no diagnóstico do PR #394:** o teste Playwright daquela sessão media `isVisible: true` e `boundingBox` válido (577px de altura, elemento real) — e por isso a sessão concluiu "fixado". Mas nunca mediu a **posição absoluta na página** (`getBoundingClientRect().top + scrollY`). O widget estava genuinamente visível (não é `display:none`, não tem erro JS) — só que a ~4675px do topo, depois de TODO o feed de cards da home mobile, praticamente no rodapé. Tecnicamente "visível", praticamente inatingível — ninguém rola 5+ telas de celular sem motivo.
 
-**Causa raiz real:** `.main-grid` é **CSS Grid** com `grid-row` explícito em `.hero-region` (linha 1), `.cols-region` (linha 2), `.cols-region-2` (linha 3) — ver `home.css` ~734-751. Isso vale mesmo no breakpoint mobile (nenhuma media query reseta esses `grid-row`). O PR #394 inseria o widget como filho direto de `.main…8684 tokens truncated…icialmente isso pareceu descartar bug de código, mas na verdade mascarava o problema real (ver #6).
+**Causa raiz real:** `.main-grid` é **CSS Grid** com `grid-row` explícito em `.hero-region` (linha 1), `.cols-region` (linha 2), `.cols-region-2` (linha 3) — ver `home.css` ~734-751. Isso vale mesmo no breakpoint mobile (nenhuma media query reseta esses `grid-row`). O PR #394 inseria o widget como filho direto de `.main-grid`, sem nenhum `grid-row` — em CSS Grid, um filho SEM posição explícita é auto-posicionado pelo algoritmo do grid **depois de todas as linhas já reservadas por elementos com posição explícita, independente da posição no DOM**. Por isso: existia, não tinha erro, tinha altura real — e mesmo assim ficava fisicamente no fim da página.
+
+**Fix real (PR #396, commit `bbe679e`):** em vez de inserir em `.main-grid` (grid, ordem DOM ≠ ordem visual), o widget se injeta como **primeiro filho de `#ovc-cards-section`** (`.cols-region`, que é `display:flex;flex-direction:column`) — nesse contexto ordem no DOM = ordem visual sempre, sem depender de nenhum `grid-row` hardcoded que quebraria silenciosamente se `home.css` mudar as linhas do grid no futuro.
+
+**Verificação em produção (não em preview — os previews de PR neste projeto têm Vercel Deployment Protection/SSO ativo, retornam 200 com página de autenticação em vez do conteúdo real; testar preview sem bypass de auth dá falso-negativo `widgetExists:false`, não usar essa rota de novo sem token de bypass):**
+```json
+{
+  "heroAbsTop": 94.5,
+  "cardsAbsTop": 320.5,
+  "widgetAbsTop": 320.5,
+  "widgetExists": true,
+  "widgetVisible": true,
+  "widgetIsFirstChildOfCards": true,
+  "widgetParentClass": "cols-region",
+  "scrollsToSeeWidget": 1
+}
+```
+`widgetAbsTop` = `cardsAbsTop` exatamente — o widget é literalmente o primeiro item do feed, visível já na primeira rolagem de tela, logo abaixo do hero. Script tag confirmado como `/js/ovc-radar-esporte.js?v=6` carregado. 7 abas encontradas, clique testado (Tênis) trocou conteúdo corretamente com artigo real.
+
+**🚨🚨🚨 LIÇÃO CRÍTICA — gravar para toda sessão futura:**
+```
+❌ "isVisible: true" e "boundingBox válido" NÃO PROVAM que um elemento é
+   alcançável por um usuário real. Um elemento pode estar tecnicamente
+   visível (display != none, dimensões reais, sem erro JS) e MESMO ASSIM
+   estar posicionado tão longe do fluxo natural da página que ninguém o
+   encontra na prática.
+❌ Ao verificar QUALQUER fix de "elemento não aparece", sempre medir
+   getBoundingClientRect().top + scrollY (posição ABSOLUTA na página) e
+   comparar com a posição de elementos de referência vizinhos (nesse caso,
+   .hero-region e #ovc-cards-section) — não checar só isVisible/boundingBox
+   isolado do elemento.
+❌ Ao injetar QUALQUER elemento via JS dentro de um container que pode ser
+   CSS GRID (não só flex/block), NUNCA assumir que a ordem do DOM
+   corresponde à ordem visual. Grid com grid-row/grid-area explícito em
+   irmãos ignora completamente a posição no DOM para elementos sem
+   posição própria — eles vão parar nas linhas implícitas, tipicamente
+   MUITO depois de todo o conteúdo real. Preferir injetar dentro de um
+   container flex/block já conhecido (ex: #ovc-cards-section) em vez de
+   um grid container (.main-grid) quando a ordem visual importa.
+❌ Previews de PR deste projeto (Vercel) têm proteção de deployment
+   (SSO/senha) — teste automatizado sem bypass token retorna sempre vazio
+   (200 mas com página de auth, não o site real). Verificar sempre em
+   PRODUÇÃO pós-deploy, não em preview, a menos que se tenha o token de
+   bypass do Vercel.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão (atualizado)
+
+1. **Radar do Esporte mobile: fix REAL confirmado em produção** — não precisa de mais verificação, a menos que Roberto reporte de novo.
+2. **Considerar se outros widgets do rail direito precisam do mesmo tratamento mobile** (Radar da Copa, Radar Eleitoral, Mais Lidos, banner sidebar) — hoje eles ficam invisíveis em celular (mesma causa: `.rail-right{display:none}` em `responsive.css`). Provavelmente NÃO têm o bug de grid-row (não são injetados em `.main-grid` da mesma forma) mas vale checar posição absoluta se Roberto reclamar de algum deles. NÃO fazer sem Roberto pedir — mudança de UX maior.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12/08/2026 (continuação 2) — PR #398: LABELS DAS ABAS ILEGÍVEIS + PR #399: 🔴 CAUSA RAIZ REAL — RADAR DO ESPORTE (FUTEBOL) TRAVADO DESDE 07/08 — 4 FEEDS RSS MORTOS AO MESMO TEMPO
+
+#### PR #398 — labels das 7 abas truncando pra lixo ilegível (commit `662bf23`)
+
+Roberto mandou print do desktop mostrando as 7 abas do Radar do Esporte com texto cortado/ilegível (emoji + label completo não cabiam no espaço da aba). Fix: `.ovc-esporte-tab-label` virou visualmente oculto (padrão sr-only: `position:absolute;width:1px;height:1px;...;clip:rect(0,0,0,0)`) — mantém acessibilidade (`aria-label` já existia no botão) mas mostra só o emoji, que sozinho já identifica cada esporte sem cortar. `title` no botão mantém tooltip com o nome completo no hover. `ovc-radar-esporte.js?v=6 → ?v=7`.
+
+#### 🔴🔴🔴 PR #399 — Radar do Esporte (aba Futebol) travado desde 07/08 22:08 — CAUSA RAIZ REAL, confirmada com evidência, não suposição
+
+Roberto voltou puto pouco depois: *"DESDE O DIA 7 NAO AONTECE NADA NESTA MERDA... EU QUERO ISSO FUNCIONANDO IMEDIATAMENTE"*. Ele tinha razão de novo — o conteúdo da aba Futebol estava genuinamente parado em 07/08, 5 dias sem nada novo, apesar dos fixes de layout/mobile/labels das sessões anteriores (PRs #394/#396/#398) — esses resolveram **outros** bugs (posição do widget, labels ilegíveis), nenhum deles tocava no **conteúdo** em si.
+
+**Investigação (nesta ordem, tudo com evidência real via `curl` direto — nunca suposição):**
+
+1. Lido `public/js/ovc-radar-esporte.js` → `init()` busca `?curtinhas=true&tipo=radar&categoria=esportes` e `?recentes=true`, sem nenhum sort de data no JS — mas a API já retorna ordenado por `published_at DESC`, então não era esse o bug.
+2. Lido `api/portal-posts.js` `handleCurtinhasRadar()` → confirma `order("published_at",{ascending:false})` correto.
+3. Testado ao vivo via GitHub Actions (`curl` real, não texto explicativo): `/api/portal-posts?curtinhas=true&categoria=esportes&limit=60` → pílulas de HOJE (Kelce, F1, NBA, UFC, tênis) chegando normalmente, mas o item `radar` (futebol) mais recente era `2026-08-07T22:08:13` — **zero itens `radar` depois disso**, confirmado também com `?tipo=radar&categoria=esportes` isolado (mesmo resultado) e sem filtro de categoria (mesmo resultado, mostrando que outras categorias como `tecnologia`/`brasil-on` também usam `tipo_conteudo="radar"` esporadicamente, mas todas paravam no mesmo período).
+4. Isso apontou pro gerador, não pro widget: `api/run_portal.js` → `autoFutebolCurtinhas()` é a ÚNICA função que gera `tipo_conteudo="radar"` pra futebol — restrita (decisão de Roberto, 08/08/2026) a exatamente 4 fontes: `FONTE_FUTEBOL = new Set(["GE Globo", "ESPN Brasil", "Lance!", "GaúchaZH"])`.
+5. Checado o workflow `.github/workflows/futebol-live.yml` (roda a cada ~5min, na prática ~1x/hora por throttling do GitHub) → últimas dezenas de execuções todas `"status":"ok"` mas **`"generated":0,"candidates":0,"info":"no_futebol_news"`** — sucesso técnico, zero conteúdo, sem nenhum log de erro visível.
+6. `curl` direto nas 4 URLs de `FONTE_FUTEBOL` (`core/rss.js`) revelou a causa raiz — **as 4 estavam mortas ao mesmo tempo**:
+
+| Fonte | URL testada | Resultado real |
+|---|---|---|
+| GE Globo | `https://ge.globo.com/rss/ge.xml` | **HTTP 404** |
+| ESPN Brasil | `https://www.espn.com.br/rss/` | **HTTP 202, 0 bytes** |
+| Lance! | `https://www.lance.com.br/rss.xml` | **HTTP 410 Gone** |
+| GaúchaZH | `https://gauchazh.clicrbs.com.br/rss.xml` | **HTTP 404** |
+
+`fetchFeed()` em `core/rss.js` engole silenciosamente qualquer erro/HTML de erro (`try{}catch{return []}`), então nunca aparecia nada nos logs além do resultado final `candidates:0` — o sintoma só era visível olhando o widget no ar.
+
+**Fix (PR #399, commit `2983bf5`):** testadas várias URLs alternativas ao vivo (`curl` real via GitHub Actions, não suposição). Achado substituto funcional pra GE Globo: `https://ge.globo.com/rss/ge/futebol/` → **HTTP 200, 398KB, 92 itens, conteúdo do dia**. Trocado em `core/rss.js` linha 61. ESPN Brasil, Lance! e GaúchaZH continuam sem substituto funcional encontrado (testados vários padrões de URL comuns — `/feed`, `/arc/outboundfeeds/rss/`, `/rss.xml` — todos 404/410/202-vazio; RSS parece genuinamente descontinuado nesses 3 sites). Mantidos no `Set` — se algum dia voltarem, plugam automaticamente sem precisar mexer de novo.
+
+**Verificação em produção — dupla, com timestamps reais:**
+1. Deploy confirmado (`deploy.yml` run bem-sucedido no commit `2983bf5`, 19:38 UTC).
+2. Run automático (não manual) do cron `futebol-live.yml` às 19:46 UTC — já no commit corrigido — gerou sozinho: `{"generated":2,...}` e depois `{"generated":1,...}`.
+3. Query direta em produção confirmou 4 posts novos de HOJE no topo da lista, empurrando o post de 07/08 pra 5ª posição:
+```
+2026-08-12T20:00:06  Boca Juniors Vira Jogo e Derrota Deportivo Recoleta na Sul-Americana
+2026-08-12T19:47:51  São Paulo empata com Bolívar na altitude e leva decisão para o Morumbi
+2026-08-12T19:47:21  Adson se destaca no Vasco e ganha chance em meio a desfalques no ataque
+2026-08-12T19:47:03  Cienciano elimina Lanús e enfrenta Botafogo na Sul-Americana
+2026-08-07T22:08:13  (post antigo, agora em 5º lugar)
+```
+O pipeline retomou sozinho, sem precisar de nenhuma ação manual contínua — a automação do cron já estava rodando, só faltava fonte de dado viva.
+
+**🚨🚨🚨 LIÇÃO CRÍTICA — gravar para toda sessão futura:**
+```
+❌ "generated:0, candidates:0, status:ok" em qualquer gerador de conteúdo do
+   pipeline NÃO significa "sem notícia disponível hoje" — pode significar
+   que TODAS as fontes RSS daquele gerador morreram ao mesmo tempo, silenciosamente.
+   fetchFeed() em core/rss.js engole qualquer erro (404/410/HTML de erro)
+   sem logar nada visível — o único jeito de confirmar é curl DIRETO na URL
+   crua de cada fonte (HTTP status + bytes + <item> count), nunca assumir.
+❌ Quando um gerador de conteúdo é restrito a um Set pequeno e fixo de fontes
+   (decisão editorial de Roberto, ex: FONTE_FUTEBOL com só 4 fontes "pra não
+   misturar"), esse design é mais frágil a sites externos mudando de RSS —
+   qualquer sessão futura que veja "candidates:0" persistente num gerador
+   assim deve suspeitar de fonte morta ANTES de suspeitar de bug no código.
+❌ RSS feeds de portais de notícia brasileiros mudam de URL sem aviso —
+   confirmado nesta sessão: GE Globo, ESPN Brasil, Lance! e GaúchaZH todos
+   com o link antigo morto. Sempre testar candidatos de substituição com
+   curl real (HTTP 200 + bytes + contagem de <item> + título real) antes
+   de trocar no código — nunca assumir que um padrão de URL "parecido"
+   (ex: /feed, /arc/outboundfeeds/rss/) funciona sem testar.
+```
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### Bugs corrigidos nesta sessão
+
+| # | Bug | Arquivo | Quando |
+|---|-----|---------|--------|
+| — | Labels das 7 abas do Radar do Esporte ilegíveis/cortadas no desktop | `public/js/ovc-radar-esporte.js` — `.ovc-esporte-tab-label` virou sr-only, só emoji visível | 12/08/2026 (PR #398, commit `662bf23`) |
+| — | **CRÍTICO** — Radar do Esporte (Futebol) travado 5 dias (desde 07/08) — 4 fontes RSS (GE Globo, ESPN Brasil, Lance!, GaúchaZH) mortas ao mesmo tempo (404/410/202-vazio), `fetchFeed()` engolindo erro silenciosamente | `core/rss.js` linha 61 — GE Globo trocada pra `https://ge.globo.com/rss/ge/futebol/` (viva, 92 itens) | 12/08/2026 (PR #399, commit `2983bf5`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Monitorar se ESPN Brasil, Lance! ou GaúchaZH voltam a ter RSS** — nenhum substituto funcional encontrado nesta sessão (testados vários padrões comuns). Se Roberto quiser mais robustez no Radar do Futebol, considerar adicionar mais 1-2 fontes de futebol dedicadas (respeitando a regra de Roberto de "fonte específica, sem misturar").
+2. Radar do Esporte mobile + labels + conteúdo — todos os 3 bugs desta leva de sessões (PR #394/#396, #398, #399) confirmados corrigidos em produção com evidência real. Não repetir verificação a menos que Roberto reporte de novo.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12-13/08/2026 — CARD DE DESTAQUE SÓ POLÍTICA + AUTOMAÇÃO JOVEM PAN POLÍTICA (mesma estrutura do Bacci/Brasil ON)
+
+#### Contexto
+
+Roberto pediu para construir, categoria por categoria, novas automações de raspagem usando **exatamente a mesma estrutura do Brasil ON/Bacci** (`core/brasilon.js`) — reescrita fiel ao tamanho da fonte (não o MASTER_PROMPT), imagem sempre da própria matéria sem marca d'água, publicação direta sem fila de aprovação. Primeira categoria: **Política** — "o card mais importante do portal". Depois de avaliar e descartar sites novos (Roberto corrigiu com força uma classificação errada minha sobre o Poder360: **não é de esquerda, nunca foi** — CartaCapital e Brasil de Fato sim, Poder360 é centrista/factual, cuidado redobrado com rótulos político-editoriais daqui pra frente), Roberto decidiu reaproveitar uma fonte **já aprovada no pipe geral**: Jovem Pan, especificamente `https://jovempan.com.br/politica/` (a seção, não o feed geral misturado).
+
+#### 1) Fix do card de destaque da home — só Política (PR #401, commit `e2074a22`)
+
+Bug real encontrado a pedido de Roberto: o card de destaque (o mais importante da home) misturava `politica` + `economia`. Corrigido em `public/js/home.js` (`carregarCardHero()`) para usar **somente `politica`**. Economia ganhará um card dedicado próprio — tarefa que o próprio Roberto assumiu ("vou colocar um card novo de economia").
+
+#### 2) Automação Jovem Pan Política — estrutura completa (PR #402)
+
+Réplica fiel da estrutura Bacci/Brasil ON, adaptada:
+
+- **`core/jovempanpolitica.js`** (novo) — sem sitemap (testado ao vivo: `sitemap_index.xml` retorna 404 na Jovem Pan, CMS diferente da Bacci/WordPress+Yoast). Único caminho: raspagem direta de `https://jovempan.com.br/politica/`, regex de `href` para links de matéria, filtro de URL contra tag/página/autor/publieditorial.
+- **`core/ai_portal.js`** — novo kernel dedicado `JOVEMPAN_POLITICA_KERNEL` + `rewriteJovempanPolitica()` (reescrita fiel ao tamanho da fonte, MESMO padrão do `BRASILON_KERNEL` — MASTER_PROMPT intocado, Regra Zero-B respeitada).
+- **`api/run_portal.js`** — `autoJovempanPolitica()` + `salvarJovempanPolitica()`, dispatch via `body.tipo==="jovempan_politica"`. Zero arquivos novos em `api/` (roteado pelo dispatcher existente — Regra Zero-A intacta, 10 arquivos).
+- **Filtro de promoção/anúncio** — Roberto, no meio da construção, mandou aviso explícito: *"ATENCAO PARA PROMOCOES, PROPAGANDAS, ANUNCIOS, ETC"*. Adicionado `pareceConteudoPromocional()` em `core/jovempanpolitica.js` (regex contra "compre agora", "cupom de desconto", "assine e ganhe", "de R$X por R$Y" etc.) como segunda barreira, além do filtro de URL já existente — chamado em `autoJovempanPolitica()` antes da reescrita.
+- **`.github/workflows/pipeline-cron.yml`** — novo job `jovempan_politica`, mesmo padrão dos outros (`force:true,count:3`).
+- **Imagens confirmadas limpas** (verificação real, não suposição): 4 amostras baixadas via GitHub Actions + Pillow, reduzidas/recodificadas em base64, reconstruídas localmente e inspecionadas visualmente com a ferramenta de leitura de imagem — fotos hospedadas em `wp-content/uploads` da própria Jovem Pan, sem logotipo nem marca d'água. Roberto confirmou por print próprio.
+
+#### 3) 🔴 BUG REAL PÓS-DEPLOY — `generated:0` com `candidates:15` — causa raiz encontrada e corrigida (PRs #403 e #404)
+
+Primeiro disparo ao vivo do pipeline (`{"tipo":"jovempan_politica","force":true,"count":2}`) retornou `{"status":"ok","generated":0,"candidates":15}` — 15 candidatos reais encontrados, zero publicados, **sem nenhuma pista visível** no JSON de resposta. Recusei reportar sucesso e investiguei com evidência real, sem adivinhar (regra permanente desta sessão).
+
+**PR #403** — instrumentação: campo `falhas` (mesmo padrão diagnóstico já usado em `autoOutrosEsportesCurtinhas()`) contando em qual etapa exata cada candidato é descartado (`pautaFonte`, `scrapeErro`, `textoCurto`, `promo`, `anuncioPrograma`, `hashDup`, `validacao`, `pautaTitulo`, `semImagem`, `rewriteErro`). Disparo real seguinte revelou: `falhas.semImagem:7` — a esmagadora maioria dos candidatos processados falhava por falta de imagem.
+
+**Causa raiz real** (`core/scraper.js`): `jovempan.com.br` está em `COMPETITOR_IMG_HOSTS` — lista de domínios de concorrentes cuja imagem `isValidImage()` sempre rejeita, **correta** no fluxo geral de matérias via RSS (não reaproveitar foto de concorrente num artigo com MASTER_PROMPT vindo de fonte diferente), mas **errada** para este canal específico, que é estruturalmente igual ao Bacci: a imagem DEVE ser sempre a da própria fonte.
+
+**PR #404 (fix, commit `e78354eb`)** — `scrape(url, opts)` ganha `opts.allowCompetitorImage` (default `false` — **zero mudança** nos outros ~11 pontos de chamada do pipeline geral). Passado `true` somente em `autoJovempanPolitica()`.
+
+**Verificação real pós-deploy (não confiei só na resposta JSON do próprio pipeline):**
+1. Disparo ao vivo via workflow diagnóstico (GitHub Actions — este sandbox bloqueia acesso de rede direto a `ovalorcapital.com.br`) → `{"status":"ok","generated":2,"candidates":15,"falhas":{tudo 0}}`
+2. Consulta independente à API pública (`GET /api/portal-posts?recentes=true&categoria=politica&limit=8`) → confirmou 2 posts reais no topo do feed de Política, timestamps dentro da janela do teste, com imagem própria já salva no Supabase Storage:
+   - "Fux Abre Reunião de Conciliação Sobre Socorro ao BRB para Imprensa"
+   - "PGR Se Opõe a Visitas a Bolsonaro e Defende Restrições do STF"
+
+**Padrão a repetir em qualquer automação futura no molde Bacci/Brasil ON que reaproveite fonte já presente em `core/rss.js`:** sempre checar se o domínio da fonte está em `COMPETITOR_IMG_HOSTS` (`core/scraper.js`) — se estiver, ela vai gerar `semImagem` silencioso em 100% dos candidatos até alguém notar e passar `allowCompetitorImage:true` explicitamente no `scrape()` daquele canal.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** que os artigos da Jovem Pan Política estão saindo com qualidade editorial adequada (reescrita fiel, sem cara de plágio/refraseado ruim) — só a mecânica (geração + imagem) foi verificada nesta sessão, não a qualidade do texto.
+2. **Card dedicado de Economia na home** — Roberto disse que fará ele mesmo ("vou colocar um card novo de economia"); não iniciar sem ele pedir.
+3. **Próxima categoria no molde Bacci/Jovem Pan** — Roberto sinalizou continuar esse padrão para outras categorias (Economia foi cogitada); aguardar ele indicar a fonte, mesmo padrão desta sessão (preferir fonte já aprovada em `core/rss.js` antes de badalar site novo).
+
+---
+
+### Sessão 13/08/2026 (continuação) — AUTOMAÇÃO INTERNACIONAL (BBC News + CNN)
+
+#### Contexto
+
+Roberto pediu a próxima automação no molde Bacci/Jovem Pan: card Internacional, "monitoramento 24 horas por dia em pelo menos 2 sites internacionais de relevância mundial... internacional cobre tudo o que for internacional, sem restrição de temas". Corrigiu minha primeira leva de candidatos (Al Jazeera + DW) — queria "veiculo grande americano, ingles": CNN, Bloomberg, BBC, New York Post. Também autorizou algo NOVO em relação a Bacci/Jovem Pan: pode usar imagem do veículo de origem MESMO com marca d'água ("nao tem problema... podem usar estas... que usem marca dagua").
+
+#### Fontes testadas ao vivo (7 candidatos, evidência real via GitHub Actions — nunca suposição)
+
+| Site | Resultado |
+|---|---|
+| Reuters | HTTP 401 — bloqueia scraping direto |
+| Bloomberg | HTTP 403 — bloqueia scraping direto |
+| Al Jazeera | funciona (sitemap+homepage OK, imagem limpa confirmada visualmente) — descartada, fora da lista pedida por Roberto |
+| DW (Deutsche Welle) | funciona — descartada, é alemã, Roberto queria americano/inglês |
+| New York Post | funciona, imagem confirmada limpa visualmente — não usada por ora, fica como reserva/3ª opção já validada |
+| **BBC News** | ✅ escolhida — mas imagem SEMPRE vem com marca d'água "BBC News" (CDN `ichef.bbci.co.uk/.../branded_news/...`), confirmado em 4 amostras reais |
+| **CNN International** | ✅ escolhida — reachable, links frescos, imagem via `media.cnn.com` |
+
+#### O que foi implementado (PR #406, commit squash `27bb17c0`)
+
+Estrutura idêntica a Bacci/Jovem Pan Política:
+- `core/internacional.js` (novo) — `buscarCandidatosInternacional()` combina BBC (`bbc.com/news/world`) + CNN (`cnn.com/world`), raspagem direta de homepage (sem sitemap dedicado usado), filtro de promoção/anúncio (`pareceConteudoPromocional`)
+- `core/ai_portal.js` — `INTERNACIONAL_KERNEL` + `rewriteInternacional()`: reescrita fiel ao tamanho da fonte, **sem restrição de tema** (política, economia, tecnologia, esportes — tudo que vier), MASTER_PROMPT intocado (Regra Zero-B)
+- `api/run_portal.js` — `autoInternacional()` + `salvarInternacional()`, dispatch via `body.tipo==="internacional"`. `user_tags:["internacional"]`, `subcategoria_slug:"internacional"`. Zero arquivos novos em `api/` (Regra Zero-A, 10 arquivos)
+- **Diferença técnica chave:** `processAndSaveImage()` chamado com `skipVision:true` (mesmo padrão Bacci/JP) — mas aqui é ainda mais importante, porque SEM isso o filtro de Vision provavelmente rejeitaria a própria marca d'água da BBC que Roberto autorizou manter. Nem `bbc.com` nem `cnn.com` estão em `COMPETITOR_IMG_HOSTS` (`core/scraper.js`), então `allowCompetitorImage` não foi necessário aqui (diferente de Jovem Pan, que precisou desse parâmetro por `jovempan.com.br` estar bloqueado nessa lista)
+- `.github/workflows/pipeline-cron.yml` — novo job `internacional`, roda 24h/dia sem janela de horário (`force:true, count:3`, a cada ~15min)
+
+#### 🔴 Limite diário do Vercel Free atingido — deploy real ainda pendente
+
+PR #406 mesclado, CI ("Verificar arquivos críticos") verde, mas o `deploy.yml` de produção **falhou** com:
+```
+Error: Resource is limited - try again in 24 hours (more than 100, code: "api-deployments-free-per-day")
+```
+Causa: volume alto de pushes/testes ao vivo nesta sessão (múltiplas rodadas de diagnóstico via GitHub Actions para achar e validar as fontes). Roberto perguntou, corretamente cético, se o limite já teria resetado (~00:36 BRT, ele lembrava reset às 22h ou 00h) — este commit de documentação serve também como teste real do reset. Ver resultado do próximo `deploy.yml` run para o commit deste push.
+
+#### Estado de api/ — 10 ARQUIVOS ✅
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar que o deploy da automação Internacional chegou em produção** — verificar `deploy.yml` (run mais recente) e, se ok, disparar `{"tipo":"internacional","force":true,"count":2}` para confirmar geração real (mesmo protocolo de verificação usado para Jovem Pan Política: contador de `falhas` já embutido, e checagem cruzada via `/api/portal-posts?categoria=internacional`).
+2. Demais pendências de sessões anteriores (qualidade editorial Jovem Pan Política, card de Economia — Roberto mesmo, próxima categoria no molde Bacci) seguem válidas.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 13/08/2026 (continuação 2) — LIMITE VERCEL PERSISTENTE + RANKING GIGANTE (PRIORIDADE FUTURA) + FIX RADAR ELEITORAL TRAVADO
+
+#### 🔴 Limite diário do Vercel — persistiu por >1h, cota é POR PROJETO
+
+Confirmado com múltiplos testes reais ao longo da sessão (03:31–04:54 UTC): o limite `api-deployments-free-per-day` do plano Free **não é uma cota única da conta** — cada um dos 3 projetos Vercel (`ovalorcapital`, `ovalorcapital-xuhw`, `ovalorcapital-hubx`) tem cota própria de 100 deploys/dia. `ovalorcapital-hubx` se recuperou primeiro (~04:13 UTC); `ovalorcapital` e **`ovalorcapital-xuhw` (produção, o que `deploy.yml` usa)** continuaram bloqueados até o fim da sessão. A mensagem do próprio Vercel diz "try again in 24 hours" — é uma janela **rolante** de 24h a partir de quando o 100º deploy daquele projeto específico bateu, não um horário fixo do dia (a suposição de Roberto de reset às 22h/00h não se confirmou nos testes reais).
+
+**Lição para a próxima sessão:** se `deploy.yml` falhar com esse erro, NÃO adianta re-tentar em poucos minutos — checar `ovalorcapital-xuhw` especificamente (não os outros 2 projetos, que podem já estar OK enquanto o de produção ainda não). Evitar rodadas excessivas de diagnóstico via push em sessões futuras quando possível (usar `curl` local sempre que a informação não depender de código já commitado, reservando pushes reais para quando genuinamente necessário).
+
+#### 🟡 GUARDADO NA LISTA DE PRIORIDADES — Ranking gigante de políticos (dados oficiais)
+
+Roberto mandou print de `ranking.org.br` e pediu pra investigar e "adaptar" o Radar Eleitoral pra algo assim, "na verdade melhor que isso". Investigação real (via GitHub Actions, não suposição):
+
+**O que o site é de fato:** projeto de ONG de transparência (Next.js/Turbopack) que avalia deputados/senadores com base em **gastos públicos, processos judiciais e votações no Congresso** — dados estruturados reais, não notícia. Estrutura confirmada: `/ranking/politicos`, `/ranking/estados/todos/acumulado`, `/ranking/partidos/todos/acumulado`, `/perfil/{nome}` (perfil individual por parlamentar), `/nossa-atuacao/radar-politico` (editorial, não widget), `/criterios-e-metodologia`.
+
+**Por que isso é um projeto à parte, não uma automação de raspagem:** diferente de Bacci/Jovem Pan/Internacional (scrape+reescrita de notícia), um ranking de políticos por gastos/processos/votações exige **dados oficiais estruturados** (API de dados abertos da Câmara/Senado, TCU, etc.), banco novo, pipeline de ETL contínuo, e cuidado jurídico redobrado (ranking público de político é tema sensível). Roberto confirmou: **"guarda isso na lista de prioridades. vamos retomar em breve e construir um ranking gigante nosso."** — NÃO iniciar sem ele retomar o assunto explicitamente. Quando retomar: perguntar primeiro qual fonte de dados oficial ele quer usar (Câmara tem API de dados abertos gratuita e pública) antes de estimar escopo.
+
+#### 🔴 CORRIGIDO — Radar Eleitoral travado desde 07/08 (não maio, mas real)
+
+Roberto, no mesmo fio: "por hora, o nosso radar está uma vergonha e ele nem atualiza direito, o grafico com os dados nem se mexe, desde maio". Investigado com evidência real (logs do workflow `update-polls.yml`, não suposição):
+
+- Até **05/08** o job atualizava de verdade: `{"ok":true,"pesquisa":{"candidatos":[{"nome":"Lula","pct":46},{"nome":"Bolsonaro","pct":42},{"nome":"Outros","pct":12}],"fonte":"BBC News Brasil — julho/2026"}}`
+- A partir de **07/08**, toda execução (07, 10, 12/08 confirmados) retornou `{"ok":false,"reason":"sem_dados"}` — **6 dias seguidos travado** nos mesmos números de 05/08. Não "desde maio" literalmente, mas genuinamente quebrado e real.
+
+**Causa raiz (PR #410, mergeado):** `handleUpdatePesquisa()` em `api/manage.js` buscava primeiro nos próprios artigos do OVC com keywords amplas (`%eleit%`, `%pesquisa%` — casam com QUALQUER matéria sobre eleição, não só pesquisa de intenção de voto). Com o pipeline gerando até 80 artigos/dia, sempre existia algum artigo casando com esse filtro frouxo — então `artigos.length` nunca era 0, e o fallback mais confiável (Google News RSS) **nunca era tentado**, porque só disparava quando a busca no banco retornava zero resultados. A IA corretamente respondia "sem_dados" (os artigos achados não tinham percentual concreto), mas a fonte mais provável de ter dado real nunca era consultada.
+
+**Fix:** reestruturado pra sempre tentar as duas fontes na mesma requisição — banco próprio primeiro; se vier `sem_dados`, tenta o Google News RSS como segunda chance, em vez de só pular esse fallback quando a query no banco não acha nenhum artigo. `_extrairEsalvar()` dividido em `_extrair()` (só parse, sem gravar) + `_salvarPesquisa()` (grava só quando uma das duas fontes traz dado concreto).
+
+**⚠️ NÃO verificado ao vivo ainda** — o deploy de produção (`ovalorcapital-xuhw`) estava bloqueado pelo limite do Vercel no fim da sessão. Confirmar assim que o deploy passar: disparar `update-polls.yml` manualmente (ou aguardar próximo agendamento seg/qua/sex 08h BRT) e conferir se o `fonte` no config `PESQUISA_ELEITORAL` mudou de "julho/2026" para algo mais recente.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão (atualizado)
+
+1. **Confirmar deploy de produção (`ovalorcapital-xuhw`)** — verificar se saiu do limite do Vercel e se os commits pendentes desta sessão (automação Internacional PR #406, cabeçalho/hashtags/veículo PR #409, fix Radar Eleitoral PR #410) chegaram ao ar.
+2. **Confirmar fix do Radar Eleitoral funcionando** — ver protocolo de verificação acima.
+3. **Ranking gigante de políticos** — projeto futuro, aguardando Roberto retomar explicitamente. NÃO iniciar sozinho.
+4. Demais pendências de sessões anteriores (qualidade editorial Jovem Pan Política, card de Economia — Roberto mesmo, próxima categoria no molde Bacci, foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 13/08/2026 (continuação) — QUOTA VERCEL LIBEROU (parcial) + deploy.yml SEM workflow_dispatch
+
+#### Contexto
+
+Checagem agendada de acompanhamento da quota do Vercel Hobby (100 deploys/dia, rolling 24h). Protocolo: branch de teste a partir de origin/main, PR trivial, observar comentário do Vercel bot.
+
+#### Resultado
+
+- PR de teste (#414): os 3 projetos passaram de "Resource is limited" para **Building → Ready** sem erro de quota — incluindo `ovalorcapital-xuhw` (produção). PR fechado sem merge logo em seguida.
+- **Descoberta importante:** `deploy.yml` (o workflow real que faz `vercel deploy --prod` para `ovalorcapital-xuhw`) só tem trigger `on: push: branches: [main]` — **não tem `workflow_dispatch`**. Não é possível disparar manualmente via Actions UI/API sem um push real.
+- Tentativa de re-executar o último run falho (`31668664024`, commit `ecd7c7de`, falhou 04:57 UTC) via API retornou `403 Resource not accessible by integration` — a integração usada por esta sessão não tem permissão de re-run em Actions.
+- **Conclusão:** a única forma confiável de confirmar que o deploy real de produção passa é um push de verdade em `main` (PR + merge) e checar o `deploy.yml` resultante — não dá pra inferir só pelos previews do Vercel bot em PRs (esses usam a integração GitHub App do Vercel, que aparentemente libera de forma independente/mais cedo que a quota vista pelo `vercel deploy` via CLI no `deploy.yml`).
+
+#### 🔧 Anotação para a próxima sessão
+
+Se Roberto perguntar de novo "já liberou?": não basta abrir um PR de teste e ver os previews ficarem "Ready" — isso não prova que `deploy.yml` (produção real) vai passar. É preciso mergear algo real (ou pelo menos deixar essa PR de teste seguir até o merge) e conferir o run do `deploy.yml` em `actions_list` (branch=main, resource_id=deploy.yml) com `conclusion:success` para o commit mais recente.
+
+---
+
+### Sessão 13/08/2026 (continuação 2) — 🔴🔴🔴 CAUSA RAIZ REAL DO CARD INTERNACIONAL TRAVADO — CORRIGIDA E VERIFICADA END-TO-END
+
+#### Contexto
+
+Roberto, direto: *"o card que está na home do INTERNACIONAL segue igual.... nao mudou nada"* — mesmo após o fix de `/brand/i` na BBC (PR #417) já ter sido deployado. Investigação completa, sem aceitar sucesso não verificado, seguindo o protocolo já estabelecido nesta sessão de nunca reportar "corrigido" sem evidência real.
+
+#### Investigação — cronologia real
+
+1. Confirmado via `git log` que `filtrarCandidatosProntos()` — o "grace-period gate" que só publica um link na SEGUNDA vez que aparece entre os candidatos (evita raspar matéria em desenvolvimento antes da fonte terminar de atualizar) — foi introduzido no commit `c80ba125`, ~14:58 BRT do mesmo dia desta sessão, e afeta os 3 canais que o compartilham: **Internacional, Brasil ON e Jovem Pan Política**.
+2. Consultado direto o Supabase via workflow diagnóstico (GitHub Actions, único jeito de checar produção real — este sandbox não tem rede pra `ovalorcapital.com.br` nem Supabase): `SEEN_LINKS_INTERNACIONAL`, `SEEN_LINKS_BRASILON` e `SEEN_LINKS_JOVEMPAN_POLITICA` estavam **completamente ausentes** do banco, mesmo com o `deploy.yml` do commit `c80ba125` confirmado `success` horas antes.
+3. Um upsert manual via `curl` direto na API REST do Supabase, com as MESMAS credenciais hardcoded do `api/run_portal.js`, funcionou perfeitamente (HTTP 201) — inicialmente isso pareceu descartar bug de código, mas na verdade mascarava o problema real (ver #6).
 4. **PR #418** — adicionado `brutosLen`/`prontosLen` na resposta `candidates:0` dos 3 canais (campo puramente diagnóstico). Chamada real em produção revelou `brutosLen:15, prontosLen:0` — ou seja, o scraping (BBC/CNN/Bacci/Jovem Pan) funcionava perfeitamente a partir do IP da Vercel (**descarta** a hipótese de bloqueio de IP/Cloudflare, que era a suspeita inicial mais forte dado o histórico de Revista Oeste/Bacci nesta mesma sessão) — mas o grace-period gate nunca marcava nada como "já visto".
 5. Comparando o valor gravado em `SEEN_LINKS_INTERNACIONAL` antes/depois de uma chamada real com 15 candidatos novos: o valor ficou **bit-a-bit idêntico** ao meu teste manual anterior — ou seja, o `.upsert()` de dentro do código de produção **não persistia nada, silenciosamente**, mesmo rodando sem erro aparente.
 6. **PR #419** — trocado os `catch(_){}` mudos por captura real de `error.message` do Supabase (tanto do `.select()` quanto do `.upsert()`), expostos via campo `debug` na resposta. Uma nova chamada real revelou o erro Postgres exato, nunca visto antes por estar sendo engolido:
