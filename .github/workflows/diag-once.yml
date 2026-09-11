@@ -13,83 +13,21 @@ jobs:
       - run: |
           python3 << 'PYEOF'
           import urllib.request, urllib.error, json
-          from datetime import datetime, timedelta, timezone
-
-          SB_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4"
-                     "amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoy"
-                     "MDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40")
-
-          def sb_get(path):
-              req = urllib.request.Request(SB_URL + path, headers={
-                  "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY
-              })
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
-
-          def sb_update(collection_path, filter_qs, body):
-              req = urllib.request.Request(SB_URL + collection_path + "?" + filter_qs, method="PATCH",
-                  headers={"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY,
-                           "Content-Type": "application/json", "Prefer": "return=representation"},
-                  data=json.dumps(body).encode())
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
-
-          def sb_insert(collection_path, body):
-              req = urllib.request.Request(SB_URL + collection_path, method="POST",
-                  headers={"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY,
-                           "Content-Type": "application/json", "Prefer": "return=representation"},
-                  data=json.dumps(body).encode())
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
-
-          def set_config(key, value):
-              # Padrão seguro já estabelecido no projeto: a coluna `key` da
-              # tabela config NÃO tem constraint unique real — nunca usar
-              # .upsert(...,{onConflict:"key"}). Sempre select-then-update-
-              # or-insert.
-              existing = sb_get(f"/rest/v1/config?key=eq.{key}&select=key")
-              if existing:
-                  sb_update("/rest/v1/config", f"key=eq.{key}", {"value": value})
-              else:
-                  sb_insert("/rest/v1/config", {"key": key, "value": value})
-
-          print("=== ANTES ===")
-          antes = sb_get("/rest/v1/config?key=in.(IG_AUTOMATION_ENABLED,BON_IG_ENABLED,REELS_AUTOMATION_ENABLED)&select=key,value,updated_at")
-          for row in antes:
-              print(" ", row["key"], "=", row["value"], "| updated_at:", row.get("updated_at"))
-
-          print()
-          print("=== RELIGANDO (feed automático, OVC e Brasil ON — Reels fica intocado, off) ===")
-          set_config("IG_AUTOMATION_ENABLED", "on")
-          set_config("BON_IG_ENABLED", "on")
-
-          print()
-          print("=== DEPOIS ===")
-          depois = sb_get("/rest/v1/config?key=in.(IG_AUTOMATION_ENABLED,BON_IG_ENABLED,REELS_AUTOMATION_ENABLED)&select=key,value,updated_at")
-          for row in depois:
-              print(" ", row["key"], "=", row["value"], "| updated_at:", row.get("updated_at"))
-
-          nowBRT = datetime.now(timezone.utc) - timedelta(hours=3)
-          minutos = nowBRT.hour * 60 + nowBRT.minute
-          dentro_janela = 14*60 <= minutos < 19*60
-          print()
-          print("Hora atual BRT:", nowBRT.strftime("%H:%M"), "| dentro da janela 14h-19h:", dentro_janela)
 
           def call_action(url, action):
-              req = urllib.request.Request(url, method="POST",
+              # pass= vai na QUERY STRING — checkAdmin só lê body.token/
+              # body.admin_token OU req.query.token/req.query.pass, nunca
+              # body.pass (erro cometido na 1ª tentativa desta sessão).
+              full_url = url + "?action=" + action + "&pass=ovc-admin-2026-secreto"
+              req = urllib.request.Request(full_url, method="POST",
                   headers={"Content-Type": "application/json"},
-                  data=json.dumps({"action": action, "pass": "ovc-admin-2026-secreto"}).encode())
+                  data=json.dumps({}).encode())
               try:
                   with urllib.request.urlopen(req, timeout=40) as r:
                       return True, json.loads(r.read().decode())
               except urllib.error.HTTPError as e:
                   return False, e.read().decode()
 
-          print()
-          print("=== chamada real ao endpoint de automação (confirma operando, não só a flag) ===")
           ok1, data1 = call_action("https://www.ovalorcapital.com.br/api/manage", "ig_auto_publish")
           print("OVC ig_auto_publish:", ok1, json.dumps(data1) if ok1 else data1)
-          ok2, data2 = call_action("https://www.obrasilon.com.br/api/manage", "instagram_auto_publish")
-          print("Brasil ON instagram_auto_publish:", ok2, json.dumps(data2) if ok2 else data2)
           PYEOF
