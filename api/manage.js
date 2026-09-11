@@ -70,6 +70,15 @@ export default async function handler(req, res) {
       if (action === "interruptor_toggle") return handleInterruptorToggle(req, res);
       if (action === "banners") return handleBanners(req, res);
       if (action === "list_posts_colunista") return handleListPostsColunista(req, res);
+      // 11/09/2026 — BUG REAL corrigido: o cron nativo da Vercel (vercel.json)
+      // SEMPRE dispara via GET (comportamento fixo da plataforma), mas esta
+      // whitelist de GET nunca incluía ig_priority_publish — toda chamada do
+      // cron caía silenciosamente no fallback handleStatus(res) sem publicar
+      // nada. Fila de 8 matérias reais ficou travada >40min até esse bug ser
+      // encontrado com evidência real (recheck via diag-once mostrando a
+      // fila intocada mesmo após o deploy do cron). _igCronAuthorized já lê
+      // req.query.pass via checkAdmin, então basta expor a action aqui.
+      if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, undefined);
       return handleStatus(res);
     }
 
