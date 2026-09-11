@@ -1942,6 +1942,8 @@ function BrasilOnAdmin() {
   const [reelsEnabled, setReelsEnabled] = useState(false);
   const [savingReels, setSavingReels] = useState(false);
   const [reelsMsg, setReelsMsg] = useState("");
+  const [pausandoIg, setPausandoIg] = useState(false);
+  const [pausaIgMsg, setPausaIgMsg] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -2041,6 +2043,29 @@ function BrasilOnAdmin() {
 
   const toggleIgCategory = cat => setIgConfig({...igConfig,categories:igConfig.categories.includes(cat)?igConfig.categories.filter(x=>x!==cat):[...igConfig.categories,cat]});
 
+  // 11/09/2026 — botão de pausa/retomada IMEDIATA, separado do fluxo de
+  // "Salvar configuração" (que reenvia intervalo/limite/categorias e só
+  // aplica depois de clicar Salvar). Mesmo pedido de Roberto do painel do
+  // OVC, aqui para o Brasil ON: "isso precisa ser separado uma pro ovc e
+  // outra para o brasil on". O backend (action=instagram_config) já
+  // aceita um corpo parcial — sem interval/dailyLimit/categories ele usa
+  // os valores já salvos, então basta mandar {pass, enabled}.
+  const togglePausaBrasilOn = async () => {
+    setPausandoIg(true); setPausaIgMsg('');
+    try {
+      const next = !igConfig.enabled;
+      const r = await fetch(`${BON_API}?action=instagram_config`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pass: BON_PASS, enabled: next })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.blockers?.join(', ') || d.error || 'erro ao pausar/retomar');
+      setIgConfig(prev => ({...prev, enabled: next}));
+      setPausaIgMsg(next ? 'Automação do Brasil ON retomada agora.' : 'Automação do Brasil ON pausada agora.');
+    } catch(e) { setPausaIgMsg('Erro: '+e.message); }
+    finally { setPausandoIg(false); await load(); }
+  };
+
   // 07/09/2026 — Reels (vídeo) do Brasil ON, mesmo mecanismo do OVC.
   // Fonte: video_url de brasilon_posts, herdado do OVC via mirror/sync.
   const saveReelsConfig = async () => {
@@ -2095,6 +2120,10 @@ function BrasilOnAdmin() {
               <span>{igStatus?.ready?'●':'○'}</span>
               <span>{igStatus?.ready?'Estrutura pronta para ativação.':'Preparação segura: nenhuma publicação será disparada enquanto houver pendências.'}</span>
             </div>
+            <button onClick={togglePausaBrasilOn} disabled={pausandoIg} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'16px 22px',fontSize:16,fontWeight:800,borderRadius:10,border:'none',cursor:pausandoIg?'wait':'pointer',opacity:pausandoIg?0.7:1,background:igConfig.enabled?'var(--red)':'var(--green)',color:'#fff',margin:'14px 0',letterSpacing:0.2}}>
+              {pausandoIg ? 'Aplicando...' : (igConfig.enabled ? '⏸ PAUSAR AUTOMAÇÃO DO BRASIL ON AGORA' : '▶ RETOMAR AUTOMAÇÃO DO BRASIL ON AGORA')}
+            </button>
+            {pausaIgMsg && <div style={{marginBottom:14,fontSize:13,fontWeight:600,color:pausaIgMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaIgMsg}</div>}
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:16,marginTop:16}}>
               <div className="form-group"><label className="form-label">Conta</label><input className="form-input" value="@obrasilon" disabled/></div>
               <div className="form-group"><label className="form-label">IG User ID</label><input className="form-input" value={igAccount.ig_user_id} onChange={e=>setIgAccount({...igAccount,ig_user_id:e.target.value})} placeholder="Será obtido na Meta"/></div>
@@ -3641,6 +3670,8 @@ function AutomacaoInstagram() {
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [msg,setMsg] = useState('');
+  const [pausando,setPausando] = useState(false);
+  const [pausaMsg,setPausaMsg] = useState('');
 
   const brtStart = () => {
     const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -3690,6 +3721,21 @@ function AutomacaoInstagram() {
       await load();
     }catch(e){setMsg('Erro ao salvar: '+e.message);}finally{setSaving(false);}
   };
+  // 11/09/2026 — botão de pausa/retomada IMEDIATA, separado do fluxo de
+  // "Salvar configuração" (que também grava intervalo/limite/categorias
+  // e exige clicar Salvar). Roberto: "eu preciso que tenha um botao que
+  // reamente funcione para quando eu quiser pausar as automacoes". Grava
+  // SÓ a chave IG_AUTOMATION_ENABLED, sem depender do resto do formulário.
+  const togglePausaGeral = async () => {
+    setPausando(true); setPausaMsg('');
+    try {
+      const next = !cfg.enabled;
+      await setConfig('IG_AUTOMATION_ENABLED', next ? 'on' : 'off');
+      setCfg(prev => ({...prev, enabled: next}));
+      setPausaMsg(next ? 'Automação do OVC retomada agora.' : 'Automação do OVC pausada agora.');
+    } catch(e) { setPausaMsg('Erro ao pausar/retomar: '+e.message); }
+    finally { setPausando(false); await load(); }
+  };
   const toggleCat = cat => setCfg({...cfg,categories:cfg.categories.includes(cat)?cfg.categories.filter(x=>x!==cat):[...cfg.categories,cat]});
 
   // 07/09/2026 — toggle de pausa dos Reels (vídeo), a pedido de Roberto:
@@ -3730,6 +3776,10 @@ function AutomacaoInstagram() {
     <div className="page-header"><div className="page-title">Automação do Instagram</div><div className="page-sub">Controle, operação e relatório diário do @ovalorcapital</div></div>
     <div className="page-body">
       <div className={`alert-banner ${cfg.enabled?'green':'yellow'}`}><span>{cfg.enabled?'●':'○'}</span><span><strong>{cfg.enabled?'Automação ligada':'Automação desligada'}</strong> · Conta {account?'@'+account.username:'não encontrada'} · Token {account?.token?'configurado':'ausente'}</span></div>
+      <button onClick={togglePausaGeral} disabled={pausando} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'16px 22px',fontSize:16,fontWeight:800,borderRadius:10,border:'none',cursor:pausando?'wait':'pointer',opacity:pausando?0.7:1,background:cfg.enabled?'var(--red)':'var(--green)',color:'#fff',marginBottom:18,letterSpacing:0.2}}>
+        {pausando ? 'Aplicando...' : (cfg.enabled ? '⏸ PAUSAR AUTOMAÇÃO DO OVC AGORA' : '▶ RETOMAR AUTOMAÇÃO DO OVC AGORA')}
+      </button>
+      {pausaMsg && <div style={{marginBottom:14,fontSize:13,fontWeight:600,color:pausaMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaMsg}</div>}
       <div className="ig-auto-metrics">
         <div className="metric-card"><div className="metric-label">Publicados hoje</div><div className="metric-value">{posts.length}</div></div>
         <div className="metric-card"><div className="metric-label">Limite diário</div><div className="metric-value">{Number(cfg.dailyLimit)>0?cfg.dailyLimit:'Livre'}</div></div>
