@@ -2,9 +2,74 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Investigar estado real do Instagram (fila prioritária + contas)
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import urllib.request
+
+          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          def sb(path):
+              req = urllib.request.Request(
+                  SUPABASE_URL + "/rest/v1/" + path,
+                  headers={"apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY}
+              )
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read().decode())
+
+          print("=== config: chaves de Instagram ===")
+          rows = sb("config?key=in.(IG_AUTOMATION_ENABLED,BON_IG_ENABLED,REELS_AUTOMATION_ENABLED,IG_COLLAB_AUTO_ACCEPT_ENABLED)&order=updated_at.desc")
+          seen = set()
+          for r in rows:
+              if r["key"] not in seen:
+                  seen.add(r["key"])
+                  print(r["key"], "=", r["value"], "| updated_at:", r["updated_at"])
+
+          print()
+          print("=== ig_accounts (todas) ===")
+          accounts = sb("ig_accounts?select=id,username,active,distribuicao_automatica,limite_diario,ig_user_id,token,updated_at")
+          for a in accounts:
+              print({
+                  "username": a.get("username"),
+                  "active": a.get("active"),
+                  "distribuicao_automatica": a.get("distribuicao_automatica"),
+                  "tem_ig_user_id": bool(a.get("ig_user_id")),
+                  "tem_token": bool(a.get("token")),
+                  "limite_diario": a.get("limite_diario"),
+                  "updated_at": a.get("updated_at"),
+              })
+
+          print()
+          print("=== posts com metrics.instagram_priority (fila manual) ===")
+          fila = sb("posts?select=id,titulo,updated_at,metrics&metrics->>instagram_priority=not.is.null&limit=50")
+          print("total na fila agora:", len(fila))
+          for p in fila:
+              m = p.get("metrics") or {}
+              if isinstance(m, str):
+                  try:
+                      m = json.loads(m)
+                  except Exception:
+                      m = {}
+              print(p["id"], "|", (p.get("titulo") or "")[:60], "| priority:", m.get("instagram_priority"), "| failed:", m.get("instagram_priority_failed"))
+
+          print()
+          print("=== logs [ig-priority] / [ig-auto] / [ig-collab] últimas 6h ===")
+          import datetime
+          since = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).isoformat()
+          logs = sb("logs?select=level,message,created_at&created_at=gte." + since + "&order=created_at.desc&limit=80")
+          logs = [l for l in logs if ("[ig-priority]" in l["message"] or "[ig-auto]" in l["message"] or "[ig-collab]" in l["message"])]
+          print("total de linhas relevantes:", len(logs))
+          for l in logs[:40]:
+              print(l["created_at"], "|", l["level"], "|", l["message"][:180])
+          PYEOF
