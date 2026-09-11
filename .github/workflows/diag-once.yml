@@ -1,7 +1,8 @@
 name: Diagnóstico único (placeholder)
 
-# Verificação final: fix real (PR #750) já em produção — confirmar se a
-# fila de 8 itens travada finalmente drenou pelo cron nativo da Vercel.
+# Verificação final v2: fix real (PR #750) já em produção — confirmar se a
+# fila de 8 itens travada finalmente drenou pelo cron nativo da Vercel,
+# dando tempo real pro tick de */5min às 19h50/19h55 UTC já ter passado.
 
 on:
   workflow_dispatch:
