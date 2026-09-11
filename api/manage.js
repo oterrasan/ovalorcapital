@@ -628,15 +628,27 @@ const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c
 // 10/09/2026 (manhã) — janela 08h-12h/14h30-19h BRT — SUBSTITUÍDA no mesmo dia.
 // 10/09/2026 (tarde) — Roberto: "pause as automações dos Instagrams / retorne
 // as 14hrs apenas". Janela única, sem bloco de manhã nem pausa de meio-dia:
-// ativo 14h-19h BRT (corte seco às 19h). ESTADO ATUAL, vigente — ver
+// ativo 14h-19h BRT (corte seco às 19h). ver
 // brasilon/api/manage.js e .github/workflows/instagram-auto.yml, atualizados
 // junto no mesmo pedido.
-const IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN = 14 * 60;       // 14:00 BRT — início
+// 11/09/2026 — Roberto: "voce só ligou as janelas da tarde. e esqueceu as
+// da manha. comecam as 08hrs e param meio dia. retornam as 14h00" — o bloco
+// da manhã (removido por engano em 10/09/2026 tarde, quando o pedido dele
+// foi lido como "janela única" sem confirmar se o bloco de manhã devia
+// mesmo sair) volta a existir. ESTADO ATUAL, vigente: ativo 08h-12h BRT,
+// pausa 12h-14h BRT, ativo de novo 14h-19h BRT (corte seco às 19h). Gate
+// redundante em brasilon/api/manage.js e cron em
+// .github/workflows/instagram-auto.yml atualizados junto, no mesmo pedido.
+const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 8 * 60;        // 08:00 BRT — início do bloco da manhã
+const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa de almoço começa
+const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60;          // 14:00 BRT — retoma o bloco da tarde
 const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT
 function _igAutoDentroDaJanelaAtiva() {
   const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
   const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
-  return minutosBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
+  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
+  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
+  return manha || tarde;
 }
 
 function _igCronAuthorized(req, body) {
@@ -1054,7 +1066,7 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
 async function handleIgAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_15_22_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08_12_14_19_brt" });
   }
 
   const settings = await _igAutoConfig();

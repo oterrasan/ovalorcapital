@@ -44,12 +44,22 @@ name: Instagram - Publicação Automática
 # meio-dia: ativo 14h-19h BRT (corte seco às 19h). Gate redundante em
 # api/manage.js e em brasilon/api/manage.js atualizados junto, no mesmo
 # pedido (os dois voltaram pro cálculo simples de horas inteiras — não
-# há mais nenhum limite em minuto quebrado). ESTADO ATUAL, vigente.
+# há mais nenhum limite em minuto quebrado).
+#
+# 11/09/2026 — Roberto: "voce só ligou as janelas da tarde. e esqueceu as
+# da manha. comecam as 08hrs e param meio dia. retornam as 14h00" — o
+# bloco da manhã (removido por engano em 10/09/2026 tarde) volta a
+# existir. ESTADO ATUAL, vigente: ativo 08h-12h BRT, pausa 12h-14h BRT,
+# ativo de novo 14h-19h BRT (corte seco às 19h). Gate redundante em
+# api/manage.js e em brasilon/api/manage.js atualizados junto, no mesmo
+# pedido. Novo schedule `*/20 11-14 * * *` cobre o bloco da manhã.
 #
 # Cron é sempre UTC (não existe opção de timezone, nem no Actions nem na
 # Vercel — já confirmado nesta mesma sessão pro cron nativo da Vercel).
-# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 14h-19h BRT = 17h-22h UTC
-# (horas 17,18,19,20,21 inteiras). Pausa 19h-14h BRT = 22h-17h UTC (todo o
+# BRT = UTC-3 (some 3 pra converter BRT→UTC). Ativo 08h-12h BRT = 11h-14h
+# UTC (horas 11,12,13,14 inteiras — 14:59 UTC ainda é 11:59 BRT, dentro do
+# bloco). Pausa 12h-14h BRT = 15h-16h UTC. Ativo 14h-19h BRT = 17h-22h UTC
+# (horas 17,18,19,20,21 inteiras). Corte 19h-08h BRT = 22h-11h UTC (todo o
 # resto do dia).
 #
 # 10/09/2026 (fila prioritária) — cron dedicado `*/5 * * * *` criado aqui
@@ -73,6 +83,7 @@ name: Instagram - Publicação Automática
 on:
   schedule:
     - cron: '*/20 17-21 * * *'
+    - cron: '*/20 11-14 * * *'
     - cron: '*/10 * * * *'
   workflow_dispatch:
 
@@ -101,7 +112,7 @@ jobs:
           test "$status" = "200"
 
   publicar:
-    if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *'
+    if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
