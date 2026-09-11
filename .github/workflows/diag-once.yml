@@ -2,95 +2,9 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/diag-once.yml'
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          python3 << 'PYEOF'
-          import urllib.request, urllib.error, urllib.parse, json, re
-
-          SB_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4"
-                     "amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoy"
-                     "MDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40")
-          FB_BASE = "https://graph.facebook.com/v25.0"
-
-          def redact(s):
-              return re.sub(r'access_token=[^&"\'\s]+', 'access_token=[redacted]', str(s))
-
-          def sb_get(path):
-              req = urllib.request.Request(SB_URL + path, headers={
-                  "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY
-              })
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
-
-          def sb_patch(path, body):
-              req = urllib.request.Request(SB_URL + path, method="PATCH",
-                  headers={"apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY,
-                           "Content-Type": "application/json", "Prefer": "return=representation"},
-                  data=json.dumps(body).encode())
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
-
-          def fb_call(method, path, params):
-              url = FB_BASE + path + "?" + urllib.parse.urlencode(params)
-              req = urllib.request.Request(url, method=method)
-              try:
-                  with urllib.request.urlopen(req, timeout=20) as r:
-                      body = r.read().decode()
-                      return True, (json.loads(body) if body else {})
-              except urllib.error.HTTPError as e:
-                  return False, json.loads(e.read().decode())
-
-          accs = sb_get("/rest/v1/ig_accounts?select=id,username,token&id=eq.645cce5f-ad40-47ad-a995-1fb6aa5a75ac")
-          token = accs[0]["token"]
-
-          # Os 3 posts que Roberto manteve no Instagram (o 4º, "Imprensa
-          # internacional repercute crise interna...", já foi removido por ele
-          # — confirmado que o ig_id não existe mais na Graph API, então não
-          # tentamos comentar nele).
-          ids_manter = [
-              "88d59224-e138-4f58-8899-3ca4aa3ab09b",
-              "e49981b8-ab11-419f-8fca-2ffb0032a962",
-              "1f16d134-5258-4692-a55b-ddabfe100aa3",
-          ]
-
-          for post_id in ids_manter:
-              rows = sb_get(f"/rest/v1/posts?select=id,titulo,comentario_fixado,metrics&id=eq.{post_id}")
-              p = rows[0]
-              m = json.loads(p["metrics"]) if isinstance(p["metrics"], str) else p["metrics"]
-              ig = dict((m or {}).get("instagram", {}))
-              ig_id = ig.get("ig_id")
-              old_comment_id = ig.get("first_comment_id")
-              texto_real = (p.get("comentario_fixado") or "").strip()
-
-              print("===", p["titulo"][:60], "===")
-              if not texto_real:
-                  print("  SEM comentario_fixado real — pulando (não há o que corrigir)")
-                  continue
-
-              if old_comment_id:
-                  ok, data = fb_call("DELETE", "/" + old_comment_id, {"access_token": token})
-                  print("  delete comentário antigo:", ok, redact(data) if not ok else "ok")
-
-              ok, data = fb_call("POST", "/" + ig_id + "/comments", {"message": texto_real, "access_token": token})
-              if not ok:
-                  print("  FALHA ao postar comentário novo:", redact(data))
-                  continue
-              new_comment_id = data.get("id")
-              print("  novo comentário postado, id:", new_comment_id)
-
-              ig["first_comment_id"] = new_comment_id
-              ig["first_comment_text"] = texto_real
-              ig["first_comment_corrigido_em"] = "2026-09-11"
-              m2 = dict(m or {})
-              m2["instagram"] = ig
-              sb_patch(f"/rest/v1/posts?id=eq.{post_id}", {"metrics": m2})
-              print("  metrics atualizado no banco.")
-          PYEOF
+      - run: echo "placeholder — nada a fazer"
