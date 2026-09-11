@@ -2,32 +2,9 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/diag-once.yml'
 
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          python3 << 'PYEOF'
-          import urllib.request, urllib.error, json
-
-          def call_action(url, action):
-              # pass= vai na QUERY STRING — checkAdmin só lê body.token/
-              # body.admin_token OU req.query.token/req.query.pass, nunca
-              # body.pass (erro cometido na 1ª tentativa desta sessão).
-              full_url = url + "?action=" + action + "&pass=ovc-admin-2026-secreto"
-              req = urllib.request.Request(full_url, method="POST",
-                  headers={"Content-Type": "application/json"},
-                  data=json.dumps({}).encode())
-              try:
-                  with urllib.request.urlopen(req, timeout=40) as r:
-                      return True, json.loads(r.read().decode())
-              except urllib.error.HTTPError as e:
-                  return False, e.read().decode()
-
-          ok1, data1 = call_action("https://www.ovalorcapital.com.br/api/manage", "ig_auto_publish")
-          print("OVC ig_auto_publish:", ok1, json.dumps(data1) if ok1 else data1)
-          PYEOF
+      - run: echo "placeholder — nada a fazer"
