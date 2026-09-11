@@ -67,6 +67,7 @@ on:
   schedule:
     - cron: '*/20 17-21 * * *'
     - cron: '*/5 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -74,6 +75,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  processar_collabs:
+    if: github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Processar convites de collab autorizados
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          response=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"ig_collab_auto_process"}' \
+            --max-time 55 \
+            -w "\nHTTP_STATUS:%{http_code}\n")
+          echo "$response"
+          status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')
+          test "$status" = "200"
+
   publicar:
     if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *'
     runs-on: ubuntu-latest

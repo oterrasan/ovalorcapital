@@ -276,4 +276,34 @@ export async function likeMedia(mediaId, accountId) {
   return data;
 }
 
+export async function getCollaborationInvites(accountId) {
+  const account = await getAccount(accountId);
+  if (!account?.ig_user_id || !account?.token) throw new Error("Conta sem ig_user_id ou token para consultar collabs");
+
+  const params = new URLSearchParams({
+    fields: "media_id,media_owner_username,caption,media_url",
+    limit: "50",
+    access_token: account.token
+  });
+  const res = await fetch(`${BASE}/${account.ig_user_id}/collaboration_invites?${params}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error("Erro ao consultar convites de collab: " + JSON.stringify(data));
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
+export async function acceptCollaborationInvite(mediaId, accountId) {
+  const account = await getAccount(accountId);
+  if (!account?.ig_user_id || !account?.token) throw new Error("Conta sem ig_user_id ou token para aceitar collab");
+  if (!mediaId) throw new Error("Convite de collab sem media_id");
+
+  const res = await fetch(`${BASE}/${account.ig_user_id}/collaboration_invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_id: String(mediaId), accept: true, access_token: account.token })
+  });
+  const data = await res.json();
+  if (!res.ok || data?.error) throw new Error("Erro ao aceitar convite de collab: " + JSON.stringify(data));
+  return data;
+}
+
 export { getAccount };

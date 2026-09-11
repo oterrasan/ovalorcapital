@@ -5,6 +5,7 @@ import { join } from "path";
 import { detectPublicationLocation } from "../core/instagram_location.js";
 import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
 import { mirrorPostToBrasilOn } from "../core/brasilonMirror.js";
+import { normalizeCollabPolicy, shouldAutoAcceptCollab, normalizeInstagramUsername } from "../core/instagram_collab_policy.js";
 
 // 🚨 REGRA PERMANENTE — INCIDENTE 31/08/2026 (FUNCTION_INVOCATION_FAILED em TODA
 // ação de api/manage.js, admin em tela preta + Instagram automático parado):
@@ -86,6 +87,7 @@ export default async function handler(req, res) {
     if (action === "ig_publish") return handleIgPublish(req, res, body);
     if (action === "ig_preview") return handleIgPreview(req, res, body);
     if (action === "ig_auto_publish") return handleIgAutoPublish(req, res, body);
+    if (action === "ig_collab_auto_process") return handleIgCollabAutoProcess(req, res, body);
     if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, body);
     if (action === "reels_publish") return handleReelsPublish(req, res, body);
     if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
@@ -666,6 +668,86 @@ async function _igAutoConfig() {
 async function _igAutoSetConfig(key, value) {
   await supabase.from("config").delete().eq("key", key);
   await supabase.from("config").insert({ key, value: String(value), updated_at: new Date().toISOString() });
+}
+
+async function _igCollabConfig() {
+  const keys = ["IG_COLLAB_AUTO_ACCEPT_ENABLED", "IG_COLLAB_AUTO_ACCEPT_POLICY"];
+  const { data, error } = await supabase.from("config").select("key,value,updated_at").in("key", keys).order("updated_at", { ascending: false });
+  if (error) throw error;
+  const latest = {};
+  for (const row of data || []) if (!(row.key in latest)) latest[row.key] = row.value;
+  let rawPolicy = {};
+  try { rawPolicy = JSON.parse(latest.IG_COLLAB_AUTO_ACCEPT_POLICY || "{}"); } catch (_) {}
+  return { enabled: latest.IG_COLLAB_AUTO_ACCEPT_ENABLED === "on", policy: normalizeCollabPolicy(rawPolicy) };
+}
+
+async function handleIgCollabAutoProcess(req, res, body) {
+  if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  try {
+    const settings = await _igCollabConfig();
+    if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "aceite_automatico_pausado" });
+
+    const { data: accounts, error } = await supabase
+      .from("ig_accounts")
+      .select("id,username,ig_user_id,token,active")
+      .eq("active", true)
+      .not("token", "is", null);
+    if (error) throw error;
+
+    const recipients = (accounts || []).filter(account => {
+      const username = normalizeInstagramUsername(account.username);
+      return username !== "oterrasan" && settings.policy.recipients.includes(username) && account.ig_user_id && account.token;
+    });
+    const results = [];
+    const { getCollaborationInvites, acceptCollaborationInvite, likeMedia } = await _loadInstagram();
+
+    for (const account of recipients) {
+      const recipient = normalizeInstagramUsername(account.username);
+      try {
+        const invites = await getCollaborationInvites(account.id);
+        for (const invite of invites) {
+          const source = normalizeInstagramUsername(invite.media_owner_username);
+          const mediaId = String(invite.media_id || "");
+          if (!shouldAutoAcceptCollab({ recipient, source, policy: settings.policy })) {
+            results.push({ recipient, source, media_id: mediaId || null, skipped: true, reason: "regra_nao_autoriza" });
+            continue;
+          }
+          if (!mediaId) {
+            results.push({ recipient, source, skipped: true, reason: "convite_sem_media_id" });
+            continue;
+          }
+
+          await acceptCollaborationInvite(mediaId, account.id);
+          let liked = false;
+          let likeError = null;
+          if (settings.policy.autoLike) {
+            try { await likeMedia(mediaId, account.id); liked = true; }
+            catch (likeFailure) { likeError = redactSecrets(likeFailure?.message || String(likeFailure)); }
+          }
+          results.push({ recipient, source, media_id: mediaId, accepted: true, liked, like_error: likeError });
+          await writeLog("info", `[ig-collab] @${recipient} aceitou collab de @${source}${liked ? " e curtiu" : ""}`);
+        }
+        if (!invites.length) results.push({ recipient, checked: true, pending: 0 });
+      } catch (accountFailure) {
+        const safeError = redactSecrets(accountFailure?.message || String(accountFailure));
+        results.push({ recipient, ok: false, error: safeError });
+        await writeLog("error", `[ig-collab] @${recipient}: ${safeError}`);
+      }
+    }
+
+    return res.status(200).json({
+      ok: results.every(item => item.ok !== false),
+      accounts_configured: settings.policy.recipients.length,
+      accounts_ready: recipients.length,
+      accepted: results.filter(item => item.accepted).length,
+      results
+    });
+  } catch (failure) {
+    const safeError = redactSecrets(failure?.message || String(failure));
+    await writeLog("error", "[ig-collab] falha geral: " + safeError);
+    return res.status(200).json({ ok: false, error: safeError });
+  }
 }
 
 function _igAutoPublishedAtMs(value) {

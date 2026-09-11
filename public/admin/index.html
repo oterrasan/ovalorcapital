@@ -3629,6 +3629,12 @@ function AutomacaoInstagram() {
   const [reelsEnabled,setReelsEnabled] = useState(true);
   const [savingReels,setSavingReels] = useState(false);
   const [reelsMsg,setReelsMsg] = useState('');
+  const COLLAB_PADRAO = ['souabetaferreira','adriana.ferreirasp','amichelefroes'];
+  const [collabEnabled,setCollabEnabled] = useState(false);
+  const [collabRecipients,setCollabRecipients] = useState(COLLAB_PADRAO);
+  const [igAccounts,setIgAccounts] = useState([]);
+  const [savingCollab,setSavingCollab] = useState(false);
+  const [collabMsg,setCollabMsg] = useState('');
   const [posts,setPosts] = useState([]);
   const [logs,setLogs] = useState([]);
   const [account,setAccount] = useState(null);
@@ -3652,16 +3658,21 @@ function AutomacaoInstagram() {
   const load = async () => {
     setLoading(true);
     const start=brtStart();
-    const [c,p,l,a]=await Promise.all([
-      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED']).order('updated_at',{ascending:false}),
+    const [c,p,l,a,ia]=await Promise.all([
+      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY']).order('updated_at',{ascending:false}),
       sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
-      sb.from('logs').select('level,message,created_at').gte('created_at',start).ilike('message','%[ig-auto]%').order('created_at',{ascending:false}).limit(100),
-      sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).limit(1).maybeSingle()
+      sb.from('logs').select('level,message,created_at').gte('created_at',start).or('message.ilike.%[ig-auto]%,message.ilike.%[ig-collab]%').order('created_at',{ascending:false}).limit(100),
+      sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).eq('username','ovalorcapital').limit(1).maybeSingle(),
+      sb.from('ig_accounts').select('id,username,ig_user_id,token,active').order('username',{ascending:true})
     ]);
     const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
     let cats=CATEGORIAS.map(x=>x[0]); try{const parsed=JSON.parse(latest.IG_AUTOMATION_CATEGORIES||'[]');if(Array.isArray(parsed)&&parsed.length)cats=parsed;}catch{}
     setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
     setReelsEnabled(latest.REELS_AUTOMATION_ENABLED==='on');
+    let collabPolicy={};try{collabPolicy=JSON.parse(latest.IG_COLLAB_AUTO_ACCEPT_POLICY||'{}')}catch{}
+    setCollabEnabled(latest.IG_COLLAB_AUTO_ACCEPT_ENABLED==='on');
+    setCollabRecipients(Array.isArray(collabPolicy.recipients)?collabPolicy.recipients.map(x=>String(x).replace(/^@/,'').toLowerCase()):COLLAB_PADRAO);
+    setIgAccounts(ia.data||[]);
     setPosts((p.data||[]).filter(row=>parseMetrics(row.metrics)?.instagram?.published_via==='ig_auto_publish'));
     setLogs(l.data||[]); setAccount(a.data||null); setLoading(false);
   };
@@ -3692,6 +3703,25 @@ function AutomacaoInstagram() {
       await setConfig('REELS_AUTOMATION_ENABLED', reelsEnabled ? 'on' : 'off');
       setReelsMsg('Configuração de Reels salva.');
     } catch(e) { setReelsMsg('Erro ao salvar: '+e.message); } finally { setSavingReels(false); }
+  };
+  const collabCandidates=[...new Set([...COLLAB_PADRAO,...igAccounts.map(a=>String(a.username||'').replace(/^@/,'').toLowerCase())])]
+    .filter(x=>x&&!['ovalorcapital','obrasilon','oterrasan'].includes(x));
+  const collabReadiness = username => {
+    const account=igAccounts.find(a=>String(a.username||'').replace(/^@/,'').toLowerCase()===username);
+    return Boolean(account?.active&&account?.ig_user_id&&account?.token);
+  };
+  const collabReadyCount=collabRecipients.filter(collabReadiness).length;
+  const toggleCollabRecipient = username => setCollabRecipients(collabRecipients.includes(username)?collabRecipients.filter(x=>x!==username):[...collabRecipients,username]);
+  const saveCollab = async () => {
+    setSavingCollab(true);setCollabMsg('');
+    try {
+      if(collabEnabled&&collabReadyCount===0) throw new Error('cadastre e ative ao menos uma conta destinatária com IG User ID e token');
+      const policy={sources:['ovalorcapital','obrasilon'],recipients:collabRecipients,autoLike:true};
+      await setConfig('IG_COLLAB_AUTO_ACCEPT_POLICY',JSON.stringify(policy));
+      await setConfig('IG_COLLAB_AUTO_ACCEPT_ENABLED',collabEnabled?'on':'off');
+      setCollabMsg('Configuração de collabs salva.');
+      await load();
+    } catch(e) { setCollabMsg('Erro ao salvar: '+e.message); } finally { setSavingCollab(false); }
   };
   const failures=logs.filter(x=>x.level==='error');
 
@@ -3726,8 +3756,20 @@ function AutomacaoInstagram() {
           <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingReels} onClick={saveReels}>{savingReels?'Salvando...':'Salvar configuração'}</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
         </div>
       </div>
+      <div className="panel" style={{marginBottom:18}}>
+        <div className="panel-header"><span className="panel-title">Aceitação automática de collabs</span><span className={`badge ${collabEnabled?'badge-green':'badge-red'}`}>{collabEnabled?'ATIVA':'PAUSADA'}</span></div>
+        <div style={{padding:20}}>
+          <div className="text-secondary text-small" style={{marginBottom:12}}>Aceita somente convites enviados por @ovalorcapital e @obrasilon. Após aceitar, a conta destinatária curte a publicação. @oterrasan permanece sempre manual.</div>
+          <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={collabEnabled} onChange={e=>setCollabEnabled(e.target.checked)}/><span>{collabEnabled?'Ligada':'Pausada'}</span></label></div>
+          <div className="form-group"><label className="form-label">Contas que aceitarão automaticamente</label>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>{collabCandidates.map(username=><label key={username} style={{display:'grid',gridTemplateColumns:'24px minmax(150px,1fr) auto',alignItems:'center',gap:8,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer'}}><input type="checkbox" checked={collabRecipients.includes(username)} onChange={()=>toggleCollabRecipient(username)}/><span>@{username}</span><span className={`badge ${collabReadiness(username)?'badge-green':'badge-yellow'}`}>{collabReadiness(username)?'PRONTA':'FALTA VINCULAR'}</span></label>)}</div>
+          </div>
+          <div style={{fontSize:12,color:'var(--t2)',marginBottom:12}}>{collabReadyCount} de {collabRecipients.length} conta(s) selecionada(s) pronta(s).</div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingCollab} onClick={saveCollab}>{savingCollab?'Salvando...':'Salvar configuração de collabs'}</button>{collabMsg&&<span style={{fontSize:12,color:collabMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{collabMsg}</span>}</div>
+        </div>
+      </div>
       <div className="panel" style={{marginBottom:18}}><div className="panel-header"><span className="panel-title">Publicações automáticas de hoje</span><button className="btn btn-secondary btn-sm" onClick={load}>Atualizar</button></div>{posts.length===0?<div className="empty-state"><div className="empty-text">Nenhuma publicação automática registrada hoje</div></div>:<table><thead><tr><th>Horário</th><th>Matéria</th><th>Categoria</th><th>Instagram</th></tr></thead><tbody>{posts.map(p=>{let cat='';try{cat=(Array.isArray(p.user_tags)?p.user_tags:JSON.parse(p.user_tags||'[]'))[0]||''}catch{}return <tr key={p.id}><td>{fmt(p.updated_at)}</td><td>{truncate(p.titulo,70)}</td><td><span className="badge badge-gray">{cat}</span></td><td className="text-small">{p.ig_id||'—'}</td></tr>})}</tbody></table>}</div>
-      <div className="panel"><div className="panel-header"><span className="panel-title">Execuções e falhas de hoje</span><span className="badge badge-gray">{logs.length}</span></div>{logs.length===0?<div className="empty-state"><div className="empty-text">Sem registros hoje</div></div>:<table><thead><tr><th>Horário</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>{logs.map((l,i)=><tr key={i}><td>{fmt(l.created_at)}</td><td><span className={`badge ${l.level==='error'?'badge-red':'badge-green'}`}>{l.level==='error'?'Falha':'OK'}</span></td><td>{l.message.replace('[ig-auto] ','')}</td></tr>)}</tbody></table>}</div>
+      <div className="panel"><div className="panel-header"><span className="panel-title">Execuções e falhas de hoje</span><span className="badge badge-gray">{logs.length}</span></div>{logs.length===0?<div className="empty-state"><div className="empty-text">Sem registros hoje</div></div>:<table><thead><tr><th>Horário</th><th>Status</th><th>Detalhe</th></tr></thead><tbody>{logs.map((l,i)=><tr key={i}><td>{fmt(l.created_at)}</td><td><span className={`badge ${l.level==='error'?'badge-red':'badge-green'}`}>{l.level==='error'?'Falha':'OK'}</span></td><td>{l.message.replace(/^\[ig-(?:auto|collab)\]\s*/,'')}</td></tr>)}</tbody></table>}</div>
     </div>
   </div>;
 }
