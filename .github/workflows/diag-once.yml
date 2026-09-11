@@ -81,9 +81,43 @@ jobs:
               print("HTTP", status)
               print(json.dumps(body, indent=2, ensure_ascii=False))
 
+          def s_bon_posted_attempts():
+              rows = sb("config?key=like.BON_IG_POSTED__*&select=key,value,updated_at&order=updated_at.desc&limit=20")
+              print("total de tentativas registradas:", len(rows))
+              for r in rows:
+                  print(r["key"], "| updated_at:", r["updated_at"], "| value:", r["value"][:250])
+
+          def s_fila_recheck():
+              fila = sb("posts?select=id,titulo,updated_at,metrics&metrics->>instagram_priority=not.is.null&limit=50")
+              print("total na fila AGORA (recheck):", len(fila))
+              for p in fila:
+                  m = p.get("metrics") or {}
+                  if isinstance(m, str):
+                      try:
+                          m = json.loads(m)
+                      except Exception:
+                          m = {}
+                  print(p["id"], "|", (p.get("titulo") or "")[:60], "| priority:", m.get("instagram_priority"))
+
+          def s_posts_publicados_recentes():
+              since = (datetime.datetime.utcnow() - datetime.timedelta(hours=1)).isoformat()
+              rows = sb("posts?select=id,titulo,metrics,updated_at&metrics->instagram->>ig_id=not.is.null&updated_at=gte." + since + "&order=updated_at.desc&limit=10")
+              print("posts publicados no feed OVC na última 1h:", len(rows))
+              for r in rows:
+                  m = r.get("metrics") or {}
+                  if isinstance(m, str):
+                      try:
+                          m = json.loads(m)
+                      except Exception:
+                          m = {}
+                  print(r["id"], "|", (r.get("titulo") or "")[:60], "| via:", m.get("instagram", {}).get("published_via"), "| updated_at:", r["updated_at"])
+
           section("config: chaves de Instagram", s_config)
           section("ig_accounts (todas, select=*)", s_accounts)
           section("posts com metrics.instagram_priority (fila manual)", s_fila)
           section("logs [ig-priority]/[ig-auto]/[ig-collab]/[ig-reels*] últimas 6h", s_logs)
           section("Brasil ON — instagram_status (read-only)", s_bon_status)
+          section("Brasil ON — tentativas registradas de publicação manual (BON_IG_POSTED__*)", s_bon_posted_attempts)
+          section("RECHECK — fila prioritária agora (pós cron nativo Vercel)", s_fila_recheck)
+          section("posts publicados via Instagram (feed OVC) na última 1h", s_posts_publicados_recentes)
           PYEOF
