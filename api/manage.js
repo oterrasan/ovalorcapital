@@ -1138,9 +1138,20 @@ async function handleIgPriorityPublish(req, res, body) {
   };
 
   try {
+    // 11/09/2026 — BUG REAL corrigido: esta query faltava conteudo,
+    // comentario_fixado e user_tags — exatamente os 3 campos que
+    // buildInstagramCaption()/buildInstagramFirstComment()/buildArticleUrl()
+    // (chamados dentro de _publicarPostFeedAutomatico) usam pra montar a
+    // legenda real, o comentário fixado real e o link certo da matéria.
+    // Sem eles, todo post da fila saía com legenda vazia (só assinatura +
+    // hashtags genéricas + o bloco de CTA "Acesse o portal...") e o
+    // comentário fixado caía sempre no fallback genérico "Leia a matéria
+    // completa no O Valor Capital." — exatamente o sintoma relatado por
+    // Roberto. handleIgAutoPublish (linha ~1079) já selecionava esses
+    // campos corretamente; esta query nunca tinha sido alinhada com ela.
     const { data: candidatos, error: candidatesError } = await supabase
       .from("posts")
-      .select("id, titulo, imagem, ig_id, ig_account_id, metrics")
+      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, ig_id, ig_account_id, metrics")
       .not("metrics->>instagram_priority", "is", null)
       .limit(500);
     if (candidatesError) throw candidatesError;
