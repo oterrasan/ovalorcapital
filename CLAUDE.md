@@ -1,4 +1,4 @@
-Warning: truncated output (original token count: 211069)
+Warning: truncated output (original token count: 208684)
 Total output lines: 9556
 
 # CLAUDE.md — Contexto completo do projeto O Valor Capital
@@ -5525,7 +5525,68 @@ O check `Verificar arquivos críticos` exigia `public/index.html` com ≥700 lin
 
 Roberto perguntou se o pipeline Brasil ON/Bacci travava em algum horário. Investigado via workflow one-off: `buscarBacciHomepage()` (raspagem regex da home) só achava ~3 links, sempre os mesmos, por horas seguidas — a home da Bacci tem só 37KB e 3 links de matéria visíveis pro scraper (causa exata não isolada: bot-detection, cache de borda ou JS parcial).
 
-**Fix:** `core/brasilon.js` ganhou `buscarBacciSitemap()` como método PRIMÁRIO — usa o `sitemap_index.xml` do Yoast SEO (WordPress), pega sempre o ÚLTIMO `post-sitemapN.xml` da lista (Yoast …11069 tokens truncated…erro sem
+**Fix:** `core/brasilon.js` ganhou `buscarBacciSitemap()` como método PRIMÁRIO — usa o `sitemap_index.xml` do Yoast SEO (WordPress), pega sempre o ÚLTIMO `post-sitemapN.xml` da lista (Yoast anexa em ordem cronológica, esse é sempre o chunk ativo), filtra por `<lastmod>` das últimas 8h. Confirmado ao vivo: foi de 3 candidatos travados pra 15 candidatos frescos (até 40min de idade) em ~11s. `buscarBacciHomepage()` mantida como fallback.
+
+#### 🚨 BUG REAL — Radar do Esporte invisível no celular (PR #394)
+
+Roberto, muito frustrado: *"O MALDIDO RADAR DO ESPORTE NAO FUNCIONA"*. Investigação seguiu o protocolo de não-chutar estabelecido em sessões anteriores (ver incidente figure/img de 12/08 mais abaixo no histórico): teste real via Chromium/Playwright rodando dentro do GitHub Actions (única forma de acessar `www.ovalorcapital.com.br` de verdade — este sandbox bloqueia a rede de saída pro domínio).
+
+**Teste 1 — desktop (1366×800):** widget 100% funcional. `#ovc-radar-esporte` visível, 7 abas clicáveis, cada uma carregando artigos reais e frescos (Futebol, Basquete, Motor, Tênis, MMA, NFL — todos com conteúdo; Vôlei mostra "Cobertura chegando em breve" por design, ESPN não cobre Superliga/FIVB). Zero erros JS.
+
+**Teste 2 — mobile (390×844, viewport real de celular):** `elemento existe no DOM: true`, mas **`isVisible: false`, `boundingBox: null`**. Causa: `public/css/responsive.css` tem `.rail-left, .rail-right { display: none; }` em `@media (max-width: 768px)` — ou seja, o rail direito INTEIRO desaparece em qualquer celular (isso afeta também Radar da Copa, Radar Eleitoral, Mais Lidos e o banner sidebar, não é bug específico deste widget). O widget se injeta em `.rail-right` normalmente, mas fica preso num container invisível.
+
+**Fix aplicado em `public/js/ovc-radar-esporte.js`** (isolado, não toca em CSS compartilhado nem em `home.js` — REGRA ZERO-I):
+- `injetar()` agora checa `getComputedStyle(rail).display !== 'none'` antes de inserir no rail direito.
+- Quando o rail estiver oculto (mobile), o widget se injeta no fluxo principal da home (`.main-grid`, entre `.hero-region` e `#ovc-cards-section`) em vez de ficar invisível.
+- Nova classe `.ovc-esporte-mobile` com media query própria troca a altura fixa de 740px (pensada pro rail desktop) por altura automática, adequada ao fluxo de conteúdo.
+
+**Verificado em produção real PÓS-deploy** (não só "deveria funcionar" — testado de novo via Playwright depois do merge+deploy):
+- Mobile: `isVisible: true`, `boundingBox: {x:10,y:4675.5,width:370,height:577.9}`, `classList: ovc-esporte-rail ovc-esporte-mobile`, pai = `main-grid`. 7 abas encontradas, clique na 2ª aba (Basquete) trocou o conteúdo corretamente.
+- Desktop: comportamento inalterado, ainda dentro de `.rail-right` como antes.
+
+**Lição confirmada nesta sessão:** quando Roberto reporta "não funciona" com fúria, o padrão que tem se repetido (figure/img, agora este) é: o código gerador/JS está correto, mas o RENDERER/CSS aplica uma regra que invalida a saída pra um contexto específico (modo legado de renderização; viewport mobile). Testar sempre com dado real de produção — nunca assumir que "o componente existe e não tem erro JS" significa "está visível pro usuário".
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto pelo próprio celular** que o Radar do Esporte agora aparece na home (evidência automatizada já confirmada via Playwright, mas vale o "ver com os próprios olhos").
+2. **Considerar se outros widgets do rail direito precisam do mesmo tratamento mobile** (Radar da Copa, Radar Eleitoral, Mais Lidos, banner sidebar) — hoje eles ficam igualmente invisíveis em celular. NÃO fazer sem Roberto confirmar que quer isso — é mudança de UX maior, mexe em vários arquivos, e ele não reclamou desses especificamente ainda.
+3. Demais pendências de sessões anteriores (foto RIOFW da coluna Taisa, Gemini com modelo descontinuado, chave OpenAI de fallback revogada, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense) seguem válidas.
+
+---
+
+### Sessão 12/08/2026 (continuação) — 🚨 CORREÇÃO DO REGISTRO — O FIX DO RADAR DO ESPORTE ACIMA (PR #394) NÃO RESOLVEU DE VERDADE. CAUSA RAIZ REAL: PR #396
+
+> Roberto voltou furioso poucas horas depois do PR #394 "confirmado": *"esse maldito RADAR DO ESPORTE NAO FUNCIONA"*. Ele estava certo. O registro acima ficou incompleto — documentando aqui a causa raiz REAL e o fix que efetivamente resolveu, verificado em produção.
+
+**O que estava errado no diagnóstico do PR #394:** o teste Playwright daquela sessão media `isVisible: true` e `boundingBox` válido (577px de altura, elemento real) — e por isso a sessão concluiu "fixado". Mas nunca mediu a **posição absoluta na página** (`getBoundingClientRect().top + scrollY`). O widget estava genuinamente visível (não é `display:none`, não tem erro JS) — só que a ~4675px do topo, depois de TODO o feed de cards da home mobile, praticamente no rodapé. Tecnicamente "visível", praticamente inatingível — ninguém rola 5+ telas de celular sem motivo.
+
+**Causa raiz real:** `.main-grid` é **CSS Grid** com `grid-row` explícito em `.hero-region` (linha 1), `.cols-region` (linha 2), `.cols-region-2` (linha 3) — ver `home.css` ~734-751. Isso vale mesmo no breakpoint mobile (nenhuma media query reseta esses `grid-row`). O PR #394 inseria o widget como filho direto de `.main…8684 tokens truncated…icialmente isso pareceu descartar bug de código, mas na verdade mascarava o problema real (ver #6).
+4. **PR #418** — adicionado `brutosLen`/`prontosLen` na resposta `candidates:0` dos 3 canais (campo puramente diagnóstico). Chamada real em produção revelou `brutosLen:15, prontosLen:0` — ou seja, o scraping (BBC/CNN/Bacci/Jovem Pan) funcionava perfeitamente a partir do IP da Vercel (**descarta** a hipótese de bloqueio de IP/Cloudflare, que era a suspeita inicial mais forte dado o histórico de Revista Oeste/Bacci nesta mesma sessão) — mas o grace-period gate nunca marcava nada como "já visto".
+5. Comparando o valor gravado em `SEEN_LINKS_INTERNACIONAL` antes/depois de uma chamada real com 15 candidatos novos: o valor ficou **bit-a-bit idêntico** ao meu teste manual anterior — ou seja, o `.upsert()` de dentro do código de produção **não persistia nada, silenciosamente**, mesmo rodando sem erro aparente.
+6. **PR #419** — trocado os `catch(_){}` mudos por captura real de `error.message` do Supabase (tanto do `.select()` quanto do `.upsert()`), expostos via campo `debug` na resposta. Uma nova chamada real revelou o erro Postgres exato, nunca visto antes por estar sendo engolido:
+   ```
+   "there is no unique or exclusion constraint matching the ON CONFLICT specification"
+   ```
+   **A causa raiz real**: a coluna `key` da tabela `config` **não tem constraint unique/PK no banco real** — apesar de `.upsert(payload, {onConflict:"key"})` ser usado dessa forma em VÁRIOS lugares do projeto (`api/run_portal.js`, `api/manage.js` — `COLUNISTAS_PHOTOS`, `PESQUISA_ELEITORAL` etc.) assumindo que existe. Meu teste manual do passo 3 "funcionou" só porque o `curl` com `Prefer: resolution=merge-duplicates` **sem** `on_conflict=key` explícito faz o PostgREST cair no default (provavelmente a PK real da tabela, um `id` uuid) — na prática apenas inserindo uma linha NOVA a cada vez, nunca de fato fazendo update na linha existente. Isso mascarou o bug real por horas.
+7. **PR #420 — FIX REAL**: `filtrarCandidatosProntos()` trocou `.upsert(...,{onConflict:"key"})` por um padrão **update-se-existir-a-linha, senão insert** — não depende de nenhuma constraint/`ON CONFLICT`, funciona com o schema real da tabela sem exigir nenhuma migração SQL manual do Roberto.
+8. **Verificação end-to-end, com evidência real, não suposição**: após deploy do PR #420, uma primeira chamada em produção gravou `SEEN_LINKS_INTERNACIONAL` com 15 links reais da BBC (`debug.upsertErr:null` confirmado) — uma segunda chamada logo em seguida (mesmos links, ainda dentro da janela de estabilidade do link do homepage) resultou em `{"generated":2,"candidates":15,...}` — **2 artigos reais publicados**. Confirmado por fim via `GET /api/portal-posts?recentes=true&categoria=internacional` que os 2 artigos ("Advogados de Mangione se Reúnem com Promotores Federais...", "Romênia Fecha Usina Nuclear Devido a Baixos Níveis do Rio Danúbio") estão no ar, com imagem, slug e URL reais.
+
+#### 🚨🚨🚨 Lição crítica — gravar para toda sessão futura
+
+```
+❌ NUNCA confiar em "um upsert manual com essas credenciais funcionou" como prova de que o
+   MESMO upsert funciona da mesma forma dentro do código de produção — a forma exata da
+   chamada importa. supabase-js .upsert(payload, {onConflict:"COLUNA"}) SÓ funciona se essa
+   coluna tiver uma constraint unique/PK real no banco Postgres. Sem ela, o Postgres rejeita
+   com "there is no unique or exclusion constraint matching the ON CONFLICT specification"
+   — um erro REAL, não um erro de rede/RLS/timeout. Um catch(_){} mudo engole esse erro sem
    deixar rastro nenhum, fazendo o sintoma parecer "trava silenciosa" por horas.
 ❌ Um teste manual via curl com Prefer:resolution=merge-duplicates SEM on_conflict= explícito
    não é equivalente a um .upsert(payload,{onConflict:"coluna_X"}) do supabase-js — o
