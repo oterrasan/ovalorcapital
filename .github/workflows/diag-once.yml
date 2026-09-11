@@ -11,11 +11,12 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Investigar estado real do Instagram (fila prioritária + contas)
+      - name: Investigar estado real do Instagram (contas, fila, status)
         run: |
           python3 << 'PYEOF'
           import json
           import urllib.request
+          import datetime
 
           SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
           SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
@@ -28,48 +29,61 @@ jobs:
               with urllib.request.urlopen(req, timeout=30) as r:
                   return json.loads(r.read().decode())
 
-          print("=== config: chaves de Instagram ===")
-          rows = sb("config?key=in.(IG_AUTOMATION_ENABLED,BON_IG_ENABLED,REELS_AUTOMATION_ENABLED,IG_COLLAB_AUTO_ACCEPT_ENABLED)&order=updated_at.desc")
-          seen = set()
-          for r in rows:
-              if r["key"] not in seen:
-                  seen.add(r["key"])
-                  print(r["key"], "=", r["value"], "| updated_at:", r["updated_at"])
+          def http_get(url):
+              req = urllib.request.Request(url)
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return r.status, json.loads(r.read().decode())
 
-          print()
-          print("=== ig_accounts (todas) ===")
-          accounts = sb("ig_accounts?select=id,username,active,distribuicao_automatica,limite_diario,ig_user_id,token,updated_at")
-          for a in accounts:
-              print({
-                  "username": a.get("username"),
-                  "active": a.get("active"),
-                  "distribuicao_automatica": a.get("distribuicao_automatica"),
-                  "tem_ig_user_id": bool(a.get("ig_user_id")),
-                  "tem_token": bool(a.get("token")),
-                  "limite_diario": a.get("limite_diario"),
-                  "updated_at": a.get("updated_at"),
-              })
+          def section(title, fn):
+              print()
+              print("=== " + title + " ===")
+              try:
+                  fn()
+              except Exception as e:
+                  print("ERRO:", repr(e))
 
-          print()
-          print("=== posts com metrics.instagram_priority (fila manual) ===")
-          fila = sb("posts?select=id,titulo,updated_at,metrics&metrics->>instagram_priority=not.is.null&limit=50")
-          print("total na fila agora:", len(fila))
-          for p in fila:
-              m = p.get("metrics") or {}
-              if isinstance(m, str):
-                  try:
-                      m = json.loads(m)
-                  except Exception:
-                      m = {}
-              print(p["id"], "|", (p.get("titulo") or "")[:60], "| priority:", m.get("instagram_priority"), "| failed:", m.get("instagram_priority_failed"))
+          def s_config():
+              rows = sb("config?key=in.(IG_AUTOMATION_ENABLED,BON_IG_ENABLED,REELS_AUTOMATION_ENABLED,IG_COLLAB_AUTO_ACCEPT_ENABLED)&order=updated_at.desc")
+              seen = set()
+              for r in rows:
+                  if r["key"] not in seen:
+                      seen.add(r["key"])
+                      print(r["key"], "=", r["value"], "| updated_at:", r["updated_at"])
 
-          print()
-          print("=== logs [ig-priority] / [ig-auto] / [ig-collab] últimas 6h ===")
-          import datetime
-          since = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).isoformat()
-          logs = sb("logs?select=level,message,created_at&created_at=gte." + since + "&order=created_at.desc&limit=80")
-          logs = [l for l in logs if ("[ig-priority]" in l["message"] or "[ig-auto]" in l["message"] or "[ig-collab]" in l["message"])]
-          print("total de linhas relevantes:", len(logs))
-          for l in logs[:40]:
-              print(l["created_at"], "|", l["level"], "|", l["message"][:180])
+          def s_accounts():
+              accounts = sb("ig_accounts?select=*")
+              for a in accounts:
+                  safe = {k: (bool(v) if k == "token" else v) for k, v in a.items()}
+                  print(safe)
+
+          def s_fila():
+              fila = sb("posts?select=id,titulo,updated_at,metrics&metrics->>instagram_priority=not.is.null&limit=50")
+              print("total na fila agora:", len(fila))
+              for p in fila:
+                  m = p.get("metrics") or {}
+                  if isinstance(m, str):
+                      try:
+                          m = json.loads(m)
+                      except Exception:
+                          m = {}
+                  print(p["id"], "|", (p.get("titulo") or "")[:60], "| priority:", m.get("instagram_priority"), "| failed:", m.get("instagram_priority_failed"))
+
+          def s_logs():
+              since = (datetime.datetime.utcnow() - datetime.timedelta(hours=6)).isoformat()
+              logs = sb("logs?select=level,message,created_at&created_at=gte." + since + "&order=created_at.desc&limit=200")
+              logs = [l for l in logs if ("[ig-priority]" in l["message"] or "[ig-auto]" in l["message"] or "[ig-collab]" in l["message"] or "[ig-reels" in l["message"].lower())]
+              print("total de linhas relevantes:", len(logs))
+              for l in logs[:50]:
+                  print(l["created_at"], "|", l["level"], "|", l["message"][:200])
+
+          def s_bon_status():
+              status, body = http_get("https://www.obrasilon.com.br/api/manage?action=instagram_status&pass=ovc-admin-2026-secreto")
+              print("HTTP", status)
+              print(json.dumps(body, indent=2, ensure_ascii=False))
+
+          section("config: chaves de Instagram", s_config)
+          section("ig_accounts (todas, select=*)", s_accounts)
+          section("posts com metrics.instagram_priority (fila manual)", s_fila)
+          section("logs [ig-priority]/[ig-auto]/[ig-collab]/[ig-reels*] últimas 6h", s_logs)
+          section("Brasil ON — instagram_status (read-only)", s_bon_status)
           PYEOF
