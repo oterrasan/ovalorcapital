@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<script>(function(){try{if(localStorage.getItem("op-theme")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ⚠️ PLACEHOLDER — nome "OPMED" segue o @opmedbrasil já existente no
+     Instagram; título/descrição/domínio a confirmar com Roberto. -->
+<title>OPMED | Notícias de Saúde, Medicina e Ciência</title>
+<meta name="description" content="Notícias e informações sobre saúde, medicina, odontologia, ciência e bem-estar — reportado com fontes confiáveis, direto ao ponto.">
+<link rel="canonical" href="https://www.opmed.com.br/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OPMED">
+<meta property="og:title" content="OPMED | Notícias de Saúde, Medicina e Ciência">
+<meta property="og:description" content="Notícias e informações sobre saúde, medicina, odontologia, ciência e bem-estar — reportado com fontes confiáveis, direto ao ponto.">
+<meta property="og:image" content="https://www.opmed.com.br/assets/og-opmed.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://www.opmed.com.br/">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@opmedbrasil">
+<meta name="theme-color" content="#0d9488">
+<link rel="stylesheet" href="/css/site.css?v=2">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsMediaOrganization","name":"OPMED","url":"https://www.opmed.com.br/","sameAs":["https://www.instagram.com/opmedbrasil/","https://www.ovalorcapital.com.br/"]}</script>
+</head>
+<body data-theme="light">
+<div class="page-root">
+<header class="header">
+<!-- Faixa 1: ticker (placeholder — ver site.js) + contador -->
+<div class="header-topbar">
+<div class="ticker-wrapper">
+<div class="ticker-track" data-op-ticker-track></div>
+</div>
+<div class="op-counter">
+<span>Casos monitorados hoje</span>
+<span class="op-counter-value" data-op-counter>—</span>
+</div>
+</div>
+<!-- Faixa 2: identidade -->
+<div class="header-identity">
+<div class="logo-block">
+<a class="logo-link" href="/">
+<div class="logo-text-block">
+<div class="logo-name">OPMED</div>
+<div class="logo-tagline">Saúde, medicina &amp; ciência</div>
+</div>
+</a>
+</div>
+<div class="search-block">
+<div class="search-input-wrap">
+<span class="search-icon">🔎</span>
+<input class="search-input" placeholder="Busque por doença, tratamento, especialidade..." type="text">
+</div>
+<div class="search-chips">
+<span class="search-chip">Planos de Saúde</span>
+<span class="search-chip">Inteligência Artificial</span>
+<span class="search-chip">Saúde Mental</span>
+</div>
+</div>
+<div class="header-actions">
+<div class="op-access-wrap" id="opAccessWrap">
+<button class="btn-access" id="opAccessBtn">🔐 Acesso</button>
+<div class="op-access-menu" id="opAccessMenu">
+<a class="op-access-item" href="/admin/">⚙️ Administrador</a>
+</div>
+</div>
+<a class="btn-newsletter" href="/newsletter/">✉️ Newsletter</a>
+<button class="btn-theme" data-op-theme-toggle>
+<span class="icon">☾</span>
+<span>Tema</span>
+</button>
+</div>
+</div>
+<!-- Faixa 3: supermenu — taxonomia de 6 macro-editorias definida por
+     Roberto em 06/09/2026 (mapa completo de subcategorias/slugs em
+     opmed/CLAUDE.md, seção 4). Cada item tem submenu com as subcategorias
+     reais daquela editoria, mesmo padrão de dropdown já usado no OVC. -->
+<div class="header-menu-bar">
+<nav class="supermenu">
+<div class="supermenu-item">
+<a class="label" href="/mercado-negocios/">Mercado &amp; Negócios</a>
+<div class="submenu">
+<div class="submenu-title">Mercado, Negócios &amp; Gestão</div>
+<a href="/mercado-negocios/planos-de-saude/">Planos de Saúde &amp; Saúde Suplementar</a>
+<a href="/mercado-negocios/hospitais-clinicas/">Hospitais &amp; Clínicas</a>
+<a href="/mercado-negocios/laboratorios-diagnostico/">Laboratórios &amp; Diagnóstico</a>
+<a href="/mercado-negocios/industria-farmaceutica/">Indústria Farmacêutica &amp; Insumos</a>
+<a href="/mercado-negocios/regulacao-compliance/">Regulação &amp; Compliance</a>
+</div>
+</div>
+<div class="supermenu-item">
+<a class="label" href="/pratica-clinica/">Prática Clínica</a>
+<div class="submenu">
+<div class="submenu-title">Prática Clínica &amp; Especialidades</div>
+<a href="/pratica-clinica/medicina-enfermagem/">Medicina &amp; Enfermagem</a>
+<a href="/pratica-clinica/odontologia/">Odontologia (Saúde Bucal)</a>
+<a href="/pratica-clinica/reabilitacao-movimento/">Reabilitação &amp; Movimento</a>
+<a href="/pratica-clinica/ciencias-biologicas/">Ciências Biológicas &amp; Diagnósticas</a>
+</div>
+</div>
+<div class="supermenu-item">
+<a class="label" href="/inovacao-digital/">Inovação Digital</a>
+<div class="submenu">
+<div class="submenu-title">Inovação &amp; Saúde Digital</div>
+<a href="/inovacao-digital/inteligencia-artificial/">Inteligência Artificial</a>
+<a href="/inovacao-digital/telessaude-telemedicina/">Telessaúde &amp; Telemedicina</a>
+<a href="/inovacao-digital/engenharia-biomedica/">Engenharia Biomédica</a>
+</div>
+</div>
+<div class="supermenu-item">
+<a class="label" href="/saude-mental/">Saúde Mental</a>
+<div class="submenu">
+<div class="submenu-title">Saúde Mental &amp; Comportamento</div>
+<a href="/saude-mental/psicologia-psiquiatria/">Psicologia &amp; Psiquiatria</a>
+<a href="/saude-mental/saude-mental-profissional/">Saúde Mental do Profissional</a>
+<a href="/saude-mental/terapias-integrativas/">Terapias Integrativas</a>
+</div>
+</div>
+<div class="supermenu-item">
+<a class="label" href="/prevencao-longevidade/">Prevenção &amp; Longevidade</a>
+<div class="submenu">
+<div class="submenu-title">Prevenção, Longevidade &amp; Estilo de Vida</div>
+<a href="/prevencao-longevidade/nutricao-dietetica/">Nutrição &amp; Dietética</a>
+<a href="/prevencao-longevidade/educacao-fisica-esporte/">Educação Física &amp; Esporte</a>
+</div>
+</div>
+<div class="supermenu-item">
+<a class="label" href="/saude-coletiva/">Saúde Coletiva</a>
+<div class="submenu submenu-right">
+<div class="submenu-title">Saúde Coletiva &amp; Políticas Públicas</div>
+<a href="/saude-coletiva/epidemiologia-surtos/">Epidemiologia &amp; Surtos</a>
+<a href="/saude-coletiva/politicas-publicas-sus/">Políticas Públicas &amp; SUS</a>
+<a href="/saude-coletiva/saude-corporativa-trabalho/">Saúde Corporativa &amp; do Trabalho</a>
+<a href="/saude-coletiva/vigilancia-sanitaria/">Vigilância Sanitária</a>
+</div>
+</div>
+</nav>
+</div>
+<!-- Faixa 4: barra de serviços fixa — pedido explícito de Roberto
+     (06/09/2026): "o coração do engajamento" — vagas, agenda de eventos
+     do setor e colunistas assinados, sempre visíveis, separados
+     visualmente do menu editorial acima. -->
+<div class="header-services-bar">
+<div class="header-services-inner">
+<a class="service-chip" href="/vagas/">💼 Hub de Carreiras</a>
+<a class="service-chip" href="/eventos/">📅 Agenda de Eventos do Setor</a>
+<a class="service-chip" href="/colunistas/">✍️ Colunistas</a>
+</div>
+</div>
+</header>
+
+<main class="page-main">
+<div class="main-grid">
+<aside class="rail-left">
+<div class="op-widget">
+<h3 class="op-widget-title">🔥 Mais Lidas</h3>
+<div data-op-w-maislidas><div class="op-widget-empty">Carregando…</div></div>
+</div>
+<!-- Saúde Coletiva em Foco — real: filtra os próprios posts do portal
+     por categoria=saude-coletiva, mesmo mecanismo do rail "Futebol" do
+     Brasil ON (home.js). Some sozinho se não houver post nessa categoria
+     ainda (nunca mostra caixa vazia). -->
+<div class="op-widget" data-op-w-coletiva-wrap hidden>
+<h3 class="op-widget-title">📋 Saúde Coletiva em Foco</h3>
+<div data-op-w-coletiva></div>
+</div>
+</aside>
+
+<div class="hero-region" data-op-hero>
+<div class="op-loading">Carregando manchete…</div>
+</div>
+
+<div class="cols-region">
+<div data-op-blocks></div>
+</div>
+
+<aside class="rail-right">
+<div class="op-widget">
+<h3 class="op-widget-title">Últimas</h3>
+<div data-op-ultimas><div class="op-widget-empty">Carregando…</div></div>
+</div>
+<!-- Inovação & HealthTechs — real: filtra os próprios posts do portal por
+     categoria=inovacao-digital, mesmo mecanismo acima. Some sozinho se vazio. -->
+<div class="op-widget" data-op-w-inovacao-wrap hidden>
+<h3 class="op-widget-title">💻 Inovação &amp; HealthTechs</h3>
+<div data-op-w-inovacao></div>
+</div>
+</aside>
+</div>
+</main>
+
+<footer class="footer">
+<div class="footer-inner">
+<div class="footer-top">
+<div class="footer-brand">
+<div class="footer-logo-name">OPMED</div>
+<div class="footer-tagline">Notícias e informações sobre saúde, medicina, odontologia, ciência e bem-estar.</div>
+<div class="footer-badge">
+<span>Redação OPMED</span>
+</div>
+</div>
+<div class="footer-grid">
+<div>
+<div class="footer-col-title">Mercado &amp; Negócios</div>
+<ul class="footer-links">
+<li><a href="/mercado-negocios/planos-de-saude/">Planos de Saúde</a></li>
+<li><a href="/mercado-negocios/hospitais-clinicas/">Hospitais &amp; Clínicas</a></li>
+<li><a href="/mercado-negocios/industria-farmaceutica/">Indústria Farmacêutica</a></li>
+</ul>
+<div class="footer-col-title">Prática Clínica</div>
+<ul class="footer-links">
+<li><a href="/pratica-clinica/medicina-enfermagem/">Medicina &amp; Enfermagem</a></li>
+<li><a href="/pratica-clinica/odontologia/">Odontologia</a></li>
+<li><a href="/pratica-clinica/ciencias-biologicas/">Ciências Biológicas</a></li>
+</ul>
+</div>
+<div>
+<div class="footer-col-title">Inovação Digital</div>
+<ul class="footer-links">
+<li><a href="/inovacao-digital/inteligencia-artificial/">Inteligência Artificial</a></li>
+<li><a href="/inovacao-digital/telessaude-telemedicina/">Telessaúde &amp; Telemedicina</a></li>
+<li><a href="/inovacao-digital/engenharia-biomedica/">Engenharia Biomédica</a></li>
+</ul>
+<div class="footer-col-title">Saúde Mental</div>
+<ul class="footer-links">
+<li><a href="/saude-mental/psicologia-psiquiatria/">Psicologia &amp; Psiquiatria</a></li>
+<li><a href="/saude-mental/terapias-integrativas/">Terapias Integrativas</a></li>
+</ul>
+</div>
+<div>
+<div class="footer-col-title">Prevenção &amp; Longevidade</div>
+<ul class="footer-links">
+<li><a href="/prevencao-longevidade/nutricao-dietetica/">Nutrição &amp; Dietética</a></li>
+<li><a href="/prevencao-longevidade/educacao-fisica-esporte/">Educação Física &amp; Esporte</a></li>
+</ul>
+<div class="footer-col-title">Saúde Coletiva</div>
+<ul class="footer-links">
+<li><a href="/saude-coletiva/politicas-publicas-sus/">Políticas Públicas &amp; SUS</a></li>
+<li><a href="/saude-coletiva/epidemiologia-surtos/">Epidemiologia &amp; Surtos</a></li>
+<li><a href="/saude-coletiva/vigilancia-sanitaria/">Vigilância Sanitária</a></li>
+</ul>
+</div>
+<div>
+<div class="footer-col-title">Serviços</div>
+<ul class="footer-links">
+<li><a href="/vagas/">💼 Hub de Carreiras</a></li>
+<li><a href="/eventos/">📅 Agenda de Eventos</a></li>
+<li><a href="/colunistas/">✍️ Colunistas</a></li>
+</ul>
+<div class="footer-col-title">Institucional</div>
+<ul class="footer-links">
+<li><a href="/quem-somos/">Quem Somos</a></li>
+<li><a href="/politica-editorial/">Política Editorial</a></li>
+<li><a href="/contato/">Contato</a></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="footer-middle">
+<div>
+<div class="footer-newsletter-title">Newsletter OPMED</div>
+<div class="footer-newsletter-text">Receba as principais notícias de saúde, medicina e ciência.</div>
+<form class="footer-newsletter-form">
+<input class="footer-newsletter-input" placeholder="Seu e-mail" type="email">
+<button class="footer-newsletter-btn" type="button">Assinar</button>
+</form>
+</div>
+<div class="footer-social">
+<div class="footer-social-title">Siga o OPMED</div>
+<div class="footer-social-row">
+<a class="footer-social-chip" href="https://www.instagram.com/opmedbrasil/" target="_blank" rel="noopener">Instagram @opmedbrasil</a>
+</div>
+</div>
+</div>
+<div class="footer-bottom">
+<div>© <span id="op-year"></span> OPMED — uma marca do Grupo Terrasan. Todos os direitos reservados.</div>
+<div class="footer-bottom-links">
+<a href="/termos-de-uso/">Termos de uso</a>
+<a href="/privacidade/">Privacidade</a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+
+<script src="/js/site.js?v=1" defer></script>
+<script src="/js/blocks.js?v=2" defer></script>
+<script src="/js/home.js?v=2" defer></script>
+<script>document.getElementById('op-year') && (document.getElementById('op-year').textContent = new Date().getFullYear());</script>
+</body>
+</html>
