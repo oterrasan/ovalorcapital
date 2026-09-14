@@ -10,6 +10,28 @@
 
 O acabamento de videos, a melhoria de nitidez e a remocao automatica de encerramentos promocionais estao documentados em `REELS_OVC_PROCESSAMENTO.md`. Leia esse arquivo antes de alterar `scripts/render-instagram-reel.mjs`, `api/manage.js` ou o job de Reels em `.github/workflows/instagram-auto.yml`.
 
+---
+
+## 🚨🚨🚨 "PORTAL DO MÉDICO" = OPMED — NUNCA CONFUNDIR COM OUTRA COISA (14/09/2026)
+
+> Roberto pediu "finalize o projeto do portal do medico" e — **duas vezes na mesma sessão** — o Claude não reconheceu do que se tratava, foi investigar repositórios completamente errados (Lions Corretora, oterrasan-siteULTIMO, CRMs) e Roberto ficou furioso: *"NAO TEM NADA A VER COM ESSA BUCETA AI"* / *"ja é a segunda vez que voce nao faz ideia do que estou falando"*.
+
+**"Portal do médico" = OPMED.** Terceiro portal do Grupo Terrasan (junto com o próprio OVC e o Brasil ON) — hub de notícias de saúde, medicina, odontologia, ciência e bem-estar. **Vive dentro DESTE MESMO repositório (`oterrasan/ovalorcapital`)**, na pasta `opmed/` — mas **essa pasta só existe na branch `feat/opmed-scaffold`** (PR #661, draft, nunca mergeada em `main` — por isso não aparece num `git ls-tree` ou `find` rodado em `main`).
+
+```
+❌ NUNCA procurar "portal do médico"/"OPMED" em outro repositório — não é
+   Lions Corretora, não é oterrasan-siteULTIMO, não é nenhum CRM.
+✅ SEMPRE que Roberto mencionar OPMED / "portal do médico" / "portal de
+   saúde": git fetch origin feat/opmed-scaffold e ler opmed/CLAUDE.md
+   (documentação completa e isolada do projeto — mesma convenção do
+   brasilon/CLAUDE.md). NÃO leia/edite nada dentro de opmed/ sem antes
+   ler esse arquivo inteiro.
+```
+
+- **Preview ao vivo (dados mock, sem backend real ainda):** https://opmed-teal.vercel.app
+- **Instagram já ativo:** @opmedbrasil (1.720 seguidores), estreia marcada pra **20/09/2026**.
+- Estado em 14/09/2026: front-end pronto (topo/rails/rodapé padrão OVC, miolo de cards padrão Brasil ON, taxonomia de 6 macro-editorias definida por Roberto, imagens reais já resolvidas). Faltam: backend real, fontes RSS de saúde, tabela Supabase, projeto Vercel definitivo — listados em `opmed/CLAUDE.md` seção 5 como trabalho do Claude "quando Roberto autorizar". Arquitetura "Multi-Home" (4 portas de entrada) travada aguardando decisão de Roberto — não mexer sem ele responder.
+
 # ══════════════════════════════════════════════════════
 # 🚨🚨🚨 REGRAS ABSOLUTAMENTE INVIOLÁVEIS 🚨🚨🚨
 # ══════════════════════════════════════════════════════
