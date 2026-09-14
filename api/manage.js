@@ -79,6 +79,7 @@ export default async function handler(req, res) {
       // fila intocada mesmo após o deploy do cron). _igCronAuthorized já lê
       // req.query.pass via checkAdmin, então basta expor a action aqui.
       if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, undefined);
+      if (action === "ig_collab_auto_process") return handleIgCollabAutoProcess(req, res, undefined);
       return handleStatus(res);
     }
 
