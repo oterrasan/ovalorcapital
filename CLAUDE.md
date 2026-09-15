@@ -9566,3 +9566,58 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 4. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores — 08/09/2026 continuação 2/3 e sessões antecedentes: "Vídeo ainda processando na Meta", banner "Conta não encontrada", os 7 vídeos do pacote do 7 de Setembro, auditoria de outros `.upsert(...,{onConflict:...})` sem constraint confirmada, etc.).
 
 ---
+
+### Sessão 15/09/2026 — LEITURA E ATUALIZAÇÃO DE MEMÓRIA (sem código) — RESUMO DE 10-14/09/2026: FILA PRIORITÁRIA DE INSTAGRAM (3 causas raiz em cadeia), DEDUP FEED/REELS, BRASIL ON COM LAYOUT PRÓPRIO, JANELA RESTAURADA, BOTÃO DE PAUSA REAL, COLLABS AUTOMÁTICOS
+
+#### Contexto desta entrada
+
+Roberto pediu só "atualize todas as memórias e vamos trabalhar" — sem tarefa de código. Antes de responder, li o histórico real de commits (`git log origin/main --since=2026-09-10`) porque a última entrada registrada neste arquivo era de 10/09/2026 e havia um buraco de 5 dias sem nenhum registro. Confirmado: `api/` continua com exatamente **10 arquivos** (Regra Zero-A intacta), branch local limpa, nenhuma mudança de código foi feita nesta sessão — só leitura e este registro.
+
+**🚨 Achado processual reforçado (mesmo padrão já documentado em 30/08/2026— "sessões podem rodar em paralelo sem se ver"):** pelo menos 3 dos commits mais recentes (PR #745 "Aceite automático de collabs" e os 2 commits diretos de 13/09, `209f144`/`9e63a2e`) foram autorados por **`oterrasan <roberto@oterrasan.com.br>`, sem trailer `Claude-Session`** — ou seja, outra ferramenta (provavelmente Codex, dado o estilo dos commits e a inclusão de um arquivo de teste formal, `test/instagram_collab_policy.test.js`) ou o próprio Roberto editando direto, trabalhando em paralelo a esta sessão. **Sempre checar o autor real dos commits recentes antes de assumir que "nada mudou" numa lacuna sem registro.**
+
+#### O que aconteceu entre 10/09 e 14/09/2026 (lido do histórico real, não presenciado por esta sessão)
+
+**PR #743 (10/09, `69e77c1`) — dedup real entre feed e Reels + fila prioritária manual (nova feature):**
+- Causa raiz real: cada automação de Instagram só checava a própria marca de "já publicado" — o feed automático de imagem só olhava `ig_id`/`metrics.instagram.ig_id`, nunca `metrics.instagram_reel.ig_id`; o Reels automático só olhava o inverso. Publicar manualmente num formato não impedia o outro formato de repostar a mesma matéria depois. Fix: helper único `_jaPublicadoOuReservadoNoInstagram()` checando os 3 marcadores, usado pelas duas automações.
+- Feature nova: **fila prioritária manual** — selecionar N matérias em Postagens e clicar "Publicar no Instagram (fila 5min)" enfileira todas, e um cron dedicado publica 1 por vez via `handleIgPriorityPublish`, **sem respeitar a janela horária** (comando explícito e imediato de Roberto, não decisão autônoma do sistema).
+
+**PR #744 (10/09, `9115d74`) — publicação manual pro Instagram do Brasil ON saía com o layout visual do OVC:**
+- Causa raiz real: o único botão de "publicar manualmente" acessível era o 📱 Instagram de Postagens (tela do OVC), cujo dropdown listava TODAS as contas ativas (mesma tabela `ig_accounts`, mesmo Supabase dos 2 portais) — incluindo `@obrasilon`. `handleIgPublish` sempre compunha a imagem com o módulo visual do OVC (`core/instagram_image.js`), nunca com o próprio do Brasil ON (foto cheia + caixa amarela + ícone). O endpoint certo (`instagram_publish` do backend do Brasil ON) já existia desde 03/09/2026, mas nunca teve UI.
+- Fix: `@obrasilon` removida dos dropdowns do lado OVC + guard explícito em `handleIgPublish`/`_publicarPostFeedAutomatico` recusando essa conta; aba 🇧🇷 Brasil ON do admin ganhou botão real "📲 Publicar" por matéria, chamando o backend certo.
+
+**PR #745 (10/09, `61085a5`, autor Codex/externo) — aceite automático seguro de collabs:** novo `core/instagram_collab_policy.js` + teste formal (`test/instagram_collab_policy.test.js`) + mudanças em `api/manage.js`/`core/instagram.js`/`instagram-auto.yml`/admin — mecanismo pra aceitar convites de colaboração no Instagram automaticamente, com alguma política de segurança (não detalhado no commit, sem corpo de mensagem). **Não verificado por esta sessão** — só registrado que existe.
+
+**PRs #746-#753 (11/09, madrugada/tarde) — investigação real da "fila prioritária travada", cadeia de 2 causas raiz distintas:**
+Roberto: "NADA do que voce fez funciona" — 8 matérias enfileiradas ficaram 36+ minutos sem publicar nada.
+1. **Causa raiz 1 (PR #748)**: o cron `*/5 * * * *` de `instagram-auto.yml` (GitHub Actions) tinha 3 schedules empilhados no mesmo workflow (`*/5`, `*/10`, `*/20 17-21`) — comportamento documentado do Actions sob carga: runs reais espaçados 1,5-2h entre si, não no ritmo configurado. Fix: migrada a fila prioritária pra **cron nativo da Vercel** (`vercel.json`, `*/5 * * * *`, commit isolado — Regra Zero-F), removido o schedule/job redundante do GitHub Actions.
+2. **Causa raiz 2 (PR #750)**: mesmo com o cron nativo, a fila continuou intocada. Causa real: cron da Vercel **sempre dispara via GET** (sem opção de mudar) — mas `api/manage.js` tem uma **whitelist fechada de actions permitidas em GET**, e `ig_priority_publish` nunca estava nela, então toda chamada caía silenciosamente em `handleStatus(res)`, sem erro nenhum. Fix: adicionada à whitelist.
+3. Verificado end-to-end (PR #753): post real publicado exatamente no 1º tick do cron pós-deploy, fila caindo de 8→7 itens.
+
+**PR #754 (11/09, `126b62f`) — 3ª causa raiz, diferente das duas acima: query da fila prioritária incompleta.** Mesmo com a fila drenando, Roberto reportou posts saindo com legenda vazia e comentário fixado genérico ("Leia a matéria completa..."). `handleIgPriorityPublish` só selecionava `id/titulo/imagem/ig_id/ig_account_id/metrics` — faltavam `conteudo`, `comentario_fixado` e `user_tags`, que `buildInstagramCaption()`/`buildInstagramFirstComment()`/`buildArticleUrl()` precisam pra montar a legenda de verdade. `handleIgAutoPublish` (a automação normal) já selecionava esses campos corretamente — essa query nova nunca tinha sido alinhada com ela.
+
+**PR #756 (11/09) — correção manual, direto na API do Instagram, dos 3 posts que saíram com o bug acima e que Roberto decidiu manter no ar** (o 4º, com imagem do Bolsonaro, ele já tinha removido) — comentário fixado genérico deletado e substituído pelo `comentario_fixado` real de cada matéria.
+
+**PR #757 (11/09) — automações religadas** (`IG_AUTOMATION_ENABLED`/`BON_IG_ENABLED`, estavam `off` desde a pausa de 10/09), confirmadas publicando de verdade (posts reais citados no commit).
+
+**PR #758 (11/09) — bloco da manhã (08h-12h BRT) restaurado.** Tinha sido removido por engano numa interpretação errada de um pedido anterior de Roberto (10/09 tarde). Janela final documentada nesse commit: **08h-12h BRT ativo, pausa 12h-14h BRT, 14h-19h BRT ativo, corte seco às 19h** — sincronizado em `api/manage.js` (OVC), `brasilon/api/manage.js` (Brasil ON) e `instagram-auto.yml`.
+
+**PR #759 (11/09, `5538443`) — botão real de pausa/retomada imediata, separado por portal.** Roberto: "eu preciso que tenha um botao que realmente funcione... isso precisa ser separado uma pro ovc e outra para o brasil on". Além do checkbox+"Salvar configuração" já existente (que regrava intervalo/limite/categorias juntos), agora existe um botão grande e visualmente destacado (vermelho=ativo/pronto pra pausar, verde=pausado/pronto pra retomar) em cada painel — `togglePausaGeral()` (OVC) e `togglePausaBrasilOn()` (Brasil ON) — cada um grava só a própria flag, sem depender do resto do formulário.
+
+**Commits diretos de Roberto/outra ferramenta, sem PR nem corpo detalhado (13/09, `209f144`+`9e63a2e`)** — expuseram `ig_collab_auto_process` na mesma whitelist de GET (mesma classe de bug do item 2 acima, aplicada preventivamente a essa outra action) e adicionaram um cron nativo próprio pra ela (`* * * * *` — a cada minuto) em `vercel.json`.
+
+**Commit `84b3099` (14/09) — nota permanente sobre "Portal do Médico" = OPMED** adicionada ao TOPO deste arquivo (já visível na íntegra logo no início do documento) — Roberto pediu duas vezes pra finalizar esse projeto e não foi reconhecido, causando investigação em repositórios errados. Ver bloco 🚨🚨🚨 no topo — nunca mais confundir.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (confirmado nesta sessão, inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto o estado atual real das automações de Instagram** (OVC e Brasil ON) — se a janela 08h-12h/14h-19h BRT está sendo respeitada de fato num ciclo completo, e se os botões de pausa/retomada imediata (PR #759) e o aceite automático de collabs (PR #745, não verificado por nenhuma sessão Claude ainda) estão funcionando como esperado.
+2. **Não presumir nada sobre o mecanismo de Reels do Codex** (`handleReelsSetSource`/`handleReelsRenderJob`/etc.) sem nova instrução — a pendência registrada em 10/09/2026 ("os dois fluxos devem coexistir") ainda não foi confirmada como resolvida.
+3. Demais pendências de sessões anteriores seguem todas válidas (ver listas completas nas entradas de 08/09 e 10/09/2026 acima — vídeo "ainda processando na Meta", os 7 vídeos do pacote do 7 de Setembro, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense).
+
+---
