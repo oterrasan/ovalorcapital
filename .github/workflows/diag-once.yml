@@ -24,15 +24,24 @@ jobs:
           echo ""
           echo "=== 2) ig_accounts (username, active, ig_user_id presente, token presente) ==="
           curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/ig_accounts?select=id,username,active,distribuicao_automatica,ig_user_id,token,updated_at&order=username.asc" \
-            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
-            -H "Authorization: Bearer sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
             -o ig_accounts.json
-          python3 << 'PYEOF'
+          echo "--- ig_accounts.json raw (primeiros 2000 chars) ---"
+          head -c 2000 ig_accounts.json
+          echo ""
+          python3 << 'PYEOF' || true
           import json
-          with open("ig_accounts.json") as f:
-              rows = json.load(f)
-          for r in rows:
-              print(r.get("username"), "| active=", r.get("active"), "| auto=", r.get("distribuicao_automatica"), "| ig_user_id=", bool(r.get("ig_user_id")), "| token=", bool(r.get("token")), "| updated=", r.get("updated_at"))
+          try:
+              with open("ig_accounts.json") as f:
+                  rows = json.load(f)
+              if isinstance(rows, list):
+                  for r in rows:
+                      print(r.get("username"), "| active=", r.get("active"), "| auto=", r.get("distribuicao_automatica"), "| ig_user_id=", bool(r.get("ig_user_id")), "| token=", bool(r.get("token")), "| updated=", r.get("updated_at"))
+              else:
+                  print("resposta nao e lista:", rows)
+          except Exception as e:
+              print("erro ao parsear ig_accounts.json:", e)
           PYEOF
           echo ""
           echo "=== 3) últimos logs [ig-collab] (48h) ==="
