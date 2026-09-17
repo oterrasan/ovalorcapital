@@ -1,10 +1,18 @@
 name: Diagnóstico único (placeholder)
-
 on:
+  push:
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
-
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar dependências
+        run: npm install --no-save cheerio axios
+      - name: Descobrir imagens reais da matéria da CNN
+        run: node _oneoff/discover.mjs
