@@ -703,6 +703,33 @@ async function _igCollabConfig() {
   return { enabled: latest.IG_COLLAB_AUTO_ACCEPT_ENABLED === "on", policy: normalizeCollabPolicy(rawPolicy) };
 }
 
+// 17/09/2026 — Roberto pediu aceite/curtida em até 1 minuto. Investigado com
+// evidência real (logs de produção): o endpoint collaboration_invites da
+// própria Meta devolve, no corpo do erro, "O limite de volume diário do
+// ponto de extremidade é de 50 por usuário" (error_subcode 2207079) — um
+// teto REAL e por conta, não um bug nosso. O cron rodava a cada 1 minuto
+// (vercel.json, */1) chamando esse endpoint 1x por conta destinatária a
+// cada execução — 1440 chamadas/dia por conta, 28,8x acima do limite real
+// de 50/dia. Resultado: a cota se esgotava em menos de 1h e o resto do dia
+// só dava erro (é por isso que "às vezes funciona, às vezes não").
+// Fix: gate de intervalo MÍNIMO por conta (mesmo padrão já usado no feed
+// automático — settings.interval/lastRun), calibrado bem abaixo do teto
+// real: 40min = 36 chamadas/dia por conta, com margem de segurança. Isso
+// não impede o cron de rodar a cada 1min (deixa rodar, mas cada conta só
+// gasta 1 chamada real por ciclo de 40min) — não precisa mudar o
+// vercel.json. Reduz a latência prometida de "1min" pra "até ~40min", mas
+// é o que a cota real da Meta permite sem quebrar de novo.
+const IG_COLLAB_MIN_INTERVAL_MIN = 40;
+
+async function _igCollabLastRunPorConta(accountId) {
+  const { data } = await supabase
+    .from("config")
+    .select("value")
+    .eq("key", `IG_COLLAB_LAST_RUN__${accountId}`)
+    .limit(1);
+  return data && data[0] ? Number(data[0].value) || 0 : 0;
+}
+
 async function handleIgCollabAutoProcess(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
 
@@ -726,8 +753,19 @@ async function handleIgCollabAutoProcess(req, res, body) {
 
     for (const account of recipients) {
       const recipient = normalizeInstagramUsername(account.username);
+      const lastRun = await _igCollabLastRunPorConta(account.id);
+      const elapsedMinutes = lastRun ? (Date.now() - lastRun) / 60000 : Infinity;
+      if (elapsedMinutes < IG_COLLAB_MIN_INTERVAL_MIN) {
+        results.push({ recipient, checked: false, skipped: true, reason: "intervalo_de_cota_da_meta", proxima_em_minutos: Math.ceil(IG_COLLAB_MIN_INTERVAL_MIN - elapsedMinutes) });
+        continue;
+      }
       try {
         const invites = await getCollaborationInvites(account.id);
+        // Registra o cooldown assim que a chamada retorna (sucesso OU
+        // exceção — ver catch abaixo), nunca só em caso de sucesso: uma
+        // cota já esgotada faria o cron tentar de novo a cada 1min e
+        // queimar o resto do dia em retries fadados a falhar.
+        await _igAutoSetConfig(`IG_COLLAB_LAST_RUN__${account.id}`, Date.now());
         for (const invite of invites) {
           const source = normalizeInstagramUsername(invite.media_owner_username);
           const mediaId = String(invite.media_id || "");
@@ -752,6 +790,10 @@ async function handleIgCollabAutoProcess(req, res, body) {
         }
         if (!invites.length) results.push({ recipient, checked: true, pending: 0 });
       } catch (accountFailure) {
+        // Cobre também a falha na própria chamada getCollaborationInvites
+        // (ex: rate limit) — sem isso, essa conta nunca chegaria a gravar o
+        // cooldown e o cron tentaria de novo em 1min, repetindo o erro.
+        try { await _igAutoSetConfig(`IG_COLLAB_LAST_RUN__${account.id}`, Date.now()); } catch (_) {}
         const safeError = redactSecrets(accountFailure?.message || String(accountFailure));
         results.push({ recipient, ok: false, error: safeError });
         await writeLog("error", `[ig-collab] @${recipient}: ${safeError}`);
