@@ -8,6 +8,19 @@ const BASE = "https://graph.facebook.com/v25.0";
 // com exatamente 4 nomes aqui, cabem todos sem rodízio.
 const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
 const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
+// 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
+// collabs é inadmissível". Exclusão fixa, não lê config — mesma regra já
+// usada no aceite por polling (core/instagram_collab_policy.js).
+const NEVER_AUTO_ACCEPT = "oterrasan";
+
+async function writeLog(level, message) {
+  try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
+}
+
+function collaboratorsFor(publisherUsername) {
+  const publisher = String(publisherUsername || "").replace(/^@/, "").toLowerCase();
+  return DEFAULT_COLLABORATORS.filter(c => c.toLowerCase() !== publisher);
+}
 
 function normalizePublishingLimit(raw) {
   const item = Array.isArray(raw?.data) ? raw.data[0] : raw;
@@ -82,8 +95,7 @@ export async function publish(imageUrl, caption, accountId) {
 
   // 1. Criar container
   const createPayload = { image_url: imageUrl, caption, access_token: token };
-  const publisherUsername = String(account.username || "").replace(/^@/, "").toLowerCase();
-  const collaborators = DEFAULT_COLLABORATORS.filter(c => c.toLowerCase() !== publisherUsername);
+  const collaborators = collaboratorsFor(account.username);
   if (collaborators.length) {
     createPayload.collaborators = collaborators;
   }
@@ -139,6 +151,14 @@ export async function publish(imageUrl, caption, accountId) {
     ultima_atividade: new Date().toISOString()
   }).eq("id", account.id);
 
+  // 5. Aceitar na hora os convites de collab que ACABAMOS de enviar —
+  // 17/09/2026, Roberto: "demorar 40 minutos... é inadmissível". Sem cron:
+  // já sabemos o media_id e quem foi convidado, aceitamos direto por
+  // media_id. Best-effort — nunca pode quebrar a publicação em si.
+  if (collaborators.length) {
+    try { await acceptCollabsForMedia(pubData.id, collaborators, "feed"); } catch (_) {}
+  }
+
   return { id: pubData.id, account_id: account.id, username: account.username, quota_before: limit };
 }
 
@@ -169,8 +189,7 @@ export async function createReelContainer(videoUrl, caption, accountId, opts = {
     access_token: token,
     share_to_feed: opts.shareToFeed !== false
   };
-  const publisherUsername = String(account.username || "").replace(/^@/, "").toLowerCase();
-  const collaborators = DEFAULT_COLLABORATORS.filter(c => c.toLowerCase() !== publisherUsername);
+  const collaborators = collaboratorsFor(account.username);
   if (collaborators.length) createPayload.collaborators = collaborators;
   if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
 
@@ -247,6 +266,13 @@ export async function publishReel(videoUrl, caption, accountId, opts = {}) {
   }
 
   const published = await publishReelContainer(creation_id, account_id);
+
+  // Mesmo aceite instantâneo do feed — ver publish() acima.
+  const collaborators = collaboratorsFor(published.username);
+  if (collaborators.length) {
+    try { await acceptCollabsForMedia(published.id, collaborators, "reel"); } catch (_) {}
+  }
+
   return { ...published, quota_before };
 }
 
@@ -304,6 +330,57 @@ export async function acceptCollaborationInvite(mediaId, accountId) {
   const data = await res.json();
   if (!res.ok || data?.error) throw new Error("Erro ao aceitar convite de collab: " + JSON.stringify(data));
   return data;
+}
+
+// 17/09/2026 — aceite instantâneo pra invite que NÓS MESMOS acabamos de
+// criar (via `collaborators` em publish/publishReel acima). Vai direto no
+// accept por media_id — sem getCollaborationInvites (GET) — porque já
+// sabemos o media_id, sem precisar "descobrir" nada. Contas em PARALELO
+// (nunca sequencial: 3 contas × retry sequencial passaria dos 120s de
+// maxDuration da function). Cada conta tenta com pequenos retries (a Meta
+// pode levar alguns segundos pra registrar o convite do lado dela), depois
+// curte. Best-effort completo — nenhum erro aqui escapa pra quem chamou.
+async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
+  const attempts = [0, 5000, 15000, 30000];
+  const jobs = (invitedUsernames || []).map(async (raw) => {
+    const username = String(raw || "").replace(/^@/, "").toLowerCase();
+    if (username === NEVER_AUTO_ACCEPT) {
+      return { username, skipped: true, reason: "nunca_aceita_automatico" };
+    }
+    try {
+      const { data: acc } = await supabase
+        .from("ig_accounts")
+        .select("id")
+        .eq("username", username)
+        .eq("active", true)
+        .not("token", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (!acc?.id) return { username, skipped: true, reason: "conta_nao_encontrada_ou_sem_token" };
+
+      let accepted = false, lastError = null;
+      for (const delay of attempts) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        try { await acceptCollaborationInvite(mediaId, acc.id); accepted = true; break; }
+        catch (e) { lastError = e?.message || String(e); }
+      }
+
+      let liked = false, likeError = null;
+      if (accepted) {
+        try { await likeMedia(mediaId, acc.id); liked = true; }
+        catch (e) { likeError = e?.message || String(e); }
+      }
+
+      await writeLog(
+        accepted ? "info" : "error",
+        `[ig-collab-instant] @${username} media=${mediaId} (${tag}) accepted=${accepted}${liked ? " liked" : ""}${accepted ? "" : ` erro=${lastError}`}`
+      );
+      return { username, accepted, liked, error: accepted ? null : lastError, like_error: likeError };
+    } catch (e) {
+      return { username, ok: false, error: e?.message || String(e) };
+    }
+  });
+  return Promise.all(jobs);
 }
 
 export { getAccount };

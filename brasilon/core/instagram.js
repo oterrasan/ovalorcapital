@@ -19,6 +19,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const BASE = "https://graph.facebook.com/v25.0";
 const USERNAME = "obrasilon";
 const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
+// 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
+// collabs é inadmissível". Mesma exclusão fixa do OVC (core/instagram.js,
+// raiz), duplicada aqui de propósito — zero import cruzado entre os
+// portais.
+const NEVER_AUTO_ACCEPT = "oterrasan";
+
+async function writeLog(level, message) {
+  try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
+}
 
 function normalizePublishingLimit(raw) {
   const item = Array.isArray(raw?.data) ? raw.data[0] : raw;
@@ -114,6 +123,10 @@ export async function publish(imageUrl, caption) {
     ultima_atividade: new Date().toISOString()
   }).eq("id", account.id);
 
+  // Aceitar na hora os convites de collab que ACABAMOS de enviar —
+  // 17/09/2026, mesmo mecanismo do OVC (ver core/instagram.js, raiz).
+  try { await acceptCollabsForMedia(pubData.id, DEFAULT_COLLABORATORS, "feed"); } catch (_) {}
+
   return { id: pubData.id, username: account.username, quota_before: limit };
 }
 
@@ -179,6 +192,9 @@ export async function publishReel(videoUrl, caption) {
     ultima_atividade: new Date().toISOString()
   }).eq("id", account.id);
 
+  // Mesmo aceite instantâneo do feed — ver publish() acima.
+  try { await acceptCollabsForMedia(pubData.id, DEFAULT_COLLABORATORS, "reel"); } catch (_) {}
+
   return { id: pubData.id, username: account.username, quota_before: limit };
 }
 
@@ -209,4 +225,82 @@ export async function likeMedia(mediaId) {
   const data = await res.json();
   if (!res.ok || data?.success !== true) throw new Error("Erro ao curtir publicação: " + JSON.stringify(data));
   return data;
+}
+
+// 17/09/2026 — mesma dupla de funções de core/instagram.js (raiz, OVC),
+// duplicada aqui de propósito (zero import cruzado entre os portais).
+async function acceptCollaborationInvite(mediaId, accountId) {
+  const { data: acc } = await supabase.from("ig_accounts").select("ig_user_id,token").eq("id", accountId).limit(1).maybeSingle();
+  if (!acc?.ig_user_id || !acc?.token) throw new Error("Conta sem ig_user_id ou token para aceitar collab");
+  if (!mediaId) throw new Error("Convite de collab sem media_id");
+
+  const res = await fetch(`${BASE}/${acc.ig_user_id}/collaboration_invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_id: String(mediaId), accept: true, access_token: acc.token })
+  });
+  const data = await res.json();
+  if (!res.ok || data?.error) throw new Error("Erro ao aceitar convite de collab: " + JSON.stringify(data));
+  return data;
+}
+
+async function likeMediaByAccountId(mediaId, accountId) {
+  const { data: acc } = await supabase.from("ig_accounts").select("ig_user_id,token").eq("id", accountId).limit(1).maybeSingle();
+  if (!acc?.ig_user_id || !acc?.token) throw new Error("Conta sem ig_user_id ou token para curtir");
+  const res = await fetch(`${BASE}/${acc.ig_user_id}/likes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ media_id: mediaId, access_token: acc.token })
+  });
+  const data = await res.json();
+  if (!res.ok || data?.success !== true) throw new Error("Erro ao curtir publicação: " + JSON.stringify(data));
+  return data;
+}
+
+// Aceite instantâneo pra invite que NÓS MESMOS acabamos de criar (via
+// `collaborators` em publish/publishReel acima). Vai direto no accept por
+// media_id — sem listar convites primeiro, já sabemos quem foi convidado.
+// Contas em PARALELO. Best-effort completo — nenhum erro aqui escapa pra
+// quem chamou.
+async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
+  const attempts = [0, 5000, 15000, 30000];
+  const jobs = (invitedUsernames || []).map(async (raw) => {
+    const username = String(raw || "").replace(/^@/, "").toLowerCase();
+    if (username === NEVER_AUTO_ACCEPT) {
+      return { username, skipped: true, reason: "nunca_aceita_automatico" };
+    }
+    try {
+      const { data: acc } = await supabase
+        .from("ig_accounts")
+        .select("id")
+        .eq("username", username)
+        .eq("active", true)
+        .not("token", "is", null)
+        .limit(1)
+        .maybeSingle();
+      if (!acc?.id) return { username, skipped: true, reason: "conta_nao_encontrada_ou_sem_token" };
+
+      let accepted = false, lastError = null;
+      for (const delay of attempts) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+        try { await acceptCollaborationInvite(mediaId, acc.id); accepted = true; break; }
+        catch (e) { lastError = e?.message || String(e); }
+      }
+
+      let liked = false, likeError = null;
+      if (accepted) {
+        try { await likeMediaByAccountId(mediaId, acc.id); liked = true; }
+        catch (e) { likeError = e?.message || String(e); }
+      }
+
+      await writeLog(
+        accepted ? "info" : "error",
+        `[bon-ig-collab-instant] @${username} media=${mediaId} (${tag}) accepted=${accepted}${liked ? " liked" : ""}${accepted ? "" : ` erro=${lastError}`}`
+      );
+      return { username, accepted, liked, error: accepted ? null : lastError, like_error: likeError };
+    } catch (e) {
+      return { username, ok: false, error: e?.message || String(e) };
+    }
+  });
+  return Promise.all(jobs);
 }
