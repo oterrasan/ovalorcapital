@@ -703,23 +703,18 @@ async function _igCollabConfig() {
   return { enabled: latest.IG_COLLAB_AUTO_ACCEPT_ENABLED === "on", policy: normalizeCollabPolicy(rawPolicy) };
 }
 
-// 17/09/2026 — Roberto pediu aceite/curtida em até 1 minuto. Investigado com
-// evidência real (logs de produção): o endpoint collaboration_invites da
-// própria Meta devolve, no corpo do erro, "O limite de volume diário do
-// ponto de extremidade é de 50 por usuário" (error_subcode 2207079) — um
-// teto REAL e por conta, não um bug nosso. O cron rodava a cada 1 minuto
-// (vercel.json, */1) chamando esse endpoint 1x por conta destinatária a
-// cada execução — 1440 chamadas/dia por conta, 28,8x acima do limite real
-// de 50/dia. Resultado: a cota se esgotava em menos de 1h e o resto do dia
-// só dava erro (é por isso que "às vezes funciona, às vezes não").
-// Fix: gate de intervalo MÍNIMO por conta (mesmo padrão já usado no feed
-// automático — settings.interval/lastRun), calibrado bem abaixo do teto
-// real: 40min = 36 chamadas/dia por conta, com margem de segurança. Isso
-// não impede o cron de rodar a cada 1min (deixa rodar, mas cada conta só
-// gasta 1 chamada real por ciclo de 40min) — não precisa mudar o
-// vercel.json. Reduz a latência prometida de "1min" pra "até ~40min", mas
-// é o que a cota real da Meta permite sem quebrar de novo.
-const IG_COLLAB_MIN_INTERVAL_MIN = 40;
+// 17/09/2026 — SUBSTITUÍDO como caminho principal pelo aceite instantâneo:
+// core/instagram.js's publish()/publishReel() (e o equivalente em
+// brasilon/core/instagram.js) já aceitam+curtem os convites que ELES
+// MESMOS acabaram de criar, direto por media_id, no mesmo instante da
+// publicação — sem depender deste poll. Este handler agora é só REDE DE
+// SEGURANÇA (convite manual feito fora da nossa automação, ou uma falha
+// pontual no aceite instantâneo). Por isso o intervalo pode ser bem mais
+// largo do que os 40min de antes: teto real confirmado da Meta é 50
+// chamadas/dia/conta (error_subcode 2207079, "O limite de volume diário do
+// ponto de extremidade é de 50 por usuário") — 180min = 8 chamadas/dia/
+// conta, folga enorme, ainda cobre qualquer coisa que escape no mesmo dia.
+const IG_COLLAB_MIN_INTERVAL_MIN = 180;
 
 async function _igCollabLastRunPorConta(accountId) {
   const { data } = await supabase
