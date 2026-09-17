@@ -2,9 +2,48 @@ name: Diagnóstico único (placeholder)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/diag-once.yml"
 
 jobs:
   diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Diagnosticar aceite automático de collabs no Instagram
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          set -uo pipefail
+          echo "=== 1) config: IG_COLLAB_AUTO_ACCEPT_ENABLED / IG_COLLAB_AUTO_ACCEPT_POLICY ==="
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=in.(IG_COLLAB_AUTO_ACCEPT_ENABLED,IG_COLLAB_AUTO_ACCEPT_POLICY)&order=updated_at.desc&select=key,value,updated_at" \
+            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
+            -H "Authorization: Bearer sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf"
+          echo ""
+          echo "=== 2) ig_accounts (username, active, ig_user_id presente, token presente) ==="
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/ig_accounts?select=id,username,active,distribuicao_automatica,ig_user_id,token,updated_at&order=username.asc" \
+            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
+            -H "Authorization: Bearer sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
+            -o ig_accounts.json
+          python3 << 'PYEOF'
+          import json
+          with open("ig_accounts.json") as f:
+              rows = json.load(f)
+          for r in rows:
+              print(r.get("username"), "| active=", r.get("active"), "| auto=", r.get("distribuicao_automatica"), "| ig_user_id=", bool(r.get("ig_user_id")), "| token=", bool(r.get("token")), "| updated=", r.get("updated_at"))
+          PYEOF
+          echo ""
+          echo "=== 3) últimos logs [ig-collab] (48h) ==="
+          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/logs?message=ilike.*%5Big-collab%5D*&order=created_at.desc&limit=20&select=level,message,created_at" \
+            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
+            -H "Authorization: Bearer sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf"
+          echo ""
+          echo "=== 4) chamada real a ig_collab_auto_process (via Bearer, mesmo caminho do cron) ==="
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"ig_collab_auto_process"}' \
+            --max-time 55 \
+            -w "\nHTTP_STATUS:%{http_code}\n"
