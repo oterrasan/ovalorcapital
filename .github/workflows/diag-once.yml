@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Instalar dependências
-        run: npm install --no-save cheerio axios
-      - name: Descobrir imagens reais da matéria da CNN
-        run: node _oneoff/discover.mjs
+      - name: Instalar dependências do projeto
+        run: npm install --no-save @supabase/supabase-js sharp
+      - name: Publicar matéria + vídeo + Reel no Instagram
+        run: node _oneoff/publish.mjs
