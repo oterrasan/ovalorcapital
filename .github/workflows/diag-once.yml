@@ -43,10 +43,32 @@ jobs:
             });
           }
 
+          function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+          async function baixarComRetry() {
+            const headers = {
+              "User-Agent": UA,
+              "Referer": ARTIGO_URL,
+              "Accept": "*/*",
+              "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8"
+            };
+            for (let tentativa = 1; tentativa <= 4; tentativa++) {
+              try {
+                const videoRes = await axios.get(VIDEO_URL, { responseType: "arraybuffer", timeout: 60000, headers });
+                return Buffer.from(videoRes.data);
+              } catch (e) {
+                const status = e.response ? e.response.status : "sem resposta";
+                console.log(`tentativa ${tentativa} falhou (status ${status}): ${e.message}`);
+                if (tentativa === 4) throw e;
+                await sleep(tentativa * 15000);
+              }
+            }
+          }
+
           (async () => {
-            console.log("=== 1) Baixando o video de teste (ND Mais) ===");
-            const videoRes = await axios.get(VIDEO_URL, { responseType: "arraybuffer", timeout: 60000, headers: { "User-Agent": UA, "Referer": ARTIGO_URL } });
-            fs.writeFileSync("input-final.mp4", Buffer.from(videoRes.data));
+            console.log("=== 1) Baixando o video de teste (ND Mais), com retry ===");
+            const buf = await baixarComRetry();
+            fs.writeFileSync("input-final.mp4", buf);
             console.log("baixado:", fs.statSync("input-final.mp4").size, "bytes");
 
             const job = {
