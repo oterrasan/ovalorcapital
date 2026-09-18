@@ -1,10 +1,14 @@
 name: Diagnóstico único (placeholder)
-
 on:
+  push:
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
-
 jobs:
   diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - uses: actions/checkout@v4
+      - name: Placeholder — nenhuma ação real
+        run: echo "placeholder inerte — nenhum diagnóstico ativo"

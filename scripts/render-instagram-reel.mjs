@@ -99,28 +99,68 @@ function textSvg(title, body) {
     </svg>`);
 }
 
-async function buildOverlay(job, outputPath) {
+// Cor da sombra em função da opacidade — mantém a mesma progressão visual
+// (navy escuro -> preto puro) usada desde a versão original do template,
+// tanto pra vídeo vertical (cover, faixas fixas) quanto horizontal
+// (contain, faixas calculadas dinamicamente a partir de onde o vídeo termina).
+function colorForOpacity(opacity) {
+  if (opacity <= 0) return "#071929";
+  if (opacity < 0.3) return "#061725";
+  if (opacity < 0.8) return "#041522";
+  if (opacity < 0.99) return "#020b13";
+  return "#000000";
+}
+
+// Vídeo VERTICAL (fitMode "cover", o caso original e mais comum): sombra
+// em faixas fixas, idênticas à versão anterior do template — o vídeo
+// sempre preenche o quadro 1080x1920 inteiro, então a posição da sombra
+// nunca varia.
+const COVER_FADE_STOPS = [[0, 0], [34, 0], [45, 0.18], [54, 0.7], [62, 0.97], [67, 1], [80, 1], [100, 1]];
+
+// Vídeo HORIZONTAL/QUADRADO (fitMode "contain", encaixado no topo sem
+// recorte — Roberto, 18/09/2026): a sombra precisa subir até onde o
+// vídeo de fato termina, não ficar presa nos 34% fixos pensados pra
+// vídeo vertical. boundaryPct = % da altura total onde o vídeo acaba.
+function buildContainFadeStops(videoOutHeightPx) {
+  const boundaryPct = Math.min(88, Math.max(10, (videoOutHeightPx / HEIGHT) * 100));
+  const stops = [
+    [0, 0],
+    [boundaryPct - 6, 0],
+    [boundaryPct - 2, 0.2],
+    [boundaryPct + 1, 0.75],
+    [boundaryPct + 3, 0.97],
+    [boundaryPct + 5, 1],
+    [Math.min(96, boundaryPct + 22), 1],
+    [100, 1]
+  ];
+  for (let i = 1; i < stops.length; i += 1) {
+    if (stops[i][0] <= stops[i - 1][0]) stops[i][0] = stops[i - 1][0] + 0.5;
+  }
+  return stops;
+}
+
+function buildGradientSvg(stops) {
+  const stopEls = stops
+    .map(([offset, opacity]) => `<stop offset="${offset}%" stop-color="${colorForOpacity(opacity)}" stop-opacity="${opacity}"/>`)
+    .join("\n          ");
+  return Buffer.from(`
+    <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          ${stopEls}
+        </linearGradient>
+      </defs>
+      <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
+    </svg>`);
+}
+
+async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx = HEIGHT) {
   const feedOverlay = resolve(root, "public", "assets", "ig-overlay-ovc-canva.png");
   const reelFooter = resolve(root, "public", "assets", "ig-footer-ovc-reels-canva.png");
   // As marcas são extraídas como blocos estáticos, sem redimensionamento.
   // Isso preserva proporção, tipografia e pixels do overlay oficial do feed.
   const topBrand = await sharp(feedOverlay).extract({ left: 350, top: 25, width: 380, height: 205 }).png().toBuffer();
-  const gradient = Buffer.from(`
-    <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#071929" stop-opacity="0"/>
-          <stop offset="34%" stop-color="#071929" stop-opacity="0"/>
-          <stop offset="45%" stop-color="#061725" stop-opacity="0.18"/>
-          <stop offset="54%" stop-color="#041522" stop-opacity="0.7"/>
-          <stop offset="62%" stop-color="#020b13" stop-opacity="0.97"/>
-          <stop offset="67%" stop-color="#000000" stop-opacity="1"/>
-          <stop offset="80%" stop-color="#000000" stop-opacity="1"/>
-          <stop offset="100%" stop-color="#000000" stop-opacity="1"/>
-        </linearGradient>
-      </defs>
-      <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#fade)"/>
-    </svg>`);
+  const gradient = buildGradientSvg(fitMode === "contain" ? buildContainFadeStops(videoOutHeightPx) : COVER_FADE_STOPS);
 
   const crispText = await sharp(textSvg(job.title, job.body))
     .resize(WIDTH, HEIGHT, { kernel: sharp.kernel.lanczos3 })
@@ -156,6 +196,28 @@ function runCapture(command, args) {
       reject(new Error(`${command}_exit_${code}: ${Buffer.concat(stderr).toString("utf8").slice(-500)}`));
     });
   });
+}
+
+// Detecta a proporção real do vídeo fonte pra decidir como encaixar no
+// template (Roberto, 18/09/2026): vídeo horizontal/quadrado (largura >=
+// altura) entra no template SEM RECORTE, encaixado no topo, com a sombra
+// subindo dinamicamente até onde ele termina (ver buildContainFadeStops).
+// Vídeo vertical continua no comportamento original (cover, recorte
+// central pra preencher o quadro 1080x1920 por completo). Falha na
+// leitura (arquivo ausente/corrompido) sempre cai no comportamento
+// original — nunca quebra o render por causa desta detecção.
+async function probeDimensions(inputPath) {
+  try {
+    const ffprobe = process.env.FFPROBE_PATH || "ffprobe";
+    const probe = await runCapture(ffprobe, [
+      "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", inputPath
+    ]);
+    const [width, height] = probe.stdout.toString("utf8").trim().split(",").map(Number);
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) return { width, height };
+  } catch (_) {
+    // ignorado de propósito — fallback pro comportamento original (cover)
+  }
+  return null;
 }
 
 function meanAbsoluteDifference(current, previous) {
@@ -237,26 +299,39 @@ async function detectEndTrim(job, inputPath) {
   return { trimSeconds, duration, detectedAt, cutAt, reason: "promotional_end_card" };
 }
 
-async function runFfmpeg(job, inputPath, overlayPath, outputPath) {
-  // Recorte de segurança para vídeos vindos de terceiros: elimina marcas
-  // persistentes nas bordas antes de aplicar o layout. A área inferior ainda
-  // recebe o gradiente opaco do OVC, que cobre legendas externas remanescentes.
-  const cropTop = clampCrop(job.watermark_crop_top, 0.16, 0.25);
-  const cropBottom = clampCrop(job.watermark_crop_bottom, 0.02, 0.15);
-  const cropSide = clampCrop(job.watermark_crop_side, 0.04, 0.15);
-  const cropWidth = 1 - cropSide * 2;
-  const cropHeight = 1 - cropTop - cropBottom;
-  const cropFilter = `crop=trunc(iw*${cropWidth}/2)*2:trunc(ih*${cropHeight}/2)*2:trunc(iw*${cropSide}/2)*2:trunc(ih*${cropTop}/2)*2`;
+async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cover") {
   const endTrim = await detectEndTrim(job, inputPath);
   const outputDuration = endTrim.duration && endTrim.trimSeconds > 0
     ? Math.max(2, endTrim.duration - endTrim.trimSeconds)
     : null;
+
+  let videoFilter;
+  if (fitMode === "contain") {
+    // Vídeo horizontal/quadrado — encaixa no topo do quadro SEM RECORTE
+    // (Roberto, 18/09/2026). Escala pra largura 1080 preservando a
+    // proporção original, depois preenche o resto do quadro 1080x1920
+    // com preto — a sombra do overlay (buildContainFadeStops) já sabe
+    // onde o vídeo termina e sobe até lá.
+    videoFilter = `scale=${WIDTH}:-2,pad=${WIDTH}:${HEIGHT}:0:0:black,setsar=1,fps=30`;
+  } else {
+    // Vídeo vertical (comportamento original) — recorte de segurança pra
+    // vídeos de terceiros (elimina marcas persistentes nas bordas), depois
+    // preenche o quadro 1080x1920 por completo via crop central.
+    const cropTop = clampCrop(job.watermark_crop_top, 0.16, 0.25);
+    const cropBottom = clampCrop(job.watermark_crop_bottom, 0.02, 0.15);
+    const cropSide = clampCrop(job.watermark_crop_side, 0.04, 0.15);
+    const cropWidth = 1 - cropSide * 2;
+    const cropHeight = 1 - cropTop - cropBottom;
+    const cropFilter = `crop=trunc(iw*${cropWidth}/2)*2:trunc(ih*${cropHeight}/2)*2:trunc(iw*${cropSide}/2)*2:trunc(ih*${cropTop}/2)*2`;
+    videoFilter = `${cropFilter},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1,fps=30`;
+  }
+
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
     "-i", inputPath,
     "-loop", "1", "-i", overlayPath,
     "-filter_complex",
-    `[0:v]${cropFilter},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1,fps=30[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
+    `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
     "-map", "[out]", "-map", "0:a?",
     ...(outputDuration ? ["-t", outputDuration.toFixed(3)] : []),
     "-c:v", "libx264", "-preset", "medium", "-crf", "16",
@@ -280,9 +355,32 @@ const payload = JSON.parse(await readFile(jobPath, "utf8"));
 const job = payload.job || payload;
 if (!job?.title || !job?.source_url) throw new Error("job_invalido");
 const overlayPath = overlayPathArg || `${outputPath}.overlay.png`;
-await buildOverlay(job, overlayPath);
+
+// Detecta a proporção real da fonte (Roberto, 18/09/2026): vídeo
+// horizontal/quadrado (largura >= altura) usa fitMode "contain" — encaixa
+// no topo sem recorte, sombra sobe até onde ele termina. Vídeo vertical
+// (o caso mais comum) mantém o comportamento original ("cover"). job.fit
+// permite forçar um modo específico (usado em testes); sem isso, é 100%
+// automático a partir do ffprobe real do arquivo.
+const sourceDims = await probeDimensions(inputPath);
+const autoFit = sourceDims && sourceDims.width >= sourceDims.height ? "contain" : "cover";
+const fitMode = job.fit === "contain" || job.fit === "cover" ? job.fit : autoFit;
+const videoOutHeightPx = fitMode === "contain" && sourceDims
+  ? Math.max(2, Math.round((WIDTH * sourceDims.height) / sourceDims.width / 2) * 2)
+  : HEIGHT;
+
+await buildOverlay(job, overlayPath, fitMode, videoOutHeightPx);
 let endTrim = null;
 if (process.env.REEL_OVERLAY_ONLY !== "1") {
-  endTrim = await runFfmpeg(job, inputPath, overlayPath, outputPath);
+  endTrim = await runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode);
 }
-console.log(JSON.stringify({ ok: true, output: process.env.REEL_OVERLAY_ONLY === "1" ? null : outputPath, overlay: overlayPath, template_version: job.template_version, end_trim: endTrim }));
+console.log(JSON.stringify({
+  ok: true,
+  output: process.env.REEL_OVERLAY_ONLY === "1" ? null : outputPath,
+  overlay: overlayPath,
+  template_version: job.template_version,
+  end_trim: endTrim,
+  fit_mode: fitMode,
+  source_dimensions: sourceDims,
+  video_out_height: fitMode === "contain" ? videoOutHeightPx : null
+}));
