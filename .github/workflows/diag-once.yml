@@ -15,12 +15,9 @@ jobs:
           node-version: '20'
       - name: Instalar ffmpeg
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Instalar fonte Inter oficial
-        run: |
-          mkdir -p /usr/share/fonts/truetype/inter
-          curl -fsSL "https://raw.githubusercontent.com/rsms/inter/master/docs/font-files/Inter-Regular.woff2" -o /tmp/x 2>/dev/null || true
-          fc-list | grep -i inter || echo "sem Inter no sistema — script deve ter fallback"
-      - name: Corrigir source_url perdido no reset anterior e reenviar job de render
+      - name: Instalar dependências do projeto (sharp etc.)
+        run: npm ci --omit=dev
+      - name: Resetar template pra pending (job anterior travou sem sharp) e reenviar render
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
@@ -30,7 +27,7 @@ jobs:
           POST_ID="db88c322-f83c-4555-9cc0-2cc11a0e35ed"
           SOURCE_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
 
-          echo ">>> 0) reconstruindo metrics com source_url presente"
+          echo ">>> 0) reset do template pra pending, com source_url"
           NOW=$(node -p 'new Date().toISOString()')
           NEW_METRICS=$(SOURCE_URL="$SOURCE_URL" NOW="$NOW" node -e "
             process.stdout.write(JSON.stringify({
@@ -41,20 +38,16 @@ jobs:
                 version: 'ovc-reels-2026-09-v2',
                 source_url: process.env.SOURCE_URL,
                 queued_at: process.env.NOW,
-                attempts: 1
+                attempts: 2
               }
             }));
           ")
-          echo "$NEW_METRICS"
-
           curl --fail -sS -X PATCH "${SUPABASE_URL}/rest/v1/posts?id=eq.${POST_ID}" \
             -H "apikey: ${SUPABASE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_KEY}" \
             -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            -d "$(node -p "JSON.stringify({metrics: ${NEW_METRICS}, video_url: '${SOURCE_URL}'})")"
-          echo ""
-          echo ">>> 0) OK — metrics corrigido com source_url"
+            -d "$(node -p "JSON.stringify({metrics: ${NEW_METRICS}})")" >/dev/null
+          echo ">>> 0) OK"
 
           echo ">>> 1) reels_render_job"
           curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
