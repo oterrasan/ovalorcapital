@@ -4,6 +4,8 @@ on:
     paths:
       - '.github/workflows/diag-once.yml'
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -62,12 +64,20 @@ jobs:
             const stat = fs.statSync("output-final.mp4");
             console.log("\n>>> output-final.mp4 gerado:", stat.size, "bytes");
 
-            console.log("\n=== FIM — reel completo salvo, sera enviado como artifact. nada publicado ===");
+            console.log("\n=== FIM — reel completo salvo ===");
           })();
           NODEEOF
-      - name: Upload do reel renderizado como artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: reel-final-review
-          path: output-final.mp4
-          retention-days: 1
+      - name: Publicar como release temporária (só pra download da revisão — sera deletada em seguida)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="reel-review-tmp-$(date +%s)"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          gh release create "$TAG" output-final.mp4 \
+            --repo oterrasan/ovalorcapital \
+            --title "Reel de revisão (temporário)" \
+            --notes "Gerado automaticamente só pra Roberto revisar visualmente o fix da sombra. Será deletado assim que ele confirmar." \
+            --prerelease
+          echo "=== URL_DOWNLOAD_START ==="
+          gh release view "$TAG" --repo oterrasan/ovalorcapital --json assets --jq '.assets[0].browser_download_url'
+          echo "=== URL_DOWNLOAD_END ==="
