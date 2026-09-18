@@ -86,7 +86,7 @@ jobs:
             const stat = fs.statSync("output-final.mp4");
             console.log("\n>>> output-final.mp4 gerado:", stat.size, "bytes");
 
-            console.log("\n=== FIM — reel completo salvo ===");
+            console.log("\n=== FIM — reel completo salvo (nova tentativa limpa) ===");
           })();
           NODEEOF
       - name: Publicar como release temporária (só pra download da revisão — sera deletada em seguida)
