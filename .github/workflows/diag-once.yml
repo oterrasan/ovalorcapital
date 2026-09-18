@@ -17,7 +17,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - name: Instalar dependências do projeto (sharp etc.)
         run: npm ci --omit=dev
-      - name: Resetar template pra pending e reenviar render (upload com resposta capturada pra diagnóstico)
+      - name: Elevar limite do bucket, resetar template e reenviar render
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
@@ -26,6 +26,17 @@ jobs:
           SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           POST_ID="db88c322-f83c-4555-9cc0-2cc11a0e35ed"
           SOURCE_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
+
+          echo ">>> -1) tentando elevar file_size_limit do bucket post-videos pra 200MB"
+          BUCKET_HTTP=$(curl -sS -X PUT "${SUPABASE_URL}/storage/v1/bucket/post-videos" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"public":true,"file_size_limit":209715200}' \
+            -o bucket-response.json -w "%{http_code}")
+          echo "bucket_update_http_code=$BUCKET_HTTP"
+          cat bucket-response.json || true
+          echo ""
 
           echo ">>> 0) reset do template pra pending, com source_url"
           NOW=$(node -p 'new Date().toISOString()')
@@ -38,7 +49,7 @@ jobs:
                 version: 'ovc-reels-2026-09-v2',
                 source_url: process.env.SOURCE_URL,
                 queued_at: process.env.NOW,
-                attempts: 3
+                attempts: 4
               }
             }));
           ")
