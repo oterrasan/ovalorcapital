@@ -9,6 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - name: Placeholder — nenhuma ação real
-        run: echo "placeholder inerte — nenhum diagnóstico ativo"
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
