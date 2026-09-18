@@ -17,7 +17,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - name: Instalar dependências do projeto (sharp etc.)
         run: npm ci --omit=dev
-      - name: Resetar template pra pending (job anterior travou sem sharp) e reenviar render
+      - name: Resetar template pra pending e reenviar render (upload com resposta capturada pra diagnóstico)
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
@@ -38,7 +38,7 @@ jobs:
                 version: 'ovc-reels-2026-09-v2',
                 source_url: process.env.SOURCE_URL,
                 queued_at: process.env.NOW,
-                attempts: 2
+                attempts: 3
               }
             }));
           ")
@@ -79,13 +79,23 @@ jobs:
           ls -la reel-final.mp4
           echo ">>> 3) OK — render concluido"
 
-          echo ">>> 4) upload (timeout 90s)"
-          timeout 90 curl --fail -sS -X PUT "$upload_url" \
+          echo ">>> 4) upload — SEM --fail, capturando status e corpo da resposta"
+          HTTP_CODE=$(curl -sS -X PUT "$upload_url" \
             -H "Content-Type: video/mp4" \
             -H "Cache-Control: max-age=31536000" \
-            -H "x-upsert: false" \
-            --upload-file reel-final.mp4 --max-time 85 >/dev/null
-          echo ">>> 4) OK — upload concluido"
+            -H "x-upsert: true" \
+            --upload-file reel-final.mp4 --max-time 200 \
+            -o upload-response.json -w "%{http_code}")
+          echo "upload_http_code=$HTTP_CODE"
+          echo "upload_response_body:"
+          cat upload-response.json || true
+          echo ""
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo ">>> 4) OK — upload concluido"
+          else
+            echo ">>> 4) FALHOU — abortando aqui, ver corpo da resposta acima"
+            exit 1
+          fi
 
           echo ">>> 5) reels_render_complete"
           end_trim=$(node -p 'JSON.stringify(require("./render-result.json").end_trim || null)')
