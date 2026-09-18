@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Investigar r7.com — sitemap, estrutura de video, watermark, rede de afiliadas
+      - name: Investigar sitemap Arc/video da r7.com e mecanismo de player
         run: |
           node << 'NODEEOF'
           const https = require("https");
@@ -37,59 +37,65 @@ jobs:
           }
 
           (async () => {
-            console.log("=== 1) robots.txt — procurando sitemap ===");
+            console.log("=== 1) sitemap-news-index (Arc Publishing) ===");
             try {
-              const robots = await get("https://www.r7.com/robots.txt");
-              console.log("status:", robots.status);
-              console.log(robots.body.slice(0, 2000));
-            } catch (e) { console.log("erro robots.txt:", e.message); }
+              const r = await get("https://www.r7.com/arc/outboundfeeds/sitemap-news-index/");
+              console.log("status:", r.status, "tamanho:", r.body.length);
+              console.log(r.body.slice(0, 3000));
+            } catch (e) { console.log("erro:", e.message); }
 
-            console.log("\n=== 2) sitemap.xml raiz ===");
-            let sitemapUrls = [];
+            console.log("\n=== 2) sitemap-index-byday (Arc Publishing) ===");
+            let daySitemaps = [];
             try {
-              const sm = await get("https://www.r7.com/sitemap.xml");
-              console.log("status:", sm.status, "tamanho:", sm.body.length);
-              sitemapUrls = [...sm.body.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
-              console.log("sub-sitemaps encontrados:", sitemapUrls.length);
-              console.log(sitemapUrls.slice(0, 30).join("\n"));
-            } catch (e) { console.log("erro sitemap.xml:", e.message); }
+              const r = await get("https://www.r7.com/arc/outboundfeeds/sitemap-index-byday/");
+              console.log("status:", r.status, "tamanho:", r.body.length);
+              daySitemaps = [...r.body.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+              console.log("entradas:", daySitemaps.length);
+              console.log(daySitemaps.slice(0, 10).join("\n"));
+              console.log("...");
+              console.log(daySitemaps.slice(-5).join("\n"));
+            } catch (e) { console.log("erro:", e.message); }
 
-            console.log("\n=== 3) procurando sitemap de video especifico ===");
-            const videoSitemapCandidatos = sitemapUrls.filter(u => /video/i.test(u));
-            console.log("candidatos com 'video' no nome:", videoSitemapCandidatos.length);
-            console.log(videoSitemapCandidatos.slice(0, 10).join("\n"));
+            console.log("\n=== 3) checando o ULTIMO sitemap do dia (mais recente) por <video:video> ===");
+            if (daySitemaps.length) {
+              try {
+                const last = daySitemaps[daySitemaps.length - 1];
+                console.log("usando:", last);
+                const r = await get(last);
+                console.log("status:", r.status, "tamanho:", r.body.length);
+                const hasVideoTag = /<video:video>/.test(r.body);
+                console.log("tem tag <video:video>?", hasVideoTag);
+                const urls = [...r.body.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+                console.log("total de URLs nesse sitemap do dia:", urls.length);
+                const videoUrls = urls.filter(u => /\/video\//.test(u));
+                console.log("URLs com /video/ no caminho:", videoUrls.length);
+                console.log(videoUrls.slice(0, 10).join("\n"));
+              } catch (e) { console.log("erro:", e.message); }
+            }
 
-            console.log("\n=== 4) homepage de videos (videos.r7.com) ===");
+            console.log("\n=== 4) abrindo pagina de video real e procurando mecanismo ===");
+            const videoPageUrl = "https://noticias.r7.com/record-news/link-record-news/video/mulher-se-pendura-em-varanda-no-13-andar-de-predio-para-limpar-veja-17092026/";
             try {
-              const vh = await get("https://videos.r7.com/");
-              console.log("status:", vh.status, "tamanho:", vh.body.length);
-              const links = [...vh.body.matchAll(/href="(https:\/\/videos\.r7\.com\/[a-z0-9\-\/]{10,}\.html)"/g)].map(m => m[1]);
-              console.log("links de video encontrados na home:", [...new Set(links)].length);
-              console.log([...new Set(links)].slice(0, 15).join("\n"));
-            } catch (e) { console.log("erro videos.r7.com:", e.message); }
+              const r = await get(videoPageUrl);
+              console.log("status:", r.status, "tamanho:", r.body.length);
+              const marcadores = ["jwplayer", "anvato", "brightcove", "hls", ".m3u8", ".mp4", "VideoObject", "og:video", "contentUrl", "embedUrl", "videojs", "video-js", "player.r7", "arcplayer", "arc-player", "powaBoot"];
+              for (const m of marcadores) {
+                const count = (r.body.match(new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi")) || []).length;
+                if (count) console.log(`  "${m}": ${count} ocorrencias`);
+              }
+              const diretas = [...r.body.matchAll(/https?:\/\/[^"'\s]+\.(mp4|m3u8)[^"'\s]*/gi)].map(m => m[0]);
+              console.log("\nURLs diretas de midia encontradas:", [...new Set(diretas)].length);
+              console.log([...new Set(diretas)].slice(0, 10).join("\n"));
+              const jsonLdBlocks = [...r.body.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => m[1]);
+              console.log("\nblocos JSON-LD encontrados:", jsonLdBlocks.length);
+              for (const block of jsonLdBlocks) {
+                if (/VideoObject/.test(block)) {
+                  console.log("--- bloco com VideoObject ---");
+                  console.log(block.slice(0, 1500));
+                }
+              }
+            } catch (e) { console.log("erro pagina de video:", e.message); }
 
-            console.log("\n=== 5) checando a pagina do video real que o Roberto mandou (via WebSearch nao disponivel aqui — testando padrao comum) ===");
-            // Vamos varrer a homepage principal do r7.com procurando qualquer link de video
-            try {
-              const home = await get("https://www.r7.com/");
-              console.log("status home:", home.status, "tamanho:", home.body.length);
-              const videoLinks = [...home.body.matchAll(/href="(https?:\/\/[a-z0-9.\-]*r7\.com\/[^"]{5,120})"/g)]
-                .map(m => m[1])
-                .filter(u => /video/i.test(u));
-              console.log("links contendo 'video' na home:", [...new Set(videoLinks)].length);
-              console.log([...new Set(videoLinks)].slice(0, 20).join("\n"));
-            } catch (e) { console.log("erro home r7.com:", e.message); }
-
-            console.log("\n=== 6) procurando pagina/rede de afiliadas regionais ===");
-            try {
-              const afil = await get("https://www.r7.com/institucional/afiliadas");
-              console.log("status /institucional/afiliadas:", afil.status);
-            } catch (e) { console.log("erro afiliadas 1:", e.message); }
-            try {
-              const afil2 = await get("https://recordtv.r7.com/");
-              console.log("status recordtv.r7.com:", afil2.status, "tamanho:", afil2.body ? afil2.body.length : 0);
-            } catch (e) { console.log("erro recordtv.r7.com:", e.message); }
-
-            console.log("\n=== FIM DA VARREDURA INICIAL (sem download de video, sem publicar nada) ===");
+            console.log("\n=== FIM (sem download de video, sem publicar nada) ===");
           })();
           NODEEOF
