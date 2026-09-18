@@ -7,34 +7,70 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Testar se ndmais.com.br tem video embutido detectavel
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar deps (sharp) e fonte oficial
         run: |
-          python3 << 'PYEOF'
-          import urllib.request, re
+          npm install sharp@0.33 axios@1 --no-save --silent
+          mkdir -p "$HOME/.local/share/fonts"
+          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
+          fc-cache -f
+          ffmpeg -version | head -1
+      - name: Renderizar Reel de teste com video real do ndmais.com.br (sem publicar)
+        run: |
+          node << 'NODEEOF'
+          const axios = require("axios");
+          const { spawn } = require("child_process");
+          const fs = require("fs");
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-          url = "https://ndmais.com.br/seguranca/menina-atacada-por-abelhas-esta-internada-em-cti-apos-ser-atingida-por-enxame-em-frente-a-escola-mais-de-100-ferroadas/"
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+          const ARTIGO_URL = "https://ndmais.com.br/seguranca/menina-atacada-por-abelhas-esta-internada-em-cti-apos-ser-atingida-por-enxame-em-frente-a-escola-mais-de-100-ferroadas/";
+          const VIDEO_URL = "https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4";
 
-          req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "pt-BR,pt;q=0.9"})
-          html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", errors="replace")
-          print("tamanho html:", len(html))
+          function run(cmd, args) {
+            return new Promise((resolve, reject) => {
+              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+              let out = "", err = "";
+              child.stdout.on("data", d => out += d);
+              child.stderr.on("data", d => err += d);
+              child.on("exit", code => code === 0 ? resolve(out) : reject(new Error(`${cmd} exit ${code}: ${err.slice(-400)}`)));
+            });
+          }
 
-          termos = ["og:video", "VideoObject", "<video", "jwplayer", "vimeo",
-                    "video-js", "wp-video", "videopress", "bunny", "youtube",
-                    "mediaelement", "brightcove", ".mp4", "iframe", "dailymotion",
-                    "playlist.m3u8", "hls", "source src"]
-          for termo in termos:
-              achou = [m.start() for m in re.finditer(re.escape(termo), html, re.I)]
-              if achou:
-                  print(f"\n[{termo}] {len(achou)}x — 1a ocorrencia, contexto:")
-                  i = achou[0]
-                  print("  ...", html[max(0,i-100):i+250].replace("\n", " "), "...")
+          (async () => {
+            console.log("=== 1) Baixando video real do ndmais.com.br ===");
+            const videoRes = await axios.get(VIDEO_URL, { responseType: "arraybuffer", timeout: 60000, headers: { "User-Agent": UA, "Referer": ARTIGO_URL } });
+            fs.writeFileSync("input-0.mp4", Buffer.from(videoRes.data));
+            console.log("baixado:", fs.statSync("input-0.mp4").size, "bytes");
 
-          # og:image / og:title pra referencia (imagem de capa da materia)
-          ogimg = re.search(r'<meta property="og:image" content="([^"]+)"', html)
-          ogtitle = re.search(r'<meta property="og:title" content="([^"]+)"', html)
-          print("\nog:title:", ogtitle.group(1) if ogtitle else "NAO ACHADO")
-          print("og:image:", ogimg.group(1) if ogimg else "NAO ACHADO")
-          PYEOF
+            console.log("\n=== 2) Montando job de teste (mesma manchete/resumo reais da materia) ===");
+            const job = {
+              title: "Menina é atacada por enxame de abelhas em frente à escola",
+              body: "A criança levou mais de 100 ferroadas e está internada em estado grave na CTI de um hospital. O Corpo de Bombeiros foi acionado e concluiu a ocorrência após a retirada do enxame do local.",
+              source_url: VIDEO_URL,
+              template_version: "ovc-reels-2026-09-v2-TESTE"
+            };
+            fs.writeFileSync("job-0.json", JSON.stringify({ job }));
+            console.log(JSON.stringify(job, null, 2));
+
+            console.log("\n=== 3) Renderizando com o script real de produção (crop + overlay + fim promocional) ===");
+            await run("node", ["scripts/render-instagram-reel.mjs", "job-0.json", "input-0.mp4", "output-0.mp4", "overlay-0.png"]);
+            console.log("render OK:", fs.statSync("output-0.mp4").size, "bytes");
+
+            const dur = parseFloat(await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", "output-0.mp4"]));
+            console.log("duracao final (s):", dur);
+            const tempos = [0.5, 1.5, Math.max(2, dur / 2), Math.max(3, dur - 1.5)];
+            for (let f = 0; f < tempos.length; f++) {
+              await run("ffmpeg", ["-y", "-ss", String(tempos[f]), "-i", "output-0.mp4", "-frames:v", "1", "-vf", "scale=380:-1", `frame-0-${f}.jpg`]);
+              const b64 = fs.readFileSync(`frame-0-${f}.jpg`).toString("base64");
+              console.log(`\n===FRAME_0_${f}_START===`);
+              console.log(b64);
+              console.log(`===FRAME_0_${f}_END===`);
+            }
+            console.log("\n=== FIM DO TESTE — nada publicado, nenhuma escrita no banco/Instagram ===");
+          })();
+          NODEEOF
