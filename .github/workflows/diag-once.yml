@@ -7,58 +7,6 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Criar post de teste (pendente) e enfileirar reel_set_source
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
-        run: |
-          SUPABASE_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          HASH="diag-reels-review-$(date +%s)"
-          BODY=$(node -e '
-            const conteudo = "<p><strong>Redação OVC</strong> · teste interno</p><p>Post de teste criado automaticamente para revisar o template de Reels (fix da transição de sombra em vídeo horizontal). Pode ser apagado a qualquer momento.</p>";
-            const payload = {
-              titulo: "[TESTE INTERNO] Revisão do template de Reels — sombra corrigida (pode apagar)",
-              conteudo,
-              comentario_fixado: "Post de teste interno para revisão visual do template de Reels. Sem valor editorial.",
-              imagem: null,
-              hash: process.env.HASH,
-              status: "pendente",
-              approved: false,
-              publish_method: "diag_reels_review",
-              published_at: null,
-              user_tags: JSON.stringify(["brasil-on"]),
-              subcategoria: "Geral",
-              subcategoria_slug: "geral",
-              collaborators: "[]",
-              metrics: { tipo_conteudo: "padrao", meta_descricao: "Teste interno" },
-              priority: 0, retry_count: 0, max_retries: 3
-            };
-            process.stdout.write(JSON.stringify(payload));
-          ')
-          echo "$BODY" > post-payload.json
-
-          curl --fail -sS -X POST "${SUPABASE_URL}/rest/v1/posts" \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}" \
-            -H "Content-Type: application/json" \
-            -H "Prefer: return=representation" \
-            --data-binary @post-payload.json \
-            -o post-created.json
-          cat post-created.json
-          POST_ID=$(node -p 'require("./post-created.json")[0].id')
-          echo "POST_ID=$POST_ID"
-
-          VIDEO_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
-
-          echo "=== Enfileirando reels_set_source no post real de producao ==="
-          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d "{\"action\":\"reels_set_source\",\"post_id\":\"${POST_ID}\",\"video_url\":\"${VIDEO_URL}\"}" \
-            --max-time 30
-          echo ""
-          echo "=== POST_ID_RESULT_START ==="
-          echo "$POST_ID"
-          echo "=== POST_ID_RESULT_END ==="
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
