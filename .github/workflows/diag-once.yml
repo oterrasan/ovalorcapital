@@ -9,4 +9,95 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - run: echo "placeholder — nenhum diagnóstico ativo agora"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar deps (sharp) e fonte oficial + ffmpeg
+        run: |
+          npm install sharp@0.33 axios@1 --no-save --silent
+          mkdir -p "$HOME/.local/share/fonts"
+          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
+          fc-cache -f
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Processar o job de render pendente (mesmo caminho real do instagram-auto.yml)
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"reels_render_job"}' \
+            --max-time 45 -o render-job.json
+          cat render-job.json
+          echo ""
+
+          post_id=$(node -p 'require("./render-job.json").job.post_id')
+          claim_id=$(node -p 'require("./render-job.json").job.claim_id')
+          source_url=$(node -p 'require("./render-job.json").job.source_url')
+          upload_url=$(node -p 'require("./render-job.json").job.upload_url')
+          public_url=$(node -p 'require("./render-job.json").job.public_url')
+          echo "post_id=$post_id"
+          echo "public_url_esperado=$public_url"
+
+          node << 'NODEEOF'
+          const axios = require("axios");
+          const fs = require("fs");
+          const jobData = require("./render-job.json").job;
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+          function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+          (async () => {
+            const headers = { "User-Agent": UA, "Accept": "*/*", "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8" };
+            let buf = null, lastErr = null;
+            for (let tentativa = 1; tentativa <= 4; tentativa++) {
+              try {
+                const r = await axios.get(jobData.source_url, { responseType: "arraybuffer", timeout: 60000, headers, maxRedirects: 10 });
+                buf = Buffer.from(r.data);
+                break;
+              } catch (e) {
+                lastErr = e;
+                const status = e.response ? e.response.status : "sem resposta";
+                console.log(`tentativa ${tentativa} falhou (status ${status}): ${e.message}`);
+                if (tentativa < 4) await sleep(tentativa * 15000);
+              }
+            }
+            if (!buf) throw lastErr;
+            fs.writeFileSync("reel-source", buf);
+            console.log("fonte baixada:", fs.statSync("reel-source").size, "bytes");
+          })();
+          NODEEOF
+
+          node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
+          cat render-result.json
+          echo ""
+
+          curl --fail -sS -X PUT "$upload_url" \
+            -H "Content-Type: video/mp4" \
+            -H "Cache-Control: max-age=31536000" \
+            -H "x-upsert: false" \
+            --upload-file reel-final.mp4 --max-time 300 >/dev/null
+          echo "upload concluido"
+
+          end_trim=$(node -p 'JSON.stringify(require("./render-result.json").end_trim || null)')
+          BODY=$(POST_ID="$post_id" CLAIM_ID="$claim_id" PUBLIC_URL="$public_url" END_TRIM="$end_trim" node -e "
+            process.stdout.write(JSON.stringify({
+              action: 'reels_render_complete',
+              post_id: process.env.POST_ID,
+              claim_id: process.env.CLAIM_ID,
+              public_url: process.env.PUBLIC_URL,
+              end_trim: JSON.parse(process.env.END_TRIM)
+            }));
+          ")
+          echo "$BODY" > render-complete.json
+
+          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
+          cat render-complete-response.json
+          echo ""
+          echo "=== FINAL_URL_START ==="
+          echo "$public_url"
+          echo "post_id=$post_id"
+          echo "=== FINAL_URL_END ==="
