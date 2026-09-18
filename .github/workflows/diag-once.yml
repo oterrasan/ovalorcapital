@@ -9,11 +9,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checar estado real do post de teste (v2)
+      - name: Resetar template do post de teste pra pending (job anterior travou)
         run: |
           SUPABASE_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           POST_ID="db88c322-f83c-4555-9cc0-2cc11a0e35ed"
-          curl --fail -sS "${SUPABASE_URL}/rest/v1/posts?id=eq.${POST_ID}&select=id,video_url,metrics,updated_at" \
+          VIDEO_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
+          BODY=$(node -e "
+            process.stdout.write(JSON.stringify({
+              metrics: {
+                tipo_conteudo: 'padrao',
+                meta_descricao: 'Teste interno',
+                instagram_reel_template: {
+                  version: 'ovc-reels-2026-09-v2',
+                  status: 'pending',
+                  source_url: process.env.VIDEO_URL,
+                  queued_at: new Date().toISOString(),
+                  attempts: 1
+                }
+              },
+              updated_at: new Date().toISOString()
+            }));
+          " VIDEO_URL="$VIDEO_URL")
+          echo "$BODY" > reset-payload.json
+          curl --fail -sS -X PATCH "${SUPABASE_URL}/rest/v1/posts?id=eq.${POST_ID}" \
             -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}"
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            --data-binary @reset-payload.json
