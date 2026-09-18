@@ -7,13 +7,111 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Checar estado real do post de teste (v3)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Instalar fonte Inter oficial
         run: |
+          mkdir -p /usr/share/fonts/truetype/inter
+          curl -fsSL "https://raw.githubusercontent.com/rsms/inter/master/docs/font-files/Inter-Regular.woff2" -o /tmp/x 2>/dev/null || true
+          fc-list | grep -i inter || echo "sem Inter no sistema — script deve ter fallback"
+      - name: Corrigir source_url perdido no reset anterior e reenviar job de render
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
           SUPABASE_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           POST_ID="db88c322-f83c-4555-9cc0-2cc11a0e35ed"
-          curl --fail -sS "${SUPABASE_URL}/rest/v1/posts?id=eq.${POST_ID}&select=id,video_url,metrics,updated_at" \
+          SOURCE_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
+
+          echo ">>> 0) reconstruindo metrics com source_url presente"
+          NOW=$(node -p 'new Date().toISOString()')
+          NEW_METRICS=$(SOURCE_URL="$SOURCE_URL" NOW="$NOW" node -e "
+            process.stdout.write(JSON.stringify({
+              tipo_conteudo: 'padrao',
+              meta_descricao: 'Teste interno',
+              instagram_reel_template: {
+                status: 'pending',
+                version: 'ovc-reels-2026-09-v2',
+                source_url: process.env.SOURCE_URL,
+                queued_at: process.env.NOW,
+                attempts: 1
+              }
+            }));
+          ")
+          echo "$NEW_METRICS"
+
+          curl --fail -sS -X PATCH "${SUPABASE_URL}/rest/v1/posts?id=eq.${POST_ID}" \
             -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}"
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            -d "$(node -p "JSON.stringify({metrics: ${NEW_METRICS}, video_url: '${SOURCE_URL}'})")"
+          echo ""
+          echo ">>> 0) OK — metrics corrigido com source_url"
+
+          echo ">>> 1) reels_render_job"
+          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"reels_render_job"}' \
+            --max-time 45 -o render-job.json
+          cat render-job.json
+          echo ""
+          echo ">>> 1) OK — job reservado"
+
+          post_id=$(node -p 'require("./render-job.json").job.post_id')
+          claim_id=$(node -p 'require("./render-job.json").job.claim_id')
+          source_url=$(node -p 'require("./render-job.json").job.source_url')
+          upload_url=$(node -p 'require("./render-job.json").job.upload_url')
+          public_url=$(node -p 'require("./render-job.json").job.public_url')
+          echo "post_id=$post_id"
+
+          echo ">>> 2) download da fonte (timeout 90s)"
+          timeout 90 curl --fail --location -sS "$source_url" --max-time 85 -o reel-source \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          ls -la reel-source
+          echo ">>> 2) OK — fonte baixada"
+
+          echo ">>> 3) render (timeout 150s)"
+          timeout 150 node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
+          cat render-result.json
+          echo ""
+          ls -la reel-final.mp4
+          echo ">>> 3) OK — render concluido"
+
+          echo ">>> 4) upload (timeout 90s)"
+          timeout 90 curl --fail -sS -X PUT "$upload_url" \
+            -H "Content-Type: video/mp4" \
+            -H "Cache-Control: max-age=31536000" \
+            -H "x-upsert: false" \
+            --upload-file reel-final.mp4 --max-time 85 >/dev/null
+          echo ">>> 4) OK — upload concluido"
+
+          echo ">>> 5) reels_render_complete"
+          end_trim=$(node -p 'JSON.stringify(require("./render-result.json").end_trim || null)')
+          BODY=$(POST_ID="$post_id" CLAIM_ID="$claim_id" PUBLIC_URL="$public_url" END_TRIM="$end_trim" node -e "
+            process.stdout.write(JSON.stringify({
+              action: 'reels_render_complete',
+              post_id: process.env.POST_ID,
+              claim_id: process.env.CLAIM_ID,
+              public_url: process.env.PUBLIC_URL,
+              end_trim: JSON.parse(process.env.END_TRIM)
+            }));
+          ")
+          echo "$BODY" > render-complete.json
+          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
+          cat render-complete-response.json
+          echo ""
+          echo ">>> 5) OK — post final:"
+          echo "public_url=$public_url"
+          echo "post_id=$post_id"
