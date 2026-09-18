@@ -117,24 +117,39 @@ function colorForOpacity(opacity) {
 // nunca varia.
 const COVER_FADE_STOPS = [[0, 0], [34, 0], [45, 0.18], [54, 0.7], [62, 0.97], [67, 1], [80, 1], [100, 1]];
 
+// Curva suave (ease-in-out) pra transição de opacidade — evita o "corte
+// seco" que uma rampa linear curta produz visualmente.
+function smoothstep(t) {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+}
+
 // Vídeo HORIZONTAL/QUADRADO (fitMode "contain", encaixado no topo sem
 // recorte — Roberto, 18/09/2026): a sombra precisa subir até onde o
 // vídeo de fato termina, não ficar presa nos 34% fixos pensados pra
 // vídeo vertical. boundaryPct = % da altura total onde o vídeo acaba.
+//
+// CORRIGIDO 18/09/2026 (mesmo dia — Roberto reportou "a passagem do
+// sombreado para o vídeo não existe e fica horrível"): a versão anterior
+// começava a escurecer a partir de boundaryPct-6, ou seja, ANTES do fim
+// real do vídeo — jogava uma lavagem escura e abrupta por cima da própria
+// imagem (rampa de só 11% de altura, 4 saltos de opacidade). Agora o vídeo
+// fica limpo, sem nenhum escurecimento, até a sua borda real (boundaryPct);
+// só DEPOIS disso começa uma transição suave (curva smoothstep, 9 pontos)
+// ao longo de ~14% da altura — um degrade de verdade, não um corte.
 function buildContainFadeStops(videoOutHeightPx) {
-  const boundaryPct = Math.min(88, Math.max(10, (videoOutHeightPx / HEIGHT) * 100));
-  const stops = [
-    [0, 0],
-    [boundaryPct - 6, 0],
-    [boundaryPct - 2, 0.2],
-    [boundaryPct + 1, 0.75],
-    [boundaryPct + 3, 0.97],
-    [boundaryPct + 5, 1],
-    [Math.min(96, boundaryPct + 22), 1],
-    [100, 1]
-  ];
+  const boundaryPct = Math.min(82, Math.max(8, (videoOutHeightPx / HEIGHT) * 100));
+  const spanPct = 14;
+  const samples = 8;
+  const stops = [[0, 0], [boundaryPct, 0]];
+  for (let i = 1; i <= samples; i += 1) {
+    const t = i / samples;
+    stops.push([boundaryPct + spanPct * t, smoothstep(t)]);
+  }
+  stops.push([Math.min(97, boundaryPct + spanPct + 16), 1]);
+  stops.push([100, 1]);
   for (let i = 1; i < stops.length; i += 1) {
-    if (stops[i][0] <= stops[i - 1][0]) stops[i][0] = stops[i - 1][0] + 0.5;
+    if (stops[i][0] <= stops[i - 1][0]) stops[i][0] = stops[i - 1][0] + 0.25;
   }
   return stops;
 }
