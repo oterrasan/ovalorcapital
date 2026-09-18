@@ -7,79 +7,13 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 9
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Instalar deps (sharp) e fonte oficial + ffmpeg
+      - name: Checar estado real do post de teste (v3)
         run: |
-          npm install sharp@0.33 axios@1 --no-save --silent
-          mkdir -p "$HOME/.local/share/fonts"
-          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
-          fc-cache -f
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Processar o job de render pendente (com marcadores de progresso e timeout por etapa)
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
-        run: |
-          set -euo pipefail
-          echo ">>> 1) reels_render_job"
-          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"reels_render_job"}' \
-            --max-time 45 -o render-job.json
-          cat render-job.json
-          echo ""
-          echo ">>> 1) OK — job reservado"
-
-          post_id=$(node -p 'require("./render-job.json").job.post_id')
-          claim_id=$(node -p 'require("./render-job.json").job.claim_id')
-          source_url=$(node -p 'require("./render-job.json").job.source_url')
-          upload_url=$(node -p 'require("./render-job.json").job.upload_url')
-          public_url=$(node -p 'require("./render-job.json").job.public_url')
-          echo "post_id=$post_id"
-
-          echo ">>> 2) download da fonte (timeout 90s)"
-          timeout 90 curl --fail --location -sS "$source_url" --max-time 85 -o reel-source \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-          ls -la reel-source
-          echo ">>> 2) OK — fonte baixada"
-
-          echo ">>> 3) render (timeout 150s)"
-          timeout 150 node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
-          cat render-result.json
-          echo ""
-          echo ">>> 3) OK — render concluido"
-
-          echo ">>> 4) upload (timeout 90s)"
-          timeout 90 curl --fail -sS -X PUT "$upload_url" \
-            -H "Content-Type: video/mp4" \
-            -H "Cache-Control: max-age=31536000" \
-            -H "x-upsert: false" \
-            --upload-file reel-final.mp4 --max-time 85 >/dev/null
-          echo ">>> 4) OK — upload concluido"
-
-          echo ">>> 5) reels_render_complete"
-          end_trim=$(node -p 'JSON.stringify(require("./render-result.json").end_trim || null)')
-          BODY=$(POST_ID="$post_id" CLAIM_ID="$claim_id" PUBLIC_URL="$public_url" END_TRIM="$end_trim" node -e "
-            process.stdout.write(JSON.stringify({
-              action: 'reels_render_complete',
-              post_id: process.env.POST_ID,
-              claim_id: process.env.CLAIM_ID,
-              public_url: process.env.PUBLIC_URL,
-              end_trim: JSON.parse(process.env.END_TRIM)
-            }));
-          ")
-          echo "$BODY" > render-complete.json
-          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
-          cat render-complete-response.json
-          echo ""
-          echo ">>> 5) OK — post final:"
-          echo "public_url=$public_url"
-          echo "post_id=$post_id"
+          SUPABASE_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          POST_ID="db88c322-f83c-4555-9cc0-2cc11a0e35ed"
+          curl --fail -sS "${SUPABASE_URL}/rest/v1/posts?id=eq.${POST_ID}&select=id,video_url,metrics,updated_at" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}"
