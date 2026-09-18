@@ -1,10 +1,40 @@
 name: Diagnóstico único (placeholder)
-
 on:
+  push:
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
-
 jobs:
   diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "placeholder — nada a fazer"
+      - name: Testar se ndmais.com.br tem video embutido detectavel
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, re
+
+          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          url = "https://ndmais.com.br/seguranca/menina-atacada-por-abelhas-esta-internada-em-cti-apos-ser-atingida-por-enxame-em-frente-a-escola-mais-de-100-ferroadas/"
+
+          req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Language": "pt-BR,pt;q=0.9"})
+          html = urllib.request.urlopen(req, timeout=15).read().decode("utf-8", errors="replace")
+          print("tamanho html:", len(html))
+
+          termos = ["og:video", "VideoObject", "<video", "jwplayer", "vimeo",
+                    "video-js", "wp-video", "videopress", "bunny", "youtube",
+                    "mediaelement", "brightcove", ".mp4", "iframe", "dailymotion",
+                    "playlist.m3u8", "hls", "source src"]
+          for termo in termos:
+              achou = [m.start() for m in re.finditer(re.escape(termo), html, re.I)]
+              if achou:
+                  print(f"\n[{termo}] {len(achou)}x — 1a ocorrencia, contexto:")
+                  i = achou[0]
+                  print("  ...", html[max(0,i-100):i+250].replace("\n", " "), "...")
+
+          # og:image / og:title pra referencia (imagem de capa da materia)
+          ogimg = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+          ogtitle = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+          print("\nog:title:", ogtitle.group(1) if ogtitle else "NAO ACHADO")
+          print("og:image:", ogimg.group(1) if ogimg else "NAO ACHADO")
+          PYEOF
