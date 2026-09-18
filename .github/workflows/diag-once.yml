@@ -13,76 +13,56 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Instalar deps (sharp) e fonte oficial + ffmpeg
+      - name: Instalar deps (sharp + ffmpeg)
         run: |
-          npm install sharp@0.33 axios@1 --no-save --silent
+          npm install sharp@0.33 --no-save --silent
           mkdir -p "$HOME/.local/share/fonts"
           cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
           fc-cache -f
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Testar sombra corrigida (mesmo video horizontal de antes, sem publicar)
+      - name: Inspecionar pixel real do overlay (sem video, sem JPEG) na zona de transicao
         run: |
           node << 'NODEEOF'
-          const axios = require("axios");
+          const sharp = require("sharp");
           const { spawn } = require("child_process");
           const fs = require("fs");
 
-          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          const ARTIGO_URL = "https://ndmais.com.br/seguranca/menina-atacada-por-abelhas-esta-internada-em-cti-apos-ser-atingida-por-enxame-em-frente-a-escola-mais-de-100-ferroadas/";
-          const VIDEO_URL = "https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4";
-
-          function run(cmd, args) {
-            return new Promise((resolve, reject) => {
-              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+          function run(cmd, args, env) {
+            return new Promise((resolvePromise, reject) => {
+              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], env: env || process.env });
               let out = "", err = "";
               child.stdout.on("data", d => out += d);
               child.stderr.on("data", d => err += d);
-              child.on("exit", code => code === 0 ? resolve(out) : reject(new Error(`${cmd} exit ${code}: ${err.slice(-500)}`)));
+              child.on("exit", code => code === 0 ? resolvePromise(out) : reject(new Error(`${cmd} exit ${code}: ${err.slice(-500)}`)));
             });
           }
 
           (async () => {
-            console.log("=== 1) Baixando o MESMO video horizontal de teste ===");
-            const videoRes = await axios.get(VIDEO_URL, { responseType: "arraybuffer", timeout: 60000, headers: { "User-Agent": UA, "Referer": ARTIGO_URL } });
-            fs.writeFileSync("input-2.mp4", Buffer.from(videoRes.data));
-            console.log("baixado:", fs.statSync("input-2.mp4").size, "bytes");
+            console.log("=== 1) Gerando video sintetico 1320x742 (forca o mesmo fitMode/altura do caso real) ===");
+            await run("ffmpeg", ["-y", "-f", "lavfi", "-i", "color=c=gray:s=1320x742:d=1", "-frames:v", "30", "-r", "30", "input-3.mp4"]);
 
             const job = {
-              title: "Menina é atacada por enxame de abelhas em frente à escola",
-              body: "A criança levou mais de 100 ferroadas e está internada em estado grave na CTI de um hospital. O Corpo de Bombeiros foi acionado e concluiu a ocorrência após a retirada do enxame do local.",
-              source_url: VIDEO_URL,
-              template_version: "ovc-reels-2026-09-v4-sombra-corrigida"
+              title: "Teste de pixel da transicao",
+              body: "Verificacao numerica da rampa de opacidade, sem JPEG no meio.",
+              source_url: "https://exemplo.com/x.mp4",
+              template_version: "diag-pixel"
             };
-            fs.writeFileSync("job-2.json", JSON.stringify({ job }));
+            fs.writeFileSync("job-3.json", JSON.stringify({ job }));
 
-            console.log("\n=== 2) Renderizando com o script REAL (sombra corrigida) ===");
-            const renderOut = await run("node", ["scripts/render-instagram-reel.mjs", "job-2.json", "input-2.mp4", "output-2.mp4", "overlay-2.png"]);
-            console.log(renderOut);
-            const parsed = JSON.parse(renderOut.trim().split("\n").pop());
-            console.log("\n>>> video_out_height:", parsed.video_out_height);
+            console.log("\n=== 2) Gerando so o overlay (REEL_OVERLAY_ONLY=1), script REAL ===");
+            const env = Object.assign({}, process.env, { REEL_OVERLAY_ONLY: "1" });
+            const out = await run("node", ["scripts/render-instagram-reel.mjs", "job-3.json", "input-3.mp4", "output-3.mp4", "overlay-3.png"], env);
+            console.log(out);
 
-            console.log("\n=== 3) Frames focados EXATAMENTE na zona de transicao ===");
-            const dur = parseFloat(await run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", "output-2.mp4"]));
-            console.log("duracao final (s):", dur);
-            // tempos variados pra pegar cenas com conteudo perto da borda inferior do video
-            const tempos = [0.3, 3, 8, Math.max(10, dur / 3), Math.max(12, dur / 2)];
-            for (let f = 0; f < tempos.length; f++) {
-              await run("ffmpeg", ["-y", "-ss", String(tempos[f]), "-i", "output-2.mp4", "-frames:v", "1", "-vf", "scale=460:-1", `frame-2-${f}.jpg`]);
-              const b64 = fs.readFileSync(`frame-2-${f}.jpg`).toString("base64");
-              console.log(`\n===FRAME_2_${f}_START===`);
-              console.log(b64);
-              console.log(`===FRAME_2_${f}_END===`);
+            console.log("\n=== 3) Lendo pixel real (canal alpha) ao longo de uma linha vertical ===");
+            const { data, info } = await sharp("overlay-3.png").raw().ensureAlpha().toBuffer({ resolveWithObject: true });
+            console.log("overlay dims:", info.width, info.height, info.channels);
+            const x = 540;
+            console.log("\ny | R,G,B,A | opacidade real (%)");
+            for (let y = 560; y <= 950; y += 8) {
+              const idx = (y * info.width + x) * info.channels;
+              const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+              console.log(`${y} | ${r},${g},${b},${a} | ${(a / 255 * 100).toFixed(1)}%`);
             }
-
-            console.log("\n=== 4) Crop ampliado (so a faixa da transicao: y=520 a y=920 de 1920) pra inspecionar de perto ===");
-            for (let f = 0; f < 3; f++) {
-              await run("ffmpeg", ["-y", "-ss", String(tempos[f]), "-i", "output-2.mp4", "-frames:v", "1", "-vf", "crop=1080:400:0:520,scale=520:-1", `crop-2-${f}.jpg`]);
-              const b64 = fs.readFileSync(`crop-2-${f}.jpg`).toString("base64");
-              console.log(`\n===CROP_2_${f}_START===`);
-              console.log(b64);
-              console.log(`===CROP_2_${f}_END===`);
-            }
-
-            console.log("\n=== FIM DO TESTE — nada publicado ===");
           })();
           NODEEOF
