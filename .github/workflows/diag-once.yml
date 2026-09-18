@@ -4,102 +4,61 @@ on:
     paths:
       - '.github/workflows/diag-once.yml'
   workflow_dispatch:
-permissions:
-  contents: write
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Instalar deps (sharp) e fonte oficial + ffmpeg
-        run: |
-          npm install sharp@0.33 axios@1 --no-save --silent
-          mkdir -p "$HOME/.local/share/fonts"
-          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
-          fc-cache -f
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - name: Renderizar o reel completo (script real, ja com o fix mergeado) — nao publica
-        run: |
-          node << 'NODEEOF'
-          const axios = require("axios");
-          const { spawn } = require("child_process");
-          const fs = require("fs");
-
-          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          const ARTIGO_URL = "https://ndmais.com.br/seguranca/menina-atacada-por-abelhas-esta-internada-em-cti-apos-ser-atingida-por-enxame-em-frente-a-escola-mais-de-100-ferroadas/";
-          const VIDEO_URL = "https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4";
-
-          function run(cmd, args) {
-            return new Promise((resolve, reject) => {
-              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
-              let out = "", err = "";
-              child.stdout.on("data", d => out += d);
-              child.stderr.on("data", d => err += d);
-              child.on("exit", code => code === 0 ? resolve(out) : reject(new Error(`${cmd} exit ${code}: ${err.slice(-500)}`)));
-            });
-          }
-
-          function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-          async function baixarComRetry() {
-            const headers = {
-              "User-Agent": UA,
-              "Referer": ARTIGO_URL,
-              "Accept": "*/*",
-              "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8"
-            };
-            for (let tentativa = 1; tentativa <= 4; tentativa++) {
-              try {
-                const videoRes = await axios.get(VIDEO_URL, { responseType: "arraybuffer", timeout: 60000, headers });
-                return Buffer.from(videoRes.data);
-              } catch (e) {
-                const status = e.response ? e.response.status : "sem resposta";
-                console.log(`tentativa ${tentativa} falhou (status ${status}): ${e.message}`);
-                if (tentativa === 4) throw e;
-                await sleep(tentativa * 15000);
-              }
-            }
-          }
-
-          (async () => {
-            console.log("=== 1) Baixando o video de teste (ND Mais), com retry ===");
-            const buf = await baixarComRetry();
-            fs.writeFileSync("input-final.mp4", buf);
-            console.log("baixado:", fs.statSync("input-final.mp4").size, "bytes");
-
-            const job = {
-              title: "Menina é atacada por enxame de abelhas em frente à escola",
-              body: "A criança levou mais de 100 ferroadas e está internada em estado grave na CTI de um hospital. O Corpo de Bombeiros foi acionado e concluiu a ocorrência após a retirada do enxame do local.",
-              source_url: VIDEO_URL,
-              template_version: "ovc-reels-2026-09-final-review"
-            };
-            fs.writeFileSync("job-final.json", JSON.stringify({ job }));
-
-            console.log("\n=== 2) Renderizando o reel COMPLETO com o script REAL de producao ===");
-            const renderOut = await run("node", ["scripts/render-instagram-reel.mjs", "job-final.json", "input-final.mp4", "output-final.mp4", "overlay-final.png"]);
-            console.log(renderOut);
-
-            const stat = fs.statSync("output-final.mp4");
-            console.log("\n>>> output-final.mp4 gerado:", stat.size, "bytes");
-
-            console.log("\n=== FIM — reel completo salvo (nova tentativa limpa) ===");
-          })();
-          NODEEOF
-      - name: Publicar como release temporária (só pra download da revisão — sera deletada em seguida)
+      - name: Criar post de teste (pendente) e enfileirar reel_set_source
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
-          TAG="reel-review-tmp-$(date +%s)"
-          echo "TAG=$TAG" >> "$GITHUB_ENV"
-          gh release create "$TAG" output-final.mp4 \
-            --repo oterrasan/ovalorcapital \
-            --title "Reel de revisão (temporário)" \
-            --notes "Gerado automaticamente só pra Roberto revisar visualmente o fix da sombra. Será deletado assim que ele confirmar." \
-            --prerelease
-          echo "=== URL_DOWNLOAD_START ==="
-          gh release view "$TAG" --repo oterrasan/ovalorcapital --json assets --jq '.assets[0].browser_download_url'
-          echo "=== URL_DOWNLOAD_END ==="
+          SUPABASE_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          HASH="diag-reels-review-$(date +%s)"
+          BODY=$(node -e '
+            const conteudo = "<p><strong>Redação OVC</strong> · teste interno</p><p>Post de teste criado automaticamente para revisar o template de Reels (fix da transição de sombra em vídeo horizontal). Pode ser apagado a qualquer momento.</p>";
+            const payload = {
+              titulo: "[TESTE INTERNO] Revisão do template de Reels — sombra corrigida (pode apagar)",
+              conteudo,
+              comentario_fixado: "Post de teste interno para revisão visual do template de Reels. Sem valor editorial.",
+              imagem: null,
+              hash: process.env.HASH,
+              status: "pendente",
+              approved: false,
+              publish_method: "diag_reels_review",
+              published_at: null,
+              user_tags: JSON.stringify(["brasil-on"]),
+              subcategoria: "Geral",
+              subcategoria_slug: "geral",
+              collaborators: "[]",
+              metrics: { tipo_conteudo: "padrao", meta_descricao: "Teste interno" },
+              priority: 0, retry_count: 0, max_retries: 3
+            };
+            process.stdout.write(JSON.stringify(payload));
+          ')
+          echo "$BODY" > post-payload.json
+
+          curl --fail -sS -X POST "${SUPABASE_URL}/rest/v1/posts" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            --data-binary @post-payload.json \
+            -o post-created.json
+          cat post-created.json
+          POST_ID=$(node -p 'require("./post-created.json")[0].id')
+          echo "POST_ID=$POST_ID"
+
+          VIDEO_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
+
+          echo "=== Enfileirando reels_set_source no post real de producao ==="
+          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d "{\"action\":\"reels_set_source\",\"post_id\":\"${POST_ID}\",\"video_url\":\"${VIDEO_URL}\"}" \
+            --max-time 30
+          echo ""
+          echo "=== POST_ID_RESULT_START ==="
+          echo "$POST_ID"
+          echo "=== POST_ID_RESULT_END ==="
