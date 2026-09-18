@@ -7,8 +7,21 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Placeholder — nenhuma ação real
-        run: echo "placeholder inerte — nenhum diagnóstico ativo"
+      - name: Checar proporção real do vídeo fonte (sem renderizar nada)
+        run: |
+          VIDEO_URL="https://static.ndmais.com.br/2026/09/Veja-o-momento-em-que-motoqueiro-salva-adolescente-de-12-anos-de-ataque-de-abelhas-em-MG.mp4"
+          curl -sL -A "Mozilla/5.0" -o input.mp4 "$VIDEO_URL"
+          echo "tamanho do arquivo:"
+          ls -la input.mp4
+          echo ""
+          echo "=== ffprobe -show_streams (video) ==="
+          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,sample_aspect_ratio,display_aspect_ratio,codec_name,rotate -of default=noprint_wrappers=0 input.mp4
+          echo ""
+          echo "=== tags de rotação (side_data / container) ==="
+          ffprobe -v error -show_entries stream_side_data -of json input.mp4
+          echo ""
+          echo "=== proporção calculada ==="
+          python3 -c "import subprocess,json; r=subprocess.run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','json','input.mp4'],capture_output=True,text=True); d=json.loads(r.stdout); w=d['streams'][0]['width']; h=d['streams'][0]['height']; print('largura x altura real do arquivo:', w, 'x', h); print('proporcao w/h:', round(w/h,4)); print('e vertical 9:16?', abs(w/h-0.5625)<0.02); print('e paisagem 16:9?', abs(w/h-1.7778)<0.05)"
