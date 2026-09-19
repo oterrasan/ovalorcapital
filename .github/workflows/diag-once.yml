@@ -9,25 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checar post de teste usado no upload resumível
-        run: |
-          set -euo pipefail
-          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "== 1) Post específico usado como fonte do vídeo de teste (23e60cd9...) =="
-          curl -sS "$SB_URL/rest/v1/posts?id=eq.23e60cd9-f146-4a3d-8acb-cd3ca86b0fbd&select=id,titulo,status,approved,video_url,created_at,published_at" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-          echo ""
-
-          echo "== 2) Qualquer post (de qualquer status) cujo video_url contenha o arquivo usado no teste =="
-          curl -sS "$SB_URL/rest/v1/posts?video_url=like.*1789663064560-6a1315583bd8*&select=id,titulo,status,video_url" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
-          echo ""
-
-          echo "== 3) O arquivo de vídeo em si ainda existe no Storage? =="
-          curl -sS -o /dev/null -w "HTTP_CODE:%{http_code}\n" \
-            "$SB_URL/storage/v1/object/public/post-videos/videos/1789663064560-6a1315583bd8.mp4"
-
-          echo "== 4) Quantos posts 'pendente' existem agora (pra confirmar se a exclusão em massa de Roberto passou por aqui) =="
-          curl -sS "$SB_URL/rest/v1/posts?status=eq.pendente&select=id" -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" -I 2>/dev/null | grep -i content-range || true
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
