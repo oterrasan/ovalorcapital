@@ -9,4 +9,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "placeholder — nenhum diagnóstico ativo agora"
+      - name: Localizar o post de teste com template de Reel
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          curl -sS "${SUPABASE_URL}/rest/v1/posts?select=id,titulo,status,video_url,metrics,updated_at&order=updated_at.desc&limit=60" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" -o posts.json
+          node -e '
+            const posts = JSON.parse(require("fs").readFileSync("posts.json","utf8"));
+            const withTemplate = posts.filter(p => {
+              try { const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics; return !!m?.instagram_reel_template; }
+              catch(_) { return false; }
+            });
+            console.log("total posts consultados:", posts.length);
+            console.log("posts com instagram_reel_template:", withTemplate.length);
+            for (const p of withTemplate) {
+              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              console.log(JSON.stringify({ id: p.id, titulo: p.titulo, status: p.status, video_url: p.video_url, template: m.instagram_reel_template, updated_at: p.updated_at }));
+            }
+          '
