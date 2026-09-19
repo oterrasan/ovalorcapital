@@ -1285,7 +1285,6 @@ async function handleIgPriorityPublish(req, res, body) {
 const REELS_AUTO_CONFIG_KEYS = ["REELS_AUTOMATION_ENABLED", "REELS_AUTOMATION_LAST_RUN"];
 const REELS_AUTO_INTERVALO_MIN = 20;
 const REELS_TEMPLATE_VERSION = "ovc-reels-2026-09-v2";
-const REELS_STORAGE_BUCKET = "post-videos";
 
 function _isYouTubeUrl(url) {
   return /youtube(?:-nocookie)?\.com|youtu\.be/i.test(String(url || ""));
@@ -1297,9 +1296,7 @@ function _reelsTemplate(metrics) {
 
 function _reelsTemplateReady(post) {
   const template = _reelsTemplate(post?.metrics);
-  return template?.status === "ready" && template?.version === REELS_TEMPLATE_VERSION
-    && /^https?:\/\//i.test(String(template?.rendered_url || ""))
-    && String(post?.video_url || "") === String(template.rendered_url);
+  return template?.status === "ready" && template?.version === REELS_TEMPLATE_VERSION && !!template?.ig_creation_id;
 }
 
 async function _reelsLoadPost(postId) {
@@ -1367,7 +1364,7 @@ async function handleReelsRenderJob(req, res, body) {
   const staleBefore = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
   const { data: candidates, error } = await supabase
     .from("posts")
-    .select("id,titulo,conteudo,video_url,metrics,status,published_at,created_at,updated_at")
+    .select("id,titulo,conteudo,comentario_fixado,user_tags,subcategoria,video_url,metrics,status,ig_account_id,published_at,created_at,updated_at")
     .in("status", ["publicado", "pendente"])
     .order("updated_at", { ascending: false })
     .limit(250);
@@ -1408,19 +1405,32 @@ async function handleReelsRenderJob(req, res, body) {
   if (claimError) throw claimError;
   if (!claimed?.length) return res.status(200).json({ ok: true, job: null, reason: "video_reservado_por_outra_execucao" });
 
-  const safeId = String(candidate.id).replace(/[^a-zA-Z0-9_-]/g, "");
-  const outputPath = `reels-rendered/${safeId}-${claimId}.mp4`;
-  const { data: signed, error: signedError } = await supabase.storage.from(REELS_STORAGE_BUCKET).createSignedUploadUrl(outputPath, { upsert: true });
-  if (signedError || !signed?.signedUrl) {
+  // 18/09/2026 — a pedido de Roberto: "isso não precisa ficar no supabase,
+  // os reels podem ir só pro instagram". Em vez de subir o vídeo
+  // renderizado pro nosso Storage (esbarrava no teto de 50MB do projeto)
+  // só pra depois a Meta buscar via video_url hospedado, o container já
+  // nasce como upload_type=resumable — devolvemos pro runner a URL/token
+  // de upload direto pro rupload.facebook.com; os bytes nunca passam pelo
+  // Supabase. A legenda precisa ir junto na criação do container (a Meta
+  // não aceita definir/trocar caption depois, só no media_publish), por
+  // isso é construída aqui e não mais em _reelsPublicarPost.
+  const caption = buildInstagramCaption(candidate);
+  let ig;
+  try {
+    const { createReelContainerResumable } = await _loadInstagram();
+    ig = await createReelContainerResumable(caption, candidate.ig_account_id || null);
+  } catch (igError) {
     processing.status = "error";
-    processing.last_error = signedError?.message || "signed_upload_url_failed";
+    processing.last_error = redactSecrets(igError?.message || String(igError)).slice(0, 500);
     metrics.instagram_reel_template = processing;
     await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
-    throw signedError || new Error("signed_upload_url_failed");
+    throw igError;
   }
-  const publicUrl = supabase.storage.from(REELS_STORAGE_BUCKET).getPublicUrl(outputPath).data.publicUrl;
-  processing.output_path = outputPath;
-  processing.public_url = publicUrl;
+
+  processing.ig_creation_id = ig.creation_id;
+  processing.ig_account_id = ig.account_id;
+  processing.ig_username = ig.username;
+  processing.quota_before = ig.quota_before || null;
   metrics.instagram_reel_template = processing;
   const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
   if (jobStateError) throw jobStateError;
@@ -1432,10 +1442,10 @@ async function handleReelsRenderJob(req, res, body) {
       title: stripHtmlToText(candidate.titulo || ""),
       body: stripHtmlToText(candidate.conteudo || ""),
       source_url: current.source_url,
-      output_path: outputPath,
-      upload_url: signed.signedUrl,
-      public_url: publicUrl,
-      template_version: REELS_TEMPLATE_VERSION
+      template_version: REELS_TEMPLATE_VERSION,
+      ig_creation_id: ig.creation_id,
+      ig_upload_url: ig.upload_url,
+      ig_upload_token: ig.upload_token
     }
   });
 }
@@ -1444,25 +1454,47 @@ async function handleReelsRenderComplete(req, res, body) {
   if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   const postId = String(body?.post_id || "").trim();
   const claimId = String(body?.claim_id || "").trim();
-  const publicUrl = String(body?.public_url || "").trim();
-  if (!postId || !claimId || !/^https?:\/\//i.test(publicUrl)) return res.status(400).json({ ok: false, error: "render_complete_invalido" });
+  if (!postId || !claimId) return res.status(400).json({ ok: false, error: "render_complete_invalido" });
   const post = await _reelsLoadPost(postId);
   const metrics = parseJsonMaybe(post.metrics, {});
   const template = metrics.instagram_reel_template || {};
   if (template.claim_id !== claimId || template.status !== "processing") return res.status(409).json({ ok: false, error: "render_claim_invalido" });
-  if (template.public_url !== publicUrl) return res.status(409).json({ ok: false, error: "render_url_invalida" });
+  if (!template.ig_creation_id) return res.status(409).json({ ok: false, error: "container_do_reel_ausente" });
+
+  // Os bytes já foram enviados direto pro rupload.facebook.com pelo runner
+  // (nunca passam pelo nosso Storage) — aqui só confirmamos com a Meta que
+  // o processamento do vídeo terminou antes de marcar como "ready". Sem
+  // retry aqui de propósito: quem chama (instagram-auto.yml) já faz o
+  // próprio loop de espera, com folga de tempo bem maior que a de uma
+  // function serverless.
+  const { checkReelStatus } = await _loadInstagram();
+  const status = await checkReelStatus(template.ig_creation_id, template.ig_account_id);
+
+  if (["ERROR", "EXPIRED"].includes(status?.status_code)) {
+    metrics.instagram_reel_template = {
+      ...template,
+      status: "error",
+      last_error: ("meta_reprovou_o_video: " + JSON.stringify(status)).slice(0, 500),
+      failed_at: new Date().toISOString()
+    };
+    await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+    return res.status(200).json({ ok: false, error: "video_reprovado_pela_meta", status });
+  }
+  if (status?.status_code !== "FINISHED") {
+    return res.status(200).json({ ok: true, still_processing: true, post_id: postId, status_code: status?.status_code || null });
+  }
+
   metrics.instagram_reel_template = {
     ...template,
     status: "ready",
-    rendered_url: publicUrl,
     end_trim: body?.end_trim && typeof body.end_trim === "object" ? body.end_trim : null,
     ready_at: new Date().toISOString(),
     last_error: null
   };
-  const { error } = await supabase.from("posts").update({ video_url: publicUrl, metrics, error_msg: null, updated_at: new Date().toISOString() }).eq("id", postId);
+  const { error } = await supabase.from("posts").update({ metrics, error_msg: null, updated_at: new Date().toISOString() }).eq("id", postId);
   if (error) throw error;
-  await writeLog("info", `[reels-render] template pronto: ${post.titulo || postId}`);
-  return res.status(200).json({ ok: true, ready: true, post_id: postId, video_url: publicUrl });
+  await writeLog("info", `[reels-render] template pronto (upload direto pro Instagram, sem Supabase): ${post.titulo || postId}`);
+  return res.status(200).json({ ok: true, ready: true, post_id: postId, ig_creation_id: template.ig_creation_id });
 }
 
 async function handleReelsRenderFail(req, res, body) {
@@ -1537,10 +1569,22 @@ async function _reelsClaimConfirmar(postId, resultado) {
   } catch (_) {}
 }
 
+// 18/09/2026 — vídeo já foi enviado direto pra Meta em handleReelsRenderJob
+// (upload resumível pro rupload.facebook.com — nunca passa pelo nosso
+// Supabase Storage, a pedido de Roberto: "isso não precisa ficar no
+// supabase, os reels podem ir só pro instagram"). Aqui só confirmamos que
+// a Meta terminou de processar o container e publicamos — nunca criamos
+// um container novo nem tocamos em post.video_url (que continua sendo o
+// vídeo bruto original, exibido no site — nunca a versão com overlay do
+// Instagram).
 async function _reelsPublicarPost(post, accountId) {
-  const caption = buildInstagramCaption(post);
-  const { publishReel, getAccount, postComment, likeMedia } = await _loadInstagram();
-  const ig = await publishReel(post.video_url, caption, accountId);
+  const template = _reelsTemplate(post.metrics) || {};
+  const creationId = template.ig_creation_id;
+  if (!creationId) throw new Error("reel_sem_creation_id_da_meta");
+  const igAccountId = accountId || template.ig_account_id || null;
+
+  const { getAccount, postComment, likeMedia, publishAlreadyUploadedReel } = await _loadInstagram();
+  const ig = await publishAlreadyUploadedReel(creationId, igAccountId);
   const firstCommentText = buildInstagramFirstComment(post);
   let firstComment = null, firstCommentError = null, selfLike = null, selfLikeError = null;
   if (firstCommentText) {
@@ -1554,7 +1598,7 @@ async function _reelsPublicarPost(post, accountId) {
     ig_id: ig.id, account_id: ig.account_id, username: ig.username,
     video_url: post.video_url,
     published_at: new Date().toISOString(), published_via: "reels_auto_publish",
-    quota_before_publish: ig.quota_before || null,
+    quota_before_publish: template.quota_before || null,
     first_comment_text: firstCommentText, first_comment_id: firstComment?.id || null, first_comment_error: firstCommentError,
     self_like_success: selfLike?.success === true, self_like_error: selfLikeError
   };
