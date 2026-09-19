@@ -162,8 +162,17 @@ jobs:
           ffmpeg -version >/dev/null
 
       # A Vercel apenas controla a fila. O processamento pesado roda aqui,
-      # preservando o arquivo bruto e sem introduzir ffmpeg no servidor web.
-      - name: Aplicar layout OVC ao próximo vídeo bruto
+      # preservando o arquivo bruto.
+      #
+      # 18/09/2026 — a pedido de Roberto ("isso não precisa ficar no
+      # supabase, os reels podem ir só pro instagram"): o vídeo final
+      # renderizado NUNCA mais é hospedado em lugar nenhum nosso (o teto de
+      # 50MB do Supabase Storage bloqueava vídeo maior) — os bytes vão
+      # DIRETO daqui, o runner, pro rupload.facebook.com (protocolo de
+      # upload resumível da própria Meta pra Reels). O container já nasce
+      # com upload_type=resumable em handleReelsRenderJob, que devolve a
+      # URL/token de upload — a Meta processa e confirmamos via polling.
+      - name: Aplicar layout OVC e enviar direto pra Meta (sem Supabase)
         if: steps.render_queue.outputs.has_job == 'yes'
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
@@ -196,28 +205,56 @@ jobs:
           post_id=$(node -p 'require("./render-job.json").job.post_id')
           claim_id=$(node -p 'require("./render-job.json").job.claim_id')
           source_url=$(node -p 'require("./render-job.json").job.source_url')
-          upload_url=$(node -p 'require("./render-job.json").job.upload_url')
-          public_url=$(node -p 'require("./render-job.json").job.public_url')
+          ig_upload_url=$(node -p 'require("./render-job.json").job.ig_upload_url')
+          ig_upload_token=$(node -p 'require("./render-job.json").job.ig_upload_token')
+          echo "::add-mask::${ig_upload_token}"
 
           curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
           node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
           cat render-result.json
-          curl --fail -sS -X PUT "$upload_url" \
-            -H "Content-Type: video/mp4" \
-            -H "Cache-Control: max-age=31536000" \
-            -H "x-upsert: false" \
-            --upload-file reel-final.mp4 --max-time 300 >/dev/null
 
-          POST_ID="$post_id" CLAIM_ID="$claim_id" PUBLIC_URL="$public_url" node --input-type=module -e '
-            import { writeFileSync } from "node:fs";
-            const render = JSON.parse(await import("node:fs/promises").then(m => m.readFile("render-result.json", "utf8")));
-            writeFileSync("render-complete.json", JSON.stringify({action:"reels_render_complete",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,public_url:process.env.PUBLIC_URL,end_trim:render.end_trim||null}));
+          # Upload resumível direto pra Meta — nenhum storage nosso no meio.
+          file_size=$(stat -c%s reel-final.mp4)
+          curl --fail -sS -X POST "$ig_upload_url" \
+            -H "Authorization: OAuth ${ig_upload_token}" \
+            -H "offset: 0" \
+            -H "file_size: ${file_size}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @reel-final.mp4 --max-time 300 >/dev/null
+
+          POST_ID="$post_id" CLAIM_ID="$claim_id" node -e '
+            const fs = require("node:fs");
+            const render = JSON.parse(fs.readFileSync("render-result.json", "utf8"));
+            fs.writeFileSync("render-complete.json", JSON.stringify({
+              action: "reels_render_complete",
+              post_id: process.env.POST_ID,
+              claim_id: process.env.CLAIM_ID,
+              end_trim: render.end_trim || null
+            }));
           '
-          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
-          node -e 'const d=require("./render-complete-response.json"); if(!d.ok) throw new Error(d.error||"render_complete_failed"); console.log("Layout OVC aplicado e vídeo final armazenado.")'
+
+          # reels_render_complete não tenta de novo sozinho (é uma function
+          # serverless, orçamento curto) — o loop de espera pela Meta
+          # terminar de processar o vídeo fica aqui, que tem tempo de sobra
+          # (timeout do job é 20min). Meta documenta até ~5min de
+          # processamento no pior caso — 5 tentativas de 60s cobrem isso.
+          ready="no"
+          for attempt in 1 2 3 4 5; do
+            curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+              --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
+            cat render-complete-response.json; echo ""
+            state=$(node -p 'const d=require("./render-complete-response.json"); d.ok===true ? (d.still_processing===true ? "still" : "ready") : "rejected"')
+            if [ "$state" = "ready" ]; then ready="yes"; break; fi
+            if [ "$state" = "rejected" ]; then false; fi
+            sleep 60
+          done
+          if [ "$ready" != "yes" ]; then
+            echo "Vídeo ainda em processamento pela Meta após 5min de espera — marca falha pra retentar com container novo na próxima rodada."
+            false
+          fi
+          echo "Reel pronto — vídeo já está direto na Meta, sem Supabase no meio."
           trap - ERR
 
       - name: Chamar reels_auto_publish

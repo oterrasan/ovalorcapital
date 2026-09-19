@@ -9621,3 +9621,51 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. Demais pendências de sessões anteriores seguem todas válidas (ver listas completas nas entradas de 08/09 e 10/09/2026 acima — vídeo "ainda processando na Meta", os 7 vídeos do pacote do 7 de Setembro, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense).
 
 ---
+
+### Sessão 18-19/09/2026 — 🔴 REELS PARAM DE PASSAR PELO SUPABASE STORAGE — UPLOAD DIRETO PRA META (resumable upload da própria Meta)
+
+#### Contexto
+
+Roberto reportou vídeo travando em "Aguardando acabamento"/erro no render, investigado com evidência real (não suposição): o passo do `instagram-auto.yml` que sobe o vídeo final renderizado (com o overlay/marca OVC) pro Supabase Storage (`upload_url` assinado, bucket `post-videos`) batia em `413 Payload too large`. Testado ao vivo: mesmo elevando o `file_size_limit` do BUCKET via API com a service_role key, o mesmo 413 idêntico persistiu — confirmando com certeza que é um **teto do PROJETO Supabase inteiro** (padrão 50MB, configurável só no Dashboard → Project Settings → Storage, nunca por código/API de bucket), não um limite do bucket nem nada específico do template de Reels.
+
+Explicado isso a Roberto de forma direta (ele pediu "seja curto e direto"). Resposta dele: **"Isso não precisa ficar no super base !!!! Os reels podem a princípio ir apenas para o Instagram!!!!"** — ou seja: o vídeo final renderizado não precisa de NENHUM hospedeiro nosso (nem Supabase, nem qualquer outro) antes de chegar no Instagram.
+
+#### A solução real — protocolo de upload resumível da própria Meta (documentado, sem gambiarra)
+
+Pesquisado (WebSearch + cross-referência de ~15 implementações reais no GitHub, já que o WebFetch direto pra `developers.facebook.com` é bloqueado pelo proxy deste sandbox) e confirmado: a Graph API do Instagram tem um jeito oficial de publicar Reels **sem nenhuma URL pública hospedada por nós** — `upload_type=resumable` na criação do container devolve uma URL de upload direto pro `rupload.facebook.com`; quem estiver rodando o processo (aqui, o runner do GitHub Actions) manda os bytes crus direto pra lá, com `Authorization: OAuth <token>`. Confirmado que este projeto já usa `graph.facebook.com` (não `graph.instagram.com`) — pré-requisito real do método, verificado antes de propor.
+
+Proposto a Roberto ("Posso implementar assim?") — autorizado: **"Sim . Faça isso"**.
+
+#### O que foi implementado (3 arquivos, mesma branch de toda a investigação)
+
+**`core/instagram.js`** — duas funções novas, **sem tocar nas antigas** (`createReelContainer`/`publishReel`, método hospedado por `video_url`, deixadas intactas por segurança/retrocompatibilidade, mesmo sem nenhum caller ativo hoje):
+- `createReelContainerResumable(caption, accountId, opts)` — cria o container já como `upload_type:"resumable"` (a legenda precisa ir JUNTO nessa chamada — a Meta não aceita definir/trocar caption depois, só confirma no publish). Devolve `{creation_id, account_id, username, upload_url, upload_token, quota_before}`.
+- `publishAlreadyUploadedReel(creationId, accountId, opts)` — confirma que a Meta terminou de processar (poll curto de segurança) e publica — nunca cria container novo, reaproveita o já existente. Aplica os mesmos 4 collaborators fixos de sempre (`acceptCollabsForMedia`) — nada mudou nisso.
+
+**`api/manage.js`**:
+- `_reelsTemplateReady(post)` — agora exige `template.ig_creation_id` presente (em vez de checar `video_url` batendo com uma URL hospedada nossa).
+- `handleReelsRenderJob` — em vez de gerar uma signed-upload-URL do Supabase, monta a legenda (`buildInstagramCaption`) e chama `createReelContainerResumable` — devolve pro runner `ig_creation_id`/`ig_upload_url`/`ig_upload_token` (não mais `upload_url`/`public_url` do Supabase).
+- `handleReelsRenderComplete` — não valida mais nenhuma URL do Supabase; só confirma com a Meta (`checkReelStatus`) se o vídeo já processou. **Nunca mais sobrescreve `posts.video_url`** — esse campo continua sendo sempre o vídeo BRUTO original (o que aparece no player do site), nunca a versão com overlay específico do Instagram. Retorna `still_processing:true` quando a Meta ainda não terminou (sem retry interno — decisão deliberada, ver abaixo).
+- `_reelsPublicarPost` — publica via `publishAlreadyUploadedReel(creationId, accountId)` usando o `ig_creation_id` já salvo no template, em vez de `publishReel(post.video_url, ...)`.
+- `REELS_STORAGE_BUCKET` (constante morta, confirmada sem nenhuma outra referência via grep) removida.
+
+**`.github/workflows/instagram-auto.yml`** — passo "Aplicar layout OVC e enviar direto pra Meta (sem Supabase)": depois de renderizar o vídeo final localmente (ffmpeg, como já era), os bytes vão via `curl -X POST` direto pro `ig_upload_url` (headers `Authorization: OAuth`/`offset: 0`/`file_size`/`Content-Type: application/octet-stream`) — nunca mais um `PUT` pro Supabase. O token é mascarado (`::add-mask::`) assim que extraído do JSON, nunca aparece em texto puro nos logs. Como `reels_render_complete` não tenta de novo sozinho (decisão deliberada — é uma function serverless com orçamento curto), o loop de espera pela Meta terminar de processar (Meta documenta até ~5min no pior caso) ficou no runner, que tem 20min de folga: 5 tentativas de 60s, e se esgotar sem sucesso ou a Meta rejeitar o vídeo (`ERROR`/`EXPIRED`), o mesmo mecanismo `trap report_failure ERR` já existente chama `reels_render_fail` normalmente.
+
+#### Verificações feitas antes do commit (sem rodar em produção ainda)
+
+- `node --check` em `core/instagram.js` e `api/manage.js` — OK.
+- YAML validado com `python3 -c "import yaml; yaml.safe_load(...)"` — OK.
+- O bloco bash novo extraído e testado com `bash -n` — OK.
+- Cada snippet `node -p`/`node -e` embutido testado isoladamente com fixtures reais (`render-job.json`/`render-result.json`/`render-complete-response.json` simulados) confirmando a extração de `ig_upload_url`/`ig_upload_token`, a montagem do `render-complete.json`, e as 3 saídas possíveis do loop de polling (`ready`/`still`/`rejected`) — todas corretas.
+
+#### ⚠️ Nada disso foi testado end-to-end em produção ainda
+
+Nenhum PR foi aberto/mergeado nem disparo real de `diag-once.yml` foi feito pra exercitar o caminho novo (criar container resumível de verdade, subir bytes reais pro `rupload.facebook.com`, confirmar que a Meta processa e publica). Isso é o próximo passo obrigatório antes de reportar "funcionando" a Roberto — usar o mesmo padrão `diag-once.yml` já estabelecido nesta investigação toda: enfileirar um vídeo de teste real via `reels_set_source`, disparar `reels_render_job` manualmente, confirmar a criação do container e o upload sem bater em nenhum limite de tamanho, confirmar `reels_render_complete` reportando `ready:true`, e só então (com cuidado, dado o histórico de sensibilidade de Roberto sobre posts de teste indo ao ar de verdade) considerar um disparo real de publicação.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Testar end-to-end em produção** o novo fluxo de upload resumível antes de declarar concluído — nada disso rodou de verdade ainda, só validação estática (sintaxe + fixtures simuladas).
+2. Se o teste real revelar que `graph.facebook.com` com o token atual não aceita `upload_type=resumable` (ressalva não 100% confirmada na pesquisa — só documentada como caminho oficial pra login via Facebook, que é o que este projeto já usa), investigar e reportar com evidência real, nunca assumir que funciona sem confirmar.
+3. Demais pendências de sessões anteriores seguem válidas (ver listas anteriores).
+
+---

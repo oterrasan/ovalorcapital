@@ -204,6 +204,87 @@ export async function createReelContainer(videoUrl, caption, accountId, opts = {
   return { creation_id: createData.id, account_id: account.id, username: account.username, quota_before: limit };
 }
 
+// 18/09/2026 — a pedido de Roberto: "isso não precisa ficar no supabase,
+// os reels podem ir só pro instagram". Em vez do método hospedado
+// (video_url — a Meta busca o arquivo numa URL pública nossa, hoje
+// Supabase Storage, que tem teto de 50MB no projeto), cria o container já
+// como upload_type=resumable — a Meta devolve uma URL de rupload própria
+// pra receber os bytes DIRETO de quem está rodando o render (o runner do
+// GitHub Actions), sem nenhum storage nosso no meio. Documentado como o
+// caminho oficial da Meta pra Reels sem hospedagem pública:
+// https://developers.facebook.com/docs/instagram-platform/content-publishing/
+export async function createReelContainerResumable(caption, accountId, opts = {}) {
+  const account = await getAccount(accountId);
+  if (!account) throw new Error("Nenhuma conta Instagram ativa com token disponível");
+  const { ig_user_id, token } = account;
+  if (!ig_user_id || !token) throw new Error("Conta sem ig_user_id ou token: " + account.username);
+
+  const limit = await getPublishingLimitForAccount(account);
+  if (limit.quota_total !== null && limit.quota_usage !== null && limit.quota_usage >= limit.quota_total) {
+    throw new Error(`Limite de publicação do Instagram atingido (${limit.quota_usage}/${limit.quota_total} em ${limit.quota_duration || 86400}s)`);
+  }
+
+  const createPayload = {
+    media_type: "REELS",
+    upload_type: "resumable",
+    caption,
+    access_token: token,
+    share_to_feed: opts.shareToFeed !== false
+  };
+  const collaborators = collaboratorsFor(account.username);
+  if (collaborators.length) createPayload.collaborators = collaborators;
+  if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
+
+  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(createPayload)
+  });
+  const createData = await createRes.json();
+  if (!createData.id) throw new Error("Erro ao criar container resumível de Reel: " + JSON.stringify(createData));
+
+  return {
+    creation_id: createData.id,
+    account_id: account.id,
+    username: account.username,
+    upload_url: createData.uri || `https://rupload.facebook.com/ig-api-upload/v25.0/${createData.id}`,
+    upload_token: token,
+    quota_before: limit
+  };
+}
+
+// Publica um Reel cujo vídeo JÁ foi enviado direto pra Meta (via
+// createReelContainerResumable + upload de bytes pro rupload) — nunca cria
+// um segundo container, só confirma o processamento e publica.
+export async function publishAlreadyUploadedReel(creationId, accountId, opts = {}) {
+  let status = null;
+  const maxAttempts = opts.maxPollAttempts ?? 5;
+  const pollDelayMs = opts.pollDelayMs ?? 3000;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, pollDelayMs));
+    status = await checkReelStatus(creationId, accountId);
+    if (status?.status_code === "FINISHED") break;
+    if (["ERROR", "EXPIRED"].includes(status?.status_code)) {
+      throw new Error("Erro ao processar vídeo do Reel: " + JSON.stringify(status));
+    }
+  }
+
+  if (status?.status_code !== "FINISHED") {
+    const err = new Error("Vídeo do Reel ainda em processamento pela Meta — tentar de novo depois: " + JSON.stringify(status));
+    err.pending = true;
+    err.creation_id = creationId;
+    err.account_id = accountId;
+    throw err;
+  }
+
+  const published = await publishReelContainer(creationId, accountId);
+  const collaborators = collaboratorsFor(published.username);
+  if (collaborators.length) {
+    try { await acceptCollabsForMedia(published.id, collaborators, "reel"); } catch (_) {}
+  }
+  return published;
+}
+
 export async function checkReelStatus(creationId, accountId) {
   const account = await getAccount(accountId);
   if (!account?.token) throw new Error("Conta sem token para checar status do Reel");
