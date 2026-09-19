@@ -9662,10 +9662,20 @@ Proposto a Roberto ("Posso implementar assim?") — autorizado: **"Sim . Faça i
 
 Nenhum PR foi aberto/mergeado nem disparo real de `diag-once.yml` foi feito pra exercitar o caminho novo (criar container resumível de verdade, subir bytes reais pro `rupload.facebook.com`, confirmar que a Meta processa e publica). Isso é o próximo passo obrigatório antes de reportar "funcionando" a Roberto — usar o mesmo padrão `diag-once.yml` já estabelecido nesta investigação toda: enfileirar um vídeo de teste real via `reels_set_source`, disparar `reels_render_job` manualmente, confirmar a criação do container e o upload sem bater em nenhum limite de tamanho, confirmar `reels_render_complete` reportando `ready:true`, e só então (com cuidado, dado o histórico de sensibilidade de Roberto sobre posts de teste indo ao ar de verdade) considerar um disparo real de publicação.
 
+#### 🔴✅ ATUALIZAÇÃO — TESTADO END-TO-END EM PRODUÇÃO, COM EVIDÊNCIA REAL (mesma sessão, logo em seguida)
+
+PR #768 mergeado em `main` (squash `e86f137`), deploy confirmado com sucesso (`deploy.yml`). Em seguida, testado o mecanismo NOVO de verdade — sem tocar em nenhuma linha da tabela `posts`, sem chamar `media_publish` em nenhum momento — importando `createReelContainerResumable`/`checkReelStatus` direto de `core/instagram.js` num job do GitHub Actions (`diag-once.yml`, resetado ao placeholder logo depois, convenção já estabelecida):
+
+1. **Container criado de verdade** via Graph API real: `{"creation_id":"18591272179065987","username":"ovalorcapital","upload_url":"https://rupload.facebook.com/ig-api-upload/v26.0/18591272179065987","quota_before":{"quota_usage":19,"quota_total":100,"quota_remaining":81}}` — confirma que `graph.facebook.com` com o token atual do projeto ACEITA `upload_type=resumable` sem nenhum problema (a ressalva registrada antes, sobre precisar de token via Facebook-Login, se confirmou correta e sem surpresa).
+2. **Vídeo-fonte baixado** (10.732.910 bytes, ~10.2MB) e **enviado direto pro `rupload.facebook.com`** com `curl -X POST` + `Authorization: OAuth`/`offset: 0`/`file_size`/`Content-Type: application/octet-stream` — resposta real da Meta: `{"success":true,"message":"Upload Successful."}`.
+3. **Poll de status confirmou processamento imediato**: `{"status":"Finished: Media has been uploaded and it is ready to be published.","status_code":"FINISHED"}` — já na 1ª tentativa (nem precisou dos 5×60s de espera previstos pro pior caso).
+4. **`media_publish` nunca foi chamado** — o container fica real mas não publicado, e expira sozinho do lado da Meta sem nenhum efeito visível na conta `@ovalorcapital`.
+
+Isso confirma, com evidência real de produção (não suposição), que o novo mecanismo de upload resumível funciona de ponta a ponta: criação de container → upload direto de bytes pra Meta → confirmação de processamento — exatamente o pedido de Roberto ("os reels podem ir só pro instagram"), sem nenhum storage nosso no meio. O que ainda não foi exercitado é o passo final de publicação de verdade (`publishAlreadyUploadedReel`/`media_publish`) usando este mecanismo — esse caminho reaproveita a MESMA lógica de poll/publish/collab/self-like já testada e usada em produção há semanas pelo método antigo (`publishReelContainer`, código idêntico, só muda como o container nasce), então o risco residual aí é baixo, mas nunca foi observado rodando com um container criado pelo caminho resumível especificamente.
+
 #### 🔧 Pendências para a próxima sessão
 
-1. **Testar end-to-end em produção** o novo fluxo de upload resumível antes de declarar concluído — nada disso rodou de verdade ainda, só validação estática (sintaxe + fixtures simuladas).
-2. Se o teste real revelar que `graph.facebook.com` com o token atual não aceita `upload_type=resumable` (ressalva não 100% confirmada na pesquisa — só documentada como caminho oficial pra login via Facebook, que é o que este projeto já usa), investigar e reportar com evidência real, nunca assumir que funciona sem confirmar.
-3. Demais pendências de sessões anteriores seguem válidas (ver listas anteriores).
+1. **Confirmar a próxima publicação real de Reel feita pelo `instagram-auto.yml`** (fluxo completo: `reels_set_source` → `reels_render_job` → upload → `reels_render_complete` → `reels_auto_publish`/botão manual) — o mecanismo de container+upload já foi confirmado real e funcionando; falta só ver o ciclo inteiro, incluindo a publicação de fato, rodar em produção pelo cron/admin normal (não precisa de ação especial — só observar o próximo vídeo real que Roberto/o admin enfileirar).
+2. Demais pendências de sessões anteriores seguem válidas (ver listas anteriores).
 
 ---
