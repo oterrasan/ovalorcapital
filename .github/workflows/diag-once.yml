@@ -7,66 +7,6 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-      - run: npm ci --omit=dev
-
-      # Teste real do NOVO mecanismo (createReelContainerResumable +
-      # upload direto pro rupload.facebook.com), SEM tocar em nenhuma
-      # linha da tabela posts e SEM chamar publishReelContainer/
-      # media_publish em nenhum momento — cria um container de Reel real
-      # mas nunca publicado (a Meta expira containers não publicados
-      # sozinha, sem nenhum efeito visível no feed da conta).
-      - name: Testar upload resumível direto pra Meta (sem publicar)
-        run: |
-          set -euo pipefail
-          node --input-type=module -e '
-            import { createReelContainerResumable, checkReelStatus } from "./core/instagram.js";
-            const caption = "TESTE TÉCNICO OVC — upload resumível, NÃO PUBLICAR (apagar/expira sozinho)";
-            const container = await createReelContainerResumable(caption, null, { shareToFeed: false });
-            console.log("CONTAINER_CRIADO", JSON.stringify({
-              creation_id: container.creation_id,
-              account_id: container.account_id,
-              username: container.username,
-              upload_url: container.upload_url,
-              quota_before: container.quota_before
-            }));
-            const fs = await import("node:fs");
-            fs.writeFileSync("container.json", JSON.stringify(container));
-          '
-          creation_id=$(node -p 'require("./container.json").creation_id')
-          account_id=$(node -p 'require("./container.json").account_id')
-          upload_url=$(node -p 'require("./container.json").upload_url')
-          upload_token=$(node -p 'require("./container.json").upload_token')
-          echo "::add-mask::${upload_token}"
-
-          curl --fail --location -sS "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789663064560-6a1315583bd8.mp4" --max-time 120 -o test-video.mp4
-          file_size=$(stat -c%s test-video.mp4)
-          echo "video baixado, tamanho=${file_size} bytes"
-
-          curl --fail -sS -X POST "$upload_url" \
-            -H "Authorization: OAuth ${upload_token}" \
-            -H "offset: 0" \
-            -H "file_size: ${file_size}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @test-video.mp4 --max-time 300
-          echo ""
-          echo "UPLOAD_OK"
-
-          CREATION_ID="$creation_id" ACCOUNT_ID="$account_id" node --input-type=module -e '
-            import { checkReelStatus } from "./core/instagram.js";
-            const creationId = process.env.CREATION_ID;
-            const accountId = process.env.ACCOUNT_ID;
-            for (let i = 0; i < 6; i++) {
-              const status = await checkReelStatus(creationId, accountId);
-              console.log("POLL", i, JSON.stringify(status));
-              if (status?.status_code === "FINISHED" || ["ERROR","EXPIRED"].includes(status?.status_code)) break;
-              await new Promise(r => setTimeout(r, 30000));
-            }
-            console.log("NUNCA CHAMADO media_publish — container fica sem publicar, expira sozinho na Meta.");
-          '
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
