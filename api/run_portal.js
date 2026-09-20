@@ -991,7 +991,17 @@ async function filtrarCandidatosProntos(canalKey, links) {
 
 async function autoBrasilOn(req, res, rec) {
   const start = Date.now();
-  const body = req.body || {};
+  // 20/09/2026 — bug real pré-existente (não introduzido agora): esta
+  // função reconstruía `body` a partir de req.body puro, ignorando que o
+  // handler principal já monta `body` a partir de req.query em chamadas
+  // GET (é assim que o cron nativo da Vercel chama, ver vercel.json —
+  // sempre GET, nunca manda corpo). Resultado: dentro desta função,
+  // body.count/body.brasilon_url etc sempre vinham vazios em produção,
+  // mesmo quando a URL chamada tinha esses parâmetros — confirmado ao
+  // vivo (candidates:15 idêntico com e sem &brasilon_url= na query).
+  // Mesma lógica do handler principal (linha ~1395), replicada aqui.
+  const isCronTrigger = req.method === "GET" && req.query?.pass === CRON_TOKEN;
+  const body = isCronTrigger ? { ...req.query } : (req.body || {});
   const count = Math.min(parseInt(body.count) || 2, 4);
   // 20/09/2026 — Roberto: "a essa hora da madrugada não vai ter nada
   // novo. Pega uma matéria e um vídeo aleatório do site dele do dia de
