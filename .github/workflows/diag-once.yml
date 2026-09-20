@@ -9,65 +9,58 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Achar uma matéria de ontem do Bacci que tenha vídeo
+      - name: Publicar matéria específica de ontem com vídeo (teste com autorização de Roberto)
         run: |
           python3 << 'PYEOF'
-          import re
+          import json
+          import time
           import urllib.request
-          from datetime import datetime, timedelta, timezone
+          import urllib.parse
 
-          UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+          BASE = "https://www.ovalorcapital.com.br"
+          PASS = "ovc-admin-2026-secreto"
+          URL_MATERIA = "https://baccinoticias.com.br/influenciador-e-sequestrado-e-revela-detalhes-chocantes-veja/"
 
-          def fetch(url, timeout=10):
-              req = urllib.request.Request(url, headers={"User-Agent": UA})
+          def get_json(url, timeout=70):
+              req = urllib.request.Request(url, headers={"User-Agent": "diag-video-bacci"})
               with urllib.request.urlopen(req, timeout=timeout) as r:
-                  return r.read().decode("utf-8", errors="replace")
+                  return json.loads(r.read().decode("utf-8"))
 
-          idx = fetch("https://baccinoticias.com.br/sitemap_index.xml")
-          locs = re.findall(r'<loc>(.*?)</loc>', idx)
-          post_sitemaps = [l for l in locs if re.search(r'/post-sitemap\d*\.xml$', l)]
-          chunk = post_sitemaps[-1]
-          print("chunk atual:", chunk)
-          sm = fetch(chunk)
-          blocos = re.findall(r'<url>([\s\S]*?)</url>', sm)
+          print(f"Forçando autoBrasilOn com URL especifica: {URL_MATERIA}")
+          url_run = (
+              f"{BASE}/api/run_portal?tipo=brasilon&force=true&count=1&pass={PASS}"
+              f"&url={urllib.parse.quote(URL_MATERIA, safe='')}"
+          )
+          try:
+              resultado = get_json(url_run)
+              print("RESULTADO run_portal:", json.dumps(resultado, ensure_ascii=False))
+          except Exception as e:
+              print(f"ERRO ao chamar run_portal: {e}")
 
-          agora = datetime.now(timezone.utc)
-          ontem_ini = agora - timedelta(hours=48)
-          ontem_fim = agora - timedelta(hours=6)
+          time.sleep(3)
 
-          candidatos = []
-          for b in blocos:
-              loc_m = re.search(r'<loc>(.*?)</loc>', b)
-              lastmod_m = re.search(r'<lastmod>(.*?)</lastmod>', b)
-              if not loc_m or not lastmod_m:
-                  continue
-              loc = loc_m.group(1)
-              lastmod = lastmod_m.group(1)
-              if re.search(r'vi-no-instagram|categoria|category|/tag/|/page/', loc, re.I):
-                  continue
+          print("\nConsultando posts recentes de brasil-on via API publica...")
+          url_lista = f"{BASE}/api/portal-posts?recentes=true&categoria=brasil-on&limit=3"
+          try:
+              lista = get_json(url_lista, timeout=20)
+              posts = lista.get("posts") or lista.get("data") or []
+              print(f"total de posts retornados: {len(posts)}")
+          except Exception as e:
+              print(f"ERRO ao listar posts: {e}")
+              posts = []
+
+          for p in posts[:3]:
+              post_id = p.get("id")
+              url_um = f"{BASE}/api/portal-posts?id={post_id}"
               try:
-                  dt = datetime.fromisoformat(lastmod.replace("Z", "+00:00"))
-              except Exception:
-                  continue
-              if ontem_ini <= dt <= ontem_fim:
-                  candidatos.append((loc, lastmod))
-
-          candidatos.sort(key=lambda c: c[1], reverse=True)
-          print(f"candidatos na janela 6h-48h atras: {len(candidatos)}")
-
-          achou = None
-          for loc, lastmod in candidatos[:25]:
-              try:
-                  html = fetch(loc, timeout=8)
+                  um = get_json(url_um, timeout=20)
+                  metrics = um.get("metrics") or {}
+                  template = metrics.get("instagram_reel_template")
+                  print(f"\n--- {um.get('titulo')} ---")
+                  print("  url completa:", BASE + str(um.get("url")))
+                  print("  imagem exposta:", bool(um.get("imagem")))
+                  print("  campo 'video' exposto ao publico (deve ser vazio/None):", repr(um.get("video")))
+                  print("  metrics.instagram_reel_template:", json.dumps(template, ensure_ascii=False) if template else "NENHUM (matéria sem vídeo)")
               except Exception as e:
-                  print(f"  erro ao buscar {loc}: {e}")
-                  continue
-              if re.search(r'estatico/bacci\.php\?video=\d+', html):
-                  print(f"COM VIDEO: {loc} ({lastmod})")
-                  if not achou:
-                      achou = loc
-              else:
-                  print(f"sem video: {loc} ({lastmod})")
-
-          print("\n\nMELHOR CANDIDATO PRA TESTE:", achou or "NENHUM ACHADO")
+                  print(f"  ERRO ao buscar artigo individual {post_id}: {e}")
           PYEOF
