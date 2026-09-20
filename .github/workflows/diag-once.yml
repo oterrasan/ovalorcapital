@@ -82,6 +82,31 @@ jobs:
                   print("CONTEXTO ANTES/DEPOIS DE <video>:")
                   print(html[max(0, idx-200):idx+800])
 
+          # Descoberta da 1a rodada: Bacci embute video via iframe proprio
+          # bacci.php?video=ID&limit=1&v=1.0 (com ID) quando a materia TEM
+          # video; sem "video=" (so limit=15) e widget generico sem video.
+          def investigar_iframe_bacci(url_pagina):
+              html = fetch(url_pagina)
+              m = re.search(r'estatico/bacci\.php\?video=(\d+)[^"\']*', html)
+              if not m:
+                  print(f"  sem iframe video= em {url_pagina}")
+                  return
+              iframe_url = "https://baccinoticias.com.br/" + m.group(0)
+              print(f"  iframe com video encontrado: {iframe_url}")
+              try:
+                  conteudo = fetch(iframe_url, timeout=10)
+              except Exception as e:
+                  print(f"  ERRO ao buscar iframe: {e}")
+                  return
+              print(f"  tamanho do conteudo do iframe: {len(conteudo)} bytes")
+              print(f"  primeiros 1500 chars:\n{conteudo[:1500]}")
+              for mm in re.finditer(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', conteudo, re.I):
+                  print("  MP4 LINK NO IFRAME:", mm.group(0))
+              for mm in re.finditer(r'<source\b[^>]*>', conteudo, re.I):
+                  print("  SOURCE TAG NO IFRAME:", mm.group(0)[:300])
+              for mm in re.finditer(r'<video\b[^>]*>', conteudo, re.I):
+                  print("  VIDEO TAG NO IFRAME:", mm.group(0)[:300])
+
           mais = descobrir_mais_urls(4)
           print(f"URLs adicionais descobertas via sitemap: {len(mais)}")
           todas = URLS + [u for u in mais if u not in URLS]
@@ -96,4 +121,12 @@ jobs:
               except Exception as e:
                   print(f"ERRO ao buscar {url}: {e}")
           print(f"\n\nRESUMO: {com_video}/{len(todas)} páginas tinham algum sinal de vídeo (video tag / og:video / .mp4)")
+
+          print("\n\n========== INVESTIGANDO O IFRAME bacci.php?video=ID ==========")
+          for url in todas:
+              print(f"\n--- {url} ---")
+              try:
+                  investigar_iframe_bacci(url)
+              except Exception as e:
+                  print(f"ERRO: {e}")
           PYEOF
