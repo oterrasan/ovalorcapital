@@ -993,13 +993,26 @@ async function autoBrasilOn(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
-  const candidatos = await buscarCandidatosBrasilOn();
-  const seen = new Set();
-  const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
-  const prontos = await filtrarCandidatosProntos("BRASILON", brutos.map(i => i.link));
-  const items = brutos.filter(i => prontos.has(i.link));
-  if (!items.length) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
+  // 20/09/2026 — Roberto: "a essa hora da madrugada não vai ter nada
+  // novo. Pega uma matéria e um vídeo aleatório do site dele do dia de
+  // ontem e faz" — teste pontual com URL específica, contorna a busca
+  // automática de candidatos E o grace-period gate (filtrarCandidatosProntos,
+  // pensado pra matéria fresca ainda em atualização — não faz sentido pra
+  // uma matéria de ontem já estável). NUNCA usado pelo cron automático
+  // (que nunca manda body.url) — só serve pra forçar um teste manual.
+  const urlManual = String(body.url || "").trim();
+  let items;
+  if (urlManual) {
+    items = [{ link: urlManual, source: "Bacci Notícias", title: "", description: "", pubDate: new Date().toISOString() }];
+  } else {
+    const candidatos = await buscarCandidatosBrasilOn();
+    const seen = new Set();
+    const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
+    const prontos = await filtrarCandidatosProntos("BRASILON", brutos.map(i => i.link));
+    items = brutos.filter(i => prontos.has(i.link));
+    if (!items.length) {
+      return res.status(200).json({ status: "ok", generated: 0, tipo: "brasilon", candidates: 0, info: "no_brasilon_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
+    }
   }
   let generated = 0;
   const geradosAgora = [];
