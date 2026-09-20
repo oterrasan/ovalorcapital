@@ -120,6 +120,47 @@ export async function buscarCandidatosBrasilOn() {
   return await buscarBacci();
 }
 
+// VÍDEO DO BACCI — 20/09/2026, Roberto Terrasan: "entenda o site do bacci
+// com relacao aos videos e construa o mecanismo, vamos avancar". Confirmado
+// ao vivo (workflow de diagnóstico, não suposição) contra uma matéria real
+// (camera-corporal-registra-momento...pm-gisele) que a Bacci embute vídeo
+// SEMPRE dentro do próprio site, nunca só no Instagram deles — resolve o
+// ponto que preocupava (nada de ler/monitorar perfil de rede social, é
+// leitura de página pública, mesma classe do que já fazemos pro resto do
+// Bacci). Cadeia real de 3 páginas públicas, sem login, sem simular
+// navegador:
+//   1) A matéria em si tem um <iframe src="estatico/bacci.php?video=ID&limit=1">
+//      quando (e só quando) ela tem vídeo — sem "video=" é só o widget
+//      genérico "mais vídeos" da barra lateral, sem vídeo desta matéria.
+//   2) Esse iframe é um mini-widget (thumbnail + <a href=".../videos/slug_ID">)
+//      que linka pra uma página própria do vídeo.
+//   3) Essa página /videos/slug_ID tem o player real — Bunny Stream — com
+//      link MP4 direto embutido no HTML (play_360p.mp4, play_240p.mp4 etc,
+//      "MP4 Fallback" do Bunny). downloadAndUploadVideo() (core/storage.js)
+//      já sabe extrair um .mp4 de dentro de uma página HTML e re-hospedar
+//      no nosso Storage — não duplicar essa lógica aqui, só descobrir a
+//      URL certa (o passo 3) e devolver pra quem chamar reaproveitar.
+const _BACCI_IFRAME_VIDEO_RE = /estatico\/bacci\.php\?video=(\d+)[^"'\s<>]*/i;
+const _BACCI_VIDEOS_PAGE_RE = /href="(https:\/\/baccinoticias\.com\.br\/videos\/[^"]+)"/i;
+
+export async function descobrirPaginaVideoBacci(urlMateria) {
+  try {
+    const resMateria = await axios.get(urlMateria, { timeout: 8000, headers: { "User-Agent": UA } });
+    const htmlMateria = String(resMateria.data || "");
+    const m = htmlMateria.match(_BACCI_IFRAME_VIDEO_RE);
+    if (!m) return "";
+    const idVideo = m[1];
+    const urlIframe = `https://baccinoticias.com.br/estatico/bacci.php?video=${idVideo}&limit=1&v=1.0`;
+    const resIframe = await axios.get(urlIframe, { timeout: 8000, headers: { "User-Agent": UA } });
+    const htmlIframe = String(resIframe.data || "");
+    const linkM = htmlIframe.match(_BACCI_VIDEOS_PAGE_RE);
+    if (!linkM) return "";
+    return linkM[1].replace(/&amp;/g, "&");
+  } catch (_) {
+    return "";
+  }
+}
+
 // Detecta posts institucionais/autopromoção de programa de TV/rádio do
 // PRÓPRIO site fonte — não são notícia, são propaganda de um programa deles.
 // Caso real, Roberto Terrasan 11/08/2026: post "Programa Esporte sem Firula

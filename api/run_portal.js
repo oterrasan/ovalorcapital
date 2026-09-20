@@ -6,7 +6,7 @@ import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteFofocas } from "../core/ai_portal.js";
 import { downloadAndUploadVideo } from "../core/storage.js";
-import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma } from "../core/brasilon.js";
+import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma, descobrirPaginaVideoBacci } from "../core/brasilon.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
 import { buscarCandidatosFofocas, pareceConteudoPromocional as pareceConteudoPromocionalFofocas } from "../core/fofocas.js";
@@ -807,6 +807,54 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
 // contra o banco (nunca republica a mesma URL), (4) pautaParecida() do título
 // FINAL (já reescrito) contra rec.titulos (últimas 48h, banco inteiro) + títulos
 // já gerados nesta mesma chamada. rec vem de recentes() — ver essa função acima.
+// Mesma versão de template usada em api/manage.js (REELS_TEMPLATE_VERSION)
+// — precisa bater exatamente, senão handleReelsSetSource/renderJob tratam
+// o registro como desatualizado e reenfileiram do zero. run_portal.js nunca
+// importa de api/manage.js (padrão do projeto — só importa de core/*), daí
+// a constante duplicada aqui em vez de compartilhada.
+const REELS_TEMPLATE_VERSION_BRASILON = "ovc-reels-2026-09-v2";
+
+// Enfileira automaticamente o vídeo do Bacci pro pipeline de Reels que já
+// existe — mesmo formato de dado que handleReelsSetSource (api/manage.js)
+// grava quando Roberto faz isso manualmente no admin. NUNCA lança: falha
+// em qualquer etapa (sem vídeo na matéria, download falhou, etc) só
+// significa que este post fica sem Reel, a matéria de texto+foto já
+// publicada não é afetada.
+//
+// portal_hidden:true — Roberto, 20/09/2026: "no portal pode ficar publicado
+// apenas a materia com a foto... o video nao precisa ficar no portal a
+// principio". api/article.js e api/portal-posts.js (findArticleVideo/
+// findPostVideo) checam esse campo e não expõem o vídeo no site quando
+// ele está true — só existe pra alimentar o Reel. A publicação em si no
+// Instagram continua exigindo o toggle "REELS_AUTOMATION_ENABLED" ligado
+// no admin (fail-closed, já era assim antes desta mudança) — preparar o
+// vídeo é automático, publicar continua exigindo Roberto ligar isso.
+async function enfileirarReelBacciSeHouver(postId, urlMateria) {
+  try {
+    const urlPaginaVideo = await descobrirPaginaVideoBacci(urlMateria);
+    if (!urlPaginaVideo) return;
+    const videoUrl = await downloadAndUploadVideo(urlPaginaVideo);
+    if (!videoUrl) return;
+    const { data: postAtual } = await supabase.from("posts").select("metrics").eq("id", postId).maybeSingle();
+    const metricsAtual = (postAtual && typeof postAtual.metrics === "object" && postAtual.metrics) || {};
+    const metrics = {
+      ...metricsAtual,
+      instagram_reel_template: {
+        version: REELS_TEMPLATE_VERSION_BRASILON,
+        status: "pending",
+        source_url: videoUrl,
+        queued_at: new Date().toISOString(),
+        attempts: 0,
+        portal_hidden: true
+      }
+    };
+    await supabase.from("posts").update({ video_url: videoUrl, metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+    await log("info", `[brasilon] vídeo do Bacci enfileirado pro Reel — post ${postId}`);
+  } catch (_) {
+    // best-effort — nunca afeta a matéria já publicada
+  }
+}
+
 async function salvarBrasilOn(content, hash, img, fonte) {
   const titulo = stripTitle(content.titulo);
   const comentario_fixado = (content.meta_descricao || "").trim();
@@ -1001,6 +1049,9 @@ async function autoBrasilOn(req, res, rec) {
       await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
       geradosAgora.push(content.titulo);
       generated++;
+      // Não bloqueia a rodada nem conta como falha da matéria — melhor
+      // esforço, ver comentário da função.
+      await enfileirarReelBacciSeHouver(post.id, item.link);
     } catch (_) { continue; }
   }
   return res.status(200).json({ status: "ok", generated, tipo: "brasilon", candidates: items.length });

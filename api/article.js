@@ -250,10 +250,22 @@ async function findArticle(id8) {
 // qualquer post sem video_url de verdade. NUNCA misturar isso no SELECT
 // principal (findArticle) — faria QUALQUER artigo do portal parar de
 // carregar até a migração rodar, o que violaria a Regra Zero-E.
+// 20/09/2026 — metrics.instagram_reel_template.portal_hidden:true marca
+// vídeo que existe SÓ pra alimentar o Reel do Instagram (ex: captura
+// automática do Bacci) — Roberto: "no portal pode ficar publicado apenas
+// a materia com a foto... o video nao precisa ficar no portal a
+// principio". Vídeo colocado manualmente no admin nunca seta esse campo,
+// então continua aparecendo no site exatamente como antes.
 async function findArticleVideo(id) {
   try {
-    const { data, error } = await supabase.from("posts").select("video_url").eq("id", id).maybeSingle();
+    const { data, error } = await supabase.from("posts").select("video_url, metrics").eq("id", id).maybeSingle();
     if (error) return "";
+    if (data?.metrics) {
+      try {
+        const m = typeof data.metrics === "string" ? JSON.parse(data.metrics) : data.metrics;
+        if (m?.instagram_reel_template?.portal_hidden === true) return "";
+      } catch (_) {}
+    }
     return data?.video_url || "";
   } catch (_) {
     return "";

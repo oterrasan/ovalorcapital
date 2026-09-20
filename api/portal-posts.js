@@ -242,10 +242,20 @@ async function handleOne(req, res) {
 // silenciosa, mesmo padrão de api/article.js: NUNCA pode fazer a leitura
 // do artigo em si falhar — sem essa coluna (ou qualquer outro erro),
 // simplesmente não há vídeo.
+// 20/09/2026 — metrics.instagram_reel_template.portal_hidden:true marca
+// vídeo que existe SÓ pra alimentar o Reel do Instagram (ex: captura
+// automática do Bacci) — não expor no site, ver mesmo comentário em
+// api/article.js/findArticleVideo().
 async function findPostVideo(id) {
   try {
-    const { data, error } = await supabase.from("posts").select("video_url").eq("id", id).maybeSingle();
+    const { data, error } = await supabase.from("posts").select("video_url, metrics").eq("id", id).maybeSingle();
     if (error) return "";
+    if (data?.metrics) {
+      try {
+        const m = typeof data.metrics === "string" ? JSON.parse(data.metrics) : data.metrics;
+        if (m?.instagram_reel_template?.portal_hidden === true) return "";
+      } catch (_) {}
+    }
     return data?.video_url || "";
   } catch (_) {
     return "";
