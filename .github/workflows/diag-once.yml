@@ -9,4 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "placeholder — nenhum diagnóstico ativo agora"
+      - name: Checar config REELS_AUTOMATION_ENABLED e fila de reels
+        env:
+          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+        run: |
+          echo "== REELS_AUTOMATION_ENABLED =="
+          curl -sS "$SUPABASE_URL/rest/v1/config?key=eq.REELS_AUTOMATION_ENABLED&select=key,value,updated_at" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY"
+          echo ""
+          echo "== IG_AUTOMATION_ENABLED (feed de imagem, separado) =="
+          curl -sS "$SUPABASE_URL/rest/v1/config?key=eq.IG_AUTOMATION_ENABLED&select=key,value,updated_at" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY"
+          echo ""
+          echo "== posts com instagram_reel_template != ready =="
+          curl -sS "$SUPABASE_URL/rest/v1/posts?select=id,titulo,metrics,video_url&metrics->instagram_reel_template->>status=neq.ready&order=updated_at.desc&limit=10" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" -o reel_posts.json
+          jq -r '.[] | (if (.metrics|type)=="string" then (.metrics|fromjson) else .metrics end) as $m | ($m.instagram_reel_template // empty) as $t | select($t) | [.id, (.titulo // "")[0:60], $t.status, $t.version, ($t.last_error // ""), ($t.processing_at // "")] | @tsv' reel_posts.json
