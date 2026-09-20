@@ -998,9 +998,13 @@ async function autoBrasilOn(req, res, rec) {
   // ontem e faz" — teste pontual com URL específica, contorna a busca
   // automática de candidatos E o grace-period gate (filtrarCandidatosProntos,
   // pensado pra matéria fresca ainda em atualização — não faz sentido pra
-  // uma matéria de ontem já estável). NUNCA usado pelo cron automático
-  // (que nunca manda body.url) — só serve pra forçar um teste manual.
-  const urlManual = String(body.url || "").trim();
+  // uma matéria de ontem já estável). NUNCA usado pelo cron automático.
+  // NUNCA usar body.url aqui — esse nome já é interceptado por
+  // `if (body.url || body.texto) return manual(...)` no dispatcher
+  // (linha ~1444), ANTES de body.tipo==="brasilon" ser sequer checado —
+  // bug real confirmado ao vivo (HTTP 400 "Fonte curta demais", vindo
+  // de manual(), nunca chegava aqui). Nome próprio evita a colisão.
+  const urlManual = String(body.brasilon_url || "").trim();
   let items;
   if (urlManual) {
     items = [{ link: urlManual, source: "Bacci Notícias", title: "", description: "", pubDate: new Date().toISOString() }];
