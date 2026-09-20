@@ -191,10 +191,18 @@ jobs:
           set -euo pipefail
           post_id=""
           claim_id=""
+          # 20/09/2026 — antes, qualquer falha só gravava "render_failed_exit_N"
+          # (código de saída do curl, sem nenhum detalhe) em last_error — real
+          # e concreto: um upload que a Meta recusa com HTTP 400 tinha o motivo
+          # real escondido, só visível cavando o log do CI. Quando um passo
+          # específico já sabe o motivo (ex: corpo da resposta HTTP da Meta),
+          # ele grava em $error_detail antes de falhar — report_failure usa
+          # isso se disponível, senão cai no genérico de sempre.
+          error_detail=""
           report_failure() {
             exit_code=$?
             if [ -n "$post_id" ] && [ -n "$claim_id" ]; then
-              POST_ID="$post_id" CLAIM_ID="$claim_id" ERROR_TEXT="render_failed_exit_${exit_code}" node --input-type=module -e '
+              POST_ID="$post_id" CLAIM_ID="$claim_id" ERROR_TEXT="${error_detail:-render_failed_exit_${exit_code}}" node --input-type=module -e '
                 import { writeFileSync } from "node:fs";
                 writeFileSync("render-fail.json", JSON.stringify({action:"reels_render_fail",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,error:process.env.ERROR_TEXT}));
               '
@@ -225,13 +233,26 @@ jobs:
           cat render-result.json
 
           # Upload resumível direto pra Meta — nenhum storage nosso no meio.
+          # SEM --fail aqui de propósito (20/09/2026): --fail engolia o corpo
+          # da resposta em qualquer erro não-2xx, escondendo o motivo real
+          # que a Meta manda de volta (confirmado real: um upload com vídeo
+          # de fonte longa, mesmo já cortado em 88s pelo cap acima, seguia
+          # voltando HTTP 400 sem nenhuma pista de por quê).
           file_size=$(stat -c%s reel-final.mp4)
-          curl --fail -sS -X POST "$ig_upload_url" \
+          echo "Tamanho do vídeo final (pós-corte/render): ${file_size} bytes"
+          upload_http_code=$(curl -sS -o upload-response.json -w "%{http_code}" -X POST "$ig_upload_url" \
             -H "Authorization: OAuth ${ig_upload_token}" \
             -H "offset: 0" \
             -H "file_size: ${file_size}" \
             -H "Content-Type: application/octet-stream" \
-            --data-binary @reel-final.mp4 --max-time 300 >/dev/null
+            --data-binary @reel-final.mp4 --max-time 300)
+          echo "HTTP do upload pra Meta: ${upload_http_code}"
+          cat upload-response.json; echo ""
+          if [ "$upload_http_code" != "200" ]; then
+            error_detail="upload_http_${upload_http_code}: $(tr -d '\n' < upload-response.json | cut -c1-400)"
+            echo "Upload recusado pela Meta — motivo real: ${error_detail}"
+            false
+          fi
 
           POST_ID="$post_id" CLAIM_ID="$claim_id" node -e '
             const fs = require("node:fs");
