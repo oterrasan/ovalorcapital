@@ -9,25 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checar estado atual do Reel dessa matéria específica
-        run: |
-          python3 << 'PYEOF'
-          import json
-          import urllib.request
-
-          BASE = "https://www.ovalorcapital.com.br"
-          POST_ID_PREFIX = "77226730"
-
-          req = urllib.request.Request(
-              f"{BASE}/api/portal-posts?id={POST_ID_PREFIX}",
-              headers={"User-Agent": "diag-status-reel"}
-          )
-          with urllib.request.urlopen(req, timeout=20) as r:
-              um = json.loads(r.read().decode("utf-8"))
-
-          metrics = um.get("metrics") or {}
-          template = metrics.get("instagram_reel_template")
-          print("titulo:", um.get("titulo"))
-          print("status do post:", um.get("status") if "status" in um else "(campo nao exposto na resposta publica)")
-          print("template completo:", json.dumps(template, ensure_ascii=False, indent=2) if template else "NENHUM")
-          PYEOF
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
