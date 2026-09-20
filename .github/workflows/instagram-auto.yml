@@ -86,8 +86,8 @@ on:
     - cron: '*/20 11-14 * * *'
     - cron: '*/10 * * * *'
   workflow_dispatch:
-  # TEMPORÁRIO — 20/09/2026 — só pra forçar rodada real e capturar o
-  # motivo verdadeiro do 400 no upload. REMOVER logo em seguida.
+  # TEMPORÁRIO — 20/09/2026 — só pra testar o fix de GOP fechado contra
+  # produção real. REMOVER logo em seguida.
   push:
     paths:
       - '.github/workflows/instagram-auto.yml'
