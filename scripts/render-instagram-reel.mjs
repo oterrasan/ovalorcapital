@@ -403,10 +403,11 @@ const overlayPath = overlayPathArg || `${outputPath}.overlay.png`;
 
 // Detecta a proporção real da fonte (Roberto, 18/09/2026): vídeo
 // horizontal/quadrado (largura >= altura) usa fitMode "contain" — encaixa
-// no topo sem recorte, sombra sobe até onde ele termina. Vídeo vertical
-// (o caso mais comum) mantém o comportamento original ("cover"). job.fit
-// permite forçar um modo específico (usado em testes); sem isso, é 100%
-// automático a partir do ffprobe real do arquivo.
+// no topo (com recorte de marca d'água nas bordas, 20/09/2026), sombra
+// sobe até onde ele termina. Vídeo vertical (o caso mais comum) mantém o
+// comportamento original ("cover"). job.fit permite forçar um modo
+// específico (usado em testes); sem isso, é 100% automático a partir do
+// ffprobe real do arquivo.
 const sourceDims = await probeDimensions(inputPath);
 const autoFit = sourceDims && sourceDims.width >= sourceDims.height ? "contain" : "cover";
 const fitMode = job.fit === "contain" || job.fit === "cover" ? job.fit : autoFit;
