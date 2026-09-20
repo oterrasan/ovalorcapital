@@ -99,7 +99,9 @@ jobs:
                   print(f"  ERRO ao buscar iframe: {e}")
                   return
               print(f"  tamanho do conteudo do iframe: {len(conteudo)} bytes")
-              print(f"  primeiros 1500 chars:\n{conteudo[:1500]}")
+              body_m = re.search(r'<body[^>]*>([\s\S]*)</body>', conteudo, re.I)
+              corpo = body_m.group(1) if body_m else conteudo
+              print(f"  CONTEUDO DO <body> (sem CSS/head):\n{corpo}")
               for mm in re.finditer(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', conteudo, re.I):
                   print("  MP4 LINK NO IFRAME:", mm.group(0))
               for mm in re.finditer(r'<source\b[^>]*>', conteudo, re.I):
