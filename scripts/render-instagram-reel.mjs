@@ -11,6 +11,15 @@ const END_SCAN_SECONDS = 8;
 const END_SCAN_FPS = 4;
 const END_SCAN_WIDTH = 96;
 const END_SCAN_HEIGHT = 170;
+// 20/09/2026 — causa raiz real confirmada via teste de produção: o Graph
+// API do Instagram só aceita Reels de até 90s (o app nativo aceita mais,
+// a API não — https://developers.facebook.com/docs/instagram-platform/
+// content-publishing/resumable-uploads/). Sem esse teto, um vídeo-fonte
+// mais longo (ex: 9min, caso real testado) renderizava inteiro — 11min
+// de ffmpeg — e só falhava no upload final pra Meta com HTTP 400,
+// desperdiçando o ciclo inteiro do job (20min de timeout). 2s de margem
+// de segurança sobre o teto documentado de 90s.
+const REELS_MAX_DURATION_SECONDS = 88;
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "..");
 
@@ -339,9 +348,17 @@ async function detectEndTrim(job, inputPath) {
 
 async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cover") {
   const endTrim = await detectEndTrim(job, inputPath);
-  const outputDuration = endTrim.duration && endTrim.trimSeconds > 0
+  const trimmedDuration = endTrim.duration && endTrim.trimSeconds > 0
     ? Math.max(2, endTrim.duration - endTrim.trimSeconds)
-    : null;
+    : (endTrim.duration || null);
+  // SEMPRE aplica o teto de 88s (REELS_MAX_DURATION_SECONDS), mesmo sem
+  // nenhum end-trim detectado — antes disso, um vídeo-fonte sem end-card
+  // promocional (a maioria) nunca tinha nenhum "-t" no ffmpeg e renderizava
+  // inteiro, não importa o tamanho.
+  const cappedByReelsLimit = trimmedDuration != null && trimmedDuration > REELS_MAX_DURATION_SECONDS;
+  const outputDuration = trimmedDuration != null
+    ? Math.min(trimmedDuration, REELS_MAX_DURATION_SECONDS)
+    : REELS_MAX_DURATION_SECONDS;
 
   let videoFilter;
   if (fitMode === "contain") {
@@ -388,7 +405,9 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
   return new Promise((resolvePromise, reject) => {
     const child = spawn(process.env.FFMPEG_PATH || "ffmpeg", args, { stdio: "inherit" });
     child.on("error", reject);
-    child.on("exit", (code) => code === 0 ? resolvePromise(endTrim) : reject(new Error(`ffmpeg_exit_${code}`)));
+    child.on("exit", (code) => code === 0
+      ? resolvePromise({ ...endTrim, output_duration_seconds: outputDuration, capped_by_reels_limit: cappedByReelsLimit })
+      : reject(new Error(`ffmpeg_exit_${code}`)));
   });
 }
 
