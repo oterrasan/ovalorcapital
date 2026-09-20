@@ -814,6 +814,32 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
 // a constante duplicada aqui em vez de compartilhada.
 const REELS_TEMPLATE_VERSION_BRASILON = "ovc-reels-2026-09-v2";
 
+// 20/09/2026 — Roberto, direto: "eu quero que o sistema publique 50% / 50%
+// videos e posts só com imagens... isso deve funcionar assim na raspagem
+// do bacci". Antes de gastar rede procurando/baixando o vídeo da matéria,
+// checa a proporção real do dia (posts publish_method='brasilon' desde a
+// meia-noite BRT, mesmo corte de contarHoje() acima) — se metade ou mais
+// já saiu com vídeo, este post fica só com imagem (nem tenta buscar
+// vídeo). Fail-open: qualquer erro na contagem, ou é o primeiro post do
+// dia, tenta vídeo normalmente — nunca bloqueia a publicação por causa
+// disso.
+async function deveAnexarVideoBrasilOn() {
+  try {
+    const agora = new Date();
+    const inicioHoje = new Date(agora);
+    inicioHoje.setUTCHours(3, 0, 0, 0);
+    if (agora.getUTCHours() < 3) inicioHoje.setUTCDate(inicioHoje.getUTCDate() - 1);
+    const { count: total } = await supabase.from("posts").select("id", { count: "exact", head: true })
+      .eq("publish_method", "brasilon").gte("created_at", inicioHoje.toISOString());
+    if (!total) return true;
+    const { count: comVideo } = await supabase.from("posts").select("id", { count: "exact", head: true })
+      .eq("publish_method", "brasilon").gte("created_at", inicioHoje.toISOString()).not("video_url", "is", null);
+    return (comVideo || 0) / total < 0.5;
+  } catch (_) {
+    return true;
+  }
+}
+
 // Enfileira automaticamente o vídeo do Bacci pro pipeline de Reels que já
 // existe — mesmo formato de dado que handleReelsSetSource (api/manage.js)
 // grava quando Roberto faz isso manualmente no admin. NUNCA lança: falha
@@ -1036,10 +1062,15 @@ async function autoBrasilOn(req, res, rec) {
     let a, sourceText;
     try {
       a = await scrape(item.link, { timeout: 3500 });
-      // Piso baixo (100, não 300) — fonte é tabloide/curta de propósito, uma
-      // matéria real de 2 frases (~180 chars de corpo) não pode ser descartada.
       sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
-      if (sourceText.length < 100) continue;
+      // 20/09/2026 — Roberto, direto: "isso deve funcionar assim na
+      // raspagem do bacci - nao importa se o texto é curto". Removido o
+      // piso de tamanho (era 100 chars, antes disso 300) — boa parte dos
+      // posts do Bacci é repost de Instagram com legenda mínima e vídeo
+      // anexado; barrar por tamanho de texto descartava justo o candidato
+      // com vídeo, só por causa do texto curto. Só descarta texto
+      // genuinamente vazio (falha total de scrape/sem legenda nenhuma).
+      if (!sourceText) continue;
       // Autopromoção de programa de TV/rádio do próprio site fonte — não é
       // notícia. Caso real reportado por Roberto 11/08/2026 ("Programa
       // Esporte sem Firula é exibido diariamente ao meio-dia"). Ver
@@ -1076,9 +1107,13 @@ async function autoBrasilOn(req, res, rec) {
       await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
       geradosAgora.push(content.titulo);
       generated++;
-      // Não bloqueia a rodada nem conta como falha da matéria — melhor
-      // esforço, ver comentário da função.
-      await enfileirarReelBacciSeHouver(post.id, item.link);
+      // 50/50 vídeo x só-imagem (ver deveAnexarVideoBrasilOn) — só busca
+      // vídeo se a proporção do dia ainda permitir. Não bloqueia a rodada
+      // nem conta como falha da matéria — melhor esforço, ver comentário
+      // de enfileirarReelBacciSeHouver.
+      if (await deveAnexarVideoBrasilOn()) {
+        await enfileirarReelBacciSeHouver(post.id, item.link);
+      }
     } catch (_) { continue; }
   }
   return res.status(200).json({ status: "ok", generated, tipo: "brasilon", candidates: items.length });
