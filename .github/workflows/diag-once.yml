@@ -9,28 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Preparar Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-      - name: Testar o parser real de duração MP4 contra vídeo real longo e real curto
-        run: |
-          npm ci --omit=dev
-          cat > diag-test-real.mjs << 'NODEEOF'
-          import { downloadAndUploadVideo } from "./core/storage.js";
-
-          const LONGO = "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789925935368-ed6c3385ad47.mp4"; // 541.7s real, conhecido
-          const CURTO = "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789931544544-6850d3926b38.mp4"; // 9.4s real, conhecido
-
-          console.log("== Testando vídeo LONGO (541.7s real) — esperado: null (descartado) ==");
-          const r1 = await downloadAndUploadVideo(LONGO);
-          console.log("Resultado:", r1, r1 === null ? "PASS — descartado corretamente" : "FAIL — deveria ter descartado!");
-
-          console.log("== Testando vídeo CURTO (9.4s real) — esperado: URL real (permitido) ==");
-          const r2 = await downloadAndUploadVideo(CURTO);
-          console.log("Resultado:", r2, (typeof r2 === "string" && r2.startsWith("http")) ? "PASS — permitido corretamente" : "FAIL — deveria ter permitido!");
-          NODEEOF
-          node diag-test-real.mjs
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
