@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,62 +16,21 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-      - name: Reproduzir o pipeline real isolado, com inspeção completa
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+      - name: Testar o parser real de duração MP4 contra vídeo real longo e real curto
         run: |
-          set -x
           npm ci --omit=dev
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
-          mkdir -p "$HOME/.local/share/fonts"
-          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
-          fc-cache -f
+          cat > diag-test-real.mjs << 'NODEEOF'
+          import { downloadAndUploadVideo } from "./core/storage.js";
 
-          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"reels_render_job"}' \
-            --max-time 45 -o render-job.json
-          echo "== render-job.json (sem token) =="
-          node -e 'const d=require("./render-job.json"); d.job.ig_upload_token="[MASCARADO]"; console.log(JSON.stringify(d,null,2))'
+          const LONGO = "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789925935368-ed6c3385ad47.mp4"; // 541.7s real, conhecido
+          const CURTO = "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789931544544-6850d3926b38.mp4"; // 9.4s real, conhecido
 
-          post_id=$(node -p 'require("./render-job.json").job.post_id')
-          claim_id=$(node -p 'require("./render-job.json").job.claim_id')
-          source_url=$(node -p 'require("./render-job.json").job.source_url')
-          ig_upload_url=$(node -p 'require("./render-job.json").job.ig_upload_url')
-          ig_upload_token=$(node -p 'require("./render-job.json").job.ig_upload_token')
-          echo "::add-mask::${ig_upload_token}"
+          console.log("== Testando vídeo LONGO (541.7s real) — esperado: null (descartado) ==");
+          const r1 = await downloadAndUploadVideo(LONGO);
+          console.log("Resultado:", r1, r1 === null ? "PASS — descartado corretamente" : "FAIL — deveria ter descartado!");
 
-          curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
-          echo "== ffprobe da FONTE crua =="
-          ffprobe -v error -show_format -show_streams -print_format json reel-source
-
-          node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
-          cat render-result.json
-          echo ""
-          echo "== ffprobe do RENDER FINAL (o que de fato sobe pra Meta) =="
-          ffprobe -v error -show_format -show_streams -print_format json reel-final.mp4
-
-          file_size=$(stat -c%s reel-final.mp4)
-          echo "Tamanho final: ${file_size} bytes"
-          upload_http_code=$(curl -sS -o upload-response.json -w "%{http_code}" -X POST "$ig_upload_url" \
-            -H "Authorization: OAuth ${ig_upload_token}" \
-            -H "offset: 0" \
-            -H "file_size: ${file_size}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @reel-final.mp4 --max-time 300)
-          echo "HTTP do upload: ${upload_http_code}"
-          cat upload-response.json; echo ""
-
-          if [ "$upload_http_code" != "200" ]; then
-            echo "== marcando como falha pra não travar o post no banco =="
-            POST_ID="$post_id" CLAIM_ID="$claim_id" ERROR_TEXT="diag_manual_$(date +%s)" node -e '
-              const fs = require("node:fs");
-              fs.writeFileSync("render-fail.json", JSON.stringify({action:"reels_render_fail",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,error:process.env.ERROR_TEXT}));
-            '
-            curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-              --data-binary @render-fail.json --max-time 30 >/dev/null || true
-          fi
+          console.log("== Testando vídeo CURTO (9.4s real) — esperado: URL real (permitido) ==");
+          const r2 = await downloadAndUploadVideo(CURTO);
+          console.log("Resultado:", r2, (typeof r2 === "string" && r2.startsWith("http")) ? "PASS — permitido corretamente" : "FAIL — deveria ter permitido!");
+          NODEEOF
+          node diag-test-real.mjs
