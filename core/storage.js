@@ -31,6 +31,74 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const VIDEO_BUCKET = "post-videos";
 const MAX_VIDEO_BYTES = 150 * 1024 * 1024; // 150MB — teto de segurança, não limite real do plano
 const EXT_CONTENT_TYPE = { mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", m4v: "video/x-m4v" };
+// 20/09/2026 — Roberto, direto: "eu nem quero que tenha, se o sistema
+// capturar algum video com mais de 2 minutos, descarte automatico e so
+// publica materia com a imagem." Nunca mais um vídeo longo chega a virar
+// video_url do post nem a entrar na fila de Reel — descartado aqui, na
+// origem, pros dois caminhos que passam por downloadAndUploadVideo()
+// (captura automática do Bacci e colar link manual no admin).
+const MAX_VIDEO_DURATION_SECONDS = 120;
+
+// Lê a duração real de um MP4 direto dos bytes (box "mvhd" dentro de
+// "moov", padrão ISO/IEC 14496-12) — sem ffprobe/ffmpeg de propósito (ver
+// comentário no topo do arquivo: binário nativo em serverless já causou
+// um incidente real aqui). Cobre o formato real das fontes já capturadas
+// (MP4 padrão, incluindo o CDN Bunny Stream do Bacci). Se não conseguir
+// determinar (formato não-MP4 como webm, arquivo atípico), retorna null —
+// o caller trata como "duração desconhecida" e deixa passar, nunca bloqueia
+// por causa de uma limitação do parser.
+function _mp4DurationSeconds(buf) {
+  try {
+    const readBox = (start, end) => {
+      if (start + 8 > end) return null;
+      let size = buf.readUInt32BE(start);
+      const type = buf.toString("ascii", start + 4, start + 8);
+      let header = 8;
+      if (size === 1) {
+        if (start + 16 > end) return null;
+        const high = buf.readUInt32BE(start + 8);
+        const low = buf.readUInt32BE(start + 12);
+        size = high * 2 ** 32 + low;
+        header = 16;
+      } else if (size === 0) {
+        size = end - start;
+      }
+      if (size < header || start + size > end) return null;
+      return { type, size, header, start, end: start + size };
+    };
+
+    let offset = 0;
+    while (offset < buf.length) {
+      const box = readBox(offset, buf.length);
+      if (!box) break;
+      if (box.type === "moov") {
+        let inner = box.start + box.header;
+        while (inner < box.end) {
+          const child = readBox(inner, box.end);
+          if (!child) break;
+          if (child.type === "mvhd") {
+            const p = child.start + child.header;
+            const version = buf.readUInt8(p);
+            if (version === 1) {
+              const timescale = buf.readUInt32BE(p + 20);
+              const duration = Number(buf.readBigUInt64BE(p + 24));
+              return timescale > 0 ? duration / timescale : null;
+            }
+            const timescale = buf.readUInt32BE(p + 12);
+            const duration = buf.readUInt32BE(p + 16);
+            return timescale > 0 ? duration / timescale : null;
+          }
+          inner = child.end;
+        }
+        return null;
+      }
+      offset = box.end;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
 
 let _bucketReady = false;
 export async function ensureVideoBucket() {
@@ -128,6 +196,12 @@ export async function downloadAndUploadVideo(sourceUrl) {
     return null;
   }
   if (!buf || buf.length < 2000 || buf.length > MAX_VIDEO_BYTES) return null;
+
+  const durationSeconds = _mp4DurationSeconds(buf);
+  if (durationSeconds != null && durationSeconds > MAX_VIDEO_DURATION_SECONDS) {
+    console.warn(`[storage] vídeo descartado — ${durationSeconds.toFixed(1)}s excede o teto de ${MAX_VIDEO_DURATION_SECONDS}s (${sourceUrl})`);
+    return null;
+  }
 
   let ext = "mp4";
   if (ct.includes("webm")) ext = "webm";
