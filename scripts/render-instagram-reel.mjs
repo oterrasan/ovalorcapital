@@ -204,6 +204,23 @@ function clampCrop(value, fallback, max) {
   return Number.isFinite(parsed) ? Math.max(0, Math.min(max, parsed)) : fallback;
 }
 
+// Recorte de segurança pra marca d'água/logo de outras emissoras — usado
+// tanto no vídeo vertical (cover) quanto no horizontal/quadrado (contain).
+// 20/09/2026 — Roberto: "o Recorte de outras marcas e propagandas precisa
+// estar perfeito", e o vídeo horizontal (fitMode "contain", adicionado em
+// 18/09/2026) NUNCA tinha recorte nenhum — só o vertical tinha. Bugs de
+// canal em vídeo horizontal costumam ficar num canto (topo/base) ou numa
+// tarja inferior (legenda/rodapé da fonte) — defaults mais moderados que
+// os do vertical (lá o corte grande no topo existe pra remover overlay de
+// usuário do Instagram, que não existe em fonte horizontal comum).
+function containCropRatios(job) {
+  return {
+    cropTop: clampCrop(job.watermark_crop_top, 0.05, 0.2),
+    cropBottom: clampCrop(job.watermark_crop_bottom, 0.08, 0.2),
+    cropSide: clampCrop(job.watermark_crop_side, 0.04, 0.15)
+  };
+}
+
 function runCapture(command, args) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -328,12 +345,19 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
 
   let videoFilter;
   if (fitMode === "contain") {
-    // Vídeo horizontal/quadrado — encaixa no topo do quadro SEM RECORTE
-    // (Roberto, 18/09/2026). Escala pra largura 1080 preservando a
-    // proporção original, depois preenche o resto do quadro 1080x1920
-    // com preto — a sombra do overlay (buildContainFadeStops) já sabe
-    // onde o vídeo termina e sobe até lá.
-    videoFilter = `scale=${WIDTH}:-2,pad=${WIDTH}:${HEIGHT}:0:0:black,setsar=1,fps=30`;
+    // Vídeo horizontal/quadrado — encaixa no topo do quadro (Roberto,
+    // 18/09/2026), mas AGORA com o mesmo recorte de segurança contra
+    // marca d'água/logo de outra emissora que o modo vertical já tinha
+    // (Roberto, 20/09/2026 — "o recorte precisa estar perfeito", nunca
+    // existia aqui). Recorta as bordas primeiro, escala pra largura 1080
+    // preservando a proporção resultante, preenche o resto do quadro
+    // 1080x1920 com preto — a sombra (buildContainFadeStops) usa a MESMA
+    // proporção de recorte pra saber exatamente onde o vídeo termina.
+    const { cropTop, cropBottom, cropSide } = containCropRatios(job);
+    const cropWidth = 1 - cropSide * 2;
+    const cropHeight = 1 - cropTop - cropBottom;
+    const cropFilter = `crop=trunc(iw*${cropWidth}/2)*2:trunc(ih*${cropHeight}/2)*2:trunc(iw*${cropSide}/2)*2:trunc(ih*${cropTop}/2)*2`;
+    videoFilter = `${cropFilter},scale=${WIDTH}:-2,pad=${WIDTH}:${HEIGHT}:0:0:black,setsar=1,fps=30`;
   } else {
     // Vídeo vertical (comportamento original) — recorte de segurança pra
     // vídeos de terceiros (elimina marcas persistentes nas bordas), depois
@@ -386,8 +410,17 @@ const overlayPath = overlayPathArg || `${outputPath}.overlay.png`;
 const sourceDims = await probeDimensions(inputPath);
 const autoFit = sourceDims && sourceDims.width >= sourceDims.height ? "contain" : "cover";
 const fitMode = job.fit === "contain" || job.fit === "cover" ? job.fit : autoFit;
+// 20/09/2026 — a altura de saída agora precisa considerar o recorte de
+// marca d'água aplicado em runFfmpeg (containCropRatios) — sem isso a
+// sombra ficaria calculada pra proporção ORIGINAL do vídeo, não pra
+// proporção real depois do crop, e a transição sombra→vídeo desalinharia.
 const videoOutHeightPx = fitMode === "contain" && sourceDims
-  ? Math.max(2, Math.round((WIDTH * sourceDims.height) / sourceDims.width / 2) * 2)
+  ? (() => {
+      const { cropTop, cropBottom, cropSide } = containCropRatios(job);
+      const effectiveWidth = sourceDims.width * (1 - cropSide * 2);
+      const effectiveHeight = sourceDims.height * (1 - cropTop - cropBottom);
+      return Math.max(2, Math.round((WIDTH * effectiveHeight) / effectiveWidth / 2) * 2);
+    })()
   : HEIGHT;
 
 await buildOverlay(job, overlayPath, fitMode, videoOutHeightPx);
