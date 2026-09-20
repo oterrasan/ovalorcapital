@@ -131,4 +131,33 @@ jobs:
                   investigar_iframe_bacci(url)
               except Exception as e:
                   print(f"ERRO: {e}")
+
+          # 2a etapa: achamos que o video mora em Bunny Stream
+          # (vz-XXXX.b-cdn.net) e a materia linka pra uma pagina propria
+          # /videos/slug_ID com o player real. Investigar essa pagina.
+          PAGINAS_VIDEO = [
+              "https://baccinoticias.com.br/videos/andrea-sorvetao-rebate-cobranca-atribuida-a-xuxa-e-revela-sua-versao-do-caso_97963",
+          ]
+          print("\n\n========== INVESTIGANDO A PAGINA /videos/slug_ID (player real) ==========")
+          for url in PAGINAS_VIDEO:
+              print(f"\n--- {url} ---")
+              try:
+                  html = fetch(url)
+                  print(f"tamanho: {len(html)} bytes")
+                  for m in re.finditer(r'<iframe\b[^>]*src=["\']([^"\']+)["\'][^>]*>', html, re.I):
+                      print("IFRAME NA PAGINA DE VIDEO:", m.group(1))
+                  for m in re.finditer(r'https?://[^\s"\'<>]*b-cdn\.net[^\s"\'<>]*', html, re.I):
+                      print("URL b-cdn.net ENCONTRADA:", m.group(0))
+                  for m in re.finditer(r'https?://[^\s"\'<>]*mediadelivery\.net[^\s"\'<>]*', html, re.I):
+                      print("URL mediadelivery.net ENCONTRADA:", m.group(0))
+                  for m in re.finditer(r'https?://[^\s"\'<>]+\.(mp4|m3u8)[^\s"\'<>]*', html, re.I):
+                      print("ARQUIVO DE VIDEO ENCONTRADO:", m.group(0))
+                  body_m = re.search(r'<body[^>]*>([\s\S]*?)</body>', html, re.I)
+                  corpo = body_m.group(1) if body_m else ""
+                  # remove blocos de <script> e <style> pra nao poluir
+                  corpo_limpo = re.sub(r'<(script|style)\b[^>]*>[\s\S]*?</\1>', '', corpo, flags=re.I)
+                  print("CORPO DA PAGINA (sem script/style), ate 2500 chars:")
+                  print(corpo_limpo[:2500])
+              except Exception as e:
+                  print(f"ERRO: {e}")
           PYEOF
