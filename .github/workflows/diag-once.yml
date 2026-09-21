@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder)
+name: Diagnóstico único (placeholder) — pagina /videos/ e presenca no sitemap
 on:
   push:
     paths:
@@ -10,5 +10,69 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Placeholder inerte
-        run: echo "Sem diagnostico ativo no momento. Substitua este step quando precisar rodar algo real."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar deps
+        run: npm ci --omit=dev
+      - name: "Checar se paginas /videos/ estao no sitemap e o que tem dentro delas"
+        run: |
+          cat > _diag_v.mjs << 'JSEOF'
+          import axios from "axios";
+
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+          async function main() {
+            const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", { timeout: 10000, headers: { "User-Agent": UA } });
+            const idxXml = String(idxRes.data || "");
+            const locs = [...idxXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+            console.log("--- todos os sitemaps listados no indice ---");
+            for (const l of locs) console.log(`  ${l}`);
+
+            const postSitemaps = locs.filter(l => /\/post-sitemap\d*\.xml$/.test(l));
+            const chunkAtual = postSitemaps[postSitemaps.length - 1];
+            console.log(`\nchunk atual de post-sitemap: ${chunkAtual}`);
+            const smRes = await axios.get(chunkAtual, { timeout: 10000, headers: { "User-Agent": UA } });
+            const smXml = String(smRes.data || "");
+            const allLocsInChunk = [...smXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+            const videoLocsInChunk = allLocsInChunk.filter(l => l.includes("/videos/"));
+            console.log(`\ntotal de URLs neste chunk: ${allLocsInChunk.length}`);
+            console.log(`URLs /videos/ dentro do post-sitemap: ${videoLocsInChunk.length}`);
+            for (const v of videoLocsInChunk.slice(0, 10)) console.log(`  ${v}`);
+
+            const videoSitemapEntry = locs.find(l => /video/i.test(l));
+            console.log(`\nsitemap com "video" no nome (sitemap dedicado de video?): ${videoSitemapEntry || "NENHUM ENCONTRADO"}`);
+
+            console.log(`\n=== INSPECIONANDO UMA PAGINA /videos/ REAL ===`);
+            const urlVideo = "https://baccinoticias.com.br/videos/video-mostra-moraes-e-esposa-desembarcando-de-jatinho-ligado-a-vorcaro_98082";
+            const resV = await axios.get(urlVideo, { timeout: 8000, headers: { "User-Agent": UA } });
+            const htmlV = String(resV.data || "");
+            console.log(`tamanho: ${htmlV.length}`);
+            const title = (htmlV.match(/<title>(.*?)<\/title>/i) || [])[1];
+            console.log(`title: ${title}`);
+            const h1 = (htmlV.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1];
+            console.log(`h1: ${h1 ? h1.replace(/<[^>]+>/g,"").trim().slice(0,200) : "nenhum"}`);
+            const canonical = (htmlV.match(/rel=["']canonical["'][^>]*href=["']([^"']+)["']/i) || [])[1];
+            console.log(`canonical: ${canonical}`);
+            const mp4s = [...htmlV.matchAll(/https:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/gi)].map(m => m[0]);
+            console.log(`mp4 encontrados: ${JSON.stringify([...new Set(mp4s)].slice(0,3))}`);
+            const bunnyIframes = [...htmlV.matchAll(/<iframe[^>]*src=["']([^"']*(?:b-cdn|bunny|iframe\.mediadelivery)[^"']*)["']/gi)].map(m => m[1]);
+            console.log(`iframes bunny/mediadelivery: ${JSON.stringify(bunnyIframes)}`);
+            const anyIframes = [...htmlV.matchAll(/<iframe[^>]*src=["']([^"']+)["']/gi)].map(m => m[1]);
+            console.log(`TODOS os iframes desta pagina: ${JSON.stringify(anyIframes)}`);
+            const jsonLdBlocks = [...htmlV.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+            console.log(`\nblocos JSON-LD encontrados: ${jsonLdBlocks.length}`);
+            for (const b of jsonLdBlocks) {
+              try {
+                const parsed = JSON.parse(b);
+                console.log(JSON.stringify(parsed).slice(0, 1500));
+              } catch(e) { console.log("(json-ld nao parseavel) " + b.slice(0,300)); }
+            }
+
+            console.log(`\nesta URL de video esta presente no post-sitemap atual? ${allLocsInChunk.includes(urlVideo)}`);
+          }
+
+          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
+          JSEOF
+          node _diag_v.mjs
+          rm -f _diag_v.mjs
