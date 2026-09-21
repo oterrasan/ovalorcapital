@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — reteste pós fix level 5.1
+name: Diagnóstico único (placeholder) — checar duracao por stream
 on:
   push:
     paths:
@@ -7,13 +7,13 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Instalar deps + ffmpeg (mesmo setup do runner de produção)
+      - name: Instalar deps + ffmpeg
         run: |
           npm ci --omit=dev
           sudo apt-get update -qq
@@ -21,15 +21,12 @@ jobs:
           mkdir -p "$HOME/.local/share/fonts"
           cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
           fc-cache -f
-          ffmpeg -version >/dev/null
-          ffprobe -version >/dev/null
-      - name: Reproduzir pipeline REAL de render + upload resumivel (sem publicar)
+      - name: Checar duracao por stream (video vs audio) no arquivo renderizado
         run: |
-          cat > _diag_repro.mjs << 'JSEOF'
+          cat > _diag_streams.mjs << 'JSEOF'
           import { createClient } from "@supabase/supabase-js";
           import { spawn } from "node:child_process";
           import { writeFile, stat } from "node:fs/promises";
-          import { createReelContainerResumable, checkReelStatus } from "./core/instagram.js";
 
           const supabase = createClient(
             "https://yntwvfcxjardzafdqanj.supabase.co",
@@ -51,102 +48,40 @@ jobs:
             return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
           }
 
-          async function testarUmPost(post) {
+          async function main() {
+            const { data: post } = await supabase
+              .from("posts")
+              .select("id,titulo,conteudo,metrics")
+              .eq("id", "896aad2b-5996-40d1-b68c-1e22245c8ae3")
+              .single();
             const m = typeof post.metrics === "string" ? JSON.parse(post.metrics) : post.metrics;
-            const t = m?.instagram_reel_template || {};
-            console.log(`\n\n========== ${post.titulo} ==========`);
-            console.log(`post_id: ${post.id} | attempts anteriores: ${t.attempts} | last_error anterior: ${(t.last_error || "").slice(0, 150)}`);
+            const t = m.instagram_reel_template;
 
-            const dl = await runCapture("curl", ["--fail", "--location", "-sS", t.source_url, "--max-time", "120", "-o", "/tmp/reel-source"]);
-            if (dl.code !== 0) { console.log(`FALHA no download: ${dl.stderr.slice(0, 300)}`); return; }
-            const sourceStat = await stat("/tmp/reel-source");
-            console.log(`fonte baixada: ${sourceStat.size} bytes`);
+            console.log("checando o video-FONTE (antes do render) primeiro...");
+            const dlSource = await runCapture("curl", ["--fail", "--location", "-sS", t.source_url, "--max-time", "120", "-o", "/tmp/reel-source"]);
+            if (dlSource.code !== 0) { console.log("FALHA no download da fonte"); return; }
+            const probeSource = await runCapture("ffprobe", ["-v", "error", "-show_entries", "stream=index,codec_type,duration,start_time,nb_frames,sample_rate:format=duration,nb_streams", "-of", "json", "/tmp/reel-source"]);
+            console.log("ffprobe da FONTE (antes do render):");
+            console.log(probeSource.stdout);
 
-            const jobPayload = {
-              job: {
-                title: post.titulo,
-                body: stripHtml(post.conteudo),
-                source_url: t.source_url,
-                template_version: t.version || "diag-test"
-              }
-            };
+            const jobPayload = { job: { title: post.titulo, body: stripHtml(post.conteudo), source_url: t.source_url, template_version: "diag-streams" } };
             await writeFile("/tmp/render-job.json", JSON.stringify(jobPayload));
 
-            console.log("rodando render-instagram-reel.mjs real (ffmpeg + overlay)...");
+            console.log("\nrenderizando (ffmpeg real, mesmo pipeline de producao)...");
             const t0 = Date.now();
             const render = await runCapture("node", ["scripts/render-instagram-reel.mjs", "/tmp/render-job.json", "/tmp/reel-source", "/tmp/reel-final.mp4", "/tmp/reel-overlay.png"]);
-            console.log(`render levou ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+            console.log(`render levou ${((Date.now() - t0) / 1000).toFixed(1)}s | exit=${render.code}`);
             if (render.code !== 0) { console.log(`FALHA no render: ${render.stderr.slice(-800)}`); return; }
-            console.log(`resultado do render: ${render.stdout.trim()}`);
+            console.log(render.stdout.trim());
 
-            const finalStat = await stat("/tmp/reel-final.mp4");
-            console.log(`\nreel-final.mp4 real: ${finalStat.size} bytes`);
-            const probe = await runCapture("ffprobe", ["-v", "error", "-show_entries", "format=format_name,duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,pix_fmt,r_frame_rate,profile,level", "-of", "default=noprint_wrappers=0", "/tmp/reel-final.mp4"]);
-            console.log(`ffprobe do arquivo renderizado:\n${probe.stdout}`);
-            if (probe.stderr) console.log(`ffprobe stderr: ${probe.stderr}`);
-
-            console.log("\ncriando container resumível real na Meta (teste, sem publicar)...");
-            let container;
-            try {
-              container = await createReelContainerResumable(`[TESTE DIAGNÓSTICO — não publicar] ${post.titulo}`, null, {});
-              console.log(`container criado: creation_id=${container.creation_id} | quota_before=${JSON.stringify(container.quota_before)}`);
-            } catch (e) {
-              console.log(`FALHA ao criar container: ${e?.message || e}`);
-              return;
-            }
-
-            const uploadRes = await runCapture("curl", [
-              "-sS", "-o", "/tmp/upload-response.json", "-w", "%{http_code}",
-              "-X", "POST", container.upload_url,
-              "-H", `Authorization: OAuth ${container.upload_token}`,
-              "-H", "offset: 0",
-              "-H", `file_size: ${finalStat.size}`,
-              "-H", "Content-Type: application/octet-stream",
-              "--data-binary", "@/tmp/reel-final.mp4",
-              "--max-time", "180"
-            ]);
-            const httpCode = uploadRes.stdout.trim();
-            const uploadBody = await runCapture("cat", ["/tmp/upload-response.json"]);
-            console.log(`\nHTTP do upload real pra Meta: ${httpCode}`);
-            console.log(`corpo da resposta da Meta: ${uploadBody.stdout}`);
-
-            if (httpCode === "200") {
-              console.log("\n>>> UPLOAD ACEITO PELA META — checando status de processamento...");
-              for (let i = 0; i < 3; i++) {
-                await new Promise(r => setTimeout(r, 15000));
-                const status = await checkReelStatus(container.creation_id, container.account_id);
-                console.log(`status (tentativa ${i + 1}): ${JSON.stringify(status)}`);
-                if (status?.status_code === "FINISHED" || status?.status_code === "ERROR") break;
-              }
-            }
-          }
-
-          async function main() {
-            const { data: posts, error } = await supabase
-              .from("posts")
-              .select("id,titulo,conteudo,video_url,metrics")
-              .not("metrics->instagram_reel_template", "is", null);
-            if (error) throw error;
-
-            const comErro = (posts || []).filter(p => {
-              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
-              return m?.instagram_reel_template?.status === "error";
-            });
-            console.log(`posts com status:error encontrados: ${comErro.length}`);
-
-            comErro.sort((a, b) => {
-              const ma = typeof a.metrics === "string" ? JSON.parse(a.metrics) : a.metrics;
-              const mb = typeof b.metrics === "string" ? JSON.parse(b.metrics) : b.metrics;
-              return (ma?.instagram_reel_template?.attempts || 0) - (mb?.instagram_reel_template?.attempts || 0);
-            });
-
-            for (const post of comErro) {
-              await testarUmPost(post);
-            }
+            const probeOut = await runCapture("ffprobe", ["-v", "error", "-show_entries", "stream=index,codec_type,codec_name,duration,start_time,nb_frames,sample_rate,channels:format=duration,nb_streams,size", "-of", "json", "/tmp/reel-final.mp4"]);
+            console.log("\nffprobe DETALHADO do arquivo RENDERIZADO (video vs audio duration):");
+            console.log(probeOut.stdout);
+            if (probeOut.stderr) console.log("ffprobe stderr:", probeOut.stderr);
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e, e?.stack); process.exit(1); });
 
           JSEOF
-          node _diag_repro.mjs
-          rm -f _diag_repro.mjs
+          node _diag_streams.mjs
+          rm -f _diag_streams.mjs
