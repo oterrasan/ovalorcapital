@@ -7,6 +7,112 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - run: echo "placeholder — nenhum diagnóstico ativo agora"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar deps
+        run: npm ci --omit=dev
+      - name: Publicar vídeos do Bacci do dia 20/09 no Brasil ON
+        run: |
+          cat > _bacci_2009.mjs << 'JSEOF'
+          import axios from "axios";
+          import { descobrirPaginaVideoBacci } from "./core/brasilon.js";
+
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+          const BACCI_EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
+
+          function diaBRT(iso) {
+            // BRT = UTC-3, sem horário de verão
+            const d = new Date(new Date(iso).getTime() - 3 * 3600 * 1000);
+            return d.toISOString().slice(0, 10);
+          }
+
+          async function fetchSitemapEntries(url) {
+            const res = await axios.get(url, { timeout: 10000, headers: { "User-Agent": UA } });
+            const xml = String(res.data || "");
+            const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)];
+            return blocos.map(b => {
+              const loc = (b[1].match(/<loc>(.*?)<\/loc>/) || [])[1] || "";
+              const lastmod = (b[1].match(/<lastmod>(.*?)<\/lastmod>/) || [])[1] || "";
+              return { loc, lastmod };
+            }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
+          }
+
+          async function main() {
+            const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", { timeout: 10000, headers: { "User-Agent": UA } });
+            const idxXml = String(idxRes.data || "");
+            const locs = [...idxXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+            const postSitemaps = locs.filter(l => /\/post-sitemap\d*\.xml$/.test(l));
+            console.log(`chunks de sitemap encontrados: ${postSitemaps.length}`);
+            // pega os 2 últimos chunks pra garantir cobertura do dia 20/09 mesmo que
+            // já tenha rolado pro chunk seguinte
+            const alvos = postSitemaps.slice(-2);
+            console.log(`checando chunks: ${alvos.join(", ")}`);
+
+            let todos = [];
+            for (const url of alvos) {
+              const entradas = await fetchSitemapEntries(url);
+              todos = todos.concat(entradas);
+            }
+            const unicos = new Map();
+            for (const e of todos) if (!unicos.has(e.loc)) unicos.set(e.loc, e);
+            todos = [...unicos.values()];
+            console.log(`total de URLs únicas nos chunks checados: ${todos.length}`);
+
+            const DIA_ALVO = "2026-09-20";
+            const doDia = todos.filter(e => e.lastmod && diaBRT(e.lastmod) === DIA_ALVO);
+            console.log(`candidatos com lastmod no dia ${DIA_ALVO} (BRT): ${doDia.length}`);
+            doDia.forEach(e => console.log(`  ${e.lastmod} -> ${e.loc}`));
+
+            console.log(`\nChecando vídeo em cada um (pode demorar)...`);
+            const comVideo = [];
+            for (const e of doDia) {
+              const urlVideo = await descobrirPaginaVideoBacci(e.loc);
+              if (urlVideo) {
+                comVideo.push(e.loc);
+                console.log(`  [VIDEO] ${e.loc}`);
+              }
+            }
+            console.log(`\nTOTAL com vídeo no dia ${DIA_ALVO}: ${comVideo.length}/${doDia.length}`);
+
+            if (!comVideo.length) {
+              console.log("\nNada a publicar — nenhum candidato do dia com vídeo detectável.");
+              return;
+            }
+
+            console.log(`\n=== VERIFICANDO STATUS DA AUTOMAÇÃO ===`);
+            // usa o próprio endpoint pra checar: se pipeline_pausado, avisa e para
+            console.log(`\n=== PUBLICANDO ${comVideo.length} MATÉRIA(S) VIA brasilon_url ===`);
+            const resultados = [];
+            for (const link of comVideo) {
+              try {
+                const r = await axios.post("https://www.ovalorcapital.com.br/api/run_portal", {
+                  tipo: "brasilon", brasilon_url: link, force: true
+                }, { timeout: 60000, headers: { "Content-Type": "application/json" } });
+                console.log(`  ${link}`);
+                console.log(`    -> ${JSON.stringify(r.data)}`);
+                resultados.push({ link, data: r.data });
+              } catch (err) {
+                const msg = err.response ? `HTTP ${err.response.status}: ${JSON.stringify(err.response.data)}` : String(err.message || err);
+                console.log(`  ${link}`);
+                console.log(`    -> ERRO: ${msg}`);
+                resultados.push({ link, error: msg });
+              }
+              // pequeno espaçamento entre chamadas
+              await new Promise(r => setTimeout(r, 2000));
+            }
+
+            const publicados = resultados.filter(r => r.data?.generated > 0).length;
+            console.log(`\n=== RESUMO FINAL ===`);
+            console.log(`Candidatos do dia 20/09 com vídeo: ${comVideo.length}`);
+            console.log(`Publicados com sucesso (generated>0): ${publicados}`);
+          }
+
+          main().catch(e => { console.error("ERRO FATAL:", e); process.exit(1); });
+
+          JSEOF
+          node _bacci_2009.mjs
+          rm -f _bacci_2009.mjs
