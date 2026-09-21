@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — checar campo exhausted
+name: Diagnóstico único (placeholder) — teste real de captura YouTube do Bacci
 on:
   push:
     paths:
@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,20 +15,72 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Checar campo exhausted dos 2 posts com erro
+      - name: Descobrir video de uma materia real do Bacci agora
+        id: descobrir
         run: |
-          cat > _diag_exh.mjs << 'JSEOF'
-          import { createClient } from "@supabase/supabase-js";
-          const supabase = createClient(
-            "https://yntwvfcxjardzafdqanj.supabase.co",
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          );
-          const ids = ["896aad2b-5996-40d1-b68c-1e22245c8ae3", "67d4cf81-f159-4fcd-a9b1-1e850325fb32"];
-          for (const id of ids) {
-            const { data: post } = await supabase.from("posts").select("id,titulo,metrics").eq("id", id).single();
-            const m = typeof post.metrics === "string" ? JSON.parse(post.metrics) : post.metrics;
-            console.log(post.titulo, "=>", JSON.stringify(m.instagram_reel_template, null, 2));
+          cat > _diag_yt.mjs << 'JSEOF'
+          import axios from "axios";
+          import { descobrirPaginaVideoBacci } from "./core/brasilon.js";
+
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+          const BACCI_EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
+
+          async function main() {
+            const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", { timeout: 10000, headers: { "User-Agent": UA } });
+            const idxXml = String(idxRes.data || "");
+            const locs = [...idxXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
+            const postSitemaps = locs.filter(l => /\/post-sitemap\d*\.xml$/.test(l));
+            const chunkAtual = postSitemaps[postSitemaps.length - 1];
+            const smRes = await axios.get(chunkAtual, { timeout: 10000, headers: { "User-Agent": UA } });
+            const smXml = String(smRes.data || "");
+            const blocos = [...smXml.matchAll(/<url>([\s\S]*?)<\/url>/g)];
+            const entradas = blocos.map(b => {
+              const loc = (b[1].match(/<loc>(.*?)<\/loc>/) || [])[1] || "";
+              const lastmod = (b[1].match(/<lastmod>(.*?)<\/lastmod>/) || [])[1] || "";
+              return { loc, lastmod };
+            }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
+            entradas.sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
+
+            console.log(`checando os 10 artigos mais recentes reais do Bacci agora...`);
+            let achou = null;
+            for (const e of entradas.slice(0, 10)) {
+              const video = await descobrirPaginaVideoBacci(e.loc);
+              console.log(`  [${video ? video.kind : "sem video"}] ${e.loc}`);
+              if (video && !achou) achou = { artigo: e.loc, video };
+            }
+            if (achou) {
+              console.log(`\nRESULTADO=${JSON.stringify(achou)}`);
+            } else {
+              console.log(`\nNenhum dos 10 artigos mais recentes tinha vídeo detectável agora.`);
+            }
           }
+
+          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_exh.mjs
-          rm -f _diag_exh.mjs
+          node _diag_yt.mjs | tee _diag_yt_output.txt
+          rm -f _diag_yt.mjs
+          resultado=$(grep '^RESULTADO=' _diag_yt_output.txt | sed 's/^RESULTADO=//')
+          echo "resultado=$resultado" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar ffmpeg (mesmo setup do runner de producao)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Testar download real via yt-dlp (se achou YouTube) ou curl (se achou Bunny)
+        if: steps.descobrir.outputs.resultado != ''
+        env:
+          RESULTADO_JSON: ${{ steps.descobrir.outputs.resultado }}
+        run: |
+          echo "testando: $RESULTADO_JSON"
+          kind=$(node -p "JSON.parse(process.env.RESULTADO_JSON).video.kind")
+          url=$(node -p "JSON.parse(process.env.RESULTADO_JSON).video.url")
+          echo "kind=$kind url=$url"
+          if [ "$kind" = "youtube" ]; then
+            pip install --quiet --break-system-packages -U yt-dlp
+            yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
+              --merge-output-format mp4 -o reel-source "$url"
+          else
+            curl --fail --location -sS "$url" --max-time 300 -o reel-source
+          fi
+          ls -la reel-source
+          ffprobe -v error -show_entries format=duration,size:stream=codec_type,codec_name,width,height -of default=noprint_wrappers=0 reel-source
