@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — busca ampla de qualquer marcador de vídeo
+name: Diagnóstico único (placeholder) — inspecionar widget bacci.php?limit=15
 on:
   push:
     paths:
@@ -15,58 +15,31 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Buscar QUALQUER marcador de video (iframe, video tag, mp4, vimeo, bacci.php) nos 40 artigos
+      - name: "Buscar conteudo real do widget bacci.php?limit=15 (achado: presente em toda pagina)"
         run: |
-          cat > _diag_raw2.mjs << 'JSEOF'
+          cat > _diag_widget.mjs << 'JSEOF'
           import axios from "axios";
 
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          const BACCI_EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
 
           async function main() {
-            const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", { timeout: 10000, headers: { "User-Agent": UA } });
-            const idxXml = String(idxRes.data || "");
-            const locs = [...idxXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
-            const postSitemaps = locs.filter(l => /\/post-sitemap\d*\.xml$/.test(l));
-            const chunkAtual = postSitemaps[postSitemaps.length - 1];
-            const smRes = await axios.get(chunkAtual, { timeout: 10000, headers: { "User-Agent": UA } });
-            const smXml = String(smRes.data || "");
-            const blocos = [...smXml.matchAll(/<url>([\s\S]*?)<\/url>/g)];
-            const entradas = blocos.map(b => {
-              const loc = (b[1].match(/<loc>(.*?)<\/loc>/) || [])[1] || "";
-              const lastmod = (b[1].match(/<lastmod>(.*?)<\/lastmod>/) || [])[1] || "";
-              return { loc, lastmod };
-            }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
-            entradas.sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
+            const url = "https://baccinoticias.com.br/estatico/bacci.php?limit=15&v=1.0";
+            const res = await axios.get(url, { timeout: 8000, headers: { "User-Agent": UA, "Referer": "https://baccinoticias.com.br/" } });
+            const html = String(res.data || "");
+            console.log(`tamanho do HTML do widget: ${html.length}`);
+            console.log(`\n--- PRIMEIROS 6000 CHARS ---\n`);
+            console.log(html.slice(0, 6000));
 
-            console.log(`checando 40 artigos por: <iframe, <video, .mp4, vimeo, bacci.php?video=, jwplayer...`);
-            let comIframe = 0, comVideoTag = 0, comMp4 = 0, comVimeo = 0, comBacciPhp = 0, comJw = 0;
-            let iframeExemplos = [];
-            for (const e of entradas.slice(0, 40)) {
-              const res = await axios.get(e.loc, { timeout: 8000, headers: { "User-Agent": UA } });
-              const html = String(res.data || "");
-              const iframes = [...html.matchAll(/<iframe[^>]*src=["']([^"']+)["']/gi)].map(m => m[1]);
-              const temVideoTag = /<video[\s>]/i.test(html);
-              const temMp4 = /\.mp4/i.test(html);
-              const temVimeo = /vimeo/i.test(html);
-              const temBacciPhp = /bacci\.php\?video=/i.test(html);
-              const temJw = /jwplayer|jwpsrv/i.test(html);
-              if (iframes.length) { comIframe++; if (iframeExemplos.length < 5) iframeExemplos.push({ url: e.loc, iframes }); }
-              if (temVideoTag) comVideoTag++;
-              if (temMp4) comMp4++;
-              if (temVimeo) comVimeo++;
-              if (temBacciPhp) comBacciPhp++;
-              if (temJw) comJw++;
-              console.log(`  ${e.loc} | iframes=${iframes.length} video=${temVideoTag} mp4=${temMp4} vimeo=${temVimeo} bacciphp=${temBacciPhp} jw=${temJw}`);
-            }
-            console.log(`\nRESUMO de 40 artigos: comIframe=${comIframe} comVideoTag=${comVideoTag} comMp4=${comMp4} comVimeo=${comVimeo} comBacciPhp=${comBacciPhp} comJw=${comJw}`);
-            for (const ex of iframeExemplos) {
-              console.log(`\n--- iframes de ${ex.url} ---`);
-              for (const src of ex.iframes) console.log(`  src=${src}`);
-            }
+            console.log(`\n--- links/videos encontrados no widget ---`);
+            const links = [...html.matchAll(/href=["']([^"']+)["']/gi)].map(m => m[1]);
+            const uniqLinks = [...new Set(links)].slice(0, 30);
+            for (const l of uniqLinks) console.log(`  href=${l}`);
+
+            const ytIds = [...html.matchAll(/(?:youtube(?:-nocookie)?\.com\/(?:embed|watch\?v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/gi)].map(m => m[1]);
+            console.log(`\nids de youtube encontrados no widget: ${JSON.stringify([...new Set(ytIds)])}`);
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_raw2.mjs
-          rm -f _diag_raw2.mjs
+          node _diag_widget.mjs
+          rm -f _diag_widget.mjs
