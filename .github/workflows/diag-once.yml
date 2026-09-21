@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — reteste pós-fix live_stream
+name: Diagnóstico único (placeholder) — verificação bruta de HTML (youtube presente?)
 on:
   push:
     paths:
@@ -15,12 +15,10 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Descobrir video de uma materia real do Bacci agora
-        id: descobrir
+      - name: Checar HTML bruto (independente de regex) dos 40 artigos mais recentes
         run: |
-          cat > _diag_yt.mjs << 'JSEOF'
+          cat > _diag_raw.mjs << 'JSEOF'
           import axios from "axios";
-          import { descobrirPaginaVideoBacci } from "./core/brasilon.js";
 
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
           const BACCI_EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
@@ -41,49 +39,31 @@ jobs:
             }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
             entradas.sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
 
-            console.log(`checando ate 40 artigos recentes reais do Bacci, parando no primeiro video real (nao live_stream)...`);
-            let achou = null;
-            let checados = 0;
+            console.log(`checando ${entradas.length > 40 ? 40 : entradas.length} artigos, procurando "youtube" cru no HTML (sem regex de extracao)...`);
+            let comYoutube = 0;
+            let exemplos = [];
             for (const e of entradas.slice(0, 40)) {
-              checados++;
-              const video = await descobrirPaginaVideoBacci(e.loc);
-              console.log(`  [${video ? video.kind : "sem video"}] ${e.loc}`);
-              if (video && !achou) { achou = { artigo: e.loc, video }; break; }
+              const res = await axios.get(e.loc, { timeout: 8000, headers: { "User-Agent": UA } });
+              const html = String(res.data || "");
+              const temYoutube = /youtube|youtu\.be/i.test(html);
+              if (temYoutube) {
+                comYoutube++;
+                const idx = html.toLowerCase().indexOf("youtube");
+                const idx2 = html.toLowerCase().indexOf("youtu.be");
+                const pos = idx >= 0 ? idx : idx2;
+                const snippet = html.slice(Math.max(0, pos - 60), pos + 200).replace(/\s+/g, " ");
+                if (exemplos.length < 3) exemplos.push({ url: e.loc, snippet });
+              }
+              console.log(`  [${temYoutube ? "TEM youtube no html" : "sem youtube"}] ${e.loc} (tamanho html: ${html.length})`);
             }
-            console.log(`\nartigos checados: ${checados}`);
-            if (achou) {
-              console.log(`\nRESULTADO=${JSON.stringify(achou)}`);
-            } else {
-              console.log(`\nNenhum dos ${checados} artigos checados tinha vídeo detectável agora.`);
+            console.log(`\ntotal com "youtube" em algum lugar do HTML: ${comYoutube} de ${entradas.slice(0,40).length}`);
+            for (const ex of exemplos) {
+              console.log(`\n--- exemplo: ${ex.url} ---`);
+              console.log(ex.snippet);
             }
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_yt.mjs | tee _diag_yt_output.txt
-          rm -f _diag_yt.mjs
-          resultado=$(grep '^RESULTADO=' _diag_yt_output.txt | sed 's/^RESULTADO=//')
-          echo "resultado=$resultado" >> "$GITHUB_OUTPUT"
-
-      - name: Instalar ffmpeg (mesmo setup do runner de producao)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
-      - name: Testar download real via yt-dlp (se achou YouTube) ou curl (se achou Bunny)
-        if: steps.descobrir.outputs.resultado != ''
-        env:
-          RESULTADO_JSON: ${{ steps.descobrir.outputs.resultado }}
-        run: |
-          echo "testando: $RESULTADO_JSON"
-          kind=$(node -p "JSON.parse(process.env.RESULTADO_JSON).video.kind")
-          url=$(node -p "JSON.parse(process.env.RESULTADO_JSON).video.url")
-          echo "kind=$kind url=$url"
-          if [ "$kind" = "youtube" ]; then
-            pip install --quiet --break-system-packages -U yt-dlp
-            yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
-              --merge-output-format mp4 -o reel-source "$url"
-          else
-            curl --fail --location -sS "$url" --max-time 300 -o reel-source
-          fi
-          ls -la reel-source
-          ffprobe -v error -show_entries format=duration,size:stream=codec_type,codec_name,width,height -of default=noprint_wrappers=0 reel-source
+          node _diag_raw.mjs
+          rm -f _diag_raw.mjs
