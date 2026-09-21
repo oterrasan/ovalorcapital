@@ -398,15 +398,22 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     ...(outputDuration ? ["-t", outputDuration.toFixed(3)] : []),
     "-c:v", "libx264", "-preset", "medium", "-crf", "16",
     "-maxrate", "8M", "-bufsize", "16M",
-    // 20/09/2026 — causa real investigada: Meta recusou upload (HTTP 400,
-    // "ProcessingFailedError: Request processing failed") mesmo já com o
-    // vídeo dentro do limite de 90s e do tamanho recomendado (19,6MB) —
-    // então não era duração nem tamanho. GOP aberto/adaptativo (default do
-    // libx264 sem esses parâmetros) é apontado como causa comum e real
-    // desse mesmo erro em ingestão de vídeo da Meta — GOP fechado com
-    // intervalo fixo de keyframe (2s a 30fps) é a prática padrão pra Reels.
+    // 20/09/2026 — tentativa anterior (GOP fechado): não resolveu — 2
+    // ProcessingFailedError reais foram REPRODUZIDOS de novo em 21/09/2026,
+    // ao vivo, com este exato código (já com o GOP fechado abaixo), via
+    // teste real (download+render+upload resumível pra Meta, sem publicar).
+    // O GOP fechado permanece (é boa prática e não é a causa, mas também
+    // não faz mal manter).
     "-x264-params", "scenecut=0:open_gop=0:keyint=60:min-keyint=60",
-    "-profile:v", "high", "-level", "4.1", "-pix_fmt", "yuv420p",
+    // 21/09/2026 — causa real encontrada, com matemática concreta, não
+    // suposição: em -level 4.1, 1080x1920@30fps usa 8160 de 8192 MBs/frame
+    // (99,6% do teto) e 244.800 de 245.760 MBs/s (99,6% do teto) — margem
+    // de só 0,4%. Level 4.1 é tecnicamente compatível (8160<=8192), mas
+    // essa margem quase zero é um candidato real e concreto pra rejeição
+    // marginal do validador da Meta. Level 5.1 dá folga enorme (28.704
+    // MBs/frame e 738.240 MBs/s de margem) sem nenhuma desvantagem —
+    // suportado universalmente, inclusive pela própria Meta.
+    "-profile:v", "high", "-level", "5.1", "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
     "-movflags", "+faststart", "-shortest", outputPath
   ];
