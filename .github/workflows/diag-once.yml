@@ -15,36 +15,39 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: "Consultar post real (Vovo tiktoker, id 30e67c20) - video_url e metrics"
+      - name: "Remover video (ja com overlay queimado) do post 30e67c20 via API real de producao"
         run: |
-          cat > _diag_post.mjs << 'JSEOF'
-          import { createClient } from "@supabase/supabase-js";
+          cat > _diag_fix.mjs << 'JSEOF'
+          import axios from "axios";
 
-          const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
-          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
-          const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+          const BASE = "https://www.ovalorcapital.com.br";
+          const TOKEN = "ovc-admin-2026-secreto";
+          const POST_ID = "30e67c20-f96e-4eef-ab71-0cb6b3272abe";
 
           async function main() {
-            const { data, error } = await supabase
-              .from("posts")
-              .select("id,titulo,video_url,imagem,metrics,status,approved,publish_method,created_at,published_at,updated_at,user_tags")
-              .ilike("titulo", "%tiktoker%")
-              .limit(5);
-            if (error) { console.error("ERRO SUPABASE:", error); process.exit(1); }
-            console.log(`posts encontrados: ${data.length}`);
-            for (const p of data) {
-              console.log(`\n=== POST ${p.id} ===`);
-              console.log(`titulo: ${p.titulo}`);
-              console.log(`status: ${p.status} | approved: ${p.approved} | publish_method: ${p.publish_method}`);
-              console.log(`user_tags: ${p.user_tags}`);
-              console.log(`created_at: ${p.created_at} | published_at: ${p.published_at} | updated_at: ${p.updated_at}`);
-              console.log(`imagem: ${p.imagem}`);
-              console.log(`video_url: ${p.video_url}`);
-              console.log(`metrics: ${JSON.stringify(p.metrics, null, 2)}`);
-            }
+            console.log("Chamando action=reels_set_source com video_url vazio (remove do site E cancela o Reel pendente, ja que o arquivo fonte esta contaminado com overlay queimado)...");
+            const res = await axios.post(`${BASE}/api/manage`, {
+              action: "reels_set_source",
+              token: TOKEN,
+              post_id: POST_ID,
+              video_url: ""
+            }, { timeout: 15000, validateStatus: () => true });
+            console.log(`HTTP ${res.status}`);
+            console.log(JSON.stringify(res.data, null, 2));
+
+            // confere direto no supabase que realmente sumiu
+            const { createClient } = await import("@supabase/supabase-js");
+            const supabase = createClient(
+              "https://yntwvfcxjardzafdqanj.supabase.co",
+              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+            );
+            const { data } = await supabase.from("posts").select("video_url,metrics").eq("id", POST_ID).maybeSingle();
+            console.log("\n=== CONFIRMACAO DIRETA NO BANCO ===");
+            console.log(`video_url agora: ${data?.video_url}`);
+            console.log(`metrics agora: ${JSON.stringify(data?.metrics, null, 2)}`);
           }
 
-          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
+          main().catch(e => { console.error("ERRO FATAL:", e?.response?.data || e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_post.mjs
-          rm -f _diag_post.mjs
+          node _diag_fix.mjs
+          rm -f _diag_fix.mjs
