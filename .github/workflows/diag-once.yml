@@ -15,48 +15,36 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: "Seguir a cadeia real ate o video: bacci.php?video=97693 - existe link /videos/ dentro dele?"
+      - name: "Consultar post real (Vovo tiktoker, id 30e67c20) - video_url e metrics"
         run: |
-          cat > _diag_real2.mjs << 'JSEOF'
-          import axios from "axios";
+          cat > _diag_post.mjs << 'JSEOF'
+          import { createClient } from "@supabase/supabase-js";
 
-          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+          const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
+          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
+          const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
           async function main() {
-            const urlIframe = "https://baccinoticias.com.br/estatico/bacci.php?video=97693&limit=1&v=1.0";
-            const res = await axios.get(urlIframe, { timeout: 10000, headers: { "User-Agent": UA } });
-            const html = String(res.data || "");
-            console.log(`tamanho total do HTML do iframe: ${html.length}`);
-            console.log(`\n=== HTML COMPLETO ===`);
-            console.log(html);
-
-            console.log(`\n\n=== TESTANDO REGEX _BACCI_VIDEOS_PAGE_RE contra este HTML ===`);
-            const _BACCI_VIDEOS_PAGE_RE = /href="(https:\/\/baccinoticias\.com\.br\/videos\/[^"]+)"/i;
-            const linkM = html.match(_BACCI_VIDEOS_PAGE_RE);
-            if (linkM) {
-              console.log(`MATCH ENCONTRADO: ${linkM[1]}`);
-            } else {
-              console.log(`SEM MATCH — regex nao encontrou nenhum href de /videos/ neste HTML`);
-            }
-
-            // fallback: qualquer href de /videos/ com regex mais solta (aspas simples tb)
-            const looseM = [...html.matchAll(/(?:href|src)=['"]([^'"]*\/videos\/[^'"]+)['"]/gi)];
-            console.log(`\n=== BUSCA SOLTA por /videos/ em qualquer atributo href/src (${looseM.length} match(es)) ===`);
-            for (const m of looseM) console.log(m[1]);
-
-            // qualquer bunny/mp4/b-cdn direto neste html
-            for (const termo of ["bunny", "b-cdn", "mediadelivery", "vz-", ".mp4", "iframe", "data-video"]) {
-              const idx = html.toLowerCase().indexOf(termo.toLowerCase());
-              if (idx >= 0) {
-                console.log(`\n--- ocorrencia de "${termo}" em pos ${idx} ---`);
-                console.log(html.slice(Math.max(0, idx - 150), idx + 350).replace(/\s+/g, " "));
-              } else {
-                console.log(`"${termo}": NAO encontrado`);
-              }
+            const { data, error } = await supabase
+              .from("posts")
+              .select("id,titulo,video_url,imagem,metrics,status,approved,publish_method,created_at,published_at,updated_at,user_tags")
+              .ilike("id", "30e67c20%")
+              .limit(3);
+            if (error) { console.error("ERRO SUPABASE:", error); process.exit(1); }
+            console.log(`posts encontrados: ${data.length}`);
+            for (const p of data) {
+              console.log(`\n=== POST ${p.id} ===`);
+              console.log(`titulo: ${p.titulo}`);
+              console.log(`status: ${p.status} | approved: ${p.approved} | publish_method: ${p.publish_method}`);
+              console.log(`user_tags: ${p.user_tags}`);
+              console.log(`created_at: ${p.created_at} | published_at: ${p.published_at} | updated_at: ${p.updated_at}`);
+              console.log(`imagem: ${p.imagem}`);
+              console.log(`video_url: ${p.video_url}`);
+              console.log(`metrics: ${JSON.stringify(p.metrics, null, 2)}`);
             }
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_real2.mjs
-          rm -f _diag_real2.mjs
+          node _diag_post.mjs
+          rm -f _diag_post.mjs
