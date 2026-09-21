@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — historico de reels
+name: Diagnóstico único (placeholder) — duracao dos reels que ja publicaram
 on:
   push:
     paths:
@@ -10,57 +10,19 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Instalar deps
-        run: npm ci --omit=dev
-      - name: Correlacao — falha X duracao da fonte, historico completo
+      - name: Instalar ffmpeg
         run: |
-          cat > _diag_hist.mjs << 'JSEOF'
-          import { createClient } from "@supabase/supabase-js";
-
-          const supabase = createClient(
-            "https://yntwvfcxjardzafdqanj.supabase.co",
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          );
-
-          async function main() {
-            const { data: posts, error } = await supabase
-              .from("posts")
-              .select("id,titulo,metrics,updated_at")
-              .not("metrics->instagram_reel_template", "is", null)
-              .order("updated_at", { ascending: false })
-              .limit(500);
-            if (error) throw error;
-
-            console.log(`total de posts com template de reel: ${posts.length}\n`);
-            for (const p of posts) {
-              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
-              const t = m?.instagram_reel_template || {};
-              console.log(`[${t.status}] attempts=${t.attempts} | ig_id=${!!m?.instagram_reel?.ig_id || !!t.ig_creation_id} | published=${!!m?.instagram_reel} | titulo="${p.titulo?.slice(0,60)}" | updated_at=${p.updated_at}`);
-            }
-
-            console.log("\n=== resumo por status ===");
-            const porStatus = {};
-            for (const p of posts) {
-              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
-              const st = m?.instagram_reel_template?.status || "desconhecido";
-              porStatus[st] = (porStatus[st] || 0) + 1;
-            }
-            console.log(JSON.stringify(porStatus, null, 2));
-
-            console.log("\n=== posts com instagram_reel (ja publicado com sucesso) — pra ver se algum tem metadado de duracao ===");
-            for (const p of posts) {
-              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
-              if (m?.instagram_reel) {
-                console.log(`SUCESSO: "${p.titulo?.slice(0,60)}" | instagram_reel=${JSON.stringify(m.instagram_reel)}`);
-              }
-            }
-          }
-
-          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
-
-          JSEOF
-          node _diag_hist.mjs
-          rm -f _diag_hist.mjs
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Checar duracao dos 4 reels ja publicados com sucesso
+        run: |
+          for url in \
+            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789896744639-ae9646ce217e.mp4" \
+            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789911146861-0b1eded18a4e.mp4" \
+            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789935145513-6807e777cff2.mp4" \
+            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/reels-rendered/23e60cd9-f146-4a3d-8acb-cd3ca86b0fbd-ff953bd9-39ad-446c-89d9-e471f0f55e14.mp4" \
+          ; do
+            echo "=== $url ==="
+            ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,level -of default=noprint_wrappers=0 "$url"
+            echo ""
+          done
