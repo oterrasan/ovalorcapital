@@ -15,48 +15,48 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: "Inspecionar HTML real da materia com video confirmado visualmente"
+      - name: "Seguir a cadeia real ate o video: bacci.php?video=97693 - existe link /videos/ dentro dele?"
         run: |
-          cat > _diag_real.mjs << 'JSEOF'
+          cat > _diag_real2.mjs << 'JSEOF'
           import axios from "axios";
 
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
           async function main() {
-            const url = "https://baccinoticias.com.br/camera-corporal-registra-momento-em-que-medico-confirma-morte-da-pm-gisele/";
-            const res = await axios.get(url, { timeout: 10000, headers: { "User-Agent": UA } });
+            const urlIframe = "https://baccinoticias.com.br/estatico/bacci.php?video=97693&limit=1&v=1.0";
+            const res = await axios.get(urlIframe, { timeout: 10000, headers: { "User-Agent": UA } });
             const html = String(res.data || "");
-            console.log(`tamanho total do HTML: ${html.length}`);
+            console.log(`tamanho total do HTML do iframe: ${html.length}`);
+            console.log(`\n=== HTML COMPLETO ===`);
+            console.log(html);
 
-            // Todos os iframes de verdade, com contexto
-            const iframeMatches = [...html.matchAll(/<iframe[^>]*>/gi)];
-            console.log(`\n=== TODOS OS IFRAMES (${iframeMatches.length}) ===`);
-            for (const m of iframeMatches) console.log(m[0]);
+            console.log(`\n\n=== TESTANDO REGEX _BACCI_VIDEOS_PAGE_RE contra este HTML ===`);
+            const _BACCI_VIDEOS_PAGE_RE = /href="(https:\/\/baccinoticias\.com\.br\/videos\/[^"]+)"/i;
+            const linkM = html.match(_BACCI_VIDEOS_PAGE_RE);
+            if (linkM) {
+              console.log(`MATCH ENCONTRADO: ${linkM[1]}`);
+            } else {
+              console.log(`SEM MATCH — regex nao encontrou nenhum href de /videos/ neste HTML`);
+            }
 
-            // Qualquer video tag
-            const videoMatches = [...html.matchAll(/<video[\s\S]{0,400}?<\/video>/gi)];
-            console.log(`\n=== TAGS <video> (${videoMatches.length}) ===`);
-            for (const m of videoMatches) console.log(m[0].slice(0, 500));
+            // fallback: qualquer href de /videos/ com regex mais solta (aspas simples tb)
+            const looseM = [...html.matchAll(/(?:href|src)=['"]([^'"]*\/videos\/[^'"]+)['"]/gi)];
+            console.log(`\n=== BUSCA SOLTA por /videos/ em qualquer atributo href/src (${looseM.length} match(es)) ===`);
+            for (const m of looseM) console.log(m[1]);
 
-            // Qualquer ocorrencia de "bunny", "b-cdn", "mediadelivery", "vz-", ".mp4", "player"
-            for (const termo of ["bunny", "b-cdn", "mediadelivery", "vz-", ".mp4", "data-video", "video-player", "vjs-", "plyr"]) {
+            // qualquer bunny/mp4/b-cdn direto neste html
+            for (const termo of ["bunny", "b-cdn", "mediadelivery", "vz-", ".mp4", "iframe", "data-video"]) {
               const idx = html.toLowerCase().indexOf(termo.toLowerCase());
               if (idx >= 0) {
                 console.log(`\n--- ocorrencia de "${termo}" em pos ${idx} ---`);
                 console.log(html.slice(Math.max(0, idx - 150), idx + 350).replace(/\s+/g, " "));
               } else {
-                console.log(`\n"${termo}": NAO encontrado`);
+                console.log(`"${termo}": NAO encontrado`);
               }
             }
-
-            // Scripts inline que tenham "video" no conteudo (config JS de player)
-            const scriptBlocks = [...html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
-            const scriptsComVideo = scriptBlocks.filter(s => /video/i.test(s));
-            console.log(`\n=== SCRIPTS INLINE MENCIONANDO "video" (${scriptsComVideo.length} de ${scriptBlocks.length} scripts inline) ===`);
-            for (const s of scriptsComVideo.slice(0, 5)) console.log(s.slice(0, 600));
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_real.mjs
-          rm -f _diag_real.mjs
+          node _diag_real2.mjs
+          rm -f _diag_real2.mjs
