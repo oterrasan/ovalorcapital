@@ -814,31 +814,12 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
 // a constante duplicada aqui em vez de compartilhada.
 const REELS_TEMPLATE_VERSION_BRASILON = "ovc-reels-2026-09-v2";
 
-// 20/09/2026 — Roberto, direto: "eu quero que o sistema publique 50% / 50%
-// videos e posts só com imagens... isso deve funcionar assim na raspagem
-// do bacci". Antes de gastar rede procurando/baixando o vídeo da matéria,
-// checa a proporção real do dia (posts publish_method='brasilon' desde a
-// meia-noite BRT, mesmo corte de contarHoje() acima) — se metade ou mais
-// já saiu com vídeo, este post fica só com imagem (nem tenta buscar
-// vídeo). Fail-open: qualquer erro na contagem, ou é o primeiro post do
-// dia, tenta vídeo normalmente — nunca bloqueia a publicação por causa
-// disso.
-async function deveAnexarVideoBrasilOn() {
-  try {
-    const agora = new Date();
-    const inicioHoje = new Date(agora);
-    inicioHoje.setUTCHours(3, 0, 0, 0);
-    if (agora.getUTCHours() < 3) inicioHoje.setUTCDate(inicioHoje.getUTCDate() - 1);
-    const { count: total } = await supabase.from("posts").select("id", { count: "exact", head: true })
-      .eq("publish_method", "brasilon").gte("created_at", inicioHoje.toISOString());
-    if (!total) return true;
-    const { count: comVideo } = await supabase.from("posts").select("id", { count: "exact", head: true })
-      .eq("publish_method", "brasilon").gte("created_at", inicioHoje.toISOString()).not("video_url", "is", null);
-    return (comVideo || 0) / total < 0.5;
-  } catch (_) {
-    return true;
-  }
-}
+// 21/09/2026 — Roberto, direto: "o bacci posta reel todo santo dia o dia
+// todo.... é impossivel nao ter video. eu quero todos os videos do bacci
+// postados". Removido o freio de 50/50 (deveAnexarVideoBrasilOn(), criado
+// mais cedo no mesmo dia) — passava por cima de matérias que tinham vídeo
+// de verdade só porque a cota do dia já tinha batido metade. Agora toda
+// matéria do Bacci tenta buscar o vídeo, sempre — sem teto nenhum.
 
 // Enfileira automaticamente o vídeo do Bacci pro pipeline de Reels que já
 // existe — mesmo formato de dado que handleReelsSetSource (api/manage.js)
@@ -1107,13 +1088,10 @@ async function autoBrasilOn(req, res, rec) {
       await log("info", `[brasilon] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
       geradosAgora.push(content.titulo);
       generated++;
-      // 50/50 vídeo x só-imagem (ver deveAnexarVideoBrasilOn) — só busca
-      // vídeo se a proporção do dia ainda permitir. Não bloqueia a rodada
-      // nem conta como falha da matéria — melhor esforço, ver comentário
-      // de enfileirarReelBacciSeHouver.
-      if (await deveAnexarVideoBrasilOn()) {
-        await enfileirarReelBacciSeHouver(post.id, item.link);
-      }
+      // 21/09/2026 — sempre tenta, sem teto (ver comentário acima de
+      // enfileirarReelBacciSeHouver). Não bloqueia a rodada nem conta como
+      // falha da matéria — melhor esforço.
+      await enfileirarReelBacciSeHouver(post.id, item.link);
     } catch (_) { continue; }
   }
   return res.status(200).json({ status: "ok", generated, tipo: "brasilon", candidates: items.length });
