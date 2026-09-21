@@ -853,6 +853,45 @@ async function _igAutoContarHoje(accountId) {
   return count || 0;
 }
 
+// 21/09/2026 — mesma contagem de _igAutoContarHoje, sem o filtro de conta —
+// total real de posts-de-imagem publicados hoje (Reels NUNCA tocam
+// posts.ig_id, só metrics.instagram_reel.ig_id — ver _reelsPublicarPost/
+// _reelsClaim — então esta contagem é 100% feed, nunca mistura os dois).
+async function _igAutoContarHojeTotal() {
+  const { count, error } = await supabase
+    .from("posts")
+    .select("id", { count: "exact", head: true })
+    .not("ig_id", "is", null)
+    .gte("updated_at", _igAutoInicioDiaBRT());
+  if (error) throw error;
+  return count || 0;
+}
+
+// Roberto: "nós temos que ter publicado no instagram uma divisao média de
+// 60% reels e 40% materias sem videos". Meta sobre o que É PUBLICADO no
+// Instagram (não sobre quanto conteúdo com vídeo é gerado — isso é outro
+// assunto, upstream). Reels nunca têm teto aqui — publicam sempre que
+// tiverem conteúdo pronto (o objetivo é MAIS Reels, não menos). Só o feed
+// de imagem se autolimita: quando a fatia de feed do dia já bateu o teto
+// de 40%, esta rodada de ig_auto_publish é pulada inteira, dando espaço
+// pros Reels alcançarem a proporção — na próxima checagem (Reel novo
+// publicado nesse meio tempo, ou não) decide de novo. MIN_SAMPLE evita
+// instabilidade nos primeiros posts do dia (ex: 1 feed/0 reels = 100%
+// feed, mas não há dado suficiente ainda pra decidir travar).
+const IG_REELS_TARGET_SHARE = 0.60;
+const IG_RATIO_MIN_SAMPLE = 3;
+async function _igAutoFeedDeveEsperarReels() {
+  try {
+    const [totalFeed, totalReels] = await Promise.all([_igAutoContarHojeTotal(), _reelsAutoContarHoje()]);
+    const total = totalFeed + totalReels;
+    if (total < IG_RATIO_MIN_SAMPLE) return false;
+    const feedShare = totalFeed / total;
+    return feedShare >= (1 - IG_REELS_TARGET_SHARE);
+  } catch (_) {
+    return false;
+  }
+}
+
 async function _igAutoRegistrarPublicacao(accountId) {
   const dia = _igAutoDiaBRT();
   const rowKey = `IG_AUTO_${dia}__${accountId}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1070,6 +1109,22 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     const idadeMs = agoraMs - publishedAtMs;
     if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
+    // 21/09/2026 — Roberto: "os vídeos devem ser prioridade de publicação
+    // no instagram". Um post com vídeo real (não YouTube — esse nunca vira
+    // Reel, ver reels_auto_publish) que TEM um template de Reel ativo (a
+    // captura automática do Bacci sempre cria um — ver
+    // enfileirarReelBacciSeHouver em api/run_portal.js) e ainda não esgotou
+    // as tentativas fica RESERVADO pro reels_auto_publish — nunca pode ser
+    // "gasto" aqui como post de imagem comum antes de ter a chance de
+    // virar Reel. IMPORTANTE: só reserva quando EXISTE template de verdade
+    // — vídeo anexado manualmente no admin (upload/link colado) nunca cria
+    // esse template (só grava video_url), então nunca entraria na fila do
+    // Reel; bloquear esse caso também deixaria a matéria presa pra sempre,
+    // sem publicar de jeito nenhum.
+    if (/^https?:\/\//i.test(String(p.video_url || "")) && !_isYouTubeUrl(p.video_url)) {
+      const template = _reelsTemplate(p.metrics);
+      if (template && !template.exhausted) return false;
+    }
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     const categoria = String(tags[0] || "").trim().toLowerCase();
     if (!settings.categories.has(categoria)) return false;
@@ -1134,6 +1189,14 @@ async function handleIgAutoPublish(req, res, body) {
     if (accountsError) throw accountsError;
     if (candidatesError) throw candidatesError;
     if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
+
+    // 21/09/2026 — meta real de proporção (ver _igAutoFeedDeveEsperarReels):
+    // se o feed já bateu os 40% do dia, esta rodada inteira de publicação
+    // por imagem é pulada — os Reels seguem publicando sem freio no
+    // próprio schedule deles.
+    if (await _igAutoFeedDeveEsperarReels()) {
+      return res.status(200).json({ ok: true, skipped: true, reason: "feed_aguardando_reels_atingirem_a_proporcao_do_dia" });
+    }
 
     const results = await Promise.all(accounts.map((account) => _igAutoProcessAccount(account, candidatos || [], settings, Date.now())));
     const failures = results.filter((result) => !result.ok);
