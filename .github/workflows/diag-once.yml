@@ -7,30 +7,38 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Instalar deps
-        run: npm ci --omit=dev
-      - name: Inspecionar bytes reais dos vídeos com ProcessingFailedError
+      - name: Instalar deps + ffmpeg (mesmo setup do runner de produção)
         run: |
-          cat > _diag_video_quebrado.mjs << 'JSEOF'
+          npm ci --omit=dev
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          mkdir -p "$HOME/.local/share/fonts"
+          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
+          fc-cache -f
+          ffmpeg -version >/dev/null
+          ffprobe -version >/dev/null
+      - name: Reproduzir pipeline REAL de render + upload resumivel (sem publicar)
+        run: |
+          cat > _diag_repro.mjs << 'JSEOF'
           import { createClient } from "@supabase/supabase-js";
           import { spawn } from "node:child_process";
-          import { writeFile } from "node:fs/promises";
-          import axios from "axios";
+          import { writeFile, stat } from "node:fs/promises";
+          import { createReelContainerResumable, checkReelStatus } from "./core/instagram.js";
 
           const supabase = createClient(
             "https://yntwvfcxjardzafdqanj.supabase.co",
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           );
 
-          function runCapture(cmd, args) {
+          function runCapture(cmd, args, opts = {}) {
             return new Promise((resolve, reject) => {
-              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], ...opts });
               const out = []; const err = [];
               child.stdout.on("data", d => out.push(d));
               child.stderr.on("data", d => err.push(d));
@@ -39,44 +47,106 @@ jobs:
             });
           }
 
-          async function main() {
-            console.log("=== Posts com erro ProcessingFailedError — inspecionando o vídeo real armazenado ===");
-            const { data: posts } = await supabase
-              .from("posts")
-              .select("id,titulo,video_url,metrics")
-              .not("metrics->instagram_reel_template", "is", null);
-
-            let algumComErro = false;
-            for (const p of posts || []) {
-              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
-              const t = m?.instagram_reel_template || {};
-              if (t.status !== "error") continue;
-              algumComErro = true;
-              console.log(`\n--- ${p.titulo?.slice(0, 70)} ---`);
-              console.log(`post_id: ${p.id}`);
-              console.log(`source_url: ${t.source_url}`);
-              console.log(`attempts: ${t.attempts} | last_error: ${(t.last_error || "").slice(0, 200)}`);
-
-              try {
-                const res = await axios.get(t.source_url, { responseType: "arraybuffer", timeout: 30000, maxContentLength: 50 * 1024 * 1024 });
-                const buf = Buffer.from(res.data);
-                await writeFile("/tmp/check.bin", buf);
-                console.log(`tamanho real baixado: ${buf.length} bytes | content-type do servidor: ${res.headers["content-type"]}`);
-                console.log(`primeiros 32 bytes (hex): ${buf.slice(0, 32).toString("hex")}`);
-                console.log(`primeiros 200 bytes como texto (pra ver se é HTML): ${buf.slice(0, 200).toString("utf8").replace(/\n/g, "\\n")}`);
-                const probe = await runCapture("ffprobe", ["-v", "error", "-show_entries", "format=format_name,duration,size:stream=codec_type,codec_name,width,height,pix_fmt", "-of", "default=noprint_wrappers=0", "/tmp/check.bin"]);
-                console.log(`ffprobe exit code: ${probe.code}`);
-                console.log(`ffprobe stdout:\n${probe.stdout}`);
-                if (probe.stderr) console.log(`ffprobe stderr: ${probe.stderr.slice(0, 500)}`);
-              } catch (e) {
-                console.log(`ERRO ao baixar/analisar: ${e?.message || e}`);
-              }
-            }
-            if (!algumComErro) console.log("Nenhum post com status:error encontrado agora.");
+          function stripHtml(html) {
+            return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
           }
 
-          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
+          async function testarUmPost(post) {
+            const m = typeof post.metrics === "string" ? JSON.parse(post.metrics) : post.metrics;
+            const t = m?.instagram_reel_template || {};
+            console.log(`\n\n========== ${post.titulo} ==========`);
+            console.log(`post_id: ${post.id} | attempts anteriores: ${t.attempts} | last_error anterior: ${(t.last_error || "").slice(0, 150)}`);
+
+            const dl = await runCapture("curl", ["--fail", "--location", "-sS", t.source_url, "--max-time", "120", "-o", "/tmp/reel-source"]);
+            if (dl.code !== 0) { console.log(`FALHA no download: ${dl.stderr.slice(0, 300)}`); return; }
+            const sourceStat = await stat("/tmp/reel-source");
+            console.log(`fonte baixada: ${sourceStat.size} bytes`);
+
+            const jobPayload = {
+              job: {
+                title: post.titulo,
+                body: stripHtml(post.conteudo),
+                source_url: t.source_url,
+                template_version: t.version || "diag-test"
+              }
+            };
+            await writeFile("/tmp/render-job.json", JSON.stringify(jobPayload));
+
+            console.log("rodando render-instagram-reel.mjs real (ffmpeg + overlay)...");
+            const t0 = Date.now();
+            const render = await runCapture("node", ["scripts/render-instagram-reel.mjs", "/tmp/render-job.json", "/tmp/reel-source", "/tmp/reel-final.mp4", "/tmp/reel-overlay.png"]);
+            console.log(`render levou ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+            if (render.code !== 0) { console.log(`FALHA no render: ${render.stderr.slice(-800)}`); return; }
+            console.log(`resultado do render: ${render.stdout.trim()}`);
+
+            const finalStat = await stat("/tmp/reel-final.mp4");
+            console.log(`\nreel-final.mp4 real: ${finalStat.size} bytes`);
+            const probe = await runCapture("ffprobe", ["-v", "error", "-show_entries", "format=format_name,duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,pix_fmt,r_frame_rate,profile,level", "-of", "default=noprint_wrappers=0", "/tmp/reel-final.mp4"]);
+            console.log(`ffprobe do arquivo renderizado:\n${probe.stdout}`);
+            if (probe.stderr) console.log(`ffprobe stderr: ${probe.stderr}`);
+
+            console.log("\ncriando container resumível real na Meta (teste, sem publicar)...");
+            let container;
+            try {
+              container = await createReelContainerResumable(`[TESTE DIAGNÓSTICO — não publicar] ${post.titulo}`, null, {});
+              console.log(`container criado: creation_id=${container.creation_id} | quota_before=${JSON.stringify(container.quota_before)}`);
+            } catch (e) {
+              console.log(`FALHA ao criar container: ${e?.message || e}`);
+              return;
+            }
+
+            const uploadRes = await runCapture("curl", [
+              "-sS", "-o", "/tmp/upload-response.json", "-w", "%{http_code}",
+              "-X", "POST", container.upload_url,
+              "-H", `Authorization: OAuth ${container.upload_token}`,
+              "-H", "offset: 0",
+              "-H", `file_size: ${finalStat.size}`,
+              "-H", "Content-Type: application/octet-stream",
+              "--data-binary", "@/tmp/reel-final.mp4",
+              "--max-time", "180"
+            ]);
+            const httpCode = uploadRes.stdout.trim();
+            const uploadBody = await runCapture("cat", ["/tmp/upload-response.json"]);
+            console.log(`\nHTTP do upload real pra Meta: ${httpCode}`);
+            console.log(`corpo da resposta da Meta: ${uploadBody.stdout}`);
+
+            if (httpCode === "200") {
+              console.log("\n>>> UPLOAD ACEITO PELA META — checando status de processamento...");
+              for (let i = 0; i < 3; i++) {
+                await new Promise(r => setTimeout(r, 15000));
+                const status = await checkReelStatus(container.creation_id, container.account_id);
+                console.log(`status (tentativa ${i + 1}): ${JSON.stringify(status)}`);
+                if (status?.status_code === "FINISHED" || status?.status_code === "ERROR") break;
+              }
+            }
+          }
+
+          async function main() {
+            const { data: posts, error } = await supabase
+              .from("posts")
+              .select("id,titulo,conteudo,video_url,metrics")
+              .not("metrics->instagram_reel_template", "is", null);
+            if (error) throw error;
+
+            const comErro = (posts || []).filter(p => {
+              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              return m?.instagram_reel_template?.status === "error";
+            });
+            console.log(`posts com status:error encontrados: ${comErro.length}`);
+
+            comErro.sort((a, b) => {
+              const ma = typeof a.metrics === "string" ? JSON.parse(a.metrics) : a.metrics;
+              const mb = typeof b.metrics === "string" ? JSON.parse(b.metrics) : b.metrics;
+              return (ma?.instagram_reel_template?.attempts || 0) - (mb?.instagram_reel_template?.attempts || 0);
+            });
+
+            for (const post of comErro) {
+              await testarUmPost(post);
+            }
+          }
+
+          main().catch(e => { console.error("ERRO FATAL:", e?.message || e, e?.stack); process.exit(1); });
 
           JSEOF
-          node _diag_video_quebrado.mjs
-          rm -f _diag_video_quebrado.mjs
+          node _diag_repro.mjs
+          rm -f _diag_repro.mjs
