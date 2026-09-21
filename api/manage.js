@@ -1285,6 +1285,14 @@ async function handleIgPriorityPublish(req, res, body) {
 const REELS_AUTO_CONFIG_KEYS = ["REELS_AUTOMATION_ENABLED", "REELS_AUTOMATION_LAST_RUN"];
 const REELS_AUTO_INTERVALO_MIN = 20;
 const REELS_TEMPLATE_VERSION = "ovc-reels-2026-09-v2";
+// 21/09/2026 — Roberto real: backlog de Reels enorme, só 2 "prontos" em 21
+// matérias com vídeo, e um caso confirmado com 6 tentativas seguidas do
+// MESMO erro não-retentável da Meta (ProcessingFailedError, "retriable":
+// false). Depois de esgotar as tentativas, marca exhausted:true (ver
+// handleReelsRenderFail) — o claim de handleReelsRenderJob para de
+// escolher esse post pra sempre, em vez de continuar gastando capacidade
+// de render nele.
+const REELS_MAX_RETRY_ATTEMPTS = 3;
 
 function _isYouTubeUrl(url) {
   return /youtube(?:-nocookie)?\.com|youtu\.be/i.test(String(url || ""));
@@ -1366,18 +1374,34 @@ async function handleReelsRenderJob(req, res, body) {
     .from("posts")
     .select("id,titulo,conteudo,comentario_fixado,user_tags,subcategoria,video_url,metrics,status,ig_account_id,published_at,created_at,updated_at")
     .in("status", ["publicado", "pendente"])
-    .order("updated_at", { ascending: false })
+    .order("updated_at", { ascending: true })
     .limit(250);
   if (error) throw error;
 
-  const candidate = (candidates || []).find((post) => {
-    const template = _reelsTemplate(post.metrics);
-    if (!template || template.version !== REELS_TEMPLATE_VERSION || !/^https?:\/\//i.test(String(template.source_url || ""))) return false;
-    if (template.status === "pending" || template.status === "error") return true;
-    return template.status === "processing" && String(template.processing_at || "") < staleBefore;
-  });
-  if (!candidate) return res.status(200).json({ ok: true, job: null, reason: "nenhum_video_aguardando_template" });
+  // 21/09/2026 — causa raiz real de um item travado furar a fila pra
+  // sempre: cada falha atualiza updated_at do post pra "agora" — com a
+  // ordenação antiga (updated_at DESC + primeiro match), um vídeo que
+  // falha repetidas vezes vira sempre "o mais recente" e é escolhido de
+  // novo antes de qualquer pending genuíno esperando atrás dele. Fix:
+  // ordena por updated_at ASC (mais antigo primeiro) e prioriza
+  // pending/processing-travado sobre error — só tenta de novo um item com
+  // erro depois que a fila de pending esvaziar. exhausted:true (ver
+  // handleReelsRenderFail) exclui de vez um item que já bateu o teto de
+  // tentativas.
+  const PRIORIDADE_STATUS_REEL = { pending: 0, processing: 1, error: 2 };
+  const elegiveis = (candidates || [])
+    .map((post) => ({ post, template: _reelsTemplate(post.metrics) }))
+    .filter(({ template }) => {
+      if (!template || template.version !== REELS_TEMPLATE_VERSION || !/^https?:\/\//i.test(String(template.source_url || ""))) return false;
+      if (template.exhausted) return false;
+      if (template.status === "pending" || template.status === "error") return true;
+      return template.status === "processing" && String(template.processing_at || "") < staleBefore;
+    })
+    .sort((a, b) => (PRIORIDADE_STATUS_REEL[a.template.status] ?? 9) - (PRIORIDADE_STATUS_REEL[b.template.status] ?? 9));
+  const chosen = elegiveis[0];
+  if (!chosen) return res.status(200).json({ ok: true, job: null, reason: "nenhum_video_aguardando_template" });
   if (body?.peek === true) return res.status(200).json({ ok: true, job: { pending: true } });
+  const candidate = chosen.post;
 
   const metrics = parseJsonMaybe(candidate.metrics, {});
   const current = metrics.instagram_reel_template;
@@ -1421,6 +1445,7 @@ async function handleReelsRenderJob(req, res, body) {
     ig = await createReelContainerResumable(caption, candidate.ig_account_id || null);
   } catch (igError) {
     processing.status = "error";
+    processing.exhausted = processing.attempts >= REELS_MAX_RETRY_ATTEMPTS;
     processing.last_error = redactSecrets(igError?.message || String(igError)).slice(0, 500);
     metrics.instagram_reel_template = processing;
     await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
@@ -1506,14 +1531,16 @@ async function handleReelsRenderFail(req, res, body) {
   const metrics = parseJsonMaybe(post.metrics, {});
   const template = metrics.instagram_reel_template || {};
   if (template.claim_id !== claimId) return res.status(409).json({ ok: false, error: "render_claim_invalido" });
+  const exhausted = Number(template.attempts || 0) >= REELS_MAX_RETRY_ATTEMPTS;
   metrics.instagram_reel_template = {
     ...template,
     status: "error",
+    exhausted,
     failed_at: new Date().toISOString(),
     last_error: redactSecrets(String(body?.error || "render_failed")).slice(0, 500)
   };
   await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
-  return res.status(200).json({ ok: true, retry_scheduled: true });
+  return res.status(200).json({ ok: true, retry_scheduled: !exhausted });
 }
 
 async function _reelsAutoConfig() {

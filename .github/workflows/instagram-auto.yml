@@ -111,24 +111,28 @@ jobs:
           status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')
           test "$status" = "200"
 
-  publicar:
-    if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *'
+  # 21/09/2026 — 🔴 causa raiz real confirmada com dado de produção: o
+  # backlog de Reels só crescia porque o processamento pesado (ffmpeg +
+  # upload pra Meta) vivia dentro do job `publicar`, gated pelas mesmas
+  # janelas de POSTAGEM (08h-12h/14h-19h BRT, ~9h/dia) — mas a geração de
+  # vídeo (Brasil ON) roda quase 24h/dia. Preparar/renderizar um Reel NÃO
+  # publica nada visível (handleReelsRenderJob/Complete/Fail não checam
+  # _igAutoDentroDaJanelaAtiva — só o publish de verdade, handleIgAutoPublish
+  # e handleReelsAutoPublish, checam isso, server-side, já eram seguros
+  # mesmo fora de qualquer janela deste workflow). Só quem posta de fato
+  # continua restrito à janela — preparar agora roda o dia inteiro, junto
+  # com processar_collabs (mesmo schedule */10), fechando o gargalo real.
+  # Concurrency própria (instagram-render-reels-ovc, não a mesma de
+  # publicar/processar_collabs) — um render longo (download+ffmpeg+upload+
+  # poll até 5min) nunca deve atrasar um post real do Instagram.
+  preparar_reels:
+    if: github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: instagram-render-reels-ovc
+      cancel-in-progress: false
     steps:
-      - name: Chamar ig_auto_publish
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
-        run: |
-          response=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"ig_auto_publish"}' \
-            --max-time 55 \
-            -w "\nHTTP_STATUS:%{http_code}\n")
-          echo "$response"
-          status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')
-          test "$status" = "200"
       - name: Verificar fila de vídeos brutos
         id: render_queue
         env:
@@ -289,6 +293,24 @@ jobs:
           echo "Reel pronto — vídeo já está direto na Meta, sem Supabase no meio."
           trap - ERR
 
+  publicar:
+    if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Chamar ig_auto_publish
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          response=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"ig_auto_publish"}' \
+            --max-time 55 \
+            -w "\nHTTP_STATUS:%{http_code}\n")
+          echo "$response"
+          status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')
+          test "$status" = "200"
       - name: Chamar reels_auto_publish
         if: always()
         env:

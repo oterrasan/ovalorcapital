@@ -950,7 +950,14 @@ const reelTemplateInfo = (post) => {
   } catch(_) { return null; }
 };
 const reelTemplateLabel = (post) => {
-  const status = reelTemplateInfo(post)?.status;
+  const info = reelTemplateInfo(post);
+  const status = info?.status;
+  // 21/09/2026 — Roberto real: "error" tratado igual "pending" (mesma
+  // label "aguardando") escondia que o sistema já tinha desistido de
+  // verdade depois de REELS_MAX_RETRY_ATTEMPTS (ver api/manage.js) —
+  // parecia que ainda estava tentando quando na real nunca mais ia tentar
+  // de novo sozinho. exhausted:true sinaliza isso sem ambiguidade.
+  if (info?.exhausted) return '❌ Falhou ' + (info.attempts || '?') + 'x — não tenta mais sozinho';
   if (status === 'ready') return '✅ Layout OVC pronto';
   if (status === 'processing') return '⏳ Aplicando layout OVC';
   if (status === 'pending' || status === 'error') return '🕒 Aguardando acabamento';
@@ -1568,7 +1575,7 @@ function Postagens() {
                         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
                         {!parseYouTubeId(editPost.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===editPost.id||reelTemplateInfo(editPost)?.status!=='ready'} onClick={()=>publicarReel(editPost.id, editPost.video_url)}>{reelPublishing===editPost.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                       </div>
-                      {!parseYouTubeId(editPost.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(editPost)?.status==='ready'?'#22c55e':'var(--yellow)',marginTop:8}}>{reelTemplateLabel(editPost)}</div>}
+                      {!parseYouTubeId(editPost.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(editPost)?.exhausted?'#ef4444':reelTemplateInfo(editPost)?.status==='ready'?'#22c55e':'var(--yellow)',marginTop:8}}>{reelTemplateLabel(editPost)}</div>}
                       {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
                   ) : (
@@ -1768,7 +1775,7 @@ function Postagens() {
                   <React.Fragment key={p.id}>
                   <tr style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:chkRisco(p)?{background:'rgba(239,68,68,0.04)'}:chkSemImg(p)?{background:'rgba(245,158,11,0.04)'}:{}}>
                     <td><input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/></td>
-                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}{p.video_url&&(parseYouTubeId(p.video_url)?<span style={{background:'rgba(239,68,68,0.2)',color:'#f87171',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title="Vídeo do YouTube embutido na matéria">▶️ YOUTUBE</span>:<span style={{background:reelTemplateInfo(p)?.status==='ready'?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)',color:reelTemplateInfo(p)?.status==='ready'?'#4ade80':'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={reelTemplateLabel(p)}>🎬 VÍDEO</span>)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
+                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}{p.video_url&&(parseYouTubeId(p.video_url)?<span style={{background:'rgba(239,68,68,0.2)',color:'#f87171',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title="Vídeo do YouTube embutido na matéria">▶️ YOUTUBE</span>:<span style={{background:reelTemplateInfo(p)?.exhausted?'rgba(239,68,68,0.2)':reelTemplateInfo(p)?.status==='ready'?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)',color:reelTemplateInfo(p)?.exhausted?'#f87171':reelTemplateInfo(p)?.status==='ready'?'#4ade80':'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={reelTemplateLabel(p)}>🎬 VÍDEO</span>)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
                     <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
                     <td className="text-secondary text-small">{p.categoria||'—'}</td>
                     <td className="text-secondary text-small">{p.publish_method==='manual'?'✍️ manual':'🤖 auto'}</td>
@@ -3964,7 +3971,7 @@ function VideosAdmin() {
                   <div style={{fontWeight:600}}>{p.titulo || '(sem título)'}</div>
                   <div className="text-secondary text-small" style={{marginTop:2,display:'flex',gap:6,alignItems:'center'}}>
                     <span>{p.status}</span>
-                    {p.video_url && <span style={{color:reelTemplateInfo(p)?.status==='ready'?'#22c55e':'#f59e0b'}}>{reelTemplateLabel(p)}</span>}
+                    {p.video_url && <span style={{color:reelTemplateInfo(p)?.exhausted?'#ef4444':reelTemplateInfo(p)?.status==='ready'?'#22c55e':'#f59e0b'}}>{reelTemplateLabel(p)}</span>}
                   </div>
                 </div>
               ))}
@@ -3992,7 +3999,7 @@ function VideosAdmin() {
                       <button type="button" className="btn btn-secondary btn-sm" onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
                       {!parseYouTubeId(selected.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===selected.id||reelTemplateInfo(selected)?.status!=='ready'} onClick={()=>publicarReel(selected.id, selected.video_url)}>{reelPublishing===selected.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                     </div>
-                    {!parseYouTubeId(selected.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(selected)?.status==='ready'?'#22c55e':'#f59e0b',marginTop:8}}>{reelTemplateLabel(selected)}</div>}
+                    {!parseYouTubeId(selected.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(selected)?.exhausted?'#ef4444':reelTemplateInfo(selected)?.status==='ready'?'#22c55e':'#f59e0b',marginTop:8}}>{reelTemplateLabel(selected)}</div>}
                   </div>
                 )}
 
