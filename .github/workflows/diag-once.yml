@@ -9,4 +9,80 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "placeholder — nenhum diagnóstico ativo agora"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Instalar deps
+        run: npm ci --omit=dev
+      - name: Por que o Reel da churrasqueira nunca é escolhido pela fila
+        run: |
+          cat > _diag_fila.mjs << 'JSEOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const supabase = createClient(
+            "https://yntwvfcxjardzafdqanj.supabase.co",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          );
+
+          async function main() {
+            console.log("=== 1) Localizando o post da churrasqueira ===");
+            const { data: posts, error } = await supabase
+              .from("posts")
+              .select("id,titulo,status,video_url,metrics,updated_at,created_at")
+              .ilike("titulo", "%churrasqueira%")
+              .order("created_at", { ascending: false })
+              .limit(3);
+            if (error) { console.log("erro:", error.message); return; }
+            console.log(`${posts.length} post(s) encontrados`);
+            for (const p of posts) {
+              console.log(`\nid: ${p.id}`);
+              console.log(`titulo: ${p.titulo}`);
+              console.log(`status: ${p.status}`);
+              console.log(`updated_at: ${p.updated_at}`);
+              console.log(`created_at: ${p.created_at}`);
+              const metrics = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              console.log(`instagram_reel_template: ${JSON.stringify(metrics?.instagram_reel_template || null, null, 2)}`);
+            }
+
+            const alvo = posts[0];
+            if (!alvo) return;
+
+            console.log("\n=== 2) Reproduzindo EXATAMENTE a query de handleReelsRenderJob ===");
+            const { data: candidates, error: err2 } = await supabase
+              .from("posts")
+              .select("id,titulo,metrics,status,updated_at")
+              .in("status", ["publicado", "pendente"])
+              .order("updated_at", { ascending: true })
+              .limit(250);
+            if (err2) { console.log("erro:", err2.message); return; }
+            console.log(`candidatos retornados pela query real (limit 250): ${candidates.length}`);
+            console.log(`updated_at do primeiro (mais antigo): ${candidates[0]?.updated_at}`);
+            console.log(`updated_at do último (250º, mais recente do lote): ${candidates[candidates.length - 1]?.updated_at}`);
+
+            const achou = candidates.find(c => c.id === alvo.id);
+            console.log(`\nO post da churrasqueira está dentro desses 250? ${achou ? "SIM" : "NÃO — FICOU DE FORA DO LOTE"}`);
+
+            console.log("\n=== 3) Quantos posts (status publicado/pendente) têm updated_at MAIS ANTIGO que o alvo? ===");
+            const { count, error: err3 } = await supabase
+              .from("posts")
+              .select("id", { count: "exact", head: true })
+              .in("status", ["publicado", "pendente"])
+              .lt("updated_at", alvo.updated_at);
+            if (err3) console.log("erro:", err3.message);
+            else console.log(`total: ${count} posts mais antigos que o alvo (updated_at) — se >250, o LIMIT 250 ASC nunca alcança o alvo`);
+
+            console.log("\n=== 4) Quantos posts têm ALGUM instagram_reel_template (qualquer status), pra medir o tamanho real da fila de Reels ===");
+            const { count: countReels, error: err4 } = await supabase
+              .from("posts")
+              .select("id", { count: "exact", head: true })
+              .not("metrics->instagram_reel_template", "is", null);
+            if (err4) console.log("erro (filtro JSON pode não ser suportado assim):", err4.message);
+            else console.log(`total com instagram_reel_template presente: ${countReels}`);
+          }
+
+          main().catch(e => { console.error("ERRO FATAL:", e); process.exit(1); });
+
+          JSEOF
+          node _diag_fila.mjs
+          rm -f _diag_fila.mjs
