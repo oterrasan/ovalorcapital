@@ -9,4 +9,55 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "placeholder — nenhum diagnóstico ativo agora"
+      - name: Estado real da captura de vídeo do Bacci + mirror pro Brasil ON
+        env:
+          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json, os, urllib.parse
+
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ["SUPABASE_KEY"]
+          headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+
+          def get(path):
+              req = urllib.request.Request(f"{url}/rest/v1/{path}", headers=headers)
+              return urllib.request.urlopen(req, timeout=25).read()
+
+          print("=== últimos 40 posts publish_method=brasilon (mais recentes primeiro) ===")
+          data = json.loads(get("posts?select=id,titulo,video_url,created_at&publish_method=eq.brasilon&order=created_at.desc&limit=40"))
+          com_video = sum(1 for p in data if p.get("video_url"))
+          print(f"total: {len(data)} | com video_url: {com_video} | sem: {len(data)-com_video}")
+          for p in data[:15]:
+              print(f"  {'[VIDEO]' if p.get('video_url') else '[     ]'} {p['created_at']} | {p['titulo'][:55]!r}")
+
+          print("\n=== brasilon_posts — quantas linhas têm video_url preenchido? ===")
+          try:
+              bp_total = json.loads(get("brasilon_posts?select=id&limit=1"))
+              # contagem via header count
+              req = urllib.request.Request(f"{url}/rest/v1/brasilon_posts?select=id", headers={**headers, "Prefer": "count=exact", "Range": "0-0"})
+              res = urllib.request.urlopen(req, timeout=25)
+              cr = res.headers.get("content-range", "")
+              total_bp = int(cr.split("/")[-1]) if "/" in cr else None
+              print(f"total de linhas em brasilon_posts: {total_bp}")
+
+              req2 = urllib.request.Request(f"{url}/rest/v1/brasilon_posts?select=id&video_url=not.is.null", headers={**headers, "Prefer": "count=exact", "Range": "0-0"})
+              res2 = urllib.request.urlopen(req2, timeout=25)
+              cr2 = res2.headers.get("content-range", "")
+              total_bp_video = int(cr2.split("/")[-1]) if "/" in cr2 else None
+              print(f"linhas com video_url preenchido: {total_bp_video}")
+          except Exception as e:
+              print(f"ERRO consultando brasilon_posts: {e}")
+
+          print("\n=== cruzamento: post do OVC COM vídeo, brasilon_posts SEM vídeo (bug do mirror antecipado) ===")
+          ovc_com_video = json.loads(get("posts?select=id,titulo,video_url&publish_method=eq.brasilon&video_url=not.is.null&order=created_at.desc&limit=50"))
+          for p in ovc_com_video[:20]:
+              q = urllib.parse.quote(f"origem_post_id=eq.{p['id']}&select=id,video_url", safe="=&.")
+              bp = json.loads(get(f"brasilon_posts?{q}"))
+              if bp:
+                  status = "TEM video no mirror" if bp[0].get("video_url") else "SEM video no mirror (BUG)"
+              else:
+                  status = "NÃO EXISTE no brasilon_posts ainda"
+              print(f"  {status} | {p['titulo'][:50]!r}")
+          PYEOF
