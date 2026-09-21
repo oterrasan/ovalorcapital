@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — duracao dos reels que ja publicaram
+name: Diagnóstico único (placeholder)
 on:
   push:
     paths:
@@ -7,22 +7,8 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Instalar ffmpeg
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
-      - name: Checar duracao dos 4 reels ja publicados com sucesso
-        run: |
-          for url in \
-            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789896744639-ae9646ce217e.mp4" \
-            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789911146861-0b1eded18a4e.mp4" \
-            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/videos/1789935145513-6807e777cff2.mp4" \
-            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/reels-rendered/23e60cd9-f146-4a3d-8acb-cd3ca86b0fbd-ff953bd9-39ad-446c-89d9-e471f0f55e14.mp4" \
-          ; do
-            echo "=== $url ==="
-            ffprobe -v error -show_entries format=duration,size,bit_rate:stream=index,codec_type,codec_name,width,height,level -of default=noprint_wrappers=0 "$url"
-            echo ""
-          done
+      - name: Placeholder (nenhum diagnostico ativo no momento)
+        run: echo "sem diagnostico ativo"
