@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — verificação bruta de HTML (youtube presente?)
+name: Diagnóstico único (placeholder) — busca ampla de qualquer marcador de vídeo
 on:
   push:
     paths:
@@ -15,9 +15,9 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Checar HTML bruto (independente de regex) dos 40 artigos mais recentes
+      - name: Buscar QUALQUER marcador de video (iframe, video tag, mp4, vimeo, bacci.php) nos 40 artigos
         run: |
-          cat > _diag_raw.mjs << 'JSEOF'
+          cat > _diag_raw2.mjs << 'JSEOF'
           import axios from "axios";
 
           const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -39,31 +39,34 @@ jobs:
             }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
             entradas.sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
 
-            console.log(`checando ${entradas.length > 40 ? 40 : entradas.length} artigos, procurando "youtube" cru no HTML (sem regex de extracao)...`);
-            let comYoutube = 0;
-            let exemplos = [];
+            console.log(`checando 40 artigos por: <iframe, <video, .mp4, vimeo, bacci.php?video=, jwplayer...`);
+            let comIframe = 0, comVideoTag = 0, comMp4 = 0, comVimeo = 0, comBacciPhp = 0, comJw = 0;
+            let iframeExemplos = [];
             for (const e of entradas.slice(0, 40)) {
               const res = await axios.get(e.loc, { timeout: 8000, headers: { "User-Agent": UA } });
               const html = String(res.data || "");
-              const temYoutube = /youtube|youtu\.be/i.test(html);
-              if (temYoutube) {
-                comYoutube++;
-                const idx = html.toLowerCase().indexOf("youtube");
-                const idx2 = html.toLowerCase().indexOf("youtu.be");
-                const pos = idx >= 0 ? idx : idx2;
-                const snippet = html.slice(Math.max(0, pos - 60), pos + 200).replace(/\s+/g, " ");
-                if (exemplos.length < 3) exemplos.push({ url: e.loc, snippet });
-              }
-              console.log(`  [${temYoutube ? "TEM youtube no html" : "sem youtube"}] ${e.loc} (tamanho html: ${html.length})`);
+              const iframes = [...html.matchAll(/<iframe[^>]*src=["']([^"']+)["']/gi)].map(m => m[1]);
+              const temVideoTag = /<video[\s>]/i.test(html);
+              const temMp4 = /\.mp4/i.test(html);
+              const temVimeo = /vimeo/i.test(html);
+              const temBacciPhp = /bacci\.php\?video=/i.test(html);
+              const temJw = /jwplayer|jwpsrv/i.test(html);
+              if (iframes.length) { comIframe++; if (iframeExemplos.length < 5) iframeExemplos.push({ url: e.loc, iframes }); }
+              if (temVideoTag) comVideoTag++;
+              if (temMp4) comMp4++;
+              if (temVimeo) comVimeo++;
+              if (temBacciPhp) comBacciPhp++;
+              if (temJw) comJw++;
+              console.log(`  ${e.loc} | iframes=${iframes.length} video=${temVideoTag} mp4=${temMp4} vimeo=${temVimeo} bacciphp=${temBacciPhp} jw=${temJw}`);
             }
-            console.log(`\ntotal com "youtube" em algum lugar do HTML: ${comYoutube} de ${entradas.slice(0,40).length}`);
-            for (const ex of exemplos) {
-              console.log(`\n--- exemplo: ${ex.url} ---`);
-              console.log(ex.snippet);
+            console.log(`\nRESUMO de 40 artigos: comIframe=${comIframe} comVideoTag=${comVideoTag} comMp4=${comMp4} comVimeo=${comVimeo} comBacciPhp=${comBacciPhp} comJw=${comJw}`);
+            for (const ex of iframeExemplos) {
+              console.log(`\n--- iframes de ${ex.url} ---`);
+              for (const src of ex.iframes) console.log(`  src=${src}`);
             }
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_raw.mjs
-          rm -f _diag_raw.mjs
+          node _diag_raw2.mjs
+          rm -f _diag_raw2.mjs
