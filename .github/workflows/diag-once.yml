@@ -28,8 +28,8 @@ jobs:
             const { data, error } = await supabase
               .from("posts")
               .select("id,titulo,video_url,imagem,metrics,status,approved,publish_method,created_at,published_at,updated_at,user_tags")
-              .ilike("id", "30e67c20%")
-              .limit(3);
+              .ilike("titulo", "%tiktoker%")
+              .limit(5);
             if (error) { console.error("ERRO SUPABASE:", error); process.exit(1); }
             console.log(`posts encontrados: ${data.length}`);
             for (const p of data) {
