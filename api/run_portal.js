@@ -836,12 +836,33 @@ const REELS_TEMPLATE_VERSION_BRASILON = "ovc-reels-2026-09-v2";
 // Instagram continua exigindo o toggle "REELS_AUTOMATION_ENABLED" ligado
 // no admin (fail-closed, já era assim antes desta mudança) — preparar o
 // vídeo é automático, publicar continua exigindo Roberto ligar isso.
+//
+// 21/09/2026 — descobrirPaginaVideoBacci() agora retorna {kind,url}: Bunny
+// Stream (kind:"bunny", o caso original, link .mp4 direto — continua
+// baixado aqui via downloadAndUploadVideo) ou YouTube (kind:"youtube",
+// virou o caso mais comum na Bacci). YouTube NUNCA é baixado aqui — não
+// tem link de arquivo direto (é DASH), extrair isso exige yt-dlp, um
+// binário pesado que só roda no runner do GitHub Actions (mesma cautela
+// documentada em core/storage.js contra dependência nativa em function
+// serverless). Pra YouTube, só a URL crua é gravada como source_url do
+// template — o runner (instagram-auto.yml, job preparar_reels) detecta e
+// baixa com yt-dlp na hora de renderizar. posts.video_url (o player do
+// site) fica de fora nesse caso — não existe arquivo baixado ainda, e
+// Roberto já pediu pra vídeo do Bacci ficar fora do site mesmo (só
+// alimenta o Reel).
 async function enfileirarReelBacciSeHouver(postId, urlMateria) {
   try {
-    const urlPaginaVideo = await descobrirPaginaVideoBacci(urlMateria);
-    if (!urlPaginaVideo) return;
-    const videoUrl = await downloadAndUploadVideo(urlPaginaVideo);
-    if (!videoUrl) return;
+    const video = await descobrirPaginaVideoBacci(urlMateria);
+    if (!video) return;
+    let sourceUrl = null;
+    let videoUrlPortal = null;
+    if (video.kind === "youtube") {
+      sourceUrl = video.url;
+    } else {
+      sourceUrl = await downloadAndUploadVideo(video.url);
+      if (!sourceUrl) return;
+      videoUrlPortal = sourceUrl;
+    }
     const { data: postAtual } = await supabase.from("posts").select("metrics").eq("id", postId).maybeSingle();
     const metricsAtual = (postAtual && typeof postAtual.metrics === "object" && postAtual.metrics) || {};
     const metrics = {
@@ -849,14 +870,17 @@ async function enfileirarReelBacciSeHouver(postId, urlMateria) {
       instagram_reel_template: {
         version: REELS_TEMPLATE_VERSION_BRASILON,
         status: "pending",
-        source_url: videoUrl,
+        source_url: sourceUrl,
+        source_kind: video.kind,
         queued_at: new Date().toISOString(),
         attempts: 0,
         portal_hidden: true
       }
     };
-    await supabase.from("posts").update({ video_url: videoUrl, metrics, updated_at: new Date().toISOString() }).eq("id", postId);
-    await log("info", `[brasilon] vídeo do Bacci enfileirado pro Reel — post ${postId}`);
+    const patch = { metrics, updated_at: new Date().toISOString() };
+    if (videoUrlPortal) patch.video_url = videoUrlPortal;
+    await supabase.from("posts").update(patch).eq("id", postId);
+    await log("info", `[brasilon] vídeo do Bacci (${video.kind}) enfileirado pro Reel — post ${postId}`);
   } catch (_) {
     // best-effort — nunca afeta a matéria já publicada
   }

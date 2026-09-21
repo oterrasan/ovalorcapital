@@ -140,6 +140,21 @@ export async function buscarCandidatosBrasilOn() {
 //      já sabe extrair um .mp4 de dentro de uma página HTML e re-hospedar
 //      no nosso Storage — não duplicar essa lógica aqui, só descobrir a
 //      URL certa (o passo 3) e devolver pra quem chamar reaproveitar.
+//
+// 21/09/2026 — Roberto: "o bacci posta video o dia todo e sem parar",
+// contestando um número baixo de matérias-com-vídeo detectadas. Confirmado
+// com dado real (25 artigos recentes reais testados): a Bacci migrou o
+// player de vídeo — o padrão acima (iframe bacci.php?video=) não bateu em
+// NENHUM dos 25; TODOS os 25 usam embed do YouTube (youtube.com/embed/...
+// ou youtu.be/...) agora. O padrão antigo é mantido como fallback (pode
+// voltar a existir em matérias específicas), mas o YouTube passa a ser
+// checado PRIMEIRO. YouTube não expõe link de arquivo direto (sem DASH) —
+// downloadAndUploadVideo() (core/storage.js, roda na function serverless)
+// não consegue baixar isso; por isso o retorno agora distingue a origem
+// ({kind,url}) — quem chamar decide o caminho certo (ver
+// enfileirarReelBacciSeHouver em api/run_portal.js: YouTube vai pro runner
+// do GitHub Actions via yt-dlp, nunca pra function serverless).
+const _YOUTUBE_EMBED_RE = /(?:youtube(?:-nocookie)?\.com\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{6,20})/i;
 const _BACCI_IFRAME_VIDEO_RE = /estatico\/bacci\.php\?video=(\d+)[^"'\s<>]*/i;
 const _BACCI_VIDEOS_PAGE_RE = /href="(https:\/\/baccinoticias\.com\.br\/videos\/[^"]+)"/i;
 
@@ -147,17 +162,21 @@ export async function descobrirPaginaVideoBacci(urlMateria) {
   try {
     const resMateria = await axios.get(urlMateria, { timeout: 8000, headers: { "User-Agent": UA } });
     const htmlMateria = String(resMateria.data || "");
+
+    const yt = htmlMateria.match(_YOUTUBE_EMBED_RE);
+    if (yt) return { kind: "youtube", url: `https://www.youtube.com/watch?v=${yt[1]}` };
+
     const m = htmlMateria.match(_BACCI_IFRAME_VIDEO_RE);
-    if (!m) return "";
+    if (!m) return null;
     const idVideo = m[1];
     const urlIframe = `https://baccinoticias.com.br/estatico/bacci.php?video=${idVideo}&limit=1&v=1.0`;
     const resIframe = await axios.get(urlIframe, { timeout: 8000, headers: { "User-Agent": UA } });
     const htmlIframe = String(resIframe.data || "");
     const linkM = htmlIframe.match(_BACCI_VIDEOS_PAGE_RE);
-    if (!linkM) return "";
-    return linkM[1].replace(/&amp;/g, "&");
+    if (!linkM) return null;
+    return { kind: "bunny", url: linkM[1].replace(/&amp;/g, "&") };
   } catch (_) {
-    return "";
+    return null;
   }
 }
 

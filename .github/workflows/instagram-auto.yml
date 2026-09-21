@@ -232,7 +232,25 @@ jobs:
           ig_upload_token=$(node -p 'require("./render-job.json").job.ig_upload_token')
           echo "::add-mask::${ig_upload_token}"
 
-          curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
+          # 21/09/2026 — Bacci migrou o player de vídeo pra embed do YouTube
+          # (confirmado com dado real: 25/25 matérias recentes testadas usam
+          # youtube.com/embed ou youtu.be, 0 usam o padrão antigo). YouTube
+          # não expõe link de arquivo direto — curl sozinho não baixa nada
+          # de lá. yt-dlp instalado sob demanda (só quando a fonte é
+          # YouTube, não em toda rodada) via pip --break-system-packages
+          # (Ubuntu 24.04 do runner bloqueia pip global sem essa flag,
+          # PEP 668) — a versão do apt costuma ficar desatualizada demais
+          # pra acompanhar mudanças frequentes da API do YouTube.
+          if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be'; then
+            pip install --quiet --break-system-packages -U yt-dlp
+            if ! yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
+              --merge-output-format mp4 -o reel-source "$source_url" 2> ytdlp-error.log; then
+              error_detail="ytdlp_falhou: $(tr -d '\n' < ytdlp-error.log | cut -c1-400)"
+              false
+            fi
+          else
+            curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
+          fi
           node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
           cat render-result.json
 
