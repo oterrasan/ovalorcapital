@@ -154,7 +154,18 @@ export async function buscarCandidatosBrasilOn() {
 // ({kind,url}) — quem chamar decide o caminho certo (ver
 // enfileirarReelBacciSeHouver em api/run_portal.js: YouTube vai pro runner
 // do GitHub Actions via yt-dlp, nunca pra function serverless).
-const _YOUTUBE_EMBED_RE = /(?:youtube(?:-nocookie)?\.com\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{6,20})/i;
+// 21/09/2026 — bug real encontrado num teste end-to-end de verdade (não
+// suposição): um artigo real da Bacci embutia
+// youtube.com/embed/live_stream?channel=... — "live_stream" é o valor
+// literal e especial que o YouTube usa pra "transmita a live atual deste
+// canal (se houver)", não o ID de um vídeo individual. Tem coincidentemente
+// 11 caracteres (igual todo ID real de vídeo do YouTube), então o length
+// check sozinho não pega — precisa de exclusão explícita. yt-dlp falhou
+// real: "ERROR: [youtube] live_stream: This video is unavailable". Fix:
+// exigir exatamente 11 chars (tamanho fixo de todo ID real) + global match
+// pra tentar o próximo candidato da página se o primeiro for o placeholder
+// + exclusão explícita do literal "live_stream".
+const _YOUTUBE_EMBED_RE = /(?:youtube(?:-nocookie)?\.com\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/gi;
 const _BACCI_IFRAME_VIDEO_RE = /estatico\/bacci\.php\?video=(\d+)[^"'\s<>]*/i;
 const _BACCI_VIDEOS_PAGE_RE = /href="(https:\/\/baccinoticias\.com\.br\/videos\/[^"]+)"/i;
 
@@ -163,8 +174,9 @@ export async function descobrirPaginaVideoBacci(urlMateria) {
     const resMateria = await axios.get(urlMateria, { timeout: 8000, headers: { "User-Agent": UA } });
     const htmlMateria = String(resMateria.data || "");
 
-    const yt = htmlMateria.match(_YOUTUBE_EMBED_RE);
-    if (yt) return { kind: "youtube", url: `https://www.youtube.com/watch?v=${yt[1]}` };
+    const ytIds = [...htmlMateria.matchAll(_YOUTUBE_EMBED_RE)].map((mm) => mm[1]);
+    const ytIdValido = ytIds.find((id) => id.toLowerCase() !== "live_stream");
+    if (ytIdValido) return { kind: "youtube", url: `https://www.youtube.com/watch?v=${ytIdValido}` };
 
     const m = htmlMateria.match(_BACCI_IFRAME_VIDEO_RE);
     if (!m) return null;
