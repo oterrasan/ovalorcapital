@@ -15,103 +15,68 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Busca ampla por padroes de video no Bacci real
+      - name: Inspecionar bytes reais dos vídeos com ProcessingFailedError
         run: |
-          cat > _diag_video_amplo.mjs << 'JSEOF'
+          cat > _diag_video_quebrado.mjs << 'JSEOF'
+          import { createClient } from "@supabase/supabase-js";
+          import { spawn } from "node:child_process";
+          import { writeFile } from "node:fs/promises";
           import axios from "axios";
 
-          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-          const BACCI_EXCLUIR = /vi-no-instagram|categoria|category|\/tag\/|\/page\/|politica-editorial|politica-de-privacidade|\/contato\/?$|\/sobre\/?$|anuncie|quem-somos/i;
+          const supabase = createClient(
+            "https://yntwvfcxjardzafdqanj.supabase.co",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          );
 
-          async function fetchSitemapEntries(url) {
-            const res = await axios.get(url, { timeout: 10000, headers: { "User-Agent": UA } });
-            const xml = String(res.data || "");
-            const blocos = [...xml.matchAll(/<url>([\s\S]*?)<\/url>/g)];
-            return blocos.map(b => {
-              const loc = (b[1].match(/<loc>(.*?)<\/loc>/) || [])[1] || "";
-              const lastmod = (b[1].match(/<lastmod>(.*?)<\/lastmod>/) || [])[1] || "";
-              return { loc, lastmod };
-            }).filter(e => e.loc && !BACCI_EXCLUIR.test(e.loc));
+          function runCapture(cmd, args) {
+            return new Promise((resolve, reject) => {
+              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+              const out = []; const err = [];
+              child.stdout.on("data", d => out.push(d));
+              child.stderr.on("data", d => err.push(d));
+              child.on("error", reject);
+              child.on("exit", code => resolve({ code, stdout: Buffer.concat(out).toString(), stderr: Buffer.concat(err).toString() }));
+            });
           }
 
-          // Padrões de vídeo ALÉM do iframe bacci.php?video= já conhecido — testando
-          // hipóteses amplas: <video> nativo, players comuns (Bunny Stream direto,
-          // YouTube, Vimeo, JW Player), data-attributes de lazy-load de vídeo.
-          const PATTERNS = {
-            bacci_iframe_conhecido: /estatico\/bacci\.php\?video=\d+/i,
-            video_tag_nativo: /<video[\s>]/i,
-            bunny_iframe_direto: /iframe\.mediadelivery\.net/i,
-            youtube_embed: /youtube\.com\/embed|youtu\.be\//i,
-            vimeo_embed: /player\.vimeo\.com/i,
-            jwplayer: /jwplayer|jwplatform/i,
-            data_video_attr: /data-video(-src|-url)?=/i,
-            mp4_direto: /\.mp4(["'\s?])/i,
-            video_wp_block: /wp-block-video|wp-video-shortcode/i,
-            og_video_meta: /property=["']og:video/i
-          };
-
           async function main() {
-            const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", { timeout: 10000, headers: { "User-Agent": UA } });
-            const idxXml = String(idxRes.data || "");
-            const locs = [...idxXml.matchAll(/<loc>(.*?)<\/loc>/g)].map(m => m[1]);
-            const postSitemaps = locs.filter(l => /\/post-sitemap\d*\.xml$/.test(l));
-            const chunkAtual = postSitemaps[postSitemaps.length - 1];
-            console.log(`chunk atual: ${chunkAtual}`);
-            const entradas = await fetchSitemapEntries(chunkAtual);
-            entradas.sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
-            const recentes = entradas.slice(0, 25);
-            console.log(`checando os 25 artigos mais recentes do Bacci agora (${recentes[0]?.lastmod} até ${recentes[recentes.length - 1]?.lastmod})\n`);
+            console.log("=== Posts com erro ProcessingFailedError — inspecionando o vídeo real armazenado ===");
+            const { data: posts } = await supabase
+              .from("posts")
+              .select("id,titulo,video_url,metrics")
+              .not("metrics->instagram_reel_template", "is", null);
 
-            const contagem = {};
-            for (const key of Object.keys(PATTERNS)) contagem[key] = 0;
-            let semNenhumPadrao = 0;
-            const semNenhumPadraoUrls = [];
-            const achadosNovos = [];
+            let algumComErro = false;
+            for (const p of posts || []) {
+              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              const t = m?.instagram_reel_template || {};
+              if (t.status !== "error") continue;
+              algumComErro = true;
+              console.log(`\n--- ${p.titulo?.slice(0, 70)} ---`);
+              console.log(`post_id: ${p.id}`);
+              console.log(`source_url: ${t.source_url}`);
+              console.log(`attempts: ${t.attempts} | last_error: ${(t.last_error || "").slice(0, 200)}`);
 
-            for (const e of recentes) {
               try {
-                const res = await axios.get(e.loc, { timeout: 8000, headers: { "User-Agent": UA } });
-                const html = String(res.data || "");
-                let achouAlgo = false;
-                const achadosDesteArtigo = [];
-                for (const [key, re] of Object.entries(PATTERNS)) {
-                  if (re.test(html)) {
-                    contagem[key]++;
-                    achouAlgo = true;
-                    achadosDesteArtigo.push(key);
-                  }
-                }
-                if (!achouAlgo) {
-                  semNenhumPadrao++;
-                  semNenhumPadraoUrls.push(e.loc);
-                } else if (!achadosDesteArtigo.includes("bacci_iframe_conhecido")) {
-                  achadosNovos.push({ url: e.loc, achados: achadosDesteArtigo });
-                }
-                console.log(`  ${achouAlgo ? "[TEM]" : "[   ]"} ${achadosDesteArtigo.join(",") || "-"} | ${e.loc}`);
-              } catch (err) {
-                console.log(`  [ERRO ${err?.response?.status || err.code || "?"}] ${e.loc}`);
+                const res = await axios.get(t.source_url, { responseType: "arraybuffer", timeout: 30000, maxContentLength: 50 * 1024 * 1024 });
+                const buf = Buffer.from(res.data);
+                await writeFile("/tmp/check.bin", buf);
+                console.log(`tamanho real baixado: ${buf.length} bytes | content-type do servidor: ${res.headers["content-type"]}`);
+                console.log(`primeiros 32 bytes (hex): ${buf.slice(0, 32).toString("hex")}`);
+                console.log(`primeiros 200 bytes como texto (pra ver se é HTML): ${buf.slice(0, 200).toString("utf8").replace(/\n/g, "\\n")}`);
+                const probe = await runCapture("ffprobe", ["-v", "error", "-show_entries", "format=format_name,duration,size:stream=codec_type,codec_name,width,height,pix_fmt", "-of", "default=noprint_wrappers=0", "/tmp/check.bin"]);
+                console.log(`ffprobe exit code: ${probe.code}`);
+                console.log(`ffprobe stdout:\n${probe.stdout}`);
+                if (probe.stderr) console.log(`ffprobe stderr: ${probe.stderr.slice(0, 500)}`);
+              } catch (e) {
+                console.log(`ERRO ao baixar/analisar: ${e?.message || e}`);
               }
             }
-
-            console.log(`\n=== CONTAGEM POR PADRÃO (de 25 artigos recentes) ===`);
-            for (const [key, count] of Object.entries(contagem)) console.log(`  ${key}: ${count}`);
-            console.log(`\nSem NENHUM padrão de vídeo detectado: ${semNenhumPadrao}/25`);
-
-            console.log(`\n=== ARTIGOS QUE TÊM VÍDEO POR UM PADRÃO DIFERENTE DO JÁ CONHECIDO (achado novo real) ===`);
-            achadosNovos.forEach(a => console.log(`  ${a.url}\n    -> ${a.achados.join(", ")}`));
-
-            console.log(`\n=== amostra de HTML ao redor de qualquer ocorrência de ".mp4" ou "video" no 1º artigo SEM padrão nenhum (se houver) ===`);
-            if (semNenhumPadraoUrls.length) {
-              const res = await axios.get(semNenhumPadraoUrls[0], { timeout: 8000, headers: { "User-Agent": UA } });
-              const html = String(res.data || "");
-              const idx = html.toLowerCase().search(/\.mp4|video/i);
-              if (idx >= 0) console.log(html.slice(Math.max(0, idx - 200), idx + 300));
-              else console.log("(nenhuma ocorrência da palavra 'video' ou '.mp4' em lugar nenhum da página)");
-            }
+            if (!algumComErro) console.log("Nenhum post com status:error encontrado agora.");
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
 
           JSEOF
-          node _diag_video_amplo.mjs
-          rm -f _diag_video_amplo.mjs
+          node _diag_video_quebrado.mjs
+          rm -f _diag_video_quebrado.mjs
