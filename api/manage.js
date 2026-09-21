@@ -1469,7 +1469,12 @@ async function handleReelsRenderJob(req, res, body) {
     .map((post) => ({ post, template: _reelsTemplate(post.metrics) }))
     .filter(({ template }) => {
       if (!template || template.version !== REELS_TEMPLATE_VERSION || !/^https?:\/\//i.test(String(template.source_url || ""))) return false;
-      if (template.exhausted) return false;
+      // 21/09/2026 — encontrado registro real com attempts:6 e SEM o campo
+      // exhausted (ausente, não false — herança de um caminho de código
+      // mais antigo, antes desse campo existir). Não depender só do campo
+      // explícito: qualquer item que já bateu o teto de tentativas fica de
+      // fora, mesmo que exhausted nunca tenha sido persistido.
+      if (template.exhausted || Number(template.attempts || 0) >= REELS_MAX_RETRY_ATTEMPTS) return false;
       if (template.status === "pending" || template.status === "error") return true;
       return template.status === "processing" && String(template.processing_at || "") < staleBefore;
     })
