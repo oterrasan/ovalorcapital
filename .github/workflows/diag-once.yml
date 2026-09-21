@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — teste real de captura YouTube do Bacci
+name: Diagnóstico único (placeholder) — reteste pós-fix live_stream
 on:
   push:
     paths:
