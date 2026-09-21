@@ -1432,13 +1432,26 @@ async function handleReelsSetSource(req, res, body) {
 async function handleReelsRenderJob(req, res, body) {
   if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
 
+  // 21/09/2026 — 🔴 causa raiz real confirmada com dado de produção (13.887
+  // posts têm updated_at mais antigo que um vídeo pendente de 9h atrás, e
+  // só 12 posts no total têm ALGUM instagram_reel_template) — o LIMIT 250
+  // era aplicado na tabela posts INTEIRA (qualquer status publicado/
+  // pendente, sem filtro nenhum de reel), ANTES do .filter() em JS que só
+  // olha instagram_reel_template. Com >250 posts históricos (alguns de
+  // meses atrás) sempre "mais antigos" que qualquer vídeo recém-enfileirado,
+  // o post pendente NUNCA aparecia nem entre os 250 — a fila de Reels era
+  // estruturalmente inalcançável, não importa quantas vezes o cron rodasse.
+  // Fix: filtra por instagram_reel_template presente ANTES do limit — o
+  // pool real de candidatos é pequeno (dezenas, não milhares), então um
+  // limit generoso já cobre folga de sobra sem custo de performance.
   const staleBefore = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
   const { data: candidates, error } = await supabase
     .from("posts")
     .select("id,titulo,conteudo,comentario_fixado,user_tags,subcategoria,video_url,metrics,status,ig_account_id,published_at,created_at,updated_at")
     .in("status", ["publicado", "pendente"])
+    .not("metrics->instagram_reel_template", "is", null)
     .order("updated_at", { ascending: true })
-    .limit(250);
+    .limit(500);
   if (error) throw error;
 
   // 21/09/2026 — causa raiz real de um item travado furar a fila pra
