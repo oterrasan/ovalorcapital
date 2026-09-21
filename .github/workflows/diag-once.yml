@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder) — checar duracao por stream
+name: Diagnóstico único (placeholder) — historico de reels
 on:
   push:
     paths:
@@ -7,81 +7,60 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Instalar deps + ffmpeg
+      - name: Instalar deps
+        run: npm ci --omit=dev
+      - name: Correlacao — falha X duracao da fonte, historico completo
         run: |
-          npm ci --omit=dev
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
-          mkdir -p "$HOME/.local/share/fonts"
-          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
-          fc-cache -f
-      - name: Checar duracao por stream (video vs audio) no arquivo renderizado
-        run: |
-          cat > _diag_streams.mjs << 'JSEOF'
+          cat > _diag_hist.mjs << 'JSEOF'
           import { createClient } from "@supabase/supabase-js";
-          import { spawn } from "node:child_process";
-          import { writeFile, stat } from "node:fs/promises";
 
           const supabase = createClient(
             "https://yntwvfcxjardzafdqanj.supabase.co",
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
           );
 
-          function runCapture(cmd, args, opts = {}) {
-            return new Promise((resolve, reject) => {
-              const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], ...opts });
-              const out = []; const err = [];
-              child.stdout.on("data", d => out.push(d));
-              child.stderr.on("data", d => err.push(d));
-              child.on("error", reject);
-              child.on("exit", code => resolve({ code, stdout: Buffer.concat(out).toString(), stderr: Buffer.concat(err).toString() }));
-            });
-          }
-
-          function stripHtml(html) {
-            return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-          }
-
           async function main() {
-            const { data: post } = await supabase
+            const { data: posts, error } = await supabase
               .from("posts")
-              .select("id,titulo,conteudo,metrics")
-              .eq("id", "896aad2b-5996-40d1-b68c-1e22245c8ae3")
-              .single();
-            const m = typeof post.metrics === "string" ? JSON.parse(post.metrics) : post.metrics;
-            const t = m.instagram_reel_template;
+              .select("id,titulo,metrics,updated_at")
+              .not("metrics->instagram_reel_template", "is", null)
+              .order("updated_at", { ascending: false })
+              .limit(500);
+            if (error) throw error;
 
-            console.log("checando o video-FONTE (antes do render) primeiro...");
-            const dlSource = await runCapture("curl", ["--fail", "--location", "-sS", t.source_url, "--max-time", "120", "-o", "/tmp/reel-source"]);
-            if (dlSource.code !== 0) { console.log("FALHA no download da fonte"); return; }
-            const probeSource = await runCapture("ffprobe", ["-v", "error", "-show_entries", "stream=index,codec_type,duration,start_time,nb_frames,sample_rate:format=duration,nb_streams", "-of", "json", "/tmp/reel-source"]);
-            console.log("ffprobe da FONTE (antes do render):");
-            console.log(probeSource.stdout);
+            console.log(`total de posts com template de reel: ${posts.length}\n`);
+            for (const p of posts) {
+              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              const t = m?.instagram_reel_template || {};
+              console.log(`[${t.status}] attempts=${t.attempts} | ig_id=${!!m?.instagram_reel?.ig_id || !!t.ig_creation_id} | published=${!!m?.instagram_reel} | titulo="${p.titulo?.slice(0,60)}" | updated_at=${p.updated_at}`);
+            }
 
-            const jobPayload = { job: { title: post.titulo, body: stripHtml(post.conteudo), source_url: t.source_url, template_version: "diag-streams" } };
-            await writeFile("/tmp/render-job.json", JSON.stringify(jobPayload));
+            console.log("\n=== resumo por status ===");
+            const porStatus = {};
+            for (const p of posts) {
+              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              const st = m?.instagram_reel_template?.status || "desconhecido";
+              porStatus[st] = (porStatus[st] || 0) + 1;
+            }
+            console.log(JSON.stringify(porStatus, null, 2));
 
-            console.log("\nrenderizando (ffmpeg real, mesmo pipeline de producao)...");
-            const t0 = Date.now();
-            const render = await runCapture("node", ["scripts/render-instagram-reel.mjs", "/tmp/render-job.json", "/tmp/reel-source", "/tmp/reel-final.mp4", "/tmp/reel-overlay.png"]);
-            console.log(`render levou ${((Date.now() - t0) / 1000).toFixed(1)}s | exit=${render.code}`);
-            if (render.code !== 0) { console.log(`FALHA no render: ${render.stderr.slice(-800)}`); return; }
-            console.log(render.stdout.trim());
-
-            const probeOut = await runCapture("ffprobe", ["-v", "error", "-show_entries", "stream=index,codec_type,codec_name,duration,start_time,nb_frames,sample_rate,channels:format=duration,nb_streams,size", "-of", "json", "/tmp/reel-final.mp4"]);
-            console.log("\nffprobe DETALHADO do arquivo RENDERIZADO (video vs audio duration):");
-            console.log(probeOut.stdout);
-            if (probeOut.stderr) console.log("ffprobe stderr:", probeOut.stderr);
+            console.log("\n=== posts com instagram_reel (ja publicado com sucesso) — pra ver se algum tem metadado de duracao ===");
+            for (const p of posts) {
+              const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+              if (m?.instagram_reel) {
+                console.log(`SUCESSO: "${p.titulo?.slice(0,60)}" | instagram_reel=${JSON.stringify(m.instagram_reel)}`);
+              }
+            }
           }
 
-          main().catch(e => { console.error("ERRO FATAL:", e?.message || e, e?.stack); process.exit(1); });
+          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
 
           JSEOF
-          node _diag_streams.mjs
-          rm -f _diag_streams.mjs
+          node _diag_hist.mjs
+          rm -f _diag_hist.mjs
