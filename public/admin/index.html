@@ -975,6 +975,13 @@ function Postagens() {
   const [filterAte, setFilterAte] = useState('');
   const [filterMethod, setFilterMethod] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
+  // 21/09/2026 — Roberto: o badge 🎬 VÍDEO/▶️ YOUTUBE (já na lista) só ajuda
+  // se a matéria estiver na página carregada — com o volume de publicação
+  // do portal, uma matéria com vídeo de algumas horas atrás já pode ter
+  // saído da 1ª página. Filtro SERVIDOR (não só client-side como os
+  // smartFilter de imagem abaixo) — busca direto video_url IS NOT NULL,
+  // sempre encontra, não importa quantas outras matérias saíram depois.
+  const [filterVideo, setFilterVideo] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [smartFilter, setSmartFilter] = useState('');
@@ -1104,6 +1111,7 @@ function Postagens() {
     if (filterMethod) q=q.eq('publish_method',filterMethod);
     if (filterTipo==='sem_tipo') q=q.is('tipo_conteudo',null);
     else if (filterTipo) q=q.eq('tipo_conteudo',filterTipo);
+    if (filterVideo) q=q.not('video_url','is',null);
     if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00-03:00');
     if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59-03:00');
     const { data, count } = await q;
@@ -1123,11 +1131,11 @@ function Postagens() {
     // origem. Publicação manual pro Brasil ON é só pela aba 🇧🇷 Brasil ON.
     setAccounts((acc||[]).filter(a => String(a.username||'').replace(/^@/,'').toLowerCase() !== 'obrasilon'));
     setLoading(false);
-  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte]);
+  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte,filterVideo]);
 
   useEffect(()=>{load();},[load]);
 
-  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilter('all'); setPage(0); };
+  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilterVideo(false); setFilter('all'); setPage(0); };
 
   const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => {
@@ -1689,6 +1697,9 @@ function Postagens() {
                   {f==='all'?'Todos':f}
                 </button>
               ))}
+              <button className={`btn btn-sm ${filterVideo?'':'btn-secondary'}`} style={filterVideo?{background:'rgba(34,197,94,0.18)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',fontWeight:700}:{}} onClick={()=>{setFilterVideo(v=>!v);setPage(0);}} title="Só matérias com vídeo anexado — busca direto no banco, acha mesmo se não estiver na 1ª página">
+                🎬 {filterVideo?'Só com vídeo ✓':'Só com vídeo'}
+              </button>
               <button className="btn btn-secondary btn-sm" onClick={()=>setFiltrosAbertos(x=>!x)}>🔍 Filtros {filtrosAbertos?'▲':'▼'}</button>
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>

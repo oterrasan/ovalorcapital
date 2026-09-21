@@ -9,39 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Checar HTML real do admin em produção + posts com vídeo recentes
-        env:
-          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
-          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
-        run: |
-          echo "=== 1) HTML real servido agora em /admin/ ==="
-          curl -sS -H "Cache-Control: no-cache" "https://www.ovalorcapital.com.br/admin/" -o admin_live.html -w "HTTP:%{http_code} SIZE:%{size_download}\n" 2>/dev/null || true
-          echo "bytes salvos: $(wc -c < admin_live.html)"
-          echo "contém badge VÍDEO?  -> $(grep -c 'VÍDEO</span>' admin_live.html || echo 0)"
-          echo "contém YOUTUBE badge? -> $(grep -c '▶️ YOUTUBE' admin_live.html || echo 0)"
-          echo "contém parseYouTubeId(p.video_url)? -> $(grep -c 'parseYouTubeId(p.video_url)' admin_live.html || echo 0)"
-          echo ""
-          echo "=== headers reais (cache) ==="
-          curl -sSI "https://www.ovalorcapital.com.br/admin/" | grep -iE "cache-control|age|x-vercel-cache|etag|date"
-          echo ""
-          echo "=== 2) Posts com video_url preenchido (mais recentes primeiro) ==="
-          python3 << 'PYEOF'
-          import urllib.request, json, os
-          url = os.environ["SUPABASE_URL"]
-          key = os.environ["SUPABASE_KEY"]
-          req = urllib.request.Request(
-              f"{url}/rest/v1/posts?select=id,titulo,video_url,metrics,published_at,created_at,updated_at&video_url=not.is.null&order=updated_at.desc&limit=20",
-              headers={"apikey": key, "Authorization": f"Bearer {key}"}
-          )
-          data = json.loads(urllib.request.urlopen(req, timeout=20).read())
-          print(f"total encontrado: {len(data)}")
-          for p in data:
-              m = p.get("metrics") or {}
-              if isinstance(m, str):
-                  try:
-                      m = json.loads(m)
-                  except Exception:
-                      m = {}
-              reel = m.get("instagram_reel_template") or {}
-              print(f"- {p['id'][:8]} | {p['titulo'][:50]!r} | video_url={p['video_url'][:60]!r} | reel_status={reel.get('status')!r} | updated_at={p['updated_at']}")
-          PYEOF
+      - run: echo "placeholder — nenhum diagnóstico ativo agora"
