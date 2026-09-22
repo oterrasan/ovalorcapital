@@ -880,8 +880,22 @@ async function _igAutoContarHojeTotal() {
 // feed, mas não há dado suficiente ainda pra decidir travar).
 const IG_REELS_TARGET_SHARE = 0.60;
 const IG_RATIO_MIN_SAMPLE = 3;
+// 22/09/2026 — 🔴 bug real confirmado com dado de produção: REELS_AUTOMATION_ENABLED
+// estava "off" (Roberto desligou em 07/09, por outro motivo qualquer) — sem
+// nenhum Reel publicado, totalReels fica travado em 0 pra sempre. Assim que
+// o feed batia os 3 primeiros posts do dia (IG_RATIO_MIN_SAMPLE), a conta
+// virava 3 feed/0 reels = 100% >> teto de 40%, e _igAutoFeedDeveEsperarReels()
+// passava a retornar true PRA SEMPRE — travando o feed inteiro esperando por
+// Reels que nunca chegam, porque estão desligados no admin. Silencioso: o
+// caminho que usa isso (handleIgAutoPublish) retorna sem logar nada quando
+// isso acontece. Confirmado real: feed parou às 11:30 UTC, ficou 9h+ sem
+// publicar nada, com 178 matérias elegíveis esperando e zero limite batido.
+// Fix: a meta de proporção só faz sentido enquanto Reels PODE publicar — se
+// REELS_AUTOMATION_ENABLED está off, esperar por ele é esperar pra sempre.
 async function _igAutoFeedDeveEsperarReels() {
   try {
+    const reelsSettings = await _reelsAutoConfig();
+    if (!reelsSettings.enabled) return false;
     const [totalFeed, totalReels] = await Promise.all([_igAutoContarHojeTotal(), _reelsAutoContarHoje()]);
     const total = totalFeed + totalReels;
     if (total < IG_RATIO_MIN_SAMPLE) return false;
@@ -1195,6 +1209,9 @@ async function handleIgAutoPublish(req, res, body) {
     // por imagem é pulada — os Reels seguem publicando sem freio no
     // próprio schedule deles.
     if (await _igAutoFeedDeveEsperarReels()) {
+      // 22/09/2026 — este skip ficava mudo (sem log nenhum), o que escondeu
+      // 9h de feed travado até virar reclamação real. Agora sempre deixa rastro.
+      await writeLog("info", "[ig-auto] rodada pulada: feed_aguardando_reels_atingirem_a_proporcao_do_dia");
       return res.status(200).json({ ok: true, skipped: true, reason: "feed_aguardando_reels_atingirem_a_proporcao_do_dia" });
     }
 
