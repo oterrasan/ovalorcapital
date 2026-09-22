@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,44 +15,51 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: "Checar conteudo real de posts brasilon - qual eh a assinatura de verdade"
+      - name: "Testar descobrirPaginaVideoBacci contra amostra real de materias recentes"
         run: |
-          cat > _diag_conteudo.mjs << 'JSEOF'
-          import { createClient } from "@supabase/supabase-js";
+          cat > _diag_captura.mjs << 'JSEOF'
+          import axios from "axios";
+          import { descobrirPaginaVideoBacci } from "./core/brasilon.js";
 
-          const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
-          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
-          const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+          const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
+          async function pegarUrlsRecentes(n) {
+            const idxRes = await axios.get("https://baccinoticias.com.br/sitemap_index.xml", { timeout: 10000, headers: { "User-Agent": UA } });
+            const chunks = [...String(idxRes.data).matchAll(/<loc>([^<]*post-sitemap(\d+)\.xml)<\/loc>/g)]
+              .map(m => ({ url: m[1], n: Number(m[2]) }))
+              .sort((a, b) => b.n - a.n);
+            const latest = chunks[0];
+            console.log(`chunk mais recente: ${latest.url}`);
+            const chunkRes = await axios.get(latest.url, { timeout: 10000, headers: { "User-Agent": UA } });
+            const entries = [...String(chunkRes.data).matchAll(/<url>\s*<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)]
+              .map(m => ({ url: m[1], lastmod: m[2] }))
+              .filter(e => /^https:\/\/baccinoticias\.com\.br\/[a-z0-9-]+\/?$/i.test(e.url)) // artigo real, nao pagina/categoria
+              .sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
+            return entries.slice(0, n);
+          }
 
           async function main() {
-            const { data, error } = await supabase
-              .from("posts")
-              .select("id,titulo,conteudo,publish_method")
-              .eq("publish_method", "brasilon")
-              .not("conteudo", "is", null)
-              .order("created_at", { ascending: false })
-              .limit(3);
-            if (error) { console.error("ERRO:", error); process.exit(1); }
-            for (const p of data) {
-              console.log(`\n=== ${p.id} — ${p.titulo} ===`);
-              console.log(String(p.conteudo || "").slice(0, 400));
+            const artigos = await pegarUrlsRecentes(30);
+            console.log(`\ntestando ${artigos.length} artigos reais e recentes...\n`);
+            let youtube = 0, bunny = 0, nenhum = 0;
+            const detalhes = [];
+            for (const a of artigos) {
+              const t0 = Date.now();
+              const resultado = await descobrirPaginaVideoBacci(a.url);
+              const ms = Date.now() - t0;
+              if (!resultado) { nenhum++; detalhes.push(`SEM VIDEO  (${ms}ms) — ${a.url}`); continue; }
+              if (resultado.kind === "youtube") youtube++;
+              if (resultado.kind === "bunny") bunny++;
+              detalhes.push(`${resultado.kind.toUpperCase().padEnd(8)} (${ms}ms) — ${a.url} -> ${resultado.url}`);
             }
-
-            // tambem confere um post do pipeline geral (nao-brasilon) pra comparar
-            const { data: data2 } = await supabase
-              .from("posts")
-              .select("id,titulo,conteudo,publish_method")
-              .eq("publish_method", "portal")
-              .not("conteudo", "is", null)
-              .order("created_at", { ascending: false })
-              .limit(2);
-            for (const p of (data2 || [])) {
-              console.log(`\n=== (portal) ${p.id} — ${p.titulo} ===`);
-              console.log(String(p.conteudo || "").slice(0, 400));
-            }
+            console.log(detalhes.join("\n"));
+            console.log(`\n=== RESUMO REAL ===`);
+            console.log(`total testado: ${artigos.length}`);
+            console.log(`youtube: ${youtube} | bunny/mp4: ${bunny} | sem video detectado: ${nenhum}`);
+            console.log(`taxa de captura (youtube+bunny)/total: ${(((youtube + bunny) / artigos.length) * 100).toFixed(1)}%`);
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_conteudo.mjs
-          rm -f _diag_conteudo.mjs
+          node _diag_captura.mjs
+          rm -f _diag_captura.mjs
