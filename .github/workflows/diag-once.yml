@@ -15,9 +15,9 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: "Estado real da fila de Reels nas ultimas 20-24h"
+      - name: "Estado real da automacao de FEED (imagem) do Instagram - por que parou hoje"
         run: |
-          cat > _diag_fila.mjs << 'JSEOF'
+          cat > _diag_feed.mjs << 'JSEOF'
           import { createClient } from "@supabase/supabase-js";
 
           const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
@@ -30,59 +30,82 @@ jobs:
           }
 
           async function main() {
-            console.log("=== CONFIG (automacao ligada?) ===");
-            const { data: cfg } = await supabase.from("config").select("key,value,updated_at").in("key", ["REELS_AUTOMATION_ENABLED","REELS_AUTOMATION_LAST_RUN","IG_AUTOMATION_ENABLED"]);
-            for (const c of (cfg||[])) console.log(`${c.key} = ${c.value} (updated_at: ${c.updated_at})`);
+            console.log("=== CONFIG feed ===");
+            const { data: cfg } = await supabase.from("config").select("key,value,updated_at").in("key", [
+              "IG_AUTOMATION_ENABLED","IG_AUTOMATION_INTERVAL","IG_AUTOMATION_DAILY_LIMIT","IG_AUTOMATION_CATEGORIES","IG_AUTOMATION_LAST_RUN"
+            ]).order("updated_at", { ascending: false });
+            const latest = {};
+            for (const c of (cfg||[])) if (!(c.key in latest)) { latest[c.key] = c.value; console.log(`${c.key} = ${c.value} (updated_at: ${c.updated_at})`); }
 
-            console.log("\n=== POSTS COM instagram_reel_template (todos, sem filtro de data) ===");
-            const { data: posts, error } = await supabase
+            console.log("\n=== CONTAS ig_accounts ===");
+            const { data: accounts } = await supabase.from("ig_accounts").select("id,username,limite_diario,distribuicao_automatica,active");
+            for (const a of (accounts||[])) console.log(JSON.stringify(a));
+
+            const accountOvc = (accounts||[]).find(a => String(a.username||"").replace(/^@/,"").toLowerCase() === "ovalorcapital");
+
+            console.log("\n=== PUBLICADOS HOJE via ig_auto_publish (published_via) ===");
+            const hojeInicio = new Date(); hojeInicio.setUTCHours(0,0,0,0);
+            const { data: postsHoje } = await supabase
               .from("posts")
-              .select("id,titulo,metrics,updated_at,created_at")
-              .not("metrics->instagram_reel_template", "is", null)
+              .select("id,titulo,updated_at,metrics")
+              .not("ig_id", "is", null)
+              .gte("updated_at", hojeInicio.toISOString())
               .order("updated_at", { ascending: false })
-              .limit(500);
-            if (error) { console.error("ERRO:", error); process.exit(1); }
-            console.log(`total com template: ${posts.length}`);
-
-            const now = Date.now();
-            const porStatus = {};
-            let maisRecenteReady = null;
-            let maisRecentePublicado = null;
-            for (const p of posts) {
+              .limit(50);
+            let countAuto = 0;
+            for (const p of (postsHoje||[])) {
               const m = parseJsonMaybe(p.metrics, {});
-              const t = m.instagram_reel_template || {};
-              const status = t.status || "???";
-              porStatus[status] = (porStatus[status]||0) + 1;
-              if (status === "ready" && (!maisRecenteReady || t.ready_at > maisRecenteReady.ready_at)) {
-                maisRecenteReady = { id: p.id, titulo: p.titulo, ready_at: t.ready_at };
-              }
-              if (m.instagram_reel?.ig_id && (!maisRecentePublicado || m.instagram_reel.claimed_at > maisRecentePublicado.claimed_at)) {
-                maisRecentePublicado = { id: p.id, titulo: p.titulo, claimed_at: m.instagram_reel.claimed_at, published_at: m.instagram_reel.published_at };
-              }
+              const via = m.instagram?.published_via;
+              if (via === "ig_auto_publish") { countAuto++; console.log(`${p.updated_at} — ${p.titulo}`); }
             }
-            console.log("distribuicao por status:", JSON.stringify(porStatus, null, 2));
-            console.log("\nultimo que ficou READY:", JSON.stringify(maisRecenteReady, null, 2));
-            console.log("\nultimo REEL de fato publicado:", JSON.stringify(maisRecentePublicado, null, 2));
+            console.log(`total publicado via ig_auto_publish hoje (UTC): ${countAuto}`);
 
-            console.log("\n=== DETALHE de cada item error/processing/pending (mais recentes 15) ===");
-            for (const p of posts.slice(0, 15)) {
+            console.log("\n=== CANDIDATOS: ultimas 12h, categorias validas, com imagem, ainda nao publicados ===");
+            const desde12h = new Date(Date.now() - 12*3600*1000).toISOString();
+            const { data: recentes } = await supabase
+              .from("posts")
+              .select("id,titulo,published_at,imagem,video_url,user_tags,ig_id,metrics,status")
+              .eq("status","publicado")
+              .gte("published_at", desde12h)
+              .order("published_at", { ascending: false })
+              .limit(200);
+            console.log(`total publicado nas ultimas 12h: ${(recentes||[]).length}`);
+            const CATS = new Set(["politica","economia","financas","negocios","tecnologia","internacional","industria","familia","esportes","brasil-on","colunistas","giro"]);
+            let semImagem=0, jaPublicado=0, categoriaForaLista=0, reservadoParaReel=0, elegivelDeVerdade=0;
+            const elegiveis = [];
+            for (const p of (recentes||[])) {
+              if (!/^https?:\/\//i.test(String(p.imagem||""))) { semImagem++; continue; }
               const m = parseJsonMaybe(p.metrics, {});
-              const t = m.instagram_reel_template || {};
-              const idadeH = ((now - new Date(p.updated_at).getTime()) / 3600000).toFixed(1);
-              console.log(`[${t.status}] attempts=${t.attempts} exhausted=${t.exhausted} idade_updated_at=${idadeH}h — ${p.titulo} — last_error=${t.last_error||''}`);
+              if (p.ig_id || m.instagram?.ig_id) { jaPublicado++; continue; }
+              const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+              const categoria = String(tags[0]||"").trim().toLowerCase();
+              if (!CATS.has(categoria)) { categoriaForaLista++; continue; }
+              const isYoutube = /youtube(?:-nocookie)?\.com|youtu\.be/i.test(String(p.video_url||""));
+              if (/^https?:\/\//i.test(String(p.video_url||"")) && !isYoutube) {
+                const t = m.instagram_reel_template;
+                if (t && !t.exhausted) { reservadoParaReel++; continue; }
+              }
+              elegivelDeVerdade++;
+              elegiveis.push(`${p.published_at} [${categoria}] ${p.titulo}`);
             }
+            console.log(`sem imagem valida: ${semImagem}`);
+            console.log(`ja publicado/reservado no instagram: ${jaPublicado}`);
+            console.log(`categoria fora da lista permitida: ${categoriaForaLista}`);
+            console.log(`reservado pro Reel (tem video + template ativo): ${reservadoParaReel}`);
+            console.log(`ELEGIVEL DE VERDADE agora mesmo: ${elegivelDeVerdade}`);
+            console.log(elegiveis.slice(0,10).join("\n"));
 
-            console.log("\n=== LOGS reels-render/reel ultimas entradas ===");
+            console.log("\n=== LOGS [ig-auto] ultimas 20 entradas ===");
             const { data: logs } = await supabase
               .from("logs")
               .select("level,message,created_at")
-              .ilike("message", "%reel%")
+              .ilike("message", "%[ig-auto]%")
               .order("created_at", { ascending: false })
-              .limit(25);
+              .limit(20);
             for (const l of (logs||[])) console.log(`${l.created_at} [${l.level}] ${l.message}`);
           }
 
           main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
           JSEOF
-          node _diag_fila.mjs
-          rm -f _diag_fila.mjs
+          node _diag_feed.mjs
+          rm -f _diag_feed.mjs
