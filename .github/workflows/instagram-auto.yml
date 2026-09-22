@@ -187,129 +187,192 @@ jobs:
       # upload resumível da própria Meta pra Reels). O container já nasce
       # com upload_type=resumable em handleReelsRenderJob, que devolve a
       # URL/token de upload — a Meta processa e confirmamos via polling.
+      #
+      # 22/09/2026 — 🔴 causa raiz real confirmada com dado de produção:
+      # esta etapa processava UM job por execução, e a execução real do
+      # `schedule: */10 * * * *` do GitHub Actions está MUITO abaixo do
+      # configurado — runs reais espaçados 2-5+ HORAS entre si (confirmado
+      # comparando timestamps reais de runs consecutivos, não suposição),
+      # já documentado como comportamento conhecido do Actions sob carga
+      # (ver comentário de 11/09/2026 acima, mesmo padrão, workflow
+      # diferente). Um post real de Roberto (Renner/Rick) ficou pending,
+      # attempts:0 por quase 1h sem UMA ÚNICA tentativa — não é erro de
+      # render, é o gatilho do workflow simplesmente não disparando no
+      # ritmo esperado. Como este job precisa de ffmpeg/yt-dlp (binário
+      # nativo, só roda aqui, nunca migra pra cron Vercel — mesma cautela
+      # documentada em core/storage.js), a mitigação real e imediata é
+      # multiplicar o QUANTO cada execução processa: até 3 jobs em
+      # sequência por rodada (antes: 1), com corte de segurança por tempo
+      # decorrido (não inicia um job novo depois de 12min dos 20min de
+      # timeout — sobra folga de verdade pro pior caso, download+render+
+      # upload+poll de até 5min do job que já estiver em andamento). Um
+      # job travado em "processing" sem nunca reportar completar/falhar
+      # (ex: o runner sendo morto por timeout no meio) NÃO fica preso pra
+      # sempre — handleReelsRenderJob já reclama itens "processing" com
+      # mais de 2h (staleBefore), então o pior caso é uma demora extra, não
+      # trava permanente. Falha de UM job (reportada via reels_render_fail)
+      # não aborta os demais do loop — cada job roda isolado numa subshell
+      # com o próprio trap ERR. 🔴 CUIDADO — testado isolado antes de subir:
+      # `if ( set -e; ...; false; ... ); then` NÃO funciona aqui — bash
+      # trata todo o corpo do subshell como "contexto de condição" e
+      # SUPRIME o errexit mesmo com `set -e` explícito lá dentro (falha
+      # real vira "sucesso" silencioso pro `if`, o trap nunca dispara).
+      # Por isso o subshell roda como comando PLANO (nunca dentro de um
+      # if/while), e o status real é capturado depois via `$?` — só então
+      # comparado.
       - name: Aplicar layout OVC e enviar direto pra Meta (sem Supabase)
         if: steps.render_queue.outputs.has_job == 'yes'
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
-          set -euo pipefail
-          post_id=""
-          claim_id=""
-          # 20/09/2026 — antes, qualquer falha só gravava "render_failed_exit_N"
-          # (código de saída do curl, sem nenhum detalhe) em last_error — real
-          # e concreto: um upload que a Meta recusa com HTTP 400 tinha o motivo
-          # real escondido, só visível cavando o log do CI. Quando um passo
-          # específico já sabe o motivo (ex: corpo da resposta HTTP da Meta),
-          # ele grava em $error_detail antes de falhar — report_failure usa
-          # isso se disponível, senão cai no genérico de sempre.
-          error_detail=""
-          report_failure() {
-            exit_code=$?
-            if [ -n "$post_id" ] && [ -n "$claim_id" ]; then
-              POST_ID="$post_id" CLAIM_ID="$claim_id" ERROR_TEXT="${error_detail:-render_failed_exit_${exit_code}}" node --input-type=module -e '
-                import { writeFileSync } from "node:fs";
-                writeFileSync("render-fail.json", JSON.stringify({action:"reels_render_fail",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,error:process.env.ERROR_TEXT}));
-              '
-              curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-                -H "Content-Type: application/json" \
-                -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-                --data-binary @render-fail.json --max-time 30 >/dev/null || true
+          MAX_JOBS_POR_RODADA=3
+          MAX_SEGUNDOS_ANTES_DE_INICIAR_NOVO_JOB=720
+          SECONDS=0
+
+          for job_num in $(seq 1 "$MAX_JOBS_POR_RODADA"); do
+            if [ "$SECONDS" -ge "$MAX_SEGUNDOS_ANTES_DE_INICIAR_NOVO_JOB" ]; then
+              echo "=== ${SECONDS}s decorridos — parando o loop pra deixar folga dentro do timeout de 20min. ==="
+              break
             fi
-            exit "$exit_code"
-          }
-          trap report_failure ERR
 
-          curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"reels_render_job"}' \
-            --max-time 45 -o render-job.json
-
-          post_id=$(node -p 'require("./render-job.json").job.post_id')
-          claim_id=$(node -p 'require("./render-job.json").job.claim_id')
-          source_url=$(node -p 'require("./render-job.json").job.source_url')
-          ig_upload_url=$(node -p 'require("./render-job.json").job.ig_upload_url')
-          ig_upload_token=$(node -p 'require("./render-job.json").job.ig_upload_token')
-          echo "::add-mask::${ig_upload_token}"
-
-          # 21/09/2026 — Bacci migrou o player de vídeo pra embed do YouTube
-          # (confirmado com dado real: 25/25 matérias recentes testadas usam
-          # youtube.com/embed ou youtu.be, 0 usam o padrão antigo). YouTube
-          # não expõe link de arquivo direto — curl sozinho não baixa nada
-          # de lá. yt-dlp instalado sob demanda (só quando a fonte é
-          # YouTube, não em toda rodada) via pip --break-system-packages
-          # (Ubuntu 24.04 do runner bloqueia pip global sem essa flag,
-          # PEP 668) — a versão do apt costuma ficar desatualizada demais
-          # pra acompanhar mudanças frequentes da API do YouTube.
-          if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be'; then
-            pip install --quiet --break-system-packages -U yt-dlp
-            if ! yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
-              --merge-output-format mp4 -o reel-source "$source_url" 2> ytdlp-error.log; then
-              error_detail="ytdlp_falhou: $(tr -d '\n' < ytdlp-error.log | cut -c1-400)"
-              false
-            fi
-          else
-            curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
-          fi
-          node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
-          cat render-result.json
-
-          # Upload resumível direto pra Meta — nenhum storage nosso no meio.
-          # SEM --fail aqui de propósito (20/09/2026): --fail engolia o corpo
-          # da resposta em qualquer erro não-2xx, escondendo o motivo real
-          # que a Meta manda de volta (confirmado real: um upload com vídeo
-          # de fonte longa, mesmo já cortado em 88s pelo cap acima, seguia
-          # voltando HTTP 400 sem nenhuma pista de por quê).
-          file_size=$(stat -c%s reel-final.mp4)
-          echo "Tamanho do vídeo final (pós-corte/render): ${file_size} bytes"
-          upload_http_code=$(curl -sS -o upload-response.json -w "%{http_code}" -X POST "$ig_upload_url" \
-            -H "Authorization: OAuth ${ig_upload_token}" \
-            -H "offset: 0" \
-            -H "file_size: ${file_size}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @reel-final.mp4 --max-time 300)
-          echo "HTTP do upload pra Meta: ${upload_http_code}"
-          cat upload-response.json; echo ""
-          if [ "$upload_http_code" != "200" ]; then
-            error_detail="upload_http_${upload_http_code}: $(tr -d '\n' < upload-response.json | cut -c1-400)"
-            echo "Upload recusado pela Meta — motivo real: ${error_detail}"
-            false
-          fi
-
-          POST_ID="$post_id" CLAIM_ID="$claim_id" node -e '
-            const fs = require("node:fs");
-            const render = JSON.parse(fs.readFileSync("render-result.json", "utf8"));
-            fs.writeFileSync("render-complete.json", JSON.stringify({
-              action: "reels_render_complete",
-              post_id: process.env.POST_ID,
-              claim_id: process.env.CLAIM_ID,
-              end_trim: render.end_trim || null
-            }));
-          '
-
-          # reels_render_complete não tenta de novo sozinho (é uma function
-          # serverless, orçamento curto) — o loop de espera pela Meta
-          # terminar de processar o vídeo fica aqui, que tem tempo de sobra
-          # (timeout do job é 20min). Meta documenta até ~5min de
-          # processamento no pior caso — 5 tentativas de 60s cobrem isso.
-          ready="no"
-          for attempt in 1 2 3 4 5; do
-            curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+            echo "=== Verificando fila antes do job #${job_num} de até ${MAX_JOBS_POR_RODADA} nesta rodada (${SECONDS}s decorridos) ==="
+            peek_response=$(curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-              --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
-            cat render-complete-response.json; echo ""
-            state=$(node -p 'const d=require("./render-complete-response.json"); d.ok===true ? (d.still_processing===true ? "still" : "ready") : "rejected"')
-            if [ "$state" = "ready" ]; then ready="yes"; break; fi
-            if [ "$state" = "rejected" ]; then false; fi
-            sleep 60
+              -d '{"action":"reels_render_job","peek":true}' --max-time 45) || peek_response=""
+            has_job=$(RESPONSE="$peek_response" node -e 'try{const d=JSON.parse(process.env.RESPONSE||"{}");process.stdout.write(d.ok&&d.job?"yes":"no")}catch(_){process.stdout.write("no")}')
+            if [ "$has_job" != "yes" ]; then
+              echo "Fila de Reels vazia — nada mais pra renderizar nesta rodada."
+              break
+            fi
+
+            (
+              set -euo pipefail
+              post_id=""
+              claim_id=""
+              # 20/09/2026 — antes, qualquer falha só gravava "render_failed_exit_N"
+              # (código de saída do curl, sem nenhum detalhe) em last_error — real
+              # e concreto: um upload que a Meta recusa com HTTP 400 tinha o motivo
+              # real escondido, só visível cavando o log do CI. Quando um passo
+              # específico já sabe o motivo (ex: corpo da resposta HTTP da Meta),
+              # ele grava em $error_detail antes de falhar — report_failure usa
+              # isso se disponível, senão cai no genérico de sempre.
+              error_detail=""
+              report_failure() {
+                exit_code=$?
+                if [ -n "$post_id" ] && [ -n "$claim_id" ]; then
+                  POST_ID="$post_id" CLAIM_ID="$claim_id" ERROR_TEXT="${error_detail:-render_failed_exit_${exit_code}}" node --input-type=module -e '
+                    import { writeFileSync } from "node:fs";
+                    writeFileSync("render-fail.json", JSON.stringify({action:"reels_render_fail",post_id:process.env.POST_ID,claim_id:process.env.CLAIM_ID,error:process.env.ERROR_TEXT}));
+                  '
+                  curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                    -H "Content-Type: application/json" \
+                    -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                    --data-binary @render-fail.json --max-time 30 >/dev/null || true
+                fi
+                exit "$exit_code"
+              }
+              trap report_failure ERR
+
+              curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                -d '{"action":"reels_render_job"}' \
+                --max-time 45 -o render-job.json
+
+              post_id=$(node -p 'require("./render-job.json").job.post_id')
+              claim_id=$(node -p 'require("./render-job.json").job.claim_id')
+              source_url=$(node -p 'require("./render-job.json").job.source_url')
+              ig_upload_url=$(node -p 'require("./render-job.json").job.ig_upload_url')
+              ig_upload_token=$(node -p 'require("./render-job.json").job.ig_upload_token')
+              echo "::add-mask::${ig_upload_token}"
+
+              # 21/09/2026 — Bacci migrou o player de vídeo pra embed do YouTube
+              # (confirmado com dado real: 25/25 matérias recentes testadas usam
+              # youtube.com/embed ou youtu.be, 0 usam o padrão antigo). YouTube
+              # não expõe link de arquivo direto — curl sozinho não baixa nada
+              # de lá. yt-dlp instalado sob demanda (só quando a fonte é
+              # YouTube, não em toda rodada) via pip --break-system-packages
+              # (Ubuntu 24.04 do runner bloqueia pip global sem essa flag,
+              # PEP 668) — a versão do apt costuma ficar desatualizada demais
+              # pra acompanhar mudanças frequentes da API do YouTube.
+              if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be'; then
+                pip install --quiet --break-system-packages -U yt-dlp
+                if ! yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
+                  --merge-output-format mp4 -o reel-source "$source_url" 2> ytdlp-error.log; then
+                  error_detail="ytdlp_falhou: $(tr -d '\n' < ytdlp-error.log | cut -c1-400)"
+                  false
+                fi
+              else
+                curl --fail --location -sS "$source_url" --max-time 300 -o reel-source
+              fi
+              node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
+              cat render-result.json
+
+              # Upload resumível direto pra Meta — nenhum storage nosso no meio.
+              # SEM --fail aqui de propósito (20/09/2026): --fail engolia o corpo
+              # da resposta em qualquer erro não-2xx, escondendo o motivo real
+              # que a Meta manda de volta (confirmado real: um upload com vídeo
+              # de fonte longa, mesmo já cortado em 88s pelo cap acima, seguia
+              # voltando HTTP 400 sem nenhuma pista de por quê).
+              file_size=$(stat -c%s reel-final.mp4)
+              echo "Tamanho do vídeo final (pós-corte/render): ${file_size} bytes"
+              upload_http_code=$(curl -sS -o upload-response.json -w "%{http_code}" -X POST "$ig_upload_url" \
+                -H "Authorization: OAuth ${ig_upload_token}" \
+                -H "offset: 0" \
+                -H "file_size: ${file_size}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @reel-final.mp4 --max-time 300)
+              echo "HTTP do upload pra Meta: ${upload_http_code}"
+              cat upload-response.json; echo ""
+              if [ "$upload_http_code" != "200" ]; then
+                error_detail="upload_http_${upload_http_code}: $(tr -d '\n' < upload-response.json | cut -c1-400)"
+                echo "Upload recusado pela Meta — motivo real: ${error_detail}"
+                false
+              fi
+
+              POST_ID="$post_id" CLAIM_ID="$claim_id" node -e '
+                const fs = require("node:fs");
+                const render = JSON.parse(fs.readFileSync("render-result.json", "utf8"));
+                fs.writeFileSync("render-complete.json", JSON.stringify({
+                  action: "reels_render_complete",
+                  post_id: process.env.POST_ID,
+                  claim_id: process.env.CLAIM_ID,
+                  end_trim: render.end_trim || null
+                }));
+              '
+
+              # reels_render_complete não tenta de novo sozinho (é uma function
+              # serverless, orçamento curto) — o loop de espera pela Meta
+              # terminar de processar o vídeo fica aqui. Meta documenta até
+              # ~5min de processamento no pior caso — 5 tentativas de 60s
+              # cobrem isso.
+              ready="no"
+              for attempt in 1 2 3 4 5; do
+                curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                  --data-binary @render-complete.json --max-time 45 -o render-complete-response.json
+                cat render-complete-response.json; echo ""
+                state=$(node -p 'const d=require("./render-complete-response.json"); d.ok===true ? (d.still_processing===true ? "still" : "ready") : "rejected"')
+                if [ "$state" = "ready" ]; then ready="yes"; break; fi
+                if [ "$state" = "rejected" ]; then false; fi
+                sleep 60
+              done
+              if [ "$ready" != "yes" ]; then
+                echo "Vídeo ainda em processamento pela Meta após 5min de espera — marca falha pra retentar com container novo na próxima rodada."
+                false
+              fi
+              echo "Reel pronto — vídeo já está direto na Meta, sem Supabase no meio."
+              trap - ERR
+            )
+            job_status=$?
+            if [ "$job_status" -eq 0 ]; then
+              echo "=== Job #${job_num} concluído com sucesso (${SECONDS}s decorridos no total). ==="
+            else
+              echo "=== Job #${job_num} falhou (status=${job_status}) — já reportado via reels_render_fail, seguindo pro próximo (${SECONDS}s decorridos no total). ==="
+            fi
           done
-          if [ "$ready" != "yes" ]; then
-            echo "Vídeo ainda em processamento pela Meta após 5min de espera — marca falha pra retentar com container novo na próxima rodada."
-            false
-          fi
-          echo "Reel pronto — vídeo já está direto na Meta, sem Supabase no meio."
-          trap - ERR
 
   publicar:
     if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *'

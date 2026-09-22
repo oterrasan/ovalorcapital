@@ -1482,10 +1482,22 @@ async function handleReelsRenderJob(req, res, body) {
   // handleReelsRenderFail) exclui de vez um item que já bateu o teto de
   // tentativas.
   const PRIORIDADE_STATUS_REEL = { pending: 0, processing: 1, error: 2 };
+  // 22/09/2026 — 🔴 3 posts reais confirmados presos pra sempre com
+  // source_url igual a este placeholder — descobrirPaginaVideoBacci() já
+  // exclui "live_stream" desde 21/09/2026, mas esses 3 foram capturados
+  // minutos ANTES desse fix chegar em produção e ficaram com o valor
+  // quebrado permanentemente gravado em metrics. Sem essa segunda camada,
+  // cada um queima as 3 tentativas reais (yt-dlp SEMPRE falha nesse valor,
+  // confirmado real: "ERROR: [youtube] live_stream: This video is
+  // unavailable") antes de virar exhausted — desperdiçando slots de
+  // render que agora são escassos (ver comentário do workflow). Filtra
+  // fora ANTES de gastar uma tentativa de verdade.
+  const REEL_SOURCE_URL_QUEBRADO_RE = /[?&]v=live_stream(?:$|[&#])/i;
   const elegiveis = (candidates || [])
     .map((post) => ({ post, template: _reelsTemplate(post.metrics) }))
     .filter(({ template }) => {
       if (!template || template.version !== REELS_TEMPLATE_VERSION || !/^https?:\/\//i.test(String(template.source_url || ""))) return false;
+      if (REEL_SOURCE_URL_QUEBRADO_RE.test(String(template.source_url || ""))) return false;
       // 21/09/2026 — encontrado registro real com attempts:6 e SEM o campo
       // exhausted (ausente, não false — herança de um caminho de código
       // mais antigo, antes desse campo existir). Não depender só do campo
