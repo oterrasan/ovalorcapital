@@ -155,10 +155,30 @@ function _extrairMp4DoHtml(html) {
   return m ? m[0].replace(/&amp;/g, "&") : null;
 }
 
+// 22/09/2026 — 🔴 bug real confirmado: Roberto colava um link de vídeo no
+// admin e a tela ficava "pensando pra sempre" — sem erro, sem trava. Causa:
+// _fetchComTimeout() só protegia a CONEXÃO inicial (20s) — o timer é limpo
+// assim que os headers chegam (é quando a Promise de fetch() resolve), não
+// quando o corpo termina de ser lido. res.arrayBuffer() (baixar o vídeo de
+// verdade) rodava DEPOIS disso, sem nenhum timeout — uma fonte que manda
+// headers rápido e trava ou nunca fecha a conexão no meio do corpo travava
+// a function inteira, sem limite, até o maxDuration:60 do Vercel (ver
+// vercel.json) matar tudo sem resposta limpa pro cliente. Fix: prazo total
+// pra OPERAÇÃO INTEIRA (conexão + download do corpo + upload), bem abaixo
+// do maxDuration — nunca mais um caso real pode travar pra sempre.
+const DOWNLOAD_OVERALL_DEADLINE_MS = 45000;
+
 // Baixa um vídeo de uma URL externa e reenvia os bytes crus pro nosso
 // Storage — sem decodificar, sem reencodar, sem overlay. Usado tanto pra
 // "colar link de vídeo" no admin quanto (futuro) pela raspagem automática.
 export async function downloadAndUploadVideo(sourceUrl) {
+  const deadline = new Promise((resolve) => {
+    setTimeout(() => resolve(null), DOWNLOAD_OVERALL_DEADLINE_MS);
+  });
+  return Promise.race([_downloadAndUploadVideoImpl(sourceUrl), deadline]);
+}
+
+async function _downloadAndUploadVideoImpl(sourceUrl) {
   if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) return null;
   await ensureVideoBucket();
 

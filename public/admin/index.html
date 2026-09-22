@@ -1045,16 +1045,25 @@ function Postagens() {
       return;
     }
     setVideoBusy('Baixando e hospedando vídeo...');
+    // 22/09/2026 — bug real: sem timeout aqui, se o servidor travasse (ou
+    // uma URL travasse o download do lado de la), esta tela ficava
+    // "pensando pra sempre", sem erro nenhum. AbortController com prazo
+    // (acima do que o servidor já respeita em core/storage.js, pra dar
+    // tempo dele responder primeiro) garante que a tela SEMPRE volta com
+    // um erro claro, nunca mais fica travada.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 50000);
     try {
-      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}) });
+      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}), signal: ctrl.signal });
       const d = await r.json();
       if (!d.ok || !d.url) { alert('❌ Não foi possível hospedar este vídeo. Verifique o link.'); setVideoBusy(''); return; }
       setEditPost(p=>({...p, video_url: d.url}));
       setVideoUrlInput('');
       probeVideoPlayable(d.url).then(ok => { if (!ok) setVideoWarning(HEVC_AVISO); });
     } catch(e) {
-      alert('❌ Erro ao hospedar vídeo: ' + e.message);
+      alert(e.name === 'AbortError' ? '❌ O vídeo demorou demais pra baixar/hospedar. Tente outro link.' : '❌ Erro ao hospedar vídeo: ' + e.message);
     } finally {
+      clearTimeout(timer);
       setVideoBusy('');
     }
   };
@@ -3938,16 +3947,21 @@ function VideosAdmin() {
     if (!url || !selectedId) return;
     if (parseYouTubeId(url)) { alert('Esse é um link do YouTube — use o campo "Link do YouTube" ao lado (ele fica só embutido, sem baixar nada).'); return; }
     setVideoWarning(''); setVideoBusy('Baixando e hospedando vídeo...');
+    // 22/09/2026 — mesmo bug real/mesmo fix de hospedarVideoDeUrl() acima:
+    // sem timeout, a tela ficava "pensando pra sempre" se o download travasse.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 50000);
     try {
-      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}) });
+      const r = await fetch('/api/run_portal', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'video_de_url', url}), signal: ctrl.signal });
       const d = await r.json();
       if (!d.ok || !d.url) { alert('❌ Não foi possível hospedar este vídeo. Verifique o link.'); return; }
       await salvar(d.url);
       setExtUrl('');
       probeVideoPlayable(d.url).then(ok => { if (!ok) setVideoWarning(HEVC_AVISO); });
     } catch(e) {
-      alert('❌ Erro ao hospedar vídeo: ' + e.message);
+      alert(e.name === 'AbortError' ? '❌ O vídeo demorou demais pra baixar/hospedar. Tente outro link.' : '❌ Erro ao hospedar vídeo: ' + e.message);
     } finally {
+      clearTimeout(timer);
       setVideoBusy('');
     }
   };
