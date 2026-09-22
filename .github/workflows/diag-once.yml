@@ -15,5 +15,44 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: "Checar conteudo real de posts brasilon - qual eh a assinatura de verdade"
+        run: |
+          cat > _diag_conteudo.mjs << 'JSEOF'
+          import { createClient } from "@supabase/supabase-js";
+
+          const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
+          const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
+          const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+          async function main() {
+            const { data, error } = await supabase
+              .from("posts")
+              .select("id,titulo,conteudo,publish_method")
+              .eq("publish_method", "brasilon")
+              .not("conteudo", "is", null)
+              .order("created_at", { ascending: false })
+              .limit(3);
+            if (error) { console.error("ERRO:", error); process.exit(1); }
+            for (const p of data) {
+              console.log(`\n=== ${p.id} — ${p.titulo} ===`);
+              console.log(String(p.conteudo || "").slice(0, 400));
+            }
+
+            // tambem confere um post do pipeline geral (nao-brasilon) pra comparar
+            const { data: data2 } = await supabase
+              .from("posts")
+              .select("id,titulo,conteudo,publish_method")
+              .eq("publish_method", "portal")
+              .not("conteudo", "is", null)
+              .order("created_at", { ascending: false })
+              .limit(2);
+            for (const p of (data2 || [])) {
+              console.log(`\n=== (portal) ${p.id} — ${p.titulo} ===`);
+              console.log(String(p.conteudo || "").slice(0, 400));
+            }
+          }
+
+          main().catch(e => { console.error("ERRO FATAL:", e?.message || e); process.exit(1); });
+          JSEOF
+          node _diag_conteudo.mjs
+          rm -f _diag_conteudo.mjs
