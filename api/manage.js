@@ -1540,13 +1540,25 @@ async function handleReelsRenderJob(req, res, body) {
   metrics.instagram_reel_template = processing;
   const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
   if (jobStateError) throw jobStateError;
+  // 22/09/2026 — 🔴 bug real confirmado: este job.body usava
+  // stripHtmlToText(conteudo) cru, sem passar pela mesma limpeza já
+  // aprovada e usada pra legenda do Instagram (extractCaptionBodyAndHashtags,
+  // linha ~428) — o vídeo renderizado (scripts/render-instagram-reel.mjs)
+  // só remove repetição de TÍTULO (removeRepeatedTitle), nunca a
+  // assinatura. Resultado real, confirmado com dado de produção: os 3
+  // posts brasilon mais recentes têm TODOS "Redação OVC · {data}" como
+  // 1º parágrafo — isso sempre vazava pro texto queimado no vídeo,
+  // ocupando espaço do excerto de 210 chars com uma linha de assinatura
+  // inútil. Fix: reaproveita a mesma função já usada e comprovada pra
+  // legenda (não duplica lógica nova).
+  const reelBody = extractCaptionBodyAndHashtags(stripHtmlToText(candidate.conteudo || "")).body;
   return res.status(200).json({
     ok: true,
     job: {
       post_id: candidate.id,
       claim_id: claimId,
       title: stripHtmlToText(candidate.titulo || ""),
-      body: stripHtmlToText(candidate.conteudo || ""),
+      body: reelBody,
       source_url: current.source_url,
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
