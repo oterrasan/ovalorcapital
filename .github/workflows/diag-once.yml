@@ -1,4 +1,4 @@
-name: Diagnóstico único — buscar posts com Renner no titulo
+name: Diagnóstico único — limpar os 3 reel_template quebrados (live_stream)
 on:
   push:
     paths:
