@@ -5,42 +5,24 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const { data, error } = await sb
   .from("posts")
-  .select("id,titulo,video_url,metrics")
-  .not("metrics->instagram_reel_template", "is", null)
-  .limit(250);
+  .select("id,titulo,video_url,status,created_at,updated_at,metrics")
+  .ilike("titulo", "%Renner%")
+  .order("created_at", { ascending: false })
+  .limit(10);
 
 if (error) { console.log("ERRO:", error.message); process.exit(1); }
 
-let total = 0, comLiveStream = 0, exhausted = 0, ready = 0, processing = 0, errorStatus = 0, pending = 0;
-const stuck = [];
+console.log("=== POSTS COM 'Renner' NO TITULO ===");
 for (const p of data || []) {
   let m = {};
   try { m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : (p.metrics || {}); } catch (_) {}
-  const t = m.instagram_reel_template;
-  if (!t) continue;
-  total++;
-  if (t.status === "ready") ready++;
-  else if (t.status === "processing") processing++;
-  else if (t.status === "error") errorStatus++;
-  else pending++;
-  if (t.exhausted) exhausted++;
-  if (String(t.source_url || "").includes("live_stream")) {
-    comLiveStream++;
-    stuck.push({
-      id: p.id,
-      titulo: p.titulo,
-      status: t.status,
-      attempts: t.attempts,
-      exhausted: !!t.exhausted,
-      source_url: t.source_url,
-      queued_at: t.queued_at,
-      failed_at: t.failed_at,
-      video_url: p.video_url || null
-    });
-  }
+  console.log(JSON.stringify({
+    id: p.id,
+    titulo: p.titulo,
+    post_status: p.status,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+    video_url: p.video_url,
+    reel_template: m.instagram_reel_template || null
+  }, null, 2));
 }
-
-console.log("=== RESUMO GERAL (templates de reel encontrados) ===");
-console.log(JSON.stringify({ total, ready, processing, errorStatus, pending, exhausted, comLiveStream }, null, 2));
-console.log("\n=== POSTS COM source_url QUEBRADO (live_stream) ===");
-console.log(JSON.stringify(stuck, null, 2));

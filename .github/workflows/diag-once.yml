@@ -1,4 +1,4 @@
-name: Diagnóstico único — templates de reel com source_url quebrado
+name: Diagnóstico único — buscar posts com Renner no titulo
 on:
   push:
     paths:
