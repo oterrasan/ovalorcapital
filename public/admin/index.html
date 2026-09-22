@@ -1380,6 +1380,34 @@ function Postagens() {
     const t = setInterval(checarFila, 20000);
     return () => { alive = false; clearInterval(t); };
   }, []);
+
+  // 22/09/2026 — 🔴 mesmo bug real do VideosAdmin (ver comentário lá): esta
+  // é a OUTRA tela onde Roberto vincula vídeo (modal "Editar Post") — e
+  // aqui era pior ainda, porque `editPost` é só um snapshot de quando o
+  // modal abriu. Sem nenhum refresh, "Aguardando acabamento"/"Aplicando
+  // layout OVC" ficava preso na tela pra sempre, mesmo com o vídeo já
+  // pronto no banco há minutos. Fix: enquanto o modal estiver aberto COM
+  // vídeo próprio (não YouTube) e AINDA não estiver pronto/esgotado, busca
+  // só o campo `metrics` a cada 15s e mescla — NUNCA toca em título, corpo,
+  // categoria ou qualquer outro campo que Roberto possa estar editando ao
+  // mesmo tempo. Para sozinho assim que fica pronto/esgotado ou o modal
+  // fecha (dependências abaixo garantem isso).
+  const editReelStatus = editPost ? reelTemplateInfo(editPost)?.status : null;
+  const editReelExhausted = editPost ? !!reelTemplateInfo(editPost)?.exhausted : false;
+  useEffect(() => {
+    if (!editPost || !editPost.id || !editPost.video_url || parseYouTubeId(editPost.video_url)) return;
+    if (editReelStatus === 'ready' || editReelExhausted) return;
+    let alive = true;
+    const postId = editPost.id;
+    const t = setInterval(async () => {
+      const { data, error } = await sb.from('posts').select('metrics').eq('id', postId).maybeSingle();
+      if (alive && !error && data) {
+        setEditPost(p => (p && p.id === postId) ? { ...p, metrics: data.metrics } : p);
+      }
+    }, 15000);
+    return () => { alive = false; clearInterval(t); };
+  }, [editPost?.id, editPost?.video_url, editReelStatus, editReelExhausted]);
+
   const cancelarFila = async () => {
     if (!confirm('Cancelar toda a fila do Instagram? Os posts continuam como estão — só saem da publicação automática por ordem.')) return;
     setFilaBusy(true);
@@ -3881,15 +3909,37 @@ function VideosAdmin() {
     setReelPublishing(null);
   };
 
-  const carregar = async (q) => {
-    setLoading(true);
+  const buscarPosts = async (q) => {
     let query = sb.from('posts').select('id,titulo,video_url,status,published_at,created_at,metrics').order('created_at',{ascending:false}).limit(40);
     if (q && q.trim()) query = query.ilike('titulo','%'+q.trim()+'%');
-    const { data, error } = await query;
+    return await query;
+  };
+  const carregar = async (q) => {
+    setLoading(true);
+    const { data, error } = await buscarPosts(q);
     if (!error) setPosts(data||[]);
     setLoading(false);
   };
   useEffect(()=>{ carregar(''); },[]);
+
+  // 22/09/2026 — 🔴 bug real confirmado: Roberto — "os vídeos NUNCA FICAM
+  // PRONTOS" (3 dias reclamando). Investigado a fundo: o backend transiciona
+  // pending→processing→ready normalmente (confirmado com dado real), mas
+  // esta tela SÓ buscava os posts UMA VEZ (no carregamento) — sem nenhum
+  // polling. Quem ficasse olhando a tela aberta, esperando o vídeo ficar
+  // pronto, via "🕒 Aguardando acabamento" PRA SEMPRE, mesmo depois do
+  // status virar "ready" no banco minutos depois — só um clique manual em
+  // "Buscar" (ou trocar de aba e voltar) trazia o dado fresco. Fix: poll
+  // silencioso (não mexe em `loading`, não pisca o botão) a cada 15s,
+  // mesmo ritmo já usado noutro poll deste arquivo (fila do Instagram).
+  useEffect(() => {
+    let alive = true;
+    const t = setInterval(async () => {
+      const { data, error } = await buscarPosts(busca);
+      if (alive && !error && data) setPosts(data);
+    }, 15000);
+    return () => { alive = false; clearInterval(t); };
+  }, [busca]);
 
   const trocarSelecao = (id) => { setSelectedId(id); setVideoWarning(''); setSaveMsg(''); setYtUrl(''); setExtUrl(''); };
 
