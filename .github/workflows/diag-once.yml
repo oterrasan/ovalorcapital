@@ -1,4 +1,4 @@
-name: Diagnóstico único — comparar posts que falharam vs publicaram Reel
+name: Diagnóstico único — testar se é a legenda barrando o upload na Meta
 on:
   push:
     paths:
@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,5 +15,12 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Checar histórico real + permissões do token na Meta
+      - name: Instalar ffmpeg e fonte oficial (mesmo setup de produção)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          mkdir -p "$HOME/.local/share/fonts"
+          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
+          fc-cache -f
+      - name: Testar legenda real vs legenda neutra no mesmo vídeo
         run: node .github/workflows/_diag_reel_probe.mjs
