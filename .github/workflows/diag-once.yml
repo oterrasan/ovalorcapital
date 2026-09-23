@@ -1,4 +1,4 @@
-name: Diagnóstico único — round 4, fonte sintética SEM audio (hipotese real)
+name: Diagnóstico único — round 5, conteudo REAL baixado da Bacci via yt-dlp
 on:
   push:
     paths:
@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

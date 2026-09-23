@@ -1,14 +1,10 @@
-// Round 1 (confirmado): clipe simples (crf20/level4.1, sem overlay) foi
-// ACEITO pela Meta — descarta conta/token/permissão como causa.
-// Round 2 (confirmado): mesmo clipe com os parâmetros EXATOS de produção
-// (crf16/level5.1/maxrate8M) — TAMBÉM aceito — descarta codec/bitrate/
-// level como causa.
-// Round 3 (este): roda o script REAL de produção,
-// scripts/render-instagram-reel.mjs, SEM NENHUMA modificação — mesma
-// composição de overlay (buildOverlay + filter_complex ... overlay), só
-// trocando a fonte (vídeo baixado real do Bacci) por um clipe sintético
-// local — isola se o overlay/composição é a causa, sem depender de
-// nenhum download externo.
+// Rounds 1-4 (todos confirmados, HTTP 200/FINISHED): conta/token,
+// codec/bitrate/level, overlay/composição real, e ausência de áudio —
+// NENHUM reproduziu o ProcessingFailedError real de produção. Round 5:
+// baixa um vídeo REAL de uma matéria REAL e recente da Bacci (yt-dlp,
+// igual ao runner real faz) e roda através do MESMO script de produção
+// sem modificação nenhuma — única variável ainda não isolada é o
+// conteúdo real baixado em si.
 import { execSync } from "node:child_process";
 import { createReelContainerResumable, checkReelStatus } from "../../core/instagram.js";
 import { writeFileSync } from "node:fs";
@@ -19,35 +15,46 @@ const H = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` };
 const accRes = await fetch(`${SUPABASE_URL}/rest/v1/ig_accounts?select=id,username,active,token&username=eq.ovalorcapital&limit=1`, { headers: H });
 const [account] = await accRes.json();
 if (!account) { console.log("CONTA_NAO_ENCONTRADA"); process.exit(1); }
-console.log("Conta real:", account.username, "id:", account.id);
+
+console.log("=== Achando um post REAL recente com template de Reel pendente (pra pegar o source_url real) ===");
+const postsRes = await fetch(
+  `${SUPABASE_URL}/rest/v1/posts?select=id,titulo,metrics&order=updated_at.desc&limit=30`,
+  { headers: H }
+);
+const posts = await postsRes.json();
+let realSourceUrl = null;
+let realTitle = null;
+for (const p of posts) {
+  const t = p.metrics?.instagram_reel_template;
+  if (t?.source_url && /youtube\.com|youtu\.be/.test(t.source_url)) {
+    realSourceUrl = t.source_url;
+    realTitle = p.titulo;
+    break;
+  }
+}
+if (!realSourceUrl) { console.log("NENHUM_SOURCE_URL_REAL_ENCONTRADO_NOS_30_MAIS_RECENTES"); process.exit(1); }
+console.log("Post real:", realTitle);
+console.log("source_url real:", realSourceUrl);
+
+console.log("\n=== Baixando o vídeo REAL via yt-dlp (mesmo comando exato do runner real) ===");
+execSync("pip install --quiet --break-system-packages -U yt-dlp", { stdio: "inherit" });
+execSync(
+  `yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" ` +
+  `--merge-output-format mp4 -o reel-source.mp4 "${realSourceUrl}"`,
+  { stdio: "inherit" }
+);
+execSync(`ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,pix_fmt -of json reel-source.mp4`, { stdio: "inherit" });
 
 console.log("\n=== Criando container resumível real ===");
 const container = await createReelContainerResumable("Teste técnico isolado — nunca publicado.", account.id, {});
 console.log(JSON.stringify(container, null, 2));
 
-// Round 3 (já confirmado, HTTP 200/FINISHED): script real de produção
-// completo (overlay incluso) contra fonte sintética COM áudio — também
-// passou. Isso descarta overlay/composição/encode como causa. Única
-// variável real ainda não testada: fonte SEM NENHUMA faixa de áudio —
-// hipótese real (não suposição vazia — WebSearch confirmou que a Meta
-// documenta requisito de áudio pra Reels via API) é que vídeos do Bacci/
-// YouTube às vezes não têm áudio, e -map 0:a? (opcional) produziria um
-// MP4 final sem nenhuma faixa de áudio — Meta pode rejeitar isso.
-console.log("\n=== Gerando fonte sintética SEM ÁUDIO (só vídeo — testa a hipótese de áudio ausente) ===");
-execSync(
-  `ffmpeg -hide_banner -loglevel error -y ` +
-  `-f lavfi -i "testsrc2=size=512x640:rate=30:duration=10" ` +
-  `-c:v libx264 -crf 18 -an reel-source.mp4`,
-  { stdio: "inherit" }
-);
-execSync(`ffprobe -v error -show_entries stream=codec_type,codec_name -of json reel-source.mp4`, { stdio: "inherit" });
-
-console.log("\n=== Rodando o SCRIPT REAL de produção (render-instagram-reel.mjs, sem nenhuma modificação) ===");
+console.log("\n=== Rodando o SCRIPT REAL de produção contra o vídeo REAL baixado ===");
 writeFileSync("render-job.json", JSON.stringify({
   job: {
-    title: "Teste técnico isolado",
+    title: realTitle || "Teste técnico isolado",
     body: "<p>Texto de teste pra composição do overlay real.</p>",
-    source_url: "local://synthetic",
+    source_url: realSourceUrl,
     template_version: "ovc-reels-2026-09-v2"
   }
 }));
@@ -56,11 +63,12 @@ execSync(
   { stdio: "inherit" }
 );
 console.log(execSync("cat render-result.json").toString());
+execSync(`ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,pix_fmt,profile,level -of json reel-final.mp4`, { stdio: "inherit" });
 
 const fileSize = execSync("stat -c%s reel-final.mp4").toString().trim();
-console.log("Tamanho do render final (com overlay real):", fileSize, "bytes");
+console.log("Tamanho do render final (conteúdo real):", fileSize, "bytes");
 
-console.log("\n=== Upload resumível pra Meta (render REAL, com overlay, fonte sintética) ===");
+console.log("\n=== Upload resumível pra Meta (render REAL, conteúdo REAL baixado da Bacci) ===");
 const uploadRes = execSync(
   `curl -sS -o /tmp/upload-response.json -w "%{http_code}" -X POST "${container.upload_url}" ` +
   `-H "Authorization: OAuth ${container.upload_token}" ` +
