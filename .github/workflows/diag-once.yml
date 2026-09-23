@@ -1,4 +1,4 @@
-name: Diagnóstico único — checar permissão/capacidade real da conta pra Reels
+name: Diagnóstico único — comparar posts que falharam vs publicaram Reel
 on:
   push:
     paths:
