@@ -1,126 +1,75 @@
-// Diagnóstico real e profundo do "ProcessingFailedError" da Meta — sem
-// suposição: inspeciona bytes de verdade (ffprobe completo) do vídeo
-// FONTE e do vídeo FINAL renderizado, antes de tentar reproduzir o erro
-// de novo com detalhe máximo da resposta da Meta (corpo + headers).
+// Segunda rodada de investigação — a primeira já descartou "é o
+// encoding do vídeo": rodei o mesmo teste com 3 configurações de
+// encoding diferentes (padrão, GOP fechado, level 5.1) em dias
+// diferentes e a Meta devolveu o MESMO erro genérico idêntico nas 3.
+// Se fosse mesmo um problema técnico do arquivo, mudar parâmetro de
+// encoding deveria ter mudado alguma coisa — não mudou nada, nem uma
+// vírgula na resposta. Isso desloca a suspeita pra permissão/capacidade
+// da conta de publicar Reels via API (não do arquivo em si) — o feed de
+// imagem funciona normalmente com a MESMA conta/token, então a pergunta
+// real é: esse token tem de fato o escopo/capacidade específica de
+// Reels, ou só de imagem?
 import { createClient } from "@supabase/supabase-js";
-import { spawn } from "node:child_process";
-import { writeFileSync, statSync, existsSync } from "node:fs";
 
 const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function run(cmd, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
-    const stdout = [];
-    const stderr = [];
-    child.stdout.on("data", (c) => stdout.push(c));
-    child.stderr.on("data", (c) => stderr.push(c));
-    child.on("error", reject);
-    child.on("exit", (code) => resolve({ code, stdout: Buffer.concat(stdout).toString("utf8"), stderr: Buffer.concat(stderr).toString("utf8") }));
-  });
-}
-
-console.log("=== 1) Localizando o post real que falhou ===");
+console.log("=== 1) Algum Reel JÁ foi publicado com sucesso, alguma vez? ===");
 const { data: posts, error } = await sb
   .from("posts")
-  .select("id,titulo,conteudo,metrics,updated_at")
+  .select("id,titulo,metrics")
+  .not("metrics->instagram_reel", "is", null)
+  .limit(50);
+if (error) { console.log("ERRO:", error.message); process.exit(1); }
+console.log("Posts com metrics.instagram_reel (publicado com sucesso):", posts.length);
+for (const p of posts.slice(0, 10)) {
+  const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+  console.log("-", p.id, p.titulo, "| ig_id:", m.instagram_reel?.ig_id, "| published_via:", m.instagram_reel?.published_via);
+}
+
+console.log("\n=== 2) Quantas tentativas reais de Reel já existem no total, e quantas falharam? ===");
+const { data: allTemplates } = await sb
+  .from("posts")
+  .select("id,metrics")
   .not("metrics->instagram_reel_template", "is", null)
-  .order("updated_at", { ascending: false })
-  .limit(30);
-if (error) { console.log("ERRO consultando posts:", error.message); process.exit(1); }
-
-let target = null;
-for (const p of posts) {
-  const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : (p.metrics || {});
-  const t = m.instagram_reel_template;
-  if (t && t.status === "error" && String(t.last_error || "").includes("ProcessingFailedError")) {
-    target = { post: p, template: t };
-    break;
-  }
+  .limit(500);
+let statusCounts = {};
+for (const p of allTemplates || []) {
+  const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : p.metrics;
+  const s = m.instagram_reel_template?.status || "?";
+  statusCounts[s] = (statusCounts[s] || 0) + 1;
 }
-if (!target) {
-  console.log("Nenhum post com ProcessingFailedError encontrado nos 30 mais recentes com reel_template.");
-  for (const p of posts.slice(0, 5)) {
-    const m = typeof p.metrics === "string" ? JSON.parse(p.metrics) : (p.metrics || {});
-    console.log("-", p.id, p.titulo, "| status:", m.instagram_reel_template?.status, "| last_error:", m.instagram_reel_template?.last_error);
-  }
-  process.exit(1);
-}
-console.log("Post encontrado:", target.post.id, "-", target.post.titulo);
-console.log("source_url:", target.template.source_url);
-console.log("last_error real:", target.template.last_error);
+console.log("Distribuição de status:", JSON.stringify(statusCounts));
 
-const sourceUrl = target.template.source_url;
+console.log("\n=== 3) Checando o TOKEN da conta ovalorcapital direto na Meta (debug_token) ===");
+const { data: accounts } = await sb.from("ig_accounts").select("*").eq("username", "ovalorcapital").eq("active", true).limit(1);
+const account = accounts?.[0];
+if (!account?.token) { console.log("Conta ovalorcapital sem token."); process.exit(1); }
+console.log("Conta:", account.username, "| ig_user_id:", account.ig_user_id, "| posts_hoje:", account.posts_hoje);
 
-console.log("\n=== 2) Baixando o vídeo fonte (mesma lógica de produção) ===");
-if (/youtube\.com|youtu\.be/.test(sourceUrl)) {
-  await run("pip", ["install", "--quiet", "--break-system-packages", "-U", "yt-dlp"]);
-  const dl = await run("yt-dlp", ["--no-progress", "-f", "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best", "--merge-output-format", "mp4", "-o", "reel-source", sourceUrl]);
-  console.log("yt-dlp exit:", dl.code);
-  if (dl.code !== 0) { console.log("yt-dlp stderr:", dl.stderr.slice(-800)); process.exit(1); }
+const debugRes = await fetch(`https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(account.token)}&access_token=${encodeURIComponent(account.token)}`);
+const debugData = await debugRes.json();
+// Nunca imprimir o token em si — só os campos derivados que a própria
+// Meta devolve sobre ele (permissões, validade, app, escopos).
+if (debugData?.data) {
+  const d = debugData.data;
+  console.log("app_id:", d.application, "| type:", d.type, "| is_valid:", d.is_valid);
+  console.log("expires_at:", d.expires_at ? new Date(d.expires_at * 1000).toISOString() : d.expires_at);
+  console.log("scopes concedidos:", JSON.stringify(d.scopes || d.granular_scopes || "(nenhum campo scopes/granular_scopes na resposta)"));
+  console.log("resposta completa (sem o token):", JSON.stringify(d));
 } else {
-  const dl = await run("curl", ["--fail", "--location", "-sS", sourceUrl, "--max-time", "300", "-o", "reel-source"]);
-  console.log("curl exit:", dl.code);
-  if (dl.code !== 0) { console.log("curl stderr:", dl.stderr.slice(-800)); process.exit(1); }
-}
-console.log("Tamanho do arquivo fonte:", statSync("reel-source").size, "bytes");
-
-console.log("\n=== 3) ffprobe COMPLETO do vídeo FONTE (bruto, como baixado) ===");
-const probeSource = await run("ffprobe", ["-v", "error", "-show_format", "-show_streams", "-of", "json", "reel-source"]);
-console.log(probeSource.stdout);
-if (probeSource.stderr) console.log("ffprobe stderr (fonte):", probeSource.stderr);
-
-console.log("\n=== 4) Renderizando com o script real de produção ===");
-writeFileSync("render-job.json", JSON.stringify({
-  job: {
-    post_id: target.post.id,
-    claim_id: "diag-" + Date.now(),
-    title: target.post.titulo || "",
-    body: (target.post.conteudo || "").replace(/<[^>]+>/g, " "),
-    source_url: sourceUrl,
-    template_version: target.template.version || "ovc-reels-2026-09-v2"
-  }
-}));
-const render = await run("node", ["scripts/render-instagram-reel.mjs", "render-job.json", "reel-source", "reel-final.mp4", "reel-overlay.png"]);
-console.log("render exit:", render.code);
-console.log("render stdout:", render.stdout);
-if (render.stderr) console.log("render stderr:", render.stderr.slice(-1500));
-if (render.code !== 0 || !existsSync("reel-final.mp4")) { console.log("Render falhou — abortando aqui."); process.exit(1); }
-console.log("Tamanho do arquivo final:", statSync("reel-final.mp4").size, "bytes");
-
-console.log("\n=== 5) ffprobe COMPLETO do vídeo FINAL (pós-render, o que seria enviado pra Meta) ===");
-const probeFinal = await run("ffprobe", ["-v", "error", "-show_format", "-show_streams", "-of", "json", "reel-final.mp4"]);
-console.log(probeFinal.stdout);
-if (probeFinal.stderr) console.log("ffprobe stderr (final):", probeFinal.stderr);
-
-console.log("\n=== 6) Tentando de novo — container novo + upload, com corpo E headers completos da resposta da Meta ===");
-const instagram = await import("../../core/instagram.js");
-let container;
-try {
-  container = await instagram.createReelContainerResumable("[diagnóstico — nunca será publicado]", null);
-  console.log("Container criado:", container.creation_id, "| conta:", container.username);
-} catch (e) {
-  console.log("ERRO criando container:", e.message);
-  process.exit(1);
+  console.log("Resposta do debug_token (sem 'data'):", JSON.stringify(debugData));
 }
 
-const fileBuffer = await import("node:fs/promises").then(fs => fs.readFile("reel-final.mp4"));
-const uploadRes = await fetch(container.upload_url, {
-  method: "POST",
-  headers: {
-    "Authorization": `OAuth ${container.upload_token}`,
-    "offset": "0",
-    "file_size": String(fileBuffer.length),
-    "Content-Type": "application/octet-stream"
-  },
-  body: fileBuffer
-});
-console.log("HTTP do upload:", uploadRes.status);
-console.log("Headers da resposta:");
-for (const [k, v] of uploadRes.headers.entries()) console.log(`  ${k}: ${v}`);
-const uploadText = await uploadRes.text();
-console.log("Corpo da resposta:", uploadText);
+console.log("\n=== 4) Checando limite/elegibilidade de publicação (content_publishing_limit) ===");
+const limitRes = await fetch(`https://graph.facebook.com/v21.0/${account.ig_user_id}/content_publishing_limit?fields=config,quota_usage&access_token=${encodeURIComponent(account.token)}`);
+const limitData = await limitRes.json();
+console.log(JSON.stringify(limitData));
 
-console.log("\n=== FIM DO DIAGNÓSTICO ===");
+console.log("\n=== 5) Checando o objeto da conta IG (fields de capacidade) ===");
+const acctRes = await fetch(`https://graph.facebook.com/v21.0/${account.ig_user_id}?fields=id,username,name,ig_id,account_type&access_token=${encodeURIComponent(account.token)}`);
+const acctData = await acctRes.json();
+console.log(JSON.stringify(acctData));
+
+console.log("\n=== FIM ===");

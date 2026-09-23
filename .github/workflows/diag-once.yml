@@ -1,4 +1,4 @@
-name: Diagnóstico único — investigar ProcessingFailedError da Meta a fundo
+name: Diagnóstico único — checar permissão/capacidade real da conta pra Reels
 on:
   push:
     paths:
@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,14 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Instalar ffmpeg e fonte oficial (mesmo setup de produção)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
-          mkdir -p "$HOME/.local/share/fonts"
-          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
-          fc-cache -f
-          ffmpeg -version >/dev/null
-          ffprobe -version >/dev/null
-      - name: Investigar o ProcessingFailedError com dado real
+      - name: Checar histórico real + permissões do token na Meta
         run: node .github/workflows/_diag_reel_probe.mjs
