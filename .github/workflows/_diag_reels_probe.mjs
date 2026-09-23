@@ -27,13 +27,13 @@ let realSourceUrl = null;
 let realTitle = null;
 for (const p of posts) {
   const t = p.metrics?.instagram_reel_template;
-  if (t?.source_url && /youtube\.com|youtu\.be/.test(t.source_url)) {
+  console.log("-", p.titulo, "| status:", t?.status, "| kind:", t?.source_kind, "| url:", t?.source_url);
+  if (!realSourceUrl && t?.source_url && /youtube\.com|youtu\.be/.test(t.source_url)) {
     realSourceUrl = t.source_url;
     realTitle = p.titulo;
-    break;
   }
 }
-if (!realSourceUrl) { console.log("NENHUM_SOURCE_URL_REAL_ENCONTRADO_NOS_30_MAIS_RECENTES"); process.exit(1); }
+if (!realSourceUrl) { console.log("NENHUM_SOURCE_URL_DO_YOUTUBE_ENTRE_OS_ENCONTRADOS"); process.exit(1); }
 console.log("Post real:", realTitle);
 console.log("source_url real:", realSourceUrl);
 
