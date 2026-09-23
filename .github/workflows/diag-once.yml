@@ -1,4 +1,4 @@
-name: Diagnóstico único — round 5c, log de todos os 26 templates encontrados
+name: Diagnóstico único — round 6, reproduz com o post REAL que falhou de verdade
 on:
   push:
     paths:

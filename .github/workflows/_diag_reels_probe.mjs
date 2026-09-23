@@ -23,27 +23,47 @@ const postsRes = await fetch(
 );
 const posts = await postsRes.json();
 console.log("Posts com template de Reel encontrados:", Array.isArray(posts) ? posts.length : "ERRO: " + JSON.stringify(posts));
+// 🔴 achado real: NENHUM dos 26 templates recentes é kind:"youtube" — são
+// todos Supabase Storage (kind:"bunny" ou legado sem kind). Isso contradiz
+// o comentário de 21/09 sobre migração pro YouTube — ou a Bacci reverteu,
+// ou aquele teste específico não reflete o pool atual. De qualquer forma,
+// a REAL falha confirmada (status:"error") tem conteúdo real, público,
+// baixável direto (sem yt-dlp) — usa ela pra reproduzir o caso real.
 let realSourceUrl = null;
 let realTitle = null;
 for (const p of posts) {
   const t = p.metrics?.instagram_reel_template;
-  console.log("-", p.titulo, "| status:", t?.status, "| kind:", t?.source_kind, "| url:", t?.source_url);
-  if (!realSourceUrl && t?.source_url && /youtube\.com|youtu\.be/.test(t.source_url)) {
+  console.log("-", p.titulo, "| status:", t?.status, "| kind:", t?.source_kind, "| attempts:", t?.attempts, "| last_error:", t?.last_error);
+  if (!realSourceUrl && t?.status === "error" && t?.source_url) {
     realSourceUrl = t.source_url;
     realTitle = p.titulo;
   }
 }
-if (!realSourceUrl) { console.log("NENHUM_SOURCE_URL_DO_YOUTUBE_ENTRE_OS_ENCONTRADOS"); process.exit(1); }
+if (!realSourceUrl) {
+  // fallback: qualquer um com source_url real, mesmo que já "ready"
+  for (const p of posts) {
+    const t = p.metrics?.instagram_reel_template;
+    if (t?.source_url) { realSourceUrl = t.source_url; realTitle = p.titulo; break; }
+  }
+}
+if (!realSourceUrl) { console.log("NENHUM_SOURCE_URL_ENTRE_OS_ENCONTRADOS"); process.exit(1); }
+console.log("\n>>> Reproduzindo com o post REAL:", realTitle, "(source_url:", realSourceUrl, ")");
 console.log("Post real:", realTitle);
 console.log("source_url real:", realSourceUrl);
 
-console.log("\n=== Baixando o vídeo REAL via yt-dlp (mesmo comando exato do runner real) ===");
-execSync("pip install --quiet --break-system-packages -U yt-dlp", { stdio: "inherit" });
-execSync(
-  `yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" ` +
-  `--merge-output-format mp4 -o reel-source.mp4 "${realSourceUrl}"`,
-  { stdio: "inherit" }
-);
+const isYoutube = /youtube\.com|youtu\.be/.test(realSourceUrl);
+if (isYoutube) {
+  console.log("\n=== Baixando o vídeo REAL via yt-dlp (mesmo comando exato do runner real) ===");
+  execSync("pip install --quiet --break-system-packages -U yt-dlp", { stdio: "inherit" });
+  execSync(
+    `yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" ` +
+    `--merge-output-format mp4 -o reel-source.mp4 "${realSourceUrl}"`,
+    { stdio: "inherit" }
+  );
+} else {
+  console.log("\n=== Baixando o vídeo REAL direto (curl — mesmo caminho de produção pra fonte não-YouTube) ===");
+  execSync(`curl --fail --location -sS "${realSourceUrl}" --max-time 300 -o reel-source.mp4`, { stdio: "inherit" });
+}
 execSync(`ffprobe -v error -show_entries format=duration,size -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,pix_fmt -of json reel-source.mp4`, { stdio: "inherit" });
 
 console.log("\n=== Criando container resumível real ===");
