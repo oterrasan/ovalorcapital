@@ -1,4 +1,4 @@
-name: Diagnóstico único — confirmar vídeo repetido (fix do script — link real, não favicon)
+name: Diagnóstico único — comparar source_url no banco entre posts reais do print
 on:
   push:
     paths:
