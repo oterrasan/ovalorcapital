@@ -25,18 +25,29 @@ console.log("\n=== Criando container resumível real (Graph API de verdade) ==="
 const container = await createReelContainerResumable("Teste técnico isolado — nunca publicado.", account.id, {});
 console.log(JSON.stringify(container, null, 2));
 
-console.log("\n=== Gerando clipe sintético mínimo (5s, 1080x1920, H264+AAC, closed GOP, faststart) ===");
+// 1ª rodada (já confirmada em execução anterior deste mesmo probe):
+// clipe simples (crf 20, level 4.1, sem overlay, 5s) foi ACEITO pela
+// Meta (HTTP 200 + FINISHED em segundos) — descarta conta/token/
+// permissão como causa. Agora testa com os PARÂMETROS EXATOS de
+// produção (render-instagram-reel.mjs: crf 16, level 5.1, maxrate 8M/
+// bufsize 16M) mas ainda SEM overlay/conteúdo real — se isso também
+// passar, isola ainda mais a causa pro overlay (composição via
+// filter_complex) ou pro conteúdo/upscale real do Bacci, não pro
+// codec/bitrate em si.
+console.log("\n=== Gerando clipe com os PARÂMETROS EXATOS de produção (crf16, level5.1, maxrate8M) ===");
 execSync(
   `ffmpeg -hide_banner -loglevel error -y ` +
   `-f lavfi -i "testsrc2=size=1080x1920:rate=30:duration=5" ` +
   `-f lavfi -i "sine=frequency=440:sample_rate=48000:duration=5" ` +
-  `-c:v libx264 -preset medium -crf 20 -profile:v high -level 4.1 -pix_fmt yuv420p ` +
+  `-c:v libx264 -preset medium -crf 16 -maxrate 8M -bufsize 16M ` +
   `-x264-params "scenecut=0:open_gop=0:keyint=60:min-keyint=60" ` +
-  `-c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart synth.mp4`,
+  `-profile:v high -level 5.1 -pix_fmt yuv420p ` +
+  `-c:a aac -b:a 128k -ar 48000 -ac 2 -movflags +faststart -fps_mode cfr synth.mp4`,
   { stdio: "inherit" }
 );
 const fileSize = execSync("stat -c%s synth.mp4").toString().trim();
-console.log("Tamanho do clipe sintético:", fileSize, "bytes");
+console.log("Tamanho do clipe:", fileSize, "bytes");
+execSync(`ffprobe -v error -show_entries stream=codec_name,width,height,pix_fmt,profile,level,r_frame_rate -of json synth.mp4`, { stdio: "inherit" });
 
 console.log("\n=== Upload resumível direto pra Meta (bytes sintéticos, spec perfeita) ===");
 const uploadRes = execSync(

@@ -1,4 +1,4 @@
-name: Diagnóstico único — isolar se o ProcessingFailedError é do vídeo ou da conta/token
+name: Diagnóstico único — round 2, parâmetros exatos de produção sem overlay
 on:
   push:
     paths:
