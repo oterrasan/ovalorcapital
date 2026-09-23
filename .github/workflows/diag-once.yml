@@ -1,4 +1,4 @@
-name: Diagnóstico único — round 2, parâmetros exatos de produção sem overlay
+name: Diagnóstico único — round 3, script real de produção (com overlay), fonte sintética
 on:
   push:
     paths:
@@ -18,5 +18,8 @@ jobs:
           npm ci --omit=dev
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
+          mkdir -p "$HOME/.local/share/fonts"
+          cp public/assets/fonts/Inter-Variable.ttf "$HOME/.local/share/fonts/Inter-Variable.ttf"
+          fc-cache -f
       - name: Probe isolado do upload resumível de Reel
         run: node .github/workflows/_diag_reels_probe.mjs
