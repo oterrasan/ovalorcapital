@@ -1,4 +1,4 @@
-name: Diagnóstico único — comparar source_url no banco entre posts reais do print
+name: Diagnóstico único — buscar direto as 2 matérias exatas dos prints (dentista/Itu vs Rick liberado)
 on:
   push:
     paths:
