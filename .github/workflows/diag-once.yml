@@ -1,4 +1,4 @@
-name: Diagnóstico único — por que READY não publica (hipótese video_url nulo caiu)
+name: Diagnóstico único (placeholder — inerte)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Confirmar backlog real de Reels presos por video_url nulo
-        run: node .github/workflows/_diag_video_null_check.mjs
+      - name: Placeholder (nada a fazer)
+        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
