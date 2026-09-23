@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder — inerte)
+name: Diagnóstico único — idade real da fila de Reels (pending/processing)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: Medir idade real da fila
+        run: node .github/workflows/_diag_queue_age.mjs
