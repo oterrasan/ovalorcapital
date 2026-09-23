@@ -1,4 +1,4 @@
-name: Diagnóstico único — vídeo sintético pelo mesmo pipeline, prova real
+name: Diagnóstico único — vídeo sintético pelo mesmo pipeline (fix -f mp4)
 on:
   push:
     paths:

@@ -29,6 +29,7 @@ const gen = await run("ffmpeg", [
   "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p",
   "-c:a", "aac", "-b:a", "128k",
   "-movflags", "+faststart",
+  "-f", "mp4",
   "reel-source"
 ]);
 console.log("gerar fonte sintética — exit:", gen.code, gen.stderr.slice(-500));
