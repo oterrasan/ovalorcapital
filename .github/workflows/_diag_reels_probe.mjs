@@ -25,14 +25,22 @@ console.log("\n=== Criando container resumível real ===");
 const container = await createReelContainerResumable("Teste técnico isolado — nunca publicado.", account.id, {});
 console.log(JSON.stringify(container, null, 2));
 
-console.log("\n=== Gerando fonte sintética local (substitui o download real do Bacci) ===");
+// Round 3 (já confirmado, HTTP 200/FINISHED): script real de produção
+// completo (overlay incluso) contra fonte sintética COM áudio — também
+// passou. Isso descarta overlay/composição/encode como causa. Única
+// variável real ainda não testada: fonte SEM NENHUMA faixa de áudio —
+// hipótese real (não suposição vazia — WebSearch confirmou que a Meta
+// documenta requisito de áudio pra Reels via API) é que vídeos do Bacci/
+// YouTube às vezes não têm áudio, e -map 0:a? (opcional) produziria um
+// MP4 final sem nenhuma faixa de áudio — Meta pode rejeitar isso.
+console.log("\n=== Gerando fonte sintética SEM ÁUDIO (só vídeo — testa a hipótese de áudio ausente) ===");
 execSync(
   `ffmpeg -hide_banner -loglevel error -y ` +
   `-f lavfi -i "testsrc2=size=512x640:rate=30:duration=10" ` +
-  `-f lavfi -i "sine=frequency=440:sample_rate=48000:duration=10" ` +
-  `-c:v libx264 -crf 18 -c:a aac -b:a 128k reel-source.mp4`,
+  `-c:v libx264 -crf 18 -an reel-source.mp4`,
   { stdio: "inherit" }
 );
+execSync(`ffprobe -v error -show_entries stream=codec_type,codec_name -of json reel-source.mp4`, { stdio: "inherit" });
 
 console.log("\n=== Rodando o SCRIPT REAL de produção (render-instagram-reel.mjs, sem nenhuma modificação) ===");
 writeFileSync("render-job.json", JSON.stringify({

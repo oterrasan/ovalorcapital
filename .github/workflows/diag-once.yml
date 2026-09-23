@@ -1,4 +1,4 @@
-name: Diagnóstico único — round 3, script real de produção (com overlay), fonte sintética
+name: Diagnóstico único — round 4, fonte sintética SEM audio (hipotese real)
 on:
   push:
     paths:
