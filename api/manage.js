@@ -1142,20 +1142,29 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
     if (!/^https?:\/\//i.test(String(p.imagem || ""))) return false;
     // 21/09/2026 — Roberto: "os vídeos devem ser prioridade de publicação
-    // no instagram". Um post com vídeo real (não YouTube — esse nunca vira
-    // Reel, ver reels_auto_publish) que TEM um template de Reel ativo (a
-    // captura automática do Bacci sempre cria um — ver
-    // enfileirarReelBacciSeHouver em api/run_portal.js) e ainda não esgotou
-    // as tentativas fica RESERVADO pro reels_auto_publish — nunca pode ser
-    // "gasto" aqui como post de imagem comum antes de ter a chance de
-    // virar Reel. IMPORTANTE: só reserva quando EXISTE template de verdade
-    // — vídeo anexado manualmente no admin (upload/link colado) nunca cria
-    // esse template (só grava video_url), então nunca entraria na fila do
-    // Reel; bloquear esse caso também deixaria a matéria presa pra sempre,
-    // sem publicar de jeito nenhum.
-    if (/^https?:\/\//i.test(String(p.video_url || "")) && !_isYouTubeUrl(p.video_url)) {
+    // no instagram". Um post que TEM um template de Reel ATIVO (a captura
+    // automática do Bacci sempre cria um — ver enfileirarReelBacciSeHouver
+    // em api/run_portal.js; um upload/link colado manualmente no admin
+    // também cria, via reels_set_source) e ainda não esgotou as tentativas
+    // fica RESERVADO pro reels_auto_publish — nunca pode ser "gasto" aqui
+    // como post de imagem comum antes de ter a chance de virar Reel.
+    // 23/09/2026 — 🔴 bug real corrigido: antes checava video_url (regex +
+    // não-YouTube) pra decidir se reservava — mas vídeo do Bacci vindo do
+    // YouTube (o formato mais comum hoje) tem video_url DELIBERADAMENTE
+    // null (só o template em metrics é gravado, ver comentário de
+    // enfileirarReelBacciSeHouver: "posts.video_url... fica de fora nesse
+    // caso"), então NUNCA era reservado — o feed de imagem podia publicar
+    // a matéria antes do Reel ter qualquer chance, mesmo com um template
+    // pending/ready esperando. A checagem certa é o STATUS do template,
+    // não video_url: "embed_only" (Roberto colou um link do YouTube
+    // manualmente no admin — nunca vira Reel, blindagem de direito
+    // autoral) é o único status que de fato NUNCA vai virar Reel — esse
+    // não reserva (bloquear esse caso deixaria a matéria presa pra
+    // sempre, sem publicar de jeito nenhum). Qualquer outro status ativo
+    // (pending/processing/error/ready) tem chance real e reserva.
+    {
       const template = _reelsTemplate(p.metrics);
-      if (template && !template.exhausted) return false;
+      if (template && template.status !== "embed_only" && !template.exhausted) return false;
     }
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     const categoria = String(tags[0] || "").trim().toLowerCase();
@@ -1819,8 +1828,22 @@ async function handleReelsPublish(req, res, body) {
 
   const { data: post, error } = await supabase.from("posts").select("*").eq("id", postId).single();
   if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
-  if (!/^https?:\/\//i.test(String(post.video_url || ""))) return res.status(400).json({ ok: false, error: "post_sem_video" });
-  if (_isYouTubeUrl(post.video_url)) return res.status(400).json({ ok: false, error: "video_do_youtube_nao_pode_virar_reel" });
+  // 23/09/2026 — 🔴 bug real confirmado: essas duas linhas checavam
+  // post.video_url — mas pra vídeo do Bacci vindo do YouTube (o formato
+  // mais comum hoje, ver enfileirarReelBacciSeHouver em api/run_portal.js)
+  // video_url fica DELIBERADAMENTE null (só o template em metrics é
+  // gravado, "posts.video_url (o player do site) fica de fora nesse
+  // caso... Roberto já pediu pra vídeo do Bacci ficar fora do site").
+  // Essas duas linhas rejeitavam esse caso com post_sem_video mesmo com um
+  // template PRONTO (renderizado, já confirmado pela Meta) — o Reel nunca
+  // era publicado, o container simplesmente expirava sem uso. A checagem
+  // real e suficiente já é _reelsTemplateReady() logo abaixo: um template
+  // com status "ready" só existe depois que o vídeo terminou de subir e a
+  // Meta confirmou — não importa se video_url está preenchido ou não. Um
+  // template "embed_only" (Roberto colou um link do YouTube manualmente no
+  // admin — nunca vira Reel, blindagem de direito autoral) nunca chega a
+  // "ready" de qualquer forma, então continua bloqueado do mesmo jeito,
+  // só que pela checagem certa.
   if (!_reelsTemplateReady(post)) {
     const template = _reelsTemplate(post.metrics);
     return res.status(409).json({
@@ -1862,11 +1885,22 @@ async function handleReelsAutoPublish(req, res, body) {
     if (accountsError) throw accountsError;
     if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
 
+    // 23/09/2026 — 🔴 bug real corrigido: o filtro `.not("video_url", "is",
+    // null)` excluía da consulta INTEIRA qualquer post com video_url nulo
+    // — mas vídeo do Bacci vindo do YouTube (o formato mais comum hoje)
+    // tem video_url DELIBERADAMENTE null (ver enfileirarReelBacciSeHouver
+    // em api/run_portal.js), mesmo com um template de Reel real, já
+    // renderizado e confirmado pronto pela Meta (status:"ready",
+    // ig_creation_id presente). Esses posts nunca eram nem candidatos —
+    // o container ficava pronto do lado da Meta e simplesmente expirava
+    // sem uso, nunca publicado. Fix: query e filtro passam a usar o
+    // template em metrics (mesma fonte de verdade de handleReelsRenderJob
+    // acima), não video_url.
     const { data: candidatos, error: candidatesError } = await supabase
       .from("posts")
       .select("id, titulo, video_url, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
       .eq("status", "publicado")
-      .not("video_url", "is", null)
+      .not("metrics->instagram_reel_template", "is", null)
       .order("published_at", { ascending: true })
       .limit(200);
     if (candidatesError) throw candidatesError;
@@ -1874,14 +1908,17 @@ async function handleReelsAutoPublish(req, res, body) {
     const publicadosHoje = await _reelsAutoContarHoje();
 
     const elegiveis = (candidatos || []).filter((p) => {
-      if (!/^https?:\/\//i.test(String(p.video_url || ""))) return false;
-      if (_isYouTubeUrl(p.video_url)) return false;
       const metrics = parseJsonMaybe(p.metrics, {});
       // 10/09/2026 — fix real: antes só checava metrics.instagram_reel.ig_id.
       // Se Roberto publica manualmente como IMAGEM no feed (ig_publish),
       // esse marcador nunca é setado — o Reels-auto republicava a MESMA
       // matéria como vídeo, achando que nunca tinha ido pro Instagram.
       if (_jaPublicadoOuReservadoNoInstagram(p, metrics)) return false;
+      // _reelsTemplateReady já é a checagem correta e suficiente: só
+      // "ready" com ig_creation_id presente — um template "embed_only"
+      // (Roberto colando link do YouTube manualmente, blindagem de
+      // direito autoral) nunca chega lá, então continua nunca virando
+      // Reel, sem precisar checar video_url/YouTube aqui de novo.
       if (!_reelsTemplateReady(p)) return false;
       return true;
     });
