@@ -1896,19 +1896,33 @@ async function handleReelsAutoPublish(req, res, body) {
     // sem uso, nunca publicado. Fix: query e filtro passam a usar o
     // template em metrics (mesma fonte de verdade de handleReelsRenderJob
     // acima), não video_url.
+    // 23/09/2026 — 🔴 bug real confirmado antes de qualquer publicação:
+    // Roberto — "nao quero que publique porque ja tem 2, 3 dias da noticia
+    // e nao faz sentido publicar coisa velha". A query buscava OLDEST-FIRST
+    // (ascending:true) e o filtro de elegibilidade não tinha NENHUM corte de
+    // idade — diferente do feed de imagem (_igAutoProcessAccount, que exige
+    // idadeMs <= IG_AUTO_IDADE_MAXIMA_MS, 12h). Ligar a automação de Reels
+    // do jeito que estava avançaria primeiro pelo backlog mais velho, sem
+    // limite nenhum. Fix: mesmo corte de 12h já usado no feed (reaproveitado,
+    // não duplicado — mesma semântica: "frescor pra publicação automática no
+    // Instagram") + ordenação invertida pra newest-first, igual ao feed.
     const { data: candidatos, error: candidatesError } = await supabase
       .from("posts")
       .select("id, titulo, video_url, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
       .eq("status", "publicado")
       .not("metrics->instagram_reel_template", "is", null)
-      .order("published_at", { ascending: true })
+      .order("published_at", { ascending: false })
       .limit(200);
     if (candidatesError) throw candidatesError;
 
     const publicadosHoje = await _reelsAutoContarHoje();
+    const agoraMs = Date.now();
 
     const elegiveis = (candidatos || []).filter((p) => {
       const metrics = parseJsonMaybe(p.metrics, {});
+      const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
+      const idadeMs = agoraMs - publishedAtMs;
+      if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
       // 10/09/2026 — fix real: antes só checava metrics.instagram_reel.ig_id.
       // Se Roberto publica manualmente como IMAGEM no feed (ig_publish),
       // esse marcador nunca é setado — o Reels-auto republicava a MESMA
