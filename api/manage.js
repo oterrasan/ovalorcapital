@@ -80,6 +80,18 @@ export default async function handler(req, res) {
       // req.query.pass via checkAdmin, então basta expor a action aqui.
       if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, undefined);
       if (action === "ig_collab_auto_process") return handleIgCollabAutoProcess(req, res, undefined);
+      // 23/09/2026 — bridge Vercel→GitHub Actions pro problema documentado
+      // acima (handleReelsRenderJob): o schedule: nativo do GitHub Actions
+      // pra instagram-auto.yml dispara com atraso real de 2-5h+ (confirmado
+      // com timestamps reais de runs consecutivos), enquanto o cron nativo
+      // da Vercel é comprovadamente confiável neste projeto (usado por 9
+      // outros crons em produção sem esse histórico de falha). Esta ação só
+      // dispara o workflow via API REST do GitHub (workflow_dispatch) — o
+      // processamento pesado (ffmpeg/yt-dlp) continua rodando só no runner
+      // do Actions, nunca migra pra cá (binário nativo). Ver
+      // handleDispatchReelsWorkflow — auth via checkAdmin (query.pass, mesmo
+      // padrão de ig_priority_publish acima).
+      if (action === "dispatch_reels_workflow") return handleDispatchReelsWorkflow(req, res, undefined);
       return handleStatus(res);
     }
 
@@ -445,7 +457,12 @@ function redactSecrets(message) {
   return String(message || "")
     .replace(/access_token=([^&\s"]+)/gi, "access_token=[redacted]")
     .replace(/("access_token"\s*:\s*")[^"]+/gi, "$1[redacted]")
-    .replace(/("token"\s*:\s*")[^"]+/gi, "$1[redacted]");
+    .replace(/("token"\s*:\s*")[^"]+/gi, "$1[redacted]")
+    // 23/09/2026 — defesa extra pro GH_DISPATCH_TOKEN (handleDispatchReelsWorkflow):
+    // nunca esperado que a API do GitHub ecoe o token de volta, mas se acontecer
+    // em algum caso de erro não previsto, isso garante que nunca vaza pro log.
+    .replace(/github_pat_[A-Za-z0-9_]+/g, "[redacted]")
+    .replace(/\bBearer\s+[^\s"]+/gi, "Bearer [redacted]");
 }
 
 async function handleIgPublish(req, res, body) {
@@ -1856,6 +1873,66 @@ async function handleReelsAutoPublish(req, res, body) {
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     await writeLog("error", "[reels] falha na execução: " + safeError);
+    return res.status(200).json({ ok: false, error: safeError });
+  }
+}
+
+// 23/09/2026 — bridge real pro problema documentado em handleReelsRenderJob:
+// o `schedule:` nativo do GitHub Actions pra instagram-auto.yml dispara com
+// atraso real de 2-5h+ em vez do configurado (confirmado com timestamps
+// reais, não suposição — um post real ficou `pending, attempts:0` por quase
+// 1h sem nenhuma tentativa). Cron nativo da Vercel já é comprovadamente
+// confiável neste projeto (9 outros crons em vercel.json, sem esse
+// histórico de falha) — em vez de tentar consertar o scheduler do GitHub
+// (fora do nosso controle), a Vercel chama esta ação, que dispara o
+// workflow via API REST do GitHub (workflow_dispatch). O processamento
+// pesado (ffmpeg/yt-dlp) continua só no runner do Actions — nunca migra
+// pra cá, são binários nativos que não existem em nenhuma function
+// serverless da Vercel (mesma cautela já documentada em core/storage.js).
+// Dispara sempre, em qualquer horário — seguro porque cada job do workflow
+// já se auto-gateia (preparar_reels não tem restrição de janela de
+// propósito, desde 21/09/2026; publicar/processar_collabs checam sozinhos,
+// server-side, se é hora de fazer algo real — um dispatch fora de hora só
+// resulta em jobs que rodam rápido e não fazem nada, nunca em publicação
+// indevida).
+async function handleDispatchReelsWorkflow(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  const token = process.env.GH_DISPATCH_TOKEN;
+  if (!token) {
+    await writeLog("error", "[reels-dispatch] GH_DISPATCH_TOKEN ausente no ambiente da Vercel");
+    return res.status(200).json({ ok: false, error: "gh_dispatch_token_ausente" });
+  }
+
+  try {
+    const ghRes = await fetch(
+      "https://api.github.com/repos/oterrasan/ovalorcapital/actions/workflows/instagram-auto.yml/dispatches",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "X-GitHub-Api-Version": "2022-11-28",
+          "User-Agent": "ovalorcapital-reels-dispatch"
+        },
+        body: JSON.stringify({ ref: "main" })
+      }
+    );
+
+    // GitHub retorna 204 sem corpo em sucesso — nunca tentar ler json() aí,
+    // fetch() lança em corpo vazio com alguns parsers.
+    if (ghRes.status === 204) {
+      return res.status(200).json({ ok: true, dispatched: true });
+    }
+
+    let detail = "";
+    try { detail = redactSecrets(JSON.stringify(await ghRes.json())); } catch (_) {}
+    await writeLog("error", `[reels-dispatch] GitHub retornou ${ghRes.status}: ${detail.slice(0, 300)}`);
+    return res.status(200).json({ ok: false, error: `github_status_${ghRes.status}`, detail: detail.slice(0, 300) });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", "[reels-dispatch] falha: " + safeError);
     return res.status(200).json({ ok: false, error: safeError });
   }
 }
