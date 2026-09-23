@@ -243,3 +243,25 @@ async function _downloadAndUploadVideoImpl(sourceUrl) {
   const { data: pub } = supabase.storage.from(VIDEO_BUCKET).getPublicUrl(path);
   return pub?.publicUrl || null;
 }
+
+// 23/09/2026 — Roberto, direto: "depois de publicar no instagram como reel,
+// descartar o video do nosso banco". Depois que um Reel publica com sucesso
+// de verdade na Meta, o arquivo bruto não precisa mais ocupar espaço no
+// nosso Storage — quem chama isto (api/manage.js) também limpa video_url
+// do post na sequência. Só apaga arquivo que É de fato nosso (bucket
+// post-videos, path com o prefixo público real) — nunca tenta apagar nada
+// fora disso, mesmo que a URL passada aponte pra outro lugar.
+const PUBLIC_URL_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/${VIDEO_BUCKET}/`;
+export async function deleteVideoFromStorage(publicUrl) {
+  const url = String(publicUrl || "");
+  if (!url.startsWith(PUBLIC_URL_PREFIX)) return { deleted: false, reason: "url_nao_e_do_nosso_bucket" };
+  const path = url.slice(PUBLIC_URL_PREFIX.length).split("?")[0];
+  if (!path) return { deleted: false, reason: "path_vazio" };
+  try {
+    const { error } = await supabase.storage.from(VIDEO_BUCKET).remove([path]);
+    if (error) return { deleted: false, reason: error.message || String(error) };
+    return { deleted: true, path };
+  } catch (e) {
+    return { deleted: false, reason: e?.message || String(e) };
+  }
+}

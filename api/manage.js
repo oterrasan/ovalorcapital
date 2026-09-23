@@ -6,6 +6,7 @@ import { detectPublicationLocation } from "../core/instagram_location.js";
 import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
 import { mirrorPostToBrasilOn } from "../core/brasilonMirror.js";
 import { normalizeCollabPolicy, shouldAutoAcceptCollab, normalizeInstagramUsername } from "../core/instagram_collab_policy.js";
+import { deleteVideoFromStorage } from "../core/storage.js";
 
 // 🚨 REGRA PERMANENTE — INCIDENTE 31/08/2026 (FUNCTION_INVOCATION_FAILED em TODA
 // ação de api/manage.js, admin em tela preta + Instagram automático parado):
@@ -1770,6 +1771,46 @@ async function _reelsPublicarPost(post, accountId) {
   };
 }
 
+// 23/09/2026 — Roberto, direto: "independente do arquivo original, nosso
+// sistema deve ser capaz de driblar qualquer erro, mesmo que seja fazendo
+// um download temporario para gerar nosso template, e depois de publicar
+// no instagram como reel, descartar o video do nosso banco." O download
+// pro render já é sempre temporário (runner efêmero do GH Actions — ver
+// core/storage.js e o comentário de _reelsPublicarPost acima, nunca
+// persistimos a versão com overlay). Esta função cobre a segunda parte:
+// depois que a Meta confirma a publicação de verdade, apaga o vídeo BRUTO
+// do nosso Storage e zera post.video_url. Consequência real e assumida:
+// o player de vídeo do próprio artigo no site (internal-page-v2.js, lê
+// video_url) para de mostrar esse vídeo a partir daqui — a matéria em si
+// (título/imagem/texto/SEO) continua 100% intacta, só o vídeo embutido
+// some. Best-effort, nunca lança: uma falha aqui não pode reverter uma
+// publicação que já aconteceu de verdade no Instagram.
+async function _reelsDescartarVideoAposPublicar(post) {
+  try {
+    const videoUrl = post?.video_url;
+    if (!/^https?:\/\//i.test(String(videoUrl || ""))) return { discarded: false, reason: "sem_video_url" };
+    const storageResult = await deleteVideoFromStorage(videoUrl);
+    const { data: current } = await supabase.from("posts").select("metrics").eq("id", post.id).single();
+    const metrics = parseJsonMaybe(current?.metrics, {});
+    if (metrics.instagram_reel_template) {
+      metrics.instagram_reel_template = {
+        ...metrics.instagram_reel_template,
+        status: "discarded",
+        discarded_at: new Date().toISOString(),
+        discarded_source_url: videoUrl
+      };
+    }
+    const { error } = await supabase.from("posts").update({ video_url: null, metrics, updated_at: new Date().toISOString() }).eq("id", post.id);
+    if (error) throw error;
+    await writeLog("info", `[reels] vídeo descartado do nosso banco após publicar: ${post.titulo || post.id} | storage:${storageResult.deleted ? "removido" : "não removido (" + storageResult.reason + ")"}`);
+    return { discarded: true, storage: storageResult };
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("error", `[reels] falha ao descartar vídeo pós-publicação (Reel já publicado, não afetado): ${safeError}`);
+    return { discarded: false, reason: safeError };
+  }
+}
+
 // Manual — Roberto escolhe uma matéria específica com vídeo no admin.
 async function handleReelsPublish(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
@@ -1793,7 +1834,8 @@ async function handleReelsPublish(req, res, body) {
   try {
     const resultado = await _reelsPublicarPost(post, body?.account_id || body?.ig_account_id || post.ig_account_id || null);
     await _reelsClaimConfirmar(post.id, { ...resultado, published_via: "reels_publish" });
-    return res.status(200).json({ ok: true, ...resultado });
+    const descarte = await _reelsDescartarVideoAposPublicar(post);
+    return res.status(200).json({ ok: true, ...resultado, video_discarded: descarte.discarded });
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     await writeLog("error", `[reels] falha manual: ${safeError}`);
@@ -1859,7 +1901,8 @@ async function handleReelsAutoPublish(req, res, body) {
       await _reelsClaimConfirmar(post.id, resultado);
       await _reelsAutoRegistrarPublicacao();
       await writeLog("info", `[reels] publicado: ${post.titulo} | ig:${resultado.ig_id}`);
-      return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, publicados_hoje: publicadosHoje + 1, ...resultado });
+      const descarte = await _reelsDescartarVideoAposPublicar(post);
+      return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, publicados_hoje: publicadosHoje + 1, ...resultado, video_discarded: descarte.discarded });
     } catch (e) {
       const safeError = redactSecrets(e?.message || String(e));
       // Libera a reserva pra tentar de novo (container novo) na próxima
