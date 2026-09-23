@@ -1,4 +1,4 @@
-name: Diagnóstico único — testar se é a legenda barrando o upload na Meta
+name: Diagnóstico único — vídeo sintético pelo mesmo pipeline, prova real
 on:
   push:
     paths:
