@@ -3713,6 +3713,8 @@ function AutomacaoInstagram() {
   const [reelsEnabled,setReelsEnabled] = useState(true);
   const [savingReels,setSavingReels] = useState(false);
   const [reelsMsg,setReelsMsg] = useState('');
+  const [pausandoReels,setPausandoReels] = useState(false);
+  const [pausaReelsMsg,setPausaReelsMsg] = useState('');
   const COLLAB_PADRAO = ['souabetaferreira','adriana.ferreirasp','amichelefroes'];
   const [collabEnabled,setCollabEnabled] = useState(false);
   const [collabRecipients,setCollabRecipients] = useState(COLLAB_PADRAO);
@@ -3805,6 +3807,21 @@ function AutomacaoInstagram() {
       setReelsMsg('Configuração de Reels salva.');
     } catch(e) { setReelsMsg('Erro ao salvar: '+e.message); } finally { setSavingReels(false); }
   };
+  // 23/09/2026 — botão de pausa/retomada IMEDIATA dos Reels, mesmo padrão
+  // de togglePausaGeral (OVC)/togglePausaBrasilOn: Roberto — "a automacao
+  // dos reels precisa ficar disponivel pra eu ligar e pausar quando eu
+  // quiser, assim como os posts normais". Grava SÓ REELS_AUTOMATION_ENABLED,
+  // 1 clique, sem depender do checkbox+Salvar do painel abaixo.
+  const togglePausaReels = async () => {
+    setPausandoReels(true); setPausaReelsMsg('');
+    try {
+      const next = !reelsEnabled;
+      await setConfig('REELS_AUTOMATION_ENABLED', next ? 'on' : 'off');
+      setReelsEnabled(next);
+      setPausaReelsMsg(next ? 'Automação de Reels retomada agora.' : 'Automação de Reels pausada agora.');
+    } catch(e) { setPausaReelsMsg('Erro ao pausar/retomar: '+e.message); }
+    finally { setPausandoReels(false); }
+  };
   const collabCandidates=[...new Set([...COLLAB_PADRAO,...igAccounts.map(a=>String(a.username||'').replace(/^@/,'').toLowerCase())])]
     .filter(x=>x&&!['ovalorcapital','obrasilon','oterrasan'].includes(x));
   const collabReadiness = username => {
@@ -3857,6 +3874,10 @@ function AutomacaoInstagram() {
         <div className="panel-header"><span className="panel-title">🎞️ Automação de Reels (vídeo)</span><span className={`badge ${reelsEnabled?'badge-green':'badge-red'}`}>{reelsEnabled?'ATIVA':'PAUSADA'}</span></div>
         <div style={{padding:20}}>
           <div className="text-secondary text-small" style={{marginBottom:12}}>Publica automaticamente como Reel qualquer matéria com vídeo (upload direto, ou link hospedado — nunca YouTube, o Instagram exige o arquivo real). Mesma janela ativa da automação acima.</div>
+          <button onClick={togglePausaReels} disabled={pausandoReels} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'16px 22px',fontSize:16,fontWeight:800,borderRadius:10,border:'none',cursor:pausandoReels?'wait':'pointer',opacity:pausandoReels?0.7:1,background:reelsEnabled?'var(--red)':'var(--green)',color:'#fff',marginBottom:14,letterSpacing:0.2}}>
+            {pausandoReels ? 'Aplicando...' : (reelsEnabled ? '⏸ PAUSAR REELS AGORA' : '▶ RETOMAR REELS AGORA')}
+          </button>
+          {pausaReelsMsg && <div style={{marginBottom:14,fontSize:13,fontWeight:600,color:pausaReelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaReelsMsg}</div>}
           <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={reelsEnabled} onChange={e=>setReelsEnabled(e.target.checked)}/><span>{reelsEnabled?'Ligada':'Pausada'}</span></label></div>
           <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingReels} onClick={saveReels}>{savingReels?'Salvando...':'Salvar configuração'}</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
         </div>
