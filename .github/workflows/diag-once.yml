@@ -1,4 +1,4 @@
-name: Diagnóstico único — round 5, conteudo REAL baixado da Bacci via yt-dlp
+name: Diagnóstico único — round 5b, query corrigida (filtro direto por template)
 on:
   push:
     paths:

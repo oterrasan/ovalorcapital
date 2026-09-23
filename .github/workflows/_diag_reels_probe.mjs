@@ -16,12 +16,13 @@ const accRes = await fetch(`${SUPABASE_URL}/rest/v1/ig_accounts?select=id,userna
 const [account] = await accRes.json();
 if (!account) { console.log("CONTA_NAO_ENCONTRADA"); process.exit(1); }
 
-console.log("=== Achando um post REAL recente com template de Reel pendente (pra pegar o source_url real) ===");
+console.log("=== Achando um post REAL recente com template de Reel (pra pegar o source_url real) ===");
 const postsRes = await fetch(
-  `${SUPABASE_URL}/rest/v1/posts?select=id,titulo,metrics&order=updated_at.desc&limit=30`,
+  `${SUPABASE_URL}/rest/v1/posts?select=id,titulo,metrics&metrics->instagram_reel_template=not.is.null&order=updated_at.desc&limit=300`,
   { headers: H }
 );
 const posts = await postsRes.json();
+console.log("Posts com template de Reel encontrados:", Array.isArray(posts) ? posts.length : "ERRO: " + JSON.stringify(posts));
 let realSourceUrl = null;
 let realTitle = null;
 for (const p of posts) {
