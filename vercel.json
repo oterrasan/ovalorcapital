@@ -14,7 +14,8 @@
     { "path": "/api/run_portal?tipo=internacional&force=true&count=3&pass=ovc-admin-2026-secreto", "schedule": "14,34,54 0-2,9-23 * * *" },
     { "path": "/api/run_portal?tipo=fofocas&force=true&count=4&pass=ovc-admin-2026-secreto", "schedule": "16,36,56 0-2,9-23 * * *" },
     { "path": "/api/manage?action=ig_priority_publish&pass=ovc-admin-2026-secreto", "schedule": "*/5 * * * *" },
-    { "path": "/api/manage?action=ig_collab_auto_process&pass=ovc-admin-2026-secreto", "schedule": "*/15 * * * *" }
+    { "path": "/api/manage?action=ig_collab_auto_process&pass=ovc-admin-2026-secreto", "schedule": "*/15 * * * *" },
+    { "path": "/api/manage?action=dispatch_reels_workflow&pass=ovc-admin-2026-secreto", "schedule": "4,19,34,49 * * * *" }
   ],
   "functions": {
     "api/run_portal.js": { "maxDuration": 60 },
