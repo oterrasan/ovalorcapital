@@ -1,4 +1,4 @@
-name: Diagnóstico único — inspecionar HTML real ao redor do widget de vídeo duplicado
+name: Diagnóstico único — validar fix real contra os 4 casos conhecidos
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Inspecionar HTML real das 2 materias
+      - name: Validar fix
         run: node .github/workflows/_diag_video_null_check.mjs

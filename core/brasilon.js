@@ -166,8 +166,60 @@ export async function buscarCandidatosBrasilOn() {
 // pra tentar o próximo candidato da página se o primeiro for o placeholder
 // + exclusão explícita do literal "live_stream".
 const _YOUTUBE_EMBED_RE = /(?:youtube(?:-nocookie)?\.com\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/gi;
-const _BACCI_IFRAME_VIDEO_RE = /estatico\/bacci\.php\?video=(\d+)[^"'\s<>]*/i;
+// 23/09/2026 — captura a tag <iframe ...> INTEIRA (não só o video=ID) pra
+// dar pra extrair também o atributo title dela — ver blindagem abaixo.
+const _BACCI_IFRAME_TAG_RE = /<iframe\b[^>]*estatico\/bacci\.php\?video=\d+[^>]*>/i;
+const _BACCI_IFRAME_VIDEO_ID_RE = /video=(\d+)/i;
+const _BACCI_IFRAME_TITLE_RE = /\btitle="([^"]*)"/i;
 const _BACCI_VIDEOS_PAGE_RE = /href="(https:\/\/baccinoticias\.com\.br\/videos\/[^"]+)"/i;
+
+// 23/09/2026 — 🔴 causa raiz real, confirmada com dado real (hash sha256
+// idêntico entre 2 matérias sem NENHUMA relação — "Corpo de Rick é
+// liberado" e "Dentista desaparecido é achado morto em Itu"): a Bacci
+// embutiu, na PRÓPRIA página do artigo do Rick, um vídeo cujo title do
+// iframe (dado pela própria Bacci) é literalmente "Veja o momento que a
+// polícia encontra o corpo do dentista desaparecido no meio da mata" —
+// erro editorial do LADO DELES (provável reaproveitamento indevido de
+// template/vídeo entre 2 matérias parecidas — "corpo encontrado na mata"
+// — publicadas perto uma da outra). Nosso scraper extraiu fielmente o
+// que a Bacci publicou; a única defesa possível é aqui, checando se a
+// legenda que a própria Bacci dá ao vídeo tem QUALQUER relação real com
+// o artigo antes de aceitar. Termos genéricos de reportagem de crime/
+// tragédia (corpo, desaparecido, polícia, mata, momento, veja...)
+// aparecem em quase toda matéria do gênero e NUNCA contam como sinal de
+// correspondência — só palavras mais específicas (dentista, nomes
+// próprios, etc.) fazem a diferença real entre "é da mesma matéria" e
+// "vazou de outra".
+const _TERMOS_GENERICOS_TRAGEDIA = new Set([
+  "corpo", "corpos", "desaparecido", "desaparecida", "desaparecidos", "desaparecimento", "desaparecer",
+  "encontrado", "encontrada", "encontra", "achado", "achada", "morto", "morta", "morte", "mortes",
+  "policia", "policial", "investiga", "investigacao", "buscas", "busca", "procura",
+  "familia", "familiares", "area", "mata", "local", "regiao", "sinais", "violencia",
+  "iml", "caso", "vitima", "vitimas", "momento", "cena", "video", "imagens", "registra",
+  "segue", "liberado", "liberada", "liberacao", "veja", "assista", "confira", "saiba",
+  "entenda", "meio", "apos", "antes", "durante", "enquanto", "onde", "quando", "como", "porque"
+]);
+
+function _extrairPalavrasSignificativas(texto) {
+  return String(texto || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !_TERMOS_GENERICOS_TRAGEDIA.has(w));
+}
+
+// Fail-safe deliberado: sem legenda pra checar (title vazio/ausente) OU
+// nenhuma palavra específica sobra depois do filtro genérico, DEIXA
+// PASSAR (mesmo comportamento de sempre — não regride nada) — só REJEITA
+// quando existe sinal específico real E nenhum bate com o artigo.
+function _videoConfiavelParaArtigo(videoTitle, htmlArtigo) {
+  const palavrasVideo = _extrairPalavrasSignificativas(videoTitle);
+  if (!palavrasVideo.length) return true;
+  const textoArtigo = String(htmlArtigo || "").replace(/<[^>]+>/g, " ");
+  const palavrasArtigo = new Set(_extrairPalavrasSignificativas(textoArtigo));
+  return palavrasVideo.some((w) => palavrasArtigo.has(w));
+}
 
 export async function descobrirPaginaVideoBacci(urlMateria) {
   try {
@@ -178,9 +230,16 @@ export async function descobrirPaginaVideoBacci(urlMateria) {
     const ytIdValido = ytIds.find((id) => id.toLowerCase() !== "live_stream");
     if (ytIdValido) return { kind: "youtube", url: `https://www.youtube.com/watch?v=${ytIdValido}` };
 
-    const m = htmlMateria.match(_BACCI_IFRAME_VIDEO_RE);
-    if (!m) return null;
-    const idVideo = m[1];
+    const tagM = htmlMateria.match(_BACCI_IFRAME_TAG_RE);
+    if (!tagM) return null;
+    const tag = tagM[0];
+    const idM = tag.match(_BACCI_IFRAME_VIDEO_ID_RE);
+    if (!idM) return null;
+    const idVideo = idM[1];
+    const tituloM = tag.match(_BACCI_IFRAME_TITLE_RE);
+    const tituloVideo = tituloM ? tituloM[1] : "";
+    if (!_videoConfiavelParaArtigo(tituloVideo, htmlMateria)) return null;
+
     const urlIframe = `https://baccinoticias.com.br/estatico/bacci.php?video=${idVideo}&limit=1&v=1.0`;
     const resIframe = await axios.get(urlIframe, { timeout: 8000, headers: { "User-Agent": UA } });
     const htmlIframe = String(resIframe.data || "");
