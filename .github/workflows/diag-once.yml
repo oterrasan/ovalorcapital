@@ -1,4 +1,4 @@
-name: Diagnóstico único — comparar conteúdo real (hash+frame) dos 2 vídeos do print
+name: Diagnóstico único — inspecionar HTML real ao redor do widget de vídeo duplicado
 on:
   push:
     paths:
@@ -15,17 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Instalar ffmpeg
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
-      - name: Comparar conteudo real dos 2 videos
+      - name: Inspecionar HTML real das 2 materias
         run: node .github/workflows/_diag_video_null_check.mjs
-      - name: Upload dos frames extraidos
-        uses: actions/upload-artifact@v4
-        with:
-          name: frames-comparacao
-          path: |
-            rick-frame.jpg
-            dentista-frame.jpg
-          retention-days: 1
