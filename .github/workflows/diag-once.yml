@@ -1,4 +1,4 @@
-name: Diagnóstico único — validar fix real contra os 4 casos conhecidos
+name: Diagnóstico único — limpar o post do Rick com video errado ja gravado
 on:
   push:
     paths:
