@@ -1,4 +1,4 @@
-name: Diagnóstico único — confirmar vídeo repetido entre matérias diferentes da Bacci
+name: Diagnóstico único — confirmar vídeo repetido (fix do script — link real, não favicon)
 on:
   push:
     paths:
