@@ -1,4 +1,4 @@
-name: Diagnóstico único — token do @oterrasan em ig_accounts (24/09)
+name: Diagnóstico único — token do @oterrasan em ig_accounts (24/09, rerun)
 on:
   push:
     paths:
