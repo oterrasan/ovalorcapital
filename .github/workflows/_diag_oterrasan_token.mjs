@@ -12,7 +12,7 @@ const supabase = createClient(
 async function main() {
   const { data, error } = await supabase
     .from("ig_accounts")
-    .select("id,username,active,ig_user_id,token,updated_at")
+    .select("id,username,active,ig_user_id,token")
     .ilike("username", "oterrasan");
   if (error) {
     console.log("ERRO:", error.message);
@@ -23,7 +23,7 @@ async function main() {
     return;
   }
   for (const row of data) {
-    console.log(`RESULTADO: id=${row.id} username=${row.username} active=${row.active} ig_user_id=${row.ig_user_id ? "presente" : "AUSENTE"} token=${row.token ? "presente" : "AUSENTE"} updated_at=${row.updated_at}`);
+    console.log(`RESULTADO: id=${row.id} username=${row.username} active=${row.active} ig_user_id=${row.ig_user_id ? "presente" : "AUSENTE"} token=${row.token ? "presente" : "AUSENTE"}`);
   }
 }
 
