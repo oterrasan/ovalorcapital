@@ -975,6 +975,29 @@ const REELS_TEMPLATE_VERSION_BRASILON = "ovc-reels-2026-09-v2";
 // formatos divergirem com o tempo. "instagram" entra aqui no mesmo grupo de
 // "youtube" (nunca baixa aqui, só grava a URL crua — precisa de yt-dlp, que
 // só roda no runner, mesmo motivo já documentado abaixo pro YouTube).
+// 24/09/2026 — Roberto: "demorou quase meia hora, é inaceitavel". A maior
+// parte disso era só esperar o próximo tick do cron da Vercel
+// (dispatch_reels_workflow, a cada 15min — vercel.json) antes mesmo do
+// runner do GitHub Actions começar. Em vez de só esperar o cron, dispara o
+// MESMO workflow agora, na hora que o vídeo é enfileirado — o cron continua
+// existindo como rede de segurança (se este disparo falhar, o próximo tick
+// ainda cobre). Isso não elimina o tempo real de download+ffmpeg+upload pro
+// Meta (física real, não dá pra ser instantâneo), mas corta fora a espera
+// de até 15min que era pura fila, não processamento.
+async function dispararReelsWorkflowAgora() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    await fetch(
+      "https://www.ovalorcapital.com.br/api/manage?action=dispatch_reels_workflow&pass=ovc-admin-2026-secreto",
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+  } catch (_) {
+    // best-effort — o cron da Vercel a cada 15min continua como fallback
+  }
+}
+
 async function enfileirarReelSeHouver(postId, video, logLabel) {
   if (!video) return false;
   try {
@@ -1005,6 +1028,7 @@ async function enfileirarReelSeHouver(postId, video, logLabel) {
     if (videoUrlPortal) patch.video_url = videoUrlPortal;
     await supabase.from("posts").update(patch).eq("id", postId);
     await log("info", `[${logLabel}] vídeo (${video.kind}) enfileirado pro Reel — post ${postId}`);
+    await dispararReelsWorkflowAgora();
     return true;
   } catch (_) {
     // best-effort — nunca afeta a matéria já publicada

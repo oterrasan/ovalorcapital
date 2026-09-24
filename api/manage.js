@@ -1668,6 +1668,22 @@ async function handleReelsRenderComplete(req, res, body) {
   const { error } = await supabase.from("posts").update({ metrics, error_msg: null, updated_at: new Date().toISOString() }).eq("id", postId);
   if (error) throw error;
   await writeLog("info", `[reels-render] template pronto (upload direto pro Instagram, sem Supabase): ${post.titulo || postId}`);
+
+  // 24/09/2026 — Roberto: "demorou quase meia hora". Achado real: dentro do
+  // MESMO run do GitHub Actions, o job "publicar" roda EM PARALELO com o
+  // job "preparar_reels" (sem needs: um esperando o outro) — então quando
+  // este render termina e marca "ready" aqui, o "publicar" daquele mesmo
+  // run já tinha rodado minutos antes e não pegou nada. Sem este disparo,
+  // o item só seria efetivamente publicado/visível como pronto no PRÓXIMO
+  // tick periódico do cron (até 15min depois). Disparando de novo agora,
+  // um run novo nasce na hora e o job "publicar" dele (rápido, ~1-3s por
+  // medição real) já pega este item pronto. Bounded a 4s pra nunca atrasar
+  // esta resposta de verdade — best-effort, nunca falha o render-complete.
+  await Promise.race([
+    _dispatchReelsWorkflowAgora().catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, 4000))
+  ]);
+
   return res.status(200).json({ ok: true, ready: true, post_id: postId, ig_creation_id: template.ig_creation_id });
 }
 
@@ -1989,13 +2005,14 @@ async function handleReelsAutoPublish(req, res, body) {
 // server-side, se é hora de fazer algo real — um dispatch fora de hora só
 // resulta em jobs que rodam rápido e não fazem nada, nunca em publicação
 // indevida).
-async function handleDispatchReelsWorkflow(req, res, body) {
-  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
-
+// 24/09/2026 — extraído de handleDispatchReelsWorkflow pra poder ser
+// chamado internamente (best-effort, sem HTTP req/res) também de dentro de
+// handleReelsRenderComplete — ver comentário lá embaixo pro motivo real.
+async function _dispatchReelsWorkflowAgora() {
   const token = process.env.GH_DISPATCH_TOKEN;
   if (!token) {
     await writeLog("error", "[reels-dispatch] GH_DISPATCH_TOKEN ausente no ambiente da Vercel");
-    return res.status(200).json({ ok: false, error: "gh_dispatch_token_ausente" });
+    return { ok: false, error: "gh_dispatch_token_ausente" };
   }
 
   try {
@@ -2017,18 +2034,24 @@ async function handleDispatchReelsWorkflow(req, res, body) {
     // GitHub retorna 204 sem corpo em sucesso — nunca tentar ler json() aí,
     // fetch() lança em corpo vazio com alguns parsers.
     if (ghRes.status === 204) {
-      return res.status(200).json({ ok: true, dispatched: true });
+      return { ok: true, dispatched: true };
     }
 
     let detail = "";
     try { detail = redactSecrets(JSON.stringify(await ghRes.json())); } catch (_) {}
     await writeLog("error", `[reels-dispatch] GitHub retornou ${ghRes.status}: ${detail.slice(0, 300)}`);
-    return res.status(200).json({ ok: false, error: `github_status_${ghRes.status}`, detail: detail.slice(0, 300) });
+    return { ok: false, error: `github_status_${ghRes.status}`, detail: detail.slice(0, 300) };
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
     await writeLog("error", "[reels-dispatch] falha: " + safeError);
-    return res.status(200).json({ ok: false, error: safeError });
+    return { ok: false, error: safeError };
   }
+}
+
+async function handleDispatchReelsWorkflow(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const result = await _dispatchReelsWorkflowAgora();
+  return res.status(200).json(result);
 }
 
 async function handleTrackView(res, body) {
