@@ -1,4 +1,4 @@
-name: Diagnóstico único — curtida automática de collabs por perfil (24/09)
+name: Diagnóstico único — erro real do likeMedia (24/09, rodada 2)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Ver padrão real de accept/like por perfil
-        run: node .github/workflows/_diag_collab_likes.mjs
+      - name: Ver erro real que a Meta devolve pro likeMedia
+        run: node .github/workflows/_diag_like_error.mjs
