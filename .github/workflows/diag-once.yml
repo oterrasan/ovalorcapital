@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder — inerte)
+name: Diagnóstico — o que o Instagram devolve de verdade pro nosso scraper
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: O que o Instagram devolve pro nosso scraper (link real de Roberto)
+        run: node .github/workflows/_diag_instagram_scrape.mjs
