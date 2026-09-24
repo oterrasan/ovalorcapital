@@ -1,4 +1,4 @@
-name: Diagnóstico único — confirmar fix de curtida em caso real pós-deploy
+name: Diagnóstico único (placeholder — inerte)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Ver se algum evento real ja rodou pos-deploy
-        run: node .github/workflows/_diag_verify_like_fix.mjs
+      - name: Placeholder (nada a fazer)
+        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
