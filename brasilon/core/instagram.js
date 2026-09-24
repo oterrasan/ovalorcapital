@@ -23,6 +23,11 @@ const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreir
 // collabs é inadmissível". Mesma exclusão fixa do OVC (core/instagram.js,
 // raiz), duplicada aqui de propósito — zero import cruzado entre os
 // portais.
+// 24/09/2026 — Roberto: "todas as materias que forem reels, voce coloca o
+// @oterrasan pra aceitar automaticamente, assim como os demais perfis. só
+// nos REELS" — mesmo ajuste feito no OVC (core/instagram.js, raiz),
+// duplicado aqui de propósito. Continua excluído pra feed (post de
+// imagem), só passa a auto-aceitar quando tag==="reel".
 const NEVER_AUTO_ACCEPT = "oterrasan";
 
 async function writeLog(level, message) {
@@ -266,8 +271,8 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const attempts = [0, 5000, 15000, 30000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
-    if (username === NEVER_AUTO_ACCEPT) {
-      return { username, skipped: true, reason: "nunca_aceita_automatico" };
+    if (username === NEVER_AUTO_ACCEPT && tag !== "reel") {
+      return { username, skipped: true, reason: "nunca_aceita_automatico_fora_de_reels" };
     }
     try {
       const { data: acc } = await supabase

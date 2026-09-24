@@ -11,6 +11,15 @@ const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
 // collabs é inadmissível". Exclusão fixa, não lê config — mesma regra já
 // usada no aceite por polling (core/instagram_collab_policy.js).
+// 24/09/2026 — Roberto: "todas as materias que forem reels, voce coloca o
+// @oterrasan pra aceitar automaticamente, assim como os demais perfis. só
+// nos REELS". A exclusão continua valendo pra feed (post de imagem normal)
+// — só passa a auto-aceitar quando tag==="reel", os 2 pontos que já
+// chamam acceptCollabsForMedia(...,"reel") mais abaixo. O aceite por
+// polling (core/instagram_collab_policy.js, rede de segurança pra convite
+// manual fora da nossa automação) NÃO tem como saber feed/reel — a API de
+// convites (getCollaborationInvites) não devolve media_type — então
+// continua excluindo oterrasan sempre lá, sem mudança.
 const NEVER_AUTO_ACCEPT = "oterrasan";
 
 async function writeLog(level, message) {
@@ -425,8 +434,8 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const attempts = [0, 5000, 15000, 30000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
-    if (username === NEVER_AUTO_ACCEPT) {
-      return { username, skipped: true, reason: "nunca_aceita_automatico" };
+    if (username === NEVER_AUTO_ACCEPT && tag !== "reel") {
+      return { username, skipped: true, reason: "nunca_aceita_automatico_fora_de_reels" };
     }
     try {
       const { data: acc } = await supabase
