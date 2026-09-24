@@ -4121,6 +4121,114 @@ function VideosAdmin() {
   );
 }
 
+// 24/09/2026 — Engrenagem de Reescrita por Link. Roberto: "Quero que voce
+// construa uma engrenagem para que eu insira um link de instagram ou de
+// site, a engrenagem deve ser capaz de capturar imagem e o video e fazer o
+// processo que ja temos para os reels de instagram... nao importa o tipo ou
+// o tamanho." + "nesta nova ferramenta quem determina o que vai, é apenas
+// EU, nao havera automacao de sistema buscando nada. só ira confeccionar o
+// que eu mandar e inserir de link" — 100% sob demanda, um link de cada vez,
+// sem nenhuma busca automática. Backend: action=link_manual em
+// api/run_portal.js (handleLinkManual), pré-gate — funciona mesmo com
+// AUTOMATION desligado ou fora da janela 07h-00h30, de propósito.
+function LinkManualAdmin() {
+  const [link, setLink] = useState('');
+  const [categoria, setCategoria] = useState('brasil-on');
+  const [processando, setProcessando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [erro, setErro] = useState('');
+  const [historico, setHistorico] = useState([]);
+
+  const carregarHistorico = async () => {
+    const { data } = await sb.from('posts').select('id,titulo,status,created_at,metrics')
+      .eq('publish_method', 'link_manual').order('created_at', { ascending: false }).limit(15);
+    setHistorico(data || []);
+  };
+  useEffect(() => { carregarHistorico(); }, []);
+
+  const processar = async () => {
+    const l = link.trim();
+    if (!l) return;
+    setProcessando(true); setErro(''); setResultado(null);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 55000);
+    try {
+      const r = await fetch('/api/run_portal', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'link_manual', link: l, categoria }),
+        signal: ctrl.signal
+      });
+      const d = await r.json();
+      if (!d.ok) { setErro(d.error || 'falha desconhecida ao processar o link'); return; }
+      setResultado(d);
+      setLink('');
+      carregarHistorico();
+    } catch (e) {
+      setErro(e.name === 'AbortError' ? 'Demorou demais pra processar (mais de 55s) — o link pode estar bloqueando raspagem, ou a matéria era muito longa. Tente de novo.' : ('Erro de conexão: ' + e.message));
+    } finally {
+      clearTimeout(timer);
+      setProcessando(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">🔗 Reescrita por Link</div>
+        <div className="page-sub">Cole um link do Instagram (post ou reel) ou de qualquer site — a engrenagem captura texto, imagem e vídeo (se houver), reescreve e deixa pendente pra você revisar. Nada disso roda sozinho — só processa o link que você colar aqui.</div>
+      </div>
+      <div className="page-body" style={{display:'grid',gridTemplateColumns:'380px 1fr',gap:16,alignItems:'start'}}>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Novo link</span></div>
+          <div style={{padding:14}}>
+            <div className="form-group">
+              <label className="form-label">Link (Instagram ou qualquer site)</label>
+              <input className="form-input" style={{fontSize:12}} placeholder="https://www.instagram.com/p/... ou https://outrosite.com/materia"
+                value={link} onChange={e=>setLink(e.target.value)} disabled={processando}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Categoria</label>
+              <select className="form-select" value={categoria} onChange={e=>setCategoria(e.target.value)} disabled={processando}>
+                {CATS_LIST.filter(c=>c).map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <button type="button" className="btn btn-primary" style={{width:'100%'}} disabled={!link.trim()||processando} onClick={processar}>
+              {processando ? '⏳ Processando (pode levar até 1 min)...' : '⚙️ Processar link'}
+            </button>
+            {erro && <div style={{marginTop:12,padding:10,background:'rgba(255,80,80,0.1)',border:'1px solid rgba(255,80,80,0.3)',borderRadius:8,fontSize:12,color:'#ff8080'}}>❌ {erro}</div>}
+            {resultado && (
+              <div style={{marginTop:12,padding:10,background:'rgba(80,255,150,0.08)',border:'1px solid rgba(80,255,150,0.25)',borderRadius:8,fontSize:12,color:'var(--t1)'}}>
+                ✅ Salvo como <strong>pendente</strong>: {resultado.titulo}<br/>
+                🖼️ Imagem: {resultado.imagem_capturada ? 'capturada' : 'não encontrada — adicione manualmente antes de aprovar'}<br/>
+                🎬 Vídeo: {resultado.video_detectado ? ('detectado (' + resultado.video_detectado + ') — entrou na fila do Reel') : 'nenhum encontrado nesse link'}<br/>
+                Revise em <strong>Postagens → pendentes</strong> antes de aprovar.
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="panel">
+          <div className="panel-header"><span className="panel-title">Últimos links processados</span></div>
+          <div style={{padding:14}}>
+            {!historico.length && <div className="text-secondary text-small">Nenhum link processado ainda.</div>}
+            {historico.map(p => {
+              const m = (typeof p.metrics === 'object' && p.metrics) || {};
+              const temReel = !!m.instagram_reel_template;
+              return (
+                <div key={p.id} style={{padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                  <div style={{fontSize:13,fontWeight:600}}>{p.titulo}</div>
+                  <div className="text-secondary text-small">
+                    {p.status} {temReel ? '· 🎬 reel na fila' : ''} · {new Date(toUtcISO(p.created_at)).toLocaleString('pt-BR')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
   {id:'editorai',label:'Editor IA',icon:'⚡'},
@@ -4128,6 +4236,7 @@ const PAGES = [
   {id:'novopost',label:'Novo Post',icon:'✏️'},
   {id:'postagens',label:'Postagens',icon:'📝'},
   {id:'videos',label:'Vídeos',icon:'🎬'},
+  {id:'link_manual',label:'Reescrita por Link',icon:'🔗'},
   {id:'contas',label:'Contas Instagram',icon:'📱'},
   {id:'automacao_instagram',label:'Automação Instagram',icon:'⏱️'},
   {id:'fontes',label:'Fontes RSS',icon:'📡'},
@@ -4314,7 +4423,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{localStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,videos:VideosAdmin,contas:ContasInstagram,automacao_instagram:AutomacaoInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
+  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,videos:VideosAdmin,link_manual:LinkManualAdmin,contas:ContasInstagram,automacao_instagram:AutomacaoInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
 
   return (
     <div className="layout">

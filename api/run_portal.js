@@ -7,6 +7,7 @@ import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteFofocas } from "../core/ai_portal.js";
 import { downloadAndUploadVideo } from "../core/storage.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma, descobrirPaginaVideoBacci } from "../core/brasilon.js";
+import { ehInstagram, ehYoutube, descobrirVideoGenerico } from "../core/linkCapture.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
 import { buscarCandidatosFofocas, pareceConteudoPromocional as pareceConteudoPromocionalFofocas } from "../core/fofocas.js";
@@ -376,6 +377,101 @@ async function inserir(content, hash, img, tipo = "padrao", extraMetrics = {}) {
   }).select().single();
   if (error) throw error;
   return data;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENGRENAGEM DE REESCRITA POR LINK — 24/09/2026, Roberto Terrasan: "Quero que
+// voce construa uma engrenagem para que eu insira um link de instagram ou de
+// site, a engrenagem deve ser capaz de capturar imagem e o video e fazer o
+// processo que ja temos para os reels de instagram. esta engrenagem deve nao
+// apenas fazer isso, mas ler e reescrever a materia, nao importa o tipo ou o
+// tamanho." + "nesta nova ferramenta quem determina o que vai, é apenas EU,
+// nao havera automacao de sistema buscando nada. só ira confeccionar o que
+// eu mandar e inserir de link".
+//
+// 100% sob demanda — SEM cron, SEM candidato descoberto sozinho (ver
+// handleLinkManual abaixo, chamado direto pelo dispatcher antes até do gate
+// de automacaoAtiva()/janelaOk(), mesmo padrão já usado por action=
+// buscar_imagem/cleanup_titles/video_de_url logo acima em handler()) — só
+// processa o link exato que vier no corpo da requisição, nunca busca nada
+// por conta própria.
+//
+// TEXTO/IMAGEM: scrape() (core/scraper.js) já cobre Instagram de graça — a
+// "Tentativa 3" dele (og:title+og:description quando o texto extraído por
+// seletor de artigo é curto demais) é exatamente o caminho que toda página
+// pública do Instagram cai, sem precisar de nenhum scraper dedicado.
+// REESCRITA: rewriteBrasilOn()/validarBrasilOn() (mesmo kernel/validador já
+// usados por Brasil ON/Jovem Pan/Internacional/Fofocas) — "reescrever com a
+// MESMA extensão aproximada do original: fonte com 2 frases gera 2-4
+// frases, fonte com 10 parágrafos gera 10 parágrafos" é literalmente "não
+// importa o tipo ou o tamanho", sem precisar de nenhum prompt novo (Regra
+// Zero-B respeitada — MASTER_PROMPT nunca tocado, isso é um kernel já
+// existente e aprovado, só reaproveitado aqui).
+// VÍDEO: mesmo mecanismo de fila que o Brasil ON já usa (ver
+// enfileirarReelSeHouver acima) — link direto de Instagram/YouTube vira
+// source_kind correspondente (baixado só pelo runner via yt-dlp); qualquer
+// outro site tem a própria página verificada por vídeo embutido
+// (descobrirVideoGenerico, core/linkCapture.js).
+// PUBLICAÇÃO: sempre cai como pendente (status:"pendente", approved:false)
+// — mesma Regra Zero-D de sempre, Roberto revisa/aprova no admin antes de
+// ir ao ar, exatamente como manual() (a ferramenta de URL genérica já
+// existente) já faz.
+async function handleLinkManual(req, res, body) {
+  const link = String(body.link || "").trim();
+  if (!link) return res.status(400).json({ ok: false, error: "link obrigatorio" });
+  try { new URL(link); } catch (_) { return res.status(400).json({ ok: false, error: "link invalido" }); }
+  const categoria = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : "brasil-on";
+
+  const a = await scrape(link, { allowCompetitorImage: true, timeout: 10000 });
+  const sourceText = [a.title, a.text].filter(Boolean).join("\n\n").trim();
+  if (!sourceText) {
+    return res.status(422).json({ ok: false, error: "nao foi possivel extrair nenhum texto/legenda desse link" });
+  }
+
+  let content;
+  try {
+    content = await rewriteBrasilOn(sourceText, a.title || "", "");
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: "falha na reescrita: " + (e?.message || e) });
+  }
+  content.categoria = categoria;
+  content.subcategoria = SUBCAT[categoria] || "Geral";
+  const erros = validarBrasilOn(content);
+  if (erros.length) return res.status(422).json({ ok: false, error: "reprovado na validacao: " + erros.join(", ") });
+
+  const titulo = stripTitle(content.titulo);
+  const comentario_fixado = (content.meta_descricao || "").trim();
+  const metaTitle = stripTitle(content.meta_title || content.titulo);
+  const hash = crypto.createHash("md5").update(link + "_link_manual_" + Date.now()).digest("hex");
+  const img = a.image
+    ? await processAndSaveImage(a.image, hash.slice(0, 12), Date.now(), { watermarkLabel: "", skipVision: true })
+    : null;
+
+  const { data, error } = await supabase.from("posts").insert({
+    titulo, conteudo: content.corpo,
+    comentario_fixado, imagem: img || null, hash,
+    status: "pendente", approved: false, publish_method: "link_manual",
+    user_tags: JSON.stringify([categoria]), subcategoria: content.subcategoria,
+    subcategoria_slug: slugify(content.subcategoria), collaborators: "[]",
+    tipo_conteudo: "padrao",
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_link_manual: link },
+    priority: 1, retry_count: 0, max_retries: 3
+  }).select("id").single();
+  if (error) return res.status(500).json({ ok: false, error: "falha ao salvar: " + error.message });
+
+  let videoDetectado = null;
+  try {
+    let video = null;
+    if (ehYoutube(link)) video = { kind: "youtube", url: link };
+    else if (ehInstagram(link)) video = { kind: "instagram", url: link };
+    else video = await descobrirVideoGenerico(link);
+    const enfileirado = await enfileirarReelSeHouver(data.id, video, "link_manual");
+    if (enfileirado) videoDetectado = video.kind;
+  } catch (_) {}
+
+  return res.status(200).json({
+    ok: true, id: data.id, titulo, imagem_capturada: !!img, video_detectado: videoDetectado, status: "pendente"
+  });
 }
 
 async function manual(req, res, rec) {
@@ -850,17 +946,26 @@ const REELS_TEMPLATE_VERSION_BRASILON = "ovc-reels-2026-09-v2";
 // site) fica de fora nesse caso — não existe arquivo baixado ainda, e
 // Roberto já pediu pra vídeo do Bacci ficar fora do site mesmo (só
 // alimenta o Reel).
-async function enfileirarReelBacciSeHouver(postId, urlMateria) {
+// 24/09/2026 — extraído de dentro de enfileirarReelBacciSeHouver pra virar
+// compartilhado: a "engrenagem de link manual" (handleLinkManual, mais
+// abaixo) descobre vídeo de um jeito diferente (link direto do
+// Instagram/YouTube que Roberto colou, ou um achado genérico numa página
+// qualquer — ver core/linkCapture.js) mas precisa gravar exatamente o mesmo
+// formato de metrics.instagram_reel_template que api/manage.js espera — só
+// duplicar essa lógica em dois lugares seria um risco real de os dois
+// formatos divergirem com o tempo. "instagram" entra aqui no mesmo grupo de
+// "youtube" (nunca baixa aqui, só grava a URL crua — precisa de yt-dlp, que
+// só roda no runner, mesmo motivo já documentado abaixo pro YouTube).
+async function enfileirarReelSeHouver(postId, video, logLabel) {
+  if (!video) return false;
   try {
-    const video = await descobrirPaginaVideoBacci(urlMateria);
-    if (!video) return;
     let sourceUrl = null;
     let videoUrlPortal = null;
-    if (video.kind === "youtube") {
+    if (video.kind === "youtube" || video.kind === "instagram") {
       sourceUrl = video.url;
     } else {
       sourceUrl = await downloadAndUploadVideo(video.url);
-      if (!sourceUrl) return;
+      if (!sourceUrl) return false;
       videoUrlPortal = sourceUrl;
     }
     const { data: postAtual } = await supabase.from("posts").select("metrics").eq("id", postId).maybeSingle();
@@ -880,10 +985,17 @@ async function enfileirarReelBacciSeHouver(postId, urlMateria) {
     const patch = { metrics, updated_at: new Date().toISOString() };
     if (videoUrlPortal) patch.video_url = videoUrlPortal;
     await supabase.from("posts").update(patch).eq("id", postId);
-    await log("info", `[brasilon] vídeo do Bacci (${video.kind}) enfileirado pro Reel — post ${postId}`);
+    await log("info", `[${logLabel}] vídeo (${video.kind}) enfileirado pro Reel — post ${postId}`);
+    return true;
   } catch (_) {
     // best-effort — nunca afeta a matéria já publicada
+    return false;
   }
+}
+
+async function enfileirarReelBacciSeHouver(postId, urlMateria) {
+  const video = await descobrirPaginaVideoBacci(urlMateria).catch(() => null);
+  await enfileirarReelSeHouver(postId, video, "brasilon");
 }
 
 async function salvarBrasilOn(content, hash, img, fonte) {
@@ -1486,6 +1598,13 @@ export default async function handler(req, res) {
     if (!publicUrl) return res.status(200).json({ ok: false, error: "nao foi possivel baixar/hospedar este video" });
     return res.status(200).json({ ok: true, url: publicUrl });
   }
+  // 24/09/2026 — Engrenagem de Reescrita por Link (ver comentário completo
+  // em cima de handleLinkManual). Pré-gate igual às 3 actions acima —
+  // NUNCA pode ficar atrás de automacaoAtiva()/janelaOk(): esta ferramenta
+  // é inteiramente independente de qualquer automação (Roberto: "nao havera
+  // automacao de sistema buscando nada"), então ela não pode ficar bloqueada
+  // quando ele desliga o AUTOMATION geral, nem restrita à janela 07h-00h30.
+  if (body.action === "link_manual") return handleLinkManual(req, res, body);
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });

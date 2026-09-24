@@ -296,7 +296,14 @@ jobs:
               # (Ubuntu 24.04 do runner bloqueia pip global sem essa flag,
               # PEP 668) — a versão do apt costuma ficar desatualizada demais
               # pra acompanhar mudanças frequentes da API do YouTube.
-              if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be'; then
+              # 24/09/2026 — instagram.com adicionado: a Engrenagem de
+              # Reescrita por Link (core/linkCapture.js + handleLinkManual em
+              # api/run_portal.js) enfileira link direto de Instagram do
+              # mesmo jeito que YouTube (source_kind:"instagram", nunca
+              # baixado no servidor — mesmo motivo de sempre, sem arquivo
+              # direto exposto, precisa de yt-dlp). yt-dlp já suporta
+              # Instagram (posts/reels/TV) nativamente, mesma invocação.
+              if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be|instagram\.com'; then
                 pip install --quiet --break-system-packages -U yt-dlp
                 if ! yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
                   --merge-output-format mp4 -o reel-source "$source_url" 2> ytdlp-error.log; then
