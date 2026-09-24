@@ -430,8 +430,22 @@ export async function acceptCollaborationInvite(mediaId, accountId) {
 // maxDuration da function). Cada conta tenta com pequenos retries (a Meta
 // pode levar alguns segundos pra registrar o convite do lado dela), depois
 // curte. Best-effort completo — nenhum erro aqui escapa pra quem chamou.
+// 24/09/2026 — Roberto: "@oterrasan aceita E curte, os outros só aceitam,
+// NUNCA curtem — corrija". Confirmado com dado real (diag ao vivo,
+// likeMedia() chamado de verdade contra um media_id já aceito por
+// @adriana.ferreirasp): erro da própria Meta code=100 error_subcode=33
+// ("Authorization Error"/objeto ainda não propagado pro token) — a curtida
+// disparava IMEDIATAMENTE após o accept, sem nenhum buffer, diferente do
+// accept (que já tem retry com espera). Quando o accept demorava algumas
+// tentativas (@oterrasan, quase sempre), sobrava tempo de propagação de
+// graça antes da curtida; quando o accept acertava de primeira (comum nos
+// outros 3 perfis), a curtida chegava cedo demais e a Meta rejeitava.
+// Fix: mesma lógica de retry-com-espera que o accept já tinha, aplicada
+// também na curtida — soma no máximo +17s no pior caso (2s+5s+10s), longe
+// do teto de 120s já documentado acima mesmo somado ao pior caso do accept.
 async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const attempts = [0, 5000, 15000, 30000];
+  const likeAttempts = [2000, 5000, 10000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
     if (username === NEVER_AUTO_ACCEPT && tag !== "reel") {
@@ -457,13 +471,16 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
 
       let liked = false, likeError = null;
       if (accepted) {
-        try { await likeMedia(mediaId, acc.id); liked = true; }
-        catch (e) { likeError = e?.message || String(e); }
+        for (const delay of likeAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          try { await likeMedia(mediaId, acc.id); liked = true; break; }
+          catch (e) { likeError = e?.message || String(e); }
+        }
       }
 
       await writeLog(
-        accepted ? "info" : "error",
-        `[ig-collab-instant] @${username} media=${mediaId} (${tag}) accepted=${accepted}${liked ? " liked" : ""}${accepted ? "" : ` erro=${lastError}`}`
+        accepted && (liked || !likeError) ? "info" : "error",
+        `[ig-collab-instant] @${username} media=${mediaId} (${tag}) accepted=${accepted}${liked ? " liked" : ""}${accepted ? "" : ` erro=${lastError}`}${accepted && !liked && likeError ? ` like_erro=${likeError}` : ""}`
       );
       return { username, accepted, liked, error: accepted ? null : lastError, like_error: likeError };
     } catch (e) {

@@ -1,4 +1,4 @@
-name: Diagnóstico único — erro real do likeMedia (24/09, rodada 2)
+name: Diagnóstico único (placeholder — inerte)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Ver erro real que a Meta devolve pro likeMedia
-        run: node .github/workflows/_diag_like_error.mjs
+      - name: Placeholder (nada a fazer)
+        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"

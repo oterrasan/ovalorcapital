@@ -267,8 +267,15 @@ async function likeMediaByAccountId(mediaId, accountId) {
 // media_id — sem listar convites primeiro, já sabemos quem foi convidado.
 // Contas em PARALELO. Best-effort completo — nenhum erro aqui escapa pra
 // quem chamou.
+// 24/09/2026 — mesmo fix do OVC (core/instagram.js, raiz), duplicado aqui
+// de propósito: a curtida disparava sem nenhum retry logo após o accept,
+// e a Meta rejeitava (code=100 error_subcode=33, "objeto ainda não
+// propagado") quando o accept acertava de primeira — confirmado com dado
+// real contra @adriana.ferreirasp. Fix: mesma lógica de retry-com-espera
+// que o accept já tinha, aplicada também na curtida.
 async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const attempts = [0, 5000, 15000, 30000];
+  const likeAttempts = [2000, 5000, 10000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
     if (username === NEVER_AUTO_ACCEPT && tag !== "reel") {
@@ -294,13 +301,16 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
 
       let liked = false, likeError = null;
       if (accepted) {
-        try { await likeMediaByAccountId(mediaId, acc.id); liked = true; }
-        catch (e) { likeError = e?.message || String(e); }
+        for (const delay of likeAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          try { await likeMediaByAccountId(mediaId, acc.id); liked = true; break; }
+          catch (e) { likeError = e?.message || String(e); }
+        }
       }
 
       await writeLog(
-        accepted ? "info" : "error",
-        `[bon-ig-collab-instant] @${username} media=${mediaId} (${tag}) accepted=${accepted}${liked ? " liked" : ""}${accepted ? "" : ` erro=${lastError}`}`
+        accepted && (liked || !likeError) ? "info" : "error",
+        `[bon-ig-collab-instant] @${username} media=${mediaId} (${tag}) accepted=${accepted}${liked ? " liked" : ""}${accepted ? "" : ` erro=${lastError}`}${accepted && !liked && likeError ? ` like_erro=${likeError}` : ""}`
       );
       return { username, accepted, liked, error: accepted ? null : lastError, like_error: likeError };
     } catch (e) {

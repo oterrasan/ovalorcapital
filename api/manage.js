@@ -795,11 +795,20 @@ async function handleIgCollabAutoProcess(req, res, body) {
           let liked = false;
           let likeError = null;
           if (settings.policy.autoLike) {
-            try { await likeMedia(mediaId, account.id); liked = true; }
-            catch (likeFailure) { likeError = redactSecrets(likeFailure?.message || String(likeFailure)); }
+            // 24/09/2026 — mesmo fix do aceite instantâneo (core/instagram.js):
+            // curtir sem nenhum retry logo após aceitar batia em erro da Meta
+            // (code=100 error_subcode=33, objeto ainda não propagado). Aqui o
+            // risco é bem menor (esse poll só roda a cada 180min por conta,
+            // então o convite já é "velho" quando chega aqui), mas mantendo a
+            // mesma resiliência por consistência.
+            for (const delay of [2000, 5000, 10000]) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              try { await likeMedia(mediaId, account.id); liked = true; break; }
+              catch (likeFailure) { likeError = redactSecrets(likeFailure?.message || String(likeFailure)); }
+            }
           }
           results.push({ recipient, source, media_id: mediaId, accepted: true, liked, like_error: likeError });
-          await writeLog("info", `[ig-collab] @${recipient} aceitou collab de @${source}${liked ? " e curtiu" : ""}`);
+          await writeLog("info", `[ig-collab] @${recipient} aceitou collab de @${source}${liked ? " e curtiu" : likeError ? ` — like_erro=${likeError}` : ""}`);
         }
         if (!invites.length) results.push({ recipient, checked: true, pending: 0 });
       } catch (accountFailure) {
