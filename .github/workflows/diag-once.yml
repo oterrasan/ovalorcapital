@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder — inerte)
+name: Diagnóstico — verificar GEMINI_API_KEY_3 real no Supabase
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: Verificar e testar GEMINI_API_KEY_3
+        run: node .github/workflows/_diag_verify_gemini_key3.mjs
