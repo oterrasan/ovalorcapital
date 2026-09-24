@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder — inerte)
+name: Diagnóstico — reels-dispatch está funcionando de verdade?
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: Verificar se o dispatch de reels esta funcionando
+        run: node .github/workflows/_diag_reels_dispatch_logs.mjs
