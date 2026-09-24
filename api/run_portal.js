@@ -424,8 +424,27 @@ async function handleLinkManual(req, res, body) {
 
   const a = await scrape(link, { allowCompetitorImage: true, timeout: 10000 });
   const sourceText = [a.title, a.text].filter(Boolean).join("\n\n").trim();
-  if (!sourceText) {
-    return res.status(422).json({ ok: false, error: "nao foi possivel extrair nenhum texto/legenda desse link" });
+  // 24/09/2026 — BUG REAL CONFIRMADO por Roberto: 2 links de Instagram
+  // diferentes deram o MESMO resultado fabricado ("Instagram passa por
+  // instabilidade nesta data"). Causa raiz, confirmada com teste real
+  // (fetch cru do HTML): esse Reel específico devolveu HTTP 200 mas SEM
+  // nenhuma tag og:title/og:description/og:image — só a casca genérica do
+  // app React do Instagram, <title>Instagram</title>. scrape() então
+  // retornava a.title="Instagram" e a.text="" — sourceText virava só a
+  // palavra "Instagram" (9 chars, NÃO vazio — passava no guard antigo
+  // `if (!sourceText)`), e a IA, com praticamente nenhuma informação real,
+  // INVENTAVA uma matéria plausível a partir disso. Mesma entrada quase-
+  // vazia em ambos os testes → mesma fabricação nos dois. Fix: exige um
+  // mínimo real de conteúdo (60 chars — mesmo piso já usado por
+  // validarBrasilOn nos outros canais) antes de sequer chamar a IA; abaixo
+  // disso, falha honesto em vez de fabricar. Instagram não expor
+  // og:tags/texto pra Reels acessados sem sessão logada é um padrão real
+  // e conhecido — não é bug pontual desse link.
+  if (!sourceText || sourceText.length < 60) {
+    return res.status(422).json({
+      ok: false,
+      error: "nao foi possivel extrair conteudo real desse link (Instagram costuma nao expor legenda/texto pra quem acessa sem estar logado, especialmente em Reels) — nada foi salvo, pra nao inventar noticia a partir de quase nada."
+    });
   }
 
   let content;
