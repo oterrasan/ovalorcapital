@@ -1,9 +1,14 @@
-name: Diagnóstico único (placeholder — inerte)
+name: Diagnóstico — testar e cadastrar chave Gemini nova (GEMINI_API_KEY_3)
 on:
   push:
     paths:
       - '.github/workflows/diag-once.yml'
   workflow_dispatch:
+    inputs:
+      gemini_key:
+        description: 'Chave Gemini a testar/cadastrar (nunca fica no repo — só no input do disparo manual)'
+        required: false
+        type: string
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -15,5 +20,14 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: Mascarar a chave em qualquer log daqui pra frente
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "::add-mask::${{ github.event.inputs.gemini_key }}"
+      - name: Testar e cadastrar (só se o teste passar)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GEMINI_KEY_INPUT: ${{ github.event.inputs.gemini_key }}
+        run: node .github/workflows/_diag_test_and_add_gemini_key.mjs
+      - name: Placeholder (push sem input — nada a fazer)
+        if: github.event_name != 'workflow_dispatch'
+        run: echo "run disparado por push — nada a fazer sem input. Use workflow_dispatch com o input gemini_key."
