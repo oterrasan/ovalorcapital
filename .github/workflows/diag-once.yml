@@ -1,4 +1,4 @@
-name: Diagnóstico único (placeholder — inerte)
+name: Diagnóstico único — curtida automática de collabs por perfil (24/09)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Placeholder (nada a fazer)
-        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
+      - name: Ver padrão real de accept/like por perfil
+        run: node .github/workflows/_diag_collab_likes.mjs
