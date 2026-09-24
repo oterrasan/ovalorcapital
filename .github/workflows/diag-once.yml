@@ -1,4 +1,4 @@
-name: Diagnóstico — quais chaves Gemini estão configuradas em produção
+name: Diagnóstico único (placeholder — inerte)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Quais chaves Gemini estão em produção agora
-        run: node .github/workflows/_diag_gemini_keys.mjs
+      - name: Placeholder (nada a fazer)
+        run: echo "placeholder inerte — editar este arquivo pra rodar um diagnostico real"
