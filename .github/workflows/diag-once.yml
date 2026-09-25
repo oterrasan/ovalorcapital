@@ -1,4 +1,4 @@
-name: Diagnóstico único — reteste de curtida horas depois (propagação vs bloqueio estrutural)
+name: Diagnóstico único — comparar escopos reais do token (debug_token da Meta)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Retestar likeMedia horas depois do accept original
-        run: node .github/workflows/_diag_like_retest_hours_later.mjs
+      - name: Comparar escopos reais via debug_token
+        run: node .github/workflows/_diag_token_scopes.mjs
