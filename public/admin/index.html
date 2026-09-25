@@ -943,6 +943,35 @@ const parseYouTubeId = (url) => {
   const m = String(url||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : '';
 };
+// 25/09/2026 — Roberto: "preciso que apareca uma sinalizacao marcando e
+// mostrando o que ja foi e o que ainda nao foi publicado no instagram e
+// que isso tambem esteja disponivel em filtros". Mesmas 3 marcas que o
+// servidor usa pra nunca publicar em dobro (_jaPublicadoOuReservadoNoInstagram
+// em api/manage.js): posts.ig_id, metrics.instagram.ig_id (feed) e
+// metrics.instagram_reel.ig_id (Reel). ig_id "processing:..." = reserva
+// temporária enquanto a publicação acontece, não conta como publicado.
+const igPublicacaoInfo = (post) => {
+  let m = {};
+  try { m = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{}); } catch(_) {}
+  const igCol = String(post?.ig_id || '');
+  const publicando = igCol.startsWith('processing:');
+  const feed = (!!igCol && !publicando) || !!m?.instagram?.ig_id;
+  const reel = !!m?.instagram_reel?.ig_id;
+  const quando = [m?.instagram?.published_at, m?.instagram_reel?.published_at].filter(Boolean).sort().pop() || null;
+  const conta = m?.instagram_reel?.username || m?.instagram?.username || '';
+  return { feed, reel, publicado: feed || reel, publicando: publicando && !feed && !reel, quando, conta };
+};
+const IG_FILTRO_PUBLICADO_OR = 'and(ig_id.not.is.null,ig_id.not.like.processing:*),metrics->instagram->>ig_id.not.is.null,metrics->instagram_reel->>ig_id.not.is.null';
+const IG_FILTRO_FEED_OR = 'and(ig_id.not.is.null,ig_id.not.like.processing:*),metrics->instagram->>ig_id.not.is.null';
+function IgPublicacaoBadge({ post }) {
+  const i = igPublicacaoInfo(post);
+  const chip = (bg, cor, txt, title) => <span style={{background:bg,color:cor,fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={title}>{txt}</span>;
+  if (i.publicando) return chip('rgba(245,158,11,0.2)','#fbbf24','⏳ Publicando no IG','Publicação no Instagram em andamento');
+  if (!i.publicado) return chip('rgba(148,163,184,0.15)','#94a3b8','⭕ Não publicado no IG','Ainda não foi publicado no Instagram');
+  const tipo = i.feed && i.reel ? 'Feed + Reel' : i.reel ? 'Reel' : 'Feed';
+  const det = 'Publicado no Instagram (' + tipo + ')' + (i.conta ? ' em @' + i.conta : '') + (i.quando ? ' — ' + fmt(i.quando) : '');
+  return chip('rgba(34,197,94,0.2)','#4ade80','📲 No IG · ' + tipo, det);
+}
 const reelTemplateInfo = (post) => {
   try {
     const metrics = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{});
@@ -1387,6 +1416,8 @@ function Postagens() {
   // smartFilter de imagem abaixo) — busca direto video_url IS NOT NULL,
   // sempre encontra, não importa quantas outras matérias saíram depois.
   const [filterVideo, setFilterVideo] = useState(false);
+  // '' | 'publicado' | 'feed' | 'reel' | 'nao' — filtro no BANCO (acha em qualquer página)
+  const [filterIg, setFilterIg] = useState('');
   const [totalCount, setTotalCount] = useState(0);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [smartFilter, setSmartFilter] = useState('');
@@ -1526,6 +1557,10 @@ function Postagens() {
     if (filterTipo==='sem_tipo') q=q.is('tipo_conteudo',null);
     else if (filterTipo) q=q.eq('tipo_conteudo',filterTipo);
     if (filterVideo) q=q.not('video_url','is',null);
+    if (filterIg==='publicado') q=q.or(IG_FILTRO_PUBLICADO_OR);
+    else if (filterIg==='feed') q=q.or(IG_FILTRO_FEED_OR);
+    else if (filterIg==='reel') q=q.not('metrics->instagram_reel->>ig_id','is',null);
+    else if (filterIg==='nao') q=q.or('ig_id.is.null,ig_id.like.processing:*').is('metrics->instagram->>ig_id',null).is('metrics->instagram_reel->>ig_id',null);
     if (filterDe) q=q.gte('created_at',filterDe+'T00:00:00-03:00');
     if (filterAte) q=q.lte('created_at',filterAte+'T23:59:59-03:00');
     const { data, count } = await q;
@@ -1545,7 +1580,7 @@ function Postagens() {
     // origem. Publicação manual pro Brasil ON é só pela aba 🇧🇷 Brasil ON.
     setAccounts((acc||[]).filter(a => String(a.username||'').replace(/^@/,'').toLowerCase() !== 'obrasilon'));
     setLoading(false);
-  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte,filterVideo]);
+  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte,filterVideo,filterIg]);
 
   useEffect(()=>{load();},[load]);
 
@@ -2144,6 +2179,13 @@ function Postagens() {
               <button className={`btn btn-sm ${filterVideo?'':'btn-secondary'}`} style={filterVideo?{background:'rgba(34,197,94,0.18)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',fontWeight:700}:{}} onClick={()=>{setFilterVideo(v=>!v);setPage(0);}} title="Só matérias com vídeo anexado — busca direto no banco, acha mesmo se não estiver na 1ª página">
                 🎬 {filterVideo?'Só com vídeo ✓':'Só com vídeo'}
               </button>
+              <select className="form-select" style={{height:30,fontSize:12,width:'auto',minWidth:170,...(filterIg?{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.4)',fontWeight:700}:{})}} value={filterIg} onChange={e=>{setFilterIg(e.target.value);setPage(0);}} title="Filtra pelo que já foi ou ainda não foi publicado no Instagram — busca direto no banco">
+                <option value="">📲 Instagram: todos</option>
+                <option value="publicado">📲 Já publicado no IG</option>
+                <option value="feed">🖼️ Publicado no feed</option>
+                <option value="reel">🎞️ Publicado como Reel</option>
+                <option value="nao">⭕ Ainda não publicado</option>
+              </select>
               <button className="btn btn-secondary btn-sm" onClick={()=>setFiltrosAbertos(x=>!x)}>🔍 Filtros {filtrosAbertos?'▲':'▼'}</button>
               <button className="btn btn-secondary btn-sm" onClick={load}>↻</button>
             </div>
@@ -2212,7 +2254,7 @@ function Postagens() {
                   <React.Fragment key={p.id}>
                   <tr style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:chkRisco(p)?{background:'rgba(239,68,68,0.04)'}:chkSemImg(p)?{background:'rgba(245,158,11,0.04)'}:{}}>
                     <td><input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/></td>
-                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}{p.video_url&&(parseYouTubeId(p.video_url)?<span style={{background:'rgba(239,68,68,0.2)',color:'#f87171',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title="Vídeo do YouTube embutido na matéria">▶️ YOUTUBE</span>:<span style={{background:reelTemplateInfo(p)?.exhausted?'rgba(239,68,68,0.2)':reelTemplateInfo(p)?.status==='ready'?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)',color:reelTemplateInfo(p)?.exhausted?'#f87171':reelTemplateInfo(p)?.status==='ready'?'#4ade80':'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={reelTemplateLabel(p)}>🎬 VÍDEO</span>)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
+                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}{p.video_url&&(parseYouTubeId(p.video_url)?<span style={{background:'rgba(239,68,68,0.2)',color:'#f87171',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title="Vídeo do YouTube embutido na matéria">▶️ YOUTUBE</span>:<span style={{background:reelTemplateInfo(p)?.exhausted?'rgba(239,68,68,0.2)':reelTemplateInfo(p)?.status==='ready'?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)',color:reelTemplateInfo(p)?.exhausted?'#f87171':reelTemplateInfo(p)?.status==='ready'?'#4ade80':'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={reelTemplateLabel(p)}>🎬 VÍDEO</span>)}<IgPublicacaoBadge post={p}/></div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
                     <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
                     <td className="text-secondary text-small">{p.categoria||'—'}</td>
                     <td className="text-secondary text-small">{p.publish_method==='manual'?'✍️ manual':'🤖 auto'}</td>
