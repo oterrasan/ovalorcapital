@@ -378,6 +378,7 @@ jobs:
                   post_id: process.env.POST_ID,
                   claim_id: process.env.CLAIM_ID,
                   end_trim: render.end_trim || null,
+                  source_dimensions: render.source_dimensions || null,
                   preview_uploaded: process.env.PREVIEW_UPLOADED === "true"
                 }));
               '

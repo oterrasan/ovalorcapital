@@ -973,9 +973,299 @@ const reelTemplateLabel = (post) => {
 // pronto = upload direto do navegador pro Storage + reels_set_final_file
 // (Meta recebe o arquivo exatamente como enviado, sem template).
 const REEL_FINAL_MAX_BYTES = 50 * 1024 * 1024;
+// 25/09/2026 — Roberto: "preciso que eu possa manipular o video e arrastar
+// ele pra deixar na proporcao e disposicao que eu quiser. puxar pra baixo e
+// aumentar a altura e manter ele comecando do topo, ou recortar so uma das
+// laterais, ou o que quiser, literalmente." Editor de enquadramento livre:
+// o quadro abaixo é o Reel (1080x1920) em escala reduzida. O que fica fora
+// do quadro aparece apagado e é cortado no vídeo final. O admin só salva
+// números (recorte por lado + posição/tamanho no quadro) via
+// reels_set_layout; quem aplica no vídeo de verdade é o runner (ffmpeg em
+// scripts/render-instagram-reel.mjs), que gera uma prévia nova em minutos.
+const REEL_W = 1080, REEL_H = 1920;
+const REEL_ED_SCALE = 0.25;             // quadro na tela: 270x480
+const REEL_ED_PAD = 90;                 // área em volta do quadro (px na tela)
+const REEL_MIN_PX = 40;                 // tamanho mínimo do vídeo no quadro (px do Reel)
+function reelLayoutAuto(sw, sh) {
+  // Mesmo comportamento da montagem automática (render-instagram-reel.mjs).
+  if (sw >= sh) {
+    const crop = { l: 0.04, t: 0.05, r: 0.04, b: 0.08 };
+    const cw = sw * (1 - crop.l - crop.r), ch = sh * (1 - crop.t - crop.b);
+    return { crop, rect: { x: 0, y: 0, w: REEL_W, h: Math.round(REEL_W * ch / cw) } };
+  }
+  const crop = { l: 0.04, t: 0.16, r: 0.04, b: 0.02 };
+  const cw = sw * (1 - crop.l - crop.r), ch = sh * (1 - crop.t - crop.b);
+  const a = cw / ch;
+  if (a > REEL_W / REEL_H) { const w = Math.round(REEL_H * a); return { crop, rect: { x: Math.round((REEL_W - w) / 2), y: 0, w, h: REEL_H } }; }
+  const h = Math.round(REEL_W / a);
+  return { crop, rect: { x: 0, y: Math.round((REEL_H - h) / 2), w: REEL_W, h } };
+}
+function reelSombraCss(bottomPx) {
+  // Aproximação visual da sombra do template (mesma regra do runner).
+  if (bottomPx >= REEL_H * 0.66) return 'linear-gradient(to bottom, rgba(7,25,41,0) 0%, rgba(7,25,41,0) 34%, rgba(4,21,34,.18) 45%, rgba(2,11,19,.7) 54%, rgba(0,0,0,.97) 62%, #000 67%, #000 100%)';
+  const b = Math.min(66, Math.max(8, bottomPx / REEL_H * 100));
+  return `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) ${b}%, rgba(0,0,0,.5) ${b + 10}%, #000 ${b + 20}%, #000 100%)`;
+}
+
+function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
+  const sourceUrl = String(info?.source_url || '');
+  const ytId = parseYouTubeId(sourceUrl);
+  const dimsSalvas = info?.source_dimensions && info.source_dimensions.width > 0 ? info.source_dimensions : null;
+  const [dims, setDims] = useState(dimsSalvas || (ytId ? { width: 1920, height: 1080 } : null));
+  const [layout, setLayout] = useState(info?.layout || null);
+  const [modo, setModo] = useState('mover');        // 'mover' = mover/redimensionar | 'recortar'
+  const [travar, setTravar] = useState(true);      // manter proporção (sem esticar)
+  const [salvando, setSalvando] = useState('');
+  const dragRef = useRef(null);
+  const s = REEL_ED_SCALE;
+
+  useEffect(() => { if (dims && !layout) setLayout(reelLayoutAuto(dims.width, dims.height)); }, [dims]);
+
+  const clampLayout = (L) => {
+    const c = { ...L.crop }, r = { ...L.rect };
+    ['l','t','r','b'].forEach(k => { c[k] = Math.max(0, Math.min(0.9, c[k])); });
+    if (c.l + c.r > 0.95) c.r = 0.95 - c.l;
+    if (c.t + c.b > 0.95) c.b = 0.95 - c.t;
+    r.w = Math.max(REEL_MIN_PX, Math.min(4320, r.w)); r.h = Math.max(REEL_MIN_PX, Math.min(4320, r.h));
+    r.x = Math.max(-4320 + 1, Math.min(REEL_W - 1, r.x)); r.y = Math.max(-4320 + 1, Math.min(REEL_H - 1, r.y));
+    return { crop: c, rect: r };
+  };
+
+  const onMove = useCallback((e) => {
+    const d = dragRef.current; if (!d) return;
+    const dx = (e.clientX - d.px) / s, dy = (e.clientY - d.py) / s;
+    const { rect: R, crop: C } = d.start;
+    const r = { ...R }, c = { ...C };
+    const h = d.handle;
+    if (d.modo === 'mover') {
+      if (h === 'body') { r.x = R.x + dx; r.y = R.y + dy; }
+      else {
+        const a = R.w / R.h;
+        if (h.includes('e')) r.w = R.w + dx;
+        if (h.includes('w')) { r.w = R.w - dx; }
+        if (h.includes('s')) r.h = R.h + dy;
+        if (h.includes('n')) { r.h = R.h - dy; }
+        r.w = Math.max(REEL_MIN_PX, r.w); r.h = Math.max(REEL_MIN_PX, r.h);
+        if (d.travar) {
+          if (h === 'n' || h === 's') { r.w = r.h * a; r.x = R.x + (R.w - r.w) / 2; }
+          else if (h === 'e' || h === 'w') { r.h = r.w / a; r.y = R.y + (R.h - r.h) / 2; }
+          else { r.h = r.w / a; }
+        }
+        if (h.includes('w')) r.x = R.x + R.w - r.w;
+        if (h.includes('n')) r.y = R.y + R.h - r.h;
+      }
+    } else {
+      // Recortar: a escala do vídeo não muda — só esconde/mostra um lado.
+      const mw = R.w / (1 - C.l - C.r), mh = R.h / (1 - C.t - C.b);
+      if (h === 'body') {
+        // arrasta o conteúdo dentro da janela recortada
+        let fx = -dx / mw, fy = -dy / mh;
+        fx = Math.max(-C.l, Math.min(C.r, fx)); fy = Math.max(-C.t, Math.min(C.b, fy));
+        c.l = C.l + fx; c.r = C.r - fx; c.t = C.t + fy; c.b = C.b - fy;
+      } else {
+        if (h.includes('w')) { let v = Math.max(-C.l * mw, Math.min(R.w - REEL_MIN_PX, dx)); c.l = C.l + v / mw; r.x = R.x + v; r.w = R.w - v; }
+        if (h.includes('e')) { let v = Math.max(-C.r * mw, Math.min(R.w - REEL_MIN_PX, -dx)); c.r = C.r + v / mw; r.w = R.w - v; }
+        if (h.includes('n')) { let v = Math.max(-C.t * mh, Math.min(R.h - REEL_MIN_PX, dy)); c.t = C.t + v / mh; r.y = R.y + v; r.h = R.h - v; }
+        if (h.includes('s')) { let v = Math.max(-C.b * mh, Math.min(R.h - REEL_MIN_PX, -dy)); c.b = C.b + v / mh; r.h = R.h - v; }
+      }
+    }
+    setLayout(clampLayout({ crop: c, rect: r }));
+  }, [s]);
+  const onUp = useCallback(() => { dragRef.current = null; window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); }, [onMove]);
+  const iniciar = (handle) => (e) => {
+    if (!layout) return;
+    e.preventDefault(); e.stopPropagation();
+    dragRef.current = { handle, px: e.clientX, py: e.clientY, start: layout, modo, travar };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  };
+  useEffect(() => () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); }, [onMove, onUp]);
+
+  const presetPreencher = () => {
+    if (!dims) return;
+    const c = layout?.crop || { l: 0, t: 0, r: 0, b: 0 };
+    const cw = dims.width * (1 - c.l - c.r), ch = dims.height * (1 - c.t - c.b), a = cw / ch;
+    if (a > REEL_W / REEL_H) { const w = REEL_H * a; setLayout(clampLayout({ crop: c, rect: { x: (REEL_W - w) / 2, y: 0, w, h: REEL_H } })); }
+    else { const h = REEL_W / a; setLayout(clampLayout({ crop: c, rect: { x: 0, y: (REEL_H - h) / 2, w: REEL_W, h } })); }
+  };
+  const presetInteiro = () => {
+    if (!dims) return;
+    const c = { l: 0, t: 0, r: 0, b: 0 };
+    const a = dims.width / dims.height;
+    if (a >= REEL_W / REEL_H) setLayout(clampLayout({ crop: c, rect: { x: 0, y: 0, w: REEL_W, h: REEL_W / a } }));
+    else setLayout(clampLayout({ crop: c, rect: { x: (REEL_W - REEL_H * a) / 2, y: 0, w: REEL_H * a, h: REEL_H } }));
+  };
+  const centralizar = () => layout && setLayout(clampLayout({ ...layout, rect: { ...layout.rect, x: (REEL_W - layout.rect.w) / 2 } }));
+  const zerarRecorte = () => {
+    if (!layout) return;
+    const { crop: C, rect: R } = layout;
+    const mw = R.w / (1 - C.l - C.r), mh = R.h / (1 - C.t - C.b);
+    setLayout(clampLayout({ crop: { l: 0, t: 0, r: 0, b: 0 }, rect: { x: R.x - C.l * mw, y: R.y - C.t * mh, w: mw, h: mh } }));
+  };
+
+  // Controles deslizantes — funcionam mesmo quando o vídeo está tão grande
+  // que as alças ficam fora da área visível.
+  const setRecorte = (lado, valor) => {
+    if (!layout) return;
+    const { crop: C, rect: R } = layout;
+    const mw = R.w / (1 - C.l - C.r), mh = R.h / (1 - C.t - C.b);
+    const c = { ...C }, r = { ...R };
+    const v = Math.max(0, Math.min(0.9, valor));
+    const d = v - C[lado];
+    if (lado === 'l') { const px = d * mw; if (R.w - px < REEL_MIN_PX) return; c.l = v; r.x = R.x + px; r.w = R.w - px; }
+    if (lado === 'r') { const px = d * mw; if (R.w - px < REEL_MIN_PX) return; c.r = v; r.w = R.w - px; }
+    if (lado === 't') { const px = d * mh; if (R.h - px < REEL_MIN_PX) return; c.t = v; r.y = R.y + px; r.h = R.h - px; }
+    if (lado === 'b') { const px = d * mh; if (R.h - px < REEL_MIN_PX) return; c.b = v; r.h = R.h - px; }
+    if (c.l + c.r > 0.95 || c.t + c.b > 0.95) return;
+    setLayout(clampLayout({ crop: c, rect: r }));
+  };
+  const setTamanho = (novaLargura) => {
+    if (!layout) return;
+    const R = layout.rect, k = Math.max(REEL_MIN_PX, novaLargura) / R.w;
+    const w = R.w * k, h = R.h * k;
+    setLayout(clampLayout({ ...layout, rect: { x: R.x + (R.w - w) / 2, y: R.y, w, h } }));
+  };
+  const setPos = (eixo, v) => layout && setLayout(clampLayout({ ...layout, rect: { ...layout.rect, [eixo]: v } }));
+
+  const salvar = async (automatico) => {
+    const msg = automatico ? 'Voltar para a montagem automática do sistema e remontar o vídeo?' : 'Aplicar este enquadramento e remontar o vídeo? A prévia nova aparece em alguns minutos.' + (info?.manual_final ? '\n\nAtenção: o vídeo pronto que você enviou (quadro 3) será descartado e substituído por esta montagem.' : '');
+    if (!confirm(msg)) return;
+    setSalvando(automatico ? 'Voltando ao automático...' : 'Salvando enquadramento...');
+    try {
+      const L = automatico ? null : {
+        crop: { l: +layout.crop.l.toFixed(4), t: +layout.crop.t.toFixed(4), r: +layout.crop.r.toFixed(4), b: +layout.crop.b.toFixed(4) },
+        rect: { x: Math.round(layout.rect.x), y: Math.round(layout.rect.y), w: Math.round(layout.rect.w / 2) * 2, h: Math.round(layout.rect.h / 2) * 2 }
+      };
+      const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS }, body: JSON.stringify({ action: 'reels_set_layout', post_id: post.id, layout: L }) });
+      const d = await r.json();
+      if (!d.ok) {
+        const erros = { reel_ja_publicado: 'Este Reel já foi publicado.', sem_video_original_para_montar: 'O vídeo original não está mais disponível para remontar.', montagem_em_andamento_tente_em_instantes: 'Uma montagem está em andamento — tente de novo em alguns minutos.', enquadramento_invalido: 'Enquadramento inválido — use "Resetar" e tente de novo.' };
+        alert('❌ ' + (erros[d.error] || d.error || 'falha ao salvar'));
+        return;
+      }
+      if (d.metrics && onMetrics) onMetrics(d.metrics);
+      alert('✅ Salvo. O sistema está remontando o vídeo — a prévia nova aparece no quadro "2. Montagem do sistema" em alguns minutos.');
+      if (onClose) onClose();
+    } catch (e) { alert('❌ Erro: ' + e.message); }
+    finally { setSalvando(''); }
+  };
+
+  if (!sourceUrl) return <div style={{ fontSize: 12, color: 'var(--t3)' }}>Vídeo original não disponível para ajustar.</div>;
+
+  const P = REEL_ED_PAD, FW = REEL_W * s, FH = REEL_H * s;
+  const L = layout;
+  const mediaBox = L ? (() => {
+    const mw = L.rect.w / (1 - L.crop.l - L.crop.r), mh = L.rect.h / (1 - L.crop.t - L.crop.b);
+    return { mw, mh, mx: L.rect.x - L.crop.l * mw, my: L.rect.y - L.crop.t * mh };
+  })() : null;
+  const midia = (key, extra) => ytId
+    ? <iframe key={key} src={'https://www.youtube-nocookie.com/embed/' + ytId} style={{ border: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'block', ...extra }} tabIndex={-1} />
+    : <video key={key} src={sourceUrl} muted playsInline preload="auto"
+        onLoadedMetadata={e => { const v = e.target; if (!dims && v.videoWidth) setDims({ width: v.videoWidth, height: v.videoHeight }); try { if (v.currentTime < 0.5) v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch (_) {} }}
+        style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block', pointerEvents: 'none', ...extra }} />;
+  // camada do vídeo (em coordenadas do Reel, +P de margem), com recorte
+  const camada = (key, extraWrap) => L && mediaBox && (
+    <div style={{ position: 'absolute', left: P + L.rect.x * s, top: P + L.rect.y * s, width: L.rect.w * s, height: L.rect.h * s, overflow: 'hidden', ...extraWrap }}>
+      <div style={{ position: 'absolute', left: (mediaBox.mx - L.rect.x) * s, top: (mediaBox.my - L.rect.y) * s, width: mediaBox.mw * s, height: mediaBox.mh * s }}>{midia(key)}</div>
+    </div>
+  );
+  const handles = ['nw','n','ne','e','se','s','sw','w'];
+  const posHandle = (h) => ({ left: h.includes('w') ? -6 : h.includes('e') ? 'calc(100% - 6px)' : 'calc(50% - 6px)', top: h.includes('n') ? -6 : h.includes('s') ? 'calc(100% - 6px)' : 'calc(50% - 6px)', cursor: (h === 'n' || h === 's') ? 'ns-resize' : (h === 'e' || h === 'w') ? 'ew-resize' : (h === 'nw' || h === 'se') ? 'nwse-resize' : 'nesw-resize' });
+  const btn = { fontSize: 11 };
+  const pct = (v) => Math.round(v * 100) + '%';
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>✂️ Ajustar enquadramento do vídeo</div>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Fechar</button>
+      </div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ position: 'relative', width: FW + 2 * P, height: FH + 2 * P, background: '#1e1e24', borderRadius: 8, overflow: 'hidden', touchAction: 'none', userSelect: 'none', flexShrink: 0 }}>
+          {!L && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: 12 }}>Carregando vídeo...{!ytId && <div style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 }}>{midia('probe')}</div>}</div>}
+          {/* vídeo inteiro, apagado — o que sai do quadro é cortado */}
+          {camada('fora', { opacity: 0.3 })}
+          {/* quadro do Reel */}
+          <div style={{ position: 'absolute', left: P, top: P, width: FW, height: FH, overflow: 'hidden', background: '#000', outline: '2px solid #f28c22' }}>
+            {L && mediaBox && (
+              <div style={{ position: 'absolute', left: L.rect.x * s, top: L.rect.y * s, width: L.rect.w * s, height: L.rect.h * s, overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', left: (mediaBox.mx - L.rect.x) * s, top: (mediaBox.my - L.rect.y) * s, width: mediaBox.mw * s, height: mediaBox.mh * s }}>{midia('dentro')}</div>
+              </div>
+            )}
+            {/* guias do template (aproximadas): sombra, logo, manchete, rodapé */}
+            {L && <div style={{ position: 'absolute', inset: 0, background: reelSombraCss(Math.min(REEL_H, L.rect.y + L.rect.h)), pointerEvents: 'none' }} />}
+            <div style={{ position: 'absolute', left: 350 * s, top: 25 * s, width: 380 * s, height: 205 * s, backgroundImage: 'url(/assets/ig-overlay-ovc-canva.png)', backgroundSize: `${REEL_W * s}px ${1350 * s}px`, backgroundPosition: `${-350 * s}px ${-25 * s}px`, pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', left: 150 * s, width: 780 * s, bottom: (REEL_H - 1300) * s, color: '#fff', fontWeight: 800, fontSize: 36 * s, lineHeight: 1.15, textAlign: 'center', textTransform: 'uppercase', pointerEvents: 'none', textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{String(post?.titulo || '').replace(/<[^>]+>/g, '')}</div>
+            <img src="/assets/ig-footer-ovc-reels-canva.png" alt="" style={{ position: 'absolute', left: 350 * s, top: 1490 * s, width: 380 * s, height: 260 * s, pointerEvents: 'none' }} />
+          </div>
+          {/* contorno arrastável + alças */}
+          {L && (
+            <div onPointerDown={iniciar('body')} style={{ position: 'absolute', left: P + L.rect.x * s, top: P + L.rect.y * s, width: L.rect.w * s, height: L.rect.h * s, outline: modo === 'recortar' ? '2px dashed #38bdf8' : '2px solid #38bdf8', cursor: modo === 'recortar' ? 'grab' : 'move' }}>
+              {handles.map(h => <div key={h} onPointerDown={iniciar(h)} style={{ position: 'absolute', width: 12, height: 12, background: '#fff', border: '2px solid #38bdf8', borderRadius: modo === 'recortar' ? 2 : 6, ...posHandle(h) }} />)}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: '1 1 220px', minWidth: 200, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button type="button" className={'btn btn-sm ' + (modo === 'mover' ? 'btn-primary' : 'btn-secondary')} onClick={() => setModo('mover')}>↔️ Mover / tamanho</button>
+            <button type="button" className={'btn btn-sm ' + (modo === 'recortar' ? 'btn-primary' : 'btn-secondary')} onClick={() => setModo('recortar')}>✂️ Recortar</button>
+          </div>
+          <div style={{ color: 'var(--t3)', fontSize: 11, lineHeight: 1.45 }}>
+            {modo === 'mover'
+              ? 'Arraste o vídeo para mover. Puxe as alças para aumentar ou diminuir — ex.: puxe a alça de baixo para aumentar a altura mantendo o topo no lugar.'
+              : 'Puxe uma alça para cortar só aquele lado (ex.: só a lateral direita). Arraste o meio para escolher qual parte do vídeo aparece dentro do recorte.'}
+            {' '}O que ficar fora do quadro laranja é cortado.
+          </div>
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+            <input type="checkbox" checked={travar} onChange={e => setTravar(e.target.checked)} /> Manter proporção (sem esticar)
+          </label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={presetPreencher}>Preencher tela</button>
+            <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={presetInteiro}>Vídeo inteiro no topo</button>
+            <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={centralizar}>Centralizar</button>
+            <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={zerarRecorte}>Tirar recortes</button>
+            <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => dims && setLayout(reelLayoutAuto(dims.width, dims.height))}>Resetar</button>
+          </div>
+          {L && <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: 'monospace' }}>
+            Recorte — esq {pct(L.crop.l)} · cima {pct(L.crop.t)} · dir {pct(L.crop.r)} · baixo {pct(L.crop.b)}<br />
+            Posição — x {Math.round(L.rect.x)} · y {Math.round(L.rect.y)} · {Math.round(L.rect.w)}×{Math.round(L.rect.h)} (quadro 1080×1920)
+          </div>}
+          {L && (() => {
+            const linha = { display: 'grid', gridTemplateColumns: '92px 1fr 46px', gap: 6, alignItems: 'center', fontSize: 11 };
+            const sl = (rotulo, valor, min, max, step, onChange, fmt) => (
+              <label style={linha}><span>{rotulo}</span>
+                <input type="range" min={min} max={max} step={step} value={valor} onChange={e => onChange(Number(e.target.value))} />
+                <span style={{ fontFamily: 'monospace', textAlign: 'right' }}>{fmt(valor)}</span></label>
+            );
+            const p100 = (v) => Math.round(v * 100) + '%';
+            const px = (v) => Math.round(v);
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                {sl('Cortar esquerda', L.crop.l, 0, 0.6, 0.005, v => setRecorte('l', v), p100)}
+                {sl('Cortar direita', L.crop.r, 0, 0.6, 0.005, v => setRecorte('r', v), p100)}
+                {sl('Cortar em cima', L.crop.t, 0, 0.6, 0.005, v => setRecorte('t', v), p100)}
+                {sl('Cortar embaixo', L.crop.b, 0, 0.6, 0.005, v => setRecorte('b', v), p100)}
+                {sl('Tamanho (largura)', L.rect.w, 200, 4000, 2, setTamanho, px)}
+                {sl('Posição horizontal', L.rect.x, -3000, 1000, 2, v => setPos('x', v), px)}
+                {sl('Posição vertical', L.rect.y, -3000, 1800, 2, v => setPos('y', v), px)}
+              </div>
+            );
+          })()}
+          {ytId && !dimsSalvas && <div style={{ fontSize: 11, color: 'var(--yellow)' }}>Vídeo do YouTube: proporção assumida 16:9 até a primeira montagem terminar.</div>}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+            <button type="button" className="btn btn-primary btn-sm" disabled={!L || !!salvando} onClick={() => salvar(false)}>✅ Aplicar e remontar</button>
+            {info?.layout && <button type="button" className="btn btn-secondary btn-sm" disabled={!!salvando} onClick={() => salvar(true)}>Voltar ao automático</button>}
+          </div>
+          {salvando && <div style={{ fontSize: 11, color: 'var(--yellow)' }}>⏳ {salvando}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
   const [busy, setBusy] = useState('');
   const info = reelTemplateInfo(post);
+  const [editando, setEditando] = useState(false);
   const status = info?.status;
   const enviarPronto = async (file) => {
     if (!file) return;
@@ -1044,6 +1334,13 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
             </div>
           )}
           <div style={{fontSize:12,color:corStatus}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
+          {info?.layout && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento: ajustado por você</div>}
+          {(() => {
+            let m = {}; try { m = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{}); } catch(_) {}
+            const podeAjustar = !!info?.source_url && status !== 'embed_only' && !m?.instagram_reel?.ig_id;
+            if (!podeAjustar) return null;
+            return <button type="button" className="btn btn-secondary btn-sm" disabled={!!busy || status==='processing'} title={status==='processing' ? 'Aguarde a montagem atual terminar' : ''} onClick={()=>setEditando(v=>!v)}>✂️ {editando ? 'Fechar editor' : 'Ajustar enquadramento'}</button>;
+          })()}
         </div>
         <div style={caixa}>
           <div style={tituloCaixa}>3. Seu vídeo pronto</div>
@@ -1057,6 +1354,7 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
           </label>
         </div>
       </div>
+      {editando && <ReelEnquadramentoEditor post={post} info={info} onMetrics={onMetrics} onClose={()=>setEditando(false)}/>}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:10}}>
         <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':(info?.manual_final ? '🎞️ Publicar meu vídeo pronto (3) como Reel' : '🎞️ Publicar a montagem (2) como Reel')}</button>
         {busy && <span style={{fontSize:11,color:'var(--yellow)'}}>⏳ {busy}</span>}
