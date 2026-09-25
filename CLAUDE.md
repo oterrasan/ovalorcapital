@@ -9879,3 +9879,19 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 5. Busca de novas fontes de vídeo (Terra etc.) — **pausada por Roberto**, não retomar sozinho.
 
 ---
+
+---
+
+### Sessão 25/09/2026 (continuação) — REELS: MANCHETE IGUAL AO FEED, PRÉVIA DA MONTAGEM, VÍDEO PRONTO, CAPTURA DE INSTAGRAM/YOUTUBE (PR #770, merge `79d9f4e`)
+
+- **Manchete dos Reels com palavras coladas** ("PRÉDIODESABAAPÓSEXPLOSÃO..."): causa real = o SVG antigo punha cada espaço num `<tspan>` sozinho e o librsvg descartava. `scripts/render-instagram-reel.mjs` agora usa o mesmo método do feed (Pango do sharp + Inter 800 empacotada, largura 780, 42→30px, até 4 linhas, destaque `#f28c22`), com espaços sempre FORA de `<span>`. Validado renderizando de verdade com sharp 0.33.3 ("PRÉDIO DESABA APÓS EXPLOSÃO EM BAIRRO TURÍSTICO DE ATENAS E DEIXA FERIDOS" sai com espaços). ⚠️ Até o merge, produção seguia com o código antigo — Roberto viu o erro num Reel real de 25/09 e cobrou com razão ("pare de falar que resolveu uma coisa e não resolveu"). Primeiro Reel real com o código novo ainda não observado no fim da sessão (fila vazia).
+- **Prévia da montagem**: runner sobe cópia 540x960 → `template.preview_url`; painel `ReelMontagemPanel` (modal Editar Post + aba 🎬 Vídeos) mostra a prévia antes de publicar.
+- **Vídeo já montado**: action `reels_set_final_file` — Roberto sobe o arquivo pronto (até 50 MB, `post-videos/reels-final/`) e publica sem o sistema alterar nada (método hospedado). Prévia/arquivo pronto apagados após publicar.
+- **Reescrita por Link — Instagram/YouTube**: sem login, o Instagram devolve página vazia e o YouTube pede "confirme que não é robô" (testado no runner). Duas opções: (1) manual — colar texto/legenda + subir o vídeo na própria tela; (2) automática — link sem texto vira pedido `config LINK_JOB__*`, job `capturar_links` do `instagram-auto.yml` (script `scripts/capture-link-jobs.mjs`) usa yt-dlp com cookies da conta de apoio (secret `YTDLP_COOKIES`), sobe vídeo e chama `link_manual`. Endpoint confirmado em produção (`link_jobs_pendentes` → `{"ok":true,"count":0}`).
+- **Regra nova (topo do arquivo)**: quem faz o merge é o Claude, nunca o Roberto.
+
+#### 🔧 Pendências
+1. Conferir o primeiro Reel real renderizado com o código novo (manchete com espaços + prévia no admin).
+2. Roberto: criar a conta de apoio e o secret `YTDLP_COOKIES` (https://github.com/oterrasan/ovalorcapital/settings/secrets/actions/new) — sem ele só a opção manual funciona.
+3. Recorte/posição do vídeo no Reel (vídeo pequeno no topo, metade de baixo preta, logo duplicado) — aguardando prints de Roberto.
+4. Avaliação de alcance no fim de semana (Roberto).
