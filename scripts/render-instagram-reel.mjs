@@ -34,77 +34,179 @@ function cleanText(value) {
     .trim();
 }
 
-function normalize(value) {
-  return cleanText(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-
-function removeRepeatedTitle(body, title) {
-  const cleanBody = cleanText(body);
-  const cleanTitle = cleanText(title);
-  if (!cleanBody || !cleanTitle) return cleanBody;
-  const prefix = cleanBody.slice(0, cleanTitle.length + 12);
-  if (normalize(prefix).startsWith(normalize(cleanTitle))) {
-    return cleanBody.slice(cleanTitle.length).replace(/^[\s:;,.!\-–—]+/, "").trim();
-  }
-  return cleanBody;
-}
-
-function excerpt(value, maxLength) {
-  const text = cleanText(value);
-  if (text.length <= maxLength) return text;
-  const shortened = text.slice(0, maxLength + 1);
-  const lastSpace = shortened.lastIndexOf(" ");
-  return `${shortened.slice(0, Math.max(lastSpace, maxLength - 20)).trim()}...`;
-}
-
-function wrapText(value, maxChars, maxLines) {
-  const words = cleanText(value).split(" ").filter(Boolean);
-  const lines = [];
-  let line = "";
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (candidate.length <= maxChars || !line) {
-      line = candidate;
-      continue;
-    }
-    lines.push(line);
-    line = word;
-    if (lines.length === maxLines - 1) break;
-  }
-  if (line && lines.length < maxLines) lines.push(line);
-  const consumed = lines.join(" ").length;
-  if (consumed < cleanText(value).length && lines.length) {
-    lines[lines.length - 1] = lines[lines.length - 1].replace(/[.,;:!?]?$/, "...");
-  }
-  return lines;
-}
-
 function escapeXml(value) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function textSvg(title, body) {
-  const titleLines = wrapText(excerpt(title, 110).toUpperCase(), 30, 3);
-  const bodyText = excerpt(removeRepeatedTitle(body, title), 210).toUpperCase();
-  const bodyLines = wrapText(bodyText, 34, 4);
-  const titleSize = titleLines.length > 2 ? 43 : 47;
-  const bodySize = bodyLines.length > 3 ? 35 : 39;
-  const titleLeading = Math.round(titleSize * 1.18);
-  const bodyLeading = Math.round(bodySize * 1.25);
-  const totalHeight = titleLines.length * titleLeading + (bodyLines.length ? 30 + bodyLines.length * bodyLeading : 0);
+// 25/09/2026 — Roberto: "tem duas frases indo em todos eles no template e
+// elas param com '...' isso nao faz o menor sentido... a chamada deve
+// seguir o padrao das materias, o sistema deve criar uma chamada real,
+// chamativa, que chame atencao, mas que seja real a manchete original que
+// raspamos em fontes branca e uma ou duas palavras de outra cor. igual aos
+// posts do feed". Causa raiz real: título E corpo eram truncados de forma
+// INDEPENDENTE (excerpt() por caractere + wrapText() por contagem de
+// linha) — mesmo sendo texto real (job.title/job.body vêm do título/corpo
+// real da matéria, api/manage.js ~linha 1625), praticamente todo reel
+// acabava com os DOIS blocos terminando em "...", o que lia como template
+// fixo. Fix: um ÚNICO bloco — a manchete real, sem resumo separado —
+// quebra de linha por LARGURA estimada (só trunca de verdade como último
+// recurso, nunca por contagem fixa de caracteres) + 1 palavra de destaque
+// em cor diferente sobre fundo branco, mesma lógica de
+// core/instagram_image.js (chooseHighlightWord/IMPACT_WORDS/STOPWORDS) —
+// duplicada aqui de propósito: script standalone do GitHub Actions, sem
+// import de core/ pra não acoplar os dois pipelines de render (mesmo
+// padrão de duplicação deliberada já usado em core/brasilonMirror.js).
+const HIGHLIGHT_COLOR = "#f28c22";
+const STOPWORDS = new Set([
+  "A", "O", "AS", "OS", "UM", "UMA", "UNS", "UMAS",
+  "DE", "DA", "DO", "DAS", "DOS", "E", "EM", "NO", "NA", "NOS", "NAS",
+  "POR", "PARA", "COM", "SEM", "SOB", "SOBRE", "ENTRE", "APOS", "ATE",
+  "AO", "AOS", "QUE", "SE", "SUA", "SEU", "SUAS", "SEUS", "PROPRIA",
+  "PROPRIO", "EX", "EUA"
+]);
+const IMPACT_WORDS = new Map([
+  ["MORTE", 80], ["MORTA", 80], ["MORTO", 80], ["MORRE", 80], ["ASSASSINATO", 78],
+  ["CULPADA", 76], ["CULPADO", 76], ["CONDENADO", 74], ["CONDENADA", 74],
+  ["CRIME", 72], ["FACADAS", 70], ["MATAR", 68], ["PRESO", 68], ["PRESA", 68],
+  ["BILIONARIO", 66], ["MILIONARIO", 64], ["ALTA", 62], ["QUEDA", 62],
+  ["RECUA", 62], ["AVANCA", 62], ["DOLAR", 62], ["JUROS", 62], ["LULA", 70],
+  ["BOLSONARO", 70], ["TRUMP", 70], ["STF", 70], ["GOVERNO", 58]
+]);
+
+function normalizeWord(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/\p{Mn}/gu, "")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase();
+}
+
+function chooseHighlightWord(title) {
+  const words = String(title || "").match(/[\p{L}\p{N}]+/gu) || [];
+  let best = null;
+  words.forEach((word, index) => {
+    const normalized = normalizeWord(word);
+    if (!normalized || STOPWORDS.has(normalized) || normalized.length < 4) return;
+    const score = (IMPACT_WORDS.get(normalized) || 0) + Math.min(normalized.length, 14) - index * 0.35;
+    if (!best || score > best.score) best = { normalized, score };
+  });
+  return best?.normalized || null;
+}
+
+// Estimativa de largura por caractere — mesma tabela usada em
+// core/instagram_image.js pro feed. Boa o bastante pra decidir quebra de
+// linha: o SVG é rasterizado via sharp+Lanczos3 (supersampling), não via
+// Pango, então não tem como medir a largura real do texto antes de
+// desenhar.
+function estimateTextWidth(text, fontSize) {
+  let units = 0;
+  for (const ch of String(text || "")) {
+    if (ch === " ") units += 0.28;
+    else if ("IÍÌÎÏ!.,:;|".includes(ch)) units += 0.34;
+    else if ("MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ".includes(ch)) units += 0.88;
+    else units += 0.64;
+  }
+  return units * fontSize;
+}
+
+// Quebra a manchete real em linhas, SEM truncar nada — devolve null se
+// não couber em maxLines com esse tamanho de fonte (nesse caso quem chama
+// tenta um tamanho menor antes de aceitar qualquer corte).
+function wrapHeadlineWords(text, fontSize, maxWidth, maxLines) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (!current || estimateTextWidth(candidate, fontSize) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+    lines.push(current);
+    current = word;
+    if (lines.length > maxLines) return null;
+  }
+  if (current) lines.push(current);
+  return lines.length <= maxLines ? lines : null;
+}
+
+// Força um encaixe mesmo que a manchete não caiba de jeito nenhum — só
+// chamado depois que NENHUM tamanho de fonte (até o mínimo) conseguiu
+// encaixar sem cortar. Trunca só a última linha, com reticências reais.
+function truncateHeadlineToFit(text, fontSize, maxWidth, maxLines) {
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (!current || estimateTextWidth(candidate, fontSize) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+    lines.push(current);
+    current = word;
+  }
+  if (current) lines.push(current);
+  if (lines.length <= maxLines) return lines;
+  const clipped = lines.slice(0, maxLines);
+  let last = [clipped[maxLines - 1], ...lines.slice(maxLines)].join(" ").trim();
+  while (last.length > 1 && estimateTextWidth(last + "…", fontSize) > maxWidth) {
+    last = last.replace(/\s+\S*$/, "").trim() || last.slice(0, -1).trim();
+  }
+  clipped[maxLines - 1] = last ? `${last}…` : "";
+  return clipped;
+}
+
+const HEADLINE_MAX_WIDTH = 860;
+const HEADLINE_MAX_LINES = 5;
+const HEADLINE_MAX_FONT = 50;
+const HEADLINE_MIN_FONT = 36;
+
+// Mesma estratégia de core/instagram_image.js (buildHeadlineLayers): testa
+// do maior tamanho de fonte pro menor, usa o PRIMEIRO que encaixa a
+// manchete real inteira sem cortar nada. Só recorre a truncar (com
+// reticências) se nem no tamanho mínimo ela couber — último recurso, não
+// o caminho padrão.
+function headlineLayout(title) {
+  for (let fontSize = HEADLINE_MAX_FONT; fontSize >= HEADLINE_MIN_FONT; fontSize -= 2) {
+    const lines = wrapHeadlineWords(title, fontSize, HEADLINE_MAX_WIDTH, HEADLINE_MAX_LINES);
+    if (lines) return { fontSize, lines };
+  }
+  return {
+    fontSize: HEADLINE_MIN_FONT,
+    lines: truncateHeadlineToFit(title, HEADLINE_MIN_FONT, HEADLINE_MAX_WIDTH, HEADLINE_MAX_LINES)
+  };
+}
+
+function renderLineMarkup(line, highlightWord, state) {
+  const parts = String(line || "").split(/(\s+)/);
+  return parts.map(part => {
+    if (!part) return "";
+    const token = normalizeWord(part);
+    const highlight = !state.used && highlightWord && token === highlightWord;
+    if (highlight) state.used = true;
+    return `<tspan fill="${highlight ? HIGHLIGHT_COLOR : "#ffffff"}">${escapeXml(part)}</tspan>`;
+  }).join("");
+}
+
+function textSvg(title) {
+  const cleanTitle = cleanText(title).toUpperCase();
+  const { fontSize, lines } = headlineLayout(cleanTitle);
+  const highlightWord = chooseHighlightWord(cleanTitle);
+  const highlightState = { used: false };
+  const leading = Math.round(fontSize * 1.2);
+  const totalHeight = lines.length * leading;
   const startY = Math.max(1010, 1280 - totalHeight);
-  const titleSpans = titleLines.map((line, index) => `<tspan x="110" dy="${index ? titleLeading : 0}">${escapeXml(line)}</tspan>`).join("");
-  const bodyY = startY + Math.max(0, titleLines.length - 1) * titleLeading + 78;
-  const bodySpans = bodyLines.map((line, index) => `<tspan x="110" dy="${index ? bodyLeading : 0}">${escapeXml(line)}</tspan>`).join("");
+  const spans = lines
+    .map((line, index) => `<tspan x="110" dy="${index ? leading : 0}">${renderLineMarkup(line, highlightWord, highlightState)}</tspan>`)
+    .join("");
 
   return Buffer.from(`
     <svg width="${WIDTH * TEXT_RENDER_SCALE}" height="${HEIGHT * TEXT_RENDER_SCALE}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
       <style>
-        .headline { font-family: Inter, Arial, sans-serif; font-size: ${titleSize}px; font-weight: 750; letter-spacing: 0; }
-        .summary { font-family: Inter, Arial, sans-serif; font-size: ${bodySize}px; font-weight: 650; letter-spacing: 0; }
+        .headline { font-family: Inter, Arial, sans-serif; font-size: ${fontSize}px; font-weight: 800; letter-spacing: 0; }
       </style>
-      <text class="headline" x="110" y="${startY}" fill="#f4c20d">${titleSpans}</text>
-      ${bodyLines.length ? `<text class="summary" x="110" y="${bodyY}" fill="#ffffff">${bodySpans}</text>` : ""}
+      <text class="headline" x="110" y="${startY}">${spans}</text>
     </svg>`);
 }
 
@@ -192,7 +294,7 @@ async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx
   const topBrand = await sharp(feedOverlay).extract({ left: 350, top: 25, width: 380, height: 205 }).png().toBuffer();
   const gradient = buildGradientSvg(fitMode === "contain" ? buildContainFadeStops(videoOutHeightPx) : COVER_FADE_STOPS);
 
-  const crispText = await sharp(textSvg(job.title, job.body))
+  const crispText = await sharp(textSvg(job.title))
     .resize(WIDTH, HEIGHT, { kernel: sharp.kernel.lanczos3 })
     .png()
     .toBuffer();
