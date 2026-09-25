@@ -118,6 +118,7 @@ export default async function handler(req, res) {
     if (action === "reels_render_job") return handleReelsRenderJob(req, res, body);
     if (action === "reels_render_complete") return handleReelsRenderComplete(req, res, body);
     if (action === "reels_render_fail") return handleReelsRenderFail(req, res, body);
+    if (action === "reels_set_final_file") return handleReelsSetFinalFile(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
@@ -1602,6 +1603,14 @@ async function handleReelsRenderJob(req, res, body) {
   processing.ig_account_id = ig.account_id;
   processing.ig_username = ig.username;
   processing.quota_before = ig.quota_before || null;
+  // 25/09/2026 — Roberto: "preciso visualizar como ficou a montagem, só
+  // assim posso aprovar". O vídeo final vai direto pra Meta (sem Supabase,
+  // teto de 50MB do projeto) — então o runner gera uma CÓPIA DE
+  // VISUALIZAÇÃO leve (540x960, bitrate baixo) e sobe só ela pro nosso
+  // Storage via URL assinada. Best-effort: se não conseguir gerar a URL, o
+  // Reel continua sendo montado e publicado normalmente, só sem prévia.
+  const preview = await _reelsCriarUploadDePrevia(candidate.id, claimId);
+  processing.preview_candidate_url = preview?.public_url || null;
   metrics.instagram_reel_template = processing;
   const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
   if (jobStateError) throw jobStateError;
@@ -1628,7 +1637,8 @@ async function handleReelsRenderJob(req, res, body) {
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
-      ig_upload_token: ig.upload_token
+      ig_upload_token: ig.upload_token,
+      preview_upload_url: preview?.upload_url || null
     }
   });
 }
@@ -1667,12 +1677,19 @@ async function handleReelsRenderComplete(req, res, body) {
     return res.status(200).json({ ok: true, still_processing: true, post_id: postId, status_code: status?.status_code || null });
   }
 
+  const previewUrl = body?.preview_uploaded === true && template.preview_candidate_url ? template.preview_candidate_url : null;
+  if (previewUrl && template.preview_url && template.preview_url !== previewUrl) {
+    try { await deleteVideoFromStorage(template.preview_url); } catch (_) {}
+  }
   metrics.instagram_reel_template = {
     ...template,
     status: "ready",
     end_trim: body?.end_trim && typeof body.end_trim === "object" ? body.end_trim : null,
     ready_at: new Date().toISOString(),
-    last_error: null
+    last_error: null,
+    preview_url: previewUrl || null,
+    manual_final: false,
+    final_url: null
   };
   const { error } = await supabase.from("posts").update({ metrics, error_msg: null, updated_at: new Date().toISOString() }).eq("id", postId);
   if (error) throw error;
@@ -1694,6 +1711,82 @@ async function handleReelsRenderComplete(req, res, body) {
   ]);
 
   return res.status(200).json({ ok: true, ready: true, post_id: postId, ig_creation_id: template.ig_creation_id });
+}
+
+async function _reelsCriarUploadDePrevia(postId, claimId) {
+  try {
+    const safeId = String(postId).replace(/[^a-zA-Z0-9_-]/g, "");
+    const path = `reels-preview/${safeId}-${String(claimId).slice(0, 8)}.mp4`;
+    const { data: signed, error } = await supabase.storage.from("post-videos").createSignedUploadUrl(path, { upsert: true });
+    if (error || !signed?.signedUrl) return null;
+    const publicUrl = supabase.storage.from("post-videos").getPublicUrl(path).data.publicUrl;
+    return { upload_url: signed.signedUrl, public_url: publicUrl };
+  } catch (_) {
+    return null;
+  }
+}
+
+// 25/09/2026 — Roberto: "preciso que nesta tela tenha a opcao de eu inserir
+// ele pronto, ja montado e publicar o arquivo que eu subi sem que o sistema
+// altere nada." O admin sobe o arquivo pronto direto pro Storage (navegador
+// -> Supabase, mesmo caminho do upload de vídeo bruto) e chama esta ação,
+// que cria o container do Reel pelo método hospedado (a Meta baixa o
+// arquivo exatamente como está, sem render nem template nosso) e marca o
+// Reel como pronto. post.video_url (vídeo do site) NÃO é alterado. O
+// arquivo pronto é apagado do Storage depois que o Reel é publicado
+// (_reelsDescartarVideoAposPublicar), igual ao vídeo bruto.
+async function handleReelsSetFinalFile(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const finalUrl = String(body?.final_url || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+  if (!finalUrl.startsWith(`${SUPABASE_URL}/storage/v1/object/public/post-videos/`)) {
+    return res.status(400).json({ ok: false, error: "arquivo_final_precisa_estar_no_nosso_storage" });
+  }
+
+  let post;
+  try { post = await _reelsLoadPost(postId); }
+  catch (_) { return res.status(404).json({ ok: false, error: "post_not_found" }); }
+  const metrics = parseJsonMaybe(post.metrics, {});
+  if (metrics?.instagram_reel?.ig_id) return res.status(409).json({ ok: false, error: "reel_ja_publicado" });
+  const previous = metrics.instagram_reel_template || {};
+  if (previous.status === "processing") return res.status(409).json({ ok: false, error: "montagem_automatica_em_andamento_tente_em_instantes" });
+
+  let ig;
+  try {
+    const { createReelContainer } = await _loadInstagram();
+    ig = await createReelContainer(finalUrl, buildInstagramCaption(post), body?.account_id || post.ig_account_id || null);
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: redactSecrets(e?.message || String(e)).slice(0, 500) });
+  }
+
+  if (previous.manual_final && previous.final_url && previous.final_url !== finalUrl) {
+    try { await deleteVideoFromStorage(previous.final_url); } catch (_) {}
+  }
+  if (previous.preview_url && !previous.manual_final) {
+    try { await deleteVideoFromStorage(previous.preview_url); } catch (_) {}
+  }
+  metrics.instagram_reel_template = {
+    version: REELS_TEMPLATE_VERSION,
+    status: "ready",
+    source_url: previous.source_url || post.video_url || finalUrl,
+    source_kind: previous.source_kind || null,
+    attempts: Number(previous.attempts || 0),
+    exhausted: false,
+    manual_final: true,
+    final_url: finalUrl,
+    preview_url: finalUrl,
+    ig_creation_id: ig.creation_id,
+    ig_account_id: ig.account_id,
+    ig_username: ig.username,
+    quota_before: ig.quota_before || null,
+    ready_at: new Date().toISOString(),
+    last_error: null
+  };
+  const { error } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  if (error) throw error;
+  await writeLog("info", `[reels] vídeo PRONTO enviado pelo admin (sem montagem do sistema): ${post.titulo || postId}`);
+  return res.status(200).json({ ok: true, ready: true, metrics });
 }
 
 async function handleReelsRenderFail(req, res, body) {
@@ -1822,6 +1915,13 @@ async function _reelsPublicarPost(post, accountId) {
 async function _reelsDescartarVideoAposPublicar(post) {
   try {
     const videoUrl = post?.video_url;
+    // 25/09/2026 — prévia da montagem e arquivo pronto enviado pelo admin
+    // também são temporários: apagados depois de publicar, mesmo quando o
+    // post não tem video_url (vídeo do Bacci via YouTube).
+    const tplExtra = _reelsTemplate(post?.metrics) || {};
+    for (const extra of new Set([tplExtra.preview_url, tplExtra.final_url].filter(Boolean))) {
+      if (extra !== videoUrl) { try { await deleteVideoFromStorage(extra); } catch (_) {} }
+    }
     if (!/^https?:\/\//i.test(String(videoUrl || ""))) return { discarded: false, reason: "sem_video_url" };
     const storageResult = await deleteVideoFromStorage(videoUrl);
     const { data: current } = await supabase.from("posts").select("metrics").eq("id", post.id).single();

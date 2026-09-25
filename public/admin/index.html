@@ -965,6 +965,74 @@ const reelTemplateLabel = (post) => {
   return '⚠️ Vídeo ainda não preparado';
 };
 
+// 25/09/2026 — Roberto: "preciso visualizar como ficou a montagem, só
+// assim posso aprovar para publicar" + "a opcao de eu inserir ele pronto,
+// ja montado e publicar o arquivo que eu subi sem que o sistema altere
+// nada". Painel único usado no modal "Editar Post" (Postagens) e na tela
+// 🎬 Vídeos. Prévia = cópia leve gerada pelo runner (preview_url); vídeo
+// pronto = upload direto do navegador pro Storage + reels_set_final_file
+// (Meta recebe o arquivo exatamente como enviado, sem template).
+const REEL_FINAL_MAX_BYTES = 50 * 1024 * 1024;
+function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
+  const [busy, setBusy] = useState('');
+  const info = reelTemplateInfo(post);
+  const status = info?.status;
+  const enviarPronto = async (file) => {
+    if (!file) return;
+    if (!/^video\//.test(file.type) && !/\.(mp4|mov|m4v)$/i.test(file.name||'')) { alert('❌ Escolha um arquivo de vídeo (mp4 ou mov).'); return; }
+    if (file.size > REEL_FINAL_MAX_BYTES) { alert('❌ Arquivo com ' + (file.size/1048576).toFixed(1) + ' MB. O limite atual é 50 MB — exporte em qualidade um pouco menor (ex.: 1080p, até 90 segundos).'); return; }
+    if (!confirm('Enviar este vídeo como o Reel final desta matéria? Ele será publicado exatamente como está, sem logo, manchete ou recorte do sistema.')) return;
+    setBusy('Enviando vídeo pronto...');
+    try {
+      try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
+      const ext = (file.name.split('.').pop()||'mp4').toLowerCase();
+      const path = 'reels-final/' + post.id + '-' + Date.now() + '.' + ext;
+      const { error } = await sb.storage.from('post-videos').upload(path, file, { contentType: file.type||'video/mp4', upsert:true, cacheControl:'3600' });
+      if (error) { alert('❌ Falha no upload: ' + error.message); return; }
+      const { data } = sb.storage.from('post-videos').getPublicUrl(path);
+      setBusy('Entregando o vídeo ao Instagram...');
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_set_final_file', post_id: post.id, final_url: data.publicUrl}) });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'falha ao preparar o vídeo')); try { await sb.storage.from('post-videos').remove([path]); } catch(_) {} return; }
+      if (d.metrics && onMetrics) onMetrics(d.metrics);
+      alert('✅ Vídeo pronto recebido. Confira a prévia e clique em "Publicar como Reel agora" quando quiser.');
+    } catch(e) {
+      alert('❌ Erro: ' + e.message);
+    } finally {
+      setBusy('');
+    }
+  };
+  const corStatus = info?.exhausted ? '#ef4444' : status==='ready' ? '#22c55e' : 'var(--yellow)';
+  return (
+    <div style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:12}}>
+      <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>🎞️ Reel — prévia antes de publicar</div>
+      {info?.preview_url ? (
+        <div style={{marginBottom:8}}>
+          <video key={info.preview_url} src={info.preview_url} controls playsInline style={{width:'100%',maxWidth:260,maxHeight:460,aspectRatio:'9/16',borderRadius:8,display:'block',background:'#000'}}/>
+          <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>{info.manual_final ? '📤 Seu vídeo pronto — será publicado exatamente assim.' : '🛠️ Montagem do sistema (cópia de visualização em qualidade reduzida — a publicação sai em qualidade cheia).'}</div>
+        </div>
+      ) : (
+        <div style={{fontSize:12,color:'var(--t3)',marginBottom:8}}>
+          {status==='ready' ? 'Montagem pronta, mas sem prévia (foi montada antes desta função existir). Suba o vídeo pronto abaixo se preferir ver antes.'
+            : (status==='pending'||status==='processing'||status==='error') && !info?.exhausted ? 'A prévia aparece aqui quando a montagem terminar.'
+            : 'Sem montagem para este vídeo.'}
+        </div>
+      )}
+      <div style={{fontSize:12,color:corStatus,marginBottom:8}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>
+        <label className="btn btn-secondary btn-sm" style={{cursor:busy?'wait':'pointer',margin:0}}>
+          📤 Subir vídeo já montado
+          <input type="file" accept="video/mp4,video/quicktime,video/*" style={{display:'none'}} disabled={!!busy}
+            onChange={e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) enviarPronto(f); }}/>
+        </label>
+      </div>
+      {busy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {busy}</div>}
+      <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>"Subir vídeo já montado": o Instagram recebe o arquivo exatamente como você enviou (até 50 MB, até 90 segundos, vertical 9:16). O vídeo da matéria no site não muda.</div>
+    </div>
+  );
+}
+
 function Postagens() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1610,9 +1678,7 @@ function Postagens() {
                       )}
                       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
-                        {!parseYouTubeId(editPost.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===editPost.id||reelTemplateInfo(editPost)?.status!=='ready'} onClick={()=>publicarReel(editPost.id, editPost.video_url)}>{reelPublishing===editPost.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                       </div>
-                      {!parseYouTubeId(editPost.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(editPost)?.exhausted?'#ef4444':reelTemplateInfo(editPost)?.status==='ready'?'#22c55e':'var(--yellow)',marginTop:8}}>{reelTemplateLabel(editPost)}</div>}
                       {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
                   ) : (
@@ -1627,6 +1693,10 @@ function Postagens() {
                   </div>
                   {videoBusy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {videoBusy}</div>}
                   <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Link do YouTube: o player deles é embutido direto, sem baixar nada (formato sempre compatível). Arquivo próprio: aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
+                  {((editPost.video_url && !parseYouTubeId(editPost.video_url)) || (reelTemplateInfo(editPost) && reelTemplateInfo(editPost).status!=='embed_only')) &&
+                    <ReelMontagemPanel post={editPost} publishing={reelPublishing===editPost.id}
+                      onPublish={()=>publicarReel(editPost.id, editPost.video_url)}
+                      onMetrics={m=>setEditPost(p=>({...p, metrics:m}))}/>}
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
@@ -4082,11 +4152,15 @@ function VideosAdmin() {
                     )}
                     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
-                      {!parseYouTubeId(selected.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===selected.id||reelTemplateInfo(selected)?.status!=='ready'} onClick={()=>publicarReel(selected.id, selected.video_url)}>{reelPublishing===selected.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                     </div>
-                    {!parseYouTubeId(selected.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(selected)?.exhausted?'#ef4444':reelTemplateInfo(selected)?.status==='ready'?'#22c55e':'#f59e0b',marginTop:8}}>{reelTemplateLabel(selected)}</div>}
                   </div>
                 )}
+                {((selected.video_url && !parseYouTubeId(selected.video_url)) || (reelTemplateInfo(selected) && reelTemplateInfo(selected).status!=='embed_only')) &&
+                  <div style={{marginBottom:20}}>
+                    <ReelMontagemPanel post={selected} publishing={reelPublishing===selected.id}
+                      onPublish={()=>publicarReel(selected.id, selected.video_url)}
+                      onMetrics={m=>setPosts(ps=>ps.map(p=>p.id===selected.id?{...p,metrics:m}:p))}/>
+                  </div>}
 
                 {videoBusy && <div className="text-secondary text-small" style={{marginBottom:10}}>⏳ {videoBusy}</div>}
                 {videoWarning && <div className="alert-banner yellow" style={{marginBottom:10}}><span>⚠️</span><span>{videoWarning}</span></div>}

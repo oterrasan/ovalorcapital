@@ -316,6 +316,30 @@ jobs:
               node scripts/render-instagram-reel.mjs render-job.json reel-source reel-final.mp4 reel-overlay.png > render-result.json
               cat render-result.json
 
+              # 25/09/2026 — Roberto: "preciso visualizar como ficou a montagem,
+              # só assim posso aprovar". Cópia de visualização leve (540x960,
+              # bitrate baixo) sobe pro nosso Storage via URL assinada — o vídeo
+              # final em qualidade cheia continua indo só pra Meta. Best-effort:
+              # dentro de "if", falha aqui nunca derruba o Reel.
+              preview_upload_url=$(node -p 'require("./render-job.json").job.preview_upload_url || ""')
+              preview_uploaded="false"
+              if [ -n "$preview_upload_url" ]; then
+                echo "::add-mask::${preview_upload_url}"
+                if ffmpeg -y -loglevel error -i reel-final.mp4 -vf "scale=540:960" \
+                     -c:v libx264 -preset veryfast -crf 30 -maxrate 1200k -bufsize 2400k -pix_fmt yuv420p \
+                     -c:a aac -b:a 64k -movflags +faststart reel-preview.mp4 \
+                   && curl --fail -sS -X PUT "$preview_upload_url" \
+                     -H "Content-Type: video/mp4" \
+                     -H "Cache-Control: max-age=3600" \
+                     -H "x-upsert: true" \
+                     --upload-file reel-preview.mp4 --max-time 120 >/dev/null; then
+                  preview_uploaded="true"
+                  echo "Prévia da montagem enviada ($(stat -c%s reel-preview.mp4) bytes)."
+                else
+                  echo "Prévia da montagem não foi gerada/enviada (não afeta o Reel)."
+                fi
+              fi
+
               # Upload resumível direto pra Meta — nenhum storage nosso no meio.
               # SEM --fail aqui de propósito (20/09/2026): --fail engolia o corpo
               # da resposta em qualquer erro não-2xx, escondendo o motivo real
@@ -338,14 +362,15 @@ jobs:
                 false
               fi
 
-              POST_ID="$post_id" CLAIM_ID="$claim_id" node -e '
+              POST_ID="$post_id" CLAIM_ID="$claim_id" PREVIEW_UPLOADED="$preview_uploaded" node -e '
                 const fs = require("node:fs");
                 const render = JSON.parse(fs.readFileSync("render-result.json", "utf8"));
                 fs.writeFileSync("render-complete.json", JSON.stringify({
                   action: "reels_render_complete",
                   post_id: process.env.POST_ID,
                   claim_id: process.env.CLAIM_ID,
-                  end_trim: render.end_trim || null
+                  end_trim: render.end_trim || null,
+                  preview_uploaded: process.env.PREVIEW_UPLOADED === "true"
                 }));
               '
 
