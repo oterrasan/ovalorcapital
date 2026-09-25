@@ -416,14 +416,123 @@ async function inserir(content, hash, img, tipo = "padrao", extraMetrics = {}) {
 // — mesma Regra Zero-D de sempre, Roberto revisa/aprova no admin antes de
 // ir ao ar, exatamente como manual() (a ferramenta de URL genérica já
 // existente) já faz.
+// 25/09/2026 — Roberto: "só tem do bacci porque nao funcionou captura de
+// instagram nem youtube" + "vamos criar ambas as opcoes". Teste real (runner
+// do GitHub, sem login): Instagram devolve página vazia e o yt-dlp recebe
+// "empty media response"; YouTube devolve só o texto genérico do site e o
+// yt-dlp recebe "Sign in to confirm you're not a bot". Duas saídas:
+// (1) MANUAL — o admin manda body.texto (legenda/texto colado) e,
+//     opcionalmente, body.video_hospedado (arquivo que ele subiu pro nosso
+//     Storage). Processa na hora.
+// (2) AUTOMÁTICA — link de Instagram/YouTube SEM texto vira um pedido
+//     (config LINK_JOB__*). O runner (instagram-auto.yml, job
+//     capturar_links) usa os cookies da conta de apoio (secret
+//     YTDLP_COOKIES), lê legenda/título/capa, baixa o vídeo, sobe pro
+//     Storage e chama link_manual de novo com job_key + texto + vídeo.
+// Link de Instagram/YouTube nunca é mais raspado direto (o texto genérico
+// do YouTube passava no piso de 60 chars e arriscava a IA inventar matéria).
+const LINK_JOB_PREFIX = "LINK_JOB__";
+const VIDEO_STORAGE_PREFIX = "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/";
+function _linkTokenOk(req, body) {
+  const auth = String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+  const supplied = auth || body?.token || "";
+  return !!supplied && String(supplied) === String(CRON_TOKEN);
+}
+async function _lerLinkJob(key) {
+  const { data } = await supabase.from("config").select("key,value").eq("key", key).limit(1);
+  const row = data && data[0];
+  if (!row) return null;
+  try { return JSON.parse(row.value || "{}"); } catch (_) { return null; }
+}
+async function _gravarLinkJob(key, job) {
+  await supabase.from("config").update({ value: JSON.stringify(job), updated_at: new Date().toISOString() }).eq("key", key);
+}
+async function _criarLinkJob(link, categoria) {
+  const key = `${LINK_JOB_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const job = { link, categoria, status: "pending", attempts: 0, created_at: new Date().toISOString() };
+  const { error } = await supabase.from("config").insert({ key, value: JSON.stringify(job) });
+  if (error) throw error;
+  return key;
+}
+async function _finalizarLinkJob(key, ok, info) {
+  try {
+    if (ok) { await supabase.from("config").delete().eq("key", key); return; }
+    const job = (await _lerLinkJob(key)) || {};
+    await _gravarLinkJob(key, { ...job, status: "error", error: String(info || "falha").slice(0, 400), failed_at: new Date().toISOString() });
+  } catch (_) {}
+}
+
+// Runner pede os pedidos pendentes. peek:true só conta, sem reservar.
+async function handleLinkJobsPendentes(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const { data, error } = await supabase.from("config").select("key,value").like("key", `${LINK_JOB_PREFIX}%`).limit(50);
+  if (error) return res.status(500).json({ ok: false, error: error.message });
+  const staleBefore = Date.now() - 30 * 60 * 1000;
+  const jobs = [];
+  for (const row of data || []) {
+    let job; try { job = JSON.parse(row.value || "{}"); } catch (_) { continue; }
+    const stale = job.status === "processing" && Date.parse(job.processing_at || 0) < staleBefore;
+    if (job.status === "pending" || stale) jobs.push({ key: row.key, job });
+  }
+  if (body?.peek === true) return res.status(200).json({ ok: true, count: jobs.length });
+  const out = [];
+  for (const { key, job } of jobs.slice(0, 3)) {
+    const path = `link-capture/${key.replace(/[^a-zA-Z0-9_-]/g, "")}.mp4`;
+    let upload = null;
+    try {
+      const { data: signed } = await supabase.storage.from("post-videos").createSignedUploadUrl(path, { upsert: true });
+      if (signed?.signedUrl) upload = { upload_url: signed.signedUrl, public_url: supabase.storage.from("post-videos").getPublicUrl(path).data.publicUrl };
+    } catch (_) {}
+    await _gravarLinkJob(key, { ...job, status: "processing", processing_at: new Date().toISOString(), attempts: Number(job.attempts || 0) + 1 });
+    out.push({ key, link: job.link, categoria: job.categoria, ...(upload || {}) });
+  }
+  return res.status(200).json({ ok: true, jobs: out });
+}
+
+async function handleLinkJobFalhou(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const key = String(body.job_key || "");
+  if (!key.startsWith(LINK_JOB_PREFIX)) return res.status(400).json({ ok: false, error: "job_key invalido" });
+  await _finalizarLinkJob(key, false, body.error);
+  return res.status(200).json({ ok: true });
+}
+
 async function handleLinkManual(req, res, body) {
+  const jobKey = String(body.job_key || "");
+  if (jobKey) {
+    if (!_linkTokenOk(req, body) || !jobKey.startsWith(LINK_JOB_PREFIX)) return res.status(401).json({ ok: false, error: "unauthorized" });
+    // Envolve a resposta pra fechar o pedido (sucesso apaga, erro grava o motivo).
+    const origJson = res.json.bind(res);
+    res.json = (payload) => {
+      _finalizarLinkJob(jobKey, payload?.ok === true, payload?.error).finally(() => origJson(payload));
+      return res;
+    };
+  }
   const link = String(body.link || "").trim();
   if (!link) return res.status(400).json({ ok: false, error: "link obrigatorio" });
   try { new URL(link); } catch (_) { return res.status(400).json({ ok: false, error: "link invalido" }); }
   const categoria = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : "brasil-on";
+  const social = ehInstagram(link) || ehYoutube(link);
+  const textoManual = String(body.texto || "").trim();
+  const videoHospedado = String(body.video_hospedado || "").trim();
+  if (videoHospedado && !videoHospedado.startsWith(VIDEO_STORAGE_PREFIX)) {
+    return res.status(400).json({ ok: false, error: "video_hospedado precisa estar no nosso Storage" });
+  }
 
-  const a = await scrape(link, { allowCompetitorImage: true, timeout: 10000 });
-  const sourceText = [a.title, a.text].filter(Boolean).join("\n\n").trim();
+  // Opção automática: Instagram/YouTube sem texto vira pedido pro runner.
+  if (social && !textoManual && !jobKey) {
+    let key;
+    try { key = await _criarLinkJob(link, categoria); }
+    catch (e) { return res.status(500).json({ ok: false, error: "falha ao criar pedido de captura: " + (e?.message || e) }); }
+    await dispararReelsWorkflowAgora();
+    return res.status(200).json({ ok: true, queued: true, job_key: key });
+  }
+
+  const a = social ? { title: "", text: "", image: "" } : await scrape(link, { allowCompetitorImage: true, timeout: 10000 });
+  const tituloFonte = String(body.titulo_fonte || "").trim() || a.title || "";
+  const sourceText = textoManual
+    ? [tituloFonte, textoManual].filter(Boolean).join("\n\n").trim()
+    : [a.title, a.text].filter(Boolean).join("\n\n").trim();
   // 24/09/2026 — BUG REAL CONFIRMADO por Roberto: 2 links de Instagram
   // diferentes deram o MESMO resultado fabricado ("Instagram passa por
   // instabilidade nesta data"). Causa raiz, confirmada com teste real
@@ -443,13 +552,13 @@ async function handleLinkManual(req, res, body) {
   if (!sourceText || sourceText.length < 60) {
     return res.status(422).json({
       ok: false,
-      error: "nao foi possivel extrair conteudo real desse link (Instagram costuma nao expor legenda/texto pra quem acessa sem estar logado, especialmente em Reels) — nada foi salvo, pra nao inventar noticia a partir de quase nada."
+      error: textoManual ? "texto colado curto demais (minimo 60 caracteres) — cole a legenda/texto completo da noticia. Nada foi salvo." : "nao foi possivel extrair conteudo real desse link — nada foi salvo, pra nao inventar noticia a partir de quase nada. Cole a legenda/texto no campo de texto e tente de novo."
     });
   }
 
   let content;
   try {
-    content = await rewriteBrasilOn(sourceText, a.title || "", "");
+    content = await rewriteBrasilOn(sourceText, tituloFonte, "");
   } catch (e) {
     return res.status(502).json({ ok: false, error: "falha na reescrita: " + (e?.message || e) });
   }
@@ -462,8 +571,9 @@ async function handleLinkManual(req, res, body) {
   const comentario_fixado = (content.meta_descricao || "").trim();
   const metaTitle = stripTitle(content.meta_title || content.titulo);
   const hash = crypto.createHash("md5").update(link + "_link_manual_" + Date.now()).digest("hex");
-  const img = a.image
-    ? await processAndSaveImage(a.image, hash.slice(0, 12), Date.now(), { watermarkLabel: "", skipVision: true })
+  const imagemFonte = a.image || String(body.imagem_url || "").trim();
+  const img = /^https?:\/\//i.test(imagemFonte)
+    ? await processAndSaveImage(imagemFonte, hash.slice(0, 12), Date.now(), { watermarkLabel: "", skipVision: true })
     : null;
 
   const { data, error } = await supabase.from("posts").insert({
@@ -481,9 +591,11 @@ async function handleLinkManual(req, res, body) {
   let videoDetectado = null;
   try {
     let video = null;
-    if (ehYoutube(link)) video = { kind: "youtube", url: link };
-    else if (ehInstagram(link)) video = { kind: "instagram", url: link };
-    else video = await descobrirVideoGenerico(link);
+    if (videoHospedado) video = { kind: "hosted", url: videoHospedado };
+    else if (!social) {
+      if (/(^|\.)baccinoticias\.com\.br$/i.test(new URL(link).hostname)) video = await descobrirPaginaVideoBacci(link).catch(() => null);
+      if (!video) video = await descobrirVideoGenerico(link);
+    }
     const enfileirado = await enfileirarReelSeHouver(data.id, video, "link_manual");
     if (enfileirado) videoDetectado = video.kind;
   } catch (_) {}
@@ -1005,6 +1117,12 @@ async function enfileirarReelSeHouver(postId, video, logLabel) {
     let videoUrlPortal = null;
     if (video.kind === "youtube" || video.kind === "instagram") {
       sourceUrl = video.url;
+    } else if (video.kind === "hosted") {
+      // 25/09/2026 — vídeo já está no nosso Storage (upload do admin na
+      // Reescrita por Link, ou capturado pelo runner com a conta de apoio).
+      // Não baixa de novo: usa direto como fonte do Reel e player do site.
+      sourceUrl = video.url;
+      videoUrlPortal = video.url;
     } else {
       sourceUrl = await downloadAndUploadVideo(video.url);
       if (!sourceUrl) return false;
@@ -1648,6 +1766,8 @@ export default async function handler(req, res) {
   // automacao de sistema buscando nada"), então ela não pode ficar bloqueada
   // quando ele desliga o AUTOMATION geral, nem restrita à janela 07h-00h30.
   if (body.action === "link_manual") return handleLinkManual(req, res, body);
+  if (body.action === "link_jobs_pendentes") return handleLinkJobsPendentes(req, res, body);
+  if (body.action === "link_job_falhou") return handleLinkJobFalhou(req, res, body);
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });

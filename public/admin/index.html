@@ -965,6 +965,74 @@ const reelTemplateLabel = (post) => {
   return '⚠️ Vídeo ainda não preparado';
 };
 
+// 25/09/2026 — Roberto: "preciso visualizar como ficou a montagem, só
+// assim posso aprovar para publicar" + "a opcao de eu inserir ele pronto,
+// ja montado e publicar o arquivo que eu subi sem que o sistema altere
+// nada". Painel único usado no modal "Editar Post" (Postagens) e na tela
+// 🎬 Vídeos. Prévia = cópia leve gerada pelo runner (preview_url); vídeo
+// pronto = upload direto do navegador pro Storage + reels_set_final_file
+// (Meta recebe o arquivo exatamente como enviado, sem template).
+const REEL_FINAL_MAX_BYTES = 50 * 1024 * 1024;
+function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
+  const [busy, setBusy] = useState('');
+  const info = reelTemplateInfo(post);
+  const status = info?.status;
+  const enviarPronto = async (file) => {
+    if (!file) return;
+    if (!/^video\//.test(file.type) && !/\.(mp4|mov|m4v)$/i.test(file.name||'')) { alert('❌ Escolha um arquivo de vídeo (mp4 ou mov).'); return; }
+    if (file.size > REEL_FINAL_MAX_BYTES) { alert('❌ Arquivo com ' + (file.size/1048576).toFixed(1) + ' MB. O limite atual é 50 MB — exporte em qualidade um pouco menor (ex.: 1080p, até 90 segundos).'); return; }
+    if (!confirm('Enviar este vídeo como o Reel final desta matéria? Ele será publicado exatamente como está, sem logo, manchete ou recorte do sistema.')) return;
+    setBusy('Enviando vídeo pronto...');
+    try {
+      try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
+      const ext = (file.name.split('.').pop()||'mp4').toLowerCase();
+      const path = 'reels-final/' + post.id + '-' + Date.now() + '.' + ext;
+      const { error } = await sb.storage.from('post-videos').upload(path, file, { contentType: file.type||'video/mp4', upsert:true, cacheControl:'3600' });
+      if (error) { alert('❌ Falha no upload: ' + error.message); return; }
+      const { data } = sb.storage.from('post-videos').getPublicUrl(path);
+      setBusy('Entregando o vídeo ao Instagram...');
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_set_final_file', post_id: post.id, final_url: data.publicUrl}) });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'falha ao preparar o vídeo')); try { await sb.storage.from('post-videos').remove([path]); } catch(_) {} return; }
+      if (d.metrics && onMetrics) onMetrics(d.metrics);
+      alert('✅ Vídeo pronto recebido. Confira a prévia e clique em "Publicar como Reel agora" quando quiser.');
+    } catch(e) {
+      alert('❌ Erro: ' + e.message);
+    } finally {
+      setBusy('');
+    }
+  };
+  const corStatus = info?.exhausted ? '#ef4444' : status==='ready' ? '#22c55e' : 'var(--yellow)';
+  return (
+    <div style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:12}}>
+      <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>🎞️ Reel — prévia antes de publicar</div>
+      {info?.preview_url ? (
+        <div style={{marginBottom:8}}>
+          <video key={info.preview_url} src={info.preview_url} controls playsInline style={{width:'100%',maxWidth:260,maxHeight:460,aspectRatio:'9/16',borderRadius:8,display:'block',background:'#000'}}/>
+          <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>{info.manual_final ? '📤 Seu vídeo pronto — será publicado exatamente assim.' : '🛠️ Montagem do sistema (cópia de visualização em qualidade reduzida — a publicação sai em qualidade cheia).'}</div>
+        </div>
+      ) : (
+        <div style={{fontSize:12,color:'var(--t3)',marginBottom:8}}>
+          {status==='ready' ? 'Montagem pronta, mas sem prévia (foi montada antes desta função existir). Suba o vídeo pronto abaixo se preferir ver antes.'
+            : (status==='pending'||status==='processing'||status==='error') && !info?.exhausted ? 'A prévia aparece aqui quando a montagem terminar.'
+            : 'Sem montagem para este vídeo.'}
+        </div>
+      )}
+      <div style={{fontSize:12,color:corStatus,marginBottom:8}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>
+        <label className="btn btn-secondary btn-sm" style={{cursor:busy?'wait':'pointer',margin:0}}>
+          📤 Subir vídeo já montado
+          <input type="file" accept="video/mp4,video/quicktime,video/*" style={{display:'none'}} disabled={!!busy}
+            onChange={e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) enviarPronto(f); }}/>
+        </label>
+      </div>
+      {busy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {busy}</div>}
+      <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>"Subir vídeo já montado": o Instagram recebe o arquivo exatamente como você enviou (até 50 MB, até 90 segundos, vertical 9:16). O vídeo da matéria no site não muda.</div>
+    </div>
+  );
+}
+
 function Postagens() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1610,9 +1678,7 @@ function Postagens() {
                       )}
                       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
-                        {!parseYouTubeId(editPost.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===editPost.id||reelTemplateInfo(editPost)?.status!=='ready'} onClick={()=>publicarReel(editPost.id, editPost.video_url)}>{reelPublishing===editPost.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                       </div>
-                      {!parseYouTubeId(editPost.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(editPost)?.exhausted?'#ef4444':reelTemplateInfo(editPost)?.status==='ready'?'#22c55e':'var(--yellow)',marginTop:8}}>{reelTemplateLabel(editPost)}</div>}
                       {videoWarning && <div style={{marginTop:8,fontSize:12,color:'var(--yellow)',background:'rgba(234,179,8,.1)',border:'1px solid rgba(234,179,8,.3)',borderRadius:6,padding:'8px 10px',lineHeight:1.5}}>{videoWarning}</div>}
                     </div>
                   ) : (
@@ -1627,6 +1693,10 @@ function Postagens() {
                   </div>
                   {videoBusy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {videoBusy}</div>}
                   <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Link do YouTube: o player deles é embutido direto, sem baixar nada (formato sempre compatível). Arquivo próprio: aparece no lugar da imagem no topo da matéria, com o título sobreposto. A imagem de capa (campo acima) continua servindo pra cards, redes sociais e SEO.</div>
+                  {((editPost.video_url && !parseYouTubeId(editPost.video_url)) || (reelTemplateInfo(editPost) && reelTemplateInfo(editPost).status!=='embed_only')) &&
+                    <ReelMontagemPanel post={editPost} publishing={reelPublishing===editPost.id}
+                      onPublish={()=>publicarReel(editPost.id, editPost.video_url)}
+                      onMetrics={m=>setEditPost(p=>({...p, metrics:m}))}/>}
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
@@ -4082,11 +4152,15 @@ function VideosAdmin() {
                     )}
                     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
-                      {!parseYouTubeId(selected.video_url) && <button type="button" className="btn btn-primary btn-sm" disabled={reelPublishing===selected.id||reelTemplateInfo(selected)?.status!=='ready'} onClick={()=>publicarReel(selected.id, selected.video_url)}>{reelPublishing===selected.id?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>}
                     </div>
-                    {!parseYouTubeId(selected.video_url) && <div style={{fontSize:12,color:reelTemplateInfo(selected)?.exhausted?'#ef4444':reelTemplateInfo(selected)?.status==='ready'?'#22c55e':'#f59e0b',marginTop:8}}>{reelTemplateLabel(selected)}</div>}
                   </div>
                 )}
+                {((selected.video_url && !parseYouTubeId(selected.video_url)) || (reelTemplateInfo(selected) && reelTemplateInfo(selected).status!=='embed_only')) &&
+                  <div style={{marginBottom:20}}>
+                    <ReelMontagemPanel post={selected} publishing={reelPublishing===selected.id}
+                      onPublish={()=>publicarReel(selected.id, selected.video_url)}
+                      onMetrics={m=>setPosts(ps=>ps.map(p=>p.id===selected.id?{...p,metrics:m}:p))}/>
+                  </div>}
 
                 {videoBusy && <div className="text-secondary text-small" style={{marginBottom:10}}>⏳ {videoBusy}</div>}
                 {videoWarning && <div className="alert-banner yellow" style={{marginBottom:10}}><span>⚠️</span><span>{videoWarning}</span></div>}
@@ -4138,30 +4212,55 @@ function LinkManualAdmin() {
   const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState('');
   const [historico, setHistorico] = useState([]);
+  // 25/09/2026 — Opção manual (texto colado + vídeo que Roberto baixou) e
+  // opção automática (pedido pro runner capturar com a conta de apoio).
+  const [texto, setTexto] = useState('');
+  const [videoArquivo, setVideoArquivo] = useState(null);
+  const [pedidos, setPedidos] = useState([]);
 
   const carregarHistorico = async () => {
     const { data } = await sb.from('posts').select('id,titulo,status,created_at,metrics')
       .eq('publish_method', 'link_manual').order('created_at', { ascending: false }).limit(15);
     setHistorico(data || []);
+    const { data: jobs } = await sb.from('config').select('key,value,updated_at').like('key', 'LINK_JOB__%').limit(50);
+    setPedidos((jobs || []).map(r => { let v = {}; try { v = JSON.parse(r.value || '{}'); } catch(_) {} return { key: r.key, ...v }; })
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))));
   };
-  useEffect(() => { carregarHistorico(); }, []);
+  useEffect(() => { carregarHistorico(); const t = setInterval(carregarHistorico, 20000); return () => clearInterval(t); }, []);
+  const removerPedido = async (key) => {
+    if (!confirm('Remover este pedido de captura?')) return;
+    await sb.from('config').delete().eq('key', key);
+    carregarHistorico();
+  };
 
   const processar = async () => {
     const l = link.trim();
     if (!l) return;
     setProcessando(true); setErro(''); setResultado(null);
+    let videoHospedado = '';
+    if (videoArquivo) {
+      if (videoArquivo.size > 50 * 1024 * 1024) { setErro('Vídeo acima de 50 MB — exporte em qualidade menor (ex.: 720p/1080p, até 90 segundos).'); setProcessando(false); return; }
+      try {
+        try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
+        const ext = (videoArquivo.name.split('.').pop()||'mp4').toLowerCase();
+        const path = 'link-manual/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+        const { error } = await sb.storage.from('post-videos').upload(path, videoArquivo, { contentType: videoArquivo.type||'video/mp4', upsert:true, cacheControl:'3600' });
+        if (error) { setErro('Falha no upload do vídeo: ' + error.message); setProcessando(false); return; }
+        videoHospedado = sb.storage.from('post-videos').getPublicUrl(path).data.publicUrl;
+      } catch (e) { setErro('Falha no upload do vídeo: ' + e.message); setProcessando(false); return; }
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 55000);
     try {
       const r = await fetch('/api/run_portal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'link_manual', link: l, categoria }),
+        body: JSON.stringify({ action: 'link_manual', link: l, categoria, texto: texto.trim(), video_hospedado: videoHospedado }),
         signal: ctrl.signal
       });
       const d = await r.json();
       if (!d.ok) { setErro(d.error || 'falha desconhecida ao processar o link'); return; }
       setResultado(d);
-      setLink('');
+      setLink(''); setTexto(''); setVideoArquivo(null);
       carregarHistorico();
     } catch (e) {
       setErro(e.name === 'AbortError' ? 'Demorou demais pra processar (mais de 55s) — o link pode estar bloqueando raspagem, ou a matéria era muito longa. Tente de novo.' : ('Erro de conexão: ' + e.message));
@@ -4187,6 +4286,18 @@ function LinkManualAdmin() {
                 value={link} onChange={e=>setLink(e.target.value)} disabled={processando}/>
             </div>
             <div className="form-group">
+              <label className="form-label">Texto / legenda (opcional)</label>
+              <textarea className="form-textarea" style={{fontSize:12,minHeight:90}} disabled={processando}
+                placeholder="Instagram/YouTube: cole aqui a legenda ou o texto da notícia pra processar na hora. Em branco, o sistema tenta capturar sozinho com a conta de apoio (leva alguns minutos)."
+                value={texto} onChange={e=>setTexto(e.target.value)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vídeo (opcional)</label>
+              <input type="file" accept="video/mp4,video/quicktime,video/*" disabled={processando}
+                onChange={e=>setVideoArquivo((e.target.files&&e.target.files[0])||null)}/>
+              <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Se você já baixou o vídeo, suba aqui (até 50 MB). Ele vira o vídeo da matéria e entra na fila do Reel.</div>
+            </div>
+            <div className="form-group">
               <label className="form-label">Categoria</label>
               <select className="form-select" value={categoria} onChange={e=>setCategoria(e.target.value)} disabled={processando}>
                 {CATS_LIST.filter(c=>c).map(c=><option key={c} value={c}>{c}</option>)}
@@ -4196,7 +4307,12 @@ function LinkManualAdmin() {
               {processando ? '⏳ Processando (pode levar até 1 min)...' : '⚙️ Processar link'}
             </button>
             {erro && <div style={{marginTop:12,padding:10,background:'rgba(255,80,80,0.1)',border:'1px solid rgba(255,80,80,0.3)',borderRadius:8,fontSize:12,color:'#ff8080'}}>❌ {erro}</div>}
-            {resultado && (
+            {resultado && resultado.queued && (
+              <div style={{marginTop:12,padding:10,background:'rgba(80,160,255,0.08)',border:'1px solid rgba(80,160,255,0.25)',borderRadius:8,fontSize:12,color:'var(--t1)'}}>
+                ⏳ Link do Instagram/YouTube enviado para <strong>captura automática</strong> com a conta de apoio. Em alguns minutos a matéria aparece como pendente. Acompanhe em "Pedidos de captura" ao lado.
+              </div>
+            )}
+            {resultado && !resultado.queued && (
               <div style={{marginTop:12,padding:10,background:'rgba(80,255,150,0.08)',border:'1px solid rgba(80,255,150,0.25)',borderRadius:8,fontSize:12,color:'var(--t1)'}}>
                 ✅ Salvo como <strong>pendente</strong>: {resultado.titulo}<br/>
                 🖼️ Imagem: {resultado.imagem_capturada ? 'capturada' : 'não encontrada — adicione manualmente antes de aprovar'}<br/>
@@ -4207,6 +4323,24 @@ function LinkManualAdmin() {
           </div>
         </div>
         <div className="panel">
+          {pedidos.length > 0 && (
+            <>
+              <div className="panel-header"><span className="panel-title">Pedidos de captura (Instagram/YouTube)</span></div>
+              <div style={{padding:14,borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                {pedidos.map(p => (
+                  <div key={p.key} style={{padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:8,alignItems:'flex-start'}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,wordBreak:'break-all'}}>{p.link}</div>
+                      <div className="text-small" style={{color: p.status==='error' ? '#ff8080' : 'var(--yellow)'}}>
+                        {p.status==='error' ? ('❌ Falhou: ' + (p.error||'erro')) : p.status==='processing' ? '⏳ Capturando agora...' : '🕒 Na fila'}
+                      </div>
+                    </div>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={()=>removerPedido(p.key)}>Remover</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           <div className="panel-header"><span className="panel-title">Últimos links processados</span></div>
           <div style={{padding:14}}>
             {!historico.length && <div className="text-secondary text-small">Nenhum link processado ainda.</div>}

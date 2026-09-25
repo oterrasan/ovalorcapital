@@ -6,7 +6,6 @@ import sharp from "sharp";
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
-const TEXT_RENDER_SCALE = 2;
 const END_SCAN_SECONDS = 8;
 const END_SCAN_FPS = 4;
 const END_SCAN_WIDTH = 96;
@@ -93,11 +92,31 @@ function chooseHighlightWord(title) {
   return best?.normalized || null;
 }
 
-// Estimativa de largura por caractere — mesma tabela usada em
-// core/instagram_image.js pro feed. Boa o bastante pra decidir quebra de
-// linha: o SVG é rasterizado via sharp+Lanczos3 (supersampling), não via
-// Pango, então não tem como medir a largura real do texto antes de
-// desenhar.
+// 25/09/2026 — Roberto: "TODA A FORMATACAO DE FONTES, CORES, PADRAO DE
+// ESCRITA TEM QUE SER FIEL E IDENTICO... OS REELS DEVEM RESPEITAR O QUE
+// EXISTE DE PADRAO NAS CHAMADAS DOS POSTS DE FEED". Bug real confirmado
+// antes desta troca: a versão anterior montava a manchete em SVG com cada
+// palavra e cada ESPAÇO num <tspan> separado — o librsvg (sharp) descarta
+// o <tspan> que só tem espaço, então TODA manchete saía com as palavras
+// coladas ("POLÍCIAPRENDESUSPEITO..."). Agora a manchete é renderizada
+// EXATAMENTE como core/instagram_image.js (buildHeadlineLayers) faz no
+// feed: Pango markup do sharp, fonte Inter empacotada no repo (peso 800),
+// centralizada, mesma largura/tamanhos/nº de linhas (na escala de 1080px
+// de largura, que é a largura do Reel), mesma cor de destaque. Funções
+// duplicadas de propósito (script standalone do GitHub Actions, sem import
+// de core/). Se o feed mudar, atualizar aqui junto.
+const HEADLINE_FONT_PATH = resolve(root, "public", "assets", "fonts", "Inter-Variable.ttf");
+const HEADLINE_BOX = {
+  width: 780,
+  maxLines: 4,
+  maxFontSize: 42,
+  minFontSize: 30
+};
+// Faixa vertical onde a manchete fica no Reel (entre o vídeo e o rodapé
+// da marca, que começa em y=1490). O bloco é ancorado pelo fim.
+const HEADLINE_BOTTOM_Y = 1300;
+const HEADLINE_MIN_TOP_Y = 1000;
+
 function estimateTextWidth(text, fontSize) {
   let units = 0;
   for (const ch of String(text || "")) {
@@ -109,31 +128,28 @@ function estimateTextWidth(text, fontSize) {
   return units * fontSize;
 }
 
-// Quebra a manchete real em linhas, SEM truncar nada — devolve null se
-// não couber em maxLines com esse tamanho de fonte (nesse caso quem chama
-// tenta um tamanho menor antes de aceitar qualquer corte).
-function wrapHeadlineWords(text, fontSize, maxWidth, maxLines) {
-  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (!current || estimateTextWidth(candidate, fontSize) <= maxWidth) {
-      current = candidate;
-      continue;
-    }
-    lines.push(current);
-    current = word;
-    if (lines.length > maxLines) return null;
-  }
-  if (current) lines.push(current);
-  return lines.length <= maxLines ? lines : null;
+function renderLineMarkup(line, highlightWord, state) {
+  const parts = String(line || "").split(/(\s+)/);
+  return parts.map(part => {
+    if (!part) return "";
+    // Espaço fica FORA de qualquer <span> — garante que nunca some.
+    if (/^\s+$/.test(part)) return " ";
+    const token = normalizeWord(part);
+    const highlight = !state.used && highlightWord && token === highlightWord;
+    if (highlight) state.used = true;
+    return `<span foreground="${highlight ? HIGHLIGHT_COLOR : "#ffffff"}">${escapeXml(part)}</span>`;
+  }).join("");
 }
 
-// Força um encaixe mesmo que a manchete não caiba de jeito nenhum — só
-// chamado depois que NENHUM tamanho de fonte (até o mínimo) conseguiu
-// encaixar sem cortar. Trunca só a última linha, com reticências reais.
-function truncateHeadlineToFit(text, fontSize, maxWidth, maxLines) {
+function truncateLine(line, fontSize, maxWidth) {
+  let value = String(line || "").trim();
+  while (value.length > 1 && estimateTextWidth(value + "…", fontSize) > maxWidth) {
+    value = value.replace(/\s+\S*$/, "").trim() || value.slice(0, -1).trim();
+  }
+  return value ? value + "…" : "";
+}
+
+function wrapHeadline(text, fontSize, maxWidth, maxLines) {
   const words = String(text || "").trim().split(/\s+/).filter(Boolean);
   const lines = [];
   let current = "";
@@ -149,65 +165,54 @@ function truncateHeadlineToFit(text, fontSize, maxWidth, maxLines) {
   if (current) lines.push(current);
   if (lines.length <= maxLines) return lines;
   const clipped = lines.slice(0, maxLines);
-  let last = [clipped[maxLines - 1], ...lines.slice(maxLines)].join(" ").trim();
-  while (last.length > 1 && estimateTextWidth(last + "…", fontSize) > maxWidth) {
-    last = last.replace(/\s+\S*$/, "").trim() || last.slice(0, -1).trim();
-  }
-  clipped[maxLines - 1] = last ? `${last}…` : "";
+  clipped[maxLines - 1] = truncateLine(
+    [clipped[maxLines - 1], ...lines.slice(maxLines)].join(" "),
+    fontSize,
+    maxWidth
+  );
   return clipped;
 }
 
-const HEADLINE_MAX_WIDTH = 860;
-const HEADLINE_MAX_LINES = 5;
-const HEADLINE_MAX_FONT = 50;
-const HEADLINE_MIN_FONT = 36;
+async function buildHeadlineLayer(title) {
+  const normalized = cleanText(title).replace(/\s+/g, " ").trim().toUpperCase();
+  if (!normalized) return null;
 
-// Mesma estratégia de core/instagram_image.js (buildHeadlineLayers): testa
-// do maior tamanho de fonte pro menor, usa o PRIMEIRO que encaixa a
-// manchete real inteira sem cortar nada. Só recorre a truncar (com
-// reticências) se nem no tamanho mínimo ela couber — último recurso, não
-// o caminho padrão.
-function headlineLayout(title) {
-  for (let fontSize = HEADLINE_MAX_FONT; fontSize >= HEADLINE_MIN_FONT; fontSize -= 2) {
-    const lines = wrapHeadlineWords(title, fontSize, HEADLINE_MAX_WIDTH, HEADLINE_MAX_LINES);
-    if (lines) return { fontSize, lines };
+  let selected = null;
+  for (let fontSize = HEADLINE_BOX.maxFontSize; fontSize >= HEADLINE_BOX.minFontSize; fontSize -= 2) {
+    const lines = wrapHeadline(normalized, fontSize, HEADLINE_BOX.width, HEADLINE_BOX.maxLines);
+    const fits = lines.length <= HEADLINE_BOX.maxLines && lines.every(line => estimateTextWidth(line, fontSize) <= HEADLINE_BOX.width);
+    if (fits) {
+      selected = { fontSize, lines };
+      break;
+    }
   }
-  return {
-    fontSize: HEADLINE_MIN_FONT,
-    lines: truncateHeadlineToFit(title, HEADLINE_MIN_FONT, HEADLINE_MAX_WIDTH, HEADLINE_MAX_LINES)
-  };
-}
+  if (!selected) {
+    selected = {
+      fontSize: HEADLINE_BOX.minFontSize,
+      lines: wrapHeadline(normalized, HEADLINE_BOX.minFontSize, HEADLINE_BOX.width, HEADLINE_BOX.maxLines)
+    };
+  }
 
-function renderLineMarkup(line, highlightWord, state) {
-  const parts = String(line || "").split(/(\s+)/);
-  return parts.map(part => {
-    if (!part) return "";
-    const token = normalizeWord(part);
-    const highlight = !state.used && highlightWord && token === highlightWord;
-    if (highlight) state.used = true;
-    return `<tspan fill="${highlight ? HIGHLIGHT_COLOR : "#ffffff"}">${escapeXml(part)}</tspan>`;
-  }).join("");
-}
-
-function textSvg(title) {
-  const cleanTitle = cleanText(title).toUpperCase();
-  const { fontSize, lines } = headlineLayout(cleanTitle);
-  const highlightWord = chooseHighlightWord(cleanTitle);
+  const highlightWord = chooseHighlightWord(normalized);
   const highlightState = { used: false };
-  const leading = Math.round(fontSize * 1.2);
-  const totalHeight = lines.length * leading;
-  const startY = Math.max(1010, 1280 - totalHeight);
-  const spans = lines
-    .map((line, index) => `<tspan x="110" dy="${index ? leading : 0}">${renderLineMarkup(line, highlightWord, highlightState)}</tspan>`)
-    .join("");
-
-  return Buffer.from(`
-    <svg width="${WIDTH * TEXT_RENDER_SCALE}" height="${HEIGHT * TEXT_RENDER_SCALE}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-      <style>
-        .headline { font-family: Inter, Arial, sans-serif; font-size: ${fontSize}px; font-weight: 800; letter-spacing: 0; }
-      </style>
-      <text class="headline" x="110" y="${startY}">${spans}</text>
-    </svg>`);
+  const markup = selected.lines
+    .map(line => renderLineMarkup(line, highlightWord, highlightState))
+    .join("\n");
+  const buffer = await sharp({
+    text: {
+      text: `<span weight="800">${markup}</span>`,
+      font: `Inter ${selected.fontSize}`,
+      fontfile: HEADLINE_FONT_PATH,
+      align: "center",
+      rgba: true,
+      dpi: 72,
+      wrap: "none"
+    }
+  }).png().toBuffer();
+  const { width = HEADLINE_BOX.width, height = 0 } = await sharp(buffer).metadata();
+  const left = Math.max(0, Math.round((WIDTH - width) / 2));
+  const top = Math.max(HEADLINE_MIN_TOP_Y, HEADLINE_BOTTOM_Y - height);
+  return { input: buffer, left, top };
 }
 
 // Cor da sombra em função da opacidade — mantém a mesma progressão visual
@@ -294,15 +299,12 @@ async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx
   const topBrand = await sharp(feedOverlay).extract({ left: 350, top: 25, width: 380, height: 205 }).png().toBuffer();
   const gradient = buildGradientSvg(fitMode === "contain" ? buildContainFadeStops(videoOutHeightPx) : COVER_FADE_STOPS);
 
-  const crispText = await sharp(textSvg(job.title))
-    .resize(WIDTH, HEIGHT, { kernel: sharp.kernel.lanczos3 })
-    .png()
-    .toBuffer();
+  const headline = await buildHeadlineLayer(job.title);
 
   await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
       { input: gradient, left: 0, top: 0 },
-      { input: crispText, left: 0, top: 0 },
+      ...(headline ? [headline] : []),
       { input: topBrand, left: 350, top: 25 },
       { input: reelFooter, left: 350, top: 1490 }
     ])
