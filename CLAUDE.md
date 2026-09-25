@@ -9813,3 +9813,56 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 5. Demais pendências de sessões anteriores seguem válidas (ver listas anteriores no arquivo).
 
 ---
+
+### Sessão 25/09/2026 (atualização de memória) — BURACO DE REGISTRO 20-24/09/2026 PREENCHIDO A PARTIR DO GIT (nenhum código tocado)
+
+> Roberto pediu "atualize suas memórias em tudo dos últimos dias". A entrada acima (23-25/09) cobre latência/curtida/manchete, mas os commits de **20/09 a 24/09** (quase todos de sessões Claude, dezenas de diag + fixes reais de Reels/Bacci) nunca tinham virado registro aqui. Resumo lido direto de `git log origin/main` (corpo dos commits), sem suposição. Clone é raso: usar `git fetch --deepen=150 origin main` pra ver esse histórico.
+
+#### Brasil ON / Bacci — captura de vídeo
+- **20/09** `35bcaa9` — captura automática do vídeo do Bacci pro Reel (`descobrirPaginaVideoBacci()` em `core/brasilon.js`, cadeia matéria → iframe `bacci.php?video=ID` → `/videos/slug_ID`, Bunny Stream).
+- **20/09** `9057515`/`5160625` — parâmetro de teste renomeado `body.url`→`body.brasilon_url` (colidia com `manual()` no dispatcher) + `autoBrasilOn()` passou a ler query string em GET.
+- **20/09** `b408b56` — removido piso de 100 chars no texto-fonte do Bacci (Roberto: "não importa se o texto é curto"); teto 50/50 vídeo×imagem criado… e **removido em 21/09** (`52c2c3a`, Roberto: "quero todos os vídeos do Bacci") — hoje toda matéria do Bacci sempre tenta anexar vídeo, sem teto.
+- **21/09** `50f484a` — **Bacci mudou de formato: 100% das matérias recentes embutem vídeo via YouTube**, não mais Bunny. Detecção YouTube primeiro, Bunny como fallback; retorno virou `{kind,url}`. YouTube nunca é baixado na function (yt-dlp só no runner do Actions).
+- **21/09** `f48486e` — ignora placeholder `youtube.com/embed/live_stream?channel=...` (não é ID de vídeo; exige ID de exatamente 11 chars).
+- **23/09** `dbf8562` — blindagem contra **vídeo errado publicado pela própria Bacci** (caso "Corpo de Rick liberado" com vídeo do "dentista desaparecido", hash idêntico entre 2 matérias): rejeita o vídeo se o `title=` do iframe não tiver nenhuma palavra específica em comum com o artigo (termos genéricos de crime não contam; sem legenda → deixa passar). Vídeo errado já gravado no post do Rick (`69d5be19`) limpo via diag.
+
+#### Reels — pipeline de render (runner do GitHub Actions, `instagram-auto.yml` + `scripts/render-instagram-reel.mjs`)
+- **20/09** `5505fe9` — **ffmpeg nunca era instalado no runner** (só checava `-version`) → todo Reel travava em "Aguardando acabamento" (exit 127). Instalado + recorte anti-marca-d'água também no modo horizontal (`contain`).
+- **20/09** `f9f46ab` — duração final sempre capada em **88s** (teto real do Graph API = 90s).
+- **20/09** `1c75b7c` — vídeo-fonte com **mais de 2 min é descartado automaticamente** (duração lida dos bytes do MP4, sem ffprobe); a matéria sai só com imagem. Pedido direto de Roberto.
+- **20-21/09** `4981ccf` (GOP fechado, keyframe a cada 2s) + `4e39638` (H.264 level 4.1→5.1, margem de MBs/s era 0,4%) — tentativas reais contra o `ProcessingFailedError` da Meta.
+- **23/09** `59d1fa4` — **conclusão de 6 rodadas de teste real**: conta/token, codec, level, overlay e falta de áudio **NÃO são a causa**. Vídeo sintético passa limpo; o vídeo real que falhou (Paolla Oliveira) falha de novo mesmo com arquivo 100% dentro da spec. Hipótese restante (não isolável): **moderação automática da Meta** sobre conteúdo de acidente/violência/tragédia (perfil típico do Bacci). Não é bug do pipeline.
+- **21/09** `053b0f1` — fila de render nunca alcançava vídeo pendente: `LIMIT 250` aplicado ANTES do filtro por template (13.887 posts mais antigos lotavam o lote). Filtro agora antes do limit.
+- **21/09** `406081f` — retry respeita `attempts>=3` mesmo com campo `exhausted` ausente.
+- **21/09** `a5bb244` — render desacoplado da janela de POSTAGEM (preparar Reel roda 24h; só publicar respeita 08h-12h/14h-19h BRT).
+- **22/09** `da6f01e` — "Redação OVC · data" não vaza mais pro texto queimado no vídeo.
+- **22/09** `7cb1415` + **23/09** `51ad01f`/`e04fd7f` — schedule do GitHub Actions disparava `instagram-auto.yml` a cada **2-5h+** em vez de 10min. Fix: cada run processa até 3 jobs + **ponte Vercel→GitHub**: nova action `dispatch_reels_workflow` (`api/manage.js`, usa env `GH_DISPATCH_TOKEN` na Vercel) disparada por cron nativo da Vercel a cada 15min. Depois (24/09) disparo imediato ao enfileirar e ao terminar render (ver entrada 23-25/09).
+- **23/09** `0ee9292` — **vídeo bruto é apagado do Storage (`post-videos`) e `posts.video_url` zerado assim que a Meta confirma a publicação do Reel** (pedido de Roberto: download temporário, render, publica, descarta). `deleteVideoFromStorage()` em `core/storage.js` só apaga arquivo com prefixo do nosso bucket. ⚠️ Consequência: matéria cujo Reel já publicou deixa de ter player de vídeo no site.
+
+#### Automação de Reels / Feed — estado e regras
+- **21/09** `ba79b24` — vídeo tem prioridade: feed de imagem não publica matéria que tem template de Reel ativo; meta **60% Reels / 40% feed**.
+- **22/09** `c4ba59d` — **bug real**: com `REELS_AUTOMATION_ENABLED=off`, a meta 60/40 travava o feed para sempre após 3 posts (3/0 Reels). Fix: a proporção só vale enquanto Reels pode publicar.
+- **23/09** `7c44f15` — achado: `REELS_AUTOMATION_ENABLED` estava **off desde 07/09/2026 19:02** (pausa pedida por Roberto) — 18 de 26 templates recentes já "ready" parados esperando.
+- **23/09** `1785130` — botão real de 1 clique "ligar/pausar Reels" no admin (`togglePausaReels()`, painel "🎞️ Automação de Reels"), mesmo padrão dos botões do OVC/Brasil ON.
+- **23/09** `ff9e690` — `handleReelsAutoPublish` agora **newest-first + trava de frescor 12h** (igual ao feed): nunca publica backlog velho. **Roberto ainda não tinha decidido religar a automação de Reels** — confirmar o estado real antes de afirmar qualquer coisa.
+
+#### Admin
+- **21/09** `e8c9f64`/`1213b87` — badge 🎬 VÍDEO em Postagens + filtro real "🎬 Só com vídeo" (consulta no banco, `video_url IS NOT NULL`).
+- **22/09** `2ebd1de` — telas de Vídeos e "Editar Post" agora atualizam status de Reel sozinhas (poll 15s; no modal só mescla `metrics`, nunca campos em edição).
+- **22/09** `3af061b` — colar link de vídeo não trava mais: prazo total de 45s em `core/storage.js` (Promise.race) + `AbortController` 50s no admin.
+- **24/09** `c609ec8` — **nova aba "🔗 Reescrita por Link"** (`action=link_manual` em `api/run_portal.js`, `core/linkCapture.js` novo): 100% manual, um link por vez (Instagram, YouTube ou site com vídeo embutido), reescrita com `rewriteBrasilOn()` (MASTER_PROMPT intocado), sempre salva como **pendente**, reaproveita a fila de Reels do Bacci. `instagram-auto.yml` passou a baixar `instagram.com` via yt-dlp.
+- **24/09** `ec06aa6` — bug real: Reel do Instagram sem og:title/og:description fazia a IA **inventar matéria** ("Instagram passa por instabilidade"). Agora exige ≥60 chars de conteúdo real extraído; abaixo disso falha honesto.
+
+#### Gemini
+- `core/ai_portal.js` já lê `GEMINI_API_KEY_2..N` automaticamente da tabela `config` (loop até `GEMINI_MAX_KEYS`). Em 24/09 houve tentativa de cadastrar `GEMINI_API_KEY_3` via input de `workflow_dispatch` — **bloqueada pelo secret scanning do GitHub**, revertida; a verificação passou a ser só leitura do banco (`c8b34df`). O commit não registra o resultado — **não afirmar que a chave 3 está ativa sem checar `config` de novo.** Regra: chave nunca passa por arquivo/input de workflow; Roberto insere direto no SQL Editor do Supabase.
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (confirmado em 25/09, inalterado)
+
+#### 🔧 Pendências consolidadas (somam às da entrada 23-25/09 acima)
+1. **Confirmar estado real de `REELS_AUTOMATION_ENABLED`** (off desde 07/09 até pelo menos 23/09) antes de qualquer afirmação sobre Reels automáticos.
+2. **`ProcessingFailedError` residual** em vídeos reais do Bacci — provável moderação da Meta; não há fix técnico conhecido. Se Roberto cobrar, explicar com a evidência dos 6 rounds (`59d1fa4`).
+3. **Confirmar se `GEMINI_API_KEY_3` existe em `config`** (resultado não registrado).
+4. Tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement` (ação de Roberto) e `@amichelefroes` sem `ig_user_id` — ver entrada anterior.
+5. Busca de novas fontes de vídeo (Terra etc.) — **pausada por Roberto**, não retomar sozinho.
+
+---
