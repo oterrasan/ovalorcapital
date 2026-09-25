@@ -132,6 +132,8 @@ function renderLineMarkup(line, highlightWord, state) {
   const parts = String(line || "").split(/(\s+)/);
   return parts.map(part => {
     if (!part) return "";
+    // Espaço fica FORA de qualquer <span> — garante que nunca some.
+    if (/^\s+$/.test(part)) return " ";
     const token = normalizeWord(part);
     const highlight = !state.used && highlightWord && token === highlightWord;
     if (highlight) state.used = true;

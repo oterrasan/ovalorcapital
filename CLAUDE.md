@@ -32,6 +32,19 @@ O acabamento de videos, a melhoria de nitidez e a remocao automatica de encerram
 - **Instagram já ativo:** @opmedbrasil (1.720 seguidores), estreia marcada pra **20/09/2026**.
 - Estado em 14/09/2026: front-end pronto (topo/rails/rodapé padrão OVC, miolo de cards padrão Brasil ON, taxonomia de 6 macro-editorias definida por Roberto, imagens reais já resolvidas). Faltam: backend real, fontes RSS de saúde, tabela Supabase, projeto Vercel definitivo — listados em `opmed/CLAUDE.md` seção 5 como trabalho do Claude "quando Roberto autorizar". Arquitetura "Multi-Home" (4 portas de entrada) travada aguardando decisão de Roberto — não mexer sem ele responder.
 
+## 🚨 QUEM FAZ O MERGE É O CLAUDE — NUNCA O ROBERTO (25/09/2026)
+
+> Roberto, 25/09/2026: *"QUEM FAZ MERGE É VOCE, NAO EU! SALVA ISSO PORQUE TODA VEZ VOCE ESCREVE ISSO PRA MIM, E ISO É COM VOCE!"*
+
+```
+❌ NUNCA escrever pro Roberto "clique em Ready for review / Squash and merge".
+✅ Terminou, validou e o CI ficou verde → o próprio Claude marca o PR como
+   pronto, faz o squash merge, confere o deploy.yml e só então reporta.
+❌ NUNCA dizer "resolvido/corrigido" enquanto a correção estiver só num PR
+   aberto ou só testada localmente. Resolvido = mergeado + deploy com sucesso
+   + (quando possível) verificado com dado real de produção.
+```
+
 # ══════════════════════════════════════════════════════
 # 🚨🚨🚨 REGRAS ABSOLUTAMENTE INVIOLÁVEIS 🚨🚨🚨
 # ══════════════════════════════════════════════════════
