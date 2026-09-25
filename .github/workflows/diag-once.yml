@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Diagnosticar captura de link (YouTube, Instagram, Bacci)
+      - name: Testar Business Discovery do Instagram
         run: node .github/workflows/_diag_link_manual.mjs
