@@ -547,7 +547,7 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
       : `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
     "-map", "[out]", "-map", "0:a?",
     ...(outputDuration ? ["-t", outputDuration.toFixed(3)] : []),
-    "-c:v", "libx264", "-preset", "medium", "-crf", "16",
+    "-c:v", "libx264", "-preset", "faster", "-crf", "16",
     "-maxrate", "8M", "-bufsize", "16M",
     // 20/09/2026 — tentativa anterior (GOP fechado): não resolveu — 2
     // ProcessingFailedError reais foram REPRODUZIDOS de novo em 21/09/2026,

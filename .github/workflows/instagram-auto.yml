@@ -86,14 +86,22 @@ on:
     - cron: '*/20 11-14 * * *'
     - cron: '*/10 * * * *'
   workflow_dispatch:
+    inputs:
+      prioridade:
+        description: '1 = só remontar Reels pedidos no admin (via rápida, sem esperar a fila)'
+        required: false
+        default: ''
 
+# 25/09/2026 — via prioritária: um ajuste feito no admin (reels_set_layout)
+# dispara este workflow com prioridade=1, que roda num grupo SEPARADO — não
+# espera a fila normal de remontagens nem os outros jobs.
 concurrency:
-  group: instagram-automatico-ovc
+  group: instagram-automatico-ovc${{ github.event.inputs.prioridade == '1' && '-prioridade' || '' }}
   cancel-in-progress: false
 
 jobs:
   processar_collabs:
-    if: github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *'
+    if: github.event.inputs.prioridade != '1' && (github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
@@ -130,18 +138,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
-      group: instagram-render-reels-ovc
+      group: instagram-render-reels-ovc${{ github.event.inputs.prioridade == '1' && '-prioridade' || '' }}
       cancel-in-progress: false
     steps:
       - name: Verificar fila de vídeos brutos
         id: render_queue
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+          PRIORIDADE: ${{ github.event.inputs.prioridade == '1' && 'true' || 'false' }}
         run: |
           response=$(curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"reels_render_job","peek":true}' --max-time 45)
+            -d "{\"action\":\"reels_render_job\",\"peek\":true,\"prioridade\":${PRIORIDADE}}" --max-time 45)
           has_job=$(RESPONSE="$response" node -e 'const d=JSON.parse(process.env.RESPONSE); process.stdout.write(d.ok&&d.job?"yes":"no")')
           echo "has_job=$has_job" >> "$GITHUB_OUTPUT"
 
@@ -225,6 +234,7 @@ jobs:
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
           YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
+          PRIORIDADE: ${{ github.event.inputs.prioridade == '1' && 'true' || 'false' }}
         run: |
           MAX_JOBS_POR_RODADA=3
           MAX_SEGUNDOS_ANTES_DE_INICIAR_NOVO_JOB=720
@@ -240,7 +250,7 @@ jobs:
             peek_response=$(curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-              -d '{"action":"reels_render_job","peek":true}' --max-time 45) || peek_response=""
+              -d "{\"action\":\"reels_render_job\",\"peek\":true,\"prioridade\":${PRIORIDADE}}" --max-time 45) || peek_response=""
             has_job=$(RESPONSE="$peek_response" node -e 'try{const d=JSON.parse(process.env.RESPONSE||"{}");process.stdout.write(d.ok&&d.job?"yes":"no")}catch(_){process.stdout.write("no")}')
             if [ "$has_job" != "yes" ]; then
               echo "Fila de Reels vazia — nada mais pra renderizar nesta rodada."
@@ -278,7 +288,7 @@ jobs:
               curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-                -d '{"action":"reels_render_job"}' \
+                -d "{\"action\":\"reels_render_job\",\"prioridade\":${PRIORIDADE}}" \
                 --max-time 45 -o render-job.json
 
               post_id=$(node -p 'require("./render-job.json").job.post_id')
@@ -343,6 +353,13 @@ jobs:
                      --upload-file reel-preview.mp4 --max-time 120 >/dev/null; then
                   preview_uploaded="true"
                   echo "Prévia da montagem enviada ($(stat -c%s reel-preview.mp4) bytes)."
+                  # Mostra a prévia no admin JÁ, antes do envio pra Meta.
+                  curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                    -H "Content-Type: application/json" \
+                    -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                    -d "{\"action\":\"reels_render_preview\",\"post_id\":\"${post_id}\",\"claim_id\":\"${claim_id}\"}" \
+                    --max-time 30 || true
+                  echo ""
                 else
                   echo "Prévia da montagem não foi gerada/enviada (não afeta o Reel)."
                 fi
@@ -423,7 +440,7 @@ jobs:
   # conta de apoio de Roberto (secret YTDLP_COOKIES, formato cookies.txt).
   # Não publica nada: só gera a matéria pendente + enfileira o Reel.
   capturar_links:
-    if: github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *'
+    if: github.event.inputs.prioridade != '1' && (github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -477,7 +494,7 @@ jobs:
           rm -f "$RUNNER_TEMP/ytdlp-cookies.txt"
 
   publicar:
-    if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *'
+    if: github.event.inputs.prioridade != '1' && (github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:

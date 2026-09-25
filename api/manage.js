@@ -120,6 +120,7 @@ export default async function handler(req, res) {
     if (action === "reels_render_fail") return handleReelsRenderFail(req, res, body);
     if (action === "reels_set_final_file") return handleReelsSetFinalFile(req, res, body);
     if (action === "reels_set_layout") return handleReelsSetLayout(req, res, body);
+    if (action === "reels_render_preview") return handleReelsRenderPreview(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
@@ -1531,6 +1532,14 @@ async function handleReelsRenderJob(req, res, body) {
   // render que agora são escassos (ver comentário do workflow). Filtra
   // fora ANTES de gastar uma tentativa de verdade.
   const REEL_SOURCE_URL_QUEBRADO_RE = /[?&]v=live_stream(?:$|[&#])/i;
+  // 25/09/2026 — Roberto: "editei esse video ja tem uns 20 minutos e ele nao
+  // fica pronto... isso precisa acontecer em questao de 1 ou 2 minutos".
+  // Causa real (log de produção): o ajuste dele entrava no FIM da fila
+  // (updated_at mais novo), atrás de dezenas de remontagens automáticas.
+  // Pedido feito por ele no admin (priority_at) passa na frente de tudo, e
+  // a rodada "prioridade" (disparada na hora pelo reels_set_layout) só
+  // pega esses pedidos.
+  const soPrioridade = body?.prioridade === true;
   const elegiveis = (candidates || [])
     .map((post) => ({ post, template: _reelsTemplate(post.metrics) }))
     .filter(({ template }) => {
@@ -1542,10 +1551,16 @@ async function handleReelsRenderJob(req, res, body) {
       // explícito: qualquer item que já bateu o teto de tentativas fica de
       // fora, mesmo que exhausted nunca tenha sido persistido.
       if (template.exhausted || Number(template.attempts || 0) >= REELS_MAX_RETRY_ATTEMPTS) return false;
+      if (soPrioridade && !(template.priority_at && template.status === "pending")) return false;
       if (template.status === "pending" || template.status === "error") return true;
       return template.status === "processing" && String(template.processing_at || "") < staleBefore;
     })
-    .sort((a, b) => (PRIORIDADE_STATUS_REEL[a.template.status] ?? 9) - (PRIORIDADE_STATUS_REEL[b.template.status] ?? 9));
+    .sort((a, b) => {
+      const pa = a.template.priority_at && a.template.status === "pending" ? 0 : 1;
+      const pb = b.template.priority_at && b.template.status === "pending" ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return (PRIORIDADE_STATUS_REEL[a.template.status] ?? 9) - (PRIORIDADE_STATUS_REEL[b.template.status] ?? 9);
+    });
   const chosen = elegiveis[0];
   if (!chosen) return res.status(200).json({ ok: true, job: null, reason: "nenhum_video_aguardando_template" });
   if (body?.peek === true) return res.status(200).json({ ok: true, job: { pending: true } });
@@ -1853,6 +1868,7 @@ async function handleReelsSetLayout(req, res, body) {
     source_kind: previous.source_kind || null,
     layout,
     queued_at: new Date().toISOString(),
+    priority_at: new Date().toISOString(),
     attempts: 0,
     exhausted: false
   };
@@ -1860,10 +1876,34 @@ async function handleReelsSetLayout(req, res, body) {
   if (error) throw error;
   await writeLog("info", `[reels-render] enquadramento ${layout ? "manual" : "automático"} salvo, remontando: ${post.titulo || postId}`);
   await Promise.race([
-    _dispatchReelsWorkflowAgora().catch(() => {}),
+    _dispatchReelsWorkflowAgora({ prioridade: "1" }).catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, 4000))
   ]);
   return res.status(200).json({ ok: true, queued: true, layout, metrics });
+}
+
+// 25/09/2026 — a prévia aparece no admin ASSIM que o vídeo é montado,
+// antes do envio pra Meta (que pode levar minutos ou até recusar o vídeo).
+// Antes a prévia só era registrada no render_complete — se a Meta
+// recusasse, ela nunca aparecia.
+async function handleReelsRenderPreview(req, res, body) {
+  if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const claimId = String(body?.claim_id || "").trim();
+  if (!postId || !claimId) return res.status(400).json({ ok: false, error: "render_preview_invalido" });
+  const post = await _reelsLoadPost(postId);
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const template = metrics.instagram_reel_template || {};
+  if (template.claim_id !== claimId || template.status !== "processing" || !template.preview_candidate_url) {
+    return res.status(409).json({ ok: false, error: "render_claim_invalido" });
+  }
+  if (template.preview_url && template.preview_url !== template.preview_candidate_url && !template.manual_final) {
+    try { await deleteVideoFromStorage(template.preview_url); } catch (_) {}
+  }
+  metrics.instagram_reel_template = { ...template, preview_url: template.preview_candidate_url, preview_at: new Date().toISOString(), manual_final: false, final_url: null };
+  const { error } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  if (error) throw error;
+  return res.status(200).json({ ok: true, preview_url: template.preview_candidate_url });
 }
 
 async function handleReelsRenderFail(req, res, body) {
@@ -2194,7 +2234,7 @@ async function handleReelsAutoPublish(req, res, body) {
 // 24/09/2026 — extraído de handleDispatchReelsWorkflow pra poder ser
 // chamado internamente (best-effort, sem HTTP req/res) também de dentro de
 // handleReelsRenderComplete — ver comentário lá embaixo pro motivo real.
-async function _dispatchReelsWorkflowAgora() {
+async function _dispatchReelsWorkflowAgora(inputs) {
   const token = process.env.GH_DISPATCH_TOKEN;
   if (!token) {
     await writeLog("error", "[reels-dispatch] GH_DISPATCH_TOKEN ausente no ambiente da Vercel");
@@ -2213,7 +2253,7 @@ async function _dispatchReelsWorkflowAgora() {
           "X-GitHub-Api-Version": "2022-11-28",
           "User-Agent": "ovalorcapital-reels-dispatch"
         },
-        body: JSON.stringify({ ref: "main" })
+        body: JSON.stringify(inputs ? { ref: "main", inputs } : { ref: "main" })
       }
     );
 
