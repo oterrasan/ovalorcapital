@@ -4212,30 +4212,55 @@ function LinkManualAdmin() {
   const [resultado, setResultado] = useState(null);
   const [erro, setErro] = useState('');
   const [historico, setHistorico] = useState([]);
+  // 25/09/2026 — Opção manual (texto colado + vídeo que Roberto baixou) e
+  // opção automática (pedido pro runner capturar com a conta de apoio).
+  const [texto, setTexto] = useState('');
+  const [videoArquivo, setVideoArquivo] = useState(null);
+  const [pedidos, setPedidos] = useState([]);
 
   const carregarHistorico = async () => {
     const { data } = await sb.from('posts').select('id,titulo,status,created_at,metrics')
       .eq('publish_method', 'link_manual').order('created_at', { ascending: false }).limit(15);
     setHistorico(data || []);
+    const { data: jobs } = await sb.from('config').select('key,value,updated_at').like('key', 'LINK_JOB__%').limit(50);
+    setPedidos((jobs || []).map(r => { let v = {}; try { v = JSON.parse(r.value || '{}'); } catch(_) {} return { key: r.key, ...v }; })
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))));
   };
-  useEffect(() => { carregarHistorico(); }, []);
+  useEffect(() => { carregarHistorico(); const t = setInterval(carregarHistorico, 20000); return () => clearInterval(t); }, []);
+  const removerPedido = async (key) => {
+    if (!confirm('Remover este pedido de captura?')) return;
+    await sb.from('config').delete().eq('key', key);
+    carregarHistorico();
+  };
 
   const processar = async () => {
     const l = link.trim();
     if (!l) return;
     setProcessando(true); setErro(''); setResultado(null);
+    let videoHospedado = '';
+    if (videoArquivo) {
+      if (videoArquivo.size > 50 * 1024 * 1024) { setErro('Vídeo acima de 50 MB — exporte em qualidade menor (ex.: 720p/1080p, até 90 segundos).'); setProcessando(false); return; }
+      try {
+        try { await sb.storage.createBucket('post-videos', {public:true}); } catch(_) {}
+        const ext = (videoArquivo.name.split('.').pop()||'mp4').toLowerCase();
+        const path = 'link-manual/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+        const { error } = await sb.storage.from('post-videos').upload(path, videoArquivo, { contentType: videoArquivo.type||'video/mp4', upsert:true, cacheControl:'3600' });
+        if (error) { setErro('Falha no upload do vídeo: ' + error.message); setProcessando(false); return; }
+        videoHospedado = sb.storage.from('post-videos').getPublicUrl(path).data.publicUrl;
+      } catch (e) { setErro('Falha no upload do vídeo: ' + e.message); setProcessando(false); return; }
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 55000);
     try {
       const r = await fetch('/api/run_portal', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'link_manual', link: l, categoria }),
+        body: JSON.stringify({ action: 'link_manual', link: l, categoria, texto: texto.trim(), video_hospedado: videoHospedado }),
         signal: ctrl.signal
       });
       const d = await r.json();
       if (!d.ok) { setErro(d.error || 'falha desconhecida ao processar o link'); return; }
       setResultado(d);
-      setLink('');
+      setLink(''); setTexto(''); setVideoArquivo(null);
       carregarHistorico();
     } catch (e) {
       setErro(e.name === 'AbortError' ? 'Demorou demais pra processar (mais de 55s) — o link pode estar bloqueando raspagem, ou a matéria era muito longa. Tente de novo.' : ('Erro de conexão: ' + e.message));
@@ -4261,6 +4286,18 @@ function LinkManualAdmin() {
                 value={link} onChange={e=>setLink(e.target.value)} disabled={processando}/>
             </div>
             <div className="form-group">
+              <label className="form-label">Texto / legenda (opcional)</label>
+              <textarea className="form-textarea" style={{fontSize:12,minHeight:90}} disabled={processando}
+                placeholder="Instagram/YouTube: cole aqui a legenda ou o texto da notícia pra processar na hora. Em branco, o sistema tenta capturar sozinho com a conta de apoio (leva alguns minutos)."
+                value={texto} onChange={e=>setTexto(e.target.value)}/>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vídeo (opcional)</label>
+              <input type="file" accept="video/mp4,video/quicktime,video/*" disabled={processando}
+                onChange={e=>setVideoArquivo((e.target.files&&e.target.files[0])||null)}/>
+              <div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Se você já baixou o vídeo, suba aqui (até 50 MB). Ele vira o vídeo da matéria e entra na fila do Reel.</div>
+            </div>
+            <div className="form-group">
               <label className="form-label">Categoria</label>
               <select className="form-select" value={categoria} onChange={e=>setCategoria(e.target.value)} disabled={processando}>
                 {CATS_LIST.filter(c=>c).map(c=><option key={c} value={c}>{c}</option>)}
@@ -4270,7 +4307,12 @@ function LinkManualAdmin() {
               {processando ? '⏳ Processando (pode levar até 1 min)...' : '⚙️ Processar link'}
             </button>
             {erro && <div style={{marginTop:12,padding:10,background:'rgba(255,80,80,0.1)',border:'1px solid rgba(255,80,80,0.3)',borderRadius:8,fontSize:12,color:'#ff8080'}}>❌ {erro}</div>}
-            {resultado && (
+            {resultado && resultado.queued && (
+              <div style={{marginTop:12,padding:10,background:'rgba(80,160,255,0.08)',border:'1px solid rgba(80,160,255,0.25)',borderRadius:8,fontSize:12,color:'var(--t1)'}}>
+                ⏳ Link do Instagram/YouTube enviado para <strong>captura automática</strong> com a conta de apoio. Em alguns minutos a matéria aparece como pendente. Acompanhe em "Pedidos de captura" ao lado.
+              </div>
+            )}
+            {resultado && !resultado.queued && (
               <div style={{marginTop:12,padding:10,background:'rgba(80,255,150,0.08)',border:'1px solid rgba(80,255,150,0.25)',borderRadius:8,fontSize:12,color:'var(--t1)'}}>
                 ✅ Salvo como <strong>pendente</strong>: {resultado.titulo}<br/>
                 🖼️ Imagem: {resultado.imagem_capturada ? 'capturada' : 'não encontrada — adicione manualmente antes de aprovar'}<br/>
@@ -4281,6 +4323,24 @@ function LinkManualAdmin() {
           </div>
         </div>
         <div className="panel">
+          {pedidos.length > 0 && (
+            <>
+              <div className="panel-header"><span className="panel-title">Pedidos de captura (Instagram/YouTube)</span></div>
+              <div style={{padding:14,borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+                {pedidos.map(p => (
+                  <div key={p.key} style={{padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:8,alignItems:'flex-start'}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,wordBreak:'break-all'}}>{p.link}</div>
+                      <div className="text-small" style={{color: p.status==='error' ? '#ff8080' : 'var(--yellow)'}}>
+                        {p.status==='error' ? ('❌ Falhou: ' + (p.error||'erro')) : p.status==='processing' ? '⏳ Capturando agora...' : '🕒 Na fila'}
+                      </div>
+                    </div>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={()=>removerPedido(p.key)}>Remover</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           <div className="panel-header"><span className="panel-title">Últimos links processados</span></div>
           <div style={{padding:14}}>
             {!historico.length && <div className="text-secondary text-small">Nenhum link processado ainda.</div>}

@@ -224,6 +224,7 @@ jobs:
         if: steps.render_queue.outputs.has_job == 'yes'
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
         run: |
           MAX_JOBS_POR_RODADA=3
           MAX_SEGUNDOS_ANTES_DE_INICIAR_NOVO_JOB=720
@@ -305,7 +306,14 @@ jobs:
               # Instagram (posts/reels/TV) nativamente, mesma invocação.
               if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be|instagram\.com'; then
                 pip install --quiet --break-system-packages -U yt-dlp
-                if ! yt-dlp --no-progress -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
+                # 25/09/2026 — cookies da conta de apoio (se configurados):
+                # sem login, Instagram/YouTube recusam o servidor.
+                cookies_opt=""
+                if [ -n "${YTDLP_COOKIES:-}" ]; then
+                  printf '%s\n' "$YTDLP_COOKIES" > "$RUNNER_TEMP/ytdlp-cookies.txt"
+                  cookies_opt="--cookies $RUNNER_TEMP/ytdlp-cookies.txt"
+                fi
+                if ! yt-dlp --no-progress $cookies_opt -f "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4]/best" \
                   --merge-output-format mp4 -o reel-source "$source_url" 2> ytdlp-error.log; then
                   error_detail="ytdlp_falhou: $(tr -d '\n' < ytdlp-error.log | cut -c1-400)"
                   false
@@ -405,6 +413,67 @@ jobs:
               echo "=== Job #${job_num} falhou (status=${job_status}) — já reportado via reels_render_fail, seguindo pro próximo (${SECONDS}s decorridos no total). ==="
             fi
           done
+
+
+  # 25/09/2026 — Captura automática de links do Instagram/YouTube colados na
+  # tela "Reescrita por Link" (pedidos config LINK_JOB__*, ver
+  # handleLinkManual em api/run_portal.js). Sem login, Instagram e YouTube
+  # recusam o servidor (testado de verdade) — por isso usa os cookies da
+  # conta de apoio de Roberto (secret YTDLP_COOKIES, formato cookies.txt).
+  # Não publica nada: só gera a matéria pendente + enfileira o Reel.
+  capturar_links:
+    if: github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: instagram-capturar-links-ovc
+      cancel-in-progress: false
+    steps:
+      - name: Verificar pedidos de captura
+        id: link_queue
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          response=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"link_jobs_pendentes","peek":true}' --max-time 45) || response=""
+          has_job=$(RESPONSE="$response" node -e 'try{const d=JSON.parse(process.env.RESPONSE||"{}");process.stdout.write(d.ok&&d.count>0?"yes":"no")}catch(_){process.stdout.write("no")}')
+          echo "Pedidos: $response"
+          echo "has_job=$has_job" >> "$GITHUB_OUTPUT"
+
+      - name: Baixar código
+        if: steps.link_queue.outputs.has_job == 'yes'
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        if: steps.link_queue.outputs.has_job == 'yes'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar yt-dlp, ffmpeg e Deno
+        if: steps.link_queue.outputs.has_job == 'yes'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          pip install --quiet --break-system-packages -U "yt-dlp[default]"
+          # YouTube exige um runtime de JavaScript pro yt-dlp resolver o player.
+          curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1 || true
+          echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+
+      - name: Capturar links (Instagram/YouTube)
+        if: steps.link_queue.outputs.has_job == 'yes'
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+          YTDLP_COOKIES: ${{ secrets.YTDLP_COOKIES }}
+        run: |
+          if [ -n "$YTDLP_COOKIES" ]; then
+            printf '%s\n' "$YTDLP_COOKIES" > "$RUNNER_TEMP/ytdlp-cookies.txt"
+            export YTDLP_COOKIES_FILE="$RUNNER_TEMP/ytdlp-cookies.txt"
+          fi
+          node scripts/capture-link-jobs.mjs
+          rm -f "$RUNNER_TEMP/ytdlp-cookies.txt"
 
   publicar:
     if: github.event_name != 'schedule' || github.event.schedule == '*/20 17-21 * * *' || github.event.schedule == '*/20 11-14 * * *'
