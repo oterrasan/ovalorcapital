@@ -1003,32 +1003,64 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
     }
   };
   const corStatus = info?.exhausted ? '#ef4444' : status==='ready' ? '#22c55e' : 'var(--yellow)';
+  // 1. Vídeo original (sem montagem) — o arquivo bruto de onde a montagem
+  // sai. Link de download: arquivos do nosso Storage ganham ?download= pra
+  // o navegador baixar em vez de abrir (atributo download não vale entre
+  // domínios diferentes).
+  const originalUrl = String(info?.source_url || post?.video_url || '');
+  const originalYt = parseYouTubeId(originalUrl);
+  const originalDownload = /\/storage\/v1\/object\/public\//.test(originalUrl)
+    ? originalUrl + (originalUrl.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent('video-original-' + String(post?.id||'').slice(0,8) + '.mp4')
+    : originalUrl;
+  const caixa = {border:'1px solid var(--border)',borderRadius:10,padding:10,display:'flex',flexDirection:'column',gap:8,minWidth:0};
+  const tituloCaixa = {fontSize:11,color:'var(--t2)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.04em'};
+  const player = {width:'100%',aspectRatio:'9/16',maxHeight:420,borderRadius:8,display:'block',background:'#000',objectFit:'contain'};
   return (
     <div style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:12}}>
-      <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>🎞️ Reel — prévia antes de publicar</div>
-      {info?.preview_url ? (
-        <div style={{marginBottom:8}}>
-          <video key={info.preview_url} src={info.preview_url} controls playsInline style={{width:'100%',maxWidth:260,maxHeight:460,aspectRatio:'9/16',borderRadius:8,display:'block',background:'#000'}}/>
-          <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>{info.manual_final ? '📤 Seu vídeo pronto — será publicado exatamente assim.' : '🛠️ Montagem do sistema (cópia de visualização em qualidade reduzida — a publicação sai em qualidade cheia).'}</div>
+      <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:10}}>🎞️ Reel — confira antes de publicar</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
+        <div style={caixa}>
+          <div style={tituloCaixa}>1. Vídeo original</div>
+          {originalUrl ? (
+            originalYt
+              ? <iframe src={'https://www.youtube-nocookie.com/embed/'+originalYt} style={{...player,border:0}} allowFullScreen/>
+              : <video key={originalUrl} src={originalUrl} controls playsInline preload="metadata" style={player}/>
+          ) : <div style={{fontSize:12,color:'var(--t3)'}}>Original não disponível (é apagado depois que o Reel é publicado).</div>}
+          {originalUrl && <a className="btn btn-secondary btn-sm" href={originalDownload} target="_blank" rel="noopener" download style={{textAlign:'center'}}>{originalYt ? '▶️ Abrir no YouTube' : '⬇️ Baixar original (Canva)'}</a>}
         </div>
-      ) : (
-        <div style={{fontSize:12,color:'var(--t3)',marginBottom:8}}>
-          {status==='ready' ? 'Montagem pronta, mas sem prévia (foi montada antes desta função existir). Suba o vídeo pronto abaixo se preferir ver antes.'
-            : (status==='pending'||status==='processing'||status==='error') && !info?.exhausted ? 'A prévia aparece aqui quando a montagem terminar.'
-            : 'Sem montagem para este vídeo.'}
+        <div style={caixa}>
+          <div style={tituloCaixa}>2. Montagem do sistema</div>
+          {info?.preview_url && !info?.manual_final ? (
+            <>
+              <video key={info.preview_url} src={info.preview_url} controls playsInline preload="metadata" style={player}/>
+              <div style={{fontSize:11,color:'var(--t3)'}}>Logo, manchete, rodapé e recorte como vão sair. Cópia em qualidade reduzida — a publicação sai em qualidade cheia.</div>
+            </>
+          ) : (
+            <div style={{fontSize:12,color:'var(--t3)'}}>
+              {info?.manual_final ? 'Você enviou um vídeo pronto (ao lado) — ele substitui a montagem do sistema.'
+                : (status==='pending'||status==='processing'||status==='error') && !info?.exhausted ? '⏳ Montando... a prévia aparece aqui assim que terminar.'
+                : status==='ready' ? 'Montagem antiga, sem prévia.'
+                : 'Sem montagem para este vídeo.'}
+            </div>
+          )}
+          <div style={{fontSize:12,color:corStatus}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
         </div>
-      )}
-      <div style={{fontSize:12,color:corStatus,marginBottom:8}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-        <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':'🎞️ Publicar como Reel agora'}</button>
-        <label className="btn btn-secondary btn-sm" style={{cursor:busy?'wait':'pointer',margin:0}}>
-          📤 Subir vídeo já montado
-          <input type="file" accept="video/mp4,video/quicktime,video/*" style={{display:'none'}} disabled={!!busy}
-            onChange={e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) enviarPronto(f); }}/>
-        </label>
+        <div style={caixa}>
+          <div style={tituloCaixa}>3. Seu vídeo pronto</div>
+          {info?.manual_final && info?.preview_url ? (
+            <video key={info.preview_url} src={info.preview_url} controls playsInline preload="metadata" style={player}/>
+          ) : <div style={{fontSize:12,color:'var(--t3)'}}>Suba aqui um vídeo que você já montou (ex.: no Canva). Ele vai para o Instagram exatamente como está — sem logo, manchete ou recorte do sistema. Até 50 MB, até 90 s, vertical 9:16.</div>}
+          <label className="btn btn-secondary btn-sm" style={{cursor:busy?'wait':'pointer',margin:0,textAlign:'center'}}>
+            📤 {info?.manual_final ? 'Trocar vídeo pronto' : 'Subir vídeo já montado'}
+            <input type="file" accept="video/mp4,video/quicktime,video/*" style={{display:'none'}} disabled={!!busy}
+              onChange={e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) enviarPronto(f); }}/>
+          </label>
+        </div>
       </div>
-      {busy && <div style={{fontSize:11,color:'var(--yellow)',marginTop:6}}>⏳ {busy}</div>}
-      <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>"Subir vídeo já montado": o Instagram recebe o arquivo exatamente como você enviou (até 50 MB, até 90 segundos, vertical 9:16). O vídeo da matéria no site não muda.</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:10}}>
+        <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':(info?.manual_final ? '🎞️ Publicar meu vídeo pronto (3) como Reel' : '🎞️ Publicar a montagem (2) como Reel')}</button>
+        {busy && <span style={{fontSize:11,color:'var(--yellow)'}}>⏳ {busy}</span>}
+      </div>
     </div>
   );
 }
