@@ -1,19 +1,8 @@
-name: Diagnóstico único — posts da Reescrita por Link
+name: diag-once (placeholder — nenhum diagnóstico ativo agora)
 on:
-  push:
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Instalar deps
-        run: npm ci --omit=dev
-      - name: Testar Business Discovery do Instagram
-        run: node .github/workflows/_diag_link_manual.mjs
+      - run: echo "placeholder — edite este arquivo quando precisar rodar um diagnóstico real"
