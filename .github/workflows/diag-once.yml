@@ -7,7 +7,7 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Consultar posts link_manual
+      - name: Diagnosticar captura de link (YouTube, Instagram, Bacci)
         run: node .github/workflows/_diag_link_manual.mjs
