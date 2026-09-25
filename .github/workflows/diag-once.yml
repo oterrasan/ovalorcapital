@@ -1,4 +1,4 @@
-name: Diagnóstico único — curtida ainda não funciona? dado fresco (25/09)
+name: Diagnóstico único — reteste de curtida horas depois (propagação vs bloqueio estrutural)
 on:
   push:
     paths:
@@ -15,5 +15,5 @@ jobs:
           node-version: '20'
       - name: Instalar deps
         run: npm ci --omit=dev
-      - name: Ver todos os accepted=true desde o fix de ontem
-        run: node .github/workflows/_diag_like_still_broken.mjs
+      - name: Retestar likeMedia horas depois do accept original
+        run: node .github/workflows/_diag_like_retest_hours_later.mjs
