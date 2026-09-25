@@ -9721,3 +9721,95 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Demais pendências de sessões anteriores seguem válidas (ver listas anteriores).
 
 ---
+
+### Sessão 23-25/09/2026 — LATÊNCIA DE REELS, BUSCA DE FONTES DE VÍDEO (pausada), @oterrasan SÓ EM REELS, 🔴 CAUSA RAIZ REAL DO BUG DE CURTIDA (PERMISSÃO FALTANDO NO TOKEN, NÃO TIMING), FIX DO TEMPLATE DE MANCHETE DOS REELS
+
+> Sessão longa e pesada (por isso Roberto pediu registro completo antes de abrir uma nova). Datas aproximadas — reconstruídas a partir de menções relativas ("ontem"/"hoje") na própria conversa e cruzadas com timestamp real de commit (`d422a62c` deployado `2026-09-24T17:00:47Z`, confirmado). Dia 1 é a data menos certa das três.
+
+#### Dia 1 (~23/09) — Latência de Reels + início da busca de fontes de vídeo
+
+**Latência de Reels reduzida — 2 gaps reais eliminados (não é possível "segundos", é física real de download+render+upload):**
+- Roberto: "acabou de ficar verde, mas demorou quase meia hora, é inaceitável... preciso que o sistema faça isso tudo em questão de segundos." Respondido com honestidade: "segundos" não é alcançável (download do vídeo + render ffmpeg + upload resumível pra Meta leva minutos reais, medido ~2-3min num caso real) — mas 2 desperdícios REAIS de fila foram identificados e eliminados:
+  1. Um vídeo recém-enfileirado esperava até 15min pelo próximo tick periódico do cron da Vercel antes do workflow de render sequer disparar. Fix: `dispararReelsWorkflowAgora()` (`api/run_portal.js`) — chamado dentro de `enfileirarReelSeHouver()` logo após enfileirar com sucesso (cobre tanto a geração automática do Bacci quanto a ferramenta manual "Reescrita por Link", que compartilham essa função).
+  2. Dentro de UM MESMO run do workflow, o job "publicar" roda em paralelo com "preparar_reels" (sem `needs:` entre eles) — um render que termina no minuto 3 do run não era pego por esse mesmo run, só pelo próximo tick. Fix: `_dispatchReelsWorkflowAgora()` (extraído de `handleDispatchReelsWorkflow`, `api/manage.js`) chamado de novo logo que `handleReelsRenderComplete()` marca o template como `status:"ready"` — dispara um run novo cujo job "publicar" (rápido, ~1-3s) pega na hora.
+
+**Busca de portais com vídeo pra raspar — INICIADA, DEIXADA EM ABERTO A PEDIDO DO PRÓPRIO ROBERTO:**
+- Roberto: "preciso que voce encontre sites de noticias e portais que tenham videos postados e que possamos capturar. porque nao estamos conseguindo raspar do instagram... bacci ja sabemos qe funciona mas nao tem videos na quantidade que eles tem no instagram... no instagram eles publicam uma centena por dia.... enquanto nao conseguirmos raspar do instagram, precisamos de outros sites."
+- Reaproveitado `descobrirVideoGenerico()` (`core/linkCapture.js`) como detector real (og:video, `<video src>`, embed do YouTube) pra testar candidatos.
+- **Terra testado e rejeitado como captura direta** — Roberto testou pessoalmente na ferramenta "Reescrita por Link" do admin, mostrou print (link do Bacci funcionando + tentativa no Terra que não achou o vídeo do avião), e **autodiagnosticou a causa raiz antes de me pedir qualquer coisa**: "no terra da pra fazer, mas tem que fazer com automacao. na reescrita nao da porque o terra tem algum bloqueador que impede nosso sistema de pegar o video automaticamente colocando o link la, mas tem a opcao de baixar o video. entao, seria baixar o video, renderizar, salvar, inserir nosso template e apagar o video do banco." Ele identificou ainda um risco real de duplicidade (portais publicam basicamente o mesmo conteúdo) antes de eu tocar em qualquer coisa.
+- **Instrução explícita e repetida, respeitada à risca: "NAO FACA NADA AINDA, ESTOU INVESTIGANDO"** e depois **"aguarde instrucoes"** — nenhuma linha de código foi escrita pra esse tópico. Ele mesmo enfileirou, usando o mecanismo JÁ EXISTENTE (upload manual/link direto no admin), ~30 matérias brasil-on com vídeo do Bacci (print mostrado), e disse: "vamos testar todas as maneiras a partir de agora."
+
+**🚨 PENDÊNCIA REAL, EM ABERTO — nenhuma fonte de vídeo nova foi cadastrada.** Não retomar por iniciativa própria: esperar Roberto voltar com uma decisão sobre o Terra (download+render+dedup) ou outra fonte.
+
+---
+
+#### Dia 2 (~24/09) — `@oterrasan` aceita collab só em Reels + bug real de curtida identificado (raso) + fix de retry (que se provaria incompleto no Dia 3)
+
+**Collab automático do `@oterrasan` restrito a Reels — implementado (commit anterior a este dia, confirmado funcionando por Roberto):**
+- Pedido: "todas as materias que forem reels, voce coloca o @oterrasan para aceitar automaticamente, assim como os demais perfis. só nos REELS."
+- `core/instagram.js` e `brasilon/core/instagram.js` (`acceptCollabsForMedia`): a exclusão fixa `NEVER_AUTO_ACCEPT = "oterrasan"` (que já existia pra nunca auto-aceitar convite de feed, por pedido de 17/09/2026 — "demorar 40 minutos pra uma conta aceitar é inadmissível") virou condicional: `if (username === NEVER_AUTO_ACCEPT && tag !== "reel")`. Ou seja: continua excluído em posts de feed (imagem), mas passa a aceitar automaticamente quando `tag === "reel"` — os 2 pontos que já chamam `acceptCollabsForMedia(...,"reel")` (`publishAlreadyUploadedReel`/`publishReel`).
+- O aceite por polling (`core/instagram_collab_policy.js`, rede de segurança pra convite manual fora da automação) foi **deliberadamente deixado intocado** — a API `getCollaborationInvites()` não devolve `media_type`, então não tem como esse caminho distinguir feed de reel; continua excluindo `oterrasan` sempre lá.
+
+**Bug reportado por Roberto, confirmado por ele mesmo em produção:** "Claude, ontem nos ligamos o aceite automático de reels... está funcionando certinho, melhor que isso, além de aceitar, está curtindo automaticamente também!!! Então, já que está acontecendo assim, que era o certo pra todas... você precisa investigar e corrigir isso imediatamente. Todos os perfis que aceitam colabs, precisam curtir automaticamente também" — ou seja: `@oterrasan` aceita E curte; os outros 3 perfis fixos (`souabetaferreira`, `adriana.ferreirasp`, `amichelefroes`) só aceitam, NUNCA curtem.
+
+**Investigação real (não suposição) e fix de retry — commit `d422a62c`, deployado `2026-09-24T17:00:47Z`:**
+- Testado ao vivo (`diag-once.yml`): chamar `likeMedia()` de verdade contra um `media_id` já aceito por `@adriana.ferreirasp` retornou erro real da Meta: `code=100, error_subcode=33, "Authorization Error"`.
+- Teoria adotada NAQUELE MOMENTO (que se provaria **incompleta/errada** no Dia 3): a curtida disparava imediatamente após o accept, sem nenhum buffer — quando o accept demorava (comum em `@oterrasan`, que quase sempre precisa de retry), sobrava tempo de "propagação" de graça antes da curtida; quando o accept acertava de primeira (comum nos outros 3), a curtida chegava cedo demais.
+- **Fix aplicado (código ainda em produção, útil mas insuficiente sozinho — mantido):** `core/instagram.js`, `brasilon/core/instagram.js` (`acceptCollabsForMedia`) — adicionado `likeAttempts = [2000, 5000, 10000]`, mesma lógica de retry-com-espera que o accept já tinha, aplicada também na curtida (soma no máximo +17s no pior caso). `api/manage.js` (`handleIgCollabAutoProcess`, o caminho de polling) recebeu o mesmo padrão de retry. **Bug lateral corrigido no mesmo commit:** `likeError` era capturado no objeto de retorno mas NUNCA escrito na mensagem de log — o erro real da Meta ficava invisível em todo o histórico, o que explica por que o bug nunca tinha sido percebido antes. Fix: `like_erro=${likeError}` anexado à linha de log quando accept funciona mas o like falha de vez.
+- Roberto reagiu com "?" a uma primeira explicação técnica densa — corrigido pra linguagem direta e simples, sem jargão, no resto da sessão (reforça a preferência dele já documentada na seção 14 deste arquivo).
+
+---
+
+#### Dia 3 (25/09) — 🔴 CAUSA RAIZ REAL E DEFINITIVA DO BUG DE CURTIDA + FIX REAL DO TEMPLATE DE MANCHETE DOS REELS
+
+**Roberto, depois de esperar o dia inteiro:** "todas as contas seguem aceitando mas nenhuma curte, esperei o dia todo para confirmar e TEM ALGUM ERRO. VOCE DEVE ENCONRTAR E CORRIGIR." — e, no mesmo turno, pediu também a correção do template de manchete dos Reels (ver abaixo).
+
+**🔴 Causa raiz real, confirmada com evidência da própria API da Meta — não é timing, é permissão faltando no token:**
+1. Reteste ao vivo (`diag-once.yml`): chamado `likeMedia()` de novo, ~13 minutos depois do accept original (não segundos — tempo mais que suficiente pra qualquer propagação real) — `@adriana.ferreirasp`/`@souabetaferreira` **continuaram falhando com o mesmo erro idêntico** (`code=100/subcode=33`), enquanto `@oterrasan` teve sucesso na hora (curtir de novo algo já curtido é idempotente na Meta, retorna `{"success":true}`). Isso **derrubou a teoria de propagação lenta** do Dia 2 — o fix de retry de 17s nunca teria como resolver isso, porque o problema nunca foi de tempo.
+2. Investigado então se era diferença real de ESCOPO no token de cada conta — via `GET /debug_token` oficial da Meta (nunca expõe o valor do token, só os metadados/escopos concedidos), comparando `@oterrasan` (funciona) contra `@adriana.ferreirasp`/`@souabetaferreira` (nunca curtem):
+   ```
+   oterrasan            | type=PAGE        | scopes: ...instagram_content_publish, pages_read_engagement, instagram_manage_engagement, public_profile
+   adriana.ferreirasp   | type=SYSTEM_USER | scopes: ...instagram_content_publish, pages_read_engagement, public_profile   (SEM instagram_manage_engagement)
+   souabetaferreira     | type=SYSTEM_USER | scopes: ...instagram_content_publish, pages_read_engagement, public_profile   (SEM instagram_manage_engagement)
+   ```
+   **Achado definitivo:** o token de `@oterrasan` é do tipo **PAGE** e tem a permissão `instagram_manage_engagement` (a permissão real exigida pela Meta pra curtir conteúdo em nome de uma conta). Os tokens de `@adriana.ferreirasp` e `@souabetaferreira` são do tipo **SYSTEM_USER** (gerados via Business Manager → Usuários do Sistema) e **nunca tiveram essa permissão concedida** — só têm `instagram_manage_comments` (comentário), que é uma permissão diferente. Isso explica 100% do padrão observado nos dois dias anteriores: accept sempre funciona (usa uma permissão que os 3 perfis têm), curtida nunca funciona pra esses 2 (falta a permissão específica), funciona sempre pro `@oterrasan` (token com o tipo/permissão certa).
+3. **Achado lateral, registrado mas não é o foco desta investigação:** `@amichelefroes` apareceu com `ig_user_id=AUSENTE` (nem token/id configurado) — problema mais básico e ainda mais antigo, diferente do bug de permissão dos outros dois. Não corrigido nesta sessão (fora do escopo do que Roberto pediu) — fica registrado pra quando ele quiser tratar.
+
+**🚨 Não é um bug de código — não pode ser corrigido por retry nem por nenhuma mudança de lógica. Exige ação de Roberto:** gerar um token NOVO pras contas `adriana.ferreirasp` e `souabetaferreira`, marcando a permissão `instagram_manage_engagement` além das que já estão marcadas (Meta Business Suite → Configurações comerciais → Usuários do sistema → selecionar a conta → Gerar novo token → marcar a permissão). Assim que ele tiver o(s) token(s) novo(s), trocar no sistema (mesma tabela `ig_accounts`, coluna `token`).
+
+**✅ Fix real do template de manchete dos Reels — `scripts/render-instagram-reel.mjs` (commit `785c4c28`):**
+- Pedido de Roberto: "tem duas frases indo em todos eles no template e elas param com '...' isso nao faz o menor sentido... a chamada deve seguir o padrao das materias, o sistema deve criar uma chamada real, chamativa, que chame atencao, mas que seja real a manchete original que raspamos em fontes branca e uma ou duas palavras de outra cor. igual aos posts do feed."
+- **Causa raiz real (lida no código, não suposição):** `job.title`/`job.body` (`api/manage.js` ~linha 1625, `handleReelsRenderJob`) já eram texto real da matéria (não boilerplate fixo) — mas `textSvg()` (`scripts/render-instagram-reel.mjs`) tratava título e corpo como **dois blocos INDEPENDENTES**, cada um truncado por contagem de caractere (`excerpt()`) e por contagem de linha (`wrapText()`) — na prática, quase todo reel acabava com os DOIS blocos terminando em "...", o que lia como um template fixo/genérico mesmo sendo conteúdo real.
+- **Fix — um único bloco, igual ao feed:** removida a divisão título+corpo. Portado (duplicado de propósito, sem import cruzado — script standalone do GitHub Actions) o mecanismo real do feed (`core/instagram_image.js`): `chooseHighlightWord()`/`IMPACT_WORDS`/`STOPWORDS` (escolhe 1 palavra de impacto pra destacar), `estimateTextWidth()` (mesma tabela de largura por caractere), e uma busca de tamanho de fonte do MAIOR pro MENOR (50px→36px) que só aceita truncar como ÚLTIMO recurso — mesma estratégia de `buildHeadlineLayers()` do feed. Fundo branco, 1 palavra em laranja (`#f28c22`, mesma cor do feed).
+- **Bug real encontrado e corrigido na PRÓPRIA implementação do fix, antes de deployar:** minha primeira versão do laço de redução de fonte nunca de fato testava tamanhos menores antes de truncar — porque a função de wrap já absorvia qualquer estouro truncando a última linha internamente, escondendo o "não coube" do laço externo. Corrigido separando `wrapHeadlineWords()` (nunca trunca, devolve `null` se não couber — só isso decide se tenta um tamanho menor) de `truncateHeadlineToFit()` (só chamada como último recurso, depois de já ter tentado TODOS os tamanhos até o mínimo).
+- **Testado com 8 títulos reais** (harness isolado, sem sharp/ffmpeg) antes de subir: 7 manchetes realistas (incluindo uma de 122 caracteres) couberam **inteiras, sem nenhum corte**; só um título propositalmente extremo (250 caracteres) precisou truncar — e mesmo assim só a última palavra, com uma única reticência real.
+- **🚨 Incidente de processo capturado e corrigido durante a própria edição (lição já documentada neste arquivo, reincidente):** ao escrever a regex de remoção de acentos (`̀-ͯ`) dentro do parâmetro de uma chamada de ferramenta, o `̀` foi decodificado pela camada de JSON como um CARACTERE UNICODE LITERAL de verdade (não o texto "̀"), corrompendo silenciosamente a regex — a MESMA classe de bug documentada no incidente catastrófico de `site.js` (30-31/07/2026, mais de 1 mês de `SyntaxError` silencioso). Detectado por auditoria byte a byte do arquivo (`node --check` sozinho não detecta esse tipo de problema quando o range ainda é sintaticamente válido). **Corrigido usando `\p{Mn}` (Unicode property escape "Mark, nonspacing") em vez de `̀-ͯ`** — funcionalmente idêntico pra remover acentos após `.normalize("NFD")`, mas imune a esse tipo de corrupção via JSON (`\p` não é uma sequência de escape especial do JSON, diferente de `\u`). Confirmado com o mesmo harness de teste que o resultado de normalização de acentos continua correto (ex: "máquina" → destaque em "MAQUINA" sem acento).
+- **⚠️ Regra nova pra sessões futuras, registrada por causa deste incidente:** ao escrever QUALQUER regex com `\uXXXX` dentro do valor de um parâmetro de tool call (Edit/Write/Bash heredoc), sempre desconfiar de corrupção silenciosa — preferir, quando a intenção é remover diacríticos/marcas combinantes, usar `\p{Mn}` (ou outro `\p{...}`) em vez de `̀-ͯ` — mais seguro E mais legível. Se `\u` for genuinamente necessário, auditar o arquivo final byte a byte (`python3 -c "open(...,'rb').read()"`) antes de considerar o commit seguro, não confiar só em `node --check` (ele só pega erro de SINTAXE, não uma regex "válida" mas com um range de caracteres inteiramente errado).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado nos 3 dias)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTES 3 DIAS (23-25/09/2026)
+
+| Sistema | Status |
+|---|---|
+| **Latência de Reels — 2 gaps reais de fila eliminados** (dispatch imediato ao enfileirar + dispatch imediato ao terminar o render) | ✅ EM PRODUÇÃO |
+| **`@oterrasan` aceita collab automaticamente SÓ em Reels** (feed continua excluído) | ✅ EM PRODUÇÃO — confirmado funcionando por Roberto |
+| **Retry de curtida (2s/5s/10s) + log do erro real de curtida** | ✅ EM PRODUÇÃO (commit `d422a62c`) — mitiga mas NÃO resolve o bug de permissão (ver abaixo) |
+| **Causa raiz real e definitiva do bug de curtida** — token SYSTEM_USER de `adriana.ferreirasp`/`souabetaferreira` sem a permissão `instagram_manage_engagement`, confirmado via `debug_token` real da Meta | ✅ IDENTIFICADA COM EVIDÊNCIA REAL — 🔴 requer AÇÃO DE ROBERTO (gerar token novo com essa permissão), não é um bug de código |
+| **Template de manchete dos Reels — manchete real única, sem truncar toda vez, com palavra de destaque igual ao feed** | ✅ EM PRODUÇÃO (commit `785c4c28`) — testado com 8 títulos reais antes de subir |
+| **Bug de corrupção de regex via `\u` em tool call, capturado e corrigido antes do deploy** | ✅ CORRIGIDO — trocado por `\p{Mn}`, mais seguro |
+
+### 🔧 Pendências reais destes 3 dias
+
+1. **🔴 Ação exclusiva de Roberto — gerar tokens novos com `instagram_manage_engagement`** pras contas `adriana.ferreirasp` e `souabetaferreira` (Meta Business Suite → Usuários do Sistema → Gerar novo token → marcar essa permissão) — sem isso, essas 2 contas NUNCA vão conseguir curtir, não importa quanto código/retry se escreva.
+2. **Busca de fontes de vídeo alternativas (além do Bacci) — pausada a pedido explícito de Roberto**, que estava investigando o Terra por conta própria. Não retomar por iniciativa própria — esperar ele voltar com uma decisão.
+3. **`@amichelefroes` com `ig_user_id` ausente** (achado lateral desta investigação, não é o mesmo bug dos outros 2) — não corrigido, fora do escopo pedido. Avaliar quando Roberto quiser tratar.
+4. **Confirmar visualmente com Roberto** o novo template de manchete dos Reels em um vídeo real publicado (o teste desta sessão foi só da lógica de texto, isolado — nunca visto rodando com sharp/ffmpeg de verdade nem publicado).
+5. Demais pendências de sessões anteriores seguem válidas (ver listas anteriores no arquivo).
+
+---
