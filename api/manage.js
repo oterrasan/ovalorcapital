@@ -119,6 +119,7 @@ export default async function handler(req, res) {
     if (action === "reels_render_complete") return handleReelsRenderComplete(req, res, body);
     if (action === "reels_render_fail") return handleReelsRenderFail(req, res, body);
     if (action === "reels_set_final_file") return handleReelsSetFinalFile(req, res, body);
+    if (action === "reels_set_layout") return handleReelsSetLayout(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
@@ -1634,6 +1635,9 @@ async function handleReelsRenderJob(req, res, body) {
       title: stripHtmlToText(candidate.titulo || ""),
       body: reelBody,
       source_url: current.source_url,
+      // 25/09/2026 — enquadramento livre escolhido no editor do admin
+      // (handleReelsSetLayout). null = montagem automática de sempre.
+      layout: current.layout || null,
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
@@ -1685,6 +1689,12 @@ async function handleReelsRenderComplete(req, res, body) {
     ...template,
     status: "ready",
     end_trim: body?.end_trim && typeof body.end_trim === "object" ? body.end_trim : null,
+    // Proporção real do vídeo original (ffprobe no runner) — o editor de
+    // enquadramento do admin usa isso quando não consegue ler o vídeo
+    // direto (ex.: fonte do YouTube).
+    source_dimensions: (Number(body?.source_dimensions?.width) > 0 && Number(body?.source_dimensions?.height) > 0)
+      ? { width: Number(body.source_dimensions.width), height: Number(body.source_dimensions.height) }
+      : (template.source_dimensions || null),
     ready_at: new Date().toISOString(),
     last_error: null,
     preview_url: previewUrl || null,
@@ -1787,6 +1797,73 @@ async function handleReelsSetFinalFile(req, res, body) {
   if (error) throw error;
   await writeLog("info", `[reels] vídeo PRONTO enviado pelo admin (sem montagem do sistema): ${post.titulo || postId}`);
   return res.status(200).json({ ok: true, ready: true, metrics });
+}
+
+// 25/09/2026 — Roberto: "preciso que eu possa manipular o video e arrastar
+// ele pra deixar na proporcao e disposicao que eu quiser". O editor do
+// admin manda só números (recorte por lado + posição/tamanho no quadro
+// 1080x1920); aqui validamos, gravamos em template.layout e reenfileiramos
+// a montagem — o runner (scripts/render-instagram-reel.mjs) aplica no
+// ffmpeg e gera prévia nova. layout null = volta pra montagem automática.
+function _reelsSanitizarLayout(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const crop = raw.crop && typeof raw.crop === "object" ? raw.crop : {};
+  const rect = raw.rect && typeof raw.rect === "object" ? raw.rect : null;
+  if (!rect) return null;
+  const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(0.9, Math.round(n * 10000) / 10000)) : 0; };
+  const c = { l: frac(crop.l), t: frac(crop.t), r: frac(crop.r), b: frac(crop.b) };
+  if (c.l + c.r > 0.95 || c.t + c.b > 0.95) return null;
+  const vals = [rect.x, rect.y, rect.w, rect.h].map(Number);
+  if (!vals.every(Number.isFinite)) return null;
+  const [x, y, w, h] = vals;
+  if (w < 40 || h < 40 || w > 4320 || h > 4320) return null;
+  if (x < -4320 || x > 1080 || y < -4320 || y > 1920) return null;
+  return { crop: c, rect: { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) } };
+}
+
+async function handleReelsSetLayout(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+  const layout = body?.layout == null ? null : _reelsSanitizarLayout(body.layout);
+  if (body?.layout != null && !layout) return res.status(400).json({ ok: false, error: "enquadramento_invalido" });
+
+  let post;
+  try { post = await _reelsLoadPost(postId); }
+  catch (_) { return res.status(404).json({ ok: false, error: "post_not_found" }); }
+  const metrics = parseJsonMaybe(post.metrics, {});
+  if (metrics?.instagram_reel?.ig_id) return res.status(409).json({ ok: false, error: "reel_ja_publicado" });
+  const previous = metrics.instagram_reel_template || {};
+  const sourceUrl = String(previous.source_url || "");
+  if (!/^https?:\/\//i.test(sourceUrl) || previous.status === "embed_only" || previous.version !== REELS_TEMPLATE_VERSION) {
+    return res.status(409).json({ ok: false, error: "sem_video_original_para_montar" });
+  }
+  if (previous.status === "processing") return res.status(409).json({ ok: false, error: "montagem_em_andamento_tente_em_instantes" });
+
+  if (previous.preview_url && !previous.manual_final) {
+    try { await deleteVideoFromStorage(previous.preview_url); } catch (_) {}
+  }
+  if (previous.manual_final && previous.final_url) {
+    try { await deleteVideoFromStorage(previous.final_url); } catch (_) {}
+  }
+  metrics.instagram_reel_template = {
+    version: REELS_TEMPLATE_VERSION,
+    status: "pending",
+    source_url: sourceUrl,
+    source_kind: previous.source_kind || null,
+    layout,
+    queued_at: new Date().toISOString(),
+    attempts: 0,
+    exhausted: false
+  };
+  const { error } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  if (error) throw error;
+  await writeLog("info", `[reels-render] enquadramento ${layout ? "manual" : "automático"} salvo, remontando: ${post.titulo || postId}`);
+  await Promise.race([
+    _dispatchReelsWorkflowAgora().catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, 4000))
+  ]);
+  return res.status(200).json({ ok: true, queued: true, layout, metrics });
 }
 
 async function handleReelsRenderFail(req, res, body) {

@@ -334,6 +334,40 @@ function containCropRatios(job) {
   };
 }
 
+// 25/09/2026 — Roberto: "preciso que eu possa manipular o video e arrastar
+// ele pra deixar na proporcao e disposicao que eu quiser. puxar pra baixo e
+// aumentar a altura e manter ele comecando do topo, ou recortar so uma das
+// laterais, ou o que quiser, literalmente." O editor do admin grava em
+// template.layout: crop = fração cortada de cada lado do vídeo ORIGINAL
+// (esquerda/cima/direita/baixo) e rect = onde o pedaço recortado fica no
+// quadro 1080x1920 (x/y podem ser negativos ou passar da borda — o que sai
+// do quadro é cortado). Qualquer valor inválido => null => comportamento
+// automático de sempre (cover/contain), nunca quebra o render.
+function sanitizeLayout(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const crop = raw.crop && typeof raw.crop === "object" ? raw.crop : {};
+  const rect = raw.rect && typeof raw.rect === "object" ? raw.rect : null;
+  if (!rect) return null;
+  const frac = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(0.9, n)) : 0; };
+  const c = { l: frac(crop.l), t: frac(crop.t), r: frac(crop.r), b: frac(crop.b) };
+  if (c.l + c.r > 0.95 || c.t + c.b > 0.95) return null;
+  const num = (v) => Number(v);
+  const x = num(rect.x), y = num(rect.y), w = num(rect.w), h = num(rect.h);
+  if (![x, y, w, h].every(Number.isFinite)) return null;
+  const even = (v) => Math.max(2, Math.round(v / 2) * 2);
+  const out = {
+    crop: c,
+    rect: {
+      x: Math.round(Math.max(-4320, Math.min(WIDTH, x))),
+      y: Math.round(Math.max(-4320, Math.min(HEIGHT, y))),
+      w: even(Math.min(4320, w)),
+      h: even(Math.min(4320, h))
+    }
+  };
+  if (out.rect.w < 40 || out.rect.h < 40) return null;
+  return out;
+}
+
 function runCapture(command, args) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -465,7 +499,16 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     : REELS_MAX_DURATION_SECONDS;
 
   let videoFilter;
-  if (fitMode === "contain") {
+  let layout = null;
+  if (fitMode === "custom") {
+    layout = sanitizeLayout(job.layout);
+    if (!layout) fitMode = "cover";
+  }
+  if (fitMode === "custom") {
+    const { crop: c, rect } = layout;
+    const cropFilter = `crop=trunc(iw*${1 - c.l - c.r}/2)*2:trunc(ih*${1 - c.t - c.b}/2)*2:trunc(iw*${c.l}/2)*2:trunc(ih*${c.t}/2)*2`;
+    videoFilter = `${cropFilter},scale=${rect.w}:${rect.h},setsar=1,fps=30`;
+  } else if (fitMode === "contain") {
     // Vídeo horizontal/quadrado — encaixa no topo do quadro (Roberto,
     // 18/09/2026), mas AGORA com o mesmo recorte de segurança contra
     // marca d'água/logo de outra emissora que o modo vertical já tinha
@@ -497,7 +540,11 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     "-i", inputPath,
     "-loop", "1", "-i", overlayPath,
     "-filter_complex",
-    `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
+    fitMode === "custom"
+      // Fundo preto 1080x1920 + vídeo recortado/redimensionado na posição
+      // escolhida no editor (pode sair do quadro) + template por cima.
+      ? `[0:v]${videoFilter}[video];color=c=black:s=${WIDTH}x${HEIGHT}:r=30[bg];[bg][video]overlay=${layout.rect.x}:${layout.rect.y}:shortest=1[base];[base][1:v]overlay=0:0:shortest=1:format=auto[out]`
+      : `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
     "-map", "[out]", "-map", "0:a?",
     ...(outputDuration ? ["-t", outputDuration.toFixed(3)] : []),
     "-c:v", "libx264", "-preset", "medium", "-crf", "16",
@@ -548,7 +595,8 @@ const overlayPath = overlayPathArg || `${outputPath}.overlay.png`;
 // ffprobe real do arquivo.
 const sourceDims = await probeDimensions(inputPath);
 const autoFit = sourceDims && sourceDims.width >= sourceDims.height ? "contain" : "cover";
-const fitMode = job.fit === "contain" || job.fit === "cover" ? job.fit : autoFit;
+const customLayout = sanitizeLayout(job.layout);
+const fitMode = customLayout ? "custom" : (job.fit === "contain" || job.fit === "cover" ? job.fit : autoFit);
 // 20/09/2026 — a altura de saída agora precisa considerar o recorte de
 // marca d'água aplicado em runFfmpeg (containCropRatios) — sem isso a
 // sombra ficaria calculada pra proporção ORIGINAL do vídeo, não pra
@@ -562,7 +610,13 @@ const videoOutHeightPx = fitMode === "contain" && sourceDims
     })()
   : HEIGHT;
 
-await buildOverlay(job, overlayPath, fitMode, videoOutHeightPx);
+// Layout livre: a sombra acompanha onde o vídeo termina no quadro. Se o
+// vídeo desce até perto do fim (>= 66%), usa a sombra do modo vertical
+// (manchete sempre legível); senão, a sombra sobe até a borda dele.
+const customBottom = customLayout ? Math.min(HEIGHT, customLayout.rect.y + customLayout.rect.h) : HEIGHT;
+const overlayMode = customLayout ? (customBottom >= HEIGHT * 0.66 ? "cover" : "contain") : fitMode;
+const overlayHeight = customLayout ? Math.max(2, customBottom) : videoOutHeightPx;
+await buildOverlay(job, overlayPath, overlayMode, overlayHeight);
 let endTrim = null;
 if (process.env.REEL_OVERLAY_ONLY !== "1") {
   endTrim = await runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode);
@@ -575,5 +629,6 @@ console.log(JSON.stringify({
   end_trim: endTrim,
   fit_mode: fitMode,
   source_dimensions: sourceDims,
-  video_out_height: fitMode === "contain" ? videoOutHeightPx : null
+  video_out_height: fitMode === "contain" ? videoOutHeightPx : null,
+  layout: customLayout
 }));
