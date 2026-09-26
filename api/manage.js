@@ -1728,6 +1728,9 @@ async function handleReelsRenderJob(req, res, body) {
       // 25/09/2026 — enquadramento livre escolhido no editor do admin
       // (handleReelsSetLayout). null = montagem automática de sempre.
       layout: current.layout || null,
+      // 26/09/2026 — sem ajuste manual, vídeo do TikTok do Metrópoles ganha
+      // enquadramento automático (detecta a manchete deles; ver render script).
+      auto_layout: !current.layout && /tiktok\.com\/@metropolesoficial/i.test(String(metrics.fonte_link_manual || "")) ? "metropoles" : null,
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
@@ -1788,6 +1791,9 @@ async function handleReelsRenderComplete(req, res, body) {
       : (template.source_dimensions || null),
     ready_at: new Date().toISOString(),
     last_error: null,
+    layout_auto: body?.layout_auto && typeof body.layout_auto === "object"
+      ? { status: String(body.layout_auto.status || "").slice(0, 40), layout: body.layout_auto.layout || null }
+      : null,
     preview_url: previewUrl || null,
     manual_final: false,
     final_url: null

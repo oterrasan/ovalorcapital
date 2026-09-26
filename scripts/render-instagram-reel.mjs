@@ -606,6 +606,98 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
   });
 }
 
+// 26/09/2026 — enquadramento automático dos vídeos do Metrópoles (Roberto:
+// "as manchetes do metropoles ficam na parte inferior e sao bem grandes, o
+// template nao está cobrindo tudo"). Quadros reais mostraram que a manchete
+// deles é sempre faixa branca com letras pretas, mas a POSIÇÃO varia (em
+// uns embaixo, em outros logo abaixo do logo). Detecta essas faixas em
+// amostras do vídeo:
+//   - faixa embaixo: amplia o vídeo até ela ficar atrás do nosso rodapé
+//     preto (y >= 1500) — mesma conta que bate com o ajuste manual que
+//     Roberto fez (1,47x no vídeo dos porquinhos);
+//   - faixa em cima: corta o topo logo abaixo dela;
+//   - faixa no meio, nada achado ou zoom exagerado: não mexe (Roberto ajusta).
+// Roberto revisa todo Reel antes de aprovar; isto só poupa o ajuste manual.
+const AUTO_RODAPE_Y = 1500;
+function detectarFaixasManchete(frames, width, height) {
+  const rowsHit = new Float64Array(height);
+  const x0 = Math.floor(width * 0.05), x1 = Math.ceil(width * 0.95), span = x1 - x0;
+  for (const f of frames) {
+    for (let y = 0; y < height; y++) {
+      let w = 0, k = 0, runs = 0, prevWhite = false;
+      for (let x = x0; x < x1; x++) {
+        const i = (y * width + x) * 3, r = f[i], g = f[i + 1], b = f[i + 2];
+        const mn = Math.min(r, g, b), mx = Math.max(r, g, b);
+        const white = mn >= 225 && mx - mn <= 25;
+        if (white) w++;
+        else if (mx <= 60) k++;
+        if (white && !prevWhite) runs++;
+        prevWhite = white;
+      }
+      if (w / span >= 0.10 && k / span >= 0.01 && runs >= 3) rowsHit[y]++;
+    }
+  }
+  const n = frames.length || 1;
+  const on = Array.from(rowsHit, v => v / n >= 0.15);
+  const bands = [];
+  let s = -1, gap = 0;
+  const maxGap = Math.round(height * 0.02);
+  for (let y = 0; y <= height; y++) {
+    if (y < height && on[y]) { if (s < 0) s = y; gap = 0; continue; }
+    if (s < 0) continue;
+    gap++;
+    if (gap > maxGap || y === height) {
+      const e = y - gap;
+      if (e - s >= height * 0.03) bands.push({ top: s / height, bottom: (e + 1) / height });
+      s = -1; gap = 0;
+    }
+  }
+  return bands.filter(b => b.top >= 0.09);
+}
+
+async function amostrarQuadros(inputPath, w, h, max = 24) {
+  const { stdout } = await runCapture(process.env.FFMPEG_PATH || "ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-i", inputPath,
+    "-vf", `fps=1/2,scale=${w}:${h}`, "-frames:v", String(max),
+    "-f", "rawvideo", "-pix_fmt", "rgb24", "-"
+  ]);
+  const size = w * h * 3, frames = [];
+  for (let o = 0; o + size <= stdout.length; o += size) frames.push(stdout.subarray(o, o + size));
+  return frames;
+}
+
+async function layoutAutomaticoMetropoles(inputPath, dims) {
+  if (!dims || dims.width >= dims.height) return { status: "nao_vertical" };
+  const frames = await amostrarQuadros(inputPath, 270, 480);
+  if (frames.length < 3) return { status: "sem_quadros" };
+  const bands = detectarFaixasManchete(frames, 270, 480);
+  if (!bands.length) return { status: "sem_faixa", bands };
+  const W = dims.width, H = dims.height;
+  const l = 0.04, r = 0.04, b = 0.02;
+  let t = 0.16;
+  const topo = bands.filter(x => x.bottom <= 0.45);
+  const baixo = bands.filter(x => x.top >= 0.5);
+  if (bands.some(x => !topo.includes(x) && !baixo.includes(x))) return { status: "faixa_no_meio", bands };
+  if (topo.length) t = Math.min(0.45, Math.max(t, ...topo.map(x => x.bottom + 0.01)));
+  const cropW = W * (1 - l - r), cropH = H * (1 - t - b);
+  let s = Math.max(WIDTH / cropW, HEIGHT / cropH);
+  const s0 = s;
+  if (baixo.length) {
+    const bt = Math.min(...baixo.map(x => x.top));
+    s = Math.max(s, AUTO_RODAPE_Y / ((bt - t) * H));
+  }
+  if (s / s0 > 1.7) return { status: "zoom_exagerado", bands };
+  const w = Math.round(cropW * s), h = Math.round(cropH * s);
+  let y = 0;
+  if (baixo.length) {
+    const bt = Math.min(...baixo.map(x => x.top));
+    y = Math.round(Math.min(0, AUTO_RODAPE_Y - (bt - t) * H * s));
+  }
+  if (y + h < HEIGHT) return { status: "nao_cobre_o_quadro", bands };
+  const layout = { crop: { l, t: Number(t.toFixed(4)), r, b }, rect: { x: Math.round((WIDTH - w) / 2), y, w, h } };
+  return { status: "aplicado", bands, layout };
+}
+
 const [jobPath, inputPath, outputPath, overlayPathArg] = process.argv.slice(2);
 if (!jobPath || !inputPath || !outputPath) {
   throw new Error("uso: node scripts/render-instagram-reel.mjs job.json input-video output.mp4 [overlay.png]");
@@ -624,6 +716,12 @@ const overlayPath = overlayPathArg || `${outputPath}.overlay.png`;
 // ffprobe real do arquivo.
 const sourceDims = await probeDimensions(inputPath);
 const autoFit = sourceDims && sourceDims.width >= sourceDims.height ? "contain" : "cover";
+let autoLayout = null;
+if (!job.layout && job.auto_layout === "metropoles") {
+  try { autoLayout = await layoutAutomaticoMetropoles(inputPath, sourceDims); }
+  catch (e) { autoLayout = { status: "erro", error: String(e?.message || e).slice(0, 200) }; }
+  if (autoLayout?.layout) job.layout = autoLayout.layout;
+}
 const customLayout = sanitizeLayout(job.layout);
 const fitMode = customLayout ? "custom" : (job.fit === "contain" || job.fit === "cover" ? job.fit : autoFit);
 // 20/09/2026 — a altura de saída agora precisa considerar o recorte de
@@ -659,5 +757,6 @@ console.log(JSON.stringify({
   fit_mode: fitMode,
   source_dimensions: sourceDims,
   video_out_height: fitMode === "contain" ? videoOutHeightPx : null,
-  layout: customLayout
+  layout: customLayout,
+  layout_auto: autoLayout
 }));
