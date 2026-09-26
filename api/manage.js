@@ -2277,13 +2277,25 @@ async function handleReelsPublish(req, res, body) {
     });
   }
 
+  // 26/09/2026 — botão "Postar agora" da fila de aprovados: reserva o Reel
+  // antes de publicar (mesma trava da automação), para o clique e a
+  // automação nunca publicarem o mesmo vídeo duas vezes.
+  const claimId = `processing:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+  const claimed = await _reelsClaim(post, claimId);
+  if (!claimed) return res.status(409).json({ ok: false, error: "reel_ja_publicado_ou_em_publicacao" });
+
   try {
     const resultado = await _reelsPublicarPost(post, body?.account_id || body?.ig_account_id || post.ig_account_id || null);
     await _reelsClaimConfirmar(post.id, { ...resultado, published_via: "reels_publish" });
+    // Conta na alternância 1 feed / 1 Reel: depois de um Reel manual, a
+    // automação publica feed antes do próximo Reel.
+    try { await _igAutoSetConfig("IG_ULTIMO_TIPO_PUBLICADO", `reel:${Date.now()}`); } catch (_) {}
+    await writeLog("info", `[reels] publicado manualmente: ${post.titulo} | ig:${resultado.ig_id}`);
     const descarte = await _reelsDescartarVideoAposPublicar(post);
     return res.status(200).json({ ok: true, ...resultado, video_discarded: descarte.discarded });
   } catch (e) {
     const safeError = redactSecrets(e?.message || String(e));
+    await _reelsClaimDesfazer(post.id, safeError);
     await writeLog("error", `[reels] falha manual: ${safeError}`);
     return res.status(200).json({ ok: false, error: safeError, pending: e?.pending === true });
   }
