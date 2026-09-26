@@ -381,6 +381,35 @@ jobs:
                 fi
               fi
 
+              # 26/09/2026 — capa própria pra grade do perfil. O Instagram mostra só
+              # o miolo da capa, então o TOPO do Reel (logo do VC até a manchete,
+              # 1080x1440) vai centralizado numa capa 1080x1920. A Meta baixa a
+              # capa na criação do container: sobe a imagem e pede um container
+              # novo com capa. Qualquer falha aqui mantém o container original.
+              cover_upload_url=$(node -p 'require("./render-job.json").job.cover_upload_url || ""')
+              if [ -n "$cover_upload_url" ]; then
+                echo "::add-mask::${cover_upload_url}"
+                if ffmpeg -y -loglevel error -ss 1 -i reel-final.mp4 -frames:v 1 \
+                     -vf "scale=1080:1920,crop=1080:1440:0:0,pad=1080:1920:0:240:black" -q:v 2 reel-cover.jpg \
+                   && curl --fail -sS -X PUT "$cover_upload_url" \
+                     -H "Content-Type: image/jpeg" -H "x-upsert: true" \
+                     --upload-file reel-cover.jpg --max-time 60 >/dev/null \
+                   && curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                     -H "Content-Type: application/json" \
+                     -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                     -d "{\"action\":\"reels_render_capa\",\"post_id\":\"${post_id}\",\"claim_id\":\"${claim_id}\"}" \
+                     --max-time 45 -o capa.json \
+                   && [ "$(node -p 'require("./capa.json").ok === true')" = "true" ]; then
+                  ig_upload_url=$(node -p 'require("./capa.json").ig_upload_url')
+                  ig_upload_token=$(node -p 'require("./capa.json").ig_upload_token')
+                  echo "::add-mask::${ig_upload_token}"
+                  echo "Capa da grade aplicada."
+                else
+                  echo "Capa da grade não aplicada (o Reel segue sem capa própria)."
+                  cat capa.json 2>/dev/null || true; echo ""
+                fi
+              fi
+
               # Upload resumível direto pra Meta — nenhum storage nosso no meio.
               # SEM --fail aqui de propósito (20/09/2026): --fail engolia o corpo
               # da resposta em qualquer erro não-2xx, escondendo o motivo real
