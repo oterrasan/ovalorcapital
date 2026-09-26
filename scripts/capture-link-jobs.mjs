@@ -48,6 +48,7 @@ function ytdlp(args, timeoutMs, cookies = COOKIES) {
 
 function erroLegivel(e) {
   const raw = String(e?.stderr || e?.message || e).replace(/\s+/g, " ").trim();
+  if (/IP address is blocked/i.test(raw)) return "TikTok bloqueia este vídeo para o nosso servidor (restrição de região). Baixe o vídeo e suba manualmente. Detalhe: " + raw.slice(0, 160);
   if (/not a bot|Sign in to confirm/i.test(raw)) return "YouTube pediu login para este vídeo específico. Cole o texto e suba o vídeo manualmente. Detalhe: " + raw.slice(0, 200);
   if (/checkpoint|challenge/i.test(raw)) return "Instagram pediu verificação da conta de captura (abra o app nessa conta e confirme que foi você). Detalhe: " + raw.slice(0, 200);
   return raw.slice(0, 350);
@@ -62,16 +63,37 @@ async function baixarArquivo(url, destino, headers = {}) {
   writeFileSync(destino, Buffer.from(await r.arrayBuffer()));
 }
 
-// ── TikTok (tikwm) ──────────────────────────────────────────────────────
+// ── TikTok (tikwm; se falhar, yt-dlp) ─────────────────────────────────
+// tikwm tem limite de 1 pedido por segundo (resposta "Free Api Limit") —
+// testado no runner: o mesmo link falha e passa segundos depois. Até 3
+// tentativas com pausa; se continuar sem dados, yt-dlp (também testado,
+// baixou o vídeo). Post com restrição de região ("Your IP address is
+// blocked from accessing this post") não tem saída sem outra rede.
 async function capturarTiktok(link, arquivo) {
-  const r = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}&hd=1`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(30000) });
-  const d = await r.json().catch(() => ({}));
-  if (d.code !== 0 || !d.data) throw new Error(`TikTok não devolveu o vídeo (${d.msg || "sem dados"}) — o vídeo pode ter sido apagado ou ser privado.`);
-  const v = d.data;
-  const videoUrl = v.hdplay || v.play;
-  if (videoUrl) await baixarArquivo(videoUrl, arquivo);
-  const autor = v.author?.nickname ? `Publicado por ${v.author.nickname} no TikTok. ` : "";
-  return { titulo: String(v.title || "").slice(0, 200), texto: autor + String(v.title || ""), capa: v.origin_cover || v.cover || "", temVideo: !!videoUrl };
+  let v = null, msg = "";
+  for (let t = 0; t < 3 && !v; t++) {
+    if (t) await new Promise((r) => setTimeout(r, 2500));
+    try {
+      const r = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(link)}&hd=1`, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(30000) });
+      const d = await r.json().catch(() => ({}));
+      if (d.code === 0 && d.data) v = d.data; else msg = d.msg || "sem dados";
+    } catch (e) { msg = e.message; }
+  }
+  if (v) {
+    const videoUrl = v.hdplay || v.play;
+    let temVideo = false;
+    if (videoUrl) { try { await baixarArquivo(videoUrl, arquivo); temVideo = true; } catch (e) { console.log(`tikwm: download falhou (${e.message}), tentando yt-dlp`); } }
+    if (!temVideo) {
+      try { ytdlp(["-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, ""); temVideo = existsSync(arquivo); } catch (_) {}
+    }
+    const autor = v.author?.nickname ? `Publicado por ${v.author.nickname} no TikTok. ` : "";
+    return { titulo: String(v.title || "").slice(0, 200), texto: autor + String(v.title || ""), capa: v.origin_cover || v.cover || "", temVideo };
+  }
+  console.log(`tikwm sem resposta (${msg}) — tentando yt-dlp`);
+  const meta = JSON.parse(ytdlp(["-J", link], 120000, ""));
+  ytdlp(["-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, "");
+  const autor = meta.uploader ? `Publicado por ${meta.uploader} no TikTok. ` : "";
+  return { titulo: String(meta.title || "").slice(0, 200), texto: autor + String(meta.description || meta.title || ""), capa: String(meta.thumbnail || ""), temVideo: existsSync(arquivo) };
 }
 
 // ── YouTube (yt-dlp + servidor de token) ───────────────────────────────
