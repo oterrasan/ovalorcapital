@@ -314,8 +314,24 @@ jobs:
               # baixado no servidor — mesmo motivo de sempre, sem arquivo
               # direto exposto, precisa de yt-dlp). yt-dlp já suporta
               # Instagram (posts/reels/TV) nativamente, mesma invocação.
-              if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be|instagram\.com'; then
-                pip install --quiet --break-system-packages -U yt-dlp
+              # 26/09/2026 — Globo (g1/ge/globoplay) adicionada: o vídeo é
+              # protegido, mas o yt-dlp baixa pelo código "globo:<id>"
+              # (testado de verdade no runner, 2/2 matérias do g1).
+              # YouTube ganha runtime JS (Deno) + servidor de token (bgutil),
+              # sem os quais boa parte dos vídeos cai em "confirme que não é
+              # robô".
+              if echo "$source_url" | grep -qE 'globoplay\.globo\.com/v/[0-9]+'; then
+                source_url="globo:$(echo "$source_url" | grep -oE 'globoplay\.globo\.com/v/[0-9]+' | grep -oE '[0-9]+$')"
+              fi
+              if echo "$source_url" | grep -qE '^globo:|youtube\.com|youtu\.be|instagram\.com'; then
+                pip install --quiet --break-system-packages -U "yt-dlp[default]"
+                if echo "$source_url" | grep -qE 'youtube\.com|youtu\.be'; then
+                  pip install --quiet --break-system-packages -U bgutil-ytdlp-pot-provider || true
+                  docker run -d --rm -p 4416:4416 brainicism/bgutil-ytdlp-pot-provider >/dev/null 2>&1 || true
+                  curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1 || true
+                  export PATH="$HOME/.deno/bin:$PATH"
+                  sleep 5
+                fi
                 # 25/09/2026 — cookies da conta de apoio (se configurados):
                 # sem login, Instagram/YouTube recusam o servidor.
                 cookies_opt=""
@@ -475,12 +491,16 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install --quiet --break-system-packages -U "yt-dlp[default]"
+          pip install --quiet --break-system-packages -U "yt-dlp[default]" bgutil-ytdlp-pot-provider
+          # 26/09/2026 — servidor de token do YouTube (bgutil) e biblioteca de
+          # login do Instagram (conta de captura cadastrada no admin).
+          docker run -d --rm -p 4416:4416 brainicism/bgutil-ytdlp-pot-provider >/dev/null 2>&1 || true
+          npm install --no-save --no-audit --no-fund instagram-private-api@1.45.3 >/dev/null 2>&1 || true
           # YouTube exige um runtime de JavaScript pro yt-dlp resolver o player.
           curl -fsSL https://deno.land/install.sh | sh -s -- -y >/dev/null 2>&1 || true
           echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
 
-      - name: Capturar links (Instagram/YouTube)
+      - name: Capturar links (Instagram/YouTube/TikTok)
         if: steps.link_queue.outputs.has_job == 'yes'
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}

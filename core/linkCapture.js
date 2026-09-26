@@ -51,6 +51,40 @@ export function ehYoutube(url) {
   } catch (_) { return false; }
 }
 
+// 26/09/2026 — Roberto: "sua prioridade é fazer isso funcionar - capturar os
+// videos ... instagram, tiktok, youtube, ou sites com mascara de protecao
+// como globo". Testado de verdade no runner do GitHub (sem login):
+//   - Globo: yt-dlp "globo:<id>" baixa o vídeo inteiro (2/2 matérias do g1).
+//     O id vem da própria página da matéria.
+//   - TikTok: yt-dlp falha; a API pública do tikwm devolve o mp4.
+//   - YouTube: yt-dlp funciona para parte dos vídeos; outros pedem login.
+//   - Instagram: tudo sem login falha (inclusive a conexão oficial da Meta,
+//     que não tem permissão pra ler post de terceiros).
+export function ehTiktok(url) {
+  try { return /(^|\.)tiktok\.com$/i.test(new URL(url).hostname); } catch (_) { return false; }
+}
+export function ehGlobo(url) {
+  try { return /(^|\.)(globo\.com|globoplay\.globo\.com)$/i.test(new URL(url).hostname); } catch (_) { return false; }
+}
+// Links que só o runner consegue baixar (precisam de yt-dlp/tikwm/login).
+export function precisaDoRunner(url) {
+  return ehInstagram(url) || ehYoutube(url) || ehTiktok(url);
+}
+// Acha o código do vídeo da Globo dentro da página da matéria (g1, ge, etc).
+export async function descobrirVideoGlobo(url) {
+  try {
+    const m = String(url).match(/globoplay\.globo\.com\/v\/(\d{6,9})/);
+    if (m) return { kind: "globo", url: `https://globoplay.globo.com/v/${m[1]}/` };
+    const res = await axios.get(url, { timeout: 8000, headers: { "User-Agent": UA } });
+    const html = String(res.data || "");
+    const ids = [...html.matchAll(/"videoId":"?(\d{6,9})|data-video-id="(\d{6,9})"|globoplay\.globo\.com\/v\/(\d{6,9})/g)]
+      .map((x) => x[1] || x[2] || x[3]).filter(Boolean);
+    return ids.length ? { kind: "globo", url: `https://globoplay.globo.com/v/${ids[0]}/` } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Mesmo padrão de exclusão do live_stream já confirmado necessário em
 // core/brasilon.js (21/09/2026) — "live_stream" tem 11 chars (igual todo ID
 // real de vídeo do YouTube) e é o valor literal e especial que o YouTube usa
