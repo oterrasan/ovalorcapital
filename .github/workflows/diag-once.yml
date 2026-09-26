@@ -1,26 +1,8 @@
-name: diag-once (corte de início/fim no render)
+name: diag-once (placeholder — nenhum diagnóstico ativo agora)
 on:
-  push:
-    branches: [claude/adoring-edison-2pzu14]
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 jobs:
-  teste:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Testar
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          npm install --no-audit --no-fund >/dev/null 2>&1
-          curl -fsSL -o src.mp4 "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/link-capture/LINK_JOB__1790397167778_bxm545.mp4"
-          node -e 'require("fs").writeFileSync("job.json",JSON.stringify({job:{title:"Teste de corte de inicio e fim do video",body:"Texto de teste.",source_url:"x",template_version:"t",layout:{crop:{l:0,t:0,r:0,b:0},rect:{x:0,y:0,w:1080,h:608},trim:{inicio:20,fim:32.5}}}}))'
-          node scripts/render-instagram-reel.mjs job.json src.mp4 out.mp4 ov.png
-          ffprobe -v error -show_entries format=duration -of default=nw=1 out.mp4
-          node -e 'require("fs").writeFileSync("job2.json",JSON.stringify({job:{title:"Teste so inicio",body:"x",source_url:"x",template_version:"t",layout:{crop:{l:0,t:0,r:0,b:0},rect:{x:0,y:0,w:1080,h:608},trim:{inicio:150,fim:null}}}}))'
-          node scripts/render-instagram-reel.mjs job2.json src.mp4 out2.mp4 ov2.png
-          ffprobe -v error -show_entries format=duration -of default=nw=1 out2.mp4
-          ffprobe -v error -show_entries format=duration -of default=nw=1 src.mp4
+      - run: echo "placeholder — edite este arquivo quando precisar rodar um diagnóstico real"
