@@ -1409,7 +1409,8 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
             </div>
           )}
           <div style={{fontSize:12,color:corStatus}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
-          {info?.layout && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento: ajustado por você</div>}
+          {info?.layout && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento: ajustado por você{info.layout.trim ? ` · trecho ${info.layout.trim.inicio}s → ${info.layout.trim.fim != null ? info.layout.trim.fim + 's' : 'fim'}` : ''}</div>}
+          {info?.audio_removido && !info?.manual_final && <div style={{fontSize:11,color:'var(--yellow)',lineHeight:1.4}}>🔇 Áudio removido: a Meta recusou o vídeo com o som original (provável música com direito autoral). Ele vai para o Instagram sem som — a prévia acima ainda toca o áudio original.</div>}
           {(() => {
             let m = {}; try { m = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{}); } catch(_) {}
             const podeAjustar = !!info?.source_url && status !== 'embed_only' && !m?.instagram_reel?.ig_id;

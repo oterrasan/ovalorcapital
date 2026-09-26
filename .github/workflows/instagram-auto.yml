@@ -397,6 +397,34 @@ jobs:
                 --data-binary @reel-final.mp4 --max-time 300)
               echo "HTTP do upload pra Meta: ${upload_http_code}"
               cat upload-response.json; echo ""
+              # 26/09/2026 — causa real do ProcessingFailedError (teste no
+              # runner): a Meta recusa quando reconhece música com direito
+              # autoral por tempo suficiente; o mesmo vídeo sem o áudio passa.
+              # Tira o áudio (troca por silêncio), pede container novo e
+              # reenvia. O admin mostra "áudio removido".
+              if [ "$upload_http_code" = "400" ] && grep -q "ProcessingFailedError" upload-response.json; then
+                echo "Meta recusou com o áudio original — reenviando sem áudio."
+                ffmpeg -hide_banner -loglevel error -y -i reel-final.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo \
+                  -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k -shortest -movflags +faststart reel-final-mudo.mp4
+                curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                  -d "{\"action\":\"reels_render_sem_audio\",\"post_id\":\"${post_id}\",\"claim_id\":\"${claim_id}\"}" \
+                  --max-time 45 -o sem-audio.json
+                ig_upload_url=$(node -p 'require("./sem-audio.json").ig_upload_url')
+                ig_upload_token=$(node -p 'require("./sem-audio.json").ig_upload_token')
+                echo "::add-mask::${ig_upload_token}"
+                mv reel-final-mudo.mp4 reel-final.mp4
+                file_size=$(stat -c%s reel-final.mp4)
+                upload_http_code=$(curl -sS -o upload-response.json -w "%{http_code}" -X POST "$ig_upload_url" \
+                  -H "Authorization: OAuth ${ig_upload_token}" \
+                  -H "offset: 0" \
+                  -H "file_size: ${file_size}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary @reel-final.mp4 --max-time 300)
+                echo "HTTP do reenvio sem áudio: ${upload_http_code}"
+                cat upload-response.json; echo ""
+              fi
               if [ "$upload_http_code" != "200" ]; then
                 error_detail="upload_http_${upload_http_code}: $(tr -d '\n' < upload-response.json | cut -c1-400)"
                 echo "Upload recusado pela Meta — motivo real: ${error_detail}"
