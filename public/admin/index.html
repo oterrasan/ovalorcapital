@@ -1357,6 +1357,19 @@ function ReelsFilaAprovados() {
     const d = await r.json(); if (!d.ok) alert('❌ ' + (d.error||'falha'));
     carregar();
   };
+  const [postando,setPostando] = useState(null);
+  const postarAgora = async (p) => {
+    if (!confirm('Publicar agora no Instagram o Reel:\n\n' + (p.titulo||'') + '\n\nEle sai da fila e é publicado neste momento.')) return;
+    setPostando(p.id);
+    try {
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_publish', post_id: p.id}) });
+      const d = await r.json();
+      if (d.ok) alert('✅ Reel publicado em @' + (d.username||'ovalorcapital') + '!');
+      else alert('❌ ' + (d.pending ? 'A Meta ainda está processando o vídeo. Tente de novo em 1-2 minutos.' : d.error === 'reel_ja_publicado_ou_em_publicacao' ? 'Este Reel já foi publicado ou está sendo publicado agora.' : ('Erro: ' + (d.error||'falha ao publicar'))));
+    } catch(e) { alert('❌ Erro de conexão: ' + e.message); }
+    setPostando(null);
+    carregar();
+  };
   useEffect(() => { carregar(); const t = setInterval(carregar, 30000); return () => clearInterval(t); }, []);
   const rotulo = t => t?.status === 'ready' ? '✅ pronto' : t?.exhausted ? '❌ falhou' : '⏳ montando';
   return (
@@ -1365,11 +1378,12 @@ function ReelsFilaAprovados() {
       {erro && <div style={{fontSize:12,color:'var(--red)'}}>Erro: {erro}</div>}
       {fila && !fila.length && <div style={{fontSize:12,color:'var(--t3)'}}>Nenhum Reel aprovado esperando.</div>}
       {fila && fila.map((p,i) => (
-        <div key={p.id} style={{display:'grid',gridTemplateColumns:'28px 1fr auto auto',gap:8,alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+        <div key={p.id} style={{display:'grid',gridTemplateColumns:'28px 1fr auto auto auto',gap:8,alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
           <span style={{color:'var(--t3)'}}>{i+1}º</span>
           <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.titulo}>{p.titulo}</span>
           <span style={{color:p.m.instagram_reel_template?.status==='ready'?'var(--green)':'var(--yellow)'}}>{rotulo(p.m.instagram_reel_template)}</span>
-          <button className="btn btn-secondary btn-sm" onClick={()=>tirar(p.id)}>Tirar</button>
+          <button className="btn btn-primary btn-sm" disabled={p.m.instagram_reel_template?.status!=='ready' || !!postando} title={p.m.instagram_reel_template?.status==='ready' ? 'Publicar este Reel agora' : 'Disponível quando o Reel estiver pronto'} onClick={()=>postarAgora(p)}>{postando===p.id ? 'Postando...' : '🚀 Postar agora'}</button>
+          <button className="btn btn-secondary btn-sm" disabled={!!postando} onClick={()=>tirar(p.id)}>Tirar</button>
         </div>
       ))}
     </div>
