@@ -1337,6 +1337,45 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   );
 }
 
+function ReelsFilaAprovados() {
+  const [fila,setFila] = useState(null);
+  const [erro,setErro] = useState('');
+  const carregar = async () => {
+    try {
+      const { data, error } = await sb.from('posts').select('id,titulo,metrics').eq('metrics->instagram_reel_template->>aprovado','true').limit(200);
+      if (error) throw error;
+      const parse = m => { try { return typeof m === 'string' ? JSON.parse(m||'{}') : (m||{}); } catch(_) { return {}; } };
+      const itens = (data||[]).map(p => ({...p, m: parse(p.metrics)}))
+        .filter(p => !(p.m?.instagram_reel?.ig_id && !String(p.m.instagram_reel.ig_id).startsWith('processing:')))
+        .sort((a,b) => (Date.parse(a.m.instagram_reel_template?.aprovado_em||'')||0) - (Date.parse(b.m.instagram_reel_template?.aprovado_em||'')||0));
+      setFila(itens); setErro('');
+    } catch(e) { setErro(e.message); }
+  };
+  const tirar = async (id) => {
+    if (!confirm('Tirar este Reel da fila?')) return;
+    const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_aprovar', post_id: id, aprovado: false}) });
+    const d = await r.json(); if (!d.ok) alert('❌ ' + (d.error||'falha'));
+    carregar();
+  };
+  useEffect(() => { carregar(); const t = setInterval(carregar, 30000); return () => clearInterval(t); }, []);
+  const rotulo = t => t?.status === 'ready' ? '✅ pronto' : t?.exhausted ? '❌ falhou' : '⏳ montando';
+  return (
+    <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:14}}>
+      <div style={{fontSize:12,fontWeight:700,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>Fila de Reels aprovados {fila ? `(${fila.length})` : ''}</div>
+      {erro && <div style={{fontSize:12,color:'var(--red)'}}>Erro: {erro}</div>}
+      {fila && !fila.length && <div style={{fontSize:12,color:'var(--t3)'}}>Nenhum Reel aprovado esperando.</div>}
+      {fila && fila.map((p,i) => (
+        <div key={p.id} style={{display:'grid',gridTemplateColumns:'28px 1fr auto auto',gap:8,alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+          <span style={{color:'var(--t3)'}}>{i+1}º</span>
+          <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.titulo}>{p.titulo}</span>
+          <span style={{color:p.m.instagram_reel_template?.status==='ready'?'var(--green)':'var(--yellow)'}}>{rotulo(p.m.instagram_reel_template)}</span>
+          <button className="btn btn-secondary btn-sm" onClick={()=>tirar(p.id)}>Tirar</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
   const [busy, setBusy] = useState('');
   const info = reelTemplateInfo(post);
@@ -1368,6 +1407,26 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
     }
   };
   const corStatus = info?.exhausted ? '#ef4444' : status==='ready' ? '#22c55e' : 'var(--yellow)';
+  // 26/09/2026 — fila de Reels aprovados: Roberto revisa, tica "aprovado" e o
+  // sistema publica sozinho (08h-22h, alternando com o feed). Ao aprovar, a
+  // matéria também vai ao ar no portal, sem o vídeo.
+  let _mReel = {}; try { _mReel = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{}); } catch(_) {}
+  const jaPublicadoReel = !!_mReel?.instagram_reel?.ig_id && !String(_mReel.instagram_reel.ig_id).startsWith('processing:');
+  const aprovado = info?.aprovado === true;
+  const podeAprovar = !!info && status !== 'embed_only' && !jaPublicadoReel;
+  const alternarAprovacao = async () => {
+    const aprovar = !aprovado;
+    if (aprovar && !confirm('Aprovar este Reel para a fila de publicação automática?\n\nEle sai sozinho no Instagram (08h às 22h, alternando com o feed) e a matéria vai ao ar no portal, sem o vídeo.')) return;
+    setBusy(aprovar ? 'Aprovando...' : 'Tirando da fila...');
+    try {
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_aprovar', post_id: post.id, aprovado: aprovar}) });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'falha')); return; }
+      const { data } = await sb.from('posts').select('metrics').eq('id', post.id).single();
+      if (data?.metrics && onMetrics) onMetrics(data.metrics);
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    finally { setBusy(''); }
+  };
   // 1. Vídeo original (sem montagem) — o arquivo bruto de onde a montagem
   // sai. Link de download: arquivos do nosso Storage ganham ?download= pra
   // o navegador baixar em vez de abrir (atributo download não vale entre
@@ -1432,6 +1491,8 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
       </div>
       {editando && <ReelEnquadramentoEditor post={post} info={info} onMetrics={onMetrics} onClose={()=>setEditando(false)}/>}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:10}}>
+        {podeAprovar && <button type="button" className="btn btn-sm" disabled={!!busy} onClick={alternarAprovacao} style={{background:aprovado?'var(--bg3,#334155)':'var(--green)',color:'#fff',border:'none',fontWeight:700}}>{aprovado ? '↩️ Tirar da fila' : '✅ Aprovado para publicação'}</button>}
+        {aprovado && !jaPublicadoReel && <span style={{fontSize:11,color:'var(--green)'}}>Na fila desde {info.aprovado_em ? new Date(info.aprovado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'}{status!=='ready' ? ' · sai assim que a montagem ficar pronta' : ''}</span>}
         <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':(info?.manual_final ? '🎞️ Publicar meu vídeo pronto (3) como Reel' : '🎞️ Publicar a montagem (2) como Reel')}</button>
         {busy && <span style={{fontSize:11,color:'var(--yellow)'}}>⏳ {busy}</span>}
       </div>
@@ -4362,13 +4423,14 @@ function AutomacaoInstagram() {
       <div className="panel" style={{marginBottom:18}}>
         <div className="panel-header"><span className="panel-title">🎞️ Automação de Reels (vídeo)</span><span className={`badge ${reelsEnabled?'badge-green':'badge-red'}`}>{reelsEnabled?'ATIVA':'PAUSADA'}</span></div>
         <div style={{padding:20}}>
-          <div className="text-secondary text-small" style={{marginBottom:12}}>Publica automaticamente como Reel qualquer matéria com vídeo (upload direto, ou link hospedado — nunca YouTube, o Instagram exige o arquivo real). Mesma janela ativa da automação acima.</div>
+          <div className="text-secondary text-small" style={{marginBottom:12}}>Publica sozinho só os Reels que você aprovou (botão "✅ Aprovado para publicação" no Reel da matéria), das 08h às 22h, sem pausa, alternando 1 feed e 1 Reel. Sem Reel aprovado, segue só o feed.</div>
           <button onClick={togglePausaReels} disabled={pausandoReels} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'16px 22px',fontSize:16,fontWeight:800,borderRadius:10,border:'none',cursor:pausandoReels?'wait':'pointer',opacity:pausandoReels?0.7:1,background:reelsEnabled?'var(--red)':'var(--green)',color:'#fff',marginBottom:14,letterSpacing:0.2}}>
             {pausandoReels ? 'Aplicando...' : (reelsEnabled ? '⏸ PAUSAR REELS AGORA' : '▶ RETOMAR REELS AGORA')}
           </button>
           {pausaReelsMsg && <div style={{marginBottom:14,fontSize:13,fontWeight:600,color:pausaReelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaReelsMsg}</div>}
           <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={reelsEnabled} onChange={e=>setReelsEnabled(e.target.checked)}/><span>{reelsEnabled?'Ligada':'Pausada'}</span></label></div>
           <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingReels} onClick={saveReels}>{savingReels?'Salvando...':'Salvar configuração'}</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
+          <ReelsFilaAprovados/>
         </div>
       </div>
       <div className="panel" style={{marginBottom:18}}>

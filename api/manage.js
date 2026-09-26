@@ -113,6 +113,7 @@ export default async function handler(req, res) {
     if (action === "ig_collab_auto_process") return handleIgCollabAutoProcess(req, res, body);
     if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, body);
     if (action === "reels_publish") return handleReelsPublish(req, res, body);
+    if (action === "reels_aprovar") return handleReelsAprovar(req, res, body);
     if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
     if (action === "reels_set_source") return handleReelsSetSource(req, res, body);
     if (action === "reels_render_job") return handleReelsRenderJob(req, res, body);
@@ -1210,6 +1211,69 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
   return resultado;
 }
 
+// ══════════════════════════════════════════════════════
+// FILA DE REELS APROVADOS — 26/09/2026, a pedido de Roberto: "eu já olhei,
+// eu já aprovei, tico lá aprovado para publicação, e aí entra numa fila de
+// Reels que vai publicar automaticamente pela regra do sistema".
+//   - Só Reel com template.aprovado === true publica sozinho.
+//   - Janela própria dos Reels: 08h às 22h BRT, sem pausa (o feed continua
+//     08h-12h / 14h-19h).
+//   - Alternância: 1 feed, 1 Reel. Sem Reel aprovado, só feed.
+//   - O tique de Roberto vale mais que a idade: aprovado sai mesmo com >12h.
+//   - Ordem: quem foi aprovado primeiro sai primeiro.
+// ══════════════════════════════════════════════════════
+const REELS_JANELA_INICIO_BRT_MIN = 8 * 60;   // 08:00 BRT
+const REELS_JANELA_FIM_BRT_MIN = 22 * 60;     // corte às 22:00 BRT
+function _reelsDentroDaJanelaAtiva() {
+  const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
+  const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
+  return minutosBRT >= REELS_JANELA_INICIO_BRT_MIN && minutosBRT < REELS_JANELA_FIM_BRT_MIN;
+}
+// Se a última automática foi Reel, espera um feed entrar antes do próximo
+// Reel — mas só por até REELS_ESPERA_FEED_MAX_MIN (se o feed não tiver nada
+// pra publicar, ou estiver fora da janela dele, o Reel não fica travado).
+const REELS_ESPERA_FEED_MAX_MIN = 45;
+async function _igUltimoTipoPublicado() {
+  const { data } = await supabase.from("config").select("value").eq("key", "IG_ULTIMO_TIPO_PUBLICADO").order("updated_at", { ascending: false }).limit(1);
+  const [tipo, ts] = String(data?.[0]?.value || "").split(":");
+  return { tipo: tipo || null, ts: Number(ts || 0) };
+}
+function _reelsTemplateAprovado(post) {
+  return _reelsTemplate(post?.metrics)?.aprovado === true;
+}
+async function _reelsExisteAprovadoPronto() {
+  const { data } = await supabase
+    .from("posts")
+    .select("id,ig_id,metrics")
+    .eq("metrics->instagram_reel_template->>aprovado", "true")
+    .eq("metrics->instagram_reel_template->>status", "ready")
+    .limit(20);
+  return (data || []).some((p) => !_jaPublicadoOuReservadoNoInstagram(p, parseJsonMaybe(p.metrics, {})) && _reelsTemplateReady(p));
+}
+async function _igAutoFeedDeveCederParaReel() {
+  try {
+    const reelsSettings = await _reelsAutoConfig();
+    if (!reelsSettings.enabled) return false;
+    const ultimo = await _igUltimoTipoPublicado();
+    if (ultimo.tipo !== "feed") return false;
+    return await _reelsExisteAprovadoPronto();
+  } catch (_) {
+    return false;
+  }
+}
+async function _reelsDeveEsperarFeed() {
+  try {
+    if (!_igAutoDentroDaJanelaAtiva()) return false;
+    const feedSettings = await _igAutoConfig();
+    if (!feedSettings.enabled) return false;
+    const ultimo = await _igUltimoTipoPublicado();
+    if (ultimo.tipo !== "reel") return false;
+    return (Date.now() - ultimo.ts) / 60000 < REELS_ESPERA_FEED_MAX_MIN;
+  } catch (_) {
+    return false;
+  }
+}
+
 async function handleIgAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!_igAutoDentroDaJanelaAtiva()) {
@@ -1248,14 +1312,19 @@ async function handleIgAutoPublish(req, res, body) {
     // se o feed já bateu os 40% do dia, esta rodada inteira de publicação
     // por imagem é pulada — os Reels seguem publicando sem freio no
     // próprio schedule deles.
-    if (await _igAutoFeedDeveEsperarReels()) {
-      // 22/09/2026 — este skip ficava mudo (sem log nenhum), o que escondeu
-      // 9h de feed travado até virar reclamação real. Agora sempre deixa rastro.
-      await writeLog("info", "[ig-auto] rodada pulada: feed_aguardando_reels_atingirem_a_proporcao_do_dia");
-      return res.status(200).json({ ok: true, skipped: true, reason: "feed_aguardando_reels_atingirem_a_proporcao_do_dia" });
+    // 26/09/2026 — Roberto: "1 feed, 1 vídeo, 1 feed, 1 vídeo... se não tiver
+    // vídeo pendente pra postar, continua postando só foto". Substitui a meta
+    // de 60/40 de 21/09: se a última publicação automática foi feed e existe
+    // Reel aprovado e pronto esperando, esta rodada cede a vez pro Reel.
+    if (await _igAutoFeedDeveCederParaReel()) {
+      await writeLog("info", "[ig-auto] rodada pulada: vez_do_reel_aprovado (alternância feed/Reel)");
+      return res.status(200).json({ ok: true, skipped: true, reason: "vez_do_reel_aprovado" });
     }
 
     const results = await Promise.all(accounts.map((account) => _igAutoProcessAccount(account, candidatos || [], settings, Date.now())));
+    if (results.some((result) => result.published)) {
+      try { await _igAutoSetConfig("IG_ULTIMO_TIPO_PUBLICADO", `feed:${Date.now()}`); } catch (_) {}
+    }
     const failures = results.filter((result) => !result.ok);
     return res.status(200).json({
       ok: failures.length === 0,
@@ -2085,7 +2154,7 @@ async function _reelsDescartarVideoAposPublicar(post) {
     // também são temporários: apagados depois de publicar, mesmo quando o
     // post não tem video_url (vídeo do Bacci via YouTube).
     const tplExtra = _reelsTemplate(post?.metrics) || {};
-    for (const extra of new Set([tplExtra.preview_url, tplExtra.final_url].filter(Boolean))) {
+    for (const extra of new Set([tplExtra.preview_url, tplExtra.final_url, tplExtra.source_url].filter(Boolean))) {
       if (extra !== videoUrl) { try { await deleteVideoFromStorage(extra); } catch (_) {} }
     }
     if (!/^https?:\/\//i.test(String(videoUrl || ""))) return { discarded: false, reason: "sem_video_url" };
@@ -2157,16 +2226,74 @@ async function handleReelsPublish(req, res, body) {
   }
 }
 
-// Automático — cron dedicado, mesma janela/autorização do feed de imagem.
+async function _reelsRemontarMantendoAprovacao(postId) {
+  const { data: current } = await supabase.from("posts").select("metrics").eq("id", postId).single();
+  const metrics = parseJsonMaybe(current?.metrics, {});
+  const tpl = metrics.instagram_reel_template;
+  if (!tpl) return;
+  metrics.instagram_reel_template = {
+    ...tpl, status: "pending", attempts: 0, exhausted: false,
+    ig_creation_id: null, queued_at: new Date().toISOString()
+  };
+  await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  try { await _dispatchReelsWorkflowAgora(); } catch (_) {}
+}
+
+// 26/09/2026 — Roberto aprova (ou tira da fila) um Reel no admin. Ao aprovar,
+// a matéria também vai ao ar no portal ("tudo no ar no portal sempre"), mas
+// sem o vídeo ("só que sem os vídeos") — o vídeo fica só pro Reel (a
+// montagem usa template.source_url, não post.video_url).
+async function handleReelsAprovar(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
+  const aprovar = body?.aprovado !== false;
+
+  const { data: post, error } = await supabase.from("posts").select("id,status,published_at,video_url,metrics").eq("id", postId).single();
+  if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const tpl = metrics.instagram_reel_template;
+  if (!tpl || tpl.status === "embed_only") return res.status(409).json({ ok: false, error: "materia_sem_reel_para_aprovar" });
+  if (metrics?.instagram_reel?.ig_id && !String(metrics.instagram_reel.ig_id).startsWith("processing:")) {
+    return res.status(409).json({ ok: false, error: "reel_ja_publicado" });
+  }
+
+  const now = new Date().toISOString();
+  metrics.instagram_reel_template = aprovar
+    ? { ...tpl, aprovado: true, aprovado_em: now }
+    : { ...tpl, aprovado: false, aprovado_em: null, removido_da_fila_em: now };
+  const patch = { metrics, updated_at: now };
+  if (aprovar) {
+    patch.video_url = null;
+    if (post.status !== "publicado") {
+      patch.status = "publicado";
+      patch.approved = true;
+      patch.published_at = now;
+    }
+  }
+  const { data: row, error: upErr } = await supabase.from("posts").update(patch).eq("id", postId)
+    .select("id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at").single();
+  if (upErr) throw upErr;
+  if (aprovar && patch.status === "publicado") {
+    try { await mirrorPostToBrasilOn(row); } catch (_) {}
+  }
+  await writeLog("info", `[reels] ${aprovar ? "aprovado para a fila" : "retirado da fila"}: ${row?.titulo || postId}`);
+  return res.status(200).json({ ok: true, aprovado: aprovar, template_status: tpl.status, publicado_no_portal: patch.status === "publicado" || post.status === "publicado" });
+}
+
+// Automático — só Reels aprovados por Roberto, janela 08h-22h BRT, alternando com o feed.
 async function handleReelsAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
-  if (!_igAutoDentroDaJanelaAtiva()) return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa" });
+  if (!_reelsDentroDaJanelaAtiva()) return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_dos_reels_08_22_brt" });
 
   const settings = await _reelsAutoConfig();
   if (!settings.enabled) return res.status(200).json({ ok: true, skipped: true, reason: "automacao_de_reels_pausada_no_admin" });
   const elapsedMinutes = settings.lastRun ? (Date.now() - settings.lastRun) / 60000 : Infinity;
   if (elapsedMinutes < REELS_AUTO_INTERVALO_MIN - 1) {
     return res.status(200).json({ ok: true, skipped: true, reason: "intervalo_configurado", proxima_em_minutos: Math.ceil(REELS_AUTO_INTERVALO_MIN - elapsedMinutes) });
+  }
+  if (await _reelsDeveEsperarFeed()) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "vez_do_feed (alternância feed/Reel)" });
   }
   await _igAutoSetConfig("REELS_AUTOMATION_LAST_RUN", Date.now());
 
@@ -2201,19 +2328,18 @@ async function handleReelsAutoPublish(req, res, body) {
       .from("posts")
       .select("id, titulo, video_url, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
       .eq("status", "publicado")
-      .not("metrics->instagram_reel_template", "is", null)
+      .eq("metrics->instagram_reel_template->>aprovado", "true")
       .order("published_at", { ascending: false })
       .limit(200);
     if (candidatesError) throw candidatesError;
 
     const publicadosHoje = await _reelsAutoContarHoje();
-    const agoraMs = Date.now();
 
+    // 26/09/2026 — só Reel aprovado por Roberto, sem corte de idade (o tique
+    // dele vale mais que a idade da matéria), na ordem de aprovação.
     const elegiveis = (candidatos || []).filter((p) => {
       const metrics = parseJsonMaybe(p.metrics, {});
-      const publishedAtMs = _igAutoPublishedAtMs(p.published_at);
-      const idadeMs = agoraMs - publishedAtMs;
-      if (!Number.isFinite(publishedAtMs) || idadeMs < 0 || idadeMs > IG_AUTO_IDADE_MAXIMA_MS) return false;
+      if (!_reelsTemplateAprovado(p)) return false;
       // 10/09/2026 — fix real: antes só checava metrics.instagram_reel.ig_id.
       // Se Roberto publica manualmente como IMAGEM no feed (ig_publish),
       // esse marcador nunca é setado — o Reels-auto republicava a MESMA
@@ -2228,8 +2354,10 @@ async function handleReelsAutoPublish(req, res, body) {
       return true;
     });
     if (!elegiveis.length) {
-      return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_video_elegivel", publicados_hoje: publicadosHoje });
+      return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_reel_aprovado_pronto", publicados_hoje: publicadosHoje });
     }
+    const aprovadoEm = (p) => Date.parse(_reelsTemplate(p.metrics)?.aprovado_em || "") || 0;
+    elegiveis.sort((a, b) => aprovadoEm(a) - aprovadoEm(b));
 
     const account = accounts.find((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === "ovalorcapital") || accounts[0];
     const post = elegiveis.find((p) => !p.ig_account_id || String(p.ig_account_id) === String(account.id)) || elegiveis[0];
@@ -2242,6 +2370,7 @@ async function handleReelsAutoPublish(req, res, body) {
       const resultado = await _reelsPublicarPost(post, account.id);
       await _reelsClaimConfirmar(post.id, resultado);
       await _reelsAutoRegistrarPublicacao();
+      try { await _igAutoSetConfig("IG_ULTIMO_TIPO_PUBLICADO", `reel:${Date.now()}`); } catch (_) {}
       await writeLog("info", `[reels] publicado: ${post.titulo} | ig:${resultado.ig_id}`);
       const descarte = await _reelsDescartarVideoAposPublicar(post);
       return res.status(200).json({ ok: true, published: true, post_id: post.id, titulo: post.titulo, publicados_hoje: publicadosHoje + 1, ...resultado, video_discarded: descarte.discarded });
@@ -2252,6 +2381,12 @@ async function handleReelsAutoPublish(req, res, body) {
       // processando na Meta" (e.pending), já que não guardamos estado
       // pra retomar do mesmo creation_id entre execuções.
       await _reelsClaimDesfazer(post.id, safeError);
+      // Container da Meta vence em 24h. Se venceu (Reel aprovado há muito
+      // tempo), volta o template pra "pending": a máquina remonta o vídeo com
+      // o mesmo enquadramento e ele continua aprovado na fila.
+      if (/EXPIRED|expired|expirad/i.test(safeError)) {
+        try { await _reelsRemontarMantendoAprovacao(post.id); } catch (_) {}
+      }
       await writeLog("error", `[reels] falha: ${safeError}`);
       return res.status(200).json({ ok: false, error: safeError, post_id: post.id, pending: e?.pending === true });
     }
