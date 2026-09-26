@@ -1468,6 +1468,8 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
             </div>
           )}
           <div style={{fontSize:12,color:corStatus}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
+          {!info?.layout && info?.layout_auto?.status==='aplicado' && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento automático (Metrópoles): manchete deles escondida. Confira e ajuste se precisar.</div>}
+          {!info?.layout && info?.layout_auto && info.layout_auto.status!=='aplicado' && !info?.manual_final && <div style={{fontSize:11,color:'var(--yellow)'}}>Enquadramento automático não aplicado neste vídeo — ajuste manualmente se a manchete do Metrópoles aparecer.</div>}
           {info?.layout && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento: ajustado por você{info.layout.trim ? ` · trecho ${info.layout.trim.inicio}s → ${info.layout.trim.fim != null ? info.layout.trim.fim + 's' : 'fim'}` : ''}</div>}
           {info?.audio_removido && !info?.manual_final && <div style={{fontSize:11,color:'var(--yellow)',lineHeight:1.4}}>🔇 Áudio removido: a Meta recusou o vídeo com o som original (provável música com direito autoral). Ele vai para o Instagram sem som — a prévia acima ainda toca o áudio original.</div>}
           {(() => {
