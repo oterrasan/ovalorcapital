@@ -9895,3 +9895,61 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 2. Roberto: criar a conta de apoio e o secret `YTDLP_COOKIES` (https://github.com/oterrasan/ovalorcapital/settings/secrets/actions/new) — sem ele só a opção manual funciona.
 3. Recorte/posição do vídeo no Reel (vídeo pequeno no topo, metade de baixo preta, logo duplicado) — aguardando prints de Roberto.
 4. Avaliação de alcance no fim de semana (Roberto).
+
+---
+
+### Sessão 26/09/2026 — COLABORADOR POR ASSUNTO, FILA DE REELS APROVADOS, CAPA NA GRADE, ENQUADRAMENTO AUTOMÁTICO DO METRÓPOLES, ROBÔ DO TIKTOK DO METRÓPOLES (PRs #780-#785)
+
+Roberto achou que o alcance caiu depois do aceite automático e de todos os perfis colaborando em tudo. Pediu 5 mudanças, todas no ar e com deploy confirmado.
+
+1. **Colaboração (PR #780)** — `core/instagram.js`:
+   - Cada post sai com @ovalorcapital + **um** colaborador.
+   - **Reels:** sempre @oterrasan, sem aceite automático para nenhum perfil (`acceptCollabsForMedia` pula quando `tag==="reel"`).
+   - **Feed:** `collaboratorForFeedPost(post)` define o dono do assunto:
+
+     | Assunto | Colaborador |
+     |---|---|
+     | Política e crime/polícia (lista `POLICIA_KW`, igual à do Brasil ON) | @oterrasan |
+     | Economia, finanças, negócios, tecnologia, indústria | @adriana.ferreirasp |
+     | Brasil ON | @souabetaferreira |
+     | Família e giro | @amichelefroes (aceite manual, perfil não configurado) |
+     | Esportes, internacional e o resto | nenhum |
+
+   - `NEVER_AUTO_ACCEPT = {oterrasan, amichelefroes}`, também em `core/instagram_collab_policy.js`.
+   - Se Roberto quiser mais alguém num post, ele adiciona manualmente no app.
+2. **Fila de Reels aprovados (PR #781)** — `api/manage.js`:
+   - Nova ação `reels_aprovar` (grava `template.aprovado` e `aprovado_em`).
+   - `handleReelsAutoPublish` só publica o que foi aprovado, na ordem de aprovação, **sem corte de 12h**.
+   - Janela própria dos Reels: **08h às 22h BRT, sem pausa** (`_reelsDentroDaJanelaAtiva`). O feed continua com a janela dele.
+   - Alternância 1 feed / 1 Reel pela chave `config.IG_ULTIMO_TIPO_PUBLICADO` (`_igAutoFeedDeveCederParaReel` / `_reelsDeveEsperarFeed`, espera máxima de 45 min). Substitui a meta 60/40.
+   - Ao aprovar, a matéria vai para o portal (publicado + espelho do Brasil ON) **sem o vídeo** (`video_url` fica null). A montagem usa `template.source_url`.
+   - Se o container expirar na Meta, o Reel volta para `pending` e continua aprovado.
+   - Ajustar o enquadramento depois de aprovar tira o Reel da fila: é preciso reaprovar.
+   - Admin: botão Aprovar / Tirar da fila no `ReelMontagemPanel` e lista `ReelsFilaAprovados` no painel de Reels.
+3. **Capa na grade começando do topo (PR #782)**:
+   - A API não tem posição de recorte e o Instagram usa o miolo da capa.
+   - O runner gera `reel-cover.jpg` (topo 1080x1440 do Reel centralizado em 1080x1920), sobe e chama `reels_render_capa`, que cria um container novo com `cover_url`.
+   - **Teste real:** a Meta baixa a capa **na criação do container**. Com link de capa inexistente, dá erro 9004. Por isso a capa sobe antes.
+   - Qualquer falha mantém o container original, sem capa.
+4. **Enquadramento automático do Metrópoles (PR #783)** — `scripts/render-instagram-reel.mjs`:
+   - Detecta as faixas brancas com letras pretas da manchete deles em quadros amostrados.
+   - Faixa embaixo: amplia até ela ficar atrás do nosso rodapé (y 1500). É a mesma conta do ajuste manual de Roberto.
+   - Faixa no alto: corta o topo.
+   - Faixa no meio ou nada detectado: não mexe.
+   - Só vale para `fonte_link_manual` do `@metropolesoficial` sem ajuste manual (`job.auto_layout`).
+   - Resultado gravado em `template.layout_auto`. Em 8 vídeos reais, 7 ficaram certos; 1 com legenda estilo karaokê fica manual.
+5. **Robô do TikTok do Metrópoles (PRs #784/#785)**:
+   - A listagem de perfil do tikwm é bloqueada pelo Cloudflare. O yt-dlp com `--impersonate chrome` (curl-cffi) funciona no runner.
+   - O job `capturar_links` do `instagram-auto.yml` lista os 15 mais recentes e envia para `metropoles_tiktok_registrar` (`api/run_portal.js`).
+   - A ação filtra os novos (últimas 3h, até 4 por rodada, marca `config METROPOLES_TT__<id>`, sem repetir o que já foi colado ou está na fila) e cria `LINK_JOB`.
+   - Tudo cai como pendente.
+   - Respeita AUTOMATION e a pausa das 00h às 06h BRT.
+   - O Metrópoles posta cerca de 5 vídeos por hora (15 em 3h no teste).
+
+**Outros pontos da sessão:**
+- **Estado encontrado:** `IG_AUTOMATION_ENABLED=off` (desde 25/09) e `REELS_AUTOMATION_ENABLED=off` (desde 07/09). Roberto precisa clicar em RETOMAR no admin.
+- **Chaves Gemini:** `GEMINI_API_KEY_3` existe (criada em 24/09). Roberto diz que cada chave é de um projeto diferente e vai criar mais uma (`_4`).
+- **Pendências:**
+  - Conta de captura do Instagram (Roberto cadastra no admin).
+  - Tokens de adriana/beta sem `instagram_manage_engagement`.
+  - `amichelefroes` sem `ig_user_id`.
