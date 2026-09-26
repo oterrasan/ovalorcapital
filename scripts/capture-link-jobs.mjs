@@ -84,14 +84,16 @@ async function capturarTiktok(link, arquivo) {
     let temVideo = false;
     if (videoUrl) { try { await baixarArquivo(videoUrl, arquivo); temVideo = true; } catch (e) { console.log(`tikwm: download falhou (${e.message}), tentando yt-dlp`); } }
     if (!temVideo) {
-      try { ytdlp(["-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, ""); temVideo = existsSync(arquivo); } catch (_) {}
+      try { ytdlp(["--impersonate", "chrome", "-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, ""); temVideo = existsSync(arquivo); } catch (_) {}
     }
     const autor = v.author?.nickname ? `Publicado por ${v.author.nickname} no TikTok. ` : "";
     return { titulo: String(v.title || "").slice(0, 200), texto: autor + String(v.title || ""), capa: v.origin_cover || v.cover || "", temVideo };
   }
   console.log(`tikwm sem resposta (${msg}) — tentando yt-dlp`);
-  const meta = JSON.parse(ytdlp(["-J", link], 120000, ""));
-  ytdlp(["-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, "");
+  // 26/09/2026 — TikTok recusa o yt-dlp sem imitar um navegador (teste real
+  // no runner); com curl-cffi instalado, --impersonate chrome resolve.
+  const meta = JSON.parse(ytdlp(["--impersonate", "chrome", "-J", link], 120000, ""));
+  ytdlp(["--impersonate", "chrome", "-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, "");
   const autor = meta.uploader ? `Publicado por ${meta.uploader} no TikTok. ` : "";
   return { titulo: String(meta.title || "").slice(0, 200), texto: autor + String(meta.description || meta.title || ""), capa: String(meta.thumbnail || ""), temVideo: existsSync(arquivo) };
 }

@@ -521,6 +521,33 @@ jobs:
       group: instagram-capturar-links-ovc
       cancel-in-progress: false
     steps:
+      # 26/09/2026 — robô do TikTok do Metrópoles: lista os vídeos recentes do
+      # perfil (yt-dlp imitando navegador — o tikwm bloqueia listagem de perfil)
+      # e manda pro sistema, que cria os pedidos de captura só dos vídeos novos.
+      # Nada é publicado: tudo cai como pendente. Best-effort, nunca derruba o job.
+      - name: Buscar vídeos novos do Metrópoles (TikTok)
+        continue-on-error: true
+        timeout-minutes: 4
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          pip install --quiet --break-system-packages -U "yt-dlp[default,curl-cffi]" >/dev/null 2>&1 || true
+          timeout 150 yt-dlp --impersonate chrome --flat-playlist --playlist-end 15 -j "https://www.tiktok.com/@metropolesoficial" > tt.jsonl 2> tt.err || true
+          tail -2 tt.err || true
+          node -e '
+            const fs = require("node:fs");
+            const linhas = fs.readFileSync("tt.jsonl", "utf8").split("\n").filter(Boolean);
+            const videos = [];
+            for (const l of linhas) { try { const d = JSON.parse(l); videos.push({ id: String(d.id || ""), timestamp: Number(d.timestamp || 0), title: String(d.title || d.description || "").slice(0, 120) }); } catch (_) {} }
+            fs.writeFileSync("tt.json", JSON.stringify({ action: "metropoles_tiktok_registrar", videos }));
+            console.log("Vídeos listados:", videos.length);
+          '
+          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            --data @tt.json --max-time 45 || true
+          echo ""
+
       - name: Verificar pedidos de captura
         id: link_queue
         env:
@@ -549,7 +576,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install --quiet --break-system-packages -U "yt-dlp[default]" bgutil-ytdlp-pot-provider
+          pip install --quiet --break-system-packages -U "yt-dlp[default,curl-cffi]" bgutil-ytdlp-pot-provider
           # 26/09/2026 — servidor de token do YouTube (bgutil) e biblioteca de
           # login do Instagram (conta de captura cadastrada no admin).
           docker run -d --rm -p 4416:4416 brainicism/bgutil-ytdlp-pot-provider >/dev/null 2>&1 || true
