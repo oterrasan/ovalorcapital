@@ -1,4 +1,4 @@
-name: diag-once (Meta — áudio x duração)
+name: diag-once (corte de início/fim no render)
 on:
   push:
     branches: [claude/adoring-edison-2pzu14]
@@ -6,26 +6,21 @@ on:
 jobs:
   teste:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Preparar
+      - name: Testar
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           npm install --no-audit --no-fund >/dev/null 2>&1
           curl -fsSL -o src.mp4 "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/link-capture/LINK_JOB__1790397167778_bxm545.mp4"
-          ls -la src.mp4
-          V="scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30"
-          P="-x264-params scenecut=0:open_gop=0:keyint=60:min-keyint=60 -profile:v high -level 5.1 -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 -movflags +faststart"
-          P2="-x264-params scenecut=0:open_gop=0:keyint=60:min-keyint=60 -profile:v high -level 5.1 -pix_fmt yuv420p -movflags +faststart"
-          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 60 -c:v libx264 -preset faster -crf 26 -maxrate 2M -bufsize 4M $P2 -an g_60s_sem_audio.mp4
-          ffmpeg -loglevel error -y -i src.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo -vf "$V" -map 0:v -map 1:a -t 60 -c:v libx264 -preset faster -crf 26 -maxrate 2M -bufsize 4M $P2 -c:a aac -b:a 128k -shortest h_60s_audio_mudo.mp4
-          ffmpeg -loglevel error -y -ss 40 -i src.mp4 -vf "$V" -t 30 -c:v libx264 -preset faster -crf 26 -maxrate 2M -bufsize 4M $P i_30s_a_partir_40s.mp4
-          ls -la *.mp4
-      - name: Enviar pra Meta (sem publicar)
-        shell: bash {0}
-        run: |
-          for f in g_60s_sem_audio.mp4 h_60s_audio_mudo.mp4 i_30s_a_partir_40s.mp4; do node .github/diag/ig_upload_test.mjs $f; done
+          node -e 'require("fs").writeFileSync("job.json",JSON.stringify({job:{title:"Teste de corte de inicio e fim do video",body:"Texto de teste.",source_url:"x",template_version:"t",layout:{crop:{l:0,t:0,r:0,b:0},rect:{x:0,y:0,w:1080,h:608},trim:{inicio:20,fim:32.5}}}}))'
+          node scripts/render-instagram-reel.mjs job.json src.mp4 out.mp4 ov.png
+          ffprobe -v error -show_entries format=duration -of default=nw=1 out.mp4
+          node -e 'require("fs").writeFileSync("job2.json",JSON.stringify({job:{title:"Teste so inicio",body:"x",source_url:"x",template_version:"t",layout:{crop:{l:0,t:0,r:0,b:0},rect:{x:0,y:0,w:1080,h:608},trim:{inicio:150,fim:null}}}}))'
+          node scripts/render-instagram-reel.mjs job2.json src.mp4 out2.mp4 ov2.png
+          ffprobe -v error -show_entries format=duration -of default=nw=1 out2.mp4
+          ffprobe -v error -show_entries format=duration -of default=nw=1 src.mp4
