@@ -134,11 +134,59 @@ function renderLineMarkup(line, highlightWord, state) {
     if (!part) return "";
     // Espaço fica FORA de qualquer <span> — garante que nunca some.
     if (/^\s+$/.test(part)) return " ";
-    const token = normalizeWord(part);
-    const highlight = !state.used && highlightWord && token === highlightWord;
-    if (highlight) state.used = true;
-    return `<span foreground="${highlight ? HIGHLIGHT_COLOR : "#ffffff"}">${escapeXml(part)}</span>`;
+    let highlight;
+    if (state.marks) {
+      // Manchete editada no admin: *palavra* = destaque (posição a posição).
+      highlight = !!state.marks[state.index];
+      state.index += 1;
+    } else {
+      const token = normalizeWord(part);
+      highlight = !state.used && highlightWord && token === highlightWord;
+      if (highlight) state.used = true;
+    }
+    return `<span foreground="${highlight ? state.highlightColor : state.color}">${escapeXml(part)}</span>`;
   }).join("");
+}
+
+// 26/09/2026 — Roberto: "que eu possa editar tambem a chamada, o titulo
+// todo, parte dele, ou arrastar a posicao que ele está. ou até deletar e
+// deixar sem... aumentar a fonte, cores". O editor do admin grava
+// template.headline (handleReelsSetLayout em api/manage.js). Sem headline
+// (ou inválida) => manchete automática de sempre, idêntica ao feed.
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+function sanitizeHeadline(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const num = (v, min, max) => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : null; };
+  return {
+    oculta: raw.oculta === true,
+    texto: typeof raw.texto === "string" ? raw.texto.replace(/\s+/g, " ").trim().slice(0, 240) : "",
+    maiusculas: raw.maiusculas !== false,
+    tamanho: num(raw.tamanho, 20, 120),
+    largura: num(raw.largura, 300, 1040) || HEADLINE_BOX.width,
+    x: num(raw.x, 0, WIDTH),
+    y: num(raw.y, 0, HEIGHT - 20),
+    cor: HEX_COLOR.test(String(raw.cor || "")) ? raw.cor : "#ffffff",
+    cor_destaque: HEX_COLOR.test(String(raw.cor_destaque || "")) ? raw.cor_destaque : HIGHLIGHT_COLOR
+  };
+}
+
+// "*PALAVRA* DE *DESTAQUE*" => texto sem asteriscos + quais palavras (por
+// posição) são destaque. Sem nenhum asterisco => null (destaque automático).
+function parseHighlightMarks(text) {
+  if (!/\*/.test(text)) return null;
+  const words = [];
+  const marks = [];
+  let on = false;
+  for (const raw of text.split(/\s+/).filter(Boolean)) {
+    let w = raw;
+    const opens = w.startsWith("*");
+    if (opens) { on = true; w = w.replace(/^\*+/, ""); }
+    const closes = /\*+$/.test(w);
+    w = w.replace(/\*+/g, "");
+    if (w) { words.push(w); marks.push(on); }
+    if (closes) on = false;
+  }
+  return { text: words.join(" "), marks };
 }
 
 function truncateLine(line, fontSize, maxWidth) {
@@ -173,14 +221,24 @@ function wrapHeadline(text, fontSize, maxWidth, maxLines) {
   return clipped;
 }
 
-async function buildHeadlineLayer(title) {
-  const normalized = cleanText(title).replace(/\s+/g, " ").trim().toUpperCase();
+async function buildHeadlineLayer(title, rawHeadline) {
+  const h = sanitizeHeadline(rawHeadline);
+  if (h?.oculta) return null;
+  let base = cleanText(h?.texto || title).replace(/\s+/g, " ").trim();
+  const parsed = h ? parseHighlightMarks(base) : null;
+  if (parsed) base = parsed.text;
+  const normalized = h && !h.maiusculas ? base : base.toUpperCase();
   if (!normalized) return null;
 
+  const boxWidth = h?.largura || HEADLINE_BOX.width;
   let selected = null;
-  for (let fontSize = HEADLINE_BOX.maxFontSize; fontSize >= HEADLINE_BOX.minFontSize; fontSize -= 2) {
-    const lines = wrapHeadline(normalized, fontSize, HEADLINE_BOX.width, HEADLINE_BOX.maxLines);
-    const fits = lines.length <= HEADLINE_BOX.maxLines && lines.every(line => estimateTextWidth(line, fontSize) <= HEADLINE_BOX.width);
+  if (h?.tamanho) {
+    // Tamanho escolhido no admin: fixo, até 8 linhas.
+    selected = { fontSize: h.tamanho, lines: wrapHeadline(normalized, h.tamanho, boxWidth, 8) };
+  }
+  for (let fontSize = HEADLINE_BOX.maxFontSize; !selected && fontSize >= HEADLINE_BOX.minFontSize; fontSize -= 2) {
+    const lines = wrapHeadline(normalized, fontSize, boxWidth, HEADLINE_BOX.maxLines);
+    const fits = lines.length <= HEADLINE_BOX.maxLines && lines.every(line => estimateTextWidth(line, fontSize) <= boxWidth);
     if (fits) {
       selected = { fontSize, lines };
       break;
@@ -189,12 +247,18 @@ async function buildHeadlineLayer(title) {
   if (!selected) {
     selected = {
       fontSize: HEADLINE_BOX.minFontSize,
-      lines: wrapHeadline(normalized, HEADLINE_BOX.minFontSize, HEADLINE_BOX.width, HEADLINE_BOX.maxLines)
+      lines: wrapHeadline(normalized, HEADLINE_BOX.minFontSize, boxWidth, HEADLINE_BOX.maxLines)
     };
   }
 
-  const highlightWord = chooseHighlightWord(normalized);
-  const highlightState = { used: false };
+  const highlightWord = parsed ? null : chooseHighlightWord(normalized);
+  const highlightState = {
+    used: false,
+    marks: parsed ? parsed.marks : null,
+    index: 0,
+    color: h?.cor || "#ffffff",
+    highlightColor: h?.cor_destaque || HIGHLIGHT_COLOR
+  };
   const markup = selected.lines
     .map(line => renderLineMarkup(line, highlightWord, highlightState))
     .join("\n");
@@ -210,8 +274,17 @@ async function buildHeadlineLayer(title) {
     }
   }).png().toBuffer();
   const { width = HEADLINE_BOX.width, height = 0 } = await sharp(buffer).metadata();
-  const left = Math.max(0, Math.round((WIDTH - width) / 2));
-  const top = Math.max(HEADLINE_MIN_TOP_Y, HEADLINE_BOTTOM_Y - height);
+  if (width > WIDTH || height > HEIGHT) {
+    // Texto maior que o quadro (tamanho exagerado): encolhe pra caber.
+    const fitted = await sharp(buffer).resize({ width: Math.min(width, WIDTH), height: Math.min(height, HEIGHT), fit: "inside" }).png().toBuffer();
+    const meta = await sharp(fitted).metadata();
+    return { input: fitted, left: Math.max(0, Math.round((WIDTH - meta.width) / 2)), top: Math.max(0, Math.round((HEIGHT - meta.height) / 2)) };
+  }
+  const centerX = h?.x != null ? h.x : WIDTH / 2;
+  const left = Math.max(0, Math.min(WIDTH - width, Math.round(centerX - width / 2)));
+  const top = h?.y != null
+    ? Math.max(0, Math.min(HEIGHT - height, h.y))
+    : Math.max(HEADLINE_MIN_TOP_Y, HEADLINE_BOTTOM_Y - height);
   return { input: buffer, left, top };
 }
 
@@ -304,7 +377,7 @@ async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx
   const topBrand = await sharp(feedOverlay).extract({ left: 350, top: 25, width: 380, height: 205 }).png().toBuffer();
   const gradient = buildGradientSvg(fitMode === "contain" ? buildContainFadeStops(videoOutHeightPx) : COVER_FADE_STOPS);
 
-  const headline = await buildHeadlineLayer(job.title);
+  const headline = await buildHeadlineLayer(job.title, job.headline);
 
   await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
