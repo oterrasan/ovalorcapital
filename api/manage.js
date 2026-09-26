@@ -1820,6 +1820,18 @@ async function handleReelsSetFinalFile(req, res, body) {
 // 1080x1920); aqui validamos, gravamos em template.layout e reenfileiramos
 // a montagem — o runner (scripts/render-instagram-reel.mjs) aplica no
 // ffmpeg e gera prévia nova. layout null = volta pra montagem automática.
+// 26/09/2026 — corte de início/fim escolhido no editor (segundos do vídeo
+// original; fim null = até o final). Mesma regra do render.
+function _reelsSanitizarTrim(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const inicio = Math.round(Number(raw.inicio) * 10) / 10;
+  const fim = raw.fim == null || raw.fim === "" ? null : Math.round(Number(raw.fim) * 10) / 10;
+  if (!Number.isFinite(inicio) || inicio < 0 || inicio > 7200) return null;
+  if (fim != null && (!Number.isFinite(fim) || fim <= inicio + 1 || fim > 7200)) return null;
+  if (inicio === 0 && fim == null) return null;
+  return { inicio, fim };
+}
+
 function _reelsSanitizarLayout(raw) {
   if (!raw || typeof raw !== "object") return null;
   const crop = raw.crop && typeof raw.crop === "object" ? raw.crop : {};
@@ -1833,7 +1845,10 @@ function _reelsSanitizarLayout(raw) {
   const [x, y, w, h] = vals;
   if (w < 40 || h < 40 || w > 4320 || h > 4320) return null;
   if (x < -4320 || x > 1080 || y < -4320 || y > 1920) return null;
-  return { crop: c, rect: { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) } };
+  const out = { crop: c, rect: { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) } };
+  const trim = _reelsSanitizarTrim(raw.trim);
+  if (trim) out.trim = trim;
+  return out;
 }
 
 async function handleReelsSetLayout(req, res, body) {

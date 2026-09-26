@@ -368,6 +368,20 @@ function sanitizeLayout(raw) {
   return out;
 }
 
+// 26/09/2026 — Roberto: "acrescente no editor do video, recortar no inicio
+// ou no fim. caso eu precise encurtar". O editor grava layout.trim =
+// { inicio, fim } em segundos do vídeo ORIGINAL (fim null = até o final).
+// Inválido => null => vídeo inteiro, como sempre.
+function sanitizeTrim(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const inicio = Number(raw.inicio);
+  const fim = raw.fim == null || raw.fim === "" ? null : Number(raw.fim);
+  if (!Number.isFinite(inicio) || inicio < 0 || inicio > 7200) return null;
+  if (fim != null && (!Number.isFinite(fim) || fim <= inicio + 1 || fim > 7200)) return null;
+  if (inicio === 0 && fim == null) return null;
+  return { inicio, fim };
+}
+
 function runCapture(command, args) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -485,10 +499,19 @@ async function detectEndTrim(job, inputPath) {
 }
 
 async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cover") {
-  const endTrim = await detectEndTrim(job, inputPath);
-  const trimmedDuration = endTrim.duration && endTrim.trimSeconds > 0
-    ? Math.max(2, endTrim.duration - endTrim.trimSeconds)
-    : (endTrim.duration || null);
+  const manualTrim = sanitizeTrim(job.layout?.trim);
+  // Com fim escolhido no editor, a detecção automática de encerramento
+  // promocional não roda — vale exatamente o trecho que Roberto marcou.
+  const endTrim = manualTrim?.fim != null
+    ? { trimSeconds: 0, reason: "manual_range" }
+    : await detectEndTrim(job, inputPath);
+  const inicio = manualTrim?.inicio || 0;
+  const fimFonte = manualTrim?.fim != null
+    ? manualTrim.fim
+    : (endTrim.duration && endTrim.trimSeconds > 0
+      ? Math.max(2, endTrim.duration - endTrim.trimSeconds)
+      : (endTrim.duration || null));
+  const trimmedDuration = fimFonte != null ? Math.max(1, fimFonte - inicio) : null;
   // SEMPRE aplica o teto de 88s (REELS_MAX_DURATION_SECONDS), mesmo sem
   // nenhum end-trim detectado — antes disso, um vídeo-fonte sem end-card
   // promocional (a maioria) nunca tinha nenhum "-t" no ffmpeg e renderizava
@@ -537,6 +560,7 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
 
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
+    ...(inicio > 0 ? ["-ss", inicio.toFixed(3)] : []),
     "-i", inputPath,
     "-loop", "1", "-i", overlayPath,
     "-filter_complex",
@@ -572,7 +596,7 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     const child = spawn(process.env.FFMPEG_PATH || "ffmpeg", args, { stdio: "inherit" });
     child.on("error", reject);
     child.on("exit", (code) => code === 0
-      ? resolvePromise({ ...endTrim, output_duration_seconds: outputDuration, capped_by_reels_limit: cappedByReelsLimit })
+      ? resolvePromise({ ...endTrim, manual_trim: manualTrim, output_duration_seconds: outputDuration, capped_by_reels_limit: cappedByReelsLimit })
       : reject(new Error(`ffmpeg_exit_${code}`)));
   });
 }
