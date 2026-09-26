@@ -114,6 +114,7 @@ export default async function handler(req, res) {
     if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, body);
     if (action === "reels_publish") return handleReelsPublish(req, res, body);
     if (action === "reels_aprovar") return handleReelsAprovar(req, res, body);
+    if (action === "reels_render_capa") return handleReelsRenderCapa(req, res, body);
     if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
     if (action === "reels_set_source") return handleReelsSetSource(req, res, body);
     if (action === "reels_render_job") return handleReelsRenderJob(req, res, body);
@@ -1698,6 +1699,9 @@ async function handleReelsRenderJob(req, res, body) {
   // Reel continua sendo montado e publicado normalmente, só sem prévia.
   const preview = await _reelsCriarUploadDePrevia(candidate.id, claimId);
   processing.preview_candidate_url = preview?.public_url || null;
+  // 26/09/2026 — capa da grade (ver handleReelsRenderCapa).
+  const capa = await _reelsCriarUploadDeArquivo(candidate.id, claimId, "reels-cover", "jpg");
+  processing.cover_candidate_url = capa?.public_url || null;
   metrics.instagram_reel_template = processing;
   const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
   if (jobStateError) throw jobStateError;
@@ -1728,7 +1732,8 @@ async function handleReelsRenderJob(req, res, body) {
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
       ig_upload_token: ig.upload_token,
-      preview_upload_url: preview?.upload_url || null
+      preview_upload_url: preview?.upload_url || null,
+      cover_upload_url: capa?.upload_url || null
     }
   });
 }
@@ -1826,7 +1831,7 @@ async function handleReelsRenderSemAudio(req, res, body) {
   const template = metrics.instagram_reel_template || {};
   if (template.claim_id !== claimId || template.status !== "processing") return res.status(409).json({ ok: false, error: "render_claim_invalido" });
   const { createReelContainerResumable } = await _loadInstagram();
-  const ig = await createReelContainerResumable(buildInstagramCaption(post), template.ig_account_id || post.ig_account_id || null);
+  const ig = await createReelContainerResumable(buildInstagramCaption(post), template.ig_account_id || post.ig_account_id || null, template.cover_url ? { coverUrl: template.cover_url } : {});
   metrics.instagram_reel_template = {
     ...template,
     ig_creation_id: ig.creation_id,
@@ -1839,6 +1844,58 @@ async function handleReelsRenderSemAudio(req, res, body) {
   if (error) throw error;
   await writeLog("warn", `[reels-render] Meta recusou com áudio original — reenviando sem áudio: ${post.titulo || postId}`);
   return res.status(200).json({ ok: true, ig_creation_id: ig.creation_id, ig_upload_url: ig.upload_url, ig_upload_token: ig.upload_token });
+}
+
+async function _reelsCriarUploadDeArquivo(postId, claimId, pasta, ext) {
+  try {
+    const safeId = String(postId).replace(/[^a-zA-Z0-9_-]/g, "");
+    const path = `${pasta}/${safeId}-${String(claimId).slice(0, 8)}.${ext}`;
+    const { data: signed, error } = await supabase.storage.from("post-videos").createSignedUploadUrl(path, { upsert: true });
+    if (error || !signed?.signedUrl) return null;
+    const publicUrl = supabase.storage.from("post-videos").getPublicUrl(path).data.publicUrl;
+    return { upload_url: signed.signedUrl, public_url: publicUrl };
+  } catch (_) {
+    return null;
+  }
+}
+
+// 26/09/2026 — Roberto: na grade do perfil a miniatura do Reel tem que
+// começar do TOPO (logo do VC em cima), não do meio. A API não tem opção de
+// posição do recorte: o Instagram usa sempre o miolo da capa. O runner monta
+// uma capa própria (topo do Reel, 1080x1440, centralizado numa capa
+// 1080x1920), sobe e chama esta ação. Teste real (26/09): a Meta baixa a capa
+// NA CRIAÇÃO do container — por isso cria-se um container novo, com capa,
+// depois que a imagem já existe. Se falhar, o runner segue com o container
+// original, sem capa (o Reel nunca trava por causa da capa).
+async function handleReelsRenderCapa(req, res, body) {
+  if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const claimId = String(body?.claim_id || "").trim();
+  if (!postId || !claimId) return res.status(400).json({ ok: false, error: "parametros_invalidos" });
+  const post = await _reelsLoadPost(postId);
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const template = metrics.instagram_reel_template || {};
+  if (template.claim_id !== claimId || template.status !== "processing") return res.status(409).json({ ok: false, error: "render_claim_invalido" });
+  const coverUrl = template.cover_candidate_url;
+  if (!coverUrl) return res.status(409).json({ ok: false, error: "sem_capa" });
+  try {
+    const { createReelContainerResumable } = await _loadInstagram();
+    const ig = await createReelContainerResumable(buildInstagramCaption(post), template.ig_account_id || post.ig_account_id || null, { coverUrl });
+    metrics.instagram_reel_template = {
+      ...template,
+      ig_creation_id: ig.creation_id,
+      ig_account_id: ig.account_id,
+      ig_username: ig.username,
+      cover_url: coverUrl
+    };
+    const { error } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+    if (error) throw error;
+    return res.status(200).json({ ok: true, ig_creation_id: ig.creation_id, ig_upload_url: ig.upload_url, ig_upload_token: ig.upload_token });
+  } catch (e) {
+    const safeError = redactSecrets(e?.message || String(e));
+    await writeLog("warn", `[reels-render] capa da grade recusada, segue sem capa: ${safeError.slice(0, 300)}`);
+    return res.status(200).json({ ok: false, error: safeError });
+  }
 }
 
 async function _reelsCriarUploadDePrevia(postId, claimId) {
@@ -2154,7 +2211,7 @@ async function _reelsDescartarVideoAposPublicar(post) {
     // também são temporários: apagados depois de publicar, mesmo quando o
     // post não tem video_url (vídeo do Bacci via YouTube).
     const tplExtra = _reelsTemplate(post?.metrics) || {};
-    for (const extra of new Set([tplExtra.preview_url, tplExtra.final_url, tplExtra.source_url].filter(Boolean))) {
+    for (const extra of new Set([tplExtra.preview_url, tplExtra.final_url, tplExtra.source_url, tplExtra.cover_url, tplExtra.cover_candidate_url].filter(Boolean))) {
       if (extra !== videoUrl) { try { await deleteVideoFromStorage(extra); } catch (_) {} }
     }
     if (!/^https?:\/\//i.test(String(videoUrl || ""))) return { discarded: false, reason: "sem_video_url" };
