@@ -4589,6 +4589,33 @@ function LinkManualAdmin() {
   const [texto, setTexto] = useState('');
   const [videoArquivo, setVideoArquivo] = useState(null);
   const [pedidos, setPedidos] = useState([]);
+  // 26/09/2026 — conta de captura do Instagram. Sem login o Instagram não
+  // entrega vídeo nem legenda a nenhum servidor (testado). A senha é gravada
+  // só no banco (config IG_CAPTURA_CONTA) e nunca é mostrada de volta aqui.
+  const [igConta, setIgConta] = useState(null);
+  const [igUser, setIgUser] = useState('');
+  const [igSenha, setIgSenha] = useState('');
+  const [igMsg, setIgMsg] = useState('');
+  const carregarIgConta = async () => {
+    const { data } = await sb.from('config').select('key,value,updated_at').in('key', ['IG_CAPTURA_CONTA','IG_CAPTURA_SESSAO']);
+    const conta = (data||[]).find(r=>r.key==='IG_CAPTURA_CONTA');
+    const sessao = (data||[]).find(r=>r.key==='IG_CAPTURA_SESSAO');
+    let u = ''; try { u = JSON.parse(conta?.value||'{}').username || ''; } catch(_) {}
+    setIgConta({ username: u, sessao: !!(sessao && sessao.value && sessao.value !== 'null'), sessaoEm: sessao?.updated_at });
+  };
+  useEffect(() => { carregarIgConta(); }, []);
+  const salvarIgConta = async () => {
+    const u = igUser.trim().replace(/^@/, ''); const p = igSenha;
+    if (!u || !p) { setIgMsg('Preencha usuário e senha.'); return; }
+    const value = JSON.stringify({ username: u, password: p, updated_at: new Date().toISOString() });
+    const { data } = await sb.from('config').select('key').eq('key','IG_CAPTURA_CONTA').limit(1);
+    const r = (data && data.length) ? await sb.from('config').update({ value }).eq('key','IG_CAPTURA_CONTA')
+      : await sb.from('config').insert({ key:'IG_CAPTURA_CONTA', value });
+    if (r.error) { setIgMsg('Erro ao salvar: ' + r.error.message); return; }
+    await sb.from('config').delete().eq('key','IG_CAPTURA_SESSAO');
+    setIgUser(''); setIgSenha(''); setIgMsg('✅ Conta salva. Ela será usada no próximo link do Instagram.');
+    carregarIgConta();
+  };
 
   const carregarHistorico = async () => {
     const { data } = await sb.from('posts').select('id,titulo,status,created_at,metrics')
@@ -4646,7 +4673,7 @@ function LinkManualAdmin() {
     <div>
       <div className="page-header">
         <div className="page-title">🔗 Reescrita por Link</div>
-        <div className="page-sub">Cole um link do Instagram (post ou reel) ou de qualquer site — a engrenagem captura texto, imagem e vídeo (se houver), reescreve e deixa pendente pra você revisar. Nada disso roda sozinho — só processa o link que você colar aqui.</div>
+        <div className="page-sub">Cole um link do Instagram (post ou reel), TikTok, YouTube, Globo (g1/ge) ou de qualquer site — a engrenagem captura texto, imagem e vídeo (se houver), reescreve e deixa pendente pra você revisar. Nada disso roda sozinho — só processa o link que você colar aqui.</div>
       </div>
       <div className="page-body" style={{display:'grid',gridTemplateColumns:'380px 1fr',gap:16,alignItems:'start'}}>
         <div className="panel">
@@ -4713,6 +4740,21 @@ function LinkManualAdmin() {
               </div>
             </>
           )}
+          <div className="panel-header"><span className="panel-title">Conta de captura do Instagram</span></div>
+          <div style={{padding:14,borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+            <div className="text-small" style={{marginBottom:8,color:'var(--t2)'}}>
+              {igConta && igConta.username
+                ? <>Conta em uso: <strong>@{igConta.username}</strong> · {igConta.sessao ? 'login ativo' : 'login será feito no próximo link'}</>
+                : <>Nenhuma conta cadastrada — links do Instagram só funcionam com texto colado.</>}
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              <input className="form-input" style={{fontSize:12,flex:'1 1 140px'}} placeholder="usuário do Instagram" value={igUser} onChange={e=>setIgUser(e.target.value)} autoComplete="off"/>
+              <input className="form-input" style={{fontSize:12,flex:'1 1 140px'}} type="password" placeholder="senha" value={igSenha} onChange={e=>setIgSenha(e.target.value)} autoComplete="new-password"/>
+              <button type="button" className="btn btn-primary btn-sm" onClick={salvarIgConta}>Salvar conta</button>
+            </div>
+            <div style={{fontSize:11,color:'var(--t3)',marginTop:6}}>Use uma conta secundária, sem verificação em duas etapas. Se o Instagram pedir para confirmar o acesso, abra o app nessa conta e toque em "Fui eu".</div>
+            {igMsg && <div className="text-small" style={{marginTop:6}}>{igMsg}</div>}
+          </div>
           <div className="panel-header"><span className="panel-title">Últimos links processados</span></div>
           <div style={{padding:14}}>
             {!historico.length && <div className="text-secondary text-small">Nenhum link processado ainda.</div>}

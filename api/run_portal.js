@@ -7,7 +7,7 @@ import { processAndSaveImage } from "../core/image_processor.js";
 import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteFofocas } from "../core/ai_portal.js";
 import { downloadAndUploadVideo } from "../core/storage.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma, descobrirPaginaVideoBacci } from "../core/brasilon.js";
-import { ehInstagram, ehYoutube, descobrirVideoGenerico } from "../core/linkCapture.js";
+import { ehInstagram, ehYoutube, ehGlobo, precisaDoRunner, descobrirVideoGenerico, descobrirVideoGlobo } from "../core/linkCapture.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
 import { buscarCandidatosFofocas, pareceConteudoPromocional as pareceConteudoPromocionalFofocas } from "../core/fofocas.js";
@@ -497,6 +497,30 @@ async function handleLinkJobFalhou(req, res, body) {
   return res.status(200).json({ ok: true });
 }
 
+// 26/09/2026 — conta de captura do Instagram (usuário/senha digitados por
+// Roberto no admin → config IG_CAPTURA_CONTA). Só o runner (token de cron)
+// lê; a sessão de login fica em IG_CAPTURA_SESSAO pra não logar toda vez
+// (login repetido faz o Instagram pedir verificação).
+async function _lerConfigJson(key) {
+  const { data } = await supabase.from("config").select("value").eq("key", key).limit(1);
+  try { return data && data[0] ? JSON.parse(data[0].value || "null") : null; } catch (_) { return null; }
+}
+async function handleLinkCapturaConta(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const conta = (await _lerConfigJson("IG_CAPTURA_CONTA")) || {};
+  const session = await _lerConfigJson("IG_CAPTURA_SESSAO");
+  if (!conta.username || !conta.password) return res.status(200).json({ ok: false, error: "sem_conta" });
+  return res.status(200).json({ ok: true, username: conta.username, password: conta.password, session: session || null });
+}
+async function handleLinkCapturaSessao(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const value = JSON.stringify(body.session || null);
+  const { data } = await supabase.from("config").select("key").eq("key", "IG_CAPTURA_SESSAO").limit(1);
+  if (data && data.length) await supabase.from("config").update({ value, updated_at: new Date().toISOString() }).eq("key", "IG_CAPTURA_SESSAO");
+  else await supabase.from("config").insert({ key: "IG_CAPTURA_SESSAO", value });
+  return res.status(200).json({ ok: true });
+}
+
 async function handleLinkManual(req, res, body) {
   const jobKey = String(body.job_key || "");
   if (jobKey) {
@@ -512,7 +536,8 @@ async function handleLinkManual(req, res, body) {
   if (!link) return res.status(400).json({ ok: false, error: "link obrigatorio" });
   try { new URL(link); } catch (_) { return res.status(400).json({ ok: false, error: "link invalido" }); }
   const categoria = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : "brasil-on";
-  const social = ehInstagram(link) || ehYoutube(link);
+  // Instagram/YouTube/TikTok: só o runner consegue baixar (ver core/linkCapture.js).
+  const social = precisaDoRunner(link);
   const textoManual = String(body.texto || "").trim();
   const videoHospedado = String(body.video_hospedado || "").trim();
   if (videoHospedado && !videoHospedado.startsWith(VIDEO_STORAGE_PREFIX)) {
@@ -594,6 +619,9 @@ async function handleLinkManual(req, res, body) {
     if (videoHospedado) video = { kind: "hosted", url: videoHospedado };
     else if (!social) {
       if (/(^|\.)baccinoticias\.com\.br$/i.test(new URL(link).hostname)) video = await descobrirPaginaVideoBacci(link).catch(() => null);
+      // Globo (g1, ge, globoplay): o vídeo fica protegido; o runner baixa
+      // com yt-dlp a partir do código achado na página.
+      if (!video && ehGlobo(link)) video = await descobrirVideoGlobo(link);
       if (!video) video = await descobrirVideoGenerico(link);
     }
     const enfileirado = await enfileirarReelSeHouver(data.id, video, "link_manual");
@@ -1115,7 +1143,7 @@ async function enfileirarReelSeHouver(postId, video, logLabel) {
   try {
     let sourceUrl = null;
     let videoUrlPortal = null;
-    if (video.kind === "youtube" || video.kind === "instagram") {
+    if (video.kind === "youtube" || video.kind === "instagram" || video.kind === "globo" || video.kind === "tiktok") {
       sourceUrl = video.url;
     } else if (video.kind === "hosted") {
       // 25/09/2026 — vídeo já está no nosso Storage (upload do admin na
@@ -1768,6 +1796,8 @@ export default async function handler(req, res) {
   if (body.action === "link_manual") return handleLinkManual(req, res, body);
   if (body.action === "link_jobs_pendentes") return handleLinkJobsPendentes(req, res, body);
   if (body.action === "link_job_falhou") return handleLinkJobFalhou(req, res, body);
+  if (body.action === "link_captura_conta") return handleLinkCapturaConta(req, res, body);
+  if (body.action === "link_captura_sessao") return handleLinkCapturaSessao(req, res, body);
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });
