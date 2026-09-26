@@ -1,6 +1,8 @@
 const DEFAULT_SOURCES = ["ovalorcapital", "obrasilon"];
-const DEFAULT_RECIPIENTS = ["souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
-const NEVER_AUTO_ACCEPT = new Set(["oterrasan"]);
+// 26/09/2026 — @amichelefroes passa a aceitar manualmente (perfil ainda não
+// configurado), igual ao @oterrasan.
+const DEFAULT_RECIPIENTS = ["souabetaferreira", "adriana.ferreirasp"];
+const NEVER_AUTO_ACCEPT = new Set(["oterrasan", "amichelefroes"]);
 
 export function normalizeInstagramUsername(value) {
   return String(value || "").trim().replace(/^@+/, "").toLowerCase();

@@ -517,9 +517,9 @@ async function handleIgPublish(req, res, body) {
 
   try {
     const { prepareInstagramImage } = await _loadInstagramImage();
-    const { publish, getAccount, postComment, likeMedia } = await _loadInstagram();
+    const { publish, collaboratorForFeedPost, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, accountId);
+    const ig = await publish(instagramImage.url, caption, accountId, { collaborator: collaboratorForFeedPost(post) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
@@ -1033,9 +1033,9 @@ async function _publicarPostFeedAutomatico(post, account, opts) {
 
   try {
     const { prepareInstagramImage } = await _loadInstagramImage();
-    const { publish, getAccount, postComment, likeMedia } = await _loadInstagram();
+    const { publish, collaboratorForFeedPost, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, account.id);
+    const ig = await publish(instagramImage.url, caption, account.id, { collaborator: collaboratorForFeedPost(post) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;

@@ -2,11 +2,54 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient("https://yntwvfcxjardzafdqanj.supabase.co", process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40");
 const BASE = "https://graph.facebook.com/v25.0";
-// 03/09/2026 — Roberto pediu pra cadastrar mais 3 perfis junto do @oterrasan,
-// todos recebendo collab em TODO post automaticamente. Limite real do
-// Instagram: até 4 collaborators + o autor original (5 contas no total) —
-// com exatamente 4 nomes aqui, cabem todos sem rodízio.
-const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
+// 26/09/2026 — Roberto: "não quero mais todo mundo colaborando nos mesmos
+// posts, isso está estragando o alcance". Regra nova (substitui a lista fixa
+// de 4 perfis em todo post, de 03/09/2026): cada post sai com o
+// @ovalorcapital + UM colaborador só.
+//   - Reels: sempre @oterrasan, qualquer assunto.
+//   - Feed: o dono do assunto (ver COLLAB_POR_ASSUNTO / collaboratorForFeedPost).
+// Se Roberto quiser mais alguém num post, ele adiciona manualmente no app.
+const REEL_COLLABORATOR = "oterrasan";
+const COLLAB_POR_ASSUNTO = {
+  politica: "oterrasan",
+  economia: "adriana.ferreirasp",
+  financas: "adriana.ferreirasp",
+  negocios: "adriana.ferreirasp",
+  tecnologia: "adriana.ferreirasp",
+  industria: "adriana.ferreirasp",
+  "brasil-on": "souabetaferreira",
+  familia: "amichelefroes",
+  giro: "amichelefroes"
+  // esportes, internacional, colunistas, vc e o resto: só o @ovalorcapital.
+};
+// Crime/polícia vai sempre pro @oterrasan, em qualquer categoria. Mesma lista
+// usada pra separar a categoria Polícia no espelho do Brasil ON
+// (core/brasilonMirror.js) — manter as duas em sincronia.
+const POLICIA_KW = [
+  "polícia", "policial", "delegacia", "delegado", "preso em", "prisão de",
+  "foi preso", "detido", "suspeito de", "flagrante", "assalto", "assaltou",
+  "roubo", "roubou", "furto", "furtou", "homicídio", "assassinato",
+  "assassinado", "tráfico de drogas", "operação policial",
+  "investigação criminal", "sequestro", "chacina", "crime organizado",
+  "facção", "tiroteio", "baleado", "esfaqueado", "estupro", "feminicídio",
+  "corpo encontrado", "mandado de prisão"
+];
+
+export function collaboratorForFeedPost(post) {
+  if (!post) return null;
+  let tags = [];
+  if (Array.isArray(post.user_tags)) tags = post.user_tags;
+  else { try { tags = JSON.parse(post.user_tags || "[]"); } catch (_) {} }
+  tags = (tags || []).map(t => String(t || "").toLowerCase());
+  if (!tags.includes("esportes")) {
+    const texto = `${post.titulo || ""} ${post.comentario_fixado || ""}`.toLowerCase();
+    if (POLICIA_KW.some(kw => texto.includes(kw))) return "oterrasan";
+  }
+  for (const tag of tags) {
+    if (COLLAB_POR_ASSUNTO[tag]) return COLLAB_POR_ASSUNTO[tag];
+  }
+  return null;
+}
 const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
 // collabs é inadmissível". Exclusão fixa, não lê config — mesma regra já
@@ -20,15 +63,22 @@ const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // manual fora da nossa automação) NÃO tem como saber feed/reel — a API de
 // convites (getCollaborationInvites) não devolve media_type — então
 // continua excluindo oterrasan sempre lá, sem mudança.
-const NEVER_AUTO_ACCEPT = "oterrasan";
+// 26/09/2026 — Roberto: aceite automático travado em TODOS os perfis nos
+// Reels (teste de alcance). No feed, @oterrasan continua manual (17/09) e a
+// @amichelefroes também fica manual (perfil dela ainda não configurado).
+const NEVER_AUTO_ACCEPT = new Set(["oterrasan", "amichelefroes"]);
 
 async function writeLog(level, message) {
   try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
 }
 
-function collaboratorsFor(publisherUsername) {
+// kind: "reel" → sempre @oterrasan. "feed" → opts.collaborator (dono do
+// assunto, calculado por quem chama com collaboratorForFeedPost) ou nenhum.
+function collaboratorsFor(publisherUsername, kind, opts = {}) {
   const publisher = String(publisherUsername || "").replace(/^@/, "").toLowerCase();
-  return DEFAULT_COLLABORATORS.filter(c => c.toLowerCase() !== publisher);
+  const alvo = kind === "reel" ? REEL_COLLABORATOR : opts.collaborator;
+  const nome = String(alvo || "").replace(/^@/, "").toLowerCase();
+  return nome && nome !== publisher ? [nome] : [];
 }
 
 function normalizePublishingLimit(raw) {
@@ -90,7 +140,7 @@ export async function getContentPublishingLimit(accountId) {
   };
 }
 
-export async function publish(imageUrl, caption, accountId) {
+export async function publish(imageUrl, caption, accountId, opts = {}) {
   const account = await getAccount(accountId);
   if (!account) throw new Error("Nenhuma conta Instagram ativa com token disponível");
 
@@ -104,7 +154,7 @@ export async function publish(imageUrl, caption, accountId) {
 
   // 1. Criar container
   const createPayload = { image_url: imageUrl, caption, access_token: token };
-  const collaborators = collaboratorsFor(account.username);
+  const collaborators = collaboratorsFor(account.username, "feed", opts);
   if (collaborators.length) {
     createPayload.collaborators = collaborators;
   }
@@ -198,7 +248,7 @@ export async function createReelContainer(videoUrl, caption, accountId, opts = {
     access_token: token,
     share_to_feed: opts.shareToFeed !== false
   };
-  const collaborators = collaboratorsFor(account.username);
+  const collaborators = collaboratorsFor(account.username, "reel");
   if (collaborators.length) createPayload.collaborators = collaborators;
   if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
 
@@ -240,7 +290,7 @@ export async function createReelContainerResumable(caption, accountId, opts = {}
     access_token: token,
     share_to_feed: opts.shareToFeed !== false
   };
-  const collaborators = collaboratorsFor(account.username);
+  const collaborators = collaboratorsFor(account.username, "reel");
   if (collaborators.length) createPayload.collaborators = collaborators;
   if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
 
@@ -287,7 +337,7 @@ export async function publishAlreadyUploadedReel(creationId, accountId, opts = {
   }
 
   const published = await publishReelContainer(creationId, accountId);
-  const collaborators = collaboratorsFor(published.username);
+  const collaborators = collaboratorsFor(published.username, "reel");
   if (collaborators.length) {
     try { await acceptCollabsForMedia(published.id, collaborators, "reel"); } catch (_) {}
   }
@@ -358,7 +408,7 @@ export async function publishReel(videoUrl, caption, accountId, opts = {}) {
   const published = await publishReelContainer(creation_id, account_id);
 
   // Mesmo aceite instantâneo do feed — ver publish() acima.
-  const collaborators = collaboratorsFor(published.username);
+  const collaborators = collaboratorsFor(published.username, "reel");
   if (collaborators.length) {
     try { await acceptCollabsForMedia(published.id, collaborators, "reel"); } catch (_) {}
   }
@@ -448,8 +498,11 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const likeAttempts = [2000, 5000, 10000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
-    if (username === NEVER_AUTO_ACCEPT && tag !== "reel") {
-      return { username, skipped: true, reason: "nunca_aceita_automatico_fora_de_reels" };
+    if (tag === "reel") {
+      return { username, skipped: true, reason: "reels_aceite_manual" };
+    }
+    if (NEVER_AUTO_ACCEPT.has(username)) {
+      return { username, skipped: true, reason: "perfil_com_aceite_manual" };
     }
     try {
       const { data: acc } = await supabase
