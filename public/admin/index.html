@@ -1045,6 +1045,13 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const [modo, setModo] = useState('mover');        // 'mover' = mover/redimensionar | 'recortar'
   const [travar, setTravar] = useState(true);      // manter proporção (sem esticar)
   const [salvando, setSalvando] = useState('');
+  // 26/09/2026 — Roberto: "recortar no incio ou no fim. caso eu precise
+  // encurtar". Segundos do vídeo ORIGINAL; fim vazio = até o final.
+  const trimSalvo = info?.layout?.trim || null;
+  const [trimIni, setTrimIni] = useState(trimSalvo ? String(trimSalvo.inicio) : '0');
+  const [trimFim, setTrimFim] = useState(trimSalvo && trimSalvo.fim != null ? String(trimSalvo.fim) : '');
+  const [duracaoFonte, setDuracaoFonte] = useState(null);
+  const playerRef = useRef(null);
   const dragRef = useRef(null);
   const s = REEL_ED_SCALE;
 
@@ -1159,10 +1166,19 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
     const msg = automatico ? 'Voltar para a montagem automática do sistema e remontar o vídeo?' : 'Aplicar este enquadramento e remontar o vídeo? A prévia nova aparece em alguns minutos.' + (info?.manual_final ? '\n\nAtenção: o vídeo pronto que você enviou (quadro 3) será descartado e substituído por esta montagem.' : '');
     if (!confirm(msg)) return;
     setSalvando(automatico ? 'Voltando ao automático...' : 'Salvando enquadramento...');
+    let trim = null;
+    if (!automatico) {
+      const ini = Math.max(0, Number(String(trimIni).replace(',', '.')) || 0);
+      const fimTxt = String(trimFim).trim();
+      const fim = fimTxt === '' ? null : Number(fimTxt.replace(',', '.'));
+      if (fim != null && (!Number.isFinite(fim) || fim <= ini + 1)) { alert('O fim precisa ser pelo menos 1 segundo depois do início.'); return; }
+      if (ini > 0 || fim != null) trim = { inicio: Math.round(ini * 10) / 10, fim: fim == null ? null : Math.round(fim * 10) / 10 };
+    }
     try {
       const L = automatico ? null : {
         crop: { l: +layout.crop.l.toFixed(4), t: +layout.crop.t.toFixed(4), r: +layout.crop.r.toFixed(4), b: +layout.crop.b.toFixed(4) },
-        rect: { x: Math.round(layout.rect.x), y: Math.round(layout.rect.y), w: Math.round(layout.rect.w / 2) * 2, h: Math.round(layout.rect.h / 2) * 2 }
+        rect: { x: Math.round(layout.rect.x), y: Math.round(layout.rect.y), w: Math.round(layout.rect.w / 2) * 2, h: Math.round(layout.rect.h / 2) * 2 },
+        ...(trim ? { trim } : {})
       };
       const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS }, body: JSON.stringify({ action: 'reels_set_layout', post_id: post.id, layout: L }) });
       const d = await r.json();
@@ -1280,6 +1296,36 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
             );
           })()}
           {ytId && !dimsSalvas && <div style={{ fontSize: 11, color: 'var(--yellow)' }}>Vídeo do YouTube: proporção assumida 16:9 até a primeira montagem terminar.</div>}
+          {(() => {
+            const ini = Math.max(0, Number(String(trimIni).replace(',', '.')) || 0);
+            const fimN = String(trimFim).trim() === '' ? null : Number(String(trimFim).replace(',', '.'));
+            const fimEfetivo = fimN != null && Number.isFinite(fimN) ? fimN : duracaoFonte;
+            const dur = fimEfetivo != null ? Math.max(0, fimEfetivo - ini) : null;
+            const tempo = (v) => { const t = Math.max(0, Math.round(v * 10) / 10); return Math.floor(t / 60) + ':' + String((t % 60).toFixed(1)).padStart(4, '0'); };
+            const marcar = (qual) => { const v = playerRef.current; if (!v) return; const t = Math.round(v.currentTime * 10) / 10; if (qual === 'ini') setTrimIni(String(t)); else setTrimFim(String(t)); };
+            const campo = { width: 70, fontSize: 12, padding: '3px 6px' };
+            return (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontWeight: 700 }}>⏱️ Encurtar o vídeo (início e fim)</div>
+                {!ytId && <video ref={playerRef} src={sourceUrl} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 180, background: '#000', borderRadius: 6 }}
+                  onLoadedMetadata={e => { const d = e.target.duration; if (Number.isFinite(d)) setDuracaoFonte(d); }} />}
+                {!ytId && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => marcar('ini')}>⏮️ Marcar início aqui</button>
+                  <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => marcar('fim')}>⏭️ Marcar fim aqui</button>
+                  <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => { setTrimIni('0'); setTrimFim(''); }}>Vídeo inteiro</button>
+                </div>}
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
+                  <label>Início (seg) <input className="form-input" style={campo} value={trimIni} onChange={e => setTrimIni(e.target.value)} /></label>
+                  <label>Fim (seg) <input className="form-input" style={campo} placeholder="até o fim" value={trimFim} onChange={e => setTrimFim(e.target.value)} /></label>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--t3)' }}>
+                  {ytId ? 'Vídeo do YouTube: digite os segundos (dá para ver o tempo no próprio YouTube). ' : 'Dê play, pause no ponto certo e clique em "Marcar". '}
+                  {dur != null && <>Duração final: <strong>{tempo(Math.min(dur, 88))}</strong>{dur > 88 ? ' (o Instagram aceita até 88s — o resto é cortado)' : ''}. </>}
+                  Trecho: {tempo(ini)} → {fimEfetivo != null ? tempo(fimEfetivo) : 'fim'}
+                </div>
+              </div>
+            );
+          })()}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
             <button type="button" className="btn btn-primary btn-sm" disabled={!L || !!salvando} onClick={() => salvar(false)}>✅ Aplicar e remontar</button>
             {info?.layout && <button type="button" className="btn btn-secondary btn-sm" disabled={!!salvando} onClick={() => salvar(true)}>Voltar ao automático</button>}
@@ -1363,7 +1409,8 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
             </div>
           )}
           <div style={{fontSize:12,color:corStatus}}>{info?.manual_final && status==='ready' ? '✅ Vídeo pronto enviado por você' : reelTemplateLabel(post)}</div>
-          {info?.layout && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento: ajustado por você</div>}
+          {info?.layout && !info?.manual_final && <div style={{fontSize:11,color:'var(--t3)'}}>Enquadramento: ajustado por você{info.layout.trim ? ` · trecho ${info.layout.trim.inicio}s → ${info.layout.trim.fim != null ? info.layout.trim.fim + 's' : 'fim'}` : ''}</div>}
+          {info?.audio_removido && !info?.manual_final && <div style={{fontSize:11,color:'var(--yellow)',lineHeight:1.4}}>🔇 Áudio removido: a Meta recusou o vídeo com o som original (provável música com direito autoral). Ele vai para o Instagram sem som — a prévia acima ainda toca o áudio original.</div>}
           {(() => {
             let m = {}; try { m = typeof post?.metrics === 'string' ? JSON.parse(post.metrics||'{}') : (post?.metrics||{}); } catch(_) {}
             const podeAjustar = !!info?.source_url && status !== 'embed_only' && !m?.instagram_reel?.ig_id;

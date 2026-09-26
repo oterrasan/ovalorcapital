@@ -121,6 +121,7 @@ export default async function handler(req, res) {
     if (action === "reels_set_final_file") return handleReelsSetFinalFile(req, res, body);
     if (action === "reels_set_layout") return handleReelsSetLayout(req, res, body);
     if (action === "reels_render_preview") return handleReelsRenderPreview(req, res, body);
+    if (action === "reels_render_sem_audio") return handleReelsRenderSemAudio(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
@@ -1575,7 +1576,8 @@ async function handleReelsRenderJob(req, res, body) {
     claim_id: claimId,
     processing_at: new Date().toISOString(),
     attempts: Number(current.attempts || 0) + 1,
-    last_error: null
+    last_error: null,
+    audio_removido: false
   };
   metrics.instagram_reel_template = processing;
   let claimQuery = supabase
@@ -1738,6 +1740,38 @@ async function handleReelsRenderComplete(req, res, body) {
   return res.status(200).json({ ok: true, ready: true, post_id: postId, ig_creation_id: template.ig_creation_id });
 }
 
+// 26/09/2026 — causa real do ProcessingFailedError, testada no runner com o
+// mesmo vídeo (clipe do Rick Astley): 30s com o áudio original passa; 60s e
+// 88s com o áudio original são recusados (com 10 MB ou 38 MB, tanto faz);
+// 60s SEM áudio ou com áudio mudo passam. A Meta recusa no envio quando
+// reconhece música com direito autoral por tempo suficiente. Quando isso
+// acontece, o runner tira o áudio e pede um container novo aqui (o
+// anterior fica inutilizado pela recusa). O admin mostra "áudio removido".
+async function handleReelsRenderSemAudio(req, res, body) {
+  if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const postId = String(body?.post_id || "").trim();
+  const claimId = String(body?.claim_id || "").trim();
+  if (!postId || !claimId) return res.status(400).json({ ok: false, error: "parametros_invalidos" });
+  const post = await _reelsLoadPost(postId);
+  const metrics = parseJsonMaybe(post.metrics, {});
+  const template = metrics.instagram_reel_template || {};
+  if (template.claim_id !== claimId || template.status !== "processing") return res.status(409).json({ ok: false, error: "render_claim_invalido" });
+  const { createReelContainerResumable } = await _loadInstagram();
+  const ig = await createReelContainerResumable(buildInstagramCaption(post), template.ig_account_id || post.ig_account_id || null);
+  metrics.instagram_reel_template = {
+    ...template,
+    ig_creation_id: ig.creation_id,
+    ig_account_id: ig.account_id,
+    ig_username: ig.username,
+    audio_removido: true,
+    audio_removido_motivo: "A Meta recusou o vídeo com o áudio original (provável música com direito autoral)."
+  };
+  const { error } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
+  if (error) throw error;
+  await writeLog("warn", `[reels-render] Meta recusou com áudio original — reenviando sem áudio: ${post.titulo || postId}`);
+  return res.status(200).json({ ok: true, ig_creation_id: ig.creation_id, ig_upload_url: ig.upload_url, ig_upload_token: ig.upload_token });
+}
+
 async function _reelsCriarUploadDePrevia(postId, claimId) {
   try {
     const safeId = String(postId).replace(/[^a-zA-Z0-9_-]/g, "");
@@ -1820,6 +1854,18 @@ async function handleReelsSetFinalFile(req, res, body) {
 // 1080x1920); aqui validamos, gravamos em template.layout e reenfileiramos
 // a montagem — o runner (scripts/render-instagram-reel.mjs) aplica no
 // ffmpeg e gera prévia nova. layout null = volta pra montagem automática.
+// 26/09/2026 — corte de início/fim escolhido no editor (segundos do vídeo
+// original; fim null = até o final). Mesma regra do render.
+function _reelsSanitizarTrim(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const inicio = Math.round(Number(raw.inicio) * 10) / 10;
+  const fim = raw.fim == null || raw.fim === "" ? null : Math.round(Number(raw.fim) * 10) / 10;
+  if (!Number.isFinite(inicio) || inicio < 0 || inicio > 7200) return null;
+  if (fim != null && (!Number.isFinite(fim) || fim <= inicio + 1 || fim > 7200)) return null;
+  if (inicio === 0 && fim == null) return null;
+  return { inicio, fim };
+}
+
 function _reelsSanitizarLayout(raw) {
   if (!raw || typeof raw !== "object") return null;
   const crop = raw.crop && typeof raw.crop === "object" ? raw.crop : {};
@@ -1833,7 +1879,10 @@ function _reelsSanitizarLayout(raw) {
   const [x, y, w, h] = vals;
   if (w < 40 || h < 40 || w > 4320 || h > 4320) return null;
   if (x < -4320 || x > 1080 || y < -4320 || y > 1920) return null;
-  return { crop: c, rect: { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) } };
+  const out = { crop: c, rect: { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) } };
+  const trim = _reelsSanitizarTrim(raw.trim);
+  if (trim) out.trim = trim;
+  return out;
 }
 
 async function handleReelsSetLayout(req, res, body) {
