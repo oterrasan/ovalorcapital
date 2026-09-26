@@ -1728,6 +1728,9 @@ async function handleReelsRenderJob(req, res, body) {
       // 25/09/2026 — enquadramento livre escolhido no editor do admin
       // (handleReelsSetLayout). null = montagem automática de sempre.
       layout: current.layout || null,
+      // 26/09/2026 — manchete editada no admin (texto, destaque, tamanho,
+      // cores, posição ou oculta). null = manchete automática de sempre.
+      headline: current.headline || null,
       // 26/09/2026 — sem ajuste manual, vídeo do TikTok do Metrópoles ganha
       // enquadramento automático (detecta a manchete deles; ver render script).
       auto_layout: !current.layout && /tiktok\.com\/@metropolesoficial/i.test(String(metrics.fonte_link_manual || "")) ? "metropoles" : null,
@@ -2017,6 +2020,27 @@ function _reelsSanitizarLayout(raw) {
   return out;
 }
 
+// 26/09/2026 — Roberto: "editar tambem a chamada, o titulo todo, parte
+// dele, ou arrastar a posicao que ele está. ou até deletar e deixar sem...
+// aumentar a fonte, cores". Mesma validação do render
+// (sanitizeHeadline em scripts/render-instagram-reel.mjs).
+function _reelsSanitizarManchete(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const num = (v, min, max) => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : null; };
+  const hex = (v, def) => /^#[0-9a-f]{6}$/i.test(String(v || "")) ? String(v).toLowerCase() : def;
+  return {
+    oculta: raw.oculta === true,
+    texto: typeof raw.texto === "string" ? raw.texto.replace(/\s+/g, " ").trim().slice(0, 240) : "",
+    maiusculas: raw.maiusculas !== false,
+    tamanho: num(raw.tamanho, 20, 120),
+    largura: num(raw.largura, 300, 1040),
+    x: num(raw.x, 0, 1080),
+    y: num(raw.y, 0, 1900),
+    cor: hex(raw.cor, "#ffffff"),
+    cor_destaque: hex(raw.cor_destaque, "#f28c22")
+  };
+}
+
 async function handleReelsSetLayout(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   const postId = String(body?.post_id || "").trim();
@@ -2048,6 +2072,8 @@ async function handleReelsSetLayout(req, res, body) {
     source_url: sourceUrl,
     source_kind: previous.source_kind || null,
     layout,
+    // Sem "headline" no pedido = mantém a manchete editada antes.
+    headline: body?.headline === undefined ? (previous.headline || null) : _reelsSanitizarManchete(body.headline),
     queued_at: new Date().toISOString(),
     priority_at: new Date().toISOString(),
     attempts: 0,

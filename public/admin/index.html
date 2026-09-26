@@ -1036,6 +1036,54 @@ function reelSombraCss(bottomPx) {
   return `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) ${b}%, rgba(0,0,0,.5) ${b + 10}%, #000 ${b + 20}%, #000 100%)`;
 }
 
+// 26/09/2026 — Roberto: "editar tambem a chamada, o titulo todo, parte
+// dele, ou arrastar a posicao que ele está. ou até deletar e deixar sem...
+// aumentar a fonte, cores". Prévia da manchete com a MESMA conta de quebra
+// de linha / tamanho automático do runner (scripts/render-instagram-reel.mjs
+// — se mudar lá, mudar aqui). Palavras entre *asteriscos* = destaque.
+const RH_BOX = { width: 780, maxLines: 4, maxFont: 42, minFont: 30, bottomY: 1300, minTopY: 1000 };
+const RH_STOP = new Set(['A','O','AS','OS','UM','UMA','UNS','UMAS','DE','DA','DO','DAS','DOS','E','EM','NO','NA','NOS','NAS','POR','PARA','COM','SEM','SOB','SOBRE','ENTRE','APOS','ATE','AO','AOS','QUE','SE','SUA','SEU','SUAS','SEUS','PROPRIA','PROPRIO','EX','EUA']);
+const RH_IMPACT = {MORTE:80,MORTA:80,MORTO:80,MORRE:80,ASSASSINATO:78,CULPADA:76,CULPADO:76,CONDENADO:74,CONDENADA:74,CRIME:72,FACADAS:70,MATAR:68,PRESO:68,PRESA:68,BILIONARIO:66,MILIONARIO:64,ALTA:62,QUEDA:62,RECUA:62,AVANCA:62,DOLAR:62,JUROS:62,LULA:70,BOLSONARO:70,TRUMP:70,STF:70,GOVERNO:58};
+const rhNorm = (w) => String(w || '').normalize('NFD').replace(/\p{Mn}/gu, '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+function rhLargura(t, f) { let u = 0; for (const ch of String(t || '')) { if (ch === ' ') u += 0.28; else if ('IÍÌÎÏ!.,:;|'.includes(ch)) u += 0.34; else if ('MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ'.includes(ch)) u += 0.88; else u += 0.64; } return u * f; }
+function rhQuebrar(texto, f, maxW, maxLines) {
+  const words = String(texto || '').trim().split(/\s+/).filter(Boolean); const lines = []; let cur = '';
+  for (const w of words) { const c = cur ? cur + ' ' + w : w; if (!cur || rhLargura(c, f) <= maxW) { cur = c; continue; } lines.push(cur); cur = w; }
+  if (cur) lines.push(cur);
+  if (lines.length <= maxLines) return lines;
+  const cl = lines.slice(0, maxLines); let v = [cl[maxLines - 1], ...lines.slice(maxLines)].join(' ');
+  while (v.length > 1 && rhLargura(v + '…', f) > maxW) v = v.replace(/\s+\S*$/, '').trim() || v.slice(0, -1).trim();
+  cl[maxLines - 1] = v ? v + '…' : ''; return cl;
+}
+function rhMarcas(texto) {
+  if (!/\*/.test(texto)) return null;
+  const words = [], marks = []; let on = false;
+  for (const raw of texto.split(/\s+/).filter(Boolean)) { let w = raw; if (w.startsWith('*')) { on = true; w = w.replace(/^\*+/, ''); } const fecha = /\*+$/.test(w); w = w.replace(/\*+/g, ''); if (w) { words.push(w); marks.push(on); } if (fecha) on = false; }
+  return { texto: words.join(' '), marks };
+}
+function rhManchetePrevia(titulo, h) {
+  if (h.oculta) return null;
+  let base = String(h.texto || titulo || '').replace(/\s+/g, ' ').trim();
+  const parsed = rhMarcas(base); if (parsed) base = parsed.texto;
+  const texto = h.maiusculas ? base.toUpperCase() : base;
+  if (!texto) return null;
+  const boxW = h.largura || RH_BOX.width;
+  let sel = null;
+  if (h.tamanho) sel = { f: h.tamanho, lines: rhQuebrar(texto, h.tamanho, boxW, 8) };
+  for (let f = RH_BOX.maxFont; !sel && f >= RH_BOX.minFont; f -= 2) { const ls = rhQuebrar(texto, f, boxW, RH_BOX.maxLines); if (ls.length <= RH_BOX.maxLines && ls.every(l => rhLargura(l, f) <= boxW)) sel = { f, lines: ls }; }
+  if (!sel) sel = { f: RH_BOX.minFont, lines: rhQuebrar(texto, RH_BOX.minFont, boxW, RH_BOX.maxLines) };
+  let destaque = null;
+  if (!parsed) { let best = null; (texto.match(/[\p{L}\p{N}]+/gu) || []).forEach((w, i) => { const n = rhNorm(w); if (!n || RH_STOP.has(n) || n.length < 4) return; const sc = (RH_IMPACT[n] || 0) + Math.min(n.length, 14) - i * 0.35; if (!best || sc > best.sc) best = { n, sc }; }); destaque = best && best.n; }
+  let idx = 0, usado = false;
+  const linhas = sel.lines.map(l => l.split(/\s+/).filter(Boolean).map(w => {
+    let hl; if (parsed) { hl = !!parsed.marks[idx]; idx++; } else { hl = !usado && destaque && rhNorm(w) === destaque; if (hl) usado = true; }
+    return { w, hl };
+  }));
+  return { fontSize: sel.f, linhas };
+}
+const RH_PADRAO = { oculta: false, texto: '', maiusculas: true, tamanho: null, largura: null, x: null, y: null, cor: '#ffffff', cor_destaque: '#f28c22' };
+const rhTituloLimpo = (post) => String(post?.titulo || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
 function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const sourceUrl = String(info?.source_url || '');
   const ytId = parseYouTubeId(sourceUrl);
@@ -1051,11 +1099,17 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const [trimIni, setTrimIni] = useState(trimSalvo ? String(trimSalvo.inicio) : '0');
   const [trimFim, setTrimFim] = useState(trimSalvo && trimSalvo.fim != null ? String(trimSalvo.fim) : '');
   const [duracaoFonte, setDuracaoFonte] = useState(null);
+  const [manchete, setManchete] = useState(() => ({ ...RH_PADRAO, ...(info?.headline || {}), texto: (info?.headline?.texto) || rhTituloLimpo(post) }));
+  const setM = (campos) => setManchete(m => ({ ...m, ...campos }));
+  const mancheteRef = useRef(null);
   const playerRef = useRef(null);
   const dragRef = useRef(null);
   const s = REEL_ED_SCALE;
 
-  useEffect(() => { if (dims && !layout) setLayout(reelLayoutAuto(dims.width, dims.height)); }, [dims]);
+  // Enquadramento automático calculado ao abrir: se o Roberto só mexer na
+  // manchete, o vídeo continua na montagem automática (layout null).
+  const autoInicialRef = useRef(null);
+  useEffect(() => { if (dims && !layout) { const a = reelLayoutAuto(dims.width, dims.height); autoInicialRef.current = JSON.stringify(a); setLayout(a); } }, [dims]);
 
   const clampLayout = (L) => {
     const c = { ...L.crop }, r = { ...L.rect };
@@ -1116,6 +1170,21 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   };
   useEffect(() => () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); }, [onMove, onUp]);
 
+  // Arrastar a manchete (em coordenadas do Reel 1080x1920).
+  const arrastarManchete = (e) => {
+    const el = mancheteRef.current; if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    const x0 = (el.offsetLeft + el.offsetWidth / 2) / s, y0 = el.offsetTop / s;
+    const px = e.clientX, py = e.clientY;
+    const mv = (ev) => {
+      const x = Math.round(Math.max(0, Math.min(REEL_W, x0 + (ev.clientX - px) / s)));
+      const y = Math.round(Math.max(0, Math.min(REEL_H - 20, y0 + (ev.clientY - py) / s)));
+      setM({ x, y });
+    };
+    const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+
   const presetPreencher = () => {
     if (!dims) return;
     const c = layout?.crop || { l: 0, t: 0, r: 0, b: 0 };
@@ -1162,6 +1231,14 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   };
   const setPos = (eixo, v) => layout && setLayout(clampLayout({ ...layout, rect: { ...layout.rect, [eixo]: v } }));
 
+  const mancheteParaSalvar = () => {
+    const titulo = rhTituloLimpo(post);
+    const m = manchete;
+    const padrao = !m.oculta && (!m.texto || m.texto.trim() === titulo) && m.maiusculas && !m.tamanho && !m.largura && m.x == null && m.y == null && m.cor === '#ffffff' && m.cor_destaque === '#f28c22';
+    if (padrao) return null;
+    return { ...m, texto: (m.texto || '').trim() === titulo ? '' : (m.texto || '').trim() };
+  };
+
   const salvar = async (automatico) => {
     const msg = automatico ? 'Voltar para a montagem automática do sistema e remontar o vídeo?' : 'Aplicar este enquadramento e remontar o vídeo? A prévia nova aparece em alguns minutos.' + (info?.manual_final ? '\n\nAtenção: o vídeo pronto que você enviou (quadro 3) será descartado e substituído por esta montagem.' : '');
     if (!confirm(msg)) return;
@@ -1175,12 +1252,13 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
       if (ini > 0 || fim != null) trim = { inicio: Math.round(ini * 10) / 10, fim: fim == null ? null : Math.round(fim * 10) / 10 };
     }
     try {
-      const L = automatico ? null : {
+      const soManchete = !info?.layout && !trim && autoInicialRef.current && JSON.stringify(layout) === autoInicialRef.current;
+      const L = (automatico || soManchete) ? null : {
         crop: { l: +layout.crop.l.toFixed(4), t: +layout.crop.t.toFixed(4), r: +layout.crop.r.toFixed(4), b: +layout.crop.b.toFixed(4) },
         rect: { x: Math.round(layout.rect.x), y: Math.round(layout.rect.y), w: Math.round(layout.rect.w / 2) * 2, h: Math.round(layout.rect.h / 2) * 2 },
         ...(trim ? { trim } : {})
       };
-      const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS }, body: JSON.stringify({ action: 'reels_set_layout', post_id: post.id, layout: L }) });
+      const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS }, body: JSON.stringify({ action: 'reels_set_layout', post_id: post.id, layout: L, headline: mancheteParaSalvar() }) });
       const d = await r.json();
       if (!d.ok) {
         const erros = { reel_ja_publicado: 'Este Reel já foi publicado.', sem_video_original_para_montar: 'O vídeo original não está mais disponível para remontar.', montagem_em_andamento_tente_em_instantes: 'Uma montagem está em andamento — tente de novo em alguns minutos.', enquadramento_invalido: 'Enquadramento inválido — use "Resetar" e tente de novo.' };
@@ -1221,7 +1299,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, marginTop: 10 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12, fontWeight: 700 }}>✂️ Ajustar enquadramento do vídeo</div>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>✂️ Ajustar vídeo e manchete</div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Fechar</button>
       </div>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
@@ -1239,7 +1317,6 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
             {/* guias do template (aproximadas): sombra, logo, manchete, rodapé */}
             {L && <div style={{ position: 'absolute', inset: 0, background: reelSombraCss(Math.min(REEL_H, L.rect.y + L.rect.h)), pointerEvents: 'none' }} />}
             <div style={{ position: 'absolute', left: 350 * s, top: 25 * s, width: 380 * s, height: 205 * s, backgroundImage: 'url(/assets/ig-overlay-ovc-canva.png)', backgroundSize: `${REEL_W * s}px ${1350 * s}px`, backgroundPosition: `${-350 * s}px ${-25 * s}px`, pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', left: 150 * s, width: 780 * s, bottom: (REEL_H - 1300) * s, color: '#fff', fontWeight: 800, fontSize: 36 * s, lineHeight: 1.15, textAlign: 'center', textTransform: 'uppercase', pointerEvents: 'none', textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{String(post?.titulo || '').replace(/<[^>]+>/g, '')}</div>
             <img src="/assets/ig-footer-ovc-reels-canva.png" alt="" style={{ position: 'absolute', left: 350 * s, top: 1490 * s, width: 380 * s, height: 260 * s, pointerEvents: 'none' }} />
           </div>
           {/* contorno arrastável + alças */}
@@ -1248,6 +1325,22 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
               {handles.map(h => <div key={h} onPointerDown={iniciar(h)} style={{ position: 'absolute', width: 12, height: 12, background: '#fff', border: '2px solid #38bdf8', borderRadius: modo === 'recortar' ? 2 : 6, ...posHandle(h) }} />)}
             </div>
           )}
+          {/* manchete — por cima de tudo, arrastável */}
+          {(() => {
+            const prev = rhManchetePrevia(rhTituloLimpo(post), manchete);
+            if (!prev) return null;
+            const boxW = manchete.largura || RH_BOX.width;
+            const cx = manchete.x != null ? manchete.x : REEL_W / 2;
+            const pos = manchete.y != null ? { top: manchete.y * s } : { bottom: (REEL_H - RH_BOX.bottomY) * s };
+            return (
+              <div style={{ position: 'absolute', left: P, top: P, width: FW, height: FH, overflow: 'hidden', pointerEvents: 'none' }}>
+                <div ref={mancheteRef} onPointerDown={arrastarManchete} title="Arraste para mudar a posição da manchete"
+                  style={{ position: 'absolute', left: (cx - boxW / 2) * s, width: boxW * s, ...pos, pointerEvents: 'auto', cursor: 'move', textAlign: 'center', fontFamily: "'OVCInter', Arial, sans-serif", fontWeight: 800, fontSize: prev.fontSize * s, lineHeight: 1.21, whiteSpace: 'nowrap', outline: '1px dashed rgba(242,140,34,.8)', outlineOffset: 2 }}>
+                  {prev.linhas.map((ln, i) => <div key={i}>{ln.map((t, j) => <React.Fragment key={j}>{j ? ' ' : ''}<span style={{ color: t.hl ? manchete.cor_destaque : manchete.cor }}>{t.w}</span></React.Fragment>)}</div>)}
+                </div>
+              </div>
+            );
+          })()}
         </div>
         <div style={{ flex: '1 1 220px', minWidth: 200, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -1296,6 +1389,40 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
             );
           })()}
           {ytId && !dimsSalvas && <div style={{ fontSize: 11, color: 'var(--yellow)' }}>Vídeo do YouTube: proporção assumida 16:9 até a primeira montagem terminar.</div>}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <style>{"@font-face{font-family:'OVCInter';src:url(/assets/fonts/Inter-Variable.ttf) format('truetype');font-weight:100 900;}"}</style>
+            <div style={{ fontWeight: 700 }}>📰 Manchete do Reel</div>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', fontSize: 11 }}>
+              <input type="checkbox" checked={manchete.oculta} onChange={e => setM({ oculta: e.target.checked })} /> Sem manchete (esconder)
+            </label>
+            {!manchete.oculta && <>
+              <textarea className="form-input" rows={3} style={{ fontSize: 12 }} value={manchete.texto} onChange={e => setM({ texto: e.target.value })} placeholder="Texto da manchete" />
+              <div style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.45 }}>Coloque <strong>*asteriscos*</strong> em volta das palavras que devem sair na cor de destaque (ex.: <code>PM *MATA* ATIRADOR</code>). Sem asteriscos, o sistema escolhe 1 palavra. Arraste a manchete no quadro para mudar a posição.</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>Texto <input type="color" value={manchete.cor} onChange={e => setM({ cor: e.target.value })} /></label>
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>Destaque <input type="color" value={manchete.cor_destaque} onChange={e => setM({ cor_destaque: e.target.value })} /></label>
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center', cursor: 'pointer' }}><input type="checkbox" checked={manchete.maiusculas} onChange={e => setM({ maiusculas: e.target.checked })} /> MAIÚSCULAS</label>
+              </div>
+              {(() => {
+                const linha = { display: 'grid', gridTemplateColumns: '92px 1fr 56px', gap: 6, alignItems: 'center', fontSize: 11 };
+                const prev = rhManchetePrevia(rhTituloLimpo(post), manchete);
+                return (<>
+                  <label style={linha}><span>Tamanho da letra</span>
+                    <input type="range" min={20} max={120} step={1} value={manchete.tamanho || (prev ? prev.fontSize : 42)} onChange={e => setM({ tamanho: Number(e.target.value) })} />
+                    <span style={{ fontFamily: 'monospace', textAlign: 'right' }}>{manchete.tamanho ? manchete.tamanho + 'px' : 'auto'}</span></label>
+                  <label style={linha}><span>Largura</span>
+                    <input type="range" min={300} max={1040} step={10} value={manchete.largura || RH_BOX.width} onChange={e => setM({ largura: Number(e.target.value) })} />
+                    <span style={{ fontFamily: 'monospace', textAlign: 'right' }}>{manchete.largura || RH_BOX.width}</span></label>
+                </>);
+              })()}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => setM({ tamanho: null, largura: null })}>Tamanho automático</button>
+                <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => setM({ x: null, y: null })}>Posição padrão</button>
+                <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => setManchete({ ...RH_PADRAO, texto: rhTituloLimpo(post) })}>Restaurar manchete original</button>
+              </div>
+            </>}
+            <div style={{ fontSize: 11, color: 'var(--t3)' }}>A manchete é aplicada ao clicar em "Aplicar e remontar". A prévia aqui é aproximada; a definitiva aparece no quadro "2. Montagem do sistema".</div>
+          </div>
           {(() => {
             const ini = Math.max(0, Number(String(trimIni).replace(',', '.')) || 0);
             const fimN = String(trimFim).trim() === '' ? null : Number(String(trimFim).replace(',', '.'));
