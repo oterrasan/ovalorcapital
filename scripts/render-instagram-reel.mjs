@@ -231,7 +231,12 @@ function colorForOpacity(opacity) {
 // em faixas fixas, idênticas à versão anterior do template — o vídeo
 // sempre preenche o quadro 1080x1920 inteiro, então a posição da sombra
 // nunca varia.
-const COVER_FADE_STOPS = [[0, 0], [34, 0], [45, 0.18], [54, 0.7], [62, 0.97], [67, 1], [80, 1], [100, 1]];
+// 26/09/2026 — Roberto: "a sombra precisa ser corrigida, está avançando
+// muito além do que deveria". Antes: começava em 34%, 70% escura em 54% e
+// 100% preta de 67% até o fim (metade do vídeo sumia). Agora só escurece a
+// faixa da manchete (52%–68%); fica escuro total só a partir de 78%, onde
+// o rodapé tem fundo preto próprio (sem isso ele vira um quadrado solto).
+const COVER_FADE_STOPS = [[0, 0], [46, 0], [52, 0.35], [57, 0.6], [64, 0.7], [71, 0.8], [76, 0.97], [78, 1], [100, 1]];
 
 // Curva "smootherstep" (Ken Perlin) — ainda mais suave nas duas pontas que
 // um ease-in-out comum. Importante aqui: perto do vídeo (o ponto mais
