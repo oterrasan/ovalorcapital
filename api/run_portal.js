@@ -491,8 +491,8 @@ async function handleLinkJobsPendentes(req, res, body) {
 
 // 26/09/2026 — robô do TikTok do Metrópoles (Roberto: "o ideal seria que o
 // nosso sistema capturasse 100% de todos os Reels que o Metrópoles postar...
-// postou lá, já captura"). A cada disparo lista os vídeos recentes do perfil
-// (API pública do tikwm, a mesma já usada na captura por link) e, para cada
+// postou lá, já captura"). O runner lista os vídeos recentes do perfil e,
+// para cada
 // vídeo novo, cria o MESMO pedido de captura de quando Roberto cola o link
 // na Reescrita por Link: o runner baixa o vídeo + legenda, a IA reescreve e
 // a matéria cai como PENDENTE, com o Reel montado (enquadramento automático
@@ -501,25 +501,27 @@ const METROPOLES_TIKTOK_USER = "metropolesoficial";
 const METROPOLES_TIKTOK_IDADE_MAX_MS = 3 * 3600 * 1000;
 const METROPOLES_TIKTOK_POR_RODADA = 4;
 const METROPOLES_TIKTOK_MARCA = "METROPOLES_TT__";
+// Teste real (26/09): a listagem de perfil do tikwm cai numa verificação
+// anti-robô (Cloudflare) tanto da Vercel quanto do runner; o yt-dlp com
+// "--impersonate chrome" lista o perfil a partir do runner. Então quem lista
+// é o runner (instagram-auto.yml, job capturar_links) e manda a lista aqui.
+async function handleMetropolesTiktokRegistrar(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  if (!(await automacaoAtiva())) return res.status(200).json({ ok: true, generated: 0, info: "automacao_geral_desligada" });
+  // Mesma pausa noturna dos outros canais de geração (00h-06h BRT).
+  const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
+  if (horaBRT < 6) return res.status(200).json({ ok: true, generated: 0, info: "pausa_noturna_00_06_brt" });
+  const videos = Array.isArray(body.videos) ? body.videos.slice(0, 40) : [];
+  return autoMetropolesTiktok(req, res, { ...body, videos });
+}
 async function autoMetropolesTiktok(req, res, body) {
-  let videos = [];
-  try {
-    const r = await fetch(`https://www.tikwm.com/api/user/posts?unique_id=${METROPOLES_TIKTOK_USER}&count=20&cursor=0`, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36" },
-      signal: AbortSignal.timeout(15000)
-    });
-    const d = await r.json();
-    if (d?.code !== 0) return res.status(200).json({ status: "ok", generated: 0, tipo: "metropoles_tiktok", info: "tikwm_sem_resposta", detalhe: String(d?.msg || r.status).slice(0, 120) });
-    videos = Array.isArray(d?.data?.videos) ? d.data.videos : [];
-  } catch (e) {
-    return res.status(200).json({ status: "ok", generated: 0, tipo: "metropoles_tiktok", info: "tikwm_falhou", detalhe: String(e?.message || e).slice(0, 120) });
-  }
+  const videos = body.videos || [];
   const agora = Date.now();
   const recentes = videos
-    .map(v => ({ id: String(v.video_id || v.aweme_id || ""), criado: Number(v.create_time || 0) * 1000, titulo: String(v.title || "").slice(0, 80) }))
+    .map(v => ({ id: String(v.id || ""), criado: Number(v.timestamp || 0) * 1000, titulo: String(v.title || "").slice(0, 80) }))
     .filter(v => /^\d{10,25}$/.test(v.id) && v.criado > 0 && agora - v.criado <= METROPOLES_TIKTOK_IDADE_MAX_MS)
     .sort((a, b) => a.criado - b.criado);
-  if (!recentes.length) return res.status(200).json({ status: "ok", generated: 0, tipo: "metropoles_tiktok", info: "nenhum_video_recente", listados: videos.length });
+  if (!recentes.length) return res.status(200).json({ ok: true, generated: 0, info: "nenhum_video_recente", listados: videos.length });
 
   // Já visto pelo robô, já colado por Roberto, ou já na fila de captura?
   const ids = recentes.map(v => v.id);
@@ -532,7 +534,7 @@ async function autoMetropolesTiktok(req, res, body) {
   (jobs || []).forEach(j => { ids.forEach(id => { if (String(j.value || "").includes(id)) vistos.add(id); }); });
 
   const novos = recentes.filter(v => !vistos.has(v.id)).slice(0, METROPOLES_TIKTOK_POR_RODADA);
-  if (body.dry === "1" || body.dry === true) return res.status(200).json({ status: "ok", dry: true, listados: videos.length, recentes: recentes.length, novos });
+  if (body.dry === "1" || body.dry === true) return res.status(200).json({ ok: true, dry: true, listados: videos.length, recentes: recentes.length, novos });
   const criados = [];
   for (const v of novos) {
     const link = `https://www.tiktok.com/@${METROPOLES_TIKTOK_USER}/video/${v.id}`;
@@ -545,7 +547,7 @@ async function autoMetropolesTiktok(req, res, body) {
     await dispararReelsWorkflowAgora();
     await log("info", `[metropoles-tiktok] ${criados.length} vídeo(s) novo(s) enviados pra captura`);
   }
-  return res.status(200).json({ status: "ok", generated: criados.length, tipo: "metropoles_tiktok", listados: videos.length, recentes: recentes.length, criados });
+  return res.status(200).json({ ok: true, generated: criados.length, listados: videos.length, recentes: recentes.length, criados });
 }
 
 async function handleLinkJobFalhou(req, res, body) {
@@ -1857,6 +1859,7 @@ export default async function handler(req, res) {
   if (body.action === "link_job_falhou") return handleLinkJobFalhou(req, res, body);
   if (body.action === "link_captura_conta") return handleLinkCapturaConta(req, res, body);
   if (body.action === "link_captura_sessao") return handleLinkCapturaSessao(req, res, body);
+  if (body.action === "metropoles_tiktok_registrar") return handleMetropolesTiktokRegistrar(req, res, body);
   if (req.method !== "POST" && !isCronTrigger) return res.status(200).json({ status: "ready", message: "Funil editorial OVC ativo, aguardando POST controlado." });
   const override = body.override_pause === "OVC_TESTE_EDITORIAL";
   if (!(await automacaoAtiva())) return res.status(200).json({ status: "pipeline_pausado", message: "AUTOMATION=off. Nenhum conteudo foi gerado.", generated: 0 });
@@ -1874,7 +1877,6 @@ export default async function handler(req, res) {
     if (body.tipo === "jovempan_politica") return autoJovempanPolitica(req, res, rec);
     if (body.tipo === "internacional") return autoInternacional(req, res, rec);
     if (body.tipo === "fofocas") return autoFofocas(req, res, rec);
-    if (body.tipo === "metropoles_tiktok") return autoMetropolesTiktok(req, res, body);
     return autoMaterias(req, res, rec);
   }
   catch (e) { await log("error", `[pipeline] erro crítico: ${e.message?.slice(0,200)}`);
