@@ -1,4 +1,4 @@
-name: diag-once (Meta — tamanho do arquivo do Reel)
+name: diag-once (Meta — tamanho x duração)
 on:
   push:
     branches: [claude/adoring-edison-2pzu14]
@@ -20,11 +20,11 @@ jobs:
           ls -la src.mp4
           V="scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30"
           P="-x264-params scenecut=0:open_gop=0:keyint=60:min-keyint=60 -profile:v high -level 5.1 -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 -movflags +faststart"
-          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 88 -c:v libx264 -preset faster -crf 16 -maxrate 8M -bufsize 16M $P a_producao_88s.mp4
-          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 88 -c:v libx264 -preset faster -crf 23 -maxrate 3500k -bufsize 7M $P b_leve_88s.mp4
-          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 30 -c:v libx264 -preset faster -crf 16 -maxrate 8M -bufsize 16M $P c_producao_30s.mp4
+          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 30 -c:v libx264 -preset faster -crf 8 -maxrate 12M -bufsize 24M $P d_curto_pesado_30s.mp4
+          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 88 -c:v libx264 -preset faster -crf 30 -maxrate 1200k -bufsize 2400k $P e_longo_leve_88s.mp4
+          ffmpeg -loglevel error -y -i src.mp4 -vf "$V" -t 60 -c:v libx264 -preset faster -crf 26 -maxrate 2M -bufsize 4M $P f_medio_60s.mp4
           ls -la *.mp4
       - name: Enviar pra Meta (sem publicar)
         shell: bash {0}
         run: |
-          for f in a_producao_88s.mp4 b_leve_88s.mp4 c_producao_30s.mp4; do node .github/diag/ig_upload_test.mjs $f; done
+          for f in d_curto_pesado_30s.mp4 e_longo_leve_88s.mp4 f_medio_60s.mp4; do node .github/diag/ig_upload_test.mjs $f; done
