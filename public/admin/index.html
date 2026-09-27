@@ -1031,7 +1031,7 @@ function reelLayoutAuto(sw, sh) {
 }
 function reelSombraCss(bottomPx) {
   // Aproximação visual da sombra do template (mesma regra do runner).
-  if (bottomPx >= REEL_H * 0.66) return 'linear-gradient(to bottom, rgba(7,25,41,0) 0%, rgba(7,25,41,0) 34%, rgba(4,21,34,.18) 45%, rgba(2,11,19,.7) 54%, rgba(0,0,0,.97) 62%, #000 67%, #000 100%)';
+  if (bottomPx >= REEL_H * 0.66) return 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 72%, rgba(0,0,0,.25) 78%, rgba(0,0,0,.5) 84%, rgba(0,0,0,.62) 90%, rgba(0,0,0,.72) 100%)';
   const b = Math.min(66, Math.max(8, bottomPx / REEL_H * 100));
   return `linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) ${b}%, rgba(0,0,0,.5) ${b + 10}%, #000 ${b + 20}%, #000 100%)`;
 }
@@ -1081,7 +1081,9 @@ function rhManchetePrevia(titulo, h) {
   }));
   return { fontSize: sel.f, linhas };
 }
-const RH_PADRAO = { oculta: false, texto: '', maiusculas: true, tamanho: null, largura: null, x: null, y: null, cor: '#ffffff', cor_destaque: '#f28c22' };
+// 27/09/2026 — padrão passou a ser SEM manchete (Roberto: "não vamos usar
+// mais nossas chamadas, deixe sem"). Desmarcar "Sem manchete" para escrever.
+const RH_PADRAO = { oculta: true, texto: '', maiusculas: true, tamanho: null, largura: null, x: null, y: null, cor: '#ffffff', cor_destaque: '#f28c22' };
 const rhTituloLimpo = (post) => String(post?.titulo || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 
 function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
@@ -1234,8 +1236,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const mancheteParaSalvar = () => {
     const titulo = rhTituloLimpo(post);
     const m = manchete;
-    const padrao = !m.oculta && (!m.texto || m.texto.trim() === titulo) && m.maiusculas && !m.tamanho && !m.largura && m.x == null && m.y == null && m.cor === '#ffffff' && m.cor_destaque === '#f28c22';
-    if (padrao) return null;
+    if (m.oculta) return null;
     return { ...m, texto: (m.texto || '').trim() === titulo ? '' : (m.texto || '').trim() };
   };
 
@@ -1317,7 +1318,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
             {/* guias do template (aproximadas): sombra, logo, manchete, rodapé */}
             {L && <div style={{ position: 'absolute', inset: 0, background: reelSombraCss(Math.min(REEL_H, L.rect.y + L.rect.h)), pointerEvents: 'none' }} />}
             <div style={{ position: 'absolute', left: 350 * s, top: 25 * s, width: 380 * s, height: 205 * s, backgroundImage: 'url(/assets/ig-overlay-ovc-canva.png)', backgroundSize: `${REEL_W * s}px ${1350 * s}px`, backgroundPosition: `${-350 * s}px ${-25 * s}px`, pointerEvents: 'none' }} />
-            <img src="/assets/ig-footer-ovc-reels-canva.png" alt="" style={{ position: 'absolute', left: 350 * s, top: 1490 * s, width: 380 * s, height: 260 * s, pointerEvents: 'none' }} />
+            <img src="/assets/ig-footer-ovc-reels-canva.png" alt="" style={{ position: 'absolute', left: 350 * s, top: 1490 * s, width: 380 * s, height: 260 * s, pointerEvents: 'none', mixBlendMode: 'screen' }} />
           </div>
           {/* contorno arrastável + alças */}
           {L && (

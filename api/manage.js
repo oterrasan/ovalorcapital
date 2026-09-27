@@ -1733,7 +1733,10 @@ async function handleReelsRenderJob(req, res, body) {
       headline: current.headline || null,
       // 26/09/2026 — sem ajuste manual, vídeo do TikTok do Metrópoles ganha
       // enquadramento automático (detecta a manchete deles; ver render script).
-      auto_layout: !current.layout && /tiktok\.com\/@metropolesoficial/i.test(String(metrics.fonte_link_manual || "")) ? "metropoles" : null,
+      // 27/09/2026 — desligado a pedido do Roberto: a manchete original do
+      // Metrópoles (faixa branca) passa a ficar visível no Reel, em vez de
+      // ser escondida atrás do nosso rodapé.
+      auto_layout: null,
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
