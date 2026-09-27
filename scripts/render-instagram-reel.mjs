@@ -309,7 +309,12 @@ function colorForOpacity(opacity) {
 // 100% preta de 67% até o fim (metade do vídeo sumia). Agora só escurece a
 // faixa da manchete (52%–68%); fica escuro total só a partir de 78%, onde
 // o rodapé tem fundo preto próprio (sem isso ele vira um quadrado solto).
-const COVER_FADE_STOPS = [[0, 0], [46, 0], [52, 0.35], [57, 0.6], [64, 0.7], [71, 0.8], [76, 0.97], [78, 1], [100, 1]];
+// 27/09/2026 — Roberto: "a máscara de sombra escura está acabando com a
+// atratividade dos reels... deixe no rodapé apenas, subindo até a altura
+// do logo do OVC, um pouco acima apenas, mas sutil" (referência: Reel
+// montado por ele no Canva). Agora o vídeo fica limpo até ~72% da altura
+// e só o rodapé ganha uma sombra suave, nunca preto total.
+const COVER_FADE_STOPS = [[0, 0], [72, 0], [78, 0.25], [84, 0.5], [90, 0.62], [100, 0.72]];
 
 // Curva "smootherstep" (Ken Perlin) — ainda mais suave nas duas pontas que
 // um ease-in-out comum. Importante aqui: perto do vídeo (o ponto mais
@@ -369,6 +374,24 @@ function buildGradientSvg(stops) {
     </svg>`);
 }
 
+// O rodapé oficial (ig-footer-ovc-reels-canva.png) vem com fundo preto
+// opaco. Com a sombra suave (27/09/2026) ele viraria um quadrado preto
+// solto sobre o vídeo — aqui o fundo preto vira transparência (alfa pela
+// luminância, cor desmultiplicada), ficando só logo e textos, como no Canva.
+async function footerTransparente(path) {
+  const { data, info } = await sharp(path).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const out = Buffer.alloc(info.width * info.height * 4);
+  for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const a = Math.max(0, Math.min(1, (Math.max(r, g, b) - 10) / 50));
+    out[j] = a > 0 ? Math.min(255, Math.round(r / a)) : 0;
+    out[j + 1] = a > 0 ? Math.min(255, Math.round(g / a)) : 0;
+    out[j + 2] = a > 0 ? Math.min(255, Math.round(b / a)) : 0;
+    out[j + 3] = Math.round(a * 255);
+  }
+  return sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
+}
+
 async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx = HEIGHT) {
   const feedOverlay = resolve(root, "public", "assets", "ig-overlay-ovc-canva.png");
   const reelFooter = resolve(root, "public", "assets", "ig-footer-ovc-reels-canva.png");
@@ -377,14 +400,20 @@ async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx
   const topBrand = await sharp(feedOverlay).extract({ left: 350, top: 25, width: 380, height: 205 }).png().toBuffer();
   const gradient = buildGradientSvg(fitMode === "contain" ? buildContainFadeStops(videoOutHeightPx) : COVER_FADE_STOPS);
 
-  const headline = await buildHeadlineLayer(job.title, job.headline);
+  // 27/09/2026 — Roberto: "não vamos usar mais nossas chamadas, deixe sem".
+  // Manchete só quando ele escreve uma no editor do admin (headline salva e
+  // não oculta). Sem isso, o Reel sai sem manchete.
+  const headline = job.headline && job.headline.oculta !== true
+    ? await buildHeadlineLayer(job.title, job.headline)
+    : null;
+  const footer = await footerTransparente(reelFooter);
 
   await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
       { input: gradient, left: 0, top: 0 },
       ...(headline ? [headline] : []),
       { input: topBrand, left: 350, top: 25 },
-      { input: reelFooter, left: 350, top: 1490 }
+      { input: footer, left: 350, top: 1490 }
     ])
     .png({ compressionLevel: 9 })
     .toFile(outputPath);
@@ -576,6 +605,12 @@ async function detectEndTrim(job, inputPath) {
   return { trimSeconds, duration, detectedAt, cutAt, reason: "promotional_end_card" };
 }
 
+// 27/09/2026 — Roberto: "quero qualidade de alta definição, não quero mais
+// nada opaco". O vídeo da fonte quase sempre é ampliado (720p -> 1080x1920,
+// ainda mais depois do recorte de marca d'água): ampliação lanczos + nitidez
+// leve compensam o amolecimento da ampliação padrão (bicúbica).
+const NITIDEZ = "unsharp=5:5:0.55:3:3:0.0";
+
 async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cover") {
   const manualTrim = sanitizeTrim(job.layout?.trim);
   // Com fim escolhido no editor, a detecção automática de encerramento
@@ -608,7 +643,7 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
   if (fitMode === "custom") {
     const { crop: c, rect } = layout;
     const cropFilter = `crop=trunc(iw*${1 - c.l - c.r}/2)*2:trunc(ih*${1 - c.t - c.b}/2)*2:trunc(iw*${c.l}/2)*2:trunc(ih*${c.t}/2)*2`;
-    videoFilter = `${cropFilter},scale=${rect.w}:${rect.h},setsar=1,fps=30`;
+    videoFilter = `${cropFilter},scale=${rect.w}:${rect.h}:flags=lanczos,${NITIDEZ},setsar=1,fps=30`;
   } else if (fitMode === "contain") {
     // Vídeo horizontal/quadrado — encaixa no topo do quadro (Roberto,
     // 18/09/2026), mas AGORA com o mesmo recorte de segurança contra
@@ -622,7 +657,7 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     const cropWidth = 1 - cropSide * 2;
     const cropHeight = 1 - cropTop - cropBottom;
     const cropFilter = `crop=trunc(iw*${cropWidth}/2)*2:trunc(ih*${cropHeight}/2)*2:trunc(iw*${cropSide}/2)*2:trunc(ih*${cropTop}/2)*2`;
-    videoFilter = `${cropFilter},scale=${WIDTH}:-2,pad=${WIDTH}:${HEIGHT}:0:0:black,setsar=1,fps=30`;
+    videoFilter = `${cropFilter},scale=${WIDTH}:-2:flags=lanczos,${NITIDEZ},pad=${WIDTH}:${HEIGHT}:0:0:black,setsar=1,fps=30`;
   } else {
     // Vídeo vertical (comportamento original) — recorte de segurança pra
     // vídeos de terceiros (elimina marcas persistentes nas bordas), depois
@@ -633,7 +668,7 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     const cropWidth = 1 - cropSide * 2;
     const cropHeight = 1 - cropTop - cropBottom;
     const cropFilter = `crop=trunc(iw*${cropWidth}/2)*2:trunc(ih*${cropHeight}/2)*2:trunc(iw*${cropSide}/2)*2:trunc(ih*${cropTop}/2)*2`;
-    videoFilter = `${cropFilter},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase,crop=${WIDTH}:${HEIGHT},setsar=1,fps=30`;
+    videoFilter = `${cropFilter},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase:flags=lanczos,crop=${WIDTH}:${HEIGHT},${NITIDEZ},setsar=1,fps=30`;
   }
 
   const args = [
@@ -649,8 +684,8 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
       : `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
     "-map", "[out]", "-map", "0:a?",
     ...(outputDuration ? ["-t", outputDuration.toFixed(3)] : []),
-    "-c:v", "libx264", "-preset", "faster", "-crf", "16",
-    "-maxrate", "8M", "-bufsize", "16M",
+    "-c:v", "libx264", "-preset", "medium", "-crf", "16",
+    "-maxrate", "12M", "-bufsize", "24M",
     // 20/09/2026 — tentativa anterior (GOP fechado): não resolveu — 2
     // ProcessingFailedError reais foram REPRODUZIDOS de novo em 21/09/2026,
     // ao vivo, com este exato código (já com o GOP fechado abaixo), via
