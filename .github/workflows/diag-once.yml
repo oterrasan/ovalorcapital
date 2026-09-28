@@ -9,20 +9,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
+          cat > /tmp/parse.py << 'PYEOF'
+          import json, sys
+          for p in json.load(sys.stdin):
+              m = p.get('metrics') or {}
+              t = m.get('instagram_reel_template') or {}
+              print(p['id'], '|', p['titulo'])
+              print('  fonte_link_manual:', m.get('fonte_link_manual'))
+              print('  source_url:', t.get('source_url'))
+              print('  status:', t.get('status'), 'exhausted:', t.get('exhausted'), 'attempts:', t.get('attempts'))
+              print('  layout:', t.get('layout'))
+          PYEOF
           B="https://yntwvfcxjardzafdqanj.supabase.co/rest/v1"
           H1="apikey: $SB_KEY"; H2="Authorization: Bearer $SB_KEY"
           curl -s -H "$H1" -H "$H2" \
             "$B/posts?select=id,titulo,metrics&titulo=ilike.*Banhistas%20resgatam%20jovens*&order=updated_at.desc&limit=3" \
-            | python3 -c "
-import json,sys
-for p in json.load(sys.stdin):
-    m = p.get('metrics') or {}
-    t = m.get('instagram_reel_template') or {}
-    print(p['id'], '|', p['titulo'])
-    print('  fonte_link_manual:', m.get('fonte_link_manual'))
-    print('  source_url:', t.get('source_url'))
-    print('  status:', t.get('status'), 'exhausted:', t.get('exhausted'), 'attempts:', t.get('attempts'))
-    print('  layout:', t.get('layout'))
-"
+            | python3 /tmp/parse.py
         env:
           SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
