@@ -61,6 +61,18 @@ CORPO:
 
 let _geminiKeysCache = null;
 let _geminiKeysCacheTs = 0;
+// 28/09/2026 — Roberto: "as chaves precisam trabalhar e nunca travar". Bug
+// real confirmado nos logs de produção do dia: "GEMINI_API_KEY não
+// configurada no Supabase config" aparecendo repetidas vezes, mesmo com as
+// 3 chaves sempre presentes e válidas (confirmado testando as 3 direto
+// contra a API do Google). Causa: uma leitura do Supabase que falha ou
+// volta vazia por um instante (rede, latência) fazia esta função devolver
+// [] — e callGemini() lançava um erro que soa como "chave ausente" quando
+// nunca foi esse o caso. Fix: guarda a ÚLTIMA lista que funcionou de
+// verdade (nunca expira sozinha, só é trocada quando uma leitura nova tem
+// sucesso) e cai nela se a leitura atual falhar ou vier vazia — o pipeline
+// não trava mais por causa de um blip passageiro do banco.
+let _geminiKeysLastGood = null;
 // 18/08/2026 — Roberto autorizou criar novos projetos Google (contas/AI Studio
 // separados) para somar mais cota grátis de 20/dia cada (ver sessão 17/08/2026 —
 // teto real confirmado por projeto, as chaves de um mesmo projeto dividem o
@@ -75,13 +87,19 @@ async function _getGeminiKeys() {
   try {
     const wantedKeys = ["GEMINI_API_KEY"];
     for (let i = 2; i <= GEMINI_MAX_KEYS; i++) wantedKeys.push(`GEMINI_API_KEY_${i}`);
-    const { data } = await supabase.from("config").select("key,value").in("key", wantedKeys);
+    const { data, error } = await supabase.from("config").select("key,value").in("key", wantedKeys);
+    if (error) throw error;
     const keys = {};
     (data || []).forEach(r => { keys[r.key] = r.value; });
     const list = wantedKeys.map(k => keys[k]).filter(Boolean);
-    if (list.length) { _geminiKeysCache = list; _geminiKeysCacheTs = now; return list; }
+    if (list.length) {
+      _geminiKeysCache = list;
+      _geminiKeysCacheTs = now;
+      _geminiKeysLastGood = list;
+      return list;
+    }
   } catch (_) {}
-  return [];
+  return _geminiKeysLastGood || [];
 }
 
 async function _callGeminiWithKey(key, systemKernel, userContent, maxTokens) {
