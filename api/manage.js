@@ -1899,11 +1899,16 @@ async function handleReelsRenderJob(req, res, body) {
       // Metrópoles (faixa branca) passa a ficar visível no Reel, em vez de
       // ser escondida atrás do nosso rodapé.
       auto_layout: null,
-      // 28/09/2026 — Roberto: "vamos usar o vídeo todo da fonte do
-      // Metrópoles e deixar a chamada original que já vem no vídeo". Sem o
-      // recorte de segurança contra marca d'água (que corta 16% do topo e
-      // as laterais): o vídeo deles entra inteiro.
-      ...(/metropoles/i.test(String(metrics.fonte_link_manual || "")) ? { watermark_crop_top: 0, watermark_crop_bottom: 0, watermark_crop_side: 0 } : {}),
+      // 28/09/2026 (revertido no mesmo dia) — chegou a existir aqui uma
+      // isenção de recorte só pra fonte Metrópoles ("deixar a chamada
+      // original que já vem no vídeo"). Roberto voltou atrás horas depois:
+      // a marca do Metrópoles (e de qualquer outra fonte) NUNCA pode
+      // aparecer num Reel nosso — "isso nao pode ser". Removida a isenção;
+      // Metrópoles volta a usar o MESMO recorte de segurança que já se
+      // aplica, sem exceção, a todo vídeo de terceiro (containCropRatios /
+      // cropTop-Bottom-Side em scripts/render-instagram-reel.mjs) — não é
+      // um caso especial, é o comportamento padrão que já identifica e
+      // corta marca de qualquer fonte, Metrópoles incluído.
       // 28/09/2026 — Reel do @obrasilon sai com o layout do feed do Brasil ON
       // (vídeo cru, manchete na caixa amarela e ícone abaixo).
       marca: _reelsNormalizarConta(processing.conta_publicacao) === "obrasilon" ? "brasilon" : "ovc",
