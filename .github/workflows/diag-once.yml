@@ -14,4 +14,4 @@ jobs:
           node-version: '22'
       - run: npm i --no-save @supabase/supabase-js axios cheerio sharp
       - run: node scripts/one-off/diag-imagem.mjs
-# run 1790622200
+# run 1790622500
