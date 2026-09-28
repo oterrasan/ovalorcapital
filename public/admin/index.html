@@ -1486,6 +1486,20 @@ function ReelsFilaAprovados() {
     carregar();
   };
   const [postando,setPostando] = useState(null);
+  const [regenerando,setRegenerando] = useState(false);
+  const regenerarTodos = async () => {
+    try {
+      const chamar = async (dry) => { const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_regenerar_nao_publicados', dry}) }); return r.json(); };
+      setRegenerando(true);
+      const prev = await chamar(true);
+      if (!prev.ok) { alert('❌ ' + (prev.error||'falha')); return; }
+      if (!prev.remontados) { alert('Nenhum Reel não publicado para remontar.'); return; }
+      if (!confirm('Remontar ' + prev.remontados + ' Reels ainda não publicados no padrão atual (' + prev.aprovados + ' aprovados, que vão primeiro)?\n\nAprovação, enquadramento e manchete escolhidos são mantidos. A montagem leva alguns minutos por vídeo.')) return;
+      const d = await chamar(false);
+      if (d.ok) alert('✅ ' + d.remontados + ' Reels voltaram para a montagem.'); else alert('❌ ' + (d.error||'falha'));
+    } catch(e) { alert('❌ Erro de conexão: ' + e.message); }
+    finally { setRegenerando(false); carregar(); }
+  };
   const postarAgora = async (p) => {
     if (!confirm('Publicar agora no Instagram o Reel:\n\n' + (p.titulo||'') + '\n\nEle sai da fila e é publicado neste momento.')) return;
     setPostando(p.id);
@@ -1502,7 +1516,10 @@ function ReelsFilaAprovados() {
   const rotulo = t => t?.status === 'ready' ? '✅ pronto' : t?.exhausted ? '❌ falhou' : '⏳ montando';
   return (
     <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:14}}>
-      <div style={{fontSize:12,fontWeight:700,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:8}}>Fila de Reels aprovados {fila ? `(${fila.length})` : ''}</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:8}}>
+        <div style={{fontSize:12,fontWeight:700,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.04em'}}>Fila de Reels aprovados {fila ? `(${fila.length})` : ''}</div>
+        <button className="btn btn-secondary btn-sm" disabled={regenerando} title="Remonta no padrão atual todos os Reels que ainda não foram publicados" onClick={regenerarTodos}>{regenerando ? 'Remontando...' : '🔄 Remontar não publicados'}</button>
+      </div>
       {erro && <div style={{fontSize:12,color:'var(--red)'}}>Erro: {erro}</div>}
       {fila && !fila.length && <div style={{fontSize:12,color:'var(--t3)'}}>Nenhum Reel aprovado esperando.</div>}
       {fila && fila.map((p,i) => (
