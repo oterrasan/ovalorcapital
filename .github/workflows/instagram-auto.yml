@@ -257,6 +257,9 @@ jobs:
               break
             fi
 
+            # O runner usa `bash -e`: sem o `set +e` abaixo, um job que falha
+            # derruba a rodada inteira em vez de seguir pro próximo.
+            set +e
             (
               set -euo pipefail
               post_id=""
@@ -499,6 +502,7 @@ jobs:
               trap - ERR
             )
             job_status=$?
+            set -e
             if [ "$job_status" -eq 0 ]; then
               echo "=== Job #${job_num} concluído com sucesso (${SECONDS}s decorridos no total). ==="
             else
