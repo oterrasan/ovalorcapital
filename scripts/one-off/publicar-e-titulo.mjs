@@ -32,19 +32,30 @@ const CORPO_HTML = `
 
 async function main() {
   const hash = crypto.createHash("md5").update("e-titulo-emergencia-28092026_manual").digest("hex");
-  const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
-  if (dup) {
-    console.log("JA EXISTE — nao duplica. id:", dup.id);
+  const { data: dup } = await supabase.from("posts").select("id,status,imagem").eq("hash", hash).maybeSingle();
+  if (dup && dup.status === "publicado" && dup.imagem) {
+    console.log("JA EXISTE E JA PUBLICADO COM IMAGEM — nao duplica. id:", dup.id);
     console.log("URL:", `${SITE_BASE}/${CATEGORIA}/${SLUG.slice(0, 55)}-${String(dup.id).slice(0, 8)}/`);
     return;
   }
 
-  console.log("Buscando imagem real via GET buscar_imagem...");
-  const qs = new URLSearchParams({ action: "buscar_imagem", q: "urna eletronica eleicoes Brasil votacao", categoria: CATEGORIA }).toString();
-  const r = await fetch(`${SITE_BASE}/api/run_portal?${qs}`);
-  const j = await r.json().catch(() => ({}));
-  const img = j && j.url ? j.url : null;
-  console.log("Resultado buscar_imagem:", JSON.stringify(j));
+  console.log("Buscando imagem real via GET buscar_imagem (tentando varias queries)...");
+  const candidatos = [
+    "Urna eletronica",
+    "Tribunal Superior Eleitoral",
+    "Eleicoes no Brasil",
+    "Voto eletronico Brasil",
+    "Zona eleitoral Brasil",
+    "Brazilian electronic voting machine",
+  ];
+  let img = null;
+  for (const q of candidatos) {
+    const qs = new URLSearchParams({ action: "buscar_imagem", q, categoria: CATEGORIA }).toString();
+    const r = await fetch(`${SITE_BASE}/api/run_portal?${qs}`);
+    const j = await r.json().catch(() => ({}));
+    console.log(`  q="${q}" ->`, JSON.stringify(j));
+    if (j && j.url) { img = j.url; console.log("  ACEITA:", q); break; }
+  }
 
   const temImagemReal = !!img;
   const subSlug = SUBCAT_LABEL
@@ -85,9 +96,14 @@ async function main() {
     max_retries: 3
   };
 
-  const { data: saved, error } = await supabase.from("posts").insert(post).select("id").maybeSingle();
+  let saved, error;
+  if (dup) {
+    ({ data: saved, error } = await supabase.from("posts").update(post).eq("id", dup.id).select("id").maybeSingle());
+  } else {
+    ({ data: saved, error } = await supabase.from("posts").insert(post).select("id").maybeSingle());
+  }
   if (error) {
-    console.log("ERRO INSERT:", JSON.stringify(error));
+    console.log("ERRO", dup ? "UPDATE" : "INSERT", ":", JSON.stringify(error));
     process.exit(1);
   }
 
