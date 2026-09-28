@@ -4,8 +4,30 @@
 // documentado em scripts/emergency_publish_template.mjs.
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { scrape } from "/home/runner/work/ovalorcapital/ovalorcapital/core/scraper.js";
+import axios from "axios";
 import { processAndSaveImage } from "/home/runner/work/ovalorcapital/ovalorcapital/core/image_processor.js";
+
+// A API do commons.wikimedia.org bloqueia (403) requisições sem User-Agent
+// identificável (política oficial da Wikimedia) — confirmado por diagnóstico
+// real: sem headers -> 403; com UA próprio -> 200 e resultados reais.
+const UA_WIKI = "OVaC-portal-bot/1.0 (https://www.ovalorcapital.com.br; contato@ovalorcapital.com.br)";
+
+async function buscarImagemWikimedia(query) {
+  const apiUrl = "https://commons.wikimedia.org/w/api.php?action=query&generator=search" +
+    `&gsrsearch=${encodeURIComponent(query)}&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url|size&format=json&origin=*`;
+  const r = await axios.get(apiUrl, { timeout: 10000, headers: { "User-Agent": UA_WIKI }, validateStatus: () => true });
+  if (r.status !== 200) { console.log(`  wikimedia q="${query}" -> status ${r.status}`); return null; }
+  const pages = r.data?.query?.pages || {};
+  for (const p of Object.values(pages)) {
+    const url = p.imageinfo?.[0]?.url;
+    if (url && /\.(jpe?g|png|webp)(\?|$)/i.test(url)) {
+      console.log(`  wikimedia q="${query}" -> aceita: ${p.title} -> ${url}`);
+      return url;
+    }
+  }
+  console.log(`  wikimedia q="${query}" -> sem resultado de imagem valido`);
+  return null;
+}
 
 const supabase = createClient(
   "https://yntwvfcxjardzafdqanj.supabase.co",
@@ -43,28 +65,29 @@ async function main() {
 
   // "politica" nao esta em STOCK_IMAGE_CATS (api/run_portal.js) — decisao
   // deliberada do sistema pra nunca usar busca generica de banco de imagem
-  // nessa categoria (evita foto errada). Por isso buscar_imagem sempre
-  // devolve null aqui. Caminho certo: scrape() de fonte real (og:image)
-  // + processAndSaveImage(), mesmo padrao do template de emergencia.
-  console.log("Buscando imagem real via scrape() em fontes oficiais do TSE...");
-  const fontesImagem = [
-    "https://www.tse.jus.br/comunicacao/noticias/2026/Setembro/tse-concentra-esforcos-para-garantir-o-funcionamento-do-e-titulo-no-dia-da-eleicao",
-    "https://www.tse.jus.br/comunicacao/noticias/2026/Abril/eleitor-em-dia-baixe-o-e-titulo-e-tenha-o-documento-sempre-a-mao",
-    "https://www.tse.jus.br/comunicacao/noticias/2026/Abril/eleitor-em-dia-saiba-quais-documentos-sao-validos-para-votar-nas-eleicoes-2026",
+  // nessa categoria (evita foto errada). tse.jus.br bloqueia scraping (403,
+  // confirmado por diagnostico real). Caminho usado: Wikimedia Commons
+  // (fotos livres, licenca aberta) com User-Agent identificavel (a API
+  // bloqueia sem isso) + processAndSaveImage(), mesmo padrao de
+  // reprocessamento usado no resto do pipeline.
+  console.log("Buscando imagem real no Wikimedia Commons...");
+  const queries = [
+    "Brazilian DRE voting machine 2022 elections",
+    "Urna eletrônica Brasil",
+    "Tribunal Superior Eleitoral Brasil",
   ];
   let img = null;
   let sourceUsada = "";
-  for (const url of fontesImagem) {
+  for (const q of queries) {
     try {
-      const a = await scrape(url);
-      console.log(`  scrape(${url}) -> image:`, a?.image || "(vazio)");
-      if (a?.image) {
-        const processed = await processAndSaveImage(a.image, hash.slice(0, 12), Date.now(), {});
+      const url = await buscarImagemWikimedia(q);
+      if (url) {
+        const processed = await processAndSaveImage(url, hash.slice(0, 12), Date.now(), {});
         console.log("  processAndSaveImage ->", processed || "(falhou)");
         if (processed) { img = processed; sourceUsada = url; break; }
       }
     } catch (e) {
-      console.log(`  erro em ${url}:`, e?.message || e);
+      console.log(`  erro na query "${q}":`, e?.message || e);
     }
   }
 
