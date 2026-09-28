@@ -4537,7 +4537,7 @@ function AutomacaoInstagram() {
       sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED']).order('updated_at',{ascending:false}),
       sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
       sb.from('logs').select('level,message,created_at').gte('created_at',start).or('message.ilike.%[ig-auto]%,message.ilike.%[ig-collab]%').order('created_at',{ascending:false}).limit(100),
-      sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).eq('username','ovalorcapital').limit(1).maybeSingle(),
+      sb.from('ig_accounts').select('username,active,token,ig_user_id').eq('active',true).eq('username','ovalorcapital').limit(1).maybeSingle(),
       sb.from('ig_accounts').select('id,username,ig_user_id,token,active').order('username',{ascending:true})
     ]);
     const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
