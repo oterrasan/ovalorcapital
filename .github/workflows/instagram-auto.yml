@@ -457,6 +457,34 @@ jobs:
                 echo "HTTP do reenvio sem áudio: ${upload_http_code}"
                 cat upload-response.json; echo ""
               fi
+              # 28/09/2026 — teste real (diag 36361536216): o MESMO arquivo, com
+              # bytes praticamente idênticos, foi recusado (ProcessingFailedError)
+              # numa tentativa e aceito na seguinte. A recusa é intermitente do
+              # lado da Meta, não do tamanho/bitrate. Tenta mais 2 vezes, cada uma
+              # com um container novo, antes de marcar falha.
+              for retry_meta in 1 2; do
+                if [ "$upload_http_code" = "400" ] && grep -q "ProcessingFailedError" upload-response.json; then
+                  echo "Meta recusou de novo — nova tentativa ${retry_meta}/2 com container novo."
+                  sleep 20
+                  curl --fail -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
+                    -H "Content-Type: application/json" \
+                    -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+                    -d "{\"action\":\"reels_render_sem_audio\",\"post_id\":\"${post_id}\",\"claim_id\":\"${claim_id}\"}" \
+                    --max-time 45 -o sem-audio.json
+                  ig_upload_url=$(node -p 'require("./sem-audio.json").ig_upload_url')
+                  ig_upload_token=$(node -p 'require("./sem-audio.json").ig_upload_token')
+                  echo "::add-mask::${ig_upload_token}"
+                  file_size=$(stat -c%s reel-final.mp4)
+                  upload_http_code=$(curl -sS -o upload-response.json -w "%{http_code}" -X POST "$ig_upload_url" \
+                    -H "Authorization: OAuth ${ig_upload_token}" \
+                    -H "offset: 0" \
+                    -H "file_size: ${file_size}" \
+                    -H "Content-Type: application/octet-stream" \
+                    --data-binary @reel-final.mp4 --max-time 300)
+                  echo "HTTP da nova tentativa ${retry_meta}: ${upload_http_code}"
+                  cat upload-response.json; echo ""
+                fi
+              done
               if [ "$upload_http_code" != "200" ]; then
                 error_detail="upload_http_${upload_http_code}: $(tr -d '\n' < upload-response.json | cut -c1-400)"
                 echo "Upload recusado pela Meta — motivo real: ${error_detail}"
