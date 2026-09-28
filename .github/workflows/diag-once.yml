@@ -1,8 +1,62 @@
-name: diag-once (placeholder — nenhum diagnóstico ativo agora)
+name: diag-once (Reels recusados pela Meta — teste de bitrate, 28/09/2026)
 on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 jobs:
-  noop:
+  teste:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
-      - run: echo "placeholder — edite este arquivo quando precisar rodar um diagnóstico real"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar
+        run: |
+          npm ci --omit=dev --ignore-scripts || npm install --ignore-scripts
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: Renderizar variantes e subir pra Meta (sem publicar)
+        run: |
+          set -u
+          cat > fonte.mjs << 'EOF'
+          import { createClient } from "@supabase/supabase-js";
+          import fs from "node:fs";
+          const src = fs.readFileSync("core/instagram.js", "utf8");
+          const key = src.match(/SUPABASE_KEY \|\| "([^"]+)"/)[1];
+          const sb = createClient("https://yntwvfcxjardzafdqanj.supabase.co", key);
+          const id = process.argv[2];
+          const { data, error } = await sb.from("posts").select("id,metrics").eq("id", id).limit(1); if (error) console.error(JSON.stringify(error));
+          console.log(data?.[0]?.metrics?.instagram_reel_template?.source_url || "");
+          EOF
+          cat > container.mjs << 'EOF'
+          import fs from "node:fs";
+          import { createReelContainerResumable } from "./core/instagram.js";
+          const r = await createReelContainerResumable("teste tecnico - nao publicar", null);
+          fs.writeFileSync("c.json", JSON.stringify({ url: r.upload_url, token: r.upload_token, id: r.creation_id }));
+          EOF
+          COMUM='-t 88 -r 30 -c:v libx264 -x264-params scenecut=0:open_gop=0:keyint=60:min-keyint=60 -profile:v high -level 5.1 -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 -movflags +faststart -shortest'
+          VELHO='scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30'
+          NOVO='scale=1080:1920:force_original_aspect_ratio=increase:flags=lanczos,crop=1080:1920,unsharp=5:5:0.55:3:3:0.0,setsar=1,fps=30'
+          subir () {
+            node container.mjs || { echo "  container falhou"; return; }
+            U=$(node -p 'require("./c.json").url'); T=$(node -p 'require("./c.json").token')
+            echo "::add-mask::$T"
+            S=$(stat -c%s "$1")
+            H=$(curl -sS -o r.json -w "%{http_code}" -X POST "$U" -H "Authorization: OAuth $T" -H "offset: 0" -H "file_size: $S" -H "Content-Type: application/octet-stream" --data-binary @"$1" --max-time 300)
+            BR=$(ffprobe -v error -show_entries format=bit_rate -of csv=p=0 "$1")
+            echo "  RESULTADO $2: tamanho=${S} bytes bitrate=${BR} HTTP=${H} $(cat r.json)"
+          }
+          for P in dda43fb0-7b16-4f26-9fd1-ed2193176dbf 6d1b7482-de49-47ed-850d-fc94d9f28cb6; do
+            URL=$(node fonte.mjs $P)
+            echo "=== post $P fonte: $URL"
+            [ -z "$URL" ] && continue
+            curl -sSL --max-time 120 -o src.mp4 "$URL" || continue
+            ffprobe -v error -show_entries stream=codec_name,width,height,bit_rate -show_entries format=duration -of compact src.mp4
+            # sem áudio em todas as variantes, pra isolar o vídeo (direito autoral de música fica fora do teste)
+            ffmpeg -hide_banner -loglevel error -y -i src.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo -map 0:v -map 1:a -vf "$VELHO" -preset faster -maxrate 8M -bufsize 16M -crf 16 $COMUM A.mp4 && subir A.mp4 "$P A-antigo(faster,8M,sem nitidez)"
+            ffmpeg -hide_banner -loglevel error -y -i src.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo -map 0:v -map 1:a -vf "$NOVO" -preset medium -maxrate 12M -bufsize 24M -crf 16 $COMUM B.mp4 && subir B.mp4 "$P B-novo(medium,12M,nitidez)"
+            ffmpeg -hide_banner -loglevel error -y -i src.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo -map 0:v -map 1:a -vf "$NOVO" -preset medium -maxrate 8M -bufsize 16M -crf 16 $COMUM C.mp4 && subir C.mp4 "$P C-novo-com-teto-8M"
+            ffmpeg -hide_banner -loglevel error -y -i src.mp4 -f lavfi -i anullsrc=r=48000:cl=stereo -map 0:v -map 1:a -vf "$NOVO" -preset medium -maxrate 8M -bufsize 16M -crf 20 $COMUM D.mp4 && subir D.mp4 "$P D-novo-8M-crf20"
+          done
