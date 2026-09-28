@@ -1,4 +1,4 @@
-name: diag-once (publicar materia e-Titulo)
+name: diag-once (ig_accounts oterrasan)
 on:
   workflow_dispatch:
   push:
@@ -12,6 +12,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm i --no-save @supabase/supabase-js axios cheerio sharp
-      - run: node scripts/one-off/publicar-e-titulo.mjs
-# run 1790623000
+      - run: npm i --no-save @supabase/supabase-js
+      - run: node scripts/one-off/diag-ig-accounts.mjs
+# run 1790623100
