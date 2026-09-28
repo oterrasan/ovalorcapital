@@ -4,6 +4,8 @@
 // documentado em scripts/emergency_publish_template.mjs.
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { scrape } from "/home/runner/work/ovalorcapital/ovalorcapital/core/scraper.js";
+import { processAndSaveImage } from "/home/runner/work/ovalorcapital/ovalorcapital/core/image_processor.js";
 
 const supabase = createClient(
   "https://yntwvfcxjardzafdqanj.supabase.co",
@@ -39,22 +41,31 @@ async function main() {
     return;
   }
 
-  console.log("Buscando imagem real via GET buscar_imagem (tentando varias queries)...");
-  const candidatos = [
-    "Urna eletronica",
-    "Tribunal Superior Eleitoral",
-    "Eleicoes no Brasil",
-    "Voto eletronico Brasil",
-    "Zona eleitoral Brasil",
-    "Brazilian electronic voting machine",
+  // "politica" nao esta em STOCK_IMAGE_CATS (api/run_portal.js) — decisao
+  // deliberada do sistema pra nunca usar busca generica de banco de imagem
+  // nessa categoria (evita foto errada). Por isso buscar_imagem sempre
+  // devolve null aqui. Caminho certo: scrape() de fonte real (og:image)
+  // + processAndSaveImage(), mesmo padrao do template de emergencia.
+  console.log("Buscando imagem real via scrape() em fontes oficiais do TSE...");
+  const fontesImagem = [
+    "https://www.tse.jus.br/comunicacao/noticias/2026/Setembro/tse-concentra-esforcos-para-garantir-o-funcionamento-do-e-titulo-no-dia-da-eleicao",
+    "https://www.tse.jus.br/comunicacao/noticias/2026/Abril/eleitor-em-dia-baixe-o-e-titulo-e-tenha-o-documento-sempre-a-mao",
+    "https://www.tse.jus.br/comunicacao/noticias/2026/Abril/eleitor-em-dia-saiba-quais-documentos-sao-validos-para-votar-nas-eleicoes-2026",
   ];
   let img = null;
-  for (const q of candidatos) {
-    const qs = new URLSearchParams({ action: "buscar_imagem", q, categoria: CATEGORIA }).toString();
-    const r = await fetch(`${SITE_BASE}/api/run_portal?${qs}`);
-    const j = await r.json().catch(() => ({}));
-    console.log(`  q="${q}" ->`, JSON.stringify(j));
-    if (j && j.url) { img = j.url; console.log("  ACEITA:", q); break; }
+  let sourceUsada = "";
+  for (const url of fontesImagem) {
+    try {
+      const a = await scrape(url);
+      console.log(`  scrape(${url}) -> image:`, a?.image || "(vazio)");
+      if (a?.image) {
+        const processed = await processAndSaveImage(a.image, hash.slice(0, 12), Date.now(), {});
+        console.log("  processAndSaveImage ->", processed || "(falhou)");
+        if (processed) { img = processed; sourceUsada = url; break; }
+      }
+    } catch (e) {
+      console.log(`  erro em ${url}:`, e?.message || e);
+    }
   }
 
   const temImagemReal = !!img;
@@ -85,10 +96,10 @@ async function main() {
       meta_descricao: META_DESCRICAO,
       meta_title: META_TITLE,
       tipo_conteudo: "manual_emergencia",
-      source_url: "",
+      source_url: sourceUsada,
       source_title: "TSE — apuração multi-fonte (WebSearch)",
-      source_image_url: "",
-      image_strategy: img ? "buscar_imagem" : "none",
+      source_image_url: sourceUsada,
+      image_strategy: img ? "source_article" : "none",
       image_original_url: img || ""
     },
     priority: 1,
