@@ -713,25 +713,34 @@ async function _igAutoConfig() {
   };
 }
 
-// 28/09/2026 — Roberto (teste de alcance): "nos posts e nos reels, preciso
-// que a minha conta seja a conta que posta e envia as colabs para o valor
-// capital". Escolha no admin (Automação Instagram → Conta que publica),
-// separada para feed e Reels. Padrão: @ovalorcapital. Quando a conta que
-// publica é outra, o colaborador é sempre o @ovalorcapital
-// (collaboratorsFor em core/instagram.js).
+// 28/09/2026 — Roberto (teste de alcance): a conta que publica pode ser o
+// @ovalorcapital (padrão) ou o @oterrasan; quando é o @oterrasan, o único
+// colaborador é o @ovalorcapital, que aceita e curte sozinho
+// (collaboratorsFor/acceptCollabsForMedia em core/instagram.js).
+//   - Feed: escolha geral no admin (Automação Instagram → Conta do feed).
+//   - Reels: escolhida em cada Reel, na hora de aprovar
+//     (template.conta_publicacao, ver handleReelsAprovar).
 const IG_PUBLICADORES_VALIDOS = ["ovalorcapital", "oterrasan"];
 function _igNormalizarPublicador(raw) {
   const nome = String(raw || "").replace(/^@/, "").trim().toLowerCase();
   return IG_PUBLICADORES_VALIDOS.includes(nome) ? nome : "ovalorcapital";
 }
 
-async function _igPublicadorReels() {
-  try {
-    const { data } = await supabase.from("config").select("value,updated_at").eq("key", "IG_PUBLICADOR_REELS").order("updated_at", { ascending: false }).limit(1);
-    return _igNormalizarPublicador(data?.[0]?.value);
-  } catch (_) {
-    return "ovalorcapital";
-  }
+// Conta escolhida para o Reel (template.conta_publicacao) → id em ig_accounts.
+// null = @ovalorcapital (padrão de getAccount em core/instagram.js).
+async function _reelsContaIdDoTemplate(tpl) {
+  const conta = _igNormalizarPublicador(tpl?.conta_publicacao);
+  if (conta === "ovalorcapital") return null;
+  const id = await _igContaIdPorUsername(conta);
+  if (!id) throw new Error(`conta @${conta} inativa ou sem token`);
+  return id;
+}
+
+// true quando o vídeo já foi entregue à Meta numa conta diferente da escolhida.
+function _reelsContaDivergente(tpl) {
+  if (!tpl?.ig_creation_id || !tpl?.ig_username) return false;
+  const dona = String(tpl.ig_username).replace(/^@/, "").toLowerCase();
+  return dona !== _igNormalizarPublicador(tpl.conta_publicacao);
 }
 
 async function _igContaIdPorUsername(username) {
@@ -1729,11 +1738,10 @@ async function handleReelsRenderJob(req, res, body) {
   let ig;
   try {
     const { createReelContainerResumable } = await _loadInstagram();
-    let contaReel = candidate.ig_account_id || null;
-    if (!contaReel) {
-      const publicadorReels = await _igPublicadorReels();
-      if (publicadorReels !== "ovalorcapital") contaReel = await _igContaIdPorUsername(publicadorReels);
-    }
+    // Conta escolhida por Roberto ao aprovar o Reel; sem escolha, @ovalorcapital.
+    const contaEscolhida = _igNormalizarPublicador(processing.conta_publicacao);
+    const contaReel = contaEscolhida === "ovalorcapital" ? null : await _igContaIdPorUsername(contaEscolhida);
+    if (contaEscolhida !== "ovalorcapital" && !contaReel) throw new Error(`conta @${contaEscolhida} inativa ou sem token`);
     ig = await createReelContainerResumable(caption, contaReel);
   } catch (igError) {
     processing.status = "error";
@@ -2014,7 +2022,7 @@ async function handleReelsSetFinalFile(req, res, body) {
   let ig;
   try {
     const { createReelContainer } = await _loadInstagram();
-    ig = await createReelContainer(finalUrl, buildInstagramCaption(post), body?.account_id || post.ig_account_id || null);
+    ig = await createReelContainer(finalUrl, buildInstagramCaption(post), await _reelsContaIdDoTemplate(previous));
   } catch (e) {
     return res.status(200).json({ ok: false, error: redactSecrets(e?.message || String(e)).slice(0, 500) });
   }
@@ -2264,7 +2272,8 @@ async function _reelsPublicarPost(post, accountId) {
   const template = _reelsTemplate(post.metrics) || {};
   const creationId = template.ig_creation_id;
   if (!creationId) throw new Error("reel_sem_creation_id_da_meta");
-  const igAccountId = accountId || template.ig_account_id || null;
+  // O container pertence à conta onde foi montado: publicar sempre por ela.
+  const igAccountId = template.ig_account_id || accountId || null;
 
   const { getAccount, postComment, likeMedia, publishAlreadyUploadedReel } = await _loadInstagram();
   const ig = await publishAlreadyUploadedReel(creationId, igAccountId);
@@ -2368,6 +2377,11 @@ async function handleReelsPublish(req, res, body) {
     });
   }
 
+  if (_reelsContaDivergente(_reelsTemplate(post.metrics))) {
+    try { await _reelsRemontarMantendoAprovacao(post.id); } catch (_) {}
+    return res.status(409).json({ ok: false, pending: true, error: "reel_sendo_remontado_na_conta_escolhida" });
+  }
+
   // 26/09/2026 — botão "Postar agora" da fila de aprovados: reserva o Reel
   // antes de publicar (mesma trava da automação), para o clique e a
   // automação nunca publicarem o mesmo vídeo duas vezes.
@@ -2455,7 +2469,8 @@ async function _reelsRemontarMantendoAprovacao(postId) {
   if (!tpl) return;
   metrics.instagram_reel_template = {
     ...tpl, status: "pending", attempts: 0, exhausted: false,
-    ig_creation_id: null, queued_at: new Date().toISOString()
+    ig_creation_id: null, queued_at: new Date().toISOString(),
+    ...(tpl.aprovado === true ? { priority_at: new Date().toISOString() } : {})
   };
   await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", postId);
   try { await _dispatchReelsWorkflowAgora(); } catch (_) {}
@@ -2471,7 +2486,7 @@ async function handleReelsAprovar(req, res, body) {
   if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
   const aprovar = body?.aprovado !== false;
 
-  const { data: post, error } = await supabase.from("posts").select("id,status,published_at,video_url,metrics").eq("id", postId).single();
+  const { data: post, error } = await supabase.from("posts").select("id,titulo,conteudo,comentario_fixado,user_tags,status,published_at,video_url,metrics").eq("id", postId).single();
   if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
   const metrics = parseJsonMaybe(post.metrics, {});
   const tpl = metrics.instagram_reel_template;
@@ -2481,9 +2496,32 @@ async function handleReelsAprovar(req, res, body) {
   }
 
   const now = new Date().toISOString();
-  metrics.instagram_reel_template = aprovar
-    ? { ...tpl, aprovado: true, aprovado_em: now }
-    : { ...tpl, aprovado: false, aprovado_em: null, removido_da_fila_em: now };
+  // 28/09/2026 — conta escolhida por Roberto para este Reel
+  // (@ovalorcapital ou @oterrasan + collab @ovalorcapital).
+  const conta = body?.conta !== undefined ? _igNormalizarPublicador(body.conta) : _igNormalizarPublicador(tpl.conta_publicacao);
+  if (aprovar && conta !== "ovalorcapital" && !(await _igContaIdPorUsername(conta))) {
+    return res.status(409).json({ ok: false, error: `conta @${conta} inativa ou sem token em Contas` });
+  }
+  let novo = aprovar
+    ? { ...tpl, aprovado: true, aprovado_em: tpl.aprovado === true && tpl.aprovado_em ? tpl.aprovado_em : now, conta_publicacao: conta }
+    : { ...tpl, aprovado: false, aprovado_em: null, removido_da_fila_em: now, conta_publicacao: conta };
+  // Vídeo já entregue à Meta em outra conta: entrega de novo na conta escolhida.
+  let remontar = false;
+  if (aprovar && _reelsContaDivergente(novo) && novo.status !== "processing") {
+    if (novo.manual_final && novo.final_url) {
+      try {
+        const { createReelContainer } = await _loadInstagram();
+        const ig = await createReelContainer(novo.final_url, buildInstagramCaption(post), await _reelsContaIdDoTemplate(novo));
+        novo = { ...novo, ig_creation_id: ig.creation_id, ig_account_id: ig.account_id, ig_username: ig.username };
+      } catch (e) {
+        return res.status(200).json({ ok: false, error: "nao_consegui_trocar_a_conta: " + redactSecrets(e?.message || String(e)).slice(0, 300) });
+      }
+    } else {
+      novo = { ...novo, status: "pending", attempts: 0, exhausted: false, ig_creation_id: null, queued_at: now, priority_at: now };
+      remontar = true;
+    }
+  }
+  metrics.instagram_reel_template = novo;
   const patch = { metrics, updated_at: now };
   if (aprovar) {
     patch.video_url = null;
@@ -2499,8 +2537,9 @@ async function handleReelsAprovar(req, res, body) {
   if (aprovar && patch.status === "publicado") {
     try { await mirrorPostToBrasilOn(row); } catch (_) {}
   }
-  await writeLog("info", `[reels] ${aprovar ? "aprovado para a fila" : "retirado da fila"}: ${row?.titulo || postId}`);
-  return res.status(200).json({ ok: true, aprovado: aprovar, template_status: tpl.status, publicado_no_portal: patch.status === "publicado" || post.status === "publicado" });
+  if (remontar) { try { await _dispatchReelsWorkflowAgora(); } catch (_) {} }
+  await writeLog("info", `[reels] ${aprovar ? `aprovado para a fila (@${conta})` : "retirado da fila"}${remontar ? " — remontando na conta escolhida" : ""}: ${row?.titulo || postId}`);
+  return res.status(200).json({ ok: true, aprovado: aprovar, conta, remontando: remontar, template_status: novo.status, publicado_no_portal: patch.status === "publicado" || post.status === "publicado" });
 }
 
 // Automático — só Reels aprovados por Roberto, janela 08h-22h BRT, alternando com o feed.
@@ -2575,14 +2614,22 @@ async function handleReelsAutoPublish(req, res, body) {
       if (!_reelsTemplateReady(p)) return false;
       return true;
     });
+    // 28/09/2026 — Reel entregue à Meta numa conta diferente da escolhida
+    // na aprovação: volta pra montagem na conta certa em vez de publicar.
+    const divergentes = elegiveis.filter((p) => _reelsContaDivergente(_reelsTemplate(p.metrics)));
+    for (const p of divergentes) {
+      try { await _reelsRemontarMantendoAprovacao(p.id); } catch (_) {}
+    }
+    for (const p of divergentes) elegiveis.splice(elegiveis.indexOf(p), 1);
     if (!elegiveis.length) {
       return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_reel_aprovado_pronto", publicados_hoje: publicadosHoje });
     }
     const aprovadoEm = (p) => Date.parse(_reelsTemplate(p.metrics)?.aprovado_em || "") || 0;
     elegiveis.sort((a, b) => aprovadoEm(a) - aprovadoEm(b));
 
-    const account = accounts.find((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === "ovalorcapital") || accounts[0];
-    const post = elegiveis.find((p) => !p.ig_account_id || String(p.ig_account_id) === String(account.id)) || elegiveis[0];
+    // Cada Reel sai pela conta onde foi montado (a escolhida na aprovação).
+    const post = elegiveis[0];
+    const account = { id: _reelsTemplate(post.metrics)?.ig_account_id || null };
 
     const claimId = `processing:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
     const claimed = await _reelsClaim(post, claimId);
