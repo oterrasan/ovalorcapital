@@ -3256,22 +3256,15 @@ function Relatorios() {
     }
     const posts = allPosts;
 
-    // Buscar logs do período — sem limite
-    let allLogs = [];
-    let fromL = 0;
-    while (true) {
-      const q2 = sb.from('logs')
-        .select('level,message,created_at')
-        .order('created_at', {ascending: false})
-        .range(fromL, fromL + 500 - 1);
-      if (periodo < 3650) q2.gte('created_at', inicio);
-      const { data: pageL } = await q2;
-      if (!pageL || pageL.length === 0) break;
-      allLogs = allLogs.concat(pageL);
-      if (pageL.length < 500) break;
-      fromL += 500;
-    }
-    const logs = allLogs;
+    // Erros do período — 2 consultas diretas (contagem + últimos 10),
+    // não mais paginar TODOS os logs do período (podia passar de 7 mil
+    // linhas / 15 idas ao banco em série só pra contar quantos são erro).
+    let q2 = sb.from('logs').select('level', {count: 'exact', head: true}).eq('level', 'error');
+    if (periodo < 3650) q2 = q2.gte('created_at', inicio);
+    const { count: erros_count_raw } = await q2;
+    let q3 = sb.from('logs').select('level,message,created_at').eq('level', 'error').order('created_at', {ascending: false}).limit(10);
+    if (periodo < 3650) q3 = q3.gte('created_at', inicio);
+    const { data: ultimosErrosData } = await q3;
 
     if (!posts) { setLoading(false); return; }
 
@@ -3279,7 +3272,7 @@ function Relatorios() {
     const total = posts.length;
     const publicados = posts.filter(p => p.status === 'publicado').length;
     const pendentes = posts.filter(p => p.status === 'pendente').length;
-    const erros_count = (logs||[]).filter(l => l.level === 'error').length;
+    const erros_count = erros_count_raw || 0;
 
     // Posts por dia — datas em BRT
     const brtDay = d => new Date(toUtcISO(d)).toLocaleString('sv',{timeZone:'America/Sao_Paulo'}).slice(0,10);
@@ -3309,8 +3302,8 @@ function Relatorios() {
     // Média diária
     const mediaDiaria = periodo > 0 ? (publicados / periodo).toFixed(1) : 0;
 
-    // Últimos erros
-    const ultimosErros = (logs||[]).filter(l => l.level === 'error').slice(0, 10);
+    // Últimos erros — já vem filtrado e ordenado da consulta acima.
+    const ultimosErros = ultimosErrosData || [];
 
     setDados({ total, publicados, pendentes, erros_count, porDia, porCat, porMetodo, mediaDiaria, ultimosErros, posts: posts.slice(0,10) });
     setLoading(false);
