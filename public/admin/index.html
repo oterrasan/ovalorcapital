@@ -963,6 +963,48 @@ const igPublicacaoInfo = (post) => {
   const conta = m?.instagram_reel?.username || m?.instagram?.username || '';
   return { feed, reel, publicado: feed || reel, publicando: publicando && !feed && !reel, quando, conta };
 };
+// 28/09/2026 — situação de cada matéria em 3 partes separadas (portal,
+// vídeo, Instagram), para os filtros e as etiquetas da tela Matérias.
+function metricsObj(p){ if(!p||!p.metrics) return {}; if(typeof p.metrics==='string'){ try{ return JSON.parse(p.metrics)||{}; }catch(_){ return {}; } } return p.metrics; }
+function situacaoMateria(p){
+  const m = metricsObj(p);
+  const t = m.instagram_reel_template || null;
+  const reelId = String(m.instagram_reel?.ig_id||'');
+  const reelPub = reelId && !reelId.startsWith('processing:');
+  const feedId = String(m.instagram?.ig_id || (p.ig_id && !String(p.ig_id).startsWith('processing:') ? p.ig_id : '') || '');
+  const portal = p.status==='publicado' ? {txt:'Publicada',cor:'#4ade80'} : p.status==='pendente' ? {txt:'Pendente',cor:'#fbbf24'} : {txt:p.status||'—',cor:'#f87171'};
+  let video;
+  if (reelPub) video = {txt:'Reel publicado',cor:'#4ade80'};
+  else if (reelId) video = {txt:'Publicando Reel…',cor:'#60a5fa'};
+  else if (!t) video = p.video_url ? {txt:'Vídeo só no site',cor:'#a3a3a3'} : {txt:'Sem vídeo',cor:'var(--t3)'};
+  else if (t.status==='embed_only') video = {txt:'YouTube (só no site)',cor:'#a3a3a3'};
+  else if (t.aprovado===true) video = {txt:'Na fila' + (t.conta_publicacao?` · @${t.conta_publicacao}`:''),cor:'#60a5fa'};
+  else if (t.status==='ready') video = {txt:'Pronto p/ aprovar',cor:'#fbbf24'};
+  else if (t.status==='pending'||t.status==='processing') video = {txt:'Montando Reel',cor:'#a78bfa'};
+  else if (t.status==='error') video = {txt:t.exhausted?'Erro no Reel (parou)':'Erro no Reel (vai tentar de novo)',cor:'#f87171'};
+  else if (t.status==='discarded') video = {txt:'Reel publicado',cor:'#4ade80'};
+  else video = {txt:'Vídeo: '+t.status,cor:'#a3a3a3'};
+  let ig;
+  if (reelPub) ig = {txt:'Reel' + (m.instagram_reel?.username?` @${m.instagram_reel.username}`:''),cor:'#f472b6'};
+  else if (feedId) ig = {txt:'Feed' + (m.instagram?.username?` @${m.instagram.username}`:''),cor:'#f472b6'};
+  else ig = {txt:'Não saiu',cor:'var(--t3)'};
+  return {portal, video, ig};
+}
+function Etiqueta({rotulo, v, onClick}){
+  return <div onClick={onClick} style={{display:'flex',gap:6,alignItems:'center',fontSize:11,lineHeight:'18px',cursor:onClick?'pointer':'default',whiteSpace:'nowrap'}}><span style={{color:'var(--t3)',width:56}}>{rotulo}</span><span style={{color:v.cor,fontWeight:600}}>{v.txt}</span></div>;
+}
+const T_REEL = 'metrics->instagram_reel_template';
+function aplicarFiltroVideo(q, f){
+  if (f==='sem') return q.is('video_url',null).is(T_REEL,null);
+  if (f==='com') return q.or(`video_url.not.is.null,${T_REEL}.not.is.null`);
+  if (f==='aguardando') return q.eq(`${T_REEL}->>status`,'ready').or(`${T_REEL}->>aprovado.is.null,${T_REEL}->>aprovado.eq.false`).is('metrics->instagram_reel->>ig_id',null);
+  if (f==='montando') return q.in(`${T_REEL}->>status`,['pending','processing']);
+  if (f==='fila') return q.eq(`${T_REEL}->>aprovado`,'true').is('metrics->instagram_reel->>ig_id',null);
+  if (f==='erro') return q.eq(`${T_REEL}->>status`,'error');
+  if (f==='reel') return q.not('metrics->instagram_reel->>ig_id','is',null).not('metrics->instagram_reel->>ig_id','like','processing:%');
+  return q;
+}
+
 const IG_FILTRO_PUBLICADO_OR = 'and(ig_id.not.is.null,ig_id.not.like.processing:*),metrics->instagram->>ig_id.not.is.null,metrics->instagram_reel->>ig_id.not.is.null';
 const IG_FILTRO_FEED_OR = 'and(ig_id.not.is.null,ig_id.not.like.processing:*),metrics->instagram->>ig_id.not.is.null';
 function IgPublicacaoBadge({ post }) {
@@ -1724,7 +1766,7 @@ function Postagens() {
   // saído da 1ª página. Filtro SERVIDOR (não só client-side como os
   // smartFilter de imagem abaixo) — busca direto video_url IS NOT NULL,
   // sempre encontra, não importa quantas outras matérias saíram depois.
-  const [filterVideo, setFilterVideo] = useState(false);
+  const [filterVideo, setFilterVideo] = useState('');
   // '' | 'publicado' | 'feed' | 'reel' | 'nao' — filtro no BANCO (acha em qualquer página)
   const [filterIg, setFilterIg] = useState('');
   const [totalCount, setTotalCount] = useState(0);
@@ -1865,7 +1907,7 @@ function Postagens() {
     if (filterMethod) q=q.eq('publish_method',filterMethod);
     if (filterTipo==='sem_tipo') q=q.is('tipo_conteudo',null);
     else if (filterTipo) q=q.eq('tipo_conteudo',filterTipo);
-    if (filterVideo) q=q.not('video_url','is',null);
+    q = aplicarFiltroVideo(q, filterVideo);
     if (filterIg==='publicado') q=q.or(IG_FILTRO_PUBLICADO_OR);
     else if (filterIg==='feed') q=q.or(IG_FILTRO_FEED_OR);
     else if (filterIg==='reel') q=q.not('metrics->instagram_reel->>ig_id','is',null);
@@ -1893,7 +1935,7 @@ function Postagens() {
 
   useEffect(()=>{load();},[load]);
 
-  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilterVideo(false); setFilter('all'); setPage(0); };
+  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilterVideo(''); setFilterIg(''); setFilter('all'); setPage(0); };
 
   const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => {
@@ -2239,7 +2281,7 @@ function Postagens() {
 
   return (
     <div>
-      <div className="page-header"><div className="page-title">Postagens</div><div className="page-sub">Aprovação, edição e histórico de posts</div></div>
+      <div className="page-header"><div className="page-title">📝 Matérias</div><div className="page-sub">Cada matéria mostra 3 situações: no portal, no vídeo (Reel) e no Instagram. Filtre por qualquer uma delas.</div></div>
       <div className="page-body">
         {previewPost&&(() => {
           const ig = buildIgCaption(previewPost);
@@ -2429,7 +2471,7 @@ function Postagens() {
             {label:'Risco de erro',  val:kpi.risco,    cor:'#ef4444', icon:'🔴', sf:'risco'},
             {label:'Pendentes',      val:kpi.pendente, cor:'#ffc800', icon:'⏳', sf:'__pendente'},
             {label:'Total (página)', val:posts.length, cor:'#3b82f6', icon:'📄', sf:''},
-{label:'Pílulas',        val:posts.filter(function(p){ return p.tipo_conteudo==='pilula'||p.tipo_conteudo==='micropilula'; }).length, cor:'#fbbf24', icon:'💊', sf:'pilula'},
+
           ].map(function(item){
             var ativo = smartFilter===item.sf && item.sf!=='';
             var shadow = ativo ? ('0 0 0 2px '+item.cor) : 'none';
@@ -2478,17 +2520,22 @@ function Postagens() {
         </div>
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">Postagens <span style={{fontSize:12,color:'var(--t3)',fontWeight:400}}>{totalCount} encontrado(s)</span></span>
+            <span className="panel-title">Matérias <span style={{fontSize:12,color:'var(--t3)',fontWeight:400}}>{totalCount} encontrado(s)</span></span>
             <div className="gap-8">
-              {['all','pendente','publicado','error'].map(f=>(
-                <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>
-                  {f==='all'?'Todos':f}
-                </button>
+              {[['all','Todas'],['pendente','Pendentes'],['publicado','Publicadas']].map(([f,l])=>(
+                <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>{l}</button>
               ))}
-              <button className={`btn btn-sm ${filterVideo?'':'btn-secondary'}`} style={filterVideo?{background:'rgba(34,197,94,0.18)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',fontWeight:700}:{}} onClick={()=>{setFilterVideo(v=>!v);setPage(0);}} title="Só matérias com vídeo anexado — busca direto no banco, acha mesmo se não estiver na 1ª página">
-                🎬 {filterVideo?'Só com vídeo ✓':'Só com vídeo'}
-              </button>
-              <select className="form-select" style={{height:30,fontSize:12,width:'auto',minWidth:170,...(filterIg?{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.4)',fontWeight:700}:{})}} value={filterIg} onChange={e=>{setFilterIg(e.target.value);setPage(0);}} title="Filtra pelo que já foi ou ainda não foi publicado no Instagram — busca direto no banco">
+              <select className="form-select" style={{height:32,padding:'0 10px',fontSize:12,width:'auto',minWidth:190,...(filterVideo?{background:'rgba(34,197,94,0.15)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',fontWeight:700}:{})}} value={filterVideo} onChange={e=>{setFilterVideo(e.target.value);setPage(0);}}>
+                <option value="">🎬 Vídeo: todos</option>
+                <option value="sem">Sem vídeo</option>
+                <option value="com">Com vídeo (qualquer)</option>
+                <option value="aguardando">⏳ Reel pronto p/ aprovar</option>
+                <option value="montando">🛠 Reel montando</option>
+                <option value="fila">✅ Reel aprovado na fila</option>
+                <option value="erro">⚠️ Reel com erro</option>
+                <option value="reel">🎞️ Reel já publicado</option>
+              </select>
+              <select className="form-select" style={{height:32,padding:'0 10px',fontSize:12,width:'auto',minWidth:170,...(filterIg?{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.4)',fontWeight:700}:{})}} value={filterIg} onChange={e=>{setFilterIg(e.target.value);setPage(0);}} title="Filtra pelo que já foi ou ainda não foi publicado no Instagram — busca direto no banco">
                 <option value="">📲 Instagram: todos</option>
                 <option value="publicado">📲 Já publicado no IG</option>
                 <option value="feed">🖼️ Publicado no feed</option>
@@ -2511,16 +2558,6 @@ function Postagens() {
                   <option value="">Todas</option>
                   <option value="portal">Automático (RSS)</option>
                   <option value="manual">Manual</option>
-                </select>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Tipo de conteúdo</label>
-                <select className="form-select" style={{height:32,fontSize:12}} value={filterTipo} onChange={e=>{setFilterTipo(e.target.value);setPage(0);}}>
-                  <option value="">Todos os tipos</option>
-                  <option value="padrao">📰 Padrão</option>
-                  <option value="pilula">💊 Pílula</option>
-                  <option value="micropilula">⚡ Micro-pílula</option>
-                  <option value="sem_tipo">❓ Sem tipo</option>
                 </select>
               </div>
               <div>
@@ -2557,14 +2594,14 @@ function Postagens() {
               <table>
                 <thead><tr>
                   <th><input type="checkbox" onChange={toggleAll} checked={selected.length===posts.length&&posts.length>0}/></th>
-                  <th>Título</th><th>Status</th><th>Categoria</th><th>Origem</th><th>Data</th><th>Ações</th>
+                  <th>Título</th><th>Situação</th><th>Categoria</th><th>Origem</th><th>Data</th><th>Ações</th>
                 </tr></thead>
                 <tbody>{displayPosts.map(p=>(
                   <React.Fragment key={p.id}>
                   <tr style={p.status==='pendente'?{background:'rgba(255,200,0,0.02)'}:chkRisco(p)?{background:'rgba(239,68,68,0.04)'}:chkSemImg(p)?{background:'rgba(245,158,11,0.04)'}:{}}>
                     <td><input type="checkbox" checked={selected.includes(p.id)} onChange={()=>toggleSelect(p.id)}/></td>
-                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}{p.video_url&&(parseYouTubeId(p.video_url)?<span style={{background:'rgba(239,68,68,0.2)',color:'#f87171',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title="Vídeo do YouTube embutido na matéria">▶️ YOUTUBE</span>:<span style={{background:reelTemplateInfo(p)?.exhausted?'rgba(239,68,68,0.2)':reelTemplateInfo(p)?.status==='ready'?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)',color:reelTemplateInfo(p)?.exhausted?'#f87171':reelTemplateInfo(p)?.status==='ready'?'#4ade80':'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={reelTemplateLabel(p)}>🎬 VÍDEO</span>)}<IgPublicacaoBadge post={p}/></div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
-                    <td><span className={`status-pill status-${p.status}`}><span className="dot"></span>{p.status}</span></td>
+                    <td><div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}><div style={{fontWeight:500}}>{truncate(p.titulo,48)}</div>{p.tipo_conteudo==='pilula'&&<span style={{background:'rgba(234,179,8,0.2)',color:'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>💊 PÍLULA</span>}{p.tipo_conteudo==='micropilula'&&<span style={{background:'rgba(99,102,241,0.2)',color:'#818cf8',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}}>⚡ MICRO</span>}{p.video_url&&(parseYouTubeId(p.video_url)?<span style={{background:'rgba(239,68,68,0.2)',color:'#f87171',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title="Vídeo do YouTube embutido na matéria">▶️ YOUTUBE</span>:<span style={{background:reelTemplateInfo(p)?.exhausted?'rgba(239,68,68,0.2)':reelTemplateInfo(p)?.status==='ready'?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)',color:reelTemplateInfo(p)?.exhausted?'#f87171':reelTemplateInfo(p)?.status==='ready'?'#4ade80':'#fbbf24',fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,letterSpacing:'.06em',textTransform:'uppercase',whiteSpace:'nowrap'}} title={reelTemplateLabel(p)}>🎬 VÍDEO</span>)}</div>{p.subcategoria&&<div style={{fontSize:11,color:'var(--t3)',marginTop:2}}>{p.subcategoria}</div>}</td>
+                    <td>{(()=>{const sit=situacaoMateria(p);return <div><Etiqueta rotulo="Portal" v={sit.portal}/><Etiqueta rotulo="Vídeo" v={sit.video} onClick={sit.video.txt==='Sem vídeo'?undefined:()=>{setEditPost({...p});setVideoWarning('');}}/><Etiqueta rotulo="Instagram" v={sit.ig}/></div>;})()}</td>
                     <td className="text-secondary text-small">{p.categoria||'—'}</td>
                     <td className="text-secondary text-small">{p.publish_method==='manual'?'✍️ manual':'🤖 auto'}</td>
                     <td className="text-secondary text-small">{fmt(p.created_at)}</td>

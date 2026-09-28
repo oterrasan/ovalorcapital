@@ -1,41 +1,8 @@
-name: diag-once (teste dos filtros de video do admin, somente leitura, 28/09/2026)
+name: diag-once (placeholder — nenhum diagnóstico ativo agora)
 on:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 jobs:
-  filtros:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci --omit=dev --ignore-scripts || npm install --ignore-scripts
-      - name: Filtros
-        run: |
-          cat > f.mjs << 'EOF'
-          import { createClient } from "@supabase/supabase-js";
-          import fs from "node:fs";
-          const src = fs.readFileSync("core/instagram.js", "utf8");
-          const key = src.match(/SUPABASE_KEY \|\| "([^"]+)"/)[1];
-          const sb = createClient("https://yntwvfcxjardzafdqanj.supabase.co", key);
-          const T = "metrics->instagram_reel_template";
-          const base = () => sb.from("posts").select("id", { count: "exact", head: true });
-          const casos = {
-            sem_video: base().is("video_url", null).is(T, null),
-            com_video: base().or(`video_url.not.is.null,${T}.not.is.null`),
-            aguardando: base().eq(`${T}->>status`, "ready").or(`${T}->>aprovado.is.null,${T}->>aprovado.eq.false`).is("metrics->instagram_reel->>ig_id", null),
-            montando: base().in(`${T}->>status`, ["pending", "processing"]),
-            na_fila: base().eq(`${T}->>aprovado`, "true").is("metrics->instagram_reel->>ig_id", null),
-            erro: base().eq(`${T}->>status`, "error"),
-            reel_publicado: base().not("metrics->instagram_reel->>ig_id", "is", null).not("metrics->instagram_reel->>ig_id", "like", "processing:%")
-          };
-          for (const [k, q] of Object.entries(casos)) {
-            const { count, error } = await q;
-            console.log("FILTRO", k, error ? "ERRO " + error.message : count);
-          }
-          EOF
-          node f.mjs
+      - run: echo "placeholder — edite este arquivo quando precisar rodar um diagnóstico real"
