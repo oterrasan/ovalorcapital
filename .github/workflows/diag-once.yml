@@ -1,55 +1,8 @@
-name: diag-once (inventario do admin, somente leitura, 28/09/2026)
+name: diag-once (placeholder — nenhum diagnóstico ativo agora)
 on:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 jobs:
-  inventario:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm ci --omit=dev --ignore-scripts || npm install --ignore-scripts
-      - name: Inventario
-        run: |
-          cat > inv.mjs << 'EOF'
-          import { createClient } from "@supabase/supabase-js";
-          import fs from "node:fs";
-          const src = fs.readFileSync("core/instagram.js", "utf8");
-          const key = src.match(/SUPABASE_KEY \|\| "([^"]+)"/)[1];
-          const sb = createClient("https://yntwvfcxjardzafdqanj.supabase.co", key);
-          for (const t of ["alerts","image_bank","colunista_tokens","banners","rss_sources","logs","colunistas","ig_accounts","brasilon_posts"]) {
-            const { count, error } = await sb.from(t).select("*", { count: "exact", head: true });
-            console.log("TABELA", t, error ? "ERRO " + (error.code || "") + " " + error.message : count);
-          }
-          const desde = new Date(Date.now() - 14 * 86400000).toISOString();
-          let rows = [], from = 0;
-          while (true) {
-            const { data, error } = await sb.from("posts").select("id,status,video_url,metrics,created_at").gte("created_at", desde).range(from, from + 999);
-            if (error) { console.log("ERRO posts", error.message); break; }
-            rows = rows.concat(data || []);
-            if (!data || data.length < 1000) break;
-            from += 1000;
-          }
-          const agg = {};
-          for (const r of rows) {
-            let m = r.metrics; if (typeof m === "string") { try { m = JSON.parse(m); } catch { m = {}; } }
-            const tpl = m?.instagram_reel_template;
-            const tipo = tpl ? `reel:${tpl.status}${tpl.aprovado ? "+aprovado" : ""}` : (r.video_url ? "video_sem_reel" : "sem_video");
-            const k = `${r.status} | ${tipo}`;
-            agg[k] = (agg[k] || 0) + 1;
-          }
-          console.log("POSTS ultimos 14 dias:", rows.length);
-          for (const [k, v] of Object.entries(agg).sort((a, b) => b[1] - a[1])) console.log("  ", k, "=", v);
-          const { count: pend } = await sb.from("posts").select("*", { count: "exact", head: true }).eq("status", "pendente");
-          console.log("PENDENTES total:", pend);
-          const { data: al } = await sb.from("alerts").select("*").order("created_at", { ascending: false }).limit(3);
-          console.log("ALERTS ultimos:", JSON.stringify(al || []).slice(0, 400));
-          const { data: lg } = await sb.from("logs").select("created_at").order("created_at", { ascending: false }).limit(1);
-          console.log("LOGS ultimo:", JSON.stringify(lg));
-          EOF
-          node inv.mjs
+      - run: echo "placeholder — edite este arquivo quando precisar rodar um diagnóstico real"
