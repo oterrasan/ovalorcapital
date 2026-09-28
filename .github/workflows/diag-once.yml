@@ -1,4 +1,4 @@
-name: diag-once (extrai quadros reais pra ver onde a marca aparece)
+name: diag-once (publicar materia e-Titulo)
 on:
   workflow_dispatch:
   push:
@@ -8,19 +8,9 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - run: |
-          URL="https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/post-videos/link-capture/LINK_JOB__1790594267199_073ugn.mp4"
-          curl -sS -o src.mp4 "$URL"
-          ls -la src.mp4
-          ffprobe -v error -select_streams v:0 -show_entries stream=width,height,duration -of default=noprint_wrappers=1 src.mp4
-          mkdir -p frames
-          ffmpeg -hide_banner -loglevel error -i src.mp4 -vf "fps=1" frames/f_%03d.png
-          ls frames | wc -l
-      - uses: actions/upload-artifact@v4
         with:
-          name: frames
-          path: frames/*.png
-          retention-days: 1
+          node-version: '22'
+      - run: npm i --no-save @supabase/supabase-js
+      - run: node scripts/one-off/publicar-e-titulo.mjs
