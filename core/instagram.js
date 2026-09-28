@@ -76,6 +76,12 @@ async function writeLog(level, message) {
 // assunto, calculado por quem chama com collaboratorForFeedPost) ou nenhum.
 function collaboratorsFor(publisherUsername, kind, opts = {}) {
   const publisher = String(publisherUsername || "").replace(/^@/, "").toLowerCase();
+  // 28/09/2026 — Roberto (teste de alcance): quando a conta que posta NÃO é
+  // o @ovalorcapital (ex.: @oterrasan, escolhido no admin em "Conta que
+  // publica"), o único colaborador é o @ovalorcapital, no feed e nos Reels.
+  if (publisher && publisher !== DEFAULT_ACCOUNT_USERNAME && publisher !== "obrasilon") {
+    return [DEFAULT_ACCOUNT_USERNAME];
+  }
   const alvo = kind === "reel" ? REEL_COLLABORATOR : opts.collaborator;
   const nome = String(alvo || "").replace(/^@/, "").toLowerCase();
   return nome && nome !== publisher ? [nome] : [];
@@ -493,12 +499,28 @@ export async function acceptCollaborationInvite(mediaId, accountId) {
 // Fix: mesma lógica de retry-com-espera que o accept já tinha, aplicada
 // também na curtida — soma no máximo +17s no pior caso (2s+5s+10s), longe
 // do teto de 120s já documentado acima mesmo somado ao pior caso do accept.
+async function _ovcAceitaCollabAuto() {
+  try {
+    const { data } = await supabase.from("config").select("value,updated_at").eq("key", "IG_OVC_ACEITA_COLLAB_AUTO").order("updated_at", { ascending: false }).limit(1);
+    return String(data?.[0]?.value || "on") !== "off";
+  } catch (_) {
+    return true;
+  }
+}
+
 async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const attempts = [0, 5000, 15000, 30000];
   const likeAttempts = [2000, 5000, 10000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
-    if (tag === "reel") {
+    // 28/09/2026 — convite pro próprio @ovalorcapital (post/Reel publicado
+    // por outra conta, ex.: @oterrasan): aceita sozinho, feed e Reels, salvo
+    // se Roberto desligar no admin (config IG_OVC_ACEITA_COLLAB_AUTO=off).
+    const conviteParaOvc = username === DEFAULT_ACCOUNT_USERNAME;
+    if (conviteParaOvc && !(await _ovcAceitaCollabAuto())) {
+      return { username, skipped: true, reason: "ovc_aceite_manual_no_admin" };
+    }
+    if (tag === "reel" && !conviteParaOvc) {
       return { username, skipped: true, reason: "reels_aceite_manual" };
     }
     if (NEVER_AUTO_ACCEPT.has(username)) {

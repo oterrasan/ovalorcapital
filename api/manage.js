@@ -689,7 +689,7 @@ function _igCronAuthorized(req, body) {
 const IG_AUTO_CONFIG_KEYS = [
   "IG_AUTOMATION_ENABLED", "IG_AUTOMATION_INTERVAL",
   "IG_AUTOMATION_DAILY_LIMIT", "IG_AUTOMATION_CATEGORIES",
-  "IG_AUTOMATION_LAST_RUN"
+  "IG_AUTOMATION_LAST_RUN", "IG_PUBLICADOR_FEED"
 ];
 
 async function _igAutoConfig() {
@@ -708,8 +708,41 @@ async function _igAutoConfig() {
     interval: Number.isFinite(interval) ? Math.max(15, interval) : 15,
     dailyLimit: Number.isFinite(dailyLimit) ? Math.max(0, Math.floor(dailyLimit)) : IG_AUTO_LIMITE_DIARIO,
     categories: new Set(categories),
-    lastRun: Number(latest.IG_AUTOMATION_LAST_RUN || 0)
+    lastRun: Number(latest.IG_AUTOMATION_LAST_RUN || 0),
+    feedPublisher: _igNormalizarPublicador(latest.IG_PUBLICADOR_FEED)
   };
+}
+
+// 28/09/2026 — Roberto (teste de alcance): "nos posts e nos reels, preciso
+// que a minha conta seja a conta que posta e envia as colabs para o valor
+// capital". Escolha no admin (Automação Instagram → Conta que publica),
+// separada para feed e Reels. Padrão: @ovalorcapital. Quando a conta que
+// publica é outra, o colaborador é sempre o @ovalorcapital
+// (collaboratorsFor em core/instagram.js).
+const IG_PUBLICADORES_VALIDOS = ["ovalorcapital", "oterrasan"];
+function _igNormalizarPublicador(raw) {
+  const nome = String(raw || "").replace(/^@/, "").trim().toLowerCase();
+  return IG_PUBLICADORES_VALIDOS.includes(nome) ? nome : "ovalorcapital";
+}
+
+async function _igPublicadorReels() {
+  try {
+    const { data } = await supabase.from("config").select("value,updated_at").eq("key", "IG_PUBLICADOR_REELS").order("updated_at", { ascending: false }).limit(1);
+    return _igNormalizarPublicador(data?.[0]?.value);
+  } catch (_) {
+    return "ovalorcapital";
+  }
+}
+
+async function _igContaIdPorUsername(username) {
+  const { data } = await supabase
+    .from("ig_accounts")
+    .select("id")
+    .eq("username", username)
+    .eq("active", true)
+    .not("token", "is", null)
+    .limit(1);
+  return data?.[0]?.id || null;
 }
 
 async function _igAutoSetConfig(key, value) {
@@ -1122,7 +1155,7 @@ async function _publicarPostFeedAutomatico(post, account, opts) {
 
 async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
   const username = String(account.username || "").replace(/^@/, "").toLowerCase();
-  const isDefaultAccount = username === "ovalorcapital";
+  const isDefaultAccount = username === (settings.feedPublisher || "ovalorcapital");
   const hasAccountLimit = account.limite_diario !== null
     && account.limite_diario !== undefined
     && String(account.limite_diario).trim() !== "";
@@ -1308,6 +1341,17 @@ async function handleIgAutoPublish(req, res, body) {
     ]);
     if (accountsError) throw accountsError;
     if (candidatesError) throw candidatesError;
+    // 28/09/2026 — a conta escolhida em "Conta que publica" entra mesmo sem
+    // a marcação distribuicao_automatica; se ela não estiver ativa/com token,
+    // volta pro @ovalorcapital em vez de parar a automação.
+    if (settings.feedPublisher !== "ovalorcapital" && !(accounts || []).some((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === settings.feedPublisher)) {
+      const { data: publicadora } = await supabase.from("ig_accounts").select("*").eq("username", settings.feedPublisher).eq("active", true).not("token", "is", null).limit(1);
+      if (publicadora?.[0]) accounts.push(publicadora[0]);
+      else {
+        await writeLog("error", `[ig-auto] conta publicadora @${settings.feedPublisher} inativa ou sem token — publicando pelo @ovalorcapital`);
+        settings.feedPublisher = "ovalorcapital";
+      }
+    }
     if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
 
     // 21/09/2026 — meta real de proporção (ver _igAutoFeedDeveEsperarReels):
@@ -1424,7 +1468,14 @@ async function handleIgPriorityPublish(req, res, body) {
     if (accountsError) throw accountsError;
     if (!accounts?.length) return res.status(200).json({ ok: true, skipped: true, reason: "nenhuma_conta_ativa_para_distribuicao" });
 
-    const account = accounts.find((a) => String(a.id) === String(alvo.post.ig_account_id))
+    const publicadorFeed = (await _igAutoConfig()).feedPublisher;
+    let account = accounts.find((a) => String(a.id) === String(alvo.post.ig_account_id))
+      || accounts.find((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === publicadorFeed);
+    if (!account && publicadorFeed !== "ovalorcapital") {
+      const { data: publicadora } = await supabase.from("ig_accounts").select("*").eq("username", publicadorFeed).eq("active", true).not("token", "is", null).limit(1);
+      account = publicadora?.[0] || null;
+    }
+    account = account
       || accounts.find((a) => String(a.username || "").replace(/^@/, "").toLowerCase() === "ovalorcapital")
       || accounts[0];
 
@@ -1678,7 +1729,12 @@ async function handleReelsRenderJob(req, res, body) {
   let ig;
   try {
     const { createReelContainerResumable } = await _loadInstagram();
-    ig = await createReelContainerResumable(caption, candidate.ig_account_id || null);
+    let contaReel = candidate.ig_account_id || null;
+    if (!contaReel) {
+      const publicadorReels = await _igPublicadorReels();
+      if (publicadorReels !== "ovalorcapital") contaReel = await _igContaIdPorUsername(publicadorReels);
+    }
+    ig = await createReelContainerResumable(caption, contaReel);
   } catch (igError) {
     processing.status = "error";
     processing.exhausted = processing.attempts >= REELS_MAX_RETRY_ATTEMPTS;
