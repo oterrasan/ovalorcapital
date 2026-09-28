@@ -1465,6 +1465,18 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   );
 }
 
+// 28/09/2026 — cada Reel sai pela conta escolhida na aprovação.
+const REEL_CONTAS = [
+  ['ovalorcapital','@ovalorcapital'],
+  ['oterrasan','@oterrasan + collab @ovalorcapital']
+];
+const reelContaDe = tpl => REEL_CONTAS.some(c=>c[0]===tpl?.conta_publicacao) ? tpl.conta_publicacao : 'ovalorcapital';
+const reelContaDivergente = tpl => !!(tpl?.ig_creation_id && tpl?.ig_username && String(tpl.ig_username).replace(/^@/,'').toLowerCase() !== reelContaDe(tpl));
+async function reelAprovarNaConta(postId, conta) {
+  const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_aprovar', post_id: postId, aprovado: true, conta}) });
+  return r.json();
+}
+
 function ReelsFilaAprovados() {
   const [fila,setFila] = useState(null);
   const [erro,setErro] = useState('');
@@ -1507,27 +1519,40 @@ function ReelsFilaAprovados() {
       const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_publish', post_id: p.id}) });
       const d = await r.json();
       if (d.ok) alert('✅ Reel publicado em @' + (d.username||'ovalorcapital') + '!');
-      else alert('❌ ' + (d.pending ? 'A Meta ainda está processando o vídeo. Tente de novo em 1-2 minutos.' : d.error === 'reel_ja_publicado_ou_em_publicacao' ? 'Este Reel já foi publicado ou está sendo publicado agora.' : ('Erro: ' + (d.error||'falha ao publicar'))));
+      else alert('❌ ' + (d.error === 'reel_sendo_remontado_na_conta_escolhida' ? 'O Reel está sendo remontado na conta escolhida. Tente de novo em alguns minutos.' : d.pending ? 'A Meta ainda está processando o vídeo. Tente de novo em 1-2 minutos.' : d.error === 'reel_ja_publicado_ou_em_publicacao' ? 'Este Reel já foi publicado ou está sendo publicado agora.' : ('Erro: ' + (d.error||'falha ao publicar'))));
     } catch(e) { alert('❌ Erro de conexão: ' + e.message); }
     setPostando(null);
     carregar();
   };
+  const [trocando,setTrocando] = useState(null);
+  const trocarConta = async (p, conta) => {
+    setTrocando(p.id);
+    try {
+      const d = await reelAprovarNaConta(p.id, conta);
+      if (!d.ok) alert('❌ ' + (d.error||'falha'));
+      else if (d.remontando) alert('✅ Conta trocada. O Reel volta para a montagem na conta @' + conta + ' (leva alguns minutos) e continua na fila.');
+    } catch(e) { alert('❌ Erro de conexão: ' + e.message); }
+    setTrocando(null); carregar();
+  };
   useEffect(() => { carregar(); const t = setInterval(carregar, 30000); return () => clearInterval(t); }, []);
-  const rotulo = t => t?.status === 'ready' ? '✅ pronto' : t?.exhausted ? '❌ falhou' : '⏳ montando';
+  const rotulo = t => reelContaDivergente(t) ? '🔄 trocando de conta' : t?.status === 'ready' ? '✅ pronto' : t?.exhausted ? '❌ falhou' : '⏳ montando';
   return (
-    <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:14}}>
+    <div style={{marginTop:8}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:8}}>
-        <div style={{fontSize:12,fontWeight:700,color:'var(--t2)',textTransform:'uppercase',letterSpacing:'.04em'}}>Fila de Reels aprovados {fila ? `(${fila.length})` : ''}</div>
+        <div style={{fontSize:13,fontWeight:700,color:'var(--t2)'}}>{fila ? `${fila.length} na fila` : 'Carregando...'} · muda a conta de cada um no seletor</div>
         <button className="btn btn-secondary btn-sm" disabled={regenerando} title="Remonta no padrão atual todos os Reels que ainda não foram publicados" onClick={regenerarTodos}>{regenerando ? 'Remontando...' : '🔄 Remontar não publicados'}</button>
       </div>
       {erro && <div style={{fontSize:12,color:'var(--red)'}}>Erro: {erro}</div>}
-      {fila && !fila.length && <div style={{fontSize:12,color:'var(--t3)'}}>Nenhum Reel aprovado esperando.</div>}
+      {fila && !fila.length && <div style={{fontSize:13,color:'var(--t2)',padding:'8px 0'}}>Nenhum Reel aprovado esperando. Aprove na tela da matéria (Postagens → editar → Reel).</div>}
       {fila && fila.map((p,i) => (
-        <div key={p.id} style={{display:'grid',gridTemplateColumns:'28px 1fr auto auto auto',gap:8,alignItems:'center',padding:'6px 0',borderBottom:'1px solid var(--border)',fontSize:12}}>
+        <div key={p.id} style={{display:'grid',gridTemplateColumns:'28px minmax(0,1fr) auto auto auto auto',gap:8,alignItems:'center',padding:'8px 0',borderBottom:'1px solid var(--border)',fontSize:13}}>
           <span style={{color:'var(--t3)'}}>{i+1}º</span>
           <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.titulo}>{p.titulo}</span>
-          <span style={{color:p.m.instagram_reel_template?.status==='ready'?'var(--green)':'var(--yellow)'}}>{rotulo(p.m.instagram_reel_template)}</span>
-          <button className="btn btn-primary btn-sm" disabled={p.m.instagram_reel_template?.status!=='ready' || !!postando} title={p.m.instagram_reel_template?.status==='ready' ? 'Publicar este Reel agora' : 'Disponível quando o Reel estiver pronto'} onClick={()=>postarAgora(p)}>{postando===p.id ? 'Postando...' : '🚀 Postar agora'}</button>
+          <select className="form-input" style={{height:30,padding:'2px 8px',fontSize:12,width:'auto'}} value={reelContaDe(p.m.instagram_reel_template)} disabled={trocando===p.id || !!postando} title="Conta que publica este Reel" onChange={e=>trocarConta(p, e.target.value)}>
+            {REEL_CONTAS.map(([v,l])=><option key={v} value={v}>{v==='ovalorcapital'?'@ovalorcapital':'@oterrasan + OVC'}</option>)}
+          </select>
+          <span style={{color:p.m.instagram_reel_template?.status==='ready' && !reelContaDivergente(p.m.instagram_reel_template)?'var(--green)':'var(--yellow)',whiteSpace:'nowrap'}}>{rotulo(p.m.instagram_reel_template)}</span>
+          <button className="btn btn-primary btn-sm" disabled={p.m.instagram_reel_template?.status!=='ready' || reelContaDivergente(p.m.instagram_reel_template) || !!postando} title={p.m.instagram_reel_template?.status==='ready' ? 'Publicar este Reel agora' : 'Disponível quando o Reel estiver pronto'} onClick={()=>postarAgora(p)}>{postando===p.id ? 'Postando...' : '🚀 Postar agora'}</button>
           <button className="btn btn-secondary btn-sm" disabled={!!postando} onClick={()=>tirar(p.id)}>Tirar</button>
         </div>
       ))}
@@ -1573,14 +1598,19 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
   const jaPublicadoReel = !!_mReel?.instagram_reel?.ig_id && !String(_mReel.instagram_reel.ig_id).startsWith('processing:');
   const aprovado = info?.aprovado === true;
   const podeAprovar = !!info && status !== 'embed_only' && !jaPublicadoReel;
-  const alternarAprovacao = async () => {
-    const aprovar = !aprovado;
-    if (aprovar && !confirm('Aprovar este Reel para a fila de publicação automática?\n\nEle sai sozinho no Instagram (08h às 22h, alternando com o feed) e a matéria vai ao ar no portal, sem o vídeo.')) return;
-    setBusy(aprovar ? 'Aprovando...' : 'Tirando da fila...');
+  const [conta, setConta] = useState(reelContaDe(info));
+  useEffect(() => { setConta(reelContaDe(info)); }, [post?.id, info?.conta_publicacao]);
+  const nomeConta = c => c === 'oterrasan' ? '@oterrasan (collab @ovalorcapital)' : '@ovalorcapital';
+  const alternarAprovacao = async (contaEscolhida) => {
+    const aprovar = contaEscolhida ? true : !aprovado;
+    const alvo = contaEscolhida || conta;
+    if (aprovar && !contaEscolhida && !confirm('Aprovar este Reel para publicar em ' + nomeConta(alvo) + '?\n\nEle sai sozinho no Instagram (08h às 22h, alternando com o feed) e a matéria vai ao ar no portal, sem o vídeo.')) return;
+    setBusy(!aprovar ? 'Tirando da fila...' : contaEscolhida ? 'Trocando a conta...' : 'Aprovando...');
     try {
-      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_aprovar', post_id: post.id, aprovado: aprovar}) });
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_aprovar', post_id: post.id, aprovado: aprovar, conta: alvo}) });
       const d = await r.json();
       if (!d.ok) { alert('❌ ' + (d.error||'falha')); return; }
+      if (d.remontando) alert('✅ O vídeo volta para a montagem na conta ' + nomeConta(alvo) + ' (leva alguns minutos) e continua aprovado.');
       const { data } = await sb.from('posts').select('metrics').eq('id', post.id).single();
       if (data?.metrics && onMetrics) onMetrics(data.metrics);
     } catch(e) { alert('❌ Erro: ' + e.message); }
@@ -1652,7 +1682,14 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
       </div>
       {editando && <ReelEnquadramentoEditor post={post} info={info} onMetrics={onMetrics} onClose={()=>setEditando(false)}/>}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginTop:10}}>
-        {podeAprovar && <button type="button" className="btn btn-sm" disabled={!!busy} onClick={alternarAprovacao} style={{background:aprovado?'var(--bg3,#334155)':'var(--green)',color:'#fff',border:'none',fontWeight:700}}>{aprovado ? '↩️ Tirar da fila' : '✅ Aprovado para publicação'}</button>}
+        {podeAprovar && <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--t2)',fontWeight:600}}>Publicar em
+          <select className="form-input" style={{height:32,padding:'2px 8px',fontSize:12,width:'auto'}} value={conta} disabled={!!busy}
+            onChange={e=>{ const c=e.target.value; setConta(c); if (aprovado) alternarAprovacao(c); }}>
+            {REEL_CONTAS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>}
+        {podeAprovar && <button type="button" className="btn btn-sm" disabled={!!busy} onClick={()=>alternarAprovacao()} style={{background:aprovado?'var(--bg3,#334155)':'var(--green)',color:'#fff',border:'none',fontWeight:700}}>{aprovado ? '↩️ Tirar da fila' : '✅ Aprovar para publicação'}</button>}
+        {aprovado && !jaPublicadoReel && reelContaDivergente(info) && <span style={{fontSize:11,color:'var(--yellow)'}}>🔄 Remontando na conta {nomeConta(conta)}</span>}
         {aprovado && !jaPublicadoReel && <span style={{fontSize:11,color:'var(--green)'}}>Na fila desde {info.aprovado_em ? new Date(info.aprovado_em).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'}{status!=='ready' ? ' · sai assim que a montagem ficar pronta' : ''}</span>}
         <button type="button" className="btn btn-primary btn-sm" disabled={publishing||status!=='ready'||!!busy} onClick={onPublish}>{publishing?'Publicando Reel...':(info?.manual_final ? '🎞️ Publicar meu vídeo pronto (3) como Reel' : '🎞️ Publicar a montagem (2) como Reel')}</button>
         {busy && <span style={{fontSize:11,color:'var(--yellow)'}}>⏳ {busy}</span>}
@@ -4422,8 +4459,6 @@ function AutomacaoInstagram() {
   ];
   const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:0,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
   const [reelsEnabled,setReelsEnabled] = useState(true);
-  const [savingReels,setSavingReels] = useState(false);
-  const [reelsMsg,setReelsMsg] = useState('');
   const [pausandoReels,setPausandoReels] = useState(false);
   const [pausaReelsMsg,setPausaReelsMsg] = useState('');
   const COLLAB_PADRAO = ['souabetaferreira','adriana.ferreirasp','amichelefroes'];
@@ -4442,9 +4477,7 @@ function AutomacaoInstagram() {
   const [pausaMsg,setPausaMsg] = useState('');
   // 28/09/2026 — teste de alcance: qual conta publica (feed e Reels
   // separados) e se o @ovalorcapital aceita a collab sozinho.
-  const [publicador,setPublicador] = useState({feed:'ovalorcapital',reels:'ovalorcapital'});
-  const [savingPub,setSavingPub] = useState(false);
-  const [pubMsg,setPubMsg] = useState('');
+  const [publicador,setPublicador] = useState({feed:'ovalorcapital'});
 
   const brtStart = () => {
     const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -4463,7 +4496,7 @@ function AutomacaoInstagram() {
     setLoading(true);
     const start=brtStart();
     const [c,p,l,a,ia]=await Promise.all([
-      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED','IG_PUBLICADOR_REELS']).order('updated_at',{ascending:false}),
+      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED']).order('updated_at',{ascending:false}),
       sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
       sb.from('logs').select('level,message,created_at').gte('created_at',start).or('message.ilike.%[ig-auto]%,message.ilike.%[ig-collab]%').order('created_at',{ascending:false}).limit(100),
       sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).eq('username','ovalorcapital').limit(1).maybeSingle(),
@@ -4474,7 +4507,7 @@ function AutomacaoInstagram() {
     setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
     setReelsEnabled(latest.REELS_AUTOMATION_ENABLED==='on');
     const normPub = v => ['ovalorcapital','oterrasan'].includes(String(v||'').replace(/^@/,'').toLowerCase()) ? String(v).replace(/^@/,'').toLowerCase() : 'ovalorcapital';
-    setPublicador({feed:normPub(latest.IG_PUBLICADOR_FEED),reels:normPub(latest.IG_PUBLICADOR_REELS)});
+    setPublicador({feed:normPub(latest.IG_PUBLICADOR_FEED)});
     let collabPolicy={};try{collabPolicy=JSON.parse(latest.IG_COLLAB_AUTO_ACCEPT_POLICY||'{}')}catch{}
     setCollabEnabled(latest.IG_COLLAB_AUTO_ACCEPT_ENABLED==='on');
     setCollabRecipients(Array.isArray(collabPolicy.recipients)?collabPolicy.recipients.map(x=>String(x).replace(/^@/,'').toLowerCase()):COLLAB_PADRAO);
@@ -4492,7 +4525,12 @@ function AutomacaoInstagram() {
       await setConfig('IG_AUTOMATION_INTERVAL',Math.max(15,Number(cfg.interval)||15));
       await setConfig('IG_AUTOMATION_DAILY_LIMIT',Math.max(0,Number(cfg.dailyLimit)||0));
       await setConfig('IG_AUTOMATION_CATEGORIES',JSON.stringify(cfg.categories));
-      setMsg('Configuração salva e aplicada à automação.');
+      if (publicador.feed !== 'ovalorcapital') {
+        const conta = igAccounts.find(a=>String(a.username||'').replace(/^@/,'').toLowerCase()===publicador.feed);
+        if (!conta?.active || !conta?.token || !conta?.ig_user_id) throw new Error('@'+publicador.feed+' não está ativa com token e IG User ID em Contas');
+      }
+      await setConfig('IG_PUBLICADOR_FEED', publicador.feed);
+      setMsg('Configuração do feed salva.');
       await load();
     }catch(e){setMsg('Erro ao salvar: '+e.message);}finally{setSaving(false);}
   };
@@ -4511,19 +4549,6 @@ function AutomacaoInstagram() {
     } catch(e) { setPausaMsg('Erro ao pausar/retomar: '+e.message); }
     finally { setPausando(false); await load(); }
   };
-  const savePublicador = async () => {
-    setSavingPub(true); setPubMsg('');
-    try {
-      for (const nome of new Set([publicador.feed, publicador.reels])) {
-        if (nome === 'ovalorcapital') continue;
-        const conta = igAccounts.find(a=>String(a.username||'').replace(/^@/,'').toLowerCase()===nome);
-        if (!conta?.active || !conta?.token || !conta?.ig_user_id) throw new Error('@'+nome+' não está ativa com token e IG User ID em Contas');
-      }
-      await setConfig('IG_PUBLICADOR_FEED', publicador.feed);
-      await setConfig('IG_PUBLICADOR_REELS', publicador.reels);
-      setPubMsg('Salvo. Vale a partir da próxima publicação.');
-    } catch(e) { setPubMsg('Erro ao salvar: '+e.message); } finally { setSavingPub(false); }
-  };
   const toggleCat = cat => setCfg({...cfg,categories:cfg.categories.includes(cat)?cfg.categories.filter(x=>x!==cat):[...cfg.categories,cat]});
 
   // 07/09/2026 — toggle de pausa dos Reels (vídeo), a pedido de Roberto:
@@ -4531,13 +4556,6 @@ function AutomacaoInstagram() {
   // tenho que ter esse controle no admin". Publica automaticamente por
   // Reels começam pausados (fail-closed). Só este controle permite ativar
   // a publicação automática; o acabamento do vídeo continua funcionando.
-  const saveReels = async () => {
-    setSavingReels(true); setReelsMsg('');
-    try {
-      await setConfig('REELS_AUTOMATION_ENABLED', reelsEnabled ? 'on' : 'off');
-      setReelsMsg('Configuração de Reels salva.');
-    } catch(e) { setReelsMsg('Erro ao salvar: '+e.message); } finally { setSavingReels(false); }
-  };
   // 23/09/2026 — botão de pausa/retomada IMEDIATA dos Reels, mesmo padrão
   // de togglePausaGeral (OVC)/togglePausaBrasilOn: Roberto — "a automacao
   // dos reels precisa ficar disponivel pra eu ligar e pausar quando eu
@@ -4575,54 +4593,48 @@ function AutomacaoInstagram() {
   const failures=logs.filter(x=>x.level==='error');
 
   if(loading)return <div className="loading">Carregando automação do Instagram...</div>;
+  const cartao = {border:'1px solid var(--border)',borderRadius:12,padding:18,display:'flex',flexDirection:'column',gap:12,background:'var(--card)',borderColor:'var(--bh)'};
+  const botaoPausa = (ligado, ocupado) => ({display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',padding:'13px 16px',fontSize:15,fontWeight:800,borderRadius:10,border:'none',cursor:ocupado?'wait':'pointer',opacity:ocupado?0.7:1,background:ligado?'var(--red)':'var(--green)',color:'#fff'});
+  const linhaInfo = {display:'flex',justifyContent:'space-between',fontSize:13,color:'var(--t2)'};
   return <div>
-    <div className="page-header"><div className="page-title">Automação do Instagram</div><div className="page-sub">Controle, operação e relatório diário do @ovalorcapital</div></div>
+    <div className="page-header"><div className="page-title">Automação do Instagram</div><div className="page-sub">Feed (posts de imagem) e Reels (vídeo) do O Valor Capital</div></div>
     <div className="page-body">
-      <div className={`alert-banner ${cfg.enabled?'green':'yellow'}`}><span>{cfg.enabled?'●':'○'}</span><span><strong>{cfg.enabled?'Automação ligada':'Automação desligada'}</strong> · Conta {account?'@'+account.username:'não encontrada'} · Token {account?.token?'configurado':'ausente'}</span></div>
-      <button onClick={togglePausaGeral} disabled={pausando} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'16px 22px',fontSize:16,fontWeight:800,borderRadius:10,border:'none',cursor:pausando?'wait':'pointer',opacity:pausando?0.7:1,background:cfg.enabled?'var(--red)':'var(--green)',color:'#fff',marginBottom:18,letterSpacing:0.2}}>
-        {pausando ? 'Aplicando...' : (cfg.enabled ? '⏸ PAUSAR AUTOMAÇÃO DO OVC AGORA' : '▶ RETOMAR AUTOMAÇÃO DO OVC AGORA')}
-      </button>
-      {pausaMsg && <div style={{marginBottom:14,fontSize:13,fontWeight:600,color:pausaMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaMsg}</div>}
-      <div className="ig-auto-metrics">
-        <div className="metric-card"><div className="metric-label">Publicados hoje</div><div className="metric-value">{posts.length}</div></div>
-        <div className="metric-card"><div className="metric-label">Limite diário</div><div className="metric-value">{Number(cfg.dailyLimit)>0?cfg.dailyLimit:'Livre'}</div></div>
-        <div className="metric-card"><div className="metric-label">Falhas hoje</div><div className="metric-value" style={{color:failures.length?'var(--red)':'var(--green)'}}>{failures.length}</div></div>
-        <div className="metric-card"><div className="metric-label">Última execução</div><div style={{fontSize:15,fontWeight:700,marginTop:10}}>{cfg.lastRun?fmt(new Date(cfg.lastRun).toISOString()):'Aguardando'}</div></div>
-      </div>
-      <div className="panel" style={{marginBottom:18}}>
-        <div className="panel-header"><span className="panel-title">Configuração operacional</span><span className={`badge ${cfg.enabled?'badge-green':'badge-red'}`}>{cfg.enabled?'ATIVA':'PAUSADA'}</span></div>
-        <div style={{padding:20}}>
-          <div className="ig-auto-config">
-            <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={cfg.enabled} onChange={e=>setCfg({...cfg,enabled:e.target.checked})}/><span>{cfg.enabled?'Ligada 24 horas':'Desligada'}</span></label></div>
-            <div className="form-group"><label className="form-label">Intervalo</label><select className="form-input" value={cfg.interval} onChange={e=>setCfg({...cfg,interval:Number(e.target.value)})}>{[15,30,45,60].map(v=><option key={v} value={v}>{v} minutos</option>)}</select></div>
-            <div className="form-group"><label className="form-label">Limite diário (0 = sem trava interna)</label><input className="form-input" type="number" min="0" value={cfg.dailyLimit} onChange={e=>setCfg({...cfg,dailyLimit:e.target.value})}/></div>
-          </div>
-          <div className="form-group"><label className="form-label">Categorias autorizadas</label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{CATEGORIAS.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer'}}><input type="checkbox" checked={cfg.categories.includes(id)} onChange={()=>toggleCat(id)}/><span>{label}</span></label>)}</div></div>
-          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={saving} onClick={save}>{saving?'Salvando...':'Salvar configuração'}</button>{msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{msg}</span>}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16,marginBottom:20}}>
+        <div style={cartao}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:17,fontWeight:800}}>📷 Feed</span><span className={`badge ${cfg.enabled?'badge-green':'badge-red'}`}>{cfg.enabled?'LIGADO':'PAUSADO'}</span></div>
+          <div style={linhaInfo}><span>Publica em</span><strong>{publicador.feed==='oterrasan'?'@oterrasan + collab @ovalorcapital':'@ovalorcapital'}</strong></div>
+          <div style={linhaInfo}><span>Publicados hoje</span><strong>{posts.length}{Number(cfg.dailyLimit)>0?` de ${cfg.dailyLimit}`:''}</strong></div>
+          <div style={linhaInfo}><span>Última execução</span><strong>{cfg.lastRun?fmt(new Date(cfg.lastRun).toISOString()):'Aguardando'}</strong></div>
+          <div style={linhaInfo}><span>Falhas hoje</span><strong style={{color:failures.length?'var(--red)':'var(--green)'}}>{failures.length}</strong></div>
+          <button onClick={togglePausaGeral} disabled={pausando} style={botaoPausa(cfg.enabled,pausando)}>{pausando?'Aplicando...':(cfg.enabled?'⏸ Pausar feed':'▶ Ligar feed')}</button>
+          {pausaMsg && <div style={{fontSize:12,fontWeight:600,color:pausaMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaMsg}</div>}
+        </div>
+        <div style={cartao}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:17,fontWeight:800}}>🎞️ Reels</span><span className={`badge ${reelsEnabled?'badge-green':'badge-red'}`}>{reelsEnabled?'LIGADO':'PAUSADO'}</span></div>
+          <div style={linhaInfo}><span>Publica em</span><strong>a conta escolhida em cada Reel</strong></div>
+          <div style={linhaInfo}><span>Horário</span><strong>08h às 22h, alternando com o feed</strong></div>
+          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5}}>Só saem os Reels que você aprovou. A conta de cada um você escolhe ao aprovar (ou na fila abaixo).</div>
+          <button onClick={togglePausaReels} disabled={pausandoReels} style={botaoPausa(reelsEnabled,pausandoReels)}>{pausandoReels?'Aplicando...':(reelsEnabled?'⏸ Pausar Reels':'▶ Ligar Reels')}</button>
+          {pausaReelsMsg && <div style={{fontSize:12,fontWeight:600,color:pausaReelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaReelsMsg}</div>}
         </div>
       </div>
       <div className="panel" style={{marginBottom:18}}>
-        <div className="panel-header"><span className="panel-title">👤 Conta que publica</span><span className={`badge ${publicador.feed==='ovalorcapital'&&publicador.reels==='ovalorcapital'?'badge-gray':'badge-green'}`}>{publicador.feed==='ovalorcapital'&&publicador.reels==='ovalorcapital'?'PADRÃO':'TESTE DE ALCANCE'}</span></div>
-        <div style={{padding:20}}>
-          <div className="text-secondary text-small" style={{marginBottom:12}}>Escolha quem posta. Se for o @oterrasan, a publicação sai na conta dele com o @ovalorcapital como colaborador; o @ovalorcapital aceita e curte sozinho (sem os colaboradores por assunto). Reels já montados continuam na conta em que foram montados.</div>
-          <div className="ig-auto-config">
-            <div className="form-group"><label className="form-label">Posts do feed</label><select className="form-input" value={publicador.feed} onChange={e=>setPublicador({...publicador,feed:e.target.value})}><option value="ovalorcapital">@ovalorcapital (padrão)</option><option value="oterrasan">@oterrasan + collab @ovalorcapital</option></select></div>
-            <div className="form-group"><label className="form-label">Reels</label><select className="form-input" value={publicador.reels} onChange={e=>setPublicador({...publicador,reels:e.target.value})}><option value="ovalorcapital">@ovalorcapital (padrão)</option><option value="oterrasan">@oterrasan + collab @ovalorcapital</option></select></div>
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingPub} onClick={savePublicador}>{savingPub?'Salvando...':'Salvar'}</button>{pubMsg&&<span style={{fontSize:12,color:pubMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pubMsg}</span>}</div>
-        </div>
-      </div>
-      <div className="panel" style={{marginBottom:18}}>
-        <div className="panel-header"><span className="panel-title">🎞️ Automação de Reels (vídeo)</span><span className={`badge ${reelsEnabled?'badge-green':'badge-red'}`}>{reelsEnabled?'ATIVA':'PAUSADA'}</span></div>
-        <div style={{padding:20}}>
-          <div className="text-secondary text-small" style={{marginBottom:12}}>Publica sozinho só os Reels que você aprovou (botão "✅ Aprovado para publicação" no Reel da matéria), das 08h às 22h, sem pausa, alternando 1 feed e 1 Reel. Sem Reel aprovado, segue só o feed.</div>
-          <button onClick={togglePausaReels} disabled={pausandoReels} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,width:'100%',padding:'16px 22px',fontSize:16,fontWeight:800,borderRadius:10,border:'none',cursor:pausandoReels?'wait':'pointer',opacity:pausandoReels?0.7:1,background:reelsEnabled?'var(--red)':'var(--green)',color:'#fff',marginBottom:14,letterSpacing:0.2}}>
-            {pausandoReels ? 'Aplicando...' : (reelsEnabled ? '⏸ PAUSAR REELS AGORA' : '▶ RETOMAR REELS AGORA')}
-          </button>
-          {pausaReelsMsg && <div style={{marginBottom:14,fontSize:13,fontWeight:600,color:pausaReelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaReelsMsg}</div>}
-          <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={reelsEnabled} onChange={e=>setReelsEnabled(e.target.checked)}/><span>{reelsEnabled?'Ligada':'Pausada'}</span></label></div>
-          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingReels} onClick={saveReels}>{savingReels?'Salvando...':'Salvar configuração'}</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
+        <div className="panel-header"><span className="panel-title">🎞️ Reels aprovados — ordem de publicação</span></div>
+        <div style={{padding:'4px 20px 16px'}}>
           <ReelsFilaAprovados/>
+        </div>
+      </div>
+      <div className="panel" style={{marginBottom:18}}>
+        <div className="panel-header"><span className="panel-title">📷 Configuração do feed</span></div>
+        <div style={{padding:20}}>
+          <div className="ig-auto-config">
+            <div className="form-group"><label className="form-label">Conta que publica o feed</label><select className="form-input" value={publicador.feed} onChange={e=>setPublicador({...publicador,feed:e.target.value})}><option value="ovalorcapital">@ovalorcapital (padrão)</option><option value="oterrasan">@oterrasan + collab @ovalorcapital</option></select></div>
+            <div className="form-group"><label className="form-label">Intervalo entre posts</label><select className="form-input" value={cfg.interval} onChange={e=>setCfg({...cfg,interval:Number(e.target.value)})}>{[15,30,45,60].map(v=><option key={v} value={v}>{v} minutos</option>)}</select></div>
+            <div className="form-group"><label className="form-label">Limite por dia (0 = sem limite)</label><input className="form-input" type="number" min="0" value={cfg.dailyLimit} onChange={e=>setCfg({...cfg,dailyLimit:e.target.value})}/></div>
+          </div>
+          <div className="form-group"><label className="form-label">Categorias que vão para o feed</label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}>{CATEGORIAS.map(([id,label])=><label key={id} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 12px',border:'1px solid var(--border)',borderRadius:6,cursor:'pointer'}}><input type="checkbox" checked={cfg.categories.includes(id)} onChange={()=>toggleCat(id)}/><span>{label}</span></label>)}</div></div>
+          <div className="text-secondary text-small" style={{marginBottom:12}}>Com @oterrasan, o post sai na sua conta e o @ovalorcapital entra como colaborador, aceitando e curtindo sozinho.</div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={saving} onClick={save}>{saving?'Salvando...':'Salvar configuração do feed'}</button>{msg&&<span style={{fontSize:12,color:msg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{msg}</span>}</div>
         </div>
       </div>
       <div className="panel" style={{marginBottom:18}}>
