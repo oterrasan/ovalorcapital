@@ -4442,7 +4442,7 @@ function AutomacaoInstagram() {
   const [pausaMsg,setPausaMsg] = useState('');
   // 28/09/2026 — teste de alcance: qual conta publica (feed e Reels
   // separados) e se o @ovalorcapital aceita a collab sozinho.
-  const [publicador,setPublicador] = useState({feed:'ovalorcapital',reels:'ovalorcapital',ovcAceita:true});
+  const [publicador,setPublicador] = useState({feed:'ovalorcapital',reels:'ovalorcapital'});
   const [savingPub,setSavingPub] = useState(false);
   const [pubMsg,setPubMsg] = useState('');
 
@@ -4463,7 +4463,7 @@ function AutomacaoInstagram() {
     setLoading(true);
     const start=brtStart();
     const [c,p,l,a,ia]=await Promise.all([
-      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED','IG_PUBLICADOR_REELS','IG_OVC_ACEITA_COLLAB_AUTO']).order('updated_at',{ascending:false}),
+      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED','IG_PUBLICADOR_REELS']).order('updated_at',{ascending:false}),
       sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
       sb.from('logs').select('level,message,created_at').gte('created_at',start).or('message.ilike.%[ig-auto]%,message.ilike.%[ig-collab]%').order('created_at',{ascending:false}).limit(100),
       sb.from('ig_accounts').select('username,active,token,updated_at').eq('active',true).eq('username','ovalorcapital').limit(1).maybeSingle(),
@@ -4474,7 +4474,7 @@ function AutomacaoInstagram() {
     setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
     setReelsEnabled(latest.REELS_AUTOMATION_ENABLED==='on');
     const normPub = v => ['ovalorcapital','oterrasan'].includes(String(v||'').replace(/^@/,'').toLowerCase()) ? String(v).replace(/^@/,'').toLowerCase() : 'ovalorcapital';
-    setPublicador({feed:normPub(latest.IG_PUBLICADOR_FEED),reels:normPub(latest.IG_PUBLICADOR_REELS),ovcAceita:latest.IG_OVC_ACEITA_COLLAB_AUTO!=='off'});
+    setPublicador({feed:normPub(latest.IG_PUBLICADOR_FEED),reels:normPub(latest.IG_PUBLICADOR_REELS)});
     let collabPolicy={};try{collabPolicy=JSON.parse(latest.IG_COLLAB_AUTO_ACCEPT_POLICY||'{}')}catch{}
     setCollabEnabled(latest.IG_COLLAB_AUTO_ACCEPT_ENABLED==='on');
     setCollabRecipients(Array.isArray(collabPolicy.recipients)?collabPolicy.recipients.map(x=>String(x).replace(/^@/,'').toLowerCase()):COLLAB_PADRAO);
@@ -4521,7 +4521,6 @@ function AutomacaoInstagram() {
       }
       await setConfig('IG_PUBLICADOR_FEED', publicador.feed);
       await setConfig('IG_PUBLICADOR_REELS', publicador.reels);
-      await setConfig('IG_OVC_ACEITA_COLLAB_AUTO', publicador.ovcAceita ? 'on' : 'off');
       setPubMsg('Salvo. Vale a partir da próxima publicação.');
     } catch(e) { setPubMsg('Erro ao salvar: '+e.message); } finally { setSavingPub(false); }
   };
@@ -4605,11 +4604,10 @@ function AutomacaoInstagram() {
       <div className="panel" style={{marginBottom:18}}>
         <div className="panel-header"><span className="panel-title">👤 Conta que publica</span><span className={`badge ${publicador.feed==='ovalorcapital'&&publicador.reels==='ovalorcapital'?'badge-gray':'badge-green'}`}>{publicador.feed==='ovalorcapital'&&publicador.reels==='ovalorcapital'?'PADRÃO':'TESTE DE ALCANCE'}</span></div>
         <div style={{padding:20}}>
-          <div className="text-secondary text-small" style={{marginBottom:12}}>Escolha quem posta. Se for o @oterrasan, a publicação sai na conta dele com o @ovalorcapital como colaborador (sem os colaboradores por assunto). Reels já montados continuam na conta em que foram montados.</div>
+          <div className="text-secondary text-small" style={{marginBottom:12}}>Escolha quem posta. Se for o @oterrasan, a publicação sai na conta dele com o @ovalorcapital como colaborador; o @ovalorcapital aceita e curte sozinho (sem os colaboradores por assunto). Reels já montados continuam na conta em que foram montados.</div>
           <div className="ig-auto-config">
             <div className="form-group"><label className="form-label">Posts do feed</label><select className="form-input" value={publicador.feed} onChange={e=>setPublicador({...publicador,feed:e.target.value})}><option value="ovalorcapital">@ovalorcapital (padrão)</option><option value="oterrasan">@oterrasan + collab @ovalorcapital</option></select></div>
             <div className="form-group"><label className="form-label">Reels</label><select className="form-input" value={publicador.reels} onChange={e=>setPublicador({...publicador,reels:e.target.value})}><option value="ovalorcapital">@ovalorcapital (padrão)</option><option value="oterrasan">@oterrasan + collab @ovalorcapital</option></select></div>
-            <div className="form-group"><label className="form-label">Collab no @ovalorcapital</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={publicador.ovcAceita} onChange={e=>setPublicador({...publicador,ovcAceita:e.target.checked})}/><span>{publicador.ovcAceita?'Aceita sozinho':'Aceite manual no app'}</span></label></div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:12}}><button className="btn btn-primary" disabled={savingPub} onClick={savePublicador}>{savingPub?'Salvando...':'Salvar'}</button>{pubMsg&&<span style={{fontSize:12,color:pubMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pubMsg}</span>}</div>
         </div>
