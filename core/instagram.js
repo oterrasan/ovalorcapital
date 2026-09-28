@@ -499,27 +499,15 @@ export async function acceptCollaborationInvite(mediaId, accountId) {
 // Fix: mesma lógica de retry-com-espera que o accept já tinha, aplicada
 // também na curtida — soma no máximo +17s no pior caso (2s+5s+10s), longe
 // do teto de 120s já documentado acima mesmo somado ao pior caso do accept.
-async function _ovcAceitaCollabAuto() {
-  try {
-    const { data } = await supabase.from("config").select("value,updated_at").eq("key", "IG_OVC_ACEITA_COLLAB_AUTO").order("updated_at", { ascending: false }).limit(1);
-    return String(data?.[0]?.value || "on") !== "off";
-  } catch (_) {
-    return true;
-  }
-}
-
 async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const attempts = [0, 5000, 15000, 30000];
   const likeAttempts = [2000, 5000, 10000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
     // 28/09/2026 — convite pro próprio @ovalorcapital (post/Reel publicado
-    // por outra conta, ex.: @oterrasan): aceita sozinho, feed e Reels, salvo
-    // se Roberto desligar no admin (config IG_OVC_ACEITA_COLLAB_AUTO=off).
+    // por outra conta, ex.: @oterrasan): sempre aceita sozinho e curte, no
+    // feed e nos Reels (Roberto: "deixa automático").
     const conviteParaOvc = username === DEFAULT_ACCOUNT_USERNAME;
-    if (conviteParaOvc && !(await _ovcAceitaCollabAuto())) {
-      return { username, skipped: true, reason: "ovc_aceite_manual_no_admin" };
-    }
     if (tag === "reel" && !conviteParaOvc) {
       return { username, skipped: true, reason: "reels_aceite_manual" };
     }
