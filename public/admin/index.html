@@ -4656,12 +4656,7 @@ function AutomacaoInstagram() {
           {pausaReelsMsg && <div style={{fontSize:12,fontWeight:600,color:pausaReelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaReelsMsg}</div>}
         </div>
       </div>
-      <div className="panel" style={{marginBottom:18}}>
-        <div className="panel-header"><span className="panel-title">🎞️ Reels aprovados — ordem de publicação</span></div>
-        <div style={{padding:'4px 20px 16px'}}>
-          <ReelsFilaAprovados/>
-        </div>
-      </div>
+      <div style={{fontSize:12,color:'var(--t2)',marginBottom:18}}>A fila de Reels aprovados (ordem e conta de cada um) fica no menu <strong>🎞️ Reels</strong>.</div>
       <div className="panel" style={{marginBottom:18}}>
         <div className="panel-header"><span className="panel-title">📷 Configuração do feed</span></div>
         <div style={{padding:20}}>
@@ -5148,7 +5143,77 @@ function Abas({abas, aba, setAba, props}) {
   );
 }
 const ReescritaEmLote = (props) => <div><div className="page-header"><div className="page-title">✍️ Reescrita em lote</div><div className="page-sub">Até 10 links de uma vez, ou um texto colado. Tudo cai em Matérias como pendente.</div></div><ReescritaOVC embutido onVerPendentes={()=>props.setPage&&props.setPage('postagens')}/></div>;
-const ReelsFilaTela = () => <div><div className="page-header"><div className="page-title">🎞️ Fila de Reels aprovados</div><div className="page-sub">Ordem de publicação e conta de cada Reel. Saem sozinhos das 08h às 22h.</div></div><div className="page-body"><div className="panel"><div style={{padding:20}}><ReelsFilaAprovados/></div></div></div></div>;
+// 28/09/2026 — uma tela só com todos os Reels separados por situação.
+function ReelsSituacao() {
+  const [grupos,setGrupos] = useState(null);
+  const [erro,setErro] = useState('');
+  const [contaDe,setContaDe] = useState({});
+  const [busy,setBusy] = useState(null);
+  const carregar = async () => {
+    try {
+      const sel = 'id,titulo,status,published_at,metrics';
+      const q = (f, n) => aplicarFiltroVideo(sb.from('posts').select(sel).order('updated_at',{ascending:false}).limit(n), f);
+      const [a,b,c,d] = await Promise.all([q('aguardando',100), q('montando',100), q('erro',100), q('reel',15)]);
+      const e1 = a.error||b.error||c.error||d.error; if (e1) throw e1;
+      const norm = rows => (rows||[]).map(p=>({...p, m: metricsObj(p)}));
+      setGrupos({aguardando:norm(a.data), montando:norm(b.data), erro:norm(c.data), publicados:norm(d.data)}); setErro('');
+    } catch(e) { setErro(e.message||String(e)); }
+  };
+  useEffect(()=>{ carregar(); const t=setInterval(carregar,30000); return ()=>clearInterval(t); },[]);
+  const aprovar = async (p) => {
+    const conta = contaDe[p.id] || reelContaDe(p.m.instagram_reel_template);
+    setBusy(p.id);
+    try { const d = await reelAprovarNaConta(p.id, conta); if (!d.ok) alert('❌ ' + (d.error||'falha')); }
+    catch(e) { alert('❌ Erro de conexão: ' + e.message); }
+    finally { setBusy(null); carregar(); }
+  };
+  const Secao = ({titulo, sub, cor, itens, children}) => (
+    <div className="panel" style={{marginBottom:18}}>
+      <div className="panel-header"><span className="panel-title"><span style={{color:cor}}>●</span> {titulo} <span style={{color:'var(--t3)',fontWeight:400,fontSize:12}}>({itens?itens.length:'…'})</span></span></div>
+      <div style={{padding:'6px 20px 14px'}}>
+        {sub&&<div style={{fontSize:12,color:'var(--t2)',margin:'6px 0 8px'}}>{sub}</div>}
+        {itens&&itens.length===0?<div style={{fontSize:12,color:'var(--t3)',padding:'8px 0'}}>Nada aqui agora.</div>:children}
+      </div>
+    </div>
+  );
+  const linha = {display:'grid',gap:10,alignItems:'center',padding:'9px 0',borderBottom:'1px solid var(--border)',fontSize:13};
+  const g = grupos || {};
+  return (
+    <div>
+      <div className="page-header"><div className="page-title">🎞️ Reels</div><div className="page-sub">Todos os Reels separados por situação. Aprovar aqui já coloca na fila; saem sozinhos das 08h às 22h, cada um na conta escolhida.</div></div>
+      <div className="page-body">
+        {erro&&<div className="alert-banner yellow"><span>❌</span><span>{erro}</span></div>}
+        <Secao titulo="Prontos para você aprovar" cor="#fbbf24" itens={g.aguardando} sub="Veja a montagem, escolha a conta e aprove.">
+          {(g.aguardando||[]).map(p=>{ const t=p.m.instagram_reel_template||{}; return (
+            <div key={p.id} style={{...linha,gridTemplateColumns:'90px minmax(0,1fr) auto auto'}}>
+              {t.preview_url?<video src={t.preview_url} muted playsInline preload="metadata" controls style={{width:90,height:160,objectFit:'cover',borderRadius:6,background:'#000'}}/>:<div style={{width:90,height:160,borderRadius:6,background:'var(--input)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--t3)',textAlign:'center'}}>sem prévia</div>}
+              <span>{p.titulo}<div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Portal: {p.status==='publicado'?'publicada':'pendente (vai ao ar ao aprovar)'}</div></span>
+              <select className="form-input" style={{height:32,padding:'0 8px',fontSize:12,width:'auto'}} value={contaDe[p.id]||reelContaDe(t)} onChange={e=>setContaDe({...contaDe,[p.id]:e.target.value})}>
+                {REEL_CONTAS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+              </select>
+              <button className="btn btn-success btn-sm" disabled={busy===p.id} onClick={()=>aprovar(p)}>{busy===p.id?'Aprovando…':'✅ Aprovar'}</button>
+            </div>); })}
+        </Secao>
+        <div className="panel" style={{marginBottom:18}}>
+          <div className="panel-header"><span className="panel-title"><span style={{color:'#60a5fa'}}>●</span> Aprovados na fila (ordem de publicação)</span></div>
+          <div style={{padding:'6px 20px 14px'}}><ReelsFilaAprovados/></div>
+        </div>
+        <Secao titulo="Montando" cor="#a78bfa" itens={g.montando} sub="O sistema está preparando o vídeo com o layout. Leva alguns minutos.">
+          {(g.montando||[]).map(p=>{ const t=p.m.instagram_reel_template||{}; return (
+            <div key={p.id} style={{...linha,gridTemplateColumns:'minmax(0,1fr) auto'}}><span>{p.titulo}</span><span style={{fontSize:12,color:'var(--t3)'}}>{t.status==='processing'?'montando agora':'na fila de montagem'}{t.aprovado?' · já aprovado':''}</span></div>); })}
+        </Secao>
+        <Secao titulo="Com erro" cor="#f87171" itens={g.erro} sub="O sistema tenta de novo sozinho até 3 vezes. Quando para, o motivo aparece aqui.">
+          {(g.erro||[]).map(p=>{ const t=p.m.instagram_reel_template||{}; return (
+            <div key={p.id} style={{...linha,gridTemplateColumns:'minmax(0,1fr) minmax(0,1.2fr)'}}><span>{p.titulo}<div style={{fontSize:11,color:t.exhausted?'#f87171':'#fbbf24',marginTop:3}}>{t.exhausted?'Parou (3 tentativas)':`Tentativa ${t.attempts||1} de 3 — vai tentar de novo`}</div></span><span style={{fontSize:11,color:'var(--t2)',wordBreak:'break-word'}}>{String(t.last_error||'sem detalhe').slice(0,220)}</span></div>); })}
+        </Secao>
+        <Secao titulo="Publicados recentemente" cor="#4ade80" itens={g.publicados}>
+          {(g.publicados||[]).map(p=>{ const r=p.m.instagram_reel||{}; return (
+            <div key={p.id} style={{...linha,gridTemplateColumns:'minmax(0,1fr) auto auto'}}><span>{p.titulo}</span><span style={{fontSize:12,color:'#f472b6'}}>@{r.username||'?'}</span><span style={{fontSize:12,color:'var(--t3)'}}>{r.published_at?fmt(r.published_at):''}</span></div>); })}
+        </Secao>
+      </div>
+    </div>
+  );
+}
 
 // Grupos do menu. Cada item pode ter abas (telas que antes eram separadas).
 const MENU = [
@@ -5163,9 +5228,9 @@ const MENU = [
     ]}
   ]},
   {grupo:'Instagram', itens:[
-    {id:'reels',label:'Reels e vídeos',icon:'🎞️',abas:[
-      {id:'videos',label:'🎬 Vídeos das matérias',comp:VideosAdmin},
-      {id:'fila',label:'✅ Fila de aprovados',comp:ReelsFilaTela}
+    {id:'reels',label:'Reels',icon:'🎞️',abas:[
+      {id:'situacao',label:'📋 Situação dos Reels',comp:ReelsSituacao},
+      {id:'videos',label:'🎬 Colocar vídeo numa matéria',comp:VideosAdmin}
     ]},
     {id:'instagram',label:'Instagram',icon:'📱',abas:[
       {id:'automacao',label:'⏱️ Automação',comp:AutomacaoInstagram},
