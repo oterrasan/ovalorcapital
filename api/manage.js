@@ -1882,7 +1882,13 @@ async function handleReelsRenderJob(req, res, body) {
         sourceUrl: candidate.imagem,
         postId: `reelcover-${candidate.id}`,
         supabase,
-        title: candidate.titulo
+        title: candidate.titulo,
+        // 28/09/2026 — Roberto: "o alcance é ridículo... capa decente, bem
+        // enquadrada, com título forte e atraente com letras maiores e
+        // destacadas". Capa do Reel usa a variante mais agressiva do
+        // construtor (HEADLINE_BOX_BOLD, peso 900) — vista pequena na grade
+        // do perfil, precisa de letra maior que o post de feed normal.
+        bold: true
       });
       processing.cover_candidate_url = cover?.url || null;
     } catch (_) {} // capa é best-effort — sem ela, o Reel sobe sem capa customizada

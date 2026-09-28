@@ -87,6 +87,40 @@ function collaboratorsFor(publisherUsername, kind, opts = {}) {
   return nome && nome !== publisher ? [nome] : [];
 }
 
+// 28/09/2026 — 🔴 causa real confirmada com dado de produção: publicar do
+// @oterrasan (feed ou Reel) falhava 100% das vezes com "User not visible /
+// Não é possível marcar o usuário ovalorcapital nesta mídia" (code 210,
+// subcode 2207066) — a Meta rejeita a marcação de @ovalorcapital como
+// colaborador nessa combinação de contas (falta de relação/permissão de tag
+// entre as duas Páginas do lado da Meta; token/escopos do @oterrasan estão
+// corretos, testado isolado). Isso não é algo que o código resolve — mas
+// travar o post/Reel inteiro por causa só da marcação era o bug real.
+// createMediaContainerWithFallback: tenta criar COM o colaborador; se a Meta
+// rejeitar especificamente por esse subcode, tenta de novo SEM collaborators
+// — o post/Reel sai igual, só sem a marcação. Qualquer outro erro (conta
+// sem token, vídeo inválido, cota etc.) propaga normalmente, sem retry.
+const COLLAB_TAG_REJECTED_SUBCODE = 2207066;
+async function createMediaContainerWithFallback(igUserId, payload, token) {
+  const attempt = async (body) => {
+    const res = await fetch(`${BASE}/${igUserId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  };
+  let data = await attempt(payload);
+  if (!data.id && payload.collaborators?.length && data?.error?.error_subcode === COLLAB_TAG_REJECTED_SUBCODE) {
+    const { collaborators, ...withoutCollab } = payload;
+    data = await attempt(withoutCollab);
+    if (data.id) {
+      data.__collaboratorsSkipped = true;
+      try { await writeLog("warn", `[instagram] colaborador @${collaborators.join(",@")} rejeitado pela Meta (subcode ${COLLAB_TAG_REJECTED_SUBCODE}) — publicado sem marcação, conta ${igUserId}`); } catch (_) {}
+    }
+  }
+  return data;
+}
+
 function normalizePublishingLimit(raw) {
   const item = Array.isArray(raw?.data) ? raw.data[0] : raw;
   const config = item?.config || {};
@@ -164,12 +198,7 @@ export async function publish(imageUrl, caption, accountId, opts = {}) {
   if (collaborators.length) {
     createPayload.collaborators = collaborators;
   }
-  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(createPayload)
-  });
-  const createData = await createRes.json();
+  const createData = await createMediaContainerWithFallback(ig_user_id, createPayload, token);
   if (!createData.id) throw new Error("Erro ao criar container: " + JSON.stringify(createData));
 
   // 2. Aguardar o processamento da imagem pela Meta
@@ -220,7 +249,7 @@ export async function publish(imageUrl, caption, accountId, opts = {}) {
   // 17/09/2026, Roberto: "demorar 40 minutos... é inadmissível". Sem cron:
   // já sabemos o media_id e quem foi convidado, aceitamos direto por
   // media_id. Best-effort — nunca pode quebrar a publicação em si.
-  if (collaborators.length) {
+  if (collaborators.length && !createData.__collaboratorsSkipped) {
     try { await acceptCollabsForMedia(pubData.id, collaborators, "feed"); } catch (_) {}
   }
 
@@ -258,15 +287,10 @@ export async function createReelContainer(videoUrl, caption, accountId, opts = {
   if (collaborators.length) createPayload.collaborators = collaborators;
   if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
 
-  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(createPayload)
-  });
-  const createData = await createRes.json();
+  const createData = await createMediaContainerWithFallback(ig_user_id, createPayload, token);
   if (!createData.id) throw new Error("Erro ao criar container de Reel: " + JSON.stringify(createData));
 
-  return { creation_id: createData.id, account_id: account.id, username: account.username, quota_before: limit };
+  return { creation_id: createData.id, account_id: account.id, username: account.username, collaboratorsSkipped: Boolean(createData.__collaboratorsSkipped), quota_before: limit };
 }
 
 // 18/09/2026 — a pedido de Roberto: "isso não precisa ficar no supabase,
@@ -300,18 +324,14 @@ export async function createReelContainerResumable(caption, accountId, opts = {}
   if (collaborators.length) createPayload.collaborators = collaborators;
   if (opts.coverUrl) createPayload.cover_url = opts.coverUrl;
 
-  const createRes = await fetch(`${BASE}/${ig_user_id}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(createPayload)
-  });
-  const createData = await createRes.json();
+  const createData = await createMediaContainerWithFallback(ig_user_id, createPayload, token);
   if (!createData.id) throw new Error("Erro ao criar container resumível de Reel: " + JSON.stringify(createData));
 
   return {
     creation_id: createData.id,
     account_id: account.id,
     username: account.username,
+    collaboratorsSkipped: Boolean(createData.__collaboratorsSkipped),
     upload_url: createData.uri || `https://rupload.facebook.com/ig-api-upload/v25.0/${createData.id}`,
     upload_token: token,
     quota_before: limit

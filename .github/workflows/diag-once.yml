@@ -1,17 +1,8 @@
-name: diag-once (ig_accounts oterrasan)
+name: diag-once (placeholder)
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/diag-once.yml']
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: npm i --no-save @supabase/supabase-js
-      - run: node scripts/one-off/diag-ig-accounts.mjs
-# run 1790623100
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"

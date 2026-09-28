@@ -20,6 +20,21 @@ const HEADLINE_BOX = {
   maxFontSize: px(42),
   minFontSize: px(30)
 };
+// 28/09/2026 — Roberto: "o alcance é ridículo... talvez a capa decente, bem
+// enquadrada, com título forte e atraente com letras maiores e destacadas
+// possam melhorar". Variante mais agressiva usada SÓ na capa do Reel (grade
+// do perfil, vista pequena) — fonte bem maior (peso 900, o mais pesado do
+// Inter Variable), menos linhas (força frases mais curtas e grossas em vez
+// de 4 linhas pequenas) e caixa mais larga pra caber a letra maior. O post
+// de feed (foto grande, vista em tela cheia) continua com HEADLINE_BOX,
+// sem mudança nenhuma.
+const HEADLINE_BOX_BOLD = {
+  y: px(660),
+  width: px(920),
+  maxLines: 3,
+  maxFontSize: px(62),
+  minFontSize: px(44)
+};
 const HIGHLIGHT_COLOR = "#f28c22";
 const STOPWORDS = new Set([
   "A", "O", "AS", "OS", "UM", "UMA", "UNS", "UMAS",
@@ -124,14 +139,15 @@ function wrapHeadline(text, fontSize, maxWidth, maxLines) {
   return clipped;
 }
 
-async function buildHeadlineLayers(title) {
+async function buildHeadlineLayers(title, { bold = false } = {}) {
+  const box = bold ? HEADLINE_BOX_BOLD : HEADLINE_BOX;
   const normalized = String(title || "").replace(/\s+/g, " ").trim().toUpperCase();
   if (!normalized) return null;
 
   let selected = null;
-  for (let fontSize = HEADLINE_BOX.maxFontSize; fontSize >= HEADLINE_BOX.minFontSize; fontSize -= 2) {
-    const lines = wrapHeadline(normalized, fontSize, HEADLINE_BOX.width, HEADLINE_BOX.maxLines);
-    const fits = lines.length <= HEADLINE_BOX.maxLines && lines.every(line => estimateTextWidth(line, fontSize) <= HEADLINE_BOX.width);
+  for (let fontSize = box.maxFontSize; fontSize >= box.minFontSize; fontSize -= 2) {
+    const lines = wrapHeadline(normalized, fontSize, box.width, box.maxLines);
+    const fits = lines.length <= box.maxLines && lines.every(line => estimateTextWidth(line, fontSize) <= box.width);
     if (fits) {
       selected = { fontSize, lines };
       break;
@@ -140,8 +156,8 @@ async function buildHeadlineLayers(title) {
 
   if (!selected) {
     selected = {
-      fontSize: HEADLINE_BOX.minFontSize,
-      lines: wrapHeadline(normalized, HEADLINE_BOX.minFontSize, HEADLINE_BOX.width, HEADLINE_BOX.maxLines)
+      fontSize: box.minFontSize,
+      lines: wrapHeadline(normalized, box.minFontSize, box.width, box.maxLines)
     };
   }
 
@@ -151,7 +167,7 @@ async function buildHeadlineLayers(title) {
     .map(line => renderLineMarkup(line, highlightWord, highlightState, true))
     .join("\n");
   const textOptions = text => ({
-    text: `<span weight="800">${text}</span>`,
+    text: `<span weight="${bold ? 900 : 800}">${text}</span>`,
     font: `Inter ${selected.fontSize}`,
     fontfile: HEADLINE_FONT_PATH,
     align: "center",
@@ -160,10 +176,10 @@ async function buildHeadlineLayers(title) {
     wrap: "none"
   });
   const foreground = await sharp({ text: textOptions(markup) }).png().toBuffer();
-  const { width = HEADLINE_BOX.width } = await sharp(foreground).metadata();
+  const { width = box.width } = await sharp(foreground).metadata();
   const left = Math.max(0, Math.round((W - width) / 2));
   return [
-    { input: foreground, top: HEADLINE_BOX.y, left, blend: "over" }
+    { input: foreground, top: box.y, left, blend: "over" }
   ];
 }
 
@@ -192,7 +208,7 @@ async function downloadImage(url) {
   }
 }
 
-export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
+export async function buildInstagramImageBuffer(sourceUrl, { title, bold } = {}) {
   const source = await downloadImage(sourceUrl);
   const photo = await sharp(source)
     .rotate()
@@ -213,7 +229,7 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
   const layers = [
     { input: overlay, top: 0, left: 0 }
   ];
-  const headlineLayers = await buildHeadlineLayers(title);
+  const headlineLayers = await buildHeadlineLayers(title, { bold });
   if (headlineLayers) layers.push(...headlineLayers);
 
   return sharp(base)
@@ -222,13 +238,13 @@ export async function buildInstagramImageBuffer(sourceUrl, { title } = {}) {
     .toBuffer();
 }
 
-export async function prepareInstagramImage({ sourceUrl, postId, supabase, title }) {
+export async function prepareInstagramImage({ sourceUrl, postId, supabase, title, bold }) {
   if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) throw new Error("instagram_source_image_invalid");
   if (!postId) throw new Error("instagram_post_id_missing");
 
-  const buffer = await buildInstagramImageBuffer(sourceUrl, { title });
+  const buffer = await buildInstagramImageBuffer(sourceUrl, { title, bold });
   const hash = crypto.createHash("sha1")
-    .update([HEADLINE_VERSION, sourceUrl, title || ""].join("\n"))
+    .update([HEADLINE_VERSION, bold ? "bold" : "normal", sourceUrl, title || ""].join("\n"))
     .digest("hex")
     .slice(0, 10);
   const path = `${PREFIX}/${postId}-${hash}.jpg`;
