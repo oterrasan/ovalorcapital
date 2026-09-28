@@ -95,6 +95,12 @@ function classificar(post) {
   return null;
 }
 
+// 28/09/2026 — usado pelos Reels do @obrasilon (api/manage.js): só matéria
+// que o Brasil ON espelha pode virar Reel lá.
+export function classificarParaBrasilOn(post) {
+  return classificar(post || {});
+}
+
 // Grava uma linha em brasilon_posts sem depender de ON CONFLICT (ver
 // comentário acima — origem_post_id NÃO tem constraint unique real).
 // Sempre confere se já existe uma linha com esse origem_post_id: se sim,

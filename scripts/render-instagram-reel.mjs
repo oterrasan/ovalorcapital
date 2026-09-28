@@ -392,7 +392,56 @@ async function footerTransparente(path) {
   return sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
 }
 
+// 28/09/2026 — Reels do @obrasilon (Roberto: "use o mesmo layout do Brasil
+// ON do feed e adapte para os reels"). Igual ao feed (brasilon/core/
+// instagram_image.js): vídeo cru ocupando tudo, sem sombra, manchete em
+// caixa AMARELA com texto preto e o ícone do Brasil ON logo abaixo. A caixa
+// fica acima da faixa de baixo que a interface do Instagram cobre.
+const BON_YELLOW = "#e6c23c";
+const BON_BOX = { width: Math.round(WIDTH * 0.88), paddingX: 40, paddingY: 34, radius: 22, maxLines: 4, maxFontSize: 54, minFontSize: 34, lineGap: 1.16, bottomAnchor: 1400 };
+const BON_ICON_SIZE = 130;
+const BON_ICON_GAP = 22;
+const BON_ICON_PATH = resolve(root, "brasilon", "public", "assets", "icone-brasil-on.svg");
+
+async function buildOverlayBrasilOn(job, outputPath) {
+  const h = sanitizeHeadline(job.headline);
+  const layers = [];
+  const texto = cleanText(h?.texto || job.title).replace(/\*/g, "").replace(/\s+/g, " ").trim().toUpperCase();
+  let boxBottom = BON_BOX.bottomAnchor;
+  if (texto && !(h && h.oculta)) {
+    const inner = BON_BOX.width - BON_BOX.paddingX * 2;
+    let fontSize = BON_BOX.minFontSize;
+    let lines = wrapHeadline(texto, fontSize, inner, BON_BOX.maxLines);
+    for (let size = BON_BOX.maxFontSize; size >= BON_BOX.minFontSize; size -= 2) {
+      const tentativa = wrapHeadline(texto, size, inner, BON_BOX.maxLines);
+      if (tentativa.every(line => estimateTextWidth(line, size) <= inner)) { fontSize = size; lines = tentativa; break; }
+    }
+    const boxHeight = BON_BOX.paddingY * 2 + Math.round(fontSize * BON_BOX.lineGap) * lines.length;
+    const boxTop = Math.max(0, BON_BOX.bottomAnchor - boxHeight);
+    const boxLeft = Math.round((WIDTH - BON_BOX.width) / 2);
+    const box = await sharp(Buffer.from(
+      `<svg width="${BON_BOX.width}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg">` +
+      `<rect x="0" y="0" width="${BON_BOX.width}" height="${boxHeight}" rx="${BON_BOX.radius}" ry="${BON_BOX.radius}" fill="${BON_YELLOW}"/></svg>`
+    )).png().toBuffer();
+    const markup = lines.map(line => `<span foreground="#000000">${escapeXml(line)}</span>`).join("\n");
+    const text = await sharp({
+      text: { text: `<span weight="800">${markup}</span>`, font: `Inter ${fontSize}`, fontfile: HEADLINE_FONT_PATH, align: "center", rgba: true, dpi: 72, wrap: "none" }
+    }).png().toBuffer();
+    const meta = await sharp(text).metadata();
+    layers.push({ input: box, left: boxLeft, top: boxTop });
+    layers.push({ input: text, left: Math.round((WIDTH - (meta.width || 0)) / 2), top: boxTop + Math.round((boxHeight - (meta.height || 0)) / 2) });
+    boxBottom = boxTop + boxHeight;
+  }
+  const icon = await sharp(await readFile(BON_ICON_PATH)).resize(BON_ICON_SIZE, BON_ICON_SIZE).png().toBuffer();
+  layers.push({ input: icon, left: Math.round((WIDTH - BON_ICON_SIZE) / 2), top: boxBottom + BON_ICON_GAP });
+  await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(layers)
+    .png({ compressionLevel: 9 })
+    .toFile(outputPath);
+}
+
 async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx = HEIGHT) {
+  if (job.marca === "brasilon") return buildOverlayBrasilOn(job, outputPath);
   const feedOverlay = resolve(root, "public", "assets", "ig-overlay-ovc-canva.png");
   const reelFooter = resolve(root, "public", "assets", "ig-footer-ovc-reels-canva.png");
   // As marcas são extraídas como blocos estáticos, sem redimensionamento.

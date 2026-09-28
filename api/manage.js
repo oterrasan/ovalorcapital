@@ -4,7 +4,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { detectPublicationLocation } from "../core/instagram_location.js";
 import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
-import { mirrorPostToBrasilOn } from "../core/brasilonMirror.js";
+import { mirrorPostToBrasilOn, classificarParaBrasilOn } from "../core/brasilonMirror.js";
 import { normalizeCollabPolicy, shouldAutoAcceptCollab, normalizeInstagramUsername } from "../core/instagram_collab_policy.js";
 import { deleteVideoFromStorage } from "../core/storage.js";
 
@@ -515,6 +515,11 @@ async function handleIgPublish(req, res, body) {
     }
   }
 
+  // 28/09/2026 — nunca repetir entre OVC e Brasil ON.
+  if (await _jaPublicadoNoFeedDoBrasilOn(post.id) || String(parseJsonMaybe(post.metrics, {})?.instagram_reel?.username || "").toLowerCase() === "obrasilon") {
+    return res.status(409).json({ ok: false, error: "ja_publicado_no_instagram_do_brasil_on", detalhe: "Esta matéria já saiu no Instagram do Brasil ON." });
+  }
+
   const caption = buildInstagramCaption(post);
   const now = new Date().toISOString();
 
@@ -726,10 +731,19 @@ function _igNormalizarPublicador(raw) {
   return IG_PUBLICADORES_VALIDOS.includes(nome) ? nome : "ovalorcapital";
 }
 
+// 28/09/2026 — Roberto: Reels também no @obrasilon, com as mesmas regras
+// (aprovação, fila, janela). O @obrasilon só entra nos Reels — o feed dele
+// continua no projeto Brasil ON (brasilon/api/manage.js), com layout próprio.
+const REELS_CONTAS_VALIDAS = [...IG_PUBLICADORES_VALIDOS, "obrasilon"];
+function _reelsNormalizarConta(raw) {
+  const nome = String(raw || "").replace(/^@/, "").trim().toLowerCase();
+  return REELS_CONTAS_VALIDAS.includes(nome) ? nome : "ovalorcapital";
+}
+
 // Conta escolhida para o Reel (template.conta_publicacao) → id em ig_accounts.
 // null = @ovalorcapital (padrão de getAccount em core/instagram.js).
 async function _reelsContaIdDoTemplate(tpl) {
-  const conta = _igNormalizarPublicador(tpl?.conta_publicacao);
+  const conta = _reelsNormalizarConta(tpl?.conta_publicacao);
   if (conta === "ovalorcapital") return null;
   const id = await _igContaIdPorUsername(conta);
   if (!id) throw new Error(`conta @${conta} inativa ou sem token`);
@@ -740,7 +754,77 @@ async function _reelsContaIdDoTemplate(tpl) {
 function _reelsContaDivergente(tpl) {
   if (!tpl?.ig_creation_id || !tpl?.ig_username) return false;
   const dona = String(tpl.ig_username).replace(/^@/, "").toLowerCase();
-  return dona !== _igNormalizarPublicador(tpl.conta_publicacao);
+  return dona !== _reelsNormalizarConta(tpl.conta_publicacao);
+}
+
+// ── Reels no @obrasilon: legenda e comentário no padrão do Brasil ON ──
+// (mesma regra do feed deles em brasilon/api/manage.js: assinatura
+// "BRASIL ON", #BrasilOn e link para a matéria no obrasilon.com.br).
+const BON_SITE_BASE = "https://www.obrasilon.com.br";
+const BON_CAT_HASHTAG = { "brasil-on": "#BrasilOn", politica: "#Politica", policia: "#Policia", futebol: "#Futebol", giro: "#Giro" };
+
+async function _brasilonEspelhoDe(ovcPostId) {
+  if (!ovcPostId) return null;
+  const { data } = await supabase.from("brasilon_posts")
+    .select("id,titulo,conteudo,comentario_fixado,categoria")
+    .eq("origem_post_id", ovcPostId).limit(1);
+  return data?.[0] || null;
+}
+
+function _brasilonArticleUrl(bp) {
+  const slug = String(bp.titulo || "").toLowerCase().normalize("NFD").replace(/\p{Mn}/gu, "")
+    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80) || "materia";
+  return `${BON_SITE_BASE}/${bp.categoria || "brasil-on"}/${slug}-${String(bp.id || "").slice(0, 8)}/`;
+}
+
+function _brasilonLegenda(bp) {
+  const date = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "long", year: "numeric" });
+  // Tira a linha de assinatura do corpo ("Redação OVC · data" ou "BRASIL ON ·
+  // data", já trocada pelo espelho) — a assinatura certa vai no fim.
+  const texto = stripHtmlToText(bp.conteudo || "").replace(/^\s*BRASIL ON\s*[·—-][^\n]*\n+/i, "");
+  const extracted = extractCaptionBodyAndHashtags(texto);
+  const body = removeRepeatedHeadline(bp.titulo, extracted.body);
+  const tags = uniqueHashtags([...(extracted.hashtags || []), BON_CAT_HASHTAG[bp.categoria] || ""])
+    .filter((h) => !["#ovalorcapital", "#brasilon"].includes(h.toLowerCase()))
+    .slice(0, 9);
+  tags.push("#BrasilOn");
+  const cta = "📲 Acesse o portal e confira a matéria na íntegra:\n" + _brasilonArticleUrl(bp);
+  return fitInstagramCaption(body, "BRASIL ON — " + date, tags, cta, null);
+}
+
+// Legenda do Reel conforme a conta escolhida. No @obrasilon a matéria
+// precisa estar espelhada no Brasil ON (senão não há página para linkar).
+async function _reelsLegenda(post, conta) {
+  if (_reelsNormalizarConta(conta) !== "obrasilon") return buildInstagramCaption(post);
+  const bp = await _brasilonEspelhoDe(post.id);
+  if (!bp) throw new Error("materia_nao_esta_no_brasil_on");
+  return _brasilonLegenda(bp);
+}
+
+async function _reelsPrimeiroComentario(post, conta) {
+  if (_reelsNormalizarConta(conta) !== "obrasilon") return buildInstagramFirstComment(post);
+  const bp = await _brasilonEspelhoDe(post.id);
+  const configured = stripHtmlToText(bp?.comentario_fixado || post?.comentario_fixado || "").trim();
+  const text = configured || "Leia a matéria completa no Brasil ON.";
+  return text.length > 2000 ? text.slice(0, 1997).replace(/\s+\S*$/, "") + "…" : text;
+}
+
+// ── Nunca repetir conteúdo entre OVC e Brasil ON no Instagram ──
+// 28/09/2026 — Roberto: "garanta que os conteúdos não irão se repetir no
+// Brasil ON e no OVC". Cada matéria sai UMA vez no Instagram, em qualquer
+// formato e qualquer conta: feed OVC, Reel (OVC/@oterrasan/@obrasilon) ou
+// feed do Brasil ON. O feed do Brasil ON grava BON_IG_POSTED__{id do
+// espelho} em config; aqui conferimos essa marca pelo espelho da matéria.
+async function _jaPublicadoNoFeedDoBrasilOn(ovcPostId) {
+  try {
+    const bp = await _brasilonEspelhoDe(ovcPostId);
+    if (!bp) return false;
+    const { data } = await supabase.from("config").select("key")
+      .in("key", [`BON_IG_POSTED__${bp.id}`, `BON_REEL_POSTED__${bp.id}`]).limit(1);
+    return Boolean(data && data.length);
+  } catch (_) {
+    return false;
+  }
 }
 
 async function _igContaIdPorUsername(username) {
@@ -1240,8 +1324,18 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     return String(tags[0] || "").trim().toLowerCase();
   };
-  const post = candidatos.find((p) => elegivel(p) && categoriaDe(p) === "politica")
-    || candidatos.find((p) => elegivel(p));
+  // 28/09/2026 — nunca repetir entre OVC e Brasil ON: pula matéria que já
+  // saiu no Instagram do Brasil ON.
+  const ordem = [
+    ...candidatos.filter((p) => elegivel(p) && categoriaDe(p) === "politica"),
+    ...candidatos.filter((p) => elegivel(p) && categoriaDe(p) !== "politica")
+  ];
+  let post = null;
+  for (const p of ordem) {
+    if (await _jaPublicadoNoFeedDoBrasilOn(p.id)) continue;
+    post = p;
+    break;
+  }
 
   if (!post) {
     await writeLog("info", `[ig-auto] @${username}: nenhuma matéria elegível`);
@@ -1461,6 +1555,10 @@ async function handleIgPriorityPublish(req, res, body) {
     for (const item of fila) {
       if (_jaPublicadoOuReservadoNoInstagram(item.post, item.metrics)) {
         await desenfileirar(item.post.id);
+        continue;
+      }
+      if (await _jaPublicadoNoFeedDoBrasilOn(item.post.id)) {
+        await desenfileirar(item.post.id, { instagram_priority_failed: { at: new Date().toISOString(), error: "ja_publicado_no_instagram_do_brasil_on" } });
         continue;
       }
       if (!/^https?:\/\//i.test(String(item.post.imagem || ""))) {
@@ -1734,15 +1832,14 @@ async function handleReelsRenderJob(req, res, body) {
   // Supabase. A legenda precisa ir junto na criação do container (a Meta
   // não aceita definir/trocar caption depois, só no media_publish), por
   // isso é construída aqui e não mais em _reelsPublicarPost.
-  const caption = buildInstagramCaption(candidate);
   let ig;
   try {
     const { createReelContainerResumable } = await _loadInstagram();
     // Conta escolhida por Roberto ao aprovar o Reel; sem escolha, @ovalorcapital.
-    const contaEscolhida = _igNormalizarPublicador(processing.conta_publicacao);
+    const contaEscolhida = _reelsNormalizarConta(processing.conta_publicacao);
     const contaReel = contaEscolhida === "ovalorcapital" ? null : await _igContaIdPorUsername(contaEscolhida);
     if (contaEscolhida !== "ovalorcapital" && !contaReel) throw new Error(`conta @${contaEscolhida} inativa ou sem token`);
-    ig = await createReelContainerResumable(caption, contaReel);
+    ig = await createReelContainerResumable(await _reelsLegenda(candidate, contaEscolhida), contaReel);
   } catch (igError) {
     processing.status = "error";
     processing.exhausted = processing.attempts >= REELS_MAX_RETRY_ATTEMPTS;
@@ -1807,6 +1904,9 @@ async function handleReelsRenderJob(req, res, body) {
       // recorte de segurança contra marca d'água (que corta 16% do topo e
       // as laterais): o vídeo deles entra inteiro.
       ...(/metropoles/i.test(String(metrics.fonte_link_manual || "")) ? { watermark_crop_top: 0, watermark_crop_bottom: 0, watermark_crop_side: 0 } : {}),
+      // 28/09/2026 — Reel do @obrasilon sai com o layout do feed do Brasil ON
+      // (vídeo cru, manchete na caixa amarela e ícone abaixo).
+      marca: _reelsNormalizarConta(processing.conta_publicacao) === "obrasilon" ? "brasilon" : "ovc",
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
@@ -1913,7 +2013,7 @@ async function handleReelsRenderSemAudio(req, res, body) {
   const template = metrics.instagram_reel_template || {};
   if (template.claim_id !== claimId || template.status !== "processing") return res.status(409).json({ ok: false, error: "render_claim_invalido" });
   const { createReelContainerResumable } = await _loadInstagram();
-  const ig = await createReelContainerResumable(buildInstagramCaption(post), template.ig_account_id || post.ig_account_id || null, template.cover_url ? { coverUrl: template.cover_url } : {});
+  const ig = await createReelContainerResumable(await _reelsLegenda(post, template.conta_publicacao), template.ig_account_id || post.ig_account_id || null, template.cover_url ? { coverUrl: template.cover_url } : {});
   metrics.instagram_reel_template = {
     ...template,
     ig_creation_id: ig.creation_id,
@@ -1962,7 +2062,7 @@ async function handleReelsRenderCapa(req, res, body) {
   if (!coverUrl) return res.status(409).json({ ok: false, error: "sem_capa" });
   try {
     const { createReelContainerResumable } = await _loadInstagram();
-    const ig = await createReelContainerResumable(buildInstagramCaption(post), template.ig_account_id || post.ig_account_id || null, { coverUrl });
+    const ig = await createReelContainerResumable(await _reelsLegenda(post, template.conta_publicacao), template.ig_account_id || post.ig_account_id || null, { coverUrl });
     metrics.instagram_reel_template = {
       ...template,
       ig_creation_id: ig.creation_id,
@@ -2022,7 +2122,7 @@ async function handleReelsSetFinalFile(req, res, body) {
   let ig;
   try {
     const { createReelContainer } = await _loadInstagram();
-    ig = await createReelContainer(finalUrl, buildInstagramCaption(post), await _reelsContaIdDoTemplate(previous));
+    ig = await createReelContainer(finalUrl, await _reelsLegenda(post, previous.conta_publicacao), await _reelsContaIdDoTemplate(previous));
   } catch (e) {
     return res.status(200).json({ ok: false, error: redactSecrets(e?.message || String(e)).slice(0, 500) });
   }
@@ -2277,7 +2377,7 @@ async function _reelsPublicarPost(post, accountId) {
 
   const { getAccount, postComment, likeMedia, publishAlreadyUploadedReel } = await _loadInstagram();
   const ig = await publishAlreadyUploadedReel(creationId, igAccountId);
-  const firstCommentText = buildInstagramFirstComment(post);
+  const firstCommentText = await _reelsPrimeiroComentario(post, template.ig_username || template.conta_publicacao);
   let firstComment = null, firstCommentError = null, selfLike = null, selfLikeError = null;
   if (firstCommentText) {
     try {
@@ -2380,6 +2480,9 @@ async function handleReelsPublish(req, res, body) {
   if (_reelsContaDivergente(_reelsTemplate(post.metrics))) {
     try { await _reelsRemontarMantendoAprovacao(post.id); } catch (_) {}
     return res.status(409).json({ ok: false, pending: true, error: "reel_sendo_remontado_na_conta_escolhida" });
+  }
+  if (await _jaPublicadoNoFeedDoBrasilOn(post.id)) {
+    return res.status(409).json({ ok: false, error: "ja_publicado_no_instagram_do_brasil_on" });
   }
 
   // 26/09/2026 — botão "Postar agora" da fila de aprovados: reserva o Reel
@@ -2486,7 +2589,7 @@ async function handleReelsAprovar(req, res, body) {
   if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
   const aprovar = body?.aprovado !== false;
 
-  const { data: post, error } = await supabase.from("posts").select("id,titulo,conteudo,comentario_fixado,user_tags,status,published_at,video_url,metrics").eq("id", postId).single();
+  const { data: post, error } = await supabase.from("posts").select("id,titulo,conteudo,comentario_fixado,user_tags,subcategoria_slug,status,published_at,video_url,ig_id,metrics").eq("id", postId).single();
   if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
   const metrics = parseJsonMaybe(post.metrics, {});
   const tpl = metrics.instagram_reel_template;
@@ -2498,9 +2601,18 @@ async function handleReelsAprovar(req, res, body) {
   const now = new Date().toISOString();
   // 28/09/2026 — conta escolhida por Roberto para este Reel
   // (@ovalorcapital ou @oterrasan + collab @ovalorcapital).
-  const conta = body?.conta !== undefined ? _igNormalizarPublicador(body.conta) : _igNormalizarPublicador(tpl.conta_publicacao);
+  const conta = body?.conta !== undefined ? _reelsNormalizarConta(body.conta) : _reelsNormalizarConta(tpl.conta_publicacao);
   if (aprovar && conta !== "ovalorcapital" && !(await _igContaIdPorUsername(conta))) {
     return res.status(409).json({ ok: false, error: `conta @${conta} inativa ou sem token em Contas` });
+  }
+  // Só categorias com página no obrasilon.com.br (giro não tem rota lá).
+  if (aprovar && conta === "obrasilon" && !["brasil-on", "politica", "policia", "futebol"].includes(classificarParaBrasilOn(post))) {
+    return res.status(409).json({ ok: false, error: "materia_fora_do_brasil_on (só Brasil ON, Política, Polícia e Futebol)" });
+  }
+  // Nunca repetir entre OVC e Brasil ON: matéria que já saiu no Instagram
+  // (feed do OVC ou feed do Brasil ON) não entra na fila de Reels.
+  if (aprovar && (_jaPublicadoOuReservadoNoInstagram({ ig_id: post.ig_id }, { instagram: metrics.instagram }) || await _jaPublicadoNoFeedDoBrasilOn(post.id))) {
+    return res.status(409).json({ ok: false, error: "materia_ja_publicada_no_instagram (OVC ou Brasil ON)" });
   }
   let novo = aprovar
     ? { ...tpl, aprovado: true, aprovado_em: tpl.aprovado === true && tpl.aprovado_em ? tpl.aprovado_em : now, conta_publicacao: conta }
@@ -2511,7 +2623,7 @@ async function handleReelsAprovar(req, res, body) {
     if (novo.manual_final && novo.final_url) {
       try {
         const { createReelContainer } = await _loadInstagram();
-        const ig = await createReelContainer(novo.final_url, buildInstagramCaption(post), await _reelsContaIdDoTemplate(novo));
+        const ig = await createReelContainer(novo.final_url, await _reelsLegenda(post, novo.conta_publicacao), await _reelsContaIdDoTemplate(novo));
         novo = { ...novo, ig_creation_id: ig.creation_id, ig_account_id: ig.account_id, ig_username: ig.username };
       } catch (e) {
         return res.status(200).json({ ok: false, error: "nao_consegui_trocar_a_conta: " + redactSecrets(e?.message || String(e)).slice(0, 300) });
@@ -2534,7 +2646,7 @@ async function handleReelsAprovar(req, res, body) {
   const { data: row, error: upErr } = await supabase.from("posts").update(patch).eq("id", postId)
     .select("id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at").single();
   if (upErr) throw upErr;
-  if (aprovar && patch.status === "publicado") {
+  if (aprovar && (patch.status === "publicado" || conta === "obrasilon")) {
     try { await mirrorPostToBrasilOn(row); } catch (_) {}
   }
   if (remontar) { try { await _dispatchReelsWorkflowAgora(); } catch (_) {} }
@@ -2621,6 +2733,10 @@ async function handleReelsAutoPublish(req, res, body) {
       try { await _reelsRemontarMantendoAprovacao(p.id); } catch (_) {}
     }
     for (const p of divergentes) elegiveis.splice(elegiveis.indexOf(p), 1);
+    // Nunca repetir entre OVC e Brasil ON: já saiu no feed do Brasil ON → fora.
+    for (const p of [...elegiveis]) {
+      if (await _jaPublicadoNoFeedDoBrasilOn(p.id)) elegiveis.splice(elegiveis.indexOf(p), 1);
+    }
     if (!elegiveis.length) {
       return res.status(200).json({ ok: true, skipped: true, reason: "nenhum_reel_aprovado_pronto", publicados_hoje: publicadosHoje });
     }
