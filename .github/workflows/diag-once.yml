@@ -1,4 +1,4 @@
-name: diag-once (Reels pendentes — descarte e remontagem REAIS)
+name: diag-once (achar vídeo real do Metrópoles com marca — somente leitura)
 on:
   workflow_dispatch:
   push:
@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "== EXECUÇÃO REAL (dry:false) =="
-          curl -s -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -H "x-admin-password: $PASS" \
-            -d '{"action":"reels_regenerar_nao_publicados","dry":false}' | python3 -m json.tool
+          B="https://yntwvfcxjardzafdqanj.supabase.co/rest/v1"
+          H1="apikey: $SB_KEY"; H2="Authorization: Bearer $SB_KEY"
+          curl -s -H "$H1" -H "$H2" \
+            "$B/posts?select=id,titulo,metrics&metrics->>fonte_link_manual=ilike.*metropoles*&order=updated_at.desc&limit=5" \
+            | python3 -m json.tool | head -c 4000
         env:
-          PASS: "ovc-admin-2026-secreto"
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
