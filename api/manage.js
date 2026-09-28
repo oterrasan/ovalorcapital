@@ -1733,7 +1733,7 @@ async function handleReelsRenderJob(req, res, body) {
   const staleBefore = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
   const { data: candidates, error } = await supabase
     .from("posts")
-    .select("id,titulo,conteudo,comentario_fixado,user_tags,subcategoria,video_url,metrics,status,ig_account_id,published_at,created_at,updated_at")
+    .select("id,titulo,imagem,conteudo,comentario_fixado,user_tags,subcategoria,video_url,metrics,status,ig_account_id,published_at,created_at,updated_at")
     .in("status", ["publicado", "pendente"])
     .not("metrics->instagram_reel_template", "is", null)
     .order("updated_at", { ascending: true })
@@ -1862,8 +1862,34 @@ async function handleReelsRenderJob(req, res, body) {
   const preview = await _reelsCriarUploadDePrevia(candidate.id, claimId);
   processing.preview_candidate_url = preview?.public_url || null;
   // 26/09/2026 — capa da grade (ver handleReelsRenderCapa).
-  const capa = await _reelsCriarUploadDeArquivo(candidate.id, claimId, "reels-cover", "jpg");
-  processing.cover_candidate_url = capa?.public_url || null;
+  // 28/09/2026 — Roberto: "as capas dos reels tem que ficar identicas aos
+  // posts de feed... nao é pra editar os reels, é somente a capa". A capa
+  // era um recorte de um quadro do PRÓPRIO reel já renderizado (overlay do
+  // reel, sem o rodapé de assinatura do feed) — nunca ficava igual. Fix:
+  // pra Reel do OVC (@ovalorcapital/@oterrasan), a capa passa a ser gerada
+  // pelo MESMO construtor de imagem do feed (core/instagram_image.js),
+  // com a foto de capa e o título da própria matéria — pixel a pixel igual
+  // a um post de imagem. Não depende do vídeo renderizado, é só sharp puro
+  // aqui na function, sem esperar o runner. Reel do @obrasilon continua no
+  // mecanismo antigo (recorte de quadro via ffmpeg) — fora do que Roberto
+  // pediu, não tocado.
+  const marcaReel = _reelsNormalizarConta(processing.conta_publicacao) === "obrasilon" ? "brasilon" : "ovc";
+  let capa = null;
+  if (marcaReel === "ovc" && /^https?:\/\//i.test(String(candidate.imagem || ""))) {
+    try {
+      const { prepareInstagramImage } = await _loadInstagramImage();
+      const cover = await prepareInstagramImage({
+        sourceUrl: candidate.imagem,
+        postId: `reelcover-${candidate.id}`,
+        supabase,
+        title: candidate.titulo
+      });
+      processing.cover_candidate_url = cover?.url || null;
+    } catch (_) {} // capa é best-effort — sem ela, o Reel sobe sem capa customizada
+  } else if (marcaReel === "brasilon") {
+    capa = await _reelsCriarUploadDeArquivo(candidate.id, claimId, "reels-cover", "jpg");
+    processing.cover_candidate_url = capa?.public_url || null;
+  }
   metrics.instagram_reel_template = processing;
   const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
   if (jobStateError) throw jobStateError;
@@ -1911,12 +1937,14 @@ async function handleReelsRenderJob(req, res, body) {
       // corta marca de qualquer fonte, Metrópoles incluído.
       // 28/09/2026 — Reel do @obrasilon sai com o layout do feed do Brasil ON
       // (vídeo cru, manchete na caixa amarela e ícone abaixo).
-      marca: _reelsNormalizarConta(processing.conta_publicacao) === "obrasilon" ? "brasilon" : "ovc",
+      marca: marcaReel,
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
       ig_upload_token: ig.upload_token,
       preview_upload_url: preview?.upload_url || null,
+      // null pra Reel do OVC (capa já pronta acima, sem precisar do runner);
+      // preenchido só pra @obrasilon (mecanismo antigo, inalterado).
       cover_upload_url: capa?.upload_url || null
     }
   });
