@@ -1,4 +1,4 @@
-name: diag-once (Reels pendentes — descarta e remonta, dry-run primeiro)
+name: diag-once (Reels pendentes — descarte e remontagem REAIS)
 on:
   workflow_dispatch:
   push:
@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "== DRY RUN (só contagem, nada muda) =="
+          echo "== EXECUÇÃO REAL (dry:false) =="
           curl -s -X POST "https://www.ovalorcapital.com.br/api/manage" \
             -H "Content-Type: application/json" \
             -H "x-admin-password: $PASS" \
-            -d '{"action":"reels_regenerar_nao_publicados","dry":true}' | python3 -m json.tool
+            -d '{"action":"reels_regenerar_nao_publicados","dry":false}' | python3 -m json.tool
         env:
           PASS: "ovc-admin-2026-secreto"
