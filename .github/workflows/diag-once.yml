@@ -27,7 +27,7 @@ jobs:
           const key = src.match(/SUPABASE_KEY \|\| "([^"]+)"/)[1];
           const sb = createClient("https://yntwvfcxjardzafdqanj.supabase.co", key);
           const id = process.argv[2];
-          const { data } = await sb.from("posts").select("id,metrics").like("id", id + "%").limit(1);
+          const { data, error } = await sb.from("posts").select("id,metrics").eq("id", id).limit(1); if (error) console.error(JSON.stringify(error));
           console.log(data?.[0]?.metrics?.instagram_reel_template?.source_url || "");
           EOF
           cat > container.mjs << 'EOF'
@@ -48,7 +48,7 @@ jobs:
             BR=$(ffprobe -v error -show_entries format=bit_rate -of csv=p=0 "$1")
             echo "  RESULTADO $2: tamanho=${S} bytes bitrate=${BR} HTTP=${H} $(cat r.json)"
           }
-          for P in dda43fb0 6d1b7482; do
+          for P in dda43fb0-7b16-4f26-9fd1-ed2193176dbf 6d1b7482-de49-47ed-850d-fc94d9f28cb6; do
             URL=$(node fonte.mjs $P)
             echo "=== post $P fonte: $URL"
             [ -z "$URL" ] && continue
