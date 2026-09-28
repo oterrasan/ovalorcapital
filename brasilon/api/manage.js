@@ -156,14 +156,12 @@ export default async function handler(req, res) {
     return handleReelsConfigGet(req, res);
   }
 
-  if (action === "reels_publish") {
-    if (req.method !== "POST" || req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
-    return handleReelsPublish(req, res, req.body);
-  }
-
-  if (action === "reels_auto_publish") {
-    if (req.query.pass !== PASS && req.body?.pass !== PASS) return res.status(403).json({ error: "acesso negado" });
-    return handleReelsAutoPublish(req, res);
+  // 28/09/2026 — Reels do @obrasilon passaram para a fila de aprovação do
+  // admin do OVC (api/manage.js da raiz): mesmo render, mesma janela, com o
+  // layout do feed do Brasil ON. Este esboço antigo (publicava o vídeo cru,
+  // sem aprovação) fica desligado para nunca publicar em paralelo.
+  if (action === "reels_publish" || action === "reels_auto_publish") {
+    return res.status(200).json({ ok: false, skipped: true, reason: "reels_do_brasil_on_saem_pela_fila_de_aprovacao_do_admin_do_ovc" });
   }
 
   return res.status(400).json({ error: "action inválida" });
@@ -586,6 +584,26 @@ function redactSecrets(message) {
     .replace(/("token"\s*:\s*")[^"]+/gi, "$1[redacted]");
 }
 
+// 28/09/2026 — Roberto: "garanta que os conteúdos não irão se repetir no
+// Brasil ON e no OVC". Confere a matéria de origem no OVC (posts): se já saiu
+// no Instagram do OVC (feed ou Reel, em qualquer conta) ela não sai aqui. Se
+// ela tem um Reel ainda em andamento no OVC, fica reservada para o Reel.
+function _parseJson(value) {
+  if (value && typeof value === "object") return value;
+  try { return JSON.parse(value || "{}"); } catch (_) { return {}; }
+}
+async function _usoNoOvc(origemPostId) {
+  if (!origemPostId) return { publicado: false, reservadoReel: false };
+  const { data } = await supabase.from("posts").select("ig_id,metrics").eq("id", origemPostId).limit(1);
+  const row = data?.[0];
+  if (!row) return { publicado: false, reservadoReel: false };
+  const m = _parseJson(row.metrics);
+  const publicado = Boolean(row.ig_id || m?.instagram?.ig_id || m?.instagram_reel?.ig_id);
+  const tpl = m?.instagram_reel_template;
+  const reservadoReel = Boolean(tpl && !["embed_only", "discarded"].includes(tpl.status) && !tpl.exhausted);
+  return { publicado, reservadoReel, reelAprovado: tpl?.aprovado === true };
+}
+
 async function _igPostagemJaFeita(postId) {
   const { data } = await supabase.from("config").select("key").eq("key", `BON_IG_POSTED__${postId}`).limit(1);
   return Boolean(data && data.length);
@@ -666,6 +684,11 @@ async function handleInstagramPublish(req, res, body) {
   const { data: post, error } = await supabase.from("brasilon_posts").select("*").eq("id", postId).single();
   if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
 
+  const uso = await _usoNoOvc(post.origem_post_id);
+  if (uso.publicado || uso.reelAprovado) {
+    return res.status(200).json({ ok: false, error: uso.publicado ? "ja_publicado_no_instagram_do_ovc" : "materia_na_fila_de_reels" });
+  }
+
   try {
     const resultado = await _igPublicarPost(post);
     await supabase.from("config").delete().eq("key", `BON_IG_POSTED__${postId}`);
@@ -706,7 +729,7 @@ async function handleInstagramAutoPublish(req, res) {
     // enxerga o conteúdo novo, e só desce pro backlog quando o topo da
     // janela já está todo carimbado.
     const { data: candidatos, error } = await supabase.from("brasilon_posts")
-      .select("id,titulo,conteudo,comentario_fixado,imagem,categoria,status,published_at")
+      .select("id,origem_post_id,titulo,conteudo,comentario_fixado,imagem,categoria,status,published_at")
       .eq("status", "publicado")
       .in("categoria", config.categories)
       .order("published_at", { ascending: false })
@@ -724,6 +747,8 @@ async function handleInstagramAutoPublish(req, res) {
       if (_igAutoDiaBRTDe(candidato.published_at) !== hojeBRT) continue;
       candidatosDeHoje++;
       if (await _igPostagemJaFeita(candidato.id)) continue;
+      const uso = await _usoNoOvc(candidato.origem_post_id);
+      if (uso.publicado || uso.reservadoReel) continue;
       post = candidato;
       break;
     }

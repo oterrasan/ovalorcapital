@@ -1468,7 +1468,8 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
 // 28/09/2026 — cada Reel sai pela conta escolhida na aprovação.
 const REEL_CONTAS = [
   ['ovalorcapital','@ovalorcapital'],
-  ['oterrasan','@oterrasan + collab @ovalorcapital']
+  ['oterrasan','@oterrasan + collab @ovalorcapital'],
+  ['obrasilon','@obrasilon (Brasil ON)']
 ];
 const reelContaDe = tpl => REEL_CONTAS.some(c=>c[0]===tpl?.conta_publicacao) ? tpl.conta_publicacao : 'ovalorcapital';
 const reelContaDivergente = tpl => !!(tpl?.ig_creation_id && tpl?.ig_username && String(tpl.ig_username).replace(/^@/,'').toLowerCase() !== reelContaDe(tpl));
@@ -1549,7 +1550,7 @@ function ReelsFilaAprovados() {
           <span style={{color:'var(--t3)'}}>{i+1}º</span>
           <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={p.titulo}>{p.titulo}</span>
           <select className="form-input" style={{height:30,padding:'2px 8px',fontSize:12,width:'auto'}} value={reelContaDe(p.m.instagram_reel_template)} disabled={trocando===p.id || !!postando} title="Conta que publica este Reel" onChange={e=>trocarConta(p, e.target.value)}>
-            {REEL_CONTAS.map(([v,l])=><option key={v} value={v}>{v==='ovalorcapital'?'@ovalorcapital':'@oterrasan + OVC'}</option>)}
+            {REEL_CONTAS.map(([v,l])=><option key={v} value={v}>{v==='ovalorcapital'?'@ovalorcapital':v==='obrasilon'?'@obrasilon':'@oterrasan + OVC'}</option>)}
           </select>
           <span style={{color:p.m.instagram_reel_template?.status==='ready' && !reelContaDivergente(p.m.instagram_reel_template)?'var(--green)':'var(--yellow)',whiteSpace:'nowrap'}}>{rotulo(p.m.instagram_reel_template)}</span>
           <button className="btn btn-primary btn-sm" disabled={p.m.instagram_reel_template?.status!=='ready' || reelContaDivergente(p.m.instagram_reel_template) || !!postando} title={p.m.instagram_reel_template?.status==='ready' ? 'Publicar este Reel agora' : 'Disponível quando o Reel estiver pronto'} onClick={()=>postarAgora(p)}>{postando===p.id ? 'Postando...' : '🚀 Postar agora'}</button>
@@ -1600,7 +1601,7 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
   const podeAprovar = !!info && status !== 'embed_only' && !jaPublicadoReel;
   const [conta, setConta] = useState(reelContaDe(info));
   useEffect(() => { setConta(reelContaDe(info)); }, [post?.id, info?.conta_publicacao]);
-  const nomeConta = c => c === 'oterrasan' ? '@oterrasan (collab @ovalorcapital)' : '@ovalorcapital';
+  const nomeConta = c => c === 'oterrasan' ? '@oterrasan (collab @ovalorcapital)' : c === 'obrasilon' ? '@obrasilon (Brasil ON)' : '@ovalorcapital';
   const alternarAprovacao = async (contaEscolhida) => {
     const aprovar = contaEscolhida ? true : !aprovado;
     const alvo = contaEscolhida || conta;
@@ -2945,11 +2946,9 @@ function BrasilOnAdmin() {
           </div>
         </div>
         <div className="panel" style={{marginTop:18}}>
-          <div className="panel-header"><span className="panel-title">🎞️ Reels (vídeo) @obrasilon</span><span className={`badge ${reelsEnabled?'badge-green':'badge-gray'}`}>{reelsEnabled?'ATIVA':'PAUSADA'}</span></div>
+          <div className="panel-header"><span className="panel-title">🎞️ Reels (vídeo) @obrasilon</span><span className="badge badge-gray">PELA FILA DO OVC</span></div>
           <div style={{padding:20}}>
-            <div className="text-secondary text-small" style={{marginBottom:12}}>Publica automaticamente como Reel qualquer post do Brasil ON com vídeo (herdado do OVC) — nunca YouTube, o Instagram exige o arquivo real. Mesma conta e mesma janela ativa do feed de imagem acima.</div>
-            <div className="form-group"><label className="form-label">Funcionamento</label><label style={{display:'flex',alignItems:'center',gap:10,height:40}}><input type="checkbox" checked={reelsEnabled} onChange={e=>setReelsEnabled(e.target.checked)}/><span>{reelsEnabled?'Ligada':'Pausada'}</span></label></div>
-            <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}><button className="btn btn-primary" onClick={saveReelsConfig} disabled={savingReels}>Salvar configuração</button>{reelsMsg&&<span style={{fontSize:12,color:reelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{reelsMsg}</span>}</div>
+            <div className="text-secondary text-small">Os Reels do Brasil ON saem pela mesma fila de aprovação dos Reels do OVC, com o layout do feed do Brasil ON (manchete na caixa amarela e ícone). Para mandar um vídeo para cá: abra a matéria em Postagens, vá no bloco do Reel, escolha <strong>"Publicar em: @obrasilon"</strong> e aprove. Só matérias de Brasil ON, Política, Polícia e Futebol podem ir para o @obrasilon, e cada matéria sai uma única vez no Instagram (OVC ou Brasil ON, nunca nos dois).</div>
           </div>
         </div>
       </div>
@@ -4613,7 +4612,7 @@ function AutomacaoInstagram() {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:17,fontWeight:800}}>🎞️ Reels</span><span className={`badge ${reelsEnabled?'badge-green':'badge-red'}`}>{reelsEnabled?'LIGADO':'PAUSADO'}</span></div>
           <div style={linhaInfo}><span>Publica em</span><strong>a conta escolhida em cada Reel</strong></div>
           <div style={linhaInfo}><span>Horário</span><strong>08h às 22h, alternando com o feed</strong></div>
-          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5}}>Só saem os Reels que você aprovou. A conta de cada um você escolhe ao aprovar (ou na fila abaixo).</div>
+          <div style={{fontSize:12,color:'var(--t2)',lineHeight:1.5}}>Só saem os Reels que você aprovou. A conta de cada um você escolhe ao aprovar (ou na fila abaixo): @ovalorcapital, @oterrasan ou @obrasilon. Cada matéria sai uma única vez no Instagram, em uma só conta.</div>
           <button onClick={togglePausaReels} disabled={pausandoReels} style={botaoPausa(reelsEnabled,pausandoReels)}>{pausandoReels?'Aplicando...':(reelsEnabled?'⏸ Pausar Reels':'▶ Ligar Reels')}</button>
           {pausaReelsMsg && <div style={{fontSize:12,fontWeight:600,color:pausaReelsMsg.startsWith('Erro')?'var(--red)':'var(--green)'}}>{pausaReelsMsg}</div>}
         </div>
