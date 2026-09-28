@@ -1,24 +1,8 @@
-name: diag-once (remontar Reels não publicados — 28/09/2026)
+name: diag-once (placeholder — nenhum diagnóstico ativo agora)
 on:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
   workflow_dispatch:
 jobs:
-  regenerar:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Contar (dry) e remontar
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
-        run: |
-          set -e
-          U=https://www.ovalorcapital.com.br/api/manage
-          echo "DRY:"
-          curl -sS --max-time 55 -X POST "$U" -H "Content-Type: application/json" -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"reels_regenerar_nao_publicados","dry":true}'
-          echo
-          echo "REAL:"
-          curl -sS --max-time 55 -X POST "$U" -H "Content-Type: application/json" -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            -d '{"action":"reels_regenerar_nao_publicados"}'
-          echo
+      - run: echo "placeholder — edite este arquivo quando precisar rodar um diagnóstico real"
