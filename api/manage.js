@@ -114,6 +114,7 @@ export default async function handler(req, res) {
     if (action === "ig_priority_publish") return handleIgPriorityPublish(req, res, body);
     if (action === "reels_publish") return handleReelsPublish(req, res, body);
     if (action === "reels_aprovar") return handleReelsAprovar(req, res, body);
+    if (action === "reels_regenerar_nao_publicados") return handleReelsRegenerarNaoPublicados(req, res, body);
     if (action === "reels_render_capa") return handleReelsRenderCapa(req, res, body);
     if (action === "reels_auto_publish") return handleReelsAutoPublish(req, res, body);
     if (action === "reels_set_source") return handleReelsSetSource(req, res, body);
@@ -1737,6 +1738,11 @@ async function handleReelsRenderJob(req, res, body) {
       // Metrópoles (faixa branca) passa a ficar visível no Reel, em vez de
       // ser escondida atrás do nosso rodapé.
       auto_layout: null,
+      // 28/09/2026 — Roberto: "vamos usar o vídeo todo da fonte do
+      // Metrópoles e deixar a chamada original que já vem no vídeo". Sem o
+      // recorte de segurança contra marca d'água (que corta 16% do topo e
+      // as laterais): o vídeo deles entra inteiro.
+      ...(/metropoles/i.test(String(metrics.fonte_link_manual || "")) ? { watermark_crop_top: 0, watermark_crop_bottom: 0, watermark_crop_side: 0 } : {}),
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,
       ig_upload_url: ig.upload_url,
@@ -2328,6 +2334,62 @@ async function handleReelsPublish(req, res, body) {
     await writeLog("error", `[reels] falha manual: ${safeError}`);
     return res.status(200).json({ ok: false, error: safeError, pending: e?.pending === true });
   }
+}
+
+// 28/09/2026 — Roberto: "os vídeos que temos no histórico, crie uma regra
+// para regenerar todos eles no padrão que determinei agora (apenas os que
+// não foram publicados ainda)". Volta para a fila de montagem todo Reel
+// ainda não publicado que já tem montagem (ready) ou está esperando
+// (pending/error), mantendo aprovação, enquadramento e manchete escolhidos.
+// Fica de fora: publicado, em montagem agora, vídeo final enviado pronto
+// pelo Roberto (manual_final), só-YouTube (embed_only) e os que já
+// falharam 3 vezes (exhausted). Aprovados ganham priority_at para serem
+// remontados primeiro. body.dry=true só conta, sem alterar nada.
+async function handleReelsRegenerarNaoPublicados(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const dry = body?.dry === true;
+  const { data: posts, error } = await supabase
+    .from("posts")
+    .select("id,titulo,metrics")
+    .not("metrics->instagram_reel_template", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  const agora = new Date().toISOString();
+  const resumo = { total_com_reel: (posts || []).length, remontados: 0, aprovados: 0, ignorados: {} };
+  const ignorar = (motivo) => { resumo.ignorados[motivo] = (resumo.ignorados[motivo] || 0) + 1; };
+  for (const post of posts || []) {
+    const metrics = parseJsonMaybe(post.metrics, {});
+    const tpl = metrics.instagram_reel_template;
+    if (!tpl) { ignorar("sem_template"); continue; }
+    const igId = String(metrics?.instagram_reel?.ig_id || "");
+    if (igId) { ignorar(igId.startsWith("processing:") ? "publicando_agora" : "ja_publicado"); continue; }
+    if (tpl.manual_final) { ignorar("video_pronto_enviado_manual"); continue; }
+    if (tpl.status === "embed_only") { ignorar("so_youtube"); continue; }
+    if (tpl.status === "processing") { ignorar("montando_agora"); continue; }
+    if (tpl.exhausted || Number(tpl.attempts || 0) >= REELS_MAX_RETRY_ATTEMPTS) { ignorar("falhou_3_vezes"); continue; }
+    if (tpl.version !== REELS_TEMPLATE_VERSION || !/^https?:\/\//i.test(String(tpl.source_url || ""))) { ignorar("sem_video_original"); continue; }
+    if (!["ready", "pending", "error"].includes(tpl.status)) { ignorar("status_" + tpl.status); continue; }
+    const aprovado = tpl.aprovado === true;
+    resumo.remontados += 1;
+    if (aprovado) resumo.aprovados += 1;
+    if (dry) continue;
+    if (tpl.preview_url) { try { await deleteVideoFromStorage(tpl.preview_url); } catch (_) {} }
+    metrics.instagram_reel_template = {
+      ...tpl,
+      status: "pending", attempts: 0, exhausted: false, last_error: null,
+      ig_creation_id: null, preview_url: null, cover_url: null,
+      queued_at: agora,
+      ...(aprovado ? { priority_at: agora } : {})
+    };
+    const { error: upErr } = await supabase.from("posts").update({ metrics, updated_at: agora }).eq("id", post.id);
+    if (upErr) { resumo.remontados -= 1; if (aprovado) resumo.aprovados -= 1; ignorar("erro_ao_gravar"); }
+  }
+  if (!dry && resumo.remontados > 0) {
+    await writeLog("info", `[reels-render] regeneração em massa: ${resumo.remontados} Reels não publicados voltaram para a montagem (${resumo.aprovados} aprovados)`);
+    try { await _dispatchReelsWorkflowAgora({ prioridade: "1" }); } catch (_) {}
+  }
+  return res.status(200).json({ ok: true, dry, ...resumo });
 }
 
 async function _reelsRemontarMantendoAprovacao(postId) {
