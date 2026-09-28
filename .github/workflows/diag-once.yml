@@ -1,8 +1,17 @@
-name: diag-once (placeholder)
+name: diag-once (consumo gemini por canal)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diag-once.yml']
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm i --no-save @supabase/supabase-js
+      - run: node scripts/one-off/diag-gemini-consumo.mjs
+# run 1790626500
