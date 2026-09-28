@@ -1,4 +1,4 @@
-name: diag-once (admin em produção — somente leitura)
+name: diag-once (publicar materia e-Titulo)
 on:
   workflow_dispatch:
   push:
@@ -9,5 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm i --no-save playwright@1.47.0 && npx playwright install --with-deps chromium
-      - run: node scripts/diag/admin-prod.cjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm i --no-save @supabase/supabase-js
+      - run: node scripts/one-off/publicar-e-titulo.mjs
