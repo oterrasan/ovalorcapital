@@ -47,6 +47,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--t1);font-size:14px
 .nav-item:hover{color:var(--t1);background:rgba(255,255,255,0.03)}
 .nav-item.active{color:var(--t1);background:rgba(200,30,30,0.08);border-left-color:var(--red)}
 .nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-grupo{padding:14px 20px 4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.sidebar.collapsed .nav-grupo{display:none}
 .sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
 .sidebar-footer .ver{font-size:11px;color:var(--t3)}
 .logout-btn{background:none;border:none;color:var(--t2);font-size:12px;cursor:pointer;padding:4px 0;display:flex;align-items:center;gap:6px;margin-top:8px}
@@ -5089,6 +5091,83 @@ function LinkManualAdmin() {
   );
 }
 
+// 28/09/2026 — Roberto: "o admin está muito cheio... é hora de limpar a casa".
+// Menu enxuto: telas parecidas viraram abas de uma tela só. Saíram do menu
+// (não funcionavam): Desempenho (buscava um status que não existe),
+// Alertas (nada grava alerta há muito tempo), Engajamento (lista fixa) e
+// Banners (gravava numa tabela que o site não lê). Nenhum dado foi apagado.
+function Abas({abas, aba, setAba, props}) {
+  const atual = abas.find(a=>a.id===aba) || abas[0];
+  const Comp = atual.comp;
+  return (
+    <div>
+      <div style={{display:'flex',gap:4,padding:'14px 28px 0',borderBottom:'1px solid var(--border)',flexWrap:'wrap',position:'sticky',top:0,zIndex:5,background:'var(--bg)'}}>
+        {abas.map(a=>(
+          <button key={a.id} onClick={()=>setAba(a.id)} style={{padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',border:'none',borderBottom:`2px solid ${a.id===atual.id?'var(--red)':'transparent'}`,background:'transparent',color:a.id===atual.id?'var(--t1)':'var(--t2)',marginBottom:-1}}>{a.label}</button>
+        ))}
+      </div>
+      <Comp {...props}/>
+    </div>
+  );
+}
+const ReescritaEmLote = (props) => <div><div className="page-header"><div className="page-title">✍️ Reescrita em lote</div><div className="page-sub">Até 10 links de uma vez, ou um texto colado. Tudo cai em Matérias como pendente.</div></div><ReescritaOVC embutido onVerPendentes={()=>props.setPage&&props.setPage('postagens')}/></div>;
+const ReelsFilaTela = () => <div><div className="page-header"><div className="page-title">🎞️ Fila de Reels aprovados</div><div className="page-sub">Ordem de publicação e conta de cada Reel. Saem sozinhos das 08h às 22h.</div></div><div className="page-body"><div className="panel"><div style={{padding:20}}><ReelsFilaAprovados/></div></div></div></div>;
+
+// Grupos do menu. Cada item pode ter abas (telas que antes eram separadas).
+const MENU = [
+  {grupo:'Conteúdo', itens:[
+    {id:'dashboard',label:'Painel',icon:'📊',abas:[{id:'painel',label:'Painel',comp:Dashboard}]},
+    {id:'postagens',label:'Matérias',icon:'📝',abas:[{id:'materias',label:'Matérias',comp:Postagens}]},
+    {id:'criar',label:'Criar matéria',icon:'✏️',abas:[
+      {id:'link',label:'🔗 Por link (Instagram, TikTok, sites)',comp:LinkManualAdmin},
+      {id:'editor',label:'⚡ Link ou texto (Editor IA)',comp:EditorIA},
+      {id:'lote',label:'✍️ Em lote (até 10 links)',comp:ReescritaEmLote},
+      {id:'instagram',label:'📱 Post manual no Instagram',comp:NovoPost}
+    ]}
+  ]},
+  {grupo:'Instagram', itens:[
+    {id:'reels',label:'Reels e vídeos',icon:'🎞️',abas:[
+      {id:'videos',label:'🎬 Vídeos das matérias',comp:VideosAdmin},
+      {id:'fila',label:'✅ Fila de aprovados',comp:ReelsFilaTela}
+    ]},
+    {id:'instagram',label:'Instagram',icon:'📱',abas:[
+      {id:'automacao',label:'⏱️ Automação',comp:AutomacaoInstagram},
+      {id:'contas',label:'🔑 Contas',comp:ContasInstagram}
+    ]},
+    {id:'brasilon',label:'Brasil ON',icon:'🇧🇷',abas:[{id:'brasilon',label:'Brasil ON',comp:BrasilOnAdmin}]}
+  ]},
+  {grupo:'Colunistas e mídia', itens:[
+    {id:'colunistas',label:'Colunistas',icon:'✍️',abas:[
+      {id:'colunistas',label:'Colunistas',comp:ColunistasAdmin},
+      {id:'editor_colunas',label:'Gerar coluna com IA',comp:EditorColunas},
+      {id:'portal',label:'Portal do colunista',comp:PortalColunistasAdmin}
+    ]},
+    {id:'imagens',label:'Imagens',icon:'🖼️',abas:[
+      {id:'banco',label:'Banco de imagens',comp:UploadImagens},
+      {id:'galeria',label:'Galeria',comp:Galeria},
+      {id:'editor',label:'Editor de imagens',comp:EditorImagens}
+    ]}
+  ]},
+  {grupo:'Sistema', itens:[
+    {id:'pipeline',label:'Pipeline e fontes',icon:'⚙️',abas:[
+      {id:'pipeline',label:'Pipeline',comp:Pipeline},
+      {id:'fontes',label:'Fontes RSS',comp:FontesRSS}
+    ]},
+    {id:'relatorios',label:'Relatórios e logs',icon:'📋',abas:[
+      {id:'relatorios',label:'Relatórios',comp:Relatorios},
+      {id:'logs',label:'Logs',comp:Logs}
+    ]},
+    {id:'configuracoes',label:'Configurações',icon:'🔧',abas:[{id:'config',label:'Configurações',comp:Configuracoes}]}
+  ]}
+];
+// Endereços antigos (usados por botões internos) → tela e aba novas.
+const PAGINA_ANTIGA = {
+  editorai:['criar','editor'], novopost:['criar','instagram'], link_manual:['criar','link'],
+  videos:['reels','videos'], automacao_instagram:['instagram','automacao'], contas:['instagram','contas'],
+  fontes:['pipeline','fontes'], logs:['relatorios','logs'], editor_colunas:['colunistas','editor_colunas'],
+  portal_colunistas:['colunistas','portal'], galeria:['imagens','galeria'], editor_imagens:['imagens','editor']
+};
+
 const PAGES = [
   {id:'dashboard',label:'Dashboard',icon:'📊'},
   {id:'editorai',label:'Editor IA',icon:'⚡'},
@@ -5142,8 +5221,9 @@ function ImagemSelector({value, onChange, disabled}) {
 }
 
 // ── REESCRITA OVC ──
-function ReescritaOVC({onVerPendentes}) {
-  const [aberto, setAberto] = useState(false);
+function ReescritaOVC({onVerPendentes, embutido}) {
+  const [abertoModal, setAberto] = useState(false);
+  const aberto = embutido || abertoModal;
   const [modo, setModo] = useState('url'); // 'url' | 'texto'
   const [urls, setUrls] = useState(Array(10).fill(''));
   const [res, setRes] = useState(Array(10).fill(null));
@@ -5198,15 +5278,17 @@ function ReescritaOVC({onVerPendentes}) {
 
   return (
     <>
+      {!embutido&&(
       <button onClick={()=>setAberto(true)} style={{position:'fixed',top:16,right:20,zIndex:1000,background:'var(--red)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:700,fontSize:13,cursor:'pointer',boxShadow:'0 4px 16px rgba(200,30,30,0.4)'}}>
         ✍️ REESCRITA OVC
       </button>
+      )}
       {aberto&&(
-        <div className="modal-bg" onClick={()=>setAberto(false)}>
-          <div className="modal" style={{maxWidth:560}} onClick={e=>e.stopPropagation()}>
+        <div className={embutido?'':'modal-bg'} style={embutido?{padding:'0 28px 28px'}:undefined} onClick={()=>{if(!embutido)setAberto(false);}}>
+          <div className={embutido?'panel':'modal'} style={{maxWidth:embutido?760:560}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
-              <span className="modal-title">✍️ Reescrita OVC</span>
-              <button className="btn btn-secondary btn-sm" onClick={()=>setAberto(false)}>✕</button>
+              <span className="modal-title">✍️ Reescrita em lote — até 10 links ou um texto colado</span>
+              {!embutido&&<button className="btn btn-secondary btn-sm" onClick={()=>setAberto(false)}>✕</button>}
             </div>
             <div style={{padding:'12px 20px 0',display:'flex',gap:6}}>
               <button style={tabStyle('url')} onClick={()=>setModo('url')}>🔗 Por URL (até 10)</button>
@@ -5245,7 +5327,7 @@ function ReescritaOVC({onVerPendentes}) {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={limpar}>Limpar</button>
               {(modo==='url'?res.some(r=>r&&r.estado==='ok'):resTexto&&resTexto.estado==='ok')&&(
-                <button className="btn btn-secondary" style={{color:'#4ade80',borderColor:'#4ade80'}} onClick={()=>{if(onVerPendentes)onVerPendentes();setAberto(false);}}>
+                <button className="btn btn-secondary" style={{color:'#4ade80',borderColor:'#4ade80'}} onClick={()=>{if(onVerPendentes)onVerPendentes();if(!embutido)setAberto(false);}}>
                   📋 Ver pendentes →
                 </button>
               )}
@@ -5263,7 +5345,13 @@ function ReescritaOVC({onVerPendentes}) {
 
 function App() {
   const [auth, setAuth] = useState(()=>localStorage.getItem('ovc_auth')==='1');
-  const [page, setPage] = useState('dashboard');
+  const [page, setPageRaw] = useState('dashboard');
+  const [aba, setAba] = useState(null);
+  const setPage = (id) => {
+    const antiga = PAGINA_ANTIGA[id];
+    if (antiga) { setPageRaw(antiga[0]); setAba(antiga[1]); }
+    else { setPageRaw(id); setAba(null); }
+  };
   const [notif, setNotif] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(()=>localStorage.getItem('ovc_sidebar_collapsed')==='1');
@@ -5273,8 +5361,6 @@ function App() {
     const check = async () => {
       const { count } = await sb.from('posts').select('*',{count:'exact',head:true}).eq('status','pendente');
       setNotif(count||0);
-      const { count: ac } = await sb.from('alerts').select('*',{count:'exact',head:true}).eq('read',false);
-      setAlertCount(ac||0);
     };
     check();
     const t = setInterval(check, 30000);
@@ -5283,7 +5369,7 @@ function App() {
 
   if (!auth) return <Login onLogin={()=>{localStorage.setItem('ovc_auth','1');setAuth(true);}}/>;
 
-  const PageComp = {dashboard:Dashboard,editorai:EditorIA,pipeline:Pipeline,novopost:NovoPost,postagens:Postagens,videos:VideosAdmin,link_manual:LinkManualAdmin,contas:ContasInstagram,automacao_instagram:AutomacaoInstagram,fontes:FontesRSS,alertas:Alertas,engajamento:Engajamento,logs:Logs,desempenho:Desempenho,relatorios:Relatorios,configuracoes:Configuracoes,imagens:UploadImagens,galeria:Galeria,colunistas:ColunistasAdmin,editor_colunas:EditorColunas,editor_imagens:EditorImagens,banners:Banners,portal_colunistas:PortalColunistasAdmin,brasilon:BrasilOnAdmin}[page] || Dashboard;
+  const itemAtual = MENU.flatMap(g=>g.itens).find(i=>i.id===page) || MENU[0].itens[0];
 
   return (
     <div className="layout">
@@ -5293,12 +5379,16 @@ function App() {
           <div className="sub">Centro de Comando</div>
         </div>
         <nav className="nav">
-          {PAGES.map(p=>(
-            <div key={p.id} className={`nav-item ${page===p.id?'active':''}`} onClick={()=>setPage(p.id)}>
-              <span className="nav-icon">{p.icon}</span>
-              <span>{p.label}</span>
-              {p.id==='postagens'&&notif>0&&<span className="notif-dot"></span>}
-              {p.id==='alertas'&&alertCount>0&&<span className="notif-dot"></span>}
+          {MENU.map(g=>(
+            <div key={g.grupo}>
+              <div className="nav-grupo">{g.grupo}</div>
+              {g.itens.map(p=>(
+                <div key={p.id} className={`nav-item ${itemAtual.id===p.id?'active':''}`} onClick={()=>setPage(p.id)}>
+                  <span className="nav-icon">{p.icon}</span>
+                  <span>{p.label}</span>
+                  {p.id==='postagens'&&notif>0&&<span className="notif-dot"></span>}
+                </div>
+              ))}
             </div>
           ))}
         </nav>
@@ -5307,8 +5397,11 @@ function App() {
           <button className="logout-btn" onClick={()=>{localStorage.removeItem('ovc_auth');setAuth(false);}}>↩ Sair</button>
         </div>
       </div>
-      <div className="main"><PageComp setPage={setPage}/></div>
-      <ReescritaOVC onVerPendentes={()=>setPage('postagens')}/>
+      <div className="main">
+        {itemAtual.abas.length>1
+          ? <Abas key={itemAtual.id} abas={itemAtual.abas} aba={aba} setAba={setAba} props={{setPage}}/>
+          : (()=>{const C=itemAtual.abas[0].comp;return <C key={itemAtual.id} setPage={setPage}/>;})()}
+      </div>
     </div>
   );
 }
@@ -6703,7 +6796,6 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS publish_method text;`;
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
-<script src="/admin-tools.js?v=20260528-4"></script>
 </body>
 </html>
 
