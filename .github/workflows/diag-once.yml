@@ -1,15 +1,8 @@
 name: diag-once (placeholder)
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Confirmar live-data com debug=1 em produção
-        run: |
-          echo "--- /api/portal-posts?format=live-data&debug=1 ---"
-          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data&debug=1" | python3 -m json.tool
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
