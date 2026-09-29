@@ -9953,3 +9953,119 @@ Roberto achou que o alcance caiu depois do aceite automático e de todos os perf
   - Conta de captura do Instagram (Roberto cadastra no admin).
   - Tokens de adriana/beta sem `instagram_manage_engagement`.
   - `amichelefroes` sem `ig_user_id`.
+
+---
+
+### Sessões 25-29/09/2026 — REELS: PAINEL DE 3 VÍDEOS, EDITOR DE ENQUADRAMENTO LIVRE, PRIORIDADE NA FILA, CAPTURA MULTI-FONTE, MÁSCARA/SOMBRA/MANCHETE AJUSTADAS, ESCOLHA DE CONTA POR POST, REELS NO @obrasilon, ADMIN REORGANIZADO, FIX CRÍTICO DE COLLAB @oterrasan, INSTABILIDADE REAL DE GEMINI, TETO DIÁRIO DO RADAR DO ESPORTE
+
+> Consolida tudo que faltava registrar entre a sessão de 25/09 (madrugada) e 29/09 — muito trabalho de Reels/Instagram em sequência rápida, boa parte pedida e testada pelo próprio Roberto em produção. PRs #772 a #802 + os commits de 28-29/09 (sem PR, push direto autorizado).
+
+#### Painel do Reel em 3 blocos + editor de enquadramento livre (PRs #772/#773)
+Roberto pediu "3 visualizações": (1) vídeo original pra baixar e editar no Canva, (2) montagem automática do sistema, (3) upload do vídeo já pronto por ele — os 3 lado a lado no modal Editar Post e na tela Vídeos, com o botão de publicar sempre dizendo qual versão vai ao ar. Em seguida, editor de enquadramento **livre** (arrastar, redimensionar com/sem manter proporção, recortar só um lado, presets) — grava só números em `template.layout` (`reels_set_layout`), reenfileira a montagem, o runner aplica no ffmpeg (fundo preto 1080x1920 + vídeo posicionado + template). Testado com interação real no Chromium e o render batendo com o editor.
+
+#### Selo de "já publicado no Instagram" em Postagens (PR #774)
+Cada linha ganhou selo (📲 No IG · Feed/Reel/Feed+Reel, ⏳ Publicando, ⭕ Não publicado) com conta/data no tooltip + filtro no banco — usa as mesmas 3 marcas que o servidor já usa pra nunca publicar em dobro. Validado contra produção: 166 publicados + 2238 não publicados = 2404 desde 18/09.
+
+#### 🔴 Fix real de latência — ajuste no admin passava horas na fila (PR #775)
+Causa raiz real (log de produção): o ajuste de enquadramento de Roberto entrava no FIM da fila, atrás de dezenas de remontagens automáticas em série (~3-5min cada) — e quando finalmente montava, a Meta às vezes recusava o upload sem nenhuma prévia ter sido salva (só `render_complete` gravava prévia, nunca antes). Fix: `reels_set_layout` marca `priority_at` e dispara o workflow com `prioridade=1` (grupo de concorrência próprio, não espera a fila normal); nova ação `reels_render_preview` registra a prévia **antes** do upload pra Meta, visível mesmo se a Meta demorar/recusar; `ffmpeg preset medium→faster`.
+
+#### Captura de vídeo por link — Globo, TikTok, YouTube, Instagram (PR #776) + retries reais (PR #777)
+Globo (g1/ge/globoplay): acha o código do vídeo na página, runner baixa com yt-dlp (`globo:<id>`). TikTok: pedido pro runner via API pública do tikwm. YouTube: runtime JS + servidor de token (bgutil) + retry. Instagram: login com conta de captura cadastrada no admin (`config IG_CAPTURA_CONTA`, sessão em `IG_CAPTURA_SESSAO`). Teste real no runner: tikwm respondeu rate-limit (1 req/s) e depois funcionou; yt-dlp como segunda via também baixou.
+
+#### Reels — recorte, sombra, reenvio sem áudio (PR #778) e sombra corrigida (PR #779)
+Editor do Reel ganhou recorte de início/fim (`layout.trim`, `-ss`/`-t` no ffmpeg — com fim manual, a detecção automática de encerramento promocional não roda). **Teste real confirmado no runner**: com áudio original, vídeo de 30s passa na Meta e 60s/88s são recusados (`ProcessingFailedError`) independente do tamanho; sem áudio, 60s passa. Nova ação `reels_render_sem_audio` reenvia com áudio trocado por silêncio quando a Meta recusa pelo som. Sombra do template (Roberto: "está avançando muito além do que deveria") reduzida de 70% escura em 54%+preta de 67% até o fim, pra só a faixa da manchete escurecer e preto só a partir de 78% (rodapé).
+
+#### Colaborador por assunto + fila de Reels aprovados + capa própria + robô do Metrópoles — ver bloco "Sessão 26/09/2026" logo acima (PRs #780-#785), já documentado.
+
+#### Fila de Reels — botão "Postar agora" (PR #787) + editor de manchete completo (PR #788)
+Botão publica o Reel aprovado na hora, sem esperar fila/janela — `reels_publish` manual passa a reservar o Reel antes de publicar (mesma trava da automação) e conta na alternância feed/Reel. Editor de manchete: trocar texto, marcar destaque com `*asteriscos*`, tamanho, largura, cor do texto e do destaque, maiúsculas, arrastar posição no quadro, ou esconder — grava em `template.headline` (`reels_set_layout`), runner aplica. Sem edição, segue a manchete automática de sempre.
+
+#### 🔴 Reels sem máscara escura, sem manchete padrão, Metrópoles com manchete original (PR #789) + remontagem em massa (PRs #790/#791)
+Roberto mostrou um Reel montado por ele no Canva como referência: sombra escura sai por completo (só sombreado suave subindo até acima do logo), rodapé oficial perde o fundo preto (transparente por luminância — não vira quadrado preto sobre o vídeo), Reels saem **sem** manchete nossa por padrão (só entra se escrita no editor). Metrópoles especificamente: enquadramento automático desligado, vídeo com a manchete/marca ORIGINAL deles visível, mais nitidez. Nova ação `reels_regenerar_nao_publicados` (+ botão): devolve pra montagem todo Reel não publicado (ready/pending/error), mantendo aprovação/enquadramento/manchete; `dry=true` só conta. Usada pra remontar os pendentes no padrão novo.
+
+#### 🔴 Teste real: falha de um vídeo derrubava a rodada inteira + retry em recusa intermitente da Meta (PR #795)
+Bug real: o runner usa `bash -e` — o subshell de cada job que falhava encerrava o PASSO INTEIRO, e os outros 2 vídeos da rodada nunca eram montados. Fix: `set +e` antes do subshell / `set -e` depois (dentro do subshell o `set -euo pipefail` e o `trap` continuam valendo — testado localmente). Teste real confirmou recusa **intermitente** da Meta: o mesmo vídeo, arquivos praticamente idênticos, foi recusado numa tentativa e aceito na seguinte — não é tamanho nem bitrate. Depois da tentativa sem áudio, mais 2 tentativas (cada uma com container novo) antes de marcar falha de vez.
+
+#### 🔴 Metrópoles: vídeo isento do recorte de marca → Roberto reconsiderou no mesmo dia, revertido (PR #790 → #793)
+Reel do Metrópoles passou a entrar com o vídeo INTEIRO (sem recorte de marca d'água, manchete original deles visível — pedido de Roberto). Horas depois, Roberto reconsiderou: **"a marca de outro portal/perfil não pode aparecer em nenhum Reel nosso"** — revertido no mesmo dia (commit `a802d34e`, 28/09): nenhuma fonte fica mais isenta do recorte de segurança, comportamento padrão volta a valer pra qualquer origem de terceiro. Os 46 Reels pendentes que tinham sido montados com o recorte errado (vídeo cru) foram descartados e remontados via `reels_regenerar_nao_publicados` (autorizado por Roberto) — não tocou nos 54 já publicados nem nos 17 que já tinham falhado 3x por outro motivo.
+
+#### Instagram — escolher a conta que publica, feed e Reels (PR #796) + collab automático do @ovalorcapital (PR #797) + conta por Reel na aprovação (PR #798)
+Teste de alcance pedido por Roberto: painel Automação Instagram → "Conta que publica" — escolher, separado pra feed e Reels, se quem posta é @ovalorcapital (padrão) ou @oterrasan. Quando é @oterrasan, o único colaborador é @ovalorcapital, que aceita sozinho (desligável no mesmo painel). Conta escolhida publica mesmo sem `distribuicao_automatica`; se inativa/sem token, volta pro @ovalorcapital e registra erro. Depois, Roberto simplificou: quando a conta escolhida é a dele mesmo, a collab do @ovalorcapital é **sempre** automática (aceite + curtida do OVC), sem checkbox — removida `IG_OVC_ACEITA_COLLAB_AUTO`. Por fim: nem todo Reel sai pela mesma conta — a conta é escolhida **por Reel**, na hora de aprovar (ou trocada depois, na fila de aprovados); a automação publica cada Reel pela conta onde foi montado; se a conta mudar depois, o vídeo volta pra montagem na conta certa mantendo aprovação/posição.
+
+#### Reels no @obrasilon + nunca repetir matéria entre OVC e Brasil ON no Instagram (PR #799)
+Nova conta @obrasilon no seletor "Publicar em" (mesma fila/janela/regras dos Reels do OVC), só pra matéria espelhada no Brasil ON (Brasil ON, Política, Polícia, Futebol). Render com `marca=brasilon` usa o layout do FEED do Brasil ON (vídeo cru, manchete na caixa amarela, ícone abaixo) — não o template do OVC. Legenda/comentário no padrão Brasil ON. **Antirrepetição:** feed OVC, fila prioritária, publicação manual e Reels do OVC pulam matéria já publicada no Instagram do Brasil ON; feed do Brasil ON pula matéria já publicada no OVC (feed ou Reel) ou reservada pra Reel. Esboço antigo de Reels do Brasil ON (vídeo cru, sem aprovação) desligado, cron removido.
+
+#### Admin reorganizado por completo (PRs #800/#801/#802, 28/09 madrugada)
+- **Menu:** 24 itens → 11, em 4 grupos (Conteúdo, Instagram, Colunistas e mídia, Sistema). Telas parecidas viraram abas: Criar matéria (por link, Editor IA, em lote, post manual), Reels e vídeos, Instagram (automação + contas), Colunistas, Imagens, Pipeline e fontes, Relatórios e logs. **Telas mortas removidas do menu** (nunca funcionavam): Desempenho, Alertas, Engajamento, Banners, e o menu injetado "Ferramentas" (`admin-tools.js` apontava pro banco antigo desativado) — nenhum dado apagado. Botão flutuante "REESCRITA OVC" virou a aba "Em lote".
+- **Postagens:** nova coluna "Situação" em 3 partes — Portal (pendente/publicada), Vídeo (sem vídeo/montando/pronto p/ aprovar/na fila+conta/erro/Reel publicado) e Instagram (não saiu/feed/Reel+conta). **Filtro de vídeo refeito no banco** — o antigo olhava só `video_url`, que fica vazio em vídeo do YouTube/Bacci e depois de aprovar o Reel (é zerado de propósito, ver abaixo) — por isso não achava a maioria; testado contra dado real antes de subir. Card/filtro de Pílulas (sistema já apagado há tempo) removido, etiqueta repetida ao lado do título removida.
+- **Reels:** tela única com todos separados por situação — prontos pra aprovar (prévia + conta + botão Aprovar), fila de aprovados, montando, com erro (motivo + tentativas), publicados recentemente. Aba "Colocar vídeo numa matéria" continua só pra vincular vídeo. Fila de Reels repetida na aba Instagram removida (fica só em Reels agora).
+
+#### 🔴 Fix crítico de produção — Reels do @oterrasan travados 100% do tempo (commit `52cfa4fc`, 28/09 noite)
+Confirmado com dado real: as 4 últimas tentativas de Reel pelo @oterrasan falhavam sempre na criação do container com **"User not visible / Não é possível marcar o usuário ovalorcapital nesta mídia"** (Meta, `code 210, subcode 2207066`). Token/escopos do @oterrasan corretos (confirmado com `debug_token` + container isolado sem colaborador, que funcionou) — o problema é a MARCAÇÃO do @ovalorcapital como colaborador nessa combinação específica de contas, do lado da relação entre as 2 Páginas na Meta, não do nosso código. **Fix:** `createMediaContainerWithFallback()` tenta criar com colaborador normalmente; se a Meta rejeitar especificamente por esse subcode, tenta de novo sem `collaborators` — publica igual, só sem marcação. Aplicado nos 3 pontos que criam container com colaborador (`publish`, `createReelContainer`, `createReelContainerResumable`). Qualquer outro erro real (token/vídeo/cota) continua propagando normal.
+
+No mesmo commit: capa do Reel com título maior e mais forte (Roberto: "capa decente, bem enquadrada, com título forte e atraente, letras maiores e destacadas") — nova variante `HEADLINE_BOX_BOLD` em `core/instagram_image.js`, peso 900 (mais pesado do Inter Variable), até 62px (era 42px), no máximo 3 linhas (era 4 — força frase mais curta e grossa) — usada só na capa do Reel (vista pequena na grade). Feed em tela cheia inalterado.
+
+#### Reels do OVC — capa da grade idêntica aos posts de feed (commit `1f623d51`, 28/09)
+Roberto mostrou o próprio Instagram (@ovalorcapital) com feed e Reels visualmente diferentes: "as capas dos reels tem que ficar identicas aos posts de feed [...] nao é pra editar os reels, é somente a capa". Causa: a capa era um recorte de um quadro do próprio Reel já renderizado (overlay do Reel, sem o rodapé de assinatura do feed) — nunca ficava igual. Fix: pra Reel do OVC, a capa passou a ser gerada pelo MESMO construtor de imagem do feed (`core/instagram_image.js`), com a foto de capa e o título da própria matéria — pixel a pixel igual a um post de imagem, sem precisar do vídeo renderizado nem do runner. Reel do @obrasilon continua no mecanismo antigo (recorte via ffmpeg) — fora do escopo, não tocado.
+
+#### 🔴 Fix real — imagem de matéria de política do TSE (commit `4f25c7ac`, 28/09)
+Roberto pediu matéria real sobre um tema do TSE sem imagem chegando. Diagnóstico real: `tse.jus.br` bloqueia scraping (403); Wikimedia Commons API sem `User-Agent` identificável também dá 403 (política deles) — com UA próprio, 200 e imagens reais/livres (ex: "Brazilian DRE voting machine for 2022 elections.jpg"). Confirmado por leitura de código que `STOCK_IMAGE_CATS` nunca inclui `"politica"` de propósito (decisão deliberada, evita foto errada — mesma classe do bug de 14/08/2026) — o caminho correto pra política é sempre `scrape()` de fonte real (og:image), nunca busca genérica de banco de imagem.
+
+#### 🔴🔴 Causa raiz real da queda de volume de geração — Gemini com leitura instável + cota real dos 3 projetos esgotada junto (commit `dc607ff1`, 28/09 noite)
+Roberto notou queda real: 283 matérias no dia anterior → 104 no dia. Investigado com evidência real (não suposição):
+1. **Bug real de código, corrigido:** logs mostravam "GEMINI_API_KEY nao configurada no Supabase config" repetidas vezes, mesmo com as 3 chaves sempre presentes e válidas (testadas uma a uma, direto contra a API do Google, no momento da investigação). `_getGeminiKeys()` devolvia `[]` sempre que a leitura no Supabase falhava ou vinha vazia por um instante — e esse `[]` virava um erro que soa como "chave ausente", quando nunca foi esse o caso real. **Fix:** guarda a ÚLTIMA lista de chaves que funcionou de verdade (nunca expira sozinha, só é trocada quando uma leitura nova tem sucesso de fato) e cai nela se a leitura atual falhar/vier vazia — o pipeline não trava mais por um blip passageiro do banco.
+2. **Causa restante, não é bug de código:** as 3 chaves reais testadas bateram **429 real de cota do Google ao mesmo tempo** — não é o limite interno do sistema (5000/dia, bem acima do uso real), é o teto real do Google esgotado nos 3 projetos juntos. Só aumenta com um projeto Google novo (grátis, mecanismo já documentado em `core/ai_portal.js`/`_getGeminiKeys()` — basta adicionar `GEMINI_API_KEY_4` na tabela `config`).
+
+#### 🔴 Radar do Esporte dominando o volume — teto diário criado (commit `a06727d8`, 29/09)
+Roberto: "o esporte nao pode publicar tanto a mais do que os demais canais". Dado real do dia anterior: `publish_method='esportes_radar'` (futebol + outros_esportes somados, os 2 jobs gravam sob o mesmo método) publicou **150 matérias**, contra 72 do 2º maior canal (Brasil ON) — quase o dobro de qualquer outro canal sozinho. Novo teto diário compartilhado entre os 2 jobs (`autoFutebolCurtinhas` + `autoOutrosEsportesCurtinhas`), checado ANTES de qualquer scrape/chamada de IA (evita desperdiçar trabalho depois do teto bater). Padrão **100/dia** — dá folga real sobre o 2º maior canal sem crimpar o Radar do Esporte, que Roberto já definiu como prioridade #2/#3 do OVC (21/08/2026). Não mexe em NADA da ordem/prioridade de execução dos jobs — só limita o total publicado no dia. Configurável via `config.ESPORTES_LIMITE_DIARIO` (mesmo padrão já usado pro limite diário do Instagram), sem precisar de deploy novo pra ajustar o número. `contarHoje()` generalizada pra aceitar `publish_method` como parâmetro (era fixo em `"portal"`) — `autoMaterias()` continua com o comportamento de sempre (default `"portal"`).
+
+#### Manutenção de banco autorizada (commit `7ed67e18`, 28/09)
+59.716 linhas `GEMINI_BUDGET_*` de dias anteriores a hoje removidas da tabela `config` (mesmo padrão de limpeza já feito antes, só histórico morto de orçamento — posts e demais configurações intactos, verificado antes/depois no próprio log do job).
+
+#### Admin — 2 bugs reais de performance/erro corrigidos (commit `2f8ff546`, 28/09)
+- Instagram → Automação: tela pedia coluna `ig_accounts.updated_at`, que não existe (a real é `ultima_atividade`) — causava erro 400. Corrigido pra selecionar as colunas que a tela realmente usa (`ig_user_id` também incluída — necessária pro botão de troca de conta).
+- Relatórios: contagem de erros e painel "Últimos erros" paginavam TODO o log do período em série (até 500 linhas por vez, ~7.500 linhas em 7 dias = ~15 idas ao banco). Trocado por 2 consultas diretas: contagem (`count=exact, head=true`) + os 10 últimos erros já ordenados — mesma saída visual, muito mais rápido.
+
+#### Publicações manuais desta janela
+- **Matéria sobre o app e-Título** (28/09, pedido de leitora) — apurada via WebSearch em fontes oficiais do TSE (mudança de regra anunciada 24/09/2026 pelo ministro Kassio Nunes Marques: download liberado até o dia da votação de domingo 4/10). Dispositivo de emergência (`scripts/emergency_publish_template.mjs`) adaptado pra buscar imagem via `action=buscar_imagem` em vez de scrape de fonte única, por ser matéria original apurada em múltiplas fontes.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado em toda a janela 25-29/09)
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA JANELA (25-29/09/2026)
+
+| Sistema | Status |
+|---|---|
+| **Painel do Reel em 3 blocos + editor de enquadramento livre** | ✅ EM PRODUÇÃO (PRs #772/#773) |
+| **Selo/filtro de publicado no Instagram em Postagens** | ✅ EM PRODUÇÃO (PR #774), validado contra dado real |
+| **Fix de latência real — ajuste no admin com prioridade na fila + prévia antes do upload** | ✅ EM PRODUÇÃO (PR #775) |
+| **Captura de vídeo por link — Globo/TikTok/YouTube/Instagram, com retries reais testados** | ✅ EM PRODUÇÃO (PRs #776/#777) |
+| **Recorte de início/fim + reenvio sem áudio quando a Meta recusa pelo som** | ✅ EM PRODUÇÃO (PR #778), causa confirmada por teste real (não é tamanho/bitrate) |
+| **Sombra do template reduzida** | ✅ EM PRODUÇÃO (PR #779) |
+| **Botão "Postar agora" na fila de aprovados + editor de manchete completo** | ✅ EM PRODUÇÃO (PRs #787/#788) |
+| **Reels sem máscara escura/sem manchete padrão; Metrópoles com marca original → revertido no mesmo dia (marca de terceiro nunca pode aparecer)** | ✅ EM PRODUÇÃO — decisão final: recorte de segurança sempre ativo pra qualquer fonte (PR #793) |
+| **46 Reels pendentes com recorte errado remontados** | ✅ FEITO (autorizado) |
+| **Fix real: falha de 1 vídeo não derruba mais a rodada inteira de Reels** | ✅ EM PRODUÇÃO (PR #795) |
+| **Escolha de conta que publica (feed/Reels, por post) + collab automático do @ovalorcapital quando a conta é do Roberto** | ✅ EM PRODUÇÃO (PRs #796/#797/#798) |
+| **Reels no @obrasilon + antirrepetição de matéria entre OVC e Brasil ON no Instagram** | ✅ EM PRODUÇÃO (PR #799) |
+| **Admin reorganizado (menu, Postagens, Reels)** | ✅ EM PRODUÇÃO (PRs #800/#801/#802) |
+| **🔴 Fix crítico: Reels do @oterrasan travados por rejeição de collab da Meta — fallback sem colaborador** | ✅ EM PRODUÇÃO (commit `52cfa4fc`) |
+| **Capa dos Reels do OVC idêntica ao feed** | ✅ EM PRODUÇÃO (commit `1f623d51`) |
+| **Fix real: imagem de matéria de política via scrape de fonte real (TSE/Wikimedia com UA)** | ✅ EM PRODUÇÃO (commit `4f25c7ac`) |
+| **🔴 Fix real: Gemini não trava mais por leitura instável do Supabase** | ✅ EM PRODUÇÃO (commit `dc607ff1`) |
+| **Teto diário do Radar do Esporte (100/dia, configurável)** | ✅ EM PRODUÇÃO (commit `a06727d8`) |
+| **59.716 linhas de histórico de orçamento antigo removidas de `config`** | ✅ FEITO (autorizado) |
+| **2 bugs de admin corrigidos (erro 400 na conta Instagram + paginação lenta de Relatórios)** | ✅ EM PRODUÇÃO (commit `2f8ff546`) |
+| **Matéria do app e-Título publicada (fact-check via WebSearch em fontes oficiais do TSE)** | ✅ PUBLICADA |
+
+### 🔧 Pendências reais desta janela
+
+1. **🔴 Cota real do Gemini esgotada nos 3 projetos ao mesmo tempo** — única saída é Roberto criar um projeto Google novo e grátis e mandar a chave (`GEMINI_API_KEY_4`) pra eu configurar em `config`, mesmo mecanismo já existente.
+2. **Confirmar com Roberto, num ciclo real de operação**, que o teto diário do Radar do Esporte (100/dia) está equilibrando a distribuição entre os canais como pedido — nunca observado rodando um dia inteiro por esta sessão.
+3. **Recusa intermitente da Meta em Reels** (`ProcessingFailedError`, mesmo arquivo às vezes aceito às vezes recusado) — mitigada com retry (sem áudio + 2 tentativas extras), mas causa raiz do lado da Meta continua desconhecida; não há mais o que fazer do nosso lado sem novo dado real.
+4. **Tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`** e **`amichelefroes` sem `ig_user_id`** — pendências antigas, ainda sem ação de Roberto.
+5. **`IG_AUTOMATION_ENABLED`/`REELS_AUTOMATION_ENABLED`** — confirmar estado real atual antes de qualquer afirmação (histórico recente mostra terem ficado `off` por longos períodos sem que ninguém percebesse imediatamente).
+6. Demais pendências de sessões anteriores seguem válidas (ver listas históricas ao longo deste arquivo — Reels/vídeo, marca d'água do feed do OVC, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, redesign "molde SBT News" ainda pausado aguardando Roberto).
