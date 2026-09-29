@@ -404,6 +404,16 @@ async function handleList(req, res) {
 async function handleLiveData(res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
 
+  // 29/09/2026 — brapi.dev passou a exigir token pra endpoint de índices
+  // (^BVSP/^IXIC/^DJI), retornando 401 sem ele. Roberto criou conta grátis
+  // e gerou o token; lido de config (nunca hardcoded), mesmo padrão das
+  // demais chaves do projeto. Cache de 5min em memória de módulo (só ajuda
+  // em warm start, sem custo de tentar de novo a cada cold start).
+  const brapiToken = await getBrapiToken();
+  const brapiUrl = brapiToken
+    ? `https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI?token=${encodeURIComponent(brapiToken)}`
+    : "https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI";
+
   // Selic (meta) e IPCA acumulado 12m — Banco Central do Brasil, API SGS oficial,
   // pública, gratuita, sem chave. Séries: 432 = Selic meta, 13522 = IPCA acum. 12m.
   // 14/08/2026 — Roberto: "neste projeto quero tudo plugado. impostometro, indices,
@@ -411,7 +421,7 @@ async function handleLiveData(res) {
   // sem novo cron/automação (mantém o congelamento de custo em vigor nesta sessão).
   const [awResult, brapiResult, selicResult, ipcaResult] = await Promise.allSettled([
     safeFetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL"),
-    safeFetch("https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI"),
+    safeFetch(brapiUrl),
     safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/2?formato=json"),
     safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/2?formato=json")
   ]);
@@ -606,6 +616,21 @@ async function safeFetch(url) {
     console.error(`[live-data] ${url} falhou: ${e?.message || e}`);
     return null;
   }
+}
+
+let _brapiTokenCache = null;
+let _brapiTokenCacheAt = 0;
+async function getBrapiToken() {
+  const now = Date.now();
+  if (_brapiTokenCache !== null && now - _brapiTokenCacheAt < 5 * 60 * 1000) return _brapiTokenCache;
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "BRAPI_TOKEN").limit(1);
+    _brapiTokenCache = data && data[0]?.value ? data[0].value : "";
+  } catch (_) {
+    _brapiTokenCache = "";
+  }
+  _brapiTokenCacheAt = now;
+  return _brapiTokenCache;
 }
 
 function marketValue(item) {
