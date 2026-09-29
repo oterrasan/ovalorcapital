@@ -9,7 +9,7 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Confirmar live-data em produção pós-fix PTAX .value + brapi 3 chamadas
+      - name: Confirmar live-data com debug=1 em produção
         run: |
-          echo "--- /api/portal-posts?format=live-data ---"
-          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data" | python3 -m json.tool
+          echo "--- /api/portal-posts?format=live-data&debug=1 ---"
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data&debug=1" | python3 -m json.tool
