@@ -1832,35 +1832,7 @@ async function handleReelsRenderJob(req, res, body) {
   // Supabase. A legenda precisa ir junto na criação do container (a Meta
   // não aceita definir/trocar caption depois, só no media_publish), por
   // isso é construída aqui e não mais em _reelsPublicarPost.
-  let ig;
-  try {
-    const { createReelContainerResumable } = await _loadInstagram();
-    // Conta escolhida por Roberto ao aprovar o Reel; sem escolha, @ovalorcapital.
-    const contaEscolhida = _reelsNormalizarConta(processing.conta_publicacao);
-    const contaReel = contaEscolhida === "ovalorcapital" ? null : await _igContaIdPorUsername(contaEscolhida);
-    if (contaEscolhida !== "ovalorcapital" && !contaReel) throw new Error(`conta @${contaEscolhida} inativa ou sem token`);
-    ig = await createReelContainerResumable(await _reelsLegenda(candidate, contaEscolhida), contaReel);
-  } catch (igError) {
-    processing.status = "error";
-    processing.exhausted = processing.attempts >= REELS_MAX_RETRY_ATTEMPTS;
-    processing.last_error = redactSecrets(igError?.message || String(igError)).slice(0, 500);
-    metrics.instagram_reel_template = processing;
-    await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
-    throw igError;
-  }
-
-  processing.ig_creation_id = ig.creation_id;
-  processing.ig_account_id = ig.account_id;
-  processing.ig_username = ig.username;
-  processing.quota_before = ig.quota_before || null;
-  // 25/09/2026 — Roberto: "preciso visualizar como ficou a montagem, só
-  // assim posso aprovar". O vídeo final vai direto pra Meta (sem Supabase,
-  // teto de 50MB do projeto) — então o runner gera uma CÓPIA DE
-  // VISUALIZAÇÃO leve (540x960, bitrate baixo) e sobe só ela pro nosso
-  // Storage via URL assinada. Best-effort: se não conseguir gerar a URL, o
-  // Reel continua sendo montado e publicado normalmente, só sem prévia.
-  const preview = await _reelsCriarUploadDePrevia(candidate.id, claimId);
-  processing.preview_candidate_url = preview?.public_url || null;
+  //
   // 26/09/2026 — capa da grade (ver handleReelsRenderCapa).
   // 28/09/2026 — Roberto: "as capas dos reels tem que ficar identicas aos
   // posts de feed... nao é pra editar os reels, é somente a capa". A capa
@@ -1871,10 +1843,26 @@ async function handleReelsRenderJob(req, res, body) {
   // com a foto de capa e o título da própria matéria — pixel a pixel igual
   // a um post de imagem. Não depende do vídeo renderizado, é só sharp puro
   // aqui na function, sem esperar o runner. Reel do @obrasilon continua no
-  // mecanismo antigo (recorte de quadro via ffmpeg) — fora do que Roberto
-  // pediu, não tocado.
-  const marcaReel = _reelsNormalizarConta(processing.conta_publicacao) === "obrasilon" ? "brasilon" : "ovc";
-  let capa = null;
+  // mecanismo antigo (recorte de quadro via ffmpeg, via runner) — fora do
+  // que Roberto pediu, não tocado.
+  //
+  // 29/09/2026 — 🔴 bug real confirmado com dado de produção: a capa do OVC
+  // era gerada AQUI mas só DEPOIS de o container já ter sido criado (logo
+  // abaixo, sem cover_url nenhum) — e a Meta só aceita definir a capa NA
+  // CRIAÇÃO do container (comprovado pelo próprio comentário de
+  // handleReelsRenderCapa: "A Meta baixa a capa na criação do container").
+  // O único código que promoveria a capa DEPOIS (cover_candidate_url →
+  // cover_url) é handleReelsRenderCapa(), disparado pelo runner só quando
+  // job.cover_upload_url vem preenchido — e isso só acontece pra marcaReel
+  // === "brasilon". Pra Reel do OVC a promoção nunca acontecia: confirmado
+  // em produção que 15 de 15 Reels recentes (inclusive um já publicado de
+  // verdade) tinham a capa pronta salva mas nunca usada — a Meta sempre
+  // usava a capa automática dela (frame do vídeo). Fix: pra OVC, gerar a
+  // capa e criar o container JÁ com ela junto, na mesma chamada — nunca
+  // depender de um passo de promoção posterior.
+  const contaEscolhida = _reelsNormalizarConta(processing.conta_publicacao);
+  const marcaReel = contaEscolhida === "obrasilon" ? "brasilon" : "ovc";
+  let coverPronta = null;
   if (marcaReel === "ovc" && /^https?:\/\//i.test(String(candidate.imagem || ""))) {
     try {
       const { prepareInstagramImage } = await _loadInstagramImage();
@@ -1890,9 +1878,47 @@ async function handleReelsRenderJob(req, res, body) {
         // do perfil, precisa de letra maior que o post de feed normal.
         bold: true
       });
-      processing.cover_candidate_url = cover?.url || null;
-    } catch (_) {} // capa é best-effort — sem ela, o Reel sobe sem capa customizada
-  } else if (marcaReel === "brasilon") {
+      coverPronta = cover?.url || null;
+    } catch (_) {} // capa é best-effort — sem ela, o Reel sobe sem capa customizada (comportamento de antes)
+  }
+
+  let ig;
+  try {
+    const { createReelContainerResumable } = await _loadInstagram();
+    // Conta escolhida por Roberto ao aprovar o Reel; sem escolha, @ovalorcapital.
+    const contaReel = contaEscolhida === "ovalorcapital" ? null : await _igContaIdPorUsername(contaEscolhida);
+    if (contaEscolhida !== "ovalorcapital" && !contaReel) throw new Error(`conta @${contaEscolhida} inativa ou sem token`);
+    ig = await createReelContainerResumable(await _reelsLegenda(candidate, contaEscolhida), contaReel, coverPronta ? { coverUrl: coverPronta } : {});
+  } catch (igError) {
+    processing.status = "error";
+    processing.exhausted = processing.attempts >= REELS_MAX_RETRY_ATTEMPTS;
+    processing.last_error = redactSecrets(igError?.message || String(igError)).slice(0, 500);
+    metrics.instagram_reel_template = processing;
+    await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
+    throw igError;
+  }
+
+  processing.ig_creation_id = ig.creation_id;
+  processing.ig_account_id = ig.account_id;
+  processing.ig_username = ig.username;
+  processing.quota_before = ig.quota_before || null;
+  processing.cover_candidate_url = coverPronta;
+  processing.cover_url = coverPronta; // já foi pra criação do container acima, quando presente
+  // 25/09/2026 — Roberto: "preciso visualizar como ficou a montagem, só
+  // assim posso aprovar". O vídeo final vai direto pra Meta (sem Supabase,
+  // teto de 50MB do projeto) — então o runner gera uma CÓPIA DE
+  // VISUALIZAÇÃO leve (540x960, bitrate baixo) e sobe só ela pro nosso
+  // Storage via URL assinada. Best-effort: se não conseguir gerar a URL, o
+  // Reel continua sendo montado e publicado normalmente, só sem prévia.
+  const preview = await _reelsCriarUploadDePrevia(candidate.id, claimId);
+  processing.preview_candidate_url = preview?.public_url || null;
+  let capa = null;
+  if (marcaReel === "brasilon") {
+    // Mecanismo antigo, inalterado: o runner recorta um frame do vídeo
+    // renderizado (ainda não existe nesta altura) e chama
+    // handleReelsRenderCapa() depois, via job.cover_upload_url no payload
+    // devolvido mais abaixo — só esse caminho ainda depende de promoção
+    // posterior, e continua funcionando como sempre funcionou.
     capa = await _reelsCriarUploadDeArquivo(candidate.id, claimId, "reels-cover", "jpg");
     processing.cover_candidate_url = capa?.public_url || null;
   }
