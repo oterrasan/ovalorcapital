@@ -409,10 +409,15 @@ async function handleLiveData(res) {
   // e gerou o token; lido de config (nunca hardcoded), mesmo padrão das
   // demais chaves do projeto. Cache de 5min em memória de módulo (só ajuda
   // em warm start, sem custo de tentar de novo a cada cold start).
+  // 29/09/2026 — testado ao vivo com fetch() nativo: pedir os 3 símbolos
+  // numa única chamada (?quote/%5EBVSP,%5EIXIC,%5EDJI) dá HTTP 400
+  // "QUOTES_PER_REQUEST_EXCEEDED" no plano gratuito (limite real: 1 ativo
+  // por requisição). Corrigido para 3 chamadas separadas, 1 símbolo cada.
   const brapiToken = await getBrapiToken();
-  const brapiUrl = brapiToken
-    ? `https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI?token=${encodeURIComponent(brapiToken)}`
-    : "https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI";
+  const brapiSymbolUrl = (symbol) =>
+    brapiToken
+      ? `https://brapi.dev/api/quote/${encodeURIComponent(symbol)}?token=${encodeURIComponent(brapiToken)}`
+      : `https://brapi.dev/api/quote/${encodeURIComponent(symbol)}`;
 
   // 29/09/2026 — AwesomeAPI confirmada com cota mensal esgotada de verdade
   // ("QuotaExceeded", não é limite passageiro por minuto — testado ao vivo).
@@ -435,25 +440,33 @@ async function handleLiveData(res) {
   // 14/08/2026 — Roberto: "neste projeto quero tudo plugado. impostometro, indices,
   // ibovespa, toda economia.... bolsa, etc" — endpoint on-demand existente estendido,
   // sem novo cron/automação (mantém o congelamento de custo em vigor nesta sessão).
-  const [usdResult, eurResult, gbpResult, btcResult, brapiResult, selicResult, ipcaResult] = await Promise.allSettled([
+  const [usdResult, eurResult, gbpResult, btcResult, bvspResult, ixicResult, djiResult, selicResult, ipcaResult] = await Promise.allSettled([
     safeFetch(ptaxUrl("USD")),
     safeFetch(ptaxUrl("EUR")),
     safeFetch(ptaxUrl("GBP")),
     safeFetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true"),
-    safeFetch(brapiUrl),
+    safeFetch(brapiSymbolUrl("^BVSP")),
+    safeFetch(brapiSymbolUrl("^IXIC")),
+    safeFetch(brapiSymbolUrl("^DJI")),
     safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/2?formato=json"),
     safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/2?formato=json")
   ]);
 
-  const br = brapiResult.status === "fulfilled" ? brapiResult.value : null;
   const brapiMap = {};
-  for (const item of br?.results || []) brapiMap[item.symbol] = item;
+  for (const [result, symbol] of [[bvspResult, "^BVSP"], [ixicResult, "^IXIC"], [djiResult, "^DJI"]]) {
+    const body = result.status === "fulfilled" ? result.value : null;
+    const item = body?.results?.[0];
+    if (item) brapiMap[symbol] = item;
+  }
   const selic = bcbValue(selicResult.status === "fulfilled" ? selicResult.value : null);
   const ipca = bcbValue(ipcaResult.status === "fulfilled" ? ipcaResult.value : null);
 
-  const ptaxUsd = ptaxValue(usdResult.status === "fulfilled" ? usdResult.value : null);
-  const ptaxEur = ptaxValue(eurResult.status === "fulfilled" ? eurResult.value : null);
-  const ptaxGbp = ptaxValue(gbpResult.status === "fulfilled" ? gbpResult.value : null);
+  // 29/09/2026 — resposta real do PTAX é {"@odata.context":...,"value":[...]},
+  // não um array puro — ptaxValue() espera o array em si. Extrai .value aqui
+  // (nunca dentro de ptaxValue(), que fica reutilizável para qualquer array).
+  const ptaxUsd = ptaxValue(usdResult.status === "fulfilled" ? usdResult.value?.value : null);
+  const ptaxEur = ptaxValue(eurResult.status === "fulfilled" ? eurResult.value?.value : null);
+  const ptaxGbp = ptaxValue(gbpResult.status === "fulfilled" ? gbpResult.value?.value : null);
   const cg = btcResult.status === "fulfilled" ? btcResult.value : null;
   const cgBtc = cg?.bitcoin?.brl != null
     ? { valor: Number(cg.bitcoin.brl), variacao: Number(cg.bitcoin.brl_24h_change) }
