@@ -1,8 +1,28 @@
 name: diag-once (placeholder)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Testar endpoint live-data real em producao apos o fix
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import urllib.request
+
+          req = urllib.request.Request(
+              "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data",
+              headers={"User-Agent": "Mozilla/5.0"},
+          )
+          with urllib.request.urlopen(req, timeout=15) as r:
+              body = json.loads(r.read().decode())
+
+          for campo in ["usd", "eur", "gbp", "btc", "ibov", "nasdaq", "dow", "selic", "ipca"]:
+              v = body.get(campo)
+              print(f"{campo}: {v}")
+          PYEOF
