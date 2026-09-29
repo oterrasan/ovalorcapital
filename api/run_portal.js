@@ -38,7 +38,10 @@ const STOCK_IMAGE_CATS = new Set(["economia","negocios","financas","industria","
 const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
 async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
-async function contarHoje() {
+// 29/09/2026 — generalizado pra aceitar publish_method (era fixo em "portal",
+// só servia pra autoMaterias). Reaproveitado agora pelo teto diário do Radar
+// do Esporte — ver comentário em cima de ESPORTES_LIMITE_DIARIO_PADRAO.
+async function contarHoje(publishMethod = "portal") {
   try {
     // Meia-noite BRT = 03:00 UTC
     const agora = new Date();
@@ -46,9 +49,32 @@ async function contarHoje() {
     inicioHoje.setUTCHours(3, 0, 0, 0);
     if (agora.getUTCHours() < 3) inicioHoje.setUTCDate(inicioHoje.getUTCDate() - 1);
     const { count } = await supabase.from("posts").select("id", { count: "exact", head: true })
-      .eq("publish_method", "portal").gte("created_at", inicioHoje.toISOString());
+      .eq("publish_method", publishMethod).gte("created_at", inicioHoje.toISOString());
     return count || 0;
   } catch (_) { return 0; }
+}
+
+// 29/09/2026 — Roberto: "o esporte nao pode publicar tanto a mais do que os
+// demais canais". Dado real do dia anterior: publish_method='esportes_radar'
+// (futebol + outros_esportes somados, ambos gravam sob o mesmo método via
+// salvarEsportesRadar) publicou 150 matérias num dia em que o 2º maior canal
+// (Brasil ON) publicou 72 — quase o dobro de qualquer outro canal sozinho.
+// Teto diário compartilhado entre os dois jobs (futebol + outros_esportes),
+// configurável em config.ESPORTES_LIMITE_DIARIO pra Roberto ajustar sem
+// precisar de deploy novo (mesmo padrão já usado pro limite diário do
+// Instagram) — 100/dia por padrão: dá folga real sobre o 2º maior canal
+// (72/dia) sem crimpar a produção do Radar do Esporte, que Roberto já
+// definiu como prioridade #2/#3 do OVC (21/08/2026) — não mexe em NADA da
+// ordem/prioridade de execução, só limita o total publicado no dia.
+const ESPORTES_LIMITE_DIARIO_PADRAO = 100;
+async function limiteEsportesDiario() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "ESPORTES_LIMITE_DIARIO").limit(1);
+    const raw = Number(data?.[0]?.value);
+    return Number.isFinite(raw) && raw > 0 ? raw : ESPORTES_LIMITE_DIARIO_PADRAO;
+  } catch (_) {
+    return ESPORTES_LIMITE_DIARIO_PADRAO;
+  }
 }
 function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
 function stripTitle(t) { return (t || "").replace(/<[^>]+>/g, "").replace(/\*\*/g, "").replace(/^#+\s*/, "").trim(); }
@@ -844,6 +870,13 @@ async function autoFutebolCurtinhas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
+  // 29/09/2026 — teto diário compartilhado com outros_esportes (mesmo
+  // publish_method="esportes_radar") — ver comentário em limiteEsportesDiario().
+  const limiteEsportes = await limiteEsportesDiario();
+  const hojeEsportes = await contarHoje("esportes_radar");
+  if (hojeEsportes >= limiteEsportes) {
+    return res.status(200).json({ status: "limite_diario_atingido", tipo: "futebol_jornal", limite: limiteEsportes, hoje: hojeEsportes, generated: 0 });
+  }
   const FUTEBOL_KW = [
     'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
     'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
@@ -1024,6 +1057,13 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 3, 6);
+  // 29/09/2026 — teto diário compartilhado com futebol (mesmo
+  // publish_method="esportes_radar") — ver comentário em limiteEsportesDiario().
+  const limiteEsportes = await limiteEsportesDiario();
+  const hojeEsportes = await contarHoje("esportes_radar");
+  if (hojeEsportes >= limiteEsportes) {
+    return res.status(200).json({ status: "limite_diario_atingido", tipo: "outros_esportes_jornal", limite: limiteEsportes, hoje: hojeEsportes, generated: 0 });
+  }
   const esportes = await getNewsByCategoria("esportes");
   const seen = new Set();
   const candidatosBrutos = [];
