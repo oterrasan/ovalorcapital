@@ -414,28 +414,54 @@ async function handleLiveData(res) {
     ? `https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI?token=${encodeURIComponent(brapiToken)}`
     : "https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI";
 
+  // 29/09/2026 — AwesomeAPI confirmada com cota mensal esgotada de verdade
+  // ("QuotaExceeded", não é limite passageiro por minuto — testado ao vivo).
+  // brapi.dev cobre câmbio/cripto só no plano pago (Startup, R$119,99/mês).
+  // Trocado por PTAX do Banco Central (oficial, grátis, sem chave — mesma
+  // família de fonte já usada com sucesso pra Selic/IPCA) para Dólar/Euro/
+  // Libra, e CoinGecko (grátis, sem chave) para Bitcoin. Busca período de
+  // 5 dias e usa sempre o boletim mais recente (cobre fim de semana/feriado
+  // sem precisar calcular manualmente o último dia útil).
+  const hoje = new Date();
+  const inicio = new Date(hoje.getTime() - 5 * 24 * 3600 * 1000);
+  const fmtBcb = (d) => `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${d.getFullYear()}`;
+  const di = fmtBcb(inicio);
+  const df = fmtBcb(hoje);
+  const ptaxUrl = (moeda) =>
+    `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='${moeda}'&@dataInicial='${di}'&@dataFinalCotacao='${df}'&$format=json`;
+
   // Selic (meta) e IPCA acumulado 12m — Banco Central do Brasil, API SGS oficial,
   // pública, gratuita, sem chave. Séries: 432 = Selic meta, 13522 = IPCA acum. 12m.
   // 14/08/2026 — Roberto: "neste projeto quero tudo plugado. impostometro, indices,
   // ibovespa, toda economia.... bolsa, etc" — endpoint on-demand existente estendido,
   // sem novo cron/automação (mantém o congelamento de custo em vigor nesta sessão).
-  const [awResult, brapiResult, selicResult, ipcaResult] = await Promise.allSettled([
-    safeFetch("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL"),
+  const [usdResult, eurResult, gbpResult, btcResult, brapiResult, selicResult, ipcaResult] = await Promise.allSettled([
+    safeFetch(ptaxUrl("USD")),
+    safeFetch(ptaxUrl("EUR")),
+    safeFetch(ptaxUrl("GBP")),
+    safeFetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true"),
     safeFetch(brapiUrl),
     safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/2?formato=json"),
     safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/2?formato=json")
   ]);
 
-  const aw = awResult.status === "fulfilled" ? awResult.value : null;
   const br = brapiResult.status === "fulfilled" ? brapiResult.value : null;
   const brapiMap = {};
   for (const item of br?.results || []) brapiMap[item.symbol] = item;
   const selic = bcbValue(selicResult.status === "fulfilled" ? selicResult.value : null);
   const ipca = bcbValue(ipcaResult.status === "fulfilled" ? ipcaResult.value : null);
 
+  const ptaxUsd = ptaxValue(usdResult.status === "fulfilled" ? usdResult.value : null);
+  const ptaxEur = ptaxValue(eurResult.status === "fulfilled" ? eurResult.value : null);
+  const ptaxGbp = ptaxValue(gbpResult.status === "fulfilled" ? gbpResult.value : null);
+  const cg = btcResult.status === "fulfilled" ? btcResult.value : null;
+  const cgBtc = cg?.bitcoin?.brl != null
+    ? { valor: Number(cg.bitcoin.brl), variacao: Number(cg.bitcoin.brl_24h_change) }
+    : null;
+
   // 29/09/2026 — Roberto reportou Pulso BR travado em "aguardando" pra
   // Dólar/Ibovespa. Causa real confirmada (não suposição): AwesomeAPI
-  // devolvendo 429 (rate limit) e brapi.dev devolvendo 401 (agora exige
+  // com cota mensal esgotada e brapi.dev devolvendo 401 (agora exige
   // token). safeFetch() engolia isso como null, sem nenhum fallback — o
   // widget nunca tinha um valor pra mostrar. Fix: guarda o último valor
   // REAL obtido com sucesso em config (nunca inventa número) e usa esse
@@ -446,17 +472,17 @@ async function handleLiveData(res) {
     if (data && data[0]?.value) liveCache = JSON.parse(data[0].value);
   } catch (_) { /* sem cache ainda, segue com null */ }
 
-  const usd = aw?.USDBRL ? { valor: Number(aw.USDBRL.bid), variacao: Number(aw.USDBRL.pctChange) } : (liveCache?.usd || null);
-  const eur = aw?.EURBRL ? { valor: Number(aw.EURBRL.bid), variacao: Number(aw.EURBRL.pctChange) } : (liveCache?.eur || null);
-  const gbp = aw?.GBPBRL ? { valor: Number(aw.GBPBRL.bid), variacao: Number(aw.GBPBRL.pctChange) } : (liveCache?.gbp || null);
-  const btc = aw?.BTCBRL ? { valor: Number(aw.BTCBRL.bid), variacao: Number(aw.BTCBRL.pctChange) } : (liveCache?.btc || null);
+  const usd = ptaxUsd || liveCache?.usd || null;
+  const eur = ptaxEur || liveCache?.eur || null;
+  const gbp = ptaxGbp || liveCache?.gbp || null;
+  const btc = cgBtc || liveCache?.btc || null;
   const ibov = marketValue(brapiMap["^BVSP"]) || liveCache?.ibov || null;
   const nasdaq = marketValue(brapiMap["^IXIC"]) || liveCache?.nasdaq || null;
   const dow = marketValue(brapiMap["^DJI"]) || liveCache?.dow || null;
 
   // Salva de volta só quando pelo menos uma fonte ao vivo respondeu de
   // verdade (evita gravar o próprio cache velho por cima dele sem necessidade).
-  const gotLiveData = !!(aw?.USDBRL || brapiMap["^BVSP"]);
+  const gotLiveData = !!(ptaxUsd || cgBtc || brapiMap["^BVSP"]);
   if (gotLiveData) {
     const freshCache = { usd, eur, gbp, btc, ibov, nasdaq, dow, updated_at: new Date().toISOString() };
     try {
@@ -653,6 +679,27 @@ function bcbValue(arr) {
     variacao: Number.isFinite(anterior) ? Number((valor - anterior).toFixed(2)) : null,
     data: last?.data || null
   };
+}
+
+// ptaxValue — parseia resposta do PTAX/BCB (CotacaoMoedaPeriodo): array de
+// boletins intradiários {cotacaoCompra, cotacaoVenda, dataHoraCotacao,
+// tipoBoletim}. Usa sempre o boletim mais recente do período pedido; calcula
+// variação comparando com o primeiro boletim do MESMO dia (abertura), se
+// existir mais de um ponto naquele dia — senão retorna variação null (nunca
+// inventa dado). 29/09/2026 — substitui AwesomeAPI (cota mensal esgotada).
+function ptaxValue(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  const last = arr[arr.length - 1];
+  const valor = Number(last?.cotacaoVenda);
+  if (!Number.isFinite(valor)) return null;
+  const diaDoUltimo = String(last?.dataHoraCotacao || "").slice(0, 10);
+  const doMesmoDia = arr.filter((b) => String(b?.dataHoraCotacao || "").slice(0, 10) === diaDoUltimo);
+  const primeiro = doMesmoDia.length > 1 ? doMesmoDia[0] : null;
+  const anterior = primeiro ? Number(primeiro.cotacaoVenda) : null;
+  const variacao = Number.isFinite(anterior) && anterior > 0
+    ? Number((((valor - anterior) / anterior) * 100).toFixed(2))
+    : null;
+  return { valor: Number(valor.toFixed(4)), variacao };
 }
 
 function impostometro() {
