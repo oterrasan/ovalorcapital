@@ -1,8 +1,41 @@
 name: diag-once (placeholder)
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Investigar consumo real de chamadas do Gemini x conteúdo publicado
+        run: |
+          SUPA="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          echo "=== Contagem GEMINI_BUDGET_* de HOJE (29) por modelo ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.GEMINI_BUDGET_20260929*&select=key&limit=1" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" -H "Prefer: count=exact" -D - -o /dev/null | grep -i content-range
+
+          echo "=== Contagem GEMINI_BUDGET_* de ONTEM (28) ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.GEMINI_BUDGET_20260928*&select=key&limit=1" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" -H "Prefer: count=exact" -D - -o /dev/null | grep -i content-range
+
+          echo ""
+          echo "=== Posts publicados HOJE (created_at >= 2026-09-29) ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?created_at=gte.2026-09-29T00:00:00&select=id&limit=1" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" -H "Prefer: count=exact" -D - -o /dev/null | grep -i content-range
+
+          echo "=== Posts publicados ONTEM (created_at entre 2026-09-28 e 2026-09-29) ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?created_at=gte.2026-09-28T00:00:00&created_at=lt.2026-09-29T00:00:00&select=id&limit=1" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" -H "Prefer: count=exact" -D - -o /dev/null | grep -i content-range
+
+          echo ""
+          echo "=== TODOS os logs de resumo de rodada de TODOS os canais nas últimas 6h ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/logs?select=message,created_at&message=like.*resumo da rodada*&order=created_at.desc&limit=40" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA"
+          echo ""
+
+          echo "=== Amostra de 5 chaves GEMINI_BUDGET de hoje pra ver o padrão do nome ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.GEMINI_BUDGET_20260929*&select=key&limit=5" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA"
