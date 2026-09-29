@@ -324,6 +324,48 @@ function removeRepeatedHeadline(title, body) {
   return (repeatsHeadline ? blocks.slice(1) : blocks).join("\n\n").trim();
 }
 
+// 29/09/2026 — emoji de abertura por categoria, usado só no gancho da
+// legenda (buildCaptionHook) — mesmas chaves de CAT_HASHTAG_LABEL logo
+// abaixo, pra nunca ficarem dessincronizadas.
+const CATEGORY_HOOK_EMOJI = {
+  "brasil-on": "🇧🇷",
+  politica: "🏛️",
+  economia: "📊",
+  financas: "💰",
+  negocios: "🤝",
+  tecnologia: "💻",
+  internacional: "🌎",
+  industria: "🏭",
+  familia: "👨‍👩‍👧",
+  esportes: "⚽",
+  vc: "✍️",
+  colunistas: "✍️",
+  // categorias específicas do espelho @obrasilon (_brasilonLegenda)
+  policia: "🚨",
+  futebol: "⚽",
+  giro: "🇧🇷"
+};
+
+// 29/09/2026 — Roberto: "nossas legendas estao muito fracas e nao estao
+// sendo atraentes ao publico, isso vale tanto para o feed quanto para os
+// reels, precisamos melhorar isso URGENTE". Achado real: a legenda sempre
+// começava direto no corpo cru do texto jornalístico (estilo Reuters/Valor
+// Econômico, seco e formal por desenho do MASTER_PROMPT) — removeRepeated
+// Headline() inclusive APAGA o título quando ele bate com o 1º parágrafo,
+// então nunca existia nenhuma linha de abertura pensada pra rede social.
+// Fix: sem gastar chamada nenhuma de IA (a cota do Gemini já é apertada e
+// dividida entre canais essenciais — ver reserva de cota implementada mais
+// cedo hoje), monta um GANCHO mecânico e determinístico a partir do
+// próprio título já aprovado pelo MASTER_PROMPT: emoji temático + título
+// em CAIXA ALTA, como 1ª linha da legenda, sempre visível (nunca é cortado
+// pelo truncamento de fitInstagramCaption — só o corpo é truncado).
+function buildCaptionHook(title, category) {
+  const clean = stripHtmlToText(title || "").trim();
+  if (!clean) return "";
+  const emoji = CATEGORY_HOOK_EMOJI[category] || "🚨";
+  return `${emoji} ${clean.toLocaleUpperCase("pt-BR")}`;
+}
+
 const CAT_HASHTAG_LABEL = {
   "brasil-on": "BrasilOn",
   politica: "Politica",
@@ -393,10 +435,14 @@ function buildInstagramHashtags(post, extracted, category) {
   return unique.slice(0, 10);
 }
 
-function fitInstagramCaption(body, signature, hashtags, ctaBlock, location) {
+function fitInstagramCaption(body, signature, hashtags, ctaBlock, location, hook) {
   const hashtagBlock = hashtags.join(" ");
   const locationBlock = location ? `📍 ${location}` : "";
-  const compose = (bodyText) => [locationBlock, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  // 29/09/2026 — Roberto: "nossas legendas estao muito fracas e nao estao
+  // sendo atraentes ao publico". O hook (manchete formatada como gancho de
+  // abertura, ver buildCaptionHook) nunca pode ser cortado — só o corpo
+  // (bodyText) é truncado quando a legenda passa de 2200 chars.
+  const compose = (bodyText) => [hook, locationBlock, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;
@@ -452,7 +498,8 @@ function buildInstagramCaption(post) {
   const hashtags = buildInstagramHashtags(post, extracted, category);
   // Pedido explícito de Roberto (25/08/2026): toda publicação termina com CTA + link real da matéria.
   const ctaBlock = "📲 Acesse o portal e confira a matéria na íntegra:\n" + buildArticleUrl(post);
-  return fitInstagramCaption(body, signature, hashtags, ctaBlock, location);
+  const hook = buildCaptionHook(post.titulo, category);
+  return fitInstagramCaption(body, signature, hashtags, ctaBlock, location, hook);
 }
 
 function buildInstagramFirstComment(post) {
@@ -789,7 +836,8 @@ function _brasilonLegenda(bp) {
     .slice(0, 9);
   tags.push("#BrasilOn");
   const cta = "📲 Acesse o portal e confira a matéria na íntegra:\n" + _brasilonArticleUrl(bp);
-  return fitInstagramCaption(body, "BRASIL ON — " + date, tags, cta, null);
+  const hook = buildCaptionHook(bp.titulo, bp.categoria); // 29/09/2026 — ver comentário em buildCaptionHook
+  return fitInstagramCaption(body, "BRASIL ON — " + date, tags, cta, null, hook);
 }
 
 // Legenda do Reel conforme a conta escolhida. No @obrasilon a matéria

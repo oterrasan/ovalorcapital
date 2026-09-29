@@ -493,6 +493,20 @@ function removeRepeatedHeadline(title, body) {
   return (repeatsHeadline ? blocks.slice(1) : blocks).join("\n\n").trim();
 }
 
+// 29/09/2026 — Roberto: "nossas legendas estao muito fracas e nao estao
+// sendo atraentes ao publico, isso vale tanto para o feed quanto para os
+// reels, precisamos melhorar isso URGENTE". Mesmo fix aplicado do lado do
+// OVC (api/manage.js, raiz) — duplicado aqui de propósito, sem import
+// cruzado (regra permanente deste projeto, ver CLAUDE.md seção 2). Gancho
+// mecânico a partir do título já aprovado, sem gastar cota de IA.
+const CATEGORY_HOOK_EMOJI = { "brasil-on": "🇧🇷", politica: "🏛️", policia: "🚨", futebol: "⚽" };
+function buildCaptionHook(title, category) {
+  const clean = stripHtmlToText(title || "").trim();
+  if (!clean) return "";
+  const emoji = CATEGORY_HOOK_EMOJI[category] || "🚨";
+  return `${emoji} ${clean.toLocaleUpperCase("pt-BR")}`;
+}
+
 const CAT_HASHTAG_LABEL = { "brasil-on": "BrasilOn", politica: "Politica", policia: "Policia", futebol: "Futebol" };
 const FALLBACK_HASHTAGS = ["#Noticias", "#Brasil", "#Atualidades", "#Jornalismo", "#BrasilOn"];
 const THEME_HASHTAGS = [
@@ -528,9 +542,10 @@ function buildInstagramHashtags(post, extracted, category) {
   return unique.slice(0, 10);
 }
 
-function fitInstagramCaption(body, signature, hashtags, ctaBlock) {
+function fitInstagramCaption(body, signature, hashtags, ctaBlock, hook) {
   const hashtagBlock = hashtags.join(" ");
-  const compose = (bodyText) => [bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
+  // hook nunca é cortado — só bodyText é truncado quando passa de 2200 chars.
+  const compose = (bodyText) => [hook, bodyText, signature, hashtagBlock, ctaBlock].filter(Boolean).join("\n\n");
   let bodyText = body.length > 1500 ? body.slice(0, 1500).replace(/\s+\S*$/, "") + "…" : body;
   let caption = compose(bodyText);
   if (caption.length <= 2200) return caption;
@@ -568,7 +583,8 @@ function buildInstagramCaption(post) {
   const signature = "BRASIL ON — " + date;
   const hashtags = buildInstagramHashtags(post, extracted, post.categoria);
   const ctaBlock = "📲 Acesse o portal e confira a matéria na íntegra:\n" + buildArticleUrl(post);
-  return fitInstagramCaption(body, signature, hashtags, ctaBlock);
+  const hook = buildCaptionHook(post.titulo, post.categoria);
+  return fitInstagramCaption(body, signature, hashtags, ctaBlock, hook);
 }
 
 function buildInstagramFirstComment(post) {
