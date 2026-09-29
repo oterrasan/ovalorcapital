@@ -1,73 +1,8 @@
 name: diag-once (placeholder)
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Descobrir qual canal está queimando as tentativas reais do Gemini
-        run: |
-          SUPA="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          echo "=== Posts publicados ONTEM (28) por canal (publish_method) ==="
-          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?created_at=gte.2026-09-28T00:00:00&created_at=lt.2026-09-29T00:00:00&select=publish_method" \
-            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" | python3 -c "
-          import json,sys
-          rows = json.load(sys.stdin)
-          from collections import Counter
-          c = Counter(r.get('publish_method') for r in rows)
-          for k,v in c.most_common():
-              print(f'{k}: {v}')
-          print('TOTAL:', len(rows))
-          "
-
-          echo ""
-          echo "=== Últimos 30 logs de resumo de rodada (todos os canais) ==="
-          curl -s --get "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/logs" \
-            --data-urlencode "select=message,created_at" \
-            --data-urlencode "message=like.*resumo da rodada*" \
-            --data-urlencode "order=created_at.desc" \
-            --data-urlencode "limit=30" \
-            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" | python3 -c "
-          import json,sys,re
-          rows = json.load(sys.stdin)
-          for r in rows:
-              m = r['message']
-              canal = re.match(r'\[([^\]]+)\]', m)
-              canal = canal.group(1) if canal else '?'
-              gerados = re.search(r'gerados:(\d+)', m)
-              gerados = gerados.group(1) if gerados else '?'
-              print(r['created_at'], '|', canal, '| gerados:', gerados)
-          "
-
-          echo ""
-          echo "=== Contagem de candidatos totais por canal, somando distribuicao_bruta (últimas 24h) ==="
-          curl -s --get "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/logs" \
-            --data-urlencode "select=message,created_at" \
-            --data-urlencode "message=like.*resumo da rodada*" \
-            --data-urlencode "created_at=gte.2026-09-28T00:00:00" \
-            --data-urlencode "order=created_at.desc" \
-            --data-urlencode "limit=300" \
-            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" | python3 -c "
-          import json,sys,re
-          from collections import Counter
-          rows = json.load(sys.stdin)
-          por_canal = Counter()
-          rodadas_por_canal = Counter()
-          for r in rows:
-              m = r['message']
-              canal = re.match(r'\[([^\]]+)\]', m)
-              canal = canal.group(1) if canal else '?'
-              rodadas_por_canal[canal] += 1
-              nums = re.findall(r'\"([a-z-]+)\":(\d+)', m)
-              soma = sum(int(v) for k,v in nums)
-              por_canal[canal] += soma
-          print('candidatos somados por canal (aprox., inclui gerados+falhas):')
-          for k,v in por_canal.most_common():
-              print(f'  {k}: {v} candidatos em {rodadas_por_canal[k]} rodadas')
-          print('total de linhas de log lidas:', len(rows))
-          "
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"

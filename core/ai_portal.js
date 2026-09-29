@@ -292,7 +292,60 @@ async function _incrementarOrcamentoDiario() {
   } catch (_) {} // falha ao gravar o contador não pode derrubar a chamada de IA em si
 }
 
-async function callGemini(systemKernel, userContent, maxTokens = 8192) {
+// 29/09/2026 — RESERVA DE COTA PARA CANAIS ESSENCIAIS. Achado real: o job
+// "outros-esportes-jornal" (esportes fora futebol) processa até 25
+// candidatos por rodada, a cada ~8-9min, 24h/dia, sem nenhum freio quando a
+// cota do Gemini já está esgotada — 168 rodadas em 24h, ~15.749 tentativas
+// de candidato, quase todas terminando em "gerados:0". Isso consumia (por
+// tentativa, mesmo as que falham com 429) o MESMO pool de chaves usado por
+// Brasil On (Bacci), Jovem Pan Política e Internacional (CNN) — canais que
+// Roberto foi explícito que "não podem parar NUNCA".
+//
+// Roberto pediu pra não mexer na frequência/quantidade do job de esportes
+// agora ("preciso avaliar") — a correção abaixo NÃO toca nisso. Em vez
+// disso, reserva uma fatia final da cota REAL só pra chamadas marcadas como
+// essenciais: uma vez que o consumo de SUCESSOS reais do dia (não tentativas
+// — só o que realmente gerou conteúdo) se aproxima da capacidade real
+// estimada (nº de chaves × 500, o teto confirmado ao vivo por chave/dia),
+// chamadas não-essenciais são recusadas IMEDIATAMENTE (sem gastar rede) e só
+// as essenciais continuam tentando até a cota real do Google de fato
+// esgotar. Contador separado do de tentativas (_incrementarOrcamentoDiario)
+// porque aquele conta também os 429 (falhas), o que superestimaria o
+// consumo real assim que a cota esgota.
+const GEMINI_RESERVA_ESSENCIAIS_PCT = 0.20; // 20% da capacidade real reservados só pros essenciais
+const GEMINI_COTA_POR_CHAVE = 500; // teto real confirmado ao vivo (free tier, req/dia/projeto)
+
+function _chaveSucessoHoje() {
+  return `GEMINI_SUCESSO_${_diaAtualBRT()}_${GEMINI_MODEL}`;
+}
+
+let _sucessoCache = null; // { key, count }
+async function _lerSucessosDiario() {
+  const key = _chaveSucessoHoje();
+  if (_sucessoCache && _sucessoCache.key === key) return _sucessoCache.count;
+  try {
+    const { count } = await supabase
+      .from("config")
+      .select("key", { count: "exact", head: true })
+      .like("key", `${key}%`);
+    const total = count || 0;
+    _sucessoCache = { key, count: total };
+    return total;
+  } catch (_) {
+    return 0; // fail-open — nunca trava o pipeline por causa deste contador
+  }
+}
+
+async function _incrementarSucessoDiario() {
+  const key = _chaveSucessoHoje();
+  try {
+    const rowKey = `${key}__${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await supabase.from("config").insert({ key: rowKey, value: "1" });
+    if (_sucessoCache && _sucessoCache.key === key) _sucessoCache.count += 1;
+  } catch (_) {}
+}
+
+async function callGemini(systemKernel, userContent, maxTokens = 8192, opts = {}) {
   const keys = await _getGeminiKeys();
   if (!keys.length) throw new Error("GEMINI_API_KEY não configurada no Supabase config");
 
@@ -301,6 +354,23 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
     const err = new Error(`Orçamento diário do Gemini esgotado (${usoHoje}/${GEMINI_DAILY_BUDGET}) — aguardando reset 00:00 BRT`);
     err.orcamentoEsgotado = true;
     throw err;
+  }
+
+  // Reserva pros canais essenciais — ver comentário grande acima. Só entra
+  // em jogo quando o chamador NÃO é essencial; chamadas essenciais nunca são
+  // bloqueadas aqui, só pela checagem de GEMINI_DAILY_BUDGET acima (que é um
+  // teto de segurança bem folgado, não uma cota real).
+  if (opts.prioridade !== "essencial") {
+    const capacidadeReal = keys.length * GEMINI_COTA_POR_CHAVE;
+    const tetoNaoEssenciais = Math.floor(capacidadeReal * (1 - GEMINI_RESERVA_ESSENCIAIS_PCT));
+    const sucessosHoje = await _lerSucessosDiario();
+    if (sucessosHoje >= tetoNaoEssenciais) {
+      const err = new Error(
+        `Cota do Gemini reservada para canais essenciais (Brasil On, Jovem Pan Política, Internacional) — sucessos hoje: ${sucessosHoje}/${tetoNaoEssenciais} (reserva de ${Math.round(GEMINI_RESERVA_ESSENCIAIS_PCT * 100)}%)`
+      );
+      err.reservaEssenciais = true;
+      throw err;
+    }
   }
 
   // 17/08/2026 — 503 "high demand" confirmado como transitório, não cota nem
@@ -325,6 +395,7 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
       try {
         const result = await _callGeminiWithKey(key, systemKernel, userContent, maxTokens);
         await _incrementarOrcamentoDiario(); // consumiu 1 requisição real da cota do dia
+        await _incrementarSucessoDiario(); // separado — só sucessos reais, usado pra calcular a reserva acima
         return result;
       } catch (err) {
         lastErr = err;
@@ -370,8 +441,8 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192) {
 // falharem de verdade, a chamada simplesmente propaga o erro (não mascara
 // mais atrás de um fallback silencioso), o que é a prioridade máxima de
 // investigação de qualquer sessão futura (ver IA_KEYS_POLICY.md).
-async function callIA(systemKernel, userContent, maxTokens = 8192) {
-  return callGemini(systemKernel, userContent, maxTokens);
+async function callIA(systemKernel, userContent, maxTokens = 8192, opts = {}) {
+  return callGemini(systemKernel, userContent, maxTokens, opts);
 }
 
 const SUBCATS_POR_CAT = {
@@ -842,7 +913,7 @@ export async function rewriteBrasilOn(text, title, context = '') {
   // sempre COMPLETA), então o teto de saída da IA também precisa de mais margem pra
   // não cortar o final de uma reescrita fiel a uma fonte mais longa.
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(BRASILON_KERNEL, userContent, 4096);
+  const raw = await callIA(BRASILON_KERNEL, userContent, 4096, { prioridade: "essencial" }); // 29/09/2026 — Roberto: "os canais que vem do bacci e jovem pan, cnn, etc... nao podem parar NUNCA" — ver reserva de cota em callGemini()
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Brasil ON: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
@@ -880,7 +951,7 @@ Depois, o restante do corpo em HTML puro — <p> por parágrafo.
 
 export async function rewriteJovempanPolitica(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(JOVEMPAN_POLITICA_KERNEL, userContent, 4096); // 13/08/2026 — ver comentário em rewriteBrasilOn
+  const raw = await callIA(JOVEMPAN_POLITICA_KERNEL, userContent, 4096, { prioridade: "essencial" }); // 13/08/2026 — ver comentário em rewriteBrasilOn; prioridade essencial adicionada 29/09/2026
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Jovem Pan Política: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
@@ -926,7 +997,7 @@ Depois, o restante do corpo em HTML puro — <p> por parágrafo.
 
 export async function rewriteInternacional(text, title, context = '') {
   const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
-  const raw = await callIA(INTERNACIONAL_KERNEL, userContent, 4096); // 13/08/2026 — ver comentário em rewriteBrasilOn
+  const raw = await callIA(INTERNACIONAL_KERNEL, userContent, 4096, { prioridade: "essencial" }); // 13/08/2026 — ver comentário em rewriteBrasilOn; prioridade essencial adicionada 29/09/2026
   const result = parse(raw);
   if (!result?.titulo || !result?.corpo) throw new Error("Internacional: reescrita vazia/incompleta");
   result.tipo_conteudo = "padrao";
