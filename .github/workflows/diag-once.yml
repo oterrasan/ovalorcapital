@@ -9,60 +9,20 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnostico completo pos-fix Pulso BR
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+      - name: Reconfirmar live-data real em producao
         run: |
           python3 << 'PYEOF'
           import json
-          import os
           import urllib.request
 
-          SUPABASE_URL = os.environ["SUPABASE_URL"]
-          SUPABASE_KEY = os.environ["SUPABASE_KEY"]
+          req = urllib.request.Request(
+              "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data",
+              headers={"User-Agent": "Mozilla/5.0"},
+          )
+          with urllib.request.urlopen(req, timeout=15) as r:
+              body = json.loads(r.read().decode())
 
-          def sb_get(path):
-              req = urllib.request.Request(
-                  f"{SUPABASE_URL}/rest/v1/{path}",
-                  headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-              )
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
-
-          def test(url, label, headers=None):
-              try:
-                  req = urllib.request.Request(url, headers=headers or {"User-Agent": "Mozilla/5.0"})
-                  with urllib.request.urlopen(req, timeout=10) as r:
-                      body = r.read().decode()
-                      print(f"{label}: HTTP {r.status} | {body[:300]}")
-              except urllib.error.HTTPError as e:
-                  err_body = e.read().decode()[:300]
-                  print(f"{label}: ERRO HTTP {e.code} | {err_body}")
-              except Exception as e:
-                  print(f"{label}: ERRO -> {type(e).__name__}: {e}")
-              print("---")
-
-          # 1. Confirma o token salvo no banco (sem expor o valor completo)
-          rows = sb_get("config?select=value&key=eq.BRAPI_TOKEN")
-          token = rows[0]["value"] if rows else None
-          if token:
-              print(f"Token no banco: existe, {len(token)} chars, termina em ...{token[-6:]}")
-          else:
-              print("Token no banco: AUSENTE")
-          print("---")
-
-          # 2. Confirma se o cache de seguranca ja foi populado alguma vez
-          cache_rows = sb_get("config?select=value&key=eq.LIVE_QUOTES_CACHE")
-          print(f"LIVE_QUOTES_CACHE no banco: {'existe' if cache_rows else 'AUSENTE (nunca foi populado)'}")
-          if cache_rows:
-              print(f"  conteudo: {cache_rows[0]['value'][:300]}")
-          print("---")
-
-          # 3. Testa AwesomeAPI direto (ainda em rate limit?)
-          test("https://economia.awesomeapi.com.br/json/last/USD-BRL", "AwesomeAPI agora")
-
-          # 4. Testa brapi.dev com o token real
-          if token:
-              test(f"https://brapi.dev/api/quote/%5EBVSP?token={token}", "brapi.dev com token")
+          for campo in ["usd", "eur", "gbp", "btc", "ibov", "nasdaq", "dow", "selic", "ipca"]:
+              v = body.get(campo)
+              print(f"{campo}: {v}")
           PYEOF
