@@ -1,56 +1,8 @@
 name: diag-once (placeholder)
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar BCB PTAX (dolar/euro/libra) e CoinGecko (bitcoin)
-        run: |
-          python3 << 'PYEOF'
-          import json
-          import urllib.request
-          import datetime
-
-          def test(url, label):
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                  with urllib.request.urlopen(req, timeout=10) as r:
-                      body = r.read().decode()
-                      print(f"{label}: HTTP {r.status}")
-                      print(f"  {body[:700]}")
-              except urllib.error.HTTPError as e:
-                  print(f"{label}: ERRO HTTP {e.code} | {e.read().decode()[:300]}")
-              except Exception as e:
-                  print(f"{label}: ERRO -> {type(e).__name__}: {e}")
-              print("---")
-
-          hoje = datetime.date.today()
-          inicio = hoje - datetime.timedelta(days=7)
-          di = inicio.strftime("%m-%d-%Y")
-          df = hoje.strftime("%m-%d-%Y")
-
-          # PTAX periodo -- pega ultimos 7 dias, sem precisar saber o ultimo dia util exato
-          test(
-              f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='USD'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json",
-              "BCB PTAX USD periodo"
-          )
-          test(
-              f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='EUR'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json",
-              "BCB PTAX EUR periodo"
-          )
-          test(
-              f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='GBP'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json",
-              "BCB PTAX GBP periodo"
-          )
-
-          # CoinGecko BTC-BRL
-          test(
-              "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true",
-              "CoinGecko BTC-BRL"
-          )
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
