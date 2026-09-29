@@ -9,38 +9,7 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Testar PTAX e brapi.dev com fetch() nativo do Node (mesmo runtime da Vercel)
+      - name: Confirmar live-data em produção pós-fix PTAX .value + brapi 3 chamadas
         run: |
-          cat > /tmp/diag.mjs << 'EOF'
-          const hoje = new Date();
-          const inicio = new Date(hoje.getTime() - 5 * 24 * 3600 * 1000);
-          const fmt = (d) => String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + '-' + d.getFullYear();
-          const di = fmt(inicio);
-          const df = fmt(hoje);
-          const ptaxUrl = 'https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda=\'USD\'&@dataInicial=\'' + di + '\'&@dataFinalCotacao=\'' + df + '\'&$format=json';
-          console.log('URL crua:', ptaxUrl);
-          console.log('URL parseada pelo Node (new URL):', new URL(ptaxUrl).href);
-
-          async function testar(url, label) {
-            try {
-              const r = await fetch(url);
-              const body = await r.text();
-              console.log(label + ': HTTP ' + r.status);
-              console.log('  ' + body.slice(0, 500));
-            } catch (e) {
-              console.log(label + ': ERRO -> ' + e.message);
-            }
-            console.log('---');
-          }
-
-          const brapiUrl = 'https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI?token=xAb6LvXrydZE98tEd7KjrJ';
-
-          (async () => {
-            await testar(ptaxUrl, 'PTAX USD via fetch() nativo');
-            await testar(brapiUrl, 'brapi.dev via fetch() nativo');
-          })();
-          EOF
-          node /tmp/diag.mjs
+          echo "--- /api/portal-posts?format=live-data ---"
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data" | python3 -m json.tool
