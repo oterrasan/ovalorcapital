@@ -9,38 +9,38 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar PTAX exata do código + confirmar token brapi no config
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Testar PTAX e brapi.dev com fetch() nativo do Node (mesmo runtime da Vercel)
         run: |
-          python3 << 'PYEOF'
-          import json
-          import urllib.request
-          import datetime
+          cat > /tmp/diag.mjs << 'EOF'
+          const hoje = new Date();
+          const inicio = new Date(hoje.getTime() - 5 * 24 * 3600 * 1000);
+          const fmt = (d) => String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + '-' + d.getFullYear();
+          const di = fmt(inicio);
+          const df = fmt(hoje);
+          const ptaxUrl = 'https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda=\'USD\'&@dataInicial=\'' + di + '\'&@dataFinalCotacao=\'' + df + '\'&$format=json';
+          console.log('URL crua:', ptaxUrl);
+          console.log('URL parseada pelo Node (new URL):', new URL(ptaxUrl).href);
 
-          def test(url, label):
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                  with urllib.request.urlopen(req, timeout=10) as r:
-                      body = r.read().decode()
-                      print(f"{label}: HTTP {r.status}")
-                      print(f"  {body[:600]}")
-              except urllib.error.HTTPError as e:
-                  print(f"{label}: ERRO HTTP {e.code} | {e.read().decode()[:400]}")
-              except Exception as e:
-                  print(f"{label}: ERRO -> {type(e).__name__}: {e}")
-              print("---")
+          async function testar(url, label) {
+            try {
+              const r = await fetch(url);
+              const body = await r.text();
+              console.log(label + ': HTTP ' + r.status);
+              console.log('  ' + body.slice(0, 500));
+            } catch (e) {
+              console.log(label + ': ERRO -> ' + e.message);
+            }
+            console.log('---');
+          }
 
-          hoje = datetime.date.today()
-          inicio = hoje - datetime.timedelta(days=5)
-          di = inicio.strftime("%m-%d-%Y")
-          df = hoje.strftime("%m-%d-%Y")
+          const brapiUrl = 'https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI?token=xAb6LvXrydZE98tEd7KjrJ';
 
-          url = f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='USD'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json"
-          print(f"URL exata: {url}")
-          test(url, "PTAX USD (mesma URL do código)")
-          PYEOF
-
-          echo "=== Config BRAPI_TOKEN no Supabase ==="
-          SUPA="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BRAPI_TOKEN&select=key,value" \
-            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA"
-          echo ""
+          (async () => {
+            await testar(ptaxUrl, 'PTAX USD via fetch() nativo');
+            await testar(brapiUrl, 'brapi.dev via fetch() nativo');
+          })();
+          EOF
+          node /tmp/diag.mjs
