@@ -1,8 +1,64 @@
 name: diag-once (placeholder)
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/diag-once.yml"
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: capa dos reels — cover_candidate_url vs cover_url
+        env:
+          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, urllib.parse, json
+
+          SB = os.environ["SUPABASE_URL"]
+          KEY = os.environ["SUPABASE_KEY"]
+
+          def q(path):
+              url = f"{SB}/rest/v1/{path}"
+              req = urllib.request.Request(url, headers={
+                  "apikey": KEY,
+                  "Authorization": f"Bearer {KEY}",
+              })
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read())
+
+          # posts publicados com Reel recente, últimos 10 dias, qualquer status de template
+          params = urllib.parse.urlencode({
+              "select": "id,titulo,imagem,metrics,updated_at",
+              "order": "updated_at.desc",
+              "limit": "400",
+          })
+          rows = q(f"posts?{params}")
+          print(f"total posts consultados: {len(rows)}")
+
+          achou = 0
+          for r in rows:
+              m = r.get("metrics") or {}
+              tpl = m.get("instagram_reel_template")
+              if not tpl:
+                  continue
+              status = tpl.get("status")
+              marca = tpl.get("marca")
+              cand = tpl.get("cover_candidate_url")
+              cover = tpl.get("cover_url")
+              ig = (m.get("instagram_reel") or {})
+              publicado = bool(ig.get("ig_id"))
+              if not cand and not cover:
+                  continue
+              achou += 1
+              if achou > 15:
+                  continue
+              print("---")
+              print("post_id:", r["id"])
+              print("titulo:", (r.get("titulo") or "")[:70])
+              print("status:", status, "| marca:", marca, "| publicado_no_ig:", publicado)
+              print("cover_candidate_url:", "PRESENTE" if cand else "ausente", "->", (cand or "")[:90])
+              print("cover_url (o que de fato vai pro container):", "PRESENTE" if cover else "ausente", "->", (cover or "")[:90])
+
+          print("=== total de templates com alguma capa (candidate ou url) encontrados:", achou, "===")
+          PYEOF
