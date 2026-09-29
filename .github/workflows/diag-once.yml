@@ -9,7 +9,38 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Confirmar live-data em produção pós-fix
+      - name: Testar PTAX exata do código + confirmar token brapi no config
         run: |
-          echo "--- /api/portal-posts?format=live-data ---"
-          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?format=live-data" | python3 -m json.tool
+          python3 << 'PYEOF'
+          import json
+          import urllib.request
+          import datetime
+
+          def test(url, label):
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      body = r.read().decode()
+                      print(f"{label}: HTTP {r.status}")
+                      print(f"  {body[:600]}")
+              except urllib.error.HTTPError as e:
+                  print(f"{label}: ERRO HTTP {e.code} | {e.read().decode()[:400]}")
+              except Exception as e:
+                  print(f"{label}: ERRO -> {type(e).__name__}: {e}")
+              print("---")
+
+          hoje = datetime.date.today()
+          inicio = hoje - datetime.timedelta(days=5)
+          di = inicio.strftime("%m-%d-%Y")
+          df = hoje.strftime("%m-%d-%Y")
+
+          url = f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='USD'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json"
+          print(f"URL exata: {url}")
+          test(url, "PTAX USD (mesma URL do código)")
+          PYEOF
+
+          echo "=== Config BRAPI_TOKEN no Supabase ==="
+          SUPA="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.BRAPI_TOKEN&select=key,value" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA"
+          echo ""
