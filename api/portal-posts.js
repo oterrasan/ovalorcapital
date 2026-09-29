@@ -202,7 +202,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
 
-  if (req.query.format === "live-data") return handleLiveData(res, req.query.debug === "1");
+  if (req.query.format === "live-data") return handleLiveData(res);
 
   try {
     if (req.query.id) return handleOne(req, res);
@@ -401,9 +401,8 @@ async function handleList(req, res) {
   return res.status(200).json({ posts, total: posts.length });
 }
 
-async function handleLiveData(res, debug) {
+async function handleLiveData(res) {
   res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
-  _liveDebugLog = [];
 
   // 29/09/2026 — brapi.dev passou a exigir token pra endpoint de índices
   // (^BVSP/^IXIC/^DJI), retornando 401 sem ele. Roberto criou conta grátis
@@ -442,15 +441,15 @@ async function handleLiveData(res, debug) {
   // ibovespa, toda economia.... bolsa, etc" — endpoint on-demand existente estendido,
   // sem novo cron/automação (mantém o congelamento de custo em vigor nesta sessão).
   const [usdResult, eurResult, gbpResult, btcResult, bvspResult, ixicResult, djiResult, selicResult, ipcaResult] = await Promise.allSettled([
-    safeFetch(ptaxUrl("USD"), "ptax_usd"),
-    safeFetch(ptaxUrl("EUR"), "ptax_eur"),
-    safeFetch(ptaxUrl("GBP"), "ptax_gbp"),
-    safeFetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true", "coingecko_btc"),
-    safeFetch(brapiSymbolUrl("^BVSP"), "brapi_bvsp"),
-    safeFetch(brapiSymbolUrl("^IXIC"), "brapi_ixic"),
-    safeFetch(brapiSymbolUrl("^DJI"), "brapi_dji"),
-    safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/2?formato=json", "bcb_selic"),
-    safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/2?formato=json", "bcb_ipca")
+    safeFetch(ptaxUrl("USD")),
+    safeFetch(ptaxUrl("EUR")),
+    safeFetch(ptaxUrl("GBP")),
+    safeFetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true"),
+    safeFetch(brapiSymbolUrl("^BVSP")),
+    safeFetch(brapiSymbolUrl("^IXIC")),
+    safeFetch(brapiSymbolUrl("^DJI")),
+    safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/2?formato=json"),
+    safeFetch("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/2?formato=json")
   ]);
 
   const brapiMap = {};
@@ -536,8 +535,7 @@ async function handleLiveData(res, debug) {
     ratePerSec: 114155,
     tv: tvChannels,
     radio: liveConfig?.radio || null,
-    ts: Date.now(),
-    ...(debug ? { _debug: _liveDebugLog } : {})
+    ts: Date.now()
   });
 }
 
@@ -638,14 +636,7 @@ function dedupe(rows) {
   return out;
 }
 
-// 29/09/2026 — debug temporário: quando ?debug=1 é passado, cada chamada
-// com label registra aqui pra sair na própria resposta JSON. Sem acesso
-// direto aos logs de runtime da Vercel, é o jeito mais rápido de confirmar
-// com dado real (não suposição) por que uma fonte específica falha em
-// produção mesmo funcionando isolada via GitHub Actions. Remover assim
-// que a causa raiz do "usd/ibov ainda null" for confirmada e corrigida.
-let _liveDebugLog = [];
-async function safeFetch(url, label) {
+async function safeFetch(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4500);
   try {
@@ -656,15 +647,12 @@ async function safeFetch(url, label) {
       // isso que o 429 da AwesomeAPI e o 401 do brapi.dev ficaram invisíveis
       // por semanas). Log discreto, não muda o comportamento (continua null).
       console.error(`[live-data] ${url} respondeu HTTP ${response.status}`);
-      if (label) _liveDebugLog.push({ label, status: response.status, body: (await response.text().catch(() => "")).slice(0, 200) });
       return null;
     }
-    if (label) _liveDebugLog.push({ label, status: response.status });
     return response.json();
   } catch (e) {
     clearTimeout(timer);
     console.error(`[live-data] ${url} falhou: ${e?.message || e}`);
-    if (label) _liveDebugLog.push({ label, error: e?.message || String(e) });
     return null;
   }
 }
