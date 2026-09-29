@@ -1,32 +1,8 @@
 name: diag-once (placeholder)
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/diag-once.yml'
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar fontes reais de cotacao (AwesomeAPI, brapi.dev) e o endpoint live-data em producao
-        run: |
-          python3 << 'PYEOF'
-          import json
-          import urllib.request
-
-          def test(url, label):
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                  with urllib.request.urlopen(req, timeout=10) as r:
-                      body = r.read().decode()
-                      print(f"{label}: HTTP {r.status} | tamanho={len(body)} bytes")
-                      print(f"  inicio: {body[:250]}")
-              except Exception as e:
-                  print(f"{label}: ERRO -> {type(e).__name__}: {e}")
-              print("---")
-
-          test("https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL,BTC-BRL", "AwesomeAPI (direto)")
-          test("https://brapi.dev/api/quote/%5EBVSP,%5EIXIC,%5EDJI", "brapi.dev (direto)")
-          test("https://www.ovalorcapital.com.br/api/portal-posts?format=live-data", "Endpoint real live-data em producao")
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"

@@ -423,6 +423,43 @@ async function handleLiveData(res) {
   const selic = bcbValue(selicResult.status === "fulfilled" ? selicResult.value : null);
   const ipca = bcbValue(ipcaResult.status === "fulfilled" ? ipcaResult.value : null);
 
+  // 29/09/2026 — Roberto reportou Pulso BR travado em "aguardando" pra
+  // Dólar/Ibovespa. Causa real confirmada (não suposição): AwesomeAPI
+  // devolvendo 429 (rate limit) e brapi.dev devolvendo 401 (agora exige
+  // token). safeFetch() engolia isso como null, sem nenhum fallback — o
+  // widget nunca tinha um valor pra mostrar. Fix: guarda o último valor
+  // REAL obtido com sucesso em config (nunca inventa número) e usa esse
+  // cache só quando a fonte ao vivo falhar, em vez de expor null direto.
+  let liveCache = null;
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "LIVE_QUOTES_CACHE").limit(1);
+    if (data && data[0]?.value) liveCache = JSON.parse(data[0].value);
+  } catch (_) { /* sem cache ainda, segue com null */ }
+
+  const usd = aw?.USDBRL ? { valor: Number(aw.USDBRL.bid), variacao: Number(aw.USDBRL.pctChange) } : (liveCache?.usd || null);
+  const eur = aw?.EURBRL ? { valor: Number(aw.EURBRL.bid), variacao: Number(aw.EURBRL.pctChange) } : (liveCache?.eur || null);
+  const gbp = aw?.GBPBRL ? { valor: Number(aw.GBPBRL.bid), variacao: Number(aw.GBPBRL.pctChange) } : (liveCache?.gbp || null);
+  const btc = aw?.BTCBRL ? { valor: Number(aw.BTCBRL.bid), variacao: Number(aw.BTCBRL.pctChange) } : (liveCache?.btc || null);
+  const ibov = marketValue(brapiMap["^BVSP"]) || liveCache?.ibov || null;
+  const nasdaq = marketValue(brapiMap["^IXIC"]) || liveCache?.nasdaq || null;
+  const dow = marketValue(brapiMap["^DJI"]) || liveCache?.dow || null;
+
+  // Salva de volta só quando pelo menos uma fonte ao vivo respondeu de
+  // verdade (evita gravar o próprio cache velho por cima dele sem necessidade).
+  const gotLiveData = !!(aw?.USDBRL || brapiMap["^BVSP"]);
+  if (gotLiveData) {
+    const freshCache = { usd, eur, gbp, btc, ibov, nasdaq, dow, updated_at: new Date().toISOString() };
+    try {
+      const { data: existing } = await supabase.from("config").select("key").eq("key", "LIVE_QUOTES_CACHE").limit(1);
+      const value = JSON.stringify(freshCache);
+      if (existing && existing.length) {
+        await supabase.from("config").update({ value }).eq("key", "LIVE_QUOTES_CACHE");
+      } else {
+        await supabase.from("config").insert({ key: "LIVE_QUOTES_CACHE", value });
+      }
+    } catch (_) { /* falha ao salvar cache não deve derrubar a resposta */ }
+  }
+
   const youtubeUrl = process.env.YOUTUBE_LIVE_URL || "";
   const liveConfig = loadLiveConfig();
   const configTv = (liveConfig?.tv || []).filter(item => item.active !== false);
@@ -436,13 +473,13 @@ async function handleLiveData(res) {
   ];
 
   return res.status(200).json({
-    usd: aw?.USDBRL ? { valor: Number(aw.USDBRL.bid), variacao: Number(aw.USDBRL.pctChange) } : null,
-    eur: aw?.EURBRL ? { valor: Number(aw.EURBRL.bid), variacao: Number(aw.EURBRL.pctChange) } : null,
-    gbp: aw?.GBPBRL ? { valor: Number(aw.GBPBRL.bid), variacao: Number(aw.GBPBRL.pctChange) } : null,
-    btc: aw?.BTCBRL ? { valor: Number(aw.BTCBRL.bid), variacao: Number(aw.BTCBRL.pctChange) } : null,
-    ibov: marketValue(brapiMap["^BVSP"]),
-    nasdaq: marketValue(brapiMap["^IXIC"]),
-    dow: marketValue(brapiMap["^DJI"]),
+    usd,
+    eur,
+    gbp,
+    btc,
+    ibov,
+    nasdaq,
+    dow,
     selic,
     ipca,
     impostometro: impostometro(),
@@ -556,10 +593,17 @@ async function safeFetch(url) {
   try {
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      // 29/09/2026 — antes engolia qualquer falha sem log nenhum (foi por
+      // isso que o 429 da AwesomeAPI e o 401 do brapi.dev ficaram invisíveis
+      // por semanas). Log discreto, não muda o comportamento (continua null).
+      console.error(`[live-data] ${url} respondeu HTTP ${response.status}`);
+      return null;
+    }
     return response.json();
-  } catch (_) {
+  } catch (e) {
     clearTimeout(timer);
+    console.error(`[live-data] ${url} falhou: ${e?.message || e}`);
     return null;
   }
 }
