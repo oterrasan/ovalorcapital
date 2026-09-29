@@ -1,8 +1,46 @@
 name: diag-once (placeholder)
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Checar orçamento diário do Gemini + status das chaves
+        run: |
+          SUPA="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          echo "=== Chaves Gemini cadastradas (só quais existem, sem expor valor) ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.GEMINI_API_KEY*&select=key" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA"
+          echo ""
+
+          echo "=== GEMINI_DAILY_BUDGET configurado ==="
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=eq.GEMINI_DAILY_BUDGET&select=key,value" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA"
+          echo ""
+
+          echo "=== Contagem de linhas GEMINI_BUDGET_* de hoje (UTC) ==="
+          HOJE=$(date -u +%Y%m%d)
+          curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.GEMINI_BUDGET_${HOJE}*&select=key&limit=1" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" -H "Prefer: count=exact" -D - -o /dev/null | grep -i content-range
+          echo ""
+
+          echo "=== Testando as chaves reais direto contra a API do Google ==="
+          for K in $(curl -s "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?key=like.GEMINI_API_KEY*&select=key,value" \
+            -H "apikey: $SUPA" -H "Authorization: Bearer $SUPA" | python3 -c "import json,sys; [print(r['key']+'|'+r['value']) for r in json.load(sys.stdin)]"); do
+            KEYNAME="${K%%|*}"
+            KEYVAL="${K#*|}"
+            echo "--- $KEYNAME ---"
+            curl -s -o /tmp/resp.json -w "HTTP %{http_code}\n" \
+              "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${KEYVAL}" \
+              -H "Content-Type: application/json" \
+              -d '{"contents":[{"parts":[{"text":"diga apenas: ok"}]}]}'
+            cat /tmp/resp.json | head -c 400
+            echo ""
+          done
+        env:
+          PYTHONUNBUFFERED: "1"
