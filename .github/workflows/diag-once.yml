@@ -9,26 +9,12 @@ jobs:
   noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar brapi.dev v2 currency e crypto com o token real
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+      - name: Testar BCB PTAX (dolar/euro/libra) e CoinGecko (bitcoin)
         run: |
           python3 << 'PYEOF'
           import json
-          import os
           import urllib.request
-
-          SUPABASE_URL = os.environ["SUPABASE_URL"]
-          SUPABASE_KEY = os.environ["SUPABASE_KEY"]
-
-          def sb_get(path):
-              req = urllib.request.Request(
-                  f"{SUPABASE_URL}/rest/v1/{path}",
-                  headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-              )
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read().decode())
+          import datetime
 
           def test(url, label):
               try:
@@ -36,16 +22,35 @@ jobs:
                   with urllib.request.urlopen(req, timeout=10) as r:
                       body = r.read().decode()
                       print(f"{label}: HTTP {r.status}")
-                      print(f"  {body[:600]}")
+                      print(f"  {body[:700]}")
               except urllib.error.HTTPError as e:
                   print(f"{label}: ERRO HTTP {e.code} | {e.read().decode()[:300]}")
               except Exception as e:
                   print(f"{label}: ERRO -> {type(e).__name__}: {e}")
               print("---")
 
-          rows = sb_get("config?select=value&key=eq.BRAPI_TOKEN")
-          token = rows[0]["value"] if rows else None
+          hoje = datetime.date.today()
+          inicio = hoje - datetime.timedelta(days=7)
+          di = inicio.strftime("%m-%d-%Y")
+          df = hoje.strftime("%m-%d-%Y")
 
-          test(f"https://brapi.dev/api/v2/currency?currency=USD-BRL,EUR-BRL,GBP-BRL&token={token}", "brapi v2 currency")
-          test(f"https://brapi.dev/api/v2/crypto?coin=BTC&currency=BRL&token={token}", "brapi v2 crypto BTC")
+          # PTAX periodo -- pega ultimos 7 dias, sem precisar saber o ultimo dia util exato
+          test(
+              f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='USD'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json",
+              "BCB PTAX USD periodo"
+          )
+          test(
+              f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='EUR'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json",
+              "BCB PTAX EUR periodo"
+          )
+          test(
+              f"https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@moeda='GBP'&@dataInicial='{di}'&@dataFinalCotacao='{df}'&$format=json",
+              "BCB PTAX GBP periodo"
+          )
+
+          # CoinGecko BTC-BRL
+          test(
+              "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=brl&include_24hr_change=true",
+              "CoinGecko BTC-BRL"
+          )
           PYEOF
