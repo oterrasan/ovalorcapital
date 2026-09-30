@@ -7,24 +7,84 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Checar estado real dos reels aprovados recentemente
+      - name: Aceitar e curtir convites de collab pendentes do oterrasan (reels)
         run: |
           SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
 
-          curl -sS "${SB_URL}/rest/v1/posts?select=id,titulo,ig_id,updated_at,metrics&metrics-%3Einstagram_reel_template-%3E%3Eaprovado=eq.true&order=updated_at.desc&limit=10" \
-            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/reels.json
+          curl -sS "${SB_URL}/rest/v1/ig_accounts?select=id,username,ig_user_id,token&username=eq.oterrasan&active=eq.true&limit=1" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/acc.json
 
           python3 << 'PYEOF'
-          import json
-          with open('/tmp/reels.json') as f:
+          import json, urllib.request, urllib.parse, time
+
+          with open('/tmp/acc.json') as f:
               rows = json.load(f)
-          print(f"TOTAL_ENCONTRADOS|{len(rows)}")
-          for r in rows:
-              m = r.get('metrics') or {}
-              if isinstance(m, str):
-                  m = json.loads(m)
-              tpl = m.get('instagram_reel_template') or {}
-              reel = m.get('instagram_reel') or {}
-              print(f"ID|{r['id']}|TITULO|{(r.get('titulo') or '')[:50]}|TPL_STATUS|{tpl.get('status')}|CONTA|{tpl.get('conta_publicacao')}|IG_ID_REEL|{reel.get('ig_id')}|UPDATED|{r.get('updated_at')}")
+          if not rows:
+              print("CONTA_OTERRASAN_NAO_ENCONTRADA")
+              raise SystemExit(0)
+
+          acc = rows[0]
+          ig_user_id = acc['ig_user_id']
+          token = acc['token']
+          print(f"CONTA|{acc['username']}|ig_user_id={ig_user_id}")
+
+          BASE = "https://graph.facebook.com/v25.0"
+
+          def call(url, method="GET", data=None):
+              if data is not None:
+                  data = json.dumps(data).encode()
+              req = urllib.request.Request(url, data=data, method=method,
+                                            headers={"Content-Type": "application/json"})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      return r.status, json.loads(r.read().decode())
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  try:
+                      return e.code, json.loads(body)
+                  except Exception:
+                      return e.code, {"raw": body}
+
+          params = urllib.parse.urlencode({
+              "fields": "media_id,media_owner_username,caption,media_url",
+              "limit": "50",
+              "access_token": token
+          })
+          status, invites = call(f"{BASE}/{ig_user_id}/collaboration_invites?{params}")
+          print(f"LIST_STATUS|{status}")
+          pending = invites.get("data", []) if isinstance(invites, dict) else []
+          print(f"CONVITES_PENDENTES|{len(pending)}")
+          for inv in pending:
+              print(f"PENDENTE|media_id={inv.get('media_id')}|dono={inv.get('media_owner_username')}")
+
+          for inv in pending:
+              media_id = inv.get("media_id")
+              if not media_id:
+                  continue
+              accepted = False
+              last_err = None
+              for delay in (0, 5, 15):
+                  if delay:
+                      time.sleep(delay)
+                  s, r = call(f"{BASE}/{ig_user_id}/collaboration_invites", "POST",
+                              {"media_id": str(media_id), "accept": True, "access_token": token})
+                  if s < 300 and not (isinstance(r, dict) and r.get("error")):
+                      accepted = True
+                      break
+                  last_err = r
+              print(f"ACCEPT|media_id={media_id}|ok={accepted}|resp={last_err if not accepted else 'ok'}")
+
+              if accepted:
+                  liked = False
+                  last_like_err = None
+                  for delay in (2, 5, 10):
+                      time.sleep(delay)
+                      s, r = call(f"{BASE}/{ig_user_id}/likes", "POST",
+                                  {"media_id": str(media_id), "access_token": token})
+                      if s < 300 and isinstance(r, dict) and r.get("success") is True:
+                          liked = True
+                          break
+                      last_like_err = r
+                  print(f"LIKE|media_id={media_id}|ok={liked}|resp={last_like_err if not liked else 'ok'}")
           PYEOF
