@@ -12,9 +12,11 @@ jobs:
           VT: ${{ secrets.VERCEL_TOKEN }}
           TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
         run: |
-          curl -sS -H "Authorization: Bearer $VT" "https://api.vercel.com/v2/teams/$TEAM" | python3 -c "
-import json,sys
-d = json.load(sys.stdin)
-print('SLUG|' + d.get('slug',''))
-print('NAME|' + d.get('name',''))
-"
+          curl -sS -H "Authorization: Bearer $VT" "https://api.vercel.com/v2/teams/$TEAM" -o /tmp/team.json
+          python3 << 'PYEOF'
+          import json
+          with open('/tmp/team.json') as f:
+              d = json.load(f)
+          print('SLUG|' + str(d.get('slug','')))
+          print('NAME|' + str(d.get('name','')))
+          PYEOF
