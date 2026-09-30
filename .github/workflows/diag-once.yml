@@ -7,13 +7,13 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: checar se os 3 projetos ovalorcapital* estao deployando em triplicata
+      - name: confirmar qual projeto tem o dominio real anexado
         env:
           VT: ${{ secrets.VERCEL_TOKEN }}
           TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
         run: |
           python3 << 'PYEOF'
-          import os, urllib.request, json, datetime
+          import os, urllib.request, json
 
           TOKEN = os.environ["VT"]
           TEAM = os.environ["TEAM"]
@@ -23,37 +23,32 @@ jobs:
               sep = "&" if "?" in url else "?"
               url = f"{url}{sep}teamId={TEAM}"
               r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
-              with urllib.request.urlopen(r, timeout=30) as resp:
-                  return json.loads(resp.read())
+              try:
+                  with urllib.request.urlopen(r, timeout=30) as resp:
+                      return resp.status, json.loads(resp.read())
+              except urllib.error.HTTPError as e:
+                  return e.code, json.loads(e.read())
 
-          print("=== TODOS OS PROJETOS DA EQUIPE ===")
-          data = get("/v10/projects?limit=100")
-          projs = data.get("projects", [])
-          alvo = [p for p in projs if "ovalorcapital" in p.get("name", "")]
-          for p in alvo:
-              link = p.get("link") or {}
-              print(f"\nnome={p.get('name')}")
-              print(f"  id={p.get('id')}")
-              print(f"  repo_conectado={link.get('type')} {link.get('org')}/{link.get('repo')}")
-              print(f"  gitProviderDeployHooks/autoDeploy: production_branch={link.get('productionBranch')}")
-              print(f"  createdAt={datetime.datetime.utcfromtimestamp(p.get('createdAt',0)/1000)}")
-              print(f"  updatedAt={datetime.datetime.utcfromtimestamp(p.get('updatedAt',0)/1000) if p.get('updatedAt') else '?'}")
+          ids = {
+              "ovalorcapital-xuhw": "prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b",
+              "ovalorcapital-hubx": "prj_zW6nDsScVWCPkRLYLpAptEP5duoR",
+              "ovalorcapital":      "prj_xsVkTIYEEZWcBiCl8WW7AzXrP6ZD",
+          }
 
-          cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=7)
-          print("\n\n=== DEPLOYS NOS ULTIMOS 7 DIAS, POR PROJETO ===")
-          for p in alvo:
-              pid = p.get("id")
-              name = p.get("name")
-              d = get(f"/v6/deployments?projectId={pid}&limit=100&target=production")
-              deploys = d.get("deployments", [])
-              recentes = [x for x in deploys if datetime.datetime.utcfromtimestamp(x.get("createdAt",0)/1000) > cutoff]
-              print(f"\n{name}: total_retornado={len(deploys)} producao_ultimos_7_dias={len(recentes)}")
-              for x in recentes[:5]:
-                  ts = datetime.datetime.utcfromtimestamp(x.get("createdAt",0)/1000)
-                  print(f"    {ts} state={x.get('state')} url={x.get('url')}")
+          print("=== DOMINIOS DE CADA PROJETO ===")
+          for name, pid in ids.items():
+              status, data = get(f"/v9/projects/{pid}/domains")
+              doms = data.get("domains", []) if status == 200 else []
+              print(f"\n{name} ({pid}) status={status}")
+              for d in doms:
+                  print(f"  dominio={d.get('name')} verified={d.get('verified')} redirect={d.get('redirect')}")
+              if not doms:
+                  print("  (nenhum dominio custom anexado)")
 
-              d2 = get(f"/v6/deployments?projectId={pid}&limit=100&target=preview")
-              deploys2 = d2.get("deployments", [])
-              recentes2 = [x for x in deploys2 if datetime.datetime.utcfromtimestamp(x.get("createdAt",0)/1000) > cutoff]
-              print(f"  preview_ultimos_7_dias={len(recentes2)}")
+          print("\n\n=== VARIAVEIS DE AMBIENTE QUE APONTAM PRO SUPABASE (so nomes, nunca valor) ===")
+          for name, pid in ids.items():
+              status, data = get(f"/v10/projects/{pid}/env?decrypt=false")
+              envs = data.get("envs", []) if status == 200 else []
+              names = [e.get("key") for e in envs if "SUPABASE" in (e.get("key") or "")]
+              print(f"{name}: {names}")
           PYEOF
