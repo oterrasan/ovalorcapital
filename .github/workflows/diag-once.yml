@@ -1,8 +1,20 @@
-name: diag-once (placeholder)
+name: diag-once
 on:
-  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/diag-once.yml']
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Pegar o slug real do time (pra montar o link exato da página de billing)
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
+        run: |
+          curl -sS -H "Authorization: Bearer $VT" "https://api.vercel.com/v2/teams/$TEAM" | python3 -c "
+import json,sys
+d = json.load(sys.stdin)
+print('SLUG|' + d.get('slug',''))
+print('NAME|' + d.get('name',''))
+"
