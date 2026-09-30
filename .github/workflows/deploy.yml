@@ -3,6 +3,9 @@ name: Deploy Production
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/diag-once.yml'
   workflow_dispatch:
 
 concurrency:

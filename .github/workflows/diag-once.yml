@@ -1,73 +1,8 @@
 name: diag-once (placeholder)
 on:
-  push:
-    paths:
-      - ".github/workflows/diag-once.yml"
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: cobrança do ciclo ANTERIOR (o que já fechou e gerou a fatura)
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          python3 << 'PYEOF'
-          import os, urllib.request, json, datetime, collections
-
-          TOKEN = os.environ["VERCEL_TOKEN"]
-          TEAM = "team_eHk3adfD75A2B72VzpPgQHPy"
-
-          def call_raw(path):
-              url = f"https://api.vercel.com{path}"
-              req = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
-              try:
-                  with urllib.request.urlopen(req, timeout=60) as r:
-                      return r.status, r.read().decode("utf-8", "replace")
-              except urllib.error.HTTPError as e:
-                  return e.code, e.read().decode("utf-8", "replace")[:1500]
-
-          def analisar(f, t, label):
-              print(f"\n{'='*70}\n{label} ({f} a {t})\n{'='*70}")
-              status, body = call_raw(f"/v1/billing/charges?teamId={TEAM}&from={f}&to={t}")
-              print("HTTP status:", status)
-              if status != 200:
-                  print(body[:2000])
-                  return
-
-              total_geral = 0.0
-              por_servico = collections.defaultdict(lambda: {"cost": 0.0, "qty": 0.0, "unit": ""})
-              linhas_total = 0
-
-              for line in body.strip().split("\n"):
-                  if not line.strip():
-                      continue
-                  linhas_total += 1
-                  try:
-                      row = json.loads(line)
-                  except Exception:
-                      continue
-                  cost = float(row.get("BilledCost") or 0)
-                  svc = row.get("ServiceName") or "?"
-                  cat = row.get("ServiceCategory") or "?"
-                  unit = row.get("ConsumedUnit") or ""
-                  key = f"{cat} / {svc}"
-                  por_servico[key]["cost"] += cost
-                  por_servico[key]["qty"] += float(row.get("ConsumedQuantity") or 0)
-                  if unit:
-                      por_servico[key]["unit"] = unit
-                  total_geral += cost
-
-              print(f"linhas totais: {linhas_total}")
-              print(f"TOTAL GERAL (BilledCost somado): USD {total_geral:.2f}")
-              print("\n--- por serviço, do mais caro pro mais barato (só custo > 0) ---")
-              for key, v in sorted(por_servico.items(), key=lambda kv: -kv[1]["cost"]):
-                  if v["cost"] > 0.001:
-                      unit = v["unit"] or "-"
-                      print(f"  USD {v['cost']:>10.2f}  | qty={v['qty']:.2f} {unit:<12} | {key}")
-
-          # ciclo ATUAL confirmado: 2026-09-29 a 2026-10-29 (ainda quase sem custo, óbvio)
-          # ciclo ANTERIOR (o que fechou e gerou a fatura que assustou Roberto):
-          analisar("2026-08-29", "2026-09-29", "CICLO_ANTERIOR_FECHADO")
-          # ciclo anterior a esse, pra ver se já vinha subindo antes
-          analisar("2026-07-29", "2026-08-29", "DOIS_CICLOS_ATRAS")
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"

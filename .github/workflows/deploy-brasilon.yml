@@ -14,6 +14,8 @@ on:
     branches: [main]
     paths:
       - 'brasilon/**'
+    paths-ignore:
+      - 'brasilon/CLAUDE.md'
   workflow_dispatch:
 
 concurrency:
