@@ -7,7 +7,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: uso real e detalhado de cobrança na Vercel (JSONL agregado por serviço)
+      - name: cobrança do ciclo ANTERIOR (o que já fechou e gerou a fatura)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -26,29 +26,16 @@ jobs:
               except urllib.error.HTTPError as e:
                   return e.code, e.read().decode("utf-8", "replace")[:1500]
 
-          # período de cobrança real confirmado no diagnóstico anterior:
-          # period.start=1790665200000 (ms), period.end=1793257200000 (ms)
-          start_ms, end_ms = 1790665200000, 1793257200000
-          from_date = datetime.datetime.utcfromtimestamp(start_ms/1000).date().isoformat()
-          to_date = datetime.datetime.utcfromtimestamp(end_ms/1000).date().isoformat()
-          print(f"Período de cobrança real do time: {from_date} até {to_date}")
-
-          # também pega os últimos 40 dias, pra cobrir o ciclo anterior se necessário
-          from_date_wide = (datetime.date.today() - datetime.timedelta(days=45)).isoformat()
-          to_date_wide = datetime.date.today().isoformat()
-
-          for label, f, t in [("PERIODO_DE_COBRANCA_ATUAL", from_date, to_date),
-                              ("ULTIMOS_45_DIAS", from_date_wide, to_date_wide)]:
+          def analisar(f, t, label):
               print(f"\n{'='*70}\n{label} ({f} a {t})\n{'='*70}")
               status, body = call_raw(f"/v1/billing/charges?teamId={TEAM}&from={f}&to={t}")
               print("HTTP status:", status)
               if status != 200:
                   print(body[:2000])
-                  continue
+                  return
 
               total_geral = 0.0
               por_servico = collections.defaultdict(lambda: {"cost": 0.0, "qty": 0.0, "unit": ""})
-              linhas_com_custo = 0
               linhas_total = 0
 
               for line in body.strip().split("\n"):
@@ -60,24 +47,27 @@ jobs:
                   except Exception:
                       continue
                   cost = float(row.get("BilledCost") or 0)
-                  svc = row.get("ServiceName", "?")
-                  cat = row.get("ServiceCategory", "?")
+                  svc = row.get("ServiceName") or "?"
+                  cat = row.get("ServiceCategory") or "?"
+                  unit = row.get("ConsumedUnit") or ""
                   key = f"{cat} / {svc}"
                   por_servico[key]["cost"] += cost
                   por_servico[key]["qty"] += float(row.get("ConsumedQuantity") or 0)
-                  por_servico[key]["unit"] = row.get("ConsumedUnit", "")
+                  if unit:
+                      por_servico[key]["unit"] = unit
                   total_geral += cost
-                  if cost > 0:
-                      linhas_com_custo += 1
 
-              print(f"linhas totais: {linhas_total} | linhas com custo > 0: {linhas_com_custo}")
+              print(f"linhas totais: {linhas_total}")
               print(f"TOTAL GERAL (BilledCost somado): USD {total_geral:.2f}")
-              print("\n--- por serviço, ordenado do mais caro pro mais barato ---")
+              print("\n--- por serviço, do mais caro pro mais barato (só custo > 0) ---")
               for key, v in sorted(por_servico.items(), key=lambda kv: -kv[1]["cost"]):
                   if v["cost"] > 0.001:
-                      print(f"  USD {v['cost']:>10.2f}  | qty={v['qty']:.2f} {v['unit']:<12} | {key}")
+                      unit = v["unit"] or "-"
+                      print(f"  USD {v['cost']:>10.2f}  | qty={v['qty']:.2f} {unit:<12} | {key}")
 
-              print("\n--- TODOS os serviços vistos (mesmo com custo 0, pra saber o que existe) ---")
-              for key, v in sorted(por_servico.items()):
-                  print(f"  {key}: qty={v['qty']:.2f} {v['unit']}")
+          # ciclo ATUAL confirmado: 2026-09-29 a 2026-10-29 (ainda quase sem custo, óbvio)
+          # ciclo ANTERIOR (o que fechou e gerou a fatura que assustou Roberto):
+          analisar("2026-08-29", "2026-09-29", "CICLO_ANTERIOR_FECHADO")
+          # ciclo anterior a esse, pra ver se já vinha subindo antes
+          analisar("2026-07-29", "2026-08-29", "DOIS_CICLOS_ATRAS")
           PYEOF
