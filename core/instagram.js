@@ -66,6 +66,12 @@ const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // 26/09/2026 — Roberto: aceite automático travado em TODOS os perfis nos
 // Reels (teste de alcance). No feed, @oterrasan continua manual (17/09) e a
 // @amichelefroes também fica manual (perfil dela ainda não configurado).
+// 30/09/2026 — Roberto reverteu o teste de alcance: "configure a automacao
+// de reels para que a conta oterrasan aceite automatico os reels que
+// ovalorcapital disparar. Aceite automatico e curtida automaticamente."
+// Exceção abaixo (reelAutoAcceptException) reabre só isso — Reel +
+// @oterrasan — sem tocar em feed (continua manual, regra de 17/09) nem em
+// @amichelefroes (perfil dela ainda não configurado, segue manual sempre).
 const NEVER_AUTO_ACCEPT = new Set(["oterrasan", "amichelefroes"]);
 
 async function writeLog(level, message) {
@@ -528,10 +534,14 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     // por outra conta, ex.: @oterrasan): sempre aceita sozinho e curte, no
     // feed e nos Reels (Roberto: "deixa automático").
     const conviteParaOvc = username === DEFAULT_ACCOUNT_USERNAME;
-    if (tag === "reel" && !conviteParaOvc) {
+    // 30/09/2026 — Reel do @ovalorcapital convidando @oterrasan (o único
+    // caso que REEL_COLLABORATOR gera): aceite e curtida automáticos, a
+    // pedido explícito de Roberto. Não afeta feed nem @amichelefroes.
+    const reelAutoAcceptException = tag === "reel" && username === REEL_COLLABORATOR;
+    if (tag === "reel" && !conviteParaOvc && !reelAutoAcceptException) {
       return { username, skipped: true, reason: "reels_aceite_manual" };
     }
-    if (NEVER_AUTO_ACCEPT.has(username)) {
+    if (NEVER_AUTO_ACCEPT.has(username) && !reelAutoAcceptException) {
       return { username, skipped: true, reason: "perfil_com_aceite_manual" };
     }
     try {
