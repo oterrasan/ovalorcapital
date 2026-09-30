@@ -1,8 +1,59 @@
 name: diag-once (placeholder)
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/diag-once.yml"
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: checar se os 3 projetos ovalorcapital* estao deployando em triplicata
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, json, datetime
+
+          TOKEN = os.environ["VT"]
+          TEAM = os.environ["TEAM"]
+
+          def get(path):
+              url = f"https://api.vercel.com{path}"
+              sep = "&" if "?" in url else "?"
+              url = f"{url}{sep}teamId={TEAM}"
+              r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
+              with urllib.request.urlopen(r, timeout=30) as resp:
+                  return json.loads(resp.read())
+
+          print("=== TODOS OS PROJETOS DA EQUIPE ===")
+          data = get("/v10/projects?limit=100")
+          projs = data.get("projects", [])
+          alvo = [p for p in projs if "ovalorcapital" in p.get("name", "")]
+          for p in alvo:
+              link = p.get("link") or {}
+              print(f"\nnome={p.get('name')}")
+              print(f"  id={p.get('id')}")
+              print(f"  repo_conectado={link.get('type')} {link.get('org')}/{link.get('repo')}")
+              print(f"  gitProviderDeployHooks/autoDeploy: production_branch={link.get('productionBranch')}")
+              print(f"  createdAt={datetime.datetime.utcfromtimestamp(p.get('createdAt',0)/1000)}")
+              print(f"  updatedAt={datetime.datetime.utcfromtimestamp(p.get('updatedAt',0)/1000) if p.get('updatedAt') else '?'}")
+
+          cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+          print("\n\n=== DEPLOYS NOS ULTIMOS 7 DIAS, POR PROJETO ===")
+          for p in alvo:
+              pid = p.get("id")
+              name = p.get("name")
+              d = get(f"/v6/deployments?projectId={pid}&limit=100&target=production")
+              deploys = d.get("deployments", [])
+              recentes = [x for x in deploys if datetime.datetime.utcfromtimestamp(x.get("createdAt",0)/1000) > cutoff]
+              print(f"\n{name}: total_retornado={len(deploys)} producao_ultimos_7_dias={len(recentes)}")
+              for x in recentes[:5]:
+                  ts = datetime.datetime.utcfromtimestamp(x.get("createdAt",0)/1000)
+                  print(f"    {ts} state={x.get('state')} url={x.get('url')}")
+
+              d2 = get(f"/v6/deployments?projectId={pid}&limit=100&target=preview")
+              deploys2 = d2.get("deployments", [])
+              recentes2 = [x for x in deploys2 if datetime.datetime.utcfromtimestamp(x.get("createdAt",0)/1000) > cutoff]
+              print(f"  preview_ultimos_7_dias={len(recentes2)}")
+          PYEOF
