@@ -1,8 +1,111 @@
-name: diag-once (placeholder)
+name: diag-once
 on:
-  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/diag-once.yml']
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Aceitar/curtir SO reels do ovalorcapital pendentes pro oterrasan
+        run: |
+          SB_URL="https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          curl -sS --max-time 15 "${SB_URL}/rest/v1/ig_accounts?select=id,username,ig_user_id,token&username=eq.oterrasan&active=eq.true&limit=1" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -o /tmp/acc.json
+          echo "CURL_EXIT|$?"
+
+          python3 -u << 'PYEOF'
+          import json, urllib.request, urllib.parse, time
+
+          with open('/tmp/acc.json') as f:
+              rows = json.load(f)
+          if not rows:
+              print("CONTA_OTERRASAN_NAO_ENCONTRADA")
+              raise SystemExit(0)
+
+          acc = rows[0]
+          ig_user_id = acc['ig_user_id']
+          token = acc['token']
+          print(f"CONTA|{acc['username']}|ig_user_id={ig_user_id}")
+
+          BASE = "https://graph.facebook.com/v25.0"
+
+          def call(url, method="GET", data=None):
+              if data is not None:
+                  data = json.dumps(data).encode()
+              req = urllib.request.Request(url, data=data, method=method,
+                                            headers={"Content-Type": "application/json"})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as r:
+                      return r.status, json.loads(r.read().decode())
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  try:
+                      return e.code, json.loads(body)
+                  except Exception:
+                      return e.code, {"raw": body}
+
+          params = urllib.parse.urlencode({
+              "fields": "media_id,media_owner_username,caption,media_url",
+              "limit": "50",
+              "access_token": token
+          })
+          status, invites = call(f"{BASE}/{ig_user_id}/collaboration_invites?{params}")
+          print(f"LIST_STATUS|{status}")
+          pending_all = invites.get("data", []) if isinstance(invites, dict) else []
+          print(f"CONVITES_PENDENTES_TOTAL|{len(pending_all)}")
+
+          # 30/09/2026 -- Roberto foi explicito: SOMENTE reels do @ovalorcapital.
+          # Filtra por dono primeiro (dado ja vem no proprio convite, sem custo de
+          # chamada extra), depois confirma o tipo real de midia (media_product_type)
+          # antes de aceitar qualquer coisa.
+          so_ovc = [i for i in pending_all if str(i.get("media_owner_username","")).lower() == "ovalorcapital"]
+          print(f"DE_OVALORCAPITAL|{len(so_ovc)}")
+
+          candidatos = []
+          for inv in so_ovc:
+              media_id = inv.get("media_id")
+              if not media_id:
+                  continue
+              p2 = urllib.parse.urlencode({"fields": "media_product_type,media_type", "access_token": token})
+              s2, r2 = call(f"{BASE}/{media_id}?{p2}")
+              tipo = r2.get("media_product_type") if isinstance(r2, dict) else None
+              print(f"CHECADO|media_id={media_id}|status={s2}|media_product_type={tipo}")
+              if tipo == "REELS":
+                  candidatos.append(media_id)
+
+          print(f"REELS_DO_OVALORCAPITAL_CONFIRMADOS|{len(candidatos)}")
+
+          rate_limited_parou = False
+          for idx, media_id in enumerate(candidatos, 1):
+              print(f"---INICIANDO {idx}/{len(candidatos)}---")
+              s, r = call(f"{BASE}/{ig_user_id}/collaboration_invites", "POST",
+                          {"media_id": str(media_id), "accept": True, "access_token": token})
+              err = r.get("error") if isinstance(r, dict) else None
+              if err and err.get("code") == 4:
+                  print(f"ACCEPT|media_id={media_id}|ok=False|RATE_LIMIT_DA_META|parando_aqui|resp={err}")
+                  rate_limited_parou = True
+                  break
+              accepted = s < 300 and not err
+              print(f"ACCEPT|media_id={media_id}|ok={accepted}|resp={err if err else 'ok'}")
+
+              if accepted:
+                  liked = False
+                  last_like_err = None
+                  for delay in (2, 5, 10):
+                      time.sleep(delay)
+                      s3, r3 = call(f"{BASE}/{ig_user_id}/likes", "POST",
+                                    {"media_id": str(media_id), "access_token": token})
+                      if s3 < 300 and isinstance(r3, dict) and r3.get("success") is True:
+                          liked = True
+                          break
+                      last_like_err = r3
+                  print(f"LIKE|media_id={media_id}|ok={liked}|resp={last_like_err if not liked else 'ok'}")
+
+          if rate_limited_parou:
+              print("RESULTADO|interrompido_por_rate_limit_da_meta")
+          else:
+              print("RESULTADO|concluido_sem_bater_rate_limit")
+          PYEOF
