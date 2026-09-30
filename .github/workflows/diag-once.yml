@@ -1,72 +1,8 @@
-name: diag-once
+name: diag-once (placeholder)
 on:
-  push:
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Custo real pós-cortes (janela curta) + projeção de piso mensal
-        env:
-          VT: ${{ secrets.VERCEL_TOKEN }}
-          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
-        run: |
-          python3 << 'PYEOF'
-          import os, urllib.request, json, datetime
-
-          TOKEN = os.environ["VT"]
-          TEAM = os.environ["TEAM"]
-
-          def buscar(dias):
-              now = datetime.datetime.now(datetime.UTC)
-              start = now - datetime.timedelta(days=dias)
-              url = (f"https://api.vercel.com/v1/billing/charges"
-                     f"?teamId={TEAM}&from={start.strftime('%Y-%m-%d')}&to={now.strftime('%Y-%m-%d')}")
-              r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
-              with urllib.request.urlopen(r, timeout=30) as resp:
-                  body = resp.read().decode()
-              por_item = {}
-              total = 0.0
-              linhas_com_data = []
-              for line in body.strip().split("\n"):
-                  if not line.strip():
-                      continue
-                  row = json.loads(line)
-                  custo = row.get("BilledCost") or 0
-                  total += custo
-                  chave = f"{row.get('ServiceCategory','?')} / {row.get('ServiceName','?')}"
-                  por_item[chave] = por_item.get(chave, 0) + custo
-                  linhas_com_data.append((row.get("ChargePeriodStart",""), chave, custo))
-              return total, por_item, linhas_com_data
-
-          print("=== JANELA 30 DIAS (visão geral atual) ===")
-          total30, itens30, _ = buscar(30)
-          print(f"TOTAL_30D = {total30:.2f}")
-          for k, v in sorted(itens30.items(), key=lambda x: -x[1]):
-              if v > 0.005:
-                  print(f"  {k}: {v:.2f}")
-
-          print()
-          print("=== JANELA 3 DIAS (mais recente, reflete cortes de hoje) ===")
-          total3, itens3, linhas3 = buscar(3)
-          print(f"TOTAL_3D = {total3:.2f}")
-          for k, v in sorted(itens3.items(), key=lambda x: -x[1]):
-              if v > 0.001:
-                  print(f"  {k}: {v:.3f}")
-
-          print()
-          print("=== LINHAS DETALHADAS DOS ÚLTIMOS 3 DIAS (data + item + valor) ===")
-          for data, chave, custo in sorted(linhas3, key=lambda x: x[0]):
-              if custo > 0.001:
-                  print(f"  {data} | {chave} | {custo:.4f}")
-
-          print()
-          print("=== PROJEÇÃO ===")
-          # remove a fatia de assinatura da projeção de uso (ela é fixa, não escala por dia)
-          uso_diario_sem_assinatura = sum(v for k, v in itens3.items() if "Subscription" not in k) / 3
-          projecao_uso_30d = uso_diario_sem_assinatura * 30
-          print(f"USO_DIARIO_MEDIO_SEM_ASSINATURA = {uso_diario_sem_assinatura:.4f}")
-          print(f"PROJECAO_USO_30D = {projecao_uso_30d:.2f}")
-          print(f"PISO_REALISTA_30D (20 base + uso projetado) = {20 + projecao_uso_30d:.2f}")
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
