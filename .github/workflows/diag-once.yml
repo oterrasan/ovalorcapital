@@ -1,80 +1,8 @@
 name: diag-once (placeholder)
 on:
-  push:
-    paths:
-      - ".github/workflows/diag-once.yml"
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: checar uso real do Supabase (storage + tabelas) contra os limites do plano Free
-        env:
-          SB_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: |
-          python3 << 'PYEOF'
-          import os, urllib.request, json
-
-          URL = os.environ["SB_URL"]
-          KEY = os.environ.get("SB_KEY") or ""
-
-          if not KEY:
-              print("SEM_SECRET|SUPABASE_SERVICE_KEY nao esta configurada nos GitHub Secrets deste repo.")
-              raise SystemExit(0)
-
-          print(f"chave presente, tamanho={len(KEY)}")
-
-          def req(path, headers=None, method="GET", data=None):
-              h = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
-              if headers:
-                  h.update(headers)
-              body = json.dumps(data).encode() if data is not None else None
-              r = urllib.request.Request(f"{URL}{path}", headers=h, method=method, data=body)
-              try:
-                  with urllib.request.urlopen(r, timeout=60) as resp:
-                      return resp.status, resp.read(), dict(resp.headers)
-              except urllib.error.HTTPError as e:
-                  return e.code, e.read(), dict(e.headers or {})
-
-          print("\n=== CONTAGEM DE LINHAS ===")
-          for tbl in ["posts", "brasilon_posts", "config"]:
-              status, body, headers = req(f"/rest/v1/{tbl}?select=id&limit=1", {"Prefer": "count=exact", "Range": "0-0"})
-              cr = headers.get("content-range", "")
-              total = cr.split("/")[-1] if "/" in cr else "?"
-              print(f"  {tbl:20s} status={status} total_rows={total}")
-
-          print("\n=== TAMANHO REAL DE CADA BUCKET DE STORAGE (bytes) ===")
-          status, body, headers = req("/storage/v1/bucket")
-          buckets = json.loads(body) if status == 200 else []
-          total_geral = 0
-          for b in buckets:
-              name = b.get("name")
-              total_bytes = 0
-              total_files = 0
-              offset = 0
-              limit = 1000
-              while True:
-                  payload = {"limit": limit, "offset": offset, "prefix": ""}
-                  st2, body2, _ = req(f"/storage/v1/object/list/{name}", {"Content-Type": "application/json"}, "POST", payload)
-                  if st2 != 200:
-                      print(f"  ERRO ao listar {name}: {st2} {body2[:200]}")
-                      break
-                  items = json.loads(body2)
-                  if not items:
-                      break
-                  for it in items:
-                      meta = it.get("metadata") or {}
-                      sz = meta.get("size")
-                      if isinstance(sz, (int, float)):
-                          total_bytes += sz
-                          total_files += 1
-                  offset += limit
-                  if len(items) < limit or offset > 30000:
-                      break
-              total_geral += total_bytes
-              print(f"  bucket={name:20s} arquivos={total_files:6d} bytes={total_bytes:14d} ({total_bytes/1024/1024:.1f} MB)")
-          print(f"\n  TOTAL_STORAGE_MB={total_geral/1024/1024:.1f}")
-          print(f"  LIMITE_PLANO_FREE_STORAGE_MB=1024")
-          print(f"  LIMITE_PLANO_FREE_DB_MB=500")
-          print(f"  LIMITE_PLANO_FREE_EGRESS_MB_MES=5120")
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
