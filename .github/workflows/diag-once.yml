@@ -1,54 +1,8 @@
 name: diag-once (placeholder)
 on:
-  push:
-    paths:
-      - ".github/workflows/diag-once.yml"
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: confirmar qual projeto tem o dominio real anexado
-        env:
-          VT: ${{ secrets.VERCEL_TOKEN }}
-          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
-        run: |
-          python3 << 'PYEOF'
-          import os, urllib.request, json
-
-          TOKEN = os.environ["VT"]
-          TEAM = os.environ["TEAM"]
-
-          def get(path):
-              url = f"https://api.vercel.com{path}"
-              sep = "&" if "?" in url else "?"
-              url = f"{url}{sep}teamId={TEAM}"
-              r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
-              try:
-                  with urllib.request.urlopen(r, timeout=30) as resp:
-                      return resp.status, json.loads(resp.read())
-              except urllib.error.HTTPError as e:
-                  return e.code, json.loads(e.read())
-
-          ids = {
-              "ovalorcapital-xuhw": "prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b",
-              "ovalorcapital-hubx": "prj_zW6nDsScVWCPkRLYLpAptEP5duoR",
-              "ovalorcapital":      "prj_xsVkTIYEEZWcBiCl8WW7AzXrP6ZD",
-          }
-
-          print("=== DOMINIOS DE CADA PROJETO ===")
-          for name, pid in ids.items():
-              status, data = get(f"/v9/projects/{pid}/domains")
-              doms = data.get("domains", []) if status == 200 else []
-              print(f"\n{name} ({pid}) status={status}")
-              for d in doms:
-                  print(f"  dominio={d.get('name')} verified={d.get('verified')} redirect={d.get('redirect')}")
-              if not doms:
-                  print("  (nenhum dominio custom anexado)")
-
-          print("\n\n=== VARIAVEIS DE AMBIENTE QUE APONTAM PRO SUPABASE (so nomes, nunca valor) ===")
-          for name, pid in ids.items():
-              status, data = get(f"/v10/projects/{pid}/env?decrypt=false")
-              envs = data.get("envs", []) if status == 200 else []
-              names = [e.get("key") for e in envs if "SUPABASE" in (e.get("key") or "")]
-              print(f"{name}: {names}")
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
