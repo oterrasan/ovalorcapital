@@ -1,8 +1,72 @@
 name: diag-once (placeholder)
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/diag-once.yml"
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: apagar os 2 projetos Vercel zumbi (ovalorcapital-hubx e ovalorcapital)
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, json
+
+          TOKEN = os.environ["VT"]
+          TEAM = os.environ["TEAM"]
+
+          def call(method, path):
+              url = f"https://api.vercel.com{path}"
+              sep = "&" if "?" in url else "?"
+              url = f"{url}{sep}teamId={TEAM}"
+              r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"}, method=method)
+              try:
+                  with urllib.request.urlopen(r, timeout=30) as resp:
+                      body = resp.read()
+                      return resp.status, (json.loads(body) if body else {})
+              except urllib.error.HTTPError as e:
+                  body = e.read()
+                  return e.code, (json.loads(body) if body else {})
+
+          alvos = {
+              "ovalorcapital-hubx": "prj_zW6nDsScVWCPkRLYLpAptEP5duoR",
+              "ovalorcapital":      "prj_xsVkTIYEEZWcBiCl8WW7AzXrP6ZD",
+          }
+          preservar = {
+              "ovalorcapital-xuhw": "prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b",
+          }
+
+          print("=== CONFIRMACAO PRE-DELETE (dominio de cada alvo, tem que estar vazio) ===")
+          seguro = True
+          for name, pid in alvos.items():
+              status, data = call("GET", f"/v9/projects/{pid}/domains")
+              doms = data.get("domains", []) if status == 200 else []
+              print(f"{name}: dominios={[d.get('name') for d in doms]}")
+              if doms:
+                  seguro = False
+                  print(f"  !!! {name} TEM DOMINIO ANEXADO -- ABORTANDO, NAO VOU DELETAR !!!")
+
+          if not seguro:
+              print("\nABORTADO por seguranca -- pelo menos um alvo tem dominio anexado.")
+          else:
+              print("\n=== DELETANDO ===")
+              for name, pid in alvos.items():
+                  status, data = call("DELETE", f"/v9/projects/{pid}")
+                  print(f"{name} ({pid}): DELETE status={status} resp={data}")
+
+          print("\n=== LISTA FINAL DE PROJETOS ovalorcapital* NA EQUIPE ===")
+          status, data = call("GET", "/v10/projects?limit=100")
+          projs = data.get("projects", []) if status == 200 else []
+          for p in projs:
+              if "ovalorcapital" in p.get("name", ""):
+                  print(f"  ainda existe: {p.get('name')} ({p.get('id')})")
+
+          print("\n=== CONFIRMANDO QUE O SITE REAL CONTINUA INTACTO ===")
+          for name, pid in preservar.items():
+              status, data = call("GET", f"/v9/projects/{pid}/domains")
+              doms = data.get("domains", []) if status == 200 else []
+              print(f"  {name}: dominios={[d.get('name') for d in doms]}")
+          PYEOF
