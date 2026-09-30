@@ -1,0 +1,153 @@
+name: Monitor de custo Vercel (alerta se estourar o previsto)
+
+# Criado em 30/09/2026 a pedido explícito de Roberto: "eu NAO VOU ACEITAR
+# MAIS COBRANCAS EXTRAS, ALEM DO QUE HAVIA SIDO PREVISTO, e é tarefa sua
+# garantir isso. Monitorando diariamente isso e gerando alertas se for o
+# caso."
+#
+# Como funciona: roda 1x/dia, consulta a API REAL de billing da Vercel
+# (a mesma usada nesta sessão pra achar o build minutes/observability/
+# projetos duplicados), soma o custo faturado (BilledCost) dos últimos
+# 30 dias (janela móvel — aproxima o ciclo de cobrança sem depender de
+# saber o dia exato de fechamento) e compara com um teto mensal.
+#
+# TETO ATUAL: US$ 35/mês (US$ 20 da assinatura Pro + até US$ 15 de uso
+# real — Fluid Compute/banda que a automação legitimamente gasta rodando
+# 24h). Definido em 30/09/2026 após: (1) desligar Observability Plus,
+# (2) apagar os 2 projetos-zumbi (ovalorcapital-hubx, ovalorcapital) que
+# faziam build duplicado. Se esse número não for o que Roberto considera
+# "o previsto", ajustar VERCEL_MONTHLY_CEILING_USD abaixo — nunca mudar
+# sem confirmar com ele antes.
+#
+# ❌ NUNCA remover este workflow sem que Roberto peça explicitamente.
+# ❌ NUNCA aumentar o teto sem autorização direta dele no chat.
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 12:00 UTC = 09:00 BRT, todo dia
+  workflow_dispatch:
+
+env:
+  VERCEL_MONTHLY_CEILING_USD: "35"
+
+jobs:
+  check-cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Consultar custo real dos últimos 30 dias (Vercel Billing API)
+        id: cost
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
+          CEILING: ${{ env.VERCEL_MONTHLY_CEILING_USD }}
+        run: |
+          python3 << 'PYEOF' > /tmp/cost_report.txt
+          import os, urllib.request, json, datetime
+
+          TOKEN = os.environ["VT"]
+          TEAM = os.environ["TEAM"]
+          CEILING = float(os.environ["CEILING"])
+
+          now = datetime.datetime.now(datetime.UTC)
+          start = now - datetime.timedelta(days=30)
+
+          url = (f"https://api.vercel.com/v1/billing/charges"
+                 f"?teamId={TEAM}&from={start.strftime('%Y-%m-%d')}&to={now.strftime('%Y-%m-%d')}")
+          r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
+          try:
+              with urllib.request.urlopen(r, timeout=30) as resp:
+                  body = resp.read().decode()
+          except urllib.error.HTTPError as e:
+              print(f"ERRO_API|{e.code}|{e.read().decode()[:300]}")
+              raise SystemExit(1)
+
+          por_item = {}
+          total = 0.0
+          for line in body.strip().split("\n"):
+              if not line.strip():
+                  continue
+              row = json.loads(line)
+              custo = row.get("BilledCost") or 0
+              total += custo
+              chave = f"{row.get('ServiceCategory','?')} / {row.get('ServiceName','?')}"
+              por_item[chave] = por_item.get(chave, 0) + custo
+
+          estourou = total > CEILING
+          print(f"TOTAL_30D|{total:.2f}")
+          print(f"TETO|{CEILING:.2f}")
+          print(f"ESTOUROU|{estourou}")
+          for k, v in sorted(por_item.items(), key=lambda x: -x[1]):
+              if v > 0.005:
+                  print(f"ITEM|{k}|{v:.2f}")
+          PYEOF
+
+          cat /tmp/cost_report.txt
+
+          TOTAL=$(grep '^TOTAL_30D|' /tmp/cost_report.txt | cut -d'|' -f2)
+          ESTOUROU=$(grep '^ESTOUROU|' /tmp/cost_report.txt | cut -d'|' -f2)
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+          echo "estourou=$ESTOUROU" >> "$GITHUB_OUTPUT"
+
+      - name: Abrir/atualizar issue de alerta se estourou o teto
+        if: steps.cost.outputs.estourou == 'True'
+        uses: actions/github-script@v7
+        env:
+          CEILING: ${{ env.VERCEL_MONTHLY_CEILING_USD }}
+        with:
+          script: |
+            const fs = require('fs');
+            const linhas = fs.readFileSync('/tmp/cost_report.txt', 'utf8').trim().split('\n');
+            const total = linhas.find(l => l.startsWith('TOTAL_30D|')).split('|')[1];
+            const itens = linhas.filter(l => l.startsWith('ITEM|')).map(l => {
+              const [, nome, valor] = l.split('|');
+              return `- ${nome}: US$ ${valor}`;
+            }).join('\n');
+            const teto = process.env.CEILING;
+            const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const TITLE = '🔴 Custo Vercel acima do previsto';
+            const LABEL = 'custo-vercel';
+
+            const { data: existentes } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: LABEL, per_page: 5
+            });
+
+            const corpo = [
+              `**Detectado em:** ${hora} (Brasília)`,
+              `**Custo real dos últimos 30 dias:** US$ ${total} (teto combinado: US$ ${teto})`,
+              '',
+              '**Por item (linhas com custo real):**',
+              itens,
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              '_Verificado 1x por dia contra a API real de billing da Vercel. Esta issue fecha sozinha quando o total dos últimos 30 dias voltar pra dentro do teto._'
+            ].join('\n');
+
+            if (existentes.length > 0) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existentes[0].number, body: corpo });
+              console.log(`Issue #${existentes[0].number} já aberta — comentário adicionado.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body: corpo, labels: [LABEL]
+              });
+              console.log(`🔴 Issue #${created.data.number} criada.`);
+            }
+
+      - name: Fechar issue de alerta se voltou pra dentro do teto
+        if: steps.cost.outputs.estourou == 'False'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'custo-vercel';
+            const { data: existentes } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: LABEL, per_page: 5
+            });
+            for (const issue of existentes) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number,
+                body: '✅ Custo dos últimos 30 dias voltou pra dentro do teto combinado — fechando automaticamente.'
+              });
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, state: 'closed' });
+              console.log(`Issue #${issue.number} fechada.`);
+            }
