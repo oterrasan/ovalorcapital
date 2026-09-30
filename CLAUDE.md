@@ -10069,3 +10069,49 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 4. **Tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`** e **`amichelefroes` sem `ig_user_id`** — pendências antigas, ainda sem ação de Roberto.
 5. **`IG_AUTOMATION_ENABLED`/`REELS_AUTOMATION_ENABLED`** — confirmar estado real atual antes de qualquer afirmação (histórico recente mostra terem ficado `off` por longos períodos sem que ninguém percebesse imediatamente).
 6. Demais pendências de sessões anteriores seguem válidas (ver listas históricas ao longo deste arquivo — Reels/vídeo, marca d'água do feed do OVC, SUPABASE_KEY env var morta, Instagram SSL, Google Indexing API, AdSense, redesign "molde SBT News" ainda pausado aguardando Roberto).
+
+---
+
+### Sessão 29-30/09/2026 (continuação) — RESERVA DE COTA DO GEMINI + FIX CAPA DOS REELS + FIX LEGENDAS + INVESTIGAÇÃO DE ALCANÇO DO INSTAGRAM (pausada, retomar)
+
+#### 1) Reserva de cota do Gemini pros canais essenciais (commit `76260e6a`)
+
+Confirmado com dado real: `outros-esportes-jornal` processava até 25 candidatos por rodada, a cada ~8-9min, 24h/dia, sem nenhum freio quando a cota do Gemini já esgotava — 168 rodadas em 24h, ~15.749 tentativas de candidato, quase todas `gerados:0`. Isso consumia a MESMA pool de 3 chaves usada por Brasil On (Bacci), Jovem Pan Política e Internacional (CNN) — canais que Roberto foi explícito ("não podem parar NUNCA").
+
+Fix: `callGemini()`/`callIA()` (`core/ai_portal.js`) ganharam um 4º parâmetro `opts.prioridade`. Novo contador separado de SUCESSOS reais (`_incrementarSucessoDiario`/`_lerSucessosDiario`, insert-only, mesmo padrão seguro já usado no projeto — nunca `.upsert(...,{onConflict:"key"})`). Quando `prioridade !== "essencial"` e os sucessos do dia atingem 80% da capacidade real estimada (nº de chaves × 500, teto confirmado ao vivo), a chamada é recusada na hora, sem gastar rede. `rewriteBrasilOn`/`rewriteJovempanPolitica`/`rewriteInternacional` marcadas `{prioridade:"essencial"}` — nunca bloqueadas por essa reserva. Não mexe na frequência/quantidade do job de esportes (Roberto pediu pra avaliar isso ele mesmo). Lógica testada isolada antes do deploy (matemática do threshold). Deploy confirmado com sucesso.
+
+#### 2) Fix real: capa dos Reels do OVC nunca era usada (commit `fd04aee0`)
+
+Roberto: "os reels nao estao saindo... a capa formatada como havia sido solicitado". Investigado com evidência real (não suposição, pedido explícito de Roberto de só relatar antes de mexer): consultada produção real via `diag-once.yml` — em 15 de 15 Reels recentes (inclusive um já publicado de verdade), `cover_candidate_url` (capa formatada, gerada certinho) estava sempre presente, mas `cover_url` (o campo que de fato entra na criação do container do Reel) sempre ausente.
+
+Causa raiz real: a capa do OVC (`prepareInstagramImage`, sharp puro) era gerada DEPOIS que o container já tinha sido criado (sem capa nenhuma) — e a Meta só aceita definir capa NA CRIAÇÃO do container, nunca depois. O único código que promoveria a capa depois (`handleReelsRenderCapa`) só é disparado pelo runner quando `job.cover_upload_url` vem preenchido, e isso só acontecia pra `marcaReel === "brasilon"`. Fix: pra Reel do OVC, capa é gerada ANTES da criação do container e passada como `coverUrl` na mesma chamada de `createReelContainerResumable`. Mecanismo do Brasil ON (via runner, recorte de vídeo) intocado. Deploy confirmado com sucesso.
+
+#### 3) Legendas ganham gancho de abertura, sem gastar cota de IA (commit `49a955d7`)
+
+Roberto: "nossas legendas estao muito fracas... vale tanto para o feed quanto para os reels... URGENTE". Achado real: a legenda sempre começava direto no corpo cru do texto jornalístico (estilo Reuters/Valor Econômico) — `removeRepeatedHeadline()` inclusive APAGA o título quando ele bate com o 1º parágrafo, então nunca existia gancho de abertura pensado pra rede social.
+
+Fix mecânico, sem chamada de IA nova (a cota já está disputada, ver item 1): `buildCaptionHook(title, category)` — emoji temático da categoria + título em CAIXA ALTA como 1ª linha, nunca cortado pelo truncamento (só o corpo é truncado). Aplicado nos 4 lugares que compõem legenda de verdade: `buildInstagramCaption` (feed OVC) e `_brasilonLegenda` (Reels espelhados pro @obrasilon) em `api/manage.js`; `buildInstagramCaption` (feed Brasil ON) em `brasilon/api/manage.js`, duplicado sem import cruzado (regra do projeto). Testado isoladamente com exemplo real antes do deploy. Deploy confirmado com sucesso nos dois projetos (OVC + Brasil ON).
+
+#### 4) 🟡 INVESTIGAÇÃO DE ALCANCE DO INSTAGRAM — PAUSADA, RETOMAR EM BREVE (nenhuma mudança de código feita)
+
+Roberto, logo depois dos 3 fixes acima: "a automacao está acabando com o alcance do instagram do ovc... um reel que se postasse antes, bateria pelo menos 10 mil visualizacoes, nao está alcancando nem MIL". Instrução explícita e repetida duas vezes: **"NAO QUERO QUE MEXA EM NADA... pesquise, use seus conhecimentos, vamos juntos tentar melhorar isso"** — depois "salve tudo isso para retomarmos". Nenhum código foi alterado nesta investigação — só pesquisa (WebSearch) + dado real do próprio banco (via `diag-once.yml`, sempre resetado ao placeholder depois).
+
+**Achados reais, cruzados com pesquisa (não é fato definitivo — é a hipótese mais bem fundamentada até agora):**
+
+1. **Publicar via API/agendador NÃO é penalizado em si.** Confirmado por 3 fontes independentes (doc da Meta, experimento controlado da Hootsuite — posts agendados via API tiveram 8,19% de engajamento contra 6,44% nativo, ou seja *melhor* — e declarações do Mosseri). Descarta a ideia de "usar Graph API é ruim per se".
+
+2. **O que É penalizado é o RITMO mecânico, não o volume.** Fontes específicas: "publicar em intervalo fixo e regular é suspeito"; "muitos posts dentro de 30min indicam automação"; "rajadas súbitas após inatividade também soam como bot". Um veículo real publicando 24h sem parar tem timing errático (reflete quando a notícia aconteceu de verdade) — isso é ritmo humano mesmo em alto volume.
+
+3. **Dado real do nosso banco** (últimos 5 dias, via `diag-once.yml`): volume de 15-36 posts/dia (feed+reels) — mas o ponto real não é esse número, é que o sistema publica **de EXATAMENTE 20 em 20 minutos, sempre, sem nenhuma variação** — um cron de intervalo perfeitamente fixo, o padrão mais citado como sinal clássico de bot. 100% das publicações recentes saem da conta certa (@ovalorcapital) — não é problema de conta errada.
+
+4. **Camada extra que reforça o padrão "tudo automático":** a cada publicação, o sistema também faz sozinho e instantaneamente — sempre no mesmo tempo — self-like, aceite automático de collaborator, e comentário fixado com estrutura sempre idêntica. Pesquisa distingue "automação segura" (agendar o post em si) de automação arriscada (qualquer ação que replique comportamento humano — curtir, comentar, aceitar — de forma mecânica e instantânea).
+
+5. **Achado que reconcilia com o alcance sumido especificamente**: a penalidade documentada reduz alcance só pra quem NÃO segue a conta ainda — não afeta quem já segue. Bate com "ainda tem alguma visualização, mas não decola mais".
+
+6. Roberto contestou (com razão, evidência real dele mesmo) a hipótese inicial de "volume é o problema" — ele mesmo, postando manualmente com volume parecido (15-20/dia) e reaproveitando notícia igual à imprensa comum ("só mudam as cores, as máscaras"), tinha alcance muito maior. Isso é o que levou à 2ª rodada de pesquisa (ritmo mecânico + pacote de ações automáticas, não volume/tipo de conteúdo).
+
+**Hipótese de trabalho pra quando retomar** (NÃO implementada, só registrada): variar o timing de publicação com jitter real (não fixo em 20min), e possivelmente atrasar/variar as ações automáticas pós-publicação (self-like, aceite de collab) em vez de disparar tudo instantaneamente e sempre no mesmo padrão — sem precisar reduzir o volume real de publicação, que é o que Roberto quer preservar (ele quer chegar perto do volume de veículos reais, não reduzir).
+
+**Pendência real**: não temos dado de Insights (alcance/impressões reais) coletado em lugar nenhum do sistema ainda — isso é a task pendente "Instagram Insights real no admin" já registrada. Sem isso, qualquer mudança futura vai ser difícil de validar objetivamente (só teria o relato qualitativo de Roberto no app).
+
+**🚨 NÃO mexer em nada disso sem Roberto retomar o assunto explicitamente** — ele foi repetitivo e enfático sobre isso.
