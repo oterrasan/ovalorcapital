@@ -1,8 +1,72 @@
 name: diag-once (placeholder)
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/diag-once.yml"
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: volume real de publicações no Instagram por dia (feed + reels)
+        env:
+          SUPABASE_URL: https://yntwvfcxjardzafdqanj.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, urllib.parse, json, datetime, collections
+
+          SB = os.environ["SUPABASE_URL"]
+          KEY = os.environ["SUPABASE_KEY"]
+
+          def q(path):
+              url = f"{SB}/rest/v1/{path}"
+              req = urllib.request.Request(url, headers={
+                  "apikey": KEY,
+                  "Authorization": f"Bearer {KEY}",
+              })
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  return json.loads(r.read())
+
+          # 800 posts mais recentes com algum registro de instagram (feed ou reel)
+          params = urllib.parse.urlencode({
+              "select": "id,titulo,metrics,updated_at",
+              "order": "updated_at.desc",
+              "limit": "1000",
+          })
+          rows = q(f"posts?{params}")
+          print(f"total posts consultados: {len(rows)}")
+
+          por_dia_feed = collections.Counter()
+          por_dia_reel = collections.Counter()
+          contas_feed = collections.Counter()
+          contas_reel = collections.Counter()
+          horarios_feed = collections.Counter()
+          horarios_reel = collections.Counter()
+
+          for r in rows:
+              m = r.get("metrics") or {}
+              ig = m.get("instagram") or {}
+              igr = m.get("instagram_reel") or {}
+              if ig.get("ig_id") and ig.get("published_at"):
+                  dt = ig["published_at"][:10]
+                  hh = ig["published_at"][11:13]
+                  por_dia_feed[dt] += 1
+                  contas_feed[ig.get("username","?")] += 1
+                  horarios_feed[hh] += 1
+              if igr.get("ig_id") and igr.get("published_at"):
+                  dt = igr["published_at"][:10]
+                  hh = igr["published_at"][11:13]
+                  por_dia_reel[dt] += 1
+                  contas_reel[igr.get("username","?")] += 1
+                  horarios_reel[hh] += 1
+
+          print("\n=== FEED — publicações por dia (UTC) ===")
+          for dia in sorted(set(por_dia_feed) | set(por_dia_reel), reverse=True)[:20]:
+              print(f"{dia}: feed={por_dia_feed.get(dia,0):3d}  reel={por_dia_reel.get(dia,0):3d}  total={por_dia_feed.get(dia,0)+por_dia_reel.get(dia,0):3d}")
+
+          print("\n=== contas usadas (feed) ===", dict(contas_feed))
+          print("=== contas usadas (reel) ===", dict(contas_reel))
+
+          print("\n=== distribuição por hora UTC (feed) ===", dict(sorted(horarios_feed.items())))
+          print("=== distribuição por hora UTC (reel) ===", dict(sorted(horarios_reel.items())))
+          PYEOF
