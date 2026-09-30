@@ -1,8 +1,79 @@
 name: diag-once (placeholder)
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/diag-once.yml"
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: uso real e detalhado de cobrança na Vercel (todos os times/escopos)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, json, datetime
+
+          TOKEN = os.environ["VERCEL_TOKEN"]
+          ORG = os.environ.get("VERCEL_ORG_ID", "")
+
+          def call(path, ok_statuses=(200,)):
+              url = f"https://api.vercel.com{path}"
+              req = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as r:
+                      body = r.read()
+                      try:
+                          return r.status, json.loads(body)
+                      except Exception:
+                          return r.status, body.decode("utf-8", "replace")[:2000]
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode("utf-8", "replace")[:1000]
+                  return e.code, body
+
+          print("### 1) Quem sou eu / times disponíveis ###")
+          status, me = call("/v2/user")
+          print("status:", status)
+          print(json.dumps(me, indent=2)[:1500] if isinstance(me, dict) else me)
+
+          status, teams = call("/v2/teams")
+          print("\n### teams ###", status)
+          print(json.dumps(teams, indent=2)[:2000] if isinstance(teams, dict) else teams)
+
+          team_ids = []
+          if isinstance(teams, dict):
+              for t in teams.get("teams", []):
+                  team_ids.append(t.get("id"))
+          if ORG and ORG not in team_ids:
+              team_ids.append(ORG)
+
+          print("\n### 2) Projetos (pra ver quantos existem e o consumo aproximado) ###")
+          status, projs = call("/v9/projects" + (f"?teamId={ORG}" if ORG else ""))
+          print("status:", status)
+          if isinstance(projs, dict):
+              for p in projs.get("projects", []):
+                  print("-", p.get("name"), "| id:", p.get("id"))
+
+          from_date = (datetime.date.today() - datetime.timedelta(days=35)).isoformat()
+          to_date = datetime.date.today().isoformat()
+
+          for tid in (team_ids or [None]):
+              qs = f"?from={from_date}&to={to_date}"
+              if tid:
+                  qs += f"&teamId={tid}"
+              print(f"\n### 3) /v1/billing/charges (teamId={tid}) ###")
+              status, charges = call(f"/v1/billing/charges{qs}")
+              print("status:", status)
+              if isinstance(charges, dict):
+                  print(json.dumps(charges, indent=2)[:6000])
+              else:
+                  print(str(charges)[:3000])
+
+          print("\n### 4) /v1/credits (saldo/gasto acumulado) ###")
+          for tid in (team_ids or [None]):
+              qs = f"?teamId={tid}" if tid else ""
+              status, credits = call(f"/v1/credits{qs}")
+              print(f"teamId={tid} status={status}")
+              print(json.dumps(credits, indent=2)[:1500] if isinstance(credits, dict) else str(credits)[:1000])
+          PYEOF
