@@ -30,6 +30,10 @@ on:
     paths:
       - ".github/workflows/cost-monitor.yml"
 
+permissions:
+  contents: read
+  issues: write
+
 env:
   VERCEL_MONTHLY_CEILING_USD: "35"
 
