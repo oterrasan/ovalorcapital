@@ -26,9 +26,6 @@ on:
   schedule:
     - cron: '0 12 * * *'  # 12:00 UTC = 09:00 BRT, todo dia
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/cost-monitor.yml"
 
 permissions:
   contents: read
