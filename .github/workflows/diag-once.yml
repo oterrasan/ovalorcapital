@@ -39,18 +39,25 @@ jobs:
               "ovalorcapital-xuhw": "prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b",
           }
 
-          print("=== CONFIRMACAO PRE-DELETE (dominio de cada alvo, tem que estar vazio) ===")
+          # O <nome-do-projeto>.vercel.app eh atribuido automaticamente pela
+          # propria Vercel a TODO projeto, mesmo sem nenhum uso real -- nao
+          # conta como "dominio custom" pra efeito desta checagem de seguranca.
+          def dominio_real(nome_projeto, dom):
+              return dom != f"{nome_projeto}.vercel.app"
+
+          print("=== CONFIRMACAO PRE-DELETE (so conta dominio que NAO seja o .vercel.app automatico) ===")
           seguro = True
           for name, pid in alvos.items():
               status, data = call("GET", f"/v9/projects/{pid}/domains")
-              doms = data.get("domains", []) if status == 200 else []
-              print(f"{name}: dominios={[d.get('name') for d in doms]}")
-              if doms:
+              doms = [d.get("name") for d in data.get("domains", [])] if status == 200 else []
+              doms_reais = [d for d in doms if dominio_real(name, d)]
+              print(f"{name}: todos_dominios={doms} | dominios_reais_(nao-auto)={doms_reais}")
+              if doms_reais:
                   seguro = False
-                  print(f"  !!! {name} TEM DOMINIO ANEXADO -- ABORTANDO, NAO VOU DELETAR !!!")
+                  print(f"  !!! {name} TEM DOMINIO REAL ANEXADO -- ABORTANDO, NAO VOU DELETAR !!!")
 
           if not seguro:
-              print("\nABORTADO por seguranca -- pelo menos um alvo tem dominio anexado.")
+              print("\nABORTADO por seguranca -- pelo menos um alvo tem dominio real anexado.")
           else:
               print("\n=== DELETANDO ===")
               for name, pid in alvos.items():
