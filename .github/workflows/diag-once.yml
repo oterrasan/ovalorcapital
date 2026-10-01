@@ -1,59 +1,8 @@
-name: diag-once
+name: diag-once (placeholder)
 on:
-  push:
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Ler e atualizar config.IG_AUTOMATION_INTERVAL/ENABLED (01/10/2026)
-        run: |
-          python3 -u << 'PYEOF'
-          import json, urllib.request
-
-          SB_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
-          SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          def req(method, path, body=None):
-              url = f"{SB_URL}{path}"
-              data = json.dumps(body).encode() if body is not None else None
-              r = urllib.request.Request(url, data=data, method=method, headers={
-                  "apikey": SB_KEY,
-                  "Authorization": f"Bearer {SB_KEY}",
-                  "Content-Type": "application/json",
-                  "Prefer": "return=representation",
-              })
-              with urllib.request.urlopen(r, timeout=20) as resp:
-                  raw = resp.read().decode()
-                  return json.loads(raw) if raw else None
-
-          def get_config(key):
-              rows = req("GET", f"/rest/v1/config?key=eq.{key}&select=key,value,updated_at")
-              return rows[0] if rows else None
-
-          def set_config(key, value):
-              existing = get_config(key)
-              if existing:
-                  req("PATCH", f"/rest/v1/config?key=eq.{key}", {"value": str(value)})
-                  print(f"UPDATE|{key}|{existing.get('value')}|->|{value}")
-              else:
-                  req("POST", "/rest/v1/config", {"key": key, "value": str(value)})
-                  print(f"INSERT|{key}|{value}")
-
-          antes_interval = get_config("IG_AUTOMATION_INTERVAL")
-          antes_enabled = get_config("IG_AUTOMATION_ENABLED")
-          print(f"ANTES|IG_AUTOMATION_INTERVAL|{antes_interval}")
-          print(f"ANTES|IG_AUTOMATION_ENABLED|{antes_enabled}")
-
-          set_config("IG_AUTOMATION_INTERVAL", "30")
-          if (antes_enabled or {}).get("value") == "off":
-              set_config("IG_AUTOMATION_ENABLED", "on")
-          else:
-              print("IG_AUTOMATION_ENABLED|ja_estava_on_ou_ausente|nao_precisou_mudar")
-
-          depois_interval = get_config("IG_AUTOMATION_INTERVAL")
-          depois_enabled = get_config("IG_AUTOMATION_ENABLED")
-          print(f"DEPOIS|IG_AUTOMATION_INTERVAL|{depois_interval}")
-          print(f"DEPOIS|IG_AUTOMATION_ENABLED|{depois_enabled}")
-          PYEOF
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"

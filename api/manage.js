@@ -709,24 +709,26 @@ const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c
 // ativo 14h-19h BRT (corte seco às 19h). ver
 // brasilon/api/manage.js e .github/workflows/instagram-auto.yml, atualizados
 // junto no mesmo pedido.
-// 11/09/2026 — Roberto: "voce só ligou as janelas da tarde. e esqueceu as
-// da manha. comecam as 08hrs e param meio dia. retornam as 14h00" — o bloco
-// da manhã (removido por engano em 10/09/2026 tarde, quando o pedido dele
-// foi lido como "janela única" sem confirmar se o bloco de manhã devia
-// mesmo sair) volta a existir. ESTADO ATUAL, vigente: ativo 08h-12h BRT,
-// pausa 12h-14h BRT, ativo de novo 14h-19h BRT (corte seco às 19h). Gate
-// redundante em brasilon/api/manage.js e cron em
-// .github/workflows/instagram-auto.yml atualizados junto, no mesmo pedido.
-const IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN = 8 * 60;        // 08:00 BRT — início do bloco da manhã
-const IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN = 12 * 60;       // 12:00 BRT — pausa de almoço começa
-const IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN = 14 * 60;          // 14:00 BRT — retoma o bloco da tarde
-const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 19 * 60;          // corte seco às 19:00 BRT
+// 01/10/2026 — Roberto ("reprogramar tudo", madrugada): "quero que saia uma
+// publicacao a cada meia hora - das 08h até 17h sem pausas." Janela única,
+// sem bloco de manhã/pausa de almoço (mesmo formato já usado em 10/09/2026
+// tarde, agora cobrindo o dia inteiro). Só pro @ovalorcapital — Brasil ON
+// (brasilon/api/manage.js) NÃO foi tocado ("o brasil oN por enquanto nao
+// muda NADA"). O Reel mantém a janela própria dele (REELS_JANELA_*,
+// 08h-22h) — Roberto marcou explicitamente "os reels vão trabalhar
+// diferente, vamos falar deles já já", então a sequência estrita
+// FEED,FEED,REEL por slot fica para quando ele confirmar os detalhes dos
+// Reels; por ora o Reel continua na alternância dinâmica já existente
+// (_igAutoFeedDeveCederParaReel/_reelsDeveEsperarFeed), só operando numa
+// janela de feed mais larga e sem pausa.
+// Cron em .github/workflows/instagram-auto.yml atualizado junto, no mesmo
+// pedido — sempre manter os dois em sincronia exata.
+const IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN = 8 * 60;   // 08:00 BRT
+const IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN = 17 * 60;     // corte seco às 17:00 BRT, sem pausa
 function _igAutoDentroDaJanelaAtiva() {
   const nowBRT = new Date(Date.now() - 3 * 3600 * 1000);
   const minutosBRT = nowBRT.getUTCHours() * 60 + nowBRT.getUTCMinutes();
-  const manha = minutosBRT >= IG_AUTO_JANELA_MANHA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_PAUSA_INICIO_BRT_MIN;
-  const tarde = minutosBRT >= IG_AUTO_JANELA_PAUSA_FIM_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
-  return manha || tarde;
+  return minutosBRT >= IG_AUTO_JANELA_ATIVA_INICIO_BRT_MIN && minutosBRT < IG_AUTO_JANELA_ATIVA_FIM_BRT_MIN;
 }
 
 function _igCronAuthorized(req, body) {
@@ -1364,20 +1366,41 @@ async function _igAutoProcessAccount(account, candidatos, settings, agoraMs) {
     if (titulosJaPublicados.has(_igAutoTitleKey(p.titulo))) return false;
     return true;
   };
-  // 08/09/2026 — Roberto: "com prioridade para politica". candidatos já vem
-  // ordenado por published_at desc (query em handleIgAutoPublish), então
-  // dentro de cada passada o mais recente elegível vence. 1ª passada só
-  // política; se não achar nenhuma elegível, cai pra qualquer categoria.
   const categoriaDe = (p) => {
     const tags = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
     return String(tags[0] || "").trim().toLowerCase();
   };
+  // 01/10/2026 — Roberto ("reprogramar tudo", madrugada): "vamos concentrar
+  // em politica e policia (crimes, conteudos mais pesados) 60% dos
+  // conteudos, e o restante ocupa 40%." Substitui a prioridade fixa
+  // "política sempre primeiro" de 08/09/2026 por um sorteio ponderado por
+  // rodada — mesma estratégia já usada pra meta de proporção dos Reels
+  // (21/09/2026): acerta a proporção em média ao longo do dia, sem travar
+  // nenhuma rodada quando o grupo sorteado está vazio (cai pro outro grupo
+  // em vez de pular a publicação).
+  // "Polícia" = brasil-on vindo especificamente do canal Bacci
+  // (publish_method==="brasilon", confirmado por Roberto: "politica vem
+  // da jovem pan quase sempre... bacci e metropoles (reels) sao perfeitos
+  // pra isso, crimes e coisas mais pesadas") E batendo alguma palavra da
+  // mesma lista de crime/violência já usada pra escolher colaborador
+  // (POLICIA_KW, core/instagram.js) — reaproveitada aqui, nunca duplicada
+  // (import dinâmico de propósito, nunca estático — ver _loadInstagram()).
+  const { POLICIA_KW } = await _loadInstagram();
+  const ehPoliticaOuPolicia = (p) => {
+    const categoria = categoriaDe(p);
+    if (categoria === "politica") return true;
+    if (categoria !== "brasil-on" || String(p.publish_method || "") !== "brasilon") return false;
+    const texto = `${p.titulo || ""} ${p.comentario_fixado || ""}`.toLowerCase();
+    return POLICIA_KW.some((kw) => texto.includes(kw));
+  };
+  const grupoPrioritario = candidatos.filter((p) => elegivel(p) && ehPoliticaOuPolicia(p));
+  const grupoResto = candidatos.filter((p) => elegivel(p) && !ehPoliticaOuPolicia(p));
   // 28/09/2026 — nunca repetir entre OVC e Brasil ON: pula matéria que já
-  // saiu no Instagram do Brasil ON.
-  const ordem = [
-    ...candidatos.filter((p) => elegivel(p) && categoriaDe(p) === "politica"),
-    ...candidatos.filter((p) => elegivel(p) && categoriaDe(p) !== "politica")
-  ];
+  // saiu no Instagram do Brasil ON (preservado, só reorganizado em torno
+  // do sorteio ponderado acima).
+  const ordem = (grupoPrioritario.length && grupoResto.length)
+    ? (Math.random() < 0.6 ? [...grupoPrioritario, ...grupoResto] : [...grupoResto, ...grupoPrioritario])
+    : [...grupoPrioritario, ...grupoResto];
   let post = null;
   for (const p of ordem) {
     if (await _jaPublicadoNoFeedDoBrasilOn(p.id)) continue;
@@ -1463,7 +1486,7 @@ async function _reelsDeveEsperarFeed() {
 async function handleIgAutoPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08_12_14_19_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_08_17_brt" });
   }
 
   const settings = await _igAutoConfig();
@@ -1485,7 +1508,7 @@ async function handleIgAutoPublish(req, res, body) {
         .not("token", "is", null),
       supabase
         .from("posts")
-        .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at")
+        .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at, publish_method")
         .eq("status", "publicado")
         .order("published_at", { ascending: false })
         .limit(500)

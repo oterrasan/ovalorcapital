@@ -25,7 +25,10 @@ const COLLAB_POR_ASSUNTO = {
 // Crime/polícia vai sempre pro @oterrasan, em qualquer categoria. Mesma lista
 // usada pra separar a categoria Polícia no espelho do Brasil ON
 // (core/brasilonMirror.js) — manter as duas em sincronia.
-const POLICIA_KW = [
+// 01/10/2026 — exportada: api/manage.js reaproveita pra classificar
+// "polícia" na seleção 60/40 política+polícia vs. resto (ver
+// _igAutoProcessAccount). Mesma lista, nenhuma mudança no conteúdo.
+export const POLICIA_KW = [
   "polícia", "policial", "delegacia", "delegado", "preso em", "prisão de",
   "foi preso", "detido", "suspeito de", "flagrante", "assalto", "assaltou",
   "roubo", "roubou", "furto", "furtou", "homicídio", "assassinato",
@@ -36,6 +39,16 @@ const POLICIA_KW = [
 ];
 
 export function collaboratorForFeedPost(post) {
+  // 01/10/2026 — Roberto ("reprogramar tudo", madrugada): "chega de colabs
+  // por enquanto, no feed... trave isso. o ovc irá postar sozinho as
+  // publicações de feed por enquanto. acredito que isso está afetando a
+  // capacidade de alcance, muitas colabs." Zero colaborador em post de
+  // feed do @ovalorcapital, nos 3 caminhos que chamam esta função (manual,
+  // fila prioritária e automação — _publicarPostFeedAutomatico). Lógica
+  // por assunto de 26/09/2026 preservada em comentário — é só remover o
+  // "return null" acima dela pra reativar, se ele pedir de volta.
+  return null;
+  /*
   if (!post) return null;
   let tags = [];
   if (Array.isArray(post.user_tags)) tags = post.user_tags;
@@ -49,6 +62,7 @@ export function collaboratorForFeedPost(post) {
     if (COLLAB_POR_ASSUNTO[tag]) return COLLAB_POR_ASSUNTO[tag];
   }
   return null;
+  */
 }
 const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
