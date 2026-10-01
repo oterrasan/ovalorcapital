@@ -7,111 +7,53 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Mapear matérias sem audiência real (ultimos 7 dias)
+      - name: Ler e atualizar config.IG_AUTOMATION_INTERVAL/ENABLED (01/10/2026)
         run: |
           python3 -u << 'PYEOF'
-          import json, urllib.request, datetime
+          import json, urllib.request
 
           SB_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
           SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
 
-          cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
-          print(f"CUTOFF|{cutoff}")
-
-          cols = "id,user_tags,publish_method,published_at,metrics"
-          base = f"{SB_URL}/rest/v1/posts?select={cols}&status=eq.publicado&published_at=gte.{cutoff}&order=published_at.asc"
-
-          rows = []
-          start = 0
-          page_size = 1000
-          while True:
-              req = urllib.request.Request(base, headers={
+          def req(method, path, body=None):
+              url = f"{SB_URL}{path}"
+              data = json.dumps(body).encode() if body is not None else None
+              r = urllib.request.Request(url, data=data, method=method, headers={
                   "apikey": SB_KEY,
                   "Authorization": f"Bearer {SB_KEY}",
-                  "Range-Unit": "items",
-                  "Range": f"{start}-{start+page_size-1}",
-                  "Prefer": "count=exact",
+                  "Content-Type": "application/json",
+                  "Prefer": "return=representation",
               })
-              with urllib.request.urlopen(req, timeout=30) as r:
-                  content_range = r.headers.get("Content-Range", "")
-                  batch = json.loads(r.read().decode())
-              rows.extend(batch)
-              print(f"PAGINA|start={start}|recebidos={len(batch)}|content_range={content_range}")
-              if len(batch) < page_size:
-                  break
-              start += page_size
-              if start > 50000:
-                  print("SEGURANCA|parando_em_50000_linhas")
-                  break
+              with urllib.request.urlopen(r, timeout=20) as resp:
+                  raw = resp.read().decode()
+                  return json.loads(raw) if raw else None
 
-          print(f"TOTAL_POSTS_7_DIAS|{len(rows)}")
+          def get_config(key):
+              rows = req("GET", f"/rest/v1/config?key=eq.{key}&select=key,value,updated_at")
+              return rows[0] if rows else None
 
-          def get_views(row):
-              m = row.get("metrics")
-              if isinstance(m, str):
-                  try:
-                      m = json.loads(m)
-                  except Exception:
-                      m = {}
-              if not isinstance(m, dict):
-                  m = {}
-              v = m.get("views")
-              try:
-                  return int(v)
-              except (TypeError, ValueError):
-                  return 0
+          def set_config(key, value):
+              existing = get_config(key)
+              if existing:
+                  req("PATCH", f"/rest/v1/config?key=eq.{key}", {"value": str(value)})
+                  print(f"UPDATE|{key}|{existing.get('value')}|->|{value}")
+              else:
+                  req("POST", "/rest/v1/config", {"key": key, "value": str(value)})
+                  print(f"INSERT|{key}|{value}")
 
-          def get_categoria(row):
-              ut = row.get("user_tags")
-              if isinstance(ut, str):
-                  try:
-                      ut = json.loads(ut)
-                  except Exception:
-                      ut = []
-              if isinstance(ut, list) and ut:
-                  return str(ut[0])
-              return "sem_categoria"
+          antes_interval = get_config("IG_AUTOMATION_INTERVAL")
+          antes_enabled = get_config("IG_AUTOMATION_ENABLED")
+          print(f"ANTES|IG_AUTOMATION_INTERVAL|{antes_interval}")
+          print(f"ANTES|IG_AUTOMATION_ENABLED|{antes_enabled}")
 
-          por_categoria = {}
-          por_canal = {}
-          zerados_amostra = []
+          set_config("IG_AUTOMATION_INTERVAL", "30")
+          if (antes_enabled or {}).get("value") == "off":
+              set_config("IG_AUTOMATION_ENABLED", "on")
+          else:
+              print("IG_AUTOMATION_ENABLED|ja_estava_on_ou_ausente|nao_precisou_mudar")
 
-          total_zerado = 0
-          for row in rows:
-              views = get_views(row)
-              cat = get_categoria(row)
-              canal = row.get("publish_method") or "desconhecido"
-
-              por_categoria.setdefault(cat, {"total": 0, "zerado": 0, "views_soma": 0})
-              por_categoria[cat]["total"] += 1
-              por_categoria[cat]["views_soma"] += views
-
-              por_canal.setdefault(canal, {"total": 0, "zerado": 0, "views_soma": 0})
-              por_canal[canal]["total"] += 1
-              por_canal[canal]["views_soma"] += views
-
-              if views == 0:
-                  total_zerado += 1
-                  por_categoria[cat]["zerado"] += 1
-                  por_canal[canal]["zerado"] += 1
-                  if len(zerados_amostra) < 30:
-                      zerados_amostra.append(row.get("id"))
-
-          print(f"TOTAL_ZERO_VIEWS|{total_zerado}|DE|{len(rows)}|PCT={round(100*total_zerado/len(rows),1) if rows else 0}%")
-
-          print("---POR_CATEGORIA---")
-          for cat, d in sorted(por_categoria.items(), key=lambda kv: -kv[1]["total"]):
-              pct = round(100 * d["zerado"] / d["total"], 1) if d["total"] else 0
-              media = round(d["views_soma"] / d["total"], 1) if d["total"] else 0
-              print(f"CATEGORIA|{cat}|total={d['total']}|zerados={d['zerado']}|pct_zerado={pct}%|media_views={media}")
-
-          print("---POR_CANAL---")
-          for canal, d in sorted(por_canal.items(), key=lambda kv: -kv[1]["total"]):
-              pct = round(100 * d["zerado"] / d["total"], 1) if d["total"] else 0
-              media = round(d["views_soma"] / d["total"], 1) if d["total"] else 0
-              print(f"CANAL|{canal}|total={d['total']}|zerados={d['zerado']}|pct_zerado={pct}%|media_views={media}")
-
-          print("---AMOSTRA_IDS_ZERADOS---")
-          for pid in zerados_amostra:
-              print(f"ID_ZERADO|{pid}")
+          depois_interval = get_config("IG_AUTOMATION_INTERVAL")
+          depois_enabled = get_config("IG_AUTOMATION_ENABLED")
+          print(f"DEPOIS|IG_AUTOMATION_INTERVAL|{depois_interval}")
+          print(f"DEPOIS|IG_AUTOMATION_ENABLED|{depois_enabled}")
           PYEOF
