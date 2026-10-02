@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Custo real dos últimos 30 dias, por PROJETO e por item dentro de cada projeto
+      - name: Quando os projetos "zumbi" cobraram — ainda estão ativos ou é eco antigo?
         env:
           VT: ${{ secrets.VERCEL_TOKEN }}
           TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
@@ -25,38 +25,41 @@ jobs:
           r = urllib.request.Request(url, headers={"Authorization": f"Bearer {TOKEN}"})
           with urllib.request.urlopen(r, timeout=30) as resp:
               body = resp.read().decode()
-
           linhas = [json.loads(l) for l in body.strip().split("\n") if l.strip()]
 
-          por_projeto = {}
-          por_projeto_item = {}
-          sem_tag = 0.0
+          ZUMBIS = {"ovalorcapital-hubx-1790751781801-QARr", "ovalorcapital-1790751782553-KLYz"}
+          por_dia = {}
           for row in linhas:
               custo = row.get("BilledCost") or 0
               if custo <= 0:
                   continue
               tags = row.get("Tags") or {}
-              proj = tags.get("ProjectName") or "(sem projeto — conta/assinatura em si)"
-              item = f"{row.get('ServiceCategory','?')} / {row.get('ServiceName','?')}"
-              por_projeto[proj] = por_projeto.get(proj, 0) + custo
-              por_projeto_item.setdefault(proj, {})
-              por_projeto_item[proj][item] = por_projeto_item[proj].get(item, 0) + custo
-              if not tags.get("ProjectName"):
-                  sem_tag += custo
+              proj = tags.get("ProjectName")
+              if proj not in ZUMBIS:
+                  continue
+              dia = row.get("ChargePeriodStart", "")[:10]
+              por_dia.setdefault(proj, {})
+              por_dia[proj][dia] = por_dia[proj].get(dia, 0) + custo
 
-          print("---TOTAL_POR_PROJETO---")
-          for proj, total in sorted(por_projeto.items(), key=lambda x: -x[1]):
-              print(f"PROJETO|{proj}|{total:.2f}")
-
-          print()
-          print("---DETALHE_DOS_2_MAIORES_PROJETOS---")
-          top2 = sorted(por_projeto.items(), key=lambda x: -x[1])[:2]
-          for proj, _ in top2:
+          for proj, dias in por_dia.items():
               print(f"-- {proj} --")
-              for item, v in sorted(por_projeto_item[proj].items(), key=lambda x: -x[1]):
-                  print(f"  ITEM|{proj}|{item}|{v:.2f}")
+              for dia, v in sorted(dias.items()):
+                  print(f"  DIA|{proj}|{dia}|{v:.2f}")
+              print(f"  ULTIMO_DIA_COM_COBRANCA|{proj}|{max(dias.keys())}")
+              print(f"  PRIMEIRO_DIA_COM_COBRANCA|{proj}|{min(dias.keys())}")
 
           print()
-          print(f"TOTAL_GERAL|{sum(por_projeto.values()):.2f}")
-          print(f"TOTAL_SEM_PROJETO_TAGGEADO|{sem_tag:.2f}")
+          print(f"HOJE_UTC|{now.strftime('%Y-%m-%d')}")
+
+          print()
+          print("---CONFIRMAR SE AINDA EXISTEM COMO PROJETO ATIVO (busca direta por nome)---")
+          for nome in ZUMBIS:
+              u2 = f"https://api.vercel.com/v9/projects/{nome}?teamId={TEAM}"
+              req2 = urllib.request.Request(u2, headers={"Authorization": f"Bearer {TOKEN}"})
+              try:
+                  with urllib.request.urlopen(req2, timeout=15) as resp2:
+                      d2 = json.loads(resp2.read().decode())
+                      print(f"EXISTE|{nome}|id={d2.get('id')}|link={json.dumps(d2.get('link') or {})}")
+              except urllib.error.HTTPError as e:
+                  print(f"NAO_EXISTE_OU_ERRO|{nome}|HTTP_{e.code}|{e.read().decode()[:200]}")
           PYEOF
