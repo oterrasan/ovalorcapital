@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Custo real dos últimos 30 dias, por PROJETO (não só por item)
+      - name: Custo real dos últimos 30 dias, por PROJETO e por item dentro de cada projeto
         env:
           VT: ${{ secrets.VERCEL_TOKEN }}
           TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
@@ -27,34 +27,36 @@ jobs:
               body = resp.read().decode()
 
           linhas = [json.loads(l) for l in body.strip().split("\n") if l.strip()]
-          print(f"TOTAL_LINHAS|{len(linhas)}")
-          print("---SCHEMA_DA_PRIMEIRA_LINHA_COM_CUSTO---")
-          for row in linhas:
-              if (row.get("BilledCost") or 0) > 0:
-                  print(json.dumps(row, indent=2))
-                  break
 
-          print("---TOTAL_POR_PROJETO (tentando varios nomes de campo)---")
           por_projeto = {}
-          campos_candidatos = ["ProjectName", "ProjectId", "ResourceId", "ResourceName", "x_vercel_ProjectName"]
-          campo_usado = None
+          por_projeto_item = {}
+          sem_tag = 0.0
           for row in linhas:
               custo = row.get("BilledCost") or 0
               if custo <= 0:
                   continue
-              chave = None
-              for campo in campos_candidatos:
-                  if row.get(campo):
-                      chave = row.get(campo)
-                      campo_usado = campo
-                      break
-              if chave is None:
-                  chave = "(sem campo de projeto identificavel)"
-              por_projeto[chave] = por_projeto.get(chave, 0) + custo
-          print(f"CAMPO_USADO|{campo_usado}")
-          for k, v in sorted(por_projeto.items(), key=lambda x: -x[1]):
-              print(f"PROJETO|{k}|{v:.2f}")
+              tags = row.get("Tags") or {}
+              proj = tags.get("ProjectName") or "(sem projeto — conta/assinatura em si)"
+              item = f"{row.get('ServiceCategory','?')} / {row.get('ServiceName','?')}"
+              por_projeto[proj] = por_projeto.get(proj, 0) + custo
+              por_projeto_item.setdefault(proj, {})
+              por_projeto_item[proj][item] = por_projeto_item[proj].get(item, 0) + custo
+              if not tags.get("ProjectName"):
+                  sem_tag += custo
 
-          print("---TOTAL_GERAL---")
-          print(f"TOTAL|{sum((r.get('BilledCost') or 0) for r in linhas):.2f}")
+          print("---TOTAL_POR_PROJETO---")
+          for proj, total in sorted(por_projeto.items(), key=lambda x: -x[1]):
+              print(f"PROJETO|{proj}|{total:.2f}")
+
+          print()
+          print("---DETALHE_DOS_2_MAIORES_PROJETOS---")
+          top2 = sorted(por_projeto.items(), key=lambda x: -x[1])[:2]
+          for proj, _ in top2:
+              print(f"-- {proj} --")
+              for item, v in sorted(por_projeto_item[proj].items(), key=lambda x: -x[1]):
+                  print(f"  ITEM|{proj}|{item}|{v:.2f}")
+
+          print()
+          print(f"TOTAL_GERAL|{sum(por_projeto.values()):.2f}")
+          print(f"TOTAL_SEM_PROJETO_TAGGEADO|{sem_tag:.2f}")
           PYEOF
