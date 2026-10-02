@@ -1,8 +1,87 @@
-name: diag-once (placeholder)
+name: diag-once
 on:
-  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/diag-once.yml']
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Levantar dados reais pra decisão Hobby vs Pro
+        env:
+          VT: ${{ secrets.VERCEL_TOKEN }}
+          TEAM: "team_eHk3adfD75A2B72VzpPgQHPy"
+        run: |
+          echo "=== 1) Plano/billing real do time (API Vercel) ==="
+          curl -sS -H "Authorization: Bearer ${VT}" \
+            "https://api.vercel.com/v2/teams/${TEAM}" \
+            | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{
+                const j=JSON.parse(d);
+                console.log("name:", j.name, "| slug:", j.slug);
+                console.log("billing:", JSON.stringify(j.billing || {}, null, 2));
+              });'
+
+          echo
+          echo "=== 2) Projetos reais do time ==="
+          curl -sS -H "Authorization: Bearer ${VT}" \
+            "https://api.vercel.com/v9/projects?teamId=${TEAM}&limit=50" \
+            | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{
+                const j=JSON.parse(d);
+                for (const p of (j.projects||[])) console.log("projeto:", p.name, "| id:", p.id, "| criado:", new Date(p.createdAt).toISOString());
+              });'
+
+          echo
+          echo "=== 3) Uso real do time nos últimos 30 dias, por métrica (se o endpoint existir) ==="
+          NOW=$(date -u +%Y-%m-%d)
+          FROM=$(date -u -d "-30 days" +%Y-%m-%d)
+          curl -sS -o /tmp/usage.json -w "HTTP:%{http_code}\n" -H "Authorization: Bearer ${VT}" \
+            "https://api.vercel.com/v1/billing/usage?teamId=${TEAM}&from=${FROM}&to=${NOW}" || true
+          cat /tmp/usage.json 2>/dev/null | head -c 2000; echo
+
+          echo
+          echo "=== 4) Página oficial da Vercel — limites do Hobby (texto bruto, sem JS) ==="
+          curl -sS -L "https://vercel.com/docs/limits" -o /tmp/limits.html || true
+          python3 -c "
+          import re
+          try:
+              html = open('/tmp/limits.html', encoding='utf-8', errors='ignore').read()
+          except FileNotFoundError:
+              print('FALHOU_BAIXAR'); raise SystemExit
+          text = re.sub('<[^>]+>', ' ', html)
+          text = re.sub(r'\s+', ' ', text)
+          print('TAMANHO_HTML_BAIXADO:', len(html))
+          idx = text.lower().find('hobby')
+          print(text[max(0,idx-200):idx+3000] if idx >= 0 else 'PALAVRA HOBBY NAO ENCONTRADA NO TEXTO (pode ser JS-rendered)')
+          "
+
+          echo
+          echo "=== 5) Página oficial da Vercel — cron jobs, limites por plano ==="
+          curl -sS -L "https://vercel.com/docs/cron-jobs/usage-and-pricing" -o /tmp/cron.html || true
+          python3 -c "
+          import re
+          try:
+              html = open('/tmp/cron.html', encoding='utf-8', errors='ignore').read()
+          except FileNotFoundError:
+              print('FALHOU_BAIXAR'); raise SystemExit
+          text = re.sub('<[^>]+>', ' ', html)
+          text = re.sub(r'\s+', ' ', text)
+          print('TAMANHO_HTML_BAIXADO:', len(html))
+          idx = text.lower().find('hobby')
+          print(text[max(0,idx-200):idx+3000] if idx >= 0 else 'PALAVRA HOBBY NAO ENCONTRADA NO TEXTO (pode ser JS-rendered)')
+          "
+
+          echo
+          echo "=== 6) Página oficial — Functions, duração máxima por plano ==="
+          curl -sS -L "https://vercel.com/docs/functions/configuring-functions/duration" -o /tmp/duration.html || true
+          python3 -c "
+          import re
+          try:
+              html = open('/tmp/duration.html', encoding='utf-8', errors='ignore').read()
+          except FileNotFoundError:
+              print('FALHOU_BAIXAR'); raise SystemExit
+          text = re.sub('<[^>]+>', ' ', html)
+          text = re.sub(r'\s+', ' ', text)
+          print('TAMANHO_HTML_BAIXADO:', len(html))
+          idx = text.lower().find('hobby')
+          print(text[max(0,idx-200):idx+2500] if idx >= 0 else 'PALAVRA HOBBY NAO ENCONTRADA NO TEXTO (pode ser JS-rendered)')
+          "
