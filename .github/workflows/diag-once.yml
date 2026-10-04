@@ -1,43 +1,8 @@
-name: diag-once
+name: diag-once (placeholder)
 on:
-  push:
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Texto oficial real da Vercel sobre uso comercial no Hobby
-        run: |
-          echo "=== 1) Fair Use Guidelines ==="
-          curl -sS -L "https://vercel.com/docs/limits/fair-use-guidelines" -o /tmp/fair.html || true
-          python3 -c "
-          import re
-          try:
-              html = open('/tmp/fair.html', encoding='utf-8', errors='ignore').read()
-          except FileNotFoundError:
-              print('FALHOU_BAIXAR'); raise SystemExit
-          text = re.sub('<[^>]+>', ' ', html)
-          text = re.sub(r'\s+', ' ', text)
-          print('TAMANHO_HTML_BAIXADO:', len(html))
-          for termo in ['commercial', 'advertis', 'Hobby']:
-              idx = text.lower().find(termo.lower())
-              print(f'--- primeira ocorrencia de \"{termo}\" ---')
-              print(text[max(0,idx-100):idx+1500] if idx >= 0 else 'NAO ENCONTRADO')
-              print()
-          "
-
-          echo
-          echo "=== 2) Página de limites — seção Hobby geral (de novo, procurando 'commercial') ==="
-          curl -sS -L "https://vercel.com/docs/limits" -o /tmp/limits2.html || true
-          python3 -c "
-          import re
-          try:
-              html = open('/tmp/limits2.html', encoding='utf-8', errors='ignore').read()
-          except FileNotFoundError:
-              print('FALHOU_BAIXAR'); raise SystemExit
-          text = re.sub('<[^>]+>', ' ', html)
-          text = re.sub(r'\s+', ' ', text)
-          idx = text.lower().find('commercial')
-          print(text[max(0,idx-300):idx+1500] if idx >= 0 else 'PALAVRA COMMERCIAL NAO ENCONTRADA NESTA PAGINA')
-          "
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
