@@ -1,53 +1,8 @@
-name: diag-once
+name: diag-once (placeholder)
 on:
-  push:
-    paths: ['.github/workflows/diag-once.yml']
+  workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Texto oficial real da Netlify sobre uso comercial/publicidade
-        run: |
-          cat > /tmp/fetch.py << 'PYEOF'
-          import re, urllib.request
-
-          urls = [
-              "https://www.netlify.com/legal/acceptable-use-policy.md",
-              "https://www.netlify.com/legal/terms-of-use.md",
-          ]
-          termos = ["commercial", "advertis", "sponsor", "monetiz", "exploit"]
-
-          for url in urls:
-              print("=" * 80)
-              print("URL:", url)
-              print("=" * 80)
-              try:
-                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                  with urllib.request.urlopen(req, timeout=20) as r:
-                      text = r.read().decode("utf-8", errors="ignore")
-              except Exception as e:
-                  print("FALHOU:", e)
-                  continue
-              print("TAMANHO:", len(text), "chars")
-              low = text.lower()
-              found_any = False
-              for termo in termos:
-                  start = 0
-                  count = 0
-                  while True:
-                      idx = low.find(termo.lower(), start)
-                      if idx < 0:
-                          break
-                      count += 1
-                      found_any = True
-                      print(f"\n--- '{termo}' ocorrencia #{count} ---")
-                      print(text[max(0, idx - 250):idx + 400].strip())
-                      start = idx + 1
-                      if count >= 5:
-                          break
-              if not found_any:
-                  print("\nNENHUM DOS TERMOS ENCONTRADO NESTE DOCUMENTO.")
-              print()
-          PYEOF
-          python3 /tmp/fetch.py
+      - run: echo "noop — workflow reservado para diagnósticos pontuais"
