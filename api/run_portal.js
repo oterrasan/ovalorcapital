@@ -602,11 +602,16 @@ function _parseMetricsMaybe(value) {
 async function handleLinkJobsLimparTudo(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
 
-  const { data: jobs, error: jobsErr } = await supabase.from("config").select("key").like("key", `${LINK_JOB_PREFIX}%`);
-  if (jobsErr) return res.status(500).json({ ok: false, error: "falha ao listar pedidos: " + jobsErr.message });
-  const jobKeys = (jobs || []).map((j) => j.key);
-  if (jobKeys.length) {
-    const { error: delErr } = await supabase.from("config").delete().in("key", jobKeys);
+  const { count: jobCount, error: jobsErr } = await supabase.from("config").select("key", { count: "exact", head: true }).like("key", `${LINK_JOB_PREFIX}%`);
+  if (jobsErr) return res.status(500).json({ ok: false, error: "falha ao contar pedidos: " + jobsErr.message });
+  // 23/10/2026 — BUG REAL: a fila tinha centenas de pedidos; apagar via
+  // .in("key", jobKeys) com a lista inteira virou um DELETE com query
+  // string gigante — Postgres/PostgREST recusou com 400 Bad Request. Fix:
+  // apaga direto pelo mesmo filtro LIKE já usado pra contar, nunca pela
+  // lista de chaves — query de tamanho fixo, não importa quantas linhas
+  // batem.
+  if (jobCount) {
+    const { error: delErr } = await supabase.from("config").delete().like("key", `${LINK_JOB_PREFIX}%`);
     if (delErr) return res.status(500).json({ ok: false, error: "falha ao apagar pedidos: " + delErr.message });
   }
 
@@ -630,8 +635,8 @@ async function handleLinkJobsLimparTudo(req, res, body) {
     if (!error) limpos.push({ id: p.id, titulo: p.titulo });
   }
 
-  await log("info", `[link-jobs] limpeza manual: ${jobKeys.length} pedido(s) apagado(s), ${limpos.length} video(s) removido(s)`);
-  return res.status(200).json({ ok: true, pedidos_removidos: jobKeys.length, videos_removidos: limpos.length, titulos: limpos.map((l) => l.titulo).slice(0, 80) });
+  await log("info", `[link-jobs] limpeza manual: ${jobCount || 0} pedido(s) apagado(s), ${limpos.length} video(s) removido(s)`);
+  return res.status(200).json({ ok: true, pedidos_removidos: jobCount || 0, videos_removidos: limpos.length, titulos: limpos.map((l) => l.titulo).slice(0, 80) });
 }
 
 // 26/09/2026 — conta de captura do Instagram (usuário/senha digitados por
