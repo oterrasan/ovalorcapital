@@ -584,6 +584,56 @@ async function handleLinkJobFalhou(req, res, body) {
   return res.status(200).json({ ok: true });
 }
 
+// 23/10/2026 — Roberto: "tem uma fila enorme de links la parados, nao faco
+// ideia do que tem ali..... deeta tudo, deixa os videos apenas do que ja
+// foi publicado". Limpeza da fila que ficou acumulada (provável efeito
+// colateral da rajada de disparos já corrigida acima). Apaga TODOS os
+// pedidos de captura pendentes (LINK_JOB__*) e remove vídeo/template de
+// Reel de qualquer post que ainda não publicou o Reel de verdade no
+// Instagram. Reel já publicado já zera video_url sozinho (ver
+// handleIgAutoPublish/handleReelsAutoPublish em api/manage.js) — então
+// qualquer post ainda com vídeo/template aqui é, por definição, algo que
+// nunca chegou a publicar. Idempotente: pode rodar de novo sem efeito
+// colateral se a fila já estiver limpa.
+function _parseMetricsMaybe(value) {
+  if (value && typeof value === "object") return value;
+  try { return JSON.parse(value || "{}"); } catch (_) { return {}; }
+}
+async function handleLinkJobsLimparTudo(req, res, body) {
+  if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  const { data: jobs, error: jobsErr } = await supabase.from("config").select("key").like("key", `${LINK_JOB_PREFIX}%`);
+  if (jobsErr) return res.status(500).json({ ok: false, error: "falha ao listar pedidos: " + jobsErr.message });
+  const jobKeys = (jobs || []).map((j) => j.key);
+  if (jobKeys.length) {
+    const { error: delErr } = await supabase.from("config").delete().in("key", jobKeys);
+    if (delErr) return res.status(500).json({ ok: false, error: "falha ao apagar pedidos: " + delErr.message });
+  }
+
+  const [{ data: comVideo, error: e1 }, { data: comTemplate, error: e2 }] = await Promise.all([
+    supabase.from("posts").select("id,titulo,metrics").not("video_url", "is", null).limit(2000),
+    supabase.from("posts").select("id,titulo,metrics").not("metrics->instagram_reel_template", "is", null).limit(2000)
+  ]);
+  if (e1 || e2) return res.status(500).json({ ok: false, error: "falha ao listar posts com video: " + (e1 || e2).message });
+
+  const candidatos = new Map();
+  for (const p of [...(comVideo || []), ...(comTemplate || [])]) candidatos.set(p.id, p);
+
+  const limpos = [];
+  for (const p of candidatos.values()) {
+    const metrics = _parseMetricsMaybe(p.metrics);
+    const tpl = metrics.instagram_reel_template;
+    if (tpl?.status === "discarded" && !metrics.instagram_reel) continue; // já limpo pelo próprio sistema (Reel já publicado)
+    delete metrics.instagram_reel_template;
+    delete metrics.instagram_reel;
+    const { error } = await supabase.from("posts").update({ video_url: null, metrics, updated_at: new Date().toISOString() }).eq("id", p.id);
+    if (!error) limpos.push({ id: p.id, titulo: p.titulo });
+  }
+
+  await log("info", `[link-jobs] limpeza manual: ${jobKeys.length} pedido(s) apagado(s), ${limpos.length} video(s) removido(s)`);
+  return res.status(200).json({ ok: true, pedidos_removidos: jobKeys.length, videos_removidos: limpos.length, titulos: limpos.map((l) => l.titulo).slice(0, 80) });
+}
+
 // 26/09/2026 — conta de captura do Instagram (usuário/senha digitados por
 // Roberto no admin → config IG_CAPTURA_CONTA). Só o runner (token de cron)
 // lê; a sessão de login fica em IG_CAPTURA_SESSAO pra não logar toda vez
@@ -1948,6 +1998,7 @@ export default async function handler(req, res) {
   if (body.action === "link_manual") return handleLinkManual(req, res, body);
   if (body.action === "link_jobs_pendentes") return handleLinkJobsPendentes(req, res, body);
   if (body.action === "link_job_falhou") return handleLinkJobFalhou(req, res, body);
+  if (body.action === "link_jobs_limpar_tudo") return handleLinkJobsLimparTudo(req, res, body);
   if (body.action === "link_captura_conta") return handleLinkCapturaConta(req, res, body);
   if (body.action === "link_captura_sessao") return handleLinkCapturaSessao(req, res, body);
   if (body.action === "metropoles_tiktok_registrar") return handleMetropolesTiktokRegistrar(req, res, body);
