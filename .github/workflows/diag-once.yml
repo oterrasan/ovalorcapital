@@ -1,4 +1,5 @@
 name: diag-once (placeholder)
+# rerun: limpar fila (retry pos-fix 400)
 on:
   workflow_dispatch:
   push:
