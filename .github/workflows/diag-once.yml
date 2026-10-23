@@ -1,8 +1,23 @@
 name: diag-once (placeholder)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/diag-once.yml"]
 jobs:
-  noop:
+  run:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "noop — workflow reservado para diagnósticos pontuais"
+      - name: Limpar fila de links + videos nao publicados
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          response=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            -d '{"action":"link_jobs_limpar_tudo"}' \
+            --max-time 55 \
+            -w "\nHTTP_STATUS:%{http_code}\n")
+          echo "$response"
+          status=$(echo "$response" | sed -n 's/^HTTP_STATUS://p')
+          test "$status" = "200"
