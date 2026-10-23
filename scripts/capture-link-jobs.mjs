@@ -169,7 +169,14 @@ async function processar(job) {
       : await capturarYoutube(job.link, video);
     const texto = String(cap.texto || "").trim();
     const titulo = String(cap.titulo || "").trim();
-    if (texto.length < 60 && titulo.length < 60) {
+    // 23/10/2026 — Roberto: "nao precisa travar isso para reels, essa regra
+    // é so pra feed" (sobre o mínimo de 60 chars). Com vídeo capturado de
+    // verdade (cap.temVideo), o Reel é o conteúdo que importa — legenda de
+    // TikTok/Instagram curta (às vezes só um emoji) é normal, não motivo
+    // pra falhar o pedido. Só exige o mínimo quando NÃO veio vídeo nenhum
+    // (aí sim viraria um artigo de feed/texto puro, e precisa de conteúdo
+    // real pra IA não fabricar do zero).
+    if (!cap.temVideo && texto.length < 60 && titulo.length < 60) {
       throw new Error("legenda/texto do post tem menos de 60 caracteres — cole o texto manualmente no admin.");
     }
 

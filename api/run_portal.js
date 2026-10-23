@@ -677,20 +677,30 @@ async function handleLinkManual(req, res, body) {
   // disso, falha honesto em vez de fabricar. Instagram não expor
   // og:tags/texto pra Reels acessados sem sessão logada é um padrão real
   // e conhecido — não é bug pontual desse link.
-  if (!sourceText || sourceText.length < 60) {
-    // Cair aqui com link social quase sempre significa que Roberto digitou a
-    // legenda de verdade da fonte (ex: legenda de TikTok, que costuma vir
-    // curtíssima — às vezes só um emoji) — sem ser o caso de texto quase
-    // vazio inventado do bug de 24/09 acima (que exige esse mínimo pra nunca
-    // fabricar matéria do nada).
+  // 23/10/2026 — Roberto: "nao precisa travar isso para reels, essa regra é
+  // so pra feed" (sobre o mínimo de 60 chars). O piso de 60 chars acima foi
+  // criado pro caso de link SEM vídeo (vira matéria de feed/artigo — aí sim
+  // precisa de conteúdo real pra IA não fabricar do zero). Reel é
+  // diferente: o vídeo é o conteúdo de verdade, a legenda é só
+  // complemento — TikTok em particular costuma vir com legenda curtíssima
+  // (às vezes só um emoji), e isso é normal, não sinal de fabricação. Pra
+  // link social (Instagram/YouTube/TikTok, sempre destinado a Reel nesta
+  // ferramenta) com vídeo já hospedado OU com qualquer texto real (não
+  // vazio), segue direto pra reescrita — só bloqueia aqui no caso
+  // degenerado de ficar sem absolutamente nada (nem texto, nem vídeo).
+  const temVideoOuTextoReal = social && (videoHospedado || sourceText);
+  if (!temVideoOuTextoReal && (!sourceText || sourceText.length < 60)) {
     if (social && !jobKey) {
-      try { return await _filaAutomaticaSocial("legenda curta — enfileirado para captura automática"); }
+      try { return await _filaAutomaticaSocial("sem conteudo capturado ainda — enfileirado para captura automatica"); }
       catch (e) { return res.status(500).json({ ok: false, error: "falha ao criar pedido de captura: " + (e?.message || e) }); }
     }
-    return res.status(422).json({
-      ok: false,
-      error: textoManual ? "texto colado curto demais (minimo 60 caracteres) — cole a legenda/texto completo da noticia. Nada foi salvo." : "nao foi possivel extrair conteudo real desse link — nada foi salvo, pra nao inventar noticia a partir de quase nada. Cole a legenda/texto no campo de texto e tente de novo."
-    });
+    if (!social) {
+      return res.status(422).json({
+        ok: false,
+        error: textoManual ? "texto colado curto demais (minimo 60 caracteres) — cole a legenda/texto completo da noticia. Nada foi salvo." : "nao foi possivel extrair conteudo real desse link — nada foi salvo, pra nao inventar noticia a partir de quase nada. Cole a legenda/texto no campo de texto e tente de novo."
+      });
+    }
+    return res.status(422).json({ ok: false, error: "nenhum texto ou video capturado desse link — nada foi salvo." });
   }
 
   let content;
