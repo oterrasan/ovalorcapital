@@ -2939,11 +2939,62 @@ async function handleReelsAutoPublish(req, res, body) {
 // 24/09/2026 — extraído de handleDispatchReelsWorkflow pra poder ser
 // chamado internamente (best-effort, sem HTTP req/res) também de dentro de
 // handleReelsRenderComplete — ver comentário lá embaixo pro motivo real.
+//
+// 23/10/2026 — 🔴 CAUSA RAIZ REAL do "nada captura, e quando captura é vídeo
+// antigo" (confirmado com dado real de produção, não suposição): toda vez
+// que um vídeo entra na fila (Bacci, link manual, Metrópoles TikTok) OU um
+// Reel termina de renderizar, esta função dispara o workflow — SEM nenhum
+// limite de frequência. Quando vários vídeos entram na fila em poucos
+// minutos (comum: o Bacci processa várias matérias por rodada), isso gera
+// uma RAJADA de disparos pro MESMO grupo de concorrência do GitHub Actions
+// ("instagram-automatico-ovc"/"-prioridade" em instagram-auto.yml). O
+// GitHub só mantém a execução já em andamento + a ÚLTIMA pendente na fila
+// — qualquer disparo pendente anterior é cancelado automaticamente quando
+// um novo chega pro mesmo grupo (vale mesmo com cancel-in-progress:false,
+// que só protege a execução JÁ em andamento, nunca as que ainda esperam na
+// fila). Confirmado real: 5 disparos em 35s, maioria cancelada em menos de
+// 1min, zero jobs chegando a rodar — exatamente por isso `capturar_links`
+// (link manual) quase nunca roda, e o que sobra são itens antigos que só
+// conseguem a vez quando a rajada finalmente para.
+// Fix: um cooldown real por grupo, gravado em `config` (sobrevive entre
+// invocações da function serverless, diferente de uma variável em memória)
+// — dentro da janela, não chama a API do GitHub de novo. A rede de
+// segurança (cron da Vercel a cada 15min pro grupo normal + a própria
+// execução que já está em andamento) continua garantindo que o trabalho
+// acontece, só sem se autossabotar.
+const REELS_DISPATCH_COOLDOWN_MS = { plain: 90000, prioridade: 20000 };
+async function _reelsDispatchEmCooldown(groupKey) {
+  const key = `REELS_DISPATCH_COOLDOWN__${groupKey}`;
+  const cooldownMs = REELS_DISPATCH_COOLDOWN_MS[groupKey] || 60000;
+  const now = Date.now();
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", key).limit(1);
+    const last = data && data[0] ? Date.parse(data[0].value) : NaN;
+    const emCooldown = Number.isFinite(last) && (now - last) < cooldownMs;
+    if (!emCooldown) {
+      const nowIso = new Date(now).toISOString();
+      if (data && data.length) {
+        await supabase.from("config").update({ value: nowIso, updated_at: nowIso }).eq("key", key);
+      } else {
+        await supabase.from("config").insert({ key, value: nowIso });
+      }
+    }
+    return emCooldown;
+  } catch (_) {
+    return false; // checagem falhou — prefere disparar (comportamento antigo) a travar tudo
+  }
+}
+
 async function _dispatchReelsWorkflowAgora(inputs) {
   const token = process.env.GH_DISPATCH_TOKEN;
   if (!token) {
     await writeLog("error", "[reels-dispatch] GH_DISPATCH_TOKEN ausente no ambiente da Vercel");
     return { ok: false, error: "gh_dispatch_token_ausente" };
+  }
+
+  const groupKey = inputs?.prioridade === "1" ? "prioridade" : "plain";
+  if (await _reelsDispatchEmCooldown(groupKey)) {
+    return { ok: true, dispatched: false, throttled: true };
   }
 
   try {
