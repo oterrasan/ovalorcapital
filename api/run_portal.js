@@ -631,13 +631,29 @@ async function handleLinkManual(req, res, body) {
     return res.status(400).json({ ok: false, error: "video_hospedado precisa estar no nosso Storage" });
   }
 
+  // 23/10/2026 — Roberto: "LINK QUE EU ENVIO MANUALMENTE NAO PODE DAR
+  // ERRO!". Pra link social (Instagram/YouTube/TikTok) submetido direto por
+  // ele (nunca quando já veio de um job do runner, jobKey presente — aí é
+  // falha do próprio pedido, tratada em _finalizarLinkJob/handleLinkJobFalhou,
+  // não rejeição da submissão dele), QUALQUER falha depois deste ponto (texto
+  // curto, reescrita da IA fora do ar, reprovado na validação, erro ao
+  // salvar) cai no mesmo caminho robusto de fila automática em vez de
+  // mostrar erro — o runner loga na conta de apoio e pega legenda/vídeo
+  // reais de verdade (mesmo mecanismo que já existe pro caso "sem texto"
+  // logo abaixo). Nunca estende pra link genérico (site qualquer, não
+  // social) — o runner (scripts/capture-link-jobs.mjs) só sabe baixar
+  // Instagram/YouTube/TikTok; enfileirar um link de site comum lá cairia no
+  // branch do YouTube por engano e falharia de outro jeito, sem ganho real.
+  async function _filaAutomaticaSocial(infoExtra) {
+    const key = await _criarLinkJob(link, categoria);
+    await dispararReelsWorkflowAgora();
+    return res.status(200).json({ ok: true, queued: true, job_key: key, info: infoExtra });
+  }
+
   // Opção automática: Instagram/YouTube sem texto vira pedido pro runner.
   if (social && !textoManual && !jobKey) {
-    let key;
-    try { key = await _criarLinkJob(link, categoria); }
+    try { return await _filaAutomaticaSocial(); }
     catch (e) { return res.status(500).json({ ok: false, error: "falha ao criar pedido de captura: " + (e?.message || e) }); }
-    await dispararReelsWorkflowAgora();
-    return res.status(200).json({ ok: true, queued: true, job_key: key });
   }
 
   const a = social ? { title: "", text: "", image: "" } : await scrape(link, { allowCompetitorImage: true, timeout: 10000 });
@@ -661,23 +677,52 @@ async function handleLinkManual(req, res, body) {
   // disso, falha honesto em vez de fabricar. Instagram não expor
   // og:tags/texto pra Reels acessados sem sessão logada é um padrão real
   // e conhecido — não é bug pontual desse link.
-  if (!sourceText || sourceText.length < 60) {
-    return res.status(422).json({
-      ok: false,
-      error: textoManual ? "texto colado curto demais (minimo 60 caracteres) — cole a legenda/texto completo da noticia. Nada foi salvo." : "nao foi possivel extrair conteudo real desse link — nada foi salvo, pra nao inventar noticia a partir de quase nada. Cole a legenda/texto no campo de texto e tente de novo."
-    });
+  // 23/10/2026 — Roberto: "nao precisa travar isso para reels, essa regra é
+  // so pra feed" (sobre o mínimo de 60 chars). O piso de 60 chars acima foi
+  // criado pro caso de link SEM vídeo (vira matéria de feed/artigo — aí sim
+  // precisa de conteúdo real pra IA não fabricar do zero). Reel é
+  // diferente: o vídeo é o conteúdo de verdade, a legenda é só
+  // complemento — TikTok em particular costuma vir com legenda curtíssima
+  // (às vezes só um emoji), e isso é normal, não sinal de fabricação. Pra
+  // link social (Instagram/YouTube/TikTok, sempre destinado a Reel nesta
+  // ferramenta) com vídeo já hospedado OU com qualquer texto real (não
+  // vazio), segue direto pra reescrita — só bloqueia aqui no caso
+  // degenerado de ficar sem absolutamente nada (nem texto, nem vídeo).
+  const temVideoOuTextoReal = social && (videoHospedado || sourceText);
+  if (!temVideoOuTextoReal && (!sourceText || sourceText.length < 60)) {
+    if (social && !jobKey) {
+      try { return await _filaAutomaticaSocial("sem conteudo capturado ainda — enfileirado para captura automatica"); }
+      catch (e) { return res.status(500).json({ ok: false, error: "falha ao criar pedido de captura: " + (e?.message || e) }); }
+    }
+    if (!social) {
+      return res.status(422).json({
+        ok: false,
+        error: textoManual ? "texto colado curto demais (minimo 60 caracteres) — cole a legenda/texto completo da noticia. Nada foi salvo." : "nao foi possivel extrair conteudo real desse link — nada foi salvo, pra nao inventar noticia a partir de quase nada. Cole a legenda/texto no campo de texto e tente de novo."
+      });
+    }
+    return res.status(422).json({ ok: false, error: "nenhum texto ou video capturado desse link — nada foi salvo." });
   }
 
   let content;
   try {
     content = await rewriteBrasilOn(sourceText, tituloFonte, "");
   } catch (e) {
+    if (social && !jobKey) {
+      try { return await _filaAutomaticaSocial("reescrita indisponivel agora — enfileirado para nova tentativa automatica"); }
+      catch (_) {}
+    }
     return res.status(502).json({ ok: false, error: "falha na reescrita: " + (e?.message || e) });
   }
   content.categoria = categoria;
   content.subcategoria = SUBCAT[categoria] || "Geral";
   const erros = validarBrasilOn(content);
-  if (erros.length) return res.status(422).json({ ok: false, error: "reprovado na validacao: " + erros.join(", ") });
+  if (erros.length) {
+    if (social && !jobKey) {
+      try { return await _filaAutomaticaSocial("reprovado na 1a tentativa — enfileirado para nova tentativa automatica"); }
+      catch (_) {}
+    }
+    return res.status(422).json({ ok: false, error: "reprovado na validacao: " + erros.join(", ") });
+  }
 
   const titulo = stripTitle(content.titulo);
   const comentario_fixado = (content.meta_descricao || "").trim();
@@ -698,7 +743,13 @@ async function handleLinkManual(req, res, body) {
     metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_link_manual: link },
     priority: 1, retry_count: 0, max_retries: 3
   }).select("id").single();
-  if (error) return res.status(500).json({ ok: false, error: "falha ao salvar: " + error.message });
+  if (error) {
+    if (social && !jobKey) {
+      try { return await _filaAutomaticaSocial("falha ao salvar na 1a tentativa — enfileirado para nova tentativa automatica"); }
+      catch (_) {}
+    }
+    return res.status(500).json({ ok: false, error: "falha ao salvar: " + error.message });
+  }
 
   let videoDetectado = null;
   try {
