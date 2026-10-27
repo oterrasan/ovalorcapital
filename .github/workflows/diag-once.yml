@@ -1,26 +1,8 @@
 name: diag-once (placeholder)
-# retry 2 - startup_failure anterior parece blip transiente do Actions
-# (outro workflow nao relacionado tambem falhou assim na mesma janela)
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: [".github/workflows/diag-once.yml"]
 jobs:
-  run:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Confirma fix do 404 em /giro/ no Brasil ON
-        run: |
-          echo "=== listagem /giro/ ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code}\n" --max-time 15 "https://www.obrasilon.com.br/giro/"
-          echo "=== link quebrado do print do Roberto (double-hyphen slug antigo, ja no banco) ==="
-          curl -sS -o /dev/null -w "HTTP:%{http_code}\n" --max-time 15 "https://www.obrasilon.com.br/giro/academia-bane-aluno-apos-denuncia-de-importunacao-sexual-em--ceb7e120/"
-          echo "=== outra materia giro real, link gerado AGORA pela API (confirma fix do slugify tambem) ==="
-          RESP=$(curl -sS --max-time 15 "https://www.obrasilon.com.br/api/portal-posts?categoria=giro&limit=1")
-          echo "$RESP"
-          URL=$(echo "$RESP" | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{try{const j=JSON.parse(d);console.log(j.posts?.[0]?.url||j[0]?.url||"")}catch(e){console.log("PARSE_ERR:"+e.message)}})')
-          echo "url_retornada=$URL"
-          if [ -n "$URL" ]; then
-            curl -sS -o /dev/null -w "HTTP:%{http_code}\n" --max-time 15 "https://www.obrasilon.com.br${URL}"
-          fi
+      - run: echo "placeholder — sem diagnostico ativo agora"
