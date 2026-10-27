@@ -12,10 +12,15 @@ name: Deploy Brasil ON (Vercel)
 on:
   push:
     branches: [main]
+    # 27/10/2026 — GitHub Actions proíbe `paths` + `paths-ignore` juntos no
+    # mesmo evento push: a combinação faz o workflow inteiro falhar antes
+    # de criar qualquer job (0 jobs, "failure" instantâneo, sem log nenhum
+    # — confirmado real: toda execução desde que `paths-ignore` foi
+    # adicionada falhou assim, inclusive em commits que nem tocavam
+    # brasilon/**). Fix oficial do GitHub: só `paths`, com exclusão via `!`.
     paths:
       - 'brasilon/**'
-    paths-ignore:
-      - 'brasilon/CLAUDE.md'
+      - '!brasilon/CLAUDE.md'
   workflow_dispatch:
 
 concurrency:
