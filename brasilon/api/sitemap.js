@@ -12,7 +12,7 @@ const INSTITUTIONAL_PATHS = ["/quem-somos/", "/politica-editorial/", "/contato/"
 
 function slugify(text) {
   return String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 55);
+    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 55).replace(/^-+|-+$/g, "");
 }
 
 export default async function handler(req, res) {

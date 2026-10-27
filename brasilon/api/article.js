@@ -14,7 +14,7 @@ const BASE = "https://www.obrasilon.com.br";
 const OG_DEFAULT = `${BASE}/assets/og-brasilon.png`;
 const POST_COLUMNS = "id,titulo,comentario_fixado,conteudo,imagem,categoria,meta_title,created_at,published_at,updated_at";
 
-const CAT_LABEL = { "brasil-on": "Brasil ON", politica: "Política", policia: "Polícia", futebol: "Futebol" };
+const CAT_LABEL = { "brasil-on": "Brasil ON", politica: "Política", policia: "Polícia", futebol: "Futebol", giro: "Giro" };
 const STATIC_DIRS = new Set(["js", "css", "assets", "images", "img", "fonts"]);
 const templates = new Map();
 
@@ -232,5 +232,6 @@ function slugify(value) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .slice(0, 60) || "materia";
+    .slice(0, 60)
+    .replace(/^-+|-+$/g, "") || "materia";
 }
