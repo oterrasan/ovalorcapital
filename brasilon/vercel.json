@@ -16,7 +16,8 @@
     { "src": "^/politica/?$", "dest": "/api/category?cat=politica" },
     { "src": "^/policia/?$", "dest": "/api/category?cat=policia" },
     { "src": "^/futebol/?$", "dest": "/api/category?cat=futebol" },
+    { "src": "^/giro/?$", "dest": "/api/category?cat=giro" },
 
-    { "src": "^/(brasil-on|politica|policia|futebol)/([^/]+)/?$", "dest": "/api/article?cat=$1&slug=$2" }
+    { "src": "^/(brasil-on|politica|policia|futebol|giro)/([^/]+)/?$", "dest": "/api/article?cat=$1&slug=$2" }
   ]
 }

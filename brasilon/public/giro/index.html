@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<script>(function(){try{if(localStorage.getItem("bon-theme")==="dark")document.documentElement.setAttribute("data-theme","dark");}catch(e){}})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giro | Brasil ON</title>
+<meta name="description" content="Famosos, celebridades e os assuntos mais comentados do momento — tudo em primeira mão, direto ao ponto.">
+<link rel="canonical" href="https://www.obrasilon.com.br/giro/">
+<link rel="icon" type="image/svg+xml" href="/assets/icone-brasil-on.svg">
+<meta name="theme-color" content="#009639">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/site.css?v=9">
+</head>
+<body data-category="giro">
+  <div class="bon-flagbar"></div>
+  <div class="bon-ticker" data-bon-ticker></div>
+
+  <header class="bon-masthead">
+    <div class="bon-masthead-top" data-bon-masthead-date></div>
+    <div class="bon-masthead-rule-thick"></div>
+    <a class="bon-masthead-brand" href="/">
+      <span class="name serif">BRASIL <span class="on">ON</span></span>
+    </a>
+    <div class="bon-masthead-tagline">Notícias do Brasil, em tempo real — direto ao ponto</div>
+    <div class="bon-masthead-rule-thick"></div>
+    <nav class="bon-nav">
+      <a href="/">Início</a>
+      <a href="/brasil-on/">Brasil ON</a>
+      <a href="/politica/">Política</a>
+      <a href="/policia/">Polícia</a>
+      <a href="/futebol/">Futebol</a>
+      <a href="/giro/">Giro</a>
+    </nav>
+  </header>
+
+  <div class="bon-article" data-bon-article></div>
+
+  <div class="bon-cat-header">
+    <h1>Giro</h1>
+    <p>Famosos, celebridades e os assuntos mais comentados do momento.</p>
+  </div>
+  <main class="bon-cat-main">
+    <div class="bon-cat-main-content">
+      <h2 class="bon-section-title">Todas as Notícias</h2>
+      <div data-bon-grid>
+        <div class="bon-loading">Carregando notícias…</div>
+      </div>
+      <div class="bon-pagination" data-bon-pagination></div>
+    </div>
+
+    <aside class="bon-col-side">
+      <div class="bon-widget bon-widget-maislidas">
+        <h3 class="bon-widget-title accent-amarelo">🔥 Mais Lidas</h3>
+        <div data-bon-w-maislidas data-categoria="giro"><div class="bon-widget-empty">Carregando…</div></div>
+      </div>
+
+      <h3 class="bon-side-title">Últimas</h3>
+      <div class="bon-side-list" data-bon-ultimas></div>
+    </aside>
+  </main>
+
+  <footer class="bon-footer">
+    <div class="bon-footer-flag"></div>
+    <div class="bon-footer-brandbar">
+      <span class="bon-footer-brand-name serif">BRASIL <span class="on">ON</span></span>
+      <p class="bon-footer-brand-tag">Notícias do Brasil, em tempo real — direto ao ponto</p>
+    </div>
+    <div class="bon-footer-inner">
+      <div>
+        <h4>Brasil ON</h4>
+        <a href="/">Início</a>
+        <a href="/brasil-on/">Brasil ON</a>
+        <a href="/politica/">Política</a>
+        <a href="/policia/">Polícia</a>
+        <a href="/futebol/">Futebol</a>
+        <a href="/giro/">Giro</a>
+      </div>
+      <div>
+        <h4>Institucional</h4>
+        <a href="/quem-somos/">Quem Somos</a>
+        <a href="/politica-editorial/">Política Editorial</a>
+        <a href="/contato/">Contato</a>
+        <a href="/privacidade/">Política de Privacidade</a>
+        <a href="/termos-de-uso/">Termos de Uso</a>
+      </div>
+      <div>
+        <h4>Siga o Brasil ON</h4>
+        <a href="https://www.instagram.com/obrasilon/" target="_blank" rel="noopener">Instagram @obrasilon</a>
+      </div>
+      <div>
+        <h4>Grupo Terrasan</h4>
+        <a href="https://www.ovalorcapital.com.br/" target="_blank" rel="noopener">Portal O Valor Capital</a>
+        <a href="https://www.grupoterrasan.com.br/" target="_blank" rel="noopener">grupoterrasan.com.br</a>
+      </div>
+    </div>
+    <div class="bon-footer-group">
+      <p><strong>Brasil ON</strong> e <strong>O Valor Capital</strong> são portais de notícias do <strong>Grupo Terrasan</strong>.</p>
+    </div>
+    <div class="bon-footer-copy">© <span id="bon-year"></span> Brasil ON — uma marca do Grupo Terrasan. Todos os direitos reservados.</div>
+  </footer>
+
+  <script src="/js/site.js?v=2" defer></script>
+  <script src="/js/blocks.js" defer></script>
+  <script src="/js/category.js" defer></script>
+  <script src="/js/mais-lidas.js" defer></script>
+  <script src="/js/article.js" defer></script>
+  <script>document.getElementById('bon-year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

@@ -28,6 +28,11 @@ const CAT_SEO = {
     title: "Futebol | Brasil ON",
     desc: "Últimas do futebol brasileiro e internacional: campeonatos, transferências, resultados e bastidores, atualizado ao longo do dia.",
     canonical: `${BASE}/futebol/`
+  },
+  giro: {
+    title: "Giro | Brasil ON",
+    desc: "Famosos, celebridades e os assuntos mais comentados do momento — tudo em primeira mão, direto ao ponto.",
+    canonical: `${BASE}/giro/`
   }
 };
 
