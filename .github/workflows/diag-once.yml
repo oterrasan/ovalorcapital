@@ -1,4 +1,6 @@
 name: diag-once (placeholder)
+# retry 2 - startup_failure anterior parece blip transiente do Actions
+# (outro workflow nao relacionado tambem falhou assim na mesma janela)
 on:
   workflow_dispatch:
   push:
