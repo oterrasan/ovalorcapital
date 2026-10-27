@@ -1,4 +1,5 @@
 name: diag-giro-check
+# segunda tentativa, arquivo ja existe no repo desde o push anterior
 on:
   push:
     branches: [main]
@@ -8,4 +9,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ping
-        run: echo "hello"
+        run: echo "hello de novo"
