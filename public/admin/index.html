@@ -1963,33 +1963,122 @@ function Postagens() {
   };
 
   const [igPublishing, setIgPublishing] = useState(null);
-  const [igPublishModal, setIgPublishModal] = useState({show:false,post:null,accountId:''});
+  // 30/10/2026 — cartão irônico: Roberto pediu editor manual igual ao dos
+  // Reels (texto, cor por frase, tamanho, posição) + fundo opcional por
+  // imagem. layout com campos vazios = automático (o renderer decide,
+  // mesmo comportamento de sempre); preencher um número sobrescreve só
+  // aquele campo.
+  const IG_CARD_LAYOUT_VAZIO = {top:'',width:'',fontSize:'',textColor:'#ffffff'};
+  const IG_MODAL_VAZIO = {
+    show:false, post:null, accountId:'',
+    cartaoIronico:false, gerandoPreview:false, previewUrl:'',
+    paragraphs:['','',''],
+    highlights:[{phrase:'',color:'#f28c22'}],
+    layout:{...IG_CARD_LAYOUT_VAZIO},
+    fundo:'solido', bgQuery:'', bgUrl:'', buscandoBg:false
+  };
+  const [igPublishModal, setIgPublishModal] = useState(IG_MODAL_VAZIO);
 
   const abrirPublicacaoIG = post => {
     if (!accounts.length) {
       alert('Nenhuma conta ativa do Instagram foi encontrada.');
       return;
     }
-    setIgPublishModal({show:true,post,accountId:''});
+    setIgPublishModal({...IG_MODAL_VAZIO, show:true, post});
+  };
+
+  // só os campos de layout realmente preenchidos (número válido) — o resto
+  // fica de fora do payload, pro backend usar o padrão automático.
+  const igCardLayoutPayload = (layout) => {
+    const out = {};
+    ['top','width','fontSize'].forEach(k => {
+      const n = Number(layout[k]);
+      if (layout[k] !== '' && Number.isFinite(n)) out[k] = n;
+    });
+    if (layout.textColor && layout.textColor !== '#ffffff') out.textColor = layout.textColor;
+    return Object.keys(out).length ? out : undefined;
+  };
+  const igCardHighlightsPayload = (highlights) => highlights
+    .map(h => ({phrase:(h.phrase||'').trim(), color:h.color}))
+    .filter(h => h.phrase);
+
+  // 30/10/2026 — cartão irônico: gera (via IA, a partir do fato real da
+  // matéria) ou re-renderiza (com texto/cores/posição/fundo já ajustados
+  // por Roberto) a prévia do cartão escuro, SEM publicar nada — ele revisa
+  // aqui antes de mandar.
+  const gerarPreviewCartao = async (comTextoAtual) => {
+    if (!igPublishModal.post) return;
+    setIgPublishModal(m=>({...m, gerandoPreview:true}));
+    try {
+      const payload = {action:'ig_preview', post_id: igPublishModal.post.id, cartao_ironico:true};
+      if (comTextoAtual) {
+        payload.paragraphs = igPublishModal.paragraphs.filter(Boolean);
+        payload.highlights = igCardHighlightsPayload(igPublishModal.highlights);
+        const layoutPayload = igCardLayoutPayload(igPublishModal.layout);
+        if (layoutPayload) payload.layout = layoutPayload;
+        if (igPublishModal.fundo === 'imagem' && igPublishModal.bgUrl) payload.background_image_url = igPublishModal.bgUrl;
+      }
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify(payload) });
+      const d = await r.json();
+      if (d.ok) {
+        setIgPublishModal(m=>({...m, gerandoPreview:false, previewUrl:d.image_url,
+          paragraphs:[d.paragraphs?.[0]||'', d.paragraphs?.[1]||'', d.paragraphs?.[2]||''],
+          highlights:(d.highlights&&d.highlights.length?d.highlights:['']).map(h=>typeof h==='string'?{phrase:h,color:'#f28c22'}:{phrase:h.phrase||'',color:h.color||'#f28c22'})}));
+      } else {
+        alert('❌ Erro ao gerar prévia: ' + (d.error||'falha'));
+        setIgPublishModal(m=>({...m, gerandoPreview:false}));
+      }
+    } catch(e) {
+      alert('❌ Erro de conexão: ' + e.message);
+      setIgPublishModal(m=>({...m, gerandoPreview:false}));
+    }
+  };
+
+  // mesmo padrão já usado em inserirImagemNoTextoEdit: aceita URL direta
+  // ou um termo de busca, via /api/run_portal?action=buscar_imagem.
+  const buscarImagemFundoCartao = async () => {
+    const q = igPublishModal.bgQuery.trim();
+    if (!q) return;
+    setIgPublishModal(m=>({...m, buscandoBg:true}));
+    let url = q;
+    if (!/^https?:\/\//i.test(q)) {
+      try {
+        const r = await fetch(`/api/run_portal?action=buscar_imagem&q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        if (d.url) url = d.url;
+        else { alert('Nenhuma imagem encontrada para "'+q+'"'); setIgPublishModal(m=>({...m, buscandoBg:false})); return; }
+      } catch(e) { alert('Erro ao buscar imagem: '+e.message); setIgPublishModal(m=>({...m, buscandoBg:false})); return; }
+    }
+    setIgPublishModal(m=>({...m, bgUrl:url, buscandoBg:false}));
   };
 
   const publicarIG = async (post, accountId) => {
     if (!accountId) return;
+    if (igPublishModal.cartaoIronico && !igPublishModal.previewUrl) {
+      alert('Gere a prévia do cartão antes de publicar.');
+      return;
+    }
     setIgPublishing(post.id);
     try {
+      const payload = { post_id: post.id, ig_account_id: accountId };
+      if (igPublishModal.cartaoIronico) {
+        payload.cartao_ironico = true;
+        payload.paragraphs = igPublishModal.paragraphs.filter(Boolean);
+        payload.highlights = igCardHighlightsPayload(igPublishModal.highlights);
+        const layoutPayload = igCardLayoutPayload(igPublishModal.layout);
+        if (layoutPayload) payload.layout = layoutPayload;
+        if (igPublishModal.fundo === 'imagem' && igPublishModal.bgUrl) payload.background_image_url = igPublishModal.bgUrl;
+      }
       const r = await fetch('/api/ig_publish', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          post_id: post.id,
-          ig_account_id: accountId
-        })
+        body: JSON.stringify(payload)
       });
       const d = await r.json();
       if (d.ok) {
         const conta = accounts.find(a=>String(a.id)===String(accountId));
         alert('✅ Publicado com sucesso em @' + (conta?.username||d.username||'Instagram') + '!');
-        setIgPublishModal({show:false,post:null,accountId:''});
+        setIgPublishModal(IG_MODAL_VAZIO);
         load();
       } else {
         alert('❌ Erro: ' + (d.error || 'Falha ao publicar'));
@@ -2435,11 +2524,11 @@ function Postagens() {
           </div>
         )}
         {igPublishModal.show&&(
-          <div className="modal-bg" onClick={()=>!igPublishing&&setIgPublishModal({show:false,post:null,accountId:''})}>
-            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:460}}>
+          <div className="modal-bg" onClick={()=>!igPublishing&&setIgPublishModal(IG_MODAL_VAZIO)}>
+            <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:igPublishModal.cartaoIronico?640:460}}>
               <div className="modal-header">
                 <span className="modal-title">Publicar no Instagram</span>
-                <button className="btn btn-secondary btn-sm" disabled={!!igPublishing} onClick={()=>setIgPublishModal({show:false,post:null,accountId:''})}>✕</button>
+                <button className="btn btn-secondary btn-sm" disabled={!!igPublishing} onClick={()=>setIgPublishModal(IG_MODAL_VAZIO)}>✕</button>
               </div>
               <div className="modal-body">
                 <div style={{fontSize:13,color:'var(--t2)',marginBottom:16,lineHeight:1.5}}>
@@ -2452,10 +2541,114 @@ function Postagens() {
                     {accounts.map(a=><option key={a.id} value={a.id}>@{a.username}</option>)}
                   </select>
                 </div>
+                <label style={{display:'flex',alignItems:'center',gap:8,fontSize:13,marginTop:10,marginBottom:4,cursor:'pointer'}}>
+                  <input type="checkbox" checked={igPublishModal.cartaoIronico} disabled={!!igPublishing}
+                    onChange={e=>setIgPublishModal(m=>({...IG_MODAL_VAZIO, show:true, post:m.post, accountId:m.accountId, cartaoIronico:e.target.checked}))} />
+                  🎴 Cartão irônico (fundo escuro, sem foto — testando alcance)
+                </label>
+                {igPublishModal.cartaoIronico&&(
+                  <div style={{marginTop:12,padding:12,background:'var(--bg2,#11151c)',borderRadius:10}}>
+                    <div style={{display:'flex',gap:8,marginBottom:10}}>
+                      <button className="btn btn-sm" disabled={igPublishModal.gerandoPreview} onClick={()=>gerarPreviewCartao(false)}>
+                        {igPublishModal.gerandoPreview?'Gerando...':(igPublishModal.previewUrl?'🔁 Gerar outra versão (IA)':'✨ Gerar com IA')}
+                      </button>
+                      {igPublishModal.previewUrl&&(
+                        <button className="btn btn-sm btn-secondary" disabled={igPublishModal.gerandoPreview} onClick={()=>gerarPreviewCartao(true)}>🖊️ Atualizar prévia com meu texto</button>
+                      )}
+                    </div>
+                    {igPublishModal.previewUrl&&(
+                      <img src={igPublishModal.previewUrl} alt="Prévia do cartão" style={{width:'100%',maxWidth:280,display:'block',margin:'0 auto 12px',borderRadius:8}} />
+                    )}
+                    {[0,1,2].map(i=>(
+                      <div className="form-group" key={i} style={{marginBottom:8}}>
+                        <label className="form-label" style={{fontSize:11}}>Bloco {i+1}{i>0?' (opcional)':''}</label>
+                        <textarea className="form-input" rows={2} value={igPublishModal.paragraphs[i]}
+                          onChange={e=>setIgPublishModal(m=>{const p=[...m.paragraphs];p[i]=e.target.value;return{...m,paragraphs:p};})}
+                          placeholder={i===0?'Gancho + fato real (número, prazo, valor)...':'...'} />
+                      </div>
+                    ))}
+
+                    <div className="form-group">
+                      <label className="form-label" style={{fontSize:11}}>Destaque — frases exatas dos blocos acima, cada uma com sua cor</label>
+                      {igPublishModal.highlights.map((h,i)=>(
+                        <div key={i} style={{display:'flex',gap:6,marginBottom:6,alignItems:'center'}}>
+                          <input className="form-input" style={{flex:1}} value={h.phrase}
+                            placeholder="ex: BENEFÍCIO DO GOVERNO"
+                            onChange={e=>setIgPublishModal(m=>{const hl=[...m.highlights];hl[i]={...hl[i],phrase:e.target.value};return{...m,highlights:hl};})} />
+                          <input type="color" value={h.color} title="Cor desta frase"
+                            style={{width:36,height:34,padding:0,border:'1px solid var(--border,#2a2f3a)',borderRadius:6,background:'none',cursor:'pointer'}}
+                            onChange={e=>setIgPublishModal(m=>{const hl=[...m.highlights];hl[i]={...hl[i],color:e.target.value};return{...m,highlights:hl};})} />
+                          {igPublishModal.highlights.length>1&&(
+                            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setIgPublishModal(m=>({...m,highlights:m.highlights.filter((_,j)=>j!==i)}))}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setIgPublishModal(m=>({...m,highlights:[...m.highlights,{phrase:'',color:'#f28c22'}]}))}>+ outra frase em destaque</button>
+                    </div>
+
+                    <details style={{marginTop:12}}>
+                      <summary style={{fontSize:12,color:'var(--t2)',cursor:'pointer',marginBottom:8}}>⚙️ Ajustar posição, tamanho e cor do texto</summary>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}}>
+                        <div className="form-group" style={{marginBottom:0}}>
+                          <label className="form-label" style={{fontSize:11}}>Posição vertical (topo, px)</label>
+                          <input className="form-input" type="number" placeholder="automático" value={igPublishModal.layout.top}
+                            onChange={e=>setIgPublishModal(m=>({...m,layout:{...m.layout,top:e.target.value}}))} />
+                        </div>
+                        <div className="form-group" style={{marginBottom:0}}>
+                          <label className="form-label" style={{fontSize:11}}>Largura do texto (px)</label>
+                          <input className="form-input" type="number" placeholder="automático" value={igPublishModal.layout.width}
+                            onChange={e=>setIgPublishModal(m=>({...m,layout:{...m.layout,width:e.target.value}}))} />
+                        </div>
+                        <div className="form-group" style={{marginBottom:0}}>
+                          <label className="form-label" style={{fontSize:11}}>Tamanho da fonte (px)</label>
+                          <input className="form-input" type="number" placeholder="ajusta sozinho" value={igPublishModal.layout.fontSize}
+                            onChange={e=>setIgPublishModal(m=>({...m,layout:{...m.layout,fontSize:e.target.value}}))} />
+                        </div>
+                        <div className="form-group" style={{marginBottom:0}}>
+                          <label className="form-label" style={{fontSize:11}}>Cor do texto base</label>
+                          <input type="color" value={igPublishModal.layout.textColor} style={{width:'100%',height:34,padding:0,border:'1px solid var(--border,#2a2f3a)',borderRadius:6,background:'none',cursor:'pointer'}}
+                            onChange={e=>setIgPublishModal(m=>({...m,layout:{...m.layout,textColor:e.target.value}}))} />
+                        </div>
+                      </div>
+                    </details>
+
+                    <div className="form-group" style={{marginTop:12}}>
+                      <label className="form-label" style={{fontSize:11}}>Fundo do cartão</label>
+                      <div style={{display:'flex',gap:14,marginBottom:8}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
+                          <input type="radio" name="igCardFundo" checked={igPublishModal.fundo==='solido'} onChange={()=>setIgPublishModal(m=>({...m,fundo:'solido'}))} />
+                          Sólido escuro (padrão)
+                        </label>
+                        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,cursor:'pointer'}}>
+                          <input type="radio" name="igCardFundo" checked={igPublishModal.fundo==='imagem'} onChange={()=>setIgPublishModal(m=>({...m,fundo:'imagem'}))} />
+                          Usar uma imagem
+                        </label>
+                      </div>
+                      {igPublishModal.fundo==='imagem'&&(
+                        <div>
+                          <div style={{display:'flex',gap:6}}>
+                            <input className="form-input" style={{flex:1}} value={igPublishModal.bgQuery}
+                              placeholder="Cole uma URL de imagem ou descreva o que buscar..."
+                              onChange={e=>setIgPublishModal(m=>({...m,bgQuery:e.target.value}))} />
+                            <button type="button" className="btn btn-secondary btn-sm" disabled={!igPublishModal.bgQuery.trim()||igPublishModal.buscandoBg} onClick={buscarImagemFundoCartao}>
+                              {igPublishModal.buscandoBg?'Buscando...':'Usar'}
+                            </button>
+                          </div>
+                          {igPublishModal.bgUrl&&(
+                            <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8}}>
+                              <img src={igPublishModal.bgUrl} alt="Fundo escolhido" style={{width:60,height:75,objectFit:'cover',borderRadius:6}} />
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setIgPublishModal(m=>({...m,bgUrl:'',bgQuery:''}))}>Remover imagem</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" disabled={!!igPublishing} onClick={()=>setIgPublishModal({show:false,post:null,accountId:''})}>Cancelar</button>
-                <button className="btn btn-primary" disabled={!igPublishModal.accountId||!!igPublishing} onClick={()=>publicarIG(igPublishModal.post,igPublishModal.accountId)}>
+                <button className="btn btn-secondary" disabled={!!igPublishing} onClick={()=>setIgPublishModal(IG_MODAL_VAZIO)}>Cancelar</button>
+                <button className="btn btn-primary" disabled={!igPublishModal.accountId||!!igPublishing||(igPublishModal.cartaoIronico&&!igPublishModal.previewUrl)} onClick={()=>publicarIG(igPublishModal.post,igPublishModal.accountId)}>
                   {igPublishing?'Publicando...':'Publicar na conta escolhida'}
                 </button>
               </div>

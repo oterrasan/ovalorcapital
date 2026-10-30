@@ -261,3 +261,245 @@ export async function prepareInstagramImage({ sourceUrl, postId, supabase, title
   if (!url) throw new Error("instagram_image_public_url_missing");
   return { url, path, version: HEADLINE_VERSION };
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// CARTÃO IRÔNICO DO INSTAGRAM — 30/10/2026, pedido explícito de Roberto:
+// "quero que voce construa esse mecanismo e coloque no admin pra eu
+// testar. vou escrever conteudos la e publicar no instagram sem
+// automacao de gerar conteudo, eu mesmo vou adicionar, textos, legendas,
+// e o texto dos cards" — fundo escuro + texto, SEM foto. Automação de
+// feed gerava ~200 views/post; 3 posts manuais dele (fundo sólido + logo
+// + chamada irônica multi-parágrafo, sem foto) passaram de 2 mil views
+// cada. Reusa o MESMO overlay (logo+rodapé já embutidos) por cima de um
+// fundo sólido escuro em vez de foto real — zero asset novo.
+// ══════════════════════════════════════════════════════════════════════
+const CARD_BG = { r: 11, g: 18, b: 32 }; // navy bem escuro, mesma família do logo
+// top: margem real abaixo do wordmark "O VALOR CAPITAL" do overlay.
+// bottom: medido o overlay de verdade (perfil de alpha por linha) — o
+// bloco de assinatura do rodapé ("O VALOR CAPITAL / @ovalorcapital/...")
+// começa em y≈1188 de 1350 (88%) na resolução nativa do overlay
+// (1080x1350). bottom=1100 deixa ~88px de folga real acima dele. NUNCA
+// usar um valor de referência acima de 1350 aqui — o overlay nativo só
+// tem essa altura, e px() escala por W/1080, então qualquer valor de
+// referência > 1350 já ultrapassa a própria altura do canvas (H=1800) e
+// invade o rodapé (bug real encontrado e corrigido em 28/10/2026).
+const CARD_BOX = {
+  top: px(360),
+  bottom: px(1100),
+  width: px(900),
+  maxFontSize: px(36),
+  minFontSize: px(22),
+  lineHeight: 1.4,
+  paragraphGap: 0.9 // em múltiplos da altura de linha
+};
+
+// mesma lógica de wrapHeadline() acima, mas preserva o índice global da
+// palavra (pra casar com o mapa de cores de destaque DEPOIS da quebra de
+// linha — sem isso, uma frase destacada podia ficar cortada ao meio numa
+// quebra de linha).
+function wrapParagraphIndexed(words, startIndex, fontSize, maxWidth) {
+  const lines = [];
+  let current = [];
+  let currentText = "";
+  words.forEach((word, i) => {
+    const candidate = currentText ? `${currentText} ${word}` : word;
+    if (!currentText || estimateTextWidth(candidate, fontSize) <= maxWidth) {
+      currentText = candidate;
+      current.push({ word, idx: startIndex + i });
+      return;
+    }
+    lines.push(current);
+    currentText = word;
+    current = [{ word, idx: startIndex + i }];
+  });
+  if (current.length) lines.push(current);
+  return lines;
+}
+
+// Roberto: "eu quero poder escolher quais palavras exatamente ficam em
+// outras cores e quais cores". highlights aceita {phrase, color} (cor
+// própria por frase) além do formato antigo (string solta = usa
+// HIGHLIGHT_COLOR, retrocompat). Retorna Map<índice da palavra, cor hex>.
+function markHighlightColors(words, highlights) {
+  const normWords = words.map(normalizeWord);
+  const colorByIndex = new Map();
+  for (const item of highlights || []) {
+    const phrase = typeof item === "string" ? item : item?.phrase;
+    const color = (typeof item === "object" && item?.color) ? item.color : HIGHLIGHT_COLOR;
+    const phraseWords = String(phrase || "").trim().split(/\s+/).map(normalizeWord).filter(Boolean);
+    if (!phraseWords.length) continue;
+    for (let i = 0; i <= normWords.length - phraseWords.length; i++) {
+      let match = true;
+      for (let j = 0; j < phraseWords.length; j++) {
+        if (normWords[i + j] !== phraseWords[j]) { match = false; break; }
+      }
+      if (match) {
+        for (let j = 0; j < phraseWords.length; j++) colorByIndex.set(i + j, color);
+        break;
+      }
+    }
+  }
+  return colorByIndex;
+}
+
+// 30/10/2026 — editor manual no admin (posição, largura, tamanho de
+// fonte, cor). layout (opcional) sobrescreve qualquer campo de CARD_BOX
+// — null/ausente = comportamento automático de sempre. fontSize fixo
+// desliga o auto-fit (Roberto escolheu o tamanho, não tenta mais
+// encolher sozinho). Mesmo com tamanho fixo ou no mínimo automático,
+// nunca deixa o texto avançar na borda de baixo (rede de segurança:
+// corta linha por linha de trás pra frente até caber).
+async function buildCardBodyLayers(paragraphs, highlights, layout) {
+  const box = { ...CARD_BOX, ...(layout || {}) };
+  const list = (paragraphs || []).map(p => String(p || "").replace(/\s+/g, " ").trim().toUpperCase()).filter(Boolean);
+  if (!list.length) return null;
+
+  const textColor = layout?.textColor || "#ffffff";
+  const maxHeight = box.bottom - box.top;
+
+  const medir = (fontSize) => {
+    const lineHeightPx = Math.round(fontSize * box.lineHeight);
+    const gapPx = Math.round(lineHeightPx * box.paragraphGap);
+    let totalHeight = 0;
+    const paraLines = [];
+    let globalWordIdx = 0;
+    for (const para of list) {
+      const words = para.split(/\s+/).filter(Boolean);
+      const lines = wrapParagraphIndexed(words, globalWordIdx, fontSize, box.width);
+      globalWordIdx += words.length;
+      paraLines.push(lines);
+      totalHeight += lines.length * lineHeightPx;
+    }
+    totalHeight += gapPx * Math.max(0, list.length - 1);
+    return { fontSize, lineHeightPx, gapPx, paraLines, totalHeight };
+  };
+
+  let chosen;
+  if (layout?.fontSize) {
+    // tamanho fixo escolhido manualmente — nunca encolhe sozinho.
+    chosen = medir(layout.fontSize);
+  } else {
+    chosen = medir(box.maxFontSize);
+    for (let fontSize = box.maxFontSize - 2; fontSize >= box.minFontSize; fontSize -= 2) {
+      const tentativa = medir(fontSize);
+      chosen = tentativa;
+      if (tentativa.totalHeight <= maxHeight) break;
+    }
+  }
+
+  // Rede de segurança: mesmo no tamanho mínimo (ou no tamanho fixo que
+  // Roberto escolheu), se ainda estourar a borda de baixo, corta linhas
+  // de trás pra frente até caber — "nao avancar nas bordas" nunca falha.
+  while (chosen.totalHeight > maxHeight && chosen.paraLines.some(p => p.length)) {
+    let removido = false;
+    for (let p = chosen.paraLines.length - 1; p >= 0 && !removido; p--) {
+      if (chosen.paraLines[p].length > 1) {
+        chosen.paraLines[p] = chosen.paraLines[p].slice(0, -1);
+        chosen.totalHeight -= chosen.lineHeightPx;
+        removido = true;
+      } else if (chosen.paraLines[p].length === 1 && chosen.paraLines.filter(x => x.length).length > 1) {
+        chosen.paraLines[p] = [];
+        chosen.totalHeight -= chosen.lineHeightPx;
+        if (p < chosen.paraLines.length - 1) chosen.totalHeight -= chosen.gapPx;
+        removido = true;
+      }
+    }
+    if (!removido) break; // sobrou só 1 linha de 1 parágrafo — não dá mais pra cortar
+  }
+
+  // palavras de TODOS os parágrafos numa lista só, pra casar índice global
+  const allWords = list.flatMap(p => p.split(/\s+/).filter(Boolean));
+  const colorByIndex = markHighlightColors(allWords, highlights);
+
+  const markupLines = [];
+  chosen.paraLines.forEach((lines, pIdx) => {
+    if (!lines.length) return;
+    lines.forEach(lineWords => {
+      const markup = lineWords.map(({ word, idx }) => {
+        const color = colorByIndex.get(idx) || textColor;
+        return `<span foreground="${color}">${escapeXml(word)}</span>`;
+      }).join(" ");
+      markupLines.push(markup);
+    });
+    if (pIdx < chosen.paraLines.length - 1 && chosen.paraLines.slice(pIdx + 1).some(p => p.length)) markupLines.push("");
+  });
+  if (!markupLines.length) return null;
+
+  const textOptions = {
+    text: `<span weight="700">${markupLines.join("\n")}</span>`,
+    font: `Inter ${chosen.fontSize}`,
+    fontfile: HEADLINE_FONT_PATH,
+    align: "left",
+    rgba: true,
+    dpi: 72,
+    wrap: "none",
+    spacing: Math.round(chosen.lineHeightPx - chosen.fontSize)
+  };
+  const foreground = await sharp({ text: textOptions }).png().toBuffer();
+  const left = Math.max(0, Math.round((W - box.width) / 2));
+  return [{ input: foreground, top: box.top, left, blend: "over" }];
+}
+
+// cartão irônico (sem foto, por padrão). Mesmo overlay (logo+rodapé já
+// embutidos, transparente em cima); fundo sólido escuro OU, se Roberto
+// escolher ("colocar imagens, se eu quiser"), uma foto real (mesmo
+// tratamento de download/recorte do template com foto normal).
+export async function buildInstagramIronicCardBuffer({ paragraphs, highlights, layout, backgroundImageUrl } = {}) {
+  let backgroundLayer;
+  if (backgroundImageUrl) {
+    const source = await downloadImage(backgroundImageUrl);
+    backgroundLayer = await sharp(source)
+      .rotate()
+      .resize(W, PHOTO_HEIGHT, { fit: "cover", position: sharp.strategy.attention })
+      .png()
+      .toBuffer();
+  } else {
+    backgroundLayer = await sharp({
+      create: { width: W, height: PHOTO_HEIGHT, channels: 3, background: CARD_BG }
+    }).png().toBuffer();
+  }
+  const base = await sharp({
+    create: { width: W, height: H, channels: 3, background: "#000000" }
+  })
+    .composite([{ input: backgroundLayer, top: 0, left: 0 }])
+    .png()
+    .toBuffer();
+  const overlay = await sharp(readFileSync(OVERLAY_PATH))
+    .resize(W, H, { fit: "fill" })
+    .png()
+    .toBuffer();
+
+  const layers = [{ input: overlay, top: 0, left: 0 }];
+  const bodyLayers = await buildCardBodyLayers(paragraphs, highlights, layout);
+  if (bodyLayers) layers.push(...bodyLayers);
+
+  return sharp(base)
+    .composite(layers)
+    .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
+    .toBuffer();
+}
+
+export async function prepareInstagramIronicCard({ postId, supabase, paragraphs, highlights, layout, backgroundImageUrl }) {
+  if (!postId) throw new Error("instagram_post_id_missing");
+  if (!Array.isArray(paragraphs) || !paragraphs.length) throw new Error("instagram_card_paragraphs_missing");
+
+  const buffer = await buildInstagramIronicCardBuffer({ paragraphs, highlights, layout, backgroundImageUrl });
+  const hlKey = (highlights || []).map(h => typeof h === "string" ? h : `${h?.phrase || ""}:${h?.color || ""}`).join("|");
+  const hash = crypto.createHash("sha1")
+    .update(["ironic-card-v2", paragraphs.join("\n"), hlKey, JSON.stringify(layout || {}), backgroundImageUrl || ""].join("\n"))
+    .digest("hex")
+    .slice(0, 10);
+  const path = `${PREFIX}/${postId}-ironic-${hash}.jpg`;
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, {
+    contentType: "image/jpeg",
+    cacheControl: "31536000",
+    upsert: true
+  });
+  if (error) throw new Error("instagram_ironic_card_upload_failed: " + error.message);
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const url = data?.publicUrl;
+  if (!url) throw new Error("instagram_ironic_card_public_url_missing");
+  return { url, path, version: "ironic-card-v2" };
+}

@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { detectPublicationLocation } from "../core/instagram_location.js";
-import { rewritePortal, rewriteColuna } from "../core/ai_portal.js";
+import { rewritePortal, rewriteColuna, gerarCartaoIronicoInstagram } from "../core/ai_portal.js";
 import { mirrorPostToBrasilOn, classificarParaBrasilOn } from "../core/brasilonMirror.js";
 import { normalizeCollabPolicy, shouldAutoAcceptCollab, normalizeInstagramUsername } from "../core/instagram_collab_policy.js";
 import { deleteVideoFromStorage } from "../core/storage.js";
@@ -520,6 +520,57 @@ function redactSecrets(message) {
     .replace(/\bBearer\s+[^\s"]+/gi, "Bearer [redacted]");
 }
 
+// 30/10/2026 — cartão irônico: editor manual no admin (posição, largura,
+// tamanho de fonte, cor). Nunca confia cegamente no body — só aceita os
+// campos conhecidos, com faixas numéricas sãs pro canvas real do cartão
+// (1440x1800), pra nunca produzir valor absurdo (fonte negativa, caixa
+// fora da tela etc.) mesmo vindo de uma chamada malformada.
+function sanitizeCardLayout(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const out = {};
+  const num = (v, min, max) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : null;
+  };
+  const top = num(raw.top, 0, 1500);
+  const width = num(raw.width, 300, 1340);
+  const fontSize = num(raw.fontSize, 16, 90);
+  const maxFontSize = num(raw.maxFontSize, 16, 90);
+  const minFontSize = num(raw.minFontSize, 16, 90);
+  if (top !== null) out.top = top;
+  if (width !== null) out.width = width;
+  if (fontSize !== null) out.fontSize = fontSize;
+  if (maxFontSize !== null) out.maxFontSize = maxFontSize;
+  if (minFontSize !== null) out.minFontSize = minFontSize;
+  if (typeof raw.textColor === "string" && /^#[0-9a-fA-F]{6}$/.test(raw.textColor)) out.textColor = raw.textColor;
+  return Object.keys(out).length ? out : null;
+}
+
+// highlights aceita string solta (cor laranja padrão, retrocompat) OU
+// {phrase, color} — Roberto: "eu quero poder escolher quais palavras
+// exatamente ficam em outras cores e quais cores".
+function sanitizeCardHighlights(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(item => {
+    if (typeof item === "string") {
+      const phrase = item.trim();
+      return phrase || null;
+    }
+    if (item && typeof item === "object") {
+      const phrase = String(item.phrase || "").trim();
+      if (!phrase) return null;
+      const color = typeof item.color === "string" && /^#[0-9a-fA-F]{6}$/.test(item.color) ? item.color : undefined;
+      return color ? { phrase, color } : phrase;
+    }
+    return null;
+  }).filter(Boolean);
+}
+
+function sanitizeCardBackgroundImageUrl(raw) {
+  const url = String(raw || "").trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
 async function handleIgPublish(req, res, body) {
   const postId = String(body?.post_id || body?.id || "").trim();
   if (!postId) return res.status(400).json({ ok: false, error: "post_id_obrigatorio" });
@@ -531,8 +582,26 @@ async function handleIgPublish(req, res, body) {
     .single();
   if (error || !post) return res.status(404).json({ ok: false, error: "post_not_found" });
 
+  // 30/10/2026 — cartão irônico. SEMPRE exige os blocos já aprovados no
+  // preview (ig_preview) — nunca gera texto novo aqui, pra garantir que o
+  // que Roberto viu e aprovou é exatamente o que vai publicado (WYSIWYG).
+  const cartaoIronico = !!body?.cartao_ironico;
+  let ironicParagraphs = null;
+  let ironicHighlights = [];
+  let ironicLayout = null;
+  let ironicBackgroundImageUrl = null;
+  if (cartaoIronico) {
+    ironicParagraphs = Array.isArray(body?.paragraphs) ? body.paragraphs.filter(Boolean) : [];
+    ironicHighlights = sanitizeCardHighlights(body?.highlights);
+    ironicLayout = sanitizeCardLayout(body?.layout);
+    ironicBackgroundImageUrl = sanitizeCardBackgroundImageUrl(body?.background_image_url);
+    if (!ironicParagraphs.length) {
+      return res.status(400).json({ ok: false, error: "cartao_ironico_sem_blocos", detalhe: "Gere e confirme o texto no preview (ig_preview) antes de publicar." });
+    }
+  }
+
   const imageUrl = String(post.imagem || "").trim();
-  if (!/^https?:\/\//i.test(imageUrl)) {
+  if (!cartaoIronico && !/^https?:\/\//i.test(imageUrl)) {
     return res.status(400).json({ ok: false, error: "post_sem_imagem_publica" });
   }
 
@@ -571,9 +640,11 @@ async function handleIgPublish(req, res, body) {
   const now = new Date().toISOString();
 
   try {
-    const { prepareInstagramImage } = await _loadInstagramImage();
+    const { prepareInstagramImage, prepareInstagramIronicCard } = await _loadInstagramImage();
     const { publish, collaboratorForFeedPost, getAccount, postComment, likeMedia } = await _loadInstagram();
-    const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
+    const instagramImage = cartaoIronico
+      ? await prepareInstagramIronicCard({ postId: post.id, supabase, paragraphs: ironicParagraphs, highlights: ironicHighlights, layout: ironicLayout, backgroundImageUrl: ironicBackgroundImageUrl })
+      : await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
     const ig = await publish(instagramImage.url, caption, accountId, { collaborator: collaboratorForFeedPost(post) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
@@ -1129,10 +1200,52 @@ async function handleIgPreview(req, res, body) {
 
   const { data: post, error } = await supabase
     .from("posts")
-    .select("id,titulo,imagem,status,approved")
+    .select("id,titulo,imagem,conteudo,status,approved")
     .eq("id", postId)
     .single();
   if (error || !post) return res.status(404).json({ ok: false, error: "materia_nao_encontrada" });
+
+  // 30/10/2026 — cartão irônico (fundo escuro + texto, sem foto). Pedido
+  // explícito de Roberto: ele escreve/edita os blocos manualmente OU deixa
+  // a IA gerar um rascunho a partir do fato real da matéria — sempre
+  // revisando aqui no preview antes de publicar. Nunca automático (ver
+  // handleIgPublish).
+  if (body.cartao_ironico) {
+    let paragraphs = Array.isArray(body.paragraphs) ? body.paragraphs.filter(Boolean) : null;
+    let highlights = sanitizeCardHighlights(body.highlights);
+    if (!paragraphs || !paragraphs.length) {
+      const factText = stripHtmlToText(post.conteudo || "").slice(0, 3000);
+      const gerado = await gerarCartaoIronicoInstagram(factText, post.titulo);
+      paragraphs = gerado.paragraphs;
+      highlights = sanitizeCardHighlights(gerado.highlights);
+    }
+    const layout = sanitizeCardLayout(body.layout);
+    const backgroundImageUrl = sanitizeCardBackgroundImageUrl(body.background_image_url);
+    const { prepareInstagramIronicCard } = await _loadInstagramImage();
+    const preview = await prepareInstagramIronicCard({
+      postId: `preview-ironic-${post.id}`,
+      supabase,
+      paragraphs,
+      highlights,
+      layout,
+      backgroundImageUrl
+    });
+    return res.status(200).json({
+      ok: true,
+      preview_only: true,
+      cartao_ironico: true,
+      post_id: post.id,
+      titulo: post.titulo,
+      image_url: preview.url,
+      image_path: preview.path,
+      generator_version: preview.version || null,
+      paragraphs,
+      highlights,
+      layout,
+      background_image_url: backgroundImageUrl
+    });
+  }
+
   if (!/^https?:\/\//i.test(String(post.imagem || ""))) {
     return res.status(400).json({ ok: false, error: "imagem_publica_ausente" });
   }
