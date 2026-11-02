@@ -1,11 +1,11 @@
-name: diag-once (pipeline stall check)
+name: diag-once (confirmar backlog pendente)
 on:
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Investigar volume de publicação por dia/canal + erros recentes + orçamento Gemini
+      - name: Confirmar backlog de posts pendentes nao aprovados do pipeline geral
         run: |
           python3 << 'PYEOF'
           import json, urllib.request, urllib.parse, datetime
