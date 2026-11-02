@@ -1,14 +1,14 @@
-name: diag-once (checar robots/sitemap/paginas reais)
+name: diag-once (checar paginas de artigo reais + volume por dia)
 on:
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar robots.txt, sitemap.xml e sinais de indexacao em paginas reais
+      - name: Checar robots/canonical em artigos reais + comparar volume de publicacao por dia
         run: |
           python3 << 'PYEOF'
-          import re, urllib.request, urllib.error, datetime
+          import re, urllib.request, urllib.error
 
           BASE = "https://www.ovalorcapital.com.br"
 
@@ -23,66 +23,47 @@ jobs:
               except Exception as e:
                   return None, {}, f"ERRO: {e}"
 
-          def fetch_as_googlebot(path):
-              return fetch(path, ua="Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")
-
-          print("=== 1) robots.txt (user-agent normal) ===")
-          status, headers, body = fetch("/robots.txt")
-          print(f"status={status}")
-          print(body[:3000])
-
-          print()
-          print("=== 2) robots.txt (user-agent Googlebot) ===")
-          status, headers, body = fetch_as_googlebot("/robots.txt")
-          print(f"status={status}")
-          print(body[:3000])
-
-          print()
-          print("=== 3) sitemap.xml ===")
-          status, headers, body = fetch("/sitemap.xml")
-          print(f"status={status} content-type={headers.get('Content-Type')} tamanho={len(body)}")
+          print("=== 1) Pegando a sub-sitemap real de posts (page=0) ===")
+          status, headers, body = fetch("/sitemap.xml?type=posts&page=0")
+          print(f"status={status} tamanho={len(body)}")
           urls = re.findall(r"<loc>(.*?)</loc>", body)
-          lastmods = re.findall(r"<lastmod>(.*?)</lastmod>", body)
-          print(f"total de <loc> encontradas: {len(urls)}")
-          print(f"total de <lastmod> encontradas: {len(lastmods)}")
-          if lastmods:
-              print("lastmods mais recentes (amostra):", sorted(lastmods, reverse=True)[:5])
-          if urls:
-              print("primeiras 5 urls:", urls[:5])
-              print("ultimas 5 urls:", urls[-5:])
+          print(f"total de URLs de artigo nessa pagina: {len(urls)}")
+          print("primeiras 3:", urls[:3])
 
           print()
-          print("=== 4) Homepage (/) — status, headers de indexacao, robots meta ===")
-          status, headers, body = fetch("/")
-          print(f"status={status}")
-          print("X-Robots-Tag header:", headers.get("X-Robots-Tag"))
-          print("Content-Length header:", headers.get("Content-Length"), "| tamanho real do body:", len(body))
-          m = re.search(r'<meta[^>]+name=["\']robots["\'][^>]*>', body, re.I)
-          print("meta robots encontrada:", m.group(0) if m else "NENHUMA (padrao = index,follow)")
-          m2 = re.search(r'<link[^>]+rel=["\']canonical["\'][^>]*>', body, re.I)
-          print("canonical:", m2.group(0) if m2 else "NENHUM")
-          print("tem <!DOCTYPE html>?", body.strip().lower().startswith("<!doctype html>"))
-
-          print()
-          print("=== 5) Homepage como Googlebot — compara tamanho/conteudo ===")
-          status_gb, headers_gb, body_gb = fetch_as_googlebot("/")
-          print(f"status={status_gb} tamanho={len(body_gb)}")
-          print("identico ao normal?", body_gb == body)
-
-          print()
-          print("=== 6) Amostra de artigos reais do sitemap — status + robots meta + canonical de cada um ===")
-          candidatos = [u.replace(BASE, "") for u in urls if u.startswith(BASE)]
-          amostra = candidatos[:3] + (candidatos[len(candidatos)//2:len(candidatos)//2+2] if len(candidatos) > 10 else [])
-          for path in amostra[:5]:
+          print("=== 2) Checando 5 artigos reais (title + meta robots + canonical + og:image + JSON-LD) ===")
+          amostra = urls[:3] + urls[len(urls)//2:len(urls)//2+2] if len(urls) > 5 else urls
+          for u in amostra[:5]:
+              path = u.replace(BASE, "")
               st, hd, bd = fetch(path)
+              mt = re.search(r'<title>(.*?)</title>', bd, re.I | re.S)
               mr = re.search(r'<meta[^>]+name=["\']robots["\'][^>]*>', bd, re.I)
               mc = re.search(r'<link[^>]+rel=["\']canonical["\'][^>]*>', bd, re.I)
-              mt = re.search(r'<title>(.*?)</title>', bd, re.I | re.S)
+              mog = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]*>', bd, re.I)
+              has_jsonld = 'application/ld+json' in bd
               print(f"--- {path}")
-              print(f"   status={st} tamanho={len(bd)} title={(mt.group(1)[:80] if mt else 'SEM TITLE')}")
-              print(f"   meta robots={mr.group(0) if mr else 'nenhuma'}")
+              print(f"   status={st} tamanho={len(bd)}")
+              print(f"   title={(mt.group(1)[:90] if mt else 'SEM TITLE')}")
+              print(f"   meta robots={mr.group(0) if mr else 'nenhuma (= index,follow)'}")
               print(f"   canonical={mc.group(0) if mc else 'NENHUM'}")
+              print(f"   og:image presente={bool(mog)}  JSON-LD presente={has_jsonld}")
+
+          print()
+          print("=== 3) Checando headers de cache/CDN na homepage e num artigo (Googlebot pode estar vendo cache velho?) ===")
+          st, hd, bd = fetch("/")
+          print("Cache-Control (home):", hd.get("Cache-Control"))
+          print("Age (home):", hd.get("Age"))
+          print("X-Vercel-Cache (home):", hd.get("X-Vercel-Cache"))
+          if amostra:
+              st2, hd2, bd2 = fetch(amostra[0].replace(BASE, ""))
+              print("Cache-Control (artigo):", hd2.get("Cache-Control"))
+              print("Age (artigo):", hd2.get("Age"))
+              print("X-Vercel-Cache (artigo):", hd2.get("X-Vercel-Cache"))
+
+          print()
+          print("=== 4) Procurando qualquer coisa suspeita no HTML da home: iframes, scripts de terceiro incomuns, redirecionamento via JS ===")
+          iframes = re.findall(r'<iframe[^>]*src=["\']([^"\']+)["\']', bd, re.I)
+          print("iframes na home:", iframes[:10])
+          metarefresh = re.search(r'<meta[^>]+http-equiv=["\']refresh["\']', bd, re.I)
+          print("meta refresh (redirect automatico)?", bool(metarefresh))
           PYEOF
-      - name: Checar vercel.json por headers globais de X-Robots-Tag/noindex
-        run: |
-          grep -i -n "robots\|noindex" vercel.json || echo "nenhuma ocorrencia de 'robots'/'noindex' em vercel.json"
