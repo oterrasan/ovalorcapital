@@ -10115,3 +10115,52 @@ Roberto, logo depois dos 3 fixes acima: "a automacao está acabando com o alcanc
 **Pendência real**: não temos dado de Insights (alcance/impressões reais) coletado em lugar nenhum do sistema ainda — isso é a task pendente "Instagram Insights real no admin" já registrada. Sem isso, qualquer mudança futura vai ser difícil de validar objetivamente (só teria o relato qualitativo de Roberto no app).
 
 **🚨 NÃO mexer em nada disso sem Roberto retomar o assunto explicitamente** — ele foi repetitivo e enfático sobre isso.
+
+---
+
+### Sessão 30-31/10/2026 — CARTÃO IRÔNICO DO INSTAGRAM (construído e testado, commitado localmente) + 🔴 QUEDA LONGA DO ACESSO AO GITHUB (push + MCP), AINDA SEM PUSH
+
+#### Contexto
+
+Roberto observou que 3 posts manuais dele no estilo "fundo escuro + texto grande, sem foto" (cartão irônico — gancho com número/fato real, alvo nomeado, contradição exposta) passaram de 2 mil views cada, contra ~200 views dos posts automáticos de feed com foto. Pediu: **"quero que voce construa esse mecanismo e coloque no admin pra eu testar. vou escrever conteudos la e publicar no instagram sem automacao de gerar conteudo, eu mesmo vou adicionar, textos, legendas, e o texto dos cards [...] mais ou menos como ja existe no caso dos reels, com editor de imagem, posicao de texto, tamanho de fontes, etc..."**
+
+#### O que foi construído (commit local `39fe8ae`, branch `claude/practical-thompson-25qszc`)
+
+- **`core/instagram_image.js`** — `buildInstagramIronicCardBuffer()`/`prepareInstagramIronicCard()`: reaproveita o MESMO overlay já usado no template de foto (`public/assets/ig-overlay-ovc-canva.png` — logo + rodapé de assinatura já embutidos), só troca a foto por um fundo sólido escuro (ou uma imagem, se Roberto escolher) e desenha o texto em Pango markup via sharp. Auto-ajuste de tamanho de fonte (36→22px) com corte de segurança linha-a-linha se mesmo o mínimo não couber — testado com um caso de estresse deliberadamente longo, confirmado que NUNCA invade o rodapé.
+  - **Bug real encontrado e corrigido durante a construção**: o limite inferior da caixa de texto (`CARD_BOX.bottom`) estava em `px(1540)` — o overlay só tem resolução nativa 1080x1350, então qualquer valor de referência acima de 1350 passado pra `px()` já extrapola a própria altura do canvas (1800) e invade o rodapé. Corrigido medindo o perfil real de alpha do overlay (o bloco de assinatura começa em y≈1188/1350) e fixando `bottom: px(1100)`.
+  - **Cores de destaque por frase, não por palavra única**: `markHighlightColors()` casa frases inteiras (não só 1 palavra) e aceita `{phrase, color}` — Roberto: "eu quero poder escolher quais palavras exatamente ficam em outras cores e quais cores".
+- **`core/ai_portal.js`** — `IG_CARTAO_KERNEL` (kernel próprio, isolado do MASTER_PROMPT — Regra Zero-B respeitada) + `gerarCartaoIronicoInstagram()`: botão opcional "✨ Gerar com IA" no admin, só um rascunho que Roberto sempre revisa/edita antes de publicar — nunca escreve nem publica sozinho. Fórmula seguida: gancho com número real da matéria-fonte → alvo nomeado → contradição exposta como pergunta, sem nunca inventar fato/nome/valor que não esteja na matéria.
+- **`api/manage.js`** — `handleIgPublish`/`handleIgPreview` estendidos pra aceitar `cartao_ironico:true` + `paragraphs`/`highlights`/`layout`/`background_image_url` (todos sanitizados com faixas numéricas sãs — `sanitizeCardLayout`/`sanitizeCardHighlights`/`sanitizeCardBackgroundImageUrl`). Preview SEMPRE exigido antes de publicar (WYSIWYG — nunca gera texto novo na hora de publicar, só usa o que já foi aprovado no preview).
+- **`public/admin/index.html`** — editor manual no modal de publicação do Instagram, no mesmo estilo do editor de Reels já existente: checkbox "Cartão irônico", 3 blocos de texto editáveis, linhas de destaque com cor própria cada, seção recolhível de posição/tamanho/cor da fonte, e opção fundo sólido ou imagem (busca reaproveitando `buscar_imagem` já existente).
+- Validado: `node --check` nos 3 arquivos JS (sintaxe OK), 2 renders reais via script isolado (caso normal + caso de estresse — ambos corretos, texto nunca avança no rodapé), e a tela do admin compilada de verdade com Babel (`@babel/core`+`@babel/preset-react`) confirmando JSX sem erro.
+
+#### 🔴 Bloqueio real — acesso ao GitHub fora do ar por ~21h seguidas
+
+Construído e commitado localmente desde `2026-10-30T05:22:59Z`. A partir de minutos depois, **todo acesso ao GitHub começou a falhar com 503** ("credential service temporarily unavailable") — confirmado em 3 caminhos independentes:
+1. `git push` direto (HTTPS) — 503, testado em dezenas de tentativas automáticas (2 loops de retry em segundo plano, cada um esgotando o teto de 2h) e várias manuais.
+2. `gh api` — 502 numa tentativa anterior.
+3. **Conector GitHub MCP** — também parou de conectar (503, erro distinto dos dois acima).
+
+O proxy de rede desta sessão foi checado e está saudável (`recentRelayFailures: []`) — ou seja, não é bloqueio local/de permissão, é instabilidade real do lado do GitHub, afetando múltiplos caminhos de acesso ao mesmo tempo. Roberto questionou essa explicação ("voce precisa resolver isso! voce tem todos os acessos") — respondido com essa evidência concreta (erros de serviço 502/503, não 401/403, que seriam o padrão de um problema de permissão).
+
+Em paralelo, a rotina diária de checagem de custo da Vercel (CronCreate, criada 30/09/2026 a pedido de Roberto) disparou e **não conseguiu rodar** — depende do GitHub (ler issues `custo-vercel` + log do workflow `cost-monitor.yml`) e esse acesso também estava fora. Reportado a Roberto como um segundo efeito real da mesma queda.
+
+**Estado no fim desta sessão**: ainda sem push, ainda 503 nos 3 caminhos, confirmado de novo pouco antes deste registro. Sugerido a Roberto reconectar o GitHub em claude.ai/code (força reautenticação, pode contornar um 503 de credencial) — aguardando resposta dele.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ⚠️ NADA DISTO ESTÁ EM PRODUÇÃO AINDA
+
+O cartão irônico está só no commit local `39fe8ae` — **NUNCA dizer a Roberto que está "resolvido" ou "no ar"** até: push → PR → CI verde → merge (sempre feito pelo Claude, nunca pedir pro Roberto clicar) → confirmar `deploy.yml` com sucesso. Nenhuma dessas etapas aconteceu ainda.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Assim que o GitHub voltar**: push de `claude/practical-thompson-25qszc` → abrir PR → esperar CI verde → merge (squash, pelo próprio Claude) → confirmar deploy → só então avisar Roberto que o cartão irônico está no ar pra ele testar.
+2. **Confirmar se a rotina diária de custo Vercel rodou com sucesso** depois que o GitHub voltar (ela falhou silenciosamente nesta janela por falta de acesso).
+3. **Buraco de documentação identificado, não preenchido nesta sessão** (fora do escopo do pedido — Roberto pediu só as últimas 72h): há commits reais de 23/10/2026 (`67cd08c` até `e68d685` — cooldown do disparo de Reels, limpeza da fila de links, trava de 60 chars só pro feed, investigação de custo Vercel Hobby×Pro, pesquisa de hospedagem alternativa) sem nenhuma entrada correspondente neste arquivo desde a última sessão documentada (29-30/09/2026). Preencher numa sessão futura se Roberto pedir o retrospecto completo.
+4. Demais pendências de sessões anteriores seguem válidas (investigação de alcance do Instagram — pausada, aguardando Roberto retomar; tokens sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin).

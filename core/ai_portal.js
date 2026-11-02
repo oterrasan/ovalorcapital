@@ -1146,3 +1146,71 @@ export async function rewriteColuna(nome, tag, bio, tema, referencias = '', cont
   if (!titulo || !corpo || textoLimpo.length < 400) throw new Error("Coluna: conteúdo gerado insuficiente");
   return { titulo, corpo: normalizarParagrafos(corpo) };
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// CARTÃO IRÔNICO DO INSTAGRAM — 30/10/2026, pedido explícito de Roberto.
+// Rascunho opcional (botão "✨ Gerar com IA" no admin) — ele sempre revisa
+// e edita antes de publicar, nunca é automático. "eu mesmo vou adicionar,
+// textos, legendas, e o texto dos cards" — o campo de texto manual é o
+// caminho principal, isto é só um ponto de partida que ele pode ignorar.
+// ══════════════════════════════════════════════════════════════════════
+const IG_CARTAO_KERNEL = `Você escreve o texto de um cartão de Instagram do O Valor Capital — portal de notícias brasileiro, posicionamento assumido de direita, tom implacável, corajoso, que expõe contradição e hipocrisia do poder público. É o único texto do cartão: sem foto, fundo escuro, letras grandes — o texto TEM que carregar o post sozinho.
+
+A matéria original (fornecida abaixo como fonte) já foi escrita e publicada no site em tom jornalístico neutro. Sua função é diferente: pegar o MESMO FATO REAL dessa matéria e reescrevê-lo num formato curto, afiado, de rede social — nunca inventando nenhum fato, número, nome ou declaração que não esteja na matéria-fonte.
+
+FÓRMULA (baseada em exemplos reais que tiveram 10x mais alcance que o formato anterior — siga ESSE padrão estrutural, não invente um novo):
+
+Exemplo 1:
+"DILMA, A MÃE DOS POBRES RECEBE MAIS DE R$ 440 MIL POR MÊS DO GOVERNO E DE BANCO.
+ALÉM DESTES VALORES, ELA ACABA DE RECEBER UM BENEFÍCIO DO GOVERNO QUE ULTRAPASSA OS 6 MILHÕES DE REAIS.
+ISSO PROVA QUE A "JUSTIÇA SOCIAL" SÓ FUNCIONOU PARA O PRÓPRIO BOLSO?"
+(destaque: "BENEFÍCIO DO GOVERNO", "JUSTIÇA SOCIAL")
+
+Exemplo 2:
+"GOVERNO CONFIRMA O ALERTA DA OPOSIÇÃO:
+"PIX DE 5 MIL" ENFRENTARÁ CORTE SEVERO E VALOR PODE CAIR PARA R$ 400"
+(destaque: "PIX DE 5 MIL")
+
+Exemplo 3:
+"DOIS DIAS APÓS REELEIÇÃO, LULA AUTORIZA ESTUDOS PARA REDUÇÃO BILIONÁRIA NA SAÚDE E PROGRAMAS COMO O BOLSA FAMÍLIA E O VALE GÁS."
+(destaque: "LULA", "REDUÇÃO BILIONÁRIA")
+
+Estrutura que você deve seguir:
+1. Gancho com NÚMERO ou FATO concreto da matéria-fonte, direto, sem rodeio.
+2. Alvo NOMEADO (pessoa, órgão ou política pública), nunca vago.
+3. A contradição ou hipocrisia exposta, muitas vezes como pergunta retórica.
+2 a 3 blocos curtos (cada um 1-2 frases), total entre 200 e 420 caracteres.
+
+REGRAS INVIOLÁVEIS (nunca quebrar, mesmo no tom mais afiado):
+- Nunca afirme crime sem menção a investigação/condenação já constante na matéria-fonte.
+- Nunca invente número, nome, data, cargo ou valor que não esteja na matéria-fonte.
+- Se a matéria-fonte atribuir a informação a alguém/órgão específico, mantenha essa atribuição correta.
+- Nunca mencione nome de outro veículo de imprensa.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários, sem markdown):
+BLOCO_1: [primeiro bloco do cartão]
+BLOCO_2: [segundo bloco, ou deixe vazio se só precisar de 2 blocos no total]
+BLOCO_3: [terceiro bloco, opcional]
+DESTAQUE: [1 a 3 frases EXATAS que aparecem dentro dos blocos acima, separadas por " | ", pra destacar em cor — a parte mais inflamável de cada uma]`;
+
+function parseCartaoIronico(raw) {
+  const get = (label) => {
+    const m = String(raw || "").match(new RegExp(`^${label}:\\s*(.*)$`, "im"));
+    return m ? m[1].trim() : "";
+  };
+  const paragraphs = [1, 2, 3].map(n => get(`BLOCO_${n}`)).filter(Boolean);
+  const highlights = get("DESTAQUE").split("|").map(h => h.trim()).filter(Boolean);
+  return { paragraphs, highlights };
+}
+
+export async function gerarCartaoIronicoInstagram(text, title) {
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text);
+  // SEM prioridade "essencial" de propósito — isso aqui é manual, baixo
+  // volume, disparado por Roberto no admin; não deve competir pela cota
+  // reservada dos canais automáticos que nunca podem parar (Brasil ON,
+  // Jovem Pan Política, Internacional).
+  const raw = await callIA(IG_CARTAO_KERNEL, userContent, 1024);
+  const result = parseCartaoIronico(raw);
+  if (!result.paragraphs.length) throw new Error("Cartão irônico: resposta da IA sem blocos de texto");
+  return result;
+}
