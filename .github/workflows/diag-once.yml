@@ -134,4 +134,48 @@ jobs:
               qsf = urllib.parse.urlencode({"select": "key,value", "key": f"eq.{key}"})
               r = get(f"/config?{qsf}")
               print(f"  {key}: {r}")
+
+          print()
+          print("=== LOGS QUALQUER NIVEL, ultimos 6 dias, mencionando materia/portal/candidate/gemini ===")
+          cutoff6 = (datetime.datetime.utcnow() - datetime.timedelta(days=6)).strftime("%Y-%m-%dT%H:%M:%S")
+          # PostgREST or.() com ilike em varios termos
+          termos = ["materia", "no_valid_news", "candidates", "Gemini", "orcamento", "autoMaterias", "limite_diario"]
+          or_clause = ",".join([f"message.ilike.*{t}*" for t in termos])
+          qs3 = urllib.parse.urlencode({
+              "select": "created_at,level,message",
+              "created_at": f"gte.{cutoff6}",
+              "or": f"({or_clause})",
+              "order": "created_at.desc",
+              "limit": "200",
+          })
+          logs2 = get(f"/logs?{qs3}")
+          print(f"total encontrado: {len(logs2)}")
+          c2 = Counter()
+          for l in logs2:
+              msg = (l.get("message") or "")[:160]
+              c2[msg] += 1
+          print("--- top 30 mensagens mais repetidas ---")
+          for msg, n in c2.most_common(30):
+              print(f"  [{n}x] {msg}")
+          print("--- 20 mais recentes, completas ---")
+          for l in logs2[:20]:
+              print(f"  {l.get('created_at')} [{l.get('level')}] {l.get('message')}")
+
+          print()
+          print("=== amostra de logs (qualquer msg) por DIA, so pra ver se o pipeline geral logou algo em 28-10 a 01-11 ===")
+          for target_day_offset in range(1, 7):
+              day_start = (datetime.datetime.utcnow() - datetime.timedelta(days=target_day_offset)).strftime("%Y-%m-%dT00:00:00")
+              day_end = (datetime.datetime.utcnow() - datetime.timedelta(days=target_day_offset-1)).strftime("%Y-%m-%dT00:00:00")
+              qsd = urllib.parse.urlencode({
+                  "select": "created_at,level,message",
+                  "created_at": f"gte.{day_start}",
+                  "order": "created_at.asc",
+                  "limit": "500",
+              })
+              rows = get(f"/logs?{qsd}")
+              rows_day = [r for r in rows if r["created_at"] < day_end]
+              materias_like = [r for r in rows_day if any(t.lower() in (r.get("message") or "").lower() for t in ["materia","no_valid_news","autoMaterias"])]
+              print(f"  dia offset -{target_day_offset}: total logs capturados(amostra)={len(rows_day)} / mencionando materias={len(materias_like)}")
+              for r in materias_like[:5]:
+                  print(f"      {r.get('created_at')} [{r.get('level')}] {(r.get('message') or '')[:160]}")
           PYEOF
