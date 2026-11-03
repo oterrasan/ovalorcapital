@@ -93,6 +93,7 @@ export default async function handler(req, res) {
       // handleDispatchReelsWorkflow — auth via checkAdmin (query.pass, mesmo
       // padrão de ig_priority_publish acima).
       if (action === "dispatch_reels_workflow") return handleDispatchReelsWorkflow(req, res, undefined);
+      if (action === "relatorio_canais") return handleRelatorioCanais(req, res);
       return handleStatus(res);
     }
 
@@ -188,6 +189,78 @@ async function handleStatus(res) {
     youtube_live_url: youtube.value?.data?.value || null,
     supabase_project: "yntwvfcxjardzafdqanj",
     emergency_manage: true
+  });
+}
+
+// 03/11/2026 — Roberto: "tem muita coisa que o site gera e sequer tem
+// cliques... o que nao tem cliques nem impressoes, ou algo irrelevante,
+// iremos cortar". Não temos acesso direto ao Google Search Console (dado
+// real de cliques/impressões), então esta ação mede o proxy que o próprio
+// site já guarda: quantas vezes cada matéria publicada foi de fato ABERTA
+// por um visitante (metrics.views, incrementado por track_view toda vez
+// que alguém abre a página do artigo). Agrega por publish_method (o canal
+// que gerou a matéria: portal/brasilon/jovempan_politica/internacional/
+// esportes_radar/colunista/etc) e por categoria, só leitura, protegida por
+// checkAdmin — nunca apaga/edita nada.
+async function handleRelatorioCanais(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const dias = Math.max(1, Math.min(180, Number(req.query?.dias) || 30));
+  const desde = new Date(Date.now() - dias * 86400000).toISOString();
+
+  const rows = [];
+  const PAGE = 1000;
+  for (let from = 0; from < 50000; from += PAGE) {
+    const { data, error } = await supabase
+      .from("posts")
+      .select("id,publish_method,user_tags,metrics,published_at")
+      .eq("status", "publicado")
+      .gte("published_at", desde)
+      .range(from, from + PAGE - 1);
+    if (error) return res.status(200).json({ ok: false, error: error.message });
+    if (!data || !data.length) break;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
+
+  const porCanal = {};
+  const porCategoria = {};
+  for (const row of rows) {
+    const canal = row.publish_method || "(sem publish_method)";
+    let m = row.metrics;
+    if (typeof m === "string") { try { m = JSON.parse(m); } catch (_) { m = {}; } }
+    const views = parseInt(m?.views || 0, 10) || 0;
+    let tags = row.user_tags;
+    if (typeof tags === "string") { try { tags = JSON.parse(tags); } catch (_) { tags = []; } }
+    const cat = Array.isArray(tags) && tags.length ? String(tags[0]) : "(sem categoria)";
+
+    if (!porCanal[canal]) porCanal[canal] = { posts: 0, views_total: 0, zero_views: 0 };
+    porCanal[canal].posts++;
+    porCanal[canal].views_total += views;
+    if (views === 0) porCanal[canal].zero_views++;
+
+    if (!porCategoria[cat]) porCategoria[cat] = { posts: 0, views_total: 0, zero_views: 0 };
+    porCategoria[cat].posts++;
+    porCategoria[cat].views_total += views;
+    if (views === 0) porCategoria[cat].zero_views++;
+  }
+
+  const resumir = obj => Object.entries(obj)
+    .map(([nome, v]) => ({
+      nome,
+      posts: v.posts,
+      views_total: v.views_total,
+      views_media: v.posts ? Number((v.views_total / v.posts).toFixed(1)) : 0,
+      zero_views: v.zero_views,
+      pct_zero_views: v.posts ? Number((100 * v.zero_views / v.posts).toFixed(1)) : 0
+    }))
+    .sort((a, b) => a.views_media - b.views_media);
+
+  return res.status(200).json({
+    ok: true,
+    periodo_dias: dias,
+    total_posts_analisados: rows.length,
+    por_canal: resumir(porCanal),
+    por_categoria: resumir(porCategoria)
   });
 }
 
