@@ -1,13 +1,9 @@
-name: diag-once (relatorio de canais)
+name: diag-once (placeholder)
 on:
   workflow_dispatch:
 jobs:
-  check:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Relatorio 30 dias - OVC
-        env:
-          T: ${{ secrets.OVC_ADMIN_TOKEN }}
-        run: |
-          curl -s "https://www.ovalorcapital.com.br/api/manage?action=relatorio_canais&dias=30&pass=$T"
-          echo ""
+      - name: Nada a fazer
+        run: echo "noop - este workflow eh sobrescrito temporariamente quando precisamos de um diagnostico one-off em producao"
