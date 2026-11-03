@@ -10164,3 +10164,65 @@ O cartão irônico está só no commit local `39fe8ae` — **NUNCA dizer a Rober
 2. **Confirmar se a rotina diária de custo Vercel rodou com sucesso** depois que o GitHub voltar (ela falhou silenciosamente nesta janela por falta de acesso).
 3. **Buraco de documentação identificado, não preenchido nesta sessão** (fora do escopo do pedido — Roberto pediu só as últimas 72h): há commits reais de 23/10/2026 (`67cd08c` até `e68d685` — cooldown do disparo de Reels, limpeza da fila de links, trava de 60 chars só pro feed, investigação de custo Vercel Hobby×Pro, pesquisa de hospedagem alternativa) sem nenhuma entrada correspondente neste arquivo desde a última sessão documentada (29-30/09/2026). Preencher numa sessão futura se Roberto pedir o retrospecto completo.
 4. Demais pendências de sessões anteriores seguem válidas (investigação de alcance do Instagram — pausada, aguardando Roberto retomar; tokens sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin).
+
+---
+
+### Sessão 03/11/2026 — PAUSA GERAL DO OVC (pedido explícito) + INVESTIGAÇÃO REAL DA QUEDA NO SEARCH CONSOLE + FAXINA DE LIMPEZA (PR #820)
+
+#### Contexto
+
+Roberto reportou queda severa de impressões/cliques no Google Search Console ("ZERO CLIQUES ontem e DOIS CLIQUES anteontem"). Primeira hipótese minha (fila de pendentes de 1 canal específico) foi **rejeitada corretamente por Roberto** — ele apontou que isso não explica uma queda sitewide com 5 outros canais publicando em alto volume todo dia. Investigação pivotada pra SEO técnico sitewide: robots.txt, sitemap.xml, comparação Googlebot-vs-UA normal, headers de cache/CDN, conteúdo suspeito na home — tudo confirmado limpo via evidência real em produção (sem bloqueio robots, sem sitemap quebrado, sem cloaking, sem noindex geral).
+
+#### Bug real confirmado e corrigido — canonical do artigo com slug errado (PR #820)
+
+`api/article.js`'s próprio `slugify()` truncava em **60** chars; `api/sitemap.js`, `api/landing.js` e `api/portal-posts.js` (as 4 fontes reais de URL de artigo linkada/sitemapada) truncam em **55**. Para título cujo slug cai entre 56-60 chars, `<link rel="canonical">`, `og:url` e `@id` do JSON-LD apontavam pra uma URL que o site nunca linka/sitemapa de fato — canonical órfão. Confirmado via `git blame` que existe desde 02/06/2026 (NÃO é a causa da queda recente — defeito antigo, isolado, mas real e agora corrigido). Fix: `.slice(0, 55)`, igual ao resto do codebase.
+
+**Não encontrada causa de código definitiva pra queda súbita de novembro.** A única pista real que resta é algo que eu não tenho acesso pra checar: passado pra Roberto verificar Search Console → Segurança e ações manuais (`https://search.google.com/search-console/security-issues?resource_id=sc-domain:ovalorcapital.com.br`) — aguardando ele reportar o que aparece lá.
+
+#### 🔴 Pipeline do OVC PAUSADO — pedido explícito de Roberto
+
+Roberto: *"quero que pause todo o pipeline, deixe o ovc pausado em tudo por enquanto."* Pausado com evidência real (GET antes/depois na tabela `config`, PR #818):
+- `AUTOMATION` → `off` (gate único que cobre os 7 canais de geração: materias, futebol, outros_esportes, brasilon, jovempan_politica, internacional, fofocas)
+- `IG_AUTOMATION_ENABLED` → `off` (feed Instagram do OVC)
+- `REELS_AUTOMATION_ENABLED` → `off` (Reels do OVC)
+- `BON_IG_ENABLED` (Brasil ON) — **intocado, continua `on`** — Roberto pediu especificamente "o OVC"
+
+**🚨 NÃO reativar nada disso sem pedido explícito e novo de Roberto.**
+
+#### Faxina — limpeza de lixo morto confirmado (PR #820)
+
+A pedido de Roberto ("está na hora da faxina, claude. limpar tudo o que está quebrado, organizar a casa, colocar plano de acao..."), confirmado via grep (zero referência em todo o repo) e removido:
+- `.github/workflows/run_migration.yml` — migração Supabase já concluída (jun/2026), self-path-filtered/dormant, com a `service_role` key do banco ANTIGO MORTO hardcoded em texto puro
+- `.github/workflows/migrate-posts.yml` + `migrate-old-to-new.mjs` (par) — mesma migração, confirm-gated/dormant, chaves do banco antigo E do atual hardcoded
+- `.github/workflows/migrar_supabase.yml` — mesma migração, manual-input/dormant
+- `.github/workflows/republish.yml` — chamava `action=republish`, que **não existe mais** em `api/manage.js` (0 ocorrências via grep) — workflow genuinamente quebrado
+- `scripts/one-off/*` (7 arquivos) + `scripts/diag/admin-prod.cjs` — sobras de diagnósticos pontuais de sessões passadas, zero referência em qualquer lugar do repo
+
+Nenhum dos 4 workflows de migração tinha schedule nem push-trigger em arquivo de app — todos exigiam disparo manual ou só disparavam ao editar o próprio arquivo, então a remoção não afeta nenhuma rotina ativa. `api/` continua com exatamente 10 arquivos (Regra Zero-A intacta).
+
+**Não deletado, registrado como opcional/baixa prioridade**: `.github/workflows/` ainda tem ~11 arquivos nomeados "— pausado" (já neutralizados pra um `echo` inerte havia tempo — `create_tables.yml`, `fix_cats.yml`, `list_db.yml`, `run_setup.yml`, `setup_categories.yml`, `reset_posts.yml`, `audit_images.yml`, `regenerar_recentes.yml`, `force-materias-especiais.yml`, `keepalive.yml`, `pipeline_portal.yml`) — zero risco, zero manutenção, mas é clutter visual na pasta. Também existe duplicidade cosmética entre `run.yml` ("OVC Keepalive", ativo, cron a cada 6h) e `keepalive.yml` (mesmo propósito, nome mais claro, mas inerte). Nenhum dos dois é "quebrado" — só confuso. Deixado de lado nesta faxina pra não ampliar o escopo da PR; mexer só se Roberto confirmar que quer.
+
+#### Pendências resolvidas nesta sessão (herdadas da sessão 30-31/10)
+
+- ✅ **Cartão irônico do Instagram** — PR #811 mergeado e deployado com sucesso (`deploy.yml` run `41492153480`, `conclusion:success`), confirmado 02/11/2026. Já está no ar pra Roberto testar.
+- ✅ **Queda de acesso ao GitHub** — resolvida (push/PR/merge funcionando normalmente nesta sessão).
+- ✅ **Rotina diária de custo Vercel** — confirmada saudável via `list_triggers`: `last_run.status=SUCCEEDED`, último disparo 02/11/2026, próximo agendado 03/11/2026.
+
+#### ⚠️ Buraco de documentação confirmado, NÃO preenchido nesta sessão (fora do escopo pedido)
+
+Confirmado via `deploy.yml` que os PRs #808 (fix de `link_jobs_limpar_tudo` apagando a fila com 400 Bad Request) e #810 (categoria "giro" do Brasil ON sem rota, 404 em todo link de matéria) foram mergeados e deployados com sucesso entre 23-27/10/2026 — **nenhuma entrada correspondente existe neste arquivo**. Mesmo buraco já apontado na sessão anterior (23/10 a 29/09, nunca preenchido). Não é risco ativo (código já em produção, confirmado funcionando) — só falta registro histórico. Preencher numa sessão futura se Roberto pedir o retrospecto completo.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Aguardando Roberto**: o que aparece em Search Console → Segurança e ações manuais (link acima) — é a pista mais forte que resta pra explicar a queda de cliques/impressões.
+2. **Pipeline pausado, aguardando Roberto decidir quando religar** — nada deve ser reativado sem pedido explícito e novo.
+3. Buraco de documentação 23/10-02/11 (ver acima) — baixa urgência, preencher só se Roberto pedir.
+4. Workflows "— pausado" + duplicidade `run.yml`/`keepalive.yml` — cosmético, opcional, só se Roberto quiser ir além.
+5. Demais pendências antigas seguem válidas: investigação de alcance do Instagram (pausada, aguardando Roberto retomar); tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin.
