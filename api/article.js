@@ -66,6 +66,146 @@ const CAT_LABEL = {
 const STATIC_DIRS = new Set(["js", "css", "assets", "images", "img", "fonts"]);
 const templates = new Map();
 
+// 03/11/2026 — causa raiz real confirmada da rejeição do AdSense por
+// "conteúdo de baixa qualidade" e da queda de tráfego orgânico: o HTML
+// servido por este handler NUNCA continha o corpo real do artigo — só o
+// script window.__OVC_ARTICLE__ (lido depois por internal-page-v2.js, que
+// monta o H1/corpo real via innerHTML no navegador). Qualquer crawler que
+// não executa esse JS (AdSense review, ou o Googlebot sem orçamento pra
+// 2ª onda de rendering) via EXATAMENTE o mesmo texto fixo de template de
+// categoria ("Cobertura política com leitura organizada...") repetido em
+// toda página de artigo do site — thin/duplicate content em escala, a
+// causa clássica #1 de recusa de baixa qualidade. Fix: o SSR agora escreve
+// o H1/corpo reais direto no HTML, replicando (server-side, sem DOM) a
+// mesma lógica de internal-page-v2.js — o JS client-side continua
+// rodando por cima depois (mesmo conteúdo, mais "leia também"/share), sem
+// nenhuma mudança visual pro usuário humano.
+const CORES_CAT = {
+  politica: "#dc2626", economia: "#2563eb", negocios: "#7c3aed",
+  financas: "#059669", tecnologia: "#6366f1", industria: "#ea580c",
+  internacional: "#dc2626", familia: "#db2777", esportes: "#16a34a",
+  "brasil-on": "#b91c1c", giro: "#0f766e", colunistas: "#ffc800"
+};
+
+function corCat(cat) { return CORES_CAT[cat] || "#dc2626"; }
+
+function dataLongaServer(dt) {
+  if (!dt) return "";
+  try {
+    return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  } catch (_) { return ""; }
+}
+
+function estimarLeituraServer(texto) {
+  if (!texto) return "1 min de leitura";
+  const palavras = stripHtml(texto).trim().split(/\s+/).filter(Boolean).length;
+  const mins = Math.max(1, Math.round(palavras / 200));
+  return `${mins} min de leitura`;
+}
+
+function quebrarParagrafosServer(html) {
+  if (!html) return html;
+  let prev, r = html, passes = 0;
+  do {
+    prev = r;
+    r = r.replace(/<p[^>]*>([\s\S]+?)<\/p>/gi, (match, inner) => {
+      if (inner.length < 300) return match;
+      const partes = inner.split(/([.!?]["»]?\s+)/);
+      let frases = [], buf = "";
+      for (let i = 0; i < partes.length; i++) {
+        buf += partes[i];
+        if (/[.!?]["»]?\s*$/.test(buf) && buf.trim().length > 60) { frases.push(buf.trim()); buf = ""; }
+      }
+      if (buf.trim()) frases.push(buf.trim());
+      if (frases.length <= 1) {
+        const words = inner.split(/\s+/);
+        let wchunk = "", wchars = 0;
+        const wsplits = [];
+        words.forEach((w) => {
+          wchunk += (wchunk ? " " : "") + w;
+          wchars += w.length + 1;
+          if (wchars > 220 && /[,;]$/.test(w)) { wsplits.push(wchunk.trim()); wchunk = ""; wchars = 0; }
+        });
+        if (wchunk.trim()) wsplits.push(wchunk.trim());
+        if (wsplits.length <= 1) return match;
+        frases = wsplits;
+      }
+      const maxG = passes === 0 ? 3 : 2;
+      let out = "", chk = "", cnt = 0;
+      frases.forEach((f) => {
+        chk += (chk ? " " : "") + f;
+        cnt++;
+        if (cnt >= maxG) { out += `<p>${chk}</p>\n`; chk = ""; cnt = 0; }
+      });
+      if (chk) out += `<p>${chk}</p>`;
+      return out;
+    });
+    passes++;
+  } while (r !== prev && passes < 5);
+  return r;
+}
+
+function renderCorpoServer(texto) {
+  if (!texto) return "";
+  if (/^\s*<[a-z]/i.test(texto.trim())) {
+    const html = quebrarParagrafosServer(texto);
+    return `<div class="ovc-corpo" style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);">${html}</div>`;
+  }
+  const lines = texto.split("\n");
+  let html = "";
+  const htags = [];
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) continue;
+    if (/^##\s+/.test(t)) {
+      html += `<h2 style="font-size:21px;font-weight:800;line-height:1.25;margin:36px 0 14px;color:var(--text-main,#0f172a);border-left:3px solid var(--ovc-accent,#dc2626);padding-left:14px;">${esc(t.replace(/^##\s+/, ""))}</h2>`;
+    } else if (/^(#[^\s#,]+[\s,]*)+$/.test(t) && t[0] === "#") {
+      htags.push(...(t.match(/#[^\s#,]+/g) || []));
+    } else if (/^Redação OVC/i.test(t)) {
+      html += `<p style="font-size:13px;font-weight:600;color:#94a3b8;margin:0 0 24px;padding-bottom:16px;border-bottom:1px solid #e2e8f0;">${esc(t)}</p>`;
+    } else if (/^<\/?[a-z]/i.test(t)) {
+      html += t;
+    } else {
+      html += `<p style="font-size:17px;line-height:1.9;color:var(--text-main,#1e293b);margin:0 0 22px;">${esc(t)}</p>`;
+    }
+  }
+  if (htags.length) {
+    html += `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:28px 0 0;">${htags
+      .map((t) => `<span style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:4px 12px;border-radius:20px;">${esc(t)}</span>`)
+      .join("")}</div>`;
+  }
+  return html;
+}
+
+function parseYouTubeServer(url) {
+  if (!url) return null;
+  const m = String(url).match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (!m) return null;
+  return { id: m[1], vertical: /\/shorts\//.test(url) };
+}
+
+function renderMediaServer(videoUrl, image, title) {
+  if (!videoUrl) return "";
+  const yt = parseYouTubeServer(videoUrl);
+  if (yt) {
+    return `<div class="ovc-art-video-wrap ovc-art-video-yt${yt.vertical ? " ovc-art-video-yt-v" : ""}"><iframe src="https://www.youtube-nocookie.com/embed/${yt.id}" title="${esc(title)}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="ovc-art-video-caption">${esc(title)}</div></div>`;
+  }
+  const posterAttr = image ? ` poster="${esc(image)}"` : "";
+  return `<div class="ovc-art-video-wrap"><video class="ovc-art-video" controls playsinline preload="metadata"${posterAttr} src="${esc(videoUrl)}">Seu navegador não suporta reprodução de vídeo. <a href="${esc(videoUrl)}">Baixar o vídeo</a>.</video><div class="ovc-art-video-caption">${esc(title)}</div></div>`;
+}
+
+function renderArticleHeroServer({ title, subtitle, body, image, videoUrl, catPath, catLabel, subcategory, publishedAt }) {
+  const c = corCat(catPath);
+  const breadcrumb = `<nav style="font-size:12px;color:#94a3b8;margin-bottom:20px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><a href="/" style="color:#94a3b8;text-decoration:none;">Início</a><span>&rsaquo;</span><a href="/${catPath}/" style="color:#94a3b8;text-decoration:none;">${esc(catLabel)}</a>${subcategory ? `<span>&rsaquo;</span><span style="color:#64748b;">${esc(subcategory)}</span>` : ""}</nav>`;
+  const metaLine = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;"><span style="display:inline-block;background:${c};color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:4px;text-transform:uppercase;letter-spacing:.08em;">${esc(catLabel)}</span>${subcategory ? `<span style="font-size:11px;color:#64748b;font-weight:600;">${esc(subcategory)}</span>` : ""}<span style="font-size:13px;color:#64748b;">Redação OVC &middot; ${dataLongaServer(publishedAt)}</span><span style="font-size:11px;color:#94a3b8;background:#f1f5f9;padding:3px 9px;border-radius:20px;">&#9201; ${estimarLeituraServer(body)}</span></div>`;
+  const h1 = `<h1 style="font-size:30px;font-weight:900;line-height:1.18;margin:0 0 16px;color:var(--text-main,#0f172a);letter-spacing:-.02em;">${esc(title)}</h1>`;
+  const sub = subtitle ? `<p style="font-size:18px;color:#475569;margin:0 0 4px;line-height:1.6;font-style:italic;border-left:4px solid ${c};padding:6px 0 6px 16px;">${esc(subtitle)}</p>` : "";
+  const media = renderMediaServer(videoUrl, image, title);
+  const imgTag = !videoUrl && image ? `<img src="${esc(image)}" class="ovc-art-img" alt="${esc(title)}" onerror="this.style.display='none'">` : "";
+  const corpo = renderCorpoServer(body || "");
+  return `<div style="display:block;padding:24px 28px 32px;box-sizing:border-box;">${breadcrumb}${metaLine}${h1}${sub}${media}<div class="ovc-art-body">${imgTag}<div>${corpo}</div><div style="clear:both;"></div></div></div>`;
+}
+
 export default async function handler(req, res) {
   try {
     const host = req.headers['host'] || '';
@@ -187,6 +327,30 @@ export default async function handler(req, res) {
     html = html.replace(/<meta\s+name=["']description["'][^>]*>/i, "");
     html = html.replace(/<link\s+rel=["']canonical["'][^>]*>/i, "");
     html = html.includes("</head>") ? html.replace("</head>", `${seoTags}\n</head>`) : `${seoTags}\n${html}`;
+
+    // Remove o hero genérico de categoria (H1/texto fixo de template) e
+    // injeta o H1/corpo reais do artigo no SSR -- ver comentário acima de
+    // CORES_CAT. Envolto em try/catch: se algo der errado aqui, a página
+    // continua servindo exatamente como antes (hero vazio, preenchido
+    // depois pelo JS) em vez de falhar -- nunca pode derrubar o artigo.
+    try {
+      html = html.replace(/<section class="ovc-section-hero">[\s\S]*?<\/section>/, "");
+      const heroHtml = renderArticleHeroServer({
+        title,
+        subtitle: row.comentario_fixado || "",
+        body: row.conteudo || "",
+        image: displayImage,
+        videoUrl: row.video_url || "",
+        catPath,
+        catLabel,
+        subcategory: row.subcategoria || "",
+        publishedAt
+      });
+      html = html.replace(
+        '<div class="ovc-panel" data-hero-card></div>',
+        `<div class="ovc-panel" data-hero-card>${heroHtml}</div>`
+      );
+    } catch (_) {}
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
