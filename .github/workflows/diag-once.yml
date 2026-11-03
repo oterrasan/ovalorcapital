@@ -5,5 +5,66 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "nada a fazer -- preencher quando precisar de um diagnostico novo"
+      - name: medir espaço real de imagens + quantos posts têm mais de 3 meses
+        run: |
+          python3 << 'PYEOF'
+          import json, urllib.request, datetime
+
+          SB_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          def req(url, method="GET", body=None):
+              data = json.dumps(body).encode() if body is not None else None
+              r = urllib.request.Request(url, data=data, method=method, headers={
+                  "apikey": SB_KEY,
+                  "Authorization": f"Bearer {SB_KEY}",
+                  "Content-Type": "application/json",
+              })
+              with urllib.request.urlopen(r, timeout=30) as resp:
+                  return json.loads(resp.read().decode())
+
+          # 1) Quantos posts tem mais de 3 meses e quantos tem imagem no nosso storage
+          cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=90)).strftime("%Y-%m-%dT%H:%M:%S")
+          total_old = 0
+          old_with_our_image = 0
+          offset = 0
+          while True:
+              url = f"{SB_URL}/rest/v1/posts?select=id,imagem,published_at,created_at&status=eq.publicado&published_at=lt.{cutoff}&limit=1000&offset={offset}"
+              batch = req(url)
+              if not batch:
+                  break
+              for p in batch:
+                  total_old += 1
+                  img = p.get("imagem") or ""
+                  if "post-images" in img or "/storage/v1/object/public/post-images" in img:
+                      old_with_our_image += 1
+              offset += 1000
+              if len(batch) < 1000:
+                  break
+          print(f"POSTS PUBLICADOS COM MAIS DE 3 MESES: {total_old}")
+          print(f"  ...dos quais com imagem no nosso Storage (post-images): {old_with_our_image}")
+
+          # 2) Tamanho real do bucket post-images (listagem paginada, soma metadata.size)
+          total_bytes = 0
+          total_files = 0
+          offset = 0
+          page = 1000
+          while True:
+              body = {"limit": page, "offset": offset, "sortBy": {"column": "name", "order": "asc"}}
+              items = req(f"{SB_URL}/storage/v1/object/list/post-images", method="POST", body=body)
+              if not items:
+                  break
+              for it in items:
+                  meta = it.get("metadata") or {}
+                  sz = meta.get("size") or 0
+                  total_bytes += sz
+                  total_files += 1
+              offset += page
+              if len(items) < page:
+                  break
+              if offset > 200000:
+                  print("...parou em 200k arquivos pra nao rodar pra sempre, segue parcial")
+                  break
+          print(f"ARQUIVOS REAIS NO BUCKET post-images (pasta raiz, SEM subpastas): {total_files}")
+          print(f"TAMANHO TOTAL (raiz): {total_bytes} bytes = {total_bytes/1024/1024:.1f} MB")
+          PYEOF
