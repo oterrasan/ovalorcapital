@@ -1,58 +1,9 @@
-name: diag-once (pausar automacao geral do OVC)
+name: diag-once (placeholder)
 on:
   workflow_dispatch:
 jobs:
-  diag:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Pausar AUTOMATION, IG_AUTOMATION_ENABLED e REELS_AUTOMATION_ENABLED do OVC
-        run: |
-          python3 << 'PYEOF'
-          import json, urllib.request, urllib.parse
-
-          BASE = "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1"
-          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-
-          def req(method, path, body=None, extra_headers=None):
-              url = BASE + path
-              data = json.dumps(body).encode() if body is not None else None
-              r = urllib.request.Request(url, data=data, method=method)
-              r.add_header("apikey", KEY)
-              r.add_header("Authorization", "Bearer " + KEY)
-              r.add_header("Content-Type", "application/json")
-              if extra_headers:
-                  for k, v in extra_headers.items():
-                      r.add_header(k, v)
-              try:
-                  with urllib.request.urlopen(r, timeout=20) as resp:
-                      return resp.status, resp.read().decode()
-              except urllib.error.HTTPError as e:
-                  return e.code, (e.read() or b"").decode()
-
-          def get(path):
-              return req("GET", path)
-
-          def set_off(key):
-              # select-then-update-or-insert, NUNCA upsert(onConflict=key) -- config.key
-              # nao tem constraint unique real, ja confirmado quebrado em sessoes anteriores.
-              qs = urllib.parse.urlencode({"select": "key,value", "key": f"eq.{key}"})
-              st, body = get(f"/config?{qs}")
-              rows = json.loads(body) if st == 200 else []
-              before = rows[0]["value"] if rows else None
-              if rows:
-                  st2, b2 = req("PATCH", f"/config?key=eq.{key}", {"value": "off"}, {"Prefer": "return=representation"})
-              else:
-                  st2, b2 = req("POST", "/config", {"key": key, "value": "off"}, {"Prefer": "return=representation"})
-              print(f"{key}: antes={before!r} -> status={st2} depois={b2[:200]}")
-
-          print("=== Pausando automacao geral do OVC ===")
-          for k in ["AUTOMATION", "IG_AUTOMATION_ENABLED", "REELS_AUTOMATION_ENABLED"]:
-              set_off(k)
-
-          print()
-          print("=== Confirmacao final (GET de cada flag) ===")
-          for k in ["AUTOMATION", "IG_AUTOMATION_ENABLED", "REELS_AUTOMATION_ENABLED", "BON_IG_ENABLED"]:
-              qs = urllib.parse.urlencode({"select": "key,value", "key": f"eq.{k}"})
-              st, body = get(f"/config?{qs}")
-              print(f"  {k}: status={st} {body}")
-          PYEOF
+      - name: Nada a fazer
+        run: echo "noop - este workflow eh sobrescrito temporariamente quando precisamos de um diagnostico one-off em producao"
