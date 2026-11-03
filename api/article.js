@@ -372,5 +372,5 @@ function slugify(value) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .slice(0, 60) || "materia";
+    .slice(0, 55) || "materia";
 }
