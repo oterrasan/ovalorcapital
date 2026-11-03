@@ -1,9 +1,61 @@
-name: diag-once (placeholder)
+name: diag-once (temporario)
 on:
   workflow_dispatch:
 jobs:
-  noop:
+  diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer
-        run: echo "noop - este workflow eh sobrescrito temporariamente quando precisamos de um diagnostico one-off em producao"
+      - name: publicacoes por dia (API publica, ultimos 300 posts)
+        run: |
+          echo "=== posts recentes via API publica ==="
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=300" -o /tmp/posts.json
+          echo "tamanho do arquivo: $(wc -c < /tmp/posts.json) bytes"
+          python3 << 'PYEOF'
+          import json
+          with open('/tmp/posts.json') as f:
+              data = json.load(f)
+          posts = data.get('posts', [])
+          print(f"total de posts retornados: {len(posts)}")
+          from collections import Counter
+          by_day = Counter()
+          for p in posts:
+              d = str(p.get('data',''))[:10]
+              by_day[d] += 1
+          for day in sorted(by_day.keys()):
+              print(f"{day}: {by_day[day]} posts")
+          PYEOF
+      - name: status e headers da home AGORA
+        run: |
+          echo "=== headers / ==="
+          curl -sI https://www.ovalorcapital.com.br/
+      - name: status do sitemap AGORA
+        run: |
+          echo "=== sitemap index ==="
+          curl -s -o /tmp/sm.xml -w "HTTP_CODE:%{http_code}\n" https://www.ovalorcapital.com.br/sitemap.xml
+          head -c 800 /tmp/sm.xml
+          echo ""
+      - name: checar paginas de posts do sitemap (subarquivo real)
+        run: |
+          echo "=== sitemap posts page=0 ==="
+          curl -s -o /tmp/smp.xml -w "HTTP_CODE:%{http_code} SIZE:%{size_download}\n" "https://www.ovalorcapital.com.br/sitemap.xml?type=posts&page=0"
+          grep -o "<lastmod>[^<]*</lastmod>" /tmp/smp.xml | sort -u | tail -5
+          echo "total <url>:"
+          grep -c "<url>" /tmp/smp.xml || true
+      - name: status das categorias legadas (devem ser 301)
+        run: |
+          for path in investigativo seguranca concursos profissoes investimentos saude variedades; do
+            echo "=== /$path/ ==="
+            curl -sI -o /dev/null -w "HTTP_CODE:%{http_code} REDIRECT_TO:%{redirect_url}\n" "https://www.ovalorcapital.com.br/$path/"
+          done
+      - name: teste de ?id= (deve redirecionar)
+        run: |
+          curl -sI -o /dev/null -w "HTTP_CODE:%{http_code} REDIRECT_TO:%{redirect_url}\n" "https://www.ovalorcapital.com.br/negocios/?id=3436958a"
+      - name: teste par de URL duplicada real (mesmo artigo, 2 slugs)
+        run: |
+          echo "=== versao curta (deveria ser a oficial pos-fix) ==="
+          curl -sI "https://www.ovalorcapital.com.br/brasil-on/caixa-prepara-edicao-especial-da-quina-com-premio-de-r--51b77f84/" | head -5
+          echo "=== versao longa ==="
+          curl -sI "https://www.ovalorcapital.com.br/brasil-on/caixa-prepara-edicao-especial-da-quina-com-premio-de-r-60-mi-51b77f84/" | head -5
+      - name: deploys recentes (ultimos 7 dias) via API publica de status
+        run: |
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=5" | python3 -c "import json,sys; d=json.load(sys.stdin); [print(p['data'], '-', p['titulo'][:70]) for p in d.get('posts',[])]"
