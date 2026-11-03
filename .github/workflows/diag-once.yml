@@ -1,10 +1,6 @@
 name: diag-once (relatorio de canais)
 on:
-  push:
-    branches:
-      - 'claude/**'
-    paths:
-      - '.github/workflows/diag-once.yml'
+  workflow_dispatch:
 jobs:
   check:
     runs-on: ubuntu-latest
