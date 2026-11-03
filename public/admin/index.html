@@ -293,6 +293,7 @@ function Dashboard() {
   const [aprovando, setAprovando] = useState(null);
   const [chart7dias, setChart7dias] = useState([]);
   const [dbHealth, setDbHealth] = useState({total:null,budget:null});
+  const [limpando, setLimpando] = useState(false);
 
   const load = useCallback(async () => {
     try { const r = await fetch('/api/manage'); if (r.ok) setStatus(await r.json()); } catch(_) {}
@@ -422,7 +423,26 @@ function Dashboard() {
                 <div className="metric-value" style={{color:cor,fontSize:t==null?16:24}}>{t==null?'...':t.toLocaleString('pt-BR')}</div>
                 <div className="metric-icon">{icone}</div>
                 <div style={{fontSize:10,color:'var(--t3)',marginTop:4}}>{dbHealth.budget!=null?dbHealth.budget.toLocaleString('pt-BR')+' de orçamento IA':'linhas em config'}</div>
-                {nivel&&nivel!=='ok'&&<span className={`badge ${nivel==='limpar'?'badge-red':'badge-yellow'}`}>{texto}</span>}
+                {nivel&&nivel!=='ok'&&(
+                  <span
+                    className={`badge ${nivel==='limpar'?'badge-red':'badge-yellow'}`}
+                    style={{cursor:'pointer'}}
+                    title="Apaga as linhas de orçamento do Gemini de dias anteriores a hoje — nunca mexe no contador de hoje nem em nenhuma outra configuração"
+                    onClick={async()=>{
+                      if(limpando) return;
+                      if(!window.confirm('Apagar linhas antigas de GEMINI_BUDGET_* (só dias anteriores a hoje)?')) return;
+                      setLimpando(true);
+                      try{
+                        const r = await fetch('/api/manage?action=limpar_gemini_budget_antigo&pass='+encodeURIComponent(ADMIN_PASS));
+                        const d = await r.json();
+                        if(d.ok) alert(`Limpo! ${d.apagadas} linhas antigas apagadas. ${d.de_hoje_preservadas} de hoje preservadas.`);
+                        else alert('Erro ao limpar: '+(d.error||'desconhecido'));
+                      }catch(e){ alert('Erro ao limpar: '+e.message); }
+                      setLimpando(false);
+                      load();
+                    }}
+                  >{limpando?'limpando...':texto}</span>
+                )}
               </div>
             );
           })()}
