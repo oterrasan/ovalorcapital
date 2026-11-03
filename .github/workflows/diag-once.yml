@@ -5,11 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: forcar o Google e o Bing a reler o sitemap agora (ping real)
-        run: |
-          echo "=== Ping Google ==="
-          curl -s -o /dev/null -w "HTTP %{http_code}\n" "https://www.google.com/ping?sitemap=https://www.ovalorcapital.com.br/sitemap.xml"
-          echo "=== Ping Bing ==="
-          curl -s -o /dev/null -w "HTTP %{http_code}\n" "https://www.bing.com/ping?sitemap=https://www.ovalorcapital.com.br/sitemap.xml"
-          echo "=== Conferir sitemap index real (lastmod de hoje confirma que esta fresco) ==="
-          curl -s "https://www.ovalorcapital.com.br/sitemap.xml" | head -c 1200
+      - name: placeholder
+        run: echo "nada a fazer -- preencher quando precisar de um diagnostico novo"
