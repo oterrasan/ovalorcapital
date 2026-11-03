@@ -94,6 +94,8 @@ export default async function handler(req, res) {
       // padrão de ig_priority_publish acima).
       if (action === "dispatch_reels_workflow") return handleDispatchReelsWorkflow(req, res, undefined);
       if (action === "relatorio_canais") return handleRelatorioCanais(req, res);
+      if (action === "reels_erros") return handleReelsErros(req, res);
+      if (action === "limpar_gemini_budget_antigo") return handleLimparGeminiBudgetAntigo(req, res);
       return handleStatus(res);
     }
 
@@ -261,6 +263,97 @@ async function handleRelatorioCanais(req, res) {
     total_posts_analisados: rows.length,
     por_canal: resumir(porCanal),
     por_categoria: resumir(porCategoria)
+  });
+}
+
+// 03/11/2026 — Roberto: "estou aprovando reels, no pipe de videos dos reels,
+// e eu aprovo, mas todos ficam com erros — PRECISA INVESTIGAR ISSO". Não
+// existia nenhum jeito de ver, de fora do admin (e sem abrir cada post um
+// por um), qual é o `last_error` real gravado em cada Reel que falhou — só
+// leitura, protegida por checkAdmin.
+async function handleReelsErros(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id,titulo,updated_at,metrics")
+    .not("metrics", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(500);
+  if (error) return res.status(200).json({ ok: false, error: error.message });
+
+  const erros = [];
+  const statusCount = {};
+  for (const row of data || []) {
+    let m = row.metrics;
+    if (typeof m === "string") { try { m = JSON.parse(m); } catch (_) { m = {}; } }
+    const tpl = m?.instagram_reel_template;
+    if (!tpl) continue;
+    statusCount[tpl.status || "(sem status)"] = (statusCount[tpl.status || "(sem status)"] || 0) + 1;
+    if (tpl.status === "error") {
+      erros.push({
+        id: row.id,
+        titulo: row.titulo,
+        updated_at: row.updated_at,
+        attempts: tpl.attempts || 0,
+        exhausted: !!tpl.exhausted,
+        failed_at: tpl.failed_at || null,
+        last_error: tpl.last_error || "(sem mensagem)",
+        conta_publicacao: tpl.conta_publicacao || null,
+        aprovado: !!tpl.aprovado
+      });
+    }
+  }
+
+  return res.status(200).json({
+    ok: true,
+    total_posts_com_reel: Object.values(statusCount).reduce((a, b) => a + b, 0),
+    distribuicao_status: statusCount,
+    total_com_erro: erros.length,
+    erros: erros.slice(0, 30)
+  });
+}
+
+// 03/11/2026 — Roberto pediu de novo pra limpar o "lixo" da tabela config
+// (GEMINI_BUDGET_*, rastreador insert-only de tentativas de chamada do
+// Gemini — uma linha nova a cada tentativa, nunca apagada sozinha). O badge
+// "LIMPAR AGORA" do Dashboard sempre foi só um <span>, sem função real —
+// toda limpeza até hoje foi feita manualmente via script. Esta ação torna
+// isso real: apaga só linhas de DIAS ANTERIORES a hoje (nunca o contador do
+// dia corrente, que o gate de orçamento ainda está lendo), em lotes, e
+// nunca toca em nenhuma outra chave de config.
+async function handleLimparGeminiBudgetAntigo(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const hojeBRT = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+  const prefixoHoje = `GEMINI_BUDGET_${hojeBRT}_`;
+
+  const todasAsChaves = [];
+  const PAGE = 1000;
+  for (let from = 0; from < 500000; from += PAGE) {
+    const { data, error } = await supabase
+      .from("config")
+      .select("key")
+      .like("key", "GEMINI_BUDGET_%")
+      .range(from, from + PAGE - 1);
+    if (error) return res.status(200).json({ ok: false, error: error.message });
+    if (!data || !data.length) break;
+    todasAsChaves.push(...data.map(r => r.key));
+    if (data.length < PAGE) break;
+  }
+
+  const antigas = todasAsChaves.filter(k => !k.startsWith(prefixoHoje));
+  let apagadas = 0;
+  const CHUNK = 500;
+  for (let i = 0; i < antigas.length; i += CHUNK) {
+    const chunk = antigas.slice(i, i + CHUNK);
+    const { error } = await supabase.from("config").delete().in("key", chunk);
+    if (!error) apagadas += chunk.length;
+  }
+
+  return res.status(200).json({
+    ok: true,
+    total_antes: todasAsChaves.length,
+    de_hoje_preservadas: todasAsChaves.length - antigas.length,
+    apagadas
   });
 }
 
