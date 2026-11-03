@@ -3758,7 +3758,12 @@ function slugify(value) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .slice(0, 80);
+    // 55 chars -- igual a api/article.js (canonical real da pagina). Esta
+    // funcao alimenta buildArticleUrl(), usada no link que vai na legenda
+    // de TODO post do Instagram; em 80 chars ela divergia quase sempre do
+    // canonical, reforcando o sinal de "pagina alternativa" pro Google
+    // vindo do proprio link de fora (03/11/2026).
+    .slice(0, 55);
 }
 
 function inferCategoriaRss(name, url) {

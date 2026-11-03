@@ -232,6 +232,8 @@ function slugify(value) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .slice(0, 60)
+    // 55 chars -- igual a brasilon/api/sitemap.js e brasilon/api/portal-posts.js
+    // (mesmo bug de canonical divergente ja corrigido no OVC, 03/11/2026).
+    .slice(0, 55)
     .replace(/^-+|-+$/g, "") || "materia";
 }

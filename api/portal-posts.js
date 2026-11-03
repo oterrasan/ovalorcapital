@@ -752,5 +752,11 @@ function slugify(value) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .slice(0, 60);
+    // 55 chars -- igual a api/article.js (canonical real da pagina) e
+    // api/sitemap.js. Este arquivo gera a URL que aparece em todo card
+    // do site (formatPost().url); se divergir do canonical, o Google
+    // rastreia um link com um slug e a pagina diz que a oficial e outro
+    // -- isso e a causa raiz confirmada de "pagina alternativa com tag
+    // canonica adequada" em massa no Search Console (03/11/2026).
+    .slice(0, 55);
 }
