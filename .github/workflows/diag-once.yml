@@ -5,30 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: comparar resposta pra Googlebot real vs navegador comum
-        run: |
-          echo "=== como VISITANTE COMUM (sem UA especial) ==="
-          curl -sI "https://www.ovalorcapital.com.br/" -w "HTTP_CODE:%{http_code}\n"
-          echo ""
-          echo "=== como GOOGLEBOT (UA oficial do Google) ==="
-          curl -sI "https://www.ovalorcapital.com.br/" \
-            -H "User-Agent: Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-            -w "HTTP_CODE:%{http_code}\n"
-          echo ""
-          echo "=== um artigo real como GOOGLEBOT ==="
-          curl -sI "https://www.ovalorcapital.com.br/brasil-on/caixa-prepara-edicao-especial-da-quina-com-premio-de-r--51b77f84/" \
-            -H "User-Agent: Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
-            -w "HTTP_CODE:%{http_code}\n"
-      - name: resolver os IPs de hoje do dominio (confere se mudou de host/DNS)
-        run: |
-          echo "=== DNS www.ovalorcapital.com.br ==="
-          getent hosts www.ovalorcapital.com.br || true
-          echo "=== DNS ovalorcapital.com.br (sem www) ==="
-          curl -sI -o /dev/null -w "HTTP_CODE:%{http_code} REDIRECT_TO:%{redirect_url}\n" "https://ovalorcapital.com.br/"
-      - name: meta robots e X-Robots-Tag numa pagina real (bloqueio de indexacao seria causa direta)
-        run: |
-          curl -sI "https://www.ovalorcapital.com.br/brasil-on/caixa-prepara-edicao-especial-da-quina-com-premio-de-r--51b77f84/" | grep -i "x-robots" || echo "sem header X-Robots-Tag"
-          curl -s "https://www.ovalorcapital.com.br/brasil-on/caixa-prepara-edicao-especial-da-quina-com-premio-de-r--51b77f84/" | grep -io '<meta[^>]*robots[^>]*>' || echo "sem meta robots no HTML"
-      - name: certificado SSL (validade e cadeia)
-        run: |
-          echo | openssl s_client -connect www.ovalorcapital.com.br:443 -servername www.ovalorcapital.com.br 2>/dev/null | openssl x509 -noout -dates -subject -issuer
+      - name: placeholder
+        run: echo "nada a fazer -- preencher quando precisar de um diagnostico novo"
