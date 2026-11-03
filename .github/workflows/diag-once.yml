@@ -1,9 +1,12 @@
-name: diag-once (placeholder)
+name: diag-once (reels erros reais)
 on:
   workflow_dispatch:
 jobs:
-  noop:
+  check:
     runs-on: ubuntu-latest
     steps:
-      - name: Nada a fazer
-        run: echo "noop - este workflow eh sobrescrito temporariamente quando precisamos de um diagnostico one-off em producao"
+      - name: Reels com erro - motivo real
+        env:
+          T: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          curl -s "https://www.ovalorcapital.com.br/api/manage?action=reels_erros&pass=$T" | python3 -m json.tool
