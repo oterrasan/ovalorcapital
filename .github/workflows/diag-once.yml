@@ -1,69 +1,58 @@
-name: diag-once (checar paginas de artigo reais + volume por dia)
+name: diag-once (pausar automacao geral do OVC)
 on:
   workflow_dispatch:
 jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar robots/canonical em artigos reais + comparar volume de publicacao por dia
+      - name: Pausar AUTOMATION, IG_AUTOMATION_ENABLED e REELS_AUTOMATION_ENABLED do OVC
         run: |
           python3 << 'PYEOF'
-          import re, urllib.request, urllib.error
+          import json, urllib.request, urllib.parse
 
-          BASE = "https://www.ovalorcapital.com.br"
+          BASE = "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1"
+          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
 
-          def fetch(path, ua="Mozilla/5.0 (compatible; diag/1.0)"):
+          def req(method, path, body=None, extra_headers=None):
               url = BASE + path
-              req = urllib.request.Request(url, headers={"User-Agent": ua})
+              data = json.dumps(body).encode() if body is not None else None
+              r = urllib.request.Request(url, data=data, method=method)
+              r.add_header("apikey", KEY)
+              r.add_header("Authorization", "Bearer " + KEY)
+              r.add_header("Content-Type", "application/json")
+              if extra_headers:
+                  for k, v in extra_headers.items():
+                      r.add_header(k, v)
               try:
-                  with urllib.request.urlopen(req, timeout=20) as resp:
-                      return resp.status, dict(resp.headers), resp.read().decode("utf-8", errors="replace")
+                  with urllib.request.urlopen(r, timeout=20) as resp:
+                      return resp.status, resp.read().decode()
               except urllib.error.HTTPError as e:
-                  return e.code, dict(e.headers or {}), (e.read() or b"").decode("utf-8", errors="replace")
-              except Exception as e:
-                  return None, {}, f"ERRO: {e}"
+                  return e.code, (e.read() or b"").decode()
 
-          print("=== 1) Pegando a sub-sitemap real de posts (page=0) ===")
-          status, headers, body = fetch("/sitemap.xml?type=posts&page=0")
-          print(f"status={status} tamanho={len(body)}")
-          urls = re.findall(r"<loc>(.*?)</loc>", body)
-          print(f"total de URLs de artigo nessa pagina: {len(urls)}")
-          print("primeiras 3:", urls[:3])
+          def get(path):
+              return req("GET", path)
 
-          print()
-          print("=== 2) Checando 5 artigos reais (title + meta robots + canonical + og:image + JSON-LD) ===")
-          amostra = urls[:3] + urls[len(urls)//2:len(urls)//2+2] if len(urls) > 5 else urls
-          for u in amostra[:5]:
-              path = u.replace(BASE, "")
-              st, hd, bd = fetch(path)
-              mt = re.search(r'<title>(.*?)</title>', bd, re.I | re.S)
-              mr = re.search(r'<meta[^>]+name=["\']robots["\'][^>]*>', bd, re.I)
-              mc = re.search(r'<link[^>]+rel=["\']canonical["\'][^>]*>', bd, re.I)
-              mog = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]*>', bd, re.I)
-              has_jsonld = 'application/ld+json' in bd
-              print(f"--- {path}")
-              print(f"   status={st} tamanho={len(bd)}")
-              print(f"   title={(mt.group(1)[:90] if mt else 'SEM TITLE')}")
-              print(f"   meta robots={mr.group(0) if mr else 'nenhuma (= index,follow)'}")
-              print(f"   canonical={mc.group(0) if mc else 'NENHUM'}")
-              print(f"   og:image presente={bool(mog)}  JSON-LD presente={has_jsonld}")
+          def set_off(key):
+              # select-then-update-or-insert, NUNCA upsert(onConflict=key) -- config.key
+              # nao tem constraint unique real, ja confirmado quebrado em sessoes anteriores.
+              qs = urllib.parse.urlencode({"select": "key,value", "key": f"eq.{key}"})
+              st, body = get(f"/config?{qs}")
+              rows = json.loads(body) if st == 200 else []
+              before = rows[0]["value"] if rows else None
+              if rows:
+                  st2, b2 = req("PATCH", f"/config?key=eq.{key}", {"value": "off"}, {"Prefer": "return=representation"})
+              else:
+                  st2, b2 = req("POST", "/config", {"key": key, "value": "off"}, {"Prefer": "return=representation"})
+              print(f"{key}: antes={before!r} -> status={st2} depois={b2[:200]}")
+
+          print("=== Pausando automacao geral do OVC ===")
+          for k in ["AUTOMATION", "IG_AUTOMATION_ENABLED", "REELS_AUTOMATION_ENABLED"]:
+              set_off(k)
 
           print()
-          print("=== 3) Checando headers de cache/CDN na homepage e num artigo (Googlebot pode estar vendo cache velho?) ===")
-          st, hd, bd = fetch("/")
-          print("Cache-Control (home):", hd.get("Cache-Control"))
-          print("Age (home):", hd.get("Age"))
-          print("X-Vercel-Cache (home):", hd.get("X-Vercel-Cache"))
-          if amostra:
-              st2, hd2, bd2 = fetch(amostra[0].replace(BASE, ""))
-              print("Cache-Control (artigo):", hd2.get("Cache-Control"))
-              print("Age (artigo):", hd2.get("Age"))
-              print("X-Vercel-Cache (artigo):", hd2.get("X-Vercel-Cache"))
-
-          print()
-          print("=== 4) Procurando qualquer coisa suspeita no HTML da home: iframes, scripts de terceiro incomuns, redirecionamento via JS ===")
-          iframes = re.findall(r'<iframe[^>]*src=["\']([^"\']+)["\']', bd, re.I)
-          print("iframes na home:", iframes[:10])
-          metarefresh = re.search(r'<meta[^>]+http-equiv=["\']refresh["\']', bd, re.I)
-          print("meta refresh (redirect automatico)?", bool(metarefresh))
+          print("=== Confirmacao final (GET de cada flag) ===")
+          for k in ["AUTOMATION", "IG_AUTOMATION_ENABLED", "REELS_AUTOMATION_ENABLED", "BON_IG_ENABLED"]:
+              qs = urllib.parse.urlencode({"select": "key,value", "key": f"eq.{k}"})
+              st, body = get(f"/config?{qs}")
+              print(f"  {k}: status={st} {body}")
           PYEOF
