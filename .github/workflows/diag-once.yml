@@ -5,5 +5,72 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "nada a fazer -- preencher quando precisar de um diagnostico novo"
+      - name: pegar 6 artigos recentes reais e baixar o HTML completo
+        run: |
+          curl -s "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=6" -o /tmp/recentes.json
+          python3 << 'PYEOF'
+          import json
+          with open('/tmp/recentes.json') as f:
+              d = json.load(f)
+          posts = d.get('posts', [])
+          urls = []
+          for p in posts[:6]:
+              url = p.get('url') or ''
+              if url:
+                  urls.append("https://www.ovalorcapital.com.br" + url)
+          with open('/tmp/urls.txt', 'w') as f:
+              f.write("\n".join(urls))
+          print("\n".join(urls))
+          PYEOF
+      - name: baixar cada pagina de artigo e extrair conteudo + anuncios + SEO
+        run: |
+          i=0
+          while read -r url; do
+            i=$((i+1))
+            echo "=================================================="
+            echo "ARTIGO $i: $url"
+            echo "=================================================="
+            curl -s "$url" -o /tmp/art_$i.html
+            python3 << PYEOF
+          import re
+          with open('/tmp/art_$i.html', encoding='utf-8', errors='replace') as f:
+              html = f.read()
+          # title
+          m = re.search(r'<title>(.*?)</title>', html, re.S)
+          print("TITLE:", (m.group(1).strip() if m else "AUSENTE")[:200])
+          # meta description
+          m = re.search(r'<meta name="description" content="([^"]*)"', html)
+          desc = m.group(1) if m else ""
+          print("META_DESCRIPTION (len=%d):" % len(desc), desc[:200])
+          # canonical
+          m = re.search(r'<link rel="canonical" href="([^"]*)"', html)
+          print("CANONICAL:", m.group(1) if m else "AUSENTE")
+          # og:title / h1
+          m = re.search(r'<h1[^>]*>(.*?)</h1>', html, re.S)
+          h1 = re.sub('<[^>]+>', '', m.group(1)).strip() if m else "AUSENTE"
+          print("H1:", h1[:200])
+          # corpo: extrai paragrafos dentro de algo tipo ovc-art-body ou article
+          paras = re.findall(r'<p[^>]*>(.*?)</p>', html, re.S)
+          texto_paras = []
+          for p in paras:
+              t = re.sub('<[^>]+>', ' ', p)
+              t = re.sub(r'\s+', ' ', t).strip()
+              if len(t) > 30:
+                  texto_paras.append(t)
+          total_chars = sum(len(t) for t in texto_paras)
+          print("QTD PARAGRAFOS REAIS (>30 chars):", len(texto_paras))
+          print("TOTAL CHARS DE TEXTO:", total_chars)
+          print("--- PRIMEIROS 3 PARAGRAFOS ---")
+          for t in texto_paras[:3]:
+              print("  >", t[:300])
+          print("--- ULTIMO PARAGRAFO ---")
+          if texto_paras:
+              print("  >", texto_paras[-1][:300])
+          # contagem de anuncios/ads
+          ad_slots = len(re.findall(r'adsbygoogle|data-ad-slot|class="ad[-_]', html, re.I))
+          print("SINAIS DE BLOCO DE ANUNCIO NO HTML:", ad_slots)
+          # schema JSON-LD
+          ld = re.findall(r'<script type="application/ld\+json">(.*?)</script>', html, re.S)
+          print("QTD JSON-LD:", len(ld))
+          PYEOF
+          done < /tmp/urls.txt
