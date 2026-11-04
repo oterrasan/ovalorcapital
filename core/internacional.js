@@ -70,7 +70,11 @@ async function buscarCnnHomepage() {
   try {
     const res = await axios.get("https://www.cnn.com/world", { timeout: 10000, headers: { "User-Agent": UA } });
     const html = String(res.data || "");
-    const links = [...html.matchAll(/href="(\/2026\/[0-9]{2}\/[0-9]{2}\/[a-zA-Z0-9/._-]+)"/g)].map(m => "https://www.cnn.com" + m[1]);
+    // era /2026\/ fixo — vira bomba-relógio real a partir de 01/01/2027
+    // (URLs da CNN seguem /YYYY/MM/DD/..., o ano muda), zerando esse lado
+    // da automação Internacional sem erro visível (bug real confirmado
+    // em auditoria de 04/11/2026).
+    const links = [...html.matchAll(/href="(\/20\d{2}\/[0-9]{2}\/[0-9]{2}\/[a-zA-Z0-9/._-]+)"/g)].map(m => "https://www.cnn.com" + m[1]);
     const unicos = [...new Set(links)].filter(l => !EXCLUIR_URL.test(l)).slice(0, 15);
     return unicos.map(link => ({ link, source: "CNN International", title: "", description: "", pubDate: new Date().toISOString() }));
   } catch (_) {

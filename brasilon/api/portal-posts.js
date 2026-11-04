@@ -8,7 +8,13 @@ const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const CATS = new Set(["brasil-on", "politica", "policia", "futebol"]);
+// "giro" adicionada em 08/09/2026 (ver brasilon/api/manage.js, classificar())
+// mas nunca tinha sido somada aqui — a página /giro/ existe, está roteada e
+// tem SEO próprio, mas todo fetch de /api/portal-posts?categoria=giro
+// (e Mais Lidas) sempre voltava HTTP 400 "categoria inválida", deixando a
+// página sem nenhum conteúdo desde então (bug real confirmado em
+// auditoria de 04/11/2026).
+const CATS = new Set(["brasil-on", "politica", "policia", "futebol", "giro"]);
 
 export default async function handler(req, res) {
   try {
