@@ -1,10 +1,71 @@
 import { readFileSync } from "fs";
 import { join } from "path";
+import { createClient } from "@supabase/supabase-js";
 import articleHandler from "./article.js";
 
 const OG_DEFAULT = "https://www.ovalorcapital.com.br/images/og-default.jpg";
 const LOGO = "https://www.ovalorcapital.com.br/images/logo-ovc.png";
 const SITE = "O Valor Capital";
+
+const BASE = "https://www.ovalorcapital.com.br";
+const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Mesmo mapa de api/article.js — categoria ativa no banco → path real da URL.
+const CAT_PATH_REDIRECT = {
+  "brasil-on": "brasil-on", politica: "politica", economia: "economia",
+  financas: "financas", negocios: "negocios", tecnologia: "tecnologia",
+  internacional: "internacional", industria: "industria", familia: "familia",
+  esportes: "esportes", giro: "giro", vc: "colunistas", colunistas: "colunistas",
+  investimentos: "financas", seguros: "financas", mercados: "financas",
+  saude: "brasil-on", carreira: "brasil-on", imoveis: "brasil-on",
+  cultura: "brasil-on", religiao: "brasil-on", educacao: "brasil-on",
+  variedades: "brasil-on", investigativo: "brasil-on", seguranca: "brasil-on",
+  esg: "brasil-on", defesa: "brasil-on", profissoes: "brasil-on",
+  vagas: "brasil-on", concursos: "brasil-on", parcerias: "negocios",
+  tributos: "economia", tributacao: "economia", regulacao: "economia",
+  geral: "politica"
+};
+
+function slugifyRedirect(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Mn}/gu, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 55);
+}
+
+// Resolve um link antigo "?id=" pra a URL real do artigo (mesmo esquema de
+// busca por id completo ou só os 8 primeiros chars de handleOne() em
+// api/portal-posts.js) e devolve a URL canônica pronta, ou null se não achar.
+async function resolveLegacyIdUrl(rawId) {
+  const id = String(rawId || "").trim();
+  let row = null;
+  try {
+    if (id.length >= 36) {
+      const result = await supabase.from("posts").select("id,titulo,user_tags").eq("id", id).maybeSingle();
+      row = result.data || null;
+    } else if (/^[a-f0-9]{8}$/i.test(id.slice(0, 8))) {
+      const id8 = id.slice(0, 8).toLowerCase();
+      const lo = `${id8}-0000-0000-0000-000000000000`;
+      const hi = `${id8}-ffff-ffff-ffff-ffffffffffff`;
+      const result = await supabase.from("posts").select("id,titulo,user_tags").gte("id", lo).lte("id", hi).limit(1);
+      row = result.data?.[0] || null;
+    }
+  } catch (_) { return null; }
+  if (!row) return null;
+  let tags = [];
+  try { tags = typeof row.user_tags === "string" ? JSON.parse(row.user_tags) : (row.user_tags || []); } catch (_) {}
+  const catPath = CAT_PATH_REDIRECT[tags[0]] || "politica";
+  const slug = slugifyRedirect(row.titulo);
+  const id8 = String(row.id).slice(0, 8);
+  return `${BASE}/${catPath}/${slug}-${id8}/`;
+}
 
 const CAT_SEO = {
   "brasil-on": {
@@ -259,7 +320,16 @@ export default async function handler(req, res) {
 
   const artId = (req.query.id || "").trim();
   if (artId) {
-    return res.redirect(302, "/og?id=" + encodeURIComponent(artId));
+    // Bug real (04/11/2026): isto redirecionava pra /og?id=, uma rota que
+    // NUNCA serviu página nenhuma — /og cai no handler padrão de
+    // api/portal-posts.js, que vê req.query.id e devolve handleOne() em
+    // JSON puro. Qualquer link antigo (?id=) clicado hoje mostrava texto
+    // JSON cru pro visitante e pro Googlebot, em vez do artigo de verdade.
+    // Fix: resolver o id de uma vez pra URL real do artigo e 301 direto
+    // pra lá — nunca mais um link antigo termina em página quebrada.
+    const realUrl = await resolveLegacyIdUrl(artId);
+    res.setHeader("Location", realUrl || "/");
+    return res.status(301).end();
   }
 
   const cat = (req.query.cat || "").toLowerCase();
