@@ -5,5 +5,79 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: Checar robots.txt real
+        run: |
+          echo "=== robots.txt (produção) ==="
+          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/robots.txt"
+      - name: Checar sitemap.xml real
+        run: |
+          echo "=== sitemap.xml (produção) ==="
+          curl -sS --max-time 20 -o /tmp/sitemap.xml "https://www.ovalorcapital.com.br/sitemap.xml"
+          echo "tamanho em bytes:"
+          wc -c /tmp/sitemap.xml
+          echo "total de <url>:"
+          grep -c "<url>" /tmp/sitemap.xml || true
+          echo "primeiras 5 URLs:"
+          grep -o "<loc>[^<]*</loc>" /tmp/sitemap.xml | head -5
+          echo "ultimas 5 URLs:"
+          grep -o "<loc>[^<]*</loc>" /tmp/sitemap.xml | tail -5
+          echo "lastmod mais recentes:"
+          grep -o "<lastmod>[^<]*</lastmod>" /tmp/sitemap.xml | sort -r | head -5
+      - name: Buscar matérias reais mais recentes no banco
+        env:
+          SB_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          echo "=== 5 matérias publicadas mais recentes (titulo + categoria + tamanho do conteudo) ==="
+          curl -sS --max-time 20 \
+            "$SB_URL/rest/v1/posts?select=id,titulo,user_tags,comentario_fixado,conteudo,published_at&status=eq.publicado&order=published_at.desc&limit=5" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
+            -o /tmp/posts.json
+          node -e '
+            const posts = JSON.parse(require("fs").readFileSync("/tmp/posts.json","utf8"));
+            for (const p of posts) {
+              const texto = String(p.conteudo||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+              console.log("=====================================");
+              console.log("ID:", p.id);
+              console.log("TITULO:", p.titulo);
+              console.log("TAGS:", p.user_tags);
+              console.log("PUBLICADO:", p.published_at);
+              console.log("META DESC:", p.comentario_fixado);
+              console.log("TAMANHO DO TEXTO (chars):", texto.length);
+              console.log("TEXTO (primeiros 900 chars):");
+              console.log(texto.slice(0,900));
+              console.log("");
+            }
+          '
+      - name: Checar SSR real de 2 artigos (title/canonical/meta/corpo)
+        run: |
+          node -e '
+            const posts = JSON.parse(require("fs").readFileSync("/tmp/posts.json","utf8"));
+            function slugify(t){return (t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9\s-]/g,"").trim().replace(/\s+/g,"-").replace(/-+/g,"-").slice(0,55);}
+            const CAT_PATH={"brasil-on":"brasil-on",politica:"politica",economia:"economia",financas:"financas",negocios:"negocios",tecnologia:"tecnologia",internacional:"internacional",industria:"industria",familia:"familia",esportes:"esportes",giro:"giro"};
+            for (const p of posts.slice(0,2)) {
+              let tags=[]; try{tags = typeof p.user_tags==="string"?JSON.parse(p.user_tags):(p.user_tags||[]);}catch(_){}
+              const cat = CAT_PATH[tags[0]] || "politica";
+              const slug = slugify(p.titulo).slice(0,55);
+              const id8 = String(p.id).slice(0,8);
+              const url = `https://www.ovalorcapital.com.br/${cat}/${slug}-${id8}/`;
+              console.log("URL_PARA_CURL::" + url);
+            }
+          ' > /tmp/urls.txt
+          cat /tmp/urls.txt
+          echo "---"
+          for u in $(grep "URL_PARA_CURL::" /tmp/urls.txt | sed 's/URL_PARA_CURL:://'); do
+            echo "=== $u ==="
+            curl -sS --max-time 15 -o /tmp/page.html -w "HTTP:%{http_code}\n" "$u"
+            echo "<title>:"
+            grep -o "<title>[^<]*</title>" /tmp/page.html | head -1
+            echo "meta description:"
+            grep -o '<meta name="description"[^>]*>' /tmp/page.html | head -1
+            echo "canonical:"
+            grep -o '<link rel="canonical"[^>]*>' /tmp/page.html | head -1
+            echo "robots meta (se houver):"
+            grep -o '<meta name="robots"[^>]*>' /tmp/page.html | head -1
+            echo "tamanho do html (bytes):"
+            wc -c /tmp/page.html
+            echo ""
+          done
