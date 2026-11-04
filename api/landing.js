@@ -14,14 +14,6 @@ const SECTIONS = {
     color: "#0d2137", accent: "#f5a623",
     icon: "💼", badge: "Trabalho & Carreira",
   },
-  financas: {
-    title: "Finanças Pessoais",
-    desc: "Investimentos, seguros, tributação e mercados. Cotações ao vivo, análises e tudo para fazer seu dinheiro trabalhar.",
-    canonical: "https://www.ovalorcapital.com.br/financas/",
-    cats: ["investimentos", "seguros", "tributacao", "regulacao", "mercados"],
-    color: "#0a2218", accent: "#00c853",
-    icon: "📈", badge: "Finanças Pessoais",
-  },
   moradia: {
     title: "Moradia & Imóveis",
     desc: "Mercado imobiliário, lançamentos, aluguel, Minha Casa Minha Vida e financiamento habitacional.",
@@ -29,14 +21,6 @@ const SECTIONS = {
     cats: ["imoveis"],
     color: "#1c0f05", accent: "#e8813a",
     icon: "🏠", badge: "Moradia & Imóveis",
-  },
-  vc: {
-    title: "O Valor Capital — Institucional",
-    desc: "Quem somos, princípios editoriais, parcerias e contato. O portal premium de política, economia, negócios e família do Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/vc/",
-    cats: ["vc", "colunistas"],
-    color: "#0d0d0d", accent: "#c9a84c",
-    icon: "🏗️", badge: "Institucional",
   },
   seguranca: {
     title: "Segurança & Defesa",
@@ -58,20 +42,16 @@ const SECTIONS = {
 
 const CAT_PATH = {
   vagas:"vagas",concursos:"concursos",profissoes:"profissoes",parcerias:"parcerias",educacao:"educacao",
-  investimentos:"investimentos",seguros:"seguros",tributacao:"tributos",regulacao:"regulacao",mercados:"mercados",
-  economia:"economia",imoveis:"imoveis",vc:"vc",colunistas:"vc",
+  imoveis:"imoveis",
   seguranca:"seguranca",defesa:"defesa",investigativo:"investigativo",
   saude:"saude",familia:"familia",cultura:"cultura",religiao:"religiao",esg:"esg",
-  variedades:"variedades",
 };
 
 const CAT_LABEL = {
   vagas:"Vagas",concursos:"Concursos Públicos",profissoes:"Profissões",parcerias:"Parcerias",educacao:"Educação",
-  investimentos:"Investimentos",seguros:"Seguros",tributacao:"Tributação",regulacao:"Regulação",
-  mercados:"Mercados",economia:"Economia",imoveis:"Imóveis",vc:"Editorial",colunistas:"Editorial",
+  imoveis:"Imóveis",
   seguranca:"Segurança",defesa:"Defesa",investigativo:"Investigativo",
   saude:"Saúde",familia:"Família",cultura:"Cultura",religiao:"Fé & Espiritualidade",esg:"ESG",
-  variedades:"Variedades",
 };
 
 const CAT_DESC = {
@@ -80,11 +60,6 @@ const CAT_DESC = {
   profissoes:"Tendências e análises do mercado profissional",
   parcerias:"Acordos e oportunidades de crescimento",
   educacao:"Formação, ENEM, e educação corporativa",
-  investimentos:"Renda fixa, ações, fundos e previdência",
-  seguros:"Vida, saúde, patrimônio e proteção familiar",
-  tributacao:"IRPF, reforma tributária e obrigações fiscais",
-  regulacao:"BACEN, CVM e ambiente regulatório",
-  mercados:"Bolsa, câmbio, juros e criptomoedas",
   imoveis:"Compra, venda, aluguel e financiamento",
   seguranca:"Segurança pública, polícia e criminalidade",
   defesa:"Forças armadas e defesa nacional",
@@ -94,12 +69,11 @@ const CAT_DESC = {
   cultura:"Arte, entretenimento e cultura brasileira",
   religiao:"Fé, espiritualidade e tradições religiosas",
   esg:"Sustentabilidade, ESG e impacto social",
-  variedades:"Comportamento, lifestyle e curiosidades",
 };
 
 const NAV_LINKS = [
-  ["Política","/politica/"],["Economia","/economia/"],["Investimentos","/investimentos/"],
-  ["Negócios","/negocios/"],["Seguros","/seguros/"],["Família","/familia/"],
+  ["Política","/politica/"],["Economia","/economia/"],["Finanças","/financas/"],
+  ["Negócios","/negocios/"],["Família","/familia/"],
 ];
 
 function slugify(str){
@@ -224,114 +198,13 @@ ${featHtml}
 </div>`;
 }
 
-function renderVcInstitucional(){
-  const gold="#d4af37";
-  const navy="#0f172a";
-  const sections=[
-    {href:"/quem-somos/",icon:"🏛️",title:"Quem Somos",desc:"Conheça a história, a missão e os valores do portal O Valor Capital e de seu fundador Roberto Cesar Terrasan.",cta:"Ver expediente"},
-    {href:"/politica-editorial/",icon:"📋",title:"Princípios Editoriais",desc:"Nossas diretrizes de conduta: precisão factual, independência editorial e uso ético de inteligência artificial.",cta:"Ler política"},
-    {href:"/colunistas/",icon:"✍️",title:"Colunistas & Articulistas",desc:"Especialistas independentes que contribuem com análises, opiniões e perspectivas sobre economia, política e mercado.",cta:"Ver colunistas"},
-    {href:`mailto:ovalorcapital@gmail.com`,icon:"✉️",title:"Contato & Ouvidoria",desc:"Redação, pautas, parcerias, retificações e ouvidoria. Nossa equipe responde em até 48 horas úteis.",cta:"Entrar em contato"},
-  ];
-  const cardsHtml=sections.map(s=>`
-  <a href="${s.href}" style="display:flex;flex-direction:column;background:#fff;border-radius:14px;box-shadow:0 2px 20px rgba(0,0,0,.07);padding:32px 28px;text-decoration:none;border:1px solid #e2e8f0;transition:transform .2s,box-shadow .2s" onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 32px rgba(0,0,0,.12)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 2px 20px rgba(0,0,0,.07)'">
-    <div style="font-size:2.2rem;margin-bottom:14px">${s.icon}</div>
-    <div style="font-size:1.05rem;font-weight:800;color:#111;margin-bottom:8px">${s.title}</div>
-    <div style="color:#64748b;font-size:.88rem;line-height:1.65;flex:1;margin-bottom:16px">${s.desc}</div>
-    <div style="color:${gold};font-size:.88rem;font-weight:700">${s.cta} →</div>
-  </a>`).join("");
-
-  const pillars=[
-    ["🎯","Precisão","Verificação rigorosa via fontes primárias e documentos públicos."],
-    ["🔓","Independência","Sem afiliações políticas, partidárias ou corporativas."],
-    ["🤖","Inovação","IA supervisionada para ampla cobertura com responsabilidade editorial."],
-    ["⚖️","Pluralidade","Múltiplos ângulos, perspectivas diversas e contexto completo."],
-  ];
-  const pillarsHtml=pillars.map(([ic,t,d])=>`
-  <div style="text-align:center;padding:28px 20px">
-    <div style="font-size:2rem;margin-bottom:10px">${ic}</div>
-    <div style="font-size:.95rem;font-weight:800;color:#fff;margin-bottom:6px">${t}</div>
-    <div style="font-size:.82rem;color:rgba(255,255,255,.55);line-height:1.55">${d}</div>
-  </div>`).join("");
-
-  return `
-<!-- HERO INSTITUCIONAL -->
-<section style="background:linear-gradient(135deg,${navy} 0%,#0a0f1e 50%,#0d1a2e 100%);padding:100px 24px 84px;text-align:center;position:relative;overflow:hidden">
-  <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(212,175,55,.14) 0%,transparent 60%);pointer-events:none"></div>
-  <div style="position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(212,175,55,.4),transparent)"></div>
-  <div style="position:relative;max-width:860px;margin:0 auto">
-    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(212,175,55,.15);border:1px solid rgba(212,175,55,.35);color:${gold};font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;padding:5px 18px;border-radius:3px;margin-bottom:28px">◆ INSTITUCIONAL</div>
-    <h1 style="color:#fff;font-size:clamp(2.8rem,7vw,4.8rem);font-weight:900;line-height:1.02;margin:0 0 22px;letter-spacing:-2px">O <span style="color:${gold}">Valor</span> Capital</h1>
-    <p style="color:rgba(255,255,255,.72);font-size:1.15rem;max-width:640px;margin:0 auto 16px;line-height:1.7">Portal independente de jornalismo econômico, político e financeiro. Fundado em 2026 com o compromisso de democratizar a informação de qualidade no Brasil.</p>
-    <p style="color:rgba(255,255,255,.45);font-size:.9rem;font-style:italic;margin:0 0 36px">"Informação de qualidade é direito, não privilégio."</p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-      <a href="/quem-somos/" style="background:${gold};color:#111;font-size:14px;font-weight:800;padding:13px 30px;border-radius:7px;text-decoration:none;letter-spacing:.3px">Quem Somos →</a>
-      <a href="/politica-editorial/" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;padding:13px 30px;border-radius:7px;text-decoration:none">Princípios Editoriais</a>
-    </div>
-  </div>
-</section>
-
-<!-- PILLARS STRIP -->
-<section style="background:${navy};border-bottom:1px solid rgba(255,255,255,.07)">
-  <div style="max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));border-left:1px solid rgba(255,255,255,.07)">
-    ${pillars.map(([ic,t,d])=>`<div style="text-align:center;padding:28px 20px;border-right:1px solid rgba(255,255,255,.07)"><div style="font-size:2rem;margin-bottom:10px">${ic}</div><div style="font-size:.95rem;font-weight:800;color:#fff;margin-bottom:6px">${t}</div><div style="font-size:.82rem;color:rgba(255,255,255,.5);line-height:1.55">${d}</div></div>`).join("")}
-  </div>
-</section>
-
-<!-- SOBRE O PORTAL -->
-<section style="background:#fff;padding:72px 24px">
-  <div style="max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center">
-    <div>
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${gold}">SOBRE O PORTAL</span>
-      <h2 style="font-size:2.2rem;font-weight:900;color:#111;margin:10px 0 20px;letter-spacing:-.8px;line-height:1.1">Jornalismo independente com tecnologia de ponta</h2>
-      <p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0 0 16px">O <strong>O Valor Capital</strong> nasceu da convicção de que o cidadão brasileiro merece acesso a informação econômica e política de qualidade, sem intermediários e sem viés ideológico.</p>
-      <p style="color:#374151;line-height:1.8;font-size:.97rem;margin:0 0 24px">Utilizamos sistemas de <strong>Inteligência Artificial supervisionada</strong> para ampliar nossa cobertura, mantendo controle editorial humano rigoroso sobre todo o conteúdo publicado.</p>
-      <a href="/quem-somos/" style="color:${gold};font-size:.93rem;font-weight:700;text-decoration:none">Leia nosso expediente completo →</a>
-    </div>
-    <div>
-      <div style="background:linear-gradient(135deg,${navy} 0%,#1e3a5f 100%);border-radius:16px;padding:36px;color:#fff">
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px">
-          <div style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,${gold} 0%,#b8860b 100%);display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900;color:${navy};flex-shrink:0">RT</div>
-          <div>
-            <div style="font-weight:800;font-size:1rem">Roberto Cesar Terrasan</div>
-            <div style="color:${gold};font-size:.82rem;font-weight:600;margin-top:2px">Fundador & Diretor Editorial</div>
-          </div>
-        </div>
-        <p style="color:rgba(255,255,255,.75);font-size:.88rem;line-height:1.7;margin:0 0 20px">"Fundei o O Valor Capital para oferecer ao brasileiro informação de qualidade sobre os temas que realmente impactam sua vida: economia, política e mercado."</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          ${[["2026","Fundação"],["6+","Editorias"],["11","Colunistas"],["24/7","Cobertura"]].map(([n,l])=>`
-          <div style="background:rgba(255,255,255,.08);border-radius:8px;padding:12px;text-align:center">
-            <div style="color:${gold};font-size:1.4rem;font-weight:900">${n}</div>
-            <div style="color:rgba(255,255,255,.55);font-size:.78rem;font-weight:600">${l}</div>
-          </div>`).join("")}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- NAVIGATION CARDS -->
-<section style="background:#f8fafc;padding:64px 24px;border-top:1px solid #e2e8f0">
-  <div style="max-width:960px;margin:0 auto">
-    <div style="text-align:center;margin-bottom:40px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${gold}">SEÇÕES INSTITUCIONAIS</span>
-      <h2 style="font-size:1.8rem;font-weight:900;color:#111;margin:8px 0 0;letter-spacing:-.5px">Explore o portal</h2>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:20px">
-      ${cardsHtml}
-    </div>
-  </div>
-</section>`;
-}
-
 export default async function handler(req,res){
   const section=(req.query.section||"").toLowerCase();
   const cfg=SECTIONS[section];
   if(!cfg)return res.status(404).send("Not found");
 
-  const isVc=section==="vc";
-  const posts=isVc?[]:await fetchPosts(cfg.cats);
-  const bodyHtml=isVc?renderVcInstitucional():renderLanding(section,posts,cfg);
+  const posts=await fetchPosts(cfg.cats);
+  const bodyHtml=renderLanding(section,posts,cfg);
 
   const jsonLd=JSON.stringify({
     "@context":"https://schema.org","@type":"CollectionPage",

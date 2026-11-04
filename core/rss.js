@@ -156,18 +156,6 @@ const FEEDS_DIRETOS_GARANTIDOS = [
   { url: "https://sports.yahoo.com/nfl/rss.xml",                                name: "Yahoo Sports NFL",          cats: ["esportes"] },
 ];
 
-const FAMILIA_CAT = {
-  seguros:'financas', investimentos:'financas', economia:'financas',
-  negocios:'financas', imoveis:'financas', tributos:'financas', industria:'financas',
-  politica:'poder', internacional:'poder', 'brasil-on':'poder',
-  esportes:'entretenimento', cultura:'entretenimento', religiao:'entretenimento',
-  tecnologia:'conhecimento', saude:'conhecimento', familia:'conhecimento', carreira:'trabalho',
-};
-
-const CATEGORIA_PARA_GRUPO = {};
-
-export { FAMILIA_CAT, CATEGORIA_PARA_GRUPO };
-
 // Exported list for manage.js archive action
 export const FONTES_APROVADAS_URLS = FEEDS_DIRETOS_GARANTIDOS.map(f => ({ url: f.url, name: f.name, cat: f.cats[0] }));
 

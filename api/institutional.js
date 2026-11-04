@@ -112,7 +112,7 @@ function instRailRight(){
   <div style="background:var(--bg-elevated,#fff);border-radius:10px;border:1px solid #e2e8f0;padding:14px">
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:10px">Seja Colunista</div>
     <p style="font-size:12px;color:#374151;line-height:1.6;margin:0 0 10px">Especialistas em economia, direito, política e mercado financeiro podem enviar artigos para análise.</p>
-    <a href="/colunista/" style="font-size:12px;font-weight:700;color:#1d4ed8;text-decoration:none">Saiba mais →</a>
+    <a href="mailto:${EMAIL_DISPLAY}?subject=Candidatura%20a%20Colunista%20-%20O%20Valor%20Capital" style="font-size:12px;font-weight:700;color:#1d4ed8;text-decoration:none">Saiba mais →</a>
   </div>
 </aside>`;
 }
