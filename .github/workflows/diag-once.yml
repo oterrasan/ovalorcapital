@@ -5,5 +5,43 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: Contar total publicado e fatia por categoria
+        env:
+          SB_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          echo "=== TOTAL de posts publicados ==="
+          curl -sS --max-time 20 \
+            "$SB_URL/rest/v1/posts?select=id&status=eq.publicado&limit=1" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Prefer: count=exact" \
+            -D - -o /dev/null | grep -i content-range
+
+          echo ""
+          echo "=== Fatia por categoria (amostra das ultimas 2000 publicadas) ==="
+          curl -sS --max-time 25 \
+            "$SB_URL/rest/v1/posts?select=user_tags,comentario_fixado,conteudo&status=eq.publicado&order=published_at.desc&limit=2000" \
+            -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" \
+            -o /tmp/sample.json
+
+          node -e '
+            const posts = JSON.parse(require("fs").readFileSync("/tmp/sample.json","utf8"));
+            const porCat = {};
+            const tamanhoPorCat = {};
+            for (const p of posts) {
+              let tags=[]; try{tags = typeof p.user_tags==="string"?JSON.parse(p.user_tags):(p.user_tags||[]);}catch(_){}
+              const cat = tags[0] || "sem-categoria";
+              porCat[cat] = (porCat[cat]||0) + 1;
+              const texto = String(p.conteudo||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+              tamanhoPorCat[cat] = tamanhoPorCat[cat] || [];
+              tamanhoPorCat[cat].push(texto.length);
+            }
+            const total = posts.length;
+            console.log("Total na amostra:", total);
+            const linhas = Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+            for (const [cat, n] of linhas) {
+              const tamanhos = tamanhoPorCat[cat];
+              const media = Math.round(tamanhos.reduce((a,b)=>a+b,0)/tamanhos.length);
+              const curtos = tamanhos.filter(t=>t<2000).length;
+              console.log(`${cat}: ${n} posts (${(n/total*100).toFixed(1)}%) | tamanho medio texto: ${media} chars | curtos (<2000 chars): ${curtos} (${(curtos/n*100).toFixed(0)}%)`);
+            }
+          '
