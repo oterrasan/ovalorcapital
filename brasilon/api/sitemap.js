@@ -7,7 +7,10 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const BASE = "https://www.obrasilon.com.br";
-const STATIC_PATHS = ["/", "/brasil-on/", "/politica/", "/policia/", "/futebol/"];
+// "giro" (5ª categoria, adicionada 08/09/2026) nunca tinha sido somada aqui
+// — a própria página de categoria nunca aparecia no sitemap, só os artigos
+// dela via postsXml (bug real confirmado em auditoria de 04/11/2026).
+const STATIC_PATHS = ["/", "/brasil-on/", "/politica/", "/policia/", "/futebol/", "/giro/"];
 const INSTITUTIONAL_PATHS = ["/quem-somos/", "/politica-editorial/", "/contato/", "/privacidade/", "/termos-de-uso/"];
 
 function slugify(text) {

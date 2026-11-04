@@ -719,7 +719,7 @@ async function handleInstagramPublish(req, res, body) {
 // Automático — disparado pelo cron nativo da Vercel (brasilon/vercel.json).
 async function handleInstagramAutoPublish(req, res) {
   if (!_igAutoDentroDaJanelaAtiva()) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_09_12_14_22_brt" });
+    return res.status(200).json({ ok: true, skipped: true, reason: "fora_da_janela_ativa_07_12_14_22_brt" });
   }
 
   try {

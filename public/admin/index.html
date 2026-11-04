@@ -616,8 +616,13 @@ function Pipeline() {
   };
 
   const saveConfig = async () => {
-    await sb.from('config').upsert({key:'MAX_POSTS_DIA',value:String(maxPosts),updated_at:new Date().toISOString()},{onConflict:'key'});
-    await sb.from('config').upsert({key:'INTERVALO',value:String(intervalo),updated_at:new Date().toISOString()},{onConflict:'key'});
+    // mesmo padrão seguro de toggleAuto() acima — .upsert(...,{onConflict:'key'})
+    // sempre falhava silenciosamente, a coluna key não tem constraint unique
+    // real (bug real confirmado em auditoria de 04/11/2026).
+    await sb.from('config').delete().eq('key','MAX_POSTS_DIA');
+    await sb.from('config').insert({key:'MAX_POSTS_DIA',value:String(maxPosts),updated_at:new Date().toISOString()});
+    await sb.from('config').delete().eq('key','INTERVALO');
+    await sb.from('config').insert({key:'INTERVALO',value:String(intervalo),updated_at:new Date().toISOString()});
     setMsg('Configurações salvas');
     setTimeout(()=>setMsg(''),3000);
   };
@@ -3666,7 +3671,14 @@ function Configuracoes() {
   },[]);
 
   const save = async (key, value) => {
-    await sb.from('config').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    // .upsert(...,{onConflict:'key'}) sempre falhava silenciosamente — a
+    // coluna key da tabela config não tem constraint unique real, então
+    // todo clique em "Salvar" aqui (Nota de Pesar, os 3 Interruptores,
+    // MAX_POSTS_DIA/INTERVALO) nunca persistia, mesmo mostrando "Salvo"
+    // (bug real confirmado em auditoria de 04/11/2026). Mesmo padrão
+    // seguro já usado em toggleAuto() no Dashboard.
+    await sb.from('config').delete().eq('key', key);
+    await sb.from('config').insert({key,value,updated_at:new Date().toISOString()});
     setMsg('Salvo');
     setTimeout(()=>setMsg(''),2000);
   };
@@ -6917,7 +6929,15 @@ function PortalColunistasAdmin() {
 
   const rejeitar = async(id)=>{
     setRejeitando(id);
-    await sb.from('posts').update({status:'reprovado'}).eq('id',id);
+    // era 'reprovado' — valor fora do padrão real usado em todo o resto do
+    // sistema ('rejeitado': backend em api/manage.js, Postagens() aqui
+    // mesmo, e o próprio painel do colunista em admin/colunista/index.html,
+    // cujo updateStats()/renderTable() só reconhece pendente/publicado/
+    // rejeitado). Com 'reprovado', a matéria rejeitada ficava fora das
+    // estatísticas e aparecia com o badge amarelo de "pendente" pro
+    // colunista, como se ainda estivesse em análise (bug real confirmado
+    // em auditoria de 04/11/2026).
+    await sb.from('posts').update({status:'rejeitado'}).eq('id',id);
     setSubmissoes(s=>s.filter(x=>x.id!==id));
     setRejeitando(null);
     showMsg({t:'🗑️ Artigo rejeitado',tipo:'ok'});

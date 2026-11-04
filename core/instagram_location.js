@@ -57,7 +57,15 @@ const WORLD_COUNTRY_KEYS = [...WORLD_COUNTRY_MAP.keys()].sort((a, b) => b.length
 function cityScore(text, item, isTitle) {
   const city = escapeRegExp(item.key);
   const uf = item.uf.toLowerCase();
-  if (new RegExp(`\\b${city}\\s*(?:,|-|\\()\\s*${uf}\\b`).test(text)) return isTitle ? 130 : 120;
+  // era `\s*(?:,|-|\()\s*` — mas o texto que chega aqui já passou por
+  // normalize() (remove toda pontuação antes de qualquer match), então
+  // essa vírgula/hífen/parêntese nunca sobrevive pra bater. "São Paulo,
+  // SP" e "São Paulo (SP)" normalizam pra "sao paulo sp" com só 1 espaço
+  // entre as palavras — o mesmo sinal real de dateline, só que expresso
+  // como adjacência direta em vez do caractere de pontuação em si (bug
+  // real confirmado em auditoria de 04/11/2026, testado com 3 frases
+  // reais em Node antes do fix).
+  if (new RegExp(`\\b${city}\\s+${uf}\\b`).test(text)) return isTitle ? 130 : 120;
   if (new RegExp(`\\b(?:na cidade de|no municipio de|em|na|no)\\s+${city}\\b`).test(text)) return isTitle ? 100 : 80;
   if (new RegExp(`\\b${city}\\b`).test(text)) {
     const state = STATE_ENTRIES.find((entry) => entry.uf === item.uf);

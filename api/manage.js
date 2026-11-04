@@ -3888,6 +3888,24 @@ async function handleNotaLutoStatus(res) {
     return res.status(200).json({ ok: true, ativa: false, ...NOTA_LUTO_DEFAULT });
   }
 }
+// Padrão seguro reutilizável pra gravar várias linhas em config de uma vez —
+// NUNCA usar .upsert(rows,{onConflict:"key"}): a coluna key não tem
+// constraint unique real, então o Postgres sempre rejeita com 42P10 e o
+// catch(e) devolvia 500 sem persistir nada (bug real confirmado em auditoria
+// de 04/11/2026 — os dois únicos callers, handleNotaLutoToggle e
+// handleInterruptorToggle, nunca conseguiam salvar nada). Faz
+// select-then-update-or-insert por linha, mesmo padrão já comprovado em
+// handleNewsletterSubscribe/_salvarPesquisa.
+async function salvarConfigRowsSafe(rows) {
+  for (const row of rows) {
+    const { data } = await supabase.from("config").select("key").eq("key", row.key).limit(1);
+    if (data && data.length) {
+      await supabase.from("config").update({ value: row.value, updated_at: row.updated_at }).eq("key", row.key);
+    } else {
+      await supabase.from("config").insert(row);
+    }
+  }
+}
 async function handleNotaLutoToggle(req, res) {
   const pass = String(req.query.pass || "");
   if (pass !== ADMIN_PASS) return res.status(403).json({ error: "forbidden" });
@@ -3902,7 +3920,7 @@ async function handleNotaLutoToggle(req, res) {
     if (texto) rows.push({ key: "NOTA_LUTO_TEXTO", value: texto, updated_at: new Date().toISOString() });
     if (imagem) rows.push({ key: "NOTA_LUTO_IMAGEM", value: imagem, updated_at: new Date().toISOString() });
     if (link) rows.push({ key: "NOTA_LUTO_LINK", value: link, updated_at: new Date().toISOString() });
-    await supabase.from("config").upsert(rows, { onConflict: "key" });
+    await salvarConfigRowsSafe(rows);
     return res.status(200).json({ ok: true, ativa: on });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
@@ -3967,7 +3985,7 @@ async function handleInterruptorToggle(req, res) {
     if (texto) rows.push({ key: prefix + "TEXTO", value: texto, updated_at: new Date().toISOString() });
     if (imagem) rows.push({ key: prefix + "IMAGEM", value: imagem, updated_at: new Date().toISOString() });
     if (link) rows.push({ key: prefix + "LINK", value: link, updated_at: new Date().toISOString() });
-    await supabase.from("config").upsert(rows, { onConflict: "key" });
+    await salvarConfigRowsSafe(rows);
     return res.status(200).json({ ok: true, slot: parsed.tipo + "__" + parsed.categoria, ativa: on });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
