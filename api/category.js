@@ -25,12 +25,6 @@ const CAT_SEO = {
     canonical: "https://www.ovalorcapital.com.br/economia/",
     tplPath: "economia",
   },
-  investimentos: {
-    title: "Investimentos | O Valor Capital",
-    desc: "Renda fixa, renda variável, fundos, previdência privada e estratégias do investidor brasileiro. Análises para seu patrimônio crescer com segurança.",
-    canonical: "https://www.ovalorcapital.com.br/investimentos/",
-    tplPath: "investimentos",
-  },
   negocios: {
     title: "Negócios | O Valor Capital",
     desc: "Empreendedorismo, gestão financeira, startups, MEI, crédito empresarial e tributação para PJ. O que as empresas brasileiras precisam saber.",
@@ -48,36 +42,6 @@ const CAT_SEO = {
     desc: "Geopolítica, economia global, EUA, Europa, China e Oriente Médio. Notícias e análises sobre o cenário internacional e seu impacto direto no Brasil.",
     canonical: "https://www.ovalorcapital.com.br/internacional/",
     tplPath: "internacional",
-  },
-  saude: {
-    title: "Saúde | O Valor Capital",
-    desc: "Saúde pública, SUS, saúde mental, planos de saúde, medicamentos e políticas de saúde no Brasil. Informação confiável para decisões mais saudáveis.",
-    canonical: "https://www.ovalorcapital.com.br/saude/",
-    tplPath: "saude",
-  },
-  tributos: {
-    title: "Tributos | O Valor Capital",
-    desc: "IRPF, reforma tributária, planejamento tributário, obrigações fiscais e Simples Nacional. Tudo sobre impostos e tributos no Brasil com análise editorial.",
-    canonical: "https://www.ovalorcapital.com.br/tributos/",
-    tplPath: "tributos",
-  },
-  carreira: {
-    title: "Carreira | O Valor Capital",
-    desc: "Vagas de emprego, concursos públicos, profissões em alta, educação profissional e mercado de trabalho. Tudo para crescer na carreira no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/carreira/",
-    tplPath: "carreira",
-  },
-  imoveis: {
-    title: "Imóveis | O Valor Capital",
-    desc: "Mercado imobiliário brasileiro: lançamentos, financiamento habitacional, Minha Casa Minha Vida, FGTS, aluguel, compra de imóveis e fundos imobiliários.",
-    canonical: "https://www.ovalorcapital.com.br/imoveis/",
-    tplPath: "imoveis",
-  },
-  seguros: {
-    title: "Seguros | O Valor Capital",
-    desc: "Seguros de vida, saúde, automóvel, residencial e empresarial. Mercado segurador, proteção patrimonial e planejamento financeiro familiar no Brasil.",
-    canonical: "https://www.ovalorcapital.com.br/seguros/",
-    tplPath: "seguros",
   },
   industria: {
     title: "Indústria | O Valor Capital",
@@ -102,18 +66,6 @@ const CAT_SEO = {
     desc: "Famosos, celebridades, bastidores, entretenimento e cultura pop no Brasil e no mundo. O giro do que está sendo comentado, com o padrão editorial do OVC.",
     canonical: "https://www.ovalorcapital.com.br/giro/",
     tplPath: "giro",
-  },
-  cultura: {
-    title: "Cultura | O Valor Capital",
-    desc: "Cinema, música, literatura, teatro, gastronomia e a produção cultural brasileira. Entretenimento com análise editorial e impacto na sociedade e na economia.",
-    canonical: "https://www.ovalorcapital.com.br/cultura/",
-    tplPath: "cultura",
-  },
-  religiao: {
-    title: "Fé & Espiritualidade | O Valor Capital",
-    desc: "Evangelismo, catolicismo, espiritualidade, missões e valores de fé no contexto da sociedade brasileira. A religião como força política, cultural e familiar.",
-    canonical: "https://www.ovalorcapital.com.br/religiao/",
-    tplPath: "religiao",
   },
   colunistas: {
     title: "Colunistas & Opinião | O Valor Capital",
