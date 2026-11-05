@@ -4,6 +4,13 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: Checar ultimas execucoes do Monitor de custo Vercel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "=== ultimas 5 execucoes de cost-monitor.yml ==="
+          gh api "repos/oterrasan/ovalorcapital/actions/workflows/370890304/runs?per_page=5" \
+            --jq '.workflow_runs[] | "\(.created_at) status=\(.status) conclusion=\(.conclusion) run_id=\(.id)"'
