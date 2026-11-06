@@ -5,5 +5,64 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: Checar se posts continuaram sendo publicados normalmente 27/10-03/11 (teste decisivo de outage real)
+        env:
+          SB_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          echo "=== Contagem de posts PUBLICADOS por dia, 23/10 a 06/11 (teste decisivo: site/pipeline ficou fora do ar?) ==="
+          python3 << 'PYEOF'
+          import urllib.request, json, os
+          SB_URL = os.environ["SB_URL"]
+          SB_KEY = os.environ["SB_KEY"]
+          req = urllib.request.Request(
+              f"{SB_URL}/rest/v1/posts?select=published_at&status=eq.publicado&published_at=gte.2026-10-23T00:00:00&published_at=lt.2026-11-07T00:00:00&order=published_at.asc",
+              headers={"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}"}
+          )
+          with urllib.request.urlopen(req, timeout=30) as resp:
+              data = json.loads(resp.read())
+          print(f"total de posts no periodo: {len(data)}")
+          from collections import Counter
+          by_day = Counter()
+          by_hour = Counter()
+          for row in data:
+              ts = row["published_at"]
+              day = ts[:10]
+              hour_key = ts[:13]
+              by_day[day] += 1
+              by_hour[hour_key] += 1
+          print("\n--- por dia ---")
+          for day in sorted(by_day):
+              print(f"{day}: {by_day[day]} posts")
+          print("\n--- maior lacuna entre publicacoes consecutivas (horas) ---")
+          timestamps = sorted(row["published_at"] for row in data)
+          import datetime
+          max_gap = 0
+          max_gap_at = None
+          for i in range(1, len(timestamps)):
+              t1 = datetime.datetime.fromisoformat(timestamps[i-1])
+              t2 = datetime.datetime.fromisoformat(timestamps[i])
+              gap = (t2 - t1).total_seconds() / 3600
+              if gap > max_gap:
+                  max_gap = gap
+                  max_gap_at = (timestamps[i-1], timestamps[i])
+          print(f"maior lacuna: {max_gap:.2f} horas, entre {max_gap_at[0]} e {max_gap_at[1]}" if max_gap_at else "sem dados")
+          print("\n--- 15 maiores lacunas (horas) ---")
+          gaps = []
+          for i in range(1, len(timestamps)):
+              t1 = datetime.datetime.fromisoformat(timestamps[i-1])
+              t2 = datetime.datetime.fromisoformat(timestamps[i])
+              gap = (t2 - t1).total_seconds() / 3600
+              gaps.append((gap, timestamps[i-1], timestamps[i]))
+          gaps.sort(reverse=True)
+          for g in gaps[:15]:
+              print(f"{g[0]:.2f}h entre {g[1]} e {g[2]}")
+          PYEOF
+      - name: Checar logs de erro reais no periodo (tabela logs, se existir)
+        env:
+          SB_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SB_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          echo "=== Teste HTTP direto na homepage e numa categoria AGORA (confirmar estado atual real) ==="
+          curl -sS --max-time 15 -o /dev/null -w "HOME: HTTP:%{http_code} TIME:%{time_total}s\n" "https://www.ovalorcapital.com.br/"
+          curl -sS --max-time 15 -o /dev/null -w "POLITICA: HTTP:%{http_code} TIME:%{time_total}s\n" "https://www.ovalorcapital.com.br/politica/"
