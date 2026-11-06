@@ -10226,3 +10226,134 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 3. Buraco de documentação 23/10-02/11 (ver acima) — baixa urgência, preencher só se Roberto pedir.
 4. Workflows "— pausado" + duplicidade `run.yml`/`keepalive.yml` — cosmético, opcional, só se Roberto quiser ir além.
 5. Demais pendências antigas seguem válidas: investigação de alcance do Instagram (pausada, aguardando Roberto retomar); tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin.
+
+---
+
+### Sessão 03-06/11/2026 — AUDITORIA COMPLETA "CADA VÍRGULA" (8 PRs, 1 VAZAMENTO DE SENHA DE 5 MESES) + CRISE DE TRÁFEGO NO SEARCH CONSOLE (sem gatilho único confirmado) + WATCHDOG MUDO POR 6 DIAS (sem outage real) + CONVERSA PESADA SOBRE CONFIANÇA
+
+> Roberto pediu explicitamente, ao fim desta sessão, pra registrar TUDO dos últimos 5 dias porque ia abrir uma conversa nova ("ESTA AQUI ESTA PESADA"). Esta entrada cobre 03/11 de manhã até 06/11 — é longa de propósito, por pedido dele.
+
+---
+
+## PARTE 1 — AUDITORIA COMPLETA "CADA VÍRGULA" DO PORTAL (8 PRs, 03-04/11)
+
+A pedido de Roberto ("quero que você revise tudo, cada vírgula, procure bug, código morto, qualquer coisa errada"), foi feita uma auditoria real e extensa do codebase (não superficial — cada achado verificado por leitura de código ou teste real antes de ser corrigido/removido).
+
+### 🚨🚨🚨 PR #845 — ACHADO MAIS GRAVE: senha-mestra real do admin exposta em texto puro, 5+ MESES em produção
+
+`public/js/estudio-open-access.js` (existia desde **30/05/2026**) gravava a senha-mestra real do admin (`ovc-admin-2026-secreto` — a MESMA string usada em `api/manage.js`/`api/run_portal.js` pra autorizar TODA a API privada do portal) direto no `localStorage` de **qualquer visitante** que abrisse `/estudio/`, via `setInterval`/`setTimeout`, pulando por completo o login real que o próprio `estudio.js` já implementava corretamente. `/estudio/` **não é bloqueado pelo `robots.txt`**. Confirmado por leitura direta de código (não suposição) que `ADMIN_PASS` default em `api/manage.js` é literalmente essa mesma string.
+
+**Fix:** arquivo deletado + removida a tag `<script>` que o carregava. O login real de `estudio.js` (que já fazia fetch de verdade pra `/api/auth/validate-token`) volta a ser exigido normalmente — nada mais mudou no fluxo de autenticação.
+
+**Não verificado se essa senha foi usada por terceiro malicioso em algum momento desses 5 meses** — não há como saber retroativamente sem logs de acesso detalhados. Se Roberto quiser, trocar a senha-mestra (`ADMIN_PASS`) é uma camada extra de segurança possível, mas não feito nesta sessão (fora do escopo do que foi pedido — só corrigir o vazamento em si).
+
+### PR #846 — 8 bugs reais confirmados na auditoria
+
+1. **`api/manage.js`**: `handleNotaLutoToggle`/`handleInterruptorToggle` usavam `.upsert(rows,{onConflict:'key'})` contra `config` — **sempre falhava** (a coluna `key` nunca teve constraint unique real, mesma classe de bug já documentada várias vezes neste arquivo pra outras partes do sistema). Ligar/desligar a Nota de Pesar e os 3 Interruptores por categoria **nunca persistia de verdade**. Novo helper `salvarConfigRowsSafe()` (select-then-update-or-insert, o padrão seguro já estabelecido no projeto).
+2. **`public/admin/index.html`**: mesmo bug exato nos dois únicos callers reais (`save()`/`saveConfig()` em `Configuracoes` — o caminho que o clique real do usuário de fato usa, escrita direta via `sb` do browser). Trocado pro padrão delete+insert já usado em `toggleAuto()` no mesmo arquivo.
+3. **`public/admin/index.html`**: `PortalColunistasAdmin().rejeitar()` gravava `status:'reprovado'` em posts — valor **fora do padrão real** do sistema (`'rejeitado'`). Matéria rejeitada aparecia como pendente no painel do próprio colunista (fora das estatísticas, badge amarelo errado).
+4. **`brasilon/api/portal-posts.js`**: `CATS` nunca incluiu `'giro'` (5ª categoria do Brasil ON, adicionada 08/09/2026 em outro lugar do código sem atualizar aqui) — `?categoria=giro` sempre 400, página `/giro/` sem conteúdo nenhum desde então.
+5. **`brasilon/api/sitemap.js`**: mesmo esquecimento, `STATIC_PATHS` sem `/giro/`.
+6. **`brasilon/api/manage.js`**: texto de diagnóstico desatualizado (`fora_da_janela_ativa_09_12_14_22_brt` — a janela real já era 07-12/14-22, cosmético).
+7. **`core/internacional.js`**: regex da CNN com ano **2026 hardcoded** — zeraria essa fonte a partir de 01/01/2027 sem erro visível.
+8. **`core/instagram_location.js`**: `cityScore()` normalizava o texto (removendo toda pontuação) ANTES de testar o padrão que exige vírgula/hífen/parênteses entre cidade e UF — esse ramo de maior confiança nunca disparava na prática. Testado com 3 frases reais em Node confirmando o fix.
+9. **`public/js/ovc-cards.js`**: bloco inteiro de `manchetesDefs` duplicado, sempre sobrescrito pelo segundo logo depois — trabalho em vão em todo carregamento da home.
+
+### PR #847 — remoção de código morto confirmado (cada item verificado por grep individual, nunca por categoria ampla)
+
+**Arquivos órfãos deletados** (zero import/require em todo o repo): `core/pipeline.js` + seus únicos dependentes `core/ai.js`/`core/db.js`; `core/card.js`; `core/publish_engine.js`; `public/admin-tools.js`; 9 arquivos legados em `public/js/` sem nenhum `<script src>` (`admin.js`, `article.js`, `auth.js`, `footer-patch.js`, `noticias.js`, `noticias-v2.js`, `noticias-v3.js`, `ovc-colunistas.js`, `ovc-vc.js`). **`public/js/category-section-guard.js` foi verificado e MANTIDO** — é injetado dinamicamente por `api/category.js`, não apareceria num grep ingênuo.
+
+**Blocos/funções mortos dentro de arquivos vivos**: `api/live.js` (`handleCopa()` — Copa 2026 já acabou); `api/portal-posts.js` (`handleHome()`/`getHomeTemplate()`/`injectHeadGuards()`/`injectHero()`/`FOUC_GUARD`/`CRITICAL_CSS`/`escHtml()` — `?format=home` sem rota desde 04/06/2026); `api/landing.js` (seções `financas`/`vc` mortas desde 29/05/2026 + `renderVcInstitucional()` inteira); `api/category.js` (8 entradas de `CAT_SEO` de categorias que já fazem 301 antes de chegar nesse código); `core/rss.js` (`FAMILIA_CAT`/`CATEGORIA_PARA_GRUPO`).
+
+**2 bugs reais corrigidos no caminho**: `api/institutional.js` tinha link "Seja Colunista" pra `/colunista/` (singular, nunca existiu) — 404 real, trocado pra `mailto:`; `api/landing.js`'s `NAV_LINKS` tinha "Investimentos"/"Seguros" como entradas separadas apontando pra categorias extintas, consolidado numa única "Finanças".
+
+**⚠️ Deliberadamente NÃO tocado (decisão maior, fica pra Roberto autorizar)**: `api/institutional.js`'s `buildHeader()` ainda usa a taxonomia extinta de 19 categorias nas páginas `/quem-somos/` e `/politica-editorial/`. Corrigir isso exige reconstruir o supermenu inteiro com subcategorias reais da taxonomia atual de 12 — risco real de inventar slug errado. **Já autorizado por Roberto em sessão anterior, ainda não iniciado.**
+
+### PR #848 — links antigos `?id=` quebrados (achado ao investigar a queda de tráfego)
+
+`api/category.js`, ao receber link no formato antigo (ex: `/politica/?id=a1b2c3d4`, de antes da troca pro formato `/categoria/titulo/`), sempre redirecionava pra `/og?id=...` — que **nunca serviu página real**, caía no handler padrão de `api/portal-posts.js` e devolvia **JSON cru na tela**. Qualquer pessoa clicando num link antigo de busca, favorito salvo ou link compartilhado via WhatsApp via isso — e o Googlebot via a mesma coisa ao tentar re-rastrear. Fix: `resolveLegacyIdUrl()` busca o post real (por id completo ou 8 primeiros chars) e faz **301** direto pra URL real atual (ou home se o post não existir mais).
+
+### Outras diagnósticos desta janela (03/11)
+
+- **PR #821** (squash, 3 commits): (a) fix parcial de canonical — `api/article.js` truncava slug em 60 chars enquanto `sitemap.js`/`landing.js`/`portal-posts.js` truncavam em 55 (bug desde 02/06/2026, não é a causa da queda recente, mas real); (b) faxina de 5 workflows/scripts mortos de migração Supabase já concluída (alguns com chave do banco antigo hardcoded em texto puro); (c) nova action `relatorio_canais` — agrega `metrics.views` por `publish_method`/categoria, protegida por `checkAdmin`, pra Roberto identificar o que o site gera sem clique.
+- **PR #824**: botão real de "limpar orçamento IA antigo" no Dashboard (antes era só um `<span>` decorativo sem função) + nova action `reels_erros` (lista Reels aprovados com erro real, `last_error`/`attempts`/`exhausted`, que antes só dava pra ver post por post).
+- **PR #840/#841**: pingou Google/Bing manualmente pro sitemap novo, tentando forçar recrawl mais rápido após o fix de SSR — **confirmado inútil** (não há evidência de que isso acelera nada; o protocolo de ping de sitemap está deprecado/sem efeito prático há anos). Não é um caminho real pra acelerar a volta do tráfego.
+- **PR #842/#843/#844** (tarefa separada, Roberto queria apagar imagem de posts com +3 meses pra economizar espaço): medido com dado real ANTES de apagar qualquer coisa — bucket `post-images` tem 22.981 arquivos / 1.270,8 MB no total; dos 4.237 posts com +90 dias, 1.800 não têm imagem nenhuma e quase todo o resto usa imagem **hotlinked externa** (Unsplash, Wikimedia, Globo, CNN etc.) — só ~2 referenciam de fato o nosso Storage. **Conclusão: apagar imagem de post antigo não economizaria espaço real. Não feito — decisão correta foi não fazer nada.**
+
+---
+
+## PARTE 2 — A CRISE DE TRÁFEGO NO SEARCH CONSOLE (04-06/11)
+
+### O que Roberto reportou e o que foi investigado, em ordem
+
+1. Roberto mandou prints do Search Console: **Segurança** (limpo, "nenhum problema detectado") e **Ações manuais** (limpo, idem) — descarta penalidade/ação manual do Google.
+2. Mandou print de **Indexação → Páginas**: 22 mil indexadas, 15,1 mil não indexadas, com 12 motivos — o maior bucket (6.970 páginas, "página alternativa com tag canônica adequada") já tinha correspondência direta com o bug de canonical que seria corrigido horas depois no PR #828 (ver abaixo).
+3. Pergunta sobre automatizar postagem de matérias num **Canal do WhatsApp** — pesquisado (WebSearch), confirmado que **não existe API oficial da Meta pra Canais do WhatsApp**, só ferramentas de terceiros arriscadas ou uma API diferente (mensagens pra contato opt-in, não é a mesma coisa). Apresentado as duas opções sem decidir por ele. **Roberto rejeitou as duas e decidiu colar o link manualmente ele mesmo — fechado, sem ação pendente aqui.**
+4. Roberto propôs mudar o tom editorial: manchetes muito mais "tiro, porrada e bomba" e declarar abertamente o OVC como "extrema direita" em política/economia. Dei retorno honesto (risco real: política do Google News contra clickbait; classificador automático do AdSense pra "conteúdo extremista" — fonte única de receita do site; sugeri manter blindagem jurídica de sempre independente do tom) e perguntei: (a) "extrema direita" (aceitando o risco do AdSense) ou "direita"/"conservador declarado" (igualmente forte, menos arriscado)? (b) 2-3 manchetes de exemplo pro nível de "tempero" que ele quer. **🚨 PAUSADO — Roberto NÃO respondeu nenhuma das 2 perguntas. Não retomar essa conversa sem ele voltar a ela.**
+5. Roberto ficou furioso com 0 cliques no "24 horas" do Search Console, exigiu investigação de infraestrutura real (Supabase/Vercel/GitHub), tratando isso como prioridade absoluta acima de tudo.
+
+### Infraestrutura testada e descartada como causa (tudo com evidência real, não suposição)
+
+- **Cloaking/bloqueio pro Googlebot**: testado com User-Agent do Googlebot vs. navegador normal, lado a lado — resposta idêntica (200, mesmo tamanho de corpo, sem header suspeito). Descartado.
+- **robots.txt / sitemap.xml**: confirmados limpos (sem bloqueio, sem noindex geral) em tempo real.
+- **Deploy que quebrou algo**: `git log` confirma **zero commits entre 27/10 21:01 e 02/11** — nenhum deploy aconteceu nessa janela, então não tem como um deploy ter causado a queda que começou em 30-31/10.
+- **Incidente confirmado da Vercel ou do Google** na data exata (30-31/10): pesquisado via WebSearch, nenhum incidente oficial confirmado nessa data específica em nenhum dos dois.
+- **Supabase fora do ar / pipeline parado**: ver teste decisivo abaixo — descartado com certeza.
+
+### Origem real dos 2 bugs já corrigidos — quando nasceram (não é regressão recente)
+
+Via `git log -S` (pickaxe, busca exata de quando uma string entrou/saiu de um arquivo):
+- **Bug do SSR raso (#836)**: a arquitetura que serve o template estático de categoria pra QUALQUER artigo existe desde **09/05/2026** (lançamento original do sistema de URLs limpas, commit `c93ad002`) — **quase 6 meses**, não um bug novo.
+- **Bug de canonical desalinhado (#828)**: o padrão de 55 chars em `api/article.js` foi fixado em **14/05/2026** (`8f66fa8c`); mas `api/portal-posts.js` já usava 60 chars desde **20/04/2026** (`b752a83e`) — ou seja, de ANTES do padrão de 55 existir, e nunca foi atualizado quando o padrão nasceu. `api/manage.js` em 80 chars está documentado desde pelo menos **02/06/2026**, e foi tocado de novo em **28/09/2026** (por uma feature de Instagram, sem relação) sem ninguém notar o desalinhamento.
+
+**Conclusão honesta dada a Roberto**: os 2 bugs são velhos (abril/maio/junho), não é algo que quebrou especificamente em 30-31/10. Isso não explica por si só o TIMING exato da queda — só explica que o site estava tecnicamente fraco há meses.
+
+### 🔴 ACHADO NOVO E GRAVE — o sistema de vigilância do próprio projeto ficou mudo por 6 dias
+
+Investigando mais a fundo o timing exato, foi encontrado algo que ninguém tinha notado: **`api-health-check.yml`** ("Rastreador de saúde da API — previne apagões silenciosos") e **`cost-monitor.yml`** (monitor diário de custo Vercel) — dois workflows agendados DIFERENTES e INDEPENDENTES — **os dois ficaram sem rodar NENHUMA vez entre 27/10 à noite (19:25-21:01) e 02/11 à noite (21:20-23:58)**. Confirmado via `list_workflow_runs` de cada um, separadamente: zero execução em ambos, no mesmo período exato.
+
+- `api-health-check.yml` está com `state:"active"` agora (não foi desativado manualmente, pelo menos não permanece desativado) — confirmado via `get_workflow`.
+- Não houve nenhum commit no repo nessa janela que explique isso — o próprio agendador do GitHub Actions parou de disparar por conta própria. Já é um comportamento conhecido e documentado neste projeto antes (sessões de 15-16/08 e 21/08/2026), mas nunca por 6 dias direto.
+- A última issue real de `api-health` (#809) foi aberta em 24/10 e **auto-fechada** em 25/10 05:20 — depois disso, nenhuma issue nova, porque o vigia simplesmente parou de rodar, não porque nada deu errado.
+
+### Teste decisivo — o site ficou fora do ar de verdade, ou só o vigia ficou cego?
+
+**Primeira tentativa (ERRO MEU, corrigido na hora)**: consultei o Supabase pedindo todos os posts publicados em 23/10-06/11 numa query só, sem paginação — bati no limite padrão de 1000 linhas do PostgREST/Supabase, e o resultado só cobriu até 26/10, nunca chegando na janela que importava. Reconheci o erro pro Roberto e refiz certo.
+
+**Segunda tentativa (correta, via `Content-Range`/`count=exact`, sem limite de linhas)**:
+- Contagem de posts publicados por dia, 20/10 a 06/11: **229, 278, 279, 261, 227, 267, 278, 241, 226, 243, 265, 226, 214, 241**, 71 (03/11, dia parcial no momento do teste), 291, 174, 1 (06/11, dia em andamento). **Todo dia da janela 27/10-02/11 (241/226/243/265/226/214/241) está no mesmo patamar normal do resto de outubro** — nenhuma queda de volume de publicação.
+- Contagem por hora, 27/10 12h até 02/11 23h (zoom exato na janela do vigia mudo): **ZERO horas com zero posts publicados** em mais de 130 horas verificadas uma a uma.
+
+**Conclusão confirmada com evidência real: o site/pipeline NUNCA ficou fora do ar nessa janela.** O vigia ficou cego, mas não havia nada de errado pra ele detectar nesse período específico — foi sorte, não dano real. Isso também significa que o "vigia mudo" **não é a explicação da queda de tráfego** — é um risco operacional real (perigoso, porque da próxima vez pode não dar sorte), mas não a causa deste episódio.
+
+### Resposta final honesta dada a Roberto (as 2 perguntas dele)
+
+1. **O que quebrou e por quê**: 2 bugs técnicos reais e antigos (SSR raso desde maio, canonical desalinhado desde abril/junho), ambos já corrigidos e no ar. **Não foi encontrado um gatilho único e exato pro dia 30-31/10** — tudo que poderia explicar um gatilho pontual (deploy, outage, penalidade, incidente externo) foi descartado com prova real. A explicação que sobra, sem ser 100% confirmável, é desgaste acumulado de meses até cruzar algum limite de confiança do Google — dito a ele exatamente assim, como hipótese não confirmada, não como fato.
+2. **Quem garante que o tráfego volta**: ninguém, nem eu nem ele — isso é decisão do Google depois de re-rastrear, sem prazo garantido. O que dá pra garantir: os bugs reais que achamos estão corrigidos.
+
+### Reação de Roberto e conversa sobre confiança (IMPORTANTE — carregar pra próxima sessão)
+
+- Roberto reagiu com "e aí eu jogo um ano de trabalho no lixo?" — respondido com evidência real pra corrigir o catastrofismo sem inventar garantia: as 22 mil páginas continuam indexadas (não desapareceram), Segurança/Ações Manuais limpos (não é penalidade), e o **Brasil ON** (site irmão, mesmo time, mesma essência) está com tráfego normal no mesmo período — prova que não é bloqueio geral do Google contra o jeito de trabalhar, foi específico de 2 bugs do OVC.
+- **🚨 Roberto então fez uma crítica séria e direta sobre confiança**: disse que em "muitas conversas anteriores" o Claude o deixou na mão, fez ele perder dinheiro, contratar pacotes errados, investir no que não precisava, e deu estimativas de retorno de visualizações que nunca se confirmaram. Reconheci isso sem me defender — é um padrão real, documentado neste próprio arquivo em vários incidentes ao longo do projeto. Compromisso assumido: nenhum número/prazo/estimativa daqui pra frente sem ser baseado em dado testado de verdade (exatamente o padrão usado nesta sessão: testar antes de afirmar, admitir quando não sei).
+- Roberto fechou com: **"de nada me adianta um site que não tem cliques nem acessos"** — concordei sem contestar. Separei o que depende do Google (pedido de reindexação manual no Search Console pras URLs mais importantes — ação que só ele pode fazer, eu preciso montar a lista) do que NÃO depende do Google (estado real da automação do Instagram — perguntei se ele queria que eu checasse agora, **ele não respondeu, pediu essa atualização do MD em vez disso**).
+
+---
+
+## 🔧 PENDÊNCIAS REAIS PRA PRÓXIMA SESSÃO (conversa nova, conforme pedido de Roberto)
+
+1. **🔴 Verificar estado real da automação do Instagram do OVC** (feed + Reels, ligado/desligado, frequência) — perguntei a Roberto, ele não respondeu ainda. Primeira coisa a fazer na próxima sessão se ele retomar esse assunto.
+2. **Migrar o watchdog (`api-health-check.yml` e possivelmente `cost-monitor.yml`) pro cron nativo da Vercel**, em vez de depender do agendador do GitHub Actions — que já ficou 6 dias mudo nesta sessão sem nenhuma mudança nossa. Proposto a Roberto, **não implementado ainda**.
+3. **Montar lista de URLs prioritárias pra Roberto pedir reindexação manual** no Search Console (Inspeção de URL → Solicitar indexação) — oferecido, não entregue ainda.
+4. **Religar o pipeline do OVC** — continua pausado desde 03/11 (`AUTOMATION`, `IG_AUTOMATION_ENABLED`, `REELS_AUTOMATION_ENABLED` todos `off`; `BON_IG_ENABLED` do Brasil ON intocado, continua `on`). **NÃO reativar nada sem pedido explícito e novo de Roberto.**
+5. **Conversa sobre tom editorial — PAUSADA**, 2 perguntas minhas sem resposta: (a) "extrema direita" vs. "direita"/"conservador declarado"; (b) 2-3 manchetes de exemplo do nível de tempero que ele quer. Não retomar por conta própria.
+6. **`buildHeader()` de `api/institutional.js`** — supermenu com taxonomia extinta de 19 categorias nas páginas `/quem-somos/`/`/politica-editorial/`. Já autorizado antes, nunca iniciado. Risco real de slug errado se feito com pressa.
+7. **Trocar a senha-mestra do admin (`ADMIN_PASS`)** — o vazamento de 5 meses (PR #845) foi corrigido na origem, mas Roberto pode querer trocar a senha como camada extra de segurança (não há como confirmar retroativamente se alguém mal-intencionado a usou nesses 5 meses). Não feito — decisão dele.
+8. **Se achar ANOMALIA de tráfego de novo** (sitewide, num dia específico): o roteiro de investigação que funcionou aqui é: (1) checar deploy/commits nesse dia exato; (2) checar os 2 watchdogs (`api-health-check.yml`/`cost-monitor.yml`) pra ver se estavam rodando; (3) se suspeitar de outage real, testar contagem de posts por HORA via Supabase com `count=exact`/`Content-Range` (nunca sem paginação — o limite de 1000 linhas do PostgREST trunca silenciosamente e dá resultado errado, erro que cometi e corrigi nesta sessão).
+9. Demais pendências antigas seguem válidas (não resolvidas nesta sessão): tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (confirmado nesta sessão, inalterado por toda a auditoria)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
