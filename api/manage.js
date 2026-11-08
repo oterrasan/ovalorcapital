@@ -367,6 +367,54 @@ async function handleSetupStorage(res) {
   return res.status(200).json({ ok: true });
 }
 
+// ─── GOOGLE INDEXING API — best-effort, silencioso se GOOGLE_INDEXING_SA_JSON
+// ausente ─── Cópia intencional de api/run_portal.js (nunca import cruzado
+// entre arquivos api/, convenção já estabelecida do projeto). Roberto precisa
+// adicionar a env var GOOGLE_INDEXING_SA_JSON no Vercel pra isto ativar de fato.
+function _indexingBase64url(buf) {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function _getIndexingToken() {
+  const raw = process.env.GOOGLE_INDEXING_SA_JSON;
+  if (!raw) return null;
+  let sa;
+  try { sa = JSON.parse(raw); } catch (_) { return null; }
+  if (!sa.client_email || !sa.private_key) return null;
+  const now = Math.floor(Date.now() / 1000);
+  const header = _indexingBase64url(Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claims = _indexingBase64url(Buffer.from(JSON.stringify({
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/indexing",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now, exp: now + 3600
+  })));
+  const signingInput = `${header}.${claims}`;
+  const signature = _indexingBase64url(crypto.createSign("RSA-SHA256").update(signingInput).sign(sa.private_key));
+  const jwt = `${signingInput}.${signature}`;
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=${encodeURIComponent("urn:ietf:params:oauth:grant-type:jwt-bearer")}&assertion=${jwt}`,
+    signal: AbortSignal.timeout(4000)
+  });
+  if (!tokenRes.ok) return null;
+  const tokenData = await tokenRes.json();
+  return tokenData.access_token || null;
+}
+async function pingGoogleIndexing(url) {
+  if (!url) return;
+  try {
+    const token = await _getIndexingToken();
+    if (!token) return;
+    await fetch("https://indexing.googleapis.com/v3/urlNotifications:publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ url, type: "URL_UPDATED" }),
+      signal: AbortSignal.timeout(4000)
+    });
+  } catch (_) { /* best-effort — nunca quebra a aprovação do post */ }
+}
+
 async function handleApprovePortal(res, body) {
   const now = new Date().toISOString();
   const { id, ids, action, titulo, conteudo, imagem, comentario_fixado, video_url } = body;
@@ -382,6 +430,7 @@ async function handleApprovePortal(res, body) {
     const { data, error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).eq("id", id).select(MIRROR_COLS).single();
     if (error) throw error;
     await mirrorPostToBrasilOn(data);
+    await pingGoogleIndexing(buildArticleUrl(data));
     return res.status(200).json({ ok: true, action: "aprovado", id });
   }
 
@@ -396,6 +445,7 @@ async function handleApprovePortal(res, body) {
     const { data, error } = await supabase.from("posts").update(patch).eq("id", id).select(MIRROR_COLS).single();
     if (error) throw error;
     await mirrorPostToBrasilOn(data);
+    await pingGoogleIndexing(buildArticleUrl(data));
     return res.status(200).json({ ok: true, action: "editado_aprovado", id });
   }
 
@@ -403,6 +453,7 @@ async function handleApprovePortal(res, body) {
     const { data, error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).in("id", ids).select(MIRROR_COLS);
     if (error) throw error;
     await Promise.all((data || []).map(row => mirrorPostToBrasilOn(row)));
+    await Promise.all((data || []).map(row => pingGoogleIndexing(buildArticleUrl(row))));
     return res.status(200).json({ ok: true, action: "lote_aprovado", total: ids.length });
   }
 

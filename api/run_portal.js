@@ -340,6 +340,7 @@ async function salvarEsportesRadar(content, hash, img, sportLabel) {
       published_at: publishedAt
     });
   }
+  await pingIndexingForPost(data.id, titulo, "esportes");
   return { id: data.id, categoria: "esportes", titulo };
 }
 
@@ -388,6 +389,17 @@ async function pingGoogleIndexing(url) {
       signal: AbortSignal.timeout(4000)
     });
   } catch (_) { /* best-effort — nunca quebra o pipeline */ }
+}
+// Mapa simplificado — só as categorias que os 5 canais abaixo publicam direto
+// (sem fila de aprovação). Cópia intencional de CAT_PATH (api/article.js) —
+// nunca import cruzado entre arquivos api/, convenção já estabelecida do projeto.
+const INDEXING_CAT_PATH = { esportes: "esportes", "brasil-on": "brasil-on", politica: "politica", internacional: "internacional", giro: "giro" };
+async function pingIndexingForPost(id, titulo, categoria) {
+  const catPath = INDEXING_CAT_PATH[categoria] || categoria || "politica";
+  const slug = slugify(titulo || "") || "materia";
+  const id8 = String(id || "").slice(0, 8);
+  const url = `https://www.ovalorcapital.com.br/${catPath}/${slug}-${id8}/`;
+  await pingGoogleIndexing(url);
 }
 
 async function inserir(content, hash, img, tipo = "padrao", extraMetrics = {}) {
@@ -1418,6 +1430,7 @@ async function salvarBrasilOn(content, hash, img, fonte) {
     metrics: { meta_title: metaTitle }, user_tags: ["brasil-on"], subcategoria_slug: "brasil-on",
     published_at: publishedAt
   });
+  await pingIndexingForPost(data.id, titulo, "brasil-on");
   return { id: data.id, titulo };
 }
 
@@ -1666,6 +1679,7 @@ async function salvarJovempanPolitica(content, hash, img, fonte) {
     metrics: { meta_title: metaTitle }, user_tags: ["politica"], subcategoria_slug: "politica",
     published_at: publishedAt
   });
+  await pingIndexingForPost(data.id, titulo, "politica");
   return { id: data.id, titulo };
 }
 
@@ -1759,6 +1773,7 @@ async function salvarInternacional(content, hash, img, fonte) {
     priority: 0, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) return null;
+  await pingIndexingForPost(data.id, content.titulo, "internacional");
   return { id: data.id, titulo: stripTitle(content.titulo) };
 }
 
@@ -1868,6 +1883,7 @@ async function salvarFofocas(content, hash, img, fonte) {
     metrics: { meta_title: metaTitle }, user_tags: ["giro"], subcategoria_slug: "geral",
     published_at: publishedAt
   });
+  await pingIndexingForPost(data.id, titulo, "giro");
   return { id: data.id, titulo };
 }
 
