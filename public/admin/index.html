@@ -5195,6 +5195,20 @@ function LinkManualAdmin() {
     await sb.from('config').delete().eq('key', key);
     carregarHistorico();
   };
+  const [limpandoFalhas, setLimpandoFalhas] = useState(false);
+  const limparFalhas = async () => {
+    if (limpandoFalhas) return;
+    if (!confirm('Remover todos os pedidos que falharam? Os que ainda estão na fila ou capturando agora continuam intocados.')) return;
+    setLimpandoFalhas(true);
+    try {
+      const r = await fetch('/api/manage?action=link_jobs_limpar_falhas&pass=' + encodeURIComponent(ADMIN_PASS));
+      const d = await r.json();
+      if (d.ok) alert(`Limpo! ${d.apagadas} pedido(s) com falha removido(s).`);
+      else alert('Erro ao limpar: ' + (d.error || 'desconhecido'));
+    } catch (e) { alert('Erro ao limpar: ' + e.message); }
+    setLimpandoFalhas(false);
+    carregarHistorico();
+  };
 
   const processar = async () => {
     const l = link.trim();
@@ -5288,7 +5302,14 @@ function LinkManualAdmin() {
         <div className="panel">
           {pedidos.length > 0 && (
             <>
-              <div className="panel-header"><span className="panel-title">Pedidos de captura (Instagram/YouTube)</span></div>
+              <div className="panel-header" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span className="panel-title">Pedidos de captura (Instagram/YouTube)</span>
+                {pedidos.some(p => p.status === 'error') && (
+                  <button type="button" className="btn btn-secondary btn-sm" disabled={limpandoFalhas} onClick={limparFalhas}>
+                    {limpandoFalhas ? 'limpando...' : '🗑️ Limpar falhas'}
+                  </button>
+                )}
+              </div>
               <div style={{padding:14,borderBottom:'1px solid rgba(255,255,255,.06)'}}>
                 {pedidos.map(p => (
                   <div key={p.key} style={{padding:'8px 0',borderBottom:'1px solid rgba(255,255,255,.04)',display:'flex',gap:8,alignItems:'flex-start'}}>

@@ -96,6 +96,7 @@ export default async function handler(req, res) {
       if (action === "relatorio_canais") return handleRelatorioCanais(req, res);
       if (action === "reels_erros") return handleReelsErros(req, res);
       if (action === "limpar_gemini_budget_antigo") return handleLimparGeminiBudgetAntigo(req, res);
+      if (action === "link_jobs_limpar_falhas") return handleLinkJobsLimparFalhas(req, res);
       return handleStatus(res);
     }
 
@@ -353,6 +354,50 @@ async function handleLimparGeminiBudgetAntigo(req, res) {
     ok: true,
     total_antes: todasAsChaves.length,
     de_hoje_preservadas: todasAsChaves.length - antigas.length,
+    apagadas
+  });
+}
+
+// 09/11/2026 — "Pedidos de captura" (fila LINK_JOB__* do robô do TikTok do
+// Metrópoles) acumulava dezenas de entradas permanentemente falhas (texto
+// cita outro veículo, menos de 10 hashtags, Gemini sem cota) sem nenhum
+// jeito de limpar em lote — só "Remover" um por um. Diferente de
+// handleLinkJobsLimparTudo (run_portal.js, CRON_TOKEN, apaga a fila
+// INTEIRA e ainda zera video_url de posts reais — ferramenta de reset
+// pesado, não serve aqui): esta ação só apaga as entradas com
+// status:"error", nunca mexe em posts. Auth normal de admin (pass=).
+async function handleLinkJobsLimparFalhas(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const todasAsChaves = [];
+  const PAGE = 1000;
+  for (let from = 0; from < 500000; from += PAGE) {
+    const { data, error } = await supabase
+      .from("config")
+      .select("key,value")
+      .like("key", "LINK_JOB__%")
+      .range(from, from + PAGE - 1);
+    if (error) return res.status(200).json({ ok: false, error: error.message });
+    if (!data || !data.length) break;
+    todasAsChaves.push(...data);
+    if (data.length < PAGE) break;
+  }
+
+  const falhas = todasAsChaves.filter(r => {
+    try { return JSON.parse(r.value || "{}").status === "error"; } catch (_) { return false; }
+  }).map(r => r.key);
+
+  let apagadas = 0;
+  const CHUNK = 500;
+  for (let i = 0; i < falhas.length; i += CHUNK) {
+    const chunk = falhas.slice(i, i + CHUNK);
+    const { error } = await supabase.from("config").delete().in("key", chunk);
+    if (!error) apagadas += chunk.length;
+  }
+
+  return res.status(200).json({
+    ok: true,
+    total_na_fila: todasAsChaves.length,
+    falhas_encontradas: falhas.length,
     apagadas
   });
 }
