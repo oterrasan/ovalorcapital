@@ -550,19 +550,26 @@ const TIKTOK_ROBO_CONTAS = {
   profdanuzioneto: "brasil-on"
 };
 const TIKTOK_ROBO_MARCA = "TIKTOK_ROBO_TT__";
+// 🔒 10/11/2026 — Roberto: "nao pode capturar nada repetido! entao, a
+// idade deve ser preservada como unica regra intocavel." — NUNCA remover
+// este filtro, mesmo que outra regra de exclusão de captura seja pedida
+// pra sair no futuro. É a única das 4 regras originais que ele mandou
+// manter (as outras 3 — pausa noturna, teto por rodada, corte de 45MB —
+// foram removidas no mesmo dia, ver histórico git).
+const TIKTOK_ROBO_IDADE_MAX_MS = 3 * 3600 * 1000;
 // Teste real (26/09): a listagem de perfil do tikwm cai numa verificação
 // anti-robô (Cloudflare) tanto da Vercel quanto do runner; o yt-dlp com
 // "--impersonate chrome" lista o perfil a partir do runner. Então quem lista
 // é o runner (instagram-auto.yml, job capturar_links) e manda a lista aqui,
 // uma conta por chamada (body.user identifica qual).
-// 10/11/2026 — Roberto: "tire as regras que excluem a captura de videos".
-// Removidos: filtro de idade (só pegava vídeo postado nas últimas 3h —
-// vídeo mais velho nunca era capturado), pausa noturna 00h-06h BRT (esta
-// função só LISTA e enfileira, não gera conteúdo com IA — a janela não
-// protegia cota nenhuma, só deixava passar vídeo sem necessidade) e o teto
-// de 4 capturas novas por conta por rodada (o yt-dlp já limita a listagem
-// a 15 vídeos/conta — sem o teto, tudo que for novo entra de uma vez; a
-// marcação "já visto" segue garantindo que nada é capturado 2x).
+// 10/11/2026 — Roberto: "tire as regras que excluem a captura de videos",
+// depois corrigido na mesma sessão: idade volta (ver comentário acima).
+// Continuam removidos: pausa noturna 00h-06h BRT (esta função só LISTA e
+// enfileira, não gera conteúdo com IA — a janela não protegia cota
+// nenhuma, só deixava passar vídeo sem necessidade) e o teto de 4
+// capturas novas por conta por rodada (o yt-dlp já limita a listagem a 15
+// vídeos/conta — sem o teto, tudo que for novo E recente entra de uma
+// vez; a marcação "já visto" segue garantindo que nada é capturado 2x).
 async function handleMetropolesTiktokRegistrar(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!(await automacaoAtiva())) return res.status(200).json({ ok: true, generated: 0, info: "automacao_geral_desligada" });
@@ -575,9 +582,10 @@ async function autoMetropolesTiktok(req, res, body) {
   const user = body.user || "metropolesoficial";
   const categoria = body.categoria || "brasil-on";
   const videos = body.videos || [];
+  const agora = Date.now();
   const recentes = videos
     .map(v => ({ id: String(v.id || ""), criado: Number(v.timestamp || 0) * 1000, titulo: String(v.title || "").slice(0, 80) }))
-    .filter(v => /^\d{10,25}$/.test(v.id))
+    .filter(v => /^\d{10,25}$/.test(v.id) && v.criado > 0 && agora - v.criado <= TIKTOK_ROBO_IDADE_MAX_MS)
     .sort((a, b) => b.criado - a.criado);
   if (!recentes.length) return res.status(200).json({ ok: true, generated: 0, info: "nenhum_video_recente", user, listados: videos.length });
 
