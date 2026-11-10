@@ -1377,11 +1377,20 @@ async function enfileirarReelSeHouver(postId, video, logLabel) {
     }
     const { data: postAtual } = await supabase.from("posts").select("metrics").eq("id", postId).maybeSingle();
     const metricsAtual = (postAtual && typeof postAtual.metrics === "object" && postAtual.metrics) || {};
+    // 10/11/2026 — Roberto: "não quero mais nada montado automaticamente...
+    // a captura continua sem parar... mas SEM MONTAGEM AUTOMATICA, TUDO DEVE
+    // IR CRU PARA O SISTEMA". Antes, qualquer vídeo capturado aqui (Bacci
+    // automático ou link manual) entrava direto em status:"pending" e
+    // disparava o workflow de montagem na hora. Agora fica em "captured" —
+    // vídeo cru salvo, visível no admin, nunca escolhido sozinho pelo
+    // seletor de handleReelsRenderJob (api/manage.js). Só vira "pending" de
+    // verdade quando Roberto abre o editor e clica em "Aplicar e remontar"
+    // (handleReelsSetLayout).
     const metrics = {
       ...metricsAtual,
       instagram_reel_template: {
         version: REELS_TEMPLATE_VERSION_BRASILON,
-        status: "pending",
+        status: "captured",
         source_url: sourceUrl,
         source_kind: video.kind,
         queued_at: new Date().toISOString(),
@@ -1392,8 +1401,7 @@ async function enfileirarReelSeHouver(postId, video, logLabel) {
     const patch = { metrics, updated_at: new Date().toISOString() };
     if (videoUrlPortal) patch.video_url = videoUrlPortal;
     await supabase.from("posts").update(patch).eq("id", postId);
-    await log("info", `[${logLabel}] vídeo (${video.kind}) enfileirado pro Reel — post ${postId}`);
-    await dispararReelsWorkflowAgora();
+    await log("info", `[${logLabel}] vídeo (${video.kind}) capturado cru, aguardando montagem manual — post ${postId}`);
     return true;
   } catch (_) {
     // best-effort — nunca afeta a matéria já publicada

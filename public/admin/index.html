@@ -1005,6 +1005,7 @@ function situacaoMateria(p){
   else if (t.status==='embed_only') video = {txt:'YouTube (só no site)',cor:'#a3a3a3'};
   else if (t.aprovado===true) video = {txt:'Na fila' + (t.conta_publicacao?` · @${t.conta_publicacao}`:''),cor:'#60a5fa'};
   else if (t.status==='ready') video = {txt:'Pronto p/ aprovar',cor:'#fbbf24'};
+  else if (t.status==='captured') video = {txt:'Vídeo bruto — aguardando você montar',cor:'#38bdf8'};
   else if (t.status==='pending'||t.status==='processing') video = {txt:'Montando Reel',cor:'#a78bfa'};
   else if (t.status==='error') video = {txt:t.exhausted?'Erro no Reel (parou)':'Erro no Reel (vai tentar de novo)',cor:'#f87171'};
   else if (t.status==='discarded') video = {txt:'Reel publicado',cor:'#4ade80'};
@@ -1059,6 +1060,7 @@ const reelTemplateLabel = (post) => {
   if (status === 'ready') return '✅ Layout OVC pronto';
   if (status === 'processing') return '⏳ Aplicando layout OVC';
   if (status === 'pending' || status === 'error') return '🕒 Aguardando acabamento';
+  if (status === 'captured') return '🎬 Vídeo bruto — abra o editor para montar';
   if (status === 'embed_only') return '▶️ YouTube: apenas no portal';
   return '⚠️ Vídeo ainda não preparado';
 };
@@ -1160,6 +1162,16 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const ytId = parseYouTubeId(sourceUrl);
   const dimsSalvas = info?.source_dimensions && info.source_dimensions.width > 0 ? info.source_dimensions : null;
   const [dims, setDims] = useState(dimsSalvas || (ytId ? { width: 1920, height: 1080 } : null));
+  // 10/11/2026 — Roberto: "a tela fica preta, preciso que venha com a
+  // imagem real e original do vídeo". Sem montagem automática rodando mais,
+  // TODO vídeo abre aqui pela primeira vez sem nenhum frame pré-calculado —
+  // o navegador precisa decodificar um quadro real do arquivo cru, que pode
+  // demorar alguns segundos num vídeo grande. Antes não havia nenhum aviso
+  // disso: ficava preto sem explicação até o quadro aparecer sozinho.
+  // quadroPronto vira true só quando o <video> confirma (evento "seeked")
+  // que o frame pedido (onLoadedMetadata, ~metade do vídeo) já foi
+  // realmente decodificado — não antes.
+  const [quadroPronto, setQuadroPronto] = useState(false);
   const [layout, setLayout] = useState(info?.layout || null);
   const [modo, setModo] = useState('mover');        // 'mover' = mover/redimensionar | 'recortar'
   const [travar, setTravar] = useState(true);      // manter proporção (sem esticar)
@@ -1354,6 +1366,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
     ? <iframe key={key} src={'https://www.youtube-nocookie.com/embed/' + ytId} style={{ border: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'block', ...extra }} tabIndex={-1} />
     : <video key={key} src={sourceUrl} muted playsInline preload="auto"
         onLoadedMetadata={e => { const v = e.target; if (!dims && v.videoWidth) setDims({ width: v.videoWidth, height: v.videoHeight }); try { if (v.currentTime < 0.5) v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch (_) {} }}
+        onSeeked={() => setQuadroPronto(true)}
         style={{ width: '100%', height: '100%', objectFit: 'fill', display: 'block', pointerEvents: 'none', ...extra }} />;
   // camada do vídeo (em coordenadas do Reel, +P de margem), com recorte
   const camada = (key, extraWrap) => L && mediaBox && (
@@ -1382,6 +1395,11 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
             {L && mediaBox && (
               <div style={{ position: 'absolute', left: L.rect.x * s, top: L.rect.y * s, width: L.rect.w * s, height: L.rect.h * s, overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', left: (mediaBox.mx - L.rect.x) * s, top: (mediaBox.my - L.rect.y) * s, width: mediaBox.mw * s, height: mediaBox.mh * s }}>{midia('dentro')}</div>
+              </div>
+            )}
+            {L && !quadroPronto && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 12, textAlign: 'center', padding: 10, pointerEvents: 'none' }}>
+                ⏳ Carregando o quadro real do vídeo...
               </div>
             )}
             {/* guias do template (aproximadas): sombra, logo, manchete, rodapé */}

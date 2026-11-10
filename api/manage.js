@@ -2144,12 +2144,22 @@ async function handleReelsSetSource(req, res, body) {
   }
 
   const sourceChanged = previous.source_url !== sourceUrl || previous.version !== REELS_TEMPLATE_VERSION;
-  if (!sourceChanged && ["pending", "processing", "ready"].includes(previous.status)) {
-    return res.status(200).json({ ok: true, queued: previous.status !== "ready", unchanged: true, video_url: post.video_url, metrics });
+  if (!sourceChanged && ["captured", "pending", "processing", "ready"].includes(previous.status)) {
+    return res.status(200).json({ ok: true, queued: previous.status === "pending" || previous.status === "processing", unchanged: true, video_url: post.video_url, metrics });
   }
+  // 10/11/2026 — Roberto: "não quero mais nada montado automaticamente...
+  // quero que o vídeo venha original 100% sem recortes nem nada, eu faço as
+  // montagens e recortes necessários". Antes, registrar a fonte aqui já
+  // deixava o template em status:"pending" — o próximo tick do render-job
+  // pegava e montava sozinho, sem ninguém ter pedido. Agora fica em
+  // "captured": vídeo cru salvo, visível no admin, mas invisível pro
+  // seletor de handleReelsRenderJob (que só escolhe "pending"/"error"/
+  // "processing" preso) — nunca monta sozinho. A ÚNICA forma de entrar na
+  // fila de montagem passa a ser handleReelsSetLayout, disparado quando
+  // Roberto de fato clica em "Aplicar e remontar" no editor.
   metrics.instagram_reel_template = {
     version: REELS_TEMPLATE_VERSION,
-    status: "pending",
+    status: "captured",
     source_url: sourceUrl,
     queued_at: new Date().toISOString(),
     attempts: sourceChanged ? 0 : Number(previous.attempts || 0)
@@ -2157,8 +2167,8 @@ async function handleReelsSetSource(req, res, body) {
   if (sourceChanged) delete metrics.instagram_reel;
   const { error } = await supabase.from("posts").update({ video_url: sourceUrl, metrics, updated_at: new Date().toISOString() }).eq("id", postId);
   if (error) throw error;
-  await writeLog("info", `[reels-render] vídeo bruto enfileirado: ${post.titulo || postId}`);
-  return res.status(200).json({ ok: true, queued: true, video_url: sourceUrl, metrics });
+  await writeLog("info", `[reels-render] vídeo bruto capturado, aguardando montagem manual: ${post.titulo || postId}`);
+  return res.status(200).json({ ok: true, queued: false, captured: true, video_url: sourceUrl, metrics });
 }
 
 async function handleReelsRenderJob(req, res, body) {
@@ -2308,25 +2318,12 @@ async function handleReelsRenderJob(req, res, body) {
   // depender de um passo de promoção posterior.
   const contaEscolhida = _reelsNormalizarConta(processing.conta_publicacao);
   const marcaReel = contaEscolhida === "obrasilon" ? "brasilon" : "ovc";
-  let coverPronta = null;
-  if (marcaReel === "ovc" && /^https?:\/\//i.test(String(candidate.imagem || ""))) {
-    try {
-      const { prepareInstagramImage } = await _loadInstagramImage();
-      const cover = await prepareInstagramImage({
-        sourceUrl: candidate.imagem,
-        postId: `reelcover-${candidate.id}`,
-        supabase,
-        title: candidate.titulo,
-        // 28/09/2026 — Roberto: "o alcance é ridículo... capa decente, bem
-        // enquadrada, com título forte e atraente com letras maiores e
-        // destacadas". Capa do Reel usa a variante mais agressiva do
-        // construtor (HEADLINE_BOX_BOLD, peso 900) — vista pequena na grade
-        // do perfil, precisa de letra maior que o post de feed normal.
-        bold: true
-      });
-      coverPronta = cover?.url || null;
-    } catch (_) {} // capa é best-effort — sem ela, o Reel sobe sem capa customizada (comportamento de antes)
-  }
+  // 10/11/2026 — Roberto: "chega de montagem de capa automático, paramos
+  // com isso agora". A capa gerada sozinha (feed-style pro OVC, recorte de
+  // quadro pro Brasil On) nunca mais roda aqui — o Reel sobe sem cover_url,
+  // a Meta escolhe o quadro padrão dela, até existir a ferramenta de capa
+  // MANUAL (prévia + edição) no editor do admin, que substitui isto.
+  const coverPronta = null;
 
   let ig;
   try {
@@ -2358,16 +2355,10 @@ async function handleReelsRenderJob(req, res, body) {
   // Reel continua sendo montado e publicado normalmente, só sem prévia.
   const preview = await _reelsCriarUploadDePrevia(candidate.id, claimId);
   processing.preview_candidate_url = preview?.public_url || null;
-  let capa = null;
-  if (marcaReel === "brasilon") {
-    // Mecanismo antigo, inalterado: o runner recorta um frame do vídeo
-    // renderizado (ainda não existe nesta altura) e chama
-    // handleReelsRenderCapa() depois, via job.cover_upload_url no payload
-    // devolvido mais abaixo — só esse caminho ainda depende de promoção
-    // posterior, e continua funcionando como sempre funcionou.
-    capa = await _reelsCriarUploadDeArquivo(candidate.id, claimId, "reels-cover", "jpg");
-    processing.cover_candidate_url = capa?.public_url || null;
-  }
+  // 10/11/2026 — mecanismo antigo de capa do Brasil On (recorte de frame do
+  // vídeo já montado, via handleReelsRenderCapa) desligado junto com o da
+  // OVC acima — nenhuma capa é mais gerada sozinha, pra nenhuma conta.
+  const capa = null;
   metrics.instagram_reel_template = processing;
   const { error: jobStateError } = await supabase.from("posts").update({ metrics, updated_at: new Date().toISOString() }).eq("id", candidate.id);
   if (jobStateError) throw jobStateError;
