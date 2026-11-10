@@ -5,53 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: checar urls prioritarias e escopos de token IG
-        run: |
-          python3 << 'PYEOF'
-          import urllib.request, json
-
-          URL = "https://yntwvfcxjardzafdqanj.supabase.co"
-          KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-                 "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIi"
-                 "wicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoy"
-                 "MDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40")
-
-          def req(path, params=""):
-              url = f"{URL}/rest/v1/{path}{params}"
-              r = urllib.request.Request(url, headers={
-                  "apikey": KEY, "Authorization": f"Bearer {KEY}",
-                  "Accept-Profile": "public"})
-              with urllib.request.urlopen(r, timeout=20) as resp:
-                  return json.loads(resp.read())
-
-          print("=== TOP 15 posts por views (ultimos 30 dias) - prioridade de reindexacao ===")
-          posts = req("posts", "?select=titulo,user_tags,created_at,metrics&status=eq.publicado&order=created_at.desc&limit=400")
-          scored = []
-          for p in posts:
-              m = p.get("metrics") or {}
-              views = m.get("views") or 0
-              scored.append((views, p))
-          scored.sort(key=lambda x: -x[0])
-          for views, p in scored[:15]:
-              print(f"  views={views} | {p.get('created_at','')[:10]} | {(p.get('titulo') or '')[:70]}")
-
-          print()
-          print("=== escopos reais dos tokens IG (debug_token via Graph API) ===")
-          accs = req("ig_accounts", "?select=username,token&active=eq.true")
-          for a in accs:
-              tok = a.get("token")
-              uname = a.get("username")
-              if not tok:
-                  print(f"  {uname}: SEM TOKEN")
-                  continue
-              try:
-                  dburl = f"https://graph.facebook.com/debug_token?input_token={tok}&access_token={tok}"
-                  with urllib.request.urlopen(dburl, timeout=15) as resp:
-                      data = json.loads(resp.read()).get("data", {})
-                  scopes = data.get("scopes") or []
-                  has_engagement = "instagram_manage_engagement" in scopes
-                  ttype = data.get("type")
-                  print(f"  {uname}: type={ttype} | instagram_manage_engagement={'SIM' if has_engagement else 'NAO'} | scopes={scopes}")
-              except Exception as e:
-                  print(f"  {uname}: erro ao checar - {e}")
-          PYEOF
+      - name: placeholder
+        run: echo "nada a fazer..."
