@@ -96,7 +96,6 @@ export default async function handler(req, res) {
       if (action === "relatorio_canais") return handleRelatorioCanais(req, res);
       if (action === "reels_erros") return handleReelsErros(req, res);
       if (action === "limpar_gemini_budget_antigo") return handleLimparGeminiBudgetAntigo(req, res);
-      if (action === "diag_config_breakdown") return handleDiagConfigBreakdown(req, res);
       if (action === "link_jobs_limpar_falhas") return handleLinkJobsLimparFalhas(req, res);
       return handleStatus(res);
     }
@@ -315,33 +314,45 @@ async function handleReelsErros(req, res) {
   });
 }
 
-// 03/11/2026 — Roberto pediu de novo pra limpar o "lixo" da tabela config
+// 03/11/2026 — Roberto pediu pra limpar o "lixo" da tabela config
 // (GEMINI_BUDGET_*, rastreador insert-only de tentativas de chamada do
 // Gemini — uma linha nova a cada tentativa, nunca apagada sozinha). O badge
 // "LIMPAR AGORA" do Dashboard sempre foi só um <span>, sem função real —
-// toda limpeza até hoje foi feita manualmente via script. Esta ação torna
-// isso real: apaga só linhas de DIAS ANTERIORES a hoje (nunca o contador do
-// dia corrente, que o gate de orçamento ainda está lendo), em lotes, e
-// nunca toca em nenhuma outra chave de config.
-async function handleLimparGeminiBudgetAntigo(req, res) {
-  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
-  const hojeBRT = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
-  const prefixoHoje = `GEMINI_BUDGET_${hojeBRT}_`;
-
+// toda limpeza até então foi feita manualmente via script. Esta ação torna
+// isso real.
+// 10/11/2026 — Roberto: "continua tudo lotado". Achado real
+// (diag_config_breakdown, ação temporária removida depois de usar): dos
+// 111.977 registros em config, GEMINI_BUDGET_* era só 65.666 — o MESMO
+// padrão insert-only-por-dia (nunca limpo sozinho) existe em mais 4
+// rastreadores que esta ação nunca cobria: GEMINI_SUCESSO_* (34.651!),
+// BON_IG_AUTO_COUNT_* (2.022), IG_AUTO_* (1.534) e REELS_AUTO_COUNT_*
+// (254) — juntos, mais de 104 mil das ~112 mil linhas totais. Generalizado
+// pra limpar os 5 de uma vez (em paralelo, cada um com sua própria
+// paginação/exclusão sequencial — maxDuration de api/manage.js é 120s,
+// sequencial os 5 somados passaria perto disso). Cada um só apaga linhas
+// de DIAS ANTERIORES a hoje (BRT) — nunca o contador do dia corrente, que
+// o gate de orçamento/cota ainda está lendo.
+// NUNCA inclua aqui nenhuma marca de dedup permanente (METROPOLES_TT_*,
+// BON_IG_POSTED_*, TIKTOK_ROBO_TT_*) — essas precisam durar pra sempre
+// (Roberto, mesma sessão: "não pode capturar nada repetido! a idade deve
+// ser preservada como única regra intocável" — apagar essas marcas
+// reabriria a porta pra recaptura/repostagem do que já foi processado).
+const CONTADORES_DIARIOS_PREFIXOS = ["GEMINI_BUDGET", "GEMINI_SUCESSO", "IG_AUTO", "BON_IG_AUTO_COUNT", "REELS_AUTO_COUNT"];
+async function _limparContadorDiarioAntigo(prefixo, hojeBRT) {
+  const prefixoHoje = `${prefixo}_${hojeBRT}`;
   const todasAsChaves = [];
   const PAGE = 1000;
   for (let from = 0; from < 500000; from += PAGE) {
     const { data, error } = await supabase
       .from("config")
       .select("key")
-      .like("key", "GEMINI_BUDGET_%")
+      .like("key", `${prefixo}_%`)
       .range(from, from + PAGE - 1);
-    if (error) return res.status(200).json({ ok: false, error: error.message });
+    if (error) return { prefixo, erro: error.message };
     if (!data || !data.length) break;
     todasAsChaves.push(...data.map(r => r.key));
     if (data.length < PAGE) break;
   }
-
   const antigas = todasAsChaves.filter(k => !k.startsWith(prefixoHoje));
   let apagadas = 0;
   const CHUNK = 500;
@@ -350,39 +361,24 @@ async function handleLimparGeminiBudgetAntigo(req, res) {
     const { error } = await supabase.from("config").delete().in("key", chunk);
     if (!error) apagadas += chunk.length;
   }
-
-  return res.status(200).json({
-    ok: true,
-    total_antes: todasAsChaves.length,
-    de_hoje_preservadas: todasAsChaves.length - antigas.length,
-    apagadas
-  });
+  return { prefixo, total_antes: todasAsChaves.length, de_hoje_preservadas: todasAsChaves.length - antigas.length, apagadas };
 }
-
-// 10/11/2026 — diagnóstico TEMPORÁRIO (Roberto: "Saúde do Banco" em 112k
-// mesmo com o botão "LIMPAR AGORA" já existindo) — pra saber se há bloat
-// real além de GEMINI_BUDGET_*, não só supor. Agrupa key por prefixo
-// (tudo antes do primeiro "__" ou dígito) e conta. Remover depois de usar
-// uma vez — não é feature permanente do admin.
-async function handleDiagConfigBreakdown(req, res) {
+async function handleLimparGeminiBudgetAntigo(req, res) {
   if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
-  const todasAsChaves = [];
-  const PAGE = 1000;
-  for (let from = 0; from < 500000; from += PAGE) {
-    const { data, error } = await supabase.from("config").select("key").range(from, from + PAGE - 1);
-    if (error) return res.status(200).json({ ok: false, error: error.message });
-    if (!data || !data.length) break;
-    todasAsChaves.push(...data.map(r => r.key));
-    if (data.length < PAGE) break;
-  }
-  const porPrefixo = {};
-  for (const k of todasAsChaves) {
-    const m = String(k).match(/^([A-Z_]+?)(?:__|_\d|$)/);
-    const prefixo = m ? m[1] : String(k).slice(0, 20);
-    porPrefixo[prefixo] = (porPrefixo[prefixo] || 0) + 1;
-  }
-  const ranking = Object.entries(porPrefixo).sort((a, b) => b[1] - a[1]).slice(0, 25);
-  return res.status(200).json({ ok: true, total: todasAsChaves.length, por_prefixo: ranking });
+  const hojeBRT = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+  const resultados = await Promise.all(CONTADORES_DIARIOS_PREFIXOS.map(p => _limparContadorDiarioAntigo(p, hojeBRT)));
+  const comErro = resultados.filter(r => r.erro);
+  const totais = resultados.reduce((acc, r) => ({
+    total_antes: acc.total_antes + (r.total_antes || 0),
+    de_hoje_preservadas: acc.de_hoje_preservadas + (r.de_hoje_preservadas || 0),
+    apagadas: acc.apagadas + (r.apagadas || 0)
+  }), { total_antes: 0, de_hoje_preservadas: 0, apagadas: 0 });
+  return res.status(200).json({
+    ok: comErro.length === 0,
+    ...totais,
+    por_prefixo: resultados,
+    ...(comErro.length ? { erros: comErro } : {})
+  });
 }
 
 // 09/11/2026 — "Pedidos de captura" (fila LINK_JOB__* do robô do TikTok do

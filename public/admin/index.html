@@ -418,7 +418,7 @@ function Dashboard() {
             var texto = {limpar:'LIMPAR AGORA',atencao:'de olho',ok:'saudável'}[nivel]||'—';
             var icone = {limpar:'🔴',atencao:'🟡',ok:'🟢'}[nivel]||'🗄️';
             return (
-              <div className="metric-card" style={{borderColor:nivel==='limpar'?'rgba(200,30,30,0.4)':'var(--border)'}} title="Linhas na tabela config do Supabase — GEMINI_BUDGET_* é o rastreador de orçamento diário do Gemini, cresce sozinho todo dia">
+              <div className="metric-card" style={{borderColor:nivel==='limpar'?'rgba(200,30,30,0.4)':'var(--border)'}} title="Linhas na tabela config do Supabase — 5 rastreadores diários (GEMINI_BUDGET_*, GEMINI_SUCESSO_*, IG_AUTO_*, BON_IG_AUTO_COUNT_*, REELS_AUTO_COUNT_*) crescem sozinhos todo dia, um por tentativa/sucesso">
                 <div className="metric-label">Saúde do Banco</div>
                 <div className="metric-value" style={{color:cor,fontSize:t==null?16:24}}>{t==null?'...':t.toLocaleString('pt-BR')}</div>
                 <div className="metric-icon">{icone}</div>
@@ -427,16 +427,16 @@ function Dashboard() {
                   <span
                     className={`badge ${nivel==='limpar'?'badge-red':'badge-yellow'}`}
                     style={{cursor:'pointer'}}
-                    title="Apaga as linhas de orçamento do Gemini de dias anteriores a hoje — nunca mexe no contador de hoje nem em nenhuma outra configuração"
+                    title="Apaga as linhas dos 5 rastreadores diários (orçamento/sucesso do Gemini, automação do Instagram/Reels/Brasil On) de dias anteriores a hoje — nunca mexe no contador de hoje, nunca nas marcas de vídeo já capturado/publicado, nunca em nenhuma outra configuração"
                     onClick={async()=>{
                       if(limpando) return;
-                      if(!window.confirm('Apagar linhas antigas de GEMINI_BUDGET_* (só dias anteriores a hoje)?')) return;
+                      if(!window.confirm('Apagar linhas antigas dos rastreadores diários (só dias anteriores a hoje)?')) return;
                       setLimpando(true);
                       try{
                         const r = await fetch('/api/manage?action=limpar_gemini_budget_antigo&pass='+encodeURIComponent(ADMIN_PASS));
                         const d = await r.json();
                         if(d.ok) alert(`Limpo! ${d.apagadas} linhas antigas apagadas. ${d.de_hoje_preservadas} de hoje preservadas.`);
-                        else alert('Erro ao limpar: '+(d.error||'desconhecido'));
+                        else alert('Erro ao limpar: '+(d.error||(d.erros&&d.erros.map(e=>e.prefixo+': '+e.erro).join('; '))||'desconhecido'));
                       }catch(e){ alert('Erro ao limpar: '+e.message); }
                       setLimpando(false);
                       load();
