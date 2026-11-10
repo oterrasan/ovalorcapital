@@ -535,57 +535,75 @@ async function handleLinkJobsPendentes(req, res, body) {
 // na Reescrita por Link: o runner baixa o vídeo + legenda, a IA reescreve e
 // a matéria cai como PENDENTE, com o Reel montado (enquadramento automático
 // do Metrópoles). Nada é publicado sem Roberto aprovar.
-const METROPOLES_TIKTOK_USER = "metropolesoficial";
-const METROPOLES_TIKTOK_IDADE_MAX_MS = 3 * 3600 * 1000;
-const METROPOLES_TIKTOK_POR_RODADA = 4;
-const METROPOLES_TIKTOK_MARCA = "METROPOLES_TT__";
+// 10/11/2026 — Roberto: "habilite estas fontes para captura de videos" + 7
+// perfis novos. Generalizado de 1 conta fixa pra uma lista — categoria é um
+// palpite meu por conta (contexto público de cada perfil), não confirmado
+// por Roberto; ele corrige trocando o valor aqui se alguma estiver errada.
+const TIKTOK_ROBO_CONTAS = {
+  metropolesoficial: "brasil-on",
+  g1: "brasil-on",
+  reinaldogottino: "esportes",
+  sbtnews: "brasil-on",
+  revista_veja: "politica",
+  plenonews: "politica",
+  cnnbrasil: "brasil-on",
+  profdanuzioneto: "brasil-on"
+};
+const TIKTOK_ROBO_IDADE_MAX_MS = 3 * 3600 * 1000;
+const TIKTOK_ROBO_POR_RODADA = 4; // por conta, por rodada
+const TIKTOK_ROBO_MARCA = "TIKTOK_ROBO_TT__";
 // Teste real (26/09): a listagem de perfil do tikwm cai numa verificação
 // anti-robô (Cloudflare) tanto da Vercel quanto do runner; o yt-dlp com
 // "--impersonate chrome" lista o perfil a partir do runner. Então quem lista
-// é o runner (instagram-auto.yml, job capturar_links) e manda a lista aqui.
+// é o runner (instagram-auto.yml, job capturar_links) e manda a lista aqui,
+// uma conta por chamada (body.user identifica qual).
 async function handleMetropolesTiktokRegistrar(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!(await automacaoAtiva())) return res.status(200).json({ ok: true, generated: 0, info: "automacao_geral_desligada" });
   // Mesma pausa noturna dos outros canais de geração (00h-06h BRT).
   const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
   if (horaBRT < 6) return res.status(200).json({ ok: true, generated: 0, info: "pausa_noturna_00_06_brt" });
+  const user = String(body.user || "metropolesoficial").toLowerCase().replace(/[^a-z0-9._]/g, "");
+  const categoria = TIKTOK_ROBO_CONTAS[user] || "brasil-on";
   const videos = Array.isArray(body.videos) ? body.videos.slice(0, 40) : [];
-  return autoMetropolesTiktok(req, res, { ...body, videos });
+  return autoMetropolesTiktok(req, res, { ...body, user, categoria, videos });
 }
 async function autoMetropolesTiktok(req, res, body) {
+  const user = body.user || "metropolesoficial";
+  const categoria = body.categoria || "brasil-on";
   const videos = body.videos || [];
   const agora = Date.now();
   const recentes = videos
     .map(v => ({ id: String(v.id || ""), criado: Number(v.timestamp || 0) * 1000, titulo: String(v.title || "").slice(0, 80) }))
-    .filter(v => /^\d{10,25}$/.test(v.id) && v.criado > 0 && agora - v.criado <= METROPOLES_TIKTOK_IDADE_MAX_MS)
+    .filter(v => /^\d{10,25}$/.test(v.id) && v.criado > 0 && agora - v.criado <= TIKTOK_ROBO_IDADE_MAX_MS)
     .sort((a, b) => a.criado - b.criado);
-  if (!recentes.length) return res.status(200).json({ ok: true, generated: 0, info: "nenhum_video_recente", listados: videos.length });
+  if (!recentes.length) return res.status(200).json({ ok: true, generated: 0, info: "nenhum_video_recente", user, listados: videos.length });
 
   // Já visto pelo robô, já colado por Roberto, ou já na fila de captura?
   const ids = recentes.map(v => v.id);
   const vistos = new Set();
-  const { data: marcas } = await supabase.from("config").select("key").in("key", ids.map(id => METROPOLES_TIKTOK_MARCA + id));
-  (marcas || []).forEach(m => vistos.add(m.key.slice(METROPOLES_TIKTOK_MARCA.length)));
+  const { data: marcas } = await supabase.from("config").select("key").in("key", ids.map(id => TIKTOK_ROBO_MARCA + id));
+  (marcas || []).forEach(m => vistos.add(m.key.slice(TIKTOK_ROBO_MARCA.length)));
   const { data: jaPosts } = await supabase.from("posts").select("metrics").or(ids.map(id => `metrics->>fonte_link_manual.ilike.*${id}*`).join(",")).limit(50);
   (jaPosts || []).forEach(p => { const l = String(p?.metrics?.fonte_link_manual || ""); ids.forEach(id => { if (l.includes(id)) vistos.add(id); }); });
   const { data: jobs } = await supabase.from("config").select("value").like("key", `${LINK_JOB_PREFIX}%`).limit(200);
   (jobs || []).forEach(j => { ids.forEach(id => { if (String(j.value || "").includes(id)) vistos.add(id); }); });
 
-  const novos = recentes.filter(v => !vistos.has(v.id)).slice(0, METROPOLES_TIKTOK_POR_RODADA);
-  if (body.dry === "1" || body.dry === true) return res.status(200).json({ ok: true, dry: true, listados: videos.length, recentes: recentes.length, novos });
+  const novos = recentes.filter(v => !vistos.has(v.id)).slice(0, TIKTOK_ROBO_POR_RODADA);
+  if (body.dry === "1" || body.dry === true) return res.status(200).json({ ok: true, dry: true, user, listados: videos.length, recentes: recentes.length, novos });
   const criados = [];
   for (const v of novos) {
-    const link = `https://www.tiktok.com/@${METROPOLES_TIKTOK_USER}/video/${v.id}`;
+    const link = `https://www.tiktok.com/@${user}/video/${v.id}`;
     try {
-      await supabase.from("config").insert({ key: METROPOLES_TIKTOK_MARCA + v.id, value: new Date().toISOString() });
-      criados.push({ id: v.id, job_key: await _criarLinkJob(link, "brasil-on"), titulo: v.titulo });
+      await supabase.from("config").insert({ key: TIKTOK_ROBO_MARCA + v.id, value: new Date().toISOString() });
+      criados.push({ id: v.id, job_key: await _criarLinkJob(link, categoria), titulo: v.titulo });
     } catch (_) {}
   }
   if (criados.length) {
     await dispararReelsWorkflowAgora();
-    await log("info", `[metropoles-tiktok] ${criados.length} vídeo(s) novo(s) enviados pra captura`);
+    await log("info", `[tiktok-robo] @${user}: ${criados.length} vídeo(s) novo(s) enviados pra captura (categoria: ${categoria})`);
   }
-  return res.status(200).json({ ok: true, generated: criados.length, listados: videos.length, recentes: recentes.length, criados });
+  return res.status(200).json({ ok: true, generated: criados.length, user, listados: videos.length, recentes: recentes.length, criados });
 }
 
 async function handleLinkJobFalhou(req, res, body) {

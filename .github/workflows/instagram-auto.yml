@@ -565,7 +565,7 @@ jobs:
   capturar_links:
     if: github.event.inputs.prioridade != '1' && (github.event_name != 'schedule' || github.event.schedule == '*/10 * * * *')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     concurrency:
       group: instagram-capturar-links-ovc
       cancel-in-progress: false
@@ -574,28 +574,36 @@ jobs:
       # perfil (yt-dlp imitando navegador — o tikwm bloqueia listagem de perfil)
       # e manda pro sistema, que cria os pedidos de captura só dos vídeos novos.
       # Nada é publicado: tudo cai como pendente. Best-effort, nunca derruba o job.
-      - name: Buscar vídeos novos do Metrópoles (TikTok)
+      # 10/11/2026 — Roberto: "habilite estas fontes" + 7 perfis novos.
+      # Generalizado pra lista de contas (TIKTOK_ROBO_CONTAS em
+      # api/run_portal.js tem a categoria de cada uma) — cada conta é uma
+      # chamada separada, timeout curto por conta pra 8 contas caberem no
+      # step sem travar o resto do job.
+      - name: Buscar vídeos novos (robô TikTok — 8 contas)
         continue-on-error: true
-        timeout-minutes: 4
+        timeout-minutes: 7
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
           pip install --quiet --break-system-packages -U "yt-dlp[default,curl-cffi]" >/dev/null 2>&1 || true
-          timeout 150 yt-dlp --impersonate chrome --flat-playlist --playlist-end 15 -j "https://www.tiktok.com/@metropolesoficial" > tt.jsonl 2> tt.err || true
-          tail -2 tt.err || true
-          node -e '
-            const fs = require("node:fs");
-            const linhas = fs.readFileSync("tt.jsonl", "utf8").split("\n").filter(Boolean);
-            const videos = [];
-            for (const l of linhas) { try { const d = JSON.parse(l); videos.push({ id: String(d.id || ""), timestamp: Number(d.timestamp || 0), title: String(d.title || d.description || "").slice(0, 120) }); } catch (_) {} }
-            fs.writeFileSync("tt.json", JSON.stringify({ action: "metropoles_tiktok_registrar", videos }));
-            console.log("Vídeos listados:", videos.length);
-          '
-          curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            --data @tt.json --max-time 45 || true
-          echo ""
+          for conta in metropolesoficial g1 reinaldogottino sbtnews revista_veja plenonews cnnbrasil profdanuzioneto; do
+            echo "--- @$conta ---"
+            timeout 25 yt-dlp --impersonate chrome --flat-playlist --playlist-end 15 -j "https://www.tiktok.com/@$conta" > tt.jsonl 2> tt.err || true
+            tail -1 tt.err || true
+            CONTA="$conta" node -e '
+              const fs = require("node:fs");
+              const linhas = fs.readFileSync("tt.jsonl", "utf8").split("\n").filter(Boolean);
+              const videos = [];
+              for (const l of linhas) { try { const d = JSON.parse(l); videos.push({ id: String(d.id || ""), timestamp: Number(d.timestamp || 0), title: String(d.title || d.description || "").slice(0, 120) }); } catch (_) {} }
+              fs.writeFileSync("tt.json", JSON.stringify({ action: "metropoles_tiktok_registrar", user: process.env.CONTA, videos }));
+              console.log("@" + process.env.CONTA + " — vídeos listados:", videos.length);
+            '
+            curl -sS -X POST "https://www.ovalorcapital.com.br/api/run_portal" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+              --data @tt.json --max-time 15 || true
+            echo ""
+          done
 
       - name: Verificar pedidos de captura
         id: link_queue
