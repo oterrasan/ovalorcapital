@@ -5,7 +5,7 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: checar estado real da producao
+      - name: checar urls prioritarias e escopos de token IG
         run: |
           python3 << 'PYEOF'
           import urllib.request, json
@@ -24,24 +24,34 @@ jobs:
               with urllib.request.urlopen(r, timeout=20) as resp:
                   return json.loads(resp.read())
 
-          print("=== CONFIG (flags de automacao) ===")
-          keys = ["AUTOMATION","IG_AUTOMATION_ENABLED","REELS_AUTOMATION_ENABLED","BON_IG_ENABLED"]
-          for k in keys:
-              rows = req("config", f"?key=eq.{k}&select=key,value")
-              print(k, "=>", rows[0]["value"] if rows else "(nao existe)")
-
-          print()
-          print("=== ig_accounts (contas Instagram) ===")
-          accs = req("ig_accounts", "?select=username,active,distribuicao_automatica,ig_user_id,token")
-          for a in accs:
-              tok = "tem token" if a.get("token") else "SEM TOKEN"
-              uid = a.get("ig_user_id") or "SEM ig_user_id"
-              print(f"  {a.get('username')} | active={a.get('active')} | "
-                    f"dist_auto={a.get('distribuicao_automatica')} | {uid} | {tok}")
-
-          print()
-          print("=== ultimos posts publicados (geral) ===")
-          posts = req("posts", "?select=titulo,published_at,publish_method&status=eq.publicado&order=published_at.desc&limit=5")
+          print("=== TOP 15 posts por views (ultimos 30 dias) - prioridade de reindexacao ===")
+          posts = req("posts", "?select=titulo,user_tags,created_at,metrics&status=eq.publicado&order=created_at.desc&limit=400")
+          scored = []
           for p in posts:
-              print(" ", p.get("published_at"), "|", p.get("publish_method"), "|", (p.get("titulo") or "")[:60])
+              m = p.get("metrics") or {}
+              views = m.get("views") or 0
+              scored.append((views, p))
+          scored.sort(key=lambda x: -x[0])
+          for views, p in scored[:15]:
+              print(f"  views={views} | {p.get('created_at','')[:10]} | {(p.get('titulo') or '')[:70]}")
+
+          print()
+          print("=== escopos reais dos tokens IG (debug_token via Graph API) ===")
+          accs = req("ig_accounts", "?select=username,token&active=eq.true")
+          for a in accs:
+              tok = a.get("token")
+              uname = a.get("username")
+              if not tok:
+                  print(f"  {uname}: SEM TOKEN")
+                  continue
+              try:
+                  dburl = f"https://graph.facebook.com/debug_token?input_token={tok}&access_token={tok}"
+                  with urllib.request.urlopen(dburl, timeout=15) as resp:
+                      data = json.loads(resp.read()).get("data", {})
+                  scopes = data.get("scopes") or []
+                  has_engagement = "instagram_manage_engagement" in scopes
+                  ttype = data.get("type")
+                  print(f"  {uname}: type={ttype} | instagram_manage_engagement={'SIM' if has_engagement else 'NAO'} | scopes={scopes}")
+              except Exception as e:
+                  print(f"  {uname}: erro ao checar - {e}")
           PYEOF
