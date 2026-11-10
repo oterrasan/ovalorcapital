@@ -4,6 +4,13 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: breakdown da tabela config
+        env:
+          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+        run: |
+          curl -sS "https://www.ovalorcapital.com.br/api/manage?action=diag_config_breakdown" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
+            --max-time 60
+          echo ""
