@@ -2699,10 +2699,29 @@ function _reelsSanitizarLayout(raw) {
 // dele, ou arrastar a posicao que ele está. ou até deletar e deixar sem...
 // aumentar a fonte, cores". Mesma validação do render
 // (sanitizeHeadline em scripts/render-instagram-reel.mjs).
+// 10/11/2026 — Roberto: "nao quero limitacoes, quero fontes, tipologias,
+// fundos, molduras, quero que seja um editor completo". Campos novos
+// espelhados 1:1 com sanitizeHeadline()/sanitizeHighlights() do script —
+// qualquer mudança nos dois lados tem que ficar igual, ou o que o admin
+// grava diverge do que o runner valida/usa.
+const REELS_HEADLINE_FONTS = new Set(["inter", "anton", "oswald", "montserrat", "poppins"]);
+function _reelsSanitizarHighlights(raw) {
+  if (!Array.isArray(raw)) return null;
+  const hex = (v) => /^#[0-9a-f]{6}$/i.test(String(v || "")) ? String(v).toLowerCase() : "#f28c22";
+  const out = raw
+    .map((item) => ({
+      phrase: typeof item?.phrase === "string" ? item.phrase.replace(/\s+/g, " ").trim().slice(0, 60) : "",
+      color: hex(item?.color)
+    }))
+    .filter((item) => item.phrase)
+    .slice(0, 8);
+  return out.length ? out : null;
+}
 function _reelsSanitizarManchete(raw) {
   if (!raw || typeof raw !== "object") return null;
   const num = (v, min, max) => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : null; };
   const hex = (v, def) => /^#[0-9a-f]{6}$/i.test(String(v || "")) ? String(v).toLowerCase() : def;
+  const estilo = raw.estilo === "moldura" ? "moldura" : "texto";
   return {
     oculta: raw.oculta === true,
     texto: typeof raw.texto === "string" ? raw.texto.replace(/\s+/g, " ").trim().slice(0, 240) : "",
@@ -2711,8 +2730,12 @@ function _reelsSanitizarManchete(raw) {
     largura: num(raw.largura, 300, 1040),
     x: num(raw.x, 0, 1080),
     y: num(raw.y, 0, 1900),
-    cor: hex(raw.cor, "#ffffff"),
-    cor_destaque: hex(raw.cor_destaque, "#f28c22")
+    cor: hex(raw.cor, estilo === "moldura" ? "#000000" : "#ffffff"),
+    cor_destaque: hex(raw.cor_destaque, "#f28c22"),
+    fonte: typeof raw.fonte === "string" && REELS_HEADLINE_FONTS.has(raw.fonte) ? raw.fonte : "inter",
+    estilo,
+    cor_fundo: hex(raw.cor_fundo, "#f5c518"),
+    highlights: _reelsSanitizarHighlights(raw.highlights)
   };
 }
 

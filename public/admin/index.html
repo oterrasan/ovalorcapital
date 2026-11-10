@@ -1115,15 +1115,26 @@ function reelSombraCss(bottomPx) {
 const RH_BOX = { width: 780, maxLines: 4, maxFont: 42, minFont: 30, bottomY: 1300, minTopY: 1000 };
 const RH_STOP = new Set(['A','O','AS','OS','UM','UMA','UNS','UMAS','DE','DA','DO','DAS','DOS','E','EM','NO','NA','NOS','NAS','POR','PARA','COM','SEM','SOB','SOBRE','ENTRE','APOS','ATE','AO','AOS','QUE','SE','SUA','SEU','SUAS','SEUS','PROPRIA','PROPRIO','EX','EUA']);
 const RH_IMPACT = {MORTE:80,MORTA:80,MORTO:80,MORRE:80,ASSASSINATO:78,CULPADA:76,CULPADO:76,CONDENADO:74,CONDENADA:74,CRIME:72,FACADAS:70,MATAR:68,PRESO:68,PRESA:68,BILIONARIO:66,MILIONARIO:64,ALTA:62,QUEDA:62,RECUA:62,AVANCA:62,DOLAR:62,JUROS:62,LULA:70,BOLSONARO:70,TRUMP:70,STF:70,GOVERNO:58};
+// 10/11/2026 — Roberto: "nao quero limitacoes, quero fontes, tipologias,
+// fundos, molduras". Mesmo catálogo de HEADLINE_FONTS em
+// scripts/render-instagram-reel.mjs — widthFactor igual, pra prévia bater
+// com o render real. family aponta pro @font-face logo abaixo.
+const RH_FONTS = {
+  inter:      { label: 'Inter',               family: "'OVCInter', Arial, sans-serif", weight: 800, widthFactor: 1 },
+  anton:      { label: 'Anton',                family: "'RHAnton', Arial, sans-serif", weight: 400, widthFactor: 0.692 },
+  oswald:     { label: 'Oswald Bold',          family: "'RHOswaldBold', Arial, sans-serif", weight: 400, widthFactor: 0.802 },
+  montserrat: { label: 'Montserrat ExtraBold', family: "'RHMontserratExtraBold', Arial, sans-serif", weight: 400, widthFactor: 1.081 },
+  poppins:    { label: 'Poppins ExtraBold',    family: "'RHPoppinsExtraBold', Arial, sans-serif", weight: 400, widthFactor: 0.991 }
+};
 const rhNorm = (w) => String(w || '').normalize('NFD').replace(/\p{Mn}/gu, '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
-function rhLargura(t, f) { let u = 0; for (const ch of String(t || '')) { if (ch === ' ') u += 0.28; else if ('IÍÌÎÏ!.,:;|'.includes(ch)) u += 0.34; else if ('MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ'.includes(ch)) u += 0.88; else u += 0.64; } return u * f; }
-function rhQuebrar(texto, f, maxW, maxLines) {
+function rhLargura(t, f, factor) { factor = factor || 1; let u = 0; for (const ch of String(t || '')) { if (ch === ' ') u += 0.28; else if ('IÍÌÎÏ!.,:;|'.includes(ch)) u += 0.34; else if ('MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ'.includes(ch)) u += 0.88; else u += 0.64; } return u * f * factor; }
+function rhQuebrar(texto, f, maxW, maxLines, factor) {
   const words = String(texto || '').trim().split(/\s+/).filter(Boolean); const lines = []; let cur = '';
-  for (const w of words) { const c = cur ? cur + ' ' + w : w; if (!cur || rhLargura(c, f) <= maxW) { cur = c; continue; } lines.push(cur); cur = w; }
+  for (const w of words) { const c = cur ? cur + ' ' + w : w; if (!cur || rhLargura(c, f, factor) <= maxW) { cur = c; continue; } lines.push(cur); cur = w; }
   if (cur) lines.push(cur);
   if (lines.length <= maxLines) return lines;
   const cl = lines.slice(0, maxLines); let v = [cl[maxLines - 1], ...lines.slice(maxLines)].join(' ');
-  while (v.length > 1 && rhLargura(v + '…', f) > maxW) v = v.replace(/\s+\S*$/, '').trim() || v.slice(0, -1).trim();
+  while (v.length > 1 && rhLargura(v + '…', f, factor) > maxW) v = v.replace(/\s+\S*$/, '').trim() || v.slice(0, -1).trim();
   cl[maxLines - 1] = v ? v + '…' : ''; return cl;
 }
 function rhMarcas(texto) {
@@ -1132,29 +1143,56 @@ function rhMarcas(texto) {
   for (const raw of texto.split(/\s+/).filter(Boolean)) { let w = raw; if (w.startsWith('*')) { on = true; w = w.replace(/^\*+/, ''); } const fecha = /\*+$/.test(w); w = w.replace(/\*+/g, ''); if (w) { words.push(w); marks.push(on); } if (fecha) on = false; }
   return { texto: words.join(' '), marks };
 }
+// Porta de markHighlightColors() do runner — frases com cor própria casadas
+// contra as palavras já quebradas em linhas, 1ª ocorrência de cada frase.
+function rhMarcarCores(words, highlights) {
+  const normWords = words.map(rhNorm);
+  const colorByIndex = new Map();
+  for (const item of highlights || []) {
+    const phraseWords = String(item?.phrase || '').trim().split(/\s+/).map(rhNorm).filter(Boolean);
+    if (!phraseWords.length) continue;
+    for (let i = 0; i <= normWords.length - phraseWords.length; i++) {
+      let match = true;
+      for (let j = 0; j < phraseWords.length; j++) { if (normWords[i + j] !== phraseWords[j]) { match = false; break; } }
+      if (match) { for (let j = 0; j < phraseWords.length; j++) colorByIndex.set(i + j, item.color); break; }
+    }
+  }
+  return colorByIndex;
+}
 function rhManchetePrevia(titulo, h) {
   if (h.oculta) return null;
   let base = String(h.texto || titulo || '').replace(/\s+/g, ' ').trim();
   const parsed = rhMarcas(base); if (parsed) base = parsed.texto;
   const texto = h.maiusculas ? base.toUpperCase() : base;
   if (!texto) return null;
-  const boxW = h.largura || RH_BOX.width;
+  const font = RH_FONTS[h.fonte] || RH_FONTS.inter;
+  const factor = font.widthFactor;
+  const moldura = h.estilo === 'moldura';
+  const boxW = h.largura || (moldura ? Math.round(1080 * 0.88) : RH_BOX.width);
+  const fitW = moldura ? boxW - 72 : boxW;
   let sel = null;
-  if (h.tamanho) sel = { f: h.tamanho, lines: rhQuebrar(texto, h.tamanho, boxW, 8) };
-  for (let f = RH_BOX.maxFont; !sel && f >= RH_BOX.minFont; f -= 2) { const ls = rhQuebrar(texto, f, boxW, RH_BOX.maxLines); if (ls.length <= RH_BOX.maxLines && ls.every(l => rhLargura(l, f) <= boxW)) sel = { f, lines: ls }; }
-  if (!sel) sel = { f: RH_BOX.minFont, lines: rhQuebrar(texto, RH_BOX.minFont, boxW, RH_BOX.maxLines) };
+  if (h.tamanho) sel = { f: h.tamanho, lines: rhQuebrar(texto, h.tamanho, fitW, 8, factor) };
+  for (let f = RH_BOX.maxFont; !sel && f >= RH_BOX.minFont; f -= 2) { const ls = rhQuebrar(texto, f, fitW, RH_BOX.maxLines, factor); if (ls.length <= RH_BOX.maxLines && ls.every(l => rhLargura(l, f, factor) <= fitW)) sel = { f, lines: ls }; }
+  if (!sel) sel = { f: RH_BOX.minFont, lines: rhQuebrar(texto, RH_BOX.minFont, fitW, RH_BOX.maxLines, factor) };
+  const allWords = texto.split(/\s+/).filter(Boolean);
+  let colorByIndex = null;
+  if (h.highlights && h.highlights.length) colorByIndex = rhMarcarCores(allWords, h.highlights);
+  else if (parsed) { colorByIndex = new Map(); parsed.marks.forEach((on, i) => { if (on) colorByIndex.set(i, h.cor_destaque); }); }
   let destaque = null;
-  if (!parsed) { let best = null; (texto.match(/[\p{L}\p{N}]+/gu) || []).forEach((w, i) => { const n = rhNorm(w); if (!n || RH_STOP.has(n) || n.length < 4) return; const sc = (RH_IMPACT[n] || 0) + Math.min(n.length, 14) - i * 0.35; if (!best || sc > best.sc) best = { n, sc }; }); destaque = best && best.n; }
+  if (!colorByIndex) { let best = null; (texto.match(/[\p{L}\p{N}]+/gu) || []).forEach((w, i) => { const n = rhNorm(w); if (!n || RH_STOP.has(n) || n.length < 4) return; const sc = (RH_IMPACT[n] || 0) + Math.min(n.length, 14) - i * 0.35; if (!best || sc > best.sc) best = { n, sc }; }); destaque = best && best.n; }
   let idx = 0, usado = false;
+  const corBase = h.cor || (moldura ? '#000000' : '#ffffff');
   const linhas = sel.lines.map(l => l.split(/\s+/).filter(Boolean).map(w => {
-    let hl; if (parsed) { hl = !!parsed.marks[idx]; idx++; } else { hl = !usado && destaque && rhNorm(w) === destaque; if (hl) usado = true; }
-    return { w, hl };
+    let cor = corBase;
+    if (colorByIndex) { const c = colorByIndex.get(idx); if (c) cor = c; idx++; }
+    else { const hl = !usado && destaque && rhNorm(w) === destaque; if (hl) { cor = h.cor_destaque; usado = true; } }
+    return { w, cor };
   }));
-  return { fontSize: sel.f, linhas };
+  return { fontSize: sel.f, linhas, moldura, boxW, font };
 }
 // 27/09/2026 — padrão passou a ser SEM manchete (Roberto: "não vamos usar
 // mais nossas chamadas, deixe sem"). Desmarcar "Sem manchete" para escrever.
-const RH_PADRAO = { oculta: true, texto: '', maiusculas: true, tamanho: null, largura: null, x: null, y: null, cor: '#ffffff', cor_destaque: '#f28c22' };
+const RH_PADRAO = { oculta: true, texto: '', maiusculas: true, tamanho: null, largura: null, x: null, y: null, cor: '#ffffff', cor_destaque: '#f28c22', fonte: 'inter', estilo: 'texto', cor_fundo: '#f5c518', highlights: null };
 const rhTituloLimpo = (post) => String(post?.titulo || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 
 function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
@@ -1417,14 +1455,19 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
           {(() => {
             const prev = rhManchetePrevia(rhTituloLimpo(post), manchete);
             if (!prev) return null;
-            const boxW = manchete.largura || RH_BOX.width;
+            const boxW = prev.boxW;
             const cx = manchete.x != null ? manchete.x : REEL_W / 2;
-            const pos = manchete.y != null ? { top: manchete.y * s } : { bottom: (REEL_H - RH_BOX.bottomY) * s };
+            const pos = prev.moldura
+              ? { bottom: (REEL_H - (manchete.y != null ? manchete.y : RH_BOX.bottomY)) * s }
+              : (manchete.y != null ? { top: manchete.y * s } : { bottom: (REEL_H - RH_BOX.bottomY) * s });
             return (
               <div style={{ position: 'absolute', left: P, top: P, width: FW, height: FH, overflow: 'hidden', pointerEvents: 'none' }}>
                 <div ref={mancheteRef} onPointerDown={arrastarManchete} title="Arraste para mudar a posição da manchete"
-                  style={{ position: 'absolute', left: (cx - boxW / 2) * s, width: boxW * s, ...pos, pointerEvents: 'auto', cursor: 'move', textAlign: 'center', fontFamily: "'OVCInter', Arial, sans-serif", fontWeight: 800, fontSize: prev.fontSize * s, lineHeight: 1.21, whiteSpace: 'nowrap', outline: '1px dashed rgba(242,140,34,.8)', outlineOffset: 2 }}>
-                  {prev.linhas.map((ln, i) => <div key={i}>{ln.map((t, j) => <React.Fragment key={j}>{j ? ' ' : ''}<span style={{ color: t.hl ? manchete.cor_destaque : manchete.cor }}>{t.w}</span></React.Fragment>)}</div>)}
+                  style={{ position: 'absolute', left: (cx - boxW / 2) * s, width: boxW * s, ...pos, pointerEvents: 'auto', cursor: 'move', textAlign: 'center', boxSizing: 'border-box', outline: '1px dashed rgba(242,140,34,.8)', outlineOffset: 2,
+                    ...(prev.moldura ? { background: manchete.cor_fundo, borderRadius: 20 * s, padding: (28 * s) + 'px ' + (36 * s) + 'px' } : {}) }}>
+                  <div style={{ fontFamily: prev.font.family, fontWeight: prev.font.weight, fontSize: prev.fontSize * s, lineHeight: 1.18, whiteSpace: 'nowrap' }}>
+                    {prev.linhas.map((ln, i) => <div key={i}>{ln.map((t, j) => <React.Fragment key={j}>{j ? ' ' : ''}<span style={{ color: t.cor }}>{t.w}</span></React.Fragment>)}</div>)}
+                  </div>
                 </div>
               </div>
             );
@@ -1478,7 +1521,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
           })()}
           {ytId && !dimsSalvas && <div style={{ fontSize: 11, color: 'var(--yellow)' }}>Vídeo do YouTube: proporção assumida 16:9 até a primeira montagem terminar.</div>}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <style>{"@font-face{font-family:'OVCInter';src:url(/assets/fonts/Inter-Variable.ttf) format('truetype');font-weight:100 900;}"}</style>
+            <style>{"@font-face{font-family:'OVCInter';src:url(/assets/fonts/Inter-Variable.ttf) format('truetype');font-weight:100 900;}@font-face{font-family:'RHAnton';src:url(/assets/fonts/Anton.ttf) format('truetype');}@font-face{font-family:'RHOswaldBold';src:url(/assets/fonts/OswaldBold.ttf) format('truetype');}@font-face{font-family:'RHMontserratExtraBold';src:url(/assets/fonts/MontserratExtraBold.ttf) format('truetype');}@font-face{font-family:'RHPoppinsExtraBold';src:url(/assets/fonts/PoppinsExtraBold.ttf) format('truetype');}"}</style>
             <div style={{ fontWeight: 700 }}>📰 Manchete do Reel</div>
             <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', fontSize: 11 }}>
               <input type="checkbox" checked={manchete.oculta} onChange={e => setM({ oculta: e.target.checked })} /> Sem manchete (esconder)
@@ -1490,6 +1533,30 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
                 <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>Texto <input type="color" value={manchete.cor} onChange={e => setM({ cor: e.target.value })} /></label>
                 <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>Destaque <input type="color" value={manchete.cor_destaque} onChange={e => setM({ cor_destaque: e.target.value })} /></label>
                 <label style={{ display: 'flex', gap: 4, alignItems: 'center', cursor: 'pointer' }}><input type="checkbox" checked={manchete.maiusculas} onChange={e => setM({ maiusculas: e.target.checked })} /> MAIÚSCULAS</label>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', fontSize: 11 }}>
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>Fonte
+                  <select className="form-input" style={{ fontSize: 11, padding: '2px 4px' }} value={manchete.fonte} onChange={e => setM({ fonte: e.target.value })}>
+                    {Object.entries(RH_FONTS).map(([k, f]) => <option key={k} value={k}>{f.label}</option>)}
+                  </select>
+                </label>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button type="button" className={'btn btn-sm ' + (manchete.estilo !== 'moldura' ? 'btn-primary' : 'btn-secondary')} style={btn} onClick={() => setM({ estilo: 'texto' })}>Texto puro</button>
+                  <button type="button" className={'btn btn-sm ' + (manchete.estilo === 'moldura' ? 'btn-primary' : 'btn-secondary')} style={btn} onClick={() => setM({ estilo: 'moldura' })}>Moldura colorida</button>
+                </div>
+                {manchete.estilo === 'moldura' && <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>Fundo <input type="color" value={manchete.cor_fundo} onChange={e => setM({ cor_fundo: e.target.value })} /></label>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--t3)' }}>Destaques por frase (opcional) — cada frase sai na cor escolhida. Sem nenhuma aqui, valem os <strong>*asteriscos*</strong> ou o destaque automático de 1 palavra.</div>
+                {(manchete.highlights || []).map((hl, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input className="form-input" style={{ fontSize: 11, flex: 1 }} value={hl.phrase} placeholder="frase a destacar"
+                      onChange={e => setM({ highlights: (manchete.highlights || []).map((x, j) => j === i ? { ...x, phrase: e.target.value } : x) })} />
+                    <input type="color" value={hl.color} onChange={e => setM({ highlights: (manchete.highlights || []).map((x, j) => j === i ? { ...x, color: e.target.value } : x) })} />
+                    <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => setM({ highlights: (manchete.highlights || []).filter((_, j) => j !== i) })}>✕</button>
+                  </div>
+                ))}
+                {(manchete.highlights || []).length < 8 && <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => setM({ highlights: [...(manchete.highlights || []), { phrase: '', color: '#f28c22' }] })}>+ Destaque por frase</button>}
               </div>
               {(() => {
                 const linha = { display: 'grid', gridTemplateColumns: '92px 1fr 56px', gap: 6, alignItems: 'center', fontSize: 11 };
