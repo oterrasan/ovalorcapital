@@ -4,39 +4,6 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: checar producao real agora - robots, sitemap, HTML servido, env Vercel
-        env:
-          VT: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          echo "=== ROBOTS.TXT ==="
-          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/robots.txt"
-          echo ""
-          echo "=== SITEMAP INDEX (primeiros 500 bytes) ==="
-          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/sitemap.xml" | head -c 500
-          echo ""
-          echo ""
-          echo "=== SITEMAP POSTS PAGE 0 - 3 URLs mais recentes ==="
-          curl -sS --max-time 20 "https://www.ovalorcapital.com.br/sitemap.xml?type=posts&page=0" -o /tmp/sm.xml
-          grep -o '<loc>[^<]*</loc>' /tmp/sm.xml | head -3 | sed 's/<loc>//;s#</loc>##' > /tmp/urls.txt
-          cat /tmp/urls.txt
-          echo ""
-          while IFS= read -r u; do
-            echo "--- URL: $u ---"
-            echo "[UA normal - status/tamanho/title/canonical/meta-robots]"
-            code=$(curl -sS --max-time 20 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -o /tmp/normal.html -w "%{http_code}" "$u")
-            echo "HTTP=$code tamanho=$(wc -c < /tmp/normal.html)"
-            grep -o '<title>[^<]*</title>' /tmp/normal.html | head -1
-            grep -o '<link rel="canonical"[^>]*>' /tmp/normal.html | head -1
-            grep -io '<meta name="robots"[^>]*>' /tmp/normal.html | head -1
-            grep -o '<h1[^>]*>[^<]*' /tmp/normal.html | head -1
-            echo "[Googlebot - status/tamanho]"
-            codeg=$(curl -sS --max-time 20 -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" -o /tmp/gbot.html -w "%{http_code}" "$u")
-            echo "HTTP=$codeg tamanho=$(wc -c < /tmp/gbot.html)"
-            echo ""
-          done < /tmp/urls.txt
-          echo "=== VERCEL ENV VARS (so nomes, nunca valores) ==="
-          curl -sS --max-time 20 "https://api.vercel.com/v9/projects/prj_ACuRPH3NLCgzsFysuSqnUqSjBr5b/env?decrypt=false" \
-            -H "Authorization: Bearer ${VT}" \
-            | python3 -c "import json,sys; d=json.load(sys.stdin); names=sorted(e.get('key') for e in d.get('envs',[])); print('\n'.join(names)) if isinstance(d.get('envs'),list) else print('ERRO:', d)"
+      - name: placeholder
+        run: echo "nada a fazer..."
