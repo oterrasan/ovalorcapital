@@ -15,9 +15,8 @@
 //
 // Fluxo por pedido (config LINK_JOB__*, criado por handleLinkManual):
 //   1. lê texto/título/capa e baixa o vídeo pelo método do site
-//   2. se passar de 45 MB, ffmpeg reduz
-//   3. PUT do vídeo na URL assinada do nosso Storage
-//   4. POST link_manual com job_key + texto + vídeo -> servidor reescreve,
+//   2. PUT do vídeo cru (sem transcode) na URL assinada do nosso Storage
+//   3. POST link_manual com job_key + texto + vídeo -> servidor reescreve,
 //      salva pendente, enfileira o Reel e apaga o pedido
 // Qualquer falha -> link_job_falhou com o motivo real (aparece no admin).
 import { execFileSync } from "node:child_process";
@@ -26,7 +25,15 @@ import { existsSync, statSync, readFileSync, writeFileSync, rmSync } from "node:
 const API = "https://www.ovalorcapital.com.br/api/run_portal";
 const TOKEN = process.env.OVC_ADMIN_TOKEN || "";
 const COOKIES = process.env.YTDLP_COOKIES_FILE && existsSync(process.env.YTDLP_COOKIES_FILE) ? process.env.YTDLP_COOKIES_FILE : "";
-const MAX_BYTES = 45 * 1024 * 1024;
+// 10/11/2026 — Roberto: "tire as regras que excluem a captura de videos".
+// Era 45MB com ffmpeg reduzindo (ou descartando o vídeo) acima disso —
+// contradizia a decisão já tomada pro resto do pipeline (core/storage.js:
+// "Deliberadamente SEM ffmpeg/transcodificação... vídeo é a mesma classe
+// de risco [do incidente do sharp], só que pior") e o pedido de Roberto
+// nesta mesma sessão de vídeo sempre 100% original, sem recorte nem nada
+// automático. Agora só um teto de segurança (mesmo valor de
+// core/storage.js, MAX_VIDEO_BYTES) — sem transcode, sobe o arquivo cru.
+const MAX_BYTES = 150 * 1024 * 1024;
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 async function api(body) {
@@ -183,12 +190,7 @@ async function processar(job) {
     let videoHospedado = "";
     if (cap.temVideo && existsSync(video) && job.upload_url && job.public_url) {
       try {
-        if (statSync(video).size > MAX_BYTES) {
-          const menor = video.replace(/\.mp4$/, "-720.mp4");
-          execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", video, "-vf", "scale='min(720,iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", menor], { timeout: 300000 });
-          rmSync(video, { force: true });
-          execFileSync("mv", [menor, video]);
-        }
+        // Sem transcode: sobe o arquivo exatamente como veio da fonte.
         if (statSync(video).size <= MAX_BYTES) {
           const put = await fetch(job.upload_url, {
             method: "PUT",
@@ -199,7 +201,7 @@ async function processar(job) {
           if (put.ok) videoHospedado = job.public_url;
           else console.log(`[${job.key}] upload do vídeo recusado: HTTP ${put.status}`);
         } else {
-          console.log(`[${job.key}] vídeo continua acima de 45 MB mesmo reduzido — segue só com texto/capa.`);
+          console.log(`[${job.key}] vídeo acima de ${Math.round(MAX_BYTES / 1024 / 1024)} MB — segue só com texto/capa.`);
         }
       } catch (e) {
         console.log(`[${job.key}] vídeo não enviado (segue só com texto/capa): ${erroLegivel(e)}`);

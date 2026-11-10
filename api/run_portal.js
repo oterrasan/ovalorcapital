@@ -549,20 +549,23 @@ const TIKTOK_ROBO_CONTAS = {
   cnnbrasil: "brasil-on",
   profdanuzioneto: "brasil-on"
 };
-const TIKTOK_ROBO_IDADE_MAX_MS = 3 * 3600 * 1000;
-const TIKTOK_ROBO_POR_RODADA = 4; // por conta, por rodada
 const TIKTOK_ROBO_MARCA = "TIKTOK_ROBO_TT__";
 // Teste real (26/09): a listagem de perfil do tikwm cai numa verificação
 // anti-robô (Cloudflare) tanto da Vercel quanto do runner; o yt-dlp com
 // "--impersonate chrome" lista o perfil a partir do runner. Então quem lista
 // é o runner (instagram-auto.yml, job capturar_links) e manda a lista aqui,
 // uma conta por chamada (body.user identifica qual).
+// 10/11/2026 — Roberto: "tire as regras que excluem a captura de videos".
+// Removidos: filtro de idade (só pegava vídeo postado nas últimas 3h —
+// vídeo mais velho nunca era capturado), pausa noturna 00h-06h BRT (esta
+// função só LISTA e enfileira, não gera conteúdo com IA — a janela não
+// protegia cota nenhuma, só deixava passar vídeo sem necessidade) e o teto
+// de 4 capturas novas por conta por rodada (o yt-dlp já limita a listagem
+// a 15 vídeos/conta — sem o teto, tudo que for novo entra de uma vez; a
+// marcação "já visto" segue garantindo que nada é capturado 2x).
 async function handleMetropolesTiktokRegistrar(req, res, body) {
   if (!_linkTokenOk(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   if (!(await automacaoAtiva())) return res.status(200).json({ ok: true, generated: 0, info: "automacao_geral_desligada" });
-  // Mesma pausa noturna dos outros canais de geração (00h-06h BRT).
-  const horaBRT = new Date(Date.now() - 3 * 3600 * 1000).getUTCHours();
-  if (horaBRT < 6) return res.status(200).json({ ok: true, generated: 0, info: "pausa_noturna_00_06_brt" });
   const user = String(body.user || "metropolesoficial").toLowerCase().replace(/[^a-z0-9._]/g, "");
   const categoria = TIKTOK_ROBO_CONTAS[user] || "brasil-on";
   const videos = Array.isArray(body.videos) ? body.videos.slice(0, 40) : [];
@@ -572,11 +575,10 @@ async function autoMetropolesTiktok(req, res, body) {
   const user = body.user || "metropolesoficial";
   const categoria = body.categoria || "brasil-on";
   const videos = body.videos || [];
-  const agora = Date.now();
   const recentes = videos
     .map(v => ({ id: String(v.id || ""), criado: Number(v.timestamp || 0) * 1000, titulo: String(v.title || "").slice(0, 80) }))
-    .filter(v => /^\d{10,25}$/.test(v.id) && v.criado > 0 && agora - v.criado <= TIKTOK_ROBO_IDADE_MAX_MS)
-    .sort((a, b) => a.criado - b.criado);
+    .filter(v => /^\d{10,25}$/.test(v.id))
+    .sort((a, b) => b.criado - a.criado);
   if (!recentes.length) return res.status(200).json({ ok: true, generated: 0, info: "nenhum_video_recente", user, listados: videos.length });
 
   // Já visto pelo robô, já colado por Roberto, ou já na fila de captura?
@@ -589,7 +591,7 @@ async function autoMetropolesTiktok(req, res, body) {
   const { data: jobs } = await supabase.from("config").select("value").like("key", `${LINK_JOB_PREFIX}%`).limit(200);
   (jobs || []).forEach(j => { ids.forEach(id => { if (String(j.value || "").includes(id)) vistos.add(id); }); });
 
-  const novos = recentes.filter(v => !vistos.has(v.id)).slice(0, TIKTOK_ROBO_POR_RODADA);
+  const novos = recentes.filter(v => !vistos.has(v.id));
   if (body.dry === "1" || body.dry === true) return res.status(200).json({ ok: true, dry: true, user, listados: videos.length, recentes: recentes.length, novos });
   const criados = [];
   for (const v of novos) {
