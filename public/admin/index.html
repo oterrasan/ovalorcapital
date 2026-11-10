@@ -1195,6 +1195,44 @@ function rhManchetePrevia(titulo, h) {
 const RH_PADRAO = { oculta: true, texto: '', maiusculas: true, tamanho: null, largura: null, x: null, y: null, cor: '#ffffff', cor_destaque: '#f28c22', fonte: 'inter', estilo: 'texto', cor_fundo: '#f5c518', highlights: null };
 const rhTituloLimpo = (post) => String(post?.titulo || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 
+// 10/11/2026 — Roberto: "todos os videos estao vindo assim [pretos] e
+// assim nao funciona... se nao aparecerem pra mim, o video do inicio ao
+// fim, nao adianta de nada." Causa real: um <video src> puro só decodifica
+// um quadro visível quando o navegador decide (varia por codec/navegador
+// — muitos ficam pretos até o play ser apertado). O editor de
+// enquadramento (ReelEnquadramentoEditor) já tinha o fix certo: pular pro
+// meio do vídeo assim que os metadados carregam força a decodificação de
+// um quadro real. Generalizado aqui num componente só, pra cobrir TODOS os
+// players de vídeo do admin (Reel — confira antes de publicar, Vídeo da
+// Matéria, tela Vídeos, etc.) sem copiar essa lógica de novo em cada um.
+function VideoComQuadro({ src, style, onLoadedMetadata, videoRef, ...rest }) {
+  const [pronto, setPronto] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <video
+        key={src}
+        src={src}
+        ref={videoRef}
+        playsInline
+        preload="auto"
+        onLoadedMetadata={e => {
+          const v = e.target;
+          try { if (v.currentTime < 0.5) v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch (_) {}
+          if (onLoadedMetadata) onLoadedMetadata(e);
+        }}
+        onSeeked={() => setPronto(true)}
+        style={style}
+        {...rest}
+      />
+      {!pronto && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.4)', color: '#fff', fontSize: 11, textAlign: 'center', padding: 6, pointerEvents: 'none', borderRadius: style && style.borderRadius }}>
+          ⏳ carregando...
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const sourceUrl = String(info?.source_url || '');
   const ytId = parseYouTubeId(sourceUrl);
@@ -1589,7 +1627,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
             return (
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontWeight: 700 }}>⏱️ Encurtar o vídeo (início e fim)</div>
-                {!ytId && <video ref={playerRef} src={sourceUrl} controls playsInline preload="metadata" style={{ width: '100%', maxHeight: 180, background: '#000', borderRadius: 6 }}
+                {!ytId && <VideoComQuadro videoRef={playerRef} src={sourceUrl} controls style={{ width: '100%', maxHeight: 180, background: '#000', borderRadius: 6 }}
                   onLoadedMetadata={e => { const d = e.target.duration; if (Number.isFinite(d)) setDuracaoFonte(d); }} />}
                 {!ytId && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <button type="button" className="btn btn-secondary btn-sm" style={btn} onClick={() => marcar('ini')}>⏮️ Marcar início aqui</button>
@@ -1792,7 +1830,7 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
           {originalUrl ? (
             originalYt
               ? <iframe src={'https://www.youtube-nocookie.com/embed/'+originalYt} style={{...player,border:0}} allowFullScreen/>
-              : <video key={originalUrl} src={originalUrl} controls playsInline preload="metadata" style={player}/>
+              : <VideoComQuadro src={originalUrl} controls style={player}/>
           ) : <div style={{fontSize:12,color:'var(--t3)'}}>Original não disponível (é apagado depois que o Reel é publicado).</div>}
           {originalUrl && <a className="btn btn-secondary btn-sm" href={originalDownload} target="_blank" rel="noopener" download style={{textAlign:'center'}}>{originalYt ? '▶️ Abrir no YouTube' : '⬇️ Baixar original (Canva)'}</a>}
         </div>
@@ -1800,7 +1838,7 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
           <div style={tituloCaixa}>2. Montagem do sistema</div>
           {info?.preview_url && !info?.manual_final ? (
             <>
-              <video key={info.preview_url} src={info.preview_url} controls playsInline preload="metadata" style={player}/>
+              <VideoComQuadro src={info.preview_url} controls style={player}/>
               <div style={{fontSize:11,color:'var(--t3)'}}>Logo, manchete, rodapé e recorte como vão sair. Cópia em qualidade reduzida — a publicação sai em qualidade cheia.</div>
             </>
           ) : (
@@ -1826,7 +1864,7 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
         <div style={caixa}>
           <div style={tituloCaixa}>3. Seu vídeo pronto</div>
           {info?.manual_final && info?.preview_url ? (
-            <video key={info.preview_url} src={info.preview_url} controls playsInline preload="metadata" style={player}/>
+            <VideoComQuadro src={info.preview_url} controls style={player}/>
           ) : <div style={{fontSize:12,color:'var(--t3)'}}>Suba aqui um vídeo que você já montou (ex.: no Canva). Ele vai para o Instagram exatamente como está — sem logo, manchete ou recorte do sistema. Até 50 MB, até 90 s, vertical 9:16.</div>}
           <label className="btn btn-secondary btn-sm" style={{cursor:busy?'wait':'pointer',margin:0,textAlign:'center'}}>
             📤 {info?.manual_final ? 'Trocar vídeo pronto' : 'Subir vídeo já montado'}
@@ -2589,7 +2627,7 @@ function Postagens() {
                       {parseYouTubeId(editPost.video_url) ? (
                         <iframe src={'https://www.youtube-nocookie.com/embed/'+parseYouTubeId(editPost.video_url)} style={{width:'100%',aspectRatio:'16/9',border:0,borderRadius:6,display:'block',background:'#000'}} allowFullScreen/>
                       ) : (
-                        <video src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
+                        <VideoComQuadro src={editPost.video_url} controls style={{width:'100%',maxHeight:280,borderRadius:6,display:'block',background:'#000'}}/>
                       )}
                       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                         <button type="button" className="btn btn-secondary btn-sm" onClick={()=>{setEditPost(p=>({...p,video_url:''}));setVideoWarning('');}}>Remover vídeo</button>
@@ -5169,7 +5207,7 @@ function VideosAdmin() {
                     {parseYouTubeId(selected.video_url) ? (
                       <iframe src={'https://www.youtube-nocookie.com/embed/'+parseYouTubeId(selected.video_url)} style={{width:'100%',maxWidth:420,aspectRatio:'16/9',border:0,borderRadius:8,display:'block',background:'#000'}} allowFullScreen/>
                     ) : (
-                      <video src={selected.video_url} controls style={{width:'100%',maxWidth:420,maxHeight:320,borderRadius:8,display:'block',background:'#000'}}/>
+                      <VideoComQuadro src={selected.video_url} controls style={{width:'100%',maxWidth:420,maxHeight:320,borderRadius:8,display:'block',background:'#000'}}/>
                     )}
                     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
                       <button type="button" className="btn btn-secondary btn-sm" onClick={()=>salvar('')}>Remover vídeo desta matéria</button>
@@ -5510,7 +5548,7 @@ function ReelsSituacao() {
         <Secao titulo="Prontos para você aprovar" cor="#fbbf24" itens={g.aguardando} sub="Veja a montagem, escolha a conta e aprove.">
           {(g.aguardando||[]).map(p=>{ const t=p.m.instagram_reel_template||{}; return (
             <div key={p.id} style={{...linha,gridTemplateColumns:'90px minmax(0,1fr) auto auto'}}>
-              {t.preview_url?<video src={t.preview_url} muted playsInline preload="metadata" controls style={{width:90,height:160,objectFit:'cover',borderRadius:6,background:'#000'}}/>:<div style={{width:90,height:160,borderRadius:6,background:'var(--input)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--t3)',textAlign:'center'}}>sem prévia</div>}
+              {t.preview_url?<VideoComQuadro src={t.preview_url} muted controls style={{width:90,height:160,objectFit:'cover',borderRadius:6,background:'#000'}}/>:<div style={{width:90,height:160,borderRadius:6,background:'var(--input)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'var(--t3)',textAlign:'center'}}>sem prévia</div>}
               <span>{p.titulo}<div style={{fontSize:11,color:'var(--t3)',marginTop:4}}>Portal: {p.status==='publicado'?'publicada':'pendente (vai ao ar ao aprovar)'}</div></span>
               <select className="form-input" style={{height:32,padding:'0 8px',fontSize:12,width:'auto'}} value={contaDe[p.id]||reelContaDe(t)} onChange={e=>setContaDe({...contaDe,[p.id]:e.target.value})}>
                 {REEL_CONTAS.map(([v,l])=><option key={v} value={v}>{l}</option>)}
