@@ -1,0 +1,11 @@
+Anton.ttf, OswaldBold.ttf, MontserratExtraBold.ttf e PoppinsExtraBold.ttf
+são fontes do Google Fonts, licenciadas sob a SIL Open Font License 1.1
+(mesma licença da Inter, ver OFL-Inter.txt nesta mesma pasta) — uso livre,
+inclusive comercial, com modificação. Os arquivos .ttf aqui foram gerados
+a partir dos pacotes npm @fontsource/anton, @fontsource/oswald,
+@fontsource/montserrat e @fontsource/poppins (que redistribuem as mesmas
+fontes do Google Fonts), com o nome interno da fonte (name table) ajustado
+pra um nome de família único e sem espaço — necessário pro Pango (sharp)
+resolver corretamente cada fonte pelo nome, sem ambiguidade com a palavra
+de peso ("Bold"/"ExtraBold") sendo interpretada como estilo separado.
+Nenhuma alteração visual/de desenho foi feita nas fontes em si.

@@ -106,6 +106,29 @@ function chooseHighlightWord(title) {
 // duplicadas de propósito (script standalone do GitHub Actions, sem import
 // de core/). Se o feed mudar, atualizar aqui junto.
 const HEADLINE_FONT_PATH = resolve(root, "public", "assets", "fonts", "Inter-Variable.ttf");
+// 10/11/2026 — Roberto: "o editor de manchete já existe, mas é limitado...
+// quero fontes, tipologias, fundos, molduras, quero que seja um editor
+// completo". Catálogo de fontes extra (Google Fonts, SIL OFL — ver
+// public/assets/fonts/LICENCA-FONTES-ADICIONAIS.txt), empacotadas do mesmo
+// jeito que a Inter (arquivo .ttf no repo, nunca depende de fonte do SO).
+// `widthFactor` é empírico, não chutado: medido de verdade com sharp
+// (mesmo motor de render daqui), comparando a largura REAL de 3 frases de
+// manchete típicas em cada fonte contra o que estimateTextWidth() prevê —
+// normalizado pra a Inter continuar com factor 1 (comportamento inalterado
+// pra quem não mexer no editor). Só as fontes em weighted:true (hoje só a
+// Inter, variável) usam <span weight="800"> — as outras são .ttf estáticas
+// de peso único, weight ali não faria nada além de ser ignorado.
+const HEADLINE_FONTS = {
+  inter: { label: "Inter", file: "Inter-Variable.ttf", pangoFamily: "Inter", weighted: true, widthFactor: 1 },
+  anton: { label: "Anton", file: "Anton.ttf", pangoFamily: "Anton", weighted: false, widthFactor: 0.692 },
+  oswald: { label: "Oswald Bold", file: "OswaldBold.ttf", pangoFamily: "OswaldBold", weighted: false, widthFactor: 0.802 },
+  montserrat: { label: "Montserrat ExtraBold", file: "MontserratExtraBold.ttf", pangoFamily: "MontserratExtraBold", weighted: false, widthFactor: 1.081 },
+  poppins: { label: "Poppins ExtraBold", file: "PoppinsExtraBold.ttf", pangoFamily: "PoppinsExtraBold", weighted: false, widthFactor: 0.991 }
+};
+const DEFAULT_HEADLINE_FONT = "inter";
+function headlineFontFor(key) {
+  return HEADLINE_FONTS[key] || HEADLINE_FONTS[DEFAULT_HEADLINE_FONT];
+}
 const HEADLINE_BOX = {
   width: 780,
   maxLines: 4,
@@ -117,7 +140,7 @@ const HEADLINE_BOX = {
 const HEADLINE_BOTTOM_Y = 1300;
 const HEADLINE_MIN_TOP_Y = 1000;
 
-function estimateTextWidth(text, fontSize) {
+function estimateTextWidth(text, fontSize, factor = 1) {
   let units = 0;
   for (const ch of String(text || "")) {
     if (ch === " ") units += 0.28;
@@ -125,26 +148,34 @@ function estimateTextWidth(text, fontSize) {
     else if ("MWÁÀÂÃÄÓÒÔÕÖÚÙÛÜÇQ".includes(ch)) units += 0.88;
     else units += 0.64;
   }
-  return units * fontSize;
+  return units * fontSize * factor;
 }
 
+// 10/11/2026 — unificado: a única fonte de cor por palavra agora é
+// state.colorByIndex (Map índice-global-da-palavra -> cor hex), construído
+// em buildHeadlineLayer() tanto a partir de highlights:[{phrase,color}] do
+// editor (múltiplas cores) quanto do antigo *asterisco* (convertido pra
+// colorByIndex também, uma cor só) — sem isso, cada palavra nunca tinha
+// cor própria, só UMA cor de destaque valia pro texto inteiro.
 function renderLineMarkup(line, highlightWord, state) {
   const parts = String(line || "").split(/(\s+)/);
   return parts.map(part => {
     if (!part) return "";
     // Espaço fica FORA de qualquer <span> — garante que nunca some.
     if (/^\s+$/.test(part)) return " ";
-    let highlight;
-    if (state.marks) {
-      // Manchete editada no admin: *palavra* = destaque (posição a posição).
-      highlight = !!state.marks[state.index];
+    let color = state.color;
+    if (state.colorByIndex) {
+      const c = state.colorByIndex.get(state.index);
+      if (c) color = c;
       state.index += 1;
     } else {
       const token = normalizeWord(part);
-      highlight = !state.used && highlightWord && token === highlightWord;
-      if (highlight) state.used = true;
+      if (!state.used && highlightWord && token === highlightWord) {
+        color = state.highlightColor;
+        state.used = true;
+      }
     }
-    return `<span foreground="${highlight ? state.highlightColor : state.color}">${escapeXml(part)}</span>`;
+    return `<span foreground="${color}">${escapeXml(part)}</span>`;
   }).join("");
 }
 
@@ -153,20 +184,45 @@ function renderLineMarkup(line, highlightWord, state) {
 // deixar sem... aumentar a fonte, cores". O editor do admin grava
 // template.headline (handleReelsSetLayout em api/manage.js). Sem headline
 // (ou inválida) => manchete automática de sempre, idêntica ao feed.
+// 10/11/2026 — Roberto: "nao quero limitacoes, quero fontes, tipologias,
+// fundos, molduras, quero que seja um editor completo". Campos novos:
+// fonte (chave de HEADLINE_FONTS), estilo ("texto" = como sempre foi, só
+// o texto sobre o vídeo; "moldura" = caixa colorida atrás, igual ao
+// Brasil On mas com qualquer cor), cor_fundo (cor da moldura) e
+// highlights (frases com cor própria cada, não só uma cor de destaque).
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+function sanitizeHighlights(raw) {
+  if (!Array.isArray(raw)) return null;
+  const out = raw
+    .map(item => ({
+      phrase: typeof item?.phrase === "string" ? item.phrase.replace(/\s+/g, " ").trim().slice(0, 60) : "",
+      color: HEX_COLOR.test(String(item?.color || "")) ? item.color : HIGHLIGHT_COLOR
+    }))
+    .filter(item => item.phrase)
+    .slice(0, 8);
+  return out.length ? out : null;
+}
 function sanitizeHeadline(raw) {
   if (!raw || typeof raw !== "object") return null;
   const num = (v, min, max) => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : null; };
+  const estilo = raw.estilo === "moldura" ? "moldura" : "texto";
   return {
     oculta: raw.oculta === true,
     texto: typeof raw.texto === "string" ? raw.texto.replace(/\s+/g, " ").trim().slice(0, 240) : "",
     maiusculas: raw.maiusculas !== false,
     tamanho: num(raw.tamanho, 20, 120),
-    largura: num(raw.largura, 300, 1040) || HEADLINE_BOX.width,
+    largura: num(raw.largura, 300, 1040),
     x: num(raw.x, 0, WIDTH),
     y: num(raw.y, 0, HEIGHT - 20),
-    cor: HEX_COLOR.test(String(raw.cor || "")) ? raw.cor : "#ffffff",
-    cor_destaque: HEX_COLOR.test(String(raw.cor_destaque || "")) ? raw.cor_destaque : HIGHLIGHT_COLOR
+    // default de cor de texto muda com o estilo: branco sobre vídeo,
+    // preto sobre moldura (igual ao Brasil On) — só se Roberto não
+    // escolher uma cor própria.
+    cor: HEX_COLOR.test(String(raw.cor || "")) ? raw.cor : (estilo === "moldura" ? "#000000" : "#ffffff"),
+    cor_destaque: HEX_COLOR.test(String(raw.cor_destaque || "")) ? raw.cor_destaque : HIGHLIGHT_COLOR,
+    fonte: typeof raw.fonte === "string" && HEADLINE_FONTS[raw.fonte] ? raw.fonte : DEFAULT_HEADLINE_FONT,
+    estilo,
+    cor_fundo: HEX_COLOR.test(String(raw.cor_fundo || "")) ? raw.cor_fundo : "#f5c518",
+    highlights: sanitizeHighlights(raw.highlights)
   };
 }
 
@@ -189,21 +245,41 @@ function parseHighlightMarks(text) {
   return { text: words.join(" "), marks };
 }
 
-function truncateLine(line, fontSize, maxWidth) {
+// Porta de core/instagram_image.js (mesma função, mesmo nome) — frases do
+// editor (highlights:[{phrase,color}]) casadas contra a lista de palavras
+// do título já quebrado em linhas, cada ocorrência virando índice global
+// -> cor própria. Primeira correspondência de cada frase só, pra não
+// marcar a mesma palavra 2x se o título repetir um termo.
+function markHighlightColors(words, highlights) {
+  const normWords = words.map(normalizeWord);
+  const colorByIndex = new Map();
+  for (const item of highlights || []) {
+    const phraseWords = String(item?.phrase || "").trim().split(/\s+/).map(normalizeWord).filter(Boolean);
+    if (!phraseWords.length) continue;
+    for (let i = 0; i <= normWords.length - phraseWords.length; i++) {
+      let match = true;
+      for (let j = 0; j < phraseWords.length; j++) { if (normWords[i + j] !== phraseWords[j]) { match = false; break; } }
+      if (match) { for (let j = 0; j < phraseWords.length; j++) colorByIndex.set(i + j, item.color); break; }
+    }
+  }
+  return colorByIndex;
+}
+
+function truncateLine(line, fontSize, maxWidth, factor = 1) {
   let value = String(line || "").trim();
-  while (value.length > 1 && estimateTextWidth(value + "…", fontSize) > maxWidth) {
+  while (value.length > 1 && estimateTextWidth(value + "…", fontSize, factor) > maxWidth) {
     value = value.replace(/\s+\S*$/, "").trim() || value.slice(0, -1).trim();
   }
   return value ? value + "…" : "";
 }
 
-function wrapHeadline(text, fontSize, maxWidth, maxLines) {
+function wrapHeadline(text, fontSize, maxWidth, maxLines, factor = 1) {
   const words = String(text || "").trim().split(/\s+/).filter(Boolean);
   const lines = [];
   let current = "";
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (!current || estimateTextWidth(candidate, fontSize) <= maxWidth) {
+    if (!current || estimateTextWidth(candidate, fontSize, factor) <= maxWidth) {
       current = candidate;
       continue;
     }
@@ -216,11 +292,46 @@ function wrapHeadline(text, fontSize, maxWidth, maxLines) {
   clipped[maxLines - 1] = truncateLine(
     [clipped[maxLines - 1], ...lines.slice(maxLines)].join(" "),
     fontSize,
-    maxWidth
+    maxWidth,
+    factor
   );
   return clipped;
 }
 
+// Caixa colorida atrás da manchete (generaliza buildOverlayBrasilOn, que
+// era fixa em amarelo só pro Brasil On — agora qualquer cor, pra qualquer
+// Reel, via h.cor_fundo). Devolve [caixa, texto] como 2 camadas.
+async function buildMolduraLayers(lines, fontSize, font, fontFile, boxWidth, bgColor, highlightWord, highlightState, centerX, bottomY) {
+  const paddingX = 36, paddingY = 28, radius = 20, lineGap = 1.18;
+  const lineHeightPx = Math.round(fontSize * lineGap);
+  const boxHeight = paddingY * 2 + lineHeightPx * lines.length;
+  const box = await sharp(Buffer.from(
+    `<svg width="${boxWidth}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg">` +
+    `<rect x="0" y="0" width="${boxWidth}" height="${boxHeight}" rx="${radius}" ry="${radius}" fill="${bgColor}"/></svg>`
+  )).png().toBuffer();
+  const markup = lines.map(line => renderLineMarkup(line, highlightWord, highlightState)).join("\n");
+  const text = await sharp({
+    text: {
+      text: font.weighted ? `<span weight="800">${markup}</span>` : markup,
+      font: `${font.pangoFamily} ${fontSize}`,
+      fontfile: fontFile,
+      align: "center", rgba: true, dpi: 72, wrap: "none"
+    }
+  }).png().toBuffer();
+  const meta = await sharp(text).metadata();
+  const boxTop = Math.max(0, Math.min(HEIGHT - boxHeight, bottomY - boxHeight));
+  const boxLeft = Math.max(0, Math.min(WIDTH - boxWidth, Math.round(centerX - boxWidth / 2)));
+  const textLeft = boxLeft + Math.round((boxWidth - (meta.width || 0)) / 2);
+  const textTop = boxTop + Math.round((boxHeight - (meta.height || 0)) / 2);
+  return [
+    { input: box, left: boxLeft, top: boxTop },
+    { input: text, left: textLeft, top: textTop }
+  ];
+}
+
+// Devolve SEMPRE um array de camadas (0, 2 em modo moldura, 1 em modo
+// texto) — nunca mais um objeto único, pra caber tanto o modo antigo
+// (só texto) quanto o novo (caixa + texto).
 async function buildHeadlineLayer(title, rawHeadline) {
   const h = sanitizeHeadline(rawHeadline);
   if (h?.oculta) return null;
@@ -230,15 +341,21 @@ async function buildHeadlineLayer(title, rawHeadline) {
   const normalized = h && !h.maiusculas ? base : base.toUpperCase();
   if (!normalized) return null;
 
-  const boxWidth = h?.largura || HEADLINE_BOX.width;
+  const font = headlineFontFor(h?.fonte);
+  const factor = font.widthFactor;
+  const fontFile = resolve(root, "public", "assets", "fonts", font.file);
+  const moldura = h?.estilo === "moldura";
+  const boxWidth = h?.largura || (moldura ? Math.round(WIDTH * 0.88) : HEADLINE_BOX.width);
+  const fitWidth = moldura ? boxWidth - 72 : boxWidth; // 72 = paddingX*2 da moldura
+
   let selected = null;
   if (h?.tamanho) {
     // Tamanho escolhido no admin: fixo, até 8 linhas.
-    selected = { fontSize: h.tamanho, lines: wrapHeadline(normalized, h.tamanho, boxWidth, 8) };
+    selected = { fontSize: h.tamanho, lines: wrapHeadline(normalized, h.tamanho, fitWidth, 8, factor) };
   }
   for (let fontSize = HEADLINE_BOX.maxFontSize; !selected && fontSize >= HEADLINE_BOX.minFontSize; fontSize -= 2) {
-    const lines = wrapHeadline(normalized, fontSize, boxWidth, HEADLINE_BOX.maxLines);
-    const fits = lines.length <= HEADLINE_BOX.maxLines && lines.every(line => estimateTextWidth(line, fontSize) <= boxWidth);
+    const lines = wrapHeadline(normalized, fontSize, fitWidth, HEADLINE_BOX.maxLines, factor);
+    const fits = lines.length <= HEADLINE_BOX.maxLines && lines.every(line => estimateTextWidth(line, fontSize, factor) <= fitWidth);
     if (fits) {
       selected = { fontSize, lines };
       break;
@@ -247,45 +364,62 @@ async function buildHeadlineLayer(title, rawHeadline) {
   if (!selected) {
     selected = {
       fontSize: HEADLINE_BOX.minFontSize,
-      lines: wrapHeadline(normalized, HEADLINE_BOX.minFontSize, boxWidth, HEADLINE_BOX.maxLines)
+      lines: wrapHeadline(normalized, HEADLINE_BOX.minFontSize, fitWidth, HEADLINE_BOX.maxLines, factor)
     };
   }
 
-  const highlightWord = parsed ? null : chooseHighlightWord(normalized);
+  // Cor por palavra: highlights do editor (múltiplas cores) tem
+  // prioridade; senão, *asteriscos* convertidos pra uma cor só; senão,
+  // destaque automático de 1 palavra de impacto (comportamento de sempre).
+  const allWords = normalized.split(/\s+/).filter(Boolean);
+  let colorByIndex = null;
+  if (h?.highlights?.length) {
+    colorByIndex = markHighlightColors(allWords, h.highlights);
+  } else if (parsed) {
+    colorByIndex = new Map();
+    parsed.marks.forEach((on, i) => { if (on) colorByIndex.set(i, h?.cor_destaque || HIGHLIGHT_COLOR); });
+  }
+  const highlightWord = colorByIndex ? null : chooseHighlightWord(normalized);
   const highlightState = {
     used: false,
-    marks: parsed ? parsed.marks : null,
+    colorByIndex,
     index: 0,
     color: h?.cor || "#ffffff",
     highlightColor: h?.cor_destaque || HIGHLIGHT_COLOR
   };
+
+  const centerX = h?.x != null ? h.x : WIDTH / 2;
+  if (moldura) {
+    const bottomY = h?.y != null ? h.y : HEADLINE_BOTTOM_Y;
+    return buildMolduraLayers(selected.lines, selected.fontSize, font, fontFile, boxWidth, h.cor_fundo, highlightWord, highlightState, centerX, bottomY);
+  }
+
   const markup = selected.lines
     .map(line => renderLineMarkup(line, highlightWord, highlightState))
     .join("\n");
   const buffer = await sharp({
     text: {
-      text: `<span weight="800">${markup}</span>`,
-      font: `Inter ${selected.fontSize}`,
-      fontfile: HEADLINE_FONT_PATH,
+      text: font.weighted ? `<span weight="800">${markup}</span>` : markup,
+      font: `${font.pangoFamily} ${selected.fontSize}`,
+      fontfile: fontFile,
       align: "center",
       rgba: true,
       dpi: 72,
       wrap: "none"
     }
   }).png().toBuffer();
-  const { width = HEADLINE_BOX.width, height = 0 } = await sharp(buffer).metadata();
+  const { width = boxWidth, height = 0 } = await sharp(buffer).metadata();
   if (width > WIDTH || height > HEIGHT) {
     // Texto maior que o quadro (tamanho exagerado): encolhe pra caber.
     const fitted = await sharp(buffer).resize({ width: Math.min(width, WIDTH), height: Math.min(height, HEIGHT), fit: "inside" }).png().toBuffer();
     const meta = await sharp(fitted).metadata();
-    return { input: fitted, left: Math.max(0, Math.round((WIDTH - meta.width) / 2)), top: Math.max(0, Math.round((HEIGHT - meta.height) / 2)) };
+    return [{ input: fitted, left: Math.max(0, Math.round((WIDTH - meta.width) / 2)), top: Math.max(0, Math.round((HEIGHT - meta.height) / 2)) }];
   }
-  const centerX = h?.x != null ? h.x : WIDTH / 2;
   const left = Math.max(0, Math.min(WIDTH - width, Math.round(centerX - width / 2)));
   const top = h?.y != null
     ? Math.max(0, Math.min(HEIGHT - height, h.y))
     : Math.max(HEADLINE_MIN_TOP_Y, HEADLINE_BOTTOM_Y - height);
-  return { input: buffer, left, top };
+  return [{ input: buffer, left, top }];
 }
 
 // Cor da sombra em função da opacidade — mantém a mesma progressão visual
@@ -452,15 +586,17 @@ async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx
   // 27/09/2026 — Roberto: "não vamos usar mais nossas chamadas, deixe sem".
   // Manchete só quando ele escreve uma no editor do admin (headline salva e
   // não oculta). Sem isso, o Reel sai sem manchete.
-  const headline = job.headline && job.headline.oculta !== true
-    ? await buildHeadlineLayer(job.title, job.headline)
-    : null;
+  // 10/11/2026 — buildHeadlineLayer() agora sempre devolve um array (0, 1
+  // ou 2 camadas, dependendo do estilo texto/moldura) em vez de 1 objeto só.
+  const headlineLayers = job.headline && job.headline.oculta !== true
+    ? (await buildHeadlineLayer(job.title, job.headline)) || []
+    : [];
   const footer = await footerTransparente(reelFooter);
 
   await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
       { input: gradient, left: 0, top: 0 },
-      ...(headline ? [headline] : []),
+      ...headlineLayers,
       { input: topBrand, left: 350, top: 25 },
       { input: footer, left: 350, top: 1490 }
     ])
