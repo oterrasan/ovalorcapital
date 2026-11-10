@@ -5,5 +5,43 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: checar estado real da producao
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json
+
+          URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                 "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIi"
+                 "wicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoy"
+                 "MDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40")
+
+          def req(path, params=""):
+              url = f"{URL}/rest/v1/{path}{params}"
+              r = urllib.request.Request(url, headers={
+                  "apikey": KEY, "Authorization": f"Bearer {KEY}",
+                  "Accept-Profile": "public"})
+              with urllib.request.urlopen(r, timeout=20) as resp:
+                  return json.loads(resp.read())
+
+          print("=== CONFIG (flags de automacao) ===")
+          keys = ["AUTOMATION","IG_AUTOMATION_ENABLED","REELS_AUTOMATION_ENABLED","BON_IG_ENABLED"]
+          for k in keys:
+              rows = req("config", f"?key=eq.{k}&select=key,value")
+              print(k, "=>", rows[0]["value"] if rows else "(nao existe)")
+
+          print()
+          print("=== ig_accounts (contas Instagram) ===")
+          accs = req("ig_accounts", "?select=username,active,distribuicao_automatica,ig_user_id,token")
+          for a in accs:
+              tok = "tem token" if a.get("token") else "SEM TOKEN"
+              uid = a.get("ig_user_id") or "SEM ig_user_id"
+              print(f"  {a.get('username')} | active={a.get('active')} | "
+                    f"dist_auto={a.get('distribuicao_automatica')} | {uid} | {tok}")
+
+          print()
+          print("=== ultimos posts publicados (geral) ===")
+          posts = req("posts", "?select=titulo,published_at,publish_method&status=eq.publicado&order=published_at.desc&limit=5")
+          for p in posts:
+              print(" ", p.get("published_at"), "|", p.get("publish_method"), "|", (p.get("titulo") or "")[:60])
+          PYEOF
