@@ -96,6 +96,7 @@ export default async function handler(req, res) {
       if (action === "relatorio_canais") return handleRelatorioCanais(req, res);
       if (action === "reels_erros") return handleReelsErros(req, res);
       if (action === "limpar_gemini_budget_antigo") return handleLimparGeminiBudgetAntigo(req, res);
+      if (action === "diag_config_breakdown") return handleDiagConfigBreakdown(req, res);
       if (action === "link_jobs_limpar_falhas") return handleLinkJobsLimparFalhas(req, res);
       return handleStatus(res);
     }
@@ -356,6 +357,32 @@ async function handleLimparGeminiBudgetAntigo(req, res) {
     de_hoje_preservadas: todasAsChaves.length - antigas.length,
     apagadas
   });
+}
+
+// 10/11/2026 — diagnóstico TEMPORÁRIO (Roberto: "Saúde do Banco" em 112k
+// mesmo com o botão "LIMPAR AGORA" já existindo) — pra saber se há bloat
+// real além de GEMINI_BUDGET_*, não só supor. Agrupa key por prefixo
+// (tudo antes do primeiro "__" ou dígito) e conta. Remover depois de usar
+// uma vez — não é feature permanente do admin.
+async function handleDiagConfigBreakdown(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const todasAsChaves = [];
+  const PAGE = 1000;
+  for (let from = 0; from < 500000; from += PAGE) {
+    const { data, error } = await supabase.from("config").select("key").range(from, from + PAGE - 1);
+    if (error) return res.status(200).json({ ok: false, error: error.message });
+    if (!data || !data.length) break;
+    todasAsChaves.push(...data.map(r => r.key));
+    if (data.length < PAGE) break;
+  }
+  const porPrefixo = {};
+  for (const k of todasAsChaves) {
+    const m = String(k).match(/^([A-Z_]+?)(?:__|_\d|$)/);
+    const prefixo = m ? m[1] : String(k).slice(0, 20);
+    porPrefixo[prefixo] = (porPrefixo[prefixo] || 0) + 1;
+  }
+  const ranking = Object.entries(porPrefixo).sort((a, b) => b[1] - a[1]).slice(0, 25);
+  return res.status(200).json({ ok: true, total: todasAsChaves.length, por_prefixo: ranking });
 }
 
 // 09/11/2026 — "Pedidos de captura" (fila LINK_JOB__* do robô do TikTok do
