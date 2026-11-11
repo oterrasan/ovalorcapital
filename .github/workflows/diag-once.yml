@@ -6,11 +6,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: breakdown da tabela config
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
+      - name: checar admin em producao
         run: |
-          curl -sS "https://www.ovalorcapital.com.br/api/manage?action=diag_config_breakdown" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" \
-            --max-time 60
+          echo "=== fetch /admin/ ==="
+          curl -sS -D headers.txt -o admin.html "https://www.ovalorcapital.com.br/admin/" --max-time 30
+          echo "--- headers ---"
+          cat headers.txt
+          echo "--- tamanho ---"
+          wc -l admin.html
+          echo "--- contem VideoComQuadro (fix de video preto)? ---"
+          grep -c "VideoComQuadro" admin.html || echo "0 (NAO ENCONTRADO)"
+          echo "--- contem 'rastreadores diarios' (fix do saude do banco)? ---"
+          grep -c "rastreadores diários" admin.html || echo "0 (NAO ENCONTRADO)"
+          echo "--- primeiras linhas do etag/last-modified/cache-control ---"
+          grep -iE "etag|last-modified|cache-control|age:|x-vercel" headers.txt || true
           echo ""
+          echo "=== fetch direto no vercel (bypass CDN www) ==="
+          curl -sS -o admin2.html "https://ovalorcapital.vercel.app/admin/" --max-time 30 || echo "falhou fetch direto vercel.app"
+          grep -c "VideoComQuadro" admin2.html 2>/dev/null || echo "0 ou arquivo ausente"
