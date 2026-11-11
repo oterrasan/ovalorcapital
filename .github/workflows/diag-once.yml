@@ -4,6 +4,53 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: placeholder
-        run: echo "nada a fazer..."
+      - name: checar estado real da automacao e posts/reels recentes (11/11 1h)
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json
+
+          URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                 "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIi"
+                 "wicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoy"
+                 "MDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40")
+
+          def req(path, params=""):
+              url = f"{URL}/rest/v1/{path}{params}"
+              r = urllib.request.Request(url, headers={
+                  "apikey": KEY, "Authorization": f"Bearer {KEY}",
+                  "Accept-Profile": "public"})
+              with urllib.request.urlopen(r, timeout=20) as resp:
+                  return json.loads(resp.read())
+
+          print("=== CONFIG (flags de automacao, estado real agora) ===")
+          keys = ["AUTOMATION","IG_AUTOMATION_ENABLED","REELS_AUTOMATION_ENABLED","BON_IG_ENABLED"]
+          for k in keys:
+              rows = req("config", f"?key=eq.{k}&select=key,value,updated_at")
+              if rows:
+                  print(f"  {k} => {rows[0]['value']} (updated_at={rows[0].get('updated_at')})")
+              else:
+                  print(f"  {k} => (nao existe linha)")
+
+          print()
+          print("=== ULTIMOS 10 POSTS PUBLICADOS (geral, qualquer metodo) ===")
+          posts = req("posts", "?select=id,titulo,published_at,publish_method,status,video_url,metrics&status=eq.publicado&order=published_at.desc&limit=10")
+          for p in posts:
+              m = p.get("metrics") or {}
+              ig = m.get("instagram") or {}
+              igr = m.get("instagram_reel") or {}
+              ig_feed = f"IG_feed@{ig.get('published_at','-')}" if ig else ""
+              ig_reel = f"IG_reel@{igr.get('published_at','-')}" if igr else ""
+              print(f"  {p.get('published_at')} | {p.get('publish_method')} | video={'SIM' if p.get('video_url') else 'nao'} | {ig_feed} {ig_reel} | {(p.get('titulo') or '')[:55]}")
+
+          print()
+          print("=== ULTIMOS 5 TEMPLATES DE REELS (reels_templates) ===")
+          try:
+              reels = req("reels_templates", "?select=post_id,status,updated_at,aprovado&order=updated_at.desc&limit=5")
+              for r in reels:
+                  print(f"  {r.get('updated_at')} | status={r.get('status')} | aprovado={r.get('aprovado')} | post_id={r.get('post_id')}")
+          except Exception as e:
+              print("  erro ao consultar reels_templates:", e)
+          PYEOF
