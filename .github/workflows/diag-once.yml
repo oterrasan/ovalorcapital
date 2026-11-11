@@ -4,25 +4,5 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: checar resposta crua do tikwm pros 2 videos so-audio
-        run: |
-          for url in \
-            "https://www.tiktok.com/@revista_veja/video/7706315939368668423" \
-            "https://www.tiktok.com/@revista_veja/video/7706217245516614964"; do
-            echo "=== $url ==="
-            enc=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$url")
-            curl -sS "https://www.tikwm.com/api/?url=${enc}&hd=1" -H "User-Agent: Mozilla/5.0" --max-time 20 > resp.json
-            python3 << 'PYEOF'
-          import json
-          d = json.load(open('resp.json'))
-          data = d.get('data', {})
-          print('code:', d.get('code'), 'msg:', d.get('msg'))
-          print('images (fotos do slideshow):', len(data.get('images') or []))
-          print('duration:', data.get('duration'))
-          print('play:', (data.get('play') or '')[:120])
-          print('hdplay:', (data.get('hdplay') or '')[:120])
-          print('music:', (data.get('music') or '')[:120])
-          PYEOF
-          done
+      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
