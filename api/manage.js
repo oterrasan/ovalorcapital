@@ -338,30 +338,35 @@ async function handleReelsErros(req, res) {
 // ser preservada como única regra intocável" — apagar essas marcas
 // reabriria a porta pra recaptura/repostagem do que já foi processado).
 const CONTADORES_DIARIOS_PREFIXOS = ["GEMINI_BUDGET", "GEMINI_SUCESSO", "IG_AUTO", "BON_IG_AUTO_COUNT", "REELS_AUTO_COUNT"];
+// 11/11/2026 — BUG REAL CONFIRMADO (Roberto furioso, "3 dias seguidos" sem
+// a limpeza funcionar de verdade): a versão antiga buscava TODAS as chaves
+// em memória e apagava em lotes de 500 via .in("key",[...500 chaves...]).
+// Com chaves de ~60-70 chars, um lote de 500 monta uma URL de 30KB+ no
+// DELETE — estoura o limite de tamanho de URL do PostgREST/proxy, o erro
+// era engolido silenciosamente (if(!error) apagadas+=...), e o contador
+// de "apagadas" ficava zerado ou quase zero pra qualquer prefixo com mais
+// de ~1 lote. Confirmado ao vivo: GEMINI_BUDGET tinha 67.370 linhas
+// antigas e apagou 0; só REELS_AUTO_COUNT (254 linhas, cabe num lote só)
+// funcionou 100%. Fix: 1 único DELETE por prefixo, filtrando direto no
+// banco (key LIKE prefixo_% AND key NOT LIKE prefixoHoje%) — nunca traz
+// as chaves pro código, nunca monta lista gigante, sempre 1 round-trip.
 async function _limparContadorDiarioAntigo(prefixo, hojeBRT) {
   const prefixoHoje = `${prefixo}_${hojeBRT}`;
-  const todasAsChaves = [];
-  const PAGE = 1000;
-  for (let from = 0; from < 500000; from += PAGE) {
-    const { data, error } = await supabase
+  try {
+    const [{ count: totalAntes }, { count: deHoje }] = await Promise.all([
+      supabase.from("config").select("key", { count: "exact", head: true }).like("key", `${prefixo}_%`),
+      supabase.from("config").select("key", { count: "exact", head: true }).like("key", `${prefixoHoje}%`)
+    ]);
+    const { error, count: apagadas } = await supabase
       .from("config")
-      .select("key")
+      .delete({ count: "exact" })
       .like("key", `${prefixo}_%`)
-      .range(from, from + PAGE - 1);
-    if (error) return { prefixo, erro: error.message };
-    if (!data || !data.length) break;
-    todasAsChaves.push(...data.map(r => r.key));
-    if (data.length < PAGE) break;
+      .not("key", "like", `${prefixoHoje}%`);
+    if (error) return { prefixo, erro: error.message, total_antes: totalAntes || 0, de_hoje_preservadas: deHoje || 0, apagadas: 0 };
+    return { prefixo, total_antes: totalAntes || 0, de_hoje_preservadas: deHoje || 0, apagadas: apagadas ?? Math.max(0, (totalAntes || 0) - (deHoje || 0)) };
+  } catch (e) {
+    return { prefixo, erro: e?.message || String(e) };
   }
-  const antigas = todasAsChaves.filter(k => !k.startsWith(prefixoHoje));
-  let apagadas = 0;
-  const CHUNK = 500;
-  for (let i = 0; i < antigas.length; i += CHUNK) {
-    const chunk = antigas.slice(i, i + CHUNK);
-    const { error } = await supabase.from("config").delete().in("key", chunk);
-    if (!error) apagadas += chunk.length;
-  }
-  return { prefixo, total_antes: todasAsChaves.length, de_hoje_preservadas: todasAsChaves.length - antigas.length, apagadas };
 }
 async function handleLimparGeminiBudgetAntigo(req, res) {
   if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
