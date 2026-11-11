@@ -95,6 +95,7 @@ export default async function handler(req, res) {
       if (action === "dispatch_reels_workflow") return handleDispatchReelsWorkflow(req, res, undefined);
       if (action === "relatorio_canais") return handleRelatorioCanais(req, res);
       if (action === "reels_erros") return handleReelsErros(req, res);
+      if (action === "diag_achar_post") return handleDiagAcharPost(req, res);
       if (action === "limpar_gemini_budget_antigo") return handleLimparGeminiBudgetAntigo(req, res);
       if (action === "link_jobs_limpar_falhas") return handleLinkJobsLimparFalhas(req, res);
       return handleStatus(res);
@@ -265,6 +266,34 @@ async function handleRelatorioCanais(req, res) {
     por_canal: resumir(porCanal),
     por_categoria: resumir(porCategoria)
   });
+}
+
+// 11/11/2026 — diagnóstico TEMPORÁRIO (Roberto: vídeo preto mesmo depois do
+// fix de VideoComQuadro) — pra achar o post real por título e pegar o
+// video_url/source_url de verdade, pra inspecionar o arquivo com ffprobe
+// fora do admin. Remover depois de usar, não é feature permanente.
+async function handleDiagAcharPost(req, res) {
+  if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
+  const termo = String(req.query.termo || req.body?.termo || "").trim();
+  if (!termo) return res.status(400).json({ ok: false, error: "termo obrigatório" });
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id,titulo,status,video_url,metrics,updated_at")
+    .ilike("titulo", `%${termo}%`)
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  if (error) return res.status(200).json({ ok: false, error: error.message });
+  const out = (data || []).map(row => {
+    let m = row.metrics;
+    if (typeof m === "string") { try { m = JSON.parse(m); } catch (_) { m = {}; } }
+    const tpl = m?.instagram_reel_template || {};
+    return {
+      id: row.id, titulo: row.titulo, status: row.status, updated_at: row.updated_at,
+      video_url: row.video_url, template_status: tpl.status, source_url: tpl.source_url,
+      source_kind: tpl.source_kind, preview_url: tpl.preview_url
+    };
+  });
+  return res.status(200).json({ ok: true, posts: out });
 }
 
 // 03/11/2026 — Roberto: "estou aprovando reels, no pipe de videos dos reels,
