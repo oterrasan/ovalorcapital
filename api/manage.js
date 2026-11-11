@@ -275,13 +275,11 @@ async function handleRelatorioCanais(req, res) {
 async function handleDiagAcharPost(req, res) {
   if (!checkAdmin(req, {})) return res.status(401).json({ ok: false, error: "unauthorized" });
   const termo = String(req.query.termo || req.body?.termo || "").trim();
-  if (!termo) return res.status(400).json({ ok: false, error: "termo obrigatório" });
-  const { data, error } = await supabase
-    .from("posts")
-    .select("id,titulo,status,video_url,metrics,updated_at")
-    .ilike("titulo", `%${termo}%`)
-    .order("updated_at", { ascending: false })
-    .limit(5);
+  const recentes = req.query.recentes === "1";
+  if (!termo && !recentes) return res.status(400).json({ ok: false, error: "termo obrigatório (ou recentes=1)" });
+  let query = supabase.from("posts").select("id,titulo,status,video_url,metrics,updated_at");
+  query = recentes ? query.not("video_url", "is", null) : query.ilike("titulo", `%${termo}%`);
+  const { data, error } = await query.order("updated_at", { ascending: false }).limit(recentes ? 10 : 5);
   if (error) return res.status(200).json({ ok: false, error: error.message });
   const out = (data || []).map(row => {
     let m = row.metrics;

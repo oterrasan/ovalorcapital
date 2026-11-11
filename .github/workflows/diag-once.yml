@@ -6,24 +6,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - name: achar o post e inspecionar o video real
+      - name: checar varios videos recentes
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
-          echo "=== buscando post 'matinal' ==="
-          curl -sS "https://www.ovalorcapital.com.br/api/manage?action=diag_achar_post&termo=matinal" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" --max-time 30 | tee post.json
-          echo ""
-          echo "=== video_url do primeiro resultado ==="
-          VURL=$(python3 -c "import json; d=json.load(open('post.json')); p=d['posts'][0] if d.get('posts') else None; print(p.get('video_url') or p.get('source_url') or '' if p else '')")
-          echo "URL: $VURL"
-          if [ -z "$VURL" ]; then echo "NENHUMA URL ENCONTRADA"; exit 0; fi
-          echo "=== baixando pra inspecionar ==="
-          curl -sS -o video.mp4 "$VURL" --max-time 60 -A "Mozilla/5.0" || echo "falha no download"
-          ls -la video.mp4 2>/dev/null || echo "arquivo nao existe"
-          echo "=== ffprobe (codec real) ==="
           sudo apt-get update -qq >/dev/null 2>&1 || true
           sudo apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true
-          ffprobe -v error -show_format -show_streams video.mp4 2>&1 || echo "ffprobe falhou"
-          echo "=== primeiros bytes (magic number) ==="
-          xxd video.mp4 2>/dev/null | head -5 || true
+          echo "=== listando posts recentes com video_url ==="
+          curl -sS "https://www.ovalorcapital.com.br/api/manage?action=diag_achar_post&recentes=1" \
+            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" --max-time 30 > posts.json
+          python3 << 'PYEOF'
+          import json
+          d = json.load(open('posts.json'))
+          for p in d.get('posts', []):
+              print(p['id'][:8], p['titulo'][:50], '|', p.get('video_url',''))
+          with open('urls.txt', 'w') as f:
+              f.write('\n'.join(p['video_url'] for p in d.get('posts', []) if p.get('video_url')))
+          PYEOF
+          echo ""
+          echo "=== ffprobe de cada um ==="
+          n=0
+          while read -r url; do
+            n=$((n+1))
+            [ -z "$url" ] && continue
+            echo "--- video $n: $url"
+            curl -sS -o "v$n.mp4" "$url" --max-time 30 -A "Mozilla/5.0" || { echo "download falhou"; continue; }
+            ffprobe -v error -select_streams v -show_entries stream=codec_name,width,height -of csv=p=0 "v$n.mp4" 2>&1
+            vcount=$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "v$n.mp4" 2>/dev/null | wc -l)
+            echo "streams de video: $vcount"
+          done < urls.txt
