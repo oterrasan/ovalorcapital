@@ -15,8 +15,11 @@
 //
 // Fluxo por pedido (config LINK_JOB__*, criado por handleLinkManual):
 //   1. lê texto/título/capa e baixa o vídeo pelo método do site
-//   2. PUT do vídeo cru (sem transcode) na URL assinada do nosso Storage
-//   3. POST link_manual com job_key + texto + vídeo -> servidor reescreve,
+//   2. se vier em HEVC, converte só o codec pra H.264 (compatibilidade de
+//      playback — mesma resolução/áudio, zero corte/logo/moldura, ver
+//      converterHevcParaH264 abaixo); senão sobe exatamente como veio
+//   3. PUT do vídeo na URL assinada do nosso Storage
+//   4. POST link_manual com job_key + texto + vídeo -> servidor reescreve,
 //      salva pendente, enfileira o Reel e apaga o pedido
 // Qualquer falha -> link_job_falhou com o motivo real (aparece no admin).
 import { execFileSync } from "node:child_process";
@@ -51,6 +54,35 @@ function ytdlp(args, timeoutMs, cookies = COOKIES) {
   const base = ["--no-warnings", "--no-progress"];
   if (cookies) base.push("--cookies", cookies);
   return execFileSync("yt-dlp", [...base, ...args], { encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+}
+
+// 11/11/2026 — Roberto: "tela do vídeo fica preta, todos os vídeos estão
+// vindo assim". Achado real (ffprobe em 10 capturas reais): 8 de 10 vinham
+// em HEVC (H.265) — codec que Chrome/Firefox no computador NÃO decodificam
+// (fica preto pra sempre, nenhum fix no player do admin resolve — o
+// problema é o arquivo, não a exibição). Conversão pra H.264 só pra
+// compatibilidade de playback — mesma resolução, mesmo áudio, zero corte/
+// logo/moldura. Autorizado por Roberto explicitamente como diferente de
+// "montagem automática" (que ele pediu pra tirar nesta mesma sessão).
+function temVideoHevc(path) {
+  try {
+    const out = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name", "-of", "csv=p=0", path], { encoding: "utf8", timeout: 15000 });
+    return out.trim().toLowerCase() === "hevc";
+  } catch (_) { return false; }
+}
+function converterHevcParaH264(path) {
+  if (!temVideoHevc(path)) return false;
+  const saida = path.replace(/\.mp4$/, "-h264.mp4");
+  try {
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", path, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", saida], { timeout: 180000 });
+    rmSync(path, { force: true });
+    execFileSync("mv", [saida, path]);
+    return true;
+  } catch (e) {
+    console.log("conversão HEVC->H.264 falhou, seguindo com o arquivo original:", String(e?.message || e).slice(0, 200));
+    rmSync(saida, { force: true });
+    return false;
+  }
 }
 
 function erroLegivel(e) {
@@ -190,7 +222,10 @@ async function processar(job) {
     let videoHospedado = "";
     if (cap.temVideo && existsSync(video) && job.upload_url && job.public_url) {
       try {
-        // Sem transcode: sobe o arquivo exatamente como veio da fonte.
+        // Sem transcode de edição (sem corte/logo/moldura): sobe o vídeo
+        // tal como veio da fonte, exceto quando é HEVC — aí converte só o
+        // codec pra H.264 (compatibilidade, ver converterHevcParaH264 acima).
+        if (converterHevcParaH264(video)) console.log(`[${job.key}] convertido de HEVC pra H.264 (compatibilidade de playback)`);
         if (statSync(video).size <= MAX_BYTES) {
           const put = await fetch(job.upload_url, {
             method: "PUT",
