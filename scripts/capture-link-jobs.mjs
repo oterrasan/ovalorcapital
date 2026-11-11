@@ -15,11 +15,15 @@
 //
 // Fluxo por pedido (config LINK_JOB__*, criado por handleLinkManual):
 //   1. lê texto/título/capa e baixa o vídeo pelo método do site
-//   2. se vier em HEVC, converte só o codec pra H.264 (compatibilidade de
+//   2. confirma com ffprobe que o arquivo baixado tem stream de vídeo de
+//      verdade (não só áudio — ver arquivoTemVideoReal, pega posts "modo
+//      foto"/slideshow do TikTok e qualquer caso parecido); sem vídeo
+//      real, trata como se não tivesse vídeo nenhum
+//   3. se vier em HEVC, converte só o codec pra H.264 (compatibilidade de
 //      playback — mesma resolução/áudio, zero corte/logo/moldura, ver
 //      converterHevcParaH264 abaixo); senão sobe exatamente como veio
-//   3. PUT do vídeo na URL assinada do nosso Storage
-//   4. POST link_manual com job_key + texto + vídeo -> servidor reescreve,
+//   4. PUT do vídeo na URL assinada do nosso Storage
+//   5. POST link_manual com job_key + texto + vídeo -> servidor reescreve,
 //      salva pendente, enfileira o Reel e apaga o pedido
 // Qualquer falha -> link_job_falhou com o motivo real (aparece no admin).
 import { execFileSync } from "node:child_process";
@@ -70,6 +74,17 @@ function temVideoHevc(path) {
     return out.trim().toLowerCase() === "hevc";
   } catch (_) { return false; }
 }
+// Segunda camada, independente da detecção de "modo foto" em
+// capturarTiktok(): confirma de verdade, no arquivo baixado, que existe
+// pelo menos 1 stream de vídeo antes de hospedar e publicar como Reel.
+// Pega qualquer caso futuro (TikTok, Instagram ou YouTube) que escape do
+// sinal específico já tratado acima.
+function arquivoTemVideoReal(path) {
+  try {
+    const out = execFileSync("ffprobe", ["-v", "error", "-select_streams", "v", "-show_entries", "stream=index", "-of", "csv=p=0", path], { encoding: "utf8", timeout: 15000 });
+    return out.trim().length > 0;
+  } catch (_) { return true; } // ffprobe indisponível/falhou: não bloqueia por segurança
+}
 function converterHevcParaH264(path) {
   if (!temVideoHevc(path)) return false;
   const saida = path.replace(/\.mp4$/, "-h264.mp4");
@@ -119,10 +134,20 @@ async function capturarTiktok(link, arquivo) {
     } catch (e) { msg = e.message; }
   }
   if (v) {
-    const videoUrl = v.hdplay || v.play;
+    // 11/11/2026 — Roberto: "tela do vídeo fica preta" (2 de 10 capturas
+    // reais: nb_streams=1, só áudio AAC). Causa real confirmada via tikwm
+    // (API crua): os 2 vinham de @revista_veja no TikTok e tinham
+    // `images` preenchido (1 e 3 fotos) com `duration:0` — são posts
+    // "modo foto" (slideshow: fotos + música de fundo), sem NENHUM vídeo
+    // real. `play`/`hdplay` do tikwm, nesse caso, aponta só pro áudio da
+    // trilha — nosso código tratava isso como vídeo de verdade por
+    // engano. `images` não-vazio é o sinal direto da própria API de que
+    // é modo-foto — nesse caso nunca há vídeo pra baixar.
+    const ehModoFoto = Array.isArray(v.images) && v.images.length > 0;
+    const videoUrl = ehModoFoto ? "" : (v.hdplay || v.play);
     let temVideo = false;
     if (videoUrl) { try { await baixarArquivo(videoUrl, arquivo); temVideo = true; } catch (e) { console.log(`tikwm: download falhou (${e.message}), tentando yt-dlp`); } }
-    if (!temVideo) {
+    if (!temVideo && !ehModoFoto) {
       try { ytdlp(["--impersonate", "chrome", "-f", "b[ext=mp4]/best", "-o", arquivo, link], 180000, ""); temVideo = existsSync(arquivo); } catch (_) {}
     }
     const autor = v.author?.nickname ? `Publicado por ${v.author.nickname} no TikTok. ` : "";
@@ -206,6 +231,10 @@ async function processar(job) {
     const cap = ehTiktok(job.link) ? await capturarTiktok(job.link, video)
       : ehInstagram(job.link) ? await capturarInstagram(job.link, video)
       : await capturarYoutube(job.link, video);
+    if (cap.temVideo && existsSync(video) && !arquivoTemVideoReal(video)) {
+      console.log(`[${job.key}] arquivo baixado não tem stream de vídeo real (só áudio) — tratando como sem vídeo`);
+      cap.temVideo = false;
+    }
     const texto = String(cap.texto || "").trim();
     const titulo = String(cap.titulo || "").trim();
     // 23/10/2026 — Roberto: "nao precisa travar isso para reels, essa regra
