@@ -4,22 +4,5 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
     steps:
-      - name: confirmar fix real da limpeza (deve apagar de verdade agora)
-        env:
-          OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
-        run: |
-          echo "=== saude do banco ANTES ==="
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?select=key&limit=1" \
-            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
-            -H "Range: 0-0" -H "Prefer: count=exact" -D - -o /dev/null --max-time 20 2>&1 | grep -i content-range || true
-          echo ""
-          echo "=== chamando limpar_gemini_budget_antigo (com o fix) ==="
-          curl -sS "https://www.ovalorcapital.com.br/api/manage?action=limpar_gemini_budget_antigo" \
-            -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" --max-time 100
-          echo ""
-          echo "=== saude do banco DEPOIS ==="
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/config?select=key&limit=1" \
-            -H "apikey: sb_publishable_3SXiMraMn_oaubinB2Wn5w_Iqj7W2yf" \
-            -H "Range: 0-0" -H "Prefer: count=exact" -D - -o /dev/null --max-time 20 2>&1 | grep -i content-range || true
+      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
