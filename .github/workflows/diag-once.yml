@@ -4,29 +4,19 @@ on:
 jobs:
   diag:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
-      - name: achar a origem dos videos so-audio
+      - name: achar o link original dos videos so-audio
         env:
           OVC_ADMIN_TOKEN: ${{ secrets.OVC_ADMIN_TOKEN }}
         run: |
-          sudo apt-get update -qq >/dev/null 2>&1 || true
-          sudo apt-get install -y -qq ffmpeg >/dev/null 2>&1 || true
           curl -sS "https://www.ovalorcapital.com.br/api/manage?action=diag_achar_post&recentes=1" \
             -H "Authorization: Bearer ${OVC_ADMIN_TOKEN}" --max-time 30 > posts.json
           python3 << 'PYEOF'
           import json
           d = json.load(open('posts.json'))
-          with open('rows.txt', 'w') as f:
-              for p in d.get('posts', []):
-                  f.write(f"{p['id'][:8]}\t{p.get('video_url','')}\t{p.get('source_url','')}\t{p.get('source_kind','')}\n")
+          alvos = {"fd276cee", "929a623b"}
+          for p in d.get('posts', []):
+              if p['id'][:8] in alvos:
+                  print(p['id'][:8], "->", p.get('fonte_link_manual', '(vazio)'))
           PYEOF
-          echo "=== ffprobe de cada um, com source_url/source_kind ==="
-          n=0
-          while IFS=$'\t' read -r pid vurl surl skind; do
-            n=$((n+1))
-            [ -z "$vurl" ] && continue
-            curl -sS -o "v$n.mp4" "$vurl" --max-time 30 -A "Mozilla/5.0" || { echo "$pid download falhou"; continue; }
-            vcount=$(ffprobe -v error -select_streams v -show_entries stream=index -of csv=p=0 "v$n.mp4" 2>/dev/null | wc -l)
-            echo "post=$pid streams_de_video=$vcount source_kind=$skind source_url=$surl"
-          done < rows.txt

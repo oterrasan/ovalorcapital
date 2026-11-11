@@ -288,7 +288,8 @@ async function handleDiagAcharPost(req, res) {
     return {
       id: row.id, titulo: row.titulo, status: row.status, updated_at: row.updated_at,
       video_url: row.video_url, template_status: tpl.status, source_url: tpl.source_url,
-      source_kind: tpl.source_kind, preview_url: tpl.preview_url
+      source_kind: tpl.source_kind, preview_url: tpl.preview_url,
+      fonte_link_manual: m?.fonte_link_manual || ""
     };
   });
   return res.status(200).json({ ok: true, posts: out });
