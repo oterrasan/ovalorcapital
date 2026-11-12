@@ -99,14 +99,19 @@ const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // Exceção abaixo (reelAutoAcceptException) reabre só isso — Reel +
 // @oterrasan — sem tocar em feed (continua manual, regra de 17/09) nem em
 // @amichelefroes (perfil dela ainda não configurado, segue manual sempre).
-// 12/11/2026 — Roberto: "curtida automatica em todos os perfis tambem,
-// menos da michele. [...] e o meu, oterrasan, faz isso quando recene
-// qualquer colab" — tira o oterrasan desta lista (ele passa a
-// auto-aceitar+curtir SEMPRE, feed e reel, não só em Reel como antes).
-// Michele é a única exceção agora, sempre manual (feed e reel) — ver
-// acceptCollabsForMedia abaixo, o bloqueio dela virou incondicional
-// (sem a brecha do reelAutoAcceptException que valia pros outros 4).
+// 12/11/2026 (1ª rodada, ERRADA — corrigida no mesmo dia, ver abaixo) —
+// tirei o oterrasan desta lista achando que ele devia auto-aceitar SEMPRE
+// (feed e reel). Roberto corrigiu com força: feed do OVC e do Brasil ON
+// NUNCA pode auto-aceitar pro perfil pessoal dele, só Reel. Michele é a
+// única exceção incondicional (sempre manual, feed e reel) — ver
+// acceptCollabsForMedia abaixo.
 const NEVER_AUTO_ACCEPT = new Set(["amichelefroes"]);
+// 12/11/2026 (correção, mesmo dia) — Roberto: "a bosta do meu perfil
+// pessoal não deve aceitar colabs automaticamente do Brasil ON e nem do
+// OVC, só quando for vídeo". oterrasan auto-aceita+curte SÓ em Reel —
+// em feed (OVC ou Brasil ON) o convite sempre fica pendente de aceite
+// manual no app, nunca passa pelo accept automático daqui.
+const REEL_ONLY_AUTO_ACCEPT = new Set(["oterrasan"]);
 
 async function writeLog(level, message) {
   try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
@@ -581,6 +586,12 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     // gate de Reel pra garantir que nada mais abaixo a libere.
     if (NEVER_AUTO_ACCEPT.has(username)) {
       return { username, skipped: true, reason: "perfil_com_aceite_manual" };
+    }
+    // 12/11/2026 — oterrasan (perfil pessoal de Roberto) só auto-aceita em
+    // Reel. Num post de FEED (OVC ou Brasil ON) o convite sempre fica pra
+    // aceite manual no app, mesmo não vindo de REEL_COLLABORATORS/tag=reel.
+    if (tag !== "reel" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
+      return { username, skipped: true, reason: "feed_aceite_manual" };
     }
     if (tag === "reel" && !conviteParaOvc && !reelAutoAcceptException) {
       return { username, skipped: true, reason: "reels_aceite_manual" };

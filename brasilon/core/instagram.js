@@ -26,13 +26,18 @@ const USERNAME = "obrasilon";
 // nomes originais (os mesmos que já rodaram em produção, 03→26/09/2026,
 // sem nenhum problema).
 const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
-// 12/11/2026 — Roberto: "curtida automatica em todos os perfis tambem,
-// menos da michele. [...] e o meu, oterrasan, faz isso quando recene
-// qualquer colab" — mesmo ajuste feito no OVC (core/instagram.js, raiz),
-// duplicado aqui de propósito. oterrasan sai da lista (antes só bloqueado
-// no feed, agora sempre automático). Michele é a única exceção, sempre
-// manual — feed e reel, sem brecha nenhuma.
+// 12/11/2026 (1ª rodada, ERRADA — corrigida no mesmo dia) — tirei o
+// oterrasan desta lista achando que devia auto-aceitar SEMPRE (feed e
+// reel). Roberto corrigiu com força: feed do Brasil ON (e do OVC) NUNCA
+// pode auto-aceitar pro perfil pessoal dele, só Reel. Michele é a única
+// exceção incondicional (sempre manual, feed e reel).
 const NEVER_AUTO_ACCEPT = new Set(["amichelefroes"]);
+// 12/11/2026 (correção, mesmo dia) — mesmo ajuste feito em core/instagram.js
+// (raiz, OVC), duplicado aqui de propósito. Roberto: "a bosta do meu
+// perfil pessoal não deve aceitar colabs automaticamente do Brasil ON e
+// nem do OVC, só quando for vídeo". oterrasan auto-aceita+curte SÓ em
+// Reel — em feed o convite fica pra aceite manual no app.
+const REEL_ONLY_AUTO_ACCEPT = new Set(["oterrasan"]);
 
 async function writeLog(level, message) {
   try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
@@ -287,6 +292,11 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     // acima), mas nunca aceita/curte sozinha, em feed nem em reel.
     if (NEVER_AUTO_ACCEPT.has(username)) {
       return { username, skipped: true, reason: "nunca_aceita_automatico" };
+    }
+    // 12/11/2026 — oterrasan só auto-aceita em Reel. Em post de FEED do
+    // Brasil ON o convite fica pra aceite manual no app.
+    if (tag !== "reel" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
+      return { username, skipped: true, reason: "feed_aceite_manual" };
     }
     try {
       const { data: acc } = await supabase
