@@ -99,7 +99,14 @@ const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // Exceção abaixo (reelAutoAcceptException) reabre só isso — Reel +
 // @oterrasan — sem tocar em feed (continua manual, regra de 17/09) nem em
 // @amichelefroes (perfil dela ainda não configurado, segue manual sempre).
-const NEVER_AUTO_ACCEPT = new Set(["oterrasan", "amichelefroes"]);
+// 12/11/2026 — Roberto: "curtida automatica em todos os perfis tambem,
+// menos da michele. [...] e o meu, oterrasan, faz isso quando recene
+// qualquer colab" — tira o oterrasan desta lista (ele passa a
+// auto-aceitar+curtir SEMPRE, feed e reel, não só em Reel como antes).
+// Michele é a única exceção agora, sempre manual (feed e reel) — ver
+// acceptCollabsForMedia abaixo, o bloqueio dela virou incondicional
+// (sem a brecha do reelAutoAcceptException que valia pros outros 4).
+const NEVER_AUTO_ACCEPT = new Set(["amichelefroes"]);
 
 async function writeLog(level, message) {
   try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
@@ -567,11 +574,16 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     // acima) — aceite automático pra todos eles, só em Reel. Feed continua
     // sem exceção nenhuma (NEVER_AUTO_ACCEPT vale igual antes).
     const reelAutoAcceptException = tag === "reel" && REEL_COLLABORATORS.includes(username);
+    // 12/11/2026 — bloqueio da Michele agora é incondicional (sem brecha
+    // de reelAutoAcceptException) — ela continua TAGGED no Reel (segue em
+    // REEL_COLLABORATORS, pra aparecer o convite de verdade), mas nunca
+    // aceita/curte sozinha, nem em feed nem em Reel. Checado ANTES do
+    // gate de Reel pra garantir que nada mais abaixo a libere.
+    if (NEVER_AUTO_ACCEPT.has(username)) {
+      return { username, skipped: true, reason: "perfil_com_aceite_manual" };
+    }
     if (tag === "reel" && !conviteParaOvc && !reelAutoAcceptException) {
       return { username, skipped: true, reason: "reels_aceite_manual" };
-    }
-    if (NEVER_AUTO_ACCEPT.has(username) && !reelAutoAcceptException) {
-      return { username, skipped: true, reason: "perfil_com_aceite_manual" };
     }
     try {
       const { data: acc } = await supabase

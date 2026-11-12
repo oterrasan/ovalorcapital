@@ -26,16 +26,13 @@ const USERNAME = "obrasilon";
 // nomes originais (os mesmos que já rodaram em produção, 03→26/09/2026,
 // sem nenhum problema).
 const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
-// 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
-// collabs é inadmissível". Mesma exclusão fixa do OVC (core/instagram.js,
-// raiz), duplicada aqui de propósito — zero import cruzado entre os
-// portais.
-// 24/09/2026 — Roberto: "todas as materias que forem reels, voce coloca o
-// @oterrasan pra aceitar automaticamente, assim como os demais perfis. só
-// nos REELS" — mesmo ajuste feito no OVC (core/instagram.js, raiz),
-// duplicado aqui de propósito. Continua excluído pra feed (post de
-// imagem), só passa a auto-aceitar quando tag==="reel".
-const NEVER_AUTO_ACCEPT = "oterrasan";
+// 12/11/2026 — Roberto: "curtida automatica em todos os perfis tambem,
+// menos da michele. [...] e o meu, oterrasan, faz isso quando recene
+// qualquer colab" — mesmo ajuste feito no OVC (core/instagram.js, raiz),
+// duplicado aqui de propósito. oterrasan sai da lista (antes só bloqueado
+// no feed, agora sempre automático). Michele é a única exceção, sempre
+// manual — feed e reel, sem brecha nenhuma.
+const NEVER_AUTO_ACCEPT = new Set(["amichelefroes"]);
 
 async function writeLog(level, message) {
   try { await supabase.from("logs").insert({ level, message }); } catch (_) {}
@@ -285,8 +282,11 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
   const likeAttempts = [2000, 5000, 10000];
   const jobs = (invitedUsernames || []).map(async (raw) => {
     const username = String(raw || "").replace(/^@/, "").toLowerCase();
-    if (username === NEVER_AUTO_ACCEPT && tag !== "reel") {
-      return { username, skipped: true, reason: "nunca_aceita_automatico_fora_de_reels" };
+    // 12/11/2026 — bloqueio da Michele incondicional agora (sem o "só fora
+    // de reels" de antes) — ela continua TAGGED (DEFAULT_COLLABORATORS
+    // acima), mas nunca aceita/curte sozinha, em feed nem em reel.
+    if (NEVER_AUTO_ACCEPT.has(username)) {
+      return { username, skipped: true, reason: "nunca_aceita_automatico" };
     }
     try {
       const { data: acc } = await supabase
