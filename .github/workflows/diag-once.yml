@@ -5,22 +5,34 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar status real dos posts recentes vindos do robo de TikTok
+      - name: Confirmar origem (TikTok) e reverter publicados pra pendente
         env:
           SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
           SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
           set -e
-          echo "=== contagem por status (publish_method=link_manual, ultimas 48h) ==="
-          curl -sS "${SUPABASE_URL}/rest/v1/posts?publish_method=eq.link_manual&created_at=gte.$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%S)&select=status&limit=1000" \
-            -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" \
-            | node -e 'const d=JSON.parse(require("fs").readFileSync(0)); const c={}; d.forEach(r=>c[r.status]=(c[r.status]||0)+1); console.log(JSON.stringify(c)); console.log("total="+d.length)'
+          echo "=== publicados com publish_method=link_manual, ultimas 48h, metrics.fonte_link_manual ==="
+          curl -sS "${SUPABASE_URL}/rest/v1/posts?publish_method=eq.link_manual&status=eq.publicado&created_at=gte.$(date -u -d '48 hours ago' +%Y-%m-%dT%H:%M:%S)&select=id,titulo,metrics" \
+            -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" > publicados.json
+          node -e '
+            const rows = JSON.parse(require("fs").readFileSync("publicados.json","utf8"));
+            const tiktok = rows.filter(r => { try { return /tiktok\.com/i.test((typeof r.metrics==="string"?JSON.parse(r.metrics):r.metrics)?.fonte_link_manual||""); } catch(_){ return false; } });
+            const outros = rows.filter(r => !tiktok.includes(r));
+            console.log("total_publicados="+rows.length+" origem_tiktok="+tiktok.length+" outra_origem="+outros.length);
+            console.log("--- outra origem (NAO vai ser revertido) ---");
+            outros.forEach(r=>console.log(r.id+" | "+r.titulo));
+            require("fs").writeFileSync("tiktok_ids.json", JSON.stringify(tiktok.map(r=>r.id)));
+          '
           echo ""
-          echo "=== amostra de 10 publicados (se houver) ==="
-          curl -sS "${SUPABASE_URL}/rest/v1/posts?publish_method=eq.link_manual&status=eq.publicado&select=id,titulo,user_tags,status,approved,created_at,published_at&order=created_at.desc&limit=10" \
-            -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}"
-          echo ""
-          echo "=== amostra de 10 pendentes (se houver) ==="
-          curl -sS "${SUPABASE_URL}/rest/v1/posts?publish_method=eq.link_manual&status=eq.pendente&select=id,titulo,user_tags,status,approved,created_at&order=created_at.desc&limit=10" \
-            -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}"
-          echo ""
+          echo "=== revertendo os de origem TikTok pra pendente ==="
+          IDS=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("tiktok_ids.json","utf8")).join(","))')
+          echo "ids=${IDS}"
+          if [ -n "$IDS" ]; then
+            curl -sS -X PATCH "${SUPABASE_URL}/rest/v1/posts?id=in.(${IDS})" \
+              -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" \
+              -H "Content-Type: application/json" -H "Prefer: return=representation" \
+              -d '{"status":"pendente","approved":false,"published_at":null}' \
+              | node -e 'const d=JSON.parse(require("fs").readFileSync(0)); console.log("revertidos="+d.length)'
+          else
+            echo "nada pra reverter"
+          fi
