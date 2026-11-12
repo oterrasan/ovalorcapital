@@ -1260,6 +1260,12 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
   const [duracaoFonte, setDuracaoFonte] = useState(null);
   const [manchete, setManchete] = useState(() => ({ ...RH_PADRAO, ...(info?.headline || {}), texto: (info?.headline?.texto) || rhTituloLimpo(post) }));
   const setM = (campos) => setManchete(m => ({ ...m, ...campos }));
+  // 12/11/2026 — Roberto: borda fininha padrão em todo Reel do OVC, cor
+  // trocável aqui. "borda_cor" (não "moldura") de propósito — "moldura" já
+  // é a caixa de fundo da manchete (estilo==="moldura" acima), nomes
+  // diferentes pra não confundir. null salvo = usa o laranja padrão do
+  // render script (REEL_BORDA_COR_PADRAO).
+  const [bordaCor, setBordaCor] = useState(info?.borda_cor || '#f28c22');
   const mancheteRef = useRef(null);
   const playerRef = useRef(null);
   const dragRef = useRef(null);
@@ -1416,7 +1422,7 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
         rect: { x: Math.round(layout.rect.x), y: Math.round(layout.rect.y), w: Math.round(layout.rect.w / 2) * 2, h: Math.round(layout.rect.h / 2) * 2 },
         ...(trim ? { trim } : {})
       };
-      const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS }, body: JSON.stringify({ action: 'reels_set_layout', post_id: post.id, layout: L, headline: mancheteParaSalvar() }) });
+      const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-password': ADMIN_PASS }, body: JSON.stringify({ action: 'reels_set_layout', post_id: post.id, layout: L, headline: mancheteParaSalvar(), borda_cor: bordaCor }) });
       const d = await r.json();
       if (!d.ok) {
         const erros = { reel_ja_publicado: 'Este Reel já foi publicado.', sem_video_original_para_montar: 'O vídeo original não está mais disponível para remontar.', montagem_em_andamento_tente_em_instantes: 'Uma montagem está em andamento — tente de novo em alguns minutos.', enquadramento_invalido: 'Enquadramento inválido — use "Resetar" e tente de novo.' };
@@ -1615,6 +1621,18 @@ function ReelEnquadramentoEditor({ post, info, onMetrics, onClose }) {
               </div>
             </>}
             <div style={{ fontSize: 11, color: 'var(--t3)' }}>A manchete é aplicada ao clicar em "Aplicar e remontar". A prévia aqui é aproximada; a definitiva aparece no quadro "2. Montagem do sistema".</div>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontWeight: 700 }}>🖼️ Borda do vídeo</div>
+              <div style={{ fontSize: 11, color: 'var(--t3)' }}>Borda fininha ao redor de todo Reel (padrão do OVC) — mesma largura e posição sempre, só a cor muda aqui.</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {[['Laranja', '#f28c22'], ['Azul', '#3b82f6'], ['Amarelo', '#eab308'], ['Preto', '#000000'], ['Branco', '#ffffff'], ['Dourado', '#d4af37']].map(([label, cor]) => (
+                  <button key={cor} type="button" className={'btn btn-sm ' + (bordaCor.toLowerCase() === cor ? 'btn-primary' : 'btn-secondary')} style={{ ...btn, display: 'flex', gap: 4, alignItems: 'center' }} onClick={() => setBordaCor(cor)}>
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: cor, border: '1px solid var(--border)', display: 'inline-block' }} />{label}
+                  </button>
+                ))}
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 11 }}>Outra <input type="color" value={bordaCor} onChange={e => setBordaCor(e.target.value)} /></label>
+              </div>
+            </div>
           </div>
           {(() => {
             const ini = Math.max(0, Number(String(trimIni).replace(',', '.')) || 0);

@@ -191,6 +191,23 @@ function renderLineMarkup(line, highlightWord, state) {
 // Brasil On mas com qualquer cor), cor_fundo (cor da moldura) e
 // highlights (frases com cor própria cada, não só uma cor de destaque).
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+// 12/11/2026 — Roberto adorou a borda fininha laranja que aparece nos
+// vídeos de @reinaldogottino e pediu pra virar padrão em TODO Reel do OVC
+// (não do Brasil On — ele disse "layout já padrão do OVC"). Investigado
+// antes de implementar: essa borda não é algo que o nosso sistema já
+// aplicava em nenhum vídeo — ela já vem GRAVADA no arquivo original (é o
+// estilo de edição dele no TikTok), confirmado lendo o compositor inteiro
+// (nenhum drawbox/outline em lugar nenhum). Pedido dele: automático em
+// todos, mesma largura/posição sempre, mas com a COR trocável no editor.
+// Nome do campo "borda_cor" (não "moldura") de propósito: "moldura" já
+// significa outra coisa neste arquivo — a caixa colorida atrás do texto
+// da manchete (ver sanitizeHeadline/estilo==="moldura" logo abaixo).
+const REEL_BORDA_COR_PADRAO = "#f28c22";
+const REEL_BORDA_MARGEM = 24; // px de distância das 4 bordas do Reel (1080x1920)
+const REEL_BORDA_ESPESSURA = 8; // px de espessura da linha — fininha, mesma proporção do aviso visual já usado no editor (2px numa prévia em escala 0.25 = 8px no vídeo real)
+function sanitizeBordaCor(raw) {
+  return HEX_COLOR.test(String(raw || "")) ? raw : REEL_BORDA_COR_PADRAO;
+}
 function sanitizeHighlights(raw) {
   if (!Array.isArray(raw)) return null;
   const out = raw
@@ -856,6 +873,14 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     videoFilter = `${cropFilter},scale=${WIDTH}:${HEIGHT}:force_original_aspect_ratio=increase:flags=lanczos,crop=${WIDTH}:${HEIGHT},${NITIDEZ},setsar=1,fps=30`;
   }
 
+  // 12/11/2026 — borda fininha, parte do layout padrão do OVC (ver
+  // REEL_BORDA_COR_PADRAO acima). Sempre a mesma margem/espessura, por
+  // cima de TUDO (vídeo + manchete + logo/rodapé) — é a última camada do
+  // composite, então "mesma proporção de largura e posicionamento" vale
+  // pra qualquer fitMode (custom/contain/vertical) e não interfere em
+  // nada do resto.
+  const bordaCor = sanitizeBordaCor(job.borda_cor);
+  const bordaFilter = `drawbox=x=${REEL_BORDA_MARGEM}:y=${REEL_BORDA_MARGEM}:w=${WIDTH - 2 * REEL_BORDA_MARGEM}:h=${HEIGHT - 2 * REEL_BORDA_MARGEM}:color=${bordaCor}:t=${REEL_BORDA_ESPESSURA}:replace=1`;
   const args = [
     "-hide_banner", "-loglevel", "warning", "-y",
     ...(inicio > 0 ? ["-ss", inicio.toFixed(3)] : []),
@@ -865,8 +890,8 @@ async function runFfmpeg(job, inputPath, overlayPath, outputPath, fitMode = "cov
     fitMode === "custom"
       // Fundo preto 1080x1920 + vídeo recortado/redimensionado na posição
       // escolhida no editor (pode sair do quadro) + template por cima.
-      ? `[0:v]${videoFilter}[video];color=c=black:s=${WIDTH}x${HEIGHT}:r=30[bg];[bg][video]overlay=${layout.rect.x}:${layout.rect.y}:shortest=1[base];[base][1:v]overlay=0:0:shortest=1:format=auto[out]`
-      : `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[out]`,
+      ? `[0:v]${videoFilter}[video];color=c=black:s=${WIDTH}x${HEIGHT}:r=30[bg];[bg][video]overlay=${layout.rect.x}:${layout.rect.y}:shortest=1[base];[base][1:v]overlay=0:0:shortest=1:format=auto[comp];[comp]${bordaFilter}[out]`
+      : `[0:v]${videoFilter}[video];[video][1:v]overlay=0:0:shortest=1:format=auto[comp];[comp]${bordaFilter}[out]`,
     "-map", "[out]", "-map", "0:a?",
     ...(outputDuration ? ["-t", outputDuration.toFixed(3)] : []),
     "-c:v", "libx264", "-preset", "medium", "-crf", "16",

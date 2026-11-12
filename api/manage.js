@@ -2416,6 +2416,11 @@ async function handleReelsRenderJob(req, res, body) {
       // 26/09/2026 — manchete editada no admin (texto, destaque, tamanho,
       // cores, posição ou oculta). null = manchete automática de sempre.
       headline: current.headline || null,
+      // 12/11/2026 — cor da borda fininha ao redor do Reel (padrão: laranja
+      // #f28c22, ver REEL_BORDA_COR_PADRAO no render script). Só tem efeito
+      // no Reel do OVC — buildOverlayBrasilOn (marca==="brasilon") nunca lê
+      // este campo, segue com o layout próprio do Brasil On sem borda.
+      borda_cor: current.borda_cor || null,
       // 26/09/2026 — sem ajuste manual, vídeo do TikTok do Metrópoles ganha
       // enquadramento automático (detecta a manchete deles; ver render script).
       // 27/09/2026 — desligado a pedido do Roberto: a manchete original do
@@ -2767,6 +2772,17 @@ function _reelsSanitizarManchete(raw) {
   };
 }
 
+// 12/11/2026 — Roberto adorou a borda fininha laranja que já vem GRAVADA
+// nos vídeos de @reinaldogottino (confirmado por leitura de código: nosso
+// render nunca desenhava isso em nada) e pediu pra virar padrão em todo
+// Reel do OVC, com a cor trocável no editor. "borda_cor", não "moldura" —
+// "moldura" já é outro campo (caixa de fundo da manchete, ver
+// _reelsSanitizarManchete/cor_fundo acima), nomes diferentes de propósito
+// pra não confundir. null = usa a cor padrão (laranja) do render script.
+function _reelsSanitizarBordaCor(raw) {
+  return /^#[0-9a-f]{6}$/i.test(String(raw || "")) ? String(raw).toLowerCase() : null;
+}
+
 async function handleReelsSetLayout(req, res, body) {
   if (!checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
   const postId = String(body?.post_id || "").trim();
@@ -2800,6 +2816,9 @@ async function handleReelsSetLayout(req, res, body) {
     layout,
     // Sem "headline" no pedido = mantém a manchete editada antes.
     headline: body?.headline === undefined ? (previous.headline || null) : _reelsSanitizarManchete(body.headline),
+    // Sem "borda_cor" no pedido = mantém a cor já escolhida antes (ou null
+    // = padrão laranja, ver REEL_BORDA_COR_PADRAO no render script).
+    borda_cor: body?.borda_cor === undefined ? (previous.borda_cor || null) : _reelsSanitizarBordaCor(body.borda_cor),
     queued_at: new Date().toISOString(),
     priority_at: new Date().toISOString(),
     attempts: 0,
