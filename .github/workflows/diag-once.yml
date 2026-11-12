@@ -5,23 +5,4 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Checar escopos reais dos tokens de souabetaferreira e adriana.ferreirasp
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          set -e
-          for USERNAME in souabetaferreira adriana.ferreirasp oterrasan amichelefroes obrasilon; do
-            echo "=== ${USERNAME} ==="
-            curl -sS "${SUPABASE_URL}/rest/v1/ig_accounts?username=eq.${USERNAME}&select=username,token" \
-              -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" > acct.json
-            HAS_TOKEN=$(node -p 'const a=require("./acct.json")[0]; a && a.token ? "sim" : "nao"')
-            echo "token_configurado=${HAS_TOKEN}"
-            if [ "$HAS_TOKEN" = "sim" ]; then
-              TOKEN=$(node -p 'require("./acct.json")[0].token')
-              echo "::add-mask::${TOKEN}"
-              curl -sS "https://graph.facebook.com/v25.0/debug_token?input_token=${TOKEN}&access_token=${TOKEN}" \
-                | node -e 'const d=JSON.parse(require("fs").readFileSync(0)).data||{}; console.log("type="+d.type+" scopes="+((d.scopes||[]).join(","))+" granular_contains_engagement="+JSON.stringify((d.granular_scopes||[]).filter(s=>/engagement/.test(s.scope))))'
-            fi
-            echo ""
-          done
+      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
