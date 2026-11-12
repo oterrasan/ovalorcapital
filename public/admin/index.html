@@ -4850,9 +4850,19 @@ function EditorColunas() {
 
 // ── AUTOMAÇÃO INSTAGRAM ──
 function AutomacaoInstagram() {
+  // 12/11/2026 — Roberto: "nao quero conteudos indo para o feed do
+  // instagram que sejam sobre esporte, novelas, fofocas, nem nada que nao
+  // seja politica, economia, financas, negocios, empreendedorismo,
+  // internacional, etc" — lista alinhada com o novo default do backend
+  // (IG_AUTO_CATEGORIAS, api/manage.js). Removidos brasil-on/colunistas
+  // (estavam aqui desde 08/09/2026, já defasados — o backend tinha
+  // ampliado pra 12 categorias nesse meio tempo sem este painel
+  // acompanhar) e adicionados negocios/tecnologia/internacional/industria,
+  // que faltavam como opção aqui mesmo já fazendo parte do set real.
   const CATEGORIAS = [
     ['politica','Política'], ['economia','Economia'], ['financas','Finanças'],
-    ['brasil-on','Brasil ON'], ['colunistas','Colunistas']
+    ['negocios','Negócios'], ['tecnologia','Tecnologia'],
+    ['internacional','Internacional'], ['industria','Indústria']
   ];
   const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:0,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
   const [reelsEnabled,setReelsEnabled] = useState(true);

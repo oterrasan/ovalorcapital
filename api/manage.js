@@ -1030,14 +1030,24 @@ const IG_AUTO_JANELA_HORAS = 12;
 const IG_AUTO_IDADE_MAXIMA_MS = IG_AUTO_JANELA_HORAS * 60 * 60 * 1000;
 // 08/09/2026 — Roberto: "OVC - posta TUDO - com prioridade para politica,
 // mas POSTA TUDO". Antes era um Set restrito a 5 categorias (politica,
-// economia, financas, brasil-on, colunistas) — agora é todas as categorias
-// reais que o pipeline gera (as 12 de CATS em api/run_portal.js + "giro",
-// que é gerado por um canal separado — salvarFofocas — e nunca passa por
-// essa constante). "vc" fica de fora por não ser gerada automaticamente.
+// economia, financas, brasil-on, colunistas) — depois ampliado pra todas
+// as categorias reais do pipeline.
+// 12/11/2026 — Roberto reverteu essa amplitude, mudança significativa:
+// "nao quero conteudos indo para o feed do instagram que sejam sobre
+// esporte, novelas, fofocas, nem nada que nao seja politica, economia,
+// financas, negocios, empreendedorismo, internacional, etc". Restrito de
+// volta pro conteúdo institucional/econômico — tirados esportes, familia
+// (lifestyle), brasil-on (popular/geral — ver CLAUDE.md, é a divisão
+// POPULAR do OVC, não o tom institucional que ele quer no feed) e
+// colunistas (formato, não assunto — cobre qualquer tema). "giro" já
+// nunca passava por aqui mesmo (é o canal de fofocas/celebridades,
+// salvarFofocas, separado — ver comentário antigo abaixo, mantido fora
+// por clareza mesmo sem efeito real). tecnologia/industria mantidos —
+// são conteúdo de negócios/economia, não lifestyle/entretenimento.
 // A PRIORIDADE de política é aplicada em _igAutoProcessAccount() (2
 // passadas: primeiro tenta achar um elegível de categoria "politica", só
 // cai pra qualquer categoria se não achar nenhum).
-const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "negocios", "tecnologia", "internacional", "industria", "familia", "esportes", "brasil-on", "colunistas", "giro"]);
+const IG_AUTO_CATEGORIAS = new Set(["politica", "economia", "financas", "negocios", "tecnologia", "internacional", "industria"]);
 const IG_CRON_SECRET_HASH = "0a03ca4d9bda122e00ca8d5ebcd3f4798dfaabd66f5dbeba00c40a0c8ed16065";
 
 // 02/09/2026 (2ª correção do dia) — Roberto reportou publicação real às
