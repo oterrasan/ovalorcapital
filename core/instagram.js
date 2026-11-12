@@ -9,7 +9,21 @@ const BASE = "https://graph.facebook.com/v25.0";
 //   - Reels: sempre @oterrasan, qualquer assunto.
 //   - Feed: o dono do assunto (ver COLLAB_POR_ASSUNTO / collaboratorForFeedPost).
 // Se Roberto quiser mais alguém num post, ele adiciona manualmente no app.
-const REEL_COLLABORATOR = "oterrasan";
+// 12/11/2026 — Roberto reverteu esse teste pra Reels: "coloque os reels
+// para serem enviados em colab para todos os perfis, inclusive o brasil
+// ON - coloque aceite automatico pra todos". Limite REAL da API do
+// Instagram (confirmado via documentação pública de terceiros, Meta não
+// documenta isso oficialmente): no máximo 3 colaboradores por mídia — não
+// dá pra colocar "todos" (seriam 5: oterrasan/souabetaferreira/
+// adriana.ferreirasp/amichelefroes/obrasilon). Escolhidos os 3: oterrasan
+// (já era o único antes), souabetaferreira, e obrasilon (pedido explícito
+// de Roberto, "inclusive o brasil ON" — funciona nos dois sentidos: Reel
+// do OVC ganha @obrasilon como colab, e Reel do Brasil On, quando
+// publisher==="obrasilon", ganha os outros 2 como colab, pelo mesmo
+// filtro de collaboratorsFor() abaixo). adriana.ferreirasp/amichelefroes
+// ficaram de fora só pelo limite técnico — trocar é rápido se Roberto
+// preferir outra combinação.
+const REEL_COLLABORATORS = ["oterrasan", "souabetaferreira", "obrasilon"];
 const COLLAB_POR_ASSUNTO = {
   politica: "oterrasan",
   economia: "adriana.ferreirasp",
@@ -102,8 +116,8 @@ function collaboratorsFor(publisherUsername, kind, opts = {}) {
   if (publisher && publisher !== DEFAULT_ACCOUNT_USERNAME && publisher !== "obrasilon") {
     return [DEFAULT_ACCOUNT_USERNAME];
   }
-  const alvo = kind === "reel" ? REEL_COLLABORATOR : opts.collaborator;
-  const nome = String(alvo || "").replace(/^@/, "").toLowerCase();
+  if (kind === "reel") return REEL_COLLABORATORS.filter(nome => nome !== publisher);
+  const nome = String(opts.collaborator || "").replace(/^@/, "").toLowerCase();
   return nome && nome !== publisher ? [nome] : [];
 }
 
@@ -548,10 +562,12 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     // por outra conta, ex.: @oterrasan): sempre aceita sozinho e curte, no
     // feed e nos Reels (Roberto: "deixa automático").
     const conviteParaOvc = username === DEFAULT_ACCOUNT_USERNAME;
-    // 30/09/2026 — Reel do @ovalorcapital convidando @oterrasan (o único
-    // caso que REEL_COLLABORATOR gera): aceite e curtida automáticos, a
-    // pedido explícito de Roberto. Não afeta feed nem @amichelefroes.
-    const reelAutoAcceptException = tag === "reel" && username === REEL_COLLABORATOR;
+    // 30/09/2026 — Reel do @ovalorcapital convidando @oterrasan: aceite e
+    // curtida automáticos, a pedido explícito de Roberto.
+    // 12/11/2026 — generalizado pros 3 REEL_COLLABORATORS (ver comentário
+    // acima) — aceite automático pra todos eles, só em Reel. Feed continua
+    // sem exceção nenhuma (NEVER_AUTO_ACCEPT vale igual antes).
+    const reelAutoAcceptException = tag === "reel" && REEL_COLLABORATORS.includes(username);
     if (tag === "reel" && !conviteParaOvc && !reelAutoAcceptException) {
       return { username, skipped: true, reason: "reels_aceite_manual" };
     }
