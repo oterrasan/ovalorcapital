@@ -11,19 +11,18 @@ const BASE = "https://graph.facebook.com/v25.0";
 // Se Roberto quiser mais alguém num post, ele adiciona manualmente no app.
 // 12/11/2026 — Roberto reverteu esse teste pra Reels: "coloque os reels
 // para serem enviados em colab para todos os perfis, inclusive o brasil
-// ON - coloque aceite automatico pra todos". Limite REAL da API do
-// Instagram (confirmado via documentação pública de terceiros, Meta não
-// documenta isso oficialmente): no máximo 3 colaboradores por mídia — não
-// dá pra colocar "todos" (seriam 5: oterrasan/souabetaferreira/
-// adriana.ferreirasp/amichelefroes/obrasilon). Escolhidos os 3: oterrasan
-// (já era o único antes), souabetaferreira, e obrasilon (pedido explícito
-// de Roberto, "inclusive o brasil ON" — funciona nos dois sentidos: Reel
-// do OVC ganha @obrasilon como colab, e Reel do Brasil On, quando
-// publisher==="obrasilon", ganha os outros 2 como colab, pelo mesmo
-// filtro de collaboratorsFor() abaixo). adriana.ferreirasp/amichelefroes
-// ficaram de fora só pelo limite técnico — trocar é rápido se Roberto
-// preferir outra combinação.
-const REEL_COLLABORATORS = ["oterrasan", "souabetaferreira", "obrasilon"];
+// ON - coloque aceite automatico pra todos".
+// Eu tinha assumido um teto de 3 colaboradores por mídia, baseado só em
+// relatos de terceiros (sem doc oficial da Meta) — Roberto contestou,
+// correto: ele mesmo já rodou 4 colaboradores fixos em TODO post do OVC
+// por quase 3 semanas (03→26/09/2026, ver histórico). Testei contra a
+// API real pra confirmar com fato, não suposição: criei um container de
+// teste (nunca publicado) com os 5 nomes — resposta real da Meta:
+// HTTP 200, {"id":"18609624772065987"}. Sem rejeição nenhuma. O teto de
+// 3 não existe de verdade, pelo menos pra esta conta/config. Os 5:
+// oterrasan, souabetaferreira, adriana.ferreirasp, amichelefroes,
+// obrasilon.
+const REEL_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes", "obrasilon"];
 const COLLAB_POR_ASSUNTO = {
   politica: "oterrasan",
   economia: "adriana.ferreirasp",
@@ -564,7 +563,7 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     const conviteParaOvc = username === DEFAULT_ACCOUNT_USERNAME;
     // 30/09/2026 — Reel do @ovalorcapital convidando @oterrasan: aceite e
     // curtida automáticos, a pedido explícito de Roberto.
-    // 12/11/2026 — generalizado pros 3 REEL_COLLABORATORS (ver comentário
+    // 12/11/2026 — generalizado pros 5 REEL_COLLABORATORS (ver comentário
     // acima) — aceite automático pra todos eles, só em Reel. Feed continua
     // sem exceção nenhuma (NEVER_AUTO_ACCEPT vale igual antes).
     const reelAutoAcceptException = tag === "reel" && REEL_COLLABORATORS.includes(username);

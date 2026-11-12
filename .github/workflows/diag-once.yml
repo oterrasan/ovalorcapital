@@ -5,44 +5,4 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar container com 5 colaboradores (sem publicar)
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          set -e
-          echo "=== Buscando conta ovalorcapital em ig_accounts ==="
-          curl -sS "${SUPABASE_URL}/rest/v1/ig_accounts?username=eq.ovalorcapital&select=ig_user_id,token" \
-            -H "apikey: ${SUPABASE_KEY}" -H "Authorization: Bearer ${SUPABASE_KEY}" > acct.json
-          IG_USER_ID=$(node -p 'require("./acct.json")[0].ig_user_id')
-          TOKEN=$(node -p 'require("./acct.json")[0].token')
-          echo "::add-mask::${TOKEN}"
-          echo "ig_user_id=${IG_USER_ID}"
-
-          echo "=== Criando container de TESTE com 5 colaboradores (nunca sera publicado) ==="
-          HTTP_CODE=$(curl -sS -o resp5.json -w "%{http_code}" -X POST "https://graph.facebook.com/v25.0/${IG_USER_ID}/media" \
-            -d "image_url=https://www.ovalorcapital.com.br/assets/og-default.jpg" \
-            -d "caption=teste tecnico de limite de colaboradores - nao publicar" \
-            -d "collaborators[0]=oterrasan" \
-            -d "collaborators[1]=souabetaferreira" \
-            -d "collaborators[2]=adriana.ferreirasp" \
-            -d "collaborators[3]=amichelefroes" \
-            -d "collaborators[4]=obrasilon" \
-            -d "access_token=${TOKEN}")
-          echo "HTTP_CODE_5_COLABS=${HTTP_CODE}"
-          echo "--- resposta (5 colabs) ---"
-          cat resp5.json; echo ""
-
-          echo ""
-          echo "=== Controle: container com 4 colaboradores (igual ao que rodou de 03 a 26/09) ==="
-          HTTP_CODE2=$(curl -sS -o resp4.json -w "%{http_code}" -X POST "https://graph.facebook.com/v25.0/${IG_USER_ID}/media" \
-            -d "image_url=https://www.ovalorcapital.com.br/assets/og-default.jpg" \
-            -d "caption=teste tecnico de limite de colaboradores - nao publicar" \
-            -d "collaborators[0]=oterrasan" \
-            -d "collaborators[1]=souabetaferreira" \
-            -d "collaborators[2]=adriana.ferreirasp" \
-            -d "collaborators[3]=amichelefroes" \
-            -d "access_token=${TOKEN}")
-          echo "HTTP_CODE_4_COLABS=${HTTP_CODE2}"
-          echo "--- resposta (4 colabs) ---"
-          cat resp4.json; echo ""
+      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
