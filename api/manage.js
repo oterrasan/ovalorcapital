@@ -488,6 +488,16 @@ async function pingGoogleIndexing(url) {
   } catch (_) { /* best-effort — nunca quebra a aprovação do post */ }
 }
 
+// 12/11/2026 — Roberto, urgente: posts de fonte "só vídeo" (robô de
+// TikTok, ver video_only em handleLinkManual/api/run_portal.js) nunca
+// podem virar matéria publicada, mesmo que alguém clique aprovar sem
+// saber a origem — bloqueio incondicional aqui, não depende de ninguém
+// ver/lembrar disso na fila do admin.
+async function _idsVideoOnly(ids) {
+  const { data } = await supabase.from("posts").select("id,metrics").in("id", ids);
+  return new Set((data || []).filter(r => parseJsonMaybe(r.metrics, {})?.video_only).map(r => r.id));
+}
+
 async function handleApprovePortal(res, body) {
   const now = new Date().toISOString();
   const { id, ids, action, titulo, conteudo, imagem, comentario_fixado, video_url } = body;
@@ -500,6 +510,9 @@ async function handleApprovePortal(res, body) {
   const MIRROR_COLS = "id,titulo,conteudo,comentario_fixado,imagem,metrics,user_tags,subcategoria_slug,created_at,published_at,updated_at";
 
   if (action === "aprovar" && id) {
+    if ((await _idsVideoOnly([id])).has(id)) {
+      return res.status(409).json({ ok: false, error: "post marcado como video_only (fonte só vídeo) — não pode virar matéria, só o Reel." });
+    }
     const { data, error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).eq("id", id).select(MIRROR_COLS).single();
     if (error) throw error;
     await mirrorPostToBrasilOn(data);
@@ -514,6 +527,9 @@ async function handleApprovePortal(res, body) {
   }
 
   if (action === "editar_aprovar" && id) {
+    if ((await _idsVideoOnly([id])).has(id)) {
+      return res.status(409).json({ ok: false, error: "post marcado como video_only (fonte só vídeo) — não pode virar matéria, só o Reel." });
+    }
     const patch = { titulo, conteudo, imagem, comentario_fixado, video_url, status: "publicado", approved: true, published_at: now, updated_at: now };
     const { data, error } = await supabase.from("posts").update(patch).eq("id", id).select(MIRROR_COLS).single();
     if (error) throw error;
@@ -523,11 +539,15 @@ async function handleApprovePortal(res, body) {
   }
 
   if (action === "aprovar_lote" && Array.isArray(ids)) {
-    const { data, error } = await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).in("id", ids).select(MIRROR_COLS);
+    const bloqueados = await _idsVideoOnly(ids);
+    const idsPermitidos = ids.filter(x => !bloqueados.has(x));
+    const { data, error } = idsPermitidos.length
+      ? await supabase.from("posts").update({ status: "publicado", approved: true, published_at: now, updated_at: now }).in("id", idsPermitidos).select(MIRROR_COLS)
+      : { data: [], error: null };
     if (error) throw error;
     await Promise.all((data || []).map(row => mirrorPostToBrasilOn(row)));
     await Promise.all((data || []).map(row => pingGoogleIndexing(buildArticleUrl(row))));
-    return res.status(200).json({ ok: true, action: "lote_aprovado", total: ids.length });
+    return res.status(200).json({ ok: true, action: "lote_aprovado", total: idsPermitidos.length, bloqueados_video_only: bloqueados.size });
   }
 
   if (action === "rejeitar_lote" && Array.isArray(ids)) {

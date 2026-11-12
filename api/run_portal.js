@@ -485,9 +485,13 @@ async function _lerLinkJob(key) {
 async function _gravarLinkJob(key, job) {
   await supabase.from("config").update({ value: JSON.stringify(job), updated_at: new Date().toISOString() }).eq("key", key);
 }
-async function _criarLinkJob(link, categoria) {
+// 12/11/2026 — extra.video_only: fonte marcada como "só vídeo" (robô de
+// TikTok, TIKTOK_ROBO_CONTAS) — ver handleLinkManual abaixo, nunca cria
+// matéria de portal sem vídeo real, e o post criado com vídeo nunca pode
+// ser aprovado como artigo (ver handleApprovePortal, api/manage.js).
+async function _criarLinkJob(link, categoria, extra = {}) {
   const key = `${LINK_JOB_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const job = { link, categoria, status: "pending", attempts: 0, created_at: new Date().toISOString() };
+  const job = { link, categoria, status: "pending", attempts: 0, created_at: new Date().toISOString(), ...extra };
   const { error } = await supabase.from("config").insert({ key, value: JSON.stringify(job) });
   if (error) throw error;
   return key;
@@ -606,7 +610,7 @@ async function autoMetropolesTiktok(req, res, body) {
     const link = `https://www.tiktok.com/@${user}/video/${v.id}`;
     try {
       await supabase.from("config").insert({ key: TIKTOK_ROBO_MARCA + v.id, value: new Date().toISOString() });
-      criados.push({ id: v.id, job_key: await _criarLinkJob(link, categoria), titulo: v.titulo });
+      criados.push({ id: v.id, job_key: await _criarLinkJob(link, categoria, { video_only: true }), titulo: v.titulo });
     } catch (_) {}
   }
   if (criados.length) {
@@ -722,6 +726,23 @@ async function handleLinkManual(req, res, body) {
   const social = precisaDoRunner(link);
   const textoManual = String(body.texto || "").trim();
   const videoHospedado = String(body.video_hospedado || "").trim();
+  // 12/11/2026 — Roberto, urgente: "aquelas novas fontes é só para videos".
+  // O robô de TikTok (TIKTOK_ROBO_CONTAS/autoMetropolesTiktok) marca o job
+  // com video_only:true na criação (ver _criarLinkJob). Lido aqui do
+  // próprio registro do job (nunca do que o runner ecoa de volta no body
+  // — a fonte da verdade é o que o SERVIDOR gravou, não o que o cliente
+  // manda) pra decidir: sem vídeo nenhum capturado, nada é criado no
+  // portal (nem pendente); com vídeo, o post é marcado video_only em
+  // metrics (ver abaixo) e handleApprovePortal (api/manage.js) bloqueia
+  // ele de virar matéria publicada pra sempre, mesmo que alguém aprove
+  // por engano na fila normal.
+  let jobVideoOnly = false;
+  if (jobKey) {
+    try { jobVideoOnly = !!(await _lerLinkJob(jobKey))?.video_only; } catch (_) {}
+  }
+  if (jobVideoOnly && !videoHospedado) {
+    return res.status(422).json({ ok: false, error: "video_only: nenhum video capturado para esta fonte — nada foi criado no portal." });
+  }
   if (videoHospedado && !videoHospedado.startsWith(VIDEO_STORAGE_PREFIX)) {
     return res.status(400).json({ ok: false, error: "video_hospedado precisa estar no nosso Storage" });
   }
@@ -835,7 +856,7 @@ async function handleLinkManual(req, res, body) {
     user_tags: JSON.stringify([categoria]), subcategoria: content.subcategoria,
     subcategoria_slug: slugify(content.subcategoria), collaborators: "[]",
     tipo_conteudo: "padrao",
-    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_link_manual: link },
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: metaTitle, fonte_link_manual: link, ...(jobVideoOnly ? { video_only: true } : {}) },
     priority: 1, retry_count: 0, max_retries: 3
   }).select("id").single();
   if (error) {
