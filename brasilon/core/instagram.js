@@ -18,7 +18,14 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const BASE = "https://graph.facebook.com/v25.0";
 const USERNAME = "obrasilon";
-const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp", "amichelefroes"];
+// 12/11/2026 — bug real: este array tinha 4 nomes, mas a API do Instagram
+// (Graph API v25.0) limita QUALQUER mídia (feed ou Reel) a no máximo 3
+// colaboradores — confirmado via pesquisa (múltiplas fontes de terceiros,
+// não há doc oficial explícita da Meta sobre o número exato, mas é
+// consistente em todas). Reduzido pra 3, removendo "amichelefroes" (sem
+// token ativo documentado no projeto), pra ficar consistente com a mesma
+// decisão tomada no OVC raiz (core/instagram.js, REEL_COLLABORATORS).
+const DEFAULT_COLLABORATORS = ["oterrasan", "souabetaferreira", "adriana.ferreirasp"];
 // 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
 // collabs é inadmissível". Mesma exclusão fixa do OVC (core/instagram.js,
 // raiz), duplicada aqui de propósito — zero import cruzado entre os
