@@ -1020,9 +1020,16 @@ function Etiqueta({rotulo, v, onClick}){
   return <div onClick={onClick} style={{display:'flex',gap:6,alignItems:'center',fontSize:11,lineHeight:'18px',cursor:onClick?'pointer':'default',whiteSpace:'nowrap'}}><span style={{color:'var(--t3)',width:56}}>{rotulo}</span><span style={{color:v.cor,fontWeight:600}}>{v.txt}</span></div>;
 }
 const T_REEL = 'metrics->instagram_reel_template';
+// 12/11/2026 — separado em 2 funções (antes era 1 só, misturando "tem vídeo
+// bruto?" com "fase do Reel?" — Roberto: "ta misturando tudo"). Cada uma
+// filtra uma pergunta diferente; as duas se combinam (AND) quando usadas
+// juntas, igual ao Vídeo+Instagram já combinavam antes.
 function aplicarFiltroVideo(q, f){
   if (f==='sem') return q.is('video_url',null).is(T_REEL,null);
   if (f==='com') return q.or(`video_url.not.is.null,${T_REEL}.not.is.null`);
+  return q;
+}
+function aplicarFiltroReel(q, f){
   if (f==='aguardando') return q.eq(`${T_REEL}->>status`,'ready').or(`${T_REEL}->>aprovado.is.null,${T_REEL}->>aprovado.eq.false`).is('metrics->instagram_reel->>ig_id',null);
   if (f==='montando') return q.in(`${T_REEL}->>status`,['pending','processing']);
   if (f==='fila') return q.eq(`${T_REEL}->>aprovado`,'true').is('metrics->instagram_reel->>ig_id',null);
@@ -1933,6 +1940,12 @@ function Postagens() {
   // smartFilter de imagem abaixo) — busca direto video_url IS NOT NULL,
   // sempre encontra, não importa quantas outras matérias saíram depois.
   const [filterVideo, setFilterVideo] = useState('');
+  // 12/11/2026 — Roberto: o dropdown de vídeo estava misturando 2 perguntas
+  // diferentes ("tem vídeo bruto?" e "em que fase do Reel está?") num só
+  // select — impossível combinar as duas. Separado em 2 filtros próprios:
+  // filterVideo (existência do vídeo bruto) e filterReel (fase do pipeline
+  // do Reel). Os dois se combinam (AND) na mesma query.
+  const [filterReel, setFilterReel] = useState('');
   // '' | 'publicado' | 'feed' | 'reel' | 'nao' — filtro no BANCO (acha em qualquer página)
   const [filterIg, setFilterIg] = useState('');
   const [totalCount, setTotalCount] = useState(0);
@@ -2074,6 +2087,7 @@ function Postagens() {
     if (filterTipo==='sem_tipo') q=q.is('tipo_conteudo',null);
     else if (filterTipo) q=q.eq('tipo_conteudo',filterTipo);
     q = aplicarFiltroVideo(q, filterVideo);
+    q = aplicarFiltroReel(q, filterReel);
     if (filterIg==='publicado') q=q.or(IG_FILTRO_PUBLICADO_OR);
     else if (filterIg==='feed') q=q.or(IG_FILTRO_FEED_OR);
     else if (filterIg==='reel') q=q.not('metrics->instagram_reel->>ig_id','is',null);
@@ -2097,11 +2111,11 @@ function Postagens() {
     // origem. Publicação manual pro Brasil ON é só pela aba 🇧🇷 Brasil ON.
     setAccounts((acc||[]).filter(a => String(a.username||'').replace(/^@/,'').toLowerCase() !== 'obrasilon'));
     setLoading(false);
-  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte,filterVideo,filterIg]);
+  },[filter,page,busca,filterCat,filterSub,filterMethod,filterDe,filterAte,filterVideo,filterReel,filterIg]);
 
   useEffect(()=>{load();},[load]);
 
-  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilterVideo(''); setFilterIg(''); setFilter('all'); setPage(0); };
+  const limparFiltros = () => { setBusca(''); setFilterCat(''); setFilterSub(''); setFilterDe(''); setFilterAte(''); setFilterMethod(''); setFilterTipo(''); setFilterVideo(''); setFilterReel(''); setFilterIg(''); setFilter('all'); setPage(0); };
 
   const toggleSelect = id => setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
   const toggleAll = () => {
@@ -2884,15 +2898,18 @@ function Postagens() {
               {[['all','Todas'],['pendente','Pendentes'],['publicado','Publicadas']].map(([f,l])=>(
                 <button key={f} className={`btn btn-sm ${filter===f?'btn-primary':'btn-secondary'}`} onClick={()=>{setFilter(f);setPage(0);}}>{l}</button>
               ))}
-              <select className="form-select" style={{height:32,padding:'0 10px',fontSize:12,width:'auto',minWidth:190,...(filterVideo?{background:'rgba(34,197,94,0.15)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',fontWeight:700}:{})}} value={filterVideo} onChange={e=>{setFilterVideo(e.target.value);setPage(0);}}>
+              <select className="form-select" style={{height:32,padding:'0 10px',fontSize:12,width:'auto',minWidth:170,...(filterVideo?{background:'rgba(34,197,94,0.15)',color:'#4ade80',border:'1px solid rgba(34,197,94,0.4)',fontWeight:700}:{})}} value={filterVideo} onChange={e=>{setFilterVideo(e.target.value);setPage(0);}} title="Tem vídeo bruto anexado à matéria ou não — não diz nada sobre o Reel">
                 <option value="">🎬 Vídeo: todos</option>
                 <option value="sem">Sem vídeo</option>
                 <option value="com">Com vídeo (qualquer)</option>
-                <option value="aguardando">⏳ Reel pronto p/ aprovar</option>
-                <option value="montando">🛠 Reel montando</option>
-                <option value="fila">✅ Reel aprovado na fila</option>
-                <option value="erro">⚠️ Reel com erro</option>
-                <option value="reel">🎞️ Reel já publicado</option>
+              </select>
+              <select className="form-select" style={{height:32,padding:'0 10px',fontSize:12,width:'auto',minWidth:170,...(filterReel?{background:'rgba(167,139,250,0.15)',color:'#a78bfa',border:'1px solid rgba(167,139,250,0.4)',fontWeight:700}:{})}} value={filterReel} onChange={e=>{setFilterReel(e.target.value);setPage(0);}} title="Em que fase do pipeline do Reel a matéria está — combina com o filtro de Vídeo">
+                <option value="">🎞️ Reel: todos</option>
+                <option value="aguardando">⏳ Pronto p/ aprovar</option>
+                <option value="montando">🛠 Montando</option>
+                <option value="fila">✅ Aprovado na fila</option>
+                <option value="erro">⚠️ Com erro</option>
+                <option value="reel">🎬 Já publicado</option>
               </select>
               <select className="form-select" style={{height:32,padding:'0 10px',fontSize:12,width:'auto',minWidth:170,...(filterIg?{background:'rgba(225,48,108,0.15)',color:'#f472b6',border:'1px solid rgba(225,48,108,0.4)',fontWeight:700}:{})}} value={filterIg} onChange={e=>{setFilterIg(e.target.value);setPage(0);}} title="Filtra pelo que já foi ou ainda não foi publicado no Instagram — busca direto no banco">
                 <option value="">📲 Instagram: todos</option>
@@ -2913,10 +2930,20 @@ function Postagens() {
               </div>
               <div>
                 <label style={{fontSize:11,color:'var(--t3)',display:'block',marginBottom:4}}>Origem</label>
+                {/* 12/11/2026 — lista antiga só tinha portal/manual (manual
+                    nunca bate com nada real, nenhum post grava esse valor).
+                    Expandida pros canais reais de publish_method hoje em
+                    produção (ver api/run_portal.js e api/manage.js). */}
                 <select className="form-select" style={{height:32,fontSize:12}} value={filterMethod} onChange={e=>{setFilterMethod(e.target.value);setPage(0);}}>
                   <option value="">Todas</option>
-                  <option value="portal">Automático (RSS)</option>
-                  <option value="manual">Manual</option>
+                  <option value="portal">🤖 Pipeline geral (RSS)</option>
+                  <option value="link_manual">🔗 Vídeo capturado por link</option>
+                  <option value="esportes_radar">⚽ Radar do Esporte</option>
+                  <option value="brasilon">🇧🇷 Brasil ON (Bacci)</option>
+                  <option value="jovempan_politica">🏛️ Jovem Pan Política</option>
+                  <option value="internacional">🌎 Internacional</option>
+                  <option value="fofocas">💬 Fofocas</option>
+                  <option value="colunista">✍️ Coluna</option>
                 </select>
               </div>
               <div>
