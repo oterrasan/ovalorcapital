@@ -5,4 +5,34 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
+      - name: Checar estado real de TODOS os flags de automação
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, urllib.parse, json
+
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ["SUPABASE_KEY"]
+          headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+
+          def get(path):
+              req = urllib.request.Request(f"{url}/rest/v1/{path}", headers=headers)
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.loads(r.read())
+
+          keys = [
+              "AUTOMATION", "IG_AUTOMATION_ENABLED", "REELS_AUTOMATION_ENABLED",
+              "BON_IG_ENABLED", "BON_REEL_ENABLED", "ESPORTES_LIMITE_DIARIO",
+              "IG_AUTOMATION_CATEGORIES", "MAX_POSTS_DIA",
+          ]
+          qs = urllib.parse.urlencode({"key": f"in.({','.join(keys)})", "select": "key,value,updated_at"}, safe=",()")
+          rows = get(f"config?{qs}")
+          latest = {}
+          for r in sorted(rows, key=lambda x: x.get("updated_at") or "", reverse=True):
+              if r["key"] not in latest:
+                  latest[r["key"]] = r["value"]
+          for k in keys:
+              print(f"{k}={latest.get(k, '<AUSENTE>')}")
+          PYEOF
