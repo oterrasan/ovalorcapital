@@ -98,11 +98,18 @@ name: Instagram - Publicação Automática
 # projeto. github.event.schedule continua usado pra gatear os 2 jobs que
 # sobraram (publicar/*20 17-21, processar_collabs/*10) pro seu próprio
 # cron — sem isso os dois rodariam em TODO disparo.
-# 12/11/2026 — Roberto: "pause tudo o sistema agora". schedule: removido
-# (os 2 crons acima) — disparo só manual (workflow_dispatch) até ele
-# mandar religar. Pra religar: devolver o bloco "schedule:" (ver este
-# commit no historico do git pra copiar de volta).
+# 12/11/2026 — Roberto: "pause tudo o sistema agora", depois "assim que
+# feito, ligue todo o sistema novamente. exceto os reels que eu monto e
+# aprovo". schedule: restaurado — o job "publicar" chama ig_auto_publish
+# (feed, volta a rodar) e reels_auto_publish (continua gated por
+# REELS_AUTOMATION_ENABLED=off na config, nunca publica sozinho — Reels só
+# saem quando Roberto aprova manualmente). O job */10 (preparar_reels/
+# capturar_links) continua ligado de propósito: é só MONTAGEM/preparo pra
+# ele aprovar depois, nunca publica nada sozinho.
 on:
+  schedule:
+    - cron: '*/30 11-19 * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
     inputs:
       prioridade:
