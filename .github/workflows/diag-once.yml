@@ -19,7 +19,7 @@ jobs:
           headers = {"apikey": key, "Authorization": f"Bearer {key}"}
 
           def count_exact(params):
-              qs = urllib.parse.urlencode(params, safe=",.()")
+              qs = urllib.parse.urlencode(params, safe=",.()", doseq=True)
               req = urllib.request.Request(f"{url}/rest/v1/posts?{qs}", headers={**headers, "Prefer": "count=exact"})
               req.get_method = lambda: "HEAD"
               with urllib.request.urlopen(req, timeout=20) as r:
