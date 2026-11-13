@@ -5,54 +5,43 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Contar esportes_radar por dia (últimos 5 dias) + cap atual
+      - name: Aplicar corte de 50% no teto diário de esportes_radar (100 -> 50)
         env:
           SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
           SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
         run: |
           python3 << 'PYEOF'
           import os, urllib.request, urllib.parse, json
-          from datetime import datetime, timedelta, timezone
 
           url = os.environ["SUPABASE_URL"]
           key = os.environ["SUPABASE_KEY"]
-          headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+          headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+          NOVO_VALOR = "50"
 
-          def count_exact(params):
-              qs = urllib.parse.urlencode(params, safe=",.()", doseq=True)
-              req = urllib.request.Request(f"{url}/rest/v1/posts?{qs}", headers={**headers, "Prefer": "count=exact"})
-              req.get_method = lambda: "HEAD"
+          def get_rows():
+              req = urllib.request.Request(f"{url}/rest/v1/config?key=eq.ESPORTES_LIMITE_DIARIO&select=key,value", headers=headers)
               with urllib.request.urlopen(req, timeout=20) as r:
-                  cr = r.headers.get("Content-Range", "")
-              return cr.split("/")[-1] if "/" in cr else cr
+                  return json.loads(r.read())
 
-          print("=== esportes_radar por dia (BRT, publish_method=esportes_radar) ===")
-          now_utc = datetime.now(timezone.utc)
-          totals = []
-          for i in range(5):
-              day = (now_utc - timedelta(days=i)).date() - timedelta(days=0)
-              # BRT = UTC-3; dia BRT [i] corresponde à janela UTC [dia+3h, dia+1+3h)
-              start_utc = datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) + timedelta(hours=3)
-              end_utc = start_utc + timedelta(days=1)
-              c = count_exact({
-                  "select": "id",
-                  "publish_method": "eq.esportes_radar",
-                  "published_at": [f"gte.{start_utc.isoformat()}", f"lt.{end_utc.isoformat()}"],
-              })
-              print(f"{day} (BRT): {c}")
-              try:
-                  totals.append(int(c))
-              except Exception:
-                  pass
+          antes = get_rows()
+          print(f"ANTES: {antes}")
 
-          if totals:
-              media = sum(totals) / len(totals)
-              print(f"\nmedia_5_dias={media:.1f}")
-              print(f"50_porcento_da_media={media*0.5:.0f}")
+          if antes:
+              # já existe linha — UPDATE (nunca upsert/onConflict, essa coluna não tem constraint unique real)
+              body = json.dumps({"value": NOVO_VALOR}).encode()
+              req = urllib.request.Request(f"{url}/rest/v1/config?key=eq.ESPORTES_LIMITE_DIARIO", data=body, headers={**headers, "Prefer": "return=minimal"})
+              req.get_method = lambda: "PATCH"
+          else:
+              # não existe — INSERT simples (seguro, confirmado que não há linha nenhuma)
+              body = json.dumps({"key": "ESPORTES_LIMITE_DIARIO", "value": NOVO_VALOR}).encode()
+              req = urllib.request.Request(f"{url}/rest/v1/config", data=body, headers={**headers, "Prefer": "return=minimal"})
+              req.get_method = lambda: "POST"
 
-          # cap atual configurado
-          req = urllib.request.Request(f"{url}/rest/v1/config?key=eq.ESPORTES_LIMITE_DIARIO&select=value", headers=headers)
           with urllib.request.urlopen(req, timeout=20) as r:
-              data = json.loads(r.read())
-          print(f"\ncap_atual_ESPORTES_LIMITE_DIARIO={data}")
+              print(f"WRITE_STATUS={r.status}")
+
+          depois = get_rows()
+          print(f"DEPOIS: {depois}")
+          assert depois and depois[0]["value"] == NOVO_VALOR, "FALHOU — valor não persistiu"
+          print("OK — teto diário de esportes_radar agora é 50 (antes era o padrão 100)")
           PYEOF
