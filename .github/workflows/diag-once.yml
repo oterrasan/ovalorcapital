@@ -5,4 +5,55 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
+      - name: Checar vazamento real de esportes no Instagram do OVC (feed+reels)
+        env:
+          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+        run: |
+          python3 << 'PYEOF'
+          import os, urllib.request, urllib.parse, json
+
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ["SUPABASE_KEY"]
+          headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+
+          def get(path):
+              req = urllib.request.Request(f"{url}/rest/v1/{path}", headers=headers)
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.loads(r.read())
+
+          print("=== config.IG_AUTOMATION_CATEGORIES (override do painel) ===")
+          print(get("config?key=eq.IG_AUTOMATION_CATEGORIES&select=value,updated_at"))
+
+          print("\n=== esportes já publicado no FEED do Instagram (ig_id presente, ultimos 7 dias) ===")
+          q = urllib.parse.urlencode({
+              "select": "id,titulo,published_at,ig_id,ig_account_id",
+              "user_tags": "like.*esportes*",
+              "ig_id": "not.is.null",
+              "order": "published_at.desc",
+              "limit": "10",
+          }, safe=',.()[]*')
+          print(get(f"posts?{q}"))
+
+          print("\n=== esportes com Reel APROVADO agora, mirando conta != obrasilon (vazamento pendente) ===")
+          q2 = urllib.parse.urlencode({
+              "select": "id,titulo,metrics,user_tags,published_at",
+              "user_tags": "like.*esportes*",
+              "metrics->instagram_reel_template->>aprovado": "eq.true",
+              "limit": "30",
+          }, safe=',.()[]*>')
+          rows = get(f"posts?{q2}")
+          vazamento = []
+          for r in rows:
+              m = r.get("metrics") or {}
+              if isinstance(m, str):
+                  try: m = json.loads(m)
+                  except Exception: m = {}
+              tpl = (m or {}).get("instagram_reel_template") or {}
+              conta = str(tpl.get("conta_publicacao") or "ovalorcapital").lower()
+              if conta != "obrasilon":
+                  vazamento.append({"id": r["id"], "titulo": r["titulo"], "conta": conta, "status_tpl": tpl.get("status")})
+          print(f"total_aprovados_esportes={len(rows)} | vazamento_real={len(vazamento)}")
+          for v in vazamento:
+              print(v)
+          PYEOF

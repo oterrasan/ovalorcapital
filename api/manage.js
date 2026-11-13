@@ -1144,6 +1144,12 @@ async function _igAutoConfig() {
     const parsed = JSON.parse(latest.IG_AUTOMATION_CATEGORIES || "[]");
     if (Array.isArray(parsed) && parsed.length) categories = parsed.map(v => String(v).trim().toLowerCase()).filter(Boolean);
   } catch (_) {}
+  // 13/11/2026 — Roberto: "esportes NUNCA no Instagram do OVC, feed ou Reel".
+  // Trava absoluta, independente do que o checkbox de categorias do admin
+  // (IG_AUTOMATION_CATEGORIES) tenha salvo — sem isso, marcar "esportes" no
+  // painel reintroduziria o furo pela config, bypassando o Set hardcoded
+  // acima. Ver bloqueio equivalente pros Reels em handleReelsAprovar().
+  categories = categories.filter((c) => c !== "esportes");
   const interval = Number(latest.IG_AUTOMATION_INTERVAL || 15);
   const dailyLimit = Number(latest.IG_AUTOMATION_DAILY_LIMIT ?? IG_AUTO_LIMITE_DIARIO);
   return {
@@ -3209,6 +3215,20 @@ async function handleReelsAprovar(req, res, body) {
   if (aprovar && conta === "obrasilon" && !["brasil-on", "politica", "policia", "futebol"].includes(classificarParaBrasilOn(post))) {
     return res.status(409).json({ ok: false, error: "materia_fora_do_brasil_on (só Brasil ON, Política, Polícia e Futebol)" });
   }
+  // 13/11/2026 — Roberto: "esportes NUNCA no Instagram do OVC, feed ou
+  // Reel. Só no site e no Instagram do Brasil ON." Diferente do bloqueio
+  // de categoria do feed (_igAutoConfig, hardcoded no Set), aqui não
+  // havia NENHUMA trava — handleReelsAprovar sempre deixou aprovar
+  // qualquer categoria pra @ovalorcapital/@oterrasan, contando só com a
+  // disciplina manual de quem aprova. Trava real: esportes só pode ser
+  // aprovado pra @obrasilon, nunca pras contas do OVC.
+  {
+    const tagsReel = Array.isArray(post.user_tags) ? post.user_tags : parseJsonMaybe(post.user_tags, []);
+    const categoriaReel = String(tagsReel[0] || "").trim().toLowerCase();
+    if (aprovar && categoriaReel === "esportes" && conta !== "obrasilon") {
+      return res.status(409).json({ ok: false, error: "esportes_nao_pode_ir_pro_instagram_do_ovc (só site e @obrasilon)" });
+    }
+  }
   // Nunca repetir entre OVC e Brasil ON: matéria que já saiu no Instagram
   // (feed do OVC ou feed do Brasil ON) não entra na fila de Reels.
   if (aprovar && (_jaPublicadoOuReservadoNoInstagram({ ig_id: post.ig_id }, { instagram: metrics.instagram }) || await _jaPublicadoNoFeedDoBrasilOn(post.id))) {
@@ -3324,6 +3344,15 @@ async function handleReelsAutoPublish(req, res, body) {
       // direito autoral) nunca chega lá, então continua nunca virando
       // Reel, sem precisar checar video_url/YouTube aqui de novo.
       if (!_reelsTemplateReady(p)) return false;
+      // 13/11/2026 — defesa em profundidade do bloqueio de esportes no
+      // Instagram do OVC: handleReelsAprovar já recusa aprovar esportes
+      // pra @ovalorcapital/@oterrasan, mas isso não limpa retroativamente
+      // nenhum Reel que já tivesse sido aprovado ANTES desse fix — sem
+      // esta checagem aqui também, um Reel assim ficaria pra sempre na
+      // fila de aprovados e acabaria publicando de qualquer jeito.
+      const tagsReel = Array.isArray(p.user_tags) ? p.user_tags : parseJsonMaybe(p.user_tags, []);
+      const categoriaReel = String(tagsReel[0] || "").trim().toLowerCase();
+      if (categoriaReel === "esportes" && _reelsNormalizarConta(_reelsTemplate(metrics)?.conta_publicacao) !== "obrasilon") return false;
       return true;
     });
     // 28/09/2026 — Reel entregue à Meta numa conta diferente da escolhida
