@@ -5,15 +5,16 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Testar candidatos reais de feed RSS para economia/mercado/financas
+      - name: Retestar com -L (seguir redirect) + inspecionar InfoMoney vazio
         run: |
           set -e
           UA="Mozilla/5.0 (compatible; OVCBot/1.0)"
           test_feed() {
             name="$1"; url="$2"
             echo "=== $name — $url ==="
-            code=$(curl -sS -o /tmp/feed.xml -w "%{http_code}" -A "$UA" --max-time 15 "$url" || echo "ERRO")
-            echo "HTTP: $code"
+            code=$(curl -sS -L -o /tmp/feed.xml -w "%{http_code}" -A "$UA" --max-time 15 "$url" || echo "ERRO")
+            final=$(curl -sS -o /dev/null -w "%{url_effective}" -L -A "$UA" --max-time 15 "$url" || echo "?")
+            echo "HTTP final: $code | URL final: $final"
             if [ "$code" = "200" ]; then
               bytes=$(wc -c < /tmp/feed.xml)
               echo "bytes: $bytes"
@@ -36,10 +37,10 @@ jobs:
             fi
             echo
           }
-          test_feed "InfoMoney - Ultimas Noticias"   "https://www.infomoney.com.br/ultimas-noticias/feed/"
-          test_feed "Money Times - Mercados"         "https://www.moneytimes.com.br/mercados/feed"
-          test_feed "Seu Dinheiro"                   "https://www.seudinheiro.com/feed/"
-          test_feed "Valor Economico - geral"        "https://www.valor.com.br/rss"
-          test_feed "Valor Economico - Financas"     "https://www.valor.com.br/financas/rss"
-          test_feed "Agencia Brasil - Economia"      "https://agenciabrasil.ebc.com.br/rss/economia/feed.xml"
-          test_feed "Brazil Journal - feed generico" "https://braziljournal.com/feed/"
+          test_feed "Money Times - Mercados"      "https://www.moneytimes.com.br/mercados/feed"
+          test_feed "Valor Economico - geral"     "https://www.valor.com.br/rss"
+          test_feed "Valor Economico - Financas"  "https://www.valor.com.br/financas/rss"
+          test_feed "Brazil Journal - feed"       "https://braziljournal.com/feed/"
+
+          echo "=== INFOMONEY — corpo bruto (feed veio so com 1323 bytes) ==="
+          curl -sS -L -A "$UA" --max-time 15 "https://www.infomoney.com.br/ultimas-noticias/feed/"
