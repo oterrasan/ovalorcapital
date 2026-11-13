@@ -4,12 +4,13 @@ import { getNews, getNewsByCategoria, buscarFeedsEspecificos, FONTES_APROVADAS_U
 import { scrape } from "../core/scraper.js";
 import { findImage } from "../core/image_finder.js";
 import { processAndSaveImage } from "../core/image_processor.js";
-import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteFofocas } from "../core/ai_portal.js";
+import { rewritePortal, rewriteEsportes, rewriteEsportesCurtinha, auditarArtigo, rewriteBrasilOn, rewriteJovempanPolitica, rewriteInternacional, rewriteEconomia, rewriteFofocas } from "../core/ai_portal.js";
 import { downloadAndUploadVideo } from "../core/storage.js";
 import { buscarCandidatosBrasilOn, pareceAnuncioDePrograma, descobrirPaginaVideoBacci } from "../core/brasilon.js";
 import { ehInstagram, ehYoutube, ehGlobo, precisaDoRunner, descobrirVideoGenerico, descobrirVideoGlobo } from "../core/linkCapture.js";
 import { buscarCandidatosJovempanPolitica, pareceConteudoPromocional } from "../core/jovempanpolitica.js";
 import { buscarCandidatosInternacional, pareceConteudoPromocional as pareceConteudoPromocionalIntl } from "../core/internacional.js";
+import { buscarCandidatosEconomia, pareceConteudoPromocional as pareceConteudoPromocionalEconomia } from "../core/economia.js";
 import { buscarCandidatosFofocas, pareceConteudoPromocional as pareceConteudoPromocionalFofocas } from "../core/fofocas.js";
 import { mirrorPostToBrasilOn } from "../core/brasilonMirror.js";
 
@@ -1905,6 +1906,90 @@ async function autoInternacional(req, res, rec) {
   return res.status(200).json({ status: "ok", generated, tipo: "internacional", candidates: items.length, falhas });
 }
 
+// ECONOMIA/MERCADO/FINANÇAS — 13/11/2026, Roberto Terrasan: "quero que
+// aumente os conteudos de economia, mercado, financas, etc" — mesma
+// estrutura de Brasil ON/Jovem Pan Política/Internacional. Fontes: Valor
+// Econômico, Money Times e Seu Dinheiro (ver core/economia.js). Categoria
+// decidida por fonte: Valor → "economia", Money Times/Seu Dinheiro →
+// "financas" (ver item.categoria em core/economia.js).
+async function salvarEconomia(content, hash, img, fonte, categoria) {
+  const cat = categoria === "financas" ? "financas" : "economia";
+  const sub = cat === "financas" ? "Finanças" : "Economia";
+  const { data, error } = await supabase.from("posts").insert({
+    titulo: stripTitle(content.titulo), conteudo: content.corpo,
+    comentario_fixado: (content.meta_descricao || "").trim(), imagem: img || null, hash,
+    status: "publicado", approved: true, publish_method: "economia_mercado",
+    published_at: new Date().toISOString(),
+    user_tags: JSON.stringify([cat]), subcategoria: sub,
+    subcategoria_slug: cat, collaborators: "[]",
+    tipo_conteudo: "padrao",
+    metrics: { foco_keyword: content.foco_keyword || "", meta_title: stripTitle(content.meta_title || content.titulo), fonte_brasilon: fonte || "" },
+    priority: 0, retry_count: 0, max_retries: 3
+  }).select("id").single();
+  if (error) return null;
+  await pingIndexingForPost(data.id, content.titulo, cat);
+  return { id: data.id, titulo: stripTitle(content.titulo) };
+}
+
+async function autoEconomia(req, res, rec) {
+  const start = Date.now();
+  const body = req.body || {};
+  const count = Math.min(parseInt(body.count) || 2, 4);
+  const candidatos = await buscarCandidatosEconomia();
+  const seen = new Set();
+  const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
+  const prontos = await filtrarCandidatosProntos("ECONOMIA", brutos.map(i => i.link));
+  const items = brutos.filter(i => prontos.has(i.link));
+  if (!items.length) {
+    return res.status(200).json({ status: "ok", generated: 0, tipo: "economia_mercado", candidates: 0, info: "no_economia_news", brutosLen: brutos.length, prontosLen: prontos.size, debug: prontos.__debug });
+  }
+  let generated = 0;
+  const geradosAgora = [];
+  const falhas = { pautaFonte: 0, scrapeErro: 0, textoCurto: 0, promo: 0, hashDup: 0, rewriteErro: 0, validacao: 0, pautaTitulo: 0, semImagem: 0 };
+  for (const item of items) {
+    if (Date.now() - start > 50000 || generated >= count) break;
+    if (pautaParecida(item.title || "", rec.sourceTitulos)) { falhas.pautaFonte++; continue; }
+    let a, sourceText;
+    try {
+      // valor.com.br e seudinheiro.com já estão em COMPETITOR_IMG_HOSTS
+      // (core/scraper.js) — allowCompetitorImage obrigatório aqui, mesmo
+      // motivo já usado em Jovem Pan Política/jovempan.com.br e
+      // Futebol/GE Globo: fonte single-purpose aprovada por Roberto,
+      // imagem sempre da própria fonte.
+      a = await scrape(item.link, { timeout: 3500, allowCompetitorImage: true });
+      sourceText = [a.text, item.description, item.title].filter(Boolean).join("\n\n").trim();
+      if (sourceText.length < 100) { falhas.textoCurto++; continue; }
+      if (pareceConteudoPromocionalEconomia(item.title || a.title || "", sourceText)) { falhas.promo++; continue; }
+    } catch (_) { falhas.scrapeErro++; continue; }
+    const hash = crypto.createHash("md5").update(item.link + "_economia").digest("hex");
+    const { data: dup } = await supabase.from("posts").select("id").eq("hash", hash).maybeSingle();
+    if (dup) { falhas.hashDup++; continue; }
+    try {
+      const content = await rewriteEconomia(sourceText, item.title || a.title || "", rec.contexto);
+      content.categoria = item.categoria === "financas" ? "financas" : "economia";
+      content.subcategoria = content.categoria === "financas" ? "Finanças" : "Economia";
+      const erros = validarBrasilOn(content);
+      if (erros.length) { falhas.validacao++; continue; }
+      if (pautaParecida(content.titulo, rec.titulos.concat(geradosAgora))) { falhas.pautaTitulo++; continue; }
+      const sourceImage = a.image || "";
+      const img = sourceImage
+        ? await processAndSaveImage(sourceImage, hash.slice(0, 12), start, { watermarkLabel: "", skipVision: true })
+        : null;
+      if (!img) {
+        falhas.semImagem++;
+        await log("info", `[economia] SKIP sem imagem — ${item.source}: ${content.titulo?.slice(0, 50)} | sourceImage:${sourceImage || "(vazio)"}`);
+        continue;
+      }
+      const post = await salvarEconomia(content, hash, img, item.source, item.categoria);
+      if (!post) continue;
+      await log("info", `[economia] ${item.source}: ${content.titulo?.slice(0, 50)} | img:ok`);
+      geradosAgora.push(content.titulo);
+      generated++;
+    } catch (_) { falhas.rewriteErro++; continue; }
+  }
+  return res.status(200).json({ status: "ok", generated, tipo: "economia_mercado", candidates: items.length, falhas });
+}
+
 // GIRO — 30/08/2026, Roberto Terrasan: mesma estrutura de Brasil ON/Bacci,
 // Jovem Pan Política e Internacional. Fontes: Ofuxico + Terra Diversão &
 // Gente (ver core/fofocas.js). Categoria própria "giro" — categoria NOVA e
@@ -2096,6 +2181,7 @@ export default async function handler(req, res) {
     if (body.tipo === "brasilon") return autoBrasilOn(req, res, rec);
     if (body.tipo === "jovempan_politica") return autoJovempanPolitica(req, res, rec);
     if (body.tipo === "internacional") return autoInternacional(req, res, rec);
+    if (body.tipo === "economia_mercado") return autoEconomia(req, res, rec);
     if (body.tipo === "fofocas") return autoFofocas(req, res, rec);
     return autoMaterias(req, res, rec);
   }

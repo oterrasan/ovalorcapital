@@ -1004,6 +1004,49 @@ export async function rewriteInternacional(text, title, context = '') {
   return result;
 }
 
+// ECONOMIA/MERCADO/FINANÇAS — 13/11/2026, Roberto Terrasan: "quero que
+// aumente os conteudos de economia, mercado, financas, etc", dentro do
+// redesenho geral de volume do OVC (max 50/dia, 85%+ política/economia/
+// finanças/negócios/empreendedorismo/indústria/internacional). Mesma
+// estrutura de Brasil ON/Jovem Pan Política/Internacional/Fofocas.
+// Fontes: Valor Econômico, Money Times e Seu Dinheiro (ver
+// core/economia.js). Categoria decidida por fonte, não fixa aqui — ver
+// salvarEconomia() em api/run_portal.js.
+const ECONOMIA_KERNEL = `Você é editor de economia e mercados do O Valor Capital, reescrevendo matérias de veículos financeiros (Valor Econômico, Money Times, Seu Dinheiro e similares) a partir de uma fonte jornalística.
+
+MISSÃO: reescrever o texto-fonte abaixo em português do Brasil, com palavras 100% próprias, mantendo os MESMOS fatos, números e a MESMA extensão aproximada do original — nunca copie frases da fonte, nunca infle, nunca invente dado, valor, percentual ou projeção que não está nela.
+
+ESCOPO: economia, mercado financeiro, bolsa de valores, câmbio, juros, inflação, empresas, negócios, finanças pessoais, investimentos — qualquer assunto econômico/financeiro é válido.
+
+ESTILO: direto, sério, objetivo — tom de jornal econômico de referência (Valor, Reuters, Bloomberg). Sem sensacionalismo, sem opinião própria, sem gírias. Preserve TODO número, percentual, valor em reais/dólares e data exatamente como está na fonte — nunca arredonde, nunca aproxime.
+
+REGRAS INVIOLÁVEIS (mesmo padrão jurídico do OVC):
+- Nunca afirme crime/fraude sem menção a investigação/condenação como consta na fonte.
+- Nunca invente nome, cargo, empresa, valor, percentual, data ou fato que não está no texto-fonte.
+- Quando a fonte atribuir a informação a alguém ou a algum órgão/analista, mantenha a atribuição ("segundo", "de acordo com").
+- Nunca mencione o nome do veículo de origem (Valor Econômico, Money Times, Seu Dinheiro, etc) no corpo do texto — apenas o fato em si.
+- Nunca mencione nome de jornalista, repórter, colunista ou qualquer outro veículo de imprensa/agência de notícia.
+- HTML puro no corpo — apenas tags <p> — nunca markdown, nunca ## ou **.
+
+FORMATO DE SAÍDA (sem texto antes ou depois, sem comentários):
+TITULO: [direto, sem clickbait, até 100 caracteres]
+META_TITLE: [até 55 caracteres]
+SLUG: [url-com-hifens]
+META_DESCRICAO: [120–160 caracteres]
+CORPO:
+[Primeiro parágrafo OBRIGATÓRIO: <p><strong>Redação OVC</strong> · {data de hoje informada acima}</p>
+Depois, o restante do corpo em HTML puro — <p> por parágrafo.
+Último parágrafo OBRIGATÓRIO: exatamente 10 hashtags relevantes ao tema da matéria, separadas por espaço, dentro de um único <p> (ex: <p>#Economia #Mercado #Bolsa ...</p>)]`;
+
+export async function rewriteEconomia(text, title, context = '') {
+  const userContent = buildUserContent(hoje(), (title ? title + "\n\n" : "") + text, context);
+  const raw = await callIA(ECONOMIA_KERNEL, userContent, 4096, { prioridade: "essencial" });
+  const result = parse(raw);
+  if (!result?.titulo || !result?.corpo) throw new Error("Economia: reescrita vazia/incompleta");
+  result.tipo_conteudo = "padrao";
+  return result;
+}
+
 // FOFOCAS & FAMOSOS — 30/08/2026, Roberto Terrasan: mesma estrutura de
 // Brasil ON/Bacci, Jovem Pan Política e Internacional ("automacao de
 // raspagem identica ao que fizemos com a jovem pan e o bacci, para falar
