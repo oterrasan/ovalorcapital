@@ -5,43 +5,4 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Aplicar corte de 50% no teto diário de esportes_radar (100 -> 50)
-        env:
-          SUPABASE_URL: "https://yntwvfcxjardzafdqanj.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-        run: |
-          python3 << 'PYEOF'
-          import os, urllib.request, urllib.parse, json
-
-          url = os.environ["SUPABASE_URL"]
-          key = os.environ["SUPABASE_KEY"]
-          headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-          NOVO_VALOR = "50"
-
-          def get_rows():
-              req = urllib.request.Request(f"{url}/rest/v1/config?key=eq.ESPORTES_LIMITE_DIARIO&select=key,value", headers=headers)
-              with urllib.request.urlopen(req, timeout=20) as r:
-                  return json.loads(r.read())
-
-          antes = get_rows()
-          print(f"ANTES: {antes}")
-
-          if antes:
-              # já existe linha — UPDATE (nunca upsert/onConflict, essa coluna não tem constraint unique real)
-              body = json.dumps({"value": NOVO_VALOR}).encode()
-              req = urllib.request.Request(f"{url}/rest/v1/config?key=eq.ESPORTES_LIMITE_DIARIO", data=body, headers={**headers, "Prefer": "return=minimal"})
-              req.get_method = lambda: "PATCH"
-          else:
-              # não existe — INSERT simples (seguro, confirmado que não há linha nenhuma)
-              body = json.dumps({"key": "ESPORTES_LIMITE_DIARIO", "value": NOVO_VALOR}).encode()
-              req = urllib.request.Request(f"{url}/rest/v1/config", data=body, headers={**headers, "Prefer": "return=minimal"})
-              req.get_method = lambda: "POST"
-
-          with urllib.request.urlopen(req, timeout=20) as r:
-              print(f"WRITE_STATUS={r.status}")
-
-          depois = get_rows()
-          print(f"DEPOIS: {depois}")
-          assert depois and depois[0]["value"] == NOVO_VALOR, "FALHOU — valor não persistiu"
-          print("OK — teto diário de esportes_radar agora é 50 (antes era o padrão 100)")
-          PYEOF
+      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
