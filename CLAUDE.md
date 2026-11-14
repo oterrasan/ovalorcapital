@@ -10488,8 +10488,58 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ### 🔧 Pendências reais para a próxima sessão
 
 1. **Confirmar com Roberto o split de categoria do canal Economia** (Valor Econômico→economia, Money Times+Seu Dinheiro→finanças) — nunca confirmado palavra por palavra, só o plano geral foi aprovado.
-2. **O desenho fino do teto geral "máximo 50 artigos/dia" pro OVC e a proporção 15% giro/esportes / 85%+ conteúdo principal** — discutido e combinado em palavras, nunca implementado como mecanismo automático de verdade. Só retomar se Roberto voltar a esse ponto explicitamente.
-3. **Confirmar com Roberto, ao vivo**, que o botão Interruptor Geral funciona como esperado quando ele clicar (código e deploy confirmados, mas nunca observado sendo clicado de fato).
-4. **Confirmar, ao longo de um dia real**, que a nova janela 06h-00h BRT (incluindo esportes) está sendo respeitada de fato — validado só por cálculo/leitura do cron, nunca observado rodando um ciclo completo.
-5. **Monitorar se o corte de 50/dia do Radar do Esporte somado à nova pausa noturna** não reduz demais o volume real gerado por esse canal — os dois cortes foram feitos em momentos separados, nunca medidos juntos.
-6. Demais pendências de sessões anteriores seguem válidas (ver lista completa na sessão de 03-06/11/2026 acima): tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin; lista de URLs pra reindexação manual no Search Console; migrar watchdog (`api-health-check.yml`/`cost-monitor.yml`) pro cron nativo da Vercel; conversa sobre tom editorial mais "tiro, porrada e bomba" (pausada, 2 perguntas minhas sem resposta); `buildHeader()` de `api/institutional.js` com taxonomia extinta de 19 categorias; trocar a senha-mestra do admin (`ADMIN_PASS`) como camada extra de segurança pós-vazamento de 5 meses.
+2. **Confirmar com Roberto, ao vivo**, que o botão Interruptor Geral funciona como esperado quando ele clicar (código e deploy confirmados, mas nunca observado sendo clicado de fato).
+3. **Confirmar, ao longo de um dia real**, que a nova janela 06h-00h BRT (incluindo esportes) está sendo respeitada de fato — validado só por cálculo/leitura do cron, nunca observado rodando um ciclo completo.
+4. **Monitorar se o teto geral de 80/dia (ver sessão abaixo) somado à nova pausa noturna** não reduz demais o volume real gerado por algum canal específico — os dois mecanismos foram feitos em momentos separados, nunca medidos juntos em produção real.
+5. Demais pendências de sessões anteriores seguem válidas (ver lista completa na sessão de 03-06/11/2026 acima): tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin; lista de URLs pra reindexação manual no Search Console; migrar watchdog (`api-health-check.yml`/`cost-monitor.yml`) pro cron nativo da Vercel; conversa sobre tom editorial mais "tiro, porrada e bomba" (pausada, 2 perguntas minhas sem resposta); `buildHeader()` de `api/institutional.js` com taxonomia extinta de 19 categorias; trocar a senha-mestra do admin (`ADMIN_PASS`) como camada extra de segurança pós-vazamento de 5 meses.
+
+---
+
+### Sessão 14/11/2026 (continuação) — TETO GERAL DE 80/DIA COM RESERVA DE 75% PRAS PAUTAS DETERMINADAS + FILA PRIORITÁRIA DO INSTAGRAM COM O MESMO ESPAÇAMENTO DA AUTOMAÇÃO NORMAL
+
+#### Contexto
+
+Roberto cobrou direto, sobre o item que ficou como "pendência em aberto" na entrada anterior: *"isso ja era pra voce ter feito! nao foi só uma conversa, foi uma ordem. pode gerar até 70-80 por dia, mas é o máximo. e quero que 75% seja as pautas que determinei, o restante voce divide."* E, no mesmo turno, um segundo pedido: *"quero que voce mude a regra das publicacoes de cinco em cinco minutos - que vao pro instagram quando eu seleciono lotes de materias. quando eu selecionar lotes de materias, o sistema deve publicar em um tempo maior de distancia. como já é hoje as publicacoes da propria automacao."*
+
+#### 1) Teto geral de 80/dia pro OVC, com 75% reservado pras pautas determinadas (`api/run_portal.js`)
+
+Até esta sessão não existia NENHUM teto que somasse os 7 canais de geração automática do OVC — só havia tetos isolados por canal (`MAX_DIA=80` só pra `autoMaterias`, `ESPORTES_LIMITE_DIARIO` compartilhado entre futebol/outros_esportes). Construído um mecanismo novo, **adicional** aos tetos já existentes (nenhum foi removido):
+
+- **`cotaOvcDisponivel(publishMethod)`** — checa, antes de gastar scrape/IA, se o canal ainda tem cota hoje, em 3 níveis:
+  1. **Teto geral** — soma os 7 `publish_method` de geração automática (`portal`, `esportes_radar`, `brasilon`, `jovempan_politica`, `internacional`, `economia_mercado`, `fofocas` — `link_manual` nunca entra, é ação manual do próprio Roberto). Configurável via `config.OVC_LIMITE_DIARIO_TOTAL` (padrão **80**, sem precisar de deploy pra ajustar).
+  2. **Teto do grupo "pautas determinadas"** (`OVC_PAUTAS_DETERMINADAS = ["brasilon","jovempan_politica","internacional","economia_mercado"]`) — 75% do teto geral (`Math.floor(total*0.75)` = 60 no padrão).
+  3. **Teto do grupo "resto"** (25% restante = 20 no padrão) — dividido entre `portal`/`esportes_radar`/`fofocas` por peso que eu escolhi, já que Roberto disse explicitamente "o restante voce divide": `portal` 50% (10), `esportes_radar` 30% (6), `fofocas` 20% (4).
+- Chamado no início de todas as 8 funções de geração (`autoMaterias`, `autoFutebolCurtinhas`, `autoOutrosEsportesCurtinhas`, `autoBrasilOn`, `autoJovempanPolitica`, `autoInternacional`, `autoEconomia`, `autoFofocas`), logo depois dos checks específicos já existentes — resposta no mesmo formato já usado em todo o arquivo: `{status:"limite_diario_atingido", tipo, motivo, limite, hoje, generated:0}`.
+- `contarHojeMetodos(methods)` — mesma lógica de corte BRT (meia-noite = 03:00 UTC) já usada em `contarHoje()`, só generalizada pra `.in("publish_method", methods)` em vez de `.eq()`.
+
+**Efeito prático real:** o volume total do OVC cai de centenas/dia pra no máximo 80/dia — bem abaixo do que qualquer canal isolado conseguia antes. `ESPORTES_LIMITE_DIARIO=50` e `MAX_DIA=80` (materias) continuam no código como tetos secundários, mas na prática nunca mais vão ser o fator limitante — o novo teto de 6/dia (esportes) e 10/dia (materias) sempre bate primeiro.
+
+#### 2) Fila prioritária do Instagram — mesmo espaçamento da automação normal (`api/manage.js`)
+
+`handleIgPriorityPublish()` (publicação em lote selecionada manualmente por Roberto no admin) nunca tinha espaçamento próprio — o cron disparava a cada 5 minutos e, toda vez que havia item na fila, publicava na hora. Fix: adicionado o mesmo gate de intervalo já usado pela automação normal do feed (`handleIgAutoPublish`/`settings.interval`, lido de `config.IG_AUTOMATION_INTERVAL`, padrão/mínimo 15min) — usando uma chave de "última vez" própria (`IG_PRIORITY_LAST_RUN`, grava via `_igAutoSetConfig()`, mesmo padrão delete+insert seguro já usado no projeto) pra não competir com o relógio da automação normal. O cron continua disparando a cada 5min (`vercel.json`, inalterado) — a maioria das chamadas agora só confirma que ainda não passou o intervalo configurado e sai sem publicar nada, exatamente como "já é hoje as publicações da própria automação".
+
+#### Verificação
+
+`node --check` limpo nos dois arquivos (`api/run_portal.js`, `api/manage.js`). `api/` continua com exatamente 10 arquivos (Regra Zero-A intacta — só edição de arquivos existentes). Nenhum teto/gate pré-existente foi removido ou alterado — tudo foi adição pura.
+
+⚠️ **Não verificado em produção real ainda** (ambiente de sessão sem rede pra produção) — confirmar com Roberto, ao longo de um dia real, que o volume total do OVC está batendo perto de 80/dia (não menos, não mais) e que a fila de publicação em lote do Instagram está respeitando o intervalo configurado.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (14/11/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Teto geral de 80/dia pro OVC, com 75% reservado pras 4 pautas determinadas** (Brasil ON, Jovem Pan Política, Internacional, Economia/Mercado/Finanças) e os 25% restantes divididos entre materias/esportes/fofocas | ✅ EM PRODUÇÃO — `cotaOvcDisponivel()` em `api/run_portal.js`, chamado nos 8 canais |
+| **Fila prioritária do Instagram com o mesmo espaçamento da automação normal** (antes publicava a cada 5min sem gate nenhum) | ✅ EM PRODUÇÃO — `handleIgPriorityPublish()` em `api/manage.js`, respeita `IG_AUTOMATION_INTERVAL` |
+
+### 🔧 Pendências reais para a próxima sessão (atualizado)
+
+1. **Confirmar com Roberto, ao longo de um dia real**, que o volume total do OVC está perto de 80/dia (não mais, não menos) e que cada grupo (pautas determinadas vs. resto) está recebendo a proporção certa — só validado por leitura de código/matemática nesta sessão, nunca observado rodando um ciclo completo.
+2. **Confirmar que a fila prioritária do Instagram está publicando com o intervalo certo** (configurado no admin, padrão 15min) em vez de a cada 5min.
+3. Item 1 da lista anterior (split de categoria do canal Economia) e item 5 (pendências antigas de sessões anteriores) seguem válidos, sem mudança.

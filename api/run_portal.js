@@ -83,6 +83,72 @@ async function limiteEsportesDiario() {
     return ESPORTES_LIMITE_DIARIO_PADRAO;
   }
 }
+
+// 14/11/2026 — Roberto, ordem direta (não só conversa): "isso ja era pra
+// voce ter feito! nao foi só uma conversa, foi uma ordem. pode gerar até
+// 70-80 por dia, mas é o máximo. e quero que 75% seja as pautas que
+// determinei, o restante voce divide." Teto geral do OVC somando os 7
+// publish_method de geração automática ("link_manual" é ação manual do
+// próprio Roberto, nunca conta aqui) + reserva de 75% da cota pras 4
+// pautas que ele mandou priorizar/enfatizar explicitamente em sessões
+// anteriores (Brasil ON/Bacci, Jovem Pan Política, Internacional,
+// Economia/Mercado/Finanças) — o resto (materias geral/"portal",
+// esportes_radar, fofocas/giro) divide os 25% restantes entre si (decisão
+// minha, já que ele disse "o restante voce divide": metade pra matérias
+// gerais, 30% esportes, 20% giro). Configurável sem deploy via
+// config.OVC_LIMITE_DIARIO_TOTAL. Isso é ADICIONAL aos tetos específicos
+// já existentes (MAX_DIA de autoMaterias, ESPORTES_LIMITE_DIARIO) — não
+// substitui nenhum deles, só é, na prática, mais restritivo que todos.
+const OVC_LIMITE_DIARIO_TOTAL_PADRAO = 80;
+const OVC_PAUTAS_DETERMINADAS = ["brasilon", "jovempan_politica", "internacional", "economia_mercado"];
+const OVC_FRACAO_PAUTAS_DETERMINADAS = 0.75;
+const OVC_PAUTAS_RESTANTES_PESOS = { portal: 0.5, esportes_radar: 0.3, fofocas: 0.2 };
+async function limiteDiarioTotalOvc() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "OVC_LIMITE_DIARIO_TOTAL").limit(1);
+    const raw = Number(data?.[0]?.value);
+    return Number.isFinite(raw) && raw > 0 ? raw : OVC_LIMITE_DIARIO_TOTAL_PADRAO;
+  } catch (_) {
+    return OVC_LIMITE_DIARIO_TOTAL_PADRAO;
+  }
+}
+async function contarHojeMetodos(methods) {
+  try {
+    const agora = new Date();
+    const inicioHoje = new Date(agora);
+    inicioHoje.setUTCHours(3, 0, 0, 0);
+    if (agora.getUTCHours() < 3) inicioHoje.setUTCDate(inicioHoje.getUTCDate() - 1);
+    const { count } = await supabase.from("posts").select("id", { count: "exact", head: true })
+      .in("publish_method", methods).gte("created_at", inicioHoje.toISOString());
+    return count || 0;
+  } catch (_) { return 0; }
+}
+// Checa, ANTES de gastar scrape/IA, se o canal `publishMethod` ainda tem
+// cota pra publicar hoje — 3 níveis: teto geral do OVC, teto do grupo
+// (pautas determinadas 75% / resto 25%), e, só pro grupo "resto", teto
+// individual do canal dentro da fração que ele recebeu.
+async function cotaOvcDisponivel(publishMethod) {
+  const total = await limiteDiarioTotalOvc();
+  const todosMetodos = Object.keys(OVC_PAUTAS_RESTANTES_PESOS).concat(OVC_PAUTAS_DETERMINADAS);
+  const hojeTotal = await contarHojeMetodos(todosMetodos);
+  if (hojeTotal >= total) return { ok: false, motivo: "limite_total_ovc", limite: total, hoje: hojeTotal };
+  const limitePrioridade = Math.floor(total * OVC_FRACAO_PAUTAS_DETERMINADAS);
+  const limiteResto = total - limitePrioridade;
+  if (OVC_PAUTAS_DETERMINADAS.includes(publishMethod)) {
+    const hojePrioridade = await contarHojeMetodos(OVC_PAUTAS_DETERMINADAS);
+    if (hojePrioridade >= limitePrioridade) return { ok: false, motivo: "limite_pautas_determinadas", limite: limitePrioridade, hoje: hojePrioridade };
+    return { ok: true };
+  }
+  const outrosMetodos = Object.keys(OVC_PAUTAS_RESTANTES_PESOS);
+  const hojeResto = await contarHojeMetodos(outrosMetodos);
+  if (hojeResto >= limiteResto) return { ok: false, motivo: "limite_outras_pautas", limite: limiteResto, hoje: hojeResto };
+  const fracaoCanal = OVC_PAUTAS_RESTANTES_PESOS[publishMethod] ?? (1 / outrosMetodos.length);
+  const limiteCanal = Math.max(1, Math.round(limiteResto * fracaoCanal));
+  const hojeCanal = await contarHojeMetodos([publishMethod]);
+  if (hojeCanal >= limiteCanal) return { ok: false, motivo: "limite_canal_resto", limite: limiteCanal, hoje: hojeCanal };
+  return { ok: true };
+}
+
 function slugify(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-"); }
 function stripTitle(t) { return (t || "").replace(/<[^>]+>/g, "").replace(/\*\*/g, "").replace(/^#+\s*/, "").trim(); }
 function plain(html = "") { return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(); }
@@ -928,6 +994,8 @@ async function autoMaterias(req, res, rec) {
   const MAX_DIA = 80;
   const hoje = await contarHoje();
   if (hoje >= MAX_DIA) return res.status(200).json({ status: "limite_diario_atingido", limite: MAX_DIA, hoje, generated: 0 });
+  const cotaOvc = await cotaOvcDisponivel("portal");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "materias", ...cotaOvc, generated: 0 });
   const cat = CATS.has(String(body.categoria || "").toLowerCase()) ? String(body.categoria).toLowerCase() : PRIORIDADE[Math.floor(Math.random() * PRIORIDADE.length)];
   const [prio, geral] = await Promise.all([getNewsByCategoria(cat), getNews()]);
   const seen = new Set();
@@ -1051,6 +1119,8 @@ async function autoFutebolCurtinhas(req, res, rec) {
   if (hojeEsportes >= limiteEsportes) {
     return res.status(200).json({ status: "limite_diario_atingido", tipo: "futebol_jornal", limite: limiteEsportes, hoje: hojeEsportes, generated: 0 });
   }
+  const cotaOvc = await cotaOvcDisponivel("esportes_radar");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "futebol_jornal", ...cotaOvc, generated: 0 });
   const FUTEBOL_KW = [
     'campeonato brasileiro', 'brasileirão', 'brasileirao', 'série a', 'serie a',
     'série b', 'serie b', 'libertadores', 'sul-americana', 'sulamericana',
@@ -1238,6 +1308,8 @@ async function autoOutrosEsportesCurtinhas(req, res, rec) {
   if (hojeEsportes >= limiteEsportes) {
     return res.status(200).json({ status: "limite_diario_atingido", tipo: "outros_esportes_jornal", limite: limiteEsportes, hoje: hojeEsportes, generated: 0 });
   }
+  const cotaOvc = await cotaOvcDisponivel("esportes_radar");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "outros_esportes_jornal", ...cotaOvc, generated: 0 });
   const esportes = await getNewsByCategoria("esportes");
   const seen = new Set();
   const candidatosBrutos = [];
@@ -1619,6 +1691,8 @@ async function autoBrasilOn(req, res, rec) {
   const isCronTrigger = req.method === "GET" && req.query?.pass === CRON_TOKEN;
   const body = isCronTrigger ? { ...req.query } : (req.body || {});
   const count = Math.min(parseInt(body.count) || 2, 4);
+  const cotaOvc = await cotaOvcDisponivel("brasilon");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "brasilon", ...cotaOvc, generated: 0 });
   // 20/09/2026 — Roberto: "a essa hora da madrugada não vai ter nada
   // novo. Pega uma matéria e um vídeo aleatório do site dele do dia de
   // ontem e faz" — teste pontual com URL específica, contorna a busca
@@ -1751,6 +1825,8 @@ async function autoJovempanPolitica(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
+  const cotaOvc = await cotaOvcDisponivel("jovempan_politica");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "jovempan_politica", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosJovempanPolitica();
   const seen = new Set();
   const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);
@@ -1845,6 +1921,8 @@ async function autoInternacional(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
+  const cotaOvc = await cotaOvcDisponivel("internacional");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "internacional", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosInternacional();
   const seen = new Set();
   const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
@@ -1941,6 +2019,8 @@ async function autoEconomia(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
+  const cotaOvc = await cotaOvcDisponivel("economia_mercado");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "economia_mercado", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosEconomia();
   const seen = new Set();
   const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 25);
@@ -2039,6 +2119,8 @@ async function autoFofocas(req, res, rec) {
   const start = Date.now();
   const body = req.body || {};
   const count = Math.min(parseInt(body.count) || 2, 4);
+  const cotaOvc = await cotaOvcDisponivel("fofocas");
+  if (!cotaOvc.ok) return res.status(200).json({ status: "limite_diario_atingido", tipo: "fofocas", ...cotaOvc, generated: 0 });
   const candidatos = await buscarCandidatosFofocas();
   const seen = new Set();
   const brutos = candidatos.filter(i => i?.link && !seen.has(i.link) && seen.add(i.link)).slice(0, 20);

@@ -2024,14 +2024,20 @@ async function handleIgAutoPublish(req, res, body) {
 // ══════════════════════════════════════════════════════
 // FILA PRIORITÁRIA MANUAL — 10/09/2026, a pedido de Roberto: "selecionar
 // varias materias e apertar publicar todos... o sistema entenda que se eu
-// dei um comando de publicar 30 materias, ele irá priorizar estas matérias
-// e postar uma a cada 5 minutos".
+// dei um comando de publicar 30 materias, ele irá priorizar estas matérias".
 // O ENFILEIRAR em si acontece direto do admin (grava metrics.instagram_priority
 // via o client Supabase que o admin já usa pra tudo — pubPortalBatch,
 // deletarBatch etc. fazem exatamente o mesmo tipo de escrita direta, sem
 // precisar de action nova aqui). Esta função só faz a PUBLICAÇÃO em si
 // (precisa rodar no servidor — chama a API da Meta), 1 item por chamada,
-// disparada a cada 5 minutos por um cron dedicado em instagram-auto.yml.
+// disparada a cada 5 minutos pelo cron (vercel.json) — mas, desde
+// 14/11/2026 (Roberto: "muito perto de 5 em 5 minutos, publique com um
+// tempo maior de distancia, como já é hoje as publicacoes da propria
+// automacao"), só publica de verdade com o MESMO espaçamento mínimo da
+// automação normal do feed (IG_AUTOMATION_INTERVAL, padrão 15min) — o
+// cron continua disparando a cada 5min, mas a maioria das chamadas só
+// confirma que ainda não passou o intervalo e sai sem fazer nada (ver
+// gate logo abaixo).
 // Reaproveita o mesmo núcleo de claim+publish de _igAutoProcessAccount
 // (_publicarPostFeedAutomatico) — mesma proteção contra corrida/duplicação.
 // NÃO respeita a janela horária do resto da automação
@@ -2042,6 +2048,26 @@ async function handleIgAutoPublish(req, res, body) {
 // ══════════════════════════════════════════════════════
 async function handleIgPriorityPublish(req, res, body) {
   if (!_igCronAuthorized(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+
+  // 14/11/2026 — Roberto: "quero que voce mude a regra das publicacoes de
+  // cinco em cinco minutos... quando eu selecionar lotes de materias, o
+  // sistema deve publicar em um tempo maior de distancia. como já é hoje
+  // as publicacoes da propria automacao." Antes, cada chamada do cron
+  // (a cada 5min, ver vercel.json) publicava 1 item da fila sem nenhum
+  // espaçamento próprio — só a frequência do cron decidia o ritmo. Agora
+  // respeita o MESMO intervalo configurado pra automação normal do feed
+  // (IG_AUTOMATION_INTERVAL, admin → Automação Instagram, padrão/mínimo
+  // 15min) — mesmo padrão já usado por handleIgAutoPublish, só com uma
+  // chave de "última vez" própria (IG_PRIORITY_LAST_RUN) pra não disputar
+  // o mesmo relógio da automação normal e os dois se atropelarem.
+  const settings = await _igAutoConfig();
+  const { data: lastPriorityRow } = await supabase.from("config").select("value").eq("key", "IG_PRIORITY_LAST_RUN").limit(1);
+  const lastPriorityRun = Number(lastPriorityRow?.[0]?.value || 0);
+  const elapsedPriorityMinutes = lastPriorityRun ? (Date.now() - lastPriorityRun) / 60000 : Infinity;
+  if (elapsedPriorityMinutes < settings.interval - 1) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "intervalo_configurado", proxima_em_minutos: Math.ceil(settings.interval - elapsedPriorityMinutes) });
+  }
+  await _igAutoSetConfig("IG_PRIORITY_LAST_RUN", Date.now());
 
   const desenfileirar = async (postId, extraPatch) => {
     // Sempre relê o metrics mais fresco possível antes de escrever — nunca
