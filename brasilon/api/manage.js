@@ -17,6 +17,23 @@ const SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// 14/11/2026 — Interruptor Geral, a pedido explícito de Roberto: "um
+// interruptor... capaz de parar TODO O SISTEMA e LIGAR todo o sistema".
+// Mesma chave/helper duplicado em api/manage.js e api/run_portal.js do
+// OVC (zero import cruzado — mesmo Supabase, convenção já usada no
+// projeto). Fail-closed em erro de leitura. Cobre: feed automático
+// (readInstagramConfig) e o sync (mirror dos posts do OVC). Reels do
+// Brasil ON são renderizados/publicados pelo pipeline do OVC (ver
+// handleReelsRenderJob/handleReelsAutoPublish em api/manage.js da raiz
+// — já cobertos lá por este mesmo interruptor), nunca por este arquivo
+// (reels_publish/reels_auto_publish aqui são stub morto de propósito).
+async function sistemaGeralLigado() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "SISTEMA_LIGADO").limit(1);
+    return !(data && data[0] && data[0].value === "off");
+  } catch (_) { return false; }
+}
+
 let _modInstagram = null;
 let _modInstagramImage = null;
 async function _loadInstagram() { return _modInstagram || (_modInstagram = await import("../core/instagram.js")); }
@@ -181,7 +198,8 @@ async function readInstagramConfig() {
     if (Array.isArray(parsed) && parsed.length) categories = parsed.filter(v => INSTAGRAM_CATEGORIES.includes(v));
   } catch (_) {}
   return {
-    enabled: latest.BON_IG_ENABLED === "on",
+    // 14/11/2026 — + Interruptor Geral (sistemaGeralLigado()).
+    enabled: latest.BON_IG_ENABLED === "on" && (await sistemaGeralLigado()),
     interval: Math.max(15, Number(latest.BON_IG_INTERVAL || 15)),
     dailyLimit: Math.min(100, Math.max(1, Number(latest.BON_IG_DAILY_LIMIT || 60))),
     categories,
@@ -303,6 +321,15 @@ async function handleInstagramAccount(req, res) {
 // documentado na tabela config do OVC, que não tem constraint).
 async function handleSync(req, res) {
   try {
+    // 14/11/2026 — Interruptor Geral: o DE-PARA direto (core/brasilonMirror.js,
+    // chamado do lado do OVC) já é o caminho principal e também respeita o
+    // interruptor (via automacaoAtiva() em api/run_portal.js — nada novo
+    // chega lá pra espelhar); este sync é só a rede de segurança por cron,
+    // mas como ele lê posts JÁ publicados, sem o gate ele continuaria
+    // copiando coisa antiga durante a pausa. Parado por completo também.
+    if (!(await sistemaGeralLigado())) {
+      return res.status(200).json({ ok: true, skipped: true, reason: "sistema_geral_pausado" });
+    }
     const cutoff = new Date(Date.now() - SYNC_LOOKBACK_HORAS * 3600000).toISOString();
 
     const { data: candidatos, error } = await supabase.from("posts")

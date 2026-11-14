@@ -4891,6 +4891,21 @@ function AutomacaoInstagram() {
     ['negocios','Negócios'], ['tecnologia','Tecnologia'],
     ['internacional','Internacional'], ['industria','Indústria']
   ];
+  // 14/11/2026 — Interruptor Geral, a pedido explícito de Roberto: "um
+  // interruptor... capaz de parar TODO O SISTEMA e LIGAR todo o
+  // sistema... isso deve interromper e ligar a captura de videos para
+  // os reels tambem". Único botão, única chave (SISTEMA_LIGADO),
+  // checado no backend em: geração de conteúdo de TODOS os canais
+  // (automacaoAtiva(), run_portal.js — materias/futebol/outros_esportes/
+  // brasilon/jovempan_politica/internacional/fofocas/economia_mercado +
+  // robô do TikTok Metrópoles), feed e Reels automáticos do OVC
+  // (_igAutoConfig/_reelsAutoConfig), a CAPTURA/renderização de vídeo
+  // pra Reels (handleReelsRenderJob — não tinha gate nenhum antes
+  // disto), feed automático e sync do Brasil ON. NÃO afeta ação manual
+  // (link_manual, publicar agora, aprovar um Reel) — só automação.
+  const [sistemaLigado,setSistemaLigado] = useState(true);
+  const [pausandoSistema,setPausandoSistema] = useState(false);
+  const [pausaSistemaMsg,setPausaSistemaMsg] = useState('');
   const [cfg,setCfg] = useState({enabled:true,interval:15,dailyLimit:0,categories:CATEGORIAS.map(c=>c[0]),lastRun:0});
   const [reelsEnabled,setReelsEnabled] = useState(true);
   const [pausandoReels,setPausandoReels] = useState(false);
@@ -4930,13 +4945,14 @@ function AutomacaoInstagram() {
     setLoading(true);
     const start=brtStart();
     const [c,p,l,a,ia]=await Promise.all([
-      sb.from('config').select('key,value,updated_at').in('key',['IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED']).order('updated_at',{ascending:false}),
+      sb.from('config').select('key,value,updated_at').in('key',['SISTEMA_LIGADO','IG_AUTOMATION_ENABLED','IG_AUTOMATION_INTERVAL','IG_AUTOMATION_DAILY_LIMIT','IG_AUTOMATION_CATEGORIES','IG_AUTOMATION_LAST_RUN','REELS_AUTOMATION_ENABLED','IG_COLLAB_AUTO_ACCEPT_ENABLED','IG_COLLAB_AUTO_ACCEPT_POLICY','IG_PUBLICADOR_FEED']).order('updated_at',{ascending:false}),
       sb.from('posts').select('id,titulo,user_tags,ig_id,updated_at,metrics,error_msg').gte('updated_at',start).order('updated_at',{ascending:false}).limit(200),
       sb.from('logs').select('level,message,created_at').gte('created_at',start).or('message.ilike.%[ig-auto]%,message.ilike.%[ig-collab]%').order('created_at',{ascending:false}).limit(100),
       sb.from('ig_accounts').select('username,active,token,ig_user_id').eq('active',true).eq('username','ovalorcapital').limit(1).maybeSingle(),
       sb.from('ig_accounts').select('id,username,ig_user_id,token,active').order('username',{ascending:true})
     ]);
     const latest={}; (c.data||[]).forEach(row=>{if(!(row.key in latest))latest[row.key]=row.value;});
+    setSistemaLigado(latest.SISTEMA_LIGADO!=='off');
     let cats=CATEGORIAS.map(x=>x[0]); try{const parsed=JSON.parse(latest.IG_AUTOMATION_CATEGORIES||'[]');if(Array.isArray(parsed)&&parsed.length)cats=parsed;}catch{}
     setCfg({enabled:latest.IG_AUTOMATION_ENABLED!=='off',interval:Number(latest.IG_AUTOMATION_INTERVAL||15),dailyLimit:Number(latest.IG_AUTOMATION_DAILY_LIMIT??0),categories:cats,lastRun:Number(latest.IG_AUTOMATION_LAST_RUN||0)});
     setReelsEnabled(latest.REELS_AUTOMATION_ENABLED==='on');
@@ -4967,6 +4983,23 @@ function AutomacaoInstagram() {
       setMsg('Configuração do feed salva.');
       await load();
     }catch(e){setMsg('Erro ao salvar: '+e.message);}finally{setSaving(false);}
+  };
+  // 14/11/2026 — Interruptor Geral: 1 clique, grava SÓ SISTEMA_LIGADO.
+  // Não toca em nenhuma das outras chaves (AUTOMATION, IG_AUTOMATION_ENABLED,
+  // REELS_AUTOMATION_ENABLED, BON_IG_ENABLED, etc.) — o backend checa as
+  // duas em AND em cada ponto (ver sistemaGeralLigado() em api/manage.js/
+  // api/run_portal.js/brasilon/api/manage.js), então desligar aqui para
+  // tudo de verdade sem precisar zerar as outras, e religar aqui volta
+  // cada canal pro estado em que já estava configurado antes.
+  const toggleInterruptorGeral = async () => {
+    setPausandoSistema(true); setPausaSistemaMsg('');
+    try {
+      const next = !sistemaLigado;
+      await setConfig('SISTEMA_LIGADO', next ? 'on' : 'off');
+      setSistemaLigado(next);
+      setPausaSistemaMsg(next ? 'Sistema inteiro ligado agora.' : 'Sistema inteiro pausado agora — geração de conteúdo, feeds, Reels e captura de vídeo, tudo parado.');
+    } catch(e) { setPausaSistemaMsg('Erro ao pausar/retomar: '+e.message); }
+    finally { setPausandoSistema(false); }
   };
   // 11/09/2026 — botão de pausa/retomada IMEDIATA, separado do fluxo de
   // "Salvar configuração" (que também grava intervalo/limite/categorias
@@ -5033,6 +5066,18 @@ function AutomacaoInstagram() {
   return <div>
     <div className="page-header"><div className="page-title">Automação do Instagram</div><div className="page-sub">Feed (posts de imagem) e Reels (vídeo) do O Valor Capital</div></div>
     <div className="page-body">
+      <div style={{border:'3px solid '+(sistemaLigado?'var(--green)':'var(--red)'),borderRadius:14,padding:22,marginBottom:22,background:'var(--card)',display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+          <div>
+            <div style={{fontSize:20,fontWeight:900}}>🔴 Interruptor Geral</div>
+            <div style={{fontSize:13,color:'var(--t2)',marginTop:4,maxWidth:520}}>Para e liga <strong>o sistema inteiro de uma vez</strong>: geração de matérias em todos os canais (política, economia, finanças, Brasil ON, Jovem Pan, Internacional, Giro, esportes), feed e Reels do Instagram (OVC e Brasil ON) e a captura/renderização de vídeo para os Reels.</div>
+          </div>
+          <span className={`badge ${sistemaLigado?'badge-green':'badge-red'}`} style={{fontSize:14,padding:'6px 14px'}}>{sistemaLigado?'SISTEMA LIGADO':'SISTEMA PAUSADO'}</span>
+        </div>
+        <button onClick={toggleInterruptorGeral} disabled={pausandoSistema} style={{...botaoPausa(sistemaLigado,pausandoSistema),fontSize:17,padding:'18px 20px'}}>{pausandoSistema?'Aplicando...':(sistemaLigado?'⏸ PARAR TUDO AGORA':'▶ LIGAR TUDO AGORA')}</button>
+        {pausaSistemaMsg && <div style={{fontSize:13,fontWeight:700,color:pausaSistemaMsg.startsWith('Erro')?'var(--red)':(sistemaLigado?'var(--green)':'var(--red)')}}>{pausaSistemaMsg}</div>}
+        {!sistemaLigado && <div style={{fontSize:12,color:'var(--t2)'}}>Os controles abaixo (Feed, Reels, categorias) continuam valendo pra quando você ligar de novo — pausar aqui não muda eles, só interrompe tudo enquanto estiver pausado.</div>}
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:16,marginBottom:20}}>
         <div style={cartao}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:17,fontWeight:800}}>📷 Feed</span><span className={`badge ${cfg.enabled?'badge-green':'badge-red'}`}>{cfg.enabled?'LIGADO':'PAUSADO'}</span></div>

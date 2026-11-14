@@ -40,6 +40,30 @@ async function writeLog(level, message) {
   try { await supabase.from('logs').insert({ level, message }); } catch(_) {}
 }
 
+// 14/11/2026 — Interruptor Geral, a pedido explícito de Roberto: "um
+// interruptor... capaz de parar TODO O SISTEMA e LIGAR todo o sistema...
+// isso deve interromper e ligar a captura de videos para os reels
+// tambem". Chave única em config (SISTEMA_LIGADO), lida pelos dois
+// deploys (OVC e Brasil ON — mesmo Supabase, api/manage.js e
+// brasilon/api/manage.js duplicam este mesmo helper, zero import cruzado,
+// mesma convenção já usada no projeto pra core/brasilonMirror.js).
+// Fail-closed em erro de leitura (mesmo padrão já estabelecido em
+// automacaoAtiva(), api/run_portal.js) — nunca "falha aberta" num
+// interruptor cuja única função é garantir que tudo parou de verdade.
+// Cobre: geração de conteúdo (automacaoAtiva() em run_portal.js), feed e
+// Reels automáticos do OVC (_igAutoConfig/_reelsAutoConfig) e, o ponto
+// que faltava por completo antes deste pedido, a CAPTURA/RENDERIZAÇÃO de
+// vídeo pra Reels (handleReelsRenderJob) — essa rodava 24h sem nenhum
+// gate, nem de AUTOMATION nem de REELS_AUTOMATION_ENABLED (esse só
+// controlava a PUBLICAÇÃO, nunca o preparo/download/ffmpeg/upload).
+// NÃO bloqueia ações manuais que Roberto dispara ele mesmo no admin
+// (link_manual, upload de vídeo, publicar agora) — só automação.
+async function sistemaGeralLigado() {
+  try {
+    const { data } = await supabase.from("config").select("value").eq("key", "SISTEMA_LIGADO").limit(1);
+    return !(data && data[0] && data[0].value === "off");
+  } catch (_) { return false; }
+}
 
 const VENDOR_JS = {
   react: "https://unpkg.com/react@18/umd/react.production.min.js",
@@ -1153,7 +1177,7 @@ async function _igAutoConfig() {
   const interval = Number(latest.IG_AUTOMATION_INTERVAL || 15);
   const dailyLimit = Number(latest.IG_AUTOMATION_DAILY_LIMIT ?? IG_AUTO_LIMITE_DIARIO);
   return {
-    enabled: latest.IG_AUTOMATION_ENABLED !== "off",
+    enabled: latest.IG_AUTOMATION_ENABLED !== "off" && (await sistemaGeralLigado()),
     interval: Number.isFinite(interval) ? Math.max(15, interval) : 15,
     dailyLimit: Number.isFinite(dailyLimit) ? Math.max(0, Math.floor(dailyLimit)) : IG_AUTO_LIMITE_DIARIO,
     categories: new Set(categories),
@@ -2235,6 +2259,16 @@ async function handleReelsSetSource(req, res, body) {
 
 async function handleReelsRenderJob(req, res, body) {
   if (!_igCronAuthorized(req, body) && !checkAdmin(req, body)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  // 14/11/2026 — Interruptor Geral: esta função roda a cada ~10min, 24h,
+  // SEM NENHUM gate de automação até este pedido — REELS_AUTOMATION_ENABLED
+  // só controlava a publicação, nunca a captura/download/ffmpeg/upload do
+  // vídeo em si (exatamente o que Roberto apontou: "isso deve interromper
+  // e ligar a captura de videos para os reels tambem"). Esta função é
+  // sempre o worker genérico "pega o próximo item da fila" — nunca uma
+  // ação específica de Roberto em um Reel (essas são reels_set_source/
+  // reels_set_layout/reels_aprovar/reels_publish, ações próprias, não
+  // tocadas por este gate) — então bloquear aqui sempre é seguro.
+  if (!(await sistemaGeralLigado())) return res.status(200).json({ ok: true, job: null, reason: "sistema_geral_pausado" });
 
   // 21/09/2026 — 🔴 causa raiz real confirmada com dado de produção (13.887
   // posts têm updated_at mais antigo que um vídeo pendente de 9h atrás, e
@@ -2920,7 +2954,8 @@ async function _reelsAutoConfig() {
   return {
     // Fail-closed: preparar o vídeo continua automático, mas publicar só
     // acontece depois de Roberto ligar explicitamente no Admin.
-    enabled: latest.REELS_AUTOMATION_ENABLED === "on",
+    // 14/11/2026 — + Interruptor Geral (sistemaGeralLigado()).
+    enabled: latest.REELS_AUTOMATION_ENABLED === "on" && (await sistemaGeralLigado()),
     lastRun: Number(latest.REELS_AUTOMATION_LAST_RUN || 0)
   };
 }

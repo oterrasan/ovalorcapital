@@ -38,7 +38,13 @@ const VICIO_IA = ["vale destacar","cabe ressaltar","nesse contexto","diante dess
 const STOCK_IMAGE_CATS = new Set(["economia","negocios","financas","industria","tecnologia","familia"]);
 const SENSITIVE_IMAGE_RE = /(agress|acus|crime|prisao|morte|morre|ferid|violencia|guerra|ataque|terror|homicidio|assassin|queda|aviao|acidente|sequest|abuso|denuncia|corrup|operacao|policia|policial|manifest|protest|pcc|comando vermelho|comando-vermelho|faccao|fac-cao)/i;
 
-async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); return data?.value === "on"; } catch (_) { return false; } }
+// 14/11/2026 — Interruptor Geral, a pedido explícito de Roberto: "um
+// interruptor... capaz de parar TODO O SISTEMA e LIGAR todo o sistema".
+// Mesma chave/helper duplicado em api/manage.js e brasilon/api/manage.js
+// (zero import cruzado, convenção já usada no projeto). Fail-closed em
+// erro de leitura, mesmo padrão de automacaoAtiva() abaixo.
+async function sistemaGeralLigado() { try { const { data } = await supabase.from("config").select("value").eq("key", "SISTEMA_LIGADO").limit(1); return !(data && data[0] && data[0].value === "off"); } catch (_) { return false; } }
+async function automacaoAtiva() { try { const { data } = await supabase.from("config").select("value").eq("key", "AUTOMATION").single(); if (data?.value !== "on") return false; return await sistemaGeralLigado(); } catch (_) { return false; } }
 // 29/09/2026 — generalizado pra aceitar publish_method (era fixo em "portal",
 // só servia pra autoMaterias). Reaproveitado agora pelo teto diário do Radar
 // do Esporte — ver comentário em cima de ESPORTES_LIMITE_DIARIO_PADRAO.
