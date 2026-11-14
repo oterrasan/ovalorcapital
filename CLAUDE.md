@@ -10357,3 +10357,139 @@ Investigando mais a fundo o timing exato, foi encontrado algo que ninguém tinha
 article.js  category.js  ig-handler.js  institutional.js  landing.js
 live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 ```
+
+---
+
+### Sessão 13-14/11/2026 — FILTROS DO ADMIN, PAUSA/REDESIGN DE VOLUME, NOVO CANAL ECONOMIA/MERCADO/FINANÇAS, BLOQUEIO REAL DE ESPORTES NO INSTAGRAM DO OVC, INTERRUPTOR GERAL, JANELA 06H-00H PRO PIPELINE INTEIRO (INCLUINDO ESPORTES)
+
+> Sessão longa, com Roberto dando uma sequência de ordens diretas em cadeia. Registrado tudo em ordem, com os pedidos verbatim e o que foi verificado com dado real em cada etapa — por pedido explícito dele ("atualize totalmente o md com tudo o que conversamos, executamos e deixamos pendentes para fazer, insira tudo o que tivemos de atividades nos ultimos dias").
+
+#### 1) Admin — filtros de Matérias reorganizados
+
+Roberto: *"CLAUDE, VOCE PRECISA MELHORAR OS FILTROS - TA MISTURANDO TUDO, OLHA BEM COMO ISSO ESTÁ E ORGANIZA OS FILTROS, NAO MEXE EM NADA QUE EU NAO TENHA PEDIDO. OK? COM AS MUDANCAS QUE FIZEMOS, NAO TEM FILTROS SUFICIENTES"*.
+
+- O filtro único de 8 opções (misturando "tem vídeo?" com "estágio do Reel?") foi dividido em dois `<select>` separados, aplicados em AND: 🎬 Vídeo (sem/com) e 🎞️ Reel (aguardando/montando/fila/erro/reel).
+- "Origem" expandido de 3 opções (uma delas morta, `manual`) pra 9 opções reais, cobrindo todos os `publish_method` em uso: `portal`, `link_manual`, `esportes_radar`, `brasilon`, `jovempan_politica`, `internacional`, `fofocas`, `colunista`.
+
+#### 2) Pausa total do sistema (ordem emergencial)
+
+Roberto: *"CLAUDE, QUERO QUE VOCE PAUSE TODO O SISTEMA AGORA. PRECISAMOS AJUSTAR A ROTA E É AGORA. PAUSE TUDO, AUTOMACOES, VIDEOS, FEED, CAPTURAS DAS FONTES PARA PORTAL, PARA INSTAGRA, ETC... ENFIM, TUDO. PAUSE TUDO."*
+
+- Removidos os 10 crons de conteúdo/Instagram de `vercel.json` (ficaram só `refresh_token`/`limpar_gemini_budget_antigo`); `crons:[]` em `brasilon/vercel.json`; `schedule:` removido de `instagram-auto.yml`.
+- Flags desligadas: `AUTOMATION`, `IG_AUTOMATION_ENABLED`, `BON_IG_ENABLED`, `REELS_AUTOMATION_ENABLED`, `BON_REEL_ENABLED`.
+- Tudo confirmado parado com evidência real (consulta antes/depois de cada flag + deploy confirmado dos 3 arquivos tocados).
+
+#### 3) Redesign colaborativo do volume do pipeline
+
+Roberto: *"PRECISAMOS REVER TODO O FLUXO DE MATERIA QUE ESTÁ INDO PRO AR NO OVC... NAO QUERO MAIS ESSE VOLUME TODO, QUE NAO ESTÁ ADIANTANDO DE NADA. QUERO NO MÁXIMO 50 ARTIGOS POR DIA. E VAMOS PENSAR AQUI AGORA JUNTOS COMO FAZER ISSO."*
+
+Decisões reais fechadas por ele, em sequência de mensagens:
+- Esportes nunca mais vai pro Instagram do OVC — só site e Instagram do Brasil ON, com volume "bem menor que o que existe hoje".
+- "fofocas" = Giro (confirmado via leitura de código — correção de uma leitura errada minha).
+- OVC "dedicado a tudo", mas o "tudo" (giro/esportes/etc) no máximo 15% do volume; 85%+ é conteúdo principal (política, economia, finanças, negócios, empreendedorismo, indústria, internacional).
+- Brasil ON (Bacci) e Jovem Pan Política ficam 100% como estão, "com bastante ênfase" — não tocar em nada neles.
+- Pipeline geral/matérias RSS fica igual — ele cura manualmente, não publica a maior parte do que é gerado.
+- Pedido explícito: *"e quero que aumente os conteudos de economia, mercado, financas, etc"* — autorizado com *"pode executar e colocar pra rodar."*
+
+⚠️ **Nota real, não escondida**: o desenho fino desta parte (teto geral de 50/dia pro OVC e a proporção 15%/85%) nunca chegou a ser implementado como mecanismo automático — a conversa seguiu direto pra reativação total, depois pro bloqueio de esportes no Instagram e pro corte específico do Radar do Esporte, antes de fechar esse ponto. Fica como pendência real (ver lista no final).
+
+#### 4) Novo canal: Economia/Mercado/Finanças — construído e verificado em produção
+
+Fontes reais, testadas ao vivo antes de escolher (com `-L` seguindo redirect — a 1ª rodada de teste sem isso fez Money Times/Valor Econômico/Brazil Journal parecerem mortos por engano, só por retornarem HTTP 301): **Valor Econômico** (`http://pox.globo.com/rss/valor` — as duas URLs cogitadas, `/rss` e `/financas/rss`, resolvem pro MESMO feed, documentado pra não tratar como 2 fontes), **Money Times**, **Seu Dinheiro**. InfoMoney testado e descartado — feed com `<channel>` válido mas ZERO `<item>`, não é bug de parsing, é vazio mesmo.
+
+- `core/economia.js` (novo) — `FONTES_ECONOMIA`, `pareceConteudoPromocional()`, `buscarCandidatosEconomia()` (combina os 3 feeds round-robin, via `rss-parser`, já dependência do projeto).
+- `core/ai_portal.js` — `ECONOMIA_KERNEL` (tom Reuters/Valor/Bloomberg, preserva números/percentuais exatos, cabeçalho "Redação OVC" + rodapé de 10 hashtags, MASTER_PROMPT intocado — Regra Zero-B) + `rewriteEconomia()`.
+- `api/run_portal.js` — `autoEconomia()`/`salvarEconomia()`, dispatch via `tipo=economia_mercado`. Categoria: Valor Econômico → `economia`; Money Times + Seu Dinheiro → `financas` (⚠️ **esse split nunca foi confirmado palavra por palavra por Roberto** — só o plano geral foi aprovado).
+- `scrape()` chamado com `allowCompetitorImage:true` (Valor/Seu Dinheiro/InfoMoney estão em `COMPETITOR_IMG_HOSTS`, mesmo padrão já usado pra Jovem Pan Política/Futebol).
+- **Testado em produção, 2 posts reais confirmados** via consulta direta ao Supabase: `facc9eac-2fb3-46b1-929b-fed869250a12` ("Bolsas de Nova York recuam com saída na Nvidia e tensões geopolíticas") e `2921bea5-9652-4bd0-85ba-e44f4b7fbbb8` ("B3 registra lucro líquido de R$ 1,4 bilhão no terceiro trimestre de 2026") — categoria finanças, imagem própria no Storage, `publish_method:"economia_mercado"`, `status:"publicado"`. 1ª chamada deu `generated:0` (esperado — grace-period gate de `filtrarCandidatosProntos`, 1ª aparição de qualquer link num tag novo nunca é "pronto"); 2ª chamada confirmou `generated:2`.
+- Cron novo em `vercel.json`: `tipo=economia_mercado&count=3`, `18,38,58 0-2,9-23 * * *` (mesma janela 06h-00h BRT dos outros canais gerais, ver item 10).
+
+#### 5) Reativação total, exceto Reels
+
+Depois do canal novo pronto, Roberto (mensagem entregue no meio do turno anterior): *"assim que feito, ligue todo o sistema novamente. exceto os reels que eu monto e aprovo."*
+
+- Restaurados os 13 crons de `vercel.json` (10 antigos + o novo `economia_mercado` + os 2 fixos `refresh_token`/`limpar_gemini_budget_antigo`), os 2 crons de `brasilon/vercel.json`, o `schedule:` de `instagram-auto.yml`.
+- Flags: `AUTOMATION=on`, `IG_AUTOMATION_ENABLED=on`, `BON_IG_ENABLED=on`. `REELS_AUTOMATION_ENABLED=off`, `BON_REEL_ENABLED=off` — mantidos off, por pedido explícito ("os reels que eu monto e aprovo" = continuam 100% manuais).
+- Confirmado por leitura de código (`_igAutoFeedDeveEsperarReels()`/`_igAutoFeedDeveCederParaReel()`) que deixar Reels off NÃO bloqueia nem atrasa o feed — curto-circuita e segue normal.
+- Confirmado por leitura de código (`handleReelsAutoPublish` exige `metrics.instagram_reel_template.aprovado==="true"`, setado SÓ pela aprovação manual no admin) que Reels genuinamente não publicam sem clique de Roberto, independente do valor de `REELS_AUTOMATION_ENABLED`.
+
+#### 6) 🔴 "Isso eu já mandei você fazer há 2 dias" — vazamento real de esportes no feed do OVC, confirmado e corrigido
+
+Roberto, furioso, depois de ver o corte de 50% no Radar do Esporte reportado (item 7): *"Isso eu já mandei você fazer tem 2 dias. Por qual motivo ainda não fez? Fui claro sobre o conteudo que deve ir para o Instagram e o que não deve ir (OVC)"*.
+
+**Confirmado com dado real (não suposição)**: **10 matérias de esportes publicadas como post normal no feed do @ovalorcapital entre 27/10 e 11/11** (exatamente 2 dias antes desta conversa) — Chapecoense, F1, NFL, tênis, MMA, todas com `ig_id` real.
+
+Causa raiz, 2 furos reais encontrados por leitura de código:
+1. **Feed** — já havia um Set hardcoded excluindo "esportes" (adicionado em 12/11), mas o painel de categorias do admin (`IG_AUTOMATION_CATEGORIES`, salvo em `config`) podia **sobrescrever esse Set por completo** — marcar esportes ali reintroduziria o furo, sem passar por nenhum outro bloqueio. Fix: "esportes" removido de forma incondicional da lista final em `_igAutoConfig()`, não importa o que o painel tenha salvo.
+2. **Reels** — `handleReelsAprovar()` nunca teve NENHUM bloqueio de categoria (só existia a restrição inversa, exigindo categoria certa pra aprovar pro @obrasilon). Aprovar um Reel de esportes pra @ovalorcapital/@oterrasan sempre foi aceito. Fix: bloqueado na aprovação (mesmo padrão do bloqueio do @obrasilon) + defesa em profundidade no filtro de elegibilidade de `handleReelsAutoPublish` (cobre qualquer Reel que já tivesse sido aprovado antes do fix).
+
+**Verificado com dado real, não só o fix em si**: zero Reels de esportes JÁ publicados no OVC historicamente — o risco estava aberto nos Reels, mas nunca se materializou lá; só no feed, que já estava confirmado vazando.
+
+Esportes continua indo normal pro site e pro Instagram do Brasil ON — só as contas do OVC (feed e Reels) ficaram de fato fechadas pra esse conteúdo.
+
+#### 7) Corte de 50% no Radar do Esporte
+
+Roberto: *"Corte esportes em 50% do que o sistema produz hoje"*.
+
+Dado real, últimos 4 dias completos antes do pedido: **102, 102, 100, 96 posts/dia** (`publish_method=esportes_radar`) — colando exatamente no teto padrão hardcoded de 100/dia (`ESPORTES_LIMITE_DIARIO_PADRAO`, em `api/run_portal.js`), que nunca tinha sido configurado explicitamente na tabela `config`. Gravado `ESPORTES_LIMITE_DIARIO=50` — confirmado com consulta real antes (`[]`, a linha nunca existia) e depois (`50`).
+
+#### 8) "Ligue tudo e deixe tudo funcionando como se deve" — auditoria geral confirmada
+
+Checado com dado real, não suposição, antes de afirmar qualquer coisa: `AUTOMATION=on`, `IG_AUTOMATION_ENABLED=on`, `REELS_AUTOMATION_ENABLED=off`, `BON_IG_ENABLED=on`, `BON_REEL_ENABLED=off`, `ESPORTES_LIMITE_DIARIO=50`, `IG_AUTOMATION_CATEGORIES` ausente (governado pelo Set hardcoded, agora travado contra esportes), `MAX_POSTS_DIA=300`. Os 13 crons do `vercel.json` raiz, os 2 do `brasilon/vercel.json` e o `schedule` de `instagram-auto.yml` — todos presentes e corretos. Nada precisou mudar nesta etapa — tudo já estava no estado certo.
+
+#### 9) 🆕 Interruptor Geral — um único botão que para e liga TODO o sistema
+
+Roberto: *"quero que voce construa um interruptor e coloque no admin [...] este botao, deve ser capaz de parar TODO o sistema e LIGAR todo o sistema, eu repito e reforco, para nao haver duvidas, TODO O SISTEMA, TUDO! [...] isso deve interromper e ligar a captura de videos para os reels tambem."*
+
+- Nova chave única em `config`: `SISTEMA_LIGADO` (default "on" se ausente, fail-closed em erro de leitura — mesmo padrão já estabelecido em `automacaoAtiva()`).
+- Helper `sistemaGeralLigado()` duplicado (zero import cruzado, convenção já usada no resto do projeto) em `api/manage.js`, `api/run_portal.js` e `brasilon/api/manage.js` — mesmo Supabase, 3 deploys independentes.
+- Checado em AND com os flags já existentes, sem nunca sobrescrever/zerar eles — religar o Interruptor Geral devolve cada canal pro estado em que já estava configurado:
+  - `automacaoAtiva()` (`api/run_portal.js`) — único ponto, cobre TODOS os canais de geração de conteúdo: materias, futebol, outros_esportes, brasilon, jovempan_politica, internacional, fofocas, economia_mercado + robô do TikTok Metrópoles.
+  - `_igAutoConfig()`/`_reelsAutoConfig()` (`api/manage.js`) — feed e Reels automáticos do OVC.
+  - 🔴 `handleReelsRenderJob()` (`api/manage.js`) — **a captura/renderização de vídeo pra Reels em si**. Rodava a cada ~10min, 24h, SEM NENHUM gate até este pedido — `REELS_AUTOMATION_ENABLED` só controlava a PUBLICAÇÃO, nunca o preparo (download+ffmpeg+upload pra Meta). Exatamente o furo que Roberto apontou explicitamente.
+  - `readInstagramConfig()`/`handleSync()` (`brasilon/api/manage.js`) — feed e sync automáticos do Brasil ON.
+- NÃO bloqueia ação manual de Roberto (link_manual, publicar agora, aprovar/editar um Reel específico) — só automação por cron.
+- Admin: card "🔴 Interruptor Geral" no topo da página **Automação Instagram** (mesma área pedida), 1 botão só: "⏸ PARAR TUDO AGORA" / "▶ LIGAR TUDO AGORA".
+- Verificado antes do deploy: `node --check` nos 3 arquivos JS, sintaxe JSX validada via Babel real (`@babel/core`+`@babel/preset-react`), `api/` continua com 10 arquivos (Regra Zero-A), `public/index.html` intocado (Regra Zero-E). Deploy confirmado com sucesso nos dois portais (OVC + Brasil ON).
+
+#### 10) Janela 06h-00h BRT pro pipeline inteiro, todo dia — override explícito da regra "esportes nunca pausa"
+
+Roberto: *"nao tem o menor sentido o sistema seguir gerando conteudos 24hrs [...] quero que o sistema inicie as 06hrs e pare a meia noite. todos os dias será assim [...] me refiro ao pipeline do portal sobre o que alimenta o portal na web [...] fora dessa faixa de horario, o portal fica pausado descansando todos os dias."*
+
+Antes de aplicar, levantei o conflito real com a regra antiga e muito forte ("esportes nunca pausa — 2º/3º maior comando do OVC") e pedi confirmação explícita. Roberto resolveu sem ambiguidade: *"todo o sistema deve funcionar com a regra que estou definindo agora e é sua pripridade executar a ordem"* — ou seja, inclui o Radar do Esporte, supera a regra antiga.
+
+- Confirmado por leitura do `vercel.json` real, antes de qualquer mudança: `materias`, `brasilon`, `jovempan_politica`, `internacional`, `economia_mercado`, `fofocas` **já pausavam 00h-06h BRT** (cron `0-2,9-23` em horas UTC = ativo 06h-00h BRT, calculado hora a hora) — nenhum ajuste necessário neles.
+- `futebol` e `outros_esportes` (Radar do Esporte) eram os ÚNICOS sem nenhuma restrição de hora (24h/dia, `*/5 * * * *` e `6,26,46 * * * *`). Aplicado o mesmo padrão `0-2,9-23` nos dois.
+- Resultado: os 8 canais de geração de conteúdo do pipeline do portal ficam uniformemente ativos 06h-00h BRT, pausados 00h-06h BRT, todo santo dia.
+- Automações de Instagram (feed/Reels/collab/dispatch de render) e manutenção (refresh_token, limpeza de orçamento Gemini) NÃO foram tocadas — fora do escopo que Roberto definiu explicitamente ("me refiro ao pipeline do portal... o que alimenta o portal na web"); Instagram já tem janela própria estabelecida em sessão anterior.
+- Commit isolado (Regra Zero-F — `vercel.json` é arquivo crítico de deploy), deploy confirmado com sucesso.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (confirmado, inalterado em toda a sessão)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (13-14/11/2026)
+
+| Sistema | Status |
+|---|---|
+| **Filtros de Matérias reorganizados** (vídeo × estágio do Reel separados, Origem com 9 opções reais) | ✅ EM PRODUÇÃO |
+| **Pausa total do sistema** (emergencial, a pedido de Roberto) | ✅ CONFIRMADO com evidência real — depois revertida pela reativação total |
+| **Novo canal Economia/Mercado/Finanças** (Valor Econômico + Money Times + Seu Dinheiro) | ✅ EM PRODUÇÃO — testado end-to-end, 2 posts reais confirmados |
+| **Reativação total, Reels mantidos manuais** ("ligue tudo, exceto os reels que eu monto e aprovo") | ✅ CONFIRMADO com evidência real |
+| **Bloqueio real de esportes no Instagram do OVC** (feed: furo do painel de categorias fechado; Reels: bloqueio criado do zero, não existia nenhum) | ✅ EM PRODUÇÃO — vazamento real confirmado (10 posts, 27/10-11/11) e corrigido |
+| **Corte de 50% no Radar do Esporte** (`ESPORTES_LIMITE_DIARIO=50`, baseado em dado real de 100/dia) | ✅ EM PRODUÇÃO |
+| **Auditoria geral de flags/crons** ("ligue tudo e deixe funcionando como deve") | ✅ CONFIRMADO — nada precisou mudar |
+| **Interruptor Geral** (1 botão, para/liga TUDO, inclusive a captura de vídeo pra Reels) | ✅ EM PRODUÇÃO — testado e deployado nos 2 portais |
+| **Janela 06h-00h BRT pro pipeline do portal inteiro, incluindo esportes** | ✅ EM PRODUÇÃO — override explícito da regra antiga, confirmado por Roberto |
+
+### 🔧 Pendências reais para a próxima sessão
+
+1. **Confirmar com Roberto o split de categoria do canal Economia** (Valor Econômico→economia, Money Times+Seu Dinheiro→finanças) — nunca confirmado palavra por palavra, só o plano geral foi aprovado.
+2. **O desenho fino do teto geral "máximo 50 artigos/dia" pro OVC e a proporção 15% giro/esportes / 85%+ conteúdo principal** — discutido e combinado em palavras, nunca implementado como mecanismo automático de verdade. Só retomar se Roberto voltar a esse ponto explicitamente.
+3. **Confirmar com Roberto, ao vivo**, que o botão Interruptor Geral funciona como esperado quando ele clicar (código e deploy confirmados, mas nunca observado sendo clicado de fato).
+4. **Confirmar, ao longo de um dia real**, que a nova janela 06h-00h BRT (incluindo esportes) está sendo respeitada de fato — validado só por cálculo/leitura do cron, nunca observado rodando um ciclo completo.
+5. **Monitorar se o corte de 50/dia do Radar do Esporte somado à nova pausa noturna** não reduz demais o volume real gerado por esse canal — os dois cortes foram feitos em momentos separados, nunca medidos juntos.
+6. Demais pendências de sessões anteriores seguem válidas (ver lista completa na sessão de 03-06/11/2026 acima): tokens de `adriana.ferreirasp`/`souabetaferreira` sem `instagram_manage_engagement`; `amichelefroes` sem `ig_user_id`; Insights real do Instagram no admin; lista de URLs pra reindexação manual no Search Console; migrar watchdog (`api-health-check.yml`/`cost-monitor.yml`) pro cron nativo da Vercel; conversa sobre tom editorial mais "tiro, porrada e bomba" (pausada, 2 perguntas minhas sem resposta); `buildHeader()` de `api/institutional.js` com taxonomia extinta de 19 categorias; trocar a senha-mestra do admin (`ADMIN_PASS`) como camada extra de segurança pós-vazamento de 5 meses.
