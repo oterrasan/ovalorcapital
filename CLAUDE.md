@@ -10844,3 +10844,51 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto, no próximo post real do Flávio no Instagram**, que o `@com.flavio.breghiroli.garcia` aparece marcado como colaborador.
 2. **Se Roberto quiser estender pros outros colunistas sem handle confirmado** (Pizzolatto, Taísa) — pedir o Instagram real deles antes de adicionar ao mapa, nunca adivinhar.
 3. Demais pendências de sessões anteriores seguem válidas.
+
+---
+
+### Sessão 16/11/2026 (continuação 3) — ACEITE AUTOMÁTICO DA COLAB QUANDO É A PRÓPRIA COLUNA (homologados vs. Flávio/Taísa)
+
+#### Contexto
+
+Roberto refinou o pedido anterior: *"Todo colunista, quando for um conteúdo para o portal lá no Instagram e for publicado a coluna, a collab deve ser adicionada naquele conteúdo [...] quando for uma coluna minha [...] o portal deve publicar e já me colocar com um aceite automático [...] Os outros perfis que a gente já tem homologado, também, quando for coluna deles, eles já entram como collab e aceite automático. O único que ainda não tem aceite automático é o Flávio e a Thaisa. Mas aí eles têm que receber a collab automática para aceitação manual."*
+
+Ou seja: a tag de colaborador (continuação anterior) não bastava — faltava o ACEITE automático do convite pra quem já está "homologado" (Roberto, Beta, Adriana, Michele), mantendo Flávio/Taísa só com a tag enviada, aguardando aceite manual deles no app.
+
+#### Causa raiz do porquê isso ainda não acontecia
+
+`acceptCollabsForMedia()` (`core/instagram.js`) tinha 2 bloqueios fixos, pensados pra um cenário DIFERENTE (tag de assunto, hoje desligada): `NEVER_AUTO_ACCEPT = {amichelefroes}` — bloqueio incondicional (feed e reel); `REEL_ONLY_AUTO_ACCEPT = {oterrasan}` — só auto-aceita em Reel, nunca em feed. Como a coluna de Roberto/Michele sempre usa o mesmo tag genérico `"feed"` dos dois bloqueios, o convite dela nunca passava do aceite manual — mesmo já estando tagueada desde a continuação anterior.
+
+#### O que foi feito
+
+- **`core/instagram.js`'s `publish()`** — nova tag `"feed_coluna"` (em vez de `"feed"`), usada só quando `opts.colunistaCollab === true` (setado pelo caller quando `collaboratorForColunista(post)` encontrou um dono real).
+- **`acceptCollabsForMedia()`** — os 2 gates de bloqueio passam a abrir exceção pra essa tag: `tag !== "feed_coluna" && NEVER_AUTO_ACCEPT.has(username)` (era incondicional) e `tag === "feed" && REEL_ONLY_AUTO_ACCEPT.has(username)` (era `tag !== "reel"`). Com `"feed_coluna"`, os dois bloqueios somem e o fluxo cai direto na busca por conta conectada (`ig_accounts`, com token) — se existir (Roberto/Beta/Adriana/Michele, "homologados"), aceita+curte sozinho; se não existir (Flávio/Taísa, sem conta API conectada), cai sozinho em "conta_nao_encontrada_ou_sem_token" e fica pendente de aceite manual — **sem precisar de nenhuma lista de exceção pra eles**, é consequência natural de não terem token cadastrado.
+- **`api/manage.js`** — os 2 pontos de publicação de feed (`handleIgPublish`, `_publicarPostFeedAutomatico`) passam `colunistaCollab: Boolean(colunistaHandle)` junto com o `collaborator`.
+- Reel não tocado — comportamento de Reel de Michele/oterrasan continua idêntico (só "feed_coluna" abre a exceção, nunca "reel").
+
+#### Verificação
+
+- `node --check` limpo nos 2 arquivos.
+- Gates testados isolados em Node (harness local, réplica exata da lógica): `oterrasan`/`amichelefroes`/`souabetaferreira`/`adriana.ferreirasp`/`com.flavio.breghiroli.garcia` com tag `"feed_coluna"` → todos passam os bloqueios e seguem pra busca de conta (Flávio só fica manual porque não tem token, não por bloqueio de código). Com tag `"feed"` (o caminho antigo, hoje nunca usado na prática): `oterrasan` e `amichelefroes` continuam bloqueados, idêntico a antes — confirma zero regressão no comportamento pré-existente. Com tag `"reel"`: `amichelefroes` continua bloqueada, `oterrasan` continua passando — ambos inalterados.
+- `api/` continua com exatamente 10 arquivos (Regra Zero-A).
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação 3)
+
+| Sistema | Status |
+|---|---|
+| **Aceite + curtida automáticos na colab da própria coluna** (Roberto, Beta, Adriana, Michele) | ✅ CÓDIGO PRONTO — aguardando merge/deploy e um post real pra confirmar em produção |
+| **Flávio/Taísa continuam só com a tag enviada, aceite manual** (consequência natural de não terem conta conectada, sem lista de exceção) | ✅ CÓDIGO PRONTO |
+| **Comportamento pré-existente de `"feed"`/`"reel"` genérico — zero regressão** | ✅ CONFIRMADO via teste isolado de gates |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto, na coluna dele de hoje à noite**, que ao publicar no Instagram o convite já sai aceito e curtido sozinho.
+2. Confirmar o mesmo pro próximo conteúdo de Beta/Adriana/Michele que for coluna (subcategoria_slug delas).
+3. Demais pendências de sessões anteriores seguem válidas.

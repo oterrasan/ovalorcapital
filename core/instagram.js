@@ -326,8 +326,21 @@ export async function publish(imageUrl, caption, accountId, opts = {}) {
   // 17/09/2026, Roberto: "demorar 40 minutos... é inadmissível". Sem cron:
   // já sabemos o media_id e quem foi convidado, aceitamos direto por
   // media_id. Best-effort — nunca pode quebrar a publicação em si.
+  // 16/11/2026 — Roberto: "quando for a coluna [do próprio colunista],
+  // o portal deve publicar e já me colocar com aceite automático [...] os
+  // outros perfis que a gente já tem homologado também, quando for coluna
+  // deles, já entram como collab e aceite automático. O único que ainda
+  // não tem aceite automático é o Flávio e a Thaisa." Tag própria
+  // "feed_coluna" (ver opts.colunistaCollab, setado pelo caller via
+  // collaboratorForColunista) — acceptCollabsForMedia ignora
+  // NEVER_AUTO_ACCEPT/REEL_ONLY_AUTO_ACCEPT só pra essa tag. Flávio/Taísa
+  // continuam manuais na prática sem nenhuma lista de exceção: o handle
+  // real deles não tem conta cadastrada em ig_accounts (sem token), então
+  // o lookup lá dentro nunca encontra nada e o convite fica pendente —
+  // exatamente como Roberto descreveu.
+  const tagConvite = opts.colunistaCollab ? "feed_coluna" : "feed";
   if (collaborators.length && !createData.__collaboratorsSkipped) {
-    try { await acceptCollabsForMedia(pubData.id, collaborators, "feed"); } catch (_) {}
+    try { await acceptCollabsForMedia(pubData.id, collaborators, tagConvite); } catch (_) {}
   }
 
   return { id: pubData.id, account_id: account.id, username: account.username, quota_before: limit };
@@ -611,18 +624,25 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     // acima) — aceite automático pra todos eles, só em Reel. Feed continua
     // sem exceção nenhuma (NEVER_AUTO_ACCEPT vale igual antes).
     const reelAutoAcceptException = tag === "reel" && REEL_COLLABORATORS.includes(username);
-    // 12/11/2026 — bloqueio da Michele agora é incondicional (sem brecha
-    // de reelAutoAcceptException) — ela continua TAGGED no Reel (segue em
-    // REEL_COLLABORATORS, pra aparecer o convite de verdade), mas nunca
-    // aceita/curte sozinha, nem em feed nem em Reel. Checado ANTES do
-    // gate de Reel pra garantir que nada mais abaixo a libere.
-    if (NEVER_AUTO_ACCEPT.has(username)) {
+    // 12/11/2026 — bloqueio da Michele era incondicional (sem brecha de
+    // reelAutoAcceptException) em feed/reel genérico — continua TAGGED no
+    // Reel (segue em REEL_COLLABORATORS, pra aparecer o convite de
+    // verdade), mas nunca aceita/curte sozinha fora da exceção abaixo.
+    // 16/11/2026 — Roberto: "os outros perfis que a gente já tem
+    // homologado, quando for coluna deles, já entram como collab e
+    // aceite automático" — tag==="feed_coluna" (coluna da PRÓPRIA pessoa,
+    // ver collaboratorForColunista/opts.colunistaCollab em publish())
+    // é a ÚNICA brecha pro bloqueio incondicional da Michele. Checado
+    // ANTES do gate de Reel pra garantir que nada mais abaixo a libere
+    // fora dessa exceção.
+    if (tag !== "feed_coluna" && NEVER_AUTO_ACCEPT.has(username)) {
       return { username, skipped: true, reason: "perfil_com_aceite_manual" };
     }
     // 12/11/2026 — oterrasan (perfil pessoal de Roberto) só auto-aceita em
-    // Reel. Num post de FEED (OVC ou Brasil ON) o convite sempre fica pra
-    // aceite manual no app, mesmo não vindo de REEL_COLLABORATORS/tag=reel.
-    if (tag !== "reel" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
+    // Reel ou na própria coluna dele (tag==="feed_coluna", 16/11/2026).
+    // Em qualquer outro post de FEED (OVC ou Brasil ON) o convite sempre
+    // fica pra aceite manual no app.
+    if (tag === "feed" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
       return { username, skipped: true, reason: "feed_aceite_manual" };
     }
     if (tag === "reel" && !conviteParaOvc && !reelAutoAcceptException) {
