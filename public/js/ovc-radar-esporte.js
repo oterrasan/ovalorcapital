@@ -1,12 +1,29 @@
 /**
  * ovc-radar-esporte.js — Radar do Esporte • Widget independente
- * REGRA ZERO-I: 100% independente — não afeta home.js nem ovc-cards.js
- * Substitui o antigo "Radar do Futebol" (ovc-futebol.js) — agora cobre
- * TODAS as subcategorias oficiais de esportes (admin/index.html SUBCATS.esportes):
- * Futebol, Basquete, Motor, Tênis, MMA, Vôlei, NFL — divididas em abas.
- * 18/08/2026 — Roberto: movido do rail direito para o rail esquerdo
- * (.rail-left), empilhado abaixo do Radar Eleitoral e do Pulso BR — o rail
- * direito agora é exclusivo da TV OVC. Ver injetar() para a âncora exata.
+ * REGRA ZERO-I: 100% independente — não toca em home.js, ovc-cards.js nem em
+ * internal-page-v2.js (lido só via polling defensivo, mesmo padrão já usado
+ * por ovc-interruptor-artigo.js — internal-page-v2.js é "EXTREMAMENTE FRÁGIL"
+ * e muito assíncrono: nunca alterado por este arquivo).
+ *
+ * 16/11/2026 — Roberto: "remova o radar do esporte da home e concentre tudo
+ * o que existe nele, dentro da categoria de esportes." Removido de
+ * public/index.html; agora vive exclusivamente em public/esportes/index.html
+ * (o hub /esportes/, data-section="geral"). NUNCA roda nas 13 páginas
+ * dedicadas por esporte (data-section !== "geral") — essas já têm seus
+ * próprios widgets ao vivo (ovc-radar-motor.js, ovc-torneio-espn.js etc.),
+ * duplicar aqui seria redundante.
+ *
+ * Cobre TODAS as subcategorias oficiais de esportes (admin/index.html
+ * SUBCATS.esportes): Futebol, Basquete, Motor, Tênis, MMA, Vôlei, NFL —
+ * divididas em abas.
+ *
+ * Ponto de injeção: #cat-centro-area (criado por internal-page-v2.js, nunca
+ * tem seu innerHTML reatribuído por inteiro — só os filhos #cat-hero-slot/
+ * #cat-main-grid/#cat-more-list são, de forma assíncrona, quando o fetch de
+ * posts da categoria resolve). Inserir como PRIMEIRO FILHO desse container
+ * (antes de #cat-hero-slot) evita ser apagado por esse fetch — inserir
+ * DENTRO de #cat-hero-slot seria sobrescrito na hora (heroSlot.innerHTML=...)
+ * assim que a categoria tiver qualquer post, o que é sempre o caso aqui.
  */
 (function () {
   'use strict';
@@ -28,7 +45,7 @@
   }
   function slugify(s) {
     return String(s||'').toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .normalize('NFD').replace(/\p{Mn}/gu,'')
       .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,55);
   }
   function buildHref(p) {
@@ -80,107 +97,63 @@
     sty.textContent = [
       '@keyframes esporte-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}',
       '@keyframes esporte-shine{0%{transform:translateX(-120%) skewX(-15deg)}100%{transform:translateX(220%) skewX(-15deg)}}',
-      /* Altura fixa compartilhada com .ovc-eleitoral-rail (ovc-eleitoral.js) —
-         os dois widgets ficam lado a lado no topo dos rails da Home e devem
-         começar e terminar exatamente na mesma posição. Mudar aqui? Mudar lá também.
-         box-sizing:border-box trava a altura total em 740px INCLUINDO a borda —
-         sem isso, bordas de espessuras diferentes entre os dois widgets somam
-         2px extras fora do height declarado e desalinham o fim dos dois blocos. */
-      '.ovc-esporte-rail{margin-bottom:18px;border-radius:12px;overflow:hidden;box-sizing:border-box;',
-      '  border:1px solid #064e3b;box-shadow:0 10px 30px -12px rgba(6,78,59,.45);',
-      '  height:740px;display:flex;flex-direction:column;}',
+      '.ovc-esporte-rail{margin-bottom:24px;border-radius:14px;overflow:hidden;box-sizing:border-box;',
+      '  border:1px solid #064e3b;box-shadow:0 12px 32px -14px rgba(6,78,59,.45);display:flex;flex-direction:column;}',
       '.ovc-esporte-header{background:linear-gradient(150deg,#059669 0%,#065f46 55%,#0f172a 115%);',
-      '  padding:14px 16px 16px;position:relative;overflow:hidden;flex-shrink:0;}',
-      '.ovc-esporte-header::before{content:"🏆";position:absolute;right:-10px;top:-12px;font-size:64px;opacity:.12;',
+      '  padding:18px 22px 20px;position:relative;overflow:hidden;flex-shrink:0;cursor:pointer;}',
+      '.ovc-esporte-header::before{content:"🏆";position:absolute;right:-6px;top:-14px;font-size:76px;opacity:.12;',
       '  transform:rotate(-18deg);}',
       '.ovc-esporte-shine{position:absolute;top:0;left:0;width:35%;height:100%;',
       '  background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);',
       '  animation:esporte-shine 4.5s ease-in-out infinite;pointer-events:none;}',
-      '.ovc-esporte-live-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;position:relative;}',
-      '.ovc-esporte-dot{display:inline-block;width:8px;height:8px;background:#facc15;border-radius:50%;',
+      '.ovc-esporte-live-row{display:flex;align-items:center;gap:7px;margin-bottom:8px;position:relative;}',
+      '.ovc-esporte-dot{display:inline-block;width:9px;height:9px;background:#facc15;border-radius:50%;',
       '  animation:esporte-pulse 1s ease-in-out infinite;flex-shrink:0;',
-      '  box-shadow:0 0 8px 1px rgba(250,204,21,.7);}',
-      '.ovc-esporte-live-txt{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#facc15;}',
-      '.ovc-esporte-title{font-size:16px;font-weight:900;color:#fff;letter-spacing:-.01em;line-height:1.15;',
+      '  box-shadow:0 0 9px 1px rgba(250,204,21,.7);}',
+      '.ovc-esporte-live-txt{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#facc15;}',
+      '.ovc-esporte-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.01em;line-height:1.15;',
       '  position:relative;text-shadow:0 2px 10px rgba(0,0,0,.25);}',
-      '.ovc-esporte-sub{font-size:10.5px;color:rgba(255,255,255,.8);margin-top:4px;position:relative;',
+      '.ovc-esporte-sub{font-size:12px;color:rgba(255,255,255,.82);margin-top:6px;position:relative;',
       '  letter-spacing:.01em;}',
-      /* Grid de 7 colunas fixas — Roberto: "nao da pra ter um menu de esportes
-         que empurra pra os lados... precisam estar fixados e sempre a vista".
-         Antes era flex nowrap + overflow-x:auto (scroll horizontal escondido,
-         sem indicação visual) — usuário não descobria que dava pra rolar e
-         via só 2-3 esportes. Grid força as 7 abas sempre visíveis de uma vez,
-         cada uma ocupando exatamente 1/7 da largura, sem scroll algum. */
-      '.ovc-esporte-tabs{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:9px 8px 7px;',
+      '.ovc-esporte-tabs{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:14px 16px 12px;',
       '  background:var(--bg-elevated,#fff);border-bottom:1px solid var(--border-subtle,#e2e8f0);flex-shrink:0;}',
-      '.ovc-esporte-tab{border:1.5px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:9px;',
-      '  padding:6px 2px 5px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;',
-      '  align-items:center;justify-content:center;gap:2px;min-width:0;}',
-      '.ovc-esporte-tab-emoji{font-size:19px;line-height:1;}',
-      /* Rótulo de texto (label) REMOVIDO visualmente — bug real reportado por
-         Roberto 12/08/2026 (screenshot): com 7 abas espremidas em 270px de
-         rail, cada uma tinha só ~28px de largura útil — "Futebol", "Basquete",
-         "Motor", "Tênis", "MMA", "Vôlei" a 7px de fonte truncavam com
-         text-overflow:ellipsis para lixo ilegível tipo "F…", "B…", "M…"
-         (Motor E MMA colidindo no mesmo "M…"), "T…", "V…". Emoji sozinho
-         (19px, glifo único) nunca trunca e já é reconhecível por esporte —
-         o nome completo continua acessível via title/aria-label no <button>
-         (tooltip ao passar o mouse) e via classe sr-only visualmente oculta
-         mas lida por leitor de tela. NÃO reverter para mostrar texto de novo
-         sem alargar a largura do rail (que é compartilhada com
-         .ovc-eleitoral-rail — ver nota acima sobre altura).*/
-      '.ovc-esporte-tab-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;',
-      '  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}',
+      '.ovc-esporte-tab{border:1.5px solid var(--border-subtle,#e2e8f0);background:transparent;border-radius:10px;',
+      '  padding:9px 2px 7px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;',
+      '  align-items:center;justify-content:center;gap:4px;min-width:0;}',
+      '.ovc-esporte-tab-emoji{font-size:21px;line-height:1;}',
+      '.ovc-esporte-tab-label{font-size:10.5px;font-weight:700;color:var(--text-soft,#475569);',
+      '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}',
       '.ovc-esporte-tab:hover{border-color:#059669;transform:translateY(-1px);}',
       '.ovc-esporte-tab.active{border-color:var(--sport-accent,#059669);',
       '  background:var(--sport-accent,#059669);box-shadow:0 3px 10px -3px var(--sport-accent,#059669);}',
-      '.ovc-esporte-body{background:var(--bg-elevated,#fff);padding:10px 12px;flex:1 1 auto;overflow:hidden;',
-      '  display:flex;flex-direction:column;min-height:0;}',
-      '.ovc-esporte-article-list{flex:1 1 auto;display:flex;flex-direction:column;justify-content:space-evenly;overflow:hidden;}',
-      '.ovc-esporte-article{display:block;padding:10px 4px;border-bottom:1px solid var(--border-subtle,#e2e8f0);',
-      '  text-decoration:none;transition:all .14s;border-left:3px solid transparent;margin-left:-4px;',
-      '  padding-left:8px;border-radius:4px;}',
+      '.ovc-esporte-tab.active .ovc-esporte-tab-label{color:#fff;}',
+      '.ovc-esporte-body{background:var(--bg-elevated,#fff);padding:14px 16px;}',
+      '.ovc-esporte-article-list{display:block;}',
+      '.ovc-esporte-article{display:block;padding:12px 6px;border-bottom:1px solid var(--border-subtle,#e2e8f0);',
+      '  text-decoration:none;transition:all .14s;border-left:3px solid transparent;margin-left:-6px;',
+      '  padding-left:10px;border-radius:4px;}',
       '.ovc-esporte-article:last-child{border-bottom:none;}',
-      '.ovc-esporte-article:hover{padding-left:12px;border-left-color:var(--sport-accent,#059669);',
+      '.ovc-esporte-article:hover{padding-left:14px;border-left-color:var(--sport-accent,#059669);',
       '  background:rgba(5,150,105,.05);}',
-      '.ovc-esporte-artitle{font-size:12.5px;font-weight:650;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:3px;',
+      '.ovc-esporte-artitle{font-size:14.5px;font-weight:650;color:var(--text-main,#0f172a);line-height:1.4;margin-bottom:4px;',
       '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}',
-      '.ovc-esporte-artmeta{font-size:10px;color:var(--sport-accent,#059669);font-weight:700;',
+      '.ovc-esporte-artmeta{font-size:11px;color:var(--sport-accent,#059669);font-weight:700;',
       '  text-transform:uppercase;letter-spacing:.02em;}',
-      '.ovc-esporte-empty{font-size:12px;color:#64748b;margin:0;padding:14px 4px;text-align:center;}',
+      '.ovc-esporte-empty{font-size:13px;color:#64748b;margin:0;padding:18px 4px;text-align:center;}',
       '.ovc-esporte-cta{display:flex;align-items:center;justify-content:space-between;',
-      '  padding:11px 14px;background:linear-gradient(90deg,#ecfdf5,#f0fdfa);border-top:1px solid #a7f3d0;flex-shrink:0;',
-      '  text-decoration:none;font-size:11.5px;font-weight:800;color:#065f46;',
+      '  padding:13px 16px;background:linear-gradient(90deg,#ecfdf5,#f0fdfa);border-top:1px solid #a7f3d0;flex-shrink:0;',
+      '  text-decoration:none;font-size:12.5px;font-weight:800;color:#065f46;',
       '  transition:background .15s;}',
       '.ovc-esporte-cta:hover{background:linear-gradient(90deg,#d1fae5,#ccfbf1);}',
-      /* Variante mobile — ver injetar(). Em telas <=768px, public/css/
-         responsive.css aplica ".rail-right{display:none}" (todo o rail
-         direito some — Copa, Eleitoral, Mais Lidos, TV, banner: TODOS os
-         widgets desse rail ficam invisíveis no celular, não é bug deste
-         arquivo). Confirmado ao vivo via Playwright em viewport 390x844
-         (12/08/2026): elemento existe no DOM mas isVisible:false,
-         boundingBox:null. Em vez de alterar responsive.css (mudaria o
-         comportamento de TODOS os outros widgets do rail — fora de escopo
-         e arriscado demais pra decidir sozinho), este widget também se
-         injeta no fluxo principal (entre o hero e os cards) quando o rail
-         estiver oculto — self-contained, não toca em home.js nem CSS
-         compartilhado. Bug real reportado por Roberto 12/08/2026.*/
-      '@media(max-width:768px){',
-      '  .ovc-esporte-rail.ovc-esporte-mobile{height:auto;grid-column:1;margin:0 0 18px;}',
-      '  .ovc-esporte-rail.ovc-esporte-mobile .ovc-esporte-body{overflow:visible;}',
-      '  .ovc-esporte-rail.ovc-esporte-mobile .ovc-esporte-article-list{overflow:visible;}',
-      '}',
-      /* 18/08/2026 — Roberto: "quero que os widgets virem expansiveis, fecham
-         por padrão, só o cabeçalho clicável, ao clicar expande e fica como já
-         é agora". Fechado = altura vira automática (só o header), tabs/body/
-         cta somem. Aberto = exatamente o comportamento de sempre (height fixo
-         de 740px no desktop, sincronizado com .ovc-eleitoral-rail). */
-      '.ovc-esporte-rail.ovc-esporte-collapsed{height:auto!important;}',
+      /* Fechado por padrão: só o cabeçalho visível, tabs/body/cta somem.
+         Na home (até 16/11/2026) o padrão era fechado — aqui, na página
+         /esportes/, é o conteúdo principal, então nasce ABERTO. O toggle
+         continua existindo (ver construirBloco) caso o usuário prefira
+         recolher. */
       '.ovc-esporte-rail.ovc-esporte-collapsed .ovc-esporte-tabs,',
       '.ovc-esporte-rail.ovc-esporte-collapsed .ovc-esporte-body,',
       '.ovc-esporte-rail.ovc-esporte-collapsed .ovc-esporte-cta{display:none;}',
-      '.ovc-esporte-header{cursor:pointer;}',
-      '.ovc-esporte-toggle{position:absolute;right:12px;top:12px;font-size:13px;color:rgba(255,255,255,.85);',
+      '.ovc-esporte-toggle{position:absolute;right:16px;top:18px;font-size:14px;color:rgba(255,255,255,.85);',
       '  transition:transform .2s ease;pointer-events:none;}',
       '.ovc-esporte-collapsed .ovc-esporte-toggle{transform:rotate(-90deg);}',
     ].join('');
@@ -195,7 +168,7 @@
     }
     var list = document.createElement('div');
     list.className = 'ovc-esporte-article-list';
-    artigos.slice(0, 5).forEach(function (p) {
+    artigos.slice(0, 8).forEach(function (p) {
       var a = document.createElement('a');
       a.className = 'ovc-esporte-article';
       a.href = buildHref(p);
@@ -211,14 +184,14 @@
     injetarCSS();
 
     var bloco = document.createElement('div');
-    bloco.className = 'ovc-esporte-rail ovc-esporte-collapsed'; // fechado por padrão — Roberto, 18/08/2026
-    bloco.id = 'ovc-radar-esporte'; // ovc-copa.js ancora nele para entrar logo depois
+    bloco.className = 'ovc-esporte-rail'; // aberto por padrão aqui — é o conteúdo principal de /esportes/
+    bloco.id = 'ovc-radar-esporte';
 
     var header = document.createElement('div');
     header.className = 'ovc-esporte-header';
     header.setAttribute('role', 'button');
     header.setAttribute('tabindex', '0');
-    header.setAttribute('aria-expanded', 'false');
+    header.setAttribute('aria-expanded', 'true');
     header.innerHTML =
       '<div class="ovc-esporte-shine"></div>' +
       '<span class="ovc-esporte-toggle">▾</span>' +
@@ -244,114 +217,68 @@
     // "Cobertura chegando em breve" quando a aba clicada não tem artigos ainda.
     var disponiveis = SPORTS;
 
-    if (!disponiveis.length) {
-      var body0 = document.createElement('div');
-      body0.className = 'ovc-esporte-body';
-      renderBody(body0, []);
-      bloco.appendChild(body0);
-    } else {
-      var tabs = document.createElement('div');
-      tabs.className = 'ovc-esporte-tabs';
-      var body = document.createElement('div');
-      body.className = 'ovc-esporte-body';
-      bloco.style.setProperty('--sport-accent', disponiveis[0].accent);
-      if (subActive) subActive.textContent = disponiveis[0].label;
+    var tabs = document.createElement('div');
+    tabs.className = 'ovc-esporte-tabs';
+    var body = document.createElement('div');
+    body.className = 'ovc-esporte-body';
+    bloco.style.setProperty('--sport-accent', disponiveis[0].accent);
+    if (subActive) subActive.textContent = disponiveis[0].label;
 
-      var cta = document.createElement('a');
-      cta.className = 'ovc-esporte-cta';
+    var cta = document.createElement('a');
+    cta.className = 'ovc-esporte-cta';
 
-      function setCta(s) {
-        cta.href = s.page || CAT_URL;
-        cta.innerHTML = s.emoji + ' Ver radar completo de ' + esc(s.label) + ' <span>→</span>';
-      }
-
-      disponiveis.forEach(function (s, idx) {
-        var tab = document.createElement('button');
-        tab.type = 'button';
-        tab.title = s.label;
-        tab.setAttribute('aria-label', s.label);
-        tab.className = 'ovc-esporte-tab' + (idx === 0 ? ' active' : '');
-        tab.innerHTML = '<span class="ovc-esporte-tab-emoji">' + s.emoji + '</span><span class="ovc-esporte-tab-label">' + esc(s.label) + '</span>';
-        tab.addEventListener('click', function () {
-          Array.prototype.forEach.call(tabs.children, function (t) { t.classList.remove('active'); });
-          tab.classList.add('active');
-          bloco.style.setProperty('--sport-accent', s.accent);
-          renderBody(body, porEsporte[s.key] || [], s);
-          setCta(s);
-          if (subActive) subActive.textContent = s.label;
-        });
-        tabs.appendChild(tab);
-      });
-
-      bloco.appendChild(tabs);
-      renderBody(body, porEsporte[disponiveis[0].key] || [], disponiveis[0]);
-      bloco.appendChild(body);
-      setCta(disponiveis[0]);
-      bloco.appendChild(cta);
-      return bloco;
+    function setCta(s) {
+      cta.href = s.page || CAT_URL;
+      cta.innerHTML = s.emoji + ' Ver radar completo de ' + esc(s.label) + ' <span>→</span>';
     }
 
-    var ctaFallback = document.createElement('a');
-    ctaFallback.href = CAT_URL;
-    ctaFallback.className = 'ovc-esporte-cta';
-    ctaFallback.innerHTML = '🏆 Ver todos os esportes <span>→</span>';
-    bloco.appendChild(ctaFallback);
+    disponiveis.forEach(function (s, idx) {
+      var tab = document.createElement('button');
+      tab.type = 'button';
+      tab.title = s.label;
+      tab.setAttribute('aria-label', s.label);
+      tab.className = 'ovc-esporte-tab' + (idx === 0 ? ' active' : '');
+      tab.innerHTML = '<span class="ovc-esporte-tab-emoji">' + s.emoji + '</span><span class="ovc-esporte-tab-label">' + esc(s.label) + '</span>';
+      tab.addEventListener('click', function () {
+        Array.prototype.forEach.call(tabs.children, function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        bloco.style.setProperty('--sport-accent', s.accent);
+        renderBody(body, porEsporte[s.key] || [], s);
+        setCta(s);
+        if (subActive) subActive.textContent = s.label;
+      });
+      tabs.appendChild(tab);
+    });
 
+    bloco.appendChild(tabs);
+    renderBody(body, porEsporte[disponiveis[0].key] || [], disponiveis[0]);
+    bloco.appendChild(body);
+    setCta(disponiveis[0]);
+    bloco.appendChild(cta);
     return bloco;
   }
 
-  function injetar(porEsporte) {
-    // 18/08/2026 — Roberto: agora empilhado no rail ESQUERDO, abaixo do
-    // Radar Eleitoral e do Pulso BR (nunca disputa o topo do rail — mesmo
-    // padrão de âncora determinística já usado por ovc-pulso-br.js, evita o
-    // bug de corrida de posição já documentado e corrigido em 03/08/2026,
-    // PR #326, quando dois widgets competiam por rail.firstChild).
-    var rail = document.querySelector('.rail-left');
-    var railVisivel = rail && getComputedStyle(rail).display !== 'none';
-    var bloco = construirBloco(porEsporte);
-    if (railVisivel) {
-      var pulsoBr = document.getElementById('ovc-pulso-br');
-      var eleitoral = document.getElementById('ovc-radar-eleitoral');
-      if (pulsoBr && pulsoBr.parentNode === rail) {
-        if (pulsoBr.nextSibling) rail.insertBefore(bloco, pulsoBr.nextSibling);
-        else rail.appendChild(bloco);
-      } else if (eleitoral && eleitoral.parentNode === rail) {
-        if (eleitoral.nextSibling) rail.insertBefore(bloco, eleitoral.nextSibling);
-        else rail.appendChild(bloco);
-      } else {
-        // Nenhum dos dois injetou ainda (corrida de fetch) — entra no topo;
-        // quando Eleitoral/Pulso BR injetarem depois, eles mesmos sempre
-        // reivindicam sua posição certa, empurrando este bloco pra baixo.
-        rail.insertBefore(bloco, rail.firstChild);
+  // internal-page-v2.js (EXTREMAMENTE FRÁGIL, assíncrono) sobrescreve
+  // #cat-hero-slot/#cat-main-grid/#cat-more-list por inteiro assim que o
+  // fetch de posts da categoria resolve — nunca inserir ali. #cat-centro-area
+  // (o próprio .cat-centro) nunca tem seu innerHTML reatribuído por inteiro,
+  // só os 3 filhos acima — inserir como PRIMEIRO FILHO dele é seguro.
+  function esperarCentroEInjetar(bloco) {
+    var tentativas = 0;
+    var timer = setInterval(function () {
+      tentativas++;
+      var centro = document.getElementById('cat-centro-area');
+      if (centro && !document.getElementById('ovc-radar-esporte')) {
+        clearInterval(timer);
+        centro.insertBefore(bloco, centro.firstChild);
+        return;
       }
-      return;
-    }
-    // .rail-left oculto (mobile, <=768px) — mesma regra CSS de sempre
-    // (".rail-left, .rail-right{display:none}" em responsive.css). TENTATIVA ANTERIOR (12/08/2026,
-    // manhã) inseria em .main-grid — PARECIA visível (isVisible:true no
-    // Playwright) mas na prática ficava invisível pra usuário real: .main-grid
-    // é CSS GRID com grid-row EXPLÍCITO em .hero-region(1)/.cols-region(2)/
-    // .cols-region-2(3) (ver home.css ~734-751) que continua valendo mesmo
-    // no breakpoint mobile. Um filho SEM grid-row (como o bloco inserido)
-    // é auto-posicionado pelo algoritmo de grid nas próximas linhas livres —
-    // ou seja, DEPOIS de todas as linhas explícitas, ficando abaixo de TODO
-    // o feed de cards, ~4675px pra baixo (quase no rodapé), mesmo aparecendo
-    // antes no DOM. Confirmado ao vivo (Playwright, iPhone 13 emulado):
-    // widgetAbsTop:4675 vs cardsAbsTop:320 — por isso Roberto continuou
-    // reportando "não funciona" mesmo com o fix anterior no ar.
-    // FIX REAL: injeta como PRIMEIRO FILHO de #ovc-cards-section
-    // (.cols-region) em vez de em .main-grid. cols-region é
-    // display:flex;flex-direction:column — nesse contexto ordem no DOM
-    // SEMPRE é ordem visual, sem nenhuma dependência de grid-row hardcoded
-    // que quebraria silenciosamente se home.css mudar as linhas do grid.
-    bloco.classList.add('ovc-esporte-mobile');
-    var cardsSection = document.getElementById('ovc-cards-section');
-    if (cardsSection) {
-      cardsSection.insertBefore(bloco, cardsSection.firstChild);
-      return;
-    }
-    var mainGrid = document.querySelector('.main-grid');
-    if (mainGrid) mainGrid.appendChild(bloco);
+      if (tentativas > 60) clearInterval(timer); // ~15s — desiste silenciosamente
+    }, 250);
+  }
+
+  function injetar(porEsporte) {
+    esperarCentroEInjetar(construirBloco(porEsporte));
   }
 
   // Sistema de curtinhas DELETADO — 23/08/2026 (Roberto). Todo o conteúdo de
@@ -359,8 +286,14 @@
   // autoOutrosEsportesCurtinhas) agora salva como tipo_conteudo="padrao" —
   // artigo completo, com imagem real, aparecendo normalmente no feed geral.
   // A classificação por esporte usa exclusivamente o feed ?recentes=true,
-  // igual a todos os outros radares (ovc-copa.js, ovc-radar-volei.js etc.).
+  // igual a todos os outros radares (ovc-torneio-espn.js etc.).
   function init() {
+    // Só o hub /esportes/ (data-section="geral") — as 13 páginas dedicadas
+    // por esporte já têm seus próprios widgets ao vivo, não duplicar aqui.
+    var categoria = document.body && document.body.dataset && document.body.dataset.category;
+    var secao = document.body && document.body.dataset && document.body.dataset.section;
+    if (categoria !== 'esportes' || secao !== 'geral') return;
+
     fetch('/api/portal-posts?recentes=true&categoria=esportes&limit=300').then(function(r){ return r.json(); }).then(function(d) {
       var todosArtigos = d.posts || [];
 
