@@ -10543,3 +10543,48 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto, ao longo de um dia real**, que o volume total do OVC está perto de 80/dia (não mais, não menos) e que cada grupo (pautas determinadas vs. resto) está recebendo a proporção certa — só validado por leitura de código/matemática nesta sessão, nunca observado rodando um ciclo completo.
 2. **Confirmar que a fila prioritária do Instagram está publicando com o intervalo certo** (configurado no admin, padrão 15min) em vez de a cada 5min.
 3. Item 1 da lista anterior (split de categoria do canal Economia) e item 5 (pendências antigas de sessões anteriores) seguem válidos, sem mudança.
+
+---
+
+### Sessão 16/11/2026 — BANNER LATERAL: PLANOS DE SAÚDE/GRUPO TERRASAN → ROHE CONSTRUTORA E INCORPORADORA (vídeo real)
+
+#### Contexto
+
+Roberto: *"preciso fazer um ajuste no ovc onde temos o banner lateral, remover ele de la, e criar um novo - de um patrocinador real que agora temos. que é a ROHE Construtora e Incorporadora - https://roheconstrutora.com.br/ [...] quero um banner em movimento de primeiro mundo sobre a ROHE [...] video, contrucao e texto com conexao e realismo puro, nada de desenhinhos bobos ou coisas de I.A."*
+
+O banner em questão era `#ovc-banner-saude` (rail direito, Planos de Saúde/Grupo Terrasan/Lions Terra — construído em sessões de 18-19/08/2026). Confirmado via grep, antes de mexer, que nenhum JS do portal (`ovc-eleitoral.js` e os demais widgets de rail) dependia desse id como âncora — seguro trocar por completo.
+
+#### Investigação real do site da ROHE (não suposição — liberado acesso de rede ao domínio pra isso)
+
+`roheconstrutora.com.br` é um site Wix em estado **"EM BREVE, DE CARA NOVA"** (placeholder, sem fotos de obra publicadas ainda) — confirmado via `curl` real (2ª tentativa, a 1ª deu connection reset — comum nesse tipo de host). Mas o próprio site JÁ usa um **vídeo institucional real** como hero de fundo: Vimeo id `925973459` (hash `c4da38ab4e`), nome real do arquivo `1110187_Danger_Exit_Males_1920x1080.mov` (confirmado via `application/ld+json` da página do player — é footage de banco de imagens, mas 100% real/cinematográfico, não gerado por IA): quatro executivos caminhando, em silhueta contraluz, num corredor/garagem industrial — com os mesmos parâmetros `autoplay/loop/muted` que o site real já usa. Paleta de cores confirmada via scraping das classes CSS reais do site: **só preto/branco/cinza, nenhuma cor** — usada como base pro novo banner. Tagline real confirmada (`<h1>`/meta tags): "Construtora e Incorporadora"; descrição real: "Da concepção à construção, nós transformamos necessidades e soluções" / "Construtora com foco em edifícios e construções industriais e coorporativas." Números de telefone/WhatsApp encontrados no HTML eram todos sequências placeholder do template Wix (`3333333333333` etc.) — não reais, então o CTA do banner vai direto pro site da ROHE, não um contato inventado.
+
+#### O que foi construído (`public/index.html`, commit `d1feeb7`)
+
+- Banner renomeado de `#ovc-banner-saude` para `#ovc-banner-rohe`, mesma posição (rail direito), mesmo `min-height:700px`.
+- **Vídeo real embutido via iframe oficial do Vimeo** (não baixado/re-hospedado — respeita a licença do asset de terceiro; tentativa de pegar o `.mp4` direto via `/config` deu 403 da Cloudflare, confirmando que não é um caminho suportado). Parâmetro `background=1` (modo oficial do Vimeo pra vídeo de fundo, sem chrome/controles).
+- **Redimensionamento "cover" via JS** (`ResizeObserver` + fallback de `setTimeout`s + `resize`/`load`): sem isso o vídeo (16:9) aparecia com tarja preta em cima/embaixo numa coluna vertical estreita. 🔴 **Bug real encontrado e corrigido**: a regra global `iframe, img, video, embed, object { max-width:100%; height:auto }` (`home.css`) clampava a largura do iframe de volta pro tamanho do container mesmo com `style.width` inline maior — `max-width` não é sobrescrito por `width` inline, são propriedades diferentes. Fix: `.ovc-br-videowrap iframe{max-width:none;max-height:none}` (seletor mais específico que a regra global, então ganha mesmo sem `!important`). Confirmado via `getBoundingClientRect()` real no Playwright antes/depois do fix.
+- 🔴 **2º bug real**: a frase mais longa do ticker ("Da concepção à construção, transformamos necessidades em soluções") quebrava em 4 linhas nessa coluna estreita, estourando o `min-height:64px` do container do ticker (que não cresce porque os itens são `position:absolute`) e sobrepondo visualmente o `<h3>` logo abaixo. Fix: textos do ticker encurtados (mantendo-se fiéis ao texto real do site) + `min-height` do ticker subido pra 84px.
+- Fallback de acessibilidade: com `prefers-reduced-motion:reduce`, o iframe **nem chega a ser criado** (não só CSS `animation:none` — evita a chamada de rede toda) — fica só num `<img>` poster estático: um frame real do mesmo vídeo (baixado uma vez via `curl`, recortado e salvo como `/img/banners/rohe-poster.webp`, WebP q82, nunca hotlink de terceiro — mesmo padrão já usado pros outros banners do projeto).
+- CTA → `https://roheconstrutora.com.br/` (`rel="noopener sponsored"`, Regra #25).
+
+#### Verificação feita antes do deploy (Playwright/Chromium real, não só leitura de código)
+
+Renderizado o `public/index.html` de verdade (servido via `python3 -m http.server` local, pra CSS/JS relativos resolverem certo) dentro do Chromium pré-instalado deste ambiente — não só um teste isolado. Confirmado visualmente, com screenshot real: vídeo cobrindo a coluna inteira sem tarja preta, os 4 executivos visíveis, progressão real do vídeo entre 2 capturas (não travado), ticker rotacionando sem sobrepor o título, e o fallback de `prefers-reduced-motion` mostrando só a imagem estática (zero iframe criado, confirmado via `page.evaluate`).
+
+`public/index.html`: 767 linhas (Regra Zero-E intacta, bem acima do piso de 700). `api/`: confirmado com exatamente 10 arquivos, nenhum tocado (Regra Zero-A intacta). `public/admin/index.html`: diff vazio, não tocado. Diff final isolado só no bloco do banner + 1 asset novo (`rohe-poster.webp`).
+
+Deploy (`deploy.yml`, commit `d1feeb7`) confirmado com sucesso via GitHub Actions.
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026)
+
+| Sistema | Status |
+|---|---|
+| **Banner lateral trocado de Planos de Saúde/Grupo Terrasan para ROHE Construtora e Incorporadora** — vídeo institucional real deles (Vimeo), cover-fit sem tarja preta, paleta monocromática real da marca, textos reais do site, CTA pro site real | ✅ EM PRODUÇÃO (commit `d1feeb7`) — deploy confirmado `success`, verificado visualmente via Playwright antes do push |
+| **Bug real de `max-width:100%` clampando o iframe do vídeo** | ✅ CORRIGIDO — `.ovc-br-videowrap iframe{max-width:none}` |
+| **Bug real de ticker estourando altura e sobrepondo o título** | ✅ CORRIGIDO — textos encurtados + `min-height` do ticker ajustado |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** o banner novo em produção (vídeo rodando, sem tarja, texto legível) — verificado nesta sessão só via Chromium local servindo o HTML, não direto em `www.ovalorcapital.com.br` (sandbox sem rede pra produção).
+2. **3 fotos antigas do banner de saúde** (`medico-paciente-1/2/3.webp`) ficaram órfãs em `/img/banners/` — confirmado via grep que nada mais referencia elas. Não deletadas nesta sessão (fora do escopo pedido) — limpeza de baixa prioridade se Roberto quiser.
+3. Demais pendências de sessões anteriores seguem válidas (confirmar volume real de 80/dia do OVC, fila prioritária do Instagram com novo intervalo, split de categoria do canal Economia, tokens sem `instagram_manage_engagement`, `amichelefroes` sem `ig_user_id`, Insights real do Instagram no admin, lista de URLs pra reindexação manual no Search Console, migrar watchdog pro cron nativo da Vercel, conversa pausada sobre tom editorial, `buildHeader()` com taxonomia extinta, trocar `ADMIN_PASS`).
