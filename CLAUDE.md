@@ -10585,6 +10585,61 @@ Deploy (`deploy.yml`, commit `d1feeb7`) confirmado com sucesso via GitHub Action
 
 #### 🔧 Pendências para a próxima sessão
 
-1. **Confirmar visualmente com Roberto** o banner novo em produção (vídeo rodando, sem tarja, texto legível) — verificado nesta sessão só via Chromium local servindo o HTML, não direto em `www.ovalorcapital.com.br` (sandbox sem rede pra produção).
+1. ~~Confirmar visualmente com Roberto o banner novo em produção~~ — feito, ver continuação abaixo (16/11/2026 continuação): ele confirmou que estava no ar, mas apontou que ficou "cru, sem alma" — revisado na mesma sessão.
 2. **3 fotos antigas do banner de saúde** (`medico-paciente-1/2/3.webp`) ficaram órfãs em `/img/banners/` — confirmado via grep que nada mais referencia elas. Não deletadas nesta sessão (fora do escopo pedido) — limpeza de baixa prioridade se Roberto quiser.
 3. Demais pendências de sessões anteriores seguem válidas (confirmar volume real de 80/dia do OVC, fila prioritária do Instagram com novo intervalo, split de categoria do canal Economia, tokens sem `instagram_manage_engagement`, `amichelefroes` sem `ig_user_id`, Insights real do Instagram no admin, lista de URLs pra reindexação manual no Search Console, migrar watchdog pro cron nativo da Vercel, conversa pausada sobre tom editorial, `buildHeader()` com taxonomia extinta, trocar `ADMIN_PASS`).
+
+---
+
+### Sessão 16/11/2026 (continuação) — BANNER ROHE: CONTEÚDO REAL DE VERDADE (fotos de obra, história, processo) + REMOÇÃO DO "PUBLICIDADE"
+
+#### Contexto
+
+Roberto confirmou (print real do banner no ar) que a 1ª versão (ver seção anterior) estava funcionando tecnicamente, mas rejeitou o resultado com razão: *"nao está tao legal.... voce basicamente usou o site inteiro deles pra criar o banner que está cru, sem alma e basicamente pobre. nao tem as fotos de obras rodando ali, nao fala sobre as atividades deles, a historia, nao fala NADA oras."* Crítica correta — a 1ª versão só tinha reaproveitado o vídeo do topo da página, sem escavar o resto do HTML.
+
+Enquanto investigava, Roberto mandou mais um ponto, mid-turn: *"fora que nao tem sentido algum ter escrito no banner os dizeres sobre pUBLICIDADE, ne?"* — resolvido na mesma rodada.
+
+#### 🔴 Correção de leitura — não é Wix, é GoDaddy Website Builder
+
+A sessão anterior tinha assumido "Wix" só pelo estilo do popup "EM BREVE, DE CARA NOVA" — nunca confirmado de verdade. Essa suposição errada fez a investigação parar cedo demais (grep só por `wixstatic`, nunca achou nada, concluiu "sem conteúdo real"). Re-investigação correta: a plataforma real é **GoDaddy Website Builder** (`img1.wsimg.com/isteam/ip/...` — CDN e convenção de path reais do GoDaddy), que tem bem mais conteúdo do que o popup de "em breve" sugeria.
+
+#### Conteúdo real encontrado (escavado desta vez, não só o topo da página)
+
+- **Seção "A ROHE"** — 2 parágrafos reais, nunca usados antes:
+  1. "Unindo a eficiência da gestão moderna, com o que há de melhor no conhecimento técnico, nós da ROHE somos especializados na entrega da solução completa para a construção civil nos setores industriais, logísticos e coorporativos."
+  2. "Nosso corpo técnico possui vasta experiência no desenvolvimento e execução de projetos que auxiliam nossos clientes em todas as etapas do processo de construção de galpões industriais e logísticos, edificações coorporativas, entre outros."
+- **Seção "Entenda como podemos te auxiliar"** — processo real em 3 etapas, com descrições reais pras 2 primeiras: Levantamentos e estudo de viabilidade → Desenvolvimento de projetos → Construção.
+- **3 imagens reais** hospedadas no CDN deles (`img1.wsimg.com/isteam/ip/ca5690a2-9e23-41e8-8a29-ab12f8e6d332/blob-*.png`), baixadas e inspecionadas visualmente uma a uma:
+  - `blob-bdd4ebd` — galpão industrial vazio, pronto, piso de concreto com reflexo, estrutura metálica — usada.
+  - `blob-569ab73` — skyline de São Paulo à noite (Ponte Estaiada) — usada, representa presença/atuação na construção corporativa da cidade.
+  - `blob-c90343c` — um galpão "cheio de caixas" com luz difusa/neblina decorativa — **tem cara de render de IA** (luz/sombra fisicamente inconsistente, excesso de atmosfera "perfeita demais"). Por precaução, dado o pedido explícito de Roberto de "nada de coisas de IA", **não foi usada**.
+- Ambas as fotos usadas vieram com tarja preta baked-in no arquivo original (eram stills de vídeo, não fotos puras) — recortadas via PIL (removendo as faixas pretas no topo/base) antes de salvar.
+
+#### O que foi reconstruído (`public/index.html`, commit `3c034f2`)
+
+- **Media area vira um carrossel real de 3 slides** (crossfade 18s, reusando a mesma matemática de keyframe já provada no banner antigo de Planos de Saúde — 0%/2%/27%/31%/100%, staggered 0s/6s/12s): slide 1 = vídeo institucional (igual antes, cover-fit via JS), slide 2 = foto real do galpão, slide 3 = foto real do skyline de SP. Agora o banner realmente "mostra fotos de obra rodando", como Roberto pediu.
+- **Brand lockup** substitui o antigo kicker: `<b>ROHE</b>` + `Construtora e Incorporadora` (sem nenhuma palavra de "ad").
+- **Ticker (5 itens, mesmo timing 18s/3.6s)** agora carrega as etapas reais do processo + escopo real: "Da concepção à construção" / "Levantamento e estudo de viabilidade" / "Desenvolvimento de projetos" / "Construção e entrega da obra" / "Edifícios industriais, logísticos e corporativos".
+- **`<h3>`**: "Da viabilidade à entrega da obra" (headline nova, não repete o nome da marca — evita a redundância "vazia" que Roberto criticou).
+- **`<p>`**: parágrafo parafraseado (fiel, não inventado) combinando os 2 parágrafos reais da seção "A ROHE" com as 3 etapas reais do processo: "Soluções completas em construção civil para os setores industrial, logístico e corporativo — do estudo de viabilidade e desenvolvimento de projetos até a execução da obra."
+- **"Publicidade" removido por completo** — nem no kicker (agora é o brand lockup) nem no rodapé (agora mostra só o domínio `roheconstrutora.com.br`). O `rel="sponsored"` no link (a exigência real e técnica do Google/Regra #25, invisível ao usuário) **permanece intacto** — só o texto visível saiu, por pedido explícito e seguindo autoridade do dono sobre o próprio site/próprio patrocinador.
+
+#### Verificação feita antes do deploy (Playwright/Chromium real, 3 pontos no tempo do loop)
+
+Confirmado visualmente com 3 screenshots em momentos diferentes do ciclo de 18s: slide do vídeo cobrindo sem tarja (igual antes), slide do galpão preenchendo 100% sem nenhuma tarja preta residual (confirma que o recorte removeu certo as faixas do arquivo original), slide do skyline preenchendo igual, ticker trocando de texto em sincronia com o slide visível, sem overlap em nenhum momento. `prefers-reduced-motion`: confirmado que **zero iframe é criado** e só o 1º slide (poster estático do vídeo) fica visível, sem nenhuma animação.
+
+`public/index.html`: 783 linhas (Regra Zero-E). `api/`: 10 arquivos, inalterado (Regra Zero-A). `public/admin/index.html`: diff vazio. Deploy (`deploy.yml`, commit `3c034f2`) confirmado com sucesso via GitHub Actions.
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Banner ROHE reconstruído com conteúdo real** — 3 slides (vídeo + 2 fotos reais de obra/skyline) em crossfade, texto grounded nos 2 parágrafos reais + processo real de 3 etapas do site deles | ✅ EM PRODUÇÃO (commit `3c034f2`) — deploy `success`, verificado visualmente nos 3 momentos do loop via Playwright |
+| **Correção de plataforma** — não é Wix, é GoDaddy Website Builder (`img1.wsimg.com`) | ✅ CORRIGIDO no entendimento, documentado pra não repetir o erro |
+| **3ª imagem do CDN deles descartada por suspeita de ser gerada por IA** | ✅ DECISÃO REGISTRADA — `blob-c90343c` não usada |
+| **Texto "Publicidade" removido do banner** (kicker e rodapé) — `rel="sponsored"` técnico mantido | ✅ EM PRODUÇÃO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** se agora está satisfeito com o resultado (substância real, sem "Publicidade" visível) — ainda não confirmado por ele nesta sessão, só verificado tecnicamente neste lado.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista completa na entrada acima — volume real de 80/dia do OVC, fila prioritária do Instagram, split de categoria do canal Economia, tokens sem `instagram_manage_engagement`, `amichelefroes` sem `ig_user_id`, Insights real do Instagram no admin, lista de URLs pra reindexação manual no Search Console, migrar watchdog pro cron nativo da Vercel, conversa pausada sobre tom editorial, `buildHeader()` com taxonomia extinta, trocar `ADMIN_PASS`, 3 fotos órfãs do banner antigo de saúde).
