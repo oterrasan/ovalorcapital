@@ -480,64 +480,108 @@
      rail esquerdo — ver comentário lá. -->
 <aside class="rail-right">
 
-<!-- 19/08/2026 — Roberto rejeitou a cena ilustrada (SVG/emoji) de
-     18/08: "eu nao quero figurinhas ou emojis, eu quero pessoas
-     reais, imagens de gente real!!!!!!". Substituído por 3 fotos
-     REAIS de médico(a) e paciente (Wikimedia Commons / National
-     Cancer Institute Visuals Online, US NIH — Public Domain Mark
-     1.0, sem custo/licença), servidas como assets próprios do
-     portal em /img/banners/ (nunca hotlink de terceiros), em
-     crossfade + zoom Ken Burns sutil, loop de 18s. Ticker de 5
-     mensagens, CTA e link para o Grupo Terrasan preservados
-     intactos. Âncora estável id="ovc-banner-saude" preservada. -->
+<!-- 16/11/2026 — Roberto: remover o banner de Planos de Saúde/Grupo
+     Terrasan e colocar um patrocinador real novo: ROHE Construtora e
+     Incorporadora (https://roheconstrutora.com.br/). Pedido dele,
+     verbatim: "um banner em movimento de primeiro mundo... video,
+     construcao e texto com conexao e realismo puro, nada de
+     desenhinhos bobos ou coisas de I.A". O site real da ROHE hoje é
+     um placeholder Wix ("EM BREVE, DE CARA NOVA") sem fotos de obra
+     publicadas, mas usa um vídeo institucional real no Vimeo
+     (id 925973459, cinematográfico, executivos caminhando num
+     galpão/obra industrial, com os mesmos parâmetros autoplay/
+     loop/muted que o próprio site deles usa) — é esse vídeo real
+     que entra aqui, embutido via iframe oficial do Vimeo (não
+     baixado/re-hospedado: respeita a licença do asset de terceiro),
+     redimensionado em JS para "cover" (preenche a coluna vertical
+     sem tarja preta, recorta as laterais). Paleta monocromática
+     preto/grafite/branco — a mesma identidade real da ROHE (CSS do
+     site deles só usa preto/branco/cinza, nenhuma cor). Textos do
+     ticker vêm das meta tags reais do site (og:description/meta
+     description), não inventados. prefers-reduced-motion: nem
+     carrega o iframe, fica só no poster estático (frame real do
+     mesmo vídeo, baixado uma vez e salvo em /img/banners/, webp
+     q82 — nunca hotlink de terceiro). CTA leva para o site real da
+     ROHE (não há telefone/WhatsApp real publicado por eles ainda).
+     Âncora trocada de ovc-banner-saude para ovc-banner-rohe — nenhum
+     JS do portal dependia do id antigo (conferido antes do troca). -->
 <style>
-#ovc-banner-saude{display:block;position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(160deg,#0a1f2e 0%,#0d3b4f 55%,#0f5c73 100%);padding:0;margin-bottom:14px;text-decoration:none;box-shadow:0 8px 24px rgba(10,31,46,.28);border:1px solid rgba(120,220,232,.18);min-height:700px}
-#ovc-banner-saude:hover{box-shadow:0 10px 30px rgba(10,31,46,.4)}
-.ovc-bs-photos{position:relative;width:100%;height:340px;overflow:hidden;background:#0a1f2e}
-.ovc-bs-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;opacity:0;transform:scale(1);animation:ovcBsPhoto 18s ease-in-out infinite}
-@keyframes ovcBsPhoto{0%{opacity:0;transform:scale(1)}2%{opacity:1}27%{opacity:1;transform:scale(1.08)}31%{opacity:0;transform:scale(1.08)}100%{opacity:0;transform:scale(1)}}
-.ovc-bs-photo-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,31,46,0) 45%,rgba(10,31,46,.55) 82%,rgba(10,31,46,.92) 100%)}
-.ovc-bs-body{position:relative;padding:16px 18px 18px}
-.ovc-bs-glow{position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(94,224,214,.35) 0%,rgba(94,224,214,0) 70%);animation:ovcBsGlow 4.5s ease-in-out infinite}
-@keyframes ovcBsGlow{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.75;transform:scale(1.12)}}
-.ovc-bs-kicker{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8fe9de;margin-bottom:10px;position:relative;z-index:1}
-.ovc-bs-kicker i{width:6px;height:6px;border-radius:50%;background:#5ee0d6;box-shadow:0 0 0 0 rgba(94,224,214,.6);animation:ovcBsDot 2s ease-in-out infinite}
-@keyframes ovcBsDot{0%{box-shadow:0 0 0 0 rgba(94,224,214,.55)}70%{box-shadow:0 0 0 7px rgba(94,224,214,0)}100%{box-shadow:0 0 0 0 rgba(94,224,214,0)}}
-.ovc-bs-ticker{position:relative;z-index:1;min-height:64px;margin-bottom:10px}
-.ovc-bs-tick{position:absolute;top:0;left:0;right:0;opacity:0;font-size:21px;font-weight:800;line-height:1.28;color:#fff;letter-spacing:-.01em;text-shadow:0 1px 10px rgba(0,0,0,.3);animation:ovcBsTick 18s ease-in-out infinite;animation-fill-mode:both}
-@keyframes ovcBsTick{0%{opacity:0;transform:translateY(8px)}3%{opacity:1;transform:translateY(0)}17%{opacity:1;transform:translateY(0)}20%{opacity:0;transform:translateY(-8px)}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.ovc-bs-photo,.ovc-bs-tick,.ovc-bs-glow{animation:none!important}.ovc-bs-photo:first-child,.ovc-bs-tick:first-child{opacity:1!important}}
-#ovc-banner-saude h3{margin:0 0 8px;color:#fff;font-size:18px;line-height:1.3;font-weight:800;letter-spacing:-.01em;text-shadow:0 1px 8px rgba(0,0,0,.25);position:relative;z-index:1}
-#ovc-banner-saude p{margin:0 0 14px;color:rgba(226,247,244,.82);font-size:12.5px;line-height:1.55;position:relative;z-index:1}
-.ovc-bs-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(120deg,#1fb6a8,#5ee0d6);border-radius:9px;padding:13px 16px;font-weight:800;font-size:14px;color:#06282a;position:relative;overflow:hidden;z-index:1}
-.ovc-bs-cta span{position:relative;z-index:1}
-.ovc-bs-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(120deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 100%);animation:ovcBsSweep 3.2s ease-in-out infinite}
-@keyframes ovcBsSweep{0%{left:-60%}55%,100%{left:130%}}
-.ovc-bs-foot{margin-top:10px;font-size:9.5px;color:rgba(226,247,244,.45);letter-spacing:.03em;position:relative;z-index:1}
+#ovc-banner-rohe{display:block;position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(160deg,#0b0c10 0%,#15161b 55%,#1d1e24 100%);padding:0;margin-bottom:14px;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);min-height:700px}
+#ovc-banner-rohe:hover{box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.ovc-br-media{position:relative;width:100%;height:340px;overflow:hidden;background:#101115}
+.ovc-br-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 18%}
+.ovc-br-videowrap{position:absolute;inset:0;overflow:hidden}
+.ovc-br-videowrap iframe{position:absolute;border:0;pointer-events:none;max-width:none;max-height:none}
+.ovc-br-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,12,16,0) 42%,rgba(11,12,16,.6) 80%,rgba(13,14,18,.94) 100%);pointer-events:none}
+.ovc-br-body{position:relative;padding:16px 18px 18px}
+.ovc-br-glow{position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.14) 0%,rgba(255,255,255,0) 70%);animation:ovcBrGlow 4.5s ease-in-out infinite}
+@keyframes ovcBrGlow{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.8;transform:scale(1.12)}}
+.ovc-br-kicker{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#d7d8dc;margin-bottom:10px;position:relative;z-index:1}
+.ovc-br-kicker i{width:6px;height:6px;border-radius:50%;background:#f2f2f4;box-shadow:0 0 0 0 rgba(242,242,244,.6);animation:ovcBrDot 2s ease-in-out infinite}
+@keyframes ovcBrDot{0%{box-shadow:0 0 0 0 rgba(242,242,244,.5)}70%{box-shadow:0 0 0 7px rgba(242,242,244,0)}100%{box-shadow:0 0 0 0 rgba(242,242,244,0)}}
+.ovc-br-ticker{position:relative;z-index:1;min-height:84px;margin-bottom:10px}
+.ovc-br-tick{position:absolute;top:0;left:0;right:0;opacity:0;font-size:20px;font-weight:800;line-height:1.3;color:#fff;letter-spacing:-.01em;text-shadow:0 1px 10px rgba(0,0,0,.4);animation:ovcBrTick 18s ease-in-out infinite;animation-fill-mode:both}
+@keyframes ovcBrTick{0%{opacity:0;transform:translateY(8px)}3%{opacity:1;transform:translateY(0)}17%{opacity:1;transform:translateY(0)}20%{opacity:0;transform:translateY(-8px)}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.ovc-br-tick,.ovc-br-glow{animation:none!important}.ovc-br-tick:first-child{opacity:1!important}}
+#ovc-banner-rohe h3{margin:0 0 8px;color:#fff;font-size:17px;line-height:1.32;font-weight:800;letter-spacing:-.01em;text-shadow:0 1px 8px rgba(0,0,0,.3);position:relative;z-index:1}
+#ovc-banner-rohe p{margin:0 0 14px;color:rgba(234,235,238,.75);font-size:12.5px;line-height:1.55;position:relative;z-index:1}
+.ovc-br-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(120deg,#1b1c21,#2c2e36);border-radius:9px;padding:13px 16px;font-weight:800;font-size:14px;color:#fff;position:relative;overflow:hidden;z-index:1;border:1px solid rgba(255,255,255,.14)}
+.ovc-br-cta span{position:relative;z-index:1}
+.ovc-br-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(120deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.3) 50%,rgba(255,255,255,0) 100%);animation:ovcBrSweep 3.2s ease-in-out infinite}
+@keyframes ovcBrSweep{0%{left:-60%}55%,100%{left:130%}}
+.ovc-br-foot{margin-top:10px;font-size:9.5px;color:rgba(234,235,238,.4);letter-spacing:.03em;position:relative;z-index:1}
 </style>
-<a id="ovc-banner-saude" href="https://www.grupoterrasan.com.br/lions-terra.html" target="_blank" rel="noopener sponsored" aria-label="Visitar a área Lions Terra do Grupo Terrasan">
-<div class="ovc-bs-photos">
-<img class="ovc-bs-photo" src="/img/banners/medico-paciente-1.webp" alt="Médica conversa de perto e sorridente com paciente durante consulta" style="animation-delay:0s" loading="lazy">
-<img class="ovc-bs-photo" src="/img/banners/medico-paciente-2.webp" alt="Médico atende paciente com atenção durante consulta" style="animation-delay:6s" loading="lazy">
-<img class="ovc-bs-photo" src="/img/banners/medico-paciente-3.webp" alt="Médica mostra resultado de exame a paciente" style="animation-delay:12s" loading="lazy">
-<div class="ovc-bs-photo-shade"></div>
+<a id="ovc-banner-rohe" href="https://roheconstrutora.com.br/" target="_blank" rel="noopener sponsored" aria-label="Visitar o site da ROHE Construtora e Incorporadora">
+<div class="ovc-br-media" id="ovc-br-media">
+<img class="ovc-br-poster" src="/img/banners/rohe-poster.webp" alt="Executivos caminhando em obra industrial — vídeo institucional ROHE Construtora e Incorporadora" loading="lazy">
+<div class="ovc-br-videowrap" id="ovc-br-videowrap"></div>
+<div class="ovc-br-shade"></div>
 </div>
-<div class="ovc-bs-body">
-<div class="ovc-bs-glow"></div>
-<span class="ovc-bs-kicker"><i></i> Publicidade · Planos de Saúde</span>
-<div class="ovc-bs-ticker">
-<div class="ovc-bs-tick" style="animation-delay:0s">Cuidado de verdade, quando você mais precisa</div>
-<div class="ovc-bs-tick" style="animation-delay:3.6s">Rede credenciada em todo o Brasil</div>
-<div class="ovc-bs-tick" style="animation-delay:7.2s">Atendimento humano, sem letra miúda</div>
-<div class="ovc-bs-tick" style="animation-delay:10.8s">Cotação sem compromisso — poucos minutos</div>
-<div class="ovc-bs-tick" style="animation-delay:14.4s">Sua família protegida, sempre</div>
+<div class="ovc-br-body">
+<div class="ovc-br-glow"></div>
+<span class="ovc-br-kicker"><i></i> Publicidade · Construção &amp; Incorporação</span>
+<div class="ovc-br-ticker">
+<div class="ovc-br-tick" style="animation-delay:0s">Construtora e Incorporadora</div>
+<div class="ovc-br-tick" style="animation-delay:3.6s">Da concepção à construção</div>
+<div class="ovc-br-tick" style="animation-delay:7.2s">Edifícios industriais e corporativos</div>
+<div class="ovc-br-tick" style="animation-delay:10.8s">Soluções sob medida para cada projeto</div>
+<div class="ovc-br-tick" style="animation-delay:14.4s">Conheça os projetos da ROHE</div>
 </div>
-<h3>Planos de Saúde para você e sua família</h3>
-<p>Rede credenciada ampla, atendimento humano de verdade e cotação sem compromisso — leva poucos minutos.</p>
-<div class="ovc-bs-cta"><span>Solicitar cotação agora</span><span>›</span></div>
-<div class="ovc-bs-foot">Publicidade · Grupo Terrasan</div>
+<h3>ROHE Construtora e Incorporadora</h3>
+<p>Da concepção à construção: soluções em edifícios industriais e corporativos, com projeto e execução completos.</p>
+<div class="ovc-br-cta"><span>Conhecer a ROHE</span><span>›</span></div>
+<div class="ovc-br-foot">Publicidade · ROHE Construtora e Incorporadora</div>
 </div>
 </a>
+<script>
+(function(){
+var wrap=document.getElementById('ovc-br-videowrap'), media=document.getElementById('ovc-br-media');
+if(!wrap||!media) return;
+var reduce=false;
+try{ reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+if(reduce) return;
+var f=document.createElement('iframe');
+f.src='https://player.vimeo.com/video/925973459?h=c4da38ab4e&background=1&autoplay=1&loop=1&byline=0&title=0&muted=1&dnt=1';
+f.setAttribute('allow','autoplay; fullscreen');
+f.setAttribute('title','Vídeo institucional ROHE Construtora e Incorporadora');
+wrap.appendChild(f);
+function fit(){
+var cw=media.clientWidth, ch=media.clientHeight, va=16/9, w,h;
+if(!cw||!ch) return;
+if((cw/ch)>va){ w=cw; h=cw/va; } else { h=ch; w=ch*va; }
+f.style.width=w+'px'; f.style.height=h+'px';
+f.style.left=((cw-w)/2)+'px'; f.style.top=((ch-h)/2)+'px';
+}
+fit();
+if(window.ResizeObserver){
+try{ new ResizeObserver(fit).observe(media); }catch(e){ [50,200,500,1200,2500].forEach(function(ms){ setTimeout(fit, ms); }); }
+} else {
+[50,200,500,1200,2500].forEach(function(ms){ setTimeout(fit, ms); });
+}
+window.addEventListener('resize', fit);
+window.addEventListener('load', fit);
+})();
+</script>
 
 <div class="rail-block rail-block-tv">
 <div class="rail-title">OVC TV • Ao vivo</div>
