@@ -10693,3 +10693,59 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com `?action=list_colunistas` pós-deploy** que `flavio-breghiroli` aparece na lista (só funciona depois do merge do commit que adiciona o slug em `ALLOWED_COLUNISTAS_SLUGS` chegar em produção).
 2. **Passar a Roberto a senha gerada** (entregue só no chat desta sessão, nunca escrita em arquivo do repo) — se ele perder, qualquer sessão futura pode gerar uma nova e sobrescrever `senha_hash` via `action=create_colunista` de novo ou um update direto, seguindo o mesmo padrão seguro (nunca reaproveitar hash antigo, sempre recalcular com `hashSenhaColunista()`).
 3. Demais pendências de sessões anteriores seguem válidas (ver lista da entrada anterior).
+
+---
+
+### Sessão 16/11/2026 (continuação 3) — PREVIEW DE LINK QUEBRADO NO WHATSAPP (og:image gigante) — CAUSA RAIZ REAL + FIX FORWARD + CORREÇÃO RETROATIVA DE 17 POSTS
+
+#### Contexto
+
+Roberto: *"quando compartilhamos um link, pelo whatsapp por exemplo, a imagem nao abre ou abre o logo do ovc, deve abrir o link com a previa da imagem da noticia original"* — com o link real `https://ovalorcapital.com.br/vc/o-algoritmo-e-a-peneira-a-ciencia-da-semana-que-quase-a-d1527d17/` (matéria do colunista Flávio Breghiroli, "ciência da semana").
+
+#### Investigação real (via `diag-once.yml`, GitHub Actions — este sandbox não tem rede pra Supabase/produção; mesmo padrão já estabelecido no projeto)
+
+Testado o link EXATAMENTE como o crawler do WhatsApp faria (User-Agent `WhatsApp/2.23.20.0`, `curl -IL`): o domínio sem `www` responde com `307` (não `301` — confirma que o redirect vem da configuração de domínio da própria Vercel, não do código de `api/article.js`) e segue normalmente pra `www`, chegando em `200` com todas as tags `og:`/`twitter:` corretas — **descarta o domínio sem www como causa**.
+
+**Causa raiz real, confirmada**: `og:image` já apontava pra imagem real do artigo (não pro logo) — mas o arquivo tinha **2.793.821 bytes (2,79MB)**, um PNG cru sem nenhuma compressão (confirmado com `curl` direto no Storage: `HTTP 200, image/png, size 2793821`). WhatsApp (e a maioria dos crawlers de preview de link) tem timeout curto e falha silenciosamente em imagem grande — exatamente o sintoma relatado ("não abre" / cai no fallback genérico do logo).
+
+**Origem do arquivo**: confirmado por leitura de código que `public/admin/index.html`'s aba **Banco de Imagens** (`uploadAll()`, usada por qualquer colunista/Roberto pra atribuir capa a um post) sobe o arquivo exatamente como escolhido no computador — **zero resize, zero compressão** — diferente do Editor de Imagem da mesma tela (`usarNoPost()`), que já limita a 1200px/JPEG q0.90 havia tempo.
+
+**Escopo real, não só este link** (escaneado via REST direto no Storage + tabela `posts`): **17 posts publicados** (todos de colunistas) tinham capa entre 0,4MB e 3,9MB, usada direto como `og:image` — confirma que é um padrão sistêmico, não caso isolado.
+
+#### Fix (PR #854, squash commit `c3d4c62`)
+
+- **Forward** — `public/admin/index.html`, `uploadAll()` do Banco de Imagens: nova função `comprimirImagem()` redimensiona (máx. 1600px no maior lado, preservando proporção) e reencoda como JPEG q0.85 via canvas antes de subir pro Storage — mesma técnica já usada no editor de imagem da mesma tela, agora aplicada a QUALQUER upload dessa aba. Se o redimensionamento falhar por qualquer motivo, sobe o original sem travar o usuário (nunca pior que o comportamento antigo). Editor de Imagem (`usarNoPost()`) **não foi tocado** — já era seguro.
+- **Retroativo** (via `diag-once.yml`, Pillow): as 25 imagens grandes reais encontradas foram baixadas, redimensionadas (mesmo padrão: máx. 1600px, JPEG q85) e re-upadas como `uploads/compressed-{nome-original}.jpg`; os 17 posts afetados tiveram `posts.imagem` repontado pro arquivo novo. **Zero falha nas 25.** Redução real: de 0,49MB–3,92MB pra 97KB–301KB (média ~10% do tamanho original).
+
+#### Verificação real, de ponta a ponta (não suposição)
+
+```
+Antes:  og:image = .../uploads/1794809565323-83k7oa.png   HTTP 200  2.793.821 bytes (image/png)
+Depois: og:image = .../uploads/compressed-...-83k7oa.jpg   HTTP 200    147.663 bytes (image/jpeg)
+```
+Confirmado buscando a página real pós-fix (`curl` real contra `www.ovalorcapital.com.br`, o exato link que Roberto reportou) — `og:image`/`twitter:image` já refletem o arquivo comprimido. JSX do admin validado via Babel real (SINTAXE OK) antes do push. Deploy (`deploy.yml`, commit `c3d4c62`) confirmado com sucesso.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado — fix é só em `public/admin/index.html`, mais dado via REST direto no Supabase)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação 3)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real do preview quebrado no WhatsApp — og:image de 2,79MB, upload manual sem nenhuma compressão** | ✅ CONFIRMADA com evidência real (curl direto, não suposição) |
+| **Fix forward — Banco de Imagens comprime (1600px/JPEG q85) antes de subir** | ✅ EM PRODUÇÃO (PR #854, commit `c3d4c62`) |
+| **17 posts publicados corrigidos retroativamente** (25 imagens comprimidas, 0 falhas) | ✅ CONFIRMADO — link real do Roberto re-testado, og:image agora 147KB em vez de 2,79MB |
+
+#### ⚠️ Nota de transparência pra Roberto
+
+O cache de CDN (`Cache-Control: s-maxage=300`) e, principalmente, o **cache de preview do próprio WhatsApp** (que guarda a prévia de um link já compartilhado antes, independente do nosso servidor) podem fazer uma conversa ANTIGA continuar mostrando a prévia velha/quebrada por um tempo. Pra ver o resultado novo: colar o link de novo numa conversa nova (ou apagar e recolar na mesma), não só olhar um link já enviado antes do fix.
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto** que recompartilhar o link mostra a prévia da imagem real agora.
+2. As imagens originais grandes (PNG cru) continuam no Storage, órfãs (nada mais referencia elas) — inofensivo, não apagadas por precaução (sem necessidade real de espaço, já documentado em sessão anterior que limpeza de imagem antiga não compensa o risco).
+3. Demais pendências de sessões anteriores seguem válidas (ver lista da entrada anterior).
