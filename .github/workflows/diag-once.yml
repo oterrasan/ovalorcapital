@@ -5,48 +5,101 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Escopo real - quantas imagens grandes em uploads/ sao capa de post publicado
+      - name: Instala Pillow
+        run: pip install --quiet pillow
+      - name: Comprime as 23 imagens grandes e atualiza os 17 posts afetados
         run: |
           set -e
-          cat > /tmp/scan.py << 'PYEOF'
-          import urllib.request, json
+          cat > /tmp/fix.py << 'PYEOF'
+          import urllib.request, json, io
+          from PIL import Image
 
           SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
           KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
 
-          def req(url, method="GET", body=None):
-              data = json.dumps(body).encode() if body is not None else None
-              r = urllib.request.Request(url, data=data, method=method, headers={
-                  "apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "application/json"
-              })
-              with urllib.request.urlopen(r, timeout=20) as resp:
-                  return json.loads(resp.read().decode())
+          def req(url, method="GET", body=None, raw=None, headers=None):
+              data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
+              h = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
+              if headers:
+                  h.update(headers)
+              elif body is not None:
+                  h["Content-Type"] = "application/json"
+              r = urllib.request.Request(url, data=data, method=method, headers=h)
+              with urllib.request.urlopen(r, timeout=30) as resp:
+                  ct = resp.headers.get("Content-Type", "")
+                  raw_resp = resp.read()
+                  if "application/json" in ct:
+                      return json.loads(raw_resp.decode())
+                  return raw_resp
 
           files = req(f"{SUPABASE_URL}/storage/v1/object/list/posts-images", "POST", {"prefix": "uploads", "limit": 1000})
           big = [f for f in files if (f.get("metadata") or {}).get("size", 0) > 400000]
-          print(f"TOTAL_ARQUIVOS_EM_UPLOADS: {len(files)}")
-          print(f"ARQUIVOS_ACIMA_DE_400KB: {len(big)}")
-          for f in sorted(big, key=lambda x: -(x.get("metadata") or {}).get("size", 0))[:30]:
-              print(f"  {f['name']}  {(f.get('metadata') or {}).get('size',0)} bytes")
-
-          big_names = set(f["name"] for f in big)
+          print(f"imagens grandes encontradas: {len(big)}")
 
           offset = 0
-          afetados = []
+          posts_afetados = []
           while True:
               posts = req(f"{SUPABASE_URL}/rest/v1/posts?status=eq.publicado&imagem=like.*posts-images/uploads/*&select=id,titulo,imagem&order=created_at.desc&limit=1000&offset={offset}")
               if not posts:
                   break
-              for p in posts:
-                  nome = p["imagem"].rsplit("/", 1)[-1]
-                  if nome in big_names:
-                      afetados.append((p["id"], nome, p["titulo"]))
+              posts_afetados.extend(posts)
               if len(posts) < 1000:
                   break
               offset += 1000
 
-          print(f"POSTS_PUBLICADOS_AFETADOS: {len(afetados)}")
-          for pid, nome, titulo in afetados:
-              print(f"  {pid}  {nome}  {titulo[:60]}")
+          big_names = set(f["name"] for f in big)
+          url_por_nome = {}
+          ok, falhas = 0, 0
+
+          for f in big:
+              nome = f["name"]
+              src_url = f"{SUPABASE_URL}/storage/v1/object/public/posts-images/uploads/{nome}"
+              try:
+                  raw = req(src_url)
+                  img = Image.open(io.BytesIO(raw))
+                  img = img.convert("RGB")
+                  w, h = img.size
+                  max_dim = 1600
+                  if w > max_dim or h > max_dim:
+                      if w >= h:
+                          nh = round(h * max_dim / w)
+                          img = img.resize((max_dim, nh), Image.LANCZOS)
+                      else:
+                          nw = round(w * max_dim / h)
+                          img = img.resize((nw, max_dim), Image.LANCZOS)
+                  buf = io.BytesIO()
+                  img.save(buf, format="JPEG", quality=85, optimize=True)
+                  novo_bytes = buf.getvalue()
+                  novo_nome = "compressed-" + nome.rsplit(".", 1)[0] + ".jpg"
+                  req(f"{SUPABASE_URL}/storage/v1/object/posts-images/uploads/{novo_nome}", "POST",
+                      raw=novo_bytes, headers={"Content-Type": "image/jpeg", "x-upsert": "true"})
+                  novo_url = f"{SUPABASE_URL}/storage/v1/object/public/posts-images/uploads/{novo_nome}"
+                  url_por_nome[nome] = novo_url
+                  tam_orig = len(raw)
+                  tam_novo = len(novo_bytes)
+                  print(f"OK {nome}: {tam_orig} -> {tam_novo} bytes ({100*tam_novo//tam_orig}%)")
+                  ok += 1
+              except Exception as e:
+                  print(f"FALHA {nome}: {e}")
+                  falhas += 1
+
+          print(f"comprimidas: {ok} falhas: {falhas}")
+
+          atualizados = 0
+          for p in posts_afetados:
+              nome = p["imagem"].rsplit("/", 1)[-1]
+              if nome in url_por_nome:
+                  req(f"{SUPABASE_URL}/rest/v1/posts?id=eq.{p['id']}", "PATCH", {"imagem": url_por_nome[nome]})
+                  atualizados += 1
+                  print(f"POST atualizado: {p['id']} -> {url_por_nome[nome]}")
+
+          print(f"TOTAL_POSTS_ATUALIZADOS: {atualizados}")
           PYEOF
-          python3 /tmp/scan.py
+          python3 /tmp/fix.py
+      - name: Verifica o link original do Roberto (og:image agora deve ser pequeno)
+        run: |
+          set -e
+          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/vc/o-algoritmo-e-a-peneira-a-ciencia-da-semana-que-quase-a-d1527d17/" -o /tmp/page2.html
+          OGIMG=$(grep -o '<meta property="og:image" content="[^"]*"' /tmp/page2.html | sed -E 's/.*content="([^"]*)".*/\1/')
+          echo "OG_IMAGE_URL_NOVO: $OGIMG"
+          curl -sS -o /dev/null -w "OG_IMAGE_HTTP:%{http_code} TYPE:%{content_type} SIZE:%{size_download}\n" --max-time 15 "$OGIMG"
