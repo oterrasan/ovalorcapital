@@ -6053,15 +6053,51 @@ function UploadImagens() {
   const onDragOver = (e) => { e.preventDefault(); setDrag(true); };
   const onDragLeave = () => setDrag(false);
 
+  // 16/11/2026 — causa raiz real confirmada: upload direto aqui ia pro Storage
+  // sem NENHUMA compressão (ex: PNG de 2,79MB real, usado como og:image de um
+  // artigo) — WhatsApp (e a maioria dos crawlers de preview de link) falha ou
+  // demora demais pra buscar imagem grande, resultando em "link não abre
+  // imagem" ou caindo no fallback genérico (logo do OVC). Fix: redimensiona
+  // (máx. 1600px no maior lado) e reencoda como JPEG q0.85 antes de subir —
+  // mesma técnica já usada no editor de imagem desta própria tela (canvas→
+  // toBlob), só que aplicada a QUALQUER upload, não só ao fluxo de edição.
+  // Se o redimensionamento falhar por qualquer motivo, sobe o arquivo
+  // original sem travar o usuário (nunca pior do que o comportamento antigo).
+  const comprimirImagem = (file) => new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxDim = 1600;
+        let { width: w, height: h } = img;
+        if (w > maxDim || h > maxDim) {
+          if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        c.toBlob((blob) => resolve(blob ? { blob, ext: 'jpg', contentType: 'image/jpeg' } : null), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    } catch (_) { resolve(null); }
+  });
+
   const uploadAll = async () => {
     if (!files.length) { showMsg('Selecione ao menos 1 imagem.', 'erro'); return; }
     setUploading(true);
     let ok = 0, erros = 0;
     for (const file of files) {
       try {
-        const ext = file.name.split('.').pop().toLowerCase();
+        const comprimido = await comprimirImagem(file);
+        const ext = comprimido ? comprimido.ext : file.name.split('.').pop().toLowerCase();
+        const body = comprimido ? comprimido.blob : file;
+        const contentType = comprimido ? comprimido.contentType : file.type;
         const path = 'uploads/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
-        const { error: upErr } = await sb.storage.from('posts-images').upload(path, file, { contentType: file.type, upsert: true });
+        const { error: upErr } = await sb.storage.from('posts-images').upload(path, body, { contentType, upsert: true });
         if (upErr) throw new Error(upErr.message);
         ok++;
       } catch(e) {
