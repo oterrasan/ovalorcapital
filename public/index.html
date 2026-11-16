@@ -480,124 +480,104 @@
      rail esquerdo — ver comentário lá. -->
 <aside class="rail-right">
 
-<!-- 16/11/2026 — Roberto, 1ª rodada: trocar o banner de Planos de
-     Saúde/Grupo Terrasan pelo novo patrocinador real ROHE Construtora
-     e Incorporadora (https://roheconstrutora.com.br/). 2ª rodada,
-     depois de ver no ar: "voce basicamente usou o site inteiro deles
-     pra criar o banner que está cru, sem alma e basicamente pobre.
-     nao tem as fotos de obras rodando ali, nao fala sobre as
-     atividades deles, a historia, nao fala NADA" — correto: a 1ª
-     versão só usava o vídeo do topo. Escavado o resto do HTML real
-     do site (não é Wix, é GoDaddy Website Builder) e achado: (1) o
-     texto real da seção "A ROHE" (2 parágrafos reais sobre o que
-     fazem — construção civil pros setores industrial/logístico/
-     corporativo); (2) o processo real deles em 3 etapas (seção
-     "Entenda como podemos te auxiliar": Levantamento e viabilidade →
-     Desenvolvimento de projetos → Construção), com descrições reais;
-     (3) 2 fotos reais hospedadas no CDN deles (img1.wsimg.com) — um
-     galpão industrial vazio e pronto (provável entrega/projeto real)
-     e o skyline de São Paulo à noite (Ponte Estaiada) — nenhuma das
-     duas parece gerada por IA (sem artefato típico, texturas/luz
-     plausíveis fisicamente); uma 3ª imagem do CDN deles (blob-
-     c90343c, um galpão "cheio de caixas" com iluminação difusa)
-     TEM cara de render de IA (luz/sombra inconsistente, excesso de
-     neblina decorativa) — por precaução, NÃO foi usada. Agora o
-     banner alterna 3 "slides" reais (vídeo institucional deles +
-     as 2 fotos reais) em crossfade de 18s, com texto grounded nos 2
-     parágrafos + nas 3 etapas reais do processo. Fotos baixadas uma
-     vez, recortadas pra tirar a tarja preta que já vinha no arquivo
-     original, e self-hosted em /img/banners/ — nunca hotlink de
-     terceiro. 3ª rodada, mesma conversa: "fora que nao tem sentido
-     algum ter escrito no banner os dizeres sobre pUBLICIDADE, ne?" —
-     removido "Publicidade ·" do kicker e do rodapé (o card já é
-     visualmente autoexplicativo como patrocínio — logo+CTA próprios
-     — e o rel="sponsored" no link, que é o que o Google realmente
-     exige, Regra #25, continua intacto). Âncora ovc-banner-rohe
-     preservada (nenhum outro JS do portal depende dela). -->
+<!-- 16/11/2026 — Roberto, 3ª rodada, rejeição total do visual: "voce
+     basicamente pegou o que tinha de imagem e video la e adaptou pra
+     ca. eu nao queria isso... esta tudo muito escuro e nao esta
+     adequado. A RHOE e tradicao, uma empresa familiar que se tornou
+     referencia em projetos e execucao, sao mais de 3 decadas
+     projetando, construindo e entregando sonhos." Ele autorizou usar
+     os mesmos ativos reais como base, mas pediu pesquisa de mercado
+     real de como portais de alto nível tratam banner institucional
+     — não um retoque no card escuro anterior.
+
+     Pesquisa feita antes de desenhar (não suposição): (1) tipografia
+     serifada = herança/autoridade, espaçamento generoso = percepção
+     de valor premium, tons terrosos/creme + 1 acento forte = sinal
+     de tradição, selo/brasão = craft (fontes reais, não blog de
+     venda de template — ver resumo no chat); (2) o PRÓPRIO site da
+     ROHE já carrega Cinzel + Playfair Display + Source Sans Pro e
+     paleta 100% monocromática clara (branco/cinza-quente, zero cor
+     saturada no CSS deles) — confirma que a identidade real da marca
+     é clara/elegante, nunca escura; (3) achada a foto que a própria
+     ROHE usa como imagem principal do site (og:image repetida em
+     TODAS as páginas deles): licenciada da Getty (EXIF confirma
+     "Table with hard-hat and blueprints", Canon 5D Mark IV) — capacete
+     e nível sobre mesa branca com plantas ao fundo, mesa iluminada
+     por luz natural, nada escuro. Baixada em alta resolução e
+     recortada localmente (não usa o crop da Getty, que cortava o
+     nível) pra enquadrar capacete + nível + plantas desfocadas juntos
+     — exatamente a narrativa de "projeto com rigor técnico". Self-
+     hosted em /img/banners/rohe-hero.webp (nunca hotlink de
+     terceiro, WebP q82 — Regra #1).
+
+     O vídeo institucional (executivos em silhueta/contraluz, corredor
+     escuro) e o skyline "à noite" do rascunho anterior foram
+     REMOVIDOS do visual principal — eram justamente as duas peças
+     mais escuras, a origem real da queixa. Nenhum outro JS do portal
+     depende da âncora ovc-banner-rohe (confirmado via grep antes de
+     reescrever).
+
+     Desenho novo, sem nenhuma peça reaproveitada do card anterior:
+     fundo creme claro + moldura fina dourada (var(--gold), já token
+     oficial do próprio OVC, usado nos cards de Colunistas — nunca
+     inventado); foto emoldurada como "retrato", não full-bleed de
+     fundo; selo circular "+30 ANOS" sobreposto no canto da moldura
+     (o número é o "mais de 3 décadas" dito pelo próprio Roberto —
+     número diferente e mais específico do "mais de 25 anos de
+     experiência do corpo técnico" que o site deles afirma, sem
+     conflito, são métricas diferentes); título em Playfair Display
+     itálico com as palavras reais dele ("projetando, construindo e
+     entregando sonhos"); as 3 etapas reais do processo deles
+     ("Entenda como podemos te auxiliar" na página real) como lista
+     enxuta em numeração romana, sem looping/ticker; CTA em contorno
+     dourado, sem gradiente/brilho animado. Zoom Ken Burns muito sutil
+     na foto (única animação), desligado via prefers-reduced-motion.
+     "Publicidade" continua fora do texto visível (decisão já tomada
+     numa rodada anterior) — rel="sponsored" no link cobre a exigência
+     técnica real do Google (Regra #25). -->
 <style>
-#ovc-banner-rohe{display:block;position:relative;overflow:hidden;border-radius:16px;background:linear-gradient(160deg,#0b0c10 0%,#15161b 55%,#1d1e24 100%);padding:0;margin-bottom:14px;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);min-height:700px}
-#ovc-banner-rohe:hover{box-shadow:0 10px 30px rgba(0,0,0,.5)}
-.ovc-br-media{position:relative;width:100%;height:340px;overflow:hidden;background:#101115}
-.ovc-br-slide{position:absolute;inset:0;opacity:0;animation:ovcBrSlide 18s ease-in-out infinite}
-.ovc-br-slide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.ovc-br-slide-video .ovc-br-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 18%}
-.ovc-br-videowrap{position:absolute;inset:0;overflow:hidden}
-.ovc-br-videowrap iframe{position:absolute;border:0;pointer-events:none;max-width:none;max-height:none}
-@keyframes ovcBrSlide{0%{opacity:0}2%{opacity:1}27%{opacity:1}31%{opacity:0}100%{opacity:0}}
-.ovc-br-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,12,16,0) 42%,rgba(11,12,16,.6) 80%,rgba(13,14,18,.94) 100%);pointer-events:none;z-index:1}
-.ovc-br-body{position:relative;padding:16px 18px 18px}
-.ovc-br-glow{position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.14) 0%,rgba(255,255,255,0) 70%);animation:ovcBrGlow 4.5s ease-in-out infinite}
-@keyframes ovcBrGlow{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.8;transform:scale(1.12)}}
-.ovc-br-brand{display:flex;align-items:baseline;gap:7px;margin-bottom:10px;position:relative;z-index:1}
-.ovc-br-brand b{font-size:15px;font-weight:800;letter-spacing:.03em;color:#fff}
-.ovc-br-brand span{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(234,235,238,.55)}
-.ovc-br-ticker{position:relative;z-index:1;min-height:84px;margin-bottom:10px}
-.ovc-br-tick{position:absolute;top:0;left:0;right:0;opacity:0;font-size:19px;font-weight:800;line-height:1.3;color:#fff;letter-spacing:-.01em;text-shadow:0 1px 10px rgba(0,0,0,.4);animation:ovcBrTick 18s ease-in-out infinite;animation-fill-mode:both}
-@keyframes ovcBrTick{0%{opacity:0;transform:translateY(8px)}3%{opacity:1;transform:translateY(0)}17%{opacity:1;transform:translateY(0)}20%{opacity:0;transform:translateY(-8px)}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.ovc-br-tick,.ovc-br-glow,.ovc-br-slide{animation:none!important}.ovc-br-tick:first-child,.ovc-br-slide:first-child{opacity:1!important}}
-#ovc-banner-rohe h3{margin:0 0 8px;color:#fff;font-size:16px;line-height:1.32;font-weight:800;letter-spacing:-.01em;text-shadow:0 1px 8px rgba(0,0,0,.3);position:relative;z-index:1}
-#ovc-banner-rohe p{margin:0 0 14px;color:rgba(234,235,238,.75);font-size:12.5px;line-height:1.55;position:relative;z-index:1}
-.ovc-br-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(120deg,#1b1c21,#2c2e36);border-radius:9px;padding:13px 16px;font-weight:800;font-size:14px;color:#fff;position:relative;overflow:hidden;z-index:1;border:1px solid rgba(255,255,255,.14)}
-.ovc-br-cta span{position:relative;z-index:1}
-.ovc-br-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(120deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.3) 50%,rgba(255,255,255,0) 100%);animation:ovcBrSweep 3.2s ease-in-out infinite}
-@keyframes ovcBrSweep{0%{left:-60%}55%,100%{left:130%}}
-.ovc-br-foot{margin-top:10px;font-size:9.5px;color:rgba(234,235,238,.4);letter-spacing:.03em;position:relative;z-index:1}
+#ovc-banner-rohe{display:block;position:relative;border-radius:18px;background:linear-gradient(180deg,#fdfbf6 0%,#f7f1e4 100%);padding:18px 18px 16px;margin-bottom:14px;text-decoration:none;box-shadow:0 10px 28px rgba(43,36,28,.10);border:1px solid rgba(212,175,55,.38)}
+#ovc-banner-rohe:hover{box-shadow:0 14px 34px rgba(43,36,28,.16)}
+.ovc-br-frame{position:relative;border-radius:12px;overflow:hidden;border:1px solid rgba(212,175,55,.55);box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
+.ovc-br-frame img{display:block;width:100%;aspect-ratio:850/702;object-fit:cover;object-position:28% 38%;animation:ovcBrKen 22s ease-in-out infinite alternate}
+@keyframes ovcBrKen{0%{transform:scale(1)}100%{transform:scale(1.045)}}
+.ovc-br-seal{position:absolute;left:14px;top:142px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#3a2f22,#231a10 72%);border:2px solid #d4af37;box-shadow:0 4px 10px rgba(43,36,28,.35),0 0 0 4px rgba(253,251,246,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.ovc-br-seal b{font-family:var(--font-editorial);font-size:21px;line-height:1;color:#f1dfa9;letter-spacing:.01em}
+.ovc-br-seal span{font-size:8px;font-weight:700;letter-spacing:.14em;color:#d4af37;margin-top:2px}
+.ovc-br-body{position:relative;padding-top:30px}
+.ovc-br-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#a9842f;margin-bottom:5px}
+.ovc-br-brand{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.ovc-br-brand b{font-family:var(--font-editorial);font-size:19px;font-weight:800;letter-spacing:.07em;color:#2b241c}
+.ovc-br-brand span{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8a7f6f}
+#ovc-banner-rohe h3{margin:0 0 14px;font-family:var(--font-editorial);font-style:italic;font-weight:700;color:#2b241c;font-size:17px;line-height:1.38;letter-spacing:.002em}
+.ovc-br-process{display:flex;flex-direction:column;gap:9px;margin:0 0 16px;padding:13px 0 2px;border-top:1px solid rgba(212,175,55,.3)}
+.ovc-br-step{display:flex;align-items:baseline;gap:9px}
+.ovc-br-step .num{font-family:var(--font-editorial);font-size:12.5px;font-weight:700;color:#b8933c;width:17px;flex:none}
+.ovc-br-step .label{font-size:11.5px;line-height:1.4;color:#5c5245}
+.ovc-br-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:1.4px solid #2b241c;border-radius:999px;padding:11px 16px;font-weight:700;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:#2b241c;transition:background .2s,color .2s}
+#ovc-banner-rohe:hover .ovc-br-cta{background:#2b241c;color:#f1dfa9}
+.ovc-br-cta span:last-child{font-size:15px;line-height:1}
+.ovc-br-foot{margin-top:11px;text-align:center;font-size:9.5px;color:#a89a84;letter-spacing:.05em}
+@media (prefers-reduced-motion:reduce){.ovc-br-frame img{animation:none!important}}
 </style>
 <a id="ovc-banner-rohe" href="https://roheconstrutora.com.br/" target="_blank" rel="noopener sponsored" aria-label="Visitar o site da ROHE Construtora e Incorporadora">
-<div class="ovc-br-media" id="ovc-br-media">
-<div class="ovc-br-slide ovc-br-slide-video" style="animation-delay:0s">
-<img class="ovc-br-poster" src="/img/banners/rohe-poster.webp" alt="Vídeo institucional ROHE — executivos caminhando em obra industrial" loading="lazy">
-<div class="ovc-br-videowrap" id="ovc-br-videowrap"></div>
+<div class="ovc-br-frame">
+<img src="/img/banners/rohe-hero.webp" alt="Capacete de obra e nível sobre projeto técnico — rigor e execução da ROHE" loading="lazy">
 </div>
-<div class="ovc-br-slide" style="animation-delay:6s"><img src="/img/banners/rohe-galpao.webp" alt="Galpão industrial entregue pela ROHE — estrutura metálica e piso de concreto" loading="lazy"></div>
-<div class="ovc-br-slide" style="animation-delay:12s"><img src="/img/banners/rohe-skyline.webp" alt="Skyline de São Paulo à noite — presença da ROHE na construção civil corporativa" loading="lazy"></div>
-<div class="ovc-br-shade"></div>
-</div>
+<div class="ovc-br-seal"><b>+30</b><span>ANOS</span></div>
 <div class="ovc-br-body">
-<div class="ovc-br-glow"></div>
+<div class="ovc-br-eyebrow">Tradição familiar</div>
 <div class="ovc-br-brand"><b>ROHE</b><span>Construtora e Incorporadora</span></div>
-<div class="ovc-br-ticker">
-<div class="ovc-br-tick" style="animation-delay:0s">Da concepção à construção</div>
-<div class="ovc-br-tick" style="animation-delay:3.6s">Levantamento e estudo de viabilidade</div>
-<div class="ovc-br-tick" style="animation-delay:7.2s">Desenvolvimento de projetos</div>
-<div class="ovc-br-tick" style="animation-delay:10.8s">Construção e entrega da obra</div>
-<div class="ovc-br-tick" style="animation-delay:14.4s">Edifícios industriais, logísticos e corporativos</div>
+<h3>Mais de três décadas projetando, construindo e entregando sonhos.</h3>
+<div class="ovc-br-process">
+<div class="ovc-br-step"><span class="num">I.</span><span class="label">Levantamento e estudo de viabilidade</span></div>
+<div class="ovc-br-step"><span class="num">II.</span><span class="label">Desenvolvimento de projetos</span></div>
+<div class="ovc-br-step"><span class="num">III.</span><span class="label">Construção e entrega da obra</span></div>
 </div>
-<h3>Da viabilidade à entrega da obra</h3>
-<p>Soluções completas em construção civil para os setores industrial, logístico e corporativo — do estudo de viabilidade e desenvolvimento de projetos até a execução da obra.</p>
-<div class="ovc-br-cta"><span>Conhecer a ROHE</span><span>›</span></div>
+<div class="ovc-br-cta"><span>Conhecer a ROHE</span><span>&rsaquo;</span></div>
 <div class="ovc-br-foot">roheconstrutora.com.br</div>
 </div>
 </a>
-<script>
-(function(){
-var wrap=document.getElementById('ovc-br-videowrap'), media=document.getElementById('ovc-br-media');
-if(!wrap||!media) return;
-var reduce=false;
-try{ reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
-if(reduce) return;
-var f=document.createElement('iframe');
-f.src='https://player.vimeo.com/video/925973459?h=c4da38ab4e&background=1&autoplay=1&loop=1&byline=0&title=0&muted=1&dnt=1';
-f.setAttribute('allow','autoplay; fullscreen');
-f.setAttribute('title','Vídeo institucional ROHE Construtora e Incorporadora');
-wrap.appendChild(f);
-function fit(){
-var cw=media.clientWidth, ch=media.clientHeight, va=16/9, w,h;
-if(!cw||!ch) return;
-if((cw/ch)>va){ w=cw; h=cw/va; } else { h=ch; w=ch*va; }
-f.style.width=w+'px'; f.style.height=h+'px';
-f.style.left=((cw-w)/2)+'px'; f.style.top=((ch-h)/2)+'px';
-}
-fit();
-if(window.ResizeObserver){
-try{ new ResizeObserver(fit).observe(media); }catch(e){ [50,200,500,1200,2500].forEach(function(ms){ setTimeout(fit, ms); }); }
-} else {
-[50,200,500,1200,2500].forEach(function(ms){ setTimeout(fit, ms); });
-}
-window.addEventListener('resize', fit);
-window.addEventListener('load', fit);
-})();
-</script>
 
 <div class="rail-block rail-block-tv">
 <div class="rail-title">OVC TV • Ao vivo</div>

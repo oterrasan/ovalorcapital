@@ -10892,3 +10892,62 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar com Roberto, na coluna dele de hoje à noite**, que ao publicar no Instagram o convite já sai aceito e curtido sozinho.
 2. Confirmar o mesmo pro próximo conteúdo de Beta/Adriana/Michele que for coluna (subcategoria_slug delas).
 3. Demais pendências de sessões anteriores seguem válidas.
+
+---
+
+### Sessão 16/11/2026 (continuação 4) — BANNER ROHE: REDESENHO TOTAL — REJEIÇÃO DO VISUAL ANTERIOR, PESQUISA DE MERCADO REAL, IDENTIDADE CLARA/HERANÇA
+
+#### Contexto
+
+Roberto rejeitou o banner construído horas antes (ver entrada anterior "BANNER ROHE: CONTEÚDO REAL DE VERDADE"), com crítica direta: *"voce basicamente pegou o que tinha de imagem e video lá e adaptou pra ca. eu nao queria isso. podemos usar como base? sim. mas o que eu espero de voce? que voce pesquise, estude o que este mercado compra e o que eles usam para banners em portais de alto nivel e faca isso de maneira exemplar. está tudo muito escuro e nao está adequado. A RHOE é tradicao, uma empresa familiar que se torbou referencia em projetos e execucao, sao mais de 3 decadas projetando, construindo e entregando sonhos."*
+
+Ou seja: não era pra só trocar a imagem — era pra trocar a LINGUAGEM VISUAL inteira, que estava reaproveitando o mesmo "card escuro estilo widget de radar esportivo" das sessões anteriores, sem nenhuma pesquisa de como o mercado de patrocínio institucional de alto nível realmente se apresenta.
+
+#### Pesquisa real feita antes de desenhar (não suposição)
+
+1. **WebSearch** (tendências de banner 2025 + branding de marca com herança/tradição): confirmado por múltiplas fontes — tipografia serifada sinaliza herança/autoridade; espaçamento generoso = percepção de valor premium; tons terrosos/creme com 1 acento forte = sinal de legado; selos/brasões/insígnias carimbadas = sinal de craft/artesania. Referências de posicionamento real do setor: WKoerich (+60 anos, empresa familiar, alto padrão) e Plaenge (+5 décadas) confirmam o tom "tradição familiar" como padrão real do segmento de construção de alto padrão.
+2. **Re-investigação completa do site real da ROHE** (`roheconstrutora.com.br`, GoDaddy Website Builder — confirmado via `img1.wsimg.com`), desta vez olhando o CSS/fontes/paleta real deles, não só o texto:
+   - Fontes carregadas: **Cinzel** (serifa monumental/gravada — clássica de marca de herança), **Playfair Display**, **Source Sans Pro**.
+   - Paleta real do CSS deles: 100% monocromática clara — branco, cinza-quente (`rgb(247,247,247)`, `rgb(117,117,117)`), preto suave — **zero cor saturada**, confirmando que a identidade real da marca é clara/elegante, nunca escura.
+   - A imagem usada como `og:image` em TODAS as páginas deles (não um ativo qualquer nosso) é uma foto licenciada da Getty (EXIF confirma "Table with hard-hat and blueprints", Canon 5D Mark IV) — capacete e nível de pedreiro sobre mesa branca com plantas desfocadas ao fundo, luz natural, nada escuro.
+   - Página `/portfolio` confirmada sem nenhuma galeria real renderizada no HTML estático (site ainda em "EM BREVE, DE CARA NOVA") — não há fotos de obra própria disponíveis além da foto de banco de imagens que eles mesmos usam.
+   - Texto real de `/quem-somos` confirmado: "Fundada na expertise de um corpo técnico com mais de 25 anos de experiência" + missão/visão/valores reais.
+3. **CSS do próprio OVC**: `--font-editorial: 'Playfair Display'` e `--gold: #d4af37` já são tokens oficiais do design system do portal (usados nos cards de Colunistas) — ou seja, o caminho "serifado + dourado + claro" não é um estilo novo inventado, é consistente com a própria identidade visual do OVC em conteúdo premium.
+
+#### O que foi feito (`public/index.html`)
+
+- `#ovc-banner-rohe` reconstruído do zero: fundo creme claro (`#fdfbf6`→`#f7f1e4`) com moldura fina dourada — **nada escuro**.
+- Foto real da ROHE (a mesma usada como `og:image` por eles — licenciada Getty, baixada em alta resolução e recortada localmente pra enquadrar capacete + nível + plantas juntos, já que o recorte padrão deles cortava o nível) **emoldurada como retrato**, não mais full-bleed de fundo. Self-hosted em `/img/banners/rohe-hero.webp` (WebP q82, Regra #1).
+- **Selo circular "+30 ANOS"** sobreposto no canto da moldura — o número vem da fala do próprio Roberto ("mais de 3 décadas"), diferente e mais específico que o "+25 anos de experiência do corpo técnico" do site deles (métricas diferentes, sem conflito).
+- Título em Playfair Display itálico com as palavras reais de Roberto: "Mais de três décadas projetando, construindo e entregando sonhos."
+- As 3 etapas reais do processo deles (seção "Entenda como podemos te auxiliar" do site real) como lista em numeração romana — sem looping/ticker.
+- CTA em contorno dourado (preenche no hover), sem gradiente/brilho animado.
+- **Vídeo institucional (executivos em silhueta/contraluz) e o skyline "à noite" do rascunho anterior foram REMOVIDOS** — eram exatamente as duas peças mais escuras, origem real da queixa de Roberto. Confirmado via grep que nenhum outro JS do portal depende da âncora `ovc-banner-rohe` antes de reescrever.
+- Único movimento: zoom Ken Burns muito sutil na foto (22s), desligado via `prefers-reduced-motion`.
+
+#### Verificação feita (não só leitura de código)
+
+- Protótipo isolado testado via Playwright (Chromium real, harness local com os mesmos tokens CSS do OVC) antes de aplicar no arquivo real — confirmado visualmente: fundo claro, foto nítida e bem recortada, selo legível, hierarquia tipográfica correta, hover do CTA funcionando.
+- Depois de aplicado em `public/index.html`, renderizado o arquivo real completo (servido localmente, chamadas `/api/**` mockadas) via Playwright — screenshot do elemento `#ovc-banner-rohe` dentro do `.rail-right` real confirma resultado **idêntico** ao protótipo isolado, sem nenhum conflito de CSS/fonte herdado do resto da página.
+- `public/index.html`: 763 linhas (Regra Zero-E), `<!DOCTYPE html>`/`</html>` intactos, `<style>`/`</script>` balanceados (3/3, 11/11).
+- `api/`: confirmado com exatamente 10 arquivos (Regra Zero-A) — mudança isolada em `public/`.
+- `public/admin/index.html`: não tocado.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação 4)
+
+| Sistema | Status |
+|---|---|
+| **Banner ROHE redesenhado por completo** — identidade clara/herança (creme + dourado + serifa), selo "+30 anos", foto real deles recortada corretamente, vídeo/skyline escuros removidos | ✅ EM CÓDIGO — verificado via Playwright real (protótipo isolado + página de produção real embutida), aguardando push/PR/merge/deploy |
+| **Pesquisa de mercado real documentada** (não suposição) — serifa=herança, espaçamento=premium, tons terrosos+acento=legado, selo=craft; identidade real da ROHE (Cinzel/Playfair/paleta clara) confirmada no CSS deles mesmos | ✅ CONFIRMADO |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** o resultado em produção — verificado tecnicamente (Playwright + rede real), mas ele ainda não viu o resultado final desta rodada.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
