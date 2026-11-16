@@ -10643,3 +10643,53 @@ Confirmado visualmente com 3 screenshots em momentos diferentes do ciclo de 18s:
 
 1. **Confirmar visualmente com Roberto** se agora está satisfeito com o resultado (substância real, sem "Publicidade" visível) — ainda não confirmado por ele nesta sessão, só verificado tecnicamente neste lado.
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa na entrada acima — volume real de 80/dia do OVC, fila prioritária do Instagram, split de categoria do canal Economia, tokens sem `instagram_manage_engagement`, `amichelefroes` sem `ig_user_id`, Insights real do Instagram no admin, lista de URLs pra reindexação manual no Search Console, migrar watchdog pro cron nativo da Vercel, conversa pausada sobre tom editorial, `buildHeader()` com taxonomia extinta, trocar `ADMIN_PASS`, 3 fotos órfãs do banner antigo de saúde).
+
+---
+
+### Sessão 16/11/2026 (continuação 2) — NOVO COLUNISTA: FLÁVIO BREGHIROLI (Tecnologia, Ciência e Inovação)
+
+#### Contexto
+
+Enquanto avaliava o banner da ROHE, Roberto pediu em paralelo: *"quero que voce inclua um novo colunista, vou te passar os dados, ja crie login e senha pra ele, como criamos para a taissa."* Mandou nome, especialidade, bio curta e uma foto real (colada no chat). Perguntado o e-mail (campo único/obrigatório na tabela `colunistas`), Roberto respondeu: *"nao tenho o e-mail dele aqui - coloque o login dele como Flavio-colunista-ovc e a senha defina uma padrao segura."*
+
+#### O que foi feito
+
+- **Login usado como identificador** (não é um e-mail de verdade, mas a coluna `email` da tabela é o único campo que `login_colunista`/`create_colunista` usam pra autenticar — não há validação de formato de e-mail no backend, então aceita qualquer string única): `flavio-colunista-ovc`.
+- **Senha gerada de forma segura** (16 caracteres, maiúscula/minúscula/dígito/símbolo, `secrets.choice` — não anotada em nenhum arquivo do repo, só entregue a Roberto no chat, mesma regra já em vigor pras outras contas de colunista).
+- **Foto real**: cortada/redimensionada (640×640, WebP q82) e enviada direto pro Storage em `posts-images/colunistas/flavio-breghiroli.webp` — descoberta automaticamente por `getColunistaPhotoMap()` (lista arquivos dessa pasta, mapeia nome-sem-extensão → slug), sem precisar de nenhuma chamada extra de `savePhoto()`.
+- **Bio**: "Colunista de Tecnologia, Ciência e Inovação. Engenheiro civil, Comendador, investidor e empresário."
+- **Slug**: `flavio-breghiroli`.
+- **Criação via `action=create_colunista`** (mesmo endpoint já confirmado correto em sessões anteriores — hash de senha server-side, sem a coluna `telefone` inexistente) — chamado direto contra produção via workflow one-off (`diag-once.yml`, GitHub Actions, já que este sandbox não tem rede pra Supabase nem pro site, confirmado com `curl` retornando `connect_rejected` nos dois domínios).
+- **`ALLOWED_COLUNISTAS_SLUGS`** (`api/manage.js`) — adicionado `flavio-breghiroli` à lista (Roberto, 31/07/2026: "apenas estes colunistas devem aparecer em qualquer lugar do portal") — sem isso ele teria login funcional mas ficaria invisível em toda parte (admin e fileira da home usam o mesmo `list_colunistas`, confirmado via grep que é o único gate).
+
+#### Verificação real, de ponta a ponta (run `43812475502`, todos os 6 passos `success`)
+
+```
+CREATE_COLUNISTA: {"ok":true}
+UPLOAD_HTTP_CODE: 200 — Key: posts-images/colunistas/flavio-breghiroli.webp
+SELECT colunistas: [{"nome":"Flávio Breghiroli","slug":"flavio-breghiroli","email":"flavio-colunista-ovc","ativo":true,"senha_hash":"0a9c34c0..."}]
+FOTO_HTTP: 200 SIZE: 18406
+LOGIN_COLUNISTA: {"ok":true,"colunista_id":"6d363d1f-...","token":"91961c16...","foto_url":"https://.../colunistas/flavio-breghiroli.webp"}
+```
+Login testado com a senha real de verdade, retornou `ok:true` — confirma que o hash bate e a conta está 100% funcional, não só criada.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado — só editado `ALLOWED_COLUNISTAS_SLUGS`, nenhum arquivo novo)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **Colunista Flávio Breghiroli criado, com login/senha reais testados** (`flavio-colunista-ovc`) | ✅ CONFIRMADO end-to-end via `diag-once.yml` — `create_colunista` + `login_colunista` ambos `ok:true` |
+| **Foto real hospedada no Storage** (`posts-images/colunistas/flavio-breghiroli.webp`) | ✅ CONFIRMADO — HTTP 200, 18.406 bytes, descoberta automática por `getColunistaPhotoMap()` |
+| **`ALLOWED_COLUNISTAS_SLUGS` atualizado** — ele agora pode aparecer no admin e na fileira da home | ⚠️ EM CÓDIGO, aguardando merge+deploy (ver pendência abaixo) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com `?action=list_colunistas` pós-deploy** que `flavio-breghiroli` aparece na lista (só funciona depois do merge do commit que adiciona o slug em `ALLOWED_COLUNISTAS_SLUGS` chegar em produção).
+2. **Passar a Roberto a senha gerada** (entregue só no chat desta sessão, nunca escrita em arquivo do repo) — se ele perder, qualquer sessão futura pode gerar uma nova e sobrescrever `senha_hash` via `action=create_colunista` de novo ou um update direto, seguindo o mesmo padrão seguro (nunca reaproveitar hash antigo, sempre recalcular com `hashSenhaColunista()`).
+3. Demais pendências de sessões anteriores seguem válidas (ver lista da entrada anterior).

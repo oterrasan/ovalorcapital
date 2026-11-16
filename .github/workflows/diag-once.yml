@@ -5,44 +5,4 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Criar colunista Flavio Breghiroli (producao)
-        run: |
-          set -e
-          RESP=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            --data-binary @- << 'PAYLOAD'
-          {"action":"create_colunista","token":"ovc-admin-2026-secreto","nome":"Flávio Breghiroli","email":"flavio-colunista-ovc","slug":"flavio-breghiroli","bio":"Colunista de Tecnologia, Ciência e Inovação. Engenheiro civil, Comendador, investidor e empresário.","senha":"M&6f*UAfe372HQ@B"}
-          PAYLOAD
-          )
-          echo "CREATE_COLUNISTA: $RESP"
-      - name: Upload da foto para o Supabase Storage
-        run: |
-          set -e
-          HTTP_CODE=$(curl -sS -o /tmp/upload_resp.json -w "%{http_code}" \
-            -X POST "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/posts-images/colunistas/flavio-breghiroli.webp" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Content-Type: image/webp" \
-            -H "x-upsert: true" \
-            --data-binary @scripts/one-off/flavio-breghiroli.webp)
-          echo "UPLOAD_HTTP_CODE: $HTTP_CODE"
-          cat /tmp/upload_resp.json; echo ""
-      - name: Confirmar linha no banco e acessibilidade publica da foto
-        run: |
-          set -e
-          echo "--- SELECT colunistas ---"
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/colunistas?email=eq.flavio-colunista-ovc&select=id,nome,slug,email,bio,ativo,senha_hash" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo ""
-          echo "--- HTTP da foto publica ---"
-          curl -sS -o /dev/null -w "FOTO_HTTP: %{http_code} SIZE: %{size_download}\n" \
-            "https://yntwvfcxjardzafdqanj.supabase.co/storage/v1/object/public/posts-images/colunistas/flavio-breghiroli.webp"
-      - name: Testar login_colunista de verdade
-        run: |
-          set -e
-          RESP=$(curl -sS -X POST "https://www.ovalorcapital.com.br/api/manage" \
-            -H "Content-Type: application/json" \
-            -d '{"action":"login_colunista","email":"flavio-colunista-ovc","senha":"M&6f*UAfe372HQ@B"}')
-          echo "LOGIN_COLUNISTA: $RESP"
+      - run: echo "nada a fazer no momento — placeholder pra investigações pontuais futuras"
