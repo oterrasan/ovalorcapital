@@ -973,11 +973,11 @@ async function handleIgPublish(req, res, body) {
 
   try {
     const { prepareInstagramImage, prepareInstagramIronicCard } = await _loadInstagramImage();
-    const { publish, collaboratorForFeedPost, getAccount, postComment, likeMedia } = await _loadInstagram();
+    const { publish, collaboratorForFeedPost, collaboratorForColunista, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = cartaoIronico
       ? await prepareInstagramIronicCard({ postId: post.id, supabase, paragraphs: ironicParagraphs, highlights: ironicHighlights, layout: ironicLayout, backgroundImageUrl: ironicBackgroundImageUrl })
       : await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, accountId, { collaborator: collaboratorForFeedPost(post) });
+    const ig = await publish(instagramImage.url, caption, accountId, { collaborator: collaboratorForColunista(post) || collaboratorForFeedPost(post) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
@@ -1673,9 +1673,9 @@ async function _publicarPostFeedAutomatico(post, account, opts) {
 
   try {
     const { prepareInstagramImage } = await _loadInstagramImage();
-    const { publish, collaboratorForFeedPost, getAccount, postComment, likeMedia } = await _loadInstagram();
+    const { publish, collaboratorForFeedPost, collaboratorForColunista, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, account.id, { collaborator: collaboratorForFeedPost(post) });
+    const ig = await publish(instagramImage.url, caption, account.id, { collaborator: collaboratorForColunista(post) || collaboratorForFeedPost(post) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
@@ -1969,7 +1969,7 @@ async function handleIgAutoPublish(req, res, body) {
         .not("token", "is", null),
       supabase
         .from("posts")
-        .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, status, metrics, ig_id, ig_account_id, published_at, publish_method")
+        .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria, subcategoria_slug, status, metrics, ig_id, ig_account_id, published_at, publish_method")
         .eq("status", "publicado")
         .order("published_at", { ascending: false })
         .limit(500)
@@ -2097,7 +2097,7 @@ async function handleIgPriorityPublish(req, res, body) {
     // campos corretamente; esta query nunca tinha sido alinhada com ela.
     const { data: candidatos, error: candidatesError } = await supabase
       .from("posts")
-      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, ig_id, ig_account_id, metrics")
+      .select("id, titulo, imagem, conteudo, comentario_fixado, user_tags, subcategoria_slug, ig_id, ig_account_id, metrics")
       .not("metrics->>instagram_priority", "is", null)
       .limit(500);
     if (candidatesError) throw candidatesError;

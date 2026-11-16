@@ -77,6 +77,38 @@ export function collaboratorForFeedPost(post) {
   return null;
   */
 }
+// 16/11/2026 — Roberto: "coloque COLABS automáticas quando conteúdos forem
+// de colunistas [...] ele deve receber colab no Instagram quando
+// publicarmos a coluna no Instagram." Mapa slug do colunista (mesmo
+// subcategoria_slug usado pelo sistema de colunistas — ver
+// ALLOWED_COLUNISTAS_SLUGS em api/manage.js, "a posse real de um post é
+// subcategoria_slug, não o publish_method") → Instagram REAL da pessoa.
+// Só handles que Roberto confirmou de verdade — nunca adivinhado.
+// flavio-breghiroli: confirmado por print do perfil real (verificado) em
+// 16/11/2026 — @com.flavio.breghiroli.garcia.
+// roberto-terrasan/beta-ferreira/adriana-ferreira/michele-froiz: mesma
+// pessoa dos handles já usados em COLLAB_POR_ASSUNTO/REEL_COLLABORATORS
+// acima.
+// prof-marcos-pizzolatto e taisa-da-fonseca: SEM handle confirmado ainda —
+// ficam de fora até Roberto informar.
+const COLUNISTA_INSTAGRAM = {
+  "roberto-terrasan": "oterrasan",
+  "beta-ferreira": "souabetaferreira",
+  "adriana-ferreira": "adriana.ferreirasp",
+  "michele-froiz": "amichelefroes",
+  "flavio-breghiroli": "com.flavio.breghiroli.garcia"
+};
+
+// Independente de collaboratorForFeedPost (travada em null desde
+// 01/10/2026, ver comentário acima dela) — crédito ao autor de uma coluna
+// pessoal é uma regra à parte, roda mesmo com o feed-por-assunto desligado.
+export function collaboratorForColunista(post) {
+  if (!post) return null;
+  const slug = String(post.subcategoria_slug || "").trim().toLowerCase();
+  if (!slug) return null;
+  return COLUNISTA_INSTAGRAM[slug] || null;
+}
+
 const DEFAULT_ACCOUNT_USERNAME = "ovalorcapital";
 // 17/09/2026 — Roberto: "demorar 40 minutos para uma conta aceitar as
 // collabs é inadmissível". Exclusão fixa, não lê config — mesma regra já

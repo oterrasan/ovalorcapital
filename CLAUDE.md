@@ -10749,3 +10749,98 @@ O cache de CDN (`Cache-Control: s-maxage=300`) e, principalmente, o **cache de p
 1. **Confirmar com Roberto** que recompartilhar o link mostra a prévia da imagem real agora.
 2. As imagens originais grandes (PNG cru) continuam no Storage, órfãs (nada mais referencia elas) — inofensivo, não apagadas por precaução (sem necessidade real de espaço, já documentado em sessão anterior que limpeza de imagem antiga não compensa o risco).
 3. Demais pendências de sessões anteriores seguem válidas (ver lista da entrada anterior).
+
+---
+
+### Sessão 16/11/2026 (continuação) — RADAR DO ESPORTE SAI DA HOME, CONCENTRADO EM `/esportes/` (PR #856)
+
+#### Contexto
+
+Roberto: *"Preciso que você remova o radar do esporte da home e concentre tudo o que existe nele, dentro da categoria de esportes."*
+
+#### O que foi feito (`public/js/ovc-radar-esporte.js`, `public/index.html`, `public/esportes/index.html`)
+
+- Removido o `<script>` de `ovc-radar-esporte.js` de `public/index.html` (home).
+- Adicionado em `public/esportes/index.html` — o hub `/esportes/`, `data-section="geral"`. Guard por `document.body.dataset.category/section` garante que **nunca** roda nas 13 páginas dedicadas por esporte (`/motor/`, `/tenis/`, `/mma/`, `/basquete/`, `/nfl/`, `/volei/`, `/radar-da-bola/` + as 6 de futebol), que já têm widgets próprios ao vivo.
+- Widget reescrito: saiu do rail estreito (740px fixo, rótulos de aba escondidos — adaptação específica pra caber em 270px de rail) e passou a ocupar o topo da coluna central (`.cat-centro`), largura fluida, rótulos de aba visíveis (sobra espaço agora), **aberto por padrão** (na home era fechado por ser secundário; aqui é o conteúdo principal da página — ver 5-8 artigos por aba em vez de 5).
+- **Ponto de injeção escolhido com cuidado**: `#cat-centro-area` (nunca reatribuído por inteiro pelo `internal-page-v2.js`), como primeiro filho, **antes** de `#cat-hero-slot`. Inserir dentro de `#cat-hero-slot` seria sobrescrito na hora que o fetch assíncrono de posts da categoria resolve (`heroSlot.innerHTML=...`) — o que sempre acontece quando a categoria tem algum post (e esportes sempre tem). Mesmo padrão defensivo (polling via `setInterval`) já usado por `ovc-interruptor-artigo.js` contra a fragilidade documentada de `internal-page-v2.js`.
+
+#### Verificação real (Playwright, não só leitura de código)
+
+Servidor estático local (`python3 -m http.server`) + mock de `/api/portal-posts`/`/api/manage` via `page.route()` do Playwright, simulando o fetch assíncrono e lento do `internal-page-v2.js`:
+- Widget aparece em `/esportes/`, filho de `#cat-centro-area`, irmão imediatamente anterior a `#cat-hero-slot`.
+- Visível, aberto por padrão, 7 abas, artigo da aba ativa (Futebol) renderizado.
+- O hero card normal (`#cat-hero-slot`) continua populado logo abaixo, intacto — confirma que não há corrida/sobrescrita.
+- Na home (`/`): nenhum widget, nenhum `<script>` de `ovc-radar-esporte.js`.
+- Screenshot full-page conferido visualmente — layout limpo, nada sobreposto.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado — mudança só em `public/`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação — Radar do Esporte)
+
+| Sistema | Status |
+|---|---|
+| **Radar do Esporte removido da home** | ✅ EM PRODUÇÃO — PR #856 mergeado (squash `787395b`), deploy confirmado `success` |
+| **Radar do Esporte concentrado em `/esportes/`, aberto por padrão, nunca nas 13 páginas dedicadas** | ✅ EM PRODUÇÃO — verificado via Playwright real (não sobrescrito pelo fetch assíncrono do `internal-page-v2.js`) |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto** o resultado em produção — verificado tecnicamente (Playwright + mock), mas nunca visto em produção real por este agente (sandbox sem rede pra produção).
+2. Demais pendências de sessões anteriores seguem válidas.
+
+---
+
+### Sessão 16/11/2026 (continuação 2) — COLAB AUTOMÁTICA NO INSTAGRAM QUANDO O CONTEÚDO É DE COLUNISTA (`core/instagram.js`, `api/manage.js`)
+
+#### Contexto
+
+Roberto mandou print do perfil real e verificado do colunista Flávio Breghiroli no Instagram (`@com.flavio.breghiroli.garcia`, cadastrado como colunista na sessão anterior) e pediu: *"Claude, faça um ajuste e coloque COLABS automáticas quando conteúdos forem de colunistas. Por exemplo, coluna do Flávio, colunistas que colocamos ontem. Este é o Instagram dele. Ele deve receber colab no Instagram quando publicarmos a coluna no Instagram."*
+
+#### Causa raiz do porquê isso não acontecia
+
+`collaboratorForFeedPost()` (`core/instagram.js`) está travada em `return null` incondicional desde 01/10/2026 ("chega de colabs por enquanto, no feed... trave isso — muitas colabs estão afetando o alcance") — ou seja, **nenhum** post de feed do OVC leva colaborador hoje, nem por assunto nem por autor. Essa trava continua valenda como está (não mexida — é uma decisão deliberada e separada sobre alcance geral). O pedido de Roberto é uma regra NOVA e mais estreita: crédito ao autor de uma coluna pessoal, independente dessa trava.
+
+#### O que foi feito
+
+- **`core/instagram.js`** — nova função `collaboratorForColunista(post)`, com um mapa `COLUNISTA_INSTAGRAM` (slug do colunista → handle real do Instagram, **só** handles confirmados por Roberto, nunca adivinhados):
+  - `flavio-breghiroli` → `com.flavio.breghiroli.garcia` (confirmado por print do perfil real/verificado, 16/11/2026).
+  - `roberto-terrasan`/`beta-ferreira`/`adriana-ferreira`/`michele-froiz` → reaproveitam os mesmos handles reais (`oterrasan`/`souabetaferreira`/`adriana.ferreirasp`/`amichelefroes`) já usados em `COLLAB_POR_ASSUNTO`/`REEL_COLLABORATORS` — mesma pessoa.
+  - `prof-marcos-pizzolatto` e `taisa-da-fonseca` — **sem handle confirmado ainda**, ficam de fora do mapa até Roberto informar (nunca adivinhar).
+  - Identificação do autor via `post.subcategoria_slug` — o mesmo campo que `api/manage.js` já usa como fonte real da posse de um post ("a posse real de um post é subcategoria_slug, não o publish_method", 31/08/2026) — cobre tanto coluna gerada pelo próprio colunista quanto conteúdo antigo gerado pelo pipeline mas atribuído a ele.
+  - Roda **independente** da trava de `collaboratorForFeedPost` — é uma regra separada, sempre ativa.
+- **`api/manage.js`** — ligado nos 2 pontos reais que publicam post de feed do OVC (`handleIgPublish`, o botão manual; `_publicarPostFeedAutomatico`, compartilhado pela automação e pela fila prioritária): `collaborator: collaboratorForColunista(post) || collaboratorForFeedPost(post)` — prioridade pro crédito do colunista; cai pra `collaboratorForFeedPost` (hoje sempre `null`) se não for conteúdo de colunista.
+  - `subcategoria_slug` adicionado às 2 queries de candidatos que ainda não o traziam (`_igAutoProcessAccount` e `handleIgPriorityPublish`) — sem isso a função nunca teria o dado pra decidir.
+- Reels **não tocados** — já têm lista fixa de 5 colaboradores (incluindo `oterrasan`/`souabetaferreira`/`adriana.ferreirasp`/`amichelefroes`) em todo Reel, independente de assunto/autor (regra de 12/11/2026); colunas são conteúdo de texto, não há evidência de que sejam publicadas como Reel. Fora do escopo pedido.
+- Brasil ON (`brasilon/core/instagram.js`) **não tocado** — o espelho do Brasil ON só replica categorias `brasil-on`/`política`/`polícia`/`futebol`, nunca conteúdo de colunista.
+
+#### Verificação
+
+- `node --check` limpo nos dois arquivos.
+- Lógica testada isolada em Node (harness local, sem depender do Supabase): `flavio-breghiroli` → `com.flavio.breghiroli.garcia` (com trim/lowercase); `roberto-terrasan` → `oterrasan`; slug sem handle confirmado (`taisa-da-fonseca`) → `null`; sem `subcategoria_slug`/post vazio → `null` em todos os casos — nenhum post comum (sem dono de coluna) ganha colaborador por engano.
+- **⚠️ Cuidado real evitado**: a primeira tentativa de edição em `api/manage.js` (via script Python de texto puro) converteu o arquivo inteiro de CRLF pra LF, gerando um diff de ~8.800 linhas — revertido e refeito só com o `Edit` tool, que preserva a convenção de quebra de linha do arquivo. Diff final: 6 linhas reais (confirmado com `git diff -w` e inspeção byte a byte das quebras de linha).
+- `api/` continua com exatamente 10 arquivos (Regra Zero-A) — nenhum arquivo novo.
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (16/11/2026 continuação 2 — colab de colunista)
+
+| Sistema | Status |
+|---|---|
+| **Colab automática do autor da coluna no Instagram** (feed, manual + automação + fila prioritária) | ✅ CÓDIGO PRONTO — aguardando merge/deploy e o próximo post real do Flávio pra confirmar em produção |
+| **Mapa real de handles de colunistas** (`COLUNISTA_INSTAGRAM`) — só Flávio, Roberto, Beta, Adriana e Michele confirmados | ✅ EM PRODUÇÃO assim que mergeado — Pizzolatto/Taísa ficam sem colab até Roberto informar o handle real deles |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto, no próximo post real do Flávio no Instagram**, que o `@com.flavio.breghiroli.garcia` aparece marcado como colaborador.
+2. **Se Roberto quiser estender pros outros colunistas sem handle confirmado** (Pizzolatto, Taísa) — pedir o Instagram real deles antes de adicionar ao mapa, nunca adivinhar.
+3. Demais pendências de sessões anteriores seguem válidas.
