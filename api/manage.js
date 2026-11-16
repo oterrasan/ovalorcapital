@@ -977,7 +977,8 @@ async function handleIgPublish(req, res, body) {
     const instagramImage = cartaoIronico
       ? await prepareInstagramIronicCard({ postId: post.id, supabase, paragraphs: ironicParagraphs, highlights: ironicHighlights, layout: ironicLayout, backgroundImageUrl: ironicBackgroundImageUrl })
       : await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, accountId, { collaborator: collaboratorForColunista(post) || collaboratorForFeedPost(post) });
+    const colunistaHandle = collaboratorForColunista(post);
+    const ig = await publish(instagramImage.url, caption, accountId, { collaborator: colunistaHandle || collaboratorForFeedPost(post), colunistaCollab: Boolean(colunistaHandle) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
@@ -1675,7 +1676,8 @@ async function _publicarPostFeedAutomatico(post, account, opts) {
     const { prepareInstagramImage } = await _loadInstagramImage();
     const { publish, collaboratorForFeedPost, collaboratorForColunista, getAccount, postComment, likeMedia } = await _loadInstagram();
     const instagramImage = await prepareInstagramImage({ sourceUrl: post.imagem, postId: post.id, supabase, title: post.titulo });
-    const ig = await publish(instagramImage.url, caption, account.id, { collaborator: collaboratorForColunista(post) || collaboratorForFeedPost(post) });
+    const colunistaHandle = collaboratorForColunista(post);
+    const ig = await publish(instagramImage.url, caption, account.id, { collaborator: colunistaHandle || collaboratorForFeedPost(post), colunistaCollab: Boolean(colunistaHandle) });
     const firstCommentText = buildInstagramFirstComment(post);
     let firstComment = null;
     let firstCommentError = null;
