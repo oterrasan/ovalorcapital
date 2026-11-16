@@ -5,39 +5,48 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Dados reais do post (imagem, categoria, status)
+      - name: Escopo real - quantas imagens grandes em uploads/ sao capa de post publicado
         run: |
           set -e
-          curl -sS "https://yntwvfcxjardzafdqanj.supabase.co/rest/v1/posts?id=gte.d1527d17-0000-0000-0000-000000000000&id=lte.d1527d17-ffff-ffff-ffff-ffffffffffff&select=id,titulo,imagem,status,user_tags,subcategoria,publish_method,metrics" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40" \
-            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
-          echo ""
-      - name: HEAD/GET no dominio nao-www (apex) - SSL e redirect
-        run: |
-          echo "--- curl -I (so headers) non-www ---"
-          curl -sS -I -o /tmp/h1.txt -w "HTTP_CODE:%{http_code} SSL_VERIFY:%{ssl_verify_result}\n" --max-time 15 "https://ovalorcapital.com.br/vc/o-algoritmo-e-a-peneira-a-ciencia-da-semana-que-quase-a-d1527d17/" || echo "CURL_EXIT:$?"
-          cat /tmp/h1.txt
-          echo ""
-          echo "--- curl -I com user-agent do WhatsApp (nao segue redirect) ---"
-          curl -sS -I -o /tmp/h2.txt -w "HTTP_CODE:%{http_code}\n" --max-time 15 -A "WhatsApp/2.23.20.0 A" "https://ovalorcapital.com.br/vc/o-algoritmo-e-a-peneira-a-ciencia-da-semana-que-quase-a-d1527d17/" || echo "CURL_EXIT:$?"
-          cat /tmp/h2.txt
-          echo ""
-          echo "--- curl -I com user-agent do WhatsApp (SEGUINDO redirect -L) ---"
-          curl -sS -IL -o /tmp/h3.txt -w "HTTP_CODE:%{http_code}\n" --max-time 15 -A "WhatsApp/2.23.20.0 A" "https://ovalorcapital.com.br/vc/o-algoritmo-e-a-peneira-a-ciencia-da-semana-que-quase-a-d1527d17/" || echo "CURL_EXIT:$?"
-          cat /tmp/h3.txt
-      - name: GET completo (www) - extrair as tags og:image/og:title reais
-        run: |
-          set -e
-          curl -sS --max-time 15 "https://www.ovalorcapital.com.br/vc/o-algoritmo-e-a-peneira-a-ciencia-da-semana-que-quase-a-d1527d17/" -o /tmp/page.html
-          echo "--- tags og/twitter ---"
-          grep -o '<meta property="og:[^>]*>' /tmp/page.html || true
-          grep -o '<meta name="twitter:[^>]*>' /tmp/page.html || true
-          echo "--- tamanho do html ---"
-          wc -c /tmp/page.html
-      - name: HTTP real da imagem apontada no og:image
-        run: |
-          OGIMG=$(grep -o '<meta property="og:image" content="[^"]*"' /tmp/page.html | sed -E 's/.*content="([^"]*)".*/\1/')
-          echo "OG_IMAGE_URL: $OGIMG"
-          if [ -n "$OGIMG" ]; then
-            curl -sS -o /dev/null -w "OG_IMAGE_HTTP:%{http_code} TYPE:%{content_type} SIZE:%{size_download}\n" --max-time 15 "$OGIMG"
-          fi
+          cat > /tmp/scan.py << 'PYEOF'
+          import urllib.request, json
+
+          SUPABASE_URL = "https://yntwvfcxjardzafdqanj.supabase.co"
+          KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InludHd2ZmN4amFyZHphZmRxYW5qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDM1NTMwMywiZXhwIjoyMDk1OTMxMzAzfQ.BX1N_0wHoICwK5V8-96KXaMMbA8tQManVelxS1-pO40"
+
+          def req(url, method="GET", body=None):
+              data = json.dumps(body).encode() if body is not None else None
+              r = urllib.request.Request(url, data=data, method=method, headers={
+                  "apikey": KEY, "Authorization": f"Bearer {KEY}", "Content-Type": "application/json"
+              })
+              with urllib.request.urlopen(r, timeout=20) as resp:
+                  return json.loads(resp.read().decode())
+
+          files = req(f"{SUPABASE_URL}/storage/v1/object/list/posts-images", "POST", {"prefix": "uploads", "limit": 1000})
+          big = [f for f in files if (f.get("metadata") or {}).get("size", 0) > 400000]
+          print(f"TOTAL_ARQUIVOS_EM_UPLOADS: {len(files)}")
+          print(f"ARQUIVOS_ACIMA_DE_400KB: {len(big)}")
+          for f in sorted(big, key=lambda x: -(x.get("metadata") or {}).get("size", 0))[:30]:
+              print(f"  {f['name']}  {(f.get('metadata') or {}).get('size',0)} bytes")
+
+          big_names = set(f["name"] for f in big)
+
+          offset = 0
+          afetados = []
+          while True:
+              posts = req(f"{SUPABASE_URL}/rest/v1/posts?status=eq.publicado&imagem=like.*posts-images/uploads/*&select=id,titulo,imagem&order=created_at.desc&limit=1000&offset={offset}")
+              if not posts:
+                  break
+              for p in posts:
+                  nome = p["imagem"].rsplit("/", 1)[-1]
+                  if nome in big_names:
+                      afetados.append((p["id"], nome, p["titulo"]))
+              if len(posts) < 1000:
+                  break
+              offset += 1000
+
+          print(f"POSTS_PUBLICADOS_AFETADOS: {len(afetados)}")
+          for pid, nome, titulo in afetados:
+              print(f"  {pid}  {nome}  {titulo[:60]}")
+          PYEOF
+          python3 /tmp/scan.py
