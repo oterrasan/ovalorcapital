@@ -409,6 +409,25 @@ async function callGemini(systemKernel, userContent, maxTokens = 8192, opts = {}
           console.warn("Gemini 503 (sobrecarga temporária do Google), tentando próxima chave...");
           continue;
         }
+        if (err.status === 401 || err.status === 403) {
+          // 17/11/2026 — CAUSA RAIZ REAL do apagão total de conteúdo do dia:
+          // confirmado ao vivo, testando as 3 chaves direto contra o Google,
+          // que GEMINI_API_KEY (a PRIMEIRA chave tentada em todo chamado)
+          // está com a conta de serviço desativada pelo Google ("The bound
+          // service account is deleted or disabled", HTTP 401
+          // ACCOUNT_STATE_INVALID) — exatamente os e-mails que Roberto
+          // recebeu do Google e não tinha lido ainda. GEMINI_API_KEY_2 e
+          // GEMINI_API_KEY_3 estão saudáveis (HTTP 200 confirmado), mas o
+          // loop antigo só pulava de chave em 429/503 — qualquer outro
+          // status (como este 401) dava `throw` na hora, na 1ª chave, e
+          // NUNCA chegava nas outras duas, mesmo saudáveis. 401/403 são
+          // problema DESSA chave específica (credencial revogada/sem
+          // permissão), não um sinal de falha geral — pula pra próxima,
+          // igual já acontecia com 429/503. Não conta pro orçamento diário
+          // (não é sinal de cota consumida, é credencial morta).
+          console.warn(`Gemini ${err.status} (chave inválida/revogada): ${err.message} — pulando para a próxima chave...`);
+          continue;
+        }
         throw err;
       }
     }
