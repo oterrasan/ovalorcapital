@@ -152,6 +152,7 @@ export default async function handler(req, res) {
     if (action === "reels_render_preview") return handleReelsRenderPreview(req, res, body);
     if (action === "reels_render_sem_audio") return handleReelsRenderSemAudio(req, res, body);
     if (action === "revisar_texto_ia") return handleRevisarTextoIA(req, res, body);
+    if (action === "reels_gerar_materia") return handleReelsGerarMateria(req, res, body);
     if (action === "gerar_coluna") return handleGerarColuna(req, res, body);
     if (["aprovar", "rejeitar", "editar_aprovar", "aprovar_lote", "rejeitar_lote"].includes(action)) return handleApprovePortal(res, body);
     if (action === "track_view") return handleTrackView(res, body);
@@ -3846,6 +3847,45 @@ async function handleRevisarTextoIA(req, res, body) {
     });
   } catch (e) {
     return res.status(200).json({ ok: false, error: e.message || "Falha na revisão editorial" });
+  }
+}
+
+// 17/11/2026 — Roberto: "os textos dos reels estão vindo muito ruins,
+// pequenos... quero poder apertar um comando ali no editor que o sistema
+// gera com base em nosso prompt uma matéria sobre o vídeo em questão. Não
+// quero que o sistema trave por isso." Causa raiz real: posts de Reel
+// vindos de link_manual (Bacci/Instagram/TikTok) sempre passam por
+// rewriteBrasilOn()/BRASILON_KERNEL, que por desenho mantém "a MESMA
+// extensão aproximada do original" — legenda de 1-2 frases (comum em
+// Reel) vira matéria de 1-2 frases, por regra, não por bug.
+//
+// Botão separado de "Revisar com IA" (revisar_texto_ia) de propósito:
+// aquele exige 200+ chars de texto puro de entrada (handleRevisarTextoIA
+// acima) — exatamente o piso que os textos curtos de Reel não alcançam,
+// então reaproveitar aquela action sem mudar nada faria o botão falhar
+// justo nos casos que Roberto quer resolver. Esta usa a MESMA engine
+// (rewritePortal(), MASTER_PROMPT intocado — Regra Zero-B) mas sem esse
+// piso — o texto-fonte pode ser bem pequeno, o contexto editorial avisa a
+// IA disso. Nunca grava nada no banco (igual handleRevisarTextoIA) — só
+// devolve titulo/corpo pro admin revisar e salvar manualmente, então uma
+// falha aqui (fonte curta demais até pra elaborar, IA fora do ar, etc.)
+// nunca trava nem afeta o resto do editor — só mostra um erro no botão.
+async function handleReelsGerarMateria(req, res, body) {
+  if (!checkAdmin(req, body)) return res.status(401).json({ error: "Nao autorizado" });
+  const textoBase = String(body.texto || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const tituloBase = String(body.titulo || "").trim();
+  if (!textoBase && !tituloBase) return res.status(400).json({ ok: false, error: "Sem título nem texto pra trabalhar." });
+  const context = "O texto-fonte abaixo é a legenda/descrição de um vídeo (Reel) publicado nas redes sociais — pode ser bem curto, às vezes só uma frase. Escreva uma matéria jornalística completa, no padrão normal do OVC, sobre o fato relatado nele. Nunca invente nome, data, valor ou detalhe que não esteja no texto-fonte.";
+  try {
+    const result = await rewritePortal(textoBase || tituloBase, tituloBase, context);
+    return res.status(200).json({
+      ok: true,
+      titulo: result.titulo,
+      corpo: result.corpo,
+      meta_descricao: result.meta_descricao || ""
+    });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message || "Não foi possível gerar a matéria a partir desse texto." });
   }
 }
 
