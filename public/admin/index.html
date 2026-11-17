@@ -1810,8 +1810,29 @@ function ReelsFilaAprovados() {
   );
 }
 
-function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
+function ReelMontagemPanel({ post, onMetrics, onPublish, publishing, onTexto }) {
   const [busy, setBusy] = useState('');
+  // 17/11/2026 — Roberto: "os textos dos reels estao vindo muito
+  // ruins, pequenos... quero poder apertar um comando ali no editor que
+  // o sistema gera com base em nosso prompt uma materia sobre o video em
+  // questao". Textos de Reel vindos de link (Bacci/Instagram/TikTok)
+  // ficam do tamanho da legenda de origem, às vezes 1 frase só — este
+  // botão pede uma matéria completa de verdade (mesmo MASTER_PROMPT do
+  // resto do portal), sem travar nada: falha só mostra alerta, nunca
+  // trava o editor. Só aparece onde o chamador passa onTexto (editor de
+  // Postagens — a tela de Vídeos não edita texto, não recebe essa prop).
+  const melhorarTexto = async () => {
+    if (!onTexto) return;
+    setBusy('Gerando matéria com IA...');
+    try {
+      const r = await fetch('/api/manage', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':ADMIN_PASS}, body: JSON.stringify({action:'reels_gerar_materia', texto: post?.conteudo||'', titulo: post?.titulo||''}) });
+      const d = await r.json();
+      if (!d.ok) { alert('❌ ' + (d.error||'não foi possível gerar a matéria')); return; }
+      onTexto(d.titulo, d.corpo);
+      alert('✅ Matéria gerada — revise o título e o texto acima e salve se aprovar.');
+    } catch(e) { alert('❌ Erro: ' + e.message); }
+    finally { setBusy(''); }
+  };
   const info = reelTemplateInfo(post);
   const [editando, setEditando] = useState(false);
   const status = info?.status;
@@ -1880,7 +1901,10 @@ function ReelMontagemPanel({ post, onMetrics, onPublish, publishing }) {
   const player = {width:'100%',aspectRatio:'9/16',maxHeight:420,borderRadius:8,display:'block',background:'#000',objectFit:'contain'};
   return (
     <div style={{marginTop:12,borderTop:'1px solid var(--border)',paddingTop:12}}>
-      <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em',marginBottom:10}}>🎞️ Reel — confira antes de publicar</div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap',marginBottom:10}}>
+        <div style={{fontSize:11,color:'var(--t2)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.04em'}}>🎞️ Reel — confira antes de publicar</div>
+        {onTexto && <button type="button" className="btn btn-secondary btn-sm" disabled={!!busy} onClick={melhorarTexto} title="O texto deste Reel veio curto/fraco? Gera uma matéria completa com a IA, a partir do mesmo assunto.">✍️ {busy==='Gerando matéria com IA...' ? 'Gerando...' : 'Melhorar texto com IA'}</button>}
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:10}}>
         <div style={caixa}>
           <div style={tituloCaixa}>1. Vídeo original</div>
@@ -2713,7 +2737,8 @@ function Postagens() {
                   {((editPost.video_url && !parseYouTubeId(editPost.video_url)) || (reelTemplateInfo(editPost) && reelTemplateInfo(editPost).status!=='embed_only')) &&
                     <ReelMontagemPanel post={editPost} publishing={reelPublishing===editPost.id}
                       onPublish={()=>publicarReel(editPost.id, editPost.video_url)}
-                      onMetrics={m=>setEditPost(p=>({...p, metrics:m}))}/>}
+                      onMetrics={m=>setEditPost(p=>({...p, metrics:m}))}
+                      onTexto={(titulo,corpo)=>setEditPost(p=>({...p, titulo: titulo||p.titulo, conteudo: corpo||p.conteudo, _revisado:true}))}/>}
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
                   <div className="form-group"><label className="form-label">Conta Instagram</label>
