@@ -11077,3 +11077,62 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar visualmente com Roberto em produção real** — tudo verificado tecnicamente (Playwright + deploy confirmado), mas ele ainda não viu o resultado ao vivo.
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 17/11/2026 (continuação 2) — PÁGINA /parceiros/rohe/: ROBERTO TINHA RAZÃO NOS 3 PONTOS — FOTOS REAIS DO PORTFÓLIO + 2 MECANISMOS DE AUTOPROMOÇÃO DO OVC ENCONTRADOS E REMOVIDOS
+
+#### Contexto
+
+Roberto viu a página `/parceiros/rohe/` (criada na continuação anterior) e reprovou com "nota zero", com 3 críticas concretas: *"voce copiou a estrutura de paginas cruas do ovc e replicou ali, nao se deu nem o trabalho de remover coisas que citam o ovc"* / *"No site da ROHE, tem diversas fotos de obras, que ao navegar e clicar para a proxima imagem, aparecem voce nao achou isso?"* / *"olhe o tamanho das imagens completamente desproporcionais ao layout"*. Mandou print do `/portfolio` real deles mostrando um carrossel com 6 fotos reais e pediu explicitamente pra capturar e melhorar a qualidade delas.
+
+As 3 críticas estavam corretas — admitido sem defesa, investigado e corrigido um por um (PR #863).
+
+#### 1) Fotos genéricas → 6 fotos REAIS do portfólio deles (achadas só com JS ligado)
+
+A rodada anterior só usou `curl` (HTML estático) pra "esgotar" o site deles — e por isso nunca viu a galeria real: ela é renderizada inteiramente via JavaScript depois do carregamento (os `<img src>` reais só existem no DOM depois de executado, nunca aparecem no HTML cru que `curl` devolve). Confirmado rodando `/portfolio` de verdade num Chromium headless (Playwright) — aí sim apareceram os 6 `<img>` reais, hospedados no CDN deles (`img1.wsimg.com`), cada um com a legenda do projeto **já gravada nos próprios pixels da imagem** (não é texto de DOM — por isso uma busca de texto, mesmo com shadow-DOM, nunca achava nada): **Opera Fitness, Colorcon, FTS - Faculdade Taboão da Serra, 3º BAEP - São José dos Campos, Centro Empresarial Atibaia, Itatiba Mall**.
+
+"Melhorar a definição e a qualidade" — feito de forma honesta, sem inventar nada: testado que o CDN deles tem um teto real de resolução (`rs=w:1280` → `w:1920` → `w:2400` → `w:3000` todos devolvem o MESMO arquivo de ~1,26MB a partir de 1920, confirmando que 1690-1920px é o máximo nativo real que eles têm armazenado) — baixei nesse teto real (não inventei pixel nenhum) e apliquei processamento real de imagem (unsharp mask + leve ganho de contraste/nitidez via PIL) pra deixar mais nítido, sem gerar detalhe falso.
+
+#### 2) "Institucional OVC"/"Navegação VC" — não estava no HTML, era injetado em runtime
+
+Busquei o texto literal no arquivo estático da página e não achei — intrigante, já que Roberto via isso na tela. Causa real: `public/js/site.js`'s `OVC.fillInstitutionalGaps()` injeta esse bloco em QUALQUER página com `data-category="vc"` cujos `.ovc-story-stack`/`.ovc-right-rail` estejam vazios — eu tinha copiado esse `.ovc-grid` do template de `/vc/quem-somos/` sem perceber que ele é um gancho de "ver também" para páginas institucionais DO PRÓPRIO OVC, autopromocional e sem nenhum sentido numa página de parceiro. Fix: removida a seção `.ovc-grid` inteira (não tem "mais da categoria" relevante numa página assim).
+
+#### 3) 🔴 Descoberto um SEGUNDO mecanismo de autopromoção, pior — só via teste real, não leitura de código
+
+Depois do fix #2, rodei a página de novo via Playwright pra confirmar — e apareceu uma **3ª coluna nova**, com "Atalhos OVC"/"Radar OVC"/"Dados OVC"/"Redação OVC", que eu nunca tinha escrito. Causa: `site.js`'s `OVC.normalizeInnerLayout()` é uma rede de segurança que cria `.ovc-grid`+`.ovc-right-rail` do zero (com conteúdo autopromocional hardcoded) em QUALQUER `<main class="ovc-main">` que não tenha um `.ovc-grid`/`.cat-corpo` — exatamente o que sobrou depois que removi o meu. Fix real e definitivo: `data-layout-normalized="1"` no `<main>` — é literalmente o flag que essa função já respeita (`main.dataset.layoutNormalized === '1'`) pra nunca mexer numa página, só que eu não sabia que existia até ler a função inteira.
+
+**Lição pra sessão futura:** `site.js` tem pelo menos 2 mecanismos de "preencher vazio" diferentes e independentes (`fillInstitutionalGaps` e `normalizeInnerLayout`) que podem injetar conteúdo autopromocional do OVC em qualquer página nova com `data-category="vc"` cujo `<main>` não tenha explicitamente um `.ovc-grid` real preenchido OU o atributo `data-layout-normalized="1"`. Ao criar qualquer página nova fora do pipeline normal de categoria, testar de verdade com Playwright (não só grep de texto estático) antes de considerar pronto — um bug desses só aparece em runtime.
+
+#### 4) Tamanho desproporcional — resolvido como consequência direta do item 1
+
+6 fotos reais numa grade `grid-template-columns:repeat(auto-fit,minmax(220px,1fr))`, ~220-300px cada dependendo da largura — nada a ver com as 2 fotos genéricas full-bleed gigantes de antes.
+
+#### Verificação real (Playwright, de novo depois de cada fix — não só uma vez no fim)
+
+Confirmado depois do fix final: `hasInstitucionalOVC/hasNavegacaoVC/hasComoPortal` todos `false`, `.ovc-story-stack`/`.ovc-right-rail` ausentes do DOM (`querySelector` retorna `null`), as 6 imagens carregando (`naturalWidth>0`) com tamanho proporcional (~220×165px cada numa viewport de 1400px), zero erro de console. Screenshot real da seção de galeria confirma visualmente as 6 fotos legíveis, com legenda batendo exatamente com o nome real do projeto.
+
+- `api/` continua com exatamente 10 arquivos (Regra Zero-A) — mudança só em `public/`.
+- `public/admin/index.html` e `public/index.html` intactos (diff vazio nos dois).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/11/2026 continuação 2)
+
+| Sistema | Status |
+|---|---|
+| **6 fotos reais do portfólio da ROHE** (Opera Fitness, Colorcon, FTS, 3º BAEP SJC, Centro Empresarial Atibaia, Itatiba Mall) — capturadas via Playwright (galeria é JS-only, invisível a `curl`), na maior resolução nativa real do CDN deles, com unsharp mask real | ✅ EM PRODUÇÃO (PR #863) |
+| **Bug real #1 — "Institucional OVC"/"Navegação VC" injetado em runtime por `fillInstitutionalGaps()`** | ✅ CORRIGIDO — `.ovc-grid` desnecessário removido |
+| **Bug real #2 — "Atalhos OVC"/"Redação OVC" injetado por `normalizeInnerLayout()` (rede de segurança do `site.js`)** — só descoberto testando de verdade, não por leitura de código | ✅ CORRIGIDO — `data-layout-normalized="1"` no `<main>` |
+| **Tamanho desproporcional das imagens** | ✅ CORRIGIDO — consequência direta da galeria real em grade |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto em produção real** — ainda não visto por ele ao vivo.
+2. **Ao criar qualquer página nova em `public/` com `data-category="vc"` fora do pipeline de categoria**, lembrar de testar com Playwright real (não só grep de HTML estático) e considerar `data-layout-normalized="1"` desde o início se a página não precisar de rail dinâmica.
+3. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
