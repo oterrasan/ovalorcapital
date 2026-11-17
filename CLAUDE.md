@@ -11018,3 +11018,62 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar visualmente com Roberto em produção real** — verificado tecnicamente via Playwright local, mas ele ainda não viu o resultado ao vivo no site.
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 17/11/2026 (continuação) — BANNER ROHE: PALETA NAVY/ÂMBAR/CARVÃO + 5 CLIPES DIA+NOITE + PÁGINA /parceiros/rohe/
+
+#### Contexto
+
+Roberto viu a rodada anterior (creme+dourado+foto parada emoldurada) e deu 2 rodadas de feedback na mesma sessão: primeiro "ficou bem melhor, mas ainda pode melhorar muito... esse bege de fundo, sinceramente está muito ruim... os efeitos precisam melhorar mais... os textos devem ter mais destaques, MAS DE MANEIRA SUTIL... insira mais imagens de filmagens de drones, a noite, de dia, de tarde, como uma obra avancando em velocidade extrema... quero que ao clicar no banner, abra uma pagina dentro do ovc que seja dedicada a RHOE... pegue tudo que tem no site deles... crie uma subpagina dentro do OVC pra ROHE, e lá coloque os formularios de contato e cliques para direcionar o clique para o site da ROHE". Pedi pra conversar antes de agir (explicado plano + 3 perguntas). Antes de eu terminar de perguntar, Roberto já emendou a cor exata que queria, mid-turn: **"o selo deve ser mantido em dourado, trabalhe azul marinho, laranja sutil, amarelo e dourado ouro, preto carvao e cinza, sao cores de grandes empresas"**.
+
+#### O que foi feito (PR #861, squash `efde419`)
+
+**1) Paleta nova — navy + laranja sutil + âmbar/dourado + carvão + cinza:**
+- Fundo do card: gradiente diagonal navy→carvão (`linear-gradient(145deg,#1a3a66 0%,#0e2040 48%,#121019 100%)`) — substitui o flat creme.
+- Selo "+30 ANOS": continua 100% dourado como pedido — só o preenchimento escuro por trás do dourado passou de marrom pra navy (`radial-gradient(circle at 32% 28%,#1c3356,#0a1526 72%)`), pra casar com o resto do card.
+- "Tradição familiar" (eyebrow): laranja sutil (`#e2793f`) — único uso de laranja no card, discreto.
+- Números do processo (I/II/III) e 1 palavra do título ("sonhos"): âmbar (`#f0c25e`) — destaque sutil no texto, exatamente como Roberto pediu ("MAS DE MANEIRA SUTIL").
+- CTA: pílula preenchida em gradiente dourado/âmbar (`#f0c25e→#d9972f`) com texto carvão, substituindo o contorno simples de antes — com um sweep de luz bem lento (5s, baixa opacidade) como melhoria de "efeitos".
+
+**2) Vídeo — 3 pra 5 clipes, dia + noite, cortes mais rápidos:**
+- Pesquisei clipe real de entardecer/dourado em obra (pedido explícito "de tarde") antes de desistir: único resultado específico (Mixkit #15922, guindaste ao pôr do sol) tem licença **"Mixkit Restricted"** (não é a licença comercial livre usada em produção) — descartado. Outro candidato de dusk (#41375) é grátis mas tão escuro (céu quase preto, cidade apagada) que recriaria a queixa "muito escuro" da rodada anterior — também descartado, com evidência (frame real conferido antes de decidir).
+- Em vez de forçar uma "tarde" ruim, cobri dia+noite de verdade: aos 3 clipes diurnos já aprovados (terraplenagem #49192, estrutura #25480, torre #4010) somei 2 clipes noturnos reais e licenciados (conferido license/copyrightNotice de novo, clipe a clipe, igual sempre): prédio com iluminação quente sob ângulo dramático de drone (#42360) e skyline em azul-marinho profundo à noite (#42352) — cidade genérica, nunca apresentados como a obra real da ROHE (mesma transparência já documentada antes — portfólio deles continua "EM BREVE", reconfirmado nesta sessão via `curl` real no `/portfolio` deles).
+- Processado de novo com ffmpeg: 5 segmentos 640×360@30fps (~3,8s cada), grade de cor nos noturnos pra puxar pro mesmo navy da nova paleta do card, 4 crossfades reais de 0,5s (offsets calculados em Python, sem o bug de interpolação bash já documentado em sessões anteriores), H.264 crf26 faststart — 1,81MB pros 17,6s inteiros (mais curto que a versão anterior de 3 clipes).
+
+**3) Nova página `/parceiros/rohe/` — banner não linka mais direto pro site externo:**
+- `#ovc-banner-rohe` agora abre `/parceiros/rohe/` (mesmo domínio, sem `target="_blank"`) em vez de `roheconstrutora.com.br` direto.
+- Página nova construída reaproveitando literalmente o template institucional de `/vc/quem-somos/` (header+footer copiados verbatim via script, `data-category="vc"` — mesmo gate que já faz `internal-page-v2.js` não tocar no conteúdo, comportamento confirmado por leitura do próprio JS antes de usar).
+- Conteúdo: re-coletei o site real deles de novo (home, `/quem-somos`, `/portfolio`) via `curl`, agora com o texto **completo** da home (inclusive a descrição inteira do 3º passo do processo, "Construção", que a rodada anterior só tinha resumido) + texto completo de "Quem Somos" (missão/visão/valores reais) + as 2 fotos reais que a própria ROHE usa no site dela (galpão + skyline, já no repo de sessão anterior).
+- Contato: reconferido de novo via `curl` real na página `/contato` deles — confirmado que **não existe** telefone/WhatsApp/e-mail publicado, só um `<form>` nativo deles (Nome*/Email*/anexo/reCAPTCHA) que já funciona no domínio próprio. Decisão: **não construir formulário paralelo nosso** (coletaria dado sem nenhum destino real por trás) — o CTA "Falar com a ROHE" leva direto pro formulário real deles (`roheconstrutora.com.br/contato`, nova aba), e um segundo CTA leva pro site completo.
+
+#### Verificação real (Playwright, não só leitura de código)
+
+- Servidor estático local + mock de `/api/**`, renderizado no Chromium real: banner com gradiente navy correto, vídeo tocando (`paused:false`, `currentTime` avançando, `readyState:4`), cores verificadas via `getComputedStyle` (amber/orange batendo exatamente com os hex esperados), `href` do banner confirmado `/parceiros/rohe/` sem `target`.
+- Nova página: `h1` correto, 4 botões reais encontrados com os `href`/`target` certos (2 pro site real da ROHE, 1 pro contato real deles, 1 do footer padrão do portal), as 2 fotos carregando (`naturalWidth>0`).
+- Um "buraco gigante em branco" aparente no screenshot full-page da nova página foi investigado a fundo (bounding boxes de cada elemento, screenshot do elemento isolado em resolução real) e **não era bug** — eram as 2 fotos reais (galpão escuro/skyline noturno) ficando visualmente "lavadas"/sem contraste aparente quando muito reduzidas numa miniatura de preview; em resolução real renderizam perfeitamente.
+- `public/index.html`: 768 linhas, `<!DOCTYPE html>`/`</html>` intactos, `<style>` 3/3, `<script>` 11/11.
+- `api/` continua com exatamente 10 arquivos (Regra Zero-A) — mudança é só em `public/`.
+- `public/admin/index.html` não tocado (diff vazio).
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/11/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Paleta navy/laranja/âmbar/dourado(selo)/carvão/cinza no banner ROHE** | ✅ EM PRODUÇÃO (PR #861, commit `efde419`) — deploy confirmado com sucesso |
+| **Vídeo — 5 clipes reais licenciados (3 dia + 2 noite), cortes mais rápidos** | ✅ EM PRODUÇÃO — 2 candidatos de "tarde" pesquisados e descartados com evidência (licença restrita / escuro demais) |
+| **Banner não linka mais direto pro site externo — abre `/parceiros/rohe/`** | ✅ EM PRODUÇÃO |
+| **Página `/parceiros/rohe/` com todo o conteúdo real do site deles + CTAs reais** | ✅ EM PRODUÇÃO — verificado via Playwright, 4 links corretos, 2 fotos carregando |
+| **Formulário de contato paralelo nosso** | ❌ NÃO CONSTRUÍDO DE PROPÓSITO — não existe contato real deles pra receber; CTA leva direto pro formulário real deles |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto em produção real** — tudo verificado tecnicamente (Playwright + deploy confirmado), mas ele ainda não viu o resultado ao vivo.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
