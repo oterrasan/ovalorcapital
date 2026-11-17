@@ -1,0 +1,169 @@
+name: Vigia do pipeline de conteúdo (detecta apagão silencioso 24h)
+
+# Criado em 17/11/2026, a pedido explícito de Roberto: "esse tipos de erros
+# não podem acontecer. O sistema precisa ter uma defesa 24hrs!!!!" —
+# resposta ao incidente do mesmo dia: GEMINI_API_KEY (a chave sempre tentada
+# primeiro) teve a conta de serviço desativada pelo Google (401
+# ACCOUNT_STATE_INVALID), e o código só sabia pular pra próxima chave em
+# 429/503 — qualquer outro erro travava o loop inteiro, mesmo com
+# GEMINI_API_KEY_2/_3 saudáveis. Resultado: ZERO posts o dia inteiro, sem
+# nenhum alerta, porque toda rota da API continuava respondendo HTTP 200
+# normal (ver api-health-check.yml — ele só detecta CRASH, não detecta
+# "está de pé mas não produz nada", que foi exatamente este caso).
+#
+# Este workflow fecha esse ponto cego: não testa se a API "está de pé", mas
+# se ela está PRODUZINDO DE VERDADE — olha o post mais recente de qualquer
+# canal (endpoint público, sem segredo nenhum) e alerta se ficar velho
+# demais durante o horário em que o pipeline deveria estar gerando. Isso
+# generaliza pra QUALQUER causa futura de apagão silencioso (chave de IA
+# morta, Supabase fora do ar, bug de lógica, etc.) — o sinal é o resultado
+# (conteúdo saindo), não o motivo específico de hoje.
+#
+# Mesmo sinal, mesmo limiar, espelhado no painel admin (Dashboard() em
+# public/admin/index.html) — pra aparecer também pra quem abre o painel
+# sem checar o GitHub.
+#
+# ❌ NUNCA remover este workflow sem substituir por outro mecanismo
+#    equivalente — foi criado por pedido direto do dono após um apagão
+#    real de um dia inteiro sem alerta nenhum.
+# ❌ NUNCA trocar o endpoint testado por uma rota que escreve/gera
+#    conteúdo — o endpoint abaixo é leitura pura, sem efeito colateral.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verificar se o conteúdo está mesmo sendo gerado (não só se a API responde)
+        id: check
+        run: |
+          python3 << 'PYEOF'
+          import json
+          import os
+          import urllib.request
+          from datetime import datetime, timedelta, timezone
+
+          url = "https://www.ovalorcapital.com.br/api/portal-posts?recentes=true&limit=1"
+          try:
+              with urllib.request.urlopen(url, timeout=20) as resp:
+                  body = json.loads(resp.read().decode())
+          except Exception as e:
+              # Se a própria checagem falhar (rede, timeout), não é evidência
+              # de apagão de conteúdo — o api-health-check.yml já cobre "a
+              # API não responde". Aqui, fail-open: não abre alerta.
+              print(f"erro_checagem={e}")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("parado=false\n")
+              raise SystemExit(0)
+
+          posts = body.get("posts") or []
+          if not posts:
+              print("sem_posts_retornados")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("parado=false\n")
+              raise SystemExit(0)
+
+          # Campo "data" vem sem sufixo de fuso — é sempre UTC no backend
+          # (confirmado: mesmo formato usado em toda a API). Runner do
+          # GitHub Actions roda em UTC por padrão, então tratar como UTC
+          # aqui é seguro (diferente do bug documentado pra código que roda
+          # no NAVEGADOR do visitante, que interpretaria como hora local
+          # dele).
+          raw = posts[0]["data"]
+          if not (raw.endswith("Z") or raw.endswith("+00:00")):
+              raw = raw + "Z"
+          ultimo = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+          agora = datetime.now(timezone.utc)
+          minutos_sem_post = (agora - ultimo).total_seconds() / 60.0
+
+          agora_brt = agora - timedelta(hours=3)
+          minutos_desde_meia_noite_brt = agora_brt.hour * 60 + agora_brt.minute
+
+          # Pipeline pausa 00h-06h BRT (ver vercel.json, crons em horas UTC
+          # 0-2,9-23 = BRT 21-23,06-20). Só considera "parado" depois de
+          # 75min de folga além da retomada (06h15) — evita falso positivo
+          # logo ao reativar, quando o post mais recente ainda é legítimo
+          # da noite anterior.
+          dentro_horario_ativo = minutos_desde_meia_noite_brt >= (6 * 60 + 75)
+          parado = dentro_horario_ativo and minutos_sem_post > 60
+
+          print(f"titulo_ultimo_post={posts[0].get('titulo','?')}")
+          print(f"minutos_sem_post={minutos_sem_post:.1f}")
+          print(f"dentro_horario_ativo={dentro_horario_ativo}")
+          print(f"parado={parado}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"parado={'true' if parado else 'false'}\n")
+              f.write(f"minutos={minutos_sem_post:.0f}\n")
+              f.write(f"ultimo_titulo={posts[0].get('titulo','?')}\n")
+          PYEOF
+
+      - name: Abrir/atualizar issue crítica se a geração de conteúdo parou
+        if: steps.check.outputs.parado == 'true'
+        uses: actions/github-script@v7
+        env:
+          MINUTOS: ${{ steps.check.outputs.minutos }}
+          ULTIMO_TITULO: ${{ steps.check.outputs.ultimo_titulo }}
+        with:
+          script: |
+            const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const TITLE = '🔴🔴🔴 GERAÇÃO DE CONTEÚDO PARADA — nenhum post novo';
+            const LABEL = 'conteudo-parado';
+
+            const { data: existentes } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: LABEL, per_page: 5
+            });
+
+            const corpo = [
+              `**Detectado em:** ${hora} (Brasília)`,
+              `**Sem post novo há:** ${process.env.MINUTOS} minutos (dentro do horário normal de funcionamento, 06h–00h BRT)`,
+              `**Último post real:** "${process.env.ULTIMO_TITULO}"`,
+              '',
+              '**Isso é o mesmo tipo de falha silenciosa já visto em 17/11/2026** (GEMINI_API_KEY morta travando o loop de rotação de chaves) — a API continua respondendo HTTP 200 normal em tudo, mas nenhum canal está produzindo conteúdo de verdade.',
+              '',
+              '**Onde investigar primeiro:**',
+              '- As chaves do Gemini (GEMINI_API_KEY/_2/_3 na tabela `config`) — testar direto contra a API do Google',
+              '- Se o Supabase está respondendo normal',
+              '- Se algum deploy recente mudou lógica de geração',
+              '',
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              '_Verificado a cada 15 minutos. Esta issue fecha sozinha assim que um post novo real for publicado._'
+            ].join('\n');
+
+            if (existentes.length > 0) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existentes[0].number, body: corpo });
+              console.log(`Issue #${existentes[0].number} já aberta — comentário adicionado.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body: corpo, labels: [LABEL, 'bug']
+              });
+              console.log(`🔴 Issue #${created.data.number} criada.`);
+            }
+
+      - name: Fechar issue crítica se a geração voltou ao normal
+        if: steps.check.outputs.parado == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL = 'conteudo-parado';
+            const { data: existentes } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: LABEL, per_page: 5
+            });
+            for (const issue of existentes) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number,
+                body: '✅ Posts novos voltaram a ser publicados — fechando automaticamente.'
+              });
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, state: 'closed' });
+              console.log(`Issue #${issue.number} fechada.`);
+            }
