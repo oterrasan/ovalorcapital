@@ -2512,10 +2512,14 @@ async function handleReelsRenderJob(req, res, body) {
       // 26/09/2026 — manchete editada no admin (texto, destaque, tamanho,
       // cores, posição ou oculta). null = manchete automática de sempre.
       headline: current.headline || null,
-      // 12/11/2026 — cor da borda fininha ao redor do Reel (padrão: laranja
-      // #f28c22, ver REEL_BORDA_COR_PADRAO no render script). Só tem efeito
-      // no Reel do OVC — buildOverlayBrasilOn (marca==="brasilon") nunca lê
-      // este campo, segue com o layout próprio do Brasil On sem borda.
+      // 12/11/2026 — cor da borda fininha ao redor do Reel (padrão era
+      // laranja #f28c22; trocado pra dourado #D4AF37 em 17/11/2026, ver
+      // REEL_BORDA_COR_PADRAO no render script). Até 17/11/2026 só tinha
+      // efeito no Reel do OVC (buildOverlayBrasilOn, pro Brasil On, nunca
+      // lia este campo) — mas o template virou único pros dois Instagrams
+      // nesse dia (ver comentário de buildOverlay() no render script), e a
+      // borda já sempre rodou incondicional na parte de ffmpeg, então agora
+      // vale igual pros dois.
       borda_cor: current.borda_cor || null,
       // 26/09/2026 — sem ajuste manual, vídeo do TikTok do Metrópoles ganha
       // enquadramento automático (detecta a manchete deles; ver render script).
@@ -2533,8 +2537,12 @@ async function handleReelsRenderJob(req, res, body) {
       // cropTop-Bottom-Side em scripts/render-instagram-reel.mjs) — não é
       // um caso especial, é o comportamento padrão que já identifica e
       // corta marca de qualquer fonte, Metrópoles incluído.
-      // 28/09/2026 — Reel do @obrasilon sai com o layout do feed do Brasil ON
-      // (vídeo cru, manchete na caixa amarela e ícone abaixo).
+      // 28/09/2026 — campo ainda existe (usado em outras partes deste
+      // arquivo, ver marcaReel acima) mas, desde 17/11/2026, o render
+      // script (buildOverlay()) deixou de ler job.marca pra decidir o
+      // visual — o template de vídeo (borda dourada, logo duplo OVC+Brasil
+      // On em cima/embaixo, manchete em caixa amarela) é o MESMO pros dois
+      // Instagrams agora, não mais um layout "feed do Brasil ON" separado.
       marca: marcaReel,
       template_version: REELS_TEMPLATE_VERSION,
       ig_creation_id: ig.creation_id,

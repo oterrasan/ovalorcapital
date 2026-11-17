@@ -139,6 +139,110 @@ function wrapHeadline(text, fontSize, maxWidth, maxLines) {
   return clipped;
 }
 
+// 17/11/2026 — Roberto: "vamos remover aquela mascara escura dos posts do
+// feed do OVC e deixar a imagem ocupando todo o espaco, como já fazemos
+// no BRASILON ... nos posts do feed, tambem nao precisa manter os dados
+// de site, etc, apenas o logo e o nome do ovc - e a manchete, dentro do
+// quadro amarelo marca texto como nos reels". Suavizado no mesmo pedido:
+// "voce pode ate deixar um degrade escuro ou azul petroleo marinho nos
+// posts de feed do ovc, mas bem menor e mais pra baixo do que temos hoje".
+//
+// MOLDURA_YELLOW é a mesma cor medida pixel a pixel no vídeo de
+// referência dele e já usada no template novo dos Reels (ver
+// scripts/render-instagram-reel.mjs, sanitizeHeadline()) — feed e Reels
+// ficam com a mesma identidade de manchete. Base do texto preta + palavra
+// de impacto em HIGHLIGHT_COLOR (mesmo padrão já usado nos Reels pra
+// moldura), função própria (renderMolduraLineMarkup) em vez de reusar
+// renderLineMarkup() porque essa função só suporta "branco + destaque" ou
+// "preto sem destaque" — nunca "preto + destaque colorido" — e não quero
+// arriscar mudar o comportamento do caminho bold/capa de Reel (ainda sem
+// nenhum chamador real, mas intocado de propósito, fora do escopo pedido).
+const MOLDURA_YELLOW = "#F7FA14";
+const MOLDURA_BOX = {
+  width: Math.round(W * 0.88),
+  paddingX: px(40),
+  paddingY: px(34),
+  radius: px(22),
+  maxLines: 4,
+  maxFontSize: px(54),
+  minFontSize: px(34),
+  lineGap: 1.16,
+  bottomAnchor: Math.round(H * 0.92)
+};
+const TOP_BRAND_PATH = new URL("../public/assets/ig-top-brand-ovc.png", import.meta.url);
+
+function renderMolduraLineMarkup(line, highlightWord, state) {
+  const parts = String(line || "").split(/(\s+)/);
+  return parts.map(part => {
+    if (!part) return "";
+    const token = normalizeWord(part);
+    const highlight = !state.used && highlightWord && token === highlightWord;
+    if (highlight) state.used = true;
+    return `<span foreground="${highlight ? HIGHLIGHT_COLOR : "#050505"}">${escapeXml(part)}</span>`;
+  }).join("");
+}
+
+async function buildMolduraHeadlineLayers(title) {
+  const normalized = String(title || "").replace(/\s+/g, " ").trim().toUpperCase();
+  if (!normalized) return [];
+  const box = MOLDURA_BOX;
+  const inner = box.width - box.paddingX * 2;
+  let fontSize = box.minFontSize;
+  let lines = wrapHeadline(normalized, fontSize, inner, box.maxLines);
+  for (let size = box.maxFontSize; size >= box.minFontSize; size -= 2) {
+    const tentativa = wrapHeadline(normalized, size, inner, box.maxLines);
+    if (tentativa.every(line => estimateTextWidth(line, size) <= inner)) {
+      fontSize = size;
+      lines = tentativa;
+      break;
+    }
+  }
+  const lineHeightPx = Math.round(fontSize * box.lineGap);
+  const boxHeight = box.paddingY * 2 + lineHeightPx * lines.length;
+  const boxTop = Math.max(0, box.bottomAnchor - boxHeight);
+  const boxLeft = Math.round((W - box.width) / 2);
+  const rect = await sharp(Buffer.from(
+    `<svg width="${box.width}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg">` +
+    `<rect x="0" y="0" width="${box.width}" height="${boxHeight}" rx="${box.radius}" ry="${box.radius}" fill="${MOLDURA_YELLOW}"/></svg>`
+  )).png().toBuffer();
+  const highlightWord = chooseHighlightWord(normalized);
+  const highlightState = { used: false };
+  const markup = lines.map(line => renderMolduraLineMarkup(line, highlightWord, highlightState)).join("\n");
+  const text = await sharp({
+    text: {
+      text: `<span weight="800">${markup}</span>`,
+      font: `Inter ${fontSize}`,
+      fontfile: HEADLINE_FONT_PATH,
+      align: "center", rgba: true, dpi: 72, wrap: "none"
+    }
+  }).png().toBuffer();
+  const meta = await sharp(text).metadata();
+  return [
+    { input: rect, left: boxLeft, top: boxTop },
+    { input: text, left: Math.round((W - (meta.width || 0)) / 2), top: boxTop + Math.round((boxHeight - (meta.height || 0)) / 2) }
+  ];
+}
+
+// Degrade bem pequeno e baixo (opcional — Roberto: "pode ate deixar"), só
+// pra dar uma leve profundidade atrás da caixa amarela — NÃO é mais
+// necessário pra legibilidade (o texto agora sempre fica sobre uma caixa
+// opaca, nunca direto sobre a foto). Começa em ~74% da altura, termina
+// numa opacidade baixa — bem menor e mais pra baixo que a banda preta
+// sólida de ~47% que existia antes.
+async function buildFeedGradient() {
+  const topPct = 74;
+  return Buffer.from(`
+    <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="${topPct}%" stop-color="#0a1830" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#0a1830" stop-opacity="0.5"/>
+        </linearGradient>
+      </defs>
+      <rect width="${W}" height="${H}" fill="url(#fade)"/>
+    </svg>`);
+}
+
 async function buildHeadlineLayers(title, { bold = false } = {}) {
   const box = bold ? HEADLINE_BOX_BOLD : HEADLINE_BOX;
   const normalized = String(title || "").replace(/\s+/g, " ").trim().toUpperCase();
@@ -210,30 +314,61 @@ async function downloadImage(url) {
 
 export async function buildInstagramImageBuffer(sourceUrl, { title, bold } = {}) {
   const source = await downloadImage(sourceUrl);
+
+  if (bold) {
+    // Caminho da capa de Reel (HEADLINE_BOX_BOLD) — sem chamador real
+    // hoje (confirmado via busca em todo o repo), mantido exatamente como
+    // era antes de 17/11/2026. Fora do escopo do pedido do Roberto, que
+    // falou especificamente de "posts do feed" — nunca mencionou a capa
+    // do Reel.
+    const photo = await sharp(source)
+      .rotate()
+      .resize(W, PHOTO_HEIGHT, { fit: "cover", position: sharp.strategy.attention })
+      .png()
+      .toBuffer();
+    const base = await sharp({
+      create: { width: W, height: H, channels: 3, background: "#000000" }
+    })
+      .composite([{ input: photo, top: 0, left: 0 }])
+      .png()
+      .toBuffer();
+    const overlay = await sharp(readFileSync(OVERLAY_PATH))
+      .resize(W, H, { fit: "fill" })
+      .png()
+      .toBuffer();
+    const layers = [{ input: overlay, top: 0, left: 0 }];
+    const headlineLayers = await buildHeadlineLayers(title, { bold: true });
+    if (headlineLayers) layers.push(...headlineLayers);
+    return sharp(base)
+      .composite(layers)
+      .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
+      .toBuffer();
+  }
+
+  // 17/11/2026 — template novo do feed (ver comentário de MOLDURA_YELLOW
+  // acima). Foto preenche o quadro INTEIRO — mesmo algoritmo de recorte
+  // inteligente de sempre (fit:"cover" + attention), só numa caixa mais
+  // alta; nenhum recorte novo/diferente foi introduzido. Degrade pequeno
+  // e baixo opcional, logo+nome do OVC só no topo (sem handle/site/
+  // tagline), manchete real da matéria sempre dentro da caixa amarela.
   const photo = await sharp(source)
     .rotate()
-    .resize(W, PHOTO_HEIGHT, { fit: "cover", position: sharp.strategy.attention })
+    .resize(W, H, { fit: "cover", position: sharp.strategy.attention })
     .png()
     .toBuffer();
-  const base = await sharp({
-    create: { width: W, height: H, channels: 3, background: "#000000" }
-  })
-    .composite([{ input: photo, top: 0, left: 0 }])
+  const topBrand = await sharp(readFileSync(TOP_BRAND_PATH))
+    .resize(W, px(210), { fit: "fill" })
     .png()
     .toBuffer();
-  const overlay = await sharp(readFileSync(OVERLAY_PATH))
-    .resize(W, H, { fit: "fill" })
-    .png()
-    .toBuffer();
+  const gradient = await buildFeedGradient();
+  const headlineLayers = await buildMolduraHeadlineLayers(title);
 
-  const layers = [
-    { input: overlay, top: 0, left: 0 }
-  ];
-  const headlineLayers = await buildHeadlineLayers(title, { bold });
-  if (headlineLayers) layers.push(...headlineLayers);
-
-  return sharp(base)
-    .composite(layers)
+  return sharp(photo)
+    .composite([
+      { input: gradient, top: 0, left: 0 },
+      { input: topBrand, top: 0, left: 0 },
+      ...headlineLayers
+    ])
     .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
     .toBuffer();
 }
