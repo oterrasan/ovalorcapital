@@ -103,7 +103,18 @@ async function analyzeImageVisionGemini(buffer) {
           body: JSON.stringify(body)
         });
         clearTimeout(timer);
-        if (!res.ok) { if (res.status === 429 || res.status === 503) continue; return null; }
+        // 17/11/2026 — mesmo bug real encontrado e corrigido em
+        // core/ai_portal.js (callGemini()): GEMINI_API_KEY (sempre a 1ª
+        // chave tentada) ficou com a conta de serviço desativada pelo
+        // Google (401 ACCOUNT_STATE_INVALID) — e esta checagem só pulava
+        // pra próxima chave em 429/503, dando `return null` na hora em
+        // qualquer outro status. Como esta função é fail-closed por
+        // desenho (linha ~272 — "o risco de vazar marca de fonte é maior
+        // que perder uma imagem boa"), toda imagem do canal Fofocas/Giro
+        // (único caller com geminiVision:true) estava sendo rejeitada,
+        // mesmo com GEMINI_API_KEY_2 saudável e nunca tentada. 401/403 =
+        // problema dessa chave específica, não motivo pra desistir.
+        if (!res.ok) { if (res.status === 429 || res.status === 503 || res.status === 401 || res.status === 403) continue; return null; }
         const d = await res.json();
         const text = d.candidates?.[0]?.content?.parts?.[0]?.text || "";
         const m = text.match(/\{[^}]+\}/);
