@@ -10951,3 +10951,70 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 
 1. **Confirmar visualmente com Roberto** o resultado em produção — verificado tecnicamente (Playwright + rede real), mas ele ainda não viu o resultado final desta rodada.
 2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 17/11/2026 — BANNER ROHE: DE FOTO PARADA PRA SEQUÊNCIA REAL DE DRONE SOBREVOANDO OBRAS
+
+#### Contexto
+
+Roberto viu o redesenho creme+dourado da rodada anterior (04-continuação) e rejeitou de novo, com força: *"eu vi que mudou o banner, melhorou, mas pobre de tudo, ne? nao tem imagens rodando, nao tem video de obras, isso precisa ser ACIMA DA MÉDIA, CLAUDE. [...] FAZ UMA SEQUENCIA QUE PARECE UMA CAMERA DE DRONE SOBREVOANDO OBRAS EM SAO PAULO PORRA. USA SEU POTENCIAL CARALHO"*. A versão anterior resolveu "muito escuro" (queixa da rodada #1) mas trocou por um problema novo: zero movimento, só uma foto emoldurada.
+
+#### Vídeo REAL de drone sobre obra — nunca gerado/inventado
+
+Fonte: **Mixkit** (mixkit.co), banco de vídeo gratuito com **licença comercial sem atribuição** — confirmado clipe a clipe no próprio schema.org de cada página (`"copyrightNotice":"Free"`, `"license":"https://mixkit.co/license/#videoFree"`), não é suposição. Host real de download descoberto inspecionando o HTML: `assets.mixkit.co` (adicionados aos hosts permitidos da sessão via `update_environment`, só pra pesquisa/download — nunca usado em produção, o vídeo final é 100% self-hosted).
+
+**Transparência real sobre a localização** (igual já documentado pra outros assets da ROHE): não existe disponível nenhum drone footage real e verificável como "São Paulo / obra da ROHE" — o site da própria ROHE ainda não publicou galeria de obras (Portfólio em "EM BREVE", confirmado na rodada anterior). Os 3 clipes usados são drone footage real de obras genéricas (cidade não identificada no 1º/2º, Londres reconhecível no 3º pelo skyline) — prática padrão de mercado pra empresa sem portfólio fotográfico próprio ainda publicado. Em nenhum texto do banner isso é apresentado como sendo a obra real da ROHE.
+
+**3 clipes escolhidos após inspecionar frame a frame de 5 candidatos** (contact sheets reais, não só o título do clipe) pra confirmar movimento de câmera genuíno (drone voando/orbitando, não plano fixo) e sequenciados na **ordem cronológica real de uma obra**, batendo exatamente com os 3 passos do processo real da ROHE já usados no banner:
+
+| # | Clipe Mixkit | O que mostra | Passo do processo |
+|---|---|---|---|
+| 1 | #49192 "Excavator loading dirt" | drone a prumo sobre terraplenagem | I. Levantamento e estudo de viabilidade |
+| 2 | #25480 "Building frames in a construction site" | drone orbitando estrutura metálica em elevação | II. Desenvolvimento de projetos |
+| 3 | #4010 "Buildings under construction, aerial view" | drone sobrevoando skyline, torre em acabamento, guindastes, céu azul vívido | III. Construção e entrega da obra |
+
+#### Processamento (ffmpeg local, tudo verificado antes de publicar)
+
+- Cada clipe cortado nos 5-7,5s de maior movimento real (não qualquer trecho — escolhido por amostragem de frames).
+- Regrade leve de cor (`eq`/`colorbalance`) pra unificar tom entre os 3 — nenhum é escuro: terra clara e quente, céu nublado claro, céu azul vívido. Isso resolve a queixa original de "escuro" sem precisar remover o movimento como a rodada anterior fez.
+- Crossfade real de 0,7s entre eles (filtro `xfade`, offsets calculados e conferidos — um bug de digitação no cálculo do 2º offset gerou um vídeo truncado de 12s na 1ª tentativa, detectado pela duração errada e corrigido antes de seguir).
+- Sem áudio, H.264 640×360, `faststart` — **2,19MB pros 17,1s inteiros** do loop.
+- Self-hosted em `/video/banners/rohe-sequence.mp4` (nunca hotlink do Mixkit em produção — Regra #1).
+- Pôster (1º frame, WebP q82) em `/img/banners/rohe-poster.webp` — reaproveitou por acaso o mesmo nome de arquivo órfão da 1ª tentativa de banner (vídeo institucional, já removida sessões atrás), substituição limpa e intencional, sem conflito.
+
+#### Estrutura mantida, só a moldura virou vídeo
+
+Tudo que já tinha sido aprovado na rodada anterior ficou: fundo creme + moldura dourada, selo "+30 ANOS", título com as palavras reais de Roberto ("projetando, construindo e entregando sonhos"), os 3 passos reais do processo, CTA em contorno, "Publicidade" fora do texto visível (`rel="sponsored"` cobre a exigência técnica). Só a `<img>` estática virou `<video autoplay muted loop playsinline>` + `<img class="ovc-br-poster">` de fallback, e a moldura ficou mais alta (proporção 4:5 em vez de ~1.2:1) pra dar mais presença ao vídeo — objetivo direto da queixa "pobre".
+
+`object-fit:cover` no `<video>` funciona com o mesmo CSS que já funcionava no `<img>` antigo — **sem nenhum JS de redimensionamento**. A lição do incidente de 18-19/08/2026 (`<iframe>` sendo clampado pela regra global `max-width:100%` e precisando de `ResizeObserver` em JS) não se repete aqui porque `<video>`, igual `<img>`, aceita `width:100%;aspect-ratio:X/Y;object-fit:cover` sem conflito com a regra global (`height:auto` + `aspect-ratio` juntos é CSS válido, o navegador computa a altura sozinho).
+
+#### Verificação real — Playwright, não só leitura de código
+
+Servido o `public/` de verdade localmente (`python3 -m http.server`), `/api/**` mockado, e a página real renderizada ponta a ponta num Chromium real:
+- Frame: 232×290px, vídeo: 230×288px — bate com o cálculo, **não clampado**.
+- `video.paused:false`, `currentTime` avançando de verdade (2,35s após ~1,5s de espera, 16,2s após ~15,5s) — tocando e dando loop de verdade, não só "parece".
+- `readyState:4` (HAVE_ENOUGH_DATA), `video.error:null` — zero erro de carregamento/decode.
+- `prefers-reduced-motion:no-preference` (padrão do Chromium) → poster `display:none`, vídeo `display:block` — o toggle de acessibilidade funciona como desenhado.
+- Screenshots reais em 3 momentos do loop (excavador, estrutura metálica em elevação com guindaste, torre com guindaste contra céu azul) confirmam visualmente: card com presença e movimento de verdade, sem nenhum resquício de "pobre" ou "escuro".
+
+#### Estado de api/ — 10 ARQUIVOS ✅ (inalterado — mudança só em `public/`)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (17/11/2026)
+
+| Sistema | Status |
+|---|---|
+| **Banner ROHE — foto parada vira sequência real de 3 clipes de drone (Mixkit, licença comercial sem atribuição), na ordem cronológica de uma obra real** | ✅ EM CÓDIGO — verificado via Playwright real (vídeo tocando, sizing correto, fallback de acessibilidade funcionando) |
+| **Transparência mantida**: os clipes são drone footage real, mas genérico (não é a obra real da ROHE em SP, que ainda não tem portfólio publicado) — nunca apresentado como sendo | ✅ DOCUMENTADO no comentário do próprio arquivo e nesta entrada |
+| **Moldura 4:5, mais alta, pra dar presença ao vídeo** | ✅ EM CÓDIGO |
+| **`rohe-hero.webp` (foto única da rodada anterior) órfã** | ⚠️ Deixada no repo, sem referência — mesmo padrão de baixa prioridade já usado pra outros ativos órfãos deste projeto |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar visualmente com Roberto em produção real** — verificado tecnicamente via Playwright local, mas ele ainda não viu o resultado ao vivo no site.
+2. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).

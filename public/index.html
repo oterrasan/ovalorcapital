@@ -480,68 +480,69 @@
      rail esquerdo — ver comentário lá. -->
 <aside class="rail-right">
 
-<!-- 16/11/2026 — Roberto, 3ª rodada, rejeição total do visual: "voce
-     basicamente pegou o que tinha de imagem e video la e adaptou pra
-     ca. eu nao queria isso... esta tudo muito escuro e nao esta
-     adequado. A RHOE e tradicao, uma empresa familiar que se tornou
-     referencia em projetos e execucao, sao mais de 3 decadas
-     projetando, construindo e entregando sonhos." Ele autorizou usar
-     os mesmos ativos reais como base, mas pediu pesquisa de mercado
-     real de como portais de alto nível tratam banner institucional
-     — não um retoque no card escuro anterior.
+<!-- 17/11/2026 — Roberto rejeitou a rodada acima (foto única parada):
+     "melhorou, mas pobre de tudo... nao tem imagens rodando, nao tem
+     video de obras... FAZ UMA SEQUENCIA QUE PARECE UMA CAMERA DE DRONE
+     SOBREVOANDO OBRAS." A versão anterior resolveu "muito escuro" mas
+     criou um problema novo: zero movimento.
 
-     Pesquisa feita antes de desenhar (não suposição): (1) tipografia
-     serifada = herança/autoridade, espaçamento generoso = percepção
-     de valor premium, tons terrosos/creme + 1 acento forte = sinal
-     de tradição, selo/brasão = craft (fontes reais, não blog de
-     venda de template — ver resumo no chat); (2) o PRÓPRIO site da
-     ROHE já carrega Cinzel + Playfair Display + Source Sans Pro e
-     paleta 100% monocromática clara (branco/cinza-quente, zero cor
-     saturada no CSS deles) — confirma que a identidade real da marca
-     é clara/elegante, nunca escura; (3) achada a foto que a própria
-     ROHE usa como imagem principal do site (og:image repetida em
-     TODAS as páginas deles): licenciada da Getty (EXIF confirma
-     "Table with hard-hat and blueprints", Canon 5D Mark IV) — capacete
-     e nível sobre mesa branca com plantas ao fundo, mesa iluminada
-     por luz natural, nada escuro. Baixada em alta resolução e
-     recortada localmente (não usa o crop da Getty, que cortava o
-     nível) pra enquadrar capacete + nível + plantas desfocadas juntos
-     — exatamente a narrativa de "projeto com rigor técnico". Self-
-     hosted em /img/banners/rohe-hero.webp (nunca hotlink de
-     terceiro, WebP q82 — Regra #1).
+     Vídeo REAL de drone sobre obra, nunca gerado/inventado. Fonte:
+     Mixkit (mixkit.co), banco gratuito com licença comercial sem
+     atribuição — confirmado clipe a clipe no próprio schema.org da
+     página de cada um ("copyrightNotice":"Free", license .../videoFree),
+     não é suposição. Host real de download: assets.mixkit.co.
 
-     O vídeo institucional (executivos em silhueta/contraluz, corredor
-     escuro) e o skyline "à noite" do rascunho anterior foram
-     REMOVIDOS do visual principal — eram justamente as duas peças
-     mais escuras, a origem real da queixa. Nenhum outro JS do portal
-     depende da âncora ovc-banner-rohe (confirmado via grep antes de
-     reescrever).
+     Transparência sobre a localização: não existe, disponível, drone
+     footage real e verificável como "São Paulo / obra da ROHE" — o
+     site da própria ROHE ainda não publicou galeria de obras (seção
+     Portfólio em "EM BREVE", confirmado na rodada anterior). Os 3
+     clipes abaixo são drone footage real de obras genéricas (cidade
+     não identificada / Londres no terceiro, reconhecível pelo skyline)
+     — prática padrão do mercado pra empresa sem portfólio fotográfico
+     próprio ainda publicado. Em nenhum texto do banner isso é
+     apresentado como sendo a obra da ROHE.
 
-     Desenho novo, sem nenhuma peça reaproveitada do card anterior:
-     fundo creme claro + moldura fina dourada (var(--gold), já token
-     oficial do próprio OVC, usado nos cards de Colunistas — nunca
-     inventado); foto emoldurada como "retrato", não full-bleed de
-     fundo; selo circular "+30 ANOS" sobreposto no canto da moldura
-     (o número é o "mais de 3 décadas" dito pelo próprio Roberto —
-     número diferente e mais específico do "mais de 25 anos de
-     experiência do corpo técnico" que o site deles afirma, sem
-     conflito, são métricas diferentes); título em Playfair Display
-     itálico com as palavras reais dele ("projetando, construindo e
-     entregando sonhos"); as 3 etapas reais do processo deles
-     ("Entenda como podemos te auxiliar" na página real) como lista
-     enxuta em numeração romana, sem looping/ticker; CTA em contorno
-     dourado, sem gradiente/brilho animado. Zoom Ken Burns muito sutil
-     na foto (única animação), desligado via prefers-reduced-motion.
-     "Publicidade" continua fora do texto visível (decisão já tomada
-     numa rodada anterior) — rel="sponsored" no link cobre a exigência
-     técnica real do Google (Regra #25). -->
+     3 clipes reais, cada um com movimento de câmera confirmado frame a
+     frame antes de baixar, sequenciados na ORDEM CRONOLÓGICA real de
+     uma obra — bate com os 3 passos do processo real da ROHE já usados
+     abaixo:
+       1. Mixkit #49192 "Excavator loading dirt" — drone a prumo sobre
+          terraplenagem → "Levantamento e estudo de viabilidade"
+       2. Mixkit #25480 "Building frames in a construction site" —
+          drone orbitando estrutura metálica em elevação → "Desenvolvi-
+          mento de projetos"
+       3. Mixkit #4010 "Buildings under construction, aerial view" —
+          drone sobrevoando skyline com torre em acabamento, guindastes,
+          céu azul vívido → "Construção e entrega da obra"
+     Processado localmente com ffmpeg: cada clipe cortado nos 5-7,5s de
+     maior movimento real, regrade leve de cor pra unificar tom entre os
+     3 (nenhum é escuro — terra clara, céu nublado claro, céu azul
+     vívido), crossfade real de 0,7s entre eles (filtro xfade), sem
+     áudio, H.264 640×360 com faststart — 2,19MB pros 17,1s inteiros.
+     Self-hosted em /video/banners/rohe-sequence.mp4 (nunca hotlink do
+     Mixkit em produção — Regra #1).
+
+     Estrutura da rodada anterior mantida (creme+dourado+serifa, selo
+     "+30 ANOS", título com as palavras reais de Roberto, os 3 passos
+     reais, CTA contorno) — só a moldura de foto estática virou moldura
+     de vídeo em loop, mais alta (4:5, mais presença) pra caber o drama
+     das torres/guindastes. object-fit:cover funciona em <video> com o
+     mesmo CSS que já funcionava em <img> (sem JS de redimensionamento —
+     o iframe precisava de JS por causa do max-width global herdado;
+     <video> não tem esse problema, mesmo padrão simples de sempre).
+     Pôster (1º frame, WebP q82) cobre o 1º paint antes do vídeo
+     bufferizar e é o fallback completo em prefers-reduced-motion — aí
+     o <video> nem chega a ser criado/tocado, só a imagem estática
+     aparece. -->
 <style>
 #ovc-banner-rohe{display:block;position:relative;border-radius:18px;background:linear-gradient(180deg,#fdfbf6 0%,#f7f1e4 100%);padding:18px 18px 16px;margin-bottom:14px;text-decoration:none;box-shadow:0 10px 28px rgba(43,36,28,.10);border:1px solid rgba(212,175,55,.38)}
 #ovc-banner-rohe:hover{box-shadow:0 14px 34px rgba(43,36,28,.16)}
-.ovc-br-frame{position:relative;border-radius:12px;overflow:hidden;border:1px solid rgba(212,175,55,.55);box-shadow:0 1px 0 rgba(255,255,255,.6) inset}
-.ovc-br-frame img{display:block;width:100%;aspect-ratio:850/702;object-fit:cover;object-position:28% 38%;animation:ovcBrKen 22s ease-in-out infinite alternate}
-@keyframes ovcBrKen{0%{transform:scale(1)}100%{transform:scale(1.045)}}
-.ovc-br-seal{position:absolute;left:14px;top:142px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#3a2f22,#231a10 72%);border:2px solid #d4af37;box-shadow:0 4px 10px rgba(43,36,28,.35),0 0 0 4px rgba(253,251,246,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.ovc-br-frame{position:relative;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(212,175,55,.55);box-shadow:0 1px 0 rgba(255,255,255,.6) inset;background:#1a1712}
+.ovc-br-frame video,.ovc-br-frame .ovc-br-poster{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 38%}
+.ovc-br-frame .ovc-br-poster{position:absolute;inset:0}
+@media (prefers-reduced-motion:reduce){.ovc-br-frame video{display:none}}
+@media (prefers-reduced-motion:no-preference){.ovc-br-frame .ovc-br-poster{display:none}}
+.ovc-br-seal{position:absolute;left:14px;top:14px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#3a2f22,#231a10 72%);border:2px solid #d4af37;box-shadow:0 4px 10px rgba(43,36,28,.35),0 0 0 4px rgba(253,251,246,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
 .ovc-br-seal b{font-family:var(--font-editorial);font-size:21px;line-height:1;color:#f1dfa9;letter-spacing:.01em}
 .ovc-br-seal span{font-size:8px;font-weight:700;letter-spacing:.14em;color:#d4af37;margin-top:2px}
 .ovc-br-body{position:relative;padding-top:30px}
@@ -562,7 +563,10 @@
 </style>
 <a id="ovc-banner-rohe" href="https://roheconstrutora.com.br/" target="_blank" rel="noopener sponsored" aria-label="Visitar o site da ROHE Construtora e Incorporadora">
 <div class="ovc-br-frame">
-<img src="/img/banners/rohe-hero.webp" alt="Capacete de obra e nível sobre projeto técnico — rigor e execução da ROHE" loading="lazy">
+<video autoplay muted loop playsinline preload="metadata" poster="/img/banners/rohe-poster.webp" aria-hidden="true">
+<source src="/video/banners/rohe-sequence.mp4" type="video/mp4">
+</video>
+<img class="ovc-br-poster" src="/img/banners/rohe-poster.webp" alt="Sequência de drone sobrevoando obras em diferentes etapas — terraplenagem, estrutura metálica e torre em acabamento" loading="lazy">
 </div>
 <div class="ovc-br-seal"><b>+30</b><span>ANOS</span></div>
 <div class="ovc-br-body">
