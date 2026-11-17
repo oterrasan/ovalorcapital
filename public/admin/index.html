@@ -357,6 +357,27 @@ function Dashboard() {
   const pct=v=>parseFloat((v&&v.pctChange)||0);
   const maxCat=cats.length?cats[0][1]:1;
 
+  // 17/11/2026 — Roberto: "esse tipo de erro não pode acontecer, o sistema
+  // precisa ter uma defesa 24hrs". O apagão de hoje (GEMINI_API_KEY morta,
+  // 401, travando o loop de rotação de chaves — ver core/ai_portal.js) ficou
+  // invisível o dia inteiro porque toda ação da API continuava respondendo
+  // HTTP 200 normal — o problema nunca era "a API caiu", era "a API está de
+  // pé mas não está produzindo nada". Esse sinal calcula exatamente isso —
+  // minutos desde o post mais recente de QUALQUER canal — e mostra um
+  // alerta impossível de não ver aqui no painel que você já abre todo dia.
+  // Mesmo sinal (mesmo limiar de 60min) também roda sozinho 24h via GitHub
+  // Actions, independente de alguém abrir este painel — ver
+  // .github/workflows/content-pipeline-watchdog.yml.
+  const ultimoPost = posts[0];
+  const minutosSemPost = ultimoPost ? (Date.now()-new Date(toUtcISO(ultimoPost.created_at)).getTime())/60000 : null;
+  const agoraBRT = new Date(Date.now()-3*3600*1000);
+  const minutosDesdeMeiaNoiteBRT = agoraBRT.getUTCHours()*60+agoraBRT.getUTCMinutes();
+  // pipeline pausa 00h-06h BRT — só considera "parado" depois de 75min de
+  // folga além da retomada (06h15), pra não alarmar logo ao reativar, quando
+  // o post mais recente ainda é legitimamente da noite anterior
+  const dentroHorarioAtivo = minutosDesdeMeiaNoiteBRT>=(6*60+75);
+  const geracaoParada = !loadingPosts && dentroHorarioAtivo && minutosSemPost!==null && minutosSemPost>60;
+
   const OVC_AO_VIVO=[
     {label:'OVC TV',href:'https://www.ovalorcapital.com.br/tv-ovc/',icon:'📺',cor:'#c81e1e'},
     {label:'OVC Rádio',href:'https://www.ovalorcapital.com.br/radio-ovc/',icon:'📻',cor:'#7c3aed'},
@@ -379,6 +400,17 @@ function Dashboard() {
         </div>
       </div>
       <div className="page-body">
+        {geracaoParada && (
+          <div style={{background:'#7f1d1d',border:'2px solid #ef4444',borderRadius:12,padding:'16px 20px',marginBottom:18,display:'flex',alignItems:'flex-start',gap:14,boxShadow:'0 0 0 4px rgba(239,68,68,.15)'}}>
+            <div style={{fontSize:30,lineHeight:1}}>🔴</div>
+            <div>
+              <div style={{color:'#fecaca',fontWeight:800,fontSize:16,letterSpacing:'.01em'}}>ALERTA — GERAÇÃO DE CONTEÚDO PARADA</div>
+              <div style={{color:'#fff',fontSize:13.5,marginTop:4,lineHeight:1.5}}>
+                Nenhum post novo nos últimos <b>{Math.round(minutosSemPost)} minutos</b>, mesmo dentro do horário normal de funcionamento (06h–00h BRT). Isso é o mesmo tipo de falha silenciosa — a API responde normal mas não produz nada. Investigue agora: chaves de IA, Supabase ou o próprio pipeline.
+              </div>
+            </div>
+          </div>
+        )}
         <div className="metrics" style={{gridTemplateColumns:'repeat(6,1fr)'}}>
           <div className="metric-card">
             <div className="metric-label">Posts Hoje</div>
