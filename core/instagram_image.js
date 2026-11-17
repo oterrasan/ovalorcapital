@@ -170,6 +170,30 @@ const MOLDURA_BOX = {
   bottomAnchor: Math.round(H * 0.92)
 };
 const TOP_BRAND_PATH = new URL("../public/assets/ig-top-brand-ovc.png", import.meta.url);
+// 17/11/2026 — Roberto: "a posição do ícone do cabeçalho... deve ser
+// exatamente na mesma proporção para Reels e para Feed... estão bem
+// diferentes". Medido com PIL (não suposição): o ícone do topo do feed
+// renderizava a só ~5,7% da altura do quadro, contra ~8,85% nos Reels —
+// quase 1,6x menor. Causa: o asset antigo (1080x210) tinha margem
+// transparente solta em volta do ícone+wordmark, e era esticado pra uma
+// altura de banda fixa (280px) sem relação nenhuma com o tamanho real do
+// ícone nos Reels.
+// Fix: asset recortado justo (ver ig-top-brand-ovc.png, só 2px de
+// margem em volta de ícone+wordmark) + as 2 frações abaixo, copiadas
+// direto das constantes canônicas do Reel (DUAL_LOGO_TOP_Y=70,
+// DUAL_LOGO_BOX=170, HEIGHT=1920 — scripts/render-instagram-reel.mjs) —
+// o ícone do feed agora nasce do mesmo tamanho/posição relativa que o
+// ícone do OVC nos Reels, só que com o nome "O VALOR CAPITAL" embutido
+// no mesmo asset, logo abaixo (Reels não têm wordmark nenhum — pedido
+// explícito e diferente desse, mantido).
+const TOP_BRAND_ICON_TOP_MARGIN_FRAC = 70 / 1920; // = DUAL_LOGO_TOP_Y / HEIGHT do Reel
+const TOP_BRAND_ICON_HEIGHT_FRAC = 170 / 1920; // = DUAL_LOGO_BOX / HEIGHT do Reel
+// Posição do ícone DENTRO do asset ig-top-brand-ovc.png (301x140, medido
+// uma vez com PIL — ink começa a 2px de toda borda, ícone só vai até y=79):
+const TOP_BRAND_NATIVE_W = 301;
+const TOP_BRAND_NATIVE_H = 140;
+const TOP_BRAND_ICON_TOP_IN_ASSET = 2;
+const TOP_BRAND_ICON_HEIGHT_IN_ASSET = 78;
 
 function renderMolduraLineMarkup(line, highlightWord, state) {
   const parts = String(line || "").split(/(\s+)/);
@@ -356,17 +380,26 @@ export async function buildInstagramImageBuffer(sourceUrl, { title, bold } = {})
     .resize(W, H, { fit: "cover", position: sharp.strategy.attention })
     .png()
     .toBuffer();
+  // Escala o asset pelo tamanho real do ÍCONE (não pela banda inteira) —
+  // garante que o ícone saia com a mesma altura proporcional do ícone do
+  // Reel, e posiciona pra o topo do ícone cair na mesma margem
+  // proporcional também (ver constantes TOP_BRAND_* acima).
+  const topBrandScale = (TOP_BRAND_ICON_HEIGHT_FRAC * H) / TOP_BRAND_ICON_HEIGHT_IN_ASSET;
+  const topBrandW = Math.round(TOP_BRAND_NATIVE_W * topBrandScale);
+  const topBrandH = Math.round(TOP_BRAND_NATIVE_H * topBrandScale);
   const topBrand = await sharp(readFileSync(TOP_BRAND_PATH))
-    .resize(W, px(210), { fit: "fill" })
+    .resize(topBrandW, topBrandH, { fit: "fill" })
     .png()
     .toBuffer();
+  const topBrandLeft = Math.round((W - topBrandW) / 2);
+  const topBrandTop = Math.round(TOP_BRAND_ICON_TOP_MARGIN_FRAC * H - TOP_BRAND_ICON_TOP_IN_ASSET * topBrandScale);
   const gradient = await buildFeedGradient();
   const headlineLayers = await buildMolduraHeadlineLayers(title);
 
   return sharp(photo)
     .composite([
       { input: gradient, top: 0, left: 0 },
-      { input: topBrand, top: 0, left: 0 },
+      { input: topBrand, top: topBrandTop, left: topBrandLeft },
       ...headlineLayers
     ])
     .jpeg({ quality: 100, chromaSubsampling: "4:4:4" })
