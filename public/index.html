@@ -480,99 +480,100 @@
      rail esquerdo — ver comentário lá. -->
 <aside class="rail-right">
 
-<!-- 17/11/2026 — Roberto rejeitou a rodada acima (foto única parada):
-     "melhorou, mas pobre de tudo... nao tem imagens rodando, nao tem
-     video de obras... FAZ UMA SEQUENCIA QUE PARECE UMA CAMERA DE DRONE
-     SOBREVOANDO OBRAS." A versão anterior resolveu "muito escuro" mas
-     criou um problema novo: zero movimento.
-
-     Vídeo REAL de drone sobre obra, nunca gerado/inventado. Fonte:
-     Mixkit (mixkit.co), banco gratuito com licença comercial sem
-     atribuição — confirmado clipe a clipe no próprio schema.org da
-     página de cada um ("copyrightNotice":"Free", license .../videoFree),
-     não é suposição. Host real de download: assets.mixkit.co.
-
-     Transparência sobre a localização: não existe, disponível, drone
-     footage real e verificável como "São Paulo / obra da ROHE" — o
-     site da própria ROHE ainda não publicou galeria de obras (seção
-     Portfólio em "EM BREVE", confirmado na rodada anterior). Os 3
-     clipes abaixo são drone footage real de obras genéricas (cidade
-     não identificada / Londres no terceiro, reconhecível pelo skyline)
-     — prática padrão do mercado pra empresa sem portfólio fotográfico
-     próprio ainda publicado. Em nenhum texto do banner isso é
-     apresentado como sendo a obra da ROHE.
-
-     3 clipes reais, cada um com movimento de câmera confirmado frame a
-     frame antes de baixar, sequenciados na ORDEM CRONOLÓGICA real de
-     uma obra — bate com os 3 passos do processo real da ROHE já usados
-     abaixo:
-       1. Mixkit #49192 "Excavator loading dirt" — drone a prumo sobre
-          terraplenagem → "Levantamento e estudo de viabilidade"
-       2. Mixkit #25480 "Building frames in a construction site" —
-          drone orbitando estrutura metálica em elevação → "Desenvolvi-
-          mento de projetos"
-       3. Mixkit #4010 "Buildings under construction, aerial view" —
-          drone sobrevoando skyline com torre em acabamento, guindastes,
-          céu azul vívido → "Construção e entrega da obra"
-     Processado localmente com ffmpeg: cada clipe cortado nos 5-7,5s de
-     maior movimento real, regrade leve de cor pra unificar tom entre os
-     3 (nenhum é escuro — terra clara, céu nublado claro, céu azul
-     vívido), crossfade real de 0,7s entre eles (filtro xfade), sem
-     áudio, H.264 640×360 com faststart — 2,19MB pros 17,1s inteiros.
-     Self-hosted em /video/banners/rohe-sequence.mp4 (nunca hotlink do
-     Mixkit em produção — Regra #1).
-
-     Estrutura da rodada anterior mantida (creme+dourado+serifa, selo
-     "+30 ANOS", título com as palavras reais de Roberto, os 3 passos
-     reais, CTA contorno) — só a moldura de foto estática virou moldura
-     de vídeo em loop, mais alta (4:5, mais presença) pra caber o drama
-     das torres/guindastes. object-fit:cover funciona em <video> com o
-     mesmo CSS que já funcionava em <img> (sem JS de redimensionamento —
-     o iframe precisava de JS por causa do max-width global herdado;
-     <video> não tem esse problema, mesmo padrão simples de sempre).
-     Pôster (1º frame, WebP q82) cobre o 1º paint antes do vídeo
-     bufferizar e é o fallback completo em prefers-reduced-motion — aí
-     o <video> nem chega a ser criado/tocado, só a imagem estática
-     aparece. -->
+<!-- 17/11/2026 (continuação) — Roberto rejeitou de novo, 2 pedidos novos:
+     (1) "as cores devem ser mais elaboradas, nao estao boas" — fundo
+     creme trocado por um sistema de cor corporativo mais rico (navy +
+     laranja sutil + amarelo/dourado + carvão + cinza, "cores de grandes
+     empresas"), SELO mantido em dourado como ele pediu explicitamente.
+     (2) "insira mais imagens de filmagens de drones, a noite, de dia,
+     de tarde... obra avancando em velocidade extrema" — sequência
+     trocada de 3 pra 5 clipes reais (3 diurnos + 2 noturnos), cortes
+     mais curtos (~3,8s cada, crossfade 0,5s) pra ritmo bem mais rápido.
+     Transparência: pesquisei clipe real de ENTARDECER/dourado em obra —
+     o único resultado (#15922, guindaste ao pôr do sol) tem licença
+     "Mixkit Restricted" (não é a licença comercial livre que uso em
+     produção) e foi descartado; outro candidato de dusk (#41375) é
+     real/grátis mas tão escuro que recriaria a queixa "muito escuro" —
+     também descartado. Em vez disso, cobri dia + noite de verdade: aos
+     3 clipes diurnos já aprovados (terraplenagem/estrutura/torre),
+     somei 2 clipes noturnos reais e licenciados (Mixkit "Free",
+     copyrightNotice/license conferidos de novo, igual sempre) — prédio
+     com iluminação quente sob ângulo dramático de drone (#42360) e
+     skyline em azul-marinho profundo à noite (#42352), ambos cidade
+     genérica, nunca apresentados como a obra real da ROHE (mesma
+     transparência de sempre — portfólio deles ainda "EM BREVE").
+     Processado de novo com ffmpeg: 5 segmentos 640×360@30fps, grade de
+     cor nos noturnos pra puxar pro mesmo navy da nova paleta do card,
+     crossfade 0,5s, H.264 crf26 faststart — 1,81MB pros 17,6s inteiros.
+     (3) "o selo deve ser mantido em dourado... azul marinho, laranja
+     sutil, amarelo e dourado ouro, preto carvão e cinza, sao cores de
+     grandes empresas" — paleta nova: fundo gradiente navy→carvão
+     (diagonal, profundidade real em vez de flat), selo "+30 ANOS"
+     continua 100% dourado como antes (só o preenchimento escuro por
+     trás do dourado passou a ser navy, pra casar com o resto do card),
+     "Tradição familiar" em laranja sutil (único uso de laranja, bem
+     discreto), números I/II/III e 1 palavra do título ("sonhos") em
+     âmbar — destaque sutil no texto, como ele pediu —, CTA virou pílula
+     preenchida em dourado/âmbar com um sweep de luz bem lento (5s,
+     baixíssima opacidade) em vez do contorno simples de antes.
+     (4) "quero que ao clicar no banner, abra uma pagina dentro do ovc
+     que seja dedicada a RHOE... pegue tudo que tem no site deles" — o
+     card inteiro não linka mais direto pro site externo: agora abre
+     /parceiros/rohe/, página nova dentro do próprio OVC com TODO o
+     conteúdo real do site deles (textos de "A ROHE"/"Quem Somos"
+     completos, os 3 passos do processo com a descrição completa do 3º
+     — só tinha resumo antes —, missão/visão/valores reais, as 2 fotos
+     reais que eles mesmos usam). Dentro dessa página sim os cliques
+     reais (CTA + "Fale com a ROHE") saem pro site deles. Contato:
+     verificado de novo (curl na página /contato real deles) que não
+     existe telefone/WhatsApp/e-mail publicado — só um formulário nativo
+     deles (Nome/Email/anexo/reCAPTCHA) que já funciona no domínio
+     próprio. Por isso NÃO construí um formulário paralelo nosso sem
+     nenhum destino real por trás (coletaria dado pra lugar nenhum) —
+     o CTA "Fale com a ROHE" leva direto pro formulário REAL deles em
+     roheconstrutora.com.br/contato, em nova aba. -->
 <style>
-#ovc-banner-rohe{display:block;position:relative;border-radius:18px;background:linear-gradient(180deg,#fdfbf6 0%,#f7f1e4 100%);padding:18px 18px 16px;margin-bottom:14px;text-decoration:none;box-shadow:0 10px 28px rgba(43,36,28,.10);border:1px solid rgba(212,175,55,.38)}
-#ovc-banner-rohe:hover{box-shadow:0 14px 34px rgba(43,36,28,.16)}
-.ovc-br-frame{position:relative;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(212,175,55,.55);box-shadow:0 1px 0 rgba(255,255,255,.6) inset;background:#1a1712}
+#ovc-banner-rohe{display:block;position:relative;border-radius:18px;background:linear-gradient(145deg,#1a3a66 0%,#0e2040 48%,#121019 100%);padding:18px 18px 16px;margin-bottom:14px;text-decoration:none;box-shadow:0 14px 34px rgba(8,14,28,.45);border:1px solid rgba(240,194,94,.22)}
+#ovc-banner-rohe:hover{box-shadow:0 18px 42px rgba(8,14,28,.55)}
+.ovc-br-frame{position:relative;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(240,194,94,.32);box-shadow:0 1px 0 rgba(255,255,255,.08) inset;background:#0a1017}
 .ovc-br-frame video,.ovc-br-frame .ovc-br-poster{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 38%}
 .ovc-br-frame .ovc-br-poster{position:absolute;inset:0}
 @media (prefers-reduced-motion:reduce){.ovc-br-frame video{display:none}}
 @media (prefers-reduced-motion:no-preference){.ovc-br-frame .ovc-br-poster{display:none}}
-.ovc-br-seal{position:absolute;left:14px;top:14px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#3a2f22,#231a10 72%);border:2px solid #d4af37;box-shadow:0 4px 10px rgba(43,36,28,.35),0 0 0 4px rgba(253,251,246,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.ovc-br-seal{position:absolute;left:14px;top:14px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#1c3356,#0a1526 72%);border:2px solid #d4af37;box-shadow:0 4px 10px rgba(5,9,18,.5),0 0 0 4px rgba(245,242,232,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
 .ovc-br-seal b{font-family:var(--font-editorial);font-size:21px;line-height:1;color:#f1dfa9;letter-spacing:.01em}
 .ovc-br-seal span{font-size:8px;font-weight:700;letter-spacing:.14em;color:#d4af37;margin-top:2px}
 .ovc-br-body{position:relative;padding-top:30px}
-.ovc-br-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#a9842f;margin-bottom:5px}
+.ovc-br-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e2793f;margin-bottom:5px}
 .ovc-br-brand{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.ovc-br-brand b{font-family:var(--font-editorial);font-size:19px;font-weight:800;letter-spacing:.07em;color:#2b241c}
-.ovc-br-brand span{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8a7f6f}
-#ovc-banner-rohe h3{margin:0 0 14px;font-family:var(--font-editorial);font-style:italic;font-weight:700;color:#2b241c;font-size:17px;line-height:1.38;letter-spacing:.002em}
-.ovc-br-process{display:flex;flex-direction:column;gap:9px;margin:0 0 16px;padding:13px 0 2px;border-top:1px solid rgba(212,175,55,.3)}
+.ovc-br-brand b{font-family:var(--font-editorial);font-size:19px;font-weight:800;letter-spacing:.07em;color:#f5f2e8}
+.ovc-br-brand span{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9aa6ba}
+#ovc-banner-rohe h3{margin:0 0 14px;font-family:var(--font-editorial);font-style:italic;font-weight:700;color:#f5f2e8;font-size:17px;line-height:1.38;letter-spacing:.002em}
+.ovc-br-hl{color:#f0c25e;font-weight:800;font-style:normal}
+.ovc-br-process{display:flex;flex-direction:column;gap:9px;margin:0 0 16px;padding:13px 0 2px;border-top:1px solid rgba(240,194,94,.22)}
 .ovc-br-step{display:flex;align-items:baseline;gap:9px}
-.ovc-br-step .num{font-family:var(--font-editorial);font-size:12.5px;font-weight:700;color:#b8933c;width:17px;flex:none}
-.ovc-br-step .label{font-size:11.5px;line-height:1.4;color:#5c5245}
-.ovc-br-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:1.4px solid #2b241c;border-radius:999px;padding:11px 16px;font-weight:700;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:#2b241c;transition:background .2s,color .2s}
-#ovc-banner-rohe:hover .ovc-br-cta{background:#2b241c;color:#f1dfa9}
+.ovc-br-step .num{font-family:var(--font-editorial);font-size:12.5px;font-weight:700;color:#f0c25e;width:17px;flex:none}
+.ovc-br-step .label{font-size:11.5px;line-height:1.4;color:#c7cedb}
+.ovc-br-cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#f0c25e,#d9972f);border:none;border-radius:999px;padding:11px 16px;font-weight:800;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:#15130f;transition:filter .2s,transform .2s}
+.ovc-br-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:ovcBrSweep 5s ease-in-out infinite}
+@keyframes ovcBrSweep{0%,30%{left:-60%}70%,100%{left:130%}}
+#ovc-banner-rohe:hover .ovc-br-cta{filter:brightness(1.08);transform:translateY(-1px)}
 .ovc-br-cta span:last-child{font-size:15px;line-height:1}
-.ovc-br-foot{margin-top:11px;text-align:center;font-size:9.5px;color:#a89a84;letter-spacing:.05em}
-@media (prefers-reduced-motion:reduce){.ovc-br-frame img{animation:none!important}}
+.ovc-br-foot{margin-top:11px;text-align:center;font-size:9.5px;color:#7c8396;letter-spacing:.05em}
+@media (prefers-reduced-motion:reduce){.ovc-br-cta::after{animation:none!important;display:none}}
 </style>
-<a id="ovc-banner-rohe" href="https://roheconstrutora.com.br/" target="_blank" rel="noopener sponsored" aria-label="Visitar o site da ROHE Construtora e Incorporadora">
+<a id="ovc-banner-rohe" href="/parceiros/rohe/" aria-label="Conhecer a ROHE Construtora e Incorporadora, parceira do OVC">
 <div class="ovc-br-frame">
 <video autoplay muted loop playsinline preload="metadata" poster="/img/banners/rohe-poster.webp" aria-hidden="true">
 <source src="/video/banners/rohe-sequence.mp4" type="video/mp4">
 </video>
-<img class="ovc-br-poster" src="/img/banners/rohe-poster.webp" alt="Sequência de drone sobrevoando obras em diferentes etapas — terraplenagem, estrutura metálica e torre em acabamento" loading="lazy">
+<img class="ovc-br-poster" src="/img/banners/rohe-poster.webp" alt="Sequência de drone sobrevoando obras de dia e à noite — terraplenagem, estrutura metálica, torre em acabamento e cidade iluminada" loading="lazy">
 </div>
 <div class="ovc-br-seal"><b>+30</b><span>ANOS</span></div>
 <div class="ovc-br-body">
 <div class="ovc-br-eyebrow">Tradição familiar</div>
 <div class="ovc-br-brand"><b>ROHE</b><span>Construtora e Incorporadora</span></div>
-<h3>Mais de três décadas projetando, construindo e entregando sonhos.</h3>
+<h3>Mais de três décadas projetando, construindo e entregando <span class="ovc-br-hl">sonhos</span>.</h3>
 <div class="ovc-br-process">
 <div class="ovc-br-step"><span class="num">I.</span><span class="label">Levantamento e estudo de viabilidade</span></div>
 <div class="ovc-br-step"><span class="num">II.</span><span class="label">Desenvolvimento de projetos</span></div>
