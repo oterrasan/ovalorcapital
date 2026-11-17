@@ -193,16 +193,28 @@ function renderLineMarkup(line, highlightWord, state) {
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 // 12/11/2026 — Roberto adorou a borda fininha laranja que aparece nos
 // vídeos de @reinaldogottino e pediu pra virar padrão em TODO Reel do OVC
-// (não do Brasil On — ele disse "layout já padrão do OVC"). Investigado
-// antes de implementar: essa borda não é algo que o nosso sistema já
-// aplicava em nenhum vídeo — ela já vem GRAVADA no arquivo original (é o
-// estilo de edição dele no TikTok), confirmado lendo o compositor inteiro
-// (nenhum drawbox/outline em lugar nenhum). Pedido dele: automático em
-// todos, mesma largura/posição sempre, mas com a COR trocável no editor.
+// (naquele momento "não do Brasil On" — mas não havia gate nenhum no
+// código pra isso: o drawbox já roda incondicional, pra qualquer job,
+// depois de buildOverlay(), então já valia pros dois na prática).
+// Investigado antes de implementar (12/11/2026): essa borda não é algo
+// que o nosso sistema já aplicava em nenhum vídeo — ela já vem GRAVADA no
+// arquivo original (é o estilo de edição dele no TikTok), confirmado
+// lendo o compositor inteiro (nenhum drawbox/outline em lugar nenhum).
+// Pedido dele: automático em todos, mesma largura/posição sempre, mas com
+// a COR trocável no editor.
 // Nome do campo "borda_cor" (não "moldura") de propósito: "moldura" já
 // significa outra coisa neste arquivo — a caixa colorida atrás do texto
 // da manchete (ver sanitizeHeadline/estilo==="moldura" logo abaixo).
-const REEL_BORDA_COR_PADRAO = "#f28c22";
+//
+// 17/11/2026 — Roberto mandou um vídeo de referência e pediu "exatamente
+// este padrão, com a moldura dourada" como o NOVO template único pros
+// Reels dos dois Instagrams (OVC e Brasil On) a partir de agora — ver
+// buildOverlay() abaixo, que deixou de ter um branch separado pro Brasil
+// On. Cor medida pixel a pixel no vídeo real dele (560 amostras limpas
+// nos 4 segmentos da borda, RGB médio 204,173,56) e arredondada pro
+// dourado já usado em outras peças do projeto (selo do banner da ROHE) —
+// mesmo valor, sem inventar um hex novo: #D4AF37.
+const REEL_BORDA_COR_PADRAO = "#D4AF37";
 const REEL_BORDA_MARGEM = 24; // px de distância das 4 bordas do Reel (1080x1920)
 const REEL_BORDA_ESPESSURA = 8; // px de espessura da linha — fininha, mesma proporção do aviso visual já usado no editor (2px numa prévia em escala 0.25 = 8px no vídeo real)
 function sanitizeBordaCor(raw) {
@@ -238,7 +250,11 @@ function sanitizeHeadline(raw) {
     cor_destaque: HEX_COLOR.test(String(raw.cor_destaque || "")) ? raw.cor_destaque : HIGHLIGHT_COLOR,
     fonte: typeof raw.fonte === "string" && HEADLINE_FONTS[raw.fonte] ? raw.fonte : DEFAULT_HEADLINE_FONT,
     estilo,
-    cor_fundo: HEX_COLOR.test(String(raw.cor_fundo || "")) ? raw.cor_fundo : "#f5c518",
+    // 17/11/2026 — era #f5c518 (dourado/âmbar); trocado pro amarelo
+    // "marca-texto" medido pixel a pixel no vídeo de referência de
+    // Roberto (3330 amostras limpas, RGB médio 246,252,17) — ele apontou
+    // "essa cor de amarelo marca texto ao fundo" como o padrão oficial.
+    cor_fundo: HEX_COLOR.test(String(raw.cor_fundo || "")) ? raw.cor_fundo : "#F7FA14",
     highlights: sanitizeHighlights(raw.highlights)
   };
 }
@@ -315,9 +331,9 @@ function wrapHeadline(text, fontSize, maxWidth, maxLines, factor = 1) {
   return clipped;
 }
 
-// Caixa colorida atrás da manchete (generaliza buildOverlayBrasilOn, que
-// era fixa em amarelo só pro Brasil On — agora qualquer cor, pra qualquer
-// Reel, via h.cor_fundo). Devolve [caixa, texto] como 2 camadas.
+// Caixa colorida atrás da manchete, qualquer cor, pra qualquer Reel (OVC
+// ou Brasil On — o template é único desde 17/11/2026), via h.cor_fundo.
+// Devolve [caixa, texto] como 2 camadas.
 async function buildMolduraLayers(lines, fontSize, font, fontFile, boxWidth, bgColor, highlightWord, highlightState, centerX, bottomY) {
   const paddingX = 36, paddingY = 28, radius = 20, lineGap = 1.18;
   const lineHeightPx = Math.round(fontSize * lineGap);
@@ -525,97 +541,61 @@ function buildGradientSvg(stops) {
     </svg>`);
 }
 
-// O rodapé oficial (ig-footer-ovc-reels-canva.png) vem com fundo preto
-// opaco. Com a sombra suave (27/09/2026) ele viraria um quadrado preto
-// solto sobre o vídeo — aqui o fundo preto vira transparência (alfa pela
-// luminância, cor desmultiplicada), ficando só logo e textos, como no Canva.
-async function footerTransparente(path) {
-  const { data, info } = await sharp(path).removeAlpha().raw().toBuffer({ resolveWithObject: true });
-  const out = Buffer.alloc(info.width * info.height * 4);
-  for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
-    const r = data[i], g = data[i + 1], b = data[i + 2];
-    const a = Math.max(0, Math.min(1, (Math.max(r, g, b) - 10) / 50));
-    out[j] = a > 0 ? Math.min(255, Math.round(r / a)) : 0;
-    out[j + 1] = a > 0 ? Math.min(255, Math.round(g / a)) : 0;
-    out[j + 2] = a > 0 ? Math.min(255, Math.round(b / a)) : 0;
-    out[j + 3] = Math.round(a * 255);
-  }
-  return sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
-}
-
-// 28/09/2026 — Reels do @obrasilon (Roberto: "use o mesmo layout do Brasil
-// ON do feed e adapte para os reels"). Igual ao feed (brasilon/core/
-// instagram_image.js): vídeo cru ocupando tudo, sem sombra, manchete em
-// caixa AMARELA com texto preto e o ícone do Brasil ON logo abaixo. A caixa
-// fica acima da faixa de baixo que a interface do Instagram cobre.
-const BON_YELLOW = "#e6c23c";
-const BON_BOX = { width: Math.round(WIDTH * 0.88), paddingX: 40, paddingY: 34, radius: 22, maxLines: 4, maxFontSize: 54, minFontSize: 34, lineGap: 1.16, bottomAnchor: 1400 };
-const BON_ICON_SIZE = 130;
-const BON_ICON_GAP = 22;
+// 17/11/2026 — Roberto mandou vídeo de referência e pediu template ÚNICO
+// pros Reels dos dois Instagrams a partir de agora: "quero que os reels
+// venham com a logomarca do brasil on e do ovc em tudo a partir de agora
+// ... lado a lado, no topo e no rodape ... Somente o logo, remova o
+// restante das informacoes" (sem wordmark/handle/site em lugar nenhum,
+// só o símbolo) + "o logo dos portais deve estar simetrico, identico em
+// proporcoes". Isso substitui por completo o antigo buildOverlayBrasilOn()
+// (moldura amarela + só o ícone do Brasil On, sem logo do OVC) e o antigo
+// topo/rodapé exclusivos do OVC (ig-overlay-ovc-canva.png/
+// ig-footer-ovc-reels-canva.png, com wordmark+"Siga @..."+site) — os dois
+// ficaram mortos pra Reels (ig-overlay-ovc-canva.png continua em uso pelo
+// FEED, em core/instagram_image.js, arquivo separado, intocado).
+const OVC_ICON_PATH = resolve(root, "public", "assets", "vc-icon-only.png");
 const BON_ICON_PATH = resolve(root, "brasilon", "public", "assets", "icone-brasil-on.svg");
+const DUAL_LOGO_BOX = 170; // caixa igual pros dois ícones — garante proporção idêntica/simétrica entre as marcas
+const DUAL_LOGO_GAP = 36;
+const DUAL_LOGO_TOP_Y = 70;
+const DUAL_LOGO_BOTTOM_MARGIN = 70;
 
-async function buildOverlayBrasilOn(job, outputPath) {
-  const h = sanitizeHeadline(job.headline);
-  const layers = [];
-  const texto = cleanText(h?.texto || job.title).replace(/\*/g, "").replace(/\s+/g, " ").trim().toUpperCase();
-  let boxBottom = BON_BOX.bottomAnchor;
-  if (texto && !(h && h.oculta)) {
-    const inner = BON_BOX.width - BON_BOX.paddingX * 2;
-    let fontSize = BON_BOX.minFontSize;
-    let lines = wrapHeadline(texto, fontSize, inner, BON_BOX.maxLines);
-    for (let size = BON_BOX.maxFontSize; size >= BON_BOX.minFontSize; size -= 2) {
-      const tentativa = wrapHeadline(texto, size, inner, BON_BOX.maxLines);
-      if (tentativa.every(line => estimateTextWidth(line, size) <= inner)) { fontSize = size; lines = tentativa; break; }
-    }
-    const boxHeight = BON_BOX.paddingY * 2 + Math.round(fontSize * BON_BOX.lineGap) * lines.length;
-    const boxTop = Math.max(0, BON_BOX.bottomAnchor - boxHeight);
-    const boxLeft = Math.round((WIDTH - BON_BOX.width) / 2);
-    const box = await sharp(Buffer.from(
-      `<svg width="${BON_BOX.width}" height="${boxHeight}" xmlns="http://www.w3.org/2000/svg">` +
-      `<rect x="0" y="0" width="${BON_BOX.width}" height="${boxHeight}" rx="${BON_BOX.radius}" ry="${BON_BOX.radius}" fill="${BON_YELLOW}"/></svg>`
-    )).png().toBuffer();
-    const markup = lines.map(line => `<span foreground="#000000">${escapeXml(line)}</span>`).join("\n");
-    const text = await sharp({
-      text: { text: `<span weight="800">${markup}</span>`, font: `Inter ${fontSize}`, fontfile: HEADLINE_FONT_PATH, align: "center", rgba: true, dpi: 72, wrap: "none" }
-    }).png().toBuffer();
-    const meta = await sharp(text).metadata();
-    layers.push({ input: box, left: boxLeft, top: boxTop });
-    layers.push({ input: text, left: Math.round((WIDTH - (meta.width || 0)) / 2), top: boxTop + Math.round((boxHeight - (meta.height || 0)) / 2) });
-    boxBottom = boxTop + boxHeight;
-  }
-  const icon = await sharp(await readFile(BON_ICON_PATH)).resize(BON_ICON_SIZE, BON_ICON_SIZE).png().toBuffer();
-  layers.push({ input: icon, left: Math.round((WIDTH - BON_ICON_SIZE) / 2), top: boxBottom + BON_ICON_GAP });
-  await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite(layers)
-    .png({ compressionLevel: 9 })
-    .toFile(outputPath);
+async function buildDualLogoLayers() {
+  const [ovcRaw, bonRaw] = await Promise.all([readFile(OVC_ICON_PATH), readFile(BON_ICON_PATH)]);
+  const [ovcIcon, bonIcon] = await Promise.all([
+    sharp(ovcRaw).resize(DUAL_LOGO_BOX, DUAL_LOGO_BOX, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
+    sharp(bonRaw).resize(DUAL_LOGO_BOX, DUAL_LOGO_BOX, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer()
+  ]);
+  const pairWidth = DUAL_LOGO_BOX * 2 + DUAL_LOGO_GAP;
+  const left = Math.round((WIDTH - pairWidth) / 2);
+  const bottomY = HEIGHT - DUAL_LOGO_BOTTOM_MARGIN - DUAL_LOGO_BOX;
+  return [
+    { input: ovcIcon, left, top: DUAL_LOGO_TOP_Y },
+    { input: bonIcon, left: left + DUAL_LOGO_BOX + DUAL_LOGO_GAP, top: DUAL_LOGO_TOP_Y },
+    { input: ovcIcon, left, top: bottomY },
+    { input: bonIcon, left: left + DUAL_LOGO_BOX + DUAL_LOGO_GAP, top: bottomY }
+  ];
 }
 
 async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx = HEIGHT) {
-  if (job.marca === "brasilon") return buildOverlayBrasilOn(job, outputPath);
-  const feedOverlay = resolve(root, "public", "assets", "ig-overlay-ovc-canva.png");
-  const reelFooter = resolve(root, "public", "assets", "ig-footer-ovc-reels-canva.png");
-  // As marcas são extraídas como blocos estáticos, sem redimensionamento.
-  // Isso preserva proporção, tipografia e pixels do overlay oficial do feed.
-  const topBrand = await sharp(feedOverlay).extract({ left: 350, top: 25, width: 380, height: 205 }).png().toBuffer();
   const gradient = buildGradientSvg(fitMode === "contain" ? buildContainFadeStops(videoOutHeightPx) : COVER_FADE_STOPS);
 
-  // 27/09/2026 — Roberto: "não vamos usar mais nossas chamadas, deixe sem".
-  // Manchete só quando ele escreve uma no editor do admin (headline salva e
-  // não oculta). Sem isso, o Reel sai sem manchete.
-  // 10/11/2026 — buildHeadlineLayer() agora sempre devolve um array (0, 1
-  // ou 2 camadas, dependendo do estilo texto/moldura) em vez de 1 objeto só.
-  const headlineLayers = job.headline && job.headline.oculta !== true
-    ? (await buildHeadlineLayer(job.title, job.headline)) || []
-    : [];
-  const footer = await footerTransparente(reelFooter);
+  // 27/09/2026 — Roberto tinha pedido "não vamos usar mais nossas
+  // chamadas, deixe sem" (manchete só quando ele escrevia uma no editor).
+  // 17/11/2026 — revertido a pedido dele: o vídeo de referência que mandou
+  // já vem "com o titulo de chamada" por padrão, dentro da caixa amarela
+  // ("moldura") — volta a usar o título real da matéria como manchete
+  // padrão quando ele não escreveu/editou nenhuma no admin. Só fica sem
+  // manchete se ele explicitamente ocultar (headline.oculta === true).
+  const headlineSource = job.headline?.oculta === true ? null : (job.headline || { estilo: "moldura" });
+  const headlineLayers = headlineSource ? (await buildHeadlineLayer(job.title, headlineSource)) || [] : [];
+  const logoLayers = await buildDualLogoLayers();
 
   await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
       { input: gradient, left: 0, top: 0 },
       ...headlineLayers,
-      { input: topBrand, left: 350, top: 25 },
-      { input: footer, left: 350, top: 1490 }
+      ...logoLayers
     ])
     .png({ compressionLevel: 9 })
     .toFile(outputPath);
