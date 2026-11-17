@@ -541,44 +541,55 @@ function buildGradientSvg(stops) {
     </svg>`);
 }
 
-// 17/11/2026 — Roberto mandou vídeo de referência e pediu template ÚNICO
-// pros Reels dos dois Instagrams a partir de agora: "quero que os reels
-// venham com a logomarca do brasil on e do ovc em tudo a partir de agora
-// ... lado a lado, no topo e no rodape ... Somente o logo, remova o
-// restante das informacoes" (sem wordmark/handle/site em lugar nenhum,
-// só o símbolo) + "o logo dos portais deve estar simetrico, identico em
-// proporcoes". Isso substitui por completo o antigo buildOverlayBrasilOn()
-// (moldura amarela + só o ícone do Brasil On, sem logo do OVC) e o antigo
-// topo/rodapé exclusivos do OVC (ig-overlay-ovc-canva.png/
-// ig-footer-ovc-reels-canva.png, com wordmark+"Siga @..."+site) — os dois
-// ficaram mortos pra Reels (ig-overlay-ovc-canva.png continua em uso pelo
-// FEED, em core/instagram_image.js, arquivo separado, intocado).
-const OVC_ICON_PATH = resolve(root, "public", "assets", "vc-icon-only.png");
-const BON_ICON_PATH = resolve(root, "brasilon", "public", "assets", "icone-brasil-on.svg");
-// 17/11/2026 — Roberto, com print real da própria montagem: "Os dois ícones
-// estão maiores do que qualquer outra coisa. Está ridículo." Confirmado:
-// o par anterior (170+170+36=376px) ocupava ~35% da largura do frame
-// (1080px) — grande demais pra um selo de marca. Reduzido pra um selo
-// discreto, mantendo as DUAS marcas legíveis lado a lado.
-const DUAL_LOGO_BOX = 90; // caixa igual pros dois ícones — garante proporção idêntica/simétrica entre as marcas
-const DUAL_LOGO_GAP = 20;
-const DUAL_LOGO_TOP_Y = 70;
-const DUAL_LOGO_BOTTOM_MARGIN = 70;
+// 17/11/2026 — Roberto pediu o par OVC+Brasil On lado a lado (ver histórico
+// git), depois voltou atrás: "mantém exatamente o que era antes com relação
+// aos logos, aos ícones... [topo e rodapé] ... a única coisa que eu quero é
+// que você garanta que eles estejam no mesmo tamanho, pequenininho igual."
+// Restaurado o padrão de antes do dia 17/11 (commit c5534ae): topo = recorte
+// do overlay oficial do feed (ícone+wordmark "O VALOR CAPITAL"); rodapé =
+// asset próprio com ícone + "O VALOR CAPITAL" + "Siga @.../tagline/site"
+// (igual era, nenhum texto removido — Roberto confirmou querer manter
+// tudo). SEM o ícone do Brasil On em lugar nenhum — nunca é dual-logo de
+// novo.
+//
+// Medido com PIL de verdade, banda por banda de tinta (não a 1ª tentativa,
+// que misturou ícone+wordmark num intervalo só e deu 137px — errado): o
+// ÍCONE sozinho mede 76px de altura no recorte do topo e 80px no asset do
+// rodapé, sem NENHUMA escala — já eram praticamente do mesmo tamanho no
+// padrão antigo. Por isso nenhum dos dois é redimensionado: os dois ficam
+// unscaled, exatamente como eram.
+const TOP_OVC_ASSET = resolve(root, "public", "assets", "ig-overlay-ovc-canva.png");
+const FOOTER_OVC_ASSET = resolve(root, "public", "assets", "ig-footer-ovc-reels-canva.png");
+const TOP_OVC_CROP = { left: 350, top: 25, width: 380, height: 205 };
+const TOP_OVC_LEFT = 350;
+const TOP_OVC_TOP = 25;
+const FOOTER_OVC_LEFT = 350;
+const FOOTER_OVC_TOP = 1490;
 
-async function buildDualLogoLayers() {
-  const [ovcRaw, bonRaw] = await Promise.all([readFile(OVC_ICON_PATH), readFile(BON_ICON_PATH)]);
-  const [ovcIcon, bonIcon] = await Promise.all([
-    sharp(ovcRaw).resize(DUAL_LOGO_BOX, DUAL_LOGO_BOX, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
-    sharp(bonRaw).resize(DUAL_LOGO_BOX, DUAL_LOGO_BOX, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer()
-  ]);
-  const pairWidth = DUAL_LOGO_BOX * 2 + DUAL_LOGO_GAP;
-  const left = Math.round((WIDTH - pairWidth) / 2);
-  const bottomY = HEIGHT - DUAL_LOGO_BOTTOM_MARGIN - DUAL_LOGO_BOX;
+// O rodapé oficial (ig-footer-ovc-reels-canva.png) vem com fundo preto
+// opaco. Com a sombra suave do vídeo, ele viraria um quadrado preto solto
+// sobre a imagem — aqui o fundo preto vira transparência (alfa pela
+// luminância, cor desmultiplicada), ficando só ícone e textos.
+async function footerTransparente(path) {
+  const { data, info } = await sharp(path).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const out = Buffer.alloc(info.width * info.height * 4);
+  for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const a = Math.max(0, Math.min(1, (Math.max(r, g, b) - 10) / 50));
+    out[j] = a > 0 ? Math.min(255, Math.round(r / a)) : 0;
+    out[j + 1] = a > 0 ? Math.min(255, Math.round(g / a)) : 0;
+    out[j + 2] = a > 0 ? Math.min(255, Math.round(b / a)) : 0;
+    out[j + 3] = Math.round(a * 255);
+  }
+  return sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
+}
+
+async function buildOvcLogoLayers() {
+  const topBrand = await sharp(TOP_OVC_ASSET).extract(TOP_OVC_CROP).png().toBuffer();
+  const footer = await footerTransparente(FOOTER_OVC_ASSET);
   return [
-    { input: ovcIcon, left, top: DUAL_LOGO_TOP_Y },
-    { input: bonIcon, left: left + DUAL_LOGO_BOX + DUAL_LOGO_GAP, top: DUAL_LOGO_TOP_Y },
-    { input: ovcIcon, left, top: bottomY },
-    { input: bonIcon, left: left + DUAL_LOGO_BOX + DUAL_LOGO_GAP, top: bottomY }
+    { input: topBrand, left: TOP_OVC_LEFT, top: TOP_OVC_TOP },
+    { input: footer, left: FOOTER_OVC_LEFT, top: FOOTER_OVC_TOP }
   ];
 }
 
@@ -594,7 +605,7 @@ async function buildOverlay(job, outputPath, fitMode = "cover", videoOutHeightPx
   // manchete se ele explicitamente ocultar (headline.oculta === true).
   const headlineSource = job.headline?.oculta === true ? null : (job.headline || { estilo: "moldura" });
   const headlineLayers = headlineSource ? (await buildHeadlineLayer(job.title, headlineSource)) || [] : [];
-  const logoLayers = await buildDualLogoLayers();
+  const logoLayers = await buildOvcLogoLayers();
 
   await sharp({ create: { width: WIDTH, height: HEIGHT, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([
