@@ -555,8 +555,13 @@ function buildGradientSvg(stops) {
 // FEED, em core/instagram_image.js, arquivo separado, intocado).
 const OVC_ICON_PATH = resolve(root, "public", "assets", "vc-icon-only.png");
 const BON_ICON_PATH = resolve(root, "brasilon", "public", "assets", "icone-brasil-on.svg");
-const DUAL_LOGO_BOX = 170; // caixa igual pros dois ícones — garante proporção idêntica/simétrica entre as marcas
-const DUAL_LOGO_GAP = 36;
+// 17/11/2026 — Roberto, com print real da própria montagem: "Os dois ícones
+// estão maiores do que qualquer outra coisa. Está ridículo." Confirmado:
+// o par anterior (170+170+36=376px) ocupava ~35% da largura do frame
+// (1080px) — grande demais pra um selo de marca. Reduzido pra um selo
+// discreto, mantendo as DUAS marcas legíveis lado a lado.
+const DUAL_LOGO_BOX = 90; // caixa igual pros dois ícones — garante proporção idêntica/simétrica entre as marcas
+const DUAL_LOGO_GAP = 20;
 const DUAL_LOGO_TOP_Y = 70;
 const DUAL_LOGO_BOTTOM_MARGIN = 70;
 

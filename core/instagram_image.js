@@ -186,8 +186,12 @@ const TOP_BRAND_PATH = new URL("../public/assets/ig-top-brand-ovc.png", import.m
 // ícone do OVC nos Reels, só que com o nome "O VALOR CAPITAL" embutido
 // no mesmo asset, logo abaixo (Reels não têm wordmark nenhum — pedido
 // explícito e diferente desse, mantido).
+// 17/11/2026 — Reel reduzido de DUAL_LOGO_BOX=170 pra 90 (Roberto: "os dois
+// ícones estão maiores do que qualquer outra coisa. Está ridículo.") —
+// essas frações são re-derivadas dos valores NOVOS do Reel, pra manter a
+// paridade de proporção pedida ("mesma proporção para Reels e para Feed").
 const TOP_BRAND_ICON_TOP_MARGIN_FRAC = 70 / 1920; // = DUAL_LOGO_TOP_Y / HEIGHT do Reel
-const TOP_BRAND_ICON_HEIGHT_FRAC = 170 / 1920; // = DUAL_LOGO_BOX / HEIGHT do Reel
+const TOP_BRAND_ICON_HEIGHT_FRAC = 90 / 1920; // = DUAL_LOGO_BOX / HEIGHT do Reel
 // Posição do ícone DENTRO do asset ig-top-brand-ovc.png (301x140, medido
 // uma vez com PIL — ink começa a 2px de toda borda, ícone só vai até y=79):
 const TOP_BRAND_NATIVE_W = 301;
