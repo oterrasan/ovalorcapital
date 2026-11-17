@@ -532,34 +532,57 @@
      nenhum destino real por trás (coletaria dado pra lugar nenhum) —
      o CTA "Fale com a ROHE" leva direto pro formulário REAL deles em
      roheconstrutora.com.br/contato, em nova aba. -->
+<!-- 17/11/2026 (continuação 2) — Roberto: "o fundo azul ficou melhor que o
+     bege, mas sinceramente acho que fundo branco ficará melhor ainda" —
+     fundo trocado de gradiente navy pra branco puro, texto/seal/CTA
+     invertidos pra ler bem em claro (CTA virou pílula navy com texto
+     dourado — mais "oficial"); chrome mais leve (sombra/borda finas, sem o
+     halo externo que existia só pra destacar o selo contra o navy — não faz
+     mais sentido no branco). "voce colocou no banner empresa familiar! eu
+     te disse isso pra explorar a informacao e nao destacar no banner" —
+     eyebrow "Tradição familiar" removido do banner compacto, virou
+     "Parceiro OVC" (neutro); a história de família (pai e filho fundaram,
+     hoje filho e neto, origem italiana) ganhou tratamento de verdade só em
+     /parceiros/rohe/ — seção própria no corpo + timeline geracional e
+     contexto de mercado no rail lateral (ver comentário lá). Fotos do
+     portfólio: confirmado com dado real que as 6 fotos originais da ROHE
+     SÃO preto-e-branco de verdade (sem nenhuma informação de cor no
+     arquivo-fonte, nem no site deles) — não fabriquei cor nenhuma (seria
+     inventar fato sobre prédio real); recortei a legenda gravada no rodapé
+     de cada foto (estava duplicada com o <figcaption> nosso) e apliquei
+     realce real de nitidez/contraste + um duotone quente intencional
+     (tratamento editorial, não "colorização"), disclosure disso direto na
+     própria página. Grid da galeria trocado de auto-fit (gerava linha órfã
+     de 1 foto sozinha — o "buraco" que ele reclamou) pra 3 colunas fixas
+     (2 no mobile) — 6 fotos, zero órfã em qualquer largura. -->
 <style>
-#ovc-banner-rohe{display:block;position:relative;border-radius:18px;background:linear-gradient(145deg,#1a3a66 0%,#0e2040 48%,#121019 100%);padding:18px 18px 16px;margin-bottom:14px;text-decoration:none;box-shadow:0 14px 34px rgba(8,14,28,.45);border:1px solid rgba(240,194,94,.22)}
-#ovc-banner-rohe:hover{box-shadow:0 18px 42px rgba(8,14,28,.55)}
-.ovc-br-frame{position:relative;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(240,194,94,.32);box-shadow:0 1px 0 rgba(255,255,255,.08) inset;background:#0a1017}
+#ovc-banner-rohe{display:block;position:relative;border-radius:18px;background:#ffffff;padding:15px 15px 13px;margin-bottom:14px;text-decoration:none;box-shadow:0 8px 22px rgba(20,28,45,.07);border:1px solid rgba(20,40,70,.1)}
+#ovc-banner-rohe:hover{box-shadow:0 12px 30px rgba(20,28,45,.12)}
+.ovc-br-frame{position:relative;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid rgba(20,40,70,.12);background:#0a1017}
 .ovc-br-frame video,.ovc-br-frame .ovc-br-poster{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 38%}
 .ovc-br-frame .ovc-br-poster{position:absolute;inset:0}
 @media (prefers-reduced-motion:reduce){.ovc-br-frame video{display:none}}
 @media (prefers-reduced-motion:no-preference){.ovc-br-frame .ovc-br-poster{display:none}}
-.ovc-br-seal{position:absolute;left:14px;top:14px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#1c3356,#0a1526 72%);border:2px solid #d4af37;box-shadow:0 4px 10px rgba(5,9,18,.5),0 0 0 4px rgba(245,242,232,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
-.ovc-br-seal b{font-family:var(--font-editorial);font-size:21px;line-height:1;color:#f1dfa9;letter-spacing:.01em}
-.ovc-br-seal span{font-size:8px;font-weight:700;letter-spacing:.14em;color:#d4af37;margin-top:2px}
-.ovc-br-body{position:relative;padding-top:30px}
-.ovc-br-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#e2793f;margin-bottom:5px}
-.ovc-br-brand{display:flex;align-items:baseline;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.ovc-br-brand b{font-family:var(--font-editorial);font-size:19px;font-weight:800;letter-spacing:.07em;color:#f5f2e8}
-.ovc-br-brand span{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#9aa6ba}
-#ovc-banner-rohe h3{margin:0 0 14px;font-family:var(--font-editorial);font-style:italic;font-weight:700;color:#f5f2e8;font-size:17px;line-height:1.38;letter-spacing:.002em}
-.ovc-br-hl{color:#f0c25e;font-weight:800;font-style:normal}
-.ovc-br-process{display:flex;flex-direction:column;gap:9px;margin:0 0 16px;padding:13px 0 2px;border-top:1px solid rgba(240,194,94,.22)}
+.ovc-br-seal{position:absolute;left:11px;top:11px;width:68px;height:68px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#1c3356,#0a1526 72%);border:2px solid #d4af37;box-shadow:0 4px 12px rgba(10,16,28,.3);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.ovc-br-seal b{font-family:var(--font-editorial);font-size:19px;line-height:1;color:#f1dfa9;letter-spacing:.01em}
+.ovc-br-seal span{font-size:7.5px;font-weight:700;letter-spacing:.14em;color:#d4af37;margin-top:2px}
+.ovc-br-body{position:relative;padding-top:26px}
+.ovc-br-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#a9783a;margin-bottom:5px}
+.ovc-br-brand{display:flex;align-items:baseline;gap:8px;margin-bottom:11px;flex-wrap:wrap}
+.ovc-br-brand b{font-family:var(--font-editorial);font-size:19px;font-weight:800;letter-spacing:.07em;color:#15294a}
+.ovc-br-brand span{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#7c8396}
+#ovc-banner-rohe h3{margin:0 0 13px;font-family:var(--font-editorial);font-style:italic;font-weight:700;color:#15294a;font-size:17px;line-height:1.38;letter-spacing:.002em}
+.ovc-br-hl{color:#b5791b;font-weight:800;font-style:normal}
+.ovc-br-process{display:flex;flex-direction:column;gap:8px;margin:0 0 15px;padding:12px 0 2px;border-top:1px solid rgba(20,40,70,.1)}
 .ovc-br-step{display:flex;align-items:baseline;gap:9px}
-.ovc-br-step .num{font-family:var(--font-editorial);font-size:12.5px;font-weight:700;color:#f0c25e;width:17px;flex:none}
-.ovc-br-step .label{font-size:11.5px;line-height:1.4;color:#c7cedb}
-.ovc-br-cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#f0c25e,#d9972f);border:none;border-radius:999px;padding:11px 16px;font-weight:800;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:#15130f;transition:filter .2s,transform .2s}
-.ovc-br-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:ovcBrSweep 5s ease-in-out infinite}
+.ovc-br-step .num{font-family:var(--font-editorial);font-size:12.5px;font-weight:700;color:#b5791b;width:17px;flex:none}
+.ovc-br-step .label{font-size:11.5px;line-height:1.4;color:#4a5568}
+.ovc-br-cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#15294a;border:none;border-radius:999px;padding:11px 16px;font-weight:800;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:#f0c25e;transition:filter .2s,transform .2s}
+.ovc-br-cta::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.2),transparent);animation:ovcBrSweep 5s ease-in-out infinite}
 @keyframes ovcBrSweep{0%,30%{left:-60%}70%,100%{left:130%}}
-#ovc-banner-rohe:hover .ovc-br-cta{filter:brightness(1.08);transform:translateY(-1px)}
+#ovc-banner-rohe:hover .ovc-br-cta{filter:brightness(1.1);transform:translateY(-1px)}
 .ovc-br-cta span:last-child{font-size:15px;line-height:1}
-.ovc-br-foot{margin-top:11px;text-align:center;font-size:9.5px;color:#7c8396;letter-spacing:.05em}
+.ovc-br-foot{margin-top:10px;text-align:center;font-size:9.5px;color:#9aa0ab;letter-spacing:.05em}
 @media (prefers-reduced-motion:reduce){.ovc-br-cta::after{animation:none!important;display:none}}
 </style>
 <a id="ovc-banner-rohe" href="/parceiros/rohe/" aria-label="Conhecer a ROHE Construtora e Incorporadora, parceira do OVC">
@@ -571,7 +594,7 @@
 </div>
 <div class="ovc-br-seal"><b>+30</b><span>ANOS</span></div>
 <div class="ovc-br-body">
-<div class="ovc-br-eyebrow">Tradição familiar</div>
+<div class="ovc-br-eyebrow">Parceiro OVC</div>
 <div class="ovc-br-brand"><b>ROHE</b><span>Construtora e Incorporadora</span></div>
 <h3>Mais de três décadas projetando, construindo e entregando <span class="ovc-br-hl">sonhos</span>.</h3>
 <div class="ovc-br-process">
