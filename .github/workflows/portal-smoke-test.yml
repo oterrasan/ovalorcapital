@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   smoke-test:
     name: Verificar portal ao vivo
@@ -31,7 +35,20 @@ jobs:
             exit 1
           fi
 
-          if grep -qi "em breve\|coming soon\|under construction" /tmp/homepage.html; then
+          # 18/11/2026 — bug real corrigido: o grep abaixo rodava no HTML
+          # inteiro, inclusive comentários <!-- --> de desenvolvimento
+          # (ex: notas sobre decisões editoriais de banners de parceiros,
+          # que podem citar "ainda em breve" sobre OUTRO site, não sobre
+          # o portal) — nunca visíveis ao usuário real. Isso gerou um
+          # falso positivo real (ver issue/run do deploy do PR #899/#900).
+          # Fix: remove comentários HTML antes de checar por placeholder.
+          # (script numa linha só, de propósito — um bloco Python
+          # multilinha aqui já quebrou o parser YAML deste arquivo antes:
+          # linhas internas sem a indentação mínima do bloco `run: |`
+          # fecham o block scalar antes da hora)
+          python3 -c "import re; c=open('/tmp/homepage.html',encoding='utf-8',errors='replace').read(); open('/tmp/homepage_sem_comentarios.html','w',encoding='utf-8').write(re.sub(r'<!--.*?-->','',c,flags=re.DOTALL))"
+
+          if grep -qi "em breve\|coming soon\|under construction" /tmp/homepage_sem_comentarios.html; then
             echo "result=fail" >> $GITHUB_OUTPUT
             echo "reason=Homepage mostrando página vazia ou placeholder (sem artigos)" >> $GITHUB_OUTPUT
             exit 1
