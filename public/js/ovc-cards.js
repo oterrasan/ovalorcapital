@@ -55,15 +55,28 @@
     });
   }
 
-  // Filtra posts com até 48h — fallback para o post mais recente se não houver nenhum.
+  // Filtra posts com até 48h — fallback pros 2-3 mais recentes se não houver nenhum.
   //
   // 19/08/2026 — esta função foi mexida DUAS vezes no mesmo dia (removendo o
   // fallback, depois trocando por janela de 7 dias) tentando resolver a
   // queixa de conteúdo velho em alguns cards — e as duas tentativas quebraram
   // outros cards (ficaram com "Em breve" vazio). Roberto pediu explicitamente
-  // para reverter para esta versão original, que sempre garante conteúdo em
-  // todo card. NÃO alterar de novo sem autorização explícita e sem confirmar
-  // visualmente o resultado antes de reportar como resolvido.
+  // para reverter pra uma versão que sempre garante conteúdo em todo card.
+  //
+  // 18/11/2026 — Roberto, com print real (card de Finanças parado há meses,
+  // sempre a mesma matéria): "os cards nao podem apresentar conteudos
+  // antigos... se nao tiver coisas novas, eles devem apresentar sempre os
+  // dois ou tres ultimos, mas nunca mais do que isso." Causa real: o
+  // fallback antigo pegava posts.slice(0,1) do array NÃO ORDENADO (podia
+  // nem ser o mais recente de fato, só o primeiro que apareceu na
+  // concatenação por categoria) e os cards sem rotação (horizontal/mini/
+  // editorial) exibem sempre só posts[0] — então, sem nada fresco, a MESMA
+  // matéria antiga ficava travada pra sempre. Fix: ordena (recentSort, o
+  // mesmo critério já usado no resto do arquivo) e corta em até 3 — nos
+  // cards com rotação (grande/padrão) passa a girar entre até 3 matérias
+  // em vez de ficar preso numa só; nos cards sem rotação, garante que a
+  // única exibida (posts[0]) é de fato a mais recente disponível, nunca
+  // uma escolhida à toa. NUNCA volta a abrir a busca pro acervo inteiro.
   var _48H = 48 * 3600 * 1000;
   function filterRecent(posts) {
     var cutoff = Date.now() - _48H;
@@ -71,7 +84,7 @@
       var ts = new Date(p.published_at || p.data || p.created_at || 0).getTime();
       return ts >= cutoff;
     });
-    return fresh.length > 0 ? fresh : posts.slice(0, 1);
+    return fresh.length > 0 ? fresh : recentSort(posts).slice(0, 3);
   }
 
   function _slugify(s){
