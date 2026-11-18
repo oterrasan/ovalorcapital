@@ -82,7 +82,17 @@ export async function getContentPublishingLimit() {
   return { username: account.username, ...(await getPublishingLimitForAccount(account)) };
 }
 
-export async function publish(imageUrl, caption) {
+// 18/11/2026 — Roberto: "receba collab automática tanto do Brasil On
+// quanto do Valor Capital quando o assunto for política, economia,
+// finanças ou polícia?" (pro @oterrasan). O Brasil On já taggeava
+// oterrasan em TODO post (DEFAULT_COLLABORATORS acima) — faltava só o
+// aceite automático nessas 2 categorias reais do Brasil On (economia e
+// finanças nunca existem aqui, ver classificar() em brasilon/api/
+// manage.js — a regra já cobre as 4 sem precisar de caso especial).
+// opts.subjectCollab é calculado por quem chama (_igPublicarPost, que
+// tem post.categoria à mão) e vira a tag "feed_subject" — mesmo padrão
+// já usado pra feed_coluna no OVC (core/instagram.js, raiz).
+export async function publish(imageUrl, caption, opts = {}) {
   const account = await getAccount();
   if (!account) throw new Error("Conta @obrasilon não cadastrada em ig_accounts");
   const { ig_user_id, token } = account;
@@ -139,7 +149,8 @@ export async function publish(imageUrl, caption) {
 
   // Aceitar na hora os convites de collab que ACABAMOS de enviar —
   // 17/09/2026, mesmo mecanismo do OVC (ver core/instagram.js, raiz).
-  try { await acceptCollabsForMedia(pubData.id, DEFAULT_COLLABORATORS, "feed"); } catch (_) {}
+  const tagConvite = opts.subjectCollab ? "feed_subject" : "feed";
+  try { await acceptCollabsForMedia(pubData.id, DEFAULT_COLLABORATORS, tagConvite); } catch (_) {}
 
   return { id: pubData.id, username: account.username, quota_before: limit };
 }
@@ -295,7 +306,9 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
     }
     // 12/11/2026 — oterrasan só auto-aceita em Reel. Em post de FEED do
     // Brasil ON o convite fica pra aceite manual no app.
-    if (tag !== "reel" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
+    // 18/11/2026 — exceto quando a categoria é política/polícia
+    // (tag==="feed_subject", mesma regra do OVC — ver publish() acima).
+    if (tag !== "reel" && tag !== "feed_subject" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
       return { username, skipped: true, reason: "feed_aceite_manual" };
     }
     try {

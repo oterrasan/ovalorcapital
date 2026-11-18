@@ -680,7 +680,12 @@ async function _igPublicarPost(post) {
   const { prepareInstagramImage } = await _loadInstagramImage();
   const { publish, postComment, likeMedia, getAccount } = await _loadInstagram();
   const instagramImage = await prepareInstagramImage({ sourceUrl: imageUrl, postId: post.id, supabase, title: post.titulo });
-  const ig = await publish(instagramImage.url, caption);
+  // 18/11/2026 — Roberto: collab automática pro @oterrasan quando o
+  // assunto é política ou polícia (economia/finanças nunca existem como
+  // categoria aqui — ver classificar()). Mesma lógica de tag usada pelo
+  // OVC pra coluna pessoal, só que por categoria real do Brasil On.
+  const subjectCollab = post.categoria === "politica" || post.categoria === "policia";
+  const ig = await publish(instagramImage.url, caption, { subjectCollab });
 
   const firstCommentText = buildInstagramFirstComment(post);
   let firstComment = null;

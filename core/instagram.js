@@ -77,6 +77,30 @@ export function collaboratorForFeedPost(post) {
   return null;
   */
 }
+// 18/11/2026 — Roberto: "receba collab automática tanto do Brasil On
+// quanto do Valor Capital quando o assunto for política, economia,
+// finanças ou polícia?" (pro próprio perfil pessoal dele, @oterrasan).
+// Diferente de COLLAB_POR_ASSUNTO (26/09/2026, que dividia economia/
+// finanças pra @adriana.ferreirasp) — aqui as 4 vão SEMPRE pro
+// @oterrasan. Roda independente de collaboratorForFeedPost (ainda
+// travada em null desde 01/10/2026) e tem prioridade MENOR que
+// collaboratorForColunista (nome do autor de uma coluna pessoal sempre
+// ganha de uma regra genérica por assunto) — ver os 2 pontos que
+// chamam as duas em api/manage.js.
+export function collaboratorForSubject(post) {
+  if (!post) return null;
+  let tags = [];
+  if (Array.isArray(post.user_tags)) tags = post.user_tags;
+  else { try { tags = JSON.parse(post.user_tags || "[]"); } catch (_) {} }
+  tags = (tags || []).map(t => String(t || "").toLowerCase());
+  if (tags.includes("politica") || tags.includes("economia") || tags.includes("financas")) return "oterrasan";
+  if (!tags.includes("esportes")) {
+    const texto = `${post.titulo || ""} ${post.comentario_fixado || ""}`.toLowerCase();
+    if (POLICIA_KW.some(kw => texto.includes(kw))) return "oterrasan";
+  }
+  return null;
+}
+
 // 16/11/2026 — Roberto: "coloque COLABS automáticas quando conteúdos forem
 // de colunistas [...] ele deve receber colab no Instagram quando
 // publicarmos a coluna no Instagram." Mapa slug do colunista (mesmo
@@ -338,7 +362,7 @@ export async function publish(imageUrl, caption, accountId, opts = {}) {
   // real deles não tem conta cadastrada em ig_accounts (sem token), então
   // o lookup lá dentro nunca encontra nada e o convite fica pendente —
   // exatamente como Roberto descreveu.
-  const tagConvite = opts.colunistaCollab ? "feed_coluna" : "feed";
+  const tagConvite = opts.colunistaCollab ? "feed_coluna" : (opts.subjectCollab ? "feed_subject" : "feed");
   if (collaborators.length && !createData.__collaboratorsSkipped) {
     try { await acceptCollabsForMedia(pubData.id, collaborators, tagConvite); } catch (_) {}
   }
@@ -639,9 +663,12 @@ async function acceptCollabsForMedia(mediaId, invitedUsernames, tag) {
       return { username, skipped: true, reason: "perfil_com_aceite_manual" };
     }
     // 12/11/2026 — oterrasan (perfil pessoal de Roberto) só auto-aceita em
-    // Reel ou na própria coluna dele (tag==="feed_coluna", 16/11/2026).
-    // Em qualquer outro post de FEED (OVC ou Brasil ON) o convite sempre
-    // fica pra aceite manual no app.
+    // Reel, na própria coluna dele (tag==="feed_coluna", 16/11/2026), ou em
+    // matéria de política/economia/finanças/polícia (tag==="feed_subject",
+    // 18/11/2026 — ver collaboratorForSubject). Em qualquer outro post de
+    // FEED o convite sempre fica pra aceite manual no app. Checagem exata
+    // (tag === "feed", não tag !== "reel") de propósito: só esse literal
+    // bloqueia — "feed_coluna" e "feed_subject" já passam direto por aqui.
     if (tag === "feed" && REEL_ONLY_AUTO_ACCEPT.has(username)) {
       return { username, skipped: true, reason: "feed_aceite_manual" };
     }
