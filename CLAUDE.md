@@ -11274,3 +11274,64 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Investigar por que `fofocas`/Giro parou de gerar há ~39h** — não é cota (4/dia, nem perto do limite), não é a pausa noturna (o silêncio começou bem antes da meia-noite de 16/11). Checar o canal/fonte de candidatos específico desse tipo de conteúdo.
 2. **Se Roberto quiser mais volume ao longo do dia inteiro**: considerar subir `OVC_LIMITE_DIARIO_TOTAL` (hoje no default de 80 do código) — confirmado que esse teto é batido bem antes da meia-noite em dia de notícia cheia.
 3. Demais pendências de sessões anteriores seguem válidas (linhas duplicadas de `GEMINI_API_KEY_2`, lista completa nas entradas anteriores).
+
+### Sessão 18/11/2026 (continuação) — 🔴 CAUSA RAIZ REAL CONFIRMADA E CORRIGIDA: GERAÇÃO AUTOMÁTICA DURANTE A PAUSA 00h-06h BRT — FORCE=TRUE BYPASSAVA TUDO
+
+#### Contexto
+
+Roberto: *"claude, voce deixou o sistema ligado??? nao é pra gerar conteudo de madrugada em NADA, SO NOS HORARIOS QUE MANDEI PRA VOCE esta semana."* — reportando que algo foi gerado de madrugada, contradizendo a pausa 06h-00h BRT já confirmada funcionando em sessões anteriores (13-14/11/2026).
+
+#### Investigação real (não suposição)
+
+Consultada a tabela `posts` real, filtrando `created_at` dentro da janela de pausa de hoje (03h-09h UTC = 00h-06h BRT). Encontrados 4 posts reais:
+- 3 `link_manual` (ação manual do próprio Roberto, colando link no admin — isso é esperado, ele pode publicar manualmente a qualquer hora, não é bug)
+- **1 `portal` (canal automático "materias"), `status:"publicado"`, criado às 03:09 BRT — DENTRO da janela de pausa**
+
+#### 🔴 Causa raiz real
+
+`api/run_portal.js` nunca teve nenhum check de horário próprio nas 8 funções de canal — elas só dependiam de `automacaoAtiva()` (flag on/off) e `cotaOvcDisponivel()` (teto diário). A proteção real contra geração de madrugada vinha EXCLUSIVAMENTE do cron do `vercel.json` (`0-2,9-23 * * *` UTC = 06h-00h BRT ativo) — mas a URL do cron já embute `force=true` hardcoded, e `janelaOk()` (a única função de horário que existia no arquivo, com uma janela ANTIGA e diferente, 07:00-00:30) só é checada quando `!body.force`. Ou seja: **qualquer disparo da rota fora da janela do cron** (atraso do agendador da Vercel, chamada externa com o `pass` correto, etc) **gerava conteúdo real, sem nenhuma segunda trava no código**.
+
+Essa é exatamente a mesma classe de falha já corrigida pro Instagram em 02/09/2026 (gate redundante no código, não só no cron) — só que nunca tinha sido replicada pro pipeline geral de conteúdo.
+
+#### Fix (PR #885, mergeado, commit `780fec4`)
+
+Nova função `pausaNoturnaAtiva()` em `api/run_portal.js`, logo após `janelaOk()` — bloqueia **independente de `force`** — aplicada no topo das 8 funções de canal (`materias`, `futebol`, `outros_esportes`, `brasilon`, `jovempan_politica`, `internacional`, `economia_mercado`, `fofocas`), retornando `{status:"pausado_madrugada", janela:"06h-00h BRT", generated:0}` quando dentro de 00h-06h BRT. `manual()`/`link_manual` (ação manual do Roberto) foi intencionalmente deixada intocada.
+
+#### Verificação end-to-end em produção, com evidência real (PR #886, mergeado, commit `fdd5caa`)
+
+Testado ao vivo, ainda dentro da janela de pausa (03h58-04h04 BRT), chamando os 8 canais DIRETO em produção com `force=true` (o mesmo parâmetro que antes bypassava tudo):
+
+```
+materias: HTTP 200 -> {"status":"pausado_madrugada","janela":"06h-00h BRT","tipo":"materias","generated":0}
+futebol: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"esportes_radar","generated":0}
+outros_esportes: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"esportes_radar","generated":0}
+brasilon: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"brasilon","generated":0}
+jovempan_politica: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"jovempan_politica","generated":0}
+internacional: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"internacional","generated":0}
+economia_mercado: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"economia_mercado","generated":0}
+fofocas: HTTP 200 -> {"status":"pausado_madrugada",...,"tipo":"fofocas","generated":0}
+```
+
+**Os 8 canais recusaram gerar, mesmo com `force=true`, confirmado em produção real — não só em teoria.**
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado — só editado `api/run_portal.js`, nenhum arquivo novo)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+### ✅ CONFIRMADO NESTA SESSÃO (18/11/2026 continuação)
+
+| Sistema | Status |
+|---|---|
+| **Causa raiz real: `force=true` bypassava a pausa 00h-06h BRT em todos os 8 canais** | ✅ CONFIRMADA com evidência real (post `portal` publicado às 03:09 BRT) |
+| **Gate redundante `pausaNoturnaAtiva()` no código, independente de `force`** | ✅ EM PRODUÇÃO (PR #885, commit `780fec4`) |
+| **Verificado end-to-end em produção, ainda dentro da janela de pausa** | ✅ CONFIRMADO — os 8 canais recusam gerar mesmo com `force=true` |
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **Confirmar com Roberto que nenhum post automático sai mais durante 00h-06h BRT** ao longo de um ciclo real completo — o fix foi verificado no instante do teste, não observado por um dia inteiro.
+2. **A mesma classe de bug (`force=true` bypassando janelaOk()) pode existir em outras rotas legadas** que ainda usam `janelaOk()`/`body.force` (ex: linha ~2259 de `api/run_portal.js`, ação de regeneração) — não investigado nesta sessão, fora do escopo do que foi reportado.
+3. **Investigar por que `fofocas`/Giro ficou ~39h sem gerar conteúdo** — pendência carregada de sessão anterior, ainda não investigada.
+4. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
