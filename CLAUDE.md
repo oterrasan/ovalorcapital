@@ -11136,3 +11136,69 @@ live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
 1. **Confirmar visualmente com Roberto em produção real** — ainda não visto por ele ao vivo.
 2. **Ao criar qualquer página nova em `public/` com `data-category="vc"` fora do pipeline de categoria**, lembrar de testar com Playwright real (não só grep de HTML estático) e considerar `data-layout-normalized="1"` desde o início se a página não precisar de rail dinâmica.
 3. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
+
+---
+
+### Sessão 17-18/11/2026 — REVERT DO LOGO DO REEL + FAVICON DA HOME QUEBRADO + CARD DE FINANÇAS TRAVADO EM CONTEÚDO ANTIGO + 🔴🔴🔴 CHAVES GEMINI MORTAS (PROJETO "POLITICA" SUSPENSO PELO GOOGLE) — PARADA REAL DE GERAÇÃO CONFIRMADA
+
+#### 1) Reel — revert total do logo duplo, mantendo só o tamanho igual
+
+PR #872 reduziu o par de ícones (OVC+Brasil On) no topo do Reel por estar "maior do que qualquer outra coisa". Roberto pediu mais: *"Volte ao padrão antigo e mantenha apenas o ícone do OVC... Remova apenas o restante das informações... mas mantenha o logotipo original"* — e, ao ver eu propor cortar o texto do rodapé, corrigiu com print real: *"mantém as duas coisas, o que fica em cima e o que fica embaixo... A única coisa que eu quero é que você garanta que eles estejam no mesmo tamanho, pequenininho igual."*
+
+**Fix (PR #873, deployado):** `scripts/render-instagram-reel.mjs` — removido por completo `buildDualLogoLayers()`/`DUAL_LOGO_*`; restaurado `buildOvcLogoLayers()` + `footerTransparente()` (padrão anterior ao #869): topo com o ícone OVC original (crop `350,25,380,205` do asset completo), rodapé com o asset inteiro original (ícone + "O VALOR CAPITAL" + "Siga @ovalorcapital" + tagline + site), sem cortar nenhum texto. A exigência de "mesmo tamanho" foi satisfeita medindo os dois (técnica de banding por gaps de pixel, não a primeira medição ingênua que juntou ícone+wordmark num só span) — já batiam ~76-80px sem precisar escalar nada.
+
+**`core/instagram_image.js` (Feed) NÃO foi tocado nesta correção** — Roberto só pediu reverter o Reel ("o restante das alterações mantém igual"). `TOP_BRAND_ICON_HEIGHT_FRAC` ainda referencia o esquema de 90px do Reel que já não existe mais no código do Reel — gap conhecido, só revisitar se ele reclamar de paridade Feed/Reel de novo.
+
+#### 2) Favicon da home + card de Finanças travado (PR #875, deployado)
+
+- **Favicon**: `public/index.html` tinha um `<link href="data:image/png;base64,...">` SEM `rel`, não funcional — único entre as ~190 páginas do portal (todas as outras usam `<link rel="icon" href="/assets/vc-logo.png">`). Corrigido pro mesmo padrão. Explica por que o Search Console mostrava globo genérico pro OVC enquanto o Brasil On mostrava ícone colorido normal.
+- **Card de Finanças travado em matéria antiga**: Roberto, com print real: *"os cards nao podem apresentar conteudos antigos... se nao tiver coisas novas, eles devem apresentar sempre os dois ou tres ultimos, mas nunca mais do que isso."* — autorização explícita e nova pra tocar `filterRecent()` (travada desde 19/08/2026 por 2 tentativas anteriores terem quebrado outros cards). Causa real: o fallback antigo (`posts.slice(0,1)`) pegava o primeiro item do array NÃO ordenado — podia nem ser o mais recente de fato — e tipos de card sem rotação (`.ovc-card-horizontal`/`.ovc-mini-card`/`.ovc-card-editorial`) só exibem `posts[0]` pra sempre. Fix: ordena por recência (`recentSort`, já existente) e corta em até 3 — card com rotação passa a girar entre até 3; card sem rotação sempre mostra o mais recente de fato disponível.
+
+#### 🔴🔴🔴 3) PARADA REAL DE GERAÇÃO — projeto Google Cloud "Politica" suspenso, 2 de 3 chaves Gemini mortas, 1 sem cota
+
+Roberto mandou, na sequência: um e-mail real de suspensão do Google Cloud (projeto "Politica", id `gen-lang-client-0820307511`, motivo "abusive activity consistent with hijacked resources") perguntando o que era; disse explicitamente **"isso agora é sua responsabilidade"** sobre lembrar de renovar as chaves antes que virasse problema; e um print do admin mostrando o alerta vermelho "GERAÇÃO DE CONTEÚDO PARADA — 194 minutos" pedindo pra eu explicar.
+
+**Investigação com evidência real** (workflow diagnóstico `diag-once.yml`, PR #876 — testei as 3 chaves Gemini cadastradas DIRETO contra `generativelanguage.googleapis.com`, não suposição):
+
+```
+GEMINI_API_KEY   -> HTTP 401 "The bound service account is deleted or disabled" (ACCOUNT_STATE_INVALID)
+GEMINI_API_KEY_2 -> HTTP 401 "The bound service account is deleted or disabled" (ACCOUNT_STATE_INVALID)
+GEMINI_API_KEY_3 -> HTTP 429 "exceeded your current quota... limit: 500" (free tier, mas chave viva)
+```
+
+**Causa raiz real, confirmada**: `GEMINI_API_KEY`/`GEMINI_API_KEY_2` estão vinculadas ao projeto "Politica" — a suspensão do e-mail é real e já derrubou o service account das duas (401 de conta inválida é o sintoma técnico exato de projeto suspenso, não erro genérico). `GEMINI_API_KEY_3` está viva (projeto diferente, não suspenso) mas já bateu o teto grátis de 500 req/dia — provavelmente por ter recebido 100% do peso assim que as outras 2 começaram a falhar. Resultado: as 3 ficaram inutilizáveis ao mesmo tempo, e por isso zero conteúdo automático (`publish_method=portal`) saiu desde 19:50 BRT de 17/11 — mais de 3h. Confirmado também: `AUTOMATION=on`, `SISTEMA_LIGADO=on`, `REELS_AUTOMATION_ENABLED=on`, `BON_IG_ENABLED=on` — nenhum flag estava desligado, o pipeline estava genuinamente tentando e falhando, não pausado.
+
+**O alerta do admin está correto** — é um detector real de stall (mede tempo desde o último post do pipeline dentro do horário ativo) e disparou porque havia um problema real, não falso positivo.
+
+**🚨 AÇÃO PENDENTE — SÓ ROBERTO CONSEGUE FAZER (acesso à conta Google dele):**
+```
+1. console.cloud.google.com DIRETO pela barra de endereço (nunca pelo link do e-mail de suspensão)
+2. Confirmar o estado real do projeto "Politica" (gen-lang-client-0820307511)
+3. Criar um projeto Google Cloud NOVO (ou reativar o suspenso, se der) + gerar chave Gemini nova
+4. Me passar a chave nova — eu troco em config.GEMINI_API_KEY/GEMINI_API_KEY_2 no Supabase
+   (mecanismo já existe: core/ai_portal.js lê GEMINI_API_KEY até GEMINI_API_KEY_20 dinamicamente)
+```
+`GEMINI_API_KEY_3` deve voltar a funcionar sozinha quando a cota diária do Google resetar (não confirmado o horário exato do reset — não adivinhar).
+
+**Lembrete agendado** (`send_later`, trigger_id `trig_01X6mAqFgBfCvMpGwJygFtvJ`): dispara de volta nesta sessão em 21/11/2026 10h BRT perguntando se ele já resolveu. **Essa pendência também fica registrada aqui, de forma durável**, pro caso a sessão agendada não exista mais quando chegar a hora.
+
+**Achado secundário, não corrigido (baixa prioridade)**: a listagem de `config` mostrou `GEMINI_API_KEY`/`GEMINI_API_KEY_2` aparecendo em múltiplas linhas duplicadas — mesma classe de bug de linha duplicada já documentada várias vezes neste arquivo pra outras chaves de `config` (upsert sem constraint unique real). Não investigado a fundo nesta sessão — não é a causa da parada (o teste contra a API real já confirma que são as mesmas chaves mortas, duplicadas ou não), só um sinal de que a tabela `config` pode estar acumulando lixo de novo.
+
+#### Limpeza
+
+`.github/workflows/diag-once.yml` resetado ao placeholder inerte e `scripts/one-off/diag-stall.py` removido, convenção padrão do projeto, via branch→PR→merge (push direto a `main` está bloqueado nesta sessão pelo classificador de permissão do harness — toda mudança, inclusive diagnóstico temporário, precisa passar pelo ciclo normal agora).
+
+#### Estado de `api/` — 10 ARQUIVOS ✅ (inalterado)
+
+```
+article.js  category.js  ig-handler.js  institutional.js  landing.js
+live.js     manage.js    portal-posts.js  run_portal.js    sitemap.js
+```
+
+#### 🔧 Pendências para a próxima sessão
+
+1. **🔴 CRÍTICO — confirmar se Roberto já trocou as chaves Gemini mortas** (`GEMINI_API_KEY`/`GEMINI_API_KEY_2`, projeto "Politica" suspenso). Se ele mandar uma chave nova, trocar em `config` no Supabase e reconfirmar com o mesmo teste real (chamada direta na API do Google) antes de dizer que está resolvido.
+2. **Confirmar se `GEMINI_API_KEY_3` voltou a responder** (cota diária deve resetar) e se o pipeline voltou a publicar sozinho.
+3. **Linhas duplicadas em `config` para `GEMINI_API_KEY*`** — investigar se é recorrência do bug de upsert sem constraint já documentado, se sobrar tempo.
+4. **Gap conhecido em `core/instagram_image.js`** (`TOP_BRAND_ICON_HEIGHT_FRAC` referencia esquema de ícone do Reel que não existe mais) — só revisitar se Roberto reclamar de paridade Feed/Reel de novo.
+5. Demais pendências de sessões anteriores seguem válidas (ver lista completa nas entradas anteriores).
