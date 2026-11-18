@@ -5,9 +5,5 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Religar feed automatico do Instagram (OVC + Brasil On) + sanity
-        run: python3 scripts/one-off/toggle-ig-feed-pause.py resume
+      - name: Nada a fazer no momento
+        run: echo "placeholder inerte — usado só sob demanda para diagnosticos pontuais"
